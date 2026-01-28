@@ -14,7 +14,24 @@ pub struct ClaudeConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub api_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub website_url: Option<String>,
+    // 模型配置
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thinking_model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub haiku_model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sonnet_model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub opus_model: Option<String>,
+    // 高级选项
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub always_thinking_enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub disable_nonessential_traffic: Option<bool>,
+    // 元数据
     pub is_active: bool,
     pub created_at: u64,
     pub updated_at: u64,
@@ -76,11 +93,59 @@ pub fn save_state(state: &AppState) -> Result<(), String> {
 }
 
 pub fn apply_config(config: &ClaudeConfig) -> Result<(), String> {
-    let claude_config = serde_json::json!({
-        "apiKey": config.api_key,
-        "apiUrl": config.api_url,
-        "model": config.model,
-    });
+    let mut env = serde_json::Map::new();
+    env.insert(
+        "ANTHROPIC_AUTH_TOKEN".to_string(),
+        serde_json::Value::String(config.api_key.clone()),
+    );
+
+    if let Some(ref api_url) = config.api_url {
+        env.insert(
+            "ANTHROPIC_BASE_URL".to_string(),
+            serde_json::Value::String(api_url.clone()),
+        );
+    }
+    if let Some(ref model) = config.model {
+        env.insert(
+            "ANTHROPIC_MODEL".to_string(),
+            serde_json::Value::String(model.clone()),
+        );
+    }
+    if let Some(ref haiku_model) = config.haiku_model {
+        env.insert(
+            "ANTHROPIC_DEFAULT_HAIKU_MODEL".to_string(),
+            serde_json::Value::String(haiku_model.clone()),
+        );
+    }
+    if let Some(ref sonnet_model) = config.sonnet_model {
+        env.insert(
+            "ANTHROPIC_DEFAULT_SONNET_MODEL".to_string(),
+            serde_json::Value::String(sonnet_model.clone()),
+        );
+    }
+    if let Some(ref opus_model) = config.opus_model {
+        env.insert(
+            "ANTHROPIC_DEFAULT_OPUS_MODEL".to_string(),
+            serde_json::Value::String(opus_model.clone()),
+        );
+    }
+    if config.disable_nonessential_traffic == Some(true) {
+        env.insert(
+            "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC".to_string(),
+            serde_json::Value::String("1".to_string()),
+        );
+    }
+
+    let mut claude_config = serde_json::Map::new();
+
+    if config.always_thinking_enabled == Some(true) {
+        claude_config.insert(
+            "alwaysThinkingEnabled".to_string(),
+            serde_json::Value::Bool(true),
+        );
+    }
+
+    claude_config.insert("env".to_string(), serde_json::Value::Object(env));
 
     let path = get_claude_config_path();
     let content = serde_json::to_string_pretty(&claude_config).map_err(|e| e.to_string())?;
@@ -99,7 +164,14 @@ pub fn add_config(
     description: String,
     api_key: String,
     api_url: Option<String>,
+    website_url: Option<String>,
     model: Option<String>,
+    thinking_model: Option<String>,
+    haiku_model: Option<String>,
+    sonnet_model: Option<String>,
+    opus_model: Option<String>,
+    always_thinking_enabled: Option<bool>,
+    disable_nonessential_traffic: Option<bool>,
 ) -> Result<ClaudeConfig, String> {
     let mut state = load_state();
     let now = current_timestamp();
@@ -110,7 +182,14 @@ pub fn add_config(
         description,
         api_key,
         api_url,
+        website_url,
         model,
+        thinking_model,
+        haiku_model,
+        sonnet_model,
+        opus_model,
+        always_thinking_enabled,
+        disable_nonessential_traffic,
         is_active: false,
         created_at: now,
         updated_at: now,
@@ -129,7 +208,14 @@ pub fn update_config(
     description: String,
     api_key: String,
     api_url: Option<String>,
+    website_url: Option<String>,
     model: Option<String>,
+    thinking_model: Option<String>,
+    haiku_model: Option<String>,
+    sonnet_model: Option<String>,
+    opus_model: Option<String>,
+    always_thinking_enabled: Option<bool>,
+    disable_nonessential_traffic: Option<bool>,
 ) -> Result<ClaudeConfig, String> {
     let mut state = load_state();
 
@@ -143,7 +229,14 @@ pub fn update_config(
     config.description = description;
     config.api_key = api_key;
     config.api_url = api_url;
+    config.website_url = website_url;
     config.model = model;
+    config.thinking_model = thinking_model;
+    config.haiku_model = haiku_model;
+    config.sonnet_model = sonnet_model;
+    config.opus_model = opus_model;
+    config.always_thinking_enabled = always_thinking_enabled;
+    config.disable_nonessential_traffic = disable_nonessential_traffic;
     config.updated_at = current_timestamp();
 
     let updated = config.clone();
@@ -186,7 +279,14 @@ pub fn duplicate_config(id: String) -> Result<ClaudeConfig, String> {
         original.description.clone(),
         original.api_key.clone(),
         original.api_url.clone(),
+        original.website_url.clone(),
         original.model.clone(),
+        original.thinking_model.clone(),
+        original.haiku_model.clone(),
+        original.sonnet_model.clone(),
+        original.opus_model.clone(),
+        original.always_thinking_enabled,
+        original.disable_nonessential_traffic,
     )
 }
 

@@ -58,7 +58,14 @@ function App() {
           description: config.description,
           apiKey: config.apiKey,
           apiUrl: config.apiUrl || null,
+          websiteUrl: config.websiteUrl || null,
           model: config.model || null,
+          thinkingModel: config.thinkingModel || null,
+          haikuModel: config.haikuModel || null,
+          sonnetModel: config.sonnetModel || null,
+          opusModel: config.opusModel || null,
+          alwaysThinkingEnabled: config.alwaysThinkingEnabled || null,
+          disableNonessentialTraffic: config.disableNonessentialTraffic || null,
         });
       } else {
         await invoke("add_config", {
@@ -66,7 +73,14 @@ function App() {
           description: config.description,
           apiKey: config.apiKey,
           apiUrl: config.apiUrl || null,
+          websiteUrl: config.websiteUrl || null,
           model: config.model || null,
+          thinkingModel: config.thinkingModel || null,
+          haikuModel: config.haikuModel || null,
+          sonnetModel: config.sonnetModel || null,
+          opusModel: config.opusModel || null,
+          alwaysThinkingEnabled: config.alwaysThinkingEnabled || null,
+          disableNonessentialTraffic: config.disableNonessentialTraffic || null,
         });
       }
       await loadConfigs();
