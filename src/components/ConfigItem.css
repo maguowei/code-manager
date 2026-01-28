@@ -1,0 +1,118 @@
+.config-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.config-item:hover {
+  background-color: var(--bg-tertiary);
+}
+
+.config-item.active {
+  border-color: var(--border-active);
+  box-shadow: 0 0 0 1px var(--border-active);
+}
+
+.config-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  cursor: grab;
+  padding: 4px;
+}
+
+.config-drag-handle:hover {
+  color: var(--text-secondary);
+}
+
+.config-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background-color: var(--bg-tertiary);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.badge-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.config-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.config-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.config-description {
+  font-size: 13px;
+  color: var(--accent-blue);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.config-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  background-color: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.action-btn.icon-only {
+  padding: 8px;
+}
+
+.action-btn.delete:hover {
+  color: var(--accent-red);
+}
+
+.activate-btn {
+  background-color: var(--accent-blue);
+  color: white;
+}
+
+.activate-btn:hover {
+  background-color: #2563eb;
+  color: white;
+}

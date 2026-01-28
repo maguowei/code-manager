@@ -1,116 +1,171 @@
-.logo.vite:hover {
-  filter: drop-shadow(0 0 2em #747bff);
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafb);
-}
 :root {
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 400;
+  --bg-primary: #1a1d21;
+  --bg-secondary: #2a2d32;
+  --bg-tertiary: #3a3d42;
+  --bg-hover: #3a3d42;
+  --border-color: #3a3d42;
+  --border-active: #3b82f6;
+  --text-primary: #ffffff;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+  --accent-blue: #3b82f6;
+  --accent-orange: #f97316;
+  --accent-red: #ef4444;
+  --accent-green: #22c55e;
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+}
 
-  color: #0f0f0f;
-  background-color: #f6f6f6;
+html, body, #root {
+  height: 100%;
+  width: 100%;
+}
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  -webkit-text-size-adjust: 100%;
 }
 
-.container {
-  margin: 0;
-  padding-top: 10vh;
+.app {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  text-align: center;
+  height: 100%;
+  min-height: 100vh;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: 0.75s;
-}
-
-.logo.tauri:hover {
-  filter: drop-shadow(0 0 2em #24c8db);
-}
-
-.row {
+.loading {
   display: flex;
+  align-items: center;
   justify-content: center;
+  height: 100%;
+  color: var(--text-secondary);
+  font-size: 16px;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background-color: var(--bg-primary);
+  border-bottom: 1px solid var(--border-color);
+  -webkit-app-region: drag;
 }
 
-a:hover {
-  color: #535bf2;
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-h1 {
-  text-align: center;
+.app-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--accent-blue);
+  -webkit-app-region: no-drag;
 }
 
-input,
-button {
+.header-center {
+  display: flex;
+  align-items: center;
+  -webkit-app-region: no-drag;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+}
+
+/* Icon buttons */
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
   border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  color: #0f0f0f;
-  background-color: #ffffff;
-  transition: border-color 0.25s;
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
-}
-
-button {
+  background-color: transparent;
+  color: var(--text-secondary);
   cursor: pointer;
+  transition: all 0.2s ease;
+  -webkit-app-region: no-drag;
 }
 
-button:hover {
-  border-color: #396cd8;
-}
-button:active {
-  border-color: #396cd8;
-  background-color: #e8e8e8;
+.icon-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
 }
 
-input,
-button {
-  outline: none;
+.add-btn {
+  width: 40px;
+  height: 40px;
+  background-color: var(--accent-orange);
+  color: white;
+  border-radius: 50%;
 }
 
-#greet-input {
-  margin-right: 5px;
+.add-btn:hover {
+  background-color: #ea580c;
+  color: white;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: #f6f6f6;
-    background-color: #2f2f2f;
-  }
+/* Tabs */
+.tab-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background-color: var(--bg-secondary);
+  border-radius: 10px;
+}
 
-  a:hover {
-    color: #24c8db;
-  }
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background-color: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
 
-  input,
-  button {
-    color: #ffffff;
-    background-color: #0f0f0f98;
-  }
-  button:active {
-    background-color: #0f0f0f69;
-  }
+.tab:hover {
+  color: var(--text-primary);
+}
+
+.tab.active {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.tab-icon {
+  font-size: 16px;
+}
+
+.claude-icon {
+  color: #f97316;
+}
+
+/* Main content */
+.main {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
 }
