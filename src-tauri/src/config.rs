@@ -60,7 +60,7 @@ fn get_config_path() -> PathBuf {
 
 fn get_claude_config_path() -> PathBuf {
     let home = dirs::home_dir().expect("Could not find home directory");
-    home.join(".claude.json")
+    home.join(".claude").join("settings.json")
 }
 
 fn current_timestamp() -> u64 {
@@ -148,6 +148,9 @@ pub fn apply_config(config: &ClaudeConfig) -> Result<(), String> {
     claude_config.insert("env".to_string(), serde_json::Value::Object(env));
 
     let path = get_claude_config_path();
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
     let content = serde_json::to_string_pretty(&claude_config).map_err(|e| e.to_string())?;
     fs::write(&path, content).map_err(|e| e.to_string())?;
     Ok(())
