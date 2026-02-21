@@ -33,6 +33,8 @@ pub struct ClaudeConfig {
     pub disable_nonessential_traffic: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub skip_web_fetch_preflight: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enable_extra_marketplaces: Option<bool>,
     // 元数据
     pub is_active: bool,
     pub created_at: u64,
@@ -154,6 +156,27 @@ pub fn apply_config(config: &ClaudeConfig) -> Result<(), String> {
         );
     }
 
+    if config.enable_extra_marketplaces == Some(true) {
+        let marketplaces: serde_json::Value = serde_json::json!({
+            "claude-plugins-official": {
+                "source": {
+                    "source": "github",
+                    "repo": "anthropics/claude-plugins-official"
+                }
+            },
+            "chrome-devtools-plugins": {
+                "source": {
+                    "source": "github",
+                    "repo": "ChromeDevTools/chrome-devtools-mcp"
+                }
+            }
+        });
+        claude_config.insert(
+            "extraKnownMarketplaces".to_string(),
+            marketplaces,
+        );
+    }
+
     claude_config.insert("env".to_string(), serde_json::Value::Object(env));
 
     let path = get_claude_config_path();
@@ -185,6 +208,7 @@ pub fn add_config(
     always_thinking_enabled: Option<bool>,
     disable_nonessential_traffic: Option<bool>,
     skip_web_fetch_preflight: Option<bool>,
+    enable_extra_marketplaces: Option<bool>,
 ) -> Result<ClaudeConfig, String> {
     let mut state = load_state();
     let now = current_timestamp();
@@ -204,6 +228,7 @@ pub fn add_config(
         always_thinking_enabled,
         disable_nonessential_traffic,
         skip_web_fetch_preflight,
+        enable_extra_marketplaces,
         is_active: false,
         created_at: now,
         updated_at: now,
@@ -231,6 +256,7 @@ pub fn update_config(
     always_thinking_enabled: Option<bool>,
     disable_nonessential_traffic: Option<bool>,
     skip_web_fetch_preflight: Option<bool>,
+    enable_extra_marketplaces: Option<bool>,
 ) -> Result<ClaudeConfig, String> {
     let mut state = load_state();
 
@@ -253,6 +279,7 @@ pub fn update_config(
     config.always_thinking_enabled = always_thinking_enabled;
     config.disable_nonessential_traffic = disable_nonessential_traffic;
     config.skip_web_fetch_preflight = skip_web_fetch_preflight;
+    config.enable_extra_marketplaces = enable_extra_marketplaces;
     config.updated_at = current_timestamp();
 
     let updated = config.clone();
@@ -304,6 +331,7 @@ pub fn duplicate_config(id: String) -> Result<ClaudeConfig, String> {
         original.always_thinking_enabled,
         original.disable_nonessential_traffic,
         original.skip_web_fetch_preflight,
+        original.enable_extra_marketplaces,
     )
 }
 

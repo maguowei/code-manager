@@ -15,6 +15,7 @@ export interface ClaudeConfig {
   alwaysThinkingEnabled?: boolean;
   disableNonessentialTraffic?: boolean;
   skipWebFetchPreflight?: boolean;
+  enableExtraMarketplaces?: boolean;
   // 元数据
   isActive: boolean;
   createdAt: number;
@@ -59,6 +60,23 @@ export function generateClaudeJson(config: ClaudeConfig): object {
 
   if (config.skipWebFetchPreflight) {
     result.skipWebFetchPreflight = true;
+  }
+
+  if (config.enableExtraMarketplaces) {
+    result.extraKnownMarketplaces = {
+      "claude-plugins-official": {
+        source: {
+          source: "github",
+          repo: "anthropics/claude-plugins-official",
+        },
+      },
+      "chrome-devtools-plugins": {
+        source: {
+          source: "github",
+          repo: "ChromeDevTools/chrome-devtools-mcp",
+        },
+      },
+    };
   }
 
   result.env = env;

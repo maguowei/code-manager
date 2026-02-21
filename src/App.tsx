@@ -71,6 +71,7 @@ function App() {
           alwaysThinkingEnabled: config.alwaysThinkingEnabled || null,
           disableNonessentialTraffic: config.disableNonessentialTraffic || null,
           skipWebFetchPreflight: config.skipWebFetchPreflight || null,
+          enableExtraMarketplaces: config.enableExtraMarketplaces || null,
         });
       } else {
         await invoke("add_config", {
@@ -87,6 +88,7 @@ function App() {
           alwaysThinkingEnabled: config.alwaysThinkingEnabled || null,
           disableNonessentialTraffic: config.disableNonessentialTraffic || null,
           skipWebFetchPreflight: config.skipWebFetchPreflight || null,
+          enableExtraMarketplaces: config.enableExtraMarketplaces || null,
         });
       }
       await loadConfigs();

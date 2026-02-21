@@ -24,6 +24,7 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
   const [alwaysThinkingEnabled, setAlwaysThinkingEnabled] = useState(config?.alwaysThinkingEnabled || false);
   const [disableNonessentialTraffic, setDisableNonessentialTraffic] = useState(config?.disableNonessentialTraffic || false);
   const [skipWebFetchPreflight, setSkipWebFetchPreflight] = useState(config?.skipWebFetchPreflight || false);
+  const [enableExtraMarketplaces, setEnableExtraMarketplaces] = useState(config?.enableExtraMarketplaces || false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -43,10 +44,11 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
     alwaysThinkingEnabled,
     disableNonessentialTraffic,
     skipWebFetchPreflight,
+    enableExtraMarketplaces,
     isActive: config?.isActive || false,
     createdAt: config?.createdAt || 0,
     updatedAt: config?.updatedAt || 0,
-  }), [name, description, apiKey, apiUrl, websiteUrl, model, thinkingModel, haikuModel, sonnetModel, opusModel, alwaysThinkingEnabled, disableNonessentialTraffic, skipWebFetchPreflight, config]);
+  }), [name, description, apiKey, apiUrl, websiteUrl, model, thinkingModel, haikuModel, sonnetModel, opusModel, alwaysThinkingEnabled, disableNonessentialTraffic, skipWebFetchPreflight, enableExtraMarketplaces, config]);
 
   const previewJson = useMemo(() => {
     if (!apiKey) return "{}";
@@ -72,6 +74,7 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
       alwaysThinkingEnabled,
       disableNonessentialTraffic,
       skipWebFetchPreflight,
+      enableExtraMarketplaces,
     });
   }
 
@@ -239,6 +242,23 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
               />
             </div>
             <p className="form-hint">{t("configModal.modelHint")}</p>
+
+            {/* 插件市场 */}
+            <div className="section-toggle" style={{ cursor: "default" }}>
+              <span>{t("configModal.pluginMarketplaces")}</span>
+            </div>
+            <div className="checkbox-group">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={enableExtraMarketplaces}
+                  onChange={(e) => setEnableExtraMarketplaces(e.target.checked)}
+                />
+                <span className="checkbox-custom"></span>
+                <span>{t("configModal.enableExtraMarketplaces")}</span>
+              </label>
+              <p className="form-hint">{t("configModal.enableExtraMarketplacesDesc")}</p>
+            </div>
 
             {/* 高级选项 */}
             <div className="section-toggle" onClick={() => setShowAdvanced(!showAdvanced)}>
