@@ -70,6 +70,7 @@ function App() {
           opusModel: config.opusModel || null,
           alwaysThinkingEnabled: config.alwaysThinkingEnabled || null,
           disableNonessentialTraffic: config.disableNonessentialTraffic || null,
+          skipWebFetchPreflight: config.skipWebFetchPreflight || null,
         });
       } else {
         await invoke("add_config", {
@@ -85,6 +86,7 @@ function App() {
           opusModel: config.opusModel || null,
           alwaysThinkingEnabled: config.alwaysThinkingEnabled || null,
           disableNonessentialTraffic: config.disableNonessentialTraffic || null,
+          skipWebFetchPreflight: config.skipWebFetchPreflight || null,
         });
       }
       await loadConfigs();

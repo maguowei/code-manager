@@ -31,6 +31,8 @@ pub struct ClaudeConfig {
     pub always_thinking_enabled: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub disable_nonessential_traffic: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skip_web_fetch_preflight: Option<bool>,
     // 元数据
     pub is_active: bool,
     pub created_at: u64,
@@ -145,6 +147,13 @@ pub fn apply_config(config: &ClaudeConfig) -> Result<(), String> {
         );
     }
 
+    if config.skip_web_fetch_preflight == Some(true) {
+        claude_config.insert(
+            "skipWebFetchPreflight".to_string(),
+            serde_json::Value::Bool(true),
+        );
+    }
+
     claude_config.insert("env".to_string(), serde_json::Value::Object(env));
 
     let path = get_claude_config_path();
@@ -175,6 +184,7 @@ pub fn add_config(
     opus_model: Option<String>,
     always_thinking_enabled: Option<bool>,
     disable_nonessential_traffic: Option<bool>,
+    skip_web_fetch_preflight: Option<bool>,
 ) -> Result<ClaudeConfig, String> {
     let mut state = load_state();
     let now = current_timestamp();
@@ -193,6 +203,7 @@ pub fn add_config(
         opus_model,
         always_thinking_enabled,
         disable_nonessential_traffic,
+        skip_web_fetch_preflight,
         is_active: false,
         created_at: now,
         updated_at: now,
@@ -219,6 +230,7 @@ pub fn update_config(
     opus_model: Option<String>,
     always_thinking_enabled: Option<bool>,
     disable_nonessential_traffic: Option<bool>,
+    skip_web_fetch_preflight: Option<bool>,
 ) -> Result<ClaudeConfig, String> {
     let mut state = load_state();
 
@@ -240,6 +252,7 @@ pub fn update_config(
     config.opus_model = opus_model;
     config.always_thinking_enabled = always_thinking_enabled;
     config.disable_nonessential_traffic = disable_nonessential_traffic;
+    config.skip_web_fetch_preflight = skip_web_fetch_preflight;
     config.updated_at = current_timestamp();
 
     let updated = config.clone();
@@ -290,6 +303,7 @@ pub fn duplicate_config(id: String) -> Result<ClaudeConfig, String> {
         original.opus_model.clone(),
         original.always_thinking_enabled,
         original.disable_nonessential_traffic,
+        original.skip_web_fetch_preflight,
     )
 }
 

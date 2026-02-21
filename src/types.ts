@@ -14,6 +14,7 @@ export interface ClaudeConfig {
   // 高级选项
   alwaysThinkingEnabled?: boolean;
   disableNonessentialTraffic?: boolean;
+  skipWebFetchPreflight?: boolean;
   // 元数据
   isActive: boolean;
   createdAt: number;
@@ -54,6 +55,10 @@ export function generateClaudeJson(config: ClaudeConfig): object {
 
   if (config.alwaysThinkingEnabled) {
     result.alwaysThinkingEnabled = true;
+  }
+
+  if (config.skipWebFetchPreflight) {
+    result.skipWebFetchPreflight = true;
   }
 
   result.env = env;

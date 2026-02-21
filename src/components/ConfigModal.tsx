@@ -23,6 +23,7 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
   const [opusModel, setOpusModel] = useState(config?.opusModel || "");
   const [alwaysThinkingEnabled, setAlwaysThinkingEnabled] = useState(config?.alwaysThinkingEnabled || false);
   const [disableNonessentialTraffic, setDisableNonessentialTraffic] = useState(config?.disableNonessentialTraffic || false);
+  const [skipWebFetchPreflight, setSkipWebFetchPreflight] = useState(config?.skipWebFetchPreflight || false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -41,10 +42,11 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
     opusModel: opusModel || undefined,
     alwaysThinkingEnabled,
     disableNonessentialTraffic,
+    skipWebFetchPreflight,
     isActive: config?.isActive || false,
     createdAt: config?.createdAt || 0,
     updatedAt: config?.updatedAt || 0,
-  }), [name, description, apiKey, apiUrl, websiteUrl, model, thinkingModel, haikuModel, sonnetModel, opusModel, alwaysThinkingEnabled, disableNonessentialTraffic, config]);
+  }), [name, description, apiKey, apiUrl, websiteUrl, model, thinkingModel, haikuModel, sonnetModel, opusModel, alwaysThinkingEnabled, disableNonessentialTraffic, skipWebFetchPreflight, config]);
 
   const previewJson = useMemo(() => {
     if (!apiKey) return "{}";
@@ -69,6 +71,7 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
       opusModel: opusModel.trim() || undefined,
       alwaysThinkingEnabled,
       disableNonessentialTraffic,
+      skipWebFetchPreflight,
     });
   }
 
@@ -275,6 +278,17 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
                     />
                     <span className="checkbox-custom"></span>
                     <span>{t("configModal.disableTraffic")}</span>
+                  </label>
+                </div>
+                <div className="checkbox-group">
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={skipWebFetchPreflight}
+                      onChange={(e) => setSkipWebFetchPreflight(e.target.checked)}
+                    />
+                    <span className="checkbox-custom"></span>
+                    <span>{t("configModal.skipWebFetchPreflight")}</span>
                   </label>
                 </div>
               </div>
