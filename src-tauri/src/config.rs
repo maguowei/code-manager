@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -38,6 +39,9 @@ pub struct ClaudeConfig {
     // 语言配置
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preferred_language: Option<String>,
+    // 插件配置
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enabled_plugins: Option<HashMap<String, bool>>,
     // 元数据
     pub is_active: bool,
     pub created_at: u64,
@@ -189,6 +193,19 @@ pub fn apply_config(config: &ClaudeConfig) -> Result<(), String> {
         );
     }
 
+    if let Some(ref plugins) = config.enabled_plugins {
+        if !plugins.is_empty() {
+            let plugins_map: serde_json::Map<String, serde_json::Value> = plugins
+                .iter()
+                .map(|(k, v)| (k.clone(), serde_json::Value::Bool(*v)))
+                .collect();
+            claude_config.insert(
+                "enabledPlugins".to_string(),
+                serde_json::Value::Object(plugins_map),
+            );
+        }
+    }
+
     claude_config.insert("env".to_string(), serde_json::Value::Object(env));
 
     let path = get_claude_config_path();
@@ -222,6 +239,7 @@ pub fn add_config(
     skip_web_fetch_preflight: Option<bool>,
     enable_extra_marketplaces: Option<bool>,
     preferred_language: Option<String>,
+    enabled_plugins: Option<HashMap<String, bool>>,
 ) -> Result<ClaudeConfig, String> {
     let mut state = load_state();
     let now = current_timestamp();
@@ -243,6 +261,7 @@ pub fn add_config(
         skip_web_fetch_preflight,
         enable_extra_marketplaces,
         preferred_language,
+        enabled_plugins,
         is_active: false,
         created_at: now,
         updated_at: now,
@@ -272,6 +291,7 @@ pub fn update_config(
     skip_web_fetch_preflight: Option<bool>,
     enable_extra_marketplaces: Option<bool>,
     preferred_language: Option<String>,
+    enabled_plugins: Option<HashMap<String, bool>>,
 ) -> Result<ClaudeConfig, String> {
     let mut state = load_state();
 
@@ -296,6 +316,7 @@ pub fn update_config(
     config.skip_web_fetch_preflight = skip_web_fetch_preflight;
     config.enable_extra_marketplaces = enable_extra_marketplaces;
     config.preferred_language = preferred_language;
+    config.enabled_plugins = enabled_plugins;
     config.updated_at = current_timestamp();
 
     let updated = config.clone();
@@ -349,6 +370,7 @@ pub fn duplicate_config(id: String) -> Result<ClaudeConfig, String> {
         original.skip_web_fetch_preflight,
         original.enable_extra_marketplaces,
         original.preferred_language.clone(),
+        original.enabled_plugins.clone(),
     )
 }
 

@@ -303,6 +303,144 @@
   transform: rotate(45deg);
 }
 
+/* Plugin Management */
+.plugin-section {
+  padding: 8px 0 16px;
+}
+
+.plugin-list {
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.plugin-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-color);
+  gap: 12px;
+}
+
+.plugin-item:last-child {
+  border-bottom: none;
+}
+
+.plugin-name {
+  font-size: 13px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.plugin-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.plugin-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.plugin-toggle.enabled {
+  background-color: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.plugin-toggle.enabled:hover {
+  background-color: rgba(34, 197, 94, 0.25);
+}
+
+.plugin-toggle.disabled {
+  background-color: rgba(156, 163, 175, 0.15);
+  color: var(--text-muted);
+}
+
+.plugin-toggle.disabled:hover {
+  background-color: rgba(156, 163, 175, 0.25);
+}
+
+.plugin-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background-color: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.plugin-remove:hover {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.plugin-add-row {
+  display: flex;
+  gap: 8px;
+}
+
+.plugin-add-row input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  transition: all 0.2s ease;
+}
+
+.plugin-add-row input::placeholder {
+  color: var(--text-muted);
+}
+
+.plugin-add-row input:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.plugin-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 10px;
+  background-color: var(--accent-blue);
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.plugin-add-btn:hover {
+  background-color: #2563eb;
+}
+
 /* JSON Preview */
 .json-preview {
   margin-top: 12px;

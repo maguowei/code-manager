@@ -18,6 +18,8 @@ export interface ClaudeConfig {
   enableExtraMarketplaces?: boolean;
   // 语言配置
   preferredLanguage?: string;
+  // 插件配置
+  enabledPlugins?: Record<string, boolean>;
   // 元数据
   isActive: boolean;
   createdAt: number;
@@ -83,6 +85,10 @@ export function generateClaudeJson(config: ClaudeConfig): object {
         },
       },
     };
+  }
+
+  if (config.enabledPlugins && Object.keys(config.enabledPlugins).length > 0) {
+    result.enabledPlugins = { ...config.enabledPlugins };
   }
 
   result.env = env;

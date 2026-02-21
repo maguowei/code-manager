@@ -73,6 +73,7 @@ function App() {
           skipWebFetchPreflight: config.skipWebFetchPreflight || null,
           enableExtraMarketplaces: config.enableExtraMarketplaces || null,
           preferredLanguage: config.preferredLanguage || null,
+          enabledPlugins: config.enabledPlugins && Object.keys(config.enabledPlugins).length > 0 ? config.enabledPlugins : null,
         });
       } else {
         await invoke("add_config", {
@@ -91,6 +92,7 @@ function App() {
           skipWebFetchPreflight: config.skipWebFetchPreflight || null,
           enableExtraMarketplaces: config.enableExtraMarketplaces || null,
           preferredLanguage: config.preferredLanguage || null,
+          enabledPlugins: config.enabledPlugins && Object.keys(config.enabledPlugins).length > 0 ? config.enabledPlugins : null,
         });
       }
       await loadConfigs();
