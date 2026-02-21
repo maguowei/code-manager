@@ -16,6 +16,8 @@ export interface ClaudeConfig {
   disableNonessentialTraffic?: boolean;
   skipWebFetchPreflight?: boolean;
   enableExtraMarketplaces?: boolean;
+  // 语言配置
+  preferredLanguage?: string;
   // 元数据
   isActive: boolean;
   createdAt: number;
@@ -53,6 +55,10 @@ export function generateClaudeJson(config: ClaudeConfig): object {
   }
 
   const result: Record<string, unknown> = {};
+
+  if (config.preferredLanguage && config.preferredLanguage !== "english") {
+    result.language = config.preferredLanguage;
+  }
 
   if (config.alwaysThinkingEnabled) {
     result.alwaysThinkingEnabled = true;

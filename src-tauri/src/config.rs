@@ -35,6 +35,9 @@ pub struct ClaudeConfig {
     pub skip_web_fetch_preflight: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub enable_extra_marketplaces: Option<bool>,
+    // 语言配置
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preferred_language: Option<String>,
     // 元数据
     pub is_active: bool,
     pub created_at: u64,
@@ -142,6 +145,15 @@ pub fn apply_config(config: &ClaudeConfig) -> Result<(), String> {
 
     let mut claude_config = serde_json::Map::new();
 
+    if let Some(ref lang) = config.preferred_language {
+        if lang != "english" {
+            claude_config.insert(
+                "language".to_string(),
+                serde_json::Value::String(lang.clone()),
+            );
+        }
+    }
+
     if config.always_thinking_enabled == Some(true) {
         claude_config.insert(
             "alwaysThinkingEnabled".to_string(),
@@ -209,6 +221,7 @@ pub fn add_config(
     disable_nonessential_traffic: Option<bool>,
     skip_web_fetch_preflight: Option<bool>,
     enable_extra_marketplaces: Option<bool>,
+    preferred_language: Option<String>,
 ) -> Result<ClaudeConfig, String> {
     let mut state = load_state();
     let now = current_timestamp();
@@ -229,6 +242,7 @@ pub fn add_config(
         disable_nonessential_traffic,
         skip_web_fetch_preflight,
         enable_extra_marketplaces,
+        preferred_language,
         is_active: false,
         created_at: now,
         updated_at: now,
@@ -257,6 +271,7 @@ pub fn update_config(
     disable_nonessential_traffic: Option<bool>,
     skip_web_fetch_preflight: Option<bool>,
     enable_extra_marketplaces: Option<bool>,
+    preferred_language: Option<String>,
 ) -> Result<ClaudeConfig, String> {
     let mut state = load_state();
 
@@ -280,6 +295,7 @@ pub fn update_config(
     config.disable_nonessential_traffic = disable_nonessential_traffic;
     config.skip_web_fetch_preflight = skip_web_fetch_preflight;
     config.enable_extra_marketplaces = enable_extra_marketplaces;
+    config.preferred_language = preferred_language;
     config.updated_at = current_timestamp();
 
     let updated = config.clone();
@@ -332,6 +348,7 @@ pub fn duplicate_config(id: String) -> Result<ClaudeConfig, String> {
         original.disable_nonessential_traffic,
         original.skip_web_fetch_preflight,
         original.enable_extra_marketplaces,
+        original.preferred_language.clone(),
     )
 }
 

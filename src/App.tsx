@@ -72,6 +72,7 @@ function App() {
           disableNonessentialTraffic: config.disableNonessentialTraffic || null,
           skipWebFetchPreflight: config.skipWebFetchPreflight || null,
           enableExtraMarketplaces: config.enableExtraMarketplaces || null,
+          preferredLanguage: config.preferredLanguage || null,
         });
       } else {
         await invoke("add_config", {
@@ -89,6 +90,7 @@ function App() {
           disableNonessentialTraffic: config.disableNonessentialTraffic || null,
           skipWebFetchPreflight: config.skipWebFetchPreflight || null,
           enableExtraMarketplaces: config.enableExtraMarketplaces || null,
+          preferredLanguage: config.preferredLanguage || null,
         });
       }
       await loadConfigs();

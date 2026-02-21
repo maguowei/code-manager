@@ -25,6 +25,7 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
   const [disableNonessentialTraffic, setDisableNonessentialTraffic] = useState(config?.disableNonessentialTraffic || false);
   const [skipWebFetchPreflight, setSkipWebFetchPreflight] = useState(config?.skipWebFetchPreflight || false);
   const [enableExtraMarketplaces, setEnableExtraMarketplaces] = useState(config?.enableExtraMarketplaces || false);
+  const [preferredLanguage, setPreferredLanguage] = useState(config?.preferredLanguage || "english");
   const [showApiKey, setShowApiKey] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -45,10 +46,11 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
     disableNonessentialTraffic,
     skipWebFetchPreflight,
     enableExtraMarketplaces,
+    preferredLanguage,
     isActive: config?.isActive || false,
     createdAt: config?.createdAt || 0,
     updatedAt: config?.updatedAt || 0,
-  }), [name, description, apiKey, apiUrl, websiteUrl, model, thinkingModel, haikuModel, sonnetModel, opusModel, alwaysThinkingEnabled, disableNonessentialTraffic, skipWebFetchPreflight, enableExtraMarketplaces, config]);
+  }), [name, description, apiKey, apiUrl, websiteUrl, model, thinkingModel, haikuModel, sonnetModel, opusModel, alwaysThinkingEnabled, disableNonessentialTraffic, skipWebFetchPreflight, enableExtraMarketplaces, preferredLanguage, config]);
 
   const previewJson = useMemo(() => {
     if (!apiKey) return "{}";
@@ -75,6 +77,7 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
       disableNonessentialTraffic,
       skipWebFetchPreflight,
       enableExtraMarketplaces,
+      preferredLanguage,
     });
   }
 
@@ -242,6 +245,30 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
               />
             </div>
             <p className="form-hint">{t("configModal.modelHint")}</p>
+
+            {/* Claude Code 响应语言 */}
+            <div className="section-toggle" style={{ cursor: "default" }}>
+              <span>{t("configModal.preferredLanguage")}</span>
+            </div>
+            <div className="form-group">
+              <select
+                value={preferredLanguage}
+                onChange={(e) => setPreferredLanguage(e.target.value)}
+              >
+                <option value="english">{t("configModal.langEnglish")}</option>
+                <option value="chinese">{t("configModal.langChinese")}</option>
+                <option value="japanese">{t("configModal.langJapanese")}</option>
+                <option value="korean">{t("configModal.langKorean")}</option>
+                <option value="spanish">{t("configModal.langSpanish")}</option>
+                <option value="french">{t("configModal.langFrench")}</option>
+                <option value="german">{t("configModal.langGerman")}</option>
+                <option value="portuguese">{t("configModal.langPortuguese")}</option>
+                <option value="russian">{t("configModal.langRussian")}</option>
+                <option value="arabic">{t("configModal.langArabic")}</option>
+                <option value="italian">{t("configModal.langItalian")}</option>
+              </select>
+              <p className="form-hint">{t("configModal.preferredLanguageDesc")}</p>
+            </div>
 
             {/* 插件市场 */}
             <div className="section-toggle" style={{ cursor: "default" }}>
