@@ -1,4 +1,5 @@
 .config-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -6,7 +7,12 @@
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease,
+              border-color 0.2s ease,
+              box-shadow 0.2s ease,
+              opacity 0.2s ease,
+              transform 0.2s cubic-bezier(0.2, 0, 0, 1),
+              margin 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .config-item:hover {
@@ -130,17 +136,79 @@
 
 /* 拖拽状态样式 */
 .config-item.dragging {
-  opacity: 0.4;
-  border-style: dashed;
-  border-color: var(--accent-blue);
+  opacity: 0.3;
+  border: 1.5px dashed var(--accent-blue);
+  background-color: var(--bg-tertiary);
+  transform: scale(0.98);
 }
 
+/* 拖拽进行中，非拖拽项微暗 */
+.config-list.is-dragging .config-item:not(.dragging) {
+  opacity: 0.75;
+}
+
+.config-list.is-dragging .config-item:not(.dragging):hover,
+.config-list.is-dragging .config-item.drag-over-above,
+.config-list.is-dragging .config-item.drag-over-below {
+  opacity: 1;
+}
+
+/* 插入指示器 - 上方 */
 .config-item.drag-over-above {
-  box-shadow: 0 -2px 0 0 var(--accent-blue);
+  margin-top: 6px;
 }
 
+.config-item.drag-over-above::before {
+  content: '';
+  position: absolute;
+  left: 16px;
+  right: 0;
+  top: -7px;
+  height: 3px;
+  background-color: var(--accent-blue);
+  border-radius: 0 2px 2px 0;
+  pointer-events: none;
+}
+
+.config-item.drag-over-above::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: -11px;
+  width: 10px;
+  height: 10px;
+  background-color: var(--accent-blue);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* 插入指示器 - 下方 */
 .config-item.drag-over-below {
-  box-shadow: 0 2px 0 0 var(--accent-blue);
+  margin-bottom: 6px;
+}
+
+.config-item.drag-over-below::after {
+  content: '';
+  position: absolute;
+  left: 16px;
+  right: 0;
+  bottom: -7px;
+  height: 3px;
+  background-color: var(--accent-blue);
+  border-radius: 0 2px 2px 0;
+  pointer-events: none;
+}
+
+.config-item.drag-over-below::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  bottom: -11px;
+  width: 10px;
+  height: 10px;
+  background-color: var(--accent-blue);
+  border-radius: 50%;
+  pointer-events: none;
 }
 
 .config-drag-handle:active {

@@ -115,7 +115,7 @@ function ConfigList({ configs, activeConfigId, onActivate, onEdit, onDelete, onD
   }
 
   return (
-    <div className="config-list" onDragOver={(e) => e.preventDefault()}>
+    <div className={`config-list${dragState.draggingIndex !== null ? " is-dragging" : ""}`} onDragOver={(e) => e.preventDefault()}>
       {configs.map((config, index) => (
         <ConfigItem
           key={config.id}
