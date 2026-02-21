@@ -28,7 +28,7 @@ function ConfigItem({ config, isActive, onActivate, onEdit, onDelete, onDuplicat
       </div>
 
       <div className="config-badge">
-        <span className="badge-text">CC</span>
+        <span className="badge-text">{config.name ? config.name.charAt(0).toUpperCase() : "A"}</span>
       </div>
 
       <div className="config-info">

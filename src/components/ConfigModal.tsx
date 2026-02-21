@@ -89,7 +89,7 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
           <div className="modal-body">
             {/* 配置徽章 */}
             <div className="config-badge-large">
-              <span>{name ? name.substring(0, 2).toUpperCase() : "CC"}</span>
+              <span>{name ? name.charAt(0).toUpperCase() : "A"}</span>
             </div>
 
             {/* 基本信息 */}
