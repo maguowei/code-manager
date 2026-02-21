@@ -23,6 +23,7 @@ const translations = {
     "configItem.activateTitle": "启用此配置",
     "configItem.edit": "编辑",
     "configItem.duplicate": "复制",
+    "configItem.inUse": "使用中",
     "configItem.delete": "删除",
 
     // 配置弹窗
@@ -86,6 +87,7 @@ const translations = {
     "configItem.activateTitle": "Activate this config",
     "configItem.edit": "Edit",
     "configItem.duplicate": "Duplicate",
+    "configItem.inUse": "In Use",
     "configItem.delete": "Delete",
 
     // 配置弹窗

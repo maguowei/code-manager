@@ -116,3 +116,14 @@
   background-color: #2563eb;
   color: white;
 }
+
+.active-badge {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: var(--accent-red);
+  cursor: default;
+}
+
+.active-badge:hover {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: var(--accent-red);
+}
