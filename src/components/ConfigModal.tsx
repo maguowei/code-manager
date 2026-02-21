@@ -32,6 +32,7 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [showPlugins, setShowPlugins] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const currentConfig = useMemo(() => ({
     id: config?.id || "",
@@ -101,6 +102,34 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
 
   function handleTogglePlugin(id: string) {
     setEnabledPlugins({ ...enabledPlugins, [id]: !enabledPlugins[id] });
+  }
+
+  function handleCopyJson() {
+    navigator.clipboard.writeText(previewJson).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  // JSON 语法高亮 + 行号
+  function highlightJson(json: string): string {
+    const highlighted = json.replace(
+      /("(?:\\.|[^"\\])*")\s*(:)?|(\b(?:true|false|null)\b)|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
+      (match, str, colon, bool, num) => {
+        if (str) {
+          return colon
+            ? `<span class="json-key">${str}</span>:`
+            : `<span class="json-string">${str}</span>`;
+        }
+        if (bool) return `<span class="json-bool">${match}</span>`;
+        if (num) return `<span class="json-number">${match}</span>`;
+        return match;
+      }
+    );
+    return highlighted
+      .split("\n")
+      .map((line, i) => `<span class="json-line"><span class="json-line-num">${i + 1}</span>${line}</span>`)
+      .join("");
   }
 
   return (
@@ -462,7 +491,31 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
 
             {showPreview && (
               <div className="json-preview">
-                <pre><code>{previewJson}</code></pre>
+                <div className="json-preview-header">
+                  <button
+                    type="button"
+                    className={`json-copy-btn ${copied ? "copied" : ""}`}
+                    onClick={handleCopyJson}
+                  >
+                    {copied ? (
+                      <>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        {t("configModal.jsonCopied")}
+                      </>
+                    ) : (
+                      <>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                        </svg>
+                        {t("configModal.jsonCopy")}
+                      </>
+                    )}
+                  </button>
+                </div>
+                <pre><code dangerouslySetInnerHTML={{ __html: highlightJson(previewJson) }} /></pre>
               </div>
             )}
           </div>

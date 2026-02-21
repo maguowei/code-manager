@@ -78,6 +78,8 @@ const translations = {
     "configModal.langArabic": "العربية (Arabic)",
     "configModal.langItalian": "Italiano (Italian)",
     "configModal.jsonPreview": "配置 JSON 预览",
+    "configModal.jsonCopy": "复制",
+    "configModal.jsonCopied": "已复制",
     "configModal.cancel": "取消",
     "configModal.save": "保存",
 
@@ -165,6 +167,8 @@ const translations = {
     "configModal.langArabic": "العربية (Arabic)",
     "configModal.langItalian": "Italiano (Italian)",
     "configModal.jsonPreview": "Config JSON Preview",
+    "configModal.jsonCopy": "Copy",
+    "configModal.jsonCopied": "Copied",
     "configModal.cancel": "Cancel",
     "configModal.save": "Save",
 
