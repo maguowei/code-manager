@@ -142,12 +142,6 @@ function App() {
           </button>
         </div>
         <div className="header-center">
-          <div className="tab-group">
-            <button className="tab active">
-              <span className="tab-icon claude-icon">✦</span>
-              Claude
-            </button>
-          </div>
         </div>
         <div className="header-right">
           <button className="icon-btn add-btn" onClick={handleAdd} title="添加配置">
