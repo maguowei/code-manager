@@ -1,7 +1,8 @@
 mod config;
 
 use config::{
-    activate_config, add_config, delete_config, duplicate_config, get_configs, update_config,
+    activate_config, add_config, delete_config, duplicate_config, get_configs, reorder_configs,
+    update_config,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -14,7 +15,8 @@ pub fn run() {
             update_config,
             delete_config,
             duplicate_config,
-            activate_config
+            activate_config,
+            reorder_configs
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

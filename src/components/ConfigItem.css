@@ -127,3 +127,22 @@
   background-color: rgba(239, 68, 68, 0.15);
   color: var(--accent-red);
 }
+
+/* 拖拽状态样式 */
+.config-item.dragging {
+  opacity: 0.4;
+  border-style: dashed;
+  border-color: var(--accent-blue);
+}
+
+.config-item.drag-over-above {
+  box-shadow: 0 -2px 0 0 var(--accent-blue);
+}
+
+.config-item.drag-over-below {
+  box-shadow: 0 2px 0 0 var(--accent-blue);
+}
+
+.config-drag-handle:active {
+  cursor: grabbing;
+}

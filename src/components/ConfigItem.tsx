@@ -1,3 +1,4 @@
+import { DragEvent } from "react";
 import { ClaudeConfig } from "../types";
 import { useI18n } from "../i18n";
 import "./ConfigItem.css";
@@ -5,17 +6,56 @@ import "./ConfigItem.css";
 interface ConfigItemProps {
   config: ClaudeConfig;
   isActive: boolean;
+  isDragging: boolean;
+  dragOverPosition: "above" | "below" | null;
   onActivate: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
+  onDragStart: (e: DragEvent<HTMLDivElement>) => void;
+  onDragEnd: (e: DragEvent<HTMLDivElement>) => void;
+  onDragOver: (e: DragEvent<HTMLDivElement>) => void;
+  onDragLeave: (e: DragEvent<HTMLDivElement>) => void;
+  onDrop: (e: DragEvent<HTMLDivElement>) => void;
 }
 
-function ConfigItem({ config, isActive, onActivate, onEdit, onDelete, onDuplicate }: ConfigItemProps) {
+function ConfigItem({
+  config,
+  isActive,
+  isDragging,
+  dragOverPosition,
+  onActivate,
+  onEdit,
+  onDelete,
+  onDuplicate,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+}: ConfigItemProps) {
   const { t } = useI18n();
 
+  const classNames = [
+    "config-item",
+    isActive ? "active" : "",
+    isDragging ? "dragging" : "",
+    dragOverPosition === "above" ? "drag-over-above" : "",
+    dragOverPosition === "below" ? "drag-over-below" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div className={`config-item ${isActive ? "active" : ""}`}>
+    <div
+      className={classNames}
+      draggable
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
       <div className="config-drag-handle">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
           <circle cx="4" cy="3" r="1.5"/>

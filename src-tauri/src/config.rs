@@ -375,6 +375,30 @@ pub fn duplicate_config(id: String) -> Result<ClaudeConfig, String> {
 }
 
 #[tauri::command]
+pub fn reorder_configs(ids: Vec<String>) -> Result<(), String> {
+    let mut state = load_state();
+
+    // 按 ids 顺序重排 configs
+    let mut reordered: Vec<ClaudeConfig> = Vec::with_capacity(ids.len());
+    for id in &ids {
+        if let Some(config) = state.configs.iter().find(|c| &c.id == id) {
+            reordered.push(config.clone());
+        }
+    }
+
+    // 保留不在 ids 中的配置（防御性处理）
+    for config in &state.configs {
+        if !ids.contains(&config.id) {
+            reordered.push(config.clone());
+        }
+    }
+
+    state.configs = reordered;
+    save_state(&state)?;
+    Ok(())
+}
+
+#[tauri::command]
 pub fn activate_config(id: String) -> Result<(), String> {
     let mut state = load_state();
 

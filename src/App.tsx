@@ -123,6 +123,19 @@ function App() {
     }
   }
 
+  async function handleReorder(ids: string[]) {
+    if (!isTauri()) return;
+    // 先更新前端状态，避免拖拽视觉延迟
+    const reordered = ids.map((id) => configs.find((c) => c.id === id)!).filter(Boolean);
+    setConfigs(reordered);
+    try {
+      await invoke("reorder_configs", { ids });
+    } catch (error) {
+      console.error("Failed to reorder configs:", error);
+      await loadConfigs();
+    }
+  }
+
   function handleEdit(config: ClaudeConfig) {
     setEditingConfig(config);
     setIsModalOpen(true);
@@ -173,6 +186,7 @@ function App() {
           onEdit={handleEdit}
           onDelete={handleDelete}
           onDuplicate={handleDuplicate}
+          onReorder={handleReorder}
         />
       </main>
 
