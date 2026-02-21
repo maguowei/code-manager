@@ -1,4 +1,5 @@
 import { ClaudeConfig } from "../types";
+import { useI18n } from "../i18n";
 import ConfigItem from "./ConfigItem";
 import "./ConfigList.css";
 
@@ -12,6 +13,8 @@ interface ConfigListProps {
 }
 
 function ConfigList({ configs, activeConfigId, onActivate, onEdit, onDelete, onDuplicate }: ConfigListProps) {
+  const { t } = useI18n();
+
   if (configs.length === 0) {
     return (
       <div className="config-list-empty">
@@ -23,8 +26,8 @@ function ConfigList({ configs, activeConfigId, onActivate, onEdit, onDelete, onD
             <line x1="9" y1="15" x2="15" y2="15"/>
           </svg>
         </div>
-        <p className="empty-text">暂无配置</p>
-        <p className="empty-hint">点击右上角 + 按钮添加新的 Claude Code 配置</p>
+        <p className="empty-text">{t("configList.empty")}</p>
+        <p className="empty-hint">{t("configList.emptyHint")}</p>
       </div>
     );
   }

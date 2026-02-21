@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { ClaudeConfig, generateClaudeJson } from "../types";
+import { useI18n } from "../i18n";
 import "./ConfigModal.css";
 
 interface ConfigModalProps {
@@ -9,6 +10,7 @@ interface ConfigModalProps {
 }
 
 function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
+  const { t } = useI18n();
   const [name, setName] = useState(config?.name || "");
   const [description, setDescription] = useState(config?.description || "");
   const [apiKey, setApiKey] = useState(config?.apiKey || "");
@@ -79,7 +81,7 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
               <polyline points="15 18 9 12 15 6"/>
             </svg>
           </button>
-          <h2>{config ? "编辑配置" : "添加配置"}</h2>
+          <h2>{config ? t("configModal.editTitle") : t("configModal.addTitle")}</h2>
           <div className="header-spacer"></div>
         </div>
 
@@ -93,48 +95,48 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
             {/* 基本信息 */}
             <div className="form-row">
               <div className="form-group">
-                <label htmlFor="name">配置名称 *</label>
+                <label htmlFor="name">{t("configModal.nameRequired")}</label>
                 <input
                   id="name"
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="例如：个人账号、公司账号"
+                  placeholder={t("configModal.namePlaceholder")}
                   required
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="description">备注</label>
+                <label htmlFor="description">{t("configModal.description")}</label>
                 <input
                   id="description"
                   type="text"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="例如：公司专用账号"
+                  placeholder={t("configModal.descriptionPlaceholder")}
                 />
               </div>
             </div>
 
             <div className="form-group">
-              <label htmlFor="websiteUrl">官网链接</label>
+              <label htmlFor="websiteUrl">{t("configModal.websiteUrl")}</label>
               <input
                 id="websiteUrl"
                 type="url"
                 value={websiteUrl}
                 onChange={(e) => setWebsiteUrl(e.target.value)}
-                placeholder="https://example.com（可选）"
+                placeholder={t("configModal.websiteUrlPlaceholder")}
               />
             </div>
 
             <div className="form-group">
-              <label htmlFor="apiKey">API Key *</label>
+              <label htmlFor="apiKey">{t("configModal.apiKey")}</label>
               <div className="input-with-toggle">
                 <input
                   id="apiKey"
                   type={showApiKey ? "text" : "password"}
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="sk-ant-..."
+                  placeholder={t("configModal.apiKeyPlaceholder")}
                   required
                 />
                 <button
@@ -158,13 +160,13 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
             </div>
 
             <div className="form-group">
-              <label htmlFor="apiUrl">请求地址</label>
+              <label htmlFor="apiUrl">{t("configModal.apiUrl")}</label>
               <input
                 id="apiUrl"
                 type="url"
                 value={apiUrl}
                 onChange={(e) => setApiUrl(e.target.value)}
-                placeholder="https://api.anthropic.com"
+                placeholder={t("configModal.apiUrlPlaceholder")}
               />
               <p className="form-hint warning">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -172,24 +174,24 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
                   <line x1="12" y1="8" x2="12" y2="12"/>
                   <line x1="12" y1="16" x2="12.01" y2="16"/>
                 </svg>
-                填写兼容 Claude API 的服务端点地址，不要以斜杠结尾
+                {t("configModal.apiUrlHint")}
               </p>
             </div>
 
             {/* 模型配置 */}
             <div className="form-row">
               <div className="form-group">
-                <label htmlFor="model">主模型</label>
+                <label htmlFor="model">{t("configModal.model")}</label>
                 <input
                   id="model"
                   type="text"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  placeholder="claude-sonnet-4-5"
+                  placeholder={t("configModal.modelPlaceholder")}
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="thinkingModel">推理模型 (Thinking)</label>
+                <label htmlFor="thinkingModel">{t("configModal.thinkingModel")}</label>
                 <input
                   id="thinkingModel"
                   type="text"
@@ -202,42 +204,42 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
 
             <div className="form-row">
               <div className="form-group">
-                <label htmlFor="haikuModel">Haiku 默认模型</label>
+                <label htmlFor="haikuModel">{t("configModal.haikuModel")}</label>
                 <input
                   id="haikuModel"
                   type="text"
                   value={haikuModel}
                   onChange={(e) => setHaikuModel(e.target.value)}
-                  placeholder="claude-sonnet-4-5"
+                  placeholder={t("configModal.haikuModelPlaceholder")}
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="sonnetModel">Sonnet 默认模型</label>
+                <label htmlFor="sonnetModel">{t("configModal.sonnetModel")}</label>
                 <input
                   id="sonnetModel"
                   type="text"
                   value={sonnetModel}
                   onChange={(e) => setSonnetModel(e.target.value)}
-                  placeholder="claude-sonnet-4-5"
+                  placeholder={t("configModal.sonnetModelPlaceholder")}
                 />
               </div>
             </div>
 
             <div className="form-group half-width">
-              <label htmlFor="opusModel">Opus 默认模型</label>
+              <label htmlFor="opusModel">{t("configModal.opusModel")}</label>
               <input
                 id="opusModel"
                 type="text"
                 value={opusModel}
                 onChange={(e) => setOpusModel(e.target.value)}
-                placeholder="claude-opus-4-5-thinking"
+                placeholder={t("configModal.opusModelPlaceholder")}
               />
             </div>
-            <p className="form-hint">可选：指定默认使用的 Claude 模型，留空则使用系统默认。</p>
+            <p className="form-hint">{t("configModal.modelHint")}</p>
 
             {/* 高级选项 */}
             <div className="section-toggle" onClick={() => setShowAdvanced(!showAdvanced)}>
-              <span>高级选项</span>
+              <span>{t("configModal.advancedOptions")}</span>
               <svg
                 width="16"
                 height="16"
@@ -261,7 +263,7 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
                       onChange={(e) => setAlwaysThinkingEnabled(e.target.checked)}
                     />
                     <span className="checkbox-custom"></span>
-                    <span>始终启用思考模式 (Always Thinking)</span>
+                    <span>{t("configModal.alwaysThinking")}</span>
                   </label>
                 </div>
                 <div className="checkbox-group">
@@ -272,7 +274,7 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
                       onChange={(e) => setDisableNonessentialTraffic(e.target.checked)}
                     />
                     <span className="checkbox-custom"></span>
-                    <span>禁用非必要网络请求</span>
+                    <span>{t("configModal.disableTraffic")}</span>
                   </label>
                 </div>
               </div>
@@ -280,7 +282,7 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
 
             {/* 配置预览 */}
             <div className="section-toggle" onClick={() => setShowPreview(!showPreview)}>
-              <span>配置 JSON 预览</span>
+              <span>{t("configModal.jsonPreview")}</span>
               <svg
                 width="16"
                 height="16"
@@ -303,7 +305,7 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
 
           <div className="modal-footer">
             <button type="button" className="btn-cancel" onClick={onClose}>
-              取消
+              {t("configModal.cancel")}
             </button>
             <button type="submit" className="btn-save">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -311,7 +313,7 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
                 <polyline points="17 21 17 13 7 13 7 21"/>
                 <polyline points="7 3 7 8 15 8"/>
               </svg>
-              保存
+              {t("configModal.save")}
             </button>
           </div>
         </form>

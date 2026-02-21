@@ -4,7 +4,8 @@
   box-sizing: border-box;
 }
 
-:root {
+:root,
+[data-theme="dark"] {
   --bg-primary: #1a1d21;
   --bg-secondary: #2a2d32;
   --bg-tertiary: #3a3d42;
@@ -19,6 +20,23 @@
   --accent-red: #ef4444;
   --accent-green: #22c55e;
   --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="light"] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f3f4f6;
+  --bg-tertiary: #e5e7eb;
+  --bg-hover: #e5e7eb;
+  --border-color: #d1d5db;
+  --border-active: #3b82f6;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --accent-blue: #3b82f6;
+  --accent-orange: #f97316;
+  --accent-red: #ef4444;
+  --accent-green: #22c55e;
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 html, body, #root {
