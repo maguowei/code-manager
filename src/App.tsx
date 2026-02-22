@@ -32,6 +32,34 @@ function App() {
     loadConfigs();
   }, []);
 
+  // 键盘快捷键支持
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd/Ctrl + N: 新建配置
+      if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+        e.preventDefault();
+        if (activeTab === 'configs') {
+          handleAdd();
+        }
+      }
+
+      // Cmd/Ctrl + S: 保存（在抽屉打开时）
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        // 触发表单提交（ConfigModal 内部处理）
+      }
+
+      // ESC: 关闭抽屉
+      if (e.key === 'Escape' && isModalOpen) {
+        setIsModalOpen(false);
+        setEditingConfig(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTab, isModalOpen]);
+
   async function loadConfigs() {
     if (!isTauri()) {
       setLoading(false);
