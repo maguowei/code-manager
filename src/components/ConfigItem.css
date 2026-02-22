@@ -208,77 +208,40 @@
 }
 
 /* ==================== 拖拽状态 ==================== */
+/* 拖拽中的卡片 */
 .config-item.dragging {
-  opacity: 0.3;
-  border: 1.5px dashed var(--accent-blue);
-  background-color: var(--bg-tertiary);
-  transform: scale(0.98);
+  opacity: 0.5;
+  transform: scale(0.98) rotate(2deg);
+  cursor: grabbing;
+  box-shadow: var(--shadow-lg);
+  z-index: 1000;
 }
 
+/* 其他卡片在拖拽时 */
 .config-list.is-dragging .config-item:not(.dragging) {
-  opacity: 0.75;
+  opacity: 0.6;
+  transition: all 200ms ease;
 }
 
-.config-list.is-dragging .config-item:not(.dragging):hover,
-.config-list.is-dragging .config-item.drag-over-above,
-.config-list.is-dragging .config-item.drag-over-below {
-  opacity: 1;
-}
-
-/* ==================== 插入指示器 - 上方 ==================== */
-.config-item.drag-over-above {
-  margin-top: 6px;
+/* 插入位置指示器 */
+.config-item.drag-over::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: var(--accent-blue);
+  box-shadow: var(--glow-blue);
 }
 
 .config-item.drag-over-above::before {
-  content: '';
-  position: absolute;
-  left: 16px;
-  right: 0;
-  top: -7px;
-  height: 3px;
-  background-color: var(--accent-blue);
-  border-radius: 0 2px 2px 0;
-  pointer-events: none;
-}
-
-.config-item.drag-over-above::after {
-  content: '';
-  position: absolute;
-  left: 4px;
-  top: -11px;
-  width: 10px;
-  height: 10px;
-  background-color: var(--accent-blue);
-  border-radius: 50%;
-  pointer-events: none;
-}
-
-/* ==================== 插入指示器 - 下方 ==================== */
-.config-item.drag-over-below {
-  margin-bottom: 6px;
-}
-
-.config-item.drag-over-below::after {
-  content: '';
-  position: absolute;
-  left: 16px;
-  right: 0;
-  bottom: -7px;
-  height: 3px;
-  background-color: var(--accent-blue);
-  border-radius: 0 2px 2px 0;
-  pointer-events: none;
+  top: -5px;
 }
 
 .config-item.drag-over-below::before {
-  content: '';
-  position: absolute;
-  left: 4px;
-  bottom: -11px;
-  width: 10px;
-  height: 10px;
-  background-color: var(--accent-blue);
-  border-radius: 50%;
-  pointer-events: none;
+  bottom: -5px;
+}
+
+.config-item.drag-over {
+  transform: scale(1.02);
 }
