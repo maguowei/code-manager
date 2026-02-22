@@ -25,6 +25,16 @@ function MemoryPage() {
     loadMemories();
   }, [loadMemories]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isModalOpen) {
+        closeModal();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isModalOpen]);
+
   async function handleAdd(data: { name: string; content: string }) {
     try {
       await invoke("add_memory", { name: data.name, content: data.content });
@@ -117,6 +127,7 @@ function MemoryPage() {
             <MemoryItem
               key={memory.id}
               memory={memory}
+              isEditing={isModalOpen && editingMemory?.id === memory.id}
               onToggle={() => handleToggle(memory.id)}
               onEdit={() => openEditModal(memory)}
               onDelete={() => handleDelete(memory.id)}
@@ -127,11 +138,16 @@ function MemoryPage() {
 
       {/* 弹窗 */}
       {isModalOpen && (
-        <MemoryModal
-          memory={editingMemory}
-          onSave={editingMemory ? handleUpdate : handleAdd}
-          onClose={closeModal}
-        />
+        <>
+          <div className="drawer-overlay visible" onClick={closeModal} />
+          <div className="drawer open">
+            <MemoryModal
+              memory={editingMemory}
+              onSave={editingMemory ? handleUpdate : handleAdd}
+              onClose={closeModal}
+            />
+          </div>
+        </>
       )}
     </div>
   );

@@ -116,6 +116,7 @@ const translations = {
     "memory.emptyHint": "添加记忆片段，启用后将写入 ~/.claude/CLAUDE.md",
     "memory.enabled": "已启用",
     "memory.disabled": "未启用",
+    "memory.editing": "编辑中",
     "memory.edit": "编辑",
     "memory.delete": "删除",
 
@@ -245,6 +246,7 @@ const translations = {
     "memory.emptyHint": "Add memory snippets, enable them to write to ~/.claude/CLAUDE.md",
     "memory.enabled": "Enabled",
     "memory.disabled": "Disabled",
+    "memory.editing": "Editing",
     "memory.edit": "Edit",
     "memory.delete": "Delete",
 

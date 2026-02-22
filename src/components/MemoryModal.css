@@ -1,7 +1,175 @@
-/* 记忆内容编辑区域 */
+.memory-drawer-container {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.memory-modal {
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-elevated);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.memory-modal form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.memory-modal-header {
+  height: 56px;
+  padding: 0 var(--space-6);
+  border-bottom: 1px solid var(--border-default);
+  background-color: var(--bg-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+.memory-modal-header h2 {
+  flex: 1;
+  font-size: var(--font-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.memory-back-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.memory-back-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.memory-save-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  background-color: var(--accent-blue);
+  color: #fff;
+  font-size: var(--font-base);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.memory-save-btn:hover:not(:disabled) {
+  background-color: var(--accent-blue-hover);
+  transform: translateY(-1px);
+}
+
+.memory-save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.memory-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+}
+
+.memory-badge-large {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background-color: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 auto;
+}
+
+.memory-modal .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.memory-modal .form-group label {
+  font-size: var(--font-base);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.memory-modal .form-group label.label-required {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.memory-modal .required-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background-color: var(--accent-red-bg);
+  color: var(--accent-red);
+  font-size: var(--font-xs);
+  font-weight: 600;
+}
+
+.memory-modal .form-group input,
+.memory-modal .form-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--font-base);
+  transition: all 150ms ease;
+}
+
+.memory-modal .form-group input::placeholder,
+.memory-modal .form-group textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.memory-modal .form-group input:hover,
+.memory-modal .form-group textarea:hover {
+  border-color: var(--text-muted);
+}
+
+.memory-modal .form-group input:focus,
+.memory-modal .form-group textarea:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px var(--accent-blue-bg);
+}
+
 .memory-content-textarea {
-  font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, monospace;
-  min-height: 300px;
+  min-height: 320px;
   resize: vertical;
   line-height: 1.6;
+  font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, monospace;
 }

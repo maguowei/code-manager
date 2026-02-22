@@ -1,38 +1,56 @@
 .memory-item {
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 14px 16px;
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
-  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all 220ms ease;
 }
 
 .memory-item:hover {
   background-color: var(--bg-tertiary);
+  border-color: var(--accent-blue);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  transform: translateY(-1px);
 }
 
 .memory-item.active {
-  border-color: var(--border-active);
-  box-shadow: 0 0 0 1px var(--border-active);
+  border-color: var(--accent-green);
+  box-shadow: 0 0 0 1px var(--accent-green) inset;
+}
+
+.memory-item.editing {
+  border-color: var(--accent-orange);
+  box-shadow:
+    0 0 0 1px var(--accent-orange) inset,
+    0 0 16px rgba(247, 129, 102, 0.25);
+}
+
+.memory-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
 }
 
 .memory-badge {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  background-color: var(--bg-tertiary);
+  width: 36px;
+  height: 36px;
   border-radius: 10px;
+  background: linear-gradient(135deg, var(--bg-tertiary), var(--bg-elevated));
   flex-shrink: 0;
 }
 
-.memory-item .badge-text {
-  font-size: 14px;
+.memory-badge .badge-text {
+  font-size: var(--font-md);
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
 .memory-info {
@@ -41,54 +59,93 @@
 }
 
 .memory-name {
-  font-size: 15px;
-  font-weight: 500;
+  font-size: var(--font-md);
+  font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 4px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.memory-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.memory-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: var(--font-xs);
+  font-weight: 600;
+}
+
+.memory-status.active {
+  background-color: var(--accent-green-bg);
+  color: var(--accent-green);
+}
+
+.memory-status.editing {
+  background-color: var(--accent-orange-bg);
+  color: var(--accent-orange);
+}
+
 .memory-preview {
-  font-size: 13px;
-  color: var(--text-muted);
-  white-space: nowrap;
+  margin: 0;
+  font-size: var(--font-sm);
+  line-height: 1.45;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .memory-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
-  flex-shrink: 0;
+  opacity: 0;
+  transform: translateX(6px);
+  transition: opacity 180ms ease, transform 180ms ease;
 }
 
-/* Toggle Switch 样式 */
+.memory-item:hover .memory-actions {
+  opacity: 1;
+  transform: translateX(0);
+}
+
 .memory-toggle {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
+  padding: 6px 10px;
   border: none;
   border-radius: 8px;
   background-color: transparent;
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 13px;
+  transition: all 160ms ease;
+  font-size: var(--font-sm);
   font-weight: 500;
 }
 
 .memory-toggle:hover {
   background-color: var(--bg-hover);
+  color: var(--text-primary);
 }
 
-.toggle-track {
+.memory-toggle .toggle-track {
   position: relative;
-  width: 36px;
-  height: 20px;
-  border-radius: 10px;
+  width: 34px;
+  height: 18px;
+  border-radius: 999px;
   background-color: var(--bg-tertiary);
   border: 1px solid var(--border-color);
   transition: all 0.2s ease;
@@ -100,14 +157,14 @@
   border-color: var(--accent-green);
 }
 
-.toggle-thumb {
+.memory-toggle .toggle-thumb {
   position: absolute;
-  top: 2px;
-  left: 2px;
+  top: 1px;
+  left: 1px;
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background-color: white;
+  background-color: #fff;
   transition: transform 0.2s ease;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
@@ -116,11 +173,25 @@
   transform: translateX(16px);
 }
 
-.toggle-label {
-  color: var(--text-muted);
+.memory-toggle .toggle-label {
   white-space: nowrap;
 }
 
-.memory-toggle.enabled .toggle-label {
-  color: var(--accent-green);
+.memory-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background-color: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.memory-action-btn:hover {
+  background-color: rgba(248, 81, 73, 0.14);
+  color: var(--accent-red);
 }
