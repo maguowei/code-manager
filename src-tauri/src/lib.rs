@@ -1,9 +1,11 @@
 mod config;
+mod memory;
 
 use config::{
     activate_config, add_config, delete_config, duplicate_config, get_configs, reorder_configs,
     update_config,
 };
+use memory::{add_memory, delete_memory, get_memories, toggle_memory, update_memory};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -16,7 +18,12 @@ pub fn run() {
             delete_config,
             duplicate_config,
             activate_config,
-            reorder_configs
+            reorder_configs,
+            get_memories,
+            add_memory,
+            update_memory,
+            delete_memory,
+            toggle_memory
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

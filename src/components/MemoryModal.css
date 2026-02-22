@@ -1,0 +1,7 @@
+/* 记忆内容编辑区域 */
+.memory-content-textarea {
+  font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, monospace;
+  min-height: 300px;
+  resize: vertical;
+  line-height: 1.6;
+}

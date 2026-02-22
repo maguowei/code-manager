@@ -31,6 +31,21 @@ export interface AppState {
   activeConfigId: string | null;
 }
 
+// 记忆条目
+export interface Memory {
+  id: string;
+  name: string;
+  content: string;
+  isActive: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// 记忆状态
+export interface MemoryState {
+  memories: Memory[];
+}
+
 // 生成 Claude Code 配置 JSON
 export function generateClaudeJson(config: ClaudeConfig): object {
   const env: Record<string, string> = {

@@ -91,6 +91,21 @@ const translations = {
     // 记忆页面
     "memory.title": "CLAUDE.md 记忆管理",
     "memory.description": "管理项目和全局的 CLAUDE.md 文件，为 Claude Code 提供上下文记忆",
+    "memory.addMemory": "添加记忆",
+    "memory.editTitle": "编辑记忆",
+    "memory.addTitle": "添加记忆",
+    "memory.name": "记忆名称",
+    "memory.namePlaceholder": "例如：项目规范、代码风格",
+    "memory.content": "内容",
+    "memory.contentPlaceholder": "输入 Markdown 内容...",
+    "memory.cancel": "取消",
+    "memory.save": "保存",
+    "memory.empty": "暂无记忆",
+    "memory.emptyHint": "添加记忆片段，启用后将写入 ~/.claude/CLAUDE.md",
+    "memory.enabled": "已启用",
+    "memory.disabled": "未启用",
+    "memory.edit": "编辑",
+    "memory.delete": "删除",
 
     // Skills 页面
     "skills.title": "Skills 管理",
@@ -193,6 +208,21 @@ const translations = {
     // 记忆页面
     "memory.title": "CLAUDE.md Memory",
     "memory.description": "Manage project and global CLAUDE.md files to provide context memory for Claude Code",
+    "memory.addMemory": "Add Memory",
+    "memory.editTitle": "Edit Memory",
+    "memory.addTitle": "Add Memory",
+    "memory.name": "Memory Name",
+    "memory.namePlaceholder": "e.g. Project rules, Code style",
+    "memory.content": "Content",
+    "memory.contentPlaceholder": "Enter Markdown content...",
+    "memory.cancel": "Cancel",
+    "memory.save": "Save",
+    "memory.empty": "No memories",
+    "memory.emptyHint": "Add memory snippets, enable them to write to ~/.claude/CLAUDE.md",
+    "memory.enabled": "Enabled",
+    "memory.disabled": "Disabled",
+    "memory.edit": "Edit",
+    "memory.delete": "Delete",
 
     // Skills 页面
     "skills.title": "Skills Management",
