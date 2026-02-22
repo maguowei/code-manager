@@ -1,15 +1,17 @@
-import { useState, useMemo } from "react";
-import { ClaudeConfig, generateClaudeJson } from "../types";
+import { useState, useMemo, useRef } from "react";
+import { ClaudeConfig, generateClaudeJson, deepMerge } from "../types";
 import { useI18n } from "../i18n";
 import "./ConfigModal.css";
 
 interface ConfigModalProps {
   config: ClaudeConfig | null;
-  onSave: (config: Omit<ClaudeConfig, "id" | "createdAt" | "updatedAt" | "isActive">) => void;
+  defaults: string;
+  defaultsEnabled: boolean;
+  onSave: (config: Omit<ClaudeConfig, "id" | "createdAt" | "updatedAt" | "isActive">, defaults?: string, defaultsEnabled?: boolean) => void;
   onClose: () => void;
 }
 
-function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
+function ConfigModal({ config, defaults, defaultsEnabled, onSave, onClose }: ConfigModalProps) {
   const { t } = useI18n();
   const [name, setName] = useState(config?.name || "");
   const [description, setDescription] = useState(config?.description || "");
@@ -33,6 +35,11 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [showPlugins, setShowPlugins] = useState(false);
+  const [showDefaults, setShowDefaults] = useState(false);
+  const [defaultsContent, setDefaultsContent] = useState(defaults || "");
+  const [defaultsEnabledState, setDefaultsEnabledState] = useState(defaultsEnabled);
+  const [defaultsError, setDefaultsError] = useState("");
+  const defaultsPreRef = useRef<HTMLPreElement>(null);
   const [copied, setCopied] = useState(false);
 
   const currentConfig = useMemo(() => ({
@@ -61,13 +68,34 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
 
   const previewJson = useMemo(() => {
     if (!apiKey) return "{}";
-    return JSON.stringify(generateClaudeJson(currentConfig), null, 2);
-  }, [currentConfig, apiKey]);
+    const configJson = generateClaudeJson(currentConfig) as Record<string, unknown>;
+    // 如果通用配置已启用且有内容，做深度合并
+    if (defaultsEnabledState && defaultsContent.trim()) {
+      try {
+        const defaultsObj = JSON.parse(defaultsContent.trim()) as Record<string, unknown>;
+        const merged = deepMerge(defaultsObj, configJson);
+        return JSON.stringify(merged, null, 2);
+      } catch {
+        // 通用配置 JSON 非法时，仅展示当前配置
+        return JSON.stringify(configJson, null, 2);
+      }
+    }
+    return JSON.stringify(configJson, null, 2);
+  }, [currentConfig, apiKey, defaultsContent, defaultsEnabledState]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim() || !apiKey.trim()) {
       return;
+    }
+    // 校验通用配置 JSON 格式
+    if (defaultsContent.trim()) {
+      try {
+        JSON.parse(defaultsContent.trim());
+      } catch {
+        setDefaultsError(t("configModal.defaultsError"));
+        return;
+      }
     }
     onSave({
       name: name.trim(),
@@ -87,7 +115,7 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
       hasCompletedOnboarding,
       enabledPlugins: Object.keys(enabledPlugins).length > 0 ? enabledPlugins : undefined,
       preferredLanguage,
-    });
+    }, defaultsContent, defaultsEnabledState);
   }
 
   function handleAddPlugin() {
@@ -485,6 +513,72 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
                     <span>{t("configModal.skipWebFetchPreflight")}</span>
                   </label>
                 </div>
+              </div>
+            )}
+
+            {/* 通用配置 */}
+            <div className="section-toggle" onClick={() => setShowDefaults(!showDefaults)}>
+              <div className="section-title-with-toggle">
+                <span>{t("configModal.defaults")}</span>
+                <button
+                  type="button"
+                  className={`inline-toggle ${defaultsEnabledState ? "enabled" : "disabled"}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDefaultsEnabledState(!defaultsEnabledState);
+                  }}
+                  title={defaultsEnabledState ? t("configModal.defaultsEnabled") : t("configModal.defaultsDisabled")}
+                >
+                  <span className="toggle-track">
+                    <span className="toggle-thumb" />
+                  </span>
+                  <span className="toggle-label">
+                    {defaultsEnabledState ? t("configModal.defaultsEnabled") : t("configModal.defaultsDisabled")}
+                  </span>
+                </button>
+              </div>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                className={showDefaults ? "expanded" : ""}
+              >
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
+
+            {showDefaults && (
+              <div className="defaults-section">
+                <div className={`defaults-editor${defaultsError ? " error" : ""}`}>
+                  <pre className="defaults-highlight" ref={defaultsPreRef} aria-hidden="true">
+                    <code dangerouslySetInnerHTML={{ __html: highlightJson(defaultsContent || " ") }} />
+                  </pre>
+                  <textarea
+                    className="defaults-input"
+                    value={defaultsContent}
+                    onChange={(e) => {
+                      setDefaultsContent(e.target.value);
+                      setDefaultsError("");
+                    }}
+                    onScroll={(e) => {
+                      const target = e.target as HTMLTextAreaElement;
+                      if (defaultsPreRef.current) {
+                        defaultsPreRef.current.scrollTop = target.scrollTop;
+                        defaultsPreRef.current.scrollLeft = target.scrollLeft;
+                      }
+                    }}
+                    placeholder={t("configModal.defaultsPlaceholder")}
+                    spellCheck={false}
+                    wrap="off"
+                  />
+                </div>
+                {defaultsError && (
+                  <p className="defaults-error">{defaultsError}</p>
+                )}
+                <p className="form-hint">{t("configModal.defaultsHint")}</p>
               </div>
             )}
 

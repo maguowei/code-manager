@@ -55,6 +55,10 @@ pub struct ClaudeConfig {
 pub struct AppState {
     pub configs: Vec<ClaudeConfig>,
     pub active_config_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub defaults: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub defaults_enabled: Option<bool>,
 }
 
 impl Default for AppState {
@@ -62,6 +66,8 @@ impl Default for AppState {
         Self {
             configs: Vec::new(),
             active_config_id: None,
+            defaults: None,
+            defaults_enabled: None,
         }
     }
 }
@@ -103,6 +109,26 @@ pub fn save_state(state: &AppState) -> Result<(), String> {
     let content = serde_json::to_string_pretty(state).map_err(|e| e.to_string())?;
     fs::write(&path, content).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+/// 深度合并两个 JSON 值：base 为基础，overlay 的字段优先覆盖
+/// 对象递归合并，非对象类型 overlay 优先
+fn deep_merge(base: serde_json::Value, overlay: serde_json::Value) -> serde_json::Value {
+    match (base, overlay) {
+        (serde_json::Value::Object(mut base_map), serde_json::Value::Object(overlay_map)) => {
+            for (key, overlay_val) in overlay_map {
+                let merged = if let Some(base_val) = base_map.remove(&key) {
+                    deep_merge(base_val, overlay_val)
+                } else {
+                    overlay_val
+                };
+                base_map.insert(key, merged);
+            }
+            serde_json::Value::Object(base_map)
+        }
+        // 非对象类型，overlay 优先
+        (_, overlay) => overlay,
+    }
 }
 
 pub fn apply_config(config: &ClaudeConfig) -> Result<(), String> {
@@ -217,11 +243,28 @@ pub fn apply_config(config: &ClaudeConfig) -> Result<(), String> {
 
     claude_config.insert("env".to_string(), serde_json::Value::Object(env));
 
+    // 加载通用配置并深度合并（仅在通用配置启用时）
+    let state = load_state();
+    let final_config = if state.defaults_enabled == Some(true) {
+        if let Some(ref defaults_str) = state.defaults {
+            if let Ok(defaults_val) = serde_json::from_str::<serde_json::Value>(defaults_str) {
+                let current_val = serde_json::Value::Object(claude_config);
+                deep_merge(defaults_val, current_val)
+            } else {
+                serde_json::Value::Object(claude_config)
+            }
+        } else {
+            serde_json::Value::Object(claude_config)
+        }
+    } else {
+        serde_json::Value::Object(claude_config)
+    };
+
     let path = get_claude_config_path();
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
-    let content = serde_json::to_string_pretty(&claude_config).map_err(|e| e.to_string())?;
+    let content = serde_json::to_string_pretty(&final_config).map_err(|e| e.to_string())?;
     fs::write(&path, content).map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -433,6 +476,38 @@ pub fn activate_config(id: String) -> Result<(), String> {
     // Save state and apply config
     save_state(&state)?;
     apply_config(&config)?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_defaults() -> Result<Option<String>, String> {
+    let state = load_state();
+    Ok(state.defaults)
+}
+
+#[tauri::command]
+pub fn update_defaults(content: String, enabled: Option<bool>) -> Result<(), String> {
+    let mut state = load_state();
+    let trimmed = content.trim().to_string();
+    if trimmed.is_empty() {
+        state.defaults = None;
+    } else {
+        // 校验 JSON 合法性
+        serde_json::from_str::<serde_json::Value>(&trimmed)
+            .map_err(|e| format!("Invalid JSON: {}", e))?;
+        state.defaults = Some(trimmed);
+    }
+    // 更新启用状态
+    state.defaults_enabled = enabled;
+    save_state(&state)?;
+
+    // 如果有激活的配置，重新 apply 以包含新的 defaults
+    if let Some(ref active_id) = state.active_config_id {
+        if let Some(config) = state.configs.iter().find(|c| &c.id == active_id) {
+            apply_config(config)?;
+        }
+    }
 
     Ok(())
 }

@@ -30,6 +30,8 @@ export interface ClaudeConfig {
 export interface AppState {
   configs: ClaudeConfig[];
   activeConfigId: string | null;
+  defaults?: string | null;
+  defaultsEnabled?: boolean | null;
 }
 
 // 记忆条目
@@ -113,5 +115,28 @@ export function generateClaudeJson(config: ClaudeConfig): object {
 
   result.env = env;
 
+  return result;
+}
+
+// 深度合并：base 为基础，overlay 的字段优先覆盖
+// 对象递归合并，非对象类型 overlay 优先
+export function deepMerge(base: Record<string, unknown>, overlay: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = { ...base };
+  for (const key of Object.keys(overlay)) {
+    const baseVal = result[key];
+    const overlayVal = overlay[key];
+    if (
+      baseVal !== null && overlayVal !== null &&
+      typeof baseVal === "object" && !Array.isArray(baseVal) &&
+      typeof overlayVal === "object" && !Array.isArray(overlayVal)
+    ) {
+      result[key] = deepMerge(
+        baseVal as Record<string, unknown>,
+        overlayVal as Record<string, unknown>
+      );
+    } else {
+      result[key] = overlayVal;
+    }
+  }
   return result;
 }
