@@ -21,7 +21,6 @@ function App() {
   const [configs, setConfigs] = useState<ClaudeConfig[]>([]);
   const [activeConfigId, setActiveConfigId] = useState<string | null>(null);
   const [defaults, setDefaults] = useState<string>("");
-  const [defaultsEnabled, setDefaultsEnabled] = useState<boolean>(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState<ClaudeConfig | null>(null);
@@ -38,11 +37,10 @@ function App() {
       return;
     }
     try {
-      const result = await invoke<{ configs: ClaudeConfig[]; activeConfigId: string | null; defaults?: string | null; defaultsEnabled?: boolean | null }>("get_configs");
+      const result = await invoke<{ configs: ClaudeConfig[]; activeConfigId: string | null; defaults?: string | null }>("get_configs");
       setConfigs(result.configs);
       setActiveConfigId(result.activeConfigId);
       setDefaults(result.defaults || "");
-      setDefaultsEnabled(result.defaultsEnabled || false);
     } catch (error) {
       console.error("Failed to load configs:", error);
     } finally {
@@ -61,17 +59,13 @@ function App() {
     }
   }
 
-  async function handleSave(config: Omit<ClaudeConfig, "id" | "createdAt" | "updatedAt" | "isActive">, newDefaults?: string, newDefaultsEnabled?: boolean) {
+  async function handleSave(config: Omit<ClaudeConfig, "id" | "createdAt" | "updatedAt" | "isActive">, newDefaults?: string) {
     if (!isTauri()) return;
     try {
       // 如果通用配置有变化，先保存通用配置
-      if ((newDefaults !== undefined && newDefaults !== defaults) || (newDefaultsEnabled !== undefined && newDefaultsEnabled !== defaultsEnabled)) {
-        await invoke("update_defaults", {
-          content: newDefaults !== undefined ? newDefaults : defaults,
-          enabled: newDefaultsEnabled !== undefined ? newDefaultsEnabled : defaultsEnabled
-        });
-        if (newDefaults !== undefined) setDefaults(newDefaults);
-        if (newDefaultsEnabled !== undefined) setDefaultsEnabled(newDefaultsEnabled);
+      if (newDefaults !== undefined && newDefaults !== defaults) {
+        await invoke("update_defaults", { content: newDefaults });
+        setDefaults(newDefaults);
       }
 
       if (editingConfig) {
@@ -93,6 +87,7 @@ function App() {
           hasCompletedOnboarding: config.hasCompletedOnboarding || null,
           enableExtraMarketplaces: config.enableExtraMarketplaces || null,
           preferredLanguage: config.preferredLanguage || null,
+          useDefaults: config.useDefaults || null,
           enabledPlugins: config.enabledPlugins && Object.keys(config.enabledPlugins).length > 0 ? config.enabledPlugins : null,
         });
       } else {
@@ -113,6 +108,7 @@ function App() {
           hasCompletedOnboarding: config.hasCompletedOnboarding || null,
           enableExtraMarketplaces: config.enableExtraMarketplaces || null,
           preferredLanguage: config.preferredLanguage || null,
+          useDefaults: config.useDefaults || null,
           enabledPlugins: config.enabledPlugins && Object.keys(config.enabledPlugins).length > 0 ? config.enabledPlugins : null,
         });
       }
@@ -245,7 +241,6 @@ function App() {
         <ConfigModal
           config={editingConfig}
           defaults={defaults}
-          defaultsEnabled={defaultsEnabled}
           onSave={handleSave}
           onClose={() => {
             setIsModalOpen(false);

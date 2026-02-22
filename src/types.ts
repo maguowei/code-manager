@@ -19,6 +19,8 @@ export interface ClaudeConfig {
   hasCompletedOnboarding?: boolean;
   // 语言配置
   preferredLanguage?: string;
+  // 通用配置
+  useDefaults?: boolean;
   // 插件配置
   enabledPlugins?: Record<string, boolean>;
   // 元数据
@@ -31,7 +33,6 @@ export interface AppState {
   configs: ClaudeConfig[];
   activeConfigId: string | null;
   defaults?: string | null;
-  defaultsEnabled?: boolean | null;
 }
 
 // 记忆条目

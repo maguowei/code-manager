@@ -6,12 +6,11 @@ import "./ConfigModal.css";
 interface ConfigModalProps {
   config: ClaudeConfig | null;
   defaults: string;
-  defaultsEnabled: boolean;
-  onSave: (config: Omit<ClaudeConfig, "id" | "createdAt" | "updatedAt" | "isActive">, defaults?: string, defaultsEnabled?: boolean) => void;
+  onSave: (config: Omit<ClaudeConfig, "id" | "createdAt" | "updatedAt" | "isActive">, defaults?: string) => void;
   onClose: () => void;
 }
 
-function ConfigModal({ config, defaults, defaultsEnabled, onSave, onClose }: ConfigModalProps) {
+function ConfigModal({ config, defaults, onSave, onClose }: ConfigModalProps) {
   const { t } = useI18n();
   const [name, setName] = useState(config?.name || "");
   const [description, setDescription] = useState(config?.description || "");
@@ -28,6 +27,7 @@ function ConfigModal({ config, defaults, defaultsEnabled, onSave, onClose }: Con
   const [skipWebFetchPreflight, setSkipWebFetchPreflight] = useState(config?.skipWebFetchPreflight || false);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(config?.hasCompletedOnboarding || false);
   const [enableExtraMarketplaces, setEnableExtraMarketplaces] = useState(config?.enableExtraMarketplaces || false);
+  const [useDefaults, setUseDefaults] = useState(config?.useDefaults || false);
   const [enabledPlugins, setEnabledPlugins] = useState<Record<string, boolean>>(config?.enabledPlugins || {});
   const [newPluginId, setNewPluginId] = useState("");
   const [preferredLanguage, setPreferredLanguage] = useState(config?.preferredLanguage || "english");
@@ -37,7 +37,6 @@ function ConfigModal({ config, defaults, defaultsEnabled, onSave, onClose }: Con
   const [showPlugins, setShowPlugins] = useState(false);
   const [showDefaults, setShowDefaults] = useState(false);
   const [defaultsContent, setDefaultsContent] = useState(defaults || "");
-  const [defaultsEnabledState, setDefaultsEnabledState] = useState(defaultsEnabled);
   const [defaultsError, setDefaultsError] = useState("");
   const defaultsPreRef = useRef<HTMLPreElement>(null);
   const [copied, setCopied] = useState(false);
@@ -61,16 +60,17 @@ function ConfigModal({ config, defaults, defaultsEnabled, onSave, onClose }: Con
     enableExtraMarketplaces,
     enabledPlugins: Object.keys(enabledPlugins).length > 0 ? enabledPlugins : undefined,
     preferredLanguage,
+    useDefaults,
     isActive: config?.isActive || false,
     createdAt: config?.createdAt || 0,
     updatedAt: config?.updatedAt || 0,
-  }), [name, description, apiKey, apiUrl, websiteUrl, model, thinkingModel, haikuModel, sonnetModel, opusModel, alwaysThinkingEnabled, disableNonessentialTraffic, skipWebFetchPreflight, hasCompletedOnboarding, enableExtraMarketplaces, enabledPlugins, preferredLanguage, config]);
+  }), [name, description, apiKey, apiUrl, websiteUrl, model, thinkingModel, haikuModel, sonnetModel, opusModel, alwaysThinkingEnabled, disableNonessentialTraffic, skipWebFetchPreflight, hasCompletedOnboarding, enableExtraMarketplaces, enabledPlugins, preferredLanguage, useDefaults, config]);
 
   const previewJson = useMemo(() => {
     if (!apiKey) return "{}";
     const configJson = generateClaudeJson(currentConfig) as Record<string, unknown>;
-    // 如果通用配置已启用且有内容，做深度合并
-    if (defaultsEnabledState && defaultsContent.trim()) {
+    // 如果当前配置启用了通用配置且有内容，做深度合并
+    if (useDefaults && defaultsContent.trim()) {
       try {
         const defaultsObj = JSON.parse(defaultsContent.trim()) as Record<string, unknown>;
         const merged = deepMerge(defaultsObj, configJson);
@@ -81,7 +81,7 @@ function ConfigModal({ config, defaults, defaultsEnabled, onSave, onClose }: Con
       }
     }
     return JSON.stringify(configJson, null, 2);
-  }, [currentConfig, apiKey, defaultsContent, defaultsEnabledState]);
+  }, [currentConfig, apiKey, defaultsContent, useDefaults]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -113,9 +113,10 @@ function ConfigModal({ config, defaults, defaultsEnabled, onSave, onClose }: Con
       skipWebFetchPreflight,
       enableExtraMarketplaces,
       hasCompletedOnboarding,
+      useDefaults,
       enabledPlugins: Object.keys(enabledPlugins).length > 0 ? enabledPlugins : undefined,
       preferredLanguage,
-    }, defaultsContent, defaultsEnabledState);
+    }, defaultsContent);
   }
 
   function handleAddPlugin() {
@@ -522,18 +523,18 @@ function ConfigModal({ config, defaults, defaultsEnabled, onSave, onClose }: Con
                 <span>{t("configModal.defaults")}</span>
                 <button
                   type="button"
-                  className={`inline-toggle ${defaultsEnabledState ? "enabled" : "disabled"}`}
+                  className={`inline-toggle ${useDefaults ? "enabled" : "disabled"}`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    setDefaultsEnabledState(!defaultsEnabledState);
+                    setUseDefaults(!useDefaults);
                   }}
-                  title={defaultsEnabledState ? t("configModal.defaultsEnabled") : t("configModal.defaultsDisabled")}
+                  title={useDefaults ? t("configModal.defaultsEnabled") : t("configModal.defaultsDisabled")}
                 >
                   <span className="toggle-track">
                     <span className="toggle-thumb" />
                   </span>
                   <span className="toggle-label">
-                    {defaultsEnabledState ? t("configModal.defaultsEnabled") : t("configModal.defaultsDisabled")}
+                    {useDefaults ? t("configModal.defaultsEnabled") : t("configModal.defaultsDisabled")}
                   </span>
                 </button>
               </div>

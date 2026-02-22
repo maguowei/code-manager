@@ -41,6 +41,9 @@ pub struct ClaudeConfig {
     // 语言配置
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preferred_language: Option<String>,
+    // 通用配置
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_defaults: Option<bool>,
     // 插件配置
     #[serde(skip_serializing_if = "Option::is_none")]
     pub enabled_plugins: Option<HashMap<String, bool>>,
@@ -57,8 +60,6 @@ pub struct AppState {
     pub active_config_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub defaults: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub defaults_enabled: Option<bool>,
 }
 
 impl Default for AppState {
@@ -67,7 +68,6 @@ impl Default for AppState {
             configs: Vec::new(),
             active_config_id: None,
             defaults: None,
-            defaults_enabled: None,
         }
     }
 }
@@ -243,9 +243,9 @@ pub fn apply_config(config: &ClaudeConfig) -> Result<(), String> {
 
     claude_config.insert("env".to_string(), serde_json::Value::Object(env));
 
-    // 加载通用配置并深度合并（仅在通用配置启用时）
+    // 加载通用配置并深度合并（仅在当前配置启用通用配置时）
     let state = load_state();
-    let final_config = if state.defaults_enabled == Some(true) {
+    let final_config = if config.use_defaults == Some(true) {
         if let Some(ref defaults_str) = state.defaults {
             if let Ok(defaults_val) = serde_json::from_str::<serde_json::Value>(defaults_str) {
                 let current_val = serde_json::Value::Object(claude_config);
@@ -292,6 +292,7 @@ pub fn add_config(
     has_completed_onboarding: Option<bool>,
     enable_extra_marketplaces: Option<bool>,
     preferred_language: Option<String>,
+    use_defaults: Option<bool>,
     enabled_plugins: Option<HashMap<String, bool>>,
 ) -> Result<ClaudeConfig, String> {
     let mut state = load_state();
@@ -315,6 +316,7 @@ pub fn add_config(
         has_completed_onboarding,
         enable_extra_marketplaces,
         preferred_language,
+        use_defaults,
         enabled_plugins,
         is_active: false,
         created_at: now,
@@ -346,6 +348,7 @@ pub fn update_config(
     has_completed_onboarding: Option<bool>,
     enable_extra_marketplaces: Option<bool>,
     preferred_language: Option<String>,
+    use_defaults: Option<bool>,
     enabled_plugins: Option<HashMap<String, bool>>,
 ) -> Result<ClaudeConfig, String> {
     let mut state = load_state();
@@ -372,6 +375,7 @@ pub fn update_config(
     config.has_completed_onboarding = has_completed_onboarding;
     config.enable_extra_marketplaces = enable_extra_marketplaces;
     config.preferred_language = preferred_language;
+    config.use_defaults = use_defaults;
     config.enabled_plugins = enabled_plugins;
     config.updated_at = current_timestamp();
 
@@ -427,6 +431,7 @@ pub fn duplicate_config(id: String) -> Result<ClaudeConfig, String> {
         original.has_completed_onboarding,
         original.enable_extra_marketplaces,
         original.preferred_language.clone(),
+        original.use_defaults,
         original.enabled_plugins.clone(),
     )
 }
@@ -487,7 +492,7 @@ pub fn get_defaults() -> Result<Option<String>, String> {
 }
 
 #[tauri::command]
-pub fn update_defaults(content: String, enabled: Option<bool>) -> Result<(), String> {
+pub fn update_defaults(content: String) -> Result<(), String> {
     let mut state = load_state();
     let trimmed = content.trim().to_string();
     if trimmed.is_empty() {
@@ -498,14 +503,14 @@ pub fn update_defaults(content: String, enabled: Option<bool>) -> Result<(), Str
             .map_err(|e| format!("Invalid JSON: {}", e))?;
         state.defaults = Some(trimmed);
     }
-    // 更新启用状态
-    state.defaults_enabled = enabled;
     save_state(&state)?;
 
-    // 如果有激活的配置，重新 apply 以包含新的 defaults
+    // 如果有激活的配置且启用了通用配置，重新 apply
     if let Some(ref active_id) = state.active_config_id {
         if let Some(config) = state.configs.iter().find(|c| &c.id == active_id) {
-            apply_config(config)?;
+            if config.use_defaults == Some(true) {
+                apply_config(config)?;
+            }
         }
     }
 
