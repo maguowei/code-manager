@@ -19,7 +19,7 @@
   margin: auto;
   background-color: var(--bg-secondary);
   border-radius: 16px;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-lg);
   overflow: visible;
   flex-shrink: 0;
 }
