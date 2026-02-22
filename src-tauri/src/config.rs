@@ -35,6 +35,8 @@ pub struct ClaudeConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub skip_web_fetch_preflight: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_completed_onboarding: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub enable_extra_marketplaces: Option<bool>,
     // 语言配置
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -172,6 +174,13 @@ pub fn apply_config(config: &ClaudeConfig) -> Result<(), String> {
         );
     }
 
+    if config.has_completed_onboarding == Some(true) {
+        claude_config.insert(
+            "hasCompletedOnboarding".to_string(),
+            serde_json::Value::Bool(true),
+        );
+    }
+
     if config.enable_extra_marketplaces == Some(true) {
         let marketplaces: serde_json::Value = serde_json::json!({
             "claude-plugins-official": {
@@ -237,6 +246,7 @@ pub fn add_config(
     always_thinking_enabled: Option<bool>,
     disable_nonessential_traffic: Option<bool>,
     skip_web_fetch_preflight: Option<bool>,
+    has_completed_onboarding: Option<bool>,
     enable_extra_marketplaces: Option<bool>,
     preferred_language: Option<String>,
     enabled_plugins: Option<HashMap<String, bool>>,
@@ -259,6 +269,7 @@ pub fn add_config(
         always_thinking_enabled,
         disable_nonessential_traffic,
         skip_web_fetch_preflight,
+        has_completed_onboarding,
         enable_extra_marketplaces,
         preferred_language,
         enabled_plugins,
@@ -289,6 +300,7 @@ pub fn update_config(
     always_thinking_enabled: Option<bool>,
     disable_nonessential_traffic: Option<bool>,
     skip_web_fetch_preflight: Option<bool>,
+    has_completed_onboarding: Option<bool>,
     enable_extra_marketplaces: Option<bool>,
     preferred_language: Option<String>,
     enabled_plugins: Option<HashMap<String, bool>>,
@@ -314,6 +326,7 @@ pub fn update_config(
     config.always_thinking_enabled = always_thinking_enabled;
     config.disable_nonessential_traffic = disable_nonessential_traffic;
     config.skip_web_fetch_preflight = skip_web_fetch_preflight;
+    config.has_completed_onboarding = has_completed_onboarding;
     config.enable_extra_marketplaces = enable_extra_marketplaces;
     config.preferred_language = preferred_language;
     config.enabled_plugins = enabled_plugins;
@@ -368,6 +381,7 @@ pub fn duplicate_config(id: String) -> Result<ClaudeConfig, String> {
         original.always_thinking_enabled,
         original.disable_nonessential_traffic,
         original.skip_web_fetch_preflight,
+        original.has_completed_onboarding,
         original.enable_extra_marketplaces,
         original.preferred_language.clone(),
         original.enabled_plugins.clone(),
