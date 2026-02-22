@@ -26,6 +26,17 @@
     0 0 16px rgba(59, 130, 246, 0.25);
 }
 
+.config-item.editing {
+  border-color: var(--accent-orange);
+  box-shadow:
+    0 0 0 1px var(--accent-orange) inset,
+    0 0 20px rgba(247, 129, 102, 0.35);
+}
+
+.config-item.editing:hover {
+  border-color: var(--accent-orange);
+}
+
 /* ==================== 拖拽手柄 ==================== */
 .config-drag-handle {
   display: none;
@@ -99,9 +110,23 @@
 .config-header-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 6px;
   margin-left: auto;
   flex-shrink: 0;
+}
+
+.status-editing {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background-color: var(--accent-orange-bg);
+  color: var(--accent-orange);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  letter-spacing: 0.1px;
 }
 
 .status-active {

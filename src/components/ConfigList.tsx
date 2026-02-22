@@ -7,6 +7,7 @@ import "./ConfigList.css";
 interface ConfigListProps {
   configs: ClaudeConfig[];
   activeConfigId: string | null;
+  editingConfigId: string | null;
   onActivate: (id: string) => void;
   onEdit: (config: ClaudeConfig) => void;
   onDelete: (id: string) => void;
@@ -14,7 +15,7 @@ interface ConfigListProps {
   onReorder: (ids: string[]) => void;
 }
 
-function ConfigList({ configs, activeConfigId, onActivate, onEdit, onDelete, onDuplicate, onReorder }: ConfigListProps) {
+function ConfigList({ configs, activeConfigId, editingConfigId, onActivate, onEdit, onDelete, onDuplicate, onReorder }: ConfigListProps) {
   const { t } = useI18n();
   // 使用 ref 存储拖拽源索引，避免闭包陈旧问题
   const dragIndexRef = useRef<number | null>(null);
@@ -121,6 +122,7 @@ function ConfigList({ configs, activeConfigId, onActivate, onEdit, onDelete, onD
           key={config.id}
           config={config}
           isActive={config.id === activeConfigId}
+          isEditing={config.id === editingConfigId}
           isDragging={dragState.draggingIndex === index}
           dragOverPosition={dragState.overIndex === index ? dragState.overPosition : null}
           onActivate={() => onActivate(config.id)}

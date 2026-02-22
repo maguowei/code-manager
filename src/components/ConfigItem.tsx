@@ -6,6 +6,7 @@ import "./ConfigItem.css";
 interface ConfigItemProps {
   config: ClaudeConfig;
   isActive: boolean;
+  isEditing: boolean;
   isDragging: boolean;
   dragOverPosition: "above" | "below" | null;
   onActivate: () => void;
@@ -22,6 +23,7 @@ interface ConfigItemProps {
 function ConfigItem({
   config,
   isActive,
+  isEditing,
   isDragging,
   dragOverPosition,
   onActivate,
@@ -39,6 +41,7 @@ function ConfigItem({
   const classNames = [
     "config-item",
     isActive ? "active" : "",
+    isEditing ? "editing" : "",
     isDragging ? "dragging" : "",
     dragOverPosition === "above" ? "drag-over-above" : "",
     dragOverPosition === "below" ? "drag-over-below" : "",
@@ -88,12 +91,15 @@ function ConfigItem({
         </div>
 
         <div className="config-header-actions">
+          {isEditing && (
+            <span className="status-editing">{t("configItem.editing")}</span>
+          )}
           {isActive ? (
             <span className="status-active">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
-              使用中
+              {t("configItem.inUse")}
             </span>
           ) : (
             <button

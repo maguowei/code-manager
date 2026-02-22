@@ -221,6 +221,7 @@ function App() {
               <ConfigList
                 configs={configs}
                 activeConfigId={activeConfigId}
+                editingConfigId={isModalOpen ? editingConfig?.id ?? null : null}
                 onActivate={handleActivate}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
