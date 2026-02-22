@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { ClaudeConfig, generateClaudeJson, deepMerge } from "../types";
 import { useI18n } from "../i18n";
 import "./ConfigModal.css";
@@ -40,6 +40,30 @@ function ConfigModal({ config, defaults, onSave, onClose }: ConfigModalProps) {
   const [defaultsError, setDefaultsError] = useState("");
   const defaultsPreRef = useRef<HTMLPreElement>(null);
   const [copied, setCopied] = useState(false);
+
+  // 当启用/禁用通用配置时，实时更新表单字段
+  useEffect(() => {
+    if (!useDefaults || !defaultsContent.trim()) {
+      // 关闭通用配置时，恢复到初始值
+      setEnabledPlugins(config?.enabledPlugins || {});
+      return;
+    }
+
+    try {
+      const defaultsObj = JSON.parse(defaultsContent.trim()) as Record<string, unknown>;
+
+      // 从通用配置中提取并合并 enabledPlugins
+      if (defaultsObj.enabledPlugins && typeof defaultsObj.enabledPlugins === 'object') {
+        const defaultPlugins = defaultsObj.enabledPlugins as Record<string, boolean>;
+        const currentPlugins = config?.enabledPlugins || {};
+        // 合并：通用配置插件 + 当前配置插件（当前配置优先）
+        const merged = { ...defaultPlugins, ...currentPlugins };
+        setEnabledPlugins(merged);
+      }
+    } catch {
+      // JSON 解析失败，忽略
+    }
+  }, [useDefaults, defaultsContent, config?.enabledPlugins]);
 
   const currentConfig = useMemo(() => ({
     id: config?.id || "",
