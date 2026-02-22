@@ -25,6 +25,7 @@ const translations = {
     "configItem.duplicate": "复制",
     "configItem.inUse": "使用中",
     "configItem.delete": "删除",
+    "configItem.plugins": "个插件",
 
     // 配置弹窗
     "configModal.addTitle": "添加配置",
@@ -150,6 +151,7 @@ const translations = {
     "configItem.duplicate": "Duplicate",
     "configItem.inUse": "In Use",
     "configItem.delete": "Delete",
+    "configItem.plugins": "plugins",
 
     // 配置弹窗
     "configModal.addTitle": "Add Config",
