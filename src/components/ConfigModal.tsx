@@ -24,6 +24,7 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
   const [alwaysThinkingEnabled, setAlwaysThinkingEnabled] = useState(config?.alwaysThinkingEnabled || false);
   const [disableNonessentialTraffic, setDisableNonessentialTraffic] = useState(config?.disableNonessentialTraffic || false);
   const [skipWebFetchPreflight, setSkipWebFetchPreflight] = useState(config?.skipWebFetchPreflight || false);
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(config?.hasCompletedOnboarding || false);
   const [enableExtraMarketplaces, setEnableExtraMarketplaces] = useState(config?.enableExtraMarketplaces || false);
   const [enabledPlugins, setEnabledPlugins] = useState<Record<string, boolean>>(config?.enabledPlugins || {});
   const [newPluginId, setNewPluginId] = useState("");
@@ -49,13 +50,14 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
     alwaysThinkingEnabled,
     disableNonessentialTraffic,
     skipWebFetchPreflight,
+    hasCompletedOnboarding,
     enableExtraMarketplaces,
     enabledPlugins: Object.keys(enabledPlugins).length > 0 ? enabledPlugins : undefined,
     preferredLanguage,
     isActive: config?.isActive || false,
     createdAt: config?.createdAt || 0,
     updatedAt: config?.updatedAt || 0,
-  }), [name, description, apiKey, apiUrl, websiteUrl, model, thinkingModel, haikuModel, sonnetModel, opusModel, alwaysThinkingEnabled, disableNonessentialTraffic, skipWebFetchPreflight, enableExtraMarketplaces, enabledPlugins, preferredLanguage, config]);
+  }), [name, description, apiKey, apiUrl, websiteUrl, model, thinkingModel, haikuModel, sonnetModel, opusModel, alwaysThinkingEnabled, disableNonessentialTraffic, skipWebFetchPreflight, hasCompletedOnboarding, enableExtraMarketplaces, enabledPlugins, preferredLanguage, config]);
 
   const previewJson = useMemo(() => {
     if (!apiKey) return "{}";
@@ -82,6 +84,7 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
       disableNonessentialTraffic,
       skipWebFetchPreflight,
       enableExtraMarketplaces,
+      hasCompletedOnboarding,
       enabledPlugins: Object.keys(enabledPlugins).length > 0 ? enabledPlugins : undefined,
       preferredLanguage,
     });
@@ -437,6 +440,18 @@ function ConfigModal({ config, onSave, onClose }: ConfigModalProps) {
 
             {showAdvanced && (
               <div className="advanced-options">
+                <div className="checkbox-group">
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={hasCompletedOnboarding}
+                      onChange={(e) => setHasCompletedOnboarding(e.target.checked)}
+                    />
+                    <span className="checkbox-custom"></span>
+                    <span>{t("configModal.hasCompletedOnboarding")}</span>
+                  </label>
+                  <p className="form-hint">{t("configModal.hasCompletedOnboardingDesc")}</p>
+                </div>
                 <div className="checkbox-group">
                   <label className="checkbox-label">
                     <input
