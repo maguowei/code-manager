@@ -16,6 +16,7 @@ export interface ClaudeConfig {
   disableNonessentialTraffic?: boolean;
   skipWebFetchPreflight?: boolean;
   enableExtraMarketplaces?: boolean;
+  hasCompletedOnboarding?: boolean;
   // 语言配置
   preferredLanguage?: string;
   // 插件配置
@@ -100,6 +101,10 @@ export function generateClaudeJson(config: ClaudeConfig): object {
         },
       },
     };
+  }
+
+  if (config.hasCompletedOnboarding) {
+    result.hasCompletedOnboarding = true;
   }
 
   if (config.enabledPlugins && Object.keys(config.enabledPlugins).length > 0) {
