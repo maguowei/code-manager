@@ -191,17 +191,22 @@ function ConfigModal({ config, defaults, onSave, onClose }: ConfigModalProps) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <button className="back-btn" onClick={onClose}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="15 18 9 12 15 6"/>
-            </svg>
-          </button>
-          <h2>{config ? t("configModal.editTitle") : t("configModal.addTitle")}</h2>
-          <div className="header-spacer"></div>
-        </div>
-
         <form onSubmit={handleSubmit}>
+          <div className="modal-header">
+            <button type="button" className="back-btn" onClick={onClose}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            </button>
+            <h2>{config ? t("configModal.editTitle") : t("configModal.addTitle")}</h2>
+            <button
+              type="submit"
+              className="drawer-save-btn"
+              disabled={!name.trim() || !apiKey.trim()}
+            >
+              {t("configModal.save")}
+            </button>
+          </div>
           <div className="modal-body">
             {/* 配置徽章 */}
             <div className="config-badge-large">
@@ -652,20 +657,6 @@ function ConfigModal({ config, defaults, onSave, onClose }: ConfigModalProps) {
                 <pre><code dangerouslySetInnerHTML={{ __html: highlightJson(previewJson) }} /></pre>
               </div>
             )}
-          </div>
-
-          <div className="modal-footer">
-            <button type="button" className="btn-cancel" onClick={onClose}>
-              {t("configModal.cancel")}
-            </button>
-            <button type="submit" className="btn-save">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                <polyline points="17 21 17 13 7 13 7 21"/>
-                <polyline points="7 3 7 8 15 8"/>
-              </svg>
-              {t("configModal.save")}
-            </button>
           </div>
         </form>
       </div>
