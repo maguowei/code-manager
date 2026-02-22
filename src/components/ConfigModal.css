@@ -100,6 +100,9 @@
   flex: 1;
   min-height: 0;
   padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -119,7 +122,7 @@
   justify-content: center;
   width: 64px;
   height: 64px;
-  margin: 0 auto 24px;
+  margin: 0 auto;
   background-color: var(--bg-tertiary);
   border-radius: 16px;
   font-size: 20px;
@@ -146,7 +149,6 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: var(--space-3);
-  margin-bottom: var(--space-4);
 }
 
 .form-row.single {
@@ -157,13 +159,42 @@
 .form-group {
   display: flex;
   flex-direction: column;
+  gap: var(--space-3);
+}
+
+.form-group.form-group-compact {
   gap: var(--space-2);
+}
+
+.field-label-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .form-group label {
   font-size: var(--font-base);
   font-weight: 500;
   color: var(--text-primary);
+}
+
+.form-group label.label-required {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.required-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background-color: var(--accent-red-bg);
+  color: var(--accent-red);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  letter-spacing: 0.1px;
 }
 
 .form-group input,
@@ -234,6 +265,10 @@
 
 .form-hint.warning {
   color: #f97316;
+}
+
+.form-hint.form-hint-inline {
+  margin: 0;
 }
 
 /* Input with Toggle */

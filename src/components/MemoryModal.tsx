@@ -45,7 +45,10 @@ function MemoryModal({ memory, onSave, onClose }: MemoryModalProps) {
 
             {/* 记忆名称 */}
             <div className="form-group">
-              <label htmlFor="memory-name">{t("memory.name")}</label>
+              <label htmlFor="memory-name" className="label-required">
+                <span>{t("memory.name")}</span>
+                <span className="required-badge">{t("form.required")}</span>
+              </label>
               <input
                 id="memory-name"
                 type="text"

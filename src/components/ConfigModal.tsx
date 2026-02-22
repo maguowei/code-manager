@@ -221,7 +221,10 @@ function ConfigModal({ config, defaults, onSave, onClose }: ConfigModalProps) {
             {/* 基本信息 */}
             <div className="form-row">
               <div className="form-group">
-                <label htmlFor="name">{t("configModal.nameRequired")}</label>
+                <label htmlFor="name" className="label-required">
+                  <span>{t("configModal.name")}</span>
+                  <span className="required-badge">{t("form.required")}</span>
+                </label>
                 <input
                   id="name"
                   type="text"
@@ -255,7 +258,10 @@ function ConfigModal({ config, defaults, onSave, onClose }: ConfigModalProps) {
             </div>
 
             <div className="form-group">
-              <label htmlFor="apiKey">{t("configModal.apiKey")}</label>
+              <label htmlFor="apiKey" className="label-required">
+                <span>{t("configModal.apiKey")}</span>
+                <span className="required-badge">{t("form.required")}</span>
+              </label>
               <div className="input-with-toggle">
                 <input
                   id="apiKey"
@@ -285,8 +291,18 @@ function ConfigModal({ config, defaults, onSave, onClose }: ConfigModalProps) {
               </div>
             </div>
 
-            <div className="form-group">
-              <label htmlFor="apiUrl">{t("configModal.apiUrl")}</label>
+            <div className="form-group form-group-compact">
+              <div className="field-label-wrap">
+                <label htmlFor="apiUrl">{t("configModal.apiUrl")}</label>
+                <p className="form-hint warning form-hint-inline">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  {t("configModal.apiUrlHint")}
+                </p>
+              </div>
               <input
                 id="apiUrl"
                 type="url"
@@ -294,14 +310,6 @@ function ConfigModal({ config, defaults, onSave, onClose }: ConfigModalProps) {
                 onChange={(e) => setApiUrl(e.target.value)}
                 placeholder={t("configModal.apiUrlPlaceholder")}
               />
-              <p className="form-hint warning">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10"/>
-                  <line x1="12" y1="8" x2="12" y2="12"/>
-                  <line x1="12" y1="16" x2="12.01" y2="16"/>
-                </svg>
-                {t("configModal.apiUrlHint")}
-              </p>
             </div>
 
             {/* 模型配置 */}
