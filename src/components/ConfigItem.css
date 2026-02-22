@@ -124,14 +124,14 @@
 }
 
 .active-badge {
-  background-color: rgba(239, 68, 68, 0.15);
-  color: var(--accent-red);
+  background-color: rgba(34, 197, 94, 0.15);
+  color: var(--accent-green);
   cursor: default;
 }
 
 .active-badge:hover {
-  background-color: rgba(239, 68, 68, 0.15);
-  color: var(--accent-red);
+  background-color: rgba(34, 197, 94, 0.15);
+  color: var(--accent-green);
 }
 
 /* 拖拽状态样式 */
