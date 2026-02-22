@@ -6,6 +6,10 @@ import { useI18n } from "./i18n";
 import ConfigList from "./components/ConfigList";
 import ConfigModal from "./components/ConfigModal";
 import SettingsModal from "./components/SettingsModal";
+import MemoryPage from "./components/MemoryPage";
+import SkillsPage from "./components/SkillsPage";
+
+type TabType = "configs" | "memory" | "skills";
 
 // 检测是否在 Tauri 环境中运行
 const isTauri = () => {
@@ -19,6 +23,7 @@ function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState<ClaudeConfig | null>(null);
+  const [activeTab, setActiveTab] = useState<TabType>("configs");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -159,6 +164,8 @@ function App() {
       <header className="header">
         <div className="header-left">
           <h1 className="app-title">{t("app.title")}</h1>
+        </div>
+        <div className="header-right">
           <button className="icon-btn settings-btn" title={t("header.settings")} onClick={() => setIsSettingsOpen(true)}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="3"/>
@@ -166,28 +173,56 @@ function App() {
             </svg>
           </button>
         </div>
-        <div className="header-center">
-        </div>
-        <div className="header-right">
-          <button className="icon-btn add-btn" onClick={handleAdd} title={t("header.addConfig")}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <line x1="12" y1="5" x2="12" y2="19"/>
-              <line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-          </button>
-        </div>
       </header>
 
+      <nav className="nav-bar">
+        <div className="tab-group">
+          <button className={`tab${activeTab === "configs" ? " active" : ""}`} onClick={() => setActiveTab("configs")}>
+            <svg className="tab-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
+            <span>{t("nav.configs")}</span>
+          </button>
+          <button className={`tab${activeTab === "memory" ? " active" : ""}`} onClick={() => setActiveTab("memory")}>
+            <svg className="tab-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+            </svg>
+            <span>{t("nav.memory")}</span>
+          </button>
+          <button className={`tab${activeTab === "skills" ? " active" : ""}`} onClick={() => setActiveTab("skills")}>
+            <svg className="tab-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            </svg>
+            <span>{t("nav.skills")}</span>
+          </button>
+        </div>
+      </nav>
+
       <main className="main">
-        <ConfigList
-          configs={configs}
-          activeConfigId={activeConfigId}
-          onActivate={handleActivate}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          onDuplicate={handleDuplicate}
-          onReorder={handleReorder}
-        />
+        {activeTab === "configs" && (
+          <>
+            <button className="add-config-btn" onClick={handleAdd}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              <span>{t("header.addConfig")}</span>
+            </button>
+            <ConfigList
+              configs={configs}
+              activeConfigId={activeConfigId}
+              onActivate={handleActivate}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              onDuplicate={handleDuplicate}
+              onReorder={handleReorder}
+            />
+          </>
+        )}
+        {activeTab === "memory" && <MemoryPage />}
+        {activeTab === "skills" && <SkillsPage />}
       </main>
 
       {isModalOpen && (

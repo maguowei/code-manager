@@ -92,12 +92,6 @@ body {
   -webkit-app-region: no-drag;
 }
 
-.header-center {
-  display: flex;
-  align-items: center;
-  -webkit-app-region: no-drag;
-}
-
 .header-right {
   display: flex;
   align-items: center;
@@ -137,6 +131,31 @@ body {
 .add-btn:hover {
   background-color: #ea580c;
   color: white;
+}
+
+/* 配置列表上方的添加按钮 */
+.add-config-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 16px;
+  border: 1.5px dashed var(--border-color);
+  border-radius: 12px;
+  background-color: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-config-btn:hover {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+  background-color: rgba(59, 130, 246, 0.05);
 }
 
 /* Tabs */
@@ -179,6 +198,13 @@ body {
 
 .claude-icon {
   color: #f97316;
+}
+
+/* Nav bar */
+.nav-bar {
+  padding: 8px 20px;
+  background-color: var(--bg-primary);
+  border-bottom: 1px solid var(--border-color);
 }
 
 /* Main content */

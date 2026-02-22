@@ -83,6 +83,19 @@ const translations = {
     "configModal.cancel": "取消",
     "configModal.save": "保存",
 
+    // 导航栏
+    "nav.configs": "配置",
+    "nav.memory": "记忆",
+    "nav.skills": "Skills",
+
+    // 记忆页面
+    "memory.title": "CLAUDE.md 记忆管理",
+    "memory.description": "管理项目和全局的 CLAUDE.md 文件，为 Claude Code 提供上下文记忆",
+
+    // Skills 页面
+    "skills.title": "Skills 管理",
+    "skills.description": "管理和配置 Claude Code 的技能扩展",
+
     // 设置页面
     "settings.title": "设置",
     "settings.general": "通用",
@@ -171,6 +184,19 @@ const translations = {
     "configModal.jsonCopied": "Copied",
     "configModal.cancel": "Cancel",
     "configModal.save": "Save",
+
+    // 导航栏
+    "nav.configs": "Configs",
+    "nav.memory": "Memory",
+    "nav.skills": "Skills",
+
+    // 记忆页面
+    "memory.title": "CLAUDE.md Memory",
+    "memory.description": "Manage project and global CLAUDE.md files to provide context memory for Claude Code",
+
+    // Skills 页面
+    "skills.title": "Skills Management",
+    "skills.description": "Manage and configure skill extensions for Claude Code",
 
     // 设置页面
     "settings.title": "Settings",
