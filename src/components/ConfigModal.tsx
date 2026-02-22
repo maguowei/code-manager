@@ -190,15 +190,21 @@ function ConfigModal({ config, defaults, onSave, onClose }: ConfigModalProps) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal modal-large"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-labelledby="config-modal-title"
+        aria-modal="true"
+      >
         <form onSubmit={handleSubmit}>
           <div className="modal-header">
-            <button type="button" className="back-btn" onClick={onClose}>
+            <button type="button" className="back-btn" onClick={onClose} aria-label="关闭">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="15 18 9 12 15 6"/>
               </svg>
             </button>
-            <h2>{config ? t("configModal.editTitle") : t("configModal.addTitle")}</h2>
+            <h2 id="config-modal-title">{config ? t("configModal.editTitle") : t("configModal.addTitle")}</h2>
             <button
               type="submit"
               className="drawer-save-btn"
