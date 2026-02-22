@@ -189,10 +189,9 @@ function ConfigModal({ config, defaults, onSave, onClose }: ConfigModalProps) {
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="drawer-modal-container">
       <div
         className="modal modal-large"
-        onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-labelledby="config-modal-title"
         aria-modal="true"
