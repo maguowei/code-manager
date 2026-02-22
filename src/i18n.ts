@@ -9,6 +9,7 @@ const translations = {
     // 通用
     "app.title": "AI Manager",
     "loading": "加载中...",
+    "common.close": "关闭",
     "form.required": "必填",
 
     // 头部
@@ -137,6 +138,7 @@ const translations = {
     // 通用
     "app.title": "AI Manager",
     "loading": "Loading...",
+    "common.close": "Close",
     "form.required": "Required",
 
     // 头部
