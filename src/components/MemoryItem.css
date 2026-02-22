@@ -96,8 +96,8 @@
 }
 
 .memory-toggle.enabled .toggle-track {
-  background-color: var(--accent-blue);
-  border-color: var(--accent-blue);
+  background-color: var(--accent-green);
+  border-color: var(--accent-green);
 }
 
 .toggle-thumb {
@@ -122,5 +122,5 @@
 }
 
 .memory-toggle.enabled .toggle-label {
-  color: var(--accent-blue);
+  color: var(--accent-green);
 }
