@@ -343,3 +343,53 @@ body {
   outline: 2px solid var(--accent-blue);
   outline-offset: 2px;
 }
+
+/* 小窗口适配 (< 900px) */
+@media (max-width: 900px) {
+  .list-section {
+    position: fixed;
+    left: 60px;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: auto;
+    z-index: 50;
+  }
+
+  .drawer {
+    width: 100%;
+    left: 60px;
+  }
+
+  .drawer.open ~ .list-section {
+    display: none;
+  }
+
+  .drawer-overlay {
+    left: 60px;
+  }
+}
+
+/* 最小窗口适配 (< 700px) */
+@media (max-width: 700px) {
+  .sidebar {
+    width: 48px;
+    padding: var(--space-2) 4px;
+  }
+
+  .sidebar-logo {
+    width: 32px;
+    height: 32px;
+    font-size: var(--font-md);
+  }
+
+  .nav-item {
+    width: 36px;
+    height: 36px;
+  }
+
+  .nav-item svg {
+    width: 18px;
+    height: 18px;
+  }
+}
