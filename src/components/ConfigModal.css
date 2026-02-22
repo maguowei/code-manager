@@ -232,7 +232,82 @@
   color: var(--text-primary);
 }
 
-/* Section Toggle */
+/* 折叠区域容器 */
+.collapsible-section {
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background-color: var(--bg-primary);
+  overflow: hidden;
+  transition: all 200ms ease;
+}
+
+/* 折叠头部 */
+.collapsible-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 150ms ease;
+}
+
+.collapsible-header:hover {
+  background-color: var(--bg-tertiary);
+}
+
+.collapsible-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1;
+}
+
+.collapsible-title {
+  font-size: var(--font-md);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.collapsible-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  background-color: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.collapsible-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--text-secondary);
+  transition: transform 200ms ease;
+  flex-shrink: 0;
+}
+
+.collapsible-section.expanded .collapsible-icon {
+  transform: rotate(180deg);
+}
+
+/* 折叠内容 */
+.collapsible-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 300ms ease;
+}
+
+.collapsible-section.expanded .collapsible-content {
+  max-height: 2000px;
+}
+
+.collapsible-body {
+  padding: var(--space-4);
+  border-top: 1px solid var(--border-default);
+}
+
+/* Section Toggle (保留用于非折叠区域的标题，如"响应语言") */
 .section-toggle {
   display: flex;
   align-items: center;
@@ -317,19 +392,7 @@
   color: var(--accent-green);
 }
 
-.section-toggle svg {
-  transition: transform 0.2s ease;
-}
-
-.section-toggle svg.expanded {
-  transform: rotate(180deg);
-}
-
-/* Advanced Options */
-.advanced-options {
-  padding: 16px 0;
-}
-
+/* Checkbox Group */
 .checkbox-group {
   margin-bottom: 12px;
 }
@@ -375,11 +438,7 @@
   transform: rotate(45deg);
 }
 
-/* Plugin Management */
-.plugin-section {
-  padding: 8px 0 16px;
-}
-
+/* Plugin List */
 .plugin-list {
   border: 1px solid var(--border-color);
   border-radius: 10px;
@@ -514,10 +573,6 @@
 }
 
 /* 通用配置编辑器 */
-.defaults-section {
-  padding: 8px 0 16px;
-}
-
 .defaults-editor {
   position: relative;
   background-color: #282c34;

@@ -400,263 +400,284 @@ function ConfigModal({ config, defaults, onSave, onClose }: ConfigModalProps) {
             </div>
 
             {/* 已启用插件 */}
-            <div className="section-toggle" onClick={() => setShowPlugins(!showPlugins)}>
-              <span>{t("configModal.enabledPlugins")}</span>
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                className={showPlugins ? "expanded" : ""}
-              >
-                <polyline points="6 9 12 15 18 9"/>
-              </svg>
-            </div>
+            <div className={`collapsible-section ${showPlugins ? "expanded" : ""}`}>
+              <div className="collapsible-header" onClick={() => setShowPlugins(!showPlugins)}>
+                <div className="collapsible-header-left">
+                  <span className="collapsible-title">{t("configModal.enabledPlugins")}</span>
+                  {Object.keys(enabledPlugins).length > 0 && (
+                    <span className="collapsible-badge">
+                      {Object.keys(enabledPlugins).length}
+                    </span>
+                  )}
+                </div>
+                <svg
+                  className="collapsible-icon"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </div>
 
-            {showPlugins && (
-              <div className="plugin-section">
-                <p className="form-hint" style={{ marginTop: 0 }}>{t("configModal.enabledPluginsDesc")}</p>
-                {Object.keys(enabledPlugins).length > 0 && (
-                  <div className="plugin-list">
-                    {Object.entries(enabledPlugins).map(([id, enabled]) => (
-                      <div key={id} className="plugin-item">
-                        <span className="plugin-name" title={id}>{id}</span>
-                        <div className="plugin-actions">
-                          <button
-                            type="button"
-                            className={`plugin-toggle ${enabled ? "enabled" : "disabled"}`}
-                            onClick={() => handleTogglePlugin(id)}
-                            title={enabled ? t("configModal.pluginEnabled") : t("configModal.pluginDisabled")}
-                          >
-                            {enabled ? (
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                <polyline points="20 6 9 17 4 12"/>
+              <div className="collapsible-content">
+                <div className="collapsible-body">
+                  <p className="form-hint" style={{ marginTop: 0 }}>{t("configModal.enabledPluginsDesc")}</p>
+                  {Object.keys(enabledPlugins).length > 0 && (
+                    <div className="plugin-list">
+                      {Object.entries(enabledPlugins).map(([id, enabled]) => (
+                        <div key={id} className="plugin-item">
+                          <span className="plugin-name" title={id}>{id}</span>
+                          <div className="plugin-actions">
+                            <button
+                              type="button"
+                              className={`plugin-toggle ${enabled ? "enabled" : "disabled"}`}
+                              onClick={() => handleTogglePlugin(id)}
+                              title={enabled ? t("configModal.pluginEnabled") : t("configModal.pluginDisabled")}
+                            >
+                              {enabled ? (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                  <polyline points="20 6 9 17 4 12"/>
+                                </svg>
+                              ) : (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                  <line x1="18" y1="6" x2="6" y2="18"/>
+                                  <line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              className="plugin-remove"
+                              onClick={() => handleRemovePlugin(id)}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="3 6 5 6 21 6"/>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                               </svg>
-                            ) : (
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                <line x1="18" y1="6" x2="6" y2="18"/>
-                                <line x1="6" y1="6" x2="18" y2="18"/>
-                              </svg>
-                            )}
-                          </button>
-                          <button
-                            type="button"
-                            className="plugin-remove"
-                            onClick={() => handleRemovePlugin(id)}
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <polyline points="3 6 5 6 21 6"/>
-                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                            </svg>
-                          </button>
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                  )}
+                  <div className="plugin-add-row">
+                    <input
+                      type="text"
+                      value={newPluginId}
+                      onChange={(e) => setNewPluginId(e.target.value)}
+                      placeholder={t("configModal.pluginIdPlaceholder")}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddPlugin();
+                        }
+                      }}
+                    />
+                    <button type="button" className="plugin-add-btn" onClick={handleAddPlugin}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                      </svg>
+                      {t("configModal.addPlugin")}
+                    </button>
                   </div>
-                )}
-                <div className="plugin-add-row">
-                  <input
-                    type="text"
-                    value={newPluginId}
-                    onChange={(e) => setNewPluginId(e.target.value)}
-                    placeholder={t("configModal.pluginIdPlaceholder")}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleAddPlugin();
-                      }
-                    }}
-                  />
-                  <button type="button" className="plugin-add-btn" onClick={handleAddPlugin}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <line x1="12" y1="5" x2="12" y2="19"/>
-                      <line x1="5" y1="12" x2="19" y2="12"/>
-                    </svg>
-                    {t("configModal.addPlugin")}
-                  </button>
                 </div>
               </div>
-            )}
+            </div>
 
             {/* 高级选项 */}
-            <div className="section-toggle" onClick={() => setShowAdvanced(!showAdvanced)}>
-              <span>{t("configModal.advancedOptions")}</span>
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                className={showAdvanced ? "expanded" : ""}
-              >
-                <polyline points="6 9 12 15 18 9"/>
-              </svg>
-            </div>
+            <div className={`collapsible-section ${showAdvanced ? "expanded" : ""}`}>
+              <div className="collapsible-header" onClick={() => setShowAdvanced(!showAdvanced)}>
+                <div className="collapsible-header-left">
+                  <span className="collapsible-title">{t("configModal.advancedOptions")}</span>
+                </div>
+                <svg
+                  className="collapsible-icon"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </div>
 
-            {showAdvanced && (
-              <div className="advanced-options">
-                <div className="checkbox-group">
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={hasCompletedOnboarding}
-                      onChange={(e) => setHasCompletedOnboarding(e.target.checked)}
-                    />
-                    <span className="checkbox-custom"></span>
-                    <span>{t("configModal.hasCompletedOnboarding")}</span>
-                  </label>
-                  <p className="form-hint">{t("configModal.hasCompletedOnboardingDesc")}</p>
-                </div>
-                <div className="checkbox-group">
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={alwaysThinkingEnabled}
-                      onChange={(e) => setAlwaysThinkingEnabled(e.target.checked)}
-                    />
-                    <span className="checkbox-custom"></span>
-                    <span>{t("configModal.alwaysThinking")}</span>
-                  </label>
-                </div>
-                <div className="checkbox-group">
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={disableNonessentialTraffic}
-                      onChange={(e) => setDisableNonessentialTraffic(e.target.checked)}
-                    />
-                    <span className="checkbox-custom"></span>
-                    <span>{t("configModal.disableTraffic")}</span>
-                  </label>
-                </div>
-                <div className="checkbox-group">
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={skipWebFetchPreflight}
-                      onChange={(e) => setSkipWebFetchPreflight(e.target.checked)}
-                    />
-                    <span className="checkbox-custom"></span>
-                    <span>{t("configModal.skipWebFetchPreflight")}</span>
-                  </label>
+              <div className="collapsible-content">
+                <div className="collapsible-body">
+                  <div className="checkbox-group">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={hasCompletedOnboarding}
+                        onChange={(e) => setHasCompletedOnboarding(e.target.checked)}
+                      />
+                      <span className="checkbox-custom"></span>
+                      <span>{t("configModal.hasCompletedOnboarding")}</span>
+                    </label>
+                    <p className="form-hint">{t("configModal.hasCompletedOnboardingDesc")}</p>
+                  </div>
+                  <div className="checkbox-group">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={alwaysThinkingEnabled}
+                        onChange={(e) => setAlwaysThinkingEnabled(e.target.checked)}
+                      />
+                      <span className="checkbox-custom"></span>
+                      <span>{t("configModal.alwaysThinking")}</span>
+                    </label>
+                  </div>
+                  <div className="checkbox-group">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={disableNonessentialTraffic}
+                        onChange={(e) => setDisableNonessentialTraffic(e.target.checked)}
+                      />
+                      <span className="checkbox-custom"></span>
+                      <span>{t("configModal.disableTraffic")}</span>
+                    </label>
+                  </div>
+                  <div className="checkbox-group">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={skipWebFetchPreflight}
+                        onChange={(e) => setSkipWebFetchPreflight(e.target.checked)}
+                      />
+                      <span className="checkbox-custom"></span>
+                      <span>{t("configModal.skipWebFetchPreflight")}</span>
+                    </label>
+                  </div>
                 </div>
               </div>
-            )}
+            </div>
 
             {/* 通用配置 */}
-            <div className="section-toggle" onClick={() => setShowDefaults(!showDefaults)}>
-              <div className="section-title-with-toggle">
-                <span>{t("configModal.defaults")}</span>
-                <button
-                  type="button"
-                  className={`inline-toggle ${useDefaults ? "enabled" : "disabled"}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setUseDefaults(!useDefaults);
-                  }}
-                  title={useDefaults ? t("configModal.defaultsEnabled") : t("configModal.defaultsDisabled")}
-                >
-                  <span className="toggle-track">
-                    <span className="toggle-thumb" />
-                  </span>
-                  <span className="toggle-label">
-                    {useDefaults ? t("configModal.defaultsEnabled") : t("configModal.defaultsDisabled")}
-                  </span>
-                </button>
-              </div>
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                className={showDefaults ? "expanded" : ""}
-              >
-                <polyline points="6 9 12 15 18 9"/>
-              </svg>
-            </div>
-
-            {showDefaults && (
-              <div className="defaults-section">
-                <div className={`defaults-editor${defaultsError ? " error" : ""}`}>
-                  <pre className="defaults-highlight" ref={defaultsPreRef} aria-hidden="true">
-                    <code dangerouslySetInnerHTML={{ __html: highlightJson(defaultsContent || " ") }} />
-                  </pre>
-                  <textarea
-                    className="defaults-input"
-                    value={defaultsContent}
-                    onChange={(e) => {
-                      setDefaultsContent(e.target.value);
-                      setDefaultsError("");
-                    }}
-                    onScroll={(e) => {
-                      const target = e.target as HTMLTextAreaElement;
-                      if (defaultsPreRef.current) {
-                        defaultsPreRef.current.scrollTop = target.scrollTop;
-                        defaultsPreRef.current.scrollLeft = target.scrollLeft;
-                      }
-                    }}
-                    placeholder={t("configModal.defaultsPlaceholder")}
-                    spellCheck={false}
-                    wrap="off"
-                  />
-                </div>
-                {defaultsError && (
-                  <p className="defaults-error">{defaultsError}</p>
-                )}
-                <p className="form-hint">{t("configModal.defaultsHint")}</p>
-              </div>
-            )}
-
-            {/* 配置预览 */}
-            <div className="section-toggle" onClick={() => setShowPreview(!showPreview)}>
-              <span>{t("configModal.jsonPreview")}</span>
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                className={showPreview ? "expanded" : ""}
-              >
-                <polyline points="6 9 12 15 18 9"/>
-              </svg>
-            </div>
-
-            {showPreview && (
-              <div className="json-preview">
-                <div className="json-preview-header">
+            <div className={`collapsible-section ${showDefaults ? "expanded" : ""}`}>
+              <div className="collapsible-header" onClick={() => setShowDefaults(!showDefaults)}>
+                <div className="collapsible-header-left">
+                  <span className="collapsible-title">{t("configModal.defaults")}</span>
                   <button
                     type="button"
-                    className={`json-copy-btn ${copied ? "copied" : ""}`}
-                    onClick={handleCopyJson}
+                    className={`inline-toggle ${useDefaults ? "enabled" : "disabled"}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setUseDefaults(!useDefaults);
+                    }}
+                    title={useDefaults ? t("configModal.defaultsEnabled") : t("configModal.defaultsDisabled")}
                   >
-                    {copied ? (
-                      <>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          <polyline points="20 6 9 17 4 12"/>
-                        </svg>
-                        {t("configModal.jsonCopied")}
-                      </>
-                    ) : (
-                      <>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                        </svg>
-                        {t("configModal.jsonCopy")}
-                      </>
-                    )}
+                    <span className="toggle-track">
+                      <span className="toggle-thumb" />
+                    </span>
+                    <span className="toggle-label">
+                      {useDefaults ? t("configModal.defaultsEnabled") : t("configModal.defaultsDisabled")}
+                    </span>
                   </button>
                 </div>
-                <pre><code dangerouslySetInnerHTML={{ __html: highlightJson(previewJson) }} /></pre>
+                <svg
+                  className="collapsible-icon"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
               </div>
-            )}
+
+              <div className="collapsible-content">
+                <div className="collapsible-body">
+                  <div className={`defaults-editor${defaultsError ? " error" : ""}`}>
+                    <pre className="defaults-highlight" ref={defaultsPreRef} aria-hidden="true">
+                      <code dangerouslySetInnerHTML={{ __html: highlightJson(defaultsContent || " ") }} />
+                    </pre>
+                    <textarea
+                      className="defaults-input"
+                      value={defaultsContent}
+                      onChange={(e) => {
+                        setDefaultsContent(e.target.value);
+                        setDefaultsError("");
+                      }}
+                      onScroll={(e) => {
+                        const target = e.target as HTMLTextAreaElement;
+                        if (defaultsPreRef.current) {
+                          defaultsPreRef.current.scrollTop = target.scrollTop;
+                          defaultsPreRef.current.scrollLeft = target.scrollLeft;
+                        }
+                      }}
+                      placeholder={t("configModal.defaultsPlaceholder")}
+                      spellCheck={false}
+                      wrap="off"
+                    />
+                  </div>
+                  {defaultsError && (
+                    <p className="defaults-error">{defaultsError}</p>
+                  )}
+                  <p className="form-hint">{t("configModal.defaultsHint")}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* 配置预览 */}
+            <div className={`collapsible-section ${showPreview ? "expanded" : ""}`}>
+              <div className="collapsible-header" onClick={() => setShowPreview(!showPreview)}>
+                <div className="collapsible-header-left">
+                  <span className="collapsible-title">{t("configModal.jsonPreview")}</span>
+                </div>
+                <svg
+                  className="collapsible-icon"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </div>
+
+              <div className="collapsible-content">
+                <div className="collapsible-body">
+                  <div className="json-preview">
+                    <div className="json-preview-header">
+                      <button
+                        type="button"
+                        className={`json-copy-btn ${copied ? "copied" : ""}`}
+                        onClick={handleCopyJson}
+                      >
+                        {copied ? (
+                          <>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                            {t("configModal.jsonCopied")}
+                          </>
+                        ) : (
+                          <>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                            </svg>
+                            {t("configModal.jsonCopy")}
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <pre><code dangerouslySetInnerHTML={{ __html: highlightJson(previewJson) }} /></pre>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </form>
       </div>
