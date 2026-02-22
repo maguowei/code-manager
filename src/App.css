@@ -80,6 +80,10 @@
   --font-md: 14px;
   --font-lg: 15px;
   --font-xl: 16px;
+
+  /* 布局尺寸 */
+  --sidebar-width: 60px;
+  --sidebar-width-small: 48px;
 }
 
 [data-theme="light"] {
@@ -149,6 +153,10 @@
   --font-md: 14px;
   --font-lg: 15px;
   --font-xl: 16px;
+
+  /* 布局尺寸 */
+  --sidebar-width: 60px;
+  --sidebar-width-small: 48px;
 }
 
 html, body, #root {
@@ -215,7 +223,7 @@ body {
 .drawer-overlay {
   position: fixed;
   top: 0;
-  left: 60px;
+  left: var(--sidebar-width);
   right: 0;
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.3);
@@ -348,7 +356,7 @@ body {
 @media (max-width: 900px) {
   .list-section {
     position: fixed;
-    left: 60px;
+    left: var(--sidebar-width);
     right: 0;
     top: 0;
     bottom: 0;
@@ -358,7 +366,7 @@ body {
 
   .drawer {
     width: 100%;
-    left: 60px;
+    left: var(--sidebar-width);
   }
 
   .drawer.open ~ .list-section {
@@ -366,14 +374,14 @@ body {
   }
 
   .drawer-overlay {
-    left: 60px;
+    left: var(--sidebar-width);
   }
 }
 
 /* 最小窗口适配 (< 700px) */
 @media (max-width: 700px) {
   .sidebar {
-    width: 48px;
+    width: var(--sidebar-width-small);
     padding: var(--space-2) 4px;
   }
 
@@ -391,5 +399,11 @@ body {
   .nav-item svg {
     width: 18px;
     height: 18px;
+  }
+
+  .list-section,
+  .drawer,
+  .drawer-overlay {
+    left: var(--sidebar-width-small);
   }
 }
