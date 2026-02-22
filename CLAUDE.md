@@ -9,6 +9,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **应用标识符**: `com.gotobeta.app.ai-manager`
 **包管理器**: pnpm
 
+## 应用功能
+
+AI Manager 是一个 Claude Code 配置管理工具，提供：
+
+- **配置管理**: 管理多个 Claude Code 配置（API Key、模型、插件等）
+- **记忆管理**: 管理 CLAUDE.md 记忆片段，多个记忆可同时启用
+- **Skills 管理**: （计划中）管理 Claude Code Skills
+- **通用配置**: 共享默认配置，支持深度合并
+
+切换配置后自动更新 `~/.claude/settings.json`，切换记忆后自动更新 `~/.claude/CLAUDE.md`。
+
+## 数据存储
+
+- **应用数据**: `~/.config/ai-manager/`
+  - `configs.json` - 配置列表
+  - `memories.json` - 记忆列表
+- **Claude 配置**: `~/.claude/`
+  - `settings.json` - 当前激活的配置
+  - `CLAUDE.md` - 当前启用的记忆内容
+
 ## 开发命令
 
 ### 前端开发
@@ -51,17 +71,37 @@ cargo fmt             # 格式化 Rust 代码
 ├── src/                    # React 前端代码
 │   ├── App.tsx            # 主应用组件
 │   ├── main.tsx           # React 入口文件
+│   ├── components/        # UI 组件
+│   │   ├── ConfigModal.tsx    # 配置编辑弹窗
+│   │   ├── ConfigList.tsx     # 配置列表
+│   │   ├── MemoryPage.tsx     # 记忆管理页面
+│   │   └── SkillsPage.tsx     # Skills 管理页面（占位）
 │   └── assets/            # 静态资源
 ├── src-tauri/             # Rust 后端代码
 │   ├── src/
 │   │   ├── main.rs        # 应用入口（调用 lib.rs）
-│   │   └── lib.rs         # Tauri 应用逻辑和命令定义
+│   │   ├── lib.rs         # Tauri 应用逻辑和命令注册
+│   │   ├── config.rs      # 配置管理模块
+│   │   └── memory.rs      # 记忆管理模块
 │   ├── Cargo.toml         # Rust 依赖配置
 │   ├── tauri.conf.json    # Tauri 应用配置
 │   └── capabilities/      # 权限配置
 ├── index.html             # HTML 模板
 └── vite.config.ts         # Vite 配置（固定端口 1420）
 ```
+
+### 后端模块
+
+- **config.rs**: 配置管理
+  - CRUD 操作（增删改查、排序、复制）
+  - 通用配置管理（get_defaults / update_defaults）
+  - 深度合并逻辑
+  - 应用配置到 ~/.claude/settings.json
+
+- **memory.rs**: 记忆管理
+  - CRUD 操作
+  - 多记忆启用/禁用（toggle_memory）
+  - 合并所有活跃记忆写入 ~/.claude/CLAUDE.md
 
 ### 关键配置
 
@@ -106,3 +146,31 @@ cargo fmt             # 格式化 Rust 代码
 3. 前端安装对应的 npm 包（如 `@tauri-apps/plugin-*`）
 
 当前已集成: `tauri-plugin-opener`（用于在默认浏览器中打开 URL）
+
+## 关键实现模式
+
+### 通用配置深度合并
+- 通用配置作为基础（base），当前配置覆盖（overlay）
+- 对象递归合并，非对象类型使用 overlay 值
+- 每个配置独立控制 `useDefaults`（非全局开关）
+- 实现位置：`src-tauri/src/config.rs::deep_merge()` 和 `src/types.ts::deepMerge()`
+
+### JSON 编辑器实现
+- 透明 textarea 绝对定位覆盖在语法高亮层上
+- 滚动同步通过 ref 实现
+- `caret-color` 设置光标颜色，`color: transparent` 隐藏文字
+- 实现位置：`src/components/ConfigModal.tsx` 中的 defaults 编辑器
+
+### 配置应用流程
+1. 用户激活配置
+2. 后端执行 `apply_config()`
+3. 生成配置 JSON（启用通用配置时深度合并）
+4. 写入 `~/.claude/settings.json`
+5. Claude Code 自动读取新配置
+
+### 记忆应用流程
+1. 用户切换记忆启用状态
+2. 后端执行 `apply_memories()`
+3. 合并所有 `is_active=true` 的记忆内容（用 `\n\n` 分隔）
+4. 写入 `~/.claude/CLAUDE.md`
+5. Claude Code 自动读取新记忆内容
