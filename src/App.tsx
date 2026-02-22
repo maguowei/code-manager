@@ -8,6 +8,7 @@ import ConfigModal from "./components/ConfigModal";
 import SettingsModal from "./components/SettingsModal";
 import MemoryPage from "./components/MemoryPage";
 import SkillsPage from "./components/SkillsPage";
+import Sidebar from "./components/Sidebar";
 
 type TabType = "configs" | "memory" | "skills";
 
@@ -165,89 +166,72 @@ function App() {
 
   if (loading) {
     return (
-      <div className="app">
+      <div className="app-container">
         <div className="loading">{t("loading")}</div>
       </div>
     );
   }
 
   return (
-    <div className="app">
-      <header className="header">
-        <div className="header-left">
-          <h1 className="app-title">{t("app.title")}</h1>
-        </div>
-        <div className="header-right">
-          <button className="icon-btn settings-btn" title={t("header.settings")} onClick={() => setIsSettingsOpen(true)}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-          </button>
-        </div>
-      </header>
+    <div className="app-container">
+      <Sidebar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onSettingsClick={() => setIsSettingsOpen(true)}
+      />
 
-      <nav className="nav-bar">
-        <div className="tab-group">
-          <button className={`tab${activeTab === "configs" ? " active" : ""}`} onClick={() => setActiveTab("configs")}>
-            <svg className="tab-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-            </svg>
-            <span>{t("nav.configs")}</span>
-          </button>
-          <button className={`tab${activeTab === "memory" ? " active" : ""}`} onClick={() => setActiveTab("memory")}>
-            <svg className="tab-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-            </svg>
-            <span>{t("nav.memory")}</span>
-          </button>
-          <button className={`tab${activeTab === "skills" ? " active" : ""}`} onClick={() => setActiveTab("skills")}>
-            <svg className="tab-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-            </svg>
-            <span>{t("nav.skills")}</span>
-          </button>
+      <div className="content-area">
+        <div className={`list-section ${isModalOpen ? "compressed" : ""}`}>
+          {activeTab === "configs" && (
+            <>
+              <div className="page-header">
+                <h1 className="page-title">{t("nav.configs")}</h1>
+              </div>
+              <button className="add-config-btn" onClick={handleAdd}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="12" y1="5" x2="12" y2="19"/>
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                <span>{t("header.addConfig")}</span>
+              </button>
+              <ConfigList
+                configs={configs}
+                activeConfigId={activeConfigId}
+                onActivate={handleActivate}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onDuplicate={handleDuplicate}
+                onReorder={handleReorder}
+              />
+            </>
+          )}
+          {activeTab === "memory" && <MemoryPage />}
+          {activeTab === "skills" && <SkillsPage />}
         </div>
-      </nav>
 
-      <main className="main">
-        {activeTab === "configs" && (
+        {isModalOpen && (
           <>
-            <button className="add-config-btn" onClick={handleAdd}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <line x1="12" y1="5" x2="12" y2="19"/>
-                <line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-              <span>{t("header.addConfig")}</span>
-            </button>
-            <ConfigList
-              configs={configs}
-              activeConfigId={activeConfigId}
-              onActivate={handleActivate}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              onDuplicate={handleDuplicate}
-              onReorder={handleReorder}
+            <div
+              className={`drawer-overlay ${isModalOpen ? "visible" : ""}`}
+              onClick={() => {
+                setIsModalOpen(false);
+                setEditingConfig(null);
+              }}
             />
+            <div className={`drawer ${isModalOpen ? "open" : ""}`}>
+              <ConfigModal
+                config={editingConfig}
+                defaults={defaults}
+                onSave={handleSave}
+                onClose={() => {
+                  setIsModalOpen(false);
+                  setEditingConfig(null);
+                }}
+              />
+            </div>
           </>
         )}
-        {activeTab === "memory" && <MemoryPage />}
-        {activeTab === "skills" && <SkillsPage />}
-      </main>
-
-      {isModalOpen && (
-        <ConfigModal
-          config={editingConfig}
-          defaults={defaults}
-          onSave={handleSave}
-          onClose={() => {
-            setIsModalOpen(false);
-            setEditingConfig(null);
-          }}
-        />
-      )}
+      </div>
 
       {isSettingsOpen && (
         <SettingsModal onClose={() => setIsSettingsOpen(false)} />
