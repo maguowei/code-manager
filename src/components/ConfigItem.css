@@ -2,8 +2,8 @@
 .config-item {
   position: relative;
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: var(--space-2);
   padding: 14px 16px;
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
@@ -44,6 +44,13 @@
   cursor: grabbing;
 }
 
+/* ==================== 头部区域 ==================== */
+.config-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 /* ==================== 头像徽章 ==================== */
 .config-badge {
   display: flex;
@@ -51,27 +58,24 @@
   justify-content: center;
   width: 36px;
   height: 36px;
-  background: linear-gradient(135deg, var(--accent-blue), #8b5cf6);
+  background: linear-gradient(135deg, var(--bg-tertiary), var(--bg-elevated));
   border-radius: 10px;
   flex-shrink: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: white;
 }
 
-/* ==================== 配置信息区域 ==================== */
-.config-info {
+.badge-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* ==================== 标题区域 ==================== */
+.config-title {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-}
-
-.config-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  gap: 2px;
 }
 
 .config-name {
@@ -81,7 +85,19 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin: 0;
+}
+
+.config-description {
+  font-size: 12px;
+  color: var(--accent-blue);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ==================== 状态区域 ==================== */
+.config-status {
+  flex-shrink: 0;
 }
 
 .status-active {
@@ -92,38 +108,30 @@
   background-color: rgba(34, 197, 94, 0.15);
   color: var(--accent-green);
   border-radius: 6px;
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 500;
-  flex-shrink: 0;
 }
 
 .status-active svg {
-  width: 10px;
-  height: 10px;
-}
-
-.config-description {
-  font-size: 12px;
-  color: var(--accent-blue);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin: 0;
+  width: 12px;
+  height: 12px;
 }
 
 /* ==================== 元信息 ==================== */
 .config-meta {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 11px;
-  color: var(--text-secondary);
+  flex-direction: column;
+  gap: 4px;
+  padding-left: calc(36px + 12px); /* badge width + header gap */
+  margin-bottom: var(--space-2);
 }
 
-.meta-item {
+.config-meta-item {
   display: flex;
   align-items: center;
   gap: 4px;
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
 }
 
 .config-meta-icon {
@@ -139,11 +147,13 @@
   gap: 8px;
   flex-shrink: 0;
   opacity: 0;
-  transition: opacity 0.25s ease;
+  transform: translateX(8px);
+  transition: opacity 200ms ease, transform 200ms ease;
 }
 
 .config-item:hover .config-actions {
   opacity: 1;
+  transform: translateX(0);
 }
 
 .action-btn {

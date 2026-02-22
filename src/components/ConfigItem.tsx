@@ -46,11 +46,6 @@ function ConfigItem({
     .filter(Boolean)
     .join(" ");
 
-  const pluginCount = Object.keys(config.enabledPlugins || {}).length;
-  const modelDisplay = config.model && config.model.length > 30
-    ? config.model.substring(0, 30) + '...'
-    : config.model || 'claude-opus-4-6';
-
   return (
     <div
       className={classNames}
@@ -61,7 +56,7 @@ function ConfigItem({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
-      {/* 隐藏拖拽手柄 */}
+      {/* 拖拽手柄 - 隐藏 */}
       <div className="config-drag-handle" style={{ display: 'none' }}>
         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
           <circle cx="4" cy="3" r="1.5"/>
@@ -73,46 +68,55 @@ function ConfigItem({
         </svg>
       </div>
 
-      {/* 头像徽章 */}
-      <div className="config-badge">
-        {config.name.charAt(0).toUpperCase()}
-      </div>
+      {/* 头部区域 */}
+      <div className="config-header">
+        <div className="config-badge">
+          <span className="badge-text">{config.name?.charAt(0)?.toUpperCase() || 'C'}</span>
+        </div>
 
-      {/* 配置信息 */}
-      <div className="config-info">
-        <div className="config-header">
-          <h3 className="config-name">{config.name}</h3>
-          {isActive && (
-            <span className="status-active">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-              {t("configItem.inUse")}
-            </span>
+        <div className="config-title">
+          <div className="config-name">{config.name}</div>
+          {config.description && (
+            <div className="config-description">{config.description}</div>
           )}
         </div>
-        <p className="config-description">
-          {config.description || config.apiUrl || "Claude API"}
-        </p>
-        <div className="config-meta">
-          <span className="meta-item">
-            <svg className="config-meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-              <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
-              <line x1="12" y1="22.08" x2="12" y2="12"/>
-            </svg>
-            {modelDisplay}
-          </span>
-          <span className="meta-item">
-            <svg className="config-meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M20 7h-3a2 2 0 0 1-2-2V2"/>
-              <path d="M9 18a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h7l4 4v10a2 2 0 0 1-2 2Z"/>
-              <path d="M3 7.6v12.8A1.6 1.6 0 0 0 4.6 22h9.8"/>
-            </svg>
-            {pluginCount} {t("configItem.plugins")}
-          </span>
+
+        <div className="config-status">
+          {isActive ? (
+            <span className="status-active">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              使用中
+            </span>
+          ) : null}
         </div>
       </div>
+
+      {/* 元信息区域 - 仅在有 model 或 plugins 时显示 */}
+      {(config.model || config.enabledPlugins) && (
+        <div className="config-meta">
+          {config.model && (
+            <div className="config-meta-item">
+              <svg className="config-meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <span>{config.model.substring(0, 30)}{config.model.length > 30 ? '...' : ''}</span>
+            </div>
+          )}
+          {config.enabledPlugins && Object.keys(config.enabledPlugins).length > 0 && (
+            <div className="config-meta-item">
+              <svg className="config-meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <line x1="9" y1="9" x2="15" y2="9"/>
+                <line x1="9" y1="15" x2="15" y2="15"/>
+              </svg>
+              <span>{Object.keys(config.enabledPlugins).length} 个插件</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 操作按钮 */}
       <div className="config-actions">
