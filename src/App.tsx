@@ -43,12 +43,6 @@ function App() {
         }
       }
 
-      // Cmd/Ctrl + S: 保存（在抽屉打开时）
-      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-        e.preventDefault();
-        // 触发表单提交（ConfigModal 内部处理）
-      }
-
       // ESC: 关闭抽屉
       if (e.key === 'Escape' && isModalOpen) {
         setIsModalOpen(false);
@@ -58,6 +52,8 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+    // handleAdd 是稳定的函数引用，不需要添加到依赖数组
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, isModalOpen]);
 
   async function loadConfigs() {
