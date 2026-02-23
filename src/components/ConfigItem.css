@@ -245,40 +245,45 @@
 /* ==================== 拖拽状态 ==================== */
 /* 拖拽中的卡片 */
 .config-item.dragging {
-  opacity: 0.5;
-  transform: scale(0.98) rotate(2deg);
+  opacity: 0.4;
+  transform: scale(0.98);
   cursor: grabbing;
   box-shadow: var(--shadow-lg);
   z-index: 1000;
 }
 
-/* 其他卡片在拖拽时 */
+/* 其他卡片在拖拽时添加过渡动画 */
 .config-list.is-dragging .config-item:not(.dragging) {
-  opacity: 0.6;
-  transition: all 200ms ease;
+  transition: transform 200ms ease, margin 200ms ease, opacity 200ms ease;
 }
 
 /* 插入位置指示器 */
 .config-item.drag-over-above::before,
-.config-item.drag-over-below::before {
+.config-item.drag-over-below::after {
   content: '';
   position: absolute;
-  left: 0;
-  right: 0;
+  left: 8px;
+  right: 8px;
   height: 2px;
+  border-radius: 1px;
   background-color: var(--accent-blue);
   box-shadow: var(--glow-blue);
 }
 
+/* 插入到上方：卡片下移腾出空间 */
+.config-item.drag-over-above:not(.dragging) {
+  margin-top: 40px;
+}
+
 .config-item.drag-over-above::before {
-  top: -5px;
+  top: -8px;
 }
 
-.config-item.drag-over-below::before {
-  bottom: -5px;
-}
-
-.config-item.drag-over-above:not(.dragging),
+/* 插入到下方：卡片下方腾出空间 */
 .config-item.drag-over-below:not(.dragging) {
-  transform: scale(1.02);
+  margin-bottom: 40px;
+}
+
+.config-item.drag-over-below::after {
+  bottom: -8px;
 }
