@@ -362,24 +362,25 @@ function ConfigModal({ config, defaults, onSave, onClose }: ConfigModalProps) {
               </div>
             </div>
 
-            <div className="form-group half-width">
-              <label htmlFor="opusModel">{t("configModal.opusModel")}</label>
-              <input
-                id="opusModel"
-                type="text"
-                value={opusModel}
-                onChange={(e) => setOpusModel(e.target.value)}
-                placeholder={t("configModal.opusModelPlaceholder")}
-              />
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="opusModel">{t("configModal.opusModel")}</label>
+                <input
+                  id="opusModel"
+                  type="text"
+                  value={opusModel}
+                  onChange={(e) => setOpusModel(e.target.value)}
+                  placeholder={t("configModal.opusModelPlaceholder")}
+                />
+              </div>
             </div>
             <p className="form-hint">{t("configModal.modelHint")}</p>
 
             {/* Claude Code 响应语言 */}
-            <div className="section-toggle" style={{ cursor: "default" }}>
-              <span>{t("configModal.preferredLanguage")}</span>
-            </div>
             <div className="form-group">
+              <label htmlFor="preferredLanguage">{t("configModal.preferredLanguage")}</label>
               <select
+                id="preferredLanguage"
                 value={preferredLanguage}
                 onChange={(e) => setPreferredLanguage(e.target.value)}
               >
@@ -395,13 +396,9 @@ function ConfigModal({ config, defaults, onSave, onClose }: ConfigModalProps) {
                 <option value="arabic">{t("configModal.langArabic")}</option>
                 <option value="italian">{t("configModal.langItalian")}</option>
               </select>
-              <p className="form-hint">{t("configModal.preferredLanguageDesc")}</p>
             </div>
 
             {/* 插件市场 */}
-            <div className="section-toggle" style={{ cursor: "default" }}>
-              <span>{t("configModal.pluginMarketplaces")}</span>
-            </div>
             <div className="checkbox-group">
               <label className="checkbox-label">
                 <input
