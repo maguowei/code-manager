@@ -261,22 +261,13 @@ body {
   transform: translateX(0);
 }
 
-/* 自定义滚动条 */
+/* 隐藏滚动条 */
 .list-section::-webkit-scrollbar {
-  width: 6px;
+  display: none;
 }
 
-.list-section::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.list-section::-webkit-scrollbar-thumb {
-  background-color: var(--border-default);
-  border-radius: 3px;
-}
-
-.list-section::-webkit-scrollbar-thumb:hover {
-  background-color: var(--text-muted);
+.list-section {
+  scrollbar-width: none;
 }
 
 .loading {
