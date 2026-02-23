@@ -107,6 +107,11 @@
   overflow-x: hidden;
 }
 
+/* 可滚动区域内子元素不应被 flex-shrink 压缩 */
+.modal-body > * {
+  flex-shrink: 0;
+}
+
 .modal form {
   display: flex;
   flex-direction: column;
