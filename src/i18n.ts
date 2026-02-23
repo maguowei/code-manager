@@ -124,6 +124,14 @@ const translations = {
     "skills.title": "Skills 管理",
     "skills.description": "管理和配置 Claude Code 的技能扩展",
 
+    // 确认对话框
+    "confirm.deleteConfigTitle": "删除配置",
+    "confirm.deleteConfigMessage": "确定要删除这个配置吗？此操作无法撤销。",
+    "confirm.deleteMemoryTitle": "删除记忆",
+    "confirm.deleteMemoryMessage": "确定要删除这条记忆吗？此操作无法撤销。",
+    "confirm.delete": "删除",
+    "confirm.cancel": "取消",
+
     // 设置页面
     "settings.title": "设置",
     "settings.general": "通用",
@@ -253,6 +261,14 @@ const translations = {
     // Skills 页面
     "skills.title": "Skills Management",
     "skills.description": "Manage and configure skill extensions for Claude Code",
+
+    // 确认对话框
+    "confirm.deleteConfigTitle": "Delete Config",
+    "confirm.deleteConfigMessage": "Are you sure you want to delete this config? This action cannot be undone.",
+    "confirm.deleteMemoryTitle": "Delete Memory",
+    "confirm.deleteMemoryMessage": "Are you sure you want to delete this memory? This action cannot be undone.",
+    "confirm.delete": "Delete",
+    "confirm.cancel": "Cancel",
 
     // 设置页面
     "settings.title": "Settings",

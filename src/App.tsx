@@ -9,6 +9,7 @@ import SettingsModal from "./components/SettingsModal";
 import MemoryPage from "./components/MemoryPage";
 import SkillsPage from "./components/SkillsPage";
 import Sidebar from "./components/Sidebar";
+import ConfirmDialog from "./components/ConfirmDialog";
 
 type TabType = "configs" | "memory" | "skills";
 
@@ -27,6 +28,7 @@ function App() {
   const [editingConfig, setEditingConfig] = useState<ClaudeConfig | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>("configs");
   const [loading, setLoading] = useState(true);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     loadConfigs();
@@ -224,7 +226,7 @@ function App() {
                 editingConfigId={isModalOpen ? editingConfig?.id ?? null : null}
                 onActivate={handleActivate}
                 onEdit={handleEdit}
-                onDelete={handleDelete}
+                onDelete={(id) => setPendingDeleteId(id)}
                 onDuplicate={handleDuplicate}
                 onReorder={handleReorder}
               />
@@ -257,6 +259,21 @@ function App() {
           </>
         )}
       </div>
+
+      {pendingDeleteId && (
+        <ConfirmDialog
+          title={t("confirm.deleteConfigTitle")}
+          message={t("confirm.deleteConfigMessage")}
+          confirmText={t("confirm.delete")}
+          cancelText={t("confirm.cancel")}
+          danger
+          onConfirm={() => {
+            handleDelete(pendingDeleteId);
+            setPendingDeleteId(null);
+          }}
+          onCancel={() => setPendingDeleteId(null)}
+        />
+      )}
 
       {isSettingsOpen && (
         <SettingsModal onClose={() => setIsSettingsOpen(false)} />

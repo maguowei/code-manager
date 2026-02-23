@@ -4,6 +4,7 @@ import { Memory, MemoryState } from "../types";
 import { useI18n } from "../i18n";
 import MemoryItem from "./MemoryItem";
 import MemoryModal from "./MemoryModal";
+import ConfirmDialog from "./ConfirmDialog";
 import "./MemoryPage.css";
 
 function MemoryPage() {
@@ -11,6 +12,7 @@ function MemoryPage() {
   const [memories, setMemories] = useState<Memory[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMemory, setEditingMemory] = useState<Memory | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const loadMemories = useCallback(async () => {
     try {
@@ -130,10 +132,26 @@ function MemoryPage() {
               isEditing={isModalOpen && editingMemory?.id === memory.id}
               onToggle={() => handleToggle(memory.id)}
               onEdit={() => openEditModal(memory)}
-              onDelete={() => handleDelete(memory.id)}
+              onDelete={() => setPendingDeleteId(memory.id)}
             />
           ))}
         </div>
+      )}
+
+      {/* 删除确认对话框 */}
+      {pendingDeleteId && (
+        <ConfirmDialog
+          title={t("confirm.deleteMemoryTitle")}
+          message={t("confirm.deleteMemoryMessage")}
+          confirmText={t("confirm.delete")}
+          cancelText={t("confirm.cancel")}
+          danger
+          onConfirm={() => {
+            handleDelete(pendingDeleteId);
+            setPendingDeleteId(null);
+          }}
+          onCancel={() => setPendingDeleteId(null)}
+        />
       )}
 
       {/* 弹窗 */}

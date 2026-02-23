@@ -1,0 +1,102 @@
+/* 确认对话框遮罩 */
+.confirm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  animation: confirm-fade-in 150ms ease;
+}
+
+@keyframes confirm-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* 对话框主体 */
+.confirm-dialog {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  width: 360px;
+  max-width: 90vw;
+  box-shadow: var(--shadow-xl);
+  animation: confirm-scale-in 150ms ease;
+}
+
+@keyframes confirm-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.confirm-dialog__title {
+  font-size: var(--font-xl);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.confirm-dialog__message {
+  font-size: var(--font-md);
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: var(--space-6);
+}
+
+/* 按钮区域 */
+.confirm-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.confirm-dialog__btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-md);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.confirm-dialog__btn--cancel {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+}
+
+.confirm-dialog__btn--cancel:hover {
+  background-color: var(--bg-hover);
+}
+
+.confirm-dialog__btn--confirm {
+  background-color: var(--accent-blue);
+  color: white;
+}
+
+.confirm-dialog__btn--confirm:hover {
+  background-color: var(--accent-blue-hover);
+}
+
+.confirm-dialog__btn--danger {
+  background-color: var(--accent-red);
+  color: white;
+}
+
+.confirm-dialog__btn--danger:hover {
+  background-color: var(--accent-red-bg);
+  color: var(--accent-red);
+}
