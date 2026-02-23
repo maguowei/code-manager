@@ -406,34 +406,48 @@ pub fn delete_config(id: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn duplicate_config(id: String) -> Result<ClaudeConfig, String> {
-    let state = load_state();
+    let mut state = load_state();
 
-    let original = state
+    let index = state
         .configs
         .iter()
-        .find(|c| c.id == id)
+        .position(|c| c.id == id)
         .ok_or("Config not found")?;
 
-    add_config(
-        format!("{} (副本)", original.name),
-        original.description.clone(),
-        original.api_key.clone(),
-        original.api_url.clone(),
-        original.website_url.clone(),
-        original.model.clone(),
-        original.thinking_model.clone(),
-        original.haiku_model.clone(),
-        original.sonnet_model.clone(),
-        original.opus_model.clone(),
-        original.always_thinking_enabled,
-        original.disable_nonessential_traffic,
-        original.skip_web_fetch_preflight,
-        original.has_completed_onboarding,
-        original.enable_extra_marketplaces,
-        original.preferred_language.clone(),
-        original.use_defaults,
-        original.enabled_plugins.clone(),
-    )
+    let original = &state.configs[index];
+    let now = current_timestamp();
+
+    let new_config = ClaudeConfig {
+        id: Uuid::new_v4().to_string(),
+        name: format!("{} (副本)", original.name),
+        description: original.description.clone(),
+        api_key: original.api_key.clone(),
+        api_url: original.api_url.clone(),
+        website_url: original.website_url.clone(),
+        model: original.model.clone(),
+        thinking_model: original.thinking_model.clone(),
+        haiku_model: original.haiku_model.clone(),
+        sonnet_model: original.sonnet_model.clone(),
+        opus_model: original.opus_model.clone(),
+        always_thinking_enabled: original.always_thinking_enabled,
+        disable_nonessential_traffic: original.disable_nonessential_traffic,
+        skip_web_fetch_preflight: original.skip_web_fetch_preflight,
+        has_completed_onboarding: original.has_completed_onboarding,
+        enable_extra_marketplaces: original.enable_extra_marketplaces,
+        preferred_language: original.preferred_language.clone(),
+        use_defaults: original.use_defaults,
+        enabled_plugins: original.enabled_plugins.clone(),
+        is_active: false,
+        created_at: now,
+        updated_at: now,
+    };
+
+    let result = new_config.clone();
+    // 插入到原项后面
+    state.configs.insert(index + 1, new_config);
+    save_state(&state)?;
+
+    Ok(result)
 }
 
 #[tauri::command]
