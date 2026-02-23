@@ -259,7 +259,8 @@
 }
 
 /* 插入位置指示器 */
-.config-item.drag-over::before {
+.config-item.drag-over-above::before,
+.config-item.drag-over-below::before {
   content: '';
   position: absolute;
   left: 0;
@@ -277,6 +278,7 @@
   bottom: -5px;
 }
 
-.config-item.drag-over:not(.dragging) {
+.config-item.drag-over-above:not(.dragging),
+.config-item.drag-over-below:not(.dragging) {
   transform: scale(1.02);
 }
