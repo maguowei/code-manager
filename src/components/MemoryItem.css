@@ -5,7 +5,7 @@
   gap: var(--space-3);
   padding: 14px 16px;
   background-color: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-muted);
   border-radius: var(--radius-lg);
   cursor: pointer;
   transition: all 220ms ease;
@@ -13,21 +13,18 @@
 
 .memory-item:hover {
   background-color: var(--bg-tertiary);
-  border-color: var(--accent-blue);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
-  transform: translateY(-1px);
+  border-color: var(--border-default);
+  box-shadow: var(--shadow-sm);
 }
 
 .memory-item.active {
+  background-color: var(--accent-green-bg);
   border-color: var(--accent-green);
-  box-shadow: 0 0 0 1px var(--accent-green) inset;
 }
 
 .memory-item.editing {
   border-color: var(--accent-orange);
-  box-shadow:
-    0 0 0 1px var(--accent-orange) inset,
-    0 0 16px rgba(247, 129, 102, 0.25);
+  box-shadow: 0 0 12px rgba(247, 129, 102, 0.2);
 }
 
 .memory-header {
