@@ -15,6 +15,7 @@ export interface ClaudeConfig {
   alwaysThinkingEnabled?: boolean;
   disableNonessentialTraffic?: boolean;
   skipWebFetchPreflight?: boolean;
+  enableLspTool?: boolean;
   enableExtraMarketplaces?: boolean;
   hasCompletedOnboarding?: boolean;
   // 语言配置
@@ -73,6 +74,9 @@ export function generateClaudeJson(config: ClaudeConfig): object {
   }
   if (config.disableNonessentialTraffic) {
     env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1";
+  }
+  if (config.enableLspTool) {
+    env.ENABLE_LSP_TOOL = "1";
   }
 
   const result: Record<string, unknown> = {};

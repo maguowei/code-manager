@@ -35,6 +35,8 @@ pub struct ClaudeConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub skip_web_fetch_preflight: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub enable_lsp_tool: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub has_completed_onboarding: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub enable_extra_marketplaces: Option<bool>,
@@ -174,6 +176,12 @@ pub fn apply_config(config: &ClaudeConfig) -> Result<(), String> {
             serde_json::Value::String("1".to_string()),
         );
     }
+    if config.enable_lsp_tool == Some(true) {
+        env.insert(
+            "ENABLE_LSP_TOOL".to_string(),
+            serde_json::Value::String("1".to_string()),
+        );
+    }
 
     let mut claude_config = serde_json::Map::new();
 
@@ -289,6 +297,7 @@ pub fn add_config(
     always_thinking_enabled: Option<bool>,
     disable_nonessential_traffic: Option<bool>,
     skip_web_fetch_preflight: Option<bool>,
+    enable_lsp_tool: Option<bool>,
     has_completed_onboarding: Option<bool>,
     enable_extra_marketplaces: Option<bool>,
     preferred_language: Option<String>,
@@ -313,6 +322,7 @@ pub fn add_config(
         always_thinking_enabled,
         disable_nonessential_traffic,
         skip_web_fetch_preflight,
+        enable_lsp_tool,
         has_completed_onboarding,
         enable_extra_marketplaces,
         preferred_language,
@@ -345,6 +355,7 @@ pub fn update_config(
     always_thinking_enabled: Option<bool>,
     disable_nonessential_traffic: Option<bool>,
     skip_web_fetch_preflight: Option<bool>,
+    enable_lsp_tool: Option<bool>,
     has_completed_onboarding: Option<bool>,
     enable_extra_marketplaces: Option<bool>,
     preferred_language: Option<String>,
@@ -372,6 +383,7 @@ pub fn update_config(
     config.always_thinking_enabled = always_thinking_enabled;
     config.disable_nonessential_traffic = disable_nonessential_traffic;
     config.skip_web_fetch_preflight = skip_web_fetch_preflight;
+    config.enable_lsp_tool = enable_lsp_tool;
     config.has_completed_onboarding = has_completed_onboarding;
     config.enable_extra_marketplaces = enable_extra_marketplaces;
     config.preferred_language = preferred_language;
@@ -432,6 +444,7 @@ pub fn duplicate_config(id: String) -> Result<ClaudeConfig, String> {
         always_thinking_enabled: original.always_thinking_enabled,
         disable_nonessential_traffic: original.disable_nonessential_traffic,
         skip_web_fetch_preflight: original.skip_web_fetch_preflight,
+        enable_lsp_tool: original.enable_lsp_tool,
         has_completed_onboarding: original.has_completed_onboarding,
         enable_extra_marketplaces: original.enable_extra_marketplaces,
         preferred_language: original.preferred_language.clone(),

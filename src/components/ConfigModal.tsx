@@ -25,6 +25,7 @@ function ConfigModal({ config, defaults, onSave, onClose }: ConfigModalProps) {
   const [alwaysThinkingEnabled, setAlwaysThinkingEnabled] = useState(config?.alwaysThinkingEnabled || false);
   const [disableNonessentialTraffic, setDisableNonessentialTraffic] = useState(config?.disableNonessentialTraffic || false);
   const [skipWebFetchPreflight, setSkipWebFetchPreflight] = useState(config?.skipWebFetchPreflight || false);
+  const [enableLspTool, setEnableLspTool] = useState(config?.enableLspTool || false);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(config?.hasCompletedOnboarding || false);
   const [enableExtraMarketplaces, setEnableExtraMarketplaces] = useState(config?.enableExtraMarketplaces || false);
   const [useDefaults, setUseDefaults] = useState(config?.useDefaults || false);
@@ -80,6 +81,7 @@ function ConfigModal({ config, defaults, onSave, onClose }: ConfigModalProps) {
     alwaysThinkingEnabled,
     disableNonessentialTraffic,
     skipWebFetchPreflight,
+    enableLspTool,
     hasCompletedOnboarding,
     enableExtraMarketplaces,
     enabledPlugins: Object.keys(enabledPlugins).length > 0 ? enabledPlugins : undefined,
@@ -88,7 +90,7 @@ function ConfigModal({ config, defaults, onSave, onClose }: ConfigModalProps) {
     isActive: config?.isActive || false,
     createdAt: config?.createdAt || 0,
     updatedAt: config?.updatedAt || 0,
-  }), [name, description, apiKey, apiUrl, websiteUrl, model, thinkingModel, haikuModel, sonnetModel, opusModel, alwaysThinkingEnabled, disableNonessentialTraffic, skipWebFetchPreflight, hasCompletedOnboarding, enableExtraMarketplaces, enabledPlugins, preferredLanguage, useDefaults, config]);
+  }), [name, description, apiKey, apiUrl, websiteUrl, model, thinkingModel, haikuModel, sonnetModel, opusModel, alwaysThinkingEnabled, disableNonessentialTraffic, skipWebFetchPreflight, enableLspTool, hasCompletedOnboarding, enableExtraMarketplaces, enabledPlugins, preferredLanguage, useDefaults, config]);
 
   const previewJson = useMemo(() => {
     if (!apiKey) return "{}";
@@ -135,6 +137,7 @@ function ConfigModal({ config, defaults, onSave, onClose }: ConfigModalProps) {
       alwaysThinkingEnabled,
       disableNonessentialTraffic,
       skipWebFetchPreflight,
+      enableLspTool,
       enableExtraMarketplaces,
       hasCompletedOnboarding,
       useDefaults,
@@ -566,6 +569,17 @@ function ConfigModal({ config, defaults, onSave, onClose }: ConfigModalProps) {
                       />
                       <span className="checkbox-custom"></span>
                       <span>{t("configModal.skipWebFetchPreflight")}</span>
+                    </label>
+                  </div>
+                  <div className="checkbox-group">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={enableLspTool}
+                        onChange={(e) => setEnableLspTool(e.target.checked)}
+                      />
+                      <span className="checkbox-custom"></span>
+                      <span>{t("configModal.enableLspTool")}</span>
                     </label>
                   </div>
                 </div>
