@@ -319,7 +319,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  margin: var(--space-4) var(--space-4) var(--space-3) var(--space-4);
+  margin: var(--space-4) var(--space-2) var(--space-3) var(--space-2);
   padding: 14px;
   border: none;
   border-radius: var(--radius-lg);

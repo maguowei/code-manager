@@ -2,16 +2,16 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
-.memory-header {
-  display: flex;
-  justify-content: flex-end;
-  padding: 16px;
-  border-bottom: 1px solid var(--border-default);
-  background-color: var(--bg-secondary);
-  flex-shrink: 0;
+.memory-page::-webkit-scrollbar {
+  display: none;
+}
+
+.memory-page {
+  scrollbar-width: none;
 }
 
 .memory-list {
@@ -19,8 +19,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 16px;
-  overflow-y: auto;
+  padding: 0 var(--space-2);
 }
 
 .memory-empty {

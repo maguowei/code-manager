@@ -5,8 +5,8 @@
   gap: var(--space-3);
   padding: 14px 16px;
   background-color: var(--bg-secondary);
-  border: 1px solid var(--border-muted);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
   cursor: pointer;
   transition: all 220ms ease;
 }
@@ -85,6 +85,12 @@
 .memory-status.active {
   background-color: var(--accent-green-bg);
   color: var(--accent-green);
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.memory-status.active:hover {
+  background-color: rgba(63, 185, 80, 0.25);
 }
 
 .memory-status.editing {

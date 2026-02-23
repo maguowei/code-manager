@@ -17,7 +17,7 @@ function MemoryItem({ memory, isEditing, onToggle, onEdit, onDelete }: MemoryIte
   // 截取第一行作为预览
   const preview = memory.content.split("\n")[0] || "";
 
-  function handleActionClick(e: MouseEvent<HTMLButtonElement>, action: () => void) {
+  function handleActionClick(e: MouseEvent<HTMLElement>, action: () => void) {
     e.stopPropagation();
     action();
   }
@@ -39,8 +39,28 @@ function MemoryItem({ memory, isEditing, onToggle, onEdit, onDelete }: MemoryIte
           {isEditing && (
             <span className="memory-status editing">{t("memory.editing")}</span>
           )}
-          {memory.isActive && (
-            <span className="memory-status active">{t("memory.enabled")}</span>
+          {memory.isActive ? (
+            <span
+              className="memory-status active"
+              onClick={(e) => handleActionClick(e, onToggle)}
+              title={t("memory.enabled")}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              {t("memory.enabled")}
+            </span>
+          ) : (
+            <button
+              className="action-btn activate-btn compact"
+              onClick={(e) => handleActionClick(e, onToggle)}
+              title={t("configItem.activate")}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+              <span>{t("configItem.activate")}</span>
+            </button>
           )}
         </div>
       </div>
@@ -48,19 +68,6 @@ function MemoryItem({ memory, isEditing, onToggle, onEdit, onDelete }: MemoryIte
       <p className="memory-preview">{preview}</p>
 
       <div className="memory-actions">
-        <button
-          className={`memory-toggle ${memory.isActive ? "enabled" : "disabled"}`}
-          onClick={(e) => handleActionClick(e, onToggle)}
-          title={memory.isActive ? t("memory.enabled") : t("memory.disabled")}
-        >
-          <span className="toggle-track">
-            <span className="toggle-thumb" />
-          </span>
-          <span className="toggle-label">
-            {memory.isActive ? t("memory.enabled") : t("memory.disabled")}
-          </span>
-        </button>
-
         <button
           className="memory-action-btn delete"
           onClick={(e) => handleActionClick(e, onDelete)}
