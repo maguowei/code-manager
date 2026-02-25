@@ -7,7 +7,7 @@ import MemoryModal from "./MemoryModal";
 import ConfirmDialog from "./ConfirmDialog";
 import "./MemoryPage.css";
 
-function MemoryPage() {
+function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => void }) {
   const { t } = useI18n();
   const [memories, setMemories] = useState<Memory[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -84,16 +84,19 @@ function MemoryPage() {
   function openAddModal() {
     setEditingMemory(null);
     setIsModalOpen(true);
+    onDrawerChange?.(true);
   }
 
   function openEditModal(memory: Memory) {
     setEditingMemory(memory);
     setIsModalOpen(true);
+    onDrawerChange?.(true);
   }
 
   function closeModal() {
     setEditingMemory(null);
     setIsModalOpen(false);
+    onDrawerChange?.(false);
   }
 
   return (

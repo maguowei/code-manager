@@ -245,9 +245,10 @@ body {
 .drawer {
   position: fixed;
   top: 0;
+  left: calc(var(--sidebar-width) + 280px);
   right: 0;
   bottom: 0;
-  width: 600px;
+  min-width: 480px;
   background-color: var(--bg-elevated);
   box-shadow: -4px 0 24px rgba(0, 0, 0, 0.2);
   transform: translateX(100%);
@@ -346,8 +347,8 @@ body {
   outline-offset: 2px;
 }
 
-/* 小窗口适配 (< 900px) */
-@media (max-width: 900px) {
+/* 窗口不够宽时，抽屉展开占满内容区 */
+@media (max-width: 1000px) {
   .list-section {
     position: fixed;
     left: var(--sidebar-width);
@@ -359,8 +360,8 @@ body {
   }
 
   .drawer {
-    width: 100%;
     left: var(--sidebar-width);
+    min-width: 0;
   }
 
   .drawer.open ~ .list-section {

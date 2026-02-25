@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import "./App.css";
 import { ClaudeConfig } from "./types";
 import { useI18n } from "./i18n";
@@ -29,6 +30,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<TabType>("configs");
   const [loading, setLoading] = useState(true);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [isMemoryDrawerOpen, setIsMemoryDrawerOpen] = useState(false);
 
   useEffect(() => {
     loadConfigs();
@@ -182,14 +184,38 @@ function App() {
     }
   }
 
+  // 打开抽屉时确保窗口宽度足够展示详情
+  // sidebar(60) + 压缩列表(280) + 抽屉最小(600) = 940
+  const MIN_DRAWER_WIDTH = 940;
+  const MIN_DRAWER_HEIGHT = 700;
+  const ensureWindowSize = useCallback(async () => {
+    if (!isTauri()) return;
+    try {
+      const win = getCurrentWindow();
+      const size = await win.innerSize();
+      const factor = await win.scaleFactor();
+      const logicalW = size.width / factor;
+      const logicalH = size.height / factor;
+      if (logicalW < MIN_DRAWER_WIDTH || logicalH < MIN_DRAWER_HEIGHT) {
+        const newW = Math.max(logicalW, MIN_DRAWER_WIDTH);
+        const newH = Math.max(logicalH, MIN_DRAWER_HEIGHT);
+        await win.setSize(new LogicalSize(newW, newH));
+      }
+    } catch {
+      // 非 Tauri 环境忽略
+    }
+  }, []);
+
   function handleEdit(config: ClaudeConfig) {
     setEditingConfig(config);
     setIsModalOpen(true);
+    ensureWindowSize();
   }
 
   function handleAdd() {
     setEditingConfig(null);
     setIsModalOpen(true);
+    ensureWindowSize();
   }
 
   if (loading) {
@@ -204,12 +230,12 @@ function App() {
     <div className="app-container">
       <Sidebar
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={(tab) => { setActiveTab(tab); setIsMemoryDrawerOpen(false); }}
         onSettingsClick={() => setIsSettingsOpen(true)}
       />
 
       <div className="content-area">
-        <div className={`list-section ${isModalOpen ? "compressed" : ""}`}>
+        <div className={`list-section ${isModalOpen || isMemoryDrawerOpen ? "compressed" : ""}`}>
           {activeTab === "configs" && (
             <>
               <div className="page-header">
@@ -234,7 +260,7 @@ function App() {
               />
             </>
           )}
-          {activeTab === "memory" && <MemoryPage />}
+          {activeTab === "memory" && <MemoryPage onDrawerChange={setIsMemoryDrawerOpen} />}
           {activeTab === "skills" && <SkillsPage />}
         </div>
 
