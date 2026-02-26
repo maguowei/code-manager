@@ -99,6 +99,8 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
                 match id {
                     "show_window" => {
                         if let Some(window) = app.get_webview_window("main") {
+                            #[cfg(target_os = "macos")]
+                            let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
                             let _ = window.unminimize();
                             let _ = window.show();
                             let _ = window.set_focus();
@@ -121,6 +123,8 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
             {
                 let app = tray.app_handle();
                 if let Some(window) = app.get_webview_window("main") {
+                    #[cfg(target_os = "macos")]
+                    let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
                     let _ = window.unminimize();
                     let _ = window.show();
                     let _ = window.set_focus();
