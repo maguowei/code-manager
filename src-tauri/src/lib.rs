@@ -7,6 +7,7 @@ use config::{
     reorder_configs, update_config, update_defaults,
 };
 use memory::{add_memory, delete_memory, get_memories, toggle_memory, update_memory};
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -15,6 +16,13 @@ pub fn run() {
         .setup(|app| {
             tray::setup_tray(app)?;
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            // 点击关闭按钮时隐藏窗口而非退出，保留系统托盘
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let _ = window.hide();
+                api.prevent_close();
+            }
         })
         .invoke_handler(tauri::generate_handler![
             get_configs,
