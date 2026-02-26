@@ -1,8 +1,10 @@
+use crate::tray::rebuild_tray_menu;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tauri::AppHandle;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -230,10 +232,7 @@ pub fn apply_config(config: &ClaudeConfig) -> Result<(), String> {
                 }
             }
         });
-        claude_config.insert(
-            "extraKnownMarketplaces".to_string(),
-            marketplaces,
-        );
+        claude_config.insert("extraKnownMarketplaces".to_string(), marketplaces);
     }
 
     if let Some(ref plugins) = config.enabled_plugins {
@@ -284,6 +283,7 @@ pub fn get_configs() -> Result<AppState, String> {
 
 #[tauri::command]
 pub fn add_config(
+    app_handle: AppHandle,
     name: String,
     description: String,
     api_key: String,
@@ -335,12 +335,14 @@ pub fn add_config(
 
     state.configs.push(config.clone());
     save_state(&state)?;
+    rebuild_tray_menu(&app_handle);
 
     Ok(config)
 }
 
 #[tauri::command]
 pub fn update_config(
+    app_handle: AppHandle,
     id: String,
     name: String,
     description: String,
@@ -398,12 +400,13 @@ pub fn update_config(
     if state.active_config_id == Some(id) {
         apply_config(&updated)?;
     }
+    rebuild_tray_menu(&app_handle);
 
     Ok(updated)
 }
 
 #[tauri::command]
-pub fn delete_config(id: String) -> Result<(), String> {
+pub fn delete_config(app_handle: AppHandle, id: String) -> Result<(), String> {
     let mut state = load_state();
 
     state.configs.retain(|c| c.id != id);
@@ -413,11 +416,12 @@ pub fn delete_config(id: String) -> Result<(), String> {
     }
 
     save_state(&state)?;
+    rebuild_tray_menu(&app_handle);
     Ok(())
 }
 
 #[tauri::command]
-pub fn duplicate_config(id: String) -> Result<ClaudeConfig, String> {
+pub fn duplicate_config(app_handle: AppHandle, id: String) -> Result<ClaudeConfig, String> {
     let mut state = load_state();
 
     let index = state
@@ -459,12 +463,13 @@ pub fn duplicate_config(id: String) -> Result<ClaudeConfig, String> {
     // 插入到原项后面
     state.configs.insert(index + 1, new_config);
     save_state(&state)?;
+    rebuild_tray_menu(&app_handle);
 
     Ok(result)
 }
 
 #[tauri::command]
-pub fn reorder_configs(ids: Vec<String>) -> Result<(), String> {
+pub fn reorder_configs(app_handle: AppHandle, ids: Vec<String>) -> Result<(), String> {
     let mut state = load_state();
 
     // 按 ids 顺序重排 configs
@@ -484,11 +489,12 @@ pub fn reorder_configs(ids: Vec<String>) -> Result<(), String> {
 
     state.configs = reordered;
     save_state(&state)?;
+    rebuild_tray_menu(&app_handle);
     Ok(())
 }
 
-#[tauri::command]
-pub fn activate_config(id: String) -> Result<(), String> {
+/// Internal implementation, callable from tray.rs without AppHandle
+pub fn activate_config_inner(id: String) -> Result<(), String> {
     let mut state = load_state();
 
     // Find and validate the config exists
@@ -513,13 +519,20 @@ pub fn activate_config(id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn activate_config(app_handle: AppHandle, id: String) -> Result<(), String> {
+    activate_config_inner(id)?;
+    rebuild_tray_menu(&app_handle);
+    Ok(())
+}
+
+#[tauri::command]
 pub fn get_defaults() -> Result<Option<String>, String> {
     let state = load_state();
     Ok(state.defaults)
 }
 
 #[tauri::command]
-pub fn update_defaults(content: String) -> Result<(), String> {
+pub fn update_defaults(app_handle: AppHandle, content: String) -> Result<(), String> {
     let mut state = load_state();
     let trimmed = content.trim().to_string();
     if trimmed.is_empty() {
@@ -540,6 +553,7 @@ pub fn update_defaults(content: String) -> Result<(), String> {
             }
         }
     }
+    rebuild_tray_menu(&app_handle);
 
     Ok(())
 }

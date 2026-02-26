@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import "./App.css";
 import { ClaudeConfig } from "./types";
@@ -34,6 +35,17 @@ function App() {
 
   useEffect(() => {
     loadConfigs();
+  }, []);
+
+  // 监听来自系统托盘的配置切换事件
+  useEffect(() => {
+    if (!isTauri()) return;
+    const unlisten = listen("config-changed", () => {
+      loadConfigs();
+    });
+    return () => {
+      unlisten.then(fn => fn());
+    };
   }, []);
 
   // 键盘快捷键支持
@@ -243,8 +255,8 @@ function App() {
               </div>
               <button className="add-config-btn" onClick={handleAdd}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <line x1="12" y1="5" x2="12" y2="19"/>
-                  <line x1="5" y1="12" x2="19" y2="12"/>
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
                 </svg>
                 <span>{t("header.addConfig")}</span>
               </button>
