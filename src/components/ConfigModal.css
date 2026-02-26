@@ -717,6 +717,7 @@
 /* CodeMirror 覆盖样式 */
 .defaults-editor .cm-editor {
   font-size: 12px;
+  line-height: 1.6;
   height: auto;
   min-height: 200px;
   max-height: 400px;
@@ -802,6 +803,7 @@
 /* CodeMirror 覆盖样式 */
 .json-preview .cm-editor {
   font-size: 12px;
+  line-height: 1.6;
   height: auto;
   min-height: 200px;
   max-height: 400px;
