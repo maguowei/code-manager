@@ -691,8 +691,8 @@
   display: flex;
   justify-content: flex-end;
   padding: 6px 8px;
-  background-color: #282c34;
-  border-bottom: 1px solid #3e4452;
+  background-color: #f5f5f7;
+  border-bottom: 1px solid #e0e0e0;
 }
 
 .defaults-format-btn {
@@ -700,18 +700,18 @@
   align-items: center;
   gap: 4px;
   padding: 4px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(0, 0, 0, 0.15);
   border-radius: 6px;
-  background-color: rgba(255, 255, 255, 0.06);
-  color: #abb2bf;
+  background-color: rgba(0, 0, 0, 0.04);
+  color: #333;
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .defaults-format-btn:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: #e5e7eb;
+  background-color: rgba(0, 0, 0, 0.08);
+  color: #000;
 }
 
 /* CodeMirror 覆盖样式 */
@@ -738,13 +738,25 @@
   margin-bottom: 0;
 }
 
-/* 浅色主题下保持深色编辑器背景 */
-[data-theme="light"] .defaults-editor {
+/* 深色主题下使用深色工具栏 */
+[data-theme="dark"] .defaults-editor {
   border-color: #3e4452;
 }
 
-[data-theme="light"] .defaults-toolbar {
+[data-theme="dark"] .defaults-toolbar {
   background-color: #282c34;
+  border-bottom-color: #3e4452;
+}
+
+[data-theme="dark"] .defaults-format-btn {
+  border-color: rgba(255, 255, 255, 0.15);
+  background-color: rgba(255, 255, 255, 0.06);
+  color: #abb2bf;
+}
+
+[data-theme="dark"] .defaults-format-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #e5e7eb;
 }
 
 /* JSON Preview */
@@ -758,8 +770,8 @@
   display: flex;
   justify-content: flex-end;
   padding: 6px 8px;
-  background-color: #282c34;
-  border-bottom: 1px solid #3e4452;
+  background-color: #f5f5f7;
+  border-bottom: 1px solid #e0e0e0;
 }
 
 .json-copy-btn {
@@ -767,24 +779,24 @@
   align-items: center;
   gap: 4px;
   padding: 4px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(0, 0, 0, 0.15);
   border-radius: 6px;
-  background-color: rgba(255, 255, 255, 0.06);
-  color: #abb2bf;
+  background-color: rgba(0, 0, 0, 0.04);
+  color: #333;
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .json-copy-btn:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: #e5e7eb;
+  background-color: rgba(0, 0, 0, 0.08);
+  color: #000;
 }
 
 .json-copy-btn.copied {
-  border-color: rgba(152, 195, 121, 0.4);
-  color: #98c379;
-  background-color: rgba(152, 195, 121, 0.1);
+  border-color: rgba(34, 197, 94, 0.4);
+  color: #16a34a;
+  background-color: rgba(34, 197, 94, 0.1);
 }
 
 /* CodeMirror 覆盖样式 */
@@ -804,11 +816,29 @@
   overflow: auto !important;
 }
 
-/* 浅色主题下保持深色代码预览背景 */
-[data-theme="light"] .json-preview {
+/* 深色主题下使用深色预览背景 */
+[data-theme="dark"] .json-preview {
   border-color: #3e4452;
 }
 
-[data-theme="light"] .json-preview-header {
+[data-theme="dark"] .json-preview-header {
   background-color: #282c34;
+  border-bottom-color: #3e4452;
+}
+
+[data-theme="dark"] .json-copy-btn {
+  border-color: rgba(255, 255, 255, 0.15);
+  background-color: rgba(255, 255, 255, 0.06);
+  color: #abb2bf;
+}
+
+[data-theme="dark"] .json-copy-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #e5e7eb;
+}
+
+[data-theme="dark"] .json-copy-btn.copied {
+  border-color: rgba(152, 195, 121, 0.4);
+  color: #98c379;
+  background-color: rgba(152, 195, 121, 0.1);
 }

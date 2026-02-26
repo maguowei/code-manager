@@ -3,7 +3,7 @@ import { ClaudeConfig, generateClaudeJson, deepMerge } from "../types";
 import { useI18n } from "../i18n";
 import CodeMirror from "@uiw/react-codemirror";
 import { json } from "@codemirror/lang-json";
-import { atomone } from "@uiw/codemirror-theme-atomone";
+import { xcodeLight, xcodeDark } from "@uiw/codemirror-theme-xcode";
 import "./ConfigModal.css";
 
 interface ConfigModalProps {
@@ -14,7 +14,7 @@ interface ConfigModalProps {
 }
 
 function ConfigModal({ config, defaults, onSave, onClose }: ConfigModalProps) {
-  const { t } = useI18n();
+  const { t, theme } = useI18n();
   const [name, setName] = useState(config?.name || "");
   const [description, setDescription] = useState(config?.description || "");
   const [apiKey, setApiKey] = useState(config?.apiKey || "");
@@ -43,6 +43,15 @@ function ConfigModal({ config, defaults, onSave, onClose }: ConfigModalProps) {
   const [defaultsContent, setDefaultsContent] = useState(defaults || "");
   const [defaultsError, setDefaultsError] = useState("");
   const [copied, setCopied] = useState(false);
+
+  // 根据应用主题选择 CodeMirror 主题
+  const editorTheme = useMemo(() => {
+    if (theme === "dark") return xcodeDark;
+    if (theme === "light") return xcodeLight;
+    // theme === "system"：检测系统偏好
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    return prefersDark ? xcodeDark : xcodeLight;
+  }, [theme]);
 
   // 当启用/禁用通用配置时，实时更新表单字段
   useEffect(() => {
@@ -643,7 +652,7 @@ function ConfigModal({ config, defaults, onSave, onClose }: ConfigModalProps) {
                         setDefaultsError("");
                       }}
                       extensions={[json()]}
-                      theme={atomone}
+                      theme={editorTheme}
                       placeholder={t("configModal.defaultsPlaceholder")}
                       basicSetup={{
                         lineNumbers: true,
@@ -709,7 +718,7 @@ function ConfigModal({ config, defaults, onSave, onClose }: ConfigModalProps) {
                     <CodeMirror
                       value={previewJson}
                       extensions={[json()]}
-                      theme={atomone}
+                      theme={editorTheme}
                       editable={false}
                       basicSetup={{
                         lineNumbers: true,
