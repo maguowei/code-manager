@@ -183,27 +183,6 @@ function ConfigModal({ config, defaults, onSave, onClose }: ConfigModalProps) {
     }
   }
 
-  // JSON 语法高亮 + 行号
-  function highlightJson(json: string): string {
-    const highlighted = json.replace(
-      /("(?:\\.|[^"\\])*")\s*(:)?|(\b(?:true|false|null)\b)|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
-      (match, str, colon, bool, num) => {
-        if (str) {
-          return colon
-            ? `<span class="json-key">${str}</span>:`
-            : `<span class="json-string">${str}</span>`;
-        }
-        if (bool) return `<span class="json-bool">${match}</span>`;
-        if (num) return `<span class="json-number">${match}</span>`;
-        return match;
-      }
-    );
-    return highlighted
-      .split("\n")
-      .map((line, i) => `<span class="json-line"><span class="json-line-num">${i + 1}</span>${line}</span>`)
-      .join("");
-  }
-
   return (
     <div className="drawer-modal-container">
       <div
@@ -727,7 +706,16 @@ function ConfigModal({ config, defaults, onSave, onClose }: ConfigModalProps) {
                         )}
                       </button>
                     </div>
-                    <pre><code dangerouslySetInnerHTML={{ __html: highlightJson(previewJson) }} /></pre>
+                    <CodeMirror
+                      value={previewJson}
+                      extensions={[json()]}
+                      theme={atomone}
+                      editable={false}
+                      basicSetup={{
+                        lineNumbers: true,
+                        foldGutter: false,
+                      }}
+                    />
                   </div>
                 </div>
               </div>
