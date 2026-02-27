@@ -72,14 +72,14 @@ cargo fmt             # 格式化 Rust 代码
 │   ├── App.tsx            # 主应用组件
 │   ├── main.tsx           # React 入口文件
 │   ├── components/        # UI 组件
-│   │   ├── ConfigModal.tsx    # 配置编辑弹窗
+│   │   ├── ConfigEditor.tsx   # 配置编辑面板
 │   │   ├── ConfigList.tsx     # 配置列表
 │   │   ├── ConfigItem.tsx     # 配置列表项
 │   │   ├── ConfirmDialog.tsx  # 通用确认对话框
 │   │   ├── MemoryPage.tsx     # 记忆管理页面
-│   │   ├── MemoryModal.tsx    # 记忆编辑弹窗
+│   │   ├── MemoryEditor.tsx   # 记忆编辑面板
 │   │   ├── MemoryItem.tsx     # 记忆列表项
-│   │   ├── SettingsModal.tsx  # 设置弹窗
+│   │   ├── SettingsDrawer.tsx # 设置侧边抽屉
 │   │   ├── Sidebar.tsx        # 侧边栏导航
 │   │   └── SkillsPage.tsx     # Skills 管理页面（占位）
 │   └── assets/            # 静态资源
@@ -172,7 +172,7 @@ cargo fmt             # 格式化 Rust 代码
 - 透明 textarea 绝对定位覆盖在语法高亮层上
 - 滚动同步通过 ref 实现
 - `caret-color` 设置光标颜色，`color: transparent` 隐藏文字
-- 实现位置：`src/components/ConfigModal.tsx` 中的 defaults 编辑器
+- 实现位置：`src/components/ConfigEditor.tsx` 中的 defaults 编辑器
 
 ### 配置应用流程
 1. 用户激活配置

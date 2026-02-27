@@ -1,15 +1,15 @@
 import { useState } from "react";
 import { Memory } from "../types";
 import { useI18n } from "../i18n";
-import "./MemoryModal.css";
+import "./MemoryEditor.css";
 
-interface MemoryModalProps {
+interface MemoryEditorProps {
   memory: Memory | null;
   onSave: (data: { name: string; content: string }) => void;
   onClose: () => void;
 }
 
-function MemoryModal({ memory, onSave, onClose }: MemoryModalProps) {
+function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
   const { t } = useI18n();
   const [name, setName] = useState(memory?.name || "");
   const [content, setContent] = useState(memory?.content || "");
@@ -87,4 +87,4 @@ function MemoryModal({ memory, onSave, onClose }: MemoryModalProps) {
   );
 }
 
-export default MemoryModal;
+export default MemoryEditor;

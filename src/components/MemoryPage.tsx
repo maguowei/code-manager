@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Memory, MemoryState } from "../types";
 import { useI18n } from "../i18n";
 import MemoryItem from "./MemoryItem";
-import MemoryModal from "./MemoryModal";
+import MemoryEditor from "./MemoryEditor";
 import ConfirmDialog from "./ConfirmDialog";
 import "./MemoryPage.css";
 
@@ -165,7 +165,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
         <>
           <div className="drawer-overlay visible" onClick={closeModal} />
           <div className="drawer open">
-            <MemoryModal
+            <MemoryEditor
               memory={editingMemory}
               onSave={editingMemory ? handleUpdate : handleAdd}
               onClose={closeModal}

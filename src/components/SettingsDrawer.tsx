@@ -1,12 +1,12 @@
 import { useEffect } from "react";
 import { useI18n, Language, Theme } from "../i18n";
-import "./SettingsModal.css";
+import "./SettingsDrawer.css";
 
-interface SettingsModalProps {
+interface SettingsDrawerProps {
   onClose: () => void;
 }
 
-function SettingsModal({ onClose }: SettingsModalProps) {
+function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   const { t, language, theme, setLanguage, setTheme } = useI18n();
 
   const themeOptions: { value: Theme; labelKey: "settings.themeLight" | "settings.themeDark" | "settings.themeSystem"; icon: string }[] = [
@@ -119,4 +119,4 @@ function SettingsModal({ onClose }: SettingsModalProps) {
   );
 }
 
-export default SettingsModal;
+export default SettingsDrawer;

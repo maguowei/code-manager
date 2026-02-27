@@ -4,16 +4,16 @@ import { useI18n } from "../i18n";
 import CodeMirror from "@uiw/react-codemirror";
 import { json } from "@codemirror/lang-json";
 import { xcodeLight, xcodeDark } from "@uiw/codemirror-theme-xcode";
-import "./ConfigModal.css";
+import "./ConfigEditor.css";
 
-interface ConfigModalProps {
+interface ConfigEditorProps {
   config: ClaudeConfig | null;
   defaults: string;
   onSave: (config: Omit<ClaudeConfig, "id" | "createdAt" | "updatedAt" | "isActive">, defaults?: string) => void;
   onClose: () => void;
 }
 
-function ConfigModal({ config, defaults, onSave, onClose }: ConfigModalProps) {
+function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) {
   const { t, theme } = useI18n();
   const [name, setName] = useState(config?.name || "");
   const [description, setDescription] = useState(config?.description || "");
@@ -736,4 +736,4 @@ function ConfigModal({ config, defaults, onSave, onClose }: ConfigModalProps) {
   );
 }
 
-export default ConfigModal;
+export default ConfigEditor;

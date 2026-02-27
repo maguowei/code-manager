@@ -6,8 +6,8 @@ import "./App.css";
 import { ClaudeConfig } from "./types";
 import { useI18n } from "./i18n";
 import ConfigList from "./components/ConfigList";
-import ConfigModal from "./components/ConfigModal";
-import SettingsModal from "./components/SettingsModal";
+import ConfigEditor from "./components/ConfigEditor";
+import SettingsDrawer from "./components/SettingsDrawer";
 import MemoryPage from "./components/MemoryPage";
 import SkillsPage from "./components/SkillsPage";
 import Sidebar from "./components/Sidebar";
@@ -286,7 +286,7 @@ function App() {
               }}
             />
             <div className={`drawer ${isModalOpen ? "open" : ""}`}>
-              <ConfigModal
+              <ConfigEditor
                 config={editingConfig}
                 defaults={defaults}
                 onSave={handleSave}
@@ -316,7 +316,7 @@ function App() {
       )}
 
       {isSettingsOpen && (
-        <SettingsModal onClose={() => setIsSettingsOpen(false)} />
+        <SettingsDrawer onClose={() => setIsSettingsOpen(false)} />
       )}
     </div>
   );
