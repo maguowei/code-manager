@@ -62,9 +62,9 @@ cargo fmt             # 格式化 Rust 代码
 - **命令注册**: 在 `lib.rs` 的 `run()` 函数中通过 `.invoke_handler(tauri::generate_handler![...])` 注册
 
 示例流程:
-1. 前端: `invoke("greet", { name: "World" })` (src/App.tsx:12)
-2. 后端: `#[tauri::command] fn greet(name: &str) -> String` (src-tauri/src/lib.rs:3)
-3. 注册: `.invoke_handler(tauri::generate_handler![greet])` (src-tauri/src/lib.rs:11)
+1. 前端: `invoke("get_configs")` (src/App.tsx)
+2. 后端: `#[tauri::command] fn get_configs() -> ...` (src-tauri/src/config.rs)
+3. 注册: `.invoke_handler(tauri::generate_handler![get_configs, ...])` (src-tauri/src/lib.rs)
 
 ### 项目结构
 ```
@@ -74,7 +74,13 @@ cargo fmt             # 格式化 Rust 代码
 │   ├── components/        # UI 组件
 │   │   ├── ConfigModal.tsx    # 配置编辑弹窗
 │   │   ├── ConfigList.tsx     # 配置列表
+│   │   ├── ConfigItem.tsx     # 配置列表项
+│   │   ├── ConfirmDialog.tsx  # 通用确认对话框
 │   │   ├── MemoryPage.tsx     # 记忆管理页面
+│   │   ├── MemoryModal.tsx    # 记忆编辑弹窗
+│   │   ├── MemoryItem.tsx     # 记忆列表项
+│   │   ├── SettingsModal.tsx  # 设置弹窗
+│   │   ├── Sidebar.tsx        # 侧边栏导航
 │   │   └── SkillsPage.tsx     # Skills 管理页面（占位）
 │   └── assets/            # 静态资源
 ├── src-tauri/             # Rust 后端代码
@@ -82,7 +88,8 @@ cargo fmt             # 格式化 Rust 代码
 │   │   ├── main.rs        # 应用入口（调用 lib.rs）
 │   │   ├── lib.rs         # Tauri 应用逻辑和命令注册
 │   │   ├── config.rs      # 配置管理模块
-│   │   └── memory.rs      # 记忆管理模块
+│   │   ├── memory.rs      # 记忆管理模块
+│   │   └── tray.rs        # 系统托盘模块
 │   ├── Cargo.toml         # Rust 依赖配置
 │   ├── tauri.conf.json    # Tauri 应用配置
 │   └── capabilities/      # 权限配置
@@ -103,6 +110,12 @@ cargo fmt             # 格式化 Rust 代码
   - 多记忆启用/禁用（toggle_memory）
   - 合并所有活跃记忆写入 ~/.claude/CLAUDE.md
 
+- **tray.rs**: 系统托盘
+  - 构建托盘菜单，动态显示配置列表
+  - 左键点击显示主窗口，右键显示菜单
+  - 配置切换后通过 `app.emit("config-changed", ())` 通知前端刷新
+  - macOS：隐藏窗口时切换 Accessory 模式（隐藏 Dock 图标）
+
 ### 关键配置
 
 **Vite 开发服务器**:
@@ -111,7 +124,7 @@ cargo fmt             # 格式化 Rust 代码
 - 忽略监听 `src-tauri` 目录的变化
 
 **Tauri 窗口**:
-- 默认尺寸: 800x600
+- 默认尺寸: 1024x800，最小尺寸: 400x600
 - CSP: null（开发模式下禁用内容安全策略）
 
 **Rust 库配置**:
