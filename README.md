@@ -61,46 +61,9 @@ pnpm tauri build
 - **Rust** - 后端逻辑
 - **serde** - JSON 序列化
 
-## 数据存储
+## 开发文档
 
-- **应用数据**: `~/.config/ai-manager/`
-  - `configs.json` - 配置列表
-  - `memories.json` - 记忆列表
-- **Claude 配置**: `~/.claude/`
-  - `settings.json` - 当前激活的配置
-  - `CLAUDE.md` - 当前启用的记忆内容
-
-## 开发指南
-
-详细的开发文档请参考 [CLAUDE.md](./CLAUDE.md)。
-
-### 项目结构
-
-```
-├── src/                    # React 前端代码
-│   ├── components/        # UI 组件
-│   ├── App.tsx           # 主应用
-│   └── types.ts          # 类型定义
-├── src-tauri/            # Rust 后端代码
-│   ├── src/
-│   │   ├── config.rs     # 配置管理
-│   │   ├── memory.rs     # 记忆管理
-│   │   └── lib.rs        # Tauri 应用入口
-│   └── Cargo.toml        # Rust 依赖
-└── package.json          # Node.js 依赖
-```
-
-### 添加新的 Rust 命令
-
-1. 在 `src-tauri/src/*.rs` 中定义命令函数
-2. 在 `src-tauri/src/lib.rs` 的 `generate_handler![]` 中注册
-3. 在前端使用 `invoke("command_name", { params })` 调用
-
-## IDE 推荐
-
-- [VS Code](https://code.visualstudio.com/)
-  - [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode)
-  - [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+详细的项目结构、架构说明和开发指南请参考 [CLAUDE.md](./CLAUDE.md)。
 
 ## License
 
