@@ -13,19 +13,12 @@ pub struct Memory {
     pub updated_at: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MemoryState {
     pub memories: Vec<Memory>,
 }
 
-impl Default for MemoryState {
-    fn default() -> Self {
-        Self {
-            memories: Vec::new(),
-        }
-    }
-}
 
 /// 获取记忆状态存储路径
 fn get_memory_config_path() -> PathBuf {

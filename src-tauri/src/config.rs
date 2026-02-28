@@ -80,7 +80,7 @@ pub struct ClaudeConfig {
     pub updated_at: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppState {
     pub configs: Vec<ClaudeConfig>,
@@ -89,15 +89,6 @@ pub struct AppState {
     pub defaults: Option<String>,
 }
 
-impl Default for AppState {
-    fn default() -> Self {
-        Self {
-            configs: Vec::new(),
-            active_config_id: None,
-            defaults: None,
-        }
-    }
-}
 
 /// 获取应用配置文件路径
 fn get_config_path() -> PathBuf {
