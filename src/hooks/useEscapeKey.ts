@@ -2,7 +2,7 @@ import { useEffect } from "react";
 
 /**
  * 监听 ESC 键按下事件，触发回调
- * @param callback ESC 键按下时的回调函数
+ * @param callback ESC 键按下时的回调函数（应使用 useCallback 包裹以避免重复注册事件监听器）
  * @param enabled 是否启用监听，默认 true
  */
 function useEscapeKey(callback: () => void, enabled: boolean = true): void {

@@ -141,6 +141,10 @@ fn deep_merge(base: serde_json::Value, overlay: serde_json::Value) -> serde_json
 }
 
 /// 将指定配置应用到 ~/.claude/settings.json
+///
+/// **注意**：此函数可能在持有 `CONFIG_LOCK` 的上下文中被调用（如 `activate_config_inner`、`update_config`）。
+/// 因此内部的 `load_state()` 不可再次获取该锁——标准库 `Mutex` 不可重入，否则会死锁。
+/// `load_state()` 不加锁属于有意设计，修改时需注意此约束。
 pub fn apply_config(config: &ClaudeConfig) -> Result<(), String> {
     let mut env = serde_json::Map::new();
     env.insert(
