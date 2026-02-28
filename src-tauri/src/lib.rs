@@ -1,7 +1,7 @@
-mod utils;
 mod config;
 mod memory;
 mod tray;
+mod utils;
 
 use config::{
     activate_config, add_config, delete_config, duplicate_config, get_configs, get_defaults,

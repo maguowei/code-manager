@@ -27,11 +27,9 @@ pub fn current_timestamp() -> u64 {
 /// 创建目录（如不存在）、写入文件内容，并在 Unix 系统上设置 0o600 权限
 pub fn ensure_dir_and_write(path: &Path, content: &str) -> Result<(), String> {
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("创建目录失败 {:?}: {}", parent, e))?;
+        fs::create_dir_all(parent).map_err(|e| format!("创建目录失败 {:?}: {}", parent, e))?;
     }
-    fs::write(path, content)
-        .map_err(|e| format!("写入文件失败 {:?}: {}", path, e))?;
+    fs::write(path, content).map_err(|e| format!("写入文件失败 {:?}: {}", path, e))?;
 
     #[cfg(unix)]
     {
