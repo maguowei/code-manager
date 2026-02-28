@@ -5,6 +5,7 @@ import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import "./App.css";
 import { ClaudeConfig } from "./types";
 import { useI18n } from "./i18n";
+import { useToast } from "./hooks/useToast";
 import ConfigList from "./components/ConfigList";
 import ConfigEditor from "./components/ConfigEditor";
 import SettingsDrawer from "./components/SettingsDrawer";
@@ -23,6 +24,7 @@ const isTauri = () => {
 
 function App() {
   const { t } = useI18n();
+  const { showToast } = useToast();
   const [configs, setConfigs] = useState<ClaudeConfig[]>([]);
   const [activeConfigId, setActiveConfigId] = useState<string | null>(null);
   const [defaults, setDefaults] = useState<string>("");
@@ -83,7 +85,7 @@ function App() {
       setActiveConfigId(result.activeConfigId);
       setDefaults(result.defaults || "");
     } catch (error) {
-      console.error("Failed to load configs:", error);
+      showToast("加载配置失败", "error");
     } finally {
       setLoading(false);
     }
@@ -95,8 +97,9 @@ function App() {
       await invoke("activate_config", { id });
       setActiveConfigId(id);
       setConfigs(configs.map(c => ({ ...c, isActive: c.id === id })));
+      showToast("已切换配置");
     } catch (error) {
-      console.error("Failed to activate config:", error);
+      showToast("激活配置失败", "error");
     }
   }
 
@@ -162,8 +165,9 @@ function App() {
       await loadConfigs();
       setIsModalOpen(false);
       setEditingConfig(null);
+      showToast("配置已保存");
     } catch (error) {
-      console.error("Failed to save config:", error);
+      showToast("保存配置失败", "error");
     }
   }
 
@@ -172,8 +176,9 @@ function App() {
     try {
       await invoke("delete_config", { id });
       await loadConfigs();
+      showToast("配置已删除");
     } catch (error) {
-      console.error("Failed to delete config:", error);
+      showToast("删除配置失败", "error");
     }
   }
 
@@ -182,8 +187,9 @@ function App() {
     try {
       await invoke("duplicate_config", { id });
       await loadConfigs();
+      showToast("配置已复制");
     } catch (error) {
-      console.error("Failed to duplicate config:", error);
+      showToast("复制配置失败", "error");
     }
   }
 
@@ -195,7 +201,7 @@ function App() {
     try {
       await invoke("reorder_configs", { ids });
     } catch (error) {
-      console.error("Failed to reorder configs:", error);
+      showToast("排序保存失败", "error");
       await loadConfigs();
     }
   }

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Memory, MemoryState } from "../types";
 import { useI18n } from "../i18n";
+import { useToast } from "../hooks/useToast";
 import MemoryItem from "./MemoryItem";
 import MemoryEditor from "./MemoryEditor";
 import ConfirmDialog from "./ConfirmDialog";
@@ -10,6 +11,7 @@ import "./MemoryPage.css";
 
 function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => void }) {
   const { t } = useI18n();
+  const { showToast } = useToast();
   const [memories, setMemories] = useState<Memory[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMemory, setEditingMemory] = useState<Memory | null>(null);
@@ -20,9 +22,9 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       const state = await invoke<MemoryState>("get_memories");
       setMemories(state.memories);
     } catch (err) {
-      console.error("Failed to load memories:", err);
+      showToast("加载记忆失败", "error");
     }
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     loadMemories();
@@ -40,8 +42,9 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       await invoke("add_memory", { name: data.name, content: data.content });
       setIsModalOpen(false);
       loadMemories();
+      showToast("记忆已添加");
     } catch (err) {
-      console.error("Failed to add memory:", err);
+      showToast("添加记忆失败", "error");
     }
   }
 
@@ -56,8 +59,9 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       setEditingMemory(null);
       setIsModalOpen(false);
       loadMemories();
+      showToast("记忆已保存");
     } catch (err) {
-      console.error("Failed to update memory:", err);
+      showToast("保存记忆失败", "error");
     }
   }
 
@@ -65,8 +69,9 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     try {
       await invoke("delete_memory", { id });
       loadMemories();
+      showToast("记忆已删除");
     } catch (err) {
-      console.error("Failed to delete memory:", err);
+      showToast("删除记忆失败", "error");
     }
   }
 
@@ -75,7 +80,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       await invoke("toggle_memory", { id });
       loadMemories();
     } catch (err) {
-      console.error("Failed to toggle memory:", err);
+      showToast("切换记忆状态失败", "error");
     }
   }
 
