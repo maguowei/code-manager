@@ -6,6 +6,7 @@ import { json } from "@codemirror/lang-json";
 import { xcodeLight, xcodeDark } from "@uiw/codemirror-theme-xcode";
 import "./ConfigEditor.css";
 import PluginManager from "./PluginManager";
+import DefaultsSection from "./DefaultsSection";
 
 interface ConfigEditorProps {
   config: ClaudeConfig | null;
@@ -39,12 +40,10 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [showPlugins, setShowPlugins] = useState(false);
-  const [showDefaults, setShowDefaults] = useState(false);
   const [defaultsContent, setDefaultsContent] = useState(defaults || "");
-  const [defaultsError, setDefaultsError] = useState("");
   const [copied, setCopied] = useState(false);
 
-  // 根据应用主题选择 CodeMirror 主题
+  /** 根据应用主题选择配置预览区的 CodeMirror 主题 */
   const editorTheme = useMemo(() => {
     if (theme === "dark") return xcodeDark;
     if (theme === "light") return xcodeLight;
@@ -130,7 +129,7 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
       try {
         JSON.parse(defaultsContent.trim());
       } catch {
-        setDefaultsError(t("configModal.defaultsError"));
+        // DefaultsSection 内部会显示错误，此处静默返回
         return;
       }
     }
@@ -162,17 +161,6 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
-  }
-
-  function handleFormatDefaults() {
-    if (!defaultsContent.trim()) return;
-    try {
-      const obj = JSON.parse(defaultsContent.trim());
-      setDefaultsContent(JSON.stringify(obj, null, 2));
-      setDefaultsError("");
-    } catch {
-      setDefaultsError(t("configModal.defaultsError"));
-    }
   }
 
   return (
@@ -512,90 +500,13 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
               </div>
             </div>
 
-            {/* 通用配置 */}
-            <div className={`collapsible-section ${showDefaults ? "expanded" : ""}`}>
-              <div className="collapsible-header" onClick={() => setShowDefaults(!showDefaults)}>
-                <div className="collapsible-header-left">
-                  <span className="collapsible-title">{t("configModal.defaults")}</span>
-                  <button
-                    type="button"
-                    className={`inline-toggle ${useDefaults ? "enabled" : "disabled"}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setUseDefaults(!useDefaults);
-                    }}
-                    title={useDefaults ? t("configModal.defaultsEnabled") : t("configModal.defaultsDisabled")}
-                  >
-                    <span className="toggle-track">
-                      <span className="toggle-thumb" />
-                    </span>
-                    <span className="toggle-label">
-                      {useDefaults ? t("configModal.defaultsEnabled") : t("configModal.defaultsDisabled")}
-                    </span>
-                  </button>
-                </div>
-                <svg
-                  className="collapsible-icon"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
-              </div>
-
-              <div className="collapsible-content">
-                <div className="collapsible-body">
-                  <p className="form-hint info" style={{ marginTop: 0, marginBottom: "12px" }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="12" y1="16" x2="12" y2="12" />
-                      <line x1="12" y1="8" x2="12.01" y2="8" />
-                    </svg>
-                    {t("configModal.defaultsHint")}
-                  </p>
-                  <div className={`defaults-editor${defaultsError ? " error" : ""}`}>
-                    <div className="defaults-toolbar">
-                      <button
-                        type="button"
-                        className="defaults-format-btn"
-                        onClick={handleFormatDefaults}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <line x1="21" y1="10" x2="3" y2="10" />
-                          <line x1="21" y1="6" x2="3" y2="6" />
-                          <line x1="21" y1="14" x2="3" y2="14" />
-                          <line x1="21" y1="18" x2="3" y2="18" />
-                        </svg>
-                        {t("configModal.defaultsFormat")}
-                      </button>
-                    </div>
-                    <CodeMirror
-                      value={defaultsContent}
-                      onChange={(val) => {
-                        setDefaultsContent(val);
-                        setDefaultsError("");
-                      }}
-                      extensions={[json()]}
-                      theme={editorTheme}
-                      placeholder={t("configModal.defaultsPlaceholder")}
-                      basicSetup={{
-                        lineNumbers: true,
-                        bracketMatching: true,
-                        indentOnInput: true,
-                        foldGutter: false,
-                      }}
-                    />
-                  </div>
-                  {defaultsError && (
-                    <p className="defaults-error">{defaultsError}</p>
-                  )}
-                </div>
-              </div>
-            </div>
+            {/* 通用配置 - 使用独立的 DefaultsSection 组件 */}
+            <DefaultsSection
+              useDefaults={useDefaults}
+              onUseDefaultsChange={setUseDefaults}
+              defaults={defaultsContent}
+              onDefaultsChange={setDefaultsContent}
+            />
 
             {/* 配置预览 */}
             <div className={`collapsible-section ${showPreview ? "expanded" : ""}`}>
