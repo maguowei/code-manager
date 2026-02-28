@@ -1,11 +1,34 @@
 use crate::tray::rebuild_tray_menu;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs;
 use std::path::PathBuf;
-use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::AppHandle;
 use uuid::Uuid;
+
+/// 新增/更新配置的数据传输对象
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigData {
+    pub name: String,
+    pub description: String,
+    pub api_key: String,
+    pub api_url: Option<String>,
+    pub website_url: Option<String>,
+    pub model: Option<String>,
+    pub thinking_model: Option<String>,
+    pub haiku_model: Option<String>,
+    pub sonnet_model: Option<String>,
+    pub opus_model: Option<String>,
+    pub always_thinking_enabled: Option<bool>,
+    pub disable_nonessential_traffic: Option<bool>,
+    pub skip_web_fetch_preflight: Option<bool>,
+    pub enable_lsp_tool: Option<bool>,
+    pub has_completed_onboarding: Option<bool>,
+    pub enable_extra_marketplaces: Option<bool>,
+    pub preferred_language: Option<String>,
+    pub use_defaults: Option<bool>,
+    pub enabled_plugins: Option<HashMap<String, bool>>,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -76,43 +99,34 @@ impl Default for AppState {
     }
 }
 
+/// 获取应用配置文件路径
 fn get_config_path() -> PathBuf {
-    let home = dirs::home_dir().expect("Could not find home directory");
-    home.join(".config").join("ai-manager").join("configs.json")
+    crate::utils::get_home_dir()
+        .unwrap_or_else(|_| PathBuf::from("."))
+        .join(".config")
+        .join("ai-manager")
+        .join("configs.json")
 }
 
+/// 获取 Claude 设置文件路径
 fn get_claude_config_path() -> PathBuf {
-    let home = dirs::home_dir().expect("Could not find home directory");
-    home.join(".claude").join("settings.json")
+    crate::utils::get_home_dir()
+        .unwrap_or_else(|_| PathBuf::from("."))
+        .join(".claude")
+        .join("settings.json")
 }
 
-fn current_timestamp() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards")
-        .as_secs()
-}
-
+/// 从文件加载应用状态，失败时返回默认值
 pub fn load_state() -> AppState {
     let path = get_config_path();
-    if path.exists() {
-        match fs::read_to_string(&path) {
-            Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
-            Err(_) => AppState::default(),
-        }
-    } else {
-        AppState::default()
-    }
+    crate::utils::read_json_file(&path)
 }
 
+/// 将应用状态序列化并写入文件
 pub fn save_state(state: &AppState) -> Result<(), String> {
     let path = get_config_path();
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
     let content = serde_json::to_string_pretty(state).map_err(|e| e.to_string())?;
-    fs::write(&path, content).map_err(|e| e.to_string())?;
-    Ok(())
+    crate::utils::ensure_dir_and_write(&path, &content)
 }
 
 /// 深度合并两个 JSON 值：base 为基础，overlay 的字段优先覆盖
@@ -135,6 +149,7 @@ fn deep_merge(base: serde_json::Value, overlay: serde_json::Value) -> serde_json
     }
 }
 
+/// 将指定配置应用到 ~/.claude/settings.json
 pub fn apply_config(config: &ClaudeConfig) -> Result<(), String> {
     let mut env = serde_json::Map::new();
     env.insert(
@@ -268,12 +283,8 @@ pub fn apply_config(config: &ClaudeConfig) -> Result<(), String> {
     };
 
     let path = get_claude_config_path();
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
     let content = serde_json::to_string_pretty(&final_config).map_err(|e| e.to_string())?;
-    fs::write(&path, content).map_err(|e| e.to_string())?;
-    Ok(())
+    crate::utils::ensure_dir_and_write(&path, &content)
 }
 
 #[tauri::command]
@@ -281,53 +292,38 @@ pub fn get_configs() -> Result<AppState, String> {
     Ok(load_state())
 }
 
+/// 使用 ConfigData DTO 构建并保存新配置
 #[tauri::command]
-pub fn add_config(
-    app_handle: AppHandle,
-    name: String,
-    description: String,
-    api_key: String,
-    api_url: Option<String>,
-    website_url: Option<String>,
-    model: Option<String>,
-    thinking_model: Option<String>,
-    haiku_model: Option<String>,
-    sonnet_model: Option<String>,
-    opus_model: Option<String>,
-    always_thinking_enabled: Option<bool>,
-    disable_nonessential_traffic: Option<bool>,
-    skip_web_fetch_preflight: Option<bool>,
-    enable_lsp_tool: Option<bool>,
-    has_completed_onboarding: Option<bool>,
-    enable_extra_marketplaces: Option<bool>,
-    preferred_language: Option<String>,
-    use_defaults: Option<bool>,
-    enabled_plugins: Option<HashMap<String, bool>>,
-) -> Result<ClaudeConfig, String> {
+pub fn add_config(app_handle: AppHandle, data: ConfigData) -> Result<ClaudeConfig, String> {
+    // 加锁保护并发写入
+    let _lock = crate::utils::CONFIG_LOCK
+        .lock()
+        .map_err(|e| format!("获取锁失败: {}", e))?;
+
     let mut state = load_state();
-    let now = current_timestamp();
+    let now = crate::utils::current_timestamp();
 
     let config = ClaudeConfig {
         id: Uuid::new_v4().to_string(),
-        name,
-        description,
-        api_key,
-        api_url,
-        website_url,
-        model,
-        thinking_model,
-        haiku_model,
-        sonnet_model,
-        opus_model,
-        always_thinking_enabled,
-        disable_nonessential_traffic,
-        skip_web_fetch_preflight,
-        enable_lsp_tool,
-        has_completed_onboarding,
-        enable_extra_marketplaces,
-        preferred_language,
-        use_defaults,
-        enabled_plugins,
+        name: data.name,
+        description: data.description,
+        api_key: data.api_key,
+        api_url: data.api_url,
+        website_url: data.website_url,
+        model: data.model,
+        thinking_model: data.thinking_model,
+        haiku_model: data.haiku_model,
+        sonnet_model: data.sonnet_model,
+        opus_model: data.opus_model,
+        always_thinking_enabled: data.always_thinking_enabled,
+        disable_nonessential_traffic: data.disable_nonessential_traffic,
+        skip_web_fetch_preflight: data.skip_web_fetch_preflight,
+        enable_lsp_tool: data.enable_lsp_tool,
+        has_completed_onboarding: data.has_completed_onboarding,
+        enable_extra_marketplaces: data.enable_extra_marketplaces,
+        preferred_language: data.preferred_language,
+        use_defaults: data.use_defaults,
+        enabled_plugins: data.enabled_plugins,
         is_active: false,
         created_at: now,
         updated_at: now,
@@ -340,63 +336,51 @@ pub fn add_config(
     Ok(config)
 }
 
+/// 使用 ConfigData DTO 更新已有配置
 #[tauri::command]
 pub fn update_config(
     app_handle: AppHandle,
     id: String,
-    name: String,
-    description: String,
-    api_key: String,
-    api_url: Option<String>,
-    website_url: Option<String>,
-    model: Option<String>,
-    thinking_model: Option<String>,
-    haiku_model: Option<String>,
-    sonnet_model: Option<String>,
-    opus_model: Option<String>,
-    always_thinking_enabled: Option<bool>,
-    disable_nonessential_traffic: Option<bool>,
-    skip_web_fetch_preflight: Option<bool>,
-    enable_lsp_tool: Option<bool>,
-    has_completed_onboarding: Option<bool>,
-    enable_extra_marketplaces: Option<bool>,
-    preferred_language: Option<String>,
-    use_defaults: Option<bool>,
-    enabled_plugins: Option<HashMap<String, bool>>,
+    data: ConfigData,
 ) -> Result<ClaudeConfig, String> {
+    // 加锁保护并发写入
+    let _lock = crate::utils::CONFIG_LOCK
+        .lock()
+        .map_err(|e| format!("获取锁失败: {}", e))?;
+
     let mut state = load_state();
 
     let config = state
         .configs
         .iter_mut()
         .find(|c| c.id == id)
-        .ok_or("Config not found")?;
+        .ok_or("未找到指定配置")?;
 
-    config.name = name;
-    config.description = description;
-    config.api_key = api_key;
-    config.api_url = api_url;
-    config.website_url = website_url;
-    config.model = model;
-    config.thinking_model = thinking_model;
-    config.haiku_model = haiku_model;
-    config.sonnet_model = sonnet_model;
-    config.opus_model = opus_model;
-    config.always_thinking_enabled = always_thinking_enabled;
-    config.disable_nonessential_traffic = disable_nonessential_traffic;
-    config.skip_web_fetch_preflight = skip_web_fetch_preflight;
-    config.enable_lsp_tool = enable_lsp_tool;
-    config.has_completed_onboarding = has_completed_onboarding;
-    config.enable_extra_marketplaces = enable_extra_marketplaces;
-    config.preferred_language = preferred_language;
-    config.use_defaults = use_defaults;
-    config.enabled_plugins = enabled_plugins;
-    config.updated_at = current_timestamp();
+    config.name = data.name;
+    config.description = data.description;
+    config.api_key = data.api_key;
+    config.api_url = data.api_url;
+    config.website_url = data.website_url;
+    config.model = data.model;
+    config.thinking_model = data.thinking_model;
+    config.haiku_model = data.haiku_model;
+    config.sonnet_model = data.sonnet_model;
+    config.opus_model = data.opus_model;
+    config.always_thinking_enabled = data.always_thinking_enabled;
+    config.disable_nonessential_traffic = data.disable_nonessential_traffic;
+    config.skip_web_fetch_preflight = data.skip_web_fetch_preflight;
+    config.enable_lsp_tool = data.enable_lsp_tool;
+    config.has_completed_onboarding = data.has_completed_onboarding;
+    config.enable_extra_marketplaces = data.enable_extra_marketplaces;
+    config.preferred_language = data.preferred_language;
+    config.use_defaults = data.use_defaults;
+    config.enabled_plugins = data.enabled_plugins;
+    config.updated_at = crate::utils::current_timestamp();
 
     let updated = config.clone();
     save_state(&state)?;
 
-    // If this config is active, re-apply it
+    // 若该配置当前处于激活状态，重新应用以更新 Claude 设置
     if state.active_config_id == Some(id) {
         apply_config(&updated)?;
     }
@@ -405,13 +389,19 @@ pub fn update_config(
     Ok(updated)
 }
 
+/// 删除指定配置，若该配置处于激活状态则清除激活标记
 #[tauri::command]
 pub fn delete_config(app_handle: AppHandle, id: String) -> Result<(), String> {
+    // 加锁保护并发写入
+    let _lock = crate::utils::CONFIG_LOCK
+        .lock()
+        .map_err(|e| format!("获取锁失败: {}", e))?;
+
     let mut state = load_state();
 
     state.configs.retain(|c| c.id != id);
 
-    if state.active_config_id == Some(id.clone()) {
+    if state.active_config_id.as_deref() == Some(id.as_str()) {
         state.active_config_id = None;
     }
 
@@ -420,18 +410,24 @@ pub fn delete_config(app_handle: AppHandle, id: String) -> Result<(), String> {
     Ok(())
 }
 
+/// 复制指定配置，新配置插入到原配置后面
 #[tauri::command]
 pub fn duplicate_config(app_handle: AppHandle, id: String) -> Result<ClaudeConfig, String> {
+    // 加锁保护并发写入
+    let _lock = crate::utils::CONFIG_LOCK
+        .lock()
+        .map_err(|e| format!("获取锁失败: {}", e))?;
+
     let mut state = load_state();
 
     let index = state
         .configs
         .iter()
         .position(|c| c.id == id)
-        .ok_or("Config not found")?;
+        .ok_or("未找到指定配置")?;
 
     let original = &state.configs[index];
-    let now = current_timestamp();
+    let now = crate::utils::current_timestamp();
 
     let new_config = ClaudeConfig {
         id: Uuid::new_v4().to_string(),
@@ -468,8 +464,14 @@ pub fn duplicate_config(app_handle: AppHandle, id: String) -> Result<ClaudeConfi
     Ok(result)
 }
 
+/// 按给定 id 顺序重新排列配置列表
 #[tauri::command]
 pub fn reorder_configs(app_handle: AppHandle, ids: Vec<String>) -> Result<(), String> {
+    // 加锁保护并发写入
+    let _lock = crate::utils::CONFIG_LOCK
+        .lock()
+        .map_err(|e| format!("获取锁失败: {}", e))?;
+
     let mut state = load_state();
 
     // 按 ids 顺序重排 configs
@@ -493,11 +495,16 @@ pub fn reorder_configs(app_handle: AppHandle, ids: Vec<String>) -> Result<(), St
     Ok(())
 }
 
-/// Internal implementation, callable from tray.rs without AppHandle
+/// 激活指定配置的内部实现，可从 tray.rs 调用（无需 AppHandle）
 pub fn activate_config_inner(id: String) -> Result<(), String> {
+    // 加锁保护并发写入
+    let _lock = crate::utils::CONFIG_LOCK
+        .lock()
+        .map_err(|e| format!("获取锁失败: {}", e))?;
+
     let mut state = load_state();
 
-    // Find and validate the config exists
+    // 查找并验证配置存在
     let config = state
         .configs
         .iter()
@@ -505,19 +512,20 @@ pub fn activate_config_inner(id: String) -> Result<(), String> {
         .ok_or("Config not found")?
         .clone();
 
-    // Update active states
+    // 更新激活状态
     for c in state.configs.iter_mut() {
         c.is_active = c.id == id;
     }
     state.active_config_id = Some(id);
 
-    // Save state and apply config
+    // 保存状态并应用配置
     save_state(&state)?;
     apply_config(&config)?;
 
     Ok(())
 }
 
+/// 激活指定配置并刷新托盘菜单
 #[tauri::command]
 pub fn activate_config(app_handle: AppHandle, id: String) -> Result<(), String> {
     activate_config_inner(id)?;
@@ -531,8 +539,14 @@ pub fn get_defaults() -> Result<Option<String>, String> {
     Ok(state.defaults)
 }
 
+/// 更新通用配置内容，若有激活配置且启用了通用配置则重新应用
 #[tauri::command]
 pub fn update_defaults(app_handle: AppHandle, content: String) -> Result<(), String> {
+    // 加锁保护并发写入
+    let _lock = crate::utils::CONFIG_LOCK
+        .lock()
+        .map_err(|e| format!("获取锁失败: {}", e))?;
+
     let mut state = load_state();
     let trimmed = content.trim().to_string();
     if trimmed.is_empty() {
@@ -540,7 +554,7 @@ pub fn update_defaults(app_handle: AppHandle, content: String) -> Result<(), Str
     } else {
         // 校验 JSON 合法性
         serde_json::from_str::<serde_json::Value>(&trimmed)
-            .map_err(|e| format!("Invalid JSON: {}", e))?;
+            .map_err(|e| format!("JSON 格式无效: {}", e))?;
         state.defaults = Some(trimmed);
     }
     save_state(&state)?;
