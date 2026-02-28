@@ -1,12 +1,10 @@
 import { useState, useMemo, useEffect } from "react";
 import { ClaudeConfig, generateClaudeJson, deepMerge } from "../types";
 import { useI18n } from "../i18n";
-import CodeMirror from "@uiw/react-codemirror";
-import { json } from "@codemirror/lang-json";
-import { xcodeLight, xcodeDark } from "@uiw/codemirror-theme-xcode";
 import "./ConfigEditor.css";
 import PluginManager from "./PluginManager";
 import DefaultsSection from "./DefaultsSection";
+import ConfigPreview from "./ConfigPreview";
 
 interface ConfigEditorProps {
   config: ClaudeConfig | null;
@@ -16,7 +14,7 @@ interface ConfigEditorProps {
 }
 
 function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) {
-  const { t, theme } = useI18n();
+  const { t } = useI18n();
   const [name, setName] = useState(config?.name || "");
   const [description, setDescription] = useState(config?.description || "");
   const [apiKey, setApiKey] = useState(config?.apiKey || "");
@@ -41,16 +39,6 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
   const [showPreview, setShowPreview] = useState(false);
   const [showPlugins, setShowPlugins] = useState(false);
   const [defaultsContent, setDefaultsContent] = useState(defaults || "");
-  const [copied, setCopied] = useState(false);
-
-  /** 根据应用主题选择配置预览区的 CodeMirror 主题 */
-  const editorTheme = useMemo(() => {
-    if (theme === "dark") return xcodeDark;
-    if (theme === "light") return xcodeLight;
-    // theme === "system"：检测系统偏好
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    return prefersDark ? xcodeDark : xcodeLight;
-  }, [theme]);
 
   // 当启用/禁用通用配置时，实时更新表单字段
   useEffect(() => {
@@ -102,6 +90,7 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
     updatedAt: config?.updatedAt || 0,
   }), [name, description, apiKey, apiUrl, websiteUrl, model, thinkingModel, haikuModel, sonnetModel, opusModel, alwaysThinkingEnabled, disableNonessentialTraffic, skipWebFetchPreflight, enableLspTool, hasCompletedOnboarding, enableExtraMarketplaces, enabledPlugins, preferredLanguage, useDefaults, config]);
 
+  /** 计算最终合并后的配置 JSON 字符串，供预览组件使用 */
   const previewJson = useMemo(() => {
     if (!apiKey) return "{}";
     const configJson = generateClaudeJson(currentConfig) as Record<string, unknown>;
@@ -154,13 +143,6 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
       enabledPlugins: Object.keys(enabledPlugins).length > 0 ? enabledPlugins : undefined,
       preferredLanguage,
     }, defaultsContent);
-  }
-
-  function handleCopyJson() {
-    navigator.clipboard.writeText(previewJson).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
   }
 
   return (
@@ -508,7 +490,7 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
               onDefaultsChange={setDefaultsContent}
             />
 
-            {/* 配置预览 */}
+            {/* 配置预览 - 使用独立的 ConfigPreview 组件展示最终合并后的 JSON */}
             <div className={`collapsible-section ${showPreview ? "expanded" : ""}`}>
               <div className="collapsible-header" onClick={() => setShowPreview(!showPreview)}>
                 <div className="collapsible-header-left">
@@ -529,42 +511,7 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
 
               <div className="collapsible-content">
                 <div className="collapsible-body">
-                  <div className="json-preview">
-                    <div className="json-preview-header">
-                      <button
-                        type="button"
-                        className={`json-copy-btn ${copied ? "copied" : ""}`}
-                        onClick={handleCopyJson}
-                      >
-                        {copied ? (
-                          <>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                            {t("configModal.jsonCopied")}
-                          </>
-                        ) : (
-                          <>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                            </svg>
-                            {t("configModal.jsonCopy")}
-                          </>
-                        )}
-                      </button>
-                    </div>
-                    <CodeMirror
-                      value={previewJson}
-                      extensions={[json()]}
-                      theme={editorTheme}
-                      editable={false}
-                      basicSetup={{
-                        lineNumbers: true,
-                        foldGutter: false,
-                      }}
-                    />
-                  </div>
+                  <ConfigPreview content={previewJson} />
                 </div>
               </div>
             </div>
