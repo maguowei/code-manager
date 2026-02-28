@@ -22,6 +22,7 @@ name = "ai-manager"
 version = "0.1.0"
 dependencies = [
  "dirs 5.0.1",
+ "once_cell",
  "serde",
  "serde_json",
  "tauri",

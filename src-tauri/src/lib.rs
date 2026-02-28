@@ -1,3 +1,4 @@
+mod utils;
 mod config;
 mod memory;
 mod tray;
