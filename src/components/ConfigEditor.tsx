@@ -5,6 +5,7 @@ import CodeMirror from "@uiw/react-codemirror";
 import { json } from "@codemirror/lang-json";
 import { xcodeLight, xcodeDark } from "@uiw/codemirror-theme-xcode";
 import "./ConfigEditor.css";
+import PluginManager from "./PluginManager";
 
 interface ConfigEditorProps {
   config: ClaudeConfig | null;
@@ -33,7 +34,6 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
   const [enableExtraMarketplaces, setEnableExtraMarketplaces] = useState(config?.enableExtraMarketplaces || false);
   const [useDefaults, setUseDefaults] = useState(config?.useDefaults || false);
   const [enabledPlugins, setEnabledPlugins] = useState<Record<string, boolean>>(config?.enabledPlugins || {});
-  const [newPluginId, setNewPluginId] = useState("");
   const [preferredLanguage, setPreferredLanguage] = useState(config?.preferredLanguage || "english");
   const [showApiKey, setShowApiKey] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -155,23 +155,6 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
       enabledPlugins: Object.keys(enabledPlugins).length > 0 ? enabledPlugins : undefined,
       preferredLanguage,
     }, defaultsContent);
-  }
-
-  function handleAddPlugin() {
-    const id = newPluginId.trim();
-    if (!id || enabledPlugins[id] !== undefined) return;
-    setEnabledPlugins({ ...enabledPlugins, [id]: true });
-    setNewPluginId("");
-  }
-
-  function handleRemovePlugin(id: string) {
-    const next = { ...enabledPlugins };
-    delete next[id];
-    setEnabledPlugins(next);
-  }
-
-  function handleTogglePlugin(id: string) {
-    setEnabledPlugins({ ...enabledPlugins, [id]: !enabledPlugins[id] });
   }
 
   function handleCopyJson() {
@@ -439,66 +422,11 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
 
               <div className="collapsible-content">
                 <div className="collapsible-body">
-                  <p className="form-hint" style={{ marginTop: 0 }}>{t("configModal.enabledPluginsDesc")}</p>
-                  {Object.keys(enabledPlugins).length > 0 && (
-                    <div className="plugin-list">
-                      {Object.entries(enabledPlugins).map(([id, enabled]) => (
-                        <div key={id} className="plugin-item">
-                          <span className="plugin-name" title={id}>{id}</span>
-                          <div className="plugin-actions">
-                            <button
-                              type="button"
-                              className={`plugin-toggle ${enabled ? "enabled" : "disabled"}`}
-                              onClick={() => handleTogglePlugin(id)}
-                              title={enabled ? t("configModal.pluginEnabled") : t("configModal.pluginDisabled")}
-                            >
-                              {enabled ? (
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                  <polyline points="20 6 9 17 4 12" />
-                                </svg>
-                              ) : (
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                  <line x1="18" y1="6" x2="6" y2="18" />
-                                  <line x1="6" y1="6" x2="18" y2="18" />
-                                </svg>
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              className="plugin-remove"
-                              onClick={() => handleRemovePlugin(id)}
-                            >
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <polyline points="3 6 5 6 21 6" />
-                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div className="plugin-add-row">
-                    <input
-                      type="text"
-                      value={newPluginId}
-                      onChange={(e) => setNewPluginId(e.target.value)}
-                      placeholder={t("configModal.pluginIdPlaceholder")}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleAddPlugin();
-                        }
-                      }}
-                    />
-                    <button type="button" className="plugin-add-btn" onClick={handleAddPlugin}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <line x1="12" y1="5" x2="12" y2="19" />
-                        <line x1="5" y1="12" x2="19" y2="12" />
-                      </svg>
-                      {t("configModal.addPlugin")}
-                    </button>
-                  </div>
+                  {/* 使用 PluginManager 组件管理插件列表 */}
+                  <PluginManager
+                    plugins={enabledPlugins}
+                    onChange={setEnabledPlugins}
+                  />
                 </div>
               </div>
             </div>
