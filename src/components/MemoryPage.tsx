@@ -5,6 +5,7 @@ import { useI18n } from "../i18n";
 import MemoryItem from "./MemoryItem";
 import MemoryEditor from "./MemoryEditor";
 import ConfirmDialog from "./ConfirmDialog";
+import useEscapeKey from "../hooks/useEscapeKey";
 import "./MemoryPage.css";
 
 function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => void }) {
@@ -27,15 +28,12 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     loadMemories();
   }, [loadMemories]);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isModalOpen) {
-        closeModal();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isModalOpen]);
+  // ESC 键关闭记忆编辑抽屉
+  useEscapeKey(useCallback(() => {
+    setEditingMemory(null);
+    setIsModalOpen(false);
+    onDrawerChange?.(false);
+  }, [onDrawerChange]), isModalOpen);
 
   async function handleAdd(data: { name: string; content: string }) {
     try {

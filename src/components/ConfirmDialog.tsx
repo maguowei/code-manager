@@ -1,4 +1,5 @@
-import { useEffect, useCallback } from "react";
+import { useCallback } from "react";
+import useEscapeKey from "../hooks/useEscapeKey";
 import "./ConfirmDialog.css";
 
 interface ConfirmDialogProps {
@@ -20,20 +21,8 @@ function ConfirmDialog({
   onCancel,
   danger = false,
 }: ConfirmDialogProps) {
-  // ESC 键关闭
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onCancel();
-      }
-    },
-    [onCancel]
-  );
-
-  useEffect(() => {
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleKeyDown]);
+  // ESC 键关闭确认对话框
+  useEscapeKey(useCallback(() => onCancel(), [onCancel]));
 
   return (
     <div className="confirm-overlay" onClick={onCancel}>

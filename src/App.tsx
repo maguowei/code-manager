@@ -12,6 +12,7 @@ import MemoryPage from "./components/MemoryPage";
 import SkillsPage from "./components/SkillsPage";
 import Sidebar from "./components/Sidebar";
 import ConfirmDialog from "./components/ConfirmDialog";
+import useEscapeKey from "./hooks/useEscapeKey";
 
 type TabType = "configs" | "memory" | "skills";
 
@@ -48,21 +49,14 @@ function App() {
     };
   }, []);
 
-  // 键盘快捷键支持
+  // 键盘快捷键支持（Cmd/Ctrl + N 新建配置）
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd/Ctrl + N: 新建配置
       if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
         e.preventDefault();
         if (activeTab === 'configs') {
           handleAdd();
         }
-      }
-
-      // ESC: 关闭抽屉
-      if (e.key === 'Escape' && isModalOpen) {
-        setIsModalOpen(false);
-        setEditingConfig(null);
       }
     };
 
@@ -70,7 +64,13 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
     // handleAdd 是稳定的函数引用，不需要添加到依赖数组
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, isModalOpen]);
+  }, [activeTab]);
+
+  // ESC 键关闭配置编辑抽屉
+  useEscapeKey(useCallback(() => {
+    setIsModalOpen(false);
+    setEditingConfig(null);
+  }, []), isModalOpen);
 
   async function loadConfigs() {
     if (!isTauri()) {

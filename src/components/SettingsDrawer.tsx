@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useCallback } from "react";
 import { useI18n, Language, Theme } from "../i18n";
+import useEscapeKey from "../hooks/useEscapeKey";
 import "./SettingsDrawer.css";
 
 interface SettingsDrawerProps {
@@ -15,15 +16,8 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
     { value: "system", labelKey: "settings.themeSystem", icon: "monitor" },
   ];
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  // ESC 键关闭设置抽屉
+  useEscapeKey(useCallback(() => onClose(), [onClose]));
 
   return (
     <div className="settings-drawer-overlay" onClick={onClose}>
