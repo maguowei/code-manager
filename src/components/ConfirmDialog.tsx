@@ -1,4 +1,3 @@
-import { useCallback } from "react";
 import useEscapeKey from "../hooks/useEscapeKey";
 import "./ConfirmDialog.css";
 
@@ -22,7 +21,7 @@ function ConfirmDialog({
   danger = false,
 }: ConfirmDialogProps) {
   // ESC 键关闭确认对话框
-  useEscapeKey(useCallback(() => onCancel(), [onCancel]));
+  useEscapeKey(onCancel);
 
   return (
     <div className="confirm-overlay" onClick={onCancel}>

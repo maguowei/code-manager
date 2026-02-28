@@ -16,6 +16,14 @@ pub fn get_home_dir() -> Result<PathBuf, String> {
     dirs::home_dir().ok_or_else(|| "无法获取用户主目录".to_string())
 }
 
+/// 获取应用数据目录（~/.config/ai-manager），失败时降级为当前目录
+pub fn get_app_data_dir() -> PathBuf {
+    get_home_dir()
+        .unwrap_or_else(|_| PathBuf::from("."))
+        .join(".config")
+        .join("ai-manager")
+}
+
 /// 获取当前 Unix 时间戳（秒）
 pub fn current_timestamp() -> u64 {
     SystemTime::now()

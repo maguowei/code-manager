@@ -22,11 +22,7 @@ pub struct MemoryState {
 
 /// 获取记忆状态存储路径
 fn get_memory_config_path() -> PathBuf {
-    crate::utils::get_home_dir()
-        .unwrap_or_else(|_| PathBuf::from("."))
-        .join(".config")
-        .join("ai-manager")
-        .join("memories.json")
+    crate::utils::get_app_data_dir().join("memories.json")
 }
 
 /// 获取 CLAUDE.md 路径

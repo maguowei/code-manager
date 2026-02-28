@@ -1,8 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { json } from "@codemirror/lang-json";
-import { xcodeLight, xcodeDark } from "@uiw/codemirror-theme-xcode";
 import { useI18n } from "../i18n";
+import useEditorTheme from "../hooks/useEditorTheme";
 
 /** ConfigPreview 组件的属性定义 */
 interface ConfigPreviewProps {
@@ -19,17 +19,9 @@ interface ConfigPreviewProps {
  * - 根据应用主题自动切换 CodeMirror 配色方案
  */
 function ConfigPreview({ content }: ConfigPreviewProps) {
-  const { t, theme } = useI18n();
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
-
-  /** 根据应用主题选择 CodeMirror 配色方案 */
-  const editorTheme = useMemo(() => {
-    if (theme === "dark") return xcodeDark;
-    if (theme === "light") return xcodeLight;
-    // theme === "system"：检测系统偏好
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    return prefersDark ? xcodeDark : xcodeLight;
-  }, [theme]);
+  const editorTheme = useEditorTheme();
 
   /** 将当前 JSON 内容复制到剪贴板，并短暂展示"已复制"反馈 */
   function handleCopy() {

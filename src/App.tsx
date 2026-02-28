@@ -22,6 +22,32 @@ const isTauri = () => {
   return typeof window !== "undefined" && window.__TAURI_INTERNALS__ !== undefined;
 };
 
+/** 将表单数据转换为后端 ConfigData 格式 */
+function buildConfigData(config: Omit<ClaudeConfig, "id" | "createdAt" | "updatedAt" | "isActive">) {
+  return {
+    name: config.name,
+    description: config.description,
+    apiKey: config.apiKey,
+    apiUrl: config.apiUrl || null,
+    websiteUrl: config.websiteUrl || null,
+    model: config.model || null,
+    thinkingModel: config.thinkingModel || null,
+    haikuModel: config.haikuModel || null,
+    sonnetModel: config.sonnetModel || null,
+    opusModel: config.opusModel || null,
+    // 布尔字段使用 ?? null，避免 false 被错误清除
+    alwaysThinkingEnabled: config.alwaysThinkingEnabled ?? null,
+    disableNonessentialTraffic: config.disableNonessentialTraffic ?? null,
+    skipWebFetchPreflight: config.skipWebFetchPreflight ?? null,
+    enableLspTool: config.enableLspTool ?? null,
+    hasCompletedOnboarding: config.hasCompletedOnboarding ?? null,
+    enableExtraMarketplaces: config.enableExtraMarketplaces ?? null,
+    preferredLanguage: config.preferredLanguage || null,
+    useDefaults: config.useDefaults ?? null,
+    enabledPlugins: config.enabledPlugins && Object.keys(config.enabledPlugins).length > 0 ? config.enabledPlugins : null,
+  };
+}
+
 function App() {
   const { t } = useI18n();
   const { showToast } = useToast();
@@ -115,51 +141,11 @@ function App() {
       if (editingConfig) {
         await invoke("update_config", {
           id: editingConfig.id,
-          data: {
-            name: config.name,
-            description: config.description,
-            apiKey: config.apiKey,
-            apiUrl: config.apiUrl || null,
-            websiteUrl: config.websiteUrl || null,
-            model: config.model || null,
-            thinkingModel: config.thinkingModel || null,
-            haikuModel: config.haikuModel || null,
-            sonnetModel: config.sonnetModel || null,
-            opusModel: config.opusModel || null,
-            alwaysThinkingEnabled: config.alwaysThinkingEnabled || null,
-            disableNonessentialTraffic: config.disableNonessentialTraffic || null,
-            skipWebFetchPreflight: config.skipWebFetchPreflight || null,
-            enableLspTool: config.enableLspTool || null,
-            hasCompletedOnboarding: config.hasCompletedOnboarding || null,
-            enableExtraMarketplaces: config.enableExtraMarketplaces || null,
-            preferredLanguage: config.preferredLanguage || null,
-            useDefaults: config.useDefaults || null,
-            enabledPlugins: config.enabledPlugins && Object.keys(config.enabledPlugins).length > 0 ? config.enabledPlugins : null,
-          },
+          data: buildConfigData(config),
         });
       } else {
         await invoke("add_config", {
-          data: {
-            name: config.name,
-            description: config.description,
-            apiKey: config.apiKey,
-            apiUrl: config.apiUrl || null,
-            websiteUrl: config.websiteUrl || null,
-            model: config.model || null,
-            thinkingModel: config.thinkingModel || null,
-            haikuModel: config.haikuModel || null,
-            sonnetModel: config.sonnetModel || null,
-            opusModel: config.opusModel || null,
-            alwaysThinkingEnabled: config.alwaysThinkingEnabled || null,
-            disableNonessentialTraffic: config.disableNonessentialTraffic || null,
-            skipWebFetchPreflight: config.skipWebFetchPreflight || null,
-            enableLspTool: config.enableLspTool || null,
-            hasCompletedOnboarding: config.hasCompletedOnboarding || null,
-            enableExtraMarketplaces: config.enableExtraMarketplaces || null,
-            preferredLanguage: config.preferredLanguage || null,
-            useDefaults: config.useDefaults || null,
-            enabledPlugins: config.enabledPlugins && Object.keys(config.enabledPlugins).length > 0 ? config.enabledPlugins : null,
-          },
+          data: buildConfigData(config),
         });
       }
       await loadConfigs();

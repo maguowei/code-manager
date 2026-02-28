@@ -1,4 +1,3 @@
-import { useCallback } from "react";
 import { useI18n, Language, Theme } from "../i18n";
 import useEscapeKey from "../hooks/useEscapeKey";
 import "./SettingsDrawer.css";
@@ -17,7 +16,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   ];
 
   // ESC 键关闭设置抽屉
-  useEscapeKey(useCallback(() => onClose(), [onClose]));
+  useEscapeKey(onClose);
 
   return (
     <div className="settings-drawer-overlay" onClick={onClose}>

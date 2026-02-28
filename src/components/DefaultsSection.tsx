@@ -1,8 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { json } from "@codemirror/lang-json";
-import { xcodeLight, xcodeDark } from "@uiw/codemirror-theme-xcode";
 import { useI18n } from "../i18n";
+import useEditorTheme from "../hooks/useEditorTheme";
 
 interface DefaultsSectionProps {
   /** 是否启用通用配置 */
@@ -30,21 +30,13 @@ function DefaultsSection({
   defaults,
   onDefaultsChange,
 }: DefaultsSectionProps) {
-  const { t, theme } = useI18n();
+  const { t } = useI18n();
 
   /** 控制折叠面板展开状态 */
   const [showDefaults, setShowDefaults] = useState(false);
   /** JSON 格式校验错误信息 */
   const [defaultsError, setDefaultsError] = useState("");
-
-  /** 根据应用主题选择 CodeMirror 编辑器主题 */
-  const editorTheme = useMemo(() => {
-    if (theme === "dark") return xcodeDark;
-    if (theme === "light") return xcodeLight;
-    // theme === "system"：检测系统偏好
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    return prefersDark ? xcodeDark : xcodeLight;
-  }, [theme]);
+  const editorTheme = useEditorTheme();
 
   /** 格式化 JSON 内容 */
   function handleFormatDefaults() {
