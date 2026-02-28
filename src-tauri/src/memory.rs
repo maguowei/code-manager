@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::fs;
 use std::path::PathBuf;
-use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31,46 +29,32 @@ impl Default for MemoryState {
 
 /// 获取记忆状态存储路径
 fn get_memory_config_path() -> PathBuf {
-    let home = dirs::home_dir().expect("Could not find home directory");
-    home.join(".config").join("ai-manager").join("memories.json")
+    crate::utils::get_home_dir()
+        .unwrap_or_else(|_| PathBuf::from("."))
+        .join(".config")
+        .join("ai-manager")
+        .join("memories.json")
 }
 
 /// 获取 CLAUDE.md 路径
 fn get_claude_md_path() -> PathBuf {
-    let home = dirs::home_dir().expect("Could not find home directory");
-    home.join(".claude").join("CLAUDE.md")
+    crate::utils::get_home_dir()
+        .unwrap_or_else(|_| PathBuf::from("."))
+        .join(".claude")
+        .join("CLAUDE.md")
 }
 
-/// 获取当前时间戳
-fn current_timestamp() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards")
-        .as_secs()
-}
-
-/// 加载记忆状态
+/// 从文件加载记忆状态，失败时返回默认值
 pub fn load_memory_state() -> MemoryState {
     let path = get_memory_config_path();
-    if path.exists() {
-        match fs::read_to_string(&path) {
-            Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
-            Err(_) => MemoryState::default(),
-        }
-    } else {
-        MemoryState::default()
-    }
+    crate::utils::read_json_file(&path)
 }
 
-/// 保存记忆状态
+/// 将记忆状态序列化并写入文件
 pub fn save_memory_state(state: &MemoryState) -> Result<(), String> {
     let path = get_memory_config_path();
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
     let content = serde_json::to_string_pretty(state).map_err(|e| e.to_string())?;
-    fs::write(&path, content).map_err(|e| e.to_string())?;
-    Ok(())
+    crate::utils::ensure_dir_and_write(&path, &content)
 }
 
 /// 将所有活跃记忆合并写入 ~/.claude/CLAUDE.md
@@ -88,11 +72,7 @@ pub fn apply_memories(state: &MemoryState) -> Result<(), String> {
     };
 
     let path = get_claude_md_path();
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
-    fs::write(&path, content).map_err(|e| e.to_string())?;
-    Ok(())
+    crate::utils::ensure_dir_and_write(&path, &content)
 }
 
 #[tauri::command]
@@ -102,8 +82,13 @@ pub fn get_memories() -> Result<MemoryState, String> {
 
 #[tauri::command]
 pub fn add_memory(name: String, content: String) -> Result<Memory, String> {
+    // 加锁保护并发写入
+    let _lock = crate::utils::MEMORY_LOCK
+        .lock()
+        .map_err(|e| format!("获取锁失败: {}", e))?;
+
     let mut state = load_memory_state();
-    let now = current_timestamp();
+    let now = crate::utils::current_timestamp();
 
     let memory = Memory {
         id: Uuid::new_v4().to_string(),
@@ -122,24 +107,29 @@ pub fn add_memory(name: String, content: String) -> Result<Memory, String> {
 
 #[tauri::command]
 pub fn update_memory(id: String, name: String, content: String) -> Result<Memory, String> {
+    // 加锁保护并发写入
+    let _lock = crate::utils::MEMORY_LOCK
+        .lock()
+        .map_err(|e| format!("获取锁失败: {}", e))?;
+
     let mut state = load_memory_state();
 
     let memory = state
         .memories
         .iter_mut()
         .find(|m| m.id == id)
-        .ok_or("Memory not found")?;
+        .ok_or("未找到指定记忆")?;
 
     memory.name = name;
     memory.content = content;
-    memory.updated_at = current_timestamp();
+    memory.updated_at = crate::utils::current_timestamp();
 
     let updated = memory.clone();
     let need_apply = updated.is_active;
 
     save_memory_state(&state)?;
 
-    // 若此条目活跃则重新 apply
+    // 若此记忆当前处于活跃状态，重新 apply 以更新 CLAUDE.md
     if need_apply {
         apply_memories(&state)?;
     }
@@ -149,6 +139,11 @@ pub fn update_memory(id: String, name: String, content: String) -> Result<Memory
 
 #[tauri::command]
 pub fn delete_memory(id: String) -> Result<(), String> {
+    // 加锁保护并发写入
+    let _lock = crate::utils::MEMORY_LOCK
+        .lock()
+        .map_err(|e| format!("获取锁失败: {}", e))?;
+
     let mut state = load_memory_state();
 
     // 检查被删除的记忆是否活跃
@@ -157,7 +152,7 @@ pub fn delete_memory(id: String) -> Result<(), String> {
     state.memories.retain(|m| m.id != id);
     save_memory_state(&state)?;
 
-    // 若删除的记忆是活跃的，重新 apply
+    // 若删除的记忆是活跃的，重新 apply 以更新 CLAUDE.md
     if was_active {
         apply_memories(&state)?;
     }
@@ -167,16 +162,21 @@ pub fn delete_memory(id: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn toggle_memory(id: String) -> Result<Memory, String> {
+    // 加锁保护并发写入
+    let _lock = crate::utils::MEMORY_LOCK
+        .lock()
+        .map_err(|e| format!("获取锁失败: {}", e))?;
+
     let mut state = load_memory_state();
 
     let memory = state
         .memories
         .iter_mut()
         .find(|m| m.id == id)
-        .ok_or("Memory not found")?;
+        .ok_or("未找到指定记忆")?;
 
     memory.is_active = !memory.is_active;
-    memory.updated_at = current_timestamp();
+    memory.updated_at = crate::utils::current_timestamp();
 
     let toggled = memory.clone();
 
