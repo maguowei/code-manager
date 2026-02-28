@@ -73,6 +73,9 @@ cargo fmt             # 格式化 Rust 代码
 │   ├── main.tsx           # React 入口文件
 │   ├── components/        # UI 组件
 │   │   ├── ConfigEditor.tsx   # 配置编辑面板
+│   │   ├── ConfigPreview.tsx  # JSON 配置预览（只读 CodeMirror）
+│   │   ├── DefaultsSection.tsx # 通用配置编辑区
+│   │   ├── PluginManager.tsx  # 插件管理
 │   │   ├── ConfigList.tsx     # 配置列表
 │   │   ├── ConfigItem.tsx     # 配置列表项
 │   │   ├── ConfirmDialog.tsx  # 通用确认对话框
@@ -82,11 +85,17 @@ cargo fmt             # 格式化 Rust 代码
 │   │   ├── SettingsDrawer.tsx # 设置侧边抽屉
 │   │   ├── Sidebar.tsx        # 侧边栏导航
 │   │   └── SkillsPage.tsx     # Skills 管理页面（占位）
+│   ├── hooks/             # 公共 React hooks
+│   │   ├── useEscapeKey.ts    # ESC 键监听（需用 useCallback 包裹回调）
+│   │   └── useToast.tsx       # Toast 通知（ToastProvider + useToast）
+│   ├── styles/            # 共享样式
+│   │   └── shared.css         # z-index CSS 变量 + .empty-state 公共样式
 │   └── assets/            # 静态资源
 ├── src-tauri/             # Rust 后端代码
 │   ├── src/
 │   │   ├── main.rs        # 应用入口（调用 lib.rs）
 │   │   ├── lib.rs         # Tauri 应用逻辑和命令注册
+│   │   ├── utils.rs       # 公共工具模块（必须优先了解）
 │   │   ├── config.rs      # 配置管理模块
 │   │   ├── memory.rs      # 记忆管理模块
 │   │   └── tray.rs        # 系统托盘模块
@@ -99,11 +108,19 @@ cargo fmt             # 格式化 Rust 代码
 
 ### 后端模块
 
+- **utils.rs**: 公共工具模块
+  - `CONFIG_LOCK` / `MEMORY_LOCK`：防止并发写入的全局互斥锁
+  - `get_home_dir()` / `current_timestamp()` / `read_json_file()` / `ensure_dir_and_write()`
+  - `ensure_dir_and_write()` 在 Unix 上自动设置文件权限 0o600
+  - **新增 Rust 代码应优先使用这些函数，不要重新实现**
+
 - **config.rs**: 配置管理
+  - `ConfigData` DTO：`add_config`/`update_config` 的参数结构体，前端须传 `{ data: {...} }`
   - CRUD 操作（增删改查、排序、复制）
   - 通用配置管理（get_defaults / update_defaults）
   - 深度合并逻辑
   - 应用配置到 ~/.claude/settings.json
+  - 所有写操作通过 `CONFIG_LOCK` 保护；`apply_config()` 可在锁内调用，内部不再加锁
 
 - **memory.rs**: 记忆管理
   - CRUD 操作
@@ -187,3 +204,13 @@ cargo fmt             # 格式化 Rust 代码
 3. 合并所有 `is_active=true` 的记忆内容（用 `\n\n` 分隔）
 4. 写入 `~/.claude/CLAUDE.md`
 5. Claude Code 自动读取新记忆内容
+
+### 用户反馈（Toast 通知）
+- 使用 `useToast()` hook 获取 `showToast(message, type?)`，不使用 `console.error`
+- `type` 为 `"success"`（默认）或 `"error"`；自动消失 3 秒
+- 已有 `ToastProvider` 在 `main.tsx` 根级包裹，组件内直接调用 `useToast()` 即可
+
+### z-index 层级管理
+- 所有 z-index 通过 CSS 变量统一管理，定义在 `src/styles/shared.css`
+- 变量命名：`--z-index-dropdown`、`--z-index-drawer`、`--z-index-modal`、`--z-index-toast` 等
+- 新增有层叠需求的组件必须使用变量，不得硬编码数值
