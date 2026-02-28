@@ -249,7 +249,7 @@
   transform: scale(0.98);
   cursor: grabbing;
   box-shadow: var(--shadow-lg);
-  z-index: 1000;
+  z-index: var(--z-index-dropdown);
 }
 
 /* 其他卡片在拖拽时添加过渡动画 */

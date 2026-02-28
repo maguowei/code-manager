@@ -213,7 +213,7 @@ body {
   flex-shrink: 0;
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: var(--z-index-sticky);
 }
 
 .page-title {
@@ -233,7 +233,7 @@ body {
   opacity: 0;
   pointer-events: none;
   transition: opacity 300ms ease;
-  z-index: 99;
+  z-index: var(--z-index-drawer-overlay);
 }
 
 .drawer-overlay.visible {
@@ -253,7 +253,7 @@ body {
   box-shadow: -4px 0 24px rgba(0, 0, 0, 0.2);
   transform: translateX(100%);
   transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 100;
+  z-index: var(--z-index-drawer);
   display: flex;
   flex-direction: column;
 }
@@ -356,7 +356,7 @@ body {
     top: 0;
     bottom: 0;
     width: auto;
-    z-index: 50;
+    z-index: var(--z-index-list);
   }
 
   .drawer {
