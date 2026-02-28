@@ -71,6 +71,7 @@ cargo fmt             # 格式化 Rust 代码
 ├── src/                    # React 前端代码
 │   ├── App.tsx            # 主应用组件
 │   ├── main.tsx           # React 入口文件
+│   ├── types.ts           # 前后端共享类型定义（Config、Plugin、deepMerge 等）
 │   ├── components/        # UI 组件
 │   │   ├── ConfigEditor.tsx   # 配置编辑面板
 │   │   ├── ConfigPreview.tsx  # JSON 配置预览（只读 CodeMirror）
@@ -150,7 +151,7 @@ cargo fmt             # 格式化 Rust 代码
 
 ## 添加新的 Rust 命令
 
-1. 在 `src-tauri/src/lib.rs` 中定义命令函数：
+1. 在对应模块（如 `src-tauri/src/config.rs`）中定义命令函数：
    ```rust
    #[tauri::command]
    fn your_command(param: &str) -> String {
@@ -160,7 +161,7 @@ cargo fmt             # 格式化 Rust 代码
 
 2. 在 `generate_handler![]` 宏中注册命令：
    ```rust
-   .invoke_handler(tauri::generate_handler![greet, your_command])
+   .invoke_handler(tauri::generate_handler![..., your_command])
    ```
 
 3. 在前端调用：
@@ -189,21 +190,11 @@ cargo fmt             # 格式化 Rust 代码
 - 透明 textarea 绝对定位覆盖在语法高亮层上
 - 滚动同步通过 ref 实现
 - `caret-color` 设置光标颜色，`color: transparent` 隐藏文字
-- 实现位置：`src/components/ConfigEditor.tsx` 中的 defaults 编辑器
+- 实现位置：`src/components/DefaultsSection.tsx`（defaults 编辑区）
 
-### 配置应用流程
-1. 用户激活配置
-2. 后端执行 `apply_config()`
-3. 生成配置 JSON（启用通用配置时深度合并）
-4. 写入 `~/.claude/settings.json`
-5. Claude Code 自动读取新配置
-
-### 记忆应用流程
-1. 用户切换记忆启用状态
-2. 后端执行 `apply_memories()`
-3. 合并所有 `is_active=true` 的记忆内容（用 `\n\n` 分隔）
-4. 写入 `~/.claude/CLAUDE.md`
-5. Claude Code 自动读取新记忆内容
+### 配置/记忆应用
+- 激活配置 → `apply_config()` 深度合并后写入 `~/.claude/settings.json`
+- 切换记忆 → `apply_memories()` 合并所有 `is_active=true` 内容写入 `~/.claude/CLAUDE.md`
 
 ### 用户反馈（Toast 通知）
 - 使用 `useToast()` hook 获取 `showToast(message, type?)`，不使用 `console.error`
