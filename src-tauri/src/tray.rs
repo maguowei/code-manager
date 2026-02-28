@@ -75,8 +75,19 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     let handle = app.handle();
     let menu = build_tray_menu(handle)?;
 
+    // 获取应用图标，若不存在则返回 IO 错误
+    let icon = app
+        .default_window_icon()
+        .ok_or_else(|| {
+            tauri::Error::Io(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "无法获取应用图标",
+            ))
+        })?
+        .clone();
+
     let _tray = TrayIconBuilder::with_id("main_tray")
-        .icon(app.default_window_icon().unwrap().clone())
+        .icon(icon)
         .tooltip("AI Manager")
         .menu(&menu)
         .show_menu_on_left_click(false)
