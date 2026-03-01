@@ -52,12 +52,14 @@ pub fn apply_memories(state: &MemoryState) -> Result<(), String> {
 
     let content = if active.is_empty() {
         String::new()
+    } else if active.len() == 1 {
+        active[0].content.clone()
     } else {
         active
             .iter()
-            .map(|m| format!("# {}\n\n{}", m.name, m.content))
+            .map(|m| m.content.as_str())
             .collect::<Vec<_>>()
-            .join("\n\n")
+            .join("\n\n---\n\n")
     };
 
     let path = get_claude_md_path();
