@@ -197,7 +197,7 @@
   border: 1px solid rgba(0, 0, 0, 0.15);
   border-radius: 6px;
   background-color: transparent;
-  color: #555;
+  color: var(--text-secondary);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -206,8 +206,8 @@
 }
 
 .memory-toolbar-btn:hover {
-  background-color: rgba(0, 0, 0, 0.08);
-  color: #000;
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 /* CodeMirror 覆盖 */
