@@ -52,8 +52,6 @@ pub fn apply_memories(state: &MemoryState) -> Result<(), String> {
 
     let content = if active.is_empty() {
         String::new()
-    } else if active.len() == 1 {
-        active[0].content.clone()
     } else {
         active
             .iter()
