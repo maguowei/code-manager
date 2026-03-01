@@ -108,7 +108,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                   <button
                     type="button"
                     className="memory-toolbar-btn"
-                    title="插入标题"
+                    title={t("memory.toolbar.heading")}
                     onClick={() => insertAtLineStart("## 标题\n")}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -120,7 +120,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                   <button
                     type="button"
                     className="memory-toolbar-btn"
-                    title="加粗"
+                    title={t("memory.toolbar.bold")}
                     onClick={insertBold}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -133,7 +133,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                   <button
                     type="button"
                     className="memory-toolbar-btn"
-                    title="插入列表"
+                    title={t("memory.toolbar.list")}
                     onClick={() => insertAtLineStart("- 列表项\n")}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -149,7 +149,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                   <button
                     type="button"
                     className="memory-toolbar-btn"
-                    title="插入代码块"
+                    title={t("memory.toolbar.code")}
                     onClick={() => insertAtCursor("```\n\n```")}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

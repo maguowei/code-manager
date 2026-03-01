@@ -121,6 +121,10 @@ const translations = {
     "memory.editing": "编辑中",
     "memory.edit": "编辑",
     "memory.delete": "删除",
+    "memory.toolbar.heading": "插入标题",
+    "memory.toolbar.bold": "加粗",
+    "memory.toolbar.list": "插入列表",
+    "memory.toolbar.code": "插入代码块",
 
     // Skills 页面
     "skills.title": "Skills 管理",
@@ -261,6 +265,10 @@ const translations = {
     "memory.editing": "Editing",
     "memory.edit": "Edit",
     "memory.delete": "Delete",
+    "memory.toolbar.heading": "Insert Heading",
+    "memory.toolbar.bold": "Bold",
+    "memory.toolbar.list": "Insert List",
+    "memory.toolbar.code": "Insert Code Block",
 
     // Skills 页面
     "skills.title": "Skills Management",
