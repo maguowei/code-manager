@@ -111,22 +111,15 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                     title={t("memory.toolbar.heading")}
                     onClick={() => insertAtLineStart("## 标题\n")}
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M4 6h16M4 12h8M4 18h16" />
-                    </svg>
                     H
                   </button>
                   {/* 加粗 */}
                   <button
                     type="button"
-                    className="memory-toolbar-btn"
+                    className="memory-toolbar-btn memory-toolbar-btn-bold"
                     title={t("memory.toolbar.bold")}
                     onClick={insertBold}
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
-                      <path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
-                    </svg>
                     B
                   </button>
                   {/* 列表 */}
@@ -136,14 +129,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                     title={t("memory.toolbar.list")}
                     onClick={() => insertAtLineStart("- 列表项\n")}
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="8" y1="6" x2="21" y2="6" />
-                      <line x1="8" y1="12" x2="21" y2="12" />
-                      <line x1="8" y1="18" x2="21" y2="18" />
-                      <line x1="3" y1="6" x2="3.01" y2="6" />
-                      <line x1="3" y1="12" x2="3.01" y2="12" />
-                      <line x1="3" y1="18" x2="3.01" y2="18" />
-                    </svg>
+                    ≡
                   </button>
                   {/* 代码块 */}
                   <button
@@ -152,10 +138,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                     title={t("memory.toolbar.code")}
                     onClick={() => insertAtCursor("```\n\n```")}
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="16 18 22 12 16 6" />
-                      <polyline points="8 6 2 12 8 18" />
-                    </svg>
+                    &lt;/&gt;
                   </button>
                 </div>
                 <CodeMirror

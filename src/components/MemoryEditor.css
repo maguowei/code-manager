@@ -210,6 +210,11 @@
   color: var(--text-primary);
 }
 
+.memory-toolbar-btn-bold {
+  font-weight: 900;
+  font-style: italic;
+}
+
 /* CodeMirror 覆盖 */
 .memory-editor .cm-editor {
   font-size: 13px;
