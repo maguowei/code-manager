@@ -11,6 +11,9 @@ pub static CONFIG_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 /// 记忆文件操作互斥锁
 pub static MEMORY_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
+/// 统计快照文件操作互斥锁
+pub static STATS_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+
 /// 安全获取用户主目录
 pub fn get_home_dir() -> Result<PathBuf, String> {
     dirs::home_dir().ok_or_else(|| "无法获取用户主目录".to_string())

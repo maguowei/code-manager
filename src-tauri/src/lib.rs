@@ -1,5 +1,6 @@
 mod config;
 mod memory;
+mod stats;
 mod tray;
 mod utils;
 
@@ -8,6 +9,7 @@ use config::{
     reorder_configs, update_config, update_defaults,
 };
 use memory::{add_memory, delete_memory, get_memories, toggle_memory, update_memory};
+use stats::{get_stats, get_stats_history, take_stats_snapshot};
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -16,6 +18,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             tray::setup_tray(app)?;
+            stats::start_snapshot_timer();
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -45,7 +48,10 @@ pub fn run() {
             add_memory,
             update_memory,
             delete_memory,
-            toggle_memory
+            toggle_memory,
+            get_stats,
+            get_stats_history,
+            take_stats_snapshot
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
