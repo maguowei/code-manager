@@ -123,6 +123,56 @@ export function generateClaudeJson(config: ClaudeConfig): object {
   return result;
 }
 
+// ===== 统计页面类型 =====
+
+export interface ModelUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadInputTokens: number;
+  cacheCreationInputTokens: number;
+  webSearchRequests: number;
+  costUsd: number;
+}
+
+export interface SessionMetrics {
+  frameDurationMsAvg: number;
+  frameDurationMsP95: number;
+  hookDurationMsAvg?: number;
+  hookDurationMsP95?: number;
+  hookDurationMsCount?: number;
+  preToolHookDurationMsAvg?: number;
+  preToolHookDurationMsP95?: number;
+}
+
+export interface UsageEntry {
+  usageCount: number;
+  lastUsedAt: number;
+}
+
+export interface ProjectStats {
+  lastCost: number;
+  lastDuration: number;
+  lastModelUsage: Record<string, ModelUsage>;
+  lastSessionMetrics?: SessionMetrics;
+  lastTotalInputTokens: number;
+  lastTotalOutputTokens: number;
+  lastTotalCacheCreationInputTokens: number;
+  lastTotalCacheReadInputTokens: number;
+}
+
+export interface ClaudeStats {
+  numStartups: number;
+  firstStartTime?: string;
+  projects: Record<string, ProjectStats>;
+  toolUsage: Record<string, UsageEntry>;
+  skillUsage: Record<string, UsageEntry>;
+}
+
+export interface Snapshot {
+  timestamp: number;
+  data: ClaudeStats;
+}
+
 // 深度合并：base 为基础，overlay 的字段优先覆盖
 // 对象递归合并，非对象类型 overlay 优先
 export function deepMerge(base: Record<string, unknown>, overlay: Record<string, unknown>): Record<string, unknown> {

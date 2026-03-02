@@ -11,11 +11,12 @@ import ConfigEditor from "./components/ConfigEditor";
 import SettingsDrawer from "./components/SettingsDrawer";
 import MemoryPage from "./components/MemoryPage";
 import SkillsPage from "./components/SkillsPage";
+import StatsPage from "./components/StatsPage";
 import Sidebar from "./components/Sidebar";
 import ConfirmDialog from "./components/ConfirmDialog";
 import useEscapeKey from "./hooks/useEscapeKey";
 
-type TabType = "configs" | "memory" | "skills";
+type TabType = "configs" | "memory" | "skills" | "stats";
 
 // 检测是否在 Tauri 环境中运行
 const isTauri = () => {
@@ -270,6 +271,7 @@ function App() {
           )}
           {activeTab === "memory" && <MemoryPage onDrawerChange={setIsMemoryDrawerOpen} />}
           {activeTab === "skills" && <SkillsPage />}
+          {activeTab === "stats" && <StatsPage />}
         </div>
 
         {isModalOpen && (

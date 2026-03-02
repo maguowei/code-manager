@@ -1,8 +1,8 @@
 import "./Sidebar.css";
 
 interface SidebarProps {
-  activeTab: "configs" | "memory" | "skills";
-  onTabChange: (tab: "configs" | "memory" | "skills") => void;
+  activeTab: "configs" | "memory" | "skills" | "stats";
+  onTabChange: (tab: "configs" | "memory" | "skills" | "stats") => void;
   onSettingsClick: () => void;
 }
 
@@ -51,6 +51,19 @@ function Sidebar({ activeTab, onTabChange, onSettingsClick }: SidebarProps) {
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+          </svg>
+        </button>
+
+        <button
+          className={`nav-item ${activeTab === "stats" ? "active" : ""}`}
+          onClick={() => onTabChange("stats")}
+          aria-label="使用统计"
+          aria-current={activeTab === "stats" ? "page" : undefined}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="18" y1="20" x2="18" y2="10" />
+            <line x1="12" y1="20" x2="12" y2="4" />
+            <line x1="6" y1="20" x2="6" y2="14" />
           </svg>
         </button>
       </div>
