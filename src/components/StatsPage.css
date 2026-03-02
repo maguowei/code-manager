@@ -1,0 +1,210 @@
+.stats-page {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.stats-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-5);
+  scrollbar-width: none;
+}
+
+.stats-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* 概览卡片区 */
+.stats-overview {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.stat-card {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.stat-card-label {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.stat-card-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.stat-card-value.accent-blue {
+  color: var(--accent-blue);
+}
+
+.stat-card-value.accent-green {
+  color: var(--accent-green);
+}
+
+.stat-card-value.accent-purple {
+  color: var(--accent-purple);
+}
+
+.stat-card-value.accent-orange {
+  color: var(--accent-orange);
+}
+
+/* Section Card */
+.stats-section {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5);
+  margin-bottom: var(--space-5);
+}
+
+.stats-section-title {
+  font-size: var(--font-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-muted);
+}
+
+/* 图表子区域 */
+.stats-chart-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+  margin-bottom: var(--space-4);
+}
+
+.stats-chart-group.single {
+  grid-template-columns: 1fr;
+}
+
+.stats-chart-block {
+  min-height: 0;
+}
+
+.stats-chart-label {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-bottom: var(--space-3);
+}
+
+/* 列表样式 */
+.stats-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.stats-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-tertiary);
+}
+
+.stats-list-item-name {
+  font-size: var(--font-base);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.stats-list-item-value {
+  font-size: var(--font-base);
+  color: var(--text-secondary);
+  font-family: "SF Mono", "Cascadia Code", "Fira Code", monospace;
+}
+
+/* 性能指标网格 */
+.stats-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+}
+
+.stats-metric-item {
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+}
+
+.stats-metric-label {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-1);
+}
+
+.stats-metric-value {
+  font-size: var(--font-xl);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* 刷新按钮 */
+.stats-refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.stats-refresh-btn:hover {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+/* 空状态 */
+.stats-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px var(--space-5);
+  text-align: center;
+}
+
+/* 响应式 */
+@media (max-width: 900px) {
+  .stats-overview {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .stats-chart-group {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .stats-overview {
+    grid-template-columns: 1fr;
+  }
+}
