@@ -135,13 +135,14 @@ export interface ModelUsage {
 }
 
 export interface SessionMetrics {
-  frameDurationMsAvg: number;
-  frameDurationMsP95: number;
-  hookDurationMsAvg?: number;
-  hookDurationMsP95?: number;
-  hookDurationMsCount?: number;
-  preToolHookDurationMsAvg?: number;
-  preToolHookDurationMsP95?: number;
+  // Rust 端使用 snake_case 序列化，前端字段名需匹配
+  frame_duration_ms_avg: number;
+  frame_duration_ms_p95: number;
+  hook_duration_ms_avg?: number;
+  hook_duration_ms_p95?: number;
+  hook_duration_ms_count?: number;
+  pre_tool_hook_duration_ms_avg?: number;
+  pre_tool_hook_duration_ms_p95?: number;
 }
 
 export interface UsageEntry {

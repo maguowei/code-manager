@@ -325,22 +325,22 @@ function StatsPage() {
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
                       <div>
                         <div className="stats-metric-label">{t("stats.frameAvg")}</div>
-                        <div className="stats-metric-value">{m.frameDurationMsAvg.toFixed(1)}ms</div>
+                        <div className="stats-metric-value">{m.frame_duration_ms_avg.toFixed(1)}ms</div>
                       </div>
                       <div>
                         <div className="stats-metric-label">{t("stats.frameP95")}</div>
-                        <div className="stats-metric-value">{m.frameDurationMsP95.toFixed(1)}ms</div>
+                        <div className="stats-metric-value">{m.frame_duration_ms_p95.toFixed(1)}ms</div>
                       </div>
-                      {m.hookDurationMsAvg != null && (
+                      {m.hook_duration_ms_avg != null && (
                         <div>
                           <div className="stats-metric-label">{t("stats.hookAvg")}</div>
-                          <div className="stats-metric-value">{m.hookDurationMsAvg.toFixed(1)}ms</div>
+                          <div className="stats-metric-value">{m.hook_duration_ms_avg.toFixed(1)}ms</div>
                         </div>
                       )}
-                      {m.hookDurationMsP95 != null && (
+                      {m.hook_duration_ms_p95 != null && (
                         <div>
                           <div className="stats-metric-label">{t("stats.hookP95")}</div>
-                          <div className="stats-metric-value">{m.hookDurationMsP95.toFixed(1)}ms</div>
+                          <div className="stats-metric-value">{m.hook_duration_ms_p95.toFixed(1)}ms</div>
                         </div>
                       )}
                     </div>
