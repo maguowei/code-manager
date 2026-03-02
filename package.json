@@ -22,7 +22,8 @@
     "@uiw/codemirror-theme-xcode": "^4.25.5",
     "@uiw/react-codemirror": "^4.25.5",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "recharts": "^3.7.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",
