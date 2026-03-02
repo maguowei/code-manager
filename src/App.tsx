@@ -244,6 +244,9 @@ function App() {
       />
 
       <div className="content-area">
+        {activeTab === "stats" ? (
+          <StatsPage />
+        ) : (
         <div className={`list-section ${isModalOpen || isMemoryDrawerOpen ? "compressed" : ""}`}>
           {activeTab === "configs" && (
             <>
@@ -271,8 +274,8 @@ function App() {
           )}
           {activeTab === "memory" && <MemoryPage onDrawerChange={setIsMemoryDrawerOpen} />}
           {activeTab === "skills" && <SkillsPage />}
-          {activeTab === "stats" && <StatsPage />}
         </div>
+        )}
 
         {isModalOpen && (
           <>
