@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, AreaChart, Area,
 } from "recharts";
-import { ClaudeStats, Snapshot } from "../types";
+import { ClaudeStats, Snapshot, isTauri } from "../types";
 import { useI18n } from "../i18n";
 import { useToast } from "../hooks/useToast";
 import "./StatsPage.css";
@@ -22,8 +22,10 @@ const COLORS = {
 };
 const PIE_COLORS = [COLORS.blue, COLORS.green, COLORS.orange, COLORS.purple, COLORS.red, COLORS.teal, COLORS.pink, COLORS.yellow];
 
-// 检测是否在 Tauri 环境中运行
-const isTauri = () => typeof window !== "undefined" && window.__TAURI_INTERNALS__ !== undefined;
+// recharts 图表共享样式常量
+const TICK_STYLE = { fill: "#7d8590", fontSize: 11 };
+const TICK_STYLE_SM = { fill: "#7d8590", fontSize: 10 };
+const TOOLTIP_STYLE = { backgroundColor: "#161b22", border: "1px solid #30363d", borderRadius: 8, color: "#e6edf3" };
 
 /** 项目路径截取最后两级 */
 function shortPath(fullPath: string): string {
@@ -74,11 +76,11 @@ function StatsPage() {
       setStats(s);
       setHistory(h);
     } catch {
-      showToast("加载统计数据失败", "error");
+      showToast(t("stats.loadError"), "error");
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, t]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -87,9 +89,9 @@ function StatsPage() {
     try {
       await invoke("take_stats_snapshot");
       await loadData();
-      showToast("已刷新统计数据");
+      showToast(t("stats.refreshed"));
     } catch {
-      showToast("刷新失败", "error");
+      showToast(t("stats.refreshError"), "error");
     }
   }
 
@@ -146,6 +148,19 @@ function StatsPage() {
       };
     });
   }, [history]);
+
+  const sessionDurationData = useMemo(() => {
+    if (!stats) return [];
+    return Object.entries(stats.projects)
+      .filter(([, p]) => p.lastDuration > 0)
+      .sort(([, a], [, b]) => b.lastDuration - a.lastDuration);
+  }, [stats]);
+
+  const performanceData = useMemo(() => {
+    if (!stats) return [];
+    return Object.entries(stats.projects)
+      .filter(([, p]) => p.lastSessionMetrics);
+  }, [stats]);
 
   // ===== 渲染 =====
   if (loading) {
@@ -221,13 +236,13 @@ function StatsPage() {
               {projectCostData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={Math.max(200, projectCostData.length * 40)}>
                   <BarChart data={projectCostData} layout="vertical" margin={{ left: 20, right: 20, top: 5, bottom: 5 }}>
-                    <XAxis type="number" tick={{ fill: "#7d8590", fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
-                    <YAxis type="category" dataKey="name" width={120} tick={{ fill: "#7d8590", fontSize: 11 }} />
-                    <Tooltip formatter={(v: number | undefined) => formatUSD(v ?? 0)} contentStyle={{ backgroundColor: "#161b22", border: "1px solid #30363d", borderRadius: 8, color: "#e6edf3" }} />
+                    <XAxis type="number" tick={TICK_STYLE} tickFormatter={(v) => `$${v}`} />
+                    <YAxis type="category" dataKey="name" width={120} tick={TICK_STYLE} />
+                    <Tooltip formatter={(v: number | undefined) => formatUSD(v ?? 0)} contentStyle={TOOLTIP_STYLE} />
                     <Bar dataKey="cost" fill={COLORS.blue} radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
-              ) : <p style={{ color: "var(--text-muted)", fontSize: "var(--font-sm)" }}>-</p>}
+              ) : <p className="stats-no-data">-</p>}
             </div>
             <div className="stats-chart-block">
               <div className="stats-chart-label">{t("stats.costByModel")}</div>
@@ -237,10 +252,10 @@ function StatsPage() {
                     <Pie data={modelCostData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2} label={({ name, value }) => `${(name ?? "").split("-").slice(0, 2).join("-")} $${value}`} labelLine={false}>
                       {modelCostData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                     </Pie>
-                    <Tooltip formatter={(v: number | undefined) => formatUSD(v ?? 0)} contentStyle={{ backgroundColor: "#161b22", border: "1px solid #30363d", borderRadius: 8, color: "#e6edf3" }} />
+                    <Tooltip formatter={(v: number | undefined) => formatUSD(v ?? 0)} contentStyle={TOOLTIP_STYLE} />
                   </PieChart>
                 </ResponsiveContainer>
-              ) : <p style={{ color: "var(--text-muted)", fontSize: "var(--font-sm)" }}>-</p>}
+              ) : <p className="stats-no-data">-</p>}
             </div>
           </div>
 
@@ -250,9 +265,9 @@ function StatsPage() {
               <div className="stats-chart-label">{t("stats.costTrend")}</div>
               <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={costTrendData} margin={{ left: 10, right: 10, top: 5, bottom: 5 }}>
-                  <XAxis dataKey="date" tick={{ fill: "#7d8590", fontSize: 10 }} />
-                  <YAxis tick={{ fill: "#7d8590", fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
-                  <Tooltip formatter={(v: number | undefined) => formatUSD(v ?? 0)} contentStyle={{ backgroundColor: "#161b22", border: "1px solid #30363d", borderRadius: 8, color: "#e6edf3" }} />
+                  <XAxis dataKey="date" tick={TICK_STYLE_SM} />
+                  <YAxis tick={TICK_STYLE} tickFormatter={(v) => `$${v}`} />
+                  <Tooltip formatter={(v: number | undefined) => formatUSD(v ?? 0)} contentStyle={TOOLTIP_STYLE} />
                   <Area type="monotone" dataKey="cost" stroke={COLORS.green} fill={COLORS.green} fillOpacity={0.15} strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
@@ -269,13 +284,13 @@ function StatsPage() {
               {toolUsageData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={Math.max(200, toolUsageData.length * 36)}>
                   <BarChart data={toolUsageData} layout="vertical" margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
-                    <XAxis type="number" tick={{ fill: "#7d8590", fontSize: 11 }} />
-                    <YAxis type="category" dataKey="name" width={90} tick={{ fill: "#7d8590", fontSize: 11 }} />
-                    <Tooltip contentStyle={{ backgroundColor: "#161b22", border: "1px solid #30363d", borderRadius: 8, color: "#e6edf3" }} />
+                    <XAxis type="number" tick={TICK_STYLE} />
+                    <YAxis type="category" dataKey="name" width={90} tick={TICK_STYLE} />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
                     <Bar dataKey="count" fill={COLORS.orange} radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
-              ) : <p style={{ color: "var(--text-muted)", fontSize: "var(--font-sm)" }}>-</p>}
+              ) : <p className="stats-no-data">-</p>}
             </div>
             <div className="stats-chart-block">
               <div className="stats-chart-label">{t("stats.skillUsage")}</div>
@@ -288,7 +303,7 @@ function StatsPage() {
                     </div>
                   ))}
                 </div>
-              ) : <p style={{ color: "var(--text-muted)", fontSize: "var(--font-sm)" }}>-</p>}
+              ) : <p className="stats-no-data">-</p>}
             </div>
           </div>
         </div>
@@ -299,55 +314,48 @@ function StatsPage() {
 
           {/* 项目会话时长列表 */}
           <div className="stats-chart-label">{t("stats.sessionDuration")}</div>
-          <div className="stats-list" style={{ marginBottom: "var(--space-4)" }}>
-            {Object.entries(stats.projects)
-              .filter(([, p]) => p.lastDuration > 0)
-              .sort(([, a], [, b]) => b.lastDuration - a.lastDuration)
-              .map(([path, p]) => (
-                <div key={path} className="stats-list-item">
-                  <span className="stats-list-item-name">{shortPath(path)}</span>
-                  <span className="stats-list-item-value">{formatDuration(p.lastDuration)}</span>
-                </div>
-              ))
-            }
+          <div className="stats-list stats-list-spaced">
+            {sessionDurationData.map(([path, p]) => (
+              <div key={path} className="stats-list-item">
+                <span className="stats-list-item-name">{shortPath(path)}</span>
+                <span className="stats-list-item-value">{formatDuration(p.lastDuration)}</span>
+              </div>
+            ))}
           </div>
 
           {/* 性能指标 */}
           <div className="stats-chart-label">{t("stats.performance")}</div>
           <div className="stats-metrics-grid">
-            {Object.entries(stats.projects)
-              .filter(([, p]) => p.lastSessionMetrics)
-              .map(([path, p]) => {
-                const m = p.lastSessionMetrics!;
-                return (
-                  <div key={path} className="stats-metric-item">
-                    <div className="stats-metric-label">{shortPath(path)}</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
-                      <div>
-                        <div className="stats-metric-label">{t("stats.frameAvg")}</div>
-                        <div className="stats-metric-value">{m.frame_duration_ms_avg.toFixed(1)}ms</div>
-                      </div>
-                      <div>
-                        <div className="stats-metric-label">{t("stats.frameP95")}</div>
-                        <div className="stats-metric-value">{m.frame_duration_ms_p95.toFixed(1)}ms</div>
-                      </div>
-                      {m.hook_duration_ms_avg != null && (
-                        <div>
-                          <div className="stats-metric-label">{t("stats.hookAvg")}</div>
-                          <div className="stats-metric-value">{m.hook_duration_ms_avg.toFixed(1)}ms</div>
-                        </div>
-                      )}
-                      {m.hook_duration_ms_p95 != null && (
-                        <div>
-                          <div className="stats-metric-label">{t("stats.hookP95")}</div>
-                          <div className="stats-metric-value">{m.hook_duration_ms_p95.toFixed(1)}ms</div>
-                        </div>
-                      )}
+            {performanceData.map(([path, p]) => {
+              const m = p.lastSessionMetrics!;
+              return (
+                <div key={path} className="stats-metric-item">
+                  <div className="stats-metric-label">{shortPath(path)}</div>
+                  <div className="stats-metric-inner-grid">
+                    <div>
+                      <div className="stats-metric-label">{t("stats.frameAvg")}</div>
+                      <div className="stats-metric-value">{m.frame_duration_ms_avg.toFixed(1)}ms</div>
                     </div>
+                    <div>
+                      <div className="stats-metric-label">{t("stats.frameP95")}</div>
+                      <div className="stats-metric-value">{m.frame_duration_ms_p95.toFixed(1)}ms</div>
+                    </div>
+                    {m.hook_duration_ms_avg != null && (
+                      <div>
+                        <div className="stats-metric-label">{t("stats.hookAvg")}</div>
+                        <div className="stats-metric-value">{m.hook_duration_ms_avg.toFixed(1)}ms</div>
+                      </div>
+                    )}
+                    {m.hook_duration_ms_p95 != null && (
+                      <div>
+                        <div className="stats-metric-label">{t("stats.hookP95")}</div>
+                        <div className="stats-metric-value">{m.hook_duration_ms_p95.toFixed(1)}ms</div>
+                      </div>
+                    )}
                   </div>
-                );
-              })
-            }
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

@@ -16,7 +16,7 @@ pub struct ModelUsage {
     pub cache_creation_input_tokens: u64,
     #[serde(default)]
     pub web_search_requests: u64,
-    #[serde(default)]
+    #[serde(default, alias = "costUSD")]
     pub cost_usd: f64,
 }
 

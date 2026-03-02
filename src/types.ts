@@ -1,3 +1,9 @@
+// 检测是否在 Tauri 环境中运行
+export const isTauri = () => typeof window !== "undefined" && window.__TAURI_INTERNALS__ !== undefined;
+
+// 侧边栏 Tab 类型
+export type TabType = "configs" | "memory" | "skills" | "stats";
+
 export interface ClaudeConfig {
   id: string;
   name: string;

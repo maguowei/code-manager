@@ -134,7 +134,6 @@ const translations = {
     "nav.stats": "统计",
     "stats.title": "使用统计",
     "stats.refresh": "刷新",
-    "stats.overview": "概览",
     "stats.startups": "启动次数",
     "stats.totalCost": "总花费",
     "stats.firstUse": "首次使用",
@@ -156,6 +155,9 @@ const translations = {
     "stats.calls": "次调用",
     "stats.noData": "暂无统计数据",
     "stats.noDataHint": "使用 Claude Code 后，统计数据将自动显示在这里",
+    "stats.loadError": "加载统计数据失败",
+    "stats.refreshed": "已刷新统计数据",
+    "stats.refreshError": "刷新失败",
 
     // 确认对话框
     "confirm.deleteConfigTitle": "删除配置",
@@ -305,7 +307,6 @@ const translations = {
     "nav.stats": "Stats",
     "stats.title": "Usage Statistics",
     "stats.refresh": "Refresh",
-    "stats.overview": "Overview",
     "stats.startups": "Startups",
     "stats.totalCost": "Total Cost",
     "stats.firstUse": "First Use",
@@ -327,6 +328,9 @@ const translations = {
     "stats.calls": "calls",
     "stats.noData": "No statistics yet",
     "stats.noDataHint": "Statistics will appear here after using Claude Code",
+    "stats.loadError": "Failed to load statistics",
+    "stats.refreshed": "Statistics refreshed",
+    "stats.refreshError": "Refresh failed",
 
     // 确认对话框
     "confirm.deleteConfigTitle": "Delete Config",

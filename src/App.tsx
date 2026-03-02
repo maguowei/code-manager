@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import "./App.css";
-import { ClaudeConfig } from "./types";
+import { ClaudeConfig, TabType, isTauri } from "./types";
 import { useI18n } from "./i18n";
 import { useToast } from "./hooks/useToast";
 import ConfigList from "./components/ConfigList";
@@ -15,13 +15,6 @@ import StatsPage from "./components/StatsPage";
 import Sidebar from "./components/Sidebar";
 import ConfirmDialog from "./components/ConfirmDialog";
 import useEscapeKey from "./hooks/useEscapeKey";
-
-type TabType = "configs" | "memory" | "skills" | "stats";
-
-// 检测是否在 Tauri 环境中运行
-const isTauri = () => {
-  return typeof window !== "undefined" && window.__TAURI_INTERNALS__ !== undefined;
-};
 
 /** 将表单数据转换为后端 ConfigData 格式 */
 function buildConfigData(config: Omit<ClaudeConfig, "id" | "createdAt" | "updatedAt" | "isActive">) {

@@ -90,10 +90,6 @@
   margin-bottom: var(--space-4);
 }
 
-.stats-chart-group.single {
-  grid-template-columns: 1fr;
-}
-
 .stats-chart-block {
   min-height: 0;
 }
@@ -103,6 +99,12 @@
   color: var(--text-secondary);
   font-weight: 500;
   margin-bottom: var(--space-3);
+}
+
+/* 无数据占位 */
+.stats-no-data {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
 }
 
 /* 列表样式 */
@@ -133,6 +135,10 @@
   font-family: "SF Mono", "Cascadia Code", "Fira Code", monospace;
 }
 
+.stats-list-spaced {
+  margin-bottom: var(--space-4);
+}
+
 /* 性能指标网格 */
 .stats-metrics-grid {
   display: grid;
@@ -144,6 +150,13 @@
   background-color: var(--bg-tertiary);
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
+}
+
+.stats-metric-inner-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 
 .stats-metric-label {

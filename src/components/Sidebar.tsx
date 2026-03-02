@@ -1,8 +1,9 @@
+import { TabType } from "../types";
 import "./Sidebar.css";
 
 interface SidebarProps {
-  activeTab: "configs" | "memory" | "skills" | "stats";
-  onTabChange: (tab: "configs" | "memory" | "skills" | "stats") => void;
+  activeTab: TabType;
+  onTabChange: (tab: TabType) => void;
   onSettingsClick: () => void;
 }
 
