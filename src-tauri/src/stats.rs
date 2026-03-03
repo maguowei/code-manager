@@ -104,9 +104,7 @@ pub struct StatsHistory {
 
 /// 获取 ~/.claude.json 路径
 fn get_claude_json_path() -> PathBuf {
-    crate::utils::get_home_dir()
-        .unwrap_or_else(|_| PathBuf::from("."))
-        .join(".claude.json")
+    crate::utils::home_dir_or_fallback().join(".claude.json")
 }
 
 /// 获取快照存储路径
@@ -126,15 +124,18 @@ fn load_stats_history() -> StatsHistory {
     crate::utils::read_json_file(&path)
 }
 
-/// 保存快照历史
+/// 保存快照历史（使用紧凑 JSON 减少磁盘占用）
 fn save_stats_history(history: &StatsHistory) -> Result<(), String> {
     let path = get_stats_history_path();
-    let content = serde_json::to_string_pretty(history).map_err(|e| e.to_string())?;
+    let content = serde_json::to_string(history).map_err(|e| e.to_string())?;
     crate::utils::ensure_dir_and_write(&path, &content)
 }
 
 /// 90 天（秒）
 const RETENTION_SECONDS: u64 = 90 * 24 * 60 * 60;
+
+/// 最大快照保留条数（防止无限增长）
+const MAX_SNAPSHOTS: usize = 500;
 
 /// 执行快照（内部逻辑，加锁前调用）
 fn take_snapshot_inner() -> Result<(), String> {
@@ -152,6 +153,12 @@ fn take_snapshot_inner() -> Result<(), String> {
     // 清理超过 90 天的快照
     let cutoff = now.saturating_sub(RETENTION_SECONDS);
     history.snapshots.retain(|s| s.timestamp >= cutoff);
+
+    // 超出数量上限时，移除最旧的条目
+    if history.snapshots.len() >= MAX_SNAPSHOTS {
+        let remove_count = history.snapshots.len() - MAX_SNAPSHOTS + 1;
+        history.snapshots.drain(0..remove_count);
+    }
 
     // 新增快照
     history.snapshots.push(Snapshot {
@@ -177,9 +184,7 @@ pub fn get_stats_history() -> Result<Vec<Snapshot>, String> {
 /// 手动触发快照
 #[tauri::command]
 pub fn take_stats_snapshot() -> Result<(), String> {
-    let _lock = crate::utils::STATS_LOCK
-        .lock()
-        .map_err(|e| format!("获取锁失败: {}", e))?;
+    let _lock = crate::utils::lock_stats()?;
     take_snapshot_inner()
 }
 

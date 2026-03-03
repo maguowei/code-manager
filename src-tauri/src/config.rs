@@ -97,8 +97,7 @@ fn get_config_path() -> PathBuf {
 
 /// 获取 Claude 设置文件路径
 fn get_claude_config_path() -> PathBuf {
-    crate::utils::get_home_dir()
-        .unwrap_or_else(|_| PathBuf::from("."))
+    crate::utils::home_dir_or_fallback()
         .join(".claude")
         .join("settings.json")
 }
@@ -111,9 +110,7 @@ pub fn load_state() -> AppState {
 
 /// 将应用状态序列化并写入文件
 pub fn save_state(state: &AppState) -> Result<(), String> {
-    let path = get_config_path();
-    let content = serde_json::to_string_pretty(state).map_err(|e| e.to_string())?;
-    crate::utils::ensure_dir_and_write(&path, &content)
+    crate::utils::save_json_file(&get_config_path(), state)
 }
 
 /// 深度合并两个 JSON 值：base 为基础，overlay 的字段优先覆盖
@@ -136,12 +133,10 @@ fn deep_merge(base: serde_json::Value, overlay: serde_json::Value) -> serde_json
     }
 }
 
-/// 将指定配置应用到 ~/.claude/settings.json
+/// 构建配置的 JSON 表示（不含文件 I/O），供 apply_config 与 preview_config 共用。
 ///
-/// **注意**：此函数可能在持有 `CONFIG_LOCK` 的上下文中被调用（如 `activate_config_inner`、`update_config`）。
-/// 因此内部的 `load_state()` 不可再次获取该锁——标准库 `Mutex` 不可重入，否则会死锁。
-/// `load_state()` 不加锁属于有意设计，修改时需注意此约束。
-pub fn apply_config(config: &ClaudeConfig) -> Result<(), String> {
+/// `defaults` 为通用配置的 JSON 字符串，当 `config.use_defaults == Some(true)` 时参与深度合并。
+fn build_config_value(config: &ClaudeConfig, defaults: Option<&str>) -> serde_json::Value {
     let mut env = serde_json::Map::new();
     env.insert(
         "ANTHROPIC_AUTH_TOKEN".to_string(),
@@ -256,23 +251,26 @@ pub fn apply_config(config: &ClaudeConfig) -> Result<(), String> {
 
     claude_config.insert("env".to_string(), serde_json::Value::Object(env));
 
-    // 加载通用配置并深度合并（仅在当前配置启用通用配置时）
-    let state = load_state();
-    let final_config = if config.use_defaults == Some(true) {
-        if let Some(ref defaults_str) = state.defaults {
+    // 若启用通用配置且 defaults 合法，进行深度合并（通用配置为 base，当前配置覆盖）
+    if config.use_defaults == Some(true) {
+        if let Some(defaults_str) = defaults {
             if let Ok(defaults_val) = serde_json::from_str::<serde_json::Value>(defaults_str) {
                 let current_val = serde_json::Value::Object(claude_config);
-                deep_merge(defaults_val, current_val)
-            } else {
-                serde_json::Value::Object(claude_config)
+                return deep_merge(defaults_val, current_val);
             }
-        } else {
-            serde_json::Value::Object(claude_config)
         }
-    } else {
-        serde_json::Value::Object(claude_config)
-    };
+    }
 
+    serde_json::Value::Object(claude_config)
+}
+
+/// 将指定配置应用到 ~/.claude/settings.json
+///
+/// **注意**：此函数可能在持有 `CONFIG_LOCK` 的上下文中被调用（如 `activate_config_inner`、`update_config`）。
+/// 因此内部不可再次获取该锁——标准库 `Mutex` 不可重入，否则会死锁。
+/// `defaults` 由调用方传入，避免重复读取磁盘状态。
+pub fn apply_config(config: &ClaudeConfig, defaults: Option<&str>) -> Result<(), String> {
+    let final_config = build_config_value(config, defaults);
     let path = get_claude_config_path();
     let content = serde_json::to_string_pretty(&final_config).map_err(|e| e.to_string())?;
     crate::utils::ensure_dir_and_write(&path, &content)
@@ -287,9 +285,7 @@ pub fn get_configs() -> Result<AppState, String> {
 #[tauri::command]
 pub fn add_config(app_handle: AppHandle, data: ConfigData) -> Result<ClaudeConfig, String> {
     // 加锁保护并发写入
-    let _lock = crate::utils::CONFIG_LOCK
-        .lock()
-        .map_err(|e| format!("获取锁失败: {}", e))?;
+    let _lock = crate::utils::lock_config()?;
 
     let mut state = load_state();
     let now = crate::utils::current_timestamp();
@@ -335,9 +331,7 @@ pub fn update_config(
     data: ConfigData,
 ) -> Result<ClaudeConfig, String> {
     // 加锁保护并发写入
-    let _lock = crate::utils::CONFIG_LOCK
-        .lock()
-        .map_err(|e| format!("获取锁失败: {}", e))?;
+    let _lock = crate::utils::lock_config()?;
 
     let mut state = load_state();
 
@@ -373,7 +367,7 @@ pub fn update_config(
 
     // 若该配置当前处于激活状态，重新应用以更新 Claude 设置
     if state.active_config_id == Some(id) {
-        apply_config(&updated)?;
+        apply_config(&updated, state.defaults.as_deref())?;
     }
     rebuild_tray_menu(&app_handle);
 
@@ -384,9 +378,7 @@ pub fn update_config(
 #[tauri::command]
 pub fn delete_config(app_handle: AppHandle, id: String) -> Result<(), String> {
     // 加锁保护并发写入
-    let _lock = crate::utils::CONFIG_LOCK
-        .lock()
-        .map_err(|e| format!("获取锁失败: {}", e))?;
+    let _lock = crate::utils::lock_config()?;
 
     let mut state = load_state();
 
@@ -405,9 +397,7 @@ pub fn delete_config(app_handle: AppHandle, id: String) -> Result<(), String> {
 #[tauri::command]
 pub fn duplicate_config(app_handle: AppHandle, id: String) -> Result<ClaudeConfig, String> {
     // 加锁保护并发写入
-    let _lock = crate::utils::CONFIG_LOCK
-        .lock()
-        .map_err(|e| format!("获取锁失败: {}", e))?;
+    let _lock = crate::utils::lock_config()?;
 
     let mut state = load_state();
 
@@ -422,7 +412,7 @@ pub fn duplicate_config(app_handle: AppHandle, id: String) -> Result<ClaudeConfi
 
     let new_config = ClaudeConfig {
         id: Uuid::new_v4().to_string(),
-        name: format!("{} (副本)", original.name),
+        name: format!("{} (copy)", original.name),
         description: original.description.clone(),
         api_key: original.api_key.clone(),
         api_url: original.api_url.clone(),
@@ -459,9 +449,7 @@ pub fn duplicate_config(app_handle: AppHandle, id: String) -> Result<ClaudeConfi
 #[tauri::command]
 pub fn reorder_configs(app_handle: AppHandle, ids: Vec<String>) -> Result<(), String> {
     // 加锁保护并发写入
-    let _lock = crate::utils::CONFIG_LOCK
-        .lock()
-        .map_err(|e| format!("获取锁失败: {}", e))?;
+    let _lock = crate::utils::lock_config()?;
 
     let mut state = load_state();
 
@@ -489,9 +477,7 @@ pub fn reorder_configs(app_handle: AppHandle, ids: Vec<String>) -> Result<(), St
 /// 激活指定配置的内部实现，可从 tray.rs 调用（无需 AppHandle）
 pub fn activate_config_inner(id: String) -> Result<(), String> {
     // 加锁保护并发写入
-    let _lock = crate::utils::CONFIG_LOCK
-        .lock()
-        .map_err(|e| format!("获取锁失败: {}", e))?;
+    let _lock = crate::utils::lock_config()?;
 
     let mut state = load_state();
 
@@ -511,7 +497,7 @@ pub fn activate_config_inner(id: String) -> Result<(), String> {
 
     // 保存状态并应用配置
     save_state(&state)?;
-    apply_config(&config)?;
+    apply_config(&config, state.defaults.as_deref())?;
 
     Ok(())
 }
@@ -532,11 +518,9 @@ pub fn get_defaults() -> Result<Option<String>, String> {
 
 /// 更新通用配置内容，若有激活配置且启用了通用配置则重新应用
 #[tauri::command]
-pub fn update_defaults(app_handle: AppHandle, content: String) -> Result<(), String> {
+pub fn update_defaults(content: String) -> Result<(), String> {
     // 加锁保护并发写入
-    let _lock = crate::utils::CONFIG_LOCK
-        .lock()
-        .map_err(|e| format!("获取锁失败: {}", e))?;
+    let _lock = crate::utils::lock_config()?;
 
     let mut state = load_state();
     let trimmed = content.trim().to_string();
@@ -554,11 +538,43 @@ pub fn update_defaults(app_handle: AppHandle, content: String) -> Result<(), Str
     if let Some(ref active_id) = state.active_config_id {
         if let Some(config) = state.configs.iter().find(|c| &c.id == active_id) {
             if config.use_defaults == Some(true) {
-                apply_config(config)?;
+                apply_config(config, state.defaults.as_deref())?;
             }
         }
     }
-    rebuild_tray_menu(&app_handle);
 
     Ok(())
+}
+
+/// 生成配置预览 JSON，不写入磁盘（供前端实时预览使用）
+#[tauri::command]
+pub fn preview_config(data: ConfigData, defaults: Option<String>) -> Result<String, String> {
+    // 构建临时 ClaudeConfig，仅用于 JSON 生成，不持久化
+    let config = ClaudeConfig {
+        id: String::new(),
+        name: data.name,
+        description: data.description,
+        api_key: data.api_key,
+        api_url: data.api_url,
+        website_url: data.website_url,
+        model: data.model,
+        thinking_model: data.thinking_model,
+        haiku_model: data.haiku_model,
+        sonnet_model: data.sonnet_model,
+        opus_model: data.opus_model,
+        always_thinking_enabled: data.always_thinking_enabled,
+        disable_nonessential_traffic: data.disable_nonessential_traffic,
+        skip_web_fetch_preflight: data.skip_web_fetch_preflight,
+        enable_lsp_tool: data.enable_lsp_tool,
+        has_completed_onboarding: data.has_completed_onboarding,
+        enable_extra_marketplaces: data.enable_extra_marketplaces,
+        preferred_language: data.preferred_language,
+        use_defaults: data.use_defaults,
+        enabled_plugins: data.enabled_plugins,
+        is_active: false,
+        created_at: 0,
+        updated_at: 0,
+    };
+    let final_config = build_config_value(&config, defaults.as_deref());
+    serde_json::to_string_pretty(&final_config).map_err(|e| e.to_string())
 }

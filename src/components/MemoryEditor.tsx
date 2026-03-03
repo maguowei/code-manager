@@ -50,7 +50,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
     if (!view) return;
     const { from, to } = view.state.selection.main;
     const selected = view.state.sliceDoc(from, to);
-    view.dispatch(view.state.replaceSelection(selected ? `**${selected}**` : "**文本**"));
+    view.dispatch(view.state.replaceSelection(selected ? `**${selected}**` : `**${t("memory.toolbar.boldPlaceholder")}**`));
     view.focus();
   }
 
@@ -109,7 +109,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                     type="button"
                     className="memory-toolbar-btn"
                     title={t("memory.toolbar.heading")}
-                    onClick={() => insertAtLineStart("## 标题\n")}
+                    onClick={() => insertAtLineStart(`## ${t("memory.toolbar.headingPlaceholder")}\n`)}
                   >
                     H
                   </button>
@@ -127,7 +127,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                     type="button"
                     className="memory-toolbar-btn"
                     title={t("memory.toolbar.list")}
-                    onClick={() => insertAtLineStart("- 列表项\n")}
+                    onClick={() => insertAtLineStart(`- ${t("memory.toolbar.listPlaceholder")}\n`)}
                   >
                     ≡
                   </button>

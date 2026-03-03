@@ -1,10 +1,12 @@
-import { useState, useMemo, useEffect } from "react";
-import { ClaudeConfig, generateClaudeJson, deepMerge } from "../types";
+import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { ClaudeConfig } from "../types";
 import { useI18n } from "../i18n";
 import "./ConfigEditor.css";
 import PluginManager from "./PluginManager";
 import DefaultsSection from "./DefaultsSection";
 import ConfigPreview from "./ConfigPreview";
+import CollapsibleSection from "./CollapsibleSection";
 
 interface ConfigEditorProps {
   config: ClaudeConfig | null;
@@ -35,9 +37,6 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
   const [enabledPlugins, setEnabledPlugins] = useState<Record<string, boolean>>(config?.enabledPlugins || {});
   const [preferredLanguage, setPreferredLanguage] = useState(config?.preferredLanguage || "english");
   const [showApiKey, setShowApiKey] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
-  const [showPlugins, setShowPlugins] = useState(false);
   const [defaultsContent, setDefaultsContent] = useState(defaults || "");
 
   // 当启用/禁用通用配置时，实时更新表单字段
@@ -64,49 +63,41 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
     }
   }, [useDefaults, defaultsContent, config?.enabledPlugins]);
 
-  const currentConfig = useMemo(() => ({
-    id: config?.id || "",
-    name,
-    description,
-    apiKey,
-    apiUrl: apiUrl || undefined,
-    websiteUrl: websiteUrl || undefined,
-    model: model || undefined,
-    thinkingModel: thinkingModel || undefined,
-    haikuModel: haikuModel || undefined,
-    sonnetModel: sonnetModel || undefined,
-    opusModel: opusModel || undefined,
-    alwaysThinkingEnabled,
-    disableNonessentialTraffic,
-    skipWebFetchPreflight,
-    enableLspTool,
-    hasCompletedOnboarding,
-    enableExtraMarketplaces,
-    enabledPlugins: Object.keys(enabledPlugins).length > 0 ? enabledPlugins : undefined,
-    preferredLanguage,
-    useDefaults,
-    isActive: config?.isActive || false,
-    createdAt: config?.createdAt || 0,
-    updatedAt: config?.updatedAt || 0,
-  }), [name, description, apiKey, apiUrl, websiteUrl, model, thinkingModel, haikuModel, sonnetModel, opusModel, alwaysThinkingEnabled, disableNonessentialTraffic, skipWebFetchPreflight, enableLspTool, hasCompletedOnboarding, enableExtraMarketplaces, enabledPlugins, preferredLanguage, useDefaults, config]);
-
-  /** 计算最终合并后的配置 JSON 字符串，供预览组件使用 */
-  const previewJson = useMemo(() => {
-    if (!apiKey) return "{}";
-    const configJson = generateClaudeJson(currentConfig) as Record<string, unknown>;
-    // 如果当前配置启用了通用配置且有内容，做深度合并
-    if (useDefaults && defaultsContent.trim()) {
-      try {
-        const defaultsObj = JSON.parse(defaultsContent.trim()) as Record<string, unknown>;
-        const merged = deepMerge(defaultsObj, configJson);
-        return JSON.stringify(merged, null, 2);
-      } catch {
-        // 通用配置 JSON 非法时，仅展示当前配置
-        return JSON.stringify(configJson, null, 2);
-      }
+  /** 通过后端实时生成预览 JSON，与 apply_config 使用相同逻辑 */
+  const [previewJson, setPreviewJson] = useState("{}");
+  useEffect(() => {
+    if (!apiKey) {
+      setPreviewJson("{}");
+      return;
     }
-    return JSON.stringify(configJson, null, 2);
-  }, [currentConfig, apiKey, defaultsContent, useDefaults]);
+    let cancelled = false;
+    const data = {
+      name,
+      description,
+      apiKey,
+      apiUrl: apiUrl || null,
+      websiteUrl: websiteUrl || null,
+      model: model || null,
+      thinkingModel: thinkingModel || null,
+      haikuModel: haikuModel || null,
+      sonnetModel: sonnetModel || null,
+      opusModel: opusModel || null,
+      alwaysThinkingEnabled: alwaysThinkingEnabled || null,
+      disableNonessentialTraffic: disableNonessentialTraffic || null,
+      skipWebFetchPreflight: skipWebFetchPreflight || null,
+      enableLspTool: enableLspTool || null,
+      hasCompletedOnboarding: hasCompletedOnboarding || null,
+      enableExtraMarketplaces: enableExtraMarketplaces || null,
+      preferredLanguage: preferredLanguage || null,
+      useDefaults: useDefaults || null,
+      enabledPlugins: Object.keys(enabledPlugins).length > 0 ? enabledPlugins : null,
+    };
+    const defaults = useDefaults && defaultsContent.trim() ? defaultsContent.trim() : null;
+    invoke<string>("preview_config", { data, defaults })
+      .then((result) => { if (!cancelled) setPreviewJson(result); })
+      .catch(() => { if (!cancelled) setPreviewJson("{}"); });
+    return () => { cancelled = true; };
+  }, [apiKey, name, description, apiUrl, websiteUrl, model, thinkingModel, haikuModel, sonnetModel, opusModel, alwaysThinkingEnabled, disableNonessentialTraffic, skipWebFetchPreflight, enableLspTool, hasCompletedOnboarding, enableExtraMarketplaces, preferredLanguage, useDefaults, enabledPlugins, defaultsContent]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -367,120 +358,75 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
             </div>
 
             {/* 已启用插件 */}
-            <div className={`collapsible-section ${showPlugins ? "expanded" : ""}`}>
-              <div className="collapsible-header" onClick={() => setShowPlugins(!showPlugins)}>
-                <div className="collapsible-header-left">
-                  <span className="collapsible-title">{t("configModal.enabledPlugins")}</span>
-                  {Object.keys(enabledPlugins).length > 0 && (
-                    <span className="collapsible-badge">
-                      {Object.keys(enabledPlugins).length}
-                    </span>
-                  )}
-                </div>
-                <svg
-                  className="collapsible-icon"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
-              </div>
-
-              <div className="collapsible-content">
-                <div className="collapsible-body">
-                  {/* 使用 PluginManager 组件管理插件列表 */}
-                  <PluginManager
-                    plugins={enabledPlugins}
-                    onChange={setEnabledPlugins}
-                  />
-                </div>
-              </div>
-            </div>
+            <CollapsibleSection
+              title={t("configModal.enabledPlugins")}
+              badge={Object.keys(enabledPlugins).length}
+            >
+              <PluginManager
+                plugins={enabledPlugins}
+                onChange={setEnabledPlugins}
+              />
+            </CollapsibleSection>
 
             {/* 高级选项 */}
-            <div className={`collapsible-section ${showAdvanced ? "expanded" : ""}`}>
-              <div className="collapsible-header" onClick={() => setShowAdvanced(!showAdvanced)}>
-                <div className="collapsible-header-left">
-                  <span className="collapsible-title">{t("configModal.advancedOptions")}</span>
-                </div>
-                <svg
-                  className="collapsible-icon"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
+            <CollapsibleSection title={t("configModal.advancedOptions")}>
+              <div className="checkbox-group">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={hasCompletedOnboarding}
+                    onChange={(e) => setHasCompletedOnboarding(e.target.checked)}
+                  />
+                  <span className="checkbox-custom"></span>
+                  <span>{t("configModal.hasCompletedOnboarding")}</span>
+                </label>
+                <p className="form-hint">{t("configModal.hasCompletedOnboardingDesc")}</p>
               </div>
-
-              <div className="collapsible-content">
-                <div className="collapsible-body">
-                  <div className="checkbox-group">
-                    <label className="checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={hasCompletedOnboarding}
-                        onChange={(e) => setHasCompletedOnboarding(e.target.checked)}
-                      />
-                      <span className="checkbox-custom"></span>
-                      <span>{t("configModal.hasCompletedOnboarding")}</span>
-                    </label>
-                    <p className="form-hint">{t("configModal.hasCompletedOnboardingDesc")}</p>
-                  </div>
-                  <div className="checkbox-group">
-                    <label className="checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={alwaysThinkingEnabled}
-                        onChange={(e) => setAlwaysThinkingEnabled(e.target.checked)}
-                      />
-                      <span className="checkbox-custom"></span>
-                      <span>{t("configModal.alwaysThinking")}</span>
-                    </label>
-                  </div>
-                  <div className="checkbox-group">
-                    <label className="checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={disableNonessentialTraffic}
-                        onChange={(e) => setDisableNonessentialTraffic(e.target.checked)}
-                      />
-                      <span className="checkbox-custom"></span>
-                      <span>{t("configModal.disableTraffic")}</span>
-                    </label>
-                  </div>
-                  <div className="checkbox-group">
-                    <label className="checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={skipWebFetchPreflight}
-                        onChange={(e) => setSkipWebFetchPreflight(e.target.checked)}
-                      />
-                      <span className="checkbox-custom"></span>
-                      <span>{t("configModal.skipWebFetchPreflight")}</span>
-                    </label>
-                  </div>
-                  <div className="checkbox-group">
-                    <label className="checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={enableLspTool}
-                        onChange={(e) => setEnableLspTool(e.target.checked)}
-                      />
-                      <span className="checkbox-custom"></span>
-                      <span>{t("configModal.enableLspTool")}</span>
-                    </label>
-                  </div>
-                </div>
+              <div className="checkbox-group">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={alwaysThinkingEnabled}
+                    onChange={(e) => setAlwaysThinkingEnabled(e.target.checked)}
+                  />
+                  <span className="checkbox-custom"></span>
+                  <span>{t("configModal.alwaysThinking")}</span>
+                </label>
               </div>
-            </div>
+              <div className="checkbox-group">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={disableNonessentialTraffic}
+                    onChange={(e) => setDisableNonessentialTraffic(e.target.checked)}
+                  />
+                  <span className="checkbox-custom"></span>
+                  <span>{t("configModal.disableTraffic")}</span>
+                </label>
+              </div>
+              <div className="checkbox-group">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={skipWebFetchPreflight}
+                    onChange={(e) => setSkipWebFetchPreflight(e.target.checked)}
+                  />
+                  <span className="checkbox-custom"></span>
+                  <span>{t("configModal.skipWebFetchPreflight")}</span>
+                </label>
+              </div>
+              <div className="checkbox-group">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={enableLspTool}
+                    onChange={(e) => setEnableLspTool(e.target.checked)}
+                  />
+                  <span className="checkbox-custom"></span>
+                  <span>{t("configModal.enableLspTool")}</span>
+                </label>
+              </div>
+            </CollapsibleSection>
 
             {/* 通用配置 - 使用独立的 DefaultsSection 组件 */}
             <DefaultsSection
@@ -491,30 +437,9 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
             />
 
             {/* 配置预览 - 使用独立的 ConfigPreview 组件展示最终合并后的 JSON */}
-            <div className={`collapsible-section ${showPreview ? "expanded" : ""}`}>
-              <div className="collapsible-header" onClick={() => setShowPreview(!showPreview)}>
-                <div className="collapsible-header-left">
-                  <span className="collapsible-title">{t("configModal.jsonPreview")}</span>
-                </div>
-                <svg
-                  className="collapsible-icon"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
-              </div>
-
-              <div className="collapsible-content">
-                <div className="collapsible-body">
-                  <ConfigPreview content={previewJson} />
-                </div>
-              </div>
-            </div>
+            <CollapsibleSection title={t("configModal.jsonPreview")}>
+              <ConfigPreview content={previewJson} />
+            </CollapsibleSection>
           </div>
         </form>
       </div>

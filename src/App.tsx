@@ -105,7 +105,7 @@ function App() {
       setActiveConfigId(result.activeConfigId);
       setDefaults(result.defaults || "");
     } catch (error) {
-      showToast("加载配置失败", "error");
+      showToast(t("toast.configLoadError"), "error");
     } finally {
       setLoading(false);
     }
@@ -117,9 +117,9 @@ function App() {
       await invoke("activate_config", { id });
       setActiveConfigId(id);
       setConfigs(configs.map(c => ({ ...c, isActive: c.id === id })));
-      showToast("已切换配置");
+      showToast(t("toast.configActivated"));
     } catch (error) {
-      showToast("激活配置失败", "error");
+      showToast(t("toast.configActivateError"), "error");
     }
   }
 
@@ -145,9 +145,9 @@ function App() {
       await loadConfigs();
       setIsModalOpen(false);
       setEditingConfig(null);
-      showToast("配置已保存");
+      showToast(t("toast.configSaved"));
     } catch (error) {
-      showToast("保存配置失败", "error");
+      showToast(t("toast.configSaveError"), "error");
     }
   }
 
@@ -156,9 +156,9 @@ function App() {
     try {
       await invoke("delete_config", { id });
       await loadConfigs();
-      showToast("配置已删除");
+      showToast(t("toast.configDeleted"));
     } catch (error) {
-      showToast("删除配置失败", "error");
+      showToast(t("toast.configDeleteError"), "error");
     }
   }
 
@@ -167,9 +167,9 @@ function App() {
     try {
       await invoke("duplicate_config", { id });
       await loadConfigs();
-      showToast("配置已复制");
+      showToast(t("toast.configDuplicated"));
     } catch (error) {
-      showToast("复制配置失败", "error");
+      showToast(t("toast.configDuplicateError"), "error");
     }
   }
 
@@ -181,7 +181,7 @@ function App() {
     try {
       await invoke("reorder_configs", { ids });
     } catch (error) {
-      showToast("排序保存失败", "error");
+      showToast(t("toast.configReorderError"), "error");
       await loadConfigs();
     }
   }

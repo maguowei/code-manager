@@ -6,7 +6,7 @@ mod utils;
 
 use config::{
     activate_config, add_config, delete_config, duplicate_config, get_configs, get_defaults,
-    reorder_configs, update_config, update_defaults,
+    preview_config, reorder_configs, update_config, update_defaults,
 };
 use memory::{add_memory, delete_memory, get_memories, toggle_memory, update_memory};
 use stats::{get_stats, get_stats_history, take_stats_snapshot};
@@ -44,6 +44,7 @@ pub fn run() {
             reorder_configs,
             get_defaults,
             update_defaults,
+            preview_config,
             get_memories,
             add_memory,
             update_memory,

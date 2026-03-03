@@ -27,8 +27,7 @@ fn get_memory_config_path() -> PathBuf {
 
 /// 获取 CLAUDE.md 路径
 fn get_claude_md_path() -> PathBuf {
-    crate::utils::get_home_dir()
-        .unwrap_or_else(|_| PathBuf::from("."))
+    crate::utils::home_dir_or_fallback()
         .join(".claude")
         .join("CLAUDE.md")
 }
@@ -41,9 +40,7 @@ pub fn load_memory_state() -> MemoryState {
 
 /// 将记忆状态序列化并写入文件
 pub fn save_memory_state(state: &MemoryState) -> Result<(), String> {
-    let path = get_memory_config_path();
-    let content = serde_json::to_string_pretty(state).map_err(|e| e.to_string())?;
-    crate::utils::ensure_dir_and_write(&path, &content)
+    crate::utils::save_json_file(&get_memory_config_path(), state)
 }
 
 /// 将所有活跃记忆合并写入 ~/.claude/CLAUDE.md
@@ -72,9 +69,7 @@ pub fn get_memories() -> Result<MemoryState, String> {
 #[tauri::command]
 pub fn add_memory(name: String, content: String) -> Result<Memory, String> {
     // 加锁保护并发写入
-    let _lock = crate::utils::MEMORY_LOCK
-        .lock()
-        .map_err(|e| format!("获取锁失败: {}", e))?;
+    let _lock = crate::utils::lock_memory()?;
 
     let mut state = load_memory_state();
     let now = crate::utils::current_timestamp();
@@ -97,9 +92,7 @@ pub fn add_memory(name: String, content: String) -> Result<Memory, String> {
 #[tauri::command]
 pub fn update_memory(id: String, name: String, content: String) -> Result<Memory, String> {
     // 加锁保护并发写入
-    let _lock = crate::utils::MEMORY_LOCK
-        .lock()
-        .map_err(|e| format!("获取锁失败: {}", e))?;
+    let _lock = crate::utils::lock_memory()?;
 
     let mut state = load_memory_state();
 
@@ -129,9 +122,7 @@ pub fn update_memory(id: String, name: String, content: String) -> Result<Memory
 #[tauri::command]
 pub fn delete_memory(id: String) -> Result<(), String> {
     // 加锁保护并发写入
-    let _lock = crate::utils::MEMORY_LOCK
-        .lock()
-        .map_err(|e| format!("获取锁失败: {}", e))?;
+    let _lock = crate::utils::lock_memory()?;
 
     let mut state = load_memory_state();
 
@@ -152,9 +143,7 @@ pub fn delete_memory(id: String) -> Result<(), String> {
 #[tauri::command]
 pub fn toggle_memory(id: String) -> Result<Memory, String> {
     // 加锁保护并发写入
-    let _lock = crate::utils::MEMORY_LOCK
-        .lock()
-        .map_err(|e| format!("获取锁失败: {}", e))?;
+    let _lock = crate::utils::lock_memory()?;
 
     let mut state = load_memory_state();
 

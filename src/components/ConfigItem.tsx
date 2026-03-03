@@ -135,7 +135,7 @@ function ConfigItem({
                 <line x1="9" y1="9" x2="15" y2="9"/>
                 <line x1="9" y1="15" x2="15" y2="15"/>
               </svg>
-              <span>{Object.keys(config.enabledPlugins).length} 个插件</span>
+              <span>{Object.keys(config.enabledPlugins).length} {t("configItem.plugins")}</span>
             </div>
           )}
         </div>

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode, createElement } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, ReactNode, createElement } from "react";
 
 export type Language = "zh" | "en";
 export type Theme = "light" | "dark" | "system";
@@ -177,6 +177,38 @@ const translations = {
     "settings.themeLight": "浅色",
     "settings.themeDark": "深色",
     "settings.themeSystem": "跟随系统",
+
+    // 操作通知（Toast）
+    "toast.configLoadError": "加载配置失败",
+    "toast.configActivated": "已切换配置",
+    "toast.configActivateError": "激活配置失败",
+    "toast.configSaved": "配置已保存",
+    "toast.configSaveError": "保存配置失败",
+    "toast.configDeleted": "配置已删除",
+    "toast.configDeleteError": "删除配置失败",
+    "toast.configDuplicated": "配置已复制",
+    "toast.configDuplicateError": "复制配置失败",
+    "toast.configReorderError": "排序保存失败",
+    "toast.memoryLoadError": "加载记忆失败",
+    "toast.memoryAdded": "记忆已添加",
+    "toast.memoryAddError": "添加记忆失败",
+    "toast.memorySaved": "记忆已保存",
+    "toast.memorySaveError": "保存记忆失败",
+    "toast.memoryDeleted": "记忆已删除",
+    "toast.memoryDeleteError": "删除记忆失败",
+    "toast.memoryToggleError": "切换记忆状态失败",
+
+    // 导航 aria-label
+    "nav.ariaLabel": "主导航",
+
+    // 记忆操作
+    "memory.activate": "启用",
+    "memory.activateTitle": "启用此记忆",
+
+    // Markdown 工具栏插入占位符
+    "memory.toolbar.headingPlaceholder": "标题",
+    "memory.toolbar.listPlaceholder": "列表项",
+    "memory.toolbar.boldPlaceholder": "文本",
   },
   en: {
     // 通用
@@ -350,6 +382,38 @@ const translations = {
     "settings.themeLight": "Light",
     "settings.themeDark": "Dark",
     "settings.themeSystem": "System",
+
+    // 操作通知（Toast）
+    "toast.configLoadError": "Failed to load configs",
+    "toast.configActivated": "Config activated",
+    "toast.configActivateError": "Failed to activate config",
+    "toast.configSaved": "Config saved",
+    "toast.configSaveError": "Failed to save config",
+    "toast.configDeleted": "Config deleted",
+    "toast.configDeleteError": "Failed to delete config",
+    "toast.configDuplicated": "Config duplicated",
+    "toast.configDuplicateError": "Failed to duplicate config",
+    "toast.configReorderError": "Failed to save order",
+    "toast.memoryLoadError": "Failed to load memories",
+    "toast.memoryAdded": "Memory added",
+    "toast.memoryAddError": "Failed to add memory",
+    "toast.memorySaved": "Memory saved",
+    "toast.memorySaveError": "Failed to save memory",
+    "toast.memoryDeleted": "Memory deleted",
+    "toast.memoryDeleteError": "Failed to delete memory",
+    "toast.memoryToggleError": "Failed to toggle memory",
+
+    // 导航 aria-label
+    "nav.ariaLabel": "Main navigation",
+
+    // 记忆操作
+    "memory.activate": "Activate",
+    "memory.activateTitle": "Activate this memory",
+
+    // Markdown 工具栏插入占位符
+    "memory.toolbar.headingPlaceholder": "Heading",
+    "memory.toolbar.listPlaceholder": "List item",
+    "memory.toolbar.boldPlaceholder": "text",
   },
 } as const;
 
@@ -443,13 +507,13 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     return () => mediaQuery.removeEventListener("change", handler);
   }, [settings.theme]);
 
-  const value: I18nContextType = {
+  const value = useMemo<I18nContextType>(() => ({
     language: settings.language,
     theme: settings.theme,
     t,
     setLanguage,
     setTheme,
-  };
+  }), [settings.language, settings.theme, t, setLanguage, setTheme]);
 
   return createElement(I18nContext.Provider, { value }, children);
 }

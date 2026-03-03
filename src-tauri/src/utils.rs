@@ -1,8 +1,8 @@
 use once_cell::sync::Lazy;
-use serde::de::DeserializeOwned;
+use serde::{de::DeserializeOwned, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// 配置文件操作互斥锁
@@ -19,12 +19,14 @@ pub fn get_home_dir() -> Result<PathBuf, String> {
     dirs::home_dir().ok_or_else(|| "无法获取用户主目录".to_string())
 }
 
+/// 获取用户主目录，失败时降级为当前目录
+pub fn home_dir_or_fallback() -> PathBuf {
+    get_home_dir().unwrap_or_else(|_| PathBuf::from("."))
+}
+
 /// 获取应用数据目录（~/.config/ai-manager），失败时降级为当前目录
 pub fn get_app_data_dir() -> PathBuf {
-    get_home_dir()
-        .unwrap_or_else(|_| PathBuf::from("."))
-        .join(".config")
-        .join("ai-manager")
+    home_dir_or_fallback().join(".config").join("ai-manager")
 }
 
 /// 获取当前 Unix 时间戳（秒）
@@ -59,4 +61,25 @@ pub fn read_json_file<T: DeserializeOwned + Default>(path: &Path) -> T {
         .ok()
         .and_then(|content| serde_json::from_str(&content).ok())
         .unwrap_or_default()
+}
+
+/// 将数据序列化为格式化 JSON 并写入文件
+pub fn save_json_file<T: Serialize>(path: &Path, data: &T) -> Result<(), String> {
+    let content = serde_json::to_string_pretty(data).map_err(|e| e.to_string())?;
+    ensure_dir_and_write(path, &content)
+}
+
+/// 获取配置文件写锁，防止并发写入
+pub fn lock_config() -> Result<MutexGuard<'static, ()>, String> {
+    CONFIG_LOCK.lock().map_err(|e| format!("获取锁失败: {}", e))
+}
+
+/// 获取记忆文件写锁，防止并发写入
+pub fn lock_memory() -> Result<MutexGuard<'static, ()>, String> {
+    MEMORY_LOCK.lock().map_err(|e| format!("获取锁失败: {}", e))
+}
+
+/// 获取统计文件写锁，防止并发写入
+pub fn lock_stats() -> Result<MutexGuard<'static, ()>, String> {
+    STATS_LOCK.lock().map_err(|e| format!("获取锁失败: {}", e))
 }

@@ -70,6 +70,17 @@ pub fn rebuild_tray_menu(app_handle: &AppHandle) {
     }
 }
 
+/// 显示并聚焦主窗口
+fn show_main_window(app: &AppHandle) {
+    #[cfg(target_os = "macos")]
+    let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
+
 /// 初始化系统托盘
 pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     let handle = app.handle();
@@ -109,13 +120,7 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
             } else {
                 match id {
                     "show_window" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            #[cfg(target_os = "macos")]
-                            let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
-                            let _ = window.unminimize();
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
+                        show_main_window(app);
                     }
                     "quit" => {
                         app.exit(0);
@@ -133,13 +138,7 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
             } = event
             {
                 let app = tray.app_handle();
-                if let Some(window) = app.get_webview_window("main") {
-                    #[cfg(target_os = "macos")]
-                    let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
-                    let _ = window.unminimize();
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
+                show_main_window(app);
             }
         })
         .build(app)?;

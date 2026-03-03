@@ -22,9 +22,9 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       const state = await invoke<MemoryState>("get_memories");
       setMemories(state.memories);
     } catch (err) {
-      showToast("加载记忆失败", "error");
+      showToast(t("toast.memoryLoadError"), "error");
     }
-  }, [showToast]);
+  }, [showToast, t]);
 
   useEffect(() => {
     loadMemories();
@@ -39,48 +39,48 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
 
   async function handleAdd(data: { name: string; content: string }) {
     try {
-      await invoke("add_memory", { name: data.name, content: data.content });
+      const newMemory = await invoke<Memory>("add_memory", { name: data.name, content: data.content });
       setIsModalOpen(false);
-      loadMemories();
-      showToast("记忆已添加");
+      setMemories((prev) => [...prev, newMemory]);
+      showToast(t("toast.memoryAdded"));
     } catch (err) {
-      showToast("添加记忆失败", "error");
+      showToast(t("toast.memoryAddError"), "error");
     }
   }
 
   async function handleUpdate(data: { name: string; content: string }) {
     if (!editingMemory) return;
     try {
-      await invoke("update_memory", {
+      const updated = await invoke<Memory>("update_memory", {
         id: editingMemory.id,
         name: data.name,
         content: data.content,
       });
       setEditingMemory(null);
       setIsModalOpen(false);
-      loadMemories();
-      showToast("记忆已保存");
+      setMemories((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
+      showToast(t("toast.memorySaved"));
     } catch (err) {
-      showToast("保存记忆失败", "error");
+      showToast(t("toast.memorySaveError"), "error");
     }
   }
 
   async function handleDelete(id: string) {
     try {
       await invoke("delete_memory", { id });
-      loadMemories();
-      showToast("记忆已删除");
+      setMemories((prev) => prev.filter((m) => m.id !== id));
+      showToast(t("toast.memoryDeleted"));
     } catch (err) {
-      showToast("删除记忆失败", "error");
+      showToast(t("toast.memoryDeleteError"), "error");
     }
   }
 
   async function handleToggle(id: string) {
     try {
-      await invoke("toggle_memory", { id });
-      loadMemories();
+      const toggled = await invoke<Memory>("toggle_memory", { id });
+      setMemories((prev) => prev.map((m) => (m.id === toggled.id ? toggled : m)));
     } catch (err) {
-      showToast("切换记忆状态失败", "error");
+      showToast(t("toast.memoryToggleError"), "error");
     }
   }
 

@@ -1,4 +1,5 @@
 import { TabType } from "../types";
+import { useI18n } from "../i18n";
 import "./Sidebar.css";
 
 interface SidebarProps {
@@ -8,15 +9,16 @@ interface SidebarProps {
 }
 
 function Sidebar({ activeTab, onTabChange, onSettingsClick }: SidebarProps) {
+  const { t } = useI18n();
   return (
-    <nav className="sidebar" aria-label="主导航">
+    <nav className="sidebar" aria-label={t("nav.ariaLabel")}>
       <div className="sidebar-logo">AI</div>
 
       <div className="sidebar-nav">
         <button
           className={`nav-item ${activeTab === "configs" ? "active" : ""}`}
           onClick={() => onTabChange("configs")}
-          aria-label="配置管理"
+          aria-label={t("nav.configs")}
           aria-current={activeTab === "configs" ? "page" : undefined}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -35,7 +37,7 @@ function Sidebar({ activeTab, onTabChange, onSettingsClick }: SidebarProps) {
         <button
           className={`nav-item ${activeTab === "memory" ? "active" : ""}`}
           onClick={() => onTabChange("memory")}
-          aria-label="记忆管理"
+          aria-label={t("nav.memory")}
           aria-current={activeTab === "memory" ? "page" : undefined}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -47,7 +49,7 @@ function Sidebar({ activeTab, onTabChange, onSettingsClick }: SidebarProps) {
         <button
           className={`nav-item ${activeTab === "skills" ? "active" : ""}`}
           onClick={() => onTabChange("skills")}
-          aria-label="Skills 管理"
+          aria-label={t("nav.skills")}
           aria-current={activeTab === "skills" ? "page" : undefined}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -58,7 +60,7 @@ function Sidebar({ activeTab, onTabChange, onSettingsClick }: SidebarProps) {
         <button
           className={`nav-item ${activeTab === "stats" ? "active" : ""}`}
           onClick={() => onTabChange("stats")}
-          aria-label="使用统计"
+          aria-label={t("nav.stats")}
           aria-current={activeTab === "stats" ? "page" : undefined}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -75,7 +77,7 @@ function Sidebar({ activeTab, onTabChange, onSettingsClick }: SidebarProps) {
         <button
           className="nav-item"
           onClick={onSettingsClick}
-          aria-label="设置"
+          aria-label={t("header.settings")}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="3"/>
