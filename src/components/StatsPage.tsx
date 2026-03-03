@@ -25,7 +25,7 @@ const PIE_COLORS = [COLORS.blue, COLORS.green, COLORS.orange, COLORS.purple, COL
 // recharts 图表共享样式常量
 const TICK_STYLE = { fill: "#7d8590", fontSize: 11 };
 const TICK_STYLE_SM = { fill: "#7d8590", fontSize: 10 };
-const TOOLTIP_STYLE = { backgroundColor: "#161b22", border: "1px solid #30363d", borderRadius: 8, color: "#e6edf3" };
+const TOOLTIP_STYLE = { backgroundColor: "rgba(22, 27, 34, 0.8)", border: "1px solid #30363d", borderRadius: 12, color: "#e6edf3", backdropFilter: "blur(12px)", boxShadow: "0 8px 16px rgba(0, 0, 0, 0.15)" };
 
 /** 项目路径截取最后两级 */
 function shortPath(fullPath: string): string {
@@ -209,26 +209,26 @@ function StatsPage() {
       <div className="stats-scroll">
         {/* 概览 */}
         <div className="stats-overview">
-          <div className="stat-card">
+          <div className="stat-card" style={{ animationDelay: "0.1s" }}>
             <span className="stat-card-label">{t("stats.startups")}</span>
             <span className="stat-card-value accent-blue">{stats.numStartups}</span>
           </div>
-          <div className="stat-card">
+          <div className="stat-card" style={{ animationDelay: "0.15s" }}>
             <span className="stat-card-label">{t("stats.totalCost")}</span>
             <span className="stat-card-value accent-green">{formatUSD(totalCost)}</span>
           </div>
-          <div className="stat-card">
+          <div className="stat-card" style={{ animationDelay: "0.2s" }}>
             <span className="stat-card-label">{t("stats.firstUse")}</span>
             <span className="stat-card-value accent-purple">{stats.firstStartTime ? formatDate(stats.firstStartTime) : "-"}</span>
           </div>
-          <div className="stat-card">
+          <div className="stat-card" style={{ animationDelay: "0.25s" }}>
             <span className="stat-card-label">{t("stats.totalProjects")}</span>
             <span className="stat-card-value accent-orange">{projectCount}</span>
           </div>
         </div>
 
         {/* 费用统计 */}
-        <div className="stats-section">
+        <div className="stats-section" style={{ animationDelay: "0.3s" }}>
           <h2 className="stats-section-title">{t("stats.costSection")}</h2>
           <div className="stats-chart-group">
             <div className="stats-chart-block">
@@ -276,7 +276,7 @@ function StatsPage() {
         </div>
 
         {/* 工具 & Skill 使用 */}
-        <div className="stats-section">
+        <div className="stats-section" style={{ animationDelay: "0.4s" }}>
           <h2 className="stats-section-title">{t("stats.toolSection")}</h2>
           <div className="stats-chart-group">
             <div className="stats-chart-block">
@@ -309,7 +309,7 @@ function StatsPage() {
         </div>
 
         {/* 会话与性能 */}
-        <div className="stats-section">
+        <div className="stats-section" style={{ animationDelay: "0.5s" }}>
           <h2 className="stats-section-title">{t("stats.sessionSection")}</h2>
 
           {/* 项目会话时长列表 */}
