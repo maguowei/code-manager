@@ -116,7 +116,7 @@ function App() {
     try {
       await invoke("activate_config", { id });
       setActiveConfigId(id);
-      setConfigs(configs.map(c => ({ ...c, isActive: c.id === id })));
+      setConfigs(prev => prev.map(c => ({ ...c, isActive: c.id === id })));
       showToast(t("toast.configActivated"));
     } catch (error) {
       showToast(t("toast.configActivateError"), "error");
@@ -273,13 +273,13 @@ function App() {
         {isModalOpen && (
           <>
             <div
-              className={`drawer-overlay ${isModalOpen ? "visible" : ""}`}
+              className="drawer-overlay visible"
               onClick={() => {
                 setIsModalOpen(false);
                 setEditingConfig(null);
               }}
             />
-            <div className={`drawer ${isModalOpen ? "open" : ""}`}>
+            <div className="drawer open">
               <ConfigEditor
                 config={editingConfig}
                 defaults={defaults}

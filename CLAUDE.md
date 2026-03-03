@@ -71,10 +71,11 @@ cargo fmt             # 格式化 Rust 代码
 ├── src/                    # React 前端代码
 │   ├── App.tsx            # 主应用组件
 │   ├── main.tsx           # React 入口文件
-│   ├── types.ts           # 前后端共享类型定义（Config、Plugin、deepMerge 等）
+│   ├── types.ts           # 前后端共享类型定义（ClaudeConfig、Memory、统计类型等）
 │   ├── components/        # UI 组件
 │   │   ├── ConfigEditor.tsx   # 配置编辑面板
 │   │   ├── ConfigPreview.tsx  # JSON 配置预览（只读 CodeMirror）
+│   │   ├── CollapsibleSection.tsx # 可折叠面板（Plugins/Advanced/Preview 区块共用）
 │   │   ├── DefaultsSection.tsx # 通用配置编辑区
 │   │   ├── PluginManager.tsx  # 插件管理
 │   │   ├── ConfigList.tsx     # 配置列表
@@ -83,6 +84,7 @@ cargo fmt             # 格式化 Rust 代码
 │   │   ├── MemoryPage.tsx     # 记忆管理页面
 │   │   ├── MemoryEditor.tsx   # 记忆编辑面板
 │   │   ├── MemoryItem.tsx     # 记忆列表项
+│   │   ├── StatsPage.tsx      # 使用统计页面（recharts 图表）
 │   │   ├── SettingsDrawer.tsx # 设置侧边抽屉
 │   │   ├── Sidebar.tsx        # 侧边栏导航
 │   │   └── SkillsPage.tsx     # Skills 管理页面（占位）
@@ -99,6 +101,7 @@ cargo fmt             # 格式化 Rust 代码
 │   │   ├── utils.rs       # 公共工具模块（必须优先了解）
 │   │   ├── config.rs      # 配置管理模块
 │   │   ├── memory.rs      # 记忆管理模块
+│   │   ├── stats.rs       # 使用统计模块
 │   │   └── tray.rs        # 系统托盘模块
 │   ├── Cargo.toml         # Rust 依赖配置
 │   ├── tauri.conf.json    # Tauri 应用配置
@@ -110,23 +113,34 @@ cargo fmt             # 格式化 Rust 代码
 ### 后端模块
 
 - **utils.rs**: 公共工具模块
-  - `CONFIG_LOCK` / `MEMORY_LOCK`：防止并发写入的全局互斥锁
-  - `get_home_dir()` / `current_timestamp()` / `read_json_file()` / `ensure_dir_and_write()`
-  - `ensure_dir_and_write()` 在 Unix 上自动设置文件权限 0o600
+  - `CONFIG_LOCK` / `MEMORY_LOCK` / `STATS_LOCK`：防止并发写入的全局互斥锁
+  - `lock_config()` / `lock_memory()` / `lock_stats()`：对应锁的便捷获取函数（返回 `MutexGuard`）
+  - `home_dir_or_fallback()`：获取主目录，失败时降级为当前目录
+  - `get_home_dir()` / `get_app_data_dir()` / `current_timestamp()`
+  - `read_json_file<T>()` / `ensure_dir_and_write()`：文件读写（Unix 自动设 0o600 权限）
+  - `save_json_file<T>()`：序列化为格式化 JSON 并写入文件
   - **新增 Rust 代码应优先使用这些函数，不要重新实现**
 
 - **config.rs**: 配置管理
-  - `ConfigData` DTO：`add_config`/`update_config` 的参数结构体，前端须传 `{ data: {...} }`
+  - `ConfigData` DTO：`add_config`/`update_config`/`preview_config` 的参数结构体，前端须传 `{ data: {...} }`
   - CRUD 操作（增删改查、排序、复制）
+  - `preview_config(data, defaults)` 命令：生成配置预览 JSON，不写磁盘（供 ConfigEditor 实时预览）
   - 通用配置管理（get_defaults / update_defaults）
-  - 深度合并逻辑
-  - 应用配置到 ~/.claude/settings.json
-  - 所有写操作通过 `CONFIG_LOCK` 保护；`apply_config()` 可在锁内调用，内部不再加锁
+  - `build_config_value(config, defaults)` 内部函数：构建配置 JSON，apply_config 与 preview_config 共用
+  - 应用配置到 ~/.claude/settings.json（`apply_config(config, defaults)` 接收 defaults 参数，不再内部读盘）
+  - 所有写操作通过 `lock_config()` 保护
 
 - **memory.rs**: 记忆管理
   - CRUD 操作
   - 多记忆启用/禁用（toggle_memory）
   - 合并所有活跃记忆写入 ~/.claude/CLAUDE.md
+  - 所有写操作通过 `lock_memory()` 保护
+
+- **stats.rs**: 使用统计
+  - 从 `~/.claude.json` 读取统计数据（`get_stats`）
+  - 快照历史管理：每小时自动采样，保存到 `~/.config/ai-manager/stats_history.json`（紧凑 JSON）
+  - 去重机制：与上次快照相同则跳过；90 天保留期；最多 500 条
+  - 手动触发：`take_stats_snapshot`
 
 - **tray.rs**: 系统托盘
   - 构建托盘菜单，动态显示配置列表
@@ -184,7 +198,8 @@ cargo fmt             # 格式化 Rust 代码
 - 通用配置作为基础（base），当前配置覆盖（overlay）
 - 对象递归合并，非对象类型使用 overlay 值
 - 每个配置独立控制 `useDefaults`（非全局开关）
-- 实现位置：`src-tauri/src/config.rs::deep_merge()` 和 `src/types.ts::deepMerge()`
+- 实现位置：`src-tauri/src/config.rs::build_config_value()`（Rust，权威实现）
+- 前端预览通过 `invoke("preview_config")` 调用后端生成，与实际写入逻辑完全一致
 
 ### JSON 编辑器实现
 - 透明 textarea 绝对定位覆盖在语法高亮层上

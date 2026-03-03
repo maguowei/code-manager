@@ -193,13 +193,13 @@ pub fn start_snapshot_timer() {
     std::thread::spawn(|| {
         // 启动时立即执行一次快照
         {
-            if let Ok(_lock) = crate::utils::STATS_LOCK.lock() {
+            if let Ok(_lock) = crate::utils::lock_stats() {
                 let _ = take_snapshot_inner();
             }
         }
         loop {
             std::thread::sleep(std::time::Duration::from_secs(3600));
-            if let Ok(_lock) = crate::utils::STATS_LOCK.lock() {
+            if let Ok(_lock) = crate::utils::lock_stats() {
                 let _ = take_snapshot_inner();
             }
         }

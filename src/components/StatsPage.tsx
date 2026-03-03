@@ -250,7 +250,7 @@ function StatsPage() {
                 <ResponsiveContainer width="100%" height={250}>
                   <PieChart>
                     <Pie data={modelCostData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2} label={({ name, value }) => `${(name ?? "").split("-").slice(0, 2).join("-")} $${value}`} labelLine={false}>
-                      {modelCostData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                      {modelCostData.map((entry, i) => <Cell key={entry.name} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                     </Pie>
                     <Tooltip formatter={(v: number | undefined) => formatUSD(v ?? 0)} contentStyle={TOOLTIP_STYLE} />
                   </PieChart>

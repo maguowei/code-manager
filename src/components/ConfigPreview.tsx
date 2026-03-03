@@ -25,10 +25,14 @@ function ConfigPreview({ content }: ConfigPreviewProps) {
 
   /** 将当前 JSON 内容复制到剪贴板，并短暂展示"已复制"反馈 */
   function handleCopy() {
-    navigator.clipboard.writeText(content).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    navigator.clipboard.writeText(content)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {
+        // 剪贴板权限被拒绝或不在安全上下文中，静默处理
+      });
   }
 
   return (

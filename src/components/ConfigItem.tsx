@@ -65,18 +65,6 @@ function ConfigItem({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
-      {/* 拖拽手柄 - 隐藏 */}
-      <div className="config-drag-handle" style={{ display: 'none' }}>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-          <circle cx="4" cy="3" r="1.5"/>
-          <circle cx="4" cy="8" r="1.5"/>
-          <circle cx="4" cy="13" r="1.5"/>
-          <circle cx="10" cy="3" r="1.5"/>
-          <circle cx="10" cy="8" r="1.5"/>
-          <circle cx="10" cy="13" r="1.5"/>
-        </svg>
-      </div>
-
       {/* 头部区域（右上角放置启用/状态与复制） */}
       <div className="config-header">
         <div className="config-badge">
