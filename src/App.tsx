@@ -34,6 +34,7 @@ function buildConfigData(config: Omit<ClaudeConfig, "id" | "createdAt" | "update
     disableNonessentialTraffic: config.disableNonessentialTraffic ?? null,
     skipWebFetchPreflight: config.skipWebFetchPreflight ?? null,
     enableLspTool: config.enableLspTool ?? null,
+    agentTeamsEnabled: config.agentTeamsEnabled ?? null,
     hasCompletedOnboarding: config.hasCompletedOnboarding ?? null,
     enableExtraMarketplaces: config.enableExtraMarketplaces ?? null,
     preferredLanguage: config.preferredLanguage || null,

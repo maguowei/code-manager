@@ -22,6 +22,7 @@ export interface ClaudeConfig {
   disableNonessentialTraffic?: boolean;
   skipWebFetchPreflight?: boolean;
   enableLspTool?: boolean;
+  agentTeamsEnabled?: boolean;
   enableExtraMarketplaces?: boolean;
   hasCompletedOnboarding?: boolean;
   // 语言配置

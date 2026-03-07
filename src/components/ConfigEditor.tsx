@@ -31,6 +31,7 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
   const [disableNonessentialTraffic, setDisableNonessentialTraffic] = useState(config?.disableNonessentialTraffic || false);
   const [skipWebFetchPreflight, setSkipWebFetchPreflight] = useState(config?.skipWebFetchPreflight || false);
   const [enableLspTool, setEnableLspTool] = useState(config?.enableLspTool || false);
+  const [enableAgentTeams, setEnableAgentTeams] = useState(config?.agentTeamsEnabled || false);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(config?.hasCompletedOnboarding || false);
   const [enableExtraMarketplaces, setEnableExtraMarketplaces] = useState(config?.enableExtraMarketplaces || false);
   const [useDefaults, setUseDefaults] = useState(config?.useDefaults || false);
@@ -86,6 +87,7 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
       disableNonessentialTraffic: disableNonessentialTraffic ?? null,
       skipWebFetchPreflight: skipWebFetchPreflight ?? null,
       enableLspTool: enableLspTool ?? null,
+      agentTeamsEnabled: enableAgentTeams ?? null,
       hasCompletedOnboarding: hasCompletedOnboarding ?? null,
       enableExtraMarketplaces: enableExtraMarketplaces ?? null,
       preferredLanguage: preferredLanguage || null,
@@ -97,7 +99,7 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
       .then((result) => { if (!cancelled) setPreviewJson(result); })
       .catch(() => { if (!cancelled) setPreviewJson("{}"); });
     return () => { cancelled = true; };
-  }, [apiKey, name, description, apiUrl, websiteUrl, model, thinkingModel, haikuModel, sonnetModel, opusModel, alwaysThinkingEnabled, disableNonessentialTraffic, skipWebFetchPreflight, enableLspTool, hasCompletedOnboarding, enableExtraMarketplaces, preferredLanguage, useDefaults, enabledPlugins, defaultsContent]);
+  }, [apiKey, name, description, apiUrl, websiteUrl, model, thinkingModel, haikuModel, sonnetModel, opusModel, alwaysThinkingEnabled, disableNonessentialTraffic, skipWebFetchPreflight, enableLspTool, enableAgentTeams, hasCompletedOnboarding, enableExtraMarketplaces, preferredLanguage, useDefaults, enabledPlugins, defaultsContent]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -128,6 +130,7 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
       disableNonessentialTraffic,
       skipWebFetchPreflight,
       enableLspTool,
+      agentTeamsEnabled: enableAgentTeams,
       enableExtraMarketplaces,
       hasCompletedOnboarding,
       useDefaults,
@@ -425,6 +428,18 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
                   <span className="checkbox-custom"></span>
                   <span>{t("configModal.enableLspTool")}</span>
                 </label>
+              </div>
+              <div className="checkbox-group">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={enableAgentTeams}
+                    onChange={(e) => setEnableAgentTeams(e.target.checked)}
+                  />
+                  <span className="checkbox-custom"></span>
+                  <span>{t("configModal.enableAgentTeams")}</span>
+                </label>
+                <p className="form-hint">{t("configModal.enableAgentTeamsDesc")}</p>
               </div>
             </CollapsibleSection>
 

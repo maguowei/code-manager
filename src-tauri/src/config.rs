@@ -23,6 +23,7 @@ pub struct ConfigData {
     pub disable_nonessential_traffic: Option<bool>,
     pub skip_web_fetch_preflight: Option<bool>,
     pub enable_lsp_tool: Option<bool>,
+    pub agent_teams_enabled: Option<bool>,
     pub has_completed_onboarding: Option<bool>,
     pub enable_extra_marketplaces: Option<bool>,
     pub preferred_language: Option<String>,
@@ -61,6 +62,8 @@ pub struct ClaudeConfig {
     pub skip_web_fetch_preflight: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub enable_lsp_tool: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_teams_enabled: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub has_completed_onboarding: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -185,6 +188,12 @@ fn build_config_value(config: &ClaudeConfig, defaults: Option<&str>) -> serde_js
             serde_json::Value::String("1".to_string()),
         );
     }
+    if config.agent_teams_enabled == Some(true) {
+        env.insert(
+            "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS".to_string(),
+            serde_json::Value::String("1".to_string()),
+        );
+    }
 
     let mut claude_config = serde_json::Map::new();
 
@@ -306,6 +315,7 @@ pub fn add_config(app_handle: AppHandle, data: ConfigData) -> Result<ClaudeConfi
         disable_nonessential_traffic: data.disable_nonessential_traffic,
         skip_web_fetch_preflight: data.skip_web_fetch_preflight,
         enable_lsp_tool: data.enable_lsp_tool,
+        agent_teams_enabled: data.agent_teams_enabled,
         has_completed_onboarding: data.has_completed_onboarding,
         enable_extra_marketplaces: data.enable_extra_marketplaces,
         preferred_language: data.preferred_language,
@@ -355,6 +365,7 @@ pub fn update_config(
     config.disable_nonessential_traffic = data.disable_nonessential_traffic;
     config.skip_web_fetch_preflight = data.skip_web_fetch_preflight;
     config.enable_lsp_tool = data.enable_lsp_tool;
+    config.agent_teams_enabled = data.agent_teams_enabled;
     config.has_completed_onboarding = data.has_completed_onboarding;
     config.enable_extra_marketplaces = data.enable_extra_marketplaces;
     config.preferred_language = data.preferred_language;
@@ -426,6 +437,7 @@ pub fn duplicate_config(app_handle: AppHandle, id: String) -> Result<ClaudeConfi
         disable_nonessential_traffic: original.disable_nonessential_traffic,
         skip_web_fetch_preflight: original.skip_web_fetch_preflight,
         enable_lsp_tool: original.enable_lsp_tool,
+        agent_teams_enabled: original.agent_teams_enabled,
         has_completed_onboarding: original.has_completed_onboarding,
         enable_extra_marketplaces: original.enable_extra_marketplaces,
         preferred_language: original.preferred_language.clone(),
@@ -566,6 +578,7 @@ pub fn preview_config(data: ConfigData, defaults: Option<String>) -> Result<Stri
         disable_nonessential_traffic: data.disable_nonessential_traffic,
         skip_web_fetch_preflight: data.skip_web_fetch_preflight,
         enable_lsp_tool: data.enable_lsp_tool,
+        agent_teams_enabled: data.agent_teams_enabled,
         has_completed_onboarding: data.has_completed_onboarding,
         enable_extra_marketplaces: data.enable_extra_marketplaces,
         preferred_language: data.preferred_language,
