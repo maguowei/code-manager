@@ -504,7 +504,7 @@
   border-radius: 4px;
   background-color: var(--bg-primary);
   position: relative;
-  transition: all 150ms ease;
+  transition: background-color 150ms ease, border-color 150ms ease;
   flex-shrink: 0;
 }
 
@@ -512,12 +512,7 @@
   border-color: var(--accent-blue);
 }
 
-.checkbox-label input[type="checkbox"]:checked+.checkbox-custom {
-  background-color: var(--accent-blue);
-  border-color: var(--accent-blue);
-}
-
-.checkbox-label input[type="checkbox"]:checked+.checkbox-custom::after {
+.checkbox-custom::after {
   content: "";
   position: absolute;
   left: 5px;
@@ -527,17 +522,18 @@
   border: solid white;
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
-  animation: checkmark 200ms ease-out forwards;
+  opacity: 0;
+  transition: opacity 150ms ease;
 }
 
-@keyframes checkmark {
-  0% {
-    height: 0;
-  }
+.checkbox-label input[type="checkbox"]:checked+.checkbox-custom {
+  background-color: var(--accent-blue);
+  border-color: var(--accent-blue);
+}
 
-  100% {
-    height: 8px;
-  }
+.checkbox-label input[type="checkbox"]:checked+.checkbox-custom::after {
+  transform: rotate(45deg) scaleY(1);
+  opacity: 1;
 }
 
 /* Plugin List */
