@@ -284,7 +284,6 @@
 .skill-file-editor {
   display: flex;
   flex-direction: column;
-  gap: 0;
 }
 
 /* 文件编辑区顶部栏 */
@@ -373,7 +372,7 @@
 }
 
 .file-btn.delete:hover {
-  background-color: rgba(248, 81, 73, 0.1);
+  background-color: var(--accent-red-bg);
 }
 
 /* 添加文件的内联表单 */

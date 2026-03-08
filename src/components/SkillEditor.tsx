@@ -1,6 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import CodeMirror, { ReactCodeMirrorRef } from "@uiw/react-codemirror";
+import CodeMirror from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
 import { EditorView } from "@codemirror/view";
 import { Skill, SkillFile } from "../types";
@@ -20,7 +20,6 @@ interface SkillEditorProps {
 function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
   const { t } = useI18n();
   const { showToast } = useToast();
-  const editorRef = useRef<ReactCodeMirrorRef>(null);
   const editorTheme = useEditorTheme();
 
   // 基本信息字段
@@ -47,7 +46,18 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
   const [isSaving, setIsSaving] = useState(false);
 
   // 是否为编辑模式
+  // 注意：父组件须为每个不同的 skill 提供唯一 key（如 key={skill?.id ?? "new"}），
+  // 确保切换 skill 时组件重新挂载，state 得到正确初始化。
   const isEditing = skill !== null;
+
+  // 编辑模式下进入页面时自动懒加载支持文件
+  // CollapsibleSection 暂不支持 onExpand 回调，故在 isEditing && !filesLoaded 时通过 useEffect 触发
+  useEffect(() => {
+    if (isEditing && !filesLoaded) {
+      loadFiles();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditing]);
 
   // 懒加载支持文件（仅编辑模式下，点击文件区域时触发）
   async function loadFiles() {
@@ -283,7 +293,6 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
               <label>{t("skills.content")}</label>
               <div className="skill-editor-wrap">
                 <CodeMirror
-                  ref={editorRef}
                   value={content}
                   onChange={setContent}
                   extensions={[markdown(), EditorView.lineWrapping]}
@@ -305,7 +314,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                 title={t("skills.files")}
                 badge={files.length}
               >
-                <div className="skill-files-section" onClick={loadFiles}>
+                <div className="skill-files-section">
                   {/* 文件列表 */}
                   {files.map((file) => (
                     <div key={file.name} className="skill-file-item">
