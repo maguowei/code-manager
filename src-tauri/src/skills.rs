@@ -92,19 +92,20 @@ fn parse_skill_md(raw: &str) -> (String, String, bool, bool, String) {
         if suffix.is_empty() {
             found_end = true;
             end_pos = prefix_len + abs_idx;
-            search_idx = abs_idx + 4;
+            search_idx = abs_idx + 4; // Index after "\n---"
             break;
         } else if suffix.starts_with("\n") {
             found_end = true;
             end_pos = prefix_len + abs_idx;
-            search_idx = abs_idx + 5;
+            search_idx = abs_idx + 5; // Index after "\n---\n"
             break;
         } else if suffix.starts_with("\r\n") {
             found_end = true;
             end_pos = prefix_len + abs_idx;
-            search_idx = abs_idx + 6;
+            search_idx = abs_idx + 6; // Index after "\n---\r\n"
             break;
         } else {
+            // Not a delimiter, skip past the "\n"
             search_idx = abs_idx + 1;
         }
     }
@@ -114,9 +115,7 @@ fn parse_skill_md(raw: &str) -> (String, String, bool, bool, String) {
     }
 
     let fm_str = &raw[prefix_len..end_pos];
-    let body = raw[prefix_len + search_idx - prefix_len..]
-        .trim_start()
-        .to_string();
+    let body = raw[prefix_len + search_idx..].trim_start().to_string();
 
     let mut name = String::new();
     let mut description = String::new();
