@@ -29,6 +29,8 @@ const translations = {
     "configItem.inUse": "使用中",
     "configItem.delete": "删除",
     "configItem.plugins": "个插件",
+    "configItem.copyEnv": "复制环境变量",
+    "configItem.envCopied": "环境变量已复制",
 
     // 配置弹窗
     "configModal.addTitle": "添加配置",
@@ -236,6 +238,8 @@ const translations = {
     "configItem.inUse": "In Use",
     "configItem.delete": "Delete",
     "configItem.plugins": "plugins",
+    "configItem.copyEnv": "Copy env vars",
+    "configItem.envCopied": "Env vars copied",
 
     // 配置弹窗
     "configModal.addTitle": "Add Config",

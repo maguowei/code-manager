@@ -1,6 +1,7 @@
-import { DragEvent, MouseEvent } from "react";
+import { DragEvent, MouseEvent, useState } from "react";
 import { ClaudeConfig } from "../types";
 import { useI18n } from "../i18n";
+import { useToast } from "../hooks/useToast";
 import "./ConfigItem.css";
 
 interface ConfigItemProps {
@@ -37,6 +38,8 @@ function ConfigItem({
   onDrop,
 }: ConfigItemProps) {
   const { t } = useI18n();
+  const { showToast } = useToast();
+  const [envCopied, setEnvCopied] = useState(false);
 
   const classNames = [
     "config-item",
@@ -52,6 +55,26 @@ function ConfigItem({
   function handleActionClick(e: MouseEvent<HTMLButtonElement>, action: () => void) {
     e.stopPropagation();
     action();
+  }
+
+  function buildEnvExport(cfg: ClaudeConfig): string {
+    const lines: string[] = [];
+    lines.push(`export ANTHROPIC_AUTH_TOKEN=${cfg.apiKey}`);
+    if (cfg.apiUrl) lines.push(`export ANTHROPIC_BASE_URL=${cfg.apiUrl}`);
+    if (cfg.model) lines.push(`export ANTHROPIC_MODEL=${cfg.model}`);
+    if (cfg.haikuModel) lines.push(`export ANTHROPIC_DEFAULT_HAIKU_MODEL=${cfg.haikuModel}`);
+    if (cfg.sonnetModel) lines.push(`export ANTHROPIC_DEFAULT_SONNET_MODEL=${cfg.sonnetModel}`);
+    if (cfg.opusModel) lines.push(`export ANTHROPIC_DEFAULT_OPUS_MODEL=${cfg.opusModel}`);
+    return lines.join('\n');
+  }
+
+  function handleCopyEnv(e: MouseEvent<HTMLButtonElement>) {
+    e.stopPropagation();
+    navigator.clipboard.writeText(buildEnvExport(config)).then(() => {
+      setEnvCopied(true);
+      showToast(t("configItem.envCopied"), "success");
+      setTimeout(() => setEnvCopied(false), 2000);
+    }).catch(() => {});
   }
 
   return (
@@ -131,6 +154,17 @@ function ConfigItem({
 
       {/* 操作按钮 */}
       <div className="config-actions">
+        <button
+          className={`action-btn icon-only${envCopied ? " copied" : ""}`}
+          onClick={handleCopyEnv}
+          title={envCopied ? t("configItem.envCopied") : t("configItem.copyEnv")}
+          aria-label={t("configItem.copyEnv")}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="4 17 10 11 4 5"/>
+            <line x1="12" y1="19" x2="20" y2="19"/>
+          </svg>
+        </button>
         <button
           className="action-btn icon-only"
           onClick={(e) => handleActionClick(e, onDuplicate)}

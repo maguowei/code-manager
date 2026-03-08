@@ -220,6 +220,10 @@
   color: var(--accent-red);
 }
 
+.action-btn.icon-only.copied {
+  color: var(--accent-green);
+}
+
 .activate-btn {
   background-color: var(--accent-blue);
   color: white;
