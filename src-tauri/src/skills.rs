@@ -169,3 +169,55 @@ fn scan_skills_dir(dir: &std::path::Path, is_active: bool) -> Vec<Skill> {
     skills.sort_by(|a, b| a.id.cmp(&b.id));
     skills
 }
+
+/// 获取所有 Skills（启用 + 禁用）
+#[tauri::command]
+pub fn get_skills() -> Result<Vec<Skill>, String> {
+    let mut skills = scan_skills_dir(&get_skills_dir(), true);
+    let mut disabled = scan_skills_dir(&get_disabled_dir(), false);
+    skills.append(&mut disabled);
+    Ok(skills)
+}
+
+/// 切换 Skill 的启用/禁用状态（通过移动目录实现）
+#[tauri::command]
+pub fn toggle_skill(id: String, is_active: bool) -> Result<Skill, String> {
+    let _lock = crate::utils::lock_skills()?;
+
+    let src = get_skill_path(&id, is_active);
+    let dst_root = if is_active {
+        get_disabled_dir()
+    } else {
+        get_skills_dir()
+    };
+    let dst = dst_root.join(&id);
+
+    // 确保目标根目录存在
+    fs::create_dir_all(&dst_root)
+        .map_err(|e| format!("创建目录失败: {}", e))?;
+
+    // 移动目录
+    fs::rename(&src, &dst)
+        .map_err(|e| format!("移动 Skill 目录失败: {}", e))?;
+
+    // 读取新位置的 SKILL.md 并返回更新后的 Skill
+    let new_is_active = !is_active;
+    let skill_md = dst.join("SKILL.md");
+    let raw = fs::read_to_string(&skill_md)
+        .map_err(|e| format!("读取 SKILL.md 失败: {}", e))?;
+    let (name, description, disable_model_invocation, user_invocable, content) =
+        parse_skill_md(&raw);
+    let (created_at, updated_at) = get_file_times(&skill_md);
+
+    Ok(Skill {
+        name: if name.is_empty() { id.clone() } else { name },
+        id,
+        description,
+        content,
+        disable_model_invocation,
+        user_invocable,
+        is_active: new_is_active,
+        created_at,
+        updated_at,
+    })
+}
