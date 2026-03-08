@@ -20,8 +20,11 @@ function ConfirmDialog({
   onCancel,
   danger = false,
 }: ConfirmDialogProps) {
-  // ESC 键关闭确认对话框
-  useEscapeKey(onCancel);
+  // ESC 键关闭确认对话框，并阻止事件冒泡到外层（如抽屉）
+  useEscapeKey((e) => {
+    e?.stopImmediatePropagation();
+    onCancel();
+  });
 
   return (
     <div className="confirm-overlay" onClick={onCancel}>
@@ -36,9 +39,8 @@ function ConfirmDialog({
             {cancelText}
           </button>
           <button
-            className={`confirm-dialog__btn ${
-              danger ? "confirm-dialog__btn--danger" : "confirm-dialog__btn--confirm"
-            }`}
+            className={`confirm-dialog__btn ${danger ? "confirm-dialog__btn--danger" : "confirm-dialog__btn--confirm"
+              }`}
             onClick={onConfirm}
           >
             {confirmText}

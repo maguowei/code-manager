@@ -76,17 +76,47 @@ fn get_file_times(path: &std::path::Path) -> (u64, u64) {
 
 /// 解析 SKILL.md 内容，返回 (name, description, disable_model_invocation, user_invocable, content)
 fn parse_skill_md(raw: &str) -> (String, String, bool, bool, String) {
-    // 检查是否以 "---\n" 开头
-    if !raw.starts_with("---\n") {
+    if !raw.starts_with("---\n") && !raw.starts_with("---\r\n") {
         return (String::new(), String::new(), false, true, raw.to_string());
     }
-    let rest = &raw[4..]; // 跳过 "---\n"
-    let end_pos = match rest.find("\n---\n") {
-        Some(p) => p,
-        None => return (String::new(), String::new(), false, true, raw.to_string()),
-    };
-    let fm_str = &rest[..end_pos];
-    let body = rest[end_pos + 5..].trim_start().to_string();
+
+    let mut end_pos = 0;
+    let mut found_end = false;
+    let prefix_len = if raw.starts_with("---\r\n") { 5 } else { 4 };
+    let rest = &raw[prefix_len..];
+
+    let mut search_idx = 0;
+    while let Some(idx) = rest[search_idx..].find("\n---") {
+        let abs_idx = search_idx + idx;
+        let suffix = &rest[abs_idx + 4..];
+        if suffix.is_empty() {
+            found_end = true;
+            end_pos = prefix_len + abs_idx;
+            search_idx = abs_idx + 4;
+            break;
+        } else if suffix.starts_with("\n") {
+            found_end = true;
+            end_pos = prefix_len + abs_idx;
+            search_idx = abs_idx + 5;
+            break;
+        } else if suffix.starts_with("\r\n") {
+            found_end = true;
+            end_pos = prefix_len + abs_idx;
+            search_idx = abs_idx + 6;
+            break;
+        } else {
+            search_idx = abs_idx + 1;
+        }
+    }
+
+    if !found_end {
+        return (String::new(), String::new(), false, true, raw.to_string());
+    }
+
+    let fm_str = &raw[prefix_len..end_pos];
+    let body = raw[prefix_len + search_idx - prefix_len..]
+        .trim_start()
+        .to_string();
 
     let mut name = String::new();
     let mut description = String::new();
@@ -95,11 +125,21 @@ fn parse_skill_md(raw: &str) -> (String, String, bool, bool, String) {
 
     for line in fm_str.lines() {
         if let Some((key, val)) = line.split_once(':') {
+            let val = val.trim();
+            let unescaped_val = if val.starts_with('"') && val.ends_with('"') && val.len() >= 2 {
+                match serde_json::from_str::<String>(val) {
+                    Ok(s) => s,
+                    Err(_) => val.trim_matches('"').to_string(),
+                }
+            } else {
+                val.to_string()
+            };
+
             match key.trim() {
-                "name" => name = val.trim().to_string(),
-                "description" => description = val.trim().to_string(),
-                "disable-model-invocation" => disable_model_invocation = val.trim() == "true",
-                "user-invocable" => user_invocable = val.trim() != "false",
+                "name" => name = unescaped_val,
+                "description" => description = unescaped_val,
+                "disable-model-invocation" => disable_model_invocation = val == "true",
+                "user-invocable" => user_invocable = val != "false",
                 _ => {}
             }
         }
@@ -122,9 +162,13 @@ fn serialize_skill_md(
     user_invocable: bool,
     content: &str,
 ) -> String {
+    let name_escaped = serde_json::to_string(name).unwrap_or_else(|_| format!("\"{}\"", name));
+    let desc_escaped =
+        serde_json::to_string(description).unwrap_or_else(|_| format!("\"{}\"", description));
+
     format!(
         "---\nname: {}\ndescription: {}\ndisable-model-invocation: {}\nuser-invocable: {}\n---\n\n{}",
-        name, description, disable_model_invocation, user_invocable, content
+        name_escaped, desc_escaped, disable_model_invocation, user_invocable, content
     )
 }
 
@@ -391,7 +435,13 @@ fn collect_files(
 
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.is_dir() {
+        let file_type = entry
+            .file_type()
+            .map_err(|e| format!("获取文件类型失败: {}", e))?;
+        if file_type.is_symlink() {
+            continue; // 拒绝遍历符号链接，防止路径逃逸
+        }
+        if file_type.is_dir() {
             collect_files(base, &path, files)?;
         } else {
             // 跳过 SKILL.md

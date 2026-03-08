@@ -6,7 +6,7 @@ import { useEffect, useRef } from "react";
  * @param callback ESC 键按下时的回调函数
  * @param enabled 是否启用监听，默认 true
  */
-function useEscapeKey(callback: () => void, enabled: boolean = true): void {
+function useEscapeKey(callback: (e?: KeyboardEvent) => void, enabled: boolean = true): void {
   const callbackRef = useRef(callback);
   useEffect(() => {
     callbackRef.current = callback;
@@ -17,7 +17,7 @@ function useEscapeKey(callback: () => void, enabled: boolean = true): void {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        callbackRef.current();
+        callbackRef.current(e);
       }
     };
 

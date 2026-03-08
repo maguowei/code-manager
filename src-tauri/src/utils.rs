@@ -45,14 +45,21 @@ pub fn ensure_dir_and_write(path: &Path, content: &str) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("创建目录失败 {:?}: {}", parent, e))?;
     }
+    #[cfg(unix)]
+    let existing_perms = fs::metadata(path).ok().map(|m| m.permissions());
+
     fs::write(path, content).map_err(|e| format!("写入文件失败 {:?}: {}", path, e))?;
 
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        let permissions = fs::Permissions::from_mode(0o600);
-        fs::set_permissions(path, permissions)
-            .map_err(|e| format!("设置文件权限失败 {:?}: {}", path, e))?;
+        if let Some(perms) = existing_perms {
+            let _ = fs::set_permissions(path, perms);
+        } else {
+            let is_script = path.components().any(|c| c.as_os_str() == "scripts");
+            let mode = if is_script { 0o700 } else { 0o600 };
+            let _ = fs::set_permissions(path, fs::Permissions::from_mode(mode));
+        }
     }
 
     Ok(())
