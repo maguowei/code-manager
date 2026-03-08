@@ -1,4 +1,4 @@
-use crate::config::{activate_config_inner, load_state};
+use crate::config::{activate_config_inner, load_state, AppState};
 use tauri::{
     menu::{Menu, MenuItemBuilder, PredefinedMenuItem},
     tray::TrayIconBuilder,
@@ -6,8 +6,7 @@ use tauri::{
 };
 
 /// 构建托盘菜单
-fn build_tray_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
-    let state = load_state();
+fn build_tray_menu(app: &AppHandle, state: &AppState) -> tauri::Result<Menu<tauri::Wry>> {
 
     let mut items: Vec<Box<dyn tauri::menu::IsMenuItem<tauri::Wry>>> = Vec::new();
 
@@ -55,9 +54,18 @@ fn build_tray_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
 }
 
 /// 重建托盘菜单（配置变化后调用）
-pub fn rebuild_tray_menu(app_handle: &AppHandle) {
+/// 可传入已有的 state 避免重复读磁盘，传 None 则从磁盘读取
+pub fn rebuild_tray_menu(app_handle: &AppHandle, state: Option<&AppState>) {
     if let Some(tray) = app_handle.tray_by_id("main_tray") {
-        match build_tray_menu(app_handle) {
+        let owned_state;
+        let state = match state {
+            Some(s) => s,
+            None => {
+                owned_state = load_state();
+                &owned_state
+            }
+        };
+        match build_tray_menu(app_handle, state) {
             Ok(menu) => {
                 let _ = tray.set_menu(Some(menu));
             }
@@ -82,7 +90,8 @@ fn show_main_window(app: &AppHandle) {
 /// 初始化系统托盘
 pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     let handle = app.handle();
-    let menu = build_tray_menu(handle)?;
+    let state = load_state();
+    let menu = build_tray_menu(handle, &state)?;
 
     // 获取应用图标，若不存在则返回 IO 错误
     let icon = app
@@ -107,7 +116,7 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
                 // 切换配置
                 match activate_config_inner(config_id.to_string()) {
                     Ok(_) => {
-                        rebuild_tray_menu(app);
+                        rebuild_tray_menu(app, None);
                         // 通知前端刷新配置状态
                         let _ = app.emit("config-changed", ());
                     }

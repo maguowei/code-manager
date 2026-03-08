@@ -8,12 +8,14 @@ import { useI18n } from "./i18n";
 import { useToast } from "./hooks/useToast";
 import ConfigList from "./components/ConfigList";
 import ConfigEditor from "./components/ConfigEditor";
+import Drawer from "./components/Drawer";
 import SettingsDrawer from "./components/SettingsDrawer";
 import MemoryPage from "./components/MemoryPage";
 import SkillsPage from "./components/SkillsPage";
 import StatsPage from "./components/StatsPage";
 import Sidebar from "./components/Sidebar";
 import ConfirmDialog from "./components/ConfirmDialog";
+import { PlusIcon } from "./components/Icons";
 import useEscapeKey from "./hooks/useEscapeKey";
 
 /** 将表单数据转换为后端 ConfigData 格式 */
@@ -134,16 +136,17 @@ function App() {
       }
 
       if (editingConfig) {
-        await invoke("update_config", {
+        const updated = await invoke<ClaudeConfig>("update_config", {
           id: editingConfig.id,
           data: buildConfigData(config),
         });
+        setConfigs(prev => prev.map(c => c.id === updated.id ? updated : c));
       } else {
-        await invoke("add_config", {
+        const created = await invoke<ClaudeConfig>("add_config", {
           data: buildConfigData(config),
         });
+        setConfigs(prev => [...prev, created]);
       }
-      await loadConfigs();
       setIsModalOpen(false);
       setEditingConfig(null);
       showToast(t("toast.configSaved"));
@@ -156,7 +159,8 @@ function App() {
     if (!isTauri()) return;
     try {
       await invoke("delete_config", { id });
-      await loadConfigs();
+      setConfigs(prev => prev.filter(c => c.id !== id));
+      if (activeConfigId === id) setActiveConfigId(null);
       showToast(t("toast.configDeleted"));
     } catch (error) {
       showToast(t("toast.configDeleteError"), "error");
@@ -166,8 +170,13 @@ function App() {
   async function handleDuplicate(id: string) {
     if (!isTauri()) return;
     try {
-      await invoke("duplicate_config", { id });
-      await loadConfigs();
+      const duplicated = await invoke<ClaudeConfig>("duplicate_config", { id });
+      setConfigs(prev => {
+        const index = prev.findIndex(c => c.id === id);
+        const next = [...prev];
+        next.splice(index + 1, 0, duplicated);
+        return next;
+      });
       showToast(t("toast.configDuplicated"));
     } catch (error) {
       showToast(t("toast.configDuplicateError"), "error");
@@ -248,10 +257,7 @@ function App() {
                 <h1 className="page-title">{t("nav.configs")}</h1>
               </div>
               <button className="add-config-btn" onClick={handleAdd}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <line x1="12" y1="5" x2="12" y2="19" />
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
+                <PlusIcon />
                 <span>{t("header.addConfig")}</span>
               </button>
               <ConfigList
@@ -272,26 +278,20 @@ function App() {
         )}
 
         {isModalOpen && (
-          <>
-            <div
-              className="drawer-overlay visible"
-              onClick={() => {
+          <Drawer onClose={() => {
+            setIsModalOpen(false);
+            setEditingConfig(null);
+          }}>
+            <ConfigEditor
+              config={editingConfig}
+              defaults={defaults}
+              onSave={handleSave}
+              onClose={() => {
                 setIsModalOpen(false);
                 setEditingConfig(null);
               }}
             />
-            <div className="drawer open">
-              <ConfigEditor
-                config={editingConfig}
-                defaults={defaults}
-                onSave={handleSave}
-                onClose={() => {
-                  setIsModalOpen(false);
-                  setEditingConfig(null);
-                }}
-              />
-            </div>
-          </>
+          </Drawer>
         )}
       </div>
 

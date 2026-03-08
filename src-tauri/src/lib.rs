@@ -24,7 +24,9 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             tray::setup_tray(app)?;
-            stats::start_snapshot_timer();
+            let snapshot_handle = stats::start_snapshot_timer();
+            // 保存句柄，app 退出时 handle drop 但线程也会随进程终止
+            app.manage(snapshot_handle);
             Ok(())
         })
         .on_window_event(|window, event| {

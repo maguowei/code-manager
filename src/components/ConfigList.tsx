@@ -1,4 +1,4 @@
-import { useState, useRef, DragEvent } from "react";
+import { useState, useRef, useCallback, DragEvent } from "react";
 import { ClaudeConfig } from "../types";
 import { useI18n } from "../i18n";
 import ConfigItem from "./ConfigItem";
@@ -26,19 +26,19 @@ function ConfigList({ configs, activeConfigId, editingConfigId, onActivate, onEd
     overPosition: "above" | "below" | null;
   }>({ draggingIndex: null, overIndex: null, overPosition: null });
 
-  function handleDragStart(e: DragEvent<HTMLDivElement>, index: number) {
+  const handleDragStart = useCallback((e: DragEvent<HTMLDivElement>, index: number) => {
     dragIndexRef.current = index;
     setDragState({ draggingIndex: index, overIndex: null, overPosition: null });
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", String(index));
-  }
+  }, []);
 
-  function handleDragEnd() {
+  const handleDragEnd = useCallback(() => {
     dragIndexRef.current = null;
     setDragState({ draggingIndex: null, overIndex: null, overPosition: null });
-  }
+  }, []);
 
-  function handleDragOver(e: DragEvent<HTMLDivElement>, index: number) {
+  const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>, index: number) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
 
@@ -54,9 +54,9 @@ function ConfigList({ configs, activeConfigId, editingConfigId, onActivate, onEd
       if (prev.overIndex === index && prev.overPosition === position) return prev;
       return { ...prev, overIndex: index, overPosition: position };
     });
-  }
+  }, []);
 
-  function handleDragLeave(e: DragEvent<HTMLDivElement>, index: number) {
+  const handleDragLeave = useCallback((e: DragEvent<HTMLDivElement>, index: number) => {
     // 检查是否真的离开了当前元素（而非进入子元素）
     const related = e.relatedTarget as Node | null;
     if (related && e.currentTarget.contains(related)) return;
@@ -65,9 +65,9 @@ function ConfigList({ configs, activeConfigId, editingConfigId, onActivate, onEd
       if (prev.overIndex !== index) return prev;
       return { ...prev, overIndex: null, overPosition: null };
     });
-  }
+  }, []);
 
-  function handleDrop(e: DragEvent<HTMLDivElement>, dropIndex: number) {
+  const handleDrop = useCallback((e: DragEvent<HTMLDivElement>, dropIndex: number) => {
     e.preventDefault();
 
     const fromIndex = dragIndexRef.current;
@@ -96,7 +96,7 @@ function ConfigList({ configs, activeConfigId, editingConfigId, onActivate, onEd
     newConfigs.splice(targetIndex, 0, dragged);
     onReorder(newConfigs.map((c) => c.id));
     handleDragEnd();
-  }
+  }, [configs, onReorder, handleDragEnd]);
 
   if (configs.length === 0) {
     return (

@@ -31,6 +31,64 @@ pub struct ConfigData {
     pub enabled_plugins: Option<HashMap<String, bool>>,
 }
 
+impl ConfigData {
+    /// 将 DTO 转换为 ClaudeConfig（新建场景）
+    fn into_config(self) -> ClaudeConfig {
+        let now = crate::utils::current_timestamp();
+        ClaudeConfig {
+            id: Uuid::new_v4().to_string(),
+            name: self.name,
+            description: self.description,
+            api_key: self.api_key,
+            api_url: self.api_url,
+            website_url: self.website_url,
+            model: self.model,
+            thinking_model: self.thinking_model,
+            haiku_model: self.haiku_model,
+            sonnet_model: self.sonnet_model,
+            opus_model: self.opus_model,
+            always_thinking_enabled: self.always_thinking_enabled,
+            disable_nonessential_traffic: self.disable_nonessential_traffic,
+            skip_web_fetch_preflight: self.skip_web_fetch_preflight,
+            enable_lsp_tool: self.enable_lsp_tool,
+            agent_teams_enabled: self.agent_teams_enabled,
+            has_completed_onboarding: self.has_completed_onboarding,
+            enable_extra_marketplaces: self.enable_extra_marketplaces,
+            preferred_language: self.preferred_language,
+            use_defaults: self.use_defaults,
+            enabled_plugins: self.enabled_plugins,
+            is_active: false,
+            created_at: now,
+            updated_at: now,
+        }
+    }
+
+    /// 将 DTO 的字段写入已有的 ClaudeConfig（更新场景）
+    fn apply_to(self, config: &mut ClaudeConfig) {
+        config.name = self.name;
+        config.description = self.description;
+        config.api_key = self.api_key;
+        config.api_url = self.api_url;
+        config.website_url = self.website_url;
+        config.model = self.model;
+        config.thinking_model = self.thinking_model;
+        config.haiku_model = self.haiku_model;
+        config.sonnet_model = self.sonnet_model;
+        config.opus_model = self.opus_model;
+        config.always_thinking_enabled = self.always_thinking_enabled;
+        config.disable_nonessential_traffic = self.disable_nonessential_traffic;
+        config.skip_web_fetch_preflight = self.skip_web_fetch_preflight;
+        config.enable_lsp_tool = self.enable_lsp_tool;
+        config.agent_teams_enabled = self.agent_teams_enabled;
+        config.has_completed_onboarding = self.has_completed_onboarding;
+        config.enable_extra_marketplaces = self.enable_extra_marketplaces;
+        config.preferred_language = self.preferred_language;
+        config.use_defaults = self.use_defaults;
+        config.enabled_plugins = self.enabled_plugins;
+        config.updated_at = crate::utils::current_timestamp();
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClaudeConfig {
@@ -297,38 +355,12 @@ pub fn add_config(app_handle: AppHandle, data: ConfigData) -> Result<ClaudeConfi
     let _lock = crate::utils::lock_config()?;
 
     let mut state = load_state();
-    let now = crate::utils::current_timestamp();
 
-    let config = ClaudeConfig {
-        id: Uuid::new_v4().to_string(),
-        name: data.name,
-        description: data.description,
-        api_key: data.api_key,
-        api_url: data.api_url,
-        website_url: data.website_url,
-        model: data.model,
-        thinking_model: data.thinking_model,
-        haiku_model: data.haiku_model,
-        sonnet_model: data.sonnet_model,
-        opus_model: data.opus_model,
-        always_thinking_enabled: data.always_thinking_enabled,
-        disable_nonessential_traffic: data.disable_nonessential_traffic,
-        skip_web_fetch_preflight: data.skip_web_fetch_preflight,
-        enable_lsp_tool: data.enable_lsp_tool,
-        agent_teams_enabled: data.agent_teams_enabled,
-        has_completed_onboarding: data.has_completed_onboarding,
-        enable_extra_marketplaces: data.enable_extra_marketplaces,
-        preferred_language: data.preferred_language,
-        use_defaults: data.use_defaults,
-        enabled_plugins: data.enabled_plugins,
-        is_active: false,
-        created_at: now,
-        updated_at: now,
-    };
+    let config = data.into_config();
 
     state.configs.push(config.clone());
     save_state(&state)?;
-    rebuild_tray_menu(&app_handle);
+    rebuild_tray_menu(&app_handle, Some(&state));
 
     Ok(config)
 }
@@ -351,27 +383,7 @@ pub fn update_config(
         .find(|c| c.id == id)
         .ok_or("未找到指定配置")?;
 
-    config.name = data.name;
-    config.description = data.description;
-    config.api_key = data.api_key;
-    config.api_url = data.api_url;
-    config.website_url = data.website_url;
-    config.model = data.model;
-    config.thinking_model = data.thinking_model;
-    config.haiku_model = data.haiku_model;
-    config.sonnet_model = data.sonnet_model;
-    config.opus_model = data.opus_model;
-    config.always_thinking_enabled = data.always_thinking_enabled;
-    config.disable_nonessential_traffic = data.disable_nonessential_traffic;
-    config.skip_web_fetch_preflight = data.skip_web_fetch_preflight;
-    config.enable_lsp_tool = data.enable_lsp_tool;
-    config.agent_teams_enabled = data.agent_teams_enabled;
-    config.has_completed_onboarding = data.has_completed_onboarding;
-    config.enable_extra_marketplaces = data.enable_extra_marketplaces;
-    config.preferred_language = data.preferred_language;
-    config.use_defaults = data.use_defaults;
-    config.enabled_plugins = data.enabled_plugins;
-    config.updated_at = crate::utils::current_timestamp();
+    data.apply_to(config);
 
     let updated = config.clone();
     save_state(&state)?;
@@ -380,7 +392,7 @@ pub fn update_config(
     if state.active_config_id == Some(id) {
         apply_config(&updated, state.defaults.as_deref())?;
     }
-    rebuild_tray_menu(&app_handle);
+    rebuild_tray_menu(&app_handle, Some(&state));
 
     Ok(updated)
 }
@@ -400,7 +412,7 @@ pub fn delete_config(app_handle: AppHandle, id: String) -> Result<(), String> {
     }
 
     save_state(&state)?;
-    rebuild_tray_menu(&app_handle);
+    rebuild_tray_menu(&app_handle, Some(&state));
     Ok(())
 }
 
@@ -421,38 +433,18 @@ pub fn duplicate_config(app_handle: AppHandle, id: String) -> Result<ClaudeConfi
     let original = &state.configs[index];
     let now = crate::utils::current_timestamp();
 
-    let new_config = ClaudeConfig {
-        id: Uuid::new_v4().to_string(),
-        name: format!("{} (copy)", original.name),
-        description: original.description.clone(),
-        api_key: original.api_key.clone(),
-        api_url: original.api_url.clone(),
-        website_url: original.website_url.clone(),
-        model: original.model.clone(),
-        thinking_model: original.thinking_model.clone(),
-        haiku_model: original.haiku_model.clone(),
-        sonnet_model: original.sonnet_model.clone(),
-        opus_model: original.opus_model.clone(),
-        always_thinking_enabled: original.always_thinking_enabled,
-        disable_nonessential_traffic: original.disable_nonessential_traffic,
-        skip_web_fetch_preflight: original.skip_web_fetch_preflight,
-        enable_lsp_tool: original.enable_lsp_tool,
-        agent_teams_enabled: original.agent_teams_enabled,
-        has_completed_onboarding: original.has_completed_onboarding,
-        enable_extra_marketplaces: original.enable_extra_marketplaces,
-        preferred_language: original.preferred_language.clone(),
-        use_defaults: original.use_defaults,
-        enabled_plugins: original.enabled_plugins.clone(),
-        is_active: false,
-        created_at: now,
-        updated_at: now,
-    };
+    let mut new_config = original.clone();
+    new_config.id = Uuid::new_v4().to_string();
+    new_config.name = format!("{} (copy)", original.name);
+    new_config.is_active = false;
+    new_config.created_at = now;
+    new_config.updated_at = now;
 
     let result = new_config.clone();
     // 插入到原项后面
     state.configs.insert(index + 1, new_config);
     save_state(&state)?;
-    rebuild_tray_menu(&app_handle);
+    rebuild_tray_menu(&app_handle, Some(&state));
 
     Ok(result)
 }
@@ -482,7 +474,7 @@ pub fn reorder_configs(app_handle: AppHandle, ids: Vec<String>) -> Result<(), St
 
     state.configs = reordered;
     save_state(&state)?;
-    rebuild_tray_menu(&app_handle);
+    rebuild_tray_menu(&app_handle, Some(&state));
     Ok(())
 }
 
@@ -518,7 +510,7 @@ pub fn activate_config_inner(id: String) -> Result<(), String> {
 #[tauri::command]
 pub fn activate_config(app_handle: AppHandle, id: String) -> Result<(), String> {
     activate_config_inner(id)?;
-    rebuild_tray_menu(&app_handle);
+    rebuild_tray_menu(&app_handle, None);
     Ok(())
 }
 
@@ -562,32 +554,7 @@ pub fn update_defaults(content: String) -> Result<(), String> {
 #[tauri::command]
 pub fn preview_config(data: ConfigData, defaults: Option<String>) -> Result<String, String> {
     // 构建临时 ClaudeConfig，仅用于 JSON 生成，不持久化
-    let config = ClaudeConfig {
-        id: String::new(),
-        name: data.name,
-        description: data.description,
-        api_key: data.api_key,
-        api_url: data.api_url,
-        website_url: data.website_url,
-        model: data.model,
-        thinking_model: data.thinking_model,
-        haiku_model: data.haiku_model,
-        sonnet_model: data.sonnet_model,
-        opus_model: data.opus_model,
-        always_thinking_enabled: data.always_thinking_enabled,
-        disable_nonessential_traffic: data.disable_nonessential_traffic,
-        skip_web_fetch_preflight: data.skip_web_fetch_preflight,
-        enable_lsp_tool: data.enable_lsp_tool,
-        agent_teams_enabled: data.agent_teams_enabled,
-        has_completed_onboarding: data.has_completed_onboarding,
-        enable_extra_marketplaces: data.enable_extra_marketplaces,
-        preferred_language: data.preferred_language,
-        use_defaults: data.use_defaults,
-        enabled_plugins: data.enabled_plugins,
-        is_active: false,
-        created_at: 0,
-        updated_at: 0,
-    };
+    let config = data.into_config();
     let final_config = build_config_value(&config, defaults.as_deref());
     serde_json::to_string_pretty(&final_config).map_err(|e| e.to_string())
 }

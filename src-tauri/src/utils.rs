@@ -79,22 +79,27 @@ pub fn save_json_file<T: Serialize>(path: &Path, data: &T) -> Result<(), String>
     ensure_dir_and_write(path, &content)
 }
 
+/// 通用互斥锁获取函数
+fn acquire_lock(lock: &'static Lazy<Mutex<()>>) -> Result<MutexGuard<'static, ()>, String> {
+    lock.lock().map_err(|e| format!("获取锁失败: {}", e))
+}
+
 /// 获取配置文件写锁，防止并发写入
 pub fn lock_config() -> Result<MutexGuard<'static, ()>, String> {
-    CONFIG_LOCK.lock().map_err(|e| format!("获取锁失败: {}", e))
+    acquire_lock(&CONFIG_LOCK)
 }
 
 /// 获取记忆文件写锁，防止并发写入
 pub fn lock_memory() -> Result<MutexGuard<'static, ()>, String> {
-    MEMORY_LOCK.lock().map_err(|e| format!("获取锁失败: {}", e))
+    acquire_lock(&MEMORY_LOCK)
 }
 
 /// 获取统计文件写锁，防止并发写入
 pub fn lock_stats() -> Result<MutexGuard<'static, ()>, String> {
-    STATS_LOCK.lock().map_err(|e| format!("获取锁失败: {}", e))
+    acquire_lock(&STATS_LOCK)
 }
 
 /// 获取 Skills 文件写锁，防止并发写入
 pub fn lock_skills() -> Result<MutexGuard<'static, ()>, String> {
-    SKILLS_LOCK.lock().map_err(|e| format!("获取锁失败: {}", e))
+    acquire_lock(&SKILLS_LOCK)
 }

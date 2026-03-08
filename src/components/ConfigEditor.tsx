@@ -7,6 +7,7 @@ import PluginManager from "./PluginManager";
 import DefaultsSection from "./DefaultsSection";
 import ConfigPreview from "./ConfigPreview";
 import CollapsibleSection from "./CollapsibleSection";
+import { ChevronLeftIcon } from "./Icons";
 
 interface ConfigEditorProps {
   config: ClaudeConfig | null;
@@ -144,32 +145,30 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
   }
 
   return (
-    <div className="drawer-modal-container">
+    <div className="editor-drawer-container">
       <div
-        className="modal modal-large"
+        className="editor-panel modal-large"
         role="dialog"
         aria-labelledby="config-modal-title"
         aria-modal="true"
       >
         <form onSubmit={handleSubmit}>
-          <div className="modal-header">
-            <button type="button" className="back-btn" onClick={onClose} aria-label="关闭">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
+          <div className="editor-header">
+            <button type="button" className="editor-back-btn" onClick={onClose} aria-label="关闭">
+              <ChevronLeftIcon />
             </button>
             <h2 id="config-modal-title">{config ? t("configModal.editTitle") : t("configModal.addTitle")}</h2>
             <button
               type="submit"
-              className="drawer-save-btn"
+              className="editor-save-btn"
               disabled={!name.trim() || !apiKey.trim()}
             >
               {t("configModal.save")}
             </button>
           </div>
-          <div className="modal-body">
+          <div className="editor-body">
             {/* 配置徽章 */}
-            <div className="config-badge-large">
+            <div className="editor-badge-large">
               <span>{name ? name.charAt(0).toUpperCase() : "A"}</span>
             </div>
 

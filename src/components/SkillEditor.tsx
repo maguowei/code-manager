@@ -8,6 +8,7 @@ import { useI18n } from "../i18n";
 import { useToast } from "../hooks/useToast";
 import useEditorTheme from "../hooks/useEditorTheme";
 import CollapsibleSection from "./CollapsibleSection";
+import { ChevronLeftIcon } from "./Icons";
 import ConfirmDialog from "./ConfirmDialog";
 import "./SkillEditor.css";
 
@@ -184,31 +185,29 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
   })();
 
   return (
-    <div className="skill-drawer-container">
-      <div className="skill-modal" role="dialog" aria-modal="true">
+    <div className="editor-drawer-container">
+      <div className="editor-panel" role="dialog" aria-modal="true">
         <form onSubmit={handleSubmit}>
           {/* 顶部操作栏 */}
-          <div className="skill-modal-header">
+          <div className="editor-header">
             <button
               type="button"
-              className="skill-back-btn"
+              className="editor-back-btn"
               onClick={onClose}
               aria-label={t("common.close")}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
+              <ChevronLeftIcon />
             </button>
             <h2>{isEditing ? t("skills.editTitle") : t("skills.addTitle")}</h2>
-            <button type="submit" className="skill-save-btn" disabled={!canSave}>
+            <button type="submit" className="editor-save-btn" disabled={!canSave}>
               {t("skills.save")}
             </button>
           </div>
 
           {/* 正文区域 */}
-          <div className="skill-modal-body">
+          <div className="editor-body">
             {/* 大徽章头像 */}
-            <div className="skill-badge-large">
+            <div className="editor-badge-large">
               <span>{badgeLetter}</span>
             </div>
 

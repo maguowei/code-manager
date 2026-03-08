@@ -5,7 +5,9 @@ import { useI18n } from "../i18n";
 import { useToast } from "../hooks/useToast";
 import MemoryItem from "./MemoryItem";
 import MemoryEditor from "./MemoryEditor";
+import Drawer from "./Drawer";
 import ConfirmDialog from "./ConfirmDialog";
+import { PlusIcon } from "./Icons";
 import useEscapeKey from "../hooks/useEscapeKey";
 import "./MemoryPage.css";
 
@@ -111,10 +113,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
 
       {/* 添加按钮 */}
       <button className="add-config-btn" onClick={openAddModal}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <line x1="12" y1="5" x2="12" y2="19" />
-          <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
+        <PlusIcon />
         <span>{t("memory.addMemory")}</span>
       </button>
 
@@ -165,16 +164,13 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
 
       {/* 弹窗 */}
       {isModalOpen && (
-        <>
-          <div className="drawer-overlay visible" onClick={closeModal} />
-          <div className="drawer open">
-            <MemoryEditor
-              memory={editingMemory}
-              onSave={editingMemory ? handleUpdate : handleAdd}
-              onClose={closeModal}
-            />
-          </div>
-        </>
+        <Drawer onClose={closeModal}>
+          <MemoryEditor
+            memory={editingMemory}
+            onSave={editingMemory ? handleUpdate : handleAdd}
+            onClose={closeModal}
+          />
+        </Drawer>
       )}
     </div>
   );

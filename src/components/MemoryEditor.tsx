@@ -5,6 +5,7 @@ import { EditorView } from "@codemirror/view";
 import { Memory } from "../types";
 import { useI18n } from "../i18n";
 import useEditorTheme from "../hooks/useEditorTheme";
+import { ChevronLeftIcon } from "./Icons";
 import "./MemoryEditor.css";
 
 interface MemoryEditorProps {
@@ -55,33 +56,31 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
   }
 
   return (
-    <div className="memory-drawer-container">
+    <div className="editor-drawer-container">
       <div
-        className="memory-modal"
+        className="editor-panel"
         role="dialog"
         aria-labelledby="memory-modal-title"
         aria-modal="true"
       >
         <form id="memory-form" onSubmit={handleSubmit}>
-          <div className="memory-modal-header">
+          <div className="editor-header">
             <button
               type="button"
-              className="memory-back-btn"
+              className="editor-back-btn"
               onClick={onClose}
               aria-label={t("common.close")}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
+              <ChevronLeftIcon />
             </button>
             <h2 id="memory-modal-title">{memory ? t("memory.editTitle") : t("memory.addTitle")}</h2>
-            <button type="submit" className="memory-save-btn" disabled={!name.trim()}>
+            <button type="submit" className="editor-save-btn" disabled={!name.trim()}>
               {t("memory.save")}
             </button>
           </div>
 
-          <div className="memory-modal-body">
-            <div className="memory-badge-large">
+          <div className="editor-body">
+            <div className="editor-badge-large">
               <span>{name ? name.charAt(0).toUpperCase() : "M"}</span>
             </div>
 

@@ -5,7 +5,9 @@ import { useI18n } from "../i18n";
 import { useToast } from "../hooks/useToast";
 import SkillItem from "./SkillItem";
 import SkillEditor from "./SkillEditor";
+import Drawer from "./Drawer";
 import ConfirmDialog from "./ConfirmDialog";
+import { PlusIcon } from "./Icons";
 import useEscapeKey from "../hooks/useEscapeKey";
 import "./MemoryPage.css"; // 复用相同布局样式
 
@@ -124,10 +126,7 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
 
       {/* 添加按钮 */}
       <button className="add-config-btn" onClick={openAdd}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <line x1="12" y1="5" x2="12" y2="19" />
-          <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
+        <PlusIcon />
         <span>{t("skills.addSkill")}</span>
       </button>
 
@@ -176,17 +175,14 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
 
       {/* 编辑/新建抽屉 */}
       {isDrawerOpen && (
-        <>
-          <div className="drawer-overlay visible" onClick={closeDrawer} />
-          <div className="drawer open">
-            <SkillEditor
-              key={editingSkill?.id ?? "new"}
-              skill={editingSkill}
-              onSave={handleSave}
-              onClose={closeDrawer}
-            />
-          </div>
-        </>
+        <Drawer onClose={closeDrawer}>
+          <SkillEditor
+            key={editingSkill?.id ?? "new"}
+            skill={editingSkill}
+            onSave={handleSave}
+            onClose={closeDrawer}
+          />
+        </Drawer>
       )}
     </div>
   );
