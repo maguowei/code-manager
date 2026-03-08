@@ -23,5 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 
+# Claude
+.claude/settings.local.json
+
 # Playwright MCP
 .playwright-mcp/
+

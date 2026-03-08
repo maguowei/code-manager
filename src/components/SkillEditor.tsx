@@ -105,10 +105,8 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
       }
       onSave(saved);
     } catch (err) {
-      showToast(
-        isEditing ? t("toast.skillSaveError") : t("toast.skillAddError"),
-        "error"
-      );
+      const msg = err instanceof Error ? err.message : String(err);
+      showToast(msg || (isEditing ? t("toast.skillSaveError") : t("toast.skillAddError")), "error");
     } finally {
       setIsSaving(false);
     }
@@ -274,6 +272,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                   checked={disableModelInvocation}
                   onChange={(e) => setDisableModelInvocation(e.target.checked)}
                 />
+                <span className="checkbox-custom" />
                 <span>{t("skills.disableModelInvocation")}</span>
               </label>
               <p className="field-hint">{t("skills.disableModelInvocationHint")}</p>
@@ -283,6 +282,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                   checked={userInvocable}
                   onChange={(e) => setUserInvocable(e.target.checked)}
                 />
+                <span className="checkbox-custom" />
                 <span>{t("skills.userInvocable")}</span>
               </label>
               <p className="field-hint">{t("skills.userInvocableHint")}</p>
@@ -295,6 +295,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                 <CodeMirror
                   value={content}
                   onChange={setContent}
+                  height="360px"
                   extensions={[markdown(), EditorView.lineWrapping]}
                   theme={editorTheme}
                   placeholder={t("skills.contentPlaceholder")}

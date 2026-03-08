@@ -101,6 +101,11 @@
   padding: var(--space-6);
 }
 
+/* 可滚动区域内子元素不应被 flex-shrink 压缩，否则内容会被挤压而非触发滚动 */
+.skill-modal-body>* {
+  flex-shrink: 0;
+}
+
 /* 大徽章头像 */
 .skill-badge-large {
   display: flex;
@@ -148,8 +153,8 @@
   font-weight: 600;
 }
 
-/* 输入框和多行文本框 */
-.skill-modal .form-group input,
+/* 输入框和多行文本框（排除 checkbox） */
+.skill-modal .form-group input:not([type="checkbox"]),
 .skill-modal .form-group textarea {
   width: 100%;
   padding: 10px 12px;
@@ -162,12 +167,12 @@
   box-sizing: border-box;
 }
 
-.skill-modal .form-group input::placeholder,
+.skill-modal .form-group input:not([type="checkbox"])::placeholder,
 .skill-modal .form-group textarea::placeholder {
   color: var(--text-muted);
 }
 
-.skill-modal .form-group input:focus,
+.skill-modal .form-group input:not([type="checkbox"]):focus,
 .skill-modal .form-group textarea:focus {
   outline: none;
   border-color: var(--accent-blue);
@@ -195,23 +200,6 @@
   gap: var(--space-1) !important;
 }
 
-/* 复选框行 */
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--font-base);
-  color: var(--text-primary);
-  cursor: pointer;
-}
-
-.checkbox-label input[type="checkbox"] {
-  width: auto !important;
-  padding: 0 !important;
-  margin: 0;
-  flex-shrink: 0;
-}
-
 /* CodeMirror 编辑器包裹层 */
 .skill-editor-wrap {
   border: 1px solid var(--border-default);
@@ -227,7 +215,6 @@
 .skill-editor-wrap .cm-editor {
   font-size: 13px;
   line-height: 1.6;
-  min-height: 300px;
 }
 
 .skill-editor-wrap .cm-editor.cm-focused {
