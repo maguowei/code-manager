@@ -1,0 +1,269 @@
+/* SkillItem 组件样式 */
+
+/* 列表项容器 */
+.skill-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 14px 16px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 220ms ease;
+}
+
+.skill-item:hover {
+  background-color: var(--bg-tertiary);
+  border-color: var(--border-default);
+  box-shadow: var(--shadow-sm);
+}
+
+/* 启用状态：绿色边框高亮 */
+.skill-item.active {
+  background-color: var(--accent-green-bg);
+  border-color: var(--accent-green);
+}
+
+/* 禁用状态：整体视觉降级 */
+.skill-item.inactive {
+  opacity: 0.6;
+}
+
+/* 编辑中状态：橙色边框高亮 */
+.skill-item.editing {
+  border-color: var(--accent-orange);
+  box-shadow: 0 0 12px rgba(247, 129, 102, 0.2);
+}
+
+/* 头部横向布局：徽章 | 信息 | 操作 */
+.skill-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* 徽章基础样式 */
+.skill-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+/* 六种徽章颜色方案（与 MemoryItem 保持风格一致） */
+.skill-badge--color-0 {
+  background: linear-gradient(135deg, #3a86ff22, #3a86ff44);
+  color: #3a86ff;
+}
+
+.skill-badge--color-1 {
+  background: linear-gradient(135deg, #ff006e22, #ff006e44);
+  color: #ff006e;
+}
+
+.skill-badge--color-2 {
+  background: linear-gradient(135deg, #3fb95022, #3fb95044);
+  color: #3fb950;
+}
+
+.skill-badge--color-3 {
+  background: linear-gradient(135deg, #f7816622, #f7816644);
+  color: #f78166;
+}
+
+.skill-badge--color-4 {
+  background: linear-gradient(135deg, #a371f722, #a371f744);
+  color: #a371f7;
+}
+
+.skill-badge--color-5 {
+  background: linear-gradient(135deg, #ffa50022, #ffa50044);
+  color: #ffa500;
+}
+
+/* 徽章文字 */
+.skill-badge .badge-text {
+  font-size: var(--font-md);
+  font-weight: 700;
+}
+
+/* 名称与 slash-id 区域 */
+.skill-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.skill-name {
+  font-size: var(--font-md);
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+/* slash-command 路径（浅色显示） */
+.skill-slash-id {
+  font-size: var(--font-xs, 11px);
+  color: var(--text-muted);
+  font-family: var(--font-mono, monospace);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 右侧操作区（状态标签 + 开关） */
+.skill-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* 状态标签（通用基类） */
+.skill-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* 编辑中状态标签 */
+.skill-status.editing {
+  background-color: var(--accent-orange-bg);
+  color: var(--accent-orange);
+}
+
+/* 描述预览（最多 2 行） */
+.skill-description {
+  margin: 0;
+  font-size: var(--font-sm);
+  line-height: 1.45;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+/* 悬停显示的操作按钮区 */
+.skill-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  opacity: 0;
+  transform: translateX(6px);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.skill-item:hover .skill-actions {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* 操作按钮基础样式 */
+.skill-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background-color: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+/* 编辑按钮悬停：蓝色 */
+.skill-action-btn.edit:hover {
+  background-color: rgba(58, 134, 255, 0.14);
+  color: #3a86ff;
+}
+
+/* 删除按钮悬停：红色 */
+.skill-action-btn.delete:hover {
+  background-color: rgba(248, 81, 73, 0.14);
+  color: var(--accent-red);
+}
+
+/* ======================================
+   Toggle Switch 开关样式
+   ====================================== */
+.skill-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: none;
+  border-radius: 8px;
+  background-color: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 160ms ease;
+  font-size: var(--font-sm);
+  font-weight: 500;
+}
+
+.skill-toggle:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* 开关轨道 */
+.skill-toggle .toggle-track {
+  position: relative;
+  width: 34px;
+  height: 18px;
+  border-radius: 999px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+/* 启用时轨道变绿 */
+.skill-toggle.enabled .toggle-track {
+  background-color: var(--accent-green);
+  border-color: var(--accent-green);
+}
+
+/* 开关滑块 */
+.skill-toggle .toggle-thumb {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: #fff;
+  transition: transform 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* 启用时滑块移到右侧 */
+.skill-toggle.enabled .toggle-thumb {
+  transform: translateX(16px);
+}
+
+/* 标签文字 */
+.skill-toggle .toggle-label {
+  white-space: nowrap;
+  font-size: 12px;
+}
