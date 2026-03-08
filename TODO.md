@@ -1,6 +1,6 @@
 # TODO
 
-- [ ] 支持 Skills 管理（创建、编辑、启用/禁用 Claude Code Skills）
+- [x] 支持 Skills 管理（创建、编辑、启用/禁用 Claude Code Skills）
 - [x] 优化配置编辑器体验
 - [ ] 支持配置同步
 - [ ] 支持 Gemini
