@@ -23,9 +23,6 @@ function getBadgeColorIndex(id: string): number {
 function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle }: SkillItemProps) {
   const { t } = useI18n();
 
-  // 描述文本（最多 2 行由 CSS 控制截断）
-  const descriptionPreview = skill.description || "";
-
   // 当 name 与 id 不同时显示 slash-command 路径
   const showSlashId = skill.name !== skill.id;
 
@@ -77,8 +74,8 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle }: SkillItemPr
       </div>
 
       {/* 描述预览（最多 2 行，CSS 截断） */}
-      {descriptionPreview && (
-        <p className="skill-description">{descriptionPreview}</p>
+      {skill.description && (
+        <p className="skill-description">{skill.description}</p>
       )}
 
       {/* 悬停显示的操作按钮区 */}

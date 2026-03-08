@@ -40,26 +40,26 @@ pub fn current_timestamp() -> u64 {
         .as_secs()
 }
 
-/// 创建目录（如不存在）、写入文件内容，并在 Unix 系统上设置 0o600 权限
+/// 将 SystemTime 转换为 Unix 时间戳（秒），失败时返回 0
+pub fn systime_to_secs(t: SystemTime) -> u64 {
+    t.duration_since(UNIX_EPOCH)
+        .ok()
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+/// 创建目录（如不存在）、写入文件内容，新建文件时在 Unix 系统上设置 0o600 权限
 pub fn ensure_dir_and_write(path: &Path, content: &str) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("创建目录失败 {:?}: {}", parent, e))?;
     }
-    #[cfg(unix)]
-    let existing_perms = fs::metadata(path).ok().map(|m| m.permissions());
-
+    let is_new = !path.exists();
     fs::write(path, content).map_err(|e| format!("写入文件失败 {:?}: {}", path, e))?;
 
     #[cfg(unix)]
-    {
+    if is_new {
         use std::os::unix::fs::PermissionsExt;
-        if let Some(perms) = existing_perms {
-            let _ = fs::set_permissions(path, perms);
-        } else {
-            let is_script = path.components().any(|c| c.as_os_str() == "scripts");
-            let mode = if is_script { 0o700 } else { 0o600 };
-            let _ = fs::set_permissions(path, fs::Permissions::from_mode(mode));
-        }
+        let _ = fs::set_permissions(path, fs::Permissions::from_mode(0o600));
     }
 
     Ok(())

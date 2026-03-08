@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
-use std::time::UNIX_EPOCH;
 
 /// Skill 元数据，对应 ~/.claude/skills/<id>/ 目录
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,19 +58,18 @@ fn get_file_times(path: &std::path::Path) -> (u64, u64) {
         Ok(m) => m,
         Err(_) => return (0, 0),
     };
-    let created = meta
-        .created()
-        .ok()
-        .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    let modified = meta
-        .modified()
-        .ok()
-        .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
+    let created = meta.created().ok().map(crate::utils::systime_to_secs).unwrap_or(0);
+    let modified = meta.modified().ok().map(crate::utils::systime_to_secs).unwrap_or(0);
     (created, modified)
+}
+
+/// 当 name 为空时降级使用 id 作为显示名称
+fn resolve_display_name(name: &str, id: &str) -> String {
+    if name.is_empty() {
+        id.to_string()
+    } else {
+        name.to_string()
+    }
 }
 
 /// 解析 SKILL.md 内容，返回 (name, description, disable_model_invocation, user_invocable, content)
@@ -137,8 +135,8 @@ fn parse_skill_md(raw: &str) -> (String, String, bool, bool, String) {
             match key.trim() {
                 "name" => name = unescaped_val,
                 "description" => description = unescaped_val,
-                "disable-model-invocation" => disable_model_invocation = val == "true",
-                "user-invocable" => user_invocable = val != "false",
+                "disable-model-invocation" => disable_model_invocation = unescaped_val == "true",
+                "user-invocable" => user_invocable = unescaped_val != "false",
                 _ => {}
             }
         }
@@ -189,9 +187,6 @@ fn scan_skills_dir(dir: &std::path::Path, is_active: bool) -> Vec<Skill> {
             None => continue,
         };
         let skill_md = path.join("SKILL.md");
-        if !skill_md.exists() {
-            continue;
-        }
         let raw = match fs::read_to_string(&skill_md) {
             Ok(c) => c,
             Err(_) => continue,
@@ -201,7 +196,7 @@ fn scan_skills_dir(dir: &std::path::Path, is_active: bool) -> Vec<Skill> {
         let (created_at, updated_at) = get_file_times(&skill_md);
 
         skills.push(Skill {
-            name: if name.is_empty() { id.clone() } else { name },
+            name: resolve_display_name(&name, &id),
             id,
             description,
             content,
@@ -255,7 +250,7 @@ pub fn toggle_skill(id: String, is_active: bool) -> Result<Skill, String> {
     let (created_at, updated_at) = get_file_times(&skill_md);
 
     Ok(Skill {
-        name: if name.is_empty() { id.clone() } else { name },
+        name: resolve_display_name(&name, &id),
         id,
         description,
         content,
@@ -304,11 +299,7 @@ pub fn add_skill(
         return Err(format!("Skill '{}' 已存在（已禁用）", id));
     }
 
-    let display_name = if name.is_empty() {
-        id.clone()
-    } else {
-        name.clone()
-    };
+    let display_name = resolve_display_name(&name, &id);
     let raw = serialize_skill_md(
         &display_name,
         &description,
@@ -347,15 +338,7 @@ pub fn update_skill(
     let _lock = crate::utils::lock_skills()?;
 
     let skill_md = get_skill_md_path(&id, is_active);
-    if !skill_md.exists() {
-        return Err(format!("Skill '{}' 不存在", id));
-    }
-
-    let display_name = if name.is_empty() {
-        id.clone()
-    } else {
-        name.clone()
-    };
+    let display_name = resolve_display_name(&name, &id);
     let raw = serialize_skill_md(
         &display_name,
         &description,
@@ -363,7 +346,8 @@ pub fn update_skill(
         user_invocable,
         &content,
     );
-    crate::utils::ensure_dir_and_write(&skill_md, &raw)?;
+    crate::utils::ensure_dir_and_write(&skill_md, &raw)
+        .map_err(|e| format!("Skill '{}' 不存在或写入失败: {}", id, e))?;
 
     let (created_at, updated_at) = get_file_times(&skill_md);
 
@@ -518,11 +502,8 @@ pub fn delete_skill_file(id: String, is_active: bool, file_name: String) -> Resu
     validate_file_name(&file_name)?;
 
     let file_path = get_skill_path(&id, is_active).join(&file_name);
-    if !file_path.exists() {
-        return Err(format!("文件 '{}' 不存在", file_name));
-    }
-
-    fs::remove_file(&file_path).map_err(|e| format!("删除文件失败: {}", e))?;
+    fs::remove_file(&file_path)
+        .map_err(|e| format!("删除文件失败（文件可能不存在）: {}", e))?;
 
     // 若父目录（非 skill 根目录）为空，则删除父目录
     if let Some(parent) = file_path.parent() {
