@@ -6,7 +6,6 @@ import "./SkillItem.css";
 // SkillItem 组件 Props 定义
 interface SkillItemProps {
   skill: Skill;
-  isEditing: boolean;
   onEdit: (skill: Skill) => void;
   onDelete: (skill: Skill) => void;
   onToggle: (skill: Skill) => void;
@@ -21,7 +20,7 @@ function getBadgeColorIndex(id: string): number {
   return hash % 6;
 }
 
-function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle }: SkillItemProps) {
+function SkillItem({ skill, onEdit, onDelete, onToggle }: SkillItemProps) {
   const { t } = useI18n();
 
   // 截断描述，最多显示 2 行（通过 CSS 控制）
@@ -43,7 +42,6 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle }: SkillItemPr
       className={[
         "skill-item",
         skill.isActive ? "active" : "inactive",
-        isEditing ? "editing" : "",
       ]
         .filter(Boolean)
         .join(" ")}
@@ -65,12 +63,8 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle }: SkillItemPr
           )}
         </div>
 
-        {/* 右侧操作区：编辑中标签 + 启用/禁用开关 */}
+        {/* 右侧操作区：启用/禁用开关 */}
         <div className="skill-header-actions">
-          {isEditing && (
-            <span className="skill-status editing">{t("skills.editing")}</span>
-          )}
-
           {/* toggle switch 开关 */}
           <button
             className={`skill-toggle${skill.isActive ? " enabled" : ""}`}
