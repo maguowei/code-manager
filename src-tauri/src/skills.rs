@@ -221,3 +221,108 @@ pub fn toggle_skill(id: String, is_active: bool) -> Result<Skill, String> {
         updated_at,
     })
 }
+
+/// 验证 Skill id（目录名）：仅允许小写字母、数字、连字符
+fn validate_skill_id(id: &str) -> Result<(), String> {
+    if id.is_empty() {
+        return Err("Skill 名称不能为空".to_string());
+    }
+    if !id.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-') {
+        return Err("Skill 名称只能包含小写字母、数字和连字符".to_string());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn add_skill(
+    id: String,
+    name: String,
+    description: String,
+    content: String,
+    disable_model_invocation: bool,
+    user_invocable: bool,
+) -> Result<Skill, String> {
+    let _lock = crate::utils::lock_skills()?;
+
+    validate_skill_id(&id)?;
+
+    let skill_dir = get_skills_dir().join(&id);
+    if skill_dir.exists() {
+        return Err(format!("Skill '{}' 已存在", id));
+    }
+
+    // 检查禁用目录中是否已有同名
+    if get_disabled_dir().join(&id).exists() {
+        return Err(format!("Skill '{}' 已存在（已禁用）", id));
+    }
+
+    let display_name = if name.is_empty() { id.clone() } else { name.clone() };
+    let raw = serialize_skill_md(&display_name, &description, disable_model_invocation, user_invocable, &content);
+    let skill_md = skill_dir.join("SKILL.md");
+    crate::utils::ensure_dir_and_write(&skill_md, &raw)?;
+
+    let (created_at, updated_at) = get_file_times(&skill_md);
+
+    Ok(Skill {
+        id,
+        name: display_name,
+        description,
+        content,
+        disable_model_invocation,
+        user_invocable,
+        is_active: true,
+        created_at,
+        updated_at,
+    })
+}
+
+#[tauri::command]
+pub fn update_skill(
+    id: String,
+    is_active: bool,
+    name: String,
+    description: String,
+    content: String,
+    disable_model_invocation: bool,
+    user_invocable: bool,
+) -> Result<Skill, String> {
+    let _lock = crate::utils::lock_skills()?;
+
+    let skill_md = get_skill_md_path(&id, is_active);
+    if !skill_md.exists() {
+        return Err(format!("Skill '{}' 不存在", id));
+    }
+
+    let display_name = if name.is_empty() { id.clone() } else { name.clone() };
+    let raw = serialize_skill_md(&display_name, &description, disable_model_invocation, user_invocable, &content);
+    crate::utils::ensure_dir_and_write(&skill_md, &raw)?;
+
+    let (created_at, updated_at) = get_file_times(&skill_md);
+
+    Ok(Skill {
+        id,
+        name: display_name,
+        description,
+        content,
+        disable_model_invocation,
+        user_invocable,
+        is_active,
+        created_at,
+        updated_at,
+    })
+}
+
+#[tauri::command]
+pub fn delete_skill(id: String, is_active: bool) -> Result<(), String> {
+    let _lock = crate::utils::lock_skills()?;
+
+    let skill_dir = get_skill_path(&id, is_active);
+    if !skill_dir.exists() {
+        return Err(format!("Skill '{}' 不存在", id));
+    }
+
+    fs::remove_dir_all(&skill_dir)
+        .map_err(|e| format!("删除 Skill 目录失败: {}", e))?;
+
+    Ok(())
+}
