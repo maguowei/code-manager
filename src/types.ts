@@ -108,3 +108,22 @@ export interface Snapshot {
   timestamp: number;
   data: ClaudeStats;
 }
+
+// Skill 条目
+export interface Skill {
+  id: string;
+  name: string;
+  description: string;
+  content: string;
+  disableModelInvocation: boolean;
+  userInvocable: boolean;
+  isActive: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// Skill 支持文件
+export interface SkillFile {
+  name: string;
+  content: string;
+}
