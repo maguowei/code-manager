@@ -15,7 +15,7 @@ AI Manager 是一个 Claude Code 配置管理工具，提供：
 
 - **配置管理**: 管理多个 Claude Code 配置（API Key、模型、插件等）
 - **记忆管理**: 管理 CLAUDE.md 记忆片段，多个记忆可同时启用
-- **Skills 管理**: （计划中）管理 Claude Code Skills
+- **Skills 管理**: 管理 Claude Code Skills（启用/禁用、新建、编辑、删除、支持文件管理）
 - **通用配置**: 共享默认配置，支持深度合并
 
 切换配置后自动更新 `~/.claude/settings.json`，切换记忆后自动更新 `~/.claude/CLAUDE.md`。
@@ -25,9 +25,11 @@ AI Manager 是一个 Claude Code 配置管理工具，提供：
 - **应用数据**: `~/.config/ai-manager/`
   - `configs.json` - 配置列表
   - `memories.json` - 记忆列表
+  - `skills-disabled/` - 已禁用的 Skills 目录（启用的 Skills 存放于 `~/.claude/skills/`）
 - **Claude 配置**: `~/.claude/`
   - `settings.json` - 当前激活的配置
   - `CLAUDE.md` - 当前启用的记忆内容
+  - `skills/` - 已启用的 Skills 目录（每个 skill 为独立子目录，含 `SKILL.md`）
 
 ## 开发命令
 
@@ -87,7 +89,9 @@ cargo fmt             # 格式化 Rust 代码
 │   │   ├── StatsPage.tsx      # 使用统计页面（recharts 图表）
 │   │   ├── SettingsDrawer.tsx # 设置侧边抽屉
 │   │   ├── Sidebar.tsx        # 侧边栏导航
-│   │   └── SkillsPage.tsx     # Skills 管理页面（占位）
+│   │   ├── SkillsPage.tsx     # Skills 管理页面（列表 + 抽屉布局）
+│   │   ├── SkillItem.tsx      # Skills 列表项（含启用/禁用开关）
+│   │   └── SkillEditor.tsx    # Skills 编辑面板（含支持文件管理）
 │   ├── hooks/             # 公共 React hooks
 │   │   ├── useEscapeKey.ts    # ESC 键监听（需用 useCallback 包裹回调）
 │   │   └── useToast.tsx       # Toast 通知（ToastProvider + useToast）
@@ -101,6 +105,7 @@ cargo fmt             # 格式化 Rust 代码
 │   │   ├── utils.rs       # 公共工具模块（必须优先了解）
 │   │   ├── config.rs      # 配置管理模块
 │   │   ├── memory.rs      # 记忆管理模块
+│   │   ├── skills.rs      # Skills 管理模块
 │   │   ├── stats.rs       # 使用统计模块
 │   │   └── tray.rs        # 系统托盘模块
 │   ├── Cargo.toml         # Rust 依赖配置
@@ -113,11 +118,12 @@ cargo fmt             # 格式化 Rust 代码
 ### 后端模块
 
 - **utils.rs**: 公共工具模块
-  - `CONFIG_LOCK` / `MEMORY_LOCK` / `STATS_LOCK`：防止并发写入的全局互斥锁
-  - `lock_config()` / `lock_memory()` / `lock_stats()`：对应锁的便捷获取函数（返回 `MutexGuard`）
+  - `CONFIG_LOCK` / `MEMORY_LOCK` / `STATS_LOCK` / `SKILLS_LOCK`：防止并发写入的全局互斥锁
+  - `lock_config()` / `lock_memory()` / `lock_stats()` / `lock_skills()`：对应锁的便捷获取函数（返回 `MutexGuard`）
   - `home_dir_or_fallback()`：获取主目录，失败时降级为当前目录
   - `get_home_dir()` / `get_app_data_dir()` / `current_timestamp()`
-  - `read_json_file<T>()` / `ensure_dir_and_write()`：文件读写（Unix 自动设 0o600 权限）
+  - `systime_to_secs(t: SystemTime) -> u64`：`SystemTime` 转 Unix 时间戳（秒）
+  - `read_json_file<T>()` / `ensure_dir_and_write()`：文件读写（新建文件时 Unix 自动设 0o600 权限）
   - `save_json_file<T>()`：序列化为格式化 JSON 并写入文件
   - **新增 Rust 代码应优先使用这些函数，不要重新实现**
 
@@ -144,9 +150,17 @@ cargo fmt             # 格式化 Rust 代码
 
 - **tray.rs**: 系统托盘
   - 构建托盘菜单，动态显示配置列表
-  - 左键点击显示主窗口，右键显示菜单
+  - 点击托盘图标直接弹出菜单（含"显示主窗口"菜单项）
   - 配置切换后通过 `app.emit("config-changed", ())` 通知前端刷新
   - macOS：隐藏窗口时切换 Accessory 模式（隐藏 Dock 图标）
+
+- **skills.rs**: Skills 管理
+  - Skills 存储于 `~/.claude/skills/<id>/SKILL.md`（启用）或 `~/.config/ai-manager/skills-disabled/<id>/SKILL.md`（禁用）
+  - CRUD 操作（`get_skills` / `add_skill` / `update_skill` / `delete_skill` / `toggle_skill`）
+  - 支持文件管理（`get_skill_files` / `add_skill_file` / `update_skill_file` / `delete_skill_file`）
+  - `parse_skill_md()` / `serialize_skill_md()`：解析和生成 SKILL.md frontmatter（兼容 CRLF）
+  - `validate_skill_id()`：id 只允许小写字母、数字、连字符
+  - 所有写操作通过 `lock_skills()` 保护；遍历时跳过符号链接防止路径逃逸
 
 ### 关键配置
 
