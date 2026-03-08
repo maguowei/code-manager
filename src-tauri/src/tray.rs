@@ -17,6 +17,10 @@ fn build_tray_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     items.push(Box::new(PredefinedMenuItem::separator(app)?));
 
     // 配置列表
+    let section = MenuItemBuilder::with_id("section_configs", "切换配置")
+        .enabled(false)
+        .build(app)?;
+    items.push(Box::new(section));
     if state.configs.is_empty() {
         let empty = MenuItemBuilder::with_id("no_configs", "暂无配置")
             .enabled(false)
