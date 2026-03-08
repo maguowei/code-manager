@@ -126,4 +126,5 @@ export interface Skill {
 export interface SkillFile {
   name: string;
   content: string;
+  isBinary: boolean;
 }

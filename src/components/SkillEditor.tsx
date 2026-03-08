@@ -314,6 +314,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
               <CollapsibleSection
                 title={t("skills.files")}
                 badge={files.length}
+                defaultExpanded
               >
                 <div className="skill-files-section">
                   {/* 文件列表 */}
@@ -351,15 +352,22 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                       ) : (
                         // 文件列表行
                         <div className="skill-file-row">
-                          <span className="skill-file-name">{file.name}</span>
+                          <span className="skill-file-name">
+                            {file.name}
+                            {file.isBinary && (
+                              <span className="skill-file-binary-tag">{t("skills.binaryFile")}</span>
+                            )}
+                          </span>
                           <div className="skill-file-row-actions">
-                            <button
-                              type="button"
-                              className="file-btn edit"
-                              onClick={() => startEditFile(file)}
-                            >
-                              {t("skills.editFile")}
-                            </button>
+                            {!file.isBinary && (
+                              <button
+                                type="button"
+                                className="file-btn edit"
+                                onClick={() => startEditFile(file)}
+                              >
+                                {t("skills.editFile")}
+                              </button>
+                            )}
                             <button
                               type="button"
                               className="file-btn delete"

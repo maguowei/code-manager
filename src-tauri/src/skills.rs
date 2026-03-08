@@ -13,7 +13,7 @@ pub struct Skill {
     pub content: String,     // SKILL.md markdown 正文
     pub disable_model_invocation: bool,
     pub user_invocable: bool,
-    pub is_active: bool,     // true = ~/.claude/skills/，false = skills-disabled/
+    pub is_active: bool, // true = ~/.claude/skills/，false = skills-disabled/
     pub created_at: u64,
     pub updated_at: u64,
 }
@@ -22,8 +22,9 @@ pub struct Skill {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillFile {
-    pub name: String,    // 相对于 Skill 目录的路径，如 "examples.md"
+    pub name: String, // 相对于 Skill 目录的路径，如 "examples.md"
     pub content: String,
+    pub is_binary: bool, // 是否为二进制文件（无法以 UTF-8 读取）
 }
 
 /// 获取启用 Skills 的根目录：~/.claude/skills/
@@ -93,20 +94,24 @@ fn parse_skill_md(raw: &str) -> (String, String, bool, bool, String) {
     let mut user_invocable = true;
 
     for line in fm_str.lines() {
-        if let Some((key, val)) = line.split_once(": ") {
+        if let Some((key, val)) = line.split_once(':') {
             match key.trim() {
                 "name" => name = val.trim().to_string(),
                 "description" => description = val.trim().to_string(),
-                "disable-model-invocation" => {
-                    disable_model_invocation = val.trim() == "true"
-                }
+                "disable-model-invocation" => disable_model_invocation = val.trim() == "true",
                 "user-invocable" => user_invocable = val.trim() != "false",
                 _ => {}
             }
         }
     }
 
-    (name, description, disable_model_invocation, user_invocable, body)
+    (
+        name,
+        description,
+        disable_model_invocation,
+        user_invocable,
+        body,
+    )
 }
 
 /// 将字段序列化为 SKILL.md 文本
@@ -193,18 +198,15 @@ pub fn toggle_skill(id: String, is_active: bool) -> Result<Skill, String> {
     let dst = dst_root.join(&id);
 
     // 确保目标根目录存在
-    fs::create_dir_all(&dst_root)
-        .map_err(|e| format!("创建目录失败: {}", e))?;
+    fs::create_dir_all(&dst_root).map_err(|e| format!("创建目录失败: {}", e))?;
 
     // 移动目录
-    fs::rename(&src, &dst)
-        .map_err(|e| format!("移动 Skill 目录失败: {}", e))?;
+    fs::rename(&src, &dst).map_err(|e| format!("移动 Skill 目录失败: {}", e))?;
 
     // 读取新位置的 SKILL.md 并返回更新后的 Skill
     let new_is_active = !is_active;
     let skill_md = dst.join("SKILL.md");
-    let raw = fs::read_to_string(&skill_md)
-        .map_err(|e| format!("读取 SKILL.md 失败: {}", e))?;
+    let raw = fs::read_to_string(&skill_md).map_err(|e| format!("读取 SKILL.md 失败: {}", e))?;
     let (name, description, disable_model_invocation, user_invocable, content) =
         parse_skill_md(&raw);
     let (created_at, updated_at) = get_file_times(&skill_md);
@@ -227,7 +229,10 @@ fn validate_skill_id(id: &str) -> Result<(), String> {
     if id.is_empty() {
         return Err("Skill 名称不能为空".to_string());
     }
-    if !id.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-') {
+    if !id
+        .chars()
+        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+    {
         return Err("Skill 名称只能包含小写字母、数字和连字符".to_string());
     }
     Ok(())
@@ -256,8 +261,18 @@ pub fn add_skill(
         return Err(format!("Skill '{}' 已存在（已禁用）", id));
     }
 
-    let display_name = if name.is_empty() { id.clone() } else { name.clone() };
-    let raw = serialize_skill_md(&display_name, &description, disable_model_invocation, user_invocable, &content);
+    let display_name = if name.is_empty() {
+        id.clone()
+    } else {
+        name.clone()
+    };
+    let raw = serialize_skill_md(
+        &display_name,
+        &description,
+        disable_model_invocation,
+        user_invocable,
+        &content,
+    );
     let skill_md = skill_dir.join("SKILL.md");
     crate::utils::ensure_dir_and_write(&skill_md, &raw)?;
 
@@ -293,8 +308,18 @@ pub fn update_skill(
         return Err(format!("Skill '{}' 不存在", id));
     }
 
-    let display_name = if name.is_empty() { id.clone() } else { name.clone() };
-    let raw = serialize_skill_md(&display_name, &description, disable_model_invocation, user_invocable, &content);
+    let display_name = if name.is_empty() {
+        id.clone()
+    } else {
+        name.clone()
+    };
+    let raw = serialize_skill_md(
+        &display_name,
+        &description,
+        disable_model_invocation,
+        user_invocable,
+        &content,
+    );
     crate::utils::ensure_dir_and_write(&skill_md, &raw)?;
 
     let (created_at, updated_at) = get_file_times(&skill_md);
@@ -321,8 +346,7 @@ pub fn delete_skill(id: String, is_active: bool) -> Result<(), String> {
         return Err(format!("Skill '{}' 不存在", id));
     }
 
-    fs::remove_dir_all(&skill_dir)
-        .map_err(|e| format!("删除 Skill 目录失败: {}", e))?;
+    fs::remove_dir_all(&skill_dir).map_err(|e| format!("删除 Skill 目录失败: {}", e))?;
 
     Ok(())
 }
@@ -363,8 +387,7 @@ fn collect_files(
     current: &std::path::Path,
     files: &mut Vec<SkillFile>,
 ) -> Result<(), String> {
-    let entries = fs::read_dir(current)
-        .map_err(|e| format!("读取目录失败: {}", e))?;
+    let entries = fs::read_dir(current).map_err(|e| format!("读取目录失败: {}", e))?;
 
     for entry in entries.flatten() {
         let path = entry.path();
@@ -377,8 +400,16 @@ fn collect_files(
                 continue;
             }
             let name = rel.to_string_lossy().to_string();
-            let content = fs::read_to_string(&path).unwrap_or_default();
-            files.push(SkillFile { name, content });
+            let raw = fs::read(&path).unwrap_or_default();
+            let (content, is_binary) = match String::from_utf8(raw) {
+                Ok(s) => (s, false),
+                Err(_) => (String::new(), true),
+            };
+            files.push(SkillFile {
+                name,
+                content,
+                is_binary,
+            });
         }
     }
 
@@ -403,7 +434,11 @@ pub fn add_skill_file(
 
     crate::utils::ensure_dir_and_write(&file_path, &content)?;
 
-    Ok(SkillFile { name: file_name, content })
+    Ok(SkillFile {
+        name: file_name,
+        content,
+        is_binary: false,
+    })
 }
 
 #[tauri::command]
@@ -420,15 +455,15 @@ pub fn update_skill_file(
     let file_path = get_skill_path(&id, is_active).join(&file_name);
     crate::utils::ensure_dir_and_write(&file_path, &content)?;
 
-    Ok(SkillFile { name: file_name, content })
+    Ok(SkillFile {
+        name: file_name,
+        content,
+        is_binary: false,
+    })
 }
 
 #[tauri::command]
-pub fn delete_skill_file(
-    id: String,
-    is_active: bool,
-    file_name: String,
-) -> Result<(), String> {
+pub fn delete_skill_file(id: String, is_active: bool, file_name: String) -> Result<(), String> {
     let _lock = crate::utils::lock_skills()?;
 
     validate_file_name(&file_name)?;
@@ -438,8 +473,7 @@ pub fn delete_skill_file(
         return Err(format!("文件 '{}' 不存在", file_name));
     }
 
-    fs::remove_file(&file_path)
-        .map_err(|e| format!("删除文件失败: {}", e))?;
+    fs::remove_file(&file_path).map_err(|e| format!("删除文件失败: {}", e))?;
 
     // 若父目录（非 skill 根目录）为空，则删除父目录
     if let Some(parent) = file_path.parent() {

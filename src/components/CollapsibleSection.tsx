@@ -3,11 +3,12 @@ import { useState } from "react";
 interface CollapsibleSectionProps {
   title: string;
   badge?: number;
+  defaultExpanded?: boolean;
   children: React.ReactNode;
 }
 
-function CollapsibleSection({ title, badge, children }: CollapsibleSectionProps) {
-  const [expanded, setExpanded] = useState(false);
+function CollapsibleSection({ title, badge, defaultExpanded = false, children }: CollapsibleSectionProps) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
 
   return (
     <div className={`collapsible-section ${expanded ? "expanded" : ""}`}>

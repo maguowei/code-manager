@@ -250,3 +250,8 @@
   white-space: nowrap;
   font-size: 12px;
 }
+
+/* 启用时标签文字变绿 */
+.skill-toggle.enabled .toggle-label {
+  color: var(--accent-green);
+}
