@@ -267,6 +267,9 @@ const translations = {
     "toast.skillFileSaveError": "保存文件失败",
     "toast.skillFileDeleted": "文件已删除",
     "toast.skillFileDeleteError": "删除文件失败",
+    "skills.syncToCodex": "同步到 ~/.codex/skills",
+    "toast.skillSynced": "Skill 已同步",
+    "toast.skillSyncError": "同步 Skill 失败",
   },
   en: {
     // 通用
@@ -530,6 +533,9 @@ const translations = {
     "toast.skillFileSaveError": "Failed to save file",
     "toast.skillFileDeleted": "File deleted",
     "toast.skillFileDeleteError": "Failed to delete file",
+    "skills.syncToCodex": "Sync to ~/.codex/skills",
+    "toast.skillSynced": "Skill synced",
+    "toast.skillSyncError": "Failed to sync Skill",
   },
 } as const;
 

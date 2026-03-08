@@ -58,8 +58,16 @@ fn get_file_times(path: &std::path::Path) -> (u64, u64) {
         Ok(m) => m,
         Err(_) => return (0, 0),
     };
-    let created = meta.created().ok().map(crate::utils::systime_to_secs).unwrap_or(0);
-    let modified = meta.modified().ok().map(crate::utils::systime_to_secs).unwrap_or(0);
+    let created = meta
+        .created()
+        .ok()
+        .map(crate::utils::systime_to_secs)
+        .unwrap_or(0);
+    let modified = meta
+        .modified()
+        .ok()
+        .map(crate::utils::systime_to_secs)
+        .unwrap_or(0);
     (created, modified)
 }
 
@@ -502,8 +510,7 @@ pub fn delete_skill_file(id: String, is_active: bool, file_name: String) -> Resu
     validate_file_name(&file_name)?;
 
     let file_path = get_skill_path(&id, is_active).join(&file_name);
-    fs::remove_file(&file_path)
-        .map_err(|e| format!("删除文件失败（文件可能不存在）: {}", e))?;
+    fs::remove_file(&file_path).map_err(|e| format!("删除文件失败（文件可能不存在）: {}", e))?;
 
     // 若父目录（非 skill 根目录）为空，则删除父目录
     if let Some(parent) = file_path.parent() {
@@ -516,6 +523,49 @@ pub fn delete_skill_file(id: String, is_active: bool, file_name: String) -> Resu
             }
         }
     }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn sync_skill_to_codex(id: String, is_active: bool) -> Result<(), String> {
+    let _lock = crate::utils::lock_skills()?;
+
+    let src = get_skill_path(&id, is_active);
+    if !src.exists() {
+        return Err(format!("Skill '{}' 不存在", id));
+    }
+
+    let codex_skills_dir = crate::utils::home_dir_or_fallback()
+        .join(".codex")
+        .join("skills");
+
+    fs::create_dir_all(&codex_skills_dir)
+        .map_err(|e| format!("创建 ~/.codex/skills 目录失败: {}", e))?;
+
+    let dest = codex_skills_dir.join(&id);
+
+    // 检查目标路径状态，一次 lstat 系统调用覆盖所有情况（含悬空软链接）
+    match fs::symlink_metadata(&dest) {
+        Ok(meta) if meta.is_symlink() => {
+            fs::remove_file(&dest).map_err(|e| format!("删除旧的软链接失败: {}", e))?;
+        }
+        Ok(_) => {
+            return Err(format!("目标路径已存在且不是软链接，无法覆盖: {:?}", dest));
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            // 目标不存在，正常继续
+        }
+        Err(e) => {
+            return Err(format!("获取目标元数据失败: {}", e));
+        }
+    }
+
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&src, &dest).map_err(|e| format!("创建软链接失败: {}", e))?;
+
+    #[cfg(windows)]
+    std::os::windows::fs::symlink_dir(&src, &dest).map_err(|e| format!("创建软链接失败: {}", e))?;
 
     Ok(())
 }

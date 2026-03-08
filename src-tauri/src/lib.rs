@@ -13,6 +13,7 @@ use memory::{add_memory, delete_memory, get_memories, toggle_memory, update_memo
 use skills::{
     get_skills, add_skill, update_skill, delete_skill, toggle_skill,
     get_skill_files, add_skill_file, update_skill_file, delete_skill_file,
+    sync_skill_to_codex,
 };
 use stats::{get_stats, get_stats_history, take_stats_snapshot};
 use tauri::Manager;
@@ -67,6 +68,7 @@ pub fn run() {
             add_skill_file,
             update_skill_file,
             delete_skill_file,
+            sync_skill_to_codex,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

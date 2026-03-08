@@ -67,6 +67,16 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     }
   }
 
+  // 同步 Skill 到 Codex
+  async function handleSync(skill: Skill) {
+    try {
+      await invoke("sync_skill_to_codex", { id: skill.id, isActive: skill.isActive });
+      showToast(t("toast.skillSynced"));
+    } catch {
+      showToast(t("toast.skillSyncError"), "error");
+    }
+  }
+
   // 保存（新建或编辑）后更新列表并关闭抽屉
   function handleSave(saved: Skill) {
     setSkills((prev) => {
@@ -142,6 +152,7 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
               onToggle={handleToggle}
               onEdit={openEdit}
               onDelete={(s) => setPendingDeleteId(s.id)}
+              onSync={handleSync}
             />
           ))}
         </div>

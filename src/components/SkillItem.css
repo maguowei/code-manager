@@ -180,6 +180,12 @@
   color: #3a86ff;
 }
 
+/* 同步按钮悬停：绿色 */
+.skill-action-btn.sync:hover {
+  background-color: rgba(63, 185, 80, 0.14);
+  color: #3fb950;
+}
+
 /* 删除按钮悬停：红色 */
 .skill-action-btn.delete:hover {
   background-color: rgba(248, 81, 73, 0.14);
