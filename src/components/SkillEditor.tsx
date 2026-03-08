@@ -25,6 +25,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
 
   // 基本信息字段
   const [id, setId] = useState(skill?.id ?? "");
+  const [name, setName] = useState(skill?.name ?? "");
   const [description, setDescription] = useState(skill?.description ?? "");
   const [content, setContent] = useState(skill?.content ?? "");
   const [disableModelInvocation, setDisableModelInvocation] = useState(
@@ -74,6 +75,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
         saved = await invoke<Skill>("update_skill", {
           id: skill.id,
           isActive: skill.isActive,
+          name: name.trim(),
           description: description.trim(),
           content,
           disableModelInvocation,
@@ -83,6 +85,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
       } else {
         saved = await invoke<Skill>("add_skill", {
           id: id.trim(),
+          name: name.trim(),
           description: description.trim(),
           content,
           disableModelInvocation,
@@ -226,6 +229,19 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                 />
               )}
               <span className="field-hint">{t("skills.nameHint")}</span>
+            </div>
+
+            {/* 显示名称（可选，对应 frontmatter name 字段） */}
+            <div className="form-group">
+              <label htmlFor="skill-name">{t("skills.displayName")}</label>
+              <input
+                id="skill-name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={isEditing ? skill.id : id || t("skills.displayNamePlaceholder")}
+              />
+              <span className="field-hint">{t("skills.displayNameHint")}</span>
             </div>
 
             {/* 描述 */}
