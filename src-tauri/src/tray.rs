@@ -1,7 +1,7 @@
 use crate::config::{activate_config_inner, load_state};
 use tauri::{
     menu::{Menu, MenuItemBuilder, PredefinedMenuItem},
-    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    tray::TrayIconBuilder,
     AppHandle, Emitter, Manager,
 };
 
@@ -101,7 +101,7 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
         .icon(icon)
         .tooltip("AI Manager")
         .menu(&menu)
-        .show_menu_on_left_click(false)
+        .show_menu_on_left_click(true)
         .on_menu_event(|app, event| {
             let id = event.id().as_ref();
 
@@ -127,18 +127,6 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
                     }
                     _ => {}
                 }
-            }
-        })
-        .on_tray_icon_event(|tray, event| {
-            // 左键点击托盘图标打开主窗口
-            if let TrayIconEvent::Click {
-                button: MouseButton::Left,
-                button_state: MouseButtonState::Up,
-                ..
-            } = event
-            {
-                let app = tray.app_handle();
-                show_main_window(app);
             }
         })
         .build(app)?;
