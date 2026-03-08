@@ -20,10 +20,10 @@
   box-shadow: var(--shadow-sm);
 }
 
-/* 启用状态：绿色边框高亮 */
+/* 启用状态：蓝色边框高亮 */
 .skill-item.active {
-  background-color: var(--accent-green-bg);
-  border-color: var(--accent-green);
+  background-color: var(--accent-blue-bg);
+  border-color: var(--accent-blue);
 }
 
 /* 禁用状态：整体视觉降级 */
@@ -31,10 +31,10 @@
   opacity: 0.6;
 }
 
-/* 当前编辑中：蓝色边框高亮 */
+/* 当前编辑中：紫色边框高亮 */
 .skill-item.editing {
-  border-color: var(--accent-blue);
-  box-shadow: 0 0 0 3px var(--accent-blue-bg);
+  border-color: var(--accent-purple);
+  box-shadow: 0 0 0 3px var(--accent-purple-bg);
 }
 
 /* 头部横向布局：徽章 | 信息 | 操作 */
@@ -221,10 +221,10 @@
   flex-shrink: 0;
 }
 
-/* 启用时轨道变绿 */
+/* 启用时轨道变蓝 */
 .skill-toggle.enabled .toggle-track {
-  background-color: var(--accent-green);
-  border-color: var(--accent-green);
+  background-color: var(--accent-blue);
+  border-color: var(--accent-blue);
 }
 
 /* 开关滑块 */
@@ -251,7 +251,7 @@
   font-size: 12px;
 }
 
-/* 启用时标签文字变绿 */
+/* 启用时标签文字变蓝 */
 .skill-toggle.enabled .toggle-label {
-  color: var(--accent-green);
+  color: var(--accent-blue);
 }
