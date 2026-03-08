@@ -1,5 +1,6 @@
 mod config;
 mod memory;
+mod skills;
 mod stats;
 mod tray;
 mod utils;
@@ -9,6 +10,10 @@ use config::{
     preview_config, reorder_configs, update_config, update_defaults,
 };
 use memory::{add_memory, delete_memory, get_memories, toggle_memory, update_memory};
+use skills::{
+    get_skills, add_skill, update_skill, delete_skill, toggle_skill,
+    get_skill_files, add_skill_file, update_skill_file, delete_skill_file,
+};
 use stats::{get_stats, get_stats_history, take_stats_snapshot};
 use tauri::Manager;
 
@@ -52,7 +57,16 @@ pub fn run() {
             toggle_memory,
             get_stats,
             get_stats_history,
-            take_stats_snapshot
+            take_stats_snapshot,
+            get_skills,
+            add_skill,
+            update_skill,
+            delete_skill,
+            toggle_skill,
+            get_skill_files,
+            add_skill_file,
+            update_skill_file,
+            delete_skill_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
