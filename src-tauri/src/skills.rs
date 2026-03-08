@@ -326,3 +326,132 @@ pub fn delete_skill(id: String, is_active: bool) -> Result<(), String> {
 
     Ok(())
 }
+
+/// 验证支持文件路径：不允许 ".." 和绝对路径
+fn validate_file_name(name: &str) -> Result<(), String> {
+    if name.is_empty() {
+        return Err("文件名不能为空".to_string());
+    }
+    let path = std::path::Path::new(name);
+    if path.is_absolute() {
+        return Err("文件名不能是绝对路径".to_string());
+    }
+    for component in path.components() {
+        if matches!(component, std::path::Component::ParentDir) {
+            return Err("文件名不能包含 '..'".to_string());
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_skill_files(id: String, is_active: bool) -> Result<Vec<SkillFile>, String> {
+    let skill_dir = get_skill_path(&id, is_active);
+    if !skill_dir.exists() {
+        return Err(format!("Skill '{}' 不存在", id));
+    }
+
+    let mut files = vec![];
+    collect_files(&skill_dir, &skill_dir, &mut files)?;
+
+    Ok(files)
+}
+
+/// 递归收集目录下除 SKILL.md 外的所有文件
+fn collect_files(
+    base: &std::path::Path,
+    current: &std::path::Path,
+    files: &mut Vec<SkillFile>,
+) -> Result<(), String> {
+    let entries = fs::read_dir(current)
+        .map_err(|e| format!("读取目录失败: {}", e))?;
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_files(base, &path, files)?;
+        } else {
+            // 跳过 SKILL.md
+            let rel = path.strip_prefix(base).map_err(|e| e.to_string())?;
+            if rel == std::path::Path::new("SKILL.md") {
+                continue;
+            }
+            let name = rel.to_string_lossy().to_string();
+            let content = fs::read_to_string(&path).unwrap_or_default();
+            files.push(SkillFile { name, content });
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn add_skill_file(
+    id: String,
+    is_active: bool,
+    file_name: String,
+    content: String,
+) -> Result<SkillFile, String> {
+    let _lock = crate::utils::lock_skills()?;
+
+    validate_file_name(&file_name)?;
+
+    let file_path = get_skill_path(&id, is_active).join(&file_name);
+    if file_path.exists() {
+        return Err(format!("文件 '{}' 已存在", file_name));
+    }
+
+    crate::utils::ensure_dir_and_write(&file_path, &content)?;
+
+    Ok(SkillFile { name: file_name, content })
+}
+
+#[tauri::command]
+pub fn update_skill_file(
+    id: String,
+    is_active: bool,
+    file_name: String,
+    content: String,
+) -> Result<SkillFile, String> {
+    let _lock = crate::utils::lock_skills()?;
+
+    validate_file_name(&file_name)?;
+
+    let file_path = get_skill_path(&id, is_active).join(&file_name);
+    crate::utils::ensure_dir_and_write(&file_path, &content)?;
+
+    Ok(SkillFile { name: file_name, content })
+}
+
+#[tauri::command]
+pub fn delete_skill_file(
+    id: String,
+    is_active: bool,
+    file_name: String,
+) -> Result<(), String> {
+    let _lock = crate::utils::lock_skills()?;
+
+    validate_file_name(&file_name)?;
+
+    let file_path = get_skill_path(&id, is_active).join(&file_name);
+    if !file_path.exists() {
+        return Err(format!("文件 '{}' 不存在", file_name));
+    }
+
+    fs::remove_file(&file_path)
+        .map_err(|e| format!("删除文件失败: {}", e))?;
+
+    // 若父目录（非 skill 根目录）为空，则删除父目录
+    if let Some(parent) = file_path.parent() {
+        let skill_root = get_skill_path(&id, is_active);
+        if parent != skill_root {
+            if let Ok(mut entries) = fs::read_dir(parent) {
+                if entries.next().is_none() {
+                    let _ = fs::remove_dir(parent);
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
