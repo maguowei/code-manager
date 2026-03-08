@@ -1,4 +1,3 @@
-import { MouseEvent } from "react";
 import { Skill } from "../types";
 import { useI18n } from "../i18n";
 import "./SkillItem.css";
@@ -23,17 +22,11 @@ function getBadgeColorIndex(id: string): number {
 function SkillItem({ skill, onEdit, onDelete, onToggle }: SkillItemProps) {
   const { t } = useI18n();
 
-  // 截断描述，最多显示 2 行（通过 CSS 控制）
+  // 描述文本（最多 2 行由 CSS 控制截断）
   const descriptionPreview = skill.description || "";
 
   // 当 name 与 id 不同时显示 slash-command 路径
   const showSlashId = skill.name !== skill.id;
-
-  // 阻止事件冒泡并执行操作
-  function handleActionClick(e: MouseEvent<HTMLElement>, action: () => void) {
-    e.stopPropagation();
-    action();
-  }
 
   const colorIndex = getBadgeColorIndex(skill.id);
 
@@ -68,9 +61,7 @@ function SkillItem({ skill, onEdit, onDelete, onToggle }: SkillItemProps) {
           {/* toggle switch 开关 */}
           <button
             className={`skill-toggle${skill.isActive ? " enabled" : ""}`}
-            onClick={(e) =>
-              handleActionClick(e, () => onToggle(skill))
-            }
+            onClick={(e) => { e.stopPropagation(); onToggle(skill); }}
             title={skill.isActive ? t("skills.enabled") : t("skills.disabled")}
           >
             <span className="toggle-track">
@@ -93,7 +84,7 @@ function SkillItem({ skill, onEdit, onDelete, onToggle }: SkillItemProps) {
         {/* 编辑按钮 */}
         <button
           className="skill-action-btn edit"
-          onClick={(e) => handleActionClick(e, () => onEdit(skill))}
+          onClick={(e) => { e.stopPropagation(); onEdit(skill); }}
           title={t("skills.editTitle")}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -105,7 +96,7 @@ function SkillItem({ skill, onEdit, onDelete, onToggle }: SkillItemProps) {
         {/* 删除按钮 */}
         <button
           className="skill-action-btn delete"
-          onClick={(e) => handleActionClick(e, () => onDelete(skill))}
+          onClick={(e) => { e.stopPropagation(); onDelete(skill); }}
           title={t("skills.delete")}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

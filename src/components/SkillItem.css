@@ -125,17 +125,6 @@
   flex-shrink: 0;
 }
 
-/* 状态标签（通用基类） */
-.skill-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
 /* 描述预览（最多 2 行） */
 .skill-description {
   margin: 0;
