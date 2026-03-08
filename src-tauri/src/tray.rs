@@ -11,11 +11,9 @@ fn build_tray_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
 
     let mut items: Vec<Box<dyn tauri::menu::IsMenuItem<tauri::Wry>>> = Vec::new();
 
-    // 标题
-    let title = MenuItemBuilder::with_id("title", "AI Manager")
-        .enabled(false)
-        .build(app)?;
-    items.push(Box::new(title));
+    // 顶部：点击打开主窗口
+    let show = MenuItemBuilder::with_id("show_window", "打开 AI Manager").build(app)?;
+    items.push(Box::new(show));
     items.push(Box::new(PredefinedMenuItem::separator(app)?));
 
     // 配置列表
@@ -39,10 +37,6 @@ fn build_tray_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     }
 
     items.push(Box::new(PredefinedMenuItem::separator(app)?));
-
-    // 显示主窗口
-    let show = MenuItemBuilder::with_id("show_window", "显示主窗口").build(app)?;
-    items.push(Box::new(show));
 
     // 退出
     let quit = MenuItemBuilder::with_id("quit", "退出").build(app)?;
