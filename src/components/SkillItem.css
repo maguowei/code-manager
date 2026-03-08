@@ -31,6 +31,12 @@
   opacity: 0.6;
 }
 
+/* 当前编辑中：蓝色边框高亮 */
+.skill-item.editing {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px var(--accent-blue-bg);
+}
+
 /* 头部横向布局：徽章 | 信息 | 操作 */
 .skill-header {
   display: flex;

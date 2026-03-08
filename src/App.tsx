@@ -267,7 +267,7 @@ function App() {
             </>
           )}
           {activeTab === "memory" && <MemoryPage onDrawerChange={setIsMemoryDrawerOpen} />}
-          {activeTab === "skills" && <SkillsPage />}
+          {activeTab === "skills" && <SkillsPage onDrawerChange={setIsMemoryDrawerOpen} />}
         </div>
         )}
 

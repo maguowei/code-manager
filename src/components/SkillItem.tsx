@@ -5,6 +5,7 @@ import "./SkillItem.css";
 // SkillItem 组件 Props 定义
 interface SkillItemProps {
   skill: Skill;
+  isEditing?: boolean;
   onEdit: (skill: Skill) => void;
   onDelete: (skill: Skill) => void;
   onToggle: (skill: Skill) => void;
@@ -19,7 +20,7 @@ function getBadgeColorIndex(id: string): number {
   return hash % 6;
 }
 
-function SkillItem({ skill, onEdit, onDelete, onToggle }: SkillItemProps) {
+function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle }: SkillItemProps) {
   const { t } = useI18n();
 
   // 描述文本（最多 2 行由 CSS 控制截断）
@@ -35,6 +36,7 @@ function SkillItem({ skill, onEdit, onDelete, onToggle }: SkillItemProps) {
       className={[
         "skill-item",
         skill.isActive ? "active" : "inactive",
+        isEditing ? "editing" : "",
       ]
         .filter(Boolean)
         .join(" ")}

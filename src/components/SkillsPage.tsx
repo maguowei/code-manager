@@ -138,6 +138,7 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
             <SkillItem
               key={skill.id}
               skill={skill}
+              isEditing={isDrawerOpen && editingSkill?.id === skill.id}
               onToggle={handleToggle}
               onEdit={openEdit}
               onDelete={(s) => setPendingDeleteId(s.id)}
