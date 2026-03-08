@@ -55,7 +55,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<TabType>("configs");
   const [loading, setLoading] = useState(true);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [isMemoryDrawerOpen, setIsMemoryDrawerOpen] = useState(false);
+  const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
 
   useEffect(() => {
     loadConfigs();
@@ -233,7 +233,7 @@ function App() {
     <div className="app-container">
       <Sidebar
         activeTab={activeTab}
-        onTabChange={(tab) => { setActiveTab(tab); setIsMemoryDrawerOpen(false); }}
+        onTabChange={(tab) => { setActiveTab(tab); setIsDetailDrawerOpen(false); }}
         onSettingsClick={() => setIsSettingsOpen(true)}
       />
 
@@ -241,7 +241,7 @@ function App() {
         {activeTab === "stats" ? (
           <StatsPage />
         ) : (
-        <div className={`list-section ${isModalOpen || isMemoryDrawerOpen ? "compressed" : ""}`}>
+        <div className={`list-section ${isModalOpen || isDetailDrawerOpen ? "compressed" : ""}`}>
           {activeTab === "configs" && (
             <>
               <div className="page-header">
@@ -266,8 +266,8 @@ function App() {
               />
             </>
           )}
-          {activeTab === "memory" && <MemoryPage onDrawerChange={setIsMemoryDrawerOpen} />}
-          {activeTab === "skills" && <SkillsPage onDrawerChange={setIsMemoryDrawerOpen} />}
+          {activeTab === "memory" && <MemoryPage onDrawerChange={setIsDetailDrawerOpen} />}
+          {activeTab === "skills" && <SkillsPage onDrawerChange={setIsDetailDrawerOpen} />}
         </div>
         )}
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Skill } from "../types";
 import { useI18n } from "../i18n";
@@ -110,10 +110,10 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   }
 
   // 启用的 Skill 排在前面，同状态内按 id 字典序排列
-  const sortedSkills = [...skills].sort((a, b) => {
+  const sortedSkills = useMemo(() => [...skills].sort((a, b) => {
     if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
     return a.id.localeCompare(b.id);
-  });
+  }), [skills]);
 
   return (
     <div className="memory-page">

@@ -71,34 +71,38 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
       setPreviewJson("{}");
       return;
     }
-    let cancelled = false;
-    const data = {
-      name,
-      description,
-      apiKey,
-      apiUrl: apiUrl || null,
-      websiteUrl: websiteUrl || null,
-      model: model || null,
-      thinkingModel: thinkingModel || null,
-      haikuModel: haikuModel || null,
-      sonnetModel: sonnetModel || null,
-      opusModel: opusModel || null,
-      alwaysThinkingEnabled: alwaysThinkingEnabled ?? null,
-      disableNonessentialTraffic: disableNonessentialTraffic ?? null,
-      skipWebFetchPreflight: skipWebFetchPreflight ?? null,
-      enableLspTool: enableLspTool ?? null,
-      agentTeamsEnabled: enableAgentTeams ?? null,
-      hasCompletedOnboarding: hasCompletedOnboarding ?? null,
-      enableExtraMarketplaces: enableExtraMarketplaces ?? null,
-      preferredLanguage: preferredLanguage || null,
-      useDefaults: useDefaults ?? null,
-      enabledPlugins: Object.keys(enabledPlugins).length > 0 ? enabledPlugins : null,
-    };
-    const defaults = useDefaults && defaultsContent.trim() ? defaultsContent.trim() : null;
-    invoke<string>("preview_config", { data, defaults })
-      .then((result) => { if (!cancelled) setPreviewJson(result); })
-      .catch(() => { if (!cancelled) setPreviewJson("{}"); });
-    return () => { cancelled = true; };
+    // 防抖 300ms，避免快速输入时高频 IPC 调用
+    const timer = setTimeout(() => {
+      let cancelled = false;
+      const data = {
+        name,
+        description,
+        apiKey,
+        apiUrl: apiUrl || null,
+        websiteUrl: websiteUrl || null,
+        model: model || null,
+        thinkingModel: thinkingModel || null,
+        haikuModel: haikuModel || null,
+        sonnetModel: sonnetModel || null,
+        opusModel: opusModel || null,
+        alwaysThinkingEnabled: alwaysThinkingEnabled ?? null,
+        disableNonessentialTraffic: disableNonessentialTraffic ?? null,
+        skipWebFetchPreflight: skipWebFetchPreflight ?? null,
+        enableLspTool: enableLspTool ?? null,
+        agentTeamsEnabled: enableAgentTeams ?? null,
+        hasCompletedOnboarding: hasCompletedOnboarding ?? null,
+        enableExtraMarketplaces: enableExtraMarketplaces ?? null,
+        preferredLanguage: preferredLanguage || null,
+        useDefaults: useDefaults ?? null,
+        enabledPlugins: Object.keys(enabledPlugins).length > 0 ? enabledPlugins : null,
+      };
+      const defaults = useDefaults && defaultsContent.trim() ? defaultsContent.trim() : null;
+      invoke<string>("preview_config", { data, defaults })
+        .then((result) => { if (!cancelled) setPreviewJson(result); })
+        .catch(() => { if (!cancelled) setPreviewJson("{}"); });
+      // 闭包内 cancelled 标记仍有效，通过外层 clearTimeout 保证不会发起过时请求
+    }, 300);
+    return () => { clearTimeout(timer); };
   }, [apiKey, name, description, apiUrl, websiteUrl, model, thinkingModel, haikuModel, sonnetModel, opusModel, alwaysThinkingEnabled, disableNonessentialTraffic, skipWebFetchPreflight, enableLspTool, enableAgentTeams, hasCompletedOnboarding, enableExtraMarketplaces, preferredLanguage, useDefaults, enabledPlugins, defaultsContent]);
 
   function handleSubmit(e: React.FormEvent) {

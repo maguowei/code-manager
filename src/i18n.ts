@@ -31,6 +31,7 @@ const translations = {
     "configItem.plugins": "个插件",
     "configItem.copyEnv": "复制环境变量",
     "configItem.envCopied": "环境变量已复制",
+    "configItem.envCopyFailed": "复制环境变量失败",
 
     // 配置弹窗
     "configModal.addTitle": "添加配置",
@@ -297,6 +298,7 @@ const translations = {
     "configItem.plugins": "plugins",
     "configItem.copyEnv": "Copy env vars",
     "configItem.envCopied": "Env vars copied",
+    "configItem.envCopyFailed": "Failed to copy env vars",
 
     // 配置弹窗
     "configModal.addTitle": "Add Config",
@@ -550,15 +552,23 @@ interface AppSettings {
 }
 
 function loadSettings(): AppSettings {
+  const defaults: AppSettings = { language: "zh", theme: "dark" };
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      return JSON.parse(stored);
+      const parsed = JSON.parse(stored);
+      // 校验解析结果，防止 localStorage 数据损坏导致崩溃
+      if (parsed && typeof parsed === "object") {
+        return {
+          language: parsed.language === "en" ? "en" : defaults.language,
+          theme: parsed.theme === "light" ? "light" : defaults.theme,
+        };
+      }
     }
   } catch {
     // 忽略解析错误
   }
-  return { language: "zh", theme: "dark" };
+  return defaults;
 }
 
 function saveSettings(settings: AppSettings) {

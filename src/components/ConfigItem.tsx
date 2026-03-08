@@ -59,12 +59,12 @@ function ConfigItem({
 
   function buildEnvExport(cfg: ClaudeConfig): string {
     const lines: string[] = [];
-    lines.push(`export ANTHROPIC_AUTH_TOKEN=${cfg.apiKey}`);
-    if (cfg.apiUrl) lines.push(`export ANTHROPIC_BASE_URL=${cfg.apiUrl}`);
-    if (cfg.model) lines.push(`export ANTHROPIC_MODEL=${cfg.model}`);
-    if (cfg.haikuModel) lines.push(`export ANTHROPIC_DEFAULT_HAIKU_MODEL=${cfg.haikuModel}`);
-    if (cfg.sonnetModel) lines.push(`export ANTHROPIC_DEFAULT_SONNET_MODEL=${cfg.sonnetModel}`);
-    if (cfg.opusModel) lines.push(`export ANTHROPIC_DEFAULT_OPUS_MODEL=${cfg.opusModel}`);
+    lines.push(`export ANTHROPIC_AUTH_TOKEN="${cfg.apiKey}"`);
+    if (cfg.apiUrl) lines.push(`export ANTHROPIC_BASE_URL="${cfg.apiUrl}"`);
+    if (cfg.model) lines.push(`export ANTHROPIC_MODEL="${cfg.model}"`);
+    if (cfg.haikuModel) lines.push(`export ANTHROPIC_DEFAULT_HAIKU_MODEL="${cfg.haikuModel}"`);
+    if (cfg.sonnetModel) lines.push(`export ANTHROPIC_DEFAULT_SONNET_MODEL="${cfg.sonnetModel}"`);
+    if (cfg.opusModel) lines.push(`export ANTHROPIC_DEFAULT_OPUS_MODEL="${cfg.opusModel}"`);
     return lines.join('\n');
   }
 
@@ -74,7 +74,9 @@ function ConfigItem({
       setEnvCopied(true);
       showToast(t("configItem.envCopied"), "success");
       setTimeout(() => setEnvCopied(false), 2000);
-    }).catch(() => {});
+    }).catch(() => {
+      showToast(t("configItem.envCopyFailed"), "error");
+    });
   }
 
   return (
