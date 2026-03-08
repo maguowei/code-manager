@@ -20,8 +20,11 @@
 - 深度合并机制（通用配置作为基础，当前配置覆盖）
 - 每个配置独立控制是否启用通用配置
 
-### 🎯 即将推出
-- Skills 管理
+### 🎯 Skills 管理
+- 管理 Claude Code Skills（slash 命令脚本）
+- 启用/禁用 Skills，支持在线编辑内容
+- 支持附加文件（Support Files）管理
+- Skills 存储于 `~/.claude/skills/`，禁用后移至应用数据目录
 
 ## 安装使用
 
