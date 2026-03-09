@@ -1,7 +1,258 @@
+/* 页面容器 */
 .history-page {
   width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* 顶部区域：热力图 + 搜索 */
+.history-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+/* 搜索框 */
+.history-search {
+  flex-shrink: 0;
+}
+
+.history-search-input {
+  width: 220px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.history-search-input:focus {
+  border-color: var(--accent-blue);
+}
+
+.history-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* 热力图容器 */
+.heatmap-container {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(30, 1fr);
+  gap: 3px;
+}
+
+.heatmap-cell {
+  aspect-ratio: 1;
+  border-radius: 3px;
+  min-width: 0;
+}
+
+.heatmap-level-0 { background-color: var(--bg-tertiary); }
+.heatmap-level-1 { background-color: rgba(58, 134, 255, 0.25); }
+.heatmap-level-2 { background-color: rgba(58, 134, 255, 0.45); }
+.heatmap-level-3 { background-color: rgba(58, 134, 255, 0.65); }
+.heatmap-level-4 { background-color: rgba(58, 134, 255, 0.9); }
+
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  justify-content: flex-end;
+}
+
+.heatmap-legend .heatmap-cell {
+  width: 12px;
+  height: 12px;
+}
+
+.heatmap-legend-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin: 0 2px;
+}
+
+/* 主体区域：左右分栏 */
+.history-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* 左栏：项目列表 */
+.history-projects {
+  width: 200px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border-color);
+  overflow-y: auto;
+  padding: var(--space-3) 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-muted) transparent;
+}
+
+.history-project-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  transition: all 0.15s ease;
+}
+
+.history-project-item:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.history-project-item.selected {
+  background-color: var(--accent-blue-bg);
+  color: var(--accent-blue);
+  font-weight: 600;
+}
+
+.project-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.project-count {
+  flex-shrink: 0;
+  font-size: var(--font-xs, 11px);
+  color: var(--text-muted);
+  background-color: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+/* 右栏：会话列表 */
+.history-sessions {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-4);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-muted) transparent;
+}
+
+/* 日期分组 */
+.history-date-group {
+  margin-bottom: var(--space-4);
+}
+
+.history-date-label {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 4px 0 8px 0;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: var(--space-2);
+}
+
+/* 会话项 */
+.history-session {
+  margin-bottom: 2px;
+}
+
+.history-session-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  transition: background-color 0.15s ease;
+}
+
+.history-session-header:hover {
+  background-color: var(--bg-hover);
+}
+
+.session-toggle {
+  font-size: 10px;
+  color: var(--text-muted);
+  width: 14px;
+  flex-shrink: 0;
+}
+
+.session-id {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-xs, 11px);
+  color: var(--text-secondary);
+}
+
+.session-count {
+  font-size: var(--font-xs, 11px);
+  color: var(--text-muted);
+}
+
+.session-time {
+  margin-left: auto;
+  font-size: var(--font-xs, 11px);
+  color: var(--text-muted);
+}
+
+/* 会话展开后的条目列表 */
+.history-session-entries {
+  padding-left: 32px;
+  border-left: 2px solid var(--border-color);
+  margin-left: 16px;
+  margin-top: 2px;
+  margin-bottom: 8px;
+}
+
+.history-entry {
+  display: flex;
+  gap: 10px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.15s ease;
+}
+
+.history-entry:hover {
+  background-color: var(--bg-hover);
+}
+
+.entry-time {
+  flex-shrink: 0;
+  font-size: var(--font-xs, 11px);
+  font-family: var(--font-mono, monospace);
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.entry-display {
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  line-height: 1.6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 搜索高亮 */
+.search-highlight {
+  background-color: rgba(210, 153, 34, 0.35);
+  color: var(--text-primary);
+  border-radius: 2px;
+  padding: 0 1px;
 }
