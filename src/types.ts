@@ -2,7 +2,7 @@
 export const isTauri = () => typeof window !== "undefined" && window.__TAURI_INTERNALS__ !== undefined;
 
 // 侧边栏 Tab 类型
-export type TabType = "configs" | "memory" | "skills" | "stats";
+export type TabType = "configs" | "memory" | "skills" | "stats" | "history";
 
 export interface ClaudeConfig {
   id: string;
@@ -127,4 +127,13 @@ export interface SkillFile {
   name: string;
   content: string;
   isBinary: boolean;
+}
+
+// 历史记录条目
+export interface HistoryEntry {
+  display: string;
+  pastedContents: Record<string, string>;
+  timestamp: number;
+  project: string;
+  sessionId: string;
 }

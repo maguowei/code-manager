@@ -271,6 +271,20 @@ const translations = {
     "skills.syncToCodex": "同步到 ~/.codex/skills",
     "toast.skillSynced": "Skill 已同步",
     "toast.skillSyncError": "同步 Skill 失败",
+
+    // 历史页面
+    "nav.history": "历史",
+    "history.title": "使用历史",
+    "history.allProjects": "全部项目",
+    "history.messages": "条",
+    "history.sessions": "个会话",
+    "history.noData": "暂无历史记录",
+    "history.search": "搜索历史记录...",
+    "history.expand": "展开",
+    "history.collapse": "收起",
+    "history.lastActive": "最后活跃",
+    "history.today": "今天",
+    "history.yesterday": "昨天",
   },
   en: {
     // 通用
@@ -538,6 +552,20 @@ const translations = {
     "skills.syncToCodex": "Sync to ~/.codex/skills",
     "toast.skillSynced": "Skill synced",
     "toast.skillSyncError": "Failed to sync Skill",
+
+    // 历史页面
+    "nav.history": "History",
+    "history.title": "Usage History",
+    "history.allProjects": "All Projects",
+    "history.messages": "msgs",
+    "history.sessions": "sessions",
+    "history.noData": "No history records",
+    "history.search": "Search history...",
+    "history.expand": "Expand",
+    "history.collapse": "Collapse",
+    "history.lastActive": "Last active",
+    "history.today": "Today",
+    "history.yesterday": "Yesterday",
   },
 } as const;
 

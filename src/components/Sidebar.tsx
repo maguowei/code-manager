@@ -69,6 +69,18 @@ function Sidebar({ activeTab, onTabChange, onSettingsClick }: SidebarProps) {
             <line x1="6" y1="20" x2="6" y2="14" />
           </svg>
         </button>
+
+        <button
+          className={`nav-item ${activeTab === "history" ? "active" : ""}`}
+          onClick={() => onTabChange("history")}
+          aria-label={t("nav.history")}
+          aria-current={activeTab === "history" ? "page" : undefined}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+        </button>
       </div>
 
       <div className="sidebar-spacer" />

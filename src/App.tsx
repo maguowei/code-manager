@@ -13,6 +13,7 @@ import SettingsDrawer from "./components/SettingsDrawer";
 import MemoryPage from "./components/MemoryPage";
 import SkillsPage from "./components/SkillsPage";
 import StatsPage from "./components/StatsPage";
+import HistoryPage from "./components/HistoryPage";
 import Sidebar from "./components/Sidebar";
 import ConfirmDialog from "./components/ConfirmDialog";
 import { PlusIcon } from "./components/Icons";
@@ -253,6 +254,8 @@ function App() {
       <div className="content-area">
         {activeTab === "stats" ? (
           <StatsPage />
+        ) : activeTab === "history" ? (
+          <HistoryPage />
         ) : (
         <div className={`list-section ${isModalOpen || isDetailDrawerOpen ? "compressed" : ""}`}>
           {activeTab === "configs" && (
