@@ -136,17 +136,16 @@ function App() {
       }
 
       if (editingConfig) {
-        const updated = await invoke<ClaudeConfig>("update_config", {
+        await invoke<ClaudeConfig>("update_config", {
           id: editingConfig.id,
           data: buildConfigData(config),
         });
-        setConfigs(prev => prev.map(c => c.id === updated.id ? updated : c));
       } else {
-        const created = await invoke<ClaudeConfig>("add_config", {
+        await invoke<ClaudeConfig>("add_config", {
           data: buildConfigData(config),
         });
-        setConfigs(prev => [...prev, created]);
       }
+      await loadConfigs();
       setIsModalOpen(false);
       setEditingConfig(null);
       showToast(t("toast.configSaved"));
