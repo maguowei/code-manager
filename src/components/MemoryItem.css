@@ -8,23 +8,32 @@
   border: 1px solid var(--border-color);
   border-radius: 12px;
   cursor: pointer;
-  transition: all 220ms ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .memory-item:hover {
   background-color: var(--bg-tertiary);
-  border-color: var(--border-default);
-  box-shadow: var(--shadow-sm);
+  border-color: var(--accent-blue);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  transform: translateY(-2px);
 }
 
 .memory-item.active {
-  background-color: var(--accent-green-bg);
-  border-color: var(--accent-green);
+  border-color: var(--accent-blue);
+  box-shadow:
+    0 0 0 1px var(--accent-blue) inset,
+    0 0 16px rgba(59, 130, 246, 0.25);
 }
 
 .memory-item.editing {
   border-color: var(--accent-orange);
-  box-shadow: 0 0 12px rgba(247, 129, 102, 0.2);
+  box-shadow:
+    0 0 0 1px var(--accent-orange) inset,
+    0 0 20px rgba(247, 129, 102, 0.35);
+}
+
+.memory-item.editing:hover {
+  border-color: var(--accent-orange);
 }
 
 .memory-header {
@@ -81,17 +90,6 @@
   border-radius: 8px;
   font-size: 12px;
   font-weight: 600;
-}
-
-.memory-status.active {
-  background-color: var(--accent-green-bg);
-  color: var(--accent-green);
-  cursor: pointer;
-  transition: all 160ms ease;
-}
-
-.memory-status.active:hover {
-  background-color: rgba(63, 185, 80, 0.25);
 }
 
 .memory-status.editing {
