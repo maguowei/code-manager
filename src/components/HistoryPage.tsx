@@ -135,8 +135,16 @@ function HistoryPage() {
 
   // 轮询定时器，仅在页面可见时运行
   useEffect(() => {
-    const id = setInterval(pollHistory, POLL_INTERVAL);
-    return () => clearInterval(id);
+    let id: ReturnType<typeof setInterval> | undefined;
+
+    const start = () => { id = setInterval(pollHistory, POLL_INTERVAL); };
+    const stop = () => { if (id !== undefined) { clearInterval(id); id = undefined; } };
+
+    const onVisibility = () => { document.hidden ? stop() : start(); };
+
+    if (!document.hidden) start();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => { stop(); document.removeEventListener("visibilitychange", onVisibility); };
   }, [pollHistory]);
 
   // 按项目分组

@@ -22,10 +22,13 @@ fn file_mtime(path: &std::path::Path) -> Result<u64, String> {
     Ok(crate::utils::systime_to_secs(modified))
 }
 
-/// 读取历史记录文件，返回内容和 mtime
+/// 读取历史记录文件，返回内容和 mtime；文件不存在时返回空内容
 #[tauri::command]
 pub fn get_history() -> Result<HistoryResult, String> {
     let path = get_history_path();
+    if !path.exists() {
+        return Ok(HistoryResult { content: String::new(), mtime: 0 });
+    }
     let content = fs::read_to_string(&path).map_err(|e| format!("读取历史文件失败: {}", e))?;
     let mtime = file_mtime(&path)?;
     Ok(HistoryResult { content, mtime })
@@ -35,10 +38,14 @@ pub fn get_history() -> Result<HistoryResult, String> {
 #[tauri::command]
 pub fn get_history_if_changed(last_mtime: u64) -> Result<Option<HistoryResult>, String> {
     let path = get_history_path();
+    if !path.exists() {
+        return Ok(None);
+    }
     let mtime = file_mtime(&path)?;
     if mtime == last_mtime {
         return Ok(None);
     }
     let content = fs::read_to_string(&path).map_err(|e| format!("读取历史文件失败: {}", e))?;
+    let mtime = file_mtime(&path)?;
     Ok(Some(HistoryResult { content, mtime }))
 }

@@ -285,6 +285,9 @@ const translations = {
     "history.lastActive": "最后活跃",
     "history.today": "今天",
     "history.yesterday": "昨天",
+    "history.heatmapLess": "少",
+    "history.heatmapMore": "多",
+    "history.heatmapTooltip": "{day}: {count} 条消息",
   },
   en: {
     // 通用
@@ -566,6 +569,9 @@ const translations = {
     "history.lastActive": "Last active",
     "history.today": "Today",
     "history.yesterday": "Yesterday",
+    "history.heatmapLess": "Less",
+    "history.heatmapMore": "More",
+    "history.heatmapTooltip": "{day}: {count} msgs",
   },
 } as const;
 

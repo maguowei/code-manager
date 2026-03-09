@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { memo, useState, useMemo } from "react";
 import { SessionGroup } from "./HistoryPage";
 import { useI18n } from "../i18n";
 
@@ -26,7 +26,9 @@ function formatTime(ts: number): string {
 }
 
 /** 格式化日期标题 */
-function formatDateLabel(dateStr: string, today: string, yesterday: string, todayLabel: string, yesterdayLabel: string): string {
+function formatDateLabel(dateStr: string, todayLabel: string, yesterdayLabel: string): string {
+  const today = new Date().toLocaleDateString();
+  const yesterday = new Date(Date.now() - 86400000).toLocaleDateString();
   if (dateStr === today) return todayLabel;
   if (dateStr === yesterday) return yesterdayLabel;
   return dateStr;
@@ -49,8 +51,6 @@ function highlightText(text: string, query: string): React.ReactNode {
 function HistorySessionList({ groups, searchQuery }: Props) {
   const { t } = useI18n();
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
-  const today = new Date().toLocaleDateString();
-  const yesterday = new Date(Date.now() - 86400000).toLocaleDateString();
 
   const toggleSession = (sessionId: string) => {
     setExpandedSessions(prev => {
@@ -61,7 +61,7 @@ function HistorySessionList({ groups, searchQuery }: Props) {
     });
   };
 
-  const dateGroups = groupByDate(groups);
+  const dateGroups = useMemo(() => groupByDate(groups), [groups]);
 
   if (groups.length === 0) {
     return <div className="history-sessions"><div className="empty-state">{t("history.noData")}</div></div>;
@@ -71,7 +71,7 @@ function HistorySessionList({ groups, searchQuery }: Props) {
     <div className="history-sessions">
       {Array.from(dateGroups.entries()).map(([dateStr, sessions]) => (
         <div key={dateStr} className="history-date-group">
-          <div className="history-date-label">{formatDateLabel(dateStr, today, yesterday, t("history.today"), t("history.yesterday"))}</div>
+          <div className="history-date-label">{formatDateLabel(dateStr, t("history.today"), t("history.yesterday"))}</div>
           {sessions.map(session => {
             const isExpanded = expandedSessions.has(session.sessionId);
             return (

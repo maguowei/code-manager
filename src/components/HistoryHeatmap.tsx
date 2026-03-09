@@ -1,5 +1,6 @@
 import { useMemo, memo } from "react";
 import { HistoryEntry } from "../types";
+import { useI18n } from "../i18n";
 
 interface Props {
   entries: HistoryEntry[];
@@ -29,10 +30,15 @@ function getLevel(count: number): number {
 const DAYS = 30;
 
 function HistoryHeatmap({ entries }: Props) {
+  const { t } = useI18n();
   const { days, countMap } = useMemo(() => {
     const days = getLastNDays(DAYS);
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - DAYS);
+    const cutoff = thirtyDaysAgo.getTime();
     const countMap = new Map<string, number>();
     for (const entry of entries) {
+      if (entry.timestamp < cutoff) continue;
       const dateStr = new Date(entry.timestamp).toISOString().slice(0, 10);
       countMap.set(dateStr, (countMap.get(dateStr) || 0) + 1);
     }
@@ -49,17 +55,17 @@ function HistoryHeatmap({ entries }: Props) {
             <div
               key={day}
               className={`heatmap-cell heatmap-level-${level}`}
-              title={`${day}: ${count} 条消息`}
+              title={t("history.heatmapTooltip").replace("{day}", day).replace("{count}", String(count))}
             />
           );
         })}
       </div>
       <div className="heatmap-legend">
-        <span className="heatmap-legend-label">少</span>
+        <span className="heatmap-legend-label">{t("history.heatmapLess")}</span>
         {[0, 1, 2, 3, 4].map(level => (
           <div key={level} className={`heatmap-cell heatmap-level-${level}`} />
         ))}
-        <span className="heatmap-legend-label">多</span>
+        <span className="heatmap-legend-label">{t("history.heatmapMore")}</span>
       </div>
     </div>
   );
