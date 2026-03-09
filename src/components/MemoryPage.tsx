@@ -105,7 +105,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   }
 
   return (
-    <div className="memory-page">
+    <div className="list-page">
       {/* 页面标题栏 */}
       <div className="page-header">
         <h1 className="page-title">{t("nav.memory")}</h1>
@@ -119,7 +119,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
 
       {/* 记忆列表 */}
       {memories.length === 0 ? (
-        <div className="memory-empty">
+        <div className="list-empty">
           <div className="empty-icon">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
@@ -132,7 +132,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
           <p className="empty-hint">{t("memory.emptyHint")}</p>
         </div>
       ) : (
-        <div className="memory-list">
+        <div className="list-container">
           {memories.map((memory) => (
             <MemoryItem
               key={memory.id}

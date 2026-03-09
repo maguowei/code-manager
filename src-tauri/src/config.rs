@@ -35,8 +35,17 @@ impl ConfigData {
     /// 将 DTO 转换为 ClaudeConfig（新建场景）
     fn into_config(self) -> ClaudeConfig {
         let now = crate::utils::current_timestamp();
+        let mut config = self.into_preview_config();
+        config.id = Uuid::new_v4().to_string();
+        config.created_at = now;
+        config.updated_at = now;
+        config
+    }
+
+    /// 将 DTO 转换为轻量级 ClaudeConfig（预览场景，不生成 UUID 和时间戳）
+    fn into_preview_config(self) -> ClaudeConfig {
         ClaudeConfig {
-            id: Uuid::new_v4().to_string(),
+            id: String::new(),
             name: self.name,
             description: self.description,
             api_key: self.api_key,
@@ -58,8 +67,8 @@ impl ConfigData {
             use_defaults: self.use_defaults,
             enabled_plugins: self.enabled_plugins,
             is_active: false,
-            created_at: now,
-            updated_at: now,
+            created_at: 0,
+            updated_at: 0,
         }
     }
 
@@ -559,7 +568,7 @@ pub fn update_defaults(content: String) -> Result<(), String> {
 #[tauri::command]
 pub fn preview_config(data: ConfigData, defaults: Option<String>) -> Result<String, String> {
     // 构建临时 ClaudeConfig，仅用于 JSON 生成，不持久化
-    let config = data.into_config();
+    let config = data.into_preview_config();
     let final_config = build_config_value(&config, defaults.as_deref());
     serde_json::to_string_pretty(&final_config).map_err(|e| e.to_string())
 }

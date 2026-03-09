@@ -97,7 +97,7 @@ function App() {
     setEditingConfig(null);
   }, []), isModalOpen);
 
-  async function loadConfigs() {
+  const loadConfigs = useCallback(async () => {
     if (!isTauri()) {
       setLoading(false);
       return;
@@ -112,9 +112,9 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [showToast, t]);
 
-  async function handleActivate(id: string) {
+  const handleActivate = useCallback(async (id: string) => {
     if (!isTauri()) return;
     try {
       await invoke("activate_config", { id });
@@ -124,7 +124,7 @@ function App() {
     } catch (error) {
       showToast(t("toast.configActivateError"), "error");
     }
-  }
+  }, [showToast, t]);
 
   async function handleSave(config: Omit<ClaudeConfig, "id" | "createdAt" | "updatedAt" | "isActive">, newDefaults?: string) {
     if (!isTauri()) return;
@@ -155,24 +155,25 @@ function App() {
     }
   }
 
-  async function handleDelete(id: string) {
+  const handleDelete = useCallback(async (id: string) => {
     if (!isTauri()) return;
     try {
       await invoke("delete_config", { id });
       setConfigs(prev => prev.filter(c => c.id !== id));
-      if (activeConfigId === id) setActiveConfigId(null);
+      setActiveConfigId(prev => prev === id ? null : prev);
       showToast(t("toast.configDeleted"));
     } catch (error) {
       showToast(t("toast.configDeleteError"), "error");
     }
-  }
+  }, [showToast, t]);
 
-  async function handleDuplicate(id: string) {
+  const handleDuplicate = useCallback(async (id: string) => {
     if (!isTauri()) return;
     try {
       const duplicated = await invoke<ClaudeConfig>("duplicate_config", { id });
       setConfigs(prev => {
         const index = prev.findIndex(c => c.id === id);
+        if (index === -1) return [...prev, duplicated];
         const next = [...prev];
         next.splice(index + 1, 0, duplicated);
         return next;
@@ -181,20 +182,22 @@ function App() {
     } catch (error) {
       showToast(t("toast.configDuplicateError"), "error");
     }
-  }
+  }, [showToast, t]);
 
-  async function handleReorder(ids: string[]) {
+  const handleReorder = useCallback(async (ids: string[]) => {
     if (!isTauri()) return;
     // 先更新前端状态，避免拖拽视觉延迟
-    const reordered = ids.map((id) => configs.find((c) => c.id === id)!).filter(Boolean);
-    setConfigs(reordered);
+    setConfigs(prev => {
+      const map = new Map(prev.map(c => [c.id, c]));
+      return ids.map(id => map.get(id)!).filter(Boolean);
+    });
     try {
       await invoke("reorder_configs", { ids });
     } catch (error) {
       showToast(t("toast.configReorderError"), "error");
-      await loadConfigs();
+      loadConfigs();
     }
-  }
+  }, [showToast, t, loadConfigs]);
 
   // 打开抽屉时确保窗口宽度足够展示详情
   // sidebar(60) + 压缩列表(280) + 抽屉最小(600) = 940
@@ -218,17 +221,19 @@ function App() {
     }
   }, []);
 
-  function handleEdit(config: ClaudeConfig) {
+  const handleEdit = useCallback((config: ClaudeConfig) => {
     setEditingConfig(config);
     setIsModalOpen(true);
     ensureWindowSize();
-  }
+  }, [ensureWindowSize]);
 
-  function handleAdd() {
+  const handleAdd = useCallback(() => {
     setEditingConfig(null);
     setIsModalOpen(true);
     ensureWindowSize();
-  }
+  }, [ensureWindowSize]);
+
+  const handleRequestDelete = useCallback((id: string) => setPendingDeleteId(id), []);
 
   if (loading) {
     return (
@@ -266,7 +271,7 @@ function App() {
                 editingConfigId={isModalOpen ? editingConfig?.id ?? null : null}
                 onActivate={handleActivate}
                 onEdit={handleEdit}
-                onDelete={(id) => setPendingDeleteId(id)}
+                onDelete={handleRequestDelete}
                 onDuplicate={handleDuplicate}
                 onReorder={handleReorder}
               />
