@@ -457,17 +457,21 @@ pub fn reorder_configs(app_handle: AppHandle, ids: Vec<String>) -> Result<(), St
 
     let mut state = load_state();
 
-    // 按 ids 顺序重排 configs
-    let mut reordered: Vec<ClaudeConfig> = Vec::with_capacity(ids.len());
+    // 按 ids 顺序重排 configs，使用 HashMap 避免 O(n²) 查找
+    use std::collections::HashMap;
+    let config_map: HashMap<&str, &ClaudeConfig> = state.configs.iter().map(|c| (c.id.as_str(), c)).collect();
+    let mut reordered: Vec<ClaudeConfig> = Vec::with_capacity(state.configs.len());
+    let mut seen = std::collections::HashSet::with_capacity(ids.len());
     for id in &ids {
-        if let Some(config) = state.configs.iter().find(|c| &c.id == id) {
-            reordered.push(config.clone());
+        if let Some(config) = config_map.get(id.as_str()) {
+            reordered.push((*config).clone());
+            seen.insert(id.as_str());
         }
     }
 
     // 保留不在 ids 中的配置（防御性处理）
     for config in &state.configs {
-        if !ids.contains(&config.id) {
+        if !seen.contains(config.id.as_str()) {
             reordered.push(config.clone());
         }
     }
@@ -479,7 +483,8 @@ pub fn reorder_configs(app_handle: AppHandle, ids: Vec<String>) -> Result<(), St
 }
 
 /// 激活指定配置的内部实现，可从 tray.rs 调用（无需 AppHandle）
-pub fn activate_config_inner(id: String) -> Result<(), String> {
+/// 返回修改后的 AppState，便于调用方传递给 rebuild_tray_menu 避免重复读盘
+pub fn activate_config_inner(id: String) -> Result<AppState, String> {
     // 加锁保护并发写入
     let _lock = crate::utils::lock_config()?;
 
@@ -503,14 +508,14 @@ pub fn activate_config_inner(id: String) -> Result<(), String> {
     save_state(&state)?;
     apply_config(&config, state.defaults.as_deref())?;
 
-    Ok(())
+    Ok(state)
 }
 
 /// 激活指定配置并刷新托盘菜单
 #[tauri::command]
 pub fn activate_config(app_handle: AppHandle, id: String) -> Result<(), String> {
-    activate_config_inner(id)?;
-    rebuild_tray_menu(&app_handle, None);
+    let state = activate_config_inner(id)?;
+    rebuild_tray_menu(&app_handle, Some(&state));
     Ok(())
 }
 

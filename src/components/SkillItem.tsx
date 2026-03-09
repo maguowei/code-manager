@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Skill } from "../types";
 import { useI18n } from "../i18n";
 import { EditIcon, TrashIcon } from "./Icons";
@@ -115,4 +116,4 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
   );
 }
 
-export default SkillItem;
+export default memo(SkillItem);

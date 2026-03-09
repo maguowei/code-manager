@@ -1,4 +1,4 @@
-import { DragEvent, MouseEvent, useState, memo } from "react";
+import { DragEvent, MouseEvent, useState, memo, useCallback } from "react";
 import { ClaudeConfig } from "../types";
 import { useI18n } from "../i18n";
 import { useToast } from "../hooks/useToast";
@@ -7,23 +7,25 @@ import "./ConfigItem.css";
 
 interface ConfigItemProps {
   config: ClaudeConfig;
+  index: number;
   isActive: boolean;
   isEditing: boolean;
   isDragging: boolean;
   dragOverPosition: "above" | "below" | null;
-  onActivate: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-  onDuplicate: () => void;
-  onDragStart: (e: DragEvent<HTMLDivElement>) => void;
-  onDragEnd: (e: DragEvent<HTMLDivElement>) => void;
-  onDragOver: (e: DragEvent<HTMLDivElement>) => void;
-  onDragLeave: (e: DragEvent<HTMLDivElement>) => void;
-  onDrop: (e: DragEvent<HTMLDivElement>) => void;
+  onActivate: (id: string) => void;
+  onEdit: (config: ClaudeConfig) => void;
+  onDelete: (id: string) => void;
+  onDuplicate: (id: string) => void;
+  onDragStart: (e: DragEvent<HTMLDivElement>, index: number) => void;
+  onDragEnd: () => void;
+  onDragOver: (e: DragEvent<HTMLDivElement>, index: number) => void;
+  onDragLeave: (e: DragEvent<HTMLDivElement>, index: number) => void;
+  onDrop: (e: DragEvent<HTMLDivElement>, index: number) => void;
 }
 
 function ConfigItem({
   config,
+  index,
   isActive,
   isEditing,
   isDragging,
@@ -80,16 +82,28 @@ function ConfigItem({
     });
   }
 
+  // 包裹拖拽回调，将 index 传入
+  const handleDragStartWrap = useCallback((e: DragEvent<HTMLDivElement>) => onDragStart(e, index), [onDragStart, index]);
+  const handleDragOverWrap = useCallback((e: DragEvent<HTMLDivElement>) => onDragOver(e, index), [onDragOver, index]);
+  const handleDragLeaveWrap = useCallback((e: DragEvent<HTMLDivElement>) => onDragLeave(e, index), [onDragLeave, index]);
+  const handleDropWrap = useCallback((e: DragEvent<HTMLDivElement>) => onDrop(e, index), [onDrop, index]);
+
+  // 包裹 CRUD 回调
+  const handleActivate = useCallback(() => onActivate(config.id), [onActivate, config.id]);
+  const handleEdit = useCallback(() => onEdit(config), [onEdit, config]);
+  const handleDelete = useCallback(() => onDelete(config.id), [onDelete, config.id]);
+  const handleDuplicate = useCallback(() => onDuplicate(config.id), [onDuplicate, config.id]);
+
   return (
     <div
       className={classNames}
       draggable
-      onClick={onEdit}
-      onDragStart={onDragStart}
+      onClick={handleEdit}
+      onDragStart={handleDragStartWrap}
       onDragEnd={onDragEnd}
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
+      onDragOver={handleDragOverWrap}
+      onDragLeave={handleDragLeaveWrap}
+      onDrop={handleDropWrap}
     >
       {/* 头部区域（右上角放置启用/状态与复制） */}
       <div className="config-header">
@@ -118,7 +132,7 @@ function ConfigItem({
           ) : (
             <button
               className="action-btn activate-btn compact"
-              onClick={(e) => handleActionClick(e, onActivate)}
+              onClick={(e) => handleActionClick(e, handleActivate)}
               title={t("configItem.activateTitle")}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -170,7 +184,7 @@ function ConfigItem({
         </button>
         <button
           className="action-btn icon-only"
-          onClick={(e) => handleActionClick(e, onDuplicate)}
+          onClick={(e) => handleActionClick(e, handleDuplicate)}
           title={t("configItem.duplicate")}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -180,7 +194,7 @@ function ConfigItem({
         </button>
         <button
           className="action-btn icon-only delete"
-          onClick={(e) => handleActionClick(e, onDelete)}
+          onClick={(e) => handleActionClick(e, handleDelete)}
           title={t("configItem.delete")}
         >
           <TrashIcon />

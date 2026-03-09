@@ -115,8 +115,8 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
             if let Some(config_id) = id.strip_prefix("config_") {
                 // 切换配置
                 match activate_config_inner(config_id.to_string()) {
-                    Ok(_) => {
-                        rebuild_tray_menu(app, None);
+                    Ok(state) => {
+                        rebuild_tray_menu(app, Some(&state));
                         // 通知前端刷新配置状态
                         let _ = app.emit("config-changed", ());
                     }

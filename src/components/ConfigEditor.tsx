@@ -72,9 +72,10 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
       setPreviewJson("{}");
       return;
     }
+    // cancelled 必须在 effect 顶层声明，cleanup 时设为 true，防止过时 IPC 响应更新已卸载组件
+    let cancelled = false;
     // 防抖 300ms，避免快速输入时高频 IPC 调用
     const timer = setTimeout(() => {
-      let cancelled = false;
       const data = {
         name,
         description,
@@ -97,13 +98,12 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
         useDefaults: useDefaults ?? null,
         enabledPlugins: Object.keys(enabledPlugins).length > 0 ? enabledPlugins : null,
       };
-      const defaults = useDefaults && defaultsContent.trim() ? defaultsContent.trim() : null;
-      invoke<string>("preview_config", { data, defaults })
+      const previewDefaults = useDefaults && defaultsContent.trim() ? defaultsContent.trim() : null;
+      invoke<string>("preview_config", { data, defaults: previewDefaults })
         .then((result) => { if (!cancelled) setPreviewJson(result); })
         .catch(() => { if (!cancelled) setPreviewJson("{}"); });
-      // 闭包内 cancelled 标记仍有效，通过外层 clearTimeout 保证不会发起过时请求
     }, 300);
-    return () => { clearTimeout(timer); };
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [apiKey, name, description, apiUrl, websiteUrl, model, thinkingModel, haikuModel, sonnetModel, opusModel, alwaysThinkingEnabled, disableNonessentialTraffic, skipWebFetchPreflight, enableLspTool, enableAgentTeams, hasCompletedOnboarding, enableExtraMarketplaces, preferredLanguage, useDefaults, enabledPlugins, defaultsContent]);
 
   function handleSubmit(e: React.FormEvent) {

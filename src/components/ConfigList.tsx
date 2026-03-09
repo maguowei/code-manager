@@ -121,19 +121,20 @@ function ConfigList({ configs, activeConfigId, editingConfigId, onActivate, onEd
         <ConfigItem
           key={config.id}
           config={config}
+          index={index}
           isActive={config.id === activeConfigId}
           isEditing={config.id === editingConfigId}
           isDragging={dragState.draggingIndex === index}
           dragOverPosition={dragState.overIndex === index ? dragState.overPosition : null}
-          onActivate={() => onActivate(config.id)}
-          onEdit={() => onEdit(config)}
-          onDelete={() => onDelete(config.id)}
-          onDuplicate={() => onDuplicate(config.id)}
-          onDragStart={(e) => handleDragStart(e, index)}
+          onActivate={onActivate}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onDuplicate={onDuplicate}
+          onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
-          onDragOver={(e) => handleDragOver(e, index)}
-          onDragLeave={(e) => handleDragLeave(e, index)}
-          onDrop={(e) => handleDrop(e, index)}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
         />
       ))}
     </div>

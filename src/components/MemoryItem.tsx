@@ -1,4 +1,4 @@
-import { MouseEvent } from "react";
+import { MouseEvent, memo } from "react";
 import { Memory } from "../types";
 import { useI18n } from "../i18n";
 import { TrashIcon } from "./Icons";
@@ -41,7 +41,7 @@ function MemoryItem({ memory, isEditing, onToggle, onEdit, onDelete }: MemoryIte
             <span className="memory-status editing">{t("memory.editing")}</span>
           )}
           {memory.isActive ? (
-            <span
+            <button
               className="memory-status active"
               onClick={(e) => handleActionClick(e, onToggle)}
               title={t("memory.enabled")}
@@ -49,7 +49,7 @@ function MemoryItem({ memory, isEditing, onToggle, onEdit, onDelete }: MemoryIte
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
               {t("memory.enabled")}
-            </span>
+            </button>
           ) : (
             <button
               className="action-btn activate-btn compact"
@@ -80,4 +80,4 @@ function MemoryItem({ memory, isEditing, onToggle, onEdit, onDelete }: MemoryIte
   );
 }
 
-export default MemoryItem;
+export default memo(MemoryItem);

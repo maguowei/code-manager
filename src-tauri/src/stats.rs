@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use tokio::time::{sleep, Duration};
 
 /// ~/.claude.json 中的模型使用统计
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
@@ -204,12 +205,12 @@ impl SnapshotHandle {
     }
 }
 
-/// 启动定时快照线程（每 1 小时执行一次），返回停止句柄
+/// 启动异步定时快照任务（每 1 小时执行一次），返回停止句柄
 pub fn start_snapshot_timer() -> SnapshotHandle {
     let stop_flag = Arc::new(AtomicBool::new(false));
     let flag = stop_flag.clone();
 
-    std::thread::spawn(move || {
+    tauri::async_runtime::spawn(async move {
         // 启动时立即执行一次快照
         {
             if let Ok(_lock) = crate::utils::lock_stats() {
@@ -219,7 +220,7 @@ pub fn start_snapshot_timer() -> SnapshotHandle {
         // 每 10 秒检查一次停止信号，满 3600 秒执行快照
         let mut elapsed = 0u64;
         loop {
-            std::thread::sleep(std::time::Duration::from_secs(10));
+            sleep(Duration::from_secs(10)).await;
             if flag.load(Ordering::Relaxed) {
                 break;
             }

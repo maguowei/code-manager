@@ -186,10 +186,15 @@ fn scan_skills_dir(dir: &std::path::Path, is_active: bool) -> Vec<Skill> {
 
     let mut skills = vec![];
     for entry in entries.flatten() {
-        let path = entry.path();
-        if !path.is_dir() {
+        // 使用 file_type() 而非 is_dir()，避免跟随符号链接导致路径逃逸
+        let file_type = match entry.file_type() {
+            Ok(ft) => ft,
+            Err(_) => continue,
+        };
+        if file_type.is_symlink() || !file_type.is_dir() {
             continue;
         }
+        let path = entry.path();
         let id = match path.file_name().and_then(|n| n.to_str()) {
             Some(n) => n.to_string(),
             None => continue,

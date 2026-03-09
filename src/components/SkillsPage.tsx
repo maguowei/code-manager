@@ -9,7 +9,6 @@ import Drawer from "./Drawer";
 import ConfirmDialog from "./ConfirmDialog";
 import { PlusIcon } from "./Icons";
 import useEscapeKey from "../hooks/useEscapeKey";
-import "./MemoryPage.css"; // 复用相同布局样式
 
 function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => void }) {
   const { t } = useI18n();
@@ -118,7 +117,7 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   }), [skills]);
 
   return (
-    <div className="memory-page">
+    <div className="list-page">
       {/* 页面标题 */}
       <div className="page-header">
         <h1 className="page-title">{t("skills.title")}</h1>
@@ -132,7 +131,7 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
 
       {/* Skills 列表 */}
       {sortedSkills.length === 0 ? (
-        <div className="memory-empty">
+        <div className="list-empty">
           <div className="empty-icon">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
@@ -142,7 +141,7 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
           <p className="empty-hint">{t("skills.emptyHint")}</p>
         </div>
       ) : (
-        <div className="memory-list">
+        <div className="list-container">
           {sortedSkills.map((skill) => (
             <SkillItem
               key={skill.id}

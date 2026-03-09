@@ -32,9 +32,6 @@ importers:
       '@tauri-apps/plugin-process':
         specifier: ^2.3.1
         version: 2.3.1
-      '@uiw/codemirror-theme-atomone':
-        specifier: ^4.25.5
-        version: 4.25.5(@codemirror/language@6.12.2)(@codemirror/state@6.5.4)(@codemirror/view@6.39.15)
       '@uiw/codemirror-theme-xcode':
         specifier: ^4.25.5
         version: 4.25.5(@codemirror/language@6.12.2)(@codemirror/state@6.5.4)(@codemirror/view@6.39.15)
@@ -703,9 +700,6 @@ packages:
       '@codemirror/search': '>=6.0.0'
       '@codemirror/state': '>=6.0.0'
       '@codemirror/view': '>=6.0.0'
-
-  '@uiw/codemirror-theme-atomone@4.25.5':
-    resolution: {integrity: sha512-xazbBg6pRo5nY3Y5qf0aCgzKAsRrpYQtNGdC8bPQNHRVeAHSdRC3Ur2LTgKLFPZOCYM15BwK0xcHNwY/kXxf5A==}
 
   '@uiw/codemirror-theme-xcode@4.25.5':
     resolution: {integrity: sha512-/v/pec5gO1ZDdF2Qv7YTlf1g/s5Fd8tlCVB7KMYJ1Ge/2HS6dLmwumND9Vz0QavsZtc0em8d0e0Ng4XLvrnrrQ==}
@@ -1608,14 +1602,6 @@ snapshots:
       '@codemirror/search': 6.6.0
       '@codemirror/state': 6.5.4
       '@codemirror/view': 6.39.15
-
-  '@uiw/codemirror-theme-atomone@4.25.5(@codemirror/language@6.12.2)(@codemirror/state@6.5.4)(@codemirror/view@6.39.15)':
-    dependencies:
-      '@uiw/codemirror-themes': 4.25.5(@codemirror/language@6.12.2)(@codemirror/state@6.5.4)(@codemirror/view@6.39.15)
-    transitivePeerDependencies:
-      - '@codemirror/language'
-      - '@codemirror/state'
-      - '@codemirror/view'
 
   '@uiw/codemirror-theme-xcode@4.25.5(@codemirror/language@6.12.2)(@codemirror/state@6.5.4)(@codemirror/view@6.39.15)':
     dependencies:

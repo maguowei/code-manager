@@ -559,9 +559,10 @@ function loadSettings(): AppSettings {
       const parsed = JSON.parse(stored);
       // 校验解析结果，防止 localStorage 数据损坏导致崩溃
       if (parsed && typeof parsed === "object") {
+        const validThemes: Theme[] = ["light", "dark", "system"];
         return {
           language: parsed.language === "en" ? "en" : defaults.language,
-          theme: parsed.theme === "light" ? "light" : defaults.theme,
+          theme: validThemes.includes(parsed.theme) ? parsed.theme : defaults.theme,
         };
       }
     }
