@@ -61,6 +61,20 @@ function HistorySessionList({ groups, searchQuery }: Props) {
     });
   };
 
+  const toggleDateGroup = (sessions: SessionGroup[]) => {
+    setExpandedSessions(prev => {
+      const ids = sessions.map(s => s.sessionId);
+      const allExpanded = ids.every(id => prev.has(id));
+      const next = new Set(prev);
+      if (allExpanded) {
+        ids.forEach(id => next.delete(id));
+      } else {
+        ids.forEach(id => next.add(id));
+      }
+      return next;
+    });
+  };
+
   const dateGroups = useMemo(() => groupByDate(groups), [groups]);
 
   if (groups.length === 0) {
@@ -69,9 +83,20 @@ function HistorySessionList({ groups, searchQuery }: Props) {
 
   return (
     <div className="history-sessions">
-      {Array.from(dateGroups.entries()).map(([dateStr, sessions]) => (
+      {Array.from(dateGroups.entries()).map(([dateStr, sessions]) => {
+        const allExpanded = sessions.every(s => expandedSessions.has(s.sessionId));
+        return (
         <div key={dateStr} className="history-date-group">
-          <div className="history-date-label">{formatDateLabel(dateStr, t("history.today"), t("history.yesterday"))}</div>
+          <div className="history-date-label">
+            <span>{formatDateLabel(dateStr, t("history.today"), t("history.yesterday"))}</span>
+            <button
+              className="date-toggle-btn"
+              onClick={() => toggleDateGroup(sessions)}
+              title={allExpanded ? t("history.collapse") : t("history.expand")}
+            >
+              {allExpanded ? t("history.collapse") : t("history.expand")}
+            </button>
+          </div>
           {sessions.map(session => {
             const isExpanded = expandedSessions.has(session.sessionId);
             return (
@@ -101,7 +126,8 @@ function HistorySessionList({ groups, searchQuery }: Props) {
             );
           })}
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
