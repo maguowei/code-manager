@@ -113,6 +113,7 @@
   cursor: pointer;
   color: var(--text-secondary);
   font-size: var(--font-sm);
+  font-weight: 500;
   transition: all 0.15s ease;
 }
 
@@ -174,7 +175,7 @@
   border: none;
   padding: 2px 8px;
   font-size: var(--font-xs, 11px);
-  color: var(--text-muted);
+  color: var(--text-secondary);
   cursor: pointer;
   border-radius: 4px;
   transition: all 0.15s ease;
@@ -223,7 +224,7 @@
 
 .session-toggle {
   font-size: 10px;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
   width: var(--toggle-width);
   flex-shrink: 0;
 }
@@ -240,14 +241,14 @@
   width: var(--count-width);
   flex-shrink: 0;
   font-size: var(--font-xs, 11px);
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .session-preview {
   flex: 1;
   min-width: 0;
   font-size: var(--font-xs, 11px);
-  color: var(--text-muted);
+  color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -258,7 +259,7 @@
   width: var(--time-width);
   flex-shrink: 0;
   font-size: var(--font-xs, 11px);
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 /* 会话展开后的条目列表 */
@@ -285,7 +286,7 @@
   flex-shrink: 0;
   font-size: var(--font-xs, 11px);
   font-family: var(--font-mono, monospace);
-  color: var(--text-muted);
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 
