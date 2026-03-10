@@ -137,3 +137,24 @@ export interface HistoryEntry {
   project: string;
   sessionId: string;
 }
+
+// 对话消息内容块
+export type MessageBlock =
+  | { type: "text"; text: string }
+  | { type: "thinking"; thinking: string }
+  | { type: "tool_use"; name: string; input_preview: string }
+  | { type: "tool_result"; content_preview: string };
+
+// 一条对话消息
+export interface SessionMessage {
+  role: "user" | "assistant";
+  blocks: MessageBlock[];
+  timestamp?: string;
+}
+
+// 会话详情
+export interface SessionDetail {
+  session_id: string;
+  project: string;
+  messages: SessionMessage[];
+}
