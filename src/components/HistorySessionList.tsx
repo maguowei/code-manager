@@ -5,6 +5,7 @@ import { useI18n } from "../i18n";
 interface Props {
   groups: SessionGroup[];
   searchQuery: string;
+  onViewDetail?: (sessionId: string) => void;
 }
 
 /** 按天分组会话 */
@@ -48,7 +49,7 @@ function highlightText(text: string, query: string): React.ReactNode {
   );
 }
 
-function HistorySessionList({ groups, searchQuery }: Props) {
+function HistorySessionList({ groups, searchQuery, onViewDetail }: Props) {
   const { t } = useI18n();
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
 
@@ -115,6 +116,20 @@ function HistorySessionList({ groups, searchQuery }: Props) {
                     </span>
                   )}
                   <span className="session-time">{formatTime(session.lastTimestamp)}</span>
+                  {onViewDetail && (
+                    <button
+                      className="session-detail-btn"
+                      title={t("history.viewConversation")}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onViewDetail(session.sessionId);
+                      }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M2 3h12v8H4l-2 2V3z" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
                 {isExpanded && (
                   <div className="history-session-entries">
