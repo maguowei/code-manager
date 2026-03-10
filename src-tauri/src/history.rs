@@ -84,9 +84,13 @@ pub struct SessionDetail {
     pub messages: Vec<SessionMessage>,
 }
 
-/// 截取字符串前 max_len 个字符，超出时追加 "..."
+/// 截取字符串前 max_len 个 Unicode 字符，超出时追加 "..."
 fn truncate(s: &str, max_len: usize) -> String {
-    if s.len() <= max_len { s.to_string() } else { format!("{}...", &s[..max_len]) }
+    let mut chars = s.char_indices();
+    match chars.nth(max_len) {
+        None => s.to_string(),
+        Some((byte_idx, _)) => format!("{}...", &s[..byte_idx]),
+    }
 }
 
 /// 将 serde_json::Value 的 content 字段解析为 MessageBlock 列表
