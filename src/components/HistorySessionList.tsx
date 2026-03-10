@@ -99,6 +99,7 @@ function HistorySessionList({ groups, searchQuery }: Props) {
           </div>
           {sessions.map(session => {
             const isExpanded = expandedSessions.has(session.sessionId);
+            const lastEntry = session.entries.length > 0 ? session.entries[session.entries.length - 1] : null;
             return (
               <div key={session.sessionId} className="history-session">
                 <div
@@ -108,6 +109,11 @@ function HistorySessionList({ groups, searchQuery }: Props) {
                   <span className="session-toggle">{isExpanded ? "▼" : "▶"}</span>
                   <span className="session-id">{session.sessionId.slice(0, 8)}</span>
                   <span className="session-count">{session.entries.length} {t("history.messages")}</span>
+                  {!isExpanded && lastEntry && (
+                    <span className="session-preview" title={lastEntry.display}>
+                      {highlightText(lastEntry.display, searchQuery)}
+                    </span>
+                  )}
                   <span className="session-time">{formatTime(session.lastTimestamp)}</span>
                 </div>
                 {isExpanded && (

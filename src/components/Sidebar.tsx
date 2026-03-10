@@ -61,6 +61,19 @@ function Sidebar({ activeTab, onTabChange, onSettingsClick }: SidebarProps) {
         </button>
 
         <button
+          className={`nav-item ${activeTab === "history" ? "active" : ""}`}
+          onClick={() => onTabChange("history")}
+          aria-label={t("nav.history")}
+          aria-current={activeTab === "history" ? "page" : undefined}
+          data-tooltip={t("nav.history")}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+        </button>
+
+        <button
           className={`nav-item ${activeTab === "stats" ? "active" : ""}`}
           onClick={() => onTabChange("stats")}
           aria-label={t("nav.stats")}
@@ -71,19 +84,6 @@ function Sidebar({ activeTab, onTabChange, onSettingsClick }: SidebarProps) {
             <line x1="18" y1="20" x2="18" y2="10" />
             <line x1="12" y1="20" x2="12" y2="4" />
             <line x1="6" y1="20" x2="6" y2="14" />
-          </svg>
-        </button>
-
-        <button
-          className={`nav-item ${activeTab === "history" ? "active" : ""}`}
-          onClick={() => onTabChange("history")}
-          aria-label={t("nav.history")}
-          aria-current={activeTab === "history" ? "page" : undefined}
-          data-tooltip={t("nav.history")}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10" />
-            <polyline points="12 6 12 12 16 14" />
           </svg>
         </button>
       </div>

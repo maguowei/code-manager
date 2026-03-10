@@ -164,7 +164,7 @@
   font-size: var(--font-sm);
   font-weight: 600;
   color: var(--text-secondary);
-  padding: 4px 0 8px 0;
+  padding: 4px 10px 8px 10px;
   border-bottom: 1px solid var(--border-color);
   margin-bottom: var(--space-2);
 }
@@ -187,14 +187,29 @@
 
 /* 会话项 */
 .history-session {
+  /* 布局对齐变量：确保 header preview 与 entries 消息文本水平对齐 */
+  --session-padding: 10px;
+  --session-gap: 8px;
+  --toggle-width: 14px;
+  --id-width: 58px;
+  --count-width: 36px;
+  --time-width: 38px;
+  --entry-padding: 8px;
+  --entry-gap: 10px;
+  /* preview 起始位置 = padding + toggle + gap + id + gap + count + gap */
+  --preview-offset: calc(
+    var(--session-padding) + var(--toggle-width) + var(--session-gap)
+    + var(--id-width) + var(--session-gap)
+    + var(--count-width) + var(--session-gap)
+  );
   margin-bottom: 2px;
 }
 
 .history-session-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
+  gap: var(--session-gap);
+  padding: 8px var(--session-padding);
   border-radius: 8px;
   cursor: pointer;
   font-size: var(--font-sm);
@@ -209,40 +224,54 @@
 .session-toggle {
   font-size: 10px;
   color: var(--text-muted);
-  width: 14px;
+  width: var(--toggle-width);
   flex-shrink: 0;
 }
 
 .session-id {
+  width: var(--id-width);
+  flex-shrink: 0;
   font-family: var(--font-mono, monospace);
   font-size: var(--font-xs, 11px);
   color: var(--text-secondary);
 }
 
 .session-count {
+  width: var(--count-width);
+  flex-shrink: 0;
   font-size: var(--font-xs, 11px);
   color: var(--text-muted);
 }
 
+.session-preview {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-xs, 11px);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .session-time {
   margin-left: auto;
+  width: var(--time-width);
+  flex-shrink: 0;
   font-size: var(--font-xs, 11px);
   color: var(--text-muted);
 }
 
 /* 会话展开后的条目列表 */
 .history-session-entries {
-  padding-left: 32px;
-  border-left: 2px solid var(--border-color);
-  margin-left: 16px;
+  padding-left: calc(var(--preview-offset) - var(--entry-padding) - var(--time-width) - var(--entry-gap));
   margin-top: 2px;
   margin-bottom: 8px;
 }
 
 .history-entry {
   display: flex;
-  gap: 10px;
-  padding: 4px 8px;
+  gap: var(--entry-gap);
+  padding: 4px var(--entry-padding);
   border-radius: 4px;
   transition: background-color 0.15s ease;
 }
@@ -252,6 +281,7 @@
 }
 
 .entry-time {
+  width: var(--time-width);
   flex-shrink: 0;
   font-size: var(--font-xs, 11px);
   font-family: var(--font-mono, monospace);
