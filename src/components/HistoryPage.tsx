@@ -6,6 +6,7 @@ import { useToast } from "../hooks/useToast";
 import HistoryHeatmap from "./HistoryHeatmap";
 import HistoryProjectList from "./HistoryProjectList";
 import HistorySessionList from "./HistorySessionList";
+import SessionDetailDrawer from "./SessionDetailDrawer";
 import "./HistoryPage.css";
 
 // 后端返回结构
@@ -100,6 +101,7 @@ function HistoryPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const mtimeRef = useRef<number>(0);
+  const [viewingSession, setViewingSession] = useState<{ project: string; sessionId: string } | null>(null);
 
   // 首次加载
   const loadHistory = useCallback(async () => {
@@ -130,6 +132,11 @@ function HistoryPage() {
       // 轮询失败静默忽略
     }
   }, []);
+
+  const handleViewDetail = useCallback((sessionId: string) => {
+    const project = selectedProject || allEntries.find(e => e.sessionId === sessionId)?.project || "";
+    setViewingSession({ project, sessionId });
+  }, [selectedProject, allEntries]);
 
   useEffect(() => { loadHistory(); }, [loadHistory]);
 
@@ -195,8 +202,17 @@ function HistoryPage() {
         <HistorySessionList
           groups={sessionGroups}
           searchQuery={searchQuery}
+          onViewDetail={handleViewDetail}
         />
       </div>
+
+      {viewingSession && (
+        <SessionDetailDrawer
+          project={viewingSession.project}
+          sessionId={viewingSession.sessionId}
+          onClose={() => setViewingSession(null)}
+        />
+      )}
     </div>
   );
 }
