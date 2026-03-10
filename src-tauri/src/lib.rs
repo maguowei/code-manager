@@ -10,7 +10,7 @@ use config::{
     activate_config, add_config, delete_config, duplicate_config, get_configs, get_defaults,
     preview_config, reorder_configs, update_config, update_defaults,
 };
-use history::{get_history, get_history_if_changed};
+use history::{get_history, get_history_if_changed, get_session_detail};
 use memory::{add_memory, delete_memory, get_memories, toggle_memory, update_memory};
 use skills::{
     get_skills, add_skill, update_skill, delete_skill, toggle_skill,
@@ -65,6 +65,7 @@ pub fn run() {
             take_stats_snapshot,
             get_history,
             get_history_if_changed,
+            get_session_detail,
             get_skills,
             add_skill,
             update_skill,
