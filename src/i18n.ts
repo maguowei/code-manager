@@ -288,6 +288,11 @@ const translations = {
     "history.heatmapLess": "少",
     "history.heatmapMore": "多",
     "history.heatmapTooltip": "{day}: {count} 条消息",
+    "history.viewConversation": "查看对话",
+    "history.conversation": "对话详情",
+    "history.thinking": "思考过程",
+    "history.toolUse": "工具调用",
+    "history.toolResult": "返回结果",
   },
   en: {
     // 通用
@@ -572,6 +577,11 @@ const translations = {
     "history.heatmapLess": "Less",
     "history.heatmapMore": "More",
     "history.heatmapTooltip": "{day}: {count} msgs",
+    "history.viewConversation": "View Conversation",
+    "history.conversation": "Conversation Detail",
+    "history.thinking": "Thinking",
+    "history.toolUse": "Tool Use",
+    "history.toolResult": "Result",
   },
 } as const;
 
