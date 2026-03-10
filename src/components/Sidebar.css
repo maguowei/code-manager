@@ -93,3 +93,28 @@
   outline: 2px solid var(--accent-blue);
   outline-offset: 2px;
 }
+
+/* 悬停 tooltip */
+.nav-item[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: var(--bg-elevated, #1e1e2e);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms ease;
+  z-index: var(--z-index-dropdown, 100);
+}
+
+.nav-item[data-tooltip]:hover::after {
+  opacity: 1;
+}

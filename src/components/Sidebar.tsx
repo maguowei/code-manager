@@ -20,6 +20,7 @@ function Sidebar({ activeTab, onTabChange, onSettingsClick }: SidebarProps) {
           onClick={() => onTabChange("configs")}
           aria-label={t("nav.configs")}
           aria-current={activeTab === "configs" ? "page" : undefined}
+          data-tooltip={t("nav.configs")}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <line x1="4" y1="21" x2="4" y2="14" />
@@ -39,6 +40,7 @@ function Sidebar({ activeTab, onTabChange, onSettingsClick }: SidebarProps) {
           onClick={() => onTabChange("memory")}
           aria-label={t("nav.memory")}
           aria-current={activeTab === "memory" ? "page" : undefined}
+          data-tooltip={t("nav.memory")}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-1.07-4.35A3 3 0 0 1 3 12a3 3 0 0 1 1.5-2.6 2.5 2.5 0 0 1 1.07-4.35A2.5 2.5 0 0 1 9.5 2z"/>
@@ -51,6 +53,7 @@ function Sidebar({ activeTab, onTabChange, onSettingsClick }: SidebarProps) {
           onClick={() => onTabChange("skills")}
           aria-label={t("nav.skills")}
           aria-current={activeTab === "skills" ? "page" : undefined}
+          data-tooltip={t("nav.skills")}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
@@ -62,6 +65,7 @@ function Sidebar({ activeTab, onTabChange, onSettingsClick }: SidebarProps) {
           onClick={() => onTabChange("stats")}
           aria-label={t("nav.stats")}
           aria-current={activeTab === "stats" ? "page" : undefined}
+          data-tooltip={t("nav.stats")}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <line x1="18" y1="20" x2="18" y2="10" />
@@ -75,6 +79,7 @@ function Sidebar({ activeTab, onTabChange, onSettingsClick }: SidebarProps) {
           onClick={() => onTabChange("history")}
           aria-label={t("nav.history")}
           aria-current={activeTab === "history" ? "page" : undefined}
+          data-tooltip={t("nav.history")}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="10" />
@@ -90,6 +95,7 @@ function Sidebar({ activeTab, onTabChange, onSettingsClick }: SidebarProps) {
           className="nav-item"
           onClick={onSettingsClick}
           aria-label={t("header.settings")}
+          data-tooltip={t("header.settings")}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="3"/>
