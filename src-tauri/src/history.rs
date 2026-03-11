@@ -164,6 +164,8 @@ fn parse_text_with_tags(text: &str) -> Vec<MessageBlock> {
     let mut cleaned = text.to_string();
     cleaned = RE_LOCAL_CAVEAT.replace_all(&cleaned, "").to_string();
     cleaned = RE_COMMAND_MSG.replace_all(&cleaned, "").to_string();
+    // 与步骤 3 保持一致，清除所有残留的未知 XML 标签
+    cleaned = RE_ANY_TAG.replace_all(&cleaned, "").to_string();
     let cleaned = cleaned.trim();
 
     if cleaned.is_empty() {
