@@ -1,3 +1,5 @@
+use once_cell::sync::Lazy;
+use regex::Regex;
 use serde::Serialize;
 use std::fs;
 
@@ -66,6 +68,12 @@ pub enum MessageBlock {
     /// 工具返回结果
     #[serde(rename = "tool_result")]
     ToolResult { content_preview: String },
+    /// 斜杠命令
+    #[serde(rename = "command")]
+    Command { name: String, args: Option<String> },
+    /// 系统信息
+    #[serde(rename = "system")]
+    System { summary: String },
 }
 
 /// 一条对话消息
@@ -93,13 +101,87 @@ fn truncate(s: &str, max_len: usize) -> String {
     }
 }
 
+/// 预编译的 XML 标签正则
+static RE_COMMAND_NAME: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"<command-name>([\s\S]*?)</command-name>").unwrap()
+});
+static RE_COMMAND_ARGS: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"<command-args>([\s\S]*?)</command-args>").unwrap()
+});
+static RE_SYSTEM_REMINDER: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"<system-reminder>([\s\S]*?)</system-reminder>").unwrap()
+});
+static RE_LOCAL_CAVEAT: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"<local-command-caveat>[\s\S]*?</local-command-caveat>").unwrap()
+});
+static RE_COMMAND_MSG: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"<command-message>[\s\S]*?</command-message>").unwrap()
+});
+static RE_ANY_TAG: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"<[^>]+>").unwrap()
+});
+
+/// 解析文本中的 XML 标签，提取 command/system 信息，过滤噪音标签
+fn parse_text_with_tags(text: &str) -> Vec<MessageBlock> {
+    let mut blocks = Vec::new();
+
+    // 1. 提取 command-name
+    if let Some(cap) = RE_COMMAND_NAME.captures(text) {
+        let name = cap[1].trim().to_string();
+        let args = RE_COMMAND_ARGS.captures(text)
+            .map(|c| c[1].trim().to_string())
+            .filter(|s| !s.is_empty());
+        blocks.push(MessageBlock::Command { name, args });
+    }
+
+    // 2. 提取 system-reminder（可能有多个）
+    for cap in RE_SYSTEM_REMINDER.captures_iter(text) {
+        let content = cap[1].trim();
+        if !content.is_empty() {
+            let summary = truncate(content, 80);
+            blocks.push(MessageBlock::System { summary });
+        }
+    }
+
+    // 3. 如果提取了 command 或 system，检查是否还有有意义的剩余文本
+    if !blocks.is_empty() {
+        let mut remaining = text.to_string();
+        remaining = RE_COMMAND_NAME.replace_all(&remaining, "").to_string();
+        remaining = RE_COMMAND_ARGS.replace_all(&remaining, "").to_string();
+        remaining = RE_COMMAND_MSG.replace_all(&remaining, "").to_string();
+        remaining = RE_SYSTEM_REMINDER.replace_all(&remaining, "").to_string();
+        remaining = RE_LOCAL_CAVEAT.replace_all(&remaining, "").to_string();
+        // 清除所有残留的未知标签
+        remaining = RE_ANY_TAG.replace_all(&remaining, "").to_string();
+        let remaining = remaining.trim();
+        if !remaining.is_empty() {
+            blocks.push(MessageBlock::Text { text: remaining.to_string() });
+        }
+        return blocks;
+    }
+
+    // 4. 没有匹配到结构化标签 -- 检查是否只有噪音标签
+    let mut cleaned = text.to_string();
+    cleaned = RE_LOCAL_CAVEAT.replace_all(&cleaned, "").to_string();
+    cleaned = RE_COMMAND_MSG.replace_all(&cleaned, "").to_string();
+    let cleaned = cleaned.trim();
+
+    if cleaned.is_empty() {
+        return blocks;
+    }
+
+    // 5. 普通文本，无标签
+    blocks.push(MessageBlock::Text { text: cleaned.to_string() });
+    blocks
+}
+
 /// 将 serde_json::Value 的 content 字段解析为 MessageBlock 列表
 fn parse_content_blocks(content: &serde_json::Value) -> Vec<MessageBlock> {
     let mut blocks = Vec::new();
     match content {
         serde_json::Value::String(s) => {
             if !s.is_empty() {
-                blocks.push(MessageBlock::Text { text: s.clone() });
+                blocks.extend(parse_text_with_tags(s));
             }
         }
         serde_json::Value::Array(arr) => {
@@ -109,7 +191,7 @@ fn parse_content_blocks(content: &serde_json::Value) -> Vec<MessageBlock> {
                     "text" => {
                         if let Some(text) = item.get("text").and_then(|t| t.as_str()) {
                             if !text.is_empty() {
-                                blocks.push(MessageBlock::Text { text: text.to_string() });
+                                blocks.extend(parse_text_with_tags(text));
                             }
                         }
                     }
