@@ -298,6 +298,7 @@ const translations = {
     "history.toolInput": "输入参数",
     "history.roleUser": "用户",
     "history.roleAssistant": "助手",
+    "history.image": "图片",
   },
   en: {
     // 通用
@@ -592,6 +593,7 @@ const translations = {
     "history.toolInput": "Input",
     "history.roleUser": "User",
     "history.roleAssistant": "Assistant",
+    "history.image": "Image",
   },
 } as const;
 

@@ -79,6 +79,12 @@ pub enum MessageBlock {
     /// 系统信息
     #[serde(rename = "system")]
     System { summary: String },
+    /// 图片内容（不传输 base64 数据）
+    #[serde(rename = "image")]
+    Image {
+        source_type: String,
+        media_type: String,
+    },
 }
 
 /// 一条对话消息
@@ -236,6 +242,23 @@ fn parse_content_blocks(content: &serde_json::Value) -> Vec<MessageBlock> {
                             })
                             .unwrap_or_default();
                         blocks.push(MessageBlock::ToolResult { content_preview });
+                    }
+                    "image" => {
+                        let source = item.get("source");
+                        let source_type = source
+                            .and_then(|s| s.get("type"))
+                            .and_then(|t| t.as_str())
+                            .unwrap_or("unknown")
+                            .to_string();
+                        let media_type = source
+                            .and_then(|s| s.get("media_type"))
+                            .and_then(|t| t.as_str())
+                            .unwrap_or("unknown")
+                            .to_string();
+                        blocks.push(MessageBlock::Image {
+                            source_type,
+                            media_type,
+                        });
                     }
                     _ => {
                         // 忽略未知类型

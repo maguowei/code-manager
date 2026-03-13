@@ -145,7 +145,8 @@ export type MessageBlock =
   | { type: "tool_use"; name: string; input_preview: string }
   | { type: "tool_result"; content_preview: string }
   | { type: "command"; name: string; args?: string }
-  | { type: "system"; summary: string };
+  | { type: "system"; summary: string }
+  | { type: "image"; source_type: string; media_type: string };
 
 // 一条对话消息
 export interface SessionMessage {

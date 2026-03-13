@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { SessionDetail, MessageBlock, isTauri } from "../types";
 import { useI18n, type TranslationKey } from "../i18n";
 import useEscapeKey from "../hooks/useEscapeKey";
@@ -20,7 +22,7 @@ function ThinkingBlock({ thinking, label }: { thinking: string; label: string })
       <button className="msg-thinking-toggle" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
         {expanded ? "\u25BC" : "\u25B6"} {label}
       </button>
-      {expanded && <div className="msg-thinking-content">{thinking}</div>}
+      {expanded && <div className="msg-thinking-content"><ReactMarkdown remarkPlugins={[remarkGfm]}>{thinking}</ReactMarkdown></div>}
     </div>
   );
 }
@@ -99,7 +101,11 @@ function renderBlocks(blocks: MessageBlock[], t: (key: TranslationKey) => string
     const block = blocks[i];
     switch (block.type) {
       case "text":
-        elements.push(<div key={i} className="msg-block">{block.text}</div>);
+        elements.push(
+          <div key={i} className="msg-block msg-markdown">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.text}</ReactMarkdown>
+          </div>
+        );
         break;
       case "thinking":
         elements.push(<ThinkingBlock key={i} thinking={block.thinking} label={t("history.thinking")} />);
@@ -132,6 +138,14 @@ function renderBlocks(blocks: MessageBlock[], t: (key: TranslationKey) => string
         break;
       case "system":
         elements.push(<SystemBlock key={i} summary={block.summary} label={t("history.system")} />);
+        break;
+      case "image":
+        elements.push(
+          <div key={i} className="msg-block msg-image-placeholder">
+            <span className="msg-image-icon">&#x1f5bc;</span>
+            <span className="msg-image-label">{t("history.image")} ({block.media_type})</span>
+          </div>
+        );
         break;
     }
     i++;
