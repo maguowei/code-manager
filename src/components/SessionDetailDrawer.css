@@ -55,7 +55,16 @@
 }
 
 .session-msg.user {
-  align-self: flex-start;
+  align-self: flex-end;
+}
+
+.session-msg.user .session-msg-header {
+  flex-direction: row-reverse;
+}
+
+.session-msg.user .session-msg-time {
+  margin-left: 0;
+  margin-right: auto;
 }
 
 .session-msg.assistant {
