@@ -118,8 +118,8 @@
 .session-msg-bubble {
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-lg);
-  font-size: var(--font-sm);
-  line-height: 1.6;
+  font-size: var(--font-md);
+  line-height: 1.5;
   word-break: break-word;
 }
 
@@ -354,88 +354,121 @@
   }
 }
 
-/* ===== Markdown 渲染样式 ===== */
+/* ===== Markdown 渲染样式（GitHub markdown-body 风格） ===== */
 .msg-markdown {
   white-space: normal;
 }
 
 .msg-markdown > :first-child {
-  margin-top: 0;
+  margin-top: 0 !important;
 }
 
 .msg-markdown > :last-child {
-  margin-bottom: 0;
+  margin-bottom: 0 !important;
 }
 
+/* 标题 */
 .msg-markdown h1,
 .msg-markdown h2,
-.msg-markdown h3 {
-  margin: 0.8em 0 0.4em;
-  line-height: 1.3;
+.msg-markdown h3,
+.msg-markdown h4,
+.msg-markdown h5,
+.msg-markdown h6 {
+  margin: 1.5em 0 0.8em;
+  line-height: 1.25;
   font-weight: 600;
 }
 
-.msg-markdown h1 { font-size: 1.3em; }
-.msg-markdown h2 { font-size: 1.15em; }
-.msg-markdown h3 { font-size: 1.05em; }
+.msg-markdown h1 { font-size: 2em; }
+.msg-markdown h2 { font-size: 1.5em; }
+.msg-markdown h3 { font-size: 1.25em; }
+.msg-markdown h4 { font-size: 1em; }
 
-.msg-markdown p {
-  margin: 0.5em 0;
+.msg-markdown h1,
+.msg-markdown h2 {
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--border-muted);
 }
 
+/* 段落 */
+.msg-markdown p {
+  margin: 0 0 16px;
+}
+
+/* 列表 */
 .msg-markdown ul,
 .msg-markdown ol {
-  margin: 0.5em 0;
-  padding-left: 1.5em;
+  margin: 0 0 16px;
+  padding-left: 2em;
 }
 
-.msg-markdown li {
-  margin: 0.2em 0;
+.msg-markdown li + li {
+  margin-top: 0.25em;
 }
 
 .msg-markdown li input[type="checkbox"] {
   margin-right: 0.4em;
 }
 
+/* 行内代码 */
 .msg-markdown code {
   font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
-  font-size: 0.88em;
-  padding: 0.15em 0.4em;
-  border-radius: 4px;
+  font-size: 85%;
+  padding: 0.2em 0.4em;
+  border-radius: 6px;
   background-color: var(--bg-primary);
 }
 
+/* 代码块 */
 .msg-markdown pre {
-  margin: 0.5em 0;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
+  margin: 0 0 16px;
+  padding: 16px;
+  border-radius: 6px;
   background-color: var(--bg-primary);
+  border: 1px solid var(--border-muted);
   overflow-x: auto;
+  line-height: 1.45;
 }
 
 .msg-markdown pre code {
   padding: 0;
   background: none;
-  font-size: 0.85em;
+  border: none;
+  border-radius: 0;
+  font-size: 85%;
+  line-height: inherit;
 }
 
+/* 引用块 */
 .msg-markdown blockquote {
-  margin: 0.5em 0;
-  padding: 0.3em 0 0.3em 1em;
-  border-left: 3px solid var(--border-muted);
+  margin: 0 0 16px;
+  padding: 0 1em;
+  border-left: 0.25em solid var(--border-muted);
   color: var(--text-secondary);
 }
 
+.msg-markdown blockquote > :first-child {
+  margin-top: 0;
+}
+
+.msg-markdown blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+/* 表格 */
 .msg-markdown table {
   border-collapse: collapse;
-  margin: 0.5em 0;
-  font-size: 0.9em;
+  margin: 0 0 16px;
+  width: max-content;
+  max-width: 100%;
+  overflow: auto;
+  display: block;
 }
 
 .msg-markdown th,
 .msg-markdown td {
   border: 1px solid var(--border-muted);
-  padding: 0.3em 0.6em;
+  padding: 6px 13px;
 }
 
 .msg-markdown th {
@@ -443,6 +476,11 @@
   font-weight: 600;
 }
 
+.msg-markdown tr:nth-child(2n) {
+  background-color: var(--bg-primary);
+}
+
+/* 链接 */
 .msg-markdown a {
   color: var(--accent-blue);
   text-decoration: none;
@@ -452,12 +490,16 @@
   text-decoration: underline;
 }
 
+/* 分割线 */
 .msg-markdown hr {
-  border: none;
-  border-top: 1px solid var(--border-muted);
-  margin: 0.8em 0;
+  height: 0.25em;
+  background-color: var(--border-muted);
+  border: 0;
+  margin: 24px 0;
+  border-radius: 2px;
 }
 
+/* 图片 */
 .msg-markdown img {
   max-width: 100%;
   border-radius: var(--radius-sm);

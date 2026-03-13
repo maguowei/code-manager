@@ -274,8 +274,8 @@ fn parse_content_blocks(content: &serde_json::Value) -> Vec<MessageBlock> {
 /// 获取指定 session 的完整对话记录
 #[tauri::command]
 pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDetail, String> {
-    // 编码项目路径：/ → -
-    let encoded = project.replace('/', "-");
+    // 编码项目路径：/ 和 . 都替换为 -（与 Claude 实际编码规则一致）
+    let encoded = project.replace('/', "-").replace('.', "-");
     let session_file = crate::utils::home_dir_or_fallback()
         .join(".claude")
         .join("projects")
