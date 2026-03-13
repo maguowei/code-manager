@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { SessionDetail, MessageBlock, isTauri } from "../types";
-import { useI18n } from "../i18n";
+import { useI18n, type TranslationKey } from "../i18n";
 import useEscapeKey from "../hooks/useEscapeKey";
 import { useToast } from "../hooks/useToast";
 import "./SessionDetailDrawer.css";
@@ -17,7 +17,7 @@ function ThinkingBlock({ thinking, label }: { thinking: string; label: string })
   const [expanded, setExpanded] = useState(false);
   return (
     <div className="msg-block">
-      <button className="msg-thinking-toggle" onClick={() => setExpanded(!expanded)}>
+      <button className="msg-thinking-toggle" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
         {expanded ? "\u25BC" : "\u25B6"} {label}
       </button>
       {expanded && <div className="msg-thinking-content">{thinking}</div>}
@@ -41,7 +41,7 @@ function SystemBlock({ summary, label }: { summary: string; label: string }) {
   const [expanded, setExpanded] = useState(false);
   return (
     <div className="msg-block msg-system">
-      <button className="msg-system-toggle" onClick={() => setExpanded(!expanded)}>
+      <button className="msg-system-toggle" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
         {expanded ? "\u25BC" : "\u25B6"} {label}
       </button>
       {expanded && <div className="msg-system-content">{summary}</div>}
@@ -66,7 +66,7 @@ function ToolCallCard({
   const [expanded, setExpanded] = useState(false);
   return (
     <div className="msg-block msg-tool-card">
-      <button className="msg-tool-card-header" onClick={() => setExpanded(!expanded)}>
+      <button className="msg-tool-card-header" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
         <span className="msg-tool-card-icon">&#x1f6e0;</span>
         <span className="msg-tool-card-name">{name}</span>
         <span className="msg-tool-card-arrow">{expanded ? "\u25BC" : "\u25B6"}</span>
@@ -92,9 +92,8 @@ function ToolCallCard({
 }
 
 /** 将 blocks 列表中相邻的 tool_use + tool_result 合并渲染 */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function renderBlocks(blocks: MessageBlock[], t: (key: any) => string) {
-  const elements: React.ReactNode[] = [];
+function renderBlocks(blocks: MessageBlock[], t: (key: TranslationKey) => string) {
+  const elements: ReactNode[] = [];
   let i = 0;
   while (i < blocks.length) {
     const block = blocks[i];
@@ -186,7 +185,7 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
                     {msg.role === "user" ? "U" : "A"}
                   </span>
                   <span className="session-msg-role">
-                    {msg.role === "user" ? "USER" : "ASSISTANT"}
+                    {msg.role === "user" ? t("history.roleUser") : t("history.roleAssistant")}
                   </span>
                   {msg.timestamp && (
                     <span className="session-msg-time">{msg.timestamp}</span>

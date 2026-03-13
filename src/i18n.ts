@@ -296,6 +296,8 @@ const translations = {
     "history.command": "命令",
     "history.system": "系统信息",
     "history.toolInput": "输入参数",
+    "history.roleUser": "用户",
+    "history.roleAssistant": "助手",
   },
   en: {
     // 通用
@@ -588,10 +590,12 @@ const translations = {
     "history.command": "Command",
     "history.system": "System",
     "history.toolInput": "Input",
+    "history.roleUser": "User",
+    "history.roleAssistant": "Assistant",
   },
 } as const;
 
-type TranslationKey = keyof typeof translations.zh;
+export type TranslationKey = keyof typeof translations.zh;
 
 // 设置持久化
 const STORAGE_KEY = "ai-manager-settings";
