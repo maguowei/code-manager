@@ -159,7 +159,6 @@ pub struct AppState {
     pub defaults: Option<String>,
 }
 
-
 /// 获取应用配置文件路径
 fn get_config_path() -> PathBuf {
     crate::utils::get_app_data_dir().join("configs.json")
@@ -468,7 +467,8 @@ pub fn reorder_configs(app_handle: AppHandle, ids: Vec<String>) -> Result<(), St
 
     // 按 ids 顺序重排 configs，使用 HashMap 避免 O(n²) 查找
     use std::collections::HashMap;
-    let config_map: HashMap<&str, &ClaudeConfig> = state.configs.iter().map(|c| (c.id.as_str(), c)).collect();
+    let config_map: HashMap<&str, &ClaudeConfig> =
+        state.configs.iter().map(|c| (c.id.as_str(), c)).collect();
     let mut reordered: Vec<ClaudeConfig> = Vec::with_capacity(state.configs.len());
     let mut seen = std::collections::HashSet::with_capacity(ids.len());
     for id in &ids {

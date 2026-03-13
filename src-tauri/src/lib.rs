@@ -13,9 +13,8 @@ use config::{
 use history::{get_history, get_history_if_changed, get_session_detail};
 use memory::{add_memory, delete_memory, get_memories, toggle_memory, update_memory};
 use skills::{
-    get_skills, add_skill, update_skill, delete_skill, toggle_skill,
-    get_skill_files, add_skill_file, update_skill_file, delete_skill_file,
-    sync_skill_to_codex,
+    add_skill, add_skill_file, delete_skill, delete_skill_file, get_skill_files, get_skills,
+    sync_skill_to_codex, toggle_skill, update_skill, update_skill_file,
 };
 use stats::{get_stats, get_stats_history, take_stats_snapshot};
 use tauri::Manager;

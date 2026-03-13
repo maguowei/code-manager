@@ -7,7 +7,6 @@ use tauri::{
 
 /// 构建托盘菜单
 fn build_tray_menu(app: &AppHandle, state: &AppState) -> tauri::Result<Menu<tauri::Wry>> {
-
     let mut items: Vec<Box<dyn tauri::menu::IsMenuItem<tauri::Wry>>> = Vec::new();
 
     // 顶部：点击打开主窗口

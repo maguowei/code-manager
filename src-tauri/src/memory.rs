@@ -19,7 +19,6 @@ pub struct MemoryState {
     pub memories: Vec<Memory>,
 }
 
-
 /// 获取记忆状态存储路径
 fn get_memory_config_path() -> PathBuf {
     crate::utils::get_app_data_dir().join("memories.json")

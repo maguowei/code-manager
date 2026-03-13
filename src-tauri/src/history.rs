@@ -20,7 +20,9 @@ fn get_history_path() -> std::path::PathBuf {
 /// 获取文件修改时间（Unix 秒）
 fn file_mtime(path: &std::path::Path) -> Result<u64, String> {
     let metadata = fs::metadata(path).map_err(|e| format!("读取文件元数据失败: {}", e))?;
-    let modified = metadata.modified().map_err(|e| format!("获取修改时间失败: {}", e))?;
+    let modified = metadata
+        .modified()
+        .map_err(|e| format!("获取修改时间失败: {}", e))?;
     Ok(crate::utils::systime_to_secs(modified))
 }
 
@@ -29,7 +31,10 @@ fn file_mtime(path: &std::path::Path) -> Result<u64, String> {
 pub fn get_history() -> Result<HistoryResult, String> {
     let path = get_history_path();
     if !path.exists() {
-        return Ok(HistoryResult { content: String::new(), mtime: 0 });
+        return Ok(HistoryResult {
+            content: String::new(),
+            mtime: 0,
+        });
     }
     let content = fs::read_to_string(&path).map_err(|e| format!("读取历史文件失败: {}", e))?;
     let mtime = file_mtime(&path)?;
@@ -102,24 +107,17 @@ fn truncate(s: &str, max_len: usize) -> String {
 }
 
 /// 预编译的 XML 标签正则
-static RE_COMMAND_NAME: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"<command-name>([\s\S]*?)</command-name>").unwrap()
-});
-static RE_COMMAND_ARGS: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"<command-args>([\s\S]*?)</command-args>").unwrap()
-});
-static RE_SYSTEM_REMINDER: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"<system-reminder>([\s\S]*?)</system-reminder>").unwrap()
-});
-static RE_LOCAL_CAVEAT: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"<local-command-caveat>[\s\S]*?</local-command-caveat>").unwrap()
-});
-static RE_COMMAND_MSG: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"<command-message>[\s\S]*?</command-message>").unwrap()
-});
-static RE_ANY_TAG: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"<[^>]+>").unwrap()
-});
+static RE_COMMAND_NAME: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"<command-name>([\s\S]*?)</command-name>").unwrap());
+static RE_COMMAND_ARGS: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"<command-args>([\s\S]*?)</command-args>").unwrap());
+static RE_SYSTEM_REMINDER: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"<system-reminder>([\s\S]*?)</system-reminder>").unwrap());
+static RE_LOCAL_CAVEAT: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"<local-command-caveat>[\s\S]*?</local-command-caveat>").unwrap());
+static RE_COMMAND_MSG: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"<command-message>[\s\S]*?</command-message>").unwrap());
+static RE_ANY_TAG: Lazy<Regex> = Lazy::new(|| Regex::new(r"<[^>]+>").unwrap());
 
 /// 解析文本中的 XML 标签，提取 command/system 信息，过滤噪音标签
 fn parse_text_with_tags(text: &str) -> Vec<MessageBlock> {
@@ -128,7 +126,8 @@ fn parse_text_with_tags(text: &str) -> Vec<MessageBlock> {
     // 1. 提取 command-name
     if let Some(cap) = RE_COMMAND_NAME.captures(text) {
         let name = cap[1].trim().to_string();
-        let args = RE_COMMAND_ARGS.captures(text)
+        let args = RE_COMMAND_ARGS
+            .captures(text)
             .map(|c| c[1].trim().to_string())
             .filter(|s| !s.is_empty());
         blocks.push(MessageBlock::Command { name, args });
@@ -155,7 +154,9 @@ fn parse_text_with_tags(text: &str) -> Vec<MessageBlock> {
         remaining = RE_ANY_TAG.replace_all(&remaining, "").to_string();
         let remaining = remaining.trim();
         if !remaining.is_empty() {
-            blocks.push(MessageBlock::Text { text: remaining.to_string() });
+            blocks.push(MessageBlock::Text {
+                text: remaining.to_string(),
+            });
         }
         return blocks;
     }
@@ -173,7 +174,9 @@ fn parse_text_with_tags(text: &str) -> Vec<MessageBlock> {
     }
 
     // 5. 普通文本，无标签
-    blocks.push(MessageBlock::Text { text: cleaned.to_string() });
+    blocks.push(MessageBlock::Text {
+        text: cleaned.to_string(),
+    });
     blocks
 }
 
@@ -200,19 +203,30 @@ fn parse_content_blocks(content: &serde_json::Value) -> Vec<MessageBlock> {
                     "thinking" => {
                         if let Some(text) = item.get("thinking").and_then(|t| t.as_str()) {
                             if !text.is_empty() {
-                                blocks.push(MessageBlock::Thinking { thinking: text.to_string() });
+                                blocks.push(MessageBlock::Thinking {
+                                    thinking: text.to_string(),
+                                });
                             }
                         }
                     }
                     "tool_use" => {
-                        let name = item.get("name").and_then(|n| n.as_str()).unwrap_or("unknown").to_string();
-                        let input_preview = item.get("input")
+                        let name = item
+                            .get("name")
+                            .and_then(|n| n.as_str())
+                            .unwrap_or("unknown")
+                            .to_string();
+                        let input_preview = item
+                            .get("input")
                             .map(|v| truncate(&v.to_string(), 200))
                             .unwrap_or_default();
-                        blocks.push(MessageBlock::ToolUse { name, input_preview });
+                        blocks.push(MessageBlock::ToolUse {
+                            name,
+                            input_preview,
+                        });
                     }
                     "tool_result" => {
-                        let content_preview = item.get("content")
+                        let content_preview = item
+                            .get("content")
                             .map(|v| {
                                 if let Some(s) = v.as_str() {
                                     truncate(s, 200)
@@ -253,13 +267,15 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
         });
     }
 
-    let content = fs::read_to_string(&session_file)
-        .map_err(|e| format!("读取会话文件失败: {}", e))?;
+    let content =
+        fs::read_to_string(&session_file).map_err(|e| format!("读取会话文件失败: {}", e))?;
 
     let mut messages = Vec::new();
     for line in content.lines() {
         let trimmed = line.trim();
-        if trimmed.is_empty() { continue; }
+        if trimmed.is_empty() {
+            continue;
+        }
         let record: serde_json::Value = match serde_json::from_str(trimmed) {
             Ok(v) => v,
             Err(_) => continue,
@@ -267,26 +283,50 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
 
         // 只处理 user 和 assistant 类型
         let msg_type = record.get("type").and_then(|t| t.as_str()).unwrap_or("");
-        if msg_type != "user" && msg_type != "assistant" { continue; }
+        if msg_type != "user" && msg_type != "assistant" {
+            continue;
+        }
 
         // 跳过 sidechain 消息
-        if record.get("isSidechain").and_then(|v| v.as_bool()).unwrap_or(false) { continue; }
+        if record
+            .get("isSidechain")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        {
+            continue;
+        }
 
         let message = match record.get("message") {
             Some(m) => m,
             None => continue,
         };
 
-        let role = message.get("role").and_then(|r| r.as_str()).unwrap_or(msg_type).to_string();
-        let content_val = message.get("content").cloned().unwrap_or(serde_json::Value::Null);
+        let role = message
+            .get("role")
+            .and_then(|r| r.as_str())
+            .unwrap_or(msg_type)
+            .to_string();
+        let content_val = message
+            .get("content")
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
         let blocks = parse_content_blocks(&content_val);
 
         // 跳过无内容的消息
-        if blocks.is_empty() { continue; }
+        if blocks.is_empty() {
+            continue;
+        }
 
-        let timestamp = record.get("timestamp").and_then(|t| t.as_str()).map(|s| s.to_string());
+        let timestamp = record
+            .get("timestamp")
+            .and_then(|t| t.as_str())
+            .map(|s| s.to_string());
 
-        messages.push(SessionMessage { role, blocks, timestamp });
+        messages.push(SessionMessage {
+            role,
+            blocks,
+            timestamp,
+        });
     }
 
     Ok(SessionDetail {
