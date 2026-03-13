@@ -293,6 +293,9 @@ const translations = {
     "history.thinking": "思考过程",
     "history.toolUse": "工具调用",
     "history.toolResult": "返回结果",
+    "history.command": "命令",
+    "history.system": "系统信息",
+    "history.toolInput": "输入参数",
   },
   en: {
     // 通用
@@ -582,6 +585,9 @@ const translations = {
     "history.thinking": "Thinking",
     "history.toolUse": "Tool Use",
     "history.toolResult": "Result",
+    "history.command": "Command",
+    "history.system": "System",
+    "history.toolInput": "Input",
   },
 } as const;
 
