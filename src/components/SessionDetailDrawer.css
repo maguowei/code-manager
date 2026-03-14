@@ -323,16 +323,24 @@
   overflow-y: auto;
 }
 
+/* tool_result Markdown 渲染区（在工具调用卡片内） */
+.msg-tool-card-result {
+  font-size: var(--font-xs);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
 /* tool_result 块（独立的、未与 tool_use 合并的） */
 .msg-tool-result {
   font-size: var(--font-xs);
   color: var(--text-tertiary);
-  padding: 4px 8px;
+  padding: 6px 10px;
   background-color: var(--bg-primary);
   border-radius: var(--radius-sm);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
 /* 加载状态 */
@@ -539,4 +547,81 @@
   font-size: var(--font-xs);
   color: var(--text-tertiary);
   font-style: italic;
+}
+
+/* ===== plan 计划块（可折叠） ===== */
+.msg-plan {
+  border-radius: var(--radius-md);
+  background-color: var(--bg-primary);
+  border: 1px solid var(--accent-blue);
+  border-left: 3px solid var(--accent-blue);
+  overflow: hidden;
+}
+
+.msg-plan-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  transition: background-color 0.15s ease;
+  text-align: left;
+}
+
+.msg-plan-toggle:hover {
+  background-color: var(--bg-hover);
+}
+
+.msg-plan-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.msg-plan-label {
+  font-weight: 600;
+  color: var(--accent-blue);
+  flex-shrink: 0;
+}
+
+.msg-plan-claude-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent-purple);
+  background-color: color-mix(in srgb, var(--accent-purple) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-purple) 30%, transparent);
+  border-radius: 4px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+  letter-spacing: 0.3px;
+}
+
+.msg-plan-summary {
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.msg-plan-arrow {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.msg-plan-content {
+  border-top: 1px solid var(--border-muted);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-xs);
+  max-height: 400px;
+  overflow-y: auto;
+  white-space: normal;
+  word-break: break-word;
 }
