@@ -299,6 +299,7 @@ const translations = {
     "history.roleUser": "用户",
     "history.roleAssistant": "助手",
     "history.image": "图片",
+    "history.plan": "实施计划",
   },
   en: {
     // 通用
@@ -594,6 +595,7 @@ const translations = {
     "history.roleUser": "User",
     "history.roleAssistant": "Assistant",
     "history.image": "Image",
+    "history.plan": "Implementation Plan",
   },
 } as const;
 

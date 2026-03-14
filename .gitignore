@@ -31,4 +31,5 @@ dist-ssr
 
 # Git worktrees
 .worktrees/
+.claude/worktrees/
 
