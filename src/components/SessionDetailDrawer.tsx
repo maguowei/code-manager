@@ -51,17 +51,38 @@ function SystemBlock({ summary, label }: { summary: string; label: string }) {
   );
 }
 
+/** 渲染计划块（可折叠） */
+function PlanBlock({ summary, content, label }: { summary: string; content: string; label: string }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="msg-block msg-plan">
+      <button className="msg-plan-toggle" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+        <span className="msg-plan-icon">&#x1f4cb;</span>
+        <span className="msg-plan-label">{label}</span>
+        <span className="msg-plan-claude-badge">Claude</span>
+        <span className="msg-plan-summary">{summary}</span>
+        <span className="msg-plan-arrow">{expanded ? "\u25BC" : "\u25B6"}</span>
+      </button>
+      {expanded && (
+        <div className="msg-plan-content">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** 工具调用折叠卡片 - 合并 tool_use 和可选的 tool_result */
 function ToolCallCard({
   name,
   inputPreview,
-  resultPreview,
+  resultContent,
   inputLabel,
   resultLabel,
 }: {
   name: string;
   inputPreview: string;
-  resultPreview?: string;
+  resultContent?: string;
   inputLabel: string;
   resultLabel: string;
 }) {
@@ -81,10 +102,12 @@ function ToolCallCard({
               <pre className="msg-tool-card-code">{inputPreview}</pre>
             </div>
           )}
-          {resultPreview && (
+          {resultContent && (
             <div className="msg-tool-card-section">
               <span className="msg-tool-card-label">{resultLabel}</span>
-              <pre className="msg-tool-card-code">{resultPreview}</pre>
+              <div className="msg-tool-card-result msg-markdown">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{resultContent}</ReactMarkdown>
+              </div>
             </div>
           )}
         </div>
@@ -112,24 +135,24 @@ function renderBlocks(blocks: MessageBlock[], t: (key: TranslationKey) => string
         break;
       case "tool_use": {
         const next = blocks[i + 1];
-        const resultPreview = next && next.type === "tool_result" ? next.content_preview : undefined;
+        const resultContent = next && next.type === "tool_result" ? next.content : undefined;
         elements.push(
           <ToolCallCard
             key={i}
             name={block.name}
             inputPreview={block.input_preview}
-            resultPreview={resultPreview}
+            resultContent={resultContent}
             inputLabel={t("history.toolInput")}
             resultLabel={t("history.toolResult")}
           />
         );
-        if (resultPreview !== undefined) i++;
+        if (resultContent !== undefined) i++;
         break;
       }
       case "tool_result":
         elements.push(
-          <div key={i} className="msg-block msg-tool-result">
-            \u2190 {block.content_preview || "..."}
+          <div key={i} className="msg-block msg-tool-result msg-markdown">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.content || "..."}</ReactMarkdown>
           </div>
         );
         break;
@@ -145,6 +168,11 @@ function renderBlocks(blocks: MessageBlock[], t: (key: TranslationKey) => string
             <span className="msg-image-icon">&#x1f5bc;</span>
             <span className="msg-image-label">{t("history.image")} ({block.media_type})</span>
           </div>
+        );
+        break;
+      case "plan":
+        elements.push(
+          <PlanBlock key={i} summary={block.summary} content={block.content} label={t("history.plan")} />
         );
         break;
     }

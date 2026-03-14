@@ -143,10 +143,11 @@ export type MessageBlock =
   | { type: "text"; text: string }
   | { type: "thinking"; thinking: string }
   | { type: "tool_use"; name: string; input_preview: string }
-  | { type: "tool_result"; content_preview: string }
+  | { type: "tool_result"; content: string }
   | { type: "command"; name: string; args?: string }
   | { type: "system"; summary: string }
-  | { type: "image"; source_type: string; media_type: string };
+  | { type: "image"; source_type: string; media_type: string }
+  | { type: "plan"; summary: string; content: string };
 
 // 一条对话消息
 export interface SessionMessage {
