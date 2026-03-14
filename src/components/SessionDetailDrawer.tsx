@@ -320,9 +320,29 @@ function renderBlocks(blocks: MessageBlock[], t: (key: TranslationKey) => string
         break;
       case "image":
         elements.push(
-          <div key={i} className="msg-block msg-image-placeholder">
-            <span className="msg-image-icon">&#x1f5bc;</span>
-            <span className="msg-image-label">{t("history.image")} ({block.media_type})</span>
+          <div key={i} className="msg-block msg-image-wrapper">
+            {block.data ? (
+              <figure className="msg-image-figure">
+                <img
+                  src={`data:${block.media_type};base64,${block.data}`}
+                  alt={block.media_type}
+                  className="msg-image-preview"
+                  onError={(e) => {
+                    const fig = (e.target as HTMLElement).closest(".msg-image-figure");
+                    if (fig) fig.classList.add("msg-image-error");
+                  }}
+                />
+                <figcaption className="msg-image-caption">
+                  <span className="msg-image-icon">&#x1f5bc;</span>
+                  <span>{t("history.image")} · {block.media_type}</span>
+                </figcaption>
+              </figure>
+            ) : (
+              <div className="msg-image-placeholder">
+                <span className="msg-image-icon">&#x1f5bc;</span>
+                <span className="msg-image-label">{t("history.image")} ({block.media_type})</span>
+              </div>
+            )}
           </div>
         );
         break;

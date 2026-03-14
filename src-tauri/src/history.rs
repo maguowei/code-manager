@@ -79,11 +79,12 @@ pub enum MessageBlock {
     /// 系统信息
     #[serde(rename = "system")]
     System { summary: String },
-    /// 图片内容（不传输 base64 数据）
+    /// 图片内容
     #[serde(rename = "image")]
     Image {
         source_type: String,
         media_type: String,
+        data: Option<String>,
     },
     /// 计划内容（用户审批的 plan）
     #[serde(rename = "plan")]
@@ -163,9 +164,17 @@ fn parse_text_with_tags(text: &str) -> Vec<MessageBlock> {
         remaining = RE_ANY_TAG.replace_all(&remaining, "").to_string();
         let remaining = remaining.trim();
         if !remaining.is_empty() {
-            blocks.push(MessageBlock::Text {
-                text: remaining.to_string(),
-            });
+            // Command 后的剩余内容是 skill 展开的 prompt，不是用户输入
+            // 用 System block 折叠展示，避免误认为用户消息
+            let has_command = blocks.iter().any(|b| matches!(b, MessageBlock::Command { .. }));
+            if has_command {
+                let summary = truncate(remaining, 200);
+                blocks.push(MessageBlock::System { summary });
+            } else {
+                blocks.push(MessageBlock::Text {
+                    text: remaining.to_string(),
+                });
+            }
         }
         return blocks;
     }
@@ -277,9 +286,14 @@ fn parse_content_blocks(content: &serde_json::Value) -> Vec<MessageBlock> {
                             .and_then(|t| t.as_str())
                             .unwrap_or("unknown")
                             .to_string();
+                        let data = source
+                            .and_then(|s| s.get("data"))
+                            .and_then(|d| d.as_str())
+                            .map(|s| s.to_string());
                         blocks.push(MessageBlock::Image {
                             source_type,
                             media_type,
+                            data,
                         });
                     }
                     _ => {
@@ -341,6 +355,12 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
             continue;
         }
 
+        // isMeta 消息（如 skill 展开内容）折叠为 System block，避免误显示为用户输入
+        let is_meta = record
+            .get("isMeta")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
         let message = match record.get("message") {
             Some(m) => m,
             None => continue,
@@ -356,6 +376,20 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
             .cloned()
             .unwrap_or(serde_json::Value::Null);
         let mut blocks = parse_content_blocks(&content_val);
+
+        // 如果是 meta 消息，将所有 Text block 替换为 System block（折叠展示）
+        if is_meta {
+            blocks = blocks
+                .into_iter()
+                .map(|b| match b {
+                    MessageBlock::Text { text } => {
+                        let summary = truncate(&text, 200);
+                        MessageBlock::System { summary }
+                    }
+                    other => other,
+                })
+                .collect();
+        }
 
         // 检测 planContent 字段，将计划内容从用户消息中分离
         if let Some(plan_content) = record

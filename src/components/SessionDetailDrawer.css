@@ -594,6 +594,45 @@
   white-space: normal;
 }
 
+/* ===== 图片内联预览 ===== */
+.msg-image-wrapper {
+  display: inline-block;
+  max-width: 100%;
+}
+
+.msg-image-figure {
+  display: inline-block;
+  margin: 0;
+  max-width: 100%;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.msg-image-preview {
+  max-width: 100%;
+  max-height: 400px;
+  object-fit: contain;
+  display: block;
+}
+
+.msg-image-caption {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background-color: var(--bg-secondary);
+  border-top: 1px solid var(--border-muted);
+  font-size: var(--font-xs);
+  color: var(--text-tertiary);
+}
+
+/* 图片加载失败时隐藏 img 和 caption，显示占位符 */
+.msg-image-error .msg-image-preview,
+.msg-image-error .msg-image-caption {
+  display: none;
+}
+
 /* ===== 图片占位符 ===== */
 .msg-image-placeholder {
   display: inline-flex;

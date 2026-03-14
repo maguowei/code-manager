@@ -146,7 +146,7 @@ export type MessageBlock =
   | { type: "tool_result"; content: string }
   | { type: "command"; name: string; args?: string }
   | { type: "system"; summary: string }
-  | { type: "image"; source_type: string; media_type: string }
+  | { type: "image"; source_type: string; media_type: string; data?: string }
   | { type: "plan"; summary: string; content: string };
 
 // 一条对话消息
