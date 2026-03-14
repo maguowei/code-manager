@@ -16,6 +16,7 @@ AI Manager 是一个 Claude Code 配置管理工具，提供：
 - **配置管理**: 管理多个 Claude Code 配置（API Key、模型、插件等）
 - **记忆管理**: 管理 CLAUDE.md 记忆片段，多个记忆可同时启用
 - **Skills 管理**: 管理 Claude Code Skills（启用/禁用、新建、编辑、删除、支持文件管理）
+- **历史记录**: 浏览 `~/.claude/history.jsonl` 中的会话历史，支持热力图和按项目分组展示
 - **通用配置**: 共享默认配置，支持深度合并
 
 切换配置后自动更新 `~/.claude/settings.json`，切换记忆后自动更新 `~/.claude/CLAUDE.md`。
@@ -79,6 +80,8 @@ cargo fmt             # 格式化 Rust 代码
 │   │   ├── ConfigPreview.tsx  # JSON 配置预览（只读 CodeMirror）
 │   │   ├── CollapsibleSection.tsx # 可折叠面板（Plugins/Advanced/Preview 区块共用）
 │   │   ├── DefaultsSection.tsx # 通用配置编辑区
+│   │   ├── Drawer.tsx         # 公共抽屉基础组件（遮罩层 + 侧边滑入面板）
+│   │   ├── Icons.tsx          # 公共图标组件
 │   │   ├── PluginManager.tsx  # 插件管理
 │   │   ├── ConfigList.tsx     # 配置列表
 │   │   ├── ConfigItem.tsx     # 配置列表项
@@ -91,10 +94,17 @@ cargo fmt             # 格式化 Rust 代码
 │   │   ├── Sidebar.tsx        # 侧边栏导航
 │   │   ├── SkillsPage.tsx     # Skills 管理页面（列表 + 抽屉布局）
 │   │   ├── SkillItem.tsx      # Skills 列表项（含启用/禁用开关）
-│   │   └── SkillEditor.tsx    # Skills 编辑面板（含支持文件管理）
+│   │   ├── SkillEditor.tsx    # Skills 编辑面板（含支持文件管理）
+│   │   ├── HistoryPage.tsx    # 历史记录页面（含热力图 + 项目/会话分组）
+│   │   ├── HistoryHeatmap.tsx # 历史活动热力图
+│   │   ├── HistoryProjectList.tsx # 历史项目列表
+│   │   ├── HistorySessionList.tsx # 历史会话列表（按项目过滤）
+│   │   └── SessionDetailDrawer.tsx # 会话详情抽屉（展示消息块和工具调用）
 │   ├── hooks/             # 公共 React hooks
 │   │   ├── useEscapeKey.ts    # ESC 键监听（需用 useCallback 包裹回调）
-│   │   └── useToast.tsx       # Toast 通知（ToastProvider + useToast）
+│   │   ├── useToast.tsx       # Toast 通知（ToastProvider + useToast）
+│   │   └── useEditorTheme.ts  # CodeMirror 编辑器主题（根据应用主题返回亮/暗配色）
+│   ├── i18n.ts            # 国际化与主题系统（useI18n hook，支持中/英 + 亮/暗/系统主题）
 │   ├── styles/            # 共享样式
 │   │   └── shared.css         # z-index CSS 变量 + .empty-state 公共样式
 │   └── assets/            # 静态资源
@@ -107,6 +117,7 @@ cargo fmt             # 格式化 Rust 代码
 │   │   ├── memory.rs      # 记忆管理模块
 │   │   ├── skills.rs      # Skills 管理模块
 │   │   ├── stats.rs       # 使用统计模块
+│   │   ├── history.rs     # 历史记录模块
 │   │   └── tray.rs        # 系统托盘模块
 │   ├── Cargo.toml         # Rust 依赖配置
 │   ├── tauri.conf.json    # Tauri 应用配置
@@ -161,6 +172,12 @@ cargo fmt             # 格式化 Rust 代码
   - `parse_skill_md()` / `serialize_skill_md()`：解析和生成 SKILL.md frontmatter（兼容 CRLF）
   - `validate_skill_id()`：id 只允许小写字母、数字、连字符
   - 所有写操作通过 `lock_skills()` 保护；遍历时跳过符号链接防止路径逃逸
+
+- **history.rs**: 历史记录管理
+  - 从 `~/.claude/history.jsonl` 读取会话历史（JSONL 格式，每行一条记录）
+  - `get_history()` 命令：读取完整历史文件内容 + 文件 mtime
+  - `get_history_if_changed(last_mtime)` 命令：轮询优化，仅当文件 mtime 变化时返回新内容
+  - `get_session_detail(project, session_id)` 命令：获取单个会话的完整消息详情
 
 ### 关键配置
 
