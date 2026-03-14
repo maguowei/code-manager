@@ -14,11 +14,11 @@ fn build_tray_menu(app: &AppHandle, state: &AppState) -> tauri::Result<Menu<taur
     items.push(Box::new(show));
     items.push(Box::new(PredefinedMenuItem::separator(app)?));
 
+    // 配置管理导航项（可点击，同时作为配置列表标题）
+    let nav_configs = MenuItemBuilder::with_id("nav_configs", "配置管理").build(app)?;
+    items.push(Box::new(nav_configs));
+
     // 配置列表
-    let section = MenuItemBuilder::with_id("section_configs", "切换配置")
-        .enabled(false)
-        .build(app)?;
-    items.push(Box::new(section));
     if state.configs.is_empty() {
         let empty = MenuItemBuilder::with_id("no_configs", "暂无配置")
             .enabled(false)
@@ -37,6 +37,18 @@ fn build_tray_menu(app: &AppHandle, state: &AppState) -> tauri::Result<Menu<taur
             items.push(Box::new(item));
         }
     }
+
+    items.push(Box::new(PredefinedMenuItem::separator(app)?));
+
+    // 页面导航项
+    let nav_memory = MenuItemBuilder::with_id("nav_memory", "记忆管理").build(app)?;
+    let nav_skills = MenuItemBuilder::with_id("nav_skills", "Skills 管理").build(app)?;
+    let nav_history = MenuItemBuilder::with_id("nav_history", "历史记录").build(app)?;
+    let nav_stats = MenuItemBuilder::with_id("nav_stats", "使用统计").build(app)?;
+    items.push(Box::new(nav_memory));
+    items.push(Box::new(nav_skills));
+    items.push(Box::new(nav_history));
+    items.push(Box::new(nav_stats));
 
     items.push(Box::new(PredefinedMenuItem::separator(app)?));
 
@@ -123,6 +135,10 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
                         eprintln!("Failed to activate config from tray: {}", e);
                     }
                 }
+            } else if let Some(tab) = id.strip_prefix("nav_") {
+                // 页面导航
+                show_main_window(app);
+                let _ = app.emit("navigate-to-tab", tab.to_string());
             } else {
                 match id {
                     "show_window" => {

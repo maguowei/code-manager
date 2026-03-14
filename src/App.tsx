@@ -75,6 +75,18 @@ function App() {
     };
   }, []);
 
+  // 监听来自系统托盘的页面导航事件
+  useEffect(() => {
+    if (!isTauri()) return;
+    const unlisten = listen<string>("navigate-to-tab", (event) => {
+      setActiveTab(event.payload as TabType);
+      setIsDetailDrawerOpen(false);
+    });
+    return () => {
+      unlisten.then(fn => fn());
+    };
+  }, []);
+
   // 键盘快捷键支持（Cmd/Ctrl + N 新建配置）
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
