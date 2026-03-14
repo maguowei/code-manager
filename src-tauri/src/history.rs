@@ -226,7 +226,9 @@ fn parse_content_blocks(content: &serde_json::Value) -> Vec<MessageBlock> {
                             .to_string();
                         let input_preview = item
                             .get("input")
-                            .map(|v| truncate(&v.to_string(), 200))
+                            .map(|v| {
+                                serde_json::to_string_pretty(v).unwrap_or_else(|_| v.to_string())
+                            })
                             .unwrap_or_default();
                         blocks.push(MessageBlock::ToolUse {
                             name,
@@ -254,6 +256,11 @@ fn parse_content_blocks(content: &serde_json::Value) -> Vec<MessageBlock> {
                                 }
                             })
                             .unwrap_or_default();
+                        // 过滤 system-reminder 标签内容
+                        let content = RE_SYSTEM_REMINDER
+                            .replace_all(&content, "")
+                            .trim()
+                            .to_string();
                         if !content.is_empty() {
                             blocks.push(MessageBlock::ToolResult { content });
                         }
@@ -308,7 +315,7 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
     let content =
         fs::read_to_string(&session_file).map_err(|e| format!("读取会话文件失败: {}", e))?;
 
-    let mut messages = Vec::new();
+    let mut messages: Vec<SessionMessage> = Vec::new();
     for line in content.lines() {
         let trimmed = line.trim();
         if trimmed.is_empty() {
@@ -407,6 +414,21 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
         // 跳过无内容的消息
         if blocks.is_empty() {
             continue;
+        }
+
+        // 若当前 user 消息全部 block 都是 tool_result，合并到上一条 assistant 消息中
+        // 这样前端的 tool_use + tool_result 配对逻辑可以正常工作
+        let all_tool_results = role == "user"
+            && blocks
+                .iter()
+                .all(|b| matches!(b, MessageBlock::ToolResult { .. }));
+        if all_tool_results {
+            if let Some(last) = messages.last_mut() {
+                if last.role == "assistant" {
+                    last.blocks.extend(blocks);
+                    continue;
+                }
+            }
         }
 
         let timestamp = record

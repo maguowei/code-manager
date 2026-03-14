@@ -176,14 +176,17 @@
   padding: var(--space-2) var(--space-3);
   font-size: var(--font-xs);
   color: var(--text-tertiary);
-  font-style: italic;
   background-color: var(--bg-primary);
   border-left: 2px dashed var(--border-muted);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  white-space: pre-wrap;
   word-break: break-word;
   max-height: 300px;
   overflow-y: auto;
+}
+
+/* 思考内容中的段落文字保持斜体风格 */
+.msg-thinking-content p {
+  font-style: italic;
 }
 
 /* command 命令块 */
@@ -284,10 +287,46 @@
   color: var(--accent-purple);
 }
 
+/* 折叠状态摘要信息容器 */
+.msg-tool-card-header-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* 主要信息（pattern / file_path） */
+.msg-tool-card-filepath {
+  font-size: var(--font-xs);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+/* 次要信息（path），带分隔符 */
+.msg-tool-card-header-path {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 2;
+  opacity: 0.6;
+}
+
+
 .msg-tool-card-arrow {
   margin-left: auto;
   font-size: 10px;
   color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .msg-tool-card-body {
@@ -321,6 +360,32 @@
   word-break: break-word;
   max-height: 150px;
   overflow-y: auto;
+}
+
+/* 工具输入参数字段列表 */
+.msg-tool-card-input-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* 单个字段行 */
+.msg-tool-card-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* 字段 key 标签 */
+.msg-tool-card-field-key {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  opacity: 0.7;
+}
+
+/* 字段 value 容器（继承 msg-tool-card-result 和 msg-tool-card-code 的样式） */
+.msg-tool-card-field-value {
 }
 
 /* tool_result Markdown 渲染区（在工具调用卡片内） */
