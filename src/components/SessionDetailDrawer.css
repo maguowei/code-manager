@@ -328,12 +328,13 @@
   font-size: var(--font-xs);
   max-height: 300px;
   overflow-y: auto;
+  word-break: break-word;
+  overflow-x: hidden;
 }
 
 /* tool_result 块（独立的、未与 tool_use 合并的） */
 .msg-tool-result {
   font-size: var(--font-xs);
-  color: var(--text-tertiary);
   padding: 6px 10px;
   background-color: var(--bg-primary);
   border-radius: var(--radius-sm);
