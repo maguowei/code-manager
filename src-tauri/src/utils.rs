@@ -103,3 +103,12 @@ pub fn lock_stats() -> Result<MutexGuard<'static, ()>, String> {
 pub fn lock_skills() -> Result<MutexGuard<'static, ()>, String> {
     acquire_lock(&SKILLS_LOCK)
 }
+
+/// 截取字符串前 max_len 个 Unicode 字符，超出时追加 "..."
+pub fn truncate(s: &str, max_len: usize) -> String {
+    let mut chars = s.char_indices();
+    match chars.nth(max_len) {
+        None => s.to_string(),
+        Some((byte_idx, _)) => format!("{}...", &s[..byte_idx]),
+    }
+}

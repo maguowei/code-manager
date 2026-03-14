@@ -133,10 +133,19 @@ function HistoryPage() {
     }
   }, []);
 
+  // sessionId → project 索引，O(1) 查找替代 allEntries.find()
+  const sessionProjectMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const entry of allEntries) {
+      map.set(entry.sessionId, entry.project);
+    }
+    return map;
+  }, [allEntries]);
+
   const handleViewDetail = useCallback((sessionId: string) => {
-    const project = selectedProject || allEntries.find(e => e.sessionId === sessionId)?.project || "";
+    const project = selectedProject || sessionProjectMap.get(sessionId) || "";
     setViewingSession({ project, sessionId });
-  }, [selectedProject, allEntries]);
+  }, [selectedProject, sessionProjectMap]);
 
   useEffect(() => { loadHistory(); }, [loadHistory]);
 

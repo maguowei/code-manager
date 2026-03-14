@@ -2,6 +2,10 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::Serialize;
 use std::fs;
+use std::io::{BufRead, BufReader};
+
+/// 用于匹配 "Implement the following plan:" 前缀的常量
+const PLAN_PREFIX: &str = "Implement the following plan:";
 
 /// 历史记录读取结果
 #[derive(Serialize)]
@@ -52,8 +56,8 @@ pub fn get_history_if_changed(last_mtime: u64) -> Result<Option<HistoryResult>, 
     if mtime == last_mtime {
         return Ok(None);
     }
+    // 先读文件内容，再取 mtime，避免两次 mtime 调用之间文件被修改导致不一致
     let content = fs::read_to_string(&path).map_err(|e| format!("读取历史文件失败: {}", e))?;
-    let mtime = file_mtime(&path)?;
     Ok(Some(HistoryResult { content, mtime }))
 }
 
@@ -107,15 +111,6 @@ pub struct SessionDetail {
     pub messages: Vec<SessionMessage>,
 }
 
-/// 截取字符串前 max_len 个 Unicode 字符，超出时追加 "..."
-fn truncate(s: &str, max_len: usize) -> String {
-    let mut chars = s.char_indices();
-    match chars.nth(max_len) {
-        None => s.to_string(),
-        Some((byte_idx, _)) => format!("{}...", &s[..byte_idx]),
-    }
-}
-
 /// 预编译的 XML 标签正则
 static RE_COMMAND_NAME: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"<command-name>([\s\S]*?)</command-name>").unwrap());
@@ -147,7 +142,7 @@ fn parse_text_with_tags(text: &str) -> Vec<MessageBlock> {
     for cap in RE_SYSTEM_REMINDER.captures_iter(text) {
         let content = cap[1].trim();
         if !content.is_empty() {
-            let summary = truncate(content, 80);
+            let summary = crate::utils::truncate(content, 80);
             blocks.push(MessageBlock::System { summary });
         }
     }
@@ -168,7 +163,7 @@ fn parse_text_with_tags(text: &str) -> Vec<MessageBlock> {
             // 用 System block 折叠展示，避免误认为用户消息
             let has_command = blocks.iter().any(|b| matches!(b, MessageBlock::Command { .. }));
             if has_command {
-                let summary = truncate(remaining, 200);
+                let summary = crate::utils::truncate(remaining, 200);
                 blocks.push(MessageBlock::System { summary });
             } else {
                 blocks.push(MessageBlock::Text {
@@ -326,11 +321,17 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
         });
     }
 
-    let content =
-        fs::read_to_string(&session_file).map_err(|e| format!("读取会话文件失败: {}", e))?;
+    // 使用 BufReader 流式逐行读取，避免将大文件（含 base64 图片）全量加载到内存
+    let file =
+        fs::File::open(&session_file).map_err(|e| format!("打开会话文件失败: {}", e))?;
+    let reader = BufReader::new(file);
 
     let mut messages: Vec<SessionMessage> = Vec::new();
-    for line in content.lines() {
+    for line_result in reader.lines() {
+        let line = match line_result {
+            Ok(l) => l,
+            Err(_) => continue,
+        };
         let trimmed = line.trim();
         if trimmed.is_empty() {
             continue;
@@ -383,7 +384,7 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
                 .into_iter()
                 .map(|b| match b {
                     MessageBlock::Text { text } => {
-                        let summary = truncate(&text, 200);
+                        let summary = crate::utils::truncate(&text, 200);
                         MessageBlock::System { summary }
                     }
                     other => other,
@@ -398,17 +399,16 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
             .filter(|s| !s.is_empty())
         {
             let plan_content = plan_content.to_string();
-            let summary = truncate(&plan_content, 80);
+            let summary = crate::utils::truncate(&plan_content, 80);
 
             // 从 text blocks 中移除计划正文
-            let prefix = "Implement the following plan:";
             blocks.retain(|b| {
                 if let MessageBlock::Text { text } = b {
                     // 如果整个文本就是 "Implement the following plan:\n\n{计划内容}"，则移除
-                    let trimmed = text.trim();
-                    if trimmed == prefix
-                        || trimmed.starts_with(prefix)
-                            && trimmed[prefix.len()..].trim() == plan_content.trim()
+                    let t = text.trim();
+                    if t == PLAN_PREFIX
+                        || (t.starts_with(PLAN_PREFIX)
+                            && t[PLAN_PREFIX.len()..].trim() == plan_content.trim())
                     {
                         return false;
                     }
@@ -419,7 +419,7 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
             // 对包含前缀的 text block 做截断处理
             for block in &mut blocks {
                 if let MessageBlock::Text { text } = block {
-                    if let Some(pos) = text.find(prefix) {
+                    if let Some(pos) = text.find(PLAN_PREFIX) {
                         let before = text[..pos].trim();
                         if before.is_empty() {
                             // text 以 prefix 开头，裁掉 prefix 及之后的内容

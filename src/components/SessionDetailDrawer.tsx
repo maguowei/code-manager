@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useMemo, memo, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -9,6 +9,9 @@ import { useI18n, type TranslationKey } from "../i18n";
 import useEscapeKey from "../hooks/useEscapeKey";
 import { useToast } from "../hooks/useToast";
 import "./SessionDetailDrawer.css";
+
+/** 文件类工具集合（模块级常量，避免每次渲染重建 Set） */
+const FILE_TOOLS = new Set(["Read", "Write", "Edit", "NotebookRead", "NotebookEdit"]);
 
 /** 根据文件扩展名获取 Prism 语言标识 */
 function langFromPath(filePath: string): string {
@@ -55,22 +58,45 @@ function CodeResultBlock({ content, filePath }: { content: string; filePath: str
   );
 }
 
-interface Props {
-  project: string;
-  sessionId: string;
-  onClose: () => void;
+/** 通用可折叠块，ThinkingBlock / SystemBlock 共用 */
+function CollapsibleBlock({
+  wrapClass,
+  toggleClass,
+  contentClass,
+  label,
+  children,
+}: {
+  wrapClass?: string;
+  toggleClass: string;
+  contentClass: string;
+  label: string;
+  children: ReactNode;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className={`msg-block${wrapClass ? ` ${wrapClass}` : ""}`}>
+      <button
+        className={toggleClass}
+        aria-expanded={expanded}
+        onClick={() => setExpanded(!expanded)}
+      >
+        {expanded ? "\u25BC" : "\u25B6"} {label}
+      </button>
+      {expanded && <div className={contentClass}>{children}</div>}
+    </div>
+  );
 }
 
 /** 渲染单个 thinking 块（可折叠） */
 function ThinkingBlock({ thinking, label }: { thinking: string; label: string }) {
-  const [expanded, setExpanded] = useState(false);
   return (
-    <div className="msg-block">
-      <button className="msg-thinking-toggle" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
-        {expanded ? "\u25BC" : "\u25B6"} {label}
-      </button>
-      {expanded && <div className="msg-thinking-content msg-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]}>{thinking}</ReactMarkdown></div>}
-    </div>
+    <CollapsibleBlock
+      toggleClass="msg-thinking-toggle"
+      contentClass="msg-thinking-content msg-markdown"
+      label={label}
+    >
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{thinking}</ReactMarkdown>
+    </CollapsibleBlock>
   );
 }
 
@@ -87,14 +113,15 @@ function CommandBlock({ name, args }: { name: string; args?: string }) {
 
 /** 渲染系统信息块（可折叠） */
 function SystemBlock({ summary, label }: { summary: string; label: string }) {
-  const [expanded, setExpanded] = useState(false);
   return (
-    <div className="msg-block msg-system">
-      <button className="msg-system-toggle" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
-        {expanded ? "\u25BC" : "\u25B6"} {label}
-      </button>
-      {expanded && <div className="msg-system-content">{summary}</div>}
-    </div>
+    <CollapsibleBlock
+      wrapClass="msg-system"
+      toggleClass="msg-system-toggle"
+      contentClass="msg-system-content"
+      label={label}
+    >
+      {summary}
+    </CollapsibleBlock>
   );
 }
 
@@ -119,89 +146,68 @@ function PlanBlock({ summary, content, label }: { summary: string; content: stri
   );
 }
 
-/** 智能渲染工具输入参数：JSON 对象按字段展示，字符串值用 Markdown 渲染 */
-function renderInputPreview(inputPreview: string) {
-  try {
-    const parsed = JSON.parse(inputPreview);
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return (
-        <div className="msg-tool-card-input-fields">
-          {Object.entries(parsed).map(([key, value]) => (
-            <div key={key} className="msg-tool-card-field">
-              <span className="msg-tool-card-field-key">{key}</span>
-              {typeof value === "string" ? (
-                <div className="msg-tool-card-field-value msg-tool-card-result msg-markdown">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{value}</ReactMarkdown>
-                </div>
-              ) : (
-                <pre className="msg-tool-card-field-value msg-tool-card-code">
-                  {JSON.stringify(value, null, 2)}
-                </pre>
-              )}
-            </div>
-          ))}
-        </div>
-      );
-    }
-  } catch {
-    // 解析失败，回退到 Markdown 渲染
+/** 从已解析的工具输入对象中提取折叠状态下的摘要信息 */
+function getHeaderHintFromParsed(
+  p: Record<string, unknown> | null
+): { primary?: string; secondary?: string } {
+  if (!p) return {};
+  const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
+
+  if (str(p.file_path))     return { primary: p.file_path as string };
+  if (str(p.notebook_path)) return { primary: p.notebook_path as string };
+  if (str(p.pattern)) return { primary: p.pattern as string, secondary: str(p.path) };
+  if (str(p.command)) return { primary: p.command as string };
+  if (str(p.url))     return { primary: p.url as string };
+  if (str(p.query))   return { primary: p.query as string };
+  if (str(p.description)) return { primary: p.description as string, secondary: str(p.subagent_type) };
+  if (str(p.summary)) return {
+    primary: p.summary as string,
+    secondary: str(p.to) ? `→ ${p.to as string}` : undefined,
+  };
+  if (str(p.subject)) return { primary: p.subject as string };
+  if (str(p.taskId) || typeof p.taskId === "number") {
+    return { primary: `#${p.taskId}`, secondary: str(p.status) };
+  }
+  if (str(p.operation) && str(p.filePath)) return { primary: p.operation as string, secondary: p.filePath as string };
+  if (str(p.filePath)) return { primary: p.filePath as string };
+  if (str(p.path))    return { primary: p.path as string };
+  if (str(p.prompt))  return { primary: p.prompt as string };
+  return {};
+}
+
+/** 工具输入参数渲染：JSON 对象按字段展示，字符串值用 Markdown 渲染 */
+function InputPreview({
+  inputPreview,
+  parsedInput,
+}: {
+  inputPreview: string;
+  parsedInput: Record<string, unknown> | null;
+}) {
+  if (parsedInput) {
+    return (
+      <div className="msg-tool-card-input-fields">
+        {Object.entries(parsedInput).map(([key, value]) => (
+          <div key={key} className="msg-tool-card-field">
+            <span className="msg-tool-card-field-key">{key}</span>
+            {typeof value === "string" ? (
+              <div className="msg-tool-card-field-value msg-tool-card-result msg-markdown">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{value}</ReactMarkdown>
+              </div>
+            ) : (
+              <pre className="msg-tool-card-field-value msg-tool-card-code">
+                {JSON.stringify(value, null, 2)}
+              </pre>
+            )}
+          </div>
+        ))}
+      </div>
+    );
   }
   return (
     <div className="msg-tool-card-result msg-markdown">
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{inputPreview}</ReactMarkdown>
     </div>
   );
-}
-
-/** 从工具输入 JSON 中提取折叠状态下显示的摘要信息 */
-function getHeaderHint(inputPreview: string): { primary?: string; secondary?: string } {
-  try {
-    const p = JSON.parse(inputPreview);
-    if (!p || typeof p !== "object" || Array.isArray(p)) return {};
-    const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
-
-    // 文件路径类：Read / Write / Edit / NotebookRead / NotebookEdit
-    if (str(p.file_path))     return { primary: p.file_path };
-    if (str(p.notebook_path)) return { primary: p.notebook_path };
-
-    // Grep / Glob：pattern + 可选 path
-    if (str(p.pattern)) return { primary: p.pattern, secondary: str(p.path) };
-
-    // Bash：展示命令
-    if (str(p.command)) return { primary: p.command };
-
-    // WebFetch：展示 URL
-    if (str(p.url)) return { primary: p.url };
-
-    // WebSearch：展示查询词
-    if (str(p.query)) return { primary: p.query };
-
-    // Agent：展示描述
-    if (str(p.description)) return { primary: p.description, secondary: str(p.subagent_type) };
-
-    // SendMessage：展示摘要 + 收件人
-    if (str(p.summary)) return { primary: p.summary, secondary: str(p.to) ? `→ ${p.to}` : undefined };
-
-    // Task 工具：TaskCreate
-    if (str(p.subject)) return { primary: p.subject };
-
-    // TaskUpdate：任务 ID + 状态
-    if (str(p.taskId) || typeof p.taskId === "number") {
-      const id = `#${p.taskId}`;
-      return { primary: id, secondary: str(p.status) };
-    }
-
-    // LSP：操作类型 + 文件路径
-    if (str(p.operation) && str(p.filePath)) return { primary: p.operation, secondary: p.filePath };
-    if (str(p.filePath)) return { primary: p.filePath };
-
-    // LS / Glob path-only
-    if (str(p.path)) return { primary: p.path };
-
-    // CronCreate：展示 prompt 前段
-    if (str(p.prompt)) return { primary: p.prompt };
-  } catch { /* 忽略解析失败 */ }
-  return {};
 }
 
 /** 工具调用折叠卡片 - 合并 tool_use 和可选的 tool_result */
@@ -219,18 +225,20 @@ function ToolCallCard({
   resultLabel: string;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const headerHint = getHeaderHint(inputPreview);
 
-  // 从 inputPreview 提取 file_path，用于代码高亮
-  let filePath: string | undefined;
-  try {
-    const p = JSON.parse(inputPreview);
-    if (p && typeof p.file_path === "string") filePath = p.file_path;
-  } catch { /* 忽略 */ }
+  // 统一解析一次，供 getHeaderHintFromParsed / InputPreview / filePath 共用
+  const parsedInput = useMemo<Record<string, unknown> | null>(() => {
+    try {
+      const p = JSON.parse(inputPreview);
+      if (p && typeof p === "object" && !Array.isArray(p)) return p as Record<string, unknown>;
+    } catch { /* 忽略解析失败 */ }
+    return null;
+  }, [inputPreview]);
 
-  // 文件类工具（Read/Write/Edit）的结果用代码高亮渲染
-  const FILE_TOOLS = new Set(["Read", "Write", "Edit", "NotebookRead", "NotebookEdit"]);
+  const headerHint = getHeaderHintFromParsed(parsedInput);
+  const filePath = typeof parsedInput?.file_path === "string" ? parsedInput.file_path : undefined;
   const isFileTool = FILE_TOOLS.has(name) && !!filePath;
+
   return (
     <div className="msg-block msg-tool-card">
       <button className="msg-tool-card-header" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
@@ -251,7 +259,7 @@ function ToolCallCard({
           {inputPreview && (
             <div className="msg-tool-card-section">
               <span className="msg-tool-card-label">{inputLabel}</span>
-              {renderInputPreview(inputPreview)}
+              <InputPreview inputPreview={inputPreview} parsedInput={parsedInput} />
             </div>
           )}
           {resultContent && (
@@ -272,8 +280,14 @@ function ToolCallCard({
   );
 }
 
-/** 将 blocks 列表中相邻的 tool_use + tool_result 合并渲染 */
-function renderBlocks(blocks: MessageBlock[], t: (key: TranslationKey) => string) {
+/** 渲染消息的 blocks 列表，相邻 tool_use + tool_result 自动合并为卡片 */
+const MessageBlocks = memo(function MessageBlocks({
+  blocks,
+  t,
+}: {
+  blocks: MessageBlock[];
+  t: (key: TranslationKey) => string;
+}) {
   const elements: ReactNode[] = [];
   let i = 0;
   while (i < blocks.length) {
@@ -287,7 +301,9 @@ function renderBlocks(blocks: MessageBlock[], t: (key: TranslationKey) => string
         );
         break;
       case "thinking":
-        elements.push(<ThinkingBlock key={i} thinking={block.thinking} label={t("history.thinking")} />);
+        elements.push(
+          <ThinkingBlock key={i} thinking={block.thinking} label={t("history.thinking")} />
+        );
         break;
       case "tool_use": {
         const next = blocks[i + 1];
@@ -316,7 +332,9 @@ function renderBlocks(blocks: MessageBlock[], t: (key: TranslationKey) => string
         elements.push(<CommandBlock key={i} name={block.name} args={block.args} />);
         break;
       case "system":
-        elements.push(<SystemBlock key={i} summary={block.summary} label={t("history.system")} />);
+        elements.push(
+          <SystemBlock key={i} summary={block.summary} label={t("history.system")} />
+        );
         break;
       case "image":
         elements.push(
@@ -354,7 +372,13 @@ function renderBlocks(blocks: MessageBlock[], t: (key: TranslationKey) => string
     }
     i++;
   }
-  return elements;
+  return <>{elements}</>;
+});
+
+interface Props {
+  project: string;
+  sessionId: string;
+  onClose: () => void;
 }
 
 function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
@@ -375,11 +399,23 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
       .finally(() => setLoading(false));
   }, [project, sessionId, showToast, t]);
 
+  // 预格式化时间戳，避免在渲染函数中重复调用 new Date().toLocaleString()
+  const formattedMessages = useMemo(
+    () =>
+      detail?.messages.map((msg) => ({
+        ...msg,
+        formattedTime: msg.timestamp
+          ? new Date(msg.timestamp).toLocaleString()
+          : undefined,
+      })) ?? null,
+    [detail]
+  );
+
   return (
     <>
       <div className="session-detail-overlay visible" onClick={handleClose} />
       <div className="session-detail-drawer open">
-        {/* 顶部标题栏 - 复用 editor-header 样式 */}
+        {/* 顶部标题栏 */}
         <div className="editor-header">
           <button className="editor-back-btn" onClick={handleClose} title={t("common.close")}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -392,11 +428,11 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
         {/* 内容区 */}
         {loading ? (
           <div className="session-detail-loading">{t("loading")}</div>
-        ) : !detail || detail.messages.length === 0 ? (
+        ) : !formattedMessages || formattedMessages.length === 0 ? (
           <div className="session-detail-empty">{t("history.noData")}</div>
         ) : (
           <div className="session-detail-messages">
-            {detail.messages.map((msg, i) => (
+            {formattedMessages.map((msg, i) => (
               <div key={i} className={`session-msg ${msg.role}`}>
                 <div className="session-msg-header">
                   <span className={`session-msg-avatar ${msg.role}`}>
@@ -405,14 +441,12 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
                   <span className="session-msg-role">
                     {msg.role === "user" ? t("history.roleUser") : t("history.roleAssistant")}
                   </span>
-                  {msg.timestamp && (
-                    <span className="session-msg-time">
-                      {new Date(msg.timestamp).toLocaleString()}
-                    </span>
+                  {msg.formattedTime && (
+                    <span className="session-msg-time">{msg.formattedTime}</span>
                   )}
                 </div>
                 <div className="session-msg-bubble">
-                  {renderBlocks(msg.blocks, t)}
+                  <MessageBlocks blocks={msg.blocks} t={t} />
                 </div>
               </div>
             ))}
