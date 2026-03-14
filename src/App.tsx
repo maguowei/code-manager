@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import "./App.css";
 import { ClaudeConfig, TabType, isTauri } from "./types";
@@ -18,6 +17,7 @@ import Sidebar from "./components/Sidebar";
 import ConfirmDialog from "./components/ConfirmDialog";
 import { PlusIcon } from "./components/Icons";
 import useEscapeKey from "./hooks/useEscapeKey";
+import useTauriEvent from "./hooks/useTauriEvent";
 
 /** 将表单数据转换为后端 ConfigData 格式 */
 function buildConfigData(config: Omit<ClaudeConfig, "id" | "createdAt" | "updatedAt" | "isActive">) {
@@ -65,27 +65,13 @@ function App() {
   }, []);
 
   // 监听来自系统托盘的配置切换事件
-  useEffect(() => {
-    if (!isTauri()) return;
-    const unlisten = listen("config-changed", () => {
-      loadConfigs();
-    });
-    return () => {
-      unlisten.then(fn => fn());
-    };
-  }, []);
+  useTauriEvent<void>("config-changed", () => loadConfigs());
 
   // 监听来自系统托盘的页面导航事件
-  useEffect(() => {
-    if (!isTauri()) return;
-    const unlisten = listen<string>("navigate-to-tab", (event) => {
-      setActiveTab(event.payload as TabType);
-      setIsDetailDrawerOpen(false);
-    });
-    return () => {
-      unlisten.then(fn => fn());
-    };
-  }, []);
+  useTauriEvent<string>("navigate-to-tab", (tab) => {
+    setActiveTab(tab as TabType);
+    setIsDetailDrawerOpen(false);
+  });
 
   // 键盘快捷键支持（Cmd/Ctrl + N 新建配置）
   useEffect(() => {

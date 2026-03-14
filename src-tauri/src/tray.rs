@@ -41,14 +41,15 @@ fn build_tray_menu(app: &AppHandle, state: &AppState) -> tauri::Result<Menu<taur
     items.push(Box::new(PredefinedMenuItem::separator(app)?));
 
     // 页面导航项
-    let nav_memory = MenuItemBuilder::with_id("nav_memory", "记忆管理").build(app)?;
-    let nav_skills = MenuItemBuilder::with_id("nav_skills", "Skills 管理").build(app)?;
-    let nav_history = MenuItemBuilder::with_id("nav_history", "历史记录").build(app)?;
-    let nav_stats = MenuItemBuilder::with_id("nav_stats", "使用统计").build(app)?;
-    items.push(Box::new(nav_memory));
-    items.push(Box::new(nav_skills));
-    items.push(Box::new(nav_history));
-    items.push(Box::new(nav_stats));
+    for (id, label) in [
+        ("nav_memory", "记忆管理"),
+        ("nav_skills", "Skills 管理"),
+        ("nav_history", "历史记录"),
+        ("nav_stats", "使用统计"),
+    ] {
+        let item = MenuItemBuilder::with_id(id, label).build(app)?;
+        items.push(Box::new(item));
+    }
 
     items.push(Box::new(PredefinedMenuItem::separator(app)?));
 
