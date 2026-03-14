@@ -254,7 +254,9 @@ fn parse_content_blocks(content: &serde_json::Value) -> Vec<MessageBlock> {
                                 }
                             })
                             .unwrap_or_default();
-                        blocks.push(MessageBlock::ToolResult { content });
+                        if !content.is_empty() {
+                            blocks.push(MessageBlock::ToolResult { content });
+                        }
                     }
                     "image" => {
                         let source = item.get("source");
