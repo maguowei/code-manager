@@ -124,6 +124,19 @@ static RE_COMMAND_MSG: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"<command-message>[\s\S]*?</command-message>").unwrap());
 static RE_ANY_TAG: Lazy<Regex> = Lazy::new(|| Regex::new(r"<[^>]+>").unwrap());
 
+/// 清除噪音 XML 标签，strip_structured=true 时额外移除结构化标签
+fn strip_noise_tags(text: &str, strip_structured: bool) -> String {
+    let mut s = text.to_string();
+    if strip_structured {
+        s = RE_COMMAND_NAME.replace_all(&s, "").to_string();
+        s = RE_COMMAND_ARGS.replace_all(&s, "").to_string();
+        s = RE_SYSTEM_REMINDER.replace_all(&s, "").to_string();
+    }
+    s = RE_COMMAND_MSG.replace_all(&s, "").to_string();
+    s = RE_LOCAL_CAVEAT.replace_all(&s, "").to_string();
+    RE_ANY_TAG.replace_all(&s, "").to_string()
+}
+
 /// 解析文本中的 XML 标签，提取 command/system 信息，过滤噪音标签
 fn parse_text_with_tags(text: &str) -> Vec<MessageBlock> {
     let mut blocks = Vec::new();
@@ -149,19 +162,14 @@ fn parse_text_with_tags(text: &str) -> Vec<MessageBlock> {
 
     // 3. 如果提取了 command 或 system，检查是否还有有意义的剩余文本
     if !blocks.is_empty() {
-        let mut remaining = text.to_string();
-        remaining = RE_COMMAND_NAME.replace_all(&remaining, "").to_string();
-        remaining = RE_COMMAND_ARGS.replace_all(&remaining, "").to_string();
-        remaining = RE_COMMAND_MSG.replace_all(&remaining, "").to_string();
-        remaining = RE_SYSTEM_REMINDER.replace_all(&remaining, "").to_string();
-        remaining = RE_LOCAL_CAVEAT.replace_all(&remaining, "").to_string();
-        // 清除所有残留的未知标签
-        remaining = RE_ANY_TAG.replace_all(&remaining, "").to_string();
+        let remaining = strip_noise_tags(text, true);
         let remaining = remaining.trim();
         if !remaining.is_empty() {
             // Command 后的剩余内容是 skill 展开的 prompt，不是用户输入
             // 用 System block 折叠展示，避免误认为用户消息
-            let has_command = blocks.iter().any(|b| matches!(b, MessageBlock::Command { .. }));
+            let has_command = blocks
+                .iter()
+                .any(|b| matches!(b, MessageBlock::Command { .. }));
             if has_command {
                 let summary = crate::utils::truncate(remaining, 200);
                 blocks.push(MessageBlock::System { summary });
@@ -175,11 +183,7 @@ fn parse_text_with_tags(text: &str) -> Vec<MessageBlock> {
     }
 
     // 4. 没有匹配到结构化标签 -- 检查是否只有噪音标签
-    let mut cleaned = text.to_string();
-    cleaned = RE_LOCAL_CAVEAT.replace_all(&cleaned, "").to_string();
-    cleaned = RE_COMMAND_MSG.replace_all(&cleaned, "").to_string();
-    // 与步骤 3 保持一致，清除所有残留的未知 XML 标签
-    cleaned = RE_ANY_TAG.replace_all(&cleaned, "").to_string();
+    let cleaned = strip_noise_tags(text, false);
     let cleaned = cleaned.trim();
 
     if cleaned.is_empty() {
@@ -306,7 +310,7 @@ fn parse_content_blocks(content: &serde_json::Value) -> Vec<MessageBlock> {
 #[tauri::command]
 pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDetail, String> {
     // 编码项目路径：/ 和 . 都替换为 -（与 Claude 实际编码规则一致）
-    let encoded = project.replace('/', "-").replace('.', "-");
+    let encoded = project.replace(['/', '.'], "-");
     let session_file = crate::utils::home_dir_or_fallback()
         .join(".claude")
         .join("projects")
@@ -401,42 +405,27 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
             let plan_content = plan_content.to_string();
             let summary = crate::utils::truncate(&plan_content, 80);
 
-            // 从 text blocks 中移除计划正文
-            blocks.retain(|b| {
+            // 单次遍历：移除/截断包含计划前缀的 text blocks
+            blocks.retain_mut(|b| {
                 if let MessageBlock::Text { text } = b {
-                    // 如果整个文本就是 "Implement the following plan:\n\n{计划内容}"，则移除
                     let t = text.trim();
+                    // 完整匹配计划内容的 block 直接移除
                     if t == PLAN_PREFIX
                         || (t.starts_with(PLAN_PREFIX)
                             && t[PLAN_PREFIX.len()..].trim() == plan_content.trim())
                     {
                         return false;
                     }
-                }
-                true
-            });
-
-            // 对包含前缀的 text block 做截断处理
-            for block in &mut blocks {
-                if let MessageBlock::Text { text } = block {
+                    // 包含计划前缀的 block 截断处理
                     if let Some(pos) = text.find(PLAN_PREFIX) {
                         let before = text[..pos].trim();
                         if before.is_empty() {
-                            // text 以 prefix 开头，裁掉 prefix 及之后的内容
-                            *text = String::new();
-                        } else {
-                            *text = before.to_string();
+                            return false;
                         }
+                        *text = before.to_string();
                     }
                 }
-            }
-            // 清理空 text blocks
-            blocks.retain(|b| {
-                if let MessageBlock::Text { text } = b {
-                    !text.is_empty()
-                } else {
-                    true
-                }
+                true
             });
 
             blocks.push(MessageBlock::Plan {

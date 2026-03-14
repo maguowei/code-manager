@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, memo, type ReactNode } from "react";
+import { useState, useEffect, useRef, useMemo, memo, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -13,19 +13,24 @@ import "./SessionDetailDrawer.css";
 /** 文件类工具集合（模块级常量，避免每次渲染重建 Set） */
 const FILE_TOOLS = new Set(["Read", "Write", "Edit", "NotebookRead", "NotebookEdit"]);
 
+/** ReactMarkdown 插件列表（模块级常量，所有实例共享，避免每次渲染重建数组） */
+const REMARK_PLUGINS = [remarkGfm];
+
+/** 扩展名到 Prism 语言标识的映射（模块级常量） */
+const EXT_LANG_MAP: Record<string, string> = {
+  ts: "typescript", tsx: "tsx", js: "javascript", jsx: "jsx",
+  rs: "rust", py: "python", sh: "bash", bash: "bash", zsh: "bash",
+  css: "css", scss: "scss", html: "html", xml: "xml",
+  json: "json", toml: "toml", yaml: "yaml", yml: "yaml",
+  md: "markdown", mdx: "markdown", sql: "sql", go: "go",
+  java: "java", kt: "kotlin", swift: "swift", c: "c", cpp: "cpp",
+  rb: "ruby", php: "php", r: "r",
+};
+
 /** 根据文件扩展名获取 Prism 语言标识 */
 function langFromPath(filePath: string): string {
   const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
-  const map: Record<string, string> = {
-    ts: "typescript", tsx: "tsx", js: "javascript", jsx: "jsx",
-    rs: "rust", py: "python", sh: "bash", bash: "bash", zsh: "bash",
-    css: "css", scss: "scss", html: "html", xml: "xml",
-    json: "json", toml: "toml", yaml: "yaml", yml: "yaml",
-    md: "markdown", mdx: "markdown", sql: "sql", go: "go",
-    java: "java", kt: "kotlin", swift: "swift", c: "c", cpp: "cpp",
-    rb: "ruby", php: "php", r: "r",
-  };
-  return map[ext] ?? "text";
+  return EXT_LANG_MAP[ext] ?? "text";
 }
 
 /** 剥离 Read 工具返回内容中的行号前缀（如 "     1\t"） */
@@ -58,21 +63,24 @@ function CodeResultBlock({ content, filePath }: { content: string; filePath: str
   );
 }
 
-/** 通用可折叠块，ThinkingBlock / SystemBlock 共用 */
+/** 通用可折叠块，ThinkingBlock / SystemBlock / PlanBlock 共用 */
 function CollapsibleBlock({
   wrapClass,
   toggleClass,
   contentClass,
   label,
   children,
+  arrowPosition = "inline",
 }: {
   wrapClass?: string;
   toggleClass: string;
   contentClass: string;
-  label: string;
+  label: ReactNode;
   children: ReactNode;
+  arrowPosition?: "inline" | "trailing";
 }) {
   const [expanded, setExpanded] = useState(false);
+  const arrow = expanded ? "\u25BC" : "\u25B6";
   return (
     <div className={`msg-block${wrapClass ? ` ${wrapClass}` : ""}`}>
       <button
@@ -80,7 +88,9 @@ function CollapsibleBlock({
         aria-expanded={expanded}
         onClick={() => setExpanded(!expanded)}
       >
-        {expanded ? "\u25BC" : "\u25B6"} {label}
+        {arrowPosition === "inline" && <>{arrow} </>}
+        {label}
+        {arrowPosition === "trailing" && <span className="msg-plan-arrow">{arrow}</span>}
       </button>
       {expanded && <div className={contentClass}>{children}</div>}
     </div>
@@ -95,7 +105,7 @@ function ThinkingBlock({ thinking, label }: { thinking: string; label: string })
       contentClass="msg-thinking-content msg-markdown"
       label={label}
     >
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{thinking}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{thinking}</ReactMarkdown>
     </CollapsibleBlock>
   );
 }
@@ -125,24 +135,26 @@ function SystemBlock({ summary, label }: { summary: string; label: string }) {
   );
 }
 
-/** 渲染计划块（可折叠） */
+/** 渲染计划块（可折叠，复用 CollapsibleBlock） */
 function PlanBlock({ summary, content, label }: { summary: string; content: string; label: string }) {
-  const [expanded, setExpanded] = useState(false);
+  const planLabel = (
+    <>
+      <span className="msg-plan-icon">&#x1f4cb;</span>
+      <span className="msg-plan-label">{label}</span>
+      <span className="msg-plan-claude-badge">Claude</span>
+      <span className="msg-plan-summary">{summary}</span>
+    </>
+  );
   return (
-    <div className="msg-block msg-plan">
-      <button className="msg-plan-toggle" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
-        <span className="msg-plan-icon">&#x1f4cb;</span>
-        <span className="msg-plan-label">{label}</span>
-        <span className="msg-plan-claude-badge">Claude</span>
-        <span className="msg-plan-summary">{summary}</span>
-        <span className="msg-plan-arrow">{expanded ? "\u25BC" : "\u25B6"}</span>
-      </button>
-      {expanded && (
-        <div className="msg-plan-content">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
-        </div>
-      )}
-    </div>
+    <CollapsibleBlock
+      wrapClass="msg-plan"
+      toggleClass="msg-plan-toggle"
+      contentClass="msg-plan-content msg-markdown"
+      label={planLabel}
+      arrowPosition="trailing"
+    >
+      <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{content}</ReactMarkdown>
+    </CollapsibleBlock>
   );
 }
 
@@ -191,7 +203,7 @@ function InputPreview({
             <span className="msg-tool-card-field-key">{key}</span>
             {typeof value === "string" ? (
               <div className="msg-tool-card-field-value msg-tool-card-result msg-markdown">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{value}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{value}</ReactMarkdown>
               </div>
             ) : (
               <pre className="msg-tool-card-field-value msg-tool-card-code">
@@ -205,7 +217,7 @@ function InputPreview({
   }
   return (
     <div className="msg-tool-card-result msg-markdown">
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{inputPreview}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{inputPreview}</ReactMarkdown>
     </div>
   );
 }
@@ -269,7 +281,7 @@ function ToolCallCard({
                 <CodeResultBlock content={resultContent} filePath={filePath!} />
               ) : (
                 <div className="msg-tool-card-result msg-markdown">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{resultContent}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{resultContent}</ReactMarkdown>
                 </div>
               )}
             </div>
@@ -296,7 +308,7 @@ const MessageBlocks = memo(function MessageBlocks({
       case "text":
         elements.push(
           <div key={i} className="msg-block msg-markdown">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.text}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{block.text}</ReactMarkdown>
           </div>
         );
         break;
@@ -324,7 +336,7 @@ const MessageBlocks = memo(function MessageBlocks({
       case "tool_result":
         elements.push(
           <div key={i} className="msg-block msg-tool-result msg-markdown">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.content || "..."}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{block.content || "..."}</ReactMarkdown>
           </div>
         );
         break;
@@ -387,37 +399,31 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
   const [detail, setDetail] = useState<SessionDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const handleClose = useCallback(() => onClose(), [onClose]);
-  useEscapeKey(handleClose);
+  // 用 ref 持有 showToast/t 的最新引用，避免它们变化时触发无意义的 RPC 重发
+  const showToastRef = useRef(showToast);
+  const tRef = useRef(t);
+  useEffect(() => { showToastRef.current = showToast; tRef.current = t; });
+
+  useEscapeKey(onClose);
 
   useEffect(() => {
     if (!isTauri()) { setLoading(false); return; }
     setLoading(true);
     invoke<SessionDetail>("get_session_detail", { project, sessionId })
       .then(setDetail)
-      .catch(() => showToast(t("history.noData"), "error"))
+      .catch(() => showToastRef.current(tRef.current("history.noData"), "error"))
       .finally(() => setLoading(false));
-  }, [project, sessionId, showToast, t]);
+  }, [project, sessionId]);
 
-  // 预格式化时间戳，避免在渲染函数中重复调用 new Date().toLocaleString()
-  const formattedMessages = useMemo(
-    () =>
-      detail?.messages.map((msg) => ({
-        ...msg,
-        formattedTime: msg.timestamp
-          ? new Date(msg.timestamp).toLocaleString()
-          : undefined,
-      })) ?? null,
-    [detail]
-  );
+  const messages = detail?.messages;
 
   return (
     <>
-      <div className="session-detail-overlay visible" onClick={handleClose} />
+      <div className="session-detail-overlay visible" onClick={onClose} />
       <div className="session-detail-drawer open">
         {/* 顶部标题栏 */}
         <div className="editor-header">
-          <button className="editor-back-btn" onClick={handleClose} title={t("common.close")}>
+          <button className="editor-back-btn" onClick={onClose} title={t("common.close")}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M12 4L4 12M4 4l8 8" />
             </svg>
@@ -428,11 +434,11 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
         {/* 内容区 */}
         {loading ? (
           <div className="session-detail-loading">{t("loading")}</div>
-        ) : !formattedMessages || formattedMessages.length === 0 ? (
+        ) : !messages || messages.length === 0 ? (
           <div className="session-detail-empty">{t("history.noData")}</div>
         ) : (
           <div className="session-detail-messages">
-            {formattedMessages.map((msg, i) => (
+            {messages.map((msg, i) => (
               <div key={i} className={`session-msg ${msg.role}`}>
                 <div className="session-msg-header">
                   <span className={`session-msg-avatar ${msg.role}`}>
@@ -441,8 +447,10 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
                   <span className="session-msg-role">
                     {msg.role === "user" ? t("history.roleUser") : t("history.roleAssistant")}
                   </span>
-                  {msg.formattedTime && (
-                    <span className="session-msg-time">{msg.formattedTime}</span>
+                  {msg.timestamp && (
+                    <span className="session-msg-time">
+                      {new Date(msg.timestamp).toLocaleString()}
+                    </span>
                   )}
                 </div>
                 <div className="session-msg-bubble">
