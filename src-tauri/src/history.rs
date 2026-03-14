@@ -72,7 +72,7 @@ pub enum MessageBlock {
     ToolUse { name: String, input_preview: String },
     /// 工具返回结果
     #[serde(rename = "tool_result")]
-    ToolResult { content_preview: String },
+    ToolResult { content: String },
     /// 斜杠命令
     #[serde(rename = "command")]
     Command { name: String, args: Option<String> },
@@ -85,6 +85,9 @@ pub enum MessageBlock {
         source_type: String,
         media_type: String,
     },
+    /// 计划内容（用户审批的 plan）
+    #[serde(rename = "plan")]
+    Plan { summary: String, content: String },
 }
 
 /// 一条对话消息
@@ -231,17 +234,27 @@ fn parse_content_blocks(content: &serde_json::Value) -> Vec<MessageBlock> {
                         });
                     }
                     "tool_result" => {
-                        let content_preview = item
+                        let content = item
                             .get("content")
                             .map(|v| {
                                 if let Some(s) = v.as_str() {
-                                    truncate(s, 200)
+                                    // content 是字符串，直接使用
+                                    s.to_string()
+                                } else if let Some(arr) = v.as_array() {
+                                    // content 是数组（如 [{"type":"text","text":"..."}]），提取所有 text 字段
+                                    arr.iter()
+                                        .filter_map(|item| {
+                                            item.get("text").and_then(|t| t.as_str())
+                                        })
+                                        .collect::<Vec<_>>()
+                                        .join("\n")
                                 } else {
-                                    truncate(&v.to_string(), 200)
+                                    // 其他类型忽略
+                                    String::new()
                                 }
                             })
                             .unwrap_or_default();
-                        blocks.push(MessageBlock::ToolResult { content_preview });
+                        blocks.push(MessageBlock::ToolResult { content });
                     }
                     "image" => {
                         let source = item.get("source");
@@ -333,7 +346,61 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
             .get("content")
             .cloned()
             .unwrap_or(serde_json::Value::Null);
-        let blocks = parse_content_blocks(&content_val);
+        let mut blocks = parse_content_blocks(&content_val);
+
+        // 检测 planContent 字段，将计划内容从用户消息中分离
+        if let Some(plan_content) = record
+            .get("planContent")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+        {
+            let plan_content = plan_content.to_string();
+            let summary = truncate(&plan_content, 80);
+
+            // 从 text blocks 中移除计划正文
+            let prefix = "Implement the following plan:";
+            blocks.retain(|b| {
+                if let MessageBlock::Text { text } = b {
+                    // 如果整个文本就是 "Implement the following plan:\n\n{计划内容}"，则移除
+                    let trimmed = text.trim();
+                    if trimmed == prefix
+                        || trimmed.starts_with(prefix)
+                            && trimmed[prefix.len()..].trim() == plan_content.trim()
+                    {
+                        return false;
+                    }
+                }
+                true
+            });
+
+            // 对包含前缀的 text block 做截断处理
+            for block in &mut blocks {
+                if let MessageBlock::Text { text } = block {
+                    if let Some(pos) = text.find(prefix) {
+                        let before = text[..pos].trim();
+                        if before.is_empty() {
+                            // text 以 prefix 开头，裁掉 prefix 及之后的内容
+                            *text = String::new();
+                        } else {
+                            *text = before.to_string();
+                        }
+                    }
+                }
+            }
+            // 清理空 text blocks
+            blocks.retain(|b| {
+                if let MessageBlock::Text { text } = b {
+                    !text.is_empty()
+                } else {
+                    true
+                }
+            });
+
+            blocks.push(MessageBlock::Plan {
+                summary,
+                content: plan_content,
+            });
+        }
 
         // 跳过无内容的消息
         if blocks.is_empty() {
