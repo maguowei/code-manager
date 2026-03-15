@@ -149,9 +149,9 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
     if (env.ANTHROPIC_DEFAULT_OPUS_MODEL !== undefined) setOpusModel(env.ANTHROPIC_DEFAULT_OPUS_MODEL);
 
     // 布尔字段（env 内以 "1" 表示 true）
-    setDisableNonessentialTraffic(!!env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC);
-    setEnableLspTool(!!env.ENABLE_LSP_TOOL);
-    setEnableAgentTeams(!!env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS);
+    setDisableNonessentialTraffic(env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC === "1");
+    setEnableLspTool(env.ENABLE_LSP_TOOL === "1");
+    setEnableAgentTeams(env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS === "1");
 
     // 清理 env 中的已知 key，保留未知 key
     const knownEnvKeys = [
