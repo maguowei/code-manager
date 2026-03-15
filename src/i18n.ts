@@ -182,6 +182,10 @@ const translations = {
     "settings.themeLight": "浅色",
     "settings.themeDark": "深色",
     "settings.themeSystem": "跟随系统",
+    "settings.showTrayTitle": "在菜单栏显示当前配置",
+    "settings.showTrayTitleDesc": "在系统托盘图标旁显示当前激活的配置名称",
+    "settings.enabled": "已启用",
+    "settings.disabled": "未启用",
 
     // 操作通知（Toast）
     "toast.configLoadError": "加载配置失败",
@@ -478,6 +482,10 @@ const translations = {
     "settings.themeLight": "Light",
     "settings.themeDark": "Dark",
     "settings.themeSystem": "System",
+    "settings.showTrayTitle": "Show active config in menu bar",
+    "settings.showTrayTitleDesc": "Display the active configuration name next to the system tray icon",
+    "settings.enabled": "Enabled",
+    "settings.disabled": "Disabled",
 
     // 操作通知（Toast）
     "toast.configLoadError": "Failed to load configs",
