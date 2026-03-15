@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ClaudeConfig } from "../types";
 import { useI18n } from "../i18n";
@@ -41,6 +41,15 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
   const [showApiKey, setShowApiKey] = useState(false);
   const [defaultsContent, setDefaultsContent] = useState(defaults || "");
 
+  // 额外字段：用户在 JSON 中手动添加的表单不支持的字段
+  const [extraFields, setExtraFields] = useState<Record<string, unknown>>(config?.extraFields || {});
+  // JSON 语法错误信息
+  const [jsonError, setJsonError] = useState("");
+  // 用户是否正在编辑预览区
+  const isEditingPreview = useRef(false);
+  // 防抖定时器，用于检测用户停止编辑预览
+  const editingTimer = useRef<ReturnType<typeof setTimeout>>();
+
   // 当启用/禁用通用配置时，实时更新表单字段
   useEffect(() => {
     if (!useDefaults || !defaultsContent.trim()) {
@@ -72,6 +81,8 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
       setPreviewJson("{}");
       return;
     }
+    // 用户正在编辑预览时，不覆盖预览区内容
+    if (isEditingPreview.current) return;
     // cancelled 必须在 effect 顶层声明，cleanup 时设为 true，防止过时 IPC 响应更新已卸载组件
     let cancelled = false;
     // 防抖 300ms，避免快速输入时高频 IPC 调用
@@ -97,18 +108,111 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
         preferredLanguage: preferredLanguage || null,
         useDefaults: useDefaults ?? null,
         enabledPlugins: Object.keys(enabledPlugins).length > 0 ? enabledPlugins : null,
+        extraFields: Object.keys(extraFields).length > 0 ? extraFields : null,
       };
       const previewDefaults = useDefaults && defaultsContent.trim() ? defaultsContent.trim() : null;
       invoke<string>("preview_config", { data, defaults: previewDefaults })
-        .then((result) => { if (!cancelled) setPreviewJson(result); })
+        .then((result) => {
+          if (!cancelled) {
+            setPreviewJson(result);
+            setJsonError("");
+          }
+        })
         .catch(() => { if (!cancelled) setPreviewJson("{}"); });
     }, 300);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [apiKey, name, description, apiUrl, websiteUrl, model, thinkingModel, haikuModel, sonnetModel, opusModel, alwaysThinkingEnabled, disableNonessentialTraffic, skipWebFetchPreflight, enableLspTool, enableAgentTeams, hasCompletedOnboarding, enableExtraMarketplaces, preferredLanguage, useDefaults, enabledPlugins, defaultsContent]);
+  }, [apiKey, name, description, apiUrl, websiteUrl, model, thinkingModel, haikuModel, sonnetModel, opusModel, alwaysThinkingEnabled, disableNonessentialTraffic, skipWebFetchPreflight, enableLspTool, enableAgentTeams, hasCompletedOnboarding, enableExtraMarketplaces, preferredLanguage, useDefaults, enabledPlugins, defaultsContent, extraFields]);
+
+  /** 从预览 JSON 中提取已知字段同步回表单，剩余字段存入 extraFields */
+  function parseJsonToForm(jsonStr: string) {
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(jsonStr);
+      setJsonError("");
+    } catch (e) {
+      setJsonError(e instanceof Error ? e.message : "JSON 格式错误");
+      return;
+    }
+
+    // 深拷贝，用于逐步移除已识别的字段，剩余的就是 extraFields
+    const remaining = JSON.parse(JSON.stringify(parsed)) as Record<string, unknown>;
+
+    // 提取 env 子对象
+    const env = (parsed.env ?? {}) as Record<string, string>;
+
+    // 字符串字段：env 内
+    if (env.ANTHROPIC_AUTH_TOKEN !== undefined) setApiKey(env.ANTHROPIC_AUTH_TOKEN);
+    if (env.ANTHROPIC_BASE_URL !== undefined) setApiUrl(env.ANTHROPIC_BASE_URL);
+    if (env.ANTHROPIC_MODEL !== undefined) setModel(env.ANTHROPIC_MODEL);
+    if (env.ANTHROPIC_DEFAULT_HAIKU_MODEL !== undefined) setHaikuModel(env.ANTHROPIC_DEFAULT_HAIKU_MODEL);
+    if (env.ANTHROPIC_DEFAULT_SONNET_MODEL !== undefined) setSonnetModel(env.ANTHROPIC_DEFAULT_SONNET_MODEL);
+    if (env.ANTHROPIC_DEFAULT_OPUS_MODEL !== undefined) setOpusModel(env.ANTHROPIC_DEFAULT_OPUS_MODEL);
+
+    // 布尔字段（env 内以 "1" 表示 true）
+    setDisableNonessentialTraffic(!!env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC);
+    setEnableLspTool(!!env.ENABLE_LSP_TOOL);
+    setEnableAgentTeams(!!env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS);
+
+    // 清理 env 中的已知 key，保留未知 key
+    const knownEnvKeys = [
+      "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL",
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL",
+      "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "ENABLE_LSP_TOOL", "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+    ];
+    if (remaining.env && typeof remaining.env === "object") {
+      const remainingEnv = remaining.env as Record<string, unknown>;
+      for (const k of knownEnvKeys) delete remainingEnv[k];
+      if (Object.keys(remainingEnv).length === 0) delete remaining.env;
+    }
+
+    // 顶层字段
+    if (typeof parsed.language === "string") {
+      setPreferredLanguage(parsed.language);
+    } else if (!("language" in parsed)) {
+      setPreferredLanguage("english");
+    }
+    delete remaining.language;
+
+    if (typeof parsed.alwaysThinkingEnabled === "boolean") setAlwaysThinkingEnabled(parsed.alwaysThinkingEnabled);
+    delete remaining.alwaysThinkingEnabled;
+
+    if (typeof parsed.skipWebFetchPreflight === "boolean") setSkipWebFetchPreflight(parsed.skipWebFetchPreflight);
+    delete remaining.skipWebFetchPreflight;
+
+    if (typeof parsed.hasCompletedOnboarding === "boolean") setHasCompletedOnboarding(parsed.hasCompletedOnboarding);
+    delete remaining.hasCompletedOnboarding;
+
+    setEnableExtraMarketplaces("extraKnownMarketplaces" in parsed);
+    delete remaining.extraKnownMarketplaces;
+
+    if (parsed.enabledPlugins && typeof parsed.enabledPlugins === "object") {
+      setEnabledPlugins(parsed.enabledPlugins as Record<string, boolean>);
+    }
+    delete remaining.enabledPlugins;
+
+    // 剩余字段存入 extraFields
+    setExtraFields(remaining);
+  }
+
+  /** 用户编辑预览 JSON 时的回调 */
+  function handlePreviewChange(value: string) {
+    // 标记用户正在编辑预览
+    isEditingPreview.current = true;
+    if (editingTimer.current) clearTimeout(editingTimer.current);
+    editingTimer.current = setTimeout(() => {
+      isEditingPreview.current = false;
+    }, 1000);
+
+    // 直接更新预览文本
+    setPreviewJson(value);
+
+    // 尝试解析并反写表单
+    parseJsonToForm(value);
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !apiKey.trim()) {
+    if (!name.trim() || !apiKey.trim() || jsonError) {
       return;
     }
     // 校验通用配置 JSON 格式
@@ -140,6 +244,7 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
       hasCompletedOnboarding,
       useDefaults,
       enabledPlugins: Object.keys(enabledPlugins).length > 0 ? enabledPlugins : undefined,
+      extraFields: Object.keys(extraFields).length > 0 ? extraFields : undefined,
       preferredLanguage,
     }, defaultsContent);
   }
@@ -161,7 +266,7 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
             <button
               type="submit"
               className="editor-save-btn"
-              disabled={!name.trim() || !apiKey.trim()}
+              disabled={!name.trim() || !apiKey.trim() || !!jsonError}
             >
               {t("configModal.save")}
             </button>
@@ -456,7 +561,11 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
 
             {/* 配置预览 - 使用独立的 ConfigPreview 组件展示最终合并后的 JSON */}
             <CollapsibleSection title={t("configModal.jsonPreview")}>
-              <ConfigPreview content={previewJson} />
+              <ConfigPreview
+                content={previewJson}
+                onChange={handlePreviewChange}
+                jsonError={jsonError}
+              />
             </CollapsibleSection>
           </div>
         </form>
