@@ -352,8 +352,21 @@ fn build_config_value(config: &ClaudeConfig, defaults: Option<&str>) -> serde_js
     if let Some(ref extra) = config.extra_fields {
         if let serde_json::Value::Object(ref mut map) = result {
             for (k, v) in extra {
-                // 不覆盖已知字段
-                if !map.contains_key(k) {
+                if let Some(existing) = map.get_mut(k) {
+                    // 两者都是对象时递归合并（如 env 中的自定义环境变量）
+                    if let (
+                        serde_json::Value::Object(ref mut existing_map),
+                        serde_json::Value::Object(extra_map),
+                    ) = (existing, v)
+                    {
+                        for (ek, ev) in extra_map {
+                            if !existing_map.contains_key(ek) {
+                                existing_map.insert(ek.clone(), ev.clone());
+                            }
+                        }
+                    }
+                    // 非对象类型不覆盖已知字段
+                } else {
                     map.insert(k.clone(), v.clone());
                 }
             }

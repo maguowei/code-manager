@@ -50,6 +50,13 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
   // 防抖定时器，用于检测用户停止编辑预览
   const editingTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
+  // 组件卸载时清理 editingTimer
+  useEffect(() => {
+    return () => {
+      if (editingTimer.current) clearTimeout(editingTimer.current);
+    };
+  }, []);
+
   // 当启用/禁用通用配置时，实时更新表单字段
   useEffect(() => {
     if (!useDefaults || !defaultsContent.trim()) {
@@ -173,13 +180,25 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
     }
     delete remaining.language;
 
-    if (typeof parsed.alwaysThinkingEnabled === "boolean") setAlwaysThinkingEnabled(parsed.alwaysThinkingEnabled);
+    if (typeof parsed.alwaysThinkingEnabled === "boolean") {
+      setAlwaysThinkingEnabled(parsed.alwaysThinkingEnabled);
+    } else if (!("alwaysThinkingEnabled" in parsed)) {
+      setAlwaysThinkingEnabled(false);
+    }
     delete remaining.alwaysThinkingEnabled;
 
-    if (typeof parsed.skipWebFetchPreflight === "boolean") setSkipWebFetchPreflight(parsed.skipWebFetchPreflight);
+    if (typeof parsed.skipWebFetchPreflight === "boolean") {
+      setSkipWebFetchPreflight(parsed.skipWebFetchPreflight);
+    } else if (!("skipWebFetchPreflight" in parsed)) {
+      setSkipWebFetchPreflight(false);
+    }
     delete remaining.skipWebFetchPreflight;
 
-    if (typeof parsed.hasCompletedOnboarding === "boolean") setHasCompletedOnboarding(parsed.hasCompletedOnboarding);
+    if (typeof parsed.hasCompletedOnboarding === "boolean") {
+      setHasCompletedOnboarding(parsed.hasCompletedOnboarding);
+    } else if (!("hasCompletedOnboarding" in parsed)) {
+      setHasCompletedOnboarding(false);
+    }
     delete remaining.hasCompletedOnboarding;
 
     setEnableExtraMarketplaces("extraKnownMarketplaces" in parsed);
