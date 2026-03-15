@@ -1,5 +1,8 @@
+import { useState, useEffect, useCallback } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { useI18n, Language, Theme } from "../i18n";
 import useEscapeKey from "../hooks/useEscapeKey";
+import { useToast } from "../hooks/useToast";
 import "./SettingsDrawer.css";
 
 interface SettingsDrawerProps {
@@ -8,6 +11,26 @@ interface SettingsDrawerProps {
 
 function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   const { t, language, theme, setLanguage, setTheme } = useI18n();
+  const { showToast } = useToast();
+  const [showTrayTitle, setShowTrayTitle] = useState(true);
+
+  // 从后端加载设置
+  useEffect(() => {
+    invoke<{ showTrayTitle: boolean }>("get_configs").then((state) => {
+      setShowTrayTitle(state.showTrayTitle);
+    });
+  }, []);
+
+  const handleToggleTrayTitle = useCallback(async () => {
+    const newValue = !showTrayTitle;
+    setShowTrayTitle(newValue);
+    try {
+      await invoke("set_show_tray_title", { show: newValue });
+    } catch {
+      setShowTrayTitle(!newValue);
+      showToast(t("toast.configSaveError"), "error");
+    }
+  }, [showTrayTitle, showToast, t]);
 
   const themeOptions: { value: Theme; labelKey: "settings.themeLight" | "settings.themeDark" | "settings.themeSystem"; icon: string }[] = [
     { value: "light", labelKey: "settings.themeLight", icon: "sun" },
@@ -104,6 +127,30 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                   ))}
                 </div>
               </div>
+            </div>
+          </section>
+
+          {/* 托盘显示 */}
+          <section className="settings-section-card">
+            <div className="settings-section-head">
+              <h3>{t("settings.showTrayTitle")}</h3>
+              <p>{t("settings.showTrayTitleDesc")}</p>
+            </div>
+            <div className="settings-item">
+              <button
+                type="button"
+                className={`toggle-switch${showTrayTitle ? " enabled" : ""}`}
+                onClick={handleToggleTrayTitle}
+                role="switch"
+                aria-checked={showTrayTitle}
+              >
+                <span className="toggle-track">
+                  <span className="toggle-thumb" />
+                </span>
+                <span className="toggle-label">
+                  {showTrayTitle ? t("settings.enabled") : t("settings.disabled")}
+                </span>
+              </button>
             </div>
           </section>
         </div>

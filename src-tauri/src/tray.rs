@@ -65,6 +65,19 @@ fn build_tray_menu(app: &AppHandle, state: &AppState) -> tauri::Result<Menu<taur
     Menu::with_items(app, &refs)
 }
 
+/// 获取托盘 title：当设置开启且有激活配置时返回配置名
+fn get_tray_title(state: &AppState) -> Option<String> {
+    if !state.show_tray_title {
+        return None;
+    }
+    let active_id = state.active_config_id.as_ref()?;
+    state
+        .configs
+        .iter()
+        .find(|c| &c.id == active_id)
+        .map(|c| c.name.clone())
+}
+
 /// 重建托盘菜单（配置变化后调用）
 /// 可传入已有的 state 避免重复读磁盘，传 None 则从磁盘读取
 pub fn rebuild_tray_menu(app_handle: &AppHandle, state: Option<&AppState>) {
@@ -85,6 +98,8 @@ pub fn rebuild_tray_menu(app_handle: &AppHandle, state: Option<&AppState>) {
                 eprintln!("Failed to rebuild tray menu: {}", e);
             }
         }
+        // 同步更新托盘 title
+        let _ = tray.set_title(get_tray_title(state).as_deref());
     }
 }
 
@@ -116,11 +131,16 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
         })?
         .clone();
 
-    let _tray = TrayIconBuilder::with_id("main_tray")
+    // 构建托盘图标，若设置开启且有激活配置则在图标旁显示配置名
+    let mut builder = TrayIconBuilder::with_id("main_tray")
         .icon(icon)
         .tooltip("AI Manager")
         .menu(&menu)
-        .show_menu_on_left_click(true)
+        .show_menu_on_left_click(true);
+    if let Some(title) = get_tray_title(&state) {
+        builder = builder.title(&title);
+    }
+    let _tray = builder
         .on_menu_event(|app, event| {
             let id = event.id().as_ref();
 
