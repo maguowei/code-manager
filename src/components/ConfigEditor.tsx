@@ -48,7 +48,7 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
   // 用户是否正在编辑预览区
   const isEditingPreview = useRef(false);
   // 防抖定时器，用于检测用户停止编辑预览
-  const editingTimer = useRef<ReturnType<typeof setTimeout>>();
+  const editingTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // 当启用/禁用通用配置时，实时更新表单字段
   useEffect(() => {
