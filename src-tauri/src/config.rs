@@ -163,6 +163,13 @@ pub struct AppState {
     pub active_config_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub defaults: Option<String>,
+    /// 是否在托盘图标旁显示当前激活配置名（默认 true）
+    #[serde(default = "default_true")]
+    pub show_tray_title: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 /// 获取应用配置文件路径
@@ -608,4 +615,20 @@ pub fn preview_config(data: ConfigData, defaults: Option<String>) -> Result<Stri
     let config = data.into_preview_config();
     let final_config = build_config_value(&config, defaults.as_deref());
     serde_json::to_string_pretty(&final_config).map_err(|e| e.to_string())
+}
+
+/// 设置是否在托盘图标旁显示当前激活配置名
+#[tauri::command]
+pub fn set_show_tray_title(app_handle: AppHandle, show: bool) -> Result<(), String> {
+    let _lock = crate::utils::lock_config()?;
+
+    let mut state = load_state();
+    if state.show_tray_title == show {
+        return Ok(());
+    }
+    state.show_tray_title = show;
+    save_state(&state)?;
+    rebuild_tray_menu(&app_handle, Some(&state));
+
+    Ok(())
 }

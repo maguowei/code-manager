@@ -8,7 +8,7 @@ mod utils;
 
 use config::{
     activate_config, add_config, delete_config, duplicate_config, get_configs, get_defaults,
-    preview_config, reorder_configs, update_config, update_defaults,
+    preview_config, reorder_configs, set_show_tray_title, update_config, update_defaults,
 };
 use history::{get_history, get_history_if_changed, get_session_detail};
 use memory::{add_memory, delete_memory, get_memories, toggle_memory, update_memory};
@@ -54,6 +54,7 @@ pub fn run() {
             get_defaults,
             update_defaults,
             preview_config,
+            set_show_tray_title,
             get_memories,
             add_memory,
             update_memory,
