@@ -490,7 +490,7 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
             {/* 已启用插件 */}
             <CollapsibleSection
               title={t("configModal.enabledPlugins")}
-              badge={Object.keys(enabledPlugins).length}
+              badge={Object.values(enabledPlugins).filter(Boolean).length}
             >
               <PluginManager
                 plugins={enabledPlugins}
