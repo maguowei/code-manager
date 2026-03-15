@@ -98,8 +98,9 @@ pub fn rebuild_tray_menu(app_handle: &AppHandle, state: Option<&AppState>) {
                 eprintln!("Failed to rebuild tray menu: {}", e);
             }
         }
-        // 同步更新托盘 title
-        let _ = tray.set_title(get_tray_title(state).as_deref());
+        // 同步更新托盘 title：传 Some("") 清除，Some(name) 设置
+        let title = get_tray_title(state).unwrap_or_default();
+        let _ = tray.set_title(Some(title.as_str()));
     }
 }
 

@@ -8,17 +8,23 @@ import useEditorTheme from "../hooks/useEditorTheme";
 interface ConfigPreviewProps {
   /** 要展示的 JSON 字符串 */
   content: string;
+  /** 用户编辑 JSON 时的回调 */
+  onChange?: (value: string) => void;
+  /** JSON 语法错误信息 */
+  jsonError?: string;
 }
 
 /**
- * ConfigPreview —— 只读 JSON 配置预览组件
+ * ConfigPreview —— JSON 配置预览/编辑组件
  *
  * 负责：
- * - 使用 CodeMirror 以语法高亮方式展示 JSON 内容（只读）
+ * - 使用 CodeMirror 以语法高亮方式展示 JSON 内容
+ * - 传入 onChange 时进入可编辑模式，否则保持只读
  * - 提供"复制到剪贴板"按钮
  * - 根据应用主题自动切换 CodeMirror 配色方案
+ * - 展示 JSON 语法错误提示
  */
-function ConfigPreview({ content }: ConfigPreviewProps) {
+function ConfigPreview({ content, onChange, jsonError }: ConfigPreviewProps) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const editorTheme = useEditorTheme();
@@ -36,7 +42,7 @@ function ConfigPreview({ content }: ConfigPreviewProps) {
   }
 
   return (
-    <div className="json-preview">
+    <div className={`json-preview ${jsonError ? "error" : ""}`}>
       <div className="json-preview-header">
         <button
           type="button"
@@ -61,17 +67,21 @@ function ConfigPreview({ content }: ConfigPreviewProps) {
           )}
         </button>
       </div>
-      {/* 只读 CodeMirror 编辑器，带行号与 JSON 语法高亮 */}
+      {/* CodeMirror 编辑器，带行号与 JSON 语法高亮；传入 onChange 时可编辑 */}
       <CodeMirror
         value={content}
         extensions={[json()]}
         theme={editorTheme}
-        editable={false}
+        editable={!!onChange}
+        onChange={onChange}
         basicSetup={{
           lineNumbers: true,
           foldGutter: false,
         }}
       />
+      {jsonError && (
+        <p className="json-preview-error">{jsonError}</p>
+      )}
     </div>
   );
 }

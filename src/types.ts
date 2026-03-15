@@ -31,6 +31,8 @@ export interface ClaudeConfig {
   useDefaults?: boolean;
   // 插件配置
   enabledPlugins?: Record<string, boolean>;
+  // 额外字段（用户在 JSON 编辑器中手动添加的）
+  extraFields?: Record<string, unknown>;
   // 元数据
   isActive: boolean;
   createdAt: number;

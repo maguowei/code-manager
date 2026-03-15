@@ -29,6 +29,7 @@ pub struct ConfigData {
     pub preferred_language: Option<String>,
     pub use_defaults: Option<bool>,
     pub enabled_plugins: Option<HashMap<String, bool>>,
+    pub extra_fields: Option<HashMap<String, serde_json::Value>>,
 }
 
 impl ConfigData {
@@ -66,6 +67,7 @@ impl ConfigData {
             preferred_language: self.preferred_language,
             use_defaults: self.use_defaults,
             enabled_plugins: self.enabled_plugins,
+            extra_fields: self.extra_fields,
             is_active: false,
             created_at: 0,
             updated_at: 0,
@@ -94,6 +96,7 @@ impl ConfigData {
         config.preferred_language = self.preferred_language;
         config.use_defaults = self.use_defaults;
         config.enabled_plugins = self.enabled_plugins;
+        config.extra_fields = self.extra_fields;
         config.updated_at = crate::utils::current_timestamp();
     }
 }
@@ -144,6 +147,9 @@ pub struct ClaudeConfig {
     // 插件配置
     #[serde(skip_serializing_if = "Option::is_none")]
     pub enabled_plugins: Option<HashMap<String, bool>>,
+    // 额外字段（用户在 JSON 编辑器中手动添加的字段）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extra_fields: Option<HashMap<String, serde_json::Value>>,
     // 元数据
     pub is_active: bool,
     pub created_at: u64,
@@ -333,17 +339,48 @@ fn build_config_value(config: &ClaudeConfig, defaults: Option<&str>) -> serde_js
 
     claude_config.insert("env".to_string(), serde_json::Value::Object(env));
 
-    // 若启用通用配置且 defaults 合法，进行深度合并（通用配置为 base，当前配置覆盖）
-    if config.use_defaults == Some(true) {
+    // 构建基础配置，若启用通用配置则深度合并（通用配置为 base，当前配置覆盖）
+    let mut result = if config.use_defaults == Some(true) {
         if let Some(defaults_str) = defaults {
             if let Ok(defaults_val) = serde_json::from_str::<serde_json::Value>(defaults_str) {
                 let current_val = serde_json::Value::Object(claude_config);
-                return deep_merge(defaults_val, current_val);
+                deep_merge(defaults_val, current_val)
+            } else {
+                serde_json::Value::Object(claude_config)
+            }
+        } else {
+            serde_json::Value::Object(claude_config)
+        }
+    } else {
+        serde_json::Value::Object(claude_config)
+    };
+
+    // 合并额外字段（用户在 JSON 编辑器中手动添加的字段）
+    if let Some(ref extra) = config.extra_fields {
+        if let serde_json::Value::Object(ref mut map) = result {
+            for (k, v) in extra {
+                if let Some(existing) = map.get_mut(k) {
+                    // 两者都是对象时递归合并（如 env 中的自定义环境变量）
+                    if let (
+                        serde_json::Value::Object(ref mut existing_map),
+                        serde_json::Value::Object(extra_map),
+                    ) = (existing, v)
+                    {
+                        for (ek, ev) in extra_map {
+                            if !existing_map.contains_key(ek) {
+                                existing_map.insert(ek.clone(), ev.clone());
+                            }
+                        }
+                    }
+                    // 非对象类型不覆盖已知字段
+                } else {
+                    map.insert(k.clone(), v.clone());
+                }
             }
         }
     }
 
-    serde_json::Value::Object(claude_config)
+    result
 }
 
 /// 将指定配置应用到 ~/.claude/settings.json
