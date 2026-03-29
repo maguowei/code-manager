@@ -1,5 +1,8 @@
 # AI Manager
 
+[![CI](https://github.com/maguowei/ai-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/maguowei/ai-manager/actions/workflows/ci.yml)
+[![Release](https://github.com/maguowei/ai-manager/actions/workflows/release.yml/badge.svg)](https://github.com/maguowei/ai-manager/actions/workflows/release.yml)
+
 一个用于管理 Claude Code 配置和记忆的桌面应用程序。
 
 ## 功能特性

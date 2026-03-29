@@ -4,9 +4,19 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - "**.md"
+      - ".github/workflows/release.yml"
   pull_request:
     branches:
       - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+    paths-ignore:
+      - "**.md"
+      - ".github/workflows/release.yml"
 
 jobs:
   check:
