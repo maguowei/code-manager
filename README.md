@@ -39,7 +39,25 @@
 - 可视化图表展示 Token 用量和会话趋势
 - 快照历史追踪，支持长期趋势分析
 
-## 安装使用
+## 下载安装
+
+前往 [Releases](https://github.com/maguowei/ai-manager/releases) 页面下载对应平台的安装包。
+
+| 平台 | 安装包 |
+|------|--------|
+| macOS (Apple Silicon / Intel) | `.dmg` |
+| Windows | `.msi` 或 `.exe` |
+| Linux | `.deb` / `.rpm` / `.AppImage` |
+
+### macOS 注意事项
+
+由于应用未经过 Apple 公证，首次打开时系统可能提示"无法打开"。在终端执行以下命令移除隔离属性后即可正常运行：
+
+```bash
+xattr -rd com.apple.quarantine /Applications/ai-manager.app
+```
+
+## 开发
 
 ### 前置要求
 - Node.js 18+
