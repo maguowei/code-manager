@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish-tauri:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-26
+            args: --target universal-apple-darwin
+          - platform: ubuntu-24.04
+            args: ""
+          - platform: windows-latest
+            args: ""
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: 安装 Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-26' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: 安装 Linux 系统依赖
+        if: matrix.platform == 'ubuntu-24.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: 安装前端依赖
+        run: pnpm install
+
+      - name: 构建并发布
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "AI Manager ${{ github.ref_name }}"
+          releaseBody: "查看 Assets 下载并安装此版本。"
+          releaseDraft: true
+          prerelease: false
+          tauriScript: pnpm tauri
+          args: ${{ matrix.args }}
