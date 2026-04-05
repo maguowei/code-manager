@@ -2,7 +2,25 @@
 export const isTauri = () => typeof window !== "undefined" && window.__TAURI_INTERNALS__ !== undefined;
 
 // 侧边栏 Tab 类型
-export type TabType = "configs" | "memory" | "skills" | "stats" | "history";
+export type TabType = "configs" | "providers" | "memory" | "skills" | "stats" | "history";
+
+export interface ProviderModel {
+  id: string;
+  name: string;
+  category: "opus" | "sonnet" | "haiku" | "other";
+}
+
+export interface Provider {
+  id: string;
+  name: string;
+  slug: string;
+  apiUrl: string;
+  docUrl?: string;
+  isBuiltin: boolean;
+  models: ProviderModel[];
+  createdAt: number;
+  updatedAt: number;
+}
 
 export interface ClaudeConfig {
   id: string;
@@ -33,6 +51,8 @@ export interface ClaudeConfig {
   enabledPlugins?: Record<string, boolean>;
   // 额外字段（用户在 JSON 编辑器中手动添加的）
   extraFields?: Record<string, unknown>;
+  // Provider 关联
+  providerId?: string;
   // 元数据
   isActive: boolean;
   createdAt: number;
