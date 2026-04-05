@@ -2,6 +2,7 @@ import { memo } from "react";
 import { Provider } from "../types";
 import { useI18n } from "../i18n";
 import { TrashIcon } from "./Icons";
+import "./ProviderItem.css";
 
 interface ProviderItemProps {
   provider: Provider;

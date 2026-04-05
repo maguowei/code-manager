@@ -90,7 +90,7 @@ function ProviderPage({ providers, onProvidersChange }: ProviderPageProps) {
   }
 
   return (
-    <div className="page-container">
+    <>
       <div className={`list-section ${isDrawerOpen ? "compressed" : ""}`}>
         <div className="page-header">
           <h1 className="page-title">{t("providers.title")}</h1>
@@ -143,7 +143,7 @@ function ProviderPage({ providers, onProvidersChange }: ProviderPageProps) {
           onCancel={() => setPendingDeleteId(null)}
         />
       )}
-    </div>
+    </>
   );
 }
 

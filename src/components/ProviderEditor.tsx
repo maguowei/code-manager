@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Provider, ProviderModel } from "../types";
 import { useI18n } from "../i18n";
 import { ChevronLeftIcon } from "./Icons";
+import "./ProviderEditor.css";
 
 interface ProviderEditorProps {
   provider: Provider | null;
@@ -56,15 +57,15 @@ function ProviderEditor({ provider, onSave, onClose }: ProviderEditorProps) {
   }
 
   return (
-    <div className="editor-container">
+    <div className="editor-panel">
       <div className="editor-header">
-        <button className="back-btn" onClick={onClose}>
+        <button className="editor-back-btn" onClick={onClose}>
           <ChevronLeftIcon />
         </button>
-        <span className="editor-title">
+        <h2>
           {provider ? t("providers.editTitle") : t("providers.addTitle")}
-        </span>
-        <button className="save-btn" onClick={handleSubmit}>
+        </h2>
+        <button className="editor-save-btn" onClick={handleSubmit}>
           {t("providers.save")}
         </button>
       </div>
