@@ -17,6 +17,9 @@ pub static STATS_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 /// Skills 文件操作互斥锁
 pub static SKILLS_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
+/// Provider 文件操作互斥锁
+pub static PROVIDER_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+
 /// 安全获取用户主目录
 pub fn get_home_dir() -> Result<PathBuf, String> {
     dirs::home_dir().ok_or_else(|| "无法获取用户主目录".to_string())
@@ -102,6 +105,11 @@ pub fn lock_stats() -> Result<MutexGuard<'static, ()>, String> {
 /// 获取 Skills 文件写锁，防止并发写入
 pub fn lock_skills() -> Result<MutexGuard<'static, ()>, String> {
     acquire_lock(&SKILLS_LOCK)
+}
+
+/// 获取 Provider 文件写锁，防止并发写入
+pub fn lock_provider() -> Result<MutexGuard<'static, ()>, String> {
+    acquire_lock(&PROVIDER_LOCK)
 }
 
 /// 截取字符串前 max_len 个 Unicode 字符，超出时追加 "..."
