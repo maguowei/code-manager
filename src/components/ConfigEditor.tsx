@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { ClaudeConfig } from "../types";
+import { ClaudeConfig, Provider } from "../types";
 import { useI18n } from "../i18n";
 import "./ConfigEditor.css";
 import PluginManager from "./PluginManager";
@@ -12,6 +12,8 @@ import { ChevronLeftIcon } from "./Icons";
 interface ConfigEditorProps {
   config: ClaudeConfig | null;
   defaults: string;
+  /** Task 12: Provider 下拉选择，暂时声明以解除类型错误 */
+  providers?: Provider[];
   onSave: (config: Omit<ClaudeConfig, "id" | "createdAt" | "updatedAt" | "isActive">, defaults?: string) => void;
   onClose: () => void;
 }
