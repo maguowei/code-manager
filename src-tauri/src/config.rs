@@ -30,6 +30,7 @@ pub struct ConfigData {
     pub use_defaults: Option<bool>,
     pub enabled_plugins: Option<HashMap<String, bool>>,
     pub extra_fields: Option<HashMap<String, serde_json::Value>>,
+    pub provider_id: Option<String>,
 }
 
 impl ConfigData {
@@ -68,6 +69,7 @@ impl ConfigData {
             use_defaults: self.use_defaults,
             enabled_plugins: self.enabled_plugins,
             extra_fields: self.extra_fields,
+            provider_id: self.provider_id,
             is_active: false,
             created_at: 0,
             updated_at: 0,
@@ -97,6 +99,7 @@ impl ConfigData {
         config.use_defaults = self.use_defaults;
         config.enabled_plugins = self.enabled_plugins;
         config.extra_fields = self.extra_fields;
+        config.provider_id = self.provider_id;
         config.updated_at = crate::utils::current_timestamp();
     }
 }
@@ -150,6 +153,9 @@ pub struct ClaudeConfig {
     // 额外字段（用户在 JSON 编辑器中手动添加的字段）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub extra_fields: Option<HashMap<String, serde_json::Value>>,
+    // Provider 关联
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider_id: Option<String>,
     // 元数据
     pub is_active: bool,
     pub created_at: u64,
@@ -218,17 +224,20 @@ fn deep_merge(base: serde_json::Value, overlay: serde_json::Value) -> serde_json
 /// 构建配置的 JSON 表示（不含文件 I/O），供 apply_config 与 preview_config 共用。
 ///
 /// `defaults` 为通用配置的 JSON 字符串，当 `config.use_defaults == Some(true)` 时参与深度合并。
-fn build_config_value(config: &ClaudeConfig, defaults: Option<&str>) -> serde_json::Value {
+fn build_config_value(config: &ClaudeConfig, defaults: Option<&str>, provider_api_url: Option<&str>) -> serde_json::Value {
     let mut env = serde_json::Map::new();
     env.insert(
         "ANTHROPIC_AUTH_TOKEN".to_string(),
         serde_json::Value::String(config.api_key.clone()),
     );
 
-    if let Some(ref api_url) = config.api_url {
+    let effective_api_url = config.api_url.as_deref()
+        .filter(|s| !s.is_empty())
+        .or_else(|| provider_api_url.filter(|s| !s.is_empty()));
+    if let Some(url) = effective_api_url {
         env.insert(
             "ANTHROPIC_BASE_URL".to_string(),
-            serde_json::Value::String(api_url.clone()),
+            serde_json::Value::String(url.to_string()),
         );
     }
     if let Some(ref model) = config.model {
@@ -389,7 +398,11 @@ fn build_config_value(config: &ClaudeConfig, defaults: Option<&str>) -> serde_js
 /// 因此内部不可再次获取该锁——标准库 `Mutex` 不可重入，否则会死锁。
 /// `defaults` 由调用方传入，避免重复读取磁盘状态。
 pub fn apply_config(config: &ClaudeConfig, defaults: Option<&str>) -> Result<(), String> {
-    let final_config = build_config_value(config, defaults);
+    let provider_api_url = config.provider_id.as_deref()
+        .and_then(|pid| crate::provider::get_provider_by_id(pid))
+        .map(|p| p.api_url);
+    let provider_api_url_ref = provider_api_url.as_deref();
+    let final_config = build_config_value(config, defaults, provider_api_url_ref);
     let path = get_claude_config_path();
     let content = serde_json::to_string_pretty(&final_config).map_err(|e| e.to_string())?;
     crate::utils::ensure_dir_and_write(&path, &content)
@@ -612,8 +625,11 @@ pub fn update_defaults(content: String) -> Result<(), String> {
 #[tauri::command]
 pub fn preview_config(data: ConfigData, defaults: Option<String>) -> Result<String, String> {
     // 构建临时 ClaudeConfig，仅用于 JSON 生成，不持久化
+    let provider_api_url = data.provider_id.as_deref()
+        .and_then(|pid| crate::provider::get_provider_by_id(pid))
+        .map(|p| p.api_url);
     let config = data.into_preview_config();
-    let final_config = build_config_value(&config, defaults.as_deref());
+    let final_config = build_config_value(&config, defaults.as_deref(), provider_api_url.as_deref());
     serde_json::to_string_pretty(&final_config).map_err(|e| e.to_string())
 }
 
