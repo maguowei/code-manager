@@ -200,6 +200,12 @@ pub struct Provider {
 2. **P1 - 管理页面**：ProviderPage + ProviderEditor + ProviderItem
 3. **P2 - 体验优化**：ConfigItem 标签展示、模型列表编辑、reset 功能
 
+## 边界情况
+
+- **删除 Provider 时已关联的 Config**：删除自定义 Provider 前检查是否有 Config 引用该 providerId，若有则拒绝删除并提示用户先解除关联
+- **Provider 的 apiUrl 被用户修改**：仅影响后续新建或重新应用的配置，已写入 settings.json 的配置不会自动更新
+- **多个 Config 关联同一 Provider**：正常场景，每个 Config 独立管理 API Key，共享 Provider 的 apiUrl 和模型列表
+
 ## 向后兼容
 
 - 现有配置的 `providerId` 为空 → 保持原有行为不变
