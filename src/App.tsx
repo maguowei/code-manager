@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import "./App.css";
-import { ClaudeConfig, TabType, isTauri } from "./types";
+import { ClaudeConfig, TabType, isTauri, Provider } from "./types";
 import { useI18n } from "./i18n";
 import { useToast } from "./hooks/useToast";
 import ConfigList from "./components/ConfigList";
@@ -13,6 +13,7 @@ import MemoryPage from "./components/MemoryPage";
 import SkillsPage from "./components/SkillsPage";
 import StatsPage from "./components/StatsPage";
 import HistoryPage from "./components/HistoryPage";
+import ProviderPage from "./components/ProviderPage";
 import Sidebar from "./components/Sidebar";
 import ConfirmDialog from "./components/ConfirmDialog";
 import { PlusIcon } from "./components/Icons";
@@ -44,6 +45,7 @@ function buildConfigData(config: Omit<ClaudeConfig, "id" | "createdAt" | "update
     useDefaults: config.useDefaults ?? null,
     enabledPlugins: config.enabledPlugins && Object.keys(config.enabledPlugins).length > 0 ? config.enabledPlugins : null,
     extraFields: config.extraFields && Object.keys(config.extraFields).length > 0 ? config.extraFields : null,
+    providerId: config.providerId || null,
   };
 }
 
@@ -60,9 +62,11 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
+  const [providers, setProviders] = useState<Provider[]>([]);
 
   useEffect(() => {
     loadConfigs();
+    loadProviders();
   }, []);
 
   // 监听来自系统托盘的配置切换事件
@@ -111,6 +115,16 @@ function App() {
       showToast(t("toast.configLoadError"), "error");
     } finally {
       setLoading(false);
+    }
+  }, [showToast, t]);
+
+  const loadProviders = useCallback(async () => {
+    if (!isTauri()) return;
+    try {
+      const list = await invoke<Provider[]>("get_providers");
+      setProviders(list);
+    } catch {
+      showToast(t("toast.providerLoadError"), "error");
     }
   }, [showToast, t]);
 
@@ -255,6 +269,8 @@ function App() {
           <StatsPage />
         ) : activeTab === "history" ? (
           <HistoryPage />
+        ) : activeTab === "providers" ? (
+          <ProviderPage providers={providers} onProvidersChange={loadProviders} />
         ) : (
         <div className={`list-section ${isModalOpen || isDetailDrawerOpen ? "compressed" : ""}`}>
           {activeTab === "configs" && (
@@ -291,6 +307,7 @@ function App() {
             <ConfigEditor
               config={editingConfig}
               defaults={defaults}
+              providers={providers}
               onSave={handleSave}
               onClose={() => {
                 setIsModalOpen(false);
