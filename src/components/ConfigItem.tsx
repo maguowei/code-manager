@@ -1,5 +1,5 @@
 import { DragEvent, MouseEvent, useState, memo, useCallback } from "react";
-import { ClaudeConfig } from "../types";
+import { ClaudeConfig, Provider } from "../types";
 import { useI18n } from "../i18n";
 import { useToast } from "../hooks/useToast";
 import { TrashIcon } from "./Icons";
@@ -12,6 +12,7 @@ interface ConfigItemProps {
   isEditing: boolean;
   isDragging: boolean;
   dragOverPosition: "above" | "below" | null;
+  providers: Provider[];
   onActivate: (id: string) => void;
   onEdit: (config: ClaudeConfig) => void;
   onDelete: (id: string) => void;
@@ -30,6 +31,7 @@ function ConfigItem({
   isEditing,
   isDragging,
   dragOverPosition,
+  providers,
   onActivate,
   onEdit,
   onDelete,
@@ -43,6 +45,11 @@ function ConfigItem({
   const { t } = useI18n();
   const { showToast } = useToast();
   const [envCopied, setEnvCopied] = useState(false);
+
+  // 派生关联的 Provider 名称，用于显示 badge
+  const providerName = config.providerId
+    ? (providers.find((p) => p.id === config.providerId)?.name ?? null)
+    : null;
 
   const classNames = [
     "config-item",
@@ -112,7 +119,12 @@ function ConfigItem({
         </div>
 
         <div className="config-title">
-          <div className="config-name">{config.name}</div>
+          <div className="config-name">
+            {config.name}
+            {providerName && (
+              <span className="config-provider-badge">{providerName}</span>
+            )}
+          </div>
           {config.description && (
             <div className="config-description">{config.description}</div>
           )}

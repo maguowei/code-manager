@@ -286,6 +286,7 @@ function App() {
                 configs={configs}
                 activeConfigId={activeConfigId}
                 editingConfigId={isModalOpen ? editingConfig?.id ?? null : null}
+                providers={providers}
                 onActivate={handleActivate}
                 onEdit={handleEdit}
                 onDelete={handleRequestDelete}

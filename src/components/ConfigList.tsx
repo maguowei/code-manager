@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, DragEvent } from "react";
-import { ClaudeConfig } from "../types";
+import { ClaudeConfig, Provider } from "../types";
 import { useI18n } from "../i18n";
 import ConfigItem from "./ConfigItem";
 import "./ConfigList.css";
@@ -8,6 +8,7 @@ interface ConfigListProps {
   configs: ClaudeConfig[];
   activeConfigId: string | null;
   editingConfigId: string | null;
+  providers: Provider[];
   onActivate: (id: string) => void;
   onEdit: (config: ClaudeConfig) => void;
   onDelete: (id: string) => void;
@@ -15,7 +16,7 @@ interface ConfigListProps {
   onReorder: (ids: string[]) => void;
 }
 
-function ConfigList({ configs, activeConfigId, editingConfigId, onActivate, onEdit, onDelete, onDuplicate, onReorder }: ConfigListProps) {
+function ConfigList({ configs, activeConfigId, editingConfigId, providers, onActivate, onEdit, onDelete, onDuplicate, onReorder }: ConfigListProps) {
   const { t } = useI18n();
   // 使用 ref 存储拖拽源索引，避免闭包陈旧问题
   const dragIndexRef = useRef<number | null>(null);
@@ -126,6 +127,7 @@ function ConfigList({ configs, activeConfigId, editingConfigId, onActivate, onEd
           isEditing={config.id === editingConfigId}
           isDragging={dragState.draggingIndex === index}
           dragOverPosition={dragState.overIndex === index ? dragState.overPosition : null}
+          providers={providers}
           onActivate={onActivate}
           onEdit={onEdit}
           onDelete={onDelete}
