@@ -18,7 +18,7 @@ interface ConfigEditorProps {
   onClose: () => void;
 }
 
-function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) {
+function ConfigEditor({ config, defaults, providers, onSave, onClose }: ConfigEditorProps) {
   const { t } = useI18n();
   const [name, setName] = useState(config?.name || "");
   const [description, setDescription] = useState(config?.description || "");
@@ -41,12 +41,15 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
   const [enabledPlugins, setEnabledPlugins] = useState<Record<string, boolean>>(config?.enabledPlugins || {});
   const [preferredLanguage, setPreferredLanguage] = useState(config?.preferredLanguage || "english");
   const [showApiKey, setShowApiKey] = useState(false);
+  const [providerId, setProviderId] = useState(config?.providerId || "");
   const [defaultsContent, setDefaultsContent] = useState(defaults || "");
 
   // 额外字段：用户在 JSON 中手动添加的表单不支持的字段
   const [extraFields, setExtraFields] = useState<Record<string, unknown>>(config?.extraFields || {});
   // JSON 语法错误信息
   const [jsonError, setJsonError] = useState("");
+  // 根据已选 providerId 派生当前 Provider 对象
+  const selectedProvider = (providers ?? []).find((p) => p.id === providerId) ?? null;
   // 用户是否正在编辑预览区
   const isEditingPreview = useRef(false);
   // 防抖定时器，用于检测用户停止编辑预览
@@ -231,6 +234,19 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
     parseJsonToForm(value);
   }
 
+  /** 切换 Provider 时自动填充 API URL 并重置模型字段 */
+  function handleProviderChange(newProviderId: string) {
+    setProviderId(newProviderId);
+    const p = (providers ?? []).find((pv) => pv.id === newProviderId);
+    if (p) {
+      if (!apiUrl) setApiUrl(p.apiUrl);
+      setModel("");
+      setHaikuModel("");
+      setSonnetModel("");
+      setOpusModel("");
+    }
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim() || !apiKey.trim() || jsonError) {
@@ -266,6 +282,7 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
       useDefaults,
       enabledPlugins: Object.keys(enabledPlugins).length > 0 ? enabledPlugins : undefined,
       extraFields: Object.keys(extraFields).length > 0 ? extraFields : undefined,
+      providerId: providerId || undefined,
       preferredLanguage,
     }, defaultsContent);
   }
@@ -337,6 +354,41 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
               />
             </div>
 
+            {/* Provider 选择 */}
+            <div className="form-row">
+              <div className="form-group full-width">
+                <label className="form-label">{t("configModal.provider")}</label>
+                <div className="provider-select-row">
+                  <select
+                    className="form-select"
+                    value={providerId}
+                    onChange={(e) => handleProviderChange(e.target.value)}
+                  >
+                    <option value="">{t("configModal.providerNone")}</option>
+                    {(providers ?? []).map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                  {selectedProvider?.docUrl && (
+                    <a
+                      href={selectedProvider.docUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="provider-doc-link"
+                      title={t("providers.viewDocs")}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                        <polyline points="15 3 21 3 21 9"/>
+                        <line x1="10" y1="14" x2="21" y2="3"/>
+                      </svg>
+                    </a>
+                  )}
+                </div>
+                <span className="form-hint">{t("configModal.providerHint")}</span>
+              </div>
+            </div>
+
             <div className="form-group">
               <label htmlFor="apiKey" className="label-required">
                 <span>{t("configModal.apiKey")}</span>
@@ -399,10 +451,18 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
                 <input
                   id="model"
                   type="text"
+                  list={selectedProvider ? "model-list-main" : undefined}
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
                   placeholder={t("configModal.modelPlaceholder")}
                 />
+                {selectedProvider && (
+                  <datalist id="model-list-main">
+                    {selectedProvider.models.map((m) => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
+                    ))}
+                  </datalist>
+                )}
               </div>
               <div className="form-group">
                 <label htmlFor="thinkingModel">{t("configModal.thinkingModel")}</label>
@@ -422,20 +482,40 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
                 <input
                   id="haikuModel"
                   type="text"
+                  list={selectedProvider ? "model-list-haiku" : undefined}
                   value={haikuModel}
                   onChange={(e) => setHaikuModel(e.target.value)}
                   placeholder={t("configModal.haikuModelPlaceholder")}
                 />
+                {selectedProvider && (
+                  <datalist id="model-list-haiku">
+                    {selectedProvider.models
+                      .filter((m) => m.category === "haiku" || m.category === "other")
+                      .map((m) => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
+                      ))}
+                  </datalist>
+                )}
               </div>
               <div className="form-group">
                 <label htmlFor="sonnetModel">{t("configModal.sonnetModel")}</label>
                 <input
                   id="sonnetModel"
                   type="text"
+                  list={selectedProvider ? "model-list-sonnet" : undefined}
                   value={sonnetModel}
                   onChange={(e) => setSonnetModel(e.target.value)}
                   placeholder={t("configModal.sonnetModelPlaceholder")}
                 />
+                {selectedProvider && (
+                  <datalist id="model-list-sonnet">
+                    {selectedProvider.models
+                      .filter((m) => m.category === "sonnet" || m.category === "other")
+                      .map((m) => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
+                      ))}
+                  </datalist>
+                )}
               </div>
             </div>
 
@@ -445,10 +525,20 @@ function ConfigEditor({ config, defaults, onSave, onClose }: ConfigEditorProps) 
                 <input
                   id="opusModel"
                   type="text"
+                  list={selectedProvider ? "model-list-opus" : undefined}
                   value={opusModel}
                   onChange={(e) => setOpusModel(e.target.value)}
                   placeholder={t("configModal.opusModelPlaceholder")}
                 />
+                {selectedProvider && (
+                  <datalist id="model-list-opus">
+                    {selectedProvider.models
+                      .filter((m) => m.category === "opus" || m.category === "other")
+                      .map((m) => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
+                      ))}
+                  </datalist>
+                )}
               </div>
             </div>
             <p className="form-hint">{t("configModal.modelHint")}</p>
