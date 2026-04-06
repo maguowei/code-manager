@@ -75,5 +75,17 @@
       { "id": "kimi-k2.5", "name": "Kimi K2.5", "category": "sonnet" },
       { "id": "MiniMax-M2.5", "name": "MiniMax M2.5", "category": "sonnet" }
     ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000008",
+    "name": "万界方舟",
+    "slug": "wanjie",
+    "apiUrl": "https://maas-openapi.wanjiedata.com/api/anthropic",
+    "docUrl": "https://www.wjark.com",
+    "models": [
+      { "id": "claude-opus-4-6", "name": "Claude Opus 4.6", "category": "opus" },
+      { "id": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6", "category": "sonnet" },
+      { "id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5", "category": "haiku" }
+    ]
   }
 ]
