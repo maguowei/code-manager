@@ -241,18 +241,29 @@ function ConfigEditor({
     parseJsonToForm(value);
   }
 
-  /** 切换 Provider 时自动填充 apiUrl 并重置模型字段 */
+  /** 切换 Provider 时自动填充 apiUrl 及各 category 的默认模型 */
   function handleProviderChange(newProviderId: string) {
     setValue("providerId", newProviderId);
     const p = (providers ?? []).find((pv) => pv.id === newProviderId);
     if (p) {
+      const find = (...cats: string[]) => {
+        for (const cat of cats) {
+          const m = p.models.find((m) => m.category === cat);
+          if (m) return m.id;
+        }
+        return p.models[0]?.id ?? "";
+      };
       setValue("apiUrl", p.apiUrl);
+      setValue("model",       find("sonnet", "opus"));
+      setValue("haikuModel",  find("haiku", "sonnet", "opus"));
+      setValue("sonnetModel", find("sonnet", "opus"));
+      setValue("opusModel",   find("opus"));
+    } else {
+      setValue("apiUrl", "");
       setValue("model", "");
       setValue("haikuModel", "");
       setValue("sonnetModel", "");
       setValue("opusModel", "");
-    } else {
-      setValue("apiUrl", "");
     }
   }
 

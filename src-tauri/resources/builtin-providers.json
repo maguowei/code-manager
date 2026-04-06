@@ -40,9 +40,9 @@
       { "id": "doubao-seed-2.0-code", "name": "豆包 Seed 2.0 Code 主力编程", "category": "sonnet" },
       { "id": "doubao-seed-2.0-lite", "name": "豆包 Seed 2.0 Lite", "category": "haiku" },
       { "id": "deepseek-v3.2", "name": "DeepSeek V3.2", "category": "sonnet" },
-      { "id": "kimi-k2.5", "name": "Kimi K2.5", "category": "sonnet" },
-      { "id": "glm-4.7", "name": "GLM-4.7", "category": "sonnet" },
-      { "id": "minimax-m2.5", "name": "MiniMax M2.5", "category": "sonnet" },
+      { "id": "kimi-k2.5", "name": "Kimi K2.5", "category": "opus" },
+      { "id": "glm-4.7", "name": "GLM-4.7", "category": "haiku" },
+      { "id": "minimax-m2.5", "name": "MiniMax M2.5", "category": "opus" },
       { "id": "ark-code-latest", "name": "Auto 智能匹配", "category": "other" }
     ]
   },
@@ -60,8 +60,8 @@
       { "id": "qwen3-coder-flash", "name": "Qwen 3 Coder Flash", "category": "haiku" },
       { "id": "glm-5", "name": "GLM-5", "category": "opus" },
       { "id": "glm-4.7", "name": "GLM-4.7", "category": "sonnet" },
-      { "id": "kimi-k2.5", "name": "Kimi K2.5", "category": "sonnet" },
-      { "id": "MiniMax-M2.5", "name": "MiniMax M2.5", "category": "sonnet" }
+      { "id": "kimi-k2.5", "name": "Kimi K2.5", "category": "opus" },
+      { "id": "MiniMax-M2.5", "name": "MiniMax M2.5", "category": "opus" }
     ]
   },
   {
@@ -83,7 +83,7 @@
     "docUrl": "https://www.kimi.com/code/docs/",
     "models": [
       { "id": "kimi-k2.5", "name": "Kimi K2.5 旗舰 (256K, MoE)", "category": "opus" },
-      { "id": "kimi-k2-thinking", "name": "Kimi K2 深度推理", "category": "opus" },
+      { "id": "kimi-k2-thinking", "name": "Kimi K2 深度推理", "category": "sonnet" },
       { "id": "kimi-k2-turbo-preview", "name": "Kimi K2 Turbo 高速", "category": "sonnet" },
       { "id": "kimi-for-coding", "name": "Kimi For Coding 专用", "category": "sonnet" }
     ]
