@@ -311,4 +311,20 @@ mod tests {
 
         assert!(result.is_err(), "旧的 apiUrl 字段不应继续被 Provider 接受");
     }
+
+    #[test]
+    fn builtin_providers_include_modelscope_defaults() {
+        let provider = builtin_providers()
+            .into_iter()
+            .find(|provider| provider.slug == "modelscope")
+            .expect("内置 Provider 列表应包含 ModelScope");
+
+        assert_eq!(provider.name, "ModelScope");
+        assert_eq!(provider.base_url, "https://api-inference.modelscope.cn");
+        assert_eq!(provider.doc_url.as_deref(), Some("https://modelscope.cn"));
+        assert_eq!(provider.models.len(), 1);
+        assert_eq!(provider.models[0].id, "ZhipuAI/GLM-5");
+        assert_eq!(provider.models[0].name, "ZhipuAI/GLM-5");
+        assert_eq!(provider.models[0].category, "other");
+    }
 }

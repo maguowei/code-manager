@@ -97,5 +97,15 @@
       { "id": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6", "category": "sonnet" },
       { "id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5", "category": "haiku" }
     ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000010",
+    "name": "ModelScope",
+    "slug": "modelscope",
+    "baseUrl": "https://api-inference.modelscope.cn",
+    "docUrl": "https://modelscope.cn",
+    "models": [
+      { "id": "ZhipuAI/GLM-5", "name": "ZhipuAI/GLM-5", "category": "other" }
+    ]
   }
 ]
