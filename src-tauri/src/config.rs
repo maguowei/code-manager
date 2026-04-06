@@ -698,8 +698,10 @@ mod schema_tests {
             .clone();
 
         let json_schema_str = include_str!("../../src/schemas/claude-config.schema.json");
-        let json_schema: serde_json::Value = serde_json::from_str(json_schema_str).unwrap();
+        let json_schema: serde_json::Value = serde_json::from_str(json_schema_str).expect("JSON Schema 格式不合法");
 
+        // 注意：只检查 JSON Schema → Rust 方向。Rust 侧可能存在 JSON Schema 未包含的字段
+        // （如 thinking_model，保留是为了向后兼容已存储的配置数据），这是有意为之。
         // 验证 JSON Schema properties 中的字段在 ConfigData 中存在
         // 跳过仅存于 ClaudeConfig（非 DTO）的字段
         let skip_fields = ["id", "isActive", "createdAt", "updatedAt"];
