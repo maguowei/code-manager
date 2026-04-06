@@ -6,6 +6,7 @@ import { ClaudeConfig, Provider } from "../types";
 import { useI18n } from "../i18n";
 import { ClaudeConfigSchema, ClaudeConfigFormData } from "../schemas/config-schema";
 import { FIELD_GROUPS } from "../schemas/field-groups";
+import { buildConfigEditorDefaultValues } from "./config-editor-defaults";
 import SchemaFormField from "./SchemaFormField";
 import "./ConfigEditor.css";
 import PluginManager from "./PluginManager";
@@ -13,34 +14,6 @@ import DefaultsSection from "./DefaultsSection";
 import ConfigPreview from "./ConfigPreview";
 import CollapsibleSection from "./CollapsibleSection";
 import { ChevronLeftIcon } from "./Icons";
-
-/** 将已有配置（或 null）映射为 react-hook-form 的初始值 */
-function buildDefaultValues(config: ClaudeConfig | null, defaultLang: string): Partial<ClaudeConfigFormData> {
-  const isNewConfig = config === null;
-
-  return {
-    name: config?.name ?? "",
-    description: config?.description ?? "",
-    apiKey: config?.apiKey ?? "",
-    baseUrl: config?.baseUrl ?? "",
-    websiteUrl: config?.websiteUrl ?? "",
-    model: config?.model ?? "",
-    haikuModel: config?.haikuModel ?? "",
-    sonnetModel: config?.sonnetModel ?? "",
-    opusModel: config?.opusModel ?? "",
-    alwaysThinkingEnabled: config?.alwaysThinkingEnabled ?? isNewConfig,
-    disableNonessentialTraffic: config?.disableNonessentialTraffic ?? isNewConfig,
-    skipWebFetchPreflight: config?.skipWebFetchPreflight ?? isNewConfig,
-    enableLspTool: config?.enableLspTool ?? isNewConfig,
-    agentTeamsEnabled: config?.agentTeamsEnabled ?? false,
-    hasCompletedOnboarding: config?.hasCompletedOnboarding ?? isNewConfig,
-    enableExtraMarketplaces: config?.enableExtraMarketplaces ?? false,
-    preferredLanguage: config?.preferredLanguage ?? defaultLang,
-    useDefaults: config?.useDefaults ?? false,
-    providerId: config?.providerId ?? "",
-    enabledPlugins: config?.enabledPlugins,
-  };
-}
 
 interface ConfigEditorProps {
   config: ClaudeConfig | null;
@@ -69,10 +42,10 @@ function ConfigEditor({
     handleSubmit,
     watch,
     setValue,
-    formState: { errors },
+    formState: { errors, dirtyFields },
   } = useForm<ClaudeConfigFormData>({
     resolver: zodResolver(ClaudeConfigSchema) as Resolver<ClaudeConfigFormData>,
-    defaultValues: buildDefaultValues(config, defaultPreferredLang),
+    defaultValues: buildConfigEditorDefaultValues(config, defaultPreferredLang, providers ?? []),
     mode: "onBlur",
   });
 
@@ -88,6 +61,7 @@ function ConfigEditor({
 
   // 派生：当前选中的 Provider
   const providerId = watch("providerId");
+  const currentBaseUrl = watch("baseUrl");
   const selectedProvider =
     (providers ?? []).find((p) => p.id === providerId) ?? null;
 
@@ -96,6 +70,20 @@ function ConfigEditor({
       if (editingTimer.current) clearTimeout(editingTimer.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!config || config.baseUrl || !selectedProvider?.baseUrl || currentBaseUrl || dirtyFields.baseUrl) {
+      return;
+    }
+    setValue("baseUrl", selectedProvider.baseUrl, { shouldDirty: false });
+  }, [
+    config?.id,
+    config?.baseUrl,
+    currentBaseUrl,
+    dirtyFields.baseUrl,
+    selectedProvider?.baseUrl,
+    setValue,
+  ]);
 
   // 切换"使用通用配置"时，合并 enabledPlugins
   const useDefaultsVal = watch("useDefaults");
