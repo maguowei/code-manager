@@ -157,7 +157,7 @@ export const ClaudeConfigSchema = z.object({
   preferredLanguage: z.string().default("english"),
   useDefaults: z.boolean().default(false),
   providerId: z.string().optional(),
-  enabledPlugins: z.record(z.boolean()).optional(),
+  enabledPlugins: z.record(z.string(), z.boolean()).optional(),
 });
 
 export type ClaudeConfigFormData = z.infer<typeof ClaudeConfigSchema>;

@@ -24,6 +24,7 @@ dependencies = [
  "dirs 5.0.1",
  "once_cell",
  "regex",
+ "schemars 0.8.22",
  "serde",
  "serde_json",
  "tauri",
