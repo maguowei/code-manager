@@ -1,7 +1,7 @@
 [
   {
     "id": "00000000-0000-0000-0000-000000000001",
-    "name": "Anthropic (Direct)",
+    "name": "Anthropic",
     "slug": "anthropic",
     "apiUrl": "",
     "docUrl": "https://docs.anthropic.com",
