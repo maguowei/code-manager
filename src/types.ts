@@ -31,7 +31,6 @@ export interface ClaudeConfig {
   websiteUrl?: string;
   // 模型配置
   model?: string;
-  thinkingModel?: string;
   haikuModel?: string;
   sonnetModel?: string;
   opusModel?: string;
