@@ -29,25 +29,41 @@
   border-color: var(--accent-blue);
 }
 
-/* 模型行：水平排列 */
+/* 模型表头与模型行共用网格列定义，保证对齐 */
+.model-header,
 .model-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 2fr) minmax(90px, 1fr) 28px;
   align-items: center;
   gap: 8px;
+}
+
+.model-header {
+  margin-top: 8px;
+  padding: 0 4px;
+}
+
+.model-header-cell {
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.model-header-spacer {
+  width: 28px;
+  height: 1px;
+}
+
+.model-row {
   margin-top: 8px;
 }
 
-.model-row .form-input.model-id {
-  flex: 2;
-}
-
-.model-row .form-input.model-name {
-  flex: 2;
-}
-
-.model-row .form-select.model-category {
-  flex: 1;
-  min-width: 90px;
+.model-row .model-id,
+.model-row .model-name,
+.model-row .model-category {
+  min-width: 0;
 }
 
 /* 移除模型按钮 */

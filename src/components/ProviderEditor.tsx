@@ -120,6 +120,21 @@ function ProviderEditor({ provider, onSave, onClose }: ProviderEditorProps) {
               + {t("providers.addModel")}
             </button>
           </div>
+          <p className="form-hint">{t("providers.modelIdHint")}</p>
+          {models.length > 0 && (
+            <div className="model-header" aria-hidden="true">
+              <span className="model-header-cell model-id">
+                {t("providers.modelId")}
+              </span>
+              <span className="model-header-cell model-name">
+                {t("providers.modelName")}
+              </span>
+              <span className="model-header-cell model-category">
+                {t("providers.modelCategory")}
+              </span>
+              <span className="model-header-spacer" />
+            </div>
+          )}
           {models.map((model, index) => (
             <div key={index} className="model-row">
               <input
