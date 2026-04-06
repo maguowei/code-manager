@@ -284,8 +284,9 @@ cargo fmt             # 格式化 Rust 代码
 
 ### CodeMirror 多版本冲突（空白页）
 若 pnpm 安装了多个 `@codemirror/state` 版本，运行时 `instanceof` 检查跨实例失败，React 崩溃渲染为空白页。
-`package.json` 中已通过 `pnpm.overrides` 强制统一版本：
-```json
-"pnpm": { "overrides": { "@codemirror/state": "6.6.0", "@codemirror/view": "6.40.0" } }
+
+当前依赖树中 `@codemirror/commands@6.10.3` 要求 `^6.6.0`，已从源头防止旧版本（6.5.4）被解析。若未来升级依赖后出现空白页，用以下方式检查：
+```bash
+grep "'@codemirror/state@" pnpm-lock.yaml  # 应只有一个版本
 ```
-若升级 CodeMirror 相关依赖后出现空白页，检查是否引入了新的版本分歧。**不要使用 `vite.config.ts` 的 `resolve.dedupe`**——它与 pnpm 虚拟存储的符号链接解析有冲突，会导致构建失败。
+若出现多个版本，在 `package.json` 中加 `pnpm.overrides` 强制统一，**不要用 `vite.config.ts` 的 `resolve.dedupe`**——它与 pnpm 虚拟存储的符号链接解析有冲突，会导致构建失败。
