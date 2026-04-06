@@ -1,4 +1,5 @@
 use crate::tray::rebuild_tray_menu;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -6,7 +7,7 @@ use tauri::AppHandle;
 use uuid::Uuid;
 
 /// 新增/更新配置的数据传输对象
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfigData {
     pub name: String,
@@ -104,7 +105,7 @@ impl ConfigData {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ClaudeConfig {
     pub id: String,
@@ -647,4 +648,73 @@ pub fn set_show_tray_title(app_handle: AppHandle, show: bool) -> Result<(), Stri
     rebuild_tray_menu(&app_handle, Some(&state));
 
     Ok(())
+}
+
+#[cfg(test)]
+mod schema_tests {
+    use super::*;
+    use schemars::schema_for;
+
+    #[test]
+    fn claude_config_required_fields_match_json_schema() {
+        // 生成 Rust ClaudeConfig 的 JSON Schema
+        let rust_schema = schema_for!(ClaudeConfig);
+        let rust_props = rust_schema
+            .schema
+            .object
+            .as_ref()
+            .expect("ClaudeConfig 应为 object 类型")
+            .properties
+            .clone();
+
+        // 加载前端 JSON Schema 文件
+        let json_schema_str = include_str!("../../src/schemas/claude-config.schema.json");
+        let json_schema: serde_json::Value =
+            serde_json::from_str(json_schema_str).expect("JSON Schema 格式不合法");
+
+        // 验证 JSON Schema 中 required 的字段在 Rust schema 的 properties 中存在
+        if let Some(required) = json_schema["required"].as_array() {
+            for field_val in required {
+                let field_name = field_val.as_str().expect("required 数组元素应为字符串");
+                assert!(
+                    rust_props.contains_key(field_name),
+                    "JSON Schema required 字段 '{}' 在 Rust ClaudeConfig 中未找到。\
+                    请确保前后端 schema 保持同步。",
+                    field_name
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn config_data_has_all_json_schema_fields() {
+        let rust_schema = schema_for!(ConfigData);
+        let rust_props = rust_schema
+            .schema
+            .object
+            .as_ref()
+            .expect("ConfigData 应为 object 类型")
+            .properties
+            .clone();
+
+        let json_schema_str = include_str!("../../src/schemas/claude-config.schema.json");
+        let json_schema: serde_json::Value = serde_json::from_str(json_schema_str).unwrap();
+
+        // 验证 JSON Schema properties 中的字段在 ConfigData 中存在
+        // 跳过仅存于 ClaudeConfig（非 DTO）的字段
+        let skip_fields = ["id", "isActive", "createdAt", "updatedAt"];
+        if let Some(props) = json_schema["properties"].as_object() {
+            for field_name in props.keys() {
+                if skip_fields.contains(&field_name.as_str()) {
+                    continue;
+                }
+                assert!(
+                    rust_props.contains_key(field_name.as_str()),
+                    "JSON Schema 字段 '{}' 在 Rust ConfigData 中未找到。\
+                    请检查两端是否同步。",
+                    field_name
+                );
+            }
+        }
+    }
 }
