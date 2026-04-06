@@ -18,6 +18,9 @@ export interface FieldGroup {
   fields: FieldConfig[];
 }
 
+// 注意：apiUrl / websiteUrl / model 系列（model/haikuModel/sonnetModel/opusModel）/
+// preferredLanguage / enableExtraMarketplaces / useDefaults / providerId / enabledPlugins
+// 使用 ConfigEditor 中的自定义渲染逻辑，不在此处声明。
 export const FIELD_GROUPS: FieldGroup[] = [
   {
     id: "basic",
