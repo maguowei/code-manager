@@ -15,7 +15,7 @@ import CollapsibleSection from "./CollapsibleSection";
 import { ChevronLeftIcon } from "./Icons";
 
 /** 将已有配置（或 null）映射为 react-hook-form 的初始值 */
-function buildDefaultValues(config: ClaudeConfig | null): Partial<ClaudeConfigFormData> {
+function buildDefaultValues(config: ClaudeConfig | null, defaultLang: string): Partial<ClaudeConfigFormData> {
   return {
     name: config?.name ?? "",
     description: config?.description ?? "",
@@ -33,7 +33,7 @@ function buildDefaultValues(config: ClaudeConfig | null): Partial<ClaudeConfigFo
     agentTeamsEnabled: config?.agentTeamsEnabled ?? false,
     hasCompletedOnboarding: config?.hasCompletedOnboarding ?? false,
     enableExtraMarketplaces: config?.enableExtraMarketplaces ?? false,
-    preferredLanguage: config?.preferredLanguage ?? "english",
+    preferredLanguage: config?.preferredLanguage ?? defaultLang,
     useDefaults: config?.useDefaults ?? false,
     providerId: config?.providerId ?? "",
     enabledPlugins: config?.enabledPlugins,
@@ -58,7 +58,8 @@ function ConfigEditor({
   onSave,
   onClose,
 }: ConfigEditorProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const defaultPreferredLang = language === "zh" ? "chinese" : "english";
 
   const {
     register,
@@ -69,7 +70,7 @@ function ConfigEditor({
     formState: { errors },
   } = useForm<ClaudeConfigFormData>({
     resolver: zodResolver(ClaudeConfigSchema) as Resolver<ClaudeConfigFormData>,
-    defaultValues: buildDefaultValues(config),
+    defaultValues: buildDefaultValues(config, defaultPreferredLang),
     mode: "onBlur",
   });
 
@@ -373,6 +374,7 @@ function ConfigEditor({
               <input
                 id="websiteUrl"
                 type="url"
+                className={errors.websiteUrl ? "input-error" : undefined}
                 placeholder={t("configModal.websiteUrlPlaceholder")}
                 {...register("websiteUrl")}
               />
@@ -442,6 +444,7 @@ function ConfigEditor({
               <input
                 id="apiUrl"
                 type="url"
+                className={errors.apiUrl ? "input-error" : undefined}
                 placeholder={t("configModal.apiUrlPlaceholder")}
                 {...register("apiUrl")}
               />

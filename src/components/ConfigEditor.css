@@ -467,6 +467,21 @@
   margin-bottom: 0;
 }
 
+.field-error {
+  display: block;
+  font-size: 11px;
+  color: var(--accent-red);
+  margin-top: 4px;
+}
+
+/* 校验失败时输入框/下拉框添加红色边框
+   使用 .editor-panel 前缀提升特异性 (0,3,1)，
+   覆盖 MemoryEditor.css 中 .editor-panel .form-group input 的 (0,2,1) */
+.editor-panel .form-group input.input-error,
+.editor-panel .form-group select.input-error {
+  border-color: var(--accent-red);
+}
+
 /* 深色主题下使用深色工具栏 */
 [data-theme="dark"] .defaults-editor {
   border-color: #3e4452;

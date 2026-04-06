@@ -63,7 +63,7 @@ export default function SchemaFormField({
     return (
       <div className="form-group">
         <label htmlFor={field.name}>{t(field.labelKey)}</label>
-        <select id={field.name} {...register(field.name)}>
+        <select id={field.name} className={error ? "input-error" : undefined} {...register(field.name)}>
           {(field.options ?? []).map((opt) => (
             <option key={opt.value} value={opt.value}>
               {t(opt.labelKey)}
@@ -86,6 +86,7 @@ export default function SchemaFormField({
           <input
             id={field.name}
             type={showPassword ? "text" : "password"}
+            className={error ? "input-error" : undefined}
             placeholder={field.placeholderKey ? t(field.placeholderKey) : undefined}
             {...register(field.name)}
           />
@@ -129,6 +130,7 @@ export default function SchemaFormField({
         id={field.name}
         type={field.inputType === "url" ? "url" : "text"}
         list={datalistId}
+        className={error ? "input-error" : undefined}
         placeholder={field.placeholderKey ? t(field.placeholderKey) : undefined}
         {...register(field.name)}
       />
