@@ -9,6 +9,7 @@ export interface FieldConfig {
   descriptionKey?: TranslationKey;
   placeholderKey?: TranslationKey;
   inputType: FieldInputType;
+  required?: boolean;
   options?: { value: string; labelKey: TranslationKey }[];
 }
 
@@ -33,6 +34,7 @@ export const FIELD_GROUPS: FieldGroup[] = [
         labelKey: "configModal.name",
         placeholderKey: "configModal.namePlaceholder",
         inputType: "text",
+        required: true,
       },
       {
         name: "description",
@@ -45,6 +47,7 @@ export const FIELD_GROUPS: FieldGroup[] = [
         labelKey: "configModal.apiKey",
         placeholderKey: "configModal.apiKeyPlaceholder",
         inputType: "password",
+        required: true,
       },
     ],
   },

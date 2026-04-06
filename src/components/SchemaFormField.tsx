@@ -28,8 +28,8 @@ export default function SchemaFormField({
   const { t } = useI18n();
   const [showPassword, setShowPassword] = useState(false);
 
-  const errorEl = error ? (
-    <span className="field-error">{t((error.message ?? "") as TranslationKey)}</span>
+  const errorEl = error?.message ? (
+    <span className="field-error">{t(error.message as TranslationKey)}</span>
   ) : null;
 
   if (field.inputType === "checkbox") {
@@ -78,9 +78,9 @@ export default function SchemaFormField({
   if (field.inputType === "password") {
     return (
       <div className="form-group">
-        <label htmlFor={field.name} className="label-required">
+        <label htmlFor={field.name} className={field.required ? "label-required" : undefined}>
           <span>{t(field.labelKey)}</span>
-          <span className="required-badge">{t("form.required")}</span>
+          {field.required && <span className="required-badge">{t("form.required")}</span>}
         </label>
         <div className="input-with-toggle">
           <input
@@ -113,7 +113,7 @@ export default function SchemaFormField({
   }
 
   // text, url, combobox
-  const isRequired = field.name === "name" || field.name === "apiKey";
+  const isRequired = !!field.required;
   return (
     <div className="form-group">
       <label
