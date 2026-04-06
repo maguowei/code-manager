@@ -58,104 +58,39 @@ fn save_state(state: &ProviderState) -> Result<(), String> {
     crate::utils::save_json_file(&get_provider_path(), state)
 }
 
-/// 内置 Provider 的固定 ID 常量
-const ID_ANTHROPIC: &str = "00000000-0000-0000-0000-000000000001";
-const ID_ZHIPU: &str = "00000000-0000-0000-0000-000000000002";
-const ID_VOLCENGINE: &str = "00000000-0000-0000-0000-000000000003";
-const ID_DASHSCOPE: &str = "00000000-0000-0000-0000-000000000004";
-const ID_MINIMAX: &str = "00000000-0000-0000-0000-000000000005";
-const ID_KIMI: &str = "00000000-0000-0000-0000-000000000006";
-const ID_XIAOMI_MIMO: &str = "00000000-0000-0000-0000-000000000007";
+/// 内置 Provider 定义（JSON 反序列化用，不含运行时字段）
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BuiltinProviderDef {
+    id: String,
+    name: String,
+    slug: String,
+    api_url: String,
+    doc_url: Option<String>,
+    models: Vec<ProviderModel>,
+}
 
-/// 生成内置 Provider 列表（含默认模型）
+/// 从嵌入的 JSON 文件生成内置 Provider 列表
 fn builtin_providers() -> Vec<Provider> {
+    let defs: Vec<BuiltinProviderDef> = serde_json::from_str(
+        include_str!("../resources/builtin-providers.json"),
+    )
+    .expect("内置 Provider JSON 格式错误");
+
     let now = crate::utils::current_timestamp();
-
-    let common_models = vec![
-        ProviderModel { id: "claude-opus-4-6".to_string(), name: "Claude Opus 4.6".to_string(), category: "opus".to_string() },
-        ProviderModel { id: "claude-sonnet-4-6".to_string(), name: "Claude Sonnet 4.6".to_string(), category: "sonnet".to_string() },
-        ProviderModel { id: "claude-haiku-4-5-20251001".to_string(), name: "Claude Haiku 4.5".to_string(), category: "haiku".to_string() },
-    ];
-
-    vec![
-        Provider {
-            id: ID_ANTHROPIC.to_string(),
-            name: "Anthropic (Direct)".to_string(),
-            slug: "anthropic".to_string(),
-            api_url: String::new(),
-            doc_url: Some("https://docs.anthropic.com".to_string()),
+    defs.into_iter()
+        .map(|d| Provider {
+            id: d.id,
+            name: d.name,
+            slug: d.slug,
+            api_url: d.api_url,
+            doc_url: d.doc_url,
             is_builtin: true,
-            models: common_models.clone(),
+            models: d.models,
             created_at: now,
             updated_at: now,
-        },
-        Provider {
-            id: ID_ZHIPU.to_string(),
-            name: "智谱 GLM Coding Plan".to_string(),
-            slug: "zhipu".to_string(),
-            api_url: "https://open.bigmodel.cn/api/anthropic".to_string(),
-            doc_url: Some("https://docs.bigmodel.cn/cn/coding-plan/overview".to_string()),
-            is_builtin: true,
-            models: common_models.clone(),
-            created_at: now,
-            updated_at: now,
-        },
-        Provider {
-            id: ID_VOLCENGINE.to_string(),
-            name: "火山方舟 Coding Plan".to_string(),
-            slug: "volcengine".to_string(),
-            api_url: "https://ark.cn-beijing.volces.com/api/coding".to_string(),
-            doc_url: Some("https://www.volcengine.com/docs/82379/1928262".to_string()),
-            is_builtin: true,
-            models: common_models.clone(),
-            created_at: now,
-            updated_at: now,
-        },
-        Provider {
-            id: ID_DASHSCOPE.to_string(),
-            name: "阿里云百炼 Coding Plan".to_string(),
-            slug: "dashscope".to_string(),
-            api_url: "https://coding.dashscope.aliyuncs.com/apps/anthropic".to_string(),
-            doc_url: Some("https://help.aliyun.com/zh/model-studio/claude-code-coding-plan".to_string()),
-            is_builtin: true,
-            models: common_models.clone(),
-            created_at: now,
-            updated_at: now,
-        },
-        Provider {
-            id: ID_MINIMAX.to_string(),
-            name: "MiniMax Token Plan".to_string(),
-            slug: "minimax".to_string(),
-            api_url: "https://api.minimaxi.com/anthropic".to_string(),
-            doc_url: Some("https://platform.minimaxi.com/docs/token-plan/claude-code".to_string()),
-            is_builtin: true,
-            models: common_models.clone(),
-            created_at: now,
-            updated_at: now,
-        },
-        Provider {
-            id: ID_KIMI.to_string(),
-            name: "Kimi Code Plan".to_string(),
-            slug: "kimi".to_string(),
-            api_url: "https://api.kimi.com/coding/".to_string(),
-            doc_url: Some("https://www.kimi.com/code/docs/more/third-party-agents.html".to_string()),
-            is_builtin: true,
-            models: common_models.clone(),
-            created_at: now,
-            updated_at: now,
-        },
-        Provider {
-            id: ID_XIAOMI_MIMO.to_string(),
-            name: "Xiaomi MiMo Token Plan".to_string(),
-            slug: "xiaomi-mimo".to_string(),
-            api_url: "https://api.xiaomimimo.com/anthropic".to_string(),
-            doc_url: Some("https://platform.xiaomimimo.com/#/docs/integration/claudecode".to_string()),
-            is_builtin: true,
-            models: common_models.clone(),
-            created_at: now,
-            updated_at: now,
-        },
-    ]
+        })
+        .collect()
 }
 
 /// 根据 ID 读取单个 Provider（不加锁，供其他模块调用）

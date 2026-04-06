@@ -1,0 +1,103 @@
+[
+  {
+    "id": "00000000-0000-0000-0000-000000000001",
+    "name": "Anthropic (Direct)",
+    "slug": "anthropic",
+    "apiUrl": "",
+    "docUrl": "https://docs.anthropic.com",
+    "models": [
+      { "id": "claude-opus-4-6", "name": "Claude Opus 4.6", "category": "opus" },
+      { "id": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6", "category": "sonnet" },
+      { "id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5", "category": "haiku" }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000002",
+    "name": "智谱 GLM Coding Plan",
+    "slug": "zhipu",
+    "apiUrl": "https://open.bigmodel.cn/api/anthropic",
+    "docUrl": "https://docs.bigmodel.cn/cn/coding-plan/overview",
+    "models": [
+      { "id": "glm-5.1", "name": "GLM-5.1 旗舰", "category": "opus" },
+      { "id": "glm-5", "name": "GLM-5 (754B)", "category": "opus" },
+      { "id": "glm-5-turbo", "name": "GLM-5 Turbo", "category": "sonnet" },
+      { "id": "glm-4.7", "name": "GLM-4.7 (355B MoE, 200K)", "category": "sonnet" },
+      { "id": "glm-4.6", "name": "GLM-4.6", "category": "haiku" },
+      { "id": "glm-4.5", "name": "GLM-4.5", "category": "haiku" },
+      { "id": "glm-5v-turbo", "name": "GLM-5V Turbo 视觉", "category": "other" },
+      { "id": "glm-4.6v", "name": "GLM-4.6V 视觉", "category": "other" },
+      { "id": "glm-4.5v", "name": "GLM-4.5V 视觉", "category": "other" }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000003",
+    "name": "火山方舟 Coding Plan",
+    "slug": "volcengine",
+    "apiUrl": "https://ark.cn-beijing.volces.com/api/coding",
+    "docUrl": "https://www.volcengine.com/docs/82379/1925114",
+    "models": [
+      { "id": "doubao-seed-2.0-pro", "name": "豆包 Seed 2.0 Pro", "category": "opus" },
+      { "id": "doubao-seed-2.0-code", "name": "豆包 Seed 2.0 Code 主力编程", "category": "sonnet" },
+      { "id": "doubao-seed-2.0-lite", "name": "豆包 Seed 2.0 Lite", "category": "haiku" },
+      { "id": "deepseek-v3.2", "name": "DeepSeek V3.2", "category": "sonnet" },
+      { "id": "kimi-k2.5", "name": "Kimi K2.5", "category": "sonnet" },
+      { "id": "glm-4.7", "name": "GLM-4.7", "category": "sonnet" },
+      { "id": "minimax-m2.5", "name": "MiniMax M2.5", "category": "sonnet" },
+      { "id": "ark-code-latest", "name": "Auto 智能匹配", "category": "other" }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000004",
+    "name": "阿里云百炼 Coding Plan",
+    "slug": "dashscope",
+    "apiUrl": "https://coding.dashscope.aliyuncs.com/apps/anthropic",
+    "docUrl": "https://help.aliyun.com/zh/model-studio/coding-plan",
+    "models": [
+      { "id": "qwen3.5-plus", "name": "Qwen 3.5 Plus 推荐", "category": "sonnet" },
+      { "id": "qwen3-max", "name": "Qwen 3 Max", "category": "opus" },
+      { "id": "qwen3-coder-next", "name": "Qwen 3 Coder Next", "category": "sonnet" },
+      { "id": "qwen3-coder-plus", "name": "Qwen 3 Coder Plus", "category": "sonnet" },
+      { "id": "qwen3-coder-flash", "name": "Qwen 3 Coder Flash", "category": "haiku" },
+      { "id": "glm-5", "name": "GLM-5", "category": "opus" },
+      { "id": "glm-4.7", "name": "GLM-4.7", "category": "sonnet" },
+      { "id": "kimi-k2.5", "name": "Kimi K2.5", "category": "sonnet" },
+      { "id": "MiniMax-M2.5", "name": "MiniMax M2.5", "category": "sonnet" }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000005",
+    "name": "MiniMax Token Plan",
+    "slug": "minimax",
+    "apiUrl": "https://api.minimaxi.com/anthropic",
+    "docUrl": "https://platform.minimaxi.com/docs/guides/pricing-token-plan",
+    "models": [
+      { "id": "MiniMax-M2.7", "name": "MiniMax M2.7 旗舰 (204K)", "category": "opus" },
+      { "id": "MiniMax-M2.5", "name": "MiniMax M2.5 (204K)", "category": "sonnet" }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000006",
+    "name": "Kimi Code Plan",
+    "slug": "kimi",
+    "apiUrl": "https://api.kimi.com/coding/",
+    "docUrl": "https://www.kimi.com/code/docs/",
+    "models": [
+      { "id": "kimi-k2.5", "name": "Kimi K2.5 旗舰 (256K, MoE)", "category": "opus" },
+      { "id": "kimi-k2-thinking", "name": "Kimi K2 深度推理", "category": "opus" },
+      { "id": "kimi-k2-turbo-preview", "name": "Kimi K2 Turbo 高速", "category": "sonnet" },
+      { "id": "kimi-for-coding", "name": "Kimi For Coding 专用", "category": "sonnet" }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000007",
+    "name": "Xiaomi MiMo Token Plan",
+    "slug": "xiaomi-mimo",
+    "apiUrl": "https://api.xiaomimimo.com/anthropic",
+    "docUrl": "https://platform.xiaomimimo.com/#/docs/welcome",
+    "models": [
+      { "id": "mimo-v2-pro", "name": "MiMo V2 Pro 旗舰推理 (1M)", "category": "opus" },
+      { "id": "mimo-v2-omni", "name": "MiMo V2 Omni 全模态 (256K)", "category": "sonnet" },
+      { "id": "mimo-v2-flash", "name": "MiMo V2 Flash 开源 (256K)", "category": "haiku" }
+    ]
+  }
+]
