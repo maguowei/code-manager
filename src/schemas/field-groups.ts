@@ -1,19 +1,20 @@
 import type { ClaudeConfigFormData } from "./config-schema";
+import type { TranslationKey } from "../i18n";
 
 export type FieldInputType = "text" | "password" | "checkbox" | "select" | "combobox" | "url";
 
 export interface FieldConfig {
   name: keyof ClaudeConfigFormData;
-  labelKey: string;
-  descriptionKey?: string;
-  placeholderKey?: string;
+  labelKey: TranslationKey;
+  descriptionKey?: TranslationKey;
+  placeholderKey?: TranslationKey;
   inputType: FieldInputType;
-  options?: { value: string; labelKey: string }[];
+  options?: { value: string; labelKey: TranslationKey }[];
 }
 
 export interface FieldGroup {
   id: string;
-  labelKey: string;
+  labelKey: TranslationKey;
   collapsible: boolean;
   fields: FieldConfig[];
 }

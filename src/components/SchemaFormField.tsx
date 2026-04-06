@@ -47,12 +47,12 @@ export default function SchemaFormField({
                 onChange={(e) => f.onChange(e.target.checked)}
               />
               <span className="checkbox-custom" />
-              <span>{t(field.labelKey as TranslationKey)}</span>
+              <span>{t(field.labelKey)}</span>
             </label>
           )}
         />
         {field.descriptionKey && (
-          <p className="form-hint">{t(field.descriptionKey as TranslationKey)}</p>
+          <p className="form-hint">{t(field.descriptionKey)}</p>
         )}
         {errorEl}
       </div>
@@ -62,11 +62,11 @@ export default function SchemaFormField({
   if (field.inputType === "select") {
     return (
       <div className="form-group">
-        <label htmlFor={field.name}>{t(field.labelKey as TranslationKey)}</label>
+        <label htmlFor={field.name}>{t(field.labelKey)}</label>
         <select id={field.name} {...register(field.name)}>
           {(field.options ?? []).map((opt) => (
             <option key={opt.value} value={opt.value}>
-              {t(opt.labelKey as TranslationKey)}
+              {t(opt.labelKey)}
             </option>
           ))}
         </select>
@@ -79,14 +79,14 @@ export default function SchemaFormField({
     return (
       <div className="form-group">
         <label htmlFor={field.name} className="label-required">
-          <span>{t(field.labelKey as TranslationKey)}</span>
+          <span>{t(field.labelKey)}</span>
           <span className="required-badge">{t("form.required")}</span>
         </label>
         <div className="input-with-toggle">
           <input
             id={field.name}
             type={showPassword ? "text" : "password"}
-            placeholder={field.placeholderKey ? t(field.placeholderKey as TranslationKey) : undefined}
+            placeholder={field.placeholderKey ? t(field.placeholderKey) : undefined}
             {...register(field.name)}
           />
           <button
@@ -120,7 +120,7 @@ export default function SchemaFormField({
         htmlFor={field.name}
         className={isRequired ? "label-required" : undefined}
       >
-        <span>{t(field.labelKey as TranslationKey)}</span>
+        <span>{t(field.labelKey)}</span>
         {isRequired && (
           <span className="required-badge">{t("form.required")}</span>
         )}
@@ -129,7 +129,7 @@ export default function SchemaFormField({
         id={field.name}
         type={field.inputType === "url" ? "url" : "text"}
         list={datalistId}
-        placeholder={field.placeholderKey ? t(field.placeholderKey as TranslationKey) : undefined}
+        placeholder={field.placeholderKey ? t(field.placeholderKey) : undefined}
         {...register(field.name)}
       />
       {errorEl}
