@@ -37,8 +37,8 @@ const ProviderItem = memo(function ProviderItem({
           </span>
         </div>
         <div className="provider-item-slug">{provider.slug}</div>
-        {provider.apiUrl && (
-          <div className="provider-item-url">{provider.apiUrl}</div>
+        {provider.baseUrl && (
+          <div className="provider-item-url">{provider.baseUrl}</div>
         )}
       </div>
       <div className="provider-item-actions" onClick={(e) => e.stopPropagation()}>

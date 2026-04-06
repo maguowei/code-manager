@@ -43,7 +43,7 @@ function ProviderPage({ providers, onProvidersChange }: ProviderPageProps) {
   async function handleSave(data: {
     name: string;
     slug: string;
-    apiUrl: string;
+    baseUrl: string;
     docUrl: string;
     models: ProviderModel[];
   }) {
@@ -51,7 +51,7 @@ function ProviderPage({ providers, onProvidersChange }: ProviderPageProps) {
       const payload = {
         name: data.name,
         slug: data.slug,
-        apiUrl: data.apiUrl,
+        baseUrl: data.baseUrl,
         docUrl: data.docUrl || null,
         models: data.models,
       };

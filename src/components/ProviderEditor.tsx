@@ -9,7 +9,7 @@ interface ProviderEditorProps {
   onSave: (data: {
     name: string;
     slug: string;
-    apiUrl: string;
+    baseUrl: string;
     docUrl: string;
     models: ProviderModel[];
   }) => void;
@@ -20,7 +20,7 @@ function ProviderEditor({ provider, onSave, onClose }: ProviderEditorProps) {
   const { t } = useI18n();
   const [name, setName] = useState(provider?.name || "");
   const [slug, setSlug] = useState(provider?.slug || "");
-  const [apiUrl, setApiUrl] = useState(provider?.apiUrl || "");
+  const [baseUrl, setBaseUrl] = useState(provider?.baseUrl || "");
   const [docUrl, setDocUrl] = useState(provider?.docUrl || "");
   const [models, setModels] = useState<ProviderModel[]>(provider?.models || []);
 
@@ -50,7 +50,7 @@ function ProviderEditor({ provider, onSave, onClose }: ProviderEditorProps) {
     onSave({
       name: name.trim(),
       slug: slug.trim(),
-      apiUrl: apiUrl.trim(),
+      baseUrl: baseUrl.trim(),
       docUrl: docUrl.trim(),
       models: models.filter((m) => m.id.trim()),
     });
@@ -93,14 +93,14 @@ function ProviderEditor({ provider, onSave, onClose }: ProviderEditorProps) {
         </div>
 
         <div className="form-group">
-          <label className="form-label">{t("providers.apiUrl")}</label>
+          <label className="form-label">{t("providers.baseUrl")}</label>
           <input
             className="form-input"
-            value={apiUrl}
-            onChange={(e) => setApiUrl(e.target.value)}
-            placeholder={t("providers.apiUrlPlaceholder")}
+            value={baseUrl}
+            onChange={(e) => setBaseUrl(e.target.value)}
+            placeholder={t("providers.baseUrlPlaceholder")}
           />
-          <span className="form-hint">{t("providers.apiUrlHint")}</span>
+          <span className="form-hint">{t("providers.baseUrlHint")}</span>
         </div>
 
         <div className="form-group">

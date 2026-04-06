@@ -18,7 +18,7 @@ pub struct Provider {
     pub id: String,
     pub name: String,
     pub slug: String,
-    pub api_url: String,
+    pub base_url: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub doc_url: Option<String>,
     pub is_builtin: bool,
@@ -33,7 +33,7 @@ pub struct Provider {
 pub struct ProviderData {
     pub name: String,
     pub slug: String,
-    pub api_url: String,
+    pub base_url: String,
     pub doc_url: Option<String>,
     pub models: Vec<ProviderModel>,
 }
@@ -65,17 +65,16 @@ struct BuiltinProviderDef {
     id: String,
     name: String,
     slug: String,
-    api_url: String,
+    base_url: String,
     doc_url: Option<String>,
     models: Vec<ProviderModel>,
 }
 
 /// 从嵌入的 JSON 文件生成内置 Provider 列表
 fn builtin_providers() -> Vec<Provider> {
-    let defs: Vec<BuiltinProviderDef> = serde_json::from_str(
-        include_str!("../resources/builtin-providers.json"),
-    )
-    .expect("内置 Provider JSON 格式错误");
+    let defs: Vec<BuiltinProviderDef> =
+        serde_json::from_str(include_str!("../resources/builtin-providers.json"))
+            .expect("内置 Provider JSON 格式错误");
 
     let now = crate::utils::current_timestamp();
     defs.into_iter()
@@ -83,7 +82,7 @@ fn builtin_providers() -> Vec<Provider> {
             id: d.id,
             name: d.name,
             slug: d.slug,
-            api_url: d.api_url,
+            base_url: d.base_url,
             doc_url: d.doc_url,
             is_builtin: true,
             models: d.models,
@@ -104,7 +103,9 @@ pub fn get_provider_by_id(id: &str) -> Option<Provider> {
 pub fn get_providers() -> Result<Vec<Provider>, String> {
     let path = get_provider_path();
     if !path.exists() {
-        let state = ProviderState { providers: builtin_providers() };
+        let state = ProviderState {
+            providers: builtin_providers(),
+        };
         save_state(&state)?;
         return Ok(state.providers);
     }
@@ -113,8 +114,12 @@ pub fn get_providers() -> Result<Vec<Provider>, String> {
 
     // 补充缺失的内置 Provider（版本升级场景）
     let builtins = builtin_providers();
-    let existing_slugs: std::collections::HashSet<String> =
-        state.providers.iter().filter(|p| p.is_builtin).map(|p| p.slug.clone()).collect();
+    let existing_slugs: std::collections::HashSet<String> = state
+        .providers
+        .iter()
+        .filter(|p| p.is_builtin)
+        .map(|p| p.slug.clone())
+        .collect();
 
     let mut changed = false;
     for bp in builtins {
@@ -145,7 +150,7 @@ pub fn add_provider(data: ProviderData) -> Result<Provider, String> {
         id: Uuid::new_v4().to_string(),
         name: data.name,
         slug: data.slug,
-        api_url: data.api_url,
+        base_url: data.base_url,
         doc_url: data.doc_url,
         is_builtin: false,
         models: data.models,
@@ -164,18 +169,26 @@ pub fn update_provider(id: String, data: ProviderData) -> Result<Provider, Strin
     let mut state = load_state();
 
     // slug 唯一性检查（排除自身），先于可变借用
-    let slug_conflict = state.providers.iter().any(|p| p.slug == data.slug && p.id != id);
+    let slug_conflict = state
+        .providers
+        .iter()
+        .any(|p| p.slug == data.slug && p.id != id);
     if slug_conflict {
-        return Err(format!("Provider slug '{}' 已被其他 Provider 使用", data.slug));
+        return Err(format!(
+            "Provider slug '{}' 已被其他 Provider 使用",
+            data.slug
+        ));
     }
 
-    let provider = state.providers.iter_mut()
+    let provider = state
+        .providers
+        .iter_mut()
         .find(|p| p.id == id)
         .ok_or_else(|| format!("Provider '{}' 不存在", id))?;
 
     provider.name = data.name;
     provider.slug = data.slug;
-    provider.api_url = data.api_url;
+    provider.base_url = data.base_url;
     provider.doc_url = data.doc_url;
     provider.models = data.models;
     provider.updated_at = crate::utils::current_timestamp();
@@ -191,7 +204,9 @@ pub fn delete_provider(id: String) -> Result<(), String> {
     let _lock = crate::utils::lock_provider()?;
     let mut state = load_state();
 
-    let provider = state.providers.iter()
+    let provider = state
+        .providers
+        .iter()
         .find(|p| p.id == id)
         .ok_or_else(|| format!("Provider '{}' 不存在", id))?;
 
@@ -227,7 +242,9 @@ pub fn reset_provider(id: String) -> Result<Provider, String> {
     let _lock = crate::utils::lock_provider()?;
     let mut state = load_state();
 
-    let provider = state.providers.iter_mut()
+    let provider = state
+        .providers
+        .iter_mut()
         .find(|p| p.id == id)
         .ok_or_else(|| format!("Provider '{}' 不存在", id))?;
 
@@ -236,13 +253,14 @@ pub fn reset_provider(id: String) -> Result<Provider, String> {
     }
 
     let builtins = builtin_providers();
-    let default = builtins.into_iter()
+    let default = builtins
+        .into_iter()
         .find(|p| p.id == id)
         .ok_or_else(|| format!("未找到内置 Provider 默认值 '{}'", id))?;
 
     provider.name = default.name;
     provider.slug = default.slug;
-    provider.api_url = default.api_url;
+    provider.base_url = default.base_url;
     provider.doc_url = default.doc_url;
     provider.models = default.models;
     provider.updated_at = crate::utils::current_timestamp();
@@ -250,4 +268,47 @@ pub fn reset_provider(id: String) -> Result<Provider, String> {
     let reset = provider.clone();
     save_state(&state)?;
     Ok(reset)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn provider_deserializes_base_url_field() {
+        let provider: Provider = serde_json::from_value(json!({
+            "id": "provider-1",
+            "name": "Example",
+            "slug": "example",
+            "baseUrl": "https://example.com/anthropic",
+            "isBuiltin": false,
+            "models": [],
+            "createdAt": 1,
+            "updatedAt": 1
+        }))
+        .expect("Provider 应支持 baseUrl 字段");
+
+        let serialized = serde_json::to_value(provider).expect("Provider 应可序列化");
+        assert_eq!(
+            serialized["baseUrl"],
+            json!("https://example.com/anthropic")
+        );
+    }
+
+    #[test]
+    fn provider_rejects_legacy_api_url_field() {
+        let result = serde_json::from_value::<Provider>(json!({
+            "id": "provider-1",
+            "name": "Example",
+            "slug": "example",
+            "apiUrl": "https://example.com/anthropic",
+            "isBuiltin": false,
+            "models": [],
+            "createdAt": 1,
+            "updatedAt": 1
+        }));
+
+        assert!(result.is_err(), "旧的 apiUrl 字段不应继续被 Provider 接受");
+    }
 }

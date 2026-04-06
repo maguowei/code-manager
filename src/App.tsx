@@ -26,7 +26,7 @@ function buildConfigData(config: Omit<ClaudeConfig, "id" | "createdAt" | "update
     name: config.name,
     description: config.description,
     apiKey: config.apiKey,
-    apiUrl: config.apiUrl || null,
+    baseUrl: config.baseUrl || null,
     websiteUrl: config.websiteUrl || null,
     model: config.model || null,
     haikuModel: config.haikuModel || null,

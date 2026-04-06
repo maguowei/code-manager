@@ -22,7 +22,7 @@ function buildDefaultValues(config: ClaudeConfig | null, defaultLang: string): P
     name: config?.name ?? "",
     description: config?.description ?? "",
     apiKey: config?.apiKey ?? "",
-    apiUrl: config?.apiUrl ?? "",
+    baseUrl: config?.baseUrl ?? "",
     websiteUrl: config?.websiteUrl ?? "",
     model: config?.model ?? "",
     haikuModel: config?.haikuModel ?? "",
@@ -133,7 +133,7 @@ function ConfigEditor({
         name: formValues.name,
         description: formValues.description,
         apiKey: formValues.apiKey,
-        apiUrl: formValues.apiUrl || null,
+        baseUrl: formValues.baseUrl || null,
         websiteUrl: formValues.websiteUrl || null,
         model: formValues.model || null,
         haikuModel: formValues.haikuModel || null,
@@ -192,7 +192,7 @@ function ConfigEditor({
     const env = (parsed.env ?? {}) as Record<string, string>;
 
     if (env.ANTHROPIC_AUTH_TOKEN !== undefined) setValue("apiKey", env.ANTHROPIC_AUTH_TOKEN);
-    if (env.ANTHROPIC_BASE_URL !== undefined) setValue("apiUrl", env.ANTHROPIC_BASE_URL);
+    if (env.ANTHROPIC_BASE_URL !== undefined) setValue("baseUrl", env.ANTHROPIC_BASE_URL);
     if (env.ANTHROPIC_MODEL !== undefined) setValue("model", env.ANTHROPIC_MODEL);
     if (env.ANTHROPIC_DEFAULT_HAIKU_MODEL !== undefined) setValue("haikuModel", env.ANTHROPIC_DEFAULT_HAIKU_MODEL);
     if (env.ANTHROPIC_DEFAULT_SONNET_MODEL !== undefined) setValue("sonnetModel", env.ANTHROPIC_DEFAULT_SONNET_MODEL);
@@ -244,7 +244,7 @@ function ConfigEditor({
     parseJsonToForm(value);
   }
 
-  /** 切换 Provider 时自动填充 apiUrl 及各 category 的默认模型 */
+  /** 切换 Provider 时自动填充 baseUrl 及各 category 的默认模型 */
   function handleProviderChange(newProviderId: string) {
     setValue("providerId", newProviderId);
     const p = (providers ?? []).find((pv) => pv.id === newProviderId);
@@ -256,13 +256,13 @@ function ConfigEditor({
         }
         return p.models[0]?.id ?? "";
       };
-      setValue("apiUrl", p.apiUrl);
+      setValue("baseUrl", p.baseUrl);
       setValue("model",       find("sonnet", "opus"));
       setValue("haikuModel",  find("haiku", "sonnet", "opus"));
       setValue("sonnetModel", find("sonnet", "opus"));
       setValue("opusModel",   find("opus"));
     } else {
-      setValue("apiUrl", "");
+      setValue("baseUrl", "");
       setValue("model", "");
       setValue("haikuModel", "");
       setValue("sonnetModel", "");
@@ -278,17 +278,17 @@ function ConfigEditor({
         return;
       }
     }
-    // 若 apiUrl 与选中 Provider 预设相同，则不保存（让后端从 Provider 读取）
-    const providerDefaultUrl = selectedProvider?.apiUrl ?? "";
-    const effectiveApiUrl =
-      data.apiUrl === providerDefaultUrl ? undefined : data.apiUrl || undefined;
+    // 若 baseUrl 与选中 Provider 预设相同，则不保存（让后端从 Provider 读取）
+    const providerDefaultBaseUrl = selectedProvider?.baseUrl ?? "";
+    const effectiveBaseUrl =
+      data.baseUrl === providerDefaultBaseUrl ? undefined : data.baseUrl || undefined;
 
     onSave(
       {
         name: data.name,
         description: data.description,
         apiKey: data.apiKey,
-        apiUrl: effectiveApiUrl,
+        baseUrl: effectiveBaseUrl,
         websiteUrl: data.websiteUrl || undefined,
         model: data.model || undefined,
         haikuModel: data.haikuModel || undefined,
@@ -430,28 +430,28 @@ function ConfigEditor({
               error={errors.apiKey as FieldError | undefined}
             />
 
-            {/* apiUrl（自定义：含警告提示） */}
+            {/* baseUrl（自定义：含提示文案） */}
             <div className="form-group form-group-compact">
               <div className="field-label-wrap">
-                <label htmlFor="apiUrl">{t("configModal.apiUrl")}</label>
+                <label htmlFor="baseUrl">{t("configModal.baseUrl")}</label>
                 <p className="form-hint warning form-hint-inline">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="8" x2="12" y2="12" />
                     <line x1="12" y1="16" x2="12.01" y2="16" />
                   </svg>
-                  {t("configModal.apiUrlHint")}
+                  {t("configModal.baseUrlHint")}
                 </p>
               </div>
               <input
-                id="apiUrl"
+                id="baseUrl"
                 type="url"
-                className={errors.apiUrl ? "input-error" : undefined}
-                placeholder={t("configModal.apiUrlPlaceholder")}
-                {...register("apiUrl")}
+                className={errors.baseUrl ? "input-error" : undefined}
+                placeholder={t("configModal.baseUrlPlaceholder")}
+                {...register("baseUrl")}
               />
-              {errors.apiUrl?.message && (
-                <span className="field-error">{t(errors.apiUrl.message as import("../i18n").TranslationKey)}</span>
+              {errors.baseUrl?.message && (
+                <span className="field-error">{t(errors.baseUrl.message as import("../i18n").TranslationKey)}</span>
               )}
             </div>
 

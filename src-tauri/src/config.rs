@@ -9,11 +9,12 @@ use uuid::Uuid;
 /// 新增/更新配置的数据传输对象
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
 pub struct ConfigData {
     pub name: String,
     pub description: String,
     pub api_key: String,
-    pub api_url: Option<String>,
+    pub base_url: Option<String>,
     pub website_url: Option<String>,
     pub model: Option<String>,
     pub thinking_model: Option<String>,
@@ -52,7 +53,7 @@ impl ConfigData {
             name: self.name,
             description: self.description,
             api_key: self.api_key,
-            api_url: self.api_url,
+            base_url: self.base_url,
             website_url: self.website_url,
             model: self.model,
             thinking_model: self.thinking_model,
@@ -82,7 +83,7 @@ impl ConfigData {
         config.name = self.name;
         config.description = self.description;
         config.api_key = self.api_key;
-        config.api_url = self.api_url;
+        config.base_url = self.base_url;
         config.website_url = self.website_url;
         config.model = self.model;
         config.thinking_model = self.thinking_model;
@@ -113,7 +114,7 @@ pub struct ClaudeConfig {
     pub description: String,
     pub api_key: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub api_url: Option<String>,
+    pub base_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub website_url: Option<String>,
     // 模型配置
@@ -225,17 +226,23 @@ fn deep_merge(base: serde_json::Value, overlay: serde_json::Value) -> serde_json
 /// 构建配置的 JSON 表示（不含文件 I/O），供 apply_config 与 preview_config 共用。
 ///
 /// `defaults` 为通用配置的 JSON 字符串，当 `config.use_defaults == Some(true)` 时参与深度合并。
-fn build_config_value(config: &ClaudeConfig, defaults: Option<&str>, provider_api_url: Option<&str>) -> serde_json::Value {
+fn build_config_value(
+    config: &ClaudeConfig,
+    defaults: Option<&str>,
+    provider_base_url: Option<&str>,
+) -> serde_json::Value {
     let mut env = serde_json::Map::new();
     env.insert(
         "ANTHROPIC_AUTH_TOKEN".to_string(),
         serde_json::Value::String(config.api_key.clone()),
     );
 
-    let effective_api_url = config.api_url.as_deref()
+    let effective_base_url = config
+        .base_url
+        .as_deref()
         .filter(|s| !s.is_empty())
-        .or_else(|| provider_api_url.filter(|s| !s.is_empty()));
-    if let Some(url) = effective_api_url {
+        .or_else(|| provider_base_url.filter(|s| !s.is_empty()));
+    if let Some(url) = effective_base_url {
         env.insert(
             "ANTHROPIC_BASE_URL".to_string(),
             serde_json::Value::String(url.to_string()),
@@ -399,11 +406,13 @@ fn build_config_value(config: &ClaudeConfig, defaults: Option<&str>, provider_ap
 /// 因此内部不可再次获取该锁——标准库 `Mutex` 不可重入，否则会死锁。
 /// `defaults` 由调用方传入，避免重复读取磁盘状态。
 pub fn apply_config(config: &ClaudeConfig, defaults: Option<&str>) -> Result<(), String> {
-    let provider_api_url = config.provider_id.as_deref()
+    let provider_base_url = config
+        .provider_id
+        .as_deref()
         .and_then(|pid| crate::provider::get_provider_by_id(pid))
-        .map(|p| p.api_url);
-    let provider_api_url_ref = provider_api_url.as_deref();
-    let final_config = build_config_value(config, defaults, provider_api_url_ref);
+        .map(|p| p.base_url);
+    let provider_base_url_ref = provider_base_url.as_deref();
+    let final_config = build_config_value(config, defaults, provider_base_url_ref);
     let path = get_claude_config_path();
     let content = serde_json::to_string_pretty(&final_config).map_err(|e| e.to_string())?;
     crate::utils::ensure_dir_and_write(&path, &content)
@@ -626,11 +635,14 @@ pub fn update_defaults(content: String) -> Result<(), String> {
 #[tauri::command]
 pub fn preview_config(data: ConfigData, defaults: Option<String>) -> Result<String, String> {
     // 构建临时 ClaudeConfig，仅用于 JSON 生成，不持久化
-    let provider_api_url = data.provider_id.as_deref()
+    let provider_base_url = data
+        .provider_id
+        .as_deref()
         .and_then(|pid| crate::provider::get_provider_by_id(pid))
-        .map(|p| p.api_url);
+        .map(|p| p.base_url);
     let config = data.into_preview_config();
-    let final_config = build_config_value(&config, defaults.as_deref(), provider_api_url.as_deref());
+    let final_config =
+        build_config_value(&config, defaults.as_deref(), provider_base_url.as_deref());
     serde_json::to_string_pretty(&final_config).map_err(|e| e.to_string())
 }
 
@@ -654,6 +666,7 @@ pub fn set_show_tray_title(app_handle: AppHandle, show: bool) -> Result<(), Stri
 mod schema_tests {
     use super::*;
     use schemars::schema_for;
+    use serde_json::json;
 
     #[test]
     fn claude_config_required_fields_match_json_schema() {
@@ -698,7 +711,8 @@ mod schema_tests {
             .clone();
 
         let json_schema_str = include_str!("../../src/schemas/claude-config.schema.json");
-        let json_schema: serde_json::Value = serde_json::from_str(json_schema_str).expect("JSON Schema 格式不合法");
+        let json_schema: serde_json::Value =
+            serde_json::from_str(json_schema_str).expect("JSON Schema 格式不合法");
 
         // 注意：只检查 JSON Schema → Rust 方向。Rust 侧可能存在 JSON Schema 未包含的字段
         // （如 thinking_model，保留是为了向后兼容已存储的配置数据），这是有意为之。
@@ -749,5 +763,60 @@ mod schema_tests {
                 field_name, expected_default
             );
         }
+    }
+
+    #[test]
+    fn config_json_schema_uses_base_url_property() {
+        let json_schema_str = include_str!("../../src/schemas/claude-config.schema.json");
+        let json_schema: serde_json::Value =
+            serde_json::from_str(json_schema_str).expect("JSON Schema 格式不合法");
+
+        let properties = json_schema["properties"]
+            .as_object()
+            .expect("JSON Schema properties 应为 object");
+
+        assert!(
+            properties.contains_key("baseUrl"),
+            "配置 schema 应暴露 baseUrl 字段"
+        );
+        assert!(
+            !properties.contains_key("apiUrl"),
+            "配置 schema 不应继续暴露旧的 apiUrl 字段"
+        );
+    }
+
+    #[test]
+    fn preview_config_uses_base_url_field_for_anthropic_base_url() {
+        let data: ConfigData = serde_json::from_value(json!({
+            "name": "base-url",
+            "description": "",
+            "apiKey": "sk-test",
+            "baseUrl": "https://example.com/anthropic"
+        }))
+        .expect("ConfigData 应支持 baseUrl 字段");
+
+        let preview = preview_config(data, None).expect("预览配置应生成成功");
+        let preview_json: serde_json::Value =
+            serde_json::from_str(&preview).expect("预览 JSON 应合法");
+
+        assert_eq!(
+            preview_json["env"]["ANTHROPIC_BASE_URL"],
+            json!("https://example.com/anthropic")
+        );
+    }
+
+    #[test]
+    fn preview_config_rejects_legacy_api_url_field() {
+        let result = serde_json::from_value::<ConfigData>(json!({
+            "name": "legacy-api-url",
+            "description": "",
+            "apiKey": "sk-test",
+            "apiUrl": "https://legacy.example.com/anthropic"
+        }));
+
+        assert!(
+            result.is_err(),
+            "旧的 apiUrl 字段不应继续被 ConfigData 接受"
+        );
     }
 }

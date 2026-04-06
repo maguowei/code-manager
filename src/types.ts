@@ -14,7 +14,7 @@ export interface Provider {
   id: string;
   name: string;
   slug: string;
-  apiUrl: string;
+  baseUrl: string;
   docUrl?: string;
   isBuiltin: boolean;
   models: ProviderModel[];
@@ -27,7 +27,7 @@ export interface ClaudeConfig {
   name: string;
   description: string;
   apiKey: string;
-  apiUrl?: string;
+  baseUrl?: string;
   websiteUrl?: string;
   // 模型配置
   model?: string;

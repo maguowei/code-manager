@@ -12,7 +12,7 @@ export const ClaudeConfigSchema = z.object({
   name: z.string().min(1, "configEditor.validation.nameRequired"),
   description: z.string().default(""),
   apiKey: z.string().min(1, "configEditor.validation.apiKeyRequired"),
-  apiUrl: urlField,
+  baseUrl: urlField,
   websiteUrl: urlField,
   model: z.string().optional(),
   haikuModel: z.string().optional(),
