@@ -351,6 +351,15 @@ const translations = {
     "history.roleAssistant": "助手",
     "history.image": "图片",
     "history.plan": "实施计划",
+
+    // 配置编辑器 - 分组标题
+    "configEditor.section.basic": "基础信息",
+    "configEditor.section.advanced": "高级选项",
+
+    // 配置编辑器 - 表单校验错误
+    "configEditor.validation.nameRequired": "配置名称不能为空",
+    "configEditor.validation.apiKeyRequired": "API Key 不能为空",
+    "configEditor.validation.invalidUrl": "请输入有效的 URL（需以 http:// 或 https:// 开头）",
   },
   en: {
     // 通用
@@ -698,6 +707,15 @@ const translations = {
     "history.roleAssistant": "Assistant",
     "history.image": "Image",
     "history.plan": "Implementation Plan",
+
+    // ConfigEditor - section labels
+    "configEditor.section.basic": "Basic Info",
+    "configEditor.section.advanced": "Advanced",
+
+    // ConfigEditor - validation errors
+    "configEditor.validation.nameRequired": "Name is required",
+    "configEditor.validation.apiKeyRequired": "API Key is required",
+    "configEditor.validation.invalidUrl": "Must be a valid URL starting with http:// or https://",
   },
 } as const;
 
