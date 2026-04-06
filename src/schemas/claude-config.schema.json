@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "claude-config",
+  "title": "Claude Code Configuration",
+  "type": "object",
+  "required": ["name", "apiKey"],
+  "additionalProperties": false,
+  "properties": {
+    "name":                       { "type": "string", "minLength": 1 },
+    "description":                { "type": "string", "default": "" },
+    "apiKey":                     { "type": "string", "minLength": 1 },
+    "apiUrl":                     { "type": "string", "format": "uri" },
+    "websiteUrl":                 { "type": "string", "format": "uri" },
+    "model":                      { "type": "string" },
+    "haikuModel":                 { "type": "string" },
+    "sonnetModel":                { "type": "string" },
+    "opusModel":                  { "type": "string" },
+    "alwaysThinkingEnabled":      { "type": "boolean", "default": false },
+    "disableNonessentialTraffic": { "type": "boolean", "default": false },
+    "skipWebFetchPreflight":      { "type": "boolean", "default": false },
+    "enableLspTool":              { "type": "boolean", "default": false },
+    "agentTeamsEnabled":          { "type": "boolean", "default": false },
+    "hasCompletedOnboarding":     { "type": "boolean", "default": false },
+    "enableExtraMarketplaces":    { "type": "boolean", "default": false },
+    "preferredLanguage":          { "type": "string", "default": "english" },
+    "useDefaults":                { "type": "boolean", "default": false },
+    "providerId":                 { "type": "string" },
+    "enabledPlugins":             {
+      "type": "object",
+      "additionalProperties": { "type": "boolean" }
+    }
+  }
+}
