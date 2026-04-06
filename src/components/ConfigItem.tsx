@@ -70,7 +70,9 @@ function ConfigItem({
   function buildEnvExport(cfg: ClaudeConfig): string {
     const lines: string[] = [];
     lines.push(`export ANTHROPIC_AUTH_TOKEN="${cfg.apiKey}"`);
-    if (cfg.apiUrl) lines.push(`export ANTHROPIC_BASE_URL="${cfg.apiUrl}"`);
+    // apiUrl 优先，为空时 fallback 到 Provider 的 URL
+    const effectiveUrl = cfg.apiUrl || (cfg.providerId ? providers.find(p => p.id === cfg.providerId)?.apiUrl : undefined);
+    if (effectiveUrl) lines.push(`export ANTHROPIC_BASE_URL="${effectiveUrl}"`);
     if (cfg.model) lines.push(`export ANTHROPIC_MODEL="${cfg.model}"`);
     if (cfg.haikuModel) lines.push(`export ANTHROPIC_DEFAULT_HAIKU_MODEL="${cfg.haikuModel}"`);
     if (cfg.sonnetModel) lines.push(`export ANTHROPIC_DEFAULT_SONNET_MODEL="${cfg.sonnetModel}"`);

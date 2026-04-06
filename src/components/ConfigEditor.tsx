@@ -239,11 +239,15 @@ function ConfigEditor({ config, defaults, providers, onSave, onClose }: ConfigEd
     setProviderId(newProviderId);
     const p = (providers ?? []).find((pv) => pv.id === newProviderId);
     if (p) {
-      if (!apiUrl) setApiUrl(p.apiUrl);
+      // 始终用 Provider 的 URL 覆盖（用户手动修改的以表单值为准）
+      setApiUrl(p.apiUrl);
       setModel("");
       setHaikuModel("");
       setSonnetModel("");
       setOpusModel("");
+    } else {
+      // 选择"无"时清空自动填充的 URL
+      setApiUrl("");
     }
   }
 
@@ -261,11 +265,14 @@ function ConfigEditor({ config, defaults, providers, onSave, onClose }: ConfigEd
         return;
       }
     }
+    // 若 apiUrl 与选中 Provider 的预设相同，则不保存（让后端从 Provider 读取，支持集中管理）
+    const providerDefaultUrl = selectedProvider?.apiUrl ?? "";
+    const effectiveApiUrl = apiUrl.trim() === providerDefaultUrl ? undefined : (apiUrl.trim() || undefined);
     onSave({
       name: name.trim(),
       description: description.trim(),
       apiKey: apiKey.trim(),
-      apiUrl: apiUrl.trim() || undefined,
+      apiUrl: effectiveApiUrl,
       websiteUrl: websiteUrl.trim() || undefined,
       model: model.trim() || undefined,
       thinkingModel: thinkingModel.trim() || undefined,
