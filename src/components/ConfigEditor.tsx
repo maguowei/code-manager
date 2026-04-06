@@ -16,6 +16,8 @@ import { ChevronLeftIcon } from "./Icons";
 
 /** 将已有配置（或 null）映射为 react-hook-form 的初始值 */
 function buildDefaultValues(config: ClaudeConfig | null, defaultLang: string): Partial<ClaudeConfigFormData> {
+  const isNewConfig = config === null;
+
   return {
     name: config?.name ?? "",
     description: config?.description ?? "",
@@ -26,12 +28,12 @@ function buildDefaultValues(config: ClaudeConfig | null, defaultLang: string): P
     haikuModel: config?.haikuModel ?? "",
     sonnetModel: config?.sonnetModel ?? "",
     opusModel: config?.opusModel ?? "",
-    alwaysThinkingEnabled: config?.alwaysThinkingEnabled ?? false,
-    disableNonessentialTraffic: config?.disableNonessentialTraffic ?? false,
-    skipWebFetchPreflight: config?.skipWebFetchPreflight ?? false,
-    enableLspTool: config?.enableLspTool ?? false,
+    alwaysThinkingEnabled: config?.alwaysThinkingEnabled ?? isNewConfig,
+    disableNonessentialTraffic: config?.disableNonessentialTraffic ?? isNewConfig,
+    skipWebFetchPreflight: config?.skipWebFetchPreflight ?? isNewConfig,
+    enableLspTool: config?.enableLspTool ?? isNewConfig,
     agentTeamsEnabled: config?.agentTeamsEnabled ?? false,
-    hasCompletedOnboarding: config?.hasCompletedOnboarding ?? false,
+    hasCompletedOnboarding: config?.hasCompletedOnboarding ?? isNewConfig,
     enableExtraMarketplaces: config?.enableExtraMarketplaces ?? false,
     preferredLanguage: config?.preferredLanguage ?? defaultLang,
     useDefaults: config?.useDefaults ?? false,

@@ -719,4 +719,35 @@ mod schema_tests {
             }
         }
     }
+
+    #[test]
+    fn claude_config_advanced_option_defaults_match_expected_values() {
+        let json_schema_str = include_str!("../../src/schemas/claude-config.schema.json");
+        let json_schema: serde_json::Value =
+            serde_json::from_str(json_schema_str).expect("JSON Schema 格式不合法");
+
+        let properties = json_schema["properties"]
+            .as_object()
+            .expect("JSON Schema properties 应为 object");
+
+        let expected_defaults = [
+            ("hasCompletedOnboarding", true),
+            ("alwaysThinkingEnabled", true),
+            ("disableNonessentialTraffic", true),
+            ("skipWebFetchPreflight", true),
+            ("enableLspTool", true),
+            ("agentTeamsEnabled", false),
+        ];
+
+        for (field_name, expected_default) in expected_defaults {
+            let actual_default = properties[field_name]["default"]
+                .as_bool()
+                .unwrap_or_else(|| panic!("字段 '{}' 的 default 应为 boolean", field_name));
+            assert_eq!(
+                actual_default, expected_default,
+                "字段 '{}' 的默认值应为 {}",
+                field_name, expected_default
+            );
+        }
+    }
 }
