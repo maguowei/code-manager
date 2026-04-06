@@ -26,6 +26,7 @@ AI Manager 是一个 Claude Code 配置管理工具，提供：
 - **应用数据**: `~/.config/ai-manager/`
   - `configs.json` - 配置列表
   - `memories.json` - 记忆列表
+  - `providers.json` - 自定义 Provider 列表（内置 Provider 不存储在此）
   - `skills-disabled/` - 已禁用的 Skills 目录（启用的 Skills 存放于 `~/.claude/skills/`）
 - **Claude 配置**: `~/.claude/`
   - `settings.json` - 当前激活的配置
@@ -53,6 +54,7 @@ pnpm tauri --help     # 查看更多 Tauri CLI 命令
 cd src-tauri
 cargo build           # 编译 Rust 代码
 cargo check           # 快速检查代码（不生成二进制）
+cargo test            # 运行 Rust 测试（含 JSON Schema 一致性测试）
 cargo clippy          # 运行 Rust linter
 cargo fmt             # 格式化 Rust 代码
 ```
@@ -76,19 +78,23 @@ cargo fmt             # 格式化 Rust 代码
 │   ├── main.tsx           # React 入口文件
 │   ├── types.ts           # 前后端共享类型定义（ClaudeConfig、Memory、统计类型等）
 │   ├── components/        # UI 组件
-│   │   ├── ConfigEditor.tsx   # 配置编辑面板
+│   │   ├── ConfigEditor.tsx   # 配置编辑面板（react-hook-form + Zod 驱动）
 │   │   ├── ConfigPreview.tsx  # JSON 配置预览（只读 CodeMirror）
 │   │   ├── CollapsibleSection.tsx # 可折叠面板（Plugins/Advanced/Preview 区块共用）
 │   │   ├── DefaultsSection.tsx # 通用配置编辑区
 │   │   ├── Drawer.tsx         # 公共抽屉基础组件（遮罩层 + 侧边滑入面板）
 │   │   ├── Icons.tsx          # 公共图标组件
 │   │   ├── PluginManager.tsx  # 插件管理
+│   │   ├── SchemaFormField.tsx # Schema 驱动的通用字段渲染器（text/password/checkbox/select/combobox）
 │   │   ├── ConfigList.tsx     # 配置列表
 │   │   ├── ConfigItem.tsx     # 配置列表项
 │   │   ├── ConfirmDialog.tsx  # 通用确认对话框
 │   │   ├── MemoryPage.tsx     # 记忆管理页面
 │   │   ├── MemoryEditor.tsx   # 记忆编辑面板
 │   │   ├── MemoryItem.tsx     # 记忆列表项
+│   │   ├── ProviderPage.tsx   # Provider 管理页面
+│   │   ├── ProviderEditor.tsx # Provider 编辑面板
+│   │   ├── ProviderItem.tsx   # Provider 列表项
 │   │   ├── StatsPage.tsx      # 使用统计页面（recharts 图表）
 │   │   ├── SettingsDrawer.tsx # 设置侧边抽屉
 │   │   ├── Sidebar.tsx        # 侧边栏导航
@@ -104,6 +110,10 @@ cargo fmt             # 格式化 Rust 代码
 │   │   ├── useEscapeKey.ts    # ESC 键监听（需用 useCallback 包裹回调）
 │   │   ├── useToast.tsx       # Toast 通知（ToastProvider + useToast）
 │   │   └── useEditorTheme.ts  # CodeMirror 编辑器主题（根据应用主题返回亮/暗配色）
+│   ├── schemas/           # 表单 Schema 定义
+│   │   ├── claude-config.schema.json  # JSON Schema draft-07 规范（前后端一致性锚点）
+│   │   ├── config-schema.ts           # Zod schema（前端校验 + 类型推断）
+│   │   └── field-groups.ts            # 字段分组配置（控制 ConfigEditor 渲染哪些字段）
 │   ├── i18n.ts            # 国际化与主题系统（useI18n hook，支持中/英 + 亮/暗/系统主题）
 │   ├── styles/            # 共享样式
 │   │   └── shared.css         # z-index CSS 变量 + .empty-state 公共样式
@@ -121,6 +131,8 @@ cargo fmt             # 格式化 Rust 代码
 │   │   └── tray.rs        # 系统托盘模块
 │   ├── Cargo.toml         # Rust 依赖配置
 │   ├── tauri.conf.json    # Tauri 应用配置
+│   ├── resources/
+│   │   └── builtin-providers.json  # 内置 Provider 定义（编译时嵌入，修改此文件即可更新内置 Provider）
 │   └── capabilities/      # 权限配置
 ├── index.html             # HTML 模板
 └── vite.config.ts         # Vite 配置（固定端口 1420）
@@ -179,6 +191,15 @@ cargo fmt             # 格式化 Rust 代码
   - `get_history_if_changed(last_mtime)` 命令：轮询优化，仅当文件 mtime 变化时返回新内容
   - `get_session_detail(project, session_id)` 命令：获取单个会话的完整消息详情
 
+- **provider.rs**: Provider 管理
+  - `Provider`/`ProviderModel` 数据结构；`ProviderData` DTO（前端传 `{ data: {...} }`）
+  - 内置 Provider 通过 `include_str!("../resources/builtin-providers.json")` 编译时嵌入
+  - 自定义 Provider 存储于 `~/.config/ai-manager/providers.json`；内置 Provider 不写盘
+  - `get_providers()` 合并返回内置（`is_builtin: true`）和自定义 Provider
+  - CRUD 操作仅影响自定义 Provider（`add_provider`/`update_provider`/`delete_provider`）
+  - 每个 Provider 含 `models` 数组，`category` 字段为 `opus`/`sonnet`/`haiku`/`other`
+  - 修改内置 Provider 信息：编辑 `src-tauri/resources/builtin-providers.json` 后重新编译
+
 ### 关键配置
 
 **Vite 开发服务器**:
@@ -225,6 +246,13 @@ cargo fmt             # 格式化 Rust 代码
 
 ## 关键实现模式
 
+### Schema 驱动的配置表单
+- **架构**：`src/schemas/claude-config.schema.json`（JSON Schema draft-07）→ `config-schema.ts`（Zod）→ `field-groups.ts`（字段分组）→ `SchemaFormField.tsx`（渲染）
+- ConfigEditor 使用 `react-hook-form` + `zodResolver` 管理表单状态，替代多个 `useState`
+- `FIELD_GROUPS` 中声明的字段由 `SchemaFormField` 通用渲染；`apiUrl`/`model`/`enabledPlugins` 等复杂字段在 ConfigEditor 中自定义渲染
+- Rust 端通过 `schemars` 推导 `ClaudeConfig` 的 JSON Schema，`cargo test` 会验证 Rust schema 与 `claude-config.schema.json` 的一致性
+- 新增配置字段时需同步修改：Rust `ClaudeConfig` 结构体 + `claude-config.schema.json` + `config-schema.ts`
+
 ### 通用配置深度合并
 - 通用配置作为基础（base），当前配置覆盖（overlay）
 - 对象递归合并，非对象类型使用 overlay 值
@@ -251,3 +279,13 @@ cargo fmt             # 格式化 Rust 代码
 - 所有 z-index 通过 CSS 变量统一管理，定义在 `src/styles/shared.css`
 - 变量命名：`--z-index-dropdown`、`--z-index-drawer`、`--z-index-modal`、`--z-index-toast` 等
 - 新增有层叠需求的组件必须使用变量，不得硬编码数值
+
+## 已知陷阱
+
+### CodeMirror 多版本冲突（空白页）
+若 pnpm 安装了多个 `@codemirror/state` 版本，运行时 `instanceof` 检查跨实例失败，React 崩溃渲染为空白页。
+`package.json` 中已通过 `pnpm.overrides` 强制统一版本：
+```json
+"pnpm": { "overrides": { "@codemirror/state": "6.6.0", "@codemirror/view": "6.40.0" } }
+```
+若升级 CodeMirror 相关依赖后出现空白页，检查是否引入了新的版本分歧。**不要使用 `vite.config.ts` 的 `resolve.dedupe`**——它与 pnpm 虚拟存储的符号链接解析有冲突，会导致构建失败。
