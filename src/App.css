@@ -508,6 +508,11 @@ button:focus-visible {
   margin-bottom: var(--space-3);
 }
 
+.checkbox-group .form-hint {
+  /* 与标签文字对齐：padding(8px) + checkbox(18px) + gap(12px) */
+  padding-left: 38px;
+}
+
 .checkbox-label {
   display: flex;
   align-items: center;
