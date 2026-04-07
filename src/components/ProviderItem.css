@@ -101,6 +101,42 @@
   text-overflow: ellipsis;
 }
 
+/* 模型列表 */
+.provider-item-models {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.provider-model-tag {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.provider-model-tag.category-opus {
+  background-color: rgba(247, 129, 102, 0.12);
+  color: var(--accent-orange);
+}
+
+.provider-model-tag.category-sonnet {
+  background-color: rgba(88, 166, 255, 0.12);
+  color: var(--accent-blue);
+}
+
+.provider-model-tag.category-haiku {
+  background-color: rgba(63, 185, 80, 0.12);
+  color: var(--accent-green);
+}
+
+.provider-model-tag.category-other {
+  background-color: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+
 /* 操作按钮区 */
 .provider-item-actions {
   display: flex;

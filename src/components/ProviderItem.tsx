@@ -78,6 +78,15 @@ const ProviderItem = memo(function ProviderItem({
         {provider.baseUrl && (
           <div className="provider-item-url">{provider.baseUrl}</div>
         )}
+        {provider.models.length > 0 && (
+          <div className="provider-item-models">
+            {provider.models.map((m) => (
+              <span key={m.id} className={`provider-model-tag category-${m.category}`}>
+                {m.id}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
       <div className="provider-item-actions" onClick={(e) => e.stopPropagation()}>
         {provider.docUrl && (
