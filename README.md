@@ -23,6 +23,11 @@
 - 深度合并机制（通用配置作为基础，当前配置覆盖）
 - 每个配置独立控制是否启用通用配置
 
+### 🔌 Provider 管理
+- 管理 AI API 供应商（内置 Anthropic、OpenRouter、智谱等主流 Provider）
+- 支持添加自定义 Provider（配置 base URL 和模型列表）
+- Provider 拖拽排序，一键恢复默认顺序
+
 ### 🎯 Skills 管理
 - 管理 Claude Code Skills（slash 命令脚本）
 - 启用/禁用 Skills，支持在线编辑内容
@@ -60,25 +65,31 @@ xattr -rd com.apple.quarantine /Applications/ai-manager.app
 ## 开发
 
 ### 前置要求
-- Node.js 18+
+- Node.js LTS
 - pnpm
-- Rust 1.70+
+- Rust stable
 
-### 开发模式
+### 快速开始
 
 ```bash
-# 安装依赖
-pnpm install
+# 初始化（安装依赖）
+make init
 
-# 启动开发服务器
-pnpm tauri dev
+# 启动开发模式
+make dev
+
+# 构建安装包
+make build
 ```
 
-### 构建应用
+### 其他常用命令
 
 ```bash
-# 构建桌面应用安装包
-pnpm tauri build
+make check   # Rust 编译检查
+make test    # 运行 Rust 单元测试
+make lint    # Rust lint（cargo clippy）
+make fmt     # 格式化 Rust 代码
+make preview # 预览生产构建
 ```
 
 生成的安装包位于 `src-tauri/target/release/bundle/` 目录。

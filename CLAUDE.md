@@ -55,8 +55,16 @@ cd src-tauri
 cargo build           # 编译 Rust 代码
 cargo check           # 快速检查代码（不生成二进制）
 cargo test            # 运行 Rust 测试（含 JSON Schema 一致性测试）
-cargo clippy          # 运行 Rust linter
+cargo clippy -- -D warnings  # 运行 Rust linter（与 CI 一致）
 cargo fmt             # 格式化 Rust 代码
+```
+
+或使用 Makefile 快捷方式（推荐）：
+```bash
+make check   # cargo check
+make test    # cargo test
+make lint    # cargo clippy -- -D warnings
+make fmt     # cargo fmt
 ```
 
 ## 项目架构
@@ -128,6 +136,7 @@ cargo fmt             # 格式化 Rust 代码
 │   │   ├── skills.rs      # Skills 管理模块
 │   │   ├── stats.rs       # 使用统计模块
 │   │   ├── history.rs     # 历史记录模块
+│   │   ├── provider.rs    # Provider 管理模块
 │   │   └── tray.rs        # 系统托盘模块
 │   ├── Cargo.toml         # Rust 依赖配置
 │   ├── tauri.conf.json    # Tauri 应用配置
@@ -141,8 +150,8 @@ cargo fmt             # 格式化 Rust 代码
 ### 后端模块
 
 - **utils.rs**: 公共工具模块
-  - `CONFIG_LOCK` / `MEMORY_LOCK` / `STATS_LOCK` / `SKILLS_LOCK`：防止并发写入的全局互斥锁
-  - `lock_config()` / `lock_memory()` / `lock_stats()` / `lock_skills()`：对应锁的便捷获取函数（返回 `MutexGuard`）
+  - `CONFIG_LOCK` / `MEMORY_LOCK` / `STATS_LOCK` / `SKILLS_LOCK` / `PROVIDER_LOCK`：防止并发写入的全局互斥锁
+  - `lock_config()` / `lock_memory()` / `lock_stats()` / `lock_skills()` / `lock_provider()`：对应锁的便捷获取函数（返回 `MutexGuard`）
   - `home_dir_or_fallback()`：获取主目录，失败时降级为当前目录
   - `get_home_dir()` / `get_app_data_dir()` / `current_timestamp()`
   - `systime_to_secs(t: SystemTime) -> u64`：`SystemTime` 转 Unix 时间戳（秒）
