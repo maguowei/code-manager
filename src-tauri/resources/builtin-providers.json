@@ -87,7 +87,7 @@
     ]
   },
   {
-    "id": "00000000-0000-0000-0000-000000000010",
+    "id": "00000000-0000-0000-0000-000000000009",
     "name": "ModelScope",
     "slug": "modelscope",
     "baseUrl": "https://api-inference.modelscope.cn",
@@ -97,7 +97,7 @@
     ]
   },
   {
-    "id": "00000000-0000-0000-0000-000000000009",
+    "id": "00000000-0000-0000-0000-000000000010",
     "name": "万界方舟",
     "slug": "wanjie",
     "baseUrl": "https://maas-openapi.wanjiedata.com/api/anthropic",
