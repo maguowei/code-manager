@@ -62,3 +62,11 @@ jobs:
       - name: Rust 编译检查
         working-directory: src-tauri
         run: cargo check
+
+      - name: Rust Lint
+        working-directory: src-tauri
+        run: cargo clippy -- -D warnings
+
+      - name: Rust 单元测试
+        working-directory: src-tauri
+        run: cargo test
