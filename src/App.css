@@ -349,6 +349,22 @@ body {
   outline-offset: 2px;
 }
 
+.add-config-btn.secondary {
+  background: transparent;
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  box-shadow: none;
+  font-weight: 500;
+  margin-top: 0;
+}
+
+.add-config-btn.secondary:hover {
+  background-color: var(--bg-tertiary);
+  border-color: var(--border-active);
+  color: var(--text-primary);
+  box-shadow: none;
+}
+
 /* 窗口不够宽时，抽屉展开占满内容区 */
 @media (max-width: 1000px) {
   .list-section {
