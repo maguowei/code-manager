@@ -117,7 +117,7 @@
   transform: translateX(0);
 }
 
-/* 操作按钮 */
+/* 操作按钮（button 和 a 标签共用） */
 .provider-action-btn {
   display: inline-flex;
   align-items: center;
@@ -130,6 +130,7 @@
   color: var(--text-secondary);
   cursor: pointer;
   transition: all 160ms ease;
+  text-decoration: none;
 }
 
 .provider-action-btn:hover {

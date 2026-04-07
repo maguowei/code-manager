@@ -1,4 +1,5 @@
 import { DragEvent, memo, useCallback } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { Provider } from "../types";
 import { useI18n } from "../i18n";
 import { TrashIcon } from "./Icons";
@@ -79,6 +80,19 @@ const ProviderItem = memo(function ProviderItem({
         )}
       </div>
       <div className="provider-item-actions" onClick={(e) => e.stopPropagation()}>
+        {provider.docUrl && (
+          <button
+            className="provider-action-btn"
+            onClick={() => openUrl(provider.docUrl!)}
+            title={t("providers.viewDocs")}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+          </button>
+        )}
         {provider.isBuiltin && (
           <button
             className="provider-action-btn"
