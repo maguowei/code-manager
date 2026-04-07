@@ -56,6 +56,7 @@ pub fn ensure_dir_and_write(path: &Path, content: &str) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("创建目录失败 {:?}: {}", parent, e))?;
     }
+    #[cfg(unix)]
     let is_new = !path.exists();
     fs::write(path, content).map_err(|e| format!("写入文件失败 {:?}: {}", path, e))?;
 
