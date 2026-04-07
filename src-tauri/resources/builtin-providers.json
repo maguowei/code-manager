@@ -58,7 +58,7 @@
     "baseUrl": "https://openrouter.ai/api",
     "docUrl": "https://openrouter.ai/docs/guides/coding-agents/claude-code-integration",
     "models": [
-      { "id": "qwen/qwen3.6-plus:free", "name": "Qwen3.6 Plus (free)", "category": "opus" }
+      { "id": "qwen/qwen3.6-plus:free", "name": "Qwen3.6 Plus (free)", "category": "sonnet" }
     ]
   },
   {
@@ -93,7 +93,7 @@
     "baseUrl": "https://api-inference.modelscope.cn",
     "docUrl": "https://modelscope.cn/docs/model-service/API-Inference/intro",
     "models": [
-      { "id": "ZhipuAI/GLM-5", "name": "ZhipuAI/GLM-5", "category": "other" }
+      { "id": "ZhipuAI/GLM-5", "name": "ZhipuAI/GLM-5", "category": "sonnet" }
     ]
   },
   {
