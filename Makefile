@@ -1,4 +1,4 @@
-.PHONY: init dev build
+.PHONY: init dev build preview check test lint fmt
 
 # 初始化：安装前端依赖并确保 Rust 工具链就绪
 init:
@@ -19,3 +19,23 @@ dev:
 # 构建生产包
 build:
 	pnpm tauri build
+
+# 预览生产构建（需先执行 build）
+preview:
+	pnpm preview
+
+# 快速检查 Rust 代码（不生成二进制，比 build 快）
+check:
+	cd src-tauri && cargo check
+
+# 运行 Rust 单元测试
+test:
+	cd src-tauri && cargo test
+
+# 代码检查：Rust lint
+lint:
+	cd src-tauri && cargo clippy -- -D warnings
+
+# 格式化 Rust 代码
+fmt:
+	cd src-tauri && cargo fmt

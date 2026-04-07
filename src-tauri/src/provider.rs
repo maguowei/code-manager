@@ -320,10 +320,7 @@ pub fn reorder_providers(ids: Vec<String>) -> Result<(), String> {
         .map(|p| (p.id.clone(), p.clone()))
         .collect();
 
-    let mut reordered: Vec<Provider> = ids
-        .iter()
-        .filter_map(|id| map.get(id).cloned())
-        .collect();
+    let mut reordered: Vec<Provider> = ids.iter().filter_map(|id| map.get(id).cloned()).collect();
 
     // 保留未在 ids 中出现的 Provider（防御性，防止数据丢失）
     for p in &state.providers {
@@ -481,7 +478,10 @@ mod tests {
         ];
 
         let reordered = reset_provider_order_inner(providers);
-        let ordered_ids: Vec<&str> = reordered.iter().map(|provider| provider.id.as_str()).collect();
+        let ordered_ids: Vec<&str> = reordered
+            .iter()
+            .map(|provider| provider.id.as_str())
+            .collect();
 
         assert_eq!(
             ordered_ids,

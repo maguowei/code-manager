@@ -409,7 +409,7 @@ pub fn apply_config(config: &ClaudeConfig, defaults: Option<&str>) -> Result<(),
     let provider_base_url = config
         .provider_id
         .as_deref()
-        .and_then(|pid| crate::provider::get_provider_by_id(pid))
+        .and_then(crate::provider::get_provider_by_id)
         .map(|p| p.base_url);
     let provider_base_url_ref = provider_base_url.as_deref();
     let final_config = build_config_value(config, defaults, provider_base_url_ref);
@@ -638,7 +638,7 @@ pub fn preview_config(data: ConfigData, defaults: Option<String>) -> Result<Stri
     let provider_base_url = data
         .provider_id
         .as_deref()
-        .and_then(|pid| crate::provider::get_provider_by_id(pid))
+        .and_then(crate::provider::get_provider_by_id)
         .map(|p| p.base_url);
     let config = data.into_preview_config();
     let final_config =

@@ -326,8 +326,7 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
     }
 
     // 使用 BufReader 流式逐行读取，避免将大文件（含 base64 图片）全量加载到内存
-    let file =
-        fs::File::open(&session_file).map_err(|e| format!("打开会话文件失败: {}", e))?;
+    let file = fs::File::open(&session_file).map_err(|e| format!("打开会话文件失败: {}", e))?;
     let reader = BufReader::new(file);
 
     let mut messages: Vec<SessionMessage> = Vec::new();
