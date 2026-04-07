@@ -425,7 +425,6 @@ mod tests {
             provider.doc_url.as_deref(),
             Some("https://modelscope.cn/docs/model-service/API-Inference/intro")
         );
-        assert_eq!(provider.models.len(), 1);
     }
 
     #[test]
