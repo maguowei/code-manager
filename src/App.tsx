@@ -211,6 +211,21 @@ function App() {
     }
   }, [showToast, t, loadConfigs]);
 
+  const handleReorderProviders = useCallback(async (ids: string[]) => {
+    if (!isTauri()) return;
+    // 乐观更新前端状态
+    setProviders(prev => {
+      const map = new Map(prev.map(p => [p.id, p]));
+      return ids.map(id => map.get(id)!).filter(Boolean);
+    });
+    try {
+      await invoke("reorder_providers", { ids });
+    } catch {
+      showToast(t("toast.providerReorderError"), "error");
+      loadProviders();
+    }
+  }, [showToast, t, loadProviders]);
+
   // 打开抽屉时确保窗口宽度足够展示详情
   // sidebar(60) + 压缩列表(280) + 抽屉最小(600) = 940
   const MIN_DRAWER_WIDTH = 940;
@@ -269,7 +284,7 @@ function App() {
         ) : activeTab === "history" ? (
           <HistoryPage />
         ) : activeTab === "providers" ? (
-          <ProviderPage providers={providers} onProvidersChange={loadProviders} />
+          <ProviderPage providers={providers} onProvidersChange={loadProviders} onReorder={handleReorderProviders} />
         ) : (
         <div className={`list-section ${isModalOpen || isDetailDrawerOpen ? "compressed" : ""}`}>
           {activeTab === "configs" && (

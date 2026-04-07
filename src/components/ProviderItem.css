@@ -2,6 +2,7 @@
 
 /* 列表项容器 */
 .provider-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -134,4 +135,43 @@
 .provider-action-btn.danger:hover {
   background-color: rgba(248, 81, 73, 0.14);
   color: var(--accent-red);
+}
+
+/* ==================== 拖拽状态 ==================== */
+.provider-item.dragging {
+  opacity: 0.4;
+  transform: scale(0.98);
+  cursor: grabbing;
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-index-dropdown);
+}
+
+.provider-list.is-dragging .provider-item:not(.dragging) {
+  transition: transform 200ms ease, margin 200ms ease, opacity 200ms ease;
+}
+
+.provider-item.drag-over-above::before,
+.provider-item.drag-over-below::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 2px;
+  background-color: var(--accent-blue);
+  box-shadow: 0 0 8px var(--accent-blue), 0 0 16px rgba(59, 130, 246, 0.4);
+}
+
+.provider-item.drag-over-above:not(.dragging) {
+}
+
+.provider-item.drag-over-above::before {
+  top: -4px;
+}
+
+.provider-item.drag-over-below:not(.dragging) {
+}
+
+.provider-item.drag-over-below::after {
+  bottom: -4px;
 }

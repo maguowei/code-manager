@@ -258,7 +258,7 @@
 
 /* 其他卡片在拖拽时添加过渡动画 */
 .config-list.is-dragging .config-item:not(.dragging) {
-  transition: transform 200ms ease, margin 200ms ease, opacity 200ms ease;
+  transition: transform 200ms ease, opacity 200ms ease;
 }
 
 /* 插入位置指示器 */
@@ -266,28 +266,26 @@
 .config-item.drag-over-below::after {
   content: '';
   position: absolute;
-  left: 8px;
-  right: 8px;
-  height: 2px;
-  border-radius: 1px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 2px;
   background-color: var(--accent-blue);
-  box-shadow: var(--glow-blue);
+  box-shadow: 0 0 8px var(--accent-blue), 0 0 16px rgba(59, 130, 246, 0.4);
 }
 
-/* 插入到上方：卡片下移腾出空间 */
+/* 插入到上方 */
 .config-item.drag-over-above:not(.dragging) {
-  margin-top: 40px;
 }
 
 .config-item.drag-over-above::before {
-  top: -8px;
+  top: -4px;
 }
 
-/* 插入到下方：卡片下方腾出空间 */
+/* 插入到下方 */
 .config-item.drag-over-below:not(.dragging) {
-  margin-bottom: 40px;
 }
 
 .config-item.drag-over-below::after {
-  bottom: -8px;
+  bottom: -4px;
 }

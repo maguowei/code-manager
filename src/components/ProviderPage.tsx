@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, DragEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Provider, ProviderModel } from "../types";
 import { useI18n } from "../i18n";
@@ -13,14 +13,76 @@ import useEscapeKey from "../hooks/useEscapeKey";
 interface ProviderPageProps {
   providers: Provider[];
   onProvidersChange: () => void;
+  onReorder: (ids: string[]) => void;
 }
 
-function ProviderPage({ providers, onProvidersChange }: ProviderPageProps) {
+function ProviderPage({ providers, onProvidersChange, onReorder }: ProviderPageProps) {
   const { t } = useI18n();
   const { showToast } = useToast();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [editingProvider, setEditingProvider] = useState<Provider | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
+  // 拖拽状态
+  const dragIndexRef = useRef<number | null>(null);
+  const [dragState, setDragState] = useState<{
+    draggingIndex: number | null;
+    overIndex: number | null;
+    overPosition: "above" | "below" | null;
+  }>({ draggingIndex: null, overIndex: null, overPosition: null });
+
+  const handleDragStart = useCallback((e: DragEvent<HTMLDivElement>, index: number) => {
+    dragIndexRef.current = index;
+    setDragState({ draggingIndex: index, overIndex: null, overPosition: null });
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(index));
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    dragIndexRef.current = null;
+    setDragState({ draggingIndex: null, overIndex: null, overPosition: null });
+  }, []);
+
+  const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    const fromIndex = dragIndexRef.current;
+    if (fromIndex === null || fromIndex === index) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const position = e.clientY < rect.top + rect.height / 2 ? "above" : "below";
+    setDragState((prev) => {
+      if (prev.overIndex === index && prev.overPosition === position) return prev;
+      return { ...prev, overIndex: index, overPosition: position };
+    });
+  }, []);
+
+  const handleDragLeave = useCallback((e: DragEvent<HTMLDivElement>, index: number) => {
+    const related = e.relatedTarget as Node | null;
+    if (related && e.currentTarget.contains(related)) return;
+    setDragState((prev) => {
+      if (prev.overIndex !== index) return prev;
+      return { ...prev, overIndex: null, overPosition: null };
+    });
+  }, []);
+
+  const handleDrop = useCallback((e: DragEvent<HTMLDivElement>, dropIndex: number) => {
+    e.preventDefault();
+    const fromIndex = dragIndexRef.current;
+    if (fromIndex === null || fromIndex === dropIndex) {
+      handleDragEnd();
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const insertAfter = e.clientY >= rect.top + rect.height / 2;
+    const newProviders = [...providers];
+    const [dragged] = newProviders.splice(fromIndex, 1);
+    let targetIndex = dropIndex;
+    if (fromIndex < dropIndex) targetIndex -= 1;
+    if (insertAfter) targetIndex += 1;
+    newProviders.splice(targetIndex, 0, dragged);
+    onReorder(newProviders.map((p) => p.id));
+    handleDragEnd();
+  }, [providers, onReorder, handleDragEnd]);
 
   useEscapeKey(
     useCallback(() => {
@@ -105,15 +167,23 @@ function ProviderPage({ providers, onProvidersChange }: ProviderPageProps) {
             <p className="empty-hint">{t("providers.emptyHint")}</p>
           </div>
         ) : (
-          <div className="provider-list">
-            {providers.map((provider) => (
+          <div className={`provider-list${dragState.draggingIndex !== null ? " is-dragging" : ""}`} onDragOver={(e) => e.preventDefault()}>
+            {providers.map((provider, index) => (
               <ProviderItem
                 key={provider.id}
                 provider={provider}
+                index={index}
                 isEditing={isDrawerOpen && editingProvider?.id === provider.id}
+                isDragging={dragState.draggingIndex === index}
+                dragOverPosition={dragState.overIndex === index ? dragState.overPosition : null}
                 onEdit={handleEdit}
                 onDelete={(id) => setPendingDeleteId(id)}
                 onReset={handleReset}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
               />
             ))}
           </div>

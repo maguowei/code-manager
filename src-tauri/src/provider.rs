@@ -270,6 +270,36 @@ pub fn reset_provider(id: String) -> Result<Provider, String> {
     Ok(reset)
 }
 
+/// 重新排列 Provider 顺序（按传入的 id 列表顺序保存）
+#[tauri::command]
+pub fn reorder_providers(ids: Vec<String>) -> Result<(), String> {
+    let _lock = crate::utils::lock_provider()?;
+    let mut state = load_state();
+
+    use std::collections::HashMap;
+    let map: HashMap<String, Provider> = state
+        .providers
+        .iter()
+        .map(|p| (p.id.clone(), p.clone()))
+        .collect();
+
+    let mut reordered: Vec<Provider> = ids
+        .iter()
+        .filter_map(|id| map.get(id).cloned())
+        .collect();
+
+    // 保留未在 ids 中出现的 Provider（防御性，防止数据丢失）
+    for p in &state.providers {
+        if !ids.contains(&p.id) {
+            reordered.push(p.clone());
+        }
+    }
+
+    state.providers = reordered;
+    save_state(&state)?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
