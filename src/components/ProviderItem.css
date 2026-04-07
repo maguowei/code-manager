@@ -158,8 +158,8 @@
   right: 0;
   height: 3px;
   border-radius: 2px;
-  background-color: var(--accent-blue);
-  box-shadow: 0 0 8px var(--accent-blue), 0 0 16px rgba(59, 130, 246, 0.4);
+  background-color: var(--accent-orange);
+  box-shadow: 0 0 8px var(--accent-orange), 0 0 16px rgba(247, 129, 102, 0.4);
 }
 
 .provider-item.drag-over-above:not(.dragging) {
