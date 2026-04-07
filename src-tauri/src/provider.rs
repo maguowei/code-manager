@@ -58,6 +58,43 @@ fn save_state(state: &ProviderState) -> Result<(), String> {
     crate::utils::save_json_file(&get_provider_path(), state)
 }
 
+/// 将 Provider 恢复到默认排序：内置按资源顺序，自定义按创建时间升序。
+fn reset_provider_order_inner(providers: Vec<Provider>) -> Vec<Provider> {
+    use std::collections::HashMap;
+
+    let builtin_order: HashMap<String, usize> = builtin_providers()
+        .into_iter()
+        .enumerate()
+        .map(|(index, provider)| (provider.id, index))
+        .collect();
+
+    let mut builtin = Vec::new();
+    let mut custom = Vec::new();
+
+    for provider in providers {
+        if provider.is_builtin {
+            builtin.push(provider);
+        } else {
+            custom.push(provider);
+        }
+    }
+
+    builtin.sort_by(|a, b| {
+        let a_index = builtin_order.get(&a.id).copied().unwrap_or(usize::MAX);
+        let b_index = builtin_order.get(&b.id).copied().unwrap_or(usize::MAX);
+        a_index.cmp(&b_index).then_with(|| a.id.cmp(&b.id))
+    });
+
+    custom.sort_by(|a, b| {
+        a.created_at
+            .cmp(&b.created_at)
+            .then_with(|| a.id.cmp(&b.id))
+    });
+
+    builtin.extend(custom);
+    builtin
+}
+
 /// 内置 Provider 定义（JSON 反序列化用，不含运行时字段）
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -300,10 +337,43 @@ pub fn reorder_providers(ids: Vec<String>) -> Result<(), String> {
     Ok(())
 }
 
+/// 恢复 Provider 默认排序：内置按资源顺序，自定义追加到末尾。
+#[tauri::command]
+pub fn reset_provider_order() -> Result<Vec<Provider>, String> {
+    let _lock = crate::utils::lock_provider()?;
+    let mut state = load_state();
+
+    state.providers = reset_provider_order_inner(state.providers);
+    save_state(&state)?;
+
+    Ok(state.providers.clone())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    fn test_provider(
+        id: &str,
+        slug: &str,
+        is_builtin: bool,
+        created_at: u64,
+        name: &str,
+        base_url: &str,
+    ) -> Provider {
+        Provider {
+            id: id.to_string(),
+            name: name.to_string(),
+            slug: slug.to_string(),
+            base_url: base_url.to_string(),
+            doc_url: None,
+            is_builtin,
+            models: vec![],
+            created_at,
+            updated_at: created_at,
+        }
+    }
 
     #[test]
     fn provider_deserializes_base_url_field() {
@@ -351,10 +421,114 @@ mod tests {
 
         assert_eq!(provider.name, "ModelScope");
         assert_eq!(provider.base_url, "https://api-inference.modelscope.cn");
-        assert_eq!(provider.doc_url.as_deref(), Some("https://modelscope.cn"));
+        assert_eq!(
+            provider.doc_url.as_deref(),
+            Some("https://modelscope.cn/docs/model-service/API-Inference/intro")
+        );
         assert_eq!(provider.models.len(), 1);
         assert_eq!(provider.models[0].id, "ZhipuAI/GLM-5");
         assert_eq!(provider.models[0].name, "ZhipuAI/GLM-5");
         assert_eq!(provider.models[0].category, "other");
+    }
+
+    #[test]
+    fn reset_provider_order_restores_builtin_order_and_appends_custom_providers() {
+        let providers = vec![
+            test_provider(
+                "custom-z",
+                "custom-z",
+                false,
+                200,
+                "Custom Z",
+                "https://custom-z.example.com",
+            ),
+            test_provider(
+                "00000000-0000-0000-0000-000000000009",
+                "modelscope",
+                true,
+                1,
+                "ModelScope Override",
+                "https://override.modelscope.example.com",
+            ),
+            test_provider(
+                "custom-a",
+                "custom-a",
+                false,
+                100,
+                "Custom A",
+                "https://custom-a.example.com",
+            ),
+            test_provider(
+                "00000000-0000-0000-0000-000000000002",
+                "zhipu",
+                true,
+                1,
+                "智谱 GLM Coding Plan",
+                "https://zhipu.example.com",
+            ),
+            test_provider(
+                "custom-b",
+                "custom-b",
+                false,
+                100,
+                "Custom B",
+                "https://custom-b.example.com",
+            ),
+            test_provider(
+                "00000000-0000-0000-0000-000000000001",
+                "anthropic",
+                true,
+                1,
+                "Anthropic Override",
+                "https://override.anthropic.example.com",
+            ),
+        ];
+
+        let reordered = reset_provider_order_inner(providers);
+        let ordered_ids: Vec<&str> = reordered.iter().map(|provider| provider.id.as_str()).collect();
+
+        assert_eq!(
+            ordered_ids,
+            vec![
+                "00000000-0000-0000-0000-000000000001",
+                "00000000-0000-0000-0000-000000000002",
+                "00000000-0000-0000-0000-000000000009",
+                "custom-a",
+                "custom-b",
+                "custom-z",
+            ]
+        );
+    }
+
+    #[test]
+    fn reset_provider_order_keeps_existing_provider_content() {
+        let overridden_builtin = test_provider(
+            "00000000-0000-0000-0000-000000000001",
+            "anthropic-customized",
+            true,
+            1,
+            "Anthropic Customized",
+            "https://customized.anthropic.example.com",
+        );
+        let custom_provider = test_provider(
+            "custom-1",
+            "custom-1",
+            false,
+            99,
+            "Custom One",
+            "https://custom-one.example.com",
+        );
+
+        let reordered =
+            reset_provider_order_inner(vec![custom_provider.clone(), overridden_builtin.clone()]);
+
+        assert_eq!(reordered[0].id, overridden_builtin.id);
+        assert_eq!(reordered[0].slug, overridden_builtin.slug);
+        assert_eq!(reordered[0].name, overridden_builtin.name);
+        assert_eq!(reordered[0].base_url, overridden_builtin.base_url);
+        assert_eq!(reordered[1].id, custom_provider.id);
+        assert_eq!(reordered[1].slug, custom_provider.slug);
+        assert_eq!(reordered[1].name, custom_provider.name);
+        assert_eq!(reordered[1].base_url, custom_provider.base_url);
     }
 }

@@ -1,4 +1,4 @@
-import { DragEvent, memo, useCallback } from "react";
+import { DragEvent, KeyboardEvent, memo, useCallback } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Provider } from "../types";
 import { useI18n } from "../i18n";
@@ -42,6 +42,11 @@ const ProviderItem = memo(function ProviderItem({
   const handleDragOverWrap = useCallback((e: DragEvent<HTMLDivElement>) => onDragOver(e, index), [onDragOver, index]);
   const handleDragLeaveWrap = useCallback((e: DragEvent<HTMLDivElement>) => onDragLeave(e, index), [onDragLeave, index]);
   const handleDropWrap = useCallback((e: DragEvent<HTMLDivElement>) => onDrop(e, index), [onDrop, index]);
+  const handleActionKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.stopPropagation();
+    }
+  }, []);
 
   const classNames = [
     "provider-item",
@@ -88,9 +93,14 @@ const ProviderItem = memo(function ProviderItem({
           </div>
         )}
       </div>
-      <div className="provider-item-actions" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="provider-item-actions"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={handleActionKeyDown}
+      >
         {provider.docUrl && (
           <button
+            type="button"
             className="provider-action-btn"
             onClick={() => openUrl(provider.docUrl!)}
             title={t("providers.viewDocs")}
@@ -104,6 +114,7 @@ const ProviderItem = memo(function ProviderItem({
         )}
         {provider.isBuiltin && (
           <button
+            type="button"
             className="provider-action-btn"
             onClick={() => onReset(provider.id)}
             title={t("providers.reset")}
@@ -116,6 +127,7 @@ const ProviderItem = memo(function ProviderItem({
         )}
         {!provider.isBuiltin && (
           <button
+            type="button"
             className="provider-action-btn danger"
             onClick={() => onDelete(provider.id)}
             title={t("providers.delete")}

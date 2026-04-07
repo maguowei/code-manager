@@ -14,9 +14,10 @@ interface ProviderPageProps {
   providers: Provider[];
   onProvidersChange: () => void;
   onReorder: (ids: string[]) => void;
+  onResetOrder: () => Promise<void>;
 }
 
-function ProviderPage({ providers, onProvidersChange, onReorder }: ProviderPageProps) {
+function ProviderPage({ providers, onProvidersChange, onReorder, onResetOrder }: ProviderPageProps) {
   const { t } = useI18n();
   const { showToast } = useToast();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -152,8 +153,7 @@ function ProviderPage({ providers, onProvidersChange, onReorder }: ProviderPageP
   }
 
   function handleResetOrder() {
-    const sorted = [...providers].sort((a, b) => a.id.localeCompare(b.id));
-    onReorder(sorted.map((p) => p.id));
+    void onResetOrder();
   }
 
   return (

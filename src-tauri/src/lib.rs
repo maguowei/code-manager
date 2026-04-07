@@ -19,7 +19,7 @@ use skills::{
 };
 use provider::{
     add_provider, delete_provider, get_providers, reorder_providers, reset_provider,
-    update_provider,
+    reset_provider_order, update_provider,
 };
 use stats::{get_stats, get_stats_history, take_stats_snapshot};
 use tauri::Manager;
@@ -87,6 +87,7 @@ pub fn run() {
             delete_provider,
             reset_provider,
             reorder_providers,
+            reset_provider_order,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -226,6 +226,17 @@ function App() {
     }
   }, [showToast, t, loadProviders]);
 
+  const handleResetProviderOrder = useCallback(async () => {
+    if (!isTauri()) return;
+    try {
+      const reordered = await invoke<Provider[]>("reset_provider_order");
+      setProviders(reordered);
+    } catch {
+      showToast(t("toast.providerReorderError"), "error");
+      loadProviders();
+    }
+  }, [showToast, t, loadProviders]);
+
   // 打开抽屉时确保窗口宽度足够展示详情
   // sidebar(60) + 压缩列表(280) + 抽屉最小(600) = 940
   const MIN_DRAWER_WIDTH = 940;
@@ -284,7 +295,12 @@ function App() {
         ) : activeTab === "history" ? (
           <HistoryPage />
         ) : activeTab === "providers" ? (
-          <ProviderPage providers={providers} onProvidersChange={loadProviders} onReorder={handleReorderProviders} />
+          <ProviderPage
+            providers={providers}
+            onProvidersChange={loadProviders}
+            onReorder={handleReorderProviders}
+            onResetOrder={handleResetProviderOrder}
+          />
         ) : (
         <div className={`list-section ${isModalOpen || isDetailDrawerOpen ? "compressed" : ""}`}>
           {activeTab === "configs" && (
