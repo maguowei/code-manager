@@ -91,7 +91,7 @@
     "name": "ModelScope",
     "slug": "modelscope",
     "baseUrl": "https://api-inference.modelscope.cn",
-    "docUrl": "https://modelscope.cn",
+    "docUrl": "https://modelscope.cn/docs/model-service/API-Inference/intro",
     "models": [
       { "id": "ZhipuAI/GLM-5", "name": "ZhipuAI/GLM-5", "category": "other" }
     ]
@@ -101,7 +101,7 @@
     "name": "万界方舟",
     "slug": "wanjie",
     "baseUrl": "https://maas-openapi.wanjiedata.com/api/anthropic",
-    "docUrl": "https://www.wjark.com",
+    "docUrl": "https://docs.wjark.com/maas/scenarios/Development/Claudecode.html",
     "models": [
       { "id": "claude-opus-4-6", "name": "Claude Opus 4.6", "category": "opus" },
       { "id": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6", "category": "sonnet" },
