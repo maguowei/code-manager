@@ -80,11 +80,16 @@
   color: #a371f7;
 }
 
-/* slug 灰色小字 */
+/* slug 高亮标签 */
 .provider-item-slug {
+  display: inline-block;
+  width: fit-content;
   font-size: var(--font-xs, 11px);
-  color: var(--text-muted);
   font-family: var(--font-mono, monospace);
+  color: var(--accent-purple);
+  background-color: var(--accent-purple-bg);
+  padding: 1px 6px;
+  border-radius: 4px;
 }
 
 /* URL 单行截断 */
