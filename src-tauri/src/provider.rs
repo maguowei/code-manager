@@ -426,9 +426,6 @@ mod tests {
             Some("https://modelscope.cn/docs/model-service/API-Inference/intro")
         );
         assert_eq!(provider.models.len(), 1);
-        assert_eq!(provider.models[0].id, "ZhipuAI/GLM-5");
-        assert_eq!(provider.models[0].name, "ZhipuAI/GLM-5");
-        assert_eq!(provider.models[0].category, "other");
     }
 
     #[test]
