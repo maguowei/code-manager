@@ -163,7 +163,7 @@ const translations = {
     "providers.namePlaceholder": "例如：我的自定义 Provider",
     "providers.slug": "标识符 (slug)",
     "providers.slugPlaceholder": "例如：my-provider（小写字母、数字、连字符）",
-    "providers.slugHint": "可选：仅允许小写字母、数字和连字符，内置 Provider 不可修改",
+    "providers.slugHint": "仅允许小写字母、数字和连字符，内置 Provider 不可修改",
     "providers.baseUrl": "Base URL",
     "providers.baseUrlPlaceholder": "https://api.example.com/anthropic",
     "providers.baseUrlHint": "留空则使用 Anthropic 官方 Base URL",
@@ -189,6 +189,7 @@ const translations = {
     "providers.deleteConfirm": "确认删除此 Provider？",
     "providers.viewDocs": "查看文档",
     "providers.validation.nameRequired": "Provider 名称不能为空",
+    "providers.validation.slugRequired": "标识符不能为空",
     "providers.validation.slugInvalid": "标识符只能包含小写字母、数字和连字符",
     "toast.providerLoadError": "加载 Provider 列表失败",
     "toast.providerSaved": "Provider 已保存",
@@ -541,7 +542,7 @@ const translations = {
     "providers.slug": "Identifier (slug)",
     "providers.slugPlaceholder": "e.g. my-provider (lowercase, digits, hyphens)",
     "providers.slugHint":
-      "Optional: only lowercase letters, digits, and hyphens are allowed. Built-in providers are read-only.",
+      "Only lowercase letters, digits, and hyphens are allowed. Built-in providers are read-only.",
     "providers.baseUrl": "Base URL",
     "providers.baseUrlPlaceholder": "https://api.example.com/anthropic",
     "providers.baseUrlHint": "Leave empty to use the official Anthropic base URL",
@@ -568,6 +569,7 @@ const translations = {
     "providers.deleteConfirm": "Delete this provider?",
     "providers.viewDocs": "View Docs",
     "providers.validation.nameRequired": "Provider name is required",
+    "providers.validation.slugRequired": "Identifier is required",
     "providers.validation.slugInvalid":
       "Identifier may only contain lowercase letters, digits, and hyphens",
     "toast.providerLoadError": "Failed to load providers",

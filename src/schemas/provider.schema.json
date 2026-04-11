@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "properties": {
     "name": { "type": "string", "minLength": 1 },
-    "slug": { "type": "string", "pattern": "^[a-z0-9-]*$", "default": "" },
+    "slug": { "type": "string", "minLength": 1, "pattern": "^[a-z0-9-]+$" },
     "baseUrl": { "type": "string", "default": "" },
     "docUrl": { "type": "string", "default": "" },
     "models": {

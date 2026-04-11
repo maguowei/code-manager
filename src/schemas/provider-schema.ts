@@ -14,6 +14,7 @@ export const ProviderSchema = z.object({
   slug: z
     .string()
     .trim()
+    .min(1, "providers.validation.slugRequired")
     .refine((value) => isValidProviderSlug(value), {
       message: "providers.validation.slugInvalid",
     }),
@@ -42,6 +43,7 @@ export function buildProviderPrimaryFields(
       placeholderKey: "providers.slugPlaceholder",
       descriptionKey: "providers.slugHint",
       inputType: "text",
+      required: true,
       readOnly: isSlugReadOnly,
       inputClassName: isSlugReadOnly ? "input-readonly" : undefined,
     },

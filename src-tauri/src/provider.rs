@@ -37,7 +37,7 @@ pub struct Provider {
 pub struct ProviderData {
     #[schemars(length(min = 1))]
     pub name: String,
-    #[schemars(regex(pattern = "^[a-z0-9-]*$"))]
+    #[schemars(length(min = 1), regex(pattern = "^[a-z0-9-]+$"))]
     pub slug: String,
     pub base_url: String,
     pub doc_url: Option<String>,
@@ -62,6 +62,22 @@ fn load_state() -> ProviderState {
 
 fn save_state(state: &ProviderState) -> Result<(), String> {
     crate::utils::save_json_file(&get_provider_path(), state)
+}
+
+/// 验证 Provider slug：必填，且仅允许小写字母、数字和连字符
+fn validate_provider_slug(slug: &str) -> Result<(), String> {
+    if slug.is_empty() {
+        return Err("Provider 标识符不能为空".to_string());
+    }
+
+    if !slug
+        .chars()
+        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+    {
+        return Err("Provider 标识符只能包含小写字母、数字和连字符".to_string());
+    }
+
+    Ok(())
 }
 
 /// 将 Provider 恢复到默认排序：内置按资源顺序，自定义按创建时间升序。
@@ -194,6 +210,8 @@ pub fn add_provider(data: ProviderData) -> Result<Provider, String> {
     let _lock = crate::utils::lock_provider()?;
     let mut state = load_state();
 
+    validate_provider_slug(&data.slug)?;
+
     if state.providers.iter().any(|p| p.slug == data.slug) {
         return Err(format!("Provider slug '{}' 已存在", data.slug));
     }
@@ -220,6 +238,8 @@ pub fn add_provider(data: ProviderData) -> Result<Provider, String> {
 pub fn update_provider(id: String, data: ProviderData) -> Result<Provider, String> {
     let _lock = crate::utils::lock_provider()?;
     let mut state = load_state();
+
+    validate_provider_slug(&data.slug)?;
 
     // slug 唯一性检查（排除自身），先于可变借用
     let slug_conflict = state
@@ -491,13 +511,23 @@ mod tests {
             "Provider 名称应保持必填约束"
         );
         assert_eq!(
+            json_schema["properties"]["slug"]["minLength"],
+            json!(1),
+            "Provider slug 应保持必填约束"
+        );
+        assert_eq!(
             json_schema["properties"]["slug"]["pattern"],
-            json!("^[a-z0-9-]*$"),
+            json!("^[a-z0-9-]+$"),
             "Provider slug 应仅允许小写字母、数字和连字符"
         );
         assert_eq!(
+            rust_schema_value["properties"]["slug"]["minLength"],
+            json!(1),
+            "Rust ProviderData slug schema 应与前端 JSON Schema 保持一致"
+        );
+        assert_eq!(
             rust_schema_value["properties"]["slug"]["pattern"],
-            json!("^[a-z0-9-]*$"),
+            json!("^[a-z0-9-]+$"),
             "Rust ProviderData slug schema 应与前端 JSON Schema 保持一致"
         );
         assert_eq!(
@@ -505,6 +535,19 @@ mod tests {
             json!("^(opus|sonnet|haiku|other)$"),
             "Provider 模型分类应限制为受支持的枚举值"
         );
+    }
+
+    #[test]
+    fn provider_slug_validation_requires_non_empty_lowercase_slug() {
+        assert_eq!(
+            validate_provider_slug("").expect_err("空 slug 应被拒绝"),
+            "Provider 标识符不能为空"
+        );
+        assert_eq!(
+            validate_provider_slug("My Provider").expect_err("非法 slug 应被拒绝"),
+            "Provider 标识符只能包含小写字母、数字和连字符"
+        );
+        validate_provider_slug("my-provider-1").expect("合法 slug 应通过校验");
     }
 
     #[test]

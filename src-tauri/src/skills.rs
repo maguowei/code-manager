@@ -365,11 +365,7 @@ pub fn add_skill(data: SkillData) -> Result<Skill, String> {
 }
 
 #[tauri::command]
-pub fn update_skill(
-    id: String,
-    is_active: bool,
-    data: SkillData,
-) -> Result<Skill, String> {
+pub fn update_skill(id: String, is_active: bool, data: SkillData) -> Result<Skill, String> {
     ensure_matching_skill_id(&id, &data)?;
 
     let _lock = crate::utils::lock_skills()?;
@@ -529,10 +525,7 @@ pub fn update_skill_file(
     ensure_matching_skill_file_name(&file_name, &data)?;
 
     let _lock = crate::utils::lock_skills()?;
-    let SkillFileData {
-        file_name,
-        content,
-    } = data;
+    let SkillFileData { file_name, content } = data;
 
     validate_file_name(&file_name)?;
 

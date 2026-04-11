@@ -220,8 +220,7 @@ pub fn start_snapshot_timer() -> SnapshotHandle {
 
         let (lock, cvar) = &*pair;
         let mut stopped = lock.lock().unwrap();
-        let mut deadline =
-            std::time::Instant::now() + std::time::Duration::from_secs(3600);
+        let mut deadline = std::time::Instant::now() + std::time::Duration::from_secs(3600);
         loop {
             // 计算距下次快照的剩余时间，确保伪唤醒不重置 1 小时计时
             let remaining = deadline.saturating_duration_since(std::time::Instant::now());

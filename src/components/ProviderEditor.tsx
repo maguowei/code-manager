@@ -46,6 +46,7 @@ function ProviderEditor({ provider, onSave, onClose }: ProviderEditorProps) {
     keyName: "fieldKey",
   });
   const watchName = watch("name");
+  const watchSlug = watch("slug");
 
   function handleAddModel() {
     append(createEmptyProviderModel());
@@ -85,7 +86,7 @@ function ProviderEditor({ provider, onSave, onClose }: ProviderEditorProps) {
           type="button"
           className="editor-save-btn"
           onClick={handleSubmit(handleFormSubmit)}
-          disabled={!watchName?.trim()}
+          disabled={!watchName?.trim() || !watchSlug?.trim()}
         >
           {t("providers.save")}
         </button>
