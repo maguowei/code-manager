@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 
 interface DrawerProps {
   children: ReactNode;
@@ -10,9 +10,7 @@ function Drawer({ children, onClose }: DrawerProps) {
   return (
     <>
       <div className="drawer-overlay visible" onClick={onClose} />
-      <div className="drawer open">
-        {children}
-      </div>
+      <div className="drawer open">{children}</div>
     </>
   );
 }

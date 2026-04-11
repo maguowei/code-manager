@@ -183,7 +183,9 @@
   flex-shrink: 0;
   opacity: 0;
   transform: translateX(8px);
-  transition: opacity 200ms ease, transform 200ms ease;
+  transition:
+    opacity 200ms ease,
+    transform 200ms ease;
 }
 
 .config-item:hover .config-actions {
@@ -258,24 +260,29 @@
 
 /* 其他卡片在拖拽时添加过渡动画 */
 .config-list.is-dragging .config-item:not(.dragging) {
-  transition: transform 200ms ease, opacity 200ms ease;
+  transition:
+    transform 200ms ease,
+    opacity 200ms ease;
 }
 
 /* 插入位置指示器 */
 .config-item.drag-over-above::before,
 .config-item.drag-over-below::after {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   right: 0;
   height: 3px;
   border-radius: 2px;
   background-color: var(--accent-orange);
-  box-shadow: 0 0 8px var(--accent-orange), 0 0 16px rgba(247, 129, 102, 0.4);
+  box-shadow:
+    0 0 8px var(--accent-orange),
+    0 0 16px rgba(247, 129, 102, 0.4);
 }
 
 /* 插入到上方 */
 .config-item.drag-over-above:not(.dragging) {
+  /* 仅用于选择器匹配，具体视觉通过 ::before 伪元素呈现 */
 }
 
 .config-item.drag-over-above::before {
@@ -284,6 +291,7 @@
 
 /* 插入到下方 */
 .config-item.drag-over-below:not(.dragging) {
+  /* 仅用于选择器匹配，具体视觉通过 ::after 伪元素呈现 */
 }
 
 .config-item.drag-over-below::after {

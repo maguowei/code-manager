@@ -1,14 +1,14 @@
-import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Memory, MemoryState } from "../types";
-import { useI18n } from "../i18n";
-import { useToast } from "../hooks/useToast";
-import MemoryItem from "./MemoryItem";
-import MemoryEditor from "./MemoryEditor";
-import Drawer from "./Drawer";
-import ConfirmDialog from "./ConfirmDialog";
-import { PlusIcon } from "./Icons";
+import { useCallback, useEffect, useState } from "react";
 import useEscapeKey from "../hooks/useEscapeKey";
+import { useToast } from "../hooks/useToast";
+import { useI18n } from "../i18n";
+import type { Memory, MemoryState } from "../types";
+import ConfirmDialog from "./ConfirmDialog";
+import Drawer from "./Drawer";
+import { PlusIcon } from "./Icons";
+import MemoryEditor from "./MemoryEditor";
+import MemoryItem from "./MemoryItem";
 import "./MemoryPage.css";
 
 function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => void }) {
@@ -23,7 +23,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     try {
       const state = await invoke<MemoryState>("get_memories");
       setMemories(state.memories);
-    } catch (err) {
+    } catch (_err) {
       showToast(t("toast.memoryLoadError"), "error");
     }
   }, [showToast, t]);
@@ -33,19 +33,25 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   }, [loadMemories]);
 
   // ESC 键关闭记忆编辑抽屉
-  useEscapeKey(useCallback(() => {
-    setEditingMemory(null);
-    setIsModalOpen(false);
-    onDrawerChange?.(false);
-  }, [onDrawerChange]), isModalOpen);
+  useEscapeKey(
+    useCallback(() => {
+      setEditingMemory(null);
+      setIsModalOpen(false);
+      onDrawerChange?.(false);
+    }, [onDrawerChange]),
+    isModalOpen,
+  );
 
   async function handleAdd(data: { name: string; content: string }) {
     try {
-      const newMemory = await invoke<Memory>("add_memory", { name: data.name, content: data.content });
+      const newMemory = await invoke<Memory>("add_memory", {
+        name: data.name,
+        content: data.content,
+      });
       setIsModalOpen(false);
       setMemories((prev) => [...prev, newMemory]);
       showToast(t("toast.memoryAdded"));
-    } catch (err) {
+    } catch (_err) {
       showToast(t("toast.memoryAddError"), "error");
     }
   }
@@ -62,7 +68,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       setIsModalOpen(false);
       setMemories((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
       showToast(t("toast.memorySaved"));
-    } catch (err) {
+    } catch (_err) {
       showToast(t("toast.memorySaveError"), "error");
     }
   }
@@ -72,7 +78,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       await invoke("delete_memory", { id });
       setMemories((prev) => prev.filter((m) => m.id !== id));
       showToast(t("toast.memoryDeleted"));
-    } catch (err) {
+    } catch (_err) {
       showToast(t("toast.memoryDeleteError"), "error");
     }
   }
@@ -81,7 +87,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     try {
       const toggled = await invoke<Memory>("toggle_memory", { id });
       setMemories((prev) => prev.map((m) => (m.id === toggled.id ? toggled : m)));
-    } catch (err) {
+    } catch (_err) {
       showToast(t("toast.memoryToggleError"), "error");
     }
   }
@@ -112,7 +118,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       </div>
 
       {/* 添加按钮 */}
-      <button className="add-config-btn" onClick={openAddModal}>
+      <button type="button" className="add-config-btn" onClick={openAddModal}>
         <PlusIcon />
         <span>{t("memory.addMemory")}</span>
       </button>
@@ -121,7 +127,14 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       {memories.length === 0 ? (
         <div className="list-empty">
           <div className="empty-icon">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            >
               <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
               <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
               <line x1="8" y1="7" x2="16" y2="7" />

@@ -33,14 +33,17 @@ function ConfirmDialog({
         <div className="confirm-dialog__message">{message}</div>
         <div className="confirm-dialog__actions">
           <button
+            type="button"
             className="confirm-dialog__btn confirm-dialog__btn--cancel"
             onClick={onCancel}
           >
             {cancelText}
           </button>
           <button
-            className={`confirm-dialog__btn ${danger ? "confirm-dialog__btn--danger" : "confirm-dialog__btn--confirm"
-              }`}
+            type="button"
+            className={`confirm-dialog__btn ${
+              danger ? "confirm-dialog__btn--danger" : "confirm-dialog__btn--confirm"
+            }`}
             onClick={onConfirm}
           >
             {confirmText}

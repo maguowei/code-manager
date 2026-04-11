@@ -1,6 +1,6 @@
-import { memo, useState, useMemo } from "react";
-import { SessionGroup } from "./HistoryPage";
+import { memo, useMemo, useState } from "react";
 import { useI18n } from "../i18n";
+import type { SessionGroup } from "./HistoryPage";
 
 interface Props {
   groups: SessionGroup[];
@@ -54,7 +54,7 @@ function HistorySessionList({ groups, searchQuery, onViewDetail }: Props) {
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
 
   const toggleSession = (sessionId: string) => {
-    setExpandedSessions(prev => {
+    setExpandedSessions((prev) => {
       const next = new Set(prev);
       if (next.has(sessionId)) next.delete(sessionId);
       else next.add(sessionId);
@@ -63,14 +63,18 @@ function HistorySessionList({ groups, searchQuery, onViewDetail }: Props) {
   };
 
   const toggleDateGroup = (sessions: SessionGroup[]) => {
-    setExpandedSessions(prev => {
-      const ids = sessions.map(s => s.sessionId);
-      const allExpanded = ids.every(id => prev.has(id));
+    setExpandedSessions((prev) => {
+      const ids = sessions.map((s) => s.sessionId);
+      const allExpanded = ids.every((id) => prev.has(id));
       const next = new Set(prev);
       if (allExpanded) {
-        ids.forEach(id => next.delete(id));
+        ids.forEach((id) => {
+          next.delete(id);
+        });
       } else {
-        ids.forEach(id => next.add(id));
+        ids.forEach((id) => {
+          next.add(id);
+        });
       }
       return next;
     });
@@ -79,74 +83,93 @@ function HistorySessionList({ groups, searchQuery, onViewDetail }: Props) {
   const dateGroups = useMemo(() => groupByDate(groups), [groups]);
 
   if (groups.length === 0) {
-    return <div className="history-sessions"><div className="empty-state">{t("history.noData")}</div></div>;
+    return (
+      <div className="history-sessions">
+        <div className="empty-state">{t("history.noData")}</div>
+      </div>
+    );
   }
 
   return (
     <div className="history-sessions">
       {Array.from(dateGroups.entries()).map(([dateStr, sessions]) => {
-        const allExpanded = sessions.every(s => expandedSessions.has(s.sessionId));
+        const allExpanded = sessions.every((s) => expandedSessions.has(s.sessionId));
         return (
-        <div key={dateStr} className="history-date-group">
-          <div className="history-date-label">
-            <span>{formatDateLabel(dateStr, t("history.today"), t("history.yesterday"))}</span>
-            <button
-              className="date-toggle-btn"
-              onClick={() => toggleDateGroup(sessions)}
-              title={allExpanded ? t("history.collapse") : t("history.expand")}
-            >
-              {allExpanded ? t("history.collapse") : t("history.expand")}
-            </button>
-          </div>
-          {sessions.map(session => {
-            const isExpanded = expandedSessions.has(session.sessionId);
-            const lastEntry = session.entries.length > 0 ? session.entries[session.entries.length - 1] : null;
-            return (
-              <div key={session.sessionId} className="history-session">
-                <div
-                  className="history-session-header"
-                  onClick={() => toggleSession(session.sessionId)}
-                >
-                  <span className="session-toggle">{isExpanded ? "▼" : "▶"}</span>
-                  <span className="session-id">{session.sessionId.slice(0, 8)}</span>
-                  <span className="session-count">{session.entries.length} {t("history.messages")}</span>
-                  {!isExpanded && lastEntry && (
-                    <span className="session-preview" title={lastEntry.display}>
-                      {highlightText(lastEntry.display, searchQuery)}
+          <div key={dateStr} className="history-date-group">
+            <div className="history-date-label">
+              <span>{formatDateLabel(dateStr, t("history.today"), t("history.yesterday"))}</span>
+              <button
+                type="button"
+                className="date-toggle-btn"
+                onClick={() => toggleDateGroup(sessions)}
+                title={allExpanded ? t("history.collapse") : t("history.expand")}
+              >
+                {allExpanded ? t("history.collapse") : t("history.expand")}
+              </button>
+            </div>
+            {sessions.map((session) => {
+              const isExpanded = expandedSessions.has(session.sessionId);
+              const lastEntry =
+                session.entries.length > 0 ? session.entries[session.entries.length - 1] : null;
+              return (
+                <div key={session.sessionId} className="history-session">
+                  <div
+                    className="history-session-header"
+                    onClick={() => toggleSession(session.sessionId)}
+                  >
+                    <span className="session-toggle">{isExpanded ? "▼" : "▶"}</span>
+                    <span className="session-id">{session.sessionId.slice(0, 8)}</span>
+                    <span className="session-count">
+                      {session.entries.length} {t("history.messages")}
                     </span>
-                  )}
-                  <span className="session-time">{formatTime(session.lastTimestamp)}</span>
-                  {onViewDetail && (
-                    <button
-                      className="session-detail-btn"
-                      title={t("history.viewConversation")}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onViewDetail(session.sessionId);
-                      }}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M2 3h12v8H4l-2 2V3z" />
-                      </svg>
-                    </button>
+                    {!isExpanded && lastEntry && (
+                      <span className="session-preview" title={lastEntry.display}>
+                        {highlightText(lastEntry.display, searchQuery)}
+                      </span>
+                    )}
+                    <span className="session-time">{formatTime(session.lastTimestamp)}</span>
+                    {onViewDetail && (
+                      <button
+                        type="button"
+                        className="session-detail-btn"
+                        title={t("history.viewConversation")}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onViewDetail(session.sessionId);
+                        }}
+                      >
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 16 16"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M2 3h12v8H4l-2 2V3z" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  {isExpanded && (
+                    <div className="history-session-entries">
+                      {session.entries.map((entry, i) => (
+                        // biome-ignore lint/suspicious/noArrayIndexKey: entries 没有唯一标识符
+                        <div key={i} className="history-entry">
+                          <span className="entry-time">{formatTime(entry.timestamp)}</span>
+                          <span className="entry-display" title={entry.display}>
+                            {highlightText(entry.display, searchQuery)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
-                {isExpanded && (
-                  <div className="history-session-entries">
-                    {session.entries.map((entry, i) => (
-                      <div key={i} className="history-entry">
-                        <span className="entry-time">{formatTime(entry.timestamp)}</span>
-                        <span className="entry-display" title={entry.display}>
-                          {highlightText(entry.display, searchQuery)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
         );
       })}
     </div>

@@ -1,8 +1,8 @@
-import { useState } from "react";
-import CodeMirror from "@uiw/react-codemirror";
 import { json } from "@codemirror/lang-json";
-import { useI18n } from "../i18n";
+import CodeMirror from "@uiw/react-codemirror";
+import { useState } from "react";
 import useEditorTheme from "../hooks/useEditorTheme";
+import { useI18n } from "../i18n";
 
 interface DefaultsSectionProps {
   /** 是否启用通用配置 */
@@ -52,10 +52,7 @@ function DefaultsSection({
 
   return (
     <div className={`collapsible-section ${showDefaults ? "expanded" : ""}`}>
-      <div
-        className="collapsible-header"
-        onClick={() => setShowDefaults(!showDefaults)}
-      >
+      <div className="collapsible-header" onClick={() => setShowDefaults(!showDefaults)}>
         <div className="collapsible-header-left">
           <span className="collapsible-title">{t("configModal.defaults")}</span>
           <button
@@ -66,18 +63,14 @@ function DefaultsSection({
               onUseDefaultsChange(!useDefaults);
             }}
             title={
-              useDefaults
-                ? t("configModal.defaultsEnabled")
-                : t("configModal.defaultsDisabled")
+              useDefaults ? t("configModal.defaultsEnabled") : t("configModal.defaultsDisabled")
             }
           >
             <span className="toggle-track">
               <span className="toggle-thumb" />
             </span>
             <span className="toggle-label">
-              {useDefaults
-                ? t("configModal.defaultsEnabled")
-                : t("configModal.defaultsDisabled")}
+              {useDefaults ? t("configModal.defaultsEnabled") : t("configModal.defaultsDisabled")}
             </span>
           </button>
         </div>
@@ -96,10 +89,7 @@ function DefaultsSection({
 
       <div className="collapsible-content">
         <div className="collapsible-body">
-          <p
-            className="form-hint info"
-            style={{ marginTop: 0, marginBottom: "12px" }}
-          >
+          <p className="form-hint info" style={{ marginTop: 0, marginBottom: "12px" }}>
             <svg
               width="14"
               height="14"
@@ -116,11 +106,7 @@ function DefaultsSection({
           </p>
           <div className={`defaults-editor${defaultsError ? " error" : ""}`}>
             <div className="defaults-toolbar">
-              <button
-                type="button"
-                className="defaults-format-btn"
-                onClick={handleFormatDefaults}
-              >
+              <button type="button" className="defaults-format-btn" onClick={handleFormatDefaults}>
                 <svg
                   width="14"
                   height="14"
@@ -154,9 +140,7 @@ function DefaultsSection({
               }}
             />
           </div>
-          {defaultsError && (
-            <p className="defaults-error">{defaultsError}</p>
-          )}
+          {defaultsError && <p className="defaults-error">{defaultsError}</p>}
         </div>
       </div>
     </div>

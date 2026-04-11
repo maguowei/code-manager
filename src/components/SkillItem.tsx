@@ -1,6 +1,6 @@
 import { memo } from "react";
-import { Skill } from "../types";
 import { useI18n } from "../i18n";
+import type { Skill } from "../types";
 import { EditIcon, TrashIcon } from "./Icons";
 import "./SkillItem.css";
 
@@ -33,11 +33,7 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
 
   return (
     <div
-      className={[
-        "skill-item",
-        skill.isActive ? "active" : "inactive",
-        isEditing ? "editing" : "",
-      ]
+      className={["skill-item", skill.isActive ? "active" : "inactive", isEditing ? "editing" : ""]
         .filter(Boolean)
         .join(" ")}
       onClick={() => onEdit(skill)}
@@ -53,17 +49,19 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
         {/* 名称区域 */}
         <div className="skill-info">
           <h3 className="skill-name">{skill.name}</h3>
-          {showSlashId && (
-            <span className="skill-slash-id">/{skill.id}</span>
-          )}
+          {showSlashId && <span className="skill-slash-id">/{skill.id}</span>}
         </div>
 
         {/* 右侧操作区：启用/禁用开关 */}
         <div className="skill-header-actions">
           {/* toggle switch 开关 */}
           <button
+            type="button"
             className={`toggle-switch toggle-blue${skill.isActive ? " enabled" : ""}`}
-            onClick={(e) => { e.stopPropagation(); onToggle(skill); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggle(skill);
+            }}
             title={skill.isActive ? t("skills.enabled") : t("skills.disabled")}
           >
             <span className="toggle-track">
@@ -77,16 +75,18 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
       </div>
 
       {/* 描述预览（最多 2 行，CSS 截断） */}
-      {skill.description && (
-        <p className="skill-description">{skill.description}</p>
-      )}
+      {skill.description && <p className="skill-description">{skill.description}</p>}
 
       {/* 悬停显示的操作按钮区 */}
       <div className="skill-actions">
         {/* 同步按钮 */}
         <button
+          type="button"
           className="skill-action-btn sync"
-          onClick={(e) => { e.stopPropagation(); onSync(skill); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSync(skill);
+          }}
           title={t("skills.syncToCodex")}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -96,8 +96,12 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
 
         {/* 编辑按钮 */}
         <button
+          type="button"
           className="skill-action-btn edit"
-          onClick={(e) => { e.stopPropagation(); onEdit(skill); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit(skill);
+          }}
           title={t("skills.editTitle")}
         >
           <EditIcon />
@@ -105,8 +109,12 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
 
         {/* 删除按钮 */}
         <button
+          type="button"
           className="skill-action-btn delete"
-          onClick={(e) => { e.stopPropagation(); onDelete(skill); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(skill);
+          }}
           title={t("skills.delete")}
         >
           <TrashIcon />

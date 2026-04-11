@@ -120,6 +120,7 @@
 
 .memory-editor .cm-scroller {
   font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, monospace;
+  /* biome-ignore lint/complexity/noImportantStyles: 覆盖 CodeMirror 内置 overflow 样式 */
   overflow: auto !important;
 }
 

@@ -1,6 +1,6 @@
-import { MouseEvent, memo } from "react";
-import { Memory } from "../types";
+import { type MouseEvent, memo } from "react";
 import { useI18n } from "../i18n";
+import type { Memory } from "../types";
 import { TrashIcon } from "./Icons";
 import "./MemoryItem.css";
 
@@ -24,7 +24,10 @@ function MemoryItem({ memory, isEditing, onToggle, onEdit, onDelete }: MemoryIte
   }
 
   return (
-    <div className={`memory-item${memory.isActive ? " active" : ""}${isEditing ? " editing" : ""}`} onClick={onEdit}>
+    <div
+      className={`memory-item${memory.isActive ? " active" : ""}${isEditing ? " editing" : ""}`}
+      onClick={onEdit}
+    >
       <div className="memory-header">
         <div className="memory-badge">
           <span className="badge-text">
@@ -37,10 +40,9 @@ function MemoryItem({ memory, isEditing, onToggle, onEdit, onDelete }: MemoryIte
         </div>
 
         <div className="memory-header-actions">
-          {isEditing && (
-            <span className="memory-status editing">{t("memory.editing")}</span>
-          )}
+          {isEditing && <span className="memory-status editing">{t("memory.editing")}</span>}
           <button
+            type="button"
             className={`toggle-switch${memory.isActive ? " enabled" : ""}`}
             onClick={(e) => handleActionClick(e, onToggle)}
             title={memory.isActive ? t("memory.enabled") : t("memory.activateTitle")}
@@ -59,6 +61,7 @@ function MemoryItem({ memory, isEditing, onToggle, onEdit, onDelete }: MemoryIte
 
       <div className="memory-actions">
         <button
+          type="button"
           className="memory-action-btn delete"
           onClick={(e) => handleActionClick(e, onDelete)}
           title={t("memory.delete")}

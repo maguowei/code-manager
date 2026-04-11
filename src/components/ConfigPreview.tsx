@@ -1,8 +1,8 @@
-import { useState } from "react";
-import CodeMirror from "@uiw/react-codemirror";
 import { json } from "@codemirror/lang-json";
-import { useI18n } from "../i18n";
+import CodeMirror from "@uiw/react-codemirror";
+import { useState } from "react";
 import useEditorTheme from "../hooks/useEditorTheme";
+import { useI18n } from "../i18n";
 
 /** ConfigPreview 组件的属性定义 */
 interface ConfigPreviewProps {
@@ -31,7 +31,8 @@ function ConfigPreview({ content, onChange, jsonError }: ConfigPreviewProps) {
 
   /** 将当前 JSON 内容复制到剪贴板，并短暂展示"已复制"反馈 */
   function handleCopy() {
-    navigator.clipboard.writeText(content)
+    navigator.clipboard
+      .writeText(content)
       .then(() => {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
@@ -51,14 +52,28 @@ function ConfigPreview({ content, onChange, jsonError }: ConfigPreviewProps) {
         >
           {copied ? (
             <>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
                 <polyline points="20 6 9 17 4 12" />
               </svg>
               {t("configModal.jsonCopied")}
             </>
           ) : (
             <>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
               </svg>
@@ -79,9 +94,7 @@ function ConfigPreview({ content, onChange, jsonError }: ConfigPreviewProps) {
           foldGutter: false,
         }}
       />
-      {jsonError && (
-        <p className="json-preview-error">{jsonError}</p>
-      )}
+      {jsonError && <p className="json-preview-error">{jsonError}</p>}
     </div>
   );
 }

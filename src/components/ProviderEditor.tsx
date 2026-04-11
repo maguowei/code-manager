@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Provider, ProviderModel } from "../types";
 import { useI18n } from "../i18n";
+import type { Provider, ProviderModel } from "../types";
 import { ChevronLeftIcon } from "./Icons";
 import "./ProviderEditor.css";
 
@@ -25,20 +25,11 @@ function ProviderEditor({ provider, onSave, onClose }: ProviderEditorProps) {
   const [models, setModels] = useState<ProviderModel[]>(provider?.models || []);
 
   function handleAddModel() {
-    setModels((prev) => [
-      ...prev,
-      { id: "", name: "", category: "sonnet" },
-    ]);
+    setModels((prev) => [...prev, { id: "", name: "", category: "sonnet" }]);
   }
 
-  function handleModelChange(
-    index: number,
-    field: keyof ProviderModel,
-    value: string
-  ) {
-    setModels((prev) =>
-      prev.map((m, i) => (i === index ? { ...m, [field]: value } : m))
-    );
+  function handleModelChange(index: number, field: keyof ProviderModel, value: string) {
+    setModels((prev) => prev.map((m, i) => (i === index ? { ...m, [field]: value } : m)));
   }
 
   function handleRemoveModel(index: number) {
@@ -59,13 +50,11 @@ function ProviderEditor({ provider, onSave, onClose }: ProviderEditorProps) {
   return (
     <div className="editor-panel">
       <div className="editor-header">
-        <button className="editor-back-btn" onClick={onClose}>
+        <button type="button" className="editor-back-btn" onClick={onClose}>
           <ChevronLeftIcon />
         </button>
-        <h2>
-          {provider ? t("providers.editTitle") : t("providers.addTitle")}
-        </h2>
-        <button className="editor-save-btn" onClick={handleSubmit}>
+        <h2>{provider ? t("providers.editTitle") : t("providers.addTitle")}</h2>
+        <button type="button" className="editor-save-btn" onClick={handleSubmit}>
           {t("providers.save")}
         </button>
       </div>
@@ -116,19 +105,15 @@ function ProviderEditor({ provider, onSave, onClose }: ProviderEditorProps) {
         <div className="form-group">
           <div className="form-label-row">
             <label className="form-label">{t("providers.models")}</label>
-            <button className="add-model-btn" onClick={handleAddModel}>
+            <button type="button" className="add-model-btn" onClick={handleAddModel}>
               + {t("providers.addModel")}
             </button>
           </div>
           <p className="form-hint">{t("providers.modelIdHint")}</p>
           {models.length > 0 && (
             <div className="model-header" aria-hidden="true">
-              <span className="model-header-cell model-id">
-                {t("providers.modelId")}
-              </span>
-              <span className="model-header-cell model-name">
-                {t("providers.modelName")}
-              </span>
+              <span className="model-header-cell model-id">{t("providers.modelId")}</span>
+              <span className="model-header-cell model-name">{t("providers.modelName")}</span>
               <span className="model-header-cell model-category">
                 {t("providers.modelCategory")}
               </span>
@@ -136,6 +121,7 @@ function ProviderEditor({ provider, onSave, onClose }: ProviderEditorProps) {
             </div>
           )}
           {models.map((model, index) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: 模型列表支持动态增减，无稳定唯一标识
             <div key={index} className="model-row">
               <input
                 className="form-input model-id"
@@ -160,6 +146,7 @@ function ProviderEditor({ provider, onSave, onClose }: ProviderEditorProps) {
                 <option value="other">Other</option>
               </select>
               <button
+                type="button"
                 className="remove-model-btn"
                 onClick={() => handleRemoveModel(index)}
               >

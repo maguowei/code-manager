@@ -7,7 +7,12 @@ interface CollapsibleSectionProps {
   children: React.ReactNode;
 }
 
-function CollapsibleSection({ title, badge, defaultExpanded = false, children }: CollapsibleSectionProps) {
+function CollapsibleSection({
+  title,
+  badge,
+  defaultExpanded = false,
+  children,
+}: CollapsibleSectionProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
   return (
@@ -15,9 +20,7 @@ function CollapsibleSection({ title, badge, defaultExpanded = false, children }:
       <div className="collapsible-header" onClick={() => setExpanded(!expanded)}>
         <div className="collapsible-header-left">
           <span className="collapsible-title">{title}</span>
-          {badge !== undefined && badge > 0 && (
-            <span className="collapsible-badge">{badge}</span>
-          )}
+          {badge !== undefined && badge > 0 && <span className="collapsible-badge">{badge}</span>}
         </div>
         <svg
           className="collapsible-icon"

@@ -1,13 +1,13 @@
-import { useState, useEffect, useMemo, memo, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { memo, type ReactNode, useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { SessionDetail, MessageBlock, isTauri } from "../types";
-import { useI18n, type TranslationKey } from "../i18n";
+import remarkGfm from "remark-gfm";
 import useEscapeKey from "../hooks/useEscapeKey";
 import { useToast } from "../hooks/useToast";
+import { type TranslationKey, useI18n } from "../i18n";
+import { isTauri, type MessageBlock, type SessionDetail } from "../types";
 import "./SessionDetailDrawer.css";
 
 /** 文件类工具集合（模块级常量，避免每次渲染重建 Set） */
@@ -18,13 +18,35 @@ const REMARK_PLUGINS = [remarkGfm];
 
 /** 扩展名到 Prism 语言标识的映射（模块级常量） */
 const EXT_LANG_MAP: Record<string, string> = {
-  ts: "typescript", tsx: "tsx", js: "javascript", jsx: "jsx",
-  rs: "rust", py: "python", sh: "bash", bash: "bash", zsh: "bash",
-  css: "css", scss: "scss", html: "html", xml: "xml",
-  json: "json", toml: "toml", yaml: "yaml", yml: "yaml",
-  md: "markdown", mdx: "markdown", sql: "sql", go: "go",
-  java: "java", kt: "kotlin", swift: "swift", c: "c", cpp: "cpp",
-  rb: "ruby", php: "php", r: "r",
+  ts: "typescript",
+  tsx: "tsx",
+  js: "javascript",
+  jsx: "jsx",
+  rs: "rust",
+  py: "python",
+  sh: "bash",
+  bash: "bash",
+  zsh: "bash",
+  css: "css",
+  scss: "scss",
+  html: "html",
+  xml: "xml",
+  json: "json",
+  toml: "toml",
+  yaml: "yaml",
+  yml: "yaml",
+  md: "markdown",
+  mdx: "markdown",
+  sql: "sql",
+  go: "go",
+  java: "java",
+  kt: "kotlin",
+  swift: "swift",
+  c: "c",
+  cpp: "cpp",
+  rb: "ruby",
+  php: "php",
+  r: "r",
 };
 
 /** 根据文件扩展名获取 Prism 语言标识 */
@@ -84,6 +106,7 @@ function CollapsibleBlock({
   return (
     <div className={`msg-block${wrapClass ? ` ${wrapClass}` : ""}`}>
       <button
+        type="button"
         className={toggleClass}
         aria-expanded={expanded}
         onClick={() => setExpanded(!expanded)}
@@ -136,7 +159,15 @@ function SystemBlock({ summary, label }: { summary: string; label: string }) {
 }
 
 /** 渲染计划块（可折叠，复用 CollapsibleBlock） */
-function PlanBlock({ summary, content, label }: { summary: string; content: string; label: string }) {
+function PlanBlock({
+  summary,
+  content,
+  label,
+}: {
+  summary: string;
+  content: string;
+  label: string;
+}) {
   const planLabel = (
     <>
       <span className="msg-plan-icon">&#x1f4cb;</span>
@@ -159,31 +190,35 @@ function PlanBlock({ summary, content, label }: { summary: string; content: stri
 }
 
 /** 从已解析的工具输入对象中提取折叠状态下的摘要信息 */
-function getHeaderHintFromParsed(
-  p: Record<string, unknown> | null
-): { primary?: string; secondary?: string } {
+function getHeaderHintFromParsed(p: Record<string, unknown> | null): {
+  primary?: string;
+  secondary?: string;
+} {
   if (!p) return {};
   const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
 
-  if (str(p.file_path))     return { primary: p.file_path as string };
+  if (str(p.file_path)) return { primary: p.file_path as string };
   if (str(p.notebook_path)) return { primary: p.notebook_path as string };
   if (str(p.pattern)) return { primary: p.pattern as string, secondary: str(p.path) };
   if (str(p.command)) return { primary: p.command as string };
-  if (str(p.url))     return { primary: p.url as string };
-  if (str(p.query))   return { primary: p.query as string };
-  if (str(p.description)) return { primary: p.description as string, secondary: str(p.subagent_type) };
-  if (str(p.summary)) return {
-    primary: p.summary as string,
-    secondary: str(p.to) ? `→ ${p.to as string}` : undefined,
-  };
+  if (str(p.url)) return { primary: p.url as string };
+  if (str(p.query)) return { primary: p.query as string };
+  if (str(p.description))
+    return { primary: p.description as string, secondary: str(p.subagent_type) };
+  if (str(p.summary))
+    return {
+      primary: p.summary as string,
+      secondary: str(p.to) ? `→ ${p.to as string}` : undefined,
+    };
   if (str(p.subject)) return { primary: p.subject as string };
   if (str(p.taskId) || typeof p.taskId === "number") {
     return { primary: `#${p.taskId}`, secondary: str(p.status) };
   }
-  if (str(p.operation) && str(p.filePath)) return { primary: p.operation as string, secondary: p.filePath as string };
+  if (str(p.operation) && str(p.filePath))
+    return { primary: p.operation as string, secondary: p.filePath as string };
   if (str(p.filePath)) return { primary: p.filePath as string };
-  if (str(p.path))    return { primary: p.path as string };
-  if (str(p.prompt))  return { primary: p.prompt as string };
+  if (str(p.path)) return { primary: p.path as string };
+  if (str(p.prompt)) return { primary: p.prompt as string };
   return {};
 }
 
@@ -243,7 +278,9 @@ function ToolCallCard({
     try {
       const p = JSON.parse(inputPreview);
       if (p && typeof p === "object" && !Array.isArray(p)) return p as Record<string, unknown>;
-    } catch { /* 忽略解析失败 */ }
+    } catch {
+      /* 忽略解析失败 */
+    }
     return null;
   }, [inputPreview]);
 
@@ -253,7 +290,12 @@ function ToolCallCard({
 
   return (
     <div className="msg-block msg-tool-card">
-      <button className="msg-tool-card-header" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+      <button
+        type="button"
+        className="msg-tool-card-header"
+        aria-expanded={expanded}
+        onClick={() => setExpanded(!expanded)}
+      >
         <span className="msg-tool-card-icon">&#x1f6e0;</span>
         <span className="msg-tool-card-name">{name}</span>
         {!expanded && headerHint.primary && (
@@ -278,7 +320,7 @@ function ToolCallCard({
             <div className="msg-tool-card-section">
               <span className="msg-tool-card-label">{resultLabel}</span>
               {isFileTool ? (
-                <CodeResultBlock content={resultContent} filePath={filePath!} />
+                <CodeResultBlock content={resultContent} filePath={filePath ?? ""} />
               ) : (
                 <div className="msg-tool-card-result msg-markdown">
                   <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{resultContent}</ReactMarkdown>
@@ -309,12 +351,12 @@ const MessageBlocks = memo(function MessageBlocks({
         elements.push(
           <div key={i} className="msg-block msg-markdown">
             <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{block.text}</ReactMarkdown>
-          </div>
+          </div>,
         );
         break;
       case "thinking":
         elements.push(
-          <ThinkingBlock key={i} thinking={block.thinking} label={t("history.thinking")} />
+          <ThinkingBlock key={i} thinking={block.thinking} label={t("history.thinking")} />,
         );
         break;
       case "tool_use": {
@@ -328,7 +370,7 @@ const MessageBlocks = memo(function MessageBlocks({
             resultContent={resultContent}
             inputLabel={t("history.toolInput")}
             resultLabel={t("history.toolResult")}
-          />
+          />,
         );
         if (resultContent !== undefined) i++;
         break;
@@ -337,16 +379,14 @@ const MessageBlocks = memo(function MessageBlocks({
         elements.push(
           <div key={i} className="msg-block msg-tool-result msg-markdown">
             <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{block.content || "..."}</ReactMarkdown>
-          </div>
+          </div>,
         );
         break;
       case "command":
         elements.push(<CommandBlock key={i} name={block.name} args={block.args} />);
         break;
       case "system":
-        elements.push(
-          <SystemBlock key={i} summary={block.summary} label={t("history.system")} />
-        );
+        elements.push(<SystemBlock key={i} summary={block.summary} label={t("history.system")} />);
         break;
       case "image":
         elements.push(
@@ -364,21 +404,30 @@ const MessageBlocks = memo(function MessageBlocks({
                 />
                 <figcaption className="msg-image-caption">
                   <span className="msg-image-icon">&#x1f5bc;</span>
-                  <span>{t("history.image")} · {block.media_type}</span>
+                  <span>
+                    {t("history.image")} · {block.media_type}
+                  </span>
                 </figcaption>
               </figure>
             ) : (
               <div className="msg-image-placeholder">
                 <span className="msg-image-icon">&#x1f5bc;</span>
-                <span className="msg-image-label">{t("history.image")} ({block.media_type})</span>
+                <span className="msg-image-label">
+                  {t("history.image")} ({block.media_type})
+                </span>
               </div>
             )}
-          </div>
+          </div>,
         );
         break;
       case "plan":
         elements.push(
-          <PlanBlock key={i} summary={block.summary} content={block.content} label={t("history.plan")} />
+          <PlanBlock
+            key={i}
+            summary={block.summary}
+            content={block.content}
+            label={t("history.plan")}
+          />,
         );
         break;
     }
@@ -402,7 +451,10 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
   useEscapeKey(onClose);
 
   useEffect(() => {
-    if (!isTauri()) { setLoading(false); return; }
+    if (!isTauri()) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     invoke<SessionDetail>("get_session_detail", { project, sessionId })
       .then(setDetail)
@@ -418,12 +470,27 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
       <div className="session-detail-drawer open">
         {/* 顶部标题栏 */}
         <div className="editor-header">
-          <button className="editor-back-btn" onClick={onClose} title={t("common.close")}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <button
+            type="button"
+            className="editor-back-btn"
+            onClick={onClose}
+            title={t("common.close")}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            >
               <path d="M12 4L4 12M4 4l8 8" />
             </svg>
           </button>
-          <h2>{t("history.conversation")} — {sessionId.slice(0, 8)}</h2>
+          <h2>
+            {t("history.conversation")} — {sessionId.slice(0, 8)}
+          </h2>
         </div>
 
         {/* 内容区 */}
@@ -434,6 +501,7 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
         ) : (
           <div className="session-detail-messages">
             {messages.map((msg, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: 消息列表无唯一标识符
               <div key={i} className={`session-msg ${msg.role}`}>
                 <div className="session-msg-header">
                   <span className={`session-msg-avatar ${msg.role}`}>

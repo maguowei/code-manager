@@ -32,13 +32,12 @@ interface ConfigEditorDefaultProvider {
 export function buildConfigEditorDefaultValues(
   config: ConfigEditorDefaultConfig | null,
   defaultLang: string,
-  providers: ConfigEditorDefaultProvider[] = []
+  providers: ConfigEditorDefaultProvider[] = [],
 ): Partial<ClaudeConfigFormData> {
   const isNewConfig = config === null;
-  const providerBaseUrl =
-    config?.providerId
-      ? providers.find((provider) => provider.id === config.providerId)?.baseUrl
-      : undefined;
+  const providerBaseUrl = config?.providerId
+    ? providers.find((provider) => provider.id === config.providerId)?.baseUrl
+    : undefined;
 
   return {
     name: config?.name ?? "",

@@ -115,7 +115,9 @@
   gap: 8px;
   opacity: 0;
   transform: translateX(6px);
-  transition: opacity 180ms ease, transform 180ms ease;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
 }
 
 .memory-item:hover .memory-actions {

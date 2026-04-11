@@ -1,5 +1,5 @@
-import type { ClaudeConfigFormData } from "./config-schema";
 import type { TranslationKey } from "../i18n";
+import type { ClaudeConfigFormData } from "./config-schema";
 
 export type FieldInputType = "text" | "password" | "checkbox" | "select" | "combobox" | "url";
 

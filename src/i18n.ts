@@ -1,4 +1,13 @@
-import { createContext, useContext, useState, useCallback, useEffect, useMemo, ReactNode, createElement } from "react";
+import {
+  createContext,
+  createElement,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 export type Language = "zh" | "en";
 export type Theme = "light" | "dark" | "system";
@@ -8,7 +17,7 @@ const translations = {
   zh: {
     // 通用
     "app.title": "AI Manager",
-    "loading": "加载中...",
+    loading: "加载中...",
     "common.close": "关闭",
     "form.required": "必填",
 
@@ -63,12 +72,15 @@ const translations = {
     "configModal.skipWebFetchPreflight": "跳过 WebFetch 预检 (skipWebFetchPreflight)",
     "configModal.enableLspTool": "启用 LSP 工具 (ENABLE_LSP_TOOL)",
     "configModal.enableAgentTeams": "启用 Agent Teams (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS)",
-    "configModal.enableAgentTeamsDesc": "设置为 1 以启用 agent teams。Agent teams 是实验性的，默认禁用",
+    "configModal.enableAgentTeamsDesc":
+      "设置为 1 以启用 agent teams。Agent teams 是实验性的，默认禁用",
     "configModal.hasCompletedOnboarding": "已完成引导设置 (hasCompletedOnboarding)",
-    "configModal.hasCompletedOnboardingDesc": "启用后将在生成的配置中设置此选项，跳过 Claude Code 首次启动时的引导流程",
+    "configModal.hasCompletedOnboardingDesc":
+      "启用后将在生成的配置中设置此选项，跳过 Claude Code 首次启动时的引导流程",
     "configModal.pluginMarketplaces": "插件市场",
     "configModal.enableExtraMarketplaces": "启用第三方插件市场",
-    "configModal.enableExtraMarketplacesDesc": "启用后将添加 claude-plugins-official 和 chrome-devtools-plugins 市场源",
+    "configModal.enableExtraMarketplacesDesc":
+      "启用后将添加 claude-plugins-official 和 chrome-devtools-plugins 市场源",
     "configModal.enabledPlugins": "已启用插件",
     "configModal.enabledPluginsDesc": "管理 Claude Code 插件的启用状态",
     "configModal.addPlugin": "添加",
@@ -158,7 +170,8 @@ const translations = {
     "providers.models": "可用模型",
     "providers.addModel": "添加模型",
     "providers.modelId": "模型 ID",
-    "providers.modelIdHint": "模型 ID 请填写上游 API 实际使用的模型标识，不是显示名称。例如：claude-sonnet-4-6",
+    "providers.modelIdHint":
+      "模型 ID 请填写上游 API 实际使用的模型标识，不是显示名称。例如：claude-sonnet-4-6",
     "providers.modelIdPlaceholder": "claude-sonnet-4-6",
     "providers.modelName": "显示名称",
     "providers.modelNamePlaceholder": "Claude Sonnet 4.6",
@@ -283,7 +296,8 @@ const translations = {
     "skills.content": "内容（Markdown）",
     "skills.contentPlaceholder": "输入 Skill 指令...",
     "skills.disableModelInvocation": "仅手动触发 (disable-model-invocation)",
-    "skills.disableModelInvocationHint": "启用后 Claude 不会自动加载此 Skill，只能手动用 /skill-name 调用",
+    "skills.disableModelInvocationHint":
+      "启用后 Claude 不会自动加载此 Skill，只能手动用 /skill-name 调用",
     "skills.userInvocable": "允许手动调用 (user-invocable)",
     "skills.userInvocableHint": "禁用后此 Skill 不出现在 / 菜单中，仅 Claude 可自动调用",
     "skills.enabled": "已启用",
@@ -366,7 +380,7 @@ const translations = {
   en: {
     // 通用
     "app.title": "AI Manager",
-    "loading": "Loading...",
+    loading: "Loading...",
     "common.close": "Close",
     "form.required": "Required",
 
@@ -405,7 +419,8 @@ const translations = {
     "configModal.apiKeyPlaceholder": "sk-ant-...",
     "configModal.baseUrl": "Base URL",
     "configModal.baseUrlPlaceholder": "https://api.anthropic.com",
-    "configModal.baseUrlHint": "Enter the Base URL for the Anthropic-compatible API (ANTHROPIC_BASE_URL)",
+    "configModal.baseUrlHint":
+      "Enter the Base URL for the Anthropic-compatible API (ANTHROPIC_BASE_URL)",
     "configModal.model": "Primary Model",
     "configModal.modelPlaceholder": "claude-sonnet-4-5",
     "configModal.haikuModel": "Haiku Default Model",
@@ -414,19 +429,24 @@ const translations = {
     "configModal.sonnetModelPlaceholder": "claude-sonnet-4-5",
     "configModal.opusModel": "Opus Default Model",
     "configModal.opusModelPlaceholder": "claude-opus-4-5-thinking",
-    "configModal.modelHint": "Optional: specify the default Claude model. Leave empty to use system default.",
+    "configModal.modelHint":
+      "Optional: specify the default Claude model. Leave empty to use system default.",
     "configModal.advancedOptions": "Advanced Options",
     "configModal.alwaysThinking": "Always enable thinking mode (alwaysThinkingEnabled)",
-    "configModal.disableTraffic": "Disable non-essential network traffic (CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC)",
+    "configModal.disableTraffic":
+      "Disable non-essential network traffic (CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC)",
     "configModal.skipWebFetchPreflight": "Skip WebFetch preflight (skipWebFetchPreflight)",
     "configModal.enableLspTool": "Enable LSP Tool (ENABLE_LSP_TOOL)",
     "configModal.enableAgentTeams": "Enable Agent Teams (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS)",
-    "configModal.enableAgentTeamsDesc": "Set to 1 to enable agent teams. Agent teams is experimental and disabled by default.",
+    "configModal.enableAgentTeamsDesc":
+      "Set to 1 to enable agent teams. Agent teams is experimental and disabled by default.",
     "configModal.hasCompletedOnboarding": "Has completed onboarding",
-    "configModal.hasCompletedOnboardingDesc": "When enabled, this option will be set in the generated config to skip Claude Code's onboarding process on first launch",
+    "configModal.hasCompletedOnboardingDesc":
+      "When enabled, this option will be set in the generated config to skip Claude Code's onboarding process on first launch",
     "configModal.pluginMarketplaces": "Plugin Marketplaces",
     "configModal.enableExtraMarketplaces": "Enable third-party plugin marketplaces",
-    "configModal.enableExtraMarketplacesDesc": "Adds claude-plugins-official and chrome-devtools-plugins marketplace sources",
+    "configModal.enableExtraMarketplacesDesc":
+      "Adds claude-plugins-official and chrome-devtools-plugins marketplace sources",
     "configModal.enabledPlugins": "Enabled Plugins",
     "configModal.enabledPluginsDesc": "Manage Claude Code plugin enable/disable status",
     "configModal.addPlugin": "Add",
@@ -451,7 +471,8 @@ const translations = {
     "configModal.defaultsEnabled": "Enabled",
     "configModal.defaultsDisabled": "Disabled",
     "configModal.defaultsPlaceholder": "Enter default config JSON...",
-    "configModal.defaultsHint": "Default config will be deep-merged with current config. Current config fields take priority",
+    "configModal.defaultsHint":
+      "Default config will be deep-merged with current config. Current config fields take priority",
     "configModal.defaultsFormat": "Format",
     "configModal.defaultsError": "Invalid JSON format",
     "configModal.jsonCopy": "Copy",
@@ -466,7 +487,8 @@ const translations = {
 
     // 记忆页面
     "memory.title": "CLAUDE.md Memory",
-    "memory.description": "Manage project and global CLAUDE.md files to provide context memory for Claude Code",
+    "memory.description":
+      "Manage project and global CLAUDE.md files to provide context memory for Claude Code",
     "memory.addMemory": "Add Memory",
     "memory.editTitle": "Edit Memory",
     "memory.addTitle": "Add Memory",
@@ -498,7 +520,8 @@ const translations = {
 
     // Provider page
     "providers.title": "Provider Management",
-    "providers.description": "Manage Claude Code API providers, support domestic Coding Plan / Token Plan",
+    "providers.description":
+      "Manage Claude Code API providers, support domestic Coding Plan / Token Plan",
     "providers.addProvider": "Add Provider",
     "providers.editTitle": "Edit Provider",
     "providers.addTitle": "Add Provider",
@@ -516,13 +539,15 @@ const translations = {
     "providers.models": "Available Models",
     "providers.addModel": "Add Model",
     "providers.modelId": "Model ID",
-    "providers.modelIdHint": "Use the actual model ID accepted by the upstream API, not the display name. Example: claude-sonnet-4-6",
+    "providers.modelIdHint":
+      "Use the actual model ID accepted by the upstream API, not the display name. Example: claude-sonnet-4-6",
     "providers.modelIdPlaceholder": "claude-sonnet-4-6",
     "providers.modelName": "Display Name",
     "providers.modelNamePlaceholder": "Claude Sonnet 4.6",
     "providers.modelCategory": "Category",
     "providers.empty": "No custom providers",
-    "providers.emptyHint": "Built-in providers are ready to use. You can also add custom providers.",
+    "providers.emptyHint":
+      "Built-in providers are ready to use. You can also add custom providers.",
     "providers.save": "Save",
     "providers.cancel": "Cancel",
     "providers.delete": "Delete",
@@ -541,7 +566,8 @@ const translations = {
     // ConfigEditor
     "configModal.provider": "API Provider",
     "configModal.providerPlaceholder": "Select Provider (optional)",
-    "configModal.providerHint": "Selecting a provider auto-fills the base URL and shows available models",
+    "configModal.providerHint":
+      "Selecting a provider auto-fills the base URL and shows available models",
     "configModal.providerNone": "None (manual config)",
     "stats.title": "Usage Statistics",
     "stats.refresh": "Refresh",
@@ -572,9 +598,11 @@ const translations = {
 
     // 确认对话框
     "confirm.deleteConfigTitle": "Delete Config",
-    "confirm.deleteConfigMessage": "Are you sure you want to delete this config? This action cannot be undone.",
+    "confirm.deleteConfigMessage":
+      "Are you sure you want to delete this config? This action cannot be undone.",
     "confirm.deleteMemoryTitle": "Delete Memory",
-    "confirm.deleteMemoryMessage": "Are you sure you want to delete this memory? This action cannot be undone.",
+    "confirm.deleteMemoryMessage":
+      "Are you sure you want to delete this memory? This action cannot be undone.",
     "confirm.delete": "Delete",
     "confirm.cancel": "Cancel",
 
@@ -589,7 +617,8 @@ const translations = {
     "settings.themeDark": "Dark",
     "settings.themeSystem": "System",
     "settings.showTrayTitle": "Show active config in menu bar",
-    "settings.showTrayTitleDesc": "Display the active configuration name next to the system tray icon",
+    "settings.showTrayTitleDesc":
+      "Display the active configuration name next to the system tray icon",
     "settings.enabled": "Enabled",
     "settings.disabled": "Disabled",
 
@@ -632,10 +661,12 @@ const translations = {
     "skills.addTitle": "Add Skill",
     "skills.name": "Skill Name (directory name)",
     "skills.namePlaceholder": "e.g. my-skill (lowercase, numbers, hyphens)",
-    "skills.nameHint": "Used as /slash-command and directory name. Cannot be changed after creation.",
+    "skills.nameHint":
+      "Used as /slash-command and directory name. Cannot be changed after creation.",
     "skills.displayName": "Display Name (optional)",
     "skills.displayNamePlaceholder": "e.g. My Skill (defaults to directory name)",
-    "skills.displayNameHint": "Corresponds to the name field in frontmatter, used for display in the UI",
+    "skills.displayNameHint":
+      "Corresponds to the name field in frontmatter, used for display in the UI",
     "skills.descriptionLabel": "Description",
     "skills.descriptionPlaceholder": "Describe what this skill does and when to use it",
     "skills.content": "Content (Markdown)",
@@ -643,7 +674,8 @@ const translations = {
     "skills.disableModelInvocation": "Manual invocation only (disable-model-invocation)",
     "skills.disableModelInvocationHint": "Prevents Claude from automatically loading this skill",
     "skills.userInvocable": "Allow manual invocation (user-invocable)",
-    "skills.userInvocableHint": "If disabled, skill is hidden from / menu and only Claude can invoke it",
+    "skills.userInvocableHint":
+      "If disabled, skill is hidden from / menu and only Claude can invoke it",
     "skills.enabled": "Enabled",
     "skills.disabled": "Disabled",
     "skills.editing": "Editing",
@@ -662,9 +694,11 @@ const translations = {
     "skills.cancelEdit": "Cancel",
     "skills.saveFile": "Save File",
     "confirm.deleteSkillTitle": "Delete Skill",
-    "confirm.deleteSkillMessage": "Are you sure you want to delete this Skill? This will remove the entire directory and cannot be undone.",
+    "confirm.deleteSkillMessage":
+      "Are you sure you want to delete this Skill? This will remove the entire directory and cannot be undone.",
     "confirm.deleteSkillFileTitle": "Delete File",
-    "confirm.deleteSkillFileMessage": "Are you sure you want to delete this file? This cannot be undone.",
+    "confirm.deleteSkillFileMessage":
+      "Are you sure you want to delete this file? This cannot be undone.",
     "toast.skillLoadError": "Failed to load Skills",
     "toast.skillAdded": "Skill added",
     "toast.skillAddError": "Failed to add Skill",
@@ -788,7 +822,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     (key: TranslationKey): string => {
       return translations[settings.language][key] || key;
     },
-    [settings.language]
+    [settings.language],
   );
 
   const setLanguage = useCallback((language: Language) => {
@@ -809,6 +843,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // 初始化时应用主题
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 仅在挂载时执行一次
   useEffect(() => {
     applyTheme(settings.theme);
   }, []);
@@ -822,13 +857,16 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     return () => mediaQuery.removeEventListener("change", handler);
   }, [settings.theme]);
 
-  const value = useMemo<I18nContextType>(() => ({
-    language: settings.language,
-    theme: settings.theme,
-    t,
-    setLanguage,
-    setTheme,
-  }), [settings.language, settings.theme, t, setLanguage, setTheme]);
+  const value = useMemo<I18nContextType>(
+    () => ({
+      language: settings.language,
+      theme: settings.theme,
+      t,
+      setLanguage,
+      setTheme,
+    }),
+    [settings.language, settings.theme, t, setLanguage, setTheme],
+  );
 
   return createElement(I18nContext.Provider, { value }, children);
 }

@@ -32,7 +32,14 @@
       "style": {
         "useConst": "error"
       },
-      "a11y": { "recommended": true }
+      "a11y": {
+        "recommended": true,
+        "noSvgWithoutTitle": "off",
+        "noStaticElementInteractions": "off",
+        "useKeyWithClickEvents": "off",
+        "noLabelWithoutControl": "off",
+        "useSemanticElements": "off"
+      }
     }
   },
   "javascript": {

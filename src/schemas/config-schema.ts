@@ -2,10 +2,9 @@ import { z } from "zod";
 
 const urlField = z
   .string()
-  .refine(
-    (v) => !v || v.startsWith("http://") || v.startsWith("https://"),
-    { message: "configEditor.validation.invalidUrl" }
-  )
+  .refine((v) => !v || v.startsWith("http://") || v.startsWith("https://"), {
+    message: "configEditor.validation.invalidUrl",
+  })
   .optional();
 
 export const ClaudeConfigSchema = z.object({

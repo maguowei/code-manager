@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { I18nProvider } from "./i18n";
 import { ToastProvider } from "./hooks/useToast";
+import { I18nProvider } from "./i18n";
 import "./styles/shared.css";
 import "./components/Toast.css";
 import App from "./App";

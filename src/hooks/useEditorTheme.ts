@@ -1,5 +1,5 @@
-import { useMemo, useState, useEffect } from "react";
-import { xcodeLight, xcodeDark } from "@uiw/codemirror-theme-xcode";
+import { xcodeDark, xcodeLight } from "@uiw/codemirror-theme-xcode";
+import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "../i18n";
 
 /**
@@ -11,7 +11,7 @@ function useEditorTheme() {
 
   // 仅在 system 模式下需要跟踪系统偏好
   const [systemDark, setSystemDark] = useState(
-    () => window.matchMedia("(prefers-color-scheme: dark)").matches
+    () => window.matchMedia("(prefers-color-scheme: dark)").matches,
   );
 
   useEffect(() => {

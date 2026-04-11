@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { HistoryEntry, isTauri } from "../types";
-import { useI18n } from "../i18n";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "../hooks/useToast";
+import { useI18n } from "../i18n";
+import { type HistoryEntry, isTauri } from "../types";
 import HistoryHeatmap from "./HistoryHeatmap";
 import HistoryProjectList from "./HistoryProjectList";
 import HistorySessionList from "./HistorySessionList";
@@ -65,7 +65,7 @@ function groupByProject(entries: HistoryEntry[]): ProjectGroup[] {
       project,
       shortName: shortProjectName(project),
       entries,
-      sessionCount: new Set(entries.map(e => e.sessionId)).size,
+      sessionCount: new Set(entries.map((e) => e.sessionId)).size,
     }))
     .sort((a, b) => b.entries.length - a.entries.length);
 }
@@ -101,11 +101,17 @@ function HistoryPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const mtimeRef = useRef<number>(0);
-  const [viewingSession, setViewingSession] = useState<{ project: string; sessionId: string } | null>(null);
+  const [viewingSession, setViewingSession] = useState<{
+    project: string;
+    sessionId: string;
+  } | null>(null);
 
   // 首次加载
   const loadHistory = useCallback(async () => {
-    if (!isTauri()) { setLoading(false); return; }
+    if (!isTauri()) {
+      setLoading(false);
+      return;
+    }
     try {
       const result = await invoke<HistoryResult>("get_history");
       mtimeRef.current = result.mtime;
@@ -142,25 +148,42 @@ function HistoryPage() {
     return map;
   }, [allEntries]);
 
-  const handleViewDetail = useCallback((sessionId: string) => {
-    const project = selectedProject || sessionProjectMap.get(sessionId) || "";
-    setViewingSession({ project, sessionId });
-  }, [selectedProject, sessionProjectMap]);
+  const handleViewDetail = useCallback(
+    (sessionId: string) => {
+      const project = selectedProject || sessionProjectMap.get(sessionId) || "";
+      setViewingSession({ project, sessionId });
+    },
+    [selectedProject, sessionProjectMap],
+  );
 
-  useEffect(() => { loadHistory(); }, [loadHistory]);
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
 
   // 轮询定时器，仅在页面可见时运行
   useEffect(() => {
     let id: ReturnType<typeof setInterval> | undefined;
 
-    const start = () => { id = setInterval(pollHistory, POLL_INTERVAL); };
-    const stop = () => { if (id !== undefined) { clearInterval(id); id = undefined; } };
+    const start = () => {
+      id = setInterval(pollHistory, POLL_INTERVAL);
+    };
+    const stop = () => {
+      if (id !== undefined) {
+        clearInterval(id);
+        id = undefined;
+      }
+    };
 
-    const onVisibility = () => { document.hidden ? stop() : start(); };
+    const onVisibility = () => {
+      document.hidden ? stop() : start();
+    };
 
     if (!document.hidden) start();
     document.addEventListener("visibilitychange", onVisibility);
-    return () => { stop(); document.removeEventListener("visibilitychange", onVisibility); };
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [pollHistory]);
 
   // 按项目分组
@@ -169,11 +192,11 @@ function HistoryPage() {
   // 当前显示的条目（受项目筛选和搜索影响）
   const filteredEntries = useMemo(() => {
     let entries = selectedProject
-      ? allEntries.filter(e => e.project === selectedProject)
+      ? allEntries.filter((e) => e.project === selectedProject)
       : allEntries;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      entries = entries.filter(e => e.display.toLowerCase().includes(q));
+      entries = entries.filter((e) => e.display.toLowerCase().includes(q));
     }
     return entries;
   }, [allEntries, selectedProject, searchQuery]);
@@ -182,7 +205,11 @@ function HistoryPage() {
   const sessionGroups = useMemo(() => groupBySession(filteredEntries), [filteredEntries]);
 
   if (loading) {
-    return <div className="history-page"><div className="loading">{t("loading")}</div></div>;
+    return (
+      <div className="history-page">
+        <div className="loading">{t("loading")}</div>
+      </div>
+    );
   }
 
   return (
@@ -196,7 +223,7 @@ function HistoryPage() {
             className="history-search-input"
             placeholder={t("history.search")}
             value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
+            onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
       </div>

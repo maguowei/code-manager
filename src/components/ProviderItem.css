@@ -145,7 +145,9 @@
   flex-shrink: 0;
   opacity: 0;
   transform: translateX(6px);
-  transition: opacity 180ms ease, transform 180ms ease;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
 }
 
 .provider-item:hover .provider-item-actions {
@@ -189,22 +191,28 @@
 }
 
 .provider-list.is-dragging .provider-item:not(.dragging) {
-  transition: transform 200ms ease, margin 200ms ease, opacity 200ms ease;
+  transition:
+    transform 200ms ease,
+    margin 200ms ease,
+    opacity 200ms ease;
 }
 
 .provider-item.drag-over-above::before,
 .provider-item.drag-over-below::after {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   right: 0;
   height: 3px;
   border-radius: 2px;
   background-color: var(--accent-orange);
-  box-shadow: 0 0 8px var(--accent-orange), 0 0 16px rgba(247, 129, 102, 0.4);
+  box-shadow:
+    0 0 8px var(--accent-orange),
+    0 0 16px rgba(247, 129, 102, 0.4);
 }
 
 .provider-item.drag-over-above:not(.dragging) {
+  /* 仅用于选择器匹配，具体视觉通过 ::before 伪元素呈现 */
 }
 
 .provider-item.drag-over-above::before {
@@ -212,6 +220,7 @@
 }
 
 .provider-item.drag-over-below:not(.dragging) {
+  /* 仅用于选择器匹配，具体视觉通过 ::after 伪元素呈现 */
 }
 
 .provider-item.drag-over-below::after {

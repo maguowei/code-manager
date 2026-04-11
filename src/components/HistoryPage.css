@@ -63,11 +63,21 @@
   min-width: 0;
 }
 
-.heatmap-level-0 { background-color: var(--bg-tertiary); }
-.heatmap-level-1 { background-color: rgba(58, 134, 255, 0.25); }
-.heatmap-level-2 { background-color: rgba(58, 134, 255, 0.45); }
-.heatmap-level-3 { background-color: rgba(58, 134, 255, 0.65); }
-.heatmap-level-4 { background-color: rgba(58, 134, 255, 0.9); }
+.heatmap-level-0 {
+  background-color: var(--bg-tertiary);
+}
+.heatmap-level-1 {
+  background-color: rgba(58, 134, 255, 0.25);
+}
+.heatmap-level-2 {
+  background-color: rgba(58, 134, 255, 0.45);
+}
+.heatmap-level-3 {
+  background-color: rgba(58, 134, 255, 0.65);
+}
+.heatmap-level-4 {
+  background-color: rgba(58, 134, 255, 0.9);
+}
 
 .heatmap-legend {
   display: flex;
@@ -199,9 +209,13 @@
   --entry-gap: 10px;
   /* preview 起始位置 = padding + toggle + gap + id + gap + count + gap */
   --preview-offset: calc(
-    var(--session-padding) + var(--toggle-width) + var(--session-gap)
-    + var(--id-width) + var(--session-gap)
-    + var(--count-width) + var(--session-gap)
+    var(--session-padding) +
+    var(--toggle-width) +
+    var(--session-gap) +
+    var(--id-width) +
+    var(--session-gap) +
+    var(--count-width) +
+    var(--session-gap)
   );
   margin-bottom: 2px;
 }
@@ -264,7 +278,12 @@
 
 /* 会话展开后的条目列表 */
 .history-session-entries {
-  padding-left: calc(var(--preview-offset) - var(--entry-padding) - var(--time-width) - var(--entry-gap));
+  padding-left: calc(
+    var(--preview-offset) -
+    var(--entry-padding) -
+    var(--time-width) -
+    var(--entry-gap)
+  );
   margin-top: 2px;
   margin-bottom: 8px;
 }

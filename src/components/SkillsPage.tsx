@@ -1,14 +1,14 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Skill } from "../types";
-import { useI18n } from "../i18n";
-import { useToast } from "../hooks/useToast";
-import SkillItem from "./SkillItem";
-import SkillEditor from "./SkillEditor";
-import Drawer from "./Drawer";
-import ConfirmDialog from "./ConfirmDialog";
-import { PlusIcon } from "./Icons";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import useEscapeKey from "../hooks/useEscapeKey";
+import { useToast } from "../hooks/useToast";
+import { useI18n } from "../i18n";
+import type { Skill } from "../types";
+import ConfirmDialog from "./ConfirmDialog";
+import Drawer from "./Drawer";
+import { PlusIcon } from "./Icons";
+import SkillEditor from "./SkillEditor";
+import SkillItem from "./SkillItem";
 
 function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => void }) {
   const { t } = useI18n();
@@ -39,7 +39,7 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       setIsDrawerOpen(false);
       onDrawerChange?.(false);
     }, [onDrawerChange]),
-    isDrawerOpen
+    isDrawerOpen,
   );
 
   // 切换 Skill 启用/禁用状态
@@ -82,9 +82,7 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   function handleSave(saved: Skill) {
     setSkills((prev) => {
       const exists = prev.some((s) => s.id === saved.id);
-      return exists
-        ? prev.map((s) => (s.id === saved.id ? saved : s))
-        : [...prev, saved];
+      return exists ? prev.map((s) => (s.id === saved.id ? saved : s)) : [...prev, saved];
     });
     closeDrawer();
   }
@@ -111,10 +109,14 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   }
 
   // 启用的 Skill 排在前面，同状态内按 id 字典序排列
-  const sortedSkills = useMemo(() => [...skills].sort((a, b) => {
-    if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
-    return a.id.localeCompare(b.id);
-  }), [skills]);
+  const sortedSkills = useMemo(
+    () =>
+      [...skills].sort((a, b) => {
+        if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
+        return a.id.localeCompare(b.id);
+      }),
+    [skills],
+  );
 
   return (
     <div className="list-page">
@@ -124,7 +126,7 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       </div>
 
       {/* 添加按钮 */}
-      <button className="add-config-btn" onClick={openAdd}>
+      <button type="button" className="add-config-btn" onClick={openAdd}>
         <PlusIcon />
         <span>{t("skills.addSkill")}</span>
       </button>
@@ -133,7 +135,14 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       {sortedSkills.length === 0 ? (
         <div className="list-empty">
           <div className="empty-icon">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            >
               <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
             </svg>
           </div>

@@ -1,4 +1,12 @@
-import { createContext, useContext, useState, useCallback, useRef, useEffect, ReactNode } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 /** Toast 消息类型 */
 type ToastType = "success" | "error";
@@ -27,7 +35,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   // 组件卸载时清理所有未触发的定时器
   useEffect(() => {
     return () => {
-      timersRef.current.forEach((timerId) => clearTimeout(timerId));
+      timersRef.current.forEach((timerId) => {
+        clearTimeout(timerId);
+      });
     };
   }, []);
 

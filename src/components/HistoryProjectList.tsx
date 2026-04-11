@@ -1,6 +1,6 @@
 import { memo } from "react";
-import { ProjectGroup } from "./HistoryPage";
 import { useI18n } from "../i18n";
+import type { ProjectGroup } from "./HistoryPage";
 
 interface Props {
   groups: ProjectGroup[];
@@ -18,7 +18,7 @@ function HistoryProjectList({ groups, selectedProject, onSelect }: Props) {
       >
         {t("history.allProjects")}
       </div>
-      {groups.map(g => (
+      {groups.map((g) => (
         <div
           key={g.project}
           className={`history-project-item${selectedProject === g.project ? " selected" : ""}`}

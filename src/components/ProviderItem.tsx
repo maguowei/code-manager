@@ -1,7 +1,7 @@
-import { DragEvent, KeyboardEvent, memo, useCallback } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { Provider } from "../types";
+import { type DragEvent, type KeyboardEvent, memo, useCallback } from "react";
 import { useI18n } from "../i18n";
+import type { Provider } from "../types";
 import { TrashIcon } from "./Icons";
 import "./ProviderItem.css";
 
@@ -38,10 +38,22 @@ const ProviderItem = memo(function ProviderItem({
 }: ProviderItemProps) {
   const { t } = useI18n();
 
-  const handleDragStartWrap = useCallback((e: DragEvent<HTMLDivElement>) => onDragStart(e, index), [onDragStart, index]);
-  const handleDragOverWrap = useCallback((e: DragEvent<HTMLDivElement>) => onDragOver(e, index), [onDragOver, index]);
-  const handleDragLeaveWrap = useCallback((e: DragEvent<HTMLDivElement>) => onDragLeave(e, index), [onDragLeave, index]);
-  const handleDropWrap = useCallback((e: DragEvent<HTMLDivElement>) => onDrop(e, index), [onDrop, index]);
+  const handleDragStartWrap = useCallback(
+    (e: DragEvent<HTMLDivElement>) => onDragStart(e, index),
+    [onDragStart, index],
+  );
+  const handleDragOverWrap = useCallback(
+    (e: DragEvent<HTMLDivElement>) => onDragOver(e, index),
+    [onDragOver, index],
+  );
+  const handleDragLeaveWrap = useCallback(
+    (e: DragEvent<HTMLDivElement>) => onDragLeave(e, index),
+    [onDragLeave, index],
+  );
+  const handleDropWrap = useCallback(
+    (e: DragEvent<HTMLDivElement>) => onDrop(e, index),
+    [onDrop, index],
+  );
   const handleActionKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "Enter" || e.key === " ") {
       e.stopPropagation();
@@ -80,9 +92,7 @@ const ProviderItem = memo(function ProviderItem({
           </span>
         </div>
         <div className="provider-item-slug">{provider.slug}</div>
-        {provider.baseUrl && (
-          <div className="provider-item-url">{provider.baseUrl}</div>
-        )}
+        {provider.baseUrl && <div className="provider-item-url">{provider.baseUrl}</div>}
         {provider.models.length > 0 && (
           <div className="provider-item-models">
             {provider.models.map((m) => (
@@ -102,13 +112,20 @@ const ProviderItem = memo(function ProviderItem({
           <button
             type="button"
             className="provider-action-btn"
-            onClick={() => openUrl(provider.docUrl!)}
+            onClick={() => provider.docUrl && openUrl(provider.docUrl)}
             title={t("providers.viewDocs")}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-              <polyline points="15 3 21 3 21 9"/>
-              <line x1="10" y1="14" x2="21" y2="3"/>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
             </svg>
           </button>
         )}
@@ -119,9 +136,16 @@ const ProviderItem = memo(function ProviderItem({
             onClick={() => onReset(provider.id)}
             title={t("providers.reset")}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="1 4 1 10 7 10"/>
-              <path d="M3.51 15a9 9 0 1 0 .49-3.27"/>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <polyline points="1 4 1 10 7 10" />
+              <path d="M3.51 15a9 9 0 1 0 .49-3.27" />
             </svg>
           </button>
         )}

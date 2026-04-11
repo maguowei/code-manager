@@ -1,10 +1,10 @@
-import { useState, useRef } from "react";
-import CodeMirror, { ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
 import { EditorView } from "@codemirror/view";
-import { Memory } from "../types";
-import { useI18n } from "../i18n";
+import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
+import { useRef, useState } from "react";
 import useEditorTheme from "../hooks/useEditorTheme";
+import { useI18n } from "../i18n";
+import type { Memory } from "../types";
 import { ChevronLeftIcon } from "./Icons";
 import "./MemoryEditor.css";
 
@@ -51,7 +51,11 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
     if (!view) return;
     const { from, to } = view.state.selection.main;
     const selected = view.state.sliceDoc(from, to);
-    view.dispatch(view.state.replaceSelection(selected ? `**${selected}**` : `**${t("memory.toolbar.boldPlaceholder")}**`));
+    view.dispatch(
+      view.state.replaceSelection(
+        selected ? `**${selected}**` : `**${t("memory.toolbar.boldPlaceholder")}**`,
+      ),
+    );
     view.focus();
   }
 
@@ -108,7 +112,9 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                     type="button"
                     className="memory-toolbar-btn"
                     title={t("memory.toolbar.heading")}
-                    onClick={() => insertAtLineStart(`## ${t("memory.toolbar.headingPlaceholder")}\n`)}
+                    onClick={() =>
+                      insertAtLineStart(`## ${t("memory.toolbar.headingPlaceholder")}\n`)
+                    }
                   >
                     H
                   </button>

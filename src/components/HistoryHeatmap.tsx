@@ -1,6 +1,6 @@
-import { useMemo, memo } from "react";
-import { HistoryEntry } from "../types";
+import { memo, useMemo } from "react";
 import { useI18n } from "../i18n";
+import type { HistoryEntry } from "../types";
 
 interface Props {
   entries: HistoryEntry[];
@@ -48,21 +48,23 @@ function HistoryHeatmap({ entries }: Props) {
   return (
     <div className="heatmap-container">
       <div className="heatmap-grid">
-        {days.map(day => {
+        {days.map((day) => {
           const count = countMap.get(day) || 0;
           const level = getLevel(count);
           return (
             <div
               key={day}
               className={`heatmap-cell heatmap-level-${level}`}
-              title={t("history.heatmapTooltip").replace("{day}", day).replace("{count}", String(count))}
+              title={t("history.heatmapTooltip")
+                .replace("{day}", day)
+                .replace("{count}", String(count))}
             />
           );
         })}
       </div>
       <div className="heatmap-legend">
         <span className="heatmap-legend-label">{t("history.heatmapLess")}</span>
-        {[0, 1, 2, 3, 4].map(level => (
+        {[0, 1, 2, 3, 4].map((level) => (
           <div key={level} className={`heatmap-cell heatmap-level-${level}`} />
         ))}
         <span className="heatmap-legend-label">{t("history.heatmapMore")}</span>

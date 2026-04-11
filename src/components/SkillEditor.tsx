@@ -1,15 +1,15 @@
-import { useState, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import CodeMirror from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
 import { EditorView } from "@codemirror/view";
-import { Skill, SkillFile } from "../types";
-import { useI18n } from "../i18n";
-import { useToast } from "../hooks/useToast";
+import { invoke } from "@tauri-apps/api/core";
+import CodeMirror from "@uiw/react-codemirror";
+import { useEffect, useState } from "react";
 import useEditorTheme from "../hooks/useEditorTheme";
+import { useToast } from "../hooks/useToast";
+import { useI18n } from "../i18n";
+import type { Skill, SkillFile } from "../types";
 import CollapsibleSection from "./CollapsibleSection";
-import { ChevronLeftIcon } from "./Icons";
 import ConfirmDialog from "./ConfirmDialog";
+import { ChevronLeftIcon } from "./Icons";
 import "./SkillEditor.css";
 
 interface SkillEditorProps {
@@ -29,11 +29,9 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
   const [description, setDescription] = useState(skill?.description ?? "");
   const [content, setContent] = useState(skill?.content ?? "");
   const [disableModelInvocation, setDisableModelInvocation] = useState(
-    skill?.disableModelInvocation ?? false
+    skill?.disableModelInvocation ?? false,
   );
-  const [userInvocable, setUserInvocable] = useState(
-    skill?.userInvocable ?? true
-  );
+  const [userInvocable, setUserInvocable] = useState(skill?.userInvocable ?? true);
 
   // 支持文件相关状态
   const [files, setFiles] = useState<SkillFile[]>([]);
@@ -53,11 +51,11 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
 
   // 编辑模式下进入页面时自动懒加载支持文件
   // CollapsibleSection 暂不支持 onExpand 回调，故在 isEditing && !filesLoaded 时通过 useEffect 触发
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 仅在 isEditing 变化时触发，filesLoaded/loadFiles 为稳定引用
   useEffect(() => {
     if (isEditing && !filesLoaded) {
       loadFiles();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditing]);
 
   // 懒加载支持文件（仅编辑模式下，点击文件区域时触发）
@@ -70,7 +68,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
       });
       setFiles(result);
       setFilesLoaded(true);
-    } catch (err) {
+    } catch (_err) {
       showToast(t("toast.skillLoadError"), "error");
     }
   }
@@ -128,7 +126,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
       setNewFileContent("");
       setShowAddFile(false);
       showToast(t("toast.skillFileAdded"));
-    } catch (err) {
+    } catch (_err) {
       showToast(t("toast.skillFileAddError"), "error");
     }
   }
@@ -146,7 +144,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
       setFiles((prev) => prev.map((f) => (f.name === fileName ? file : f)));
       setEditingFile(null);
       showToast(t("toast.skillFileSaved"));
-    } catch (err) {
+    } catch (_err) {
       showToast(t("toast.skillFileSaveError"), "error");
     }
   }
@@ -162,7 +160,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
       });
       setFiles((prev) => prev.filter((f) => f.name !== fileName));
       showToast(t("toast.skillFileDeleted"));
-    } catch (err) {
+    } catch (_err) {
       showToast(t("toast.skillFileDeleteError"), "error");
     }
   }
@@ -174,9 +172,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
   }
 
   // 保存按钮是否可用
-  const canSave = isEditing
-    ? !isSaving
-    : id.trim().length > 0 && !isSaving;
+  const canSave = isEditing ? !isSaving : id.trim().length > 0 && !isSaving;
 
   // 徽章显示的首字母，优先取 id
   const badgeLetter = (() => {
@@ -310,11 +306,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
 
             {/* 支持文件区（仅编辑模式可用） */}
             {isEditing && (
-              <CollapsibleSection
-                title={t("skills.files")}
-                badge={files.length}
-                defaultExpanded
-              >
+              <CollapsibleSection title={t("skills.files")} badge={files.length} defaultExpanded>
                 <div className="skill-files-section">
                   {/* 文件列表 */}
                   {files.map((file) => (
@@ -354,7 +346,9 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                           <span className="skill-file-name">
                             {file.name}
                             {file.isBinary && (
-                              <span className="skill-file-binary-tag">{t("skills.binaryFile")}</span>
+                              <span className="skill-file-binary-tag">
+                                {t("skills.binaryFile")}
+                              </span>
                             )}
                           </span>
                           <div className="skill-file-row-actions">
@@ -426,7 +420,14 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                       className="skill-add-file-btn"
                       onClick={() => setShowAddFile(true)}
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                      >
                         <line x1="12" y1="5" x2="12" y2="19" />
                         <line x1="5" y1="12" x2="19" y2="12" />
                       </svg>

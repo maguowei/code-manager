@@ -1,14 +1,14 @@
-import { useState, useCallback, useRef, DragEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Provider, ProviderModel } from "../types";
-import { useI18n } from "../i18n";
-import { useToast } from "../hooks/useToast";
-import ProviderItem from "./ProviderItem";
-import ProviderEditor from "./ProviderEditor";
-import Drawer from "./Drawer";
-import ConfirmDialog from "./ConfirmDialog";
-import { PlusIcon } from "./Icons";
+import { type DragEvent, useCallback, useRef, useState } from "react";
 import useEscapeKey from "../hooks/useEscapeKey";
+import { useToast } from "../hooks/useToast";
+import { useI18n } from "../i18n";
+import type { Provider, ProviderModel } from "../types";
+import ConfirmDialog from "./ConfirmDialog";
+import Drawer from "./Drawer";
+import { PlusIcon } from "./Icons";
+import ProviderEditor from "./ProviderEditor";
+import ProviderItem from "./ProviderItem";
 
 interface ProviderPageProps {
   providers: Provider[];
@@ -17,7 +17,12 @@ interface ProviderPageProps {
   onResetOrder: () => Promise<void>;
 }
 
-function ProviderPage({ providers, onProvidersChange, onReorder, onResetOrder }: ProviderPageProps) {
+function ProviderPage({
+  providers,
+  onProvidersChange,
+  onReorder,
+  onResetOrder,
+}: ProviderPageProps) {
   const { t } = useI18n();
   const { showToast } = useToast();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -66,31 +71,34 @@ function ProviderPage({ providers, onProvidersChange, onReorder, onResetOrder }:
     });
   }, []);
 
-  const handleDrop = useCallback((e: DragEvent<HTMLDivElement>, dropIndex: number) => {
-    e.preventDefault();
-    const fromIndex = dragIndexRef.current;
-    if (fromIndex === null || fromIndex === dropIndex) {
+  const handleDrop = useCallback(
+    (e: DragEvent<HTMLDivElement>, dropIndex: number) => {
+      e.preventDefault();
+      const fromIndex = dragIndexRef.current;
+      if (fromIndex === null || fromIndex === dropIndex) {
+        handleDragEnd();
+        return;
+      }
+      const rect = e.currentTarget.getBoundingClientRect();
+      const insertAfter = e.clientY >= rect.top + rect.height / 2;
+      const newProviders = [...providers];
+      const [dragged] = newProviders.splice(fromIndex, 1);
+      let targetIndex = dropIndex;
+      if (fromIndex < dropIndex) targetIndex -= 1;
+      if (insertAfter) targetIndex += 1;
+      newProviders.splice(targetIndex, 0, dragged);
+      onReorder(newProviders.map((p) => p.id));
       handleDragEnd();
-      return;
-    }
-    const rect = e.currentTarget.getBoundingClientRect();
-    const insertAfter = e.clientY >= rect.top + rect.height / 2;
-    const newProviders = [...providers];
-    const [dragged] = newProviders.splice(fromIndex, 1);
-    let targetIndex = dropIndex;
-    if (fromIndex < dropIndex) targetIndex -= 1;
-    if (insertAfter) targetIndex += 1;
-    newProviders.splice(targetIndex, 0, dragged);
-    onReorder(newProviders.map((p) => p.id));
-    handleDragEnd();
-  }, [providers, onReorder, handleDragEnd]);
+    },
+    [providers, onReorder, handleDragEnd],
+  );
 
   useEscapeKey(
     useCallback(() => {
       setEditingProvider(null);
       setIsDrawerOpen(false);
     }, []),
-    isDrawerOpen
+    isDrawerOpen,
   );
 
   function closeDrawer() {
@@ -132,7 +140,7 @@ function ProviderPage({ providers, onProvidersChange, onReorder, onResetOrder }:
       setIsDrawerOpen(false);
       setEditingProvider(null);
       showToast(t("toast.providerSaved"));
-    } catch (error) {
+    } catch (_error) {
       showToast(t("toast.providerSaveError"), "error");
     }
   }
@@ -167,15 +175,22 @@ function ProviderPage({ providers, onProvidersChange, onReorder, onResetOrder }:
         <div className="page-header">
           <h1 className="page-title">{t("providers.title")}</h1>
         </div>
-        <button className="add-config-btn" onClick={handleAdd}>
+        <button type="button" className="add-config-btn" onClick={handleAdd}>
           <PlusIcon />
           <span>{t("providers.addProvider")}</span>
         </button>
         {providers.length > 1 && (
-          <button className="add-config-btn secondary" onClick={handleResetOrder}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="1 4 1 10 7 10"/>
-              <path d="M3.51 15a9 9 0 1 0 .49-3.27"/>
+          <button type="button" className="add-config-btn secondary" onClick={handleResetOrder}>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <polyline points="1 4 1 10 7 10" />
+              <path d="M3.51 15a9 9 0 1 0 .49-3.27" />
             </svg>
             <span>{t("providers.resetOrder")}</span>
           </button>
@@ -186,7 +201,10 @@ function ProviderPage({ providers, onProvidersChange, onReorder, onResetOrder }:
             <p className="empty-hint">{t("providers.emptyHint")}</p>
           </div>
         ) : (
-          <div className={`provider-list${dragState.draggingIndex !== null ? " is-dragging" : ""}`} onDragOver={(e) => e.preventDefault()}>
+          <div
+            className={`provider-list${dragState.draggingIndex !== null ? " is-dragging" : ""}`}
+            onDragOver={(e) => e.preventDefault()}
+          >
             {providers.map((provider, index) => (
               <ProviderItem
                 key={provider.id}
@@ -212,11 +230,7 @@ function ProviderPage({ providers, onProvidersChange, onReorder, onResetOrder }:
       {/* 编辑/新建抽屉：条件渲染，Drawer 无 isOpen prop */}
       {isDrawerOpen && (
         <Drawer onClose={closeDrawer}>
-          <ProviderEditor
-            provider={editingProvider}
-            onSave={handleSave}
-            onClose={closeDrawer}
-          />
+          <ProviderEditor provider={editingProvider} onSave={handleSave} onClose={closeDrawer} />
         </Drawer>
       )}
 
@@ -228,7 +242,10 @@ function ProviderPage({ providers, onProvidersChange, onReorder, onResetOrder }:
           confirmText={t("confirm.delete")}
           cancelText={t("confirm.cancel")}
           danger
-          onConfirm={() => { handleDelete(pendingDeleteId); setPendingDeleteId(null); }}
+          onConfirm={() => {
+            handleDelete(pendingDeleteId);
+            setPendingDeleteId(null);
+          }}
           onCancel={() => setPendingDeleteId(null)}
         />
       )}

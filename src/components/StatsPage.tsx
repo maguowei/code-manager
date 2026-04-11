@@ -1,12 +1,21 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, AreaChart, Area,
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts";
-import { ClaudeStats, Snapshot, isTauri } from "../types";
-import { useI18n } from "../i18n";
 import { useToast } from "../hooks/useToast";
+import { useI18n } from "../i18n";
+import { type ClaudeStats, isTauri, type Snapshot } from "../types";
 import "./StatsPage.css";
 
 // recharts 不支持 CSS 变量，从 App.css 提取对应暗色 hex
@@ -20,12 +29,28 @@ const COLORS = {
   pink: "#f778ba",
   yellow: "#d29922",
 };
-const PIE_COLORS = [COLORS.blue, COLORS.green, COLORS.orange, COLORS.purple, COLORS.red, COLORS.teal, COLORS.pink, COLORS.yellow];
+const PIE_COLORS = [
+  COLORS.blue,
+  COLORS.green,
+  COLORS.orange,
+  COLORS.purple,
+  COLORS.red,
+  COLORS.teal,
+  COLORS.pink,
+  COLORS.yellow,
+];
 
 // recharts 图表共享样式常量
 const TICK_STYLE = { fill: "#7d8590", fontSize: 11 };
 const TICK_STYLE_SM = { fill: "#7d8590", fontSize: 10 };
-const TOOLTIP_STYLE = { backgroundColor: "rgba(22, 27, 34, 0.8)", border: "1px solid #30363d", borderRadius: 12, color: "#e6edf3", backdropFilter: "blur(12px)", boxShadow: "0 8px 16px rgba(0, 0, 0, 0.15)" };
+const TOOLTIP_STYLE = {
+  backgroundColor: "rgba(22, 27, 34, 0.8)",
+  border: "1px solid #30363d",
+  borderRadius: 12,
+  color: "#e6edf3",
+  backdropFilter: "blur(12px)",
+  boxShadow: "0 8px 16px rgba(0, 0, 0, 0.15)",
+};
 
 /** 项目路径截取最后两级 */
 function shortPath(fullPath: string): string {
@@ -67,7 +92,10 @@ function StatsPage() {
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
-    if (!isTauri()) { setLoading(false); return; }
+    if (!isTauri()) {
+      setLoading(false);
+      return;
+    }
     try {
       const [s, h] = await Promise.all([
         invoke<ClaudeStats>("get_stats"),
@@ -82,7 +110,9 @@ function StatsPage() {
     }
   }, [showToast, t]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   async function handleRefresh() {
     if (!isTauri()) return;
@@ -158,16 +188,21 @@ function StatsPage() {
 
   const performanceData = useMemo(() => {
     if (!stats) return [];
-    return Object.entries(stats.projects)
-      .filter(([, p]) => p.lastSessionMetrics);
+    return Object.entries(stats.projects).filter(([, p]) => p.lastSessionMetrics);
   }, [stats]);
 
   // ===== 渲染 =====
   if (loading) {
     return (
       <div className="stats-page">
-        <div className="page-header"><h1 className="page-title">{t("stats.title")}</h1></div>
-        <div className="stats-scroll"><div className="stats-empty"><p className="empty-text">{t("loading")}</p></div></div>
+        <div className="page-header">
+          <h1 className="page-title">{t("stats.title")}</h1>
+        </div>
+        <div className="stats-scroll">
+          <div className="stats-empty">
+            <p className="empty-text">{t("loading")}</p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -175,12 +210,23 @@ function StatsPage() {
   if (!stats || stats.numStartups === 0) {
     return (
       <div className="stats-page">
-        <div className="page-header"><h1 className="page-title">{t("stats.title")}</h1></div>
+        <div className="page-header">
+          <h1 className="page-title">{t("stats.title")}</h1>
+        </div>
         <div className="stats-scroll">
           <div className="stats-empty">
             <div className="empty-icon">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
+              <svg
+                width="48"
+                height="48"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              >
+                <line x1="18" y1="20" x2="18" y2="10" />
+                <line x1="12" y1="20" x2="12" y2="4" />
+                <line x1="6" y1="20" x2="6" y2="14" />
               </svg>
             </div>
             <p className="empty-text">{t("stats.noData")}</p>
@@ -197,9 +243,17 @@ function StatsPage() {
     <div className="stats-page">
       <div className="page-header">
         <h1 className="page-title">{t("stats.title")}</h1>
-        <button className="stats-refresh-btn" onClick={handleRefresh}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" />
+        <button type="button" className="stats-refresh-btn" onClick={handleRefresh}>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <polyline points="23 4 23 10 17 10" />
+            <polyline points="1 20 1 14 7 14" />
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
           </svg>
           {t("stats.refresh")}
@@ -219,7 +273,9 @@ function StatsPage() {
           </div>
           <div className="stat-card" style={{ animationDelay: "0.2s" }}>
             <span className="stat-card-label">{t("stats.firstUse")}</span>
-            <span className="stat-card-value accent-purple">{stats.firstStartTime ? formatDate(stats.firstStartTime) : "-"}</span>
+            <span className="stat-card-value accent-purple">
+              {stats.firstStartTime ? formatDate(stats.firstStartTime) : "-"}
+            </span>
           </div>
           <div className="stat-card" style={{ animationDelay: "0.25s" }}>
             <span className="stat-card-label">{t("stats.totalProjects")}</span>
@@ -234,28 +290,60 @@ function StatsPage() {
             <div className="stats-chart-block">
               <div className="stats-chart-label">{t("stats.costByProject")}</div>
               {projectCostData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={Math.max(200, projectCostData.length * 40)}>
-                  <BarChart data={projectCostData} layout="vertical" margin={{ left: 20, right: 20, top: 5, bottom: 5 }}>
+                <ResponsiveContainer
+                  width="100%"
+                  height={Math.max(200, projectCostData.length * 40)}
+                >
+                  <BarChart
+                    data={projectCostData}
+                    layout="vertical"
+                    margin={{ left: 20, right: 20, top: 5, bottom: 5 }}
+                  >
                     <XAxis type="number" tick={TICK_STYLE} tickFormatter={(v) => `$${v}`} />
                     <YAxis type="category" dataKey="name" width={120} tick={TICK_STYLE} />
-                    <Tooltip formatter={(v: number | undefined) => formatUSD(v ?? 0)} contentStyle={TOOLTIP_STYLE} />
+                    <Tooltip
+                      formatter={(v: number | undefined) => formatUSD(v ?? 0)}
+                      contentStyle={TOOLTIP_STYLE}
+                    />
                     <Bar dataKey="cost" fill={COLORS.blue} radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
-              ) : <p className="stats-no-data">-</p>}
+              ) : (
+                <p className="stats-no-data">-</p>
+              )}
             </div>
             <div className="stats-chart-block">
               <div className="stats-chart-label">{t("stats.costByModel")}</div>
               {modelCostData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={250}>
                   <PieChart>
-                    <Pie data={modelCostData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2} label={({ name, value }) => `${(name ?? "").split("-").slice(0, 2).join("-")} $${value}`} labelLine={false}>
-                      {modelCostData.map((entry, i) => <Cell key={entry.name} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                    <Pie
+                      data={modelCostData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={90}
+                      paddingAngle={2}
+                      label={({ name, value }) =>
+                        `${(name ?? "").split("-").slice(0, 2).join("-")} $${value}`
+                      }
+                      labelLine={false}
+                    >
+                      {modelCostData.map((entry, i) => (
+                        <Cell key={entry.name} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                      ))}
                     </Pie>
-                    <Tooltip formatter={(v: number | undefined) => formatUSD(v ?? 0)} contentStyle={TOOLTIP_STYLE} />
+                    <Tooltip
+                      formatter={(v: number | undefined) => formatUSD(v ?? 0)}
+                      contentStyle={TOOLTIP_STYLE}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
-              ) : <p className="stats-no-data">-</p>}
+              ) : (
+                <p className="stats-no-data">-</p>
+              )}
             </div>
           </div>
 
@@ -267,8 +355,18 @@ function StatsPage() {
                 <AreaChart data={costTrendData} margin={{ left: 10, right: 10, top: 5, bottom: 5 }}>
                   <XAxis dataKey="date" tick={TICK_STYLE_SM} />
                   <YAxis tick={TICK_STYLE} tickFormatter={(v) => `$${v}`} />
-                  <Tooltip formatter={(v: number | undefined) => formatUSD(v ?? 0)} contentStyle={TOOLTIP_STYLE} />
-                  <Area type="monotone" dataKey="cost" stroke={COLORS.green} fill={COLORS.green} fillOpacity={0.15} strokeWidth={2} />
+                  <Tooltip
+                    formatter={(v: number | undefined) => formatUSD(v ?? 0)}
+                    contentStyle={TOOLTIP_STYLE}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="cost"
+                    stroke={COLORS.green}
+                    fill={COLORS.green}
+                    fillOpacity={0.15}
+                    strokeWidth={2}
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -283,14 +381,20 @@ function StatsPage() {
               <div className="stats-chart-label">{t("stats.toolUsage")}</div>
               {toolUsageData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={Math.max(200, toolUsageData.length * 36)}>
-                  <BarChart data={toolUsageData} layout="vertical" margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
+                  <BarChart
+                    data={toolUsageData}
+                    layout="vertical"
+                    margin={{ left: 10, right: 20, top: 5, bottom: 5 }}
+                  >
                     <XAxis type="number" tick={TICK_STYLE} />
                     <YAxis type="category" dataKey="name" width={90} tick={TICK_STYLE} />
                     <Tooltip contentStyle={TOOLTIP_STYLE} />
                     <Bar dataKey="count" fill={COLORS.orange} radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
-              ) : <p className="stats-no-data">-</p>}
+              ) : (
+                <p className="stats-no-data">-</p>
+              )}
             </div>
             <div className="stats-chart-block">
               <div className="stats-chart-label">{t("stats.skillUsage")}</div>
@@ -299,11 +403,15 @@ function StatsPage() {
                   {skillUsageData.map((item) => (
                     <div key={item.name} className="stats-list-item">
                       <span className="stats-list-item-name">{item.name}</span>
-                      <span className="stats-list-item-value">{item.count} {t("stats.calls")}</span>
+                      <span className="stats-list-item-value">
+                        {item.count} {t("stats.calls")}
+                      </span>
                     </div>
                   ))}
                 </div>
-              ) : <p className="stats-no-data">-</p>}
+              ) : (
+                <p className="stats-no-data">-</p>
+              )}
             </div>
           </div>
         </div>
@@ -327,29 +435,38 @@ function StatsPage() {
           <div className="stats-chart-label">{t("stats.performance")}</div>
           <div className="stats-metrics-grid">
             {performanceData.map(([path, p]) => {
-              const m = p.lastSessionMetrics!;
+              if (!p.lastSessionMetrics) return null;
+              const m = p.lastSessionMetrics;
               return (
                 <div key={path} className="stats-metric-item">
                   <div className="stats-metric-label">{shortPath(path)}</div>
                   <div className="stats-metric-inner-grid">
                     <div>
                       <div className="stats-metric-label">{t("stats.frameAvg")}</div>
-                      <div className="stats-metric-value">{m.frame_duration_ms_avg.toFixed(1)}ms</div>
+                      <div className="stats-metric-value">
+                        {m.frame_duration_ms_avg.toFixed(1)}ms
+                      </div>
                     </div>
                     <div>
                       <div className="stats-metric-label">{t("stats.frameP95")}</div>
-                      <div className="stats-metric-value">{m.frame_duration_ms_p95.toFixed(1)}ms</div>
+                      <div className="stats-metric-value">
+                        {m.frame_duration_ms_p95.toFixed(1)}ms
+                      </div>
                     </div>
                     {m.hook_duration_ms_avg != null && (
                       <div>
                         <div className="stats-metric-label">{t("stats.hookAvg")}</div>
-                        <div className="stats-metric-value">{m.hook_duration_ms_avg.toFixed(1)}ms</div>
+                        <div className="stats-metric-value">
+                          {m.hook_duration_ms_avg.toFixed(1)}ms
+                        </div>
                       </div>
                     )}
                     {m.hook_duration_ms_p95 != null && (
                       <div>
                         <div className="stats-metric-label">{t("stats.hookP95")}</div>
-                        <div className="stats-metric-value">{m.hook_duration_ms_p95.toFixed(1)}ms</div>
+                        <div className="stats-metric-value">
+                          {m.hook_duration_ms_p95.toFixed(1)}ms
+                        </div>
                       </div>
                     )}
                   </div>

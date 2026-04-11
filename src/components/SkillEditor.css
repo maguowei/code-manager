@@ -5,6 +5,7 @@
   opacity: 0.6;
   cursor: default;
   font-family: "SF Mono", Monaco, monospace;
+  /* biome-ignore lint/complexity/noImportantStyles: 覆盖全局输入框字号 */
   font-size: var(--font-sm) !important;
 }
 
@@ -18,6 +19,7 @@
 
 /* 复选框区域，减小间距 */
 .skill-checkboxes {
+  /* biome-ignore lint/complexity/noImportantStyles: 覆盖 form-group 的默认 gap */
   gap: var(--space-1) !important;
 }
 
@@ -44,6 +46,7 @@
 
 .skill-editor-wrap .cm-scroller {
   font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+  /* biome-ignore lint/complexity/noImportantStyles: 覆盖 CodeMirror 内置 overflow 样式 */
   overflow: auto !important;
 }
 

@@ -7,14 +7,14 @@
    统一管理所有层叠上下文，避免硬编码数值分散在各文件
    ----------------------------------------- */
 :root {
-  --z-index-sticky: 10;          /* 页面内吸顶元素（如 page-header） */
-  --z-index-list: 50;            /* 响应式布局下浮动列表层 */
-  --z-index-drawer-overlay: 99;  /* 主抽屉遮罩（低于面板一级） */
-  --z-index-drawer: 100;         /* 主抽屉面板 */
-  --z-index-settings: 120;       /* 设置抽屉（覆盖主抽屉） */
-  --z-index-modal: 200;          /* 模态对话框 */
-  --z-index-dropdown: 1000;      /* 下拉菜单 */
-  --z-index-toast: 9999;         /* Toast 通知（最顶层） */
+  --z-index-sticky: 10; /* 页面内吸顶元素（如 page-header） */
+  --z-index-list: 50; /* 响应式布局下浮动列表层 */
+  --z-index-drawer-overlay: 99; /* 主抽屉遮罩（低于面板一级） */
+  --z-index-drawer: 100; /* 主抽屉面板 */
+  --z-index-settings: 120; /* 设置抽屉（覆盖主抽屉） */
+  --z-index-modal: 200; /* 模态对话框 */
+  --z-index-dropdown: 1000; /* 下拉菜单 */
+  --z-index-toast: 9999; /* Toast 通知（最顶层） */
 }
 
 /* -----------------------------------------

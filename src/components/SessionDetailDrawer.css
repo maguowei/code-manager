@@ -78,6 +78,7 @@
 }
 
 /* 消息头部（头像 + 角色 + 时间） */
+/* biome-ignore lint/style/noDescendingSpecificity: 保留现有选择器结构 */
 .session-msg-header {
   display: flex;
   align-items: center;
@@ -117,6 +118,7 @@
 }
 
 /* 时间戳 */
+/* biome-ignore lint/style/noDescendingSpecificity: 保留现有选择器结构 */
 .session-msg-time {
   font-size: 10px;
   color: var(--text-muted);
@@ -321,7 +323,6 @@
   opacity: 0.6;
 }
 
-
 .msg-tool-card-arrow {
   margin-left: auto;
   font-size: 10px;
@@ -386,6 +387,7 @@
 
 /* 字段 value 容器（继承 msg-tool-card-result 和 msg-tool-card-code 的样式） */
 .msg-tool-card-field-value {
+  /* 占位块，具体样式由其他类提供 */
 }
 
 /* tool_result Markdown 渲染区（在工具调用卡片内） */
@@ -443,10 +445,12 @@
 }
 
 .msg-markdown > :first-child {
+  /* biome-ignore lint/complexity/noImportantStyles: 覆盖 Markdown 默认 margin */
   margin-top: 0 !important;
 }
 
 .msg-markdown > :last-child {
+  /* biome-ignore lint/complexity/noImportantStyles: 覆盖 Markdown 默认 margin */
   margin-bottom: 0 !important;
 }
 
@@ -462,10 +466,18 @@
   font-weight: 600;
 }
 
-.msg-markdown h1 { font-size: 2em; }
-.msg-markdown h2 { font-size: 1.5em; }
-.msg-markdown h3 { font-size: 1.25em; }
-.msg-markdown h4 { font-size: 1em; }
+.msg-markdown h1 {
+  font-size: 2em;
+}
+.msg-markdown h2 {
+  font-size: 1.5em;
+}
+.msg-markdown h3 {
+  font-size: 1.25em;
+}
+.msg-markdown h4 {
+  font-size: 1em;
+}
 
 .msg-markdown h1,
 .msg-markdown h2 {

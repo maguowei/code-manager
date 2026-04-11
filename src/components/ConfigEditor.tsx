@@ -1,19 +1,19 @@
-import { useState, useEffect, useRef } from "react";
-import { useForm, Controller, FieldError, Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { invoke } from "@tauri-apps/api/core";
-import { ClaudeConfig, Provider } from "../types";
+import { useEffect, useRef, useState } from "react";
+import { Controller, type FieldError, type Resolver, useForm } from "react-hook-form";
 import { useI18n } from "../i18n";
-import { ClaudeConfigSchema, ClaudeConfigFormData } from "../schemas/config-schema";
+import { type ClaudeConfigFormData, ClaudeConfigSchema } from "../schemas/config-schema";
 import { FIELD_GROUPS } from "../schemas/field-groups";
+import type { ClaudeConfig, Provider } from "../types";
 import { buildConfigEditorDefaultValues } from "./config-editor-defaults";
 import SchemaFormField from "./SchemaFormField";
 import "./ConfigEditor.css";
-import PluginManager from "./PluginManager";
-import DefaultsSection from "./DefaultsSection";
-import ConfigPreview from "./ConfigPreview";
 import CollapsibleSection from "./CollapsibleSection";
+import ConfigPreview from "./ConfigPreview";
+import DefaultsSection from "./DefaultsSection";
 import { ChevronLeftIcon } from "./Icons";
+import PluginManager from "./PluginManager";
 
 interface ConfigEditorProps {
   config: ClaudeConfig | null;
@@ -21,18 +21,12 @@ interface ConfigEditorProps {
   providers?: Provider[];
   onSave: (
     config: Omit<ClaudeConfig, "id" | "createdAt" | "updatedAt" | "isActive">,
-    defaults?: string
+    defaults?: string,
   ) => void;
   onClose: () => void;
 }
 
-function ConfigEditor({
-  config,
-  defaults,
-  providers,
-  onSave,
-  onClose,
-}: ConfigEditorProps) {
+function ConfigEditor({ config, defaults, providers, onSave, onClose }: ConfigEditorProps) {
   const { t, language } = useI18n();
   const defaultPreferredLang = language === "zh" ? "chinese" : "english";
 
@@ -52,7 +46,7 @@ function ConfigEditor({
   // 非 schema 管理的状态
   const [defaultsContent, setDefaultsContent] = useState(defaults ?? "");
   const [extraFields, setExtraFields] = useState<Record<string, unknown>>(
-    config?.extraFields ?? {}
+    config?.extraFields ?? {},
   );
   const [previewJson, setPreviewJson] = useState("{}");
   const [jsonError, setJsonError] = useState("");
@@ -62,8 +56,7 @@ function ConfigEditor({
   // 派生：当前选中的 Provider
   const providerId = watch("providerId");
   const currentBaseUrl = watch("baseUrl");
-  const selectedProvider =
-    (providers ?? []).find((p) => p.id === providerId) ?? null;
+  const selectedProvider = (providers ?? []).find((p) => p.id === providerId) ?? null;
 
   useEffect(() => {
     return () => {
@@ -71,8 +64,15 @@ function ConfigEditor({
     };
   }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 故意使用 config?.baseUrl 而非 config 避免不必要的重复执行
   useEffect(() => {
-    if (!config || config.baseUrl || !selectedProvider?.baseUrl || currentBaseUrl || dirtyFields.baseUrl) {
+    if (
+      !config ||
+      config.baseUrl ||
+      !selectedProvider?.baseUrl ||
+      currentBaseUrl ||
+      dirtyFields.baseUrl
+    ) {
       return;
     }
     setValue("baseUrl", selectedProvider.baseUrl, { shouldDirty: false });
@@ -137,17 +137,14 @@ function ConfigEditor({
         preferredLanguage: formValues.preferredLanguage || null,
         useDefaults: formValues.useDefaults ?? null,
         enabledPlugins:
-          formValues.enabledPlugins &&
-          Object.keys(formValues.enabledPlugins).length > 0
+          formValues.enabledPlugins && Object.keys(formValues.enabledPlugins).length > 0
             ? formValues.enabledPlugins
             : null,
         extraFields: Object.keys(extraFields).length > 0 ? extraFields : null,
         providerId: formValues.providerId || null,
       };
       const previewDefaults =
-        formValues.useDefaults && defaultsContent.trim()
-          ? defaultsContent.trim()
-          : null;
+        formValues.useDefaults && defaultsContent.trim() ? defaultsContent.trim() : null;
       invoke<string>("preview_config", { data, defaults: previewDefaults })
         .then((result) => {
           if (!cancelled) {
@@ -182,22 +179,32 @@ function ConfigEditor({
     if (env.ANTHROPIC_AUTH_TOKEN !== undefined) setValue("apiKey", env.ANTHROPIC_AUTH_TOKEN);
     if (env.ANTHROPIC_BASE_URL !== undefined) setValue("baseUrl", env.ANTHROPIC_BASE_URL);
     if (env.ANTHROPIC_MODEL !== undefined) setValue("model", env.ANTHROPIC_MODEL);
-    if (env.ANTHROPIC_DEFAULT_HAIKU_MODEL !== undefined) setValue("haikuModel", env.ANTHROPIC_DEFAULT_HAIKU_MODEL);
-    if (env.ANTHROPIC_DEFAULT_SONNET_MODEL !== undefined) setValue("sonnetModel", env.ANTHROPIC_DEFAULT_SONNET_MODEL);
-    if (env.ANTHROPIC_DEFAULT_OPUS_MODEL !== undefined) setValue("opusModel", env.ANTHROPIC_DEFAULT_OPUS_MODEL);
+    if (env.ANTHROPIC_DEFAULT_HAIKU_MODEL !== undefined)
+      setValue("haikuModel", env.ANTHROPIC_DEFAULT_HAIKU_MODEL);
+    if (env.ANTHROPIC_DEFAULT_SONNET_MODEL !== undefined)
+      setValue("sonnetModel", env.ANTHROPIC_DEFAULT_SONNET_MODEL);
+    if (env.ANTHROPIC_DEFAULT_OPUS_MODEL !== undefined)
+      setValue("opusModel", env.ANTHROPIC_DEFAULT_OPUS_MODEL);
     setValue("disableNonessentialTraffic", env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC === "1");
     setValue("enableLspTool", env.ENABLE_LSP_TOOL === "1");
     setValue("agentTeamsEnabled", env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS === "1");
 
     const knownEnvKeys = [
-      "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL",
-      "ANTHROPIC_DEFAULT_HAIKU_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL",
-      "ANTHROPIC_DEFAULT_OPUS_MODEL", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
-      "ENABLE_LSP_TOOL", "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+      "ANTHROPIC_AUTH_TOKEN",
+      "ANTHROPIC_BASE_URL",
+      "ANTHROPIC_MODEL",
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL",
+      "ANTHROPIC_DEFAULT_OPUS_MODEL",
+      "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
+      "ENABLE_LSP_TOOL",
+      "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
     ];
     if (remaining.env && typeof remaining.env === "object") {
       const remEnv = remaining.env as Record<string, unknown>;
-      knownEnvKeys.forEach((k) => delete remEnv[k]);
+      knownEnvKeys.forEach((k) => {
+        delete remEnv[k];
+      });
       if (Object.keys(remEnv).length === 0) delete remaining.env;
     }
 
@@ -245,10 +252,10 @@ function ConfigEditor({
         return p.models[0]?.id ?? "";
       };
       setValue("baseUrl", p.baseUrl);
-      setValue("model",       find("sonnet", "opus"));
-      setValue("haikuModel",  find("haiku", "sonnet", "opus"));
+      setValue("model", find("sonnet", "opus"));
+      setValue("haikuModel", find("haiku", "sonnet", "opus"));
       setValue("sonnetModel", find("sonnet", "opus"));
-      setValue("opusModel",   find("opus"));
+      setValue("opusModel", find("opus"));
     } else {
       setValue("baseUrl", "");
       setValue("model", "");
@@ -294,12 +301,11 @@ function ConfigEditor({
           data.enabledPlugins && Object.keys(data.enabledPlugins).length > 0
             ? data.enabledPlugins
             : undefined,
-        extraFields:
-          Object.keys(extraFields).length > 0 ? extraFields : undefined,
+        extraFields: Object.keys(extraFields).length > 0 ? extraFields : undefined,
         providerId: data.providerId || undefined,
         preferredLanguage: data.preferredLanguage,
       },
-      defaultsContent
+      defaultsContent,
     );
   };
 
@@ -369,7 +375,9 @@ function ConfigEditor({
                 {...register("websiteUrl")}
               />
               {errors.websiteUrl?.message && (
-                <span className="field-error">{t(errors.websiteUrl.message as import("../i18n").TranslationKey)}</span>
+                <span className="field-error">
+                  {t(errors.websiteUrl.message as import("../i18n").TranslationKey)}
+                </span>
               )}
             </div>
 
@@ -398,7 +406,14 @@ function ConfigEditor({
                       className="provider-doc-link"
                       title={t("providers.viewDocs")}
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
                         <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
                         <polyline points="15 3 21 3 21 9" />
                         <line x1="10" y1="14" x2="21" y2="3" />
@@ -423,7 +438,14 @@ function ConfigEditor({
               <div className="field-label-wrap">
                 <label htmlFor="baseUrl">{t("configModal.baseUrl")}</label>
                 <p className="form-hint warning form-hint-inline">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="8" x2="12" y2="12" />
                     <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -439,7 +461,9 @@ function ConfigEditor({
                 {...register("baseUrl")}
               />
               {errors.baseUrl?.message && (
-                <span className="field-error">{t(errors.baseUrl.message as import("../i18n").TranslationKey)}</span>
+                <span className="field-error">
+                  {t(errors.baseUrl.message as import("../i18n").TranslationKey)}
+                </span>
               )}
             </div>
 
@@ -457,7 +481,9 @@ function ConfigEditor({
                 {selectedProvider && (
                   <datalist id="model-list-main">
                     {selectedProvider.models.map((m) => (
-                      <option key={m.id} value={m.id}>{m.name}</option>
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
                     ))}
                   </datalist>
                 )}
@@ -477,7 +503,11 @@ function ConfigEditor({
                   <datalist id="model-list-haiku">
                     {selectedProvider.models
                       .filter((m) => m.category === "haiku" || m.category === "other")
-                      .map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                      .map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name}
+                        </option>
+                      ))}
                   </datalist>
                 )}
               </div>
@@ -494,7 +524,11 @@ function ConfigEditor({
                   <datalist id="model-list-sonnet">
                     {selectedProvider.models
                       .filter((m) => m.category === "sonnet" || m.category === "other")
-                      .map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                      .map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name}
+                        </option>
+                      ))}
                   </datalist>
                 )}
               </div>
@@ -513,7 +547,11 @@ function ConfigEditor({
                   <datalist id="model-list-opus">
                     {selectedProvider.models
                       .filter((m) => m.category === "opus" || m.category === "other")
-                      .map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                      .map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name}
+                        </option>
+                      ))}
                   </datalist>
                 )}
               </div>
@@ -567,10 +605,7 @@ function ConfigEditor({
                 name="enabledPlugins"
                 control={control}
                 render={({ field }) => (
-                  <PluginManager
-                    plugins={field.value ?? {}}
-                    onChange={field.onChange}
-                  />
+                  <PluginManager plugins={field.value ?? {}} onChange={field.onChange} />
                 )}
               />
             </CollapsibleSection>
