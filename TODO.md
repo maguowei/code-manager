@@ -2,7 +2,7 @@
 
 - [x] 支持 Skills 管理（创建、编辑、启用/禁用 Claude Code Skills）
 - [x] 优化配置编辑器体验
-- [ ] 所有配置项实现 JSON Schema 定义（前后端一致性校验）
+- [x] 所有配置项实现 JSON Schema 定义（前后端一致性校验）
 - [ ] 支持通用配置模板功能
 - [ ] 支持配置同步
 - [ ] 支持 Gemini
