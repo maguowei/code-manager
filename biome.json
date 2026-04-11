@@ -26,7 +26,8 @@
       },
       "suspicious": {
         "noDebugger": "error",
-        "noConsole": "warn"
+        "noConsole": "warn",
+        "noVar": "error"
       },
       "style": {
         "useConst": "error"
