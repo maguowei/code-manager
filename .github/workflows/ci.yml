@@ -56,6 +56,9 @@ jobs:
       - name: 安装前端依赖
         run: pnpm install
 
+      - name: 前端代码检查 (Biome)
+        run: pnpm biome:ci
+
       - name: 前端类型检查与构建
         run: pnpm build
 
