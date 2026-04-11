@@ -12,7 +12,7 @@
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check --write .",
-    "ci": "biome ci .",
+    "biome:ci": "biome ci .",
     "prepare": "lefthook install"
   },
   "dependencies": {
