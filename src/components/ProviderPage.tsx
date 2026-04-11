@@ -93,6 +93,11 @@ function ProviderPage({ providers, onProvidersChange, onReorder, onResetOrder }:
     isDrawerOpen
   );
 
+  function closeDrawer() {
+    setIsDrawerOpen(false);
+    setEditingProvider(null);
+  }
+
   function handleEdit(provider: Provider) {
     setEditingProvider(provider);
     setIsDrawerOpen(true);
@@ -206,11 +211,11 @@ function ProviderPage({ providers, onProvidersChange, onReorder, onResetOrder }:
 
       {/* 编辑/新建抽屉：条件渲染，Drawer 无 isOpen prop */}
       {isDrawerOpen && (
-        <Drawer onClose={() => { setIsDrawerOpen(false); setEditingProvider(null); }}>
+        <Drawer onClose={closeDrawer}>
           <ProviderEditor
             provider={editingProvider}
             onSave={handleSave}
-            onClose={() => { setIsDrawerOpen(false); setEditingProvider(null); }}
+            onClose={closeDrawer}
           />
         </Drawer>
       )}

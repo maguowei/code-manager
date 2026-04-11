@@ -1,3 +1,4 @@
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -107,8 +108,8 @@ struct BuiltinProviderDef {
     models: Vec<ProviderModel>,
 }
 
-/// 从嵌入的 JSON 文件生成内置 Provider 列表
-fn builtin_providers() -> Vec<Provider> {
+/// 内置 Provider 列表（静态缓存，只解析一次）
+static BUILTIN_PROVIDERS: Lazy<Vec<Provider>> = Lazy::new(|| {
     let defs: Vec<BuiltinProviderDef> =
         serde_json::from_str(include_str!("../resources/builtin-providers.json"))
             .expect("内置 Provider JSON 格式错误");
@@ -127,17 +128,27 @@ fn builtin_providers() -> Vec<Provider> {
             updated_at: now,
         })
         .collect()
+});
+
+/// 获取内置 Provider 列表的克隆
+fn builtin_providers() -> Vec<Provider> {
+    BUILTIN_PROVIDERS.clone()
 }
 
-/// 根据 ID 读取单个 Provider（不加锁，供其他模块调用）
+/// 根据 ID 读取单个 Provider（先搜索自定义，再搜索内置，不加锁，供其他模块调用）
 pub fn get_provider_by_id(id: &str) -> Option<Provider> {
     let state = load_state();
-    state.providers.into_iter().find(|p| p.id == id)
+    state
+        .providers
+        .into_iter()
+        .find(|p| p.id == id)
+        .or_else(|| BUILTIN_PROVIDERS.iter().find(|p| p.id == id).cloned())
 }
 
 /// 获取所有 Provider；首次调用时自动初始化内置 Provider
 #[tauri::command]
 pub fn get_providers() -> Result<Vec<Provider>, String> {
+    let _lock = crate::utils::lock_provider()?;
     let path = get_provider_path();
     if !path.exists() {
         let state = ProviderState {

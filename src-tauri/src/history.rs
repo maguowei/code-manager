@@ -56,7 +56,8 @@ pub fn get_history_if_changed(last_mtime: u64) -> Result<Option<HistoryResult>, 
     if mtime == last_mtime {
         return Ok(None);
     }
-    // 先读文件内容，再取 mtime，避免两次 mtime 调用之间文件被修改导致不一致
+    // 返回上面已取得的 mtime（而非重新读取），确保 mtime 不晚于内容读取时刻：
+    // 若读取期间有新写入，mtime 偏旧，下次轮询会再次检测到变化并重读（安全侧）
     let content = fs::read_to_string(&path).map_err(|e| format!("读取历史文件失败: {}", e))?;
     Ok(Some(HistoryResult { content, mtime }))
 }

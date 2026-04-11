@@ -1,8 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Condvar, Mutex};
 
 /// ~/.claude.json 中的模型使用统计
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
@@ -193,44 +192,49 @@ pub fn take_stats_snapshot() -> Result<(), String> {
 /// 快照线程停止句柄
 #[allow(dead_code)]
 pub struct SnapshotHandle {
-    stop_flag: Arc<AtomicBool>,
+    stop_pair: Arc<(Mutex<bool>, Condvar)>,
 }
 
 #[allow(dead_code)]
 impl SnapshotHandle {
-    /// 通知快照线程停止（线程会在下次醒来时退出）
+    /// 通知快照线程立即停止
     pub fn stop(&self) {
-        self.stop_flag.store(true, Ordering::Relaxed);
+        let (lock, cvar) = &*self.stop_pair;
+        let mut stopped = lock.lock().unwrap();
+        *stopped = true;
+        cvar.notify_one();
     }
 }
 
 /// 启动定时快照线程（每 1 小时执行一次），返回停止句柄
-/// 使用 std::thread 而非 tokio::spawn，避免在异步运行时中持有 std::sync::Mutex
+/// 使用 Condvar 等待超时，避免频繁唤醒；stop() 时通过 notify 立即退出
 pub fn start_snapshot_timer() -> SnapshotHandle {
-    let stop_flag = Arc::new(AtomicBool::new(false));
-    let flag = stop_flag.clone();
+    let stop_pair = Arc::new((Mutex::new(false), Condvar::new()));
+    let pair = stop_pair.clone();
 
     std::thread::spawn(move || {
         // 启动时立即执行一次快照
         if let Ok(_lock) = crate::utils::lock_stats() {
             let _ = take_snapshot_inner();
         }
-        // 每 10 秒检查一次停止信号，满 3600 秒执行快照
-        let mut elapsed = 0u64;
+
+        let (lock, cvar) = &*pair;
+        let mut stopped = lock.lock().unwrap();
         loop {
-            std::thread::sleep(std::time::Duration::from_secs(10));
-            if flag.load(Ordering::Relaxed) {
+            // 等待 1 小时或被 stop() 唤醒
+            let result = cvar
+                .wait_timeout(stopped, std::time::Duration::from_secs(3600))
+                .unwrap();
+            stopped = result.0;
+            if *stopped {
                 break;
             }
-            elapsed += 10;
-            if elapsed >= 3600 {
-                elapsed = 0;
-                if let Ok(_lock) = crate::utils::lock_stats() {
-                    let _ = take_snapshot_inner();
-                }
+            // 超时到达，执行快照
+            if let Ok(_lock) = crate::utils::lock_stats() {
+                let _ = take_snapshot_inner();
             }
         }
     });
 
-    SnapshotHandle { stop_flag }
+    SnapshotHandle { stop_pair }
 }

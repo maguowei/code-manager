@@ -60,6 +60,7 @@ pub fn ensure_dir_and_write(path: &Path, content: &str) -> Result<(), String> {
     let is_new = !path.exists();
     fs::write(path, content).map_err(|e| format!("写入文件失败 {:?}: {}", path, e))?;
 
+    // 仅新建文件时收紧权限；覆盖已有文件保留原有 mode（避免破坏 skill 脚本的可执行权限）
     #[cfg(unix)]
     if is_new {
         use std::os::unix::fs::PermissionsExt;

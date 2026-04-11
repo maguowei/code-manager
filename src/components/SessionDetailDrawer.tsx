@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, memo, type ReactNode } from "react";
+import { useState, useEffect, useMemo, memo, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -399,11 +399,6 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
   const [detail, setDetail] = useState<SessionDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // 用 ref 持有 showToast/t 的最新引用，避免它们变化时触发无意义的 RPC 重发
-  const showToastRef = useRef(showToast);
-  const tRef = useRef(t);
-  useEffect(() => { showToastRef.current = showToast; tRef.current = t; });
-
   useEscapeKey(onClose);
 
   useEffect(() => {
@@ -411,9 +406,9 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
     setLoading(true);
     invoke<SessionDetail>("get_session_detail", { project, sessionId })
       .then(setDetail)
-      .catch(() => showToastRef.current(tRef.current("history.noData"), "error"))
+      .catch(() => showToast(t("history.noData"), "error"))
       .finally(() => setLoading(false));
-  }, [project, sessionId]);
+  }, [project, sessionId, showToast, t]);
 
   const messages = detail?.messages;
 
