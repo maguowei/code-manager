@@ -1,14 +1,16 @@
 use once_cell::sync::Lazy;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;
 
 /// Provider 下的单个模型
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderModel {
     pub id: String,
     pub name: String,
+    #[schemars(regex(pattern = "^(opus|sonnet|haiku|other)$"))]
     pub category: String,
 }
 
@@ -29,10 +31,13 @@ pub struct Provider {
 }
 
 /// 新增/更新 Provider 的数据传输对象
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
 pub struct ProviderData {
+    #[schemars(length(min = 1))]
     pub name: String,
+    #[schemars(regex(pattern = "^[a-z0-9-]*$"))]
     pub slug: String,
     pub base_url: String,
     pub doc_url: Option<String>,
@@ -360,7 +365,13 @@ pub fn reset_provider_order() -> Result<Vec<Provider>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use schemars::schema_for;
     use serde_json::json;
+
+    fn load_provider_json_schema() -> serde_json::Value {
+        let json_schema_str = include_str!("../../src/schemas/provider.schema.json");
+        serde_json::from_str(json_schema_str).expect("Provider JSON Schema 格式不合法")
+    }
 
     fn test_provider(
         id: &str,
@@ -418,6 +429,82 @@ mod tests {
         }));
 
         assert!(result.is_err(), "旧的 apiUrl 字段不应继续被 Provider 接受");
+    }
+
+    #[test]
+    fn provider_data_has_all_json_schema_fields() {
+        let rust_schema = schema_for!(ProviderData);
+        let rust_props = rust_schema
+            .schema
+            .object
+            .as_ref()
+            .expect("ProviderData 应为 object 类型")
+            .properties
+            .clone();
+        let json_schema = load_provider_json_schema();
+
+        if let Some(props) = json_schema["properties"].as_object() {
+            for field_name in props.keys() {
+                assert!(
+                    rust_props.contains_key(field_name.as_str()),
+                    "Provider JSON Schema 字段 '{}' 在 Rust ProviderData 中未找到",
+                    field_name
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn provider_json_schema_required_fields_match_rust_schema() {
+        let rust_schema = schema_for!(ProviderData);
+        let rust_required = rust_schema
+            .schema
+            .object
+            .as_ref()
+            .expect("ProviderData 应为 object 类型")
+            .required
+            .clone();
+        let json_schema = load_provider_json_schema();
+
+        if let Some(required) = json_schema["required"].as_array() {
+            for field_val in required {
+                let field_name = field_val.as_str().expect("required 数组元素应为字符串");
+                assert!(
+                    rust_required.contains(field_name),
+                    "Provider JSON Schema required 字段 '{}' 在 Rust ProviderData 中未标记为必填",
+                    field_name
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn provider_json_schema_matches_slug_and_category_constraints() {
+        let rust_schema = schema_for!(ProviderData);
+        let rust_schema_value =
+            serde_json::to_value(&rust_schema.schema).expect("Rust ProviderData schema 应可序列化");
+        let json_schema = load_provider_json_schema();
+
+        assert_eq!(
+            json_schema["properties"]["name"]["minLength"],
+            json!(1),
+            "Provider 名称应保持必填约束"
+        );
+        assert_eq!(
+            json_schema["properties"]["slug"]["pattern"],
+            json!("^[a-z0-9-]*$"),
+            "Provider slug 应仅允许小写字母、数字和连字符"
+        );
+        assert_eq!(
+            rust_schema_value["properties"]["slug"]["pattern"],
+            json!("^[a-z0-9-]*$"),
+            "Rust ProviderData slug schema 应与前端 JSON Schema 保持一致"
+        );
+        assert_eq!(
+            json_schema["properties"]["models"]["items"]["properties"]["category"]["pattern"],
+            json!("^(opus|sonnet|haiku|other)$"),
+            "Provider 模型分类应限制为受支持的枚举值"
+        );
     }
 
     #[test]

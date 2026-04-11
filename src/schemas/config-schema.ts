@@ -1,11 +1,7 @@
 import { z } from "zod";
+import { optionalUrlStringSchema } from "./schema-helpers";
 
-const urlField = z
-  .string()
-  .refine((v) => !v || v.startsWith("http://") || v.startsWith("https://"), {
-    message: "configEditor.validation.invalidUrl",
-  })
-  .optional();
+const urlField = optionalUrlStringSchema.optional();
 
 export const ClaudeConfigSchema = z.object({
   name: z.string().min(1, "configEditor.validation.nameRequired"),

@@ -1,30 +1,48 @@
 import { markdown } from "@codemirror/lang-markdown";
 import { EditorView } from "@codemirror/view";
+import { zodResolver } from "@hookform/resolvers/zod";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
-import { useRef, useState } from "react";
+import { useRef } from "react";
+import { Controller, type FieldError, type Resolver, useForm } from "react-hook-form";
 import useEditorTheme from "../hooks/useEditorTheme";
 import { useI18n } from "../i18n";
+import {
+  buildMemoryDefaultValues,
+  MEMORY_NAME_FIELD,
+  type MemoryFormData,
+  MemorySchema,
+  toMemoryPayload,
+} from "../schemas/memory-schema";
 import type { Memory } from "../types";
 import { ChevronLeftIcon } from "./Icons";
+import SchemaFormField from "./SchemaFormField";
 import "./MemoryEditor.css";
 
 interface MemoryEditorProps {
   memory: Memory | null;
-  onSave: (data: { name: string; content: string }) => void;
+  onSave: (data: { id?: string; name: string; content: string }) => void;
   onClose: () => void;
 }
 
 function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
   const { t } = useI18n();
-  const [name, setName] = useState(memory?.name || "");
-  const [content, setContent] = useState(memory?.content || "");
   const editorRef = useRef<ReactCodeMirrorRef>(null);
   const editorTheme = useEditorTheme();
+  const {
+    register,
+    control,
+    handleSubmit,
+    watch,
+    formState: { errors },
+  } = useForm<MemoryFormData>({
+    resolver: zodResolver(MemorySchema) as Resolver<MemoryFormData>,
+    defaultValues: buildMemoryDefaultValues(memory),
+    mode: "onBlur",
+  });
+  const watchName = watch("name");
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name.trim()) return;
-    onSave({ name: name.trim(), content });
+  function handleFormSubmit(data: MemoryFormData) {
+    onSave(toMemoryPayload(data));
   }
 
   // 在光标位置插入文本（选中文字时替换）
@@ -67,7 +85,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
         aria-labelledby="memory-modal-title"
         aria-modal="true"
       >
-        <form id="memory-form" onSubmit={handleSubmit}>
+        <form id="memory-form" onSubmit={handleSubmit(handleFormSubmit)}>
           <div className="editor-header">
             <button
               type="button"
@@ -78,30 +96,22 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
               <ChevronLeftIcon />
             </button>
             <h2 id="memory-modal-title">{memory ? t("memory.editTitle") : t("memory.addTitle")}</h2>
-            <button type="submit" className="editor-save-btn" disabled={!name.trim()}>
+            <button type="submit" className="editor-save-btn" disabled={!watchName?.trim()}>
               {t("memory.save")}
             </button>
           </div>
 
           <div className="editor-body">
             <div className="editor-badge-large">
-              <span>{name ? name.charAt(0).toUpperCase() : "M"}</span>
+              <span>{watchName ? watchName.charAt(0).toUpperCase() : "M"}</span>
             </div>
 
-            <div className="form-group">
-              <label htmlFor="memory-name" className="label-required">
-                <span>{t("memory.name")}</span>
-                <span className="required-badge">{t("form.required")}</span>
-              </label>
-              <input
-                id="memory-name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={t("memory.namePlaceholder")}
-                required
-              />
-            </div>
+            <SchemaFormField
+              field={MEMORY_NAME_FIELD}
+              register={register}
+              control={control}
+              error={errors.name as FieldError | undefined}
+            />
 
             <div className="form-group">
               <label>{t("memory.content")}</label>
@@ -146,19 +156,25 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                     &lt;/&gt;
                   </button>
                 </div>
-                <CodeMirror
-                  ref={editorRef}
-                  value={content}
-                  onChange={setContent}
-                  extensions={[markdown(), EditorView.lineWrapping]}
-                  theme={editorTheme}
-                  placeholder={t("memory.contentPlaceholder")}
-                  basicSetup={{
-                    lineNumbers: true,
-                    bracketMatching: false,
-                    indentOnInput: false,
-                    foldGutter: false,
-                  }}
+                <Controller
+                  name="content"
+                  control={control}
+                  render={({ field }) => (
+                    <CodeMirror
+                      ref={editorRef}
+                      value={field.value}
+                      onChange={field.onChange}
+                      extensions={[markdown(), EditorView.lineWrapping]}
+                      theme={editorTheme}
+                      placeholder={t("memory.contentPlaceholder")}
+                      basicSetup={{
+                        lineNumbers: true,
+                        bracketMatching: false,
+                        indentOnInput: false,
+                        foldGutter: false,
+                      }}
+                    />
+                  )}
                 />
               </div>
             </div>

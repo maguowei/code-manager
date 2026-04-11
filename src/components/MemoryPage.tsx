@@ -42,12 +42,9 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     isModalOpen,
   );
 
-  async function handleAdd(data: { name: string; content: string }) {
+  async function handleAdd(data: { id?: string; name: string; content: string }) {
     try {
-      const newMemory = await invoke<Memory>("add_memory", {
-        name: data.name,
-        content: data.content,
-      });
+      const newMemory = await invoke<Memory>("add_memory", { data });
       setIsModalOpen(false);
       setMemories((prev) => [...prev, newMemory]);
       showToast(t("toast.memoryAdded"));
@@ -56,14 +53,10 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     }
   }
 
-  async function handleUpdate(data: { name: string; content: string }) {
+  async function handleUpdate(data: { id?: string; name: string; content: string }) {
     if (!editingMemory) return;
     try {
-      const updated = await invoke<Memory>("update_memory", {
-        id: editingMemory.id,
-        name: data.name,
-        content: data.content,
-      });
+      const updated = await invoke<Memory>("update_memory", { id: editingMemory.id, data });
       setEditingMemory(null);
       setIsModalOpen(false);
       setMemories((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));

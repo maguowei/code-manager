@@ -1,29 +1,10 @@
-import type { TranslationKey } from "../i18n";
 import type { ClaudeConfigFormData } from "./config-schema";
-
-export type FieldInputType = "text" | "password" | "checkbox" | "select" | "combobox" | "url";
-
-export interface FieldConfig {
-  name: keyof ClaudeConfigFormData;
-  labelKey: TranslationKey;
-  descriptionKey?: TranslationKey;
-  placeholderKey?: TranslationKey;
-  inputType: FieldInputType;
-  required?: boolean;
-  options?: { value: string; labelKey: TranslationKey }[];
-}
-
-export interface FieldGroup {
-  id: string;
-  labelKey: TranslationKey;
-  collapsible: boolean;
-  fields: FieldConfig[];
-}
+import type { FieldGroup } from "./form-fields";
 
 // 注意：baseUrl / websiteUrl / model 系列（model/haikuModel/sonnetModel/opusModel）/
 // preferredLanguage / enableExtraMarketplaces / useDefaults / providerId / enabledPlugins
 // 使用 ConfigEditor 中的自定义渲染逻辑，不在此处声明。
-export const FIELD_GROUPS: FieldGroup[] = [
+export const FIELD_GROUPS: FieldGroup<ClaudeConfigFormData>[] = [
   {
     id: "basic",
     labelKey: "configEditor.section.basic",

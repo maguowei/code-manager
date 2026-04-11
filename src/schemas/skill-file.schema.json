@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "skill-file",
+  "title": "Skill File Form Data",
+  "type": "object",
+  "required": ["fileName", "content"],
+  "additionalProperties": false,
+  "properties": {
+    "fileName": { "type": "string", "minLength": 1, "readOnly": true },
+    "content": { "type": "string", "default": "" }
+  }
+}

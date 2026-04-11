@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "memory",
+  "title": "Memory Form Data",
+  "type": "object",
+  "required": ["name", "content"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "readOnly": true },
+    "name": { "type": "string", "minLength": 1 },
+    "content": { "type": "string", "default": "" }
+  }
+}

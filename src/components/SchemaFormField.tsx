@@ -1,25 +1,30 @@
 import { useState } from "react";
-import { type Control, Controller, type FieldError, type UseFormRegister } from "react-hook-form";
+import {
+  type Control,
+  Controller,
+  type FieldError,
+  type FieldValues,
+  type UseFormRegister,
+} from "react-hook-form";
 import { type TranslationKey, useI18n } from "../i18n";
-import type { ClaudeConfigFormData } from "../schemas/config-schema";
-import type { FieldConfig } from "../schemas/field-groups";
+import type { FieldConfig } from "../schemas/form-fields";
 
-interface SchemaFormFieldProps {
-  field: FieldConfig;
-  register: UseFormRegister<ClaudeConfigFormData>;
-  control: Control<ClaudeConfigFormData>;
+interface SchemaFormFieldProps<TFieldValues extends FieldValues> {
+  field: FieldConfig<TFieldValues>;
+  register: UseFormRegister<TFieldValues>;
+  control: Control<TFieldValues>;
   error?: FieldError;
   /** combobox 专用：对应的 datalist 元素 id */
   datalistId?: string;
 }
 
-export default function SchemaFormField({
+export default function SchemaFormField<TFieldValues extends FieldValues>({
   field,
   register,
   control,
   error,
   datalistId,
-}: SchemaFormFieldProps) {
+}: SchemaFormFieldProps<TFieldValues>) {
   const { t } = useI18n();
   const [showPassword, setShowPassword] = useState(false);
 
@@ -55,7 +60,10 @@ export default function SchemaFormField({
   if (field.inputType === "select") {
     return (
       <div className="form-group">
-        <label htmlFor={field.name}>{t(field.labelKey)}</label>
+        <label htmlFor={field.name} className={field.required ? "label-required" : undefined}>
+          <span>{t(field.labelKey)}</span>
+          {field.required && <span className="required-badge">{t("form.required")}</span>}
+        </label>
         <select
           id={field.name}
           className={error ? "input-error" : undefined}
@@ -67,6 +75,7 @@ export default function SchemaFormField({
             </option>
           ))}
         </select>
+        {field.descriptionKey && <p className="form-hint">{t(field.descriptionKey)}</p>}
         {errorEl}
       </div>
     );
@@ -83,8 +92,11 @@ export default function SchemaFormField({
           <input
             id={field.name}
             type={showPassword ? "text" : "password"}
-            className={error ? "input-error" : undefined}
+            className={[error ? "input-error" : "", field.inputClassName ?? ""]
+              .filter(Boolean)
+              .join(" ")}
             placeholder={field.placeholderKey ? t(field.placeholderKey) : undefined}
+            readOnly={field.readOnly}
             {...register(field.name)}
           />
           <button
@@ -119,6 +131,32 @@ export default function SchemaFormField({
             )}
           </button>
         </div>
+        {field.descriptionKey && <p className="form-hint">{t(field.descriptionKey)}</p>}
+        {errorEl}
+      </div>
+    );
+  }
+
+  if (field.inputType === "textarea") {
+    const isRequired = !!field.required;
+
+    return (
+      <div className="form-group">
+        <label htmlFor={field.name} className={isRequired ? "label-required" : undefined}>
+          <span>{t(field.labelKey)}</span>
+          {isRequired && <span className="required-badge">{t("form.required")}</span>}
+        </label>
+        <textarea
+          id={field.name}
+          rows={field.rows}
+          className={[error ? "input-error" : "", field.inputClassName ?? ""]
+            .filter(Boolean)
+            .join(" ")}
+          placeholder={field.placeholderKey ? t(field.placeholderKey) : undefined}
+          readOnly={field.readOnly}
+          {...register(field.name)}
+        />
+        {field.descriptionKey && <p className="form-hint">{t(field.descriptionKey)}</p>}
         {errorEl}
       </div>
     );
@@ -136,10 +174,14 @@ export default function SchemaFormField({
         id={field.name}
         type={field.inputType === "url" ? "url" : "text"}
         list={datalistId}
-        className={error ? "input-error" : undefined}
+        className={[error ? "input-error" : "", field.inputClassName ?? ""]
+          .filter(Boolean)
+          .join(" ")}
         placeholder={field.placeholderKey ? t(field.placeholderKey) : undefined}
+        readOnly={field.readOnly}
         {...register(field.name)}
       />
+      {field.descriptionKey && <p className="form-hint">{t(field.descriptionKey)}</p>}
       {errorEl}
     </div>
   );

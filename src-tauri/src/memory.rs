@@ -1,3 +1,4 @@
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -17,6 +18,17 @@ pub struct Memory {
 #[serde(rename_all = "camelCase")]
 pub struct MemoryState {
     pub memories: Vec<Memory>,
+}
+
+/// 新增/更新记忆的数据传输对象
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct MemoryData {
+    pub id: Option<String>,
+    #[schemars(length(min = 1))]
+    pub name: String,
+    pub content: String,
 }
 
 /// 获取记忆状态存储路径
@@ -66,12 +78,17 @@ pub fn get_memories() -> Result<MemoryState, String> {
 }
 
 #[tauri::command]
-pub fn add_memory(name: String, content: String) -> Result<Memory, String> {
+pub fn add_memory(data: MemoryData) -> Result<Memory, String> {
+    if data.id.as_deref().filter(|id| !id.is_empty()).is_some() {
+        return Err("新增记忆不允许指定 id".to_string());
+    }
+
     // 加锁保护并发写入
     let _lock = crate::utils::lock_memory()?;
 
     let mut state = load_memory_state();
     let now = crate::utils::current_timestamp();
+    let MemoryData { name, content, .. } = data;
 
     let memory = Memory {
         id: Uuid::new_v4().to_string(),
@@ -89,11 +106,14 @@ pub fn add_memory(name: String, content: String) -> Result<Memory, String> {
 }
 
 #[tauri::command]
-pub fn update_memory(id: String, name: String, content: String) -> Result<Memory, String> {
+pub fn update_memory(id: String, data: MemoryData) -> Result<Memory, String> {
+    ensure_matching_memory_id(&id, &data)?;
+
     // 加锁保护并发写入
     let _lock = crate::utils::lock_memory()?;
 
     let mut state = load_memory_state();
+    let MemoryData { name, content, .. } = data;
 
     let memory = state
         .memories
@@ -161,4 +181,95 @@ pub fn toggle_memory(id: String) -> Result<Memory, String> {
     apply_memories(&state)?;
 
     Ok(toggled)
+}
+
+fn ensure_matching_memory_id(expected_id: &str, data: &MemoryData) -> Result<(), String> {
+    let payload_id = data.id.as_deref().filter(|id| !id.is_empty());
+    if let Some(payload_id) = payload_id {
+        if payload_id != expected_id {
+            return Err("记忆 id 与请求路径不一致".to_string());
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod schema_tests {
+    use super::*;
+    use schemars::schema_for;
+    use serde_json::json;
+
+    fn load_memory_json_schema() -> serde_json::Value {
+        let json_schema_str = include_str!("../../src/schemas/memory.schema.json");
+        serde_json::from_str(json_schema_str).expect("Memory JSON Schema 格式不合法")
+    }
+
+    #[test]
+    fn memory_data_has_all_json_schema_fields() {
+        let rust_schema = schema_for!(MemoryData);
+        let rust_props = rust_schema
+            .schema
+            .object
+            .as_ref()
+            .expect("MemoryData 应为 object 类型")
+            .properties
+            .clone();
+        let json_schema = load_memory_json_schema();
+
+        if let Some(props) = json_schema["properties"].as_object() {
+            for field_name in props.keys() {
+                assert!(
+                    rust_props.contains_key(field_name.as_str()),
+                    "Memory JSON Schema 字段 '{}' 在 Rust MemoryData 中未找到",
+                    field_name
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn memory_json_schema_required_fields_match_rust_schema() {
+        let rust_schema = schema_for!(MemoryData);
+        let rust_required = rust_schema
+            .schema
+            .object
+            .as_ref()
+            .expect("MemoryData 应为 object 类型")
+            .required
+            .clone();
+        let json_schema = load_memory_json_schema();
+
+        if let Some(required) = json_schema["required"].as_array() {
+            for field_val in required {
+                let field_name = field_val.as_str().expect("required 数组元素应为字符串");
+                assert!(
+                    rust_required.contains(field_name),
+                    "Memory JSON Schema required 字段 '{}' 在 Rust MemoryData 中未标记为必填",
+                    field_name
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn memory_json_schema_uses_read_only_id_and_required_name() {
+        let json_schema = load_memory_json_schema();
+
+        assert_eq!(json_schema["properties"]["id"]["readOnly"], json!(true));
+        assert_eq!(json_schema["properties"]["name"]["minLength"], json!(1));
+    }
+
+    #[test]
+    fn update_memory_rejects_mismatched_payload_id() {
+        let result = update_memory(
+            "memory-a".to_string(),
+            MemoryData {
+                id: Some("memory-b".to_string()),
+                name: "name".to_string(),
+                content: "content".to_string(),
+            },
+        );
+
+        assert_eq!(result.unwrap_err(), "记忆 id 与请求路径不一致");
+    }
 }

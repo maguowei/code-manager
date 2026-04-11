@@ -141,6 +141,7 @@ const translations = {
     "memory.toolbar.bold": "加粗",
     "memory.toolbar.list": "插入列表",
     "memory.toolbar.code": "插入代码块",
+    "memory.validation.nameRequired": "记忆名称不能为空",
 
     // Skills 页面
     "skills.title": "Skills 管理",
@@ -162,6 +163,7 @@ const translations = {
     "providers.namePlaceholder": "例如：我的自定义 Provider",
     "providers.slug": "标识符 (slug)",
     "providers.slugPlaceholder": "例如：my-provider（小写字母、数字、连字符）",
+    "providers.slugHint": "可选：仅允许小写字母、数字和连字符，内置 Provider 不可修改",
     "providers.baseUrl": "Base URL",
     "providers.baseUrlPlaceholder": "https://api.example.com/anthropic",
     "providers.baseUrlHint": "留空则使用 Anthropic 官方 Base URL",
@@ -186,6 +188,8 @@ const translations = {
     "providers.resetConfirm": "确认将此 Provider 重置为默认值？",
     "providers.deleteConfirm": "确认删除此 Provider？",
     "providers.viewDocs": "查看文档",
+    "providers.validation.nameRequired": "Provider 名称不能为空",
+    "providers.validation.slugInvalid": "标识符只能包含小写字母、数字和连字符",
     "toast.providerLoadError": "加载 Provider 列表失败",
     "toast.providerSaved": "Provider 已保存",
     "toast.providerSaveError": "保存 Provider 失败",
@@ -317,6 +321,10 @@ const translations = {
     "skills.binaryFile": "二进制文件",
     "skills.cancelEdit": "取消",
     "skills.saveFile": "保存文件",
+    "skills.validation.idRequired": "Skill 名称不能为空",
+    "skills.validation.idInvalid": "Skill 名称只能包含小写字母、数字和连字符",
+    "skills.validation.fileNameRequired": "文件名不能为空",
+    "skills.validation.fileNameInvalid": "文件名不能是绝对路径，且不能包含 ..",
     "confirm.deleteSkillTitle": "删除 Skill",
     "confirm.deleteSkillMessage": "确定要删除此 Skill 吗？此操作将删除整个目录，无法撤销。",
     "confirm.deleteSkillFileTitle": "删除文件",
@@ -509,6 +517,7 @@ const translations = {
     "memory.toolbar.bold": "Bold",
     "memory.toolbar.list": "Insert List",
     "memory.toolbar.code": "Insert Code Block",
+    "memory.validation.nameRequired": "Memory name is required",
 
     // Skills 页面
     "skills.title": "Skills Management",
@@ -531,6 +540,8 @@ const translations = {
     "providers.namePlaceholder": "e.g. My Custom Provider",
     "providers.slug": "Identifier (slug)",
     "providers.slugPlaceholder": "e.g. my-provider (lowercase, digits, hyphens)",
+    "providers.slugHint":
+      "Optional: only lowercase letters, digits, and hyphens are allowed. Built-in providers are read-only.",
     "providers.baseUrl": "Base URL",
     "providers.baseUrlPlaceholder": "https://api.example.com/anthropic",
     "providers.baseUrlHint": "Leave empty to use the official Anthropic base URL",
@@ -556,6 +567,9 @@ const translations = {
     "providers.resetConfirm": "Reset this provider to default values?",
     "providers.deleteConfirm": "Delete this provider?",
     "providers.viewDocs": "View Docs",
+    "providers.validation.nameRequired": "Provider name is required",
+    "providers.validation.slugInvalid":
+      "Identifier may only contain lowercase letters, digits, and hyphens",
     "toast.providerLoadError": "Failed to load providers",
     "toast.providerSaved": "Provider saved",
     "toast.providerSaveError": "Failed to save provider",
@@ -693,6 +707,11 @@ const translations = {
     "skills.binaryFile": "Binary",
     "skills.cancelEdit": "Cancel",
     "skills.saveFile": "Save File",
+    "skills.validation.idRequired": "Skill name is required",
+    "skills.validation.idInvalid":
+      "Skill name may only contain lowercase letters, digits, and hyphens",
+    "skills.validation.fileNameRequired": "File name is required",
+    "skills.validation.fileNameInvalid": "File name cannot be absolute and must not contain ..",
     "confirm.deleteSkillTitle": "Delete Skill",
     "confirm.deleteSkillMessage":
       "Are you sure you want to delete this Skill? This will remove the entire directory and cannot be undone.",

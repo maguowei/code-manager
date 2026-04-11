@@ -1,15 +1,32 @@
 import { markdown } from "@codemirror/lang-markdown";
 import { EditorView } from "@codemirror/view";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { invoke } from "@tauri-apps/api/core";
 import CodeMirror from "@uiw/react-codemirror";
 import { useEffect, useState } from "react";
+import { Controller, type FieldError, type Resolver, useForm } from "react-hook-form";
 import useEditorTheme from "../hooks/useEditorTheme";
 import { useToast } from "../hooks/useToast";
-import { useI18n } from "../i18n";
+import { type TranslationKey, useI18n } from "../i18n";
+import {
+  buildSkillFileDefaultValues,
+  type SkillFileFormData,
+  SkillFileSchema,
+  toSkillFilePayload,
+} from "../schemas/skill-file-schema";
+import {
+  buildSkillDefaultValues,
+  buildSkillPrimaryFields,
+  SKILL_BOOLEAN_FIELDS,
+  type SkillFormData,
+  SkillSchema,
+  toSkillPayload,
+} from "../schemas/skill-schema";
 import type { Skill, SkillFile } from "../types";
 import CollapsibleSection from "./CollapsibleSection";
 import ConfirmDialog from "./ConfirmDialog";
 import { ChevronLeftIcon } from "./Icons";
+import SchemaFormField from "./SchemaFormField";
 import "./SkillEditor.css";
 
 interface SkillEditorProps {
@@ -22,43 +39,56 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
   const { t } = useI18n();
   const { showToast } = useToast();
   const editorTheme = useEditorTheme();
+  const isEditing = skill !== null;
+  const primaryFields = buildSkillPrimaryFields(isEditing);
 
-  // 基本信息字段
-  const [id, setId] = useState(skill?.id ?? "");
-  const [name, setName] = useState(skill?.name ?? "");
-  const [description, setDescription] = useState(skill?.description ?? "");
-  const [content, setContent] = useState(skill?.content ?? "");
-  const [disableModelInvocation, setDisableModelInvocation] = useState(
-    skill?.disableModelInvocation ?? false,
-  );
-  const [userInvocable, setUserInvocable] = useState(skill?.userInvocable ?? true);
+  const {
+    register,
+    control,
+    handleSubmit,
+    watch,
+    formState: { errors },
+  } = useForm<SkillFormData>({
+    resolver: zodResolver(SkillSchema) as Resolver<SkillFormData>,
+    defaultValues: buildSkillDefaultValues(skill),
+    mode: "onBlur",
+  });
+  const addFileForm = useForm<SkillFileFormData>({
+    resolver: zodResolver(SkillFileSchema) as Resolver<SkillFileFormData>,
+    defaultValues: buildSkillFileDefaultValues(),
+    mode: "onBlur",
+  });
+  const editFileForm = useForm<SkillFileFormData>({
+    resolver: zodResolver(SkillFileSchema) as Resolver<SkillFileFormData>,
+    defaultValues: buildSkillFileDefaultValues(),
+    mode: "onBlur",
+  });
 
   // 支持文件相关状态
   const [files, setFiles] = useState<SkillFile[]>([]);
   const [filesLoaded, setFilesLoaded] = useState(false);
-  const [editingFile, setEditingFile] = useState<string | null>(null); // 正在编辑的文件名
-  const [editingFileContent, setEditingFileContent] = useState("");
+  const [editingFile, setEditingFile] = useState<string | null>(null);
   const [showAddFile, setShowAddFile] = useState(false);
-  const [newFileName, setNewFileName] = useState("");
-  const [newFileContent, setNewFileContent] = useState("");
   const [pendingDeleteFile, setPendingDeleteFile] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // 是否为编辑模式
-  // 注意：父组件须为每个不同的 skill 提供唯一 key（如 key={skill?.id ?? "new"}），
-  // 确保切换 skill 时组件重新挂载，state 得到正确初始化。
-  const isEditing = skill !== null;
+  const watchId = watch("id");
+  const canSave = watchId.trim().length > 0 && !isSaving;
+  const badgeLetter = (() => {
+    const label = watchId || skill?.id || "";
+    return label ? label.charAt(0).toUpperCase() : "S";
+  })();
 
   // 编辑模式下进入页面时自动懒加载支持文件
   // CollapsibleSection 暂不支持 onExpand 回调，故在 isEditing && !filesLoaded 时通过 useEffect 触发
   // biome-ignore lint/correctness/useExhaustiveDependencies: 仅在 isEditing 变化时触发，filesLoaded/loadFiles 为稳定引用
   useEffect(() => {
     if (isEditing && !filesLoaded) {
-      loadFiles();
+      void loadFiles();
     }
   }, [isEditing]);
 
-  // 懒加载支持文件（仅编辑模式下，点击文件区域时触发）
+  // 懒加载支持文件（仅编辑模式下）
   async function loadFiles() {
     if (!skill || filesLoaded) return;
     try {
@@ -74,34 +104,19 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
   }
 
   // 提交表单，新建或更新 Skill
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!isEditing && !id.trim()) return;
+  async function handleSkillSubmit(data: SkillFormData) {
     setIsSaving(true);
     try {
-      let saved: Skill;
-      if (isEditing) {
-        saved = await invoke<Skill>("update_skill", {
-          id: skill.id,
-          isActive: skill.isActive,
-          name: name.trim(),
-          description: description.trim(),
-          content,
-          disableModelInvocation,
-          userInvocable,
-        });
-        showToast(t("toast.skillSaved"));
-      } else {
-        saved = await invoke<Skill>("add_skill", {
-          id: id.trim(),
-          name: name.trim(),
-          description: description.trim(),
-          content,
-          disableModelInvocation,
-          userInvocable,
-        });
-        showToast(t("toast.skillAdded"));
-      }
+      const payload = toSkillPayload(data);
+      const saved =
+        isEditing && skill
+          ? await invoke<Skill>("update_skill", {
+              id: skill.id,
+              isActive: skill.isActive,
+              data: payload,
+            })
+          : await invoke<Skill>("add_skill", { data: payload });
+      showToast(t(isEditing ? "toast.skillSaved" : "toast.skillAdded"));
       onSave(saved);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -112,42 +127,43 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
   }
 
   // 添加支持文件
-  async function handleAddFile() {
-    if (!skill || !newFileName.trim()) return;
+  const submitAddFile = addFileForm.handleSubmit(async (data) => {
+    if (!skill) return;
     try {
+      const payload = toSkillFilePayload(data);
       const file = await invoke<SkillFile>("add_skill_file", {
         id: skill.id,
         isActive: skill.isActive,
-        fileName: newFileName.trim(),
-        content: newFileContent,
+        data: payload,
       });
       setFiles((prev) => [...prev, file]);
-      setNewFileName("");
-      setNewFileContent("");
+      addFileForm.reset(buildSkillFileDefaultValues());
       setShowAddFile(false);
       showToast(t("toast.skillFileAdded"));
     } catch (_err) {
       showToast(t("toast.skillFileAddError"), "error");
     }
-  }
+  });
 
   // 保存已编辑的文件内容
-  async function handleSaveFile(fileName: string) {
-    if (!skill) return;
+  const submitEditFile = editFileForm.handleSubmit(async (data) => {
+    if (!skill || !editingFile) return;
     try {
+      const payload = toSkillFilePayload(data);
       const file = await invoke<SkillFile>("update_skill_file", {
         id: skill.id,
         isActive: skill.isActive,
-        fileName,
-        content: editingFileContent,
+        fileName: editingFile,
+        data: payload,
       });
-      setFiles((prev) => prev.map((f) => (f.name === fileName ? file : f)));
+      setFiles((prev) => prev.map((current) => (current.name === editingFile ? file : current)));
       setEditingFile(null);
+      editFileForm.reset(buildSkillFileDefaultValues());
       showToast(t("toast.skillFileSaved"));
     } catch (_err) {
       showToast(t("toast.skillFileSaveError"), "error");
     }
-  }
+  });
 
   // 删除支持文件
   async function handleDeleteFile(fileName: string) {
@@ -158,7 +174,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
         isActive: skill.isActive,
         fileName,
       });
-      setFiles((prev) => prev.filter((f) => f.name !== fileName));
+      setFiles((prev) => prev.filter((file) => file.name !== fileName));
       showToast(t("toast.skillFileDeleted"));
     } catch (_err) {
       showToast(t("toast.skillFileDeleteError"), "error");
@@ -168,22 +184,28 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
   // 进入文件编辑模式
   function startEditFile(file: SkillFile) {
     setEditingFile(file.name);
-    setEditingFileContent(file.content);
+    editFileForm.reset(buildSkillFileDefaultValues(file));
   }
 
-  // 保存按钮是否可用
-  const canSave = isEditing ? !isSaving : id.trim().length > 0 && !isSaving;
+  function cancelEditFile() {
+    setEditingFile(null);
+    editFileForm.reset(buildSkillFileDefaultValues());
+  }
 
-  // 徽章显示的首字母，优先取 id
-  const badgeLetter = (() => {
-    const label = isEditing ? skill.id : id;
-    return label ? label.charAt(0).toUpperCase() : "S";
-  })();
+  function openAddFileForm() {
+    addFileForm.reset(buildSkillFileDefaultValues());
+    setShowAddFile(true);
+  }
+
+  function cancelAddFile() {
+    setShowAddFile(false);
+    addFileForm.reset(buildSkillFileDefaultValues());
+  }
 
   return (
     <div className="editor-drawer-container">
       <div className="editor-panel" role="dialog" aria-modal="true">
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(handleSkillSubmit)}>
           {/* 顶部操作栏 */}
           <div className="editor-header">
             <button
@@ -207,99 +229,52 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
               <span>{badgeLetter}</span>
             </div>
 
-            {/* Skill 名称（id）：新建时可编辑，编辑时只读 */}
-            <div className="form-group">
-              <label htmlFor="skill-id" className="label-required">
-                <span>{t("skills.name")}</span>
-                <span className="required-badge">{t("form.required")}</span>
-              </label>
-              {isEditing ? (
-                <input
-                  id="skill-id"
-                  type="text"
-                  value={skill.id}
-                  readOnly
-                  className="input-readonly"
-                />
-              ) : (
-                <input
-                  id="skill-id"
-                  type="text"
-                  value={id}
-                  onChange={(e) => setId(e.target.value)}
-                  placeholder={t("skills.namePlaceholder")}
-                  required
-                />
-              )}
-              <span className="field-hint">{t("skills.nameHint")}</span>
-            </div>
-
-            {/* 显示名称（可选，对应 frontmatter name 字段） */}
-            <div className="form-group">
-              <label htmlFor="skill-name">{t("skills.displayName")}</label>
-              <input
-                id="skill-name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={isEditing ? skill.id : id || t("skills.displayNamePlaceholder")}
+            {primaryFields.map((field) => (
+              <SchemaFormField
+                key={field.name}
+                field={field}
+                register={register}
+                control={control}
+                error={errors[field.name] as FieldError | undefined}
               />
-              <span className="field-hint">{t("skills.displayNameHint")}</span>
-            </div>
-
-            {/* 描述 */}
-            <div className="form-group">
-              <label htmlFor="skill-description">{t("skills.descriptionLabel")}</label>
-              <textarea
-                id="skill-description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder={t("skills.descriptionPlaceholder")}
-                rows={3}
-              />
-            </div>
+            ))}
 
             {/* 高级开关：disable-model-invocation 和 user-invocable */}
             <div className="form-group skill-checkboxes">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={disableModelInvocation}
-                  onChange={(e) => setDisableModelInvocation(e.target.checked)}
+              {SKILL_BOOLEAN_FIELDS.map((field) => (
+                <SchemaFormField
+                  key={field.name}
+                  field={field}
+                  register={register}
+                  control={control}
+                  error={errors[field.name] as FieldError | undefined}
                 />
-                <span className="checkbox-custom" />
-                <span>{t("skills.disableModelInvocation")}</span>
-              </label>
-              <p className="field-hint">{t("skills.disableModelInvocationHint")}</p>
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={userInvocable}
-                  onChange={(e) => setUserInvocable(e.target.checked)}
-                />
-                <span className="checkbox-custom" />
-                <span>{t("skills.userInvocable")}</span>
-              </label>
-              <p className="field-hint">{t("skills.userInvocableHint")}</p>
+              ))}
             </div>
 
             {/* Markdown 内容编辑器 */}
             <div className="form-group">
               <label>{t("skills.content")}</label>
               <div className="skill-editor-wrap">
-                <CodeMirror
-                  value={content}
-                  onChange={setContent}
-                  height="360px"
-                  extensions={[markdown(), EditorView.lineWrapping]}
-                  theme={editorTheme}
-                  placeholder={t("skills.contentPlaceholder")}
-                  basicSetup={{
-                    lineNumbers: true,
-                    bracketMatching: false,
-                    indentOnInput: false,
-                    foldGutter: false,
-                  }}
+                <Controller
+                  name="content"
+                  control={control}
+                  render={({ field }) => (
+                    <CodeMirror
+                      value={field.value}
+                      onChange={field.onChange}
+                      height="360px"
+                      extensions={[markdown(), EditorView.lineWrapping]}
+                      theme={editorTheme}
+                      placeholder={t("skills.contentPlaceholder")}
+                      basicSetup={{
+                        lineNumbers: true,
+                        bracketMatching: false,
+                        indentOnInput: false,
+                        foldGutter: false,
+                      }}
+                    />
+                  )}
                 />
               </div>
             </div>
@@ -320,14 +295,14 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                               <button
                                 type="button"
                                 className="file-btn cancel"
-                                onClick={() => setEditingFile(null)}
+                                onClick={cancelEditFile}
                               >
                                 {t("skills.cancelEdit")}
                               </button>
                               <button
                                 type="button"
                                 className="file-btn save"
-                                onClick={() => handleSaveFile(file.name)}
+                                onClick={() => void submitEditFile()}
                               >
                                 {t("skills.saveFile")}
                               </button>
@@ -335,10 +310,14 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                           </div>
                           <textarea
                             className="skill-file-textarea"
-                            value={editingFileContent}
-                            onChange={(e) => setEditingFileContent(e.target.value)}
                             rows={8}
+                            {...editFileForm.register("content")}
                           />
+                          {editFileForm.formState.errors.content?.message && (
+                            <span className="field-error">
+                              {t(editFileForm.formState.errors.content.message as TranslationKey)}
+                            </span>
+                          )}
                         </div>
                       ) : (
                         // 文件列表行
@@ -381,33 +360,32 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                         type="text"
                         className="skill-file-name-input"
                         placeholder={t("skills.fileNamePlaceholder")}
-                        value={newFileName}
-                        onChange={(e) => setNewFileName(e.target.value)}
+                        {...addFileForm.register("fileName")}
                       />
+                      {addFileForm.formState.errors.fileName?.message && (
+                        <span className="field-error">
+                          {t(addFileForm.formState.errors.fileName.message as TranslationKey)}
+                        </span>
+                      )}
                       <textarea
                         className="skill-file-textarea"
                         placeholder={t("skills.fileContent")}
-                        value={newFileContent}
-                        onChange={(e) => setNewFileContent(e.target.value)}
                         rows={6}
+                        {...addFileForm.register("content")}
                       />
+                      {addFileForm.formState.errors.content?.message && (
+                        <span className="field-error">
+                          {t(addFileForm.formState.errors.content.message as TranslationKey)}
+                        </span>
+                      )}
                       <div className="skill-add-file-actions">
-                        <button
-                          type="button"
-                          className="file-btn cancel"
-                          onClick={() => {
-                            setShowAddFile(false);
-                            setNewFileName("");
-                            setNewFileContent("");
-                          }}
-                        >
+                        <button type="button" className="file-btn cancel" onClick={cancelAddFile}>
                           {t("skills.cancelEdit")}
                         </button>
                         <button
                           type="button"
                           className="file-btn save"
-                          onClick={handleAddFile}
-                          disabled={!newFileName.trim()}
+                          onClick={() => void submitAddFile()}
                         >
                           {t("skills.saveFile")}
                         </button>
@@ -415,11 +393,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                     </div>
                   ) : (
                     // 添加文件按钮
-                    <button
-                      type="button"
-                      className="skill-add-file-btn"
-                      onClick={() => setShowAddFile(true)}
-                    >
+                    <button type="button" className="skill-add-file-btn" onClick={openAddFileForm}>
                       <svg
                         width="14"
                         height="14"
@@ -449,7 +423,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
             cancelText={t("confirm.cancel")}
             danger
             onConfirm={() => {
-              handleDeleteFile(pendingDeleteFile);
+              void handleDeleteFile(pendingDeleteFile);
               setPendingDeleteFile(null);
             }}
             onCancel={() => setPendingDeleteFile(null)}

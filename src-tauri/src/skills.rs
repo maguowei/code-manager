@@ -1,3 +1,4 @@
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -24,6 +25,30 @@ pub struct SkillFile {
     pub name: String, // 相对于 Skill 目录的路径，如 "examples.md"
     pub content: String,
     pub is_binary: bool, // 是否为二进制文件（无法以 UTF-8 读取）
+}
+
+/// 新增/更新 Skill 的数据传输对象
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct SkillData {
+    #[schemars(length(min = 1), regex(pattern = "^[a-z0-9-]+$"))]
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub content: String,
+    pub disable_model_invocation: bool,
+    pub user_invocable: bool,
+}
+
+/// 新增/更新 Skill 支持文件的数据传输对象
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct SkillFileData {
+    #[schemars(length(min = 1))]
+    pub file_name: String,
+    pub content: String,
 }
 
 /// 获取启用 Skills 的根目录：~/.claude/skills/
@@ -290,15 +315,16 @@ fn validate_skill_id(id: &str) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn add_skill(
-    id: String,
-    name: String,
-    description: String,
-    content: String,
-    disable_model_invocation: bool,
-    user_invocable: bool,
-) -> Result<Skill, String> {
+pub fn add_skill(data: SkillData) -> Result<Skill, String> {
     let _lock = crate::utils::lock_skills()?;
+    let SkillData {
+        id,
+        name,
+        description,
+        content,
+        disable_model_invocation,
+        user_invocable,
+    } = data;
 
     validate_skill_id(&id)?;
 
@@ -342,13 +368,19 @@ pub fn add_skill(
 pub fn update_skill(
     id: String,
     is_active: bool,
-    name: String,
-    description: String,
-    content: String,
-    disable_model_invocation: bool,
-    user_invocable: bool,
+    data: SkillData,
 ) -> Result<Skill, String> {
+    ensure_matching_skill_id(&id, &data)?;
+
     let _lock = crate::utils::lock_skills()?;
+    let SkillData {
+        id,
+        name,
+        description,
+        content,
+        disable_model_invocation,
+        user_invocable,
+    } = data;
 
     let skill_md = get_skill_md_path(&id, is_active);
     let display_name = resolve_display_name(&name, &id);
@@ -466,10 +498,10 @@ fn collect_files(
 pub fn add_skill_file(
     id: String,
     is_active: bool,
-    file_name: String,
-    content: String,
+    data: SkillFileData,
 ) -> Result<SkillFile, String> {
     let _lock = crate::utils::lock_skills()?;
+    let SkillFileData { file_name, content } = data;
 
     validate_file_name(&file_name)?;
 
@@ -492,9 +524,15 @@ pub fn update_skill_file(
     id: String,
     is_active: bool,
     file_name: String,
-    content: String,
+    data: SkillFileData,
 ) -> Result<SkillFile, String> {
+    ensure_matching_skill_file_name(&file_name, &data)?;
+
     let _lock = crate::utils::lock_skills()?;
+    let SkillFileData {
+        file_name,
+        content,
+    } = data;
 
     validate_file_name(&file_name)?;
 
@@ -573,4 +611,192 @@ pub fn sync_skill_to_codex(id: String, is_active: bool) -> Result<(), String> {
     std::os::windows::fs::symlink_dir(&src, &dest).map_err(|e| format!("创建软链接失败: {}", e))?;
 
     Ok(())
+}
+
+fn ensure_matching_skill_id(expected_id: &str, data: &SkillData) -> Result<(), String> {
+    if data.id != expected_id {
+        return Err("Skill id 与请求路径不一致".to_string());
+    }
+    Ok(())
+}
+
+fn ensure_matching_skill_file_name(
+    expected_file_name: &str,
+    data: &SkillFileData,
+) -> Result<(), String> {
+    if data.file_name != expected_file_name {
+        return Err("文件名与请求路径不一致".to_string());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod schema_tests {
+    use super::*;
+    use schemars::schema_for;
+    use serde_json::json;
+
+    fn load_skill_json_schema() -> serde_json::Value {
+        let json_schema_str = include_str!("../../src/schemas/skill.schema.json");
+        serde_json::from_str(json_schema_str).expect("Skill JSON Schema 格式不合法")
+    }
+
+    fn load_skill_file_json_schema() -> serde_json::Value {
+        let json_schema_str = include_str!("../../src/schemas/skill-file.schema.json");
+        serde_json::from_str(json_schema_str).expect("SkillFile JSON Schema 格式不合法")
+    }
+
+    #[test]
+    fn skill_data_has_all_json_schema_fields() {
+        let rust_schema = schema_for!(SkillData);
+        let rust_props = rust_schema
+            .schema
+            .object
+            .as_ref()
+            .expect("SkillData 应为 object 类型")
+            .properties
+            .clone();
+        let json_schema = load_skill_json_schema();
+
+        if let Some(props) = json_schema["properties"].as_object() {
+            for field_name in props.keys() {
+                assert!(
+                    rust_props.contains_key(field_name.as_str()),
+                    "Skill JSON Schema 字段 '{}' 在 Rust SkillData 中未找到",
+                    field_name
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn skill_json_schema_required_fields_match_rust_schema() {
+        let rust_schema = schema_for!(SkillData);
+        let rust_required = rust_schema
+            .schema
+            .object
+            .as_ref()
+            .expect("SkillData 应为 object 类型")
+            .required
+            .clone();
+        let json_schema = load_skill_json_schema();
+
+        if let Some(required) = json_schema["required"].as_array() {
+            for field_val in required {
+                let field_name = field_val.as_str().expect("required 数组元素应为字符串");
+                assert!(
+                    rust_required.contains(field_name),
+                    "Skill JSON Schema required 字段 '{}' 在 Rust SkillData 中未标记为必填",
+                    field_name
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn skill_json_schema_matches_defaults_and_pattern() {
+        let rust_schema = schema_for!(SkillData);
+        let rust_schema_value =
+            serde_json::to_value(&rust_schema.schema).expect("Rust SkillData schema 应可序列化");
+        let json_schema = load_skill_json_schema();
+
+        assert_eq!(json_schema["properties"]["id"]["minLength"], json!(1));
+        assert_eq!(
+            json_schema["properties"]["id"]["pattern"],
+            json!("^[a-z0-9-]+$")
+        );
+        assert_eq!(
+            rust_schema_value["properties"]["id"]["pattern"],
+            json!("^[a-z0-9-]+$"),
+            "Rust SkillData id schema 应与前端 JSON Schema 保持一致"
+        );
+        assert_eq!(
+            json_schema["properties"]["disableModelInvocation"]["default"],
+            json!(false)
+        );
+        assert_eq!(
+            json_schema["properties"]["userInvocable"]["default"],
+            json!(true)
+        );
+    }
+
+    #[test]
+    fn skill_file_data_has_all_json_schema_fields() {
+        let rust_schema = schema_for!(SkillFileData);
+        let rust_props = rust_schema
+            .schema
+            .object
+            .as_ref()
+            .expect("SkillFileData 应为 object 类型")
+            .properties
+            .clone();
+        let json_schema = load_skill_file_json_schema();
+
+        if let Some(props) = json_schema["properties"].as_object() {
+            for field_name in props.keys() {
+                assert!(
+                    rust_props.contains_key(field_name.as_str()),
+                    "SkillFile JSON Schema 字段 '{}' 在 Rust SkillFileData 中未找到",
+                    field_name
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn skill_file_json_schema_required_fields_match_rust_schema() {
+        let rust_schema = schema_for!(SkillFileData);
+        let rust_required = rust_schema
+            .schema
+            .object
+            .as_ref()
+            .expect("SkillFileData 应为 object 类型")
+            .required
+            .clone();
+        let json_schema = load_skill_file_json_schema();
+
+        if let Some(required) = json_schema["required"].as_array() {
+            for field_val in required {
+                let field_name = field_val.as_str().expect("required 数组元素应为字符串");
+                assert!(
+                    rust_required.contains(field_name),
+                    "SkillFile JSON Schema required 字段 '{}' 在 Rust SkillFileData 中未标记为必填",
+                    field_name
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn update_skill_rejects_mismatched_payload_id() {
+        let result = update_skill(
+            "skill-a".to_string(),
+            true,
+            SkillData {
+                id: "skill-b".to_string(),
+                name: String::new(),
+                description: String::new(),
+                content: String::new(),
+                disable_model_invocation: false,
+                user_invocable: true,
+            },
+        );
+
+        assert_eq!(result.unwrap_err(), "Skill id 与请求路径不一致");
+    }
+
+    #[test]
+    fn update_skill_file_rejects_mismatched_payload_name() {
+        let result = update_skill_file(
+            "skill-a".to_string(),
+            true,
+            "docs/example.md".to_string(),
+            SkillFileData {
+                file_name: "docs/other.md".to_string(),
+                content: String::new(),
+            },
+        );
+
+        assert_eq!(result.unwrap_err(), "文件名与请求路径不一致");
+    }
 }

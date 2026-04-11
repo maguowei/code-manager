@@ -1,7 +1,17 @@
-import { useState } from "react";
-import { useI18n } from "../i18n";
-import type { Provider, ProviderModel } from "../types";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { type FieldError, type Resolver, useFieldArray, useForm } from "react-hook-form";
+import { type TranslationKey, useI18n } from "../i18n";
+import {
+  buildProviderDefaultValues,
+  buildProviderPrimaryFields,
+  createEmptyProviderModel,
+  type ProviderFormData,
+  ProviderSchema,
+  toProviderPayload,
+} from "../schemas/provider-schema";
+import type { Provider } from "../types";
 import { ChevronLeftIcon } from "./Icons";
+import SchemaFormField from "./SchemaFormField";
 import "./ProviderEditor.css";
 
 interface ProviderEditorProps {
@@ -10,41 +20,58 @@ interface ProviderEditorProps {
     name: string;
     slug: string;
     baseUrl: string;
-    docUrl: string;
-    models: ProviderModel[];
+    docUrl: string | null;
+    models: { id: string; name: string; category: "opus" | "sonnet" | "haiku" | "other" }[];
   }) => void;
   onClose: () => void;
 }
 
 function ProviderEditor({ provider, onSave, onClose }: ProviderEditorProps) {
   const { t } = useI18n();
-  const [name, setName] = useState(provider?.name || "");
-  const [slug, setSlug] = useState(provider?.slug || "");
-  const [baseUrl, setBaseUrl] = useState(provider?.baseUrl || "");
-  const [docUrl, setDocUrl] = useState(provider?.docUrl || "");
-  const [models, setModels] = useState<ProviderModel[]>(provider?.models || []);
+  const topLevelFields = buildProviderPrimaryFields(provider?.isBuiltin ?? false);
+  const {
+    register,
+    control,
+    handleSubmit,
+    watch,
+    formState: { errors },
+  } = useForm<ProviderFormData>({
+    resolver: zodResolver(ProviderSchema) as Resolver<ProviderFormData>,
+    defaultValues: buildProviderDefaultValues(provider),
+    mode: "onBlur",
+  });
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "models",
+    keyName: "fieldKey",
+  });
+  const watchName = watch("name");
 
   function handleAddModel() {
-    setModels((prev) => [...prev, { id: "", name: "", category: "sonnet" }]);
-  }
-
-  function handleModelChange(index: number, field: keyof ProviderModel, value: string) {
-    setModels((prev) => prev.map((m, i) => (i === index ? { ...m, [field]: value } : m)));
+    append(createEmptyProviderModel());
   }
 
   function handleRemoveModel(index: number) {
-    setModels((prev) => prev.filter((_, i) => i !== index));
+    remove(index);
   }
 
-  function handleSubmit() {
-    if (!name.trim()) return;
-    onSave({
-      name: name.trim(),
-      slug: slug.trim(),
-      baseUrl: baseUrl.trim(),
-      docUrl: docUrl.trim(),
-      models: models.filter((m) => m.id.trim()),
-    });
+  function handleFormSubmit(data: ProviderFormData) {
+    onSave(toProviderPayload(data));
+  }
+
+  function getTopLevelError(name: (typeof topLevelFields)[number]["name"]) {
+    switch (name) {
+      case "name":
+        return errors.name;
+      case "slug":
+        return errors.slug;
+      case "baseUrl":
+        return errors.baseUrl;
+      case "docUrl":
+        return errors.docUrl;
+      default:
+        return undefined;
+    }
   }
 
   return (
@@ -54,53 +81,26 @@ function ProviderEditor({ provider, onSave, onClose }: ProviderEditorProps) {
           <ChevronLeftIcon />
         </button>
         <h2>{provider ? t("providers.editTitle") : t("providers.addTitle")}</h2>
-        <button type="button" className="editor-save-btn" onClick={handleSubmit}>
+        <button
+          type="button"
+          className="editor-save-btn"
+          onClick={handleSubmit(handleFormSubmit)}
+          disabled={!watchName?.trim()}
+        >
           {t("providers.save")}
         </button>
       </div>
 
       <div className="editor-body">
-        <div className="form-group">
-          <label className="form-label">{t("providers.name")}</label>
-          <input
-            className="form-input"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={t("providers.namePlaceholder")}
+        {topLevelFields.map((field) => (
+          <SchemaFormField
+            key={field.name}
+            field={field}
+            register={register}
+            control={control}
+            error={getTopLevelError(field.name) as FieldError | undefined}
           />
-        </div>
-
-        <div className="form-group">
-          <label className="form-label">{t("providers.slug")}</label>
-          <input
-            className="form-input"
-            value={slug}
-            onChange={(e) => setSlug(e.target.value)}
-            placeholder={t("providers.slugPlaceholder")}
-            disabled={provider?.isBuiltin}
-          />
-        </div>
-
-        <div className="form-group">
-          <label className="form-label">{t("providers.baseUrl")}</label>
-          <input
-            className="form-input"
-            value={baseUrl}
-            onChange={(e) => setBaseUrl(e.target.value)}
-            placeholder={t("providers.baseUrlPlaceholder")}
-          />
-          <span className="form-hint">{t("providers.baseUrlHint")}</span>
-        </div>
-
-        <div className="form-group">
-          <label className="form-label">{t("providers.docUrl")}</label>
-          <input
-            className="form-input"
-            value={docUrl}
-            onChange={(e) => setDocUrl(e.target.value)}
-            placeholder={t("providers.docUrlPlaceholder")}
-          />
-        </div>
+        ))}
 
         <div className="form-group">
           <div className="form-label-row">
@@ -110,7 +110,7 @@ function ProviderEditor({ provider, onSave, onClose }: ProviderEditorProps) {
             </button>
           </div>
           <p className="form-hint">{t("providers.modelIdHint")}</p>
-          {models.length > 0 && (
+          {fields.length > 0 && (
             <div className="model-header" aria-hidden="true">
               <span className="model-header-cell model-id">{t("providers.modelId")}</span>
               <span className="model-header-cell model-name">{t("providers.modelName")}</span>
@@ -120,40 +120,55 @@ function ProviderEditor({ provider, onSave, onClose }: ProviderEditorProps) {
               <span className="model-header-spacer" />
             </div>
           )}
-          {models.map((model, index) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: 模型列表支持动态增减，无稳定唯一标识
-            <div key={index} className="model-row">
-              <input
-                className="form-input model-id"
-                value={model.id}
-                onChange={(e) => handleModelChange(index, "id", e.target.value)}
-                placeholder={t("providers.modelIdPlaceholder")}
-              />
-              <input
-                className="form-input model-name"
-                value={model.name}
-                onChange={(e) => handleModelChange(index, "name", e.target.value)}
-                placeholder={t("providers.modelNamePlaceholder")}
-              />
-              <select
-                className="form-select model-category"
-                value={model.category}
-                onChange={(e) => handleModelChange(index, "category", e.target.value)}
-              >
-                <option value="opus">Opus</option>
-                <option value="sonnet">Sonnet</option>
-                <option value="haiku">Haiku</option>
-                <option value="other">Other</option>
-              </select>
-              <button
-                type="button"
-                className="remove-model-btn"
-                onClick={() => handleRemoveModel(index)}
-              >
-                ×
-              </button>
-            </div>
-          ))}
+          {fields.map((field, index) => {
+            const modelError = Array.isArray(errors.models) ? errors.models[index] : undefined;
+
+            return (
+              <div key={field.fieldKey} className="form-group" style={{ gap: 4 }}>
+                <div className="model-row">
+                  <input
+                    className="form-input model-id"
+                    placeholder={t("providers.modelIdPlaceholder")}
+                    {...register(`models.${index}.id` as const)}
+                  />
+                  <input
+                    className="form-input model-name"
+                    placeholder={t("providers.modelNamePlaceholder")}
+                    {...register(`models.${index}.name` as const)}
+                  />
+                  <select
+                    className="form-select model-category"
+                    {...register(`models.${index}.category` as const)}
+                  >
+                    <option value="opus">Opus</option>
+                    <option value="sonnet">Sonnet</option>
+                    <option value="haiku">Haiku</option>
+                    <option value="other">Other</option>
+                  </select>
+                  <button
+                    type="button"
+                    className="remove-model-btn"
+                    onClick={() => handleRemoveModel(index)}
+                  >
+                    ×
+                  </button>
+                </div>
+                {modelError?.id?.message && (
+                  <span className="field-error">{t(modelError.id.message as TranslationKey)}</span>
+                )}
+                {modelError?.name?.message && (
+                  <span className="field-error">
+                    {t(modelError.name.message as TranslationKey)}
+                  </span>
+                )}
+                {modelError?.category?.message && (
+                  <span className="field-error">
+                    {t(modelError.category.message as TranslationKey)}
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

@@ -3,7 +3,7 @@ import { type DragEvent, useCallback, useRef, useState } from "react";
 import useEscapeKey from "../hooks/useEscapeKey";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
-import type { Provider, ProviderModel } from "../types";
+import type { Provider } from "../types";
 import ConfirmDialog from "./ConfirmDialog";
 import Drawer from "./Drawer";
 import { PlusIcon } from "./Icons";
@@ -120,15 +120,15 @@ function ProviderPage({
     name: string;
     slug: string;
     baseUrl: string;
-    docUrl: string;
-    models: ProviderModel[];
+    docUrl: string | null;
+    models: { id: string; name: string; category: "opus" | "sonnet" | "haiku" | "other" }[];
   }) {
     try {
       const payload = {
         name: data.name,
         slug: data.slug,
         baseUrl: data.baseUrl,
-        docUrl: data.docUrl || null,
+        docUrl: data.docUrl,
         models: data.models,
       };
       if (editingProvider) {

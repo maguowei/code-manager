@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "skill",
+  "title": "Skill Form Data",
+  "type": "object",
+  "required": ["id", "name", "description", "content", "disableModelInvocation", "userInvocable"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z0-9-]+$",
+      "readOnly": true
+    },
+    "name": { "type": "string", "default": "" },
+    "description": { "type": "string", "default": "" },
+    "content": { "type": "string", "default": "" },
+    "disableModelInvocation": { "type": "boolean", "default": false },
+    "userInvocable": { "type": "boolean", "default": true }
+  }
+}
