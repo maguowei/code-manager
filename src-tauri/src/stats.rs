@@ -220,19 +220,24 @@ pub fn start_snapshot_timer() -> SnapshotHandle {
 
         let (lock, cvar) = &*pair;
         let mut stopped = lock.lock().unwrap();
+        let mut deadline =
+            std::time::Instant::now() + std::time::Duration::from_secs(3600);
         loop {
-            // 等待 1 小时或被 stop() 唤醒
-            let result = cvar
-                .wait_timeout(stopped, std::time::Duration::from_secs(3600))
-                .unwrap();
+            // 计算距下次快照的剩余时间，确保伪唤醒不重置 1 小时计时
+            let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+            let result = cvar.wait_timeout(stopped, remaining).unwrap();
             stopped = result.0;
             if *stopped {
                 break;
             }
-            // 超时到达，执行快照
-            if let Ok(_lock) = crate::utils::lock_stats() {
-                let _ = take_snapshot_inner();
+            // 到达或超过截止时间才执行快照
+            if std::time::Instant::now() >= deadline {
+                if let Ok(_lock) = crate::utils::lock_stats() {
+                    let _ = take_snapshot_inner();
+                }
+                deadline = std::time::Instant::now() + std::time::Duration::from_secs(3600);
             }
+            // 伪唤醒：deadline 未到，remaining 缩短后继续等待
         }
     });
 
