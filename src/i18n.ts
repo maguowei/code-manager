@@ -165,6 +165,9 @@ const translations = {
     "projects.lastSessionId": "最近会话 ID",
     "projects.lastSessionIdMissing": "暂无会话 ID",
     "projects.path": "项目路径",
+    "projects.openInTerminal": "用终端打开",
+    "projects.openInEditor": "用编辑器打开",
+    "projects.editorNotConfiguredHint": "请先在设置中选择默认编辑器。",
     "projects.repoRoot": "Git 根目录",
     "projects.repoRootUnavailable": "暂无 Git 根目录",
     "projects.repository": "源码仓库",
@@ -251,6 +254,8 @@ const translations = {
     "toast.projectAgentsLinked": "AGENTS.md 软链已生成",
     "toast.projectAgentsLinkError": "生成 AGENTS.md 软链失败",
     "toast.projectOpenRepositoryError": "打开源码仓库失败",
+    "toast.projectOpenTerminalError": "用终端打开项目失败",
+    "toast.projectOpenEditorError": "用编辑器打开项目失败",
 
     // ConfigEditor 中的 Provider 选择
     "configModal.provider": "API 供应商",
@@ -304,6 +309,11 @@ const translations = {
     "settings.themeSystem": "跟随系统",
     "settings.showTrayTitle": "在菜单栏显示当前配置",
     "settings.showTrayTitleDesc": "在系统托盘图标旁显示当前激活的配置名称",
+    "settings.defaultTerminal": "默认终端",
+    "settings.defaultTerminalDesc": "项目页“一键用终端打开”会使用这里选择的终端应用",
+    "settings.defaultEditor": "默认编辑器",
+    "settings.defaultEditorDesc": "项目页“一键用编辑器打开”会使用这里选择的编辑器应用",
+    "settings.editorUnset": "未设置",
     "settings.enabled": "已启用",
     "settings.disabled": "未启用",
 
@@ -594,6 +604,9 @@ const translations = {
     "projects.lastSessionId": "Last Session ID",
     "projects.lastSessionIdMissing": "No session ID",
     "projects.path": "Project Path",
+    "projects.openInTerminal": "Open in Terminal",
+    "projects.openInEditor": "Open in Editor",
+    "projects.editorNotConfiguredHint": "Choose a default editor in Settings first.",
     "projects.repoRoot": "Git Root",
     "projects.repoRootUnavailable": "Git root unavailable",
     "projects.repository": "Source Repository",
@@ -688,6 +701,8 @@ const translations = {
     "toast.projectAgentsLinked": "AGENTS.md symlink created",
     "toast.projectAgentsLinkError": "Failed to create AGENTS.md symlink",
     "toast.projectOpenRepositoryError": "Failed to open repository",
+    "toast.projectOpenTerminalError": "Failed to open project in terminal",
+    "toast.projectOpenEditorError": "Failed to open project in editor",
 
     // ConfigEditor
     "configModal.provider": "API Provider",
@@ -745,6 +760,13 @@ const translations = {
     "settings.showTrayTitle": "Show active config in menu bar",
     "settings.showTrayTitleDesc":
       "Display the active configuration name next to the system tray icon",
+    "settings.defaultTerminal": "Default Terminal",
+    "settings.defaultTerminalDesc":
+      "The Projects page uses this terminal for the one-click open action.",
+    "settings.defaultEditor": "Default Editor",
+    "settings.defaultEditorDesc":
+      "The Projects page uses this editor for the one-click open action.",
+    "settings.editorUnset": "Not set",
     "settings.enabled": "Enabled",
     "settings.disabled": "Disabled",
 

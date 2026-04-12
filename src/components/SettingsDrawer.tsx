@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import useEscapeKey from "../hooks/useEscapeKey";
 import { useToast } from "../hooks/useToast";
 import { type Language, type Theme, useI18n } from "../i18n";
+import type { AppState, DefaultEditorApp, DefaultTerminalApp } from "../types";
 import "./SettingsDrawer.css";
 
 interface SettingsDrawerProps {
@@ -13,11 +14,15 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   const { t, language, theme, setLanguage, setTheme } = useI18n();
   const { showToast } = useToast();
   const [showTrayTitle, setShowTrayTitle] = useState(true);
+  const [defaultTerminalApp, setDefaultTerminalApp] = useState<DefaultTerminalApp>("terminal");
+  const [defaultEditorApp, setDefaultEditorApp] = useState<DefaultEditorApp | null>(null);
 
   // 从后端加载设置
   useEffect(() => {
-    invoke<{ showTrayTitle: boolean }>("get_configs").then((state) => {
-      setShowTrayTitle(state.showTrayTitle);
+    invoke<AppState>("get_configs").then((state) => {
+      setShowTrayTitle(state.showTrayTitle ?? true);
+      setDefaultTerminalApp(state.defaultTerminalApp ?? "terminal");
+      setDefaultEditorApp(state.defaultEditorApp ?? null);
     });
   }, []);
 
@@ -31,6 +36,34 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
       showToast(t("toast.configSaveError"), "error");
     }
   }, [showTrayTitle, showToast, t]);
+
+  const handleChangeTerminalApp = useCallback(
+    async (app: DefaultTerminalApp) => {
+      const previous = defaultTerminalApp;
+      setDefaultTerminalApp(app);
+      try {
+        await invoke("set_default_terminal_app", { app });
+      } catch {
+        setDefaultTerminalApp(previous);
+        showToast(t("toast.configSaveError"), "error");
+      }
+    },
+    [defaultTerminalApp, showToast, t],
+  );
+
+  const handleChangeEditorApp = useCallback(
+    async (app: DefaultEditorApp | null) => {
+      const previous = defaultEditorApp;
+      setDefaultEditorApp(app);
+      try {
+        await invoke("set_default_editor_app", { app });
+      } catch {
+        setDefaultEditorApp(previous);
+        showToast(t("toast.configSaveError"), "error");
+      }
+    },
+    [defaultEditorApp, showToast, t],
+  );
 
   const themeOptions: {
     value: Theme;
@@ -191,6 +224,54 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                   {showTrayTitle ? t("settings.enabled") : t("settings.disabled")}
                 </span>
               </button>
+            </div>
+          </section>
+
+          <section className="settings-section-card">
+            <div className="settings-section-head">
+              <h3>{t("settings.defaultTerminal")}</h3>
+              <p>{t("settings.defaultTerminalDesc")}</p>
+            </div>
+            <div className="settings-item">
+              <label className="sr-only" htmlFor="settings-terminal-select">
+                {t("settings.defaultTerminal")}
+              </label>
+              <select
+                id="settings-terminal-select"
+                className="settings-select"
+                value={defaultTerminalApp}
+                onChange={(e) => handleChangeTerminalApp(e.target.value as DefaultTerminalApp)}
+              >
+                <option value="terminal">Terminal</option>
+                <option value="iterm">iTerm</option>
+                <option value="warp">Warp</option>
+              </select>
+            </div>
+          </section>
+
+          <section className="settings-section-card">
+            <div className="settings-section-head">
+              <h3>{t("settings.defaultEditor")}</h3>
+              <p>{t("settings.defaultEditorDesc")}</p>
+            </div>
+            <div className="settings-item">
+              <label className="sr-only" htmlFor="settings-editor-select">
+                {t("settings.defaultEditor")}
+              </label>
+              <select
+                id="settings-editor-select"
+                className="settings-select"
+                value={defaultEditorApp ?? ""}
+                onChange={(e) =>
+                  handleChangeEditorApp((e.target.value || null) as DefaultEditorApp | null)
+                }
+              >
+                <option value="">{t("settings.editorUnset")}</option>
+                <option value="vscode">VS Code</option>
+                <option value="cursor">Cursor</option>
+                <option value="windsurf">Windsurf</option>
+                <option value="zed">Zed</option>
+              </select>
             </div>
           </section>
         </div>

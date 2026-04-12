@@ -10,12 +10,15 @@ mod utils;
 
 use config::{
     activate_config, add_config, delete_config, duplicate_config, get_configs, get_defaults,
-    preview_config, reorder_configs, set_show_tray_title, set_ui_language, update_config,
-    update_defaults,
+    preview_config, reorder_configs, set_default_editor_app, set_default_terminal_app,
+    set_show_tray_title, set_ui_language, update_config, update_defaults,
 };
 use history::{get_history, get_history_if_changed, get_session_detail};
 use memory::{add_memory, delete_memory, get_memories, toggle_memory, update_memory};
-use project::{create_project_agents_symlink, get_project_detail};
+use project::{
+    create_project_agents_symlink, get_project_detail, open_project_in_editor,
+    open_project_in_terminal,
+};
 use provider::{
     add_provider, delete_provider, get_providers, reorder_providers, reset_provider,
     reset_provider_order, update_provider,
@@ -64,6 +67,8 @@ pub fn run() {
             preview_config,
             set_show_tray_title,
             set_ui_language,
+            set_default_terminal_app,
+            set_default_editor_app,
             get_memories,
             add_memory,
             update_memory,
@@ -77,6 +82,8 @@ pub fn run() {
             get_session_detail,
             get_project_detail,
             create_project_agents_symlink,
+            open_project_in_terminal,
+            open_project_in_editor,
             get_skills,
             add_skill,
             update_skill,

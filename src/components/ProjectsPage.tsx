@@ -1,11 +1,14 @@
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
 import {
   type AgentsStatus,
+  type AppState,
   type ClaudeStats,
+  type DefaultEditorApp,
   isTauri,
   type ProjectDetail,
   type ProjectSummary,
@@ -90,6 +93,7 @@ function ProjectsPage() {
   const [detail, setDetail] = useState<ProjectDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [isLinkingAgents, setIsLinkingAgents] = useState(false);
+  const [defaultEditorApp, setDefaultEditorApp] = useState<DefaultEditorApp | null>(null);
   const projectsRequestIdRef = useRef(0);
   const detailRequestIdRef = useRef(0);
 
@@ -141,15 +145,31 @@ function ProjectsPage() {
     [],
   );
 
+  const loadLauncherSettings = useCallback(async () => {
+    if (!isTauri()) {
+      setDefaultEditorApp(null);
+      return;
+    }
+
+    const state = await invoke<AppState>("get_configs");
+    setDefaultEditorApp(state.defaultEditorApp ?? null);
+  }, []);
+
   useEffect(() => {
     if (!isTauri()) {
       setProjectSummaries([]);
+      setDefaultEditorApp(null);
       setLoading(false);
       return;
     }
 
     let cancelled = false;
     setLoading(true);
+
+    loadLauncherSettings().catch(() => {
+      if (cancelled) return;
+      setDefaultEditorApp(null);
+    });
 
     loadProjects()
       .catch(() => {
@@ -164,7 +184,11 @@ function ProjectsPage() {
     return () => {
       cancelled = true;
     };
-  }, [loadProjects, showToast, t]);
+  }, [loadLauncherSettings, loadProjects, showToast, t]);
+
+  useTauriEvent<void>("project-launcher-settings-changed", () => {
+    void loadLauncherSettings();
+  });
 
   const selectedSummary = useMemo(
     () => projectSummaries.find((summary) => summary.project === selectedProject) ?? null,
@@ -271,9 +295,33 @@ function ProjectsPage() {
     }
   }, [detail?.repositoryUrl, showToast, t]);
 
+  const handleOpenInTerminal = useCallback(async () => {
+    const projectPath = detail?.path ?? selectedSummary?.project;
+    if (!projectPath || !isTauri()) return;
+
+    try {
+      await invoke("open_project_in_terminal", { project: projectPath });
+    } catch {
+      showToast(t("toast.projectOpenTerminalError"), "error");
+    }
+  }, [detail?.path, selectedSummary?.project, showToast, t]);
+
+  const handleOpenInEditor = useCallback(async () => {
+    const projectPath = detail?.path ?? selectedSummary?.project;
+    if (!projectPath || !defaultEditorApp || !isTauri()) return;
+
+    try {
+      await invoke("open_project_in_editor", { project: projectPath });
+    } catch {
+      showToast(t("toast.projectOpenEditorError"), "error");
+    }
+  }, [defaultEditorApp, detail?.path, selectedSummary?.project, showToast, t]);
+
   const canCreateAgentsLink =
     Boolean(detail?.hasClaudeMd) && detail?.agentsStatus !== "plainFileConflict";
   const canOpenRepository = Boolean(detail?.repositoryUrl);
+  const canOpenProjectDirectory = Boolean(detail?.exists);
+  const canOpenInEditor = canOpenProjectDirectory && Boolean(defaultEditorApp);
 
   if (loading) {
     return (
@@ -394,9 +442,32 @@ function ProjectsPage() {
               </div>
 
               <div className="projects-overview-grid">
-                <div className="projects-info-card">
+                <div className="projects-info-card projects-info-card-wide">
                   <span className="projects-info-label">{t("projects.path")}</span>
                   <span className="projects-info-value break-all">{selectedSummary.project}</span>
+                  <div className="projects-action-group">
+                    <button
+                      type="button"
+                      className="projects-link-btn"
+                      onClick={handleOpenInTerminal}
+                      disabled={!canOpenProjectDirectory}
+                    >
+                      {t("projects.openInTerminal")}
+                    </button>
+                    <button
+                      type="button"
+                      className="projects-link-btn"
+                      onClick={handleOpenInEditor}
+                      disabled={!canOpenInEditor}
+                    >
+                      {t("projects.openInEditor")}
+                    </button>
+                  </div>
+                  {!defaultEditorApp && (
+                    <p className="projects-note projects-note-warning">
+                      {t("projects.editorNotConfiguredHint")}
+                    </p>
+                  )}
                 </div>
                 <div className="projects-info-card">
                   <span className="projects-info-label">{t("projects.lastCost")}</span>

@@ -72,7 +72,13 @@ export interface AppState {
   defaults?: string | null;
   showTrayTitle?: boolean;
   uiLanguage?: "zh" | "en";
+  defaultTerminalApp?: DefaultTerminalApp;
+  defaultEditorApp?: DefaultEditorApp | null;
 }
+
+export type DefaultTerminalApp = "terminal" | "iterm" | "warp";
+
+export type DefaultEditorApp = "vscode" | "cursor" | "windsurf" | "zed";
 
 // 记忆条目
 export interface Memory {

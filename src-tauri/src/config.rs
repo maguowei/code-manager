@@ -3,7 +3,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
 
 /// 新增/更新配置的数据传输对象
@@ -177,6 +177,12 @@ pub struct AppState {
     /// 界面语言，同时用于 tray / menubar 菜单国际化
     #[serde(default = "default_ui_language")]
     pub ui_language: String,
+    /// 默认终端应用，用于项目目录一键打开
+    #[serde(default = "default_terminal_app")]
+    pub default_terminal_app: String,
+    /// 默认编辑器应用，允许为空表示尚未配置
+    #[serde(default)]
+    pub default_editor_app: Option<String>,
 }
 
 fn default_true() -> bool {
@@ -187,11 +193,34 @@ fn default_ui_language() -> String {
     "zh".to_string()
 }
 
+fn default_terminal_app() -> String {
+    "terminal".to_string()
+}
+
 fn normalize_ui_language(language: &str) -> Result<&'static str, String> {
     match language {
         "zh" => Ok("zh"),
         "en" => Ok("en"),
         _ => Err("仅支持 zh / en 两种界面语言".to_string()),
+    }
+}
+
+pub fn normalize_default_terminal_app(app: &str) -> Result<&'static str, String> {
+    match app {
+        "terminal" => Ok("terminal"),
+        "iterm" => Ok("iterm"),
+        "warp" => Ok("warp"),
+        _ => Err("仅支持 terminal / iterm / warp 三种终端".to_string()),
+    }
+}
+
+pub fn normalize_default_editor_app(app: &str) -> Result<&'static str, String> {
+    match app {
+        "vscode" => Ok("vscode"),
+        "cursor" => Ok("cursor"),
+        "windsurf" => Ok("windsurf"),
+        "zed" => Ok("zed"),
+        _ => Err("仅支持 vscode / cursor / windsurf / zed 四种编辑器".to_string()),
     }
 }
 
@@ -203,6 +232,8 @@ impl Default for AppState {
             defaults: None,
             show_tray_title: default_true(),
             ui_language: default_ui_language(),
+            default_terminal_app: default_terminal_app(),
+            default_editor_app: None,
         }
     }
 }
@@ -707,6 +738,49 @@ pub fn set_ui_language(app_handle: AppHandle, language: String) -> Result<(), St
     Ok(())
 }
 
+/// 设置项目目录“一键打开”默认终端
+#[tauri::command]
+pub fn set_default_terminal_app(app_handle: AppHandle, app: String) -> Result<(), String> {
+    let _lock = crate::utils::lock_config()?;
+
+    let normalized = normalize_default_terminal_app(app.trim())?;
+    let mut state = load_state();
+    if state.default_terminal_app == normalized {
+        return Ok(());
+    }
+
+    state.default_terminal_app = normalized.to_string();
+    save_state(&state)?;
+    let _ = app_handle.emit("project-launcher-settings-changed", ());
+
+    Ok(())
+}
+
+/// 设置项目目录“一键打开”默认编辑器，None 表示清空配置
+#[tauri::command]
+pub fn set_default_editor_app(app_handle: AppHandle, app: Option<String>) -> Result<(), String> {
+    let _lock = crate::utils::lock_config()?;
+
+    let normalized = app
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(normalize_default_editor_app)
+        .transpose()?
+        .map(str::to_string);
+
+    let mut state = load_state();
+    if state.default_editor_app == normalized {
+        return Ok(());
+    }
+
+    state.default_editor_app = normalized;
+    save_state(&state)?;
+    let _ = app_handle.emit("project-launcher-settings-changed", ());
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod schema_tests {
     use super::*;
@@ -878,12 +952,69 @@ mod schema_tests {
     }
 
     #[test]
+    fn app_state_defaults_project_open_preferences() {
+        let state: AppState = serde_json::from_value(json!({
+            "configs": [],
+            "activeConfigId": null,
+            "showTrayTitle": true
+        }))
+        .expect("AppState 应可从旧数据结构反序列化");
+
+        assert_eq!(state.default_terminal_app, "terminal");
+        assert_eq!(state.default_editor_app, None);
+    }
+
+    #[test]
     fn normalize_ui_language_accepts_supported_values_only() {
         assert_eq!(normalize_ui_language("zh").expect("zh 应被接受"), "zh");
         assert_eq!(normalize_ui_language("en").expect("en 应被接受"), "en");
         assert!(
             normalize_ui_language("ja").is_err(),
             "未支持的语言应返回错误"
+        );
+    }
+
+    #[test]
+    fn normalize_default_terminal_app_accepts_supported_values_only() {
+        assert_eq!(
+            normalize_default_terminal_app("terminal").expect("terminal 应被接受"),
+            "terminal"
+        );
+        assert_eq!(
+            normalize_default_terminal_app("iterm").expect("iterm 应被接受"),
+            "iterm"
+        );
+        assert_eq!(
+            normalize_default_terminal_app("warp").expect("warp 应被接受"),
+            "warp"
+        );
+        assert!(
+            normalize_default_terminal_app("ghostty").is_err(),
+            "未支持的终端应返回错误"
+        );
+    }
+
+    #[test]
+    fn normalize_default_editor_app_accepts_supported_values_only() {
+        assert_eq!(
+            normalize_default_editor_app("vscode").expect("vscode 应被接受"),
+            "vscode"
+        );
+        assert_eq!(
+            normalize_default_editor_app("cursor").expect("cursor 应被接受"),
+            "cursor"
+        );
+        assert_eq!(
+            normalize_default_editor_app("windsurf").expect("windsurf 应被接受"),
+            "windsurf"
+        );
+        assert_eq!(
+            normalize_default_editor_app("zed").expect("zed 应被接受"),
+            "zed"
+        );
+        assert!(
+            normalize_default_editor_app("neovim").is_err(),
+            "未支持的编辑器应返回错误"
         );
     }
 }
