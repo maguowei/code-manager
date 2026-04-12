@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import {
   createContext,
   createElement,
@@ -8,6 +9,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { type AppState, isTauri } from "./types";
 
 export type Language = "zh" | "en";
 export type Theme = "light" | "dark" | "system";
@@ -952,6 +954,12 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       saveSettings(next);
       return next;
     });
+
+    if (isTauri()) {
+      void invoke("set_ui_language", { language }).catch(() => {
+        // 忽略同步失败，保持界面语言仍可用
+      });
+    }
   }, []);
 
   const setTheme = useCallback((theme: Theme) => {
@@ -967,6 +975,34 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: 仅在挂载时执行一次
   useEffect(() => {
     applyTheme(settings.theme);
+  }, []);
+
+  useEffect(() => {
+    if (!isTauri()) return;
+
+    let cancelled = false;
+
+    void invoke<AppState>("get_configs")
+      .then((state) => {
+        if (cancelled) return;
+
+        const backendLanguage: Language = state.uiLanguage === "en" ? "en" : "zh";
+        setSettings((prev) => {
+          if (prev.language === backendLanguage) {
+            return prev;
+          }
+          const next = { ...prev, language: backendLanguage };
+          saveSettings(next);
+          return next;
+        });
+      })
+      .catch(() => {
+        // 忽略初始化同步失败，回退到本地缓存语言
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // 监听系统主题变化（仅在 "system" 模式下生效）

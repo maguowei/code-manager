@@ -164,7 +164,7 @@ pub struct ClaudeConfig {
     pub updated_at: u64,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppState {
     pub configs: Vec<ClaudeConfig>,
@@ -174,10 +174,37 @@ pub struct AppState {
     /// 是否在托盘图标旁显示当前激活配置名（默认 true）
     #[serde(default = "default_true")]
     pub show_tray_title: bool,
+    /// 界面语言，同时用于 tray / menubar 菜单国际化
+    #[serde(default = "default_ui_language")]
+    pub ui_language: String,
 }
 
 fn default_true() -> bool {
     true
+}
+
+fn default_ui_language() -> String {
+    "zh".to_string()
+}
+
+fn normalize_ui_language(language: &str) -> Result<&'static str, String> {
+    match language {
+        "zh" => Ok("zh"),
+        "en" => Ok("en"),
+        _ => Err("仅支持 zh / en 两种界面语言".to_string()),
+    }
+}
+
+impl Default for AppState {
+    fn default() -> Self {
+        Self {
+            configs: Vec::new(),
+            active_config_id: None,
+            defaults: None,
+            show_tray_title: default_true(),
+            ui_language: default_ui_language(),
+        }
+    }
 }
 
 /// 获取应用配置文件路径
@@ -662,6 +689,24 @@ pub fn set_show_tray_title(app_handle: AppHandle, show: bool) -> Result<(), Stri
     Ok(())
 }
 
+/// 设置界面语言，并同步重建 tray / menubar 菜单
+#[tauri::command]
+pub fn set_ui_language(app_handle: AppHandle, language: String) -> Result<(), String> {
+    let _lock = crate::utils::lock_config()?;
+
+    let normalized = normalize_ui_language(&language)?;
+    let mut state = load_state();
+    if state.ui_language == normalized {
+        return Ok(());
+    }
+
+    state.ui_language = normalized.to_string();
+    save_state(&state)?;
+    rebuild_tray_menu(&app_handle, Some(&state));
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod schema_tests {
     use super::*;
@@ -817,6 +862,28 @@ mod schema_tests {
         assert!(
             result.is_err(),
             "旧的 apiUrl 字段不应继续被 ConfigData 接受"
+        );
+    }
+
+    #[test]
+    fn app_state_defaults_ui_language_to_zh() {
+        let state: AppState = serde_json::from_value(json!({
+            "configs": [],
+            "activeConfigId": null,
+            "showTrayTitle": true
+        }))
+        .expect("AppState 应可从旧数据结构反序列化");
+
+        assert_eq!(state.ui_language, "zh");
+    }
+
+    #[test]
+    fn normalize_ui_language_accepts_supported_values_only() {
+        assert_eq!(normalize_ui_language("zh").expect("zh 应被接受"), "zh");
+        assert_eq!(normalize_ui_language("en").expect("en 应被接受"), "en");
+        assert!(
+            normalize_ui_language("ja").is_err(),
+            "未支持的语言应返回错误"
         );
     }
 }

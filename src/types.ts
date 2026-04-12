@@ -70,6 +70,8 @@ export interface AppState {
   configs: ClaudeConfig[];
   activeConfigId: string | null;
   defaults?: string | null;
+  showTrayTitle?: boolean;
+  uiLanguage?: "zh" | "en";
 }
 
 // 记忆条目

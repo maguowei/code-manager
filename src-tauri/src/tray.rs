@@ -5,22 +5,65 @@ use tauri::{
     AppHandle, Emitter, Manager,
 };
 
+struct TrayLabels<'a> {
+    show_window: &'a str,
+    nav_configs: &'a str,
+    no_configs: &'a str,
+    nav_memory: &'a str,
+    nav_skills: &'a str,
+    nav_providers: &'a str,
+    nav_projects: &'a str,
+    nav_history: &'a str,
+    nav_stats: &'a str,
+    quit: &'a str,
+}
+
+fn tray_labels_for_language(language: &str) -> TrayLabels<'static> {
+    match language {
+        "en" => TrayLabels {
+            show_window: "Open AI Manager",
+            nav_configs: "Configuration",
+            no_configs: "No configs",
+            nav_memory: "Memory",
+            nav_skills: "Skills",
+            nav_providers: "Provider Management",
+            nav_projects: "Projects",
+            nav_history: "History",
+            nav_stats: "Usage Statistics",
+            quit: "Quit",
+        },
+        _ => TrayLabels {
+            show_window: "打开 AI Manager",
+            nav_configs: "配置管理",
+            no_configs: "暂无配置",
+            nav_memory: "记忆管理",
+            nav_skills: "Skills 管理",
+            nav_providers: "Provider 管理",
+            nav_projects: "项目管理",
+            nav_history: "历史记录",
+            nav_stats: "使用统计",
+            quit: "退出",
+        },
+    }
+}
+
 /// 构建托盘菜单
 fn build_tray_menu(app: &AppHandle, state: &AppState) -> tauri::Result<Menu<tauri::Wry>> {
     let mut items: Vec<Box<dyn tauri::menu::IsMenuItem<tauri::Wry>>> = Vec::new();
+    let labels = tray_labels_for_language(&state.ui_language);
 
     // 顶部：点击打开主窗口
-    let show = MenuItemBuilder::with_id("show_window", "打开 AI Manager").build(app)?;
+    let show = MenuItemBuilder::with_id("show_window", labels.show_window).build(app)?;
     items.push(Box::new(show));
     items.push(Box::new(PredefinedMenuItem::separator(app)?));
 
     // 配置管理导航项（可点击，同时作为配置列表标题）
-    let nav_configs = MenuItemBuilder::with_id("nav_configs", "配置管理").build(app)?;
+    let nav_configs = MenuItemBuilder::with_id("nav_configs", labels.nav_configs).build(app)?;
     items.push(Box::new(nav_configs));
 
     // 配置列表
     if state.configs.is_empty() {
-        let empty = MenuItemBuilder::with_id("no_configs", "暂无配置")
+        let empty = MenuItemBuilder::with_id("no_configs", labels.no_configs)
             .enabled(false)
             .build(app)?;
         items.push(Box::new(empty));
@@ -42,12 +85,12 @@ fn build_tray_menu(app: &AppHandle, state: &AppState) -> tauri::Result<Menu<taur
 
     // 页面导航项
     for (id, label) in [
-        ("nav_memory", "记忆管理"),
-        ("nav_skills", "Skills 管理"),
-        ("nav_providers", "Provider 管理"),
-        ("nav_projects", "项目管理"),
-        ("nav_history", "历史记录"),
-        ("nav_stats", "使用统计"),
+        ("nav_memory", labels.nav_memory),
+        ("nav_skills", labels.nav_skills),
+        ("nav_providers", labels.nav_providers),
+        ("nav_projects", labels.nav_projects),
+        ("nav_history", labels.nav_history),
+        ("nav_stats", labels.nav_stats),
     ] {
         let item = MenuItemBuilder::with_id(id, label).build(app)?;
         items.push(Box::new(item));
@@ -56,7 +99,7 @@ fn build_tray_menu(app: &AppHandle, state: &AppState) -> tauri::Result<Menu<taur
     items.push(Box::new(PredefinedMenuItem::separator(app)?));
 
     // 退出
-    let quit = MenuItemBuilder::with_id("quit", "退出").build(app)?;
+    let quit = MenuItemBuilder::with_id("quit", labels.quit).build(app)?;
     items.push(Box::new(quit));
 
     // 构建菜单：将 items 转为引用切片
@@ -178,4 +221,22 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
         .build(app)?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::tray_labels_for_language;
+
+    #[test]
+    fn tray_labels_follow_selected_language() {
+        let zh = tray_labels_for_language("zh");
+        assert_eq!(zh.show_window, "打开 AI Manager");
+        assert_eq!(zh.nav_projects, "项目管理");
+        assert_eq!(zh.quit, "退出");
+
+        let en = tray_labels_for_language("en");
+        assert_eq!(en.show_window, "Open AI Manager");
+        assert_eq!(en.nav_providers, "Provider Management");
+        assert_eq!(en.quit, "Quit");
+    }
 }
