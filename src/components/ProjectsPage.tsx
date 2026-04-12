@@ -1,25 +1,56 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  groupByProject,
-  type HistoryProjectGroup,
-  sortProjectGroupsByRecency,
-} from "../history-utils";
-import { useHistoryEntries } from "../hooks/useHistoryEntries";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
-import { type AgentsStatus, isTauri, type ProjectDetail } from "../types";
+import {
+  type AgentsStatus,
+  type ClaudeStats,
+  isTauri,
+  type ProjectDetail,
+  type ProjectSummary,
+} from "../types";
 import "./ProjectsPage.css";
 
 type TranslateFn = ReturnType<typeof useI18n>["t"];
 
-function formatDateTime(timestamp: number) {
-  return new Date(timestamp).toLocaleString();
+function shortProjectName(fullPath: string) {
+  const parts = fullPath.split("/").filter(Boolean);
+  return parts.length > 0 ? parts[parts.length - 1] : fullPath;
+}
+
+function formatUSD(val: number) {
+  return val < 0.01 && val > 0 ? "< $0.01" : `$${val.toFixed(2)}`;
+}
+
+function formatDuration(ms: number) {
+  if (ms < 1000) return `${ms}ms`;
+  const sec = ms / 1000;
+  if (sec < 60) return `${sec.toFixed(1)}s`;
+  const min = sec / 60;
+  if (min < 60) return `${min.toFixed(1)}m`;
+  return `${(min / 60).toFixed(1)}h`;
 }
 
 function formatCommitTime(timestamp?: number) {
   if (!timestamp) return null;
   return new Date(timestamp * 1000).toLocaleString();
+}
+
+function buildProjectSummaries(stats: ClaudeStats): ProjectSummary[] {
+  return Object.entries(stats.projects)
+    .map(([project, projectStats]) => ({
+      project,
+      shortName: shortProjectName(project),
+      lastCost: projectStats.lastCost,
+      lastDuration: projectStats.lastDuration,
+      lastSessionId: projectStats.lastSessionId,
+    }))
+    .sort(
+      (a, b) =>
+        b.lastDuration - a.lastDuration ||
+        b.lastCost - a.lastCost ||
+        a.project.localeCompare(b.project),
+    );
 }
 
 function agentsStatusLabel(status: AgentsStatus, t: TranslateFn) {
@@ -51,33 +82,62 @@ function agentsStatusTone(status: AgentsStatus) {
 function ProjectsPage() {
   const { t } = useI18n();
   const { showToast } = useToast();
-  const { entries: allEntries, loading } = useHistoryEntries(t("history.noData"));
+  const [projectSummaries, setProjectSummaries] = useState<ProjectSummary[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [detail, setDetail] = useState<ProjectDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [isLinkingAgents, setIsLinkingAgents] = useState(false);
 
-  const projectGroups = useMemo<HistoryProjectGroup[]>(
-    () => sortProjectGroupsByRecency(groupByProject(allEntries)),
-    [allEntries],
-  );
+  useEffect(() => {
+    if (!isTauri()) {
+      setProjectSummaries([]);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+
+    invoke<ClaudeStats>("get_stats")
+      .then((stats) => {
+        if (cancelled) return;
+        setProjectSummaries(buildProjectSummaries(stats));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setProjectSummaries([]);
+        showToast(t("toast.projectListError"), "error");
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showToast, t]);
 
   const selectedSummary = useMemo(
-    () => projectGroups.find((group) => group.project === selectedProject) ?? null,
-    [projectGroups, selectedProject],
+    () => projectSummaries.find((summary) => summary.project === selectedProject) ?? null,
+    [projectSummaries, selectedProject],
   );
 
   useEffect(() => {
-    if (projectGroups.length === 0) {
+    if (projectSummaries.length === 0) {
       setSelectedProject(null);
       setDetail(null);
       return;
     }
 
-    if (!selectedProject || !projectGroups.some((group) => group.project === selectedProject)) {
-      setSelectedProject(projectGroups[0].project);
+    if (
+      !selectedProject ||
+      !projectSummaries.some((summary) => summary.project === selectedProject)
+    ) {
+      setSelectedProject(projectSummaries[0].project);
     }
-  }, [projectGroups, selectedProject]);
+  }, [projectSummaries, selectedProject]);
 
   useEffect(() => {
     if (!selectedProject) {
@@ -92,6 +152,7 @@ function ProjectsPage() {
     }
 
     let cancelled = false;
+    setDetail(null);
     setDetailLoading(true);
 
     invoke<ProjectDetail>("get_project_detail", { project: selectedProject })
@@ -143,7 +204,7 @@ function ProjectsPage() {
     );
   }
 
-  if (projectGroups.length === 0) {
+  if (projectSummaries.length === 0) {
     return (
       <div className="projects-page">
         <div className="page-header">
@@ -164,28 +225,25 @@ function ProjectsPage() {
 
       <div className="projects-body">
         <aside className="projects-list" aria-label={t("projects.title")}>
-          {projectGroups.map((group) => (
+          {projectSummaries.map((summary) => (
             <button
-              key={group.project}
+              key={summary.project}
               type="button"
-              className={`projects-list-item${selectedProject === group.project ? " selected" : ""}`}
-              onClick={() => setSelectedProject(group.project)}
-              title={group.project}
+              className={`projects-list-item${selectedProject === summary.project ? " selected" : ""}`}
+              onClick={() => setSelectedProject(summary.project)}
+              title={summary.project}
             >
               <div className="projects-list-main">
-                <span className="projects-list-name">{group.shortName}</span>
-                <span className="projects-list-path">{group.project}</span>
+                <span className="projects-list-name">{summary.shortName}</span>
+                <span className="projects-list-path">{summary.project}</span>
               </div>
               <div className="projects-list-meta">
                 <span>
-                  {group.messageCount} {t("projects.messages")}
+                  {t("projects.lastCost")} {formatUSD(summary.lastCost)}
                 </span>
                 <span>
-                  {group.sessionCount} {t("projects.sessions")}
+                  {t("projects.lastDuration")} {formatDuration(summary.lastDuration)}
                 </span>
-              </div>
-              <div className="projects-list-time">
-                {t("projects.lastActive")} {formatDateTime(group.lastTimestamp)}
               </div>
             </button>
           ))}
@@ -222,18 +280,20 @@ function ProjectsPage() {
                   <span className="projects-info-value break-all">{selectedSummary.project}</span>
                 </div>
                 <div className="projects-info-card">
-                  <span className="projects-info-label">{t("projects.lastActive")}</span>
+                  <span className="projects-info-label">{t("projects.lastCost")}</span>
+                  <span className="projects-info-value">{formatUSD(selectedSummary.lastCost)}</span>
+                </div>
+                <div className="projects-info-card">
+                  <span className="projects-info-label">{t("projects.lastDuration")}</span>
                   <span className="projects-info-value">
-                    {formatDateTime(selectedSummary.lastTimestamp)}
+                    {formatDuration(selectedSummary.lastDuration)}
                   </span>
                 </div>
                 <div className="projects-info-card">
-                  <span className="projects-info-label">{t("projects.messages")}</span>
-                  <span className="projects-info-value">{selectedSummary.messageCount}</span>
-                </div>
-                <div className="projects-info-card">
-                  <span className="projects-info-label">{t("projects.sessions")}</span>
-                  <span className="projects-info-value">{selectedSummary.sessionCount}</span>
+                  <span className="projects-info-label">{t("projects.lastSessionId")}</span>
+                  <span className="projects-info-value break-all">
+                    {selectedSummary.lastSessionId ?? t("projects.lastSessionIdMissing")}
+                  </span>
                 </div>
                 <div className="projects-info-card">
                   <span className="projects-info-label">{t("projects.directoryStatus")}</span>
@@ -249,12 +309,12 @@ function ProjectsPage() {
                     {detail?.isGitRepo ? t("projects.gitRepo") : t("projects.notGitRepo")}
                   </span>
                 </div>
-                {detail?.repoRoot && (
-                  <div className="projects-info-card projects-info-card-wide">
-                    <span className="projects-info-label">{t("projects.repoRoot")}</span>
-                    <span className="projects-info-value break-all">{detail.repoRoot}</span>
-                  </div>
-                )}
+                <div className="projects-info-card projects-info-card-wide">
+                  <span className="projects-info-label">{t("projects.repoRoot")}</span>
+                  <span className="projects-info-value break-all">
+                    {detail?.repoRoot ?? t("projects.repoRootUnavailable")}
+                  </span>
+                </div>
               </div>
 
               <div className="projects-section">

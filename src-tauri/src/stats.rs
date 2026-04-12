@@ -60,6 +60,8 @@ pub struct ProjectStats {
     #[serde(default)]
     pub last_duration: u64,
     #[serde(default)]
+    pub last_session_id: Option<String>,
+    #[serde(default)]
     pub last_model_usage: HashMap<String, ModelUsage>,
     #[serde(default)]
     pub last_session_metrics: Option<SessionMetrics>,
@@ -241,4 +243,30 @@ pub fn start_snapshot_timer() -> SnapshotHandle {
     });
 
     SnapshotHandle { stop_pair }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ClaudeStats;
+
+    #[test]
+    fn deserializes_project_last_session_id() {
+        let json = r#"{
+            "projects": {
+                "/tmp/demo": {
+                    "lastCost": 1.25,
+                    "lastDuration": 4200,
+                    "lastSessionId": "session-123"
+                }
+            }
+        }"#;
+
+        let stats: ClaudeStats = serde_json::from_str(json).expect("stats should deserialize");
+        let project = stats
+            .projects
+            .get("/tmp/demo")
+            .expect("project should exist");
+
+        assert_eq!(project.last_session_id.as_deref(), Some("session-123"));
+    }
 }

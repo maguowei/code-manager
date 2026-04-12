@@ -117,6 +117,7 @@ export interface UsageEntry {
 export interface ProjectStats {
   lastCost: number;
   lastDuration: number;
+  lastSessionId?: string;
   lastModelUsage: Record<string, ModelUsage>;
   lastSessionMetrics?: SessionMetrics;
   lastTotalInputTokens: number;
@@ -170,9 +171,9 @@ export interface HistoryEntry {
 export interface ProjectSummary {
   project: string;
   shortName: string;
-  messageCount: number;
-  sessionCount: number;
-  lastTimestamp: number;
+  lastCost: number;
+  lastDuration: number;
+  lastSessionId?: string;
 }
 
 export type AgentsStatus = "missing" | "correctSymlink" | "wrongSymlink" | "plainFileConflict";

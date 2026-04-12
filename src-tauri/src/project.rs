@@ -373,7 +373,8 @@ mod tests {
 
     #[test]
     fn parse_branches_output_marks_current_branch_and_metadata() {
-        let output = "main\0*\0001710000000\0Main branch\nfeature/test\0 \0001700000000\0Feature branch\n";
+        let output =
+            "main\0*\0001710000000\0Main branch\nfeature/test\0 \0001700000000\0Feature branch\n";
 
         let branches = parse_branches_output(output);
 
@@ -381,7 +382,10 @@ mod tests {
         assert_eq!(branches[0].name, "main");
         assert!(branches[0].is_current);
         assert_eq!(branches[0].last_commit_at, Some(1710000000));
-        assert_eq!(branches[0].last_commit_subject.as_deref(), Some("Main branch"));
+        assert_eq!(
+            branches[0].last_commit_subject.as_deref(),
+            Some("Main branch")
+        );
         assert_eq!(branches[1].name, "feature/test");
         assert!(!branches[1].is_current);
     }

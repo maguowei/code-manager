@@ -1,11 +1,16 @@
-import type { HistoryEntry, ProjectSummary } from "./types";
+import type { HistoryEntry } from "./types";
 
 export interface HistoryResult {
   content: string;
   mtime: number;
 }
 
-export interface HistoryProjectGroup extends ProjectSummary {
+export interface HistoryProjectGroup {
+  project: string;
+  shortName: string;
+  messageCount: number;
+  sessionCount: number;
+  lastTimestamp: number;
   entries: HistoryEntry[];
 }
 
