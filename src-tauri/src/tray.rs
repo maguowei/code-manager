@@ -44,6 +44,8 @@ fn build_tray_menu(app: &AppHandle, state: &AppState) -> tauri::Result<Menu<taur
     for (id, label) in [
         ("nav_memory", "记忆管理"),
         ("nav_skills", "Skills 管理"),
+        ("nav_providers", "Provider 管理"),
+        ("nav_projects", "项目管理"),
         ("nav_history", "历史记录"),
         ("nav_stats", "使用统计"),
     ] {
