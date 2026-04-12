@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
 import {
@@ -84,10 +84,61 @@ function ProjectsPage() {
   const { showToast } = useToast();
   const [projectSummaries, setProjectSummaries] = useState<ProjectSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [detail, setDetail] = useState<ProjectDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [isLinkingAgents, setIsLinkingAgents] = useState(false);
+  const projectsRequestIdRef = useRef(0);
+  const detailRequestIdRef = useRef(0);
+
+  const loadProjects = useCallback(async () => {
+    if (!isTauri()) {
+      setProjectSummaries([]);
+      return [] as ProjectSummary[];
+    }
+
+    const requestId = ++projectsRequestIdRef.current;
+    const stats = await invoke<ClaudeStats>("get_stats");
+    const summaries = buildProjectSummaries(stats);
+
+    if (projectsRequestIdRef.current === requestId) {
+      setProjectSummaries(summaries);
+    }
+
+    return summaries;
+  }, []);
+
+  const loadProjectDetail = useCallback(
+    async (project: string, options?: { clearBeforeLoad?: boolean }) => {
+      if (!isTauri()) {
+        setDetail(null);
+        setDetailLoading(false);
+        return null;
+      }
+
+      const requestId = ++detailRequestIdRef.current;
+      const shouldClearBeforeLoad = options?.clearBeforeLoad ?? true;
+
+      if (shouldClearBeforeLoad) {
+        setDetail(null);
+      }
+      setDetailLoading(true);
+
+      try {
+        const result = await invoke<ProjectDetail>("get_project_detail", { project });
+        if (detailRequestIdRef.current === requestId) {
+          setDetail(result);
+        }
+        return result;
+      } finally {
+        if (detailRequestIdRef.current === requestId) {
+          setDetailLoading(false);
+        }
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!isTauri()) {
@@ -99,14 +150,9 @@ function ProjectsPage() {
     let cancelled = false;
     setLoading(true);
 
-    invoke<ClaudeStats>("get_stats")
-      .then((stats) => {
-        if (cancelled) return;
-        setProjectSummaries(buildProjectSummaries(stats));
-      })
+    loadProjects()
       .catch(() => {
         if (cancelled) return;
-        setProjectSummaries([]);
         showToast(t("toast.projectListError"), "error");
       })
       .finally(() => {
@@ -117,7 +163,7 @@ function ProjectsPage() {
     return () => {
       cancelled = true;
     };
-  }, [showToast, t]);
+  }, [loadProjects, showToast, t]);
 
   const selectedSummary = useMemo(
     () => projectSummaries.find((summary) => summary.project === selectedProject) ?? null,
@@ -141,39 +187,63 @@ function ProjectsPage() {
 
   useEffect(() => {
     if (!selectedProject) {
+      detailRequestIdRef.current += 1;
       setDetail(null);
+      setDetailLoading(false);
       return;
     }
 
     if (!isTauri()) {
+      detailRequestIdRef.current += 1;
       setDetail(null);
       setDetailLoading(false);
       return;
     }
 
     let cancelled = false;
-    setDetail(null);
-    setDetailLoading(true);
 
-    invoke<ProjectDetail>("get_project_detail", { project: selectedProject })
-      .then((result) => {
-        if (cancelled) return;
-        setDetail(result);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setDetail(null);
-        showToast(t("toast.projectDetailError"), "error");
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setDetailLoading(false);
-      });
+    loadProjectDetail(selectedProject).catch(() => {
+      if (cancelled) return;
+      setDetail(null);
+      showToast(t("toast.projectDetailError"), "error");
+    });
 
     return () => {
       cancelled = true;
     };
-  }, [selectedProject, showToast, t]);
+  }, [loadProjectDetail, selectedProject, showToast, t]);
+
+  const handleRefresh = useCallback(async () => {
+    if (!isTauri()) return;
+
+    setIsRefreshing(true);
+    try {
+      const summaries = await loadProjects();
+
+      if (summaries.length === 0) {
+        detailRequestIdRef.current += 1;
+        setSelectedProject(null);
+        setDetail(null);
+        setDetailLoading(false);
+      } else if (
+        selectedProject &&
+        summaries.some((summary) => summary.project === selectedProject)
+      ) {
+        await loadProjectDetail(selectedProject, { clearBeforeLoad: false });
+      } else {
+        detailRequestIdRef.current += 1;
+        setDetail(null);
+        setDetailLoading(false);
+        setSelectedProject(summaries[0].project);
+      }
+
+      showToast(t("toast.projectRefreshed"));
+    } catch {
+      showToast(t("toast.projectRefreshError"), "error");
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [loadProjectDetail, loadProjects, selectedProject, showToast, t]);
 
   const handleCreateAgentsLink = useCallback(async () => {
     if (!selectedProject || !isTauri()) return;
@@ -181,17 +251,14 @@ function ProjectsPage() {
     setIsLinkingAgents(true);
     try {
       await invoke("create_project_agents_symlink", { project: selectedProject });
-      const refreshed = await invoke<ProjectDetail>("get_project_detail", {
-        project: selectedProject,
-      });
-      setDetail(refreshed);
+      await loadProjectDetail(selectedProject, { clearBeforeLoad: false });
       showToast(t("toast.projectAgentsLinked"));
     } catch {
       showToast(t("toast.projectAgentsLinkError"), "error");
     } finally {
       setIsLinkingAgents(false);
     }
-  }, [selectedProject, showToast, t]);
+  }, [loadProjectDetail, selectedProject, showToast, t]);
 
   const canCreateAgentsLink =
     Boolean(detail?.hasClaudeMd) && detail?.agentsStatus !== "plainFileConflict";
@@ -209,6 +276,26 @@ function ProjectsPage() {
       <div className="projects-page">
         <div className="page-header">
           <h1 className="page-title">{t("projects.title")}</h1>
+          <button
+            type="button"
+            className="projects-refresh-btn"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <polyline points="23 4 23 10 17 10" />
+              <polyline points="1 20 1 14 7 14" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+            {isRefreshing ? t("projects.refreshing") : t("projects.refresh")}
+          </button>
         </div>
         <div className="projects-empty-panel">
           <div className="empty-state">{t("projects.emptyHint")}</div>
@@ -221,6 +308,26 @@ function ProjectsPage() {
     <div className="projects-page">
       <div className="page-header">
         <h1 className="page-title">{t("projects.title")}</h1>
+        <button
+          type="button"
+          className="projects-refresh-btn"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <polyline points="23 4 23 10 17 10" />
+            <polyline points="1 20 1 14 7 14" />
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+          </svg>
+          {isRefreshing ? t("projects.refreshing") : t("projects.refresh")}
+        </button>
       </div>
 
       <div className="projects-body">
