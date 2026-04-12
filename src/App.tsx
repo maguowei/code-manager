@@ -9,6 +9,7 @@ import Drawer from "./components/Drawer";
 import HistoryPage from "./components/HistoryPage";
 import { PlusIcon } from "./components/Icons";
 import MemoryPage from "./components/MemoryPage";
+import ProjectsPage from "./components/ProjectsPage";
 import ProviderPage from "./components/ProviderPage";
 import SettingsDrawer from "./components/SettingsDrawer";
 import Sidebar from "./components/Sidebar";
@@ -329,6 +330,8 @@ function App() {
       <div className="content-area">
         {activeTab === "stats" ? (
           <StatsPage />
+        ) : activeTab === "projects" ? (
+          <ProjectsPage />
         ) : activeTab === "history" ? (
           <HistoryPage />
         ) : activeTab === "providers" ? (

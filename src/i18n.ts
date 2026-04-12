@@ -117,6 +117,7 @@ const translations = {
     "nav.configs": "配置",
     "nav.memory": "记忆",
     "nav.skills": "Skills",
+    "nav.projects": "项目",
 
     // 记忆页面
     "memory.title": "CLAUDE.md 记忆管理",
@@ -150,6 +151,43 @@ const translations = {
     // 统计页面
     "nav.stats": "统计",
     "nav.providers": "Provider",
+
+    // 项目页面
+    "projects.title": "项目管理",
+    "projects.empty": "暂无项目",
+    "projects.emptyHint": "历史记录中出现过的项目会显示在这里",
+    "projects.messages": "消息",
+    "projects.sessions": "会话",
+    "projects.lastActive": "最近活跃",
+    "projects.path": "项目路径",
+    "projects.repoRoot": "Git 根目录",
+    "projects.directoryStatus": "目录状态",
+    "projects.directoryExists": "目录存在",
+    "projects.directoryMissing": "目录不存在",
+    "projects.gitStatus": "Git 状态",
+    "projects.gitRepo": "Git 仓库",
+    "projects.notGitRepo": "非 Git 仓库",
+    "projects.notGitRepoHint": "当前项目不是 Git 仓库，无法展示分支和 worktree 信息",
+    "projects.agentsTitle": "AGENTS.md 状态",
+    "projects.claudeMd": "CLAUDE.md",
+    "projects.claudeMdPresent": "已存在",
+    "projects.claudeMdMissing": "缺失",
+    "projects.agentsMd": "AGENTS.md",
+    "projects.agentsMissing": "未创建",
+    "projects.agentsCorrect": "软链正常",
+    "projects.agentsWrong": "软链目标错误",
+    "projects.agentsConflict": "普通文件冲突",
+    "projects.agentsHelp": "会在项目根目录创建相对软链 `AGENTS.md -> CLAUDE.md`。",
+    "projects.agentsDisabledNoClaude": "项目根目录缺少 CLAUDE.md，暂时不能创建软链。",
+    "projects.agentsDisabledConflict": "AGENTS.md 已存在且不是软链接，请先手动处理。",
+    "projects.linkAgents": "生成 / 修复 AGENTS.md",
+    "projects.linkingAgents": "处理中...",
+    "projects.branches": "本地分支",
+    "projects.noBranches": "暂无本地分支",
+    "projects.worktrees": "Worktrees",
+    "projects.noWorktrees": "暂无 worktree",
+    "projects.current": "当前",
+    "projects.detached": "Detached",
 
     // Provider 管理页面
     "providers.title": "Provider 管理",
@@ -197,6 +235,9 @@ const translations = {
     "toast.providerDeleted": "Provider 已删除",
     "toast.providerDeleteError": "删除 Provider 失败",
     "toast.providerResetError": "重置 Provider 失败",
+    "toast.projectDetailError": "加载项目详情失败",
+    "toast.projectAgentsLinked": "AGENTS.md 软链已生成",
+    "toast.projectAgentsLinkError": "生成 AGENTS.md 软链失败",
 
     // ConfigEditor 中的 Provider 选择
     "configModal.provider": "API 供应商",
@@ -493,6 +534,7 @@ const translations = {
     "nav.configs": "Configs",
     "nav.memory": "Memory",
     "nav.skills": "Skills",
+    "nav.projects": "Projects",
 
     // 记忆页面
     "memory.title": "CLAUDE.md Memory",
@@ -527,6 +569,47 @@ const translations = {
     // 统计页面
     "nav.stats": "Stats",
     "nav.providers": "Providers",
+
+    // Projects page
+    "projects.title": "Projects",
+    "projects.empty": "No projects",
+    "projects.emptyHint": "Projects seen in history will appear here",
+    "projects.messages": "messages",
+    "projects.sessions": "sessions",
+    "projects.lastActive": "Last active",
+    "projects.path": "Project Path",
+    "projects.repoRoot": "Git Root",
+    "projects.directoryStatus": "Directory Status",
+    "projects.directoryExists": "Directory exists",
+    "projects.directoryMissing": "Directory missing",
+    "projects.gitStatus": "Git Status",
+    "projects.gitRepo": "Git repository",
+    "projects.notGitRepo": "Not a Git repository",
+    "projects.notGitRepoHint":
+      "This project is not a Git repository, so branches and worktrees are unavailable.",
+    "projects.agentsTitle": "AGENTS.md Status",
+    "projects.claudeMd": "CLAUDE.md",
+    "projects.claudeMdPresent": "Present",
+    "projects.claudeMdMissing": "Missing",
+    "projects.agentsMd": "AGENTS.md",
+    "projects.agentsMissing": "Not created",
+    "projects.agentsCorrect": "Symlink ready",
+    "projects.agentsWrong": "Wrong symlink target",
+    "projects.agentsConflict": "Plain file conflict",
+    "projects.agentsHelp":
+      "Creates a relative symlink in the project root: `AGENTS.md -> CLAUDE.md`.",
+    "projects.agentsDisabledNoClaude":
+      "The project root does not contain CLAUDE.md yet, so the symlink cannot be created.",
+    "projects.agentsDisabledConflict":
+      "AGENTS.md already exists as a regular file. Please resolve it manually first.",
+    "projects.linkAgents": "Create / Repair AGENTS.md",
+    "projects.linkingAgents": "Working...",
+    "projects.branches": "Local Branches",
+    "projects.noBranches": "No local branches",
+    "projects.worktrees": "Worktrees",
+    "projects.noWorktrees": "No worktrees",
+    "projects.current": "Current",
+    "projects.detached": "Detached",
 
     // Provider page
     "providers.title": "Provider Management",
@@ -578,6 +661,9 @@ const translations = {
     "toast.providerDeleted": "Provider deleted",
     "toast.providerDeleteError": "Failed to delete provider",
     "toast.providerResetError": "Failed to reset provider",
+    "toast.projectDetailError": "Failed to load project details",
+    "toast.projectAgentsLinked": "AGENTS.md symlink created",
+    "toast.projectAgentsLinkError": "Failed to create AGENTS.md symlink",
 
     // ConfigEditor
     "configModal.provider": "API Provider",

@@ -3,7 +3,14 @@ export const isTauri = () =>
   typeof window !== "undefined" && window.__TAURI_INTERNALS__ !== undefined;
 
 // 侧边栏 Tab 类型
-export type TabType = "configs" | "providers" | "memory" | "skills" | "stats" | "history";
+export type TabType =
+  | "configs"
+  | "providers"
+  | "memory"
+  | "skills"
+  | "projects"
+  | "stats"
+  | "history";
 
 export interface ProviderModel {
   id: string;
@@ -158,6 +165,43 @@ export interface HistoryEntry {
   timestamp: number;
   project: string;
   sessionId: string;
+}
+
+export interface ProjectSummary {
+  project: string;
+  shortName: string;
+  messageCount: number;
+  sessionCount: number;
+  lastTimestamp: number;
+}
+
+export type AgentsStatus = "missing" | "correctSymlink" | "wrongSymlink" | "plainFileConflict";
+
+export interface ProjectBranch {
+  name: string;
+  isCurrent: boolean;
+  lastCommitAt?: number;
+  lastCommitSubject?: string;
+}
+
+export interface ProjectWorktree {
+  path: string;
+  branch?: string;
+  head?: string;
+  isCurrent: boolean;
+  isDetached: boolean;
+}
+
+export interface ProjectDetail {
+  path: string;
+  shortName: string;
+  exists: boolean;
+  isGitRepo: boolean;
+  repoRoot?: string;
+  hasClaudeMd: boolean;
+  agentsStatus: AgentsStatus;
+  branches: ProjectBranch[];
+  worktrees: ProjectWorktree[];
 }
 
 // 对话消息内容块

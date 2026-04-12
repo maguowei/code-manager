@@ -1,143 +1,27 @@
-import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useToast } from "../hooks/useToast";
+import { useCallback, useMemo, useState } from "react";
+import {
+  groupByProject,
+  groupBySession,
+  type HistoryProjectGroup,
+  sortProjectGroupsByMessageCount,
+} from "../history-utils";
+import { useHistoryEntries } from "../hooks/useHistoryEntries";
 import { useI18n } from "../i18n";
-import { type HistoryEntry, isTauri } from "../types";
 import HistoryHeatmap from "./HistoryHeatmap";
 import HistoryProjectList from "./HistoryProjectList";
 import HistorySessionList from "./HistorySessionList";
 import SessionDetailDrawer from "./SessionDetailDrawer";
 import "./HistoryPage.css";
 
-// 后端返回结构
-interface HistoryResult {
-  content: string;
-  mtime: number;
-}
-
-// 按 project 分组的结构
-export interface ProjectGroup {
-  project: string;
-  shortName: string;
-  entries: HistoryEntry[];
-  sessionCount: number;
-}
-
-// 按 sessionId 分组的结构
-export interface SessionGroup {
-  sessionId: string;
-  entries: HistoryEntry[];
-  firstTimestamp: number;
-  lastTimestamp: number;
-}
-
-/** 从完整路径提取项目短名 */
-export function shortProjectName(fullPath: string): string {
-  const parts = fullPath.split("/").filter(Boolean);
-  return parts.length > 0 ? parts[parts.length - 1] : fullPath;
-}
-
-/** 解析 JSONL 字符串为 HistoryEntry 数组 */
-function parseJsonl(content: string): HistoryEntry[] {
-  const entries: HistoryEntry[] = [];
-  for (const line of content.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    try {
-      entries.push(JSON.parse(trimmed));
-    } catch {
-      // 跳过解析失败的行
-    }
-  }
-  return entries;
-}
-
-/** 按 project 分组 */
-function groupByProject(entries: HistoryEntry[]): ProjectGroup[] {
-  const map = new Map<string, HistoryEntry[]>();
-  for (const entry of entries) {
-    const arr = map.get(entry.project) || [];
-    arr.push(entry);
-    map.set(entry.project, arr);
-  }
-  return Array.from(map.entries())
-    .map(([project, entries]) => ({
-      project,
-      shortName: shortProjectName(project),
-      entries,
-      sessionCount: new Set(entries.map((e) => e.sessionId)).size,
-    }))
-    .sort((a, b) => b.entries.length - a.entries.length);
-}
-
-/** 按 sessionId 分组 */
-export function groupBySession(entries: HistoryEntry[]): SessionGroup[] {
-  const map = new Map<string, HistoryEntry[]>();
-  for (const entry of entries) {
-    const arr = map.get(entry.sessionId) || [];
-    arr.push(entry);
-    map.set(entry.sessionId, arr);
-  }
-  return Array.from(map.entries())
-    .map(([sessionId, entries]) => {
-      const sorted = entries.sort((a, b) => a.timestamp - b.timestamp);
-      return {
-        sessionId,
-        entries: sorted,
-        firstTimestamp: sorted[0].timestamp,
-        lastTimestamp: sorted[sorted.length - 1].timestamp,
-      };
-    })
-    .sort((a, b) => b.lastTimestamp - a.lastTimestamp);
-}
-
-const POLL_INTERVAL = 5000;
-
 function HistoryPage() {
   const { t } = useI18n();
-  const { showToast } = useToast();
-  const [allEntries, setAllEntries] = useState<HistoryEntry[]>([]);
+  const { entries: allEntries, loading } = useHistoryEntries(t("history.noData"));
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [loading, setLoading] = useState(true);
-  const mtimeRef = useRef<number>(0);
   const [viewingSession, setViewingSession] = useState<{
     project: string;
     sessionId: string;
   } | null>(null);
-
-  // 首次加载
-  const loadHistory = useCallback(async () => {
-    if (!isTauri()) {
-      setLoading(false);
-      return;
-    }
-    try {
-      const result = await invoke<HistoryResult>("get_history");
-      mtimeRef.current = result.mtime;
-      setAllEntries(parseJsonl(result.content));
-    } catch {
-      showToast(t("history.noData"), "error");
-    } finally {
-      setLoading(false);
-    }
-  }, [showToast, t]);
-
-  // 轮询增量检查
-  const pollHistory = useCallback(async () => {
-    if (!isTauri()) return;
-    try {
-      const result = await invoke<HistoryResult | null>("get_history_if_changed", {
-        lastMtime: mtimeRef.current,
-      });
-      if (result) {
-        mtimeRef.current = result.mtime;
-        setAllEntries(parseJsonl(result.content));
-      }
-    } catch {
-      // 轮询失败静默忽略
-    }
-  }, []);
 
   // sessionId → project 索引，O(1) 查找替代 allEntries.find()
   const sessionProjectMap = useMemo(() => {
@@ -156,38 +40,11 @@ function HistoryPage() {
     [selectedProject, sessionProjectMap],
   );
 
-  useEffect(() => {
-    loadHistory();
-  }, [loadHistory]);
-
-  // 轮询定时器，仅在页面可见时运行
-  useEffect(() => {
-    let id: ReturnType<typeof setInterval> | undefined;
-
-    const start = () => {
-      id = setInterval(pollHistory, POLL_INTERVAL);
-    };
-    const stop = () => {
-      if (id !== undefined) {
-        clearInterval(id);
-        id = undefined;
-      }
-    };
-
-    const onVisibility = () => {
-      document.hidden ? stop() : start();
-    };
-
-    if (!document.hidden) start();
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      stop();
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [pollHistory]);
-
   // 按项目分组
-  const projectGroups = useMemo(() => groupByProject(allEntries), [allEntries]);
+  const projectGroups = useMemo<HistoryProjectGroup[]>(
+    () => sortProjectGroupsByMessageCount(groupByProject(allEntries)),
+    [allEntries],
+  );
 
   // 当前显示的条目（受项目筛选和搜索影响）
   const filteredEntries = useMemo(() => {

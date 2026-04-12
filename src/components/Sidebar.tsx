@@ -115,6 +115,29 @@ function Sidebar({ activeTab, onTabChange, onSettingsClick }: SidebarProps) {
 
         <button
           type="button"
+          className={`nav-item ${activeTab === "projects" ? "active" : ""}`}
+          onClick={() => onTabChange("projects")}
+          aria-label={t("nav.projects")}
+          aria-current={activeTab === "projects" ? "page" : undefined}
+          data-tooltip={t("nav.projects")}
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H10l2 2h6.5A2.5 2.5 0 0 1 21 8.5v9A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5v-11z" />
+          </svg>
+        </button>
+
+        <button
+          type="button"
           className={`nav-item ${activeTab === "history" ? "active" : ""}`}
           onClick={() => onTabChange("history")}
           aria-label={t("nav.history")}

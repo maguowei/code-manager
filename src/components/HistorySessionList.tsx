@@ -1,6 +1,6 @@
 import { memo, useMemo, useState } from "react";
+import type { SessionGroup } from "../history-utils";
 import { useI18n } from "../i18n";
-import type { SessionGroup } from "./HistoryPage";
 
 interface Props {
   groups: SessionGroup[];

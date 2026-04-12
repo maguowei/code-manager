@@ -1,6 +1,7 @@
 mod config;
 mod history;
 mod memory;
+mod project;
 mod provider;
 mod skills;
 mod stats;
@@ -13,6 +14,7 @@ use config::{
 };
 use history::{get_history, get_history_if_changed, get_session_detail};
 use memory::{add_memory, delete_memory, get_memories, toggle_memory, update_memory};
+use project::{create_project_agents_symlink, get_project_detail};
 use provider::{
     add_provider, delete_provider, get_providers, reorder_providers, reset_provider,
     reset_provider_order, update_provider,
@@ -71,6 +73,8 @@ pub fn run() {
             get_history,
             get_history_if_changed,
             get_session_detail,
+            get_project_detail,
+            create_project_agents_symlink,
             get_skills,
             add_skill,
             update_skill,

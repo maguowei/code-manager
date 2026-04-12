@@ -1,9 +1,9 @@
 import { memo } from "react";
+import type { HistoryProjectGroup } from "../history-utils";
 import { useI18n } from "../i18n";
-import type { ProjectGroup } from "./HistoryPage";
 
 interface Props {
-  groups: ProjectGroup[];
+  groups: HistoryProjectGroup[];
   selectedProject: string | null;
   onSelect: (project: string | null) => void;
 }
@@ -26,7 +26,7 @@ function HistoryProjectList({ groups, selectedProject, onSelect }: Props) {
           title={g.project}
         >
           <span className="project-name">{g.shortName}</span>
-          <span className="project-count">{g.entries.length}</span>
+          <span className="project-count">{g.messageCount}</span>
         </div>
       ))}
     </div>

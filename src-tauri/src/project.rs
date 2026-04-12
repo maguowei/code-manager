@@ -1,0 +1,496 @@
+use serde::Serialize;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum AgentsStatus {
+    Missing,
+    CorrectSymlink,
+    WrongSymlink,
+    PlainFileConflict,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectBranch {
+    pub name: String,
+    pub is_current: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_commit_at: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_commit_subject: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectWorktree {
+    pub path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub head: Option<String>,
+    pub is_current: bool,
+    pub is_detached: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectDetail {
+    pub path: String,
+    pub short_name: String,
+    pub exists: bool,
+    pub is_git_repo: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub repo_root: Option<String>,
+    pub has_claude_md: bool,
+    pub agents_status: AgentsStatus,
+    pub branches: Vec<ProjectBranch>,
+    pub worktrees: Vec<ProjectWorktree>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct ProjectFileStatus {
+    has_claude_md: bool,
+    agents_status: AgentsStatus,
+}
+
+#[tauri::command]
+pub fn get_project_detail(project: &str) -> Result<ProjectDetail, String> {
+    let project_path = validate_project_path(project)?;
+    let project_display = project_path.to_string_lossy().to_string();
+    let short_name = short_project_name(&project_path);
+
+    if !project_path.is_dir() {
+        return Ok(ProjectDetail {
+            path: project_display,
+            short_name,
+            exists: false,
+            is_git_repo: false,
+            repo_root: None,
+            has_claude_md: false,
+            agents_status: AgentsStatus::Missing,
+            branches: Vec::new(),
+            worktrees: Vec::new(),
+        });
+    }
+
+    let file_status = inspect_project_files(&project_path)?;
+    let repo_root = git_repo_root(&project_path).ok();
+
+    let (is_git_repo, repo_root_str, branches, worktrees) = if let Some(repo_root) = repo_root {
+        let branches_output = run_git(
+            &project_path,
+            &[
+                "for-each-ref",
+                "refs/heads",
+                "--sort=-committerdate",
+                "--format=%(refname:short)%00%(HEAD)%00%(committerdate:unix)%00%(subject)",
+            ],
+        )?;
+        let worktrees_output = run_git(&project_path, &["worktree", "list", "--porcelain"])?;
+        let repo_root_path = PathBuf::from(&repo_root);
+        (
+            true,
+            Some(repo_root),
+            parse_branches_output(&branches_output),
+            parse_worktrees_output(&worktrees_output, &repo_root_path),
+        )
+    } else {
+        (false, None, Vec::new(), Vec::new())
+    };
+
+    Ok(ProjectDetail {
+        path: project_display,
+        short_name,
+        exists: true,
+        is_git_repo,
+        repo_root: repo_root_str,
+        has_claude_md: file_status.has_claude_md,
+        agents_status: file_status.agents_status,
+        branches,
+        worktrees,
+    })
+}
+
+#[tauri::command]
+pub fn create_project_agents_symlink(project: &str) -> Result<(), String> {
+    let project_path = validate_project_path(project)?;
+    if !project_path.is_dir() {
+        return Err("项目目录不存在".to_string());
+    }
+    create_agents_symlink(&project_path)
+}
+
+fn validate_project_path(project: &str) -> Result<PathBuf, String> {
+    let trimmed = project.trim();
+    if trimmed.is_empty() {
+        return Err("项目路径不能为空".to_string());
+    }
+    Ok(PathBuf::from(trimmed))
+}
+
+fn short_project_name(path: &Path) -> String {
+    path.file_name()
+        .map(|name| name.to_string_lossy().to_string())
+        .filter(|name| !name.is_empty())
+        .unwrap_or_else(|| path.to_string_lossy().to_string())
+}
+
+fn git_repo_root(project: &Path) -> Result<String, String> {
+    run_git(project, &["rev-parse", "--show-toplevel"]).map(|output| output.trim().to_string())
+}
+
+fn run_git(project: &Path, args: &[&str]) -> Result<String, String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(project)
+        .args(args)
+        .output()
+        .map_err(|e| format!("执行 git 命令失败: {}", e))?;
+
+    if output.status.success() {
+        return String::from_utf8(output.stdout).map_err(|e| format!("解析 git 输出失败: {}", e));
+    }
+
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let message = if !stderr.is_empty() { stderr } else { stdout };
+    Err(if message.is_empty() {
+        format!("git 命令执行失败，退出码: {:?}", output.status.code())
+    } else {
+        message
+    })
+}
+
+fn parse_branches_output(output: &str) -> Vec<ProjectBranch> {
+    let mut branches: Vec<ProjectBranch> = output
+        .lines()
+        .filter_map(|line| {
+            let mut parts = line.split('\0');
+            let name = parts.next()?.trim();
+            if name.is_empty() {
+                return None;
+            }
+
+            let is_current = parts
+                .next()
+                .map(|value| value.trim() == "*")
+                .unwrap_or(false);
+            let last_commit_at = parts.next().and_then(|value| {
+                let trimmed = value.trim();
+                if trimmed.is_empty() || trimmed == "0" {
+                    None
+                } else {
+                    trimmed.parse::<u64>().ok()
+                }
+            });
+            let last_commit_subject = parts
+                .next()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(ToOwned::to_owned);
+
+            Some(ProjectBranch {
+                name: name.to_string(),
+                is_current,
+                last_commit_at,
+                last_commit_subject,
+            })
+        })
+        .collect();
+
+    branches.sort_by(|a, b| {
+        b.is_current
+            .cmp(&a.is_current)
+            .then_with(|| b.last_commit_at.cmp(&a.last_commit_at))
+            .then_with(|| a.name.cmp(&b.name))
+    });
+    branches
+}
+
+fn parse_worktrees_output(output: &str, current_root: &Path) -> Vec<ProjectWorktree> {
+    let mut worktrees = Vec::new();
+    let mut current_path: Option<String> = None;
+    let mut current_branch: Option<String> = None;
+    let mut current_head: Option<String> = None;
+    let mut current_detached = false;
+
+    let push_current = |worktrees: &mut Vec<ProjectWorktree>,
+                        current_path: &mut Option<String>,
+                        current_branch: &mut Option<String>,
+                        current_head: &mut Option<String>,
+                        current_detached: &mut bool| {
+        if let Some(path) = current_path.take() {
+            let path_buf = PathBuf::from(&path);
+            worktrees.push(ProjectWorktree {
+                is_current: paths_match(&path_buf, current_root),
+                path,
+                branch: current_branch.take(),
+                head: current_head.take(),
+                is_detached: *current_detached,
+            });
+            *current_detached = false;
+        }
+    };
+
+    for line in output.lines() {
+        if line.trim().is_empty() {
+            push_current(
+                &mut worktrees,
+                &mut current_path,
+                &mut current_branch,
+                &mut current_head,
+                &mut current_detached,
+            );
+            continue;
+        }
+
+        if let Some(path) = line.strip_prefix("worktree ") {
+            push_current(
+                &mut worktrees,
+                &mut current_path,
+                &mut current_branch,
+                &mut current_head,
+                &mut current_detached,
+            );
+            current_path = Some(path.trim().to_string());
+            continue;
+        }
+
+        if let Some(head) = line.strip_prefix("HEAD ") {
+            current_head = Some(head.trim().to_string());
+            continue;
+        }
+
+        if let Some(branch) = line.strip_prefix("branch ") {
+            let normalized = branch.trim().trim_start_matches("refs/heads/").to_string();
+            current_branch = Some(normalized);
+            current_detached = false;
+            continue;
+        }
+
+        if line == "detached" {
+            current_detached = true;
+        }
+    }
+
+    push_current(
+        &mut worktrees,
+        &mut current_path,
+        &mut current_branch,
+        &mut current_head,
+        &mut current_detached,
+    );
+
+    worktrees.sort_by(|a, b| {
+        b.is_current
+            .cmp(&a.is_current)
+            .then_with(|| a.path.cmp(&b.path))
+    });
+    worktrees
+}
+
+fn inspect_project_files(project_dir: &Path) -> Result<ProjectFileStatus, String> {
+    let claude_path = project_dir.join("CLAUDE.md");
+    let agents_path = project_dir.join("AGENTS.md");
+    let has_claude_md = claude_path.is_file();
+
+    let agents_status = match fs::symlink_metadata(&agents_path) {
+        Ok(meta) if meta.file_type().is_symlink() => {
+            let target = fs::read_link(&agents_path)
+                .map_err(|e| format!("读取 AGENTS.md 软链接失败: {}", e))?;
+            let resolved = if target.is_absolute() {
+                target
+            } else {
+                project_dir.join(target)
+            };
+
+            if has_claude_md && paths_match(&resolved, &claude_path) {
+                AgentsStatus::CorrectSymlink
+            } else {
+                AgentsStatus::WrongSymlink
+            }
+        }
+        Ok(_) => AgentsStatus::PlainFileConflict,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => AgentsStatus::Missing,
+        Err(e) => return Err(format!("读取 AGENTS.md 状态失败: {}", e)),
+    };
+
+    Ok(ProjectFileStatus {
+        has_claude_md,
+        agents_status,
+    })
+}
+
+fn create_agents_symlink(project_dir: &Path) -> Result<(), String> {
+    let claude_path = project_dir.join("CLAUDE.md");
+    if !claude_path.is_file() {
+        return Err("项目根目录缺少 CLAUDE.md，无法创建 AGENTS.md".to_string());
+    }
+
+    let agents_path = project_dir.join("AGENTS.md");
+    match fs::symlink_metadata(&agents_path) {
+        Ok(meta) if meta.file_type().is_symlink() => {
+            let status = inspect_project_files(project_dir)?;
+            if status.agents_status == AgentsStatus::CorrectSymlink {
+                return Ok(());
+            }
+            fs::remove_file(&agents_path).map_err(|e| format!("删除旧的软链接失败: {}", e))?;
+        }
+        Ok(_) => {
+            return Err(format!(
+                "目标路径已存在且不是软链接，无法覆盖: {:?}",
+                agents_path
+            ));
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => return Err(format!("获取 AGENTS.md 元数据失败: {}", e)),
+    }
+
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(Path::new("CLAUDE.md"), &agents_path)
+        .map_err(|e| format!("创建软链接失败: {}", e))?;
+
+    #[cfg(windows)]
+    std::os::windows::fs::symlink_file(Path::new("CLAUDE.md"), &agents_path)
+        .map_err(|e| format!("创建软链接失败: {}", e))?;
+
+    Ok(())
+}
+
+fn paths_match(left: &Path, right: &Path) -> bool {
+    let left = fs::canonicalize(left).unwrap_or_else(|_| left.to_path_buf());
+    let right = fs::canonicalize(right).unwrap_or_else(|_| right.to_path_buf());
+    left == right
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn parse_branches_output_marks_current_branch_and_metadata() {
+        let output = "main\0*\0001710000000\0Main branch\nfeature/test\0 \0001700000000\0Feature branch\n";
+
+        let branches = parse_branches_output(output);
+
+        assert_eq!(branches.len(), 2);
+        assert_eq!(branches[0].name, "main");
+        assert!(branches[0].is_current);
+        assert_eq!(branches[0].last_commit_at, Some(1710000000));
+        assert_eq!(branches[0].last_commit_subject.as_deref(), Some("Main branch"));
+        assert_eq!(branches[1].name, "feature/test");
+        assert!(!branches[1].is_current);
+    }
+
+    #[test]
+    fn parse_worktrees_output_marks_current_and_detached_entries() {
+        let output = concat!(
+            "worktree /tmp/repo\n",
+            "HEAD 1111111\n",
+            "branch refs/heads/main\n",
+            "\n",
+            "worktree /tmp/repo-feature\n",
+            "HEAD 2222222\n",
+            "detached\n",
+            "\n"
+        );
+
+        let worktrees = parse_worktrees_output(output, Path::new("/tmp/repo"));
+
+        assert_eq!(worktrees.len(), 2);
+        assert_eq!(worktrees[0].path, "/tmp/repo");
+        assert!(worktrees[0].is_current);
+        assert_eq!(worktrees[0].branch.as_deref(), Some("main"));
+        assert!(!worktrees[0].is_detached);
+        assert_eq!(worktrees[1].path, "/tmp/repo-feature");
+        assert!(!worktrees[1].is_current);
+        assert!(worktrees[1].is_detached);
+        assert_eq!(worktrees[1].head.as_deref(), Some("2222222"));
+    }
+
+    #[test]
+    fn inspect_agents_status_distinguishes_symlink_states() {
+        let sandbox = TestDir::new();
+        std::fs::write(sandbox.path().join("CLAUDE.md"), "hello").unwrap();
+
+        let initial = inspect_project_files(sandbox.path()).unwrap();
+        assert!(initial.has_claude_md);
+        assert_eq!(initial.agents_status, AgentsStatus::Missing);
+
+        create_agents_symlink(sandbox.path()).unwrap();
+        let linked = inspect_project_files(sandbox.path()).unwrap();
+        assert_eq!(linked.agents_status, AgentsStatus::CorrectSymlink);
+
+        std::fs::remove_file(sandbox.path().join("AGENTS.md")).unwrap();
+        std::fs::write(sandbox.path().join("OTHER.md"), "other").unwrap();
+        create_test_symlink(Path::new("OTHER.md"), &sandbox.path().join("AGENTS.md"));
+
+        let wrong = inspect_project_files(sandbox.path()).unwrap();
+        assert_eq!(wrong.agents_status, AgentsStatus::WrongSymlink);
+    }
+
+    #[test]
+    fn create_agents_symlink_is_idempotent_and_replaces_wrong_symlink() {
+        let sandbox = TestDir::new();
+        std::fs::write(sandbox.path().join("CLAUDE.md"), "hello").unwrap();
+        std::fs::write(sandbox.path().join("OTHER.md"), "other").unwrap();
+        create_test_symlink(Path::new("OTHER.md"), &sandbox.path().join("AGENTS.md"));
+
+        create_agents_symlink(sandbox.path()).unwrap();
+        create_agents_symlink(sandbox.path()).unwrap();
+
+        let status = inspect_project_files(sandbox.path()).unwrap();
+        assert_eq!(status.agents_status, AgentsStatus::CorrectSymlink);
+    }
+
+    #[test]
+    fn create_agents_symlink_rejects_missing_claude_or_plain_file() {
+        let missing = TestDir::new();
+        let err = create_agents_symlink(missing.path()).unwrap_err();
+        assert!(err.contains("CLAUDE.md"));
+
+        let plain = TestDir::new();
+        std::fs::write(plain.path().join("CLAUDE.md"), "hello").unwrap();
+        std::fs::write(plain.path().join("AGENTS.md"), "plain").unwrap();
+
+        let err = create_agents_symlink(plain.path()).unwrap_err();
+        assert!(err.contains("不是软链接"));
+    }
+
+    struct TestDir {
+        path: std::path::PathBuf,
+    }
+
+    impl TestDir {
+        fn new() -> Self {
+            let path =
+                std::env::temp_dir().join(format!("ai-manager-project-{}", uuid::Uuid::new_v4()));
+            std::fs::create_dir_all(&path).unwrap();
+            Self { path }
+        }
+
+        fn path(&self) -> &Path {
+            &self.path
+        }
+    }
+
+    impl Drop for TestDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
+    }
+
+    #[cfg(unix)]
+    fn create_test_symlink(src: &Path, dest: &Path) {
+        std::os::unix::fs::symlink(src, dest).unwrap();
+    }
+
+    #[cfg(windows)]
+    fn create_test_symlink(src: &Path, dest: &Path) {
+        std::os::windows::fs::symlink_file(src, dest).unwrap();
+    }
+}
