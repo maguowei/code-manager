@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
@@ -260,8 +261,19 @@ function ProjectsPage() {
     }
   }, [loadProjectDetail, selectedProject, showToast, t]);
 
+  const handleOpenRepository = useCallback(async () => {
+    if (!detail?.repositoryUrl || !isTauri()) return;
+
+    try {
+      await openUrl(detail.repositoryUrl);
+    } catch {
+      showToast(t("toast.projectOpenRepositoryError"), "error");
+    }
+  }, [detail?.repositoryUrl, showToast, t]);
+
   const canCreateAgentsLink =
     Boolean(detail?.hasClaudeMd) && detail?.agentsStatus !== "plainFileConflict";
+  const canOpenRepository = Boolean(detail?.repositoryUrl);
 
   if (loading) {
     return (
@@ -421,6 +433,22 @@ function ProjectsPage() {
                   <span className="projects-info-value break-all">
                     {detail?.repoRoot ?? t("projects.repoRootUnavailable")}
                   </span>
+                </div>
+                <div className="projects-info-card projects-info-card-wide">
+                  <span className="projects-info-label">{t("projects.repository")}</span>
+                  <div className="projects-info-actions">
+                    <span className="projects-info-value break-all">
+                      {detail?.repositoryUrl ?? t("projects.repositoryUnavailable")}
+                    </span>
+                    <button
+                      type="button"
+                      className="projects-link-btn"
+                      onClick={handleOpenRepository}
+                      disabled={!canOpenRepository}
+                    >
+                      {t("projects.openRepository")}
+                    </button>
+                  </div>
                 </div>
               </div>
 

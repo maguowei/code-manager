@@ -201,6 +201,7 @@ export interface ProjectDetail {
   exists: boolean;
   isGitRepo: boolean;
   repoRoot?: string;
+  repositoryUrl?: string;
   hasClaudeMd: boolean;
   agentsStatus: AgentsStatus;
   branches: ProjectBranch[];

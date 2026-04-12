@@ -167,6 +167,9 @@ const translations = {
     "projects.path": "项目路径",
     "projects.repoRoot": "Git 根目录",
     "projects.repoRootUnavailable": "暂无 Git 根目录",
+    "projects.repository": "源码仓库",
+    "projects.repositoryUnavailable": "暂无可打开的仓库地址",
+    "projects.openRepository": "打开源码仓库",
     "projects.directoryStatus": "目录状态",
     "projects.directoryExists": "目录存在",
     "projects.directoryMissing": "目录不存在",
@@ -247,6 +250,7 @@ const translations = {
     "toast.projectRefreshError": "刷新项目数据失败",
     "toast.projectAgentsLinked": "AGENTS.md 软链已生成",
     "toast.projectAgentsLinkError": "生成 AGENTS.md 软链失败",
+    "toast.projectOpenRepositoryError": "打开源码仓库失败",
 
     // ConfigEditor 中的 Provider 选择
     "configModal.provider": "API 供应商",
@@ -592,6 +596,9 @@ const translations = {
     "projects.path": "Project Path",
     "projects.repoRoot": "Git Root",
     "projects.repoRootUnavailable": "Git root unavailable",
+    "projects.repository": "Source Repository",
+    "projects.repositoryUnavailable": "No openable repository URL",
+    "projects.openRepository": "Open Repository",
     "projects.directoryStatus": "Directory Status",
     "projects.directoryExists": "Directory exists",
     "projects.directoryMissing": "Directory missing",
@@ -680,6 +687,7 @@ const translations = {
     "toast.projectRefreshError": "Failed to refresh project data",
     "toast.projectAgentsLinked": "AGENTS.md symlink created",
     "toast.projectAgentsLinkError": "Failed to create AGENTS.md symlink",
+    "toast.projectOpenRepositoryError": "Failed to open repository",
 
     // ConfigEditor
     "configModal.provider": "API Provider",

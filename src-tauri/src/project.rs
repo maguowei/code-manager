@@ -44,6 +44,8 @@ pub struct ProjectDetail {
     pub is_git_repo: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub repo_root: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub repository_url: Option<String>,
     pub has_claude_md: bool,
     pub agents_status: AgentsStatus,
     pub branches: Vec<ProjectBranch>,
@@ -69,6 +71,7 @@ pub fn get_project_detail(project: &str) -> Result<ProjectDetail, String> {
             exists: false,
             is_git_repo: false,
             repo_root: None,
+            repository_url: None,
             has_claude_md: false,
             agents_status: AgentsStatus::Missing,
             branches: Vec::new(),
@@ -79,7 +82,7 @@ pub fn get_project_detail(project: &str) -> Result<ProjectDetail, String> {
     let file_status = inspect_project_files(&project_path)?;
     let repo_root = git_repo_root(&project_path).ok();
 
-    let (is_git_repo, repo_root_str, branches, worktrees) = if let Some(repo_root) = repo_root {
+    let (is_git_repo, repo_root_str, repository_url, branches, worktrees) = if let Some(repo_root) = repo_root {
         let branches_output = run_git(
             &project_path,
             &[
@@ -94,11 +97,12 @@ pub fn get_project_detail(project: &str) -> Result<ProjectDetail, String> {
         (
             true,
             Some(repo_root),
+            resolve_repository_url(&project_path),
             parse_branches_output(&branches_output),
             parse_worktrees_output(&worktrees_output, &repo_root_path),
         )
     } else {
-        (false, None, Vec::new(), Vec::new())
+        (false, None, None, Vec::new(), Vec::new())
     };
 
     Ok(ProjectDetail {
@@ -107,6 +111,7 @@ pub fn get_project_detail(project: &str) -> Result<ProjectDetail, String> {
         exists: true,
         is_git_repo,
         repo_root: repo_root_str,
+        repository_url,
         has_claude_md: file_status.has_claude_md,
         agents_status: file_status.agents_status,
         branches,
@@ -292,6 +297,135 @@ fn parse_worktrees_output(output: &str, current_root: &Path) -> Vec<ProjectWorkt
     worktrees
 }
 
+fn resolve_repository_url(project: &Path) -> Option<String> {
+    let remotes_output = run_git(project, &["remote"]).ok()?;
+    let mut remote_names: Vec<&str> = remotes_output
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect();
+
+    remote_names.sort_unstable();
+    remote_names.dedup();
+    remote_names.sort_by(|left, right| {
+        let left_priority = if *left == "origin" { 0 } else { 1 };
+        let right_priority = if *right == "origin" { 0 } else { 1 };
+        left_priority.cmp(&right_priority).then_with(|| left.cmp(right))
+    });
+
+    for remote_name in remote_names {
+        let remote_url = match run_git(project, &["remote", "get-url", remote_name]) {
+            Ok(output) => output,
+            Err(_) => continue,
+        };
+
+        if let Some(repository_url) = normalize_repository_url(remote_url.trim()) {
+            return Some(repository_url);
+        }
+    }
+
+    None
+}
+
+fn normalize_repository_url(remote_url: &str) -> Option<String> {
+    let trimmed = remote_url.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    if trimmed.starts_with("https://") || trimmed.starts_with("http://") {
+        return normalize_http_repository_url(trimmed);
+    }
+
+    if let Some(url) = trimmed.strip_prefix("ssh://") {
+        return normalize_ssh_repository_url(url);
+    }
+
+    normalize_scp_repository_url(trimmed)
+}
+
+fn normalize_http_repository_url(remote_url: &str) -> Option<String> {
+    let scheme_end = remote_url.find("://")?;
+    let scheme = &remote_url[..scheme_end];
+    let remainder = &remote_url[(scheme_end + 3)..];
+    let slash_index = remainder.find('/')?;
+    let authority = strip_userinfo(&remainder[..slash_index]);
+    let path = sanitize_repository_path(&remainder[(slash_index + 1)..])?;
+
+    if authority.is_empty() {
+        return None;
+    }
+
+    Some(format!("{scheme}://{authority}/{path}"))
+}
+
+fn normalize_ssh_repository_url(remote_url: &str) -> Option<String> {
+    let slash_index = remote_url.find('/')?;
+    let authority = &remote_url[..slash_index];
+    let path = sanitize_repository_path(&remote_url[(slash_index + 1)..])?;
+    let host = strip_port(strip_userinfo(authority));
+
+    if host.is_empty() {
+        return None;
+    }
+
+    Some(format!("https://{host}/{path}"))
+}
+
+fn normalize_scp_repository_url(remote_url: &str) -> Option<String> {
+    if remote_url.contains("://") {
+        return None;
+    }
+
+    let (host_part, path_part) = remote_url.rsplit_once(':')?;
+    if host_part.is_empty() || host_part.contains('/') || host_part.contains('\\') {
+        return None;
+    }
+
+    let host = strip_port(strip_userinfo(host_part));
+    let path = sanitize_repository_path(path_part)?;
+    if host.is_empty() {
+        return None;
+    }
+
+    Some(format!("https://{host}/{path}"))
+}
+
+fn strip_userinfo(authority: &str) -> &str {
+    authority.rsplit('@').next().unwrap_or(authority).trim()
+}
+
+fn strip_port(authority: &str) -> &str {
+    if authority.starts_with('[') {
+        if let Some(end_index) = authority.find(']') {
+            return &authority[..=end_index];
+        }
+    }
+
+    authority.rsplit_once(':').map(|(host, _)| host).unwrap_or(authority)
+}
+
+fn sanitize_repository_path(path: &str) -> Option<String> {
+    let without_query = path
+        .split(['?', '#'])
+        .next()
+        .unwrap_or(path)
+        .trim_matches('/');
+    if without_query.is_empty() {
+        return None;
+    }
+
+    let normalized = without_query
+        .strip_suffix(".git")
+        .unwrap_or(without_query)
+        .trim_matches('/');
+    if normalized.is_empty() {
+        return None;
+    }
+
+    Some(normalized.to_string())
+}
+
 fn inspect_project_files(project_dir: &Path) -> Result<ProjectFileStatus, String> {
     let claude_path = project_dir.join("CLAUDE.md");
     let agents_path = project_dir.join("AGENTS.md");
@@ -465,6 +599,73 @@ mod tests {
         assert!(err.contains("不是软链接"));
     }
 
+    #[test]
+    fn get_project_detail_exposes_repository_url_from_origin_remote() {
+        let repo = TestDir::new();
+        init_git_repo(
+            repo.path(),
+            &[(
+                "origin",
+                "git@gitlab.example.com:team/ai-manager.git",
+            )],
+        );
+
+        let detail = get_project_detail(repo.path().to_str().unwrap()).unwrap();
+        let value = serde_json::to_value(detail).unwrap();
+
+        assert_eq!(
+            value.get("repositoryUrl").and_then(|item| item.as_str()),
+            Some("https://gitlab.example.com/team/ai-manager")
+        );
+    }
+
+    #[test]
+    fn get_project_detail_falls_back_when_origin_remote_cannot_convert() {
+        let repo = TestDir::new();
+        init_git_repo(
+            repo.path(),
+            &[
+                ("origin", "file:///tmp/local-only.git"),
+                ("upstream", "https://user:pass@github.example.com/org/repo.git?ref=main"),
+            ],
+        );
+
+        let detail = get_project_detail(repo.path().to_str().unwrap()).unwrap();
+        let value = serde_json::to_value(detail).unwrap();
+
+        assert_eq!(
+            value.get("repositoryUrl").and_then(|item| item.as_str()),
+            Some("https://github.example.com/org/repo")
+        );
+    }
+
+    #[test]
+    fn get_project_detail_omits_repository_url_for_non_convertible_remote() {
+        let repo = TestDir::new();
+        init_git_repo(repo.path(), &[("origin", "file:///tmp/local-only.git")]);
+
+        let detail = get_project_detail(repo.path().to_str().unwrap()).unwrap();
+        let value = serde_json::to_value(detail).unwrap();
+
+        assert!(value.get("repositoryUrl").is_none());
+    }
+
+    #[test]
+    fn normalize_repository_url_supports_http_and_ssh_formats() {
+        assert_eq!(
+            normalize_repository_url("https://user:pass@gitlab.example.com/group/repo.git/?foo=bar"),
+            Some("https://gitlab.example.com/group/repo".to_string())
+        );
+        assert_eq!(
+            normalize_repository_url("ssh://git@github.example.com:2222/org/repo.git"),
+            Some("https://github.example.com/org/repo".to_string())
+        );
+        assert_eq!(
+            normalize_repository_url("git@github.example.com:org/repo.git"),
+            Some("https://github.example.com/org/repo".to_string())
+        );
+    }
+
     struct TestDir {
         path: std::path::PathBuf,
     }
@@ -486,6 +687,23 @@ mod tests {
         fn drop(&mut self) {
             let _ = std::fs::remove_dir_all(&self.path);
         }
+    }
+
+    fn init_git_repo(path: &Path, remotes: &[(&str, &str)]) {
+        run_git_command(path, &["init"]);
+        for (name, url) in remotes {
+            run_git_command(path, &["remote", "add", name, url]);
+        }
+    }
+
+    fn run_git_command(path: &Path, args: &[&str]) {
+        let status = Command::new("git")
+            .arg("-C")
+            .arg(path)
+            .args(args)
+            .status()
+            .unwrap();
+        assert!(status.success(), "git command failed: {:?}", args);
     }
 
     #[cfg(unix)]
