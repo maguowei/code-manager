@@ -245,6 +245,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                 <option value="terminal">Terminal</option>
                 <option value="iterm">iTerm</option>
                 <option value="warp">Warp</option>
+                <option value="ghostty">Ghostty</option>
               </select>
             </div>
           </section>

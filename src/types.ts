@@ -76,7 +76,7 @@ export interface AppState {
   defaultEditorApp?: DefaultEditorApp | null;
 }
 
-export type DefaultTerminalApp = "terminal" | "iterm" | "warp";
+export type DefaultTerminalApp = "terminal" | "iterm" | "warp" | "ghostty";
 
 export type DefaultEditorApp = "vscode" | "cursor" | "windsurf" | "zed";
 

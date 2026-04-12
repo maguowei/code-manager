@@ -489,6 +489,7 @@ fn terminal_app_name(app: &str) -> Result<&'static str, String> {
         "terminal" => Ok("Terminal"),
         "iterm" => Ok("iTerm"),
         "warp" => Ok("Warp"),
+        "ghostty" => Ok("Ghostty"),
         _ => Err("默认终端配置无效，请重新选择".to_string()),
     }
 }
@@ -783,6 +784,24 @@ mod tests {
             vec![
                 "-a".to_string(),
                 "iTerm".to_string(),
+                sandbox.path().to_string_lossy().to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn build_terminal_open_request_supports_ghostty() {
+        let sandbox = TestDir::new();
+        let state = sample_app_state("ghostty", Some("cursor"));
+
+        let request = build_terminal_open_request(sandbox.path(), &state).unwrap();
+
+        assert_eq!(request.app_name, "Ghostty");
+        assert_eq!(
+            request.args,
+            vec![
+                "-a".to_string(),
+                "Ghostty".to_string(),
                 sandbox.path().to_string_lossy().to_string()
             ]
         );

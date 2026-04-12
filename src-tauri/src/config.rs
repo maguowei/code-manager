@@ -210,7 +210,8 @@ pub fn normalize_default_terminal_app(app: &str) -> Result<&'static str, String>
         "terminal" => Ok("terminal"),
         "iterm" => Ok("iterm"),
         "warp" => Ok("warp"),
-        _ => Err("仅支持 terminal / iterm / warp 三种终端".to_string()),
+        "ghostty" => Ok("ghostty"),
+        _ => Err("仅支持 terminal / iterm / warp / ghostty 四种终端".to_string()),
     }
 }
 
@@ -988,8 +989,12 @@ mod schema_tests {
             normalize_default_terminal_app("warp").expect("warp 应被接受"),
             "warp"
         );
+        assert_eq!(
+            normalize_default_terminal_app("ghostty").expect("ghostty 应被接受"),
+            "ghostty"
+        );
         assert!(
-            normalize_default_terminal_app("ghostty").is_err(),
+            normalize_default_terminal_app("hyper").is_err(),
             "未支持的终端应返回错误"
         );
     }
