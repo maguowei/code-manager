@@ -140,48 +140,41 @@ function WorktreesSection({ detail, t }: WorktreesSectionProps) {
             <span>{t("projects.flags")}</span>
           </div>
           <div className="projects-table-body">
-            {detail.worktrees.map((worktree) => {
-              const flags = [
-                worktree.isCurrent ? t("projects.current") : null,
-                worktree.isDetached ? t("projects.detached") : null,
-              ].filter(Boolean);
-
-              return (
-                <div key={worktree.path} className="projects-table-row projects-worktree-grid">
-                  <div className="projects-table-cell" data-label={t("projects.worktreePath")}>
-                    <span className="projects-row-path break-all">{worktree.path}</span>
-                  </div>
-                  <div className="projects-table-cell" data-label={t("projects.branchRef")}>
-                    <span className="projects-row-secondary">{worktree.branch ?? "—"}</span>
-                  </div>
-                  <div className="projects-table-cell" data-label={t("projects.head")}>
-                    <span className="projects-row-secondary">
-                      {worktree.head ? worktree.head.slice(0, 8) : "—"}
-                    </span>
-                  </div>
-                  <div className="projects-table-cell" data-label={t("projects.flags")}>
-                    <div className="projects-flag-group">
-                      {flags.length > 0 ? (
-                        <>
-                          {worktree.isCurrent && (
-                            <span className="projects-inline-badge tone-success">
-                              {t("projects.current")}
-                            </span>
-                          )}
-                          {worktree.isDetached && (
-                            <span className="projects-inline-badge tone-warning">
-                              {t("projects.detached")}
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        <span className="projects-flag-empty">—</span>
-                      )}
-                    </div>
+            {detail.worktrees.map((worktree) => (
+              <div key={worktree.path} className="projects-table-row projects-worktree-grid">
+                <div className="projects-table-cell" data-label={t("projects.worktreePath")}>
+                  <span className="projects-row-path break-all">{worktree.path}</span>
+                </div>
+                <div className="projects-table-cell" data-label={t("projects.branchRef")}>
+                  <span className="projects-row-secondary">{worktree.branch ?? "—"}</span>
+                </div>
+                <div className="projects-table-cell" data-label={t("projects.head")}>
+                  <span className="projects-row-secondary">
+                    {worktree.head ? worktree.head.slice(0, 8) : "—"}
+                  </span>
+                </div>
+                <div className="projects-table-cell" data-label={t("projects.flags")}>
+                  <div className="projects-flag-group">
+                    {worktree.isCurrent || worktree.isDetached ? (
+                      <>
+                        {worktree.isCurrent && (
+                          <span className="projects-inline-badge tone-success">
+                            {t("projects.current")}
+                          </span>
+                        )}
+                        {worktree.isDetached && (
+                          <span className="projects-inline-badge tone-warning">
+                            {t("projects.detached")}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="projects-flag-empty">—</span>
+                    )}
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -236,6 +229,9 @@ function ProjectDetailPanel({
   const directoryTone: StatusTone = detail?.exists ? "success" : "danger";
   const gitTone: StatusTone = detail?.isGitRepo ? "success" : detail?.exists ? "warning" : "muted";
   const agentsTone: StatusTone = detail ? agentsStatusTone(detail.agentsStatus) : "muted";
+  const agentsLabel = detail
+    ? agentsStatusLabel(detail.agentsStatus, t)
+    : t("projects.agentsMissing");
 
   return (
     <div className="projects-detail-scroll">
@@ -303,11 +299,7 @@ function ProjectDetailPanel({
           value={detail?.isGitRepo ? t("projects.gitRepo") : t("projects.notGitRepo")}
           tone={gitTone}
         />
-        <StatusStripItem
-          label={t("projects.agentsMd")}
-          value={detail ? agentsStatusLabel(detail.agentsStatus, t) : t("projects.agentsMissing")}
-          tone={agentsTone}
-        />
+        <StatusStripItem label={t("projects.agentsMd")} value={agentsLabel} tone={agentsTone} />
       </div>
 
       <div className="projects-alert-stack">
@@ -357,9 +349,7 @@ function ProjectDetailPanel({
             <div className="projects-status-row">
               <dt className="projects-status-label">{t("projects.agentsMd")}</dt>
               <dd>
-                <span className={`projects-status-chip tone-${agentsTone}`}>
-                  {detail ? agentsStatusLabel(detail.agentsStatus, t) : t("projects.agentsMissing")}
-                </span>
+                <span className={`projects-status-chip tone-${agentsTone}`}>{agentsLabel}</span>
               </dd>
             </div>
           </dl>

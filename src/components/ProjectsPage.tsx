@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { shortProjectName } from "../history-utils";
 import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
@@ -15,11 +16,6 @@ import {
 import ProjectDetailPanel from "./ProjectDetailPanel";
 import { formatDuration, formatUSD } from "./project-detail-utils";
 import "./ProjectsPage.css";
-
-function shortProjectName(fullPath: string) {
-  const parts = fullPath.split("/").filter(Boolean);
-  return parts.length > 0 ? parts[parts.length - 1] : fullPath;
-}
 
 function buildProjectSummaries(stats: ClaudeStats): ProjectSummary[] {
   return Object.entries(stats.projects)
@@ -157,13 +153,10 @@ function ProjectsPage() {
       return;
     }
 
-    if (
-      !selectedProject ||
-      !projectSummaries.some((summary) => summary.project === selectedProject)
-    ) {
+    if (!selectedSummary) {
       setSelectedProject(projectSummaries[0].project);
     }
-  }, [projectSummaries, selectedProject]);
+  }, [projectSummaries, selectedSummary]);
 
   useEffect(() => {
     if (!selectedProject) {

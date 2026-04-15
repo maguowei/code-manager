@@ -103,8 +103,6 @@
     border-color 0.2s ease,
     color 0.2s ease,
     transform 0.2s ease;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
 }
 
 .projects-refresh-btn:hover:not(:disabled) {

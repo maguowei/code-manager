@@ -16,6 +16,7 @@ import {
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
 import { type ClaudeStats, isTauri, type Snapshot } from "../types";
+import { formatDuration, formatUSD } from "./project-detail-utils";
 import "./StatsPage.css";
 
 // recharts 不支持 CSS 变量，从 App.css 提取对应暗色 hex
@@ -58,11 +59,6 @@ function shortPath(fullPath: string): string {
   return parts.length >= 2 ? parts.slice(-2).join("/") : fullPath;
 }
 
-/** 格式化美元金额 */
-function formatUSD(val: number): string {
-  return val < 0.01 && val > 0 ? "< $0.01" : `$${val.toFixed(2)}`;
-}
-
 /** 格式化日期 */
 function formatDate(isoStr: string): string {
   try {
@@ -71,17 +67,6 @@ function formatDate(isoStr: string): string {
   } catch {
     return isoStr;
   }
-}
-
-/** 格式化毫秒为可读时长 */
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  const sec = ms / 1000;
-  if (sec < 60) return `${sec.toFixed(1)}s`;
-  const min = sec / 60;
-  if (min < 60) return `${min.toFixed(1)}m`;
-  const hr = min / 60;
-  return `${hr.toFixed(1)}h`;
 }
 
 function StatsPage() {
