@@ -107,5 +107,17 @@
       { "id": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6", "category": "sonnet" },
       { "id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5", "category": "haiku" }
     ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000011",
+    "name": "Ollama",
+    "slug": "ollama",
+    "baseUrl": "http://localhost:11434",
+    "docUrl": "https://ollama.com/blog/claude-code",
+    "models": [
+      { "id": "glm-5.1:cloud", "name": "GLM-5.1", "category": "sonnet" },
+      { "id": "minimax-m2.7:cloud", "name": "MiniMax M2.7", "category": "sonnet" },
+      { "id": "kimi-k2.5:cloud", "name": "Kimi K2.5", "category": "sonnet" }
+    ]
   }
 ]
