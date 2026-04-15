@@ -17,6 +17,7 @@ AI Manager 是一个 Claude Code 配置管理工具，提供：
 - **记忆管理**: 管理 CLAUDE.md 记忆片段，多个记忆可同时启用
 - **Skills 管理**: 管理 Claude Code Skills（启用/禁用、新建、编辑、删除、支持文件管理）
 - **历史记录**: 浏览 `~/.claude/history.jsonl` 中的会话历史，支持热力图和按项目分组展示
+- **项目管理**: 查看 Claude Code 项目详情（费用、时长、Git 分支、worktree），管理 AGENTS.md 软链，一键用终端/编辑器打开项目
 - **通用配置**: 共享默认配置，支持深度合并
 
 切换配置后自动更新 `~/.claude/settings.json`，切换记忆后自动更新 `~/.claude/CLAUDE.md`。
@@ -113,15 +114,28 @@ make fmt     # cargo fmt
 │   │   ├── HistoryHeatmap.tsx # 历史活动热力图
 │   │   ├── HistoryProjectList.tsx # 历史项目列表
 │   │   ├── HistorySessionList.tsx # 历史会话列表（按项目过滤）
-│   │   └── SessionDetailDrawer.tsx # 会话详情抽屉（展示消息块和工具调用）
+│   │   ├── SessionDetailDrawer.tsx # 会话详情抽屉（展示消息块和工具调用）
+│   │   ├── ProjectsPage.tsx       # 项目管理页面（列表 + 详情双栏布局）
+│   │   ├── ProjectDetailPanel.tsx # 项目详情面板（状态条、分支/worktree 表格、概览）
+│   │   ├── project-detail-utils.ts # 项目详情工具函数（formatUSD/formatDuration 等，StatsPage 共用）
+│   │   └── config-editor-defaults.ts # 配置编辑器默认值
 │   ├── hooks/             # 公共 React hooks
 │   │   ├── useEscapeKey.ts    # ESC 键监听（需用 useCallback 包裹回调）
 │   │   ├── useToast.tsx       # Toast 通知（ToastProvider + useToast）
-│   │   └── useEditorTheme.ts  # CodeMirror 编辑器主题（根据应用主题返回亮/暗配色）
+│   │   ├── useEditorTheme.ts  # CodeMirror 编辑器主题（根据应用主题返回亮/暗配色）
+│   │   ├── useTauriEvent.ts   # Tauri 事件监听（自动注册/清理事件回调）
+│   │   └── useHistoryEntries.ts # 历史条目管理（轮询 + mtime 变更检测）
+│   ├── history-utils.ts   # 历史工具函数（shortProjectName 等，ProjectsPage/HistoryPage 共用）
 │   ├── schemas/           # 表单 Schema 定义
 │   │   ├── claude-config.schema.json  # JSON Schema draft-07 规范（前后端一致性锚点）
 │   │   ├── config-schema.ts           # Zod schema（前端校验 + 类型推断）
-│   │   └── field-groups.ts            # 字段分组配置（控制 ConfigEditor 渲染哪些字段）
+│   │   ├── field-groups.ts            # 字段分组配置（控制 ConfigEditor 渲染哪些字段）
+│   │   ├── form-fields.ts            # 表单字段定义
+│   │   ├── schema-helpers.ts         # Schema 工具函数
+│   │   ├── memory-schema.ts / memory.schema.json       # 记忆 Schema
+│   │   ├── provider-schema.ts / provider.schema.json   # Provider Schema
+│   │   ├── skill-schema.ts / skill.schema.json         # Skill Schema
+│   │   └── skill-file-schema.ts / skill-file.schema.json # Skill 文件 Schema
 │   ├── i18n.ts            # 国际化与主题系统（useI18n hook，支持中/英 + 亮/暗/系统主题）
 │   ├── styles/            # 共享样式
 │   │   └── shared.css         # z-index CSS 变量 + .empty-state 公共样式
@@ -137,6 +151,7 @@ make fmt     # cargo fmt
 │   │   ├── stats.rs       # 使用统计模块
 │   │   ├── history.rs     # 历史记录模块
 │   │   ├── provider.rs    # Provider 管理模块
+│   │   ├── project.rs     # 项目管理模块
 │   │   └── tray.rs        # 系统托盘模块
 │   ├── Cargo.toml         # Rust 依赖配置
 │   ├── tauri.conf.json    # Tauri 应用配置
@@ -208,6 +223,14 @@ make fmt     # cargo fmt
   - CRUD 操作仅影响自定义 Provider（`add_provider`/`update_provider`/`delete_provider`）
   - 每个 Provider 含 `models` 数组，`category` 字段为 `opus`/`sonnet`/`haiku`/`other`
   - 修改内置 Provider 信息：编辑 `src-tauri/resources/builtin-providers.json` 后重新编译
+
+- **project.rs**: 项目管理
+  - `get_project_detail(project)` 命令：获取项目详情（目录存在性、Git 仓库状态、分支列表、worktree 列表、CLAUDE.md/AGENTS.md 状态、仓库 URL）
+  - `create_project_agents_symlink(project)` 命令：创建/修复 AGENTS.md 符号链接
+  - `open_project_in_terminal(project)` 命令：用默认终端打开项目目录（支持 Terminal.app/iTerm2/Ghostty）
+  - `open_project_in_editor(project)` 命令：用配置的编辑器打开项目（支持 VSCode/Cursor/Windsurf/Zed）
+  - `AgentsStatus` 枚举：`Missing`/`CorrectSymlink`/`WrongSymlink`/`PlainFileConflict`
+  - `ProjectBranch`/`ProjectWorktree`/`ProjectDetail` 数据结构
 
 ### 关键配置
 
