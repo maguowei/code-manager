@@ -10,6 +10,7 @@ interface ConfigEditorDefaultConfig {
   haikuModel?: string;
   sonnetModel?: string;
   opusModel?: string;
+  effortLevel?: "auto" | "low" | "medium" | "high" | "xhigh" | "max";
   alwaysThinkingEnabled?: boolean;
   disableNonessentialTraffic?: boolean;
   skipWebFetchPreflight?: boolean;
@@ -49,6 +50,7 @@ export function buildConfigEditorDefaultValues(
     haikuModel: config?.haikuModel ?? "",
     sonnetModel: config?.sonnetModel ?? "",
     opusModel: config?.opusModel ?? "",
+    effortLevel: config?.effortLevel ?? "",
     alwaysThinkingEnabled: config?.alwaysThinkingEnabled ?? isNewConfig,
     disableNonessentialTraffic: config?.disableNonessentialTraffic ?? isNewConfig,
     skipWebFetchPreflight: config?.skipWebFetchPreflight ?? isNewConfig,

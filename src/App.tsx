@@ -35,6 +35,7 @@ function buildConfigData(
     haikuModel: config.haikuModel || null,
     sonnetModel: config.sonnetModel || null,
     opusModel: config.opusModel || null,
+    effortLevel: config.effortLevel || null,
     // 布尔字段使用 ?? null，避免 false 被错误清除
     alwaysThinkingEnabled: config.alwaysThinkingEnabled ?? null,
     disableNonessentialTraffic: config.disableNonessentialTraffic ?? null,

@@ -3,7 +3,11 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import { Controller, type FieldError, type Resolver, useForm } from "react-hook-form";
 import { useI18n } from "../i18n";
-import { type ClaudeConfigFormData, ClaudeConfigSchema } from "../schemas/config-schema";
+import {
+  type ClaudeConfigFormData,
+  ClaudeConfigSchema,
+  EFFORT_LEVEL_VALUES,
+} from "../schemas/config-schema";
 import { FIELD_GROUPS } from "../schemas/field-groups";
 import type { ClaudeConfig, Provider } from "../types";
 import { buildConfigEditorDefaultValues } from "./config-editor-defaults";
@@ -24,6 +28,10 @@ interface ConfigEditorProps {
     defaults?: string,
   ) => void;
   onClose: () => void;
+}
+
+function isEffortLevel(value: string): value is (typeof EFFORT_LEVEL_VALUES)[number] {
+  return EFFORT_LEVEL_VALUES.includes(value as (typeof EFFORT_LEVEL_VALUES)[number]);
 }
 
 function ConfigEditor({ config, defaults, providers, onSave, onClose }: ConfigEditorProps) {
@@ -127,6 +135,7 @@ function ConfigEditor({ config, defaults, providers, onSave, onClose }: ConfigEd
         haikuModel: formValues.haikuModel || null,
         sonnetModel: formValues.sonnetModel || null,
         opusModel: formValues.opusModel || null,
+        effortLevel: formValues.effortLevel || null,
         alwaysThinkingEnabled: formValues.alwaysThinkingEnabled ?? null,
         disableNonessentialTraffic: formValues.disableNonessentialTraffic ?? null,
         skipWebFetchPreflight: formValues.skipWebFetchPreflight ?? null,
@@ -185,6 +194,14 @@ function ConfigEditor({ config, defaults, providers, onSave, onClose }: ConfigEd
       setValue("sonnetModel", env.ANTHROPIC_DEFAULT_SONNET_MODEL);
     if (env.ANTHROPIC_DEFAULT_OPUS_MODEL !== undefined)
       setValue("opusModel", env.ANTHROPIC_DEFAULT_OPUS_MODEL);
+    if (env.CLAUDE_CODE_EFFORT_LEVEL !== undefined) {
+      setValue(
+        "effortLevel",
+        isEffortLevel(env.CLAUDE_CODE_EFFORT_LEVEL) ? env.CLAUDE_CODE_EFFORT_LEVEL : "",
+      );
+    } else {
+      setValue("effortLevel", "");
+    }
     setValue("disableNonessentialTraffic", env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC === "1");
     setValue("enableLspTool", env.ENABLE_LSP_TOOL === "1");
     setValue("agentTeamsEnabled", env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS === "1");
@@ -200,6 +217,9 @@ function ConfigEditor({ config, defaults, providers, onSave, onClose }: ConfigEd
       "ENABLE_LSP_TOOL",
       "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
     ];
+    if (isEffortLevel(env.CLAUDE_CODE_EFFORT_LEVEL ?? "")) {
+      knownEnvKeys.push("CLAUDE_CODE_EFFORT_LEVEL");
+    }
     if (remaining.env && typeof remaining.env === "object") {
       const remEnv = remaining.env as Record<string, unknown>;
       knownEnvKeys.forEach((k) => {
@@ -289,6 +309,7 @@ function ConfigEditor({ config, defaults, providers, onSave, onClose }: ConfigEd
         haikuModel: data.haikuModel || undefined,
         sonnetModel: data.sonnetModel || undefined,
         opusModel: data.opusModel || undefined,
+        effortLevel: data.effortLevel || undefined,
         alwaysThinkingEnabled: data.alwaysThinkingEnabled,
         disableNonessentialTraffic: data.disableNonessentialTraffic,
         skipWebFetchPreflight: data.skipWebFetchPreflight,
@@ -556,6 +577,20 @@ function ConfigEditor({ config, defaults, providers, onSave, onClose }: ConfigEd
                 )}
               </div>
             </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="effortLevel">{t("configModal.effortLevel")}</label>
+                <select id="effortLevel" className="form-select" {...register("effortLevel")}>
+                  <option value="">{t("configModal.effortLevelUnset")}</option>
+                  {EFFORT_LEVEL_VALUES.map((level) => (
+                    <option key={level} value={level}>
+                      {level}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <p className="form-hint">{t("configModal.effortLevelHint")}</p>
             <p className="form-hint">{t("configModal.modelHint")}</p>
 
             {/* preferredLanguage */}

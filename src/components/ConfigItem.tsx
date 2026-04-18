@@ -79,6 +79,7 @@ function ConfigItem({
     if (cfg.haikuModel) lines.push(`export ANTHROPIC_DEFAULT_HAIKU_MODEL="${cfg.haikuModel}"`);
     if (cfg.sonnetModel) lines.push(`export ANTHROPIC_DEFAULT_SONNET_MODEL="${cfg.sonnetModel}"`);
     if (cfg.opusModel) lines.push(`export ANTHROPIC_DEFAULT_OPUS_MODEL="${cfg.opusModel}"`);
+    if (cfg.effortLevel) lines.push(`export CLAUDE_CODE_EFFORT_LEVEL="${cfg.effortLevel}"`);
     return lines.join("\n");
   }
 
@@ -199,10 +200,15 @@ function ConfigItem({
                 <circle cx="12" cy="12" r="10" />
                 <circle cx="12" cy="12" r="3" />
               </svg>
-              <span>
-                {config.model.substring(0, 30)}
-                {config.model.length > 30 ? "..." : ""}
-              </span>
+              <div className="config-meta-main">
+                <span>
+                  {config.model.substring(0, 30)}
+                  {config.model.length > 30 ? "..." : ""}
+                </span>
+                {config.effortLevel && (
+                  <span className="config-meta-effort">{config.effortLevel}</span>
+                )}
+              </div>
             </div>
           )}
           {config.enabledPlugins && Object.keys(config.enabledPlugins).length > 0 && (

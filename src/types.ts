@@ -42,6 +42,7 @@ export interface ClaudeConfig {
   haikuModel?: string;
   sonnetModel?: string;
   opusModel?: string;
+  effortLevel?: "auto" | "low" | "medium" | "high" | "xhigh" | "max";
   // 高级选项
   alwaysThinkingEnabled?: boolean;
   disableNonessentialTraffic?: boolean;

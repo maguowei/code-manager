@@ -21,6 +21,7 @@ pub struct ConfigData {
     pub haiku_model: Option<String>,
     pub sonnet_model: Option<String>,
     pub opus_model: Option<String>,
+    pub effort_level: Option<String>,
     pub always_thinking_enabled: Option<bool>,
     pub disable_nonessential_traffic: Option<bool>,
     pub skip_web_fetch_preflight: Option<bool>,
@@ -60,6 +61,7 @@ impl ConfigData {
             haiku_model: self.haiku_model,
             sonnet_model: self.sonnet_model,
             opus_model: self.opus_model,
+            effort_level: self.effort_level,
             always_thinking_enabled: self.always_thinking_enabled,
             disable_nonessential_traffic: self.disable_nonessential_traffic,
             skip_web_fetch_preflight: self.skip_web_fetch_preflight,
@@ -90,6 +92,7 @@ impl ConfigData {
         config.haiku_model = self.haiku_model;
         config.sonnet_model = self.sonnet_model;
         config.opus_model = self.opus_model;
+        config.effort_level = self.effort_level;
         config.always_thinking_enabled = self.always_thinking_enabled;
         config.disable_nonessential_traffic = self.disable_nonessential_traffic;
         config.skip_web_fetch_preflight = self.skip_web_fetch_preflight;
@@ -128,6 +131,8 @@ pub struct ClaudeConfig {
     pub sonnet_model: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub opus_model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub effort_level: Option<String>,
     // 高级选项
     #[serde(skip_serializing_if = "Option::is_none")]
     pub always_thinking_enabled: Option<bool>,
@@ -329,6 +334,12 @@ fn build_config_value(
         env.insert(
             "ANTHROPIC_DEFAULT_OPUS_MODEL".to_string(),
             serde_json::Value::String(opus_model.clone()),
+        );
+    }
+    if let Some(ref effort_level) = config.effort_level {
+        env.insert(
+            "CLAUDE_CODE_EFFORT_LEVEL".to_string(),
+            serde_json::Value::String(effort_level.clone()),
         );
     }
     if config.disable_nonessential_traffic == Some(true) {
@@ -903,6 +914,10 @@ mod schema_tests {
             !properties.contains_key("apiUrl"),
             "配置 schema 不应继续暴露旧的 apiUrl 字段"
         );
+        assert!(
+            properties.contains_key("effortLevel"),
+            "配置 schema 应暴露 effortLevel 字段"
+        );
     }
 
     #[test]
@@ -923,6 +938,84 @@ mod schema_tests {
             preview_json["env"]["ANTHROPIC_BASE_URL"],
             json!("https://example.com/anthropic")
         );
+    }
+
+    #[test]
+    fn preview_config_writes_effort_level_to_env() {
+        let data: ConfigData = serde_json::from_value(json!({
+            "name": "effort-level",
+            "description": "",
+            "apiKey": "sk-test",
+            "effortLevel": "xhigh"
+        }))
+        .expect("ConfigData 应支持 effortLevel 字段");
+
+        let preview = preview_config(data, None).expect("预览配置应生成成功");
+        let preview_json: serde_json::Value =
+            serde_json::from_str(&preview).expect("预览 JSON 应合法");
+
+        assert_eq!(preview_json["env"]["CLAUDE_CODE_EFFORT_LEVEL"], json!("xhigh"));
+    }
+
+    #[test]
+    fn preview_config_writes_auto_effort_level_to_env() {
+        let data: ConfigData = serde_json::from_value(json!({
+            "name": "auto-effort-level",
+            "description": "",
+            "apiKey": "sk-test",
+            "effortLevel": "auto"
+        }))
+        .expect("ConfigData 应支持 auto effortLevel");
+
+        let preview = preview_config(data, None).expect("预览配置应生成成功");
+        let preview_json: serde_json::Value =
+            serde_json::from_str(&preview).expect("预览 JSON 应合法");
+
+        assert_eq!(preview_json["env"]["CLAUDE_CODE_EFFORT_LEVEL"], json!("auto"));
+    }
+
+    #[test]
+    fn explicit_effort_level_overrides_extra_fields_env_value() {
+        let config = ClaudeConfig {
+            id: "cfg".to_string(),
+            name: "override-effort".to_string(),
+            description: String::new(),
+            api_key: "sk-test".to_string(),
+            base_url: None,
+            website_url: None,
+            model: None,
+            thinking_model: None,
+            haiku_model: None,
+            sonnet_model: None,
+            opus_model: None,
+            effort_level: Some("high".to_string()),
+            always_thinking_enabled: None,
+            disable_nonessential_traffic: None,
+            skip_web_fetch_preflight: None,
+            enable_lsp_tool: None,
+            agent_teams_enabled: None,
+            has_completed_onboarding: None,
+            enable_extra_marketplaces: None,
+            preferred_language: None,
+            use_defaults: None,
+            enabled_plugins: None,
+            extra_fields: Some(HashMap::from([(
+                "env".to_string(),
+                json!({
+                    "CLAUDE_CODE_EFFORT_LEVEL": "low",
+                    "CUSTOM_ENV": "value"
+                }),
+            )])),
+            provider_id: None,
+            is_active: false,
+            created_at: 0,
+            updated_at: 0,
+        };
+
+        let preview = build_config_value(&config, None, None);
+
+        assert_eq!(preview["env"]["CLAUDE_CODE_EFFORT_LEVEL"], json!("high"));
+        assert_eq!(preview["env"]["CUSTOM_ENV"], json!("value"));
     }
 
     #[test]

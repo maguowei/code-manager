@@ -15,6 +15,10 @@
     "haikuModel": { "type": "string" },
     "sonnetModel": { "type": "string" },
     "opusModel": { "type": "string" },
+    "effortLevel": {
+      "type": "string",
+      "enum": ["auto", "low", "medium", "high", "xhigh", "max"]
+    },
     "alwaysThinkingEnabled": { "type": "boolean", "default": true },
     "disableNonessentialTraffic": { "type": "boolean", "default": true },
     "skipWebFetchPreflight": { "type": "boolean", "default": true },

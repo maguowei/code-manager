@@ -2,6 +2,8 @@ import { z } from "zod";
 import { optionalUrlStringSchema } from "./schema-helpers";
 
 const urlField = optionalUrlStringSchema.optional();
+export const EFFORT_LEVEL_VALUES = ["auto", "low", "medium", "high", "xhigh", "max"] as const;
+const effortLevelField = z.union([z.enum(EFFORT_LEVEL_VALUES), z.literal("")]).optional();
 
 export const ClaudeConfigSchema = z.object({
   name: z.string().min(1, "configEditor.validation.nameRequired"),
@@ -13,6 +15,7 @@ export const ClaudeConfigSchema = z.object({
   haikuModel: z.string().optional(),
   sonnetModel: z.string().optional(),
   opusModel: z.string().optional(),
+  effortLevel: effortLevelField,
   alwaysThinkingEnabled: z.boolean().default(true),
   disableNonessentialTraffic: z.boolean().default(true),
   skipWebFetchPreflight: z.boolean().default(true),

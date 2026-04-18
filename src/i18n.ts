@@ -67,6 +67,10 @@ const translations = {
     "configModal.sonnetModelPlaceholder": "claude-sonnet-4-5",
     "configModal.opusModel": "Opus 默认模型",
     "configModal.opusModelPlaceholder": "claude-opus-4-5-thinking",
+    "configModal.effortLevel": "模型努力级别",
+    "configModal.effortLevelUnset": "未设置（使用模型默认）",
+    "configModal.effortLevelHint":
+      "可选：写入 CLAUDE_CODE_EFFORT_LEVEL，支持 auto、low、medium、high、xhigh、max。",
     "configModal.modelHint": "可选：指定默认使用的 Claude 模型，留空则使用系统默认。",
     "configModal.advancedOptions": "高级选项",
     "configModal.alwaysThinking": "始终启用思考模式 (alwaysThinkingEnabled)",
@@ -511,6 +515,10 @@ const translations = {
     "configModal.sonnetModelPlaceholder": "claude-sonnet-4-5",
     "configModal.opusModel": "Opus Default Model",
     "configModal.opusModelPlaceholder": "claude-opus-4-5-thinking",
+    "configModal.effortLevel": "Effort Level",
+    "configModal.effortLevelUnset": "Unset (use model default)",
+    "configModal.effortLevelHint":
+      "Optional: writes CLAUDE_CODE_EFFORT_LEVEL. Supported values: auto, low, medium, high, xhigh, max.",
     "configModal.modelHint":
       "Optional: specify the default Claude model. Leave empty to use system default.",
     "configModal.advancedOptions": "Advanced Options",
