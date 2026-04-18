@@ -577,6 +577,7 @@ function ConfigEditor({ config, defaults, providers, onSave, onClose }: ConfigEd
                 )}
               </div>
             </div>
+            <p className="form-hint">{t("configModal.modelHint")}</p>
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="effortLevel">{t("configModal.effortLevel")}</label>
@@ -591,7 +592,6 @@ function ConfigEditor({ config, defaults, providers, onSave, onClose }: ConfigEd
               </div>
             </div>
             <p className="form-hint">{t("configModal.effortLevelHint")}</p>
-            <p className="form-hint">{t("configModal.modelHint")}</p>
 
             {/* preferredLanguage */}
             <div className="form-group">
