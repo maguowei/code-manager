@@ -64,6 +64,12 @@ export const FIELD_GROUPS: FieldGroup<ClaudeConfigFormData>[] = [
         inputType: "checkbox",
       },
       {
+        name: "fullscreenRenderingEnabled",
+        labelKey: "configModal.fullscreenRendering",
+        descriptionKey: "configModal.fullscreenRenderingDesc",
+        inputType: "checkbox",
+      },
+      {
         name: "agentTeamsEnabled",
         labelKey: "configModal.enableAgentTeams",
         descriptionKey: "configModal.enableAgentTeamsDesc",

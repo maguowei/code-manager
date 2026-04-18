@@ -1,7 +1,7 @@
 use crate::tray::rebuild_tray_menu;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
@@ -22,6 +22,7 @@ pub struct ConfigData {
     pub sonnet_model: Option<String>,
     pub opus_model: Option<String>,
     pub effort_level: Option<String>,
+    pub fullscreen_rendering_enabled: Option<bool>,
     pub always_thinking_enabled: Option<bool>,
     pub disable_nonessential_traffic: Option<bool>,
     pub skip_web_fetch_preflight: Option<bool>,
@@ -62,6 +63,7 @@ impl ConfigData {
             sonnet_model: self.sonnet_model,
             opus_model: self.opus_model,
             effort_level: self.effort_level,
+            fullscreen_rendering_enabled: self.fullscreen_rendering_enabled,
             always_thinking_enabled: self.always_thinking_enabled,
             disable_nonessential_traffic: self.disable_nonessential_traffic,
             skip_web_fetch_preflight: self.skip_web_fetch_preflight,
@@ -93,6 +95,7 @@ impl ConfigData {
         config.sonnet_model = self.sonnet_model;
         config.opus_model = self.opus_model;
         config.effort_level = self.effort_level;
+        config.fullscreen_rendering_enabled = self.fullscreen_rendering_enabled;
         config.always_thinking_enabled = self.always_thinking_enabled;
         config.disable_nonessential_traffic = self.disable_nonessential_traffic;
         config.skip_web_fetch_preflight = self.skip_web_fetch_preflight;
@@ -133,6 +136,8 @@ pub struct ClaudeConfig {
     pub opus_model: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub effort_level: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fullscreen_rendering_enabled: Option<bool>,
     // 高级选项
     #[serde(skip_serializing_if = "Option::is_none")]
     pub always_thinking_enabled: Option<bool>,
@@ -342,6 +347,12 @@ fn build_config_value(
             serde_json::Value::String(effort_level.clone()),
         );
     }
+    if config.fullscreen_rendering_enabled == Some(true) {
+        env.insert(
+            "CLAUDE_CODE_NO_FLICKER".to_string(),
+            serde_json::Value::String("1".to_string()),
+        );
+    }
     if config.disable_nonessential_traffic == Some(true) {
         env.insert(
             "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC".to_string(),
@@ -442,6 +453,9 @@ fn build_config_value(
         serde_json::Value::Object(claude_config)
     };
 
+    // 记录哪些 env 键已经被显式配置接管，避免 extra_fields 将其重新写回。
+    let explicit_env_keys = build_explicit_env_keys(config);
+
     // 合并额外字段（用户在 JSON 编辑器中手动添加的字段）
     if let Some(ref extra) = config.extra_fields {
         if let serde_json::Value::Object(ref mut map) = result {
@@ -454,7 +468,9 @@ fn build_config_value(
                     ) = (existing, v)
                     {
                         for (ek, ev) in extra_map {
-                            if !existing_map.contains_key(ek) {
+                            if !existing_map.contains_key(ek)
+                                && !explicit_env_keys.contains(ek.as_str())
+                            {
                                 existing_map.insert(ek.clone(), ev.clone());
                             }
                         }
@@ -468,6 +484,44 @@ fn build_config_value(
     }
 
     result
+}
+
+/// 返回已被显式字段接管的 env 键，避免 extra_fields.env 覆盖配置字段。
+fn build_explicit_env_keys(config: &ClaudeConfig) -> HashSet<&'static str> {
+    let mut keys = HashSet::from(["ANTHROPIC_AUTH_TOKEN"]);
+
+    if config.base_url.as_deref().is_some_and(|value| !value.is_empty()) {
+        keys.insert("ANTHROPIC_BASE_URL");
+    }
+    if config.model.is_some() {
+        keys.insert("ANTHROPIC_MODEL");
+    }
+    if config.haiku_model.is_some() {
+        keys.insert("ANTHROPIC_DEFAULT_HAIKU_MODEL");
+    }
+    if config.sonnet_model.is_some() {
+        keys.insert("ANTHROPIC_DEFAULT_SONNET_MODEL");
+    }
+    if config.opus_model.is_some() {
+        keys.insert("ANTHROPIC_DEFAULT_OPUS_MODEL");
+    }
+    if config.effort_level.is_some() {
+        keys.insert("CLAUDE_CODE_EFFORT_LEVEL");
+    }
+    if config.fullscreen_rendering_enabled.is_some() {
+        keys.insert("CLAUDE_CODE_NO_FLICKER");
+    }
+    if config.disable_nonessential_traffic.is_some() {
+        keys.insert("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC");
+    }
+    if config.enable_lsp_tool.is_some() {
+        keys.insert("ENABLE_LSP_TOOL");
+    }
+    if config.agent_teams_enabled.is_some() {
+        keys.insert("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS");
+    }
+
+    keys
 }
 
 /// 将指定配置应用到 ~/.claude/settings.json
@@ -881,6 +935,7 @@ mod schema_tests {
             ("disableNonessentialTraffic", true),
             ("skipWebFetchPreflight", true),
             ("enableLspTool", true),
+            ("fullscreenRenderingEnabled", true),
             ("agentTeamsEnabled", false),
         ];
 
@@ -917,6 +972,10 @@ mod schema_tests {
         assert!(
             properties.contains_key("effortLevel"),
             "配置 schema 应暴露 effortLevel 字段"
+        );
+        assert!(
+            properties.contains_key("fullscreenRenderingEnabled"),
+            "配置 schema 应暴露 fullscreenRenderingEnabled 字段"
         );
     }
 
@@ -975,6 +1034,43 @@ mod schema_tests {
     }
 
     #[test]
+    fn preview_config_writes_no_flicker_to_env() {
+        let data: ConfigData = serde_json::from_value(json!({
+            "name": "no-flicker",
+            "description": "",
+            "apiKey": "sk-test",
+            "fullscreenRenderingEnabled": true
+        }))
+        .expect("ConfigData 应支持 fullscreenRenderingEnabled 字段");
+
+        let preview = preview_config(data, None).expect("预览配置应生成成功");
+        let preview_json: serde_json::Value =
+            serde_json::from_str(&preview).expect("预览 JSON 应合法");
+
+        assert_eq!(preview_json["env"]["CLAUDE_CODE_NO_FLICKER"], json!("1"));
+    }
+
+    #[test]
+    fn preview_config_omits_no_flicker_env_when_false() {
+        let data: ConfigData = serde_json::from_value(json!({
+            "name": "no-flicker-disabled",
+            "description": "",
+            "apiKey": "sk-test",
+            "fullscreenRenderingEnabled": false
+        }))
+        .expect("ConfigData 应支持 fullscreenRenderingEnabled=false");
+
+        let preview = preview_config(data, None).expect("预览配置应生成成功");
+        let preview_json: serde_json::Value =
+            serde_json::from_str(&preview).expect("预览 JSON 应合法");
+
+        assert!(
+            preview_json["env"]["CLAUDE_CODE_NO_FLICKER"].is_null(),
+            "fullscreenRenderingEnabled=false 时不应写出 CLAUDE_CODE_NO_FLICKER"
+        );
+    }
+
+    #[test]
     fn explicit_effort_level_overrides_extra_fields_env_value() {
         let config = ClaudeConfig {
             id: "cfg".to_string(),
@@ -989,6 +1085,7 @@ mod schema_tests {
             sonnet_model: None,
             opus_model: None,
             effort_level: Some("high".to_string()),
+            fullscreen_rendering_enabled: None,
             always_thinking_enabled: None,
             disable_nonessential_traffic: None,
             skip_web_fetch_preflight: None,
@@ -1015,6 +1112,54 @@ mod schema_tests {
         let preview = build_config_value(&config, None, None);
 
         assert_eq!(preview["env"]["CLAUDE_CODE_EFFORT_LEVEL"], json!("high"));
+        assert_eq!(preview["env"]["CUSTOM_ENV"], json!("value"));
+    }
+
+    #[test]
+    fn explicit_fullscreen_rendering_false_overrides_extra_fields_env_value() {
+        let config = ClaudeConfig {
+            id: "cfg".to_string(),
+            name: "override-no-flicker".to_string(),
+            description: String::new(),
+            api_key: "sk-test".to_string(),
+            base_url: None,
+            website_url: None,
+            model: None,
+            thinking_model: None,
+            haiku_model: None,
+            sonnet_model: None,
+            opus_model: None,
+            effort_level: None,
+            fullscreen_rendering_enabled: Some(false),
+            always_thinking_enabled: None,
+            disable_nonessential_traffic: None,
+            skip_web_fetch_preflight: None,
+            enable_lsp_tool: None,
+            agent_teams_enabled: None,
+            has_completed_onboarding: None,
+            enable_extra_marketplaces: None,
+            preferred_language: None,
+            use_defaults: None,
+            enabled_plugins: None,
+            extra_fields: Some(HashMap::from([(
+                "env".to_string(),
+                json!({
+                    "CLAUDE_CODE_NO_FLICKER": "1",
+                    "CUSTOM_ENV": "value"
+                }),
+            )])),
+            provider_id: None,
+            is_active: false,
+            created_at: 0,
+            updated_at: 0,
+        };
+
+        let preview = build_config_value(&config, None, None);
+
+        assert!(
+            preview["env"]["CLAUDE_CODE_NO_FLICKER"].is_null(),
+            "fullscreenRenderingEnabled=false 时不应被 extraFields.env 覆盖回 1"
+        );
         assert_eq!(preview["env"]["CUSTOM_ENV"], json!("value"));
     }
 

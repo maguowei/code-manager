@@ -77,6 +77,9 @@ const translations = {
     "configModal.disableTraffic": "禁用非必要网络请求 (CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC)",
     "configModal.skipWebFetchPreflight": "跳过 WebFetch 预检 (skipWebFetchPreflight)",
     "configModal.enableLspTool": "启用 LSP 工具 (ENABLE_LSP_TOOL)",
+    "configModal.fullscreenRendering": "启用全屏渲染 (CLAUDE_CODE_NO_FLICKER)",
+    "configModal.fullscreenRenderingDesc":
+      "设置为 1 以启用全屏渲染（研究预览），减少闪烁并在长对话中保持内存平稳。",
     "configModal.enableAgentTeams": "启用 Agent Teams (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS)",
     "configModal.enableAgentTeamsDesc":
       "设置为 1 以启用 agent teams。Agent teams 是实验性的，默认禁用",
@@ -527,6 +530,9 @@ const translations = {
       "Disable non-essential network traffic (CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC)",
     "configModal.skipWebFetchPreflight": "Skip WebFetch preflight (skipWebFetchPreflight)",
     "configModal.enableLspTool": "Enable LSP Tool (ENABLE_LSP_TOOL)",
+    "configModal.fullscreenRendering": "Enable fullscreen rendering (CLAUDE_CODE_NO_FLICKER)",
+    "configModal.fullscreenRenderingDesc":
+      "Set to 1 to enable fullscreen rendering, a research preview that reduces flicker and keeps memory flat in long conversations.",
     "configModal.enableAgentTeams": "Enable Agent Teams (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS)",
     "configModal.enableAgentTeamsDesc":
       "Set to 1 to enable agent teams. Agent teams is experimental and disabled by default.",

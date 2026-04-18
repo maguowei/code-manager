@@ -41,6 +41,7 @@ function buildConfigData(
     disableNonessentialTraffic: config.disableNonessentialTraffic ?? null,
     skipWebFetchPreflight: config.skipWebFetchPreflight ?? null,
     enableLspTool: config.enableLspTool ?? null,
+    fullscreenRenderingEnabled: config.fullscreenRenderingEnabled ?? null,
     agentTeamsEnabled: config.agentTeamsEnabled ?? null,
     hasCompletedOnboarding: config.hasCompletedOnboarding ?? null,
     enableExtraMarketplaces: config.enableExtraMarketplaces ?? null,

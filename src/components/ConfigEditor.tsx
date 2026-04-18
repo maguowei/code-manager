@@ -140,6 +140,7 @@ function ConfigEditor({ config, defaults, providers, onSave, onClose }: ConfigEd
         disableNonessentialTraffic: formValues.disableNonessentialTraffic ?? null,
         skipWebFetchPreflight: formValues.skipWebFetchPreflight ?? null,
         enableLspTool: formValues.enableLspTool ?? null,
+        fullscreenRenderingEnabled: formValues.fullscreenRenderingEnabled ?? null,
         agentTeamsEnabled: formValues.agentTeamsEnabled ?? null,
         hasCompletedOnboarding: formValues.hasCompletedOnboarding ?? null,
         enableExtraMarketplaces: formValues.enableExtraMarketplaces ?? null,
@@ -204,6 +205,7 @@ function ConfigEditor({ config, defaults, providers, onSave, onClose }: ConfigEd
     }
     setValue("disableNonessentialTraffic", env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC === "1");
     setValue("enableLspTool", env.ENABLE_LSP_TOOL === "1");
+    setValue("fullscreenRenderingEnabled", env.CLAUDE_CODE_NO_FLICKER === "1");
     setValue("agentTeamsEnabled", env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS === "1");
 
     const knownEnvKeys = [
@@ -215,6 +217,7 @@ function ConfigEditor({ config, defaults, providers, onSave, onClose }: ConfigEd
       "ANTHROPIC_DEFAULT_OPUS_MODEL",
       "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
       "ENABLE_LSP_TOOL",
+      "CLAUDE_CODE_NO_FLICKER",
       "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
     ];
     if (isEffortLevel(env.CLAUDE_CODE_EFFORT_LEVEL ?? "")) {
@@ -314,6 +317,7 @@ function ConfigEditor({ config, defaults, providers, onSave, onClose }: ConfigEd
         disableNonessentialTraffic: data.disableNonessentialTraffic,
         skipWebFetchPreflight: data.skipWebFetchPreflight,
         enableLspTool: data.enableLspTool,
+        fullscreenRenderingEnabled: data.fullscreenRenderingEnabled,
         agentTeamsEnabled: data.agentTeamsEnabled,
         enableExtraMarketplaces: data.enableExtraMarketplaces,
         hasCompletedOnboarding: data.hasCompletedOnboarding,

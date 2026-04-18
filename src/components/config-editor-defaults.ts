@@ -15,6 +15,7 @@ interface ConfigEditorDefaultConfig {
   disableNonessentialTraffic?: boolean;
   skipWebFetchPreflight?: boolean;
   enableLspTool?: boolean;
+  fullscreenRenderingEnabled?: boolean;
   agentTeamsEnabled?: boolean;
   enableExtraMarketplaces?: boolean;
   hasCompletedOnboarding?: boolean;
@@ -22,11 +23,27 @@ interface ConfigEditorDefaultConfig {
   useDefaults?: boolean;
   enabledPlugins?: Record<string, boolean>;
   providerId?: string;
+  extraFields?: Record<string, unknown>;
 }
 
 interface ConfigEditorDefaultProvider {
   id: string;
   baseUrl: string;
+}
+
+function readLegacyFullscreenRenderingValue(
+  extraFields?: Record<string, unknown>,
+): boolean | undefined {
+  const env = extraFields?.env;
+  if (!env || typeof env !== "object" || Array.isArray(env)) {
+    return undefined;
+  }
+
+  if (!("CLAUDE_CODE_NO_FLICKER" in env)) {
+    return undefined;
+  }
+
+  return (env as Record<string, unknown>).CLAUDE_CODE_NO_FLICKER === "1";
 }
 
 /** 构造配置编辑器的初始表单值 */
@@ -39,6 +56,7 @@ export function buildConfigEditorDefaultValues(
   const providerBaseUrl = config?.providerId
     ? providers.find((provider) => provider.id === config.providerId)?.baseUrl
     : undefined;
+  const legacyFullscreenRenderingEnabled = readLegacyFullscreenRenderingValue(config?.extraFields);
 
   return {
     name: config?.name ?? "",
@@ -55,6 +73,8 @@ export function buildConfigEditorDefaultValues(
     disableNonessentialTraffic: config?.disableNonessentialTraffic ?? isNewConfig,
     skipWebFetchPreflight: config?.skipWebFetchPreflight ?? isNewConfig,
     enableLspTool: config?.enableLspTool ?? isNewConfig,
+    fullscreenRenderingEnabled:
+      config?.fullscreenRenderingEnabled ?? legacyFullscreenRenderingEnabled ?? isNewConfig,
     agentTeamsEnabled: config?.agentTeamsEnabled ?? false,
     hasCompletedOnboarding: config?.hasCompletedOnboarding ?? isNewConfig,
     enableExtraMarketplaces: config?.enableExtraMarketplaces ?? false,

@@ -80,6 +80,7 @@ function ConfigItem({
     if (cfg.sonnetModel) lines.push(`export ANTHROPIC_DEFAULT_SONNET_MODEL="${cfg.sonnetModel}"`);
     if (cfg.opusModel) lines.push(`export ANTHROPIC_DEFAULT_OPUS_MODEL="${cfg.opusModel}"`);
     if (cfg.effortLevel) lines.push(`export CLAUDE_CODE_EFFORT_LEVEL="${cfg.effortLevel}"`);
+    if (cfg.fullscreenRenderingEnabled) lines.push('export CLAUDE_CODE_NO_FLICKER="1"');
     return lines.join("\n");
   }
 
