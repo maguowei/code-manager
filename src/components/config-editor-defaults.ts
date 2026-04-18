@@ -16,6 +16,7 @@ interface ConfigEditorDefaultConfig {
   skipWebFetchPreflight?: boolean;
   enableLspTool?: boolean;
   fullscreenRenderingEnabled?: boolean;
+  interactiveInitEnabled?: boolean;
   agentTeamsEnabled?: boolean;
   enableExtraMarketplaces?: boolean;
   hasCompletedOnboarding?: boolean;
@@ -31,19 +32,20 @@ interface ConfigEditorDefaultProvider {
   baseUrl: string;
 }
 
-function readLegacyFullscreenRenderingValue(
+function readLegacyEnvToggleValue(
   extraFields?: Record<string, unknown>,
+  envKey?: string,
 ): boolean | undefined {
   const env = extraFields?.env;
   if (!env || typeof env !== "object" || Array.isArray(env)) {
     return undefined;
   }
 
-  if (!("CLAUDE_CODE_NO_FLICKER" in env)) {
+  if (!envKey || !(envKey in env)) {
     return undefined;
   }
 
-  return (env as Record<string, unknown>).CLAUDE_CODE_NO_FLICKER === "1";
+  return (env as Record<string, unknown>)[envKey] === "1";
 }
 
 /** 构造配置编辑器的初始表单值 */
@@ -56,7 +58,14 @@ export function buildConfigEditorDefaultValues(
   const providerBaseUrl = config?.providerId
     ? providers.find((provider) => provider.id === config.providerId)?.baseUrl
     : undefined;
-  const legacyFullscreenRenderingEnabled = readLegacyFullscreenRenderingValue(config?.extraFields);
+  const legacyFullscreenRenderingEnabled = readLegacyEnvToggleValue(
+    config?.extraFields,
+    "CLAUDE_CODE_NO_FLICKER",
+  );
+  const legacyInteractiveInitEnabled = readLegacyEnvToggleValue(
+    config?.extraFields,
+    "CLAUDE_CODE_NEW_INIT",
+  );
 
   return {
     name: config?.name ?? "",
@@ -75,6 +84,8 @@ export function buildConfigEditorDefaultValues(
     enableLspTool: config?.enableLspTool ?? isNewConfig,
     fullscreenRenderingEnabled:
       config?.fullscreenRenderingEnabled ?? legacyFullscreenRenderingEnabled ?? isNewConfig,
+    interactiveInitEnabled:
+      config?.interactiveInitEnabled ?? legacyInteractiveInitEnabled ?? isNewConfig,
     agentTeamsEnabled: config?.agentTeamsEnabled ?? false,
     hasCompletedOnboarding: config?.hasCompletedOnboarding ?? isNewConfig,
     enableExtraMarketplaces: config?.enableExtraMarketplaces ?? false,

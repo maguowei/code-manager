@@ -80,6 +80,9 @@ const translations = {
     "configModal.fullscreenRendering": "启用全屏渲染 (CLAUDE_CODE_NO_FLICKER)",
     "configModal.fullscreenRenderingDesc":
       "设置为 1 以启用全屏渲染（研究预览），减少闪烁并在长对话中保持内存平稳。",
+    "configModal.interactiveInit": "启用交互式 /init (CLAUDE_CODE_NEW_INIT)",
+    "configModal.interactiveInitDesc":
+      "设置为 1 以让 /init 进入交互式设置流程，先询问要生成哪些文件，再探索代码库并写入它们。",
     "configModal.enableAgentTeams": "启用 Agent Teams (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS)",
     "configModal.enableAgentTeamsDesc":
       "设置为 1 以启用 agent teams。Agent teams 是实验性的，默认禁用",
@@ -533,6 +536,9 @@ const translations = {
     "configModal.fullscreenRendering": "Enable fullscreen rendering (CLAUDE_CODE_NO_FLICKER)",
     "configModal.fullscreenRenderingDesc":
       "Set to 1 to enable fullscreen rendering, a research preview that reduces flicker and keeps memory flat in long conversations.",
+    "configModal.interactiveInit": "Enable interactive /init (CLAUDE_CODE_NEW_INIT)",
+    "configModal.interactiveInitDesc":
+      "Set to 1 to make /init run the interactive setup flow before exploring the codebase and generating files.",
     "configModal.enableAgentTeams": "Enable Agent Teams (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS)",
     "configModal.enableAgentTeamsDesc":
       "Set to 1 to enable agent teams. Agent teams is experimental and disabled by default.",

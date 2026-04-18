@@ -42,6 +42,7 @@ function buildConfigData(
     skipWebFetchPreflight: config.skipWebFetchPreflight ?? null,
     enableLspTool: config.enableLspTool ?? null,
     fullscreenRenderingEnabled: config.fullscreenRenderingEnabled ?? null,
+    interactiveInitEnabled: config.interactiveInitEnabled ?? null,
     agentTeamsEnabled: config.agentTeamsEnabled ?? null,
     hasCompletedOnboarding: config.hasCompletedOnboarding ?? null,
     enableExtraMarketplaces: config.enableExtraMarketplaces ?? null,

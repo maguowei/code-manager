@@ -24,6 +24,7 @@
     "skipWebFetchPreflight": { "type": "boolean", "default": true },
     "enableLspTool": { "type": "boolean", "default": true },
     "fullscreenRenderingEnabled": { "type": "boolean", "default": true },
+    "interactiveInitEnabled": { "type": "boolean", "default": true },
     "agentTeamsEnabled": { "type": "boolean", "default": false },
     "hasCompletedOnboarding": { "type": "boolean", "default": true },
     "enableExtraMarketplaces": { "type": "boolean", "default": false },

@@ -70,6 +70,12 @@ export const FIELD_GROUPS: FieldGroup<ClaudeConfigFormData>[] = [
         inputType: "checkbox",
       },
       {
+        name: "interactiveInitEnabled",
+        labelKey: "configModal.interactiveInit",
+        descriptionKey: "configModal.interactiveInitDesc",
+        inputType: "checkbox",
+      },
+      {
         name: "agentTeamsEnabled",
         labelKey: "configModal.enableAgentTeams",
         descriptionKey: "configModal.enableAgentTeamsDesc",

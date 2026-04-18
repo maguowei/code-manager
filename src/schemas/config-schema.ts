@@ -21,6 +21,7 @@ export const ClaudeConfigSchema = z.object({
   skipWebFetchPreflight: z.boolean().default(true),
   enableLspTool: z.boolean().default(true),
   fullscreenRenderingEnabled: z.boolean().default(true),
+  interactiveInitEnabled: z.boolean().default(true),
   agentTeamsEnabled: z.boolean().default(false),
   hasCompletedOnboarding: z.boolean().default(true),
   enableExtraMarketplaces: z.boolean().default(false),

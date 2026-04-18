@@ -23,6 +23,7 @@ pub struct ConfigData {
     pub opus_model: Option<String>,
     pub effort_level: Option<String>,
     pub fullscreen_rendering_enabled: Option<bool>,
+    pub interactive_init_enabled: Option<bool>,
     pub always_thinking_enabled: Option<bool>,
     pub disable_nonessential_traffic: Option<bool>,
     pub skip_web_fetch_preflight: Option<bool>,
@@ -64,6 +65,7 @@ impl ConfigData {
             opus_model: self.opus_model,
             effort_level: self.effort_level,
             fullscreen_rendering_enabled: self.fullscreen_rendering_enabled,
+            interactive_init_enabled: self.interactive_init_enabled,
             always_thinking_enabled: self.always_thinking_enabled,
             disable_nonessential_traffic: self.disable_nonessential_traffic,
             skip_web_fetch_preflight: self.skip_web_fetch_preflight,
@@ -96,6 +98,7 @@ impl ConfigData {
         config.opus_model = self.opus_model;
         config.effort_level = self.effort_level;
         config.fullscreen_rendering_enabled = self.fullscreen_rendering_enabled;
+        config.interactive_init_enabled = self.interactive_init_enabled;
         config.always_thinking_enabled = self.always_thinking_enabled;
         config.disable_nonessential_traffic = self.disable_nonessential_traffic;
         config.skip_web_fetch_preflight = self.skip_web_fetch_preflight;
@@ -138,6 +141,8 @@ pub struct ClaudeConfig {
     pub effort_level: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fullscreen_rendering_enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub interactive_init_enabled: Option<bool>,
     // 高级选项
     #[serde(skip_serializing_if = "Option::is_none")]
     pub always_thinking_enabled: Option<bool>,
@@ -353,6 +358,12 @@ fn build_config_value(
             serde_json::Value::String("1".to_string()),
         );
     }
+    if config.interactive_init_enabled == Some(true) {
+        env.insert(
+            "CLAUDE_CODE_NEW_INIT".to_string(),
+            serde_json::Value::String("1".to_string()),
+        );
+    }
     if config.disable_nonessential_traffic == Some(true) {
         env.insert(
             "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC".to_string(),
@@ -510,6 +521,9 @@ fn build_explicit_env_keys(config: &ClaudeConfig) -> HashSet<&'static str> {
     }
     if config.fullscreen_rendering_enabled.is_some() {
         keys.insert("CLAUDE_CODE_NO_FLICKER");
+    }
+    if config.interactive_init_enabled.is_some() {
+        keys.insert("CLAUDE_CODE_NEW_INIT");
     }
     if config.disable_nonessential_traffic.is_some() {
         keys.insert("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC");
@@ -936,6 +950,7 @@ mod schema_tests {
             ("skipWebFetchPreflight", true),
             ("enableLspTool", true),
             ("fullscreenRenderingEnabled", true),
+            ("interactiveInitEnabled", true),
             ("agentTeamsEnabled", false),
         ];
 
@@ -976,6 +991,10 @@ mod schema_tests {
         assert!(
             properties.contains_key("fullscreenRenderingEnabled"),
             "配置 schema 应暴露 fullscreenRenderingEnabled 字段"
+        );
+        assert!(
+            properties.contains_key("interactiveInitEnabled"),
+            "配置 schema 应暴露 interactiveInitEnabled 字段"
         );
     }
 
@@ -1071,6 +1090,43 @@ mod schema_tests {
     }
 
     #[test]
+    fn preview_config_writes_new_init_to_env() {
+        let data: ConfigData = serde_json::from_value(json!({
+            "name": "interactive-init",
+            "description": "",
+            "apiKey": "sk-test",
+            "interactiveInitEnabled": true
+        }))
+        .expect("ConfigData 应支持 interactiveInitEnabled 字段");
+
+        let preview = preview_config(data, None).expect("预览配置应生成成功");
+        let preview_json: serde_json::Value =
+            serde_json::from_str(&preview).expect("预览 JSON 应合法");
+
+        assert_eq!(preview_json["env"]["CLAUDE_CODE_NEW_INIT"], json!("1"));
+    }
+
+    #[test]
+    fn preview_config_omits_new_init_env_when_false() {
+        let data: ConfigData = serde_json::from_value(json!({
+            "name": "interactive-init-disabled",
+            "description": "",
+            "apiKey": "sk-test",
+            "interactiveInitEnabled": false
+        }))
+        .expect("ConfigData 应支持 interactiveInitEnabled=false");
+
+        let preview = preview_config(data, None).expect("预览配置应生成成功");
+        let preview_json: serde_json::Value =
+            serde_json::from_str(&preview).expect("预览 JSON 应合法");
+
+        assert!(
+            preview_json["env"]["CLAUDE_CODE_NEW_INIT"].is_null(),
+            "interactiveInitEnabled=false 时不应写出 CLAUDE_CODE_NEW_INIT"
+        );
+    }
+
+    #[test]
     fn explicit_effort_level_overrides_extra_fields_env_value() {
         let config = ClaudeConfig {
             id: "cfg".to_string(),
@@ -1086,6 +1142,7 @@ mod schema_tests {
             opus_model: None,
             effort_level: Some("high".to_string()),
             fullscreen_rendering_enabled: None,
+            interactive_init_enabled: None,
             always_thinking_enabled: None,
             disable_nonessential_traffic: None,
             skip_web_fetch_preflight: None,
@@ -1131,6 +1188,7 @@ mod schema_tests {
             opus_model: None,
             effort_level: None,
             fullscreen_rendering_enabled: Some(false),
+            interactive_init_enabled: None,
             always_thinking_enabled: None,
             disable_nonessential_traffic: None,
             skip_web_fetch_preflight: None,
@@ -1159,6 +1217,55 @@ mod schema_tests {
         assert!(
             preview["env"]["CLAUDE_CODE_NO_FLICKER"].is_null(),
             "fullscreenRenderingEnabled=false 时不应被 extraFields.env 覆盖回 1"
+        );
+        assert_eq!(preview["env"]["CUSTOM_ENV"], json!("value"));
+    }
+
+    #[test]
+    fn explicit_interactive_init_false_overrides_extra_fields_env_value() {
+        let config = ClaudeConfig {
+            id: "cfg".to_string(),
+            name: "override-new-init".to_string(),
+            description: String::new(),
+            api_key: "sk-test".to_string(),
+            base_url: None,
+            website_url: None,
+            model: None,
+            thinking_model: None,
+            haiku_model: None,
+            sonnet_model: None,
+            opus_model: None,
+            effort_level: None,
+            fullscreen_rendering_enabled: None,
+            interactive_init_enabled: Some(false),
+            always_thinking_enabled: None,
+            disable_nonessential_traffic: None,
+            skip_web_fetch_preflight: None,
+            enable_lsp_tool: None,
+            agent_teams_enabled: None,
+            has_completed_onboarding: None,
+            enable_extra_marketplaces: None,
+            preferred_language: None,
+            use_defaults: None,
+            enabled_plugins: None,
+            extra_fields: Some(HashMap::from([(
+                "env".to_string(),
+                json!({
+                    "CLAUDE_CODE_NEW_INIT": "1",
+                    "CUSTOM_ENV": "value"
+                }),
+            )])),
+            provider_id: None,
+            is_active: false,
+            created_at: 0,
+            updated_at: 0,
+        };
+
+        let preview = build_config_value(&config, None, None);
+
+        assert!(
+            preview["env"]["CLAUDE_CODE_NEW_INIT"].is_null(),
+            "interactiveInitEnabled=false 时不应被 extraFields.env 覆盖回 1"
         );
         assert_eq!(preview["env"]["CUSTOM_ENV"], json!("value"));
     }

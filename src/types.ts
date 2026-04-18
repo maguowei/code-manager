@@ -49,6 +49,7 @@ export interface ClaudeConfig {
   skipWebFetchPreflight?: boolean;
   enableLspTool?: boolean;
   fullscreenRenderingEnabled?: boolean;
+  interactiveInitEnabled?: boolean;
   agentTeamsEnabled?: boolean;
   enableExtraMarketplaces?: boolean;
   hasCompletedOnboarding?: boolean;
