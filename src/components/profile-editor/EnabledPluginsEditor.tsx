@@ -8,6 +8,7 @@ import {
   rowsFromStringArray,
   stringArrayFromRows,
 } from "./editor-utils";
+import RequiredBadge from "./RequiredBadge";
 import StringListEditor from "./StringListEditor";
 
 interface EnabledPluginsEditorProps {
@@ -151,7 +152,10 @@ function EnabledPluginsEditor({
         <div className="profile-plugin-table">
           <div className="profile-plugin-list-header" aria-hidden="true">
             <span className="profile-plugin-list-header-index">{isZh ? "序号" : "Index"}</span>
-            <span>{isZh ? "插件 ID" : "Plugin ID"}</span>
+            <span className="profile-inline-required-label">
+              <span>{isZh ? "插件 ID" : "Plugin ID"}</span>
+              <RequiredBadge />
+            </span>
             <span>{isZh ? "插件模式" : "Plugin Mode"}</span>
             <span className="profile-plugin-list-header-actions" />
           </div>

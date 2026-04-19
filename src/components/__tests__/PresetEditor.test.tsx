@@ -212,10 +212,10 @@ describe("PresetEditor", () => {
     const onSave = vi.fn();
     renderEditor({ onSave });
 
-    expect(screen.getByLabelText("中文名称")).toHaveValue("团队 OpenRouter");
-    expect(screen.getByLabelText("英文名称")).toHaveValue("Team OpenRouter");
+    expect(screen.getByLabelText(/中文名称/)).toHaveValue("团队 OpenRouter");
+    expect(screen.getByLabelText(/英文名称/)).toHaveValue("Team OpenRouter");
 
-    fireEvent.change(screen.getByLabelText("中文名称"), {
+    fireEvent.change(screen.getByLabelText(/中文名称/), {
       target: { value: "团队路由" },
     });
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
@@ -248,6 +248,8 @@ describe("PresetEditor", () => {
 
   it("renders control-first sections with unified mode switches and downgraded full json entry", () => {
     renderEditor();
+
+    expect(screen.queryByLabelText("降低动画")).not.toBeInTheDocument();
 
     for (const heading of [
       "基础信息",
@@ -296,6 +298,20 @@ describe("PresetEditor", () => {
     }
     if (basicSection) {
       expect(within(basicSection).queryByLabelText("基础预设")).not.toBeInTheDocument();
+      const nameZhLabel = basicSection.querySelector(
+        'label[for="preset-name-zh"]',
+      ) as HTMLElement | null;
+      const nameEnLabel = basicSection.querySelector(
+        'label[for="preset-name-en"]',
+      ) as HTMLElement | null;
+      expect(nameZhLabel).not.toBeNull();
+      expect(nameEnLabel).not.toBeNull();
+      expect(nameZhLabel).toHaveClass("label-required");
+      expect(nameEnLabel).toHaveClass("label-required");
+      if (nameZhLabel && nameEnLabel) {
+        expect(within(nameZhLabel).getByText("至少一项")).toBeInTheDocument();
+        expect(within(nameEnLabel).getByText("至少一项")).toBeInTheDocument();
+      }
     }
 
     const sandboxSection = screen.getByRole("heading", { name: "Sandbox" }).closest("section");
@@ -307,7 +323,10 @@ describe("PresetEditor", () => {
       expect(
         within(sandboxSection).queryByRole("button", { name: "JSON" }),
       ).not.toBeInTheDocument();
-      expect(within(sandboxSection).queryByLabelText("启用 Sandbox")).not.toBeInTheDocument();
+      expect(
+        within(sandboxSection).getByRole("switch", { name: "Sandbox 头部开关" }),
+      ).toHaveAttribute("aria-checked", "false");
+      expect(within(sandboxSection).getByText("已关闭 · 无附加配置")).toBeInTheDocument();
       expect(within(sandboxSection).queryByLabelText("HTTP Proxy 端口")).not.toBeInTheDocument();
       expect(within(sandboxSection).queryByLabelText("允许域名 1")).not.toBeInTheDocument();
     }
@@ -344,12 +363,23 @@ describe("PresetEditor", () => {
       .closest("section");
     expect(envSection).not.toBeNull();
     if (envSection) {
-      expect(within(envSection).getByRole("button", { name: "控件" })).toBeInTheDocument();
-      expect(within(envSection).getByRole("button", { name: "JSON" })).toBeInTheDocument();
+      expect(within(envSection).queryByRole("button", { name: "控件" })).not.toBeInTheDocument();
+      expect(within(envSection).queryByRole("button", { name: "JSON" })).not.toBeInTheDocument();
       expect(
         within(envSection).queryByDisplayValue("ANTHROPIC_AUTH_TOKEN"),
       ).not.toBeInTheDocument();
-      expect(within(envSection).getByDisplayValue("CLAUDE_CODE_EFFORT_LEVEL")).toBeInTheDocument();
+
+      toggleAccordionSection("环境变量");
+
+      expect(within(envSection).getByRole("button", { name: "控件" })).toBeInTheDocument();
+      expect(within(envSection).getByRole("button", { name: "JSON" })).toBeInTheDocument();
+      expect(
+        within(envSection).queryByRole("button", {
+          name: "编辑环境变量 CLAUDE_CODE_EFFORT_LEVEL",
+        }),
+      ).not.toBeInTheDocument();
+      expect(within(envSection).queryByLabelText("环境变量名称")).not.toBeInTheDocument();
+      expect(within(envSection).queryByLabelText("环境变量值")).not.toBeInTheDocument();
     }
 
     const marketplacesSection = screen
@@ -402,6 +432,10 @@ describe("PresetEditor", () => {
       expect(
         within(marketplacesSection as HTMLElement).queryByRole("button", { name: "控件" }),
       ).not.toBeInTheDocument();
+
+      expect(
+        within(envSection as HTMLElement).getByRole("button", { name: "控件" }),
+      ).toBeInTheDocument();
     }
   });
 
@@ -453,6 +487,7 @@ describe("PresetEditor", () => {
 
     const effortSelect = screen.getByLabelText("努力级别") as HTMLSelectElement;
     expect(Array.from(effortSelect.options).map((option) => option.value)).toEqual([
+      "",
       "auto",
       "low",
       "medium",
@@ -460,7 +495,7 @@ describe("PresetEditor", () => {
       "xhigh",
       "max",
     ]);
-    expect(effortSelect).toHaveValue("auto");
+    expect(effortSelect).toHaveValue("");
   });
 
   it("stores model and effort as standard env settings and keeps the env editor in sync", async () => {
@@ -478,19 +513,37 @@ describe("PresetEditor", () => {
       return;
     }
 
-    expect(within(envSection).queryByDisplayValue("ANTHROPIC_MODEL")).not.toBeInTheDocument();
-    expect(within(envSection).getByDisplayValue("CLAUDE_CODE_EFFORT_LEVEL")).toBeInTheDocument();
+    toggleAccordionSection("环境变量");
+
     expect(
-      within(envSection).queryByDisplayValue("ANTHROPIC_DEFAULT_OPUS_MODEL"),
+      within(envSection).queryByRole("button", {
+        name: "编辑环境变量 ANTHROPIC_MODEL",
+      }),
     ).not.toBeInTheDocument();
     expect(
-      within(envSection).queryByDisplayValue("ANTHROPIC_DEFAULT_SONNET_MODEL"),
+      within(envSection).queryByRole("button", {
+        name: "编辑环境变量 CLAUDE_CODE_EFFORT_LEVEL",
+      }),
     ).not.toBeInTheDocument();
     expect(
-      within(envSection).queryByDisplayValue("ANTHROPIC_DEFAULT_HAIKU_MODEL"),
+      within(envSection).queryByRole("button", {
+        name: "编辑环境变量 ANTHROPIC_DEFAULT_OPUS_MODEL",
+      }),
     ).not.toBeInTheDocument();
     expect(
-      within(envSection).queryByDisplayValue("CLAUDE_CODE_SUBAGENT_MODEL"),
+      within(envSection).queryByRole("button", {
+        name: "编辑环境变量 ANTHROPIC_DEFAULT_SONNET_MODEL",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(envSection).queryByRole("button", {
+        name: "编辑环境变量 ANTHROPIC_DEFAULT_HAIKU_MODEL",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(envSection).queryByRole("button", {
+        name: "编辑环境变量 CLAUDE_CODE_SUBAGENT_MODEL",
+      }),
     ).not.toBeInTheDocument();
 
     await act(async () => {
@@ -510,10 +563,10 @@ describe("PresetEditor", () => {
     });
 
     const effortSelect = screen.getByLabelText("努力级别") as HTMLSelectElement;
-    expect(effortSelect).toHaveValue("auto");
+    expect(effortSelect).toHaveValue("");
 
     await act(async () => {
-      fireEvent.change(screen.getByLabelText("模型"), {
+      fireEvent.change(screen.getByLabelText("默认模型"), {
         target: { value: "claude-opus-4-1" },
       });
       fireEvent.change(effortSelect, {
@@ -522,18 +575,36 @@ describe("PresetEditor", () => {
       await Promise.resolve();
     });
 
-    expect(within(envSection).getByDisplayValue("ANTHROPIC_MODEL")).toBeInTheDocument();
-    expect(within(envSection).getByDisplayValue("CLAUDE_CODE_EFFORT_LEVEL")).toBeInTheDocument();
     expect(
-      within(envSection).getByDisplayValue("ANTHROPIC_DEFAULT_OPUS_MODEL"),
+      within(envSection).getByRole("button", {
+        name: "编辑环境变量 ANTHROPIC_MODEL",
+      }),
     ).toBeInTheDocument();
     expect(
-      within(envSection).getByDisplayValue("ANTHROPIC_DEFAULT_SONNET_MODEL"),
+      within(envSection).getByRole("button", {
+        name: "编辑环境变量 CLAUDE_CODE_EFFORT_LEVEL",
+      }),
     ).toBeInTheDocument();
     expect(
-      within(envSection).getByDisplayValue("ANTHROPIC_DEFAULT_HAIKU_MODEL"),
+      within(envSection).getByRole("button", {
+        name: "编辑环境变量 ANTHROPIC_DEFAULT_OPUS_MODEL",
+      }),
     ).toBeInTheDocument();
-    expect(within(envSection).getByDisplayValue("CLAUDE_CODE_SUBAGENT_MODEL")).toBeInTheDocument();
+    expect(
+      within(envSection).getByRole("button", {
+        name: "编辑环境变量 ANTHROPIC_DEFAULT_SONNET_MODEL",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(envSection).getByRole("button", {
+        name: "编辑环境变量 ANTHROPIC_DEFAULT_HAIKU_MODEL",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(envSection).getByRole("button", {
+        name: "编辑环境变量 CLAUDE_CODE_SUBAGENT_MODEL",
+      }),
+    ).toBeInTheDocument();
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "保存" }));
@@ -569,16 +640,35 @@ describe("PresetEditor", () => {
       const header = fieldGroup.querySelector(".profile-field-header") as HTMLElement | null;
       expect(header).not.toBeNull();
       expect(fieldGroup.querySelector(".profile-field-mapping-row")).toBeNull();
-      const labelMeta = fieldGroup.querySelector(".profile-field-label-meta") as HTMLElement | null;
-      expect(labelMeta).not.toBeNull();
+      expect(header).not.toBeNull();
+      if (header) {
+        expect(header.querySelector(".profile-field-label-meta")).toBeNull();
+        const helpButton = within(header).getByRole("button", {
+          name:
+            label === "Opus 默认模型"
+              ? "ANTHROPIC_DEFAULT_OPUS_MODEL"
+              : label === "Sonnet 默认模型"
+                ? "ANTHROPIC_DEFAULT_SONNET_MODEL"
+                : label === "Haiku 默认模型"
+                  ? "ANTHROPIC_DEFAULT_HAIKU_MODEL"
+                  : "CLAUDE_CODE_SUBAGENT_MODEL",
+        });
+        expect(helpButton).toHaveAttribute("data-tooltip", helpButton.getAttribute("aria-label"));
+      }
       expect(fieldGroup.querySelector(".profile-field-badge")).toBeNull();
       expect(fieldGroup.querySelector(".profile-field-inline-meta")).toBeNull();
     }
 
-    expect(screen.getByText("ANTHROPIC_DEFAULT_OPUS_MODEL")).toBeInTheDocument();
-    expect(screen.getByText("ANTHROPIC_DEFAULT_SONNET_MODEL")).toBeInTheDocument();
-    expect(screen.getByText("ANTHROPIC_DEFAULT_HAIKU_MODEL")).toBeInTheDocument();
-    expect(screen.getByText("CLAUDE_CODE_SUBAGENT_MODEL")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "ANTHROPIC_DEFAULT_OPUS_MODEL" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "ANTHROPIC_DEFAULT_SONNET_MODEL" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "ANTHROPIC_DEFAULT_HAIKU_MODEL" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "CLAUDE_CODE_SUBAGENT_MODEL" })).toBeInTheDocument();
   });
 
   it("renders mapping controls inline inside field headers", async () => {
@@ -587,7 +677,9 @@ describe("PresetEditor", () => {
       await Promise.resolve();
     });
 
-    const modelGroup = screen.getByLabelText("模型").closest(".form-group") as HTMLElement | null;
+    const modelGroup = screen
+      .getByLabelText("默认模型")
+      .closest(".form-group") as HTMLElement | null;
     const effortGroup = screen
       .getByLabelText("努力级别")
       .closest(".form-group") as HTMLElement | null;
@@ -608,18 +700,15 @@ describe("PresetEditor", () => {
     expect(effortGroup.querySelector(".profile-field-mapping-row")).toBeNull();
 
     if (modelHeader && effortHeader) {
-      const modelLabelMeta = modelHeader.querySelector(
-        ".profile-field-label-meta",
-      ) as HTMLElement | null;
-      const effortLabelMeta = effortHeader.querySelector(
-        ".profile-field-label-meta",
-      ) as HTMLElement | null;
-      expect(modelLabelMeta).not.toBeNull();
-      expect(effortLabelMeta).not.toBeNull();
-      if (modelLabelMeta && effortLabelMeta) {
-        expect(modelLabelMeta).toHaveTextContent("(ANTHROPIC_MODEL)");
-        expect(effortLabelMeta).toHaveTextContent("(CLAUDE_CODE_EFFORT_LEVEL)");
-      }
+      expect(modelHeader.querySelector(".profile-field-label-meta")).toBeNull();
+      expect(effortHeader.querySelector(".profile-field-label-meta")).toBeNull();
+      expect(within(modelHeader).getByRole("button", { name: "ANTHROPIC_MODEL" })).toHaveAttribute(
+        "data-tooltip",
+        "ANTHROPIC_MODEL",
+      );
+      expect(
+        within(effortHeader).getByRole("button", { name: "CLAUDE_CODE_EFFORT_LEVEL" }),
+      ).toHaveAttribute("data-tooltip", "CLAUDE_CODE_EFFORT_LEVEL");
     }
 
     expect(modelGroup.querySelector(".profile-field-inline-meta")).toBeNull();
@@ -632,7 +721,7 @@ describe("PresetEditor", () => {
     const onSave = vi.fn();
     renderEditor({ onSave });
 
-    fireEvent.change(screen.getByLabelText("模型"), {
+    fireEvent.change(screen.getByLabelText("默认模型"), {
       target: { value: "claude-opus-4-1" },
     });
     fireEvent.change(screen.getByLabelText("ANTHROPIC_AUTH_TOKEN"), {
@@ -647,7 +736,6 @@ describe("PresetEditor", () => {
           env: {
             ANTHROPIC_AUTH_TOKEN: "new-token",
             ANTHROPIC_MODEL: "claude-opus-4-1",
-            CLAUDE_CODE_EFFORT_LEVEL: "auto",
           },
         }),
       }),
@@ -828,7 +916,6 @@ describe("PresetEditor", () => {
           },
           env: {
             ANTHROPIC_AUTH_TOKEN: "token",
-            CLAUDE_CODE_EFFORT_LEVEL: "auto",
             OPENAI_API_KEY: "json-token",
           },
           enabledPlugins: {
@@ -863,6 +950,16 @@ describe("PresetEditor", () => {
     expect(within(authSection).getByLabelText("基础预设")).toBeInTheDocument();
     expect(within(authSection).getByLabelText("ANTHROPIC_AUTH_TOKEN")).toHaveValue("token");
     expect(within(authSection).getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("");
+    expect(
+      Array.from(authSection.querySelectorAll("label"), (label) =>
+        label.textContent?.trim(),
+      ).filter(
+        (label): label is string =>
+          label === "基础预设" ||
+          label === "ANTHROPIC_BASE_URL" ||
+          label === "ANTHROPIC_AUTH_TOKEN",
+      ),
+    ).toEqual(["基础预设", "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN"]);
     expect(within(envSection).queryByDisplayValue("ANTHROPIC_AUTH_TOKEN")).not.toBeInTheDocument();
     expect(within(envSection).queryByDisplayValue("ANTHROPIC_BASE_URL")).not.toBeInTheDocument();
 
@@ -906,7 +1003,7 @@ describe("PresetEditor", () => {
       target: { value: "builtin:openrouter" },
     });
     expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("https://openrouter.ai/api");
-    expect(screen.getByLabelText("模型")).toHaveValue("claude-sonnet-4-6");
+    expect(screen.getByLabelText("默认模型")).toHaveValue("claude-sonnet-4-6");
     expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("claude-opus-4-1");
     expect(screen.getByLabelText("Sonnet 默认模型")).toHaveValue("claude-sonnet-4-6");
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("claude-haiku-4-5");
@@ -916,7 +1013,7 @@ describe("PresetEditor", () => {
       target: { value: "custom:team-plan" },
     });
     expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("https://openrouter.ai/api");
-    expect(screen.getByLabelText("模型")).toHaveValue("claude-sonnet-4-6");
+    expect(screen.getByLabelText("默认模型")).toHaveValue("claude-sonnet-4-6");
     expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("claude-opus-4-1");
     expect(screen.getByLabelText("Sonnet 默认模型")).toHaveValue("claude-sonnet-4-6");
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("claude-haiku-4-5");
@@ -925,7 +1022,7 @@ describe("PresetEditor", () => {
     fireEvent.change(screen.getByLabelText("基础预设"), {
       target: { value: "custom:explicit-model" },
     });
-    expect(screen.getByLabelText("模型")).toHaveValue("claude-opus-explicit");
+    expect(screen.getByLabelText("默认模型")).toHaveValue("claude-opus-explicit");
     expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("claude-opus-4-1");
     expect(screen.getByLabelText("Sonnet 默认模型")).toHaveValue("claude-sonnet-4-6");
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("claude-haiku-4-5");
@@ -934,7 +1031,7 @@ describe("PresetEditor", () => {
     fireEvent.change(screen.getByLabelText("基础预设"), {
       target: { value: "custom:env-level-overrides" },
     });
-    expect(screen.getByLabelText("模型")).toHaveValue("claude-opus-explicit");
+    expect(screen.getByLabelText("默认模型")).toHaveValue("claude-opus-explicit");
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("haiku-env-override");
     expect(screen.getByLabelText("Subagent 模型")).toHaveValue("subagent-env-override");
 
@@ -942,7 +1039,7 @@ describe("PresetEditor", () => {
       target: { value: "" },
     });
     expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("");
-    expect(screen.getByLabelText("模型")).toHaveValue("");
+    expect(screen.getByLabelText("默认模型")).toHaveValue("");
     expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("");
     expect(screen.getByLabelText("Sonnet 默认模型")).toHaveValue("");
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("");

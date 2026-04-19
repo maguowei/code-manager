@@ -8,7 +8,43 @@ interface SandboxEditorProps {
   onError: (message: string) => void;
 }
 
-function buildSummaryText(extraKeysCount: number, enabled: boolean, isZh: boolean): string {
+interface SandboxPresentation {
+  enabled: boolean;
+  extraKeys: string[];
+  headerSummary: string;
+  detailSummary: string;
+  emptyState: string;
+}
+
+interface SandboxSwitchControlProps {
+  enabled: boolean;
+  isZh: boolean;
+  ariaLabel: string;
+  onToggle: () => void;
+  variant?: "header" | "panel";
+}
+
+function buildHeaderSummary(extraKeysCount: number, enabled: boolean, isZh: boolean): string {
+  if (extraKeysCount === 0) {
+    return enabled
+      ? isZh
+        ? "已启用 · 无附加配置"
+        : "Enabled · No additional configuration"
+      : isZh
+        ? "已关闭 · 无附加配置"
+        : "Disabled · No additional configuration";
+  }
+
+  return enabled
+    ? isZh
+      ? `已启用 · ${extraKeysCount} 个附加配置键`
+      : `Enabled · ${extraKeysCount} additional keys`
+    : isZh
+      ? `已关闭 · ${extraKeysCount} 个附加配置键`
+      : `Disabled · ${extraKeysCount} additional keys`;
+}
+
+function buildDetailSummary(extraKeysCount: number, enabled: boolean, isZh: boolean): string {
   if (extraKeysCount === 0) {
     if (enabled) {
       return isZh
@@ -25,31 +61,75 @@ function buildSummaryText(extraKeysCount: number, enabled: boolean, isZh: boolea
     : `There are ${extraKeysCount} additional configuration keys.`;
 }
 
+export function getSandboxPresentation(value: unknown, isZh: boolean): SandboxPresentation {
+  const sandboxObject = readObject(value);
+  const enabled = sandboxObject.enabled === true;
+  const extraKeys = Object.keys(sandboxObject)
+    .filter((key) => key !== "enabled")
+    .sort();
+
+  return {
+    enabled,
+    extraKeys,
+    headerSummary: buildHeaderSummary(extraKeys.length, enabled, isZh),
+    detailSummary: buildDetailSummary(extraKeys.length, enabled, isZh),
+    emptyState: isZh
+      ? "没有附加的 sandbox 配置键。"
+      : "There are no additional sandbox configuration keys.",
+  };
+}
+
+export function setSandboxEnabled(value: unknown, enabled: boolean): Record<string, unknown> {
+  const sandboxObject = readObject(value);
+  const nextSandbox = { ...sandboxObject };
+  if (enabled) {
+    nextSandbox.enabled = true;
+  } else {
+    delete nextSandbox.enabled;
+  }
+  return nextSandbox;
+}
+
+export function SandboxSwitchControl({
+  enabled,
+  isZh,
+  ariaLabel,
+  onToggle,
+  variant = "panel",
+}: SandboxSwitchControlProps) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={enabled}
+      aria-label={ariaLabel}
+      className={`profile-sandbox-switch profile-sandbox-switch-compact profile-sandbox-switch-${variant}${enabled ? " is-on" : ""}`}
+      onClick={onToggle}
+    >
+      <span className="profile-sandbox-switch-track" aria-hidden="true">
+        <span className="profile-sandbox-switch-thumb" />
+      </span>
+      {variant === "panel" ? (
+        <span className={`profile-sandbox-switch-status${enabled ? " is-on" : ""}`}>
+          {enabled ? (isZh ? "已启用" : "Enabled") : isZh ? "已关闭" : "Disabled"}
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
 function SandboxEditor({ value, onChange, onError }: SandboxEditorProps) {
   const { language } = useI18n();
   const isZh = language === "zh";
-  const sandboxObject = useMemo(() => readObject(value), [value]);
-  const sandboxEnabled = sandboxObject.enabled === true;
-  const extraKeys = useMemo(
-    () =>
-      Object.keys(sandboxObject)
-        .filter((key) => key !== "enabled")
-        .sort(),
-    [sandboxObject],
-  );
+  const presentation = useMemo(() => getSandboxPresentation(value, isZh), [value, isZh]);
 
   useEffect(() => {
     onError("");
   }, [onError]);
 
   function handleToggleChange(checked: boolean) {
-    const nextSandbox = { ...sandboxObject };
-    if (checked) {
-      nextSandbox.enabled = true;
-    } else {
-      delete nextSandbox.enabled;
-    }
-    if (JSON.stringify(nextSandbox) !== JSON.stringify(sandboxObject)) {
+    const nextSandbox = setSandboxEnabled(value, checked);
+    if (JSON.stringify(nextSandbox) !== JSON.stringify(readObject(value))) {
       onChange(nextSandbox);
     }
   }
@@ -58,45 +138,43 @@ function SandboxEditor({ value, onChange, onError }: SandboxEditorProps) {
     <div className="profile-section-body">
       <div className="profile-subsection-header">
         <div>
-          <h4>{isZh ? "沙盒开关" : "Sandbox Toggle"}</h4>
-          <p>{isZh ? "日常只控制启用状态。" : "Use the top-level toggle for everyday changes."}</p>
+          <h4>{isZh ? "沙盒状态" : "Sandbox Status"}</h4>
         </div>
       </div>
 
-      <label className="profile-toggle-item">
-        <input
-          type="checkbox"
-          aria-label={isZh ? "启用 Sandbox" : "Enable sandbox"}
-          checked={sandboxEnabled}
-          onChange={(event) => handleToggleChange(event.target.checked)}
-        />
-        <span>{isZh ? "启用 Sandbox" : "Enable sandbox"}</span>
-      </label>
-
-      <section className="profile-mini-card">
-        <div className="profile-hook-summary-head">
-          <strong>
-            {sandboxEnabled ? (isZh ? "已启用" : "Enabled") : isZh ? "已关闭" : "Disabled"}
-          </strong>
-          <span className="profile-hook-summary-meta">
-            {buildSummaryText(extraKeys.length, sandboxEnabled, isZh)}
-          </span>
+      <section className="profile-mini-card profile-sandbox-status-card">
+        <div className="profile-sandbox-state-row">
+          <div className="profile-sandbox-state-copy">
+            <strong>
+              {presentation.enabled ? (isZh ? "已启用" : "Enabled") : isZh ? "已关闭" : "Disabled"}
+            </strong>
+            <span>
+              {isZh
+                ? "横栏和此处开关会同步更新，详细配置请切到 JSON。"
+                : "The header bar and this switch stay in sync. Use JSON for detailed configuration."}
+            </span>
+          </div>
+          <SandboxSwitchControl
+            enabled={presentation.enabled}
+            isZh={isZh}
+            ariaLabel={isZh ? "Sandbox 开关" : "Sandbox toggle"}
+            onToggle={() => handleToggleChange(!presentation.enabled)}
+          />
+        </div>
+        <div className="profile-sandbox-state-summary">
+          <span className="profile-hook-summary-meta">{presentation.detailSummary}</span>
         </div>
 
-        {extraKeys.length > 0 ? (
+        {presentation.extraKeys.length > 0 ? (
           <div className="profile-chip-list">
-            {extraKeys.map((key) => (
+            {presentation.extraKeys.map((key) => (
               <span key={key} className="profile-key-badge">
                 {key}
               </span>
             ))}
           </div>
         ) : (
-          <div className="profile-empty-state">
-            {isZh
-              ? "没有附加的 sandbox 配置键。"
-              : "There are no additional sandbox configuration keys."}
-          </div>
+          <div className="profile-empty-state">{presentation.emptyState}</div>
         )}
       </section>
     </div>

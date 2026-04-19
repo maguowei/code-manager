@@ -5,6 +5,26 @@ interface IconProps {
   className?: string;
 }
 
+/** 信息图标（帮助提示） */
+export function InfoIcon({ size = 14, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className={className}
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <line x1="12" y1="10" x2="12" y2="16" />
+      <circle cx="12" cy="7" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 /** 垃圾桶图标（删除操作） */
 export function TrashIcon({ size = 16, className }: IconProps) {
   return (

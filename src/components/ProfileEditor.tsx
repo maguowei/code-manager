@@ -18,13 +18,19 @@ import {
   setTopLevelObject,
   setTopLevelString,
 } from "./config-workspace-utils";
+import { InfoIcon } from "./Icons";
 import EnabledPluginsEditor from "./profile-editor/EnabledPluginsEditor";
 import EnvEditor from "./profile-editor/EnvEditor";
 import { readBoolean, readString } from "./profile-editor/editor-utils";
 import HooksEditor from "./profile-editor/HooksEditor";
 import MarketplaceEditor from "./profile-editor/MarketplaceEditor";
 import PermissionsEditor from "./profile-editor/PermissionsEditor";
-import SandboxEditor from "./profile-editor/SandboxEditor";
+import RequiredBadge from "./profile-editor/RequiredBadge";
+import SandboxEditor, {
+  getSandboxPresentation,
+  SandboxSwitchControl,
+  setSandboxEnabled,
+} from "./profile-editor/SandboxEditor";
 import SettingsSectionModePanel, {
   type SectionEditorMode,
 } from "./profile-editor/SettingsSectionModePanel";
@@ -140,6 +146,7 @@ function ProfileEditor({ profile, presets, knownProjects, onSave, onClose }: Pro
   const [expertOpen, setExpertOpen] = useState(false);
   const [sectionModes, setSectionModes] =
     useState<Record<PureSettingsSectionKey, SectionEditorMode>>(createInitialSectionModes);
+  const [environmentExpanded, setEnvironmentExpanded] = useState(false);
   const [activeAccordionSection, setActiveAccordionSection] =
     useState<LowFrequencySectionKey | null>(null);
   const [editorErrors, setEditorErrors] = useState<Record<string, string>>({});
@@ -225,9 +232,17 @@ function ProfileEditor({ profile, presets, knownProjects, onSave, onClose }: Pro
     () => Object.keys(readTopLevelObject(settings, "enabledPlugins")).length,
     [settings],
   );
+  const visibleEnvCount = useMemo(
+    () => Object.keys(visibleEnvSettings).length,
+    [visibleEnvSettings],
+  );
   const marketplaceCount = useMemo(
     () => Object.keys(readTopLevelObject(settings, "extraKnownMarketplaces")).length,
     [settings],
+  );
+  const sandboxPresentation = useMemo(
+    () => getSandboxPresentation(settings.sandbox, language === "zh"),
+    [settings.sandbox, language],
   );
 
   function setSectionError(section: string, message: string) {
@@ -262,6 +277,12 @@ function ProfileEditor({ profile, presets, knownProjects, onSave, onClose }: Pro
     setRawJson(nextJson);
     setRawJsonError("");
   }
+
+  useEffect(() => {
+    if (editorErrors.env || envJsonEditor.jsonError) {
+      setEnvironmentExpanded(true);
+    }
+  }, [editorErrors.env, envJsonEditor.jsonError]);
 
   useEffect(() => {
     const firstErrorSection = LOW_FREQUENCY_SECTION_ORDER.find((section) => {
@@ -551,7 +572,10 @@ function ProfileEditor({ profile, presets, knownProjects, onSave, onClose }: Pro
 
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="profile-name">{messages.name}</label>
+              <label htmlFor="profile-name" className="label-required">
+                <span>{messages.name}</span>
+                <RequiredBadge />
+              </label>
               <input
                 id="profile-name"
                 value={name}
@@ -588,7 +612,10 @@ function ProfileEditor({ profile, presets, knownProjects, onSave, onClose }: Pro
 
           {(scope === "project" || scope === "local") && (
             <div className="form-group">
-              <label htmlFor="profile-project-path">{messages.projectPath}</label>
+              <label htmlFor="profile-project-path" className="label-required">
+                <span>{messages.projectPath}</span>
+                <RequiredBadge />
+              </label>
               <input
                 id="profile-project-path"
                 list="known-project-paths"
@@ -611,49 +638,46 @@ function ProfileEditor({ profile, presets, knownProjects, onSave, onClose }: Pro
             <h3>{messages.auth}</h3>
           </div>
 
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="profile-preset">{messages.preset}</label>
-              <select
-                id="profile-preset"
-                className="form-select"
-                value={presetId}
-                onChange={(event) => handlePresetChange(event.target.value)}
-              >
-                <option value="">{t("profiles.editor.options.noPreset")}</option>
-                {presets.map((preset) => (
-                  <option key={preset.id} value={preset.id}>
-                    {presetDisplayName(preset, language)}
-                  </option>
-                ))}
-              </select>
-              <p className="form-hint">{messages.presetHint}</p>
-            </div>
-            <div className="form-group">
-              <label htmlFor="profile-auth-token">{messages.authToken}</label>
-              <input
-                id="profile-auth-token"
-                value={readEnvString(settings, "ANTHROPIC_AUTH_TOKEN")}
-                placeholder="sk-ant-..."
-                onChange={(event) =>
-                  applySettings(setEnvString(settings, "ANTHROPIC_AUTH_TOKEN", event.target.value))
-                }
-              />
-            </div>
+          <div className="form-group">
+            <label htmlFor="profile-preset">{messages.preset}</label>
+            <select
+              id="profile-preset"
+              className="form-select"
+              value={presetId}
+              onChange={(event) => handlePresetChange(event.target.value)}
+            >
+              <option value="">{t("profiles.editor.options.noPreset")}</option>
+              {presets.map((preset) => (
+                <option key={preset.id} value={preset.id}>
+                  {presetDisplayName(preset, language)}
+                </option>
+              ))}
+            </select>
+            <p className="form-hint">{messages.presetHint}</p>
           </div>
 
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="profile-base-url">{messages.baseUrl}</label>
-              <input
-                id="profile-base-url"
-                value={readEnvString(settings, "ANTHROPIC_BASE_URL")}
-                placeholder="https://api.anthropic.com"
-                onChange={(event) =>
-                  applySettings(setEnvString(settings, "ANTHROPIC_BASE_URL", event.target.value))
-                }
-              />
-            </div>
+          <div className="form-group">
+            <label htmlFor="profile-base-url">{messages.baseUrl}</label>
+            <input
+              id="profile-base-url"
+              value={readEnvString(settings, "ANTHROPIC_BASE_URL")}
+              placeholder="https://api.anthropic.com"
+              onChange={(event) =>
+                applySettings(setEnvString(settings, "ANTHROPIC_BASE_URL", event.target.value))
+              }
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="profile-auth-token">{messages.authToken}</label>
+            <input
+              id="profile-auth-token"
+              value={readEnvString(settings, "ANTHROPIC_AUTH_TOKEN")}
+              placeholder="sk-ant-..."
+              onChange={(event) =>
+                applySettings(setEnvString(settings, "ANTHROPIC_AUTH_TOKEN", event.target.value))
+              }
+            />
           </div>
 
           {selectedPreset && selectedPreset.modelSuggestions.length > 0 && (
@@ -768,6 +792,7 @@ function ProfileEditor({ profile, presets, knownProjects, onSave, onClose }: Pro
 
         <SettingsSectionModePanel
           title={messages.environment}
+          variant="accordion"
           mode={sectionModes.env}
           onModeChange={(mode) => handleSectionModeChange("env", mode)}
           controls={
@@ -782,6 +807,9 @@ function ProfileEditor({ profile, presets, knownProjects, onSave, onClose }: Pro
           jsonEditor={envJsonEditor}
           jsonHint={t("common.sectionJsonHint")}
           error={editorErrors.env || envJsonEditor.jsonError}
+          expanded={environmentExpanded}
+          onToggleExpanded={() => setEnvironmentExpanded((current) => !current)}
+          badgeCount={visibleEnvCount}
         />
 
         <SettingsSectionModePanel
@@ -820,6 +848,21 @@ function ProfileEditor({ profile, presets, knownProjects, onSave, onClose }: Pro
           error={editorErrors.sandbox || sandboxJsonEditor.jsonError}
           expanded={activeAccordionSection === "sandbox"}
           onToggleExpanded={() => toggleAccordionSection("sandbox")}
+          headerMeta={sandboxPresentation.headerSummary}
+          headerControl={
+            <SandboxSwitchControl
+              enabled={sandboxPresentation.enabled}
+              isZh={language === "zh"}
+              ariaLabel={language === "zh" ? "Sandbox 头部开关" : "Sandbox header toggle"}
+              variant="header"
+              onToggle={() =>
+                handleStructuredObjectChange(
+                  "sandbox",
+                  setSandboxEnabled(settings.sandbox, !sandboxPresentation.enabled),
+                )
+              }
+            />
+          }
         />
 
         <SettingsSectionModePanel
@@ -934,9 +977,15 @@ function renderBehaviorFieldHeader(field: SettingsFieldDefinition, label: string
         {label}
       </label>
       {field.envKey ? (
-        <span className="profile-field-label-meta" aria-hidden="true">
-          (<code className="profile-field-label-key">{field.envKey}</code>)
-        </span>
+        <button
+          type="button"
+          className="profile-field-help"
+          aria-label={field.envKey}
+          data-tooltip={field.envKey}
+          title={field.envKey}
+        >
+          <InfoIcon />
+        </button>
       ) : null}
     </div>
   );

@@ -36,6 +36,7 @@ const translations = {
     "common.pluginsUnit": "个插件",
     "common.marketplacesUnit": "个市场",
     "form.required": "必填",
+    "form.oneRequired": "至少一项",
 
     // 头部
     "header.settings": "设置",
@@ -634,6 +635,7 @@ const translations = {
     "common.pluginsUnit": "plugins",
     "common.marketplacesUnit": "marketplaces",
     "form.required": "Required",
+    "form.oneRequired": "One required",
 
     // 头部
     "header.settings": "Settings",

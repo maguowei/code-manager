@@ -40,8 +40,8 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     storage: "env-only",
     envKey: "ANTHROPIC_MODEL",
     label: {
-      zh: "模型",
-      en: "Model",
+      zh: "默认模型",
+      en: "Default Model",
     },
     placeholder: {
       zh: "例如：claude-sonnet-4-6",
@@ -54,12 +54,18 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     kind: "select",
     storage: "env-only",
     envKey: "CLAUDE_CODE_EFFORT_LEVEL",
-    defaultValue: "auto",
     label: {
       zh: "努力级别",
       en: "Effort Level",
     },
     options: [
+      {
+        value: "",
+        label: {
+          zh: "未设置",
+          en: "Unset",
+        },
+      },
       {
         value: "auto",
         label: {
@@ -268,15 +274,6 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     label: {
       zh: "跳过 WebFetch 预检",
       en: "Skip WebFetch preflight",
-    },
-  },
-  {
-    key: "prefersReducedMotion",
-    section: "behavior",
-    kind: "checkbox",
-    label: {
-      zh: "降低动画",
-      en: "Reduced motion",
     },
   },
   {

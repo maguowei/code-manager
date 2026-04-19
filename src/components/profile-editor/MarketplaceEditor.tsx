@@ -6,6 +6,7 @@ import {
   type MarketplaceSourceType,
   readObject,
 } from "./editor-utils";
+import RequiredBadge from "./RequiredBadge";
 
 interface MarketplaceEditorProps {
   value: unknown;
@@ -221,8 +222,9 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
 
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor={`marketplace-id-${marketplace.id}`}>
-                    {isZh ? "Marketplace ID" : "Marketplace ID"}
+                  <label htmlFor={`marketplace-id-${marketplace.id}`} className="label-required">
+                    <span>{isZh ? "Marketplace ID" : "Marketplace ID"}</span>
+                    <RequiredBadge />
                   </label>
                   <input
                     id={`marketplace-id-${marketplace.id}`}
@@ -269,8 +271,12 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                 {marketplace.sourceType === "github" ? (
                   <>
                     <div className="form-group">
-                      <label htmlFor={`marketplace-repo-${marketplace.id}`}>
-                        {isZh ? "Marketplace 仓库" : "Marketplace Repo"}
+                      <label
+                        htmlFor={`marketplace-repo-${marketplace.id}`}
+                        className="label-required"
+                      >
+                        <span>{isZh ? "Marketplace 仓库" : "Marketplace Repo"}</span>
+                        <RequiredBadge />
                       </label>
                       <input
                         id={`marketplace-repo-${marketplace.id}`}
@@ -324,8 +330,9 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
 
                 {marketplace.sourceType === "git" || marketplace.sourceType === "url" ? (
                   <div className="form-group">
-                    <label htmlFor={`marketplace-url-${marketplace.id}`}>
-                      {isZh ? "Marketplace URL" : "Marketplace URL"}
+                    <label htmlFor={`marketplace-url-${marketplace.id}`} className="label-required">
+                      <span>{isZh ? "Marketplace URL" : "Marketplace URL"}</span>
+                      <RequiredBadge />
                     </label>
                     <input
                       id={`marketplace-url-${marketplace.id}`}
@@ -348,8 +355,12 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
 
                 {marketplace.sourceType === "hostPattern" ? (
                   <div className="form-group">
-                    <label htmlFor={`marketplace-host-pattern-${marketplace.id}`}>
-                      {isZh ? "Marketplace Host Pattern" : "Marketplace Host Pattern"}
+                    <label
+                      htmlFor={`marketplace-host-pattern-${marketplace.id}`}
+                      className="label-required"
+                    >
+                      <span>{isZh ? "Marketplace Host Pattern" : "Marketplace Host Pattern"}</span>
+                      <RequiredBadge />
                     </label>
                     <input
                       id={`marketplace-host-pattern-${marketplace.id}`}
@@ -368,8 +379,12 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
 
                 {marketplace.sourceType === "npm" ? (
                   <div className="form-group">
-                    <label htmlFor={`marketplace-package-${marketplace.id}`}>
-                      {isZh ? "Marketplace 包" : "Marketplace Package"}
+                    <label
+                      htmlFor={`marketplace-package-${marketplace.id}`}
+                      className="label-required"
+                    >
+                      <span>{isZh ? "Marketplace 包" : "Marketplace Package"}</span>
+                      <RequiredBadge />
                     </label>
                     <input
                       id={`marketplace-package-${marketplace.id}`}
@@ -388,8 +403,12 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
 
                 {marketplace.sourceType === "file" || marketplace.sourceType === "directory" ? (
                   <div className="form-group">
-                    <label htmlFor={`marketplace-path-only-${marketplace.id}`}>
-                      {isZh ? "Marketplace 路径" : "Marketplace Path"}
+                    <label
+                      htmlFor={`marketplace-path-only-${marketplace.id}`}
+                      className="label-required"
+                    >
+                      <span>{isZh ? "Marketplace 路径" : "Marketplace Path"}</span>
+                      <RequiredBadge />
                     </label>
                     <input
                       id={`marketplace-path-only-${marketplace.id}`}
