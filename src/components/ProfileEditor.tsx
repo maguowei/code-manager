@@ -2,14 +2,12 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "../i18n";
 import type { ConfigProfile, SettingsPreset } from "../types";
-import ConfigPreview from "./ConfigPreview";
 import {
   applyEnvDefaults,
   applyPresetAutofill,
   cloneSettings,
   getEnabledPluginsSummary,
   presetDisplayName,
-  prettyJson,
   readEnvString,
   readScopedSettingsWithEnv,
   readTopLevelObject,
@@ -21,6 +19,7 @@ import {
 } from "./config-workspace-utils";
 import { InfoIcon } from "./Icons";
 import ProfileNameBadge from "./ProfileNameBadge";
+import DocumentEditorSection from "./profile-editor/DocumentEditorSection";
 import EnabledPluginsEditor from "./profile-editor/EnabledPluginsEditor";
 import EnvEditor from "./profile-editor/EnvEditor";
 import { readBoolean, readString } from "./profile-editor/editor-utils";
@@ -48,6 +47,7 @@ import {
   type SettingsFieldDefinition,
   STRUCTURED_SETTINGS_KEYS,
 } from "./profile-editor/settings-form-registry";
+import { useDocumentJsonEditor } from "./profile-editor/useDocumentJsonEditor";
 import { useObjectJsonEditor } from "./profile-editor/useObjectJsonEditor";
 import "./ConfigEditor.css";
 import "./ProfileEditor.css";
@@ -139,13 +139,8 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
   const [settings, setSettings] = useState<Record<string, unknown>>(
     applyEnvDefaults(cloneSettings(profile?.settings), BEHAVIOR_ENV_DEFAULTS),
   );
-  const [rawJson, setRawJson] = useState(
-    prettyJson(applyEnvDefaults(cloneSettings(profile?.settings), BEHAVIOR_ENV_DEFAULTS)),
-  );
-  const [rawJsonError, setRawJsonError] = useState("");
   const [previewJson, setPreviewJson] = useState("{}");
   const [previewError, setPreviewError] = useState("");
-  const [expertOpen, setExpertOpen] = useState(false);
   const [sectionModes, setSectionModes] =
     useState<Record<PureSettingsSectionKey, SectionEditorMode>>(createInitialSectionModes);
   const [environmentExpanded, setEnvironmentExpanded] = useState(false);
@@ -230,6 +225,12 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
         .sort(),
     [settings],
   );
+  const documentJsonEditor = useDocumentJsonEditor({
+    value: settings,
+    onApply: applySettings,
+    validateMessage: t("profiles.editor.validation.settingsObject"),
+    normalize: (next) => applyEnvDefaults(next, BEHAVIOR_ENV_DEFAULTS),
+  });
   const enabledPluginsSummary = useMemo(
     () => getEnabledPluginsSummary(settings.enabledPlugins),
     [settings],
@@ -277,15 +278,11 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
 
   function applySettings(next: Record<string, unknown>) {
     const normalized = applyEnvDefaults(next, BEHAVIOR_ENV_DEFAULTS);
-    const nextJson = prettyJson(normalized);
-    if (nextJson === prettyJson(settings)) {
-      setRawJson(nextJson);
-      setRawJsonError("");
+    if (JSON.stringify(normalized) === JSON.stringify(settings)) {
       return;
     }
+
     setSettings(normalized);
-    setRawJson(nextJson);
-    setRawJsonError("");
   }
 
   useEffect(() => {
@@ -327,22 +324,6 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     pluginsJsonEditor.jsonError,
     sandboxJsonEditor.jsonError,
   ]);
-
-  function handleRawJsonChange(value: string) {
-    setRawJson(value);
-    try {
-      const parsed = JSON.parse(value) as Record<string, unknown>;
-      if (Array.isArray(parsed) || parsed === null || typeof parsed !== "object") {
-        throw new Error(t("profiles.editor.validation.settingsObject"));
-      }
-      const normalized = applyEnvDefaults(parsed, BEHAVIOR_ENV_DEFAULTS);
-      setSettings(normalized);
-      setRawJson(prettyJson(normalized));
-      setRawJsonError("");
-    } catch (error) {
-      setRawJsonError(error instanceof Error ? error.message : String(error));
-    }
-  }
 
   function handleSimpleFieldChange(field: SettingsFieldDefinition, value: string | boolean) {
     const next =
@@ -430,7 +411,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
   function handleSaveClick() {
     if (
       !name.trim() ||
-      rawJsonError ||
+      documentJsonEditor.jsonError ||
       behaviorJsonEditor.jsonError ||
       envJsonEditor.jsonError ||
       permissionsJsonEditor.jsonError ||
@@ -492,7 +473,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
   const scalarFieldRows = useMemo(() => chunkItems(scalarFields, 2), [scalarFields]);
   const toggleFieldRows = useMemo(() => chunkItems(toggleFields, 2), [toggleFields]);
   const hasValidationError =
-    !!rawJsonError ||
+    !!documentJsonEditor.jsonError ||
     !!behaviorJsonEditor.jsonError ||
     !!envJsonEditor.jsonError ||
     !!permissionsJsonEditor.jsonError ||
@@ -525,8 +506,8 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     marketplaces: t("profiles.editor.sections.marketplaces"),
     plugins: t("profiles.editor.sections.plugins"),
     preview: t("profiles.editor.sections.preview"),
-    expertOpen: t("profiles.editor.expert.open"),
-    expertClose: t("profiles.editor.expert.close"),
+    previewMode: t("common.previewMode"),
+    editSourceJson: t("profiles.editor.modes.editSourceJson"),
     expertHint: t("profiles.editor.hints.expert"),
     expertStructuredKeys: t("profiles.editor.hints.expertStructuredKeys"),
   };
@@ -900,45 +881,21 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
           headerMeta={`${t("common.pluginsEnabledSummaryLabel")} ${enabledPluginsSummary.enabledCount}/${enabledPluginsSummary.totalCount}`}
         />
 
-        <section className="profile-editor-section">
-          <div className="profile-section-heading">
-            <h3>{messages.preview}</h3>
-            <button
-              type="button"
-              className="profile-secondary-btn"
-              onClick={() => setExpertOpen((current) => !current)}
-            >
-              {expertOpen ? messages.expertClose : messages.expertOpen}
-            </button>
-          </div>
-
-          <div className="form-group">
-            <ConfigPreview content={previewJson} jsonError={previewError} />
-          </div>
-
-          {expertOpen && (
-            <div className="profile-expert-panel">
-              <p className="form-hint">{messages.expertHint}</p>
-              {supportedKeysInSettings.length > 0 && (
-                <div className="profile-supported-keys">
-                  <span>{messages.expertStructuredKeys}</span>
-                  <div className="profile-chip-list">
-                    {supportedKeysInSettings.map((key) => (
-                      <span key={key} className="profile-key-badge">
-                        {key}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <ConfigPreview
-                content={rawJson}
-                onChange={handleRawJsonChange}
-                jsonError={rawJsonError}
-              />
-            </div>
-          )}
-        </section>
+        <DocumentEditorSection
+          title={messages.preview}
+          previewContent={previewJson}
+          previewError={previewError}
+          editContent={documentJsonEditor.rawJson}
+          editError={documentJsonEditor.jsonError}
+          hasAppliedDraft={documentJsonEditor.hasAppliedDraft}
+          onEditChange={documentJsonEditor.handleJsonChange}
+          onFormat={documentJsonEditor.formatJson}
+          previewModeLabel={messages.previewMode}
+          editModeLabel={messages.editSourceJson}
+          editHint={messages.expertHint}
+          supportedKeys={supportedKeysInSettings}
+          supportedKeysLabel={messages.expertStructuredKeys}
+        />
       </div>
     </div>
   );

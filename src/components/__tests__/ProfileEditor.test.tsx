@@ -5,6 +5,7 @@ import type { ConfigProfile, ConfigWorkspace, SettingsPreset } from "../../types
 import ProfileEditor from "../ProfileEditor";
 
 const invokeMock = vi.fn();
+const SETTINGS_STORAGE_KEY = "ai-manager-settings";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: unknown[]) => invokeMock(...args),
@@ -196,10 +197,10 @@ function switchSectionToJson(name: string, options?: { expandFirst?: boolean }) 
   return section;
 }
 
-function openFullSettingsJson() {
-  fireEvent.click(screen.getByRole("button", { name: "整份配置 JSON" }));
-  const rawJsonInputs = screen.getAllByLabelText("config-preview-input");
-  return rawJsonInputs[rawJsonInputs.length - 1] as HTMLTextAreaElement;
+function switchDocumentSectionToEdit(name: string, editButtonName: string): HTMLTextAreaElement {
+  const section = getSection(name);
+  fireEvent.click(within(section).getByRole("button", { name: editButtonName }));
+  return within(section).getByLabelText("config-preview-input") as HTMLTextAreaElement;
 }
 
 describe("ProfileEditor", () => {
@@ -227,7 +228,7 @@ describe("ProfileEditor", () => {
     });
   });
 
-  it("renders control-first sections with unified mode switches and downgraded full json entry", async () => {
+  it("renders control-first sections with unified mode switches and document editor entry", async () => {
     renderEditor();
 
     const topBadge = document.querySelector(
@@ -268,11 +269,18 @@ describe("ProfileEditor", () => {
       "Hooks",
       "插件市场",
       "插件",
-      "Resolved Preview",
+      "最终配置",
     ]);
 
-    expect(screen.getByRole("button", { name: "整份配置 JSON" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "专家模式" })).not.toBeInTheDocument();
+    const documentSection = getSection("最终配置");
+    expect(within(documentSection).getByRole("button", { name: "预览" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(
+      within(documentSection).getByRole("button", { name: "编辑源 JSON" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "整份配置 JSON" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("env")).not.toBeInTheDocument();
 
     const authSection = screen.getByRole("heading", { name: "认证", level: 3 }).closest("section");
@@ -773,7 +781,7 @@ describe("ProfileEditor", () => {
     expect(screen.queryByLabelText("努力级别使用环境变量映射")).not.toBeInTheDocument();
   });
 
-  it("syncs structured env, permissions, sandbox, and hooks json editor into expert json", async () => {
+  it("syncs structured env, permissions, sandbox, and hooks json editor into source json", async () => {
     renderEditor();
 
     fireEvent.change(screen.getByLabelText("默认模型"), {
@@ -832,7 +840,7 @@ describe("ProfileEditor", () => {
       },
     });
 
-    const rawJsonValue = openFullSettingsJson().value;
+    const rawJsonValue = switchDocumentSectionToEdit("最终配置", "编辑源 JSON").value;
     expect(rawJsonValue).toContain('"ANTHROPIC_MODEL": "claude-opus-4-1"');
     expect(rawJsonValue).toContain('"ANTHROPIC_AUTH_TOKEN": "new-token"');
     expect(rawJsonValue).toContain('"defaultMode": "plan"');
@@ -921,7 +929,7 @@ describe("ProfileEditor", () => {
       },
     });
 
-    const rawJsonValue = openFullSettingsJson().value;
+    const rawJsonValue = switchDocumentSectionToEdit("最终配置", "编辑源 JSON").value;
     expect(rawJsonValue).toContain('"respectGitignore": true');
     expect(rawJsonValue).toContain('"defaultMode": "plan"');
     expect(rawJsonValue).toContain('"Bash(git status:*)"');
@@ -1184,6 +1192,28 @@ describe("ProfileEditor", () => {
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
   });
 
+  it("blocks save when source json is invalid", async () => {
+    renderEditor();
+
+    const documentSection = getSection("最终配置");
+    await act(async () => {
+      fireEvent.click(within(documentSection).getByRole("button", { name: "编辑源 JSON" }));
+      await Promise.resolve();
+    });
+    await act(async () => {
+      fireEvent.change(within(documentSection).getByLabelText("config-preview-input"), {
+        target: { value: "[]" },
+      });
+      await Promise.resolve();
+    });
+
+    expect(within(documentSection).getByText("settings 必须是 JSON 对象")).toBeInTheDocument();
+    expect(
+      within(documentSection).getByText("当前草稿未生效，仍使用上一次合法 JSON。"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
+  });
+
   it("renders resolved preview output after structured edits", async () => {
     renderEditor();
 
@@ -1207,6 +1237,28 @@ describe("ProfileEditor", () => {
         }),
       }),
     );
+  });
+
+  it("renders resolved settings labels in english", () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "en",
+        theme: "dark",
+      }),
+    );
+
+    renderEditor();
+
+    const documentSection = getSection("Resolved Settings");
+    expect(within(documentSection).getByRole("button", { name: "Preview" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(
+      within(documentSection).getByRole("button", { name: "Edit Source JSON" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Full Settings JSON" })).not.toBeInTheDocument();
   });
 
   it("saves plugin and marketplace settings from structured controls", async () => {
@@ -1558,9 +1610,10 @@ describe("ProfileEditor", () => {
       target: { value: "https://example.com" },
     });
 
-    const rawJsonInput = openFullSettingsJson();
+    const rawJsonInput = switchDocumentSectionToEdit("最终配置", "编辑源 JSON");
     expect(rawJsonInput.value).toContain('"ANTHROPIC_AUTH_TOKEN": "auth-token"');
     expect(rawJsonInput.value).toContain('"ANTHROPIC_BASE_URL": "https://example.com"');
+    fireEvent.click(within(getSection("最终配置")).getByRole("button", { name: "预览" }));
 
     await act(async () => {
       await Promise.resolve();

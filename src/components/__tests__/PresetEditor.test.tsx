@@ -197,10 +197,10 @@ function switchSectionToJson(name: string, options?: { expandFirst?: boolean }) 
   return section;
 }
 
-function openFullSettingsJson() {
-  fireEvent.click(screen.getByRole("button", { name: "整份配置 JSON" }));
-  const rawJsonInputs = screen.getAllByLabelText("config-preview-input");
-  return rawJsonInputs[rawJsonInputs.length - 1] as HTMLTextAreaElement;
+function switchDocumentSectionToEdit(name: string, editButtonName: string): HTMLTextAreaElement {
+  const section = getSection(name);
+  fireEvent.click(within(section).getByRole("button", { name: editButtonName }));
+  return within(section).getByLabelText("config-preview-input") as HTMLTextAreaElement;
 }
 
 describe("PresetEditor", () => {
@@ -246,6 +246,26 @@ describe("PresetEditor", () => {
     expect(screen.queryByRole("option", { name: "OpenRouter" })).not.toBeInTheDocument();
   });
 
+  it("renders settings patch labels in english", () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "en",
+        theme: "dark",
+      }),
+    );
+
+    renderEditor();
+
+    const documentSection = getSection("Settings Patch");
+    expect(within(documentSection).getByRole("button", { name: "Preview" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(within(documentSection).getByRole("button", { name: "Edit JSON" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Full Settings JSON" })).not.toBeInTheDocument();
+  });
+
   it("renders control-first sections with unified mode switches and downgraded full json entry", () => {
     renderEditor();
 
@@ -278,11 +298,16 @@ describe("PresetEditor", () => {
       "Hooks",
       "插件市场",
       "插件",
-      "Patch 预览",
+      "配置补丁",
     ]);
 
-    expect(screen.getByRole("button", { name: "整份配置 JSON" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "专家模式" })).not.toBeInTheDocument();
+    const documentSection = getSection("配置补丁");
+    expect(within(documentSection).getByRole("button", { name: "预览" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(within(documentSection).getByRole("button", { name: "编辑 JSON" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "整份配置 JSON" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("config-preview-input")).not.toBeInTheDocument();
 
     const authSection = screen.getByRole("heading", { name: "认证", level: 3 }).closest("section");
@@ -873,6 +898,28 @@ describe("PresetEditor", () => {
     );
   });
 
+  it("blocks save when settings patch json is invalid", async () => {
+    renderEditor();
+
+    const documentSection = getSection("配置补丁");
+    await act(async () => {
+      fireEvent.click(within(documentSection).getByRole("button", { name: "编辑 JSON" }));
+      await Promise.resolve();
+    });
+    await act(async () => {
+      fireEvent.change(within(documentSection).getByLabelText("config-preview-input"), {
+        target: { value: "[]" },
+      });
+      await Promise.resolve();
+    });
+
+    expect(within(documentSection).getByText("settingsPatch 必须是 JSON 对象")).toBeInTheDocument();
+    expect(
+      within(documentSection).getByText("当前草稿未生效，仍使用上一次合法 JSON。"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
+  });
+
   it("shows sandbox state details without a second toggle in expanded preset view", () => {
     renderEditor({
       preset: {
@@ -1187,9 +1234,10 @@ describe("PresetEditor", () => {
       target: { value: "https://example.com" },
     });
 
-    const rawJsonInput = openFullSettingsJson();
+    const rawJsonInput = switchDocumentSectionToEdit("配置补丁", "编辑 JSON");
     expect(rawJsonInput.value).toContain('"ANTHROPIC_AUTH_TOKEN": "auth-token"');
     expect(rawJsonInput.value).toContain('"ANTHROPIC_BASE_URL": "https://example.com"');
+    fireEvent.click(within(getSection("配置补丁")).getByRole("button", { name: "预览" }));
 
     const previewOutputs = screen.getAllByTestId("config-preview-output");
     const latestPreview = previewOutputs[previewOutputs.length - 1];

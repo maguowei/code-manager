@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "../i18n";
 import type { LocalizedText, SettingsPreset } from "../types";
-import ConfigPreview from "./ConfigPreview";
 import {
   applyEnvDefaults,
   applyPresetAutofill,
@@ -20,6 +19,7 @@ import {
   setTopLevelString,
 } from "./config-workspace-utils";
 import { InfoIcon } from "./Icons";
+import DocumentEditorSection from "./profile-editor/DocumentEditorSection";
 import EnabledPluginsEditor from "./profile-editor/EnabledPluginsEditor";
 import EnvEditor from "./profile-editor/EnvEditor";
 import { readBoolean, readString } from "./profile-editor/editor-utils";
@@ -47,6 +47,7 @@ import {
   type SettingsFieldDefinition,
   STRUCTURED_SETTINGS_KEYS,
 } from "./profile-editor/settings-form-registry";
+import { useDocumentJsonEditor } from "./profile-editor/useDocumentJsonEditor";
 import { useObjectJsonEditor } from "./profile-editor/useObjectJsonEditor";
 import "./ConfigEditor.css";
 import "./ProfileEditor.css";
@@ -168,11 +169,6 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
   const [settingsPatch, setSettingsPatch] = useState<Record<string, unknown>>(
     applyEnvDefaults(cloneSettings(preset?.settingsPatch), BEHAVIOR_ENV_DEFAULTS),
   );
-  const [rawJson, setRawJson] = useState(
-    prettyJson(applyEnvDefaults(cloneSettings(preset?.settingsPatch), BEHAVIOR_ENV_DEFAULTS)),
-  );
-  const [rawJsonError, setRawJsonError] = useState("");
-  const [expertOpen, setExpertOpen] = useState(false);
   const [sectionModes, setSectionModes] =
     useState<Record<PureSettingsSectionKey, SectionEditorMode>>(createInitialSectionModes);
   const [environmentExpanded, setEnvironmentExpanded] = useState(false);
@@ -260,6 +256,12 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
         .sort(),
     [settingsPatch],
   );
+  const documentJsonEditor = useDocumentJsonEditor({
+    value: settingsPatch,
+    onApply: applyPatch,
+    validateMessage: t("presets.editor.validation.settingsPatchObject"),
+    normalize: (next) => applyEnvDefaults(next, BEHAVIOR_ENV_DEFAULTS),
+  });
   const enabledPluginsSummary = useMemo(
     () => getEnabledPluginsSummary(settingsPatch.enabledPlugins),
     [settingsPatch],
@@ -307,15 +309,11 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
 
   function applyPatch(next: Record<string, unknown>) {
     const normalized = applyEnvDefaults(next, BEHAVIOR_ENV_DEFAULTS);
-    const nextJson = prettyJson(normalized);
-    if (nextJson === prettyJson(settingsPatch)) {
-      setRawJson(nextJson);
-      setRawJsonError("");
+    if (JSON.stringify(normalized) === JSON.stringify(settingsPatch)) {
       return;
     }
+
     setSettingsPatch(normalized);
-    setRawJson(nextJson);
-    setRawJsonError("");
   }
 
   useEffect(() => {
@@ -357,22 +355,6 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
     pluginsJsonEditor.jsonError,
     sandboxJsonEditor.jsonError,
   ]);
-
-  function handleRawJsonChange(value: string) {
-    setRawJson(value);
-    try {
-      const parsed = JSON.parse(value) as Record<string, unknown>;
-      if (Array.isArray(parsed) || parsed === null || typeof parsed !== "object") {
-        throw new Error(t("presets.editor.validation.settingsPatchObject"));
-      }
-      const normalized = applyEnvDefaults(parsed, BEHAVIOR_ENV_DEFAULTS);
-      setSettingsPatch(normalized);
-      setRawJson(prettyJson(normalized));
-      setRawJsonError("");
-    } catch (error) {
-      setRawJsonError(error instanceof Error ? error.message : String(error));
-    }
-  }
 
   function toggleAccordionSection(section: LowFrequencySectionKey) {
     setActiveAccordionSection((current) => (current === section ? null : section));
@@ -461,7 +443,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
     const localizedName = buildPresetLocalizedName(nameZh, nameEn);
     if (
       !localizedName ||
-      rawJsonError ||
+      documentJsonEditor.jsonError ||
       behaviorJsonEditor.jsonError ||
       envJsonEditor.jsonError ||
       permissionsJsonEditor.jsonError ||
@@ -498,7 +480,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
   const scalarFieldRows = useMemo(() => chunkItems(scalarFields, 2), [scalarFields]);
   const toggleFieldRows = useMemo(() => chunkItems(toggleFields, 2), [toggleFields]);
   const hasValidationError =
-    !!rawJsonError ||
+    !!documentJsonEditor.jsonError ||
     !!behaviorJsonEditor.jsonError ||
     !!envJsonEditor.jsonError ||
     !!permissionsJsonEditor.jsonError ||
@@ -535,8 +517,8 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
     marketplaces: t("presets.editor.sections.marketplaces"),
     plugins: t("presets.editor.sections.plugins"),
     preview: t("presets.editor.sections.preview"),
-    expertOpen: t("presets.editor.expert.open"),
-    expertClose: t("presets.editor.expert.close"),
+    previewMode: t("common.previewMode"),
+    editJsonMode: t("common.editJsonMode"),
     expertHint: t("presets.editor.hints.expert"),
     expertStructuredKeys: t("presets.editor.hints.expertStructuredKeys"),
   };
@@ -949,45 +931,20 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
           headerMeta={`${t("common.pluginsEnabledSummaryLabel")} ${enabledPluginsSummary.enabledCount}/${enabledPluginsSummary.totalCount}`}
         />
 
-        <section className="profile-editor-section">
-          <div className="profile-section-heading">
-            <h3>{messages.preview}</h3>
-            <button
-              type="button"
-              className="profile-secondary-btn"
-              onClick={() => setExpertOpen((current) => !current)}
-            >
-              {expertOpen ? messages.expertClose : messages.expertOpen}
-            </button>
-          </div>
-
-          <div className="form-group">
-            <ConfigPreview content={prettyJson(settingsPatch)} />
-          </div>
-
-          {expertOpen && (
-            <div className="profile-expert-panel">
-              <p className="form-hint">{messages.expertHint}</p>
-              {supportedKeysInPatch.length > 0 && (
-                <div className="profile-supported-keys">
-                  <span>{messages.expertStructuredKeys}</span>
-                  <div className="profile-chip-list">
-                    {supportedKeysInPatch.map((key) => (
-                      <span key={key} className="profile-key-badge">
-                        {key}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <ConfigPreview
-                content={rawJson}
-                onChange={handleRawJsonChange}
-                jsonError={rawJsonError}
-              />
-            </div>
-          )}
-        </section>
+        <DocumentEditorSection
+          title={messages.preview}
+          previewContent={prettyJson(settingsPatch)}
+          editContent={documentJsonEditor.rawJson}
+          editError={documentJsonEditor.jsonError}
+          hasAppliedDraft={documentJsonEditor.hasAppliedDraft}
+          onEditChange={documentJsonEditor.handleJsonChange}
+          onFormat={documentJsonEditor.formatJson}
+          previewModeLabel={messages.previewMode}
+          editModeLabel={messages.editJsonMode}
+          editHint={messages.expertHint}
+          supportedKeys={supportedKeysInPatch}
+          supportedKeysLabel={messages.expertStructuredKeys}
+        />
       </div>
     </div>
   );

@@ -27,6 +27,8 @@ const translations = {
     "common.collapseJson": "收起 JSON",
     "common.controlMode": "控件",
     "common.jsonMode": "JSON",
+    "common.previewMode": "预览",
+    "common.editJsonMode": "编辑 JSON",
     "common.formatJson": "格式化 JSON",
     "common.sectionJsonHint": "在这里直接编辑当前区块对象的 JSON。",
     "common.sectionJsonDraftPending": "当前草稿未生效，仍使用上一次合法 JSON。",
@@ -222,7 +224,7 @@ const translations = {
     "profiles.editor.hints.behaviorJson":
       "这里直接编辑当前行为区块相关的顶层键，以及相关的 env 覆盖，不会创建新的 behavior 嵌套对象。",
     "profiles.editor.hints.expert":
-      "这里直接编辑完整 profile.settings，适合处理控件尚未覆盖的高级字段。",
+      "预览展示最终合成结果，编辑模式直接修改 profile.settings 源配置。",
     "profiles.editor.hints.expertStructuredKeys": "当前已由控件覆盖的字段",
     "profiles.editor.sections.basicInfo": "基础信息",
     "profiles.editor.sections.auth": "认证",
@@ -234,9 +236,8 @@ const translations = {
     "profiles.editor.sections.marketplaces": "插件市场",
     "profiles.editor.sections.plugins": "插件",
     "profiles.editor.sections.integrations": "集成",
-    "profiles.editor.sections.preview": "Resolved Preview",
-    "profiles.editor.expert.open": "整份配置 JSON",
-    "profiles.editor.expert.close": "隐藏整份配置 JSON",
+    "profiles.editor.sections.preview": "最终配置",
+    "profiles.editor.modes.editSourceJson": "编辑源 JSON",
     "profiles.editor.options.noPreset": "无预设",
     "profiles.editor.validation.settingsObject": "settings 必须是 JSON 对象",
     "presets.title": "预设",
@@ -282,7 +283,7 @@ const translations = {
     "presets.editor.hints.behaviorJson":
       "这里直接编辑当前行为区块相关的顶层键，以及相关的 env 覆盖，不会创建新的 behavior 嵌套对象。",
     "presets.editor.hints.expert":
-      "这里直接编辑完整 settingsPatch，适合处理控件尚未覆盖的高级字段。",
+      "这里直接编辑完整 settingsPatch，预览与编辑都作用于同一份补丁文档。",
     "presets.editor.hints.expertStructuredKeys": "当前已由控件覆盖的字段",
     "presets.editor.sections.metadata": "基础信息",
     "presets.editor.sections.auth": "认证",
@@ -294,9 +295,7 @@ const translations = {
     "presets.editor.sections.marketplaces": "插件市场",
     "presets.editor.sections.plugins": "插件",
     "presets.editor.sections.integrations": "集成",
-    "presets.editor.sections.preview": "Patch 预览",
-    "presets.editor.expert.open": "整份配置 JSON",
-    "presets.editor.expert.close": "隐藏整份配置 JSON",
+    "presets.editor.sections.preview": "配置补丁",
     "presets.editor.options.none": "无",
     "presets.editor.validation.settingsPatchObject": "settingsPatch 必须是 JSON 对象",
 
@@ -616,6 +615,8 @@ const translations = {
     "common.collapseJson": "Collapse JSON",
     "common.controlMode": "Controls",
     "common.jsonMode": "JSON",
+    "common.previewMode": "Preview",
+    "common.editJsonMode": "Edit JSON",
     "common.formatJson": "Format JSON",
     "common.sectionJsonHint": "Edit the current section object JSON directly here.",
     "common.sectionJsonDraftPending":
@@ -818,7 +819,7 @@ const translations = {
     "profiles.editor.hints.behaviorJson":
       "Edit the related top-level behavior keys and scoped env overrides directly without creating a nested behavior object.",
     "profiles.editor.hints.expert":
-      "Edit the full profile.settings document here for advanced fields that the controls do not cover yet.",
+      "Preview shows the resolved document, while edit mode updates the source profile.settings document directly.",
     "profiles.editor.hints.expertStructuredKeys": "Structured keys currently covered",
     "profiles.editor.sections.basicInfo": "Basics",
     "profiles.editor.sections.auth": "Authentication",
@@ -830,9 +831,8 @@ const translations = {
     "profiles.editor.sections.marketplaces": "Plugin Marketplaces",
     "profiles.editor.sections.plugins": "Plugins",
     "profiles.editor.sections.integrations": "Integrations",
-    "profiles.editor.sections.preview": "Resolved Preview",
-    "profiles.editor.expert.open": "Full Settings JSON",
-    "profiles.editor.expert.close": "Hide Full Settings JSON",
+    "profiles.editor.sections.preview": "Resolved Settings",
+    "profiles.editor.modes.editSourceJson": "Edit Source JSON",
     "profiles.editor.options.noPreset": "No preset",
     "profiles.editor.validation.settingsObject": "settings must be a JSON object",
     "presets.title": "Presets",
@@ -880,7 +880,7 @@ const translations = {
     "presets.editor.hints.behaviorJson":
       "Edit the related top-level behavior keys and scoped env overrides directly without creating a nested behavior object.",
     "presets.editor.hints.expert":
-      "Edit the full settingsPatch document here for advanced fields that the controls do not cover yet.",
+      "Edit the full settingsPatch document here; preview and edit mode both operate on the same patch document.",
     "presets.editor.hints.expertStructuredKeys": "Structured keys currently covered",
     "presets.editor.sections.metadata": "Basics",
     "presets.editor.sections.auth": "Authentication",
@@ -892,9 +892,7 @@ const translations = {
     "presets.editor.sections.marketplaces": "Plugin Marketplaces",
     "presets.editor.sections.plugins": "Plugins",
     "presets.editor.sections.integrations": "Integrations",
-    "presets.editor.sections.preview": "Patch Preview",
-    "presets.editor.expert.open": "Full Settings JSON",
-    "presets.editor.expert.close": "Hide Full Settings JSON",
+    "presets.editor.sections.preview": "Settings Patch",
     "presets.editor.options.none": "None",
     "presets.editor.validation.settingsPatchObject": "settingsPatch must be a JSON object",
 
