@@ -187,6 +187,7 @@ describe("EnvEditor", () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByLabelText("环境变量名称")).not.toBeInTheDocument();
     expect(screen.queryByText("请先保存或取消当前环境变量编辑。")).not.toBeInTheDocument();
+    expect(screen.queryByText("删除环境变量")).not.toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
   });
 
@@ -214,16 +215,39 @@ describe("EnvEditor", () => {
     });
   });
 
-  it("keeps hidden keys when a visible row is deleted", () => {
+  it("shows a confirmation dialog before deleting a visible row and preserves hidden keys after confirm", () => {
     const { onChange } = renderEditor();
 
     fireEvent.click(screen.getByRole("button", { name: "删除环境变量 OPENAI_API_KEY" }));
 
+    const dialogMessage = "确定要从当前设置中移除环境变量 OPENAI_API_KEY 吗？";
+    const dialog = screen.getByText(dialogMessage).closest(".confirm-dialog");
+    expect(dialog).not.toBeNull();
     expect(screen.queryByLabelText("环境变量名称")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("环境变量值")).not.toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+
+    fireEvent.click(within(dialog as HTMLElement).getByRole("button", { name: "删除" }));
+
     expect(onChange).toHaveBeenLastCalledWith({
       ANTHROPIC_AUTH_TOKEN: "token",
       ANTHROPIC_MODEL: "claude-sonnet-4-6",
     });
+  });
+
+  it("keeps the row when deletion is canceled", () => {
+    const { onChange } = renderEditor();
+
+    fireEvent.click(screen.getByRole("button", { name: "删除环境变量 OPENAI_API_KEY" }));
+
+    const dialogMessage = "确定要从当前设置中移除环境变量 OPENAI_API_KEY 吗？";
+    const dialog = screen.getByText(dialogMessage).closest(".confirm-dialog");
+    expect(dialog).not.toBeNull();
+
+    fireEvent.click(within(dialog as HTMLElement).getByRole("button", { name: "取消" }));
+
+    expect(screen.getByRole("button", { name: "编辑环境变量 OPENAI_API_KEY" })).toBeInTheDocument();
+    expect(screen.queryByText(dialogMessage)).not.toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

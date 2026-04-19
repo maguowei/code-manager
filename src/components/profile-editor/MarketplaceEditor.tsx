@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../../i18n";
+import ConfirmDialog from "../ConfirmDialog";
 import {
   createRowId,
   type MarketplaceDraft,
@@ -203,6 +204,9 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
   const [draft, setDraft] = useState<MarketplaceEditorDraft | null>(null);
   const [draftError, setDraftError] = useState("");
   const [interactionError, setInteractionError] = useState("");
+  const [pendingDeleteMarketplace, setPendingDeleteMarketplace] = useState<MarketplaceDraft | null>(
+    null,
+  );
   const idInputRef = useRef<HTMLInputElement | null>(null);
 
   const pendingMessage = isZh
@@ -214,6 +218,9 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
   const emptyHint = isZh
     ? "暂无额外 Marketplace，可按需添加。"
     : "No extra marketplaces yet. Add one when needed.";
+  const deleteDialogTitle = isZh ? "删除 Marketplace" : "Delete marketplace";
+  const deleteDialogConfirmText = isZh ? "删除" : "Delete";
+  const deleteDialogCancelText = isZh ? "取消" : "Cancel";
 
   const selectedMarketplace = useMemo(() => {
     if (!draft || draft.isNew) {
@@ -433,14 +440,7 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
     resetEditor(null);
   }
 
-  function handleDeleteMarketplace(marketplace: MarketplaceDraft) {
-    if (draft?.id === marketplace.id && draft.isNew) {
-      resetEditor(null);
-      return;
-    }
-    if (blockIfDirty()) {
-      return;
-    }
+  function applyDeleteMarketplace(marketplace: MarketplaceDraft) {
     const nextMarketplaces = marketplaces.filter(
       (candidate) => candidate.marketplaceId !== marketplace.marketplaceId,
     );
@@ -449,6 +449,17 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
     if (draft?.id === marketplace.id) {
       resetEditor(null);
     }
+  }
+
+  function handleDeleteMarketplace(marketplace: MarketplaceDraft) {
+    if (draft?.id === marketplace.id && draft.isNew) {
+      resetEditor(null);
+      return;
+    }
+    if (blockIfDirty()) {
+      return;
+    }
+    setPendingDeleteMarketplace(marketplace);
   }
 
   return (
@@ -769,6 +780,25 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
           </div>
         </div>
       </div>
+
+      {pendingDeleteMarketplace ? (
+        <ConfirmDialog
+          title={deleteDialogTitle}
+          message={
+            isZh
+              ? `确定要从当前设置中移除 Marketplace ${pendingDeleteMarketplace.marketplaceId} 吗？`
+              : `Remove marketplace ${pendingDeleteMarketplace.marketplaceId} from the current settings?`
+          }
+          confirmText={deleteDialogConfirmText}
+          cancelText={deleteDialogCancelText}
+          danger
+          onConfirm={() => {
+            applyDeleteMarketplace(pendingDeleteMarketplace);
+            setPendingDeleteMarketplace(null);
+          }}
+          onCancel={() => setPendingDeleteMarketplace(null)}
+        />
+      ) : null}
     </div>
   );
 }

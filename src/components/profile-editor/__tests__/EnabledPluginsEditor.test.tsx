@@ -128,6 +128,7 @@ describe("EnabledPluginsEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "删除插件 新插件" }));
     expect(screen.queryByText("新插件")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("新插件 ID")).not.toBeInTheDocument();
+    expect(screen.queryByText("删除插件")).not.toBeInTheDocument();
   });
 
   it("validates draft ids and blocks creating a second placeholder before saving", () => {
@@ -153,8 +154,8 @@ describe("EnabledPluginsEditor", () => {
     expect(screen.getByText("请先保存或取消当前插件编辑。")).toBeInTheDocument();
   });
 
-  it("shows one-based row numbers and reindexes them after removal", () => {
-    renderEditor({
+  it("shows one-based row numbers and reindexes them after confirmed removal", () => {
+    const { onChange } = renderEditor({
       showTitle: false,
       value: {
         "formatter@anthropic-tools": true,
@@ -167,11 +168,42 @@ describe("EnabledPluginsEditor", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "删除插件 formatter@anthropic-tools" }));
 
+    const dialogMessage = "确定要从当前设置中移除插件 formatter@anthropic-tools 吗？";
+    const dialog = screen.getByText(dialogMessage).closest(".confirm-dialog");
+    expect(dialog).not.toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
+
+    fireEvent.click(within(dialog as HTMLElement).getByRole("button", { name: "删除" }));
+
     expect(screen.getByText("1")).toBeInTheDocument();
     expect(screen.queryByText("2")).not.toBeInTheDocument();
     expect(screen.getByText("reviewer@anthropic-tools")).toBeInTheDocument();
     expect(
       screen.getByRole("switch", { name: "插件状态 reviewer@anthropic-tools" }),
     ).toHaveAttribute("aria-checked", "false");
+    expect(onChange).toHaveBeenLastCalledWith({
+      "reviewer@anthropic-tools": false,
+    });
+  });
+
+  it("keeps a saved plugin when deletion is canceled", () => {
+    const { onChange } = renderEditor({
+      showTitle: false,
+      value: {
+        "formatter@anthropic-tools": true,
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "删除插件 formatter@anthropic-tools" }));
+
+    const dialogMessage = "确定要从当前设置中移除插件 formatter@anthropic-tools 吗？";
+    const dialog = screen.getByText(dialogMessage).closest(".confirm-dialog");
+    expect(dialog).not.toBeNull();
+
+    fireEvent.click(within(dialog as HTMLElement).getByRole("button", { name: "取消" }));
+
+    expect(screen.getByText("formatter@anthropic-tools")).toBeInTheDocument();
+    expect(screen.queryByText(dialogMessage)).not.toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

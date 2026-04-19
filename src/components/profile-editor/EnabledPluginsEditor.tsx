@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../../i18n";
+import ConfirmDialog from "../ConfirmDialog";
 import { createRowId, type PluginDraft, readObject } from "./editor-utils";
 import RequiredBadge from "./RequiredBadge";
 import { SandboxSwitchControl } from "./SandboxEditor";
@@ -54,6 +55,7 @@ function EnabledPluginsEditor({
   const [draft, setDraft] = useState<PluginDraft | null>(null);
   const [draftError, setDraftError] = useState("");
   const [interactionError, setInteractionError] = useState("");
+  const [pendingDeletePlugin, setPendingDeletePlugin] = useState<PluginDraft | null>(null);
 
   const sectionPendingMessage = isZh
     ? "当前插件编辑未保存，请先保存或取消。"
@@ -66,6 +68,9 @@ function EnabledPluginsEditor({
     : "No plugin overrides yet. Add one when needed.";
   const draftRowLabel = isZh ? "新插件" : "New Plugin";
   const draftBadgeText = isZh ? "草稿" : "Draft";
+  const deleteDialogTitle = isZh ? "删除插件" : "Delete plugin";
+  const deleteDialogConfirmText = isZh ? "删除" : "Delete";
+  const deleteDialogCancelText = isZh ? "取消" : "Cancel";
 
   const currentError = useMemo(() => {
     if (draftError) {
@@ -254,7 +259,7 @@ function EnabledPluginsEditor({
                               resetDraft(null);
                               return;
                             }
-                            handleRemovePlugin(plugin.id);
+                            setPendingDeletePlugin(plugin);
                           }}
                         >
                           ×
@@ -322,6 +327,25 @@ function EnabledPluginsEditor({
           </div>
         </div>
       </div>
+
+      {pendingDeletePlugin ? (
+        <ConfirmDialog
+          title={deleteDialogTitle}
+          message={
+            isZh
+              ? `确定要从当前设置中移除插件 ${pendingDeletePlugin.pluginId} 吗？`
+              : `Remove plugin ${pendingDeletePlugin.pluginId} from the current settings?`
+          }
+          confirmText={deleteDialogConfirmText}
+          cancelText={deleteDialogCancelText}
+          danger
+          onConfirm={() => {
+            handleRemovePlugin(pendingDeletePlugin.id);
+            setPendingDeletePlugin(null);
+          }}
+          onCancel={() => setPendingDeletePlugin(null)}
+        />
+      ) : null}
     </div>
   );
 }

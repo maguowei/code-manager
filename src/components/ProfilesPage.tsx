@@ -43,11 +43,8 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
   );
   const profiles = useMemo(() => workspace.profiles, [workspace.profiles]);
 
-  function bindingSummaryText(profile: ConfigProfile) {
-    if (workspace.bindings.userProfileId === profile.id) {
-      return t("profiles.binding.user");
-    }
-    return null;
+  function isAppliedToUserSettings(profile: ConfigProfile) {
+    return workspace.bindings.userProfileId === profile.id;
   }
 
   function closeDrawer() {
@@ -316,7 +313,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
             {profiles.map((profile, index) => (
               <div
                 key={profile.id}
-                className={`profile-card ${bindingSummaryText(profile) ? "active" : ""} ${
+                className={`profile-card ${isAppliedToUserSettings(profile) ? "active" : ""} ${
                   isDrawerOpen && editingProfile?.id === profile.id ? "editing" : ""
                 } ${dragState.draggingIndex === index ? "dragging" : ""} ${
                   dragState.overIndex === index ? `drag-over-${dragState.overPosition}` : ""
@@ -359,7 +356,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                       <span className="profile-status-badge editing">
                         {t("profiles.badges.editing")}
                       </span>
-                    ) : bindingSummaryText(profile) ? (
+                    ) : isAppliedToUserSettings(profile) ? (
                       <span className="profile-status-badge active">
                         {t("profiles.badges.inUse")}
                       </span>
@@ -377,12 +374,6 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                     )}
                   </div>
                 </div>
-
-                {bindingSummaryText(profile) && (
-                  <div className="profile-card-meta">
-                    <div>{bindingSummaryText(profile)}</div>
-                  </div>
-                )}
 
                 {(profilePrimaryModel(profile) ||
                   profilePluginsSummary(profile).totalCount > 0) && (

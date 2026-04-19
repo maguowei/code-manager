@@ -167,7 +167,7 @@ describe("ProfilesPage", () => {
 
     expect(within(card).queryByText("用户")).not.toBeInTheDocument();
     expect(within(card).getByText("使用中")).toBeInTheDocument();
-    expect(within(card).getByText("已应用到用户设置")).toBeInTheDocument();
+    expect(within(card).queryByText("已应用到用户设置")).not.toBeInTheDocument();
     expect(within(card).getByText("开放路由")).toBeInTheDocument();
     expect(within(card).getByText("claude-sonnet-4-6")).toBeInTheDocument();
     expect(within(card).getByText("high")).toBeInTheDocument();

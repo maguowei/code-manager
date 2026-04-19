@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../../i18n";
+import ConfirmDialog from "../ConfirmDialog";
 import { createRowId, looksSensitiveKey } from "./editor-utils";
 import RequiredBadge from "./RequiredBadge";
 
@@ -75,6 +76,7 @@ function EnvEditor({
   const [draftError, setDraftError] = useState("");
   const [interactionError, setInteractionError] = useState("");
   const [isSensitiveValueVisible, setIsSensitiveValueVisible] = useState(false);
+  const [pendingDeleteItem, setPendingDeleteItem] = useState<EnvListItem | null>(null);
   const shouldMaskSensitiveValues = true;
   const activeDraftId = draft?.id ?? null;
 
@@ -115,6 +117,9 @@ function EnvEditor({
   const emptyHint = isZh
     ? "把没有官方 settings 键的能力放进 env，例如 API Key 或其它工具变量。"
     : "Use env for values without official settings keys, such as API keys or tool variables.";
+  const deleteDialogTitle = isZh ? "删除环境变量" : "Delete environment variable";
+  const deleteDialogConfirmText = isZh ? "删除" : "Delete";
+  const deleteDialogCancelText = isZh ? "取消" : "Cancel";
 
   const visibleItems = useMemo<EnvListItem[]>(() => {
     if (draft?.isNew) {
@@ -314,6 +319,16 @@ function EnvEditor({
     resetPanelState(null);
   }
 
+  function applyDeleteItem(item: EnvListItem) {
+    const nextEntries = visibleEntries
+      .filter((candidate) => candidate.id !== item.id)
+      .map((candidate) => [candidate.key, candidate.value] as [string, string]);
+    onChange(buildNextValue(nextEntries));
+    if (draft?.id === item.id) {
+      resetPanelState(null);
+    }
+  }
+
   function handleDeleteItem(item: EnvListItem) {
     if (draft?.id === item.id && draft.isNew) {
       resetPanelState(null);
@@ -322,13 +337,7 @@ function EnvEditor({
     if (blockIfDirty()) {
       return;
     }
-    const nextEntries = visibleEntries
-      .filter((candidate) => candidate.id !== item.id)
-      .map((candidate) => [candidate.key, candidate.value] as [string, string]);
-    onChange(buildNextValue(nextEntries));
-    if (draft?.id === item.id) {
-      resetPanelState(null);
-    }
+    setPendingDeleteItem(item);
   }
 
   return (
@@ -525,6 +534,25 @@ function EnvEditor({
           </div>
         </div>
       </div>
+
+      {pendingDeleteItem ? (
+        <ConfirmDialog
+          title={deleteDialogTitle}
+          message={
+            isZh
+              ? `确定要从当前设置中移除环境变量 ${pendingDeleteItem.key} 吗？`
+              : `Remove environment variable ${pendingDeleteItem.key} from the current settings?`
+          }
+          confirmText={deleteDialogConfirmText}
+          cancelText={deleteDialogCancelText}
+          danger
+          onConfirm={() => {
+            applyDeleteItem(pendingDeleteItem);
+            setPendingDeleteItem(null);
+          }}
+          onCancel={() => setPendingDeleteItem(null)}
+        />
+      ) : null}
     </div>
   );
 }
