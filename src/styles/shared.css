@@ -15,6 +15,7 @@
   --z-index-modal: 200; /* 模态对话框 */
   --z-index-dropdown: 1000; /* 下拉菜单 */
   --z-index-toast: 9999; /* Toast 通知（最顶层） */
+  --config-editor-min-width: 560px; /* 配置类编辑器的最小可读宽度 */
 }
 
 /* -----------------------------------------

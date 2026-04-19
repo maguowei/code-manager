@@ -2,6 +2,7 @@
 
 .modal-large {
   max-width: none;
+  min-width: var(--config-editor-min-width);
 }
 
 /* Form Section */

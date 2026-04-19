@@ -1,6 +1,7 @@
 .profile-editor-panel,
 .preset-editor-panel {
   width: 100%;
+  min-width: var(--config-editor-min-width);
 }
 
 .profile-editor-body,
