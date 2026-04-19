@@ -932,6 +932,33 @@ fn reorder_profiles_in_registry(registry: &mut ConfigRegistry, ids: &[String]) {
     registry.profiles = reordered;
 }
 
+fn duplicate_profile_in_registry(
+    registry: &mut ConfigRegistry,
+    id: &str,
+    name_suffix: &str,
+) -> Result<ConfigProfile, String> {
+    let index = registry
+        .profiles
+        .iter()
+        .position(|profile| profile.id == id)
+        .ok_or_else(|| "未找到要复制的 profile".to_string())?;
+
+    let original = registry.profiles[index].clone();
+    let now = crate::utils::current_rfc3339_timestamp();
+    let duplicated = ConfigProfile {
+        id: Uuid::new_v4().to_string(),
+        name: format!("{}{}", original.name, name_suffix),
+        description: original.description,
+        preset_id: original.preset_id,
+        settings: original.settings,
+        created_at: now.clone(),
+        updated_at: now,
+    };
+
+    registry.profiles.insert(index + 1, duplicated.clone());
+    Ok(duplicated)
+}
+
 #[tauri::command]
 pub fn get_config_workspace() -> Result<ConfigWorkspace, String> {
     Ok(build_workspace(load_registry()?))
@@ -984,6 +1011,21 @@ pub fn upsert_profile(app_handle: AppHandle, data: ProfileInput) -> Result<Confi
     rebuild_tray_menu(&app_handle, Some(&registry));
     let _ = app_handle.emit("config-workspace-changed", ());
     Ok(profile)
+}
+
+#[tauri::command]
+pub fn duplicate_profile(
+    app_handle: AppHandle,
+    id: String,
+    name_suffix: String,
+) -> Result<ConfigProfile, String> {
+    let _lock = crate::utils::lock_config()?;
+    let mut registry = load_registry()?;
+    let duplicated = duplicate_profile_in_registry(&mut registry, &id, &name_suffix)?;
+    save_registry(&registry)?;
+    rebuild_tray_menu(&app_handle, Some(&registry));
+    let _ = app_handle.emit("config-workspace-changed", ());
+    Ok(duplicated)
 }
 
 #[tauri::command]
@@ -1351,6 +1393,31 @@ mod tests {
             .map(|profile| profile.id.as_str())
             .collect();
         assert_eq!(ordered_ids, vec!["profile-c", "profile-a", "profile-b"]);
+    }
+
+    #[test]
+    fn duplicate_profile_inserts_copy_right_after_original() {
+        let mut registry = ConfigRegistry::default();
+        registry.profiles = vec![
+            sample_profile("profile-a", None, serde_json::json!({ "model": "a" })),
+            sample_profile("profile-b", None, serde_json::json!({ "model": "b" })),
+            sample_profile("profile-c", None, serde_json::json!({ "model": "c" })),
+        ];
+
+        let duplicated = duplicate_profile_in_registry(&mut registry, "profile-b", " 副本").unwrap();
+
+        let ordered_ids: Vec<&str> = registry
+            .profiles
+            .iter()
+            .map(|profile| profile.id.as_str())
+            .collect();
+        assert_eq!(
+            ordered_ids,
+            vec!["profile-a", "profile-b", duplicated.id.as_str(), "profile-c"]
+        );
+        assert_eq!(duplicated.name, "profile-b 副本");
+        assert_eq!(duplicated.description, "");
+        assert_eq!(duplicated.settings, serde_json::json!({ "model": "b" }));
     }
 
     #[test]

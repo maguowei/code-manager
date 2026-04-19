@@ -4,12 +4,7 @@ import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
 import type { ConfigProfile, ConfigWorkspace } from "../types";
 import ConfirmDialog from "./ConfirmDialog";
-import {
-  cloneSettings,
-  getEnabledPluginsSummary,
-  isPlainObject,
-  presetNameById,
-} from "./config-workspace-utils";
+import { getEnabledPluginsSummary, isPlainObject, presetNameById } from "./config-workspace-utils";
 import Drawer from "./Drawer";
 import { TrashIcon } from "./Icons";
 import ProfileEditor from "./ProfileEditor";
@@ -226,14 +221,9 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
 
   async function handleDuplicate(profile: ConfigProfile) {
     try {
-      await invoke("upsert_profile", {
-        data: {
-          id: undefined,
-          name: `${profile.name}${t("profiles.duplicateSuffix")}`,
-          description: profile.description,
-          presetId: profile.presetId,
-          settings: cloneSettings(profile.settings),
-        },
+      await invoke("duplicate_profile", {
+        id: profile.id,
+        nameSuffix: t("profiles.duplicateSuffix"),
       });
       await onWorkspaceChange();
       showToast(t("profiles.toast.duplicated"));

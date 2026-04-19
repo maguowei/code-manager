@@ -8,8 +8,8 @@ mod tray;
 mod utils;
 
 use config::{
-    apply_profile, delete_preset, delete_profile, get_config_workspace, preview_profile,
-    reorder_profiles, set_app_preferences, upsert_preset, upsert_profile,
+    apply_profile, delete_preset, delete_profile, duplicate_profile, get_config_workspace,
+    preview_profile, reorder_profiles, set_app_preferences, upsert_preset, upsert_profile,
 };
 use history::{get_history, get_history_if_changed, get_session_detail};
 use memory::{add_memory, delete_memory, get_memories, toggle_memory, update_memory};
@@ -51,6 +51,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_config_workspace,
             upsert_profile,
+            duplicate_profile,
             reorder_profiles,
             delete_profile,
             apply_profile,

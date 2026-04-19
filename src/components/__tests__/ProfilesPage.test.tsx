@@ -320,17 +320,10 @@ describe("ProfilesPage", () => {
     expect(screen.queryByRole("heading", { name: "新增档案" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("名称")).not.toBeInTheDocument();
 
-    expect(invokeMock).toHaveBeenCalledWith(
-      "upsert_profile",
-      expect.objectContaining({
-        data: expect.objectContaining({
-          id: undefined,
-          name: "OpenRouter User 副本",
-          description: "默认用户配置",
-          presetId: "builtin:openrouter",
-        }),
-      }),
-    );
+    expect(invokeMock).toHaveBeenCalledWith("duplicate_profile", {
+      id: "user-openrouter",
+      nameSuffix: " 副本",
+    });
     expect(onWorkspaceChange).toHaveBeenCalledTimes(1);
     expect(showToastMock).toHaveBeenCalledWith("档案已复制");
   });
