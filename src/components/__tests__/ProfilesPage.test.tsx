@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
@@ -178,6 +179,18 @@ describe("ProfilesPage", () => {
     expect(within(card).getByRole("button", { name: "删除" })).toBeInTheDocument();
     expect(within(card).queryByText("删除")).not.toBeInTheDocument();
     expect(within(card).queryByRole("button", { name: "编辑" })).not.toBeInTheDocument();
+  });
+
+  it("reveals card actions only on hover or focus within", () => {
+    const css = readFileSync(`${process.cwd()}/src/components/ProfilesPage.css`, "utf8");
+
+    expect(css).toContain("max-height: 0;");
+    expect(css).toContain("opacity: 0;");
+    expect(css).toContain("pointer-events: none;");
+    expect(css).toMatch(
+      /\.profile-card:hover \.profile-card-actions,\s*\.profile-card:focus-within \.profile-card-actions \{/,
+    );
+    expect(css).toContain("pointer-events: auto;");
   });
 
   it("opens the profile editor when clicking the card body", async () => {
