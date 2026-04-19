@@ -1328,6 +1328,15 @@ describe("ProfileEditor", () => {
     expect(
       within(marketplacesSection).getByRole("button", { name: "编辑 Marketplace team-market" }),
     ).toBeInTheDocument();
+    const teamMarketplaceRowHead = within(marketplacesSection)
+      .getByRole("button", { name: "编辑 Marketplace team-market" })
+      .closest(".profile-marketplace-row-head");
+    expect(teamMarketplaceRowHead).not.toBeNull();
+    expect(
+      within(teamMarketplaceRowHead as HTMLElement).getByRole("button", {
+        name: "删除 Marketplace team-market",
+      }),
+    ).toBeInTheDocument();
     expect(
       within(marketplacesSection).getByRole("button", { name: "编辑 Marketplace docs-market" }),
     ).toBeInTheDocument();

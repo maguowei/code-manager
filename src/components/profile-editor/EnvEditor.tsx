@@ -369,39 +369,41 @@ function EnvEditor({
                     key={item.id}
                     className={`profile-env-list-row${selected ? " selected" : ""}`}
                   >
-                    <button
-                      type="button"
-                      className="profile-env-list-main"
-                      aria-pressed={selected}
-                      aria-label={`${isZh ? "编辑环境变量" : "Edit environment variable"} ${label}`}
-                      onClick={() => handleSelectItem(item)}
-                    >
-                      <span className="profile-env-list-index" aria-hidden="true">
-                        {index + 1}
-                      </span>
-                      <span className="profile-env-list-key">
-                        <span>{label}</span>
-                        {draftBadge ? (
-                          <span className="profile-env-row-badge">{draftBadge}</span>
-                        ) : null}
-                        {dirtyBadge ? (
-                          <span className="profile-env-row-badge subtle">{dirtyBadge}</span>
-                        ) : null}
-                      </span>
-                      <span className="profile-env-list-value">
-                        {formatValuePreview(item.key, item.value)}
-                      </span>
-                    </button>
-
-                    <div className="profile-row-actions profile-env-row-actions">
+                    <div className="profile-env-row-head">
                       <button
                         type="button"
-                        className="profile-icon-btn danger"
-                        aria-label={`${isZh ? "删除环境变量" : "Delete environment variable"} ${label}`}
-                        onClick={() => handleDeleteItem(item)}
+                        className="profile-env-list-main"
+                        aria-pressed={selected}
+                        aria-label={`${isZh ? "编辑环境变量" : "Edit environment variable"} ${label}`}
+                        onClick={() => handleSelectItem(item)}
                       >
-                        ×
+                        <span className="profile-env-list-index" aria-hidden="true">
+                          {index + 1}
+                        </span>
+                        <span className="profile-env-list-key">
+                          <span>{label}</span>
+                          {draftBadge ? (
+                            <span className="profile-env-row-badge">{draftBadge}</span>
+                          ) : null}
+                          {dirtyBadge ? (
+                            <span className="profile-env-row-badge subtle">{dirtyBadge}</span>
+                          ) : null}
+                        </span>
+                        <span className="profile-env-list-value">
+                          {formatValuePreview(item.key, item.value)}
+                        </span>
                       </button>
+
+                      <div className="profile-row-actions profile-env-row-actions">
+                        <button
+                          type="button"
+                          className="profile-icon-btn danger"
+                          aria-label={`${isZh ? "删除环境变量" : "Delete environment variable"} ${label}`}
+                          onClick={() => handleDeleteItem(item)}
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
 
                     {selected && draft ? (

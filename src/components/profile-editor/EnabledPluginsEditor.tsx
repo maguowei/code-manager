@@ -206,56 +206,60 @@ function EnabledPluginsEditor({
 
                 return (
                   <div key={plugin.id} className="profile-plugin-list-row">
-                    <span className="profile-plugin-index" aria-hidden="true">
-                      {index + 1}
-                    </span>
-                    <div className="profile-plugin-list-id" title={rowLabel}>
-                      <span className="profile-plugin-list-key">
-                        <span>{rowLabel}</span>
-                        {isDraftRow ? (
-                          <span className="profile-env-row-badge">{draftBadgeText}</span>
-                        ) : null}
+                    <div className="profile-plugin-list-main">
+                      <span className="profile-plugin-index" aria-hidden="true">
+                        {index + 1}
                       </span>
-                    </div>
-                    <div className="profile-plugin-status-cell">
-                      <SandboxSwitchControl
-                        enabled={plugin.enabled}
-                        isZh={isZh}
-                        ariaLabel={`${isZh ? "插件状态" : "Plugin status"} ${rowLabel}`}
-                        onToggle={() => {
-                          if (isDraftRow) {
-                            handleDraftChange("enabled", !plugin.enabled);
-                            return;
-                          }
-                          updatePlugin(plugin.id, (current) => ({
-                            ...current,
-                            enabled: !current.enabled,
-                          }));
-                        }}
-                        variant="header"
-                      />
-                      <span
-                        className={`profile-plugin-status-text${plugin.enabled ? " is-on" : ""}`}
-                      >
-                        {plugin.enabled ? rowStatusOnText : rowStatusOffText}
-                      </span>
-                    </div>
+                      <div className="profile-plugin-list-content">
+                        <div className="profile-plugin-list-id" title={rowLabel}>
+                          <span className="profile-plugin-list-key">
+                            <span>{rowLabel}</span>
+                            {isDraftRow ? (
+                              <span className="profile-env-row-badge">{draftBadgeText}</span>
+                            ) : null}
+                          </span>
+                        </div>
+                        <div className="profile-plugin-status-cell">
+                          <SandboxSwitchControl
+                            enabled={plugin.enabled}
+                            isZh={isZh}
+                            ariaLabel={`${isZh ? "插件状态" : "Plugin status"} ${rowLabel}`}
+                            onToggle={() => {
+                              if (isDraftRow) {
+                                handleDraftChange("enabled", !plugin.enabled);
+                                return;
+                              }
+                              updatePlugin(plugin.id, (current) => ({
+                                ...current,
+                                enabled: !current.enabled,
+                              }));
+                            }}
+                            variant="header"
+                          />
+                          <span
+                            className={`profile-plugin-status-text${plugin.enabled ? " is-on" : ""}`}
+                          >
+                            {plugin.enabled ? rowStatusOnText : rowStatusOffText}
+                          </span>
+                        </div>
+                      </div>
 
-                    <div className="profile-row-actions profile-plugin-row-actions">
-                      <button
-                        type="button"
-                        className="profile-icon-btn danger"
-                        aria-label={`${isZh ? "删除插件" : "Remove plugin"} ${rowLabel}`}
-                        onClick={() => {
-                          if (isDraftRow) {
-                            resetDraft(null);
-                            return;
-                          }
-                          handleRemovePlugin(plugin.id);
-                        }}
-                      >
-                        ×
-                      </button>
+                      <div className="profile-row-actions profile-plugin-row-actions">
+                        <button
+                          type="button"
+                          className="profile-icon-btn danger"
+                          aria-label={`${isZh ? "删除插件" : "Remove plugin"} ${rowLabel}`}
+                          onClick={() => {
+                            if (isDraftRow) {
+                              resetDraft(null);
+                              return;
+                            }
+                            handleRemovePlugin(plugin.id);
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
                     {isDraftRow && draft ? (
                       <div className="profile-env-inline-editor profile-plugin-inline-editor">

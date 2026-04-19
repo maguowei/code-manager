@@ -496,47 +496,49 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                     key={item.id}
                     className={`profile-marketplace-list-row${selected ? " selected" : ""}`}
                   >
-                    <button
-                      type="button"
-                      className="profile-marketplace-list-main"
-                      aria-pressed={selected}
-                      aria-label={`${isZh ? "编辑 Marketplace" : "Edit marketplace"} ${label}`}
-                      onClick={() => handleSelectMarketplace(marketplace)}
-                    >
-                      <span className="profile-marketplace-list-index" aria-hidden="true">
-                        {index + 1}
-                      </span>
-                      <span className="profile-marketplace-list-title">
-                        <span>{label}</span>
-                        <span className="profile-env-row-badge subtle">{item.sourceType}</span>
-                        {draftBadge ? (
-                          <span className="profile-env-row-badge">{draftBadge}</span>
-                        ) : null}
-                        {dirtyBadge ? (
-                          <span className="profile-env-row-badge subtle">{dirtyBadge}</span>
-                        ) : null}
-                      </span>
-                      <span className="profile-marketplace-list-summary">
-                        <span className="profile-marketplace-summary-primary">
-                          {item.primarySummary}
-                        </span>
-                        {item.secondarySummary.length > 0 ? (
-                          <span className="profile-marketplace-summary-secondary">
-                            {item.secondarySummary.join(" · ")}
-                          </span>
-                        ) : null}
-                      </span>
-                    </button>
-
-                    <div className="profile-row-actions profile-marketplace-row-actions">
+                    <div className="profile-marketplace-row-head">
                       <button
                         type="button"
-                        className="profile-icon-btn danger"
-                        aria-label={`${isZh ? "删除 Marketplace" : "Delete marketplace"} ${label}`}
-                        onClick={() => handleDeleteMarketplace(marketplace)}
+                        className="profile-marketplace-list-main"
+                        aria-pressed={selected}
+                        aria-label={`${isZh ? "编辑 Marketplace" : "Edit marketplace"} ${label}`}
+                        onClick={() => handleSelectMarketplace(marketplace)}
                       >
-                        ×
+                        <span className="profile-marketplace-list-index" aria-hidden="true">
+                          {index + 1}
+                        </span>
+                        <span className="profile-marketplace-list-title">
+                          <span>{label}</span>
+                          <span className="profile-env-row-badge subtle">{item.sourceType}</span>
+                          {draftBadge ? (
+                            <span className="profile-env-row-badge">{draftBadge}</span>
+                          ) : null}
+                          {dirtyBadge ? (
+                            <span className="profile-env-row-badge subtle">{dirtyBadge}</span>
+                          ) : null}
+                        </span>
+                        <span className="profile-marketplace-list-summary">
+                          <span className="profile-marketplace-summary-primary">
+                            {item.primarySummary}
+                          </span>
+                          {item.secondarySummary.length > 0 ? (
+                            <span className="profile-marketplace-summary-secondary">
+                              {item.secondarySummary.join(" · ")}
+                            </span>
+                          ) : null}
+                        </span>
                       </button>
+
+                      <div className="profile-row-actions profile-marketplace-row-actions">
+                        <button
+                          type="button"
+                          className="profile-icon-btn danger"
+                          aria-label={`${isZh ? "删除 Marketplace" : "Delete marketplace"} ${label}`}
+                          onClick={() => handleDeleteMarketplace(marketplace)}
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
 
                     {selected && draft ? (

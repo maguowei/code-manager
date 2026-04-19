@@ -741,6 +741,7 @@
   flex-direction: column;
   gap: 12px;
   min-width: 0;
+  container-type: inline-size;
 }
 
 .profile-env-list {
@@ -778,10 +779,9 @@
 }
 
 .profile-env-list-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
   padding: 10px 14px;
 }
 
@@ -791,6 +791,14 @@
 
 .profile-env-list-row.selected {
   background: color-mix(in srgb, var(--accent-blue-bg) 18%, var(--bg-primary) 82%);
+}
+
+.profile-env-row-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
 }
 
 .profile-env-list-main {
@@ -948,6 +956,7 @@
   min-width: 0;
   flex-direction: column;
   gap: 12px;
+  container-type: inline-size;
 }
 
 .profile-marketplace-list {
@@ -985,10 +994,9 @@
 }
 
 .profile-marketplace-list-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
   padding: 10px 14px;
 }
 
@@ -998,6 +1006,14 @@
 
 .profile-marketplace-list-row.selected {
   background: color-mix(in srgb, var(--accent-blue-bg) 18%, var(--bg-primary) 82%);
+}
+
+.profile-marketplace-row-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
 }
 
 .profile-marketplace-list-main {
@@ -1232,10 +1248,12 @@
   min-width: 0;
   flex-direction: column;
   gap: 12px;
+  container-type: inline-size;
 }
 
 .profile-plugin-list {
-  --profile-plugin-columns: 40px minmax(0, 1fr) minmax(176px, 220px) 72px;
+  --profile-plugin-status-width: minmax(176px, 220px);
+  --profile-plugin-action-width: 72px;
   --profile-plugin-column-gap: 20px;
   display: flex;
   flex-direction: column;
@@ -1247,7 +1265,9 @@
 
 .profile-plugin-list-header {
   display: grid;
-  grid-template-columns: var(--profile-plugin-columns);
+  grid-template-columns: 40px minmax(0, 1fr) var(--profile-plugin-status-width) var(
+      --profile-plugin-action-width
+    );
   column-gap: var(--profile-plugin-column-gap);
   align-items: center;
   padding: 12px 14px 10px;
@@ -1280,16 +1300,30 @@
 }
 
 .profile-plugin-list-row {
-  display: grid;
-  grid-template-columns: var(--profile-plugin-columns);
-  column-gap: var(--profile-plugin-column-gap);
-  row-gap: 0;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
   padding: 10px 14px;
 }
 
 .profile-plugin-list-row + .profile-plugin-list-row {
   border-top: 1px solid color-mix(in srgb, var(--border-default) 92%, transparent);
+}
+
+.profile-plugin-list-main {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) var(--profile-plugin-action-width);
+  column-gap: var(--profile-plugin-column-gap);
+  align-items: center;
+  min-width: 0;
+}
+
+.profile-plugin-list-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--profile-plugin-status-width);
+  column-gap: var(--profile-plugin-column-gap);
+  align-items: center;
+  min-width: 0;
 }
 
 .profile-plugin-list-id {
@@ -1319,7 +1353,7 @@
   min-width: 0;
   align-items: center;
   gap: 12px;
-  justify-self: stretch;
+  justify-self: start;
   justify-content: flex-start;
 }
 
@@ -1336,7 +1370,7 @@
 
 .profile-plugin-row-actions {
   align-self: center;
-  justify-self: stretch;
+  justify-self: center;
   justify-content: center;
 }
 
@@ -1352,6 +1386,178 @@
   align-items: center;
   justify-content: center;
   text-align: center;
+}
+
+@container (max-width: 720px) {
+  .profile-env-list-header {
+    display: none;
+  }
+
+  .profile-env-list-row {
+    gap: 12px;
+    padding: 12px 14px;
+  }
+
+  .profile-env-row-head {
+    align-items: start;
+  }
+
+  .profile-env-list-main {
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 6px 10px;
+    align-items: start;
+  }
+
+  .profile-env-list-index {
+    grid-row: 1 / span 2;
+    align-self: start;
+    padding-top: 2px;
+  }
+
+  .profile-env-list-key,
+  .profile-env-list-value {
+    grid-column: 2;
+  }
+
+  .profile-env-list-key span:first-child {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .profile-env-list-value {
+    display: -webkit-box;
+    overflow: hidden;
+    text-overflow: clip;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    word-break: break-word;
+  }
+
+  .profile-env-row-actions {
+    align-self: start;
+    justify-content: flex-end;
+  }
+
+  .profile-env-inline-editor {
+    margin-top: 0;
+    padding-left: 0;
+  }
+
+  .profile-env-inline-value-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .profile-env-inline-actions {
+    justify-content: flex-end;
+    padding-left: 0;
+  }
+}
+
+@container (max-width: 720px) {
+  .profile-marketplace-list-header {
+    display: none;
+  }
+
+  .profile-marketplace-list-row {
+    gap: 12px;
+    padding: 12px 14px;
+  }
+
+  .profile-marketplace-row-head {
+    align-items: start;
+  }
+
+  .profile-marketplace-list-main {
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 6px 10px;
+    align-items: start;
+  }
+
+  .profile-marketplace-list-index {
+    grid-row: 1 / span 2;
+    align-self: start;
+    padding-top: 2px;
+  }
+
+  .profile-marketplace-list-title,
+  .profile-marketplace-list-summary {
+    grid-column: 2;
+  }
+
+  .profile-marketplace-list-title > span:first-child,
+  .profile-marketplace-summary-primary,
+  .profile-marketplace-summary-secondary {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .profile-marketplace-row-actions {
+    align-self: start;
+    justify-content: flex-end;
+  }
+
+  .profile-marketplace-inline-editor {
+    margin-top: 0;
+    padding-left: 0;
+  }
+}
+
+@container (max-width: 720px) {
+  .profile-plugin-list-header {
+    display: none;
+  }
+
+  .profile-plugin-list-row {
+    gap: 12px;
+    padding: 12px 14px;
+  }
+
+  .profile-plugin-list-main {
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    column-gap: 10px;
+    row-gap: 8px;
+    align-items: start;
+  }
+
+  .profile-plugin-list-content {
+    grid-template-columns: 1fr;
+    row-gap: 8px;
+    column-gap: 0;
+  }
+
+  .profile-plugin-index {
+    align-self: start;
+    padding-top: 2px;
+  }
+
+  .profile-plugin-list-id {
+    min-height: 0;
+  }
+
+  .profile-plugin-list-key > span:first-child {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .profile-plugin-status-cell {
+    justify-self: start;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .profile-plugin-row-actions {
+    align-self: start;
+    justify-self: end;
+    justify-content: flex-end;
+    width: auto;
+  }
+
+  .profile-plugin-inline-editor {
+    margin-top: 0;
+    padding-left: 0;
+  }
 }
 
 .profile-expert-panel {
@@ -1447,124 +1653,6 @@
   .profile-plugin-row {
     grid-template-columns: 40px minmax(0, 1fr) auto;
     align-items: center;
-  }
-
-  .profile-env-list-header {
-    display: none;
-  }
-
-  .profile-env-list-row {
-    grid-template-columns: 1fr;
-  }
-
-  .profile-env-list-main {
-    grid-template-columns: 32px minmax(0, 1fr);
-    gap: 6px 10px;
-    align-items: start;
-  }
-
-  .profile-env-row-actions {
-    justify-content: flex-start;
-    padding-left: 42px;
-  }
-
-  .profile-env-list-index {
-    grid-row: 1 / span 2;
-    align-self: start;
-    padding-top: 2px;
-  }
-
-  .profile-env-list-key,
-  .profile-env-list-value {
-    grid-column: 2;
-  }
-
-  .profile-env-inline-editor {
-    padding-left: 42px;
-  }
-
-  .profile-env-inline-value-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .profile-marketplace-list-header {
-    display: none;
-  }
-
-  .profile-marketplace-list-row {
-    grid-template-columns: 1fr;
-  }
-
-  .profile-marketplace-list-main {
-    grid-template-columns: 32px minmax(0, 1fr);
-    gap: 6px 10px;
-    align-items: start;
-  }
-
-  .profile-marketplace-row-actions {
-    justify-content: flex-start;
-    padding-left: 42px;
-  }
-
-  .profile-marketplace-list-index {
-    grid-row: 1 / span 2;
-    align-self: start;
-    padding-top: 2px;
-  }
-
-  .profile-marketplace-list-title,
-  .profile-marketplace-list-summary {
-    grid-column: 2;
-  }
-
-  .profile-marketplace-inline-editor {
-    padding-left: 42px;
-  }
-
-  .profile-plugin-list-header {
-    display: none;
-  }
-
-  .profile-plugin-list-row {
-    grid-template-columns: 32px minmax(0, 1fr);
-    column-gap: 10px;
-    row-gap: 8px;
-    align-items: start;
-  }
-
-  .profile-plugin-index {
-    grid-column: 1;
-    grid-row: 1 / span 2;
-    align-self: start;
-    padding-top: 2px;
-  }
-
-  .profile-plugin-list-id,
-  .profile-plugin-status-cell,
-  .profile-plugin-row-actions {
-    grid-column: 2;
-  }
-
-  .profile-plugin-list-id {
-    min-height: 0;
-  }
-
-  .profile-plugin-status-cell {
-    justify-content: flex-start;
-    justify-self: start;
-  }
-
-  .profile-plugin-row-actions {
-    justify-content: flex-start;
-    justify-self: start;
-    width: auto;
-    padding-left: 0;
-  }
-
-  .profile-env-inline-actions {
-    justify-content: flex-end;
-    padding-left: 0;
   }
 
   .profile-row-actions,

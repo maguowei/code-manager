@@ -37,10 +37,25 @@ describe("EnabledPluginsEditor", () => {
     expect(screen.getByText("操作")).toBeInTheDocument();
     expect(screen.getByText("formatter@anthropic-tools")).toBeInTheDocument();
     expect(screen.queryByLabelText("插件 ID 1")).not.toBeInTheDocument();
+    const pluginRow = screen
+      .getByText("formatter@anthropic-tools")
+      .closest(".profile-plugin-list-row");
+    expect(pluginRow).not.toBeNull();
+    const pluginRowMain = (pluginRow as HTMLElement | null)?.querySelector(
+      ".profile-plugin-list-main",
+    );
+    expect(pluginRowMain).not.toBeNull();
     expect(
-      screen.getByRole("switch", { name: "插件状态 formatter@anthropic-tools" }),
+      within(pluginRowMain as HTMLElement).getByRole("switch", {
+        name: "插件状态 formatter@anthropic-tools",
+      }),
     ).toHaveAttribute("aria-checked", "true");
-    expect(screen.getByText("已启用")).toBeInTheDocument();
+    expect(within(pluginRowMain as HTMLElement).getByText("已启用")).toBeInTheDocument();
+    expect(
+      within(pluginRowMain as HTMLElement).getByRole("button", {
+        name: "删除插件 formatter@anthropic-tools",
+      }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "新增插件" })).toBeInTheDocument();
   });
 

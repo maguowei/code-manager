@@ -29,18 +29,24 @@ describe("EnvEditor", () => {
     renderEditor();
 
     expect(screen.getByText("序号")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "编辑环境变量 OPENAI_API_KEY" })).toBeInTheDocument();
+    const openAiButton = screen.getByRole("button", { name: "编辑环境变量 OPENAI_API_KEY" });
+    expect(openAiButton).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "编辑环境变量 ANTHROPIC_MODEL" }),
     ).toBeInTheDocument();
-    const firstRow = screen
-      .getByRole("button", { name: "编辑环境变量 OPENAI_API_KEY" })
-      .closest(".profile-env-list-row");
+    const firstRow = openAiButton.closest(".profile-env-list-row");
     const secondRow = screen
       .getByRole("button", { name: "编辑环境变量 ANTHROPIC_MODEL" })
       .closest(".profile-env-list-row");
     expect(firstRow).not.toBeNull();
     expect(secondRow).not.toBeNull();
+    const firstRowHead = openAiButton.closest(".profile-env-row-head");
+    expect(firstRowHead).not.toBeNull();
+    expect(
+      within(firstRowHead as HTMLElement).getByRole("button", {
+        name: "删除环境变量 OPENAI_API_KEY",
+      }),
+    ).toBeInTheDocument();
     expect(within(firstRow as HTMLElement).getByText("1")).toBeInTheDocument();
     expect(within(secondRow as HTMLElement).getByText("2")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "新增环境变量" })).toBeInTheDocument();

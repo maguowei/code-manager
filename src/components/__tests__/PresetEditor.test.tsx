@@ -930,6 +930,15 @@ describe("PresetEditor", () => {
     expect(
       within(marketplacesSection).getByRole("button", { name: "编辑 Marketplace team-market" }),
     ).toBeInTheDocument();
+    const marketplaceRowHead = within(marketplacesSection)
+      .getByRole("button", { name: "编辑 Marketplace team-market" })
+      .closest(".profile-marketplace-row-head");
+    expect(marketplaceRowHead).not.toBeNull();
+    expect(
+      within(marketplaceRowHead as HTMLElement).getByRole("button", {
+        name: "删除 Marketplace team-market",
+      }),
+    ).toBeInTheDocument();
     expect(within(marketplacesSection).getByText("github")).toBeInTheDocument();
     expect(within(marketplacesSection).getByText("team/plugins")).toBeInTheDocument();
     expect(screen.queryByLabelText("Marketplace ID")).not.toBeInTheDocument();
