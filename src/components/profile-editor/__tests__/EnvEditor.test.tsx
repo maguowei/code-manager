@@ -28,10 +28,21 @@ describe("EnvEditor", () => {
   it("renders a browsable env list with an empty editor state by default", () => {
     renderEditor();
 
+    expect(screen.getByText("序号")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "编辑环境变量 OPENAI_API_KEY" })).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "编辑环境变量 ANTHROPIC_MODEL" }),
     ).toBeInTheDocument();
+    const firstRow = screen
+      .getByRole("button", { name: "编辑环境变量 OPENAI_API_KEY" })
+      .closest(".profile-env-list-row");
+    const secondRow = screen
+      .getByRole("button", { name: "编辑环境变量 ANTHROPIC_MODEL" })
+      .closest(".profile-env-list-row");
+    expect(firstRow).not.toBeNull();
+    expect(secondRow).not.toBeNull();
+    expect(within(firstRow as HTMLElement).getByText("1")).toBeInTheDocument();
+    expect(within(secondRow as HTMLElement).getByText("2")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "新增环境变量" })).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "上移环境变量 OPENAI_API_KEY" }),
@@ -45,6 +56,20 @@ describe("EnvEditor", () => {
     expect(screen.queryByDisplayValue("ANTHROPIC_AUTH_TOKEN")).not.toBeInTheDocument();
   });
 
+  it("opens inline editor when the index area is clicked", () => {
+    renderEditor();
+
+    const row = screen
+      .getByRole("button", { name: "编辑环境变量 OPENAI_API_KEY" })
+      .closest(".profile-env-list-row");
+    expect(row).not.toBeNull();
+
+    fireEvent.click(within(row as HTMLElement).getByText("1"));
+
+    expect(within(row as HTMLElement).getByLabelText("环境变量名称")).toHaveValue("OPENAI_API_KEY");
+    expect(within(row as HTMLElement).getByLabelText("环境变量值")).toHaveValue("visible-token");
+  });
+
   it("edits a selected variable inline and preserves hidden keys on save", () => {
     const { onChange } = renderEditor();
 
@@ -53,6 +78,14 @@ describe("EnvEditor", () => {
 
     const row = editButton.closest(".profile-env-list-row");
     expect(row).not.toBeNull();
+    expect(
+      within(row as HTMLElement).queryByRole("heading", { name: "OPENAI_API_KEY" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(row as HTMLElement).queryByText(
+        "把没有官方 settings 键的能力放进 env，例如 API Key 或其它工具变量。",
+      ),
+    ).not.toBeInTheDocument();
     expect(within(row as HTMLElement).getByLabelText("环境变量名称")).toHaveValue("OPENAI_API_KEY");
 
     fireEvent.change(within(row as HTMLElement).getByLabelText("环境变量值"), {
@@ -109,9 +142,10 @@ describe("EnvEditor", () => {
     const draftButton = screen.getByRole("button", { name: "编辑环境变量 新环境变量" });
     const draftRow = draftButton.closest(".profile-env-list-row");
     expect(draftRow).not.toBeNull();
+    expect(within(draftRow as HTMLElement).queryByRole("heading")).not.toBeInTheDocument();
     expect(
-      within(draftRow as HTMLElement).getByText("新增环境变量后，请先保存或取消。"),
-    ).toBeInTheDocument();
+      within(draftRow as HTMLElement).queryByText("新增环境变量后，请先保存或取消。"),
+    ).not.toBeInTheDocument();
     expect(within(draftRow as HTMLElement).getByLabelText("环境变量名称")).toHaveValue("");
     expect(within(draftRow as HTMLElement).getByLabelText("环境变量值")).toHaveValue("");
 
@@ -157,6 +191,8 @@ describe("EnvEditor", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "删除环境变量 OPENAI_API_KEY" }));
 
+    expect(screen.queryByLabelText("环境变量名称")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("环境变量值")).not.toBeInTheDocument();
     expect(onChange).toHaveBeenLastCalledWith({
       ANTHROPIC_AUTH_TOKEN: "token",
       ANTHROPIC_MODEL: "claude-sonnet-4-6",

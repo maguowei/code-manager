@@ -115,9 +115,6 @@ function EnvEditor({
   const emptyHint = isZh
     ? "把没有官方 settings 键的能力放进 env，例如 API Key 或其它工具变量。"
     : "Use env for values without official settings keys, such as API keys or tool variables.";
-  const newDraftHint = isZh
-    ? "新增环境变量后，请先保存或取消。"
-    : "Save or cancel the new environment variable before continuing.";
 
   const visibleItems = useMemo<EnvListItem[]>(() => {
     if (draft?.isNew) {
@@ -345,13 +342,14 @@ function EnvEditor({
         <div className="profile-env-list-shell">
           <div className="profile-env-list">
             <div className="profile-env-list-header">
+              <span className="profile-env-list-header-index">{isZh ? "序号" : "Index"}</span>
               <span>{isZh ? "变量名" : "Key"}</span>
               <span>{isZh ? "变量值" : "Value"}</span>
               <span>{isZh ? "操作" : "Actions"}</span>
             </div>
 
             {visibleItems.length > 0 ? (
-              visibleItems.map((item) => {
+              visibleItems.map((item, index) => {
                 const label = formatItemLabel(item);
                 const selected = draft?.id === item.id;
                 const draftBadge = item.isDraft ? (isZh ? "草稿" : "Draft") : null;
@@ -374,6 +372,9 @@ function EnvEditor({
                       aria-label={`${isZh ? "编辑环境变量" : "Edit environment variable"} ${label}`}
                       onClick={() => handleSelectItem(item)}
                     >
+                      <span className="profile-env-list-index" aria-hidden="true">
+                        {index + 1}
+                      </span>
                       <span className="profile-env-list-key">
                         <span>{label}</span>
                         {draftBadge ? (
@@ -401,20 +402,9 @@ function EnvEditor({
 
                     {selected && draft ? (
                       <div className="profile-env-inline-editor">
-                        <div className="profile-env-inline-header">
-                          <h4>
-                            {draft.isNew
-                              ? isZh
-                                ? "新增环境变量"
-                                : "Add Environment Variable"
-                              : formatItemLabel(draft)}
-                          </h4>
-                          <p>{draft.isNew ? newDraftHint : emptyHint}</p>
-                        </div>
-
                         <div className="profile-env-inline-fields">
                           <label className="form-group">
-                            <span className="profile-inline-required-label">
+                            <span className="profile-inline-required-label profile-env-inline-label">
                               <span>{isZh ? "环境变量名称" : "Environment Variable Name"}</span>
                               <RequiredBadge />
                             </span>
@@ -439,7 +429,7 @@ function EnvEditor({
                           </label>
 
                           <label className="form-group">
-                            <span className="profile-inline-required-label">
+                            <span className="profile-inline-required-label profile-env-inline-label">
                               <span>{isZh ? "环境变量值" : "Environment Variable Value"}</span>
                               <RequiredBadge />
                             </span>
