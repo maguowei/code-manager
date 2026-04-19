@@ -193,6 +193,17 @@ describe("ProfilesPage", () => {
     expect(css).toContain("pointer-events: auto;");
   });
 
+  it("uses a longer high-contrast drop indicator for drag reordering", () => {
+    const css = readFileSync(`${process.cwd()}/src/components/ProfilesPage.css`, "utf8");
+
+    expect(css).toContain("--profile-drop-indicator-color: var(--accent-green);");
+    expect(css).toContain("--profile-drop-indicator-bleed: calc(var(--space-3) * -1);");
+    expect(css).toContain("left: var(--profile-drop-indicator-bleed);");
+    expect(css).toContain("right: var(--profile-drop-indicator-bleed);");
+    expect(css).toContain("height: 4px;");
+    expect(css).toMatch(/radial-gradient\(\s*circle at left center,/);
+  });
+
   it("opens the profile editor when clicking the card body", async () => {
     localStorage.setItem(
       SETTINGS_STORAGE_KEY,

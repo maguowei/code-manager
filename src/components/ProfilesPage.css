@@ -10,6 +10,9 @@
 }
 
 .profile-card {
+  --profile-drop-indicator-color: var(--accent-green);
+  --profile-drop-indicator-bleed: calc(var(--space-3) * -1);
+  --profile-drop-indicator-offset: -6px;
   position: relative;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-xl);
@@ -59,20 +62,44 @@
 .profile-card.drag-over-below::after {
   content: "";
   position: absolute;
-  left: var(--space-4);
-  right: var(--space-4);
-  height: 3px;
+  left: var(--profile-drop-indicator-bleed);
+  right: var(--profile-drop-indicator-bleed);
+  height: 4px;
   border-radius: 999px;
-  background: var(--accent-blue);
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.35);
+  pointer-events: none;
+  z-index: 1;
+  background:
+    radial-gradient(
+      circle at left center,
+      var(--profile-drop-indicator-color) 0 4px,
+      transparent 4px
+    ),
+    radial-gradient(
+      circle at right center,
+      var(--profile-drop-indicator-color) 0 4px,
+      transparent 4px
+    ),
+    linear-gradient(var(--profile-drop-indicator-color), var(--profile-drop-indicator-color));
+  background-size:
+    8px 8px,
+    8px 8px,
+    calc(100% - 16px) 4px;
+  background-position:
+    left center,
+    right center,
+    center;
+  background-repeat: no-repeat;
+  box-shadow:
+    0 0 0 2px var(--bg-base),
+    var(--glow-green);
 }
 
 .profile-card.drag-over-above::before {
-  top: -2px;
+  top: var(--profile-drop-indicator-offset);
 }
 
 .profile-card.drag-over-below::after {
-  bottom: -2px;
+  bottom: var(--profile-drop-indicator-offset);
 }
 
 .profile-card-head {
