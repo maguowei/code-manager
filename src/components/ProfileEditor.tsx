@@ -20,6 +20,7 @@ import {
   setTopLevelString,
 } from "./config-workspace-utils";
 import { InfoIcon } from "./Icons";
+import ProfileNameBadge from "./ProfileNameBadge";
 import EnabledPluginsEditor from "./profile-editor/EnabledPluginsEditor";
 import EnvEditor from "./profile-editor/EnvEditor";
 import { readBoolean, readString } from "./profile-editor/editor-utils";
@@ -529,6 +530,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     expertHint: t("profiles.editor.hints.expert"),
     expertStructuredKeys: t("profiles.editor.hints.expertStructuredKeys"),
   };
+  const topBadgeSeed = profile?.id ?? (name.trim() || "profile");
 
   return (
     <div className="editor-panel profile-editor-panel">
@@ -553,6 +555,14 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
       </div>
 
       <div className="editor-body profile-editor-body">
+        <ProfileNameBadge
+          name={name}
+          seed={topBadgeSeed}
+          size="lg"
+          fallbackChar="P"
+          className="editor-badge-large"
+        />
+
         <section className="profile-editor-section">
           <div className="profile-section-heading">
             <h3>{messages.basicInfo}</h3>

@@ -166,6 +166,11 @@ describe("ProfilesPage", () => {
       return;
     }
 
+    const badge = card.querySelector(".profile-name-badge") as HTMLElement | null;
+    expect(badge).not.toBeNull();
+    expect(badge).toHaveTextContent("O");
+    expect(badge?.className).toMatch(/profile-name-badge--color-\d/);
+
     expect(within(card).queryByText("用户")).not.toBeInTheDocument();
     expect(within(card).getByText("使用中")).toBeInTheDocument();
     expect(within(card).queryByText("已应用到用户设置")).not.toBeInTheDocument();

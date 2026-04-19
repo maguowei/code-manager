@@ -1,0 +1,60 @@
+.profile-name-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-primary);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 10px 24px rgba(15, 23, 42, 0.18);
+}
+
+.profile-name-badge--sm {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+
+.profile-name-badge__text {
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
+}
+
+.profile-name-badge--sm .profile-name-badge__text {
+  font-size: var(--font-md);
+}
+
+.profile-name-badge--lg .profile-name-badge__text {
+  font-size: 24px;
+}
+
+.profile-name-badge--color-0 {
+  background: linear-gradient(135deg, #3a86ff22, #3a86ff44);
+  color: #3a86ff;
+}
+
+.profile-name-badge--color-1 {
+  background: linear-gradient(135deg, #ff006e22, #ff006e44);
+  color: #ff006e;
+}
+
+.profile-name-badge--color-2 {
+  background: linear-gradient(135deg, #3fb95022, #3fb95044);
+  color: #3fb950;
+}
+
+.profile-name-badge--color-3 {
+  background: linear-gradient(135deg, #f7816622, #f7816644);
+  color: #f78166;
+}
+
+.profile-name-badge--color-4 {
+  background: linear-gradient(135deg, #a371f722, #a371f744);
+  color: #a371f7;
+}
+
+.profile-name-badge--color-5 {
+  background: linear-gradient(135deg, #ffa50022, #ffa50044);
+  color: #ffa500;
+}

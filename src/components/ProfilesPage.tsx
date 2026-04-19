@@ -8,6 +8,7 @@ import { getEnabledPluginsSummary, isPlainObject, presetNameById } from "./confi
 import Drawer from "./Drawer";
 import { TrashIcon } from "./Icons";
 import ProfileEditor from "./ProfileEditor";
+import ProfileNameBadge from "./ProfileNameBadge";
 import "./ProfilesPage.css";
 
 interface ProfilesPageProps {
@@ -329,6 +330,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                 onDrop={(event) => handleDrop(event, index)}
               >
                 <div className="profile-card-head">
+                  <ProfileNameBadge name={profile.name} seed={profile.id} size="sm" />
                   <div className="profile-card-title-block">
                     <div className="profile-card-title-row">
                       <h3>{profile.name}</h3>

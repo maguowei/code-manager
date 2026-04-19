@@ -147,6 +147,7 @@ function renderEditor(options?: {
     settings: Record<string, unknown>;
   }) => void | Promise<void>;
 }) {
+  const profile = options && "profile" in options ? (options.profile ?? null) : PROFILE_FIXTURE;
   const onSave =
     options?.onSave ??
     vi.fn<
@@ -161,7 +162,7 @@ function renderEditor(options?: {
   render(
     <I18nProvider>
       <ProfileEditor
-        profile={options?.profile ?? PROFILE_FIXTURE}
+        profile={profile}
         presets={options?.presets ?? BUILTIN_PRESETS}
         onSave={onSave}
         onClose={() => {}}
@@ -229,6 +230,14 @@ describe("ProfileEditor", () => {
   it("renders control-first sections with unified mode switches and downgraded full json entry", async () => {
     renderEditor();
 
+    const topBadge = document.querySelector(
+      ".editor-badge-large.profile-name-badge",
+    ) as HTMLElement | null;
+    expect(topBadge).not.toBeNull();
+    expect(topBadge).toHaveTextContent("O");
+    const initialColorClass = topBadge?.className.match(/profile-name-badge--color-\d/)?.[0];
+    expect(initialColorClass).toBeTruthy();
+
     expect(screen.queryByLabelText("降低动画")).not.toBeInTheDocument();
 
     for (const heading of [
@@ -288,6 +297,15 @@ describe("ProfileEditor", () => {
         expect(within(nameLabel).getByText("必填")).toBeInTheDocument();
       }
     }
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/名称/), {
+        target: { value: "beta profile" },
+      });
+      await Promise.resolve();
+    });
+    expect(topBadge).toHaveTextContent("B");
+    expect(topBadge?.className).toContain(initialColorClass ?? "");
 
     const sandboxSection = screen.getByRole("heading", { name: "Sandbox" }).closest("section");
     expect(sandboxSection).not.toBeNull();
@@ -1553,4 +1571,23 @@ describe("ProfileEditor", () => {
     expect(latestPreview).toHaveTextContent('"ANTHROPIC_AUTH_TOKEN": "auth-token"');
     expect(latestPreview).toHaveTextContent('"ANTHROPIC_BASE_URL": "https://example.com"');
   });
+});
+
+it("shows a fallback top badge for new profiles and updates it as the name changes", async () => {
+  renderEditor({ profile: null });
+
+  const topBadge = document.querySelector(
+    ".editor-badge-large.profile-name-badge",
+  ) as HTMLElement | null;
+  expect(topBadge).not.toBeNull();
+  expect(topBadge).toHaveTextContent("P");
+
+  await act(async () => {
+    fireEvent.change(screen.getByLabelText(/名称/), {
+      target: { value: "中文配置" },
+    });
+    await Promise.resolve();
+  });
+  expect(topBadge).toHaveTextContent("中");
+  expect(topBadge?.className).toMatch(/profile-name-badge--color-\d/);
 });
