@@ -4,11 +4,14 @@ import {
   buildStringListError,
   createRowId,
   PERMISSION_MODE_OPTIONS,
+  type PermissionModeOption,
   readObject,
   rowsFromStringArray,
   type StringRow,
   stringArrayFromRows,
+  USER_VISIBLE_PERMISSION_MODE_OPTIONS,
 } from "./editor-utils";
+import { SandboxSwitchControl } from "./SandboxEditor";
 import StringListEditor from "./StringListEditor";
 
 interface PermissionsEditorProps {
@@ -17,13 +20,115 @@ interface PermissionsEditorProps {
   onError: (message: string) => void;
 }
 
+interface PermissionDefaultModeSelectProps {
+  value: string;
+  onChange: (nextValue: string) => void;
+  selectId?: string;
+  ariaLabel?: string;
+  variant?: "panel" | "header";
+}
+
+export function readPermissionsDefaultMode(value: unknown): string {
+  const permissionObject = readObject(value);
+  return typeof permissionObject.defaultMode === "string" ? permissionObject.defaultMode : "";
+}
+
+export function setPermissionsDefaultMode(
+  value: unknown,
+  nextValue: string,
+): Record<string, unknown> {
+  const permissionObject = readObject(value);
+  const nextPermissions = { ...permissionObject };
+
+  if (nextValue) {
+    nextPermissions.defaultMode = nextValue;
+  } else {
+    delete nextPermissions.defaultMode;
+  }
+
+  return nextPermissions;
+}
+
+export function PermissionDefaultModeSelect({
+  value,
+  onChange,
+  selectId,
+  ariaLabel,
+  variant = "panel",
+}: PermissionDefaultModeSelectProps) {
+  const { language } = useI18n();
+  const isZh = language === "zh";
+  const label = isZh ? "默认模式" : "Default Mode";
+  const modeOptions = getPermissionModeSelectOptions(value);
+
+  const select = (
+    <select
+      id={selectId}
+      className={variant === "header" ? "profile-permissions-header-select" : "form-select"}
+      value={value}
+      aria-label={ariaLabel}
+      onChange={(event) => onChange(event.target.value)}
+    >
+      <option value="">{isZh ? "未设置" : "Unset"}</option>
+      {modeOptions.map((mode) => (
+        <option key={mode} value={mode}>
+          {mode}
+        </option>
+      ))}
+    </select>
+  );
+
+  if (variant === "header") {
+    return (
+      <div className="profile-permissions-header-field">
+        <span className="profile-permissions-header-label">{label}</span>
+        {select}
+      </div>
+    );
+  }
+
+  return (
+    <div className="form-group">
+      <label htmlFor={selectId}>{label}</label>
+      {select}
+    </div>
+  );
+}
+
+function getPermissionModeSelectOptions(value: string): readonly string[] {
+  if (
+    !value ||
+    USER_VISIBLE_PERMISSION_MODE_OPTIONS.includes(
+      value as (typeof USER_VISIBLE_PERMISSION_MODE_OPTIONS)[number],
+    )
+  ) {
+    return USER_VISIBLE_PERMISSION_MODE_OPTIONS;
+  }
+
+  const compatibilityMode = value as PermissionModeOption;
+  const compatibilityIndex = PERMISSION_MODE_OPTIONS.indexOf(compatibilityMode);
+  if (compatibilityIndex === -1) {
+    return USER_VISIBLE_PERMISSION_MODE_OPTIONS;
+  }
+
+  const insertIndex = PERMISSION_MODE_OPTIONS.slice(0, compatibilityIndex).filter((mode) =>
+    USER_VISIBLE_PERMISSION_MODE_OPTIONS.includes(
+      mode as (typeof USER_VISIBLE_PERMISSION_MODE_OPTIONS)[number],
+    ),
+  ).length;
+
+  return [
+    ...USER_VISIBLE_PERMISSION_MODE_OPTIONS.slice(0, insertIndex),
+    value,
+    ...USER_VISIBLE_PERMISSION_MODE_OPTIONS.slice(insertIndex),
+  ];
+}
+
 function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps) {
   const { language } = useI18n();
   const isZh = language === "zh";
   const permissionObject = useMemo(() => readObject(value), [value]);
-  const [defaultMode, setDefaultMode] = useState(
-    typeof permissionObject.defaultMode === "string" ? permissionObject.defaultMode : "",
-  );
+  const [defaultMode, setDefaultMode] = useState(readPermissionsDefaultMode(permissionObject));
   const [disableBypass, setDisableBypass] = useState(
     permissionObject.disableBypassPermissionsMode === "disable",
   );
@@ -54,9 +159,7 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
 
   useEffect(() => {
     skipStructuredSyncRef.current = true;
-    setDefaultMode(
-      typeof permissionObject.defaultMode === "string" ? permissionObject.defaultMode : "",
-    );
+    setDefaultMode(readPermissionsDefaultMode(permissionObject));
     setDisableBypass(permissionObject.disableBypassPermissionsMode === "disable");
     setAllowRows(
       rowsFromStringArray(
@@ -160,44 +263,18 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
 
   return (
     <div className="profile-section-body">
-      <div className="profile-subsection-header">
-        <div>
-          <h4>{isZh ? "权限规则" : "Permission Rules"}</h4>
-          <p>
-            {isZh
-              ? "用规则构建器快速维护权限配置。"
-              : "Use the rule builder for quick permission edits."}
-          </p>
-        </div>
-      </div>
-
-      <div className="form-row">
-        <div className="form-group">
-          <label htmlFor="permissions-default-mode">{isZh ? "默认模式" : "Default Mode"}</label>
-          <select
-            id="permissions-default-mode"
-            className="form-select"
-            value={defaultMode}
-            onChange={(event) => setDefaultMode(event.target.value)}
-          >
-            <option value="">{isZh ? "未设置" : "Unset"}</option>
-            {PERMISSION_MODE_OPTIONS.map((mode) => (
-              <option key={mode} value={mode}>
-                {mode}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <label className="profile-toggle-item">
-        <input
-          type="checkbox"
-          checked={disableBypass}
-          onChange={(event) => setDisableBypass(event.target.checked)}
+      <div className="profile-inline-switch-row profile-inline-switch-row-emphasis">
+        <span className="profile-inline-switch-title">
+          {isZh ? "禁用 bypassPermissions 模式" : "Disable bypassPermissions mode"}
+        </span>
+        <SandboxSwitchControl
+          enabled={disableBypass}
+          isZh={isZh}
+          ariaLabel={isZh ? "禁用 bypassPermissions 模式" : "Disable bypassPermissions mode"}
+          variant="header"
+          onToggle={() => setDisableBypass(!disableBypass)}
         />
-        <span>{isZh ? "禁用 bypassPermissions 模式" : "Disable bypassPermissions mode"}</span>
-      </label>
+      </div>
 
       <div className="profile-section-grid">
         <StringListEditor

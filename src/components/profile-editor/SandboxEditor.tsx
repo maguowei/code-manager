@@ -4,7 +4,6 @@ import { readObject } from "./editor-utils";
 
 interface SandboxEditorProps {
   value: unknown;
-  onChange: (next: Record<string, unknown>) => void;
   onError: (message: string) => void;
 }
 
@@ -22,6 +21,7 @@ interface SandboxSwitchControlProps {
   ariaLabel: string;
   onToggle: () => void;
   variant?: "header" | "panel";
+  visibleLabel?: string;
 }
 
 function buildHeaderSummary(extraKeysCount: number, enabled: boolean, isZh: boolean): string {
@@ -96,29 +96,33 @@ export function SandboxSwitchControl({
   ariaLabel,
   onToggle,
   variant = "panel",
+  visibleLabel,
 }: SandboxSwitchControlProps) {
+  const statusText = enabled ? (isZh ? "已启用" : "Enabled") : isZh ? "已关闭" : "Disabled";
+
   return (
     <button
       type="button"
       role="switch"
       aria-checked={enabled}
       aria-label={ariaLabel}
-      className={`profile-sandbox-switch profile-sandbox-switch-compact profile-sandbox-switch-${variant}${enabled ? " is-on" : ""}`}
+      className={`profile-sandbox-switch profile-sandbox-switch-compact profile-sandbox-switch-${variant}${visibleLabel ? " profile-sandbox-switch-with-label" : ""}${enabled ? " is-on" : ""}`}
       onClick={onToggle}
     >
+      {visibleLabel ? <span className="profile-sandbox-switch-label">{visibleLabel}</span> : null}
       <span className="profile-sandbox-switch-track" aria-hidden="true">
         <span className="profile-sandbox-switch-thumb" />
       </span>
       {variant === "panel" ? (
         <span className={`profile-sandbox-switch-status${enabled ? " is-on" : ""}`}>
-          {enabled ? (isZh ? "已启用" : "Enabled") : isZh ? "已关闭" : "Disabled"}
+          {statusText}
         </span>
       ) : null}
     </button>
   );
 }
 
-function SandboxEditor({ value, onChange, onError }: SandboxEditorProps) {
+function SandboxEditor({ value, onError }: SandboxEditorProps) {
   const { language } = useI18n();
   const isZh = language === "zh";
   const presentation = useMemo(() => getSandboxPresentation(value, isZh), [value, isZh]);
@@ -126,13 +130,6 @@ function SandboxEditor({ value, onChange, onError }: SandboxEditorProps) {
   useEffect(() => {
     onError("");
   }, [onError]);
-
-  function handleToggleChange(checked: boolean) {
-    const nextSandbox = setSandboxEnabled(value, checked);
-    if (JSON.stringify(nextSandbox) !== JSON.stringify(readObject(value))) {
-      onChange(nextSandbox);
-    }
-  }
 
   return (
     <div className="profile-section-body">
@@ -143,26 +140,13 @@ function SandboxEditor({ value, onChange, onError }: SandboxEditorProps) {
       </div>
 
       <section className="profile-mini-card profile-sandbox-status-card">
-        <div className="profile-sandbox-state-row">
-          <div className="profile-sandbox-state-copy">
-            <strong>
-              {presentation.enabled ? (isZh ? "已启用" : "Enabled") : isZh ? "已关闭" : "Disabled"}
-            </strong>
-            <span>
-              {isZh
-                ? "横栏和此处开关会同步更新，详细配置请切到 JSON。"
-                : "The header bar and this switch stay in sync. Use JSON for detailed configuration."}
-            </span>
-          </div>
-          <SandboxSwitchControl
-            enabled={presentation.enabled}
-            isZh={isZh}
-            ariaLabel={isZh ? "Sandbox 开关" : "Sandbox toggle"}
-            onToggle={() => handleToggleChange(!presentation.enabled)}
-          />
-        </div>
-        <div className="profile-sandbox-state-summary">
-          <span className="profile-hook-summary-meta">{presentation.detailSummary}</span>
+        <div className="profile-sandbox-state-copy">
+          <strong>
+            {isZh
+              ? `当前状态：${presentation.enabled ? "已启用" : "已关闭"}`
+              : `Current status: ${presentation.enabled ? "Enabled" : "Disabled"}`}
+          </strong>
+          <span>{presentation.detailSummary}</span>
         </div>
 
         {presentation.extraKeys.length > 0 ? (

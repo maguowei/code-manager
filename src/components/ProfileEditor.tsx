@@ -24,7 +24,11 @@ import EnvEditor from "./profile-editor/EnvEditor";
 import { readBoolean, readString } from "./profile-editor/editor-utils";
 import HooksEditor from "./profile-editor/HooksEditor";
 import MarketplaceEditor from "./profile-editor/MarketplaceEditor";
-import PermissionsEditor from "./profile-editor/PermissionsEditor";
+import PermissionsEditor, {
+  PermissionDefaultModeSelect,
+  readPermissionsDefaultMode,
+  setPermissionsDefaultMode,
+} from "./profile-editor/PermissionsEditor";
 import RequiredBadge from "./profile-editor/RequiredBadge";
 import SandboxEditor, {
   getSandboxPresentation,
@@ -238,6 +242,14 @@ function ProfileEditor({ profile, presets, knownProjects, onSave, onClose }: Pro
   );
   const marketplaceCount = useMemo(
     () => Object.keys(readTopLevelObject(settings, "extraKnownMarketplaces")).length,
+    [settings],
+  );
+  const permissionsDefaultMode = useMemo(
+    () => readPermissionsDefaultMode(settings.permissions),
+    [settings.permissions],
+  );
+  const hooksTypeCount = useMemo(
+    () => Object.keys(readTopLevelObject(settings, "hooks")).length,
     [settings],
   );
   const sandboxPresentation = useMemo(
@@ -829,6 +841,19 @@ function ProfileEditor({ profile, presets, knownProjects, onSave, onClose }: Pro
           error={editorErrors.permissions || permissionsJsonEditor.jsonError}
           expanded={activeAccordionSection === "permissions"}
           onToggleExpanded={() => toggleAccordionSection("permissions")}
+          headerControl={
+            <PermissionDefaultModeSelect
+              variant="header"
+              value={permissionsDefaultMode}
+              ariaLabel={language === "zh" ? "权限头部默认模式" : "Permissions header default mode"}
+              onChange={(value) =>
+                handleStructuredObjectChange(
+                  "permissions",
+                  setPermissionsDefaultMode(settings.permissions, value),
+                )
+              }
+            />
+          }
         />
 
         <SettingsSectionModePanel
@@ -839,7 +864,6 @@ function ProfileEditor({ profile, presets, knownProjects, onSave, onClose }: Pro
           controls={
             <SandboxEditor
               value={settings.sandbox}
-              onChange={(value) => handleStructuredObjectChange("sandbox", value)}
               onError={(message) => setSectionError("sandbox", message)}
             />
           }
@@ -855,6 +879,7 @@ function ProfileEditor({ profile, presets, knownProjects, onSave, onClose }: Pro
               isZh={language === "zh"}
               ariaLabel={language === "zh" ? "Sandbox 头部开关" : "Sandbox header toggle"}
               variant="header"
+              visibleLabel={language === "zh" ? "沙盒开关" : "Sandbox"}
               onToggle={() =>
                 handleStructuredObjectChange(
                   "sandbox",
@@ -868,6 +893,7 @@ function ProfileEditor({ profile, presets, knownProjects, onSave, onClose }: Pro
         <SettingsSectionModePanel
           title={messages.hooks}
           variant="accordion"
+          badgeCount={hooksTypeCount}
           mode={sectionModes.hooks}
           onModeChange={(mode) => handleSectionModeChange("hooks", mode)}
           controls={

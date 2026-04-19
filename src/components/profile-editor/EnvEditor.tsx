@@ -315,6 +315,10 @@ function EnvEditor({
   }
 
   function handleDeleteItem(item: EnvListItem) {
+    if (draft?.id === item.id && draft.isNew) {
+      resetPanelState(null);
+      return;
+    }
     if (blockIfDirty()) {
       return;
     }

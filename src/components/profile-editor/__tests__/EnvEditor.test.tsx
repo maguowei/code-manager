@@ -162,6 +162,28 @@ describe("EnvEditor", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("allows deleting a new draft row directly without saving first", () => {
+    const { onChange } = renderEditor();
+
+    fireEvent.click(screen.getByRole("button", { name: "新增环境变量" }));
+
+    const draftButton = screen.getByRole("button", { name: "删除环境变量 新环境变量" });
+    const draftRow = draftButton.closest(".profile-env-list-row");
+    expect(draftRow).not.toBeNull();
+
+    fireEvent.change(within(draftRow as HTMLElement).getByLabelText("环境变量名称"), {
+      target: { value: "OPENAI_BASE_URL" },
+    });
+    fireEvent.click(draftButton);
+
+    expect(
+      screen.queryByRole("button", { name: "编辑环境变量 OPENAI_BASE_URL" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("环境变量名称")).not.toBeInTheDocument();
+    expect(screen.queryByText("请先保存或取消当前环境变量编辑。")).not.toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("saves a newly added variable and keeps hidden keys intact", () => {
     const { onChange } = renderEditor();
 

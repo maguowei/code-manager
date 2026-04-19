@@ -326,6 +326,7 @@ describe("PresetEditor", () => {
       expect(
         within(sandboxSection).getByRole("switch", { name: "Sandbox 头部开关" }),
       ).toHaveAttribute("aria-checked", "false");
+      expect(within(sandboxSection).getByText("沙盒开关")).toBeInTheDocument();
       expect(within(sandboxSection).getByText("已关闭 · 无附加配置")).toBeInTheDocument();
       expect(within(sandboxSection).queryByLabelText("HTTP Proxy 端口")).not.toBeInTheDocument();
       expect(within(sandboxSection).queryByLabelText("允许域名 1")).not.toBeInTheDocument();
@@ -336,6 +337,7 @@ describe("PresetEditor", () => {
     const hooksSection = screen.getByRole("heading", { name: "Hooks" }).closest("section");
     expect(hooksSection).not.toBeNull();
     if (hooksSection) {
+      expect(within(hooksSection).getByText("0")).toBeInTheDocument();
       expect(within(hooksSection).queryByRole("button", { name: "控件" })).not.toBeInTheDocument();
       expect(within(hooksSection).queryByRole("button", { name: "JSON" })).not.toBeInTheDocument();
     }
@@ -350,6 +352,19 @@ describe("PresetEditor", () => {
     const permissionsSection = screen.getByRole("heading", { name: "权限" }).closest("section");
     expect(permissionsSection).not.toBeNull();
     if (permissionsSection) {
+      const permissionModeSelect = within(permissionsSection).getByLabelText(
+        "权限头部默认模式",
+      ) as HTMLSelectElement;
+      expect(permissionModeSelect).toHaveValue("");
+      expect(Array.from(permissionModeSelect.options, (option) => option.value)).toEqual([
+        "",
+        "default",
+        "acceptEdits",
+        "plan",
+        "dontAsk",
+        "bypassPermissions",
+        "auto",
+      ]);
       expect(
         within(permissionsSection).queryByRole("button", { name: "控件" }),
       ).not.toBeInTheDocument();
@@ -403,6 +418,9 @@ describe("PresetEditor", () => {
         within(marketplacesSection).getByRole("button", { name: "新增 Marketplace" }),
       ).toBeInTheDocument();
       expect(
+        within(marketplacesSection).queryByLabelText("Marketplace ID"),
+      ).not.toBeInTheDocument();
+      expect(
         within(marketplacesSection).queryByLabelText("config-preview-input"),
       ).not.toBeInTheDocument();
     }
@@ -425,6 +443,8 @@ describe("PresetEditor", () => {
       expect(within(pluginsSection).getByRole("button", { name: "控件" })).toBeInTheDocument();
       expect(within(pluginsSection).getByRole("button", { name: "JSON" })).toBeInTheDocument();
       expect(within(pluginsSection).getByRole("button", { name: "新增插件" })).toBeInTheDocument();
+      expect(within(pluginsSection).queryByLabelText("新插件 ID")).not.toBeInTheDocument();
+      expect(within(pluginsSection).queryByText("插件模式")).not.toBeInTheDocument();
       expect(
         within(pluginsSection).queryByLabelText("config-preview-input"),
       ).not.toBeInTheDocument();
@@ -769,6 +789,10 @@ describe("PresetEditor", () => {
       },
     });
 
+    toggleAccordionSection("Hooks");
+    expect(within(hooksSection).getByText("1")).toBeInTheDocument();
+    expect(within(hooksSection).queryByLabelText("config-preview-input")).not.toBeInTheDocument();
+
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
 
     expect(onSave).toHaveBeenCalledWith(
@@ -826,6 +850,110 @@ describe("PresetEditor", () => {
         }),
       }),
     );
+  });
+
+  it("shows sandbox state details without a second toggle in expanded preset view", () => {
+    renderEditor({
+      preset: {
+        ...PRESET_FIXTURE,
+        settingsPatch: {
+          ...PRESET_FIXTURE.settingsPatch,
+          sandbox: {
+            enabled: true,
+            network: {
+              allowedDomains: ["example.com"],
+            },
+          },
+        },
+      },
+    });
+
+    const sandboxSection = getSection("Sandbox");
+    expect(within(sandboxSection).getByText("沙盒开关")).toBeInTheDocument();
+
+    toggleAccordionSection("Sandbox");
+
+    expect(within(sandboxSection).queryByRole("switch", { name: "Sandbox 开关" })).toBeNull();
+    expect(
+      within(sandboxSection).queryByText("横栏和此处开关会同步更新，详细配置请切到 JSON。"),
+    ).toBeNull();
+    expect(within(sandboxSection).getByText("当前状态：已启用")).toBeInTheDocument();
+    expect(within(sandboxSection).getByText("当前有 1 个附加配置键。")).toBeInTheDocument();
+    expect(within(sandboxSection).getByText("network")).toBeInTheDocument();
+  });
+
+  it("renders marketplace summaries and opens inline marketplace editing in preset view", () => {
+    renderEditor({
+      preset: {
+        ...PRESET_FIXTURE,
+        settingsPatch: {
+          ...PRESET_FIXTURE.settingsPatch,
+          extraKnownMarketplaces: {
+            "team-market": {
+              source: {
+                source: "github",
+                repo: "team/plugins",
+                ref: "main",
+                path: ".claude-plugin/marketplace.json",
+              },
+              installLocation: "/tmp/team-market",
+            },
+          },
+        },
+      },
+    });
+
+    const marketplacesSection = getSection("插件市场");
+    toggleAccordionSection("插件市场");
+
+    expect(
+      within(marketplacesSection).getByRole("button", { name: "编辑 Marketplace team-market" }),
+    ).toBeInTheDocument();
+    expect(within(marketplacesSection).getByText("github")).toBeInTheDocument();
+    expect(within(marketplacesSection).getByText("team/plugins")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Marketplace ID")).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(marketplacesSection).getByRole("button", { name: "编辑 Marketplace team-market" }),
+    );
+
+    expect(screen.getByLabelText("Marketplace ID")).toHaveValue("team-market");
+    expect(screen.getByLabelText("Marketplace 仓库")).toHaveValue("team/plugins");
+    expect(screen.getByLabelText("Marketplace Ref")).toHaveValue("main");
+  });
+
+  it("renders plugin rows with read-only ids and switch controls in preset view", () => {
+    renderEditor({
+      preset: {
+        ...PRESET_FIXTURE,
+        settingsPatch: {
+          ...PRESET_FIXTURE.settingsPatch,
+          enabledPlugins: {
+            "formatter@anthropic-tools": true,
+            "reviewer@anthropic-tools": false,
+          },
+        },
+      },
+    });
+
+    const pluginsSection = getSection("插件");
+    toggleAccordionSection("插件");
+
+    expect(within(pluginsSection).getByText("formatter@anthropic-tools")).toBeInTheDocument();
+    expect(within(pluginsSection).getByText("reviewer@anthropic-tools")).toBeInTheDocument();
+    expect(
+      within(pluginsSection).getByRole("switch", {
+        name: "插件状态 formatter@anthropic-tools",
+      }),
+    ).toHaveAttribute("aria-checked", "true");
+    expect(
+      within(pluginsSection).getByRole("switch", {
+        name: "插件状态 reviewer@anthropic-tools",
+      }),
+    ).toHaveAttribute("aria-checked", "false");
+    expect(screen.queryByLabelText("插件 ID 1")).not.toBeInTheDocument();
+    expect(within(pluginsSection).queryByText("插件模式")).not.toBeInTheDocument();
+    expect(within(pluginsSection).queryByText("插件工具")).not.toBeInTheDocument();
   });
 
   it("saves behavior, permissions, env, plugins, and marketplaces from local json editors", async () => {
@@ -932,6 +1060,65 @@ describe("PresetEditor", () => {
         }),
       }),
     );
+  });
+
+  it("syncs permission default mode between header quick select and editor, and clears it on save", async () => {
+    const onSave = vi.fn();
+    renderEditor({ onSave });
+
+    const permissionsSection = getSection("权限");
+    const headerDefaultMode = within(permissionsSection).getByLabelText("权限头部默认模式");
+
+    fireEvent.change(headerDefaultMode, {
+      target: { value: "plan" },
+    });
+
+    toggleAccordionSection("权限");
+    expect(screen.queryByLabelText("默认模式")).not.toBeInTheDocument();
+    expect(screen.queryByText("权限规则")).not.toBeInTheDocument();
+    expect(screen.queryByText("用规则构建器快速维护权限配置。")).not.toBeInTheDocument();
+    expect(within(permissionsSection).getByLabelText("权限头部默认模式")).toHaveValue("plan");
+
+    fireEvent.change(within(permissionsSection).getByLabelText("权限头部默认模式"), {
+      target: { value: "" },
+    });
+    expect(screen.queryByLabelText("默认模式")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0]?.[0]?.settingsPatch).not.toHaveProperty("permissions");
+  });
+
+  it("keeps delegate visible for existing permissions default mode without exposing it as a normal option", () => {
+    renderEditor({
+      preset: {
+        ...PRESET_FIXTURE,
+        settingsPatch: {
+          ...PRESET_FIXTURE.settingsPatch,
+          permissions: {
+            defaultMode: "delegate",
+          },
+        },
+      },
+    });
+
+    const permissionsSection = getSection("权限");
+    const permissionModeSelect = within(permissionsSection).getByLabelText(
+      "权限头部默认模式",
+    ) as HTMLSelectElement;
+
+    expect(permissionModeSelect).toHaveValue("delegate");
+    expect(Array.from(permissionModeSelect.options, (option) => option.value)).toEqual([
+      "",
+      "default",
+      "acceptEdits",
+      "plan",
+      "dontAsk",
+      "bypassPermissions",
+      "delegate",
+      "auto",
+    ]);
   });
 
   it("renders authentication controls in a dedicated section and keeps hidden env keys in patch preview", () => {

@@ -312,6 +312,7 @@ describe("ProfileEditor", () => {
       expect(
         within(sandboxSection).getByRole("switch", { name: "Sandbox 头部开关" }),
       ).toHaveAttribute("aria-checked", "false");
+      expect(within(sandboxSection).getByText("沙盒开关")).toBeInTheDocument();
       expect(within(sandboxSection).getByText("已关闭 · 无附加配置")).toBeInTheDocument();
       await act(async () => {
         fireEvent.click(within(sandboxSection).getByRole("switch", { name: "Sandbox 头部开关" }));
@@ -328,6 +329,7 @@ describe("ProfileEditor", () => {
     const hooksSection = screen.getByRole("heading", { name: "Hooks" }).closest("section");
     expect(hooksSection).not.toBeNull();
     if (hooksSection) {
+      expect(within(hooksSection).getByText("0")).toBeInTheDocument();
       expect(within(hooksSection).queryByRole("button", { name: "控件" })).not.toBeInTheDocument();
       expect(within(hooksSection).queryByRole("button", { name: "JSON" })).not.toBeInTheDocument();
       expect(within(hooksSection).queryByText("暂无 Hooks 配置。")).not.toBeInTheDocument();
@@ -344,6 +346,19 @@ describe("ProfileEditor", () => {
     const permissionsSection = screen.getByRole("heading", { name: "权限" }).closest("section");
     expect(permissionsSection).not.toBeNull();
     if (permissionsSection) {
+      const permissionModeSelect = within(permissionsSection).getByLabelText(
+        "权限头部默认模式",
+      ) as HTMLSelectElement;
+      expect(permissionModeSelect).toHaveValue("");
+      expect(Array.from(permissionModeSelect.options, (option) => option.value)).toEqual([
+        "",
+        "default",
+        "acceptEdits",
+        "plan",
+        "dontAsk",
+        "bypassPermissions",
+        "auto",
+      ]);
       expect(
         within(permissionsSection).queryByRole("button", { name: "控件" }),
       ).not.toBeInTheDocument();
@@ -397,6 +412,9 @@ describe("ProfileEditor", () => {
         within(marketplacesSection).getByRole("button", { name: "新增 Marketplace" }),
       ).toBeInTheDocument();
       expect(
+        within(marketplacesSection).queryByLabelText("Marketplace ID"),
+      ).not.toBeInTheDocument();
+      expect(
         within(marketplacesSection).queryByLabelText("config-preview-input"),
       ).not.toBeInTheDocument();
     }
@@ -419,6 +437,8 @@ describe("ProfileEditor", () => {
       expect(within(pluginsSection).getByRole("button", { name: "控件" })).toBeInTheDocument();
       expect(within(pluginsSection).getByRole("button", { name: "JSON" })).toBeInTheDocument();
       expect(within(pluginsSection).getByRole("button", { name: "新增插件" })).toBeInTheDocument();
+      expect(within(pluginsSection).queryByLabelText("新插件 ID")).not.toBeInTheDocument();
+      expect(within(pluginsSection).queryByText("插件模式")).not.toBeInTheDocument();
       expect(
         within(pluginsSection).queryByLabelText("config-preview-input"),
       ).not.toBeInTheDocument();
@@ -756,10 +776,11 @@ describe("ProfileEditor", () => {
       target: { value: "new-token" },
     });
 
-    toggleAccordionSection("权限");
-    fireEvent.change(screen.getByLabelText("默认模式"), {
+    fireEvent.change(screen.getByLabelText("权限头部默认模式"), {
       target: { value: "plan" },
     });
+    toggleAccordionSection("权限");
+    expect(screen.queryByLabelText("默认模式")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "新增允许规则" }));
     fireEvent.change(screen.getByLabelText("允许规则 1"), {
       target: { value: "Bash(git status:*)" },
@@ -936,6 +957,7 @@ describe("ProfileEditor", () => {
           },
           permissions: {
             defaultMode: "dontAsk",
+            disableBypassPermissionsMode: "disable",
             deny: ["Read(.env)"],
           },
           sandbox: {
@@ -962,8 +984,28 @@ describe("ProfileEditor", () => {
     });
 
     expect(screen.getByLabelText("默认模型")).toHaveValue("claude-haiku-4-5");
+    const permissionsSection = getSection("权限");
+    expect(within(permissionsSection).getByLabelText("权限头部默认模式")).toHaveValue("dontAsk");
     toggleAccordionSection("权限");
-    expect(screen.getByLabelText("默认模式")).toHaveValue("dontAsk");
+    expect(screen.queryByLabelText("默认模式")).not.toBeInTheDocument();
+    expect(screen.queryByText("权限规则")).not.toBeInTheDocument();
+    expect(screen.queryByText("用规则构建器快速维护权限配置。")).not.toBeInTheDocument();
+    const disableBypassSwitch = screen.getByRole("switch", {
+      name: "禁用 bypassPermissions 模式",
+    });
+    expect(disableBypassSwitch).toHaveAttribute("aria-checked", "true");
+    expect(disableBypassSwitch.className).toContain("profile-sandbox-switch-compact");
+    expect(disableBypassSwitch.closest(".profile-toggle-item")).toBeNull();
+    const disableBypassRow = disableBypassSwitch.closest(
+      ".profile-inline-switch-row",
+    ) as HTMLElement | null;
+    expect(disableBypassRow).not.toBeNull();
+    if (disableBypassRow) {
+      expect(disableBypassRow).toHaveClass("profile-inline-switch-row-emphasis");
+      expect(within(disableBypassRow).getByText("禁用 bypassPermissions 模式")).toHaveClass(
+        "profile-inline-switch-title",
+      );
+    }
     expect(screen.getByLabelText("拒绝规则 1")).toHaveValue("Read(.env)");
 
     const sandboxSection = getSection("Sandbox");
@@ -974,11 +1016,17 @@ describe("ProfileEditor", () => {
     });
     expect(headerSandboxSwitch).toHaveAttribute("aria-checked", "true");
     expect(headerSandboxSwitch.className).toContain("profile-sandbox-switch-compact");
-    const sandboxSwitch = within(sandboxSection).getByRole("switch", {
-      name: "Sandbox 开关",
-    });
-    expect(sandboxSwitch).toHaveAttribute("aria-checked", "true");
-    expect(sandboxSwitch.className).toContain("profile-sandbox-switch-compact");
+    expect(within(sandboxSection).getByText("沙盒开关")).toBeInTheDocument();
+    expect(
+      within(sandboxSection).queryByRole("switch", {
+        name: "Sandbox 开关",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(sandboxSection).queryByText("横栏和此处开关会同步更新，详细配置请切到 JSON。"),
+    ).toBeNull();
+    expect(within(sandboxSection).getByText("当前状态：已启用")).toBeInTheDocument();
+    expect(within(sandboxSection).getByText("当前有 1 个附加配置键。")).toBeInTheDocument();
     expect(within(sandboxSection).getByText("network")).toBeInTheDocument();
     expect(within(sandboxSection).queryByLabelText("允许域名 1")).not.toBeInTheDocument();
     await act(async () => {
@@ -991,11 +1039,71 @@ describe("ProfileEditor", () => {
     expect(sandboxJsonValue).toContain("example.com");
 
     const hooksSection = getSection("Hooks");
+    expect(within(hooksSection).getByText("1")).toBeInTheDocument();
     toggleAccordionSection("Hooks");
     expect(within(hooksSection).getByText("PostToolUse")).toBeInTheDocument();
     expect(within(hooksSection).getByText("Write")).toBeInTheDocument();
     expect(within(hooksSection).getByText("command: pnpm build")).toBeInTheDocument();
     expect(within(hooksSection).queryByLabelText("Hook 事件 1")).not.toBeInTheDocument();
+  });
+
+  it("syncs permission default mode between header quick select and editor, and clears it on save", async () => {
+    const onSave = vi.fn();
+    renderEditor({ onSave });
+
+    const permissionsSection = getSection("权限");
+    const headerDefaultMode = within(permissionsSection).getByLabelText("权限头部默认模式");
+
+    fireEvent.change(headerDefaultMode, {
+      target: { value: "plan" },
+    });
+
+    toggleAccordionSection("权限");
+    expect(screen.queryByLabelText("默认模式")).not.toBeInTheDocument();
+    expect(within(permissionsSection).getByLabelText("权限头部默认模式")).toHaveValue("plan");
+
+    fireEvent.change(within(permissionsSection).getByLabelText("权限头部默认模式"), {
+      target: { value: "" },
+    });
+    expect(screen.queryByLabelText("默认模式")).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    });
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0]?.[0]?.settings).not.toHaveProperty("permissions");
+  });
+
+  it("keeps delegate visible for existing permissions default mode without exposing it as a normal option", () => {
+    renderEditor({
+      profile: {
+        ...PROFILE_FIXTURE,
+        settings: {
+          ...PROFILE_FIXTURE.settings,
+          permissions: {
+            defaultMode: "delegate",
+          },
+        },
+      },
+    });
+
+    const permissionsSection = getSection("权限");
+    const permissionModeSelect = within(permissionsSection).getByLabelText(
+      "权限头部默认模式",
+    ) as HTMLSelectElement;
+
+    expect(permissionModeSelect).toHaveValue("delegate");
+    expect(Array.from(permissionModeSelect.options, (option) => option.value)).toEqual([
+      "",
+      "default",
+      "acceptEdits",
+      "plan",
+      "dontAsk",
+      "bypassPermissions",
+      "delegate",
+      "auto",
+    ]);
   });
 
   it("keeps detailed sandbox json while toggling the sandbox switch off", async () => {
@@ -1108,16 +1216,27 @@ describe("ProfileEditor", () => {
     toggleAccordionSection("插件");
 
     fireEvent.click(within(pluginsSection).getByRole("button", { name: "新增插件" }));
-    fireEvent.change(screen.getByLabelText("插件 ID 1"), {
+    const draftRow = within(pluginsSection)
+      .getByRole("button", { name: "删除插件 新插件" })
+      .closest(".profile-plugin-list-row");
+    expect(draftRow).not.toBeNull();
+    fireEvent.change(within(draftRow as HTMLElement).getByLabelText("新插件 ID"), {
       target: { value: "formatter@anthropic-tools" },
     });
-    fireEvent.change(screen.getByLabelText("插件模式 1"), {
-      target: { value: "tools" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "新增插件工具 1" }));
-    fireEvent.change(screen.getByLabelText("插件工具 1-1"), {
-      target: { value: "format" },
-    });
+    fireEvent.click(
+      within(draftRow as HTMLElement).getByRole("switch", {
+        name: "插件状态 formatter@anthropic-tools",
+      }),
+    );
+    fireEvent.click(within(draftRow as HTMLElement).getByRole("button", { name: "保存插件" }));
+
+    expect(within(pluginsSection).getByText("formatter@anthropic-tools")).toBeInTheDocument();
+    expect(
+      within(pluginsSection).getByRole("switch", {
+        name: "插件状态 formatter@anthropic-tools",
+      }),
+    ).toHaveAttribute("aria-checked", "false");
+    expect(screen.queryByLabelText("新插件 ID")).not.toBeInTheDocument();
 
     const marketplacesSection = screen
       .getByRole("heading", { name: "插件市场", level: 3 })
@@ -1129,24 +1248,32 @@ describe("ProfileEditor", () => {
 
     toggleAccordionSection("插件市场");
     fireEvent.click(within(marketplacesSection).getByRole("button", { name: "新增 Marketplace" }));
-    fireEvent.change(screen.getByLabelText("Marketplace ID 1"), {
+    fireEvent.change(screen.getByLabelText("Marketplace ID"), {
       target: { value: "team-market" },
     });
-    fireEvent.change(screen.getByLabelText("Marketplace 来源 1"), {
+    fireEvent.change(screen.getByLabelText("Marketplace 来源"), {
       target: { value: "github" },
     });
-    fireEvent.change(screen.getByLabelText("Marketplace 仓库 1"), {
+    fireEvent.change(screen.getByLabelText("Marketplace 仓库"), {
       target: { value: "team/plugins" },
     });
-    fireEvent.change(screen.getByLabelText("Marketplace Ref 1"), {
+    fireEvent.change(screen.getByLabelText("Marketplace Ref"), {
       target: { value: "main" },
     });
-    fireEvent.change(screen.getByLabelText("Marketplace 路径 1"), {
+    fireEvent.change(screen.getByLabelText("Marketplace 路径"), {
       target: { value: ".claude-plugin/marketplace.json" },
     });
-    fireEvent.change(screen.getByLabelText("Marketplace 安装位置 1"), {
+    fireEvent.change(screen.getByLabelText("Marketplace 安装位置"), {
       target: { value: "/tmp/team-market" },
     });
+    fireEvent.click(within(marketplacesSection).getByRole("button", { name: "保存 Marketplace" }));
+
+    expect(
+      within(marketplacesSection).getByRole("button", { name: "编辑 Marketplace team-market" }),
+    ).toBeInTheDocument();
+    expect(within(marketplacesSection).getByText("github")).toBeInTheDocument();
+    expect(within(marketplacesSection).getByText("team/plugins")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Marketplace ID")).not.toBeInTheDocument();
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "保存" }));
@@ -1166,7 +1293,7 @@ describe("ProfileEditor", () => {
           ANTHROPIC_AUTH_TOKEN: "token",
         },
         enabledPlugins: {
-          "formatter@anthropic-tools": ["format"],
+          "formatter@anthropic-tools": false,
         },
         extraKnownMarketplaces: {
           "team-market": {
@@ -1182,6 +1309,112 @@ describe("ProfileEditor", () => {
       }),
     });
   }, 15000);
+
+  it("renders marketplace summaries and blocks switching, adding, and deleting while a draft is dirty", () => {
+    renderEditor({
+      profile: {
+        ...PROFILE_FIXTURE,
+        settings: {
+          ...PROFILE_FIXTURE.settings,
+          extraKnownMarketplaces: {
+            "team-market": {
+              source: {
+                source: "github",
+                repo: "team/plugins",
+                ref: "main",
+                path: ".claude-plugin/marketplace.json",
+              },
+              installLocation: "/tmp/team-market",
+            },
+            "docs-market": {
+              source: {
+                source: "url",
+                url: "https://example.com/marketplace.json",
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const marketplacesSection = getSection("插件市场");
+    toggleAccordionSection("插件市场");
+
+    expect(
+      within(marketplacesSection).getByRole("button", { name: "编辑 Marketplace team-market" }),
+    ).toBeInTheDocument();
+    expect(
+      within(marketplacesSection).getByRole("button", { name: "编辑 Marketplace docs-market" }),
+    ).toBeInTheDocument();
+    expect(within(marketplacesSection).getByText("team/plugins")).toBeInTheDocument();
+    expect(
+      within(marketplacesSection).getByText("https://example.com/marketplace.json"),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Marketplace ID")).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(marketplacesSection).getByRole("button", { name: "编辑 Marketplace team-market" }),
+    );
+    fireEvent.change(screen.getByLabelText("Marketplace Ref"), {
+      target: { value: "release" },
+    });
+
+    fireEvent.click(
+      within(marketplacesSection).getByRole("button", { name: "编辑 Marketplace docs-market" }),
+    );
+    expect(
+      within(marketplacesSection).getAllByText("请先保存或取消当前 Marketplace 编辑。").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByLabelText("Marketplace Ref")).toHaveValue("release");
+
+    fireEvent.click(within(marketplacesSection).getByRole("button", { name: "新增 Marketplace" }));
+    expect(
+      within(marketplacesSection).getAllByText("请先保存或取消当前 Marketplace 编辑。").length,
+    ).toBeGreaterThan(0);
+
+    fireEvent.click(
+      within(marketplacesSection).getByRole("button", { name: "删除 Marketplace docs-market" }),
+    );
+    expect(
+      within(marketplacesSection).getByRole("button", { name: "编辑 Marketplace docs-market" }),
+    ).toBeInTheDocument();
+    expect(
+      within(marketplacesSection).getAllByText("请先保存或取消当前 Marketplace 编辑。").length,
+    ).toBeGreaterThan(0);
+
+    fireEvent.click(within(marketplacesSection).getByRole("button", { name: "保存 Marketplace" }));
+
+    expect(screen.queryByLabelText("Marketplace Ref")).not.toBeInTheDocument();
+    expect(within(marketplacesSection).getByText(/Ref: release/)).toBeInTheDocument();
+  });
+
+  it("allows deleting a new marketplace draft directly without saving first", () => {
+    renderEditor();
+
+    const marketplacesSection = getSection("插件市场");
+    toggleAccordionSection("插件市场");
+
+    fireEvent.click(within(marketplacesSection).getByRole("button", { name: "新增 Marketplace" }));
+    fireEvent.change(screen.getByLabelText("Marketplace ID"), {
+      target: { value: "draft-market" },
+    });
+
+    fireEvent.click(
+      within(marketplacesSection).getByRole("button", {
+        name: "删除 Marketplace draft-market",
+      }),
+    );
+
+    expect(
+      within(marketplacesSection).queryByRole("button", {
+        name: "编辑 Marketplace draft-market",
+      }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Marketplace ID")).not.toBeInTheDocument();
+    expect(
+      within(marketplacesSection).queryByText("请先保存或取消当前 Marketplace 编辑。"),
+    ).not.toBeInTheDocument();
+  });
 
   it("switches scope and preset without exposing removed legacy fields", () => {
     renderEditor({

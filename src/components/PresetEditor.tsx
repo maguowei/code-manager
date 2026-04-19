@@ -24,7 +24,11 @@ import EnvEditor from "./profile-editor/EnvEditor";
 import { readBoolean, readString } from "./profile-editor/editor-utils";
 import HooksEditor from "./profile-editor/HooksEditor";
 import MarketplaceEditor from "./profile-editor/MarketplaceEditor";
-import PermissionsEditor from "./profile-editor/PermissionsEditor";
+import PermissionsEditor, {
+  PermissionDefaultModeSelect,
+  readPermissionsDefaultMode,
+  setPermissionsDefaultMode,
+} from "./profile-editor/PermissionsEditor";
 import RequiredBadge from "./profile-editor/RequiredBadge";
 import SandboxEditor, {
   getSandboxPresentation,
@@ -265,6 +269,14 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
   );
   const marketplaceCount = useMemo(
     () => Object.keys(readTopLevelObject(settingsPatch, "extraKnownMarketplaces")).length,
+    [settingsPatch],
+  );
+  const permissionsDefaultMode = useMemo(
+    () => readPermissionsDefaultMode(settingsPatch.permissions),
+    [settingsPatch.permissions],
+  );
+  const hooksTypeCount = useMemo(
+    () => Object.keys(readTopLevelObject(settingsPatch, "hooks")).length,
     [settingsPatch],
   );
   const sandboxPresentation = useMemo(
@@ -825,6 +837,19 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
           error={editorErrors.permissions || permissionsJsonEditor.jsonError}
           expanded={activeAccordionSection === "permissions"}
           onToggleExpanded={() => toggleAccordionSection("permissions")}
+          headerControl={
+            <PermissionDefaultModeSelect
+              variant="header"
+              value={permissionsDefaultMode}
+              ariaLabel={language === "zh" ? "权限头部默认模式" : "Permissions header default mode"}
+              onChange={(value) =>
+                handleStructuredObjectChange(
+                  "permissions",
+                  setPermissionsDefaultMode(settingsPatch.permissions, value),
+                )
+              }
+            />
+          }
         />
 
         <SettingsSectionModePanel
@@ -835,7 +860,6 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
           controls={
             <SandboxEditor
               value={settingsPatch.sandbox}
-              onChange={(value) => handleStructuredObjectChange("sandbox", value)}
               onError={(message) => setSectionError("sandbox", message)}
             />
           }
@@ -851,6 +875,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
               isZh={language === "zh"}
               ariaLabel={language === "zh" ? "Sandbox 头部开关" : "Sandbox header toggle"}
               variant="header"
+              visibleLabel={language === "zh" ? "沙盒开关" : "Sandbox"}
               onToggle={() =>
                 handleStructuredObjectChange(
                   "sandbox",
@@ -864,6 +889,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
         <SettingsSectionModePanel
           title={messages.hooks}
           variant="accordion"
+          badgeCount={hooksTypeCount}
           mode={sectionModes.hooks}
           onModeChange={(mode) => handleSectionModeChange("hooks", mode)}
           controls={

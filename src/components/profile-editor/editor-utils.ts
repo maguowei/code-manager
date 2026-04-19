@@ -46,13 +46,10 @@ export interface HookEventDraft {
   matchers: HookMatcherDraft[];
 }
 
-export type PluginMode = "enabled" | "disabled" | "tools";
-
 export interface PluginDraft {
   id: string;
   pluginId: string;
-  mode: PluginMode;
-  tools: StringRow[];
+  enabled: boolean;
 }
 
 export type MarketplaceSourceType =
@@ -113,6 +110,12 @@ export const PERMISSION_MODE_OPTIONS = [
   "delegate",
   "auto",
 ] as const;
+
+export type PermissionModeOption = (typeof PERMISSION_MODE_OPTIONS)[number];
+
+export const USER_VISIBLE_PERMISSION_MODE_OPTIONS = PERMISSION_MODE_OPTIONS.filter(
+  (mode): mode is Exclude<PermissionModeOption, "delegate"> => mode !== "delegate",
+);
 
 export function readObject(value: unknown): Record<string, unknown> {
   return isPlainObject(value) ? value : {};
