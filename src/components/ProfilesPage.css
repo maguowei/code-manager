@@ -124,34 +124,6 @@
   gap: 8px;
 }
 
-.profile-scope-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 68px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-size: var(--font-sm);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.profile-scope-badge.scope-user {
-  background-color: var(--accent-blue-bg);
-  color: var(--accent-blue);
-}
-
-.profile-scope-badge.scope-project {
-  background-color: var(--accent-green-bg);
-  color: var(--accent-green);
-}
-
-.profile-scope-badge.scope-local {
-  background-color: var(--accent-orange-bg);
-  color: var(--accent-orange);
-}
-
 .profile-status-badge {
   display: inline-flex;
   align-items: center;

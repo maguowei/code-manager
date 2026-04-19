@@ -1,12 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "../i18n";
-import type { ConfigProfile, ProfileTarget, SettingsPreset, TargetScope } from "../types";
+import type { ConfigProfile, SettingsPreset } from "../types";
 import ConfigPreview from "./ConfigPreview";
 import {
   applyEnvDefaults,
   applyPresetAutofill,
   cloneSettings,
+  getEnabledPluginsSummary,
   presetDisplayName,
   prettyJson,
   readEnvString,
@@ -78,12 +79,10 @@ type LowFrequencySectionKey = (typeof LOW_FREQUENCY_SECTION_ORDER)[number];
 interface ProfileEditorProps {
   profile: ConfigProfile | null;
   presets: SettingsPreset[];
-  knownProjects: string[];
   onSave: (data: {
     id?: string;
     name: string;
     description: string;
-    target: ProfileTarget;
     presetId?: string;
     settings: Record<string, unknown>;
   }) => Promise<void> | void;
@@ -131,12 +130,10 @@ function buildHiddenEnvEntries(
   >;
 }
 
-function ProfileEditor({ profile, presets, knownProjects, onSave, onClose }: ProfileEditorProps) {
+function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps) {
   const { language, t } = useI18n();
   const [name, setName] = useState(profile?.name ?? "");
   const [description, setDescription] = useState(profile?.description ?? "");
-  const [scope, setScope] = useState<TargetScope>(profile?.target.scope ?? "user");
-  const [projectPath, setProjectPath] = useState(profile?.target.projectPath ?? "");
   const [presetId, setPresetId] = useState(profile?.presetId ?? "");
   const [settings, setSettings] = useState<Record<string, unknown>>(
     applyEnvDefaults(cloneSettings(profile?.settings), BEHAVIOR_ENV_DEFAULTS),
@@ -232,8 +229,8 @@ function ProfileEditor({ profile, presets, knownProjects, onSave, onClose }: Pro
         .sort(),
     [settings],
   );
-  const enabledPluginsCount = useMemo(
-    () => Object.keys(readTopLevelObject(settings, "enabledPlugins")).length,
+  const enabledPluginsSummary = useMemo(
+    () => getEnabledPluginsSummary(settings.enabledPlugins),
     [settings],
   );
   const visibleEnvCount = useMemo(
@@ -443,9 +440,6 @@ function ProfileEditor({ profile, presets, knownProjects, onSave, onClose }: Pro
     ) {
       return;
     }
-    if ((scope === "project" || scope === "local") && !projectPath.trim()) {
-      return;
-    }
     if (Object.values(editorErrors).some(Boolean)) {
       return;
     }
@@ -454,13 +448,6 @@ function ProfileEditor({ profile, presets, knownProjects, onSave, onClose }: Pro
       id: profile?.id,
       name: name.trim(),
       description: description.trim(),
-      target:
-        scope === "user"
-          ? { scope: "user" }
-          : {
-              scope,
-              projectPath: projectPath.trim(),
-            },
       presetId: presetId || undefined,
       settings,
     });
@@ -473,13 +460,6 @@ function ProfileEditor({ profile, presets, knownProjects, onSave, onClose }: Pro
         id: profile?.id ?? null,
         name,
         description,
-        target:
-          scope === "user"
-            ? { scope: "user" }
-            : {
-                scope,
-                projectPath: projectPath || null,
-              },
         presetId: presetId || null,
         settings,
       },
@@ -501,7 +481,7 @@ function ProfileEditor({ profile, presets, knownProjects, onSave, onClose }: Pro
     return () => {
       cancelled = true;
     };
-  }, [description, name, presetId, profile?.id, projectPath, scope, settings]);
+  }, [description, name, presetId, profile?.id, settings]);
 
   const behaviorFields = PROFILE_SETTINGS_FORM_REGISTRY.filter(
     (field) => field.section === "behavior",
@@ -519,8 +499,7 @@ function ProfileEditor({ profile, presets, knownProjects, onSave, onClose }: Pro
     !!hooksJsonEditor.jsonError ||
     !!marketplacesJsonEditor.jsonError ||
     !!pluginsJsonEditor.jsonError ||
-    Object.values(editorErrors).some(Boolean) ||
-    ((scope === "project" || scope === "local") && !projectPath.trim());
+    Object.values(editorErrors).some(Boolean);
 
   const messages = {
     title: profile ? t("profiles.editor.title.edit") : t("profiles.editor.title.add"),
@@ -529,9 +508,6 @@ function ProfileEditor({ profile, presets, knownProjects, onSave, onClose }: Pro
     namePlaceholder: t("profiles.editor.placeholders.name"),
     description: t("profiles.editor.fields.description"),
     descriptionPlaceholder: t("profiles.editor.placeholders.description"),
-    scope: t("profiles.editor.fields.scope"),
-    projectPath: t("profiles.editor.fields.projectPath"),
-    projectPathHint: t("profiles.editor.hints.projectPath"),
     preset: t("profiles.editor.fields.preset"),
     authToken: t("profiles.editor.fields.authToken"),
     baseUrl: t("profiles.editor.fields.baseUrl"),
@@ -605,44 +581,6 @@ function ProfileEditor({ profile, presets, knownProjects, onSave, onClose }: Pro
               />
             </div>
           </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="profile-scope">{messages.scope}</label>
-              <select
-                id="profile-scope"
-                className="form-select"
-                value={scope}
-                onChange={(event) => setScope(event.target.value as TargetScope)}
-              >
-                <option value="user">{t("profiles.scope.user")}</option>
-                <option value="project">{t("profiles.scope.project")}</option>
-                <option value="local">{t("profiles.scope.local")}</option>
-              </select>
-            </div>
-          </div>
-
-          {(scope === "project" || scope === "local") && (
-            <div className="form-group">
-              <label htmlFor="profile-project-path" className="label-required">
-                <span>{messages.projectPath}</span>
-                <RequiredBadge />
-              </label>
-              <input
-                id="profile-project-path"
-                list="known-project-paths"
-                value={projectPath}
-                onChange={(event) => setProjectPath(event.target.value)}
-                placeholder="/path/to/project"
-              />
-              <datalist id="known-project-paths">
-                {knownProjects.map((project) => (
-                  <option key={project} value={project} />
-                ))}
-              </datalist>
-              <p className="form-hint">{messages.projectPathHint}</p>
-            </div>
-          )}
         </section>
 
         <section className="profile-editor-section">
@@ -934,7 +872,6 @@ function ProfileEditor({ profile, presets, knownProjects, onSave, onClose }: Pro
         <SettingsSectionModePanel
           title={messages.plugins}
           variant="accordion"
-          badgeCount={enabledPluginsCount}
           mode={sectionModes.plugins}
           onModeChange={(mode) => handleSectionModeChange("plugins", mode)}
           controls={
@@ -950,6 +887,7 @@ function ProfileEditor({ profile, presets, knownProjects, onSave, onClose }: Pro
           error={editorErrors.enabledPlugins || pluginsJsonEditor.jsonError}
           expanded={activeAccordionSection === "plugins"}
           onToggleExpanded={() => toggleAccordionSection("plugins")}
+          headerMeta={`${t("common.pluginsEnabledSummaryLabel")} ${enabledPluginsSummary.enabledCount}/${enabledPluginsSummary.totalCount}`}
         />
 
         <section className="profile-editor-section">

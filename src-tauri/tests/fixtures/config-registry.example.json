@@ -34,9 +34,6 @@
       "id": "user-openrouter",
       "name": "OpenRouter User",
       "description": "全局开发默认配置",
-      "target": {
-        "scope": "user"
-      },
       "presetId": "custom:team-plan",
       "settings": {
         "env": {
@@ -50,8 +47,6 @@
   ],
   "bindings": {
     "userProfileId": "user-openrouter",
-    "userLastAppliedAt": "2026-04-18T12:00:00+08:00",
-    "projectBindings": [],
-    "localBindings": []
+    "userLastAppliedAt": "2026-04-18T12:00:00+08:00"
   }
 }

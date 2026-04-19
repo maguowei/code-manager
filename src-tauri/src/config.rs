@@ -1,12 +1,10 @@
-use crate::stats::ClaudeStats;
 use crate::tray::rebuild_tray_menu;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use std::collections::{BTreeSet, HashMap, HashSet};
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
 
@@ -51,22 +49,6 @@ impl Default for AppPreferences {
             default_editor_app: None,
         }
     }
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum TargetScope {
-    User,
-    Project,
-    Local,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct ProfileTarget {
-    pub scope: TargetScope,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub project_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -125,21 +107,11 @@ pub struct ConfigProfile {
     pub id: String,
     pub name: String,
     pub description: String,
-    pub target: ProfileTarget,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preset_id: Option<String>,
     pub settings: Value,
     pub created_at: String,
     pub updated_at: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct BindingEntry {
-    pub project_path: String,
-    pub profile_id: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub last_applied_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -149,10 +121,6 @@ pub struct BindingState {
     pub user_profile_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_last_applied_at: Option<String>,
-    #[serde(default)]
-    pub project_bindings: Vec<BindingEntry>,
-    #[serde(default)]
-    pub local_bindings: Vec<BindingEntry>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -191,7 +159,6 @@ pub struct ConfigWorkspace {
     pub custom_presets: Vec<SettingsPreset>,
     pub profiles: Vec<ConfigProfile>,
     pub bindings: BindingState,
-    pub known_projects: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -211,7 +178,6 @@ pub struct ProfileInput {
     pub id: Option<String>,
     pub name: String,
     pub description: String,
-    pub target: ProfileTarget,
     pub preset_id: Option<String>,
     pub settings: Value,
 }
@@ -301,10 +267,6 @@ fn get_user_settings_path() -> Result<PathBuf, String> {
     Ok(crate::utils::get_home_dir()?
         .join(".claude")
         .join("settings.json"))
-}
-
-fn get_claude_stats_path() -> Result<PathBuf, String> {
-    Ok(crate::utils::get_home_dir()?.join(".claude.json"))
 }
 
 fn parse_builtin_presets() -> Vec<SettingsPreset> {
@@ -408,58 +370,12 @@ fn save_registry(registry: &ConfigRegistry) -> Result<(), String> {
 }
 
 fn build_workspace(registry: ConfigRegistry) -> ConfigWorkspace {
-    let mut known_projects: BTreeSet<String> = registry
-        .profiles
-        .iter()
-        .filter_map(|profile| profile.target.project_path.clone())
-        .collect();
-
-    if let Ok(path) = get_claude_stats_path() {
-        let stats: ClaudeStats = crate::utils::read_json_file(&path);
-        stats.projects.keys().for_each(|project| {
-            known_projects.insert(project.clone());
-        });
-    }
-
     ConfigWorkspace {
         app: registry.app.clone(),
         builtin_presets: builtin_presets(),
         custom_presets: registry.custom_presets,
         profiles: registry.profiles,
         bindings: registry.bindings,
-        known_projects: known_projects.into_iter().collect(),
-    }
-}
-
-fn normalize_project_path(project_path: &str) -> Result<String, String> {
-    let trimmed = project_path.trim();
-    if trimmed.is_empty() {
-        return Err("项目路径不能为空".to_string());
-    }
-
-    let path = PathBuf::from(trimmed);
-    if let Ok(canonicalized) = path.canonicalize() {
-        return Ok(canonicalized.to_string_lossy().to_string());
-    }
-
-    Ok(path.to_string_lossy().to_string())
-}
-
-fn normalize_profile_target(target: ProfileTarget) -> Result<ProfileTarget, String> {
-    match target.scope {
-        TargetScope::User => Ok(ProfileTarget {
-            scope: TargetScope::User,
-            project_path: None,
-        }),
-        TargetScope::Project | TargetScope::Local => Ok(ProfileTarget {
-            scope: target.scope,
-            project_path: Some(normalize_project_path(
-                target
-                    .project_path
-                    .as_deref()
-                    .ok_or("Project / Local 配置必须指定项目路径".to_string())?,
-            )?),
-        }),
     }
 }
 
@@ -556,7 +472,6 @@ fn normalize_profile_input(input: ProfileInput) -> Result<ProfileInput, String> 
         id: input.id.filter(|id| !id.trim().is_empty()),
         name: input.name.trim().to_string(),
         description: input.description.trim().to_string(),
-        target: normalize_profile_target(input.target)?,
         preset_id: input.preset_id.filter(|id| !id.trim().is_empty()),
         settings: normalize_settings_document(input.settings)?,
     })
@@ -911,69 +826,8 @@ fn resolve_profile_settings(
     Ok(resolved)
 }
 
-fn profile_settings_path(target: &ProfileTarget) -> Result<PathBuf, String> {
-    match target.scope {
-        TargetScope::User => get_user_settings_path(),
-        TargetScope::Project => Ok(PathBuf::from(
-            target
-                .project_path
-                .as_deref()
-                .ok_or("Project scope 缺少项目路径".to_string())?,
-        )
-        .join(".claude")
-        .join("settings.json")),
-        TargetScope::Local => Ok(PathBuf::from(
-            target
-                .project_path
-                .as_deref()
-                .ok_or("Local scope 缺少项目路径".to_string())?,
-        )
-        .join(".claude")
-        .join("settings.local.json")),
-    }
-}
-
-fn resolve_git_dir(project_root: &Path) -> Option<PathBuf> {
-    let dot_git = project_root.join(".git");
-    if dot_git.is_dir() {
-        return Some(dot_git);
-    }
-
-    if !dot_git.is_file() {
-        return None;
-    }
-
-    let content = fs::read_to_string(&dot_git).ok()?;
-    let git_dir = content.trim().strip_prefix("gitdir:")?.trim();
-    let git_path = PathBuf::from(git_dir);
-    if git_path.is_absolute() {
-        Some(git_path)
-    } else {
-        Some(project_root.join(git_path))
-    }
-}
-
-fn ensure_local_settings_ignored(project_path: &str) -> Result<(), String> {
-    let project_root = PathBuf::from(project_path);
-    let git_dir = match resolve_git_dir(&project_root) {
-        Some(path) => path,
-        None => return Ok(()),
-    };
-
-    let exclude_path = git_dir.join("info").join("exclude");
-    let existing = fs::read_to_string(&exclude_path).unwrap_or_default();
-    let rule = ".claude/settings.local.json";
-    if existing.lines().any(|line| line.trim() == rule) {
-        return Ok(());
-    }
-
-    let mut next = existing;
-    if !next.is_empty() && !next.ends_with('\n') {
-        next.push('\n');
-    }
-    next.push_str(rule);
-    next.push('\n');
-    crate::utils::ensure_dir_and_write_atomic(&exclude_path, &next)
+fn profile_settings_path() -> Result<PathBuf, String> {
+    get_user_settings_path()
 }
 
 fn remove_profile_bindings(bindings: &mut BindingState, profile_id: &str) {
@@ -981,34 +835,6 @@ fn remove_profile_bindings(bindings: &mut BindingState, profile_id: &str) {
         bindings.user_profile_id = None;
         bindings.user_last_applied_at = None;
     }
-    bindings
-        .project_bindings
-        .retain(|binding| binding.profile_id != profile_id);
-    bindings
-        .local_bindings
-        .retain(|binding| binding.profile_id != profile_id);
-}
-
-fn upsert_scope_binding(
-    bindings: &mut Vec<BindingEntry>,
-    project_path: &str,
-    profile_id: &str,
-    now: &str,
-) {
-    if let Some(binding) = bindings
-        .iter_mut()
-        .find(|binding| binding.project_path == project_path)
-    {
-        binding.profile_id = profile_id.to_string();
-        binding.last_applied_at = Some(now.to_string());
-        return;
-    }
-
-    bindings.push(BindingEntry {
-        project_path: project_path.to_string(),
-        profile_id: profile_id.to_string(),
-        last_applied_at: Some(now.to_string()),
-    });
 }
 
 fn apply_profile_to_registry(
@@ -1023,47 +849,14 @@ fn apply_profile_to_registry(
         .ok_or_else(|| format!("未找到 profile '{}'", profile_id))?;
 
     let resolved_settings = resolve_profile_settings(registry, &profile)?;
-    let target_path = profile_settings_path(&profile.target)?;
-    if profile.target.scope == TargetScope::Local {
-        if let Some(project_path) = profile.target.project_path.as_deref() {
-            ensure_local_settings_ignored(project_path)?;
-        }
-    }
+    let target_path = profile_settings_path()?;
 
     let content = serde_json::to_string_pretty(&resolved_settings).map_err(|e| e.to_string())?;
     crate::utils::ensure_dir_and_write_atomic(&target_path, &content)?;
 
     let now = crate::utils::current_rfc3339_timestamp();
-    match profile.target.scope {
-        TargetScope::User => {
-            registry.bindings.user_profile_id = Some(profile.id);
-            registry.bindings.user_last_applied_at = Some(now);
-        }
-        TargetScope::Project => {
-            upsert_scope_binding(
-                &mut registry.bindings.project_bindings,
-                profile
-                    .target
-                    .project_path
-                    .as_deref()
-                    .ok_or("Project scope 缺少项目路径".to_string())?,
-                &profile.id,
-                &now,
-            );
-        }
-        TargetScope::Local => {
-            upsert_scope_binding(
-                &mut registry.bindings.local_bindings,
-                profile
-                    .target
-                    .project_path
-                    .as_deref()
-                    .ok_or("Local scope 缺少项目路径".to_string())?,
-                &profile.id,
-                &now,
-            );
-        }
-    }
+    registry.bindings.user_profile_id = Some(profile.id);
+    registry.bindings.user_last_applied_at = Some(now);
 
     Ok(target_path)
 }
@@ -1097,20 +890,6 @@ fn bound_profile_ids_using_preset(registry: &ConfigRegistry, preset_id: &str) ->
         .user_profile_id
         .iter()
         .map(String::as_str)
-        .chain(
-            registry
-                .bindings
-                .project_bindings
-                .iter()
-                .map(|binding| binding.profile_id.as_str()),
-        )
-        .chain(
-            registry
-                .bindings
-                .local_bindings
-                .iter()
-                .map(|binding| binding.profile_id.as_str()),
-        )
         .collect();
 
     registry
@@ -1183,7 +962,6 @@ pub fn upsert_profile(app_handle: AppHandle, data: ProfileInput) -> Result<Confi
     {
         existing.name = input.name;
         existing.description = input.description;
-        existing.target = input.target;
         existing.preset_id = input.preset_id;
         existing.settings = input.settings;
         existing.updated_at = now.clone();
@@ -1193,7 +971,6 @@ pub fn upsert_profile(app_handle: AppHandle, data: ProfileInput) -> Result<Confi
             id: profile_id,
             name: input.name,
             description: input.description,
-            target: input.target,
             preset_id: input.preset_id,
             settings: input.settings,
             created_at: now.clone(),
@@ -1259,7 +1036,6 @@ pub fn preview_profile(data: ProfileInput) -> Result<String, String> {
         id: input.id.unwrap_or_else(|| "__preview__".to_string()),
         name: input.name,
         description: input.description,
-        target: input.target,
         preset_id: input.preset_id,
         settings: input.settings,
         created_at: crate::utils::current_rfc3339_timestamp(),
@@ -1369,6 +1145,7 @@ pub fn set_app_preferences(
 mod tests {
     use super::*;
     use std::fs;
+    use std::path::Path;
 
     fn temp_root(name: &str) -> PathBuf {
         let root = std::env::temp_dir().join(format!("ai-manager-{name}-{}", Uuid::new_v4()));
@@ -1389,17 +1166,11 @@ mod tests {
         std::env::remove_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE");
     }
 
-    fn sample_profile(
-        id: &str,
-        target: ProfileTarget,
-        preset_id: Option<&str>,
-        settings: Value,
-    ) -> ConfigProfile {
+    fn sample_profile(id: &str, preset_id: Option<&str>, settings: Value) -> ConfigProfile {
         ConfigProfile {
             id: id.to_string(),
             name: id.to_string(),
             description: String::new(),
-            target,
             preset_id: preset_id.map(ToOwned::to_owned),
             settings,
             created_at: "2026-04-18T12:00:00Z".to_string(),
@@ -1483,10 +1254,6 @@ mod tests {
         ));
         let profile = sample_profile(
             "user-openrouter",
-            ProfileTarget {
-                scope: TargetScope::User,
-                project_path: None,
-            },
             Some("custom:team-openrouter"),
             serde_json::json!({
                 "model": "claude-sonnet-4-6",
@@ -1520,39 +1287,13 @@ mod tests {
     }
 
     #[test]
-    fn profile_settings_path_matches_scope() {
+    fn profile_settings_path_is_always_user_level() {
         let _guard = crate::utils::lock_config().unwrap();
         let root = temp_root("profile-paths");
         set_test_env(&root);
 
-        let user_path = profile_settings_path(&ProfileTarget {
-            scope: TargetScope::User,
-            project_path: None,
-        })
-        .unwrap();
+        let user_path = profile_settings_path().unwrap();
         assert_eq!(user_path, root.join(".claude").join("settings.json"));
-
-        let project_root = root.join("workspace");
-        let project_path = project_root.to_string_lossy().to_string();
-        let project_settings = profile_settings_path(&ProfileTarget {
-            scope: TargetScope::Project,
-            project_path: Some(project_path.clone()),
-        })
-        .unwrap();
-        assert_eq!(
-            project_settings,
-            project_root.join(".claude").join("settings.json")
-        );
-
-        let local_settings = profile_settings_path(&ProfileTarget {
-            scope: TargetScope::Local,
-            project_path: Some(project_path),
-        })
-        .unwrap();
-        assert_eq!(
-            local_settings,
-            project_root.join(".claude").join("settings.local.json")
-        );
 
         clear_test_env();
     }
@@ -1575,10 +1316,6 @@ mod tests {
         let mut registry = ConfigRegistry::default();
         registry.profiles.push(sample_profile(
             "user-1",
-            ProfileTarget {
-                scope: TargetScope::User,
-                project_path: None,
-            },
             None,
             serde_json::json!({
                 "model": "claude-sonnet-4-6"
@@ -1598,33 +1335,9 @@ mod tests {
     fn reorder_profiles_preserves_requested_order_and_appends_missing_items() {
         let mut registry = ConfigRegistry::default();
         registry.profiles = vec![
-            sample_profile(
-                "profile-a",
-                ProfileTarget {
-                    scope: TargetScope::User,
-                    project_path: None,
-                },
-                None,
-                serde_json::json!({}),
-            ),
-            sample_profile(
-                "profile-b",
-                ProfileTarget {
-                    scope: TargetScope::Project,
-                    project_path: Some("/tmp/project-b".to_string()),
-                },
-                None,
-                serde_json::json!({}),
-            ),
-            sample_profile(
-                "profile-c",
-                ProfileTarget {
-                    scope: TargetScope::Local,
-                    project_path: Some("/tmp/project-c".to_string()),
-                },
-                None,
-                serde_json::json!({}),
-            ),
+            sample_profile("profile-a", None, serde_json::json!({})),
+            sample_profile("profile-b", None, serde_json::json!({})),
+            sample_profile("profile-c", None, serde_json::json!({})),
         ];
 
         reorder_profiles_in_registry(
@@ -1638,36 +1351,6 @@ mod tests {
             .map(|profile| profile.id.as_str())
             .collect();
         assert_eq!(ordered_ids, vec!["profile-c", "profile-a", "profile-b"]);
-    }
-
-    #[test]
-    fn apply_local_profile_adds_git_exclude_entry() {
-        let _guard = crate::utils::lock_config().unwrap();
-        let root = temp_root("local-ignore");
-        set_test_env(&root);
-
-        let project_root = root.join("project");
-        fs::create_dir_all(project_root.join(".git").join("info")).unwrap();
-
-        let mut registry = ConfigRegistry::default();
-        registry.profiles.push(sample_profile(
-            "local-1",
-            ProfileTarget {
-                scope: TargetScope::Local,
-                project_path: Some(project_root.to_string_lossy().to_string()),
-            },
-            None,
-            serde_json::json!({
-                "model": "claude-sonnet-4-6"
-            }),
-        ));
-
-        apply_profile_to_registry(&mut registry, "local-1").unwrap();
-        let exclude =
-            fs::read_to_string(project_root.join(".git").join("info").join("exclude")).unwrap();
-        assert!(exclude.contains(".claude/settings.local.json"));
-
-        clear_test_env();
     }
 
     #[test]
@@ -1703,10 +1386,6 @@ mod tests {
         ));
         registry.profiles.push(sample_profile(
             "user-1",
-            ProfileTarget {
-                scope: TargetScope::User,
-                project_path: None,
-            },
             Some("custom:base"),
             serde_json::json!({
                 "env": {
@@ -1766,10 +1445,6 @@ mod tests {
                 id: "user-openrouter".to_string(),
                 name: "OpenRouter User".to_string(),
                 description: "全局开发默认配置".to_string(),
-                target: ProfileTarget {
-                    scope: TargetScope::User,
-                    project_path: None,
-                },
                 preset_id: Some("custom:team-plan".to_string()),
                 settings: stable_sort_json(serde_json::json!({
                     "env": {
@@ -1783,8 +1458,6 @@ mod tests {
             bindings: BindingState {
                 user_profile_id: Some("user-openrouter".to_string()),
                 user_last_applied_at: Some("2026-04-18T12:00:00+08:00".to_string()),
-                project_bindings: vec![],
-                local_bindings: vec![],
             },
         };
 

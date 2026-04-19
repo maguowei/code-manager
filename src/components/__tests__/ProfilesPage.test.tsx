@@ -73,9 +73,6 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
       id: "user-openrouter",
       name: "OpenRouter User",
       description: "默认用户配置",
-      target: {
-        scope: "user",
-      },
       presetId: "builtin:openrouter",
       settings: {
         env: {
@@ -85,7 +82,7 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
         },
         enabledPlugins: {
           "formatter@anthropic-tools": true,
-          "docs@anthropic-tools": ["search"],
+          "docs@anthropic-tools": false,
         },
       },
       createdAt: "2026-04-18T12:00:00Z",
@@ -94,11 +91,8 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
   ],
   bindings: {
     userProfileId: "user-openrouter",
-    projectBindings: [],
-    localBindings: [],
   },
-  knownProjects: [],
-};
+} as ConfigWorkspace;
 
 function renderPage() {
   render(
@@ -113,9 +107,6 @@ function makeProfile(id: string, name: string) {
     id,
     name,
     description: `${name} 描述`,
-    target: {
-      scope: "user" as const,
-    },
     presetId: "builtin:openrouter",
     settings: {
       env: {
@@ -124,7 +115,7 @@ function makeProfile(id: string, name: string) {
     },
     createdAt: "2026-04-18T12:00:00Z",
     updatedAt: "2026-04-18T12:00:00Z",
-  };
+  } as ConfigWorkspace["profiles"][number];
 }
 
 describe("ProfilesPage", () => {
@@ -174,13 +165,13 @@ describe("ProfilesPage", () => {
       return;
     }
 
-    expect(within(card).getAllByText("用户")).toHaveLength(2);
+    expect(within(card).queryByText("用户")).not.toBeInTheDocument();
     expect(within(card).getByText("使用中")).toBeInTheDocument();
     expect(within(card).getByText("已应用到用户设置")).toBeInTheDocument();
     expect(within(card).getByText("开放路由")).toBeInTheDocument();
     expect(within(card).getByText("claude-sonnet-4-6")).toBeInTheDocument();
     expect(within(card).getByText("high")).toBeInTheDocument();
-    expect(within(card).getByText("2 个插件")).toBeInTheDocument();
+    expect(within(card).getByText("已启用 1/2")).toBeInTheDocument();
     expect(within(card).queryByRole("button", { name: "应用" })).not.toBeInTheDocument();
     expect(within(card).getByRole("button", { name: "复制环境变量" })).toBeInTheDocument();
     expect(within(card).getByRole("button", { name: "复制" })).toBeInTheDocument();
@@ -200,10 +191,8 @@ describe("ProfilesPage", () => {
       profiles: [makeProfile("profile-b", "Beta"), makeProfile("profile-a", "Alpha")],
       bindings: {
         userProfileId: undefined,
-        projectBindings: [],
-        localBindings: [],
       },
-    };
+    } as ConfigWorkspace;
 
     render(
       <I18nProvider>
@@ -346,10 +335,8 @@ describe("ProfilesPage", () => {
       profiles: [makeProfile("profile-a", "Alpha"), makeProfile("profile-b", "Beta")],
       bindings: {
         userProfileId: undefined,
-        projectBindings: [],
-        localBindings: [],
       },
-    };
+    } as ConfigWorkspace;
 
     render(
       <I18nProvider>

@@ -430,7 +430,7 @@ describe("PresetEditor", () => {
       .closest("section");
     expect(pluginsSection).not.toBeNull();
     if (pluginsSection) {
-      expect(within(pluginsSection).getByText("0")).toBeInTheDocument();
+      expect(within(pluginsSection).getByText("已启用 0/0")).toBeInTheDocument();
       expect(
         within(pluginsSection).queryByRole("button", { name: "新增插件" }),
       ).not.toBeInTheDocument();
@@ -457,6 +457,27 @@ describe("PresetEditor", () => {
         within(envSection as HTMLElement).getByRole("button", { name: "控件" }),
       ).toBeInTheDocument();
     }
+  });
+
+  it("shows enabled plugin summary in the collapsed plugins section", () => {
+    renderEditor({
+      preset: {
+        ...PRESET_FIXTURE,
+        settingsPatch: {
+          ...PRESET_FIXTURE.settingsPatch,
+          enabledPlugins: {
+            "formatter@anthropic-tools": true,
+            "reviewer@anthropic-tools": false,
+          },
+        },
+      },
+    });
+
+    const pluginsSection = getSection("插件");
+    expect(within(pluginsSection).getByText("已启用 1/2")).toBeInTheDocument();
+    expect(
+      within(pluginsSection).queryByRole("button", { name: "新增插件" }),
+    ).not.toBeInTheDocument();
   });
 
   it("renders behavior controls in rows with at most two items", () => {

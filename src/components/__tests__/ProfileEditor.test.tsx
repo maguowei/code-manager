@@ -45,12 +45,8 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
   builtinPresets: [],
   customPresets: [],
   profiles: [],
-  bindings: {
-    projectBindings: [],
-    localBindings: [],
-  },
-  knownProjects: [],
-};
+  bindings: {},
+} as ConfigWorkspace;
 
 const BUILTIN_PRESETS: SettingsPreset[] = [
   {
@@ -130,9 +126,6 @@ const PROFILE_FIXTURE: ConfigProfile = {
   id: "user-openrouter",
   name: "OpenRouter User",
   description: "默认用户配置",
-  target: {
-    scope: "user",
-  },
   presetId: "builtin:openrouter",
   settings: {
     env: {
@@ -146,12 +139,10 @@ const PROFILE_FIXTURE: ConfigProfile = {
 function renderEditor(options?: {
   profile?: ConfigProfile | null;
   presets?: SettingsPreset[];
-  knownProjects?: string[];
   onSave?: (data: {
     id?: string;
     name: string;
     description: string;
-    target: ConfigProfile["target"];
     presetId?: string;
     settings: Record<string, unknown>;
   }) => void | Promise<void>;
@@ -163,7 +154,6 @@ function renderEditor(options?: {
         id?: string;
         name: string;
         description: string;
-        target: ConfigProfile["target"];
         presetId?: string;
         settings: Record<string, unknown>;
       }) => void | Promise<void>
@@ -173,7 +163,6 @@ function renderEditor(options?: {
       <ProfileEditor
         profile={options?.profile ?? PROFILE_FIXTURE}
         presets={options?.presets ?? BUILTIN_PRESETS}
-        knownProjects={options?.knownProjects ?? ["/workspace/demo"]}
         onSave={onSave}
         onClose={() => {}}
       />
@@ -424,7 +413,7 @@ describe("ProfileEditor", () => {
       .closest("section");
     expect(pluginsSection).not.toBeNull();
     if (pluginsSection) {
-      expect(within(pluginsSection).getByText("0")).toBeInTheDocument();
+      expect(within(pluginsSection).getByText("已启用 0/0")).toBeInTheDocument();
       expect(
         within(pluginsSection).queryByRole("button", { name: "新增插件" }),
       ).not.toBeInTheDocument();
@@ -453,6 +442,27 @@ describe("ProfileEditor", () => {
     }
   });
 
+  it("shows enabled plugin summary in the collapsed plugins section", () => {
+    renderEditor({
+      profile: {
+        ...PROFILE_FIXTURE,
+        settings: {
+          ...PROFILE_FIXTURE.settings,
+          enabledPlugins: {
+            "formatter@anthropic-tools": true,
+            "reviewer@anthropic-tools": false,
+          },
+        },
+      },
+    });
+
+    const pluginsSection = getSection("插件");
+    expect(within(pluginsSection).getByText("已启用 1/2")).toBeInTheDocument();
+    expect(
+      within(pluginsSection).queryByRole("button", { name: "新增插件" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("uses localized preset names in the preset selector", () => {
     renderEditor();
 
@@ -460,32 +470,11 @@ describe("ProfileEditor", () => {
     expect(screen.queryByRole("option", { name: "OpenRouter" })).not.toBeInTheDocument();
   });
 
-  it("localizes scope options through the UI language", () => {
+  it("hides scope and project path fields for user-only profiles", () => {
     renderEditor();
 
-    const scopeSelect = screen.getByLabelText("作用域");
-    const options = within(scopeSelect)
-      .getAllByRole("option")
-      .map((option) => option.textContent);
-
-    expect(options).toEqual(["用户", "项目", "本地"]);
-  });
-
-  it("marks project path as required when project or local scope is selected", () => {
-    renderEditor();
-
-    fireEvent.change(screen.getByLabelText("作用域"), {
-      target: { value: "project" },
-    });
-
-    const projectPathLabel = document.querySelector(
-      'label[for="profile-project-path"]',
-    ) as HTMLElement | null;
-    expect(projectPathLabel).not.toBeNull();
-    expect(projectPathLabel).toHaveClass("label-required");
-    if (projectPathLabel) {
-      expect(within(projectPathLabel).getByText("必填")).toBeInTheDocument();
-    }
+    expect(screen.queryByLabelText("作用域")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("项目路径")).not.toBeInTheDocument();
   });
 
   it("renders behavior controls in rows with at most two items", () => {
@@ -1192,18 +1181,18 @@ describe("ProfileEditor", () => {
     const latestPreview = previewOutputs[previewOutputs.length - 1];
     expect(latestPreview).toHaveTextContent('"$schema"');
     expect(latestPreview).toHaveTextContent('"claude-haiku-4-5"');
+    expect(invokeMock).toHaveBeenLastCalledWith(
+      "preview_profile",
+      expect.objectContaining({
+        data: expect.not.objectContaining({
+          target: expect.anything(),
+        }),
+      }),
+    );
   });
 
   it("saves plugin and marketplace settings from structured controls", async () => {
-    const { onSave } = renderEditor({
-      profile: {
-        ...PROFILE_FIXTURE,
-        target: {
-          scope: "local",
-          projectPath: "/workspace/demo",
-        },
-      },
-    });
+    const { onSave } = renderEditor();
 
     const pluginsSection = screen
       .getByRole("heading", { name: "插件", level: 3 })
@@ -1283,10 +1272,6 @@ describe("ProfileEditor", () => {
       id: "user-openrouter",
       name: "OpenRouter User",
       description: "默认用户配置",
-      target: {
-        scope: "local",
-        projectPath: "/workspace/demo",
-      },
       presetId: "builtin:openrouter",
       settings: expect.objectContaining({
         env: {
@@ -1416,21 +1401,16 @@ describe("ProfileEditor", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("switches scope and preset without exposing removed legacy fields", () => {
+  it("switches preset without exposing removed legacy scope fields", () => {
     renderEditor({
       profile: {
         ...PROFILE_FIXTURE,
         presetId: undefined,
-        target: { scope: "user" },
       },
     });
 
+    expect(screen.queryByLabelText("作用域")).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/项目路径/)).not.toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText("作用域"), {
-      target: { value: "project" },
-    });
-    expect(screen.getByLabelText(/项目路径/)).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("预设"), {
       target: { value: "builtin:openrouter" },

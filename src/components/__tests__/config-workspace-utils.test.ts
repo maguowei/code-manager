@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { SettingsPreset } from "../../types";
-import { applyPresetAutofill, resolvePresetAutofillValues } from "../config-workspace-utils";
+import {
+  applyPresetAutofill,
+  getEnabledPluginsSummary,
+  resolvePresetAutofillValues,
+} from "../config-workspace-utils";
 
 const PRESETS: SettingsPreset[] = [
   {
@@ -90,6 +94,38 @@ const PRESETS: SettingsPreset[] = [
 ];
 
 describe("config-workspace-utils preset autofill", () => {
+  it("counts enabled and total plugins with legacy truthy compatibility", () => {
+    expect(
+      getEnabledPluginsSummary({
+        "formatter@anthropic-tools": true,
+        "reviewer@anthropic-tools": false,
+      }),
+    ).toEqual({
+      enabledCount: 1,
+      totalCount: 2,
+    });
+
+    expect(
+      getEnabledPluginsSummary({
+        "docs@anthropic-tools": ["search"],
+        "reviewer@anthropic-tools": false,
+      }),
+    ).toEqual({
+      enabledCount: 1,
+      totalCount: 2,
+    });
+
+    expect(getEnabledPluginsSummary({})).toEqual({
+      enabledCount: 0,
+      totalCount: 0,
+    });
+
+    expect(getEnabledPluginsSummary(null)).toEqual({
+      enabledCount: 0,
+      totalCount: 0,
+    });
+  });
+
   it("resolves categorized models across the inheritance chain with explicit overrides", () => {
     expect(resolvePresetAutofillValues(PRESETS, "builtin:openrouter")).toEqual({
       resolvedBaseUrl: "https://openrouter.ai/api",

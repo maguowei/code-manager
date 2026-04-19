@@ -1,11 +1,4 @@
-import type {
-  BindingState,
-  ConfigProfile,
-  LocalizedText,
-  ProfileTarget,
-  SettingsPreset,
-  TargetScope,
-} from "../types";
+import type { LocalizedText, SettingsPreset } from "../types";
 
 export function prettyJson(value: unknown): string {
   return JSON.stringify(value ?? {}, null, 2);
@@ -250,24 +243,16 @@ export function readTopLevelObject(
   return isPlainObject(value) ? value : {};
 }
 
-export function targetScopeLabel(scope: TargetScope): string {
-  switch (scope) {
-    case "user":
-      return "User";
-    case "project":
-      return "Project";
-    case "local":
-      return "Local";
-    default:
-      return scope;
-  }
-}
-
-export function profileTargetSummary(target: ProfileTarget): string {
-  if (target.scope === "user") {
-    return "User";
-  }
-  return `${targetScopeLabel(target.scope)} · ${target.projectPath ?? "Unknown"}`;
+export function getEnabledPluginsSummary(value: unknown): {
+  enabledCount: number;
+  totalCount: number;
+} {
+  const plugins = isPlainObject(value) ? value : {};
+  const pluginValues = Object.values(plugins);
+  return {
+    enabledCount: pluginValues.filter(Boolean).length,
+    totalCount: pluginValues.length,
+  };
 }
 
 export function normalizeLocalizedText(
@@ -472,24 +457,4 @@ export function applyPresetAutofill(
     (current, [envKey, value]) => setEnvString(current, envKey, value ?? ""),
     settings,
   );
-}
-
-export function bindingSummary(bindings: BindingState, profile: ConfigProfile): string | null {
-  if (bindings.userProfileId === profile.id) {
-    return "Applied to user settings";
-  }
-
-  const projectBinding = bindings.projectBindings.find(
-    (binding) => binding.profileId === profile.id,
-  );
-  if (projectBinding) {
-    return `Applied to project: ${projectBinding.projectPath}`;
-  }
-
-  const localBinding = bindings.localBindings.find((binding) => binding.profileId === profile.id);
-  if (localBinding) {
-    return `Applied locally: ${localBinding.projectPath}`;
-  }
-
-  return null;
 }

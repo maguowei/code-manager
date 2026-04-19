@@ -6,6 +6,7 @@ import {
   applyEnvDefaults,
   applyPresetAutofill,
   cloneSettings,
+  getEnabledPluginsSummary,
   normalizeLocalizedText,
   presetDisplayName,
   prettyJson,
@@ -259,8 +260,8 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
         .sort(),
     [settingsPatch],
   );
-  const enabledPluginsCount = useMemo(
-    () => Object.keys(readTopLevelObject(settingsPatch, "enabledPlugins")).length,
+  const enabledPluginsSummary = useMemo(
+    () => getEnabledPluginsSummary(settingsPatch.enabledPlugins),
     [settingsPatch],
   );
   const visibleEnvCount = useMemo(
@@ -930,7 +931,6 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
         <SettingsSectionModePanel
           title={messages.plugins}
           variant="accordion"
-          badgeCount={enabledPluginsCount}
           mode={sectionModes.plugins}
           onModeChange={(mode) => handleSectionModeChange("plugins", mode)}
           controls={
@@ -946,6 +946,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
           error={editorErrors.enabledPlugins || pluginsJsonEditor.jsonError}
           expanded={activeAccordionSection === "plugins"}
           onToggleExpanded={() => toggleAccordionSection("plugins")}
+          headerMeta={`${t("common.pluginsEnabledSummaryLabel")} ${enabledPluginsSummary.enabledCount}/${enabledPluginsSummary.totalCount}`}
         />
 
         <section className="profile-editor-section">

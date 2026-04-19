@@ -25,11 +25,7 @@ const EMPTY_WORKSPACE: ConfigWorkspace = {
   builtinPresets: [],
   customPresets: [],
   profiles: [],
-  bindings: {
-    projectBindings: [],
-    localBindings: [],
-  },
-  knownProjects: [],
+  bindings: {},
 };
 
 function App() {

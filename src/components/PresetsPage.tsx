@@ -5,7 +5,11 @@ import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
 import type { ConfigWorkspace, SettingsPreset } from "../types";
 import ConfirmDialog from "./ConfirmDialog";
-import { presetDisplayName, presetNameById } from "./config-workspace-utils";
+import {
+  getEnabledPluginsSummary,
+  presetDisplayName,
+  presetNameById,
+} from "./config-workspace-utils";
 import Drawer from "./Drawer";
 import PresetEditor from "./PresetEditor";
 import "./PresetsPage.css";
@@ -26,6 +30,10 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
     () => [...workspace.builtinPresets, ...workspace.customPresets],
     [workspace.builtinPresets, workspace.customPresets],
   );
+
+  function presetPluginsSummary(preset: SettingsPreset) {
+    return getEnabledPluginsSummary(preset.settingsPatch.enabledPlugins);
+  }
 
   async function handleSave(data: {
     id?: string;
@@ -147,6 +155,13 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
                     <div>{preset.id}</div>
                     <div>{presetNameById(allPresets, preset.basePresetId, language)}</div>
                     <div>{preset.modelSuggestions.join(", ") || "—"}</div>
+                    {presetPluginsSummary(preset).totalCount > 0 ? (
+                      <div>
+                        {t("common.pluginsEnabledSummaryLabel")}{" "}
+                        {presetPluginsSummary(preset).enabledCount}/
+                        {presetPluginsSummary(preset).totalCount}
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="preset-card-actions">

@@ -1,6 +1,4 @@
-use crate::config::{
-    apply_profile_inner, load_registry_or_default, ConfigProfile, ConfigRegistry, TargetScope,
-};
+use crate::config::{apply_profile_inner, load_registry_or_default, ConfigRegistry};
 use tauri::{
     menu::{Menu, MenuItemBuilder, PredefinedMenuItem},
     tray::TrayIconBuilder,
@@ -64,18 +62,13 @@ fn build_tray_menu(app: &AppHandle, state: &ConfigRegistry) -> tauri::Result<Men
     items.push(Box::new(nav_configs));
 
     // 配置列表
-    let user_profiles: Vec<&ConfigProfile> = state
-        .profiles
-        .iter()
-        .filter(|profile| profile.target.scope == TargetScope::User)
-        .collect();
-    if user_profiles.is_empty() {
+    if state.profiles.is_empty() {
         let empty = MenuItemBuilder::with_id("no_configs", labels.no_configs)
             .enabled(false)
             .build(app)?;
         items.push(Box::new(empty));
     } else {
-        for profile in user_profiles {
+        for profile in &state.profiles {
             let is_active = state.bindings.user_profile_id.as_ref() == Some(&profile.id);
             let label = if is_active {
                 format!("✓ {}", profile.name)

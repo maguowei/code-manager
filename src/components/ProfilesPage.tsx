@@ -4,7 +4,12 @@ import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
 import type { ConfigProfile, ConfigWorkspace } from "../types";
 import ConfirmDialog from "./ConfirmDialog";
-import { cloneSettings, isPlainObject, presetNameById } from "./config-workspace-utils";
+import {
+  cloneSettings,
+  getEnabledPluginsSummary,
+  isPlainObject,
+  presetNameById,
+} from "./config-workspace-utils";
 import Drawer from "./Drawer";
 import { TrashIcon } from "./Icons";
 import ProfileEditor from "./ProfileEditor";
@@ -38,45 +43,10 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
   );
   const profiles = useMemo(() => workspace.profiles, [workspace.profiles]);
 
-  function scopeLabel(scope: ConfigProfile["target"]["scope"]) {
-    switch (scope) {
-      case "user":
-        return t("profiles.scope.user");
-      case "project":
-        return t("profiles.scope.project");
-      case "local":
-        return t("profiles.scope.local");
-      default:
-        return scope;
-    }
-  }
-
-  function profileTargetText(profile: ConfigProfile) {
-    if (profile.target.scope === "user") {
-      return scopeLabel("user");
-    }
-    return `${scopeLabel(profile.target.scope)} · ${profile.target.projectPath ?? t("profiles.target.unknown")}`;
-  }
-
   function bindingSummaryText(profile: ConfigProfile) {
     if (workspace.bindings.userProfileId === profile.id) {
       return t("profiles.binding.user");
     }
-
-    const projectBinding = workspace.bindings.projectBindings.find(
-      (binding) => binding.profileId === profile.id,
-    );
-    if (projectBinding) {
-      return `${t("profiles.binding.project")} ${projectBinding.projectPath}`;
-    }
-
-    const localBinding = workspace.bindings.localBindings.find(
-      (binding) => binding.profileId === profile.id,
-    );
-    if (localBinding) {
-      return `${t("profiles.binding.local")} ${localBinding.projectPath}`;
-    }
-
     return null;
   }
 
@@ -153,11 +123,8 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
     return "";
   }
 
-  function profilePluginCount(profile: ConfigProfile) {
-    const enabledPlugins = isPlainObject(profile.settings.enabledPlugins)
-      ? profile.settings.enabledPlugins
-      : {};
-    return Object.keys(enabledPlugins).length;
+  function profilePluginsSummary(profile: ConfigProfile) {
+    return getEnabledPluginsSummary(profile.settings.enabledPlugins);
   }
 
   function shellEscape(value: string) {
@@ -204,7 +171,6 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
     id?: string;
     name: string;
     description: string;
-    target: { scope: "user" | "project" | "local"; projectPath?: string };
     presetId?: string;
     settings: Record<string, unknown>;
   }) {
@@ -245,7 +211,6 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
           id: profile.id,
           name: profile.name,
           description: profile.description,
-          target: profile.target,
           presetId: profile.presetId,
           settings: profile.settings,
         },
@@ -269,7 +234,6 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
           id: undefined,
           name: `${profile.name}${t("profiles.duplicateSuffix")}`,
           description: profile.description,
-          target: { ...profile.target },
           presetId: profile.presetId,
           settings: cloneSettings(profile.settings),
         },
@@ -391,9 +355,6 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                   </div>
 
                   <div className="profile-card-head-actions">
-                    <span className={`profile-scope-badge scope-${profile.target.scope}`}>
-                      {scopeLabel(profile.target.scope)}
-                    </span>
                     {isDrawerOpen && editingProfile?.id === profile.id ? (
                       <span className="profile-status-badge editing">
                         {t("profiles.badges.editing")}
@@ -417,12 +378,14 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                   </div>
                 </div>
 
-                <div className="profile-card-meta">
-                  <div>{profileTargetText(profile)}</div>
-                  {bindingSummaryText(profile) && <div>{bindingSummaryText(profile)}</div>}
-                </div>
+                {bindingSummaryText(profile) && (
+                  <div className="profile-card-meta">
+                    <div>{bindingSummaryText(profile)}</div>
+                  </div>
+                )}
 
-                {(profilePrimaryModel(profile) || profilePluginCount(profile) > 0) && (
+                {(profilePrimaryModel(profile) ||
+                  profilePluginsSummary(profile).totalCount > 0) && (
                   <div className="profile-card-summary">
                     {profilePrimaryModel(profile) && (
                       <div className="profile-summary-row">
@@ -446,7 +409,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                         </div>
                       </div>
                     )}
-                    {profilePluginCount(profile) > 0 && (
+                    {profilePluginsSummary(profile).totalCount > 0 && (
                       <div className="profile-summary-row">
                         <svg
                           className="profile-summary-icon"
@@ -460,7 +423,9 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                           <line x1="9" y1="15" x2="15" y2="15" />
                         </svg>
                         <span>
-                          {profilePluginCount(profile)} {t("profiles.meta.plugins")}
+                          {t("common.pluginsEnabledSummaryLabel")}{" "}
+                          {profilePluginsSummary(profile).enabledCount}/
+                          {profilePluginsSummary(profile).totalCount}
                         </span>
                       </div>
                     )}
@@ -546,7 +511,6 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
           <ProfileEditor
             profile={editingProfile}
             presets={allPresets}
-            knownProjects={workspace.knownProjects}
             onSave={handleSave}
             onClose={closeDrawer}
           />

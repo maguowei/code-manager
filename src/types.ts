@@ -90,13 +90,6 @@ export interface AppPreferences {
   defaultEditorApp: DefaultEditorApp | null;
 }
 
-export type TargetScope = "user" | "project" | "local";
-
-export interface ProfileTarget {
-  scope: TargetScope;
-  projectPath?: string;
-}
-
 export type PresetSource = "builtin" | "custom";
 
 export interface LocalizedText {
@@ -128,24 +121,15 @@ export interface ConfigProfile {
   id: string;
   name: string;
   description: string;
-  target: ProfileTarget;
   presetId?: string;
   settings: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface BindingEntry {
-  projectPath: string;
-  profileId: string;
-  lastAppliedAt?: string;
-}
-
 export interface BindingState {
   userProfileId?: string;
   userLastAppliedAt?: string;
-  projectBindings: BindingEntry[];
-  localBindings: BindingEntry[];
 }
 
 export interface ConfigWorkspace {
@@ -154,7 +138,6 @@ export interface ConfigWorkspace {
   customPresets: SettingsPreset[];
   profiles: ConfigProfile[];
   bindings: BindingState;
-  knownProjects: string[];
 }
 
 // 记忆条目
