@@ -175,6 +175,35 @@ describe("ProfilesPage", () => {
     expect(within(card).queryByRole("button", { name: "应用" })).not.toBeInTheDocument();
     expect(within(card).getByRole("button", { name: "复制环境变量" })).toBeInTheDocument();
     expect(within(card).getByRole("button", { name: "复制" })).toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: "删除" })).toBeInTheDocument();
+    expect(within(card).queryByText("删除")).not.toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: "编辑" })).not.toBeInTheDocument();
+  });
+
+  it("opens the profile editor when clicking the card body", async () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "zh",
+        theme: "dark",
+      }),
+    );
+
+    renderPage();
+
+    const card = screen.getByText("OpenRouter User").closest(".profile-card") as HTMLElement | null;
+    expect(card).not.toBeNull();
+    if (!card) {
+      return;
+    }
+
+    await act(async () => {
+      fireEvent.click(card);
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole("heading", { name: "编辑档案" })).toBeInTheDocument();
+    expect(screen.getByDisplayValue("OpenRouter User")).toBeInTheDocument();
   });
 
   it("renders profile cards in workspace order without re-sorting them", () => {

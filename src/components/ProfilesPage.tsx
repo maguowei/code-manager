@@ -470,25 +470,15 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                   </button>
                   <button
                     type="button"
-                    className="profile-card-action"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setEditingProfile(profile);
-                      setIsDrawerOpen(true);
-                    }}
-                  >
-                    {t("profiles.actions.edit")}
-                  </button>
-                  <button
-                    type="button"
-                    className="profile-card-action danger"
+                    className="profile-card-action danger icon-only"
+                    aria-label={t("profiles.actions.delete")}
+                    title={t("profiles.actions.delete")}
                     onClick={(event) => {
                       event.stopPropagation();
                       setPendingDeleteId(profile.id);
                     }}
                   >
                     <TrashIcon />
-                    <span>{t("profiles.actions.delete")}</span>
                   </button>
                 </div>
               </div>
