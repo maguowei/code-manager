@@ -9,7 +9,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { type AppState, isTauri } from "./types";
+import { type ConfigWorkspace, isTauri } from "./types";
 
 export type Language = "zh" | "en";
 export type Theme = "light" | "dark" | "system";
@@ -21,6 +21,20 @@ const translations = {
     "app.title": "AI Manager",
     loading: "加载中...",
     "common.close": "关闭",
+    "common.expand": "展开",
+    "common.collapse": "收起",
+    "common.expandJson": "展开 JSON",
+    "common.collapseJson": "收起 JSON",
+    "common.controlMode": "控件",
+    "common.jsonMode": "JSON",
+    "common.formatJson": "格式化 JSON",
+    "common.sectionJsonHint": "在这里直接编辑当前区块对象的 JSON。",
+    "common.sectionJsonDraftPending": "当前草稿未生效，仍使用上一次合法 JSON。",
+    "common.pluginsSummaryNone": "未配置插件或市场",
+    "common.pluginsOnlySummaryNone": "未配置插件",
+    "common.marketplacesSummaryNone": "未配置插件市场",
+    "common.pluginsUnit": "个插件",
+    "common.marketplacesUnit": "个市场",
     "form.required": "必填",
 
     // 头部
@@ -126,7 +140,7 @@ const translations = {
     "configModal.save": "保存",
 
     // 导航栏
-    "nav.configs": "配置",
+    "nav.configs": "配置档案",
     "nav.memory": "记忆",
     "nav.skills": "Skills",
     "nav.projects": "项目",
@@ -162,7 +176,137 @@ const translations = {
 
     // 统计页面
     "nav.stats": "统计",
-    "nav.providers": "Provider",
+    "nav.providers": "预设",
+    "profiles.title": "配置档案",
+    "profiles.add": "新增档案",
+    "profiles.empty": "暂无档案",
+    "profiles.emptyHint":
+      "创建 user / project / local profile，并直接生成最终 Claude settings 文件。",
+    "profiles.scope.user": "用户",
+    "profiles.scope.project": "项目",
+    "profiles.scope.local": "本地",
+    "profiles.binding.user": "已应用到用户设置",
+    "profiles.binding.project": "已应用到项目：",
+    "profiles.binding.local": "已应用到本地：",
+    "profiles.target.unknown": "未知路径",
+    "profiles.actions.apply": "应用",
+    "profiles.actions.copyEnv": "复制环境变量",
+    "profiles.actions.duplicate": "复制",
+    "profiles.actions.edit": "编辑",
+    "profiles.actions.delete": "删除",
+    "profiles.badges.inUse": "使用中",
+    "profiles.badges.editing": "编辑中",
+    "profiles.meta.plugins": "个插件",
+    "profiles.duplicateSuffix": " 副本",
+    "profiles.dialog.deleteTitle": "删除档案",
+    "profiles.dialog.deleteMessage": "删除后会移除绑定，但不会自动清理已经写出的 settings 文件。",
+    "profiles.toast.saved": "档案已保存",
+    "profiles.toast.saveError": "保存档案失败",
+    "profiles.toast.applied": "档案已应用",
+    "profiles.toast.applyError": "应用档案失败",
+    "profiles.toast.deleted": "档案已删除",
+    "profiles.toast.deleteError": "删除档案失败",
+    "profiles.toast.duplicated": "档案已复制",
+    "profiles.toast.duplicateError": "复制档案失败",
+    "profiles.toast.reorderError": "重排档案失败",
+    "profiles.toast.envCopied": "环境变量已复制",
+    "profiles.toast.envCopyError": "复制环境变量失败",
+    "profiles.editor.title.add": "新增档案",
+    "profiles.editor.title.edit": "编辑档案",
+    "profiles.editor.save": "保存",
+    "profiles.editor.fields.name": "名称",
+    "profiles.editor.fields.description": "描述",
+    "profiles.editor.fields.scope": "作用域",
+    "profiles.editor.fields.projectPath": "项目路径",
+    "profiles.editor.fields.preset": "预设",
+    "profiles.editor.fields.authToken": "ANTHROPIC_AUTH_TOKEN",
+    "profiles.editor.fields.baseUrl": "ANTHROPIC_BASE_URL",
+    "profiles.editor.placeholders.name": "例如：OpenRouter User",
+    "profiles.editor.placeholders.description": "例如：全局开发默认配置",
+    "profiles.editor.hints.projectPath": "Project / Local 作用域需要项目根路径",
+    "profiles.editor.hints.preset":
+      "预设只提供 settings patch；最终值由 preset 与 profile.settings 合成",
+    "profiles.editor.hints.suggestedModels": "预设推荐模型",
+    "profiles.editor.hints.behaviorJson":
+      "这里直接编辑当前行为区块相关的顶层键，以及相关的 env 覆盖，不会创建新的 behavior 嵌套对象。",
+    "profiles.editor.hints.expert":
+      "这里直接编辑完整 profile.settings，适合处理控件尚未覆盖的高级字段。",
+    "profiles.editor.hints.expertStructuredKeys": "当前已由控件覆盖的字段",
+    "profiles.editor.sections.basicInfo": "基础信息",
+    "profiles.editor.sections.auth": "认证",
+    "profiles.editor.sections.behavior": "模型与行为",
+    "profiles.editor.sections.environment": "环境变量",
+    "profiles.editor.sections.permissions": "权限",
+    "profiles.editor.sections.sandbox": "Sandbox",
+    "profiles.editor.sections.hooks": "Hooks",
+    "profiles.editor.sections.marketplaces": "插件市场",
+    "profiles.editor.sections.plugins": "插件",
+    "profiles.editor.sections.integrations": "集成",
+    "profiles.editor.sections.preview": "Resolved Preview",
+    "profiles.editor.expert.open": "整份配置 JSON",
+    "profiles.editor.expert.close": "隐藏整份配置 JSON",
+    "profiles.editor.options.noPreset": "无预设",
+    "profiles.editor.validation.settingsObject": "settings 必须是 JSON 对象",
+    "presets.title": "预设",
+    "presets.add": "新增预设",
+    "presets.builtin.title": "内置预设",
+    "presets.builtin.description": "来自应用资源，只读，用来复用常见 provider / model 映射。",
+    "presets.builtin.badge": "内置",
+    "presets.custom.title": "自定义预设",
+    "presets.custom.description":
+      "用 settingsPatch 复用团队配置，再由 profile.settings 做最终覆盖。",
+    "presets.custom.badge": "自定义",
+    "presets.custom.empty": "暂无自定义预设",
+    "presets.custom.emptyHint":
+      "内置 preset 适合直接复用；如果团队还有额外 patch，可以在这里叠加。",
+    "presets.actions.openDocs": "查看文档",
+    "presets.actions.edit": "编辑",
+    "presets.actions.delete": "删除",
+    "presets.dialog.deleteTitle": "删除预设",
+    "presets.dialog.deleteMessage": "删除前请确认没有 profile 还在引用它。",
+    "presets.toast.saved": "预设已保存",
+    "presets.toast.saveError": "保存预设失败",
+    "presets.toast.deleted": "预设已删除",
+    "presets.toast.deleteError": "删除预设失败",
+    "presets.editor.title.add": "新增预设",
+    "presets.editor.title.edit": "编辑预设",
+    "presets.editor.save": "保存",
+    "presets.editor.fields.nameZh": "中文名称",
+    "presets.editor.fields.nameEn": "英文名称",
+    "presets.editor.fields.description": "描述",
+    "presets.editor.fields.docUrl": "文档链接",
+    "presets.editor.fields.basePreset": "基础预设",
+    "presets.editor.fields.authToken": "ANTHROPIC_AUTH_TOKEN",
+    "presets.editor.fields.baseUrl": "ANTHROPIC_BASE_URL",
+    "presets.editor.fields.modelSuggestions": "推荐模型",
+    "presets.editor.placeholders.nameZh": "例如：团队 OpenRouter",
+    "presets.editor.placeholders.nameEn": "例如：Team OpenRouter",
+    "presets.editor.placeholders.description": "说明 preset 的用途",
+    "presets.editor.placeholders.modelSuggestions":
+      "用逗号分隔，例如：claude-sonnet-4-6, claude-opus-4-1",
+    "presets.editor.hints.modelSuggestions":
+      "这里只保存建议项，最终采用哪个模型由 profile.settings 决定。",
+    "presets.editor.hints.baseSuggestions": "基础预设推荐模型",
+    "presets.editor.hints.behaviorJson":
+      "这里直接编辑当前行为区块相关的顶层键，以及相关的 env 覆盖，不会创建新的 behavior 嵌套对象。",
+    "presets.editor.hints.expert":
+      "这里直接编辑完整 settingsPatch，适合处理控件尚未覆盖的高级字段。",
+    "presets.editor.hints.expertStructuredKeys": "当前已由控件覆盖的字段",
+    "presets.editor.sections.metadata": "基础信息",
+    "presets.editor.sections.auth": "认证",
+    "presets.editor.sections.behavior": "模型与行为",
+    "presets.editor.sections.environment": "环境变量",
+    "presets.editor.sections.permissions": "权限",
+    "presets.editor.sections.sandbox": "Sandbox",
+    "presets.editor.sections.hooks": "Hooks",
+    "presets.editor.sections.marketplaces": "插件市场",
+    "presets.editor.sections.plugins": "插件",
+    "presets.editor.sections.integrations": "集成",
+    "presets.editor.sections.preview": "Patch 预览",
+    "presets.editor.expert.open": "整份配置 JSON",
+    "presets.editor.expert.close": "隐藏整份配置 JSON",
+    "presets.editor.options.none": "无",
+    "presets.editor.validation.settingsPatchObject": "settingsPatch 必须是 JSON 对象",
 
     // 项目页面
     "projects.title": "项目管理",
@@ -474,6 +618,21 @@ const translations = {
     "app.title": "AI Manager",
     loading: "Loading...",
     "common.close": "Close",
+    "common.expand": "Expand",
+    "common.collapse": "Collapse",
+    "common.expandJson": "Expand JSON",
+    "common.collapseJson": "Collapse JSON",
+    "common.controlMode": "Controls",
+    "common.jsonMode": "JSON",
+    "common.formatJson": "Format JSON",
+    "common.sectionJsonHint": "Edit the current section object JSON directly here.",
+    "common.sectionJsonDraftPending":
+      "The current draft is not applied yet. The last valid JSON is still in effect.",
+    "common.pluginsSummaryNone": "No plugins or marketplaces configured",
+    "common.pluginsOnlySummaryNone": "No plugins configured",
+    "common.marketplacesSummaryNone": "No plugin marketplaces configured",
+    "common.pluginsUnit": "plugins",
+    "common.marketplacesUnit": "marketplaces",
     "form.required": "Required",
 
     // 头部
@@ -583,7 +742,7 @@ const translations = {
     "configModal.save": "Save",
 
     // 导航栏
-    "nav.configs": "Configs",
+    "nav.configs": "Profiles",
     "nav.memory": "Memory",
     "nav.skills": "Skills",
     "nav.projects": "Projects",
@@ -620,7 +779,140 @@ const translations = {
 
     // 统计页面
     "nav.stats": "Stats",
-    "nav.providers": "Providers",
+    "nav.providers": "Presets",
+    "profiles.title": "Profiles",
+    "profiles.add": "Add Profile",
+    "profiles.empty": "No profiles yet",
+    "profiles.emptyHint":
+      "Create user, project, or local profiles that resolve directly to Claude settings files.",
+    "profiles.scope.user": "User",
+    "profiles.scope.project": "Project",
+    "profiles.scope.local": "Local",
+    "profiles.binding.user": "Applied to user settings",
+    "profiles.binding.project": "Applied to project:",
+    "profiles.binding.local": "Applied locally:",
+    "profiles.target.unknown": "Unknown path",
+    "profiles.actions.apply": "Apply",
+    "profiles.actions.copyEnv": "Copy env vars",
+    "profiles.actions.duplicate": "Duplicate",
+    "profiles.actions.edit": "Edit",
+    "profiles.actions.delete": "Delete",
+    "profiles.badges.inUse": "In Use",
+    "profiles.badges.editing": "Editing",
+    "profiles.meta.plugins": "plugins",
+    "profiles.duplicateSuffix": " Copy",
+    "profiles.dialog.deleteTitle": "Delete profile",
+    "profiles.dialog.deleteMessage":
+      "Deleting a profile removes its bindings but does not delete any settings files already written.",
+    "profiles.toast.saved": "Profile saved",
+    "profiles.toast.saveError": "Failed to save profile",
+    "profiles.toast.applied": "Profile applied",
+    "profiles.toast.applyError": "Failed to apply profile",
+    "profiles.toast.deleted": "Profile deleted",
+    "profiles.toast.deleteError": "Failed to delete profile",
+    "profiles.toast.duplicated": "Profile duplicated",
+    "profiles.toast.duplicateError": "Failed to duplicate profile",
+    "profiles.toast.reorderError": "Failed to reorder profiles",
+    "profiles.toast.envCopied": "Env vars copied",
+    "profiles.toast.envCopyError": "Failed to copy env vars",
+    "profiles.editor.title.add": "Add Profile",
+    "profiles.editor.title.edit": "Edit Profile",
+    "profiles.editor.save": "Save",
+    "profiles.editor.fields.name": "Name",
+    "profiles.editor.fields.description": "Description",
+    "profiles.editor.fields.scope": "Scope",
+    "profiles.editor.fields.projectPath": "Project Path",
+    "profiles.editor.fields.preset": "Preset",
+    "profiles.editor.fields.authToken": "ANTHROPIC_AUTH_TOKEN",
+    "profiles.editor.fields.baseUrl": "ANTHROPIC_BASE_URL",
+    "profiles.editor.placeholders.name": "e.g. OpenRouter User",
+    "profiles.editor.placeholders.description": "e.g. Global default workspace profile",
+    "profiles.editor.hints.projectPath": "Project and Local scopes require a repository root path",
+    "profiles.editor.hints.preset":
+      "Presets only provide settings patches; the final document is resolved with profile.settings",
+    "profiles.editor.hints.suggestedModels": "Preset model suggestions",
+    "profiles.editor.hints.behaviorJson":
+      "Edit the related top-level behavior keys and scoped env overrides directly without creating a nested behavior object.",
+    "profiles.editor.hints.expert":
+      "Edit the full profile.settings document here for advanced fields that the controls do not cover yet.",
+    "profiles.editor.hints.expertStructuredKeys": "Structured keys currently covered",
+    "profiles.editor.sections.basicInfo": "Basics",
+    "profiles.editor.sections.auth": "Authentication",
+    "profiles.editor.sections.behavior": "Model & Behavior",
+    "profiles.editor.sections.environment": "Environment Variables",
+    "profiles.editor.sections.permissions": "Permissions",
+    "profiles.editor.sections.sandbox": "Sandbox",
+    "profiles.editor.sections.hooks": "Hooks",
+    "profiles.editor.sections.marketplaces": "Plugin Marketplaces",
+    "profiles.editor.sections.plugins": "Plugins",
+    "profiles.editor.sections.integrations": "Integrations",
+    "profiles.editor.sections.preview": "Resolved Preview",
+    "profiles.editor.expert.open": "Full Settings JSON",
+    "profiles.editor.expert.close": "Hide Full Settings JSON",
+    "profiles.editor.options.noPreset": "No preset",
+    "profiles.editor.validation.settingsObject": "settings must be a JSON object",
+    "presets.title": "Presets",
+    "presets.add": "Add Preset",
+    "presets.builtin.title": "Built-in Presets",
+    "presets.builtin.description":
+      "Read-only presets from application resources for common provider and model mappings.",
+    "presets.builtin.badge": "Built-in",
+    "presets.custom.title": "Custom Presets",
+    "presets.custom.description":
+      "Compose reusable settings patches, then override them in profile.settings.",
+    "presets.custom.badge": "Custom",
+    "presets.custom.empty": "No custom presets yet",
+    "presets.custom.emptyHint":
+      "Use a custom preset when your team needs reusable patches beyond the built-ins.",
+    "presets.actions.openDocs": "Open Docs",
+    "presets.actions.edit": "Edit",
+    "presets.actions.delete": "Delete",
+    "presets.dialog.deleteTitle": "Delete preset",
+    "presets.dialog.deleteMessage":
+      "Make sure no profile still references this preset before deleting it.",
+    "presets.toast.saved": "Preset saved",
+    "presets.toast.saveError": "Failed to save preset",
+    "presets.toast.deleted": "Preset deleted",
+    "presets.toast.deleteError": "Failed to delete preset",
+    "presets.editor.title.add": "Add Preset",
+    "presets.editor.title.edit": "Edit Preset",
+    "presets.editor.save": "Save",
+    "presets.editor.fields.nameZh": "Chinese Name",
+    "presets.editor.fields.nameEn": "English Name",
+    "presets.editor.fields.description": "Description",
+    "presets.editor.fields.docUrl": "Documentation URL",
+    "presets.editor.fields.basePreset": "Base Preset",
+    "presets.editor.fields.authToken": "ANTHROPIC_AUTH_TOKEN",
+    "presets.editor.fields.baseUrl": "ANTHROPIC_BASE_URL",
+    "presets.editor.fields.modelSuggestions": "Suggested Models",
+    "presets.editor.placeholders.nameZh": "e.g. Team OpenRouter (Chinese)",
+    "presets.editor.placeholders.nameEn": "e.g. Team OpenRouter",
+    "presets.editor.placeholders.description": "Describe what this preset is for",
+    "presets.editor.placeholders.modelSuggestions":
+      "Comma-separated, e.g. claude-sonnet-4-6, claude-opus-4-1",
+    "presets.editor.hints.modelSuggestions":
+      "These are suggestions only; the final model is decided by profile.settings.",
+    "presets.editor.hints.baseSuggestions": "Base preset suggestions",
+    "presets.editor.hints.behaviorJson":
+      "Edit the related top-level behavior keys and scoped env overrides directly without creating a nested behavior object.",
+    "presets.editor.hints.expert":
+      "Edit the full settingsPatch document here for advanced fields that the controls do not cover yet.",
+    "presets.editor.hints.expertStructuredKeys": "Structured keys currently covered",
+    "presets.editor.sections.metadata": "Basics",
+    "presets.editor.sections.auth": "Authentication",
+    "presets.editor.sections.behavior": "Model & Behavior",
+    "presets.editor.sections.environment": "Environment Variables",
+    "presets.editor.sections.permissions": "Permissions",
+    "presets.editor.sections.sandbox": "Sandbox",
+    "presets.editor.sections.hooks": "Hooks",
+    "presets.editor.sections.marketplaces": "Plugin Marketplaces",
+    "presets.editor.sections.plugins": "Plugins",
+    "presets.editor.sections.integrations": "Integrations",
+    "presets.editor.sections.preview": "Patch Preview",
+    "presets.editor.expert.open": "Full Settings JSON",
+    "presets.editor.expert.close": "Hide Full Settings JSON",
+    "presets.editor.options.none": "None",
+    "presets.editor.validation.settingsPatchObject": "settingsPatch must be a JSON object",
 
     // Projects page
     "projects.title": "Projects",
@@ -1022,12 +1314,6 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       saveSettings(next);
       return next;
     });
-
-    if (isTauri()) {
-      void invoke("set_ui_language", { language }).catch(() => {
-        // 忽略同步失败，保持界面语言仍可用
-      });
-    }
   }, []);
 
   const setTheme = useCallback((theme: Theme) => {
@@ -1050,11 +1336,11 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
     let cancelled = false;
 
-    void invoke<AppState>("get_configs")
-      .then((state) => {
+    void invoke<ConfigWorkspace>("get_config_workspace")
+      .then((workspace) => {
         if (cancelled) return;
 
-        const backendLanguage: Language = state.uiLanguage === "en" ? "en" : "zh";
+        const backendLanguage: Language = workspace.app.uiLanguage === "en" ? "en" : "zh";
         setSettings((prev) => {
           if (prev.language === backendLanguage) {
             return prev;

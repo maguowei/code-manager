@@ -83,6 +83,80 @@ export type DefaultTerminalApp = "terminal" | "iterm" | "warp" | "ghostty";
 
 export type DefaultEditorApp = "vscode" | "cursor" | "windsurf" | "zed";
 
+export interface AppPreferences {
+  showTrayTitle: boolean;
+  uiLanguage: "zh" | "en";
+  defaultTerminalApp: DefaultTerminalApp;
+  defaultEditorApp: DefaultEditorApp | null;
+}
+
+export type TargetScope = "user" | "project" | "local";
+
+export interface ProfileTarget {
+  scope: TargetScope;
+  projectPath?: string;
+}
+
+export type PresetSource = "builtin" | "custom";
+
+export interface LocalizedText {
+  zh: string;
+  en: string;
+}
+
+export type PresetModelCategory = "opus" | "sonnet" | "haiku" | "other";
+
+export interface SettingsPresetModel {
+  id: string;
+  category: PresetModelCategory;
+}
+
+export interface SettingsPreset {
+  id: string;
+  name: string;
+  localizedName?: LocalizedText;
+  description: string;
+  basePresetId?: string;
+  docUrl?: string;
+  models?: SettingsPresetModel[];
+  modelSuggestions: string[];
+  settingsPatch: Record<string, unknown>;
+  source: PresetSource;
+}
+
+export interface ConfigProfile {
+  id: string;
+  name: string;
+  description: string;
+  target: ProfileTarget;
+  presetId?: string;
+  settings: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BindingEntry {
+  projectPath: string;
+  profileId: string;
+  lastAppliedAt?: string;
+}
+
+export interface BindingState {
+  userProfileId?: string;
+  userLastAppliedAt?: string;
+  projectBindings: BindingEntry[];
+  localBindings: BindingEntry[];
+}
+
+export interface ConfigWorkspace {
+  app: AppPreferences;
+  builtinPresets: SettingsPreset[];
+  customPresets: SettingsPreset[];
+  profiles: ConfigProfile[];
+  bindings: BindingState;
+  knownProjects: string[];
+}
+
 // 记忆条目
 export interface Memory {
   id: string;

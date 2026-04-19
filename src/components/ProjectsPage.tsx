@@ -6,8 +6,8 @@ import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
 import {
-  type AppState,
   type ClaudeStats,
+  type ConfigWorkspace,
   type DefaultEditorApp,
   isTauri,
   type ProjectDetail,
@@ -102,8 +102,8 @@ function ProjectsPage() {
       return;
     }
 
-    const state = await invoke<AppState>("get_configs");
-    setDefaultEditorApp(state.defaultEditorApp ?? null);
+    const workspace = await invoke<ConfigWorkspace>("get_config_workspace");
+    setDefaultEditorApp(workspace.app.defaultEditorApp ?? null);
   }, []);
 
   useEffect(() => {

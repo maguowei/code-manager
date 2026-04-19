@@ -1,203 +1,256 @@
+use crate::stats::ClaudeStats;
 use crate::tray::rebuild_tray_menu;
-use schemars::JsonSchema;
+use once_cell::sync::Lazy;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use serde_json::{Map, Value};
+use std::collections::{BTreeSet, HashMap, HashSet};
+use std::fs;
+use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
 
-/// 新增/更新配置的数据传输对象
-#[derive(Debug, Deserialize, JsonSchema)]
+const CLAUDE_SETTINGS_SCHEMA_URL: &str = "https://json.schemastore.org/claude-code-settings.json";
+const CONFIG_REGISTRY_SCHEMA_URL: &str =
+    "https://ai-manager.app/schemas/config-registry.schema.json";
+const REGISTRY_VERSION: u32 = 1;
+
+static CLAUDE_SETTINGS_SCHEMA: Lazy<Value> = Lazy::new(|| {
+    serde_json::from_str(include_str!(
+        "../../src/schemas/claude-settings.schema.json"
+    ))
+    .expect("Claude settings schema 格式错误")
+});
+
+static CLAUDE_SETTINGS_TOP_LEVEL_KEYS: Lazy<HashSet<String>> = Lazy::new(|| {
+    CLAUDE_SETTINGS_SCHEMA["properties"]
+        .as_object()
+        .map(|properties| properties.keys().cloned().collect())
+        .unwrap_or_default()
+});
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-#[serde(deny_unknown_fields)]
-pub struct ConfigData {
-    pub name: String,
-    pub description: String,
-    pub api_key: String,
-    pub base_url: Option<String>,
-    pub website_url: Option<String>,
-    pub model: Option<String>,
-    pub thinking_model: Option<String>,
-    pub haiku_model: Option<String>,
-    pub sonnet_model: Option<String>,
-    pub opus_model: Option<String>,
-    pub effort_level: Option<String>,
-    pub fullscreen_rendering_enabled: Option<bool>,
-    pub interactive_init_enabled: Option<bool>,
-    pub always_thinking_enabled: Option<bool>,
-    pub disable_nonessential_traffic: Option<bool>,
-    pub skip_web_fetch_preflight: Option<bool>,
-    pub enable_lsp_tool: Option<bool>,
-    pub agent_teams_enabled: Option<bool>,
-    pub has_completed_onboarding: Option<bool>,
-    pub enable_extra_marketplaces: Option<bool>,
-    pub preferred_language: Option<String>,
-    pub use_defaults: Option<bool>,
-    pub enabled_plugins: Option<HashMap<String, bool>>,
-    pub extra_fields: Option<HashMap<String, serde_json::Value>>,
-    pub provider_id: Option<String>,
+pub struct AppPreferences {
+    #[serde(default = "default_true")]
+    pub show_tray_title: bool,
+    #[serde(default = "default_ui_language")]
+    pub ui_language: String,
+    #[serde(default = "default_terminal_app")]
+    pub default_terminal_app: String,
+    #[serde(default)]
+    pub default_editor_app: Option<String>,
 }
 
-impl ConfigData {
-    /// 将 DTO 转换为 ClaudeConfig（新建场景）
-    fn into_config(self) -> ClaudeConfig {
-        let now = crate::utils::current_timestamp();
-        let mut config = self.into_preview_config();
-        config.id = Uuid::new_v4().to_string();
-        config.created_at = now;
-        config.updated_at = now;
-        config
-    }
-
-    /// 将 DTO 转换为轻量级 ClaudeConfig（预览场景，不生成 UUID 和时间戳）
-    fn into_preview_config(self) -> ClaudeConfig {
-        ClaudeConfig {
-            id: String::new(),
-            name: self.name,
-            description: self.description,
-            api_key: self.api_key,
-            base_url: self.base_url,
-            website_url: self.website_url,
-            model: self.model,
-            thinking_model: self.thinking_model,
-            haiku_model: self.haiku_model,
-            sonnet_model: self.sonnet_model,
-            opus_model: self.opus_model,
-            effort_level: self.effort_level,
-            fullscreen_rendering_enabled: self.fullscreen_rendering_enabled,
-            interactive_init_enabled: self.interactive_init_enabled,
-            always_thinking_enabled: self.always_thinking_enabled,
-            disable_nonessential_traffic: self.disable_nonessential_traffic,
-            skip_web_fetch_preflight: self.skip_web_fetch_preflight,
-            enable_lsp_tool: self.enable_lsp_tool,
-            agent_teams_enabled: self.agent_teams_enabled,
-            has_completed_onboarding: self.has_completed_onboarding,
-            enable_extra_marketplaces: self.enable_extra_marketplaces,
-            preferred_language: self.preferred_language,
-            use_defaults: self.use_defaults,
-            enabled_plugins: self.enabled_plugins,
-            extra_fields: self.extra_fields,
-            provider_id: self.provider_id,
-            is_active: false,
-            created_at: 0,
-            updated_at: 0,
+impl Default for AppPreferences {
+    fn default() -> Self {
+        Self {
+            show_tray_title: default_true(),
+            ui_language: default_ui_language(),
+            default_terminal_app: default_terminal_app(),
+            default_editor_app: None,
         }
     }
-
-    /// 将 DTO 的字段写入已有的 ClaudeConfig（更新场景）
-    fn apply_to(self, config: &mut ClaudeConfig) {
-        config.name = self.name;
-        config.description = self.description;
-        config.api_key = self.api_key;
-        config.base_url = self.base_url;
-        config.website_url = self.website_url;
-        config.model = self.model;
-        config.thinking_model = self.thinking_model;
-        config.haiku_model = self.haiku_model;
-        config.sonnet_model = self.sonnet_model;
-        config.opus_model = self.opus_model;
-        config.effort_level = self.effort_level;
-        config.fullscreen_rendering_enabled = self.fullscreen_rendering_enabled;
-        config.interactive_init_enabled = self.interactive_init_enabled;
-        config.always_thinking_enabled = self.always_thinking_enabled;
-        config.disable_nonessential_traffic = self.disable_nonessential_traffic;
-        config.skip_web_fetch_preflight = self.skip_web_fetch_preflight;
-        config.enable_lsp_tool = self.enable_lsp_tool;
-        config.agent_teams_enabled = self.agent_teams_enabled;
-        config.has_completed_onboarding = self.has_completed_onboarding;
-        config.enable_extra_marketplaces = self.enable_extra_marketplaces;
-        config.preferred_language = self.preferred_language;
-        config.use_defaults = self.use_defaults;
-        config.enabled_plugins = self.enabled_plugins;
-        config.extra_fields = self.extra_fields;
-        config.provider_id = self.provider_id;
-        config.updated_at = crate::utils::current_timestamp();
-    }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum TargetScope {
+    User,
+    Project,
+    Local,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct ClaudeConfig {
+pub struct ProfileTarget {
+    pub scope: TargetScope,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum PresetSource {
+    Builtin,
+    Custom,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalizedText {
+    pub zh: String,
+    pub en: String,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum PresetModelCategory {
+    Opus,
+    Sonnet,
+    Haiku,
+    Other,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingsPresetModel {
+    pub id: String,
+    pub category: PresetModelCategory,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingsPreset {
+    pub id: String,
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub localized_name: Option<LocalizedText>,
+    pub description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub base_preset_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub doc_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub models: Option<Vec<SettingsPresetModel>>,
+    #[serde(default)]
+    pub model_suggestions: Vec<String>,
+    pub settings_patch: Value,
+    pub source: PresetSource,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigProfile {
     pub id: String,
     pub name: String,
     pub description: String,
-    pub api_key: String,
+    pub target: ProfileTarget,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub base_url: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub website_url: Option<String>,
-    // 模型配置
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub model: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub thinking_model: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub haiku_model: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sonnet_model: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub opus_model: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub effort_level: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub fullscreen_rendering_enabled: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub interactive_init_enabled: Option<bool>,
-    // 高级选项
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub always_thinking_enabled: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub disable_nonessential_traffic: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub skip_web_fetch_preflight: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub enable_lsp_tool: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub agent_teams_enabled: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub has_completed_onboarding: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub enable_extra_marketplaces: Option<bool>,
-    // 语言配置
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub preferred_language: Option<String>,
-    // 通用配置
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub use_defaults: Option<bool>,
-    // 插件配置
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub enabled_plugins: Option<HashMap<String, bool>>,
-    // 额外字段（用户在 JSON 编辑器中手动添加的字段）
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub extra_fields: Option<HashMap<String, serde_json::Value>>,
-    // Provider 关联
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub provider_id: Option<String>,
-    // 元数据
-    pub is_active: bool,
-    pub created_at: u64,
-    pub updated_at: u64,
+    pub preset_id: Option<String>,
+    pub settings: Value,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct AppState {
-    pub configs: Vec<ClaudeConfig>,
-    pub active_config_id: Option<String>,
+pub struct BindingEntry {
+    pub project_path: String,
+    pub profile_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub defaults: Option<String>,
-    /// 是否在托盘图标旁显示当前激活配置名（默认 true）
-    #[serde(default = "default_true")]
-    pub show_tray_title: bool,
-    /// 界面语言，同时用于 tray / menubar 菜单国际化
-    #[serde(default = "default_ui_language")]
-    pub ui_language: String,
-    /// 默认终端应用，用于项目目录一键打开
-    #[serde(default = "default_terminal_app")]
-    pub default_terminal_app: String,
-    /// 默认编辑器应用，允许为空表示尚未配置
+    pub last_applied_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct BindingState {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_profile_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_last_applied_at: Option<String>,
     #[serde(default)]
+    pub project_bindings: Vec<BindingEntry>,
+    #[serde(default)]
+    pub local_bindings: Vec<BindingEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigRegistry {
+    #[serde(rename = "$schema")]
+    pub schema: String,
+    pub version: u32,
+    pub app: AppPreferences,
+    #[serde(default)]
+    pub custom_presets: Vec<SettingsPreset>,
+    #[serde(default)]
+    pub profiles: Vec<ConfigProfile>,
+    #[serde(default)]
+    pub bindings: BindingState,
+}
+
+impl Default for ConfigRegistry {
+    fn default() -> Self {
+        Self {
+            schema: CONFIG_REGISTRY_SCHEMA_URL.to_string(),
+            version: REGISTRY_VERSION,
+            app: AppPreferences::default(),
+            custom_presets: Vec::new(),
+            profiles: Vec::new(),
+            bindings: BindingState::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigWorkspace {
+    pub app: AppPreferences,
+    pub builtin_presets: Vec<SettingsPreset>,
+    pub custom_presets: Vec<SettingsPreset>,
+    pub profiles: Vec<ConfigProfile>,
+    pub bindings: BindingState,
+    pub known_projects: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct AppPreferencesInput {
+    pub show_tray_title: bool,
+    pub ui_language: String,
+    pub default_terminal_app: String,
     pub default_editor_app: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct ProfileInput {
+    pub id: Option<String>,
+    pub name: String,
+    pub description: String,
+    pub target: ProfileTarget,
+    pub preset_id: Option<String>,
+    pub settings: Value,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct PresetInput {
+    pub id: Option<String>,
+    pub name: String,
+    #[serde(default)]
+    pub localized_name: Option<LocalizedText>,
+    pub description: String,
+    pub base_preset_id: Option<String>,
+    pub doc_url: Option<String>,
+    #[serde(default)]
+    pub models: Option<Vec<SettingsPresetModel>>,
+    #[serde(default)]
+    pub model_suggestions: Vec<String>,
+    pub settings_patch: Value,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BuiltinPresetSeed {
+    name: String,
+    #[serde(default)]
+    localized_name: Option<LocalizedText>,
+    slug: String,
+    base_url: String,
+    doc_url: Option<String>,
+    models: Vec<BuiltinPresetModel>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BuiltinPresetModel {
+    id: String,
+    category: PresetModelCategory,
 }
 
 fn default_true() -> bool {
@@ -240,608 +293,295 @@ pub fn normalize_default_editor_app(app: &str) -> Result<&'static str, String> {
     }
 }
 
-impl Default for AppState {
-    fn default() -> Self {
-        Self {
-            configs: Vec::new(),
-            active_config_id: None,
-            defaults: None,
-            show_tray_title: default_true(),
-            ui_language: default_ui_language(),
-            default_terminal_app: default_terminal_app(),
-            default_editor_app: None,
-        }
-    }
+fn get_registry_path() -> Result<PathBuf, String> {
+    Ok(crate::utils::get_app_data_dir_strict()?.join("config-registry.json"))
 }
 
-/// 获取应用配置文件路径
-fn get_config_path() -> PathBuf {
-    crate::utils::get_app_data_dir().join("configs.json")
-}
-
-/// 获取 Claude 设置文件路径
-fn get_claude_config_path() -> PathBuf {
-    crate::utils::home_dir_or_fallback()
+fn get_user_settings_path() -> Result<PathBuf, String> {
+    Ok(crate::utils::get_home_dir()?
         .join(".claude")
-        .join("settings.json")
+        .join("settings.json"))
 }
 
-/// 从文件加载应用状态，失败时返回默认值
-pub fn load_state() -> AppState {
-    let path = get_config_path();
-    crate::utils::read_json_file(&path)
+fn get_claude_stats_path() -> Result<PathBuf, String> {
+    Ok(crate::utils::get_home_dir()?.join(".claude.json"))
 }
 
-/// 将应用状态序列化并写入文件
-pub fn save_state(state: &AppState) -> Result<(), String> {
-    crate::utils::save_json_file(&get_config_path(), state)
-}
+fn parse_builtin_presets() -> Vec<SettingsPreset> {
+    let seeds: Vec<BuiltinPresetSeed> =
+        serde_json::from_str(include_str!("../resources/builtin-providers.json"))
+            .expect("builtin-providers.json 格式错误");
 
-/// 深度合并两个 JSON 值：base 为基础，overlay 的字段优先覆盖
-/// 对象递归合并，非对象类型 overlay 优先
-fn deep_merge(base: serde_json::Value, overlay: serde_json::Value) -> serde_json::Value {
-    match (base, overlay) {
-        (serde_json::Value::Object(mut base_map), serde_json::Value::Object(overlay_map)) => {
-            for (key, overlay_val) in overlay_map {
-                let merged = if let Some(base_val) = base_map.remove(&key) {
-                    deep_merge(base_val, overlay_val)
-                } else {
-                    overlay_val
-                };
-                base_map.insert(key, merged);
+    seeds
+        .into_iter()
+        .map(|seed| {
+            let mut settings_patch = Map::new();
+            if !seed.base_url.trim().is_empty() {
+                settings_patch.insert(
+                    "env".to_string(),
+                    Value::Object(
+                        [(
+                            "ANTHROPIC_BASE_URL".to_string(),
+                            Value::String(seed.base_url.trim().to_string()),
+                        )]
+                        .into_iter()
+                        .collect(),
+                    ),
+                );
             }
-            serde_json::Value::Object(base_map)
-        }
-        // 非对象类型，overlay 优先
-        (_, overlay) => overlay,
-    }
+
+            SettingsPreset {
+                id: format!("builtin:{}", seed.slug),
+                name: seed.name.clone(),
+                localized_name: normalize_localized_text(seed.localized_name, &seed.name),
+                description: format!("{} 预设", seed.name),
+                base_preset_id: None,
+                doc_url: seed.doc_url,
+                models: normalize_preset_models(Some(
+                    seed.models
+                        .iter()
+                        .map(|model| SettingsPresetModel {
+                            id: model.id.clone(),
+                            category: model.category,
+                        })
+                        .collect(),
+                )),
+                model_suggestions: normalize_model_suggestions(
+                    seed.models.into_iter().map(|model| model.id).collect(),
+                ),
+                settings_patch: Value::Object(settings_patch),
+                source: PresetSource::Builtin,
+            }
+        })
+        .collect()
 }
 
-/// 构建配置的 JSON 表示（不含文件 I/O），供 apply_config 与 preview_config 共用。
-///
-/// `defaults` 为通用配置的 JSON 字符串，当 `config.use_defaults == Some(true)` 时参与深度合并。
-fn build_config_value(
-    config: &ClaudeConfig,
-    defaults: Option<&str>,
-    provider_base_url: Option<&str>,
-) -> serde_json::Value {
-    let mut env = serde_json::Map::new();
-    env.insert(
-        "ANTHROPIC_AUTH_TOKEN".to_string(),
-        serde_json::Value::String(config.api_key.clone()),
-    );
+pub fn builtin_presets() -> Vec<SettingsPreset> {
+    static BUILTIN_PRESETS: Lazy<Vec<SettingsPreset>> = Lazy::new(parse_builtin_presets);
+    BUILTIN_PRESETS.clone()
+}
 
-    let effective_base_url = config
-        .base_url
-        .as_deref()
-        .filter(|s| !s.is_empty())
-        .or_else(|| provider_base_url.filter(|s| !s.is_empty()));
-    if let Some(url) = effective_base_url {
-        env.insert(
-            "ANTHROPIC_BASE_URL".to_string(),
-            serde_json::Value::String(url.to_string()),
-        );
-    }
-    if let Some(ref model) = config.model {
-        env.insert(
-            "ANTHROPIC_MODEL".to_string(),
-            serde_json::Value::String(model.clone()),
-        );
-    }
-    if let Some(ref haiku_model) = config.haiku_model {
-        env.insert(
-            "ANTHROPIC_DEFAULT_HAIKU_MODEL".to_string(),
-            serde_json::Value::String(haiku_model.clone()),
-        );
-    }
-    if let Some(ref sonnet_model) = config.sonnet_model {
-        env.insert(
-            "ANTHROPIC_DEFAULT_SONNET_MODEL".to_string(),
-            serde_json::Value::String(sonnet_model.clone()),
-        );
-    }
-    if let Some(ref opus_model) = config.opus_model {
-        env.insert(
-            "ANTHROPIC_DEFAULT_OPUS_MODEL".to_string(),
-            serde_json::Value::String(opus_model.clone()),
-        );
-    }
-    if let Some(ref effort_level) = config.effort_level {
-        env.insert(
-            "CLAUDE_CODE_EFFORT_LEVEL".to_string(),
-            serde_json::Value::String(effort_level.clone()),
-        );
-    }
-    if config.fullscreen_rendering_enabled == Some(true) {
-        env.insert(
-            "CLAUDE_CODE_NO_FLICKER".to_string(),
-            serde_json::Value::String("1".to_string()),
-        );
-    }
-    if config.interactive_init_enabled == Some(true) {
-        env.insert(
-            "CLAUDE_CODE_NEW_INIT".to_string(),
-            serde_json::Value::String("1".to_string()),
-        );
-    }
-    if config.disable_nonessential_traffic == Some(true) {
-        env.insert(
-            "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC".to_string(),
-            serde_json::Value::String("1".to_string()),
-        );
-    }
-    if config.enable_lsp_tool == Some(true) {
-        env.insert(
-            "ENABLE_LSP_TOOL".to_string(),
-            serde_json::Value::String("1".to_string()),
-        );
-    }
-    if config.agent_teams_enabled == Some(true) {
-        env.insert(
-            "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS".to_string(),
-            serde_json::Value::String("1".to_string()),
-        );
-    }
-
-    let mut claude_config = serde_json::Map::new();
-
-    if let Some(ref lang) = config.preferred_language {
-        if lang != "english" {
-            claude_config.insert(
-                "language".to_string(),
-                serde_json::Value::String(lang.clone()),
-            );
+fn normalize_registry(registry: &mut ConfigRegistry) {
+    registry.schema = CONFIG_REGISTRY_SCHEMA_URL.to_string();
+    registry.version = REGISTRY_VERSION;
+    registry.custom_presets.iter_mut().for_each(|preset| {
+        preset.source = PresetSource::Custom;
+        preset.localized_name =
+            normalize_localized_text(preset.localized_name.take(), &preset.name);
+        preset.models = normalize_preset_models(preset.models.take());
+        preset.model_suggestions =
+            normalize_model_suggestions(std::mem::take(&mut preset.model_suggestions));
+        if !preset.settings_patch.is_object() {
+            preset.settings_patch = Value::Object(Map::new());
         }
+    });
+    registry.profiles.iter_mut().for_each(|profile| {
+        if !profile.settings.is_object() {
+            profile.settings = Value::Object(Map::new());
+        }
+    });
+}
+
+pub fn load_registry() -> Result<ConfigRegistry, String> {
+    let path = get_registry_path()?;
+    if !path.exists() {
+        return Ok(ConfigRegistry::default());
     }
 
-    if config.always_thinking_enabled == Some(true) {
-        claude_config.insert(
-            "alwaysThinkingEnabled".to_string(),
-            serde_json::Value::Bool(true),
-        );
-    }
+    let mut registry: ConfigRegistry = crate::utils::read_json_file_strict(&path)?;
+    normalize_registry(&mut registry);
+    Ok(registry)
+}
 
-    if config.skip_web_fetch_preflight == Some(true) {
-        claude_config.insert(
-            "skipWebFetchPreflight".to_string(),
-            serde_json::Value::Bool(true),
-        );
-    }
+pub fn load_registry_or_default() -> ConfigRegistry {
+    load_registry().unwrap_or_default()
+}
 
-    if config.has_completed_onboarding == Some(true) {
-        claude_config.insert(
-            "hasCompletedOnboarding".to_string(),
-            serde_json::Value::Bool(true),
-        );
-    }
+pub fn load_app_preferences() -> AppPreferences {
+    load_registry_or_default().app
+}
 
-    if config.enable_extra_marketplaces == Some(true) {
-        let marketplaces: serde_json::Value = serde_json::json!({
-            "claude-plugins-official": {
-                "source": {
-                    "source": "github",
-                    "repo": "anthropics/claude-plugins-official"
-                }
-            },
-            "chrome-devtools-plugins": {
-                "source": {
-                    "source": "github",
-                    "repo": "ChromeDevTools/chrome-devtools-mcp"
-                }
-            }
+fn save_registry(registry: &ConfigRegistry) -> Result<(), String> {
+    let path = get_registry_path()?;
+    let content = serde_json::to_string_pretty(registry).map_err(|e| e.to_string())?;
+    crate::utils::ensure_dir_and_write_atomic(&path, &content)
+}
+
+fn build_workspace(registry: ConfigRegistry) -> ConfigWorkspace {
+    let mut known_projects: BTreeSet<String> = registry
+        .profiles
+        .iter()
+        .filter_map(|profile| profile.target.project_path.clone())
+        .collect();
+
+    if let Ok(path) = get_claude_stats_path() {
+        let stats: ClaudeStats = crate::utils::read_json_file(&path);
+        stats.projects.keys().for_each(|project| {
+            known_projects.insert(project.clone());
         });
-        claude_config.insert("extraKnownMarketplaces".to_string(), marketplaces);
     }
 
-    if let Some(ref plugins) = config.enabled_plugins {
-        if !plugins.is_empty() {
-            let plugins_map: serde_json::Map<String, serde_json::Value> = plugins
-                .iter()
-                .map(|(k, v)| (k.clone(), serde_json::Value::Bool(*v)))
-                .collect();
-            claude_config.insert(
-                "enabledPlugins".to_string(),
-                serde_json::Value::Object(plugins_map),
-            );
-        }
+    ConfigWorkspace {
+        app: registry.app.clone(),
+        builtin_presets: builtin_presets(),
+        custom_presets: registry.custom_presets,
+        profiles: registry.profiles,
+        bindings: registry.bindings,
+        known_projects: known_projects.into_iter().collect(),
+    }
+}
+
+fn normalize_project_path(project_path: &str) -> Result<String, String> {
+    let trimmed = project_path.trim();
+    if trimmed.is_empty() {
+        return Err("项目路径不能为空".to_string());
     }
 
-    claude_config.insert("env".to_string(), serde_json::Value::Object(env));
+    let path = PathBuf::from(trimmed);
+    if let Ok(canonicalized) = path.canonicalize() {
+        return Ok(canonicalized.to_string_lossy().to_string());
+    }
 
-    // 构建基础配置，若启用通用配置则深度合并（通用配置为 base，当前配置覆盖）
-    let mut result = if config.use_defaults == Some(true) {
-        if let Some(defaults_str) = defaults {
-            if let Ok(defaults_val) = serde_json::from_str::<serde_json::Value>(defaults_str) {
-                let current_val = serde_json::Value::Object(claude_config);
-                deep_merge(defaults_val, current_val)
-            } else {
-                serde_json::Value::Object(claude_config)
+    Ok(path.to_string_lossy().to_string())
+}
+
+fn normalize_profile_target(target: ProfileTarget) -> Result<ProfileTarget, String> {
+    match target.scope {
+        TargetScope::User => Ok(ProfileTarget {
+            scope: TargetScope::User,
+            project_path: None,
+        }),
+        TargetScope::Project | TargetScope::Local => Ok(ProfileTarget {
+            scope: target.scope,
+            project_path: Some(normalize_project_path(
+                target
+                    .project_path
+                    .as_deref()
+                    .ok_or("Project / Local 配置必须指定项目路径".to_string())?,
+            )?),
+        }),
+    }
+}
+
+fn normalize_settings_document(settings: Value) -> Result<Value, String> {
+    if settings.is_null() {
+        return Ok(Value::Object(Map::new()));
+    }
+    if !settings.is_object() {
+        return Err("settings 必须是 JSON object".to_string());
+    }
+    Ok(settings)
+}
+
+fn normalize_model_suggestions(models: Vec<String>) -> Vec<String> {
+    let mut seen = HashSet::new();
+    models
+        .into_iter()
+        .map(|model| model.trim().to_string())
+        .filter(|model| !model.is_empty())
+        .filter(|model| seen.insert(model.clone()))
+        .collect()
+}
+
+fn normalize_preset_models(
+    models: Option<Vec<SettingsPresetModel>>,
+) -> Option<Vec<SettingsPresetModel>> {
+    let mut seen = HashSet::new();
+    let normalized: Vec<SettingsPresetModel> = models
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|model| {
+            let id = model.id.trim().to_string();
+            if id.is_empty() || !seen.insert(id.clone()) {
+                return None;
             }
-        } else {
-            serde_json::Value::Object(claude_config)
-        }
+            Some(SettingsPresetModel {
+                id,
+                category: model.category,
+            })
+        })
+        .collect();
+
+    if normalized.is_empty() {
+        None
     } else {
-        serde_json::Value::Object(claude_config)
+        Some(normalized)
+    }
+}
+
+fn normalize_localized_text(
+    localized_text: Option<LocalizedText>,
+    fallback: &str,
+) -> Option<LocalizedText> {
+    let fallback = fallback.trim();
+    let zh = localized_text
+        .as_ref()
+        .map(|value| value.zh.trim())
+        .filter(|value| !value.is_empty())
+        .unwrap_or("");
+    let en = localized_text
+        .as_ref()
+        .map(|value| value.en.trim())
+        .filter(|value| !value.is_empty())
+        .unwrap_or("");
+
+    if zh.is_empty() && en.is_empty() && fallback.is_empty() {
+        return None;
+    }
+
+    let seed = if !en.is_empty() {
+        en.to_string()
+    } else if !zh.is_empty() {
+        zh.to_string()
+    } else {
+        fallback.to_string()
     };
 
-    // 记录哪些 env 键已经被显式配置接管，避免 extra_fields 将其重新写回。
-    let explicit_env_keys = build_explicit_env_keys(config);
-
-    // 合并额外字段（用户在 JSON 编辑器中手动添加的字段）
-    if let Some(ref extra) = config.extra_fields {
-        if let serde_json::Value::Object(ref mut map) = result {
-            for (k, v) in extra {
-                if let Some(existing) = map.get_mut(k) {
-                    // 两者都是对象时递归合并（如 env 中的自定义环境变量）
-                    if let (
-                        serde_json::Value::Object(ref mut existing_map),
-                        serde_json::Value::Object(extra_map),
-                    ) = (existing, v)
-                    {
-                        for (ek, ev) in extra_map {
-                            if !existing_map.contains_key(ek)
-                                && !explicit_env_keys.contains(ek.as_str())
-                            {
-                                existing_map.insert(ek.clone(), ev.clone());
-                            }
-                        }
-                    }
-                    // 非对象类型不覆盖已知字段
-                } else {
-                    map.insert(k.clone(), v.clone());
-                }
+    Some(LocalizedText {
+        zh: if zh.is_empty() {
+            if fallback.is_empty() {
+                seed.clone()
+            } else {
+                fallback.to_string()
             }
-        }
-    }
-
-    result
+        } else {
+            zh.to_string()
+        },
+        en: if en.is_empty() { seed } else { en.to_string() },
+    })
 }
 
-/// 返回已被显式字段接管的 env 键，避免 extra_fields.env 覆盖配置字段。
-fn build_explicit_env_keys(config: &ClaudeConfig) -> HashSet<&'static str> {
-    let mut keys = HashSet::from(["ANTHROPIC_AUTH_TOKEN"]);
-
-    if config.base_url.as_deref().is_some_and(|value| !value.is_empty()) {
-        keys.insert("ANTHROPIC_BASE_URL");
-    }
-    if config.model.is_some() {
-        keys.insert("ANTHROPIC_MODEL");
-    }
-    if config.haiku_model.is_some() {
-        keys.insert("ANTHROPIC_DEFAULT_HAIKU_MODEL");
-    }
-    if config.sonnet_model.is_some() {
-        keys.insert("ANTHROPIC_DEFAULT_SONNET_MODEL");
-    }
-    if config.opus_model.is_some() {
-        keys.insert("ANTHROPIC_DEFAULT_OPUS_MODEL");
-    }
-    if config.effort_level.is_some() {
-        keys.insert("CLAUDE_CODE_EFFORT_LEVEL");
-    }
-    if config.fullscreen_rendering_enabled.is_some() {
-        keys.insert("CLAUDE_CODE_NO_FLICKER");
-    }
-    if config.interactive_init_enabled.is_some() {
-        keys.insert("CLAUDE_CODE_NEW_INIT");
-    }
-    if config.disable_nonessential_traffic.is_some() {
-        keys.insert("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC");
-    }
-    if config.enable_lsp_tool.is_some() {
-        keys.insert("ENABLE_LSP_TOOL");
-    }
-    if config.agent_teams_enabled.is_some() {
-        keys.insert("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS");
-    }
-
-    keys
+fn normalize_profile_input(input: ProfileInput) -> Result<ProfileInput, String> {
+    Ok(ProfileInput {
+        id: input.id.filter(|id| !id.trim().is_empty()),
+        name: input.name.trim().to_string(),
+        description: input.description.trim().to_string(),
+        target: normalize_profile_target(input.target)?,
+        preset_id: input.preset_id.filter(|id| !id.trim().is_empty()),
+        settings: normalize_settings_document(input.settings)?,
+    })
 }
 
-/// 将指定配置应用到 ~/.claude/settings.json
-///
-/// **注意**：此函数可能在持有 `CONFIG_LOCK` 的上下文中被调用（如 `activate_config_inner`、`update_config`）。
-/// 因此内部不可再次获取该锁——标准库 `Mutex` 不可重入，否则会死锁。
-/// `defaults` 由调用方传入，避免重复读取磁盘状态。
-pub fn apply_config(config: &ClaudeConfig, defaults: Option<&str>) -> Result<(), String> {
-    let provider_base_url = config
-        .provider_id
-        .as_deref()
-        .and_then(crate::provider::get_provider_by_id)
-        .map(|p| p.base_url);
-    let provider_base_url_ref = provider_base_url.as_deref();
-    let final_config = build_config_value(config, defaults, provider_base_url_ref);
-    let path = get_claude_config_path();
-    let content = serde_json::to_string_pretty(&final_config).map_err(|e| e.to_string())?;
-    crate::utils::ensure_dir_and_write(&path, &content)
+fn normalize_preset_input(input: PresetInput) -> Result<PresetInput, String> {
+    Ok(PresetInput {
+        id: input.id.filter(|id| !id.trim().is_empty()),
+        name: input.name.trim().to_string(),
+        localized_name: normalize_localized_text(input.localized_name, &input.name),
+        description: input.description.trim().to_string(),
+        base_preset_id: input.base_preset_id.filter(|id| !id.trim().is_empty()),
+        doc_url: input.doc_url.filter(|url| !url.trim().is_empty()),
+        models: normalize_preset_models(input.models),
+        model_suggestions: normalize_model_suggestions(input.model_suggestions),
+        settings_patch: normalize_settings_document(input.settings_patch)?,
+    })
 }
 
-#[tauri::command]
-pub fn get_configs() -> Result<AppState, String> {
-    Ok(load_state())
-}
-
-/// 使用 ConfigData DTO 构建并保存新配置
-#[tauri::command]
-pub fn add_config(app_handle: AppHandle, data: ConfigData) -> Result<ClaudeConfig, String> {
-    // 加锁保护并发写入
-    let _lock = crate::utils::lock_config()?;
-
-    let mut state = load_state();
-
-    let config = data.into_config();
-
-    state.configs.push(config.clone());
-    save_state(&state)?;
-    rebuild_tray_menu(&app_handle, Some(&state));
-
-    Ok(config)
-}
-
-/// 使用 ConfigData DTO 更新已有配置
-#[tauri::command]
-pub fn update_config(
-    app_handle: AppHandle,
-    id: String,
-    data: ConfigData,
-) -> Result<ClaudeConfig, String> {
-    // 加锁保护并发写入
-    let _lock = crate::utils::lock_config()?;
-
-    let mut state = load_state();
-
-    let config = state
-        .configs
-        .iter_mut()
-        .find(|c| c.id == id)
-        .ok_or("未找到指定配置")?;
-
-    data.apply_to(config);
-
-    let updated = config.clone();
-    save_state(&state)?;
-
-    // 若该配置当前处于激活状态，重新应用以更新 Claude 设置
-    if state.active_config_id == Some(id) {
-        apply_config(&updated, state.defaults.as_deref())?;
-    }
-    rebuild_tray_menu(&app_handle, Some(&state));
-
-    Ok(updated)
-}
-
-/// 删除指定配置，若该配置处于激活状态则清除激活标记
-#[tauri::command]
-pub fn delete_config(app_handle: AppHandle, id: String) -> Result<(), String> {
-    // 加锁保护并发写入
-    let _lock = crate::utils::lock_config()?;
-
-    let mut state = load_state();
-
-    state.configs.retain(|c| c.id != id);
-
-    if state.active_config_id.as_deref() == Some(id.as_str()) {
-        state.active_config_id = None;
-    }
-
-    save_state(&state)?;
-    rebuild_tray_menu(&app_handle, Some(&state));
-    Ok(())
-}
-
-/// 复制指定配置，新配置插入到原配置后面
-#[tauri::command]
-pub fn duplicate_config(app_handle: AppHandle, id: String) -> Result<ClaudeConfig, String> {
-    // 加锁保护并发写入
-    let _lock = crate::utils::lock_config()?;
-
-    let mut state = load_state();
-
-    let index = state
-        .configs
-        .iter()
-        .position(|c| c.id == id)
-        .ok_or("未找到指定配置")?;
-
-    let original = &state.configs[index];
-    let now = crate::utils::current_timestamp();
-
-    let mut new_config = original.clone();
-    new_config.id = Uuid::new_v4().to_string();
-    new_config.name = format!("{} (copy)", original.name);
-    new_config.is_active = false;
-    new_config.created_at = now;
-    new_config.updated_at = now;
-
-    let result = new_config.clone();
-    // 插入到原项后面
-    state.configs.insert(index + 1, new_config);
-    save_state(&state)?;
-    rebuild_tray_menu(&app_handle, Some(&state));
-
-    Ok(result)
-}
-
-/// 按给定 id 顺序重新排列配置列表
-#[tauri::command]
-pub fn reorder_configs(app_handle: AppHandle, ids: Vec<String>) -> Result<(), String> {
-    // 加锁保护并发写入
-    let _lock = crate::utils::lock_config()?;
-
-    let mut state = load_state();
-
-    // 按 ids 顺序重排 configs，使用 HashMap 避免 O(n²) 查找
-    use std::collections::HashMap;
-    let config_map: HashMap<&str, &ClaudeConfig> =
-        state.configs.iter().map(|c| (c.id.as_str(), c)).collect();
-    let mut reordered: Vec<ClaudeConfig> = Vec::with_capacity(state.configs.len());
-    let mut seen = std::collections::HashSet::with_capacity(ids.len());
-    for id in &ids {
-        if let Some(config) = config_map.get(id.as_str()) {
-            reordered.push((*config).clone());
-            seen.insert(id.as_str());
-        }
-    }
-
-    // 保留不在 ids 中的配置（防御性处理）
-    for config in &state.configs {
-        if !seen.contains(config.id.as_str()) {
-            reordered.push(config.clone());
-        }
-    }
-
-    state.configs = reordered;
-    save_state(&state)?;
-    rebuild_tray_menu(&app_handle, Some(&state));
-    Ok(())
-}
-
-/// 激活指定配置的内部实现，可从 tray.rs 调用（无需 AppHandle）
-/// 返回修改后的 AppState，便于调用方传递给 rebuild_tray_menu 避免重复读盘
-pub fn activate_config_inner(id: String) -> Result<AppState, String> {
-    // 加锁保护并发写入
-    let _lock = crate::utils::lock_config()?;
-
-    let mut state = load_state();
-
-    // 查找并验证配置存在
-    let config = state
-        .configs
-        .iter()
-        .find(|c| c.id == id)
-        .ok_or("Config not found")?
-        .clone();
-
-    // 更新激活状态
-    for c in state.configs.iter_mut() {
-        c.is_active = c.id == id;
-    }
-    state.active_config_id = Some(id);
-
-    // 保存状态并应用配置
-    save_state(&state)?;
-    apply_config(&config, state.defaults.as_deref())?;
-
-    Ok(state)
-}
-
-/// 激活指定配置并刷新托盘菜单
-#[tauri::command]
-pub fn activate_config(app_handle: AppHandle, id: String) -> Result<(), String> {
-    let state = activate_config_inner(id)?;
-    rebuild_tray_menu(&app_handle, Some(&state));
-    Ok(())
-}
-
-#[tauri::command]
-pub fn get_defaults() -> Result<Option<String>, String> {
-    let state = load_state();
-    Ok(state.defaults)
-}
-
-/// 更新通用配置内容，若有激活配置且启用了通用配置则重新应用
-#[tauri::command]
-pub fn update_defaults(content: String) -> Result<(), String> {
-    // 加锁保护并发写入
-    let _lock = crate::utils::lock_config()?;
-
-    let mut state = load_state();
-    let trimmed = content.trim().to_string();
-    if trimmed.is_empty() {
-        state.defaults = None;
-    } else {
-        // 校验 JSON 合法性
-        serde_json::from_str::<serde_json::Value>(&trimmed)
-            .map_err(|e| format!("JSON 格式无效: {}", e))?;
-        state.defaults = Some(trimmed);
-    }
-    save_state(&state)?;
-
-    // 如果有激活的配置且启用了通用配置，重新 apply
-    if let Some(ref active_id) = state.active_config_id {
-        if let Some(config) = state.configs.iter().find(|c| &c.id == active_id) {
-            if config.use_defaults == Some(true) {
-                apply_config(config, state.defaults.as_deref())?;
-            }
-        }
-    }
-
-    Ok(())
-}
-
-/// 生成配置预览 JSON，不写入磁盘（供前端实时预览使用）
-#[tauri::command]
-pub fn preview_config(data: ConfigData, defaults: Option<String>) -> Result<String, String> {
-    // 构建临时 ClaudeConfig，仅用于 JSON 生成，不持久化
-    let provider_base_url = data
-        .provider_id
-        .as_deref()
-        .and_then(crate::provider::get_provider_by_id)
-        .map(|p| p.base_url);
-    let config = data.into_preview_config();
-    let final_config =
-        build_config_value(&config, defaults.as_deref(), provider_base_url.as_deref());
-    serde_json::to_string_pretty(&final_config).map_err(|e| e.to_string())
-}
-
-/// 设置是否在托盘图标旁显示当前激活配置名
-#[tauri::command]
-pub fn set_show_tray_title(app_handle: AppHandle, show: bool) -> Result<(), String> {
-    let _lock = crate::utils::lock_config()?;
-
-    let mut state = load_state();
-    if state.show_tray_title == show {
-        return Ok(());
-    }
-    state.show_tray_title = show;
-    save_state(&state)?;
-    rebuild_tray_menu(&app_handle, Some(&state));
-
-    Ok(())
-}
-
-/// 设置界面语言，并同步重建 tray / menubar 菜单
-#[tauri::command]
-pub fn set_ui_language(app_handle: AppHandle, language: String) -> Result<(), String> {
-    let _lock = crate::utils::lock_config()?;
-
-    let normalized = normalize_ui_language(&language)?;
-    let mut state = load_state();
-    if state.ui_language == normalized {
-        return Ok(());
-    }
-
-    state.ui_language = normalized.to_string();
-    save_state(&state)?;
-    rebuild_tray_menu(&app_handle, Some(&state));
-
-    Ok(())
-}
-
-/// 设置项目目录“一键打开”默认终端
-#[tauri::command]
-pub fn set_default_terminal_app(app_handle: AppHandle, app: String) -> Result<(), String> {
-    let _lock = crate::utils::lock_config()?;
-
-    let normalized = normalize_default_terminal_app(app.trim())?;
-    let mut state = load_state();
-    if state.default_terminal_app == normalized {
-        return Ok(());
-    }
-
-    state.default_terminal_app = normalized.to_string();
-    save_state(&state)?;
-    let _ = app_handle.emit("project-launcher-settings-changed", ());
-
-    Ok(())
-}
-
-/// 设置项目目录“一键打开”默认编辑器，None 表示清空配置
-#[tauri::command]
-pub fn set_default_editor_app(app_handle: AppHandle, app: Option<String>) -> Result<(), String> {
-    let _lock = crate::utils::lock_config()?;
-
-    let normalized = app
+fn normalize_app_preferences(input: AppPreferencesInput) -> Result<AppPreferences, String> {
+    let ui_language = normalize_ui_language(input.ui_language.trim())?.to_string();
+    let default_terminal_app =
+        normalize_default_terminal_app(input.default_terminal_app.trim())?.to_string();
+    let default_editor_app = input
+        .default_editor_app
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
@@ -849,522 +589,1216 @@ pub fn set_default_editor_app(app_handle: AppHandle, app: Option<String>) -> Res
         .transpose()?
         .map(str::to_string);
 
-    let mut state = load_state();
-    if state.default_editor_app == normalized {
-        return Ok(());
+    Ok(AppPreferences {
+        show_tray_title: input.show_tray_title,
+        ui_language,
+        default_terminal_app,
+        default_editor_app,
+    })
+}
+
+fn find_preset(registry: &ConfigRegistry, preset_id: &str) -> Option<SettingsPreset> {
+    builtin_presets()
+        .into_iter()
+        .find(|preset| preset.id == preset_id)
+        .or_else(|| {
+            registry
+                .custom_presets
+                .iter()
+                .find(|preset| preset.id == preset_id)
+                .cloned()
+        })
+}
+
+fn resolve_preset_chain(
+    registry: &ConfigRegistry,
+    preset_id: &str,
+    visited: &mut HashSet<String>,
+) -> Result<Vec<SettingsPreset>, String> {
+    if !visited.insert(preset_id.to_string()) {
+        return Err("检测到 preset 循环继承".to_string());
     }
 
-    state.default_editor_app = normalized;
-    save_state(&state)?;
-    let _ = app_handle.emit("project-launcher-settings-changed", ());
+    let preset =
+        find_preset(registry, preset_id).ok_or_else(|| format!("未找到 preset '{}'", preset_id))?;
+    let mut chain = if let Some(base_preset_id) = preset.base_preset_id.clone() {
+        resolve_preset_chain(registry, &base_preset_id, visited)?
+    } else {
+        Vec::new()
+    };
+    chain.push(preset);
+    Ok(chain)
+}
+
+fn merge_json_values(base: Value, overlay: Value) -> Value {
+    match (base, overlay) {
+        (Value::Object(mut base_map), Value::Object(overlay_map)) => {
+            for (key, overlay_value) in overlay_map {
+                let merged = if let Some(base_value) = base_map.remove(&key) {
+                    merge_json_values(base_value, overlay_value)
+                } else {
+                    overlay_value
+                };
+                base_map.insert(key, merged);
+            }
+            Value::Object(base_map)
+        }
+        (_, overlay) => overlay,
+    }
+}
+
+fn stable_sort_json(value: Value) -> Value {
+    match value {
+        Value::Object(map) => {
+            let sorted = map
+                .into_iter()
+                .map(|(key, value)| (key, stable_sort_json(value)))
+                .collect::<std::collections::BTreeMap<_, _>>();
+            Value::Object(sorted.into_iter().collect())
+        }
+        Value::Array(items) => Value::Array(items.into_iter().map(stable_sort_json).collect()),
+        other => other,
+    }
+}
+
+fn resolve_schema_ref<'a>(root: &'a Value, reference: &str) -> Result<&'a Value, String> {
+    if !reference.starts_with("#/") {
+        return Err(format!("暂不支持外部 schema 引用 '{}'", reference));
+    }
+
+    let mut cursor = root;
+    for segment in reference.trim_start_matches("#/").split('/') {
+        cursor = cursor
+            .get(segment)
+            .ok_or_else(|| format!("无法解析 schema 引用 '{}'", reference))?;
+    }
+    Ok(cursor)
+}
+
+fn matches_schema_type(value: &Value, expected_type: &str) -> bool {
+    match expected_type {
+        "object" => value.is_object(),
+        "array" => value.is_array(),
+        "string" => value.is_string(),
+        "boolean" => value.is_boolean(),
+        "number" => value.is_number(),
+        "integer" => value.as_i64().is_some() || value.as_u64().is_some(),
+        "null" => value.is_null(),
+        _ => true,
+    }
+}
+
+fn validate_schema_object(
+    root: &Value,
+    schema: &Value,
+    object: &Map<String, Value>,
+    path: &str,
+) -> Result<(), String> {
+    let properties = schema
+        .get("properties")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    let pattern_properties = schema
+        .get("patternProperties")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    let required = schema
+        .get("required")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+
+    for key in required.iter().filter_map(Value::as_str) {
+        if !object.contains_key(key) {
+            return Err(format!("{path} 缺少必填字段 '{key}'"));
+        }
+    }
+
+    for (key, value) in object {
+        if let Some(property_schema) = properties.get(key) {
+            validate_value_against_schema(root, property_schema, value, &format!("{path}.{key}"))?;
+            continue;
+        }
+
+        let mut matched_pattern = false;
+        for (pattern, pattern_schema) in &pattern_properties {
+            let regex = Regex::new(pattern)
+                .map_err(|error| format!("无效 schema 正则 '{pattern}': {error}"))?;
+            if regex.is_match(key) {
+                matched_pattern = true;
+                validate_value_against_schema(
+                    root,
+                    pattern_schema,
+                    value,
+                    &format!("{path}.{key}"),
+                )?;
+                break;
+            }
+        }
+        if matched_pattern {
+            continue;
+        }
+
+        match schema.get("additionalProperties") {
+            Some(Value::Bool(false)) => {
+                return Err(format!("{path} 包含未允许字段 '{key}'"));
+            }
+            Some(additional_schema @ Value::Object(_)) => {
+                validate_value_against_schema(
+                    root,
+                    additional_schema,
+                    value,
+                    &format!("{path}.{key}"),
+                )?;
+            }
+            _ => {}
+        }
+    }
 
     Ok(())
 }
 
-#[cfg(test)]
-mod schema_tests {
-    use super::*;
-    use schemars::schema_for;
-    use serde_json::json;
+fn validate_value_against_schema(
+    root: &Value,
+    schema: &Value,
+    value: &Value,
+    path: &str,
+) -> Result<(), String> {
+    if let Some(reference) = schema.get("$ref").and_then(Value::as_str) {
+        return validate_value_against_schema(
+            root,
+            resolve_schema_ref(root, reference)?,
+            value,
+            path,
+        );
+    }
 
-    #[test]
-    fn claude_config_required_fields_match_json_schema() {
-        // 生成 Rust ClaudeConfig 的 JSON Schema
-        let rust_schema = schema_for!(ClaudeConfig);
-        let rust_props = rust_schema
-            .schema
-            .object
-            .as_ref()
-            .expect("ClaudeConfig 应为 object 类型")
-            .properties
-            .clone();
+    if let Some(any_of) = schema.get("anyOf").and_then(Value::as_array) {
+        if any_of
+            .iter()
+            .any(|branch| validate_value_against_schema(root, branch, value, path).is_ok())
+        {
+            return Ok(());
+        }
+        return Err(format!("{path} 不符合 schema anyOf 约束"));
+    }
 
-        // 加载前端 JSON Schema 文件
-        let json_schema_str = include_str!("../../src/schemas/claude-config.schema.json");
-        let json_schema: serde_json::Value =
-            serde_json::from_str(json_schema_str).expect("JSON Schema 格式不合法");
+    if let Some(enum_values) = schema.get("enum").and_then(Value::as_array) {
+        if !enum_values.iter().any(|candidate| candidate == value) {
+            return Err(format!("{path} 不在允许枚举值中"));
+        }
+    }
 
-        // 验证 JSON Schema 中 required 的字段在 Rust schema 的 properties 中存在
-        if let Some(required) = json_schema["required"].as_array() {
-            for field_val in required {
-                let field_name = field_val.as_str().expect("required 数组元素应为字符串");
-                assert!(
-                    rust_props.contains_key(field_name),
-                    "JSON Schema required 字段 '{}' 在 Rust ClaudeConfig 中未找到。\
-                    请确保前后端 schema 保持同步。",
-                    field_name
-                );
+    if let Some(constant) = schema.get("const") {
+        if constant != value {
+            return Err(format!("{path} 必须等于固定值"));
+        }
+    }
+
+    if let Some(expected_type) = schema.get("type").and_then(Value::as_str) {
+        if !matches_schema_type(value, expected_type) {
+            return Err(format!("{path} 类型错误，期望 {expected_type}"));
+        }
+    }
+
+    if let Some(pattern) = schema.get("pattern").and_then(Value::as_str) {
+        if let Some(string_value) = value.as_str() {
+            let regex = Regex::new(pattern)
+                .map_err(|error| format!("无效 schema 正则 '{pattern}': {error}"))?;
+            if !regex.is_match(string_value) {
+                return Err(format!("{path} 不匹配模式 {pattern}"));
             }
         }
     }
 
-    #[test]
-    fn config_data_has_all_json_schema_fields() {
-        let rust_schema = schema_for!(ConfigData);
-        let rust_props = rust_schema
-            .schema
-            .object
-            .as_ref()
-            .expect("ConfigData 应为 object 类型")
-            .properties
-            .clone();
-
-        let json_schema_str = include_str!("../../src/schemas/claude-config.schema.json");
-        let json_schema: serde_json::Value =
-            serde_json::from_str(json_schema_str).expect("JSON Schema 格式不合法");
-
-        // 注意：只检查 JSON Schema → Rust 方向。Rust 侧可能存在 JSON Schema 未包含的字段
-        // （如 thinking_model，保留是为了向后兼容已存储的配置数据），这是有意为之。
-        // 验证 JSON Schema properties 中的字段在 ConfigData 中存在
-        // 跳过仅存于 ClaudeConfig（非 DTO）的字段
-        let skip_fields = ["id", "isActive", "createdAt", "updatedAt"];
-        if let Some(props) = json_schema["properties"].as_object() {
-            for field_name in props.keys() {
-                if skip_fields.contains(&field_name.as_str()) {
-                    continue;
-                }
-                assert!(
-                    rust_props.contains_key(field_name.as_str()),
-                    "JSON Schema 字段 '{}' 在 Rust ConfigData 中未找到。\
-                    请检查两端是否同步。",
-                    field_name
-                );
+    if let Some(min_length) = schema.get("minLength").and_then(Value::as_u64) {
+        if let Some(string_value) = value.as_str() {
+            if string_value.chars().count() < min_length as usize {
+                return Err(format!("{path} 长度不足 {min_length}"));
             }
         }
     }
 
-    #[test]
-    fn claude_config_advanced_option_defaults_match_expected_values() {
-        let json_schema_str = include_str!("../../src/schemas/claude-config.schema.json");
-        let json_schema: serde_json::Value =
-            serde_json::from_str(json_schema_str).expect("JSON Schema 格式不合法");
+    if let Some(array_value) = value.as_array() {
+        if let Some(items_schema) = schema.get("items") {
+            for (index, item) in array_value.iter().enumerate() {
+                validate_value_against_schema(
+                    root,
+                    items_schema,
+                    item,
+                    &format!("{path}[{index}]"),
+                )?;
+            }
+        }
+    }
 
-        let properties = json_schema["properties"]
-            .as_object()
-            .expect("JSON Schema properties 应为 object");
+    if let Some(object_value) = value.as_object() {
+        validate_schema_object(root, schema, object_value, path)?;
+    }
 
-        let expected_defaults = [
-            ("hasCompletedOnboarding", true),
-            ("alwaysThinkingEnabled", true),
-            ("disableNonessentialTraffic", true),
-            ("skipWebFetchPreflight", true),
-            ("enableLspTool", true),
-            ("fullscreenRenderingEnabled", true),
-            ("interactiveInitEnabled", true),
-            ("agentTeamsEnabled", false),
-        ];
+    if let Some(not_schema) = schema.get("not") {
+        if validate_value_against_schema(root, not_schema, value, path).is_ok() {
+            return Err(format!("{path} 命中了禁止模式"));
+        }
+    }
 
-        for (field_name, expected_default) in expected_defaults {
-            let actual_default = properties[field_name]["default"]
-                .as_bool()
-                .unwrap_or_else(|| panic!("字段 '{}' 的 default 应为 boolean", field_name));
-            assert_eq!(
-                actual_default, expected_default,
-                "字段 '{}' 的默认值应为 {}",
-                field_name, expected_default
+    Ok(())
+}
+
+fn validate_settings_document(settings: &Value) -> Result<(), String> {
+    let object = settings
+        .as_object()
+        .ok_or("settings 必须是 JSON object".to_string())?;
+
+    for key in object.keys() {
+        if key == "$schema" {
+            continue;
+        }
+        if !CLAUDE_SETTINGS_TOP_LEVEL_KEYS.contains(key) {
+            return Err(format!("settings 包含未支持的顶层字段 '{key}'"));
+        }
+    }
+
+    let schema_properties = CLAUDE_SETTINGS_SCHEMA["properties"]
+        .as_object()
+        .ok_or("Claude settings schema 缺少 properties".to_string())?;
+
+    for (key, value) in object {
+        if key == "$schema" {
+            continue;
+        }
+        if let Some(property_schema) = schema_properties.get(key) {
+            validate_value_against_schema(
+                &CLAUDE_SETTINGS_SCHEMA,
+                property_schema,
+                value,
+                &format!("settings.{key}"),
+            )?;
+        }
+    }
+
+    Ok(())
+}
+
+fn resolve_profile_settings(
+    registry: &ConfigRegistry,
+    profile: &ConfigProfile,
+) -> Result<Value, String> {
+    let mut resolved = Value::Object(Map::new());
+
+    if let Some(preset_id) = profile.preset_id.as_deref() {
+        let mut visited = HashSet::new();
+        for preset in resolve_preset_chain(registry, preset_id, &mut visited)? {
+            resolved = merge_json_values(resolved, preset.settings_patch);
+        }
+    }
+
+    resolved = merge_json_values(resolved, profile.settings.clone());
+
+    let mut object = resolved
+        .as_object()
+        .cloned()
+        .ok_or("resolved settings 必须是 object".to_string())?;
+    object.insert(
+        "$schema".to_string(),
+        Value::String(CLAUDE_SETTINGS_SCHEMA_URL.to_string()),
+    );
+
+    let resolved = stable_sort_json(Value::Object(object));
+    validate_settings_document(&resolved)?;
+    Ok(resolved)
+}
+
+fn profile_settings_path(target: &ProfileTarget) -> Result<PathBuf, String> {
+    match target.scope {
+        TargetScope::User => get_user_settings_path(),
+        TargetScope::Project => Ok(PathBuf::from(
+            target
+                .project_path
+                .as_deref()
+                .ok_or("Project scope 缺少项目路径".to_string())?,
+        )
+        .join(".claude")
+        .join("settings.json")),
+        TargetScope::Local => Ok(PathBuf::from(
+            target
+                .project_path
+                .as_deref()
+                .ok_or("Local scope 缺少项目路径".to_string())?,
+        )
+        .join(".claude")
+        .join("settings.local.json")),
+    }
+}
+
+fn resolve_git_dir(project_root: &Path) -> Option<PathBuf> {
+    let dot_git = project_root.join(".git");
+    if dot_git.is_dir() {
+        return Some(dot_git);
+    }
+
+    if !dot_git.is_file() {
+        return None;
+    }
+
+    let content = fs::read_to_string(&dot_git).ok()?;
+    let git_dir = content.trim().strip_prefix("gitdir:")?.trim();
+    let git_path = PathBuf::from(git_dir);
+    if git_path.is_absolute() {
+        Some(git_path)
+    } else {
+        Some(project_root.join(git_path))
+    }
+}
+
+fn ensure_local_settings_ignored(project_path: &str) -> Result<(), String> {
+    let project_root = PathBuf::from(project_path);
+    let git_dir = match resolve_git_dir(&project_root) {
+        Some(path) => path,
+        None => return Ok(()),
+    };
+
+    let exclude_path = git_dir.join("info").join("exclude");
+    let existing = fs::read_to_string(&exclude_path).unwrap_or_default();
+    let rule = ".claude/settings.local.json";
+    if existing.lines().any(|line| line.trim() == rule) {
+        return Ok(());
+    }
+
+    let mut next = existing;
+    if !next.is_empty() && !next.ends_with('\n') {
+        next.push('\n');
+    }
+    next.push_str(rule);
+    next.push('\n');
+    crate::utils::ensure_dir_and_write_atomic(&exclude_path, &next)
+}
+
+fn remove_profile_bindings(bindings: &mut BindingState, profile_id: &str) {
+    if bindings.user_profile_id.as_deref() == Some(profile_id) {
+        bindings.user_profile_id = None;
+        bindings.user_last_applied_at = None;
+    }
+    bindings
+        .project_bindings
+        .retain(|binding| binding.profile_id != profile_id);
+    bindings
+        .local_bindings
+        .retain(|binding| binding.profile_id != profile_id);
+}
+
+fn upsert_scope_binding(
+    bindings: &mut Vec<BindingEntry>,
+    project_path: &str,
+    profile_id: &str,
+    now: &str,
+) {
+    if let Some(binding) = bindings
+        .iter_mut()
+        .find(|binding| binding.project_path == project_path)
+    {
+        binding.profile_id = profile_id.to_string();
+        binding.last_applied_at = Some(now.to_string());
+        return;
+    }
+
+    bindings.push(BindingEntry {
+        project_path: project_path.to_string(),
+        profile_id: profile_id.to_string(),
+        last_applied_at: Some(now.to_string()),
+    });
+}
+
+fn apply_profile_to_registry(
+    registry: &mut ConfigRegistry,
+    profile_id: &str,
+) -> Result<PathBuf, String> {
+    let profile = registry
+        .profiles
+        .iter()
+        .find(|profile| profile.id == profile_id)
+        .cloned()
+        .ok_or_else(|| format!("未找到 profile '{}'", profile_id))?;
+
+    let resolved_settings = resolve_profile_settings(registry, &profile)?;
+    let target_path = profile_settings_path(&profile.target)?;
+    if profile.target.scope == TargetScope::Local {
+        if let Some(project_path) = profile.target.project_path.as_deref() {
+            ensure_local_settings_ignored(project_path)?;
+        }
+    }
+
+    let content = serde_json::to_string_pretty(&resolved_settings).map_err(|e| e.to_string())?;
+    crate::utils::ensure_dir_and_write_atomic(&target_path, &content)?;
+
+    let now = crate::utils::current_rfc3339_timestamp();
+    match profile.target.scope {
+        TargetScope::User => {
+            registry.bindings.user_profile_id = Some(profile.id);
+            registry.bindings.user_last_applied_at = Some(now);
+        }
+        TargetScope::Project => {
+            upsert_scope_binding(
+                &mut registry.bindings.project_bindings,
+                profile
+                    .target
+                    .project_path
+                    .as_deref()
+                    .ok_or("Project scope 缺少项目路径".to_string())?,
+                &profile.id,
+                &now,
+            );
+        }
+        TargetScope::Local => {
+            upsert_scope_binding(
+                &mut registry.bindings.local_bindings,
+                profile
+                    .target
+                    .project_path
+                    .as_deref()
+                    .ok_or("Local scope 缺少项目路径".to_string())?,
+                &profile.id,
+                &now,
             );
         }
     }
 
+    Ok(target_path)
+}
+
+fn preset_exists(registry: &ConfigRegistry, preset_id: &str) -> bool {
+    find_preset(registry, preset_id).is_some()
+}
+
+fn profile_uses_preset(
+    registry: &ConfigRegistry,
+    profile: &ConfigProfile,
+    preset_id: &str,
+) -> bool {
+    let Some(profile_preset_id) = profile.preset_id.as_deref() else {
+        return false;
+    };
+
+    if profile_preset_id == preset_id {
+        return true;
+    }
+
+    let mut visited = HashSet::new();
+    resolve_preset_chain(registry, profile_preset_id, &mut visited)
+        .map(|chain| chain.iter().any(|preset| preset.id == preset_id))
+        .unwrap_or(false)
+}
+
+fn bound_profile_ids_using_preset(registry: &ConfigRegistry, preset_id: &str) -> Vec<String> {
+    let bound_profile_ids: HashSet<&str> = registry
+        .bindings
+        .user_profile_id
+        .iter()
+        .map(String::as_str)
+        .chain(
+            registry
+                .bindings
+                .project_bindings
+                .iter()
+                .map(|binding| binding.profile_id.as_str()),
+        )
+        .chain(
+            registry
+                .bindings
+                .local_bindings
+                .iter()
+                .map(|binding| binding.profile_id.as_str()),
+        )
+        .collect();
+
+    registry
+        .profiles
+        .iter()
+        .filter(|profile| {
+            bound_profile_ids.contains(profile.id.as_str())
+                && profile_uses_preset(registry, profile, preset_id)
+        })
+        .map(|profile| profile.id.clone())
+        .collect()
+}
+
+pub fn apply_profile_inner(profile_id: String) -> Result<ConfigRegistry, String> {
+    let _lock = crate::utils::lock_config()?;
+    let mut registry = load_registry()?;
+    apply_profile_to_registry(&mut registry, &profile_id)?;
+    save_registry(&registry)?;
+    Ok(registry)
+}
+
+fn reorder_profiles_in_registry(registry: &mut ConfigRegistry, ids: &[String]) {
+    let profile_map: HashMap<String, ConfigProfile> = registry
+        .profiles
+        .iter()
+        .map(|profile| (profile.id.clone(), profile.clone()))
+        .collect();
+
+    let mut reordered: Vec<ConfigProfile> = ids
+        .iter()
+        .filter_map(|id| profile_map.get(id).cloned())
+        .collect();
+
+    for profile in &registry.profiles {
+        if !ids.contains(&profile.id) {
+            reordered.push(profile.clone());
+        }
+    }
+
+    registry.profiles = reordered;
+}
+
+#[tauri::command]
+pub fn get_config_workspace() -> Result<ConfigWorkspace, String> {
+    Ok(build_workspace(load_registry()?))
+}
+
+#[tauri::command]
+pub fn upsert_profile(app_handle: AppHandle, data: ProfileInput) -> Result<ConfigProfile, String> {
+    let _lock = crate::utils::lock_config()?;
+    let input = normalize_profile_input(data)?;
+    validate_settings_document(&input.settings)?;
+
+    let mut registry = load_registry()?;
+    if let Some(preset_id) = input.preset_id.as_deref() {
+        if !preset_exists(&registry, preset_id) {
+            return Err(format!("未找到 preset '{}'", preset_id));
+        }
+    }
+
+    let now = crate::utils::current_rfc3339_timestamp();
+    let profile_id = input
+        .id
+        .clone()
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
+    let profile = if let Some(existing) = registry
+        .profiles
+        .iter_mut()
+        .find(|profile| profile.id == profile_id)
+    {
+        existing.name = input.name;
+        existing.description = input.description;
+        existing.target = input.target;
+        existing.preset_id = input.preset_id;
+        existing.settings = input.settings;
+        existing.updated_at = now.clone();
+        existing.clone()
+    } else {
+        let profile = ConfigProfile {
+            id: profile_id,
+            name: input.name,
+            description: input.description,
+            target: input.target,
+            preset_id: input.preset_id,
+            settings: input.settings,
+            created_at: now.clone(),
+            updated_at: now,
+        };
+        registry.profiles.push(profile.clone());
+        profile
+    };
+
+    save_registry(&registry)?;
+    rebuild_tray_menu(&app_handle, Some(&registry));
+    let _ = app_handle.emit("config-workspace-changed", ());
+    Ok(profile)
+}
+
+#[tauri::command]
+pub fn reorder_profiles(app_handle: AppHandle, ids: Vec<String>) -> Result<(), String> {
+    let _lock = crate::utils::lock_config()?;
+    let mut registry = load_registry()?;
+    reorder_profiles_in_registry(&mut registry, &ids);
+    save_registry(&registry)?;
+    rebuild_tray_menu(&app_handle, Some(&registry));
+    let _ = app_handle.emit("config-workspace-changed", ());
+    Ok(())
+}
+
+#[tauri::command]
+pub fn delete_profile(app_handle: AppHandle, id: String) -> Result<(), String> {
+    let _lock = crate::utils::lock_config()?;
+    let mut registry = load_registry()?;
+    let original_len = registry.profiles.len();
+    registry.profiles.retain(|profile| profile.id != id);
+    if registry.profiles.len() == original_len {
+        return Err("未找到要删除的 profile".to_string());
+    }
+
+    remove_profile_bindings(&mut registry.bindings, &id);
+    save_registry(&registry)?;
+    rebuild_tray_menu(&app_handle, Some(&registry));
+    let _ = app_handle.emit("config-workspace-changed", ());
+    Ok(())
+}
+
+#[tauri::command]
+pub fn apply_profile(app_handle: AppHandle, id: String) -> Result<(), String> {
+    let registry = apply_profile_inner(id)?;
+    rebuild_tray_menu(&app_handle, Some(&registry));
+    let _ = app_handle.emit("config-workspace-changed", ());
+    Ok(())
+}
+
+#[tauri::command]
+pub fn preview_profile(data: ProfileInput) -> Result<String, String> {
+    let input = normalize_profile_input(data)?;
+    let mut registry = load_registry()?;
+    if let Some(preset_id) = input.preset_id.as_deref() {
+        if !preset_exists(&registry, preset_id) {
+            return Err(format!("未找到 preset '{}'", preset_id));
+        }
+    }
+
+    let profile = ConfigProfile {
+        id: input.id.unwrap_or_else(|| "__preview__".to_string()),
+        name: input.name,
+        description: input.description,
+        target: input.target,
+        preset_id: input.preset_id,
+        settings: input.settings,
+        created_at: crate::utils::current_rfc3339_timestamp(),
+        updated_at: crate::utils::current_rfc3339_timestamp(),
+    };
+    registry
+        .profiles
+        .retain(|existing| existing.id != profile.id);
+    registry.profiles.push(profile.clone());
+
+    let resolved = resolve_profile_settings(&registry, &profile)?;
+    serde_json::to_string_pretty(&resolved).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn upsert_preset(app_handle: AppHandle, data: PresetInput) -> Result<SettingsPreset, String> {
+    let _lock = crate::utils::lock_config()?;
+    let input = normalize_preset_input(data)?;
+    validate_settings_document(&input.settings_patch)?;
+
+    let mut registry = load_registry()?;
+    if let Some(base_preset_id) = input.base_preset_id.as_deref() {
+        if !preset_exists(&registry, base_preset_id) {
+            return Err(format!("未找到 base preset '{}'", base_preset_id));
+        }
+    }
+
+    let preset_id = input
+        .id
+        .clone()
+        .unwrap_or_else(|| format!("custom:{}", Uuid::new_v4()));
+    let preset = SettingsPreset {
+        id: preset_id.clone(),
+        name: input.name,
+        localized_name: input.localized_name,
+        description: input.description,
+        base_preset_id: input.base_preset_id,
+        doc_url: input.doc_url,
+        models: input.models,
+        model_suggestions: input.model_suggestions,
+        settings_patch: input.settings_patch,
+        source: PresetSource::Custom,
+    };
+
+    if let Some(existing) = registry
+        .custom_presets
+        .iter_mut()
+        .find(|existing| existing.id == preset_id)
+    {
+        *existing = preset.clone();
+    } else {
+        registry.custom_presets.push(preset.clone());
+    }
+
+    for profile_id in bound_profile_ids_using_preset(&registry, &preset.id) {
+        apply_profile_to_registry(&mut registry, &profile_id)?;
+    }
+
+    save_registry(&registry)?;
+    rebuild_tray_menu(&app_handle, Some(&registry));
+    let _ = app_handle.emit("config-workspace-changed", ());
+    Ok(preset)
+}
+
+#[tauri::command]
+pub fn delete_preset(app_handle: AppHandle, id: String) -> Result<(), String> {
+    let _lock = crate::utils::lock_config()?;
+    let mut registry = load_registry()?;
+
+    if registry
+        .profiles
+        .iter()
+        .any(|profile| profile_uses_preset(&registry, profile, &id))
+    {
+        return Err("该 preset 仍被 profile 使用，请先解除引用".to_string());
+    }
+
+    let original_len = registry.custom_presets.len();
+    registry.custom_presets.retain(|preset| preset.id != id);
+    if registry.custom_presets.len() == original_len {
+        return Err("未找到要删除的 preset".to_string());
+    }
+
+    save_registry(&registry)?;
+    rebuild_tray_menu(&app_handle, Some(&registry));
+    let _ = app_handle.emit("config-workspace-changed", ());
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_app_preferences(
+    app_handle: AppHandle,
+    data: AppPreferencesInput,
+) -> Result<AppPreferences, String> {
+    let _lock = crate::utils::lock_config()?;
+    let preferences = normalize_app_preferences(data)?;
+    let mut registry = load_registry()?;
+    registry.app = preferences.clone();
+    save_registry(&registry)?;
+    rebuild_tray_menu(&app_handle, Some(&registry));
+    let _ = app_handle.emit("config-workspace-changed", ());
+    let _ = app_handle.emit("project-launcher-settings-changed", ());
+    Ok(preferences)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    fn temp_root(name: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!("ai-manager-{name}-{}", Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        root
+    }
+
+    fn set_test_env(root: &Path) {
+        std::env::set_var("AI_MANAGER_HOME_OVERRIDE", root);
+        std::env::set_var(
+            "AI_MANAGER_APP_DATA_DIR_OVERRIDE",
+            root.join(".config").join("ai-manager"),
+        );
+    }
+
+    fn clear_test_env() {
+        std::env::remove_var("AI_MANAGER_HOME_OVERRIDE");
+        std::env::remove_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE");
+    }
+
+    fn sample_profile(
+        id: &str,
+        target: ProfileTarget,
+        preset_id: Option<&str>,
+        settings: Value,
+    ) -> ConfigProfile {
+        ConfigProfile {
+            id: id.to_string(),
+            name: id.to_string(),
+            description: String::new(),
+            target,
+            preset_id: preset_id.map(ToOwned::to_owned),
+            settings,
+            created_at: "2026-04-18T12:00:00Z".to_string(),
+            updated_at: "2026-04-18T12:00:00Z".to_string(),
+        }
+    }
+
+    fn sample_custom_preset(
+        id: &str,
+        base_preset_id: Option<&str>,
+        patch: Value,
+    ) -> SettingsPreset {
+        SettingsPreset {
+            id: id.to_string(),
+            name: id.to_string(),
+            localized_name: None,
+            description: String::new(),
+            base_preset_id: base_preset_id.map(ToOwned::to_owned),
+            doc_url: None,
+            models: None,
+            model_suggestions: vec![],
+            settings_patch: patch,
+            source: PresetSource::Custom,
+        }
+    }
+
     #[test]
-    fn config_json_schema_uses_base_url_property() {
-        let json_schema_str = include_str!("../../src/schemas/claude-config.schema.json");
-        let json_schema: serde_json::Value =
-            serde_json::from_str(json_schema_str).expect("JSON Schema 格式不合法");
+    fn builtin_presets_expose_localized_names() {
+        let openrouter = builtin_presets()
+            .into_iter()
+            .find(|preset| preset.id == "builtin:openrouter")
+            .unwrap();
 
-        let properties = json_schema["properties"]
-            .as_object()
-            .expect("JSON Schema properties 应为 object");
-
-        assert!(
-            properties.contains_key("baseUrl"),
-            "配置 schema 应暴露 baseUrl 字段"
-        );
-        assert!(
-            !properties.contains_key("apiUrl"),
-            "配置 schema 不应继续暴露旧的 apiUrl 字段"
-        );
-        assert!(
-            properties.contains_key("effortLevel"),
-            "配置 schema 应暴露 effortLevel 字段"
-        );
-        assert!(
-            properties.contains_key("fullscreenRenderingEnabled"),
-            "配置 schema 应暴露 fullscreenRenderingEnabled 字段"
-        );
-        assert!(
-            properties.contains_key("interactiveInitEnabled"),
-            "配置 schema 应暴露 interactiveInitEnabled 字段"
+        assert_eq!(openrouter.name, "OpenRouter");
+        assert_eq!(
+            openrouter.localized_name,
+            Some(LocalizedText {
+                zh: "开放路由".to_string(),
+                en: "OpenRouter".to_string(),
+            })
         );
     }
 
     #[test]
-    fn preview_config_uses_base_url_field_for_anthropic_base_url() {
-        let data: ConfigData = serde_json::from_value(json!({
-            "name": "base-url",
-            "description": "",
-            "apiKey": "sk-test",
-            "baseUrl": "https://example.com/anthropic"
-        }))
-        .expect("ConfigData 应支持 baseUrl 字段");
-
-        let preview = preview_config(data, None).expect("预览配置应生成成功");
-        let preview_json: serde_json::Value =
-            serde_json::from_str(&preview).expect("预览 JSON 应合法");
+    fn builtin_presets_preserve_categorized_models() {
+        let anthropic = builtin_presets()
+            .into_iter()
+            .find(|preset| preset.id == "builtin:anthropic")
+            .unwrap();
 
         assert_eq!(
-            preview_json["env"]["ANTHROPIC_BASE_URL"],
-            json!("https://example.com/anthropic")
+            anthropic.models,
+            Some(vec![
+                SettingsPresetModel {
+                    id: "claude-opus-4-6".to_string(),
+                    category: PresetModelCategory::Opus,
+                },
+                SettingsPresetModel {
+                    id: "claude-sonnet-4-6".to_string(),
+                    category: PresetModelCategory::Sonnet,
+                },
+                SettingsPresetModel {
+                    id: "claude-haiku-4-5-20251001".to_string(),
+                    category: PresetModelCategory::Haiku,
+                },
+            ])
         );
     }
 
     #[test]
-    fn preview_config_writes_effort_level_to_env() {
-        let data: ConfigData = serde_json::from_value(json!({
-            "name": "effort-level",
-            "description": "",
-            "apiKey": "sk-test",
-            "effortLevel": "xhigh"
-        }))
-        .expect("ConfigData 应支持 effortLevel 字段");
+    fn resolve_profile_settings_merges_builtin_custom_and_profile_layers() {
+        let mut registry = ConfigRegistry::default();
+        registry.custom_presets.push(sample_custom_preset(
+            "custom:team-openrouter",
+            Some("builtin:openrouter"),
+            serde_json::json!({
+                "permissions": {
+                    "defaultMode": "plan"
+                }
+            }),
+        ));
+        let profile = sample_profile(
+            "user-openrouter",
+            ProfileTarget {
+                scope: TargetScope::User,
+                project_path: None,
+            },
+            Some("custom:team-openrouter"),
+            serde_json::json!({
+                "model": "claude-sonnet-4-6",
+                "env": {
+                    "ANTHROPIC_AUTH_TOKEN": "token"
+                }
+            }),
+        );
 
-        let preview = preview_config(data, None).expect("预览配置应生成成功");
-        let preview_json: serde_json::Value =
-            serde_json::from_str(&preview).expect("预览 JSON 应合法");
-
-        assert_eq!(preview_json["env"]["CLAUDE_CODE_EFFORT_LEVEL"], json!("xhigh"));
-    }
-
-    #[test]
-    fn preview_config_writes_auto_effort_level_to_env() {
-        let data: ConfigData = serde_json::from_value(json!({
-            "name": "auto-effort-level",
-            "description": "",
-            "apiKey": "sk-test",
-            "effortLevel": "auto"
-        }))
-        .expect("ConfigData 应支持 auto effortLevel");
-
-        let preview = preview_config(data, None).expect("预览配置应生成成功");
-        let preview_json: serde_json::Value =
-            serde_json::from_str(&preview).expect("预览 JSON 应合法");
-
-        assert_eq!(preview_json["env"]["CLAUDE_CODE_EFFORT_LEVEL"], json!("auto"));
-    }
-
-    #[test]
-    fn preview_config_writes_no_flicker_to_env() {
-        let data: ConfigData = serde_json::from_value(json!({
-            "name": "no-flicker",
-            "description": "",
-            "apiKey": "sk-test",
-            "fullscreenRenderingEnabled": true
-        }))
-        .expect("ConfigData 应支持 fullscreenRenderingEnabled 字段");
-
-        let preview = preview_config(data, None).expect("预览配置应生成成功");
-        let preview_json: serde_json::Value =
-            serde_json::from_str(&preview).expect("预览 JSON 应合法");
-
-        assert_eq!(preview_json["env"]["CLAUDE_CODE_NO_FLICKER"], json!("1"));
-    }
-
-    #[test]
-    fn preview_config_omits_no_flicker_env_when_false() {
-        let data: ConfigData = serde_json::from_value(json!({
-            "name": "no-flicker-disabled",
-            "description": "",
-            "apiKey": "sk-test",
-            "fullscreenRenderingEnabled": false
-        }))
-        .expect("ConfigData 应支持 fullscreenRenderingEnabled=false");
-
-        let preview = preview_config(data, None).expect("预览配置应生成成功");
-        let preview_json: serde_json::Value =
-            serde_json::from_str(&preview).expect("预览 JSON 应合法");
-
-        assert!(
-            preview_json["env"]["CLAUDE_CODE_NO_FLICKER"].is_null(),
-            "fullscreenRenderingEnabled=false 时不应写出 CLAUDE_CODE_NO_FLICKER"
+        let resolved = resolve_profile_settings(&registry, &profile).unwrap();
+        assert_eq!(
+            resolved["env"]["ANTHROPIC_BASE_URL"],
+            Value::String("https://openrouter.ai/api".to_string())
+        );
+        assert_eq!(
+            resolved["env"]["ANTHROPIC_AUTH_TOKEN"],
+            Value::String("token".to_string())
+        );
+        assert_eq!(
+            resolved["permissions"]["defaultMode"],
+            Value::String("plan".to_string())
+        );
+        assert_eq!(
+            resolved["model"],
+            Value::String("claude-sonnet-4-6".to_string())
+        );
+        assert_eq!(
+            resolved["$schema"],
+            Value::String(CLAUDE_SETTINGS_SCHEMA_URL.to_string())
         );
     }
 
     #[test]
-    fn preview_config_writes_new_init_to_env() {
-        let data: ConfigData = serde_json::from_value(json!({
-            "name": "interactive-init",
-            "description": "",
-            "apiKey": "sk-test",
-            "interactiveInitEnabled": true
-        }))
-        .expect("ConfigData 应支持 interactiveInitEnabled 字段");
+    fn profile_settings_path_matches_scope() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("profile-paths");
+        set_test_env(&root);
 
-        let preview = preview_config(data, None).expect("预览配置应生成成功");
-        let preview_json: serde_json::Value =
-            serde_json::from_str(&preview).expect("预览 JSON 应合法");
+        let user_path = profile_settings_path(&ProfileTarget {
+            scope: TargetScope::User,
+            project_path: None,
+        })
+        .unwrap();
+        assert_eq!(user_path, root.join(".claude").join("settings.json"));
 
-        assert_eq!(preview_json["env"]["CLAUDE_CODE_NEW_INIT"], json!("1"));
-    }
-
-    #[test]
-    fn preview_config_omits_new_init_env_when_false() {
-        let data: ConfigData = serde_json::from_value(json!({
-            "name": "interactive-init-disabled",
-            "description": "",
-            "apiKey": "sk-test",
-            "interactiveInitEnabled": false
-        }))
-        .expect("ConfigData 应支持 interactiveInitEnabled=false");
-
-        let preview = preview_config(data, None).expect("预览配置应生成成功");
-        let preview_json: serde_json::Value =
-            serde_json::from_str(&preview).expect("预览 JSON 应合法");
-
-        assert!(
-            preview_json["env"]["CLAUDE_CODE_NEW_INIT"].is_null(),
-            "interactiveInitEnabled=false 时不应写出 CLAUDE_CODE_NEW_INIT"
+        let project_root = root.join("workspace");
+        let project_path = project_root.to_string_lossy().to_string();
+        let project_settings = profile_settings_path(&ProfileTarget {
+            scope: TargetScope::Project,
+            project_path: Some(project_path.clone()),
+        })
+        .unwrap();
+        assert_eq!(
+            project_settings,
+            project_root.join(".claude").join("settings.json")
         );
+
+        let local_settings = profile_settings_path(&ProfileTarget {
+            scope: TargetScope::Local,
+            project_path: Some(project_path),
+        })
+        .unwrap();
+        assert_eq!(
+            local_settings,
+            project_root.join(".claude").join("settings.local.json")
+        );
+
+        clear_test_env();
     }
 
     #[test]
-    fn explicit_effort_level_overrides_extra_fields_env_value() {
-        let config = ClaudeConfig {
-            id: "cfg".to_string(),
-            name: "override-effort".to_string(),
-            description: String::new(),
-            api_key: "sk-test".to_string(),
-            base_url: None,
-            website_url: None,
-            model: None,
-            thinking_model: None,
-            haiku_model: None,
-            sonnet_model: None,
-            opus_model: None,
-            effort_level: Some("high".to_string()),
-            fullscreen_rendering_enabled: None,
-            interactive_init_enabled: None,
-            always_thinking_enabled: None,
-            disable_nonessential_traffic: None,
-            skip_web_fetch_preflight: None,
-            enable_lsp_tool: None,
-            agent_teams_enabled: None,
-            has_completed_onboarding: None,
-            enable_extra_marketplaces: None,
-            preferred_language: None,
-            use_defaults: None,
-            enabled_plugins: None,
-            extra_fields: Some(HashMap::from([(
-                "env".to_string(),
-                json!({
-                    "CLAUDE_CODE_EFFORT_LEVEL": "low",
-                    "CUSTOM_ENV": "value"
+    fn validate_settings_document_rejects_unknown_top_level_keys() {
+        let error = validate_settings_document(&serde_json::json!({
+            "notARealClaudeKey": true
+        }))
+        .unwrap_err();
+        assert!(error.contains("notARealClaudeKey"));
+    }
+
+    #[test]
+    fn apply_profile_updates_binding_only_after_file_write() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("apply-profile");
+        set_test_env(&root);
+
+        let mut registry = ConfigRegistry::default();
+        registry.profiles.push(sample_profile(
+            "user-1",
+            ProfileTarget {
+                scope: TargetScope::User,
+                project_path: None,
+            },
+            None,
+            serde_json::json!({
+                "model": "claude-sonnet-4-6"
+            }),
+        ));
+
+        let path = apply_profile_to_registry(&mut registry, "user-1").unwrap();
+        let written = fs::read_to_string(path).unwrap();
+        assert!(written.contains("\"model\": \"claude-sonnet-4-6\""));
+        assert_eq!(registry.bindings.user_profile_id.as_deref(), Some("user-1"));
+        assert!(registry.bindings.user_last_applied_at.is_some());
+
+        clear_test_env();
+    }
+
+    #[test]
+    fn reorder_profiles_preserves_requested_order_and_appends_missing_items() {
+        let mut registry = ConfigRegistry::default();
+        registry.profiles = vec![
+            sample_profile(
+                "profile-a",
+                ProfileTarget {
+                    scope: TargetScope::User,
+                    project_path: None,
+                },
+                None,
+                serde_json::json!({}),
+            ),
+            sample_profile(
+                "profile-b",
+                ProfileTarget {
+                    scope: TargetScope::Project,
+                    project_path: Some("/tmp/project-b".to_string()),
+                },
+                None,
+                serde_json::json!({}),
+            ),
+            sample_profile(
+                "profile-c",
+                ProfileTarget {
+                    scope: TargetScope::Local,
+                    project_path: Some("/tmp/project-c".to_string()),
+                },
+                None,
+                serde_json::json!({}),
+            ),
+        ];
+
+        reorder_profiles_in_registry(
+            &mut registry,
+            &["profile-c".to_string(), "profile-a".to_string()],
+        );
+
+        let ordered_ids: Vec<&str> = registry
+            .profiles
+            .iter()
+            .map(|profile| profile.id.as_str())
+            .collect();
+        assert_eq!(ordered_ids, vec!["profile-c", "profile-a", "profile-b"]);
+    }
+
+    #[test]
+    fn apply_local_profile_adds_git_exclude_entry() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("local-ignore");
+        set_test_env(&root);
+
+        let project_root = root.join("project");
+        fs::create_dir_all(project_root.join(".git").join("info")).unwrap();
+
+        let mut registry = ConfigRegistry::default();
+        registry.profiles.push(sample_profile(
+            "local-1",
+            ProfileTarget {
+                scope: TargetScope::Local,
+                project_path: Some(project_root.to_string_lossy().to_string()),
+            },
+            None,
+            serde_json::json!({
+                "model": "claude-sonnet-4-6"
+            }),
+        ));
+
+        apply_profile_to_registry(&mut registry, "local-1").unwrap();
+        let exclude =
+            fs::read_to_string(project_root.join(".git").join("info").join("exclude")).unwrap();
+        assert!(exclude.contains(".claude/settings.local.json"));
+
+        clear_test_env();
+    }
+
+    #[test]
+    fn load_registry_fails_closed_on_invalid_json() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("invalid-registry");
+        set_test_env(&root);
+        let registry_path = get_registry_path().unwrap();
+        fs::create_dir_all(registry_path.parent().unwrap()).unwrap();
+        fs::write(&registry_path, "{ invalid json ").unwrap();
+
+        let error = load_registry().unwrap_err();
+        assert!(error.contains("解析 JSON 失败"));
+
+        clear_test_env();
+    }
+
+    #[test]
+    fn updating_custom_preset_reapplies_bound_profiles() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("preset-reapply");
+        set_test_env(&root);
+
+        let mut registry = ConfigRegistry::default();
+        registry.custom_presets.push(sample_custom_preset(
+            "custom:base",
+            None,
+            serde_json::json!({
+                "env": {
+                    "ANTHROPIC_BASE_URL": "https://old.example.com"
+                }
+            }),
+        ));
+        registry.profiles.push(sample_profile(
+            "user-1",
+            ProfileTarget {
+                scope: TargetScope::User,
+                project_path: None,
+            },
+            Some("custom:base"),
+            serde_json::json!({
+                "env": {
+                    "ANTHROPIC_AUTH_TOKEN": "token"
+                }
+            }),
+        ));
+        registry.bindings.user_profile_id = Some("user-1".to_string());
+        apply_profile_to_registry(&mut registry, "user-1").unwrap();
+
+        registry.custom_presets[0].settings_patch = serde_json::json!({
+            "env": {
+                "ANTHROPIC_BASE_URL": "https://new.example.com"
+            }
+        });
+        for profile_id in bound_profile_ids_using_preset(&registry, "custom:base") {
+            apply_profile_to_registry(&mut registry, &profile_id).unwrap();
+        }
+
+        let written = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
+        assert!(written.contains("https://new.example.com"));
+
+        clear_test_env();
+    }
+
+    #[test]
+    fn example_snapshots_match_registry_and_settings_output() {
+        let registry = ConfigRegistry {
+            schema: CONFIG_REGISTRY_SCHEMA_URL.to_string(),
+            version: REGISTRY_VERSION,
+            app: AppPreferences {
+                show_tray_title: true,
+                ui_language: "zh".to_string(),
+                default_terminal_app: "terminal".to_string(),
+                default_editor_app: Some("cursor".to_string()),
+            },
+            custom_presets: vec![SettingsPreset {
+                id: "custom:team-plan".to_string(),
+                name: "Team Plan".to_string(),
+                localized_name: Some(LocalizedText {
+                    zh: "团队计划".to_string(),
+                    en: "Team Plan".to_string(),
                 }),
-            )])),
-            provider_id: None,
-            is_active: false,
-            created_at: 0,
-            updated_at: 0,
+                description: "团队默认权限".to_string(),
+                base_preset_id: Some("builtin:openrouter".to_string()),
+                doc_url: Some("https://example.com/preset-docs".to_string()),
+                models: None,
+                model_suggestions: vec!["claude-sonnet-4-6".to_string()],
+                settings_patch: stable_sort_json(serde_json::json!({
+                    "permissions": {
+                        "defaultMode": "plan"
+                    }
+                })),
+                source: PresetSource::Custom,
+            }],
+            profiles: vec![ConfigProfile {
+                id: "user-openrouter".to_string(),
+                name: "OpenRouter User".to_string(),
+                description: "全局开发默认配置".to_string(),
+                target: ProfileTarget {
+                    scope: TargetScope::User,
+                    project_path: None,
+                },
+                preset_id: Some("custom:team-plan".to_string()),
+                settings: stable_sort_json(serde_json::json!({
+                    "env": {
+                        "ANTHROPIC_AUTH_TOKEN": "token"
+                    },
+                    "model": "claude-sonnet-4-6"
+                })),
+                created_at: "2026-04-18T12:00:00+08:00".to_string(),
+                updated_at: "2026-04-18T12:00:00+08:00".to_string(),
+            }],
+            bindings: BindingState {
+                user_profile_id: Some("user-openrouter".to_string()),
+                user_last_applied_at: Some("2026-04-18T12:00:00+08:00".to_string()),
+                project_bindings: vec![],
+                local_bindings: vec![],
+            },
         };
 
-        let preview = build_config_value(&config, None, None);
-
-        assert_eq!(preview["env"]["CLAUDE_CODE_EFFORT_LEVEL"], json!("high"));
-        assert_eq!(preview["env"]["CUSTOM_ENV"], json!("value"));
-    }
-
-    #[test]
-    fn explicit_fullscreen_rendering_false_overrides_extra_fields_env_value() {
-        let config = ClaudeConfig {
-            id: "cfg".to_string(),
-            name: "override-no-flicker".to_string(),
-            description: String::new(),
-            api_key: "sk-test".to_string(),
-            base_url: None,
-            website_url: None,
-            model: None,
-            thinking_model: None,
-            haiku_model: None,
-            sonnet_model: None,
-            opus_model: None,
-            effort_level: None,
-            fullscreen_rendering_enabled: Some(false),
-            interactive_init_enabled: None,
-            always_thinking_enabled: None,
-            disable_nonessential_traffic: None,
-            skip_web_fetch_preflight: None,
-            enable_lsp_tool: None,
-            agent_teams_enabled: None,
-            has_completed_onboarding: None,
-            enable_extra_marketplaces: None,
-            preferred_language: None,
-            use_defaults: None,
-            enabled_plugins: None,
-            extra_fields: Some(HashMap::from([(
-                "env".to_string(),
-                json!({
-                    "CLAUDE_CODE_NO_FLICKER": "1",
-                    "CUSTOM_ENV": "value"
-                }),
-            )])),
-            provider_id: None,
-            is_active: false,
-            created_at: 0,
-            updated_at: 0,
-        };
-
-        let preview = build_config_value(&config, None, None);
-
-        assert!(
-            preview["env"]["CLAUDE_CODE_NO_FLICKER"].is_null(),
-            "fullscreenRenderingEnabled=false 时不应被 extraFields.env 覆盖回 1"
-        );
-        assert_eq!(preview["env"]["CUSTOM_ENV"], json!("value"));
-    }
-
-    #[test]
-    fn explicit_interactive_init_false_overrides_extra_fields_env_value() {
-        let config = ClaudeConfig {
-            id: "cfg".to_string(),
-            name: "override-new-init".to_string(),
-            description: String::new(),
-            api_key: "sk-test".to_string(),
-            base_url: None,
-            website_url: None,
-            model: None,
-            thinking_model: None,
-            haiku_model: None,
-            sonnet_model: None,
-            opus_model: None,
-            effort_level: None,
-            fullscreen_rendering_enabled: None,
-            interactive_init_enabled: Some(false),
-            always_thinking_enabled: None,
-            disable_nonessential_traffic: None,
-            skip_web_fetch_preflight: None,
-            enable_lsp_tool: None,
-            agent_teams_enabled: None,
-            has_completed_onboarding: None,
-            enable_extra_marketplaces: None,
-            preferred_language: None,
-            use_defaults: None,
-            enabled_plugins: None,
-            extra_fields: Some(HashMap::from([(
-                "env".to_string(),
-                json!({
-                    "CLAUDE_CODE_NEW_INIT": "1",
-                    "CUSTOM_ENV": "value"
-                }),
-            )])),
-            provider_id: None,
-            is_active: false,
-            created_at: 0,
-            updated_at: 0,
-        };
-
-        let preview = build_config_value(&config, None, None);
-
-        assert!(
-            preview["env"]["CLAUDE_CODE_NEW_INIT"].is_null(),
-            "interactiveInitEnabled=false 时不应被 extraFields.env 覆盖回 1"
-        );
-        assert_eq!(preview["env"]["CUSTOM_ENV"], json!("value"));
-    }
-
-    #[test]
-    fn preview_config_rejects_legacy_api_url_field() {
-        let result = serde_json::from_value::<ConfigData>(json!({
-            "name": "legacy-api-url",
-            "description": "",
-            "apiKey": "sk-test",
-            "apiUrl": "https://legacy.example.com/anthropic"
-        }));
-
-        assert!(
-            result.is_err(),
-            "旧的 apiUrl 字段不应继续被 ConfigData 接受"
-        );
-    }
-
-    #[test]
-    fn app_state_defaults_ui_language_to_zh() {
-        let state: AppState = serde_json::from_value(json!({
-            "configs": [],
-            "activeConfigId": null,
-            "showTrayTitle": true
-        }))
-        .expect("AppState 应可从旧数据结构反序列化");
-
-        assert_eq!(state.ui_language, "zh");
-    }
-
-    #[test]
-    fn app_state_defaults_project_open_preferences() {
-        let state: AppState = serde_json::from_value(json!({
-            "configs": [],
-            "activeConfigId": null,
-            "showTrayTitle": true
-        }))
-        .expect("AppState 应可从旧数据结构反序列化");
-
-        assert_eq!(state.default_terminal_app, "terminal");
-        assert_eq!(state.default_editor_app, None);
-    }
-
-    #[test]
-    fn normalize_ui_language_accepts_supported_values_only() {
-        assert_eq!(normalize_ui_language("zh").expect("zh 应被接受"), "zh");
-        assert_eq!(normalize_ui_language("en").expect("en 应被接受"), "en");
-        assert!(
-            normalize_ui_language("ja").is_err(),
-            "未支持的语言应返回错误"
-        );
-    }
-
-    #[test]
-    fn normalize_default_terminal_app_accepts_supported_values_only() {
+        let registry_json = serde_json::to_string_pretty(&registry).unwrap();
         assert_eq!(
-            normalize_default_terminal_app("terminal").expect("terminal 应被接受"),
-            "terminal"
+            include_str!("../tests/fixtures/config-registry.example.json").trim(),
+            registry_json
         );
-        assert_eq!(
-            normalize_default_terminal_app("iterm").expect("iterm 应被接受"),
-            "iterm"
-        );
-        assert_eq!(
-            normalize_default_terminal_app("warp").expect("warp 应被接受"),
-            "warp"
-        );
-        assert_eq!(
-            normalize_default_terminal_app("ghostty").expect("ghostty 应被接受"),
-            "ghostty"
-        );
-        assert!(
-            normalize_default_terminal_app("hyper").is_err(),
-            "未支持的终端应返回错误"
-        );
-    }
 
-    #[test]
-    fn normalize_default_editor_app_accepts_supported_values_only() {
+        let resolved = resolve_profile_settings(&registry, &registry.profiles[0]).unwrap();
+        let settings_json = serde_json::to_string_pretty(&resolved).unwrap();
         assert_eq!(
-            normalize_default_editor_app("vscode").expect("vscode 应被接受"),
-            "vscode"
-        );
-        assert_eq!(
-            normalize_default_editor_app("cursor").expect("cursor 应被接受"),
-            "cursor"
-        );
-        assert_eq!(
-            normalize_default_editor_app("windsurf").expect("windsurf 应被接受"),
-            "windsurf"
-        );
-        assert_eq!(
-            normalize_default_editor_app("zed").expect("zed 应被接受"),
-            "zed"
-        );
-        assert!(
-            normalize_default_editor_app("neovim").is_err(),
-            "未支持的编辑器应返回错误"
+            include_str!("../tests/fixtures/claude-settings.example.json").trim(),
+            settings_json
         );
     }
 }

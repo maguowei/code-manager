@@ -1,9 +1,14 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import useEscapeKey from "../hooks/useEscapeKey";
 import { useToast } from "../hooks/useToast";
 import { type Language, type Theme, useI18n } from "../i18n";
-import type { AppState, DefaultEditorApp, DefaultTerminalApp } from "../types";
+import type {
+  AppPreferences,
+  ConfigWorkspace,
+  DefaultEditorApp,
+  DefaultTerminalApp,
+} from "../types";
 import "./SettingsDrawer.css";
 
 interface SettingsDrawerProps {
@@ -13,57 +18,51 @@ interface SettingsDrawerProps {
 function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   const { t, language, theme, setLanguage, setTheme } = useI18n();
   const { showToast } = useToast();
-  const [showTrayTitle, setShowTrayTitle] = useState(true);
-  const [defaultTerminalApp, setDefaultTerminalApp] = useState<DefaultTerminalApp>("terminal");
-  const [defaultEditorApp, setDefaultEditorApp] = useState<DefaultEditorApp | null>(null);
+  const [preferences, setPreferences] = useState<AppPreferences>({
+    showTrayTitle: true,
+    uiLanguage: "zh",
+    defaultTerminalApp: "terminal",
+    defaultEditorApp: null,
+  });
 
   // 从后端加载设置
   useEffect(() => {
-    invoke<AppState>("get_configs").then((state) => {
-      setShowTrayTitle(state.showTrayTitle ?? true);
-      setDefaultTerminalApp(state.defaultTerminalApp ?? "terminal");
-      setDefaultEditorApp(state.defaultEditorApp ?? null);
-    });
-  }, []);
+    invoke<ConfigWorkspace>("get_config_workspace")
+      .then((workspace) => {
+        setPreferences(workspace.app);
+        if (workspace.app.uiLanguage !== language) {
+          setLanguage(workspace.app.uiLanguage as Language);
+        }
+      })
+      .catch(() => {
+        showToast(t("toast.configLoadError"), "error");
+      });
+  }, [language, setLanguage, showToast, t]);
 
-  const handleToggleTrayTitle = useCallback(async () => {
-    const newValue = !showTrayTitle;
-    setShowTrayTitle(newValue);
+  const showTrayTitle = preferences.showTrayTitle;
+  const defaultTerminalApp = preferences.defaultTerminalApp;
+  const defaultEditorApp = preferences.defaultEditorApp;
+
+  const nextPreferences = useMemo(
+    () => ({
+      ...preferences,
+      uiLanguage: language,
+    }),
+    [language, preferences],
+  );
+
+  async function persistPreferences(next: AppPreferences, rollback: AppPreferences) {
+    setPreferences(next);
     try {
-      await invoke("set_show_tray_title", { show: newValue });
+      await invoke<AppPreferences>("set_app_preferences", { data: next });
     } catch {
-      setShowTrayTitle(!newValue);
+      setPreferences(rollback);
+      if (rollback.uiLanguage !== language) {
+        setLanguage(rollback.uiLanguage as Language);
+      }
       showToast(t("toast.configSaveError"), "error");
     }
-  }, [showTrayTitle, showToast, t]);
-
-  const handleChangeTerminalApp = useCallback(
-    async (app: DefaultTerminalApp) => {
-      const previous = defaultTerminalApp;
-      setDefaultTerminalApp(app);
-      try {
-        await invoke("set_default_terminal_app", { app });
-      } catch {
-        setDefaultTerminalApp(previous);
-        showToast(t("toast.configSaveError"), "error");
-      }
-    },
-    [defaultTerminalApp, showToast, t],
-  );
-
-  const handleChangeEditorApp = useCallback(
-    async (app: DefaultEditorApp | null) => {
-      const previous = defaultEditorApp;
-      setDefaultEditorApp(app);
-      try {
-        await invoke("set_default_editor_app", { app });
-      } catch {
-        setDefaultEditorApp(previous);
-        showToast(t("toast.configSaveError"), "error");
-      }
-    },
-    [defaultEditorApp, showToast, t],
-  );
+  }
 
   const themeOptions: {
     value: Theme;
@@ -123,7 +122,18 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                 id="settings-language-select"
                 className="settings-select"
                 value={language}
-                onChange={(e) => setLanguage(e.target.value as Language)}
+                onChange={(e) => {
+                  const nextLanguage = e.target.value as Language;
+                  const rollback = nextPreferences;
+                  setLanguage(nextLanguage);
+                  void persistPreferences(
+                    {
+                      ...nextPreferences,
+                      uiLanguage: nextLanguage,
+                    },
+                    rollback,
+                  );
+                }}
               >
                 <option value="zh">中文</option>
                 <option value="en">English</option>
@@ -213,7 +223,15 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
               <button
                 type="button"
                 className={`toggle-switch${showTrayTitle ? " enabled" : ""}`}
-                onClick={handleToggleTrayTitle}
+                onClick={() => {
+                  void persistPreferences(
+                    {
+                      ...nextPreferences,
+                      showTrayTitle: !showTrayTitle,
+                    },
+                    nextPreferences,
+                  );
+                }}
                 role="switch"
                 aria-checked={showTrayTitle}
               >
@@ -240,7 +258,15 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                 id="settings-terminal-select"
                 className="settings-select"
                 value={defaultTerminalApp}
-                onChange={(e) => handleChangeTerminalApp(e.target.value as DefaultTerminalApp)}
+                onChange={(e) => {
+                  void persistPreferences(
+                    {
+                      ...nextPreferences,
+                      defaultTerminalApp: e.target.value as DefaultTerminalApp,
+                    },
+                    nextPreferences,
+                  );
+                }}
               >
                 <option value="terminal">Terminal</option>
                 <option value="iterm">iTerm</option>
@@ -264,7 +290,13 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                 className="settings-select"
                 value={defaultEditorApp ?? ""}
                 onChange={(e) =>
-                  handleChangeEditorApp((e.target.value || null) as DefaultEditorApp | null)
+                  void persistPreferences(
+                    {
+                      ...nextPreferences,
+                      defaultEditorApp: (e.target.value || null) as DefaultEditorApp | null,
+                    },
+                    nextPreferences,
+                  )
                 }
               >
                 <option value="">{t("settings.editorUnset")}</option>

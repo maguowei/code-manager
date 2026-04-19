@@ -1,0 +1,57 @@
+{
+  "$schema": "https://ai-manager.app/schemas/config-registry.schema.json",
+  "version": 1,
+  "app": {
+    "showTrayTitle": true,
+    "uiLanguage": "zh",
+    "defaultTerminalApp": "terminal",
+    "defaultEditorApp": "cursor"
+  },
+  "customPresets": [
+    {
+      "id": "custom:team-plan",
+      "name": "Team Plan",
+      "localizedName": {
+        "zh": "团队计划",
+        "en": "Team Plan"
+      },
+      "description": "团队默认权限",
+      "basePresetId": "builtin:openrouter",
+      "docUrl": "https://example.com/preset-docs",
+      "modelSuggestions": [
+        "claude-sonnet-4-6"
+      ],
+      "settingsPatch": {
+        "permissions": {
+          "defaultMode": "plan"
+        }
+      },
+      "source": "custom"
+    }
+  ],
+  "profiles": [
+    {
+      "id": "user-openrouter",
+      "name": "OpenRouter User",
+      "description": "全局开发默认配置",
+      "target": {
+        "scope": "user"
+      },
+      "presetId": "custom:team-plan",
+      "settings": {
+        "env": {
+          "ANTHROPIC_AUTH_TOKEN": "token"
+        },
+        "model": "claude-sonnet-4-6"
+      },
+      "createdAt": "2026-04-18T12:00:00+08:00",
+      "updatedAt": "2026-04-18T12:00:00+08:00"
+    }
+  ],
+  "bindings": {
+    "userProfileId": "user-openrouter",
+    "userLastAppliedAt": "2026-04-18T12:00:00+08:00",
+    "projectBindings": [],
+    "localBindings": []
+  }
+}

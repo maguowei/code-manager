@@ -2,6 +2,7 @@
   {
     "id": "00000000-0000-0000-0000-000000000001",
     "name": "Anthropic",
+    "localizedName": { "zh": "Anthropic 官方", "en": "Anthropic" },
     "slug": "anthropic",
     "baseUrl": "",
     "docUrl": "https://docs.anthropic.com",
@@ -14,6 +15,7 @@
   {
     "id": "00000000-0000-0000-0000-000000000002",
     "name": "智谱 GLM Coding Plan",
+    "localizedName": { "zh": "智谱 GLM Coding Plan", "en": "Zhipu GLM Coding Plan" },
     "slug": "zhipu",
     "baseUrl": "https://open.bigmodel.cn/api/anthropic",
     "docUrl": "https://docs.bigmodel.cn/cn/coding-plan/overview",
@@ -24,6 +26,7 @@
   {
     "id": "00000000-0000-0000-0000-000000000003",
     "name": "Kimi Code Plan",
+    "localizedName": { "zh": "Kimi 编码方案", "en": "Kimi Code Plan" },
     "slug": "kimi",
     "baseUrl": "https://api.kimi.com/coding/",
     "docUrl": "https://www.kimi.com/code/docs/",
@@ -34,6 +37,7 @@
   {
     "id": "00000000-0000-0000-0000-000000000004",
     "name": "MiniMax Token Plan",
+    "localizedName": { "zh": "MiniMax Token 方案", "en": "MiniMax Token Plan" },
     "slug": "minimax",
     "baseUrl": "https://api.minimaxi.com/anthropic",
     "docUrl": "https://platform.minimaxi.com/docs/guides/pricing-token-plan",
@@ -44,6 +48,7 @@
   {
     "id": "00000000-0000-0000-0000-000000000005",
     "name": "Xiaomi MiMo Token Plan",
+    "localizedName": { "zh": "小米 MiMo Token 方案", "en": "Xiaomi MiMo Token Plan" },
     "slug": "xiaomi-mimo",
     "baseUrl": "https://token-plan-cn.xiaomimimo.com/anthropic",
     "docUrl": "https://platform.xiaomimimo.com/#/docs/welcome",
@@ -54,6 +59,7 @@
   {
     "id": "00000000-0000-0000-0000-000000000006",
     "name": "OpenRouter",
+    "localizedName": { "zh": "开放路由", "en": "OpenRouter" },
     "slug": "openrouter",
     "baseUrl": "https://openrouter.ai/api",
     "docUrl": "https://openrouter.ai/docs/guides/coding-agents/claude-code-integration",
@@ -64,6 +70,7 @@
   {
     "id": "00000000-0000-0000-0000-000000000007",
     "name": "火山方舟 Coding Plan",
+    "localizedName": { "zh": "火山方舟 Coding Plan", "en": "Volcengine Ark Coding Plan" },
     "slug": "volcengine",
     "baseUrl": "https://ark.cn-beijing.volces.com/api/coding",
     "docUrl": "https://www.volcengine.com/docs/82379/1925114",
@@ -76,6 +83,7 @@
   {
     "id": "00000000-0000-0000-0000-000000000008",
     "name": "阿里云百炼 Coding Plan",
+    "localizedName": { "zh": "阿里云百炼 Coding Plan", "en": "DashScope Coding Plan" },
     "slug": "dashscope",
     "baseUrl": "https://coding.dashscope.aliyuncs.com/apps/anthropic",
     "docUrl": "https://help.aliyun.com/zh/model-studio/coding-plan",
@@ -89,6 +97,7 @@
   {
     "id": "00000000-0000-0000-0000-000000000009",
     "name": "ModelScope",
+    "localizedName": { "zh": "魔搭 ModelScope", "en": "ModelScope" },
     "slug": "modelscope",
     "baseUrl": "https://api-inference.modelscope.cn",
     "docUrl": "https://modelscope.cn/docs/model-service/API-Inference/intro",
@@ -99,6 +108,7 @@
   {
     "id": "00000000-0000-0000-0000-000000000010",
     "name": "万界方舟",
+    "localizedName": { "zh": "万界方舟", "en": "Wanjie Ark" },
     "slug": "wanjie",
     "baseUrl": "https://maas-openapi.wanjiedata.com/api/anthropic",
     "docUrl": "https://docs.wjark.com/maas/scenarios/Development/Claudecode.html",
@@ -111,6 +121,7 @@
   {
     "id": "00000000-0000-0000-0000-000000000011",
     "name": "Ollama",
+    "localizedName": { "zh": "Ollama", "en": "Ollama" },
     "slug": "ollama",
     "baseUrl": "http://localhost:11434",
     "docUrl": "https://ollama.com/blog/claude-code",

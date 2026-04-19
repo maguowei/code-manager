@@ -1,4 +1,6 @@
-use crate::config::{activate_config_inner, load_state, AppState};
+use crate::config::{
+    apply_profile_inner, load_registry_or_default, ConfigProfile, ConfigRegistry, TargetScope,
+};
 use tauri::{
     menu::{Menu, MenuItemBuilder, PredefinedMenuItem},
     tray::TrayIconBuilder,
@@ -48,9 +50,9 @@ fn tray_labels_for_language(language: &str) -> TrayLabels<'static> {
 }
 
 /// 构建托盘菜单
-fn build_tray_menu(app: &AppHandle, state: &AppState) -> tauri::Result<Menu<tauri::Wry>> {
+fn build_tray_menu(app: &AppHandle, state: &ConfigRegistry) -> tauri::Result<Menu<tauri::Wry>> {
     let mut items: Vec<Box<dyn tauri::menu::IsMenuItem<tauri::Wry>>> = Vec::new();
-    let labels = tray_labels_for_language(&state.ui_language);
+    let labels = tray_labels_for_language(&state.app.ui_language);
 
     // 顶部：点击打开主窗口
     let show = MenuItemBuilder::with_id("show_window", labels.show_window).build(app)?;
@@ -62,21 +64,26 @@ fn build_tray_menu(app: &AppHandle, state: &AppState) -> tauri::Result<Menu<taur
     items.push(Box::new(nav_configs));
 
     // 配置列表
-    if state.configs.is_empty() {
+    let user_profiles: Vec<&ConfigProfile> = state
+        .profiles
+        .iter()
+        .filter(|profile| profile.target.scope == TargetScope::User)
+        .collect();
+    if user_profiles.is_empty() {
         let empty = MenuItemBuilder::with_id("no_configs", labels.no_configs)
             .enabled(false)
             .build(app)?;
         items.push(Box::new(empty));
     } else {
-        for config in &state.configs {
-            let is_active = state.active_config_id.as_ref() == Some(&config.id);
+        for profile in user_profiles {
+            let is_active = state.bindings.user_profile_id.as_ref() == Some(&profile.id);
             let label = if is_active {
-                format!("✓ {}", config.name)
+                format!("✓ {}", profile.name)
             } else {
-                format!("   {}", config.name)
+                format!("   {}", profile.name)
             };
             let item =
-                MenuItemBuilder::with_id(format!("config_{}", config.id), label).build(app)?;
+                MenuItemBuilder::with_id(format!("profile_{}", profile.id), label).build(app)?;
             items.push(Box::new(item));
         }
     }
@@ -111,27 +118,27 @@ fn build_tray_menu(app: &AppHandle, state: &AppState) -> tauri::Result<Menu<taur
 }
 
 /// 获取托盘 title：当设置开启且有激活配置时返回配置名
-fn get_tray_title(state: &AppState) -> Option<String> {
-    if !state.show_tray_title {
+fn get_tray_title(state: &ConfigRegistry) -> Option<String> {
+    if !state.app.show_tray_title {
         return None;
     }
-    let active_id = state.active_config_id.as_ref()?;
+    let active_id = state.bindings.user_profile_id.as_ref()?;
     state
-        .configs
+        .profiles
         .iter()
-        .find(|c| &c.id == active_id)
-        .map(|c| c.name.clone())
+        .find(|profile| &profile.id == active_id)
+        .map(|profile| profile.name.clone())
 }
 
 /// 重建托盘菜单（配置变化后调用）
 /// 可传入已有的 state 避免重复读磁盘，传 None 则从磁盘读取
-pub fn rebuild_tray_menu(app_handle: &AppHandle, state: Option<&AppState>) {
+pub fn rebuild_tray_menu(app_handle: &AppHandle, state: Option<&ConfigRegistry>) {
     if let Some(tray) = app_handle.tray_by_id("main_tray") {
         let owned_state;
         let state = match state {
             Some(s) => s,
             None => {
-                owned_state = load_state();
+                owned_state = load_registry_or_default();
                 &owned_state
             }
         };
@@ -163,7 +170,7 @@ fn show_main_window(app: &AppHandle) {
 /// 初始化系统托盘
 pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     let handle = app.handle();
-    let state = load_state();
+    let state = load_registry_or_default();
     let menu = build_tray_menu(handle, &state)?;
 
     // 获取应用图标，若不存在则返回 IO 错误
@@ -190,16 +197,16 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
         .on_menu_event(|app, event| {
             let id = event.id().as_ref();
 
-            if let Some(config_id) = id.strip_prefix("config_") {
-                // 切换配置
-                match activate_config_inner(config_id.to_string()) {
+            if let Some(profile_id) = id.strip_prefix("profile_") {
+                // 切换用户级 profile
+                match apply_profile_inner(profile_id.to_string()) {
                     Ok(state) => {
                         rebuild_tray_menu(app, Some(&state));
                         // 通知前端刷新配置状态
-                        let _ = app.emit("config-changed", ());
+                        let _ = app.emit("config-workspace-changed", ());
                     }
                     Err(e) => {
-                        eprintln!("Failed to activate config from tray: {}", e);
+                        eprintln!("Failed to apply profile from tray: {}", e);
                     }
                 }
             } else if let Some(tab) = id.strip_prefix("nav_") {

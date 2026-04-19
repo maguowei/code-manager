@@ -2,26 +2,20 @@ mod config;
 mod history;
 mod memory;
 mod project;
-mod provider;
 mod skills;
 mod stats;
 mod tray;
 mod utils;
 
 use config::{
-    activate_config, add_config, delete_config, duplicate_config, get_configs, get_defaults,
-    preview_config, reorder_configs, set_default_editor_app, set_default_terminal_app,
-    set_show_tray_title, set_ui_language, update_config, update_defaults,
+    apply_profile, delete_preset, delete_profile, get_config_workspace, preview_profile,
+    reorder_profiles, set_app_preferences, upsert_preset, upsert_profile,
 };
 use history::{get_history, get_history_if_changed, get_session_detail};
 use memory::{add_memory, delete_memory, get_memories, toggle_memory, update_memory};
 use project::{
     create_project_agents_symlink, get_project_detail, open_project_in_editor,
     open_project_in_terminal,
-};
-use provider::{
-    add_provider, delete_provider, get_providers, reorder_providers, reset_provider,
-    reset_provider_order, update_provider,
 };
 use skills::{
     add_skill, add_skill_file, delete_skill, delete_skill_file, get_skill_files, get_skills,
@@ -55,20 +49,15 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
-            get_configs,
-            add_config,
-            update_config,
-            delete_config,
-            duplicate_config,
-            activate_config,
-            reorder_configs,
-            get_defaults,
-            update_defaults,
-            preview_config,
-            set_show_tray_title,
-            set_ui_language,
-            set_default_terminal_app,
-            set_default_editor_app,
+            get_config_workspace,
+            upsert_profile,
+            reorder_profiles,
+            delete_profile,
+            apply_profile,
+            preview_profile,
+            upsert_preset,
+            delete_preset,
+            set_app_preferences,
             get_memories,
             add_memory,
             update_memory,
@@ -94,13 +83,6 @@ pub fn run() {
             update_skill_file,
             delete_skill_file,
             sync_skill_to_codex,
-            get_providers,
-            add_provider,
-            update_provider,
-            delete_provider,
-            reset_provider,
-            reorder_providers,
-            reset_provider_order,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

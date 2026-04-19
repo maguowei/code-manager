@@ -1,0 +1,9 @@
+.preset-editor-panel {
+  width: 100%;
+}
+
+.preset-editor-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}

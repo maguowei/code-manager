@@ -1,0 +1,114 @@
+.preset-section-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.preset-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.preset-section-header h2 {
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+
+.preset-section-header p {
+  margin-top: 6px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.preset-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.preset-card {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(180deg, var(--bg-primary), var(--bg-secondary));
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.preset-card.builtin {
+  background: linear-gradient(180deg, var(--bg-primary), var(--bg-tertiary));
+}
+
+.preset-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.preset-card-head h3 {
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+
+.preset-card-head p {
+  margin-top: 6px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.preset-source-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background-color: var(--accent-blue-bg);
+  color: var(--accent-blue);
+  font-size: var(--font-sm);
+  font-weight: 700;
+}
+
+.preset-source-badge.custom {
+  background-color: var(--accent-green-bg);
+  color: var(--accent-green);
+}
+
+.preset-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: var(--font-base);
+}
+
+.preset-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.preset-card-actions button {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.preset-card-actions button:hover {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+.preset-card-actions .danger:hover {
+  border-color: var(--accent-red);
+  color: var(--accent-red);
+}

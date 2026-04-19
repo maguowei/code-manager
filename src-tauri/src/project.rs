@@ -1,4 +1,4 @@
-use crate::config::AppState;
+use crate::config::AppPreferences;
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -89,28 +89,29 @@ pub fn get_project_detail(project: &str) -> Result<ProjectDetail, String> {
     let file_status = inspect_project_files(&project_path)?;
     let repo_root = git_repo_root(&project_path).ok();
 
-    let (is_git_repo, repo_root_str, repository_url, branches, worktrees) = if let Some(repo_root) = repo_root {
-        let branches_output = run_git(
-            &project_path,
-            &[
-                "for-each-ref",
-                "refs/heads",
-                "--sort=-committerdate",
-                "--format=%(refname:short)%00%(HEAD)%00%(committerdate:unix)%00%(subject)",
-            ],
-        )?;
-        let worktrees_output = run_git(&project_path, &["worktree", "list", "--porcelain"])?;
-        let repo_root_path = PathBuf::from(&repo_root);
-        (
-            true,
-            Some(repo_root),
-            resolve_repository_url(&project_path),
-            parse_branches_output(&branches_output),
-            parse_worktrees_output(&worktrees_output, &repo_root_path),
-        )
-    } else {
-        (false, None, None, Vec::new(), Vec::new())
-    };
+    let (is_git_repo, repo_root_str, repository_url, branches, worktrees) =
+        if let Some(repo_root) = repo_root {
+            let branches_output = run_git(
+                &project_path,
+                &[
+                    "for-each-ref",
+                    "refs/heads",
+                    "--sort=-committerdate",
+                    "--format=%(refname:short)%00%(HEAD)%00%(committerdate:unix)%00%(subject)",
+                ],
+            )?;
+            let worktrees_output = run_git(&project_path, &["worktree", "list", "--porcelain"])?;
+            let repo_root_path = PathBuf::from(&repo_root);
+            (
+                true,
+                Some(repo_root),
+                resolve_repository_url(&project_path),
+                parse_branches_output(&branches_output),
+                parse_worktrees_output(&worktrees_output, &repo_root_path),
+            )
+        } else {
+            (false, None, None, Vec::new(), Vec::new())
+        };
 
     Ok(ProjectDetail {
         path: project_display,
@@ -138,16 +139,16 @@ pub fn create_project_agents_symlink(project: &str) -> Result<(), String> {
 #[tauri::command]
 pub fn open_project_in_terminal(project: &str) -> Result<(), String> {
     let project_path = validate_project_path(project)?;
-    let state = crate::config::load_state();
-    let request = build_terminal_open_request(&project_path, &state)?;
+    let preferences = crate::config::load_app_preferences();
+    let request = build_terminal_open_request(&project_path, &preferences)?;
     run_open_app_request(&request)
 }
 
 #[tauri::command]
 pub fn open_project_in_editor(project: &str) -> Result<(), String> {
     let project_path = validate_project_path(project)?;
-    let state = crate::config::load_state();
-    let request = build_editor_open_request(&project_path, &state)?;
+    let preferences = crate::config::load_app_preferences();
+    let request = build_editor_open_request(&project_path, &preferences)?;
     run_open_app_request(&request)
 }
 
@@ -333,7 +334,9 @@ fn resolve_repository_url(project: &Path) -> Option<String> {
     remote_names.sort_by(|left, right| {
         let left_priority = if *left == "origin" { 0 } else { 1 };
         let right_priority = if *right == "origin" { 0 } else { 1 };
-        left_priority.cmp(&right_priority).then_with(|| left.cmp(right))
+        left_priority
+            .cmp(&right_priority)
+            .then_with(|| left.cmp(right))
     });
 
     for remote_name in remote_names {
@@ -425,7 +428,10 @@ fn strip_port(authority: &str) -> &str {
         }
     }
 
-    authority.rsplit_once(':').map(|(host, _)| host).unwrap_or(authority)
+    authority
+        .rsplit_once(':')
+        .map(|(host, _)| host)
+        .unwrap_or(authority)
 }
 
 fn sanitize_repository_path(path: &str) -> Option<String> {
@@ -449,15 +455,21 @@ fn sanitize_repository_path(path: &str) -> Option<String> {
     Some(normalized.to_string())
 }
 
-fn build_terminal_open_request(project: &Path, state: &AppState) -> Result<OpenAppRequest, String> {
+fn build_terminal_open_request(
+    project: &Path,
+    preferences: &AppPreferences,
+) -> Result<OpenAppRequest, String> {
     ensure_project_dir_exists(project)?;
-    let app_name = terminal_app_name(&state.default_terminal_app)?;
+    let app_name = terminal_app_name(&preferences.default_terminal_app)?;
     Ok(build_open_app_request(project, app_name))
 }
 
-fn build_editor_open_request(project: &Path, state: &AppState) -> Result<OpenAppRequest, String> {
+fn build_editor_open_request(
+    project: &Path,
+    preferences: &AppPreferences,
+) -> Result<OpenAppRequest, String> {
     ensure_project_dir_exists(project)?;
-    let editor = state
+    let editor = preferences
         .default_editor_app
         .as_deref()
         .ok_or_else(|| "请先在设置中选择默认编辑器".to_string())?;
@@ -607,7 +619,7 @@ fn paths_match(left: &Path, right: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::AppState;
+    use crate::config::AppPreferences;
     use std::path::Path;
 
     #[test]
@@ -709,10 +721,7 @@ mod tests {
         let repo = TestDir::new();
         init_git_repo(
             repo.path(),
-            &[(
-                "origin",
-                "git@gitlab.example.com:team/ai-manager.git",
-            )],
+            &[("origin", "git@gitlab.example.com:team/ai-manager.git")],
         );
 
         let detail = get_project_detail(repo.path().to_str().unwrap()).unwrap();
@@ -731,7 +740,10 @@ mod tests {
             repo.path(),
             &[
                 ("origin", "file:///tmp/local-only.git"),
-                ("upstream", "https://user:pass@github.example.com/org/repo.git?ref=main"),
+                (
+                    "upstream",
+                    "https://user:pass@github.example.com/org/repo.git?ref=main",
+                ),
             ],
         );
 
@@ -758,7 +770,9 @@ mod tests {
     #[test]
     fn normalize_repository_url_supports_http_and_ssh_formats() {
         assert_eq!(
-            normalize_repository_url("https://user:pass@gitlab.example.com/group/repo.git/?foo=bar"),
+            normalize_repository_url(
+                "https://user:pass@gitlab.example.com/group/repo.git/?foo=bar"
+            ),
             Some("https://gitlab.example.com/group/repo".to_string())
         );
         assert_eq!(
@@ -887,11 +901,11 @@ mod tests {
         assert!(status.success(), "git command failed: {:?}", args);
     }
 
-    fn sample_app_state(default_terminal_app: &str, default_editor_app: Option<&str>) -> AppState {
-        AppState {
-            configs: Vec::new(),
-            active_config_id: None,
-            defaults: None,
+    fn sample_app_state(
+        default_terminal_app: &str,
+        default_editor_app: Option<&str>,
+    ) -> AppPreferences {
+        AppPreferences {
             show_tray_title: true,
             ui_language: "zh".to_string(),
             default_terminal_app: default_terminal_app.to_string(),

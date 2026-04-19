@@ -1,315 +1,76 @@
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useState } from "react";
 import "./App.css";
-import ConfigEditor from "./components/ConfigEditor";
-import ConfigList from "./components/ConfigList";
-import ConfirmDialog from "./components/ConfirmDialog";
-import Drawer from "./components/Drawer";
 import HistoryPage from "./components/HistoryPage";
-import { PlusIcon } from "./components/Icons";
 import MemoryPage from "./components/MemoryPage";
+import PresetsPage from "./components/PresetsPage";
+import ProfilesPage from "./components/ProfilesPage";
 import ProjectsPage from "./components/ProjectsPage";
-import ProviderPage from "./components/ProviderPage";
 import SettingsDrawer from "./components/SettingsDrawer";
 import Sidebar from "./components/Sidebar";
 import SkillsPage from "./components/SkillsPage";
 import StatsPage from "./components/StatsPage";
-import useEscapeKey from "./hooks/useEscapeKey";
 import useTauriEvent from "./hooks/useTauriEvent";
 import { useToast } from "./hooks/useToast";
 import { useI18n } from "./i18n";
-import { type ClaudeConfig, isTauri, type Provider, type TabType } from "./types";
+import { type ConfigWorkspace, isTauri, type TabType } from "./types";
 
-/** 将表单数据转换为后端 ConfigData 格式 */
-function buildConfigData(
-  config: Omit<ClaudeConfig, "id" | "createdAt" | "updatedAt" | "isActive">,
-) {
-  return {
-    name: config.name,
-    description: config.description,
-    apiKey: config.apiKey,
-    baseUrl: config.baseUrl || null,
-    websiteUrl: config.websiteUrl || null,
-    model: config.model || null,
-    haikuModel: config.haikuModel || null,
-    sonnetModel: config.sonnetModel || null,
-    opusModel: config.opusModel || null,
-    effortLevel: config.effortLevel || null,
-    // 布尔字段使用 ?? null，避免 false 被错误清除
-    alwaysThinkingEnabled: config.alwaysThinkingEnabled ?? null,
-    disableNonessentialTraffic: config.disableNonessentialTraffic ?? null,
-    skipWebFetchPreflight: config.skipWebFetchPreflight ?? null,
-    enableLspTool: config.enableLspTool ?? null,
-    fullscreenRenderingEnabled: config.fullscreenRenderingEnabled ?? null,
-    interactiveInitEnabled: config.interactiveInitEnabled ?? null,
-    agentTeamsEnabled: config.agentTeamsEnabled ?? null,
-    hasCompletedOnboarding: config.hasCompletedOnboarding ?? null,
-    enableExtraMarketplaces: config.enableExtraMarketplaces ?? null,
-    preferredLanguage: config.preferredLanguage || null,
-    useDefaults: config.useDefaults ?? null,
-    enabledPlugins:
-      config.enabledPlugins && Object.keys(config.enabledPlugins).length > 0
-        ? config.enabledPlugins
-        : null,
-    extraFields:
-      config.extraFields && Object.keys(config.extraFields).length > 0 ? config.extraFields : null,
-    providerId: config.providerId || null,
-  };
-}
+const EMPTY_WORKSPACE: ConfigWorkspace = {
+  app: {
+    showTrayTitle: true,
+    uiLanguage: "zh",
+    defaultTerminalApp: "terminal",
+    defaultEditorApp: null,
+  },
+  builtinPresets: [],
+  customPresets: [],
+  profiles: [],
+  bindings: {
+    projectBindings: [],
+    localBindings: [],
+  },
+  knownProjects: [],
+};
 
 function App() {
   const { t } = useI18n();
   const { showToast } = useToast();
-  const [configs, setConfigs] = useState<ClaudeConfig[]>([]);
-  const [activeConfigId, setActiveConfigId] = useState<string | null>(null);
-  const [defaults, setDefaults] = useState<string>("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [editingConfig, setEditingConfig] = useState<ClaudeConfig | null>(null);
+  const [workspace, setWorkspace] = useState<ConfigWorkspace>(EMPTY_WORKSPACE);
   const [activeTab, setActiveTab] = useState<TabType>("configs");
   const [loading, setLoading] = useState(true);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
-  const [providers, setProviders] = useState<Provider[]>([]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: 仅在挂载时执行一次，loadConfigs/loadProviders 是稳定引用
+  const loadWorkspace = useCallback(async () => {
+    if (!isTauri()) {
+      setWorkspace(EMPTY_WORKSPACE);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const nextWorkspace = await invoke<ConfigWorkspace>("get_config_workspace");
+      setWorkspace(nextWorkspace);
+    } catch {
+      setWorkspace(EMPTY_WORKSPACE);
+      showToast("加载配置工作区失败", "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [showToast]);
+
   useEffect(() => {
-    loadConfigs();
-    loadProviders();
-  }, []);
+    void loadWorkspace();
+  }, [loadWorkspace]);
 
-  // 监听来自系统托盘的配置切换事件
-  useTauriEvent<void>("config-changed", () => loadConfigs());
+  useTauriEvent<void>("config-workspace-changed", () => {
+    void loadWorkspace();
+  });
 
-  // 监听来自系统托盘的页面导航事件
   useTauriEvent<string>("navigate-to-tab", (tab) => {
     setActiveTab(tab as TabType);
     setIsDetailDrawerOpen(false);
   });
-
-  // 键盘快捷键支持（Cmd/Ctrl + N 新建配置）
-  // biome-ignore lint/correctness/useExhaustiveDependencies: handleAdd 是稳定的函数引用
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "n") {
-        e.preventDefault();
-        if (activeTab === "configs") {
-          handleAdd();
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeTab]);
-
-  // ESC 键关闭配置编辑抽屉
-  useEscapeKey(
-    useCallback(() => {
-      setIsModalOpen(false);
-      setEditingConfig(null);
-    }, []),
-    isModalOpen,
-  );
-
-  const loadConfigs = useCallback(async () => {
-    if (!isTauri()) {
-      setLoading(false);
-      return;
-    }
-    try {
-      const result = await invoke<{
-        configs: ClaudeConfig[];
-        activeConfigId: string | null;
-        defaults?: string | null;
-      }>("get_configs");
-      setConfigs(result.configs);
-      setActiveConfigId(result.activeConfigId);
-      setDefaults(result.defaults || "");
-    } catch (_error) {
-      showToast(t("toast.configLoadError"), "error");
-    } finally {
-      setLoading(false);
-    }
-  }, [showToast, t]);
-
-  const loadProviders = useCallback(async () => {
-    if (!isTauri()) return;
-    try {
-      const list = await invoke<Provider[]>("get_providers");
-      setProviders(list);
-    } catch {
-      showToast(t("toast.providerLoadError"), "error");
-    }
-  }, [showToast, t]);
-
-  const handleActivate = useCallback(
-    async (id: string) => {
-      if (!isTauri()) return;
-      try {
-        await invoke("activate_config", { id });
-        setActiveConfigId(id);
-        setConfigs((prev) => prev.map((c) => ({ ...c, isActive: c.id === id })));
-        showToast(t("toast.configActivated"));
-      } catch (_error) {
-        showToast(t("toast.configActivateError"), "error");
-      }
-    },
-    [showToast, t],
-  );
-
-  async function handleSave(
-    config: Omit<ClaudeConfig, "id" | "createdAt" | "updatedAt" | "isActive">,
-    newDefaults?: string,
-  ) {
-    if (!isTauri()) return;
-    try {
-      // 如果通用配置有变化，先保存通用配置
-      if (newDefaults !== undefined && newDefaults !== defaults) {
-        await invoke("update_defaults", { content: newDefaults });
-        setDefaults(newDefaults);
-      }
-
-      if (editingConfig) {
-        await invoke<ClaudeConfig>("update_config", {
-          id: editingConfig.id,
-          data: buildConfigData(config),
-        });
-      } else {
-        await invoke<ClaudeConfig>("add_config", {
-          data: buildConfigData(config),
-        });
-      }
-      await loadConfigs();
-      setIsModalOpen(false);
-      setEditingConfig(null);
-      showToast(t("toast.configSaved"));
-    } catch (_error) {
-      showToast(t("toast.configSaveError"), "error");
-    }
-  }
-
-  const handleDelete = useCallback(
-    async (id: string) => {
-      if (!isTauri()) return;
-      try {
-        await invoke("delete_config", { id });
-        setConfigs((prev) => prev.filter((c) => c.id !== id));
-        setActiveConfigId((prev) => (prev === id ? null : prev));
-        showToast(t("toast.configDeleted"));
-      } catch (_error) {
-        showToast(t("toast.configDeleteError"), "error");
-      }
-    },
-    [showToast, t],
-  );
-
-  const handleDuplicate = useCallback(
-    async (id: string) => {
-      if (!isTauri()) return;
-      try {
-        const duplicated = await invoke<ClaudeConfig>("duplicate_config", { id });
-        setConfigs((prev) => {
-          const index = prev.findIndex((c) => c.id === id);
-          if (index === -1) return [...prev, duplicated];
-          const next = [...prev];
-          next.splice(index + 1, 0, duplicated);
-          return next;
-        });
-        showToast(t("toast.configDuplicated"));
-      } catch (_error) {
-        showToast(t("toast.configDuplicateError"), "error");
-      }
-    },
-    [showToast, t],
-  );
-
-  const handleReorder = useCallback(
-    async (ids: string[]) => {
-      if (!isTauri()) return;
-      // 先更新前端状态，避免拖拽视觉延迟
-      setConfigs((prev) => {
-        const map = new Map(prev.map((c) => [c.id, c]));
-        return ids.map((id) => map.get(id)).filter(Boolean) as ClaudeConfig[];
-      });
-      try {
-        await invoke("reorder_configs", { ids });
-      } catch (_error) {
-        showToast(t("toast.configReorderError"), "error");
-        loadConfigs();
-      }
-    },
-    [showToast, t, loadConfigs],
-  );
-
-  const handleReorderProviders = useCallback(
-    async (ids: string[]) => {
-      if (!isTauri()) return;
-      // 乐观更新前端状态
-      setProviders((prev) => {
-        const map = new Map(prev.map((p) => [p.id, p]));
-        return ids.map((id) => map.get(id)).filter(Boolean) as Provider[];
-      });
-      try {
-        await invoke("reorder_providers", { ids });
-      } catch {
-        showToast(t("toast.providerReorderError"), "error");
-        loadProviders();
-      }
-    },
-    [showToast, t, loadProviders],
-  );
-
-  const handleResetProviderOrder = useCallback(async () => {
-    if (!isTauri()) return;
-    try {
-      const reordered = await invoke<Provider[]>("reset_provider_order");
-      setProviders(reordered);
-    } catch {
-      showToast(t("toast.providerReorderError"), "error");
-      loadProviders();
-    }
-  }, [showToast, t, loadProviders]);
-
-  // 打开抽屉时确保窗口宽度足够展示详情
-  // sidebar(60) + 压缩列表(280) + 抽屉最小(600) = 940
-  const MIN_DRAWER_WIDTH = 940;
-  const MIN_DRAWER_HEIGHT = 700;
-  const ensureWindowSize = useCallback(async () => {
-    if (!isTauri()) return;
-    try {
-      const win = getCurrentWindow();
-      const size = await win.innerSize();
-      const factor = await win.scaleFactor();
-      const logicalW = size.width / factor;
-      const logicalH = size.height / factor;
-      if (logicalW < MIN_DRAWER_WIDTH || logicalH < MIN_DRAWER_HEIGHT) {
-        const newW = Math.max(logicalW, MIN_DRAWER_WIDTH);
-        const newH = Math.max(logicalH, MIN_DRAWER_HEIGHT);
-        await win.setSize(new LogicalSize(newW, newH));
-      }
-    } catch {
-      // 非 Tauri 环境忽略
-    }
-  }, []);
-
-  const handleEdit = useCallback(
-    (config: ClaudeConfig) => {
-      setEditingConfig(config);
-      setIsModalOpen(true);
-      ensureWindowSize();
-    },
-    [ensureWindowSize],
-  );
-
-  const handleAdd = useCallback(() => {
-    setEditingConfig(null);
-    setIsModalOpen(true);
-    ensureWindowSize();
-  }, [ensureWindowSize]);
-
-  const handleRequestDelete = useCallback((id: string) => setPendingDeleteId(id), []);
 
   if (loading) {
     return (
@@ -338,78 +99,25 @@ function App() {
         ) : activeTab === "history" ? (
           <HistoryPage />
         ) : activeTab === "providers" ? (
-          <ProviderPage
-            providers={providers}
-            onProvidersChange={loadProviders}
-            onReorder={handleReorderProviders}
-            onResetOrder={handleResetProviderOrder}
-          />
+          <PresetsPage workspace={workspace} onWorkspaceChange={loadWorkspace} />
+        ) : activeTab === "configs" ? (
+          <ProfilesPage workspace={workspace} onWorkspaceChange={loadWorkspace} />
         ) : (
-          <div className={`list-section ${isModalOpen || isDetailDrawerOpen ? "compressed" : ""}`}>
-            {activeTab === "configs" && (
-              <>
-                <div className="page-header">
-                  <h1 className="page-title">{t("nav.configs")}</h1>
-                </div>
-                <button type="button" className="add-config-btn" onClick={handleAdd}>
-                  <PlusIcon />
-                  <span>{t("header.addConfig")}</span>
-                </button>
-                <ConfigList
-                  configs={configs}
-                  activeConfigId={activeConfigId}
-                  editingConfigId={isModalOpen ? (editingConfig?.id ?? null) : null}
-                  providers={providers}
-                  onActivate={handleActivate}
-                  onEdit={handleEdit}
-                  onDelete={handleRequestDelete}
-                  onDuplicate={handleDuplicate}
-                  onReorder={handleReorder}
-                />
-              </>
-            )}
+          <div className={`list-section ${isDetailDrawerOpen ? "compressed" : ""}`}>
             {activeTab === "memory" && <MemoryPage onDrawerChange={setIsDetailDrawerOpen} />}
             {activeTab === "skills" && <SkillsPage onDrawerChange={setIsDetailDrawerOpen} />}
           </div>
         )}
-
-        {isModalOpen && (
-          <Drawer
-            onClose={() => {
-              setIsModalOpen(false);
-              setEditingConfig(null);
-            }}
-          >
-            <ConfigEditor
-              config={editingConfig}
-              defaults={defaults}
-              providers={providers}
-              onSave={handleSave}
-              onClose={() => {
-                setIsModalOpen(false);
-                setEditingConfig(null);
-              }}
-            />
-          </Drawer>
-        )}
       </div>
 
-      {pendingDeleteId && (
-        <ConfirmDialog
-          title={t("confirm.deleteConfigTitle")}
-          message={t("confirm.deleteConfigMessage")}
-          confirmText={t("confirm.delete")}
-          cancelText={t("confirm.cancel")}
-          danger
-          onConfirm={() => {
-            handleDelete(pendingDeleteId);
-            setPendingDeleteId(null);
+      {isSettingsOpen && (
+        <SettingsDrawer
+          onClose={() => {
+            setIsSettingsOpen(false);
+            void loadWorkspace();
           }}
-          onCancel={() => setPendingDeleteId(null)}
         />
       )}
-
-      {isSettingsOpen && <SettingsDrawer onClose={() => setIsSettingsOpen(false)} />}
     </div>
   );
 }
