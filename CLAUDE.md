@@ -44,6 +44,7 @@
 - Rust 新增文件读写、锁和时间工具时，优先复用 `src-tauri/src/utils.rs`，不要重复实现。
 - 所有前端通知优先走 `useToast()`，不要把 `console.error` 当作用户反馈。
 - 新增有层叠关系的样式时，复用 `src/styles/shared.css` 中的 z-index 变量，不要硬编码。
+- 所有用户可见文本（按钮、标签、提示等）必须走 `useI18n()` 的 `t()` 函数，不要硬编码中英文字符串。
 
 ### 修改前先看哪里
 
@@ -54,6 +55,8 @@
 - 公共样式与 z-index 令牌：`src/styles/shared.css`
 - Tauri 命令注册：`src-tauri/src/lib.rs`
 - Rust 公共工具：`src-tauri/src/utils.rs`
+- 系统托盘：`src-tauri/src/tray.rs`
+- 国际化：`src/i18n.ts`
 
 ### 完成前验证
 
@@ -69,43 +72,49 @@
 
 ## 高频任务入口
 
-### 1. 改配置编辑器或配置持久化
+### 1. 改 Profile / Preset 或配置持久化
+
+项目采用 **Preset → Profile** 分层模型：Preset 是可复用的配置模板，Profile 是最终应用到 `~/.claude/settings.json` 的完整配置（可引用多个 Preset 并叠加自身设置）。
 
 先读：
 
-- `src/components/ConfigEditor.tsx`
-- `src/components/config-editor-defaults.ts`
+- `src/components/ProfilesPage.tsx`（Profile 列表页）
+- `src/components/ProfileEditor.tsx`（Profile 编辑主入口）
+- `src/components/profile-editor/`（Profile 编辑器子组件目录，含 Hooks、Permissions、Env 等分区编辑器）
+- `src/components/PresetsPage.tsx`（Preset 列表页）
+- `src/components/PresetEditor.tsx`（Preset 编辑器）
+- `src/components/ConfigEditor.tsx`（Schema 驱动的表单，被 ProfileEditor 和 PresetEditor 内嵌使用）
 - `src/schemas/claude-config.schema.json`
 - `src/schemas/config-schema.ts`
-- `src/schemas/field-groups.ts`
+- `src/schemas/form-fields.ts`（表单字段类型定义）
+- `src/schemas/field-groups.ts`（字段分组配置）
 - `src-tauri/src/config.rs`
 - `src/types.ts`
 
 注意：
 
 - 配置表单是 schema 驱动，不要只改前端字段渲染而漏掉 schema 或 Rust DTO。
-- `preview_config` 与实际写入共用后端逻辑，配置预览的权威实现不在前端。
+- `preview_profile` 与实际写入共用后端逻辑，配置预览的权威实现不在前端。
 - 新增配置字段时，通常至少要同步：
-  - Rust `ClaudeConfig` / DTO
+  - Rust DTO（config.rs 中的结构体）
   - `src/schemas/claude-config.schema.json`
   - `src/schemas/config-schema.ts`
-  - `src/schemas/field-groups.ts` 或表单渲染入口
+  - `src/schemas/form-fields.ts` 或 `src/schemas/field-groups.ts`
   - `src/types.ts`
 
-### 2. 改记忆、Skills、Provider、历史记录
+### 2. 改记忆、Skills、历史记录
 
 先读：
 
 - 记忆：`src/components/MemoryPage.tsx`、`src-tauri/src/memory.rs`
 - Skills：`src/components/SkillsPage.tsx`、`src/components/SkillEditor.tsx`、`src-tauri/src/skills.rs`
-- Provider：`src/components/ProviderPage.tsx`、`src-tauri/src/provider.rs`
 - 历史：`src/components/HistoryPage.tsx`、`src/components/SessionDetailDrawer.tsx`、`src-tauri/src/history.rs`
 
 注意：
 
 - Skills 的启用与禁用跨两个目录移动，不要绕开现有目录约定。
-- 内置 Provider 来自 `src-tauri/resources/builtin-providers.json`，不是运行时写回的数据文件。
 - 历史页的数据来源是 `~/.claude/history.jsonl`，轮询逻辑已封装在 `useHistoryEntries.ts`。
+- `src-tauri/src/provider.rs` 和 `src/components/ProviderPage.tsx` 是遗留代码，未在 `lib.rs` 中注册 Tauri commands，也未被 `App.tsx` 导入。如需恢复 Provider 功能，需先在 lib.rs 中注册。
 
 ### 3. 改项目管理页
 
@@ -121,7 +130,19 @@
 - 该区域现在强调“操作与仓库状态”，不要退回松散的同权重卡片布局。
 - 如果只是调整信息展示，优先保持现有后端数据契约不变。
 
-### 4. 新增或修改 Tauri command
+### 4. 改统计页
+
+先读：
+
+- `src/components/StatsPage.tsx`
+- `src-tauri/src/stats.rs`
+
+注意：
+
+- stats.rs 提供 `get_stats`、`get_stats_history`、`take_stats_snapshot` 三个命令。
+- 定时快照逻辑在 `stats::start_snapshot_timer()` 中，由 `lib.rs` 的 `setup` 启动。
+
+### 5. 新增或修改 Tauri command
 
 步骤：
 
@@ -149,20 +170,21 @@ const result = await invoke("get_configs");
 
 配置链路是：
 
-`claude-config.schema.json` -> `config-schema.ts` -> `field-groups.ts` -> `SchemaFormField.tsx` / `ConfigEditor.tsx`
+`claude-config.schema.json` -> `config-schema.ts` -> `form-fields.ts` / `field-groups.ts` -> `SchemaFormField.tsx` / `ConfigEditor.tsx`
 
 约束：
 
 - JSON Schema 是前后端共享契约的锚点。
+- `form-fields.ts` 定义字段类型，`field-groups.ts` 定义字段分组。
 - Zod schema 负责前端校验与推导。
 - Rust 侧会验证 schema 一致性，不能只改一边。
 
-### 通用配置与实际应用
+### Preset 与 Profile 的分层应用
 
-- 通用配置是 base，当前配置是 overlay。
-- 合并权威逻辑在 `src-tauri/src/config.rs::build_config_value()`。
-- 激活配置最终会写入 `~/.claude/settings.json`。
-- 预览配置调用的是后端 `preview_config`，不要在前端另写一套合并逻辑。
+- Preset 是可复用的配置模板（base 层），Profile 在 Preset 之上叠加自身设置（overlay 层）。
+- 合并权威逻辑在 `src-tauri/src/config.rs::resolve_profile_settings()`。
+- 激活 Profile 最终会写入 `~/.claude/settings.json`。
+- 预览配置调用的是后端 `preview_profile`，不要在前端另写一套合并逻辑。
 
 ### 记忆与 Skills 的落盘模型
 
@@ -186,7 +208,6 @@ const result = await invoke("get_configs");
 - `lock_memory()`
 - `lock_stats()`
 - `lock_skills()`
-- `lock_provider()`
 - `read_json_file()`
 - `save_json_file()`
 - `ensure_dir_and_write()`

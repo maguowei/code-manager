@@ -8,7 +8,6 @@ interface Props {
   onViewDetail?: (sessionId: string) => void;
 }
 
-/** 按天分组会话 */
 function groupByDate(sessions: SessionGroup[]): Map<string, SessionGroup[]> {
   const map = new Map<string, SessionGroup[]>();
   for (const s of sessions) {
@@ -20,22 +19,23 @@ function groupByDate(sessions: SessionGroup[]): Map<string, SessionGroup[]> {
   return map;
 }
 
-/** 格式化时间为 HH:mm */
 function formatTime(ts: number): string {
   const d = new Date(ts);
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-/** 格式化日期标题 */
-function formatDateLabel(dateStr: string, todayLabel: string, yesterdayLabel: string): string {
-  const today = new Date().toLocaleDateString();
-  const yesterday = new Date(Date.now() - 86400000).toLocaleDateString();
-  if (dateStr === today) return todayLabel;
-  if (dateStr === yesterday) return yesterdayLabel;
+function formatDateLabel(
+  dateStr: string,
+  todayStr: string,
+  yesterdayStr: string,
+  todayLabel: string,
+  yesterdayLabel: string,
+): string {
+  if (dateStr === todayStr) return todayLabel;
+  if (dateStr === yesterdayStr) return yesterdayLabel;
   return dateStr;
 }
 
-/** 高亮搜索关键词 */
 function highlightText(text: string, query: string): React.ReactNode {
   if (!query.trim()) return text;
   const idx = text.toLowerCase().indexOf(query.toLowerCase());
@@ -81,6 +81,8 @@ function HistorySessionList({ groups, searchQuery, onViewDetail }: Props) {
   };
 
   const dateGroups = useMemo(() => groupByDate(groups), [groups]);
+  const todayStr = useMemo(() => new Date().toLocaleDateString(), []);
+  const yesterdayStr = useMemo(() => new Date(Date.now() - 86400000).toLocaleDateString(), []);
 
   if (groups.length === 0) {
     return (
@@ -97,7 +99,15 @@ function HistorySessionList({ groups, searchQuery, onViewDetail }: Props) {
         return (
           <div key={dateStr} className="history-date-group">
             <div className="history-date-label">
-              <span>{formatDateLabel(dateStr, t("history.today"), t("history.yesterday"))}</span>
+              <span>
+                {formatDateLabel(
+                  dateStr,
+                  todayStr,
+                  yesterdayStr,
+                  t("history.today"),
+                  t("history.yesterday"),
+                )}
+              </span>
               <button
                 type="button"
                 className="date-toggle-btn"

@@ -23,7 +23,6 @@ function HistoryPage() {
     sessionId: string;
   } | null>(null);
 
-  // sessionId → project 索引，O(1) 查找替代 allEntries.find()
   const sessionProjectMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const entry of allEntries) {
@@ -40,13 +39,11 @@ function HistoryPage() {
     [selectedProject, sessionProjectMap],
   );
 
-  // 按项目分组
   const projectGroups = useMemo<HistoryProjectGroup[]>(
     () => sortProjectGroupsByMessageCount(groupByProject(allEntries)),
     [allEntries],
   );
 
-  // 当前显示的条目（受项目筛选和搜索影响）
   const filteredEntries = useMemo(() => {
     let entries = selectedProject
       ? allEntries.filter((e) => e.project === selectedProject)
@@ -58,7 +55,6 @@ function HistoryPage() {
     return entries;
   }, [allEntries, selectedProject, searchQuery]);
 
-  // 过滤后的会话分组
   const sessionGroups = useMemo(() => groupBySession(filteredEntries), [filteredEntries]);
 
   if (loading) {
@@ -71,7 +67,6 @@ function HistoryPage() {
 
   return (
     <div className="history-page">
-      {/* 顶部区域：热力图 + 搜索 */}
       <div className="history-top">
         <HistoryHeatmap entries={allEntries} />
         <div className="history-search">
@@ -85,7 +80,6 @@ function HistoryPage() {
         </div>
       </div>
 
-      {/* 主体区域：项目列表 + 会话列表 */}
       <div className="history-body">
         <HistoryProjectList
           groups={projectGroups}

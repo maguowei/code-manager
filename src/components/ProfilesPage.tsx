@@ -37,7 +37,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
     () => [...workspace.builtinPresets, ...workspace.customPresets],
     [workspace.builtinPresets, workspace.customPresets],
   );
-  const profiles = useMemo(() => workspace.profiles, [workspace.profiles]);
+  const profiles = workspace.profiles;
 
   function isAppliedToUserSettings(profile: ConfigProfile) {
     return workspace.bindings.userProfileId === profile.id;
@@ -301,180 +301,179 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
             className={`profiles-grid${dragState.draggingIndex !== null ? " is-dragging" : ""}`}
             onDragOver={(event) => event.preventDefault()}
           >
-            {profiles.map((profile, index) => (
-              <div
-                key={profile.id}
-                className={`profile-card ${isAppliedToUserSettings(profile) ? "active" : ""} ${
-                  isDrawerOpen && editingProfile?.id === profile.id ? "editing" : ""
-                } ${dragState.draggingIndex === index ? "dragging" : ""} ${
-                  dragState.overIndex === index ? `drag-over-${dragState.overPosition}` : ""
-                }`}
-                role="button"
-                tabIndex={0}
-                draggable
-                onClick={() => {
-                  setEditingProfile(profile);
-                  setIsDrawerOpen(true);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
+            {profiles.map((profile, index) => {
+              const model = profilePrimaryModel(profile);
+              const effort = profileEffortLevel(profile);
+              const plugins = profilePluginsSummary(profile);
+              return (
+                <div
+                  key={profile.id}
+                  className={`profile-card ${isAppliedToUserSettings(profile) ? "active" : ""} ${
+                    isDrawerOpen && editingProfile?.id === profile.id ? "editing" : ""
+                  } ${dragState.draggingIndex === index ? "dragging" : ""} ${
+                    dragState.overIndex === index ? `drag-over-${dragState.overPosition}` : ""
+                  }`}
+                  role="button"
+                  tabIndex={0}
+                  draggable
+                  onClick={() => {
                     setEditingProfile(profile);
                     setIsDrawerOpen(true);
-                  }
-                }}
-                onDragStart={(event) => handleDragStart(event, index)}
-                onDragEnd={handleDragEnd}
-                onDragOver={(event) => handleDragOver(event, index)}
-                onDragLeave={(event) => handleDragLeave(event, index)}
-                onDrop={(event) => handleDrop(event, index)}
-              >
-                <div className="profile-card-head">
-                  <ProfileNameBadge name={profile.name} seed={profile.id} size="sm" />
-                  <div className="profile-card-title-block">
-                    <div className="profile-card-title-row">
-                      <h3>{profile.name}</h3>
-                      <span className="profile-preset-badge">
-                        {presetNameById(allPresets, profile.presetId, language)}
-                      </span>
-                    </div>
-                    {profile.description && (
-                      <p className="profile-card-description">{profile.description}</p>
-                    )}
-                  </div>
-
-                  <div className="profile-card-head-actions">
-                    {isDrawerOpen && editingProfile?.id === profile.id ? (
-                      <span className="profile-status-badge editing">
-                        {t("profiles.badges.editing")}
-                      </span>
-                    ) : isAppliedToUserSettings(profile) ? (
-                      <span className="profile-status-badge active">
-                        {t("profiles.badges.inUse")}
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        className="profile-card-apply-btn"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          void handleApply(profile.id);
-                        }}
-                      >
-                        {t("profiles.actions.apply")}
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {(profilePrimaryModel(profile) ||
-                  profilePluginsSummary(profile).totalCount > 0) && (
-                  <div className="profile-card-summary">
-                    {profilePrimaryModel(profile) && (
-                      <div className="profile-summary-row">
-                        <svg
-                          className="profile-summary-icon"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                        >
-                          <circle cx="12" cy="12" r="10" />
-                          <circle cx="12" cy="12" r="3" />
-                        </svg>
-                        <div className="profile-summary-main">
-                          <span>{profilePrimaryModel(profile)}</span>
-                          {profileEffortLevel(profile) && (
-                            <span className="profile-summary-effort">
-                              {profileEffortLevel(profile)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    {profilePluginsSummary(profile).totalCount > 0 && (
-                      <div className="profile-summary-row">
-                        <svg
-                          className="profile-summary-icon"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                        >
-                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                          <line x1="9" y1="9" x2="15" y2="9" />
-                          <line x1="9" y1="15" x2="15" y2="15" />
-                        </svg>
-                        <span>
-                          {t("common.pluginsEnabledSummaryLabel")}{" "}
-                          {profilePluginsSummary(profile).enabledCount}/
-                          {profilePluginsSummary(profile).totalCount}
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setEditingProfile(profile);
+                      setIsDrawerOpen(true);
+                    }
+                  }}
+                  onDragStart={(event) => handleDragStart(event, index)}
+                  onDragEnd={handleDragEnd}
+                  onDragOver={(event) => handleDragOver(event, index)}
+                  onDragLeave={(event) => handleDragLeave(event, index)}
+                  onDrop={(event) => handleDrop(event, index)}
+                >
+                  <div className="profile-card-head">
+                    <ProfileNameBadge name={profile.name} seed={profile.id} size="sm" />
+                    <div className="profile-card-title-block">
+                      <div className="profile-card-title-row">
+                        <h3>{profile.name}</h3>
+                        <span className="profile-preset-badge">
+                          {presetNameById(allPresets, profile.presetId, language)}
                         </span>
                       </div>
-                    )}
-                  </div>
-                )}
+                      {profile.description && (
+                        <p className="profile-card-description">{profile.description}</p>
+                      )}
+                    </div>
 
-                <div className="profile-card-actions">
-                  <button
-                    type="button"
-                    className="profile-card-action icon-only"
-                    aria-label={t("profiles.actions.copyEnv")}
-                    title={t("profiles.actions.copyEnv")}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      void handleCopyEnv(profile);
-                    }}
-                  >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
+                    <div className="profile-card-head-actions">
+                      {isDrawerOpen && editingProfile?.id === profile.id ? (
+                        <span className="profile-status-badge editing">
+                          {t("profiles.badges.editing")}
+                        </span>
+                      ) : isAppliedToUserSettings(profile) ? (
+                        <span className="profile-status-badge active">
+                          {t("profiles.badges.inUse")}
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="profile-card-apply-btn"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void handleApply(profile.id);
+                          }}
+                        >
+                          {t("profiles.actions.apply")}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {(model || plugins.totalCount > 0) && (
+                    <div className="profile-card-summary">
+                      {model && (
+                        <div className="profile-summary-row">
+                          <svg
+                            className="profile-summary-icon"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <circle cx="12" cy="12" r="10" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                          <div className="profile-summary-main">
+                            <span>{model}</span>
+                            {effort && <span className="profile-summary-effort">{effort}</span>}
+                          </div>
+                        </div>
+                      )}
+                      {plugins.totalCount > 0 && (
+                        <div className="profile-summary-row">
+                          <svg
+                            className="profile-summary-icon"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                            <line x1="9" y1="9" x2="15" y2="9" />
+                            <line x1="9" y1="15" x2="15" y2="15" />
+                          </svg>
+                          <span>
+                            {t("common.pluginsEnabledSummaryLabel")} {plugins.enabledCount}/
+                            {plugins.totalCount}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="profile-card-actions">
+                    <button
+                      type="button"
+                      className="profile-card-action icon-only"
+                      aria-label={t("profiles.actions.copyEnv")}
+                      title={t("profiles.actions.copyEnv")}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void handleCopyEnv(profile);
+                      }}
                     >
-                      <polyline points="4 17 10 11 4 5" />
-                      <line x1="12" y1="19" x2="20" y2="19" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    className="profile-card-action icon-only"
-                    aria-label={t("profiles.actions.duplicate")}
-                    title={t("profiles.actions.duplicate")}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      void handleDuplicate(profile);
-                    }}
-                  >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <polyline points="4 17 10 11 4 5" />
+                        <line x1="12" y1="19" x2="20" y2="19" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      className="profile-card-action icon-only"
+                      aria-label={t("profiles.actions.duplicate")}
+                      title={t("profiles.actions.duplicate")}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void handleDuplicate(profile);
+                      }}
                     >
-                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    className="profile-card-action danger icon-only"
-                    aria-label={t("profiles.actions.delete")}
-                    title={t("profiles.actions.delete")}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setPendingDeleteId(profile.id);
-                    }}
-                  >
-                    <TrashIcon />
-                  </button>
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      className="profile-card-action danger icon-only"
+                      aria-label={t("profiles.actions.delete")}
+                      title={t("profiles.actions.delete")}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setPendingDeleteId(profile.id);
+                      }}
+                    >
+                      <TrashIcon />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

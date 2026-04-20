@@ -318,9 +318,9 @@ fn parse_builtin_presets() -> Vec<SettingsPreset> {
         .collect()
 }
 
-pub fn builtin_presets() -> Vec<SettingsPreset> {
+pub fn builtin_presets() -> &'static [SettingsPreset] {
     static BUILTIN_PRESETS: Lazy<Vec<SettingsPreset>> = Lazy::new(parse_builtin_presets);
-    BUILTIN_PRESETS.clone()
+    &BUILTIN_PRESETS
 }
 
 fn normalize_registry(registry: &mut ConfigRegistry) {
@@ -372,7 +372,7 @@ fn save_registry(registry: &ConfigRegistry) -> Result<(), String> {
 fn build_workspace(registry: ConfigRegistry) -> ConfigWorkspace {
     ConfigWorkspace {
         app: registry.app.clone(),
-        builtin_presets: builtin_presets(),
+        builtin_presets: builtin_presets().to_vec(),
         custom_presets: registry.custom_presets,
         profiles: registry.profiles,
         bindings: registry.bindings,
@@ -514,8 +514,9 @@ fn normalize_app_preferences(input: AppPreferencesInput) -> Result<AppPreference
 
 fn find_preset(registry: &ConfigRegistry, preset_id: &str) -> Option<SettingsPreset> {
     builtin_presets()
-        .into_iter()
+        .iter()
         .find(|preset| preset.id == preset_id)
+        .cloned()
         .or_else(|| {
             registry
                 .custom_presets
@@ -619,6 +620,14 @@ fn validate_schema_object(
         .and_then(Value::as_object)
         .cloned()
         .unwrap_or_default();
+    let compiled_patterns: Vec<(Regex, &str, Value)> = pattern_properties
+        .iter()
+        .map(|(pattern, schema)| {
+            Regex::new(pattern)
+                .map(|regex| (regex, pattern.as_str(), schema.clone()))
+                .map_err(|error| format!("无效 schema 正则 '{pattern}': {error}"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
     let required = schema
         .get("required")
         .and_then(Value::as_array)
@@ -638,9 +647,7 @@ fn validate_schema_object(
         }
 
         let mut matched_pattern = false;
-        for (pattern, pattern_schema) in &pattern_properties {
-            let regex = Regex::new(pattern)
-                .map_err(|error| format!("无效 schema 正则 '{pattern}': {error}"))?;
+        for (regex, _pattern, pattern_schema) in &compiled_patterns {
             if regex.is_match(key) {
                 matched_pattern = true;
                 validate_value_against_schema(
@@ -923,8 +930,9 @@ fn reorder_profiles_in_registry(registry: &mut ConfigRegistry, ids: &[String]) {
         .filter_map(|id| profile_map.get(id).cloned())
         .collect();
 
+    let id_set: HashSet<&str> = ids.iter().map(String::as_str).collect();
     for profile in &registry.profiles {
-        if !ids.contains(&profile.id) {
+        if !id_set.contains(profile.id.as_str()) {
             reordered.push(profile.clone());
         }
     }
@@ -1242,7 +1250,7 @@ mod tests {
     #[test]
     fn builtin_presets_expose_localized_names() {
         let openrouter = builtin_presets()
-            .into_iter()
+            .iter()
             .find(|preset| preset.id == "builtin:openrouter")
             .unwrap();
 
@@ -1259,7 +1267,7 @@ mod tests {
     #[test]
     fn builtin_presets_preserve_categorized_models() {
         let anthropic = builtin_presets()
-            .into_iter()
+            .iter()
             .find(|preset| preset.id == "builtin:anthropic")
             .unwrap();
 

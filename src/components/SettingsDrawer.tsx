@@ -25,7 +25,6 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
     defaultEditorApp: null,
   });
 
-  // 从后端加载设置
   useEffect(() => {
     invoke<ConfigWorkspace>("get_config_workspace")
       .then((workspace) => {
@@ -74,7 +73,6 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
     { value: "system", labelKey: "settings.themeSystem", icon: "monitor" },
   ];
 
-  // ESC 键关闭设置抽屉
   useEscapeKey(onClose);
 
   return (
@@ -108,7 +106,6 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
         </div>
 
         <div className="settings-drawer-body">
-          {/* 界面语言 */}
           <section className="settings-section-card">
             <div className="settings-section-head">
               <h3>{t("settings.language")}</h3>
@@ -141,7 +138,6 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
             </div>
           </section>
 
-          {/* 主题外观 */}
           <section className="settings-section-card">
             <div className="settings-section-head">
               <h3>{t("settings.theme")}</h3>
@@ -213,7 +209,6 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
             </div>
           </section>
 
-          {/* 托盘显示 */}
           <section className="settings-section-card">
             <div className="settings-section-head">
               <h3>{t("settings.showTrayTitle")}</h3>
