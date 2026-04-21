@@ -1,3 +1,58 @@
+.profile-string-list-header-copy,
+.profile-string-list-trigger {
+  min-width: 0;
+  flex: 1;
+}
+
+.profile-string-list-title-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.profile-string-list-trigger h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.profile-string-list-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-string-list-collapse-btn {
+  width: 30px;
+  height: 30px;
+}
+
+.profile-string-list-chevron {
+  flex: none;
+  color: inherit;
+  transition:
+    transform 150ms ease,
+    color 150ms ease;
+}
+
+.profile-string-list-collapse-btn:hover .profile-string-list-chevron {
+  color: var(--text-primary);
+}
+
+.profile-string-list-collapse-btn[aria-expanded="true"] .profile-string-list-chevron {
+  transform: rotate(180deg);
+}
+
+.profile-string-list-collapse-btn[aria-expanded="false"] .profile-string-list-chevron {
+  transform: rotate(0deg);
+}
+
+.profile-string-list-footer {
+  justify-content: flex-start;
+}
+
 .profile-row-stack {
   display: flex;
   flex-direction: column;

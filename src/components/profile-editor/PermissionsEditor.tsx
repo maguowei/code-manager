@@ -155,6 +155,10 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
     ),
   );
   const [subErrors, setSubErrors] = useState<Record<string, string>>({});
+  const [allowExpanded, setAllowExpanded] = useState(true);
+  const [denyExpanded, setDenyExpanded] = useState(true);
+  const [askExpanded, setAskExpanded] = useState(true);
+  const [directoryExpanded, setDirectoryExpanded] = useState(true);
   const skipStructuredSyncRef = useRef(false);
 
   useEffect(() => {
@@ -254,7 +258,35 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
     onError(structuredError);
   }, [onError, structuredError]);
 
-  function addRow(setter: Dispatch<SetStateAction<StringRow[]>>) {
+  useEffect(() => {
+    if (allowRows.length === 0) {
+      setAllowExpanded(true);
+    }
+  }, [allowRows.length]);
+
+  useEffect(() => {
+    if (denyRows.length === 0) {
+      setDenyExpanded(true);
+    }
+  }, [denyRows.length]);
+
+  useEffect(() => {
+    if (askRows.length === 0) {
+      setAskExpanded(true);
+    }
+  }, [askRows.length]);
+
+  useEffect(() => {
+    if (directoryRows.length === 0) {
+      setDirectoryExpanded(true);
+    }
+  }, [directoryRows.length]);
+
+  function addRow(
+    setter: Dispatch<SetStateAction<StringRow[]>>,
+    setExpanded: Dispatch<SetStateAction<boolean>>,
+  ) {
+    setExpanded(true);
     setter((current) => [
       ...current,
       {
@@ -283,44 +315,60 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
           label={t("profileEditor.permissions.allowRulesTitle")}
           rows={allowRows}
           onChange={setAllowRows}
-          onAdd={() => addRow(setAllowRows)}
+          onAdd={() => addRow(setAllowRows, setAllowExpanded)}
           addLabel={t("profileEditor.permissions.addAllow")}
           itemLabelPrefix={t("profileEditor.permissions.allowRulePrefix")}
           placeholder={t("profileEditor.permissions.allowPlaceholder")}
           emptyHint={t("profileEditor.permissions.allowEmptyHint")}
+          collapsible
+          expanded={allowExpanded}
+          onToggleExpanded={() => setAllowExpanded((current) => !current)}
+          showCollapseToggle={allowRows.length > 0}
         />
 
         <StringListEditor
           label={t("profileEditor.permissions.denyRulesTitle")}
           rows={denyRows}
           onChange={setDenyRows}
-          onAdd={() => addRow(setDenyRows)}
+          onAdd={() => addRow(setDenyRows, setDenyExpanded)}
           addLabel={t("profileEditor.permissions.addDeny")}
           itemLabelPrefix={t("profileEditor.permissions.denyRulePrefix")}
           placeholder={t("profileEditor.permissions.denyPlaceholder")}
           emptyHint={t("profileEditor.permissions.denyEmptyHint")}
+          collapsible
+          expanded={denyExpanded}
+          onToggleExpanded={() => setDenyExpanded((current) => !current)}
+          showCollapseToggle={denyRows.length > 0}
         />
 
         <StringListEditor
           label={t("profileEditor.permissions.askRulesTitle")}
           rows={askRows}
           onChange={setAskRows}
-          onAdd={() => addRow(setAskRows)}
+          onAdd={() => addRow(setAskRows, setAskExpanded)}
           addLabel={t("profileEditor.permissions.addAsk")}
           itemLabelPrefix={t("profileEditor.permissions.askRulePrefix")}
           placeholder={t("profileEditor.permissions.askPlaceholder")}
           emptyHint={t("profileEditor.permissions.askEmptyHint")}
+          collapsible
+          expanded={askExpanded}
+          onToggleExpanded={() => setAskExpanded((current) => !current)}
+          showCollapseToggle={askRows.length > 0}
         />
 
         <StringListEditor
           label={t("profileEditor.permissions.additionalDirsTitle")}
           rows={directoryRows}
           onChange={setDirectoryRows}
-          onAdd={() => addRow(setDirectoryRows)}
+          onAdd={() => addRow(setDirectoryRows, setDirectoryExpanded)}
           addLabel={t("profileEditor.permissions.addDirectory")}
           itemLabelPrefix={t("profileEditor.permissions.directoryPrefix")}
           placeholder={t("profileEditor.permissions.directoryPlaceholder")}
           emptyHint={t("profileEditor.permissions.directoryEmptyHint")}
+          collapsible
+          expanded={directoryExpanded}
+          onToggleExpanded={() => setDirectoryExpanded((current) => !current)}
+          showCollapseToggle={directoryRows.length > 0}
         />
       </div>
     </div>

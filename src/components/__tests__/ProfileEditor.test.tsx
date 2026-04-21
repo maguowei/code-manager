@@ -983,17 +983,80 @@ describe("ProfileEditor", () => {
   it("renders permission rows without reorder actions and with shared input styling", async () => {
     renderEditor();
 
-    const permissionsSection = toggleAccordionSection("权限");
+    toggleAccordionSection("权限");
+    const allowSection = screen
+      .getByRole("heading", { name: "允许规则" })
+      .closest(".profile-subsection") as HTMLElement | null;
+    const directorySection = screen
+      .getByRole("heading", { name: "附加目录" })
+      .closest(".profile-subsection") as HTMLElement | null;
+
+    expect(allowSection).not.toBeNull();
+    expect(directorySection).not.toBeNull();
+
+    if (!allowSection || !directorySection) {
+      return;
+    }
+
+    const emptyAllowHint = allowSection.querySelector(".profile-empty-state") as HTMLElement | null;
+    const addAllowButton = within(allowSection).getByRole("button", { name: "新增允许规则" });
+
+    expect(emptyAllowHint).not.toBeNull();
+    expect(
+      within(allowSection).queryByRole("button", { name: "收起 允许规则" }),
+    ).not.toBeInTheDocument();
+    if (emptyAllowHint) {
+      expect(
+        emptyAllowHint.compareDocumentPosition(addAllowButton) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    }
+
     await act(async () => {
-      fireEvent.click(within(permissionsSection).getByRole("button", { name: "新增允许规则" }));
+      fireEvent.click(addAllowButton);
+      fireEvent.click(within(directorySection).getByRole("button", { name: "新增附加目录" }));
       await Promise.resolve();
     });
 
     const allowRuleInput = screen.getByLabelText("允许规则 1");
+    const directoryInput = screen.getByLabelText("附加目录 1");
     expect(allowRuleInput).toHaveClass("form-input");
+    expect(directoryInput).toHaveClass("form-input");
     expect(screen.queryByRole("button", { name: "上移 允许规则 1" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "下移 允许规则 1" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "删除 允许规则 1" })).toBeInTheDocument();
+    expect(within(allowSection).getByRole("button", { name: "收起 允许规则" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(within(directorySection).getByRole("button", { name: "收起 附加目录" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(
+      allowRuleInput.compareDocumentPosition(
+        within(allowSection).getByRole("button", { name: "新增允许规则" }),
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(
+      directoryInput.compareDocumentPosition(
+        within(directorySection).getByRole("button", { name: "新增附加目录" }),
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+
+    await act(async () => {
+      fireEvent.click(within(allowSection).getByRole("button", { name: "收起 允许规则" }));
+      fireEvent.click(within(directorySection).getByRole("button", { name: "收起 附加目录" }));
+      await Promise.resolve();
+    });
+
+    expect(within(allowSection).queryByLabelText("允许规则 1")).not.toBeInTheDocument();
+    expect(
+      within(allowSection).queryByRole("button", { name: "新增允许规则" }),
+    ).not.toBeInTheDocument();
+    expect(within(directorySection).queryByLabelText("附加目录 1")).not.toBeInTheDocument();
+    expect(
+      within(directorySection).queryByRole("button", { name: "新增附加目录" }),
+    ).not.toBeInTheDocument();
   });
 
   it("syncs local json editors for behavior, common options, permissions, env, plugins, and marketplaces", async () => {
