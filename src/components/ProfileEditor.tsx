@@ -34,6 +34,9 @@ import {
   BEHAVIOR_ENV_SETTINGS_KEYS,
   BEHAVIOR_JSON_ALLOWED_KEYS,
   BEHAVIOR_TOP_LEVEL_SETTINGS_KEYS,
+  COMMON_ENV_SETTINGS_KEYS,
+  COMMON_JSON_ALLOWED_KEYS,
+  COMMON_TOP_LEVEL_SETTINGS_KEYS,
   PROFILE_SETTINGS_FORM_REGISTRY,
   type SettingsFieldDefinition,
   STRUCTURED_SETTINGS_KEYS,
@@ -95,15 +98,39 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     isZh: language === "zh",
     allowedKeys: BEHAVIOR_JSON_ALLOWED_KEYS,
   });
-  const envObject = useMemo(() => readTopLevelObject(settings, "env"), [settings]);
-  const hiddenAuthEnvEntries = useMemo(
-    () => buildHiddenEnvEntries(envObject, AUTH_ENV_KEYS),
-    [envObject],
+  const commonSettings = useMemo(
+    () =>
+      readScopedSettingsWithEnv(settings, COMMON_TOP_LEVEL_SETTINGS_KEYS, COMMON_ENV_SETTINGS_KEYS),
+    [settings],
   );
-  const visibleEnvSettings = useMemo(() => buildEnvSubset(envObject, AUTH_ENV_KEYS), [envObject]);
+  const commonJsonEditor = useObjectJsonEditor({
+    value: commonSettings,
+    onChange: (next) =>
+      applySettings(
+        replaceScopedSettingsWithEnv(
+          settings,
+          COMMON_TOP_LEVEL_SETTINGS_KEYS,
+          COMMON_ENV_SETTINGS_KEYS,
+          next,
+        ),
+      ),
+    label: t("profiles.editor.sections.common"),
+    isZh: language === "zh",
+    allowedKeys: COMMON_JSON_ALLOWED_KEYS,
+  });
+  const envObject = useMemo(() => readTopLevelObject(settings, "env"), [settings]);
+  const hiddenEnvKeys = useMemo(() => [...AUTH_ENV_KEYS, ...COMMON_ENV_SETTINGS_KEYS], []);
+  const hiddenEnvEntries = useMemo(
+    () => buildHiddenEnvEntries(envObject, hiddenEnvKeys),
+    [envObject, hiddenEnvKeys],
+  );
+  const visibleEnvSettings = useMemo(
+    () => buildEnvSubset(envObject, hiddenEnvKeys),
+    [envObject, hiddenEnvKeys],
+  );
   const envJsonEditor = useObjectJsonEditor({
     value: visibleEnvSettings,
-    onChange: (next) => handleStructuredObjectChange("env", { ...hiddenAuthEnvEntries, ...next }),
+    onChange: (next) => handleStructuredObjectChange("env", { ...hiddenEnvEntries, ...next }),
     label: t("profiles.editor.sections.environment"),
     isZh: language === "zh",
   });
@@ -196,7 +223,9 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
   function handleSimpleFieldChange(field: SettingsFieldDefinition, value: string | boolean) {
     const next =
       field.kind === "checkbox"
-        ? setTopLevelBoolean(settings, field.key, value === true)
+        ? field.envKey
+          ? setEnvString(settings, field.envKey, value === true ? (field.enabledValue ?? "1") : "")
+          : setTopLevelBoolean(settings, field.key, value === true)
         : field.storage === "env-only" && field.envKey
           ? setEnvString(settings, field.envKey, typeof value === "string" ? value : "")
           : setTopLevelString(settings, field.key, typeof value === "string" ? value : "");
@@ -251,6 +280,15 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     return filteredOptions;
   }
 
+  function readToggleFieldEnabled(field: SettingsFieldDefinition) {
+    if (field.envKey) {
+      const expectedValue = field.enabledValue ?? "1";
+      return readEnvString(settings, field.envKey) === expectedValue;
+    }
+
+    return settings[field.key] === true;
+  }
+
   function handleStructuredObjectChange(key: string, value: Record<string, unknown>) {
     applySettings(setTopLevelObject(settings, key, value));
   }
@@ -265,6 +303,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
       !name.trim() ||
       documentJsonEditor.jsonError ||
       behaviorJsonEditor.jsonError ||
+      commonJsonEditor.jsonError ||
       envJsonEditor.jsonError ||
       permissionsJsonEditor.jsonError ||
       sandboxJsonEditor.jsonError ||
@@ -323,14 +362,23 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
   const behaviorFields = PROFILE_SETTINGS_FORM_REGISTRY.filter(
     (field) => field.section === "behavior",
   );
+  const commonFields = PROFILE_SETTINGS_FORM_REGISTRY.filter((field) => field.section === "common");
   const modelField = behaviorFields.find((field) => field.key === "model") ?? null;
   const scalarFields = behaviorFields.filter((field) => field.kind !== "checkbox");
-  const toggleFields = behaviorFields.filter((field) => field.kind === "checkbox");
+  const behaviorToggleFields = behaviorFields.filter((field) => field.kind === "checkbox");
   const scalarFieldRows = useMemo(() => chunkItems(scalarFields, 2), [scalarFields]);
-  const toggleFieldRows = useMemo(() => chunkItems(toggleFields, 2), [toggleFields]);
+  const behaviorToggleFieldRows = useMemo(
+    () => chunkItems(behaviorToggleFields, 2),
+    [behaviorToggleFields],
+  );
+  const commonToggleFields = useMemo(
+    () => commonFields.filter((field) => field.kind === "checkbox"),
+    [commonFields],
+  );
   const hasValidationError =
     !!documentJsonEditor.jsonError ||
     !!behaviorJsonEditor.jsonError ||
+    !!commonJsonEditor.jsonError ||
     !!envJsonEditor.jsonError ||
     !!permissionsJsonEditor.jsonError ||
     !!sandboxJsonEditor.jsonError ||
@@ -354,6 +402,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     basicInfo: t("profiles.editor.sections.basicInfo"),
     auth: t("profiles.editor.sections.auth"),
     behavior: t("profiles.editor.sections.behavior"),
+    common: t("profiles.editor.sections.common"),
     environment: t("profiles.editor.sections.environment"),
     behaviorJsonHint: t("profiles.editor.hints.behaviorJson"),
     permissions: t("profiles.editor.sections.permissions"),
@@ -506,7 +555,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
           supportedKeys={supportedKeysInSettings}
           previewContent={previewJson}
           previewError={previewError}
-          hiddenAuthEnvKeys={AUTH_ENV_KEYS}
+          hiddenEnvKeys={hiddenEnvKeys}
           visibleEnvCount={visibleEnvCount}
           marketplaceCount={marketplaceCount}
           permissionsDefaultMode={permissionsDefaultMode}
@@ -514,8 +563,10 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
           sandboxPresentation={sandboxPresentation}
           enabledPluginsSummary={enabledPluginsSummary}
           scalarFieldRows={scalarFieldRows}
-          toggleFieldRows={toggleFieldRows}
+          behaviorToggleFieldRows={behaviorToggleFieldRows}
+          commonToggleFields={commonToggleFields}
           readBehaviorFieldState={readBehaviorFieldState}
+          readToggleFieldEnabled={readToggleFieldEnabled}
           resolveSelectOptions={resolveSelectOptions}
           onMappedFieldChange={handleMappedFieldChange}
           onSimpleFieldChange={handleSimpleFieldChange}
@@ -523,6 +574,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
           sectionState={sectionState}
           documentJsonEditor={documentJsonEditor}
           behaviorJsonEditor={behaviorJsonEditor}
+          commonJsonEditor={commonJsonEditor}
           envJsonEditor={envJsonEditor}
           permissionsJsonEditor={permissionsJsonEditor}
           sandboxJsonEditor={sandboxJsonEditor}

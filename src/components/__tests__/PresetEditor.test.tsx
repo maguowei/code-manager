@@ -275,6 +275,7 @@ describe("PresetEditor", () => {
       "基础信息",
       "认证",
       "模型与行为",
+      "常用选项",
       "环境变量",
       "权限",
       "Sandbox",
@@ -292,6 +293,7 @@ describe("PresetEditor", () => {
       "基础信息",
       "认证",
       "模型与行为",
+      "常用选项",
       "环境变量",
       "权限",
       "Sandbox",
@@ -368,10 +370,23 @@ describe("PresetEditor", () => {
     }
 
     const behaviorSection = screen.getByRole("heading", { name: "模型与行为" }).closest("section");
+    const commonSection = screen.getByRole("heading", { name: "常用选项" }).closest("section");
     expect(behaviorSection).not.toBeNull();
+    expect(commonSection).not.toBeNull();
     if (behaviorSection) {
       expect(within(behaviorSection).getByRole("button", { name: "控件" })).toBeInTheDocument();
       expect(within(behaviorSection).getByRole("button", { name: "JSON" })).toBeInTheDocument();
+      expect(
+        within(behaviorSection).getByText("默认开启 alwaysThinkingEnabled"),
+      ).toBeInTheDocument();
+      expect(within(behaviorSection).queryByText("尊重 .gitignore")).not.toBeInTheDocument();
+    }
+    if (commonSection) {
+      expect(within(commonSection).getByRole("button", { name: "控件" })).toBeInTheDocument();
+      expect(within(commonSection).getByRole("button", { name: "JSON" })).toBeInTheDocument();
+      expect(within(commonSection).getAllByRole("switch")).toHaveLength(6);
+      expect(within(commonSection).getByText("已完成引导设置")).toBeInTheDocument();
+      expect(within(commonSection).getByText("启用 Agent Teams")).toBeInTheDocument();
     }
 
     const permissionsSection = screen.getByRole("heading", { name: "权限" }).closest("section");
@@ -521,10 +536,8 @@ describe("PresetEditor", () => {
     }
 
     const toggleRows = behaviorSection.querySelectorAll(".profile-toggle-grid");
-    expect(toggleRows.length).toBeGreaterThan(1);
-    for (const row of toggleRows) {
-      expect(row.querySelectorAll(".profile-toggle-item").length).toBeLessThanOrEqual(2);
-    }
+    expect(toggleRows.length).toBe(1);
+    expect(toggleRows[0]?.querySelectorAll(".profile-toggle-item").length).toBe(1);
   });
 
   it("renders language as a select list and exposes the full effort enum set", async () => {
@@ -562,6 +575,53 @@ describe("PresetEditor", () => {
       "max",
     ]);
     expect(effortSelect).toHaveValue("");
+  });
+
+  it("stores common options as top-level booleans and env switches", async () => {
+    const onSave = vi.fn();
+    renderEditor({ onSave });
+
+    const commonSection = getSection("常用选项");
+    const labels = [
+      "已完成引导设置",
+      "尊重 .gitignore",
+      "跳过 WebFetch 预检",
+      "禁用非必要网络请求",
+      "启用 LSP 工具",
+      "启用 Agent Teams",
+    ];
+
+    for (const label of labels) {
+      const option = within(commonSection)
+        .getByText(label)
+        .closest(".profile-common-option-item") as HTMLElement | null;
+      expect(option).not.toBeNull();
+      if (option) {
+        await act(async () => {
+          fireEvent.click(within(option).getByRole("switch"));
+          await Promise.resolve();
+        });
+      }
+    }
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+      await Promise.resolve();
+    });
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const saved = onSave.mock.calls[0][0];
+    expect(saved.settingsPatch).toMatchObject({
+      hasCompletedOnboarding: true,
+      respectGitignore: true,
+      skipWebFetchPreflight: true,
+    });
+    expect(saved.settingsPatch.env).toMatchObject({
+      ANTHROPIC_AUTH_TOKEN: "token",
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+      ENABLE_LSP_TOOL: "1",
+      CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1",
+    });
   });
 
   it("stores model and effort as standard env settings and keeps the env editor in sync", async () => {
@@ -1033,7 +1093,7 @@ describe("PresetEditor", () => {
     expect(within(pluginsSection).queryByText("插件工具")).not.toBeInTheDocument();
   });
 
-  it("saves behavior, permissions, env, plugins, and marketplaces from local json editors", async () => {
+  it("saves behavior, common options, permissions, env, plugins, and marketplaces from local json editors", async () => {
     const onSave = vi.fn();
     renderEditor({ onSave });
 
@@ -1046,6 +1106,23 @@ describe("PresetEditor", () => {
               ANTHROPIC_MODEL: "claude-opus-4-1",
             },
             language: "english",
+            alwaysThinkingEnabled: true,
+          },
+          null,
+          2,
+        ),
+      },
+    });
+
+    const commonSection = switchSectionToJson("常用选项");
+    fireEvent.change(within(commonSection).getByLabelText("config-preview-input"), {
+      target: {
+        value: JSON.stringify(
+          {
+            env: {
+              ENABLE_LSP_TOOL: "1",
+            },
+            hasCompletedOnboarding: true,
           },
           null,
           2,
@@ -1116,11 +1193,14 @@ describe("PresetEditor", () => {
       expect.objectContaining({
         settingsPatch: expect.objectContaining({
           language: "english",
+          alwaysThinkingEnabled: true,
+          hasCompletedOnboarding: true,
           permissions: {
             defaultMode: "plan",
           },
           env: {
             ANTHROPIC_AUTH_TOKEN: "token",
+            ENABLE_LSP_TOOL: "1",
             OPENAI_API_KEY: "json-token",
           },
           enabledPlugins: {

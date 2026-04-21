@@ -11,11 +11,12 @@ export interface SettingsFieldOption {
 
 export interface SettingsFieldDefinition {
   key: string;
-  section: "behavior";
+  section: "behavior" | "common";
   kind: SettingsFieldKind;
   storage?: SettingsFieldStorage;
   envKey?: string;
   defaultValue?: string;
+  enabledValue?: string;
   envOnlyOptions?: string[];
   label: {
     zh: string;
@@ -268,37 +269,121 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     },
   },
   {
+    key: "hasCompletedOnboarding",
+    section: "common",
+    kind: "checkbox",
+    label: {
+      zh: "已完成引导设置",
+      en: "Completed onboarding",
+    },
+    description: {
+      zh: "启用后将在生成的配置中跳过 Claude Code 首次启动时的引导流程。",
+      en: "Skip the Claude Code onboarding flow on first launch when enabled.",
+    },
+  },
+  {
     key: "skipWebFetchPreflight",
-    section: "behavior",
+    section: "common",
     kind: "checkbox",
     label: {
       zh: "跳过 WebFetch 预检",
       en: "Skip WebFetch preflight",
     },
+    description: {
+      zh: "适用于安全策略严格的企业环境，跳过 WebFetch 的 blocklist 预检。",
+      en: "Skip the WebFetch blocklist preflight for restrictive enterprise environments.",
+    },
   },
   {
     key: "respectGitignore",
-    section: "behavior",
+    section: "common",
     kind: "checkbox",
     label: {
       zh: "尊重 .gitignore",
       en: "Respect .gitignore",
     },
+    description: {
+      zh: "启用后，@ 文件选择器会排除匹配 .gitignore 的文件。",
+      en: "Exclude files matching .gitignore patterns from the @ file picker.",
+    },
+  },
+  {
+    key: "disableNonessentialTraffic",
+    section: "common",
+    kind: "checkbox",
+    storage: "env-only",
+    envKey: "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
+    enabledValue: "1",
+    label: {
+      zh: "禁用非必要网络请求",
+      en: "Disable nonessential traffic",
+    },
+    description: {
+      zh: "关闭自动更新、反馈、错误上报和遥测等非必要网络请求。",
+      en: "Disable auto-updates, feedback, error reporting, telemetry, and other nonessential traffic.",
+    },
+  },
+  {
+    key: "enableLspTool",
+    section: "common",
+    kind: "checkbox",
+    storage: "env-only",
+    envKey: "ENABLE_LSP_TOOL",
+    enabledValue: "1",
+    label: {
+      zh: "启用 LSP 工具",
+      en: "Enable LSP tool",
+    },
+    description: {
+      zh: "启用语言服务器协议工具，为 Claude Code 提供跳转定义、引用查找和诊断能力。",
+      en: "Enable the LSP tool for definitions, references, and diagnostics in Claude Code.",
+    },
+  },
+  {
+    key: "experimentalAgentTeams",
+    section: "common",
+    kind: "checkbox",
+    storage: "env-only",
+    envKey: "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+    enabledValue: "1",
+    label: {
+      zh: "启用 Agent Teams",
+      en: "Enable Agent Teams",
+    },
+    description: {
+      zh: "设置为 1 以启用实验性的 agent teams，默认关闭。",
+      en: "Set to 1 to enable experimental agent teams, which are disabled by default.",
+    },
   },
 ];
 
-export const BEHAVIOR_TOP_LEVEL_SETTINGS_KEYS = PROFILE_SETTINGS_FORM_REGISTRY.filter(
-  (field) => field.storage !== "env-only",
-).map((field) => field.key);
+function topLevelSettingsKeysBySection(section: SettingsFieldDefinition["section"]) {
+  return PROFILE_SETTINGS_FORM_REGISTRY.filter(
+    (field) => field.section === section && field.storage !== "env-only",
+  ).map((field) => field.key);
+}
 
-export const BEHAVIOR_ENV_SETTINGS_KEYS = PROFILE_SETTINGS_FORM_REGISTRY.flatMap((field) =>
-  field.envKey ? [field.envKey] : [],
-);
+function envSettingsKeysBySection(section: SettingsFieldDefinition["section"]) {
+  return PROFILE_SETTINGS_FORM_REGISTRY.flatMap((field) =>
+    field.section === section && field.envKey ? [field.envKey] : [],
+  );
+}
+
+export const BEHAVIOR_TOP_LEVEL_SETTINGS_KEYS = topLevelSettingsKeysBySection("behavior");
+
+export const BEHAVIOR_ENV_SETTINGS_KEYS = envSettingsKeysBySection("behavior");
 
 export const BEHAVIOR_JSON_ALLOWED_KEYS = [...BEHAVIOR_TOP_LEVEL_SETTINGS_KEYS, "env"];
 
+export const COMMON_TOP_LEVEL_SETTINGS_KEYS = topLevelSettingsKeysBySection("common");
+
+export const COMMON_ENV_SETTINGS_KEYS = envSettingsKeysBySection("common");
+
+export const COMMON_JSON_ALLOWED_KEYS = [...COMMON_TOP_LEVEL_SETTINGS_KEYS, "env"];
+
 export const STRUCTURED_SETTINGS_KEYS = new Set([
   ...BEHAVIOR_TOP_LEVEL_SETTINGS_KEYS,
+  ...COMMON_TOP_LEVEL_SETTINGS_KEYS,
   "env",
   "permissions",
   "sandbox",

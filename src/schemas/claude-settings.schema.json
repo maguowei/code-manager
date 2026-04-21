@@ -313,6 +313,10 @@
       "default": "~/.claude/plans",
       "examples": ["./plans"]
     },
+    "hasCompletedOnboarding": {
+      "type": "boolean",
+      "description": "Skip the Claude Code onboarding flow on first launch when enabled"
+    },
     "respectGitignore": {
       "type": "boolean",
       "description": "Control whether the @ file picker respects .gitignore patterns. When true (default), files matching .gitignore patterns are excluded from suggestions",

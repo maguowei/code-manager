@@ -1372,6 +1372,15 @@ mod tests {
     }
 
     #[test]
+    fn validate_settings_document_accepts_has_completed_onboarding() {
+        let settings = serde_json::json!({
+            "hasCompletedOnboarding": true
+        });
+
+        assert!(validate_settings_document(&settings).is_ok());
+    }
+
+    #[test]
     fn apply_profile_updates_binding_only_after_file_write() {
         let _guard = crate::utils::lock_config().unwrap();
         let root = temp_root("apply-profile");

@@ -329,6 +329,51 @@
   background: var(--bg-primary);
 }
 
+.profile-common-option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-common-option-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg-primary) 92%, var(--accent-blue) 8%);
+}
+
+.profile-common-option-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.profile-common-option-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.profile-common-option-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.profile-common-option-description {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .profile-field-header {
   display: flex;
   align-items: flex-end;
@@ -581,6 +626,11 @@
   .preset-editor-panel .form-row,
   .profile-toggle-grid {
     grid-template-columns: 1fr;
+  }
+
+  .profile-common-option-item {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .profile-row-actions {

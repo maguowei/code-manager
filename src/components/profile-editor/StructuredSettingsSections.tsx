@@ -35,7 +35,7 @@ interface StructuredSettingsSectionsProps {
   supportedKeys: string[];
   previewContent: string;
   previewError?: string;
-  hiddenAuthEnvKeys: readonly string[];
+  hiddenEnvKeys: readonly string[];
   visibleEnvCount: number;
   marketplaceCount: number;
   permissionsDefaultMode: string;
@@ -49,8 +49,10 @@ interface StructuredSettingsSectionsProps {
     totalCount: number;
   };
   scalarFieldRows: SettingsFieldDefinition[][];
-  toggleFieldRows: SettingsFieldDefinition[][];
+  behaviorToggleFieldRows: SettingsFieldDefinition[][];
+  commonToggleFields: SettingsFieldDefinition[];
   readBehaviorFieldState: (field: SettingsFieldDefinition) => BehaviorFieldState;
+  readToggleFieldEnabled: (field: SettingsFieldDefinition) => boolean;
   resolveSelectOptions: (
     field: SettingsFieldDefinition,
     currentValue: string,
@@ -66,6 +68,7 @@ interface StructuredSettingsSectionsProps {
   sectionState: StructuredSettingsSectionState;
   documentJsonEditor: SectionJsonEditorState;
   behaviorJsonEditor: SectionJsonEditorState;
+  commonJsonEditor: SectionJsonEditorState;
   envJsonEditor: SectionJsonEditorState;
   permissionsJsonEditor: SectionJsonEditorState;
   sandboxJsonEditor: SectionJsonEditorState;
@@ -80,7 +83,7 @@ function StructuredSettingsSections({
   supportedKeys,
   previewContent,
   previewError,
-  hiddenAuthEnvKeys,
+  hiddenEnvKeys,
   visibleEnvCount,
   marketplaceCount,
   permissionsDefaultMode,
@@ -88,8 +91,10 @@ function StructuredSettingsSections({
   sandboxPresentation,
   enabledPluginsSummary,
   scalarFieldRows,
-  toggleFieldRows,
+  behaviorToggleFieldRows,
+  commonToggleFields,
   readBehaviorFieldState,
+  readToggleFieldEnabled,
   resolveSelectOptions,
   onMappedFieldChange,
   onSimpleFieldChange,
@@ -97,6 +102,7 @@ function StructuredSettingsSections({
   sectionState,
   documentJsonEditor,
   behaviorJsonEditor,
+  commonJsonEditor,
   envJsonEditor,
   permissionsJsonEditor,
   sandboxJsonEditor,
@@ -109,6 +115,7 @@ function StructuredSettingsSections({
   const messages = isProfileScope
     ? {
         behavior: t("profiles.editor.sections.behavior"),
+        common: t("profiles.editor.sections.common"),
         environment: t("profiles.editor.sections.environment"),
         permissions: t("profiles.editor.sections.permissions"),
         sandbox: t("profiles.editor.sections.sandbox"),
@@ -117,12 +124,14 @@ function StructuredSettingsSections({
         plugins: t("profiles.editor.sections.plugins"),
         document: t("profiles.editor.sections.preview"),
         behaviorJsonHint: t("profiles.editor.hints.behaviorJson"),
+        commonJsonHint: t("profiles.editor.hints.commonJson"),
         editModeLabel: t("profiles.editor.modes.editSourceJson"),
         editHint: t("profiles.editor.hints.expert"),
         supportedKeysLabel: t("profiles.editor.hints.expertStructuredKeys"),
       }
     : {
         behavior: t("presets.editor.sections.behavior"),
+        common: t("presets.editor.sections.common"),
         environment: t("presets.editor.sections.environment"),
         permissions: t("presets.editor.sections.permissions"),
         sandbox: t("presets.editor.sections.sandbox"),
@@ -131,6 +140,7 @@ function StructuredSettingsSections({
         plugins: t("presets.editor.sections.plugins"),
         document: t("presets.editor.sections.preview"),
         behaviorJsonHint: t("presets.editor.hints.behaviorJson"),
+        commonJsonHint: t("presets.editor.hints.commonJson"),
         editModeLabel: t("common.editJsonMode"),
         editHint: t("presets.editor.hints.expert"),
         supportedKeysLabel: t("presets.editor.hints.expertStructuredKeys"),
@@ -212,7 +222,7 @@ function StructuredSettingsSections({
               </div>
             ))}
 
-            {toggleFieldRows.map((row) => (
+            {behaviorToggleFieldRows.map((row) => (
               <div
                 key={`${scope}-toggle-row-${row.map((field) => field.key).join("-")}`}
                 className="profile-toggle-grid"
@@ -237,6 +247,69 @@ function StructuredSettingsSections({
       />
 
       <SettingsSectionModePanel
+        title={messages.common}
+        mode={sectionState.sectionModes.common}
+        onModeChange={(mode) => sectionState.handleSectionModeChange("common", mode)}
+        controls={
+          <div className="profile-common-option-list">
+            {commonToggleFields.map((field) => {
+              const label = field.label[language];
+              const description = field.description?.[language];
+              const enabled = readToggleFieldEnabled(field);
+
+              return (
+                <div key={field.key} className="profile-common-option-item">
+                  <div className="profile-common-option-copy">
+                    <div className="profile-common-option-title-row">
+                      <span className="profile-common-option-title">{label}</span>
+                      {field.envKey ? (
+                        <button
+                          type="button"
+                          className="profile-field-help"
+                          aria-label={field.envKey}
+                          data-tooltip={field.envKey}
+                          title={field.envKey}
+                        >
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            aria-hidden="true"
+                          >
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M12 16v-4" />
+                            <path d="M12 8h.01" />
+                          </svg>
+                        </button>
+                      ) : null}
+                    </div>
+                    {description ? (
+                      <p className="profile-common-option-description">{description}</p>
+                    ) : null}
+                  </div>
+                  <SandboxSwitchControl
+                    enabled={enabled}
+                    ariaLabel={t("profileEditor.commonOptions.switchAriaLabel").replace(
+                      "{label}",
+                      label,
+                    )}
+                    onToggle={() => onSimpleFieldChange(field, !enabled)}
+                    variant="header"
+                  />
+                </div>
+              );
+            })}
+          </div>
+        }
+        jsonEditor={commonJsonEditor}
+        jsonHint={messages.commonJsonHint}
+        error={commonJsonEditor.jsonError}
+      />
+
+      <SettingsSectionModePanel
         title={messages.environment}
         variant="accordion"
         mode={sectionState.sectionModes.env}
@@ -247,7 +320,7 @@ function StructuredSettingsSections({
             onChange={(value) => onStructuredObjectChange("env", value)}
             onError={(message) => sectionState.setSectionError("env", message)}
             showTitle={false}
-            hiddenKeys={[...hiddenAuthEnvKeys]}
+            hiddenKeys={[...hiddenEnvKeys]}
           />
         }
         jsonEditor={envJsonEditor}

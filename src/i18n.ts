@@ -128,12 +128,15 @@ const translations = {
     "profiles.editor.hints.suggestedModels": "预设推荐模型",
     "profiles.editor.hints.behaviorJson":
       "这里直接编辑当前行为区块相关的顶层键，以及相关的 env 覆盖，不会创建新的 behavior 嵌套对象。",
+    "profiles.editor.hints.commonJson":
+      "这里直接编辑当前常用选项区块相关的顶层键，以及相关的 env 开关。",
     "profiles.editor.hints.expert":
       "预览展示最终合成结果，编辑模式直接修改 profile.settings 源配置。",
     "profiles.editor.hints.expertStructuredKeys": "当前已由控件覆盖的字段",
     "profiles.editor.sections.basicInfo": "基础信息",
     "profiles.editor.sections.auth": "认证",
     "profiles.editor.sections.behavior": "模型与行为",
+    "profiles.editor.sections.common": "常用选项",
     "profiles.editor.sections.environment": "环境变量",
     "profiles.editor.sections.permissions": "权限",
     "profiles.editor.sections.sandbox": "Sandbox",
@@ -187,12 +190,15 @@ const translations = {
     "presets.editor.hints.baseSuggestions": "基础预设推荐模型",
     "presets.editor.hints.behaviorJson":
       "这里直接编辑当前行为区块相关的顶层键，以及相关的 env 覆盖，不会创建新的 behavior 嵌套对象。",
+    "presets.editor.hints.commonJson":
+      "这里直接编辑当前常用选项区块相关的顶层键，以及相关的 env 开关。",
     "presets.editor.hints.expert":
       "这里直接编辑完整 settingsPatch，预览与编辑都作用于同一份补丁文档。",
     "presets.editor.hints.expertStructuredKeys": "当前已由控件覆盖的字段",
     "presets.editor.sections.metadata": "基础信息",
     "presets.editor.sections.auth": "认证",
     "presets.editor.sections.behavior": "模型与行为",
+    "presets.editor.sections.common": "常用选项",
     "presets.editor.sections.environment": "环境变量",
     "presets.editor.sections.permissions": "权限",
     "presets.editor.sections.sandbox": "Sandbox",
@@ -215,6 +221,7 @@ const translations = {
     "profileEditor.common.moveDown": "下移",
     "profileEditor.common.remove": "删除",
     "profileEditor.common.emptyDefault": "暂无配置",
+    "profileEditor.commonOptions.switchAriaLabel": "切换常用选项 {label}",
 
     // 环境变量编辑器
     "profileEditor.env.title": "环境变量",
@@ -705,12 +712,15 @@ const translations = {
     "profiles.editor.hints.suggestedModels": "Preset model suggestions",
     "profiles.editor.hints.behaviorJson":
       "Edit the related top-level behavior keys and scoped env overrides directly without creating a nested behavior object.",
+    "profiles.editor.hints.commonJson":
+      "Edit the related common-option top-level keys and env switches directly here.",
     "profiles.editor.hints.expert":
       "Preview shows the resolved document, while edit mode updates the source profile.settings document directly.",
     "profiles.editor.hints.expertStructuredKeys": "Structured keys currently covered",
     "profiles.editor.sections.basicInfo": "Basics",
     "profiles.editor.sections.auth": "Authentication",
     "profiles.editor.sections.behavior": "Model & Behavior",
+    "profiles.editor.sections.common": "Common Options",
     "profiles.editor.sections.environment": "Environment Variables",
     "profiles.editor.sections.permissions": "Permissions",
     "profiles.editor.sections.sandbox": "Sandbox",
@@ -766,12 +776,15 @@ const translations = {
     "presets.editor.hints.baseSuggestions": "Base preset suggestions",
     "presets.editor.hints.behaviorJson":
       "Edit the related top-level behavior keys and scoped env overrides directly without creating a nested behavior object.",
+    "presets.editor.hints.commonJson":
+      "Edit the related common-option top-level keys and env switches directly here.",
     "presets.editor.hints.expert":
       "Edit the full settingsPatch document here; preview and edit mode both operate on the same patch document.",
     "presets.editor.hints.expertStructuredKeys": "Structured keys currently covered",
     "presets.editor.sections.metadata": "Basics",
     "presets.editor.sections.auth": "Authentication",
     "presets.editor.sections.behavior": "Model & Behavior",
+    "presets.editor.sections.common": "Common Options",
     "presets.editor.sections.environment": "Environment Variables",
     "presets.editor.sections.permissions": "Permissions",
     "presets.editor.sections.sandbox": "Sandbox",
@@ -794,6 +807,7 @@ const translations = {
     "profileEditor.common.moveDown": "Move down",
     "profileEditor.common.remove": "Remove",
     "profileEditor.common.emptyDefault": "No entries yet",
+    "profileEditor.commonOptions.switchAriaLabel": "Toggle common option {label}",
 
     // Env editor
     "profileEditor.env.title": "Environment Variables",

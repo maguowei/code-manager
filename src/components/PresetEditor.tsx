@@ -34,6 +34,9 @@ import {
   BEHAVIOR_ENV_SETTINGS_KEYS,
   BEHAVIOR_JSON_ALLOWED_KEYS,
   BEHAVIOR_TOP_LEVEL_SETTINGS_KEYS,
+  COMMON_ENV_SETTINGS_KEYS,
+  COMMON_JSON_ALLOWED_KEYS,
+  COMMON_TOP_LEVEL_SETTINGS_KEYS,
   PROFILE_SETTINGS_FORM_REGISTRY,
   type SettingsFieldDefinition,
   STRUCTURED_SETTINGS_KEYS,
@@ -126,15 +129,43 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
     isZh: language === "zh",
     allowedKeys: BEHAVIOR_JSON_ALLOWED_KEYS,
   });
-  const envObject = useMemo(() => readTopLevelObject(settingsPatch, "env"), [settingsPatch]);
-  const hiddenAuthEnvEntries = useMemo(
-    () => buildHiddenEnvEntries(envObject, AUTH_ENV_KEYS),
-    [envObject],
+  const commonSettings = useMemo(
+    () =>
+      readScopedSettingsWithEnv(
+        settingsPatch,
+        COMMON_TOP_LEVEL_SETTINGS_KEYS,
+        COMMON_ENV_SETTINGS_KEYS,
+      ),
+    [settingsPatch],
   );
-  const visibleEnvSettings = useMemo(() => buildEnvSubset(envObject, AUTH_ENV_KEYS), [envObject]);
+  const commonJsonEditor = useObjectJsonEditor({
+    value: commonSettings,
+    onChange: (next) =>
+      applyPatch(
+        replaceScopedSettingsWithEnv(
+          settingsPatch,
+          COMMON_TOP_LEVEL_SETTINGS_KEYS,
+          COMMON_ENV_SETTINGS_KEYS,
+          next,
+        ),
+      ),
+    label: t("presets.editor.sections.common"),
+    isZh: language === "zh",
+    allowedKeys: COMMON_JSON_ALLOWED_KEYS,
+  });
+  const envObject = useMemo(() => readTopLevelObject(settingsPatch, "env"), [settingsPatch]);
+  const hiddenEnvKeys = useMemo(() => [...AUTH_ENV_KEYS, ...COMMON_ENV_SETTINGS_KEYS], []);
+  const hiddenEnvEntries = useMemo(
+    () => buildHiddenEnvEntries(envObject, hiddenEnvKeys),
+    [envObject, hiddenEnvKeys],
+  );
+  const visibleEnvSettings = useMemo(
+    () => buildEnvSubset(envObject, hiddenEnvKeys),
+    [envObject, hiddenEnvKeys],
+  );
   const envJsonEditor = useObjectJsonEditor({
     value: visibleEnvSettings,
-    onChange: (next) => handleStructuredObjectChange("env", { ...hiddenAuthEnvEntries, ...next }),
+    onChange: (next) => handleStructuredObjectChange("env", { ...hiddenEnvEntries, ...next }),
     label: t("presets.editor.sections.environment"),
     isZh: language === "zh",
   });
@@ -226,7 +257,13 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
   function handleSimpleFieldChange(field: SettingsFieldDefinition, value: string | boolean) {
     const next =
       field.kind === "checkbox"
-        ? setTopLevelBoolean(settingsPatch, field.key, value === true)
+        ? field.envKey
+          ? setEnvString(
+              settingsPatch,
+              field.envKey,
+              value === true ? (field.enabledValue ?? "1") : "",
+            )
+          : setTopLevelBoolean(settingsPatch, field.key, value === true)
         : field.storage === "env-only" && field.envKey
           ? setEnvString(settingsPatch, field.envKey, typeof value === "string" ? value : "")
           : setTopLevelString(settingsPatch, field.key, typeof value === "string" ? value : "");
@@ -281,6 +318,15 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
     return filteredOptions;
   }
 
+  function readToggleFieldEnabled(field: SettingsFieldDefinition) {
+    if (field.envKey) {
+      const expectedValue = field.enabledValue ?? "1";
+      return readEnvString(settingsPatch, field.envKey) === expectedValue;
+    }
+
+    return settingsPatch[field.key] === true;
+  }
+
   function handleStructuredObjectChange(key: string, value: Record<string, unknown>) {
     applyPatch(setTopLevelObject(settingsPatch, key, value));
   }
@@ -296,6 +342,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
       !localizedName ||
       documentJsonEditor.jsonError ||
       behaviorJsonEditor.jsonError ||
+      commonJsonEditor.jsonError ||
       envJsonEditor.jsonError ||
       permissionsJsonEditor.jsonError ||
       sandboxJsonEditor.jsonError ||
@@ -326,13 +373,22 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
   const behaviorFields = PROFILE_SETTINGS_FORM_REGISTRY.filter(
     (field) => field.section === "behavior",
   );
+  const commonFields = PROFILE_SETTINGS_FORM_REGISTRY.filter((field) => field.section === "common");
   const scalarFields = behaviorFields.filter((field) => field.kind !== "checkbox");
-  const toggleFields = behaviorFields.filter((field) => field.kind === "checkbox");
+  const behaviorToggleFields = behaviorFields.filter((field) => field.kind === "checkbox");
   const scalarFieldRows = useMemo(() => chunkItems(scalarFields, 2), [scalarFields]);
-  const toggleFieldRows = useMemo(() => chunkItems(toggleFields, 2), [toggleFields]);
+  const behaviorToggleFieldRows = useMemo(
+    () => chunkItems(behaviorToggleFields, 2),
+    [behaviorToggleFields],
+  );
+  const commonToggleFields = useMemo(
+    () => commonFields.filter((field) => field.kind === "checkbox"),
+    [commonFields],
+  );
   const hasValidationError =
     !!documentJsonEditor.jsonError ||
     !!behaviorJsonEditor.jsonError ||
+    !!commonJsonEditor.jsonError ||
     !!envJsonEditor.jsonError ||
     !!permissionsJsonEditor.jsonError ||
     !!sandboxJsonEditor.jsonError ||
@@ -360,6 +416,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
     metadata: t("presets.editor.sections.metadata"),
     auth: t("presets.editor.sections.auth"),
     behavior: t("presets.editor.sections.behavior"),
+    common: t("presets.editor.sections.common"),
     environment: t("presets.editor.sections.environment"),
     behaviorJsonHint: t("presets.editor.hints.behaviorJson"),
     permissions: t("presets.editor.sections.permissions"),
@@ -548,7 +605,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
           settings={settingsPatch}
           supportedKeys={supportedKeysInPatch}
           previewContent={prettyJson(settingsPatch)}
-          hiddenAuthEnvKeys={AUTH_ENV_KEYS}
+          hiddenEnvKeys={hiddenEnvKeys}
           visibleEnvCount={visibleEnvCount}
           marketplaceCount={marketplaceCount}
           permissionsDefaultMode={permissionsDefaultMode}
@@ -556,8 +613,10 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
           sandboxPresentation={sandboxPresentation}
           enabledPluginsSummary={enabledPluginsSummary}
           scalarFieldRows={scalarFieldRows}
-          toggleFieldRows={toggleFieldRows}
+          behaviorToggleFieldRows={behaviorToggleFieldRows}
+          commonToggleFields={commonToggleFields}
           readBehaviorFieldState={readBehaviorFieldState}
+          readToggleFieldEnabled={readToggleFieldEnabled}
           resolveSelectOptions={resolveSelectOptions}
           onMappedFieldChange={handleMappedFieldChange}
           onSimpleFieldChange={handleSimpleFieldChange}
@@ -565,6 +624,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
           sectionState={sectionState}
           documentJsonEditor={documentJsonEditor}
           behaviorJsonEditor={behaviorJsonEditor}
+          commonJsonEditor={commonJsonEditor}
           envJsonEditor={envJsonEditor}
           permissionsJsonEditor={permissionsJsonEditor}
           sandboxJsonEditor={sandboxJsonEditor}

@@ -5,6 +5,7 @@ export const AUTH_ENV_KEYS = ["ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL"] as c
 
 export const PURE_SETTINGS_SECTION_KEYS = [
   "behavior",
+  "common",
   "env",
   "permissions",
   "sandbox",
@@ -41,6 +42,7 @@ export function chunkItems<T>(items: T[], size: number): T[][] {
 export function createInitialSectionModes(): Record<PureSettingsSectionKey, SectionEditorMode> {
   return {
     behavior: "controls",
+    common: "controls",
     env: "controls",
     permissions: "controls",
     sandbox: "controls",
