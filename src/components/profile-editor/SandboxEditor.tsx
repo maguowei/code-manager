@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { useI18n } from "../../i18n";
 import { readObject } from "./editor-utils";
+import "./SandboxEditor.css";
 
 interface SandboxEditorProps {
   value: unknown;
@@ -17,7 +18,6 @@ interface SandboxPresentation {
 
 interface SandboxSwitchControlProps {
   enabled: boolean;
-  isZh: boolean;
   ariaLabel: string;
   onToggle: () => void;
   variant?: "header" | "panel";
@@ -92,13 +92,15 @@ export function setSandboxEnabled(value: unknown, enabled: boolean): Record<stri
 
 export function SandboxSwitchControl({
   enabled,
-  isZh,
   ariaLabel,
   onToggle,
   variant = "panel",
   visibleLabel,
 }: SandboxSwitchControlProps) {
-  const statusText = enabled ? (isZh ? "已启用" : "Enabled") : isZh ? "已关闭" : "Disabled";
+  const { t } = useI18n();
+  const statusText = enabled
+    ? t("profileEditor.sandbox.statusEnabled")
+    : t("profileEditor.sandbox.statusDisabled");
 
   return (
     <button
@@ -123,7 +125,7 @@ export function SandboxSwitchControl({
 }
 
 function SandboxEditor({ value, onError }: SandboxEditorProps) {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const isZh = language === "zh";
   const presentation = useMemo(() => getSandboxPresentation(value, isZh), [value, isZh]);
 
@@ -135,7 +137,7 @@ function SandboxEditor({ value, onError }: SandboxEditorProps) {
     <div className="profile-section-body">
       <div className="profile-subsection-header">
         <div>
-          <h4>{isZh ? "沙盒状态" : "Sandbox Status"}</h4>
+          <h4>{t("profileEditor.sandbox.statusTitle")}</h4>
         </div>
       </div>
 
@@ -143,8 +145,8 @@ function SandboxEditor({ value, onError }: SandboxEditorProps) {
         <div className="profile-sandbox-state-copy">
           <strong>
             {isZh
-              ? `当前状态：${presentation.enabled ? "已启用" : "已关闭"}`
-              : `Current status: ${presentation.enabled ? "Enabled" : "Disabled"}`}
+              ? `当前状态：${presentation.enabled ? t("profileEditor.sandbox.statusEnabled") : t("profileEditor.sandbox.statusDisabled")}`
+              : `Current status: ${presentation.enabled ? t("profileEditor.sandbox.statusEnabled") : t("profileEditor.sandbox.statusDisabled")}`}
           </strong>
           <span>{presentation.detailSummary}</span>
         </div>

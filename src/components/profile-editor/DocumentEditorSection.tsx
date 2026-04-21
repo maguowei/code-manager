@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useI18n } from "../../i18n";
 import ConfigPreview from "../ConfigPreview";
+import "./editor-shared.css";
 
 type DocumentEditorMode = "preview" | "json";
 

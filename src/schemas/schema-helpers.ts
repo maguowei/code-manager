@@ -1,18 +1,6 @@
-import { z } from "zod";
-
-export const optionalUrlStringSchema = z
-  .string()
-  .refine((value) => !value || value.startsWith("http://") || value.startsWith("https://"), {
-    message: "configEditor.validation.invalidUrl",
-  });
-
 export function trimToUndefined(value: string): string | undefined {
   const trimmed = value.trim();
   return trimmed ? trimmed : undefined;
-}
-
-export function isValidProviderSlug(value: string): boolean {
-  return /^[a-z0-9-]*$/.test(value);
 }
 
 export function isValidSkillId(value: string): boolean {

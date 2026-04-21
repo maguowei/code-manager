@@ -239,24 +239,34 @@ fn normalize_ui_language(language: &str) -> Result<&'static str, String> {
     }
 }
 
-pub fn normalize_default_terminal_app(app: &str) -> Result<&'static str, String> {
-    match app {
-        "terminal" => Ok("terminal"),
-        "iterm" => Ok("iterm"),
-        "warp" => Ok("warp"),
-        "ghostty" => Ok("ghostty"),
-        _ => Err("仅支持 terminal / iterm / warp / ghostty 四种终端".to_string()),
-    }
+pub(crate) const TERMINAL_APPS: &[(&str, &str)] = &[
+    ("terminal", "Terminal"),
+    ("iterm", "iTerm"),
+    ("warp", "Warp"),
+    ("ghostty", "Ghostty"),
+];
+
+pub(crate) const EDITOR_APPS: &[(&str, &str)] = &[
+    ("vscode", "Visual Studio Code"),
+    ("cursor", "Cursor"),
+    ("windsurf", "Windsurf"),
+    ("zed", "Zed"),
+];
+
+pub(crate) fn normalize_default_terminal_app(app: &str) -> Result<&'static str, String> {
+    TERMINAL_APPS
+        .iter()
+        .find(|(slug, _)| *slug == app)
+        .map(|(slug, _)| *slug)
+        .ok_or_else(|| "仅支持 terminal / iterm / warp / ghostty 四种终端".to_string())
 }
 
-pub fn normalize_default_editor_app(app: &str) -> Result<&'static str, String> {
-    match app {
-        "vscode" => Ok("vscode"),
-        "cursor" => Ok("cursor"),
-        "windsurf" => Ok("windsurf"),
-        "zed" => Ok("zed"),
-        _ => Err("仅支持 vscode / cursor / windsurf / zed 四种编辑器".to_string()),
-    }
+pub(crate) fn normalize_default_editor_app(app: &str) -> Result<&'static str, String> {
+    EDITOR_APPS
+        .iter()
+        .find(|(slug, _)| *slug == app)
+        .map(|(slug, _)| *slug)
+        .ok_or_else(|| "仅支持 vscode / cursor / windsurf / zed 四种编辑器".to_string())
 }
 
 fn get_registry_path() -> Result<PathBuf, String> {
@@ -1014,6 +1024,10 @@ pub fn upsert_profile(app_handle: AppHandle, data: ProfileInput) -> Result<Confi
         registry.profiles.push(profile.clone());
         profile
     };
+
+    if registry.bindings.user_profile_id.as_deref() == Some(&profile.id) {
+        apply_profile_to_registry(&mut registry, &profile.id)?;
+    }
 
     save_registry(&registry)?;
     rebuild_tray_menu(&app_handle, Some(&registry));

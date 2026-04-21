@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
-import { useI18n } from "../../i18n";
+import { type TranslationKey, useI18n } from "../../i18n";
 import { readObject, readString } from "./editor-utils";
+import "./HooksEditor.css";
 
 interface HooksEditorProps {
   value: unknown;
@@ -29,9 +30,9 @@ function truncateText(value: string, maxLength = 72): string {
   return `${value.slice(0, maxLength - 3)}...`;
 }
 
-function buildHookActionSummary(action: unknown, isZh: boolean): string {
+function buildHookActionSummary(action: unknown, t: (key: TranslationKey) => string): string {
   if (typeof action !== "object" || action === null) {
-    return isZh ? "invalid action" : "invalid action";
+    return t("profileEditor.hooks.invalidAction");
   }
 
   const record = action as Record<string, unknown>;
@@ -50,7 +51,10 @@ function buildHookActionSummary(action: unknown, isZh: boolean): string {
   return `${type}: ${truncateText(detail)}`;
 }
 
-function buildHookSummaries(value: unknown, isZh: boolean): HookEventSummary[] {
+function buildHookSummaries(
+  value: unknown,
+  t: (key: TranslationKey) => string,
+): HookEventSummary[] {
   const hooksObject = readObject(value);
   return Object.entries(hooksObject).map(([event, matchers]) => {
     if (!Array.isArray(matchers)) {
@@ -66,7 +70,7 @@ function buildHookSummaries(value: unknown, isZh: boolean): HookEventSummary[] {
     const matcherSummaries = matchers.map((matcher) => {
       if (typeof matcher !== "object" || matcher === null) {
         return {
-          matcherLabel: isZh ? "默认 matcher" : "Default matcher",
+          matcherLabel: t("profileEditor.hooks.defaultMatcher"),
           actionSummaries: [],
           hasUnsupportedStructure: true,
         };
@@ -76,9 +80,8 @@ function buildHookSummaries(value: unknown, isZh: boolean): HookEventSummary[] {
       const hooks = Array.isArray(matcherRecord.hooks) ? matcherRecord.hooks : [];
 
       return {
-        matcherLabel:
-          readString(matcherRecord.matcher) || (isZh ? "默认 matcher" : "Default matcher"),
-        actionSummaries: hooks.map((action) => buildHookActionSummary(action, isZh)),
+        matcherLabel: readString(matcherRecord.matcher) || t("profileEditor.hooks.defaultMatcher"),
+        actionSummaries: hooks.map((action) => buildHookActionSummary(action, t)),
         hasUnsupportedStructure: !Array.isArray(matcherRecord.hooks),
       };
     });
@@ -99,10 +102,9 @@ function buildHookSummaries(value: unknown, isZh: boolean): HookEventSummary[] {
 }
 
 function HooksEditor({ value, onError }: HooksEditorProps) {
-  const { language } = useI18n();
-  const isZh = language === "zh";
+  const { t } = useI18n();
   const hooksObject = useMemo(() => readObject(value), [value]);
-  const summaries = useMemo(() => buildHookSummaries(hooksObject, isZh), [hooksObject, isZh]);
+  const summaries = useMemo(() => buildHookSummaries(hooksObject, t), [hooksObject, t]);
 
   useEffect(() => {
     onError("");
@@ -112,15 +114,13 @@ function HooksEditor({ value, onError }: HooksEditorProps) {
     <div className="profile-section-body">
       <div className="profile-subsection-header">
         <div>
-          <h4>{isZh ? "已配置 Hooks" : "Configured Hooks"}</h4>
-          <p>{isZh ? "这里仅展示当前 Hooks 摘要。" : "This section shows a hooks summary only."}</p>
+          <h4>{t("profileEditor.hooks.title")}</h4>
+          <p>{t("profileEditor.hooks.summaryHint")}</p>
         </div>
       </div>
 
       {summaries.length === 0 ? (
-        <div className="profile-empty-state">
-          {isZh ? "暂无 Hooks 配置。" : "No hooks configured yet."}
-        </div>
+        <div className="profile-empty-state">{t("profileEditor.hooks.emptyHint")}</div>
       ) : (
         <div className="profile-card-stack">
           {summaries.map((summary) => (
@@ -128,15 +128,15 @@ function HooksEditor({ value, onError }: HooksEditorProps) {
               <div className="profile-hook-summary-head">
                 <strong>{summary.event}</strong>
                 <span className="profile-hook-summary-meta">
-                  {isZh
-                    ? `${summary.matcherCount} 个 matcher · ${summary.actionCount} 个动作`
-                    : `${summary.matcherCount} matchers · ${summary.actionCount} actions`}
+                  {t("profileEditor.hooks.matcherActionSummary")
+                    .replace("{matcherCount}", String(summary.matcherCount))
+                    .replace("{actionCount}", String(summary.actionCount))}
                 </span>
               </div>
 
               {summary.matchers.length === 0 ? (
                 <div className="profile-empty-state">
-                  {isZh ? "当前事件结构无法摘要。" : "This event cannot be summarized."}
+                  {t("profileEditor.hooks.cannotSummarize")}
                 </div>
               ) : (
                 <div className="profile-hook-summary-list">
@@ -164,12 +164,8 @@ function HooksEditor({ value, onError }: HooksEditorProps) {
                       ) : (
                         <div className="profile-empty-state">
                           {matcherSummary.hasUnsupportedStructure
-                            ? isZh
-                              ? "当前 matcher 结构无法摘要。"
-                              : "This matcher cannot be summarized."
-                            : isZh
-                              ? "当前 matcher 没有动作。"
-                              : "This matcher has no actions."}
+                            ? t("profileEditor.hooks.matcherCannotSummarize")
+                            : t("profileEditor.hooks.matcherNoActions")}
                         </div>
                       )}
                     </div>
@@ -178,11 +174,7 @@ function HooksEditor({ value, onError }: HooksEditorProps) {
               )}
 
               {summary.hasUnsupportedStructure && summary.matchers.length > 0 ? (
-                <p className="form-hint">
-                  {isZh
-                    ? "部分 Hooks 结构无法完整摘要。"
-                    : "Some hook entries could not be fully summarized."}
-                </p>
+                <p className="form-hint">{t("profileEditor.hooks.partialSummarize")}</p>
               ) : null}
             </section>
           ))}

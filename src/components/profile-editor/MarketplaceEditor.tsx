@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useI18n } from "../../i18n";
+import { type TranslationKey, useI18n } from "../../i18n";
 import ConfirmDialog from "../ConfirmDialog";
 import {
   createRowId,
@@ -8,6 +8,7 @@ import {
   readObject,
 } from "./editor-utils";
 import RequiredBadge from "./RequiredBadge";
+import "./MarketplaceEditor.css";
 
 interface MarketplaceEditorProps {
   value: unknown;
@@ -67,36 +68,37 @@ function buildMarketplaceSummary(
     | "packageName"
     | "installLocation"
   >,
-  isZh: boolean,
+  t: (key: TranslationKey) => string,
 ): { primarySummary: string; secondarySummary: string[] } {
   const primarySummary =
     marketplace.sourceType === "github"
-      ? marketplace.repo.trim() || (isZh ? "未填写仓库" : "Repo not set")
+      ? marketplace.repo.trim() || t("profileEditor.marketplace.repoNotSet")
       : marketplace.sourceType === "git" || marketplace.sourceType === "url"
-        ? marketplace.url.trim() || (isZh ? "未填写 URL" : "URL not set")
+        ? marketplace.url.trim() || t("profileEditor.marketplace.urlNotSet")
         : marketplace.sourceType === "npm"
-          ? marketplace.packageName.trim() || (isZh ? "未填写包名" : "Package not set")
+          ? marketplace.packageName.trim() || t("profileEditor.marketplace.packageNotSet")
           : marketplace.sourceType === "hostPattern"
-            ? marketplace.hostPattern.trim() ||
-              (isZh ? "未填写 Host Pattern" : "Host pattern not set")
-            : marketplace.path.trim() || (isZh ? "未填写路径" : "Path not set");
+            ? marketplace.hostPattern.trim() || t("profileEditor.marketplace.hostPatternNotSet")
+            : marketplace.path.trim() || t("profileEditor.marketplace.pathNotSet");
 
   const secondarySummary: string[] = [];
   if (
     (marketplace.sourceType === "github" || marketplace.sourceType === "git") &&
     marketplace.ref.trim()
   ) {
-    secondarySummary.push(`${isZh ? "Ref" : "Ref"}: ${marketplace.ref.trim()}`);
+    secondarySummary.push(`${t("profileEditor.marketplace.refPrefix")}: ${marketplace.ref.trim()}`);
   }
   if (
     (marketplace.sourceType === "github" || marketplace.sourceType === "git") &&
     marketplace.path.trim()
   ) {
-    secondarySummary.push(`${isZh ? "路径" : "Path"}: ${marketplace.path.trim()}`);
+    secondarySummary.push(
+      `${t("profileEditor.marketplace.pathPrefix")}: ${marketplace.path.trim()}`,
+    );
   }
   if (marketplace.installLocation.trim()) {
     secondarySummary.push(
-      `${isZh ? "安装位置" : "Install"}: ${marketplace.installLocation.trim()}`,
+      `${t("profileEditor.marketplace.installPrefix")}: ${marketplace.installLocation.trim()}`,
     );
   }
 
@@ -197,8 +199,7 @@ function buildMarketplaceRecord(marketplaces: MarketplaceDraft[]): Record<string
 }
 
 function MarketplaceEditor({ value, onChange, onError, showTitle = true }: MarketplaceEditorProps) {
-  const { language } = useI18n();
-  const isZh = language === "zh";
+  const { t } = useI18n();
   const initialMarketplaces = useMemo(() => buildMarketplaceDrafts(value), [value]);
   const [marketplaces, setMarketplaces] = useState(initialMarketplaces);
   const [draft, setDraft] = useState<MarketplaceEditorDraft | null>(null);
@@ -209,18 +210,12 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
   );
   const idInputRef = useRef<HTMLInputElement | null>(null);
 
-  const pendingMessage = isZh
-    ? "当前 Marketplace 编辑未保存，请先保存或取消。"
-    : "Please save or cancel the current marketplace edit first.";
-  const switchBlockedMessage = isZh
-    ? "请先保存或取消当前 Marketplace 编辑。"
-    : "Please save or cancel the current marketplace edit first.";
-  const emptyHint = isZh
-    ? "暂无额外 Marketplace，可按需添加。"
-    : "No extra marketplaces yet. Add one when needed.";
-  const deleteDialogTitle = isZh ? "删除 Marketplace" : "Delete marketplace";
-  const deleteDialogConfirmText = isZh ? "删除" : "Delete";
-  const deleteDialogCancelText = isZh ? "取消" : "Cancel";
+  const pendingMessage = t("profileEditor.marketplace.pendingMessage");
+  const switchBlockedMessage = t("profileEditor.marketplace.switchBlockedMessage");
+  const emptyHint = t("profileEditor.marketplace.emptyHint");
+  const deleteDialogTitle = t("profileEditor.marketplace.deleteDialogTitle");
+  const deleteDialogConfirmText = t("profileEditor.common.delete");
+  const deleteDialogCancelText = t("profileEditor.common.cancel");
 
   const selectedMarketplace = useMemo(() => {
     if (!draft || draft.isNew) {
@@ -262,7 +257,7 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
 
   const listItems = useMemo<MarketplaceListItem[]>(() => {
     return visibleMarketplaces.map((marketplace) => {
-      const summary = buildMarketplaceSummary(marketplace, isZh);
+      const summary = buildMarketplaceSummary(marketplace, t);
       return {
         id: marketplace.id,
         marketplaceId: marketplace.marketplaceId,
@@ -272,7 +267,7 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
         isDraft: draft?.isNew && draft.id === marketplace.id,
       };
     });
-  }, [draft, isZh, visibleMarketplaces]);
+  }, [draft, t, visibleMarketplaces]);
 
   const currentError = useMemo(() => {
     if (draftError) {
@@ -380,7 +375,7 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
   function validateDraft(currentDraft: MarketplaceEditorDraft): string {
     const normalizedId = currentDraft.marketplaceId.trim();
     if (!normalizedId) {
-      return isZh ? "Marketplace ID 不能为空" : "Marketplace ID cannot be empty";
+      return t("profileEditor.marketplace.errorIdEmpty");
     }
     const duplicated = marketplaces.some(
       (marketplace) =>
@@ -388,7 +383,7 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
         marketplace.marketplaceId !== currentDraft.originalMarketplaceId,
     );
     if (duplicated) {
-      return isZh ? "Marketplace ID 不能重复" : "Marketplace IDs must be unique";
+      return t("profileEditor.marketplace.errorIdDuplicate");
     }
 
     const requiredValue =
@@ -405,7 +400,7 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                 : currentDraft.path.trim();
 
     if (!requiredValue) {
-      return isZh ? "Marketplace 配置不完整" : "Marketplace configuration is incomplete";
+      return t("profileEditor.marketplace.errorIncomplete");
     }
 
     return "";
@@ -467,7 +462,7 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
       {showTitle ? (
         <div className="profile-subsection-header">
           <div>
-            <h4>{isZh ? "Marketplace" : "Marketplaces"}</h4>
+            <h4>{t("profileEditor.marketplace.title")}</h4>
           </div>
         </div>
       ) : null}
@@ -477,24 +472,22 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
           <div className="profile-marketplace-list">
             <div className="profile-marketplace-list-header">
               <span className="profile-marketplace-list-header-index">
-                {isZh ? "序号" : "Index"}
+                {t("profileEditor.common.index")}
               </span>
-              <span>{isZh ? "Marketplace" : "Marketplace"}</span>
-              <span>{isZh ? "关键信息" : "Summary"}</span>
-              <span>{isZh ? "操作" : "Actions"}</span>
+              <span>{t("profileEditor.marketplace.columnMarketplace")}</span>
+              <span>{t("profileEditor.marketplace.columnSummary")}</span>
+              <span>{t("profileEditor.common.actions")}</span>
             </div>
 
             {listItems.length > 0 ? (
               listItems.map((item, index) => {
                 const selected = draft?.id === item.id;
-                const draftBadge = item.isDraft ? (isZh ? "草稿" : "Draft") : null;
+                const draftBadge = item.isDraft ? t("profileEditor.common.draft") : null;
                 const dirtyBadge =
                   selected && hasUnsavedChanges && !draft?.isNew
-                    ? isZh
-                      ? "未保存"
-                      : "Unsaved"
+                    ? t("profileEditor.marketplace.unsaved")
                     : null;
-                const label = item.marketplaceId || (isZh ? "新 Marketplace" : "New marketplace");
+                const label = item.marketplaceId || t("profileEditor.marketplace.newItem");
                 const marketplace = visibleMarketplaces.find(
                   (candidate) => candidate.id === item.id,
                 );
@@ -512,7 +505,7 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                         type="button"
                         className="profile-marketplace-list-main"
                         aria-pressed={selected}
-                        aria-label={`${isZh ? "编辑 Marketplace" : "Edit marketplace"} ${label}`}
+                        aria-label={`${t("profileEditor.marketplace.editAriaLabel")} ${label}`}
                         onClick={() => handleSelectMarketplace(marketplace)}
                       >
                         <span className="profile-marketplace-list-index" aria-hidden="true">
@@ -544,7 +537,7 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                         <button
                           type="button"
                           className="profile-icon-btn danger"
-                          aria-label={`${isZh ? "删除 Marketplace" : "Delete marketplace"} ${label}`}
+                          aria-label={`${t("profileEditor.marketplace.deleteAriaLabel")} ${label}`}
                           onClick={() => handleDeleteMarketplace(marketplace)}
                         >
                           ×
@@ -558,12 +551,12 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                           <div className="form-row">
                             <label className="form-group">
                               <span className="profile-inline-required-label profile-env-inline-label">
-                                <span>{isZh ? "Marketplace ID" : "Marketplace ID"}</span>
+                                <span>{t("profileEditor.marketplace.idLabel")}</span>
                                 <RequiredBadge />
                               </span>
                               <input
                                 ref={idInputRef}
-                                aria-label={isZh ? "Marketplace ID" : "Marketplace ID"}
+                                aria-label={t("profileEditor.marketplace.idLabel")}
                                 value={draft.marketplaceId}
                                 placeholder="team-market"
                                 onChange={(event) =>
@@ -574,10 +567,10 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
 
                             <label className="form-group">
                               <span className="profile-env-inline-label">
-                                {isZh ? "Marketplace 来源" : "Marketplace Source"}
+                                {t("profileEditor.marketplace.sourceLabel")}
                               </span>
                               <select
-                                aria-label={isZh ? "Marketplace 来源" : "Marketplace Source"}
+                                aria-label={t("profileEditor.marketplace.sourceLabel")}
                                 className="form-select"
                                 value={draft.sourceType}
                                 onChange={(event) =>
@@ -603,11 +596,11 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                               <>
                                 <label className="form-group">
                                   <span className="profile-inline-required-label profile-env-inline-label">
-                                    <span>{isZh ? "Marketplace 仓库" : "Marketplace Repo"}</span>
+                                    <span>{t("profileEditor.marketplace.repoLabel")}</span>
                                     <RequiredBadge />
                                   </span>
                                   <input
-                                    aria-label={isZh ? "Marketplace 仓库" : "Marketplace Repo"}
+                                    aria-label={t("profileEditor.marketplace.repoLabel")}
                                     value={draft.repo}
                                     placeholder="team/plugins"
                                     onChange={(event) =>
@@ -618,10 +611,10 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
 
                                 <label className="form-group">
                                   <span className="profile-env-inline-label">
-                                    {isZh ? "Marketplace Ref" : "Marketplace Ref"}
+                                    {t("profileEditor.marketplace.refLabel")}
                                   </span>
                                   <input
-                                    aria-label={isZh ? "Marketplace Ref" : "Marketplace Ref"}
+                                    aria-label={t("profileEditor.marketplace.refLabel")}
                                     value={draft.ref}
                                     placeholder="main"
                                     onChange={(event) =>
@@ -632,10 +625,10 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
 
                                 <label className="form-group">
                                   <span className="profile-env-inline-label">
-                                    {isZh ? "Marketplace 路径" : "Marketplace Path"}
+                                    {t("profileEditor.marketplace.repoPathLabel")}
                                   </span>
                                   <input
-                                    aria-label={isZh ? "Marketplace 路径" : "Marketplace Path"}
+                                    aria-label={t("profileEditor.marketplace.repoPathLabel")}
                                     value={draft.path}
                                     placeholder=".claude-plugin/marketplace.json"
                                     onChange={(event) =>
@@ -649,11 +642,11 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                             {draft.sourceType === "git" || draft.sourceType === "url" ? (
                               <label className="form-group">
                                 <span className="profile-inline-required-label profile-env-inline-label">
-                                  <span>{isZh ? "Marketplace URL" : "Marketplace URL"}</span>
+                                  <span>{t("profileEditor.marketplace.urlLabel")}</span>
                                   <RequiredBadge />
                                 </span>
                                 <input
-                                  aria-label={isZh ? "Marketplace URL" : "Marketplace URL"}
+                                  aria-label={t("profileEditor.marketplace.urlLabel")}
                                   value={draft.url}
                                   placeholder={
                                     draft.sourceType === "git"
@@ -668,15 +661,11 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                             {draft.sourceType === "hostPattern" ? (
                               <label className="form-group">
                                 <span className="profile-inline-required-label profile-env-inline-label">
-                                  <span>
-                                    {isZh ? "Marketplace Host Pattern" : "Marketplace Host Pattern"}
-                                  </span>
+                                  <span>{t("profileEditor.marketplace.hostPatternLabel")}</span>
                                   <RequiredBadge />
                                 </span>
                                 <input
-                                  aria-label={
-                                    isZh ? "Marketplace Host Pattern" : "Marketplace Host Pattern"
-                                  }
+                                  aria-label={t("profileEditor.marketplace.hostPatternLabel")}
                                   value={draft.hostPattern}
                                   placeholder="github.com/*"
                                   onChange={(event) =>
@@ -689,11 +678,11 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                             {draft.sourceType === "npm" ? (
                               <label className="form-group">
                                 <span className="profile-inline-required-label profile-env-inline-label">
-                                  <span>{isZh ? "Marketplace 包" : "Marketplace Package"}</span>
+                                  <span>{t("profileEditor.marketplace.packageLabel")}</span>
                                   <RequiredBadge />
                                 </span>
                                 <input
-                                  aria-label={isZh ? "Marketplace 包" : "Marketplace Package"}
+                                  aria-label={t("profileEditor.marketplace.packageLabel")}
                                   value={draft.packageName}
                                   placeholder="@team/claude-marketplace"
                                   onChange={(event) =>
@@ -706,11 +695,11 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                             {draft.sourceType === "file" || draft.sourceType === "directory" ? (
                               <label className="form-group">
                                 <span className="profile-inline-required-label profile-env-inline-label">
-                                  <span>{isZh ? "Marketplace 路径" : "Marketplace Path"}</span>
+                                  <span>{t("profileEditor.marketplace.localPathLabel")}</span>
                                   <RequiredBadge />
                                 </span>
                                 <input
-                                  aria-label={isZh ? "Marketplace 路径" : "Marketplace Path"}
+                                  aria-label={t("profileEditor.marketplace.localPathLabel")}
                                   value={draft.path}
                                   placeholder="/path/to/marketplace"
                                   onChange={(event) =>
@@ -722,12 +711,10 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
 
                             <label className="form-group">
                               <span className="profile-env-inline-label">
-                                {isZh ? "Marketplace 安装位置" : "Marketplace Install Location"}
+                                {t("profileEditor.marketplace.installLocationLabel")}
                               </span>
                               <input
-                                aria-label={
-                                  isZh ? "Marketplace 安装位置" : "Marketplace Install Location"
-                                }
+                                aria-label={t("profileEditor.marketplace.installLocationLabel")}
                                 value={draft.installLocation}
                                 placeholder="/tmp/team-market"
                                 onChange={(event) =>
@@ -742,20 +729,18 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                           <button
                             type="button"
                             className="profile-primary-btn"
-                            aria-label={isZh ? "保存 Marketplace" : "Save marketplace"}
+                            aria-label={t("profileEditor.marketplace.saveAriaLabel")}
                             onClick={handleSaveDraft}
                           >
-                            {isZh ? "保存 Marketplace" : "Save marketplace"}
+                            {t("profileEditor.marketplace.save")}
                           </button>
                           <button
                             type="button"
                             className="profile-secondary-btn"
-                            aria-label={
-                              isZh ? "取消编辑 Marketplace" : "Cancel marketplace editing"
-                            }
+                            aria-label={t("profileEditor.marketplace.cancelEditAriaLabel")}
                             onClick={handleCancelDraft}
                           >
-                            {isZh ? "取消" : "Cancel"}
+                            {t("profileEditor.common.cancel")}
                           </button>
                         </div>
 
@@ -775,7 +760,7 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
 
           <div className="profile-env-footer">
             <button type="button" className="profile-secondary-btn" onClick={handleAddMarketplace}>
-              {isZh ? "新增 Marketplace" : "Add marketplace"}
+              {t("profileEditor.marketplace.addItem")}
             </button>
           </div>
         </div>
@@ -784,11 +769,10 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
       {pendingDeleteMarketplace ? (
         <ConfirmDialog
           title={deleteDialogTitle}
-          message={
-            isZh
-              ? `确定要从当前设置中移除 Marketplace ${pendingDeleteMarketplace.marketplaceId} 吗？`
-              : `Remove marketplace ${pendingDeleteMarketplace.marketplaceId} from the current settings?`
-          }
+          message={t("profileEditor.marketplace.deleteDialogMessage").replace(
+            "{id}",
+            pendingDeleteMarketplace.marketplaceId,
+          )}
           confirmText={deleteDialogConfirmText}
           cancelText={deleteDialogCancelText}
           danger

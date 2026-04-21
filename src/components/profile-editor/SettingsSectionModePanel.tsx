@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useI18n } from "../../i18n";
 import ConfigPreview from "../ConfigPreview";
+import "./editor-shared.css";
 
 export type SectionEditorMode = "controls" | "json";
 export type SettingsSectionVariant = "default" | "accordion";

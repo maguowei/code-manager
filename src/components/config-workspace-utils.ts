@@ -277,9 +277,10 @@ export function presetNameById(
   presets: SettingsPreset[],
   presetId: string | undefined,
   language: "zh" | "en",
+  noPresetLabel?: string,
 ): string {
   if (!presetId) {
-    return language === "zh" ? "无预设" : "No preset";
+    return noPresetLabel ?? (language === "zh" ? "无预设" : "No preset");
   }
   const preset = presets.find((item) => item.id === presetId);
   return preset ? presetDisplayName(preset, language) : presetId;

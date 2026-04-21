@@ -67,7 +67,7 @@
   height: 4px;
   border-radius: 999px;
   pointer-events: none;
-  z-index: 1;
+  z-index: var(--z-index-above-content);
   background:
     radial-gradient(
       circle at left center,

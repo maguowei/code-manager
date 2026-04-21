@@ -339,7 +339,12 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                       <div className="profile-card-title-row">
                         <h3>{profile.name}</h3>
                         <span className="profile-preset-badge">
-                          {presetNameById(allPresets, profile.presetId, language)}
+                          {presetNameById(
+                            allPresets,
+                            profile.presetId,
+                            language,
+                            t("profileEditor.preset.noPreset"),
+                          )}
                         </span>
                       </div>
                       {profile.description && (

@@ -17,28 +17,19 @@ import {
   setTopLevelObject,
   setTopLevelString,
 } from "./config-workspace-utils";
-import { InfoIcon } from "./Icons";
 import ProfileNameBadge from "./ProfileNameBadge";
-import DocumentEditorSection from "./profile-editor/DocumentEditorSection";
-import EnabledPluginsEditor from "./profile-editor/EnabledPluginsEditor";
-import EnvEditor from "./profile-editor/EnvEditor";
-import { readBoolean, readString } from "./profile-editor/editor-utils";
-import HooksEditor from "./profile-editor/HooksEditor";
-import MarketplaceEditor from "./profile-editor/MarketplaceEditor";
-import PermissionsEditor, {
-  PermissionDefaultModeSelect,
-  readPermissionsDefaultMode,
-  setPermissionsDefaultMode,
-} from "./profile-editor/PermissionsEditor";
+import {
+  AUTH_ENV_KEYS,
+  BEHAVIOR_ENV_DEFAULTS,
+  buildEnvSubset,
+  buildHiddenEnvEntries,
+  chunkItems,
+} from "./profile-editor/editor-shared-constants";
+import { readString } from "./profile-editor/editor-utils";
+import { readPermissionsDefaultMode } from "./profile-editor/PermissionsEditor";
 import RequiredBadge from "./profile-editor/RequiredBadge";
-import SandboxEditor, {
-  getSandboxPresentation,
-  SandboxSwitchControl,
-  setSandboxEnabled,
-} from "./profile-editor/SandboxEditor";
-import SettingsSectionModePanel, {
-  type SectionEditorMode,
-} from "./profile-editor/SettingsSectionModePanel";
+import { getSandboxPresentation } from "./profile-editor/SandboxEditor";
+import StructuredSettingsSections from "./profile-editor/StructuredSettingsSections";
 import {
   BEHAVIOR_ENV_SETTINGS_KEYS,
   BEHAVIOR_JSON_ALLOWED_KEYS,
@@ -49,33 +40,9 @@ import {
 } from "./profile-editor/settings-form-registry";
 import { useDocumentJsonEditor } from "./profile-editor/useDocumentJsonEditor";
 import { useObjectJsonEditor } from "./profile-editor/useObjectJsonEditor";
+import useStructuredSettingsSectionState from "./profile-editor/useStructuredSettingsSectionState";
 import "./ConfigEditor.css";
 import "./ProfileEditor.css";
-
-const AUTH_ENV_KEYS = ["ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL"] as const;
-const PURE_SETTINGS_SECTION_KEYS = [
-  "behavior",
-  "env",
-  "permissions",
-  "sandbox",
-  "hooks",
-  "marketplaces",
-  "plugins",
-] as const;
-const LOW_FREQUENCY_SECTION_ORDER = [
-  "permissions",
-  "sandbox",
-  "hooks",
-  "marketplaces",
-  "plugins",
-] as const;
-const BEHAVIOR_ENV_DEFAULTS = PROFILE_SETTINGS_FORM_REGISTRY.flatMap((field) =>
-  field.storage === "env-only" && field.envKey && field.defaultValue
-    ? [{ envKey: field.envKey, defaultValue: field.defaultValue }]
-    : [],
-);
-type PureSettingsSectionKey = (typeof PURE_SETTINGS_SECTION_KEYS)[number];
-type LowFrequencySectionKey = (typeof LOW_FREQUENCY_SECTION_ORDER)[number];
 
 interface ProfileEditorProps {
   profile: ConfigProfile | null;
@@ -90,47 +57,6 @@ interface ProfileEditorProps {
   onClose: () => void;
 }
 
-function chunkItems<T>(items: T[], size: number): T[][] {
-  const rows: T[][] = [];
-  for (let index = 0; index < items.length; index += size) {
-    rows.push(items.slice(index, index + size));
-  }
-  return rows;
-}
-
-function createInitialSectionModes(): Record<PureSettingsSectionKey, SectionEditorMode> {
-  return {
-    behavior: "controls",
-    env: "controls",
-    permissions: "controls",
-    sandbox: "controls",
-    hooks: "controls",
-    marketplaces: "controls",
-    plugins: "controls",
-  };
-}
-
-function buildEnvSubset(
-  env: Record<string, unknown>,
-  hiddenKeys: readonly string[],
-): Record<string, unknown> {
-  const hiddenKeySet = new Set(hiddenKeys);
-  return Object.fromEntries(
-    Object.entries(env).filter(([key]) => !hiddenKeySet.has(key)),
-  ) as Record<string, unknown>;
-}
-
-function buildHiddenEnvEntries(
-  env: Record<string, unknown>,
-  hiddenKeys: readonly string[],
-): Record<string, unknown> {
-  const hiddenKeySet = new Set(hiddenKeys);
-  return Object.fromEntries(Object.entries(env).filter(([key]) => hiddenKeySet.has(key))) as Record<
-    string,
-    unknown
-  >;
-}
-
 function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps) {
   const { language, t } = useI18n();
   const [name, setName] = useState(profile?.name ?? "");
@@ -141,12 +67,6 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
   );
   const [previewJson, setPreviewJson] = useState("{}");
   const [previewError, setPreviewError] = useState("");
-  const [sectionModes, setSectionModes] =
-    useState<Record<PureSettingsSectionKey, SectionEditorMode>>(createInitialSectionModes);
-  const [environmentExpanded, setEnvironmentExpanded] = useState(false);
-  const [activeAccordionSection, setActiveAccordionSection] =
-    useState<LowFrequencySectionKey | null>(null);
-  const [editorErrors, setEditorErrors] = useState<Record<string, string>>({});
   const selectedPreset = useMemo(
     () => presets.find((preset) => preset.id === presetId) ?? null,
     [presetId, presets],
@@ -217,6 +137,14 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     label: t("profiles.editor.sections.plugins"),
     isZh: language === "zh",
   });
+  const sectionState = useStructuredSettingsSectionState({
+    env: envJsonEditor.jsonError,
+    permissions: permissionsJsonEditor.jsonError,
+    sandbox: sandboxJsonEditor.jsonError,
+    hooks: hooksJsonEditor.jsonError,
+    marketplaces: marketplacesJsonEditor.jsonError,
+    plugins: pluginsJsonEditor.jsonError,
+  });
 
   const supportedKeysInSettings = useMemo(
     () =>
@@ -256,26 +184,6 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     [settings.sandbox, language],
   );
 
-  function setSectionError(section: string, message: string) {
-    setEditorErrors((current) => {
-      if (!message) {
-        if (!current[section]) {
-          return current;
-        }
-        const next = { ...current };
-        delete next[section];
-        return next;
-      }
-      if (current[section] === message) {
-        return current;
-      }
-      return {
-        ...current,
-        [section]: message,
-      };
-    });
-  }
-
   function applySettings(next: Record<string, unknown>) {
     const normalized = applyEnvDefaults(next, BEHAVIOR_ENV_DEFAULTS);
     if (JSON.stringify(normalized) === JSON.stringify(settings)) {
@@ -285,46 +193,6 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     setSettings(normalized);
   }
 
-  useEffect(() => {
-    if (editorErrors.env || envJsonEditor.jsonError) {
-      setEnvironmentExpanded(true);
-    }
-  }, [editorErrors.env, envJsonEditor.jsonError]);
-
-  useEffect(() => {
-    const firstErrorSection = LOW_FREQUENCY_SECTION_ORDER.find((section) => {
-      switch (section) {
-        case "permissions":
-          return Boolean(editorErrors.permissions || permissionsJsonEditor.jsonError);
-        case "sandbox":
-          return Boolean(editorErrors.sandbox || sandboxJsonEditor.jsonError);
-        case "hooks":
-          return Boolean(editorErrors.hooks || hooksJsonEditor.jsonError);
-        case "marketplaces":
-          return Boolean(editorErrors.extraKnownMarketplaces || marketplacesJsonEditor.jsonError);
-        case "plugins":
-          return Boolean(editorErrors.enabledPlugins || pluginsJsonEditor.jsonError);
-        default:
-          return false;
-      }
-    });
-
-    if (firstErrorSection) {
-      setActiveAccordionSection(firstErrorSection);
-    }
-  }, [
-    editorErrors.enabledPlugins,
-    editorErrors.extraKnownMarketplaces,
-    editorErrors.hooks,
-    editorErrors.permissions,
-    editorErrors.sandbox,
-    hooksJsonEditor.jsonError,
-    marketplacesJsonEditor.jsonError,
-    permissionsJsonEditor.jsonError,
-    pluginsJsonEditor.jsonError,
-    sandboxJsonEditor.jsonError,
-  ]);
-
   function handleSimpleFieldChange(field: SettingsFieldDefinition, value: string | boolean) {
     const next =
       field.kind === "checkbox"
@@ -333,10 +201,6 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
           ? setEnvString(settings, field.envKey, typeof value === "string" ? value : "")
           : setTopLevelString(settings, field.key, typeof value === "string" ? value : "");
     applySettings(next);
-  }
-
-  function toggleAccordionSection(section: LowFrequencySectionKey) {
-    setActiveAccordionSection((current) => (current === section ? null : section));
   }
 
   function readBehaviorFieldState(field: SettingsFieldDefinition) {
@@ -391,18 +255,6 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     applySettings(setTopLevelObject(settings, key, value));
   }
 
-  function handleSectionModeChange(section: PureSettingsSectionKey, mode: SectionEditorMode) {
-    setSectionModes((current) => {
-      if (current[section] === mode) {
-        return current;
-      }
-      return {
-        ...current,
-        [section]: mode,
-      };
-    });
-  }
-
   function handlePresetChange(nextPresetId: string) {
     setPresetId(nextPresetId);
     applySettings(applyPresetAutofill(settings, presets, nextPresetId || undefined));
@@ -422,7 +274,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     ) {
       return;
     }
-    if (Object.values(editorErrors).some(Boolean)) {
+    if (sectionState.hasEditorErrors) {
       return;
     }
 
@@ -437,37 +289,41 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
 
   useEffect(() => {
     let cancelled = false;
-    void invoke<string>("preview_profile", {
-      data: {
-        id: profile?.id ?? null,
-        name,
-        description,
-        presetId: presetId || null,
-        settings,
-      },
-    })
-      .then((value) => {
-        if (cancelled) {
-          return;
-        }
-        setPreviewJson(value);
-        setPreviewError("");
+    const timer = setTimeout(() => {
+      void invoke<string>("preview_profile", {
+        data: {
+          id: profile?.id ?? null,
+          name,
+          description,
+          presetId: presetId || null,
+          settings,
+        },
       })
-      .catch((error) => {
-        if (cancelled) {
-          return;
-        }
-        setPreviewJson("{}");
-        setPreviewError(String(error));
-      });
+        .then((value) => {
+          if (cancelled) {
+            return;
+          }
+          setPreviewJson(value);
+          setPreviewError("");
+        })
+        .catch((error) => {
+          if (cancelled) {
+            return;
+          }
+          setPreviewJson("{}");
+          setPreviewError(String(error));
+        });
+    }, 300);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
   }, [description, name, presetId, profile?.id, settings]);
 
   const behaviorFields = PROFILE_SETTINGS_FORM_REGISTRY.filter(
     (field) => field.section === "behavior",
   );
+  const modelField = behaviorFields.find((field) => field.key === "model") ?? null;
   const scalarFields = behaviorFields.filter((field) => field.kind !== "checkbox");
   const toggleFields = behaviorFields.filter((field) => field.kind === "checkbox");
   const scalarFieldRows = useMemo(() => chunkItems(scalarFields, 2), [scalarFields]);
@@ -481,7 +337,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     !!hooksJsonEditor.jsonError ||
     !!marketplacesJsonEditor.jsonError ||
     !!pluginsJsonEditor.jsonError ||
-    Object.values(editorErrors).some(Boolean);
+    sectionState.hasEditorErrors;
 
   const messages = {
     title: profile ? t("profiles.editor.title.edit") : t("profiles.editor.title.add"),
@@ -630,9 +486,11 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
                     key={model}
                     type="button"
                     className="profile-chip"
-                    onClick={() =>
-                      handleSimpleFieldChange(scalarFields[0] as SettingsFieldDefinition, model)
-                    }
+                    onClick={() => {
+                      if (modelField) {
+                        handleSimpleFieldChange(modelField, model);
+                      }
+                    }}
                   >
                     {model}
                   </button>
@@ -642,282 +500,37 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
           )}
         </section>
 
-        <SettingsSectionModePanel
-          title={messages.behavior}
-          mode={sectionModes.behavior}
-          onModeChange={(mode) => handleSectionModeChange("behavior", mode)}
-          controls={
-            <>
-              {scalarFieldRows.map((row) => (
-                <div
-                  key={`profile-behavior-row-${row.map((field) => field.key).join("-")}`}
-                  className="form-row"
-                >
-                  {row.map((field) => {
-                    const label = field.label[language];
-                    const fieldState = readBehaviorFieldState(field);
-                    if (field.kind === "select") {
-                      const options = resolveSelectOptions(
-                        field,
-                        fieldState.value,
-                        fieldState.mappedToEnv,
-                      );
-                      return (
-                        <div key={field.key} className="form-group">
-                          {renderBehaviorFieldHeader(field, label, `profile-field-${field.key}`)}
-                          <select
-                            id={`profile-field-${field.key}`}
-                            className="form-select"
-                            value={fieldState.value}
-                            onChange={(event) =>
-                              handleMappedFieldChange(
-                                field,
-                                event.target.value,
-                                fieldState.mappedToEnv,
-                              )
-                            }
-                          >
-                            {options.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label[language]}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      );
-                    }
-                    return (
-                      <div key={field.key} className="form-group">
-                        {renderBehaviorFieldHeader(field, label, `profile-field-${field.key}`)}
-                        <input
-                          id={`profile-field-${field.key}`}
-                          value={fieldState.value}
-                          placeholder={field.placeholder ? field.placeholder[language] : ""}
-                          onChange={(event) =>
-                            handleMappedFieldChange(
-                              field,
-                              event.target.value,
-                              fieldState.mappedToEnv,
-                            )
-                          }
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-
-              {toggleFieldRows.map((row) => (
-                <div
-                  key={`profile-toggle-row-${row.map((field) => field.key).join("-")}`}
-                  className="profile-toggle-grid"
-                >
-                  {row.map((field) => (
-                    <label key={field.key} className="profile-toggle-item">
-                      <input
-                        type="checkbox"
-                        checked={readBoolean(settings[field.key])}
-                        onChange={(event) => handleSimpleFieldChange(field, event.target.checked)}
-                      />
-                      <span>{field.label[language]}</span>
-                    </label>
-                  ))}
-                </div>
-              ))}
-            </>
-          }
-          jsonEditor={behaviorJsonEditor}
-          jsonHint={messages.behaviorJsonHint}
-          error={behaviorJsonEditor.jsonError}
-        />
-
-        <SettingsSectionModePanel
-          title={messages.environment}
-          variant="accordion"
-          mode={sectionModes.env}
-          onModeChange={(mode) => handleSectionModeChange("env", mode)}
-          controls={
-            <EnvEditor
-              value={envObject}
-              onChange={(value) => handleStructuredObjectChange("env", value)}
-              onError={(message) => setSectionError("env", message)}
-              showTitle={false}
-              hiddenKeys={[...AUTH_ENV_KEYS]}
-            />
-          }
-          jsonEditor={envJsonEditor}
-          jsonHint={t("common.sectionJsonHint")}
-          error={editorErrors.env || envJsonEditor.jsonError}
-          expanded={environmentExpanded}
-          onToggleExpanded={() => setEnvironmentExpanded((current) => !current)}
-          badgeCount={visibleEnvCount}
-        />
-
-        <SettingsSectionModePanel
-          title={messages.permissions}
-          variant="accordion"
-          mode={sectionModes.permissions}
-          onModeChange={(mode) => handleSectionModeChange("permissions", mode)}
-          controls={
-            <PermissionsEditor
-              value={settings.permissions}
-              onChange={(value) => handleStructuredObjectChange("permissions", value)}
-              onError={(message) => setSectionError("permissions", message)}
-            />
-          }
-          jsonEditor={permissionsJsonEditor}
-          jsonHint={t("common.sectionJsonHint")}
-          error={editorErrors.permissions || permissionsJsonEditor.jsonError}
-          expanded={activeAccordionSection === "permissions"}
-          onToggleExpanded={() => toggleAccordionSection("permissions")}
-          headerControl={
-            <PermissionDefaultModeSelect
-              variant="header"
-              value={permissionsDefaultMode}
-              ariaLabel={language === "zh" ? "权限头部默认模式" : "Permissions header default mode"}
-              onChange={(value) =>
-                handleStructuredObjectChange(
-                  "permissions",
-                  setPermissionsDefaultMode(settings.permissions, value),
-                )
-              }
-            />
-          }
-        />
-
-        <SettingsSectionModePanel
-          title={messages.sandbox}
-          variant="accordion"
-          mode={sectionModes.sandbox}
-          onModeChange={(mode) => handleSectionModeChange("sandbox", mode)}
-          controls={
-            <SandboxEditor
-              value={settings.sandbox}
-              onError={(message) => setSectionError("sandbox", message)}
-            />
-          }
-          jsonEditor={sandboxJsonEditor}
-          jsonHint={t("common.sectionJsonHint")}
-          error={editorErrors.sandbox || sandboxJsonEditor.jsonError}
-          expanded={activeAccordionSection === "sandbox"}
-          onToggleExpanded={() => toggleAccordionSection("sandbox")}
-          headerMeta={sandboxPresentation.headerSummary}
-          headerControl={
-            <SandboxSwitchControl
-              enabled={sandboxPresentation.enabled}
-              isZh={language === "zh"}
-              ariaLabel={language === "zh" ? "Sandbox 头部开关" : "Sandbox header toggle"}
-              variant="header"
-              visibleLabel={language === "zh" ? "沙盒开关" : "Sandbox"}
-              onToggle={() =>
-                handleStructuredObjectChange(
-                  "sandbox",
-                  setSandboxEnabled(settings.sandbox, !sandboxPresentation.enabled),
-                )
-              }
-            />
-          }
-        />
-
-        <SettingsSectionModePanel
-          title={messages.hooks}
-          variant="accordion"
-          badgeCount={hooksTypeCount}
-          mode={sectionModes.hooks}
-          onModeChange={(mode) => handleSectionModeChange("hooks", mode)}
-          controls={
-            <HooksEditor
-              value={settings.hooks}
-              onChange={(value) => handleStructuredObjectChange("hooks", value)}
-              onError={(message) => setSectionError("hooks", message)}
-            />
-          }
-          jsonEditor={hooksJsonEditor}
-          jsonHint={t("common.sectionJsonHint")}
-          error={editorErrors.hooks || hooksJsonEditor.jsonError}
-          expanded={activeAccordionSection === "hooks"}
-          onToggleExpanded={() => toggleAccordionSection("hooks")}
-        />
-
-        <SettingsSectionModePanel
-          title={messages.marketplaces}
-          variant="accordion"
-          badgeCount={marketplaceCount}
-          mode={sectionModes.marketplaces}
-          onModeChange={(mode) => handleSectionModeChange("marketplaces", mode)}
-          controls={
-            <MarketplaceEditor
-              value={settings.extraKnownMarketplaces}
-              onChange={(value) => handleStructuredObjectChange("extraKnownMarketplaces", value)}
-              onError={(message) => setSectionError("extraKnownMarketplaces", message)}
-              showTitle={false}
-            />
-          }
-          jsonEditor={marketplacesJsonEditor}
-          jsonHint={t("common.sectionJsonHint")}
-          error={editorErrors.extraKnownMarketplaces || marketplacesJsonEditor.jsonError}
-          expanded={activeAccordionSection === "marketplaces"}
-          onToggleExpanded={() => toggleAccordionSection("marketplaces")}
-        />
-
-        <SettingsSectionModePanel
-          title={messages.plugins}
-          variant="accordion"
-          mode={sectionModes.plugins}
-          onModeChange={(mode) => handleSectionModeChange("plugins", mode)}
-          controls={
-            <EnabledPluginsEditor
-              value={settings.enabledPlugins}
-              onChange={(value) => handleStructuredObjectChange("enabledPlugins", value)}
-              onError={(message) => setSectionError("enabledPlugins", message)}
-              showTitle={false}
-            />
-          }
-          jsonEditor={pluginsJsonEditor}
-          jsonHint={t("common.sectionJsonHint")}
-          error={editorErrors.enabledPlugins || pluginsJsonEditor.jsonError}
-          expanded={activeAccordionSection === "plugins"}
-          onToggleExpanded={() => toggleAccordionSection("plugins")}
-          headerMeta={`${t("common.pluginsEnabledSummaryLabel")} ${enabledPluginsSummary.enabledCount}/${enabledPluginsSummary.totalCount}`}
-        />
-
-        <DocumentEditorSection
-          title={messages.preview}
+        <StructuredSettingsSections
+          scope="profiles"
+          settings={settings}
+          supportedKeys={supportedKeysInSettings}
           previewContent={previewJson}
           previewError={previewError}
-          editContent={documentJsonEditor.rawJson}
-          editError={documentJsonEditor.jsonError}
-          hasAppliedDraft={documentJsonEditor.hasAppliedDraft}
-          onEditChange={documentJsonEditor.handleJsonChange}
-          onFormat={documentJsonEditor.formatJson}
-          previewModeLabel={messages.previewMode}
-          editModeLabel={messages.editSourceJson}
-          editHint={messages.expertHint}
-          supportedKeys={supportedKeysInSettings}
-          supportedKeysLabel={messages.expertStructuredKeys}
+          hiddenAuthEnvKeys={AUTH_ENV_KEYS}
+          visibleEnvCount={visibleEnvCount}
+          marketplaceCount={marketplaceCount}
+          permissionsDefaultMode={permissionsDefaultMode}
+          hooksTypeCount={hooksTypeCount}
+          sandboxPresentation={sandboxPresentation}
+          enabledPluginsSummary={enabledPluginsSummary}
+          scalarFieldRows={scalarFieldRows}
+          toggleFieldRows={toggleFieldRows}
+          readBehaviorFieldState={readBehaviorFieldState}
+          resolveSelectOptions={resolveSelectOptions}
+          onMappedFieldChange={handleMappedFieldChange}
+          onSimpleFieldChange={handleSimpleFieldChange}
+          onStructuredObjectChange={handleStructuredObjectChange}
+          sectionState={sectionState}
+          documentJsonEditor={documentJsonEditor}
+          behaviorJsonEditor={behaviorJsonEditor}
+          envJsonEditor={envJsonEditor}
+          permissionsJsonEditor={permissionsJsonEditor}
+          sandboxJsonEditor={sandboxJsonEditor}
+          hooksJsonEditor={hooksJsonEditor}
+          marketplacesJsonEditor={marketplacesJsonEditor}
+          pluginsJsonEditor={pluginsJsonEditor}
         />
       </div>
-    </div>
-  );
-}
-
-function renderBehaviorFieldHeader(field: SettingsFieldDefinition, label: string, inputId: string) {
-  return (
-    <div className="profile-field-header">
-      <label htmlFor={inputId} className="profile-field-label">
-        {label}
-      </label>
-      {field.envKey ? (
-        <button
-          type="button"
-          className="profile-field-help"
-          aria-label={field.envKey}
-          data-tooltip={field.envKey}
-          title={field.envKey}
-        >
-          <InfoIcon />
-        </button>
-      ) : null}
     </div>
   );
 }

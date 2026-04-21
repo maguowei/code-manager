@@ -1,0 +1,225 @@
+.profile-env-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.profile-env-list-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  container-type: inline-size;
+}
+
+.profile-env-list {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border-default) 88%, var(--accent-blue) 12%);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg-primary) 92%, var(--accent-blue-bg) 8%);
+}
+
+.profile-env-list-header {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1.2fr) minmax(0, 0.8fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-default) 92%, transparent);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.profile-env-list-header-index,
+.profile-env-list-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.profile-env-list-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 10px 14px;
+}
+
+.profile-env-list-row + .profile-env-list-row {
+  border-top: 1px solid color-mix(in srgb, var(--border-default) 92%, transparent);
+}
+
+.profile-env-list-row.selected {
+  background: color-mix(in srgb, var(--accent-blue-bg) 18%, var(--bg-primary) 82%);
+}
+
+.profile-env-row-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+}
+
+.profile-env-list-main {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1.2fr) minmax(0, 0.8fr);
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.profile-env-list-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.profile-env-list-key span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-env-list-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.profile-env-list-main:hover .profile-env-list-key,
+.profile-env-list-main:hover .profile-env-list-value,
+.profile-env-list-main:focus-visible .profile-env-list-key,
+.profile-env-list-main:focus-visible .profile-env-list-value {
+  color: var(--accent-blue);
+}
+
+.profile-env-list-main:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+.profile-env-row-actions {
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
+
+.profile-env-row-actions .profile-icon-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+}
+
+.profile-env-inline-value-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-env-inline-value-row input {
+  flex: 1 1 auto;
+}
+
+.profile-env-visibility-btn {
+  min-height: 32px;
+  padding: 6px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.profile-env-empty-list {
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+@container (max-width: 720px) {
+  .profile-env-list-header {
+    display: none;
+  }
+
+  .profile-env-list-row {
+    gap: 12px;
+    padding: 12px 14px;
+  }
+
+  .profile-env-row-head {
+    align-items: start;
+  }
+
+  .profile-env-list-main {
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 6px 10px;
+    align-items: start;
+  }
+
+  .profile-env-list-index {
+    grid-row: 1 / span 2;
+    align-self: start;
+    padding-top: 2px;
+  }
+
+  .profile-env-list-key,
+  .profile-env-list-value {
+    grid-column: 2;
+  }
+
+  .profile-env-list-key span:first-child {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .profile-env-list-value {
+    display: -webkit-box;
+    overflow: hidden;
+    text-overflow: clip;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    word-break: break-word;
+  }
+
+  .profile-env-row-actions {
+    align-self: start;
+    justify-content: flex-end;
+  }
+
+  .profile-env-inline-editor {
+    margin-top: 0;
+    padding-left: 0;
+  }
+
+  .profile-env-inline-value-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .profile-env-inline-actions {
+    justify-content: flex-end;
+    padding-left: 0;
+  }
+}

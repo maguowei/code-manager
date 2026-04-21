@@ -4,6 +4,7 @@ import ConfirmDialog from "../ConfirmDialog";
 import { createRowId, type PluginDraft, readObject } from "./editor-utils";
 import RequiredBadge from "./RequiredBadge";
 import { SandboxSwitchControl } from "./SandboxEditor";
+import "./EnabledPluginsEditor.css";
 
 interface EnabledPluginsEditorProps {
   value: unknown;
@@ -46,8 +47,7 @@ function EnabledPluginsEditor({
   onError,
   showTitle = true,
 }: EnabledPluginsEditorProps) {
-  const { language } = useI18n();
-  const isZh = language === "zh";
+  const { t } = useI18n();
   const draftInputRef = useRef<HTMLInputElement | null>(null);
   const booleanPlugins = useMemo(() => readBooleanPlugins(value), [value]);
   const initialPlugins = useMemo(() => buildPluginDrafts(booleanPlugins), [booleanPlugins]);
@@ -57,20 +57,16 @@ function EnabledPluginsEditor({
   const [interactionError, setInteractionError] = useState("");
   const [pendingDeletePlugin, setPendingDeletePlugin] = useState<PluginDraft | null>(null);
 
-  const sectionPendingMessage = isZh
-    ? "当前插件编辑未保存，请先保存或取消。"
-    : "Please save or cancel the current plugin edit first.";
-  const switchBlockedMessage = isZh
-    ? "请先保存或取消当前插件编辑。"
-    : "Please save or cancel the current plugin edit first.";
-  const emptyHint = isZh
-    ? "暂无额外插件配置，可按需添加插件开关。"
-    : "No plugin overrides yet. Add one when needed.";
-  const draftRowLabel = isZh ? "新插件" : "New Plugin";
-  const draftBadgeText = isZh ? "草稿" : "Draft";
-  const deleteDialogTitle = isZh ? "删除插件" : "Delete plugin";
-  const deleteDialogConfirmText = isZh ? "删除" : "Delete";
-  const deleteDialogCancelText = isZh ? "取消" : "Cancel";
+  const sectionPendingMessage = t("profileEditor.plugins.errorPendingEdit");
+  const switchBlockedMessage = t("profileEditor.plugins.errorPendingEdit");
+  const emptyHint = t("profileEditor.plugins.emptyHint");
+  const draftRowLabel = t("profileEditor.plugins.newItem");
+  const draftBadgeText = t("profileEditor.common.draft");
+  const deleteDialogTitle = t("profileEditor.plugins.deleteDialogTitle");
+  const deleteDialogConfirmText = t("profileEditor.common.delete");
+  const deleteDialogCancelText = t("profileEditor.common.cancel");
+  const saveDraftAriaLabel = t("profileEditor.plugins.saveAriaLabel");
+  const cancelEditAriaLabel = t("profileEditor.plugins.cancelEditAriaLabel");
 
   const currentError = useMemo(() => {
     if (draftError) {
@@ -150,11 +146,11 @@ function EnabledPluginsEditor({
     }
     const pluginId = draft.pluginId.trim();
     if (!pluginId) {
-      setDraftError(isZh ? "插件 ID 不能为空" : "Plugin ID cannot be empty");
+      setDraftError(t("profileEditor.plugins.errorIdEmpty"));
       return;
     }
     if (plugins.some((plugin) => plugin.pluginId === pluginId)) {
-      setDraftError(isZh ? "插件 ID 不能重复" : "Plugin IDs must be unique");
+      setDraftError(t("profileEditor.plugins.errorIdDuplicate"));
       return;
     }
 
@@ -174,13 +170,13 @@ function EnabledPluginsEditor({
     setPlugins((current) => current.filter((plugin) => plugin.id !== pluginId));
   }
 
-  const rowStatusOnText = isZh ? "已启用" : "Enabled";
-  const rowStatusOffText = isZh ? "未启用" : "Not enabled";
+  const rowStatusOnText = t("profileEditor.plugins.statusEnabled");
+  const rowStatusOffText = t("profileEditor.plugins.statusNotEnabled");
 
   return (
     <div className="profile-subsection">
       <div className="profile-subsection-header">
-        <div>{showTitle ? <h4>{isZh ? "插件" : "Plugins"}</h4> : null}</div>
+        <div>{showTitle ? <h4>{t("profileEditor.plugins.title")}</h4> : null}</div>
       </div>
 
       <div className="profile-plugin-editor">
@@ -190,13 +186,15 @@ function EnabledPluginsEditor({
           ) : (
             <div className="profile-plugin-list">
               <div className="profile-plugin-list-header" aria-hidden="true">
-                <span className="profile-plugin-list-header-index">{isZh ? "序号" : "Index"}</span>
-                <span>{isZh ? "插件 ID" : "Plugin ID"}</span>
+                <span className="profile-plugin-list-header-index">
+                  {t("profileEditor.common.index")}
+                </span>
+                <span>{t("profileEditor.plugins.columnId")}</span>
                 <span className="profile-plugin-list-header-status">
-                  {isZh ? "启用状态" : "Status"}
+                  {t("profileEditor.plugins.columnStatus")}
                 </span>
                 <span className="profile-plugin-list-header-actions">
-                  {isZh ? "操作" : "Actions"}
+                  {t("profileEditor.common.actions")}
                 </span>
               </div>
 
@@ -227,8 +225,7 @@ function EnabledPluginsEditor({
                         <div className="profile-plugin-status-cell">
                           <SandboxSwitchControl
                             enabled={plugin.enabled}
-                            isZh={isZh}
-                            ariaLabel={`${isZh ? "插件状态" : "Plugin status"} ${rowLabel}`}
+                            ariaLabel={`${t("profileEditor.plugins.statusAriaLabel")} ${rowLabel}`}
                             onToggle={() => {
                               if (isDraftRow) {
                                 handleDraftChange("enabled", !plugin.enabled);
@@ -253,7 +250,7 @@ function EnabledPluginsEditor({
                         <button
                           type="button"
                           className="profile-icon-btn danger"
-                          aria-label={`${isZh ? "删除插件" : "Remove plugin"} ${rowLabel}`}
+                          aria-label={`${t("profileEditor.plugins.removeAriaLabel")} ${rowLabel}`}
                           onClick={() => {
                             if (isDraftRow) {
                               resetDraft(null);
@@ -271,13 +268,13 @@ function EnabledPluginsEditor({
                         <div className="profile-env-inline-fields">
                           <label className="form-group">
                             <span className="profile-inline-required-label profile-env-inline-label">
-                              <span>{isZh ? "新插件 ID" : "New Plugin ID"}</span>
+                              <span>{t("profileEditor.plugins.newIdLabel")}</span>
                               <RequiredBadge />
                             </span>
                             <input
                               ref={draftInputRef}
                               id={`plugin-draft-id-${draft.id}`}
-                              aria-label={isZh ? "新插件 ID" : "New Plugin ID"}
+                              aria-label={t("profileEditor.plugins.newIdLabel")}
                               className="profile-plugin-draft-input"
                               value={draft.pluginId}
                               placeholder="formatter@anthropic-tools"
@@ -292,16 +289,18 @@ function EnabledPluginsEditor({
                           <button
                             type="button"
                             className="profile-primary-btn"
+                            aria-label={saveDraftAriaLabel}
                             onClick={handleSaveDraft}
                           >
-                            {isZh ? "保存插件" : "Save Plugin"}
+                            {t("profileEditor.common.save")}
                           </button>
                           <button
                             type="button"
                             className="profile-secondary-btn"
+                            aria-label={cancelEditAriaLabel}
                             onClick={() => resetDraft(null)}
                           >
-                            {isZh ? "取消" : "Cancel"}
+                            {t("profileEditor.common.cancel")}
                           </button>
                         </div>
 
@@ -322,7 +321,7 @@ function EnabledPluginsEditor({
 
           <div className="profile-env-footer">
             <button type="button" className="profile-secondary-btn" onClick={handleAddPlugin}>
-              {isZh ? "新增插件" : "Add plugin"}
+              {t("profileEditor.plugins.addItem")}
             </button>
           </div>
         </div>
@@ -331,11 +330,10 @@ function EnabledPluginsEditor({
       {pendingDeletePlugin ? (
         <ConfirmDialog
           title={deleteDialogTitle}
-          message={
-            isZh
-              ? `确定要从当前设置中移除插件 ${pendingDeletePlugin.pluginId} 吗？`
-              : `Remove plugin ${pendingDeletePlugin.pluginId} from the current settings?`
-          }
+          message={t("profileEditor.plugins.deleteDialogMessage").replace(
+            "{id}",
+            pendingDeletePlugin.pluginId,
+          )}
           confirmText={deleteDialogConfirmText}
           cancelText={deleteDialogCancelText}
           danger

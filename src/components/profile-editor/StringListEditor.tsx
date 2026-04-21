@@ -1,5 +1,6 @@
 import { useI18n } from "../../i18n";
 import type { StringRow } from "./editor-utils";
+import "./StringListEditor.css";
 
 interface StringListEditorProps {
   label: string;
@@ -22,8 +23,7 @@ function StringListEditor({
   placeholder,
   emptyHint,
 }: StringListEditorProps) {
-  const { language } = useI18n();
-  const isZh = language === "zh";
+  const { t } = useI18n();
 
   function buildItemLabel(index: number) {
     return itemLabelPrefix.endsWith("-")
@@ -45,7 +45,7 @@ function StringListEditor({
 
       {rows.length === 0 ? (
         <div className="profile-empty-state">
-          {emptyHint ?? (isZh ? "暂无配置" : "No entries yet")}
+          {emptyHint ?? t("profileEditor.common.emptyDefault")}
         </div>
       ) : (
         <div className="profile-row-stack">
@@ -72,7 +72,7 @@ function StringListEditor({
                 <button
                   type="button"
                   className="profile-icon-btn"
-                  aria-label={`${isZh ? "上移" : "Move up"} ${buildItemLabel(index)}`}
+                  aria-label={`${t("profileEditor.common.moveUp")} ${buildItemLabel(index)}`}
                   disabled={index === 0}
                   onClick={() => {
                     if (index === 0) {
@@ -88,7 +88,7 @@ function StringListEditor({
                 <button
                   type="button"
                   className="profile-icon-btn"
-                  aria-label={`${isZh ? "下移" : "Move down"} ${buildItemLabel(index)}`}
+                  aria-label={`${t("profileEditor.common.moveDown")} ${buildItemLabel(index)}`}
                   disabled={index === rows.length - 1}
                   onClick={() => {
                     if (index === rows.length - 1) {
@@ -104,7 +104,7 @@ function StringListEditor({
                 <button
                   type="button"
                   className="profile-icon-btn danger"
-                  aria-label={`${isZh ? "删除" : "Remove"} ${buildItemLabel(index)}`}
+                  aria-label={`${t("profileEditor.common.remove")} ${buildItemLabel(index)}`}
                   onClick={() => onChange(rows.filter((candidate) => candidate.id !== row.id))}
                 >
                   ×

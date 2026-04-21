@@ -1,0 +1,206 @@
+.profile-plugin-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.profile-plugin-list-shell {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+  container-type: inline-size;
+}
+
+.profile-plugin-list {
+  --profile-plugin-status-width: minmax(176px, 220px);
+  --profile-plugin-action-width: 72px;
+  --profile-plugin-column-gap: 20px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border-default) 88%, var(--accent-blue) 12%);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg-primary) 92%, var(--accent-blue-bg) 8%);
+}
+
+.profile-plugin-list-header {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) var(--profile-plugin-status-width) var(
+      --profile-plugin-action-width
+    );
+  column-gap: var(--profile-plugin-column-gap);
+  align-items: center;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-default) 92%, transparent);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.profile-plugin-list-header-index,
+.profile-plugin-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.profile-plugin-list-header-status {
+  justify-self: start;
+}
+
+.profile-plugin-list-header-actions {
+  width: 100%;
+  text-align: center;
+}
+
+.profile-plugin-list-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 10px 14px;
+}
+
+.profile-plugin-list-row + .profile-plugin-list-row {
+  border-top: 1px solid color-mix(in srgb, var(--border-default) 92%, transparent);
+}
+
+.profile-plugin-list-main {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) var(--profile-plugin-action-width);
+  column-gap: var(--profile-plugin-column-gap);
+  align-items: center;
+  min-width: 0;
+}
+
+.profile-plugin-list-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--profile-plugin-status-width);
+  column-gap: var(--profile-plugin-column-gap);
+  align-items: center;
+  min-width: 0;
+}
+
+.profile-plugin-list-id {
+  min-width: 0;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+}
+
+.profile-plugin-list-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.profile-plugin-list-key > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-plugin-status-cell {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  justify-self: start;
+  justify-content: flex-start;
+}
+
+.profile-plugin-status-text {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.profile-plugin-status-text.is-on {
+  color: #3edc6d;
+}
+
+.profile-plugin-row-actions {
+  align-self: center;
+  justify-self: center;
+  justify-content: center;
+}
+
+.profile-plugin-row-actions .profile-icon-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+}
+
+.profile-plugin-empty-list {
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+@container (max-width: 720px) {
+  .profile-plugin-list-header {
+    display: none;
+  }
+
+  .profile-plugin-list-row {
+    gap: 12px;
+    padding: 12px 14px;
+  }
+
+  .profile-plugin-list-main {
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    column-gap: 10px;
+    row-gap: 8px;
+    align-items: start;
+  }
+
+  .profile-plugin-list-content {
+    grid-template-columns: 1fr;
+    row-gap: 8px;
+    column-gap: 0;
+  }
+
+  .profile-plugin-index {
+    align-self: start;
+    padding-top: 2px;
+  }
+
+  .profile-plugin-list-id {
+    min-height: 0;
+  }
+
+  .profile-plugin-list-key > span:first-child {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .profile-plugin-status-cell {
+    justify-self: start;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .profile-plugin-row-actions {
+    align-self: start;
+    justify-self: end;
+    justify-content: flex-end;
+    width: auto;
+  }
+
+  .profile-plugin-inline-editor {
+    margin-top: 0;
+    padding-left: 0;
+  }
+}

@@ -1,9 +1,13 @@
 .preset-editor-panel {
   width: 100%;
+  min-width: var(--config-editor-min-width);
 }
 
 .preset-editor-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
+  width: 100%;
+  max-width: 880px;
+  margin: 0 auto;
+  gap: 20px;
+  padding-bottom: 24px;
+  box-sizing: border-box;
 }

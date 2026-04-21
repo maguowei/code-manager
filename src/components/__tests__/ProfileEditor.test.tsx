@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import type { ConfigProfile, ConfigWorkspace, SettingsPreset } from "../../types";
 import ProfileEditor from "../ProfileEditor";
@@ -203,8 +203,17 @@ function switchDocumentSectionToEdit(name: string, editButtonName: string): HTML
   return within(section).getByLabelText("config-preview-input") as HTMLTextAreaElement;
 }
 
+async function flushProfilePreviewDebounce() {
+  await act(async () => {
+    vi.advanceTimersByTime(300);
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
 describe("ProfileEditor", () => {
   beforeEach(() => {
+    vi.useFakeTimers();
     localStorage.clear();
     invokeMock.mockReset();
     invokeMock.mockImplementation(async (command: string, payload?: unknown) => {
@@ -226,6 +235,13 @@ describe("ProfileEditor", () => {
       }
       return null;
     });
+  });
+
+  afterEach(() => {
+    act(() => {
+      vi.runOnlyPendingTimers();
+    });
+    vi.useRealTimers();
   });
 
   it("renders control-first sections with unified mode switches and document editor entry", async () => {
@@ -1221,9 +1237,7 @@ describe("ProfileEditor", () => {
       target: { value: "claude-haiku-4-5" },
     });
 
-    await act(async () => {
-      await Promise.resolve();
-    });
+    await flushProfilePreviewDebounce();
 
     const previewOutputs = screen.getAllByTestId("config-preview-output");
     const latestPreview = previewOutputs[previewOutputs.length - 1];
@@ -1615,32 +1629,30 @@ describe("ProfileEditor", () => {
     expect(rawJsonInput.value).toContain('"ANTHROPIC_BASE_URL": "https://example.com"');
     fireEvent.click(within(getSection("最终配置")).getByRole("button", { name: "预览" }));
 
-    await act(async () => {
-      await Promise.resolve();
-    });
+    await flushProfilePreviewDebounce();
 
     const previewOutputs = screen.getAllByTestId("config-preview-output");
     const latestPreview = previewOutputs[previewOutputs.length - 1];
     expect(latestPreview).toHaveTextContent('"ANTHROPIC_AUTH_TOKEN": "auth-token"');
     expect(latestPreview).toHaveTextContent('"ANTHROPIC_BASE_URL": "https://example.com"');
   });
-});
 
-it("shows a fallback top badge for new profiles and updates it as the name changes", async () => {
-  renderEditor({ profile: null });
+  it("shows a fallback top badge for new profiles and updates it as the name changes", async () => {
+    renderEditor({ profile: null });
 
-  const topBadge = document.querySelector(
-    ".editor-badge-large.profile-name-badge",
-  ) as HTMLElement | null;
-  expect(topBadge).not.toBeNull();
-  expect(topBadge).toHaveTextContent("P");
+    const topBadge = document.querySelector(
+      ".editor-badge-large.profile-name-badge",
+    ) as HTMLElement | null;
+    expect(topBadge).not.toBeNull();
+    expect(topBadge).toHaveTextContent("P");
 
-  await act(async () => {
-    fireEvent.change(screen.getByLabelText(/名称/), {
-      target: { value: "中文配置" },
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/名称/), {
+        target: { value: "中文配置" },
+      });
+      await Promise.resolve();
     });
-    await Promise.resolve();
+    expect(topBadge).toHaveTextContent("中");
+    expect(topBadge?.className).toMatch(/profile-name-badge--color-\d/);
   });
-  expect(topBadge).toHaveTextContent("中");
-  expect(topBadge?.className).toMatch(/profile-name-badge--color-\d/);
 });

@@ -3,6 +3,7 @@ import { useI18n } from "../../i18n";
 import ConfirmDialog from "../ConfirmDialog";
 import { createRowId, looksSensitiveKey } from "./editor-utils";
 import RequiredBadge from "./RequiredBadge";
+import "./EnvEditor.css";
 
 interface EnvEditorProps {
   value: unknown;
@@ -34,8 +35,7 @@ function EnvEditor({
   showTitle = true,
   hiddenKeys = [],
 }: EnvEditorProps) {
-  const { language } = useI18n();
-  const isZh = language === "zh";
+  const { t } = useI18n();
   const hiddenKeySet = useMemo(() => new Set(hiddenKeys), [hiddenKeys]);
   const keyInputRef = useRef<HTMLInputElement | null>(null);
   const fullValue = useMemo(
@@ -108,18 +108,12 @@ function EnvEditor({
     return draft.key !== selectedItem.key || draft.value !== selectedItem.value;
   }, [draft, selectedItem]);
 
-  const sectionPendingMessage = isZh
-    ? "当前环境变量编辑未保存，请先保存或取消。"
-    : "Please save or cancel the current environment variable edit first.";
-  const switchBlockedMessage = isZh
-    ? "请先保存或取消当前环境变量编辑。"
-    : "Please save or cancel the current environment variable edit.";
-  const emptyHint = isZh
-    ? "把没有官方 settings 键的能力放进 env，例如 API Key 或其它工具变量。"
-    : "Use env for values without official settings keys, such as API keys or tool variables.";
-  const deleteDialogTitle = isZh ? "删除环境变量" : "Delete environment variable";
-  const deleteDialogConfirmText = isZh ? "删除" : "Delete";
-  const deleteDialogCancelText = isZh ? "取消" : "Cancel";
+  const sectionPendingMessage = t("profileEditor.env.pendingMessage");
+  const switchBlockedMessage = t("profileEditor.env.switchBlockedMessage");
+  const emptyHint = t("profileEditor.env.emptyHint");
+  const deleteDialogTitle = t("profileEditor.env.deleteDialogTitle");
+  const deleteDialogConfirmText = t("profileEditor.common.delete");
+  const deleteDialogCancelText = t("profileEditor.common.cancel");
 
   const visibleItems = useMemo<EnvListItem[]>(() => {
     if (draft?.isNew) {
@@ -214,7 +208,7 @@ function EnvEditor({
 
   function formatValuePreview(key: string, entry: string): string {
     if (!entry) {
-      return isZh ? "未填写" : "Empty";
+      return t("profileEditor.env.emptyValue");
     }
     if (shouldMaskSensitiveValues && looksSensitiveKey(key)) {
       return "••••••••";
@@ -223,7 +217,7 @@ function EnvEditor({
   }
 
   function formatItemLabel(item: EnvListItem): string {
-    return item.key || (isZh ? "新环境变量" : "New Environment Variable");
+    return item.key || t("profileEditor.env.newItem");
   }
 
   function resetPanelState(nextDraft: EnvDraft | null) {
@@ -272,16 +266,16 @@ function EnvEditor({
   function validateDraft(currentDraft: EnvDraft): string {
     const normalizedKey = currentDraft.key.trim();
     if (!normalizedKey) {
-      return isZh ? "环境变量 Key 不能为空" : "Environment variable key cannot be empty";
+      return t("profileEditor.env.errorKeyEmpty");
     }
     if (!currentDraft.value.trim()) {
-      return isZh ? "环境变量 Value 不能为空" : "Environment variable value cannot be empty";
+      return t("profileEditor.env.errorValueEmpty");
     }
     const duplicate = Object.keys(fullValue).some(
       (key) => key !== currentDraft.originalKey && key === normalizedKey,
     );
     if (duplicate) {
-      return isZh ? "环境变量 Key 不能重复" : "Environment variable keys must be unique";
+      return t("profileEditor.env.errorKeyDuplicate");
     }
     return "";
   }
@@ -345,7 +339,7 @@ function EnvEditor({
       {showTitle ? (
         <div className="profile-subsection-header">
           <div>
-            <h4>{isZh ? "环境变量" : "Environment Variables"}</h4>
+            <h4>{t("profileEditor.env.title")}</h4>
             <p>{emptyHint}</p>
           </div>
         </div>
@@ -355,22 +349,22 @@ function EnvEditor({
         <div className="profile-env-list-shell">
           <div className="profile-env-list">
             <div className="profile-env-list-header">
-              <span className="profile-env-list-header-index">{isZh ? "序号" : "Index"}</span>
-              <span>{isZh ? "变量名" : "Key"}</span>
-              <span>{isZh ? "变量值" : "Value"}</span>
-              <span>{isZh ? "操作" : "Actions"}</span>
+              <span className="profile-env-list-header-index">
+                {t("profileEditor.common.index")}
+              </span>
+              <span>{t("profileEditor.env.columnKey")}</span>
+              <span>{t("profileEditor.env.columnValue")}</span>
+              <span>{t("profileEditor.common.actions")}</span>
             </div>
 
             {visibleItems.length > 0 ? (
               visibleItems.map((item, index) => {
                 const label = formatItemLabel(item);
                 const selected = draft?.id === item.id;
-                const draftBadge = item.isDraft ? (isZh ? "草稿" : "Draft") : null;
+                const draftBadge = item.isDraft ? t("profileEditor.common.draft") : null;
                 const dirtyBadge =
                   selected && hasUnsavedChanges && !draft?.isNew
-                    ? isZh
-                      ? "未保存"
-                      : "Unsaved"
+                    ? t("profileEditor.env.unsaved")
                     : null;
 
                 return (
@@ -383,7 +377,7 @@ function EnvEditor({
                         type="button"
                         className="profile-env-list-main"
                         aria-pressed={selected}
-                        aria-label={`${isZh ? "编辑环境变量" : "Edit environment variable"} ${label}`}
+                        aria-label={`${t("profileEditor.env.editAriaLabel")} ${label}`}
                         onClick={() => handleSelectItem(item)}
                       >
                         <span className="profile-env-list-index" aria-hidden="true">
@@ -407,7 +401,7 @@ function EnvEditor({
                         <button
                           type="button"
                           className="profile-icon-btn danger"
-                          aria-label={`${isZh ? "删除环境变量" : "Delete environment variable"} ${label}`}
+                          aria-label={`${t("profileEditor.env.deleteAriaLabel")} ${label}`}
                           onClick={() => handleDeleteItem(item)}
                         >
                           ×
@@ -420,14 +414,14 @@ function EnvEditor({
                         <div className="profile-env-inline-fields">
                           <label className="form-group">
                             <span className="profile-inline-required-label profile-env-inline-label">
-                              <span>{isZh ? "环境变量名称" : "Environment Variable Name"}</span>
+                              <span>{t("profileEditor.env.nameLabel")}</span>
                               <RequiredBadge />
                             </span>
                             <input
                               ref={keyInputRef}
-                              aria-label={isZh ? "环境变量名称" : "Environment Variable Name"}
+                              aria-label={t("profileEditor.env.nameLabel")}
                               value={draft.key}
-                              placeholder={isZh ? "例如：OPENAI_API_KEY" : "e.g. OPENAI_API_KEY"}
+                              placeholder={t("profileEditor.env.namePlaceholder")}
                               onChange={(event) => {
                                 setDraft((current) =>
                                   current
@@ -445,12 +439,12 @@ function EnvEditor({
 
                           <label className="form-group">
                             <span className="profile-inline-required-label profile-env-inline-label">
-                              <span>{isZh ? "环境变量值" : "Environment Variable Value"}</span>
+                              <span>{t("profileEditor.env.valueLabel")}</span>
                               <RequiredBadge />
                             </span>
                             <div className="profile-env-inline-value-row">
                               <input
-                                aria-label={isZh ? "环境变量值" : "Environment Variable Value"}
+                                aria-label={t("profileEditor.env.valueLabel")}
                                 type={
                                   shouldMaskSensitiveValues &&
                                   looksSensitiveKey(draft.key) &&
@@ -459,7 +453,7 @@ function EnvEditor({
                                     : "text"
                                 }
                                 value={draft.value}
-                                placeholder={isZh ? "填写变量值" : "Enter value"}
+                                placeholder={t("profileEditor.env.valuePlaceholder")}
                                 onChange={(event) => {
                                   setDraft((current) =>
                                     current
@@ -480,12 +474,8 @@ function EnvEditor({
                                   onClick={() => setIsSensitiveValueVisible((current) => !current)}
                                 >
                                   {isSensitiveValueVisible
-                                    ? isZh
-                                      ? "隐藏变量值"
-                                      : "Hide value"
-                                    : isZh
-                                      ? "显示变量值"
-                                      : "Show value"}
+                                    ? t("profileEditor.env.hideValue")
+                                    : t("profileEditor.env.showValue")}
                                 </button>
                               ) : null}
                             </div>
@@ -496,20 +486,18 @@ function EnvEditor({
                           <button
                             type="button"
                             className="profile-primary-btn"
-                            aria-label={isZh ? "保存环境变量" : "Save environment variable"}
+                            aria-label={t("profileEditor.env.saveAriaLabel")}
                             onClick={handleSaveDraft}
                           >
-                            {isZh ? "保存" : "Save"}
+                            {t("profileEditor.common.save")}
                           </button>
                           <button
                             type="button"
                             className="profile-secondary-btn"
-                            aria-label={
-                              isZh ? "取消编辑环境变量" : "Cancel environment variable editing"
-                            }
+                            aria-label={t("profileEditor.env.cancelEditAriaLabel")}
                             onClick={handleCancelDraft}
                           >
-                            {isZh ? "取消" : "Cancel"}
+                            {t("profileEditor.common.cancel")}
                           </button>
                         </div>
 
@@ -529,7 +517,7 @@ function EnvEditor({
 
           <div className="profile-env-footer">
             <button type="button" className="profile-secondary-btn" onClick={handleAddVariable}>
-              {isZh ? "新增环境变量" : "Add environment variable"}
+              {t("profileEditor.env.addItem")}
             </button>
           </div>
         </div>
@@ -538,11 +526,7 @@ function EnvEditor({
       {pendingDeleteItem ? (
         <ConfirmDialog
           title={deleteDialogTitle}
-          message={
-            isZh
-              ? `确定要从当前设置中移除环境变量 ${pendingDeleteItem.key} 吗？`
-              : `Remove environment variable ${pendingDeleteItem.key} from the current settings?`
-          }
+          message={`${t("profileEditor.env.deleteDialogMessagePrefix")}${pendingDeleteItem.key}${t("profileEditor.env.deleteDialogMessageSuffix")}`}
           confirmText={deleteDialogConfirmText}
           cancelText={deleteDialogCancelText}
           danger

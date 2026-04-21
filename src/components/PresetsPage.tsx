@@ -153,7 +153,14 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
 
                   <div className="preset-card-meta">
                     <div>{preset.id}</div>
-                    <div>{presetNameById(allPresets, preset.basePresetId, language)}</div>
+                    <div>
+                      {presetNameById(
+                        allPresets,
+                        preset.basePresetId,
+                        language,
+                        t("profileEditor.preset.noPreset"),
+                      )}
+                    </div>
                     <div>{preset.modelSuggestions.join(", ") || "—"}</div>
                     {presetPluginsSummary(preset).totalCount > 0 ? (
                       <div>

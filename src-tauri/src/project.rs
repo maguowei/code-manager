@@ -1,4 +1,4 @@
-use crate::config::AppPreferences;
+use crate::config::{AppPreferences, EDITOR_APPS, TERMINAL_APPS};
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -497,23 +497,19 @@ fn build_open_app_request(project: &Path, app_name: &str) -> OpenAppRequest {
 }
 
 fn terminal_app_name(app: &str) -> Result<&'static str, String> {
-    match app {
-        "terminal" => Ok("Terminal"),
-        "iterm" => Ok("iTerm"),
-        "warp" => Ok("Warp"),
-        "ghostty" => Ok("Ghostty"),
-        _ => Err("默认终端配置无效，请重新选择".to_string()),
-    }
+    TERMINAL_APPS
+        .iter()
+        .find(|(slug, _)| *slug == app)
+        .map(|(_, display)| *display)
+        .ok_or_else(|| "默认终端配置无效，请重新选择".to_string())
 }
 
 fn editor_app_name(app: &str) -> Result<&'static str, String> {
-    match app {
-        "vscode" => Ok("Visual Studio Code"),
-        "cursor" => Ok("Cursor"),
-        "windsurf" => Ok("Windsurf"),
-        "zed" => Ok("Zed"),
-        _ => Err("默认编辑器配置无效，请重新选择".to_string()),
-    }
+    EDITOR_APPS
+        .iter()
+        .find(|(slug, _)| *slug == app)
+        .map(|(_, display)| *display)
+        .ok_or_else(|| "默认编辑器配置无效，请重新选择".to_string())
 }
 
 fn run_open_app_request(request: &OpenAppRequest) -> Result<(), String> {

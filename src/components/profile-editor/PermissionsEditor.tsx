@@ -13,6 +13,7 @@ import {
 } from "./editor-utils";
 import { SandboxSwitchControl } from "./SandboxEditor";
 import StringListEditor from "./StringListEditor";
+import "./PermissionsEditor.css";
 
 interface PermissionsEditorProps {
   value: unknown;
@@ -56,9 +57,8 @@ export function PermissionDefaultModeSelect({
   ariaLabel,
   variant = "panel",
 }: PermissionDefaultModeSelectProps) {
-  const { language } = useI18n();
-  const isZh = language === "zh";
-  const label = isZh ? "默认模式" : "Default Mode";
+  const { t } = useI18n();
+  const label = t("profileEditor.permissions.defaultModeLabel");
   const modeOptions = getPermissionModeSelectOptions(value);
 
   const select = (
@@ -69,7 +69,7 @@ export function PermissionDefaultModeSelect({
       aria-label={ariaLabel}
       onChange={(event) => onChange(event.target.value)}
     >
-      <option value="">{isZh ? "未设置" : "Unset"}</option>
+      <option value="">{t("profileEditor.permissions.unset")}</option>
       {modeOptions.map((mode) => (
         <option key={mode} value={mode}>
           {mode}
@@ -125,7 +125,7 @@ function getPermissionModeSelectOptions(value: string): readonly string[] {
 }
 
 function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps) {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const isZh = language === "zh";
   const permissionObject = useMemo(() => readObject(value), [value]);
   const [defaultMode, setDefaultMode] = useState(readPermissionsDefaultMode(permissionObject));
@@ -191,16 +191,18 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
       return;
     }
     const nextErrors = {
-      allow: buildStringListError(allowRows, isZh ? "允许规则" : "Allow rules", isZh, {
+      allow: buildStringListError(allowRows, t("profileEditor.permissions.allowRulesLabel"), isZh, {
         unique: true,
       }),
-      deny: buildStringListError(denyRows, isZh ? "拒绝规则" : "Deny rules", isZh, {
+      deny: buildStringListError(denyRows, t("profileEditor.permissions.denyRulesLabel"), isZh, {
         unique: true,
       }),
-      ask: buildStringListError(askRows, isZh ? "询问规则" : "Ask rules", isZh, { unique: true }),
+      ask: buildStringListError(askRows, t("profileEditor.permissions.askRulesLabel"), isZh, {
+        unique: true,
+      }),
       additionalDirectories: buildStringListError(
         directoryRows,
-        isZh ? "附加目录" : "Additional directories",
+        t("profileEditor.permissions.additionalDirsLabel"),
         isZh,
         { unique: true },
       ),
@@ -242,6 +244,7 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
     disableBypass,
     isZh,
     onChange,
+    t,
     value,
   ]);
 
@@ -265,12 +268,11 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
     <div className="profile-section-body">
       <div className="profile-inline-switch-row profile-inline-switch-row-emphasis">
         <span className="profile-inline-switch-title">
-          {isZh ? "禁用 bypassPermissions 模式" : "Disable bypassPermissions mode"}
+          {t("profileEditor.permissions.disableBypass")}
         </span>
         <SandboxSwitchControl
           enabled={disableBypass}
-          isZh={isZh}
-          ariaLabel={isZh ? "禁用 bypassPermissions 模式" : "Disable bypassPermissions mode"}
+          ariaLabel={t("profileEditor.permissions.disableBypass")}
           variant="header"
           onToggle={() => setDisableBypass(!disableBypass)}
         />
@@ -278,51 +280,47 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
 
       <div className="profile-section-grid">
         <StringListEditor
-          label={isZh ? "允许规则" : "Allow Rules"}
+          label={t("profileEditor.permissions.allowRulesTitle")}
           rows={allowRows}
           onChange={setAllowRows}
           onAdd={() => addRow(setAllowRows)}
-          addLabel={isZh ? "新增允许规则" : "Add allow rule"}
-          itemLabelPrefix={isZh ? "允许规则" : "Allow Rule"}
-          placeholder={isZh ? "例如：Bash(git status:*)" : "e.g. Bash(git status:*)"}
-          emptyHint={isZh ? "对这些工具调用直接放行。" : "These rules are always allowed."}
+          addLabel={t("profileEditor.permissions.addAllow")}
+          itemLabelPrefix={t("profileEditor.permissions.allowRulePrefix")}
+          placeholder={t("profileEditor.permissions.allowPlaceholder")}
+          emptyHint={t("profileEditor.permissions.allowEmptyHint")}
         />
 
         <StringListEditor
-          label={isZh ? "拒绝规则" : "Deny Rules"}
+          label={t("profileEditor.permissions.denyRulesTitle")}
           rows={denyRows}
           onChange={setDenyRows}
           onAdd={() => addRow(setDenyRows)}
-          addLabel={isZh ? "新增拒绝规则" : "Add deny rule"}
-          itemLabelPrefix={isZh ? "拒绝规则" : "Deny Rule"}
-          placeholder={isZh ? "例如：Read(.env)" : "e.g. Read(.env)"}
-          emptyHint={isZh ? "这些规则会被直接拦截。" : "These rules are always denied."}
+          addLabel={t("profileEditor.permissions.addDeny")}
+          itemLabelPrefix={t("profileEditor.permissions.denyRulePrefix")}
+          placeholder={t("profileEditor.permissions.denyPlaceholder")}
+          emptyHint={t("profileEditor.permissions.denyEmptyHint")}
         />
 
         <StringListEditor
-          label={isZh ? "询问规则" : "Ask Rules"}
+          label={t("profileEditor.permissions.askRulesTitle")}
           rows={askRows}
           onChange={setAskRows}
           onAdd={() => addRow(setAskRows)}
-          addLabel={isZh ? "新增询问规则" : "Add ask rule"}
-          itemLabelPrefix={isZh ? "询问规则" : "Ask Rule"}
-          placeholder={isZh ? "例如：Bash(git commit:*)" : "e.g. Bash(git commit:*)"}
-          emptyHint={isZh ? "这些规则每次都要求确认。" : "These rules always require confirmation."}
+          addLabel={t("profileEditor.permissions.addAsk")}
+          itemLabelPrefix={t("profileEditor.permissions.askRulePrefix")}
+          placeholder={t("profileEditor.permissions.askPlaceholder")}
+          emptyHint={t("profileEditor.permissions.askEmptyHint")}
         />
 
         <StringListEditor
-          label={isZh ? "附加目录" : "Additional Directories"}
+          label={t("profileEditor.permissions.additionalDirsTitle")}
           rows={directoryRows}
           onChange={setDirectoryRows}
           onAdd={() => addRow(setDirectoryRows)}
-          addLabel={isZh ? "新增附加目录" : "Add directory"}
-          itemLabelPrefix={isZh ? "附加目录" : "Additional Directory"}
-          placeholder={isZh ? "例如：~/projects/shared" : "e.g. ~/projects/shared"}
-          emptyHint={
-            isZh
-              ? "把额外目录纳入 Claude 的权限作用域。"
-              : "Include extra directories in Claude's permission scope."
-          }
+          addLabel={t("profileEditor.permissions.addDirectory")}
+          itemLabelPrefix={t("profileEditor.permissions.directoryPrefix")}
+          placeholder={t("profileEditor.permissions.directoryPlaceholder")}
+          emptyHint={t("profileEditor.permissions.directoryEmptyHint")}
         />
       </div>
     </div>

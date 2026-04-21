@@ -1,0 +1,49 @@
+.profile-card-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-hook-summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.profile-hook-summary-meta {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.profile-hook-summary-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-hook-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.profile-hook-summary-matcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.profile-hook-summary-badge {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-primary) 90%, var(--accent-blue) 10%);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: var(--font-mono, "SFMono-Regular", Consolas, monospace);
+  word-break: break-word;
+}
