@@ -42,6 +42,11 @@ import {
   type SettingsFieldDefinition,
   STRUCTURED_SETTINGS_KEYS,
 } from "./profile-editor/settings-form-registry";
+import {
+  getStatusLineErrorKey,
+  STATUS_LINE_JSON_ALLOWED_KEYS,
+  validateStatusLineObject,
+} from "./profile-editor/status-line-utils";
 import { useDocumentJsonEditor } from "./profile-editor/useDocumentJsonEditor";
 import { useObjectJsonEditor } from "./profile-editor/useObjectJsonEditor";
 import useStructuredSettingsSectionState from "./profile-editor/useStructuredSettingsSectionState";
@@ -201,6 +206,17 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
     label: t("presets.editor.sections.plugins"),
     isZh: language === "zh",
   });
+  const statusLineJsonEditor = useObjectJsonEditor({
+    value: settingsPatch.statusLine,
+    onChange: (next) => handleStructuredObjectChange("statusLine", next),
+    label: t("presets.editor.sections.statusLine"),
+    isZh: language === "zh",
+    allowedKeys: [...STATUS_LINE_JSON_ALLOWED_KEYS],
+    validateObject: (next) => {
+      const errorCode = validateStatusLineObject(next);
+      return errorCode ? t(getStatusLineErrorKey(errorCode, "json")) : "";
+    },
+  });
   const sectionState = useStructuredSettingsSectionState({
     common: commonJsonEditor.jsonError,
     env: envJsonEditor.jsonError,
@@ -209,6 +225,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
     hooks: hooksJsonEditor.jsonError,
     marketplaces: marketplacesJsonEditor.jsonError,
     plugins: pluginsJsonEditor.jsonError,
+    statusLine: statusLineJsonEditor.jsonError,
   });
   const supportedKeysInPatch = useMemo(
     () =>
@@ -352,6 +369,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
       hooksJsonEditor.jsonError ||
       marketplacesJsonEditor.jsonError ||
       pluginsJsonEditor.jsonError ||
+      statusLineJsonEditor.jsonError ||
       sectionState.hasEditorErrors
     ) {
       return;
@@ -398,6 +416,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
     !!hooksJsonEditor.jsonError ||
     !!marketplacesJsonEditor.jsonError ||
     !!pluginsJsonEditor.jsonError ||
+    !!statusLineJsonEditor.jsonError ||
     sectionState.hasEditorErrors;
 
   const messages = {
@@ -427,6 +446,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
     hooks: t("presets.editor.sections.hooks"),
     marketplaces: t("presets.editor.sections.marketplaces"),
     plugins: t("presets.editor.sections.plugins"),
+    statusLine: t("presets.editor.sections.statusLine"),
     preview: t("presets.editor.sections.preview"),
     previewMode: t("common.previewMode"),
     editJsonMode: t("common.editJsonMode"),
@@ -634,6 +654,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
           hooksJsonEditor={hooksJsonEditor}
           marketplacesJsonEditor={marketplacesJsonEditor}
           pluginsJsonEditor={pluginsJsonEditor}
+          statusLineJsonEditor={statusLineJsonEditor}
         />
       </div>
     </div>

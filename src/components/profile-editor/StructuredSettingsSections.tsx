@@ -12,6 +12,7 @@ import PermissionsEditor, {
 } from "./PermissionsEditor";
 import SandboxEditor, { SandboxSwitchControl, setSandboxEnabled } from "./SandboxEditor";
 import SettingsSectionModePanel, { type SectionJsonEditorState } from "./SettingsSectionModePanel";
+import StatusLineEditor from "./StatusLineEditor";
 import {
   getFieldHelperKey,
   type SettingsFieldDefinition,
@@ -27,7 +28,8 @@ type StructuredObjectKey =
   | "sandbox"
   | "hooks"
   | "extraKnownMarketplaces"
-  | "enabledPlugins";
+  | "enabledPlugins"
+  | "statusLine";
 
 interface BehaviorFieldState {
   mappedToEnv: boolean;
@@ -80,6 +82,7 @@ interface StructuredSettingsSectionsProps {
   hooksJsonEditor: SectionJsonEditorState;
   marketplacesJsonEditor: SectionJsonEditorState;
   pluginsJsonEditor: SectionJsonEditorState;
+  statusLineJsonEditor: SectionJsonEditorState;
 }
 
 function StructuredSettingsSections({
@@ -114,6 +117,7 @@ function StructuredSettingsSections({
   hooksJsonEditor,
   marketplacesJsonEditor,
   pluginsJsonEditor,
+  statusLineJsonEditor,
 }: StructuredSettingsSectionsProps) {
   const { language, t } = useI18n();
   const isProfileScope = scope === "profiles";
@@ -127,6 +131,7 @@ function StructuredSettingsSections({
         hooks: t("profiles.editor.sections.hooks"),
         marketplaces: t("profiles.editor.sections.marketplaces"),
         plugins: t("profiles.editor.sections.plugins"),
+        statusLine: t("profiles.editor.sections.statusLine"),
         document: t("profiles.editor.sections.preview"),
         behaviorJsonHint: t("profiles.editor.hints.behaviorJson"),
         commonJsonHint: t("profiles.editor.hints.commonJson"),
@@ -143,6 +148,7 @@ function StructuredSettingsSections({
         hooks: t("presets.editor.sections.hooks"),
         marketplaces: t("presets.editor.sections.marketplaces"),
         plugins: t("presets.editor.sections.plugins"),
+        statusLine: t("presets.editor.sections.statusLine"),
         document: t("presets.editor.sections.preview"),
         behaviorJsonHint: t("presets.editor.hints.behaviorJson"),
         commonJsonHint: t("presets.editor.hints.commonJson"),
@@ -157,7 +163,8 @@ function StructuredSettingsSections({
     sectionState.editorErrors.hooks ||
     sectionState.editorErrors.permissions ||
     sectionState.editorErrors.sandbox ||
-    sectionState.editorErrors.env;
+    sectionState.editorErrors.env ||
+    sectionState.editorErrors.statusLine;
 
   return (
     <>
@@ -443,6 +450,26 @@ function StructuredSettingsSections({
         expanded={sectionState.activeAccordionSection === "plugins"}
         onToggleExpanded={() => sectionState.toggleAccordionSection("plugins")}
         headerMeta={`${t("common.pluginsEnabledSummaryLabel")} ${enabledPluginsSummary.enabledCount}/${enabledPluginsSummary.totalCount}`}
+      />
+
+      <SettingsSectionModePanel
+        title={messages.statusLine}
+        variant="accordion"
+        mode={sectionState.sectionModes.statusLine}
+        onModeChange={(mode) => sectionState.handleSectionModeChange("statusLine", mode)}
+        controls={
+          <StatusLineEditor
+            value={settings.statusLine}
+            onChange={(value) => onStructuredObjectChange("statusLine", value)}
+            onError={(message) => sectionState.setSectionError("statusLine", message)}
+            showTitle={false}
+          />
+        }
+        jsonEditor={statusLineJsonEditor}
+        jsonHint={t("common.sectionJsonHint")}
+        error={sectionState.editorErrors.statusLine || statusLineJsonEditor.jsonError}
+        expanded={sectionState.activeAccordionSection === "statusLine"}
+        onToggleExpanded={() => sectionState.toggleAccordionSection("statusLine")}
       />
 
       <DocumentEditorSection

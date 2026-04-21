@@ -282,6 +282,7 @@ describe("PresetEditor", () => {
       "Sandbox",
       "Hooks",
       "插件",
+      "Status Line",
     ]) {
       expect(screen.getByRole("heading", { name: heading, level: 3 })).toBeInTheDocument();
     }
@@ -301,6 +302,7 @@ describe("PresetEditor", () => {
       "Hooks",
       "插件市场",
       "插件",
+      "Status Line",
       "配置补丁",
     ]);
 
@@ -1045,6 +1047,30 @@ describe("PresetEditor", () => {
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
   });
 
+  it("blocks save when status line json is invalid", async () => {
+    renderEditor();
+
+    const statusLineSection = switchSectionToJson("Status Line", { expandFirst: true });
+    fireEvent.change(within(statusLineSection).getByLabelText("config-preview-input"), {
+      target: {
+        value: JSON.stringify(
+          {
+            type: "command",
+            command: "",
+            refreshInterval: 0,
+          },
+          null,
+          2,
+        ),
+      },
+    });
+
+    expect(
+      within(statusLineSection).getAllByText("Status Line JSON 中的 command 不能为空").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
+  });
+
   it("shows sandbox state details without a second toggle in expanded preset view", () => {
     renderEditor({
       preset: {
@@ -1158,7 +1184,43 @@ describe("PresetEditor", () => {
     expect(within(pluginsSection).queryByText("插件工具")).not.toBeInTheDocument();
   });
 
-  it("saves behavior, common options, permissions, env, plugins, and marketplaces from local json editors", async () => {
+  it("saves status line settings from structured controls in preset view", async () => {
+    const onSave = vi.fn();
+    renderEditor({ onSave });
+
+    const statusLineSection = getSection("Status Line");
+    toggleAccordionSection("Status Line");
+
+    fireEvent.change(within(statusLineSection).getByLabelText("Status Line 命令"), {
+      target: { value: "~/.claude/statusline.sh" },
+    });
+    fireEvent.change(within(statusLineSection).getByLabelText("Status Line padding"), {
+      target: { value: "2" },
+    });
+    fireEvent.change(within(statusLineSection).getByLabelText("Status Line refreshInterval"), {
+      target: { value: "5" },
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+      await Promise.resolve();
+    });
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settingsPatch: expect.objectContaining({
+          statusLine: {
+            type: "command",
+            command: "~/.claude/statusline.sh",
+            padding: 2,
+            refreshInterval: 5,
+          },
+        }),
+      }),
+    );
+  });
+
+  it("saves behavior, common options, permissions, env, plugins, marketplaces, and status line from local json editors", async () => {
     const onSave = vi.fn();
     renderEditor({ onSave });
 
@@ -1252,6 +1314,22 @@ describe("PresetEditor", () => {
       },
     });
 
+    const statusLineSection = switchSectionToJson("Status Line", { expandFirst: true });
+    fireEvent.change(within(statusLineSection).getByLabelText("config-preview-input"), {
+      target: {
+        value: JSON.stringify(
+          {
+            type: "command",
+            command: "~/.claude/statusline.sh",
+            padding: 2,
+            refreshInterval: 5,
+          },
+          null,
+          2,
+        ),
+      },
+    });
+
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
 
     expect(onSave).toHaveBeenCalledWith(
@@ -1278,6 +1356,12 @@ describe("PresetEditor", () => {
                 repo: "team/plugins",
               },
             },
+          },
+          statusLine: {
+            type: "command",
+            command: "~/.claude/statusline.sh",
+            padding: 2,
+            refreshInterval: 5,
           },
         }),
       }),

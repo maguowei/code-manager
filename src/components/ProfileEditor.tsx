@@ -42,6 +42,11 @@ import {
   type SettingsFieldDefinition,
   STRUCTURED_SETTINGS_KEYS,
 } from "./profile-editor/settings-form-registry";
+import {
+  getStatusLineErrorKey,
+  STATUS_LINE_JSON_ALLOWED_KEYS,
+  validateStatusLineObject,
+} from "./profile-editor/status-line-utils";
 import { useDocumentJsonEditor } from "./profile-editor/useDocumentJsonEditor";
 import { useObjectJsonEditor } from "./profile-editor/useObjectJsonEditor";
 import useStructuredSettingsSectionState from "./profile-editor/useStructuredSettingsSectionState";
@@ -166,6 +171,17 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     label: t("profiles.editor.sections.plugins"),
     isZh: language === "zh",
   });
+  const statusLineJsonEditor = useObjectJsonEditor({
+    value: settings.statusLine,
+    onChange: (next) => handleStructuredObjectChange("statusLine", next),
+    label: t("profiles.editor.sections.statusLine"),
+    isZh: language === "zh",
+    allowedKeys: [...STATUS_LINE_JSON_ALLOWED_KEYS],
+    validateObject: (next) => {
+      const errorCode = validateStatusLineObject(next);
+      return errorCode ? t(getStatusLineErrorKey(errorCode, "json")) : "";
+    },
+  });
   const sectionState = useStructuredSettingsSectionState({
     common: commonJsonEditor.jsonError,
     env: envJsonEditor.jsonError,
@@ -174,6 +190,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     hooks: hooksJsonEditor.jsonError,
     marketplaces: marketplacesJsonEditor.jsonError,
     plugins: pluginsJsonEditor.jsonError,
+    statusLine: statusLineJsonEditor.jsonError,
   });
 
   const supportedKeysInSettings = useMemo(
@@ -312,7 +329,8 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
       sandboxJsonEditor.jsonError ||
       hooksJsonEditor.jsonError ||
       marketplacesJsonEditor.jsonError ||
-      pluginsJsonEditor.jsonError
+      pluginsJsonEditor.jsonError ||
+      statusLineJsonEditor.jsonError
     ) {
       return;
     }
@@ -388,6 +406,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     !!hooksJsonEditor.jsonError ||
     !!marketplacesJsonEditor.jsonError ||
     !!pluginsJsonEditor.jsonError ||
+    !!statusLineJsonEditor.jsonError ||
     sectionState.hasEditorErrors;
 
   const messages = {
@@ -413,6 +432,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     hooks: t("profiles.editor.sections.hooks"),
     marketplaces: t("profiles.editor.sections.marketplaces"),
     plugins: t("profiles.editor.sections.plugins"),
+    statusLine: t("profiles.editor.sections.statusLine"),
     preview: t("profiles.editor.sections.preview"),
     previewMode: t("common.previewMode"),
     editSourceJson: t("profiles.editor.modes.editSourceJson"),
@@ -584,6 +604,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
           hooksJsonEditor={hooksJsonEditor}
           marketplacesJsonEditor={marketplacesJsonEditor}
           pluginsJsonEditor={pluginsJsonEditor}
+          statusLineJsonEditor={statusLineJsonEditor}
         />
       </div>
     </div>

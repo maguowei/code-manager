@@ -15,6 +15,7 @@ interface StructuredSettingsJsonErrors {
   hooks?: string;
   marketplaces?: string;
   plugins?: string;
+  statusLine?: string;
 }
 
 export interface StructuredSettingsSectionState {
@@ -49,6 +50,7 @@ function useStructuredSettingsSectionState(
       hooks: editorErrors.hooks || jsonErrors.hooks || "",
       marketplaces: editorErrors.extraKnownMarketplaces || jsonErrors.marketplaces || "",
       plugins: editorErrors.enabledPlugins || jsonErrors.plugins || "",
+      statusLine: editorErrors.statusLine || jsonErrors.statusLine || "",
     }),
     [
       editorErrors.enabledPlugins,
@@ -56,11 +58,13 @@ function useStructuredSettingsSectionState(
       editorErrors.hooks,
       editorErrors.permissions,
       editorErrors.sandbox,
+      editorErrors.statusLine,
       jsonErrors.hooks,
       jsonErrors.marketplaces,
       jsonErrors.permissions,
       jsonErrors.plugins,
       jsonErrors.sandbox,
+      jsonErrors.statusLine,
     ],
   );
 

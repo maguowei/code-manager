@@ -143,6 +143,7 @@ const translations = {
     "profiles.editor.sections.hooks": "Hooks",
     "profiles.editor.sections.marketplaces": "插件市场",
     "profiles.editor.sections.plugins": "插件",
+    "profiles.editor.sections.statusLine": "Status Line",
     "profiles.editor.sections.integrations": "集成",
     "profiles.editor.sections.preview": "最终配置",
     "profiles.editor.modes.editSourceJson": "编辑源 JSON",
@@ -205,6 +206,7 @@ const translations = {
     "presets.editor.sections.hooks": "Hooks",
     "presets.editor.sections.marketplaces": "插件市场",
     "presets.editor.sections.plugins": "插件",
+    "presets.editor.sections.statusLine": "Status Line",
     "presets.editor.sections.integrations": "集成",
     "presets.editor.sections.preview": "配置补丁",
     "presets.editor.options.none": "无",
@@ -320,6 +322,28 @@ const translations = {
     "profileEditor.plugins.deleteDialogMessage": "确定要从当前设置中移除插件 {id} 吗？",
     "profileEditor.plugins.saveAriaLabel": "保存插件",
     "profileEditor.plugins.cancelEditAriaLabel": "取消编辑插件",
+    "profileEditor.statusLine.title": "Status Line",
+    "profileEditor.statusLine.summaryHint": "配置 Claude Code 自定义状态栏命令。",
+    "profileEditor.statusLine.commandLabel": "Status Line 命令",
+    "profileEditor.statusLine.commandPlaceholder": "例如：~/.claude/statusline.sh",
+    "profileEditor.statusLine.paddingLabel": "Status Line padding",
+    "profileEditor.statusLine.paddingPlaceholder": "默认 0，可留空",
+    "profileEditor.statusLine.refreshIntervalLabel": "Status Line refreshInterval",
+    "profileEditor.statusLine.refreshIntervalPlaceholder": "仅事件触发时可留空",
+    "profileEditor.statusLine.errorType": 'Status Line type 必须为 "command"',
+    "profileEditor.statusLine.errorCommandRequired": "Status Line 命令不能为空",
+    "profileEditor.statusLine.errorPaddingNumber": "Status Line padding 必须是数字",
+    "profileEditor.statusLine.errorRefreshIntervalInteger":
+      "Status Line refreshInterval 必须是整数",
+    "profileEditor.statusLine.errorRefreshIntervalMin":
+      "Status Line refreshInterval 必须大于或等于 1",
+    "profileEditor.statusLine.errorJsonType": 'Status Line JSON 中的 type 必须为 "command"',
+    "profileEditor.statusLine.errorJsonCommandRequired": "Status Line JSON 中的 command 不能为空",
+    "profileEditor.statusLine.errorJsonPaddingNumber": "Status Line JSON 中的 padding 必须是数字",
+    "profileEditor.statusLine.errorJsonRefreshIntervalInteger":
+      "Status Line JSON 中的 refreshInterval 必须是整数",
+    "profileEditor.statusLine.errorJsonRefreshIntervalMin":
+      "Status Line JSON 中的 refreshInterval 必须大于或等于 1",
 
     // Marketplace 编辑器
     "profileEditor.marketplace.title": "Marketplace",
@@ -727,6 +751,7 @@ const translations = {
     "profiles.editor.sections.hooks": "Hooks",
     "profiles.editor.sections.marketplaces": "Plugin Marketplaces",
     "profiles.editor.sections.plugins": "Plugins",
+    "profiles.editor.sections.statusLine": "Status Line",
     "profiles.editor.sections.integrations": "Integrations",
     "profiles.editor.sections.preview": "Resolved Settings",
     "profiles.editor.modes.editSourceJson": "Edit Source JSON",
@@ -791,6 +816,7 @@ const translations = {
     "presets.editor.sections.hooks": "Hooks",
     "presets.editor.sections.marketplaces": "Plugin Marketplaces",
     "presets.editor.sections.plugins": "Plugins",
+    "presets.editor.sections.statusLine": "Status Line",
     "presets.editor.sections.integrations": "Integrations",
     "presets.editor.sections.preview": "Settings Patch",
     "presets.editor.options.none": "None",
@@ -910,6 +936,28 @@ const translations = {
     "profileEditor.plugins.deleteDialogMessage": "Remove plugin {id} from the current settings?",
     "profileEditor.plugins.saveAriaLabel": "Save plugin",
     "profileEditor.plugins.cancelEditAriaLabel": "Cancel plugin editing",
+    "profileEditor.statusLine.title": "Status Line",
+    "profileEditor.statusLine.summaryHint": "Configure the custom Claude Code status line command.",
+    "profileEditor.statusLine.commandLabel": "Status Line Command",
+    "profileEditor.statusLine.commandPlaceholder": "e.g. ~/.claude/statusline.sh",
+    "profileEditor.statusLine.paddingLabel": "Status Line Padding",
+    "profileEditor.statusLine.paddingPlaceholder": "Defaults to 0; leave blank to omit",
+    "profileEditor.statusLine.refreshIntervalLabel": "Status Line Refresh Interval",
+    "profileEditor.statusLine.refreshIntervalPlaceholder": "Leave blank to update on events only",
+    "profileEditor.statusLine.errorType": 'Status Line type must be "command"',
+    "profileEditor.statusLine.errorCommandRequired": "Status Line command cannot be empty",
+    "profileEditor.statusLine.errorPaddingNumber": "Status Line padding must be a number",
+    "profileEditor.statusLine.errorRefreshIntervalInteger":
+      "Status Line refreshInterval must be an integer",
+    "profileEditor.statusLine.errorRefreshIntervalMin":
+      "Status Line refreshInterval must be greater than or equal to 1",
+    "profileEditor.statusLine.errorJsonType": 'Status Line JSON type must be "command"',
+    "profileEditor.statusLine.errorJsonCommandRequired": "Status Line JSON command cannot be empty",
+    "profileEditor.statusLine.errorJsonPaddingNumber": "Status Line JSON padding must be a number",
+    "profileEditor.statusLine.errorJsonRefreshIntervalInteger":
+      "Status Line JSON refreshInterval must be an integer",
+    "profileEditor.statusLine.errorJsonRefreshIntervalMin":
+      "Status Line JSON refreshInterval must be greater than or equal to 1",
 
     // Marketplace editor
     "profileEditor.marketplace.title": "Marketplaces",

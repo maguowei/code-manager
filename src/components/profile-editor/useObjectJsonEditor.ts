@@ -8,6 +8,7 @@ interface UseObjectJsonEditorOptions {
   label: string;
   isZh: boolean;
   allowedKeys?: string[];
+  validateObject?: (next: Record<string, unknown>) => string;
 }
 
 export function useObjectJsonEditor({
@@ -16,6 +17,7 @@ export function useObjectJsonEditor({
   label,
   isZh,
   allowedKeys,
+  validateObject,
 }: UseObjectJsonEditorOptions) {
   const objectValue = useMemo(() => readObject(value), [value]);
   const sourceJson = useMemo(() => prettyJson(objectValue), [objectValue]);
@@ -71,6 +73,11 @@ export function useObjectJsonEditor({
       if (unsupportedKeysError) {
         throw new Error(unsupportedKeysError);
       }
+    }
+
+    const validationError = validateObject?.(nextObject) ?? "";
+    if (validationError) {
+      throw new Error(validationError);
     }
 
     return nextObject;

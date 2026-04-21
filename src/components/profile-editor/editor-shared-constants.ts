@@ -13,6 +13,7 @@ export const PURE_SETTINGS_SECTION_KEYS = [
   "hooks",
   "marketplaces",
   "plugins",
+  "statusLine",
 ] as const;
 
 export const LOW_FREQUENCY_SECTION_ORDER = [
@@ -21,6 +22,7 @@ export const LOW_FREQUENCY_SECTION_ORDER = [
   "hooks",
   "marketplaces",
   "plugins",
+  "statusLine",
 ] as const;
 
 export const BEHAVIOR_ENV_DEFAULTS = PROFILE_SETTINGS_FORM_REGISTRY.flatMap((field) =>
@@ -75,6 +77,7 @@ export function createInitialSectionModes(): Record<PureSettingsSectionKey, Sect
     hooks: "controls",
     marketplaces: "controls",
     plugins: "controls",
+    statusLine: "controls",
   };
 }
 

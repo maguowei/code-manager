@@ -268,6 +268,7 @@ describe("ProfileEditor", () => {
       "Hooks",
       "插件市场",
       "插件",
+      "Status Line",
     ]) {
       expect(screen.getByRole("heading", { name: heading, level: 3 })).toBeInTheDocument();
     }
@@ -287,6 +288,7 @@ describe("ProfileEditor", () => {
       "Hooks",
       "插件市场",
       "插件",
+      "Status Line",
       "最终配置",
     ]);
 
@@ -1072,7 +1074,7 @@ describe("ProfileEditor", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("syncs local json editors for behavior, common options, permissions, env, plugins, and marketplaces", async () => {
+  it("syncs local json editors for behavior, common options, permissions, env, plugins, marketplaces, and status line", async () => {
     renderEditor();
 
     const behaviorSection = switchSectionToJson("模型与行为");
@@ -1168,6 +1170,22 @@ describe("ProfileEditor", () => {
       },
     });
 
+    const statusLineSection = switchSectionToJson("Status Line", { expandFirst: true });
+    fireEvent.change(within(statusLineSection).getByLabelText("config-preview-input"), {
+      target: {
+        value: JSON.stringify(
+          {
+            type: "command",
+            command: "~/.claude/statusline.sh",
+            padding: 2,
+            refreshInterval: 5,
+          },
+          null,
+          2,
+        ),
+      },
+    });
+
     const rawJsonValue = switchDocumentSectionToEdit("最终配置", "编辑源 JSON").value;
     expect(rawJsonValue).toContain('"alwaysThinkingEnabled": true');
     expect(rawJsonValue).toContain('"hasCompletedOnboarding": true');
@@ -1179,6 +1197,8 @@ describe("ProfileEditor", () => {
     expect(rawJsonValue).toContain('"OPENAI_API_KEY": "json-token"');
     expect(rawJsonValue).toContain('"formatter@anthropic-tools"');
     expect(rawJsonValue).toContain('"team-market"');
+    expect(rawJsonValue).toContain('"statusLine"');
+    expect(rawJsonValue).toContain('"~/.claude/statusline.sh"');
   });
 
   it("blocks save when behavior json is invalid", async () => {
@@ -1435,6 +1455,30 @@ describe("ProfileEditor", () => {
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
   });
 
+  it("blocks save when status line json is invalid", async () => {
+    renderEditor();
+
+    const statusLineSection = switchSectionToJson("Status Line", { expandFirst: true });
+    fireEvent.change(within(statusLineSection).getByLabelText("config-preview-input"), {
+      target: {
+        value: JSON.stringify(
+          {
+            type: "command",
+            command: "",
+            refreshInterval: 0,
+          },
+          null,
+          2,
+        ),
+      },
+    });
+
+    expect(
+      within(statusLineSection).getAllByText("Status Line JSON 中的 command 不能为空").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
+  });
+
   it("blocks save when source json is invalid", async () => {
     renderEditor();
 
@@ -1502,7 +1546,7 @@ describe("ProfileEditor", () => {
     expect(screen.queryByRole("button", { name: "Full Settings JSON" })).not.toBeInTheDocument();
   });
 
-  it("saves plugin and marketplace settings from structured controls", async () => {
+  it("saves plugin, marketplace, and status line settings from structured controls", async () => {
     const { onSave } = renderEditor();
 
     const pluginsSection = screen
@@ -1575,6 +1619,25 @@ describe("ProfileEditor", () => {
     expect(within(marketplacesSection).getByText("team/plugins")).toBeInTheDocument();
     expect(screen.queryByLabelText("Marketplace ID")).not.toBeInTheDocument();
 
+    const statusLineSection = screen
+      .getByRole("heading", { name: "Status Line", level: 3 })
+      .closest("section") as HTMLElement | null;
+    expect(statusLineSection).not.toBeNull();
+    if (!statusLineSection) {
+      return;
+    }
+
+    toggleAccordionSection("Status Line");
+    fireEvent.change(within(statusLineSection).getByLabelText("Status Line 命令"), {
+      target: { value: "~/.claude/statusline.sh" },
+    });
+    fireEvent.change(within(statusLineSection).getByLabelText("Status Line padding"), {
+      target: { value: "2" },
+    });
+    fireEvent.change(within(statusLineSection).getByLabelText("Status Line refreshInterval"), {
+      target: { value: "5" },
+    });
+
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "保存" }));
     });
@@ -1602,9 +1665,84 @@ describe("ProfileEditor", () => {
             installLocation: "/tmp/team-market",
           },
         },
+        statusLine: {
+          type: "command",
+          command: "~/.claude/statusline.sh",
+          padding: 2,
+          refreshInterval: 5,
+        },
       }),
     });
   }, 15000);
+
+  it("validates status line controls and removes statusLine when cleared", async () => {
+    const onSave = vi.fn();
+    renderEditor({
+      onSave,
+      profile: {
+        ...PROFILE_FIXTURE,
+        settings: {
+          ...PROFILE_FIXTURE.settings,
+          statusLine: {
+            type: "command",
+            command: "~/.claude/statusline.sh",
+            padding: 2,
+            refreshInterval: 5,
+          },
+        },
+      },
+    });
+
+    const statusLineSection = getSection("Status Line");
+    toggleAccordionSection("Status Line");
+
+    fireEvent.change(within(statusLineSection).getByLabelText("Status Line 命令"), {
+      target: { value: "" },
+    });
+    fireEvent.change(within(statusLineSection).getByLabelText("Status Line padding"), {
+      target: { value: "2" },
+    });
+    expect(
+      within(statusLineSection).getAllByText("Status Line 命令不能为空").length,
+    ).toBeGreaterThan(0);
+
+    fireEvent.change(within(statusLineSection).getByLabelText("Status Line 命令"), {
+      target: { value: "~/.claude/statusline.sh" },
+    });
+    fireEvent.change(within(statusLineSection).getByLabelText("Status Line refreshInterval"), {
+      target: { value: "0" },
+    });
+    expect(
+      within(statusLineSection).getAllByText("Status Line refreshInterval 必须大于或等于 1").length,
+    ).toBeGreaterThan(0);
+
+    fireEvent.change(within(statusLineSection).getByLabelText("Status Line 命令"), {
+      target: { value: "" },
+    });
+    fireEvent.change(within(statusLineSection).getByLabelText("Status Line padding"), {
+      target: { value: "" },
+    });
+    fireEvent.change(within(statusLineSection).getByLabelText("Status Line refreshInterval"), {
+      target: { value: "" },
+    });
+
+    expect(within(statusLineSection).queryByText("Status Line 命令不能为空")).toBeNull();
+    expect(
+      within(statusLineSection).queryByText("Status Line refreshInterval 必须大于或等于 1"),
+    ).toBeNull();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    });
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settings: expect.not.objectContaining({
+          statusLine: expect.anything(),
+        }),
+      }),
+    );
+  });
 
   it("renders marketplace summaries and blocks switching, adding, and deleting while a draft is dirty", () => {
     renderEditor({
@@ -1851,9 +1989,20 @@ describe("ProfileEditor", () => {
       target: { value: "https://example.com" },
     });
 
+    const statusLineSection = getSection("Status Line");
+    toggleAccordionSection("Status Line");
+    fireEvent.change(within(statusLineSection).getByLabelText("Status Line 命令"), {
+      target: { value: "~/.claude/statusline.sh" },
+    });
+    fireEvent.change(within(statusLineSection).getByLabelText("Status Line refreshInterval"), {
+      target: { value: "5" },
+    });
+
     const rawJsonInput = switchDocumentSectionToEdit("最终配置", "编辑源 JSON");
     expect(rawJsonInput.value).toContain('"ANTHROPIC_AUTH_TOKEN": "auth-token"');
     expect(rawJsonInput.value).toContain('"ANTHROPIC_BASE_URL": "https://example.com"');
+    expect(rawJsonInput.value).toContain('"statusLine"');
+    expect(rawJsonInput.value).toContain('"~/.claude/statusline.sh"');
     fireEvent.click(within(getSection("最终配置")).getByRole("button", { name: "预览" }));
 
     await flushProfilePreviewDebounce();
@@ -1862,6 +2011,8 @@ describe("ProfileEditor", () => {
     const latestPreview = previewOutputs[previewOutputs.length - 1];
     expect(latestPreview).toHaveTextContent('"ANTHROPIC_AUTH_TOKEN": "auth-token"');
     expect(latestPreview).toHaveTextContent('"ANTHROPIC_BASE_URL": "https://example.com"');
+    expect(latestPreview).toHaveTextContent('"statusLine"');
+    expect(latestPreview).toHaveTextContent('"~/.claude/statusline.sh"');
   });
 
   it("shows a fallback top badge for new profiles and updates it as the name changes", async () => {

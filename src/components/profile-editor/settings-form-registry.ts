@@ -448,4 +448,5 @@ export const STRUCTURED_SETTINGS_KEYS = new Set([
   "hooks",
   "enabledPlugins",
   "extraKnownMarketplaces",
+  "statusLine",
 ]);
