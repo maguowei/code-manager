@@ -26,5 +26,5 @@ uuid = { version = "1", features = ["v4"] }
 dirs = "5"
 once_cell = "1"
 regex = "1"
+fancy-regex = "0.14"
 schemars = { version = "0.8", features = ["preserve_order"] }
-

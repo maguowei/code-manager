@@ -1,4 +1,5 @@
 use crate::tray::rebuild_tray_menu;
+use fancy_regex::Regex as FancyRegex;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -614,6 +615,37 @@ fn matches_schema_type(value: &Value, expected_type: &str) -> bool {
     }
 }
 
+enum CompiledSchemaRegex {
+    Standard(Regex),
+    Fancy(FancyRegex),
+}
+
+fn compile_schema_regex(pattern: &str) -> Result<CompiledSchemaRegex, String> {
+    match Regex::new(pattern) {
+        Ok(regex) => Ok(CompiledSchemaRegex::Standard(regex)),
+        Err(primary_error) => FancyRegex::new(pattern)
+            .map(CompiledSchemaRegex::Fancy)
+            .map_err(|fallback_error| {
+                format!(
+                    "无效 schema 正则 '{pattern}': {primary_error}; fancy-regex 回退也失败: {fallback_error}"
+                )
+            }),
+    }
+}
+
+fn schema_regex_is_match(
+    regex: &CompiledSchemaRegex,
+    pattern: &str,
+    input: &str,
+) -> Result<bool, String> {
+    match regex {
+        CompiledSchemaRegex::Standard(regex) => Ok(regex.is_match(input)),
+        CompiledSchemaRegex::Fancy(regex) => regex
+            .is_match(input)
+            .map_err(|error| format!("schema 正则 '{pattern}' 匹配失败: {error}")),
+    }
+}
+
 fn validate_schema_object(
     root: &Value,
     schema: &Value,
@@ -630,12 +662,10 @@ fn validate_schema_object(
         .and_then(Value::as_object)
         .cloned()
         .unwrap_or_default();
-    let compiled_patterns: Vec<(Regex, &str, Value)> = pattern_properties
+    let compiled_patterns: Vec<(String, CompiledSchemaRegex, Value)> = pattern_properties
         .iter()
         .map(|(pattern, schema)| {
-            Regex::new(pattern)
-                .map(|regex| (regex, pattern.as_str(), schema.clone()))
-                .map_err(|error| format!("无效 schema 正则 '{pattern}': {error}"))
+            compile_schema_regex(pattern).map(|regex| (pattern.clone(), regex, schema.clone()))
         })
         .collect::<Result<Vec<_>, _>>()?;
     let required = schema
@@ -657,8 +687,8 @@ fn validate_schema_object(
         }
 
         let mut matched_pattern = false;
-        for (regex, _pattern, pattern_schema) in &compiled_patterns {
-            if regex.is_match(key) {
+        for (pattern, regex, pattern_schema) in &compiled_patterns {
+            if schema_regex_is_match(regex, pattern, key)? {
                 matched_pattern = true;
                 validate_value_against_schema(
                     root,
@@ -737,9 +767,8 @@ fn validate_value_against_schema(
 
     if let Some(pattern) = schema.get("pattern").and_then(Value::as_str) {
         if let Some(string_value) = value.as_str() {
-            let regex = Regex::new(pattern)
-                .map_err(|error| format!("无效 schema 正则 '{pattern}': {error}"))?;
-            if !regex.is_match(string_value) {
+            let regex = compile_schema_regex(pattern)?;
+            if !schema_regex_is_match(&regex, pattern, string_value)? {
                 return Err(format!("{path} 不匹配模式 {pattern}"));
             }
         }
@@ -1375,6 +1404,17 @@ mod tests {
     fn validate_settings_document_accepts_has_completed_onboarding() {
         let settings = serde_json::json!({
             "hasCompletedOnboarding": true
+        });
+
+        assert!(validate_settings_document(&settings).is_ok());
+    }
+
+    #[test]
+    fn validate_settings_document_accepts_permission_rules() {
+        let settings = serde_json::json!({
+            "permissions": {
+                "allow": ["Bash"]
+            }
         });
 
         assert!(validate_settings_document(&settings).is_ok());
