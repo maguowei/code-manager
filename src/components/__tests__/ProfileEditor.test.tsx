@@ -389,9 +389,10 @@ describe("ProfileEditor", () => {
       );
       expect(within(commonSection).getByRole("button", { name: "控件" })).toBeInTheDocument();
       expect(within(commonSection).getByRole("button", { name: "JSON" })).toBeInTheDocument();
-      expect(within(commonSection).getAllByRole("switch")).toHaveLength(9);
+      expect(within(commonSection).getAllByRole("switch")).toHaveLength(10);
       expect(within(commonSection).getByText("默认开启 alwaysThinkingEnabled")).toBeInTheDocument();
       expect(within(commonSection).getByText("已完成引导设置")).toBeInTheDocument();
+      expect(within(commonSection).getByText("启用 Fast Mode")).toBeInTheDocument();
       expect(within(commonSection).getByText("尊重 .gitignore")).toBeInTheDocument();
       expect(within(commonSection).getByText("启用 LSP 工具")).toBeInTheDocument();
       expect(within(commonSection).getByText("启用新版 Init")).toBeInTheDocument();
@@ -848,6 +849,10 @@ describe("ProfileEditor", () => {
     expect(
       within(commonSection).getByRole("button", { name: "skipWebFetchPreflight" }),
     ).toHaveAttribute("data-tooltip", "skipWebFetchPreflight");
+    expect(within(commonSection).getByRole("button", { name: "fastMode" })).toHaveAttribute(
+      "data-tooltip",
+      "fastMode",
+    );
     expect(within(commonSection).getByRole("button", { name: "respectGitignore" })).toHaveAttribute(
       "data-tooltip",
       "respectGitignore",
@@ -865,6 +870,7 @@ describe("ProfileEditor", () => {
     const labels = [
       "默认开启 alwaysThinkingEnabled",
       "已完成引导设置",
+      "启用 Fast Mode",
       "尊重 .gitignore",
       "跳过 WebFetch 预检",
       "禁用非必要网络请求",
@@ -897,6 +903,7 @@ describe("ProfileEditor", () => {
     expect(saved.settings).toMatchObject({
       alwaysThinkingEnabled: true,
       hasCompletedOnboarding: true,
+      fastMode: true,
       respectGitignore: true,
       skipWebFetchPreflight: true,
     });
@@ -1890,7 +1897,7 @@ describe("ProfileEditor", () => {
         }),
       ).toHaveAttribute("aria-checked", "true");
     }
-    for (const label of ["尊重 .gitignore", "启用 Agent Teams"]) {
+    for (const label of ["启用 Fast Mode", "尊重 .gitignore", "启用 Agent Teams"]) {
       expect(
         within(commonSection).getByRole("switch", {
           name: `切换常用选项 ${label}`,
@@ -1919,6 +1926,7 @@ describe("ProfileEditor", () => {
       CLAUDE_CODE_NO_FLICKER: "1",
       ENABLE_LSP_TOOL: "1",
     });
+    expect(saved.settings).not.toHaveProperty("fastMode");
     expect(saved.settings).not.toHaveProperty("respectGitignore");
     expect(saved.settings.env).not.toHaveProperty("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS");
   });

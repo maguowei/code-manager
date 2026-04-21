@@ -286,6 +286,19 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     },
   },
   {
+    key: "fastMode",
+    section: "common",
+    kind: "checkbox",
+    label: {
+      zh: "启用 Fast Mode",
+      en: "Enable fast mode",
+    },
+    description: {
+      zh: "为 Opus 4.6 启用 Fast Mode，以更高的 token 成本换取更快输出。",
+      en: "Enable fast mode for Opus 4.6 to trade higher token cost for faster output.",
+    },
+  },
+  {
     key: "skipWebFetchPreflight",
     section: "common",
     kind: "checkbox",
