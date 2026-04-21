@@ -50,8 +50,9 @@ function StringListEditor({
       ) : (
         <div className="profile-row-stack">
           {rows.map((row, index) => (
-            <div key={row.id} className="profile-inline-row">
+            <div key={row.id} className="profile-inline-row profile-string-list-row">
               <input
+                className="form-input profile-string-list-input"
                 aria-label={buildItemLabel(index)}
                 value={row.value}
                 placeholder={placeholder}
@@ -68,39 +69,7 @@ function StringListEditor({
                   )
                 }
               />
-              <div className="profile-row-actions">
-                <button
-                  type="button"
-                  className="profile-icon-btn"
-                  aria-label={`${t("profileEditor.common.moveUp")} ${buildItemLabel(index)}`}
-                  disabled={index === 0}
-                  onClick={() => {
-                    if (index === 0) {
-                      return;
-                    }
-                    const next = [...rows];
-                    [next[index - 1], next[index]] = [next[index], next[index - 1]];
-                    onChange(next);
-                  }}
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  className="profile-icon-btn"
-                  aria-label={`${t("profileEditor.common.moveDown")} ${buildItemLabel(index)}`}
-                  disabled={index === rows.length - 1}
-                  onClick={() => {
-                    if (index === rows.length - 1) {
-                      return;
-                    }
-                    const next = [...rows];
-                    [next[index], next[index + 1]] = [next[index + 1], next[index]];
-                    onChange(next);
-                  }}
-                >
-                  ↓
-                </button>
+              <div className="profile-row-actions profile-string-list-actions">
                 <button
                   type="button"
                   className="profile-icon-btn danger"

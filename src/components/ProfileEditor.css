@@ -1,9 +1,11 @@
-.profile-editor-panel {
+.profile-editor-panel,
+.preset-editor-panel {
   width: 100%;
   min-width: var(--config-editor-min-width);
 }
 
-.profile-editor-body {
+.profile-editor-body,
+.preset-editor-body {
   width: 100%;
   max-width: 880px;
   margin: 0 auto;

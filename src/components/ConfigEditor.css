@@ -74,7 +74,8 @@
 
 .form-group input,
 .form-group textarea,
-.form-group select {
+.form-group select,
+.form-input {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--border-default);
@@ -87,13 +88,15 @@
 
 .form-group input:hover,
 .form-group textarea:hover,
-.form-group select:hover {
+.form-group select:hover,
+.form-input:hover {
   border-color: var(--text-muted);
 }
 
 .form-group input:focus,
 .form-group textarea:focus,
-.form-group select:focus {
+.form-group select:focus,
+.form-input:focus {
   outline: none;
   border-color: var(--accent-blue);
   box-shadow: 0 0 0 3px var(--accent-blue-bg);
@@ -110,7 +113,8 @@
 }
 
 .form-group input::placeholder,
-.form-group textarea::placeholder {
+.form-group textarea::placeholder,
+.form-input::placeholder {
   color: var(--text-muted);
 }
 

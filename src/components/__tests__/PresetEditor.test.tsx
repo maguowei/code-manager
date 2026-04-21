@@ -1167,6 +1167,22 @@ describe("PresetEditor", () => {
     expect(onSave.mock.calls[0]?.[0]?.settingsPatch).not.toHaveProperty("permissions");
   });
 
+  it("renders permission rows without reorder actions and with shared input styling", async () => {
+    renderEditor();
+
+    const permissionsSection = toggleAccordionSection("权限");
+    await act(async () => {
+      fireEvent.click(within(permissionsSection).getByRole("button", { name: "新增允许规则" }));
+      await Promise.resolve();
+    });
+
+    const allowRuleInput = screen.getByLabelText("允许规则 1");
+    expect(allowRuleInput).toHaveClass("form-input");
+    expect(screen.queryByRole("button", { name: "上移 允许规则 1" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "下移 允许规则 1" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "删除 允许规则 1" })).toBeInTheDocument();
+  });
+
   it("keeps delegate visible for existing permissions default mode without exposing it as a normal option", () => {
     renderEditor({
       preset: {
