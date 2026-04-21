@@ -20,6 +20,7 @@ import {
 import ProfileNameBadge from "./ProfileNameBadge";
 import {
   AUTH_ENV_KEYS,
+  applyCommonToggleDefaults,
   BEHAVIOR_ENV_DEFAULTS,
   buildEnvSubset,
   buildHiddenEnvEntries,
@@ -65,9 +66,10 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
   const [name, setName] = useState(profile?.name ?? "");
   const [description, setDescription] = useState(profile?.description ?? "");
   const [presetId, setPresetId] = useState(profile?.presetId ?? "");
-  const [settings, setSettings] = useState<Record<string, unknown>>(
-    applyEnvDefaults(cloneSettings(profile?.settings), BEHAVIOR_ENV_DEFAULTS),
-  );
+  const [settings, setSettings] = useState<Record<string, unknown>>(() => {
+    const next = applyEnvDefaults(cloneSettings(profile?.settings), BEHAVIOR_ENV_DEFAULTS);
+    return profile ? next : applyCommonToggleDefaults(next);
+  });
   const [previewJson, setPreviewJson] = useState("{}");
   const [previewError, setPreviewError] = useState("");
   const selectedPreset = useMemo(
@@ -165,6 +167,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     isZh: language === "zh",
   });
   const sectionState = useStructuredSettingsSectionState({
+    common: commonJsonEditor.jsonError,
     env: envJsonEditor.jsonError,
     permissions: permissionsJsonEditor.jsonError,
     sandbox: sandboxJsonEditor.jsonError,

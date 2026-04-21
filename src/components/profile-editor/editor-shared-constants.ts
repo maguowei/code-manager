@@ -1,3 +1,4 @@
+import { readTopLevelObject, setEnvString, setTopLevelBoolean } from "../config-workspace-utils";
 import type { SectionEditorMode } from "./SettingsSectionModePanel";
 import { PROFILE_SETTINGS_FORM_REGISTRY } from "./settings-form-registry";
 
@@ -27,6 +28,31 @@ export const BEHAVIOR_ENV_DEFAULTS = PROFILE_SETTINGS_FORM_REGISTRY.flatMap((fie
     ? [{ envKey: field.envKey, defaultValue: field.defaultValue }]
     : [],
 );
+
+export function applyCommonToggleDefaults(
+  settings: Record<string, unknown>,
+): Record<string, unknown> {
+  return PROFILE_SETTINGS_FORM_REGISTRY.reduce<Record<string, unknown>>((current, field) => {
+    if (field.section !== "common" || field.kind !== "checkbox" || !field.defaultEnabled) {
+      return current;
+    }
+
+    if (field.envKey) {
+      const env = readTopLevelObject(current, "env");
+      if (field.envKey in env) {
+        return current;
+      }
+
+      return setEnvString(current, field.envKey, field.enabledValue ?? "1");
+    }
+
+    if (field.key in current) {
+      return current;
+    }
+
+    return setTopLevelBoolean(current, field.key, true);
+  }, settings);
+}
 
 export type PureSettingsSectionKey = (typeof PURE_SETTINGS_SECTION_KEYS)[number];
 export type LowFrequencySectionKey = (typeof LOW_FREQUENCY_SECTION_ORDER)[number];

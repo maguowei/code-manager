@@ -3,6 +3,7 @@ import BehaviorFieldHeader from "./BehaviorFieldHeader";
 import DocumentEditorSection from "./DocumentEditorSection";
 import EnabledPluginsEditor from "./EnabledPluginsEditor";
 import EnvEditor from "./EnvEditor";
+import FieldHelpButton from "./FieldHelpButton";
 import HooksEditor from "./HooksEditor";
 import MarketplaceEditor from "./MarketplaceEditor";
 import PermissionsEditor, {
@@ -11,7 +12,11 @@ import PermissionsEditor, {
 } from "./PermissionsEditor";
 import SandboxEditor, { SandboxSwitchControl, setSandboxEnabled } from "./SandboxEditor";
 import SettingsSectionModePanel, { type SectionJsonEditorState } from "./SettingsSectionModePanel";
-import type { SettingsFieldDefinition, SettingsFieldOption } from "./settings-form-registry";
+import {
+  getFieldHelperKey,
+  type SettingsFieldDefinition,
+  type SettingsFieldOption,
+} from "./settings-form-registry";
 import type { StructuredSettingsSectionState } from "./useStructuredSettingsSectionState";
 import "./editor-shared.css";
 
@@ -181,7 +186,7 @@ function StructuredSettingsSections({
                         <BehaviorFieldHeader
                           label={label}
                           inputId={`${scope}-field-${field.key}`}
-                          envKey={field.envKey}
+                          helperKey={getFieldHelperKey(field)}
                         />
                         <select
                           id={`${scope}-field-${field.key}`}
@@ -206,7 +211,7 @@ function StructuredSettingsSections({
                       <BehaviorFieldHeader
                         label={label}
                         inputId={`${scope}-field-${field.key}`}
-                        envKey={field.envKey}
+                        helperKey={getFieldHelperKey(field)}
                       />
                       <input
                         id={`${scope}-field-${field.key}`}
@@ -248,6 +253,7 @@ function StructuredSettingsSections({
 
       <SettingsSectionModePanel
         title={messages.common}
+        variant="accordion"
         mode={sectionState.sectionModes.common}
         onModeChange={(mode) => sectionState.handleSectionModeChange("common", mode)}
         controls={
@@ -256,35 +262,14 @@ function StructuredSettingsSections({
               const label = field.label[language];
               const description = field.description?.[language];
               const enabled = readToggleFieldEnabled(field);
+              const helperKey = getFieldHelperKey(field);
 
               return (
                 <div key={field.key} className="profile-common-option-item">
                   <div className="profile-common-option-copy">
                     <div className="profile-common-option-title-row">
                       <span className="profile-common-option-title">{label}</span>
-                      {field.envKey ? (
-                        <button
-                          type="button"
-                          className="profile-field-help"
-                          aria-label={field.envKey}
-                          data-tooltip={field.envKey}
-                          title={field.envKey}
-                        >
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            aria-hidden="true"
-                          >
-                            <circle cx="12" cy="12" r="10" />
-                            <path d="M12 16v-4" />
-                            <path d="M12 8h.01" />
-                          </svg>
-                        </button>
-                      ) : null}
+                      <FieldHelpButton helperKey={helperKey} />
                     </div>
                     {description ? (
                       <p className="profile-common-option-description">{description}</p>
@@ -307,6 +292,8 @@ function StructuredSettingsSections({
         jsonEditor={commonJsonEditor}
         jsonHint={messages.commonJsonHint}
         error={commonJsonEditor.jsonError}
+        expanded={sectionState.commonExpanded}
+        onToggleExpanded={sectionState.toggleCommonExpanded}
       />
 
       <SettingsSectionModePanel

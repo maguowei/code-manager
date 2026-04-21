@@ -142,6 +142,7 @@ function renderEditor(options?: {
     settingsPatch: Record<string, unknown>;
   }) => void | Promise<void>;
 }) {
+  const preset = options && "preset" in options ? (options.preset ?? null) : PRESET_FIXTURE;
   const onSave =
     options?.onSave ??
     vi.fn<
@@ -163,7 +164,7 @@ function renderEditor(options?: {
   render(
     <I18nProvider>
       <PresetEditor
-        preset={options?.preset ?? PRESET_FIXTURE}
+        preset={preset}
         presets={options?.presets ?? PRESETS}
         onSave={onSave}
         onClose={() => {}}
@@ -377,16 +378,23 @@ describe("PresetEditor", () => {
       expect(within(behaviorSection).getByRole("button", { name: "控件" })).toBeInTheDocument();
       expect(within(behaviorSection).getByRole("button", { name: "JSON" })).toBeInTheDocument();
       expect(
-        within(behaviorSection).getByText("默认开启 alwaysThinkingEnabled"),
-      ).toBeInTheDocument();
+        within(behaviorSection).queryByText("默认开启 alwaysThinkingEnabled"),
+      ).not.toBeInTheDocument();
       expect(within(behaviorSection).queryByText("尊重 .gitignore")).not.toBeInTheDocument();
     }
     if (commonSection) {
+      expect(within(commonSection).getByRole("button", { name: "收起 常用选项" })).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
       expect(within(commonSection).getByRole("button", { name: "控件" })).toBeInTheDocument();
       expect(within(commonSection).getByRole("button", { name: "JSON" })).toBeInTheDocument();
-      expect(within(commonSection).getAllByRole("switch")).toHaveLength(6);
+      expect(within(commonSection).getAllByRole("switch")).toHaveLength(9);
+      expect(within(commonSection).getByText("默认开启 alwaysThinkingEnabled")).toBeInTheDocument();
       expect(within(commonSection).getByText("已完成引导设置")).toBeInTheDocument();
       expect(within(commonSection).getByText("启用 Agent Teams")).toBeInTheDocument();
+      expect(within(commonSection).getByText("启用新版 Init")).toBeInTheDocument();
+      expect(within(commonSection).getByText("启用无闪烁模式")).toBeInTheDocument();
     }
 
     const permissionsSection = screen.getByRole("heading", { name: "权限" }).closest("section");
@@ -536,8 +544,7 @@ describe("PresetEditor", () => {
     }
 
     const toggleRows = behaviorSection.querySelectorAll(".profile-toggle-grid");
-    expect(toggleRows.length).toBe(1);
-    expect(toggleRows[0]?.querySelectorAll(".profile-toggle-item").length).toBe(1);
+    expect(toggleRows.length).toBe(0);
   });
 
   it("renders language as a select list and exposes the full effort enum set", async () => {
@@ -583,11 +590,14 @@ describe("PresetEditor", () => {
 
     const commonSection = getSection("常用选项");
     const labels = [
+      "默认开启 alwaysThinkingEnabled",
       "已完成引导设置",
       "尊重 .gitignore",
       "跳过 WebFetch 预检",
       "禁用非必要网络请求",
       "启用 LSP 工具",
+      "启用新版 Init",
+      "启用无闪烁模式",
       "启用 Agent Teams",
     ];
 
@@ -612,6 +622,7 @@ describe("PresetEditor", () => {
     expect(onSave).toHaveBeenCalledTimes(1);
     const saved = onSave.mock.calls[0][0];
     expect(saved.settingsPatch).toMatchObject({
+      alwaysThinkingEnabled: true,
       hasCompletedOnboarding: true,
       respectGitignore: true,
       skipWebFetchPreflight: true,
@@ -620,6 +631,8 @@ describe("PresetEditor", () => {
       ANTHROPIC_AUTH_TOKEN: "token",
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
       ENABLE_LSP_TOOL: "1",
+      CLAUDE_CODE_NEW_INIT: "1",
+      CLAUDE_CODE_NO_FLICKER: "1",
       CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1",
     });
   });
@@ -837,10 +850,49 @@ describe("PresetEditor", () => {
       ).toHaveAttribute("data-tooltip", "CLAUDE_CODE_EFFORT_LEVEL");
     }
 
+    const languageGroup = screen
+      .getByLabelText("回复语言")
+      .closest(".form-group") as HTMLElement | null;
+    expect(languageGroup).not.toBeNull();
+    if (languageGroup) {
+      const languageHeader = languageGroup.querySelector(
+        ".profile-field-header",
+      ) as HTMLElement | null;
+      expect(languageHeader).not.toBeNull();
+      if (languageHeader) {
+        expect(within(languageHeader).getByRole("button", { name: "language" })).toHaveAttribute(
+          "data-tooltip",
+          "language",
+        );
+      }
+    }
+
     expect(modelGroup.querySelector(".profile-field-inline-meta")).toBeNull();
     expect(effortGroup.querySelector(".profile-field-inline-meta")).toBeNull();
     expect(screen.queryByLabelText("模型使用环境变量映射")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("努力级别使用环境变量映射")).not.toBeInTheDocument();
+  });
+
+  it("shows helper buttons for top-level common options", () => {
+    renderEditor();
+
+    const commonSection = getSection("常用选项");
+    expect(
+      within(commonSection).getByRole("button", { name: "alwaysThinkingEnabled" }),
+    ).toHaveAttribute("data-tooltip", "alwaysThinkingEnabled");
+    expect(
+      within(commonSection).getByRole("button", { name: "hasCompletedOnboarding" }),
+    ).toHaveAttribute("data-tooltip", "hasCompletedOnboarding");
+    expect(
+      within(commonSection).getByRole("button", { name: "skipWebFetchPreflight" }),
+    ).toHaveAttribute("data-tooltip", "skipWebFetchPreflight");
+    expect(within(commonSection).getByRole("button", { name: "respectGitignore" })).toHaveAttribute(
+      "data-tooltip",
+      "respectGitignore",
+    );
+    expect(
+      within(commonSection).getByRole("button", { name: "CLAUDE_CODE_NO_FLICKER" }),
+    ).toHaveAttribute("data-tooltip", "CLAUDE_CODE_NO_FLICKER");
   });
 
   it("saves structured settingsPatch data without requiring raw json editing", async () => {
@@ -1106,7 +1158,6 @@ describe("PresetEditor", () => {
               ANTHROPIC_MODEL: "claude-opus-4-1",
             },
             language: "english",
-            alwaysThinkingEnabled: true,
           },
           null,
           2,
@@ -1122,6 +1173,7 @@ describe("PresetEditor", () => {
             env: {
               ENABLE_LSP_TOOL: "1",
             },
+            alwaysThinkingEnabled: true,
             hasCompletedOnboarding: true,
           },
           null,
@@ -1406,5 +1458,58 @@ describe("PresetEditor", () => {
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("");
     expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
     expect(screen.getByLabelText("ANTHROPIC_AUTH_TOKEN")).toHaveValue("token");
+  });
+
+  it("seeds default-enabled common options for new presets", async () => {
+    const onSave = vi.fn();
+    renderEditor({ preset: null, onSave });
+
+    const commonSection = getSection("常用选项");
+    for (const label of [
+      "默认开启 alwaysThinkingEnabled",
+      "已完成引导设置",
+      "跳过 WebFetch 预检",
+      "禁用非必要网络请求",
+      "启用 LSP 工具",
+      "启用新版 Init",
+      "启用无闪烁模式",
+    ]) {
+      expect(
+        within(commonSection).getByRole("switch", {
+          name: `切换常用选项 ${label}`,
+        }),
+      ).toHaveAttribute("aria-checked", "true");
+    }
+    for (const label of ["尊重 .gitignore", "启用 Agent Teams"]) {
+      expect(
+        within(commonSection).getByRole("switch", {
+          name: `切换常用选项 ${label}`,
+        }),
+      ).toHaveAttribute("aria-checked", "false");
+    }
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/中文名称/), {
+        target: { value: "默认预设" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+      await Promise.resolve();
+    });
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const saved = onSave.mock.calls[0][0];
+    expect(saved.settingsPatch).toMatchObject({
+      alwaysThinkingEnabled: true,
+      hasCompletedOnboarding: true,
+      skipWebFetchPreflight: true,
+    });
+    expect(saved.settingsPatch.env).toMatchObject({
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+      CLAUDE_CODE_NEW_INIT: "1",
+      CLAUDE_CODE_NO_FLICKER: "1",
+      ENABLE_LSP_TOOL: "1",
+    });
+    expect(saved.settingsPatch).not.toHaveProperty("respectGitignore");
+    expect(saved.settingsPatch.env).not.toHaveProperty("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS");
   });
 });

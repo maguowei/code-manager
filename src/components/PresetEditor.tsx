@@ -20,6 +20,7 @@ import {
 } from "./config-workspace-utils";
 import {
   AUTH_ENV_KEYS,
+  applyCommonToggleDefaults,
   BEHAVIOR_ENV_DEFAULTS,
   buildEnvSubset,
   buildHiddenEnvEntries,
@@ -94,9 +95,10 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
   const [modelSuggestions, setModelSuggestions] = useState(
     preset?.modelSuggestions.join(", ") ?? "",
   );
-  const [settingsPatch, setSettingsPatch] = useState<Record<string, unknown>>(
-    applyEnvDefaults(cloneSettings(preset?.settingsPatch), BEHAVIOR_ENV_DEFAULTS),
-  );
+  const [settingsPatch, setSettingsPatch] = useState<Record<string, unknown>>(() => {
+    const next = applyEnvDefaults(cloneSettings(preset?.settingsPatch), BEHAVIOR_ENV_DEFAULTS);
+    return preset ? next : applyCommonToggleDefaults(next);
+  });
   const selectableBasePresets = useMemo(
     () => presets.filter((candidate) => candidate.id !== preset?.id),
     [preset?.id, presets],
@@ -200,6 +202,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
     isZh: language === "zh",
   });
   const sectionState = useStructuredSettingsSectionState({
+    common: commonJsonEditor.jsonError,
     env: envJsonEditor.jsonError,
     permissions: permissionsJsonEditor.jsonError,
     sandbox: sandboxJsonEditor.jsonError,

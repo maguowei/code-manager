@@ -15,7 +15,9 @@ export interface SettingsFieldDefinition {
   kind: SettingsFieldKind;
   storage?: SettingsFieldStorage;
   envKey?: string;
+  helperKey?: string;
   defaultValue?: string;
+  defaultEnabled?: boolean;
   enabledValue?: string;
   envOnlyOptions?: string[];
   label: {
@@ -261,8 +263,9 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
   },
   {
     key: "alwaysThinkingEnabled",
-    section: "behavior",
+    section: "common",
     kind: "checkbox",
+    defaultEnabled: true,
     label: {
       zh: "默认开启 alwaysThinkingEnabled",
       en: "Enable alwaysThinkingEnabled",
@@ -272,6 +275,7 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     key: "hasCompletedOnboarding",
     section: "common",
     kind: "checkbox",
+    defaultEnabled: true,
     label: {
       zh: "已完成引导设置",
       en: "Completed onboarding",
@@ -285,6 +289,7 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     key: "skipWebFetchPreflight",
     section: "common",
     kind: "checkbox",
+    defaultEnabled: true,
     label: {
       zh: "跳过 WebFetch 预检",
       en: "Skip WebFetch preflight",
@@ -313,6 +318,7 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     kind: "checkbox",
     storage: "env-only",
     envKey: "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
+    defaultEnabled: true,
     enabledValue: "1",
     label: {
       zh: "禁用非必要网络请求",
@@ -329,6 +335,7 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     kind: "checkbox",
     storage: "env-only",
     envKey: "ENABLE_LSP_TOOL",
+    defaultEnabled: true,
     enabledValue: "1",
     label: {
       zh: "启用 LSP 工具",
@@ -337,6 +344,40 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     description: {
       zh: "启用语言服务器协议工具，为 Claude Code 提供跳转定义、引用查找和诊断能力。",
       en: "Enable the LSP tool for definitions, references, and diagnostics in Claude Code.",
+    },
+  },
+  {
+    key: "enableNewInit",
+    section: "common",
+    kind: "checkbox",
+    storage: "env-only",
+    envKey: "CLAUDE_CODE_NEW_INIT",
+    defaultEnabled: true,
+    enabledValue: "1",
+    label: {
+      zh: "启用新版 Init",
+      en: "Enable new init",
+    },
+    description: {
+      zh: "启用 Claude Code 的新版初始化流程。",
+      en: "Enable the new Claude Code initialization flow.",
+    },
+  },
+  {
+    key: "enableNoFlicker",
+    section: "common",
+    kind: "checkbox",
+    storage: "env-only",
+    envKey: "CLAUDE_CODE_NO_FLICKER",
+    defaultEnabled: true,
+    enabledValue: "1",
+    label: {
+      zh: "启用无闪烁模式",
+      en: "Enable no-flicker mode",
+    },
+    description: {
+      zh: "启用减少界面闪烁的渲染模式。",
+      en: "Enable the rendering mode that reduces UI flicker.",
     },
   },
   {
@@ -380,6 +421,10 @@ export const COMMON_TOP_LEVEL_SETTINGS_KEYS = topLevelSettingsKeysBySection("com
 export const COMMON_ENV_SETTINGS_KEYS = envSettingsKeysBySection("common");
 
 export const COMMON_JSON_ALLOWED_KEYS = [...COMMON_TOP_LEVEL_SETTINGS_KEYS, "env"];
+
+export function getFieldHelperKey(field: SettingsFieldDefinition): string {
+  return field.helperKey ?? field.envKey ?? field.key;
+}
 
 export const STRUCTURED_SETTINGS_KEYS = new Set([
   ...BEHAVIOR_TOP_LEVEL_SETTINGS_KEYS,

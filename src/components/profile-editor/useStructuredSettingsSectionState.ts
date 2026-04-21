@@ -8,6 +8,7 @@ import {
 import type { SectionEditorMode } from "./SettingsSectionModePanel";
 
 interface StructuredSettingsJsonErrors {
+  common?: string;
   env?: string;
   permissions?: string;
   sandbox?: string;
@@ -18,6 +19,7 @@ interface StructuredSettingsJsonErrors {
 
 export interface StructuredSettingsSectionState {
   sectionModes: Record<PureSettingsSectionKey, SectionEditorMode>;
+  commonExpanded: boolean;
   environmentExpanded: boolean;
   activeAccordionSection: LowFrequencySectionKey | null;
   editorErrors: Record<string, string>;
@@ -25,6 +27,7 @@ export interface StructuredSettingsSectionState {
   setSectionError: (section: string, message: string) => void;
   handleSectionModeChange: (section: PureSettingsSectionKey, mode: SectionEditorMode) => void;
   toggleAccordionSection: (section: LowFrequencySectionKey) => void;
+  toggleCommonExpanded: () => void;
   toggleEnvironmentExpanded: () => void;
 }
 
@@ -33,6 +36,7 @@ function useStructuredSettingsSectionState(
 ): StructuredSettingsSectionState {
   const [sectionModes, setSectionModes] =
     useState<Record<PureSettingsSectionKey, SectionEditorMode>>(createInitialSectionModes);
+  const [commonExpanded, setCommonExpanded] = useState(true);
   const [environmentExpanded, setEnvironmentExpanded] = useState(false);
   const [activeAccordionSection, setActiveAccordionSection] =
     useState<LowFrequencySectionKey | null>(null);
@@ -61,6 +65,12 @@ function useStructuredSettingsSectionState(
   );
 
   const hasEditorErrors = useMemo(() => Object.values(editorErrors).some(Boolean), [editorErrors]);
+
+  useEffect(() => {
+    if (jsonErrors.common) {
+      setCommonExpanded(true);
+    }
+  }, [jsonErrors.common]);
 
   useEffect(() => {
     if (editorErrors.env || jsonErrors.env) {
@@ -118,12 +128,17 @@ function useStructuredSettingsSectionState(
     setActiveAccordionSection((current) => (current === section ? null : section));
   }
 
+  function toggleCommonExpanded() {
+    setCommonExpanded((current) => !current);
+  }
+
   function toggleEnvironmentExpanded() {
     setEnvironmentExpanded((current) => !current);
   }
 
   return {
     sectionModes,
+    commonExpanded,
     environmentExpanded,
     activeAccordionSection,
     editorErrors,
@@ -131,6 +146,7 @@ function useStructuredSettingsSectionState(
     setSectionError,
     handleSectionModeChange,
     toggleAccordionSection,
+    toggleCommonExpanded,
     toggleEnvironmentExpanded,
   };
 }
