@@ -300,6 +300,12 @@ describe("ProfileEditor", () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "整份配置 JSON" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("env")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "常用选项", level: 3 }).closest("button"),
+    ).toHaveClass("profile-accordion-trigger-large-target");
+    expect(screen.getByRole("heading", { name: "权限", level: 3 }).closest("button")).toHaveClass(
+      "profile-accordion-trigger-large-target",
+    );
 
     const authSection = screen.getByRole("heading", { name: "认证", level: 3 }).closest("section");
     const basicSection = screen

@@ -122,6 +122,7 @@ describe("StringListEditor", () => {
       return;
     }
 
+    expect(titleTrigger).not.toHaveClass("profile-accordion-trigger-large-target");
     expect(titleTrigger).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByLabelText("允许规则 1")).toBeInTheDocument();
 

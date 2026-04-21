@@ -104,12 +104,13 @@
 }
 
 .profile-accordion-header {
+  --profile-accordion-header-padding-y: 22px;
   display: flex;
   width: 100%;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 22px 24px;
+  padding: var(--profile-accordion-header-padding-y) 24px;
 }
 
 .profile-accordion-trigger {
@@ -125,6 +126,12 @@
   color: var(--text-primary);
   text-align: left;
   cursor: pointer;
+}
+
+.profile-accordion-trigger-large-target {
+  align-self: stretch;
+  margin-block: calc(var(--profile-accordion-header-padding-y) * -1);
+  padding-block: var(--profile-accordion-header-padding-y);
 }
 
 .profile-accordion-header-main {
@@ -598,7 +605,8 @@
   }
 
   .profile-accordion-header {
-    padding: 18px 20px;
+    --profile-accordion-header-padding-y: 18px;
+    padding: var(--profile-accordion-header-padding-y) 20px;
   }
 
   .profile-accordion-actions {

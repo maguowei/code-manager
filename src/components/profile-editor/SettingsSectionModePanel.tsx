@@ -114,7 +114,7 @@ function SettingsSectionModePanel({
         <div className="profile-accordion-header">
           <button
             type="button"
-            className="profile-accordion-trigger"
+            className="profile-accordion-trigger profile-accordion-trigger-large-target"
             aria-expanded={expanded}
             onClick={onToggleExpanded}
           >
