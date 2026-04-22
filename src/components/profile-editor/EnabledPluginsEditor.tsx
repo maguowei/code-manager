@@ -2,28 +2,45 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../../i18n";
 import ConfirmDialog from "../ConfirmDialog";
 import { createRowId, type PluginDraft, readObject } from "./editor-utils";
+import { buildOfficialPluginId, OFFICIAL_MARKETPLACE_RAW_URL } from "./marketplace-presets";
 import RequiredBadge from "./RequiredBadge";
 import { SandboxSwitchControl } from "./SandboxEditor";
 import "./EnabledPluginsEditor.css";
 
 interface EnabledPluginsEditorProps {
   value: unknown;
-  onChange: (next: Record<string, boolean>) => void;
+  onChange: (next: Record<string, unknown>) => void;
   onError: (message: string) => void;
   showTitle?: boolean;
+  officialMarketplaceEnabled?: boolean;
 }
 
 interface PluginListItem extends PluginDraft {
   isDraft?: boolean;
 }
 
-function readBooleanPlugins(value: unknown): Record<string, boolean> {
-  const pluginObject = readObject(value);
-  return Object.fromEntries(
-    Object.entries(pluginObject).filter(
-      (entry): entry is [string, boolean] => typeof entry[1] === "boolean",
-    ),
-  );
+function splitPluginEntries(value: unknown): {
+  sourceEntries: Record<string, unknown>;
+  booleanEntries: Record<string, boolean>;
+  preservedEntries: Record<string, unknown>;
+} {
+  const sourceEntries = readObject(value);
+  const booleanEntries: Record<string, boolean> = {};
+  const preservedEntries: Record<string, unknown> = {};
+
+  Object.entries(sourceEntries).forEach(([pluginId, entry]) => {
+    if (typeof entry === "boolean") {
+      booleanEntries[pluginId] = entry;
+      return;
+    }
+    preservedEntries[pluginId] = entry;
+  });
+
+  return {
+    sourceEntries,
+    booleanEntries,
+    preservedEntries,
+  };
 }
 
 function buildPluginDrafts(value: Record<string, boolean>): PluginDraft[] {
@@ -34,11 +51,65 @@ function buildPluginDrafts(value: Record<string, boolean>): PluginDraft[] {
   }));
 }
 
-function buildPluginRecord(plugins: PluginDraft[]): Record<string, boolean> {
-  return plugins.reduce<Record<string, boolean>>((accumulator, plugin) => {
-    accumulator[plugin.pluginId] = plugin.enabled;
-    return accumulator;
-  }, {});
+function buildPluginRecord(
+  plugins: PluginDraft[],
+  preservedEntries: Record<string, unknown>,
+): Record<string, unknown> {
+  return plugins.reduce<Record<string, unknown>>(
+    (accumulator, plugin) => {
+      accumulator[plugin.pluginId] = plugin.enabled;
+      return accumulator;
+    },
+    { ...preservedEntries },
+  );
+}
+
+function arePluginRecordsEqual(
+  left: Record<string, unknown>,
+  right: Record<string, unknown>,
+): boolean {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+
+  return leftKeys.every(
+    (key) => rightKeys.includes(key) && JSON.stringify(left[key]) === JSON.stringify(right[key]),
+  );
+}
+
+function readOfficialPluginIds(manifest: unknown): string[] {
+  const manifestRecord = readObject(manifest);
+  if (!Array.isArray(manifestRecord.plugins)) {
+    throw new Error("invalid official marketplace manifest");
+  }
+
+  const pluginIds: string[] = [];
+  const seen = new Set<string>();
+  manifestRecord.plugins.forEach((entry) => {
+    const pluginRecord = readObject(entry);
+    const pluginName = typeof pluginRecord.name === "string" ? pluginRecord.name.trim() : "";
+    if (!pluginName) {
+      return;
+    }
+    const pluginId = buildOfficialPluginId(pluginName);
+    if (seen.has(pluginId)) {
+      return;
+    }
+    seen.add(pluginId);
+    pluginIds.push(pluginId);
+  });
+
+  return pluginIds;
+}
+
+function createOfficialPluginDraft(pluginId: string): PluginDraft {
+  return {
+    id: `plugin:${pluginId}`,
+    pluginId,
+    enabled: false,
+  };
 }
 
 function EnabledPluginsEditor({
@@ -46,15 +117,20 @@ function EnabledPluginsEditor({
   onChange,
   onError,
   showTitle = true,
+  officialMarketplaceEnabled = false,
 }: EnabledPluginsEditorProps) {
   const { t } = useI18n();
   const draftInputRef = useRef<HTMLInputElement | null>(null);
-  const booleanPlugins = useMemo(() => readBooleanPlugins(value), [value]);
-  const initialPlugins = useMemo(() => buildPluginDrafts(booleanPlugins), [booleanPlugins]);
+  const { sourceEntries, booleanEntries, preservedEntries } = useMemo(
+    () => splitPluginEntries(value),
+    [value],
+  );
+  const initialPlugins = useMemo(() => buildPluginDrafts(booleanEntries), [booleanEntries]);
   const [plugins, setPlugins] = useState(initialPlugins);
   const [draft, setDraft] = useState<PluginDraft | null>(null);
   const [draftError, setDraftError] = useState("");
   const [interactionError, setInteractionError] = useState("");
+  const [loadingOfficialPlugins, setLoadingOfficialPlugins] = useState(false);
   const [pendingDeletePlugin, setPendingDeletePlugin] = useState<PluginDraft | null>(null);
 
   const sectionPendingMessage = t("profileEditor.plugins.errorPendingEdit");
@@ -86,11 +162,11 @@ function EnabledPluginsEditor({
   }, [initialPlugins]);
 
   useEffect(() => {
-    const nextValue = buildPluginRecord(plugins);
-    if (JSON.stringify(nextValue) !== JSON.stringify(booleanPlugins)) {
+    const nextValue = buildPluginRecord(plugins, preservedEntries);
+    if (!arePluginRecordsEqual(nextValue, sourceEntries)) {
       onChange(nextValue);
     }
-  }, [booleanPlugins, onChange, plugins]);
+  }, [onChange, plugins, preservedEntries, sourceEntries]);
 
   useEffect(() => {
     onError(currentError);
@@ -163,6 +239,48 @@ function EnabledPluginsEditor({
       },
     ]);
     resetDraft(null);
+  }
+
+  async function handleLoadOfficialPlugins() {
+    if (draft) {
+      setDraftError("");
+      setInteractionError(switchBlockedMessage);
+      return;
+    }
+
+    setDraftError("");
+    setInteractionError("");
+    setLoadingOfficialPlugins(true);
+
+    try {
+      const response = await fetch(OFFICIAL_MARKETPLACE_RAW_URL);
+      if (!response.ok) {
+        throw new Error("failed to load official plugins");
+      }
+
+      const manifest = await response.json();
+      const officialPluginIds = readOfficialPluginIds(manifest);
+
+      setPlugins((current) => {
+        const existingIds = new Set([
+          ...Object.keys(preservedEntries),
+          ...current.map((plugin) => plugin.pluginId),
+        ]);
+        const nextPlugins = officialPluginIds
+          .filter((pluginId) => !existingIds.has(pluginId))
+          .map((pluginId) => createOfficialPluginDraft(pluginId));
+
+        if (nextPlugins.length === 0) {
+          return current;
+        }
+
+        return [...current, ...nextPlugins];
+      });
+    } catch {
+      setInteractionError(t("profileEditor.plugins.loadOfficialError"));
+    } finally {
+      setLoadingOfficialPlugins(false);
+    }
   }
 
   function handleRemovePlugin(pluginId: string) {
@@ -320,9 +438,23 @@ function EnabledPluginsEditor({
           {!draft && draftError ? <p className="field-error">{draftError}</p> : null}
 
           <div className="profile-env-footer">
-            <button type="button" className="profile-secondary-btn" onClick={handleAddPlugin}>
-              {t("profileEditor.plugins.addItem")}
-            </button>
+            <div className="profile-plugin-footer-actions">
+              {officialMarketplaceEnabled ? (
+                <button
+                  type="button"
+                  className="profile-primary-btn"
+                  onClick={handleLoadOfficialPlugins}
+                  disabled={loadingOfficialPlugins}
+                >
+                  {loadingOfficialPlugins
+                    ? t("profileEditor.plugins.loadingOfficial")
+                    : t("profileEditor.plugins.loadOfficial")}
+                </button>
+              ) : null}
+              <button type="button" className="profile-secondary-btn" onClick={handleAddPlugin}>
+                {t("profileEditor.plugins.addItem")}
+              </button>
+            </div>
           </div>
         </div>
       </div>

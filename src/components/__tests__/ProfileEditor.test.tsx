@@ -8,11 +8,13 @@ import {
   OFFICIAL_MARKETPLACE_REPO,
 } from "../profile-editor/marketplace-presets";
 
-const { invokeMock, showToastMock } = vi.hoisted(() => ({
+const { invokeMock, showToastMock, fetchMock } = vi.hoisted(() => ({
   invokeMock: vi.fn(),
   showToastMock: vi.fn(),
+  fetchMock: vi.fn(),
 }));
 const SETTINGS_STORAGE_KEY = "ai-manager-settings";
+const originalFetch = globalThis.fetch;
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: unknown[]) => invokeMock(...args),
@@ -224,12 +226,20 @@ async function flushProfilePreviewDebounce() {
   });
 }
 
+async function flushAsyncUpdates() {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
 describe("ProfileEditor", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     localStorage.clear();
     invokeMock.mockReset();
     showToastMock.mockReset();
+    fetchMock.mockReset();
     invokeMock.mockImplementation(async (command: string, payload?: unknown) => {
       if (command === "get_config_workspace") {
         return WORKSPACE_FIXTURE;
@@ -255,6 +265,11 @@ describe("ProfileEditor", () => {
       },
       configurable: true,
     });
+    Object.defineProperty(globalThis, "fetch", {
+      value: fetchMock,
+      configurable: true,
+      writable: true,
+    });
   });
 
   afterEach(() => {
@@ -262,6 +277,11 @@ describe("ProfileEditor", () => {
       vi.runOnlyPendingTimers();
     });
     vi.useRealTimers();
+    Object.defineProperty(globalThis, "fetch", {
+      value: originalFetch,
+      configurable: true,
+      writable: true,
+    });
   });
 
   it("renders control-first sections with unified mode switches and document editor entry", async () => {
@@ -2031,6 +2051,109 @@ describe("ProfileEditor", () => {
         }),
       }),
     );
+  });
+
+  it("loads official plugins in profile view and saves them as disabled by default", async () => {
+    const onSave = vi.fn();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        plugins: [{ name: "reviewer-plugin" }, { name: "writer-plugin" }],
+      }),
+    });
+    renderEditor({
+      onSave,
+      profile: {
+        ...PROFILE_FIXTURE,
+        settings: {
+          ...PROFILE_FIXTURE.settings,
+          extraKnownMarketplaces: {
+            [OFFICIAL_MARKETPLACE_ID]: {
+              source: {
+                source: "github",
+                repo: OFFICIAL_MARKETPLACE_REPO,
+              },
+            },
+          },
+          enabledPlugins: {
+            "formatter@anthropic-tools": true,
+          },
+        },
+      },
+    });
+
+    const pluginsSection = getSection("插件");
+    toggleAccordionSection("插件");
+
+    await act(async () => {
+      fireEvent.click(within(pluginsSection).getByRole("button", { name: "加载官方插件" }));
+      await Promise.resolve();
+    });
+    await flushAsyncUpdates();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(
+      within(pluginsSection).getByText("reviewer-plugin@claude-plugins-official"),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    });
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settings: expect.objectContaining({
+          enabledPlugins: {
+            "formatter@anthropic-tools": true,
+            "reviewer-plugin@claude-plugins-official": false,
+            "writer-plugin@claude-plugins-official": false,
+          },
+        }),
+      }),
+    );
+  });
+
+  it("does not show the official plugin load button when the marketplace only exists in an inherited preset", () => {
+    renderEditor({
+      presets: [
+        ...BUILTIN_PRESETS,
+        {
+          id: "custom:official-inherited",
+          name: "Inherited Official",
+          localizedName: {
+            zh: "继承官方市场",
+            en: "Inherited Official",
+          },
+          description: "通过预设提供官方市场",
+          modelSuggestions: [],
+          settingsPatch: {
+            extraKnownMarketplaces: {
+              [OFFICIAL_MARKETPLACE_ID]: {
+                source: {
+                  source: "github",
+                  repo: OFFICIAL_MARKETPLACE_REPO,
+                },
+              },
+            },
+          },
+          source: "custom",
+        },
+      ],
+      profile: {
+        ...PROFILE_FIXTURE,
+        presetId: "custom:official-inherited",
+        settings: {
+          ...PROFILE_FIXTURE.settings,
+        },
+      },
+    });
+
+    const pluginsSection = getSection("插件");
+    toggleAccordionSection("插件");
+
+    expect(
+      within(pluginsSection).queryByRole("button", { name: "加载官方插件" }),
+    ).not.toBeInTheDocument();
   });
 
   it("copies preset suggested model to clipboard without exposing removed legacy scope fields", async () => {

@@ -321,6 +321,9 @@ const translations = {
     "profileEditor.plugins.errorIdDuplicate": "插件 ID 不能重复",
     "profileEditor.plugins.errorPendingEdit": "当前插件编辑未保存，请先保存或取消。",
     "profileEditor.plugins.emptyHint": "暂无额外插件配置，可按需添加插件开关。",
+    "profileEditor.plugins.loadOfficial": "加载官方插件",
+    "profileEditor.plugins.loadingOfficial": "加载官方插件中...",
+    "profileEditor.plugins.loadOfficialError": "加载官方插件失败，请稍后重试。",
     "profileEditor.plugins.deleteDialogMessage": "确定要从当前设置中移除插件 {id} 吗？",
     "profileEditor.plugins.saveAriaLabel": "保存插件",
     "profileEditor.plugins.cancelEditAriaLabel": "取消编辑插件",
@@ -938,6 +941,10 @@ const translations = {
     "profileEditor.plugins.errorPendingEdit":
       "Please save or cancel the current plugin edit first.",
     "profileEditor.plugins.emptyHint": "No plugin overrides yet. Add one when needed.",
+    "profileEditor.plugins.loadOfficial": "Load official plugins",
+    "profileEditor.plugins.loadingOfficial": "Loading official plugins...",
+    "profileEditor.plugins.loadOfficialError":
+      "Failed to load official plugins. Please try again later.",
     "profileEditor.plugins.deleteDialogMessage": "Remove plugin {id} from the current settings?",
     "profileEditor.plugins.saveAriaLabel": "Save plugin",
     "profileEditor.plugins.cancelEditAriaLabel": "Cancel plugin editing",

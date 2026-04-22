@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import type { SettingsPreset } from "../../types";
 import PresetEditor from "../PresetEditor";
@@ -9,6 +9,8 @@ import {
 } from "../profile-editor/marketplace-presets";
 
 const SETTINGS_STORAGE_KEY = "ai-manager-settings";
+const originalFetch = globalThis.fetch;
+const fetchMock = vi.fn();
 
 vi.mock("../ConfigPreview", () => ({
   default: ({
@@ -211,6 +213,20 @@ function switchDocumentSectionToEdit(name: string, editButtonName: string): HTML
 describe("PresetEditor", () => {
   beforeEach(() => {
     localStorage.clear();
+    fetchMock.mockReset();
+    Object.defineProperty(globalThis, "fetch", {
+      value: fetchMock,
+      configurable: true,
+      writable: true,
+    });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(globalThis, "fetch", {
+      value: originalFetch,
+      configurable: true,
+      writable: true,
+    });
   });
 
   it("renders bilingual preset name inputs and saves localizedName", () => {
@@ -1308,6 +1324,66 @@ describe("PresetEditor", () => {
                 repo: OFFICIAL_MARKETPLACE_REPO,
               },
             },
+          },
+        }),
+      }),
+    );
+  });
+
+  it("loads official plugins in preset view and saves them as disabled by default", async () => {
+    const onSave = vi.fn();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        plugins: [{ name: "reviewer-plugin" }],
+      }),
+    });
+    renderEditor({
+      onSave,
+      preset: {
+        ...PRESET_FIXTURE,
+        settingsPatch: {
+          ...PRESET_FIXTURE.settingsPatch,
+          extraKnownMarketplaces: {
+            [OFFICIAL_MARKETPLACE_ID]: {
+              source: {
+                source: "github",
+                repo: OFFICIAL_MARKETPLACE_REPO,
+              },
+            },
+          },
+          enabledPlugins: {
+            "formatter@anthropic-tools": true,
+          },
+        },
+      },
+    });
+
+    const pluginsSection = getSection("插件");
+    toggleAccordionSection("插件");
+
+    await act(async () => {
+      fireEvent.click(within(pluginsSection).getByRole("button", { name: "加载官方插件" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(
+      within(pluginsSection).getByText("reviewer-plugin@claude-plugins-official"),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+      await Promise.resolve();
+    });
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settingsPatch: expect.objectContaining({
+          enabledPlugins: {
+            "formatter@anthropic-tools": true,
+            "reviewer-plugin@claude-plugins-official": false,
           },
         }),
       }),

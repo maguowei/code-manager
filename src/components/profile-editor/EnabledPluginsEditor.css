@@ -149,6 +149,12 @@
   text-align: center;
 }
 
+.profile-plugin-footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 @container (max-width: 720px) {
   .profile-plugin-list-header {
     display: none;
@@ -202,5 +208,9 @@
   .profile-plugin-inline-editor {
     margin-top: 0;
     padding-left: 0;
+  }
+
+  .profile-plugin-footer-actions {
+    width: 100%;
   }
 }

@@ -3,9 +3,11 @@ import BehaviorFieldHeader from "./BehaviorFieldHeader";
 import DocumentEditorSection from "./DocumentEditorSection";
 import EnabledPluginsEditor from "./EnabledPluginsEditor";
 import EnvEditor from "./EnvEditor";
+import { readObject } from "./editor-utils";
 import FieldHelpButton from "./FieldHelpButton";
 import HooksEditor from "./HooksEditor";
 import MarketplaceEditor from "./MarketplaceEditor";
+import { OFFICIAL_MARKETPLACE_ID } from "./marketplace-presets";
 import PermissionsEditor, {
   PermissionDefaultModeSelect,
   setPermissionsDefaultMode,
@@ -125,6 +127,9 @@ function StructuredSettingsSections({
 }: StructuredSettingsSectionsProps) {
   const { language, t } = useI18n();
   const isProfileScope = scope === "profiles";
+  const officialMarketplaceEnabled = Object.keys(
+    readObject(settings.extraKnownMarketplaces),
+  ).includes(OFFICIAL_MARKETPLACE_ID);
   const messages = isProfileScope
     ? {
         behavior: t("profiles.editor.sections.behavior"),
@@ -506,6 +511,7 @@ function StructuredSettingsSections({
             onChange={(value) => onStructuredObjectChange("enabledPlugins", value)}
             onError={(message) => sectionState.setSectionError("enabledPlugins", message)}
             showTitle={false}
+            officialMarketplaceEnabled={officialMarketplaceEnabled}
           />
         }
         jsonEditor={pluginsJsonEditor}
