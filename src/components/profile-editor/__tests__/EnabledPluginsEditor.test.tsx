@@ -120,7 +120,7 @@ describe("EnabledPluginsEditor", () => {
       .closest(".profile-plugin-list-row");
     expect(draftRow).not.toBeNull();
 
-    fireEvent.click(within(draftRow as HTMLElement).getByRole("button", { name: "取消" }));
+    fireEvent.click(within(draftRow as HTMLElement).getByRole("button", { name: "取消编辑插件" }));
     expect(screen.queryByText("新插件")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("新插件 ID")).not.toBeInTheDocument();
 
@@ -151,7 +151,7 @@ describe("EnabledPluginsEditor", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "新增插件" }));
     expect(screen.getAllByLabelText("新插件 ID")).toHaveLength(1);
-    expect(screen.getByText("请先保存或取消当前插件编辑。")).toBeInTheDocument();
+    expect(screen.getByText("当前插件编辑未保存，请先保存或取消。")).toBeInTheDocument();
   });
 
   it("shows one-based row numbers and reindexes them after confirmed removal", () => {

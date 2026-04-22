@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../../i18n";
 import MarketplaceEditor from "../MarketplaceEditor";
+import { OFFICIAL_MARKETPLACE_ID, OFFICIAL_MARKETPLACE_REPO } from "../marketplace-presets";
 
 function renderEditor(options?: {
   value?: Record<string, unknown>;
@@ -40,6 +41,49 @@ function renderEditor(options?: {
 }
 
 describe("MarketplaceEditor", () => {
+  it("adds the official marketplace with the built-in github source", () => {
+    const { onChange } = renderEditor({ value: {} });
+
+    fireEvent.click(screen.getByRole("button", { name: "启用官方市场" }));
+
+    expect(onChange).toHaveBeenLastCalledWith({
+      [OFFICIAL_MARKETPLACE_ID]: {
+        source: {
+          source: "github",
+          repo: OFFICIAL_MARKETPLACE_REPO,
+        },
+      },
+    });
+  });
+
+  it("hides the official marketplace shortcut when the current layer already contains it", () => {
+    renderEditor({
+      value: {
+        [OFFICIAL_MARKETPLACE_ID]: {
+          source: {
+            source: "github",
+            repo: OFFICIAL_MARKETPLACE_REPO,
+          },
+        },
+      },
+    });
+
+    expect(screen.queryByRole("button", { name: "启用官方市场" })).not.toBeInTheDocument();
+  });
+
+  it("blocks adding the official marketplace while the current marketplace draft is dirty", () => {
+    const { onChange } = renderEditor({ value: {} });
+
+    fireEvent.click(screen.getByRole("button", { name: "新增 Marketplace" }));
+    fireEvent.change(screen.getByLabelText("Marketplace ID"), {
+      target: { value: "draft-market" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "启用官方市场" }));
+
+    expect(screen.getByText("请先保存或取消当前 Marketplace 编辑。")).toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("shows a confirmation dialog before deleting a saved marketplace", () => {
     const { onChange } = renderEditor();
 

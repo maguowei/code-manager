@@ -7,6 +7,7 @@ import {
   type MarketplaceSourceType,
   readObject,
 } from "./editor-utils";
+import { buildOfficialMarketplaceDraft, OFFICIAL_MARKETPLACE_ID } from "./marketplace-presets";
 import RequiredBadge from "./RequiredBadge";
 import "./MarketplaceEditor.css";
 
@@ -254,6 +255,10 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
       },
     ];
   }, [draft, marketplaces]);
+  const hasOfficialMarketplace = useMemo(
+    () => marketplaces.some((marketplace) => marketplace.marketplaceId === OFFICIAL_MARKETPLACE_ID),
+    [marketplaces],
+  );
 
   const listItems = useMemo<MarketplaceListItem[]>(() => {
     return visibleMarketplaces.map((marketplace) => {
@@ -354,6 +359,20 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
       return;
     }
     resetEditor(buildNewDraft());
+  }
+
+  function handleAddOfficialMarketplace() {
+    if (blockIfDirty()) {
+      return;
+    }
+    if (hasOfficialMarketplace) {
+      return;
+    }
+
+    const nextMarketplaces = [...marketplaces, buildOfficialMarketplaceDraft()];
+    setMarketplaces(nextMarketplaces);
+    onChange(buildMarketplaceRecord(nextMarketplaces));
+    setInteractionError("");
   }
 
   function handleDraftChange<K extends keyof MarketplaceEditorDraft>(
@@ -758,7 +777,16 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
             )}
           </div>
 
-          <div className="profile-env-footer">
+          <div className="profile-env-footer profile-marketplace-footer-actions">
+            {!hasOfficialMarketplace ? (
+              <button
+                type="button"
+                className="profile-primary-btn"
+                onClick={handleAddOfficialMarketplace}
+              >
+                {t("profileEditor.marketplace.addOfficial")}
+              </button>
+            ) : null}
             <button type="button" className="profile-secondary-btn" onClick={handleAddMarketplace}>
               {t("profileEditor.marketplace.addItem")}
             </button>

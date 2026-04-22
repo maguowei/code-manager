@@ -176,6 +176,11 @@
   text-align: center;
 }
 
+.profile-marketplace-footer-actions {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 @container (max-width: 720px) {
   .profile-marketplace-list-header {
     display: none;
@@ -222,5 +227,10 @@
   .profile-marketplace-inline-editor {
     margin-top: 0;
     padding-left: 0;
+  }
+
+  .profile-marketplace-footer-actions > button {
+    width: 100%;
+    justify-content: center;
   }
 }

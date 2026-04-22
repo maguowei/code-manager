@@ -3,6 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import type { SettingsPreset } from "../../types";
 import PresetEditor from "../PresetEditor";
+import {
+  OFFICIAL_MARKETPLACE_ID,
+  OFFICIAL_MARKETPLACE_REPO,
+} from "../profile-editor/marketplace-presets";
 
 const SETTINGS_STORAGE_KEY = "ai-manager-settings";
 
@@ -1269,6 +1273,45 @@ describe("PresetEditor", () => {
     expect(screen.queryByLabelText("插件 ID 1")).not.toBeInTheDocument();
     expect(within(pluginsSection).queryByText("插件模式")).not.toBeInTheDocument();
     expect(within(pluginsSection).queryByText("插件工具")).not.toBeInTheDocument();
+  });
+
+  it("saves the official marketplace from the shared marketplace shortcut in preset view", async () => {
+    const onSave = vi.fn();
+    renderEditor({ onSave });
+
+    const marketplacesSection = getSection("插件市场");
+    toggleAccordionSection("插件市场");
+
+    await act(async () => {
+      fireEvent.click(within(marketplacesSection).getByRole("button", { name: "启用官方市场" }));
+      await Promise.resolve();
+    });
+
+    expect(
+      within(marketplacesSection).getByRole("button", {
+        name: `编辑 Marketplace ${OFFICIAL_MARKETPLACE_ID}`,
+      }),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+      await Promise.resolve();
+    });
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settingsPatch: expect.objectContaining({
+          extraKnownMarketplaces: {
+            [OFFICIAL_MARKETPLACE_ID]: {
+              source: {
+                source: "github",
+                repo: OFFICIAL_MARKETPLACE_REPO,
+              },
+            },
+          },
+        }),
+      }),
+    );
   });
 
   it("saves status line settings from structured controls in preset view", async () => {

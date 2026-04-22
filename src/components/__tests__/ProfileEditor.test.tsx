@@ -3,6 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import type { ConfigProfile, ConfigWorkspace, SettingsPreset } from "../../types";
 import ProfileEditor from "../ProfileEditor";
+import {
+  OFFICIAL_MARKETPLACE_ID,
+  OFFICIAL_MARKETPLACE_REPO,
+} from "../profile-editor/marketplace-presets";
 
 const { invokeMock, showToastMock } = vi.hoisted(() => ({
   invokeMock: vi.fn(),
@@ -1989,6 +1993,44 @@ describe("ProfileEditor", () => {
     expect(
       within(marketplacesSection).queryByText("请先保存或取消当前 Marketplace 编辑。"),
     ).not.toBeInTheDocument();
+  });
+
+  it("saves the official marketplace from the shared marketplace shortcut", async () => {
+    const onSave = vi.fn();
+    renderEditor({ onSave });
+
+    const marketplacesSection = getSection("插件市场");
+    toggleAccordionSection("插件市场");
+
+    await act(async () => {
+      fireEvent.click(within(marketplacesSection).getByRole("button", { name: "启用官方市场" }));
+      await Promise.resolve();
+    });
+
+    expect(
+      within(marketplacesSection).getByRole("button", {
+        name: `编辑 Marketplace ${OFFICIAL_MARKETPLACE_ID}`,
+      }),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    });
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settings: expect.objectContaining({
+          extraKnownMarketplaces: {
+            [OFFICIAL_MARKETPLACE_ID]: {
+              source: {
+                source: "github",
+                repo: OFFICIAL_MARKETPLACE_REPO,
+              },
+            },
+          },
+        }),
+      }),
+    );
   });
 
   it("copies preset suggested model to clipboard without exposing removed legacy scope fields", async () => {
