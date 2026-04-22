@@ -157,8 +157,8 @@ describe("ProfilesPage", () => {
 
     renderPage();
 
-    expect(screen.getByRole("heading", { name: "配置档案" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /新增档案/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "配置" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /新建配置/ })).toBeInTheDocument();
 
     const card = screen.getByText("OpenRouter User").closest(".profile-card") as HTMLElement | null;
     expect(card).not.toBeNull();
@@ -178,12 +178,44 @@ describe("ProfilesPage", () => {
     expect(within(card).getByText("claude-sonnet-4-6")).toBeInTheDocument();
     expect(within(card).getByText("high")).toBeInTheDocument();
     expect(within(card).getByText("已启用 1/2")).toBeInTheDocument();
-    expect(within(card).queryByRole("button", { name: "应用" })).not.toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: "启用" })).not.toBeInTheDocument();
     expect(within(card).getByRole("button", { name: "复制环境变量" })).toBeInTheDocument();
     expect(within(card).getByRole("button", { name: "复制" })).toBeInTheDocument();
     expect(within(card).getByRole("button", { name: "删除" })).toBeInTheDocument();
     expect(within(card).queryByText("删除")).not.toBeInTheDocument();
     expect(within(card).queryByRole("button", { name: "编辑" })).not.toBeInTheDocument();
+  });
+
+  it("renders enable action for unapplied profiles in zh", () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "zh",
+        theme: "dark",
+      }),
+    );
+
+    const unboundWorkspace: ConfigWorkspace = {
+      ...WORKSPACE_FIXTURE,
+      bindings: {
+        userProfileId: undefined,
+      },
+    } as ConfigWorkspace;
+
+    render(
+      <I18nProvider>
+        <ProfilesPage workspace={unboundWorkspace} onWorkspaceChange={async () => {}} />
+      </I18nProvider>,
+    );
+
+    const card = screen.getByText("OpenRouter User").closest(".profile-card") as HTMLElement | null;
+    expect(card).not.toBeNull();
+    if (!card) {
+      return;
+    }
+
+    expect(within(card).getByRole("button", { name: "启用" })).toBeInTheDocument();
+    expect(within(card).queryByText("使用中")).not.toBeInTheDocument();
   });
 
   it("reveals card actions only on hover or focus within", () => {
@@ -231,7 +263,7 @@ describe("ProfilesPage", () => {
       await Promise.resolve();
     });
 
-    expect(screen.getByRole("heading", { name: "编辑档案" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "编辑配置" })).toBeInTheDocument();
     expect(screen.getByDisplayValue("OpenRouter User")).toBeInTheDocument();
   });
 
@@ -333,7 +365,7 @@ describe("ProfilesPage", () => {
       await Promise.resolve();
     });
 
-    expect(screen.queryByRole("heading", { name: "新增档案" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "新建配置" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("名称")).not.toBeInTheDocument();
 
     expect(invokeMock).toHaveBeenCalledWith("duplicate_profile", {
@@ -341,7 +373,7 @@ describe("ProfilesPage", () => {
       nameSuffix: " 副本",
     });
     expect(onWorkspaceChange).toHaveBeenCalledTimes(1);
-    expect(showToastMock).toHaveBeenCalledWith("档案已复制");
+    expect(showToastMock).toHaveBeenCalledWith("配置已复制");
   });
 
   it("keeps the list page state unchanged when duplicate fails", async () => {
@@ -366,10 +398,10 @@ describe("ProfilesPage", () => {
       await Promise.resolve();
     });
 
-    expect(screen.queryByRole("heading", { name: "新增档案" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "新建配置" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("名称")).not.toBeInTheDocument();
     expect(onWorkspaceChange).not.toHaveBeenCalled();
-    expect(showToastMock).toHaveBeenCalledWith("复制档案失败", "error");
+    expect(showToastMock).toHaveBeenCalledWith("复制配置失败", "error");
   });
 
   it("persists drag reordering for profile cards", async () => {

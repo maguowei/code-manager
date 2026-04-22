@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useState } from "react";
+import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
 import type { ConfigProfile, SettingsPreset } from "../types";
 import {
@@ -70,6 +71,7 @@ interface ProfileEditorProps {
 
 function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps) {
   const { language, t } = useI18n();
+  const { showToast } = useToast();
   const [name, setName] = useState(profile?.name ?? "");
   const [description, setDescription] = useState(profile?.description ?? "");
   const [presetId, setPresetId] = useState(profile?.presetId ?? "");
@@ -365,6 +367,15 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     });
   }
 
+  async function handleCopySuggestedModel(model: string) {
+    try {
+      await navigator.clipboard.writeText(model);
+      showToast(t("profiles.toast.modelCopied"));
+    } catch {
+      showToast(t("profiles.toast.modelCopyError"), "error");
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
     const timer = setTimeout(() => {
@@ -402,7 +413,6 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     (field) => field.section === "behavior",
   );
   const commonFields = PROFILE_SETTINGS_FORM_REGISTRY.filter((field) => field.section === "common");
-  const modelField = behaviorFields.find((field) => field.key === "model") ?? null;
   const scalarFields = behaviorFields.filter((field) => field.kind !== "checkbox");
   const behaviorToggleFields = behaviorFields.filter((field) => field.kind === "checkbox");
   const scalarFieldRows = useMemo(() => chunkItems(scalarFields, 2), [scalarFields]);
@@ -585,9 +595,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
                     type="button"
                     className="profile-chip"
                     onClick={() => {
-                      if (modelField) {
-                        handleSimpleFieldChange(modelField, model);
-                      }
+                      void handleCopySuggestedModel(model);
                     }}
                   >
                     {model}

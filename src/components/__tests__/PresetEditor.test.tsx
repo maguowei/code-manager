@@ -385,9 +385,7 @@ describe("PresetEditor", () => {
     if (behaviorSection) {
       expect(within(behaviorSection).getByRole("button", { name: "控件" })).toBeInTheDocument();
       expect(within(behaviorSection).getByRole("button", { name: "JSON" })).toBeInTheDocument();
-      expect(
-        within(behaviorSection).queryByText("默认开启 alwaysThinkingEnabled"),
-      ).not.toBeInTheDocument();
+      expect(within(behaviorSection).queryByText("默认启用深度思考")).not.toBeInTheDocument();
       expect(within(behaviorSection).queryByText("尊重 .gitignore")).not.toBeInTheDocument();
     }
     if (commonSection) {
@@ -410,7 +408,7 @@ describe("PresetEditor", () => {
         "Learning",
       ]);
       expect(within(commonSection).getAllByRole("switch")).toHaveLength(14);
-      expect(within(commonSection).getByText("默认开启 alwaysThinkingEnabled")).toBeInTheDocument();
+      expect(within(commonSection).getByText("默认启用深度思考")).toBeInTheDocument();
       expect(within(commonSection).getByText("显示 Thinking 摘要")).toBeInTheDocument();
       expect(within(commonSection).getByText("接受计划时显示清理上下文")).toBeInTheDocument();
       expect(within(commonSection).getByText("禁用所有 Hooks")).toBeInTheDocument();
@@ -618,7 +616,7 @@ describe("PresetEditor", () => {
       target: { value: "Learning" },
     });
     const labels = [
-      "默认开启 alwaysThinkingEnabled",
+      "默认启用深度思考",
       "显示 Thinking 摘要",
       "接受计划时显示清理上下文",
       "禁用所有 Hooks",
@@ -1356,7 +1354,7 @@ describe("PresetEditor", () => {
     fireEvent.click(within(commonSection).getByRole("button", { name: "控件" }));
     expect(screen.getByLabelText("输出风格")).toHaveValue("Explanatory");
     for (const label of [
-      "默认开启 alwaysThinkingEnabled",
+      "默认启用深度思考",
       "显示 Thinking 摘要",
       "接受计划时显示清理上下文",
       "禁用所有 Hooks",
@@ -1743,7 +1741,7 @@ describe("PresetEditor", () => {
 
     const commonSection = getSection("常用选项");
     for (const label of [
-      "默认开启 alwaysThinkingEnabled",
+      "默认启用深度思考",
       "已完成引导设置",
       "跳过 WebFetch 预检",
       "禁用非必要网络请求",

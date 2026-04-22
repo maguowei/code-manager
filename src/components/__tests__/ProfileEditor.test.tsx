@@ -4,11 +4,20 @@ import { I18nProvider } from "../../i18n";
 import type { ConfigProfile, ConfigWorkspace, SettingsPreset } from "../../types";
 import ProfileEditor from "../ProfileEditor";
 
-const invokeMock = vi.fn();
+const { invokeMock, showToastMock } = vi.hoisted(() => ({
+  invokeMock: vi.fn(),
+  showToastMock: vi.fn(),
+}));
 const SETTINGS_STORAGE_KEY = "ai-manager-settings";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: unknown[]) => invokeMock(...args),
+}));
+
+vi.mock("../../hooks/useToast", () => ({
+  useToast: () => ({
+    showToast: showToastMock,
+  }),
 }));
 
 vi.mock("../ConfigPreview", () => ({
@@ -216,6 +225,7 @@ describe("ProfileEditor", () => {
     vi.useFakeTimers();
     localStorage.clear();
     invokeMock.mockReset();
+    showToastMock.mockReset();
     invokeMock.mockImplementation(async (command: string, payload?: unknown) => {
       if (command === "get_config_workspace") {
         return WORKSPACE_FIXTURE;
@@ -234,6 +244,12 @@ describe("ProfileEditor", () => {
         );
       }
       return null;
+    });
+    Object.defineProperty(navigator, "clipboard", {
+      value: {
+        writeText: vi.fn(async () => undefined),
+      },
+      configurable: true,
     });
   });
 
@@ -384,9 +400,7 @@ describe("ProfileEditor", () => {
     if (behaviorSection) {
       expect(within(behaviorSection).getByRole("button", { name: "控件" })).toBeInTheDocument();
       expect(within(behaviorSection).getByRole("button", { name: "JSON" })).toBeInTheDocument();
-      expect(
-        within(behaviorSection).queryByText("默认开启 alwaysThinkingEnabled"),
-      ).not.toBeInTheDocument();
+      expect(within(behaviorSection).queryByText("默认启用深度思考")).not.toBeInTheDocument();
       expect(within(behaviorSection).queryByText("尊重 .gitignore")).not.toBeInTheDocument();
       expect(within(behaviorSection).queryByText("跳过 WebFetch 预检")).not.toBeInTheDocument();
     }
@@ -410,7 +424,7 @@ describe("ProfileEditor", () => {
         "Learning",
       ]);
       expect(within(commonSection).getAllByRole("switch")).toHaveLength(14);
-      expect(within(commonSection).getByText("默认开启 alwaysThinkingEnabled")).toBeInTheDocument();
+      expect(within(commonSection).getByText("默认启用深度思考")).toBeInTheDocument();
       expect(within(commonSection).getByText("显示 Thinking 摘要")).toBeInTheDocument();
       expect(within(commonSection).getByText("接受计划时显示清理上下文")).toBeInTheDocument();
       expect(within(commonSection).getByText("禁用所有 Hooks")).toBeInTheDocument();
@@ -913,7 +927,7 @@ describe("ProfileEditor", () => {
       target: { value: "Learning" },
     });
     const labels = [
-      "默认开启 alwaysThinkingEnabled",
+      "默认启用深度思考",
       "显示 Thinking 摘要",
       "接受计划时显示清理上下文",
       "禁用所有 Hooks",
@@ -1211,7 +1225,7 @@ describe("ProfileEditor", () => {
     fireEvent.click(within(commonSection).getByRole("button", { name: "控件" }));
     expect(screen.getByLabelText("输出风格")).toHaveValue("Explanatory");
     for (const label of [
-      "默认开启 alwaysThinkingEnabled",
+      "默认启用深度思考",
       "显示 Thinking 摘要",
       "接受计划时显示清理上下文",
       "禁用所有 Hooks",
@@ -1977,7 +1991,7 @@ describe("ProfileEditor", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("switches preset without exposing removed legacy scope fields", () => {
+  it("copies preset suggested model to clipboard without exposing removed legacy scope fields", async () => {
     renderEditor({
       profile: {
         ...PROFILE_FIXTURE,
@@ -1988,11 +2002,22 @@ describe("ProfileEditor", () => {
     expect(screen.queryByLabelText("作用域")).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/项目路径/)).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("预设"), {
-      target: { value: "builtin:openrouter" },
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText("预设"), {
+        target: { value: "builtin:openrouter" },
+      });
+      await Promise.resolve();
     });
-    fireEvent.click(screen.getByRole("button", { name: "claude-opus-4-1" }));
-    expect(screen.getByLabelText("默认模型")).toHaveValue("claude-opus-4-1");
+    expect(screen.getByLabelText("默认模型")).toHaveValue("claude-sonnet-4-6");
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "claude-opus-4-1" }));
+      await Promise.resolve();
+    });
+
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith("claude-opus-4-1");
+    expect(showToastMock).toHaveBeenCalledWith("模型已复制");
+    expect(screen.getByLabelText("默认模型")).toHaveValue("claude-sonnet-4-6");
 
     const modelBehaviorSection = screen
       .getByRole("heading", { name: "模型与行为" })
@@ -2158,7 +2183,7 @@ describe("ProfileEditor", () => {
 
     const commonSection = getSection("常用选项");
     for (const label of [
-      "默认开启 alwaysThinkingEnabled",
+      "默认启用深度思考",
       "已完成引导设置",
       "跳过 WebFetch 预检",
       "禁用非必要网络请求",

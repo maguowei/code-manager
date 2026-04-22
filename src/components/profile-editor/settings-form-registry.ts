@@ -267,8 +267,8 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     kind: "checkbox",
     defaultEnabled: true,
     label: {
-      zh: "默认开启 alwaysThinkingEnabled",
-      en: "Enable alwaysThinkingEnabled",
+      zh: "默认启用深度思考",
+      en: "Enable extended thinking by default",
     },
   },
   {
