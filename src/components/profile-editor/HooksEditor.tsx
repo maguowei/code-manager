@@ -1,6 +1,7 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { type TranslationKey, useI18n } from "../../i18n";
 import { readObject, readString } from "./editor-utils";
+import { mergeMojibakeHookPreset } from "./hook-presets";
 import "./HooksEditor.css";
 
 interface HooksEditorProps {
@@ -101,14 +102,37 @@ function buildHookSummaries(
   });
 }
 
-function HooksEditor({ value, onError }: HooksEditorProps) {
+function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
   const { t } = useI18n();
-  const hooksObject = useMemo(() => readObject(value), [value]);
+  const [hooksValue, setHooksValue] = useState(() => readObject(value));
+  const [interactionError, setInteractionError] = useState("");
+  const hooksObject = useMemo(() => hooksValue, [hooksValue]);
   const summaries = useMemo(() => buildHookSummaries(hooksObject, t), [hooksObject, t]);
 
   useEffect(() => {
-    onError("");
-  }, [onError]);
+    setHooksValue(readObject(value));
+    setInteractionError("");
+  }, [value]);
+
+  useEffect(() => {
+    onError(interactionError);
+  }, [interactionError, onError]);
+
+  function handleAddMojibakePreset() {
+    const result = mergeMojibakeHookPreset(hooksObject);
+    if (!result.supported) {
+      setInteractionError(t("profileEditor.hooks.quickAddUnsupported"));
+      return;
+    }
+
+    setInteractionError("");
+    if (!result.changed) {
+      return;
+    }
+
+    setHooksValue(result.nextValue);
+    onChange(result.nextValue);
+  }
 
   return (
     <div className="profile-section-body">
@@ -180,6 +204,16 @@ function HooksEditor({ value, onError }: HooksEditorProps) {
           ))}
         </div>
       )}
+
+      {interactionError ? <p className="field-error">{interactionError}</p> : null}
+
+      <div className="profile-env-footer">
+        <div className="profile-hook-footer-actions">
+          <button type="button" className="profile-primary-btn" onClick={handleAddMojibakePreset}>
+            {t("profileEditor.hooks.addMojibakePreset")}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

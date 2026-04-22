@@ -4,6 +4,10 @@ import { I18nProvider } from "../../i18n";
 import type { SettingsPreset } from "../../types";
 import PresetEditor from "../PresetEditor";
 import {
+  MOJIBAKE_POST_TOOL_USE_COMMAND,
+  MOJIBAKE_PRE_TOOL_USE_COMMAND,
+} from "../profile-editor/hook-presets";
+import {
   OFFICIAL_MARKETPLACE_ID,
   OFFICIAL_MARKETPLACE_REPO,
 } from "../profile-editor/marketplace-presets";
@@ -1086,6 +1090,54 @@ describe("PresetEditor", () => {
                   {
                     type: "command",
                     command: "pnpm build",
+                  },
+                ],
+              },
+            ],
+          },
+        }),
+      }),
+    );
+  });
+
+  it("adds the mojibake hook preset from the hooks shortcut in preset view", async () => {
+    const onSave = vi.fn();
+    renderEditor({ onSave });
+
+    const hooksSection = getSection("Hooks");
+    toggleAccordionSection("Hooks");
+
+    fireEvent.click(within(hooksSection).getByRole("button", { name: "添加乱码检查预设" }));
+
+    expect(within(hooksSection).getByText("PreToolUse")).toBeInTheDocument();
+    expect(within(hooksSection).getByText("PostToolUse")).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    });
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settingsPatch: expect.objectContaining({
+          hooks: {
+            PreToolUse: [
+              {
+                matcher: "Bash",
+                hooks: [
+                  {
+                    type: "command",
+                    command: MOJIBAKE_PRE_TOOL_USE_COMMAND,
+                  },
+                ],
+              },
+            ],
+            PostToolUse: [
+              {
+                matcher: "Edit|Write",
+                hooks: [
+                  {
+                    type: "command",
+                    command: MOJIBAKE_POST_TOOL_USE_COMMAND,
                   },
                 ],
               },

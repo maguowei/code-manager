@@ -304,6 +304,9 @@ const translations = {
     "profileEditor.hooks.matcherCannotSummarize": "当前 matcher 结构无法摘要。",
     "profileEditor.hooks.matcherNoActions": "当前 matcher 没有动作。",
     "profileEditor.hooks.partialSummarize": "部分 Hooks 结构无法完整摘要。",
+    "profileEditor.hooks.addMojibakePreset": "添加乱码检查预设",
+    "profileEditor.hooks.quickAddUnsupported":
+      "当前 Hooks 结构不支持一键添加，请切换到 JSON 手动处理。",
 
     // 插件编辑器
     "profileEditor.plugins.title": "插件",
@@ -923,6 +926,9 @@ const translations = {
     "profileEditor.hooks.matcherCannotSummarize": "This matcher cannot be summarized.",
     "profileEditor.hooks.matcherNoActions": "This matcher has no actions.",
     "profileEditor.hooks.partialSummarize": "Some hook entries could not be fully summarized.",
+    "profileEditor.hooks.addMojibakePreset": "Add mojibake check preset",
+    "profileEditor.hooks.quickAddUnsupported":
+      "The current hooks structure cannot be merged automatically. Please switch to JSON and edit it manually.",
 
     // Plugins editor
     "profileEditor.plugins.title": "Plugins",
