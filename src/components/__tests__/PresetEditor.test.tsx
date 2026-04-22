@@ -267,7 +267,7 @@ describe("PresetEditor", () => {
     expect(screen.queryByRole("button", { name: "Full Settings JSON" })).not.toBeInTheDocument();
   });
 
-  it("renders control-first sections with unified mode switches and downgraded full json entry", () => {
+  it("renders control-first sections with unified mode switches and downgraded full json entry", async () => {
     renderEditor();
 
     expect(screen.queryByLabelText("降低动画")).not.toBeInTheDocument();
@@ -397,8 +397,24 @@ describe("PresetEditor", () => {
       );
       expect(within(commonSection).getByRole("button", { name: "控件" })).toBeInTheDocument();
       expect(within(commonSection).getByRole("button", { name: "JSON" })).toBeInTheDocument();
-      expect(within(commonSection).getAllByRole("switch")).toHaveLength(10);
+      const outputStyleSelect = within(commonSection).getByRole("combobox", {
+        name: "输出风格",
+      }) as HTMLSelectElement;
+      expect(outputStyleSelect).toBeInTheDocument();
+      expect(screen.queryByRole("textbox", { name: "输出风格" })).not.toBeInTheDocument();
+      expect(outputStyleSelect).toHaveValue("");
+      expect(Array.from(outputStyleSelect.options, (option) => option.value)).toEqual([
+        "",
+        "default",
+        "Explanatory",
+        "Learning",
+      ]);
+      expect(within(commonSection).getAllByRole("switch")).toHaveLength(14);
       expect(within(commonSection).getByText("默认开启 alwaysThinkingEnabled")).toBeInTheDocument();
+      expect(within(commonSection).getByText("显示 Thinking 摘要")).toBeInTheDocument();
+      expect(within(commonSection).getByText("接受计划时显示清理上下文")).toBeInTheDocument();
+      expect(within(commonSection).getByText("禁用所有 Hooks")).toBeInTheDocument();
+      expect(within(commonSection).getByText("禁用 AI 署名")).toBeInTheDocument();
       expect(within(commonSection).getByText("已完成引导设置")).toBeInTheDocument();
       expect(within(commonSection).getByText("启用 Fast Mode")).toBeInTheDocument();
       expect(within(commonSection).getByText("启用 Agent Teams")).toBeInTheDocument();
@@ -598,8 +614,15 @@ describe("PresetEditor", () => {
     renderEditor({ onSave });
 
     const commonSection = getSection("常用选项");
+    fireEvent.change(screen.getByLabelText("输出风格"), {
+      target: { value: "Learning" },
+    });
     const labels = [
       "默认开启 alwaysThinkingEnabled",
+      "显示 Thinking 摘要",
+      "接受计划时显示清理上下文",
+      "禁用所有 Hooks",
+      "禁用 AI 署名",
       "已完成引导设置",
       "启用 Fast Mode",
       "尊重 .gitignore",
@@ -632,7 +655,15 @@ describe("PresetEditor", () => {
     expect(onSave).toHaveBeenCalledTimes(1);
     const saved = onSave.mock.calls[0][0];
     expect(saved.settingsPatch).toMatchObject({
+      outputStyle: "Learning",
       alwaysThinkingEnabled: true,
+      showThinkingSummaries: true,
+      showClearContextOnPlanAccept: true,
+      disableAllHooks: true,
+      attribution: {
+        commit: "",
+        pr: "",
+      },
       hasCompletedOnboarding: true,
       fastMode: true,
       respectGitignore: true,
@@ -646,6 +677,46 @@ describe("PresetEditor", () => {
       CLAUDE_CODE_NO_FLICKER: "1",
       CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1",
     });
+  });
+
+  it("preserves custom outputStyle values from common json", async () => {
+    const onSave = vi.fn();
+    renderEditor({ onSave });
+    const commonSection = switchSectionToJson("常用选项");
+
+    fireEvent.change(within(commonSection).getByLabelText("config-preview-input"), {
+      target: { value: '{\n  "outputStyle": "MyTeamStyle"\n}' },
+    });
+    fireEvent.click(within(commonSection).getByRole("button", { name: "控件" }));
+    expect(within(getSection("常用选项")).getByRole("combobox", { name: "输出风格" })).toHaveValue(
+      "MyTeamStyle",
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+      await Promise.resolve();
+    });
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0].settingsPatch.outputStyle).toBe("MyTeamStyle");
+  });
+
+  it("stores built-in outputStyle values from the outputStyle select", async () => {
+    const onSave = vi.fn();
+    renderEditor({ onSave });
+    const commonSection = getSection("常用选项");
+
+    fireEvent.change(within(commonSection).getByRole("combobox", { name: "输出风格" }), {
+      target: { value: "default" },
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+      await Promise.resolve();
+    });
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0].settingsPatch.outputStyle).toBe("default");
   });
 
   it("stores model and effort as standard env settings and keeps the env editor in sync", async () => {
@@ -888,9 +959,27 @@ describe("PresetEditor", () => {
     renderEditor();
 
     const commonSection = getSection("常用选项");
+    expect(within(commonSection).getByRole("button", { name: "outputStyle" })).toHaveAttribute(
+      "data-tooltip",
+      "outputStyle",
+    );
     expect(
       within(commonSection).getByRole("button", { name: "alwaysThinkingEnabled" }),
     ).toHaveAttribute("data-tooltip", "alwaysThinkingEnabled");
+    expect(
+      within(commonSection).getByRole("button", { name: "showThinkingSummaries" }),
+    ).toHaveAttribute("data-tooltip", "showThinkingSummaries");
+    expect(
+      within(commonSection).getByRole("button", { name: "showClearContextOnPlanAccept" }),
+    ).toHaveAttribute("data-tooltip", "showClearContextOnPlanAccept");
+    expect(within(commonSection).getByRole("button", { name: "disableAllHooks" })).toHaveAttribute(
+      "data-tooltip",
+      "disableAllHooks",
+    );
+    expect(within(commonSection).getByRole("button", { name: "attribution" })).toHaveAttribute(
+      "data-tooltip",
+      "attribution",
+    );
     expect(
       within(commonSection).getByRole("button", { name: "hasCompletedOnboarding" }),
     ).toHaveAttribute("data-tooltip", "hasCompletedOnboarding");
@@ -1248,7 +1337,15 @@ describe("PresetEditor", () => {
             env: {
               ENABLE_LSP_TOOL: "1",
             },
+            outputStyle: "Explanatory",
             alwaysThinkingEnabled: true,
+            showThinkingSummaries: true,
+            showClearContextOnPlanAccept: true,
+            disableAllHooks: true,
+            attribution: {
+              commit: "",
+              pr: "",
+            },
             hasCompletedOnboarding: true,
           },
           null,
@@ -1256,6 +1353,26 @@ describe("PresetEditor", () => {
         ),
       },
     });
+    fireEvent.click(within(commonSection).getByRole("button", { name: "控件" }));
+    expect(screen.getByLabelText("输出风格")).toHaveValue("Explanatory");
+    for (const label of [
+      "默认开启 alwaysThinkingEnabled",
+      "显示 Thinking 摘要",
+      "接受计划时显示清理上下文",
+      "禁用所有 Hooks",
+      "已完成引导设置",
+    ]) {
+      expect(
+        within(commonSection).getByRole("switch", {
+          name: `切换常用选项 ${label}`,
+        }),
+      ).toHaveAttribute("aria-checked", "true");
+    }
+    expect(
+      within(commonSection).getByRole("switch", {
+        name: "切换常用选项 禁用 AI 署名",
+      }),
+    ).toHaveAttribute("aria-checked", "true");
 
     const permissionsSection = switchSectionToJson("权限");
     fireEvent.change(within(permissionsSection).getByLabelText("config-preview-input"), {
@@ -1640,7 +1757,16 @@ describe("PresetEditor", () => {
         }),
       ).toHaveAttribute("aria-checked", "true");
     }
-    for (const label of ["启用 Fast Mode", "尊重 .gitignore", "启用 Agent Teams"]) {
+    expect(screen.getByLabelText("输出风格")).toHaveValue("");
+    for (const label of [
+      "显示 Thinking 摘要",
+      "接受计划时显示清理上下文",
+      "禁用 AI 署名",
+      "禁用所有 Hooks",
+      "启用 Fast Mode",
+      "尊重 .gitignore",
+      "启用 Agent Teams",
+    ]) {
       expect(
         within(commonSection).getByRole("switch", {
           name: `切换常用选项 ${label}`,
@@ -1671,6 +1797,8 @@ describe("PresetEditor", () => {
     });
     expect(saved.settingsPatch).not.toHaveProperty("fastMode");
     expect(saved.settingsPatch).not.toHaveProperty("respectGitignore");
+    expect(saved.settingsPatch).not.toHaveProperty("outputStyle");
+    expect(saved.settingsPatch).not.toHaveProperty("attribution");
     expect(saved.settingsPatch.env).not.toHaveProperty("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS");
   });
 });

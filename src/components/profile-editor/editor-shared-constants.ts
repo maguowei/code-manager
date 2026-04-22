@@ -1,4 +1,9 @@
-import { readTopLevelObject, setEnvString, setTopLevelBoolean } from "../config-workspace-utils";
+import {
+  cloneSettings,
+  readTopLevelObject,
+  setEnvString,
+  setTopLevelBoolean,
+} from "../config-workspace-utils";
 import type { SectionEditorMode } from "./SettingsSectionModePanel";
 import { PROFILE_SETTINGS_FORM_REGISTRY } from "./settings-form-registry";
 
@@ -30,6 +35,46 @@ export const BEHAVIOR_ENV_DEFAULTS = PROFILE_SETTINGS_FORM_REGISTRY.flatMap((fie
     ? [{ envKey: field.envKey, defaultValue: field.defaultValue }]
     : [],
 );
+
+const LEGACY_CO_AUTHORED_BY_KEY = "includeCoAuthoredBy";
+
+export function readAttributionDisabled(settings: Record<string, unknown>): boolean {
+  const attribution = readTopLevelObject(settings, "attribution");
+  const hasCommit = typeof attribution.commit === "string";
+  const hasPr = typeof attribution.pr === "string";
+
+  if (hasCommit || hasPr) {
+    return attribution.commit === "" && attribution.pr === "";
+  }
+
+  return settings[LEGACY_CO_AUTHORED_BY_KEY] === false;
+}
+
+export function setAttributionDisabled(
+  settings: Record<string, unknown>,
+  disabled: boolean,
+): Record<string, unknown> {
+  const next = cloneSettings(settings);
+  delete next[LEGACY_CO_AUTHORED_BY_KEY];
+
+  if (disabled) {
+    next.attribution = {
+      commit: "",
+      pr: "",
+    };
+    return next;
+  }
+
+  const attribution = readTopLevelObject(next, "attribution");
+  const hasCommit = typeof attribution.commit === "string";
+  const hasPr = typeof attribution.pr === "string";
+
+  if ((hasCommit || hasPr) && attribution.commit === "" && attribution.pr === "") {
+    delete next.attribution;
+  }
+
+  return next;
+}
 
 export function applyCommonToggleDefaults(
   settings: Record<string, unknown>,

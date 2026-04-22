@@ -272,6 +272,101 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     },
   },
   {
+    key: "outputStyle",
+    section: "common",
+    kind: "select",
+    label: {
+      zh: "输出风格",
+      en: "Output style",
+    },
+    description: {
+      zh: "结构化编辑仅支持内置风格；如需自定义样式名称，请切换到 JSON 编辑并填写 outputStyle。",
+      en: "Structured editing only supports built-in styles. Switch to JSON editing to set a custom outputStyle.",
+    },
+    options: [
+      {
+        value: "",
+        label: {
+          zh: "未设置",
+          en: "Unset",
+        },
+      },
+      {
+        value: "default",
+        label: {
+          zh: "default",
+          en: "default",
+        },
+      },
+      {
+        value: "Explanatory",
+        label: {
+          zh: "Explanatory",
+          en: "Explanatory",
+        },
+      },
+      {
+        value: "Learning",
+        label: {
+          zh: "Learning",
+          en: "Learning",
+        },
+      },
+    ],
+  },
+  {
+    key: "showThinkingSummaries",
+    section: "common",
+    kind: "checkbox",
+    label: {
+      zh: "显示 Thinking 摘要",
+      en: "Show thinking summaries",
+    },
+    description: {
+      zh: "在 transcript 视图中显示 thinking 摘要，便于回看推理过程。",
+      en: "Show thinking summaries in the transcript view for easier review of reasoning.",
+    },
+  },
+  {
+    key: "showClearContextOnPlanAccept",
+    section: "common",
+    kind: "checkbox",
+    label: {
+      zh: "接受计划时显示清理上下文",
+      en: "Show clear context on plan accept",
+    },
+    description: {
+      zh: "开启后，接受计划时会在确认弹窗中提供“清理上下文”选项。",
+      en: "Show a clear-context option in the confirmation dialog when accepting a plan.",
+    },
+  },
+  {
+    key: "disableAllHooks",
+    section: "common",
+    kind: "checkbox",
+    label: {
+      zh: "禁用所有 Hooks",
+      en: "Disable all hooks",
+    },
+    description: {
+      zh: "禁用全部 hooks 和 statusLine 执行；适合需要完全静默运行的环境。",
+      en: "Disable all hooks and statusLine execution for fully quiet environments.",
+    },
+  },
+  {
+    key: "attribution",
+    section: "common",
+    kind: "checkbox",
+    label: {
+      zh: "禁用 AI 署名",
+      en: "Disable AI attribution",
+    },
+    description: {
+      zh: "默认保留 AI 署名；开启后会通过 attribution 禁用提交和 PR 中的 AI 署名。如需自定义署名内容，请切换到 JSON 编辑。",
+      en: "AI attribution is enabled by default. Turn this on to disable AI attribution in commits and PRs via attribution. Use JSON editing to customize attribution text.",
+    },
+  },
+  {
     key: "hasCompletedOnboarding",
     section: "common",
     kind: "checkbox",

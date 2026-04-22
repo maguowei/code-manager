@@ -25,6 +25,8 @@ import {
   buildEnvSubset,
   buildHiddenEnvEntries,
   chunkItems,
+  readAttributionDisabled,
+  setAttributionDisabled,
 } from "./profile-editor/editor-shared-constants";
 import { readString } from "./profile-editor/editor-utils";
 import { readPermissionsDefaultMode } from "./profile-editor/PermissionsEditor";
@@ -241,6 +243,11 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
   }
 
   function handleSimpleFieldChange(field: SettingsFieldDefinition, value: string | boolean) {
+    if (field.kind === "checkbox" && field.key === "attribution") {
+      applySettings(setAttributionDisabled(settings, value === true));
+      return;
+    }
+
     const next =
       field.kind === "checkbox"
         ? field.envKey
@@ -263,6 +270,13 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
       mappedToEnv: false,
       value: readString(settings[field.key]),
     };
+  }
+
+  function readSimpleFieldValue(field: SettingsFieldDefinition) {
+    if (field.envKey) {
+      return readEnvString(settings, field.envKey) || field.defaultValue || "";
+    }
+    return readString(settings[field.key]);
   }
 
   function handleMappedFieldChange(
@@ -301,6 +315,10 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
   }
 
   function readToggleFieldEnabled(field: SettingsFieldDefinition) {
+    if (field.key === "attribution") {
+      return readAttributionDisabled(settings);
+    }
+
     if (field.envKey) {
       const expectedValue = field.enabledValue ?? "1";
       return readEnvString(settings, field.envKey) === expectedValue;
@@ -391,6 +409,14 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
   const behaviorToggleFieldRows = useMemo(
     () => chunkItems(behaviorToggleFields, 2),
     [behaviorToggleFields],
+  );
+  const commonScalarFieldRows = useMemo(
+    () =>
+      chunkItems(
+        commonFields.filter((field) => field.kind !== "checkbox"),
+        2,
+      ),
+    [commonFields],
   );
   const commonToggleFields = useMemo(
     () => commonFields.filter((field) => field.kind === "checkbox"),
@@ -587,8 +613,10 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
           enabledPluginsSummary={enabledPluginsSummary}
           scalarFieldRows={scalarFieldRows}
           behaviorToggleFieldRows={behaviorToggleFieldRows}
+          commonScalarFieldRows={commonScalarFieldRows}
           commonToggleFields={commonToggleFields}
           readBehaviorFieldState={readBehaviorFieldState}
+          readSimpleFieldValue={readSimpleFieldValue}
           readToggleFieldEnabled={readToggleFieldEnabled}
           resolveSelectOptions={resolveSelectOptions}
           onMappedFieldChange={handleMappedFieldChange}

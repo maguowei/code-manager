@@ -57,8 +57,10 @@ interface StructuredSettingsSectionsProps {
   };
   scalarFieldRows: SettingsFieldDefinition[][];
   behaviorToggleFieldRows: SettingsFieldDefinition[][];
+  commonScalarFieldRows: SettingsFieldDefinition[][];
   commonToggleFields: SettingsFieldDefinition[];
   readBehaviorFieldState: (field: SettingsFieldDefinition) => BehaviorFieldState;
+  readSimpleFieldValue: (field: SettingsFieldDefinition) => string;
   readToggleFieldEnabled: (field: SettingsFieldDefinition) => boolean;
   resolveSelectOptions: (
     field: SettingsFieldDefinition,
@@ -100,8 +102,10 @@ function StructuredSettingsSections({
   enabledPluginsSummary,
   scalarFieldRows,
   behaviorToggleFieldRows,
+  commonScalarFieldRows,
   commonToggleFields,
   readBehaviorFieldState,
+  readSimpleFieldValue,
   readToggleFieldEnabled,
   resolveSelectOptions,
   onMappedFieldChange,
@@ -264,37 +268,97 @@ function StructuredSettingsSections({
         mode={sectionState.sectionModes.common}
         onModeChange={(mode) => sectionState.handleSectionModeChange("common", mode)}
         controls={
-          <div className="profile-common-option-list">
-            {commonToggleFields.map((field) => {
-              const label = field.label[language];
-              const description = field.description?.[language];
-              const enabled = readToggleFieldEnabled(field);
-              const helperKey = getFieldHelperKey(field);
+          <>
+            {commonScalarFieldRows.map((row) => (
+              <div
+                key={`${scope}-common-row-${row.map((field) => field.key).join("-")}`}
+                className="form-row"
+              >
+                {row.map((field) => {
+                  const label = field.label[language];
+                  const description = field.description?.[language];
+                  const value = readSimpleFieldValue(field);
+                  const inputId = `${scope}-field-${field.key}`;
 
-              return (
-                <div key={field.key} className="profile-common-option-item">
-                  <div className="profile-common-option-copy">
-                    <div className="profile-common-option-title-row">
-                      <span className="profile-common-option-title">{label}</span>
-                      <FieldHelpButton helperKey={helperKey} />
+                  if (field.kind === "select") {
+                    const options = resolveSelectOptions(field, value, false);
+
+                    return (
+                      <div key={field.key} className="form-group">
+                        <BehaviorFieldHeader
+                          label={label}
+                          inputId={inputId}
+                          helperKey={getFieldHelperKey(field)}
+                        />
+                        <select
+                          id={inputId}
+                          className="form-select"
+                          value={value}
+                          onChange={(event) => onSimpleFieldChange(field, event.target.value)}
+                        >
+                          {options.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label[language]}
+                            </option>
+                          ))}
+                        </select>
+                        {description ? <p className="form-hint">{description}</p> : null}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key={field.key} className="form-group">
+                      <BehaviorFieldHeader
+                        label={label}
+                        inputId={inputId}
+                        helperKey={getFieldHelperKey(field)}
+                      />
+                      <input
+                        id={inputId}
+                        value={value}
+                        placeholder={field.placeholder ? field.placeholder[language] : ""}
+                        onChange={(event) => onSimpleFieldChange(field, event.target.value)}
+                      />
+                      {description ? <p className="form-hint">{description}</p> : null}
                     </div>
-                    {description ? (
-                      <p className="profile-common-option-description">{description}</p>
-                    ) : null}
+                  );
+                })}
+              </div>
+            ))}
+
+            <div className="profile-common-option-list">
+              {commonToggleFields.map((field) => {
+                const label = field.label[language];
+                const description = field.description?.[language];
+                const enabled = readToggleFieldEnabled(field);
+                const helperKey = getFieldHelperKey(field);
+
+                return (
+                  <div key={field.key} className="profile-common-option-item">
+                    <div className="profile-common-option-copy">
+                      <div className="profile-common-option-title-row">
+                        <span className="profile-common-option-title">{label}</span>
+                        <FieldHelpButton helperKey={helperKey} />
+                      </div>
+                      {description ? (
+                        <p className="profile-common-option-description">{description}</p>
+                      ) : null}
+                    </div>
+                    <SandboxSwitchControl
+                      enabled={enabled}
+                      ariaLabel={t("profileEditor.commonOptions.switchAriaLabel").replace(
+                        "{label}",
+                        label,
+                      )}
+                      onToggle={() => onSimpleFieldChange(field, !enabled)}
+                      variant="header"
+                    />
                   </div>
-                  <SandboxSwitchControl
-                    enabled={enabled}
-                    ariaLabel={t("profileEditor.commonOptions.switchAriaLabel").replace(
-                      "{label}",
-                      label,
-                    )}
-                    onToggle={() => onSimpleFieldChange(field, !enabled)}
-                    variant="header"
-                  />
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </>
         }
         jsonEditor={commonJsonEditor}
         jsonHint={messages.commonJsonHint}

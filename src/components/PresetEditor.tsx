@@ -25,6 +25,8 @@ import {
   buildEnvSubset,
   buildHiddenEnvEntries,
   chunkItems,
+  readAttributionDisabled,
+  setAttributionDisabled,
 } from "./profile-editor/editor-shared-constants";
 import { readString } from "./profile-editor/editor-utils";
 import { readPermissionsDefaultMode } from "./profile-editor/PermissionsEditor";
@@ -275,6 +277,11 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
   }
 
   function handleSimpleFieldChange(field: SettingsFieldDefinition, value: string | boolean) {
+    if (field.kind === "checkbox" && field.key === "attribution") {
+      applyPatch(setAttributionDisabled(settingsPatch, value === true));
+      return;
+    }
+
     const next =
       field.kind === "checkbox"
         ? field.envKey
@@ -301,6 +308,13 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
       mappedToEnv: false,
       value: readString(settingsPatch[field.key]),
     };
+  }
+
+  function readSimpleFieldValue(field: SettingsFieldDefinition) {
+    if (field.envKey) {
+      return readEnvString(settingsPatch, field.envKey) || field.defaultValue || "";
+    }
+    return readString(settingsPatch[field.key]);
   }
 
   function handleMappedFieldChange(
@@ -339,6 +353,10 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
   }
 
   function readToggleFieldEnabled(field: SettingsFieldDefinition) {
+    if (field.key === "attribution") {
+      return readAttributionDisabled(settingsPatch);
+    }
+
     if (field.envKey) {
       const expectedValue = field.enabledValue ?? "1";
       return readEnvString(settingsPatch, field.envKey) === expectedValue;
@@ -401,6 +419,14 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
   const behaviorToggleFieldRows = useMemo(
     () => chunkItems(behaviorToggleFields, 2),
     [behaviorToggleFields],
+  );
+  const commonScalarFieldRows = useMemo(
+    () =>
+      chunkItems(
+        commonFields.filter((field) => field.kind !== "checkbox"),
+        2,
+      ),
+    [commonFields],
   );
   const commonToggleFields = useMemo(
     () => commonFields.filter((field) => field.kind === "checkbox"),
@@ -637,8 +663,10 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
           enabledPluginsSummary={enabledPluginsSummary}
           scalarFieldRows={scalarFieldRows}
           behaviorToggleFieldRows={behaviorToggleFieldRows}
+          commonScalarFieldRows={commonScalarFieldRows}
           commonToggleFields={commonToggleFields}
           readBehaviorFieldState={readBehaviorFieldState}
+          readSimpleFieldValue={readSimpleFieldValue}
           readToggleFieldEnabled={readToggleFieldEnabled}
           resolveSelectOptions={resolveSelectOptions}
           onMappedFieldChange={handleMappedFieldChange}
