@@ -43,8 +43,17 @@
 
 .field-label-wrap {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.field-label-env {
+  font-family: var(--font-mono, "SFMono-Regular", Consolas, monospace);
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
 }
 
 .form-group label {

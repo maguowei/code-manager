@@ -454,7 +454,9 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     descriptionPlaceholder: t("profiles.editor.placeholders.description"),
     preset: t("profiles.editor.fields.preset"),
     authToken: t("profiles.editor.fields.authToken"),
+    authTokenEnv: t("profiles.editor.fields.authTokenEnv"),
     baseUrl: t("profiles.editor.fields.baseUrl"),
+    baseUrlEnv: t("profiles.editor.fields.baseUrlEnv"),
     presetHint: t("profiles.editor.hints.preset"),
     suggestedModels: t("profiles.editor.hints.suggestedModels"),
     basicInfo: t("profiles.editor.sections.basicInfo"),
@@ -562,7 +564,10 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
           </div>
 
           <div className="form-group">
-            <label htmlFor="profile-base-url">{messages.baseUrl}</label>
+            <div className="field-label-wrap">
+              <label htmlFor="profile-base-url">{messages.baseUrl}</label>
+              <span className="field-label-env">{messages.baseUrlEnv}</span>
+            </div>
             <input
               id="profile-base-url"
               value={readEnvString(settings, "ANTHROPIC_BASE_URL")}
@@ -574,7 +579,10 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
           </div>
 
           <div className="form-group">
-            <label htmlFor="profile-auth-token">{messages.authToken}</label>
+            <div className="field-label-wrap">
+              <label htmlFor="profile-auth-token">{messages.authToken}</label>
+              <span className="field-label-env">{messages.authTokenEnv}</span>
+            </div>
             <input
               id="profile-auth-token"
               value={readEnvString(settings, "ANTHROPIC_AUTH_TOKEN")}

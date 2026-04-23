@@ -457,7 +457,9 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
     docUrl: t("presets.editor.fields.docUrl"),
     basePreset: t("presets.editor.fields.basePreset"),
     authToken: t("presets.editor.fields.authToken"),
+    authTokenEnv: t("presets.editor.fields.authTokenEnv"),
     baseUrl: t("presets.editor.fields.baseUrl"),
+    baseUrlEnv: t("presets.editor.fields.baseUrlEnv"),
     modelSuggestions: t("presets.editor.fields.modelSuggestions"),
     modelSuggestionsHint: t("presets.editor.hints.modelSuggestions"),
     baseSuggestions: t("presets.editor.hints.baseSuggestions"),
@@ -596,7 +598,10 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
           </div>
 
           <div className="form-group">
-            <label htmlFor="preset-base-url">{messages.baseUrl}</label>
+            <div className="field-label-wrap">
+              <label htmlFor="preset-base-url">{messages.baseUrl}</label>
+              <span className="field-label-env">{messages.baseUrlEnv}</span>
+            </div>
             <input
               id="preset-base-url"
               value={readEnvString(settingsPatch, "ANTHROPIC_BASE_URL")}
@@ -608,7 +613,10 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
           </div>
 
           <div className="form-group">
-            <label htmlFor="preset-auth-token">{messages.authToken}</label>
+            <div className="field-label-wrap">
+              <label htmlFor="preset-auth-token">{messages.authToken}</label>
+              <span className="field-label-env">{messages.authTokenEnv}</span>
+            </div>
             <input
               id="preset-auth-token"
               value={readEnvString(settingsPatch, "ANTHROPIC_AUTH_TOKEN")}
