@@ -9,7 +9,8 @@ mod utils;
 
 use config::{
     apply_profile, delete_preset, delete_profile, duplicate_profile, get_config_workspace,
-    preview_profile, reorder_profiles, set_app_preferences, upsert_preset, upsert_profile,
+    preview_profile, reorder_profiles, set_app_preferences, test_profile_model, upsert_preset,
+    upsert_profile,
 };
 use history::{get_history, get_history_if_changed, get_session_detail};
 use memory::{add_memory, delete_memory, get_memories, toggle_memory, update_memory};
@@ -56,6 +57,7 @@ pub fn run() {
             delete_profile,
             apply_profile,
             preview_profile,
+            test_profile_model,
             upsert_preset,
             delete_preset,
             set_app_preferences,

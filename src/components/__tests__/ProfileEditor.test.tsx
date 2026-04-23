@@ -629,6 +629,368 @@ describe("ProfileEditor", () => {
     expect(toggleRows.length).toBe(0);
   });
 
+  it("tests the current profile draft from the behavior section, opens the dialog, and reopens it from the success badge", async () => {
+    invokeMock.mockImplementation(async (command: string, payload?: unknown) => {
+      if (command === "get_config_workspace") {
+        return WORKSPACE_FIXTURE;
+      }
+      if (command === "preview_profile") {
+        const settings =
+          (payload as { data?: { settings?: Record<string, unknown> } } | undefined)?.data
+            ?.settings ?? {};
+        return JSON.stringify(
+          {
+            $schema: "https://json.schemastore.org/claude-code-settings.json",
+            ...settings,
+          },
+          null,
+          2,
+        );
+      }
+      if (command === "test_profile_model") {
+        return {
+          ok: true,
+          responseText: "API 测试成功，当前配置可以正常返回响应。",
+          promptText:
+            "Please reply with one short sentence confirming this API test request succeeded.",
+          resolvedModel: "claude-sonnet-4-6",
+          providerModel: "openrouter/claude-sonnet-4-6",
+          durationMs: 123,
+          requestId: "req_test_123",
+          stopReason: "end_turn",
+          rawResponse: JSON.stringify({
+            id: "msg_test_123",
+            model: "openrouter/claude-sonnet-4-6",
+            content: [{ type: "text", text: "API 测试成功，当前配置可以正常返回响应。" }],
+          }),
+        };
+      }
+      return null;
+    });
+
+    renderEditor();
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText("默认模型"), {
+        target: { value: "claude-sonnet-4-6" },
+      });
+      await Promise.resolve();
+    });
+
+    const behaviorSection = getSection("模型与行为");
+    const testButton = within(behaviorSection).getByRole("button", { name: "测试模型" });
+    expect(testButton).not.toHaveTextContent("测试模型");
+
+    await act(async () => {
+      fireEvent.click(testButton);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(invokeMock).toHaveBeenCalledWith("test_profile_model", {
+      data: {
+        id: "user-openrouter",
+        name: "OpenRouter User",
+        description: "默认用户配置",
+        presetId: "builtin:openrouter",
+        settings: {
+          env: {
+            ANTHROPIC_AUTH_TOKEN: "token",
+            ANTHROPIC_MODEL: "claude-sonnet-4-6",
+          },
+        },
+      },
+    });
+    const dialog = screen.getByRole("dialog", { name: "模型测试结果" });
+    expect(within(dialog).getByText("测试成功")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("API 测试成功，当前配置可以正常返回响应。"),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText("claude-sonnet-4-6")).toBeInTheDocument();
+    expect(within(dialog).getByText("openrouter/claude-sonnet-4-6")).toBeInTheDocument();
+    expect(within(dialog).getByText("123 ms")).toBeInTheDocument();
+    expect(within(dialog).getByText("req_test_123")).toBeInTheDocument();
+    expect(within(dialog).getByText("end_turn")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "Please reply with one short sentence confirming this API test request succeeded.",
+      ),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "查看完整响应" }));
+      await Promise.resolve();
+    });
+    const rawResponseViewer = within(dialog).getByTestId("model-test-raw-response-code");
+    expect(rawResponseViewer.textContent).toContain('{\n  "id": "msg_test_123",');
+    expect(rawResponseViewer.textContent).toContain('\n  "content": [\n');
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
+    expect(screen.queryByRole("dialog", { name: "模型测试结果" })).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(behaviorSection).getByRole("button", { name: "查看最近一次成功测试结果" }),
+    );
+    expect(screen.getByRole("dialog", { name: "模型测试结果" })).toBeInTheDocument();
+  });
+
+  it("keeps the test button available in behavior json mode and shows a loading state", async () => {
+    let resolveTest: ((value: unknown) => void) | null = null;
+    invokeMock.mockImplementation(async (command: string, payload?: unknown) => {
+      if (command === "get_config_workspace") {
+        return WORKSPACE_FIXTURE;
+      }
+      if (command === "preview_profile") {
+        const settings =
+          (payload as { data?: { settings?: Record<string, unknown> } } | undefined)?.data
+            ?.settings ?? {};
+        return JSON.stringify(
+          {
+            $schema: "https://json.schemastore.org/claude-code-settings.json",
+            ...settings,
+          },
+          null,
+          2,
+        );
+      }
+      if (command === "test_profile_model") {
+        return await new Promise((resolve) => {
+          resolveTest = resolve;
+        });
+      }
+      return null;
+    });
+
+    renderEditor();
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText("默认模型"), {
+        target: { value: "claude-sonnet-4-6" },
+      });
+      await Promise.resolve();
+    });
+
+    const behaviorSection = getSection("模型与行为");
+
+    fireEvent.click(within(behaviorSection).getByRole("button", { name: "JSON" }));
+
+    const testButton = within(behaviorSection).getByRole("button", { name: "测试模型" });
+    expect(testButton).toBeInTheDocument();
+    expect(testButton).not.toHaveTextContent("测试模型");
+
+    await act(async () => {
+      fireEvent.click(testButton);
+      await Promise.resolve();
+    });
+
+    expect(within(behaviorSection).getByRole("button", { name: "测试中..." })).toBeDisabled();
+
+    await act(async () => {
+      resolveTest?.({
+        ok: true,
+        responseText: "JSON 模式下测试成功。",
+        resolvedModel: "claude-sonnet-4-6",
+        durationMs: 88,
+        rawResponse: JSON.stringify({ ok: true }, null, 2),
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(within(behaviorSection).getByRole("button", { name: "测试模型" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "模型测试结果" })).toBeInTheDocument();
+    expect(screen.getByText("JSON 模式下测试成功。")).toBeInTheDocument();
+  });
+
+  it("clears stale success badge after behavior settings change and blocks testing when invalid", async () => {
+    invokeMock.mockImplementation(async (command: string, payload?: unknown) => {
+      if (command === "get_config_workspace") {
+        return WORKSPACE_FIXTURE;
+      }
+      if (command === "preview_profile") {
+        const settings =
+          (payload as { data?: { settings?: Record<string, unknown> } } | undefined)?.data
+            ?.settings ?? {};
+        return JSON.stringify(
+          {
+            $schema: "https://json.schemastore.org/claude-code-settings.json",
+            ...settings,
+          },
+          null,
+          2,
+        );
+      }
+      if (command === "test_profile_model") {
+        return {
+          ok: true,
+          responseText: "旧的测试结果",
+          resolvedModel: "claude-sonnet-4-6",
+          durationMs: 45,
+          rawResponse: JSON.stringify({ ok: true }, null, 2),
+        };
+      }
+      return null;
+    });
+
+    renderEditor();
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText("默认模型"), {
+        target: { value: "claude-sonnet-4-6" },
+      });
+      await Promise.resolve();
+    });
+
+    const behaviorSection = getSection("模型与行为");
+
+    await act(async () => {
+      fireEvent.click(within(behaviorSection).getByRole("button", { name: "测试模型" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const dialog = screen.getByRole("dialog", { name: "模型测试结果" });
+    expect(dialog).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
+    expect(
+      within(behaviorSection).getByRole("button", { name: "查看最近一次成功测试结果" }),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText("默认模型"), {
+        target: { value: "claude-opus-4-1" },
+      });
+      await Promise.resolve();
+    });
+
+    expect(
+      within(behaviorSection).queryByRole("button", { name: "查看最近一次成功测试结果" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(within(behaviorSection).getByRole("button", { name: "JSON" }));
+    fireEvent.change(within(behaviorSection).getByLabelText("config-preview-input"), {
+      target: { value: "{ invalid json" },
+    });
+
+    const testButton = within(behaviorSection).getByRole("button", { name: "测试模型" });
+    expect(testButton).toBeDisabled();
+  });
+
+  it("shows a failed dialog with expandable raw response when the upstream api returns a structured error", async () => {
+    invokeMock.mockImplementation(async (command: string, payload?: unknown) => {
+      if (command === "get_config_workspace") {
+        return WORKSPACE_FIXTURE;
+      }
+      if (command === "preview_profile") {
+        const settings =
+          (payload as { data?: { settings?: Record<string, unknown> } } | undefined)?.data
+            ?.settings ?? {};
+        return JSON.stringify(
+          {
+            $schema: "https://json.schemastore.org/claude-code-settings.json",
+            ...settings,
+          },
+          null,
+          2,
+        );
+      }
+      if (command === "test_profile_model") {
+        return {
+          ok: false,
+          responseText: "",
+          promptText:
+            "Please reply with one short sentence confirming this API test request succeeded.",
+          resolvedModel: "claude-sonnet-4-6",
+          durationMs: 67,
+          statusCode: 401,
+          errorMessage: "模型测试失败（HTTP 401）：invalid api key",
+          rawResponse: '{"error":{"type":"authentication_error","message":"invalid api key"}}',
+        };
+      }
+      return null;
+    });
+
+    renderEditor();
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText("默认模型"), {
+        target: { value: "claude-sonnet-4-6" },
+      });
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "测试模型" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const dialog = screen.getByRole("dialog", { name: "模型测试结果" });
+    expect(within(dialog).getByText("测试失败")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("模型测试失败（HTTP 401）：invalid api key"),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText("401")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "Please reply with one short sentence confirming this API test request succeeded.",
+      ),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "查看完整响应" }));
+      await Promise.resolve();
+    });
+    const rawResponseViewer = within(dialog).getByTestId("model-test-raw-response-code");
+    expect(rawResponseViewer.textContent).toContain('{\n  "error": {\n');
+    expect(rawResponseViewer.textContent).toContain('"type": "authentication_error"');
+  });
+
+  it("opens the failed dialog without a raw response toggle when invoke rejects", async () => {
+    invokeMock.mockImplementation(async (command: string, payload?: unknown) => {
+      if (command === "get_config_workspace") {
+        return WORKSPACE_FIXTURE;
+      }
+      if (command === "preview_profile") {
+        const settings =
+          (payload as { data?: { settings?: Record<string, unknown> } } | undefined)?.data
+            ?.settings ?? {};
+        return JSON.stringify(
+          {
+            $schema: "https://json.schemastore.org/claude-code-settings.json",
+            ...settings,
+          },
+          null,
+          2,
+        );
+      }
+      if (command === "test_profile_model") {
+        throw new Error("模型测试请求失败：network down");
+      }
+      return null;
+    });
+
+    renderEditor();
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText("默认模型"), {
+        target: { value: "claude-sonnet-4-6" },
+      });
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "测试模型" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const dialog = screen.getByRole("dialog", { name: "模型测试结果" });
+    expect(within(dialog).getByText("测试失败")).toBeInTheDocument();
+    expect(within(dialog).getByText("Error: 模型测试请求失败：network down")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "查看完整响应" })).not.toBeInTheDocument();
+  });
+
   it("renders language as a select list and exposes the full effort enum set", async () => {
     await act(async () => {
       renderEditor();

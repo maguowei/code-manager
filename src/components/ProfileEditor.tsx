@@ -1,8 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
-import type { ConfigProfile, SettingsPreset } from "../types";
+import type { ConfigProfile, ModelTestResult, SettingsPreset } from "../types";
 import {
   applyEnvDefaults,
   applyPresetAutofill,
@@ -18,6 +18,7 @@ import {
   setTopLevelObject,
   setTopLevelString,
 } from "./config-workspace-utils";
+import { CheckCircleIcon, TestTubeIcon } from "./Icons";
 import ProfileNameBadge from "./ProfileNameBadge";
 import {
   AUTH_ENV_KEYS,
@@ -30,6 +31,7 @@ import {
   setAttributionDisabled,
 } from "./profile-editor/editor-shared-constants";
 import { readString } from "./profile-editor/editor-utils";
+import ModelTestResultDialog from "./profile-editor/ModelTestResultDialog";
 import { readPermissionsDefaultMode } from "./profile-editor/PermissionsEditor";
 import RequiredBadge from "./profile-editor/RequiredBadge";
 import { getSandboxPresentation } from "./profile-editor/SandboxEditor";
@@ -81,6 +83,12 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
   });
   const [previewJson, setPreviewJson] = useState("{}");
   const [previewError, setPreviewError] = useState("");
+  const [isTestingModel, setIsTestingModel] = useState(false);
+  const [latestModelTestResult, setLatestModelTestResult] = useState<ModelTestResult | null>(null);
+  const [modelTestError, setModelTestError] = useState("");
+  const [isModelTestDialogOpen, setIsModelTestDialogOpen] = useState(false);
+  const [isRawResponseExpanded, setIsRawResponseExpanded] = useState(false);
+  const modelTestRunIdRef = useRef(0);
   const selectedPreset = useMemo(
     () => presets.find((preset) => preset.id === presetId) ?? null,
     [presetId, presets],
@@ -235,12 +243,36 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     [settings.sandbox, language],
   );
 
+  function clearModelTestState() {
+    modelTestRunIdRef.current += 1;
+    setLatestModelTestResult(null);
+    setModelTestError("");
+    setIsTestingModel(false);
+    setIsModelTestDialogOpen(false);
+    setIsRawResponseExpanded(false);
+  }
+
+  function closeModelTestDialog() {
+    setIsModelTestDialogOpen(false);
+    setIsRawResponseExpanded(false);
+  }
+
+  function reopenLatestSuccessfulModelTest() {
+    if (!latestModelTestResult?.ok) {
+      return;
+    }
+    setModelTestError("");
+    setIsRawResponseExpanded(false);
+    setIsModelTestDialogOpen(true);
+  }
+
   function applySettings(next: Record<string, unknown>) {
     const normalized = applyEnvDefaults(next, BEHAVIOR_ENV_DEFAULTS);
     if (JSON.stringify(normalized) === JSON.stringify(settings)) {
       return;
     }
 
+    clearModelTestState();
     setSettings(normalized);
   }
 
@@ -334,6 +366,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
   }
 
   function handlePresetChange(nextPresetId: string) {
+    clearModelTestState();
     setPresetId(nextPresetId);
     applySettings(applyPresetAutofill(settings, presets, nextPresetId || undefined));
   }
@@ -365,6 +398,46 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
       presetId: presetId || undefined,
       settings,
     });
+  }
+
+  async function handleTestModelClick() {
+    if (isTestingModel || !canTestModel) {
+      return;
+    }
+
+    const runId = modelTestRunIdRef.current + 1;
+    modelTestRunIdRef.current = runId;
+    setLatestModelTestResult(null);
+    setModelTestError("");
+    setIsModelTestDialogOpen(false);
+    setIsRawResponseExpanded(false);
+    setIsTestingModel(true);
+    try {
+      const result = await invoke<ModelTestResult>("test_profile_model", {
+        data: {
+          id: profile?.id ?? null,
+          name,
+          description,
+          presetId: presetId || null,
+          settings,
+        },
+      });
+      if (modelTestRunIdRef.current === runId) {
+        setLatestModelTestResult(result);
+        setModelTestError("");
+        setIsModelTestDialogOpen(true);
+      }
+    } catch (error) {
+      if (modelTestRunIdRef.current === runId) {
+        setLatestModelTestResult(null);
+        setModelTestError(String(error));
+        setIsModelTestDialogOpen(true);
+      }
+    } finally {
+      if (modelTestRunIdRef.current === runId) {
+        setIsTestingModel(false);
+      }
+    }
   }
 
   async function handleCopySuggestedModel(model: string) {
@@ -444,10 +517,14 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     !!pluginsJsonEditor.jsonError ||
     !!statusLineJsonEditor.jsonError ||
     sectionState.hasEditorErrors;
+  const canTestModel = !!name.trim() && !hasValidationError;
 
   const messages = {
     title: profile ? t("profiles.editor.title.edit") : t("profiles.editor.title.add"),
     save: t("profiles.editor.save"),
+    testModel: t("profiles.editor.actions.testModel"),
+    testingModel: t("profiles.editor.actions.testingModel"),
+    reopenModelTest: t("profiles.editor.modelTest.reopenSuccess"),
     name: t("profiles.editor.fields.name"),
     namePlaceholder: t("profiles.editor.placeholders.name"),
     description: t("profiles.editor.fields.description"),
@@ -478,6 +555,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     expertStructuredKeys: t("profiles.editor.hints.expertStructuredKeys"),
   };
   const topBadgeSeed = profile?.id ?? (name.trim() || "profile");
+  const hasSuccessfulModelTest = latestModelTestResult?.ok === true;
 
   return (
     <div className="editor-panel profile-editor-panel">
@@ -631,6 +709,33 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
           behaviorToggleFieldRows={behaviorToggleFieldRows}
           commonScalarFieldRows={commonScalarFieldRows}
           commonToggleFields={commonToggleFields}
+          behaviorHeaderControl={
+            <div className="profile-model-test-header-actions">
+              <button
+                type="button"
+                className={`profile-icon-btn profile-model-test-trigger${isTestingModel ? " is-testing" : ""}`}
+                aria-label={isTestingModel ? messages.testingModel : messages.testModel}
+                title={isTestingModel ? messages.testingModel : messages.testModel}
+                disabled={!canTestModel || isTestingModel}
+                onClick={() => {
+                  void handleTestModelClick();
+                }}
+              >
+                <TestTubeIcon size={16} />
+              </button>
+              {hasSuccessfulModelTest ? (
+                <button
+                  type="button"
+                  className="profile-icon-btn profile-model-test-success-trigger"
+                  aria-label={messages.reopenModelTest}
+                  title={messages.reopenModelTest}
+                  onClick={reopenLatestSuccessfulModelTest}
+                >
+                  <CheckCircleIcon size={16} />
+                </button>
+              ) : null}
+            </div>
+          }
           readBehaviorFieldState={readBehaviorFieldState}
           readSimpleFieldValue={readSimpleFieldValue}
           readToggleFieldEnabled={readToggleFieldEnabled}
@@ -649,6 +754,15 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
           marketplacesJsonEditor={marketplacesJsonEditor}
           pluginsJsonEditor={pluginsJsonEditor}
           statusLineJsonEditor={statusLineJsonEditor}
+        />
+
+        <ModelTestResultDialog
+          isOpen={isModelTestDialogOpen}
+          result={latestModelTestResult}
+          errorMessage={modelTestError}
+          rawResponseExpanded={isRawResponseExpanded}
+          onClose={closeModelTestDialog}
+          onToggleRawResponse={() => setIsRawResponseExpanded((value) => !value)}
         />
       </div>
     </div>

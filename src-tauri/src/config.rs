@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
 
@@ -13,6 +14,12 @@ const CLAUDE_SETTINGS_SCHEMA_URL: &str = "https://json.schemastore.org/claude-co
 const CONFIG_REGISTRY_SCHEMA_URL: &str =
     "https://ai-manager.app/schemas/config-registry.schema.json";
 const REGISTRY_VERSION: u32 = 1;
+const DEFAULT_ANTHROPIC_BASE_URL: &str = "https://api.anthropic.com";
+const MODEL_TEST_TIMEOUT_SECS: u64 = 30;
+const MODEL_TEST_MAX_TOKENS: u64 = 80;
+const MODEL_TEST_PROMPT_EN: &str =
+    "Please reply with one short sentence confirming this API test request succeeded.";
+const MODEL_TEST_PROMPT_ZH: &str = "请用一句简短的话确认这次 API 测试请求成功。";
 
 static CLAUDE_SETTINGS_SCHEMA: Lazy<Value> = Lazy::new(|| {
     serde_json::from_str(include_str!(
@@ -160,6 +167,36 @@ pub struct ConfigWorkspace {
     pub custom_presets: Vec<SettingsPreset>,
     pub profiles: Vec<ConfigProfile>,
     pub bindings: BindingState,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelTestResult {
+    pub ok: bool,
+    pub response_text: String,
+    pub prompt_text: String,
+    pub resolved_model: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider_model: Option<String>,
+    pub duration_ms: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_code: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_message: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub raw_response: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ModelTestRequest {
+    base_url: String,
+    auth_token: String,
+    resolved_model: String,
+    prompt_text: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -872,6 +909,191 @@ fn resolve_profile_settings(
     Ok(resolved)
 }
 
+fn trimmed_json_string(value: Option<&Value>) -> Option<String> {
+    value
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn resolve_model_test_prompt(settings: &Value) -> String {
+    let language = settings
+        .get("language")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .map(str::to_ascii_lowercase);
+
+    match language.as_deref() {
+        Some("chinese") | Some("zh") | Some("zh-cn") | Some("zh-hans") => {
+            MODEL_TEST_PROMPT_ZH.to_string()
+        }
+        _ => MODEL_TEST_PROMPT_EN.to_string(),
+    }
+}
+
+fn trimmed_env_value(settings: &Value, key: &str) -> Option<String> {
+    settings
+        .get("env")
+        .and_then(Value::as_object)
+        .and_then(|env| trimmed_json_string(env.get(key)))
+}
+
+fn normalize_model_test_base_url(base_url: &str) -> String {
+    let trimmed = base_url.trim().trim_end_matches('/');
+    let normalized = trimmed
+        .strip_suffix("/v1/messages")
+        .unwrap_or(trimmed)
+        .trim_end_matches('/');
+
+    if normalized.is_empty() {
+        DEFAULT_ANTHROPIC_BASE_URL.to_string()
+    } else {
+        normalized.to_string()
+    }
+}
+
+fn build_model_test_endpoint(base_url: &str) -> String {
+    format!("{}/v1/messages", normalize_model_test_base_url(base_url))
+}
+
+fn raw_response_from_body(body: &str) -> Option<String> {
+    if body.trim().is_empty() {
+        None
+    } else {
+        Some(body.to_string())
+    }
+}
+
+fn resolve_model_test_request(resolved_settings: &Value) -> Result<ModelTestRequest, String> {
+    let auth_token = trimmed_env_value(resolved_settings, "ANTHROPIC_AUTH_TOKEN")
+        .ok_or_else(|| "缺少 ANTHROPIC_AUTH_TOKEN，请先在认证区填写认证密钥".to_string())?;
+    let base_url = trimmed_env_value(resolved_settings, "ANTHROPIC_BASE_URL")
+        .map(|value| normalize_model_test_base_url(&value))
+        .unwrap_or_else(|| DEFAULT_ANTHROPIC_BASE_URL.to_string());
+    let resolved_model = trimmed_env_value(resolved_settings, "ANTHROPIC_MODEL")
+        .or_else(|| trimmed_json_string(resolved_settings.get("model")))
+        .ok_or_else(|| "缺少默认模型，请先在模型与行为中填写默认模型".to_string())?;
+
+    Ok(ModelTestRequest {
+        base_url,
+        auth_token,
+        resolved_model,
+        prompt_text: resolve_model_test_prompt(resolved_settings),
+    })
+}
+
+fn parse_model_test_response(
+    response: &Value,
+    prompt_text: String,
+    resolved_model: String,
+    duration_ms: u64,
+    request_id: Option<String>,
+    raw_response: String,
+) -> Result<ModelTestResult, String> {
+    let response_text = response
+        .get("content")
+        .and_then(Value::as_array)
+        .map(|content| {
+            content
+                .iter()
+                .filter(|item| item.get("type").and_then(Value::as_str) == Some("text"))
+                .filter_map(|item| trimmed_json_string(item.get("text")))
+                .collect::<Vec<_>>()
+        })
+        .filter(|items| !items.is_empty())
+        .map(|items| items.join("\n\n"))
+        .ok_or_else(|| "响应格式不支持：未找到可展示的文本内容".to_string())?;
+
+    Ok(ModelTestResult {
+        ok: true,
+        response_text,
+        prompt_text,
+        resolved_model,
+        provider_model: trimmed_json_string(response.get("model")),
+        duration_ms,
+        request_id,
+        stop_reason: trimmed_json_string(response.get("stop_reason")),
+        status_code: None,
+        error_message: None,
+        raw_response: raw_response_from_body(&raw_response),
+    })
+}
+
+fn extract_model_test_error_message(body: &str) -> Option<String> {
+    let trimmed = body.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let parsed = serde_json::from_str::<Value>(trimmed).ok()?;
+    trimmed_json_string(parsed.get("message")).or_else(|| {
+        parsed.get("error").and_then(|error| {
+            if error.is_object() {
+                trimmed_json_string(error.get("message"))
+            } else {
+                trimmed_json_string(Some(error))
+            }
+        })
+    })
+}
+
+fn parse_model_test_error(status_code: u16, body: &str) -> String {
+    if let Some(message) = extract_model_test_error_message(body) {
+        return format!("模型测试失败（HTTP {status_code}）：{message}");
+    }
+
+    let fallback = crate::utils::truncate(body.trim(), 160);
+    if fallback.is_empty() {
+        format!("模型测试失败（HTTP {status_code}）")
+    } else {
+        format!("模型测试失败（HTTP {status_code}）：{fallback}")
+    }
+}
+
+fn build_model_test_error_result(
+    prompt_text: String,
+    resolved_model: String,
+    duration_ms: u64,
+    request_id: Option<String>,
+    status_code: Option<u16>,
+    error_message: String,
+    raw_response: Option<String>,
+) -> ModelTestResult {
+    ModelTestResult {
+        ok: false,
+        response_text: String::new(),
+        prompt_text,
+        resolved_model,
+        provider_model: None,
+        duration_ms,
+        request_id,
+        stop_reason: None,
+        status_code,
+        error_message: Some(error_message),
+        raw_response,
+    }
+}
+
+fn build_model_test_failure_result(
+    status_code: u16,
+    body: &str,
+    prompt_text: String,
+    resolved_model: String,
+    duration_ms: u64,
+    request_id: Option<String>,
+) -> ModelTestResult {
+    build_model_test_error_result(
+        prompt_text,
+        resolved_model,
+        duration_ms,
+        request_id,
+        Some(status_code),
+        parse_model_test_error(status_code, body),
+        raw_response_from_body(body),
+    )
+}
+
 fn profile_settings_path() -> Result<PathBuf, String> {
     get_user_settings_path()
 }
@@ -1141,6 +1363,124 @@ pub fn preview_profile(data: ProfileInput) -> Result<String, String> {
 
     let resolved = resolve_profile_settings(&registry, &profile)?;
     serde_json::to_string_pretty(&resolved).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn test_profile_model(data: ProfileInput) -> Result<ModelTestResult, String> {
+    let input = normalize_profile_input(data)?;
+    let mut registry = load_registry()?;
+    if let Some(preset_id) = input.preset_id.as_deref() {
+        if !preset_exists(&registry, preset_id) {
+            return Err(format!("未找到 preset '{}'", preset_id));
+        }
+    }
+
+    let now = crate::utils::current_rfc3339_timestamp();
+    let profile = ConfigProfile {
+        id: input.id.unwrap_or_else(|| "__test__".to_string()),
+        name: input.name,
+        description: input.description,
+        preset_id: input.preset_id,
+        settings: input.settings,
+        created_at: now.clone(),
+        updated_at: now,
+    };
+    registry
+        .profiles
+        .retain(|existing| existing.id != profile.id);
+    registry.profiles.push(profile.clone());
+
+    let resolved = resolve_profile_settings(&registry, &profile)?;
+    let request = resolve_model_test_request(&resolved)?;
+    let endpoint = build_model_test_endpoint(&request.base_url);
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(MODEL_TEST_TIMEOUT_SECS))
+        .build()
+        .map_err(|error| format!("创建模型测试客户端失败：{error}"))?;
+    let payload = serde_json::json!({
+        "model": request.resolved_model.clone(),
+        "max_tokens": MODEL_TEST_MAX_TOKENS,
+        "messages": [
+            {
+                "role": "user",
+                "content": request.prompt_text.clone()
+            }
+        ]
+    });
+
+    let started_at = Instant::now();
+    let response = client
+        .post(endpoint)
+        .header("x-api-key", &request.auth_token)
+        .header("anthropic-version", "2023-06-01")
+        .header(reqwest::header::CONTENT_TYPE, "application/json")
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|error| format!("模型测试请求失败：{error}"))?;
+    let duration_ms = started_at.elapsed().as_millis().min(u128::from(u64::MAX)) as u64;
+    let request_id = response
+        .headers()
+        .get("request-id")
+        .or_else(|| response.headers().get("x-request-id"))
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
+    let status = response.status();
+    let body = response
+        .text()
+        .await
+        .map_err(|error| format!("读取模型测试响应失败：{error}"))?;
+    let status_code = status.as_u16();
+    let resolved_model = request.resolved_model.clone();
+    let prompt_text = request.prompt_text.clone();
+    let raw_response = raw_response_from_body(&body);
+
+    if !status.is_success() {
+        return Ok(build_model_test_failure_result(
+            status_code,
+            &body,
+            prompt_text,
+            resolved_model,
+            duration_ms,
+            request_id,
+        ));
+    }
+
+    let parsed = match serde_json::from_str::<Value>(&body) {
+        Ok(parsed) => parsed,
+        Err(error) => {
+            return Ok(build_model_test_error_result(
+                prompt_text,
+                resolved_model,
+                duration_ms,
+                request_id,
+                Some(status_code),
+                format!("解析模型测试响应失败：{error}"),
+                raw_response,
+            ))
+        }
+    };
+    match parse_model_test_response(
+        &parsed,
+        request.prompt_text,
+        request.resolved_model,
+        duration_ms,
+        request_id.clone(),
+        body.clone(),
+    ) {
+        Ok(result) => Ok(result),
+        Err(error_message) => Ok(build_model_test_error_result(
+            prompt_text,
+            resolved_model,
+            duration_ms,
+            request_id,
+            Some(status_code),
+            error_message,
+            raw_response,
+        )),
+    }
 }
 
 #[tauri::command]
@@ -1475,7 +1815,8 @@ mod tests {
             sample_profile("profile-c", None, serde_json::json!({ "model": "c" })),
         ];
 
-        let duplicated = duplicate_profile_in_registry(&mut registry, "profile-b", " 副本").unwrap();
+        let duplicated =
+            duplicate_profile_in_registry(&mut registry, "profile-b", " 副本").unwrap();
 
         let ordered_ids: Vec<&str> = registry
             .profiles
@@ -1484,7 +1825,12 @@ mod tests {
             .collect();
         assert_eq!(
             ordered_ids,
-            vec!["profile-a", "profile-b", duplicated.id.as_str(), "profile-c"]
+            vec![
+                "profile-a",
+                "profile-b",
+                duplicated.id.as_str(),
+                "profile-c"
+            ]
         );
         assert_eq!(duplicated.name, "profile-b 副本");
         assert_eq!(duplicated.description, "");
@@ -1610,6 +1956,165 @@ mod tests {
         assert_eq!(
             include_str!("../tests/fixtures/claude-settings.example.json").trim(),
             settings_json
+        );
+    }
+
+    #[test]
+    fn resolve_model_test_request_prefers_env_model_and_defaults_base_url() {
+        let request = resolve_model_test_request(&serde_json::json!({
+            "model": "fallback-model",
+            "env": {
+                "ANTHROPIC_AUTH_TOKEN": " token ",
+                "ANTHROPIC_MODEL": " claude-sonnet-4-6 "
+            }
+        }))
+        .unwrap();
+
+        assert_eq!(request.auth_token, "token");
+        assert_eq!(request.base_url, DEFAULT_ANTHROPIC_BASE_URL);
+        assert_eq!(request.resolved_model, "claude-sonnet-4-6");
+        assert_eq!(request.prompt_text, MODEL_TEST_PROMPT_EN);
+    }
+
+    #[test]
+    fn resolve_model_test_request_accepts_top_level_model_and_custom_base_url() {
+        let request = resolve_model_test_request(&serde_json::json!({
+            "model": " claude-opus-4-1 ",
+            "env": {
+                "ANTHROPIC_AUTH_TOKEN": "token",
+                "ANTHROPIC_BASE_URL": "https://openrouter.ai/api/"
+            }
+        }))
+        .unwrap();
+
+        assert_eq!(request.base_url, "https://openrouter.ai/api");
+        assert_eq!(request.resolved_model, "claude-opus-4-1");
+        assert_eq!(request.prompt_text, MODEL_TEST_PROMPT_EN);
+    }
+
+    #[test]
+    fn resolve_model_test_request_uses_chinese_prompt_when_language_is_chinese() {
+        let request = resolve_model_test_request(&serde_json::json!({
+            "language": "chinese",
+            "model": "claude-sonnet-4-6",
+            "env": {
+                "ANTHROPIC_AUTH_TOKEN": "token"
+            }
+        }))
+        .unwrap();
+
+        assert_eq!(request.prompt_text, MODEL_TEST_PROMPT_ZH);
+    }
+
+    #[test]
+    fn resolve_model_test_request_requires_auth_token() {
+        let error = resolve_model_test_request(&serde_json::json!({
+            "model": "claude-sonnet-4-6"
+        }))
+        .unwrap_err();
+
+        assert_eq!(error, "缺少 ANTHROPIC_AUTH_TOKEN，请先在认证区填写认证密钥");
+    }
+
+    #[test]
+    fn resolve_model_test_request_requires_model() {
+        let error = resolve_model_test_request(&serde_json::json!({
+            "env": {
+                "ANTHROPIC_AUTH_TOKEN": "token"
+            }
+        }))
+        .unwrap_err();
+
+        assert_eq!(error, "缺少默认模型，请先在模型与行为中填写默认模型");
+    }
+
+    #[test]
+    fn parse_model_test_response_extracts_text_and_metadata() {
+        let result = parse_model_test_response(
+            &serde_json::json!({
+                "model": "provider-model-id",
+                "stop_reason": "end_turn",
+                "content": [
+                    { "type": "text", "text": "API test succeeded." },
+                    { "type": "tool_use", "name": "noop" },
+                    { "type": "text", "text": "Everything looks good." }
+                ]
+            }),
+            MODEL_TEST_PROMPT_EN.to_string(),
+            "claude-sonnet-4-6".to_string(),
+            128,
+            Some("req_test_123".to_string()),
+            "{\"model\":\"provider-model-id\"}".to_string(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            result,
+            ModelTestResult {
+                ok: true,
+                response_text: "API test succeeded.\n\nEverything looks good.".to_string(),
+                prompt_text: MODEL_TEST_PROMPT_EN.to_string(),
+                resolved_model: "claude-sonnet-4-6".to_string(),
+                provider_model: Some("provider-model-id".to_string()),
+                duration_ms: 128,
+                request_id: Some("req_test_123".to_string()),
+                stop_reason: Some("end_turn".to_string()),
+                status_code: None,
+                error_message: None,
+                raw_response: Some("{\"model\":\"provider-model-id\"}".to_string()),
+            }
+        );
+    }
+
+    #[test]
+    fn parse_model_test_response_rejects_responses_without_text_blocks() {
+        let error = parse_model_test_response(
+            &serde_json::json!({
+                "model": "provider-model-id",
+                "content": [
+                    { "type": "tool_use", "name": "noop" }
+                ]
+            }),
+            MODEL_TEST_PROMPT_EN.to_string(),
+            "claude-sonnet-4-6".to_string(),
+            64,
+            None,
+            "{\"content\":[]}".to_string(),
+        )
+        .unwrap_err();
+
+        assert_eq!(error, "响应格式不支持：未找到可展示的文本内容");
+    }
+
+    #[test]
+    fn parse_model_test_error_prefers_upstream_error_message() {
+        let result = build_model_test_failure_result(
+            401,
+            r#"{"error":{"type":"authentication_error","message":"invalid api key"}}"#,
+            MODEL_TEST_PROMPT_ZH.to_string(),
+            "claude-sonnet-4-6".to_string(),
+            88,
+            Some("req_test_401".to_string()),
+        );
+
+        assert_eq!(
+            result,
+            ModelTestResult {
+                ok: false,
+                response_text: String::new(),
+                prompt_text: MODEL_TEST_PROMPT_ZH.to_string(),
+                resolved_model: "claude-sonnet-4-6".to_string(),
+                provider_model: None,
+                duration_ms: 88,
+                request_id: Some("req_test_401".to_string()),
+                stop_reason: None,
+                status_code: Some(401),
+                error_message: Some("模型测试失败（HTTP 401）：invalid api key".to_string()),
+                raw_response: Some(
+                    r#"{"error":{"type":"authentication_error","message":"invalid api key"}}"#
+                        .to_string()
+                ),
+            }
         );
     }
 }

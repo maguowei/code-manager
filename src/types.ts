@@ -73,6 +73,20 @@ export interface ConfigWorkspace {
   bindings: BindingState;
 }
 
+export interface ModelTestResult {
+  ok: boolean;
+  responseText: string;
+  promptText?: string;
+  resolvedModel: string;
+  providerModel?: string;
+  durationMs: number;
+  requestId?: string;
+  stopReason?: string;
+  statusCode?: number;
+  errorMessage?: string;
+  rawResponse?: string;
+}
+
 // 记忆条目
 export interface Memory {
   id: string;

@@ -28,6 +28,7 @@ interface SettingsSectionModePanelProps {
   badgeCount?: number;
   headerMeta?: ReactNode;
   headerControl?: ReactNode;
+  footer?: ReactNode;
 }
 
 function SettingsSectionModePanel({
@@ -44,6 +45,7 @@ function SettingsSectionModePanel({
   badgeCount,
   headerMeta,
   headerControl,
+  footer,
 }: SettingsSectionModePanelProps) {
   const { t } = useI18n();
   const bodyVisible = variant === "accordion" ? expanded : true;
@@ -159,6 +161,7 @@ function SettingsSectionModePanel({
           <div className="profile-accordion-content">
             <div className="profile-accordion-mode-row">{renderModeSwitch()}</div>
             {renderSectionContent()}
+            {footer ? <div className="profile-section-footer">{footer}</div> : null}
           </div>
         ) : null}
 
@@ -174,10 +177,14 @@ function SettingsSectionModePanel({
           <h3>{title}</h3>
         </div>
 
-        <div className="profile-subsection-actions">{renderModeSwitch()}</div>
+        <div className="profile-subsection-actions">
+          {headerControl}
+          {renderModeSwitch()}
+        </div>
       </div>
 
       {renderSectionContent()}
+      {footer ? <div className="profile-section-footer">{footer}</div> : null}
 
       {error ? <span className="field-error">{error}</span> : null}
     </section>

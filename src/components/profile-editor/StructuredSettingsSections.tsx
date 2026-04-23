@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useI18n } from "../../i18n";
 import BehaviorFieldHeader from "./BehaviorFieldHeader";
 import DocumentEditorSection from "./DocumentEditorSection";
@@ -87,6 +88,8 @@ interface StructuredSettingsSectionsProps {
   marketplacesJsonEditor: SectionJsonEditorState;
   pluginsJsonEditor: SectionJsonEditorState;
   statusLineJsonEditor: SectionJsonEditorState;
+  behaviorHeaderControl?: ReactNode;
+  behaviorFooter?: ReactNode;
 }
 
 function StructuredSettingsSections({
@@ -124,6 +127,8 @@ function StructuredSettingsSections({
   marketplacesJsonEditor,
   pluginsJsonEditor,
   statusLineJsonEditor,
+  behaviorHeaderControl,
+  behaviorFooter,
 }: StructuredSettingsSectionsProps) {
   const { language, t } = useI18n();
   const isProfileScope = scope === "profiles";
@@ -265,6 +270,8 @@ function StructuredSettingsSections({
         jsonEditor={behaviorJsonEditor}
         jsonHint={messages.behaviorJsonHint}
         error={behaviorJsonEditor.jsonError}
+        headerControl={behaviorHeaderControl}
+        footer={behaviorFooter}
       />
 
       <SettingsSectionModePanel

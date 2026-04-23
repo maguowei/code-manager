@@ -99,3 +99,42 @@ export function PlusIcon({ size = 18, className }: IconProps) {
     </svg>
   );
 }
+
+/** 模型测试图标（试管） */
+export function TestTubeIcon({ size = 18, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M9 3h6" />
+      <path d="M10 3v7.5l-4.4 7.6A2 2 0 0 0 7.3 21h9.4a2 2 0 0 0 1.7-2.9L14 10.5V3" />
+      <path d="M8.5 14h7" />
+    </svg>
+  );
+}
+
+/** 成功通过图标（勾选圆） */
+export function CheckCircleIcon({ size = 18, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className={className}
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8.5 12 2.5 2.5 4.5-5" />
+    </svg>
+  );
+}
