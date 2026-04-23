@@ -35,6 +35,48 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
     return getEnabledPluginsSummary(preset.settingsPatch.enabledPlugins);
   }
 
+  function presetModelSuggestions(preset: SettingsPreset) {
+    return preset.modelSuggestions.map((model) => model.trim()).filter(Boolean);
+  }
+
+  function openPresetDocs(docUrl?: string) {
+    if (!docUrl) {
+      return;
+    }
+    void openUrl(docUrl);
+  }
+
+  function renderDocLink(docUrl?: string) {
+    if (!docUrl) {
+      return null;
+    }
+
+    return (
+      <button type="button" className="preset-card-doc-link" onClick={() => openPresetDocs(docUrl)}>
+        {t("presets.actions.openDocs")}
+      </button>
+    );
+  }
+
+  function renderModelSection(modelSuggestions: string[]) {
+    return (
+      <div className="preset-model-section">
+        <span className="preset-model-label">{t("presets.editor.fields.modelSuggestions")}</span>
+        <div className="preset-chip-list">
+          {modelSuggestions.length > 0 ? (
+            modelSuggestions.map((model) => (
+              <span key={model} className="preset-chip">
+                {model}
+              </span>
+            ))
+          ) : (
+            <span className="preset-chip preset-chip-empty">—</span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   async function handleSave(data: {
     id?: string;
     name: string;
@@ -86,33 +128,28 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
           </div>
 
           <div className="preset-list">
-            {workspace.builtinPresets.map((preset) => (
-              <article key={preset.id} className="preset-card builtin">
-                <div className="preset-card-head">
-                  <div>
-                    <h3>{presetDisplayName(preset, language)}</h3>
-                    {preset.description && <p>{preset.description}</p>}
+            {workspace.builtinPresets.map((preset) => {
+              const modelSuggestions = presetModelSuggestions(preset);
+
+              return (
+                <article key={preset.id} className="preset-card builtin">
+                  <div className="preset-card-head">
+                    <div className="preset-card-title-block">
+                      <h3>{presetDisplayName(preset, language)}</h3>
+                    </div>
+                    <span className="preset-source-badge">{t("presets.builtin.badge")}</span>
                   </div>
-                  <span className="preset-source-badge">{t("presets.builtin.badge")}</span>
-                </div>
-                <div className="preset-card-meta">
-                  <div>{preset.id}</div>
-                  <div>{preset.modelSuggestions.join(", ") || "—"}</div>
-                </div>
-                <div className="preset-card-actions">
-                  {preset.docUrl && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void openUrl(preset.docUrl as string);
-                      }}
-                    >
-                      {t("presets.actions.openDocs")}
-                    </button>
-                  )}
-                </div>
-              </article>
-            ))}
+
+                  <div className="preset-card-body">
+                    <div className="preset-card-meta-row">
+                      <div className="preset-card-id">{preset.id}</div>
+                      {renderDocLink(preset.docUrl)}
+                    </div>
+                    {renderModelSection(modelSuggestions)}
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </div>
 
@@ -141,66 +178,78 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
             </div>
           ) : (
             <div className="preset-list">
-              {workspace.customPresets.map((preset) => (
-                <article key={preset.id} className="preset-card">
-                  <div className="preset-card-head">
-                    <div>
-                      <h3>{presetDisplayName(preset, language)}</h3>
-                      {preset.description && <p>{preset.description}</p>}
-                    </div>
-                    <span className="preset-source-badge custom">{t("presets.custom.badge")}</span>
-                  </div>
+              {workspace.customPresets.map((preset) => {
+                const basePresetName = presetNameById(
+                  allPresets,
+                  preset.basePresetId,
+                  language,
+                  t("profileEditor.preset.noPreset"),
+                );
+                const modelSuggestions = presetModelSuggestions(preset);
+                const pluginsSummary = presetPluginsSummary(preset);
 
-                  <div className="preset-card-meta">
-                    <div>{preset.id}</div>
-                    <div>
-                      {presetNameById(
-                        allPresets,
-                        preset.basePresetId,
-                        language,
-                        t("profileEditor.preset.noPreset"),
-                      )}
-                    </div>
-                    <div>{preset.modelSuggestions.join(", ") || "—"}</div>
-                    {presetPluginsSummary(preset).totalCount > 0 ? (
-                      <div>
-                        {t("common.pluginsEnabledSummaryLabel")}{" "}
-                        {presetPluginsSummary(preset).enabledCount}/
-                        {presetPluginsSummary(preset).totalCount}
+                return (
+                  <article key={preset.id} className="preset-card">
+                    <div className="preset-card-head">
+                      <div className="preset-card-title-block">
+                        <h3>{presetDisplayName(preset, language)}</h3>
                       </div>
-                    ) : null}
-                  </div>
+                      <span className="preset-source-badge custom">
+                        {t("presets.custom.badge")}
+                      </span>
+                    </div>
 
-                  <div className="preset-card-actions">
-                    {preset.docUrl && (
+                    <div className="preset-card-body">
+                      <div className="preset-card-meta-row">
+                        <div className="preset-card-id">{preset.id}</div>
+                        {renderDocLink(preset.docUrl)}
+                      </div>
+
+                      <div className="preset-card-summary">
+                        <div className="preset-summary-block">
+                          <span className="preset-summary-label">
+                            {t("presets.editor.fields.basePreset")}
+                          </span>
+                          <div className="preset-summary-value">{basePresetName}</div>
+                        </div>
+
+                        {pluginsSummary.totalCount > 0 ? (
+                          <div className="preset-summary-block">
+                            <span className="preset-summary-label">
+                              {t("common.pluginsEnabledSummaryLabel")}
+                            </span>
+                            <div className="preset-summary-value">
+                              {pluginsSummary.enabledCount}/{pluginsSummary.totalCount}
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {renderModelSection(modelSuggestions)}
+                    </div>
+
+                    <div className="preset-card-actions">
                       <button
                         type="button"
+                        className="preset-card-action primary"
                         onClick={() => {
-                          void openUrl(preset.docUrl as string);
+                          setEditingPreset(preset);
+                          setIsDrawerOpen(true);
                         }}
                       >
-                        {t("presets.actions.openDocs")}
+                        {t("presets.actions.edit")}
                       </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingPreset(preset);
-                        setIsDrawerOpen(true);
-                      }}
-                    >
-                      {t("presets.actions.edit")}
-                    </button>
-                    <button
-                      type="button"
-                      className="danger"
-                      onClick={() => setPendingDeleteId(preset.id)}
-                    >
-                      {t("presets.actions.delete")}
-                    </button>
-                  </div>
-                </article>
-              ))}
+                      <button
+                        type="button"
+                        className="preset-card-action danger"
+                        onClick={() => setPendingDeleteId(preset.id)}
+                      >
+                        {t("presets.actions.delete")}
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           )}
         </div>

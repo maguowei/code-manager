@@ -36,6 +36,7 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
         en: "OpenRouter",
       },
       description: "OpenRouter preset",
+      docUrl: "https://docs.example.com/openrouter",
       modelSuggestions: ["claude-sonnet-4-6"],
       settingsPatch: {},
       source: "builtin",
@@ -76,7 +77,45 @@ describe("PresetsPage", () => {
     expect(screen.getByRole("button", { name: /Add Preset/ })).toBeInTheDocument();
   });
 
-  it("shows plugin summaries on custom preset cards only", () => {
+  it("renders builtin cards with docs as an inline helper link instead of a standalone action", () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "en",
+        theme: "dark",
+      }),
+    );
+
+    renderPage();
+
+    const builtinCard = screen
+      .getByRole("heading", { name: "OpenRouter", level: 3 })
+      .closest(".preset-card") as HTMLElement | null;
+    expect(builtinCard).not.toBeNull();
+    if (!builtinCard) {
+      return;
+    }
+
+    expect(within(builtinCard).queryByText("OpenRouter preset")).not.toBeInTheDocument();
+    expect(within(builtinCard).getByText("builtin:openrouter")).toBeInTheDocument();
+    expect(within(builtinCard).getByText("Suggested Models")).toBeInTheDocument();
+    expect(within(builtinCard).getByText("claude-sonnet-4-6")).toBeInTheDocument();
+    expect(
+      within(builtinCard).queryByText("Suggested Models")?.closest(".preset-summary-block"),
+    ).toBeNull();
+    expect(within(builtinCard).queryByRole("button", { name: "Open Docs" })).toBeInTheDocument();
+    expect(within(builtinCard).queryByRole("button", { name: "Open Docs" })).toHaveClass(
+      "preset-card-doc-link",
+    );
+    expect(within(builtinCard).queryByRole("button", { name: "Open Docs" })).not.toHaveClass(
+      "preset-card-action",
+    );
+    expect(builtinCard.querySelector(".preset-card-actions")).toBeNull();
+    expect(within(builtinCard).queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    expect(within(builtinCard).queryByText("Enabled 1/2")).not.toBeInTheDocument();
+  });
+
+  it("shows custom-only summaries and keeps docs outside the primary action row", () => {
     localStorage.setItem(
       SETTINGS_STORAGE_KEY,
       JSON.stringify({
@@ -100,6 +139,7 @@ describe("PresetsPage", () => {
                 },
                 description: "Team default preset",
                 basePresetId: "builtin:openrouter",
+                docUrl: "https://docs.example.com/team-plan",
                 modelSuggestions: ["claude-sonnet-4-6"],
                 settingsPatch: {
                   enabledPlugins: {
@@ -122,7 +162,26 @@ describe("PresetsPage", () => {
       return;
     }
 
-    expect(within(customCard).getByText("Enabled 1/2")).toBeInTheDocument();
+    expect(within(customCard).queryByText("Team default preset")).not.toBeInTheDocument();
+    expect(within(customCard).getByText("Base Preset")).toBeInTheDocument();
+    expect(within(customCard).getByText("OpenRouter")).toBeInTheDocument();
+    expect(within(customCard).getByText("Suggested Models")).toBeInTheDocument();
+    expect(
+      within(customCard).queryByText("Suggested Models")?.closest(".preset-summary-block"),
+    ).toBeNull();
+    expect(within(customCard).getByText("Enabled")).toBeInTheDocument();
+    expect(within(customCard).getByText("1/2")).toBeInTheDocument();
+    const customActionButtons = Array.from(
+      customCard.querySelectorAll(".preset-card-actions button"),
+    ).map((button) => button.textContent);
+    expect(customActionButtons).toEqual(["Edit", "Delete"]);
+    expect(within(customCard).queryByRole("button", { name: "Open Docs" })).toBeInTheDocument();
+    expect(within(customCard).queryByRole("button", { name: "Open Docs" })).toHaveClass(
+      "preset-card-doc-link",
+    );
+    expect(within(customCard).queryByRole("button", { name: "Open Docs" })).not.toHaveClass(
+      "preset-card-action",
+    );
 
     const builtinCard = screen
       .getByRole("heading", { name: "OpenRouter", level: 3 })
