@@ -5,11 +5,11 @@
     "localizedName": { "zh": "Anthropic 官方", "en": "Anthropic" },
     "slug": "anthropic",
     "baseUrl": "",
-    "docUrl": "https://docs.anthropic.com",
+    "docUrl": "https://code.claude.com/docs/",
     "models": [
-      { "id": "claude-opus-4-6", "name": "Claude Opus 4.6", "category": "opus" },
-      { "id": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6", "category": "sonnet" },
-      { "id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5", "category": "haiku" }
+      { "id": "opus", "name": "Claude Opus", "category": "opus" },
+      { "id": "sonnet", "name": "Claude Sonnet", "category": "sonnet" },
+      { "id": "haiku", "name": "Claude Haiku", "category": "haiku" }
     ]
   },
   {
@@ -26,18 +26,18 @@
   {
     "id": "00000000-0000-0000-0000-000000000003",
     "name": "Kimi Code Plan",
-    "localizedName": { "zh": "Kimi 编码方案", "en": "Kimi Code Plan" },
+    "localizedName": { "zh": "Kimi Code Plan", "en": "Kimi Code Plan" },
     "slug": "kimi",
     "baseUrl": "https://api.kimi.com/coding/",
     "docUrl": "https://www.kimi.com/code/docs/",
     "models": [
-      { "id": "kimi-k2.5", "name": "Kimi K2.5", "category": "sonnet" }
+      { "id": "kimi-k2.6", "name": "Kimi K2.6", "category": "sonnet" }
     ]
   },
   {
     "id": "00000000-0000-0000-0000-000000000004",
     "name": "MiniMax Token Plan",
-    "localizedName": { "zh": "MiniMax Token 方案", "en": "MiniMax Token Plan" },
+    "localizedName": { "zh": "MiniMax Token Plan", "en": "MiniMax Token Plan" },
     "slug": "minimax",
     "baseUrl": "https://api.minimaxi.com/anthropic",
     "docUrl": "https://platform.minimaxi.com/docs/guides/pricing-token-plan",
@@ -48,23 +48,24 @@
   {
     "id": "00000000-0000-0000-0000-000000000005",
     "name": "Xiaomi MiMo Token Plan",
-    "localizedName": { "zh": "小米 MiMo Token 方案", "en": "Xiaomi MiMo Token Plan" },
+    "localizedName": { "zh": "小米 MiMo Token Plan", "en": "Xiaomi MiMo Token Plan" },
     "slug": "xiaomi-mimo",
     "baseUrl": "https://token-plan-cn.xiaomimimo.com/anthropic",
     "docUrl": "https://platform.xiaomimimo.com/#/docs/welcome",
     "models": [
-      { "id": "mimo-v2-pro", "name": "MiMo V2 Pro", "category": "sonnet" }
+      { "id": "mimo-v2.5-pro", "name": "MiMo-V2.5-Pro", "category": "sonnet" }
     ]
   },
   {
     "id": "00000000-0000-0000-0000-000000000006",
     "name": "OpenRouter",
-    "localizedName": { "zh": "开放路由", "en": "OpenRouter" },
+    "localizedName": { "zh": "OpenRouter", "en": "OpenRouter" },
     "slug": "openrouter",
     "baseUrl": "https://openrouter.ai/api",
     "docUrl": "https://openrouter.ai/docs/guides/coding-agents/claude-code-integration",
     "models": [
-      { "id": "qwen/qwen3.6-plus:free", "name": "Qwen3.6 Plus (free)", "category": "sonnet" }
+      { "id": "minimax/minimax-m2.5:free", "name": "MiniMax M2.5 (free)", "category": "sonnet" },
+      { "id": "google/gemma-4-31b-it:free", "name": "Gemma 4 31B (free)", "category": "haiku" }
     ]
   },
   {
@@ -76,19 +77,20 @@
     "docUrl": "https://www.volcengine.com/docs/82379/1925114",
     "models": [
       { "id": "doubao-seed-2.0-pro", "name": "豆包 Seed 2.0 Pro", "category": "sonnet" },
-      { "id": "kimi-k2.5", "name": "Kimi K2.5", "category": "sonnet" },
-      { "id": "minimax-m2.5", "name": "MiniMax M2.5", "category": "sonnet" }
+      { "id": "kimi-k2.6", "name": "Kimi K2.6", "category": "sonnet" },
+      { "id": "glm-5.1", "name": "GLM-5.1", "category": "sonnet" },
+      { "id": "minimax-m2.7", "name": "MiniMax M2.7", "category": "sonnet" }
     ]
   },
   {
     "id": "00000000-0000-0000-0000-000000000008",
     "name": "阿里云百炼 Coding Plan",
-    "localizedName": { "zh": "阿里云百炼 Coding Plan", "en": "DashScope Coding Plan" },
+    "localizedName": { "zh": "阿里云百炼 Coding Plan", "en": "阿里云百炼 Coding Plan" },
     "slug": "dashscope",
     "baseUrl": "https://coding.dashscope.aliyuncs.com/apps/anthropic",
     "docUrl": "https://help.aliyun.com/zh/model-studio/coding-plan",
     "models": [
-      { "id": "qwen3.5-plus", "name": "Qwen 3.5 Plus", "category": "sonnet" },
+      { "id": "qwen3.6-plus", "name": "Qwen 3.6 Plus", "category": "sonnet" },
       { "id": "glm-5", "name": "GLM-5", "category": "sonnet" },
       { "id": "kimi-k2.5", "name": "Kimi K2.5", "category": "sonnet" },
       { "id": "MiniMax-M2.5", "name": "MiniMax M2.5", "category": "sonnet" }
@@ -102,18 +104,19 @@
     "baseUrl": "https://api-inference.modelscope.cn",
     "docUrl": "https://modelscope.cn/docs/model-service/API-Inference/intro",
     "models": [
-      { "id": "ZhipuAI/GLM-5", "name": "ZhipuAI/GLM-5", "category": "sonnet" }
+      { "id": "ZhipuAI/GLM-5.1", "name": "ZhipuAI/GLM-5.1", "category": "sonnet" },
+      { "id": "MiniMax/MiniMax-M2.7", "name": "MiniMax/MiniMax-M2.7", "category": "sonnet" }
     ]
   },
   {
     "id": "00000000-0000-0000-0000-000000000010",
     "name": "万界方舟",
-    "localizedName": { "zh": "万界方舟", "en": "Wanjie Ark" },
+    "localizedName": { "zh": "万界方舟", "en": "万界方舟" },
     "slug": "wanjie",
     "baseUrl": "https://maas-openapi.wanjiedata.com/api/anthropic",
     "docUrl": "https://docs.wjark.com/maas/scenarios/Development/Claudecode.html",
     "models": [
-      { "id": "claude-opus-4-6", "name": "Claude Opus 4.6", "category": "opus" },
+      { "id": "claude-opus-4-7", "name": "Claude Opus 4.7", "category": "opus" },
       { "id": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6", "category": "sonnet" },
       { "id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5", "category": "haiku" }
     ]
@@ -124,11 +127,11 @@
     "localizedName": { "zh": "Ollama", "en": "Ollama" },
     "slug": "ollama",
     "baseUrl": "http://localhost:11434",
-    "docUrl": "https://ollama.com/blog/claude-code",
+    "docUrl": "https://docs.ollama.com/integrations/claude-code",
     "models": [
+      { "id": "kimi-k2.6:cloud", "name": "Kimi K2.6", "category": "sonnet" },
       { "id": "glm-5.1:cloud", "name": "GLM-5.1", "category": "sonnet" },
-      { "id": "minimax-m2.7:cloud", "name": "MiniMax M2.7", "category": "sonnet" },
-      { "id": "kimi-k2.5:cloud", "name": "Kimi K2.5", "category": "sonnet" }
+      { "id": "minimax-m2.7:cloud", "name": "MiniMax M2.7", "category": "sonnet" }
     ]
   }
 ]
