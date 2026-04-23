@@ -32,6 +32,7 @@ import { readString } from "./profile-editor/editor-utils";
 import { readPermissionsDefaultMode } from "./profile-editor/PermissionsEditor";
 import RequiredBadge from "./profile-editor/RequiredBadge";
 import { getSandboxPresentation } from "./profile-editor/SandboxEditor";
+import SensitiveTextInput from "./profile-editor/SensitiveTextInput";
 import StructuredSettingsSections from "./profile-editor/StructuredSettingsSections";
 import {
   BEHAVIOR_ENV_SETTINGS_KEYS,
@@ -458,6 +459,8 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
     basePreset: t("presets.editor.fields.basePreset"),
     authToken: t("presets.editor.fields.authToken"),
     authTokenEnv: t("presets.editor.fields.authTokenEnv"),
+    showAuthToken: t("common.showToken"),
+    hideAuthToken: t("common.hideToken"),
     baseUrl: t("presets.editor.fields.baseUrl"),
     baseUrlEnv: t("presets.editor.fields.baseUrlEnv"),
     modelSuggestions: t("presets.editor.fields.modelSuggestions"),
@@ -604,6 +607,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
             </div>
             <input
               id="preset-base-url"
+              aria-label={messages.baseUrlEnv}
               value={readEnvString(settingsPatch, "ANTHROPIC_BASE_URL")}
               placeholder="https://api.anthropic.com"
               onChange={(event) =>
@@ -617,12 +621,15 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
               <label htmlFor="preset-auth-token">{messages.authToken}</label>
               <span className="field-label-env">{messages.authTokenEnv}</span>
             </div>
-            <input
+            <SensitiveTextInput
               id="preset-auth-token"
+              ariaLabel={messages.authTokenEnv}
               value={readEnvString(settingsPatch, "ANTHROPIC_AUTH_TOKEN")}
               placeholder="sk-ant-..."
-              onChange={(event) =>
-                applyPatch(setEnvString(settingsPatch, "ANTHROPIC_AUTH_TOKEN", event.target.value))
+              showLabel={messages.showAuthToken}
+              hideLabel={messages.hideAuthToken}
+              onChange={(value) =>
+                applyPatch(setEnvString(settingsPatch, "ANTHROPIC_AUTH_TOKEN", value))
               }
             />
           </div>

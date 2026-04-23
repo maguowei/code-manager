@@ -2677,6 +2677,7 @@ describe("ProfileEditor", () => {
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("");
     expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
     expect(screen.getByLabelText("ANTHROPIC_AUTH_TOKEN")).toHaveValue("token");
+    expect(screen.getByLabelText("ANTHROPIC_AUTH_TOKEN")).toHaveAttribute("type", "password");
   });
 
   it("renders authentication controls in a dedicated section and keeps hidden env keys in preview", async () => {
@@ -2693,20 +2694,33 @@ describe("ProfileEditor", () => {
     }
 
     expect(within(authSection).getByLabelText("预设")).toBeInTheDocument();
-    expect(within(authSection).getByLabelText("ANTHROPIC_AUTH_TOKEN")).toHaveValue("token");
+    const authTokenInput = within(authSection).getByLabelText("ANTHROPIC_AUTH_TOKEN");
+    expect(authTokenInput).toHaveValue("token");
+    expect(authTokenInput).toHaveAttribute("type", "password");
     expect(within(authSection).getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("");
     expect(
-      Array.from(authSection.querySelectorAll("label"), (label) =>
+      Array.from(authSection.querySelectorAll(".field-label-env"), (label) =>
         label.textContent?.trim(),
       ).filter(
         (label): label is string =>
-          label === "预设" || label === "ANTHROPIC_BASE_URL" || label === "ANTHROPIC_AUTH_TOKEN",
+          label === "ANTHROPIC_BASE_URL" || label === "ANTHROPIC_AUTH_TOKEN",
       ),
-    ).toEqual(["预设", "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN"]);
+    ).toEqual(["ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN"]);
     expect(within(envSection).queryByDisplayValue("ANTHROPIC_AUTH_TOKEN")).not.toBeInTheDocument();
     expect(within(envSection).queryByDisplayValue("ANTHROPIC_BASE_URL")).not.toBeInTheDocument();
 
-    fireEvent.change(within(authSection).getByLabelText("ANTHROPIC_AUTH_TOKEN"), {
+    await act(async () => {
+      fireEvent.click(within(authSection).getByRole("button", { name: "显示密钥" }));
+      await Promise.resolve();
+    });
+    expect(authTokenInput).toHaveAttribute("type", "text");
+    await act(async () => {
+      fireEvent.click(within(authSection).getByRole("button", { name: "隐藏密钥" }));
+      await Promise.resolve();
+    });
+    expect(authTokenInput).toHaveAttribute("type", "password");
+
+    fireEvent.change(authTokenInput, {
       target: { value: "auth-token" },
     });
     fireEvent.change(within(authSection).getByLabelText("ANTHROPIC_BASE_URL"), {

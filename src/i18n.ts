@@ -30,6 +30,8 @@ const translations = {
     "common.previewMode": "预览",
     "common.editJsonMode": "编辑 JSON",
     "common.formatJson": "格式化 JSON",
+    "common.showToken": "显示密钥",
+    "common.hideToken": "隐藏密钥",
     "common.sectionJsonHint": "在这里直接编辑当前区块对象的 JSON。",
     "common.sectionJsonDraftPending": "当前草稿未生效，仍使用上一次合法 JSON。",
     "common.pluginsSummaryNone": "未配置插件或市场",
@@ -673,6 +675,8 @@ const translations = {
     "common.previewMode": "Preview",
     "common.editJsonMode": "Edit JSON",
     "common.formatJson": "Format JSON",
+    "common.showToken": "Show token",
+    "common.hideToken": "Hide token",
     "common.sectionJsonHint": "Edit the current section object JSON directly here.",
     "common.sectionJsonDraftPending":
       "The current draft is not applied yet. The last valid JSON is still in effect.",

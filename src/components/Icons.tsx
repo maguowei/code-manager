@@ -138,3 +138,43 @@ export function CheckCircleIcon({ size = 18, className }: IconProps) {
     </svg>
   );
 }
+
+/** 眼睛图标（显示敏感值） */
+export function EyeIcon({ size = 18, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+/** 划线眼睛图标（隐藏敏感值） */
+export function EyeOffIcon({ size = 18, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M3 3l18 18" />
+      <path d="M10.6 10.6A3 3 0 0 0 9 12a3 3 0 0 0 4.4 2.6" />
+      <path d="M9.9 5.2A10.8 10.8 0 0 1 12 5c6.5 0 10 7 10 7a17.2 17.2 0 0 1-3.1 4.2" />
+      <path d="M6.7 6.8C4.2 8.5 2.6 11 2 12c0 0 3.5 7 10 7 1.8 0 3.4-.5 4.8-1.2" />
+    </svg>
+  );
+}

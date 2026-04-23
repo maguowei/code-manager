@@ -292,6 +292,23 @@
   line-height: 1.5;
 }
 
+.profile-sensitive-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.profile-sensitive-input input {
+  padding-right: 48px;
+}
+
+.profile-sensitive-input-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+}
+
 .profile-secondary-btn,
 .profile-icon-btn,
 .profile-chip,
