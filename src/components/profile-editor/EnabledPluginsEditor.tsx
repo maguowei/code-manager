@@ -19,6 +19,8 @@ interface PluginListItem extends PluginDraft {
   isDraft?: boolean;
 }
 
+type PluginStatusFilter = "all" | "enabled" | "disabled";
+
 function splitPluginEntries(value: unknown): {
   sourceEntries: Record<string, unknown>;
   booleanEntries: Record<string, boolean>;
@@ -132,10 +134,13 @@ function EnabledPluginsEditor({
   const [interactionError, setInteractionError] = useState("");
   const [loadingOfficialPlugins, setLoadingOfficialPlugins] = useState(false);
   const [pendingDeletePlugin, setPendingDeletePlugin] = useState<PluginDraft | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<PluginStatusFilter>("all");
 
   const sectionPendingMessage = t("profileEditor.plugins.errorPendingEdit");
   const switchBlockedMessage = t("profileEditor.plugins.errorPendingEdit");
   const emptyHint = t("profileEditor.plugins.emptyHint");
+  const filteredEmptyHint = t("profileEditor.plugins.filteredEmptyHint");
   const draftRowLabel = t("profileEditor.plugins.newItem");
   const draftBadgeText = t("profileEditor.common.draft");
   const deleteDialogTitle = t("profileEditor.plugins.deleteDialogTitle");
@@ -143,6 +148,9 @@ function EnabledPluginsEditor({
   const deleteDialogCancelText = t("profileEditor.common.cancel");
   const saveDraftAriaLabel = t("profileEditor.plugins.saveAriaLabel");
   const cancelEditAriaLabel = t("profileEditor.plugins.cancelEditAriaLabel");
+  const searchLabel = t("profileEditor.plugins.searchLabel");
+  const searchPlaceholder = t("profileEditor.plugins.searchPlaceholder");
+  const statusFilterLabel = t("profileEditor.plugins.statusFilterLabel");
 
   const currentError = useMemo(() => {
     if (draftError) {
@@ -179,9 +187,20 @@ function EnabledPluginsEditor({
     draftInputRef.current?.focus();
   }, [draft]);
 
+  const filteredPlugins = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    return plugins.filter((plugin) => {
+      const matchesQuery =
+        normalizedQuery.length === 0 || plugin.pluginId.toLowerCase().includes(normalizedQuery);
+      const matchesStatus =
+        statusFilter === "all" || (statusFilter === "enabled" ? plugin.enabled : !plugin.enabled);
+      return matchesQuery && matchesStatus;
+    });
+  }, [plugins, searchQuery, statusFilter]);
+
   const visiblePlugins = useMemo<PluginListItem[]>(
-    () => (draft ? [...plugins, { ...draft, isDraft: true }] : plugins),
-    [draft, plugins],
+    () => (draft ? [...filteredPlugins, { ...draft, isDraft: true }] : filteredPlugins),
+    [draft, filteredPlugins],
   );
 
   function resetDraft(nextDraft: PluginDraft | null) {
@@ -290,6 +309,9 @@ function EnabledPluginsEditor({
 
   const rowStatusOnText = t("profileEditor.plugins.statusEnabled");
   const rowStatusOffText = t("profileEditor.plugins.statusNotEnabled");
+  const showFilters = plugins.length > 0 || draft !== null;
+  const showEmptyState = plugins.length === 0 && !draft;
+  const showFilteredEmptyState = plugins.length > 0 && filteredPlugins.length === 0 && !draft;
 
   return (
     <div className="profile-subsection">
@@ -299,8 +321,33 @@ function EnabledPluginsEditor({
 
       <div className="profile-plugin-editor">
         <div className="profile-plugin-list-shell">
-          {plugins.length === 0 && !draft ? (
+          {showFilters ? (
+            <div className="profile-plugin-filters">
+              <input
+                type="text"
+                className="profile-plugin-filter-input"
+                value={searchQuery}
+                aria-label={searchLabel}
+                placeholder={searchPlaceholder}
+                onChange={(event) => setSearchQuery(event.target.value)}
+              />
+              <select
+                className="profile-plugin-filter-select"
+                value={statusFilter}
+                aria-label={statusFilterLabel}
+                onChange={(event) => setStatusFilter(event.target.value as PluginStatusFilter)}
+              >
+                <option value="all">{t("profileEditor.plugins.statusFilterAll")}</option>
+                <option value="enabled">{t("profileEditor.plugins.statusFilterEnabled")}</option>
+                <option value="disabled">{t("profileEditor.plugins.statusFilterDisabled")}</option>
+              </select>
+            </div>
+          ) : null}
+
+          {showEmptyState ? (
             <div className="profile-empty-state profile-plugin-empty-list">{emptyHint}</div>
+          ) : showFilteredEmptyState ? (
+            <div className="profile-empty-state profile-plugin-empty-list">{filteredEmptyHint}</div>
           ) : (
             <div className="profile-plugin-list">
               <div className="profile-plugin-list-header" aria-hidden="true">

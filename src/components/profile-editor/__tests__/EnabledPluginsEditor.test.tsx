@@ -79,6 +79,113 @@ describe("EnabledPluginsEditor", () => {
         name: "删除插件 formatter@anthropic-tools",
       }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "搜索插件 ID" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "状态筛选" })).toHaveValue("all");
+    expect(screen.getByRole("button", { name: "新增插件" })).toBeInTheDocument();
+  });
+
+  it("filters plugins by plugin id with case-insensitive matching", () => {
+    renderEditor({
+      showTitle: false,
+      value: {
+        "formatter@anthropic-tools": true,
+        "reviewer@anthropic-tools": false,
+      },
+    });
+
+    fireEvent.change(screen.getByRole("textbox", { name: "搜索插件 ID" }), {
+      target: { value: "FORMATTER" },
+    });
+
+    expect(screen.getByText("formatter@anthropic-tools")).toBeInTheDocument();
+    expect(screen.queryByText("reviewer@anthropic-tools")).not.toBeInTheDocument();
+    expect(screen.getByText("1")).toBeInTheDocument();
+    expect(screen.queryByText("2")).not.toBeInTheDocument();
+  });
+
+  it("combines keyword and status filters", () => {
+    renderEditor({
+      showTitle: false,
+      value: {
+        "formatter@anthropic-tools": true,
+        "formatter-reviewer@anthropic-tools": false,
+        "writer@anthropic-tools": false,
+      },
+    });
+
+    fireEvent.change(screen.getByRole("textbox", { name: "搜索插件 ID" }), {
+      target: { value: "formatter" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "状态筛选" }), {
+      target: { value: "disabled" },
+    });
+
+    expect(screen.queryByText("formatter@anthropic-tools")).not.toBeInTheDocument();
+    expect(screen.getByText("formatter-reviewer@anthropic-tools")).toBeInTheDocument();
+    expect(screen.queryByText("writer@anthropic-tools")).not.toBeInTheDocument();
+  });
+
+  it("updates the visible list immediately when toggling status inside a filtered view", () => {
+    const { onChange } = renderEditor({
+      showTitle: false,
+      value: {
+        "formatter@anthropic-tools": true,
+        "reviewer@anthropic-tools": false,
+      },
+    });
+
+    fireEvent.change(screen.getByRole("combobox", { name: "状态筛选" }), {
+      target: { value: "enabled" },
+    });
+
+    const formatterSwitch = screen.getByRole("switch", {
+      name: "插件状态 formatter@anthropic-tools",
+    });
+    fireEvent.click(formatterSwitch);
+
+    expect(screen.queryByText("formatter@anthropic-tools")).not.toBeInTheDocument();
+    expect(screen.getByText("未找到匹配插件。")).toBeInTheDocument();
+    expect(onChange).toHaveBeenLastCalledWith({
+      "formatter@anthropic-tools": false,
+      "reviewer@anthropic-tools": false,
+    });
+  });
+
+  it("keeps the draft row visible while filters are active", () => {
+    renderEditor({
+      showTitle: false,
+      value: {
+        "formatter@anthropic-tools": true,
+      },
+    });
+
+    fireEvent.change(screen.getByRole("textbox", { name: "搜索插件 ID" }), {
+      target: { value: "reviewer" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "状态筛选" }), {
+      target: { value: "disabled" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "新增插件" }));
+
+    expect(screen.getByLabelText("新插件 ID")).toBeInTheDocument();
+    expect(screen.getByText("新插件")).toBeInTheDocument();
+  });
+
+  it("shows a filtered empty state while keeping footer actions available", () => {
+    renderEditor({
+      showTitle: false,
+      officialMarketplaceEnabled: true,
+      value: {
+        "formatter@anthropic-tools": true,
+      },
+    });
+
+    fireEvent.change(screen.getByRole("textbox", { name: "搜索插件 ID" }), {
+      target: { value: "reviewer" },
+    });
+
+    expect(screen.getByText("未找到匹配插件。")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "加载官方插件" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "新增插件" })).toBeInTheDocument();
   });
 
@@ -379,5 +486,41 @@ describe("EnabledPluginsEditor", () => {
     expect(screen.getByText("加载官方插件失败，请稍后重试。")).toBeInTheDocument();
     expect(screen.queryByText(buildOfficialPluginId("reviewer-plugin"))).not.toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("keeps the active filters after loading official plugins", async () => {
+    renderEditor({
+      showTitle: false,
+      officialMarketplaceEnabled: true,
+      value: {
+        "formatter@anthropic-tools": true,
+      },
+    });
+
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        plugins: [{ name: "reviewer-plugin" }, { name: "writer-plugin" }],
+      }),
+    });
+
+    fireEvent.change(screen.getByRole("textbox", { name: "搜索插件 ID" }), {
+      target: { value: "reviewer" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "状态筛选" }), {
+      target: { value: "disabled" },
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "加载官方插件" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText(buildOfficialPluginId("reviewer-plugin"))).toBeInTheDocument();
+    expect(screen.queryByText(buildOfficialPluginId("writer-plugin"))).not.toBeInTheDocument();
+    expect(screen.queryByText("formatter@anthropic-tools")).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "搜索插件 ID" })).toHaveValue("reviewer");
+    expect(screen.getByRole("combobox", { name: "状态筛选" })).toHaveValue("disabled");
   });
 });
