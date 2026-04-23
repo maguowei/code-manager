@@ -1,4 +1,4 @@
-.PHONY: init dev build build-universal preview check test lint fmt
+.PHONY: init dev build build-universal preview check test lint fmt clean
 
 # 初始化：安装前端依赖并确保 Rust 工具链就绪
 init:
@@ -45,3 +45,8 @@ lint:
 # 格式化 Rust 代码
 fmt:
 	cd src-tauri && cargo fmt
+
+# 清理构建产物
+clean:
+	cd src-tauri && cargo clean
+	rm -rf dist
