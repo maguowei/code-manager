@@ -262,18 +262,8 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     ],
   },
   {
-    key: "alwaysThinkingEnabled",
-    section: "common",
-    kind: "checkbox",
-    defaultEnabled: true,
-    label: {
-      zh: "默认启用深度思考",
-      en: "Enable extended thinking by default",
-    },
-  },
-  {
     key: "outputStyle",
-    section: "common",
+    section: "behavior",
     kind: "select",
     label: {
       zh: "输出风格",
@@ -313,6 +303,16 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
         },
       },
     ],
+  },
+  {
+    key: "alwaysThinkingEnabled",
+    section: "common",
+    kind: "checkbox",
+    defaultEnabled: true,
+    label: {
+      zh: "默认启用深度思考",
+      en: "Enable extended thinking by default",
+    },
   },
   {
     key: "showThinkingSummaries",

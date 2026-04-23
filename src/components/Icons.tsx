@@ -139,6 +139,47 @@ export function CheckCircleIcon({ size = 18, className }: IconProps) {
   );
 }
 
+/** 外链图标（打开主页） */
+export function ExternalLinkIcon({ size = 14, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M14 5h5v5" />
+      <path d="M10 14 19 5" />
+      <path d="M19 14v5H5V5h5" />
+    </svg>
+  );
+}
+
+/** 刷新图标（重新加载） */
+export function RefreshIcon({ size = 14, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M21 12a9 9 0 0 1-15.2 6.5" />
+      <path d="M3 12A9 9 0 0 1 18.2 5.5" />
+      <path d="M18 2v4h4" />
+      <path d="M6 22v-4H2" />
+    </svg>
+  );
+}
+
 /** 眼睛图标（显示敏感值） */
 export function EyeIcon({ size = 18, className }: IconProps) {
   return (

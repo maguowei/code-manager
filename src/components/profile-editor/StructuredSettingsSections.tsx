@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useCallback, useState } from "react";
 import { useI18n } from "../../i18n";
 import BehaviorFieldHeader from "./BehaviorFieldHeader";
 import DocumentEditorSection from "./DocumentEditorSection";
@@ -131,10 +131,14 @@ function StructuredSettingsSections({
   behaviorFooter,
 }: StructuredSettingsSectionsProps) {
   const { language, t } = useI18n();
+  const [officialPluginAction, setOfficialPluginAction] = useState<ReactNode>(null);
   const isProfileScope = scope === "profiles";
   const officialMarketplaceEnabled = Object.keys(
     readObject(settings.extraKnownMarketplaces),
   ).includes(OFFICIAL_MARKETPLACE_ID);
+  const handleOfficialPluginActionChange = useCallback((action: ReactNode | null) => {
+    setOfficialPluginAction(action);
+  }, []);
   const messages = isProfileScope
     ? {
         behavior: t("profiles.editor.sections.behavior"),
@@ -512,6 +516,7 @@ function StructuredSettingsSections({
         variant="accordion"
         mode={sectionState.sectionModes.plugins}
         onModeChange={(mode) => sectionState.handleSectionModeChange("plugins", mode)}
+        modeRowAction={officialPluginAction}
         controls={
           <EnabledPluginsEditor
             value={settings.enabledPlugins}
@@ -519,6 +524,8 @@ function StructuredSettingsSections({
             onError={(message) => sectionState.setSectionError("enabledPlugins", message)}
             showTitle={false}
             officialMarketplaceEnabled={officialMarketplaceEnabled}
+            showOfficialToolbar={false}
+            onOfficialActionChange={handleOfficialPluginActionChange}
           />
         }
         jsonEditor={pluginsJsonEditor}

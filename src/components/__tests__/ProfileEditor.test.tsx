@@ -428,6 +428,21 @@ describe("ProfileEditor", () => {
     if (behaviorSection) {
       expect(within(behaviorSection).getByRole("button", { name: "控件" })).toBeInTheDocument();
       expect(within(behaviorSection).getByRole("button", { name: "JSON" })).toBeInTheDocument();
+      const outputStyleSelect = within(behaviorSection).getByRole("combobox", {
+        name: "输出风格",
+      }) as HTMLSelectElement;
+      const languageSelect = within(behaviorSection).getByRole("combobox", {
+        name: "回复语言",
+      }) as HTMLSelectElement;
+      expect(outputStyleSelect).toBeInTheDocument();
+      expect(outputStyleSelect).toHaveValue("");
+      expect(Array.from(outputStyleSelect.options, (option) => option.value)).toEqual([
+        "",
+        "default",
+        "Explanatory",
+        "Learning",
+      ]);
+      expect(languageSelect.closest(".form-row")).toBe(outputStyleSelect.closest(".form-row"));
       expect(within(behaviorSection).queryByText("默认启用深度思考")).not.toBeInTheDocument();
       expect(within(behaviorSection).queryByText("尊重 .gitignore")).not.toBeInTheDocument();
       expect(within(behaviorSection).queryByText("跳过 WebFetch 预检")).not.toBeInTheDocument();
@@ -439,18 +454,10 @@ describe("ProfileEditor", () => {
       );
       expect(within(commonSection).getByRole("button", { name: "控件" })).toBeInTheDocument();
       expect(within(commonSection).getByRole("button", { name: "JSON" })).toBeInTheDocument();
-      const outputStyleSelect = within(commonSection).getByRole("combobox", {
-        name: "输出风格",
-      }) as HTMLSelectElement;
-      expect(outputStyleSelect).toBeInTheDocument();
       expect(screen.queryByRole("textbox", { name: "输出风格" })).not.toBeInTheDocument();
-      expect(outputStyleSelect).toHaveValue("");
-      expect(Array.from(outputStyleSelect.options, (option) => option.value)).toEqual([
-        "",
-        "default",
-        "Explanatory",
-        "Learning",
-      ]);
+      expect(
+        within(commonSection).queryByRole("combobox", { name: "输出风格" }),
+      ).not.toBeInTheDocument();
       expect(within(commonSection).getAllByRole("switch")).toHaveLength(14);
       expect(within(commonSection).getByText("默认启用深度思考")).toBeInTheDocument();
       expect(within(commonSection).getByText("显示 Thinking 摘要")).toBeInTheDocument();
@@ -1339,11 +1346,12 @@ describe("ProfileEditor", () => {
     expect(screen.queryByLabelText("努力级别使用环境变量映射")).not.toBeInTheDocument();
   });
 
-  it("shows helper buttons for top-level common options", () => {
+  it("shows helper buttons for top-level behavior and common options", () => {
     renderEditor();
 
+    const behaviorSection = getSection("模型与行为");
     const commonSection = getSection("常用选项");
-    expect(within(commonSection).getByRole("button", { name: "outputStyle" })).toHaveAttribute(
+    expect(within(behaviorSection).getByRole("button", { name: "outputStyle" })).toHaveAttribute(
       "data-tooltip",
       "outputStyle",
     );
@@ -1388,7 +1396,8 @@ describe("ProfileEditor", () => {
     renderEditor({ onSave });
 
     const commonSection = getSection("常用选项");
-    fireEvent.change(screen.getByLabelText("输出风格"), {
+    const behaviorSection = getSection("模型与行为");
+    fireEvent.change(within(behaviorSection).getByRole("combobox", { name: "输出风格" }), {
       target: { value: "Learning" },
     });
     const labels = [
@@ -1453,18 +1462,18 @@ describe("ProfileEditor", () => {
     });
   });
 
-  it("preserves custom outputStyle values from common json", async () => {
+  it("preserves custom outputStyle values from behavior json", async () => {
     const onSave = vi.fn();
     renderEditor({ onSave });
-    const commonSection = switchSectionToJson("常用选项");
+    const behaviorSection = switchSectionToJson("模型与行为");
 
-    fireEvent.change(within(commonSection).getByLabelText("config-preview-input"), {
+    fireEvent.change(within(behaviorSection).getByLabelText("config-preview-input"), {
       target: { value: '{\n  "outputStyle": "MyTeamStyle"\n}' },
     });
-    fireEvent.click(within(commonSection).getByRole("button", { name: "控件" }));
-    expect(within(getSection("常用选项")).getByRole("combobox", { name: "输出风格" })).toHaveValue(
-      "MyTeamStyle",
-    );
+    fireEvent.click(within(behaviorSection).getByRole("button", { name: "控件" }));
+    expect(
+      within(getSection("模型与行为")).getByRole("combobox", { name: "输出风格" }),
+    ).toHaveValue("MyTeamStyle");
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "保存" }));
@@ -1478,9 +1487,9 @@ describe("ProfileEditor", () => {
   it("stores built-in outputStyle values from the outputStyle select", async () => {
     const onSave = vi.fn();
     renderEditor({ onSave });
-    const commonSection = getSection("常用选项");
+    const behaviorSection = getSection("模型与行为");
 
-    fireEvent.change(within(commonSection).getByRole("combobox", { name: "输出风格" }), {
+    fireEvent.change(within(behaviorSection).getByRole("combobox", { name: "输出风格" }), {
       target: { value: "default" },
     });
 
@@ -1654,12 +1663,15 @@ describe("ProfileEditor", () => {
               ANTHROPIC_MODEL: "claude-opus-4-1",
               CLAUDE_CODE_EFFORT_LEVEL: "high",
             },
+            outputStyle: "Explanatory",
           },
           null,
           2,
         ),
       },
     });
+    fireEvent.click(within(behaviorSection).getByRole("button", { name: "控件" }));
+    expect(screen.getByLabelText("输出风格")).toHaveValue("Explanatory");
 
     const commonSection = switchSectionToJson("常用选项");
     fireEvent.change(within(commonSection).getByLabelText("config-preview-input"), {
@@ -1670,7 +1682,6 @@ describe("ProfileEditor", () => {
               CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
               ENABLE_LSP_TOOL: "1",
             },
-            outputStyle: "Explanatory",
             alwaysThinkingEnabled: true,
             showThinkingSummaries: true,
             showClearContextOnPlanAccept: true,
@@ -1688,7 +1699,6 @@ describe("ProfileEditor", () => {
       },
     });
     fireEvent.click(within(commonSection).getByRole("button", { name: "控件" }));
-    expect(screen.getByLabelText("输出风格")).toHaveValue("Explanatory");
     for (const label of [
       "默认启用深度思考",
       "显示 Thinking 摘要",
@@ -2602,6 +2612,39 @@ describe("ProfileEditor", () => {
         }),
       }),
     );
+  });
+
+  it("places the official plugin refresh action beside the controls/json switch", async () => {
+    renderEditor({
+      profile: {
+        ...PROFILE_FIXTURE,
+        settings: {
+          ...PROFILE_FIXTURE.settings,
+          extraKnownMarketplaces: {
+            [OFFICIAL_MARKETPLACE_ID]: {
+              source: {
+                source: "github",
+                repo: OFFICIAL_MARKETPLACE_REPO,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const pluginsSection = getSection("插件");
+    toggleAccordionSection("插件");
+    await flushAsyncUpdates();
+
+    const modeRow = pluginsSection.querySelector(".profile-accordion-mode-row") as HTMLElement;
+    expect(modeRow).not.toBeNull();
+    expect(within(modeRow).getByRole("button", { name: "控件" })).toBeInTheDocument();
+    expect(within(modeRow).getByRole("button", { name: "JSON" })).toBeInTheDocument();
+
+    const loadButton = within(modeRow).getByRole("button", { name: "加载官方插件" });
+    expect(loadButton).toHaveAttribute("title", "重新获取官方插件列表并刷新本地缓存。");
+    expect(loadButton.querySelector("svg")).not.toBeNull();
+    expect(pluginsSection.querySelector(".profile-plugin-toolbar")).toBeNull();
   });
 
   it("does not show the official plugin load button when the marketplace only exists in an inherited preset", () => {

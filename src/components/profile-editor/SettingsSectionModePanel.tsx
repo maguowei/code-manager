@@ -28,6 +28,7 @@ interface SettingsSectionModePanelProps {
   badgeCount?: number;
   headerMeta?: ReactNode;
   headerControl?: ReactNode;
+  modeRowAction?: ReactNode;
   footer?: ReactNode;
 }
 
@@ -45,6 +46,7 @@ function SettingsSectionModePanel({
   badgeCount,
   headerMeta,
   headerControl,
+  modeRowAction,
   footer,
 }: SettingsSectionModePanelProps) {
   const { t } = useI18n();
@@ -159,7 +161,12 @@ function SettingsSectionModePanel({
 
         {bodyVisible ? (
           <div className="profile-accordion-content">
-            <div className="profile-accordion-mode-row">{renderModeSwitch()}</div>
+            <div className={`profile-accordion-mode-row${modeRowAction ? " has-action" : ""}`}>
+              {modeRowAction ? (
+                <div className="profile-accordion-mode-row-action">{modeRowAction}</div>
+              ) : null}
+              {renderModeSwitch()}
+            </div>
             {renderSectionContent()}
             {footer ? <div className="profile-section-footer">{footer}</div> : null}
           </div>
@@ -179,6 +186,7 @@ function SettingsSectionModePanel({
 
         <div className="profile-subsection-actions">
           {headerControl}
+          {modeRowAction}
           {renderModeSwitch()}
         </div>
       </div>

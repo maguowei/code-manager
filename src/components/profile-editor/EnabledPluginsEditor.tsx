@@ -1,8 +1,18 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useToast } from "../../hooks/useToast";
 import { useI18n } from "../../i18n";
 import ConfirmDialog from "../ConfirmDialog";
+import { CheckCircleIcon, ExternalLinkIcon, RefreshIcon } from "../Icons";
 import { createRowId, type PluginDraft, readObject } from "./editor-utils";
-import { buildOfficialPluginId, OFFICIAL_MARKETPLACE_RAW_URL } from "./marketplace-presets";
+import { OFFICIAL_MARKETPLACE_ID } from "./marketplace-presets";
+import {
+  createOfficialPluginMetadataMap,
+  fetchOfficialPluginCatalog,
+  loadOfficialPluginCache,
+  type OfficialPluginMetadata,
+  saveOfficialPluginCache,
+} from "./official-plugin-catalog";
 import RequiredBadge from "./RequiredBadge";
 import { SandboxSwitchControl } from "./SandboxEditor";
 import "./EnabledPluginsEditor.css";
@@ -13,36 +23,28 @@ interface EnabledPluginsEditorProps {
   onError: (message: string) => void;
   showTitle?: boolean;
   officialMarketplaceEnabled?: boolean;
+  showOfficialToolbar?: boolean;
+  onOfficialActionChange?: (action: ReactNode | null) => void;
 }
 
 interface PluginListItem extends PluginDraft {
   isDraft?: boolean;
+  metadata?: OfficialPluginMetadata;
 }
 
 type PluginStatusFilter = "all" | "enabled" | "disabled";
+type PluginMetadataFilterValue = "all" | string;
+type PluginMetaItem = {
+  kind: "author" | "category";
+  value: string;
+};
 
-function splitPluginEntries(value: unknown): {
-  sourceEntries: Record<string, unknown>;
-  booleanEntries: Record<string, boolean>;
-  preservedEntries: Record<string, unknown>;
-} {
-  const sourceEntries = readObject(value);
-  const booleanEntries: Record<string, boolean> = {};
-  const preservedEntries: Record<string, unknown> = {};
+const OFFICIAL_PLUGIN_MIN_LOADING_MS = 500;
 
-  Object.entries(sourceEntries).forEach(([pluginId, entry]) => {
-    if (typeof entry === "boolean") {
-      booleanEntries[pluginId] = entry;
-      return;
-    }
-    preservedEntries[pluginId] = entry;
+function waitForOfficialPluginFeedback(): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, OFFICIAL_PLUGIN_MIN_LOADING_MS);
   });
-
-  return {
-    sourceEntries,
-    booleanEntries,
-    preservedEntries,
-  };
 }
 
 function buildPluginDrafts(value: Record<string, boolean>): PluginDraft[] {
@@ -81,29 +83,28 @@ function arePluginRecordsEqual(
   );
 }
 
-function readOfficialPluginIds(manifest: unknown): string[] {
-  const manifestRecord = readObject(manifest);
-  if (!Array.isArray(manifestRecord.plugins)) {
-    throw new Error("invalid official marketplace manifest");
-  }
+function splitPluginEntries(value: unknown): {
+  sourceEntries: Record<string, unknown>;
+  booleanEntries: Record<string, boolean>;
+  preservedEntries: Record<string, unknown>;
+} {
+  const sourceEntries = readObject(value);
+  const booleanEntries: Record<string, boolean> = {};
+  const preservedEntries: Record<string, unknown> = {};
 
-  const pluginIds: string[] = [];
-  const seen = new Set<string>();
-  manifestRecord.plugins.forEach((entry) => {
-    const pluginRecord = readObject(entry);
-    const pluginName = typeof pluginRecord.name === "string" ? pluginRecord.name.trim() : "";
-    if (!pluginName) {
+  Object.entries(sourceEntries).forEach(([pluginId, entry]) => {
+    if (typeof entry === "boolean") {
+      booleanEntries[pluginId] = entry;
       return;
     }
-    const pluginId = buildOfficialPluginId(pluginName);
-    if (seen.has(pluginId)) {
-      return;
-    }
-    seen.add(pluginId);
-    pluginIds.push(pluginId);
+    preservedEntries[pluginId] = entry;
   });
 
-  return pluginIds;
+  return {
+    sourceEntries,
+    booleanEntries,
+    preservedEntries,
+  };
 }
 
 function createOfficialPluginDraft(pluginId: string): PluginDraft {
@@ -114,14 +115,43 @@ function createOfficialPluginDraft(pluginId: string): PluginDraft {
   };
 }
 
+function buildFilterOptions(values: string[], selectedValue: string): string[] {
+  const uniqueValues = Array.from(new Set(values.filter(Boolean))).sort((left, right) =>
+    left.localeCompare(right),
+  );
+  if (selectedValue !== "all" && !uniqueValues.includes(selectedValue)) {
+    return [selectedValue, ...uniqueValues];
+  }
+  return uniqueValues;
+}
+
+function isOfficialPlugin(pluginId: string): boolean {
+  return pluginId.endsWith(`@${OFFICIAL_MARKETPLACE_ID}`);
+}
+
+function buildOfficialPluginMetaItems(metadata?: OfficialPluginMetadata): PluginMetaItem[] {
+  if (!metadata) {
+    return [];
+  }
+
+  const metaItems: PluginMetaItem[] = [
+    { kind: "author", value: metadata.authorName.trim() },
+    { kind: "category", value: metadata.category.trim() },
+  ];
+  return metaItems.filter((item) => item.value.length > 0);
+}
+
 function EnabledPluginsEditor({
   value,
   onChange,
   onError,
   showTitle = true,
   officialMarketplaceEnabled = false,
+  showOfficialToolbar = true,
+  onOfficialActionChange,
 }: EnabledPluginsEditorProps) {
   const { t } = useI18n();
+  const { showToast } = useToast();
   const draftInputRef = useRef<HTMLInputElement | null>(null);
   const { sourceEntries, booleanEntries, preservedEntries } = useMemo(
     () => splitPluginEntries(value),
@@ -129,6 +159,9 @@ function EnabledPluginsEditor({
   );
   const initialPlugins = useMemo(() => buildPluginDrafts(booleanEntries), [booleanEntries]);
   const [plugins, setPlugins] = useState(initialPlugins);
+  const [officialPluginCatalog, setOfficialPluginCatalog] = useState<OfficialPluginMetadata[]>(
+    () => loadOfficialPluginCache()?.plugins ?? [],
+  );
   const [draft, setDraft] = useState<PluginDraft | null>(null);
   const [draftError, setDraftError] = useState("");
   const [interactionError, setInteractionError] = useState("");
@@ -136,6 +169,8 @@ function EnabledPluginsEditor({
   const [pendingDeletePlugin, setPendingDeletePlugin] = useState<PluginDraft | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<PluginStatusFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState<PluginMetadataFilterValue>("all");
+  const [sourceTypeFilter, setSourceTypeFilter] = useState<PluginMetadataFilterValue>("all");
 
   const sectionPendingMessage = t("profileEditor.plugins.errorPendingEdit");
   const switchBlockedMessage = t("profileEditor.plugins.errorPendingEdit");
@@ -151,6 +186,14 @@ function EnabledPluginsEditor({
   const searchLabel = t("profileEditor.plugins.searchLabel");
   const searchPlaceholder = t("profileEditor.plugins.searchPlaceholder");
   const statusFilterLabel = t("profileEditor.plugins.statusFilterLabel");
+  const statusFilterFieldLabel = t("profileEditor.plugins.statusFilterFieldLabel");
+  const categoryFilterLabel = t("profileEditor.plugins.categoryFilterLabel");
+  const categoryFilterFieldLabel = t("profileEditor.plugins.categoryFilterFieldLabel");
+  const sourceTypeFilterLabel = t("profileEditor.plugins.sourceTypeFilterLabel");
+  const sourceTypeFilterFieldLabel = t("profileEditor.plugins.sourceTypeFilterFieldLabel");
+  const officialLoadLabel = t("profileEditor.plugins.loadOfficial");
+  const officialActionTooltip = t("profileEditor.plugins.loadOfficialTooltip");
+  const verifiedBadgeAriaLabel = t("profileEditor.plugins.verifiedBadgeAriaLabel");
 
   const currentError = useMemo(() => {
     if (draftError) {
@@ -187,20 +230,79 @@ function EnabledPluginsEditor({
     draftInputRef.current?.focus();
   }, [draft]);
 
+  const officialPluginMetadataMap = useMemo(
+    () => createOfficialPluginMetadataMap(officialPluginCatalog),
+    [officialPluginCatalog],
+  );
+
+  const metadataEnabledPlugins = useMemo(
+    () =>
+      plugins
+        .map((plugin) => officialPluginMetadataMap[plugin.pluginId])
+        .filter((plugin): plugin is OfficialPluginMetadata => plugin !== undefined),
+    [officialPluginMetadataMap, plugins],
+  );
+
+  const categoryOptions = useMemo(
+    () =>
+      buildFilterOptions(
+        metadataEnabledPlugins.map((plugin) => plugin.category),
+        categoryFilter,
+      ),
+    [categoryFilter, metadataEnabledPlugins],
+  );
+  const sourceTypeOptions = useMemo(
+    () =>
+      buildFilterOptions(
+        metadataEnabledPlugins.map((plugin) => plugin.sourceType),
+        sourceTypeFilter,
+      ),
+    [metadataEnabledPlugins, sourceTypeFilter],
+  );
+  const hasMetadataFilters = categoryFilter !== "all" || sourceTypeFilter !== "all";
+
   const filteredPlugins = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
     return plugins.filter((plugin) => {
+      const metadata = officialPluginMetadataMap[plugin.pluginId];
       const matchesQuery =
         normalizedQuery.length === 0 || plugin.pluginId.toLowerCase().includes(normalizedQuery);
       const matchesStatus =
         statusFilter === "all" || (statusFilter === "enabled" ? plugin.enabled : !plugin.enabled);
-      return matchesQuery && matchesStatus;
+      if (hasMetadataFilters && !metadata) {
+        return false;
+      }
+
+      const matchesCategory = categoryFilter === "all" || metadata?.category === categoryFilter;
+      const matchesSourceType =
+        sourceTypeFilter === "all" || metadata?.sourceType === sourceTypeFilter;
+      return matchesQuery && matchesStatus && matchesCategory && matchesSourceType;
     });
-  }, [plugins, searchQuery, statusFilter]);
+  }, [
+    categoryFilter,
+    hasMetadataFilters,
+    officialPluginMetadataMap,
+    plugins,
+    searchQuery,
+    sourceTypeFilter,
+    statusFilter,
+  ]);
 
   const visiblePlugins = useMemo<PluginListItem[]>(
-    () => (draft ? [...filteredPlugins, { ...draft, isDraft: true }] : filteredPlugins),
-    [draft, filteredPlugins],
+    () =>
+      draft
+        ? [
+            ...filteredPlugins.map((plugin) => ({
+              ...plugin,
+              metadata: officialPluginMetadataMap[plugin.pluginId],
+            })),
+            { ...draft, isDraft: true },
+          ]
+        : filteredPlugins.map((plugin) => ({
+            ...plugin,
+            metadata: officialPluginMetadataMap[plugin.pluginId],
+          })),
+    [draft, filteredPlugins, officialPluginMetadataMap],
   );
 
   function resetDraft(nextDraft: PluginDraft | null) {
@@ -260,32 +362,16 @@ function EnabledPluginsEditor({
     resetDraft(null);
   }
 
-  async function handleLoadOfficialPlugins() {
-    if (draft) {
-      setDraftError("");
-      setInteractionError(switchBlockedMessage);
-      return;
-    }
-
-    setDraftError("");
-    setInteractionError("");
-    setLoadingOfficialPlugins(true);
-
-    try {
-      const response = await fetch(OFFICIAL_MARKETPLACE_RAW_URL);
-      if (!response.ok) {
-        throw new Error("failed to load official plugins");
-      }
-
-      const manifest = await response.json();
-      const officialPluginIds = readOfficialPluginIds(manifest);
-
+  const appendOfficialPlugins = useCallback(
+    (officialPlugins: OfficialPluginMetadata[]) => {
+      setOfficialPluginCatalog(officialPlugins);
       setPlugins((current) => {
         const existingIds = new Set([
           ...Object.keys(preservedEntries),
           ...current.map((plugin) => plugin.pluginId),
         ]);
-        const nextPlugins = officialPluginIds
+        const nextPlugins = officialPlugins
+          .map((plugin) => plugin.pluginId)
           .filter((pluginId) => !existingIds.has(pluginId))
           .map((pluginId) => createOfficialPluginDraft(pluginId));
 
@@ -295,12 +381,81 @@ function EnabledPluginsEditor({
 
         return [...current, ...nextPlugins];
       });
-    } catch {
-      setInteractionError(t("profileEditor.plugins.loadOfficialError"));
-    } finally {
-      setLoadingOfficialPlugins(false);
+    },
+    [preservedEntries],
+  );
+
+  const handleLoadOfficialPlugins = useCallback(async () => {
+    if (draft) {
+      setDraftError("");
+      setInteractionError(switchBlockedMessage);
+      return;
     }
-  }
+
+    setDraftError("");
+    setInteractionError("");
+    setLoadingOfficialPlugins(true);
+    const minimumLoadingDelay = waitForOfficialPluginFeedback();
+    let successToastMessage = "";
+
+    try {
+      const officialPlugins = await fetchOfficialPluginCatalog();
+      saveOfficialPluginCache(officialPlugins);
+      appendOfficialPlugins(officialPlugins);
+      successToastMessage = t("profileEditor.plugins.loadOfficialSuccess");
+    } catch {
+      const fallbackPlugins = loadOfficialPluginCache()?.plugins ?? officialPluginCatalog;
+      if (fallbackPlugins.length > 0) {
+        appendOfficialPlugins(fallbackPlugins);
+        successToastMessage = t("profileEditor.plugins.loadOfficialFallbackSuccess");
+      } else {
+        setInteractionError(t("profileEditor.plugins.loadOfficialError"));
+      }
+    } finally {
+      await minimumLoadingDelay;
+      setLoadingOfficialPlugins(false);
+      if (successToastMessage) {
+        showToast(successToastMessage);
+      }
+    }
+  }, [appendOfficialPlugins, draft, officialPluginCatalog, showToast, switchBlockedMessage, t]);
+
+  const officialPluginAction = useMemo<ReactNode | null>(() => {
+    if (!officialMarketplaceEnabled) {
+      return null;
+    }
+
+    return (
+      <button
+        type="button"
+        className={`profile-primary-btn profile-plugin-refresh-action${loadingOfficialPlugins ? " is-loading" : ""}`}
+        title={officialActionTooltip}
+        data-tooltip={officialActionTooltip}
+        aria-label={officialLoadLabel}
+        aria-busy={loadingOfficialPlugins}
+        onClick={handleLoadOfficialPlugins}
+        disabled={loadingOfficialPlugins}
+      >
+        <RefreshIcon className="profile-plugin-refresh-icon" />
+        <span>{officialLoadLabel}</span>
+      </button>
+    );
+  }, [
+    handleLoadOfficialPlugins,
+    loadingOfficialPlugins,
+    officialLoadLabel,
+    officialActionTooltip,
+    officialMarketplaceEnabled,
+  ]);
+
+  useEffect(() => {
+    if (!onOfficialActionChange) {
+      return;
+    }
+
+    onOfficialActionChange(officialPluginAction);
+    return () => onOfficialActionChange(null);
+  }, [officialPluginAction, onOfficialActionChange]);
 
   function handleRemovePlugin(pluginId: string) {
     setInteractionError("");
@@ -321,26 +476,79 @@ function EnabledPluginsEditor({
 
       <div className="profile-plugin-editor">
         <div className="profile-plugin-list-shell">
+          {showOfficialToolbar && officialPluginAction ? (
+            <div className="profile-plugin-toolbar">{officialPluginAction}</div>
+          ) : null}
+
           {showFilters ? (
             <div className="profile-plugin-filters">
-              <input
-                type="text"
-                className="profile-plugin-filter-input"
-                value={searchQuery}
-                aria-label={searchLabel}
-                placeholder={searchPlaceholder}
-                onChange={(event) => setSearchQuery(event.target.value)}
-              />
-              <select
-                className="profile-plugin-filter-select"
-                value={statusFilter}
-                aria-label={statusFilterLabel}
-                onChange={(event) => setStatusFilter(event.target.value as PluginStatusFilter)}
-              >
-                <option value="all">{t("profileEditor.plugins.statusFilterAll")}</option>
-                <option value="enabled">{t("profileEditor.plugins.statusFilterEnabled")}</option>
-                <option value="disabled">{t("profileEditor.plugins.statusFilterDisabled")}</option>
-              </select>
+              <div className="profile-plugin-filter-field profile-plugin-filter-field-input profile-plugin-filter-field-search">
+                <input
+                  type="text"
+                  className="profile-plugin-filter-input"
+                  value={searchQuery}
+                  aria-label={searchLabel}
+                  placeholder={searchPlaceholder}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                />
+              </div>
+              <div className="profile-plugin-filter-field profile-plugin-filter-field-select">
+                <span className="profile-plugin-filter-prefix" aria-hidden="true">
+                  {statusFilterFieldLabel}
+                </span>
+                <select
+                  className="profile-plugin-filter-select"
+                  value={statusFilter}
+                  aria-label={statusFilterLabel}
+                  onChange={(event) => setStatusFilter(event.target.value as PluginStatusFilter)}
+                >
+                  <option value="all">{t("profileEditor.plugins.statusFilterAll")}</option>
+                  <option value="enabled">{t("profileEditor.plugins.statusFilterEnabled")}</option>
+                  <option value="disabled">
+                    {t("profileEditor.plugins.statusFilterDisabled")}
+                  </option>
+                </select>
+              </div>
+              <div className="profile-plugin-filter-field profile-plugin-filter-field-select">
+                <span className="profile-plugin-filter-prefix" aria-hidden="true">
+                  {categoryFilterFieldLabel}
+                </span>
+                <select
+                  className="profile-plugin-filter-select"
+                  value={categoryFilter}
+                  aria-label={categoryFilterLabel}
+                  onChange={(event) => setCategoryFilter(event.target.value)}
+                >
+                  <option value="all">{t("profileEditor.plugins.metadataFilterAll")}</option>
+                  {categoryOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="profile-plugin-filter-field profile-plugin-filter-field-select">
+                <span className="profile-plugin-filter-prefix" aria-hidden="true">
+                  {sourceTypeFilterFieldLabel}
+                </span>
+                <select
+                  className="profile-plugin-filter-select"
+                  value={sourceTypeFilter}
+                  aria-label={sourceTypeFilterLabel}
+                  onChange={(event) => setSourceTypeFilter(event.target.value)}
+                >
+                  <option value="all">{t("profileEditor.plugins.metadataFilterAll")}</option>
+                  {sourceTypeOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option === "unknown"
+                        ? t("profileEditor.plugins.sourceTypeUnknown")
+                        : option === "path"
+                          ? t("profileEditor.plugins.sourceTypePath")
+                          : option}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           ) : null}
 
@@ -365,6 +573,17 @@ function EnabledPluginsEditor({
 
               {visiblePlugins.map((plugin, index) => {
                 const isDraftRow = plugin.isDraft === true;
+                const officialPlugin = isOfficialPlugin(plugin.pluginId);
+                const pluginMetaItems = buildOfficialPluginMetaItems(plugin.metadata);
+                const verifiedBadgeIcon = officialPlugin ? (
+                  <span
+                    className="profile-plugin-verified-icon"
+                    role="img"
+                    aria-label={verifiedBadgeAriaLabel}
+                  >
+                    <CheckCircleIcon size={13} />
+                  </span>
+                ) : null;
                 const rowLabel =
                   isDraftRow && plugin.pluginId.trim()
                     ? plugin.pluginId
@@ -379,13 +598,52 @@ function EnabledPluginsEditor({
                         {index + 1}
                       </span>
                       <div className="profile-plugin-list-content">
-                        <div className="profile-plugin-list-id" title={rowLabel}>
-                          <span className="profile-plugin-list-key">
-                            <span>{rowLabel}</span>
-                            {isDraftRow ? (
-                              <span className="profile-env-row-badge">{draftBadgeText}</span>
+                        <div className="profile-plugin-list-id">
+                          <div className="profile-plugin-list-identity">
+                            {plugin.metadata?.homepage ? (
+                              <button
+                                type="button"
+                                className="profile-plugin-link"
+                                aria-label={`${t("profileEditor.plugins.openHomepageAriaLabel")} ${rowLabel}`}
+                                data-description={plugin.metadata.description || undefined}
+                                onClick={() => {
+                                  void openUrl(plugin.metadata?.homepage ?? "");
+                                }}
+                              >
+                                <span className="profile-plugin-list-key">
+                                  <span>{rowLabel}</span>
+                                  {isDraftRow ? (
+                                    <span className="profile-env-row-badge">{draftBadgeText}</span>
+                                  ) : null}
+                                  {verifiedBadgeIcon}
+                                  <ExternalLinkIcon className="profile-plugin-link-icon" />
+                                </span>
+                              </button>
+                            ) : (
+                              <span
+                                className="profile-plugin-list-key profile-plugin-link-static"
+                                data-description={plugin.metadata?.description || undefined}
+                              >
+                                <span>{rowLabel}</span>
+                                {isDraftRow ? (
+                                  <span className="profile-env-row-badge">{draftBadgeText}</span>
+                                ) : null}
+                                {verifiedBadgeIcon}
+                              </span>
+                            )}
+                            {pluginMetaItems.length > 0 ? (
+                              <div className="profile-plugin-meta">
+                                {pluginMetaItems.map((item) => (
+                                  <span
+                                    key={`${plugin.id}:${item.kind}:${item.value}`}
+                                    className="profile-plugin-meta-item"
+                                  >
+                                    {item.value}
+                                  </span>
+                                ))}
+                              </div>
                             ) : null}
-                          </span>
+                          </div>
                         </div>
                         <div className="profile-plugin-status-cell">
                           <SandboxSwitchControl
@@ -486,18 +744,6 @@ function EnabledPluginsEditor({
 
           <div className="profile-env-footer">
             <div className="profile-plugin-footer-actions">
-              {officialMarketplaceEnabled ? (
-                <button
-                  type="button"
-                  className="profile-primary-btn"
-                  onClick={handleLoadOfficialPlugins}
-                  disabled={loadingOfficialPlugins}
-                >
-                  {loadingOfficialPlugins
-                    ? t("profileEditor.plugins.loadingOfficial")
-                    : t("profileEditor.plugins.loadOfficial")}
-                </button>
-              ) : null}
               <button type="button" className="profile-secondary-btn" onClick={handleAddPlugin}>
                 {t("profileEditor.plugins.addItem")}
               </button>

@@ -12,9 +12,19 @@ import {
   OFFICIAL_MARKETPLACE_REPO,
 } from "../profile-editor/marketplace-presets";
 
+const { showToastMock } = vi.hoisted(() => ({
+  showToastMock: vi.fn(),
+}));
+
 const SETTINGS_STORAGE_KEY = "ai-manager-settings";
 const originalFetch = globalThis.fetch;
 const fetchMock = vi.fn();
+
+vi.mock("../../hooks/useToast", () => ({
+  useToast: () => ({
+    showToast: showToastMock,
+  }),
+}));
 
 vi.mock("../ConfigPreview", () => ({
   default: ({
@@ -218,6 +228,7 @@ describe("PresetEditor", () => {
   beforeEach(() => {
     localStorage.clear();
     fetchMock.mockReset();
+    showToastMock.mockReset();
     Object.defineProperty(globalThis, "fetch", {
       value: fetchMock,
       configurable: true,
@@ -409,6 +420,21 @@ describe("PresetEditor", () => {
     if (behaviorSection) {
       expect(within(behaviorSection).getByRole("button", { name: "控件" })).toBeInTheDocument();
       expect(within(behaviorSection).getByRole("button", { name: "JSON" })).toBeInTheDocument();
+      const outputStyleSelect = within(behaviorSection).getByRole("combobox", {
+        name: "输出风格",
+      }) as HTMLSelectElement;
+      const languageSelect = within(behaviorSection).getByRole("combobox", {
+        name: "回复语言",
+      }) as HTMLSelectElement;
+      expect(outputStyleSelect).toBeInTheDocument();
+      expect(outputStyleSelect).toHaveValue("");
+      expect(Array.from(outputStyleSelect.options, (option) => option.value)).toEqual([
+        "",
+        "default",
+        "Explanatory",
+        "Learning",
+      ]);
+      expect(languageSelect.closest(".form-row")).toBe(outputStyleSelect.closest(".form-row"));
       expect(within(behaviorSection).queryByText("默认启用深度思考")).not.toBeInTheDocument();
       expect(within(behaviorSection).queryByText("尊重 .gitignore")).not.toBeInTheDocument();
     }
@@ -419,18 +445,10 @@ describe("PresetEditor", () => {
       );
       expect(within(commonSection).getByRole("button", { name: "控件" })).toBeInTheDocument();
       expect(within(commonSection).getByRole("button", { name: "JSON" })).toBeInTheDocument();
-      const outputStyleSelect = within(commonSection).getByRole("combobox", {
-        name: "输出风格",
-      }) as HTMLSelectElement;
-      expect(outputStyleSelect).toBeInTheDocument();
       expect(screen.queryByRole("textbox", { name: "输出风格" })).not.toBeInTheDocument();
-      expect(outputStyleSelect).toHaveValue("");
-      expect(Array.from(outputStyleSelect.options, (option) => option.value)).toEqual([
-        "",
-        "default",
-        "Explanatory",
-        "Learning",
-      ]);
+      expect(
+        within(commonSection).queryByRole("combobox", { name: "输出风格" }),
+      ).not.toBeInTheDocument();
       expect(within(commonSection).getAllByRole("switch")).toHaveLength(14);
       expect(within(commonSection).getByText("默认启用深度思考")).toBeInTheDocument();
       expect(within(commonSection).getByText("显示 Thinking 摘要")).toBeInTheDocument();
@@ -711,7 +729,8 @@ describe("PresetEditor", () => {
     renderEditor({ onSave });
 
     const commonSection = getSection("常用选项");
-    fireEvent.change(screen.getByLabelText("输出风格"), {
+    const behaviorSection = getSection("模型与行为");
+    fireEvent.change(within(behaviorSection).getByRole("combobox", { name: "输出风格" }), {
       target: { value: "Learning" },
     });
     const labels = [
@@ -776,18 +795,18 @@ describe("PresetEditor", () => {
     });
   });
 
-  it("preserves custom outputStyle values from common json", async () => {
+  it("preserves custom outputStyle values from behavior json", async () => {
     const onSave = vi.fn();
     renderEditor({ onSave });
-    const commonSection = switchSectionToJson("常用选项");
+    const behaviorSection = switchSectionToJson("模型与行为");
 
-    fireEvent.change(within(commonSection).getByLabelText("config-preview-input"), {
+    fireEvent.change(within(behaviorSection).getByLabelText("config-preview-input"), {
       target: { value: '{\n  "outputStyle": "MyTeamStyle"\n}' },
     });
-    fireEvent.click(within(commonSection).getByRole("button", { name: "控件" }));
-    expect(within(getSection("常用选项")).getByRole("combobox", { name: "输出风格" })).toHaveValue(
-      "MyTeamStyle",
-    );
+    fireEvent.click(within(behaviorSection).getByRole("button", { name: "控件" }));
+    expect(
+      within(getSection("模型与行为")).getByRole("combobox", { name: "输出风格" }),
+    ).toHaveValue("MyTeamStyle");
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "保存" }));
@@ -801,9 +820,9 @@ describe("PresetEditor", () => {
   it("stores built-in outputStyle values from the outputStyle select", async () => {
     const onSave = vi.fn();
     renderEditor({ onSave });
-    const commonSection = getSection("常用选项");
+    const behaviorSection = getSection("模型与行为");
 
-    fireEvent.change(within(commonSection).getByRole("combobox", { name: "输出风格" }), {
+    fireEvent.change(within(behaviorSection).getByRole("combobox", { name: "输出风格" }), {
       target: { value: "default" },
     });
 
@@ -1052,11 +1071,12 @@ describe("PresetEditor", () => {
     expect(screen.queryByLabelText("努力级别使用环境变量映射")).not.toBeInTheDocument();
   });
 
-  it("shows helper buttons for top-level common options", () => {
+  it("shows helper buttons for top-level behavior and common options", () => {
     renderEditor();
 
+    const behaviorSection = getSection("模型与行为");
     const commonSection = getSection("常用选项");
-    expect(within(commonSection).getByRole("button", { name: "outputStyle" })).toHaveAttribute(
+    expect(within(behaviorSection).getByRole("button", { name: "outputStyle" })).toHaveAttribute(
       "data-tooltip",
       "outputStyle",
     );
@@ -1566,12 +1586,15 @@ describe("PresetEditor", () => {
               ANTHROPIC_MODEL: "claude-opus-4-1",
             },
             language: "english",
+            outputStyle: "Explanatory",
           },
           null,
           2,
         ),
       },
     });
+    fireEvent.click(within(behaviorSection).getByRole("button", { name: "控件" }));
+    expect(screen.getByLabelText("输出风格")).toHaveValue("Explanatory");
 
     const commonSection = switchSectionToJson("常用选项");
     fireEvent.change(within(commonSection).getByLabelText("config-preview-input"), {
@@ -1581,7 +1604,6 @@ describe("PresetEditor", () => {
             env: {
               ENABLE_LSP_TOOL: "1",
             },
-            outputStyle: "Explanatory",
             alwaysThinkingEnabled: true,
             showThinkingSummaries: true,
             showClearContextOnPlanAccept: true,
@@ -1598,7 +1620,6 @@ describe("PresetEditor", () => {
       },
     });
     fireEvent.click(within(commonSection).getByRole("button", { name: "控件" }));
-    expect(screen.getByLabelText("输出风格")).toHaveValue("Explanatory");
     for (const label of [
       "默认启用深度思考",
       "显示 Thinking 摘要",

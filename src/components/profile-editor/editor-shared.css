@@ -238,7 +238,19 @@
 
 .profile-accordion-mode-row {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.profile-accordion-mode-row.has-action {
+  justify-content: space-between;
+}
+
+.profile-accordion-mode-row-action {
+  display: flex;
+  min-width: 0;
 }
 
 .profile-subsection {
@@ -918,6 +930,10 @@
   }
 
   .profile-accordion-mode-row {
+    justify-content: flex-start;
+  }
+
+  .profile-accordion-mode-row.has-action {
     justify-content: flex-start;
   }
 
