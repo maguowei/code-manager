@@ -1028,6 +1028,81 @@ describe("ProfileEditor", () => {
     expect(effortSelect).toHaveValue("");
   });
 
+  it("defaults reply language to chinese for new profiles and persists it on save", async () => {
+    const onSave = vi.fn();
+    renderEditor({ profile: null, onSave });
+
+    expect(screen.getByLabelText("回复语言")).toHaveValue("chinese");
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/名称/), {
+        target: { value: "默认配置" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+      await Promise.resolve();
+    });
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settings: expect.objectContaining({
+          language: "chinese",
+        }),
+      }),
+    );
+  });
+
+  it("defaults reply language to english for new profiles when ui language is english", async () => {
+    const onSave = vi.fn();
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "en",
+        theme: "dark",
+      }),
+    );
+
+    renderEditor({ profile: null, onSave });
+
+    expect(screen.getByLabelText("Language")).toHaveValue("english");
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/Name/), {
+        target: { value: "Default Profile" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      await Promise.resolve();
+    });
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settings: expect.objectContaining({
+          language: "english",
+        }),
+      }),
+    );
+  });
+
+  it("does not auto-fill reply language for existing profiles that do not define it", async () => {
+    const onSave = vi.fn();
+    renderEditor({ onSave });
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/名称/), {
+        target: { value: "已存在配置" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+      await Promise.resolve();
+    });
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settings: expect.not.objectContaining({
+          language: expect.anything(),
+        }),
+      }),
+    );
+  });
+
   it("stores model and effort as standard env settings and keeps the env editor in sync", async () => {
     const onSave = vi.fn();
     await act(async () => {

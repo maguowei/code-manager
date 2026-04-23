@@ -1,8 +1,10 @@
+import type { Language } from "../../i18n";
 import {
   cloneSettings,
   readTopLevelObject,
   setEnvString,
   setTopLevelBoolean,
+  setTopLevelString,
 } from "../config-workspace-utils";
 import type { SectionEditorMode } from "./SettingsSectionModePanel";
 import { PROFILE_SETTINGS_FORM_REGISTRY } from "./settings-form-registry";
@@ -99,6 +101,19 @@ export function applyCommonToggleDefaults(
 
     return setTopLevelBoolean(current, field.key, true);
   }, settings);
+}
+
+export function applyNewConfigDefaults(
+  settings: Record<string, unknown>,
+  uiLanguage: Language,
+): Record<string, unknown> {
+  const next = applyCommonToggleDefaults(settings);
+  const currentLanguage = typeof next.language === "string" ? next.language.trim() : "";
+  if (currentLanguage) {
+    return next;
+  }
+
+  return setTopLevelString(next, "language", uiLanguage === "en" ? "english" : "chinese");
 }
 
 export type PureSettingsSectionKey = (typeof PURE_SETTINGS_SECTION_KEYS)[number];

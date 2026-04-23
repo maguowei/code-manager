@@ -22,7 +22,7 @@ import { CheckCircleIcon, TestTubeIcon } from "./Icons";
 import ProfileNameBadge from "./ProfileNameBadge";
 import {
   AUTH_ENV_KEYS,
-  applyCommonToggleDefaults,
+  applyNewConfigDefaults,
   BEHAVIOR_ENV_DEFAULTS,
   buildEnvSubset,
   buildHiddenEnvEntries,
@@ -80,7 +80,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
   const [presetId, setPresetId] = useState(profile?.presetId ?? "");
   const [settings, setSettings] = useState<Record<string, unknown>>(() => {
     const next = applyEnvDefaults(cloneSettings(profile?.settings), BEHAVIOR_ENV_DEFAULTS);
-    return profile ? next : applyCommonToggleDefaults(next);
+    return profile ? next : applyNewConfigDefaults(next, language);
   });
   const [previewJson, setPreviewJson] = useState("{}");
   const [previewError, setPreviewError] = useState("");

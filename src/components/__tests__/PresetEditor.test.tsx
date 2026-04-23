@@ -631,6 +631,81 @@ describe("PresetEditor", () => {
     expect(effortSelect).toHaveValue("");
   });
 
+  it("defaults reply language to chinese for new presets and persists it on save", async () => {
+    const onSave = vi.fn();
+    renderEditor({ preset: null, onSave });
+
+    expect(screen.getByLabelText("回复语言")).toHaveValue("chinese");
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/中文名称/), {
+        target: { value: "默认预设" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+      await Promise.resolve();
+    });
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settingsPatch: expect.objectContaining({
+          language: "chinese",
+        }),
+      }),
+    );
+  });
+
+  it("defaults reply language to english for new presets when ui language is english", async () => {
+    const onSave = vi.fn();
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "en",
+        theme: "dark",
+      }),
+    );
+
+    renderEditor({ preset: null, onSave });
+
+    expect(screen.getByLabelText("Language")).toHaveValue("english");
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/English Name/), {
+        target: { value: "Default Preset" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      await Promise.resolve();
+    });
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settingsPatch: expect.objectContaining({
+          language: "english",
+        }),
+      }),
+    );
+  });
+
+  it("does not auto-fill reply language for existing presets that do not define it", async () => {
+    const onSave = vi.fn();
+    renderEditor({ onSave });
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/中文名称/), {
+        target: { value: "已有预设" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+      await Promise.resolve();
+    });
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settingsPatch: expect.not.objectContaining({
+          language: expect.anything(),
+        }),
+      }),
+    );
+  });
+
   it("stores common options as top-level booleans and env switches", async () => {
     const onSave = vi.fn();
     renderEditor({ onSave });

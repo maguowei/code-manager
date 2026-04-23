@@ -20,7 +20,7 @@ import {
 } from "./config-workspace-utils";
 import {
   AUTH_ENV_KEYS,
-  applyCommonToggleDefaults,
+  applyNewConfigDefaults,
   BEHAVIOR_ENV_DEFAULTS,
   buildEnvSubset,
   buildHiddenEnvEntries,
@@ -105,7 +105,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
   );
   const [settingsPatch, setSettingsPatch] = useState<Record<string, unknown>>(() => {
     const next = applyEnvDefaults(cloneSettings(preset?.settingsPatch), BEHAVIOR_ENV_DEFAULTS);
-    return preset ? next : applyCommonToggleDefaults(next);
+    return preset ? next : applyNewConfigDefaults(next, language);
   });
   const selectableBasePresets = useMemo(
     () => presets.filter((candidate) => candidate.id !== preset?.id),
