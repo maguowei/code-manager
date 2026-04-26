@@ -1140,6 +1140,9 @@ describe("ProfileEditor", () => {
       /\.profile-model-test-dialog-context-item\.request-url\s+\.profile-model-test-dialog-context-value\s*\{[^}]*flex:\s*1\s+1\s+auto;/s,
     );
     expect(css).toMatch(/\.profile-model-test-url-text\s*\{[^}]*flex:\s*1\s+1\s+auto;/s);
+    expect(css).toMatch(
+      /\.profile-model-test-compact-action:disabled\s*\{[^}]*cursor:\s*not-allowed;/s,
+    );
   });
 
   it("renders language as a select list and exposes the full effort enum set", async () => {

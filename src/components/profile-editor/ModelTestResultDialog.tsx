@@ -470,6 +470,7 @@ function ModelTestResultDialog({
                     <button
                       type="button"
                       className="profile-secondary-btn profile-model-test-compact-action"
+                      disabled={isRetesting}
                       onClick={() => setIsPromptEditing(true)}
                     >
                       {t("profiles.editor.modelTest.editPrompt")}
@@ -481,6 +482,7 @@ function ModelTestResultDialog({
                     id={promptInputId}
                     className="profile-model-test-prompt-input"
                     value={promptDraft}
+                    disabled={isRetesting}
                     onChange={(event) => setPromptDraft(event.target.value)}
                   />
                 ) : (

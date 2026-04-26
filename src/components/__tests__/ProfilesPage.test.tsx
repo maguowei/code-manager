@@ -558,6 +558,7 @@ describe("ProfilesPage", () => {
     expect(within(dialog).queryByLabelText("输入提示词")).not.toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "测试中..." })).toBeDisabled();
     expect(within(dialog).getByRole("button", { name: "测试中..." })).toHaveClass("is-testing");
+    expect(within(dialog).getByRole("button", { name: "编辑提示词" })).toBeDisabled();
     const progressIndicator = within(dialog).getByTestId("model-test-progress-indicator");
     expect(progressIndicator).toHaveAttribute("role", "status");
     expect(progressIndicator).toHaveTextContent("测试中...");
