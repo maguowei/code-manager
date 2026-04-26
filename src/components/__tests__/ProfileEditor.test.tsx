@@ -199,6 +199,13 @@ function getSection(name: string): HTMLElement {
   return section as HTMLElement;
 }
 
+function expectAccordionHeaderMeta(section: HTMLElement, text: string) {
+  const meta = section.querySelector(".profile-accordion-header-meta");
+  expect(meta).not.toBeNull();
+  expect(meta).toHaveTextContent(text);
+  expect(section.querySelector(".profile-accordion-badge")).toBeNull();
+}
+
 function toggleAccordionSection(name: string) {
   const section = getSection(name);
   const [toggleButton] = within(section).getAllByRole("button");
@@ -415,7 +422,7 @@ describe("ProfileEditor", () => {
     const hooksSection = screen.getByRole("heading", { name: "Hooks" }).closest("section");
     expect(hooksSection).not.toBeNull();
     if (hooksSection) {
-      expect(within(hooksSection).getByText("0")).toBeInTheDocument();
+      expectAccordionHeaderMeta(hooksSection, "0");
       expect(within(hooksSection).queryByRole("button", { name: "控件" })).not.toBeInTheDocument();
       expect(within(hooksSection).queryByRole("button", { name: "JSON" })).not.toBeInTheDocument();
       expect(within(hooksSection).queryByText("暂无 Hooks 配置。")).not.toBeInTheDocument();
@@ -509,6 +516,7 @@ describe("ProfileEditor", () => {
       .closest("section");
     expect(envSection).not.toBeNull();
     if (envSection) {
+      expectAccordionHeaderMeta(envSection, "0");
       expect(within(envSection).queryByRole("button", { name: "控件" })).not.toBeInTheDocument();
       expect(within(envSection).queryByRole("button", { name: "JSON" })).not.toBeInTheDocument();
       expect(
@@ -533,7 +541,7 @@ describe("ProfileEditor", () => {
       .closest("section");
     expect(marketplacesSection).not.toBeNull();
     if (marketplacesSection) {
-      expect(within(marketplacesSection).getByText("0")).toBeInTheDocument();
+      expectAccordionHeaderMeta(marketplacesSection, "0");
       expect(
         within(marketplacesSection).queryByRole("button", { name: "新增 Marketplace" }),
       ).not.toBeInTheDocument();

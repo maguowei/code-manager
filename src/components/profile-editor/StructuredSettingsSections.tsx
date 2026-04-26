@@ -406,7 +406,7 @@ function StructuredSettingsSections({
         error={sectionState.editorErrors.env || envJsonEditor.jsonError}
         expanded={sectionState.environmentExpanded}
         onToggleExpanded={sectionState.toggleEnvironmentExpanded}
-        badgeCount={visibleEnvCount}
+        headerMeta={visibleEnvCount}
       />
 
       <SettingsSectionModePanel
@@ -477,7 +477,7 @@ function StructuredSettingsSections({
       <SettingsSectionModePanel
         title={messages.hooks}
         variant="accordion"
-        badgeCount={hooksTypeCount}
+        headerMeta={hooksTypeCount}
         mode={sectionState.sectionModes.hooks}
         onModeChange={(mode) => sectionState.handleSectionModeChange("hooks", mode)}
         controls={
@@ -497,7 +497,7 @@ function StructuredSettingsSections({
       <SettingsSectionModePanel
         title={messages.marketplaces}
         variant="accordion"
-        badgeCount={marketplaceCount}
+        headerMeta={marketplaceCount}
         mode={sectionState.sectionModes.marketplaces}
         onModeChange={(mode) => sectionState.handleSectionModeChange("marketplaces", mode)}
         controls={

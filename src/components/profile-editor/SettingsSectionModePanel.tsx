@@ -51,6 +51,8 @@ function SettingsSectionModePanel({
 }: SettingsSectionModePanelProps) {
   const { t } = useI18n();
   const bodyVisible = variant === "accordion" ? expanded : true;
+  const hasHeaderMeta =
+    headerMeta !== undefined && headerMeta !== null && headerMeta !== false && headerMeta !== "";
 
   function renderModeSwitch() {
     return (
@@ -128,7 +130,7 @@ function SettingsSectionModePanel({
                 <span className="profile-accordion-badge">{badgeCount}</span>
               ) : null}
             </span>
-            {headerMeta ? (
+            {hasHeaderMeta ? (
               <span className="profile-accordion-header-meta">{headerMeta}</span>
             ) : null}
           </button>
