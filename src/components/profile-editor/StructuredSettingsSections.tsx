@@ -136,6 +136,9 @@ function StructuredSettingsSections({
   const officialMarketplaceEnabled = Object.keys(
     readObject(settings.extraKnownMarketplaces),
   ).includes(OFFICIAL_MARKETPLACE_ID);
+  const enabledCommonToggleCount = commonToggleFields.filter((field) =>
+    readToggleFieldEnabled(field),
+  ).length;
   const handleOfficialPluginActionChange = useCallback((action: ReactNode | null) => {
     setOfficialPluginAction(action);
   }, []);
@@ -381,6 +384,7 @@ function StructuredSettingsSections({
         error={commonJsonEditor.jsonError}
         expanded={sectionState.commonExpanded}
         onToggleExpanded={sectionState.toggleCommonExpanded}
+        headerMeta={`${t("common.pluginsEnabledSummaryLabel")} ${enabledCommonToggleCount}/${commonToggleFields.length}`}
       />
 
       <SettingsSectionModePanel

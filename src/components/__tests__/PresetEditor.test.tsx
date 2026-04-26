@@ -439,17 +439,22 @@ describe("PresetEditor", () => {
       expect(within(behaviorSection).queryByText("尊重 .gitignore")).not.toBeInTheDocument();
     }
     if (commonSection) {
-      expect(within(commonSection).getByRole("button", { name: "收起 常用选项" })).toHaveAttribute(
+      expect(within(commonSection).getByRole("button", { name: "展开 常用选项" })).toHaveAttribute(
         "aria-expanded",
-        "true",
+        "false",
       );
+      expect(within(commonSection).getByText("已启用 0/16")).toBeInTheDocument();
+      expect(within(commonSection).queryByRole("button", { name: "控件" })).not.toBeInTheDocument();
+      expect(within(commonSection).queryByRole("button", { name: "JSON" })).not.toBeInTheDocument();
+
+      fireEvent.click(within(commonSection).getByRole("button", { name: "展开 常用选项" }));
       expect(within(commonSection).getByRole("button", { name: "控件" })).toBeInTheDocument();
       expect(within(commonSection).getByRole("button", { name: "JSON" })).toBeInTheDocument();
       expect(screen.queryByRole("textbox", { name: "输出风格" })).not.toBeInTheDocument();
       expect(
         within(commonSection).queryByRole("combobox", { name: "输出风格" }),
       ).not.toBeInTheDocument();
-      expect(within(commonSection).getAllByRole("switch")).toHaveLength(14);
+      expect(within(commonSection).getAllByRole("switch")).toHaveLength(16);
       expect(within(commonSection).getByText("默认启用深度思考")).toBeInTheDocument();
       expect(within(commonSection).getByText("显示 Thinking 摘要")).toBeInTheDocument();
       expect(within(commonSection).getByText("接受计划时显示清理上下文")).toBeInTheDocument();
@@ -457,7 +462,9 @@ describe("PresetEditor", () => {
       expect(within(commonSection).getByText("禁用 AI 署名")).toBeInTheDocument();
       expect(within(commonSection).getByText("已完成引导设置")).toBeInTheDocument();
       expect(within(commonSection).getByText("启用 Fast Mode")).toBeInTheDocument();
+      expect(within(commonSection).getByText("禁用自动更新")).toBeInTheDocument();
       expect(within(commonSection).getByText("启用 Agent Teams")).toBeInTheDocument();
+      expect(within(commonSection).getByText("显式启用 Tool Search")).toBeInTheDocument();
       expect(within(commonSection).getByText("启用新版 Init")).toBeInTheDocument();
       expect(within(commonSection).getByText("启用无闪烁模式")).toBeInTheDocument();
     }
@@ -728,7 +735,7 @@ describe("PresetEditor", () => {
     const onSave = vi.fn();
     renderEditor({ onSave });
 
-    const commonSection = getSection("常用选项");
+    const commonSection = toggleAccordionSection("常用选项");
     const behaviorSection = getSection("模型与行为");
     fireEvent.change(within(behaviorSection).getByRole("combobox", { name: "输出风格" }), {
       target: { value: "Learning" },
@@ -743,8 +750,10 @@ describe("PresetEditor", () => {
       "启用 Fast Mode",
       "尊重 .gitignore",
       "跳过 WebFetch 预检",
+      "禁用自动更新",
       "禁用非必要网络请求",
       "启用 LSP 工具",
+      "显式启用 Tool Search",
       "启用新版 Init",
       "启用无闪烁模式",
       "启用 Agent Teams",
@@ -787,8 +796,10 @@ describe("PresetEditor", () => {
     });
     expect(saved.settingsPatch.env).toMatchObject({
       ANTHROPIC_AUTH_TOKEN: "token",
+      DISABLE_AUTOUPDATER: "1",
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
       ENABLE_LSP_TOOL: "1",
+      ENABLE_TOOL_SEARCH: "true",
       CLAUDE_CODE_NEW_INIT: "1",
       CLAUDE_CODE_NO_FLICKER: "1",
       CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1",
@@ -1075,7 +1086,7 @@ describe("PresetEditor", () => {
     renderEditor();
 
     const behaviorSection = getSection("模型与行为");
-    const commonSection = getSection("常用选项");
+    const commonSection = toggleAccordionSection("常用选项");
     expect(within(behaviorSection).getByRole("button", { name: "outputStyle" })).toHaveAttribute(
       "data-tooltip",
       "outputStyle",
@@ -1107,10 +1118,16 @@ describe("PresetEditor", () => {
       "data-tooltip",
       "fastMode",
     );
+    expect(
+      within(commonSection).getByRole("button", { name: "DISABLE_AUTOUPDATER" }),
+    ).toHaveAttribute("data-tooltip", "DISABLE_AUTOUPDATER");
     expect(within(commonSection).getByRole("button", { name: "respectGitignore" })).toHaveAttribute(
       "data-tooltip",
       "respectGitignore",
     );
+    expect(
+      within(commonSection).getByRole("button", { name: "ENABLE_TOOL_SEARCH" }),
+    ).toHaveAttribute("data-tooltip", "ENABLE_TOOL_SEARCH");
     expect(
       within(commonSection).getByRole("button", { name: "CLAUDE_CODE_NO_FLICKER" }),
     ).toHaveAttribute("data-tooltip", "CLAUDE_CODE_NO_FLICKER");
@@ -2018,6 +2035,8 @@ describe("PresetEditor", () => {
     renderEditor({ preset: null, onSave });
 
     const commonSection = getSection("常用选项");
+    expect(within(commonSection).getByText("已启用 7/16")).toBeInTheDocument();
+    toggleAccordionSection("常用选项");
     for (const label of [
       "默认启用深度思考",
       "已完成引导设置",
@@ -2041,6 +2060,8 @@ describe("PresetEditor", () => {
       "禁用所有 Hooks",
       "启用 Fast Mode",
       "尊重 .gitignore",
+      "禁用自动更新",
+      "显式启用 Tool Search",
       "启用 Agent Teams",
     ]) {
       expect(
@@ -2075,6 +2096,8 @@ describe("PresetEditor", () => {
     expect(saved.settingsPatch).not.toHaveProperty("respectGitignore");
     expect(saved.settingsPatch).not.toHaveProperty("outputStyle");
     expect(saved.settingsPatch).not.toHaveProperty("attribution");
+    expect(saved.settingsPatch.env).not.toHaveProperty("DISABLE_AUTOUPDATER");
+    expect(saved.settingsPatch.env).not.toHaveProperty("ENABLE_TOOL_SEARCH");
     expect(saved.settingsPatch.env).not.toHaveProperty("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS");
   });
 });

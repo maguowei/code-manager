@@ -37,7 +37,7 @@ function useStructuredSettingsSectionState(
 ): StructuredSettingsSectionState {
   const [sectionModes, setSectionModes] =
     useState<Record<PureSettingsSectionKey, SectionEditorMode>>(createInitialSectionModes);
-  const [commonExpanded, setCommonExpanded] = useState(true);
+  const [commonExpanded, setCommonExpanded] = useState(false);
   const [environmentExpanded, setEnvironmentExpanded] = useState(false);
   const [activeAccordionSection, setActiveAccordionSection] =
     useState<LowFrequencySectionKey | null>(null);

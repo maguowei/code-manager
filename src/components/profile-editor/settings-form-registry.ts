@@ -433,8 +433,24 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
       en: "Disable nonessential traffic",
     },
     description: {
-      zh: "关闭自动更新、反馈、错误上报和遥测等非必要网络请求。",
-      en: "Disable auto-updates, feedback, error reporting, telemetry, and other nonessential traffic.",
+      zh: "关闭自动更新、反馈、错误上报和遥测等全部非必要网络请求；如只需关闭自动更新，请使用“禁用自动更新”。",
+      en: "Disable auto-updates, feedback, error reporting, telemetry, and all other nonessential traffic. Use Disable auto-updates when only updates should be disabled.",
+    },
+  },
+  {
+    key: "disableAutoUpdater",
+    section: "common",
+    kind: "checkbox",
+    storage: "env-only",
+    envKey: "DISABLE_AUTOUPDATER",
+    enabledValue: "1",
+    label: {
+      zh: "禁用自动更新",
+      en: "Disable auto-updates",
+    },
+    description: {
+      zh: "禁用 Claude Code 后台自动更新；手动运行 claude update 仍可更新。",
+      en: "Disable Claude Code background auto-updates. Manual claude update remains available.",
     },
   },
   {
@@ -452,6 +468,22 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     description: {
       zh: "启用语言服务器协议工具，为 Claude Code 提供跳转定义、引用查找和诊断能力。",
       en: "Enable the LSP tool for definitions, references, and diagnostics in Claude Code.",
+    },
+  },
+  {
+    key: "enableToolSearch",
+    section: "common",
+    kind: "checkbox",
+    storage: "env-only",
+    envKey: "ENABLE_TOOL_SEARCH",
+    enabledValue: "true",
+    label: {
+      zh: "显式启用 Tool Search",
+      en: "Explicitly enable Tool Search",
+    },
+    description: {
+      zh: "在自定义 ANTHROPIC_BASE_URL、Vertex AI 或兼容代理支持 tool_reference 时显式启用 MCP Tool Search。",
+      en: "Explicitly enable MCP Tool Search when a custom ANTHROPIC_BASE_URL, Vertex AI, or compatible proxy supports tool_reference.",
     },
   },
   {
