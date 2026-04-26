@@ -384,7 +384,7 @@ describe("ProfileEditor", () => {
       await Promise.resolve();
     });
     expect(topBadge).toHaveTextContent("B");
-    expect(topBadge?.className).toContain(initialColorClass ?? "");
+    expect(topBadge?.className).not.toContain(initialColorClass ?? "");
 
     const sandboxSection = screen.getByRole("heading", { name: "Sandbox" }).closest("section");
     expect(sandboxSection).not.toBeNull();

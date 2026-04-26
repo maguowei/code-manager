@@ -4,7 +4,12 @@ import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
 import type { ConfigProfile, ConfigWorkspace, ModelTestResult } from "../types";
 import ConfirmDialog from "./ConfirmDialog";
-import { getEnabledPluginsSummary, isPlainObject, presetNameById } from "./config-workspace-utils";
+import {
+  getEnabledPluginsSummary,
+  isPlainObject,
+  presetNameById,
+  presetSlugFromId,
+} from "./config-workspace-utils";
 import Drawer from "./Drawer";
 import { TestTubeIcon, TrashIcon } from "./Icons";
 import ProfileEditor from "./ProfileEditor";
@@ -615,7 +620,11 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                   onDrop={(event) => handleDrop(event, index)}
                 >
                   <div className="profile-card-head">
-                    <ProfileNameBadge name={profile.name} seed={profile.id} size="sm" />
+                    <ProfileNameBadge
+                      name={profile.name}
+                      colorSeedScope={presetSlugFromId(profile.presetId)}
+                      size="sm"
+                    />
                     <div className="profile-card-title-block">
                       <div className="profile-card-title-row">
                         <h3>{profile.name}</h3>

@@ -95,10 +95,10 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
   },
 } as ConfigWorkspace;
 
-function renderPage() {
+function renderPage(workspace: ConfigWorkspace = WORKSPACE_FIXTURE) {
   render(
     <I18nProvider>
-      <ProfilesPage workspace={WORKSPACE_FIXTURE} onWorkspaceChange={async () => {}} />
+      <ProfilesPage workspace={workspace} onWorkspaceChange={async () => {}} />
     </I18nProvider>,
   );
 }
@@ -200,6 +200,60 @@ describe("ProfilesPage", () => {
     expect(within(card).getByRole("button", { name: "删除" })).toBeInTheDocument();
     expect(within(card).queryByText("删除")).not.toBeInTheDocument();
     expect(within(card).queryByRole("button", { name: "编辑" })).not.toBeInTheDocument();
+  });
+
+  it("uses the displayed first character and preset slug to seed profile badge colors", () => {
+    const workspace: ConfigWorkspace = {
+      ...WORKSPACE_FIXTURE,
+      builtinPresets: [
+        ...WORKSPACE_FIXTURE.builtinPresets,
+        {
+          id: "builtin:anthropic",
+          name: "Anthropic",
+          localizedName: {
+            zh: "Anthropic",
+            en: "Anthropic",
+          },
+          description: "Anthropic 预设",
+          modelSuggestions: ["claude-sonnet-4-6"],
+          settingsPatch: {},
+          source: "builtin",
+        },
+      ],
+      profiles: [
+        makeProfile("profile-a", "OpenRouter Alpha"),
+        makeProfile("profile-b", "OneAPI Beta"),
+        makeProfile("profile-c", "Oracle Gamma", "builtin:anthropic"),
+      ],
+      bindings: {
+        userProfileId: undefined,
+      },
+    } as ConfigWorkspace;
+
+    renderPage(workspace);
+
+    const firstBadge = screen
+      .getByText("OpenRouter Alpha")
+      .closest(".profile-card")
+      ?.querySelector(".profile-name-badge") as HTMLElement | null;
+    const secondBadge = screen
+      .getByText("OneAPI Beta")
+      .closest(".profile-card")
+      ?.querySelector(".profile-name-badge") as HTMLElement | null;
+    const thirdBadge = screen
+      .getByText("Oracle Gamma")
+      .closest(".profile-card")
+      ?.querySelector(".profile-name-badge") as HTMLElement | null;
+    const firstColor = firstBadge?.className.match(/profile-name-badge--color-\d/)?.[0];
+    const secondColor = secondBadge?.className.match(/profile-name-badge--color-\d/)?.[0];
+    const thirdColor = thirdBadge?.className.match(/profile-name-badge--color-\d/)?.[0];
+
+    expect(firstBadge).toHaveTextContent("O");
+    expect(secondBadge).toHaveTextContent("O");
+    expect(thirdBadge).toHaveTextContent("O");
+    expect(firstColor).toBeTruthy();
+    expect(secondColor).toBe(firstColor);
+    expect(thirdColor).not.toBe(firstColor);
   });
 
   it("renders enable action for unapplied profiles in zh", () => {

@@ -9,6 +9,7 @@ import {
   cloneSettings,
   getEnabledPluginsSummary,
   presetDisplayName,
+  presetSlugFromId,
   readEnvString,
   readScopedSettingsWithEnv,
   readTopLevelObject,
@@ -560,7 +561,6 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     expertHint: t("profiles.editor.hints.expert"),
     expertStructuredKeys: t("profiles.editor.hints.expertStructuredKeys"),
   };
-  const topBadgeSeed = profile?.id ?? (name.trim() || "profile");
   const hasSuccessfulModelTest = latestModelTestResult?.ok === true;
 
   return (
@@ -588,7 +588,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
       <div className="editor-body profile-editor-body">
         <ProfileNameBadge
           name={name}
-          seed={topBadgeSeed}
+          colorSeedScope={presetSlugFromId(presetId)}
           size="lg"
           fallbackChar="P"
           className="editor-badge-large"

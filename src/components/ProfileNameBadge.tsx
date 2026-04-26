@@ -1,8 +1,10 @@
 import "./ProfileNameBadge.css";
 
+const BADGE_COLOR_COUNT = 12;
+
 interface ProfileNameBadgeProps {
   name?: string | null;
-  seed: string;
+  colorSeedScope?: string;
   size?: "sm" | "lg";
   fallbackChar?: string;
   className?: string;
@@ -13,7 +15,7 @@ function getBadgeColorIndex(seed: string): number {
   for (let index = 0; index < seed.length; index += 1) {
     hash = (hash * 31 + seed.charCodeAt(index)) & 0xffff;
   }
-  return hash % 6;
+  return hash % BADGE_COLOR_COUNT;
 }
 
 function getBadgeText(name: string | null | undefined, fallbackChar: string): string {
@@ -33,13 +35,15 @@ function getBadgeText(name: string | null | undefined, fallbackChar: string): st
 
 function ProfileNameBadge({
   name,
-  seed,
+  colorSeedScope,
   size = "sm",
   fallbackChar = "P",
   className,
 }: ProfileNameBadgeProps) {
-  const colorIndex = getBadgeColorIndex(seed);
   const badgeText = getBadgeText(name, fallbackChar);
+  const trimmedColorSeedScope = colorSeedScope?.trim() ?? "";
+  const colorSeed = trimmedColorSeedScope ? `${badgeText}:${trimmedColorSeedScope}` : badgeText;
+  const colorIndex = getBadgeColorIndex(colorSeed);
 
   return (
     <div

@@ -273,6 +273,16 @@ export function presetDisplayName(
   return language === "zh" ? localizedName.zh : localizedName.en;
 }
 
+export function presetSlugFromId(presetId: string | undefined): string {
+  const trimmedId = presetId?.trim() ?? "";
+  if (!trimmedId) {
+    return "";
+  }
+
+  const separatorIndex = trimmedId.indexOf(":");
+  return separatorIndex >= 0 ? trimmedId.slice(separatorIndex + 1).trim() : trimmedId;
+}
+
 export function presetNameById(
   presets: SettingsPreset[],
   presetId: string | undefined,

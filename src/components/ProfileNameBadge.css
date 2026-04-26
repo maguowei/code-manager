@@ -58,3 +58,33 @@
   background: linear-gradient(135deg, #ffa50022, #ffa50044);
   color: #ffa500;
 }
+
+.profile-name-badge--color-6 {
+  background: linear-gradient(135deg, #06b6d422, #06b6d444);
+  color: #06b6d4;
+}
+
+.profile-name-badge--color-7 {
+  background: linear-gradient(135deg, #4f46e522, #4f46e544);
+  color: #4f46e5;
+}
+
+.profile-name-badge--color-8 {
+  background: linear-gradient(135deg, #0f766e22, #0f766e44);
+  color: #0f766e;
+}
+
+.profile-name-badge--color-9 {
+  background: linear-gradient(135deg, #e11d4822, #e11d4844);
+  color: #e11d48;
+}
+
+.profile-name-badge--color-10 {
+  background: linear-gradient(135deg, #ca8a0422, #ca8a0444);
+  color: #ca8a04;
+}
+
+.profile-name-badge--color-11 {
+  background: linear-gradient(135deg, #65a30d22, #65a30d44);
+  color: #65a30d;
+}
