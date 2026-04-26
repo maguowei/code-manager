@@ -8,7 +8,9 @@ interface StringListEditorProps {
   rows: StringRow[];
   onChange: (rows: StringRow[]) => void;
   onAdd: () => void;
+  onClear?: () => void;
   addLabel: string;
+  clearLabel?: string;
   itemLabelPrefix: string;
   placeholder: string;
   emptyHint?: string;
@@ -24,7 +26,9 @@ function StringListEditor({
   rows,
   onChange,
   onAdd,
+  onClear,
   addLabel,
+  clearLabel,
   itemLabelPrefix,
   placeholder,
   emptyHint,
@@ -37,6 +41,8 @@ function StringListEditor({
   const { t } = useI18n();
   const [uncontrolledExpanded, setUncontrolledExpanded] = useState(defaultExpanded);
   const collapseToggleVisible = collapsible && showCollapseToggle && rows.length > 0;
+  const clearButtonVisible = rows.length > 0 && onClear !== undefined && clearLabel !== undefined;
+  const actionsVisible = collapseToggleVisible || clearButtonVisible;
   const bodyVisible = collapseToggleVisible ? (expanded ?? uncontrolledExpanded) : true;
 
   function buildItemLabel(index: number) {
@@ -74,28 +80,40 @@ function StringListEditor({
             </div>
           </div>
         )}
-        {collapseToggleVisible ? (
+        {actionsVisible ? (
           <div className="profile-subsection-actions">
-            <button
-              type="button"
-              className="profile-accordion-chevron-btn profile-string-list-collapse-btn"
-              aria-expanded={bodyVisible}
-              aria-label={`${bodyVisible ? t("common.collapse") : t("common.expand")} ${label}`}
-              onClick={handleToggleExpanded}
-            >
-              <svg
-                className={`profile-string-list-chevron${bodyVisible ? " expanded" : ""}`}
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
+            {clearButtonVisible ? (
+              <button
+                type="button"
+                className="profile-secondary-btn profile-string-list-clear-btn"
+                onClick={onClear}
               >
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </button>
+                {clearLabel}
+              </button>
+            ) : null}
+
+            {collapseToggleVisible ? (
+              <button
+                type="button"
+                className="profile-accordion-chevron-btn profile-string-list-collapse-btn"
+                aria-expanded={bodyVisible}
+                aria-label={`${bodyVisible ? t("common.collapse") : t("common.expand")} ${label}`}
+                onClick={handleToggleExpanded}
+              >
+                <svg
+                  className={`profile-string-list-chevron${bodyVisible ? " expanded" : ""}`}
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+            ) : null}
           </div>
         ) : null}
       </div>

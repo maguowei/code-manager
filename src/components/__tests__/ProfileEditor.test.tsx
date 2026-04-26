@@ -2129,6 +2129,125 @@ describe("ProfileEditor", () => {
     expect(within(hooksSection).queryByLabelText("Hook 事件 1")).not.toBeInTheDocument();
   });
 
+  it("loads recommended permission rules after confirmation and preserves local permission options", async () => {
+    const onSave = vi.fn();
+    renderEditor({
+      onSave,
+      profile: {
+        ...PROFILE_FIXTURE,
+        settings: {
+          permissions: {
+            defaultMode: "dontAsk",
+            disableBypassPermissionsMode: "disable",
+            allow: ["Bash(git *)"],
+            ask: ["Bash(rm *)"],
+            deny: ["Read(**/config.yaml)"],
+            additionalDirectories: ["~/projects/shared"],
+          },
+        },
+      },
+    });
+
+    const permissionsSection = getSection("权限");
+    toggleAccordionSection("权限");
+
+    fireEvent.click(within(permissionsSection).getByRole("button", { name: "加载推荐规则" }));
+    expect(screen.getByText("加载推荐权限规则")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "这会覆盖当前 allow、ask、deny 规则，并保留默认模式、禁用 bypassPermissions 和附加目录。",
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    expect(within(permissionsSection).getByLabelText("允许规则 1")).toHaveValue("Bash(git *)");
+
+    fireEvent.click(within(permissionsSection).getByRole("button", { name: "加载推荐规则" }));
+    fireEvent.click(screen.getByRole("button", { name: "加载规则" }));
+
+    expect(within(permissionsSection).getByLabelText("允许规则 1")).toHaveValue("Bash(pwd)");
+    expect(within(permissionsSection).getByLabelText("询问规则 1")).toHaveValue("Bash(cat *)");
+    expect(within(permissionsSection).getByLabelText("拒绝规则 1")).toHaveValue("Bash(sudo *)");
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    });
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const savedPermissions = onSave.mock.calls[0]?.[0]?.settings.permissions as
+      | Record<string, unknown>
+      | undefined;
+    expect(savedPermissions).toMatchObject({
+      defaultMode: "dontAsk",
+      disableBypassPermissionsMode: "disable",
+      additionalDirectories: ["~/projects/shared"],
+    });
+    expect(savedPermissions?.allow).toContain("Bash(git status *)");
+    expect(savedPermissions?.allow).not.toContain("Bash(git *)");
+    expect(savedPermissions?.ask).toContain("Bash(curl *)");
+    expect(savedPermissions?.deny).toContain("Bash(git reset --hard*)");
+    expect(savedPermissions?.deny).not.toContain("Read(**/config.yaml)");
+  });
+
+  it("clears allow, ask, and deny rules independently without clearing other permission options", async () => {
+    const onSave = vi.fn();
+    renderEditor({
+      onSave,
+      profile: {
+        ...PROFILE_FIXTURE,
+        settings: {
+          permissions: {
+            defaultMode: "dontAsk",
+            disableBypassPermissionsMode: "disable",
+            allow: ["Bash(git status *)", "Bash(pnpm test *)"],
+            ask: ["Bash(curl *)"],
+            deny: ["Bash(git reset --hard*)"],
+            additionalDirectories: ["~/projects/shared"],
+          },
+        },
+      },
+    });
+
+    const permissionsSection = getSection("权限");
+    toggleAccordionSection("权限");
+
+    fireEvent.click(within(permissionsSection).getByRole("button", { name: "清空允许规则" }));
+    expect(within(permissionsSection).queryByLabelText("允许规则 1")).not.toBeInTheDocument();
+    expect(within(permissionsSection).getByLabelText("询问规则 1")).toHaveValue("Bash(curl *)");
+    expect(within(permissionsSection).getByLabelText("拒绝规则 1")).toHaveValue(
+      "Bash(git reset --hard*)",
+    );
+
+    fireEvent.click(within(permissionsSection).getByRole("button", { name: "清空询问规则" }));
+    expect(within(permissionsSection).queryByLabelText("询问规则 1")).not.toBeInTheDocument();
+    expect(within(permissionsSection).getByLabelText("拒绝规则 1")).toHaveValue(
+      "Bash(git reset --hard*)",
+    );
+
+    fireEvent.click(within(permissionsSection).getByRole("button", { name: "清空拒绝规则" }));
+    expect(within(permissionsSection).queryByLabelText("拒绝规则 1")).not.toBeInTheDocument();
+    expect(within(permissionsSection).getByLabelText("附加目录 1")).toHaveValue(
+      "~/projects/shared",
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    });
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const savedPermissions = onSave.mock.calls[0]?.[0]?.settings.permissions as
+      | Record<string, unknown>
+      | undefined;
+    expect(savedPermissions).toMatchObject({
+      defaultMode: "dontAsk",
+      disableBypassPermissionsMode: "disable",
+      additionalDirectories: ["~/projects/shared"],
+    });
+    expect(savedPermissions).not.toHaveProperty("allow");
+    expect(savedPermissions).not.toHaveProperty("ask");
+    expect(savedPermissions).not.toHaveProperty("deny");
+  });
+
   it("syncs permission default mode between header quick select and editor, and clears it on save", async () => {
     const onSave = vi.fn();
     renderEditor({ onSave });

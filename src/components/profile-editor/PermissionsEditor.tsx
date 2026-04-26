@@ -1,5 +1,6 @@
 import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../../i18n";
+import ConfirmDialog from "../ConfirmDialog";
 import {
   buildStringListError,
   createRowId,
@@ -11,6 +12,7 @@ import {
   stringArrayFromRows,
   USER_VISIBLE_PERMISSION_MODE_OPTIONS,
 } from "./editor-utils";
+import { RECOMMENDED_PERMISSION_RULES } from "./permission-presets";
 import { SandboxSwitchControl } from "./SandboxEditor";
 import StringListEditor from "./StringListEditor";
 import "./PermissionsEditor.css";
@@ -159,6 +161,7 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
   const [denyExpanded, setDenyExpanded] = useState(true);
   const [askExpanded, setAskExpanded] = useState(true);
   const [directoryExpanded, setDirectoryExpanded] = useState(true);
+  const [recommendedDialogOpen, setRecommendedDialogOpen] = useState(false);
   const skipStructuredSyncRef = useRef(false);
 
   useEffect(() => {
@@ -296,18 +299,38 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
     ]);
   }
 
+  function handleLoadRecommendedRules() {
+    setAllowRows(rowsFromStringArray([...RECOMMENDED_PERMISSION_RULES.allow]));
+    setAskRows(rowsFromStringArray([...RECOMMENDED_PERMISSION_RULES.ask]));
+    setDenyRows(rowsFromStringArray([...RECOMMENDED_PERMISSION_RULES.deny]));
+    setAllowExpanded(true);
+    setAskExpanded(true);
+    setDenyExpanded(true);
+    setRecommendedDialogOpen(false);
+  }
+
   return (
     <div className="profile-section-body">
-      <div className="profile-inline-switch-row profile-inline-switch-row-emphasis">
-        <span className="profile-inline-switch-title">
-          {t("profileEditor.permissions.disableBypass")}
-        </span>
-        <SandboxSwitchControl
-          enabled={disableBypass}
-          ariaLabel={t("profileEditor.permissions.disableBypass")}
-          variant="header"
-          onToggle={() => setDisableBypass(!disableBypass)}
-        />
+      <div className="profile-permissions-toolbar">
+        <div className="profile-inline-switch-row profile-inline-switch-row-emphasis">
+          <span className="profile-inline-switch-title">
+            {t("profileEditor.permissions.disableBypass")}
+          </span>
+          <SandboxSwitchControl
+            enabled={disableBypass}
+            ariaLabel={t("profileEditor.permissions.disableBypass")}
+            variant="header"
+            onToggle={() => setDisableBypass(!disableBypass)}
+          />
+        </div>
+
+        <button
+          type="button"
+          className="profile-secondary-btn profile-permissions-recommended-btn"
+          onClick={() => setRecommendedDialogOpen(true)}
+        >
+          {t("profileEditor.permissions.loadRecommendedRules")}
+        </button>
       </div>
 
       <div className="profile-section-grid">
@@ -316,7 +339,12 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
           rows={allowRows}
           onChange={setAllowRows}
           onAdd={() => addRow(setAllowRows, setAllowExpanded)}
+          onClear={() => {
+            setAllowRows([]);
+            setAllowExpanded(true);
+          }}
           addLabel={t("profileEditor.permissions.addAllow")}
+          clearLabel={t("profileEditor.permissions.clearAllow")}
           itemLabelPrefix={t("profileEditor.permissions.allowRulePrefix")}
           placeholder={t("profileEditor.permissions.allowPlaceholder")}
           emptyHint={t("profileEditor.permissions.allowEmptyHint")}
@@ -331,7 +359,12 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
           rows={denyRows}
           onChange={setDenyRows}
           onAdd={() => addRow(setDenyRows, setDenyExpanded)}
+          onClear={() => {
+            setDenyRows([]);
+            setDenyExpanded(true);
+          }}
           addLabel={t("profileEditor.permissions.addDeny")}
+          clearLabel={t("profileEditor.permissions.clearDeny")}
           itemLabelPrefix={t("profileEditor.permissions.denyRulePrefix")}
           placeholder={t("profileEditor.permissions.denyPlaceholder")}
           emptyHint={t("profileEditor.permissions.denyEmptyHint")}
@@ -346,7 +379,12 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
           rows={askRows}
           onChange={setAskRows}
           onAdd={() => addRow(setAskRows, setAskExpanded)}
+          onClear={() => {
+            setAskRows([]);
+            setAskExpanded(true);
+          }}
           addLabel={t("profileEditor.permissions.addAsk")}
+          clearLabel={t("profileEditor.permissions.clearAsk")}
           itemLabelPrefix={t("profileEditor.permissions.askRulePrefix")}
           placeholder={t("profileEditor.permissions.askPlaceholder")}
           emptyHint={t("profileEditor.permissions.askEmptyHint")}
@@ -371,6 +409,17 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
           showCollapseToggle={directoryRows.length > 0}
         />
       </div>
+
+      {recommendedDialogOpen ? (
+        <ConfirmDialog
+          title={t("profileEditor.permissions.loadRecommendedDialogTitle")}
+          message={t("profileEditor.permissions.loadRecommendedDialogMessage")}
+          confirmText={t("profileEditor.permissions.loadRecommendedDialogConfirm")}
+          cancelText={t("profileEditor.common.cancel")}
+          onConfirm={handleLoadRecommendedRules}
+          onCancel={() => setRecommendedDialogOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

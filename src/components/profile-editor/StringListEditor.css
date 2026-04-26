@@ -29,6 +29,10 @@
   height: 30px;
 }
 
+.profile-string-list-clear-btn {
+  padding-block: 6px;
+}
+
 .profile-string-list-chevron {
   flex: none;
   color: inherit;
