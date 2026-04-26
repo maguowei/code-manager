@@ -26,7 +26,7 @@ fn tray_labels_for_language(language: &str) -> TrayLabels<'static> {
             no_configs: "No configs",
             nav_memory: "Memory",
             nav_skills: "Skills",
-            nav_providers: "Provider Management",
+            nav_providers: "Preset Management",
             nav_projects: "Projects",
             nav_history: "History",
             nav_stats: "Usage Statistics",
@@ -38,7 +38,7 @@ fn tray_labels_for_language(language: &str) -> TrayLabels<'static> {
             no_configs: "暂无配置",
             nav_memory: "记忆管理",
             nav_skills: "Skills 管理",
-            nav_providers: "Provider 管理",
+            nav_providers: "预设管理",
             nav_projects: "项目管理",
             nav_history: "历史记录",
             nav_stats: "使用统计",
@@ -231,12 +231,13 @@ mod tests {
     fn tray_labels_follow_selected_language() {
         let zh = tray_labels_for_language("zh");
         assert_eq!(zh.show_window, "打开 AI Manager");
+        assert_eq!(zh.nav_providers, "预设管理");
         assert_eq!(zh.nav_projects, "项目管理");
         assert_eq!(zh.quit, "退出");
 
         let en = tray_labels_for_language("en");
         assert_eq!(en.show_window, "Open AI Manager");
-        assert_eq!(en.nav_providers, "Provider Management");
+        assert_eq!(en.nav_providers, "Preset Management");
         assert_eq!(en.quit, "Quit");
     }
 }
