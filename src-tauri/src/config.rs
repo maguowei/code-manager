@@ -4,7 +4,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
@@ -187,6 +187,11 @@ pub struct ModelTestResult {
     pub status_code: Option<u16>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error_message: Option<String>,
+    pub request_method: String,
+    pub request_url: String,
+    pub request_headers: BTreeMap<String, String>,
+    pub request_body: String,
+    pub response_headers: BTreeMap<String, String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub raw_response: Option<String>,
 }
@@ -197,6 +202,24 @@ struct ModelTestRequest {
     auth_token: String,
     resolved_model: String,
     prompt_text: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ModelTestHttpExchange {
+    request_method: String,
+    request_url: String,
+    request_headers: BTreeMap<String, String>,
+    request_body: String,
+    response_headers: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ModelTestResultContext {
+    prompt_text: String,
+    resolved_model: String,
+    duration_ms: u64,
+    request_id: Option<String>,
+    exchange: ModelTestHttpExchange,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -218,6 +241,19 @@ pub struct ProfileInput {
     pub description: String,
     pub preset_id: Option<String>,
     pub settings: Value,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct ModelTestInput {
+    pub id: Option<String>,
+    pub name: String,
+    pub description: String,
+    pub preset_id: Option<String>,
+    pub settings: Value,
+    #[serde(default)]
+    pub prompt_text: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -522,6 +558,36 @@ fn normalize_profile_input(input: ProfileInput) -> Result<ProfileInput, String> 
         description: input.description.trim().to_string(),
         preset_id: input.preset_id.filter(|id| !id.trim().is_empty()),
         settings: normalize_settings_document(input.settings)?,
+    })
+}
+
+fn normalize_model_test_input(input: ModelTestInput) -> Result<ModelTestInput, String> {
+    let profile_input = normalize_profile_input(ProfileInput {
+        id: input.id,
+        name: input.name,
+        description: input.description,
+        preset_id: input.preset_id,
+        settings: input.settings,
+    })?;
+    let prompt_text = input
+        .prompt_text
+        .map(|prompt| prompt.trim().to_string())
+        .map(|prompt| {
+            if prompt.is_empty() {
+                Err("测试提示词不能为空".to_string())
+            } else {
+                Ok(prompt)
+            }
+        })
+        .transpose()?;
+
+    Ok(ModelTestInput {
+        id: profile_input.id,
+        name: profile_input.name,
+        description: profile_input.description,
+        preset_id: profile_input.preset_id,
+        settings: profile_input.settings,
+        prompt_text,
     })
 }
 
@@ -965,7 +1031,10 @@ fn raw_response_from_body(body: &str) -> Option<String> {
     }
 }
 
-fn resolve_model_test_request(resolved_settings: &Value) -> Result<ModelTestRequest, String> {
+fn resolve_model_test_request(
+    resolved_settings: &Value,
+    prompt_text_override: Option<String>,
+) -> Result<ModelTestRequest, String> {
     let auth_token = trimmed_env_value(resolved_settings, "ANTHROPIC_AUTH_TOKEN")
         .ok_or_else(|| "缺少 ANTHROPIC_AUTH_TOKEN，请先在认证区填写认证密钥".to_string())?;
     let base_url = trimmed_env_value(resolved_settings, "ANTHROPIC_BASE_URL")
@@ -979,8 +1048,49 @@ fn resolve_model_test_request(resolved_settings: &Value) -> Result<ModelTestRequ
         base_url,
         auth_token,
         resolved_model,
-        prompt_text: resolve_model_test_prompt(resolved_settings),
+        prompt_text: prompt_text_override
+            .unwrap_or_else(|| resolve_model_test_prompt(resolved_settings)),
     })
+}
+
+fn build_model_test_request_headers(auth_token: &str) -> BTreeMap<String, String> {
+    [
+        ("x-api-key".to_string(), auth_token.to_string()),
+        ("anthropic-version".to_string(), "2023-06-01".to_string()),
+        ("content-type".to_string(), "application/json".to_string()),
+    ]
+    .into_iter()
+    .collect()
+}
+
+fn build_model_test_payload(request: &ModelTestRequest) -> Value {
+    serde_json::json!({
+        "model": request.resolved_model.clone(),
+        "max_tokens": MODEL_TEST_MAX_TOKENS,
+        "messages": [
+            {
+                "role": "user",
+                "content": request.prompt_text.clone()
+            }
+        ]
+    })
+}
+
+fn serialize_model_test_request_body(payload: &Value) -> Result<String, String> {
+    serde_json::to_string_pretty(payload)
+        .map_err(|error| format!("序列化模型测试请求失败：{error}"))
+}
+
+fn headers_to_map(headers: &reqwest::header::HeaderMap) -> BTreeMap<String, String> {
+    headers
+        .iter()
+        .filter_map(|(name, value)| {
+            value
+                .to_str()
+                .ok()
+                .map(|value| (name.as_str().to_string(), value.to_string()))
+        })
+        .collect()
 }
 
 fn parse_model_test_response(
@@ -990,6 +1100,7 @@ fn parse_model_test_response(
     duration_ms: u64,
     request_id: Option<String>,
     raw_response: String,
+    exchange: ModelTestHttpExchange,
 ) -> Result<ModelTestResult, String> {
     let response_text = response
         .get("content")
@@ -1016,6 +1127,11 @@ fn parse_model_test_response(
         stop_reason: trimmed_json_string(response.get("stop_reason")),
         status_code: None,
         error_message: None,
+        request_method: exchange.request_method,
+        request_url: exchange.request_url,
+        request_headers: exchange.request_headers,
+        request_body: exchange.request_body,
+        response_headers: exchange.response_headers,
         raw_response: raw_response_from_body(&raw_response),
     })
 }
@@ -1052,10 +1168,7 @@ fn parse_model_test_error(status_code: u16, body: &str) -> String {
 }
 
 fn build_model_test_error_result(
-    prompt_text: String,
-    resolved_model: String,
-    duration_ms: u64,
-    request_id: Option<String>,
+    context: ModelTestResultContext,
     status_code: Option<u16>,
     error_message: String,
     raw_response: Option<String>,
@@ -1063,14 +1176,19 @@ fn build_model_test_error_result(
     ModelTestResult {
         ok: false,
         response_text: String::new(),
-        prompt_text,
-        resolved_model,
+        prompt_text: context.prompt_text,
+        resolved_model: context.resolved_model,
         provider_model: None,
-        duration_ms,
-        request_id,
+        duration_ms: context.duration_ms,
+        request_id: context.request_id,
         stop_reason: None,
         status_code,
         error_message: Some(error_message),
+        request_method: context.exchange.request_method,
+        request_url: context.exchange.request_url,
+        request_headers: context.exchange.request_headers,
+        request_body: context.exchange.request_body,
+        response_headers: context.exchange.response_headers,
         raw_response,
     }
 }
@@ -1078,16 +1196,10 @@ fn build_model_test_error_result(
 fn build_model_test_failure_result(
     status_code: u16,
     body: &str,
-    prompt_text: String,
-    resolved_model: String,
-    duration_ms: u64,
-    request_id: Option<String>,
+    context: ModelTestResultContext,
 ) -> ModelTestResult {
     build_model_test_error_result(
-        prompt_text,
-        resolved_model,
-        duration_ms,
-        request_id,
+        context,
         Some(status_code),
         parse_model_test_error(status_code, body),
         raw_response_from_body(body),
@@ -1366,8 +1478,8 @@ pub fn preview_profile(data: ProfileInput) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub async fn test_profile_model(data: ProfileInput) -> Result<ModelTestResult, String> {
-    let input = normalize_profile_input(data)?;
+pub async fn test_profile_model(data: ModelTestInput) -> Result<ModelTestResult, String> {
+    let input = normalize_model_test_input(data)?;
     let mut registry = load_registry()?;
     if let Some(preset_id) = input.preset_id.as_deref() {
         if !preset_exists(&registry, preset_id) {
@@ -1376,6 +1488,7 @@ pub async fn test_profile_model(data: ProfileInput) -> Result<ModelTestResult, S
     }
 
     let now = crate::utils::current_rfc3339_timestamp();
+    let prompt_text_override = input.prompt_text.clone();
     let profile = ConfigProfile {
         id: input.id.unwrap_or_else(|| "__test__".to_string()),
         name: input.name,
@@ -1391,28 +1504,24 @@ pub async fn test_profile_model(data: ProfileInput) -> Result<ModelTestResult, S
     registry.profiles.push(profile.clone());
 
     let resolved = resolve_profile_settings(&registry, &profile)?;
-    let request = resolve_model_test_request(&resolved)?;
+    let request = resolve_model_test_request(&resolved, prompt_text_override)?;
     let endpoint = build_model_test_endpoint(&request.base_url);
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(MODEL_TEST_TIMEOUT_SECS))
         .build()
         .map_err(|error| format!("创建模型测试客户端失败：{error}"))?;
-    let payload = serde_json::json!({
-        "model": request.resolved_model.clone(),
-        "max_tokens": MODEL_TEST_MAX_TOKENS,
-        "messages": [
-            {
-                "role": "user",
-                "content": request.prompt_text.clone()
-            }
-        ]
-    });
+    let payload = build_model_test_payload(&request);
+    let request_headers = build_model_test_request_headers(&request.auth_token);
+    let request_body = serialize_model_test_request_body(&payload)?;
 
     let started_at = Instant::now();
     let response = client
-        .post(endpoint)
-        .header("x-api-key", &request.auth_token)
-        .header("anthropic-version", "2023-06-01")
+        .post(&endpoint)
+        .header("x-api-key", request_headers["x-api-key"].as_str())
+        .header(
+            "anthropic-version",
+            request_headers["anthropic-version"].as_str(),
+        )
         .header(reqwest::header::CONTENT_TYPE, "application/json")
         .json(&payload)
         .send()
@@ -1428,6 +1537,7 @@ pub async fn test_profile_model(data: ProfileInput) -> Result<ModelTestResult, S
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned);
     let status = response.status();
+    let response_headers = headers_to_map(response.headers());
     let body = response
         .text()
         .await
@@ -1436,26 +1546,30 @@ pub async fn test_profile_model(data: ProfileInput) -> Result<ModelTestResult, S
     let resolved_model = request.resolved_model.clone();
     let prompt_text = request.prompt_text.clone();
     let raw_response = raw_response_from_body(&body);
+    let exchange = ModelTestHttpExchange {
+        request_method: "POST".to_string(),
+        request_url: endpoint,
+        request_headers,
+        request_body,
+        response_headers,
+    };
+    let context = ModelTestResultContext {
+        prompt_text: prompt_text.clone(),
+        resolved_model: resolved_model.clone(),
+        duration_ms,
+        request_id: request_id.clone(),
+        exchange: exchange.clone(),
+    };
 
     if !status.is_success() {
-        return Ok(build_model_test_failure_result(
-            status_code,
-            &body,
-            prompt_text,
-            resolved_model,
-            duration_ms,
-            request_id,
-        ));
+        return Ok(build_model_test_failure_result(status_code, &body, context));
     }
 
     let parsed = match serde_json::from_str::<Value>(&body) {
         Ok(parsed) => parsed,
         Err(error) => {
             return Ok(build_model_test_error_result(
-                prompt_text,
-                resolved_model,
-                duration_ms,
-                request_id,
+                context,
                 Some(status_code),
                 format!("解析模型测试响应失败：{error}"),
                 raw_response,
@@ -1469,13 +1583,11 @@ pub async fn test_profile_model(data: ProfileInput) -> Result<ModelTestResult, S
         duration_ms,
         request_id.clone(),
         body.clone(),
+        exchange.clone(),
     ) {
         Ok(result) => Ok(result),
         Err(error_message) => Ok(build_model_test_error_result(
-            prompt_text,
-            resolved_model,
-            duration_ms,
-            request_id,
+            context,
             Some(status_code),
             error_message,
             raw_response,
@@ -1641,7 +1753,7 @@ mod tests {
         assert_eq!(
             openrouter.localized_name,
             Some(LocalizedText {
-                zh: "开放路由".to_string(),
+                zh: "OpenRouter".to_string(),
                 en: "OpenRouter".to_string(),
             })
         );
@@ -1658,15 +1770,15 @@ mod tests {
             anthropic.models,
             Some(vec![
                 SettingsPresetModel {
-                    id: "claude-opus-4-6".to_string(),
+                    id: "opus".to_string(),
                     category: PresetModelCategory::Opus,
                 },
                 SettingsPresetModel {
-                    id: "claude-sonnet-4-6".to_string(),
+                    id: "sonnet".to_string(),
                     category: PresetModelCategory::Sonnet,
                 },
                 SettingsPresetModel {
-                    id: "claude-haiku-4-5-20251001".to_string(),
+                    id: "haiku".to_string(),
                     category: PresetModelCategory::Haiku,
                 },
             ])
@@ -1961,13 +2073,16 @@ mod tests {
 
     #[test]
     fn resolve_model_test_request_prefers_env_model_and_defaults_base_url() {
-        let request = resolve_model_test_request(&serde_json::json!({
-            "model": "fallback-model",
-            "env": {
-                "ANTHROPIC_AUTH_TOKEN": " token ",
-                "ANTHROPIC_MODEL": " claude-sonnet-4-6 "
-            }
-        }))
+        let request = resolve_model_test_request(
+            &serde_json::json!({
+                "model": "fallback-model",
+                "env": {
+                    "ANTHROPIC_AUTH_TOKEN": " token ",
+                    "ANTHROPIC_MODEL": " claude-sonnet-4-6 "
+                }
+            }),
+            None,
+        )
         .unwrap();
 
         assert_eq!(request.auth_token, "token");
@@ -1978,13 +2093,16 @@ mod tests {
 
     #[test]
     fn resolve_model_test_request_accepts_top_level_model_and_custom_base_url() {
-        let request = resolve_model_test_request(&serde_json::json!({
-            "model": " claude-opus-4-1 ",
-            "env": {
-                "ANTHROPIC_AUTH_TOKEN": "token",
-                "ANTHROPIC_BASE_URL": "https://openrouter.ai/api/"
-            }
-        }))
+        let request = resolve_model_test_request(
+            &serde_json::json!({
+                "model": " claude-opus-4-1 ",
+                "env": {
+                    "ANTHROPIC_AUTH_TOKEN": "token",
+                    "ANTHROPIC_BASE_URL": "https://openrouter.ai/api/"
+                }
+            }),
+            None,
+        )
         .unwrap();
 
         assert_eq!(request.base_url, "https://openrouter.ai/api");
@@ -1994,23 +2112,61 @@ mod tests {
 
     #[test]
     fn resolve_model_test_request_uses_chinese_prompt_when_language_is_chinese() {
-        let request = resolve_model_test_request(&serde_json::json!({
-            "language": "chinese",
-            "model": "claude-sonnet-4-6",
-            "env": {
-                "ANTHROPIC_AUTH_TOKEN": "token"
-            }
-        }))
+        let request = resolve_model_test_request(
+            &serde_json::json!({
+                "language": "chinese",
+                "model": "claude-sonnet-4-6",
+                "env": {
+                    "ANTHROPIC_AUTH_TOKEN": "token"
+                }
+            }),
+            None,
+        )
         .unwrap();
 
         assert_eq!(request.prompt_text, MODEL_TEST_PROMPT_ZH);
     }
 
     #[test]
+    fn resolve_model_test_request_uses_prompt_override() {
+        let request = resolve_model_test_request(
+            &serde_json::json!({
+                "language": "chinese",
+                "model": "claude-sonnet-4-6",
+                "env": {
+                    "ANTHROPIC_AUTH_TOKEN": "token"
+                }
+            }),
+            Some("Custom prompt".to_string()),
+        )
+        .unwrap();
+
+        assert_eq!(request.prompt_text, "Custom prompt");
+    }
+
+    #[test]
+    fn normalize_model_test_input_rejects_blank_prompt_override() {
+        let error = normalize_model_test_input(ModelTestInput {
+            id: Some("profile-a".to_string()),
+            name: "Profile A".to_string(),
+            description: String::new(),
+            preset_id: None,
+            settings: serde_json::json!({}),
+            prompt_text: Some("   ".to_string()),
+        })
+        .unwrap_err();
+
+        assert_eq!(error, "测试提示词不能为空");
+    }
+
+    #[test]
     fn resolve_model_test_request_requires_auth_token() {
-        let error = resolve_model_test_request(&serde_json::json!({
-            "model": "claude-sonnet-4-6"
-        }))
+        let error = resolve_model_test_request(
+            &serde_json::json!({
+                "model": "claude-sonnet-4-6"
+            }),
+            None,
+        )
         .unwrap_err();
 
         assert_eq!(error, "缺少 ANTHROPIC_AUTH_TOKEN，请先在认证区填写认证密钥");
@@ -2018,11 +2174,14 @@ mod tests {
 
     #[test]
     fn resolve_model_test_request_requires_model() {
-        let error = resolve_model_test_request(&serde_json::json!({
-            "env": {
-                "ANTHROPIC_AUTH_TOKEN": "token"
-            }
-        }))
+        let error = resolve_model_test_request(
+            &serde_json::json!({
+                "env": {
+                    "ANTHROPIC_AUTH_TOKEN": "token"
+                }
+            }),
+            None,
+        )
         .unwrap_err();
 
         assert_eq!(error, "缺少默认模型，请先在模型与行为中填写默认模型");
@@ -2030,6 +2189,24 @@ mod tests {
 
     #[test]
     fn parse_model_test_response_extracts_text_and_metadata() {
+        let exchange = ModelTestHttpExchange {
+            request_method: "POST".to_string(),
+            request_url: "https://api.anthropic.com/v1/messages".to_string(),
+            request_headers: [
+                ("x-api-key".to_string(), "token".to_string()),
+                ("anthropic-version".to_string(), "2023-06-01".to_string()),
+                ("content-type".to_string(), "application/json".to_string()),
+            ]
+            .into_iter()
+            .collect(),
+            request_body: r#"{"model":"claude-sonnet-4-6"}"#.to_string(),
+            response_headers: [
+                ("content-type".to_string(), "application/json".to_string()),
+                ("request-id".to_string(), "req_test_123".to_string()),
+            ]
+            .into_iter()
+            .collect(),
+        };
         let result = parse_model_test_response(
             &serde_json::json!({
                 "model": "provider-model-id",
@@ -2045,6 +2222,7 @@ mod tests {
             128,
             Some("req_test_123".to_string()),
             "{\"model\":\"provider-model-id\"}".to_string(),
+            exchange.clone(),
         )
         .unwrap();
 
@@ -2061,6 +2239,11 @@ mod tests {
                 stop_reason: Some("end_turn".to_string()),
                 status_code: None,
                 error_message: None,
+                request_method: exchange.request_method,
+                request_url: exchange.request_url,
+                request_headers: exchange.request_headers,
+                request_body: exchange.request_body,
+                response_headers: exchange.response_headers,
                 raw_response: Some("{\"model\":\"provider-model-id\"}".to_string()),
             }
         );
@@ -2080,6 +2263,13 @@ mod tests {
             64,
             None,
             "{\"content\":[]}".to_string(),
+            ModelTestHttpExchange {
+                request_method: "POST".to_string(),
+                request_url: "https://api.anthropic.com/v1/messages".to_string(),
+                request_headers: Default::default(),
+                request_body: "{}".to_string(),
+                response_headers: Default::default(),
+            },
         )
         .unwrap_err();
 
@@ -2088,13 +2278,31 @@ mod tests {
 
     #[test]
     fn parse_model_test_error_prefers_upstream_error_message() {
+        let exchange = ModelTestHttpExchange {
+            request_method: "POST".to_string(),
+            request_url: "https://api.anthropic.com/v1/messages".to_string(),
+            request_headers: [
+                ("x-api-key".to_string(), "token".to_string()),
+                ("anthropic-version".to_string(), "2023-06-01".to_string()),
+                ("content-type".to_string(), "application/json".to_string()),
+            ]
+            .into_iter()
+            .collect(),
+            request_body: r#"{"model":"claude-sonnet-4-6"}"#.to_string(),
+            response_headers: [("content-type".to_string(), "application/json".to_string())]
+                .into_iter()
+                .collect(),
+        };
         let result = build_model_test_failure_result(
             401,
             r#"{"error":{"type":"authentication_error","message":"invalid api key"}}"#,
-            MODEL_TEST_PROMPT_ZH.to_string(),
-            "claude-sonnet-4-6".to_string(),
-            88,
-            Some("req_test_401".to_string()),
+            ModelTestResultContext {
+                prompt_text: MODEL_TEST_PROMPT_ZH.to_string(),
+                resolved_model: "claude-sonnet-4-6".to_string(),
+                duration_ms: 88,
+                request_id: Some("req_test_401".to_string()),
+                exchange: exchange.clone(),
+            },
         );
 
         assert_eq!(
@@ -2110,6 +2318,11 @@ mod tests {
                 stop_reason: None,
                 status_code: Some(401),
                 error_message: Some("模型测试失败（HTTP 401）：invalid api key".to_string()),
+                request_method: exchange.request_method,
+                request_url: exchange.request_url,
+                request_headers: exchange.request_headers,
+                request_body: exchange.request_body,
+                response_headers: exchange.response_headers,
                 raw_response: Some(
                     r#"{"error":{"type":"authentication_error","message":"invalid api key"}}"#
                         .to_string()

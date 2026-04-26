@@ -23,6 +23,7 @@ type ProfileModelTestState =
   | { status: "failed"; result: ModelTestResult | null; errorMessage: string };
 
 interface ActiveModelTestDialog {
+  profileId: string;
   result: ModelTestResult | null;
   errorMessage: string;
 }
@@ -40,9 +41,11 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
   const [activeModelTestDialog, setActiveModelTestDialog] = useState<ActiveModelTestDialog | null>(
     null,
   );
+  const [retestingProfileId, setRetestingProfileId] = useState<string | null>(null);
   const [isRawResponseExpanded, setIsRawResponseExpanded] = useState(false);
   const dragIndexRef = useRef<number | null>(null);
   const modelTestRunIdRef = useRef(0);
+  const retestModelRunIdRef = useRef(0);
   const dragOverRef = useRef<{
     overIndex: number | null;
     overPosition: "above" | "below" | null;
@@ -73,7 +76,9 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
     };
   }
 
-  function modelTestStateFromResult(result: ModelTestResult): ProfileModelTestState {
+  function modelTestStateFromResult(
+    result: ModelTestResult,
+  ): Exclude<ProfileModelTestState, { status: "running" }> {
     if (result.ok) {
       return { status: "success", result };
     }
@@ -83,6 +88,15 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
       result,
       errorMessage: result.errorMessage || t("profiles.testAll.failed"),
     };
+  }
+
+  function invokeProfileModelTest(profile: ConfigProfile, promptText?: string) {
+    return invoke<ModelTestResult>("test_profile_model", {
+      data: {
+        ...profileToModelTestData(profile),
+        ...(promptText !== undefined ? { promptText } : {}),
+      },
+    });
   }
 
   function closeDrawer() {
@@ -310,9 +324,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
 
     const testPromises = profiles.map(async (profile) => {
       try {
-        const result = await invoke<ModelTestResult>("test_profile_model", {
-          data: profileToModelTestData(profile),
-        });
+        const result = await invokeProfileModelTest(profile);
         if (modelTestRunIdRef.current === runId) {
           setProfileModelTestStates((current) => ({
             ...current,
@@ -339,6 +351,72 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
 
     if (modelTestRunIdRef.current === runId) {
       setIsTestingAllProfiles(false);
+    }
+  }
+
+  async function handleRetestActiveProfile(promptText: string) {
+    const activeProfileId = activeModelTestDialog?.profileId;
+    if (!activeProfileId || retestingProfileId || isTestingAllProfiles) {
+      return;
+    }
+
+    const profile = profiles.find((profile) => profile.id === activeProfileId);
+    if (!profile) {
+      return;
+    }
+
+    const runId = retestModelRunIdRef.current + 1;
+    retestModelRunIdRef.current = runId;
+    setRetestingProfileId(profile.id);
+    setIsRawResponseExpanded(false);
+    setProfileModelTestStates((current) => ({
+      ...current,
+      [profile.id]: { status: "running" },
+    }));
+
+    try {
+      const result = await invokeProfileModelTest(profile, promptText);
+      if (retestModelRunIdRef.current === runId) {
+        const nextState = modelTestStateFromResult(result);
+        setProfileModelTestStates((current) => ({
+          ...current,
+          [profile.id]: nextState,
+        }));
+        setActiveModelTestDialog((current) =>
+          current?.profileId === profile.id
+            ? {
+                profileId: profile.id,
+                result: nextState.result,
+                errorMessage: nextState.status === "failed" ? nextState.errorMessage : "",
+              }
+            : current,
+        );
+      }
+    } catch (error) {
+      if (retestModelRunIdRef.current === runId) {
+        const errorMessage = String(error);
+        setProfileModelTestStates((current) => ({
+          ...current,
+          [profile.id]: {
+            status: "failed",
+            result: null,
+            errorMessage,
+          },
+        }));
+        setActiveModelTestDialog((current) =>
+          current?.profileId === profile.id
+            ? {
+                profileId: profile.id,
+                result: null,
+                errorMessage,
+              }
+            : current,
+        );
+      }
+    } finally {
+      if (retestModelRunIdRef.current === runId) {
+        setRetestingProfileId(null);
+      }
     }
   }
 
@@ -378,9 +456,11 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
   }
 
   function openProfileModelTestResult(
+    profile: ConfigProfile,
     state: Exclude<ProfileModelTestState, { status: "running" }>,
   ) {
     setActiveModelTestDialog({
+      profileId: profile.id,
       result: state.result,
       errorMessage: state.status === "failed" ? state.errorMessage : "",
     });
@@ -422,13 +502,17 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
         title={ariaLabel}
         onClick={(event) => {
           event.stopPropagation();
-          openProfileModelTestResult(state);
+          openProfileModelTestResult(profile, state);
         }}
       >
         {label}
       </button>
     );
   }
+
+  const activeModelTestProfile = activeModelTestDialog
+    ? (profiles.find((profile) => profile.id === activeModelTestDialog.profileId) ?? null)
+    : null;
 
   return (
     <>
@@ -688,10 +772,15 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
       <ModelTestResultDialog
         isOpen={activeModelTestDialog !== null}
         result={activeModelTestDialog?.result ?? null}
+        profileName={activeModelTestProfile?.name}
         errorMessage={activeModelTestDialog?.errorMessage ?? ""}
         rawResponseExpanded={isRawResponseExpanded}
         onClose={closeModelTestDialog}
         onToggleRawResponse={() => setIsRawResponseExpanded((value) => !value)}
+        onRetest={activeModelTestDialog ? handleRetestActiveProfile : undefined}
+        isRetesting={
+          !!activeModelTestDialog && retestingProfileId === activeModelTestDialog.profileId
+        }
       />
     </>
   );

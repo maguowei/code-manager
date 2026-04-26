@@ -84,6 +84,11 @@ export interface ModelTestResult {
   stopReason?: string;
   statusCode?: number;
   errorMessage?: string;
+  requestMethod?: string;
+  requestUrl?: string;
+  requestHeaders?: Record<string, string>;
+  requestBody?: string;
+  responseHeaders?: Record<string, string>;
   rawResponse?: string;
 }
 

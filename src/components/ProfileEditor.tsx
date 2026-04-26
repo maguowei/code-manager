@@ -401,16 +401,18 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     });
   }
 
-  async function handleTestModelClick() {
+  async function handleTestModelClick(promptText?: string, keepDialogOpen = false) {
     if (isTestingModel || !canTestModel) {
       return;
     }
 
     const runId = modelTestRunIdRef.current + 1;
     modelTestRunIdRef.current = runId;
-    setLatestModelTestResult(null);
+    if (!keepDialogOpen) {
+      setLatestModelTestResult(null);
+      setIsModelTestDialogOpen(false);
+    }
     setModelTestError("");
-    setIsModelTestDialogOpen(false);
     setIsRawResponseExpanded(false);
     setIsTestingModel(true);
     try {
@@ -421,6 +423,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
           description,
           presetId: presetId || null,
           settings,
+          ...(promptText !== undefined ? { promptText } : {}),
         },
       });
       if (modelTestRunIdRef.current === runId) {
@@ -766,10 +769,15 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
         <ModelTestResultDialog
           isOpen={isModelTestDialogOpen}
           result={latestModelTestResult}
+          profileName={name}
           errorMessage={modelTestError}
           rawResponseExpanded={isRawResponseExpanded}
           onClose={closeModelTestDialog}
           onToggleRawResponse={() => setIsRawResponseExpanded((value) => !value)}
+          onRetest={(promptText) => {
+            void handleTestModelClick(promptText, true);
+          }}
+          isRetesting={isTestingModel}
         />
       </div>
     </div>

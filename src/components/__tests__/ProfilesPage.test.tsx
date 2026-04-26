@@ -411,6 +411,211 @@ describe("ProfilesPage", () => {
     expect(screen.getByText("Error: 模型测试请求失败：network down")).toBeInTheDocument();
   });
 
+  it("retests the current profile from the model test result dialog", async () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "zh",
+        theme: "dark",
+      }),
+    );
+    const retryResult = createDeferred<unknown>();
+    let testCallCount = 0;
+    invokeMock.mockImplementation((command: string) => {
+      if (command !== "test_profile_model") {
+        return Promise.resolve(null);
+      }
+      testCallCount += 1;
+      if (testCallCount === 1) {
+        return Promise.resolve({
+          ok: false,
+          responseText: "",
+          promptText: "请确认测试成功。",
+          resolvedModel: "claude-sonnet-4-6",
+          durationMs: 201,
+          statusCode: 500,
+          errorMessage: "模型测试失败（HTTP 500）：No choices in OpenAI response",
+          requestMethod: "POST",
+          requestUrl: "https://api-inference.modelscope.cn/v1/messages",
+          requestHeaders: {
+            "x-api-key": "token",
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+          },
+          requestBody: JSON.stringify(
+            {
+              model: "claude-sonnet-4-6",
+              max_tokens: 2048,
+              messages: [{ role: "user", content: "请确认测试成功。" }],
+            },
+            null,
+            2,
+          ),
+          responseHeaders: {
+            "content-type": "application/json",
+            "x-request-id": "req_500",
+          },
+          rawResponse: '{"detail":"No choices in OpenAI response"}',
+        });
+      }
+      return retryResult.promise;
+    });
+
+    renderPage();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "一键测试" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const card = screen.getByText("OpenRouter User").closest(".profile-card") as HTMLElement | null;
+    expect(card).not.toBeNull();
+    if (!card) {
+      return;
+    }
+
+    fireEvent.click(within(card).getByRole("button", { name: "OpenRouter User 测试结果：失败" }));
+    const dialog = screen.getByRole("dialog", { name: "模型测试结果" });
+    expect(within(dialog).getByTestId("model-test-profile-name")).toHaveTextContent(
+      "OpenRouter User",
+    );
+    expect(within(dialog).getByTestId("model-test-request-url")).toHaveTextContent(
+      "https://api-inference.modelscope.cn/v1/messages",
+    );
+    expect(within(dialog).getByTestId("model-test-context")).toHaveClass(
+      "profile-model-test-dialog-context--stacked",
+    );
+    expect(within(dialog).getByTestId("model-test-profile-row")).toHaveClass(
+      "profile-model-test-dialog-context-item--inline",
+    );
+    expect(within(dialog).getByTestId("model-test-request-url-row")).toHaveClass(
+      "profile-model-test-dialog-context-item--inline",
+    );
+    expect(within(dialog).getByTestId("model-test-content-grid")).toHaveClass(
+      "profile-model-test-content-grid--stacked",
+    );
+    expect(within(dialog).getByTestId("model-test-prompt-panel")).toHaveClass(
+      "profile-model-test-content-panel--primary",
+    );
+    expect(within(dialog).getByTestId("model-test-response-panel")).toHaveClass(
+      "profile-model-test-content-panel--primary",
+    );
+    expect(within(dialog).getByTestId("model-test-exchange-details")).toBeInTheDocument();
+    expect(within(dialog).getByText(/No choices in OpenAI response/)).toBeInTheDocument();
+    expect(within(dialog).getByText("请求 Headers")).toBeInTheDocument();
+    expect(within(dialog).queryByTestId("model-test-request-headers-code")).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "查看请求 Headers" }));
+    expect(within(dialog).getByTestId("model-test-request-headers-code").textContent).toContain(
+      '"x-api-key": "token"',
+    );
+    expect(within(dialog).getByText("请求体")).toBeInTheDocument();
+    expect(within(dialog).queryByTestId("model-test-request-body-code")).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "查看请求体" }));
+    expect(within(dialog).getByTestId("model-test-request-body-code").textContent).toContain(
+      '"content": "请确认测试成功。"',
+    );
+    expect(within(dialog).getByText("响应 Headers")).toBeInTheDocument();
+    expect(
+      within(dialog).queryByTestId("model-test-response-headers-code"),
+    ).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "查看响应 Headers" }));
+    expect(within(dialog).getByTestId("model-test-response-headers-code").textContent).toContain(
+      '"x-request-id": "req_500"',
+    );
+    expect(within(dialog).getByText("响应体")).toBeInTheDocument();
+    const retestButton = within(dialog).getByRole("button", { name: "重新测试" });
+    expect(retestButton.querySelector("svg")).not.toBeNull();
+    expect(within(dialog).queryByLabelText("输入提示词")).not.toBeInTheDocument();
+    expect(within(dialog).getByText("请确认测试成功。")).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "编辑提示词" }));
+    const promptInput = within(dialog).getByLabelText("输入提示词") as HTMLTextAreaElement;
+    fireEvent.change(promptInput, { target: { value: "请只回复 OK" } });
+    expect(within(dialog).getByTestId("model-test-request-body-code").textContent).toContain(
+      '"content": "请只回复 OK"',
+    );
+
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "复制请求 cURL" }));
+      await Promise.resolve();
+    });
+
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      expect.stringContaining("curl -X POST 'https://api-inference.modelscope.cn/v1/messages'"),
+    );
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      expect.stringContaining("-H 'x-api-key: token'"),
+    );
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      expect.stringContaining('"content": "请只回复 OK"'),
+    );
+
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "发起请求" }));
+      await Promise.resolve();
+    });
+
+    expect(within(dialog).queryByLabelText("输入提示词")).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "测试中..." })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "测试中..." })).toHaveClass("is-testing");
+    const progressIndicator = within(dialog).getByTestId("model-test-progress-indicator");
+    expect(progressIndicator).toHaveAttribute("role", "status");
+    expect(progressIndicator).toHaveTextContent("测试中...");
+    const modelTestCalls = invokeMock.mock.calls.filter(
+      ([command]) => command === "test_profile_model",
+    );
+    expect(modelTestCalls).toHaveLength(2);
+    expect(
+      modelTestCalls.map(
+        ([, payload]) =>
+          (payload as { data?: { id?: string; name?: string; promptText?: string } }).data,
+      ),
+    ).toEqual([
+      expect.objectContaining({ id: "user-openrouter", name: "OpenRouter User" }),
+      expect.objectContaining({
+        id: "user-openrouter",
+        name: "OpenRouter User",
+        promptText: "请只回复 OK",
+      }),
+    ]);
+
+    await act(async () => {
+      retryResult.resolve({
+        ok: true,
+        responseText: "重新测试成功",
+        promptText: "请只回复 OK",
+        resolvedModel: "claude-sonnet-4-6",
+        durationMs: 88,
+        requestMethod: "POST",
+        requestUrl: "https://api-inference.modelscope.cn/v1/messages",
+        requestHeaders: {
+          "x-api-key": "token",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
+        requestBody: JSON.stringify(
+          {
+            model: "claude-sonnet-4-6",
+            max_tokens: 2048,
+            messages: [{ role: "user", content: "请只回复 OK" }],
+          },
+          null,
+          2,
+        ),
+        responseHeaders: { "content-type": "application/json" },
+        rawResponse: JSON.stringify({ content: [{ type: "text", text: "重新测试成功" }] }),
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(within(dialog).getByText("重新测试成功")).toBeInTheDocument();
+    expect(within(dialog).getByText("88 ms")).toBeInTheDocument();
+    expect(
+      within(card).getByRole("button", { name: "OpenRouter User 测试结果：88 ms" }),
+    ).toBeInTheDocument();
+  });
+
   it("reveals card actions only on hover or focus within", () => {
     const css = readFileSync(`${process.cwd()}/src/components/ProfilesPage.css`, "utf8");
 
@@ -437,10 +642,10 @@ describe("ProfilesPage", () => {
   it("keeps inline test result badges compact beside model names", () => {
     const css = readFileSync(`${process.cwd()}/src/components/ProfilesPage.css`, "utf8");
 
-    expect(css).toMatch(/\.profile-test-result-badge\s*\{[^}]*min-height:\s*20px;/s);
-    expect(css).toMatch(/\.profile-test-result-badge\s*\{[^}]*padding:\s*2px\s+6px;/s);
-    expect(css).toMatch(/\.profile-test-result-badge\s*\{[^}]*font-size:\s*inherit;/s);
-    expect(css).toMatch(/\.profile-test-result-badge\s*\{[^}]*line-height:\s*1\.2;/s);
+    expect(css).toMatch(/\.profile-test-result-badge\s*\{[^}]*min-height:\s*18px;/s);
+    expect(css).toMatch(/\.profile-test-result-badge\s*\{[^}]*padding:\s*1px\s+5px;/s);
+    expect(css).toMatch(/\.profile-test-result-badge\s*\{[^}]*font-size:\s*11px;/s);
+    expect(css).toMatch(/\.profile-test-result-badge\s*\{[^}]*line-height:\s*1\.15;/s);
   });
 
   it("keeps preset badges visually quieter below profile names", () => {

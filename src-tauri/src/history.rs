@@ -202,11 +202,10 @@ fn parse_text_with_tags(text: &str) -> Vec<MessageBlock> {
 fn parse_content_blocks(content: &serde_json::Value) -> Vec<MessageBlock> {
     let mut blocks = Vec::new();
     match content {
-        serde_json::Value::String(s) => {
-            if !s.is_empty() {
-                blocks.extend(parse_text_with_tags(s));
-            }
+        serde_json::Value::String(s) if !s.is_empty() => {
+            blocks.extend(parse_text_with_tags(s));
         }
+        serde_json::Value::String(_) => {}
         serde_json::Value::Array(arr) => {
             for item in arr {
                 let block_type = item.get("type").and_then(|t| t.as_str()).unwrap_or("");

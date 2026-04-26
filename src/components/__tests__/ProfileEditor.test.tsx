@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
@@ -655,16 +656,38 @@ describe("ProfileEditor", () => {
         );
       }
       if (command === "test_profile_model") {
+        const promptText =
+          (payload as { data?: { promptText?: string } } | undefined)?.data?.promptText ??
+          "Please reply with one short sentence confirming this API test request succeeded.";
         return {
           ok: true,
           responseText: "API 测试成功，当前配置可以正常返回响应。",
-          promptText:
-            "Please reply with one short sentence confirming this API test request succeeded.",
+          promptText,
           resolvedModel: "claude-sonnet-4-6",
           providerModel: "openrouter/claude-sonnet-4-6",
           durationMs: 123,
           requestId: "req_test_123",
           stopReason: "end_turn",
+          requestMethod: "POST",
+          requestUrl: "https://openrouter.ai/api/v1/messages",
+          requestHeaders: {
+            "x-api-key": "token",
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+          },
+          requestBody: JSON.stringify(
+            {
+              model: "claude-sonnet-4-6",
+              max_tokens: 2048,
+              messages: [{ role: "user", content: promptText }],
+            },
+            null,
+            2,
+          ),
+          responseHeaders: {
+            "content-type": "application/json",
+            "request-id": "req_test_123",
+          },
           rawResponse: JSON.stringify({
             id: "msg_test_123",
             model: "openrouter/claude-sonnet-4-6",
@@ -710,6 +733,39 @@ describe("ProfileEditor", () => {
     });
     const dialog = screen.getByRole("dialog", { name: "模型测试结果" });
     expect(within(dialog).getByText("测试成功")).toBeInTheDocument();
+    expect(within(dialog).getByTestId("model-test-profile-name")).toHaveTextContent(
+      "OpenRouter User",
+    );
+    expect(within(dialog).getByTestId("model-test-request-url")).toHaveTextContent(
+      "https://openrouter.ai/api/v1/messages",
+    );
+    expect(within(dialog).getByTestId("model-test-context")).toHaveClass(
+      "profile-model-test-dialog-context--stacked",
+    );
+    expect(
+      within(dialog)
+        .getByTestId("model-test-context")
+        .closest(".profile-model-test-dialog-header-main"),
+    ).toBeNull();
+    expect(within(dialog).getByTestId("model-test-profile-row")).toHaveClass(
+      "profile-model-test-dialog-context-item--inline",
+    );
+    expect(within(dialog).getByTestId("model-test-request-url-row")).toHaveClass(
+      "profile-model-test-dialog-context-item--inline",
+    );
+    expect(within(dialog).getByTestId("model-test-meta-list")).toHaveClass(
+      "profile-model-test-dialog-meta-list--compact",
+    );
+    expect(within(dialog).getByTestId("model-test-content-grid")).toHaveClass(
+      "profile-model-test-content-grid--stacked",
+    );
+    expect(within(dialog).getByTestId("model-test-prompt-panel")).toHaveClass(
+      "profile-model-test-content-panel--primary",
+    );
+    expect(within(dialog).getByTestId("model-test-response-panel")).toHaveClass(
+      "profile-model-test-content-panel--primary",
+    );
+    expect(within(dialog).getByTestId("model-test-exchange-details")).toBeInTheDocument();
     expect(
       within(dialog).getByText("API 测试成功，当前配置可以正常返回响应。"),
     ).toBeInTheDocument();
@@ -718,14 +774,72 @@ describe("ProfileEditor", () => {
     expect(within(dialog).getByText("123 ms")).toBeInTheDocument();
     expect(within(dialog).getByText("req_test_123")).toBeInTheDocument();
     expect(within(dialog).getByText("end_turn")).toBeInTheDocument();
+    expect(within(dialog).queryByTestId("model-test-request-headers-code")).not.toBeInTheDocument();
+    expect(within(dialog).queryByTestId("model-test-request-body-code")).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByTestId("model-test-response-headers-code"),
+    ).not.toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "查看请求 Headers" }));
+      await Promise.resolve();
+    });
+    expect(within(dialog).getByTestId("model-test-request-headers-code").textContent).toContain(
+      '"x-api-key": "token"',
+    );
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "查看请求体" }));
+      await Promise.resolve();
+    });
+    expect(within(dialog).getByTestId("model-test-request-body-code").textContent).toContain(
+      '"max_tokens": 2048',
+    );
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "查看响应 Headers" }));
+      await Promise.resolve();
+    });
+    expect(within(dialog).getByTestId("model-test-response-headers-code").textContent).toContain(
+      '"request-id": "req_test_123"',
+    );
+    expect(within(dialog).queryByLabelText("输入提示词")).not.toBeInTheDocument();
     expect(
       within(dialog).getByText(
         "Please reply with one short sentence confirming this API test request succeeded.",
       ),
     ).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "编辑提示词" }));
+      await Promise.resolve();
+    });
+    const promptInput = within(dialog).getByLabelText("输入提示词") as HTMLTextAreaElement;
+    expect(promptInput.value).toBe(
+      "Please reply with one short sentence confirming this API test request succeeded.",
+    );
+
+    fireEvent.change(promptInput, { target: { value: "Reply OK only." } });
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "发起请求" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(within(dialog).queryByLabelText("输入提示词")).not.toBeInTheDocument();
+    expect(invokeMock).toHaveBeenLastCalledWith("test_profile_model", {
+      data: {
+        id: "user-openrouter",
+        name: "OpenRouter User",
+        description: "默认用户配置",
+        presetId: "builtin:openrouter",
+        settings: {
+          env: {
+            ANTHROPIC_AUTH_TOKEN: "token",
+            ANTHROPIC_MODEL: "claude-sonnet-4-6",
+          },
+        },
+        promptText: "Reply OK only.",
+      },
+    });
 
     await act(async () => {
-      fireEvent.click(within(dialog).getByRole("button", { name: "查看完整响应" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "查看响应体" }));
       await Promise.resolve();
     });
     const rawResponseViewer = within(dialog).getByTestId("model-test-raw-response-code");
@@ -945,7 +1059,7 @@ describe("ProfileEditor", () => {
     ).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(within(dialog).getByRole("button", { name: "查看完整响应" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "查看响应体" }));
       await Promise.resolve();
     });
     const rawResponseViewer = within(dialog).getByTestId("model-test-raw-response-code");
@@ -995,7 +1109,37 @@ describe("ProfileEditor", () => {
     const dialog = screen.getByRole("dialog", { name: "模型测试结果" });
     expect(within(dialog).getByText("测试失败")).toBeInTheDocument();
     expect(within(dialog).getByText("Error: 模型测试请求失败：network down")).toBeInTheDocument();
-    expect(within(dialog).queryByRole("button", { name: "查看完整响应" })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "查看响应体" })).not.toBeInTheDocument();
+  });
+
+  it("keeps model test prompt and response body text smaller than section labels", () => {
+    const css = readFileSync(
+      `${process.cwd()}/src/components/profile-editor/editor-shared.css`,
+      "utf8",
+    );
+
+    expect(css).toMatch(
+      /\.profile-model-test-content-panel--primary\s+\.profile-model-test-label\s*\{[^}]*color:\s*var\(--text-secondary\);[^}]*font-size:\s*14px;/s,
+    );
+    expect(css).toMatch(
+      /\.profile-model-test-content-panel--primary\s+\.profile-model-test-dialog-panel-text\s*\{[^}]*font-size:\s*13px;/s,
+    );
+    expect(css).toMatch(
+      /\.profile-model-test-content-panel--primary\s+\.profile-model-test-prompt-input\s*\{[^}]*font-size:\s*13px;/s,
+    );
+    expect(css).toMatch(
+      /\.profile-model-test-progress-spinner\s*\{[^}]*animation:\s*profile-model-test-spin\s+0\.8s\s+linear\s+infinite;/s,
+    );
+    expect(css).toMatch(
+      /\.profile-model-test-progress-track::after\s*\{[^}]*animation:\s*profile-model-test-progress-sweep\s+1\.2s\s+ease-in-out\s+infinite;/s,
+    );
+    expect(css).toMatch(
+      /\.profile-model-test-dialog-context-item--inline\s+\.profile-model-test-label\s*\{[^}]*flex:\s*none;[^}]*white-space:\s*nowrap;/s,
+    );
+    expect(css).toMatch(
+      /\.profile-model-test-dialog-context-item\.request-url\s+\.profile-model-test-dialog-context-value\s*\{[^}]*flex:\s*1\s+1\s+auto;/s,
+    );
+    expect(css).toMatch(/\.profile-model-test-url-text\s*\{[^}]*flex:\s*1\s+1\s+auto;/s);
   });
 
   it("renders language as a select list and exposes the full effort enum set", async () => {
