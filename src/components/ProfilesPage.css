@@ -309,11 +309,21 @@
 }
 
 .profile-summary-title {
+  display: inline-flex;
+  align-items: center;
   flex-shrink: 0;
   color: var(--text-tertiary);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1;
+  text-transform: uppercase;
+}
+
+.profile-summary-title::after {
+  content: ":";
+  margin-left: 2px;
+  color: var(--border-default);
+  font-weight: 700;
 }
 
 .profile-summary-main {

@@ -993,6 +993,15 @@ describe("ProfilesPage", () => {
     expect(css).not.toMatch(/\.profile-summary-title\s*\{[^}]*min-width:\s*56px;/s);
   });
 
+  it("separates profile summary labels from values in English", () => {
+    const css = readFileSync(`${process.cwd()}/src/components/ProfilesPage.css`, "utf8");
+
+    expect(css).toMatch(/\.profile-summary-title\s*\{[^}]*text-transform:\s*uppercase;/s);
+    expect(css).toMatch(/\.profile-summary-title\s*\{[^}]*font-weight:\s*700;/s);
+    expect(css).toMatch(/\.profile-summary-title::after\s*\{[^}]*content:\s*":";/s);
+    expect(css).toMatch(/\.profile-summary-title::after\s*\{[^}]*margin-left:\s*2px;/s);
+  });
+
   it("colors profile permission summary values by risk", () => {
     const css = readFileSync(`${process.cwd()}/src/components/ProfilesPage.css`, "utf8");
 
