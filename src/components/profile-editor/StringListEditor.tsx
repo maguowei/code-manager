@@ -41,9 +41,10 @@ function StringListEditor({
   const { t } = useI18n();
   const [uncontrolledExpanded, setUncontrolledExpanded] = useState(defaultExpanded);
   const collapseToggleVisible = collapsible && showCollapseToggle && rows.length > 0;
-  const clearButtonVisible = rows.length > 0 && onClear !== undefined && clearLabel !== undefined;
-  const actionsVisible = collapseToggleVisible || clearButtonVisible;
   const bodyVisible = collapseToggleVisible ? (expanded ?? uncontrolledExpanded) : true;
+  const clearButtonVisible =
+    bodyVisible && rows.length > 0 && onClear !== undefined && clearLabel !== undefined;
+  const actionsVisible = collapseToggleVisible || clearButtonVisible;
 
   function buildItemLabel(index: number) {
     return itemLabelPrefix.endsWith("-")

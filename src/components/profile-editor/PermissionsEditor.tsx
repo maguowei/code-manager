@@ -157,9 +157,9 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
     ),
   );
   const [subErrors, setSubErrors] = useState<Record<string, string>>({});
-  const [allowExpanded, setAllowExpanded] = useState(true);
-  const [denyExpanded, setDenyExpanded] = useState(true);
-  const [askExpanded, setAskExpanded] = useState(true);
+  const [allowExpanded, setAllowExpanded] = useState(false);
+  const [denyExpanded, setDenyExpanded] = useState(false);
+  const [askExpanded, setAskExpanded] = useState(false);
   const [directoryExpanded, setDirectoryExpanded] = useState(true);
   const [recommendedDialogOpen, setRecommendedDialogOpen] = useState(false);
   const skipStructuredSyncRef = useRef(false);

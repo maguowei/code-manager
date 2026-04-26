@@ -2088,6 +2088,18 @@ describe("ProfileEditor", () => {
         "profile-inline-switch-title",
       );
     }
+    expect(within(permissionsSection).getByRole("button", { name: "拒绝规则 1" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(
+      within(permissionsSection).queryByRole("button", { name: "清空拒绝规则" }),
+    ).not.toBeInTheDocument();
+    expect(within(permissionsSection).queryByLabelText("拒绝规则 1")).not.toBeInTheDocument();
+    fireEvent.click(within(permissionsSection).getByRole("button", { name: "展开 拒绝规则" }));
+    expect(
+      within(permissionsSection).getByRole("button", { name: "清空拒绝规则" }),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText("拒绝规则 1")).toHaveValue("Read(.env)");
 
     const sandboxSection = getSection("Sandbox");
@@ -2160,6 +2172,13 @@ describe("ProfileEditor", () => {
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    expect(
+      within(permissionsSection).queryByRole("button", { name: "清空允许规则" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(within(permissionsSection).getByRole("button", { name: "展开 允许规则" }));
+    expect(
+      within(permissionsSection).getByRole("button", { name: "清空允许规则" }),
+    ).toBeInTheDocument();
     expect(within(permissionsSection).getByLabelText("允许规则 1")).toHaveValue("Bash(git *)");
 
     fireEvent.click(within(permissionsSection).getByRole("button", { name: "加载推荐规则" }));
@@ -2211,15 +2230,15 @@ describe("ProfileEditor", () => {
     const permissionsSection = getSection("权限");
     toggleAccordionSection("权限");
 
+    fireEvent.click(within(permissionsSection).getByRole("button", { name: "展开 允许规则" }));
     fireEvent.click(within(permissionsSection).getByRole("button", { name: "清空允许规则" }));
     expect(within(permissionsSection).queryByLabelText("允许规则 1")).not.toBeInTheDocument();
+    fireEvent.click(within(permissionsSection).getByRole("button", { name: "展开 询问规则" }));
     expect(within(permissionsSection).getByLabelText("询问规则 1")).toHaveValue("Bash(curl *)");
-    expect(within(permissionsSection).getByLabelText("拒绝规则 1")).toHaveValue(
-      "Bash(git reset --hard*)",
-    );
 
     fireEvent.click(within(permissionsSection).getByRole("button", { name: "清空询问规则" }));
     expect(within(permissionsSection).queryByLabelText("询问规则 1")).not.toBeInTheDocument();
+    fireEvent.click(within(permissionsSection).getByRole("button", { name: "展开 拒绝规则" }));
     expect(within(permissionsSection).getByLabelText("拒绝规则 1")).toHaveValue(
       "Bash(git reset --hard*)",
     );
