@@ -104,8 +104,11 @@
     "baseUrl": "https://api-inference.modelscope.cn",
     "docUrl": "https://modelscope.cn/docs/model-service/API-Inference/intro",
     "models": [
-      { "id": "ZhipuAI/GLM-5.1", "name": "ZhipuAI/GLM-5.1", "category": "sonnet" },
-      { "id": "MiniMax/MiniMax-M2.7", "name": "MiniMax/MiniMax-M2.7", "category": "sonnet" }
+      { "id": "deepseek-ai/DeepSeek-V4-Pro", "name": "deepseek-ai/DeepSeek-V4-Pro", "category": "sonnet" },
+      { "id": "deepseek-ai/DeepSeek-V4-Flash", "name": "deepseek-ai/DeepSeek-V4-Flash", "category": "haiku" },
+      { "id": "moonshotai/Kimi-K2.5", "name": "moonshotai/Kimi-K2.5", "category": "sonnet" },
+      { "id": "MiniMax/MiniMax-M2.5", "name": "MiniMax/MiniMax-M2.5", "category": "sonnet" },
+      { "id": "ZhipuAI/GLM-5.1", "name": "ZhipuAI/GLM-5.1", "category": "sonnet" }
     ]
   },
   {
