@@ -76,6 +76,11 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
     };
   }
 
+  function profileModelTestQueueKey(profile: ConfigProfile) {
+    const presetId = profile.presetId?.trim();
+    return presetId ? `preset:${presetId}` : `profile:${profile.id}`;
+  }
+
   function modelTestStateFromResult(
     result: ModelTestResult,
   ): Exclude<ProfileModelTestState, { status: "running" }> {
@@ -322,7 +327,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
     setActiveModelTestDialog(null);
     setIsRawResponseExpanded(false);
 
-    const testPromises = profiles.map(async (profile) => {
+    async function testProfile(profile: ConfigProfile) {
       try {
         const result = await invokeProfileModelTest(profile);
         if (modelTestRunIdRef.current === runId) {
@@ -343,18 +348,37 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
             },
           }));
         }
-        throw error;
       }
-    });
+    }
 
-    await Promise.allSettled(testPromises);
+    const profilesByQueue = new Map<string, ConfigProfile[]>();
+    for (const profile of profiles) {
+      const queueKey = profileModelTestQueueKey(profile);
+      const queue = profilesByQueue.get(queueKey);
+      if (queue) {
+        queue.push(profile);
+      } else {
+        profilesByQueue.set(queueKey, [profile]);
+      }
+    }
+
+    await Promise.all(
+      Array.from(profilesByQueue.values()).map(async (queue) => {
+        for (const profile of queue) {
+          if (modelTestRunIdRef.current !== runId) {
+            return;
+          }
+          await testProfile(profile);
+        }
+      }),
+    );
 
     if (modelTestRunIdRef.current === runId) {
       setIsTestingAllProfiles(false);
     }
   }
 
-  async function handleRetestActiveProfile(promptText: string) {
+  async function handleRetestActiveProfile(promptText?: string) {
     const activeProfileId = activeModelTestDialog?.profileId;
     if (!activeProfileId || retestingProfileId || isTestingAllProfiles) {
       return;

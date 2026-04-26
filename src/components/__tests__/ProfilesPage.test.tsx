@@ -103,12 +103,12 @@ function renderPage() {
   );
 }
 
-function makeProfile(id: string, name: string) {
+function makeProfile(id: string, name: string, presetId = "builtin:openrouter") {
   return {
     id,
     name,
     description: `${name} 描述`,
-    presetId: "builtin:openrouter",
+    presetId,
     settings: {
       env: {
         ANTHROPIC_MODEL: `model-${id}`,
@@ -255,7 +255,7 @@ describe("ProfilesPage", () => {
     expect(screen.getByRole("button", { name: "一键测试" })).toBeDisabled();
   });
 
-  it("tests every saved profile concurrently and renders inline results", async () => {
+  it("tests every saved profile with different presets concurrently and renders inline results", async () => {
     localStorage.setItem(
       SETTINGS_STORAGE_KEY,
       JSON.stringify({
@@ -267,7 +267,10 @@ describe("ProfilesPage", () => {
     const betaResult = createDeferred<unknown>();
     const orderedWorkspace: ConfigWorkspace = {
       ...WORKSPACE_FIXTURE,
-      profiles: [makeProfile("profile-a", "Alpha"), makeProfile("profile-b", "Beta")],
+      profiles: [
+        makeProfile("profile-a", "Alpha", "builtin:openrouter"),
+        makeProfile("profile-b", "Beta", "custom:beta"),
+      ],
       bindings: {
         userProfileId: undefined,
       },
@@ -377,6 +380,104 @@ describe("ProfilesPage", () => {
     expect(screen.getByText("Beta 认证失败")).toBeInTheDocument();
   });
 
+  it("queues batch model tests for profiles sharing a preset while running different presets in parallel", async () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "zh",
+        theme: "dark",
+      }),
+    );
+    const alphaResult = createDeferred<unknown>();
+    const betaResult = createDeferred<unknown>();
+    const gammaResult = createDeferred<unknown>();
+    const startedProfileIds: string[] = [];
+    const orderedWorkspace: ConfigWorkspace = {
+      ...WORKSPACE_FIXTURE,
+      profiles: [
+        makeProfile("profile-a", "Alpha", "builtin:openrouter"),
+        makeProfile("profile-b", "Beta", "builtin:openrouter"),
+        makeProfile("profile-c", "Gamma", "custom:gamma"),
+      ],
+      bindings: {
+        userProfileId: undefined,
+      },
+    } as ConfigWorkspace;
+
+    invokeMock.mockImplementation((command: string, payload?: unknown) => {
+      if (command !== "test_profile_model") {
+        return Promise.resolve(null);
+      }
+
+      const profileId = (payload as { data?: { id?: string } } | undefined)?.data?.id;
+      if (profileId) {
+        startedProfileIds.push(profileId);
+      }
+      if (profileId === "profile-a") {
+        return alphaResult.promise;
+      }
+      if (profileId === "profile-b") {
+        return betaResult.promise;
+      }
+      if (profileId === "profile-c") {
+        return gammaResult.promise;
+      }
+      return Promise.resolve(null);
+    });
+
+    render(
+      <I18nProvider>
+        <ProfilesPage workspace={orderedWorkspace} onWorkspaceChange={async () => {}} />
+      </I18nProvider>,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "一键测试" }));
+      await Promise.resolve();
+    });
+
+    expect(startedProfileIds).toEqual(["profile-a", "profile-c"]);
+    expect(screen.getByRole("button", { name: "测试中..." })).toBeDisabled();
+
+    await act(async () => {
+      alphaResult.resolve({
+        ok: true,
+        responseText: "Alpha 测试成功",
+        promptText: "请确认测试成功。",
+        resolvedModel: "model-profile-a",
+        durationMs: 51,
+        rawResponse: JSON.stringify({ content: [{ type: "text", text: "Alpha 测试成功" }] }),
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(startedProfileIds).toEqual(["profile-a", "profile-c", "profile-b"]);
+
+    await act(async () => {
+      betaResult.resolve({
+        ok: true,
+        responseText: "Beta 测试成功",
+        promptText: "请确认测试成功。",
+        resolvedModel: "model-profile-b",
+        durationMs: 62,
+        rawResponse: JSON.stringify({ content: [{ type: "text", text: "Beta 测试成功" }] }),
+      });
+      gammaResult.resolve({
+        ok: true,
+        responseText: "Gamma 测试成功",
+        promptText: "请确认测试成功。",
+        resolvedModel: "model-profile-c",
+        durationMs: 73,
+        rawResponse: JSON.stringify({ content: [{ type: "text", text: "Gamma 测试成功" }] }),
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole("button", { name: "一键测试" })).toBeEnabled();
+  });
+
   it("opens a failed batch test dialog when a profile test request rejects", async () => {
     localStorage.setItem(
       SETTINGS_STORAGE_KEY,
@@ -409,6 +510,63 @@ describe("ProfilesPage", () => {
     fireEvent.click(within(card).getByRole("button", { name: "OpenRouter User 测试结果：失败" }));
     expect(screen.getByRole("dialog", { name: "模型测试结果" })).toBeInTheDocument();
     expect(screen.getByText("Error: 模型测试请求失败：network down")).toBeInTheDocument();
+  });
+
+  it("retests a rejected batch result with the default prompt when no prompt metadata exists", async () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "zh",
+        theme: "dark",
+      }),
+    );
+    let modelTestCallCount = 0;
+    invokeMock.mockImplementation((command: string) => {
+      if (command === "test_profile_model") {
+        modelTestCallCount += 1;
+        if (modelTestCallCount === 1) {
+          return Promise.reject(new Error("模型测试请求失败：network down"));
+        }
+        return Promise.resolve({
+          ok: true,
+          responseText: "重新测试成功",
+          promptText: "请用一句简短的话确认这次 API 测试请求成功。",
+          resolvedModel: "claude-sonnet-4-6",
+          durationMs: 88,
+          rawResponse: JSON.stringify({ content: [{ type: "text", text: "重新测试成功" }] }),
+        });
+      }
+      return Promise.resolve(null);
+    });
+
+    renderPage();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "一键测试" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const card = screen.getByText("OpenRouter User").closest(".profile-card") as HTMLElement | null;
+    expect(card).not.toBeNull();
+    if (!card) {
+      return;
+    }
+
+    fireEvent.click(within(card).getByRole("button", { name: "OpenRouter User 测试结果：失败" }));
+    const dialog = screen.getByRole("dialog", { name: "模型测试结果" });
+
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "重新测试" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const modelTestPayloads = invokeMock.mock.calls
+      .filter(([command]) => command === "test_profile_model")
+      .map(([, payload]) => (payload as { data?: { promptText?: string } }).data);
+    expect(modelTestPayloads).toHaveLength(2);
+    expect(modelTestPayloads[1]).not.toHaveProperty("promptText");
   });
 
   it("retests the current profile from the model test result dialog", async () => {
@@ -530,7 +688,10 @@ describe("ProfilesPage", () => {
     expect(within(dialog).getByText("请确认测试成功。")).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("button", { name: "编辑提示词" }));
     const promptInput = within(dialog).getByLabelText("输入提示词") as HTMLTextAreaElement;
+    fireEvent.change(promptInput, { target: { value: "   " } });
+    expect(within(dialog).getByRole("button", { name: "发起请求" })).toBeDisabled();
     fireEvent.change(promptInput, { target: { value: "请只回复 OK" } });
+    expect(within(dialog).getByRole("button", { name: "发起请求" })).toBeEnabled();
     expect(within(dialog).getByTestId("model-test-request-body-code").textContent).toContain(
       '"content": "请只回复 OK"',
     );

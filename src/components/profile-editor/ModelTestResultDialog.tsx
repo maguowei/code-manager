@@ -16,7 +16,7 @@ interface ModelTestResultDialogProps {
   rawResponseExpanded: boolean;
   onClose: () => void;
   onToggleRawResponse: () => void;
-  onRetest?: (promptText: string) => void;
+  onRetest?: (promptText?: string) => void;
   isRetesting?: boolean;
 }
 
@@ -148,6 +148,7 @@ function ModelTestResultDialog({
     () => (result ? buildCurlCommand(result, requestBody) : ""),
     [result, requestBody],
   );
+  const canSendPromptRequest = promptDraft.trim().length > 0;
   const metaItems: MetaItem[] = [
     result?.resolvedModel
       ? {
@@ -238,6 +239,10 @@ function ModelTestResultDialog({
     }
   }
 
+  function getRetestPromptOverride() {
+    return promptDraft.trim() ? promptDraft : undefined;
+  }
+
   function renderCodePanel(
     panelKey: CodePanelKey,
     label: string,
@@ -316,7 +321,7 @@ function ModelTestResultDialog({
                   type="button"
                   className={`profile-secondary-btn profile-model-test-dialog-retest${isRetesting ? " is-testing" : ""}`}
                   disabled={isRetesting}
-                  onClick={() => onRetest(promptDraft)}
+                  onClick={() => onRetest(getRetestPromptOverride())}
                 >
                   <span className="profile-model-test-dialog-retest-icon" aria-hidden="true">
                     <TestTubeIcon size={15} />
@@ -453,7 +458,7 @@ function ModelTestResultDialog({
                     <button
                       type="button"
                       className="profile-secondary-btn profile-model-test-compact-action"
-                      disabled={isRetesting || !onRetest}
+                      disabled={isRetesting || !onRetest || !canSendPromptRequest}
                       onClick={() => {
                         if (!onRetest) {
                           return;

@@ -1068,6 +1068,7 @@ describe("ProfileEditor", () => {
   });
 
   it("opens the failed dialog without a raw response toggle when invoke rejects", async () => {
+    let modelTestCallCount = 0;
     invokeMock.mockImplementation(async (command: string, payload?: unknown) => {
       if (command === "get_config_workspace") {
         return WORKSPACE_FIXTURE;
@@ -1086,7 +1087,19 @@ describe("ProfileEditor", () => {
         );
       }
       if (command === "test_profile_model") {
-        throw new Error("模型测试请求失败：network down");
+        modelTestCallCount += 1;
+        if (modelTestCallCount === 1) {
+          throw new Error("模型测试请求失败：network down");
+        }
+        return {
+          ok: true,
+          responseText: "重新测试成功",
+          promptText:
+            "Please reply with one short sentence confirming this API test request succeeded.",
+          resolvedModel: "claude-sonnet-4-6",
+          durationMs: 88,
+          rawResponse: JSON.stringify({ content: [{ type: "text", text: "重新测试成功" }] }),
+        };
       }
       return null;
     });
@@ -1110,6 +1123,18 @@ describe("ProfileEditor", () => {
     expect(within(dialog).getByText("测试失败")).toBeInTheDocument();
     expect(within(dialog).getByText("Error: 模型测试请求失败：network down")).toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: "查看响应体" })).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "重新测试" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const modelTestPayloads = invokeMock.mock.calls
+      .filter(([command]) => command === "test_profile_model")
+      .map(([, payload]) => (payload as { data?: { promptText?: string } }).data);
+    expect(modelTestPayloads).toHaveLength(2);
+    expect(modelTestPayloads[1]).not.toHaveProperty("promptText");
   });
 
   it("keeps model test prompt and response body text smaller than section labels", () => {
