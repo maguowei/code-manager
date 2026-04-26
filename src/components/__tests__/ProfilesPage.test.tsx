@@ -119,6 +119,16 @@ function makeProfile(id: string, name: string) {
   } as ConfigWorkspace["profiles"][number];
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
 describe("ProfilesPage", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -175,6 +185,12 @@ describe("ProfilesPage", () => {
     expect(within(card).getByText("使用中")).toBeInTheDocument();
     expect(within(card).queryByText("已应用到用户设置")).not.toBeInTheDocument();
     expect(within(card).getByText("开放路由")).toBeInTheDocument();
+    const titleRow = within(card)
+      .getByRole("heading", { name: "OpenRouter User" })
+      .closest(".profile-card-title-row");
+    const presetRow = card.querySelector(".profile-card-preset-row");
+    expect(titleRow?.querySelector(".profile-preset-badge")).toBeNull();
+    expect(presetRow).toHaveTextContent("开放路由");
     expect(within(card).getByText("claude-sonnet-4-6")).toBeInTheDocument();
     expect(within(card).getByText("high")).toBeInTheDocument();
     expect(within(card).getByText("已启用 1/2")).toBeInTheDocument();
@@ -218,6 +234,183 @@ describe("ProfilesPage", () => {
     expect(within(card).queryByText("使用中")).not.toBeInTheDocument();
   });
 
+  it("disables the batch test action when there are no profiles", () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "zh",
+        theme: "dark",
+      }),
+    );
+
+    render(
+      <I18nProvider>
+        <ProfilesPage
+          workspace={{ ...WORKSPACE_FIXTURE, profiles: [] }}
+          onWorkspaceChange={async () => {}}
+        />
+      </I18nProvider>,
+    );
+
+    expect(screen.getByRole("button", { name: "一键测试" })).toBeDisabled();
+  });
+
+  it("tests every saved profile concurrently and renders inline results", async () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "zh",
+        theme: "dark",
+      }),
+    );
+    const alphaResult = createDeferred<unknown>();
+    const betaResult = createDeferred<unknown>();
+    const orderedWorkspace: ConfigWorkspace = {
+      ...WORKSPACE_FIXTURE,
+      profiles: [makeProfile("profile-a", "Alpha"), makeProfile("profile-b", "Beta")],
+      bindings: {
+        userProfileId: undefined,
+      },
+    } as ConfigWorkspace;
+
+    invokeMock.mockImplementation((command: string, payload?: unknown) => {
+      if (command !== "test_profile_model") {
+        return Promise.resolve(null);
+      }
+
+      const profileName = (payload as { data?: { name?: string } } | undefined)?.data?.name;
+      if (profileName === "Alpha") {
+        return alphaResult.promise;
+      }
+      if (profileName === "Beta") {
+        return betaResult.promise;
+      }
+      return Promise.resolve(null);
+    });
+
+    render(
+      <I18nProvider>
+        <ProfilesPage workspace={orderedWorkspace} onWorkspaceChange={async () => {}} />
+      </I18nProvider>,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "一键测试" }));
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole("button", { name: "测试中..." })).toBeDisabled();
+    const modelTestCalls = invokeMock.mock.calls.filter(
+      ([command]) => command === "test_profile_model",
+    );
+    expect(modelTestCalls).toHaveLength(2);
+    expect(
+      modelTestCalls.map(
+        ([, payload]) => (payload as { data?: { id?: string; name?: string } }).data,
+      ),
+    ).toEqual([
+      expect.objectContaining({ id: "profile-a", name: "Alpha" }),
+      expect.objectContaining({ id: "profile-b", name: "Beta" }),
+    ]);
+
+    await act(async () => {
+      alphaResult.resolve({
+        ok: true,
+        responseText: "Alpha 测试成功",
+        promptText: "请确认测试成功。",
+        resolvedModel: "model-profile-a",
+        durationMs: 52,
+        rawResponse: JSON.stringify({ content: [{ type: "text", text: "Alpha 测试成功" }] }),
+      });
+      betaResult.resolve({
+        ok: false,
+        responseText: "",
+        promptText: "请确认测试成功。",
+        resolvedModel: "model-profile-b",
+        durationMs: 70,
+        errorMessage: "Beta 认证失败",
+        rawResponse: '{"error":{"message":"Beta 认证失败"}}',
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole("button", { name: "一键测试" })).toBeEnabled();
+
+    const alphaCard = screen.getByText("Alpha").closest(".profile-card") as HTMLElement | null;
+    const betaCard = screen.getByText("Beta").closest(".profile-card") as HTMLElement | null;
+    expect(alphaCard).not.toBeNull();
+    expect(betaCard).not.toBeNull();
+    if (!alphaCard || !betaCard) {
+      return;
+    }
+
+    expect(within(alphaCard).getByText("52 ms")).toBeInTheDocument();
+    expect(within(betaCard).getByText("失败")).toBeInTheDocument();
+
+    const alphaModelSummary = within(alphaCard)
+      .getByText("model-profile-a")
+      .closest(".profile-summary-main");
+    const betaModelSummary = within(betaCard)
+      .getByText("model-profile-b")
+      .closest(".profile-summary-main");
+    expect(alphaModelSummary).not.toBeNull();
+    expect(betaModelSummary).not.toBeNull();
+    expect(alphaModelSummary?.querySelector(".profile-test-result-badge")).toHaveTextContent(
+      "52 ms",
+    );
+    expect(betaModelSummary?.querySelector(".profile-test-result-badge")).toHaveTextContent("失败");
+    expect(
+      alphaCard.querySelector(".profile-card-head-actions .profile-test-result-badge"),
+    ).toBeNull();
+    expect(
+      betaCard.querySelector(".profile-card-head-actions .profile-test-result-badge"),
+    ).toBeNull();
+
+    fireEvent.click(within(alphaCard).getByRole("button", { name: "Alpha 测试结果：52 ms" }));
+    expect(screen.getByRole("dialog", { name: "模型测试结果" })).toBeInTheDocument();
+    expect(screen.getByText("Alpha 测试成功")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+    fireEvent.click(within(betaCard).getByRole("button", { name: "Beta 测试结果：失败" }));
+    expect(screen.getByRole("dialog", { name: "模型测试结果" })).toBeInTheDocument();
+    expect(screen.getByText("Beta 认证失败")).toBeInTheDocument();
+  });
+
+  it("opens a failed batch test dialog when a profile test request rejects", async () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "zh",
+        theme: "dark",
+      }),
+    );
+    invokeMock.mockImplementation((command: string) => {
+      if (command === "test_profile_model") {
+        return Promise.reject(new Error("模型测试请求失败：network down"));
+      }
+      return Promise.resolve(null);
+    });
+
+    renderPage();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "一键测试" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const card = screen.getByText("OpenRouter User").closest(".profile-card") as HTMLElement | null;
+    expect(card).not.toBeNull();
+    if (!card) {
+      return;
+    }
+
+    fireEvent.click(within(card).getByRole("button", { name: "OpenRouter User 测试结果：失败" }));
+    expect(screen.getByRole("dialog", { name: "模型测试结果" })).toBeInTheDocument();
+    expect(screen.getByText("Error: 模型测试请求失败：network down")).toBeInTheDocument();
+  });
+
   it("reveals card actions only on hover or focus within", () => {
     const css = readFileSync(`${process.cwd()}/src/components/ProfilesPage.css`, "utf8");
 
@@ -239,6 +432,21 @@ describe("ProfilesPage", () => {
     expect(css).toContain("right: var(--profile-drop-indicator-bleed);");
     expect(css).toContain("height: 4px;");
     expect(css).toMatch(/radial-gradient\(\s*circle at left center,/);
+  });
+
+  it("keeps inline test result badges compact beside model names", () => {
+    const css = readFileSync(`${process.cwd()}/src/components/ProfilesPage.css`, "utf8");
+
+    expect(css).toMatch(/\.profile-test-result-badge\s*\{[^}]*min-height:\s*20px;/s);
+    expect(css).toMatch(/\.profile-test-result-badge\s*\{[^}]*padding:\s*2px\s+6px;/s);
+    expect(css).toMatch(/\.profile-test-result-badge\s*\{[^}]*font-size:\s*inherit;/s);
+    expect(css).toMatch(/\.profile-test-result-badge\s*\{[^}]*line-height:\s*1\.2;/s);
+  });
+
+  it("keeps preset badges visually quieter below profile names", () => {
+    const css = readFileSync(`${process.cwd()}/src/components/ProfilesPage.css`, "utf8");
+
+    expect(css).toMatch(/\.profile-preset-badge\s*\{[^}]*font-size:\s*10px;/s);
   });
 
   it("opens the profile editor when clicking the card body", async () => {

@@ -16,7 +16,7 @@ const CONFIG_REGISTRY_SCHEMA_URL: &str =
 const REGISTRY_VERSION: u32 = 1;
 const DEFAULT_ANTHROPIC_BASE_URL: &str = "https://api.anthropic.com";
 const MODEL_TEST_TIMEOUT_SECS: u64 = 30;
-const MODEL_TEST_MAX_TOKENS: u64 = 80;
+const MODEL_TEST_MAX_TOKENS: u64 = 2048;
 const MODEL_TEST_PROMPT_EN: &str =
     "Please reply with one short sentence confirming this API test request succeeded.";
 const MODEL_TEST_PROMPT_ZH: &str = "请用一句简短的话确认这次 API 测试请求成功。";

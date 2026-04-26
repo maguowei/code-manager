@@ -2,18 +2,29 @@ import { invoke } from "@tauri-apps/api/core";
 import { type DragEvent, useCallback, useMemo, useRef, useState } from "react";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
-import type { ConfigProfile, ConfigWorkspace } from "../types";
+import type { ConfigProfile, ConfigWorkspace, ModelTestResult } from "../types";
 import ConfirmDialog from "./ConfirmDialog";
 import { getEnabledPluginsSummary, isPlainObject, presetNameById } from "./config-workspace-utils";
 import Drawer from "./Drawer";
-import { TrashIcon } from "./Icons";
+import { TestTubeIcon, TrashIcon } from "./Icons";
 import ProfileEditor from "./ProfileEditor";
 import ProfileNameBadge from "./ProfileNameBadge";
+import ModelTestResultDialog from "./profile-editor/ModelTestResultDialog";
 import "./ProfilesPage.css";
 
 interface ProfilesPageProps {
   workspace: ConfigWorkspace;
   onWorkspaceChange: () => Promise<void>;
+}
+
+type ProfileModelTestState =
+  | { status: "running" }
+  | { status: "success"; result: ModelTestResult }
+  | { status: "failed"; result: ModelTestResult | null; errorMessage: string };
+
+interface ActiveModelTestDialog {
+  result: ModelTestResult | null;
+  errorMessage: string;
 }
 
 function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
@@ -22,7 +33,16 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
   const [editingProfile, setEditingProfile] = useState<ConfigProfile | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [isTestingAllProfiles, setIsTestingAllProfiles] = useState(false);
+  const [profileModelTestStates, setProfileModelTestStates] = useState<
+    Record<string, ProfileModelTestState>
+  >({});
+  const [activeModelTestDialog, setActiveModelTestDialog] = useState<ActiveModelTestDialog | null>(
+    null,
+  );
+  const [isRawResponseExpanded, setIsRawResponseExpanded] = useState(false);
   const dragIndexRef = useRef<number | null>(null);
+  const modelTestRunIdRef = useRef(0);
   const dragOverRef = useRef<{
     overIndex: number | null;
     overPosition: "above" | "below" | null;
@@ -43,9 +63,36 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
     return workspace.bindings.userProfileId === profile.id;
   }
 
+  function profileToModelTestData(profile: ConfigProfile) {
+    return {
+      id: profile.id,
+      name: profile.name,
+      description: profile.description,
+      presetId: profile.presetId,
+      settings: profile.settings,
+    };
+  }
+
+  function modelTestStateFromResult(result: ModelTestResult): ProfileModelTestState {
+    if (result.ok) {
+      return { status: "success", result };
+    }
+
+    return {
+      status: "failed",
+      result,
+      errorMessage: result.errorMessage || t("profiles.testAll.failed"),
+    };
+  }
+
   function closeDrawer() {
     setIsDrawerOpen(false);
     setEditingProfile(null);
+  }
+
+  function closeModelTestDialog() {
+    setActiveModelTestDialog(null);
+    setIsRawResponseExpanded(false);
   }
 
   const handleDragStart = useCallback((event: DragEvent<HTMLDivElement>, index: number) => {
@@ -245,6 +292,56 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
     [onWorkspaceChange, showToast, t],
   );
 
+  async function handleTestAllProfiles() {
+    if (isTestingAllProfiles || profiles.length === 0) {
+      return;
+    }
+
+    const runId = modelTestRunIdRef.current + 1;
+    modelTestRunIdRef.current = runId;
+    const runningStates = Object.fromEntries(
+      profiles.map((profile) => [profile.id, { status: "running" as const }]),
+    );
+
+    setIsTestingAllProfiles(true);
+    setProfileModelTestStates(runningStates);
+    setActiveModelTestDialog(null);
+    setIsRawResponseExpanded(false);
+
+    const testPromises = profiles.map(async (profile) => {
+      try {
+        const result = await invoke<ModelTestResult>("test_profile_model", {
+          data: profileToModelTestData(profile),
+        });
+        if (modelTestRunIdRef.current === runId) {
+          setProfileModelTestStates((current) => ({
+            ...current,
+            [profile.id]: modelTestStateFromResult(result),
+          }));
+        }
+        return result;
+      } catch (error) {
+        if (modelTestRunIdRef.current === runId) {
+          setProfileModelTestStates((current) => ({
+            ...current,
+            [profile.id]: {
+              status: "failed",
+              result: null,
+              errorMessage: String(error),
+            },
+          }));
+        }
+        throw error;
+      }
+    });
+
+    await Promise.allSettled(testPromises);
+
+    if (modelTestRunIdRef.current === runId) {
+      setIsTestingAllProfiles(false);
+    }
+  }
+
   const handleDrop = useCallback(
     (event: DragEvent<HTMLDivElement>, dropIndex: number) => {
       event.preventDefault();
@@ -274,11 +371,87 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
     [handleDragEnd, handleReorder, profiles],
   );
 
+  function modelTestResultLabel(state: Exclude<ProfileModelTestState, { status: "running" }>) {
+    return state.status === "success"
+      ? `${state.result.durationMs} ms`
+      : t("profiles.testAll.failed");
+  }
+
+  function openProfileModelTestResult(
+    state: Exclude<ProfileModelTestState, { status: "running" }>,
+  ) {
+    setActiveModelTestDialog({
+      result: state.result,
+      errorMessage: state.status === "failed" ? state.errorMessage : "",
+    });
+    setIsRawResponseExpanded(false);
+  }
+
+  function modelTestResultAriaLabel(
+    profile: ConfigProfile,
+    state: Exclude<ProfileModelTestState, { status: "running" }>,
+  ) {
+    return t("profiles.testAll.resultAriaLabel")
+      .replace("{name}", profile.name)
+      .replace("{result}", modelTestResultLabel(state));
+  }
+
+  function renderProfileModelTestState(profile: ConfigProfile) {
+    const state = profileModelTestStates[profile.id];
+    if (!state) {
+      return null;
+    }
+
+    if (state.status === "running") {
+      return (
+        <span className="profile-test-result-badge running" title={t("profiles.testAll.running")}>
+          <span className="profile-test-result-spinner" aria-hidden="true" />
+          <span>{t("profiles.testAll.runningBadge")}</span>
+        </span>
+      );
+    }
+
+    const label = modelTestResultLabel(state);
+    const ariaLabel = modelTestResultAriaLabel(profile, state);
+
+    return (
+      <button
+        type="button"
+        className={`profile-test-result-badge ${state.status}`}
+        aria-label={ariaLabel}
+        title={ariaLabel}
+        onClick={(event) => {
+          event.stopPropagation();
+          openProfileModelTestResult(state);
+        }}
+      >
+        {label}
+      </button>
+    );
+  }
+
   return (
     <>
       <div className={`list-section ${isDrawerOpen ? "compressed" : ""}`}>
         <div className="page-header">
           <h1 className="page-title">{t("profiles.title")}</h1>
+          <div className="profile-page-actions">
+            <button
+              type="button"
+              className={`profile-test-all-btn${isTestingAllProfiles ? " is-testing" : ""}`}
+              disabled={profiles.length === 0 || isTestingAllProfiles}
+              onClick={() => {
+                void handleTestAllProfiles();
+              }}
+            >
+              <TestTubeIcon size={15} />
+              <span>
+                {isTestingAllProfiles
+                  ? t("profiles.actions.testingAll")
+                  : t("profiles.actions.testAll")}
+              </span>
+            </button>
+          </div>
         </div>
         <button
           type="button"
@@ -338,6 +511,8 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                     <div className="profile-card-title-block">
                       <div className="profile-card-title-row">
                         <h3>{profile.name}</h3>
+                      </div>
+                      <div className="profile-card-preset-row">
                         <span className="profile-preset-badge">
                           {presetNameById(
                             allPresets,
@@ -392,6 +567,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                           </svg>
                           <div className="profile-summary-main">
                             <span>{model}</span>
+                            {renderProfileModelTestState(profile)}
                             {effort && <span className="profile-summary-effort">{effort}</span>}
                           </div>
                         </div>
@@ -508,6 +684,15 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
           onCancel={() => setPendingDeleteId(null)}
         />
       )}
+
+      <ModelTestResultDialog
+        isOpen={activeModelTestDialog !== null}
+        result={activeModelTestDialog?.result ?? null}
+        errorMessage={activeModelTestDialog?.errorMessage ?? ""}
+        rawResponseExpanded={isRawResponseExpanded}
+        onClose={closeModelTestDialog}
+        onToggleRawResponse={() => setIsRawResponseExpanded((value) => !value)}
+      />
     </>
   );
 }
