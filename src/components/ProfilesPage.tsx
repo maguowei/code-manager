@@ -15,6 +15,7 @@ import { TestTubeIcon, TrashIcon } from "./Icons";
 import ProfileEditor from "./ProfileEditor";
 import ProfileNameBadge from "./ProfileNameBadge";
 import ModelTestResultDialog from "./profile-editor/ModelTestResultDialog";
+import { readPermissionsDefaultMode } from "./profile-editor/PermissionsEditor";
 import "./ProfilesPage.css";
 
 interface ProfilesPageProps {
@@ -185,6 +186,47 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
       return profile.settings.effortLevel.trim();
     }
     return "";
+  }
+
+  function profileEffortLevelClass(effort: string) {
+    switch (effort) {
+      case "low":
+        return "profile-summary-effort-level--low";
+      case "medium":
+        return "profile-summary-effort-level--medium";
+      case "high":
+        return "profile-summary-effort-level--high";
+      case "xhigh":
+        return "profile-summary-effort-level--xhigh";
+      case "max":
+        return "profile-summary-effort-level--max";
+      default:
+        return "";
+    }
+  }
+
+  function profilePermissionMode(profile: ConfigProfile) {
+    return readPermissionsDefaultMode(profile.settings.permissions).trim();
+  }
+
+  function profileSandboxEnabled(profile: ConfigProfile) {
+    const sandbox = isPlainObject(profile.settings.sandbox) ? profile.settings.sandbox : {};
+    return sandbox.enabled === true;
+  }
+
+  function profilePermissionModeClass(permissionMode: string) {
+    switch (permissionMode) {
+      case "plan":
+        return "profile-summary-permission-mode--plan";
+      case "acceptEdits":
+        return "profile-summary-permission-mode--accept-edits";
+      case "dontAsk":
+        return "profile-summary-permission-mode--dont-ask";
+      case "bypassPermissions":
+        return "profile-summary-permission-mode--bypass-permissions";
+      default:
+        return "";
+    }
   }
 
   function profilePluginsSummary(profile: ConfigProfile) {
@@ -590,7 +632,10 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
             {profiles.map((profile, index) => {
               const model = profilePrimaryModel(profile);
               const effort = profileEffortLevel(profile);
+              const permissionMode = profilePermissionMode(profile);
+              const sandboxEnabled = profileSandboxEnabled(profile);
               const plugins = profilePluginsSummary(profile);
+              const hasSummary = model || permissionMode || plugins.totalCount > 0;
               return (
                 <div
                   key={profile.id}
@@ -668,40 +713,66 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                     </div>
                   </div>
 
-                  {(model || plugins.totalCount > 0) && (
+                  {hasSummary && (
                     <div className="profile-card-summary">
                       {model && (
                         <div className="profile-summary-row">
-                          <svg
-                            className="profile-summary-icon"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          >
-                            <circle cx="12" cy="12" r="10" />
-                            <circle cx="12" cy="12" r="3" />
-                          </svg>
+                          <span className="profile-summary-title">
+                            {t("profiles.summary.modelTitle")}
+                          </span>
                           <div className="profile-summary-main">
                             <span>{model}</span>
                             {renderProfileModelTestState(profile)}
-                            {effort && <span className="profile-summary-effort">{effort}</span>}
+                            {effort && (
+                              <span
+                                className={[
+                                  "profile-summary-effort-level",
+                                  profileEffortLevelClass(effort),
+                                ]
+                                  .filter(Boolean)
+                                  .join(" ")}
+                              >
+                                {effort}
+                              </span>
+                            )}
                           </div>
+                        </div>
+                      )}
+                      {permissionMode && (
+                        <div className="profile-summary-row">
+                          <span className="profile-summary-title">
+                            {t("profiles.summary.permissionsTitle")}
+                          </span>
+                          <span className="profile-summary-main">
+                            <span
+                              className={[
+                                "profile-summary-permission-mode",
+                                profilePermissionModeClass(permissionMode),
+                              ]
+                                .filter(Boolean)
+                                .join(" ")}
+                            >
+                              {permissionMode}
+                            </span>
+                            <span
+                              className={`profile-summary-sandbox-state profile-summary-sandbox-state--${
+                                sandboxEnabled ? "enabled" : "disabled"
+                              }`}
+                            >
+                              {t(
+                                sandboxEnabled
+                                  ? "profiles.summary.sandboxEnabled"
+                                  : "profiles.summary.sandboxDisabled",
+                              )}
+                            </span>
+                          </span>
                         </div>
                       )}
                       {plugins.totalCount > 0 && (
                         <div className="profile-summary-row">
-                          <svg
-                            className="profile-summary-icon"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          >
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                            <line x1="9" y1="9" x2="15" y2="9" />
-                            <line x1="9" y1="15" x2="15" y2="15" />
-                          </svg>
+                          <span className="profile-summary-title">
+                            {t("profiles.summary.pluginsTitle")}
+                          </span>
                           <span>
                             {t("common.pluginsEnabledSummaryLabel")} {plugins.enabledCount}/
                             {plugins.totalCount}

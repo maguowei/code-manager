@@ -81,6 +81,12 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
           ANTHROPIC_MODEL: "claude-sonnet-4-6",
           CLAUDE_CODE_EFFORT_LEVEL: "high",
         },
+        permissions: {
+          defaultMode: "plan",
+        },
+        sandbox: {
+          enabled: true,
+        },
         enabledPlugins: {
           "formatter@anthropic-tools": true,
           "docs@anthropic-tools": false,
@@ -191,15 +197,128 @@ describe("ProfilesPage", () => {
     const presetRow = card.querySelector(".profile-card-preset-row");
     expect(titleRow?.querySelector(".profile-preset-badge")).toBeNull();
     expect(presetRow).toHaveTextContent("开放路由");
+    expect(within(card).getByText("模型")).toHaveClass("profile-summary-title");
+    const modelRow = within(card)
+      .getByText("claude-sonnet-4-6")
+      .closest(".profile-summary-row") as HTMLElement | null;
+    expect(modelRow).not.toBeNull();
     expect(within(card).getByText("claude-sonnet-4-6")).toBeInTheDocument();
-    expect(within(card).getByText("high")).toBeInTheDocument();
+    if (modelRow) {
+      expect(within(modelRow).getByText("high")).toHaveClass(
+        "profile-summary-effort-level",
+        "profile-summary-effort-level--high",
+      );
+      expect(within(modelRow).getByText("high")).not.toHaveClass("profile-summary-value-badge");
+    }
+    expect(within(card).queryByText("努力级别")).not.toBeInTheDocument();
+    expect(within(card).getByText("权限")).toHaveClass("profile-summary-title");
+    expect(within(card).queryByText("权限模式")).not.toBeInTheDocument();
+    expect(within(card).getByText("plan")).toHaveClass(
+      "profile-summary-permission-mode",
+      "profile-summary-permission-mode--plan",
+    );
+    expect(within(card).getByText("plan")).not.toHaveClass("profile-summary-value-badge");
+    const permissionRow = within(card)
+      .getByText("plan")
+      .closest(".profile-summary-row") as HTMLElement | null;
+    expect(permissionRow).not.toBeNull();
+    if (permissionRow) {
+      expect(within(permissionRow).getByText("沙盒已启用")).toHaveClass(
+        "profile-summary-sandbox-state",
+        "profile-summary-sandbox-state--enabled",
+      );
+    }
+    expect(within(card).getByText("插件")).toHaveClass("profile-summary-title");
     expect(within(card).getByText("已启用 1/2")).toBeInTheDocument();
+    expect(card.querySelector(".profile-summary-icon")).toBeNull();
     expect(within(card).queryByRole("button", { name: "启用" })).not.toBeInTheDocument();
     expect(within(card).getByRole("button", { name: "复制环境变量" })).toBeInTheDocument();
     expect(within(card).getByRole("button", { name: "复制" })).toBeInTheDocument();
     expect(within(card).getByRole("button", { name: "删除" })).toBeInTheDocument();
     expect(within(card).queryByText("删除")).not.toBeInTheDocument();
     expect(within(card).queryByRole("button", { name: "编辑" })).not.toBeInTheDocument();
+  });
+
+  it("colors high-risk permission modes on profile cards", () => {
+    const workspace: ConfigWorkspace = {
+      ...WORKSPACE_FIXTURE,
+      profiles: [
+        {
+          ...makeProfile("profile-bypass", "Bypass Profile"),
+          settings: {
+            env: {
+              ANTHROPIC_MODEL: "claude-opus-4-7",
+            },
+            permissions: {
+              defaultMode: "bypassPermissions",
+            },
+          },
+        },
+      ],
+      bindings: {
+        userProfileId: undefined,
+      },
+    } as ConfigWorkspace;
+
+    renderPage(workspace);
+
+    const card = screen.getByText("Bypass Profile").closest(".profile-card") as HTMLElement | null;
+    expect(card).not.toBeNull();
+    if (!card) {
+      return;
+    }
+    expect(within(card).getByText("bypassPermissions")).toHaveClass(
+      "profile-summary-permission-mode",
+      "profile-summary-permission-mode--bypass-permissions",
+    );
+    const permissionRow = within(card)
+      .getByText("bypassPermissions")
+      .closest(".profile-summary-row") as HTMLElement | null;
+    expect(permissionRow).not.toBeNull();
+    if (permissionRow) {
+      expect(within(permissionRow).getByText("沙盒未启用")).toHaveClass(
+        "profile-summary-sandbox-state",
+        "profile-summary-sandbox-state--disabled",
+      );
+    }
+    expect(within(card).getByText("bypassPermissions")).not.toHaveClass(
+      "profile-summary-value-badge",
+    );
+  });
+
+  it("colors high-intensity effort levels on profile cards", () => {
+    const workspace: ConfigWorkspace = {
+      ...WORKSPACE_FIXTURE,
+      profiles: [
+        {
+          ...makeProfile("profile-max-effort", "Max Effort Profile"),
+          settings: {
+            env: {
+              ANTHROPIC_MODEL: "claude-opus-4-7",
+              CLAUDE_CODE_EFFORT_LEVEL: "max",
+            },
+          },
+        },
+      ],
+      bindings: {
+        userProfileId: undefined,
+      },
+    } as ConfigWorkspace;
+
+    renderPage(workspace);
+
+    const card = screen
+      .getByText("Max Effort Profile")
+      .closest(".profile-card") as HTMLElement | null;
+    expect(card).not.toBeNull();
+    if (!card) {
+      return;
+    }
+    expect(within(card).getByText("max")).toHaveClass(
+      "profile-summary-effort-level",
+      "profile-summary-effort-level--max",
+    );
+    expect(within(card).getByText("max")).not.toHaveClass("profile-summary-value-badge");
   });
 
   it("uses the displayed first character and preset slug to seed profile badge colors", () => {
@@ -862,6 +981,53 @@ describe("ProfilesPage", () => {
     expect(css).toMatch(/\.profile-test-result-badge\s*\{[^}]*padding:\s*1px\s+5px;/s);
     expect(css).toMatch(/\.profile-test-result-badge\s*\{[^}]*font-size:\s*11px;/s);
     expect(css).toMatch(/\.profile-test-result-badge\s*\{[^}]*line-height:\s*1\.15;/s);
+  });
+
+  it("keeps profile summary labels close to consistently aligned values", () => {
+    const css = readFileSync(`${process.cwd()}/src/components/ProfilesPage.css`, "utf8");
+
+    expect(css).toMatch(
+      /\.profile-summary-row\s*\{[^}]*grid-template-columns:\s*max-content\s+minmax\(0,\s*1fr\);/s,
+    );
+    expect(css).toMatch(/\.profile-summary-row\s*\{[^}]*column-gap:\s*6px;/s);
+    expect(css).not.toMatch(/\.profile-summary-title\s*\{[^}]*min-width:\s*56px;/s);
+  });
+
+  it("colors profile permission summary values by risk", () => {
+    const css = readFileSync(`${process.cwd()}/src/components/ProfilesPage.css`, "utf8");
+
+    expect(css).toMatch(
+      /\.profile-summary-permission-mode--plan\s*\{[^}]*color:\s*var\(--accent-blue\);/s,
+    );
+    expect(css).toMatch(
+      /\.profile-summary-permission-mode--accept-edits\s*\{[^}]*color:\s*var\(--accent-purple\);/s,
+    );
+    expect(css).toMatch(
+      /\.profile-summary-permission-mode--dont-ask\s*\{[^}]*color:\s*var\(--accent-orange\);/s,
+    );
+    expect(css).toMatch(
+      /\.profile-summary-permission-mode--bypass-permissions\s*\{[^}]*color:\s*var\(--accent-red\);/s,
+    );
+  });
+
+  it("colors profile effort summary values by intensity", () => {
+    const css = readFileSync(`${process.cwd()}/src/components/ProfilesPage.css`, "utf8");
+
+    expect(css).toMatch(
+      /\.profile-summary-effort-level--low\s*\{[^}]*color:\s*var\(--accent-green\);/s,
+    );
+    expect(css).toMatch(
+      /\.profile-summary-effort-level--medium\s*\{[^}]*color:\s*var\(--accent-blue\);/s,
+    );
+    expect(css).toMatch(
+      /\.profile-summary-effort-level--high\s*\{[^}]*color:\s*var\(--accent-purple\);/s,
+    );
+    expect(css).toMatch(
+      /\.profile-summary-effort-level--xhigh\s*\{[^}]*color:\s*var\(--accent-orange\);/s,
+    );
+    expect(css).toMatch(
+      /\.profile-summary-effort-level--max\s*\{[^}]*color:\s*var\(--accent-red\);/s,
+    );
   });
 
   it("keeps preset badges visually quieter below profile names", () => {
