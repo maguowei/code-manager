@@ -1,5 +1,7 @@
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { type ReactNode, useCallback, useState } from "react";
 import { useI18n } from "../../i18n";
+import { ExternalLinkIcon } from "../Icons";
 import BehaviorFieldHeader from "./BehaviorFieldHeader";
 import DocumentEditorSection from "./DocumentEditorSection";
 import EnabledPluginsEditor from "./EnabledPluginsEditor";
@@ -25,6 +27,14 @@ import type { StructuredSettingsSectionState } from "./useStructuredSettingsSect
 import "./editor-shared.css";
 
 type StructuredSettingsScope = "profiles" | "presets";
+type DocsLocale = "zh-CN" | "en";
+type StructuredSettingsDocsKey =
+  | "env"
+  | "permissions"
+  | "hooks"
+  | "marketplaces"
+  | "plugins"
+  | "statusLine";
 type StructuredObjectKey =
   | "env"
   | "permissions"
@@ -38,6 +48,16 @@ interface BehaviorFieldState {
   mappedToEnv: boolean;
   value: string;
 }
+
+const CLAUDE_CODE_DOCS_BASE_URL = "https://code.claude.com/docs";
+const STRUCTURED_SETTINGS_DOCS_PATHS: Record<StructuredSettingsDocsKey, string> = {
+  env: "env-vars",
+  permissions: "permissions",
+  hooks: "hooks",
+  marketplaces: "plugin-marketplaces",
+  plugins: "discover-plugins",
+  statusLine: "statusline",
+};
 
 interface StructuredSettingsSectionsProps {
   scope: StructuredSettingsScope;
@@ -139,6 +159,7 @@ function StructuredSettingsSections({
   const enabledCommonToggleCount = commonToggleFields.filter((field) =>
     readToggleFieldEnabled(field),
   ).length;
+  const docsLocale: DocsLocale = language === "zh" ? "zh-CN" : "en";
   const handleOfficialPluginActionChange = useCallback((action: ReactNode | null) => {
     setOfficialPluginAction(action);
   }, []);
@@ -186,6 +207,41 @@ function StructuredSettingsSections({
     sectionState.editorErrors.sandbox ||
     sectionState.editorErrors.env ||
     sectionState.editorErrors.statusLine;
+
+  function getSectionDocsUrl(docsKey: StructuredSettingsDocsKey) {
+    return `${CLAUDE_CODE_DOCS_BASE_URL}/${docsLocale}/${STRUCTURED_SETTINGS_DOCS_PATHS[docsKey]}`;
+  }
+
+  function renderSectionDocsButton(docsKey: StructuredSettingsDocsKey, sectionTitle: string) {
+    const label = t("profileEditor.docs.openAriaLabel").replace("{section}", sectionTitle);
+
+    return (
+      <button
+        type="button"
+        className="profile-icon-btn profile-section-doc-link"
+        aria-label={label}
+        title={label}
+        onClick={() => {
+          void openUrl(getSectionDocsUrl(docsKey));
+        }}
+      >
+        <ExternalLinkIcon size={15} />
+      </button>
+    );
+  }
+
+  function renderSectionHeaderControl(
+    docsKey: StructuredSettingsDocsKey,
+    sectionTitle: string,
+    extraControl?: ReactNode,
+  ) {
+    return (
+      <div className="profile-section-header-actions">
+        {renderSectionDocsButton(docsKey, sectionTitle)}
+        {extraControl}
+      </div>
+    );
+  }
 
   return (
     <>
@@ -407,6 +463,7 @@ function StructuredSettingsSections({
         expanded={sectionState.environmentExpanded}
         onToggleExpanded={sectionState.toggleEnvironmentExpanded}
         headerMeta={visibleEnvCount}
+        headerControl={renderSectionHeaderControl("env", messages.environment)}
       />
 
       <SettingsSectionModePanel
@@ -426,7 +483,9 @@ function StructuredSettingsSections({
         error={sectionState.editorErrors.permissions || permissionsJsonEditor.jsonError}
         expanded={sectionState.activeAccordionSection === "permissions"}
         onToggleExpanded={() => sectionState.toggleAccordionSection("permissions")}
-        headerControl={
+        headerControl={renderSectionHeaderControl(
+          "permissions",
+          messages.permissions,
           <PermissionDefaultModeSelect
             variant="header"
             value={permissionsDefaultMode}
@@ -437,8 +496,8 @@ function StructuredSettingsSections({
                 setPermissionsDefaultMode(settings.permissions, value),
               )
             }
-          />
-        }
+          />,
+        )}
       />
 
       <SettingsSectionModePanel
@@ -492,6 +551,7 @@ function StructuredSettingsSections({
         error={sectionState.editorErrors.hooks || hooksJsonEditor.jsonError}
         expanded={sectionState.activeAccordionSection === "hooks"}
         onToggleExpanded={() => sectionState.toggleAccordionSection("hooks")}
+        headerControl={renderSectionHeaderControl("hooks", messages.hooks)}
       />
 
       <SettingsSectionModePanel
@@ -513,6 +573,7 @@ function StructuredSettingsSections({
         error={sectionState.editorErrors.extraKnownMarketplaces || marketplacesJsonEditor.jsonError}
         expanded={sectionState.activeAccordionSection === "marketplaces"}
         onToggleExpanded={() => sectionState.toggleAccordionSection("marketplaces")}
+        headerControl={renderSectionHeaderControl("marketplaces", messages.marketplaces)}
       />
 
       <SettingsSectionModePanel
@@ -538,6 +599,7 @@ function StructuredSettingsSections({
         expanded={sectionState.activeAccordionSection === "plugins"}
         onToggleExpanded={() => sectionState.toggleAccordionSection("plugins")}
         headerMeta={`${t("common.pluginsEnabledSummaryLabel")} ${enabledPluginsSummary.enabledCount}/${enabledPluginsSummary.totalCount}`}
+        headerControl={renderSectionHeaderControl("plugins", messages.plugins)}
       />
 
       <SettingsSectionModePanel
@@ -558,6 +620,7 @@ function StructuredSettingsSections({
         error={sectionState.editorErrors.statusLine || statusLineJsonEditor.jsonError}
         expanded={sectionState.activeAccordionSection === "statusLine"}
         onToggleExpanded={() => sectionState.toggleAccordionSection("statusLine")}
+        headerControl={renderSectionHeaderControl("statusLine", messages.statusLine)}
       />
 
       <DocumentEditorSection

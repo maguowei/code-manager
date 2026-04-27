@@ -13,11 +13,12 @@ import {
   OFFICIAL_MARKETPLACE_REPO,
 } from "../profile-editor/marketplace-presets";
 
-const { invokeMock, showToastMock, fetchMock, openDialogMock } = vi.hoisted(() => ({
+const { invokeMock, showToastMock, fetchMock, openDialogMock, openUrlMock } = vi.hoisted(() => ({
   invokeMock: vi.fn(),
   showToastMock: vi.fn(),
   fetchMock: vi.fn(),
   openDialogMock: vi.fn(),
+  openUrlMock: vi.fn(async (_url: string) => null),
 }));
 const SETTINGS_STORAGE_KEY = "ai-manager-settings";
 const originalFetch = globalThis.fetch;
@@ -28,6 +29,10 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({
   open: (...args: unknown[]) => openDialogMock(...args),
+}));
+
+vi.mock("@tauri-apps/plugin-opener", () => ({
+  openUrl: (url: string) => openUrlMock(url),
 }));
 
 vi.mock("../../hooks/useToast", () => ({
@@ -258,6 +263,7 @@ describe("ProfileEditor", () => {
     showToastMock.mockReset();
     fetchMock.mockReset();
     openDialogMock.mockReset();
+    openUrlMock.mockClear();
     invokeMock.mockImplementation(async (command: string, payload?: unknown) => {
       if (command === "get_config_workspace") {
         return WORKSPACE_FIXTURE;
@@ -602,6 +608,59 @@ describe("ProfileEditor", () => {
         within(envSection as HTMLElement).getByRole("button", { name: "控件" }),
       ).toBeInTheDocument();
     }
+  });
+
+  it("opens localized official docs from structured settings sections", () => {
+    renderEditor();
+
+    const docButtonNames = [
+      "查看 环境变量 官方文档",
+      "查看 权限 官方文档",
+      "查看 Hooks 官方文档",
+      "查看 插件市场 官方文档",
+      "查看 插件 官方文档",
+      "查看 Status Line 官方文档",
+    ];
+
+    for (const buttonName of docButtonNames) {
+      expect(screen.getByRole("button", { name: buttonName })).toBeInTheDocument();
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: "查看 环境变量 官方文档" }));
+    fireEvent.click(screen.getByRole("button", { name: "查看 插件 官方文档" }));
+    fireEvent.click(screen.getByRole("button", { name: "查看 Status Line 官方文档" }));
+
+    expect(openUrlMock).toHaveBeenNthCalledWith(1, "https://code.claude.com/docs/zh-CN/env-vars");
+    expect(openUrlMock).toHaveBeenNthCalledWith(
+      2,
+      "https://code.claude.com/docs/zh-CN/discover-plugins",
+    );
+    expect(openUrlMock).toHaveBeenNthCalledWith(3, "https://code.claude.com/docs/zh-CN/statusline");
+  });
+
+  it("uses english official docs links when the UI language is english", () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "en",
+        theme: "dark",
+      }),
+    );
+
+    renderEditor();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open Environment Variables official docs" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open Plugins official docs" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open Status Line official docs" }));
+
+    expect(openUrlMock).toHaveBeenNthCalledWith(1, "https://code.claude.com/docs/en/env-vars");
+    expect(openUrlMock).toHaveBeenNthCalledWith(
+      2,
+      "https://code.claude.com/docs/en/discover-plugins",
+    );
+    expect(openUrlMock).toHaveBeenNthCalledWith(3, "https://code.claude.com/docs/en/statusline");
   });
 
   it("shows enabled plugin summary in the collapsed plugins section", () => {

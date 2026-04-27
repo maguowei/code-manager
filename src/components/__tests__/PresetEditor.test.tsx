@@ -12,9 +12,10 @@ import {
   OFFICIAL_MARKETPLACE_REPO,
 } from "../profile-editor/marketplace-presets";
 
-const { showToastMock, openDialogMock } = vi.hoisted(() => ({
+const { showToastMock, openDialogMock, openUrlMock } = vi.hoisted(() => ({
   showToastMock: vi.fn(),
   openDialogMock: vi.fn(),
+  openUrlMock: vi.fn(async (_url: string) => null),
 }));
 
 const SETTINGS_STORAGE_KEY = "ai-manager-settings";
@@ -29,6 +30,10 @@ vi.mock("../../hooks/useToast", () => ({
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({
   open: (...args: unknown[]) => openDialogMock(...args),
+}));
+
+vi.mock("@tauri-apps/plugin-opener", () => ({
+  openUrl: (url: string) => openUrlMock(url),
 }));
 
 vi.mock("../ConfigPreview", () => ({
@@ -242,6 +247,7 @@ describe("PresetEditor", () => {
     fetchMock.mockReset();
     showToastMock.mockReset();
     openDialogMock.mockReset();
+    openUrlMock.mockClear();
     Object.defineProperty(globalThis, "fetch", {
       value: fetchMock,
       configurable: true,
@@ -277,6 +283,23 @@ describe("PresetEditor", () => {
           en: "Team OpenRouter",
         },
       }),
+    );
+  });
+
+  it("renders localized official docs links in preset settings sections", () => {
+    renderEditor();
+
+    expect(screen.getByRole("button", { name: "查看 环境变量 官方文档" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "查看 权限 官方文档" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "查看 Hooks 官方文档" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "查看 插件市场 官方文档" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "查看 插件 官方文档" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "查看 Status Line 官方文档" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "查看 插件市场 官方文档" }));
+
+    expect(openUrlMock).toHaveBeenCalledWith(
+      "https://code.claude.com/docs/zh-CN/plugin-marketplaces",
     );
   });
 

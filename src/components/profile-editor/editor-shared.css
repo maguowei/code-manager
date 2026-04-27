@@ -154,6 +154,19 @@
   min-width: 0;
 }
 
+.profile-section-header-actions {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.profile-section-doc-link {
+  color: var(--text-secondary);
+}
+
 .profile-accordion-trigger h3 {
   margin: 0;
   font-size: 17px;
