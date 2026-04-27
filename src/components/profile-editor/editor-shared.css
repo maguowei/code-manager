@@ -154,17 +154,25 @@
   min-width: 0;
 }
 
-.profile-section-header-actions {
+.profile-section-row-actions {
   display: inline-flex;
   min-width: 0;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 8px;
   flex-wrap: wrap;
 }
 
 .profile-section-doc-link {
-  color: var(--text-secondary);
+  min-height: 34px;
+  padding: 7px 12px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.profile-section-doc-link svg {
+  flex: none;
 }
 
 .profile-accordion-trigger h3 {

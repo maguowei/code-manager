@@ -289,14 +289,31 @@ describe("PresetEditor", () => {
   it("renders localized official docs links in preset settings sections", () => {
     renderEditor();
 
-    expect(screen.getByRole("button", { name: "查看 环境变量 官方文档" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "查看 权限 官方文档" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "查看 Hooks 官方文档" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "查看 插件市场 官方文档" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "查看 插件 官方文档" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "查看 Status Line 官方文档" })).toBeInTheDocument();
+    const docsSections = [
+      { section: "环境变量", button: "查看 环境变量 官方文档" },
+      { section: "权限", button: "查看 权限 官方文档" },
+      { section: "Hooks", button: "查看 Hooks 官方文档" },
+      { section: "插件市场", button: "查看 插件市场 官方文档" },
+      { section: "插件", button: "查看 插件 官方文档" },
+      { section: "Status Line", button: "查看 Status Line 官方文档" },
+    ];
 
-    fireEvent.click(screen.getByRole("button", { name: "查看 插件市场 官方文档" }));
+    for (const { button } of docsSections) {
+      expect(screen.queryByRole("button", { name: button })).not.toBeInTheDocument();
+    }
+
+    for (const { section, button } of docsSections) {
+      const sectionElement = toggleAccordionSection(section);
+      const docsButton = within(sectionElement).getByRole("button", { name: button });
+      expect(docsButton).toBeInTheDocument();
+      expect(docsButton).toHaveTextContent("官方文档");
+      expect(docsButton).toHaveClass("profile-secondary-btn");
+      expect(docsButton).not.toHaveClass("profile-icon-btn");
+
+      if (button === "查看 插件市场 官方文档") {
+        fireEvent.click(docsButton);
+      }
+    }
 
     expect(openUrlMock).toHaveBeenCalledWith(
       "https://code.claude.com/docs/zh-CN/plugin-marketplaces",

@@ -218,25 +218,26 @@ function StructuredSettingsSections({
     return (
       <button
         type="button"
-        className="profile-icon-btn profile-section-doc-link"
+        className="profile-secondary-btn profile-section-doc-link"
         aria-label={label}
         title={label}
         onClick={() => {
           void openUrl(getSectionDocsUrl(docsKey));
         }}
       >
-        <ExternalLinkIcon size={15} />
+        <span>{t("profileEditor.docs.openButtonLabel")}</span>
+        <ExternalLinkIcon size={14} />
       </button>
     );
   }
 
-  function renderSectionHeaderControl(
+  function renderSectionModeRowAction(
     docsKey: StructuredSettingsDocsKey,
     sectionTitle: string,
     extraControl?: ReactNode,
   ) {
     return (
-      <div className="profile-section-header-actions">
+      <div className="profile-section-row-actions">
         {renderSectionDocsButton(docsKey, sectionTitle)}
         {extraControl}
       </div>
@@ -463,7 +464,7 @@ function StructuredSettingsSections({
         expanded={sectionState.environmentExpanded}
         onToggleExpanded={sectionState.toggleEnvironmentExpanded}
         headerMeta={visibleEnvCount}
-        headerControl={renderSectionHeaderControl("env", messages.environment)}
+        modeRowAction={renderSectionModeRowAction("env", messages.environment)}
       />
 
       <SettingsSectionModePanel
@@ -483,9 +484,7 @@ function StructuredSettingsSections({
         error={sectionState.editorErrors.permissions || permissionsJsonEditor.jsonError}
         expanded={sectionState.activeAccordionSection === "permissions"}
         onToggleExpanded={() => sectionState.toggleAccordionSection("permissions")}
-        headerControl={renderSectionHeaderControl(
-          "permissions",
-          messages.permissions,
+        headerControl={
           <PermissionDefaultModeSelect
             variant="header"
             value={permissionsDefaultMode}
@@ -496,8 +495,9 @@ function StructuredSettingsSections({
                 setPermissionsDefaultMode(settings.permissions, value),
               )
             }
-          />,
-        )}
+          />
+        }
+        modeRowAction={renderSectionModeRowAction("permissions", messages.permissions)}
       />
 
       <SettingsSectionModePanel
@@ -551,7 +551,7 @@ function StructuredSettingsSections({
         error={sectionState.editorErrors.hooks || hooksJsonEditor.jsonError}
         expanded={sectionState.activeAccordionSection === "hooks"}
         onToggleExpanded={() => sectionState.toggleAccordionSection("hooks")}
-        headerControl={renderSectionHeaderControl("hooks", messages.hooks)}
+        modeRowAction={renderSectionModeRowAction("hooks", messages.hooks)}
       />
 
       <SettingsSectionModePanel
@@ -573,7 +573,7 @@ function StructuredSettingsSections({
         error={sectionState.editorErrors.extraKnownMarketplaces || marketplacesJsonEditor.jsonError}
         expanded={sectionState.activeAccordionSection === "marketplaces"}
         onToggleExpanded={() => sectionState.toggleAccordionSection("marketplaces")}
-        headerControl={renderSectionHeaderControl("marketplaces", messages.marketplaces)}
+        modeRowAction={renderSectionModeRowAction("marketplaces", messages.marketplaces)}
       />
 
       <SettingsSectionModePanel
@@ -581,7 +581,11 @@ function StructuredSettingsSections({
         variant="accordion"
         mode={sectionState.sectionModes.plugins}
         onModeChange={(mode) => sectionState.handleSectionModeChange("plugins", mode)}
-        modeRowAction={officialPluginAction}
+        modeRowAction={renderSectionModeRowAction(
+          "plugins",
+          messages.plugins,
+          officialPluginAction,
+        )}
         controls={
           <EnabledPluginsEditor
             value={settings.enabledPlugins}
@@ -599,7 +603,6 @@ function StructuredSettingsSections({
         expanded={sectionState.activeAccordionSection === "plugins"}
         onToggleExpanded={() => sectionState.toggleAccordionSection("plugins")}
         headerMeta={`${t("common.pluginsEnabledSummaryLabel")} ${enabledPluginsSummary.enabledCount}/${enabledPluginsSummary.totalCount}`}
-        headerControl={renderSectionHeaderControl("plugins", messages.plugins)}
       />
 
       <SettingsSectionModePanel
@@ -620,7 +623,7 @@ function StructuredSettingsSections({
         error={sectionState.editorErrors.statusLine || statusLineJsonEditor.jsonError}
         expanded={sectionState.activeAccordionSection === "statusLine"}
         onToggleExpanded={() => sectionState.toggleAccordionSection("statusLine")}
-        headerControl={renderSectionHeaderControl("statusLine", messages.statusLine)}
+        modeRowAction={renderSectionModeRowAction("statusLine", messages.statusLine)}
       />
 
       <DocumentEditorSection

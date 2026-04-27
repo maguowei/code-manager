@@ -613,21 +613,32 @@ describe("ProfileEditor", () => {
   it("opens localized official docs from structured settings sections", () => {
     renderEditor();
 
-    const docButtonNames = [
-      "查看 环境变量 官方文档",
-      "查看 权限 官方文档",
-      "查看 Hooks 官方文档",
-      "查看 插件市场 官方文档",
-      "查看 插件 官方文档",
-      "查看 Status Line 官方文档",
+    const docsSections = [
+      { section: "环境变量", button: "查看 环境变量 官方文档" },
+      { section: "权限", button: "查看 权限 官方文档" },
+      { section: "Hooks", button: "查看 Hooks 官方文档" },
+      { section: "插件市场", button: "查看 插件市场 官方文档" },
+      { section: "插件", button: "查看 插件 官方文档" },
+      { section: "Status Line", button: "查看 Status Line 官方文档" },
     ];
 
-    for (const buttonName of docButtonNames) {
-      expect(screen.getByRole("button", { name: buttonName })).toBeInTheDocument();
+    for (const { button } of docsSections) {
+      expect(screen.queryByRole("button", { name: button })).not.toBeInTheDocument();
     }
 
-    fireEvent.click(screen.getByRole("button", { name: "查看 环境变量 官方文档" }));
-    fireEvent.click(screen.getByRole("button", { name: "查看 插件 官方文档" }));
+    for (const { section, button } of docsSections) {
+      const sectionElement = toggleAccordionSection(section);
+      const docsButton = within(sectionElement).getByRole("button", { name: button });
+      expect(docsButton).toBeInTheDocument();
+      expect(docsButton).toHaveTextContent("官方文档");
+      expect(docsButton).toHaveClass("profile-secondary-btn");
+      expect(docsButton).not.toHaveClass("profile-icon-btn");
+
+      if (button === "查看 环境变量 官方文档" || button === "查看 插件 官方文档") {
+        fireEvent.click(docsButton);
+      }
+    }
+
     fireEvent.click(screen.getByRole("button", { name: "查看 Status Line 官方文档" }));
 
     expect(openUrlMock).toHaveBeenNthCalledWith(1, "https://code.claude.com/docs/zh-CN/env-vars");
@@ -649,11 +660,34 @@ describe("ProfileEditor", () => {
 
     renderEditor();
 
+    expect(
+      screen.queryByRole("button", { name: "Open Environment Variables official docs" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Open Plugins official docs" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Open Status Line official docs" }),
+    ).not.toBeInTheDocument();
+
+    const envSection = toggleAccordionSection("Environment Variables");
+    const envDocsButton = within(envSection).getByRole("button", {
+      name: "Open Environment Variables official docs",
+    });
+    expect(envDocsButton).toHaveTextContent("Docs");
+    expect(envDocsButton).toHaveClass("profile-secondary-btn");
+    expect(envDocsButton).not.toHaveClass("profile-icon-btn");
+    fireEvent.click(envDocsButton);
+
+    const pluginsSection = toggleAccordionSection("Plugins");
     fireEvent.click(
-      screen.getByRole("button", { name: "Open Environment Variables official docs" }),
+      within(pluginsSection).getByRole("button", { name: "Open Plugins official docs" }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Open Plugins official docs" }));
-    fireEvent.click(screen.getByRole("button", { name: "Open Status Line official docs" }));
+
+    const statusLineSection = toggleAccordionSection("Status Line");
+    fireEvent.click(
+      within(statusLineSection).getByRole("button", { name: "Open Status Line official docs" }),
+    );
 
     expect(openUrlMock).toHaveBeenNthCalledWith(1, "https://code.claude.com/docs/en/env-vars");
     expect(openUrlMock).toHaveBeenNthCalledWith(
@@ -3132,6 +3166,11 @@ describe("ProfileEditor", () => {
     expect(modeRow).not.toBeNull();
     expect(within(modeRow).getByRole("button", { name: "控件" })).toBeInTheDocument();
     expect(within(modeRow).getByRole("button", { name: "JSON" })).toBeInTheDocument();
+    const docsButton = within(modeRow).getByRole("button", { name: "查看 插件 官方文档" });
+    expect(docsButton).toBeInTheDocument();
+    expect(docsButton).toHaveTextContent("官方文档");
+    expect(docsButton).toHaveClass("profile-secondary-btn");
+    expect(docsButton).not.toHaveClass("profile-icon-btn");
 
     const loadButton = within(modeRow).getByRole("button", { name: "加载官方插件" });
     expect(loadButton).toHaveAttribute("title", "重新获取官方插件列表并刷新本地缓存。");
