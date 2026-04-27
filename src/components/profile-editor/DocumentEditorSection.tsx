@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useI18n } from "../../i18n";
 import ConfigPreview from "../ConfigPreview";
 import "./editor-shared.css";
 
 type DocumentEditorMode = "preview" | "json";
-const DOCUMENT_PREVIEW_ROOT_MARGIN = "240px 0px";
 
 interface DocumentEditorSectionProps {
   title: string;
@@ -20,7 +19,6 @@ interface DocumentEditorSectionProps {
   editHint: string;
   supportedKeys: string[];
   supportedKeysLabel: string;
-  onPreviewVisible?: () => void;
 }
 
 function DocumentEditorSection({
@@ -37,49 +35,12 @@ function DocumentEditorSection({
   editHint,
   supportedKeys,
   supportedKeysLabel,
-  onPreviewVisible,
 }: DocumentEditorSectionProps) {
   const { t } = useI18n();
   const [mode, setMode] = useState<DocumentEditorMode>("preview");
-  const sectionRef = useRef<HTMLElement>(null);
-  const previewVisibleNotifiedRef = useRef(false);
-
-  useEffect(() => {
-    if (!onPreviewVisible || previewVisibleNotifiedRef.current) {
-      return;
-    }
-
-    function notifyPreviewVisible() {
-      if (previewVisibleNotifiedRef.current) {
-        return;
-      }
-      previewVisibleNotifiedRef.current = true;
-      onPreviewVisible?.();
-    }
-
-    const sectionElement = sectionRef.current;
-    if (!sectionElement || typeof IntersectionObserver === "undefined") {
-      notifyPreviewVisible();
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting)) {
-          return;
-        }
-        notifyPreviewVisible();
-        observer.disconnect();
-      },
-      { rootMargin: DOCUMENT_PREVIEW_ROOT_MARGIN },
-    );
-
-    observer.observe(sectionElement);
-    return () => observer.disconnect();
-  }, [onPreviewVisible]);
 
   return (
-    <section ref={sectionRef} className="profile-editor-section">
+    <section className="profile-editor-section">
       <div className="profile-section-heading">
         <div className="profile-section-heading-main">
           <h3>{title}</h3>

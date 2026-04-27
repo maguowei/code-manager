@@ -110,7 +110,6 @@ interface StructuredSettingsSectionsProps {
   statusLineJsonEditor: SectionJsonEditorState;
   behaviorHeaderControl?: ReactNode;
   behaviorFooter?: ReactNode;
-  onDocumentPreviewVisible?: () => void;
 }
 
 function StructuredSettingsSections({
@@ -150,7 +149,6 @@ function StructuredSettingsSections({
   statusLineJsonEditor,
   behaviorHeaderControl,
   behaviorFooter,
-  onDocumentPreviewVisible,
 }: StructuredSettingsSectionsProps) {
   const { language, t } = useI18n();
   const [officialPluginAction, setOfficialPluginAction] = useState<ReactNode>(null);
@@ -642,7 +640,6 @@ function StructuredSettingsSections({
         editHint={messages.editHint}
         supportedKeys={supportedKeys}
         supportedKeysLabel={messages.supportedKeysLabel}
-        onPreviewVisible={onDocumentPreviewVisible}
       />
     </>
   );
