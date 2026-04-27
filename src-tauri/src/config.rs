@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
@@ -34,6 +35,9 @@ static CLAUDE_SETTINGS_TOP_LEVEL_KEYS: Lazy<HashSet<String>> = Lazy::new(|| {
         .map(|properties| properties.keys().cloned().collect())
         .unwrap_or_default()
 });
+
+static SCHEMA_REGEX_CACHE: Lazy<Mutex<HashMap<String, Arc<CompiledSchemaRegex>>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -723,7 +727,7 @@ enum CompiledSchemaRegex {
     Fancy(FancyRegex),
 }
 
-fn compile_schema_regex(pattern: &str) -> Result<CompiledSchemaRegex, String> {
+fn compile_uncached_schema_regex(pattern: &str) -> Result<CompiledSchemaRegex, String> {
     match Regex::new(pattern) {
         Ok(regex) => Ok(CompiledSchemaRegex::Standard(regex)),
         Err(primary_error) => FancyRegex::new(pattern)
@@ -734,6 +738,19 @@ fn compile_schema_regex(pattern: &str) -> Result<CompiledSchemaRegex, String> {
                 )
             }),
     }
+}
+
+fn compile_schema_regex(pattern: &str) -> Result<Arc<CompiledSchemaRegex>, String> {
+    let mut cache = SCHEMA_REGEX_CACHE
+        .lock()
+        .map_err(|_| "schema 正则缓存锁已损坏".to_string())?;
+    if let Some(regex) = cache.get(pattern) {
+        return Ok(Arc::clone(regex));
+    }
+
+    let regex = Arc::new(compile_uncached_schema_regex(pattern)?);
+    cache.insert(pattern.to_string(), Arc::clone(&regex));
+    Ok(regex)
 }
 
 fn schema_regex_is_match(
@@ -765,7 +782,7 @@ fn validate_schema_object(
         .and_then(Value::as_object)
         .cloned()
         .unwrap_or_default();
-    let compiled_patterns: Vec<(String, CompiledSchemaRegex, Value)> = pattern_properties
+    let compiled_patterns: Vec<(String, Arc<CompiledSchemaRegex>, Value)> = pattern_properties
         .iter()
         .map(|(pattern, schema)| {
             compile_schema_regex(pattern).map(|regex| (pattern.clone(), regex, schema.clone()))
@@ -791,7 +808,7 @@ fn validate_schema_object(
 
         let mut matched_pattern = false;
         for (pattern, regex, pattern_schema) in &compiled_patterns {
-            if schema_regex_is_match(regex, pattern, key)? {
+            if schema_regex_is_match(regex.as_ref(), pattern, key)? {
                 matched_pattern = true;
                 validate_value_against_schema(
                     root,
@@ -871,7 +888,7 @@ fn validate_value_against_schema(
     if let Some(pattern) = schema.get("pattern").and_then(Value::as_str) {
         if let Some(string_value) = value.as_str() {
             let regex = compile_schema_regex(pattern)?;
-            if !schema_regex_is_match(&regex, pattern, string_value)? {
+            if !schema_regex_is_match(regex.as_ref(), pattern, string_value)? {
                 return Err(format!("{path} 不匹配模式 {pattern}"));
             }
         }
@@ -1740,6 +1757,14 @@ mod tests {
             settings_patch: patch,
             source: PresetSource::Custom,
         }
+    }
+
+    #[test]
+    fn compile_schema_regex_reuses_cached_patterns() {
+        let first = compile_schema_regex("^Bash\\(.+\\)$").unwrap();
+        let second = compile_schema_regex("^Bash\\(.+\\)$").unwrap();
+
+        assert!(std::sync::Arc::ptr_eq(&first, &second));
     }
 
     #[test]
