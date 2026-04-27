@@ -22,6 +22,13 @@ const { invokeMock, showToastMock, fetchMock, openDialogMock, openUrlMock } = vi
 }));
 const SETTINGS_STORAGE_KEY = "ai-manager-settings";
 const originalFetch = globalThis.fetch;
+const originalIntersectionObserver = globalThis.IntersectionObserver;
+
+interface MockIntersectionObserverInstance {
+  callback: IntersectionObserverCallback;
+  disconnect: ReturnType<typeof vi.fn>;
+  observe: ReturnType<typeof vi.fn>;
+}
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: unknown[]) => invokeMock(...args),
@@ -305,6 +312,10 @@ describe("ProfileEditor", () => {
       value: originalFetch,
       configurable: true,
       writable: true,
+    });
+    Object.defineProperty(globalThis, "IntersectionObserver", {
+      configurable: true,
+      value: originalIntersectionObserver,
     });
   });
 
@@ -2713,6 +2724,57 @@ describe("ProfileEditor", () => {
         }),
       }),
     );
+  });
+
+  it("defers resolved profile preview until the final config section is visible", async () => {
+    const observers: MockIntersectionObserverInstance[] = [];
+    class MockIntersectionObserver implements Pick<IntersectionObserver, "disconnect" | "observe"> {
+      readonly callback: IntersectionObserverCallback;
+      readonly disconnect = vi.fn();
+      readonly observe = vi.fn();
+
+      constructor(callback: IntersectionObserverCallback) {
+        this.callback = callback;
+        observers.push(this);
+      }
+    }
+    Object.defineProperty(globalThis, "IntersectionObserver", {
+      configurable: true,
+      value: MockIntersectionObserver,
+    });
+
+    renderEditor({
+      profile: {
+        ...PROFILE_FIXTURE,
+        settings: {
+          permissions: {
+            allow: ["Bash(pwd)", "Bash(git status *)"],
+            ask: ["Bash(cat *)"],
+            deny: ["Bash(sudo *)"],
+          },
+        },
+      },
+    });
+
+    await flushProfilePreviewDebounce();
+
+    expect(invokeMock).not.toHaveBeenCalledWith("preview_profile", expect.anything());
+    expect(observers).toHaveLength(1);
+
+    act(() => {
+      observers[0]?.callback(
+        [{ isIntersecting: true } as IntersectionObserverEntry],
+        observers[0] as unknown as IntersectionObserver,
+      );
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(invokeMock).toHaveBeenCalledWith("preview_profile", expect.anything());
   });
 
   it("renders resolved settings labels in english", () => {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useI18n } from "../i18n";
 import type { LocalizedText, SettingsPreset } from "../types";
 import {
@@ -107,6 +107,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
     const next = applyEnvDefaults(cloneSettings(preset?.settingsPatch), BEHAVIOR_ENV_DEFAULTS);
     return preset ? next : applyNewConfigDefaults(next, language);
   });
+  const [documentPreviewVisible, setDocumentPreviewVisible] = useState(false);
   const selectableBasePresets = useMemo(
     () => presets.filter((candidate) => candidate.id !== preset?.id),
     [preset?.id, presets],
@@ -243,6 +244,10 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
     validateMessage: t("presets.editor.validation.settingsPatchObject"),
     normalize: (next) => applyEnvDefaults(next, BEHAVIOR_ENV_DEFAULTS),
   });
+  const previewJson = useMemo(
+    () => (documentPreviewVisible ? prettyJson(settingsPatch) : "{}"),
+    [documentPreviewVisible, settingsPatch],
+  );
   const enabledPluginsSummary = useMemo(
     () => getEnabledPluginsSummary(settingsPatch.enabledPlugins),
     [settingsPatch],
@@ -374,6 +379,10 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
     setBasePresetId(nextBasePresetId);
     applyPatch(applyPresetAutofill(settingsPatch, presets, nextBasePresetId || undefined));
   }
+
+  const handleDocumentPreviewVisible = useCallback(() => {
+    setDocumentPreviewVisible(true);
+  }, []);
 
   async function handleSaveClick() {
     const localizedName = buildPresetLocalizedName(nameZh, nameEn);
@@ -668,7 +677,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
           scope="presets"
           settings={settingsPatch}
           supportedKeys={supportedKeysInPatch}
-          previewContent={prettyJson(settingsPatch)}
+          previewContent={previewJson}
           hiddenEnvKeys={hiddenEnvKeys}
           visibleEnvCount={visibleEnvCount}
           marketplaceCount={marketplaceCount}
@@ -698,6 +707,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
           marketplacesJsonEditor={marketplacesJsonEditor}
           pluginsJsonEditor={pluginsJsonEditor}
           statusLineJsonEditor={statusLineJsonEditor}
+          onDocumentPreviewVisible={handleDocumentPreviewVisible}
         />
       </div>
     </div>

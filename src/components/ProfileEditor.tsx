@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
 import type { ConfigProfile, ModelTestResult, SettingsPreset } from "../types";
@@ -85,6 +85,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
   });
   const [previewJson, setPreviewJson] = useState("{}");
   const [previewError, setPreviewError] = useState("");
+  const [resolvedPreviewVisible, setResolvedPreviewVisible] = useState(false);
   const [isTestingModel, setIsTestingModel] = useState(false);
   const [latestModelTestResult, setLatestModelTestResult] = useState<ModelTestResult | null>(null);
   const [modelTestError, setModelTestError] = useState("");
@@ -454,7 +455,15 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     }
   }
 
+  const handleResolvedPreviewVisible = useCallback(() => {
+    setResolvedPreviewVisible(true);
+  }, []);
+
   useEffect(() => {
+    if (!resolvedPreviewVisible) {
+      return;
+    }
+
     let cancelled = false;
     const timer = setTimeout(() => {
       void invoke<string>("preview_profile", {
@@ -485,7 +494,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [description, name, presetId, profile?.id, settings]);
+  }, [description, name, presetId, profile?.id, resolvedPreviewVisible, settings]);
 
   const behaviorFields = PROFILE_SETTINGS_FORM_REGISTRY.filter(
     (field) => field.section === "behavior",
@@ -764,6 +773,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
           marketplacesJsonEditor={marketplacesJsonEditor}
           pluginsJsonEditor={pluginsJsonEditor}
           statusLineJsonEditor={statusLineJsonEditor}
+          onDocumentPreviewVisible={handleResolvedPreviewVisible}
         />
 
         <ModelTestResultDialog
