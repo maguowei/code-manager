@@ -295,7 +295,7 @@ describe("PresetEditor", () => {
       { section: "Hooks", button: "查看 Hooks 官方文档" },
       { section: "插件市场", button: "查看 插件市场 官方文档" },
       { section: "插件", button: "查看 插件 官方文档" },
-      { section: "Status Line", button: "查看 Status Line 官方文档" },
+      { section: "状态栏", button: "查看 状态栏 官方文档" },
     ];
 
     for (const { button } of docsSections) {
@@ -370,7 +370,7 @@ describe("PresetEditor", () => {
       "Sandbox",
       "Hooks",
       "插件",
-      "Status Line",
+      "状态栏",
     ]) {
       expect(screen.getByRole("heading", { name: heading, level: 3 })).toBeInTheDocument();
     }
@@ -390,7 +390,7 @@ describe("PresetEditor", () => {
       "Hooks",
       "插件市场",
       "插件",
-      "Status Line",
+      "状态栏",
       "配置补丁",
     ]);
 
@@ -1420,7 +1420,7 @@ describe("PresetEditor", () => {
   it("blocks save when status line json is invalid", async () => {
     renderEditor();
 
-    const statusLineSection = switchSectionToJson("Status Line", { expandFirst: true });
+    const statusLineSection = switchSectionToJson("状态栏", { expandFirst: true });
     fireEvent.change(within(statusLineSection).getByLabelText("config-preview-input"), {
       target: {
         value: JSON.stringify(
@@ -1436,7 +1436,7 @@ describe("PresetEditor", () => {
     });
 
     expect(
-      within(statusLineSection).getAllByText("Status Line JSON 中的 command 不能为空").length,
+      within(statusLineSection).getAllByText("状态栏 JSON 中的 command 不能为空").length,
     ).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
   });
@@ -1657,16 +1657,16 @@ describe("PresetEditor", () => {
     const onSave = vi.fn();
     renderEditor({ onSave });
 
-    const statusLineSection = getSection("Status Line");
-    toggleAccordionSection("Status Line");
+    const statusLineSection = getSection("状态栏");
+    toggleAccordionSection("状态栏");
 
-    fireEvent.change(within(statusLineSection).getByLabelText("Status Line 命令"), {
+    fireEvent.change(within(statusLineSection).getByLabelText("状态栏命令"), {
       target: { value: "~/.claude/statusline.sh" },
     });
-    fireEvent.change(within(statusLineSection).getByLabelText("Status Line padding"), {
+    fireEvent.change(within(statusLineSection).getByLabelText("状态栏填充"), {
       target: { value: "2" },
     });
-    fireEvent.change(within(statusLineSection).getByLabelText("Status Line refreshInterval"), {
+    fireEvent.change(within(statusLineSection).getByLabelText("状态栏刷新间隔"), {
       target: { value: "5" },
     });
 
@@ -1812,7 +1812,7 @@ describe("PresetEditor", () => {
       },
     });
 
-    const statusLineSection = switchSectionToJson("Status Line", { expandFirst: true });
+    const statusLineSection = switchSectionToJson("状态栏", { expandFirst: true });
     fireEvent.change(within(statusLineSection).getByLabelText("config-preview-input"), {
       target: {
         value: JSON.stringify(

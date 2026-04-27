@@ -337,7 +337,7 @@ describe("ProfileEditor", () => {
       "Hooks",
       "插件市场",
       "插件",
-      "Status Line",
+      "状态栏",
     ]) {
       expect(screen.getByRole("heading", { name: heading, level: 3 })).toBeInTheDocument();
     }
@@ -357,7 +357,7 @@ describe("ProfileEditor", () => {
       "Hooks",
       "插件市场",
       "插件",
-      "Status Line",
+      "状态栏",
       "最终配置",
     ]);
 
@@ -615,6 +615,15 @@ describe("ProfileEditor", () => {
     }
   });
 
+  it("renders status line settings with the chinese section title", () => {
+    renderEditor();
+
+    expect(screen.getByRole("heading", { name: "状态栏", level: 3 })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Status Line", level: 3 }),
+    ).not.toBeInTheDocument();
+  });
+
   it("opens localized official docs from structured settings sections", () => {
     renderEditor();
 
@@ -624,7 +633,7 @@ describe("ProfileEditor", () => {
       { section: "Hooks", button: "查看 Hooks 官方文档" },
       { section: "插件市场", button: "查看 插件市场 官方文档" },
       { section: "插件", button: "查看 插件 官方文档" },
-      { section: "Status Line", button: "查看 Status Line 官方文档" },
+      { section: "状态栏", button: "查看 状态栏 官方文档" },
     ];
 
     for (const { button } of docsSections) {
@@ -644,7 +653,7 @@ describe("ProfileEditor", () => {
       }
     }
 
-    fireEvent.click(screen.getByRole("button", { name: "查看 Status Line 官方文档" }));
+    fireEvent.click(screen.getByRole("button", { name: "查看 状态栏 官方文档" }));
 
     expect(openUrlMock).toHaveBeenNthCalledWith(1, "https://code.claude.com/docs/zh-CN/env-vars");
     expect(openUrlMock).toHaveBeenNthCalledWith(
@@ -2079,7 +2088,7 @@ describe("ProfileEditor", () => {
       },
     });
 
-    const statusLineSection = switchSectionToJson("Status Line", { expandFirst: true });
+    const statusLineSection = switchSectionToJson("状态栏", { expandFirst: true });
     fireEvent.change(within(statusLineSection).getByLabelText("config-preview-input"), {
       target: {
         value: JSON.stringify(
@@ -2654,7 +2663,7 @@ describe("ProfileEditor", () => {
   it("blocks save when status line json is invalid", async () => {
     renderEditor();
 
-    const statusLineSection = switchSectionToJson("Status Line", { expandFirst: true });
+    const statusLineSection = switchSectionToJson("状态栏", { expandFirst: true });
     fireEvent.change(within(statusLineSection).getByLabelText("config-preview-input"), {
       target: {
         value: JSON.stringify(
@@ -2670,7 +2679,7 @@ describe("ProfileEditor", () => {
     });
 
     expect(
-      within(statusLineSection).getAllByText("Status Line JSON 中的 command 不能为空").length,
+      within(statusLineSection).getAllByText("状态栏 JSON 中的 command 不能为空").length,
     ).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
   });
@@ -2844,21 +2853,21 @@ describe("ProfileEditor", () => {
     expect(screen.queryByLabelText("Marketplace ID")).not.toBeInTheDocument();
 
     const statusLineSection = screen
-      .getByRole("heading", { name: "Status Line", level: 3 })
+      .getByRole("heading", { name: "状态栏", level: 3 })
       .closest("section") as HTMLElement | null;
     expect(statusLineSection).not.toBeNull();
     if (!statusLineSection) {
       return;
     }
 
-    toggleAccordionSection("Status Line");
-    fireEvent.change(within(statusLineSection).getByLabelText("Status Line 命令"), {
+    toggleAccordionSection("状态栏");
+    fireEvent.change(within(statusLineSection).getByLabelText("状态栏命令"), {
       target: { value: "~/.claude/statusline.sh" },
     });
-    fireEvent.change(within(statusLineSection).getByLabelText("Status Line padding"), {
+    fireEvent.change(within(statusLineSection).getByLabelText("状态栏填充"), {
       target: { value: "2" },
     });
-    fireEvent.change(within(statusLineSection).getByLabelText("Status Line refreshInterval"), {
+    fireEvent.change(within(statusLineSection).getByLabelText("状态栏刷新间隔"), {
       target: { value: "5" },
     });
 
@@ -2917,43 +2926,39 @@ describe("ProfileEditor", () => {
       },
     });
 
-    const statusLineSection = getSection("Status Line");
-    toggleAccordionSection("Status Line");
+    const statusLineSection = getSection("状态栏");
+    toggleAccordionSection("状态栏");
 
-    fireEvent.change(within(statusLineSection).getByLabelText("Status Line 命令"), {
+    fireEvent.change(within(statusLineSection).getByLabelText("状态栏命令"), {
       target: { value: "" },
     });
-    fireEvent.change(within(statusLineSection).getByLabelText("Status Line padding"), {
+    fireEvent.change(within(statusLineSection).getByLabelText("状态栏填充"), {
       target: { value: "2" },
     });
-    expect(
-      within(statusLineSection).getAllByText("Status Line 命令不能为空").length,
-    ).toBeGreaterThan(0);
+    expect(within(statusLineSection).getAllByText("状态栏命令不能为空").length).toBeGreaterThan(0);
 
-    fireEvent.change(within(statusLineSection).getByLabelText("Status Line 命令"), {
+    fireEvent.change(within(statusLineSection).getByLabelText("状态栏命令"), {
       target: { value: "~/.claude/statusline.sh" },
     });
-    fireEvent.change(within(statusLineSection).getByLabelText("Status Line refreshInterval"), {
+    fireEvent.change(within(statusLineSection).getByLabelText("状态栏刷新间隔"), {
       target: { value: "0" },
     });
     expect(
-      within(statusLineSection).getAllByText("Status Line refreshInterval 必须大于或等于 1").length,
+      within(statusLineSection).getAllByText("状态栏刷新间隔必须大于或等于 1").length,
     ).toBeGreaterThan(0);
 
-    fireEvent.change(within(statusLineSection).getByLabelText("Status Line 命令"), {
+    fireEvent.change(within(statusLineSection).getByLabelText("状态栏命令"), {
       target: { value: "" },
     });
-    fireEvent.change(within(statusLineSection).getByLabelText("Status Line padding"), {
+    fireEvent.change(within(statusLineSection).getByLabelText("状态栏填充"), {
       target: { value: "" },
     });
-    fireEvent.change(within(statusLineSection).getByLabelText("Status Line refreshInterval"), {
+    fireEvent.change(within(statusLineSection).getByLabelText("状态栏刷新间隔"), {
       target: { value: "" },
     });
 
-    expect(within(statusLineSection).queryByText("Status Line 命令不能为空")).toBeNull();
-    expect(
-      within(statusLineSection).queryByText("Status Line refreshInterval 必须大于或等于 1"),
-    ).toBeNull();
+    expect(within(statusLineSection).queryByText("状态栏命令不能为空")).toBeNull();
+    expect(within(statusLineSection).queryByText("状态栏刷新间隔必须大于或等于 1")).toBeNull();
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "保存" }));
@@ -3417,12 +3422,12 @@ describe("ProfileEditor", () => {
       target: { value: "https://example.com" },
     });
 
-    const statusLineSection = getSection("Status Line");
-    toggleAccordionSection("Status Line");
-    fireEvent.change(within(statusLineSection).getByLabelText("Status Line 命令"), {
+    const statusLineSection = getSection("状态栏");
+    toggleAccordionSection("状态栏");
+    fireEvent.change(within(statusLineSection).getByLabelText("状态栏命令"), {
       target: { value: "~/.claude/statusline.sh" },
     });
-    fireEvent.change(within(statusLineSection).getByLabelText("Status Line refreshInterval"), {
+    fireEvent.change(within(statusLineSection).getByLabelText("状态栏刷新间隔"), {
       target: { value: "5" },
     });
 
