@@ -33,6 +33,15 @@
   padding-block: 6px;
 }
 
+.profile-string-list-row-action-btn {
+  color: var(--accent-blue);
+}
+
+.profile-string-list-row-action-btn svg {
+  width: 17px;
+  height: 17px;
+}
+
 .profile-string-list-chevron {
   flex: none;
   color: inherit;

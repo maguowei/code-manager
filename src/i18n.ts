@@ -343,6 +343,9 @@ const translations = {
     "profileEditor.permissions.additionalDirsLabel": "附加目录",
     "profileEditor.permissions.additionalDirsTitle": "附加目录",
     "profileEditor.permissions.addDirectory": "新增附加目录",
+    "profileEditor.permissions.selectDirectory": "选择目录",
+    "profileEditor.permissions.directorySelectTitle": "选择附加目录",
+    "profileEditor.permissions.directorySelectError": "选择目录失败，请重试。",
     "profileEditor.permissions.directoryPrefix": "附加目录",
     "profileEditor.permissions.directoryPlaceholder": "例如：~/projects/shared",
     "profileEditor.permissions.directoryEmptyHint": "把额外目录纳入 Claude 的权限作用域。",
@@ -1047,6 +1050,10 @@ const translations = {
     "profileEditor.permissions.additionalDirsLabel": "Additional directories",
     "profileEditor.permissions.additionalDirsTitle": "Additional Directories",
     "profileEditor.permissions.addDirectory": "Add directory",
+    "profileEditor.permissions.selectDirectory": "Select directory",
+    "profileEditor.permissions.directorySelectTitle": "Select additional directory",
+    "profileEditor.permissions.directorySelectError":
+      "Failed to select directory. Please try again.",
     "profileEditor.permissions.directoryPrefix": "Additional Directory",
     "profileEditor.permissions.directoryPlaceholder": "e.g. ~/projects/shared",
     "profileEditor.permissions.directoryEmptyHint":

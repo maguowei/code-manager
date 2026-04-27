@@ -1,11 +1,18 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { useState } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../../i18n";
 import type { StringRow } from "../editor-utils";
 import StringListEditor from "../StringListEditor";
 
-function renderEditor(initialRows: StringRow[]) {
+function renderEditor(
+  initialRows: StringRow[],
+  options?: {
+    rowActionLabel?: string;
+    onRowAction?: (row: StringRow, index: number) => void;
+    buildRowActionAriaLabel?: (itemLabel: string) => string;
+  },
+) {
   function Harness() {
     const [rows, setRows] = useState(initialRows);
     const [expanded, setExpanded] = useState(true);
@@ -29,6 +36,9 @@ function renderEditor(initialRows: StringRow[]) {
           itemLabelPrefix="允许规则"
           placeholder="例如：Bash"
           emptyHint="当前没有允许规则。"
+          rowActionLabel={options?.rowActionLabel}
+          onRowAction={options?.onRowAction}
+          buildRowActionAriaLabel={options?.buildRowActionAriaLabel}
           collapsible
           expanded={expanded}
           onToggleExpanded={() => setExpanded((current) => !current)}
@@ -135,5 +145,31 @@ describe("StringListEditor", () => {
 
     expect(titleTrigger).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByLabelText("允许规则 1")).toBeInTheDocument();
+  });
+
+  it("renders an optional row action without changing the default list controls", () => {
+    const onRowAction = vi.fn();
+    renderEditor([{ id: "allow-1", value: "Bash" }], {
+      rowActionLabel: "选择目录",
+      onRowAction,
+      buildRowActionAriaLabel: (itemLabel) => `选择目录 ${itemLabel}`,
+    });
+
+    const subsection = screen
+      .getByRole("heading", { name: "允许规则" })
+      .closest(".profile-subsection") as HTMLElement | null;
+    expect(subsection).not.toBeNull();
+    if (!subsection) {
+      return;
+    }
+
+    fireEvent.click(within(subsection).getByRole("button", { name: "选择目录 允许规则 1" }));
+
+    expect(onRowAction).toHaveBeenCalledWith({ id: "allow-1", value: "Bash" }, 0);
+    expect(within(subsection).getByRole("button", { name: "删除 允许规则 1" })).toBeInTheDocument();
+
+    cleanup();
+    renderEditor([{ id: "allow-2", value: "Read" }]);
+    expect(screen.queryByRole("button", { name: "选择目录 允许规则 1" })).not.toBeInTheDocument();
   });
 });

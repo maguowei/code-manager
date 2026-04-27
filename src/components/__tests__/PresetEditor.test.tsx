@@ -12,8 +12,9 @@ import {
   OFFICIAL_MARKETPLACE_REPO,
 } from "../profile-editor/marketplace-presets";
 
-const { showToastMock } = vi.hoisted(() => ({
+const { showToastMock, openDialogMock } = vi.hoisted(() => ({
   showToastMock: vi.fn(),
+  openDialogMock: vi.fn(),
 }));
 
 const SETTINGS_STORAGE_KEY = "ai-manager-settings";
@@ -24,6 +25,10 @@ vi.mock("../../hooks/useToast", () => ({
   useToast: () => ({
     showToast: showToastMock,
   }),
+}));
+
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  open: (...args: unknown[]) => openDialogMock(...args),
 }));
 
 vi.mock("../ConfigPreview", () => ({
@@ -236,6 +241,7 @@ describe("PresetEditor", () => {
     localStorage.clear();
     fetchMock.mockReset();
     showToastMock.mockReset();
+    openDialogMock.mockReset();
     Object.defineProperty(globalThis, "fetch", {
       value: fetchMock,
       configurable: true,
@@ -1849,6 +1855,7 @@ describe("PresetEditor", () => {
   });
 
   it("renders permission rows without reorder actions and with shared input styling", async () => {
+    openDialogMock.mockResolvedValueOnce("~/projects/shared");
     renderEditor();
 
     toggleAccordionSection("权限");

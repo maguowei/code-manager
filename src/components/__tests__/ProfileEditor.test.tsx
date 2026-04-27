@@ -13,16 +13,21 @@ import {
   OFFICIAL_MARKETPLACE_REPO,
 } from "../profile-editor/marketplace-presets";
 
-const { invokeMock, showToastMock, fetchMock } = vi.hoisted(() => ({
+const { invokeMock, showToastMock, fetchMock, openDialogMock } = vi.hoisted(() => ({
   invokeMock: vi.fn(),
   showToastMock: vi.fn(),
   fetchMock: vi.fn(),
+  openDialogMock: vi.fn(),
 }));
 const SETTINGS_STORAGE_KEY = "ai-manager-settings";
 const originalFetch = globalThis.fetch;
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: unknown[]) => invokeMock(...args),
+}));
+
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  open: (...args: unknown[]) => openDialogMock(...args),
 }));
 
 vi.mock("../../hooks/useToast", () => ({
@@ -252,6 +257,7 @@ describe("ProfileEditor", () => {
     invokeMock.mockReset();
     showToastMock.mockReset();
     fetchMock.mockReset();
+    openDialogMock.mockReset();
     invokeMock.mockImplementation(async (command: string, payload?: unknown) => {
       if (command === "get_config_workspace") {
         return WORKSPACE_FIXTURE;
@@ -1770,6 +1776,7 @@ describe("ProfileEditor", () => {
   });
 
   it("renders permission rows without reorder actions and with shared input styling", async () => {
+    openDialogMock.mockResolvedValueOnce("~/projects/shared");
     renderEditor();
 
     toggleAccordionSection("权限");
@@ -2265,6 +2272,97 @@ describe("ProfileEditor", () => {
     expect(savedPermissions).not.toHaveProperty("allow");
     expect(savedPermissions).not.toHaveProperty("ask");
     expect(savedPermissions).not.toHaveProperty("deny");
+  });
+
+  it("selects an additional directory from the add action and preserves cancel as no-op", async () => {
+    const onSave = vi.fn();
+    openDialogMock
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce("/Users/maguowei/Projects/shared");
+    renderEditor({
+      onSave,
+      profile: {
+        ...PROFILE_FIXTURE,
+        settings: {
+          permissions: {},
+        },
+      },
+    });
+
+    const permissionsSection = getSection("权限");
+    toggleAccordionSection("权限");
+
+    fireEvent.click(within(permissionsSection).getByRole("button", { name: "新增附加目录" }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(openDialogMock).toHaveBeenCalledWith({
+      directory: true,
+      multiple: false,
+      title: "选择附加目录",
+    });
+    expect(within(permissionsSection).queryByLabelText("附加目录 1")).not.toBeInTheDocument();
+
+    fireEvent.click(within(permissionsSection).getByRole("button", { name: "新增附加目录" }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(within(permissionsSection).getByLabelText("附加目录 1")).toHaveValue(
+      "/Users/maguowei/Projects/shared",
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    });
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const savedPermissions = onSave.mock.calls[0]?.[0]?.settings.permissions as
+      | Record<string, unknown>
+      | undefined;
+    expect(savedPermissions?.additionalDirectories).toEqual(["/Users/maguowei/Projects/shared"]);
+  });
+
+  it("replaces an existing additional directory from the row select action", async () => {
+    const onSave = vi.fn();
+    openDialogMock.mockResolvedValueOnce("/Users/maguowei/Projects/replacement");
+    renderEditor({
+      onSave,
+      profile: {
+        ...PROFILE_FIXTURE,
+        settings: {
+          permissions: {
+            additionalDirectories: ["~/projects/shared"],
+          },
+        },
+      },
+    });
+
+    const permissionsSection = getSection("权限");
+    toggleAccordionSection("权限");
+
+    fireEvent.click(
+      within(permissionsSection).getByRole("button", { name: "选择目录 附加目录 1" }),
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(within(permissionsSection).getByLabelText("附加目录 1")).toHaveValue(
+      "/Users/maguowei/Projects/replacement",
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    });
+
+    const savedPermissions = onSave.mock.calls[0]?.[0]?.settings.permissions as
+      | Record<string, unknown>
+      | undefined;
+    expect(savedPermissions?.additionalDirectories).toEqual([
+      "/Users/maguowei/Projects/replacement",
+    ]);
   });
 
   it("syncs permission default mode between header quick select and editor, and clears it on save", async () => {

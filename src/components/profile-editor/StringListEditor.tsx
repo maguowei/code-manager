@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useI18n } from "../../i18n";
 import type { StringRow } from "./editor-utils";
 import "./StringListEditor.css";
@@ -13,6 +13,10 @@ interface StringListEditorProps {
   clearLabel?: string;
   itemLabelPrefix: string;
   placeholder: string;
+  rowActionLabel?: string;
+  rowActionIcon?: ReactNode;
+  onRowAction?: (row: StringRow, index: number) => void;
+  buildRowActionAriaLabel?: (itemLabel: string) => string;
   emptyHint?: string;
   collapsible?: boolean;
   expanded?: boolean;
@@ -31,6 +35,10 @@ function StringListEditor({
   clearLabel,
   itemLabelPrefix,
   placeholder,
+  rowActionLabel,
+  rowActionIcon,
+  onRowAction,
+  buildRowActionAriaLabel,
   emptyHint,
   collapsible = false,
   expanded,
@@ -57,6 +65,10 @@ function StringListEditor({
       setUncontrolledExpanded((current) => !current);
     }
     onToggleExpanded?.();
+  }
+
+  function buildRowActionLabel(itemLabel: string) {
+    return buildRowActionAriaLabel?.(itemLabel) ?? `${rowActionLabel} ${itemLabel}`;
   }
 
   return (
@@ -127,38 +139,55 @@ function StringListEditor({
             </div>
           ) : (
             <div className="profile-row-stack">
-              {rows.map((row, index) => (
-                <div key={row.id} className="profile-inline-row profile-string-list-row">
-                  <input
-                    className="form-input profile-string-list-input"
-                    aria-label={buildItemLabel(index)}
-                    value={row.value}
-                    placeholder={placeholder}
-                    onChange={(event) =>
-                      onChange(
-                        rows.map((candidate) =>
-                          candidate.id === row.id
-                            ? {
-                                ...candidate,
-                                value: event.target.value,
-                              }
-                            : candidate,
-                        ),
-                      )
-                    }
-                  />
-                  <div className="profile-row-actions profile-string-list-actions">
-                    <button
-                      type="button"
-                      className="profile-icon-btn danger"
-                      aria-label={`${t("profileEditor.common.remove")} ${buildItemLabel(index)}`}
-                      onClick={() => onChange(rows.filter((candidate) => candidate.id !== row.id))}
-                    >
-                      ×
-                    </button>
+              {rows.map((row, index) => {
+                const itemLabel = buildItemLabel(index);
+
+                return (
+                  <div key={row.id} className="profile-inline-row profile-string-list-row">
+                    <input
+                      className="form-input profile-string-list-input"
+                      aria-label={itemLabel}
+                      value={row.value}
+                      placeholder={placeholder}
+                      onChange={(event) =>
+                        onChange(
+                          rows.map((candidate) =>
+                            candidate.id === row.id
+                              ? {
+                                  ...candidate,
+                                  value: event.target.value,
+                                }
+                              : candidate,
+                          ),
+                        )
+                      }
+                    />
+                    <div className="profile-row-actions profile-string-list-actions">
+                      {onRowAction && rowActionLabel ? (
+                        <button
+                          type="button"
+                          className="profile-icon-btn profile-string-list-row-action-btn"
+                          aria-label={buildRowActionLabel(itemLabel)}
+                          title={rowActionLabel}
+                          onClick={() => onRowAction(row, index)}
+                        >
+                          {rowActionIcon ?? rowActionLabel}
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="profile-icon-btn danger"
+                        aria-label={`${t("profileEditor.common.remove")} ${itemLabel}`}
+                        onClick={() =>
+                          onChange(rows.filter((candidate) => candidate.id !== row.id))
+                        }
+                      >
+                        ×
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

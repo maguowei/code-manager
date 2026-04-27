@@ -1,4 +1,6 @@
+import { open } from "@tauri-apps/plugin-dialog";
 import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef, useState } from "react";
+import { useToast } from "../../hooks/useToast";
 import { useI18n } from "../../i18n";
 import ConfirmDialog from "../ConfirmDialog";
 import {
@@ -126,8 +128,25 @@ function getPermissionModeSelectOptions(value: string): readonly string[] {
   ];
 }
 
+function DirectoryActionIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden="true"
+    >
+      <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h4l2 2h7A2.5 2.5 0 0 1 21 9.5v7A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5z" />
+    </svg>
+  );
+}
+
 function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps) {
   const { language, t } = useI18n();
+  const { showToast } = useToast();
   const isZh = language === "zh";
   const permissionObject = useMemo(() => readObject(value), [value]);
   const [defaultMode, setDefaultMode] = useState(readPermissionsDefaultMode(permissionObject));
@@ -299,6 +318,55 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
     ]);
   }
 
+  async function selectAdditionalDirectory() {
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: t("profileEditor.permissions.directorySelectTitle"),
+      });
+
+      return typeof selected === "string" ? selected : null;
+    } catch {
+      showToast(t("profileEditor.permissions.directorySelectError"), "error");
+      return null;
+    }
+  }
+
+  async function handleAddDirectory() {
+    setDirectoryExpanded(true);
+    const selected = await selectAdditionalDirectory();
+    if (!selected) {
+      return;
+    }
+
+    setDirectoryRows((current) => [
+      ...current,
+      {
+        id: createRowId("permission"),
+        value: selected,
+      },
+    ]);
+  }
+
+  async function handleSelectDirectory(row: StringRow) {
+    const selected = await selectAdditionalDirectory();
+    if (!selected) {
+      return;
+    }
+
+    setDirectoryRows((current) =>
+      current.map((candidate) =>
+        candidate.id === row.id
+          ? {
+              ...candidate,
+              value: selected,
+            }
+          : candidate,
+      ),
+    );
+  }
+
   function handleLoadRecommendedRules() {
     setAllowRows(rowsFromStringArray([...RECOMMENDED_PERMISSION_RULES.allow]));
     setAskRows(rowsFromStringArray([...RECOMMENDED_PERMISSION_RULES.ask]));
@@ -398,10 +466,16 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
           label={t("profileEditor.permissions.additionalDirsTitle")}
           rows={directoryRows}
           onChange={setDirectoryRows}
-          onAdd={() => addRow(setDirectoryRows, setDirectoryExpanded)}
+          onAdd={handleAddDirectory}
           addLabel={t("profileEditor.permissions.addDirectory")}
           itemLabelPrefix={t("profileEditor.permissions.directoryPrefix")}
           placeholder={t("profileEditor.permissions.directoryPlaceholder")}
+          rowActionLabel={t("profileEditor.permissions.selectDirectory")}
+          rowActionIcon={<DirectoryActionIcon />}
+          onRowAction={handleSelectDirectory}
+          buildRowActionAriaLabel={(itemLabel) =>
+            `${t("profileEditor.permissions.selectDirectory")} ${itemLabel}`
+          }
           emptyHint={t("profileEditor.permissions.directoryEmptyHint")}
           collapsible
           expanded={directoryExpanded}
