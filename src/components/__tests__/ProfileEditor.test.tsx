@@ -2284,6 +2284,14 @@ describe("ProfileEditor", () => {
     fireEvent.click(within(permissionsSection).getByRole("button", { name: "加载推荐规则" }));
     fireEvent.click(screen.getByRole("button", { name: "加载规则" }));
 
+    expect(within(permissionsSection).queryByLabelText("允许规则 1")).not.toBeInTheDocument();
+    expect(within(permissionsSection).queryByLabelText("询问规则 1")).not.toBeInTheDocument();
+    expect(within(permissionsSection).queryByLabelText("拒绝规则 1")).not.toBeInTheDocument();
+
+    fireEvent.click(within(permissionsSection).getByRole("button", { name: "展开 允许规则" }));
+    fireEvent.click(within(permissionsSection).getByRole("button", { name: "展开 询问规则" }));
+    fireEvent.click(within(permissionsSection).getByRole("button", { name: "展开 拒绝规则" }));
+
     expect(within(permissionsSection).getByLabelText("允许规则 1")).toHaveValue("Bash(pwd)");
     expect(within(permissionsSection).getByLabelText("询问规则 1")).toHaveValue("Bash(cat *)");
     expect(within(permissionsSection).getByLabelText("拒绝规则 1")).toHaveValue("Bash(sudo *)");

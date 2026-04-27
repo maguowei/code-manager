@@ -371,9 +371,9 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
     setAllowRows(rowsFromStringArray([...RECOMMENDED_PERMISSION_RULES.allow]));
     setAskRows(rowsFromStringArray([...RECOMMENDED_PERMISSION_RULES.ask]));
     setDenyRows(rowsFromStringArray([...RECOMMENDED_PERMISSION_RULES.deny]));
-    setAllowExpanded(true);
-    setAskExpanded(true);
-    setDenyExpanded(true);
+    setAllowExpanded(false);
+    setAskExpanded(false);
+    setDenyExpanded(false);
     setRecommendedDialogOpen(false);
   }
 
