@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { prettyJson } from "../config-workspace-utils";
 import { readObject } from "./editor-utils";
 
@@ -20,16 +20,31 @@ export function useObjectJsonEditor({
   validateObject,
 }: UseObjectJsonEditorOptions) {
   const objectValue = useMemo(() => readObject(value), [value]);
-  const sourceJson = useMemo(() => prettyJson(objectValue), [objectValue]);
-  const [rawJson, setRawJson] = useState(sourceJson);
+  const [rawJson, setRawJson] = useState<string | null>(null);
   const [jsonError, setJsonError] = useState("");
   const [hasAppliedDraft, setHasAppliedDraft] = useState(true);
+  const rawJsonRef = useRef<string | null>(null);
 
   useEffect(() => {
+    rawJsonRef.current = rawJson;
+  }, [rawJson]);
+
+  useEffect(() => {
+    if (rawJsonRef.current === null) {
+      setJsonError("");
+      setHasAppliedDraft(true);
+      return;
+    }
+
+    const sourceJson = prettyJson(objectValue);
     setRawJson(sourceJson);
     setJsonError("");
     setHasAppliedDraft(true);
-  }, [sourceJson]);
+  }, [objectValue]);
+
+  function readRawJson() {
+    return rawJson ?? prettyJson(objectValue);
+  }
 
   function buildUnsupportedKeysError(keys: string[]): string {
     if (!allowedKeys || keys.length === 0) {
@@ -85,7 +100,7 @@ export function useObjectJsonEditor({
 
   function formatJson() {
     try {
-      const nextObject = parseJsonObject(rawJson);
+      const nextObject = parseJsonObject(readRawJson());
       setJsonError("");
       setHasAppliedDraft(true);
       setRawJson(prettyJson(nextObject));
@@ -99,7 +114,9 @@ export function useObjectJsonEditor({
   }
 
   return {
-    rawJson,
+    get rawJson() {
+      return readRawJson();
+    },
     jsonError,
     hasAppliedDraft,
     handleJsonChange,

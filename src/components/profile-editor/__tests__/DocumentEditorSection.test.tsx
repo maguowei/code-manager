@@ -32,13 +32,14 @@ describe("DocumentEditorSection", () => {
   it("switches between preview and json edit modes with shared metadata", () => {
     const handleEditChange = vi.fn();
     const handleFormat = vi.fn();
+    const getEditContent = vi.fn(() => '{"env":{"ANTHROPIC_AUTH_TOKEN":"token"}}');
 
     render(
       <I18nProvider>
         <DocumentEditorSection
           title="最终配置"
           previewContent={`{\n  "$schema": "https://json.schemastore.org/claude-code-settings.json"\n}`}
-          editContent='{"env":{"ANTHROPIC_AUTH_TOKEN":"token"}}'
+          getEditContent={getEditContent}
           editError="settings 必须是 JSON 对象"
           hasAppliedDraft={false}
           onEditChange={handleEditChange}
@@ -54,9 +55,11 @@ describe("DocumentEditorSection", () => {
 
     expect(screen.getByRole("button", { name: "预览" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByTestId("config-preview-output")).toHaveTextContent('"$schema"');
+    expect(getEditContent).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "编辑源 JSON" }));
 
+    expect(getEditContent).toHaveBeenCalledTimes(1);
     expect(screen.getByText("预览展示合成结果，编辑作用于源配置。")).toBeInTheDocument();
     expect(screen.getByText("当前已由控件覆盖的字段")).toBeInTheDocument();
     expect(screen.getByText("env")).toBeInTheDocument();

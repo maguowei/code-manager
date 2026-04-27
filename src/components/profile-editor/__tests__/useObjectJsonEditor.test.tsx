@@ -41,7 +41,32 @@ function HookHarness() {
   );
 }
 
+function UnreadRawJsonHarness({ value }: { value: Record<string, unknown> }) {
+  useObjectJsonEditor({
+    value,
+    onChange: () => {},
+    label: "权限",
+    isZh: true,
+  });
+
+  return <span>ready</span>;
+}
+
 describe("useObjectJsonEditor", () => {
+  it("does not stringify the object until raw json is read", () => {
+    const value: Record<string, unknown> = {};
+    Object.defineProperty(value, "allow", {
+      enumerable: true,
+      get() {
+        throw new Error("raw json was stringified");
+      },
+    });
+
+    render(<UnreadRawJsonHarness value={value} />);
+
+    expect(screen.getByText("ready")).toBeInTheDocument();
+  });
+
   it("keeps invalid drafts without mutating the last committed object", () => {
     render(<HookHarness />);
 

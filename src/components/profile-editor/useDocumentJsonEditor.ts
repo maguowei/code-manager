@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { prettyJson } from "../config-workspace-utils";
 import { readObject } from "./editor-utils";
 
@@ -15,17 +15,36 @@ export function useDocumentJsonEditor({
   validateMessage,
   normalize,
 }: UseDocumentJsonEditorOptions) {
-  const normalizedValue = useMemo(() => {
+  const [rawJson, setRawJson] = useState<string | null>(null);
+  const [jsonError, setJsonError] = useState("");
+  const [hasAppliedDraft, setHasAppliedDraft] = useState(true);
+  const lastAppliedSourceJsonRef = useRef<string | null>(null);
+  const lastSeenSourceJsonRef = useRef<string | null>(null);
+
+  const readNormalizedValue = useCallback(() => {
     const nextValue = readObject(value);
     return normalize ? normalize(nextValue) : nextValue;
   }, [normalize, value]);
-  const sourceJson = useMemo(() => prettyJson(normalizedValue), [normalizedValue]);
-  const [rawJson, setRawJson] = useState(sourceJson);
-  const [jsonError, setJsonError] = useState("");
-  const [hasAppliedDraft, setHasAppliedDraft] = useState(true);
-  const lastAppliedSourceJsonRef = useRef(sourceJson);
+
+  const buildSourceJson = useCallback(() => {
+    return prettyJson(readNormalizedValue());
+  }, [readNormalizedValue]);
+
+  const sourceJson = useMemo(() => {
+    if (lastAppliedSourceJsonRef.current === null && lastSeenSourceJsonRef.current === null) {
+      return null;
+    }
+
+    return buildSourceJson();
+  }, [buildSourceJson]);
 
   useEffect(() => {
+    if (sourceJson === null || sourceJson === lastSeenSourceJsonRef.current) {
+      return;
+    }
+
+    lastSeenSourceJsonRef.current = sourceJson;
+
     if (sourceJson === lastAppliedSourceJsonRef.current) {
       setJsonError("");
       setHasAppliedDraft(true);
@@ -37,6 +56,17 @@ export function useDocumentJsonEditor({
     setHasAppliedDraft(true);
     lastAppliedSourceJsonRef.current = sourceJson;
   }, [sourceJson]);
+
+  function readRawJson() {
+    if (rawJson !== null) {
+      return rawJson;
+    }
+
+    const nextSourceJson = buildSourceJson();
+    lastAppliedSourceJsonRef.current ??= nextSourceJson;
+    lastSeenSourceJsonRef.current ??= nextSourceJson;
+    return nextSourceJson;
+  }
 
   function parseJsonObject(nextValue: string): Record<string, unknown> {
     const parsed = JSON.parse(nextValue) as unknown;
@@ -50,12 +80,14 @@ export function useDocumentJsonEditor({
 
   function applyNextObject(nextObject: Record<string, unknown>) {
     const nextSourceJson = prettyJson(nextObject);
+    const currentSourceJson = buildSourceJson();
 
     lastAppliedSourceJsonRef.current = nextSourceJson;
+    lastSeenSourceJsonRef.current ??= currentSourceJson;
     setJsonError("");
     setHasAppliedDraft(true);
 
-    if (nextSourceJson !== sourceJson) {
+    if (nextSourceJson !== currentSourceJson) {
       onApply(nextObject);
     }
   }
@@ -74,7 +106,7 @@ export function useDocumentJsonEditor({
 
   function formatJson() {
     try {
-      const nextObject = parseJsonObject(rawJson);
+      const nextObject = parseJsonObject(readRawJson());
       const formattedJson = prettyJson(nextObject);
 
       setRawJson(formattedJson);
@@ -86,7 +118,9 @@ export function useDocumentJsonEditor({
   }
 
   return {
-    rawJson,
+    get rawJson() {
+      return readRawJson();
+    },
     jsonError,
     hasAppliedDraft,
     handleJsonChange,

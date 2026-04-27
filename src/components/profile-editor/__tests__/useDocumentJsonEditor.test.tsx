@@ -40,7 +40,31 @@ function HookHarness() {
   );
 }
 
+function UnreadRawJsonHarness({ value }: { value: Record<string, unknown> }) {
+  useDocumentJsonEditor({
+    value,
+    onApply: () => {},
+    validateMessage: "完整设置 JSON 必须是 JSON 对象",
+  });
+
+  return <span>ready</span>;
+}
+
 describe("useDocumentJsonEditor", () => {
+  it("does not stringify the document until raw json is read", () => {
+    const value: Record<string, unknown> = {};
+    Object.defineProperty(value, "permissions", {
+      enumerable: true,
+      get() {
+        throw new Error("raw json was stringified");
+      },
+    });
+
+    render(<UnreadRawJsonHarness value={value} />);
+
+    expect(screen.getByText("ready")).toBeInTheDocument();
+  });
+
   it("keeps valid drafts unformatted while applying them immediately", () => {
     render(<HookHarness />);
 
