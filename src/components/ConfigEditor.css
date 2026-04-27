@@ -567,6 +567,11 @@
   max-height: 400px;
 }
 
+.json-preview-deferred-editor {
+  min-height: 200px;
+  background-color: var(--bg-secondary);
+}
+
 .json-preview .cm-editor.cm-focused {
   outline: none;
 }
@@ -585,6 +590,10 @@
 [data-theme="dark"] .json-preview-header {
   background-color: #282c34;
   border-bottom-color: #3e4452;
+}
+
+[data-theme="dark"] .json-preview-deferred-editor {
+  background-color: #282c34;
 }
 
 [data-theme="dark"] .json-copy-btn {

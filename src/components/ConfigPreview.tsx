@@ -1,6 +1,6 @@
 import { json } from "@codemirror/lang-json";
 import CodeMirror from "@uiw/react-codemirror";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import useEditorTheme from "../hooks/useEditorTheme";
 import { useI18n } from "../i18n";
 
@@ -13,6 +13,13 @@ interface ConfigPreviewProps {
   /** JSON 语法错误信息 */
   jsonError?: string;
 }
+
+const JSON_EXTENSIONS = [json()];
+const CODEMIRROR_BASIC_SETUP = {
+  lineNumbers: true,
+  foldGutter: false,
+};
+const READONLY_PREVIEW_ROOT_MARGIN = "240px 0px";
 
 /**
  * ConfigPreview —— JSON 配置预览/编辑组件
@@ -28,6 +35,37 @@ function ConfigPreview({ content, onChange, jsonError }: ConfigPreviewProps) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const editorTheme = useEditorTheme();
+  const previewRef = useRef<HTMLDivElement>(null);
+  const editable = !!onChange;
+  const [editorReady, setEditorReady] = useState(editable);
+
+  useEffect(() => {
+    if (editable) {
+      setEditorReady(true);
+      return;
+    }
+
+    setEditorReady(false);
+    const previewElement = previewRef.current;
+    if (!previewElement || typeof IntersectionObserver === "undefined") {
+      const timer = window.setTimeout(() => setEditorReady(true), 300);
+      return () => window.clearTimeout(timer);
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) {
+          return;
+        }
+        setEditorReady(true);
+        observer.disconnect();
+      },
+      { rootMargin: READONLY_PREVIEW_ROOT_MARGIN },
+    );
+
+    observer.observe(previewElement);
+    return () => observer.disconnect();
+  }, [editable]);
 
   /** 将当前 JSON 内容复制到剪贴板，并短暂展示"已复制"反馈 */
   function handleCopy() {
@@ -43,7 +81,7 @@ function ConfigPreview({ content, onChange, jsonError }: ConfigPreviewProps) {
   }
 
   return (
-    <div className={`json-preview ${jsonError ? "error" : ""}`}>
+    <div ref={previewRef} className={`json-preview ${jsonError ? "error" : ""}`}>
       <div className="json-preview-header">
         <button
           type="button"
@@ -83,17 +121,18 @@ function ConfigPreview({ content, onChange, jsonError }: ConfigPreviewProps) {
         </button>
       </div>
       {/* CodeMirror 编辑器，带行号与 JSON 语法高亮；传入 onChange 时可编辑 */}
-      <CodeMirror
-        value={content}
-        extensions={[json()]}
-        theme={editorTheme}
-        editable={!!onChange}
-        onChange={onChange}
-        basicSetup={{
-          lineNumbers: true,
-          foldGutter: false,
-        }}
-      />
+      {editorReady ? (
+        <CodeMirror
+          value={content}
+          extensions={JSON_EXTENSIONS}
+          theme={editorTheme}
+          editable={editable}
+          onChange={onChange}
+          basicSetup={CODEMIRROR_BASIC_SETUP}
+        />
+      ) : (
+        <div className="json-preview-deferred-editor" aria-hidden="true" />
+      )}
       {jsonError && <p className="json-preview-error">{jsonError}</p>}
     </div>
   );
