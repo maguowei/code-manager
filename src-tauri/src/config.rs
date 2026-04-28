@@ -21,6 +21,7 @@ const MODEL_TEST_MAX_TOKENS: u64 = 2048;
 const MODEL_TEST_PROMPT_EN: &str =
     "Please reply with one short sentence confirming this API test request succeeded.";
 const MODEL_TEST_PROMPT_ZH: &str = "请用一句简短的话确认这次 API 测试请求成功。";
+const SYSTEM_LOCALE_ENV_KEYS: [&str; 4] = ["LC_ALL", "LC_MESSAGES", "LANGUAGE", "LANG"];
 
 static CLAUDE_SETTINGS_SCHEMA: Lazy<Value> = Lazy::new(|| {
     serde_json::from_str(include_str!(
@@ -302,7 +303,29 @@ fn default_true() -> bool {
 }
 
 fn default_ui_language() -> String {
-    "zh".to_string()
+    system_ui_language().to_string()
+}
+
+fn system_ui_language() -> &'static str {
+    SYSTEM_LOCALE_ENV_KEYS
+        .iter()
+        .filter_map(|key| std::env::var(key).ok())
+        .filter_map(|locale| ui_language_from_system_locale(&locale))
+        .next()
+        .unwrap_or("en")
+}
+
+fn ui_language_from_system_locale(locale: &str) -> Option<&'static str> {
+    let primary_locale = locale
+        .split(':')
+        .map(str::trim)
+        .find(|candidate| !candidate.is_empty())?;
+    let normalized = primary_locale.replace('_', "-").to_ascii_lowercase();
+    if normalized.starts_with("zh") {
+        Some("zh")
+    } else {
+        Some("en")
+    }
 }
 
 fn default_terminal_app() -> String {
@@ -1757,6 +1780,20 @@ mod tests {
             settings_patch: patch,
             source: PresetSource::Custom,
         }
+    }
+
+    #[test]
+    fn ui_language_from_system_locale_uses_chinese_for_zh_locales() {
+        assert_eq!(ui_language_from_system_locale("zh-CN"), Some("zh"));
+        assert_eq!(ui_language_from_system_locale("zh_CN.UTF-8"), Some("zh"));
+        assert_eq!(ui_language_from_system_locale("zh-Hant-TW"), Some("zh"));
+    }
+
+    #[test]
+    fn ui_language_from_system_locale_uses_english_for_non_zh_locales() {
+        assert_eq!(ui_language_from_system_locale("en-US"), Some("en"));
+        assert_eq!(ui_language_from_system_locale("ja-JP"), Some("en"));
+        assert_eq!(ui_language_from_system_locale("C"), Some("en"));
     }
 
     #[test]

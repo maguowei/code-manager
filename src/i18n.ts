@@ -1473,8 +1473,25 @@ interface AppSettings {
   theme: Theme;
 }
 
+function isChineseSystemLocale(locale: string | undefined): boolean {
+  return (locale ?? "").trim().replace("_", "-").toLowerCase().startsWith("zh");
+}
+
+function getSystemLanguage(): Language {
+  if (typeof navigator === "undefined") {
+    return "en";
+  }
+
+  const primaryLanguage =
+    Array.isArray(navigator.languages) && navigator.languages.length > 0
+      ? navigator.languages.find((language) => language.trim() !== "")
+      : navigator.language;
+
+  return isChineseSystemLocale(primaryLanguage) ? "zh" : "en";
+}
+
 function loadSettings(): AppSettings {
-  const defaults: AppSettings = { language: "zh", theme: "dark" };
+  const defaults: AppSettings = { language: getSystemLanguage(), theme: "dark" };
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {

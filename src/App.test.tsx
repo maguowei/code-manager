@@ -41,9 +41,21 @@ function renderApp() {
   );
 }
 
+function setSystemLanguages(languages: string[]) {
+  Object.defineProperty(navigator, "languages", {
+    value: languages,
+    configurable: true,
+  });
+  Object.defineProperty(navigator, "language", {
+    value: languages[0] ?? "",
+    configurable: true,
+  });
+}
+
 describe("App", () => {
   beforeEach(() => {
     localStorage.clear();
+    setSystemLanguages(["zh-CN"]);
     invokeMock.mockReset();
     listenMock.mockClear();
     invokeMock.mockResolvedValue(WORKSPACE_FIXTURE);

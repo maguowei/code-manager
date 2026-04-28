@@ -305,6 +305,11 @@
       "examples": [20, 30, 60],
       "default": 30
     },
+    "hasCompletedOnboarding": {
+      "type": "boolean",
+      "description": "Skip the Claude Code onboarding flow on first launch when enabled.",
+      "default": false
+    },
     "env": {
       "type": "object",
       "additionalProperties": false,
