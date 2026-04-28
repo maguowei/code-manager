@@ -68,6 +68,19 @@ function App() {
     setIsDetailDrawerOpen(false);
   });
 
+  const closeSettingsDrawer = useCallback(() => {
+    setIsSettingsOpen(false);
+    void loadWorkspace();
+  }, [loadWorkspace]);
+
+  const handleSettingsClick = useCallback(() => {
+    if (isSettingsOpen) {
+      closeSettingsDrawer();
+      return;
+    }
+    setIsSettingsOpen(true);
+  }, [closeSettingsDrawer, isSettingsOpen]);
+
   if (loading) {
     return (
       <div className="app-container">
@@ -84,7 +97,7 @@ function App() {
           setActiveTab(tab);
           setIsDetailDrawerOpen(false);
         }}
-        onSettingsClick={() => setIsSettingsOpen(true)}
+        onSettingsClick={handleSettingsClick}
       />
 
       <div className="content-area">
@@ -106,14 +119,7 @@ function App() {
         )}
       </div>
 
-      {isSettingsOpen && (
-        <SettingsDrawer
-          onClose={() => {
-            setIsSettingsOpen(false);
-            void loadWorkspace();
-          }}
-        />
-      )}
+      {isSettingsOpen && <SettingsDrawer onClose={closeSettingsDrawer} />}
     </div>
   );
 }
