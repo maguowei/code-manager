@@ -25,6 +25,8 @@ interface PermissionsEditorProps {
   onError: (message: string) => void;
 }
 
+type PermissionRuleListKey = "allow" | "ask" | "deny";
+
 interface PermissionDefaultModeSelectProps {
   value: string;
   onChange: (nextValue: string) => void;
@@ -181,6 +183,7 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
   const [askExpanded, setAskExpanded] = useState(false);
   const [directoryExpanded, setDirectoryExpanded] = useState(true);
   const [recommendedDialogOpen, setRecommendedDialogOpen] = useState(false);
+  const [clearRulesDialog, setClearRulesDialog] = useState<PermissionRuleListKey | null>(null);
   const skipStructuredSyncRef = useRef(false);
 
   useEffect(() => {
@@ -377,6 +380,32 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
     setRecommendedDialogOpen(false);
   }
 
+  function handleConfirmClearRules() {
+    if (clearRulesDialog === "allow") {
+      setAllowRows([]);
+      setAllowExpanded(true);
+    }
+    if (clearRulesDialog === "ask") {
+      setAskRows([]);
+      setAskExpanded(true);
+    }
+    if (clearRulesDialog === "deny") {
+      setDenyRows([]);
+      setDenyExpanded(true);
+    }
+    setClearRulesDialog(null);
+  }
+
+  function getClearRulesDialogTitle() {
+    if (clearRulesDialog === "allow") {
+      return t("profileEditor.permissions.clearAllow");
+    }
+    if (clearRulesDialog === "ask") {
+      return t("profileEditor.permissions.clearAsk");
+    }
+    return t("profileEditor.permissions.clearDeny");
+  }
+
   return (
     <div className="profile-section-body">
       <div className="profile-permissions-toolbar">
@@ -407,10 +436,7 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
           rows={allowRows}
           onChange={setAllowRows}
           onAdd={() => addRow(setAllowRows, setAllowExpanded)}
-          onClear={() => {
-            setAllowRows([]);
-            setAllowExpanded(true);
-          }}
+          onClear={() => setClearRulesDialog("allow")}
           addLabel={t("profileEditor.permissions.addAllow")}
           clearLabel={t("profileEditor.permissions.clearAllow")}
           itemLabelPrefix={t("profileEditor.permissions.allowRulePrefix")}
@@ -427,10 +453,7 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
           rows={denyRows}
           onChange={setDenyRows}
           onAdd={() => addRow(setDenyRows, setDenyExpanded)}
-          onClear={() => {
-            setDenyRows([]);
-            setDenyExpanded(true);
-          }}
+          onClear={() => setClearRulesDialog("deny")}
           addLabel={t("profileEditor.permissions.addDeny")}
           clearLabel={t("profileEditor.permissions.clearDeny")}
           itemLabelPrefix={t("profileEditor.permissions.denyRulePrefix")}
@@ -447,10 +470,7 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
           rows={askRows}
           onChange={setAskRows}
           onAdd={() => addRow(setAskRows, setAskExpanded)}
-          onClear={() => {
-            setAskRows([]);
-            setAskExpanded(true);
-          }}
+          onClear={() => setClearRulesDialog("ask")}
           addLabel={t("profileEditor.permissions.addAsk")}
           clearLabel={t("profileEditor.permissions.clearAsk")}
           itemLabelPrefix={t("profileEditor.permissions.askRulePrefix")}
@@ -492,6 +512,18 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
           cancelText={t("profileEditor.common.cancel")}
           onConfirm={handleLoadRecommendedRules}
           onCancel={() => setRecommendedDialogOpen(false)}
+        />
+      ) : null}
+
+      {clearRulesDialog ? (
+        <ConfirmDialog
+          title={getClearRulesDialogTitle()}
+          message={t("profileEditor.permissions.clearRulesDialogMessage")}
+          confirmText={t("profileEditor.permissions.clearRulesDialogConfirm")}
+          cancelText={t("profileEditor.common.cancel")}
+          onConfirm={handleConfirmClearRules}
+          onCancel={() => setClearRulesDialog(null)}
+          danger
         />
       ) : null}
     </div>

@@ -29,8 +29,32 @@
   height: 30px;
 }
 
+.profile-string-list-prelude {
+  display: flex;
+  justify-content: flex-end;
+  margin-block-end: -4px;
+}
+
 .profile-string-list-clear-btn {
-  padding-block: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 6px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  cursor: pointer;
+  transition:
+    color 150ms ease,
+    background-color 150ms ease;
+}
+
+.profile-string-list-clear-btn:hover {
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--bg-secondary) 72%, transparent);
 }
 
 .profile-string-list-row-action-btn {
@@ -64,6 +88,9 @@
 
 .profile-string-list-footer {
   justify-content: flex-start;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .profile-row-stack {

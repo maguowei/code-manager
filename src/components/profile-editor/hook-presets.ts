@@ -158,3 +158,16 @@ export function mergeMojibakeHookPreset(value: unknown): HookPresetMergeResult {
     supported: true,
   };
 }
+
+export function hasMojibakeHookPreset(value: unknown): boolean {
+  const result = mergeMojibakeHookPreset(value);
+  return result.supported && !result.changed;
+}
+
+export function isMojibakePresetAction(action: unknown): boolean {
+  return Object.values(MOJIBAKE_HOOK_PRESET).some((matchers) =>
+    matchers.some((matcher) =>
+      matcher.hooks.some((presetAction) => isSameCommandAction(action, presetAction)),
+    ),
+  );
+}

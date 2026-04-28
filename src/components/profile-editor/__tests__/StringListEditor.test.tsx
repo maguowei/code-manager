@@ -11,6 +11,7 @@ function renderEditor(
     rowActionLabel?: string;
     onRowAction?: (row: StringRow, index: number) => void;
     buildRowActionAriaLabel?: (itemLabel: string) => string;
+    clearable?: boolean;
   },
 ) {
   function Harness() {
@@ -32,7 +33,9 @@ function renderEditor(
               },
             ])
           }
+          onClear={options?.clearable ? () => setRows([]) : undefined}
           addLabel="新增允许规则"
+          clearLabel={options?.clearable ? "清空允许规则" : undefined}
           itemLabelPrefix="允许规则"
           placeholder="例如：Bash"
           emptyHint="当前没有允许规则。"
@@ -145,6 +148,47 @@ describe("StringListEditor", () => {
 
     expect(titleTrigger).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByLabelText("允许规则 1")).toBeInTheDocument();
+  });
+
+  it("places the clear action before the rule list as a secondary affordance", () => {
+    renderEditor([{ id: "allow-1", value: "Bash" }], {
+      clearable: true,
+    });
+
+    const subsection = screen
+      .getByRole("heading", { name: "允许规则" })
+      .closest(".profile-subsection") as HTMLElement | null;
+    expect(subsection).not.toBeNull();
+    if (!subsection) {
+      return;
+    }
+
+    const input = within(subsection).getByLabelText("允许规则 1");
+    const headerClearButton = subsection.querySelector(
+      ".profile-subsection-header .profile-string-list-clear-btn",
+    );
+    const prelude = subsection.querySelector(".profile-string-list-prelude") as HTMLElement | null;
+    const footerClearButton = subsection.querySelector(
+      ".profile-string-list-footer .profile-string-list-clear-btn",
+    );
+    const rowStack = subsection.querySelector(".profile-row-stack") as HTMLElement | null;
+
+    expect(headerClearButton).toBeNull();
+    expect(footerClearButton).toBeNull();
+    expect(prelude).not.toBeNull();
+    expect(rowStack).not.toBeNull();
+    if (!prelude || !rowStack) {
+      return;
+    }
+
+    const clearButton = within(prelude).getByRole("button", { name: "清空允许规则" });
+    expect(clearButton).toHaveClass("profile-string-list-clear-btn");
+    expect(clearButton.compareDocumentPosition(rowStack) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(clearButton.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
   });
 
   it("renders an optional row action without changing the default list controls", () => {

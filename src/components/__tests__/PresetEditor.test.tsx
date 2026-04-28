@@ -1336,7 +1336,7 @@ describe("PresetEditor", () => {
     const permissionsSection = getSection("权限");
     toggleAccordionSection("权限");
 
-    fireEvent.click(within(permissionsSection).getByRole("button", { name: "加载推荐规则" }));
+    fireEvent.click(within(permissionsSection).getByRole("button", { name: "加载推荐规则预设" }));
     fireEvent.click(screen.getByRole("button", { name: "加载规则" }));
 
     await act(async () => {

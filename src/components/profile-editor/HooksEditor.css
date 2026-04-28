@@ -16,36 +16,114 @@
   font-size: 13px;
 }
 
+.profile-hook-summary-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile-hook-delete-btn {
+  width: 30px;
+  height: 30px;
+}
+
 .profile-hook-summary-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .profile-hook-summary-item {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--border-default) 86%, var(--accent-blue) 14%);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-primary) 96%, var(--accent-blue) 4%);
 }
 
 .profile-hook-summary-matcher {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.profile-hook-summary-item .profile-chip-list {
+  width: 100%;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.profile-hook-action-summary {
+  display: inline-flex;
+  align-items: flex-start;
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.profile-hook-action-summary.expanded {
+  align-items: flex-start;
+}
+
+.profile-hook-preset-tag {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--accent-blue) 28%, var(--border-default) 72%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-primary) 88%, var(--accent-blue) 12%);
+  color: var(--accent-blue);
+  font-size: 12px;
+  line-height: 1.3;
 }
 
 .profile-hook-summary-badge {
   display: inline-flex;
   align-items: center;
+  width: 100%;
   max-width: 100%;
-  padding: 6px 10px;
+  min-height: 40px;
+  padding: 9px 11px;
   border: 1px solid var(--border-default);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--bg-primary) 90%, var(--accent-blue) 10%);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-primary) 94%, var(--accent-blue) 6%);
   color: var(--text-primary);
   font-size: 12px;
   font-family: var(--font-mono, "SFMono-Regular", Consolas, monospace);
+  line-height: 1.5;
+  text-align: left;
   word-break: break-word;
+  cursor: pointer;
+  appearance: none;
+  box-sizing: border-box;
+}
+
+.profile-hook-action-summary.has-preset-tag .profile-hook-summary-badge {
+  padding-right: 88px;
+}
+
+.profile-hook-summary-badge:hover,
+.profile-hook-summary-badge:focus-visible {
+  border-color: color-mix(in srgb, var(--accent-blue) 54%, var(--border-default) 46%);
+  background: color-mix(in srgb, var(--bg-primary) 84%, var(--accent-blue) 16%);
+}
+
+.profile-hook-summary-badge:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent-blue) 60%, transparent);
+  outline-offset: 2px;
+}
+
+.profile-hook-summary-badge.expanded {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .profile-hook-footer-actions {

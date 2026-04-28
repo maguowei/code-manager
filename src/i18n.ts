@@ -316,7 +316,7 @@ const translations = {
     "profileEditor.permissions.defaultModeLabel": "默认模式",
     "profileEditor.permissions.unset": "未设置",
     "profileEditor.permissions.disableBypass": "禁用 bypassPermissions 模式",
-    "profileEditor.permissions.loadRecommendedRules": "加载推荐规则",
+    "profileEditor.permissions.loadRecommendedRules": "加载推荐规则预设",
     "profileEditor.permissions.loadRecommendedDialogTitle": "加载推荐权限规则",
     "profileEditor.permissions.loadRecommendedDialogMessage":
       "这会覆盖当前 allow、ask、deny 规则，并保留默认模式、禁用 bypassPermissions 和附加目录。",
@@ -325,6 +325,9 @@ const translations = {
     "profileEditor.permissions.allowRulesTitle": "允许规则",
     "profileEditor.permissions.addAllow": "新增允许规则",
     "profileEditor.permissions.clearAllow": "清空允许规则",
+    "profileEditor.permissions.clearRulesDialogMessage":
+      "这会移除该列表中的所有规则。保存前仍可取消本次编辑。",
+    "profileEditor.permissions.clearRulesDialogConfirm": "确认清空",
     "profileEditor.permissions.allowRulePrefix": "允许规则",
     "profileEditor.permissions.allowPlaceholder": "例如：Bash(git status:*)",
     "profileEditor.permissions.allowEmptyHint": "对这些工具调用直接放行。",
@@ -372,6 +375,10 @@ const translations = {
     "profileEditor.hooks.matcherNoActions": "当前 matcher 没有动作。",
     "profileEditor.hooks.partialSummarize": "部分 Hooks 结构无法完整摘要。",
     "profileEditor.hooks.addMojibakePreset": "添加乱码检查预设",
+    "profileEditor.hooks.builtinPresetTag": "乱码检测",
+    "profileEditor.hooks.deleteDialogTitle": "删除 Hook",
+    "profileEditor.hooks.deleteDialogMessagePrefix": "确定要从当前设置中移除 Hook 事件 ",
+    "profileEditor.hooks.deleteDialogMessageSuffix": " 吗？",
     "profileEditor.hooks.quickAddUnsupported":
       "当前 Hooks 结构不支持一键添加，请切换到 JSON 手动处理。",
 
@@ -1023,7 +1030,7 @@ const translations = {
     "profileEditor.permissions.defaultModeLabel": "Default Mode",
     "profileEditor.permissions.unset": "Unset",
     "profileEditor.permissions.disableBypass": "Disable bypassPermissions mode",
-    "profileEditor.permissions.loadRecommendedRules": "Load recommended rules",
+    "profileEditor.permissions.loadRecommendedRules": "Load recommended rule preset",
     "profileEditor.permissions.loadRecommendedDialogTitle": "Load recommended permission rules",
     "profileEditor.permissions.loadRecommendedDialogMessage":
       "This will replace the current allow, ask, and deny rules while preserving default mode, disable bypassPermissions, and additional directories.",
@@ -1032,6 +1039,9 @@ const translations = {
     "profileEditor.permissions.allowRulesTitle": "Allow Rules",
     "profileEditor.permissions.addAllow": "Add allow rule",
     "profileEditor.permissions.clearAllow": "Clear allow rules",
+    "profileEditor.permissions.clearRulesDialogMessage":
+      "This removes every rule in this list. You can still cancel the editor changes before saving.",
+    "profileEditor.permissions.clearRulesDialogConfirm": "Clear rules",
     "profileEditor.permissions.allowRulePrefix": "Allow Rule",
     "profileEditor.permissions.allowPlaceholder": "e.g. Bash(git status:*)",
     "profileEditor.permissions.allowEmptyHint": "These rules are always allowed.",
@@ -1081,6 +1091,10 @@ const translations = {
     "profileEditor.hooks.matcherNoActions": "This matcher has no actions.",
     "profileEditor.hooks.partialSummarize": "Some hook entries could not be fully summarized.",
     "profileEditor.hooks.addMojibakePreset": "Add mojibake check preset",
+    "profileEditor.hooks.builtinPresetTag": "Mojibake check",
+    "profileEditor.hooks.deleteDialogTitle": "Delete Hook",
+    "profileEditor.hooks.deleteDialogMessagePrefix": "Remove Hook event ",
+    "profileEditor.hooks.deleteDialogMessageSuffix": " from the current settings?",
     "profileEditor.hooks.quickAddUnsupported":
       "The current hooks structure cannot be merged automatically. Please switch to JSON and edit it manually.",
 

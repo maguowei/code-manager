@@ -2277,7 +2277,7 @@ describe("ProfileEditor", () => {
     const permissionsSection = getSection("权限");
     toggleAccordionSection("权限");
 
-    fireEvent.click(within(permissionsSection).getByRole("button", { name: "加载推荐规则" }));
+    fireEvent.click(within(permissionsSection).getByRole("button", { name: "加载推荐规则预设" }));
     expect(screen.getByText("加载推荐权限规则")).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -2295,7 +2295,7 @@ describe("ProfileEditor", () => {
     ).toBeInTheDocument();
     expect(within(permissionsSection).getByLabelText("允许规则 1")).toHaveValue("Bash(git *)");
 
-    fireEvent.click(within(permissionsSection).getByRole("button", { name: "加载推荐规则" }));
+    fireEvent.click(within(permissionsSection).getByRole("button", { name: "加载推荐规则预设" }));
     fireEvent.click(screen.getByRole("button", { name: "加载规则" }));
 
     expect(within(permissionsSection).queryByLabelText("允许规则 1")).not.toBeInTheDocument();
@@ -2354,11 +2354,35 @@ describe("ProfileEditor", () => {
 
     fireEvent.click(within(permissionsSection).getByRole("button", { name: "展开 允许规则" }));
     fireEvent.click(within(permissionsSection).getByRole("button", { name: "清空允许规则" }));
+    const allowClearDialog = screen
+      .getByText("这会移除该列表中的所有规则。保存前仍可取消本次编辑。")
+      .closest(".confirm-dialog") as HTMLElement | null;
+    expect(allowClearDialog).not.toBeNull();
+    if (!allowClearDialog) {
+      return;
+    }
+    expect(within(allowClearDialog).getByText("清空允许规则")).toBeInTheDocument();
+    fireEvent.click(within(allowClearDialog).getByRole("button", { name: "取消" }));
+    expect(within(permissionsSection).getByLabelText("允许规则 1")).toHaveValue(
+      "Bash(git status *)",
+    );
+
+    fireEvent.click(within(permissionsSection).getByRole("button", { name: "清空允许规则" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认清空" }));
     expect(within(permissionsSection).queryByLabelText("允许规则 1")).not.toBeInTheDocument();
     fireEvent.click(within(permissionsSection).getByRole("button", { name: "展开 询问规则" }));
     expect(within(permissionsSection).getByLabelText("询问规则 1")).toHaveValue("Bash(curl *)");
 
     fireEvent.click(within(permissionsSection).getByRole("button", { name: "清空询问规则" }));
+    const askClearDialog = screen
+      .getByText("这会移除该列表中的所有规则。保存前仍可取消本次编辑。")
+      .closest(".confirm-dialog") as HTMLElement | null;
+    expect(askClearDialog).not.toBeNull();
+    if (!askClearDialog) {
+      return;
+    }
+    expect(within(askClearDialog).getByText("清空询问规则")).toBeInTheDocument();
+    fireEvent.click(within(askClearDialog).getByRole("button", { name: "确认清空" }));
     expect(within(permissionsSection).queryByLabelText("询问规则 1")).not.toBeInTheDocument();
     fireEvent.click(within(permissionsSection).getByRole("button", { name: "展开 拒绝规则" }));
     expect(within(permissionsSection).getByLabelText("拒绝规则 1")).toHaveValue(
@@ -2366,6 +2390,15 @@ describe("ProfileEditor", () => {
     );
 
     fireEvent.click(within(permissionsSection).getByRole("button", { name: "清空拒绝规则" }));
+    const denyClearDialog = screen
+      .getByText("这会移除该列表中的所有规则。保存前仍可取消本次编辑。")
+      .closest(".confirm-dialog") as HTMLElement | null;
+    expect(denyClearDialog).not.toBeNull();
+    if (!denyClearDialog) {
+      return;
+    }
+    expect(within(denyClearDialog).getByText("清空拒绝规则")).toBeInTheDocument();
+    fireEvent.click(within(denyClearDialog).getByRole("button", { name: "确认清空" }));
     expect(within(permissionsSection).queryByLabelText("拒绝规则 1")).not.toBeInTheDocument();
     expect(within(permissionsSection).getByLabelText("附加目录 1")).toHaveValue(
       "~/projects/shared",
