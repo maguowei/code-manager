@@ -30,13 +30,6 @@ static CLAUDE_SETTINGS_SCHEMA: Lazy<Value> = Lazy::new(|| {
     .expect("Claude settings schema 格式错误")
 });
 
-static CLAUDE_SETTINGS_TOP_LEVEL_KEYS: Lazy<HashSet<String>> = Lazy::new(|| {
-    CLAUDE_SETTINGS_SCHEMA["properties"]
-        .as_object()
-        .map(|properties| properties.keys().cloned().collect())
-        .unwrap_or_default()
-});
-
 static SCHEMA_REGEX_CACHE: Lazy<Mutex<HashMap<String, Arc<CompiledSchemaRegex>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
@@ -955,15 +948,6 @@ fn validate_settings_document(settings: &Value) -> Result<(), String> {
     let object = settings
         .as_object()
         .ok_or("settings 必须是 JSON object".to_string())?;
-
-    for key in object.keys() {
-        if key == "$schema" {
-            continue;
-        }
-        if !CLAUDE_SETTINGS_TOP_LEVEL_KEYS.contains(key) {
-            return Err(format!("settings 包含未支持的顶层字段 '{key}'"));
-        }
-    }
 
     let schema_properties = CLAUDE_SETTINGS_SCHEMA["properties"]
         .as_object()
@@ -1906,12 +1890,27 @@ mod tests {
     }
 
     #[test]
-    fn validate_settings_document_rejects_unknown_top_level_keys() {
+    fn validate_settings_document_accepts_unknown_top_level_keys() {
+        let settings = serde_json::json!({
+            "futureClaudeCodeKey": {
+                "enabled": true
+            }
+        });
+
+        assert!(validate_settings_document(&settings).is_ok());
+    }
+
+    #[test]
+    fn validate_settings_document_rejects_unknown_nested_keys_for_known_schema() {
         let error = validate_settings_document(&serde_json::json!({
-            "notARealClaudeKey": true
+            "permissions": {
+                "notARealPermissionKey": true
+            }
         }))
         .unwrap_err();
-        assert!(error.contains("notARealClaudeKey"));
+
+        assert!(error.contains("settings.permissions"));
+        assert!(error.contains("notARealPermissionKey"));
     }
 
     #[test]
