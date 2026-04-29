@@ -2601,6 +2601,56 @@ describe("ProfileEditor", () => {
     );
   });
 
+  it("adds the sandbox preset from the sandbox shortcut in profile view", async () => {
+    const onSave = vi.fn();
+    renderEditor({
+      onSave,
+      profile: {
+        ...PROFILE_FIXTURE,
+        settings: {
+          sandbox: {
+            filesystem: {
+              allowWrite: ["/tmp/build"],
+            },
+            excludedCommands: ["pnpm *"],
+            network: {
+              allowedDomains: ["example.com"],
+              allowUnixSockets: ["/tmp/app.sock"],
+            },
+          },
+        },
+      },
+    });
+
+    const sandboxSection = getSection("Sandbox");
+    toggleAccordionSection("Sandbox");
+
+    fireEvent.click(within(sandboxSection).getByRole("button", { name: "添加沙盒预设配置" }));
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    });
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const savedSandbox = onSave.mock.calls[0]?.[0]?.settings.sandbox as
+      | Record<string, unknown>
+      | undefined;
+    expect(savedSandbox).toMatchObject({
+      enabled: true,
+      autoAllowBashIfSandboxed: true,
+      filesystem: {
+        allowWrite: ["/tmp/build"],
+      },
+    });
+    expect(savedSandbox?.excludedCommands).toEqual(["pnpm *", "docker *", "git *"]);
+    const savedNetwork = savedSandbox?.network as Record<string, unknown> | undefined;
+    expect(savedNetwork).toMatchObject({
+      allowedDomains: ["example.com"],
+      allowLocalBinding: true,
+    });
+    expect(savedNetwork?.allowUnixSockets).toEqual(["/tmp/app.sock", "/var/run/docker.sock"]);
+  });
+
   it("keeps delegate visible for existing permissions default mode without exposing it as a normal option", () => {
     renderEditor({
       profile: {

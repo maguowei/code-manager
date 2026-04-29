@@ -1,10 +1,12 @@
 import { useEffect, useMemo } from "react";
 import { useI18n } from "../../i18n";
 import { readObject } from "./editor-utils";
+import { hasRecommendedSandboxPreset, mergeRecommendedSandboxPreset } from "./sandbox-presets";
 import "./SandboxEditor.css";
 
 interface SandboxEditorProps {
   value: unknown;
+  onChange: (next: Record<string, unknown>) => void;
   onError: (message: string) => void;
 }
 
@@ -124,14 +126,23 @@ export function SandboxSwitchControl({
   );
 }
 
-function SandboxEditor({ value, onError }: SandboxEditorProps) {
+function SandboxEditor({ value, onChange, onError }: SandboxEditorProps) {
   const { language, t } = useI18n();
   const isZh = language === "zh";
   const presentation = useMemo(() => getSandboxPresentation(value, isZh), [value, isZh]);
+  const recommendedPresetApplied = useMemo(() => hasRecommendedSandboxPreset(value), [value]);
 
   useEffect(() => {
     onError("");
   }, [onError]);
+
+  function handleAddRecommendedPreset() {
+    const result = mergeRecommendedSandboxPreset(value);
+    if (!result.changed) {
+      return;
+    }
+    onChange(result.nextValue);
+  }
 
   return (
     <div className="profile-section-body">
@@ -163,6 +174,18 @@ function SandboxEditor({ value, onError }: SandboxEditorProps) {
           <div className="profile-empty-state">{presentation.emptyState}</div>
         )}
       </section>
+
+      <div className="profile-env-footer">
+        {recommendedPresetApplied ? null : (
+          <button
+            type="button"
+            className="profile-primary-btn"
+            onClick={handleAddRecommendedPreset}
+          >
+            {t("profileEditor.sandbox.addRecommendedPreset")}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

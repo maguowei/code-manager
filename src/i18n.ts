@@ -362,6 +362,7 @@ const translations = {
     "profileEditor.sandbox.statusTitle": "沙盒状态",
     "profileEditor.sandbox.headerToggleAriaLabel": "Sandbox 头部开关",
     "profileEditor.sandbox.switchLabel": "沙盒开关",
+    "profileEditor.sandbox.addRecommendedPreset": "添加沙盒预设配置",
 
     // Hooks 编辑器
     "profileEditor.hooks.invalidAction": "invalid action",
@@ -1096,6 +1097,7 @@ const translations = {
     "profileEditor.sandbox.statusTitle": "Sandbox Status",
     "profileEditor.sandbox.headerToggleAriaLabel": "Sandbox header toggle",
     "profileEditor.sandbox.switchLabel": "Sandbox",
+    "profileEditor.sandbox.addRecommendedPreset": "Add sandbox preset",
 
     // Hooks editor
     "profileEditor.hooks.invalidAction": "invalid action",

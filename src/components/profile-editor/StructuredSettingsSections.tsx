@@ -508,6 +508,7 @@ function StructuredSettingsSections({
         controls={
           <SandboxEditor
             value={settings.sandbox}
+            onChange={(value) => onStructuredObjectChange("sandbox", value)}
             onError={(message) => sectionState.setSectionError("sandbox", message)}
           />
         }

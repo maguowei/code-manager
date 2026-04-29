@@ -1322,6 +1322,31 @@ describe("PresetEditor", () => {
     );
   });
 
+  it("adds the sandbox preset from the sandbox shortcut in preset view", async () => {
+    const onSave = vi.fn();
+    renderEditor({ onSave });
+
+    const sandboxSection = getSection("Sandbox");
+    toggleAccordionSection("Sandbox");
+
+    fireEvent.click(within(sandboxSection).getByRole("button", { name: "添加沙盒预设配置" }));
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    });
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0]?.[0]?.settingsPatch.sandbox).toEqual({
+      enabled: true,
+      autoAllowBashIfSandboxed: true,
+      excludedCommands: ["docker *", "git *"],
+      network: {
+        allowLocalBinding: true,
+        allowUnixSockets: ["/var/run/docker.sock"],
+      },
+    });
+  });
+
   it("loads recommended permission rules from the shared permissions shortcut in preset view", async () => {
     const onSave = vi.fn();
     renderEditor({
