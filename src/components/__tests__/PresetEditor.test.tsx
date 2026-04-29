@@ -1385,7 +1385,7 @@ describe("PresetEditor", () => {
       disableBypassPermissionsMode: "disable",
       additionalDirectories: ["~/projects/shared"],
     });
-    expect(savedPermissions?.allow).toContain("Bash(git *)");
+    expect(savedPermissions?.allow).toContain("Bash(go test *)");
     expect(savedPermissions?.allow).not.toContain("Bash(old-allow *)");
     expect(savedPermissions?.ask).toContain("Bash(curl *)");
     expect(savedPermissions?.deny).toContain("Bash(git reset --hard*)");
