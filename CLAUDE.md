@@ -27,6 +27,10 @@
 - 历史与统计输入：
   - `~/.claude/history.jsonl`
   - `~/.claude.json`
+- 应用日志：系统推荐日志目录，不放在 `~/.config/ai-manager/`
+  - macOS：`~/Library/Logs/com.gotobeta.app.ai-manager/ai-manager.log`
+  - Linux：`$XDG_DATA_HOME/com.gotobeta.app.ai-manager/logs/ai-manager.log` 或 `~/.local/share/com.gotobeta.app.ai-manager/logs/ai-manager.log`
+  - Windows：`%LOCALAPPDATA%\com.gotobeta.app.ai-manager\logs\ai-manager.log`
 
 ## Agent 工作约束
 
@@ -55,6 +59,7 @@
 - 公共样式与 z-index 令牌：`src/styles/shared.css`
 - Tauri 命令注册：`src-tauri/src/lib.rs`
 - Rust 公共工具：`src-tauri/src/utils.rs`
+- 日志与诊断：`src-tauri/src/logging.rs`、`src/components/LogViewer.tsx`、`src/utils/logger.ts`
 - 系统托盘：`src-tauri/src/tray.rs`
 - 国际化：`src/i18n.ts`
 
@@ -142,7 +147,28 @@
 - stats.rs 提供 `get_stats`、`get_stats_history`、`take_stats_snapshot` 三个命令。
 - 定时快照逻辑在 `stats::start_snapshot_timer()` 中，由 `lib.rs` 的 `setup` 启动。
 
-### 5. 新增或修改 Tauri command
+### 5. 改日志与诊断
+
+先读：
+
+- `src-tauri/src/lib.rs`（`tauri-plugin-log` 注册、Tauri command 注册）
+- `src-tauri/src/logging.rs`（日志读取、过滤、脱敏、清理和路径解析）
+- `src/components/LogViewer.tsx`（设置 -> 诊断 -> 查看日志）
+- `src/utils/logger.ts`（前端日志与全局错误捕获）
+- `src-tauri/capabilities/default.json`（插件权限）
+
+注意：
+
+- 日志由 `tauri-plugin-log` 写入系统日志目录，当前文件名为 `ai-manager.log`，不要改回 `~/.config/ai-manager/`。
+- 日志默认 `Info` 级别；重要操作记 `info`，可恢复异常记 `warn`，错误记 `error`。
+- 日志时间使用系统本地时间，格式包含时区偏移；日志查看器按最新在上倒序显示。
+- 轮转策略是单文件约 2 MB，保留 8 个轮转文件，轮转文件名形如 `ai-manager_YYYY-MM-DD_HH-MM-SS.log`。
+- 一键清理调用 `clear_app_logs`：清空当前 `ai-manager.log`，删除 `ai-manager_*.log`，不要删除日志目录中的其它文件。
+- 内置查看器通过 `get_app_logs` 读取日志，通过 `open_logs_dir` 打开日志目录。
+- 不要记录密钥、Token、完整 settings、Memory 内容、Skill 文件内容、模型测试请求体或响应体。
+- 新增日志字段时优先记录稳定标识符和状态，例如 `event=profile.apply status=ok profile_id=...`，不要记录大块业务数据。
+
+### 6. 新增或修改 Tauri command
 
 步骤：
 
@@ -165,6 +191,7 @@ const result = await invoke("get_configs");
 - 前端统一通过 `invoke()` 调 Rust command。
 - command 注册权威位置是 `src-tauri/src/lib.rs`。
 - 如果前端能调到函数但 Rust 未注册，运行时会直接失败。
+- 新增 command 后同步检查 Tauri capability；涉及插件 API 时确认 `src-tauri/capabilities/default.json` 已授权。
 
 ### Schema 驱动的配置系统
 
@@ -220,6 +247,14 @@ const result = await invoke("get_configs");
 - 公共 z-index 变量在 `src/styles/shared.css`
 - 编辑器抽屉有共享样式，不要在单个页面里重新发明一套
 - 复杂表单优先沿用现有 `react-hook-form + zodResolver` 模式
+
+### 日志与诊断约束
+
+- 日志是本机排障工具，不是审计归档；不要新增远程上传、导出或长期归档，除非需求明确。
+- 前端用户反馈继续使用 `useToast()`，日志只作为排障补充。
+- 前后端都要先脱敏再写日志；错误消息也要经过脱敏 helper。
+- 日志查看入口保持在“设置 -> 诊断”，不要加入主侧边栏，除非产品需求明确调整。
+- 日志读取只展示最近内容，避免一次性读取超大文件造成 UI 卡顿。
 
 ## 提交前验证清单
 
@@ -283,6 +318,10 @@ grep "'@codemirror/state@" pnpm-lock.yaml
 ### 不要在前端复制后端业务逻辑
 
 配置预览、配置应用、Provider/Skills/Memory 的真实持久化规则都在 Rust。前端负责调用与展示，不要复制一份“看起来一样”的规则。
+
+### 不要把日志当成配置数据
+
+日志目录由 Tauri 的 `app_log_dir()` 解析。不要把日志文件写入、迁移到或备份到 `~/.config/ai-manager/`，避免把排障数据混进配置数据。
 
 ## 参考阅读顺序
 
