@@ -244,6 +244,14 @@ function switchDocumentSectionToEdit(name: string, editButtonName: string): HTML
 describe("PresetEditor", () => {
   beforeEach(() => {
     localStorage.clear();
+    Object.defineProperty(globalThis.navigator, "languages", {
+      value: ["zh-CN"],
+      configurable: true,
+    });
+    Object.defineProperty(globalThis.navigator, "language", {
+      value: "zh-CN",
+      configurable: true,
+    });
     fetchMock.mockReset();
     showToastMock.mockReset();
     openDialogMock.mockReset();
@@ -1324,7 +1332,7 @@ describe("PresetEditor", () => {
           permissions: {
             defaultMode: "dontAsk",
             disableBypassPermissionsMode: "disable",
-            allow: ["Bash(git *)"],
+            allow: ["Bash(old-allow *)"],
             ask: ["Bash(rm *)"],
             deny: ["Read(**/config.yaml)"],
             additionalDirectories: ["~/projects/shared"],
@@ -1352,8 +1360,8 @@ describe("PresetEditor", () => {
       disableBypassPermissionsMode: "disable",
       additionalDirectories: ["~/projects/shared"],
     });
-    expect(savedPermissions?.allow).toContain("Bash(git status *)");
-    expect(savedPermissions?.allow).not.toContain("Bash(git *)");
+    expect(savedPermissions?.allow).toContain("Bash(git *)");
+    expect(savedPermissions?.allow).not.toContain("Bash(old-allow *)");
     expect(savedPermissions?.ask).toContain("Bash(curl *)");
     expect(savedPermissions?.deny).toContain("Bash(git reset --hard*)");
     expect(savedPermissions?.deny).not.toContain("Read(**/config.yaml)");

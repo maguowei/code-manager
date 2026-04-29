@@ -260,6 +260,14 @@ describe("ProfileEditor", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     localStorage.clear();
+    Object.defineProperty(globalThis.navigator, "languages", {
+      value: ["zh-CN"],
+      configurable: true,
+    });
+    Object.defineProperty(globalThis.navigator, "language", {
+      value: "zh-CN",
+      configurable: true,
+    });
     invokeMock.mockReset();
     showToastMock.mockReset();
     fetchMock.mockReset();
@@ -2265,7 +2273,7 @@ describe("ProfileEditor", () => {
           permissions: {
             defaultMode: "dontAsk",
             disableBypassPermissionsMode: "disable",
-            allow: ["Bash(git *)"],
+            allow: ["Bash(old-allow *)"],
             ask: ["Bash(rm *)"],
             deny: ["Read(**/config.yaml)"],
             additionalDirectories: ["~/projects/shared"],
@@ -2293,7 +2301,9 @@ describe("ProfileEditor", () => {
     expect(
       within(permissionsSection).getByRole("button", { name: "清空允许规则" }),
     ).toBeInTheDocument();
-    expect(within(permissionsSection).getByLabelText("允许规则 1")).toHaveValue("Bash(git *)");
+    expect(within(permissionsSection).getByLabelText("允许规则 1")).toHaveValue(
+      "Bash(old-allow *)",
+    );
 
     fireEvent.click(within(permissionsSection).getByRole("button", { name: "加载推荐规则预设" }));
     fireEvent.click(screen.getByRole("button", { name: "加载规则" }));
@@ -2307,7 +2317,7 @@ describe("ProfileEditor", () => {
     fireEvent.click(within(permissionsSection).getByRole("button", { name: "展开 拒绝规则" }));
 
     expect(within(permissionsSection).getByLabelText("允许规则 1")).toHaveValue("Bash(pwd)");
-    expect(within(permissionsSection).getByLabelText("询问规则 1")).toHaveValue("Bash(cat *)");
+    expect(within(permissionsSection).getByLabelText("询问规则 1")).toHaveValue("Bash(rm *)");
     expect(within(permissionsSection).getByLabelText("拒绝规则 1")).toHaveValue("Bash(sudo *)");
 
     await act(async () => {
@@ -2323,8 +2333,8 @@ describe("ProfileEditor", () => {
       disableBypassPermissionsMode: "disable",
       additionalDirectories: ["~/projects/shared"],
     });
-    expect(savedPermissions?.allow).toContain("Bash(git status *)");
-    expect(savedPermissions?.allow).not.toContain("Bash(git *)");
+    expect(savedPermissions?.allow).toContain("Bash(git *)");
+    expect(savedPermissions?.allow).not.toContain("Bash(old-allow *)");
     expect(savedPermissions?.ask).toContain("Bash(curl *)");
     expect(savedPermissions?.deny).toContain("Bash(git reset --hard*)");
     expect(savedPermissions?.deny).not.toContain("Read(**/config.yaml)");
