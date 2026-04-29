@@ -10,8 +10,8 @@ mod utils;
 
 use config::{
     apply_profile, delete_preset, delete_profile, duplicate_profile, get_config_workspace,
-    preview_profile, reorder_profiles, set_app_preferences, test_profile_model, upsert_preset,
-    upsert_profile,
+    install_status_line_preset, preview_profile, reorder_profiles, set_app_preferences,
+    test_profile_model, upsert_preset, upsert_profile,
 };
 use history::{get_history, get_history_if_changed, get_session_detail};
 use logging::{clear_app_logs, get_app_logs, open_logs_dir};
@@ -82,6 +82,7 @@ pub fn run() {
             reorder_profiles,
             delete_profile,
             apply_profile,
+            install_status_line_preset,
             preview_profile,
             test_profile_model,
             upsert_preset,

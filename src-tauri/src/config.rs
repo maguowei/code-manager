@@ -5,6 +5,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::fs;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -22,6 +23,9 @@ const MODEL_TEST_PROMPT_EN: &str =
     "Please reply with one short sentence confirming this API test request succeeded.";
 const MODEL_TEST_PROMPT_ZH: &str = "请用一句简短的话确认这次 API 测试请求成功。";
 const SYSTEM_LOCALE_ENV_KEYS: [&str; 4] = ["LC_ALL", "LC_MESSAGES", "LANGUAGE", "LANG"];
+const DEFAULT_STATUS_LINE_PRESET_ID: &str = "default";
+const DEFAULT_STATUS_LINE_COMMAND_PATH: &str = "~/.claude/statusline.sh";
+const DEFAULT_STATUS_LINE_SCRIPT: &str = include_str!("../resources/statusline/default.sh");
 
 static CLAUDE_SETTINGS_SCHEMA: Lazy<Value> = Lazy::new(|| {
     serde_json::from_str(include_str!(
@@ -165,6 +169,16 @@ pub struct ConfigWorkspace {
     pub custom_presets: Vec<SettingsPreset>,
     pub profiles: Vec<ConfigProfile>,
     pub bindings: BindingState,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StatusLinePresetInstallResult {
+    pub preset_id: String,
+    pub target_path: String,
+    pub command_path: String,
+    pub installed: bool,
+    pub needs_overwrite: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -1234,6 +1248,95 @@ fn profile_settings_path() -> Result<PathBuf, String> {
     get_user_settings_path()
 }
 
+fn status_line_preset_target_path() -> Result<PathBuf, String> {
+    Ok(crate::utils::get_home_dir()?
+        .join(".claude")
+        .join("statusline.sh"))
+}
+
+fn build_status_line_preset_result(
+    preset_id: &str,
+    target_path: &std::path::Path,
+    installed: bool,
+    needs_overwrite: bool,
+) -> StatusLinePresetInstallResult {
+    StatusLinePresetInstallResult {
+        preset_id: preset_id.to_string(),
+        target_path: target_path.display().to_string(),
+        command_path: DEFAULT_STATUS_LINE_COMMAND_PATH.to_string(),
+        installed,
+        needs_overwrite,
+    }
+}
+
+fn ensure_status_line_script_executable(path: &std::path::Path) -> Result<(), String> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o755))
+            .map_err(|e| format!("设置状态行脚本可执行权限失败 {:?}: {}", path, e))?;
+    }
+
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+    }
+
+    Ok(())
+}
+
+fn write_status_line_script(path: &std::path::Path, content: &str) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("创建状态行脚本目录失败 {:?}: {}", parent, e))?;
+    }
+
+    fs::write(path, content).map_err(|e| format!("写入状态行脚本失败 {:?}: {}", path, e))?;
+    ensure_status_line_script_executable(path)
+}
+
+fn install_status_line_preset_inner(
+    preset_id: &str,
+    overwrite: bool,
+) -> Result<StatusLinePresetInstallResult, String> {
+    if preset_id != DEFAULT_STATUS_LINE_PRESET_ID {
+        return Err(format!("未知状态行预设 '{}'", preset_id));
+    }
+
+    let target_path = status_line_preset_target_path()?;
+    if target_path.exists() {
+        let existing = fs::read_to_string(&target_path)
+            .map_err(|e| format!("读取状态行脚本失败 {:?}: {}", target_path, e))?;
+
+        if existing == DEFAULT_STATUS_LINE_SCRIPT {
+            ensure_status_line_script_executable(&target_path)?;
+            return Ok(build_status_line_preset_result(
+                preset_id,
+                &target_path,
+                false,
+                false,
+            ));
+        }
+
+        if !overwrite {
+            return Ok(build_status_line_preset_result(
+                preset_id,
+                &target_path,
+                false,
+                true,
+            ));
+        }
+    }
+
+    write_status_line_script(&target_path, DEFAULT_STATUS_LINE_SCRIPT)?;
+    Ok(build_status_line_preset_result(
+        preset_id,
+        &target_path,
+        true,
+        false,
+    ))
+}
+
 fn remove_profile_bindings(bindings: &mut BindingState, profile_id: &str) {
     if bindings.user_profile_id.as_deref() == Some(profile_id) {
         bindings.user_profile_id = None;
@@ -1496,6 +1599,24 @@ pub fn apply_profile(app_handle: AppHandle, id: String) -> Result<(), String> {
         Ok(())
     })();
     crate::logging::log_command_result("profile.apply", &result, |_| format!("profile_id={id}"));
+    result
+}
+
+#[tauri::command]
+pub fn install_status_line_preset(
+    preset_id: String,
+    overwrite: bool,
+) -> Result<StatusLinePresetInstallResult, String> {
+    let result = install_status_line_preset_inner(&preset_id, overwrite);
+    crate::logging::log_command_result("status_line_preset.install", &result, |value| {
+        format!(
+            "preset_id={} installed={} needs_overwrite={} overwritten={}",
+            value.preset_id,
+            value.installed,
+            value.needs_overwrite,
+            overwrite && value.installed
+        )
+    });
     result
 }
 
@@ -2024,6 +2145,111 @@ mod tests {
         assert!(written.contains("\"model\": \"claude-sonnet-4-6\""));
         assert_eq!(registry.bindings.user_profile_id.as_deref(), Some("user-1"));
         assert!(registry.bindings.user_last_applied_at.is_some());
+
+        clear_test_env();
+    }
+
+    #[test]
+    fn install_status_line_preset_writes_default_script_to_user_claude_dir() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("status-line-install");
+        set_test_env(&root);
+
+        let result = install_status_line_preset_inner("default", false).unwrap();
+        let target_path = root.join(".claude").join("statusline.sh");
+
+        assert_eq!(PathBuf::from(&result.target_path), target_path);
+        assert_eq!(result.command_path, "~/.claude/statusline.sh");
+        assert!(result.installed);
+        assert!(!result.needs_overwrite);
+        assert_eq!(
+            fs::read_to_string(&target_path).unwrap(),
+            DEFAULT_STATUS_LINE_SCRIPT
+        );
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                fs::metadata(&target_path).unwrap().permissions().mode() & 0o777,
+                0o755
+            );
+        }
+
+        clear_test_env();
+    }
+
+    #[test]
+    fn install_status_line_preset_keeps_matching_script_and_repairs_permissions() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("status-line-existing-match");
+        set_test_env(&root);
+        let target_path = root.join(".claude").join("statusline.sh");
+        fs::create_dir_all(target_path.parent().unwrap()).unwrap();
+        fs::write(&target_path, DEFAULT_STATUS_LINE_SCRIPT).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&target_path, fs::Permissions::from_mode(0o600)).unwrap();
+        }
+
+        let result = install_status_line_preset_inner("default", false).unwrap();
+
+        assert!(!result.installed);
+        assert!(!result.needs_overwrite);
+        assert_eq!(
+            fs::read_to_string(&target_path).unwrap(),
+            DEFAULT_STATUS_LINE_SCRIPT
+        );
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                fs::metadata(&target_path).unwrap().permissions().mode() & 0o777,
+                0o755
+            );
+        }
+
+        clear_test_env();
+    }
+
+    #[test]
+    fn install_status_line_preset_reports_overwrite_needed_for_different_script() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("status-line-existing-different");
+        set_test_env(&root);
+        let target_path = root.join(".claude").join("statusline.sh");
+        fs::create_dir_all(target_path.parent().unwrap()).unwrap();
+        fs::write(&target_path, "#!/bin/sh\necho custom\n").unwrap();
+
+        let result = install_status_line_preset_inner("default", false).unwrap();
+
+        assert!(!result.installed);
+        assert!(result.needs_overwrite);
+        assert_eq!(
+            fs::read_to_string(&target_path).unwrap(),
+            "#!/bin/sh\necho custom\n"
+        );
+
+        clear_test_env();
+    }
+
+    #[test]
+    fn install_status_line_preset_overwrites_different_script_when_confirmed() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("status-line-overwrite");
+        set_test_env(&root);
+        let target_path = root.join(".claude").join("statusline.sh");
+        fs::create_dir_all(target_path.parent().unwrap()).unwrap();
+        fs::write(&target_path, "#!/bin/sh\necho custom\n").unwrap();
+
+        let result = install_status_line_preset_inner("default", true).unwrap();
+
+        assert!(result.installed);
+        assert!(!result.needs_overwrite);
+        assert_eq!(
+            fs::read_to_string(&target_path).unwrap(),
+            DEFAULT_STATUS_LINE_SCRIPT
+        );
 
         clear_test_env();
     }

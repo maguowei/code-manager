@@ -3001,6 +3001,199 @@ describe("ProfileEditor", () => {
     });
   }, 15000);
 
+  it("installs the default status line preset and saves its command path", async () => {
+    const { onSave } = renderEditor();
+    invokeMock.mockImplementation(async (command: string, payload?: unknown) => {
+      if (command === "install_status_line_preset") {
+        expect(payload).toEqual({
+          presetId: "default",
+          overwrite: false,
+        });
+        return {
+          presetId: "default",
+          targetPath: "/Users/test/.claude/statusline.sh",
+          commandPath: "~/.claude/statusline.sh",
+          installed: true,
+          needsOverwrite: false,
+        };
+      }
+      if (command === "preview_profile") {
+        const settings =
+          (payload as { data?: { settings?: Record<string, unknown> } } | undefined)?.data
+            ?.settings ?? {};
+        return JSON.stringify(
+          {
+            $schema: "https://json.schemastore.org/claude-code-settings.json",
+            ...settings,
+          },
+          null,
+          2,
+        );
+      }
+      return null;
+    });
+
+    const statusLineSection = getSection("状态行");
+    toggleAccordionSection("状态行");
+
+    await act(async () => {
+      fireEvent.click(
+        within(statusLineSection).getByRole("button", { name: "启用默认状态行预设" }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(within(statusLineSection).getByLabelText("状态行命令")).toHaveValue(
+      "~/.claude/statusline.sh",
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    });
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settings: expect.objectContaining({
+          statusLine: {
+            type: "command",
+            command: "~/.claude/statusline.sh",
+          },
+        }),
+      }),
+    );
+  });
+
+  it("confirms before overwriting a different status line script", async () => {
+    const { onSave } = renderEditor();
+    invokeMock.mockImplementation(async (command: string, payload?: unknown) => {
+      if (command === "install_status_line_preset") {
+        const overwrite = (payload as { overwrite?: boolean }).overwrite === true;
+        return overwrite
+          ? {
+              presetId: "default",
+              targetPath: "/Users/test/.claude/statusline.sh",
+              commandPath: "~/.claude/statusline.sh",
+              installed: true,
+              needsOverwrite: false,
+            }
+          : {
+              presetId: "default",
+              targetPath: "/Users/test/.claude/statusline.sh",
+              commandPath: "~/.claude/statusline.sh",
+              installed: false,
+              needsOverwrite: true,
+            };
+      }
+      if (command === "preview_profile") {
+        const settings =
+          (payload as { data?: { settings?: Record<string, unknown> } } | undefined)?.data
+            ?.settings ?? {};
+        return JSON.stringify(
+          {
+            $schema: "https://json.schemastore.org/claude-code-settings.json",
+            ...settings,
+          },
+          null,
+          2,
+        );
+      }
+      return null;
+    });
+
+    const statusLineSection = getSection("状态行");
+    toggleAccordionSection("状态行");
+
+    await act(async () => {
+      fireEvent.click(
+        within(statusLineSection).getByRole("button", { name: "启用默认状态行预设" }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText("覆盖状态行脚本")).toBeInTheDocument();
+    expect(invokeMock).toHaveBeenCalledWith("install_status_line_preset", {
+      presetId: "default",
+      overwrite: false,
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "覆盖" }));
+      await Promise.resolve();
+    });
+
+    expect(invokeMock).toHaveBeenCalledWith("install_status_line_preset", {
+      presetId: "default",
+      overwrite: true,
+    });
+    expect(within(statusLineSection).getByLabelText("状态行命令")).toHaveValue(
+      "~/.claude/statusline.sh",
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    });
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settings: expect.objectContaining({
+          statusLine: {
+            type: "command",
+            command: "~/.claude/statusline.sh",
+          },
+        }),
+      }),
+    );
+  });
+
+  it("keeps the existing status line value when preset installation fails", async () => {
+    renderEditor({
+      profile: {
+        ...PROFILE_FIXTURE,
+        settings: {
+          ...PROFILE_FIXTURE.settings,
+          statusLine: {
+            type: "command",
+            command: "~/.claude/custom-statusline.sh",
+          },
+        },
+      },
+    });
+    invokeMock.mockImplementation(async (command: string, payload?: unknown) => {
+      if (command === "install_status_line_preset") {
+        throw new Error("install failed");
+      }
+      if (command === "preview_profile") {
+        const settings =
+          (payload as { data?: { settings?: Record<string, unknown> } } | undefined)?.data
+            ?.settings ?? {};
+        return JSON.stringify(
+          {
+            $schema: "https://json.schemastore.org/claude-code-settings.json",
+            ...settings,
+          },
+          null,
+          2,
+        );
+      }
+      return null;
+    });
+
+    const statusLineSection = getSection("状态行");
+    toggleAccordionSection("状态行");
+
+    await act(async () => {
+      fireEvent.click(
+        within(statusLineSection).getByRole("button", { name: "启用默认状态行预设" }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(showToastMock).toHaveBeenCalledWith("启用状态行预设失败", "error");
+    expect(within(statusLineSection).getByLabelText("状态行命令")).toHaveValue(
+      "~/.claude/custom-statusline.sh",
+    );
+  });
+
   it("validates status line controls and removes statusLine when cleared", async () => {
     const onSave = vi.fn();
     renderEditor({

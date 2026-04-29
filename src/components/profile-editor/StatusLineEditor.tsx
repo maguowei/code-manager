@@ -1,5 +1,8 @@
+import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useToast } from "../../hooks/useToast";
 import { useI18n } from "../../i18n";
+import ConfirmDialog from "../ConfirmDialog";
 import { readObject } from "./editor-utils";
 import {
   getStatusLineErrorKey,
@@ -16,11 +19,24 @@ interface StatusLineEditorProps {
   showTitle?: boolean;
 }
 
+interface StatusLinePresetInstallResult {
+  presetId: string;
+  targetPath: string;
+  commandPath: string;
+  installed: boolean;
+  needsOverwrite: boolean;
+}
+
+const DEFAULT_STATUS_LINE_PRESET_ID = "default";
+
 function StatusLineEditor({ value, onChange, onError, showTitle = true }: StatusLineEditorProps) {
   const { t } = useI18n();
+  const { showToast } = useToast();
   const statusLineObject = useMemo(() => readObject(value), [value]);
   const sourceValue = useMemo(() => readStatusLineFormValue(statusLineObject), [statusLineObject]);
   const [draft, setDraft] = useState<StatusLineFormValue>(sourceValue);
+  const [isInstallingPreset, setIsInstallingPreset] = useState(false);
+  const [overwriteDialogOpen, setOverwriteDialogOpen] = useState(false);
   const onErrorRef = useRef(onError);
 
   useEffect(() => {
@@ -44,6 +60,42 @@ function StatusLineEditor({ value, onChange, onError, showTitle = true }: Status
     }
   }
 
+  function applyInstalledPreset(commandPath: string) {
+    const nextDraft: StatusLineFormValue = {
+      command: commandPath,
+      padding: "",
+      refreshInterval: "",
+    };
+    setDraft(nextDraft);
+    onError("");
+    onChange({
+      type: "command",
+      command: commandPath,
+    });
+  }
+
+  async function installDefaultPreset(overwrite: boolean) {
+    setIsInstallingPreset(true);
+    try {
+      const result = await invoke<StatusLinePresetInstallResult>("install_status_line_preset", {
+        presetId: DEFAULT_STATUS_LINE_PRESET_ID,
+        overwrite,
+      });
+
+      if (result.needsOverwrite) {
+        setOverwriteDialogOpen(true);
+        return;
+      }
+
+      setOverwriteDialogOpen(false);
+      applyInstalledPreset(result.commandPath);
+    } catch {
+      showToast(t("profileEditor.statusLine.installPresetError"), "error");
+    } finally {
+      setIsInstallingPreset(false);
+    }
+  }
+
   const validationError = useMemo(() => {
     const { errorCode } = normalizeStatusLineFormValue(draft);
     return errorCode ? t(getStatusLineErrorKey(errorCode, "controls")) : "";
@@ -56,6 +108,16 @@ function StatusLineEditor({ value, onChange, onError, showTitle = true }: Status
           {showTitle ? <h4>{t("profileEditor.statusLine.title")}</h4> : null}
           <p>{t("profileEditor.statusLine.summaryHint")}</p>
         </div>
+        <button
+          type="button"
+          className="profile-secondary-btn"
+          disabled={isInstallingPreset}
+          onClick={() => {
+            void installDefaultPreset(false);
+          }}
+        >
+          {t("profileEditor.statusLine.installDefaultPreset")}
+        </button>
       </div>
 
       <div className="form-group">
@@ -116,6 +178,19 @@ function StatusLineEditor({ value, onChange, onError, showTitle = true }: Status
       </div>
 
       {validationError ? <p className="field-error">{validationError}</p> : null}
+
+      {overwriteDialogOpen ? (
+        <ConfirmDialog
+          title={t("profileEditor.statusLine.overwriteDialogTitle")}
+          message={t("profileEditor.statusLine.overwriteDialogMessage")}
+          confirmText={t("profileEditor.statusLine.overwriteDialogConfirm")}
+          cancelText={t("profileEditor.common.cancel")}
+          onConfirm={() => {
+            void installDefaultPreset(true);
+          }}
+          onCancel={() => setOverwriteDialogOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

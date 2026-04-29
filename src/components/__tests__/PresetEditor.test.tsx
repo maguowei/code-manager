@@ -12,7 +12,8 @@ import {
   OFFICIAL_MARKETPLACE_REPO,
 } from "../profile-editor/marketplace-presets";
 
-const { showToastMock, openDialogMock, openUrlMock } = vi.hoisted(() => ({
+const { invokeMock, showToastMock, openDialogMock, openUrlMock } = vi.hoisted(() => ({
+  invokeMock: vi.fn(),
   showToastMock: vi.fn(),
   openDialogMock: vi.fn(),
   openUrlMock: vi.fn(async (_url: string) => null),
@@ -26,6 +27,10 @@ vi.mock("../../hooks/useToast", () => ({
   useToast: () => ({
     showToast: showToastMock,
   }),
+}));
+
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: (...args: unknown[]) => invokeMock(...args),
 }));
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({
@@ -253,6 +258,7 @@ describe("PresetEditor", () => {
       configurable: true,
     });
     fetchMock.mockReset();
+    invokeMock.mockReset();
     showToastMock.mockReset();
     openDialogMock.mockReset();
     openUrlMock.mockClear();
@@ -1716,6 +1722,49 @@ describe("PresetEditor", () => {
             command: "~/.claude/statusline.sh",
             padding: 2,
             refreshInterval: 5,
+          },
+        }),
+      }),
+    );
+  });
+
+  it("installs the default status line preset and saves it in preset view", async () => {
+    const onSave = vi.fn();
+    renderEditor({ onSave });
+    invokeMock.mockResolvedValue({
+      presetId: "default",
+      targetPath: "/Users/test/.claude/statusline.sh",
+      commandPath: "~/.claude/statusline.sh",
+      installed: true,
+      needsOverwrite: false,
+    });
+
+    const statusLineSection = getSection("状态行");
+    toggleAccordionSection("状态行");
+
+    await act(async () => {
+      fireEvent.click(
+        within(statusLineSection).getByRole("button", { name: "启用默认状态行预设" }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(invokeMock).toHaveBeenCalledWith("install_status_line_preset", {
+      presetId: "default",
+      overwrite: false,
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+      await Promise.resolve();
+    });
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settingsPatch: expect.objectContaining({
+          statusLine: {
+            type: "command",
+            command: "~/.claude/statusline.sh",
           },
         }),
       }),
