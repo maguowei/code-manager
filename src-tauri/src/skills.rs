@@ -263,41 +263,48 @@ pub fn get_skills() -> Result<Vec<Skill>, String> {
 /// 切换 Skill 的启用/禁用状态（通过移动目录实现）
 #[tauri::command]
 pub fn toggle_skill(id: String, is_active: bool) -> Result<Skill, String> {
-    let _lock = crate::utils::lock_skills()?;
+    let result = (|| {
+        let _lock = crate::utils::lock_skills()?;
 
-    let src = get_skill_path(&id, is_active);
-    let dst_root = if is_active {
-        get_disabled_dir()
-    } else {
-        get_skills_dir()
-    };
-    let dst = dst_root.join(&id);
+        let src = get_skill_path(&id, is_active);
+        let dst_root = if is_active {
+            get_disabled_dir()
+        } else {
+            get_skills_dir()
+        };
+        let dst = dst_root.join(&id);
 
-    // 确保目标根目录存在
-    fs::create_dir_all(&dst_root).map_err(|e| format!("创建目录失败: {}", e))?;
+        // 确保目标根目录存在
+        fs::create_dir_all(&dst_root).map_err(|e| format!("创建目录失败: {}", e))?;
 
-    // 移动目录
-    fs::rename(&src, &dst).map_err(|e| format!("移动 Skill 目录失败: {}", e))?;
+        // 移动目录
+        fs::rename(&src, &dst).map_err(|e| format!("移动 Skill 目录失败: {}", e))?;
 
-    // 读取新位置的 SKILL.md 并返回更新后的 Skill
-    let new_is_active = !is_active;
-    let skill_md = dst.join("SKILL.md");
-    let raw = fs::read_to_string(&skill_md).map_err(|e| format!("读取 SKILL.md 失败: {}", e))?;
-    let (name, description, disable_model_invocation, user_invocable, content) =
-        parse_skill_md(&raw);
-    let (created_at, updated_at) = get_file_times(&skill_md);
+        // 读取新位置的 SKILL.md 并返回更新后的 Skill
+        let new_is_active = !is_active;
+        let skill_md = dst.join("SKILL.md");
+        let raw =
+            fs::read_to_string(&skill_md).map_err(|e| format!("读取 SKILL.md 失败: {}", e))?;
+        let (name, description, disable_model_invocation, user_invocable, content) =
+            parse_skill_md(&raw);
+        let (created_at, updated_at) = get_file_times(&skill_md);
 
-    Ok(Skill {
-        name: resolve_display_name(&name, &id),
-        id,
-        description,
-        content,
-        disable_model_invocation,
-        user_invocable,
-        is_active: new_is_active,
-        created_at,
-        updated_at,
-    })
+        Ok(Skill {
+            name: resolve_display_name(&name, &id),
+            id,
+            description,
+            content,
+            disable_model_invocation,
+            user_invocable,
+            is_active: new_is_active,
+            created_at,
+            updated_at,
+        })
+    })();
+    crate::logging::log_command_result("skill.toggle", &result, |skill| {
+        format!("skill_id={} active={}", skill.id, skill.is_active)
+    });
+    result
 }
 
 /// 验证 Skill id（目录名）：仅允许小写字母、数字、连字符
@@ -316,107 +323,125 @@ fn validate_skill_id(id: &str) -> Result<(), String> {
 
 #[tauri::command]
 pub fn add_skill(data: SkillData) -> Result<Skill, String> {
-    let _lock = crate::utils::lock_skills()?;
-    let SkillData {
-        id,
-        name,
-        description,
-        content,
-        disable_model_invocation,
-        user_invocable,
-    } = data;
+    let result = (|| {
+        let _lock = crate::utils::lock_skills()?;
+        let SkillData {
+            id,
+            name,
+            description,
+            content,
+            disable_model_invocation,
+            user_invocable,
+        } = data;
 
-    validate_skill_id(&id)?;
+        validate_skill_id(&id)?;
 
-    let skill_dir = get_skills_dir().join(&id);
-    if skill_dir.exists() {
-        return Err(format!("Skill '{}' 已存在", id));
-    }
+        let skill_dir = get_skills_dir().join(&id);
+        if skill_dir.exists() {
+            return Err(format!("Skill '{}' 已存在", id));
+        }
 
-    // 检查禁用目录中是否已有同名
-    if get_disabled_dir().join(&id).exists() {
-        return Err(format!("Skill '{}' 已存在（已禁用）", id));
-    }
+        // 检查禁用目录中是否已有同名
+        if get_disabled_dir().join(&id).exists() {
+            return Err(format!("Skill '{}' 已存在（已禁用）", id));
+        }
 
-    let display_name = resolve_display_name(&name, &id);
-    let raw = serialize_skill_md(
-        &display_name,
-        &description,
-        disable_model_invocation,
-        user_invocable,
-        &content,
-    );
-    let skill_md = skill_dir.join("SKILL.md");
-    crate::utils::ensure_dir_and_write(&skill_md, &raw)?;
+        let display_name = resolve_display_name(&name, &id);
+        let raw = serialize_skill_md(
+            &display_name,
+            &description,
+            disable_model_invocation,
+            user_invocable,
+            &content,
+        );
+        let skill_md = skill_dir.join("SKILL.md");
+        crate::utils::ensure_dir_and_write(&skill_md, &raw)?;
 
-    let (created_at, updated_at) = get_file_times(&skill_md);
+        let (created_at, updated_at) = get_file_times(&skill_md);
 
-    Ok(Skill {
-        id,
-        name: display_name,
-        description,
-        content,
-        disable_model_invocation,
-        user_invocable,
-        is_active: true,
-        created_at,
-        updated_at,
-    })
+        Ok(Skill {
+            id,
+            name: display_name,
+            description,
+            content,
+            disable_model_invocation,
+            user_invocable,
+            is_active: true,
+            created_at,
+            updated_at,
+        })
+    })();
+    crate::logging::log_command_result("skill.add", &result, |skill| {
+        format!("skill_id={}", skill.id)
+    });
+    result
 }
 
 #[tauri::command]
 pub fn update_skill(id: String, is_active: bool, data: SkillData) -> Result<Skill, String> {
-    ensure_matching_skill_id(&id, &data)?;
+    let result = (|| {
+        ensure_matching_skill_id(&id, &data)?;
 
-    let _lock = crate::utils::lock_skills()?;
-    let SkillData {
-        id,
-        name,
-        description,
-        content,
-        disable_model_invocation,
-        user_invocable,
-    } = data;
+        let _lock = crate::utils::lock_skills()?;
+        let SkillData {
+            id,
+            name,
+            description,
+            content,
+            disable_model_invocation,
+            user_invocable,
+        } = data;
 
-    let skill_md = get_skill_md_path(&id, is_active);
-    let display_name = resolve_display_name(&name, &id);
-    let raw = serialize_skill_md(
-        &display_name,
-        &description,
-        disable_model_invocation,
-        user_invocable,
-        &content,
-    );
-    crate::utils::ensure_dir_and_write(&skill_md, &raw)
-        .map_err(|e| format!("Skill '{}' 不存在或写入失败: {}", id, e))?;
+        let skill_md = get_skill_md_path(&id, is_active);
+        let display_name = resolve_display_name(&name, &id);
+        let raw = serialize_skill_md(
+            &display_name,
+            &description,
+            disable_model_invocation,
+            user_invocable,
+            &content,
+        );
+        crate::utils::ensure_dir_and_write(&skill_md, &raw)
+            .map_err(|e| format!("Skill '{}' 不存在或写入失败: {}", id, e))?;
 
-    let (created_at, updated_at) = get_file_times(&skill_md);
+        let (created_at, updated_at) = get_file_times(&skill_md);
 
-    Ok(Skill {
-        id,
-        name: display_name,
-        description,
-        content,
-        disable_model_invocation,
-        user_invocable,
-        is_active,
-        created_at,
-        updated_at,
-    })
+        Ok(Skill {
+            id,
+            name: display_name,
+            description,
+            content,
+            disable_model_invocation,
+            user_invocable,
+            is_active,
+            created_at,
+            updated_at,
+        })
+    })();
+    crate::logging::log_command_result("skill.update", &result, |skill| {
+        format!("skill_id={} active={}", skill.id, skill.is_active)
+    });
+    result
 }
 
 #[tauri::command]
 pub fn delete_skill(id: String, is_active: bool) -> Result<(), String> {
-    let _lock = crate::utils::lock_skills()?;
+    let result = (|| {
+        let _lock = crate::utils::lock_skills()?;
 
-    let skill_dir = get_skill_path(&id, is_active);
-    if !skill_dir.exists() {
-        return Err(format!("Skill '{}' 不存在", id));
-    }
+        let skill_dir = get_skill_path(&id, is_active);
+        if !skill_dir.exists() {
+            return Err(format!("Skill '{}' 不存在", id));
+        }
 
-    fs::remove_dir_all(&skill_dir).map_err(|e| format!("删除 Skill 目录失败: {}", e))?;
+        fs::remove_dir_all(&skill_dir).map_err(|e| format!("删除 Skill 目录失败: {}", e))?;
 
-    Ok(())
+        Ok(())
+    })();
+    crate::logging::log_command_result("skill.delete", &result, |_| {
+        format!("skill_id={id} active={is_active}")
+    });
+    result
 }
 
 /// 验证支持文件路径：不允许 ".." 和绝对路径
@@ -496,23 +521,29 @@ pub fn add_skill_file(
     is_active: bool,
     data: SkillFileData,
 ) -> Result<SkillFile, String> {
-    let _lock = crate::utils::lock_skills()?;
-    let SkillFileData { file_name, content } = data;
+    let result = (|| {
+        let _lock = crate::utils::lock_skills()?;
+        let SkillFileData { file_name, content } = data;
 
-    validate_file_name(&file_name)?;
+        validate_file_name(&file_name)?;
 
-    let file_path = get_skill_path(&id, is_active).join(&file_name);
-    if file_path.exists() {
-        return Err(format!("文件 '{}' 已存在", file_name));
-    }
+        let file_path = get_skill_path(&id, is_active).join(&file_name);
+        if file_path.exists() {
+            return Err(format!("文件 '{}' 已存在", file_name));
+        }
 
-    crate::utils::ensure_dir_and_write(&file_path, &content)?;
+        crate::utils::ensure_dir_and_write(&file_path, &content)?;
 
-    Ok(SkillFile {
-        name: file_name,
-        content,
-        is_binary: false,
-    })
+        Ok(SkillFile {
+            name: file_name,
+            content,
+            is_binary: false,
+        })
+    })();
+    crate::logging::log_command_result("skill.file.add", &result, |file| {
+        format!("skill_id={id} file_name={}", file.name)
+    });
+    result
 }
 
 #[tauri::command]
@@ -522,88 +553,108 @@ pub fn update_skill_file(
     file_name: String,
     data: SkillFileData,
 ) -> Result<SkillFile, String> {
-    ensure_matching_skill_file_name(&file_name, &data)?;
+    let result = (|| {
+        ensure_matching_skill_file_name(&file_name, &data)?;
 
-    let _lock = crate::utils::lock_skills()?;
-    let SkillFileData { file_name, content } = data;
+        let _lock = crate::utils::lock_skills()?;
+        let SkillFileData { file_name, content } = data;
 
-    validate_file_name(&file_name)?;
+        validate_file_name(&file_name)?;
 
-    let file_path = get_skill_path(&id, is_active).join(&file_name);
-    crate::utils::ensure_dir_and_write(&file_path, &content)?;
+        let file_path = get_skill_path(&id, is_active).join(&file_name);
+        crate::utils::ensure_dir_and_write(&file_path, &content)?;
 
-    Ok(SkillFile {
-        name: file_name,
-        content,
-        is_binary: false,
-    })
+        Ok(SkillFile {
+            name: file_name,
+            content,
+            is_binary: false,
+        })
+    })();
+    crate::logging::log_command_result("skill.file.update", &result, |file| {
+        format!("skill_id={id} file_name={}", file.name)
+    });
+    result
 }
 
 #[tauri::command]
 pub fn delete_skill_file(id: String, is_active: bool, file_name: String) -> Result<(), String> {
-    let _lock = crate::utils::lock_skills()?;
+    let result = (|| {
+        let _lock = crate::utils::lock_skills()?;
 
-    validate_file_name(&file_name)?;
+        validate_file_name(&file_name)?;
 
-    let file_path = get_skill_path(&id, is_active).join(&file_name);
-    fs::remove_file(&file_path).map_err(|e| format!("删除文件失败（文件可能不存在）: {}", e))?;
+        let file_path = get_skill_path(&id, is_active).join(&file_name);
+        fs::remove_file(&file_path)
+            .map_err(|e| format!("删除文件失败（文件可能不存在）: {}", e))?;
 
-    // 若父目录（非 skill 根目录）为空，则删除父目录
-    if let Some(parent) = file_path.parent() {
-        let skill_root = get_skill_path(&id, is_active);
-        if parent != skill_root {
-            if let Ok(mut entries) = fs::read_dir(parent) {
-                if entries.next().is_none() {
-                    let _ = fs::remove_dir(parent);
+        // 若父目录（非 skill 根目录）为空，则删除父目录
+        if let Some(parent) = file_path.parent() {
+            let skill_root = get_skill_path(&id, is_active);
+            if parent != skill_root {
+                if let Ok(mut entries) = fs::read_dir(parent) {
+                    if entries.next().is_none() {
+                        let _ = fs::remove_dir(parent);
+                    }
                 }
             }
         }
-    }
 
-    Ok(())
+        Ok(())
+    })();
+    crate::logging::log_command_result("skill.file.delete", &result, |_| {
+        format!("skill_id={id} file_name={file_name}")
+    });
+    result
 }
 
 #[tauri::command]
 pub fn sync_skill_to_codex(id: String, is_active: bool) -> Result<(), String> {
-    let _lock = crate::utils::lock_skills()?;
+    let result = (|| {
+        let _lock = crate::utils::lock_skills()?;
 
-    let src = get_skill_path(&id, is_active);
-    if !src.exists() {
-        return Err(format!("Skill '{}' 不存在", id));
-    }
-
-    let codex_skills_dir = crate::utils::home_dir_or_fallback()
-        .join(".codex")
-        .join("skills");
-
-    fs::create_dir_all(&codex_skills_dir)
-        .map_err(|e| format!("创建 ~/.codex/skills 目录失败: {}", e))?;
-
-    let dest = codex_skills_dir.join(&id);
-
-    // 检查目标路径状态，一次 lstat 系统调用覆盖所有情况（含悬空软链接）
-    match fs::symlink_metadata(&dest) {
-        Ok(meta) if meta.is_symlink() => {
-            fs::remove_file(&dest).map_err(|e| format!("删除旧的软链接失败: {}", e))?;
+        let src = get_skill_path(&id, is_active);
+        if !src.exists() {
+            return Err(format!("Skill '{}' 不存在", id));
         }
-        Ok(_) => {
-            return Err(format!("目标路径已存在且不是软链接，无法覆盖: {:?}", dest));
-        }
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            // 目标不存在，正常继续
-        }
-        Err(e) => {
-            return Err(format!("获取目标元数据失败: {}", e));
-        }
-    }
 
-    #[cfg(unix)]
-    std::os::unix::fs::symlink(&src, &dest).map_err(|e| format!("创建软链接失败: {}", e))?;
+        let codex_skills_dir = crate::utils::home_dir_or_fallback()
+            .join(".codex")
+            .join("skills");
 
-    #[cfg(windows)]
-    std::os::windows::fs::symlink_dir(&src, &dest).map_err(|e| format!("创建软链接失败: {}", e))?;
+        fs::create_dir_all(&codex_skills_dir)
+            .map_err(|e| format!("创建 ~/.codex/skills 目录失败: {}", e))?;
 
-    Ok(())
+        let dest = codex_skills_dir.join(&id);
+
+        // 检查目标路径状态，一次 lstat 系统调用覆盖所有情况（含悬空软链接）
+        match fs::symlink_metadata(&dest) {
+            Ok(meta) if meta.is_symlink() => {
+                fs::remove_file(&dest).map_err(|e| format!("删除旧的软链接失败: {}", e))?;
+            }
+            Ok(_) => {
+                return Err(format!("目标路径已存在且不是软链接，无法覆盖: {:?}", dest));
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                // 目标不存在，正常继续
+            }
+            Err(e) => {
+                return Err(format!("获取目标元数据失败: {}", e));
+            }
+        }
+
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&src, &dest).map_err(|e| format!("创建软链接失败: {}", e))?;
+
+        #[cfg(windows)]
+        std::os::windows::fs::symlink_dir(&src, &dest)
+            .map_err(|e| format!("创建软链接失败: {}", e))?;
+
+        Ok(())
+    })();
+    crate::logging::log_command_result("skill.sync_codex", &result, |_| {
+        format!("skill_id={id} active={is_active}")
+    });
+    result
 }
 
 fn ensure_matching_skill_id(expected_id: &str, data: &SkillData) -> Result<(), String> {

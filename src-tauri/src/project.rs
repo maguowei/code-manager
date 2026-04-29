@@ -129,27 +129,45 @@ pub fn get_project_detail(project: &str) -> Result<ProjectDetail, String> {
 
 #[tauri::command]
 pub fn create_project_agents_symlink(project: &str) -> Result<(), String> {
-    let project_path = validate_project_path(project)?;
-    if !project_path.is_dir() {
-        return Err("项目目录不存在".to_string());
-    }
-    create_agents_symlink(&project_path)
+    let result = (|| {
+        let project_path = validate_project_path(project)?;
+        if !project_path.is_dir() {
+            return Err("项目目录不存在".to_string());
+        }
+        create_agents_symlink(&project_path)
+    })();
+    crate::logging::log_command_result("project.agents_symlink", &result, |_| {
+        format!("project={}", crate::utils::truncate(project, 160))
+    });
+    result
 }
 
 #[tauri::command]
 pub fn open_project_in_terminal(project: &str) -> Result<(), String> {
-    let project_path = validate_project_path(project)?;
-    let preferences = crate::config::load_app_preferences();
-    let request = build_terminal_open_request(&project_path, &preferences)?;
-    run_open_app_request(&request)
+    let result = (|| {
+        let project_path = validate_project_path(project)?;
+        let preferences = crate::config::load_app_preferences();
+        let request = build_terminal_open_request(&project_path, &preferences)?;
+        run_open_app_request(&request)
+    })();
+    crate::logging::log_command_result("project.open_terminal", &result, |_| {
+        format!("project={}", crate::utils::truncate(project, 160))
+    });
+    result
 }
 
 #[tauri::command]
 pub fn open_project_in_editor(project: &str) -> Result<(), String> {
-    let project_path = validate_project_path(project)?;
-    let preferences = crate::config::load_app_preferences();
-    let request = build_editor_open_request(&project_path, &preferences)?;
-    run_open_app_request(&request)
+    let result = (|| {
+        let project_path = validate_project_path(project)?;
+        let preferences = crate::config::load_app_preferences();
+        let request = build_editor_open_request(&project_path, &preferences)?;
+        run_open_app_request(&request)
+    })();
+    crate::logging::log_command_result("project.open_editor", &result, |_| {
+        format!("project={}", crate::utils::truncate(project, 160))
+    });
+    result
 }
 
 fn validate_project_path(project: &str) -> Result<PathBuf, String> {

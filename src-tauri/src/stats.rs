@@ -187,8 +187,12 @@ pub fn get_stats_history() -> Result<Vec<Snapshot>, String> {
 /// 手动触发快照
 #[tauri::command]
 pub fn take_stats_snapshot() -> Result<(), String> {
-    let _lock = crate::utils::lock_stats()?;
-    take_snapshot_inner()
+    let result = (|| {
+        let _lock = crate::utils::lock_stats()?;
+        take_snapshot_inner()
+    })();
+    crate::logging::log_command_result("stats.snapshot", &result, |_| String::new());
+    result
 }
 
 /// 快照线程停止句柄
@@ -217,7 +221,9 @@ pub fn start_snapshot_timer() -> SnapshotHandle {
     std::thread::spawn(move || {
         // 启动时立即执行一次快照
         if let Ok(_lock) = crate::utils::lock_stats() {
-            let _ = take_snapshot_inner();
+            if let Err(error) = take_snapshot_inner() {
+                crate::logging::log_command_error("stats.snapshot.timer", &error);
+            }
         }
 
         let (lock, cvar) = &*pair;
@@ -234,7 +240,9 @@ pub fn start_snapshot_timer() -> SnapshotHandle {
             // 到达或超过截止时间才执行快照
             if std::time::Instant::now() >= deadline {
                 if let Ok(_lock) = crate::utils::lock_stats() {
-                    let _ = take_snapshot_inner();
+                    if let Err(error) = take_snapshot_inner() {
+                        crate::logging::log_command_error("stats.snapshot.timer", &error);
+                    }
                 }
                 deadline = std::time::Instant::now() + std::time::Duration::from_secs(3600);
             }

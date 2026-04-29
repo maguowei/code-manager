@@ -8,6 +8,7 @@
   "permissions": [
     "core:default",
     "dialog:allow-open",
+    "log:default",
     "opener:default",
     "core:window:allow-inner-size",
     "core:window:allow-set-size",

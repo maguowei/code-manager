@@ -79,108 +79,130 @@ pub fn get_memories() -> Result<MemoryState, String> {
 
 #[tauri::command]
 pub fn add_memory(data: MemoryData) -> Result<Memory, String> {
-    if data.id.as_deref().filter(|id| !id.is_empty()).is_some() {
-        return Err("新增记忆不允许指定 id".to_string());
-    }
+    let result = (|| {
+        if data.id.as_deref().filter(|id| !id.is_empty()).is_some() {
+            return Err("新增记忆不允许指定 id".to_string());
+        }
 
-    // 加锁保护并发写入
-    let _lock = crate::utils::lock_memory()?;
+        // 加锁保护并发写入
+        let _lock = crate::utils::lock_memory()?;
 
-    let mut state = load_memory_state();
-    let now = crate::utils::current_timestamp();
-    let MemoryData { name, content, .. } = data;
+        let mut state = load_memory_state();
+        let now = crate::utils::current_timestamp();
+        let MemoryData { name, content, .. } = data;
 
-    let memory = Memory {
-        id: Uuid::new_v4().to_string(),
-        name,
-        content,
-        is_active: false,
-        created_at: now,
-        updated_at: now,
-    };
+        let memory = Memory {
+            id: Uuid::new_v4().to_string(),
+            name,
+            content,
+            is_active: false,
+            created_at: now,
+            updated_at: now,
+        };
 
-    state.memories.push(memory.clone());
-    save_memory_state(&state)?;
+        state.memories.push(memory.clone());
+        save_memory_state(&state)?;
 
-    Ok(memory)
+        Ok(memory)
+    })();
+    crate::logging::log_command_result("memory.add", &result, |memory| {
+        format!("memory_id={}", memory.id)
+    });
+    result
 }
 
 #[tauri::command]
 pub fn update_memory(id: String, data: MemoryData) -> Result<Memory, String> {
-    ensure_matching_memory_id(&id, &data)?;
+    let result = (|| {
+        ensure_matching_memory_id(&id, &data)?;
 
-    // 加锁保护并发写入
-    let _lock = crate::utils::lock_memory()?;
+        // 加锁保护并发写入
+        let _lock = crate::utils::lock_memory()?;
 
-    let mut state = load_memory_state();
-    let MemoryData { name, content, .. } = data;
+        let mut state = load_memory_state();
+        let MemoryData { name, content, .. } = data;
 
-    let memory = state
-        .memories
-        .iter_mut()
-        .find(|m| m.id == id)
-        .ok_or("未找到指定记忆")?;
+        let memory = state
+            .memories
+            .iter_mut()
+            .find(|m| m.id == id)
+            .ok_or("未找到指定记忆")?;
 
-    memory.name = name;
-    memory.content = content;
-    memory.updated_at = crate::utils::current_timestamp();
+        memory.name = name;
+        memory.content = content;
+        memory.updated_at = crate::utils::current_timestamp();
 
-    let updated = memory.clone();
-    let need_apply = updated.is_active;
+        let updated = memory.clone();
+        let need_apply = updated.is_active;
 
-    save_memory_state(&state)?;
+        save_memory_state(&state)?;
 
-    // 若此记忆当前处于活跃状态，重新 apply 以更新 CLAUDE.md
-    if need_apply {
-        apply_memories(&state)?;
-    }
+        // 若此记忆当前处于活跃状态，重新 apply 以更新 CLAUDE.md
+        if need_apply {
+            apply_memories(&state)?;
+        }
 
-    Ok(updated)
+        Ok(updated)
+    })();
+    crate::logging::log_command_result("memory.update", &result, |memory| {
+        format!("memory_id={} active={}", memory.id, memory.is_active)
+    });
+    result
 }
 
 #[tauri::command]
 pub fn delete_memory(id: String) -> Result<(), String> {
-    // 加锁保护并发写入
-    let _lock = crate::utils::lock_memory()?;
+    let result = (|| {
+        // 加锁保护并发写入
+        let _lock = crate::utils::lock_memory()?;
 
-    let mut state = load_memory_state();
+        let mut state = load_memory_state();
 
-    // 检查被删除的记忆是否活跃
-    let was_active = state.memories.iter().any(|m| m.id == id && m.is_active);
+        // 检查被删除的记忆是否活跃
+        let was_active = state.memories.iter().any(|m| m.id == id && m.is_active);
 
-    state.memories.retain(|m| m.id != id);
-    save_memory_state(&state)?;
+        state.memories.retain(|m| m.id != id);
+        save_memory_state(&state)?;
 
-    // 若删除的记忆是活跃的，重新 apply 以更新 CLAUDE.md
-    if was_active {
-        apply_memories(&state)?;
-    }
+        // 若删除的记忆是活跃的，重新 apply 以更新 CLAUDE.md
+        if was_active {
+            apply_memories(&state)?;
+        }
 
-    Ok(())
+        Ok(())
+    })();
+    crate::logging::log_command_result("memory.delete", &result, |_| format!("memory_id={id}"));
+    result
 }
 
 #[tauri::command]
 pub fn toggle_memory(id: String) -> Result<Memory, String> {
-    // 加锁保护并发写入
-    let _lock = crate::utils::lock_memory()?;
+    let result = (|| {
+        // 加锁保护并发写入
+        let _lock = crate::utils::lock_memory()?;
 
-    let mut state = load_memory_state();
+        let mut state = load_memory_state();
 
-    let memory = state
-        .memories
-        .iter_mut()
-        .find(|m| m.id == id)
-        .ok_or("未找到指定记忆")?;
+        let memory = state
+            .memories
+            .iter_mut()
+            .find(|m| m.id == id)
+            .ok_or("未找到指定记忆")?;
 
-    memory.is_active = !memory.is_active;
-    memory.updated_at = crate::utils::current_timestamp();
+        memory.is_active = !memory.is_active;
+        memory.updated_at = crate::utils::current_timestamp();
 
-    let toggled = memory.clone();
+        let toggled = memory.clone();
 
-    save_memory_state(&state)?;
-    apply_memories(&state)?;
+        save_memory_state(&state)?;
+        apply_memories(&state)?;
 
-    Ok(toggled)
+        Ok(toggled)
+    })();
+    crate::logging::log_command_result("memory.toggle", &result, |memory| {
+        format!("memory_id={} active={}", memory.id, memory.is_active)
+    });
+    result
 }
 
 fn ensure_matching_memory_id(expected_id: &str, data: &MemoryData) -> Result<(), String> {

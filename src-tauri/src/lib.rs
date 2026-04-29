@@ -1,5 +1,6 @@
 mod config;
 mod history;
+mod logging;
 mod memory;
 mod project;
 mod skills;
@@ -13,6 +14,7 @@ use config::{
     upsert_profile,
 };
 use history::{get_history, get_history_if_changed, get_session_detail};
+use logging::{get_app_logs, open_logs_dir};
 use memory::{add_memory, delete_memory, get_memories, toggle_memory, update_memory};
 use project::{
     create_project_agents_symlink, get_project_detail, open_project_in_editor,
@@ -24,14 +26,32 @@ use skills::{
 };
 use stats::{get_stats, get_stats_history, take_stats_snapshot};
 use tauri::Manager;
+use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    logging::install_panic_hook();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .level(log::LevelFilter::Info)
+                .rotation_strategy(RotationStrategy::KeepSome(8))
+                .max_file_size(2_000_000)
+                .clear_targets()
+                .targets([
+                    Target::new(TargetKind::Stdout),
+                    Target::new(TargetKind::LogDir {
+                        file_name: Some("ai-manager".to_string()),
+                    }),
+                ])
+                .build(),
+        )
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             tray::setup_tray(app)?;
+            log::info!("event=app.setup status=ok");
             let snapshot_handle = stats::start_snapshot_timer();
             // 保存句柄，app 退出时 handle drop 但线程也会随进程终止
             app.manage(snapshot_handle);
@@ -73,6 +93,8 @@ pub fn run() {
             get_history,
             get_history_if_changed,
             get_session_detail,
+            get_app_logs,
+            open_logs_dir,
             get_project_detail,
             create_project_agents_symlink,
             open_project_in_terminal,

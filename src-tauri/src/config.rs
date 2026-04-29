@@ -1371,55 +1371,61 @@ pub fn get_config_workspace() -> Result<ConfigWorkspace, String> {
 
 #[tauri::command]
 pub fn upsert_profile(app_handle: AppHandle, data: ProfileInput) -> Result<ConfigProfile, String> {
-    let _lock = crate::utils::lock_config()?;
-    let input = normalize_profile_input(data)?;
-    validate_settings_document(&input.settings)?;
+    let result = (|| {
+        let _lock = crate::utils::lock_config()?;
+        let input = normalize_profile_input(data)?;
+        validate_settings_document(&input.settings)?;
 
-    let mut registry = load_registry()?;
-    if let Some(preset_id) = input.preset_id.as_deref() {
-        if !preset_exists(&registry, preset_id) {
-            return Err(format!("未找到 preset '{}'", preset_id));
+        let mut registry = load_registry()?;
+        if let Some(preset_id) = input.preset_id.as_deref() {
+            if !preset_exists(&registry, preset_id) {
+                return Err(format!("未找到 preset '{}'", preset_id));
+            }
         }
-    }
 
-    let now = crate::utils::current_rfc3339_timestamp();
-    let profile_id = input
-        .id
-        .clone()
-        .unwrap_or_else(|| Uuid::new_v4().to_string());
-    let profile = if let Some(existing) = registry
-        .profiles
-        .iter_mut()
-        .find(|profile| profile.id == profile_id)
-    {
-        existing.name = input.name;
-        existing.description = input.description;
-        existing.preset_id = input.preset_id;
-        existing.settings = input.settings;
-        existing.updated_at = now.clone();
-        existing.clone()
-    } else {
-        let profile = ConfigProfile {
-            id: profile_id,
-            name: input.name,
-            description: input.description,
-            preset_id: input.preset_id,
-            settings: input.settings,
-            created_at: now.clone(),
-            updated_at: now,
+        let now = crate::utils::current_rfc3339_timestamp();
+        let profile_id = input
+            .id
+            .clone()
+            .unwrap_or_else(|| Uuid::new_v4().to_string());
+        let profile = if let Some(existing) = registry
+            .profiles
+            .iter_mut()
+            .find(|profile| profile.id == profile_id)
+        {
+            existing.name = input.name;
+            existing.description = input.description;
+            existing.preset_id = input.preset_id;
+            existing.settings = input.settings;
+            existing.updated_at = now.clone();
+            existing.clone()
+        } else {
+            let profile = ConfigProfile {
+                id: profile_id,
+                name: input.name,
+                description: input.description,
+                preset_id: input.preset_id,
+                settings: input.settings,
+                created_at: now.clone(),
+                updated_at: now,
+            };
+            registry.profiles.push(profile.clone());
+            profile
         };
-        registry.profiles.push(profile.clone());
-        profile
-    };
 
-    if registry.bindings.user_profile_id.as_deref() == Some(&profile.id) {
-        apply_profile_to_registry(&mut registry, &profile.id)?;
-    }
+        if registry.bindings.user_profile_id.as_deref() == Some(&profile.id) {
+            apply_profile_to_registry(&mut registry, &profile.id)?;
+        }
 
-    save_registry(&registry)?;
-    rebuild_tray_menu(&app_handle, Some(&registry));
-    let _ = app_handle.emit("config-workspace-changed", ());
-    Ok(profile)
+        save_registry(&registry)?;
+        rebuild_tray_menu(&app_handle, Some(&registry));
+        let _ = app_handle.emit("config-workspace-changed", ());
+        Ok(profile)
+    })();
+    crate::logging::log_command_result("profile.upsert", &result, |profile| {
+        format!("profile_id={}", profile.id)
+    });
+    result
 }
 
 #[tauri::command]
@@ -1428,49 +1434,69 @@ pub fn duplicate_profile(
     id: String,
     name_suffix: String,
 ) -> Result<ConfigProfile, String> {
-    let _lock = crate::utils::lock_config()?;
-    let mut registry = load_registry()?;
-    let duplicated = duplicate_profile_in_registry(&mut registry, &id, &name_suffix)?;
-    save_registry(&registry)?;
-    rebuild_tray_menu(&app_handle, Some(&registry));
-    let _ = app_handle.emit("config-workspace-changed", ());
-    Ok(duplicated)
+    let result = (|| {
+        let _lock = crate::utils::lock_config()?;
+        let mut registry = load_registry()?;
+        let duplicated = duplicate_profile_in_registry(&mut registry, &id, &name_suffix)?;
+        save_registry(&registry)?;
+        rebuild_tray_menu(&app_handle, Some(&registry));
+        let _ = app_handle.emit("config-workspace-changed", ());
+        Ok(duplicated)
+    })();
+    crate::logging::log_command_result("profile.duplicate", &result, |profile| {
+        format!("source_profile_id={id} profile_id={}", profile.id)
+    });
+    result
 }
 
 #[tauri::command]
 pub fn reorder_profiles(app_handle: AppHandle, ids: Vec<String>) -> Result<(), String> {
-    let _lock = crate::utils::lock_config()?;
-    let mut registry = load_registry()?;
-    reorder_profiles_in_registry(&mut registry, &ids);
-    save_registry(&registry)?;
-    rebuild_tray_menu(&app_handle, Some(&registry));
-    let _ = app_handle.emit("config-workspace-changed", ());
-    Ok(())
+    let result = (|| {
+        let _lock = crate::utils::lock_config()?;
+        let mut registry = load_registry()?;
+        reorder_profiles_in_registry(&mut registry, &ids);
+        save_registry(&registry)?;
+        rebuild_tray_menu(&app_handle, Some(&registry));
+        let _ = app_handle.emit("config-workspace-changed", ());
+        Ok(())
+    })();
+    crate::logging::log_command_result("profile.reorder", &result, |_| {
+        format!("count={}", ids.len())
+    });
+    result
 }
 
 #[tauri::command]
 pub fn delete_profile(app_handle: AppHandle, id: String) -> Result<(), String> {
-    let _lock = crate::utils::lock_config()?;
-    let mut registry = load_registry()?;
-    let original_len = registry.profiles.len();
-    registry.profiles.retain(|profile| profile.id != id);
-    if registry.profiles.len() == original_len {
-        return Err("未找到要删除的 profile".to_string());
-    }
+    let result = (|| {
+        let _lock = crate::utils::lock_config()?;
+        let mut registry = load_registry()?;
+        let original_len = registry.profiles.len();
+        registry.profiles.retain(|profile| profile.id != id);
+        if registry.profiles.len() == original_len {
+            return Err("未找到要删除的 profile".to_string());
+        }
 
-    remove_profile_bindings(&mut registry.bindings, &id);
-    save_registry(&registry)?;
-    rebuild_tray_menu(&app_handle, Some(&registry));
-    let _ = app_handle.emit("config-workspace-changed", ());
-    Ok(())
+        remove_profile_bindings(&mut registry.bindings, &id);
+        save_registry(&registry)?;
+        rebuild_tray_menu(&app_handle, Some(&registry));
+        let _ = app_handle.emit("config-workspace-changed", ());
+        Ok(())
+    })();
+    crate::logging::log_command_result("profile.delete", &result, |_| format!("profile_id={id}"));
+    result
 }
 
 #[tauri::command]
 pub fn apply_profile(app_handle: AppHandle, id: String) -> Result<(), String> {
-    let registry = apply_profile_inner(id)?;
-    rebuild_tray_menu(&app_handle, Some(&registry));
-    let _ = app_handle.emit("config-workspace-changed", ());
-    Ok(())
+    let result = (|| {
+        let registry = apply_profile_inner(id.clone())?;
+        rebuild_tray_menu(&app_handle, Some(&registry));
+        let _ = app_handle.emit("config-workspace-changed", ());
+        Ok(())
+    })();
+    crate::logging::log_command_result("profile.apply", &result, |_| format!("profile_id={id}"));
+    result
 }
 
 #[tauri::command]
@@ -1586,21 +1612,36 @@ pub async fn test_profile_model(data: ModelTestInput) -> Result<ModelTestResult,
     };
 
     if !status.is_success() {
-        return Ok(build_model_test_failure_result(status_code, &body, context));
+        let result = build_model_test_failure_result(status_code, &body, context);
+        log::warn!(
+            "event=profile.model_test status=error model={} status_code={} duration_ms={}",
+            result.resolved_model,
+            status_code,
+            result.duration_ms
+        );
+        return Ok(result);
     }
 
     let parsed = match serde_json::from_str::<Value>(&body) {
         Ok(parsed) => parsed,
         Err(error) => {
-            return Ok(build_model_test_error_result(
+            let result = build_model_test_error_result(
                 context,
                 Some(status_code),
                 format!("解析模型测试响应失败：{error}"),
                 raw_response,
-            ))
+            );
+            log::error!(
+                "event=profile.model_test status=error model={} status_code={} duration_ms={} error={}",
+                result.resolved_model,
+                status_code,
+                result.duration_ms,
+                crate::logging::redact_sensitive_message(result.error_message.as_deref().unwrap_or_default())
+            );
+            return Ok(result);
         }
     };
-    match parse_model_test_response(
+    let result = match parse_model_test_response(
         &parsed,
         request.prompt_text,
         request.resolved_model,
@@ -1609,89 +1650,115 @@ pub async fn test_profile_model(data: ModelTestInput) -> Result<ModelTestResult,
         body.clone(),
         exchange.clone(),
     ) {
-        Ok(result) => Ok(result),
-        Err(error_message) => Ok(build_model_test_error_result(
-            context,
-            Some(status_code),
-            error_message,
-            raw_response,
-        )),
+        Ok(result) => result,
+        Err(error_message) => {
+            build_model_test_error_result(context, Some(status_code), error_message, raw_response)
+        }
+    };
+    if result.ok {
+        log::info!(
+            "event=profile.model_test status=ok model={} status_code={} duration_ms={}",
+            result.resolved_model,
+            status_code,
+            result.duration_ms
+        );
+    } else {
+        log::error!(
+            "event=profile.model_test status=error model={} status_code={} duration_ms={} error={}",
+            result.resolved_model,
+            status_code,
+            result.duration_ms,
+            crate::logging::redact_sensitive_message(
+                result.error_message.as_deref().unwrap_or_default()
+            )
+        );
     }
+    Ok(result)
 }
 
 #[tauri::command]
 pub fn upsert_preset(app_handle: AppHandle, data: PresetInput) -> Result<SettingsPreset, String> {
-    let _lock = crate::utils::lock_config()?;
-    let input = normalize_preset_input(data)?;
-    validate_settings_document(&input.settings_patch)?;
+    let result = (|| {
+        let _lock = crate::utils::lock_config()?;
+        let input = normalize_preset_input(data)?;
+        validate_settings_document(&input.settings_patch)?;
 
-    let mut registry = load_registry()?;
-    if let Some(base_preset_id) = input.base_preset_id.as_deref() {
-        if !preset_exists(&registry, base_preset_id) {
-            return Err(format!("未找到 base preset '{}'", base_preset_id));
+        let mut registry = load_registry()?;
+        if let Some(base_preset_id) = input.base_preset_id.as_deref() {
+            if !preset_exists(&registry, base_preset_id) {
+                return Err(format!("未找到 base preset '{}'", base_preset_id));
+            }
         }
-    }
 
-    let preset_id = input
-        .id
-        .clone()
-        .unwrap_or_else(|| format!("custom:{}", Uuid::new_v4()));
-    let preset = SettingsPreset {
-        id: preset_id.clone(),
-        name: input.name,
-        localized_name: input.localized_name,
-        description: input.description,
-        base_preset_id: input.base_preset_id,
-        doc_url: input.doc_url,
-        models: input.models,
-        model_suggestions: input.model_suggestions,
-        settings_patch: input.settings_patch,
-        source: PresetSource::Custom,
-    };
+        let preset_id = input
+            .id
+            .clone()
+            .unwrap_or_else(|| format!("custom:{}", Uuid::new_v4()));
+        let preset = SettingsPreset {
+            id: preset_id.clone(),
+            name: input.name,
+            localized_name: input.localized_name,
+            description: input.description,
+            base_preset_id: input.base_preset_id,
+            doc_url: input.doc_url,
+            models: input.models,
+            model_suggestions: input.model_suggestions,
+            settings_patch: input.settings_patch,
+            source: PresetSource::Custom,
+        };
 
-    if let Some(existing) = registry
-        .custom_presets
-        .iter_mut()
-        .find(|existing| existing.id == preset_id)
-    {
-        *existing = preset.clone();
-    } else {
-        registry.custom_presets.push(preset.clone());
-    }
+        if let Some(existing) = registry
+            .custom_presets
+            .iter_mut()
+            .find(|existing| existing.id == preset_id)
+        {
+            *existing = preset.clone();
+        } else {
+            registry.custom_presets.push(preset.clone());
+        }
 
-    for profile_id in bound_profile_ids_using_preset(&registry, &preset.id) {
-        apply_profile_to_registry(&mut registry, &profile_id)?;
-    }
+        for profile_id in bound_profile_ids_using_preset(&registry, &preset.id) {
+            apply_profile_to_registry(&mut registry, &profile_id)?;
+        }
 
-    save_registry(&registry)?;
-    rebuild_tray_menu(&app_handle, Some(&registry));
-    let _ = app_handle.emit("config-workspace-changed", ());
-    Ok(preset)
+        save_registry(&registry)?;
+        rebuild_tray_menu(&app_handle, Some(&registry));
+        let _ = app_handle.emit("config-workspace-changed", ());
+        Ok(preset)
+    })();
+    crate::logging::log_command_result("preset.upsert", &result, |preset| {
+        format!("preset_id={}", preset.id)
+    });
+    result
 }
 
 #[tauri::command]
 pub fn delete_preset(app_handle: AppHandle, id: String) -> Result<(), String> {
-    let _lock = crate::utils::lock_config()?;
-    let mut registry = load_registry()?;
+    let result = (|| {
+        let _lock = crate::utils::lock_config()?;
+        let mut registry = load_registry()?;
 
-    if registry
-        .profiles
-        .iter()
-        .any(|profile| profile_uses_preset(&registry, profile, &id))
-    {
-        return Err("该 preset 仍被 profile 使用，请先解除引用".to_string());
-    }
+        if registry
+            .profiles
+            .iter()
+            .any(|profile| profile_uses_preset(&registry, profile, &id))
+        {
+            return Err("该 preset 仍被 profile 使用，请先解除引用".to_string());
+        }
 
-    let original_len = registry.custom_presets.len();
-    registry.custom_presets.retain(|preset| preset.id != id);
-    if registry.custom_presets.len() == original_len {
-        return Err("未找到要删除的 preset".to_string());
-    }
+        let original_len = registry.custom_presets.len();
+        registry.custom_presets.retain(|preset| preset.id != id);
+        if registry.custom_presets.len() == original_len {
+            return Err("未找到要删除的 preset".to_string());
+        }
 
-    save_registry(&registry)?;
-    rebuild_tray_menu(&app_handle, Some(&registry));
-    let _ = app_handle.emit("config-workspace-changed", ());
-    Ok(())
+        save_registry(&registry)?;
+        rebuild_tray_menu(&app_handle, Some(&registry));
+        let _ = app_handle.emit("config-workspace-changed", ());
+        Ok(())
+    })();
+    crate::logging::log_command_result("preset.delete", &result, |_| format!("preset_id={id}"));
+    result
 }
 
 #[tauri::command]
@@ -1699,15 +1766,19 @@ pub fn set_app_preferences(
     app_handle: AppHandle,
     data: AppPreferencesInput,
 ) -> Result<AppPreferences, String> {
-    let _lock = crate::utils::lock_config()?;
-    let preferences = normalize_app_preferences(data)?;
-    let mut registry = load_registry()?;
-    registry.app = preferences.clone();
-    save_registry(&registry)?;
-    rebuild_tray_menu(&app_handle, Some(&registry));
-    let _ = app_handle.emit("config-workspace-changed", ());
-    let _ = app_handle.emit("project-launcher-settings-changed", ());
-    Ok(preferences)
+    let result = (|| {
+        let _lock = crate::utils::lock_config()?;
+        let preferences = normalize_app_preferences(data)?;
+        let mut registry = load_registry()?;
+        registry.app = preferences.clone();
+        save_registry(&registry)?;
+        rebuild_tray_menu(&app_handle, Some(&registry));
+        let _ = app_handle.emit("config-workspace-changed", ());
+        let _ = app_handle.emit("project-launcher-settings-changed", ());
+        Ok(preferences)
+    })();
+    crate::logging::log_command_result("settings.update", &result, |_| String::new());
+    result
 }
 
 #[cfg(test)]

@@ -9,6 +9,7 @@ import type {
   DefaultEditorApp,
   DefaultTerminalApp,
 } from "../types";
+import LogViewer from "./LogViewer";
 import "./SettingsDrawer.css";
 
 interface SettingsDrawerProps {
@@ -24,6 +25,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
     defaultTerminalApp: "terminal",
     defaultEditorApp: null,
   });
+  const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
 
   useEffect(() => {
     invoke<ConfigWorkspace>("get_config_workspace")
@@ -302,8 +304,25 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
               </select>
             </div>
           </section>
+
+          <section className="settings-section-card">
+            <div className="settings-section-head">
+              <h3>{t("settings.diagnostics")}</h3>
+              <p>{t("settings.diagnosticsDesc")}</p>
+            </div>
+            <div className="settings-item">
+              <button
+                type="button"
+                className="settings-action-btn"
+                onClick={() => setIsLogViewerOpen(true)}
+              >
+                {t("settings.viewLogs")}
+              </button>
+            </div>
+          </section>
         </div>
       </aside>
+      {isLogViewerOpen ? <LogViewer onClose={() => setIsLogViewerOpen(false)} /> : null}
     </div>
   );
 }

@@ -159,6 +159,22 @@ export interface Snapshot {
   data: ClaudeStats;
 }
 
+export type LogLevel = "error" | "warn" | "info" | "debug" | "trace" | "unknown";
+
+export interface LogEntry {
+  timestamp?: string;
+  level: LogLevel;
+  target?: string;
+  message: string;
+  raw: string;
+}
+
+export interface LogView {
+  logDir: string;
+  entries: LogEntry[];
+  truncated: boolean;
+}
+
 // Skill 条目
 export interface Skill {
   id: string;

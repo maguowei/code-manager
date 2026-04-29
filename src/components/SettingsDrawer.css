@@ -118,6 +118,23 @@
   gap: var(--space-4);
 }
 
+.settings-action-btn {
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: var(--font-base);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.settings-action-btn:hover {
+  border-color: var(--text-muted);
+  background: var(--bg-hover);
+}
+
 /* 下拉选择框 */
 .settings-select {
   width: min(240px, 100%);

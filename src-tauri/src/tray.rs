@@ -140,7 +140,7 @@ pub fn rebuild_tray_menu(app_handle: &AppHandle, state: Option<&ConfigRegistry>)
                 let _ = tray.set_menu(Some(menu));
             }
             Err(e) => {
-                eprintln!("Failed to rebuild tray menu: {}", e);
+                crate::logging::log_command_error("tray.rebuild", &e.to_string());
             }
         }
         // 同步更新托盘 title：传 Some("") 清除，Some(name) 设置
@@ -194,12 +194,13 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
                 // 切换用户级 profile
                 match apply_profile_inner(profile_id.to_string()) {
                     Ok(state) => {
+                        log::info!("event=tray.profile_apply status=ok profile_id={profile_id}");
                         rebuild_tray_menu(app, Some(&state));
                         // 通知前端刷新配置状态
                         let _ = app.emit("config-workspace-changed", ());
                     }
                     Err(e) => {
-                        eprintln!("Failed to apply profile from tray: {}", e);
+                        crate::logging::log_command_error("tray.profile_apply", &e);
                     }
                 }
             } else if let Some(tab) = id.strip_prefix("nav_") {
