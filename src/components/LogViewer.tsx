@@ -77,6 +77,19 @@ function LogViewer({ onClose }: LogViewerProps) {
     }
   }
 
+  async function handleClearLogs() {
+    setLoading(true);
+    try {
+      const nextView = await invoke<LogView>("clear_app_logs");
+      setView(nextView);
+      showToast(t("logs.clearSuccess"), "success");
+    } catch {
+      showToast(t("logs.clearError"), "error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="log-viewer-overlay" onClick={onClose}>
       <section
@@ -137,6 +150,9 @@ function LogViewer({ onClose }: LogViewerProps) {
             </button>
             <button type="button" onClick={handleOpenDirectory}>
               {t("logs.openDir")}
+            </button>
+            <button type="button" className="log-viewer-danger-btn" onClick={handleClearLogs}>
+              {t("logs.clear")}
             </button>
           </div>
         </div>

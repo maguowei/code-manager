@@ -618,10 +618,13 @@ const translations = {
     "logs.searchPlaceholder": "按事件、模块或消息搜索",
     "logs.refresh": "刷新",
     "logs.openDir": "打开日志目录",
+    "logs.clear": "清理日志",
     "logs.empty": "暂无日志",
     "logs.truncated": "仅显示最近的日志内容。",
     "logs.loadError": "加载日志失败",
     "logs.openDirError": "打开日志目录失败",
+    "logs.clearSuccess": "日志已清理",
+    "logs.clearError": "清理日志失败",
 
     // 操作通知（Toast）
     "toast.configLoadError": "加载配置失败",
@@ -1366,10 +1369,13 @@ const translations = {
     "logs.searchPlaceholder": "Search by event, module, or message",
     "logs.refresh": "Refresh",
     "logs.openDir": "Open Log Directory",
+    "logs.clear": "Clear Logs",
     "logs.empty": "No logs yet",
     "logs.truncated": "Showing only the most recent log content.",
     "logs.loadError": "Failed to load logs",
     "logs.openDirError": "Failed to open log directory",
+    "logs.clearSuccess": "Logs cleared",
+    "logs.clearError": "Failed to clear logs",
 
     // 操作通知（Toast）
     "toast.configLoadError": "Failed to load configs",

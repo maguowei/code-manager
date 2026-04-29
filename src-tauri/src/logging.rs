@@ -6,11 +6,16 @@ use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 use tauri_plugin_opener::OpenerExt;
+use time::{macros::format_description, OffsetDateTime};
 
 const APP_LOG_FILE_NAME: &str = "ai-manager";
 const DEFAULT_LOG_LIMIT: usize = 500;
 const MAX_LOG_LIMIT: usize = 5_000;
 const MAX_LOG_READ_BYTES: u64 = 512 * 1024;
+const LOG_DATE_FORMAT: &[time::format_description::FormatItem<'_>] =
+    format_description!("[year]-[month]-[day]");
+const LOG_TIME_FORMAT: &[time::format_description::FormatItem<'_>] =
+    format_description!("[hour]:[minute]:[second][offset_hour sign:mandatory]:[offset_minute]");
 
 static ENV_SECRET_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
@@ -94,6 +99,23 @@ pub fn app_log_file_path(log_dir: &Path) -> PathBuf {
     log_dir.join(APP_LOG_FILE_NAME).with_extension("log")
 }
 
+pub fn local_log_timestamp_parts() -> (String, String) {
+    let now = OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc());
+    (
+        now.format(LOG_DATE_FORMAT).expect("日志日期格式应有效"),
+        now.format(LOG_TIME_FORMAT).expect("日志时间格式应有效"),
+    )
+}
+
+pub fn format_log_record(
+    message: &std::fmt::Arguments<'_>,
+    target: &str,
+    level: log::Level,
+) -> String {
+    let (date, time) = local_log_timestamp_parts();
+    format!("[{date}][{time}][{target}][{level}] {message}")
+}
+
 pub fn log_command_result<T, F>(event: &str, result: &Result<T, String>, success_details: F)
 where
     F: FnOnce(&T) -> String,
@@ -153,6 +175,19 @@ pub fn open_logs_dir(app_handle: AppHandle) -> Result<(), String> {
             .map_err(|e| format!("打开日志目录失败: {e}"))
     })();
     log_command_result("logs.open_dir", &result, |_| String::new());
+    result
+}
+
+#[tauri::command]
+pub fn clear_app_logs(app_handle: AppHandle) -> Result<LogView, String> {
+    let result = (|| {
+        let log_dir = app_log_dir(&app_handle)?;
+        clear_log_files_in_dir(&log_dir)?;
+        read_log_entries_from_dir(&log_dir, &LogQuery::default())
+    })();
+    if let Err(error) = &result {
+        log_command_error("logs.clear", error);
+    }
     result
 }
 
@@ -252,12 +287,32 @@ pub fn read_log_entries_from_dir(log_dir: &Path, query: &LogQuery) -> Result<Log
         let start = filtered.len() - limit;
         filtered = filtered.split_off(start);
     }
+    filtered.reverse();
 
     Ok(LogView {
         log_dir: log_dir.to_string_lossy().to_string(),
         entries: filtered,
         truncated,
     })
+}
+
+pub fn clear_log_files_in_dir(log_dir: &Path) -> Result<usize, String> {
+    let active_log_path = app_log_file_path(log_dir);
+    let mut cleared_count = 0;
+    for log_file in collect_log_files(log_dir)? {
+        if log_file == active_log_path {
+            fs::OpenOptions::new()
+                .write(true)
+                .truncate(true)
+                .open(&log_file)
+                .map_err(|e| format!("清空日志文件失败 {:?}: {e}", log_file))?;
+        } else {
+            fs::remove_file(&log_file)
+                .map_err(|e| format!("删除日志文件失败 {:?}: {e}", log_file))?;
+        }
+        cleared_count += 1;
+    }
+    Ok(cleared_count)
 }
 
 fn collect_log_files(log_dir: &Path) -> Result<Vec<PathBuf>, String> {
@@ -350,6 +405,16 @@ mod tests {
     }
 
     #[test]
+    fn local_log_timestamp_includes_timezone_offset() {
+        let (date, time) = local_log_timestamp_parts();
+        let offset_start = time.len() - 6;
+
+        assert_eq!(date.len(), 10);
+        assert!(matches!(&time[offset_start..offset_start + 1], "+" | "-"));
+        assert_eq!(&time[offset_start + 3..offset_start + 4], ":");
+    }
+
+    #[test]
     fn parse_log_line_extracts_timestamp_target_level_and_message() {
         let line = "[2026-04-29][12:34:56][ai_manager_lib::config][INFO] event=profile.upsert status=ok profile_id=profile-1";
 
@@ -423,6 +488,35 @@ mod tests {
     }
 
     #[test]
+    fn read_log_entries_returns_recent_entries_first_after_limit() {
+        let dir = temp_log_dir("reverse");
+        fs::write(
+            app_log_file_path(&dir),
+            [
+                "[2026-04-29][12:00:00][target][INFO] event=first status=ok",
+                "[2026-04-29][12:00:01][target][INFO] event=second status=ok",
+                "[2026-04-29][12:00:02][target][INFO] event=third status=ok",
+            ]
+            .join("\n"),
+        )
+        .unwrap();
+
+        let view = read_log_entries_from_dir(
+            &dir,
+            &LogQuery {
+                limit: Some(2),
+                ..LogQuery::default()
+            },
+        )
+        .unwrap();
+
+        assert!(view.truncated);
+        assert_eq!(view.entries.len(), 2);
+        assert!(view.entries[0].message.contains("event=third"));
+        assert!(view.entries[1].message.contains("event=second"));
+    }
+
+    #[test]
     fn read_log_entries_returns_empty_view_when_log_file_is_missing() {
         let dir = temp_log_dir("missing");
 
@@ -431,5 +525,24 @@ mod tests {
         assert_eq!(view.log_dir, dir.to_string_lossy());
         assert!(view.entries.is_empty());
         assert!(!view.truncated);
+    }
+
+    #[test]
+    fn clear_log_files_truncates_active_file_and_removes_rotated_files() {
+        let dir = temp_log_dir("clear");
+        let active_log = app_log_file_path(&dir);
+        let rotated_log = dir.join("ai-manager_2026-04-29_12-00-00.log");
+        let unrelated_log = dir.join("other.log");
+        fs::write(&active_log, "active log").unwrap();
+        fs::write(&rotated_log, "rotated log").unwrap();
+        fs::write(&unrelated_log, "unrelated log").unwrap();
+
+        let removed_count = clear_log_files_in_dir(&dir).unwrap();
+
+        assert_eq!(removed_count, 2);
+        assert!(active_log.exists());
+        assert_eq!(fs::metadata(&active_log).unwrap().len(), 0);
+        assert!(!rotated_log.exists());
+        assert!(unrelated_log.exists());
     }
 }

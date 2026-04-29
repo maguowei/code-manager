@@ -124,6 +124,15 @@
   background: var(--bg-hover);
 }
 
+.log-viewer-actions .log-viewer-danger-btn {
+  border-color: var(--accent-red);
+  color: var(--accent-red);
+}
+
+.log-viewer-actions .log-viewer-danger-btn:hover {
+  background: var(--accent-red-bg);
+}
+
 .log-viewer-body {
   flex: 1;
   min-height: 0;

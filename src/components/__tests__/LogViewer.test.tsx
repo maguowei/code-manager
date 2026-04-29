@@ -102,4 +102,39 @@ describe("LogViewer", () => {
       expect(invokeMock).toHaveBeenCalledWith("open_logs_dir");
     });
   });
+
+  it("clears logs from the viewer", async () => {
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "clear_app_logs") {
+        return {
+          logDir: "/tmp/logs",
+          truncated: false,
+          entries: [],
+        };
+      }
+      return {
+        logDir: "/tmp/logs",
+        truncated: false,
+        entries: [
+          {
+            timestamp: "2026-04-29 12:00:00+08:00",
+            level: "error",
+            target: "ai_manager_lib::config",
+            message: "event=profile.apply status=error",
+            raw: "[2026-04-29][12:00:00+08:00][ai_manager_lib::config][ERROR] event=profile.apply status=error",
+          },
+        ],
+      };
+    });
+
+    renderLogViewer();
+
+    expect(await screen.findByText("event=profile.apply status=error")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "清理日志" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("clear_app_logs");
+    });
+    expect(await screen.findByText("暂无日志")).toBeInTheDocument();
+  });
 });
