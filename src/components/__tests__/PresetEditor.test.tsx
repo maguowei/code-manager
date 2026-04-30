@@ -303,9 +303,16 @@ describe("PresetEditor", () => {
   it("renders localized official docs links in preset settings sections", () => {
     renderEditor();
 
+    const behaviorDocsButton = screen.getByRole("button", { name: "查看 模型与行为 官方文档" });
+    expect(behaviorDocsButton).toBeInTheDocument();
+    expect(behaviorDocsButton).toHaveTextContent("官方文档");
+    expect(behaviorDocsButton).toHaveClass("profile-secondary-btn");
+    expect(behaviorDocsButton).not.toHaveClass("profile-icon-btn");
+
     const docsSections = [
       { section: "环境变量", button: "查看 环境变量 官方文档" },
       { section: "权限", button: "查看 权限 官方文档" },
+      { section: "Sandbox", button: "查看 Sandbox 官方文档" },
       { section: "Hooks", button: "查看 Hooks 官方文档" },
       { section: "插件市场", button: "查看 插件市场 官方文档" },
       { section: "插件", button: "查看 插件 官方文档" },
@@ -327,11 +334,18 @@ describe("PresetEditor", () => {
       if (button === "查看 插件市场 官方文档") {
         fireEvent.click(docsButton);
       }
+      if (button === "查看 Sandbox 官方文档") {
+        fireEvent.click(docsButton);
+      }
     }
+
+    fireEvent.click(behaviorDocsButton);
 
     expect(openUrlMock).toHaveBeenCalledWith(
       "https://code.claude.com/docs/zh-CN/plugin-marketplaces",
     );
+    expect(openUrlMock).toHaveBeenCalledWith("https://code.claude.com/docs/zh-CN/sandboxing");
+    expect(openUrlMock).toHaveBeenCalledWith("https://code.claude.com/docs/zh-CN/model-config");
   });
 
   it("shows base preset names using the current UI language", () => {

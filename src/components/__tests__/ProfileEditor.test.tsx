@@ -636,9 +636,16 @@ describe("ProfileEditor", () => {
   it("opens localized official docs from structured settings sections", () => {
     renderEditor();
 
+    const behaviorDocsButton = screen.getByRole("button", { name: "查看 模型与行为 官方文档" });
+    expect(behaviorDocsButton).toBeInTheDocument();
+    expect(behaviorDocsButton).toHaveTextContent("官方文档");
+    expect(behaviorDocsButton).toHaveClass("profile-secondary-btn");
+    expect(behaviorDocsButton).not.toHaveClass("profile-icon-btn");
+
     const docsSections = [
       { section: "环境变量", button: "查看 环境变量 官方文档" },
       { section: "权限", button: "查看 权限 官方文档" },
+      { section: "Sandbox", button: "查看 Sandbox 官方文档" },
       { section: "Hooks", button: "查看 Hooks 官方文档" },
       { section: "插件市场", button: "查看 插件市场 官方文档" },
       { section: "插件", button: "查看 插件 官方文档" },
@@ -662,6 +669,7 @@ describe("ProfileEditor", () => {
       }
     }
 
+    fireEvent.click(behaviorDocsButton);
     fireEvent.click(screen.getByRole("button", { name: "查看 状态行 官方文档" }));
 
     expect(openUrlMock).toHaveBeenNthCalledWith(1, "https://code.claude.com/docs/zh-CN/env-vars");
@@ -669,7 +677,11 @@ describe("ProfileEditor", () => {
       2,
       "https://code.claude.com/docs/zh-CN/discover-plugins",
     );
-    expect(openUrlMock).toHaveBeenNthCalledWith(3, "https://code.claude.com/docs/zh-CN/statusline");
+    expect(openUrlMock).toHaveBeenNthCalledWith(
+      3,
+      "https://code.claude.com/docs/zh-CN/model-config",
+    );
+    expect(openUrlMock).toHaveBeenNthCalledWith(4, "https://code.claude.com/docs/zh-CN/statusline");
   });
 
   it("uses english official docs links when the UI language is english", () => {
@@ -683,8 +695,18 @@ describe("ProfileEditor", () => {
 
     renderEditor();
 
+    const behaviorDocsButton = screen.getByRole("button", {
+      name: "Open Model & Behavior official docs",
+    });
+    expect(behaviorDocsButton).toHaveTextContent("Docs");
+    expect(behaviorDocsButton).toHaveClass("profile-secondary-btn");
+    expect(behaviorDocsButton).not.toHaveClass("profile-icon-btn");
+
     expect(
       screen.queryByRole("button", { name: "Open Environment Variables official docs" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Open Sandbox official docs" }),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Open Plugins official docs" }),
@@ -707,6 +729,13 @@ describe("ProfileEditor", () => {
       within(pluginsSection).getByRole("button", { name: "Open Plugins official docs" }),
     );
 
+    const sandboxSection = toggleAccordionSection("Sandbox");
+    fireEvent.click(
+      within(sandboxSection).getByRole("button", { name: "Open Sandbox official docs" }),
+    );
+
+    fireEvent.click(behaviorDocsButton);
+
     const statusLineSection = toggleAccordionSection("Status Line");
     fireEvent.click(
       within(statusLineSection).getByRole("button", { name: "Open Status Line official docs" }),
@@ -717,7 +746,9 @@ describe("ProfileEditor", () => {
       2,
       "https://code.claude.com/docs/en/discover-plugins",
     );
-    expect(openUrlMock).toHaveBeenNthCalledWith(3, "https://code.claude.com/docs/en/statusline");
+    expect(openUrlMock).toHaveBeenNthCalledWith(3, "https://code.claude.com/docs/en/sandboxing");
+    expect(openUrlMock).toHaveBeenNthCalledWith(4, "https://code.claude.com/docs/en/model-config");
+    expect(openUrlMock).toHaveBeenNthCalledWith(5, "https://code.claude.com/docs/en/statusline");
   });
 
   it("shows enabled plugin summary in the collapsed plugins section", () => {

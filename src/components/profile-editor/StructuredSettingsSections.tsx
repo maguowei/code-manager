@@ -29,8 +29,10 @@ import "./editor-shared.css";
 type StructuredSettingsScope = "profiles" | "presets";
 type DocsLocale = "zh-CN" | "en";
 type StructuredSettingsDocsKey =
+  | "behavior"
   | "env"
   | "permissions"
+  | "sandbox"
   | "hooks"
   | "marketplaces"
   | "plugins"
@@ -51,8 +53,10 @@ interface BehaviorFieldState {
 
 const CLAUDE_CODE_DOCS_BASE_URL = "https://code.claude.com/docs";
 const STRUCTURED_SETTINGS_DOCS_PATHS: Record<StructuredSettingsDocsKey, string> = {
+  behavior: "model-config",
   env: "env-vars",
   permissions: "permissions",
+  sandbox: "sandboxing",
   hooks: "hooks",
   marketplaces: "plugin-marketplaces",
   plugins: "discover-plugins",
@@ -335,6 +339,7 @@ function StructuredSettingsSections({
         jsonHint={messages.behaviorJsonHint}
         error={behaviorJsonEditor.jsonError}
         headerControl={behaviorHeaderControl}
+        modeRowAction={renderSectionDocsButton("behavior", messages.behavior)}
         footer={behaviorFooter}
       />
 
@@ -532,6 +537,7 @@ function StructuredSettingsSections({
             }
           />
         }
+        modeRowAction={renderSectionModeRowAction("sandbox", messages.sandbox)}
       />
 
       <SettingsSectionModePanel
