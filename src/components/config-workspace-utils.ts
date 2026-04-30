@@ -333,7 +333,9 @@ export function resolvePresetAutofillValues(
     resolvedBaseUrl,
     resolvedModel,
     resolvedOpusModel:
-      resolveExplicitEnvValue(chain, "ANTHROPIC_DEFAULT_OPUS_MODEL") || categoryOpusModel,
+      resolveExplicitEnvValue(chain, "ANTHROPIC_DEFAULT_OPUS_MODEL") ||
+      categoryOpusModel ||
+      categorySonnetModel,
     resolvedSonnetModel:
       resolveExplicitEnvValue(chain, "ANTHROPIC_DEFAULT_SONNET_MODEL") ||
       categorySonnetModel ||
@@ -347,11 +349,7 @@ export function resolvePresetAutofillValues(
       categoryOpusModel ||
       categoryOtherModel ||
       resolvedModel,
-    resolvedSubagentModel:
-      resolveExplicitEnvValue(chain, "CLAUDE_CODE_SUBAGENT_MODEL") ||
-      categorySonnetModel ||
-      categoryOpusModel ||
-      resolvedModel,
+    resolvedSubagentModel: undefined,
   };
 }
 

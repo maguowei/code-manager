@@ -2172,7 +2172,7 @@ describe("PresetEditor", () => {
     expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("claude-opus-4-1");
     expect(screen.getByLabelText("Sonnet 默认模型")).toHaveValue("claude-sonnet-4-6");
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("claude-haiku-4-5");
-    expect(screen.getByLabelText("Subagent 模型")).toHaveValue("claude-sonnet-4-6");
+    expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
 
     fireEvent.change(screen.getByLabelText("基础预设"), {
       target: { value: "custom:team-plan" },
@@ -2182,7 +2182,7 @@ describe("PresetEditor", () => {
     expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("claude-opus-4-1");
     expect(screen.getByLabelText("Sonnet 默认模型")).toHaveValue("claude-sonnet-4-6");
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("claude-haiku-4-5");
-    expect(screen.getByLabelText("Subagent 模型")).toHaveValue("claude-sonnet-4-6");
+    expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
 
     fireEvent.change(screen.getByLabelText("基础预设"), {
       target: { value: "custom:explicit-model" },
@@ -2191,14 +2191,14 @@ describe("PresetEditor", () => {
     expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("claude-opus-4-1");
     expect(screen.getByLabelText("Sonnet 默认模型")).toHaveValue("claude-sonnet-4-6");
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("claude-haiku-4-5");
-    expect(screen.getByLabelText("Subagent 模型")).toHaveValue("claude-sonnet-4-6");
+    expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
 
     fireEvent.change(screen.getByLabelText("基础预设"), {
       target: { value: "custom:env-level-overrides" },
     });
     expect(screen.getByLabelText("默认模型")).toHaveValue("claude-opus-explicit");
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("haiku-env-override");
-    expect(screen.getByLabelText("Subagent 模型")).toHaveValue("subagent-env-override");
+    expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
 
     fireEvent.change(screen.getByLabelText("基础预设"), {
       target: { value: "" },

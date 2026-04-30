@@ -91,6 +91,19 @@ const PRESETS: SettingsPreset[] = [
     settingsPatch: {},
     source: "custom",
   },
+  {
+    id: "custom:sonnet-only",
+    name: "Sonnet Only",
+    description: "仅 Sonnet 分类模型预设",
+    localizedName: {
+      zh: "仅 Sonnet",
+      en: "Sonnet Only",
+    },
+    models: [{ id: "claude-sonnet-only", category: "sonnet" }],
+    modelSuggestions: [],
+    settingsPatch: {},
+    source: "custom",
+  },
 ];
 
 describe("config-workspace-utils preset autofill", () => {
@@ -133,7 +146,7 @@ describe("config-workspace-utils preset autofill", () => {
       resolvedOpusModel: "claude-opus-4-1",
       resolvedSonnetModel: "claude-sonnet-4-6",
       resolvedHaikuModel: "claude-haiku-4-5",
-      resolvedSubagentModel: "claude-sonnet-4-6",
+      resolvedSubagentModel: undefined,
     });
 
     expect(resolvePresetAutofillValues(PRESETS, "custom:team-plan")).toEqual({
@@ -142,7 +155,7 @@ describe("config-workspace-utils preset autofill", () => {
       resolvedOpusModel: "claude-opus-4-1",
       resolvedSonnetModel: "claude-sonnet-4-6",
       resolvedHaikuModel: "claude-haiku-4-5",
-      resolvedSubagentModel: "claude-sonnet-4-6",
+      resolvedSubagentModel: undefined,
     });
 
     expect(resolvePresetAutofillValues(PRESETS, "custom:explicit-model")).toEqual({
@@ -151,7 +164,7 @@ describe("config-workspace-utils preset autofill", () => {
       resolvedOpusModel: "claude-opus-4-1",
       resolvedSonnetModel: "claude-sonnet-4-6",
       resolvedHaikuModel: "claude-haiku-4-5",
-      resolvedSubagentModel: "claude-sonnet-4-6",
+      resolvedSubagentModel: undefined,
     });
 
     expect(resolvePresetAutofillValues(PRESETS, "custom:env-model")).toEqual({
@@ -160,7 +173,16 @@ describe("config-workspace-utils preset autofill", () => {
       resolvedOpusModel: "claude-opus-4-1",
       resolvedSonnetModel: "claude-sonnet-4-6",
       resolvedHaikuModel: "haiku-env-override",
-      resolvedSubagentModel: "subagent-env-override",
+      resolvedSubagentModel: undefined,
+    });
+
+    expect(resolvePresetAutofillValues(PRESETS, "custom:sonnet-only")).toEqual({
+      resolvedBaseUrl: undefined,
+      resolvedModel: "claude-sonnet-only",
+      resolvedOpusModel: "claude-sonnet-only",
+      resolvedSonnetModel: "claude-sonnet-only",
+      resolvedHaikuModel: "claude-sonnet-only",
+      resolvedSubagentModel: undefined,
     });
   });
 
@@ -171,7 +193,7 @@ describe("config-workspace-utils preset autofill", () => {
       resolvedOpusModel: undefined,
       resolvedSonnetModel: "claude-suggestion-only",
       resolvedHaikuModel: "claude-suggestion-only",
-      resolvedSubagentModel: "claude-suggestion-only",
+      resolvedSubagentModel: undefined,
     });
   });
 
@@ -200,7 +222,6 @@ describe("config-workspace-utils preset autofill", () => {
         ANTHROPIC_DEFAULT_OPUS_MODEL: "claude-opus-4-1",
         ANTHROPIC_DEFAULT_SONNET_MODEL: "claude-sonnet-4-6",
         ANTHROPIC_DEFAULT_HAIKU_MODEL: "claude-haiku-4-5",
-        CLAUDE_CODE_SUBAGENT_MODEL: "claude-sonnet-4-6",
         OTHER_ENV: "keep-me",
       },
       permissions: {
