@@ -1,35 +1,39 @@
 .memory-item {
   position: relative;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(180deg, var(--bg-primary), var(--bg-secondary));
+  padding: var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: 14px 16px;
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
+  gap: var(--space-4);
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease,
+    opacity 180ms ease;
 }
 
 .memory-item:hover {
-  background-color: var(--bg-tertiary);
   border-color: var(--accent-blue);
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
 .memory-item.active {
   border-color: var(--accent-blue);
   box-shadow:
     0 0 0 1px var(--accent-blue) inset,
-    0 0 16px rgba(59, 130, 246, 0.25);
+    0 0 16px rgba(59, 130, 246, 0.2);
 }
 
 .memory-item.editing {
   border-color: var(--accent-orange);
   box-shadow:
     0 0 0 1px var(--accent-orange) inset,
-    0 0 20px rgba(247, 129, 102, 0.35);
+    0 0 18px rgba(247, 129, 102, 0.24);
 }
 
 .memory-item.editing:hover {
@@ -37,27 +41,10 @@
 }
 
 .memory-header {
-  display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) auto;
-  align-items: start;
-  gap: var(--space-3);
-}
-
-.memory-badge {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, var(--bg-tertiary), var(--bg-elevated));
-  flex-shrink: 0;
-}
-
-.memory-badge .badge-text {
-  font-size: var(--font-md);
-  font-weight: 600;
-  color: var(--text-primary);
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
 }
 
 .memory-info {
@@ -71,7 +58,7 @@
 
 .memory-name {
   margin: 0;
-  font-size: var(--font-md);
+  font-size: var(--font-lg);
   line-height: 1.35;
   font-weight: 600;
   color: var(--text-primary);
@@ -140,8 +127,8 @@
   align-items: center;
   gap: 4px;
   padding: 6px 10px;
-  border-radius: 8px;
-  font-size: 12px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-sm);
   font-weight: 600;
 }
 
@@ -164,36 +151,46 @@
 
 .memory-actions {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--space-2);
+  align-self: flex-end;
+  max-height: 0;
+  margin-top: calc(var(--space-4) * -1);
   opacity: 0;
-  transform: translateX(6px);
+  overflow: hidden;
+  pointer-events: none;
+  transform: translateY(8px);
   transition:
+    max-height 200ms ease,
+    margin-top 200ms ease,
     opacity 180ms ease,
-    transform 180ms ease;
+    transform 200ms ease;
 }
 
-.memory-item:hover .memory-actions {
+.memory-item:hover .memory-actions,
+.memory-item:focus-within .memory-actions {
+  max-height: 48px;
+  margin-top: 0;
   opacity: 1;
-  transform: translateX(0);
+  pointer-events: auto;
+  transform: translateY(0);
 }
 
 .memory-action-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 8px;
-  background-color: transparent;
-  color: var(--text-secondary);
+  padding: 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
   cursor: pointer;
   transition: all 160ms ease;
 }
 
 .memory-action-btn:hover {
-  background-color: rgba(248, 81, 73, 0.14);
+  border-color: var(--accent-red);
   color: var(--accent-red);
 }

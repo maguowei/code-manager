@@ -1,7 +1,8 @@
-import { type MouseEvent, memo } from "react";
+import { type KeyboardEvent, type MouseEvent, memo } from "react";
 import { useI18n } from "../i18n";
 import type { Memory } from "../types";
 import { TrashIcon } from "./Icons";
+import ProfileNameBadge from "./ProfileNameBadge";
 import "./MemoryItem.css";
 
 interface MemoryItemProps {
@@ -27,17 +28,30 @@ function MemoryItem({ memory, isEditing, onToggle, onEdit, onDelete }: MemoryIte
     action();
   }
 
+  function handleCardKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.target !== event.currentTarget) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onEdit();
+    }
+  }
+
   return (
     <div
       className={`memory-item${memory.isActive ? " active" : ""}${isEditing ? " editing" : ""}`}
+      role="button"
+      tabIndex={0}
+      aria-label={memory.name}
       onClick={onEdit}
+      onKeyDown={handleCardKeyDown}
     >
       <div className="memory-header">
-        <div className="memory-badge">
-          <span className="badge-text">
-            {memory.name ? memory.name.charAt(0).toUpperCase() : "M"}
-          </span>
-        </div>
+        <ProfileNameBadge
+          name={memory.name}
+          colorSeedScope={targetPath}
+          size="sm"
+          fallbackChar="M"
+        />
 
         <div className="memory-info">
           <h3 className="memory-name">{memory.name}</h3>
@@ -73,6 +87,7 @@ function MemoryItem({ memory, isEditing, onToggle, onEdit, onDelete }: MemoryIte
           type="button"
           className="memory-action-btn delete"
           onClick={(e) => handleActionClick(e, onDelete)}
+          aria-label={t("memory.delete")}
           title={t("memory.delete")}
         >
           <TrashIcon />
