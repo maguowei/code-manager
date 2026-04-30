@@ -26,6 +26,9 @@ const SYSTEM_LOCALE_ENV_KEYS: [&str; 4] = ["LC_ALL", "LC_MESSAGES", "LANGUAGE", 
 const DEFAULT_STATUS_LINE_PRESET_ID: &str = "default";
 const DEFAULT_STATUS_LINE_COMMAND_PATH: &str = "~/.claude/statusline.sh";
 const DEFAULT_STATUS_LINE_SCRIPT: &str = include_str!("../resources/statusline/default.sh");
+#[cfg(not(unix))]
+const STATUS_LINE_PRESET_UNSUPPORTED_PLATFORM_ERROR: &str =
+    "status_line_preset_unsupported_platform";
 
 static CLAUDE_SETTINGS_SCHEMA: Lazy<Value> = Lazy::new(|| {
     serde_json::from_str(include_str!(
@@ -1269,6 +1272,18 @@ fn build_status_line_preset_result(
     }
 }
 
+fn ensure_status_line_preset_supported() -> Result<(), String> {
+    #[cfg(unix)]
+    {
+        Ok(())
+    }
+
+    #[cfg(not(unix))]
+    {
+        Err(STATUS_LINE_PRESET_UNSUPPORTED_PLATFORM_ERROR.to_string())
+    }
+}
+
 fn ensure_status_line_script_executable(path: &std::path::Path) -> Result<(), String> {
     #[cfg(unix)]
     {
@@ -1303,6 +1318,7 @@ fn install_status_line_preset_inner(
         return Err(format!("未知状态行预设 '{}'", preset_id));
     }
 
+    ensure_status_line_preset_supported()?;
     let target_path = status_line_preset_target_path()?;
     if target_path.exists() {
         let existing = fs::read_to_string(&target_path)
@@ -2176,6 +2192,29 @@ mod tests {
         }
 
         clear_test_env();
+    }
+
+    #[test]
+    fn default_status_line_script_checks_jq_before_parsing_input() {
+        assert!(DEFAULT_STATUS_LINE_SCRIPT.contains("command -v jq"));
+    }
+
+    #[test]
+    fn default_status_line_script_uses_tmpdir_for_git_cache() {
+        assert!(DEFAULT_STATUS_LINE_SCRIPT.contains("${TMPDIR:-/tmp}"));
+        assert!(!DEFAULT_STATUS_LINE_SCRIPT.contains("cache_file=\"/tmp/"));
+    }
+
+    #[cfg(not(unix))]
+    #[test]
+    fn install_status_line_preset_rejects_unsupported_platforms() {
+        let result = install_status_line_preset_inner("default", false);
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            STATUS_LINE_PRESET_UNSUPPORTED_PLATFORM_ERROR
+        );
     }
 
     #[test]

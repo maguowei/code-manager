@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "../../hooks/useToast";
-import { useI18n } from "../../i18n";
+import { type TranslationKey, useI18n } from "../../i18n";
 import ConfirmDialog from "../ConfirmDialog";
 import { readObject } from "./editor-utils";
 import {
@@ -28,6 +28,15 @@ interface StatusLinePresetInstallResult {
 }
 
 const DEFAULT_STATUS_LINE_PRESET_ID = "default";
+const STATUS_LINE_PRESET_UNSUPPORTED_PLATFORM_ERROR = "status_line_preset_unsupported_platform";
+
+function getInstallPresetErrorKey(error: unknown): TranslationKey {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.includes(STATUS_LINE_PRESET_UNSUPPORTED_PLATFORM_ERROR)) {
+    return "profileEditor.statusLine.installPresetUnsupportedPlatform";
+  }
+  return "profileEditor.statusLine.installPresetError";
+}
 
 function StatusLineEditor({ value, onChange, onError, showTitle = true }: StatusLineEditorProps) {
   const { t } = useI18n();
@@ -89,8 +98,8 @@ function StatusLineEditor({ value, onChange, onError, showTitle = true }: Status
 
       setOverwriteDialogOpen(false);
       applyInstalledPreset(result.commandPath);
-    } catch {
-      showToast(t("profileEditor.statusLine.installPresetError"), "error");
+    } catch (error) {
+      showToast(t(getInstallPresetErrorKey(error)), "error");
     } finally {
       setIsInstallingPreset(false);
     }

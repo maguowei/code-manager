@@ -3245,6 +3245,28 @@ describe("ProfileEditor", () => {
     );
   });
 
+  it("shows a platform-specific message when the default status line preset is unsupported", async () => {
+    renderEditor();
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === "install_status_line_preset") {
+        throw new Error("status_line_preset_unsupported_platform");
+      }
+      return null;
+    });
+
+    const statusLineSection = getSection("状态行");
+    toggleAccordionSection("状态行");
+
+    await act(async () => {
+      fireEvent.click(
+        within(statusLineSection).getByRole("button", { name: "启用默认状态行预设" }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(showToastMock).toHaveBeenCalledWith("默认状态行预设当前仅支持 macOS/Linux", "error");
+  });
+
   it("validates status line controls and removes statusLine when cleared", async () => {
     const onSave = vi.fn();
     renderEditor({

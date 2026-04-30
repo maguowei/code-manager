@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# 缺少 jq 时输出明确提示，避免后续解析静默失败
+if ! command -v jq >/dev/null 2>&1; then
+    printf 'statusline requires jq'
+    exit 0
+fi
+
 # 读取 JSON 输入
 input=$(cat)
 
@@ -76,7 +82,8 @@ if git -C "$cwd" rev-parse --git-dir > /dev/null 2>&1; then
     # 获取 git 根目录，以其路径作为缓存 key（md5 取前 8 位）
     git_root=$(GIT_OPTIONAL_LOCKS=0 git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || echo "$cwd")
     cache_key=$(printf '%s' "$git_root" | md5sum 2>/dev/null | cut -c1-8 || printf '%s' "$git_root" | md5 2>/dev/null | cut -c1-8)
-    cache_file="/tmp/statusline-git-cache-${cache_key}"
+    cache_dir="${TMPDIR:-/tmp}"
+    cache_file="${cache_dir%/}/statusline-git-cache-${cache_key}"
     cache_max_age=5  # 缓存有效期（秒）
 
     # 判断缓存是否过期（兼容 macOS stat -f %m 和 Linux stat -c %Y）

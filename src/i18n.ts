@@ -430,6 +430,8 @@ const translations = {
     "profileEditor.statusLine.summaryHint": "配置 Claude Code 自定义状态行命令。",
     "profileEditor.statusLine.installDefaultPreset": "启用默认状态行预设",
     "profileEditor.statusLine.installPresetError": "启用状态行预设失败",
+    "profileEditor.statusLine.installPresetUnsupportedPlatform":
+      "默认状态行预设当前仅支持 macOS/Linux",
     "profileEditor.statusLine.overwriteDialogTitle": "覆盖状态行脚本",
     "profileEditor.statusLine.overwriteDialogMessage":
       "~/.claude/statusline.sh 已存在且内容不同。确认后会覆盖该脚本并设为可执行。",
@@ -1175,6 +1177,8 @@ const translations = {
     "profileEditor.statusLine.summaryHint": "Configure the custom Claude Code status line command.",
     "profileEditor.statusLine.installDefaultPreset": "Enable Default Status Line Preset",
     "profileEditor.statusLine.installPresetError": "Failed to enable status line preset",
+    "profileEditor.statusLine.installPresetUnsupportedPlatform":
+      "The default status line preset currently supports macOS/Linux only",
     "profileEditor.statusLine.overwriteDialogTitle": "Overwrite Status Line Script",
     "profileEditor.statusLine.overwriteDialogMessage":
       "~/.claude/statusline.sh already exists with different content. Confirm to overwrite it and make it executable.",
