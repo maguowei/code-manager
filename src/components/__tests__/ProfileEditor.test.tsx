@@ -95,6 +95,7 @@ const BUILTIN_PRESETS: SettingsPreset[] = [
       { id: "claude-haiku-4-5", category: "haiku" },
     ],
     modelSuggestions: ["claude-sonnet-4-6", "claude-opus-4-1"],
+    docUrl: "https://openrouter.ai/docs",
     settingsPatch: {
       env: {
         ANTHROPIC_BASE_URL: "https://openrouter.ai/api",
@@ -745,6 +746,25 @@ describe("ProfileEditor", () => {
 
     expect(screen.getByRole("option", { name: "开放路由" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "OpenRouter" })).not.toBeInTheDocument();
+  });
+
+  it("shows the selected preset docs link beside the compact preset selector", () => {
+    renderEditor();
+
+    const authSection = getSection("认证");
+    const presetSelector = within(authSection).getByLabelText("预设");
+    expect(presetSelector.closest(".profile-preset-select-grid")).not.toBeNull();
+
+    const docsButton = within(authSection).getByRole("button", { name: "查看文档" });
+    expect(docsButton).toHaveClass("profile-preset-doc-link");
+
+    fireEvent.click(docsButton);
+    expect(openUrlMock).toHaveBeenCalledWith("https://openrouter.ai/docs");
+
+    fireEvent.change(presetSelector, {
+      target: { value: "custom:team-plan" },
+    });
+    expect(within(authSection).queryByRole("button", { name: "查看文档" })).not.toBeInTheDocument();
   });
 
   it("hides scope and project path fields for user-only profiles", () => {

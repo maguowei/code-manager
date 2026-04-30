@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
@@ -19,7 +20,7 @@ import {
   setTopLevelObject,
   setTopLevelString,
 } from "./config-workspace-utils";
-import { CheckCircleIcon, TestTubeIcon } from "./Icons";
+import { CheckCircleIcon, ExternalLinkIcon, TestTubeIcon } from "./Icons";
 import ProfileNameBadge from "./ProfileNameBadge";
 import {
   AUTH_ENV_KEYS,
@@ -373,6 +374,14 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     applySettings(applyPresetAutofill(settings, presets, nextPresetId || undefined));
   }
 
+  function handleOpenSelectedPresetDocs() {
+    const docUrl = selectedPreset?.docUrl;
+    if (!docUrl) {
+      return;
+    }
+    void openUrl(docUrl);
+  }
+
   function handleSaveClick() {
     if (
       !name.trim() ||
@@ -535,6 +544,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     description: t("profiles.editor.fields.description"),
     descriptionPlaceholder: t("profiles.editor.placeholders.description"),
     preset: t("profiles.editor.fields.preset"),
+    openPresetDocs: t("presets.actions.openDocs"),
     authToken: t("profiles.editor.fields.authToken"),
     authTokenEnv: t("profiles.editor.fields.authTokenEnv"),
     showAuthToken: t("common.showToken"),
@@ -631,19 +641,33 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
 
           <div className="form-group">
             <label htmlFor="profile-preset">{messages.preset}</label>
-            <select
-              id="profile-preset"
-              className="form-select"
-              value={presetId}
-              onChange={(event) => handlePresetChange(event.target.value)}
-            >
-              <option value="">{t("profiles.editor.options.noPreset")}</option>
-              {presets.map((preset) => (
-                <option key={preset.id} value={preset.id}>
-                  {presetDisplayName(preset, language)}
-                </option>
-              ))}
-            </select>
+            <div className="profile-preset-select-grid">
+              <div className="profile-preset-select-control">
+                <select
+                  id="profile-preset"
+                  className="form-select"
+                  value={presetId}
+                  onChange={(event) => handlePresetChange(event.target.value)}
+                >
+                  <option value="">{t("profiles.editor.options.noPreset")}</option>
+                  {presets.map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {presetDisplayName(preset, language)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {selectedPreset?.docUrl ? (
+                <button
+                  type="button"
+                  className="profile-secondary-btn profile-preset-doc-link"
+                  onClick={handleOpenSelectedPresetDocs}
+                >
+                  <span>{messages.openPresetDocs}</span>
+                  <ExternalLinkIcon size={14} />
+                </button>
+              ) : null}
+            </div>
             <p className="form-hint">{messages.presetHint}</p>
           </div>
 

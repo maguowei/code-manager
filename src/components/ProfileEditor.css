@@ -13,3 +13,36 @@
   padding-bottom: 24px;
   box-sizing: border-box;
 }
+
+.profile-preset-select-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 520px) max-content;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+}
+
+.profile-preset-select-control {
+  min-width: 0;
+}
+
+.profile-preset-doc-link {
+  min-height: 42px;
+  white-space: nowrap;
+}
+
+.profile-preset-doc-link svg {
+  flex: none;
+}
+
+@media (max-width: 700px) {
+  .profile-preset-select-grid {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .profile-preset-doc-link {
+    justify-self: flex-start;
+    min-height: 34px;
+  }
+}
