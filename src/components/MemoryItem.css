@@ -37,8 +37,9 @@
 }
 
 .memory-header {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: start;
   gap: var(--space-3);
 }
 
@@ -62,15 +63,66 @@
 .memory-info {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 1px;
 }
 
 .memory-name {
+  margin: 0;
   font-size: var(--font-md);
+  line-height: 1.35;
   font-weight: 600;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.memory-target-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  line-height: 1;
+}
+
+.memory-target-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  max-width: 45%;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-target-badge--claude {
+  background-color: rgba(59, 130, 246, 0.14);
+  color: var(--accent-blue);
+}
+
+.memory-target-badge--rule {
+  background-color: var(--accent-green-bg);
+  color: var(--accent-green);
+}
+
+.memory-target-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 22px;
+  color: var(--text-muted);
 }
 
 .memory-header-actions {
@@ -80,6 +132,7 @@
   flex-wrap: wrap;
   gap: 6px;
   flex-shrink: 0;
+  padding-top: 2px;
 }
 
 .memory-status {
@@ -100,12 +153,13 @@
 .memory-preview {
   margin: 0;
   font-size: var(--font-sm);
-  line-height: 1.45;
+  line-height: 1.5;
   color: var(--text-secondary);
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
+  overflow-wrap: anywhere;
 }
 
 .memory-actions {

@@ -1,5 +1,39 @@
 /* MemoryPage 特有样式（公共列表布局见 shared.css） */
 
+.memory-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.memory-group + .memory-group {
+  margin-top: var(--space-5);
+}
+
+.memory-group-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 0 var(--space-2);
+}
+
+.memory-group-header h2 {
+  margin: 0;
+  font-size: var(--font-lg);
+  line-height: 1.3;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.memory-group-header p {
+  margin: 0;
+  font-size: var(--font-sm);
+  line-height: 1.45;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
 /* 占位页样式保留 */
 .placeholder-page {
   display: flex;

@@ -3,11 +3,21 @@
   "$id": "memory",
   "title": "Memory Form Data",
   "type": "object",
-  "required": ["name", "content"],
+  "required": ["name", "content", "targetType"],
   "additionalProperties": false,
   "properties": {
     "id": { "type": "string", "readOnly": true },
     "name": { "type": "string", "minLength": 1 },
-    "content": { "type": "string", "default": "" }
+    "content": { "type": "string", "default": "" },
+    "targetType": {
+      "type": "string",
+      "enum": ["claude", "rule"],
+      "default": "claude"
+    },
+    "rulePath": {
+      "type": "string",
+      "default": "",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$)).+\\.md$"
+    }
   }
 }

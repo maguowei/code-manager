@@ -93,10 +93,14 @@ export interface ModelTestResult {
 }
 
 // 记忆条目
+export type MemoryTargetType = "claude" | "rule";
+
 export interface Memory {
   id: string;
   name: string;
   content: string;
+  targetType: MemoryTargetType;
+  rulePath?: string;
   isActive: boolean;
   createdAt: number;
   updatedAt: number;

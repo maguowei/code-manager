@@ -11,6 +11,14 @@ import MemoryEditor from "./MemoryEditor";
 import MemoryItem from "./MemoryItem";
 import "./MemoryPage.css";
 
+type MemoryPayload = {
+  id?: string;
+  name: string;
+  content: string;
+  targetType: Memory["targetType"];
+  rulePath?: string;
+};
+
 function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => void }) {
   const { t } = useI18n();
   const { showToast } = useToast();
@@ -42,24 +50,24 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     isModalOpen,
   );
 
-  async function handleAdd(data: { id?: string; name: string; content: string }) {
+  async function handleAdd(data: MemoryPayload) {
     try {
-      const newMemory = await invoke<Memory>("add_memory", { data });
+      const state = await invoke<MemoryState>("add_memory", { data });
       setIsModalOpen(false);
-      setMemories((prev) => [...prev, newMemory]);
+      setMemories(state.memories);
       showToast(t("toast.memoryAdded"));
     } catch (_err) {
       showToast(t("toast.memoryAddError"), "error");
     }
   }
 
-  async function handleUpdate(data: { id?: string; name: string; content: string }) {
+  async function handleUpdate(data: MemoryPayload) {
     if (!editingMemory) return;
     try {
-      const updated = await invoke<Memory>("update_memory", { id: editingMemory.id, data });
+      const state = await invoke<MemoryState>("update_memory", { id: editingMemory.id, data });
       setEditingMemory(null);
       setIsModalOpen(false);
-      setMemories((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
+      setMemories(state.memories);
       showToast(t("toast.memorySaved"));
     } catch (_err) {
       showToast(t("toast.memorySaveError"), "error");
@@ -68,8 +76,8 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
 
   async function handleDelete(id: string) {
     try {
-      await invoke("delete_memory", { id });
-      setMemories((prev) => prev.filter((m) => m.id !== id));
+      const state = await invoke<MemoryState>("delete_memory", { id });
+      setMemories(state.memories);
       showToast(t("toast.memoryDeleted"));
     } catch (_err) {
       showToast(t("toast.memoryDeleteError"), "error");
@@ -78,8 +86,8 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
 
   async function handleToggle(id: string) {
     try {
-      const toggled = await invoke<Memory>("toggle_memory", { id });
-      setMemories((prev) => prev.map((m) => (m.id === toggled.id ? toggled : m)));
+      const state = await invoke<MemoryState>("toggle_memory", { id });
+      setMemories(state.memories);
     } catch (_err) {
       showToast(t("toast.memoryToggleError"), "error");
     }
@@ -101,6 +109,33 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     setEditingMemory(null);
     setIsModalOpen(false);
     onDrawerChange?.(false);
+  }
+
+  const claudeMemories = memories.filter((memory) => memory.targetType === "claude");
+  const ruleMemories = memories.filter((memory) => memory.targetType === "rule");
+
+  function renderMemoryGroup(title: string, description: string, items: Memory[]) {
+    if (items.length === 0) return null;
+    return (
+      <section className="memory-group">
+        <div className="memory-group-header">
+          <h2>{title}</h2>
+          <p>{description}</p>
+        </div>
+        <div className="list-container">
+          {items.map((memory) => (
+            <MemoryItem
+              key={memory.id}
+              memory={memory}
+              isEditing={isModalOpen && editingMemory?.id === memory.id}
+              onToggle={() => handleToggle(memory.id)}
+              onEdit={() => openEditModal(memory)}
+              onDelete={() => setPendingDeleteId(memory.id)}
+            />
+          ))}
+        </div>
+      </section>
+    );
   }
 
   return (
@@ -138,18 +173,18 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
           <p className="empty-hint">{t("memory.emptyHint")}</p>
         </div>
       ) : (
-        <div className="list-container">
-          {memories.map((memory) => (
-            <MemoryItem
-              key={memory.id}
-              memory={memory}
-              isEditing={isModalOpen && editingMemory?.id === memory.id}
-              onToggle={() => handleToggle(memory.id)}
-              onEdit={() => openEditModal(memory)}
-              onDelete={() => setPendingDeleteId(memory.id)}
-            />
-          ))}
-        </div>
+        <>
+          {renderMemoryGroup(
+            t("memory.group.claude"),
+            t("memory.group.claudeDescription"),
+            claudeMemories,
+          )}
+          {renderMemoryGroup(
+            t("memory.group.rules"),
+            t("memory.group.rulesDescription"),
+            ruleMemories,
+          )}
+        </>
       )}
 
       {/* 删除确认对话框 */}

@@ -17,6 +17,10 @@ function MemoryItem({ memory, isEditing, onToggle, onEdit, onDelete }: MemoryIte
 
   // 截取第一行作为预览
   const preview = memory.content.split("\n")[0] || "";
+  const targetLabel =
+    memory.targetType === "rule" ? t("memory.targetType.rule") : t("memory.targetType.claude");
+  const targetPath =
+    memory.targetType === "rule" && memory.rulePath ? `rules/${memory.rulePath}` : "CLAUDE.md";
 
   function handleActionClick(e: MouseEvent<HTMLElement>, action: () => void) {
     e.stopPropagation();
@@ -37,6 +41,13 @@ function MemoryItem({ memory, isEditing, onToggle, onEdit, onDelete }: MemoryIte
 
         <div className="memory-info">
           <h3 className="memory-name">{memory.name}</h3>
+          <div className="memory-target-row">
+            <span className={`memory-target-badge memory-target-badge--${memory.targetType}`}>
+              {targetLabel}
+            </span>
+            <span className="memory-target-path">{targetPath}</span>
+          </div>
+          <p className="memory-preview">{preview}</p>
         </div>
 
         <div className="memory-header-actions">
@@ -56,8 +67,6 @@ function MemoryItem({ memory, isEditing, onToggle, onEdit, onDelete }: MemoryIte
           </button>
         </div>
       </div>
-
-      <p className="memory-preview">{preview}</p>
 
       <div className="memory-actions">
         <button

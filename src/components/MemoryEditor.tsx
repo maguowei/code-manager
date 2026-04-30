@@ -2,27 +2,52 @@ import { markdown } from "@codemirror/lang-markdown";
 import { EditorView } from "@codemirror/view";
 import { zodResolver } from "@hookform/resolvers/zod";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Controller, type FieldError, type Resolver, useForm } from "react-hook-form";
 import useEditorTheme from "../hooks/useEditorTheme";
-import { useI18n } from "../i18n";
+import { type TranslationKey, useI18n } from "../i18n";
 import {
   buildMemoryDefaultValues,
   MEMORY_NAME_FIELD,
+  MEMORY_RULE_PATH_FIELD,
   type MemoryFormData,
   MemorySchema,
+  suggestRulePathFromName,
   toMemoryPayload,
 } from "../schemas/memory-schema";
-import type { Memory } from "../types";
-import { ChevronLeftIcon } from "./Icons";
+import type { Memory, MemoryTargetType } from "../types";
+import { CheckCircleIcon, ChevronLeftIcon } from "./Icons";
 import SchemaFormField from "./SchemaFormField";
 import "./MemoryEditor.css";
 
 interface MemoryEditorProps {
   memory: Memory | null;
-  onSave: (data: { id?: string; name: string; content: string }) => void;
+  onSave: (data: {
+    id?: string;
+    name: string;
+    content: string;
+    targetType: MemoryTargetType;
+    rulePath?: string;
+  }) => void;
   onClose: () => void;
 }
+
+const MEMORY_TARGET_OPTIONS: Array<{
+  value: MemoryTargetType;
+  labelKey: TranslationKey;
+  descriptionKey: TranslationKey;
+}> = [
+  {
+    value: "claude",
+    labelKey: "memory.targetType.claude",
+    descriptionKey: "memory.targetType.claudeDescription",
+  },
+  {
+    value: "rule",
+    labelKey: "memory.targetType.rule",
+    descriptionKey: "memory.targetType.ruleDescription",
+  },
+];
 
 function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
   const { t } = useI18n();
@@ -33,6 +58,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
     control,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<MemoryFormData>({
     resolver: zodResolver(MemorySchema) as Resolver<MemoryFormData>,
@@ -40,6 +66,23 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
     mode: "onBlur",
   });
   const watchName = watch("name");
+  const watchTargetType = watch("targetType");
+  const watchRulePath = watch("rulePath");
+  const lastSuggestedRulePath = useRef("");
+
+  useEffect(() => {
+    if (memory?.rulePath || watchTargetType !== "rule") return;
+
+    const currentPath = watchRulePath.trim();
+    if (currentPath && currentPath !== lastSuggestedRulePath.current) return;
+
+    const suggested = suggestRulePathFromName(watchName);
+    lastSuggestedRulePath.current = suggested;
+    setValue("rulePath", suggested, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  }, [memory?.rulePath, setValue, watchName, watchRulePath, watchTargetType]);
 
   function handleFormSubmit(data: MemoryFormData) {
     onSave(toMemoryPayload(data));
@@ -112,6 +155,76 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
               control={control}
               error={errors.name as FieldError | undefined}
             />
+
+            <div className="form-group memory-target-field">
+              <div id="memory-target-type-label" className="memory-target-label label-required">
+                <span>{t("memory.targetType")}</span>
+                <span className="required-badge">{t("form.required")}</span>
+              </div>
+              <Controller
+                name="targetType"
+                control={control}
+                render={({ field }) => (
+                  <div
+                    className="memory-target-card-group"
+                    role="radiogroup"
+                    aria-labelledby="memory-target-type-label"
+                  >
+                    {MEMORY_TARGET_OPTIONS.map((option) => {
+                      const isSelected = field.value === option.value;
+                      const optionId = `memory-target-${option.value}`;
+                      const descriptionId = `${optionId}-description`;
+
+                      return (
+                        <label
+                          key={option.value}
+                          className={`memory-target-card${isSelected ? " is-selected" : ""}`}
+                          htmlFor={optionId}
+                        >
+                          <input
+                            ref={field.ref}
+                            id={optionId}
+                            className="memory-target-input"
+                            type="radio"
+                            name={field.name}
+                            value={option.value}
+                            checked={isSelected}
+                            aria-describedby={descriptionId}
+                            onBlur={field.onBlur}
+                            onChange={() => field.onChange(option.value)}
+                          />
+                          <span className="memory-target-card-content">
+                            <span className="memory-target-card-main">
+                              <span className="memory-target-card-title">{t(option.labelKey)}</span>
+                              <span className="memory-target-card-check" aria-hidden="true">
+                                <CheckCircleIcon size={18} />
+                              </span>
+                            </span>
+                            <span id={descriptionId} className="memory-target-card-description">
+                              {t(option.descriptionKey)}
+                            </span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              />
+              {errors.targetType?.message ? (
+                <span className="field-error">
+                  {t(errors.targetType.message as TranslationKey)}
+                </span>
+              ) : null}
+            </div>
+
+            {watchTargetType === "rule" && (
+              <SchemaFormField
+                field={MEMORY_RULE_PATH_FIELD}
+                register={register}
+                control={control}
+                error={errors.rulePath as FieldError | undefined}
+              />
+            )}
 
             <div className="form-group">
               <label>{t("memory.content")}</label>

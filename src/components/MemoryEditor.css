@@ -59,6 +59,117 @@
   box-shadow: 0 0 0 3px var(--accent-blue-bg);
 }
 
+.memory-target-field {
+  gap: var(--space-2);
+}
+
+.memory-target-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-base);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.memory-target-card-group {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.memory-target-card {
+  position: relative;
+  display: block;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.memory-target-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.memory-target-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 92px;
+  padding: 14px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-primary);
+  color: var(--text-secondary);
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    box-shadow 150ms ease,
+    color 150ms ease;
+}
+
+.memory-target-card:hover .memory-target-card-content {
+  border-color: var(--text-muted);
+  background-color: var(--bg-secondary);
+}
+
+.memory-target-input:focus-visible + .memory-target-card-content {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 3px;
+}
+
+.memory-target-card.is-selected .memory-target-card-content {
+  border-color: var(--accent-blue);
+  background-color: var(--accent-blue-bg);
+  box-shadow: 0 0 0 1px var(--accent-blue) inset;
+  color: var(--text-primary);
+}
+
+.memory-target-card-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.memory-target-card-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-base);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+
+.memory-target-card-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  opacity: 0;
+}
+
+.memory-target-card.is-selected .memory-target-card-check {
+  color: var(--accent-blue);
+  opacity: 1;
+}
+
+.memory-target-card-description {
+  font-size: var(--font-sm);
+  line-height: 1.45;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.memory-target-card.is-selected .memory-target-card-description {
+  color: var(--text-secondary);
+}
+
 /* Markdown 编辑器容器 */
 .memory-editor {
   border: 1px solid var(--border-default);
@@ -142,4 +253,10 @@
 [data-theme="dark"] .memory-toolbar-btn:hover {
   background-color: rgba(255, 255, 255, 0.08);
   color: #e6e6e6;
+}
+
+@media (max-width: 640px) {
+  .memory-target-card-group {
+    grid-template-columns: 1fr;
+  }
 }
