@@ -24,10 +24,7 @@ fn get_history_path() -> std::path::PathBuf {
 /// 获取文件修改时间（Unix 秒）
 fn file_mtime(path: &std::path::Path) -> Result<u64, String> {
     let metadata = fs::metadata(path).map_err(|e| format!("读取文件元数据失败: {}", e))?;
-    let modified = metadata
-        .modified()
-        .map_err(|e| format!("获取修改时间失败: {}", e))?;
-    Ok(crate::utils::systime_to_secs(modified))
+    Ok(crate::utils::metadata_modified_secs(&metadata))
 }
 
 /// 读取历史记录文件，返回内容和 mtime；文件不存在时返回空内容

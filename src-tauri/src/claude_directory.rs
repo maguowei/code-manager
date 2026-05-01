@@ -71,7 +71,7 @@ pub struct ClaudeFilePreview {
     pub truncated: bool,
     pub size: u64,
     pub modified_at: u64,
-    pub encoding: String,
+    pub encoding: &'static str,
 }
 
 #[tauri::command]
@@ -192,11 +192,13 @@ pub(crate) fn scan_claude_directory_with_options(
         skipped_node_modules_count: 0,
     };
 
-    if !root.exists() {
-        return Ok(overview);
-    }
-    if !root.is_dir() {
-        return Err("~/.claude 不是目录".to_string());
+    match fs::metadata(root) {
+        Ok(metadata) => {
+            if !metadata.is_dir() {
+                return Err("~/.claude 不是目录".to_string());
+            }
+        }
+        Err(_) => return Ok(overview),
     }
 
     collect_entries(root, root, 0, options, &mut overview)?;
@@ -227,11 +229,13 @@ pub(crate) fn list_claude_directory_children_from_root(
         skipped_symlink_count: 0,
     };
 
-    if !root.exists() {
-        return Ok(listing);
-    }
-    if !root.is_dir() {
-        return Err("~/.claude 不是目录".to_string());
+    match fs::metadata(root) {
+        Ok(metadata) => {
+            if !metadata.is_dir() {
+                return Err("~/.claude 不是目录".to_string());
+            }
+        }
+        Err(_) => return Ok(listing),
     }
     if !parent_path.is_dir() {
         return Err("只能读取 ~/.claude 内的目录".to_string());
@@ -269,7 +273,9 @@ fn collect_direct_entries(
         }
 
         let path = entry.path();
-        let metadata = fs::metadata(&path).map_err(|e| mask_io_error("读取文件元数据", &e))?;
+        let metadata = entry
+            .metadata()
+            .map_err(|e| mask_io_error("读取文件元数据", &e))?;
         let name = entry.file_name().to_string_lossy().to_string();
         if let Some(directory_entry) = claude_directory_entry(root, &path, name, &metadata)? {
             listing.entries.push(directory_entry);
@@ -314,7 +320,9 @@ fn collect_entries(
         }
 
         let path = entry.path();
-        let metadata = fs::metadata(&path).map_err(|e| mask_io_error("读取文件元数据", &e))?;
+        let metadata = entry
+            .metadata()
+            .map_err(|e| mask_io_error("读取文件元数据", &e))?;
         let rel_path = relative_path(root, &path)?;
         let name = entry.file_name().to_string_lossy().to_string();
 
@@ -328,7 +336,7 @@ fn collect_entries(
                 name,
                 kind: ClaudeDirectoryEntryKind::Directory,
                 size: 0,
-                modified_at: metadata_mtime(&metadata),
+                modified_at: crate::utils::metadata_modified_secs(&metadata),
             });
             collect_entries(root, &path, depth + 1, options, overview)?;
             if overview.reached_entry_limit {
@@ -340,7 +348,7 @@ fn collect_entries(
                 name,
                 kind: ClaudeDirectoryEntryKind::File,
                 size: metadata.len(),
-                modified_at: metadata_mtime(&metadata),
+                modified_at: crate::utils::metadata_modified_secs(&metadata),
             });
         }
     }
@@ -361,7 +369,7 @@ fn claude_directory_entry(
             name,
             kind: ClaudeDirectoryEntryKind::Directory,
             size: 0,
-            modified_at: metadata_mtime(metadata),
+            modified_at: crate::utils::metadata_modified_secs(metadata),
         }));
     }
     if metadata.is_file() {
@@ -370,7 +378,7 @@ fn claude_directory_entry(
             name,
             kind: ClaudeDirectoryEntryKind::File,
             size: metadata.len(),
-            modified_at: metadata_mtime(metadata),
+            modified_at: crate::utils::metadata_modified_secs(metadata),
         }));
     }
     Ok(None)
@@ -402,16 +410,16 @@ pub(crate) fn read_claude_file_preview_from_root(
     }
 
     let (content, is_binary, encoding) = match String::from_utf8(bytes) {
-        Ok(content) => (content, false, PREVIEW_ENCODING_UTF8.to_string()),
+        Ok(content) => (content, false, PREVIEW_ENCODING_UTF8),
         Err(error) => {
             let bytes = error.into_bytes();
             if bytes.contains(&0) {
-                (String::new(), true, PREVIEW_ENCODING_BINARY.to_string())
+                (String::new(), true, PREVIEW_ENCODING_BINARY)
             } else {
                 (
                     String::from_utf8_lossy(&bytes).into_owned(),
                     false,
-                    PREVIEW_ENCODING_UTF8_LOSSY.to_string(),
+                    PREVIEW_ENCODING_UTF8_LOSSY,
                 )
             }
         }
@@ -429,7 +437,7 @@ pub(crate) fn read_claude_file_preview_from_root(
         is_binary,
         truncated,
         size: metadata.len(),
-        modified_at: metadata_mtime(&metadata),
+        modified_at: crate::utils::metadata_modified_secs(&metadata),
         encoding,
     })
 }
@@ -470,8 +478,7 @@ fn validate_relative_claude_path(path: &str) -> Result<PathBuf, String> {
 }
 
 fn resolve_existing_path_inside_root(root: &Path, rel_path: &Path) -> Result<PathBuf, String> {
-    // 路径解析阶段所有 IO 错误（不存在 / 权限 / canonicalize 失败）统一为越界文案，
-    // 避免攻击者根据错误差异判断"路径是否存在但不在白名单"。
+    // 所有 IO 错误统一为越界文案，防止攻击者通过错误差异判断"路径是否存在但不在白名单"。
     let root_canonical =
         fs::canonicalize(root).map_err(|_| "只能读取 ~/.claude 内的文件".to_string())?;
     let mut current = root.to_path_buf();
@@ -508,14 +515,6 @@ fn normalize_relative_path(path: &Path) -> String {
         })
         .collect::<Vec<_>>()
         .join("/")
-}
-
-fn metadata_mtime(metadata: &fs::Metadata) -> u64 {
-    metadata
-        .modified()
-        .ok()
-        .map(crate::utils::systime_to_secs)
-        .unwrap_or(0)
 }
 
 fn editor_app_name(app: &str) -> Result<&'static str, String> {

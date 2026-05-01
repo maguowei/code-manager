@@ -27,16 +27,6 @@ import type { ClaudeDirectoryEntry, ClaudeDirectoryOverview, ClaudeFilePreview }
 import { CopyIcon, EditIcon, ExternalLinkIcon } from "./Icons";
 import "./ClaudeOverviewPage.css";
 
-interface ClaudeDirectoryBrowserState {
-  rootPath: string;
-  maxEntries: number;
-  entries: ClaudeDirectoryEntry[];
-  truncated: boolean;
-  reachedEntryLimit: boolean;
-  skippedSymlinkCount: number;
-  skippedNodeModulesCount: number;
-}
-
 interface ClaudeDirectoryTreeProps {
   paths: string[];
   onSelectPath: (path: string) => void;
@@ -46,12 +36,14 @@ interface LoadOverviewOptions {
   preserveCurrent?: boolean;
 }
 
-const EMPTY_BROWSER_STATE: ClaudeDirectoryBrowserState = {
+const EMPTY_OVERVIEW_STATE: ClaudeDirectoryOverview = {
   rootPath: "~/.claude",
   maxEntries: 100000,
+  maxDepth: 128,
   entries: [],
   truncated: false,
   reachedEntryLimit: false,
+  reachedDepthLimit: false,
   skippedSymlinkCount: 0,
   skippedNodeModulesCount: 0,
 };
@@ -76,7 +68,7 @@ const FILE_TREE_FILE_ICON_NAME = "file-tree-icon-file";
 const FILE_TREE_ICON_RESOLVER = createFileTreeIconResolver();
 const FILE_TREE_ICON_SPRITE_SHEET = getBuiltInSpriteSheet("complete");
 
-let cachedClaudeOverviewState: ClaudeDirectoryBrowserState | null = null;
+let cachedClaudeOverviewState: ClaudeDirectoryOverview | null = null;
 
 type ClaudeOverviewBodyStyle = CSSProperties & {
   "--claude-overview-tree-width": string;
@@ -113,11 +105,6 @@ function saveTreePaneWidth(width: number) {
 }
 
 function scheduleAfterNextPaint(callback: () => void) {
-  if (typeof window === "undefined") {
-    const timeoutId = setTimeout(callback, 0);
-    return () => clearTimeout(timeoutId);
-  }
-
   if (typeof window.requestAnimationFrame !== "function") {
     const timeoutId = window.setTimeout(callback, 0);
     return () => window.clearTimeout(timeoutId);
@@ -255,18 +242,6 @@ function absolutePreviewPath(rootPath: string, relativePath: string) {
   return `${rootPath.replace(/\/$/, "")}/${relativePath}`;
 }
 
-function stateFromOverview(overview: ClaudeDirectoryOverview): ClaudeDirectoryBrowserState {
-  return {
-    rootPath: overview.rootPath,
-    maxEntries: overview.maxEntries,
-    entries: overview.entries,
-    truncated: overview.truncated,
-    reachedEntryLimit: overview.reachedEntryLimit,
-    skippedSymlinkCount: overview.skippedSymlinkCount,
-    skippedNodeModulesCount: overview.skippedNodeModulesCount,
-  };
-}
-
 function ClaudeDirectoryTree({ paths, onSelectPath }: ClaudeDirectoryTreeProps) {
   const onSelectPathRef = useRef(onSelectPath);
   const lastHandledPathRef = useRef<{ path: string; timestamp: number } | null>(null);
@@ -382,11 +357,11 @@ function ClaudeOverviewFileIcon({ path }: { path: string }) {
 function ClaudeOverviewPage() {
   const { t, theme } = useI18n();
   const { showToast } = useToast();
-  const cachedOverviewOnMountRef = useRef<ClaudeDirectoryBrowserState | null>(
+  const cachedOverviewOnMountRef = useRef<ClaudeDirectoryOverview | null>(
     cachedClaudeOverviewState,
   );
-  const [overview, setOverview] = useState<ClaudeDirectoryBrowserState>(
-    () => cachedOverviewOnMountRef.current ?? EMPTY_BROWSER_STATE,
+  const [overview, setOverview] = useState<ClaudeDirectoryOverview>(
+    () => cachedOverviewOnMountRef.current ?? EMPTY_OVERVIEW_STATE,
   );
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [openPreviews, setOpenPreviews] = useState<ClaudeFilePreview[]>([]);
@@ -403,6 +378,7 @@ function ClaudeOverviewPage() {
   const latestOverviewRequestIdRef = useRef(0);
   const latestPreviewRequestPathRef = useRef<string | null>(null);
   const latestTreePaneWidthRef = useRef(treePaneWidth);
+  const openPreviewsRef = useRef<ClaudeFilePreview[]>([]);
   const resizeFrameRef = useRef<number | null>(null);
   const resizeStateRef = useRef<{ startWidth: number; startX: number } | null>(null);
 
@@ -457,8 +433,8 @@ function ClaudeOverviewPage() {
     : selectedEntry;
 
   useEffect(() => {
-    latestTreePaneWidthRef.current = treePaneWidth;
-  }, [treePaneWidth]);
+    openPreviewsRef.current = openPreviews;
+  }, [openPreviews]);
 
   useEffect(
     () => () => {
@@ -499,10 +475,9 @@ function ClaudeOverviewPage() {
         if (latestOverviewRequestIdRef.current !== requestId) {
           return;
         }
-        const nextOverviewState = stateFromOverview(nextOverview);
-        cachedClaudeOverviewState = nextOverviewState;
+        cachedClaudeOverviewState = nextOverview;
         startTransition(() => {
-          setOverview(nextOverviewState);
+          setOverview(nextOverview);
           setLoadingOverview(false);
           setPreparingTree(true);
           setTreeReady(false);
@@ -514,7 +489,7 @@ function ClaudeOverviewPage() {
         if (!preserveCurrent) {
           cachedClaudeOverviewState = null;
           startTransition(() => {
-            setOverview(EMPTY_BROWSER_STATE);
+            setOverview(EMPTY_OVERVIEW_STATE);
             setLoadingOverview(false);
             setPreparingTree(false);
             setTreeReady(true);
@@ -551,7 +526,7 @@ function ClaudeOverviewPage() {
   const loadPreview = useCallback(
     async (path: string) => {
       latestPreviewRequestPathRef.current = path;
-      const openedPreview = openPreviews.find((preview) => preview.path === path);
+      const openedPreview = openPreviewsRef.current.find((preview) => preview.path === path);
       if (openedPreview) {
         setSelectedPath(path);
         setActivePreviewPath(path);
@@ -581,7 +556,7 @@ function ClaudeOverviewPage() {
         setLoadingPreviewPath((currentPath) => (currentPath === path ? null : currentPath));
       }
     },
-    [openPreviews, showToast, t],
+    [showToast, t],
   );
 
   const handleSelectPath = useCallback(

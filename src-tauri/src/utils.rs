@@ -68,6 +68,11 @@ pub fn systime_to_secs(t: SystemTime) -> u64 {
         .unwrap_or(0)
 }
 
+/// 从文件元数据读取最近修改时间（Unix 秒），任一环节失败时返回 0
+pub fn metadata_modified_secs(metadata: &fs::Metadata) -> u64 {
+    metadata.modified().ok().map(systime_to_secs).unwrap_or(0)
+}
+
 /// 将 Unix 秒级时间戳转换为 RFC3339 UTC 字符串。
 pub fn unix_secs_to_rfc3339(secs: u64) -> String {
     let days = (secs / 86_400) as i64;

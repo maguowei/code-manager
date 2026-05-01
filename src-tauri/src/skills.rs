@@ -88,11 +88,7 @@ fn get_file_times(path: &std::path::Path) -> (u64, u64) {
         .ok()
         .map(crate::utils::systime_to_secs)
         .unwrap_or(0);
-    let modified = meta
-        .modified()
-        .ok()
-        .map(crate::utils::systime_to_secs)
-        .unwrap_or(0);
+    let modified = crate::utils::metadata_modified_secs(&meta);
     (created, modified)
 }
 
