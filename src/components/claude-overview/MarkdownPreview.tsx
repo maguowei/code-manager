@@ -1,6 +1,8 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
+import githubDarkStyleUrl from "github-markdown-css/github-markdown-dark.css?url";
+import githubLightStyleUrl from "github-markdown-css/github-markdown-light.css?url";
 import type { ReactNode } from "react";
-import { memo, useMemo } from "react";
+import { memo, useEffect, useMemo } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneLight, vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
@@ -8,6 +10,33 @@ import remarkGfm from "remark-gfm";
 
 // 模块级常量，所有实例共享，避免每次渲染重建
 const REMARK_PLUGINS = [remarkGfm];
+
+// github-markdown-css 默认入口的 light 选择器被 prefers-color-scheme 媒体查询包住，
+// 当应用内主题与系统偏好不一致时会失效。这里改用拆分的 light/dark 单独文件，
+// 通过单例 link 元素按当前 themeType 切换 disabled，强制跟随应用内主题。
+const LIGHT_LINK_ID = "ai-manager-markdown-light-style";
+const DARK_LINK_ID = "ai-manager-markdown-dark-style";
+
+function ensureGithubMarkdownLinks() {
+  if (typeof document === "undefined") {
+    return null;
+  }
+  const upsert = (id: string, href: string) => {
+    let link = document.getElementById(id) as HTMLLinkElement | null;
+    if (!link) {
+      link = document.createElement("link");
+      link.id = id;
+      link.rel = "stylesheet";
+      link.href = href;
+      document.head.appendChild(link);
+    }
+    return link;
+  };
+  return {
+    light: upsert(LIGHT_LINK_ID, githubLightStyleUrl),
+    dark: upsert(DARK_LINK_ID, githubDarkStyleUrl),
+  };
+}
 
 interface MarkdownPreviewProps {
   content: string;
@@ -28,6 +57,15 @@ function isExternalHref(href: string | undefined): href is string {
 }
 
 function MarkdownPreviewBase({ content, themeType, className }: MarkdownPreviewProps) {
+  useEffect(() => {
+    const links = ensureGithubMarkdownLinks();
+    if (!links) {
+      return;
+    }
+    links.light.disabled = themeType !== "light";
+    links.dark.disabled = themeType !== "dark";
+  }, [themeType]);
+
   const components = useMemo<Components>(() => {
     const codeStyle = themeType === "dark" ? vscDarkPlus : oneLight;
 

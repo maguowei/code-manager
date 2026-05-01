@@ -109,4 +109,22 @@ describe("MarkdownPreview", () => {
     const root = container.querySelector(".markdown-body");
     expect(root?.className).toContain("extra-cls");
   });
+
+  it("themeType 切换时启用对应的 github-markdown 主题 link，禁用另一个", () => {
+    const { rerender } = render(<MarkdownPreview content="x" themeType="light" />);
+    const lightLink = document.getElementById(
+      "ai-manager-markdown-light-style",
+    ) as HTMLLinkElement | null;
+    const darkLink = document.getElementById(
+      "ai-manager-markdown-dark-style",
+    ) as HTMLLinkElement | null;
+    expect(lightLink).not.toBeNull();
+    expect(darkLink).not.toBeNull();
+    expect(lightLink?.disabled).toBe(false);
+    expect(darkLink?.disabled).toBe(true);
+
+    rerender(<MarkdownPreview content="x" themeType="dark" />);
+    expect(lightLink?.disabled).toBe(true);
+    expect(darkLink?.disabled).toBe(false);
+  });
 });

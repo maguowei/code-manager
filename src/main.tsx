@@ -5,7 +5,6 @@ import { I18nProvider } from "./i18n";
 import { installGlobalErrorLogging } from "./utils/logger";
 import "./styles/shared.css";
 import "./components/Toast.css";
-import "github-markdown-css/github-markdown.css";
 import App from "./App";
 
 installGlobalErrorLogging();
