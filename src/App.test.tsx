@@ -265,6 +265,7 @@ describe("App", () => {
             truncated: false,
             size: 19,
             modifiedAt: 2,
+            encoding: "utf-8",
           };
         }
         return {
@@ -275,6 +276,7 @@ describe("App", () => {
           truncated: false,
           size: 48,
           modifiedAt: 1,
+          encoding: "utf-8",
         };
       }
       return null;
@@ -371,8 +373,15 @@ describe("App", () => {
       "data-icon-token",
       "json",
     );
-    expect(document.querySelector(".claude-overview-preview-head")).not.toHaveTextContent(
+    expect(document.querySelector(".claude-overview-preview-toolbar")).not.toHaveTextContent(
       "settings.json",
+    );
+    const previewFooter = document.querySelector(".claude-overview-preview-footer");
+    expect(previewFooter).toHaveTextContent("19 B");
+    expect(previewFooter).toHaveTextContent("UTF-8");
+    expect(previewFooter).toHaveTextContent(new Date(2 * 1000).toLocaleString());
+    expect(document.querySelector(".claude-overview-preview-toolbar")).not.toHaveTextContent(
+      "19 B",
     );
     expect(screen.getByRole("tab", { name: "check-license-rule.js" })).toHaveAttribute(
       "aria-selected",

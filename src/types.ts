@@ -210,6 +210,7 @@ export interface ClaudeFilePreview {
   truncated: boolean;
   size: number;
   modifiedAt: number;
+  encoding: string;
 }
 
 // Skill 条目

@@ -21,7 +21,7 @@ import {
   useState,
 } from "react";
 import { useToast } from "../hooks/useToast";
-import { type Theme, useI18n } from "../i18n";
+import { type Theme, type TranslationKey, useI18n } from "../i18n";
 import type { ClaudeDirectoryEntry, ClaudeDirectoryOverview, ClaudeFilePreview } from "../types";
 import { CopyIcon, EditIcon, ExternalLinkIcon } from "./Icons";
 import "./ClaudeOverviewPage.css";
@@ -192,6 +192,19 @@ function formatModifiedAt(timestamp: number) {
     return "-";
   }
   return new Date(timestamp * 1000).toLocaleString();
+}
+
+function formatPreviewEncoding(encoding: string | undefined, t: (key: TranslationKey) => string) {
+  switch (encoding) {
+    case "utf-8":
+      return t("claudeOverview.encodingUtf8");
+    case "utf-8-lossy":
+      return t("claudeOverview.encodingUtf8Lossy");
+    case "binary":
+      return t("claudeOverview.encodingBinary");
+    default:
+      return encoding || t("claudeOverview.encodingUnknown");
+  }
 }
 
 function getSystemPierreThemeType(): ThemeTypes {
@@ -821,16 +834,7 @@ function ClaudeOverviewPage() {
             <div className="claude-overview-empty">{t("loading")}</div>
           ) : activePreview ? (
             <>
-              <div className="claude-overview-preview-head">
-                <div className="claude-overview-preview-summary">
-                  <span>{formatBytes(activePreview.size)}</span>
-                  <span>
-                    {formatModifiedAt(activeEntry?.modifiedAt ?? activePreview.modifiedAt)}
-                  </span>
-                  {activePreview.truncated ? (
-                    <span>{t("claudeOverview.fileTruncated")}</span>
-                  ) : null}
-                </div>
+              <div className="claude-overview-preview-toolbar">
                 <div className="claude-overview-preview-actions">
                   <button
                     type="button"
@@ -869,6 +873,18 @@ function ClaudeOverviewPage() {
                   disableWorkerPool
                 />
               ) : null}
+              <div className="claude-overview-preview-footer">
+                <div className="claude-overview-preview-summary">
+                  <span>{formatBytes(activePreview.size)}</span>
+                  <span>
+                    {formatModifiedAt(activeEntry?.modifiedAt ?? activePreview.modifiedAt)}
+                  </span>
+                  <span>{formatPreviewEncoding(activePreview.encoding, t)}</span>
+                  {activePreview.truncated ? (
+                    <span>{t("claudeOverview.fileTruncated")}</span>
+                  ) : null}
+                </div>
+              </div>
             </>
           ) : selectedEntry?.kind === "directory" ? (
             <div className="claude-overview-empty">{t("claudeOverview.directorySelected")}</div>

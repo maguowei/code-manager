@@ -8,6 +8,9 @@ const DEFAULT_MAX_ENTRIES: usize = 100_000;
 const DEFAULT_MAX_DEPTH: usize = 128;
 const DEFAULT_PREVIEW_BYTES: usize = 512 * 1024;
 const NODE_MODULES_DIR_NAME: &str = "node_modules";
+const PREVIEW_ENCODING_UTF8: &str = "utf-8";
+const PREVIEW_ENCODING_UTF8_LOSSY: &str = "utf-8-lossy";
+const PREVIEW_ENCODING_BINARY: &str = "binary";
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct ScanOptions {
@@ -68,6 +71,7 @@ pub struct ClaudeFilePreview {
     pub truncated: bool,
     pub size: u64,
     pub modified_at: u64,
+    pub encoding: String,
 }
 
 #[tauri::command]
@@ -120,11 +124,12 @@ pub fn read_claude_file_preview(path: String) -> Result<ClaudeFilePreview, Strin
     let result = read_claude_file_preview_from_root(&root, &path, DEFAULT_PREVIEW_BYTES);
     crate::logging::log_command_result("claude_directory.preview", &result, |preview| {
         format!(
-            "path={} size={} binary={} truncated={}",
+            "path={} size={} binary={} truncated={} encoding={}",
             crate::utils::truncate(&preview.path, 160),
             preview.size,
             preview.is_binary,
-            preview.truncated
+            preview.truncated,
+            preview.encoding
         )
     });
     result
@@ -402,9 +407,20 @@ pub(crate) fn read_claude_file_preview_from_root(
         bytes.truncate(max_bytes);
     }
 
-    let (content, is_binary) = match String::from_utf8(bytes) {
-        Ok(content) => (content, false),
-        Err(_) => (String::new(), true),
+    let (content, is_binary, encoding) = match String::from_utf8(bytes) {
+        Ok(content) => (content, false, PREVIEW_ENCODING_UTF8.to_string()),
+        Err(error) => {
+            let bytes = error.into_bytes();
+            if bytes.contains(&0) {
+                (String::new(), true, PREVIEW_ENCODING_BINARY.to_string())
+            } else {
+                (
+                    String::from_utf8_lossy(&bytes).into_owned(),
+                    false,
+                    PREVIEW_ENCODING_UTF8_LOSSY.to_string(),
+                )
+            }
+        }
     };
     let normalized_path = normalize_relative_path(&rel_path);
     let name = rel_path
@@ -420,6 +436,7 @@ pub(crate) fn read_claude_file_preview_from_root(
         truncated,
         size: metadata.len(),
         modified_at: metadata_mtime(&metadata),
+        encoding,
     })
 }
 
@@ -805,22 +822,37 @@ mod tests {
         fs::write(env.claude_dir().join("binary.bin"), [0, 159, 146, 150])
             .expect("应可写入二进制文件");
         fs::write(env.claude_dir().join("long.txt"), "abcdef").expect("应可写入长文本");
+        fs::write(env.claude_dir().join("lossy.txt"), [b'a', 0x80, b'b'])
+            .expect("应可写入非 UTF-8 文本");
 
         let text = read_claude_file_preview_from_root(&env.claude_dir(), "settings.json", 512)
             .expect("文本预览应成功");
         assert_eq!(text.content, "{\"model\":\"sonnet\"}");
         assert!(!text.is_binary);
         assert!(!text.truncated);
+        let text_json = serde_json::to_value(&text).expect("预览结果应可序列化");
+        assert_eq!(text_json["encoding"], "utf-8");
 
         let binary = read_claude_file_preview_from_root(&env.claude_dir(), "binary.bin", 512)
             .expect("二进制预览应成功");
         assert_eq!(binary.content, "");
         assert!(binary.is_binary);
+        let binary_json = serde_json::to_value(&binary).expect("预览结果应可序列化");
+        assert_eq!(binary_json["encoding"], "binary");
+
+        let lossy = read_claude_file_preview_from_root(&env.claude_dir(), "lossy.txt", 512)
+            .expect("非 UTF-8 文本预览应成功");
+        assert_eq!(lossy.content, "a\u{FFFD}b");
+        assert!(!lossy.is_binary);
+        let lossy_json = serde_json::to_value(&lossy).expect("预览结果应可序列化");
+        assert_eq!(lossy_json["encoding"], "utf-8-lossy");
 
         let truncated = read_claude_file_preview_from_root(&env.claude_dir(), "long.txt", 3)
             .expect("截断预览应成功");
         assert_eq!(truncated.content, "abc");
         assert!(truncated.truncated);
+        let truncated_json = serde_json::to_value(&truncated).expect("预览结果应可序列化");
+        assert_eq!(truncated_json["encoding"], "utf-8");
     }
 
     #[cfg(unix)]

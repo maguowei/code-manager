@@ -29,33 +29,37 @@ describe("ClaudeOverviewPage styles", () => {
     const css = readText("src/components/ClaudeOverviewPage.css");
     const headerRule = css.match(/\.claude-overview-header\s*{(?<body>[^}]*)}/);
     const statusRule = css.match(/\.claude-overview-status\s*{(?<body>[^}]*)}/);
-    const previewHeadRule = css.match(/\.claude-overview-preview-head\s*{(?<body>[^}]*)}/);
+    const previewToolbarRule = css.match(/\.claude-overview-preview-toolbar\s*{(?<body>[^}]*)}/);
+    const previewFooterRule = css.match(/\.claude-overview-preview-footer\s*{(?<body>[^}]*)}/);
 
     expect(headerRule?.groups?.body).toContain("min-height: 48px;");
     expect(statusRule?.groups?.body).toContain("min-height: 0;");
-    expect(previewHeadRule?.groups?.body).toContain("min-height: 40px;");
+    expect(previewToolbarRule?.groups?.body).toContain("min-height: 38px;");
+    expect(previewFooterRule?.groups?.body).toContain("min-height: 34px;");
   });
 
   it("visually separates the preview metadata from file contents", () => {
     const css = readText("src/components/ClaudeOverviewPage.css");
-    const previewHeadRule = css.match(/\.claude-overview-preview-head\s*{(?<body>[^}]*)}/);
+    const previewFooterRule = css.match(/\.claude-overview-preview-footer\s*{(?<body>[^}]*)}/);
 
-    expect(previewHeadRule?.groups?.body).toContain("background: var(--bg-primary);");
-    expect(previewHeadRule?.groups?.body).toContain(
-      "border-bottom: 1px solid var(--border-default);",
+    expect(previewFooterRule?.groups?.body).toContain("background: var(--bg-primary);");
+    expect(previewFooterRule?.groups?.body).toContain(
+      "border-top: 1px solid var(--border-default);",
     );
   });
 
-  it("keeps the active file metadata and actions on one compact row", () => {
+  it("keeps preview actions and footer metadata in compact rows", () => {
     const css = readText("src/components/ClaudeOverviewPage.css");
-    const previewHeadRule = css.match(/\.claude-overview-preview-head\s*{(?<body>[^}]*)}/);
+    const previewToolbarRule = css.match(/\.claude-overview-preview-toolbar\s*{(?<body>[^}]*)}/);
+    const previewFooterRule = css.match(/\.claude-overview-preview-footer\s*{(?<body>[^}]*)}/);
     const previewSummaryRule = css.match(/\.claude-overview-preview-summary\s*{(?<body>[^}]*)}/);
     const actionButtonRule = css.match(
       /\.claude-overview-preview-actions button\s*{(?<body>[^}]*)}/,
     );
 
-    expect(previewHeadRule?.groups?.body).toContain("min-height: 40px;");
-    expect(previewHeadRule?.groups?.body).toContain("flex-wrap: nowrap;");
+    expect(previewToolbarRule?.groups?.body).toContain("min-height: 38px;");
+    expect(previewToolbarRule?.groups?.body).toContain("justify-content: flex-end;");
+    expect(previewFooterRule?.groups?.body).toContain("min-height: 34px;");
     expect(previewSummaryRule?.groups?.body).toContain("white-space: nowrap;");
     expect(actionButtonRule?.groups?.body).toContain("width: 30px;");
   });
