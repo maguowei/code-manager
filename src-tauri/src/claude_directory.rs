@@ -141,8 +141,8 @@ pub fn open_claude_file_in_editor(path: String) -> Result<(), String> {
         let root = claude_dir()?;
         let rel_path = validate_relative_claude_path(&path)?;
         let target_path = resolve_existing_path_inside_root(&root, &rel_path)?;
-        let metadata = fs::metadata(&target_path)
-            .map_err(|e| format!("读取文件元数据失败 {:?}: {}", target_path, e))?;
+        let metadata =
+            fs::metadata(&target_path).map_err(|e| mask_io_error("读取文件元数据", &e))?;
         if !metadata.is_file() {
             return Err("只能用默认编辑器打开 ~/.claude 内的文件".to_string());
         }
@@ -162,6 +162,18 @@ pub fn open_claude_file_in_editor(path: String) -> Result<(), String> {
 
 fn claude_dir() -> Result<PathBuf, String> {
     Ok(crate::utils::get_home_dir()?.join(".claude"))
+}
+
+// 脱敏地包装 io::Error：仅保留动作描述与按 ErrorKind 归类的原因，
+// 不再泄露具体路径或操作系统原始消息（如 "No such file or directory"）。
+fn mask_io_error(action: &str, err: &std::io::Error) -> String {
+    use std::io::ErrorKind;
+    let reason = match err.kind() {
+        ErrorKind::NotFound => "目标不存在",
+        ErrorKind::PermissionDenied => "权限不足",
+        _ => "操作失败",
+    };
+    format!("{}失败：{}", action, reason)
 }
 
 pub(crate) fn scan_claude_directory_with_options(
@@ -236,9 +248,9 @@ fn collect_direct_entries(
     listing: &mut ClaudeDirectoryListing,
 ) -> Result<(), String> {
     let mut entries = fs::read_dir(current)
-        .map_err(|e| format!("读取目录失败 {:?}: {}", current, e))?
+        .map_err(|e| mask_io_error("读取目录", &e))?
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("读取目录项失败 {:?}: {}", current, e))?;
+        .map_err(|e| mask_io_error("读取目录项", &e))?;
     entries.sort_by_key(|entry| entry.file_name());
 
     for entry in entries {
@@ -250,15 +262,14 @@ fn collect_direct_entries(
 
         let file_type = entry
             .file_type()
-            .map_err(|e| format!("获取文件类型失败 {:?}: {}", entry.path(), e))?;
+            .map_err(|e| mask_io_error("获取文件类型", &e))?;
         if file_type.is_symlink() {
             listing.skipped_symlink_count += 1;
             continue;
         }
 
         let path = entry.path();
-        let metadata =
-            fs::metadata(&path).map_err(|e| format!("读取文件元数据失败 {:?}: {}", path, e))?;
+        let metadata = fs::metadata(&path).map_err(|e| mask_io_error("读取文件元数据", &e))?;
         let name = entry.file_name().to_string_lossy().to_string();
         if let Some(directory_entry) = claude_directory_entry(root, &path, name, &metadata)? {
             listing.entries.push(directory_entry);
@@ -282,9 +293,9 @@ fn collect_entries(
     }
 
     let mut entries = fs::read_dir(current)
-        .map_err(|e| format!("读取目录失败 {:?}: {}", current, e))?
+        .map_err(|e| mask_io_error("读取目录", &e))?
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("读取目录项失败 {:?}: {}", current, e))?;
+        .map_err(|e| mask_io_error("读取目录项", &e))?;
     entries.sort_by_key(|entry| entry.file_name());
 
     for entry in entries {
@@ -296,15 +307,14 @@ fn collect_entries(
 
         let file_type = entry
             .file_type()
-            .map_err(|e| format!("获取文件类型失败 {:?}: {}", entry.path(), e))?;
+            .map_err(|e| mask_io_error("获取文件类型", &e))?;
         if file_type.is_symlink() {
             overview.skipped_symlink_count += 1;
             continue;
         }
 
         let path = entry.path();
-        let metadata =
-            fs::metadata(&path).map_err(|e| format!("读取文件元数据失败 {:?}: {}", path, e))?;
+        let metadata = fs::metadata(&path).map_err(|e| mask_io_error("读取文件元数据", &e))?;
         let rel_path = relative_path(root, &path)?;
         let name = entry.file_name().to_string_lossy().to_string();
 
@@ -373,20 +383,18 @@ pub(crate) fn read_claude_file_preview_from_root(
 ) -> Result<ClaudeFilePreview, String> {
     let rel_path = validate_relative_claude_path(path)?;
     let file_path = resolve_existing_path_inside_root(root, &rel_path)?;
-    let metadata = fs::metadata(&file_path)
-        .map_err(|e| format!("读取文件元数据失败 {:?}: {}", file_path, e))?;
+    let metadata = fs::metadata(&file_path).map_err(|e| mask_io_error("读取文件元数据", &e))?;
     if !metadata.is_file() {
         return Err("只能读取 ~/.claude 内的文件".to_string());
     }
 
-    let mut file =
-        fs::File::open(&file_path).map_err(|e| format!("打开文件失败 {:?}: {}", file_path, e))?;
+    let mut file = fs::File::open(&file_path).map_err(|e| mask_io_error("打开文件", &e))?;
     let read_limit = max_bytes.saturating_add(1) as u64;
     let mut bytes = Vec::new();
     file.by_ref()
         .take(read_limit)
         .read_to_end(&mut bytes)
-        .map_err(|e| format!("读取文件失败 {:?}: {}", file_path, e))?;
+        .map_err(|e| mask_io_error("读取文件", &e))?;
 
     let truncated = bytes.len() > max_bytes;
     if truncated {
@@ -462,20 +470,22 @@ fn validate_relative_claude_path(path: &str) -> Result<PathBuf, String> {
 }
 
 fn resolve_existing_path_inside_root(root: &Path, rel_path: &Path) -> Result<PathBuf, String> {
+    // 路径解析阶段所有 IO 错误（不存在 / 权限 / canonicalize 失败）统一为越界文案，
+    // 避免攻击者根据错误差异判断"路径是否存在但不在白名单"。
     let root_canonical =
-        fs::canonicalize(root).map_err(|e| format!("解析 ~/.claude 目录失败: {}", e))?;
+        fs::canonicalize(root).map_err(|_| "只能读取 ~/.claude 内的文件".to_string())?;
     let mut current = root.to_path_buf();
     for component in rel_path.components() {
         current.push(component.as_os_str());
         let metadata = fs::symlink_metadata(&current)
-            .map_err(|e| format!("访问文件失败 {:?}: {}", current, e))?;
+            .map_err(|_| "只能读取 ~/.claude 内的文件".to_string())?;
         if metadata.file_type().is_symlink() {
             return Err("只能读取 ~/.claude 内的文件".to_string());
         }
     }
 
     let current_canonical =
-        fs::canonicalize(&current).map_err(|e| format!("解析文件路径失败 {:?}: {}", current, e))?;
+        fs::canonicalize(&current).map_err(|_| "只能读取 ~/.claude 内的文件".to_string())?;
     if !current_canonical.starts_with(root_canonical) {
         return Err("只能读取 ~/.claude 内的文件".to_string());
     }
@@ -484,7 +494,9 @@ fn resolve_existing_path_inside_root(root: &Path, rel_path: &Path) -> Result<Pat
 }
 
 fn relative_path(root: &Path, path: &Path) -> Result<String, String> {
-    let rel = path.strip_prefix(root).map_err(|e| e.to_string())?;
+    let rel = path
+        .strip_prefix(root)
+        .map_err(|_| "路径处理失败".to_string())?;
     Ok(normalize_relative_path(rel))
 }
 
@@ -533,11 +545,11 @@ fn open_path_with_app(path: &Path, app_name: &str) -> Result<(), String> {
 fn run_command_status(command: &mut Command, action_name: &str) -> Result<(), String> {
     let status = command
         .status()
-        .map_err(|e| format!("{}失败: {}", action_name, e))?;
+        .map_err(|e| mask_io_error(&format!("启动 {}", action_name), &e))?;
     if status.success() {
         Ok(())
     } else {
-        Err(format!("{}失败，退出码: {:?}", action_name, status.code()))
+        Err(format!("{}启动失败", action_name))
     }
 }
 
@@ -810,6 +822,54 @@ mod tests {
         assert!(truncated.truncated);
         let truncated_json = serde_json::to_value(&truncated).expect("预览结果应可序列化");
         assert_eq!(truncated_json["encoding"], "utf-8");
+    }
+
+    #[test]
+    fn mask_io_error_omits_path_and_system_message() {
+        // 模拟系统会带的具体路径和 OS 原始描述，验证最终文案完全脱敏。
+        let not_found = std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "/Users/secret/.claude/leaked.txt: No such file or directory (os error 2)",
+        );
+        let masked = mask_io_error("读取目录", &not_found);
+        assert_eq!(masked, "读取目录失败：目标不存在");
+        assert!(!masked.contains("/Users/secret"));
+        assert!(!masked.contains("leaked.txt"));
+        assert!(!masked.contains("No such file"));
+        assert!(!masked.contains("os error"));
+
+        let permission_denied = std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "Permission denied: /etc/shadow",
+        );
+        let masked = mask_io_error("打开文件", &permission_denied);
+        assert_eq!(masked, "打开文件失败：权限不足");
+        assert!(!masked.contains("/etc/shadow"));
+        assert!(!masked.contains("Permission denied"));
+
+        let other = std::io::Error::other("Disk quota exceeded for user maguowei");
+        let masked = mask_io_error("读取文件", &other);
+        assert_eq!(masked, "读取文件失败：操作失败");
+        assert!(!masked.contains("Disk quota"));
+        assert!(!masked.contains("maguowei"));
+    }
+
+    #[test]
+    fn preview_does_not_leak_path_or_system_error_for_missing_file() {
+        let env = TestEnv::new("masked-missing");
+        let err = read_claude_file_preview_from_root(
+            &env.claude_dir(),
+            "internal-secret-file.txt",
+            512,
+        )
+        .expect_err("不存在的文件应被拒绝");
+
+        // 路径解析阶段的 IO 错误统一为越界文案，不区分越界 vs 不存在，
+        // 也不透传原始 OS 消息。
+        assert_eq!(err, "只能读取 ~/.claude 内的文件");
+        assert!(!err.contains("internal-secret-file"));
+        assert!(!err.contains("No such file"));
+        assert!(!err.contains("os error"));
     }
 
     #[cfg(unix)]
