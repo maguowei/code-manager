@@ -34,9 +34,10 @@ preview:
 check:
 	cd src-tauri && cargo check
 
-# 运行 Rust 单元测试
+# 运行 Rust 与前端单元测试
 test:
 	cd src-tauri && cargo test
+	pnpm test
 
 # 代码检查：Rust lint
 lint:
