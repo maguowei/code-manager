@@ -5,12 +5,14 @@ import { ToastProvider } from "./hooks/useToast";
 import { I18nProvider } from "./i18n";
 import type { ConfigWorkspace } from "./types";
 
-const { filePreviewMock, fileTreeOptionsMock, invokeMock, listenMock } = vi.hoisted(() => ({
-  filePreviewMock: vi.fn(),
-  fileTreeOptionsMock: vi.fn(),
-  invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
-  listenMock: vi.fn(async () => () => {}),
-}));
+const { filePreviewMock, fileTreeOptionsMock, invokeMock, listenMock, revealItemInDirMock } =
+  vi.hoisted(() => ({
+    filePreviewMock: vi.fn(),
+    fileTreeOptionsMock: vi.fn(),
+    invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
+    listenMock: vi.fn(async () => () => {}),
+    revealItemInDirMock: vi.fn(async () => undefined),
+  }));
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: invokeMock,
@@ -18,6 +20,11 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 vi.mock("@tauri-apps/api/event", () => ({
   listen: listenMock,
+}));
+
+vi.mock("@tauri-apps/plugin-opener", () => ({
+  revealItemInDir: revealItemInDirMock,
+  openUrl: vi.fn(async () => undefined),
 }));
 
 vi.mock("@pierre/diffs/react", () => ({
@@ -155,6 +162,7 @@ describe("App", () => {
     listenMock.mockClear();
     filePreviewMock.mockClear();
     fileTreeOptionsMock.mockClear();
+    revealItemInDirMock.mockClear();
     invokeMock.mockResolvedValue(WORKSPACE_FIXTURE);
     document.documentElement.removeAttribute("data-theme");
     Object.defineProperty(window, "matchMedia", {
@@ -423,9 +431,7 @@ describe("App", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "在文件浏览器打开" }));
     await waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith("open_claude_path_in_file_browser", {
-        path: "settings.json",
-      });
+      expect(revealItemInDirMock).toHaveBeenCalledWith("/Users/test/.claude/settings.json");
     });
     fireEvent.click(screen.getByRole("button", { name: "用默认编辑器打开" }));
     await waitFor(() => {

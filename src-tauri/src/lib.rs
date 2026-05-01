@@ -11,7 +11,7 @@ mod utils;
 
 use claude_directory::{
     get_claude_directory_children, get_claude_directory_overview, open_claude_file_in_editor,
-    open_claude_path_in_file_browser, read_claude_file_preview,
+    read_claude_file_preview,
 };
 use config::{
     apply_profile, delete_preset, delete_profile, duplicate_profile, get_config_workspace,
@@ -85,7 +85,6 @@ pub fn run() {
             get_claude_directory_overview,
             get_claude_directory_children,
             read_claude_file_preview,
-            open_claude_path_in_file_browser,
             open_claude_file_in_editor,
             upsert_profile,
             duplicate_profile,

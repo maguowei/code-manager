@@ -136,20 +136,6 @@ pub fn read_claude_file_preview(path: String) -> Result<ClaudeFilePreview, Strin
 }
 
 #[tauri::command]
-pub fn open_claude_path_in_file_browser(path: String) -> Result<(), String> {
-    let result = (|| {
-        let root = claude_dir()?;
-        let rel_path = validate_relative_claude_path(&path)?;
-        let target_path = resolve_existing_path_inside_root(&root, &rel_path)?;
-        open_path_in_file_browser(&target_path)
-    })();
-    crate::logging::log_command_result("claude_directory.open_file_browser", &result, |_| {
-        format!("path={}", crate::utils::truncate(&path, 160))
-    });
-    result
-}
-
-#[tauri::command]
 pub fn open_claude_file_in_editor(path: String) -> Result<(), String> {
     let result = (|| {
         let root = claude_dir()?;
@@ -526,35 +512,6 @@ fn editor_app_name(app: &str) -> Result<&'static str, String> {
         .find(|(slug, _)| *slug == app)
         .map(|(_, display)| *display)
         .ok_or_else(|| "默认编辑器配置无效，请重新选择".to_string())
-}
-
-fn open_path_in_file_browser(path: &Path) -> Result<(), String> {
-    #[cfg(target_os = "macos")]
-    {
-        run_command_status(Command::new("open").arg("-R").arg(path), "打开文件浏览器")
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        let target = if path.is_dir() {
-            path
-        } else {
-            path.parent().unwrap_or(path)
-        };
-        run_command_status(Command::new("xdg-open").arg(target), "打开文件浏览器")
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        let selector = format!("/select,{}", path.to_string_lossy());
-        run_command_status(Command::new("explorer").arg(selector), "打开文件浏览器")
-    }
-
-    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
-    {
-        let _ = path;
-        Err("当前平台暂不支持打开文件浏览器".to_string())
-    }
 }
 
 fn open_path_with_app(path: &Path, app_name: &str) -> Result<(), String> {

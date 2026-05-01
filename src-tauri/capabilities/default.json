@@ -10,6 +10,7 @@
     "dialog:allow-open",
     "log:default",
     "opener:default",
+    "opener:allow-reveal-item-in-dir",
     "core:window:allow-inner-size",
     "core:window:allow-set-size",
     "core:tray:default"

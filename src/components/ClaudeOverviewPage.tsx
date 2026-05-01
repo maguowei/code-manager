@@ -7,6 +7,7 @@ import {
 } from "@pierre/trees";
 import { FileTree, useFileTree } from "@pierre/trees/react";
 import { invoke } from "@tauri-apps/api/core";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -640,11 +641,11 @@ function ClaudeOverviewPage() {
       return;
     }
     try {
-      await invoke("open_claude_path_in_file_browser", { path: activePreview.path });
+      await revealItemInDir(absolutePreviewPath(overview.rootPath, activePreview.path));
     } catch {
       showToast(t("claudeOverview.openFileBrowserError"), "error");
     }
-  }, [activePreview, showToast, t]);
+  }, [activePreview, overview.rootPath, showToast, t]);
 
   const handleOpenInEditor = useCallback(async () => {
     if (!activePreview) {
