@@ -16,6 +16,7 @@
 .sidebar-logo {
   width: 40px;
   height: 40px;
+  border: none;
   border-radius: var(--radius-lg);
   background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
   display: flex;
@@ -26,6 +27,34 @@
   font-size: var(--font-xl);
   margin-bottom: var(--space-5);
   box-shadow: var(--glow-blue);
+}
+
+.sidebar-logo-button {
+  position: relative;
+  cursor: pointer;
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    filter 150ms ease;
+}
+
+.sidebar-logo-button:hover {
+  filter: brightness(1.08);
+  box-shadow: var(--glow-blue), var(--shadow-md);
+}
+
+.sidebar-logo-button.active {
+  filter: brightness(1.08);
+  box-shadow: var(--glow-blue), var(--shadow-blue-md);
+}
+
+.sidebar-logo-button:active {
+  transform: scale(0.96);
+}
+
+.sidebar-logo-button:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 3px;
 }
 
 .sidebar-nav {
@@ -118,5 +147,29 @@
 }
 
 .nav-item[data-tooltip]:hover::after {
+  opacity: 1;
+}
+
+.sidebar-logo-button[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: calc(100% + 14px);
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: var(--bg-elevated, #1e1e2e);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms ease;
+  z-index: var(--z-index-dropdown, 100);
+}
+
+.sidebar-logo-button[data-tooltip]:hover::after {
   opacity: 1;
 }

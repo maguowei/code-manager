@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import "./App.css";
+import ClaudeOverviewPage from "./components/ClaudeOverviewPage";
 import HistoryPage from "./components/HistoryPage";
 import MemoryPage from "./components/MemoryPage";
 import PresetsPage from "./components/PresetsPage";
@@ -36,6 +37,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
+  const previousContentTabRef = useRef<TabType>("configs");
 
   const loadWorkspace = useCallback(async () => {
     if (!isTauri()) {
@@ -64,7 +66,11 @@ function App() {
   });
 
   useTauriEvent<string>("navigate-to-tab", (tab) => {
-    setActiveTab(tab as TabType);
+    const nextTab = tab as TabType;
+    if (nextTab !== "claudeOverview") {
+      previousContentTabRef.current = nextTab;
+    }
+    setActiveTab(nextTab);
     setIsDetailDrawerOpen(false);
   });
 
@@ -81,6 +87,17 @@ function App() {
     setIsSettingsOpen(true);
   }, [closeSettingsDrawer, isSettingsOpen]);
 
+  const handleClaudeOverviewClick = useCallback(() => {
+    setIsSettingsOpen(false);
+    setIsDetailDrawerOpen(false);
+    if (activeTab === "claudeOverview") {
+      setActiveTab(previousContentTabRef.current);
+      return;
+    }
+    previousContentTabRef.current = activeTab;
+    setActiveTab("claudeOverview");
+  }, [activeTab]);
+
   if (loading) {
     return (
       <div className="app-container">
@@ -94,15 +111,21 @@ function App() {
       <Sidebar
         activeTab={activeTab}
         onTabChange={(tab) => {
+          if (tab !== "claudeOverview") {
+            previousContentTabRef.current = tab;
+          }
           setActiveTab(tab);
           setIsDetailDrawerOpen(false);
         }}
+        onClaudeOverviewClick={handleClaudeOverviewClick}
         onSettingsClick={handleSettingsClick}
       />
 
       <div className="content-area">
         {activeTab === "stats" ? (
           <StatsPage />
+        ) : activeTab === "claudeOverview" ? (
+          <ClaudeOverviewPage />
         ) : activeTab === "projects" ? (
           <ProjectsPage />
         ) : activeTab === "history" ? (

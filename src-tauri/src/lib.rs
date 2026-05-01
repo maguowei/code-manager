@@ -1,3 +1,4 @@
+mod claude_directory;
 mod config;
 mod history;
 mod logging;
@@ -8,6 +9,10 @@ mod stats;
 mod tray;
 mod utils;
 
+use claude_directory::{
+    get_claude_directory_children, get_claude_directory_overview, open_claude_file_in_editor,
+    open_claude_path_in_file_browser, read_claude_file_preview,
+};
 use config::{
     apply_profile, delete_preset, delete_profile, duplicate_profile, get_config_workspace,
     install_status_line_preset, preview_profile, reorder_profiles, set_app_preferences,
@@ -77,6 +82,11 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_config_workspace,
+            get_claude_directory_overview,
+            get_claude_directory_children,
+            read_claude_file_preview,
+            open_claude_path_in_file_browser,
+            open_claude_file_in_editor,
             upsert_profile,
             duplicate_profile,
             reorder_profiles,

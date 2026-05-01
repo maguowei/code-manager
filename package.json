@@ -23,6 +23,8 @@
     "@codemirror/view": "^6.39.15",
     "@hookform/resolvers": "^5.2.2",
     "@lezer/highlight": "^1.2.3",
+    "@pierre/diffs": "1.1.19",
+    "@pierre/trees": "1.0.0-beta.3",
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-dialog": "2.6.0",
     "@tauri-apps/plugin-log": "^2.8.0",

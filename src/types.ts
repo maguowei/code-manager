@@ -4,6 +4,7 @@ export const isTauri = () =>
 
 // 侧边栏 Tab 类型
 export type TabType =
+  | "claudeOverview"
   | "configs"
   | "providers"
   | "memory"
@@ -177,6 +178,38 @@ export interface LogView {
   logDir: string;
   entries: LogEntry[];
   truncated: boolean;
+}
+
+export type ClaudeDirectoryEntryKind = "file" | "directory";
+
+export interface ClaudeDirectoryEntry {
+  path: string;
+  name: string;
+  kind: ClaudeDirectoryEntryKind;
+  size: number;
+  modifiedAt: number;
+}
+
+export interface ClaudeDirectoryOverview {
+  rootPath: string;
+  maxEntries: number;
+  maxDepth: number;
+  entries: ClaudeDirectoryEntry[];
+  truncated: boolean;
+  reachedEntryLimit: boolean;
+  reachedDepthLimit: boolean;
+  skippedSymlinkCount: number;
+  skippedNodeModulesCount: number;
+}
+
+export interface ClaudeFilePreview {
+  path: string;
+  name: string;
+  content: string;
+  isBinary: boolean;
+  truncated: boolean;
+  size: number;
+  modifiedAt: number;
 }
 
 // Skill 条目

@@ -5,14 +5,26 @@ import "./Sidebar.css";
 interface SidebarProps {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
+  onClaudeOverviewClick: () => void;
   onSettingsClick: () => void;
 }
 
-function Sidebar({ activeTab, onTabChange, onSettingsClick }: SidebarProps) {
+function Sidebar({ activeTab, onTabChange, onClaudeOverviewClick, onSettingsClick }: SidebarProps) {
   const { t } = useI18n();
   return (
     <nav className="sidebar" aria-label={t("nav.ariaLabel")}>
-      <div className="sidebar-logo">AI</div>
+      <button
+        type="button"
+        className={`sidebar-logo sidebar-logo-button ${
+          activeTab === "claudeOverview" ? "active" : ""
+        }`}
+        onClick={onClaudeOverviewClick}
+        aria-label={t("nav.claudeOverview")}
+        aria-current={activeTab === "claudeOverview" ? "page" : undefined}
+        data-tooltip={t("nav.claudeOverview")}
+      >
+        AI
+      </button>
 
       <div className="sidebar-nav">
         <button
