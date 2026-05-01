@@ -454,6 +454,69 @@
   --diffs-dark-bg: var(--bg-elevated);
 }
 
+/* Markdown 渲染容器：在 github-markdown-css 之上叠加预览区的滚动与边距 */
+.claude-overview-markdown.markdown-body {
+  padding: var(--space-4) var(--space-5);
+  background: transparent;
+  font-size: var(--font-sm);
+}
+
+.claude-overview-markdown.markdown-body pre {
+  margin: var(--space-3) 0;
+  padding: 0;
+  background: transparent;
+}
+
+.claude-overview-markdown.markdown-body pre > div {
+  /* react-syntax-highlighter 自带内边距，覆盖 github-markdown-css 的 pre 边距 */
+  margin: 0;
+}
+
+.claude-overview-markdown .markdown-preview-image-fallback {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+}
+
+/* 视图切换按钮：放在 toolbar 左侧，与右侧 actions 用 margin-right: auto 隔开 */
+.claude-overview-preview-view-toggle {
+  display: flex;
+  align-items: center;
+  margin-right: auto;
+}
+
+.claude-overview-preview-view-toggle button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.claude-overview-preview-view-toggle button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.claude-overview-preview-view-toggle button:hover {
+  border-color: var(--text-muted);
+  background: var(--bg-hover);
+}
+
+.claude-overview-preview-view-toggle button[aria-pressed="true"] {
+  border-color: var(--accent-primary, var(--text-primary));
+  background: var(--bg-hover);
+}
+
 .claude-overview-empty {
   flex: 1;
   min-height: 180px;
@@ -514,6 +577,10 @@
 
   .claude-overview-preview-actions {
     justify-content: flex-start;
+  }
+
+  .claude-overview-preview-view-toggle {
+    margin-right: 0;
   }
 }
 

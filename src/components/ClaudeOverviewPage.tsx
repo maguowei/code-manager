@@ -24,7 +24,8 @@ import {
 import { useToast } from "../hooks/useToast";
 import { type Theme, type TranslationKey, useI18n } from "../i18n";
 import type { ClaudeDirectoryEntry, ClaudeDirectoryOverview, ClaudeFilePreview } from "../types";
-import { CopyIcon, EditIcon, ExternalLinkIcon } from "./Icons";
+import MarkdownPreview from "./claude-overview/MarkdownPreview";
+import { CodeIcon, CopyIcon, EditIcon, ExternalLinkIcon, EyeIcon } from "./Icons";
 import "./ClaudeOverviewPage.css";
 
 interface ClaudeDirectoryTreeProps {
@@ -67,6 +68,20 @@ const TREE_LOADING_ROWS = Array.from({ length: 11 }, (_, index) => index);
 const FILE_TREE_FILE_ICON_NAME = "file-tree-icon-file";
 const FILE_TREE_ICON_RESOLVER = createFileTreeIconResolver();
 const FILE_TREE_ICON_SPRITE_SHEET = getBuiltInSpriteSheet("complete");
+const MARKDOWN_EXTENSIONS = new Set(["md", "markdown"]);
+
+// 根据文件路径后缀判断是否为 Markdown，用于决定是否启用渲染预览
+function isMarkdownPath(path: string) {
+  const ext = path.split(".").pop()?.toLowerCase() ?? "";
+  return MARKDOWN_EXTENSIONS.has(ext);
+}
+
+type PreviewViewMode = "preview" | "source";
+
+// 切换到目标文件时计算默认视图：Markdown 默认渲染预览，其它一律源码
+function defaultViewModeForPath(path: string | null | undefined): PreviewViewMode {
+  return path && isMarkdownPath(path) ? "preview" : "source";
+}
 
 let cachedClaudeOverviewState: ClaudeDirectoryOverview | null = null;
 
@@ -375,6 +390,8 @@ function ClaudeOverviewPage() {
   const [treeReady, setTreeReady] = useState(false);
   const [loadingPreviewPath, setLoadingPreviewPath] = useState<string | null>(null);
   const [treePaneWidth, setTreePaneWidth] = useState(readInitialTreePaneWidth);
+  // Markdown 文件默认进入渲染预览，其它文件维持源码视图；切换 tab/打开新文件时按文件类型重置
+  const [viewMode, setViewMode] = useState<PreviewViewMode>("source");
   const latestOverviewRequestIdRef = useRef(0);
   const latestPreviewRequestPathRef = useRef<string | null>(null);
   const latestTreePaneWidthRef = useRef(treePaneWidth);
@@ -530,6 +547,7 @@ function ClaudeOverviewPage() {
       if (openedPreview) {
         setSelectedPath(path);
         setActivePreviewPath(path);
+        setViewMode(defaultViewModeForPath(path));
         return;
       }
 
@@ -549,6 +567,7 @@ function ClaudeOverviewPage() {
         if (latestPreviewRequestPathRef.current === path) {
           setActivePreviewPath(nextPreview.path);
           setSelectedPath(nextPreview.path);
+          setViewMode(defaultViewModeForPath(nextPreview.path));
         }
       } catch {
         showToast(t("claudeOverview.previewError"), "error");
@@ -577,6 +596,7 @@ function ClaudeOverviewPage() {
     latestPreviewRequestPathRef.current = path;
     setSelectedPath(path);
     setActivePreviewPath(path);
+    setViewMode(defaultViewModeForPath(path));
   }, []);
 
   const handleClosePreview = useCallback(
@@ -811,6 +831,29 @@ function ClaudeOverviewPage() {
           ) : activePreview ? (
             <>
               <div className="claude-overview-preview-toolbar">
+                {!activePreview.isBinary && isMarkdownPath(activePreview.path) ? (
+                  <div className="claude-overview-preview-view-toggle">
+                    <button
+                      type="button"
+                      aria-label={
+                        viewMode === "preview"
+                          ? t("claudeOverview.toggleToSource")
+                          : t("claudeOverview.toggleToPreview")
+                      }
+                      title={
+                        viewMode === "preview"
+                          ? t("claudeOverview.toggleToSource")
+                          : t("claudeOverview.toggleToPreview")
+                      }
+                      aria-pressed={viewMode === "preview"}
+                      onClick={() =>
+                        setViewMode((current) => (current === "preview" ? "source" : "preview"))
+                      }
+                    >
+                      {viewMode === "preview" ? <CodeIcon /> : <EyeIcon />}
+                    </button>
+                  </div>
+                ) : null}
                 <div className="claude-overview-preview-actions">
                   <button
                     type="button"
@@ -840,6 +883,12 @@ function ClaudeOverviewPage() {
               </div>
               {activePreview.isBinary ? (
                 <div className="claude-overview-empty">{t("claudeOverview.binaryFile")}</div>
+              ) : isMarkdownPath(activePreview.path) && viewMode === "preview" ? (
+                <MarkdownPreview
+                  className="claude-overview-preview-content claude-overview-markdown"
+                  content={activePreview.content}
+                  themeType={previewThemeType === "dark" ? "dark" : "light"}
+                />
               ) : previewFile ? (
                 <PierreFile
                   className="claude-overview-preview-content"

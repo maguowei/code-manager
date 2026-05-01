@@ -685,6 +685,8 @@ const translations = {
     "claudeOverview.openEditor": "用默认编辑器打开",
     "claudeOverview.openFileBrowserError": "在文件浏览器打开失败",
     "claudeOverview.openEditorError": "用默认编辑器打开失败",
+    "claudeOverview.toggleToPreview": "显示渲染预览",
+    "claudeOverview.toggleToSource": "显示源码",
 
     // 操作通知（Toast）
     "toast.configLoadError": "加载配置失败",
@@ -1498,6 +1500,8 @@ const translations = {
     "claudeOverview.openEditor": "Open in default editor",
     "claudeOverview.openFileBrowserError": "Failed to open in file browser",
     "claudeOverview.openEditorError": "Failed to open in default editor",
+    "claudeOverview.toggleToPreview": "Show rendered preview",
+    "claudeOverview.toggleToSource": "Show source",
 
     // 操作通知（Toast）
     "toast.configLoadError": "Failed to load configs",
