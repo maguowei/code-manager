@@ -636,6 +636,8 @@ const translations = {
     "settings.themeSystem": "跟随系统",
     "settings.showTrayTitle": "在菜单栏显示当前配置",
     "settings.showTrayTitleDesc": "在系统托盘图标旁显示当前激活的配置名称",
+    "settings.showTraySessions": "在菜单栏显示当前会话",
+    "settings.showTraySessionsDesc": "在独立菜单栏区域显示 Claude 当前会话及状态",
     "settings.defaultTerminal": "默认终端",
     "settings.defaultTerminalDesc": "项目页“一键用终端打开”会使用这里选择的终端应用",
     "settings.defaultEditor": "默认编辑器",
@@ -1483,6 +1485,9 @@ const translations = {
     "settings.showTrayTitle": "Show active config in menu bar",
     "settings.showTrayTitleDesc":
       "Display the active configuration name next to the system tray icon",
+    "settings.showTraySessions": "Show active sessions in menu bar",
+    "settings.showTraySessionsDesc":
+      "Display current Claude sessions and statuses in a separate menu bar area",
     "settings.defaultTerminal": "Default Terminal",
     "settings.defaultTerminalDesc":
       "The Projects page uses this terminal for the one-click open action.",

@@ -45,6 +45,8 @@ static SCHEMA_REGEX_CACHE: Lazy<Mutex<HashMap<String, Arc<CompiledSchemaRegex>>>
 pub struct AppPreferences {
     #[serde(default = "default_true")]
     pub show_tray_title: bool,
+    #[serde(default = "default_true")]
+    pub show_tray_sessions: bool,
     #[serde(default = "default_ui_language")]
     pub ui_language: String,
     #[serde(default = "default_terminal_app")]
@@ -57,6 +59,7 @@ impl Default for AppPreferences {
     fn default() -> Self {
         Self {
             show_tray_title: default_true(),
+            show_tray_sessions: default_true(),
             ui_language: default_ui_language(),
             default_terminal_app: default_terminal_app(),
             default_editor_app: None,
@@ -242,6 +245,7 @@ struct ModelTestResultContext {
 #[serde(deny_unknown_fields)]
 pub struct AppPreferencesInput {
     pub show_tray_title: bool,
+    pub show_tray_sessions: bool,
     pub ui_language: String,
     pub default_terminal_app: String,
     pub default_editor_app: Option<String>,
@@ -657,6 +661,7 @@ fn normalize_app_preferences(input: AppPreferencesInput) -> Result<AppPreference
 
     Ok(AppPreferences {
         show_tray_title: input.show_tray_title,
+        show_tray_sessions: input.show_tray_sessions,
         ui_language,
         default_terminal_app,
         default_editor_app,
@@ -2411,6 +2416,7 @@ mod tests {
             version: REGISTRY_VERSION,
             app: AppPreferences {
                 show_tray_title: true,
+                show_tray_sessions: true,
                 ui_language: "zh".to_string(),
                 default_terminal_app: "terminal".to_string(),
                 default_editor_app: Some("cursor".to_string()),

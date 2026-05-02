@@ -16,6 +16,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 const WORKSPACE_FIXTURE: ConfigWorkspace = {
   app: {
     showTrayTitle: true,
+    showTraySessions: true,
     uiLanguage: "zh",
     defaultTerminalApp: "terminal",
     defaultEditorApp: null,
@@ -84,5 +85,22 @@ describe("SettingsDrawer", () => {
     fireEvent.click(screen.getByRole("button", { name: "查看日志" }));
 
     expect(await screen.findByRole("dialog", { name: "应用日志" })).toBeInTheDocument();
+  });
+
+  it("persists the menubar sessions switch independently", async () => {
+    renderSettingsDrawer();
+
+    expect(await screen.findByText("在菜单栏显示当前会话")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("switch", { name: "在菜单栏显示当前会话" }));
+
+    expect(invokeMock).toHaveBeenCalledWith("set_app_preferences", {
+      data: {
+        showTrayTitle: true,
+        showTraySessions: false,
+        uiLanguage: "zh",
+        defaultTerminalApp: "terminal",
+        defaultEditorApp: null,
+      },
+    });
   });
 });

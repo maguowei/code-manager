@@ -19,6 +19,7 @@ import { type ConfigWorkspace, isTauri, type TabType } from "./types";
 const EMPTY_WORKSPACE: ConfigWorkspace = {
   app: {
     showTrayTitle: true,
+    showTraySessions: true,
     uiLanguage: "zh",
     defaultTerminalApp: "terminal",
     defaultEditorApp: null,

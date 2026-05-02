@@ -70,6 +70,7 @@ vi.mock("../ConfigPreview", () => ({
 const WORKSPACE_FIXTURE: ConfigWorkspace = {
   app: {
     showTrayTitle: true,
+    showTraySessions: true,
     uiLanguage: "zh",
     defaultTerminalApp: "terminal",
     defaultEditorApp: null,

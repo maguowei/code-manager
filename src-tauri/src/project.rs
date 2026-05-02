@@ -599,16 +599,13 @@ fn run_claude_project_purge(
     let project_path = validate_project_path(project)?;
     let project_display = project_path.to_string_lossy().to_string();
     let args = build_claude_project_purge_args(&project_display, mode);
-    let output = Command::new("claude")
-        .args(&args)
-        .output()
-        .map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                "未找到 claude CLI，请确认 Claude Code 已安装并可在 PATH 中访问".to_string()
-            } else {
-                format!("执行 claude project purge 失败: {}", e)
-            }
-        })?;
+    let output = Command::new("claude").args(&args).output().map_err(|e| {
+        if e.kind() == std::io::ErrorKind::NotFound {
+            "未找到 claude CLI，请确认 Claude Code 已安装并可在 PATH 中访问".to_string()
+        } else {
+            format!("执行 claude project purge 失败: {}", e)
+        }
+    })?;
 
     parse_claude_project_purge_output(
         project_display,
@@ -1100,6 +1097,7 @@ mod tests {
     ) -> AppPreferences {
         AppPreferences {
             show_tray_title: true,
+            show_tray_sessions: true,
             ui_language: "zh".to_string(),
             default_terminal_app: default_terminal_app.to_string(),
             default_editor_app: default_editor_app.map(ToOwned::to_owned),

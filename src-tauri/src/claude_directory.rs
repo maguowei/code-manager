@@ -506,7 +506,8 @@ pub(crate) fn create_claude_directory_entry_in_root(
         Some(parent_path) => {
             let rel_path = validate_relative_claude_operation_path(parent_path)?;
             let parent = resolve_operation_path_inside_root(root, &rel_path)?;
-            let metadata = fs::metadata(&parent).map_err(|e| mask_io_error("读取目录元数据", &e))?;
+            let metadata =
+                fs::metadata(&parent).map_err(|e| mask_io_error("读取目录元数据", &e))?;
             if !metadata.is_dir() {
                 return Err("只能在 ~/.claude 内的目录中新建条目".to_string());
             }
@@ -1020,12 +1021,9 @@ mod tests {
     #[test]
     fn preview_does_not_leak_path_or_system_error_for_missing_file() {
         let env = TestEnv::new("masked-missing");
-        let err = read_claude_file_preview_from_root(
-            &env.claude_dir(),
-            "internal-secret-file.txt",
-            512,
-        )
-        .expect_err("不存在的文件应被拒绝");
+        let err =
+            read_claude_file_preview_from_root(&env.claude_dir(), "internal-secret-file.txt", 512)
+                .expect_err("不存在的文件应被拒绝");
 
         // 路径解析阶段的 IO 错误统一为越界文案，不区分越界 vs 不存在，
         // 也不透传原始 OS 消息。
@@ -1101,11 +1099,10 @@ mod tests {
             "hello"
         );
         assert!(!env.claude_dir().join("skills/old.md").exists());
-        assert!(
-            env.claude_dir()
-                .join("renamed-drafts/nested/SKILL.md")
-                .is_file()
-        );
+        assert!(env
+            .claude_dir()
+            .join("renamed-drafts/nested/SKILL.md")
+            .is_file());
         assert!(!env.claude_dir().join("drafts").exists());
         assert!(err.contains("目标已存在"));
     }

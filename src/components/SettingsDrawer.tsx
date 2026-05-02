@@ -21,6 +21,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   const { showToast } = useToast();
   const [preferences, setPreferences] = useState<AppPreferences>({
     showTrayTitle: true,
+    showTraySessions: true,
     uiLanguage: "zh",
     defaultTerminalApp: "terminal",
     defaultEditorApp: null,
@@ -41,6 +42,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   }, [language, setLanguage, showToast, t]);
 
   const showTrayTitle = preferences.showTrayTitle;
+  const showTraySessions = preferences.showTraySessions;
   const defaultTerminalApp = preferences.defaultTerminalApp;
   const defaultEditorApp = preferences.defaultEditorApp;
 
@@ -231,12 +233,45 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                 }}
                 role="switch"
                 aria-checked={showTrayTitle}
+                aria-label={t("settings.showTrayTitle")}
               >
                 <span className="toggle-track">
                   <span className="toggle-thumb" />
                 </span>
                 <span className="toggle-label">
                   {showTrayTitle ? t("settings.enabled") : t("settings.disabled")}
+                </span>
+              </button>
+            </div>
+          </section>
+
+          <section className="settings-section-card">
+            <div className="settings-section-head">
+              <h3>{t("settings.showTraySessions")}</h3>
+              <p>{t("settings.showTraySessionsDesc")}</p>
+            </div>
+            <div className="settings-item">
+              <button
+                type="button"
+                className={`toggle-switch${showTraySessions ? " enabled" : ""}`}
+                onClick={() => {
+                  void persistPreferences(
+                    {
+                      ...nextPreferences,
+                      showTraySessions: !showTraySessions,
+                    },
+                    nextPreferences,
+                  );
+                }}
+                role="switch"
+                aria-checked={showTraySessions}
+                aria-label={t("settings.showTraySessions")}
+              >
+                <span className="toggle-track">
+                  <span className="toggle-thumb" />
+                </span>
+                <span className="toggle-label">
+                  {showTraySessions ? t("settings.enabled") : t("settings.disabled")}
                 </span>
               </button>
             </div>

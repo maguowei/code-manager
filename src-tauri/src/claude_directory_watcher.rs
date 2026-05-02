@@ -151,6 +151,9 @@ fn run_watch_loop(app_handle: AppHandle, root: PathBuf, rx: Receiver<WatcherMess
         let paths = pending_paths.iter().cloned().collect::<Vec<_>>();
         pending_paths.clear();
         let path_count = paths.len();
+        let sessions_changed = paths
+            .iter()
+            .any(|path| path == "sessions" || path.starts_with("sessions/"));
         let payload = ClaudeDirectoryChangedPayload { paths };
         if app_handle
             .emit(CLAUDE_DIRECTORY_CHANGED_EVENT, payload)
@@ -159,6 +162,9 @@ fn run_watch_loop(app_handle: AppHandle, root: PathBuf, rx: Receiver<WatcherMess
             log::warn!("event=claude_directory.watch.emit status=warn reason=emit_failed");
         } else {
             log::info!("event=claude_directory.watch.emit status=ok path_count={path_count}");
+        }
+        if sessions_changed {
+            crate::tray::rebuild_tray_menu(&app_handle, None);
         }
     }
 }

@@ -3,6 +3,7 @@
   "version": 1,
   "app": {
     "showTrayTitle": true,
+    "showTraySessions": true,
     "uiLanguage": "zh",
     "defaultTerminalApp": "terminal",
     "defaultEditorApp": "cursor"

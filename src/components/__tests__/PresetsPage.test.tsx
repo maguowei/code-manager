@@ -23,6 +23,7 @@ const SETTINGS_STORAGE_KEY = "ai-manager-settings";
 const WORKSPACE_FIXTURE: ConfigWorkspace = {
   app: {
     showTrayTitle: true,
+    showTraySessions: true,
     uiLanguage: "en",
     defaultTerminalApp: "terminal",
     defaultEditorApp: null,
