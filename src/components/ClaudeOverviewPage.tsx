@@ -4,6 +4,7 @@ import {
   createFileTreeIconResolver,
   getBuiltInFileIconColor,
   getBuiltInSpriteSheet,
+  prepareFileTreeInput,
 } from "@pierre/trees";
 import { FileTree, useFileTree } from "@pierre/trees/react";
 import { invoke } from "@tauri-apps/api/core";
@@ -60,6 +61,8 @@ const PIERRE_FILE_OPTIONS = {
 } satisfies FileOptions<undefined>;
 
 const DEFAULT_TREE_PANE_WIDTH = 340;
+// 刷新按钮"刷新中..."状态的最小展示时长,避免本地 IPC 极快返回时按钮抖动看不清反馈
+const MIN_REFRESH_FEEDBACK_MS = 500;
 const MIN_TREE_PANE_WIDTH = 260;
 const MAX_TREE_PANE_WIDTH = 720;
 const TREE_PANE_WIDTH_STEP = 20;
@@ -117,25 +120,6 @@ function saveTreePaneWidth(width: number) {
   } catch {
     // 本地布局偏好写入失败不影响目录浏览。
   }
-}
-
-function scheduleAfterNextPaint(callback: () => void) {
-  if (typeof window.requestAnimationFrame !== "function") {
-    const timeoutId = window.setTimeout(callback, 0);
-    return () => window.clearTimeout(timeoutId);
-  }
-
-  let timeoutId: number | null = null;
-  const frameId = window.requestAnimationFrame(() => {
-    timeoutId = window.setTimeout(callback, 0);
-  });
-
-  return () => {
-    window.cancelAnimationFrame(frameId);
-    if (timeoutId !== null) {
-      window.clearTimeout(timeoutId);
-    }
-  };
 }
 
 function treePathForEntry(entry: ClaudeDirectoryEntry) {
@@ -272,12 +256,17 @@ function ClaudeDirectoryTree({ paths, onSelectPath }: ClaudeDirectoryTreeProps) 
     onSelectPathRef.current(path);
   }, []);
 
+  // 把 raw paths 转成 @pierre/trees 的 preparedInput,避免组件内反复整形大型路径列表
+  const preparedInput = useMemo(() => prepareFileTreeInput(paths), [paths]);
+
   const { model } = useFileTree({
-    paths,
+    preparedInput,
     dragAndDrop: false,
     flattenEmptyDirectories: false,
     initialExpansion: "closed",
     initialExpandedPaths: [],
+    initialVisibleRowCount: 24,
+    overscan: 8,
     onSelectionChange: (selectedPaths) => {
       const selectedPath = selectedPaths[selectedPaths.length - 1];
       if (selectedPath) {
@@ -384,10 +373,10 @@ function ClaudeOverviewPage() {
   const [loadingOverview, setLoadingOverview] = useState(
     () => cachedOverviewOnMountRef.current === null,
   );
-  const [preparingTree, setPreparingTree] = useState(
-    () => cachedOverviewOnMountRef.current !== null,
-  );
-  const [treeReady, setTreeReady] = useState(false);
+  // 首次 mount 时延迟一帧再挂载 FileTree,避免大型缓存数据导致首帧 paint 前的同步开销过大
+  const [hasMounted, setHasMounted] = useState(false);
+  // 刷新按钮专用显示态,与 loadingOverview 解耦,带最小持续时间,避免 IPC 极快返回时按钮抖动
+  const [isRefreshButtonBusy, setIsRefreshButtonBusy] = useState(false);
   const [loadingPreviewPath, setLoadingPreviewPath] = useState<string | null>(null);
   const [treePaneWidth, setTreePaneWidth] = useState(readInitialTreePaneWidth);
   // Markdown 文件默认进入渲染预览，其它文件维持源码视图；切换 tab/打开新文件时按文件类型重置
@@ -398,6 +387,7 @@ function ClaudeOverviewPage() {
   const openPreviewsRef = useRef<ClaudeFilePreview[]>([]);
   const resizeFrameRef = useRef<number | null>(null);
   const resizeStateRef = useRef<{ startWidth: number; startX: number } | null>(null);
+  const refreshBusyTimerRef = useRef<number | null>(null);
 
   const entryByPath = useMemo(() => {
     const map = new Map<string, ClaudeDirectoryEntry>();
@@ -459,6 +449,10 @@ function ClaudeOverviewPage() {
       if (resizeFrameRef.current !== null) {
         window.cancelAnimationFrame(resizeFrameRef.current);
       }
+      if (refreshBusyTimerRef.current !== null) {
+        window.clearTimeout(refreshBusyTimerRef.current);
+        refreshBusyTimerRef.current = null;
+      }
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
     },
@@ -476,10 +470,8 @@ function ClaudeOverviewPage() {
       const requestId = latestOverviewRequestIdRef.current + 1;
       latestOverviewRequestIdRef.current = requestId;
       const preserveCurrent = options.preserveCurrent === true;
+      setLoadingOverview(true);
       if (!preserveCurrent) {
-        setLoadingOverview(true);
-        setPreparingTree(false);
-        setTreeReady(false);
         setSelectedPath(null);
         setOpenPreviews([]);
         setActivePreviewPath(null);
@@ -496,8 +488,6 @@ function ClaudeOverviewPage() {
         startTransition(() => {
           setOverview(nextOverview);
           setLoadingOverview(false);
-          setPreparingTree(true);
-          setTreeReady(false);
         });
       } catch {
         if (latestOverviewRequestIdRef.current !== requestId) {
@@ -507,11 +497,9 @@ function ClaudeOverviewPage() {
           cachedClaudeOverviewState = null;
           startTransition(() => {
             setOverview(EMPTY_OVERVIEW_STATE);
-            setLoadingOverview(false);
-            setPreparingTree(false);
-            setTreeReady(true);
           });
         }
+        setLoadingOverview(false);
         showToast(t("claudeOverview.loadError"), "error");
       }
     },
@@ -519,26 +507,16 @@ function ClaudeOverviewPage() {
   );
 
   useEffect(() => {
-    const cancelLoad = scheduleAfterNextPaint(() => {
-      void loadOverview({ preserveCurrent: cachedOverviewOnMountRef.current !== null });
-    });
-    return cancelLoad;
+    void loadOverview({ preserveCurrent: cachedOverviewOnMountRef.current !== null });
   }, [loadOverview]);
 
   useEffect(() => {
-    if (loadingOverview || treeEntriesPending || !preparingTree) {
-      return;
-    }
-
-    const cancelTreeMount = scheduleAfterNextPaint(() => {
-      startTransition(() => {
-        setTreeReady(true);
-        setPreparingTree(false);
-      });
+    // rAF 在浏览器 paint 之后触发,确保首帧先展示骨架屏再挂载重型 FileTree
+    const frameId = window.requestAnimationFrame(() => {
+      setHasMounted(true);
     });
-
-    return cancelTreeMount;
-  }, [loadingOverview, preparingTree, treeEntriesPending]);
+    return () => window.cancelAnimationFrame(frameId);
+  }, []);
 
   const loadPreview = useCallback(
     async (path: string) => {
@@ -733,14 +711,37 @@ function ClaudeOverviewPage() {
     [applyTreePaneWidth],
   );
 
-  const showTreeLoading = loadingOverview || preparingTree || treeEntriesPending || !treeReady;
+  const handleRefreshClick = useCallback(() => {
+    if (refreshBusyTimerRef.current !== null) {
+      window.clearTimeout(refreshBusyTimerRef.current);
+      refreshBusyTimerRef.current = null;
+    }
+    setIsRefreshButtonBusy(true);
+    const startedAt = performance.now();
+    void loadOverview({ preserveCurrent: true }).finally(() => {
+      const elapsed = performance.now() - startedAt;
+      const remaining = MIN_REFRESH_FEEDBACK_MS - elapsed;
+      if (remaining <= 0) {
+        setIsRefreshButtonBusy(false);
+        return;
+      }
+      refreshBusyTimerRef.current = window.setTimeout(() => {
+        refreshBusyTimerRef.current = null;
+        setIsRefreshButtonBusy(false);
+      }, remaining);
+    });
+  }, [loadOverview]);
+
+  // 首帧未 paint 骨架屏前,或没有任何已知数据且仍在加载时,展示骨架屏;一旦树有数据,刷新走 resetPaths 平滑替换
+  const showTreeLoading =
+    !hasMounted || ((loadingOverview || treeEntriesPending) && treePaths.length === 0);
   const treeLoadingLabel = loadingOverview
     ? t("claudeOverview.scanning")
     : t("claudeOverview.preparingTree");
 
   return (
     <section className="claude-overview-page" aria-labelledby="claude-overview-title">
-      <ClaudeOverviewIconSprite />
+      {hasMounted ? <ClaudeOverviewIconSprite /> : null}
       <header className="claude-overview-header">
         <div className="claude-overview-title-group">
           <h1 id="claude-overview-title">{t("claudeOverview.title")}</h1>
@@ -776,8 +777,13 @@ function ClaudeOverviewPage() {
           ) : null}
         </div>
         <div className="claude-overview-actions">
-          <button type="button" onClick={() => void loadOverview()}>
-            {t("claudeOverview.refresh")}
+          <button
+            type="button"
+            onClick={handleRefreshClick}
+            disabled={isRefreshButtonBusy}
+            aria-busy={isRefreshButtonBusy}
+          >
+            {isRefreshButtonBusy ? t("claudeOverview.refreshing") : t("claudeOverview.refresh")}
           </button>
         </div>
       </header>
