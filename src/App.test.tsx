@@ -665,6 +665,12 @@ describe("App", () => {
         },
       }),
     );
+    expect(treeOptions?.renderRowDecoration?.({ item: { name: "long-filename-value" } })).toEqual({
+      text: "long-filename-value",
+      title: "long-filename-value",
+    });
+    expect(treeOptions?.unsafeCSS).toContain("text-overflow: ellipsis");
+    expect(treeOptions?.unsafeCSS).toContain("[data-item-section='decoration']");
 
     fireEvent.contextMenu(screen.getByRole("button", { name: "scripts" }));
     expect(await screen.findByRole("menuitem", { name: "新建文件" })).toBeInTheDocument();

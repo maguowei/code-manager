@@ -506,9 +506,37 @@ function ClaudeDirectoryTree({ paths, onSelectPath, renderContextMenu }: ClaudeD
     renaming: false,
     search: true,
     density: "compact",
+    renderRowDecoration: ({ item }) => ({
+      text: item.name,
+      title: item.name,
+    }),
     unsafeCSS: `
       button[data-type='item'] {
         border-radius: 6px;
+      }
+
+      button[data-type='item']:not(:has([data-item-rename-input])) > [data-item-section='content'] {
+        flex: 0 0 0;
+        min-width: 0;
+        visibility: hidden;
+        width: 0;
+      }
+
+      button[data-type='item'] > [data-item-section='decoration'] {
+        color: inherit;
+        flex: 1 1 auto;
+        justify-content: flex-start;
+        text-align: start;
+      }
+
+      button[data-type='item'] > [data-item-section='decoration'] > span {
+        color: inherit;
+        justify-content: flex-start;
+        min-width: 0;
+        overflow: hidden;
+        text-align: start;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
     `,
   });
