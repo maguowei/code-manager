@@ -19,6 +19,9 @@ const SESSION_TRAY_ANIMATION_FRAMES: &[&str] = &[
     "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏",
 ];
 const SESSION_TRAY_ANIMATION_INTERVAL: Duration = Duration::from_millis(300);
+/// 托盘 title 中项目名的最大字符数，超出追加省略号。
+/// macOS 菜单栏宽度有限，长项目名会挤占其它状态栏图标，需要主动截断。
+const SESSION_TRAY_TITLE_PROJECT_MAX_CHARS: usize = 16;
 static SESSION_TRAY_ANIMATION_FRAME: AtomicUsize = AtomicUsize::new(0);
 
 struct TrayLabels<'a> {
@@ -227,7 +230,10 @@ fn session_tray_summary(session: &TraySession, language: &str, frame: usize) -> 
     let separator = session_tray_separator(&session.status, frame);
     format!(
         "{} {} {}",
-        crate::utils::truncate(&session_project_name(&session.cwd), 28),
+        crate::utils::truncate(
+            &session_project_name(&session.cwd),
+            SESSION_TRAY_TITLE_PROJECT_MAX_CHARS
+        ),
         separator,
         status
     )
@@ -724,5 +730,29 @@ mod tests {
         assert_eq!(sessions_tray_title(&[], &zh), None);
         let en = tray_labels_for_language("en");
         assert_eq!(sessions_tray_title(&[], &en), None);
+    }
+
+    /// 回归测试：项目名超过 SESSION_TRAY_TITLE_PROJECT_MAX_CHARS 必须被截断并追加省略号，
+    /// 防止过长项目名挤占 macOS 菜单栏其它状态栏图标。
+    #[test]
+    fn sessions_tray_title_truncates_long_project_name() {
+        let zh = tray_labels_for_language("zh");
+        // 项目名 22 字符，超过 16 字符上限，前 16 字符为 "very-long-projec"。
+        let session = test_session(
+            "/Users/demo/work/very-long-project-name",
+            "running",
+            1000,
+        );
+        assert_eq!(
+            sessions_tray_title_for_frame(std::slice::from_ref(&session), &zh, 0).as_deref(),
+            Some("very-long-projec... ⠋ 运行中")
+        );
+
+        // 中文项目名 8 字符未超出上限，不应被截断。
+        let cn_session = test_session("/Users/demo/work/中文短名", "idle", 1000);
+        assert_eq!(
+            sessions_tray_title_for_frame(std::slice::from_ref(&cn_session), &zh, 0).as_deref(),
+            Some("中文短名 · 空闲")
+        );
     }
 }
