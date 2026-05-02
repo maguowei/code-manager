@@ -433,21 +433,21 @@ fn apply_sessions_tray_title(
     state: &ConfigRegistry,
     sessions: &[TraySession],
 ) -> bool {
+    // 注意：会话托盘没有 icon，仅靠 title 显示。
+    // 不能使用 set_visible(false) —— macOS NSStatusItem 一旦隐藏后再 set_visible(true) 不会恢复
+    // （Tauri 已知 bug #10150）。改用空 title：title 为空且无 icon 时状态栏宽度为 0，等同隐藏。
     if !state.app.show_tray_sessions {
         let _ = tray.set_title(Some(""));
-        let _ = tray.set_visible(false);
         return false;
     }
 
     let labels = tray_labels_for_language(&state.app.ui_language);
     let Some(title) = sessions_tray_title(sessions, &labels) else {
         let _ = tray.set_title(Some(""));
-        let _ = tray.set_visible(false);
         return false;
     };
 
     let _ = tray.set_title(Some(title.as_str()));
-    let _ = tray.set_visible(true);
     true
 }
 
@@ -516,10 +516,9 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     if let Some(title) = &sessions_title {
         sessions_builder = sessions_builder.title(title);
     }
-    let sessions_tray = sessions_builder.build(app)?;
-    if !state.app.show_tray_sessions || sessions_title.is_none() {
-        let _ = sessions_tray.set_visible(false);
-    }
+    let _sessions_tray = sessions_builder.build(app)?;
+    // sessions_builder 仅在 sessions_title 为 Some 时设置 title（见上方 if let 分支）；
+    // 当 show_tray_sessions=false 或当前无会话时，title 本就未设置，状态栏自然为空，无需再调用 set_visible。
 
     // 构建托盘图标，若设置开启且有激活配置则在图标旁显示配置名
     let mut builder = TrayIconBuilder::with_id(MAIN_TRAY_ID)
@@ -712,5 +711,16 @@ mod tests {
             session_menu_item_label(&session, "en"),
             "ai-manager · Waiting · approve Bash"
         );
+    }
+
+    /// 回归测试：空 sessions 时 sessions_tray_title 必须返回 None，
+    /// 这是 apply_sessions_tray_title 走"清空 title"路径的契约前提。
+    /// 防止未来误改成返回空串等价物，导致 macOS 状态栏继续占位。
+    #[test]
+    fn sessions_tray_title_returns_none_for_empty_sessions() {
+        let zh = tray_labels_for_language("zh");
+        assert_eq!(sessions_tray_title(&[], &zh), None);
+        let en = tray_labels_for_language("en");
+        assert_eq!(sessions_tray_title(&[], &en), None);
     }
 }
