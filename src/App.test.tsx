@@ -110,16 +110,40 @@ vi.mock("@pierre/trees/react", async () => {
       renderContextMenu?: (
         item: { kind: "directory" | "file"; name: string; path: string },
         context: {
+          anchorElement: HTMLElement;
+          anchorRect: {
+            bottom: number;
+            height: number;
+            left: number;
+            right: number;
+            top: number;
+            width: number;
+            x: number;
+            y: number;
+          };
           close: (options?: { restoreFocus?: boolean }) => void;
           restoreFocus: () => void;
         },
       ) => React.ReactNode;
     }) => {
       const [query, setQuery] = React.useState("");
-      const [activeMenuItem, setActiveMenuItem] = React.useState<{
-        kind: "directory" | "file";
-        name: string;
-        path: string;
+      const [hoveredPath, setHoveredPath] = React.useState<string | null>(null);
+      const [activeMenu, setActiveMenu] = React.useState<{
+        anchorRect: {
+          bottom: number;
+          height: number;
+          left: number;
+          right: number;
+          top: number;
+          width: number;
+          x: number;
+          y: number;
+        };
+        item: {
+          kind: "directory" | "file";
+          name: string;
+          path: string;
+        };
       } | null>(null);
       const normalizedQuery = query.trim().toLowerCase();
       const treePaths = props.model.options.paths ?? [];
@@ -130,6 +154,20 @@ vi.mock("@pierre/trees/react", async () => {
       const canUseTriggerButton =
         contextMenuConfig?.enabled === true &&
         (contextMenuConfig.triggerMode === "both" || contextMenuConfig.triggerMode === "button");
+      const buttonVisibility = contextMenuConfig?.buttonVisibility ?? "when-needed";
+      const openMenu = (
+        item: { kind: "directory" | "file"; name: string; path: string },
+        anchorRect: {
+          bottom: number;
+          height: number;
+          left: number;
+          right: number;
+          top: number;
+          width: number;
+          x: number;
+          y: number;
+        },
+      ) => setActiveMenu({ anchorRect, item });
 
       return (
         <div data-testid="pierre-file-tree" className={props.className}>
@@ -146,8 +184,19 @@ vi.mock("@pierre/trees/react", async () => {
               name,
               path: normalizedPath,
             };
+            const triggerButtonVisible =
+              canUseTriggerButton &&
+              (buttonVisibility === "always" || hoveredPath === normalizedPath);
             return (
-              <div key={path}>
+              <div
+                key={path}
+                onMouseEnter={() => setHoveredPath(normalizedPath)}
+                onMouseLeave={() =>
+                  setHoveredPath((currentPath) =>
+                    currentPath === normalizedPath ? null : currentPath,
+                  )
+                }
+              >
                 <button
                   type="button"
                   data-type="item"
@@ -155,16 +204,36 @@ vi.mock("@pierre/trees/react", async () => {
                   data-item-type={itemType}
                   onContextMenu={(event) => {
                     event.preventDefault();
-                    setActiveMenuItem(item);
+                    openMenu(item, {
+                      bottom: 130,
+                      height: 30,
+                      left: 140,
+                      right: 160,
+                      top: 100,
+                      width: 20,
+                      x: 140,
+                      y: 100,
+                    });
                   }}
                 >
                   {name}
                 </button>
-                {canUseTriggerButton ? (
+                {triggerButtonVisible ? (
                   <button
                     type="button"
                     aria-label={`Options ${name}`}
-                    onClick={() => setActiveMenuItem(item)}
+                    onClick={() =>
+                      openMenu(item, {
+                        bottom: 150,
+                        height: 30,
+                        left: 960,
+                        right: 980,
+                        top: 120,
+                        width: 20,
+                        x: 960,
+                        y: 120,
+                      })
+                    }
                   >
                     Options
                   </button>
@@ -172,9 +241,11 @@ vi.mock("@pierre/trees/react", async () => {
               </div>
             );
           })}
-          {activeMenuItem && props.renderContextMenu
-            ? props.renderContextMenu(activeMenuItem, {
-                close: () => setActiveMenuItem(null),
+          {activeMenu && props.renderContextMenu
+            ? props.renderContextMenu(activeMenu.item, {
+                anchorElement: document.body,
+                anchorRect: activeMenu.anchorRect,
+                close: () => setActiveMenu(null),
                 restoreFocus: () => {},
               })
             : null}
@@ -587,7 +658,7 @@ describe("App", () => {
       expect.objectContaining({
         composition: {
           contextMenu: {
-            buttonVisibility: "always",
+            buttonVisibility: "when-needed",
             enabled: true,
             triggerMode: "both",
           },
@@ -617,10 +688,22 @@ describe("App", () => {
     expect(invokeMock).toHaveBeenCalledWith("get_claude_directory_overview");
   });
 
-  it("opens the Claude directory context menu from trigger button, renames and confirms delete", async () => {
+  it("shows the Claude directory trigger button only on hover and avoids right-edge clipping", async () => {
     await renderClaudeOverviewWithContextMenu();
 
+    expect(
+      screen.queryByRole("button", { name: "Options check-license-rule.js" }),
+    ).not.toBeInTheDocument();
+    fireEvent.mouseEnter(screen.getByRole("button", { name: "check-license-rule.js" }));
     fireEvent.click(screen.getByRole("button", { name: "Options check-license-rule.js" }));
+    const triggerMenu = await screen.findByRole("menu");
+    expect(triggerMenu).toHaveStyle({
+      left: "776px",
+      position: "fixed",
+      top: "120px",
+      width: "176px",
+    });
+
     fireEvent.click(await screen.findByRole("menuitem", { name: "重命名" }));
     const renameInput = await screen.findByLabelText("名称");
     expect(renameInput).toHaveValue("check-license-rule.js");
@@ -636,6 +719,7 @@ describe("App", () => {
       });
     });
 
+    fireEvent.mouseEnter(screen.getByRole("button", { name: "settings.json" }));
     fireEvent.click(screen.getByRole("button", { name: "Options settings.json" }));
     fireEvent.click(await screen.findByRole("menuitem", { name: "删除" }));
     expect(await screen.findByText("删除后无法撤销。")).toBeInTheDocument();
@@ -644,6 +728,7 @@ describe("App", () => {
       path: "settings.json",
     });
 
+    fireEvent.mouseEnter(screen.getByRole("button", { name: "settings.json" }));
     fireEvent.click(screen.getByRole("button", { name: "Options settings.json" }));
     fireEvent.click(await screen.findByRole("menuitem", { name: "删除" }));
     fireEvent.click(screen.getByRole("button", { name: "删除" }));

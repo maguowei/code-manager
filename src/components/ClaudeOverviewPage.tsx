@@ -83,6 +83,10 @@ const FILE_TREE_FILE_ICON_NAME = "file-tree-icon-file";
 const FILE_TREE_ICON_RESOLVER = createFileTreeIconResolver();
 const FILE_TREE_ICON_SPRITE_SHEET = getBuiltInSpriteSheet("complete");
 const MARKDOWN_EXTENSIONS = new Set(["md", "markdown"]);
+const CONTEXT_MENU_WIDTH = 176;
+const CONTEXT_MENU_ESTIMATED_HEIGHT = 152;
+const CONTEXT_MENU_EDGE_GAP = 8;
+const CONTEXT_MENU_ANCHOR_GAP = 8;
 
 // 根据文件路径后缀判断是否为 Markdown，用于决定是否启用渲染预览
 function isMarkdownPath(path: string) {
@@ -122,6 +126,40 @@ type ClaudeOverviewBodyStyle = CSSProperties & {
 
 function clampTreePaneWidth(width: number) {
   return Math.min(MAX_TREE_PANE_WIDTH, Math.max(MIN_TREE_PANE_WIDTH, Math.round(width)));
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function contextMenuStyleForAnchor(
+  anchorRect: ContextMenuOpenContext["anchorRect"],
+): CSSProperties {
+  const viewportWidth =
+    typeof window === "undefined" ? CONTEXT_MENU_WIDTH : Math.max(window.innerWidth, 0);
+  const viewportHeight =
+    typeof window === "undefined" ? CONTEXT_MENU_ESTIMATED_HEIGHT : Math.max(window.innerHeight, 0);
+  const maxLeft = Math.max(
+    CONTEXT_MENU_EDGE_GAP,
+    viewportWidth - CONTEXT_MENU_WIDTH - CONTEXT_MENU_EDGE_GAP,
+  );
+  const maxTop = Math.max(
+    CONTEXT_MENU_EDGE_GAP,
+    viewportHeight - CONTEXT_MENU_ESTIMATED_HEIGHT - CONTEXT_MENU_EDGE_GAP,
+  );
+  const rightSideLeft = anchorRect.right + CONTEXT_MENU_ANCHOR_GAP;
+  const wouldOverflowRight =
+    rightSideLeft + CONTEXT_MENU_WIDTH > viewportWidth - CONTEXT_MENU_EDGE_GAP;
+  const preferredLeft = wouldOverflowRight
+    ? anchorRect.left - CONTEXT_MENU_WIDTH - CONTEXT_MENU_ANCHOR_GAP
+    : rightSideLeft;
+
+  return {
+    left: clampNumber(preferredLeft, CONTEXT_MENU_EDGE_GAP, maxLeft),
+    position: "fixed",
+    top: clampNumber(anchorRect.top, CONTEXT_MENU_EDGE_GAP, maxTop),
+    width: CONTEXT_MENU_WIDTH,
+  };
 }
 
 function readInitialTreePaneWidth() {
@@ -331,13 +369,14 @@ function ClaudeOverviewContextMenu({
   onRename,
   t,
 }: ClaudeOverviewContextMenuProps) {
+  const menuStyle = contextMenuStyleForAnchor(context.anchorRect);
   const handleAction = (action: () => void) => {
     context.close({ restoreFocus: false });
     action();
   };
 
   return (
-    <div className="claude-overview-context-menu" role="menu">
+    <div className="claude-overview-context-menu" role="menu" style={menuStyle}>
       <button
         type="button"
         role="menuitem"
@@ -454,7 +493,7 @@ function ClaudeDirectoryTree({ paths, onSelectPath, renderContextMenu }: ClaudeD
       contextMenu: {
         enabled: true,
         triggerMode: "both",
-        buttonVisibility: "always",
+        buttonVisibility: "when-needed",
       },
     },
     overscan: 8,
