@@ -38,6 +38,16 @@ describe("ClaudeOverviewPage styles", () => {
     expect(previewFooterRule?.groups?.body).toContain("min-height: 34px;");
   });
 
+  it("resets desktop title flex sizing in the compact overview header", () => {
+    const css = readText("src/components/ClaudeOverviewPage.css");
+    const compactHeaderMediaRule = css.match(
+      /@media \(max-width: 700px\)\s*{(?<body>[\s\S]*?)\n}\n\n@media \(prefers-reduced-motion: reduce\)/,
+    );
+
+    expect(compactHeaderMediaRule?.groups?.body).toContain(".claude-overview-title-group");
+    expect(compactHeaderMediaRule?.groups?.body).toContain("flex: 0 1 auto;");
+  });
+
   it("visually separates the preview metadata from file contents", () => {
     const css = readText("src/components/ClaudeOverviewPage.css");
     const previewFooterRule = css.match(/\.claude-overview-preview-footer\s*{(?<body>[^}]*)}/);
