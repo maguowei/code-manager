@@ -1,0 +1,280 @@
+//! 托盘会话项点击后的"聚焦终端 tab"实现。
+//!
+//! 设计要点：
+//! - Terminal.app / iTerm2 走 pid → tty → AppleScript 精确定位。
+//! - Ghostty 1.3 的 AppleScript 还没暴露 pid/tty（见 Issue #11592），只能按 working directory 近似匹配。
+//! - Warp 没有官方 AppleScript，托盘菜单项会被设为 disabled，正常不会调到本模块。
+//! - 命中失败一律静默记日志，不会自动新开窗口或 tab，避免误触造成困扰。
+
+use std::process::Command;
+
+/// 当前默认终端是否支持外部聚焦已有 tab。tray 用它决定菜单项 enabled 状态。
+pub fn terminal_supports_focus(app_slug: &str) -> bool {
+    matches!(app_slug, "terminal" | "iterm" | "ghostty")
+}
+
+/// 尝试聚焦到 pid/cwd 对应的终端 tab。
+/// - 命中：聚焦并返回 Ok(())。
+/// - 未命中：仅记 warn 日志，仍返回 Ok(())（按需求"不新开 tab"）。
+/// - app_slug 不支持：返回 Err（兜底，正常路径会被菜单 enabled 拦下）。
+pub fn focus_session_in_terminal(pid: u32, cwd: &str, app_slug: &str) -> Result<(), String> {
+    match app_slug {
+        "terminal" => focus_via_tty("Terminal", pid, terminal_app_script),
+        "iterm" => focus_via_tty("iTerm", pid, iterm_script),
+        "ghostty" => focus_ghostty_via_cwd(cwd),
+        _ => Err(format!("终端 {app_slug} 不支持外部聚焦")),
+    }
+}
+
+/// 通过 pid 反查 tty，再用对应终端的 AppleScript 选中 tab。
+fn focus_via_tty(
+    app_label: &'static str,
+    pid: u32,
+    build_script: fn(&str) -> String,
+) -> Result<(), String> {
+    let Some(tty) = pid_to_tty(pid) else {
+        log::warn!(
+            "event=tray.session_focus status=miss reason=tty_not_found app={app_label} pid={pid}"
+        );
+        return Ok(());
+    };
+    let script = build_script(&escape_applescript_string(&tty));
+    match run_osascript_returning_bool(&script) {
+        Ok(true) => Ok(()),
+        Ok(false) => {
+            log::warn!(
+                "event=tray.session_focus status=miss reason=tab_not_found app={app_label} pid={pid} tty={tty}"
+            );
+            Ok(())
+        }
+        Err(e) => {
+            log::warn!("event=tray.session_focus status=err app={app_label} pid={pid} error={e}");
+            Ok(())
+        }
+    }
+}
+
+fn focus_ghostty_via_cwd(cwd: &str) -> Result<(), String> {
+    if cwd.is_empty() {
+        log::warn!("event=tray.session_focus status=miss reason=empty_cwd app=Ghostty");
+        return Ok(());
+    }
+    let script = ghostty_script(&escape_applescript_string(cwd));
+    match run_osascript_returning_bool(&script) {
+        Ok(true) => Ok(()),
+        Ok(false) => {
+            log::warn!(
+                "event=tray.session_focus status=miss reason=tab_not_found app=Ghostty cwd={}",
+                crate::utils::truncate(cwd, 160)
+            );
+            Ok(())
+        }
+        Err(e) => {
+            log::warn!("event=tray.session_focus status=err app=Ghostty error={e}");
+            Ok(())
+        }
+    }
+}
+
+/// 调 `ps -p <pid> -o tty=` 拿到 tty，trim 后非 `??` 即拼成 `/dev/tty<value>`。
+fn pid_to_tty(pid: u32) -> Option<String> {
+    let output = Command::new("ps")
+        .args(["-p", &pid.to_string(), "-o", "tty="])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let raw = String::from_utf8(output.stdout).ok()?;
+    parse_ps_tty_output(&raw)
+}
+
+/// 把 `ps -o tty=` 的输出解析成绝对 tty 路径。
+/// 输入示例：`s003`、`ttys003`、`?`、空串；前两者拼出 `/dev/ttys003`，后两者返回 None。
+/// 抽出来便于做单元测试。
+fn parse_ps_tty_output(raw: &str) -> Option<String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() || trimmed == "?" || trimmed == "??" {
+        return None;
+    }
+    // 仅放行 ASCII 字母数字（macOS tty 名形如 ttys001 / s001），过滤异常输入防注入。
+    if !trimmed.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return None;
+    }
+    let path = if trimmed.starts_with("tty") {
+        format!("/dev/{trimmed}")
+    } else {
+        format!("/dev/tty{trimmed}")
+    };
+    Some(path)
+}
+
+/// 执行 osascript 并按 stdout 文本判定 true/false（AppleScript 脚本里 `return true/false`）。
+fn run_osascript_returning_bool(script: &str) -> Result<bool, String> {
+    let output = Command::new("osascript")
+        .arg("-e")
+        .arg(script)
+        .output()
+        .map_err(|e| format!("调用 osascript 失败: {e}"))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(format!(
+            "osascript 退出码 {:?}: {}",
+            output.status.code(),
+            stderr
+        ));
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    Ok(stdout == "true")
+}
+
+/// 转义 AppleScript 字符串字面量中的 `\` 与 `"`，防止 cwd / tty 含特殊字符破坏脚本。
+fn escape_applescript_string(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for ch in s.chars() {
+        match ch {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            other => out.push(other),
+        }
+    }
+    out
+}
+
+fn terminal_app_script(escaped_tty: &str) -> String {
+    format!(
+        r#"tell application "Terminal"
+set targetTty to "{escaped_tty}"
+repeat with w in windows
+repeat with t in tabs of w
+if tty of t is targetTty then
+set selected tab of w to t
+set frontmost of w to true
+activate
+return true
+end if
+end repeat
+end repeat
+return false
+end tell"#
+    )
+}
+
+fn iterm_script(escaped_tty: &str) -> String {
+    format!(
+        r#"tell application "iTerm"
+set targetTty to "{escaped_tty}"
+repeat with w in windows
+repeat with aTab in tabs of w
+repeat with aSession in sessions of aTab
+if tty of aSession is targetTty then
+tell w to select
+tell aTab to select
+activate
+return true
+end if
+end repeat
+end repeat
+end repeat
+return false
+end tell"#
+    )
+}
+
+fn ghostty_script(escaped_cwd: &str) -> String {
+    format!(
+        r#"tell application "Ghostty"
+	set targetCwd to "{escaped_cwd}"
+	repeat with term in terminals
+	if working directory of term is targetCwd then
+	focus term
+	return true
+	end if
+	end repeat
+	return false
+	end tell"#
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn terminal_supports_focus_covers_known_slugs() {
+        assert!(terminal_supports_focus("terminal"));
+        assert!(terminal_supports_focus("iterm"));
+        assert!(terminal_supports_focus("ghostty"));
+        assert!(!terminal_supports_focus("warp"));
+        assert!(!terminal_supports_focus(""));
+        assert!(!terminal_supports_focus("Terminal")); // 大小写敏感，避免与配置里 slug 不一致
+    }
+
+    #[test]
+    fn escape_applescript_string_handles_quote_and_backslash_and_unicode() {
+        assert_eq!(escape_applescript_string(""), "");
+        assert_eq!(escape_applescript_string("/Users/demo"), "/Users/demo");
+        assert_eq!(
+            escape_applescript_string(r#"/path/with"quote"#),
+            r#"/path/with\"quote"#
+        );
+        assert_eq!(
+            escape_applescript_string(r"/path\with\backslash"),
+            r"/path\\with\\backslash"
+        );
+        // 中文不需要转义
+        assert_eq!(
+            escape_applescript_string("/Users/demo/中文目录"),
+            "/Users/demo/中文目录"
+        );
+    }
+
+    #[test]
+    fn parse_ps_tty_output_normalizes_or_rejects_inputs() {
+        // 常见 macOS 输出
+        assert_eq!(
+            parse_ps_tty_output("s003\n").as_deref(),
+            Some("/dev/ttys003")
+        );
+        assert_eq!(
+            parse_ps_tty_output("ttys012").as_deref(),
+            Some("/dev/ttys012")
+        );
+        // 后台进程没有 controlling terminal
+        assert_eq!(parse_ps_tty_output("?"), None);
+        assert_eq!(parse_ps_tty_output("??"), None);
+        assert_eq!(parse_ps_tty_output(""), None);
+        assert_eq!(parse_ps_tty_output("\n  \n"), None);
+        // 防注入：空格 / 路径分隔 / 分号都拒绝
+        assert_eq!(parse_ps_tty_output("s003; rm -rf /"), None);
+        assert_eq!(parse_ps_tty_output("../etc"), None);
+    }
+
+    #[test]
+    fn focus_session_in_terminal_rejects_unknown_slug() {
+        let err = focus_session_in_terminal(123, "/tmp", "warp").expect_err("warp 应被拒绝");
+        assert!(err.contains("warp"));
+        let err = focus_session_in_terminal(123, "/tmp", "").expect_err("空 slug 应被拒绝");
+        assert!(err.contains("不支持"));
+    }
+
+    #[test]
+    fn applescript_templates_embed_escaped_input() {
+        let escaped = escape_applescript_string(r#"/path/with"quote"#);
+        let script = terminal_app_script(&escaped);
+        assert!(script.contains(r#"set targetTty to "/path/with\"quote""#));
+
+        let escaped_cwd = escape_applescript_string(r"/cwd\with\bs");
+        let script = ghostty_script(&escaped_cwd);
+        assert!(script.contains(r#"set targetCwd to "/cwd\\with\\bs""#));
+    }
+
+    #[test]
+    fn ghostty_script_focuses_matching_terminal_directly() {
+        let script = ghostty_script("/Users/demo/project");
+
+        assert!(script.contains("repeat with term in terminals"));
+        assert!(script.contains("focus term"));
+        assert!(!script.contains("select tab t of w"));
+    }
+}

@@ -15,9 +15,7 @@ const MAIN_TRAY_ID: &str = "main_tray";
 const SESSIONS_TRAY_ID: &str = "sessions_tray";
 const SESSION_MENU_LABEL_MAX_CHARS: usize = 64;
 // Braille 等宽 spinner，10 帧覆盖一整圈；运行中 / 待处理时替代项目名与状态之间的分隔点。
-const SESSION_TRAY_ANIMATION_FRAMES: &[&str] = &[
-    "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏",
-];
+const SESSION_TRAY_ANIMATION_FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const SESSION_TRAY_ANIMATION_INTERVAL: Duration = Duration::from_millis(300);
 /// 托盘 title 中项目名的最大字符数，超出追加省略号。
 /// macOS 菜单栏宽度有限，长项目名会挤占其它状态栏图标，需要主动截断。
@@ -280,6 +278,49 @@ fn session_menu_item_label(session: &TraySession, language: &str) -> String {
     parts.join(" · ")
 }
 
+/// 编码会话菜单项 id，格式 `session_<pid>::<hex(cwd)>`。
+/// 用 hex 是为了让 cwd 中的中文 / 空格 / 引号 / `::` 都不会破坏 menu id 解析，
+/// 同时省去引入 base64 依赖。
+fn session_menu_item_id(session: &TraySession) -> String {
+    format!(
+        "session_{}::{}",
+        session.pid,
+        hex_encode(session.cwd.as_bytes())
+    )
+}
+
+/// 反向解析 `session_menu_item_id`。任一段不合法都返回 None，让 handler 静默忽略。
+fn parse_session_menu_item_id(id: &str) -> Option<(u32, String)> {
+    let payload = id.strip_prefix("session_")?;
+    let (pid_str, hex_cwd) = payload.split_once("::")?;
+    let pid = pid_str.parse::<u32>().ok()?;
+    let bytes = hex_decode(hex_cwd)?;
+    let cwd = String::from_utf8(bytes).ok()?;
+    Some((pid, cwd))
+}
+
+fn hex_encode(bytes: &[u8]) -> String {
+    use std::fmt::Write;
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for b in bytes {
+        let _ = write!(out, "{b:02x}");
+    }
+    out
+}
+
+fn hex_decode(s: &str) -> Option<Vec<u8>> {
+    if !s.len().is_multiple_of(2) {
+        return None;
+    }
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(s.len() / 2);
+    for chunk in bytes.chunks(2) {
+        let pair = std::str::from_utf8(chunk).ok()?;
+        out.push(u8::from_str_radix(pair, 16).ok()?);
+    }
+    Some(out)
+}
+
 /// 构建托盘菜单
 fn build_tray_menu(app: &AppHandle, state: &ConfigRegistry) -> tauri::Result<Menu<tauri::Wry>> {
     let mut items: Vec<Box<dyn tauri::menu::IsMenuItem<tauri::Wry>>> = Vec::new();
@@ -357,12 +398,14 @@ fn build_sessions_tray_menu(
     items.push(Box::new(header));
     items.push(Box::new(PredefinedMenuItem::separator(app)?));
 
+    let supports_focus =
+        crate::terminal_focus::terminal_supports_focus(&state.app.default_terminal_app);
     for session in sessions {
         let item = MenuItemBuilder::with_id(
-            format!("session_{}", session.pid),
+            session_menu_item_id(session),
             session_menu_item_label(session, labels.language),
         )
-        .enabled(false)
+        .enabled(supports_focus)
         .build(app)?;
         items.push(Box::new(item));
     }
@@ -520,7 +563,24 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     let mut sessions_builder = TrayIconBuilder::with_id(SESSIONS_TRAY_ID)
         .tooltip("AI Manager Sessions")
         .menu(&sessions_menu)
-        .show_menu_on_left_click(true);
+        .show_menu_on_left_click(true)
+        .on_menu_event(|_app, event| {
+            let id = event.id().as_ref();
+            let Some((pid, cwd)) = parse_session_menu_item_id(id) else {
+                return;
+            };
+            let prefs = load_registry_or_default().app;
+            let slug = prefs.default_terminal_app;
+            if !crate::terminal_focus::terminal_supports_focus(&slug) {
+                return;
+            }
+            // osascript 可能耗数百毫秒，丢线程避免阻塞 UI 事件循环。
+            std::thread::spawn(move || {
+                if let Err(e) = crate::terminal_focus::focus_session_in_terminal(pid, &cwd, &slug) {
+                    crate::logging::log_command_error("tray.session_focus", &e);
+                }
+            });
+        });
     if let Some(title) = &sessions_title {
         sessions_builder = sessions_builder.title(title);
     }
@@ -580,8 +640,9 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::{
-        load_tray_sessions_from_dir, session_menu_item_label, session_status_label,
-        sessions_tray_title, sessions_tray_title_for_frame, tray_labels_for_language, TraySession,
+        load_tray_sessions_from_dir, parse_session_menu_item_id, session_menu_item_id,
+        session_menu_item_label, session_status_label, sessions_tray_title,
+        sessions_tray_title_for_frame, tray_labels_for_language, TraySession,
     };
     use std::fs;
     use std::path::Path;
@@ -738,11 +799,7 @@ mod tests {
     fn sessions_tray_title_truncates_long_project_name() {
         let zh = tray_labels_for_language("zh");
         // 项目名 22 字符，超过 16 字符上限，前 16 字符为 "very-long-projec"。
-        let session = test_session(
-            "/Users/demo/work/very-long-project-name",
-            "running",
-            1000,
-        );
+        let session = test_session("/Users/demo/work/very-long-project-name", "running", 1000);
         assert_eq!(
             sessions_tray_title_for_frame(std::slice::from_ref(&session), &zh, 0).as_deref(),
             Some("very-long-projec... ⠋ 运行中")
@@ -754,5 +811,51 @@ mod tests {
             sessions_tray_title_for_frame(std::slice::from_ref(&cn_session), &zh, 0).as_deref(),
             Some("中文短名 · 空闲")
         );
+    }
+
+    /// 回归测试：菜单项 id 必须能 round-trip 出原始 pid 与 cwd，
+    /// 否则点击 handler 无法恢复 cwd 去聚焦终端。覆盖中文、空格、引号、`::` 等易错字符。
+    #[test]
+    fn session_menu_item_id_round_trip() {
+        let cases = [
+            "/Users/demo/work/ai-manager",
+            "/Users/demo/work/中文 项目",
+            r#"/path/with"quote"#,
+            "/path/with::double-colon",
+            "/path/with\\backslash",
+            "/",
+        ];
+        for cwd in cases {
+            let session = TraySession {
+                pid: 4242,
+                session_id: "s".into(),
+                cwd: cwd.into(),
+                status: "idle".into(),
+                updated_at: 0,
+                waiting_for: None,
+            };
+            let id = session_menu_item_id(&session);
+            assert!(id.starts_with("session_4242::"), "id 缺前缀: {id}");
+            let (pid, decoded_cwd) = parse_session_menu_item_id(&id).expect("应能反解");
+            assert_eq!(pid, 4242);
+            assert_eq!(decoded_cwd, cwd);
+        }
+    }
+
+    /// 回归测试：解析非会话 id（profile_*、nav_*、未知字符串）必须返回 None，
+    /// 防止 sessions 托盘 handler 被无关菜单事件误触发。
+    #[test]
+    fn parse_session_menu_item_id_rejects_invalid_inputs() {
+        assert_eq!(parse_session_menu_item_id(""), None);
+        assert_eq!(parse_session_menu_item_id("show_window"), None);
+        assert_eq!(parse_session_menu_item_id("profile_abc"), None);
+        // 缺 `::` 分隔
+        assert_eq!(parse_session_menu_item_id("session_123"), None);
+        // pid 非数字
+        assert_eq!(parse_session_menu_item_id("session_abc::deadbeef"), None);
+        // hex 长度奇数
+        assert_eq!(parse_session_menu_item_id("session_1::abc"), None);
+        // hex 含非法字符
+        assert_eq!(parse_session_menu_item_id("session_1::zzzz"), None);
     }
 }

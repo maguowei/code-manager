@@ -7,6 +7,7 @@ mod memory;
 mod project;
 mod skills;
 mod stats;
+mod terminal_focus;
 mod tray;
 mod utils;
 
