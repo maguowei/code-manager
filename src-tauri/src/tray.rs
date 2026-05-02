@@ -213,12 +213,9 @@ fn sessions_tray_title_for_frame(
                 sessions
                     .iter()
                     .any(|session| is_idle_session_status(&session.status))
-                    .then(|| {
-                        format!(
-                            "{}x{}",
-                            session_status_label("idle", labels.language),
-                            sessions.len()
-                        )
+                    .then(|| match labels.language {
+                        "en" => format!("Idle Sessions x{}", sessions.len()),
+                        _ => format!("空闲会话x{}", sessions.len()),
                     })
             })
             .or_else(|| Some(format!("{} {}", labels.sessions_title, sessions.len()))),
@@ -688,7 +685,7 @@ mod tests {
         );
         assert_eq!(
             sessions_tray_title_for_frame(&[idle, another_idle], &zh, 1).as_deref(),
-            Some("空闲x2")
+            Some("空闲会话x2")
         );
         assert_eq!(
             sessions_tray_title_for_frame(&[test_session("/tmp/repo", "running", 1000)], &en, 0)
