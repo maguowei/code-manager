@@ -26,9 +26,11 @@ import {
   useRef,
   useState,
 } from "react";
+import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
 import { type Theme, type TranslationKey, useI18n } from "../i18n";
 import type {
+  ClaudeDirectoryChangedEvent,
   ClaudeDirectoryEntry,
   ClaudeDirectoryEntryOperationKind,
   ClaudeDirectoryOverview,
@@ -217,6 +219,10 @@ function contextMenuParentPath(item: ContextMenuItem) {
 
 function isSameOrDescendantPath(path: string, targetPath: string) {
   return path === targetPath || path.startsWith(`${targetPath}/`);
+}
+
+function isPathAffectedByChangedPath(path: string, changedPath: string) {
+  return isSameOrDescendantPath(path, changedPath) || isSameOrDescendantPath(changedPath, path);
 }
 
 function remapRenamedPath(path: string, sourcePath: string, destinationPath: string) {
@@ -649,6 +655,7 @@ function ClaudeOverviewPage() {
   );
   const latestOverviewRequestIdRef = useRef(0);
   const latestPreviewRequestPathRef = useRef<string | null>(null);
+  const activePreviewPathRef = useRef<string | null>(null);
   const latestTreePaneWidthRef = useRef(treePaneWidth);
   const openPreviewsRef = useRef<ClaudeFilePreview[]>([]);
   const resizeFrameRef = useRef<number | null>(null);
@@ -709,6 +716,10 @@ function ClaudeOverviewPage() {
     openPreviewsRef.current = openPreviews;
   }, [openPreviews]);
 
+  useEffect(() => {
+    activePreviewPathRef.current = activePreviewPath;
+  }, [activePreviewPath]);
+
   useEffect(
     () => () => {
       latestOverviewRequestIdRef.current += 1;
@@ -748,16 +759,17 @@ function ClaudeOverviewPage() {
       try {
         const nextOverview = await invoke<ClaudeDirectoryOverview>("get_claude_directory_overview");
         if (latestOverviewRequestIdRef.current !== requestId) {
-          return;
+          return null;
         }
         cachedClaudeOverviewState = nextOverview;
         startTransition(() => {
           setOverview(nextOverview);
           setLoadingOverview(false);
         });
+        return nextOverview;
       } catch {
         if (latestOverviewRequestIdRef.current !== requestId) {
-          return;
+          return null;
         }
         if (!preserveCurrent) {
           cachedClaudeOverviewState = null;
@@ -767,6 +779,7 @@ function ClaudeOverviewPage() {
         }
         setLoadingOverview(false);
         showToast(t("claudeOverview.loadError"), "error");
+        return null;
       }
     },
     [showToast, t],
@@ -820,6 +833,87 @@ function ClaudeOverviewPage() {
       }
     },
     [showToast, t],
+  );
+
+  const refreshOpenPreview = useCallback(async (path: string) => {
+    try {
+      const nextPreview = await invoke<ClaudeFilePreview>("read_claude_file_preview", { path });
+      setOpenPreviews((currentPreviews) =>
+        currentPreviews.map((preview) => (preview.path === path ? nextPreview : preview)),
+      );
+      return nextPreview;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const closePreviewPaths = useCallback((pathsToClose: Set<string>) => {
+    if (pathsToClose.size === 0) {
+      return;
+    }
+
+    setOpenPreviews((currentPreviews) => {
+      const activePath = activePreviewPathRef.current;
+      const closingIndex = activePath
+        ? currentPreviews.findIndex((preview) => preview.path === activePath)
+        : -1;
+      const nextPreviews = currentPreviews.filter((preview) => !pathsToClose.has(preview.path));
+
+      if (activePath && pathsToClose.has(activePath)) {
+        const fallbackPreview =
+          nextPreviews[closingIndex] ?? nextPreviews[closingIndex - 1] ?? null;
+        const fallbackPath = fallbackPreview?.path ?? null;
+        activePreviewPathRef.current = fallbackPath;
+        latestPreviewRequestPathRef.current = fallbackPath;
+        setActivePreviewPath(fallbackPath);
+        setSelectedPath(fallbackPath);
+      }
+
+      return nextPreviews;
+    });
+  }, []);
+
+  const handleClaudeDirectoryChanged = useCallback(
+    async (event: ClaudeDirectoryChangedEvent) => {
+      const changedPaths = event.paths.filter((path) => path.trim().length > 0);
+      if (changedPaths.length === 0) {
+        return;
+      }
+
+      const openPreviewsBeforeRefresh = openPreviewsRef.current;
+      const affectedPreviews = openPreviewsBeforeRefresh.filter((preview) =>
+        changedPaths.some((changedPath) => isPathAffectedByChangedPath(preview.path, changedPath)),
+      );
+      const nextOverview = await loadOverview({ preserveCurrent: true });
+      if (!nextOverview || affectedPreviews.length === 0) {
+        return;
+      }
+
+      const nextEntryByPath = new Map<string, ClaudeDirectoryEntry>();
+      for (const entry of nextOverview.entries) {
+        nextEntryByPath.set(entry.path, entry);
+      }
+
+      const pathsToClose = new Set<string>();
+      const pathsToRefresh: string[] = [];
+      for (const preview of affectedPreviews) {
+        const nextEntry = nextEntryByPath.get(preview.path);
+        if (nextEntry?.kind === "file") {
+          pathsToRefresh.push(preview.path);
+        } else {
+          pathsToClose.add(preview.path);
+        }
+      }
+
+      closePreviewPaths(pathsToClose);
+      await Promise.all(pathsToRefresh.map((path) => refreshOpenPreview(path)));
+    },
+    [closePreviewPaths, loadOverview, refreshOpenPreview],
+  );
+
+  useTauriEvent<ClaudeDirectoryChangedEvent>(
+    "claude-directory-changed",
+    handleClaudeDirectoryChanged,
   );
 
   const handleSelectPath = useCallback(

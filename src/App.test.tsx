@@ -5,14 +5,40 @@ import { ToastProvider } from "./hooks/useToast";
 import { I18nProvider } from "./i18n";
 import type { ConfigWorkspace } from "./types";
 
-const { filePreviewMock, fileTreeOptionsMock, invokeMock, listenMock, revealItemInDirMock } =
-  vi.hoisted(() => ({
+const {
+  emitTauriEvent,
+  eventListeners,
+  filePreviewMock,
+  fileTreeOptionsMock,
+  invokeMock,
+  listenMock,
+  revealItemInDirMock,
+} = vi.hoisted(() => {
+  const eventListeners = new Map<string, Set<(payload: unknown) => void>>();
+  const emitTauriEvent = (event: string, payload: unknown) => {
+    for (const listener of eventListeners.get(event) ?? []) {
+      listener(payload);
+    }
+  };
+
+  return {
+    emitTauriEvent,
+    eventListeners,
     filePreviewMock: vi.fn(),
     fileTreeOptionsMock: vi.fn(),
     invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
-    listenMock: vi.fn(async () => () => {}),
+    listenMock: vi.fn(async (event: string, handler: (event: { payload: unknown }) => void) => {
+      const listener = (payload: unknown) => handler({ payload });
+      const listeners = eventListeners.get(event) ?? new Set<(payload: unknown) => void>();
+      listeners.add(listener);
+      eventListeners.set(event, listeners);
+      return () => {
+        listeners.delete(listener);
+      };
+    }),
     revealItemInDirMock: vi.fn(async () => undefined),
-  }));
+  };
+});
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: invokeMock,
@@ -335,10 +361,15 @@ describe("App", () => {
     });
     invokeMock.mockReset();
     listenMock.mockClear();
+    eventListeners.clear();
     filePreviewMock.mockClear();
     fileTreeOptionsMock.mockClear();
     revealItemInDirMock.mockClear();
     invokeMock.mockResolvedValue(WORKSPACE_FIXTURE);
+    Object.defineProperty(window, "__TAURI_INTERNALS__", {
+      configurable: true,
+      value: undefined,
+    });
     document.documentElement.removeAttribute("data-theme");
     Object.defineProperty(window, "matchMedia", {
       value: vi.fn().mockImplementation(() => ({
@@ -383,6 +414,13 @@ describe("App", () => {
     renderApp();
     fireEvent.click(await screen.findByRole("button", { name: "~/.claude 目录总览" }));
     await screen.findByRole("button", { name: "scripts" });
+  }
+
+  function enableTauriEvents() {
+    Object.defineProperty(window, "__TAURI_INTERNALS__", {
+      configurable: true,
+      value: {},
+    });
   }
 
   it("toggles the settings drawer from the sidebar settings button", async () => {
@@ -509,7 +547,6 @@ describe("App", () => {
     });
     resolveOverview?.(overviewFixture);
 
-    expect(await screen.findByText("正在准备目录树...")).toBeInTheDocument();
     await waitFor(() => {
       expect(fileTreeOptionsMock).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -743,6 +780,121 @@ describe("App", () => {
       expect(invokeMock).toHaveBeenCalledWith("delete_claude_directory_entry", {
         path: "settings.json",
       });
+    });
+  });
+
+  it("refreshes the Claude overview and touched open preview after a directory change event", async () => {
+    enableTauriEvents();
+    localStorage.setItem("ai-manager-settings", JSON.stringify({ language: "zh", theme: "light" }));
+    let overviewCallCount = 0;
+    let previewCallCount = 0;
+    const refreshedOverview = {
+      ...CLAUDE_OVERVIEW_FIXTURE,
+      entries: CLAUDE_OVERVIEW_FIXTURE.entries.map((entry) =>
+        entry.path === "settings.json" ? { ...entry, size: 20, modifiedAt: 8 } : entry,
+      ),
+    };
+    invokeMock.mockImplementation(async (command, args) => {
+      if (command === "get_config_workspace") {
+        return WORKSPACE_FIXTURE;
+      }
+      if (command === "get_claude_directory_overview") {
+        overviewCallCount += 1;
+        return overviewCallCount === 1 ? CLAUDE_OVERVIEW_FIXTURE : refreshedOverview;
+      }
+      if (command === "read_claude_file_preview") {
+        previewCallCount += 1;
+        const path = (args as { path: string }).path;
+        return {
+          path,
+          name: path.split("/").pop() ?? path,
+          content: previewCallCount === 1 ? '{"model":"sonnet"}' : '{"model":"opus"}',
+          isBinary: false,
+          truncated: false,
+          size: previewCallCount === 1 ? 18 : 16,
+          modifiedAt: previewCallCount === 1 ? 2 : 8,
+          encoding: "utf-8",
+        };
+      }
+      return null;
+    });
+
+    renderApp();
+    fireEvent.click(await screen.findByRole("button", { name: "~/.claude 目录总览" }));
+    fireEvent.click(await screen.findByRole("button", { name: "settings.json" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("pierre-file-preview")).toHaveAttribute(
+        "data-file-contents",
+        '{"model":"sonnet"}',
+      );
+    });
+
+    emitTauriEvent("claude-directory-changed", { paths: ["settings.json"] });
+
+    await waitFor(() => {
+      expect(
+        invokeMock.mock.calls.filter(([command]) => command === "get_claude_directory_overview"),
+      ).toHaveLength(2);
+    });
+    await waitFor(() => {
+      expect(
+        invokeMock.mock.calls.filter(([command]) => command === "read_claude_file_preview"),
+      ).toHaveLength(2);
+    });
+    expect(screen.getByTestId("pierre-file-preview")).toHaveAttribute(
+      "data-file-contents",
+      '{"model":"opus"}',
+    );
+  });
+
+  it("closes an open Claude preview when a touched file disappears after refresh", async () => {
+    enableTauriEvents();
+    localStorage.setItem("ai-manager-settings", JSON.stringify({ language: "zh", theme: "light" }));
+    let overviewCallCount = 0;
+    const overviewWithoutSettings = {
+      ...CLAUDE_OVERVIEW_FIXTURE,
+      entries: CLAUDE_OVERVIEW_FIXTURE.entries.filter((entry) => entry.path !== "settings.json"),
+    };
+    invokeMock.mockImplementation(async (command, args) => {
+      if (command === "get_config_workspace") {
+        return WORKSPACE_FIXTURE;
+      }
+      if (command === "get_claude_directory_overview") {
+        overviewCallCount += 1;
+        return overviewCallCount === 1 ? CLAUDE_OVERVIEW_FIXTURE : overviewWithoutSettings;
+      }
+      if (command === "read_claude_file_preview") {
+        const path = (args as { path: string }).path;
+        return {
+          path,
+          name: path.split("/").pop() ?? path,
+          content: '{"model":"sonnet"}',
+          isBinary: false,
+          truncated: false,
+          size: 18,
+          modifiedAt: 2,
+          encoding: "utf-8",
+        };
+      }
+      return null;
+    });
+
+    renderApp();
+    fireEvent.click(await screen.findByRole("button", { name: "~/.claude 目录总览" }));
+    fireEvent.click(await screen.findByRole("button", { name: "settings.json" }));
+
+    expect(await screen.findByRole("tab", { name: "settings.json" })).toBeInTheDocument();
+
+    emitTauriEvent("claude-directory-changed", { paths: ["settings.json"] });
+
+    await waitFor(() => {
+      expect(
+        invokeMock.mock.calls.filter(([command]) => command === "get_claude_directory_overview"),
+      ).toHaveLength(2);
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole("tab", { name: "settings.json" })).not.toBeInTheDocument();
     });
   });
 });

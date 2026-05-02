@@ -33,3 +33,4 @@ regex = "1"
 fancy-regex = "0.14"
 schemars = { version = "0.8", features = ["preserve_order"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+notify = "8"

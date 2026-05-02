@@ -1,4 +1,5 @@
 mod claude_directory;
+mod claude_directory_watcher;
 mod config;
 mod history;
 mod logging;
@@ -63,6 +64,9 @@ pub fn run() {
         .setup(|app| {
             tray::setup_tray(app)?;
             log::info!("event=app.setup status=ok");
+            let claude_directory_watcher =
+                claude_directory_watcher::start_claude_directory_watcher(app.handle().clone());
+            app.manage(claude_directory_watcher);
             let snapshot_handle = stats::start_snapshot_timer();
             // 保存句柄，app 退出时 handle drop 但线程也会随进程终止
             app.manage(snapshot_handle);

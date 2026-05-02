@@ -214,6 +214,10 @@ export interface ClaudeFilePreview {
   encoding: string;
 }
 
+export interface ClaudeDirectoryChangedEvent {
+  paths: string[];
+}
+
 // Skill 条目
 export interface Skill {
   id: string;
