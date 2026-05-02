@@ -181,6 +181,7 @@ export interface LogView {
 }
 
 export type ClaudeDirectoryEntryKind = "file" | "directory";
+export type ClaudeDirectoryEntryOperationKind = "file" | "directory";
 
 export interface ClaudeDirectoryEntry {
   path: string;

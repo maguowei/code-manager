@@ -1,6 +1,8 @@
 import type { FileContents, FileOptions, ThemeTypes } from "@pierre/diffs/react";
 import { File as PierreFile } from "@pierre/diffs/react";
 import {
+  type ContextMenuItem,
+  type ContextMenuOpenContext,
   createFileTreeIconResolver,
   getBuiltInFileIconColor,
   getBuiltInSpriteSheet,
@@ -11,8 +13,10 @@ import { invoke } from "@tauri-apps/api/core";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
   type CSSProperties,
+  type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
+  type ReactNode,
   type PointerEvent as ReactPointerEvent,
   startTransition,
   useCallback,
@@ -24,7 +28,13 @@ import {
 } from "react";
 import { useToast } from "../hooks/useToast";
 import { type Theme, type TranslationKey, useI18n } from "../i18n";
-import type { ClaudeDirectoryEntry, ClaudeDirectoryOverview, ClaudeFilePreview } from "../types";
+import type {
+  ClaudeDirectoryEntry,
+  ClaudeDirectoryEntryOperationKind,
+  ClaudeDirectoryOverview,
+  ClaudeFilePreview,
+} from "../types";
+import ConfirmDialog from "./ConfirmDialog";
 import MarkdownPreview from "./claude-overview/MarkdownPreview";
 import { CodeIcon, CopyIcon, EditIcon, ExternalLinkIcon, EyeIcon } from "./Icons";
 import "./ClaudeOverviewPage.css";
@@ -32,6 +42,7 @@ import "./ClaudeOverviewPage.css";
 interface ClaudeDirectoryTreeProps {
   paths: string[];
   onSelectPath: (path: string) => void;
+  renderContextMenu: (item: ContextMenuItem, context: ContextMenuOpenContext) => ReactNode;
 }
 
 interface LoadOverviewOptions {
@@ -80,6 +91,23 @@ function isMarkdownPath(path: string) {
 }
 
 type PreviewViewMode = "preview" | "source";
+type ClaudeOverviewNameDialogMode = "create" | "rename";
+
+interface ClaudeOverviewNameDialogState {
+  mode: ClaudeOverviewNameDialogMode;
+  kind: ClaudeDirectoryEntryOperationKind;
+  path: string | null;
+  parentPath: string | null;
+  initialName: string;
+  titleKey: TranslationKey;
+  confirmKey: TranslationKey;
+}
+
+interface ClaudeOverviewDeleteState {
+  kind: ClaudeDirectoryEntryOperationKind;
+  name: string;
+  path: string;
+}
 
 // 切换到目标文件时计算默认视图：Markdown 默认渲染预览，其它一律源码
 function defaultViewModeForPath(path: string | null | undefined): PreviewViewMode {
@@ -128,6 +156,51 @@ function treePathForEntry(entry: ClaudeDirectoryEntry) {
 
 function normalizeTreePath(path: string) {
   return path.endsWith("/") ? path.slice(0, -1) : path;
+}
+
+function getParentPath(path: string) {
+  const normalizedPath = normalizeTreePath(path);
+  const separatorIndex = normalizedPath.lastIndexOf("/");
+  return separatorIndex >= 0 ? normalizedPath.slice(0, separatorIndex) : null;
+}
+
+function joinClaudeRelativePath(parentPath: string | null, name: string) {
+  return parentPath ? `${parentPath}/${name}` : name;
+}
+
+function contextMenuItemKind(item: ContextMenuItem): ClaudeDirectoryEntryOperationKind {
+  return item.kind === "directory" ? "directory" : "file";
+}
+
+function contextMenuParentPath(item: ContextMenuItem) {
+  const path = normalizeTreePath(item.path);
+  return item.kind === "directory" ? path : getParentPath(path);
+}
+
+function isSameOrDescendantPath(path: string, targetPath: string) {
+  return path === targetPath || path.startsWith(`${targetPath}/`);
+}
+
+function remapRenamedPath(path: string, sourcePath: string, destinationPath: string) {
+  if (path === sourcePath) {
+    return destinationPath;
+  }
+  if (path.startsWith(`${sourcePath}/`)) {
+    return `${destinationPath}${path.slice(sourcePath.length)}`;
+  }
+  return path;
+}
+
+function isValidEntryNameInput(name: string) {
+  const trimmedName = name.trim();
+  return (
+    trimmedName.length > 0 &&
+    !trimmedName.includes("/") &&
+    !trimmedName.includes("\\") &&
+    !trimmedName.includes(":") &&
+    trimmedName !== "." &&
+    trimmedName !== ".."
+  );
 }
 
 function getEventTreeItemPath(event: ReactMouseEvent<HTMLElement>) {
@@ -241,7 +314,118 @@ function absolutePreviewPath(rootPath: string, relativePath: string) {
   return `${rootPath.replace(/\/$/, "")}/${relativePath}`;
 }
 
-function ClaudeDirectoryTree({ paths, onSelectPath }: ClaudeDirectoryTreeProps) {
+interface ClaudeOverviewContextMenuProps {
+  context: ContextMenuOpenContext;
+  item: ContextMenuItem;
+  onCreate: (item: ContextMenuItem, kind: ClaudeDirectoryEntryOperationKind) => void;
+  onDelete: (item: ContextMenuItem) => void;
+  onRename: (item: ContextMenuItem) => void;
+  t: (key: TranslationKey) => string;
+}
+
+function ClaudeOverviewContextMenu({
+  context,
+  item,
+  onCreate,
+  onDelete,
+  onRename,
+  t,
+}: ClaudeOverviewContextMenuProps) {
+  const handleAction = (action: () => void) => {
+    context.close({ restoreFocus: false });
+    action();
+  };
+
+  return (
+    <div className="claude-overview-context-menu" role="menu">
+      <button
+        type="button"
+        role="menuitem"
+        onClick={() => handleAction(() => onCreate(item, "file"))}
+      >
+        {t("claudeOverview.contextMenu.newFile")}
+      </button>
+      <button
+        type="button"
+        role="menuitem"
+        onClick={() => handleAction(() => onCreate(item, "directory"))}
+      >
+        {t("claudeOverview.contextMenu.newFolder")}
+      </button>
+      <button type="button" role="menuitem" onClick={() => handleAction(() => onRename(item))}>
+        {t("claudeOverview.contextMenu.rename")}
+      </button>
+      <div className="claude-overview-context-menu-separator" aria-hidden="true" />
+      <button
+        type="button"
+        role="menuitem"
+        className="danger"
+        onClick={() => handleAction(() => onDelete(item))}
+      >
+        {t("claudeOverview.contextMenu.delete")}
+      </button>
+    </div>
+  );
+}
+
+interface ClaudeOverviewNameDialogProps {
+  dialog: ClaudeOverviewNameDialogState;
+  onCancel: () => void;
+  onSubmit: (name: string) => void;
+  t: (key: TranslationKey) => string;
+}
+
+function ClaudeOverviewNameDialog({
+  dialog,
+  onCancel,
+  onSubmit,
+  t,
+}: ClaudeOverviewNameDialogProps) {
+  const [name, setName] = useState(dialog.initialName);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    const frameId = window.requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    });
+    return () => window.cancelAnimationFrame(frameId);
+  }, []);
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    onSubmit(name);
+  };
+
+  return (
+    <div className="claude-overview-name-dialog-overlay" onClick={onCancel}>
+      <form
+        className="claude-overview-name-dialog"
+        aria-label={t(dialog.titleKey)}
+        onClick={(event) => event.stopPropagation()}
+        onSubmit={handleSubmit}
+      >
+        <div className="claude-overview-name-dialog-title">{t(dialog.titleKey)}</div>
+        <label className="claude-overview-name-dialog-field">
+          <span>{t("claudeOverview.nameLabel")}</span>
+          <input
+            ref={inputRef}
+            value={name}
+            onChange={(event) => setName(event.currentTarget.value)}
+          />
+        </label>
+        <div className="claude-overview-name-dialog-actions">
+          <button type="button" onClick={onCancel}>
+            {t("confirm.cancel")}
+          </button>
+          <button type="submit">{t(dialog.confirmKey)}</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function ClaudeDirectoryTree({ paths, onSelectPath, renderContextMenu }: ClaudeDirectoryTreeProps) {
   const onSelectPathRef = useRef(onSelectPath);
   const lastHandledPathRef = useRef<{ path: string; timestamp: number } | null>(null);
   onSelectPathRef.current = onSelectPath;
@@ -266,6 +450,13 @@ function ClaudeDirectoryTree({ paths, onSelectPath }: ClaudeDirectoryTreeProps) 
     initialExpansion: "closed",
     initialExpandedPaths: [],
     initialVisibleRowCount: 24,
+    composition: {
+      contextMenu: {
+        enabled: true,
+        triggerMode: "both",
+        buttonVisibility: "always",
+      },
+    },
     overscan: 8,
     onSelectionChange: (selectedPaths) => {
       const selectedPath = selectedPaths[selectedPaths.length - 1];
@@ -299,7 +490,11 @@ function ClaudeDirectoryTree({ paths, onSelectPath }: ClaudeDirectoryTreeProps) 
 
   return (
     <div className="claude-overview-file-tree-shell" onClickCapture={handleTreeClickCapture}>
-      <FileTree model={model} className="claude-overview-file-tree" />
+      <FileTree
+        model={model}
+        className="claude-overview-file-tree"
+        renderContextMenu={renderContextMenu}
+      />
     </div>
   );
 }
@@ -381,6 +576,10 @@ function ClaudeOverviewPage() {
   const [treePaneWidth, setTreePaneWidth] = useState(readInitialTreePaneWidth);
   // Markdown 文件默认进入渲染预览，其它文件维持源码视图；切换 tab/打开新文件时按文件类型重置
   const [viewMode, setViewMode] = useState<PreviewViewMode>("source");
+  const [nameDialog, setNameDialog] = useState<ClaudeOverviewNameDialogState | null>(null);
+  const [pendingDeleteEntry, setPendingDeleteEntry] = useState<ClaudeOverviewDeleteState | null>(
+    null,
+  );
   const latestOverviewRequestIdRef = useRef(0);
   const latestPreviewRequestPathRef = useRef<string | null>(null);
   const latestTreePaneWidthRef = useRef(treePaneWidth);
@@ -568,6 +767,150 @@ function ClaudeOverviewPage() {
       void loadPreview(path);
     },
     [entryByPath, loadPreview],
+  );
+
+  const handleCreateFromContextMenu = useCallback(
+    (item: ContextMenuItem, kind: ClaudeDirectoryEntryOperationKind) => {
+      const parentPath = contextMenuParentPath(item);
+      setNameDialog({
+        mode: "create",
+        kind,
+        path: normalizeTreePath(item.path),
+        parentPath,
+        initialName: "",
+        titleKey:
+          kind === "file" ? "claudeOverview.createFileTitle" : "claudeOverview.createFolderTitle",
+        confirmKey: "claudeOverview.createConfirm",
+      });
+    },
+    [],
+  );
+
+  const handleRenameFromContextMenu = useCallback((item: ContextMenuItem) => {
+    setNameDialog({
+      mode: "rename",
+      kind: contextMenuItemKind(item),
+      path: normalizeTreePath(item.path),
+      parentPath: getParentPath(item.path),
+      initialName: item.name,
+      titleKey: "claudeOverview.renameTitle",
+      confirmKey: "claudeOverview.contextMenu.rename",
+    });
+  }, []);
+
+  const handleDeleteFromContextMenu = useCallback((item: ContextMenuItem) => {
+    setPendingDeleteEntry({
+      kind: contextMenuItemKind(item),
+      name: item.name,
+      path: normalizeTreePath(item.path),
+    });
+  }, []);
+
+  const handleSubmitNameDialog = useCallback(
+    async (name: string) => {
+      if (!nameDialog) {
+        return;
+      }
+
+      const trimmedName = name.trim();
+      if (!isValidEntryNameInput(trimmedName)) {
+        showToast(t("claudeOverview.invalidName"), "error");
+        return;
+      }
+
+      try {
+        if (nameDialog.mode === "create") {
+          await invoke("create_claude_directory_entry", {
+            parentPath: nameDialog.parentPath,
+            name: trimmedName,
+            kind: nameDialog.kind,
+          });
+          showToast(t("claudeOverview.createSuccess"));
+        } else if (nameDialog.path) {
+          const sourcePath = nameDialog.path;
+          const destinationPath = joinClaudeRelativePath(nameDialog.parentPath, trimmedName);
+          await invoke("rename_claude_directory_entry", {
+            path: sourcePath,
+            newName: trimmedName,
+          });
+          setOpenPreviews((currentPreviews) =>
+            currentPreviews.map((preview) => {
+              const nextPath = remapRenamedPath(preview.path, sourcePath, destinationPath);
+              return nextPath === preview.path
+                ? preview
+                : {
+                    ...preview,
+                    path: nextPath,
+                    name:
+                      preview.path === sourcePath
+                        ? trimmedName
+                        : (nextPath.split("/").pop() ?? nextPath),
+                  };
+            }),
+          );
+          setSelectedPath((currentPath) =>
+            currentPath ? remapRenamedPath(currentPath, sourcePath, destinationPath) : currentPath,
+          );
+          setActivePreviewPath((currentPath) =>
+            currentPath ? remapRenamedPath(currentPath, sourcePath, destinationPath) : currentPath,
+          );
+          latestPreviewRequestPathRef.current = latestPreviewRequestPathRef.current
+            ? remapRenamedPath(latestPreviewRequestPathRef.current, sourcePath, destinationPath)
+            : null;
+          showToast(t("claudeOverview.renameSuccess"));
+        }
+        setNameDialog(null);
+        await loadOverview({ preserveCurrent: true });
+      } catch {
+        showToast(t("claudeOverview.operationError"), "error");
+      }
+    },
+    [loadOverview, nameDialog, showToast, t],
+  );
+
+  const handleConfirmDeleteEntry = useCallback(async () => {
+    if (!pendingDeleteEntry) {
+      return;
+    }
+
+    const deletedPath = pendingDeleteEntry.path;
+    try {
+      await invoke("delete_claude_directory_entry", { path: deletedPath });
+      setOpenPreviews((currentPreviews) =>
+        currentPreviews.filter((preview) => !isSameOrDescendantPath(preview.path, deletedPath)),
+      );
+      setSelectedPath((currentPath) =>
+        currentPath && isSameOrDescendantPath(currentPath, deletedPath) ? null : currentPath,
+      );
+      setActivePreviewPath((currentPath) =>
+        currentPath && isSameOrDescendantPath(currentPath, deletedPath) ? null : currentPath,
+      );
+      if (
+        latestPreviewRequestPathRef.current &&
+        isSameOrDescendantPath(latestPreviewRequestPathRef.current, deletedPath)
+      ) {
+        latestPreviewRequestPathRef.current = null;
+      }
+      setPendingDeleteEntry(null);
+      showToast(t("claudeOverview.deleteSuccess"));
+      await loadOverview({ preserveCurrent: true });
+    } catch {
+      showToast(t("claudeOverview.operationError"), "error");
+    }
+  }, [loadOverview, pendingDeleteEntry, showToast, t]);
+
+  const renderTreeContextMenu = useCallback(
+    (item: ContextMenuItem, context: ContextMenuOpenContext) => (
+      <ClaudeOverviewContextMenu
+        context={context}
+        item={item}
+        onCreate={handleCreateFromContextMenu}
+        onDelete={handleDeleteFromContextMenu}
+        onRename={handleRenameFromContextMenu}
+        t={t}
+      />
+    ),
+    [handleCreateFromContextMenu, handleDeleteFromContextMenu, handleRenameFromContextMenu, t],
   );
 
   const handleSelectPreviewTab = useCallback((path: string) => {
@@ -946,13 +1289,36 @@ function ClaudeOverviewPage() {
             <ClaudeOverviewTreeLoading label={treeLoadingLabel} />
           ) : treePaths.length > 0 ? (
             <div className="claude-overview-tree-ready">
-              <ClaudeDirectoryTree paths={treePaths} onSelectPath={handleSelectPath} />
+              <ClaudeDirectoryTree
+                paths={treePaths}
+                onSelectPath={handleSelectPath}
+                renderContextMenu={renderTreeContextMenu}
+              />
             </div>
           ) : (
             <div className="claude-overview-empty">{t("claudeOverview.empty")}</div>
           )}
         </section>
       </div>
+      {nameDialog ? (
+        <ClaudeOverviewNameDialog
+          dialog={nameDialog}
+          onCancel={() => setNameDialog(null)}
+          onSubmit={handleSubmitNameDialog}
+          t={t}
+        />
+      ) : null}
+      {pendingDeleteEntry ? (
+        <ConfirmDialog
+          title={t("claudeOverview.deleteTitle").replace("{name}", pendingDeleteEntry.name)}
+          message={t("claudeOverview.deleteMessage")}
+          confirmText={t("confirm.delete")}
+          cancelText={t("confirm.cancel")}
+          onConfirm={handleConfirmDeleteEntry}
+          onCancel={() => setPendingDeleteEntry(null)}
+          danger
+        />
+      ) : null}
     </section>
   );
 }

@@ -10,8 +10,9 @@ mod tray;
 mod utils;
 
 use claude_directory::{
-    get_claude_directory_children, get_claude_directory_overview, open_claude_file_in_editor,
-    read_claude_file_preview,
+    create_claude_directory_entry, delete_claude_directory_entry, get_claude_directory_children,
+    get_claude_directory_overview, open_claude_file_in_editor, read_claude_file_preview,
+    rename_claude_directory_entry,
 };
 use config::{
     apply_profile, delete_preset, delete_profile, duplicate_profile, get_config_workspace,
@@ -86,6 +87,9 @@ pub fn run() {
             get_claude_directory_children,
             read_claude_file_preview,
             open_claude_file_in_editor,
+            create_claude_directory_entry,
+            rename_claude_directory_entry,
+            delete_claude_directory_entry,
             upsert_profile,
             duplicate_profile,
             reorder_profiles,

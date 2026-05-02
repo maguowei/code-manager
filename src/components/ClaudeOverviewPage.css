@@ -197,6 +197,129 @@
   --trees-selected-fg-override: var(--text-primary);
 }
 
+.claude-overview-context-menu {
+  min-width: 156px;
+  padding: 4px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: var(--z-index-dropdown);
+}
+
+.claude-overview-context-menu button {
+  width: 100%;
+  min-height: 30px;
+  padding: 0 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.claude-overview-context-menu button:hover,
+.claude-overview-context-menu button:focus-visible {
+  background: var(--bg-hover);
+  outline: none;
+}
+
+.claude-overview-context-menu button.danger {
+  color: var(--accent-red);
+}
+
+.claude-overview-context-menu-separator {
+  height: 1px;
+  margin: 4px -4px;
+  background: var(--border-default);
+}
+
+.claude-overview-name-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-index-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 50%);
+}
+
+.claude-overview-name-dialog {
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  padding: var(--space-5);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.claude-overview-name-dialog-title {
+  color: var(--text-primary);
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+
+.claude-overview-name-dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.claude-overview-name-dialog-field input {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+}
+
+.claude-overview-name-dialog-field input:focus {
+  border-color: var(--accent-blue);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-blue-bg);
+}
+
+.claude-overview-name-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.claude-overview-name-dialog-actions button {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.claude-overview-name-dialog-actions button[type="submit"] {
+  border-color: var(--accent-blue);
+  background: var(--accent-blue);
+  color: white;
+}
+
+.claude-overview-name-dialog-actions button:hover {
+  filter: brightness(1.05);
+}
+
 .claude-overview-tree-loading {
   height: 100%;
   min-height: 0;

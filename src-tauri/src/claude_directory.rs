@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::Read;
 use std::path::{Component, Path, PathBuf};
@@ -18,7 +18,7 @@ pub(crate) struct ScanOptions {
     pub max_depth: usize,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ClaudeDirectoryEntryKind {
     File,
@@ -155,6 +155,58 @@ pub fn open_claude_file_in_editor(path: String) -> Result<(), String> {
         open_path_with_app(&target_path, app_name)
     })();
     crate::logging::log_command_result("claude_directory.open_editor", &result, |_| {
+        format!("path={}", crate::utils::truncate(&path, 160))
+    });
+    result
+}
+
+#[tauri::command]
+pub fn create_claude_directory_entry(
+    parent_path: Option<String>,
+    name: String,
+    kind: ClaudeDirectoryEntryKind,
+) -> Result<(), String> {
+    let result = (|| {
+        let root = claude_dir()?;
+        create_claude_directory_entry_in_root(&root, parent_path.as_deref(), &name, kind)
+    })();
+    crate::logging::log_command_result("claude_directory.entry.create", &result, |_| {
+        format!(
+            "parent={} name={} kind={:?}",
+            parent_path
+                .as_deref()
+                .map(|path| crate::utils::truncate(path, 160))
+                .unwrap_or_default(),
+            crate::utils::truncate(&name, 160),
+            kind
+        )
+    });
+    result
+}
+
+#[tauri::command]
+pub fn rename_claude_directory_entry(path: String, new_name: String) -> Result<(), String> {
+    let result = (|| {
+        let root = claude_dir()?;
+        rename_claude_directory_entry_in_root(&root, &path, &new_name)
+    })();
+    crate::logging::log_command_result("claude_directory.entry.rename", &result, |_| {
+        format!(
+            "path={} new_name={}",
+            crate::utils::truncate(&path, 160),
+            crate::utils::truncate(&new_name, 160)
+        )
+    });
+    result
+}
+
+#[tauri::command]
+pub fn delete_claude_directory_entry(path: String) -> Result<(), String> {
+    let result = (|| {
+        let root = claude_dir()?;
+        delete_claude_directory_entry_in_root(&root, &path)
+    })();
+    crate::logging::log_command_result("claude_directory.entry.delete", &result, |_| {
         format!("path={}", crate::utils::truncate(&path, 160))
     });
     result
@@ -440,6 +492,118 @@ pub(crate) fn read_claude_file_preview_from_root(
         modified_at: crate::utils::metadata_modified_secs(&metadata),
         encoding,
     })
+}
+
+pub(crate) fn create_claude_directory_entry_in_root(
+    root: &Path,
+    parent_path: Option<&str>,
+    name: &str,
+    kind: ClaudeDirectoryEntryKind,
+) -> Result<(), String> {
+    ensure_claude_root_dir(root)?;
+    let valid_name = validate_claude_entry_name(name)?;
+    let parent = match parent_path {
+        Some(parent_path) => {
+            let rel_path = validate_relative_claude_operation_path(parent_path)?;
+            let parent = resolve_operation_path_inside_root(root, &rel_path)?;
+            let metadata = fs::metadata(&parent).map_err(|e| mask_io_error("读取目录元数据", &e))?;
+            if !metadata.is_dir() {
+                return Err("只能在 ~/.claude 内的目录中新建条目".to_string());
+            }
+            parent
+        }
+        None => root.to_path_buf(),
+    };
+    let target = parent.join(valid_name);
+    if fs::symlink_metadata(&target).is_ok() {
+        return Err("目标已存在".to_string());
+    }
+
+    match kind {
+        ClaudeDirectoryEntryKind::File => {
+            fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&target)
+                .map_err(|e| mask_io_error("创建文件", &e))?;
+        }
+        ClaudeDirectoryEntryKind::Directory => {
+            fs::create_dir(&target).map_err(|e| mask_io_error("创建目录", &e))?;
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn rename_claude_directory_entry_in_root(
+    root: &Path,
+    path: &str,
+    new_name: &str,
+) -> Result<(), String> {
+    let rel_path = validate_relative_claude_operation_path(path)?;
+    let source = resolve_operation_path_inside_root(root, &rel_path)?;
+    let metadata = fs::metadata(&source).map_err(|e| mask_io_error("读取条目元数据", &e))?;
+    if !metadata.is_file() && !metadata.is_dir() {
+        return Err("只能操作 ~/.claude 内的文件".to_string());
+    }
+    let valid_name = validate_claude_entry_name(new_name)?;
+    let parent = source
+        .parent()
+        .ok_or_else(|| "只能操作 ~/.claude 内的文件".to_string())?;
+    let target = parent.join(valid_name);
+    if fs::symlink_metadata(&target).is_ok() {
+        return Err("目标已存在".to_string());
+    }
+    fs::rename(&source, &target).map_err(|e| mask_io_error("重命名条目", &e))
+}
+
+pub(crate) fn delete_claude_directory_entry_in_root(root: &Path, path: &str) -> Result<(), String> {
+    let rel_path = validate_relative_claude_operation_path(path)?;
+    let target = resolve_operation_path_inside_root(root, &rel_path)?;
+    let metadata = fs::metadata(&target).map_err(|e| mask_io_error("读取条目元数据", &e))?;
+    if metadata.is_dir() {
+        fs::remove_dir_all(&target).map_err(|e| mask_io_error("删除目录", &e))?;
+        return Ok(());
+    }
+    if metadata.is_file() {
+        fs::remove_file(&target).map_err(|e| mask_io_error("删除文件", &e))?;
+        return Ok(());
+    }
+    Err("只能操作 ~/.claude 内的文件".to_string())
+}
+
+fn ensure_claude_root_dir(root: &Path) -> Result<(), String> {
+    match fs::metadata(root) {
+        Ok(metadata) if metadata.is_dir() => Ok(()),
+        Ok(_) => Err("~/.claude 不是目录".to_string()),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            fs::create_dir_all(root).map_err(|e| mask_io_error("创建 ~/.claude 目录", &e))
+        }
+        Err(err) => Err(mask_io_error("读取 ~/.claude 目录", &err)),
+    }
+}
+
+fn validate_claude_entry_name(name: &str) -> Result<&str, String> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return Err("名称不能为空".to_string());
+    }
+    if trimmed.contains('/') || trimmed.contains('\\') || trimmed.contains(':') {
+        return Err("名称不能包含路径分隔符或冒号".to_string());
+    }
+    let mut components = Path::new(trimmed).components();
+    match (components.next(), components.next()) {
+        (Some(Component::Normal(part)), None) if part == trimmed => Ok(trimmed),
+        _ => Err("名称无效".to_string()),
+    }
+}
+
+fn validate_relative_claude_operation_path(path: &str) -> Result<PathBuf, String> {
+    validate_relative_claude_path(path).map_err(|_| "只能操作 ~/.claude 内的文件".to_string())
+}
+
+fn resolve_operation_path_inside_root(root: &Path, rel_path: &Path) -> Result<PathBuf, String> {
+    resolve_existing_path_inside_root(root, rel_path)
+        .map_err(|_| "只能操作 ~/.claude 内的文件".to_string())
 }
 
 fn validate_relative_claude_path(path: &str) -> Result<PathBuf, String> {
@@ -869,6 +1033,154 @@ mod tests {
         assert!(!err.contains("internal-secret-file"));
         assert!(!err.contains("No such file"));
         assert!(!err.contains("os error"));
+    }
+
+    #[test]
+    fn create_directory_entry_writes_empty_file_and_folder() {
+        let env = TestEnv::new("create-entry");
+        fs::create_dir_all(env.claude_dir().join("skills")).expect("应可创建父目录");
+
+        create_claude_directory_entry_in_root(
+            &env.claude_dir(),
+            Some("skills"),
+            "new-skill.md",
+            ClaudeDirectoryEntryKind::File,
+        )
+        .expect("应可创建空文件");
+        create_claude_directory_entry_in_root(
+            &env.claude_dir(),
+            Some("skills"),
+            "drafts",
+            ClaudeDirectoryEntryKind::Directory,
+        )
+        .expect("应可创建空目录");
+
+        assert_eq!(
+            fs::read_to_string(env.claude_dir().join("skills/new-skill.md"))
+                .expect("应可读取新文件"),
+            ""
+        );
+        assert!(env.claude_dir().join("skills/drafts").is_dir());
+        let overview = scan_claude_directory_with_options(
+            &env.claude_dir(),
+            ScanOptions {
+                max_entries: 100,
+                max_depth: 8,
+            },
+        )
+        .expect("应可重新扫描目录");
+        let paths = overview
+            .entries
+            .iter()
+            .map(|entry| entry.path.as_str())
+            .collect::<Vec<_>>();
+        assert!(paths.contains(&"skills/new-skill.md"));
+        assert!(paths.contains(&"skills/drafts"));
+    }
+
+    #[test]
+    fn rename_directory_entry_moves_file_and_folder_and_rejects_existing_target() {
+        let env = TestEnv::new("rename-entry");
+        fs::create_dir_all(env.claude_dir().join("skills")).expect("应可创建父目录");
+        fs::create_dir_all(env.claude_dir().join("drafts/nested")).expect("应可创建待重命名目录");
+        fs::write(env.claude_dir().join("skills/old.md"), "hello").expect("应可写入文件");
+        fs::write(env.claude_dir().join("skills/taken.md"), "taken").expect("应可写入文件");
+        fs::write(env.claude_dir().join("drafts/nested/SKILL.md"), "folder")
+            .expect("应可写入嵌套文件");
+
+        rename_claude_directory_entry_in_root(&env.claude_dir(), "skills/old.md", "new.md")
+            .expect("应可重命名文件");
+        rename_claude_directory_entry_in_root(&env.claude_dir(), "drafts", "renamed-drafts")
+            .expect("应可重命名目录");
+        let err =
+            rename_claude_directory_entry_in_root(&env.claude_dir(), "skills/new.md", "taken.md")
+                .expect_err("重名目标应被拒绝");
+
+        assert_eq!(
+            fs::read_to_string(env.claude_dir().join("skills/new.md")).expect("应可读取新文件名"),
+            "hello"
+        );
+        assert!(!env.claude_dir().join("skills/old.md").exists());
+        assert!(
+            env.claude_dir()
+                .join("renamed-drafts/nested/SKILL.md")
+                .is_file()
+        );
+        assert!(!env.claude_dir().join("drafts").exists());
+        assert!(err.contains("目标已存在"));
+    }
+
+    #[test]
+    fn delete_directory_entry_removes_file_and_folder_recursively() {
+        let env = TestEnv::new("delete-entry");
+        fs::write(env.claude_dir().join("settings.json"), "{}").expect("应可写入文件");
+        fs::create_dir_all(env.claude_dir().join("skills/demo")).expect("应可创建目录");
+        fs::write(env.claude_dir().join("skills/demo/SKILL.md"), "hello").expect("应可写入文件");
+
+        delete_claude_directory_entry_in_root(&env.claude_dir(), "settings.json")
+            .expect("应可删除文件");
+        delete_claude_directory_entry_in_root(&env.claude_dir(), "skills")
+            .expect("应可递归删除目录");
+
+        assert!(!env.claude_dir().join("settings.json").exists());
+        assert!(!env.claude_dir().join("skills").exists());
+    }
+
+    #[test]
+    fn file_operations_reject_escape_symlink_and_invalid_names() {
+        let env = TestEnv::new("operation-safety");
+        fs::create_dir_all(env.claude_dir().join("skills")).expect("应可创建目录");
+        fs::write(env.claude_dir().join("skills/existing.md"), "hello").expect("应可写入文件");
+        create_test_symlink(&env.root, &env.claude_dir().join("linked"));
+
+        let empty_name = create_claude_directory_entry_in_root(
+            &env.claude_dir(),
+            Some("skills"),
+            " ",
+            ClaudeDirectoryEntryKind::File,
+        )
+        .expect_err("空名称应被拒绝");
+        let nested_name = create_claude_directory_entry_in_root(
+            &env.claude_dir(),
+            Some("skills"),
+            "nested/file.md",
+            ClaudeDirectoryEntryKind::File,
+        )
+        .expect_err("包含路径分隔符的名称应被拒绝");
+        let backslash_name = create_claude_directory_entry_in_root(
+            &env.claude_dir(),
+            Some("skills"),
+            "nested\\file.md",
+            ClaudeDirectoryEntryKind::File,
+        )
+        .expect_err("包含反斜杠的名称应被拒绝");
+        let colon_name = create_claude_directory_entry_in_root(
+            &env.claude_dir(),
+            Some("skills"),
+            "nested:file.md",
+            ClaudeDirectoryEntryKind::File,
+        )
+        .expect_err("包含冒号的名称应被拒绝");
+        let overwrite = create_claude_directory_entry_in_root(
+            &env.claude_dir(),
+            Some("skills"),
+            "existing.md",
+            ClaudeDirectoryEntryKind::File,
+        )
+        .expect_err("覆盖已有目标应被拒绝");
+        let escape =
+            rename_claude_directory_entry_in_root(&env.claude_dir(), "../outside.md", "next.md")
+                .expect_err("路径逃逸应被拒绝");
+        let symlink = delete_claude_directory_entry_in_root(&env.claude_dir(), "linked")
+            .expect_err("软链接应被拒绝");
+
+        assert!(empty_name.contains("名称不能为空"));
+        assert!(nested_name.contains("名称不能包含路径分隔符"));
+        assert!(backslash_name.contains("名称不能包含路径分隔符"));
+        assert!(colon_name.contains("名称不能包含路径分隔符"));
+        assert!(overwrite.contains("目标已存在"));
+        assert!(escape.contains("只能操作 ~/.claude 内的文件"));
+        assert!(symlink.contains("只能操作 ~/.claude 内的文件"));
     }
 
     #[cfg(unix)]

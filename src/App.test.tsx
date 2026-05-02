@@ -51,6 +51,13 @@ vi.mock("@pierre/trees/react", async () => {
   const React = await vi.importActual<typeof import("react")>("react");
   return {
     useFileTree: (options: {
+      composition?: {
+        contextMenu?: {
+          buttonVisibility?: string;
+          enabled?: boolean;
+          triggerMode?: string;
+        };
+      };
       initialExpandedPaths?: string[];
       initialExpansion?: string | number;
       onSelectionChange: (selectedPaths: string[]) => void;
@@ -58,33 +65,71 @@ vi.mock("@pierre/trees/react", async () => {
       search?: boolean;
     }) => {
       fileTreeOptionsMock(options);
-      const model = {
-        options: { ...options },
-        resetPaths: vi.fn((paths: string[], resetOptions?: { initialExpandedPaths?: string[] }) => {
-          model.options = {
-            ...model.options,
-            paths,
-            initialExpandedPaths: resetOptions?.initialExpandedPaths ?? [],
-          };
-        }),
-        onMutation: vi.fn(() => () => {}),
-      };
-      return { model };
+      const [modelOptions, setModelOptions] = React.useState({
+        ...options,
+        paths: options.paths ?? [],
+      });
+      const modelRef = React.useRef<{
+        options: typeof modelOptions;
+        resetPaths: ReturnType<typeof vi.fn>;
+        onMutation: ReturnType<typeof vi.fn>;
+      } | null>(null);
+      if (modelRef.current === null) {
+        modelRef.current = {
+          options: modelOptions,
+          resetPaths: vi.fn(
+            (paths: string[], resetOptions?: { initialExpandedPaths?: string[] }) => {
+              setModelOptions((currentOptions) => ({
+                ...currentOptions,
+                paths,
+                initialExpandedPaths: resetOptions?.initialExpandedPaths ?? [],
+              }));
+            },
+          ),
+          onMutation: vi.fn(() => () => {}),
+        };
+      }
+      modelRef.current.options = modelOptions;
+      return { model: modelRef.current };
     },
     FileTree: (props: {
       className?: string;
       model: {
         options: {
+          composition?: {
+            contextMenu?: {
+              buttonVisibility?: string;
+              enabled?: boolean;
+              triggerMode?: string;
+            };
+          };
           onSelectionChange: (selectedPaths: string[]) => void;
           paths: string[];
         };
       };
+      renderContextMenu?: (
+        item: { kind: "directory" | "file"; name: string; path: string },
+        context: {
+          close: (options?: { restoreFocus?: boolean }) => void;
+          restoreFocus: () => void;
+        },
+      ) => React.ReactNode;
     }) => {
       const [query, setQuery] = React.useState("");
+      const [activeMenuItem, setActiveMenuItem] = React.useState<{
+        kind: "directory" | "file";
+        name: string;
+        path: string;
+      } | null>(null);
       const normalizedQuery = query.trim().toLowerCase();
+      const treePaths = props.model.options.paths ?? [];
       const visiblePaths = normalizedQuery
-        ? props.model.options.paths.filter((path) => path.toLowerCase().includes(normalizedQuery))
-        : props.model.options.paths;
+        ? treePaths.filter((path) => path.toLowerCase().includes(normalizedQuery))
+        : treePaths;
+      const contextMenuConfig = props.model.options.composition?.contextMenu;
+      const canUseTriggerButton =
+        contextMenuConfig?.enabled === true &&
+        (contextMenuConfig.triggerMode === "both" || contextMenuConfig.triggerMode === "button");
 
       return (
         <div data-testid="pierre-file-tree" className={props.className}>
@@ -96,18 +141,43 @@ vi.mock("@pierre/trees/react", async () => {
             const normalizedPath = path.endsWith("/") ? path.slice(0, -1) : path;
             const name = normalizedPath.split("/").pop() ?? normalizedPath;
             const itemType = path.endsWith("/") ? "folder" : "file";
+            const item = {
+              kind: itemType === "folder" ? ("directory" as const) : ("file" as const),
+              name,
+              path: normalizedPath,
+            };
             return (
-              <button
-                key={path}
-                type="button"
-                data-type="item"
-                data-item-path={path}
-                data-item-type={itemType}
-              >
-                {name}
-              </button>
+              <div key={path}>
+                <button
+                  type="button"
+                  data-type="item"
+                  data-item-path={path}
+                  data-item-type={itemType}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    setActiveMenuItem(item);
+                  }}
+                >
+                  {name}
+                </button>
+                {canUseTriggerButton ? (
+                  <button
+                    type="button"
+                    aria-label={`Options ${name}`}
+                    onClick={() => setActiveMenuItem(item)}
+                  >
+                    Options
+                  </button>
+                ) : null}
+              </div>
             );
           })}
+          {activeMenuItem && props.renderContextMenu
+            ? props.renderContextMenu(activeMenuItem, {
+                close: () => setActiveMenuItem(null),
+                restoreFocus: () => {},
+              })
+            : null}
         </div>
       );
     },
@@ -125,6 +195,40 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
   customPresets: [],
   profiles: [],
   bindings: {},
+};
+
+const CLAUDE_OVERVIEW_FIXTURE = {
+  rootPath: "/Users/test/.claude",
+  maxEntries: 100000,
+  maxDepth: 128,
+  entries: [
+    {
+      path: "scripts",
+      name: "scripts",
+      kind: "directory",
+      size: 0,
+      modifiedAt: 1,
+    },
+    {
+      path: "scripts/check-license-rule.js",
+      name: "check-license-rule.js",
+      kind: "file",
+      size: 48,
+      modifiedAt: 1,
+    },
+    {
+      path: "settings.json",
+      name: "settings.json",
+      kind: "file",
+      size: 19,
+      modifiedAt: 2,
+    },
+  ],
+  truncated: false,
+  reachedEntryLimit: false,
+  reachedDepthLimit: false,
+  skippedSymlinkCount: 0,
+  skippedNodeModulesCount: 0,
 };
 
 function renderApp() {
@@ -179,6 +283,36 @@ describe("App", () => {
       configurable: true,
     });
   });
+
+  async function renderClaudeOverviewWithContextMenu() {
+    localStorage.setItem("ai-manager-settings", JSON.stringify({ language: "zh", theme: "light" }));
+    invokeMock.mockImplementation(async (command, args) => {
+      if (command === "get_config_workspace") {
+        return WORKSPACE_FIXTURE;
+      }
+      if (command === "get_claude_directory_overview") {
+        return CLAUDE_OVERVIEW_FIXTURE;
+      }
+      if (command === "read_claude_file_preview") {
+        const path = (args as { path: string }).path;
+        return {
+          path,
+          name: path.split("/").pop() ?? path,
+          content: "preview",
+          isBinary: false,
+          truncated: false,
+          size: 7,
+          modifiedAt: 2,
+          encoding: "utf-8",
+        };
+      }
+      return null;
+    });
+
+    renderApp();
+    fireEvent.click(await screen.findByRole("button", { name: "~/.claude 目录总览" }));
+    await screen.findByRole("button", { name: "scripts" });
+  }
 
   it("toggles the settings drawer from the sidebar settings button", async () => {
     renderApp();
@@ -298,7 +432,6 @@ describe("App", () => {
     expect(screen.queryByRole("dialog", { name: "~/.claude 目录总览" })).not.toBeInTheDocument();
     expect(screen.getByText("正在扫描 ~/.claude...")).toBeInTheDocument();
     expect(fileTreeOptionsMock).not.toHaveBeenCalled();
-    expect(invokeMock).not.toHaveBeenCalledWith("get_claude_directory_overview");
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("get_claude_directory_overview");
@@ -442,6 +575,83 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "~/.claude 目录总览" }));
     await waitFor(() => {
       expect(screen.queryByRole("heading", { name: "~/.claude 目录总览" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("opens the Claude directory context menu from right-click and creates entries", async () => {
+    await renderClaudeOverviewWithContextMenu();
+
+    const treeOptions =
+      fileTreeOptionsMock.mock.calls[fileTreeOptionsMock.mock.calls.length - 1]?.[0];
+    expect(treeOptions).toEqual(
+      expect.objectContaining({
+        composition: {
+          contextMenu: {
+            buttonVisibility: "always",
+            enabled: true,
+            triggerMode: "both",
+          },
+        },
+      }),
+    );
+
+    fireEvent.contextMenu(screen.getByRole("button", { name: "scripts" }));
+    expect(await screen.findByRole("menuitem", { name: "新建文件" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "新建文件夹" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "重命名" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "删除" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("menuitem", { name: "新建文件" }));
+    fireEvent.change(await screen.findByLabelText("名称"), {
+      target: { value: "notes.md" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "创建" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("create_claude_directory_entry", {
+        parentPath: "scripts",
+        name: "notes.md",
+        kind: "file",
+      });
+    });
+    expect(invokeMock).toHaveBeenCalledWith("get_claude_directory_overview");
+  });
+
+  it("opens the Claude directory context menu from trigger button, renames and confirms delete", async () => {
+    await renderClaudeOverviewWithContextMenu();
+
+    fireEvent.click(screen.getByRole("button", { name: "Options check-license-rule.js" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "重命名" }));
+    const renameInput = await screen.findByLabelText("名称");
+    expect(renameInput).toHaveValue("check-license-rule.js");
+    fireEvent.change(renameInput, {
+      target: { value: "license-rule.js" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "重命名" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("rename_claude_directory_entry", {
+        path: "scripts/check-license-rule.js",
+        newName: "license-rule.js",
+      });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Options settings.json" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "删除" }));
+    expect(await screen.findByText("删除后无法撤销。")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    expect(invokeMock).not.toHaveBeenCalledWith("delete_claude_directory_entry", {
+      path: "settings.json",
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Options settings.json" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "删除" }));
+    fireEvent.click(screen.getByRole("button", { name: "删除" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("delete_claude_directory_entry", {
+        path: "settings.json",
+      });
     });
   });
 });
