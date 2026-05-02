@@ -14,7 +14,7 @@ use tauri::{
 const MAIN_TRAY_ID: &str = "main_tray";
 const SESSIONS_TRAY_ID: &str = "sessions_tray";
 const SESSION_MENU_LABEL_MAX_CHARS: usize = 64;
-// Braille 等宽 spinner，10 帧覆盖一整圈；前置在状态文字之前，整串宽度恒定，避免菜单抖动。
+// Braille 等宽 spinner，10 帧覆盖一整圈；运行中 / 待处理时替代项目名与状态之间的分隔点。
 const SESSION_TRAY_ANIMATION_FRAMES: &[&str] = &[
     "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏",
 ];
@@ -223,22 +223,24 @@ fn sessions_tray_title_for_frame(
 }
 
 fn session_tray_summary(session: &TraySession, language: &str, frame: usize) -> String {
-    let status = animated_session_status_label(session.status.as_str(), language, frame);
+    let status = session_status_label(&session.status, language);
+    let separator = session_tray_separator(&session.status, frame);
     format!(
-        "{} · {}",
+        "{} {} {}",
         crate::utils::truncate(&session_project_name(&session.cwd), 28),
+        separator,
         status
     )
 }
 
-fn animated_session_status_label(status: &str, language: &str, frame: usize) -> String {
-    let label = session_status_label(status, language);
-    if !is_waiting_session_status(status) && !is_running_session_status(status) {
-        return label;
+/// 运行中 / 待处理：用 Braille spinner 替代静态分隔点，让"忙"状态本身带动画；
+/// 其它状态保留 `·` 分隔，避免无意义的视觉跳动。
+fn session_tray_separator(status: &str, frame: usize) -> &'static str {
+    if is_waiting_session_status(status) || is_running_session_status(status) {
+        SESSION_TRAY_ANIMATION_FRAMES[frame % SESSION_TRAY_ANIMATION_FRAMES.len()]
+    } else {
+        "·"
     }
-
-    let spinner = SESSION_TRAY_ANIMATION_FRAMES[frame % SESSION_TRAY_ANIMATION_FRAMES.len()];
-    format!("{} {}", spinner, label)
 }
 
 fn is_waiting_session_status(status: &str) -> bool {
@@ -676,11 +678,11 @@ mod tests {
                 0
             )
             .as_deref(),
-            Some("waiting-repo · ⠋ 待处理")
+            Some("waiting-repo ⠋ 待处理")
         );
         assert_eq!(
             sessions_tray_title_for_frame(&[idle.clone(), running], &zh, 2).as_deref(),
-            Some("running-repo · ⠹ 运行中")
+            Some("running-repo ⠹ 运行中")
         );
         assert_eq!(
             sessions_tray_title_for_frame(&[idle, another_idle], &zh, 1).as_deref(),
@@ -689,11 +691,11 @@ mod tests {
         assert_eq!(
             sessions_tray_title_for_frame(&[test_session("/tmp/repo", "running", 1000)], &en, 0)
                 .as_deref(),
-            Some("repo · ⠋ Running")
+            Some("repo ⠋ Running")
         );
         assert_eq!(
             sessions_tray_title(&[waiting], &zh).as_deref(),
-            Some("waiting-repo · ⠋ 待处理")
+            Some("waiting-repo ⠋ 待处理")
         );
     }
 
