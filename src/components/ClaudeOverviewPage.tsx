@@ -10,7 +10,7 @@ import {
 } from "@pierre/trees";
 import { FileTree, useFileTree } from "@pierre/trees/react";
 import { invoke } from "@tauri-apps/api/core";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
   type CSSProperties,
   type FormEvent,
@@ -28,7 +28,7 @@ import {
 } from "react";
 import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
-import { type Theme, type TranslationKey, useI18n } from "../i18n";
+import { type Language, type Theme, type TranslationKey, useI18n } from "../i18n";
 import type {
   ClaudeDirectoryChangedEvent,
   ClaudeDirectoryEntry,
@@ -89,6 +89,8 @@ const CONTEXT_MENU_WIDTH = 176;
 const CONTEXT_MENU_ESTIMATED_HEIGHT = 152;
 const CONTEXT_MENU_EDGE_GAP = 8;
 const CONTEXT_MENU_ANCHOR_GAP = 8;
+const CLAUDE_CODE_DOCS_BASE_URL = "https://code.claude.com/docs";
+const CLAUDE_DIRECTORY_DOCS_PATH = "claude-directory";
 
 // 根据文件路径后缀判断是否为 Markdown，用于决定是否启用渲染预览
 function isMarkdownPath(path: string) {
@@ -309,6 +311,11 @@ function formatPreviewEncoding(encoding: string | undefined, t: (key: Translatio
     default:
       return encoding || t("claudeOverview.encodingUnknown");
   }
+}
+
+function getClaudeDirectoryDocsUrl(language: Language) {
+  const docsLocale = language === "zh" ? "zh-CN" : "en";
+  return `${CLAUDE_CODE_DOCS_BASE_URL}/${docsLocale}/${CLAUDE_DIRECTORY_DOCS_PATH}`;
 }
 
 function getSystemPierreThemeType(): ThemeTypes {
@@ -627,7 +634,7 @@ function ClaudeOverviewFileIcon({ path }: { path: string }) {
 }
 
 function ClaudeOverviewPage() {
-  const { t, theme } = useI18n();
+  const { language, t, theme } = useI18n();
   const { showToast } = useToast();
   const cachedOverviewOnMountRef = useRef<ClaudeDirectoryOverview | null>(
     cachedClaudeOverviewState,
@@ -706,6 +713,7 @@ function ClaudeOverviewPage() {
     }),
     [previewThemeType],
   );
+  const claudeDirectoryDocsUrl = useMemo(() => getClaudeDirectoryDocsUrl(language), [language]);
 
   const selectedEntry = selectedPath ? entryByPath.get(selectedPath) : undefined;
   const activeEntry = activePreview
@@ -1135,6 +1143,14 @@ function ClaudeOverviewPage() {
     }
   }, [activePreview, showToast, t]);
 
+  const handleOpenDocs = useCallback(async () => {
+    try {
+      await openUrl(claudeDirectoryDocsUrl);
+    } catch {
+      showToast(t("claudeOverview.openDocsError"), "error");
+    }
+  }, [claudeDirectoryDocsUrl, showToast, t]);
+
   const handleResizePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
       if (event.button !== 0) {
@@ -1281,6 +1297,15 @@ function ClaudeOverviewPage() {
           ) : null}
         </div>
         <div className="claude-overview-actions">
+          <button
+            type="button"
+            aria-label={t("claudeOverview.openDocsAriaLabel")}
+            title={t("claudeOverview.openDocsAriaLabel")}
+            onClick={handleOpenDocs}
+          >
+            <span>{t("claudeOverview.openDocs")}</span>
+            <ExternalLinkIcon size={14} />
+          </button>
           <button
             type="button"
             onClick={handleRefreshClick}

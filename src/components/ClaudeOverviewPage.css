@@ -67,6 +67,9 @@
   border-radius: var(--radius-md);
   background: var(--bg-secondary);
   color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: var(--font-sm);
   font-weight: 600;
   cursor: pointer;

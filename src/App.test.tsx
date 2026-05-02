@@ -12,6 +12,7 @@ const {
   fileTreeOptionsMock,
   invokeMock,
   listenMock,
+  openUrlMock,
   revealItemInDirMock,
 } = vi.hoisted(() => {
   const eventListeners = new Map<string, Set<(payload: unknown) => void>>();
@@ -36,6 +37,7 @@ const {
         listeners.delete(listener);
       };
     }),
+    openUrlMock: vi.fn(async () => undefined),
     revealItemInDirMock: vi.fn(async () => undefined),
   };
 });
@@ -50,7 +52,7 @@ vi.mock("@tauri-apps/api/event", () => ({
 
 vi.mock("@tauri-apps/plugin-opener", () => ({
   revealItemInDir: revealItemInDirMock,
-  openUrl: vi.fn(async () => undefined),
+  openUrl: openUrlMock,
 }));
 
 vi.mock("@pierre/diffs/react", () => ({
@@ -364,6 +366,7 @@ describe("App", () => {
     eventListeners.clear();
     filePreviewMock.mockClear();
     fileTreeOptionsMock.mockClear();
+    openUrlMock.mockClear();
     revealItemInDirMock.mockClear();
     invokeMock.mockResolvedValue(WORKSPACE_FIXTURE);
     Object.defineProperty(window, "__TAURI_INTERNALS__", {
@@ -539,6 +542,8 @@ describe("App", () => {
 
     expect(screen.getByRole("heading", { name: "~/.claude 目录总览" })).toBeInTheDocument();
     expect(screen.queryByRole("dialog", { name: "~/.claude 目录总览" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "查看 .claude 目录官方文档" }));
+    expect(openUrlMock).toHaveBeenCalledWith("https://code.claude.com/docs/zh-CN/claude-directory");
     expect(screen.getByText("正在扫描 ~/.claude...")).toBeInTheDocument();
     expect(fileTreeOptionsMock).not.toHaveBeenCalled();
 
@@ -684,6 +689,32 @@ describe("App", () => {
     await waitFor(() => {
       expect(screen.queryByRole("heading", { name: "~/.claude 目录总览" })).not.toBeInTheDocument();
     });
+  });
+
+  it("opens the English Claude directory docs from the overview when language is English", async () => {
+    localStorage.setItem("ai-manager-settings", JSON.stringify({ language: "en", theme: "light" }));
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_config_workspace") {
+        return {
+          ...WORKSPACE_FIXTURE,
+          app: {
+            ...WORKSPACE_FIXTURE.app,
+            uiLanguage: "en",
+          },
+        };
+      }
+      if (command === "get_claude_directory_overview") {
+        return CLAUDE_OVERVIEW_FIXTURE;
+      }
+      return null;
+    });
+
+    renderApp();
+
+    fireEvent.click(await screen.findByRole("button", { name: "~/.claude Overview" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Open .claude directory docs" }));
+
+    expect(openUrlMock).toHaveBeenCalledWith("https://code.claude.com/docs/en/claude-directory");
   });
 
   it("opens the Claude directory context menu from right-click and creates entries", async () => {
