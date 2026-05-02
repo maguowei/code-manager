@@ -14,8 +14,11 @@ use tauri::{
 const MAIN_TRAY_ID: &str = "main_tray";
 const SESSIONS_TRAY_ID: &str = "sessions_tray";
 const SESSION_MENU_LABEL_MAX_CHARS: usize = 64;
-const SESSION_TRAY_ANIMATION_FRAME_COUNT: usize = 3;
-const SESSION_TRAY_ANIMATION_INTERVAL: Duration = Duration::from_millis(900);
+// Braille 等宽 spinner，10 帧覆盖一整圈；前置在状态文字之前，整串宽度恒定，避免菜单抖动。
+const SESSION_TRAY_ANIMATION_FRAMES: &[&str] = &[
+    "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏",
+];
+const SESSION_TRAY_ANIMATION_INTERVAL: Duration = Duration::from_millis(300);
 static SESSION_TRAY_ANIMATION_FRAME: AtomicUsize = AtomicUsize::new(0);
 
 struct TrayLabels<'a> {
@@ -238,8 +241,8 @@ fn animated_session_status_label(status: &str, language: &str, frame: usize) -> 
         return label;
     }
 
-    let dot_count = frame % SESSION_TRAY_ANIMATION_FRAME_COUNT + 1;
-    format!("{}{}", label, ".".repeat(dot_count))
+    let spinner = SESSION_TRAY_ANIMATION_FRAMES[frame % SESSION_TRAY_ANIMATION_FRAMES.len()];
+    format!("{} {}", spinner, label)
 }
 
 fn is_waiting_session_status(status: &str) -> bool {
@@ -678,11 +681,11 @@ mod tests {
                 0
             )
             .as_deref(),
-            Some("waiting-repo · 待处理.")
+            Some("waiting-repo · ⠋ 待处理")
         );
         assert_eq!(
             sessions_tray_title_for_frame(&[idle.clone(), running], &zh, 2).as_deref(),
-            Some("running-repo · 运行中...")
+            Some("running-repo · ⠹ 运行中")
         );
         assert_eq!(
             sessions_tray_title_for_frame(&[idle, another_idle], &zh, 1).as_deref(),
@@ -691,11 +694,11 @@ mod tests {
         assert_eq!(
             sessions_tray_title_for_frame(&[test_session("/tmp/repo", "running", 1000)], &en, 0)
                 .as_deref(),
-            Some("repo · Running.")
+            Some("repo · ⠋ Running")
         );
         assert_eq!(
             sessions_tray_title(&[waiting], &zh).as_deref(),
-            Some("waiting-repo · 待处理.")
+            Some("waiting-repo · ⠋ 待处理")
         );
     }
 
