@@ -25,11 +25,12 @@ function buildProjectSummaries(stats: ClaudeStats): ProjectSummary[] {
       lastCost: projectStats.lastCost,
       lastDuration: projectStats.lastDuration,
       lastSessionId: projectStats.lastSessionId,
+      lastSessionModified: projectStats.lastSessionModified,
     }))
     .sort(
       (a, b) =>
+        b.lastSessionModified - a.lastSessionModified ||
         b.lastDuration - a.lastDuration ||
-        b.lastCost - a.lastCost ||
         a.project.localeCompare(b.project),
     );
 }

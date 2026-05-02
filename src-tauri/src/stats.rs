@@ -73,6 +73,8 @@ pub struct ProjectStats {
     pub last_total_cache_creation_input_tokens: u64,
     #[serde(default)]
     pub last_total_cache_read_input_tokens: u64,
+    #[serde(default)]
+    pub last_session_modified: u64,
 }
 
 /// 从 ~/.claude.json 解析的完整统计数据

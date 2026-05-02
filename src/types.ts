@@ -149,6 +149,7 @@ export interface ProjectStats {
   lastTotalOutputTokens: number;
   lastTotalCacheCreationInputTokens: number;
   lastTotalCacheReadInputTokens: number;
+  lastSessionModified: number;
 }
 
 export interface ClaudeStats {
@@ -253,6 +254,7 @@ export interface ProjectSummary {
   lastCost: number;
   lastDuration: number;
   lastSessionId?: string;
+  lastSessionModified: number;
 }
 
 export type AgentsStatus = "missing" | "correctSymlink" | "wrongSymlink" | "plainFileConflict";

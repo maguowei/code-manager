@@ -61,18 +61,6 @@ export function groupByProject(entries: HistoryEntry[]): HistoryProjectGroup[] {
   }));
 }
 
-/** 按消息数降序排序项目 */
-export function sortProjectGroupsByMessageCount(
-  groups: HistoryProjectGroup[],
-): HistoryProjectGroup[] {
-  return [...groups].sort(
-    (a, b) =>
-      b.messageCount - a.messageCount ||
-      b.lastTimestamp - a.lastTimestamp ||
-      a.project.localeCompare(b.project),
-  );
-}
-
 /** 按最近活跃时间降序排序项目 */
 export function sortProjectGroupsByRecency(groups: HistoryProjectGroup[]): HistoryProjectGroup[] {
   return [...groups].sort(
@@ -81,6 +69,13 @@ export function sortProjectGroupsByRecency(groups: HistoryProjectGroup[]): Histo
       b.messageCount - a.messageCount ||
       a.project.localeCompare(b.project),
   );
+}
+
+/** @deprecated 使用 sortProjectGroupsByRecency 代替 */
+export function sortProjectGroupsByMessageCount(
+  groups: HistoryProjectGroup[],
+): HistoryProjectGroup[] {
+  return sortProjectGroupsByRecency(groups);
 }
 
 /** 按 sessionId 分组 */
