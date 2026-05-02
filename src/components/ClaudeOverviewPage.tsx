@@ -783,7 +783,11 @@ function ClaudeOverviewPage() {
             disabled={isRefreshButtonBusy}
             aria-busy={isRefreshButtonBusy}
           >
-            {isRefreshButtonBusy ? t("claudeOverview.refreshing") : t("claudeOverview.refresh")}
+            {/* 双 span 叠加保证按钮宽度始终按最长文案预留,切换状态时不抖动相邻元素 */}
+            <span className="claude-overview-refresh-button-stack">
+              <span data-active={isRefreshButtonBusy}>{t("claudeOverview.refreshing")}</span>
+              <span data-active={!isRefreshButtonBusy}>{t("claudeOverview.refresh")}</span>
+            </span>
           </button>
         </div>
       </header>

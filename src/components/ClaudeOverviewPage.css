@@ -77,6 +77,23 @@
   background: var(--bg-hover);
 }
 
+/* 刷新按钮文案双 span 叠加:按钮宽度取两者中较宽,切换"刷新/刷新中..."时不抖动相邻元素 */
+.claude-overview-refresh-button-stack {
+  display: inline-grid;
+  grid-template-areas: "stack";
+  align-items: center;
+  justify-items: center;
+}
+
+.claude-overview-refresh-button-stack > span {
+  grid-area: stack;
+  visibility: hidden;
+}
+
+.claude-overview-refresh-button-stack > span[data-active="true"] {
+  visibility: visible;
+}
+
 .claude-overview-status {
   min-height: 0;
   padding: 0;
