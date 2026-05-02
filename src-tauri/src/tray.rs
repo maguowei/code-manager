@@ -215,10 +215,9 @@ fn sessions_tray_title_for_frame(
                     .any(|session| is_idle_session_status(&session.status))
                     .then(|| {
                         format!(
-                            "{} {} · {}",
-                            labels.sessions_title,
-                            sessions.len(),
-                            session_status_label("idle", labels.language)
+                            "{}x{}",
+                            session_status_label("idle", labels.language),
+                            sessions.len()
                         )
                     })
             })
@@ -262,8 +261,8 @@ fn is_idle_session_status(status: &str) -> bool {
 
 fn session_menu_item_label(session: &TraySession, language: &str) -> String {
     let mut parts = vec![
-        session_status_label(&session.status, language),
         crate::utils::truncate(&session_project_name(&session.cwd), 32),
+        session_status_label(&session.status, language),
     ];
     if is_waiting_session_status(&session.status) {
         if let Some(waiting_for) = &session.waiting_for {
@@ -689,7 +688,7 @@ mod tests {
         );
         assert_eq!(
             sessions_tray_title_for_frame(&[idle, another_idle], &zh, 1).as_deref(),
-            Some("会话 2 · 空闲")
+            Some("空闲x2")
         );
         assert_eq!(
             sessions_tray_title_for_frame(&[test_session("/tmp/repo", "running", 1000)], &en, 0)
@@ -710,11 +709,11 @@ mod tests {
 
         assert_eq!(
             session_menu_item_label(&session, "zh"),
-            "待处理 · ai-manager · approve Bash"
+            "ai-manager · 待处理 · approve Bash"
         );
         assert_eq!(
             session_menu_item_label(&session, "en"),
-            "Waiting · ai-manager · approve Bash"
+            "ai-manager · Waiting · approve Bash"
         );
     }
 }
