@@ -508,6 +508,20 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
         })?
         .clone();
 
+    // 第二个托盘项只承载会话摘要，形成独立点击区域。
+    // 注：macOS 状态栏图标按添加顺序从右往左排列，先创建会话托盘可让其显示在主托盘（配置名）右侧。
+    let mut sessions_builder = TrayIconBuilder::with_id(SESSIONS_TRAY_ID)
+        .tooltip("AI Manager Sessions")
+        .menu(&sessions_menu)
+        .show_menu_on_left_click(true);
+    if let Some(title) = &sessions_title {
+        sessions_builder = sessions_builder.title(title);
+    }
+    let sessions_tray = sessions_builder.build(app)?;
+    if !state.app.show_tray_sessions || sessions_title.is_none() {
+        let _ = sessions_tray.set_visible(false);
+    }
+
     // 构建托盘图标，若设置开启且有激活配置则在图标旁显示配置名
     let mut builder = TrayIconBuilder::with_id(MAIN_TRAY_ID)
         .icon(icon)
@@ -552,18 +566,6 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
         })
         .build(app)?;
 
-    // 第二个托盘项只承载会话摘要，形成独立点击区域。
-    let mut sessions_builder = TrayIconBuilder::with_id(SESSIONS_TRAY_ID)
-        .tooltip("AI Manager Sessions")
-        .menu(&sessions_menu)
-        .show_menu_on_left_click(true);
-    if let Some(title) = &sessions_title {
-        sessions_builder = sessions_builder.title(title);
-    }
-    let sessions_tray = sessions_builder.build(app)?;
-    if !state.app.show_tray_sessions || sessions_title.is_none() {
-        let _ = sessions_tray.set_visible(false);
-    }
     start_sessions_tray_title_animator(handle.clone());
 
     Ok(())
