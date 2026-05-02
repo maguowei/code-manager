@@ -567,6 +567,16 @@ const translations = {
     "projects.noWorktrees": "暂无 worktree",
     "projects.current": "当前",
     "projects.detached": "Detached",
+    "projects.contextMenuLabel": "项目操作",
+    "projects.clearLocalData": "清除本地数据",
+    "projects.purgeDialogTitle": "清除本地数据",
+    "projects.purgeDialogDescription":
+      "将运行 Claude CLI 清除该项目保存的本地状态。请先检查 dry-run 删除计划。",
+    "projects.purgeTarget": "项目",
+    "projects.purgePlan": "删除计划",
+    "projects.purgePreviewing": "正在生成删除计划...",
+    "projects.purgeExecuting": "清除中...",
+    "projects.purgeEmptyOutput": "Claude CLI 未返回输出。",
 
     "toast.projectListError": "加载项目列表失败",
     "toast.projectDetailError": "加载项目详情失败",
@@ -577,6 +587,9 @@ const translations = {
     "toast.projectOpenRepositoryError": "打开源码仓库失败",
     "toast.projectOpenTerminalError": "用终端打开项目失败",
     "toast.projectOpenEditorError": "用编辑器打开项目失败",
+    "toast.projectPurgePreviewError": "生成清除计划失败，请确认 claude CLI 可用",
+    "toast.projectPurgeError": "清除项目本地数据失败",
+    "toast.projectPurged": "项目本地数据已清除",
 
     "stats.title": "使用统计",
     "stats.refresh": "刷新",
@@ -1395,6 +1408,16 @@ const translations = {
     "projects.noWorktrees": "No worktrees",
     "projects.current": "Current",
     "projects.detached": "Detached",
+    "projects.contextMenuLabel": "Project actions",
+    "projects.clearLocalData": "Clear Local Data",
+    "projects.purgeDialogTitle": "Clear Local Data",
+    "projects.purgeDialogDescription":
+      "AI Manager will run Claude CLI to clear saved local state for this project. Review the dry-run deletion plan first.",
+    "projects.purgeTarget": "Project",
+    "projects.purgePlan": "Deletion Plan",
+    "projects.purgePreviewing": "Generating deletion plan...",
+    "projects.purgeExecuting": "Clearing...",
+    "projects.purgeEmptyOutput": "Claude CLI returned no output.",
 
     "toast.projectListError": "Failed to load project list",
     "toast.projectDetailError": "Failed to load project details",
@@ -1405,6 +1428,10 @@ const translations = {
     "toast.projectOpenRepositoryError": "Failed to open repository",
     "toast.projectOpenTerminalError": "Failed to open project in terminal",
     "toast.projectOpenEditorError": "Failed to open project in editor",
+    "toast.projectPurgePreviewError":
+      "Failed to generate purge plan. Make sure the claude CLI is available.",
+    "toast.projectPurgeError": "Failed to clear project local data",
+    "toast.projectPurged": "Project local data cleared",
 
     "stats.title": "Usage Statistics",
     "stats.refresh": "Refresh",

@@ -1,21 +1,51 @@
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { shortProjectName } from "../history-utils";
 import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
-import { useI18n } from "../i18n";
+import { type TranslationKey, useI18n } from "../i18n";
 import {
   type ClaudeStats,
   type ConfigWorkspace,
   type DefaultEditorApp,
   isTauri,
   type ProjectDetail,
+  type ProjectPurgeOutput,
   type ProjectSummary,
 } from "../types";
 import ProjectDetailPanel from "./ProjectDetailPanel";
 import { formatDuration, formatUSD } from "./project-detail-utils";
 import "./ProjectsPage.css";
+
+const PROJECT_CONTEXT_MENU_WIDTH = 176;
+const PROJECT_CONTEXT_MENU_HEIGHT = 40;
+const PROJECT_CONTEXT_MENU_EDGE_GAP = 8;
+
+type ProjectContextMenuState = {
+  project: string;
+  shortName: string;
+  x: number;
+  y: number;
+};
+
+type ProjectPurgeDialogState = {
+  project: string;
+  shortName: string;
+  output: string | null;
+  error: string | null;
+  isPreviewing: boolean;
+  isPurging: boolean;
+};
 
 function buildProjectSummaries(stats: ClaudeStats): ProjectSummary[] {
   return Object.entries(stats.projects)
@@ -35,6 +65,126 @@ function buildProjectSummaries(stats: ClaudeStats): ProjectSummary[] {
     );
 }
 
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function projectContextMenuStyleForPoint(x: number, y: number): CSSProperties {
+  const viewportWidth =
+    typeof window === "undefined" ? PROJECT_CONTEXT_MENU_WIDTH : Math.max(window.innerWidth, 0);
+  const viewportHeight =
+    typeof window === "undefined" ? PROJECT_CONTEXT_MENU_HEIGHT : Math.max(window.innerHeight, 0);
+  const maxLeft = Math.max(
+    PROJECT_CONTEXT_MENU_EDGE_GAP,
+    viewportWidth - PROJECT_CONTEXT_MENU_WIDTH - PROJECT_CONTEXT_MENU_EDGE_GAP,
+  );
+  const maxTop = Math.max(
+    PROJECT_CONTEXT_MENU_EDGE_GAP,
+    viewportHeight - PROJECT_CONTEXT_MENU_HEIGHT - PROJECT_CONTEXT_MENU_EDGE_GAP,
+  );
+
+  return {
+    left: clampNumber(x, PROJECT_CONTEXT_MENU_EDGE_GAP, maxLeft),
+    position: "fixed",
+    top: clampNumber(y, PROJECT_CONTEXT_MENU_EDGE_GAP, maxTop),
+    width: PROJECT_CONTEXT_MENU_WIDTH,
+  };
+}
+
+function errorToMessage(error: unknown): string {
+  if (typeof error === "string") {
+    return error;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+}
+
+type ProjectContextMenuProps = {
+  context: ProjectContextMenuState;
+  menuRef: RefObject<HTMLDivElement | null>;
+  onClearLocalData: (context: ProjectContextMenuState) => void;
+  t: (key: TranslationKey) => string;
+};
+
+function ProjectContextMenu({ context, menuRef, onClearLocalData, t }: ProjectContextMenuProps) {
+  return (
+    <div
+      ref={menuRef}
+      className="projects-context-menu"
+      role="menu"
+      aria-label={t("projects.contextMenuLabel")}
+      style={projectContextMenuStyleForPoint(context.x, context.y)}
+      onContextMenu={(event) => event.preventDefault()}
+    >
+      <button
+        type="button"
+        role="menuitem"
+        className="danger"
+        onClick={() => onClearLocalData(context)}
+      >
+        {t("projects.clearLocalData")}
+      </button>
+    </div>
+  );
+}
+
+type ProjectPurgeDialogProps = {
+  dialog: ProjectPurgeDialogState;
+  onCancel: () => void;
+  onConfirm: () => void;
+  t: (key: TranslationKey) => string;
+};
+
+function ProjectPurgeDialog({ dialog, onCancel, onConfirm, t }: ProjectPurgeDialogProps) {
+  const titleId = "projects-purge-dialog-title";
+  const canConfirm =
+    !dialog.isPreviewing && !dialog.isPurging && dialog.error === null && dialog.output !== null;
+  const output = dialog.error ?? dialog.output ?? t("projects.purgeEmptyOutput");
+
+  return (
+    <div className="projects-purge-dialog-overlay" onClick={onCancel}>
+      <div
+        className="projects-purge-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="projects-purge-dialog-header">
+          <h3 id={titleId}>{t("projects.purgeDialogTitle")}</h3>
+          <p>{t("projects.purgeDialogDescription")}</p>
+        </div>
+
+        <div className="projects-purge-target">
+          <span>{t("projects.purgeTarget")}</span>
+          <strong title={dialog.project}>{dialog.shortName}</strong>
+          <code>{dialog.project}</code>
+        </div>
+
+        <div className="projects-purge-plan-header">{t("projects.purgePlan")}</div>
+        {dialog.isPreviewing ? (
+          <div className="projects-purge-loading">{t("projects.purgePreviewing")}</div>
+        ) : (
+          <pre className={`projects-purge-output${dialog.error ? " error" : ""}`}>{output}</pre>
+        )}
+
+        <div className="projects-purge-dialog-actions">
+          <button type="button" onClick={onCancel} disabled={dialog.isPurging}>
+            {t("confirm.cancel")}
+          </button>
+          {!dialog.error && (
+            <button type="button" className="danger" onClick={onConfirm} disabled={!canConfirm}>
+              {dialog.isPurging ? t("projects.purgeExecuting") : t("projects.clearLocalData")}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ProjectsPage() {
   const { t } = useI18n();
   const { showToast } = useToast();
@@ -46,6 +196,11 @@ function ProjectsPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [isLinkingAgents, setIsLinkingAgents] = useState(false);
   const [defaultEditorApp, setDefaultEditorApp] = useState<DefaultEditorApp | null>(null);
+  const [projectContextMenu, setProjectContextMenu] = useState<ProjectContextMenuState | null>(
+    null,
+  );
+  const [purgeDialog, setPurgeDialog] = useState<ProjectPurgeDialogState | null>(null);
+  const projectContextMenuRef = useRef<HTMLDivElement>(null);
   const projectsRequestIdRef = useRef(0);
   const detailRequestIdRef = useRef(0);
 
@@ -141,6 +296,53 @@ function ProjectsPage() {
   useTauriEvent<void>("project-launcher-settings-changed", () => {
     void loadLauncherSettings();
   });
+
+  useEffect(() => {
+    if (!projectContextMenu) return;
+
+    const closeMenu = () => setProjectContextMenu(null);
+    const handleMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (target instanceof Node && projectContextMenuRef.current?.contains(target)) {
+        return;
+      }
+      closeMenu();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeMenu();
+      }
+    };
+
+    document.addEventListener("mousedown", handleMouseDown);
+    document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", closeMenu);
+    window.addEventListener("scroll", closeMenu, true);
+
+    return () => {
+      document.removeEventListener("mousedown", handleMouseDown);
+      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", closeMenu);
+      window.removeEventListener("scroll", closeMenu, true);
+    };
+  }, [projectContextMenu]);
+
+  const handleClosePurgeDialog = useCallback(() => {
+    setPurgeDialog((current) => (current?.isPurging ? current : null));
+  }, []);
+
+  useEffect(() => {
+    if (!purgeDialog) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        handleClosePurgeDialog();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [handleClosePurgeDialog, purgeDialog]);
 
   const selectedSummary = useMemo(
     () => projectSummaries.find((summary) => summary.project === selectedProject) ?? null,
@@ -266,6 +468,131 @@ function ProjectsPage() {
     }
   }, [defaultEditorApp, detail?.path, selectedSummary?.project, showToast, t]);
 
+  const handleProjectContextMenu = useCallback(
+    (event: ReactMouseEvent<HTMLButtonElement>, summary: ProjectSummary) => {
+      event.preventDefault();
+      setSelectedProject(summary.project);
+      setProjectContextMenu({
+        project: summary.project,
+        shortName: summary.shortName,
+        x: event.clientX,
+        y: event.clientY,
+      });
+    },
+    [],
+  );
+
+  const handleRequestPurgePreview = useCallback(
+    async (context: ProjectContextMenuState) => {
+      if (!isTauri()) return;
+
+      setProjectContextMenu(null);
+      setSelectedProject(context.project);
+      setPurgeDialog({
+        project: context.project,
+        shortName: context.shortName,
+        output: null,
+        error: null,
+        isPreviewing: true,
+        isPurging: false,
+      });
+
+      try {
+        const result = await invoke<ProjectPurgeOutput>("preview_project_local_data_purge", {
+          project: context.project,
+        });
+        setPurgeDialog((current) =>
+          current?.project === context.project
+            ? {
+                ...current,
+                output: result.output || t("projects.purgeEmptyOutput"),
+                error: null,
+                isPreviewing: false,
+              }
+            : current,
+        );
+      } catch (error) {
+        setPurgeDialog((current) =>
+          current?.project === context.project
+            ? {
+                ...current,
+                output: null,
+                error: errorToMessage(error),
+                isPreviewing: false,
+              }
+            : current,
+        );
+        showToast(t("toast.projectPurgePreviewError"), "error");
+      }
+    },
+    [showToast, t],
+  );
+
+  const refreshProjectsAfterPurge = useCallback(async () => {
+    const summaries = await loadProjects();
+
+    if (summaries.length === 0) {
+      detailRequestIdRef.current += 1;
+      setSelectedProject(null);
+      setDetail(null);
+      setDetailLoading(false);
+      return;
+    }
+
+    const nextSelectedProject =
+      selectedProject && summaries.some((summary) => summary.project === selectedProject)
+        ? selectedProject
+        : summaries[0].project;
+
+    if (nextSelectedProject === selectedProject) {
+      await loadProjectDetail(nextSelectedProject, { clearBeforeLoad: false });
+      return;
+    }
+
+    detailRequestIdRef.current += 1;
+    setDetail(null);
+    setDetailLoading(false);
+    setSelectedProject(nextSelectedProject);
+  }, [loadProjectDetail, loadProjects, selectedProject]);
+
+  const handleConfirmPurge = useCallback(async () => {
+    const currentDialog = purgeDialog;
+    if (
+      !currentDialog ||
+      currentDialog.isPreviewing ||
+      currentDialog.isPurging ||
+      currentDialog.error ||
+      currentDialog.output === null ||
+      !isTauri()
+    ) {
+      return;
+    }
+
+    setPurgeDialog((current) =>
+      current?.project === currentDialog.project ? { ...current, isPurging: true } : current,
+    );
+
+    try {
+      await invoke<ProjectPurgeOutput>("purge_project_local_data", {
+        project: currentDialog.project,
+      });
+      await refreshProjectsAfterPurge();
+      setPurgeDialog(null);
+      showToast(t("toast.projectPurged"));
+    } catch (error) {
+      setPurgeDialog((current) =>
+        current?.project === currentDialog.project
+          ? {
+              ...current,
+              error: errorToMessage(error),
+              isPurging: false,
+            }
+          : current,
+      );
+      showToast(t("toast.projectPurgeError"), "error");
+    }
+  }, [purgeDialog, refreshProjectsAfterPurge, showToast, t]);
+
   const canCreateAgentsLink =
     Boolean(detail?.hasClaudeMd) && detail?.agentsStatus !== "plainFileConflict";
   const canOpenRepository = Boolean(detail?.repositoryUrl);
@@ -347,6 +674,7 @@ function ProjectsPage() {
               type="button"
               className={`projects-list-item${selectedProject === summary.project ? " selected" : ""}`}
               onClick={() => setSelectedProject(summary.project)}
+              onContextMenu={(event) => handleProjectContextMenu(event, summary)}
               title={summary.project}
             >
               <div className="projects-list-main">
@@ -393,6 +721,24 @@ function ProjectsPage() {
           )}
         </section>
       </div>
+
+      {projectContextMenu && (
+        <ProjectContextMenu
+          context={projectContextMenu}
+          menuRef={projectContextMenuRef}
+          onClearLocalData={handleRequestPurgePreview}
+          t={t}
+        />
+      )}
+
+      {purgeDialog && (
+        <ProjectPurgeDialog
+          dialog={purgeDialog}
+          onCancel={handleClosePurgeDialog}
+          onConfirm={handleConfirmPurge}
+          t={t}
+        />
+      )}
     </div>
   );
 }

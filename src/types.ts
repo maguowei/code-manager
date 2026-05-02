@@ -287,6 +287,11 @@ export interface ProjectDetail {
   worktrees: ProjectWorktree[];
 }
 
+export interface ProjectPurgeOutput {
+  project: string;
+  output: string;
+}
+
 // 对话消息内容块
 export type MessageBlock =
   | { type: "text"; text: string }

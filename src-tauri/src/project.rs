@@ -53,6 +53,13 @@ pub struct ProjectDetail {
     pub worktrees: Vec<ProjectWorktree>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectPurgeOutput {
+    pub project: String,
+    pub output: String,
+}
+
 #[derive(Debug, PartialEq, Eq)]
 struct ProjectFileStatus {
     has_claude_md: bool,
@@ -63,6 +70,21 @@ struct ProjectFileStatus {
 struct OpenAppRequest {
     app_name: String,
     args: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ProjectPurgeMode {
+    DryRun,
+    Execute,
+}
+
+impl ProjectPurgeMode {
+    fn flag(self) -> &'static str {
+        match self {
+            Self::DryRun => "--dry-run",
+            Self::Execute => "--yes",
+        }
+    }
 }
 
 #[tauri::command]
@@ -167,6 +189,20 @@ pub fn open_project_in_editor(project: &str) -> Result<(), String> {
     crate::logging::log_command_result("project.open_editor", &result, |_| {
         format!("project={}", crate::utils::truncate(project, 160))
     });
+    result
+}
+
+#[tauri::command]
+pub fn preview_project_local_data_purge(project: &str) -> Result<ProjectPurgeOutput, String> {
+    let result = run_claude_project_purge(project, ProjectPurgeMode::DryRun);
+    log_project_purge_result("project.local_data_purge.preview", project, &result);
+    result
+}
+
+#[tauri::command]
+pub fn purge_project_local_data(project: &str) -> Result<ProjectPurgeOutput, String> {
+    let result = run_claude_project_purge(project, ProjectPurgeMode::Execute);
+    log_project_purge_result("project.local_data_purge.execute", project, &result);
     result
 }
 
@@ -556,6 +592,89 @@ fn run_open_app_request(request: &OpenAppRequest) -> Result<(), String> {
     }
 }
 
+fn run_claude_project_purge(
+    project: &str,
+    mode: ProjectPurgeMode,
+) -> Result<ProjectPurgeOutput, String> {
+    let project_path = validate_project_path(project)?;
+    let project_display = project_path.to_string_lossy().to_string();
+    let args = build_claude_project_purge_args(&project_display, mode);
+    let output = Command::new("claude")
+        .args(&args)
+        .output()
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                "未找到 claude CLI，请确认 Claude Code 已安装并可在 PATH 中访问".to_string()
+            } else {
+                format!("执行 claude project purge 失败: {}", e)
+            }
+        })?;
+
+    parse_claude_project_purge_output(
+        project_display,
+        output.status.success(),
+        output.status.code(),
+        &output.stdout,
+        &output.stderr,
+    )
+}
+
+fn build_claude_project_purge_args(project: &str, mode: ProjectPurgeMode) -> Vec<String> {
+    vec![
+        "project".to_string(),
+        "purge".to_string(),
+        project.to_string(),
+        mode.flag().to_string(),
+    ]
+}
+
+fn parse_claude_project_purge_output(
+    project: String,
+    success: bool,
+    code: Option<i32>,
+    stdout: &[u8],
+    stderr: &[u8],
+) -> Result<ProjectPurgeOutput, String> {
+    let output = merge_process_output(stdout, stderr);
+    if success {
+        return Ok(ProjectPurgeOutput { project, output });
+    }
+
+    if output.is_empty() {
+        Err(format!("claude project purge 执行失败，退出码: {:?}", code))
+    } else {
+        Err(format!(
+            "claude project purge 执行失败，退出码: {:?}\n{}",
+            code, output
+        ))
+    }
+}
+
+fn merge_process_output(stdout: &[u8], stderr: &[u8]) -> String {
+    let stdout = String::from_utf8_lossy(stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(stderr).trim().to_string();
+
+    match (stdout.is_empty(), stderr.is_empty()) {
+        (true, true) => String::new(),
+        (false, true) => stdout,
+        (true, false) => stderr,
+        (false, false) => format!("{stdout}\n{stderr}"),
+    }
+}
+
+fn log_project_purge_result(
+    event: &str,
+    project: &str,
+    result: &Result<ProjectPurgeOutput, String>,
+) {
+    let project = crate::utils::truncate(project, 160);
+    if result.is_ok() {
+        log::info!("event={event} status=ok project={project}");
+    } else {
+        log::error!("event={event} status=error project={project}");
+    }
+}
+
 fn inspect_project_files(project_dir: &Path) -> Result<ProjectFileStatus, String> {
     let claude_path = project_dir.join("CLAUDE.md");
     let agents_path = project_dir.join("AGENTS.md");
@@ -873,6 +992,66 @@ mod tests {
                 sandbox.path().to_string_lossy().to_string()
             ]
         );
+    }
+
+    #[test]
+    fn build_claude_project_purge_args_uses_expected_flags() {
+        assert_eq!(
+            build_claude_project_purge_args("/tmp/my-repo", ProjectPurgeMode::DryRun),
+            vec![
+                "project".to_string(),
+                "purge".to_string(),
+                "/tmp/my-repo".to_string(),
+                "--dry-run".to_string()
+            ]
+        );
+        assert_eq!(
+            build_claude_project_purge_args("/tmp/my-repo", ProjectPurgeMode::Execute),
+            vec![
+                "project".to_string(),
+                "purge".to_string(),
+                "/tmp/my-repo".to_string(),
+                "--yes".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn run_claude_project_purge_rejects_empty_project_path() {
+        let err = run_claude_project_purge(" ", ProjectPurgeMode::DryRun).unwrap_err();
+
+        assert!(err.contains("项目路径不能为空"));
+    }
+
+    #[test]
+    fn parse_claude_project_purge_output_merges_stdout_and_stderr() {
+        let output = parse_claude_project_purge_output(
+            "/tmp/my-repo".to_string(),
+            true,
+            Some(0),
+            b"stdout plan\n",
+            b"stderr warning\n",
+        )
+        .unwrap();
+
+        assert_eq!(output.project, "/tmp/my-repo");
+        assert_eq!(output.output, "stdout plan\nstderr warning");
+    }
+
+    #[test]
+    fn parse_claude_project_purge_output_reports_non_zero_exit() {
+        let err = parse_claude_project_purge_output(
+            "/tmp/my-repo".to_string(),
+            false,
+            Some(1),
+            b"",
+            b"no state matched\n",
+        )
+        .unwrap_err();
+
+        assert!(err.contains("claude project purge 执行失败"));
+        assert!(err.contains("退出码: Some(1)"));
+        assert!(err.contains("no state matched"));
     }
 
     struct TestDir {

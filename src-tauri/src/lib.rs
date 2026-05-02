@@ -25,7 +25,7 @@ use logging::{clear_app_logs, get_app_logs, open_logs_dir};
 use memory::{add_memory, delete_memory, get_memories, toggle_memory, update_memory};
 use project::{
     create_project_agents_symlink, get_project_detail, open_project_in_editor,
-    open_project_in_terminal,
+    open_project_in_terminal, preview_project_local_data_purge, purge_project_local_data,
 };
 use skills::{
     add_skill, add_skill_file, delete_skill, delete_skill_file, get_skill_files, get_skills,
@@ -123,6 +123,8 @@ pub fn run() {
             create_project_agents_symlink,
             open_project_in_terminal,
             open_project_in_editor,
+            preview_project_local_data_purge,
+            purge_project_local_data,
             get_skills,
             add_skill,
             update_skill,
