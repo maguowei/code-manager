@@ -58,10 +58,17 @@ AI Manager 的目标是把这些高频操作变成可见、可预览、可验证
 - 项目页展示仓库路径、远程地址、分支、worktree 和 `AGENTS.md` / `CLAUDE.md` 软链状态
 - 可用设置中的默认终端或编辑器打开项目
 
+### 系统托盘与会话
+
+- 主托盘可显示当前激活的 Profile，并提供常用页面快捷入口
+- 会话托盘读取 `~/.claude/sessions/*.json`，在菜单栏展示 Claude Code 活跃会话状态
+- 点击会话菜单项可尝试聚焦已有终端 tab，当前支持 Terminal.app、iTerm2 和 Ghostty
+- Ghostty 通过 working directory 近似匹配会话；未命中时只记录日志，不会新开窗口或 tab
+
 ### 设置与诊断
 
 - 支持中文 / English UI
-- 支持设置默认终端、默认编辑器和系统托盘标题显示
+- 支持设置默认终端、默认编辑器、Profile 托盘标题和会话托盘显示
 - 诊断日志入口位于“设置 -> 诊断 -> 查看日志”
 - 支持搜索、级别筛选、刷新、打开日志目录和一键清理
 - 日志写入系统推荐日志目录，单文件约 2 MB 后轮转，默认保留 8 个轮转文件
@@ -86,6 +93,7 @@ AI Manager 的目标是把这些高频操作变成可见、可预览、可验证
   CLAUDE.md
   rules/
   skills/
+  sessions/
   statusline.sh
 ```
 

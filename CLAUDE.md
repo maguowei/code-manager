@@ -27,6 +27,7 @@
   - `CLAUDE.md`
   - `rules/`
   - `skills/`
+  - `sessions/`
   - `statusline.sh`
 - 可选 Codex 同步目录：
   - `~/.codex/skills/`
@@ -76,7 +77,7 @@
 - Rust 公共工具：`src-tauri/src/utils.rs`
 - Tauri capability：`src-tauri/capabilities/default.json`
 - 日志与诊断：`src-tauri/src/logging.rs`、`src/components/LogViewer.tsx`、`src/utils/logger.ts`
-- 系统托盘：`src-tauri/src/tray.rs`
+- 系统托盘：`src-tauri/src/tray.rs`、`src-tauri/src/terminal_focus.rs`
 
 ## 高频任务入口
 
@@ -219,7 +220,27 @@
 - 打开终端或编辑器使用设置中的默认应用。
 - 如果只是调整信息展示，优先保持现有后端数据契约不变。
 
-### 7. 改日志与诊断
+### 7. 改系统托盘与会话聚焦
+
+先读：
+
+- `src-tauri/src/tray.rs`
+- `src-tauri/src/terminal_focus.rs`
+- `src-tauri/src/config.rs`
+- `src/components/SettingsDrawer.tsx`
+- `src/i18n.ts`
+
+注意：
+
+- 主托盘负责 Profile 切换和页面导航；会话托盘负责 `~/.claude/sessions/*.json` 的状态摘要。
+- 会话文件只读取普通 `.json` 文件，缺少 `pid`、`sessionId`、`cwd`、`status` 或字段为空时应跳过。
+- 会话菜单项 id 需要能安全携带 `pid` 和 `cwd`；`cwd` 可能包含中文、空格、引号和 `::`。
+- Terminal.app 与 iTerm2 通过 `pid -> tty -> AppleScript` 精确聚焦已有 tab。
+- Ghostty 的 AppleScript 目前按 `working directory` 近似匹配，命中后直接 `focus term`；不要使用 `select tab t of w` 这类循环变量 specifier，容易触发 `-1700` 类型错误。
+- 未命中或聚焦失败只记录 warn 日志，不要自动新开窗口或 tab。
+- `osascript` 可能较慢，托盘点击 handler 不应阻塞 UI 事件循环。
+
+### 8. 改日志与诊断
 
 先读：
 
@@ -240,7 +261,7 @@
 - 不要记录密钥、Token、完整 settings、Memory 内容、Skill 文件内容、模型测试请求体或响应体。
 - 新增日志字段时优先记录稳定标识符和状态，例如 `event=profile.apply status=ok profile_id=...`，不要记录大块业务数据。
 
-### 8. 新增或修改 Tauri command
+### 9. 新增或修改 Tauri command
 
 步骤：
 
