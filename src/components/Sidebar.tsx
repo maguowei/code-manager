@@ -192,6 +192,32 @@ function Sidebar({ activeTab, onTabChange, onClaudeOverviewClick, onSettingsClic
             <line x1="6" y1="20" x2="6" y2="14" />
           </svg>
         </button>
+
+        <button
+          type="button"
+          className={`nav-item ${activeTab === "usage" ? "active" : ""}`}
+          onClick={() => onTabChange("usage")}
+          aria-label={t("nav.usage")}
+          aria-current={activeTab === "usage" ? "page" : undefined}
+          data-tooltip={t("nav.usage")}
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v5l3 2" />
+            <path d="M12 3v2" />
+            <path d="M12 19v2" />
+          </svg>
+        </button>
       </div>
 
       <div className="sidebar-spacer" />

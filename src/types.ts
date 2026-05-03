@@ -11,6 +11,7 @@ export type TabType =
   | "skills"
   | "projects"
   | "stats"
+  | "usage"
   | "history";
 
 export type DefaultTerminalApp = "terminal" | "iterm" | "warp" | "ghostty";
@@ -317,3 +318,131 @@ export interface SessionDetail {
   project: string;
   messages: SessionMessage[];
 }
+
+// =========== Token 用量统计（usage.rs 对应类型） ===========
+
+export type PricingSource = "builtin" | "cache" | "network";
+
+export interface ModelPrice {
+  input: number;
+  output: number;
+  cache_read: number;
+  cache_write: number;
+}
+
+export interface PricingTable {
+  source: PricingSource;
+  fetchedAtMs: number | null;
+  models: Record<string, ModelPrice>;
+}
+
+export interface UsageRecord {
+  messageId: string;
+  sessionId: string;
+  projectPath: string;
+  projectDir: string;
+  timestampMs: number;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreation5m: number;
+  cacheCreation1h: number;
+  cacheRead: number;
+  costUsd: number;
+  gitBranch?: string | null;
+  ccVersion?: string | null;
+}
+
+export interface ModelUsageStat {
+  model: string;
+  messages: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  cost: number;
+}
+
+export interface DailyUsage {
+  date: string;
+  messages: number;
+  sessions: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  cost: number;
+  byModel: ModelUsageStat[];
+}
+
+export interface ProjectUsage {
+  projectPath: string;
+  projectDir: string;
+  sessions: number;
+  messages: number;
+  lastActiveMs: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  cost: number;
+  byModel: ModelUsageStat[];
+}
+
+export interface SessionUsage {
+  sessionId: string;
+  projectPath: string;
+  projectDir: string;
+  startedAtMs: number;
+  lastActiveMs: number;
+  messages: number;
+  models: string[];
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  cost: number;
+}
+
+export interface ProjectOption {
+  projectPath: string;
+  projectDir: string;
+}
+
+export interface UsageSummary {
+  totalMessages: number;
+  totalSessions: number;
+  totalProjects: number;
+  totalInput: number;
+  totalOutput: number;
+  totalCacheCreation: number;
+  totalCacheRead: number;
+  totalCost: number;
+  lastScanMs: number | null;
+  pricing: PricingTable;
+  unknownModels: string[];
+  allProjects: ProjectOption[];
+  allModels: string[];
+}
+
+export interface SessionUsageDetail {
+  session: SessionUsage;
+  messages: UsageRecord[];
+}
+
+export interface UsageFilter {
+  startDate?: string;
+  endDate?: string;
+  projectPath?: string;
+  sessionId?: string;
+  model?: string;
+  includeUnknownModels?: boolean;
+}
+
+export interface UsageScanResult {
+  filesScanned: number;
+  newRecords: number;
+  elapsedMs: number;
+}
+
+export type UsageTab = "daily" | "project" | "session" | "model";

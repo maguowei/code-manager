@@ -9,6 +9,7 @@ mod skills;
 mod stats;
 mod terminal_focus;
 mod tray;
+mod usage;
 mod utils;
 
 use claude_directory::{
@@ -34,6 +35,10 @@ use skills::{
 };
 use stats::{get_stats, get_stats_history, take_stats_snapshot};
 use tauri::Manager;
+use usage::{
+    get_session_usage_detail, get_usage_by_model, get_usage_by_project, get_usage_by_session,
+    get_usage_daily, get_usage_summary, refresh_usage_pricing, rescan_usage,
+};
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind, TimezoneStrategy};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -77,6 +82,8 @@ pub fn run() {
             let snapshot_handle = stats::start_snapshot_timer();
             // 保存句柄，app 退出时 handle drop 但线程也会随进程终止
             app.manage(snapshot_handle);
+            // 启动 token/cost 用量统计运行时（管理状态、首扫、价格刷新、watcher 增量）
+            usage::start_usage_runtime(app);
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -142,6 +149,14 @@ pub fn run() {
             update_skill_file,
             delete_skill_file,
             sync_skill_to_codex,
+            get_usage_summary,
+            get_usage_daily,
+            get_usage_by_project,
+            get_usage_by_session,
+            get_usage_by_model,
+            get_session_usage_detail,
+            refresh_usage_pricing,
+            rescan_usage,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

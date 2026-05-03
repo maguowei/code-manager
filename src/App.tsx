@@ -11,6 +11,7 @@ import SettingsDrawer from "./components/SettingsDrawer";
 import Sidebar from "./components/Sidebar";
 import SkillsPage from "./components/SkillsPage";
 import StatsPage from "./components/StatsPage";
+import UsagePage from "./components/UsagePage";
 import useTauriEvent from "./hooks/useTauriEvent";
 import { useToast } from "./hooks/useToast";
 import { useI18n } from "./i18n";
@@ -125,6 +126,8 @@ function App() {
       <div className="content-area">
         {activeTab === "stats" ? (
           <StatsPage />
+        ) : activeTab === "usage" ? (
+          <UsagePage />
         ) : activeTab === "claudeOverview" ? (
           <ClaudeOverviewPage />
         ) : activeTab === "projects" ? (
