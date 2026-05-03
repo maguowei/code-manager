@@ -67,6 +67,7 @@ pub fn run() {
             None,
         ))
         .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             tray::setup_tray(app)?;
             log::info!("event=app.setup status=ok");

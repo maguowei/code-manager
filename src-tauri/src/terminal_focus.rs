@@ -4,9 +4,60 @@
 //! - Terminal.app / iTerm2 走 pid → tty → AppleScript 精确定位。
 //! - Ghostty 1.3 的 AppleScript 还没暴露 pid/tty（见 Issue #11592），只能按 working directory 近似匹配。
 //! - Warp 没有官方 AppleScript，托盘菜单项会被设为 disabled，正常不会调到本模块。
-//! - 命中失败一律静默记日志，不会自动新开窗口或 tab，避免误触造成困扰。
+//! - 命中失败会记 warn 日志，并把失败原因作为 Err 返回给调用方用于给用户反馈。
+//!   调用方负责决定是否新开窗口；本模块本身绝不自动新开 tab。
 
 use std::process::Command;
+
+/// 聚焦终端失败的可枚举原因，用于生成面向用户的提示文案。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FocusFailure {
+    /// pid 无法反查到 tty，通常是会话进程已退出。
+    TtyNotFound,
+    /// tty/cwd 匹配不到任何 tab，通常是 tab 已被手动关闭。
+    TabNotFound,
+    /// 会话记录里没有 cwd，无法按工作目录匹配（仅 Ghostty 路径）。
+    EmptyCwd,
+    /// 当前默认终端 slug 不支持外部聚焦。
+    Unsupported(String),
+    /// osascript 调用本身失败，详情已写入日志。
+    ScriptError,
+}
+
+impl FocusFailure {
+    /// 生成本地化的 (title, body)，供系统通知或 UI Toast 使用。
+    pub fn user_message(&self, language: &str) -> (String, String) {
+        let is_en = language == "en";
+        let title = if is_en {
+            "Session focus failed"
+        } else {
+            "会话聚焦失败"
+        };
+        let body = match (is_en, self) {
+            (true, Self::TtyNotFound) => {
+                "The session process has exited; cannot locate the terminal tab.".to_string()
+            }
+            (true, Self::TabNotFound) => {
+                "No matching terminal tab was found. It may have been closed.".to_string()
+            }
+            (true, Self::EmptyCwd) => {
+                "Session has no working directory to focus.".to_string()
+            }
+            (true, Self::Unsupported(slug)) => {
+                format!("Terminal '{slug}' does not support external focus.")
+            }
+            (true, Self::ScriptError) => {
+                "Failed to invoke the terminal. See logs for details.".to_string()
+            }
+            (false, Self::TtyNotFound) => "会话进程已退出，无法定位终端 tab。".to_string(),
+            (false, Self::TabNotFound) => "未找到对应的终端 tab，可能已被关闭。".to_string(),
+            (false, Self::EmptyCwd) => "会话缺少工作目录，无法聚焦。".to_string(),
+            (false, Self::Unsupported(slug)) => format!("终端 {slug} 不支持外部聚焦。"),
+            (false, Self::ScriptError) => "调用终端失败，详情可查看日志。".to_string(),
+        };
+        (title.to_string(), body)
+    }
+}
 
 /// 当前默认终端是否支持外部聚焦已有 tab。tray 用它决定菜单项 enabled 状态。
 pub fn terminal_supports_focus(app_slug: &str) -> bool {
@@ -14,15 +65,19 @@ pub fn terminal_supports_focus(app_slug: &str) -> bool {
 }
 
 /// 尝试聚焦到 pid/cwd 对应的终端 tab。
-/// - 命中：聚焦并返回 Ok(())。
-/// - 未命中：仅记 warn 日志，仍返回 Ok(())（按需求"不新开 tab"）。
-/// - app_slug 不支持：返回 Err（兜底，正常路径会被菜单 enabled 拦下）。
-pub fn focus_session_in_terminal(pid: u32, cwd: &str, app_slug: &str) -> Result<(), String> {
+/// - 命中：返回 Ok(())。
+/// - 未命中或调用失败：返回 Err(FocusFailure)，同时在内部记 warn 日志。
+///   调用方仅负责把失败原因转成系统通知 / Toast，不会自动新开 tab。
+pub fn focus_session_in_terminal(
+    pid: u32,
+    cwd: &str,
+    app_slug: &str,
+) -> Result<(), FocusFailure> {
     match app_slug {
         "terminal" => focus_via_tty("Terminal", pid, terminal_app_script),
         "iterm" => focus_via_tty("iTerm", pid, iterm_script),
         "ghostty" => focus_ghostty_via_cwd(cwd),
-        _ => Err(format!("终端 {app_slug} 不支持外部聚焦")),
+        _ => Err(FocusFailure::Unsupported(app_slug.to_string())),
     }
 }
 
@@ -31,12 +86,12 @@ fn focus_via_tty(
     app_label: &'static str,
     pid: u32,
     build_script: fn(&str) -> String,
-) -> Result<(), String> {
+) -> Result<(), FocusFailure> {
     let Some(tty) = pid_to_tty(pid) else {
         log::warn!(
             "event=tray.session_focus status=miss reason=tty_not_found app={app_label} pid={pid}"
         );
-        return Ok(());
+        return Err(FocusFailure::TtyNotFound);
     };
     let script = build_script(&escape_applescript_string(&tty));
     match run_osascript_returning_bool(&script) {
@@ -45,19 +100,19 @@ fn focus_via_tty(
             log::warn!(
                 "event=tray.session_focus status=miss reason=tab_not_found app={app_label} pid={pid} tty={tty}"
             );
-            Ok(())
+            Err(FocusFailure::TabNotFound)
         }
         Err(e) => {
             log::warn!("event=tray.session_focus status=err app={app_label} pid={pid} error={e}");
-            Ok(())
+            Err(FocusFailure::ScriptError)
         }
     }
 }
 
-fn focus_ghostty_via_cwd(cwd: &str) -> Result<(), String> {
+fn focus_ghostty_via_cwd(cwd: &str) -> Result<(), FocusFailure> {
     if cwd.is_empty() {
         log::warn!("event=tray.session_focus status=miss reason=empty_cwd app=Ghostty");
-        return Ok(());
+        return Err(FocusFailure::EmptyCwd);
     }
     let script = ghostty_script(&escape_applescript_string(cwd));
     match run_osascript_returning_bool(&script) {
@@ -67,11 +122,11 @@ fn focus_ghostty_via_cwd(cwd: &str) -> Result<(), String> {
                 "event=tray.session_focus status=miss reason=tab_not_found app=Ghostty cwd={}",
                 crate::utils::truncate(cwd, 160)
             );
-            Ok(())
+            Err(FocusFailure::TabNotFound)
         }
         Err(e) => {
             log::warn!("event=tray.session_focus status=err app=Ghostty error={e}");
-            Ok(())
+            Err(FocusFailure::ScriptError)
         }
     }
 }
@@ -253,9 +308,16 @@ mod tests {
     #[test]
     fn focus_session_in_terminal_rejects_unknown_slug() {
         let err = focus_session_in_terminal(123, "/tmp", "warp").expect_err("warp 应被拒绝");
-        assert!(err.contains("warp"));
+        assert_eq!(err, FocusFailure::Unsupported("warp".to_string()));
         let err = focus_session_in_terminal(123, "/tmp", "").expect_err("空 slug 应被拒绝");
-        assert!(err.contains("不支持"));
+        assert_eq!(err, FocusFailure::Unsupported(String::new()));
+    }
+
+    #[test]
+    fn ghostty_rejects_empty_cwd_with_focus_failure() {
+        let err =
+            focus_session_in_terminal(123, "", "ghostty").expect_err("空 cwd 应返回 EmptyCwd");
+        assert_eq!(err, FocusFailure::EmptyCwd);
     }
 
     #[test]
@@ -276,5 +338,36 @@ mod tests {
         assert!(script.contains("repeat with term in terminals"));
         assert!(script.contains("focus term"));
         assert!(!script.contains("select tab t of w"));
+    }
+
+    #[test]
+    fn focus_failure_user_message_localizes_by_language() {
+        // 中文（默认）
+        let (title_zh, body_zh) = FocusFailure::TabNotFound.user_message("zh");
+        assert_eq!(title_zh, "会话聚焦失败");
+        assert!(body_zh.contains("未找到对应的终端 tab"));
+
+        let (_, body_zh_tty) = FocusFailure::TtyNotFound.user_message("zh");
+        assert!(body_zh_tty.contains("会话进程已退出"));
+
+        let (_, body_zh_empty) = FocusFailure::EmptyCwd.user_message("zh");
+        assert!(body_zh_empty.contains("缺少工作目录"));
+
+        let (_, body_zh_unsupported) =
+            FocusFailure::Unsupported("warp".to_string()).user_message("zh");
+        assert!(body_zh_unsupported.contains("warp"));
+        assert!(body_zh_unsupported.contains("不支持"));
+
+        let (_, body_zh_script) = FocusFailure::ScriptError.user_message("zh");
+        assert!(body_zh_script.contains("调用终端失败"));
+
+        // 英文
+        let (title_en, body_en) = FocusFailure::TabNotFound.user_message("en");
+        assert_eq!(title_en, "Session focus failed");
+        assert!(body_en.to_lowercase().contains("terminal tab"));
+
+        // 未知语言回退中文
+        let (title_fallback, _) = FocusFailure::TabNotFound.user_message("fr");
+        assert_eq!(title_fallback, "会话聚焦失败");
     }
 }

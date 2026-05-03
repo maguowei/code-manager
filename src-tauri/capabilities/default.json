@@ -18,6 +18,7 @@
     "autostart:allow-disable",
     "autostart:allow-is-enabled",
     "os:default",
-    "os:allow-hostname"
+    "os:allow-hostname",
+    "notification:default"
   ]
 }

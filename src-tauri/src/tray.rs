@@ -10,6 +10,7 @@ use tauri::{
     tray::TrayIconBuilder,
     AppHandle, Emitter, Manager,
 };
+use tauri_plugin_notification::NotificationExt;
 
 const MAIN_TRAY_ID: &str = "main_tray";
 const SESSIONS_TRAY_ID: &str = "sessions_tray";
@@ -533,6 +534,21 @@ fn show_main_window(app: &AppHandle) {
     }
 }
 
+/// 会话聚焦失败时向用户弹出系统通知。
+/// 选择系统通知而非主窗口 Toast，是因为托盘点击多发生在主窗口已隐藏 / 不在前台时，
+/// Toast 需要主窗口可见才有意义；弹出主窗口又会打断用户当前终端操作。
+fn notify_session_focus_failure(
+    app: &AppHandle,
+    language: &str,
+    failure: &crate::terminal_focus::FocusFailure,
+) {
+    let (title, body) = failure.user_message(language);
+    if let Err(e) = app.notification().builder().title(&title).body(&body).show() {
+        // 通知失败不是核心路径，只记日志避免用户什么都看不到时噪声堆叠。
+        log::warn!("event=tray.session_focus.notify status=err error={e}");
+    }
+}
+
 /// 初始化系统托盘
 pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     let handle = app.handle();
@@ -564,20 +580,24 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
         .tooltip("AI Manager Sessions")
         .menu(&sessions_menu)
         .show_menu_on_left_click(true)
-        .on_menu_event(|_app, event| {
+        .on_menu_event(|app, event| {
             let id = event.id().as_ref();
             let Some((pid, cwd)) = parse_session_menu_item_id(id) else {
                 return;
             };
             let prefs = load_registry_or_default().app;
             let slug = prefs.default_terminal_app;
+            let language = prefs.ui_language;
             if !crate::terminal_focus::terminal_supports_focus(&slug) {
                 return;
             }
             // osascript 可能耗数百毫秒，丢线程避免阻塞 UI 事件循环。
+            let app_handle = app.clone();
             std::thread::spawn(move || {
-                if let Err(e) = crate::terminal_focus::focus_session_in_terminal(pid, &cwd, &slug) {
-                    crate::logging::log_command_error("tray.session_focus", &e);
+                if let Err(failure) =
+                    crate::terminal_focus::focus_session_in_terminal(pid, &cwd, &slug)
+                {
+                    notify_session_focus_failure(&app_handle, &language, &failure);
                 }
             });
         });
