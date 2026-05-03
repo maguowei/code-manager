@@ -615,6 +615,8 @@ const translations = {
     "stats.loadError": "加载统计数据失败",
     "stats.refreshed": "已刷新统计数据",
     "stats.refreshError": "刷新失败",
+    "stats.openInEditor": "用编辑器打开",
+    "stats.openEditorError": "用编辑器打开失败",
 
     // Token 用量统计页面
     "usage.title": "Token 用量统计",
@@ -1539,6 +1541,8 @@ const translations = {
     "stats.loadError": "Failed to load statistics",
     "stats.refreshed": "Statistics refreshed",
     "stats.refreshError": "Refresh failed",
+    "stats.openInEditor": "Open in Editor",
+    "stats.openEditorError": "Failed to open in editor",
 
     // Token usage page
     "usage.title": "Token Usage",

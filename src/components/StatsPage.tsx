@@ -83,6 +83,15 @@ function StatsPage() {
     }
   }
 
+  async function handleOpenInEditor() {
+    if (!isTauri()) return;
+    try {
+      await invoke("open_claude_json_in_editor");
+    } catch {
+      showToast(t("stats.openEditorError"), "error");
+    }
+  }
+
   // ===== 派生数据 =====
   const toolUsageData = useMemo(() => {
     if (!stats) return [];
@@ -162,21 +171,42 @@ function StatsPage() {
     <div className="stats-page">
       <div className="page-header">
         <h1 className="page-title">{t("stats.title")}</h1>
-        <button type="button" className="stats-refresh-btn" onClick={handleRefresh}>
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
+        <div className="page-header-actions">
+          <button
+            type="button"
+            className="stats-refresh-btn"
+            onClick={handleOpenInEditor}
+            title={t("stats.openInEditor")}
           >
-            <polyline points="23 4 23 10 17 10" />
-            <polyline points="1 20 1 14 7 14" />
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-          </svg>
-          {t("stats.refresh")}
-        </button>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+            </svg>
+            {t("stats.openInEditor")}
+          </button>
+          <button type="button" className="stats-refresh-btn" onClick={handleRefresh}>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <polyline points="23 4 23 10 17 10" />
+              <polyline points="1 20 1 14 7 14" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+            {t("stats.refresh")}
+          </button>
+        </div>
       </div>
 
       <div className="stats-scroll">

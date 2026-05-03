@@ -33,7 +33,7 @@ use skills::{
     add_skill, add_skill_file, delete_skill, delete_skill_file, get_skill_files, get_skills,
     sync_skill_to_codex, toggle_skill, update_skill, update_skill_file,
 };
-use stats::get_stats;
+use stats::{get_stats, open_claude_json_in_editor};
 use tauri::Manager;
 use usage::{
     get_session_usage_detail, get_usage_by_model, get_usage_by_project, get_usage_by_session,
@@ -122,6 +122,7 @@ pub fn run() {
             delete_memory,
             toggle_memory,
             get_stats,
+            open_claude_json_in_editor,
             get_history,
             get_history_if_changed,
             get_session_detail,
