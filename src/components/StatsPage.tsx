@@ -23,10 +23,10 @@ const TOOLTIP_STYLE = {
   boxShadow: "0 8px 16px rgba(0, 0, 0, 0.15)",
 };
 
-/** 项目路径截取最后两级 */
+/** 项目路径截取最后一级 */
 function shortPath(fullPath: string): string {
   const parts = fullPath.split("/").filter(Boolean);
-  return parts.length >= 2 ? parts.slice(-2).join("/") : fullPath;
+  return parts.length > 0 ? parts.at(-1) || fullPath : fullPath;
 }
 
 /** 格式化日期 */
@@ -177,7 +177,10 @@ function StatsPage() {
   return (
     <div className="stats-page">
       <div className="page-header">
-        <h1 className="page-title">{t("stats.title")}</h1>
+        <div className="stats-page-heading">
+          <h1 className="page-title">{t("stats.title")}</h1>
+          <div className="stats-staleness-note">{t("stats.stalenessNotice")}</div>
+        </div>
         <div className="page-header-actions">
           <button
             type="button"
@@ -303,15 +306,25 @@ function StatsPage() {
         </details>
 
         {/* 项目 */}
-        <div className="stats-section" style={{ animationDelay: "0.5s" }}>
-          <h2 className="stats-section-title">{t("stats.sessionSection")}</h2>
+        <details
+          open
+          className="stats-section stats-section-collapsible stats-project-section"
+          style={{ animationDelay: "0.5s" }}
+        >
+          <summary className="stats-section-title stats-section-summary">
+            {t("stats.sessionSection")}
+            <span className="stats-summary-count">
+              {projectEntries.length} {t("stats.totalProjects")}
+            </span>
+          </summary>
+          <p className="stats-project-section-hint">{t("stats.projectSectionHint")}</p>
 
           <div className="stats-project-list">
             {projectEntries.map(([path, p]) => (
               <ProjectCard key={path} path={path} project={p} t={t} />
             ))}
           </div>
-        </div>
+        </details>
       </div>
     </div>
   );
@@ -334,6 +347,9 @@ function ProjectCard({
       <summary className="stats-project-header">
         <div className="stats-project-title">
           <span className="stats-project-name">{shortPath(path)}</span>
+          <span className="stats-project-session-id" title={p.lastSessionId || "-"}>
+            {p.lastSessionId || "-"}
+          </span>
           {p.lastSessionFirstPrompt && (
             <span className="stats-project-prompt">
               {truncateText(p.lastSessionFirstPrompt, 60)}
@@ -399,54 +415,56 @@ function ProjectCard({
 
         {/* 模型明细 */}
         {modelEntries.length > 0 && (
-          <>
-            <div className="stats-chart-label">{t("stats.projectModelBreakdown")}</div>
-            <div className="stats-model-table">
-              <div className="stats-model-header">
-                <span>{t("stats.projectModel")}</span>
-                <span>{t("stats.projectInputTokens")}</span>
-                <span>{t("stats.projectOutputTokens")}</span>
-                <span>{t("stats.projectCostUsd")}</span>
-              </div>
-              {modelEntries.map(([model, usage]) => (
-                <div key={model} className="stats-model-row">
-                  <span className="stats-model-name">{model}</span>
-                  <span>{formatTokens(usage.inputTokens)}</span>
-                  <span>{formatTokens(usage.outputTokens)}</span>
-                  <span>${usage.costUsd.toFixed(2)}</span>
+          <section className="stats-project-detail-section">
+            <div className="stats-project-detail-title">{t("stats.projectModelBreakdown")}</div>
+            <div className="stats-model-table-wrap">
+              <div className="stats-model-table">
+                <div className="stats-model-header">
+                  <span>{t("stats.projectModel")}</span>
+                  <span>{t("stats.projectInputTokens")}</span>
+                  <span>{t("stats.projectOutputTokens")}</span>
+                  <span>{t("stats.projectCostUsd")}</span>
                 </div>
-              ))}
+                {modelEntries.map(([model, usage]) => (
+                  <div key={model} className="stats-model-row">
+                    <span className="stats-model-name">{model}</span>
+                    <span>{formatTokens(usage.inputTokens)}</span>
+                    <span>{formatTokens(usage.outputTokens)}</span>
+                    <span>${usage.costUsd.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </>
+          </section>
         )}
 
         {/* 首条 Prompt */}
         {p.lastSessionFirstPrompt && (
-          <div className="stats-project-prompt-full">
-            <div className="stats-chart-label">{t("stats.projectFirstPrompt")}</div>
+          <section className="stats-project-detail-section stats-project-prompt-full">
+            <div className="stats-project-detail-title">{t("stats.projectFirstPrompt")}</div>
             <p className="stats-project-prompt-text">{p.lastSessionFirstPrompt}</p>
-          </div>
+          </section>
         )}
 
         {/* 性能指标 */}
         {p.lastSessionMetrics && (
-          <>
-            <div className="stats-chart-label">{t("stats.performance")}</div>
-            <div className="stats-metric-inner-grid">
-              <div>
+          <section className="stats-project-detail-section">
+            <div className="stats-project-detail-title">{t("stats.performance")}</div>
+            <div className="stats-performance-grid">
+              <div className="stats-performance-card">
                 <div className="stats-metric-label">{t("stats.frameAvg")}</div>
                 <div className="stats-metric-value">
                   {p.lastSessionMetrics.frame_duration_ms_avg.toFixed(1)}ms
                 </div>
               </div>
-              <div>
+              <div className="stats-performance-card">
                 <div className="stats-metric-label">{t("stats.frameP95")}</div>
                 <div className="stats-metric-value">
                   {p.lastSessionMetrics.frame_duration_ms_p95.toFixed(1)}ms
                 </div>
               </div>
               {p.lastSessionMetrics.hook_duration_ms_avg != null && (
-                <div>
+                <div className="stats-performance-card">
                   <div className="stats-metric-label">{t("stats.hookAvg")}</div>
                   <div className="stats-metric-value">
                     {p.lastSessionMetrics.hook_duration_ms_avg.toFixed(1)}ms
@@ -454,7 +472,7 @@ function ProjectCard({
                 </div>
               )}
               {p.lastSessionMetrics.hook_duration_ms_p95 != null && (
-                <div>
+                <div className="stats-performance-card">
                   <div className="stats-metric-label">{t("stats.hookP95")}</div>
                   <div className="stats-metric-value">
                     {p.lastSessionMetrics.hook_duration_ms_p95.toFixed(1)}ms
@@ -462,7 +480,7 @@ function ProjectCard({
                 </div>
               )}
             </div>
-          </>
+          </section>
         )}
       </div>
     </details>

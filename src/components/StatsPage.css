@@ -64,6 +64,28 @@
   background-color: var(--text-muted);
 }
 
+.stats-page-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.stats-page-heading .page-title {
+  flex-shrink: 0;
+}
+
+.stats-staleness-note {
+  min-width: 0;
+  max-width: min(52vw, 560px);
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* 概览卡片区 */
 .stats-overview {
   display: grid;
@@ -462,21 +484,49 @@
 .stats-project-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-5);
+}
+
+.stats-project-section > .stats-project-section-hint,
+.stats-project-section > .stats-project-list {
+  margin-right: var(--space-5);
+  margin-left: var(--space-5);
+}
+
+.stats-project-section > .stats-project-section-hint {
+  margin-top: calc(var(--space-2) * -1);
+  margin-bottom: var(--space-4);
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 1.5;
+}
+
+.stats-project-section > .stats-project-list {
+  margin-bottom: var(--space-5);
 }
 
 /* 项目卡片 */
 .stats-project-card {
-  background-color: var(--bg-tertiary);
-  border: 1px solid var(--border-default);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0)), var(--bg-tertiary);
+  border: 1px solid var(--border-muted);
   border-radius: var(--radius-lg);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.03),
+    0 10px 24px rgba(0, 0, 0, 0.1);
   overflow: hidden;
-  transition: all 0.2s ease;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background-color 0.18s ease;
 }
 
-.stats-project-card:hover {
+.stats-project-card:hover,
+.stats-project-card[open] {
   border-color: var(--border-muted);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04),
+    0 14px 32px rgba(0, 0, 0, 0.16);
 }
 
 /* 项目头部 */
@@ -484,11 +534,31 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  min-height: 72px;
   padding: var(--space-4);
+  border-left: 3px solid transparent;
   cursor: pointer;
   list-style: none;
   user-select: none;
   gap: var(--space-4);
+  transition:
+    background-color 0.18s ease,
+    border-left-color 0.18s ease;
+}
+
+.stats-project-header:hover,
+.stats-project-header:focus-visible {
+  background: color-mix(in srgb, var(--bg-secondary) 82%, var(--accent-blue-bg) 18%);
+}
+
+.stats-project-header:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: -2px;
+}
+
+.stats-project-card[open] > .stats-project-header {
+  border-left-color: var(--accent-blue);
+  background: var(--bg-secondary);
 }
 
 .stats-project-header::-webkit-details-marker {
@@ -508,6 +578,7 @@
 
 .stats-project-card[open] > .stats-project-header::after {
   transform: rotate(45deg);
+  border-color: var(--accent-blue);
 }
 
 .stats-project-title {
@@ -519,40 +590,62 @@
 }
 
 .stats-project-name {
-  font-size: var(--font-base);
-  font-weight: 600;
+  font-size: var(--font-lg);
+  font-weight: 700;
   color: var(--text-primary);
   font-family: "SF Mono", "Cascadia Code", monospace;
+  line-height: 1.25;
 }
 
 .stats-project-prompt {
-  font-size: var(--font-xs);
+  font-size: var(--font-sm);
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.35;
 }
 
 .stats-project-summary {
   display: flex;
   gap: var(--space-2);
+  align-items: center;
+  justify-content: flex-end;
   flex-shrink: 0;
 }
 
-.stats-project-badge {
+.stats-project-session-id {
+  display: block;
+  min-width: 0;
+  max-width: min(48vw, 560px);
+  overflow: hidden;
+  color: var(--text-muted);
   font-size: var(--font-xs);
+  font-variant-numeric: tabular-nums;
+  font-family: "SF Mono", "Cascadia Code", monospace;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stats-project-badge {
+  min-width: 72px;
+  font-size: var(--font-sm);
   color: var(--text-secondary);
   font-family: "SF Mono", "Cascadia Code", monospace;
   background: var(--bg-primary);
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border-muted);
+  text-align: center;
   white-space: nowrap;
 }
 
 /* 项目详情体 */
 .stats-project-body {
-  padding: 0 var(--space-4) var(--space-4);
+  padding: var(--space-4);
+  border-top: 1px solid var(--border-default);
+  background: color-mix(in srgb, var(--bg-primary) 45%, transparent);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -561,52 +654,85 @@
 /* 项目指标网格 */
 .stats-project-metrics {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: var(--space-3);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
 }
 
 .stats-project-metric {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
 }
 
 .stats-project-metric-label {
   font-size: var(--font-xs);
-  color: var(--text-secondary);
-  font-weight: 500;
+  color: var(--text-muted);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .stats-project-metric-value {
-  font-size: var(--font-base);
+  font-size: var(--font-lg);
   font-weight: 700;
   color: var(--text-primary);
   font-family: "SF Mono", "Cascadia Code", monospace;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .stats-project-metric-value.accent-green {
-  color: #3fb950;
+  color: var(--accent-green);
 }
 
 .stats-project-metric-value.accent-red {
-  color: #f78166;
+  color: var(--accent-orange);
+}
+
+.stats-project-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.stats-project-detail-title {
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 /* 模型明细表格 */
-.stats-model-table {
+.stats-model-table-wrap {
+  overflow-x: auto;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
-  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.stats-model-table {
+  min-width: 640px;
+}
+
+.stats-model-header,
+.stats-model-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(96px, auto));
+  gap: var(--space-3);
+  align-items: center;
 }
 
 .stats-model-header {
-  display: grid;
-  grid-template-columns: 1fr auto auto auto;
-  gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
   font-size: var(--font-xs);
-  font-weight: 600;
+  font-weight: 800;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -614,14 +740,16 @@
 }
 
 .stats-model-row {
-  display: grid;
-  grid-template-columns: 1fr auto auto auto;
-  gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
   font-size: var(--font-sm);
   color: var(--text-primary);
   font-family: "SF Mono", "Cascadia Code", monospace;
   border-bottom: 1px solid var(--border-muted);
+}
+
+.stats-model-header > span:not(:first-child),
+.stats-model-row > span:not(:first-child) {
+  text-align: right;
 }
 
 .stats-model-row:last-child {
@@ -641,7 +769,7 @@
 
 /* 首条 Prompt 展示 */
 .stats-project-prompt-full {
-  margin-top: var(--space-2);
+  margin-top: 0;
 }
 
 .stats-project-prompt-text {
@@ -655,4 +783,63 @@
   word-break: break-word;
   margin: 0;
   line-height: 1.5;
+}
+
+.stats-performance-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.stats-performance-card {
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+}
+
+@media (max-width: 900px) {
+  .stats-project-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stats-performance-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .stats-project-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+}
+
+@media (max-width: 600px) {
+  .stats-project-summary {
+    width: 100%;
+    justify-content: flex-start;
+    order: 2;
+  }
+}
+
+@media (max-width: 600px) {
+  .stats-performance-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-project-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-project-badge {
+    min-width: 0;
+  }
+
+  .stats-project-session-id {
+    width: 100%;
+    max-width: none;
+  }
 }
