@@ -2,8 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useToast } from "../hooks/useToast";
-import { useI18n } from "../i18n";
-import { type ClaudeStats, isTauri } from "../types";
+import { type TranslationKey, useI18n } from "../i18n";
+import { type ClaudeStats, isTauri, type ProjectStats } from "../types";
 import { formatDuration } from "./project-detail-utils";
 import "./StatsPage.css";
 
@@ -46,6 +46,18 @@ function formatTimestamp(ms: number): string {
   } catch {
     return "-";
   }
+}
+
+/** 格式化 Token 数量 */
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(n);
+}
+
+/** 截断文本 */
+function truncateText(text: string, maxLen: number): string {
+  return text.length > maxLen ? `${text.slice(0, maxLen)}...` : text;
 }
 
 function StatsPage() {
@@ -107,16 +119,11 @@ function StatsPage() {
       .sort((a, b) => b.count - a.count);
   }, [stats]);
 
-  const sessionDurationData = useMemo(() => {
+  const projectEntries = useMemo(() => {
     if (!stats) return [];
-    return Object.entries(stats.projects)
-      .filter(([, p]) => p.lastDuration > 0)
-      .sort(([, a], [, b]) => b.lastDuration - a.lastDuration);
-  }, [stats]);
-
-  const performanceData = useMemo(() => {
-    if (!stats) return [];
-    return Object.entries(stats.projects).filter(([, p]) => p.lastSessionMetrics);
+    return Object.entries(stats.projects).sort(
+      ([, a], [, b]) => b.lastSessionModified - a.lastSessionModified,
+    );
   }, [stats]);
 
   // ===== 渲染 =====
@@ -295,67 +302,170 @@ function StatsPage() {
           </div>
         </details>
 
-        {/* 会话与性能 */}
+        {/* 项目 */}
         <div className="stats-section" style={{ animationDelay: "0.5s" }}>
           <h2 className="stats-section-title">{t("stats.sessionSection")}</h2>
 
-          {/* 项目会话时长列表 */}
-          <div className="stats-chart-label">{t("stats.sessionDuration")}</div>
-          <div className="stats-list stats-list-spaced">
-            {sessionDurationData.map(([path, p]) => (
-              <div key={path} className="stats-list-item">
-                <span className="stats-list-item-name">{shortPath(path)}</span>
-                <span className="stats-list-item-value">{formatDuration(p.lastDuration)}</span>
-              </div>
+          <div className="stats-project-list">
+            {projectEntries.map(([path, p]) => (
+              <ProjectCard key={path} path={path} project={p} t={t} />
             ))}
-          </div>
-
-          {/* 性能指标 */}
-          <div className="stats-chart-label">{t("stats.performance")}</div>
-          <div className="stats-metrics-grid">
-            {performanceData.map(([path, p]) => {
-              if (!p.lastSessionMetrics) return null;
-              const m = p.lastSessionMetrics;
-              return (
-                <div key={path} className="stats-metric-item">
-                  <div className="stats-metric-label">{shortPath(path)}</div>
-                  <div className="stats-metric-inner-grid">
-                    <div>
-                      <div className="stats-metric-label">{t("stats.frameAvg")}</div>
-                      <div className="stats-metric-value">
-                        {m.frame_duration_ms_avg.toFixed(1)}ms
-                      </div>
-                    </div>
-                    <div>
-                      <div className="stats-metric-label">{t("stats.frameP95")}</div>
-                      <div className="stats-metric-value">
-                        {m.frame_duration_ms_p95.toFixed(1)}ms
-                      </div>
-                    </div>
-                    {m.hook_duration_ms_avg != null && (
-                      <div>
-                        <div className="stats-metric-label">{t("stats.hookAvg")}</div>
-                        <div className="stats-metric-value">
-                          {m.hook_duration_ms_avg.toFixed(1)}ms
-                        </div>
-                      </div>
-                    )}
-                    {m.hook_duration_ms_p95 != null && (
-                      <div>
-                        <div className="stats-metric-label">{t("stats.hookP95")}</div>
-                        <div className="stats-metric-value">
-                          {m.hook_duration_ms_p95.toFixed(1)}ms
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+/** 单个项目的数据卡片 */
+function ProjectCard({
+  path,
+  project: p,
+  t,
+}: {
+  path: string;
+  project: ProjectStats;
+  t: (key: TranslationKey) => string;
+}) {
+  const modelEntries = p.lastModelUsage ? Object.entries(p.lastModelUsage) : [];
+
+  return (
+    <details className="stats-project-card">
+      <summary className="stats-project-header">
+        <div className="stats-project-title">
+          <span className="stats-project-name">{shortPath(path)}</span>
+          {p.lastSessionFirstPrompt && (
+            <span className="stats-project-prompt">
+              {truncateText(p.lastSessionFirstPrompt, 60)}
+            </span>
+          )}
+        </div>
+        <div className="stats-project-summary">
+          <span className="stats-project-badge">${p.lastCost.toFixed(2)}</span>
+          <span className="stats-project-badge">{formatDuration(p.lastDuration)}</span>
+        </div>
+      </summary>
+
+      <div className="stats-project-body">
+        {/* 基础指标 */}
+        <div className="stats-project-metrics">
+          <div className="stats-project-metric">
+            <span className="stats-project-metric-label">{t("stats.projectCost")}</span>
+            <span className="stats-project-metric-value">${p.lastCost.toFixed(2)}</span>
+          </div>
+          <div className="stats-project-metric">
+            <span className="stats-project-metric-label">{t("stats.sessionDuration")}</span>
+            <span className="stats-project-metric-value">{formatDuration(p.lastDuration)}</span>
+          </div>
+          <div className="stats-project-metric">
+            <span className="stats-project-metric-label">{t("stats.projectLinesAdded")}</span>
+            <span className="stats-project-metric-value accent-green">+{p.lastLinesAdded}</span>
+          </div>
+          <div className="stats-project-metric">
+            <span className="stats-project-metric-label">{t("stats.projectLinesRemoved")}</span>
+            <span className="stats-project-metric-value accent-red">-{p.lastLinesRemoved}</span>
+          </div>
+          <div className="stats-project-metric">
+            <span className="stats-project-metric-label">{t("stats.projectInputTokens")}</span>
+            <span className="stats-project-metric-value">
+              {formatTokens(p.lastTotalInputTokens)}
+            </span>
+          </div>
+          <div className="stats-project-metric">
+            <span className="stats-project-metric-label">{t("stats.projectOutputTokens")}</span>
+            <span className="stats-project-metric-value">
+              {formatTokens(p.lastTotalOutputTokens)}
+            </span>
+          </div>
+          <div className="stats-project-metric">
+            <span className="stats-project-metric-label">{t("stats.projectCacheCreation")}</span>
+            <span className="stats-project-metric-value">
+              {formatTokens(p.lastTotalCacheCreationInputTokens)}
+            </span>
+          </div>
+          <div className="stats-project-metric">
+            <span className="stats-project-metric-label">{t("stats.projectCacheRead")}</span>
+            <span className="stats-project-metric-value">
+              {formatTokens(p.lastTotalCacheReadInputTokens)}
+            </span>
+          </div>
+          {p.lastTotalWebSearchRequests > 0 && (
+            <div className="stats-project-metric">
+              <span className="stats-project-metric-label">{t("stats.projectWebSearch")}</span>
+              <span className="stats-project-metric-value">{p.lastTotalWebSearchRequests}</span>
+            </div>
+          )}
+        </div>
+
+        {/* 模型明细 */}
+        {modelEntries.length > 0 && (
+          <>
+            <div className="stats-chart-label">{t("stats.projectModelBreakdown")}</div>
+            <div className="stats-model-table">
+              <div className="stats-model-header">
+                <span>{t("stats.projectModel")}</span>
+                <span>{t("stats.projectInputTokens")}</span>
+                <span>{t("stats.projectOutputTokens")}</span>
+                <span>{t("stats.projectCostUsd")}</span>
+              </div>
+              {modelEntries.map(([model, usage]) => (
+                <div key={model} className="stats-model-row">
+                  <span className="stats-model-name">{model}</span>
+                  <span>{formatTokens(usage.inputTokens)}</span>
+                  <span>{formatTokens(usage.outputTokens)}</span>
+                  <span>${usage.costUsd.toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* 首条 Prompt */}
+        {p.lastSessionFirstPrompt && (
+          <div className="stats-project-prompt-full">
+            <div className="stats-chart-label">{t("stats.projectFirstPrompt")}</div>
+            <p className="stats-project-prompt-text">{p.lastSessionFirstPrompt}</p>
+          </div>
+        )}
+
+        {/* 性能指标 */}
+        {p.lastSessionMetrics && (
+          <>
+            <div className="stats-chart-label">{t("stats.performance")}</div>
+            <div className="stats-metric-inner-grid">
+              <div>
+                <div className="stats-metric-label">{t("stats.frameAvg")}</div>
+                <div className="stats-metric-value">
+                  {p.lastSessionMetrics.frame_duration_ms_avg.toFixed(1)}ms
+                </div>
+              </div>
+              <div>
+                <div className="stats-metric-label">{t("stats.frameP95")}</div>
+                <div className="stats-metric-value">
+                  {p.lastSessionMetrics.frame_duration_ms_p95.toFixed(1)}ms
+                </div>
+              </div>
+              {p.lastSessionMetrics.hook_duration_ms_avg != null && (
+                <div>
+                  <div className="stats-metric-label">{t("stats.hookAvg")}</div>
+                  <div className="stats-metric-value">
+                    {p.lastSessionMetrics.hook_duration_ms_avg.toFixed(1)}ms
+                  </div>
+                </div>
+              )}
+              {p.lastSessionMetrics.hook_duration_ms_p95 != null && (
+                <div>
+                  <div className="stats-metric-label">{t("stats.hookP95")}</div>
+                  <div className="stats-metric-value">
+                    {p.lastSessionMetrics.hook_duration_ms_p95.toFixed(1)}ms
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </details>
   );
 }
 

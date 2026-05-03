@@ -450,3 +450,202 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* 项目列表 */
+.stats-project-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* 项目卡片 */
+.stats-project-card {
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.stats-project-card:hover {
+  border-color: var(--border-muted);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* 项目头部 */
+.stats-project-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-4);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  gap: var(--space-4);
+}
+
+.stats-project-header::-webkit-details-marker {
+  display: none;
+}
+
+.stats-project-header::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--text-secondary);
+  border-bottom: 2px solid var(--text-secondary);
+  transform: rotate(-45deg);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.stats-project-card[open] > .stats-project-header::after {
+  transform: rotate(45deg);
+}
+
+.stats-project-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.stats-project-name {
+  font-size: var(--font-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: "SF Mono", "Cascadia Code", monospace;
+}
+
+.stats-project-prompt {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stats-project-summary {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.stats-project-badge {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  font-family: "SF Mono", "Cascadia Code", monospace;
+  background: var(--bg-primary);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-muted);
+  white-space: nowrap;
+}
+
+/* 项目详情体 */
+.stats-project-body {
+  padding: 0 var(--space-4) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* 项目指标网格 */
+.stats-project-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--space-3);
+}
+
+.stats-project-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stats-project-metric-label {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.stats-project-metric-value {
+  font-size: var(--font-base);
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: "SF Mono", "Cascadia Code", monospace;
+}
+
+.stats-project-metric-value.accent-green {
+  color: #3fb950;
+}
+
+.stats-project-metric-value.accent-red {
+  color: #f78166;
+}
+
+/* 模型明细表格 */
+.stats-model-table {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.stats-model-header {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-primary);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.stats-model-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  font-family: "SF Mono", "Cascadia Code", monospace;
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.stats-model-row:last-child {
+  border-bottom: none;
+}
+
+.stats-model-row:hover {
+  background-color: var(--bg-secondary);
+}
+
+.stats-model-name {
+  font-family: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 首条 Prompt 展示 */
+.stats-project-prompt-full {
+  margin-top: var(--space-2);
+}
+
+.stats-project-prompt-text {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  line-height: 1.5;
+}

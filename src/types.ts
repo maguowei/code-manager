@@ -132,6 +132,15 @@ export interface UsageEntry {
   lastUsedAt: number;
 }
 
+export interface ModelUsageEntry {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadInputTokens: number;
+  cacheCreationInputTokens: number;
+  webSearchRequests: number;
+  costUsd: number;
+}
+
 export interface ProjectStats {
   lastCost: number;
   lastDuration: number;
@@ -142,6 +151,11 @@ export interface ProjectStats {
   lastTotalCacheCreationInputTokens: number;
   lastTotalCacheReadInputTokens: number;
   lastSessionModified: number;
+  lastLinesAdded: number;
+  lastLinesRemoved: number;
+  lastTotalWebSearchRequests: number;
+  lastModelUsage?: Record<string, ModelUsageEntry>;
+  lastSessionFirstPrompt?: string;
 }
 
 export interface ClaudeStats {

@@ -32,6 +32,24 @@ pub struct UsageEntry {
     pub last_used_at: u64,
 }
 
+/// 单个模型的使用明细
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelUsageEntry {
+    #[serde(default)]
+    pub input_tokens: u64,
+    #[serde(default)]
+    pub output_tokens: u64,
+    #[serde(default)]
+    pub cache_read_input_tokens: u64,
+    #[serde(default)]
+    pub cache_creation_input_tokens: u64,
+    #[serde(default)]
+    pub web_search_requests: u64,
+    #[serde(default)]
+    pub cost_usd: f64,
+}
+
 /// 项目级统计
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -54,6 +72,16 @@ pub struct ProjectStats {
     pub last_total_cache_read_input_tokens: u64,
     #[serde(default)]
     pub last_session_modified: u64,
+    #[serde(default)]
+    pub last_lines_added: u64,
+    #[serde(default)]
+    pub last_lines_removed: u64,
+    #[serde(default)]
+    pub last_total_web_search_requests: u64,
+    #[serde(default)]
+    pub last_model_usage: Option<HashMap<String, ModelUsageEntry>>,
+    #[serde(default)]
+    pub last_session_first_prompt: Option<String>,
 }
 
 /// 从 ~/.claude.json 解析的完整统计数据
@@ -159,5 +187,49 @@ mod tests {
             .expect("project should exist");
 
         assert_eq!(project.last_session_id.as_deref(), Some("session-123"));
+    }
+
+    #[test]
+    fn deserializes_project_extended_fields() {
+        let json = r#"{
+            "projects": {
+                "/tmp/demo": {
+                    "lastCost": 5.5,
+                    "lastDuration": 1000,
+                    "lastLinesAdded": 120,
+                    "lastLinesRemoved": 30,
+                    "lastTotalWebSearchRequests": 2,
+                    "lastModelUsage": {
+                        "claude-opus-4-7": {
+                            "inputTokens": 1000,
+                            "outputTokens": 500,
+                            "cacheReadInputTokens": 200,
+                            "cacheCreationInputTokens": 100,
+                            "webSearchRequests": 1,
+                            "costUsd": 3.2
+                        }
+                    },
+                    "lastSessionFirstPrompt": "帮我重构这个函数"
+                }
+            }
+        }"#;
+
+        let stats: ClaudeStats = serde_json::from_str(json).expect("stats should deserialize");
+        let project = stats
+            .projects
+            .get("/tmp/demo")
+            .expect("project should exist");
+
+        assert_eq!(project.last_lines_added, 120);
+        assert_eq!(project.last_lines_removed, 30);
+        assert_eq!(project.last_total_web_search_requests, 2);
+        assert_eq!(
+            project.last_session_first_prompt.as_deref(),
+            Some("帮我重构这个函数")
+        );
+        let model_usage = project.last_model_usage.as_ref().expect("model usage should exist");
+        let opus = model_usage.get("claude-opus-4-7").expect("opus entry should exist");
+        assert_eq!(opus.input_tokens, 1000);
+        assert!((opus.cost_usd - 3.2).abs() < f64::EPSILON);
     }
 }
