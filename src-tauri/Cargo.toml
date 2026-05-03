@@ -22,6 +22,7 @@ tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-dialog = "=2.6.0"
 tauri-plugin-log = "2.8.0"
 tauri-plugin-opener = "2"
+tauri-plugin-autostart = "2"
 log = "0.4"
 time = { version = "0.3", features = ["formatting", "local-offset", "macros"] }
 serde = { version = "1", features = ["derive"] }

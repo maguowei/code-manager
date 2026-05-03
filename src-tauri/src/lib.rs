@@ -62,6 +62,10 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::AppleScript,
+            None,
+        ))
         .setup(|app| {
             tray::setup_tray(app)?;
             log::info!("event=app.setup status=ok");

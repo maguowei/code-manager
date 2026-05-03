@@ -1,4 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
+import {
+  disable as disableAutostart,
+  enable as enableAutostart,
+  isEnabled as isAutostartEnabled,
+} from "@tauri-apps/plugin-autostart";
 import { useEffect, useMemo, useState } from "react";
 import useEscapeKey from "../hooks/useEscapeKey";
 import { useToast } from "../hooks/useToast";
@@ -27,6 +32,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
     defaultEditorApp: null,
   });
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
+  const [launchAtLogin, setLaunchAtLogin] = useState(false);
 
   useEffect(() => {
     invoke<ConfigWorkspace>("get_config_workspace")
@@ -40,6 +46,15 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
         showToast(t("toast.configLoadError"), "error");
       });
   }, [language, setLanguage, showToast, t]);
+
+  // 自启动真实状态由系统持久化（LaunchAgent / 注册表 / .desktop），打开抽屉时主动同步
+  useEffect(() => {
+    isAutostartEnabled()
+      .then(setLaunchAtLogin)
+      .catch(() => {
+        showToast(t("toast.autostartQueryError"), "error");
+      });
+  }, [showToast, t]);
 
   const showTrayTitle = preferences.showTrayTitle;
   const showTraySessions = preferences.showTraySessions;
@@ -64,6 +79,21 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
         setLanguage(rollback.uiLanguage as Language);
       }
       showToast(t("toast.configSaveError"), "error");
+    }
+  }
+
+  // 乐观切换：失败时回滚 UI 并提示
+  async function toggleLaunchAtLogin(next: boolean) {
+    setLaunchAtLogin(next);
+    try {
+      if (next) {
+        await enableAutostart();
+      } else {
+        await disableAutostart();
+      }
+    } catch {
+      setLaunchAtLogin(!next);
+      showToast(t("toast.autostartSaveError"), "error");
     }
   }
 
@@ -272,6 +302,30 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                 </span>
                 <span className="toggle-label">
                   {showTraySessions ? t("settings.enabled") : t("settings.disabled")}
+                </span>
+              </button>
+            </div>
+          </section>
+
+          <section className="settings-section-card">
+            <div className="settings-section-head">
+              <h3>{t("settings.launchAtLogin")}</h3>
+              <p>{t("settings.launchAtLoginDesc")}</p>
+            </div>
+            <div className="settings-item">
+              <button
+                type="button"
+                className={`toggle-switch${launchAtLogin ? " enabled" : ""}`}
+                onClick={() => void toggleLaunchAtLogin(!launchAtLogin)}
+                role="switch"
+                aria-checked={launchAtLogin}
+                aria-label={t("settings.launchAtLogin")}
+              >
+                <span className="toggle-track">
+                  <span className="toggle-thumb" />
+                </span>
+                <span className="toggle-label">
+                  {launchAtLogin ? t("settings.enabled") : t("settings.disabled")}
                 </span>
               </button>
             </div>

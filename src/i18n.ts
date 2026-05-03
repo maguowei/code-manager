@@ -638,6 +638,8 @@ const translations = {
     "settings.showTrayTitleDesc": "在系统托盘图标旁显示当前激活的配置名称",
     "settings.showTraySessions": "在菜单栏显示当前会话",
     "settings.showTraySessionsDesc": "在独立菜单栏区域显示 Claude 当前会话及状态",
+    "settings.launchAtLogin": "开机自启动",
+    "settings.launchAtLoginDesc": "登录系统后自动启动 AI Manager，配合托盘常驻更方便",
     "settings.defaultTerminal": "默认终端",
     "settings.defaultTerminalDesc": "项目页“一键用终端打开”会使用这里选择的终端应用",
     "settings.defaultEditor": "默认编辑器",
@@ -726,6 +728,8 @@ const translations = {
     // 操作通知（Toast）
     "toast.configLoadError": "加载配置失败",
     "toast.configSaveError": "保存配置失败",
+    "toast.autostartQueryError": "读取自启动状态失败",
+    "toast.autostartSaveError": "保存自启动设置失败",
     "toast.memoryLoadError": "加载记忆失败",
     "toast.memoryAdded": "记忆已添加",
     "toast.memoryAddError": "添加记忆失败",
@@ -1488,6 +1492,8 @@ const translations = {
     "settings.showTraySessions": "Show active sessions in menu bar",
     "settings.showTraySessionsDesc":
       "Display current Claude sessions and statuses in a separate menu bar area",
+    "settings.launchAtLogin": "Launch at Login",
+    "settings.launchAtLoginDesc": "Automatically start AI Manager when you log in to your system",
     "settings.defaultTerminal": "Default Terminal",
     "settings.defaultTerminalDesc":
       "The Projects page uses this terminal for the one-click open action.",
@@ -1578,6 +1584,8 @@ const translations = {
     // 操作通知（Toast）
     "toast.configLoadError": "Failed to load configs",
     "toast.configSaveError": "Failed to save config",
+    "toast.autostartQueryError": "Failed to read auto-start status",
+    "toast.autostartSaveError": "Failed to save auto-start setting",
     "toast.memoryLoadError": "Failed to load memories",
     "toast.memoryAdded": "Memory added",
     "toast.memoryAddError": "Failed to add memory",
