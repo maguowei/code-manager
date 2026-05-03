@@ -174,13 +174,16 @@
 
 /* 折叠 Section：复用 .stats-section 的卡片样式，summary 替代原 h2 标题 */
 .stats-section-collapsible {
-  /* details 默认 display:block 即可，padding 沿用 .stats-section */
+  padding: 0;
+  overflow: hidden;
 }
 
 .stats-section-summary {
   cursor: pointer;
   list-style: none;
   user-select: none;
+  margin: 0 0 var(--space-4);
+  padding: var(--space-5) var(--space-5) var(--space-3);
 }
 
 .stats-summary-count {
@@ -216,7 +219,7 @@
 
 .stats-section-collapsible:not([open]) > .stats-section-summary {
   margin-bottom: 0;
-  padding-bottom: 0;
+  padding-bottom: var(--space-5);
   border-bottom: none;
 }
 
@@ -226,6 +229,10 @@
   grid-template-columns: 1fr 1fr;
   gap: var(--space-5);
   margin-bottom: var(--space-4);
+}
+
+.stats-section-collapsible > .stats-chart-group {
+  margin: 0 var(--space-5) var(--space-5);
 }
 
 .stats-chart-block {
