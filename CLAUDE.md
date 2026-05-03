@@ -78,6 +78,7 @@
 - Tauri capability：`src-tauri/capabilities/default.json`
 - 日志与诊断：`src-tauri/src/logging.rs`、`src/components/LogViewer.tsx`、`src/utils/logger.ts`
 - 系统托盘：`src-tauri/src/tray.rs`、`src-tauri/src/terminal_focus.rs`
+- `~/.claude` 目录变更监听：`src-tauri/src/claude_directory_watcher.rs`
 
 ## 高频任务入口
 
@@ -351,7 +352,7 @@ const result = await invoke("get_config_workspace");
 - 公共 z-index 变量在 `src/styles/shared.css`。
 - 编辑器抽屉有共享样式，不要在单个页面里重新发明一套。
 - 设置抽屉、模态框、下拉菜单、Toast 的层级要继续使用共享令牌。
-- 复杂编辑器优先复用 `useObjectJsonEditor`、`useDocumentJsonEditor`、`useStructuredSettingsSectionState` 等现有 hook。
+- 复杂编辑器优先复用 `useObjectJsonEditor`、`useDocumentJsonEditor`、`useStructuredSettingsSectionState` 等现有 hook（位于 `src/components/profile-editor/`）。
 
 ### 日志与诊断约束
 
