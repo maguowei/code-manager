@@ -39,6 +39,15 @@ function formatDate(isoStr: string): string {
   }
 }
 
+/** 格式化毫秒时间戳为日期 */
+function formatTimestamp(ms: number): string {
+  try {
+    return formatDate(new Date(ms).toISOString());
+  } catch {
+    return "-";
+  }
+}
+
 function StatsPage() {
   const { t } = useI18n();
   const { showToast } = useToast();
@@ -187,6 +196,20 @@ function StatsPage() {
             <span className="stat-card-label">{t("stats.totalProjects")}</span>
             <span className="stat-card-value accent-orange">{projectCount}</span>
           </div>
+          {stats.lastPlanModeUse != null && (
+            <div className="stat-card" style={{ animationDelay: "0.3s" }}>
+              <span className="stat-card-label">{t("stats.lastPlanModeUse")}</span>
+              <span className="stat-card-value accent-purple">
+                {formatTimestamp(stats.lastPlanModeUse)}
+              </span>
+            </div>
+          )}
+          {stats.btwUseCount != null && (
+            <div className="stat-card" style={{ animationDelay: "0.35s" }}>
+              <span className="stat-card-label">{t("stats.btwUseCount")}</span>
+              <span className="stat-card-value accent-blue">{stats.btwUseCount}</span>
+            </div>
+          )}
         </div>
 
         {/* 工具 & Skill 使用 */}

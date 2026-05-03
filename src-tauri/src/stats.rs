@@ -70,6 +70,10 @@ pub struct ClaudeStats {
     pub tool_usage: HashMap<String, UsageEntry>,
     #[serde(default)]
     pub skill_usage: HashMap<String, UsageEntry>,
+    #[serde(default)]
+    pub last_plan_mode_use: Option<u64>,
+    #[serde(default)]
+    pub btw_use_count: Option<u32>,
 }
 
 /// 获取 ~/.claude.json 路径

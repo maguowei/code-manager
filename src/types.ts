@@ -150,6 +150,8 @@ export interface ClaudeStats {
   projects: Record<string, ProjectStats>;
   toolUsage: Record<string, UsageEntry>;
   skillUsage: Record<string, UsageEntry>;
+  lastPlanModeUse?: number;
+  btwUseCount?: number;
 }
 
 export type LogLevel = "error" | "warn" | "info" | "debug" | "trace" | "unknown";
