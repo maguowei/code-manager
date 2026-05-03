@@ -190,8 +190,18 @@ function StatsPage() {
         </div>
 
         {/* 工具 & Skill 使用 */}
-        <div className="stats-section" style={{ animationDelay: "0.4s" }}>
-          <h2 className="stats-section-title">{t("stats.toolSection")}</h2>
+        <details
+          open
+          className="stats-section stats-section-collapsible"
+          style={{ animationDelay: "0.4s" }}
+        >
+          <summary className="stats-section-title stats-section-summary">
+            {t("stats.toolSection")}
+            <span className="stats-summary-count">
+              {toolUsageData.length} {t("stats.toolUsage")} · {skillUsageData.length}{" "}
+              {t("stats.skillUsage")}
+            </span>
+          </summary>
           <div className="stats-chart-group">
             <div className="stats-chart-block">
               <div className="stats-chart-label">{t("stats.toolUsage")}</div>
@@ -230,7 +240,7 @@ function StatsPage() {
               )}
             </div>
           </div>
-        </div>
+        </details>
 
         {/* 会话与性能 */}
         <div className="stats-section" style={{ animationDelay: "0.5s" }}>

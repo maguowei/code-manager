@@ -599,7 +599,7 @@ const translations = {
     "stats.totalProjects": "项目数",
     "stats.toolSection": "工具 & Skill 使用",
     "stats.toolUsage": "工具调用",
-    "stats.skillUsage": "Skill 使用频率",
+    "stats.skillUsage": "Skill 使用",
     "stats.sessionSection": "会话与性能",
     "stats.sessionDuration": "最近会话时长",
     "stats.performance": "性能指标",

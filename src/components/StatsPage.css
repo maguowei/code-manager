@@ -172,6 +172,54 @@
   gap: var(--space-2);
 }
 
+/* 折叠 Section：复用 .stats-section 的卡片样式，summary 替代原 h2 标题 */
+.stats-section-collapsible {
+  /* details 默认 display:block 即可，padding 沿用 .stats-section */
+}
+
+.stats-section-summary {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.stats-summary-count {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-left: var(--space-2);
+}
+
+.stats-section-collapsible[open] .stats-summary-count {
+  display: none;
+}
+
+.stats-section-summary::-webkit-details-marker {
+  display: none;
+}
+
+.stats-section-summary::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--text-secondary);
+  border-bottom: 2px solid var(--text-secondary);
+  transform: rotate(-45deg);
+  transition: transform 0.2s ease;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.stats-section-collapsible[open] > .stats-section-summary::after {
+  transform: rotate(45deg);
+}
+
+.stats-section-collapsible:not([open]) > .stats-section-summary {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
 /* 图表子区域 */
 .stats-chart-group {
   display: grid;
