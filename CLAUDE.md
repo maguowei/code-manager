@@ -20,7 +20,8 @@
 - 应用数据：`~/.config/ai-manager/`
   - `configs.json`
   - `memories.json`
-  - `stats_history.json`
+  - `model-pricing.json`
+  - `usage_index.json`
   - `skills-disabled/`
 - 应用直接操作的 Claude Code 用户目录：`~/.claude/`
   - `settings.json`
@@ -33,6 +34,7 @@
   - `~/.codex/skills/`
 - 历史与统计输入：
   - `~/.claude/history.jsonl`
+  - `~/.claude/projects/`
   - `~/.claude.json`
 - 测试可用环境变量覆盖本机目录：
   - `AI_MANAGER_HOME_OVERRIDE`
@@ -78,6 +80,7 @@
 - Tauri capability：`src-tauri/capabilities/default.json`
 - 日志与诊断：`src-tauri/src/logging.rs`、`src/components/LogViewer.tsx`、`src/utils/logger.ts`
 - 系统托盘：`src-tauri/src/tray.rs`、`src-tauri/src/terminal_focus.rs`
+- Token 用量与费用：`src/components/UsagePage.tsx`、`src/hooks/useUsage.ts`、`src-tauri/src/usage.rs`
 - `~/.claude` 目录变更监听：`src-tauri/src/claude_directory_watcher.rs`
 
 ## 高频任务入口
@@ -182,7 +185,7 @@
 - 支持文件路径必须保持在 Skill 目录内，禁止绝对路径与 `..` 路径逃逸。
 - `sync_skill_to_codex` 会在 `~/.codex/skills/<id>` 创建软链接；目标已存在且不是软链接时必须拒绝覆盖。
 
-### 5. 改历史与统计
+### 5. 改历史、统计与 Token 用量
 
 先读：
 
@@ -195,6 +198,12 @@
 - `src-tauri/src/history.rs`
 - `src/components/StatsPage.tsx`
 - `src-tauri/src/stats.rs`
+- `src/components/UsagePage.tsx`
+- `src/components/usage/SessionUsageDrawer.tsx`
+- `src/components/usage/format.ts`
+- `src/hooks/useUsage.ts`
+- `src-tauri/src/usage.rs`
+- `src-tauri/resources/model-pricing.json`
 
 注意：
 
@@ -205,8 +214,12 @@
 - 统计页的项目区域是“项目最近会话”，展示每个项目最近一次会话的会话 ID、首条 Prompt 摘要、费用、时长、Token、模型明细和性能指标。
 - 项目最近会话区域默认展开，单个项目卡片默认折叠；折叠交互继续使用原生 `details/summary`，并保持整行可点击和键盘可访问性。
 - 项目卡片标题只显示项目路径最后一级；会话 ID 放在项目名下方，不额外加“会话 ID”标签，窄宽度下允许单行省略并保留完整值的 `title`。
-- stats.rs 提供 `get_stats`、`get_stats_history`、`take_stats_snapshot` 三个命令。
-- 定时快照由 `stats::start_snapshot_timer()` 在 `lib.rs` 的 `setup` 中启动，每小时一次，最多保留 90 天或 500 条。
+- `stats.rs` 当前只提供 `get_stats` 和 `open_claude_json_in_editor`，不要在文档或前端假设存在历史快照 command。
+- Token 用量页是独立的 `UsagePage`，数据来源是 `~/.claude/projects/<project>/<session>.jsonl` 中 assistant 消息的 `message.usage`，不要和 `StatsPage` 的 `~/.claude.json` 数据源混用。
+- `usage.rs` 会在 `lib.rs` setup 中通过 `usage::start_usage_runtime(app)` 启动：加载价格表、首次扫描、监听 `claude-directory-changed` 做增量扫描，并向前端发出 `usage-records-changed` / `usage-pricing-updated`。
+- 用量聚合维度包括 daily、project、session、model；筛选字段来自 `UsageFilter`，新增筛选条件要同步 `src/types.ts`、`useUsage.ts`、`usage.rs` 和 i18n。
+- 价格表加载顺序是本地缓存 `~/.config/ai-manager/model-pricing.json` -> 内置 `src-tauri/resources/model-pricing.json` -> 启动后尝试从 models.dev 刷新；扫描索引写入 `~/.config/ai-manager/usage_index.json`。
+- `message.id` 是 usage 记录去重锚点；处理增量扫描、重扫和未知模型时不要破坏 `seen_message_ids`、`file_index` 与 `unknown_models` 的一致性。
 
 ### 6. 改项目管理页
 
@@ -325,6 +338,13 @@ const result = await invoke("get_config_workspace");
 - Codex 同步是从当前 Skill 目录到 `~/.codex/skills/<id>` 的软链接。
 - 目录遍历、文件名和相对路径校验必须继续防止符号链接与 `..` 路径逃逸。
 
+### 统计与用量数据边界
+
+- `StatsPage` 是 Claude Code 汇总统计视图，数据源是 `~/.claude.json`，展示工具、Skill 和项目最近会话摘要。
+- `UsagePage` 是 Token 与费用分析视图，数据源是 `~/.claude/projects/**/*.jsonl`，由 `usage.rs` 扫描 assistant 消息的 `message.usage` 后聚合。
+- 两个页面都可能显示项目、会话、Token 和费用，但数据来源、刷新机制和后端模块不同；改动前先确认要改的是 `stats.rs`/`StatsPage` 还是 `usage.rs`/`UsagePage`。
+- 用量价格不是配置数据的一部分：内置价格在 `src-tauri/resources/model-pricing.json`，运行时缓存写入 `~/.config/ai-manager/model-pricing.json`。
+
 ### Rust 公共工具的使用边界
 
 `src-tauri/src/utils.rs` 已提供：
@@ -437,6 +457,10 @@ grep "'@codemirror/state@" pnpm-lock.yaml
 ### 不要在前端复制后端业务逻辑
 
 配置预览、配置应用、模型测试、Provider/Preset、Skills、Memory 的真实持久化规则都在 Rust。前端负责调用与展示，不要复制一份“看起来一样”的规则。
+
+### 不要混淆 Stats 与 Usage
+
+`StatsPage` 读取 `~/.claude.json`，用于概览和项目最近会话；`UsagePage` 扫描 `~/.claude/projects/**/*.jsonl`，用于 Token 和费用分析。两者字段相似但来源不同，不要把一个页面的刷新、筛选或聚合逻辑搬到另一个页面。
 
 ### 不要把日志当成配置数据
 

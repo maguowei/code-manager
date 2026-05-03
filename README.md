@@ -3,7 +3,7 @@
 [![CI](https://github.com/maguowei/ai-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/maguowei/ai-manager/actions/workflows/ci.yml)
 [![Release](https://github.com/maguowei/ai-manager/actions/workflows/release.yml/badge.svg)](https://github.com/maguowei/ai-manager/actions/workflows/release.yml)
 
-AI Manager 是一个面向 Claude Code 用户的桌面管理应用。它把 Profile / Preset、`~/.claude` 目录、记忆、Skills、历史、统计、项目状态和诊断日志放到一个 Tauri 2 应用里，减少手工编辑本地配置文件的风险。
+AI Manager 是一个面向 Claude Code 用户的桌面管理应用。它把 Profile / Preset、`~/.claude` 目录、记忆、Skills、历史、统计、Token 用量、项目状态、系统托盘和诊断日志放到一个 Tauri 2 应用里，减少手工编辑本地配置文件的风险。
 
 ## 这个项目解决什么问题
 
@@ -12,7 +12,7 @@ AI Manager 是一个面向 Claude Code 用户的桌面管理应用。它把 Prof
 - 不同项目需要不同的模型、API 地址、Token、插件组合、Hooks 和权限策略
 - `~/.claude/settings.json`、`CLAUDE.md`、`rules/*.md`、Skills 分散在文件系统里，不容易整体检查
 - Provider / model 配置重复，切换配置时容易漏写环境变量或覆盖用户设置
-- 历史记录、使用统计、项目 Git 状态和 worktree 信息缺少统一入口
+- 历史记录、使用统计、Token 花费、项目 Git 状态和 worktree 信息缺少统一入口
 - 本机排障时需要快速查看脱敏后的应用日志，而不是到处找日志文件
 
 AI Manager 的目标是把这些高频操作变成可见、可预览、可验证的本地工作流。
@@ -50,16 +50,31 @@ AI Manager 的目标是把这些高频操作变成可见、可预览、可验证
 - 支持管理 `SKILL.md` 之外的附加文件
 - 支持将 Skill 同步为 `~/.codex/skills/<id>` 软链接，便于 Codex 复用
 
-### 历史、统计与项目
+### 历史与会话
 
 - 读取 `~/.claude/history.jsonl`，按项目和会话查看历史详情
-- 从 `~/.claude.json` 读取 Claude Code 统计数据
+- 会话详情保留 text、thinking、tool_use、tool_result、command、system、image、plan 等内容块
+
+### 统计与最近会话
+
+- 从 `~/.claude.json` 读取 Claude Code 统计数据，展示启动次数、首次使用、工具调用、Skill 使用和项目最近会话
 - 统计页会明确提示数据来自本地历史快照，不是实时流式更新；点击刷新可重新读取最新本地数据
 - 统计页的“项目最近会话”按项目展示最近一次会话的会话 ID、首条 Prompt 摘要、费用、时长、Token、模型明细和性能指标
 - 项目最近会话区域默认展开，单个项目详情默认折叠，可点击整行展开查看详细指标
-- 启动后每小时采集一次统计快照，最多保留 90 天或 500 条
+
+### Token 用量与费用
+
+- 扫描 `~/.claude/projects/<project>/<session>.jsonl` 中 assistant 消息的 `message.usage`
+- 按日期、项目、会话和模型聚合消息数、Token、缓存 Token 和费用
+- 支持日期、项目、会话、模型筛选，并可打开单个会话的消息级用量明细
+- 模型价格优先使用本地缓存，内置 `model-pricing.json` 兜底，启动后会尝试从 models.dev 刷新
+- 维护增量扫描索引，`~/.claude` 目录变更后会自动刷新用量视图
+
+### 项目管理
+
 - 项目页展示仓库路径、远程地址、分支、worktree 和 `AGENTS.md` / `CLAUDE.md` 软链状态
 - 可用设置中的默认终端或编辑器打开项目
+- 可预览并执行 Claude Code 项目本地数据清理
 
 ### 系统托盘与会话
 
@@ -84,7 +99,8 @@ AI Manager 的目标是把这些高频操作变成可见、可预览、可验证
 ~/.config/ai-manager/
   configs.json
   memories.json
-  stats_history.json
+  model-pricing.json
+  usage_index.json
   skills-disabled/
 ```
 
@@ -100,10 +116,11 @@ AI Manager 的目标是把这些高频操作变成可见、可预览、可验证
   statusline.sh
 ```
 
-### 历史与统计输入
+### 历史、统计与用量输入
 
 ```text
 ~/.claude/history.jsonl
+~/.claude/projects/
 ~/.claude.json
 ```
 
@@ -218,11 +235,12 @@ cd src-tauri && cargo clippy -- -D warnings
 - 编辑与预览：CodeMirror、react-markdown、@pierre/diffs、@pierre/trees
 - 图表：Recharts
 - 日志：tauri-plugin-log
+- 系统集成：Tauri opener、dialog、autostart、os、notification、tray icon
 
 项目整体采用典型 Tauri 分层：
 
 - `src/` 负责 UI、表单状态、i18n、Toast 和前端测试
-- `src-tauri/src/` 负责本地文件读写、配置合并、日志、统计、系统托盘和系统集成
+- `src-tauri/src/` 负责本地文件读写、配置合并、日志、统计、Token 用量扫描、系统托盘和系统集成
 - 前端统一通过 `@tauri-apps/api/core` 的 `invoke()` 调用 Rust command
 - command 注册入口是 `src-tauri/src/lib.rs`
 
@@ -233,10 +251,11 @@ src/                    React 前端
 src/components/         页面与复用组件
 src/components/profile-editor/
                         Profile 编辑器分区组件
+src/components/usage/  Token 用量会话抽屉与格式化工具
 src/hooks/              公共 hooks
 src/schemas/            前端表单 schema 与共享 JSON Schema
 src-tauri/src/          Rust 后端与 Tauri command
-src-tauri/resources/    内置 provider 和状态行脚本
+src-tauri/resources/    内置 provider、模型价格和状态行脚本
 src-tauri/capabilities/ Tauri capability 配置
 docs/                   设计与计划文档
 ```
