@@ -201,6 +201,10 @@
 - 历史页数据来源是 `~/.claude/history.jsonl`，前端轮询逻辑封装在 `useHistoryEntries.ts`。
 - 会话详情解析在后端，保留对 command、system、thinking、tool_use、tool_result、image、plan 等块类型的兼容。
 - 统计页当前读取 `~/.claude.json`。
+- 统计页需要明确提示统计数据来自本地历史快照，不是实时流式更新；刷新按钮重新读取最新本地数据。
+- 统计页的项目区域是“项目最近会话”，展示每个项目最近一次会话的会话 ID、首条 Prompt 摘要、费用、时长、Token、模型明细和性能指标。
+- 项目最近会话区域默认展开，单个项目卡片默认折叠；折叠交互继续使用原生 `details/summary`，并保持整行可点击和键盘可访问性。
+- 项目卡片标题只显示项目路径最后一级；会话 ID 放在项目名下方，不额外加“会话 ID”标签，窄宽度下允许单行省略并保留完整值的 `title`。
 - stats.rs 提供 `get_stats`、`get_stats_history`、`take_stats_snapshot` 三个命令。
 - 定时快照由 `stats::start_snapshot_timer()` 在 `lib.rs` 的 `setup` 中启动，每小时一次，最多保留 90 天或 500 条。
 
