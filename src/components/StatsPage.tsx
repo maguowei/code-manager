@@ -79,8 +79,7 @@ function StatsPage() {
     if (!stats) return [];
     return Object.entries(stats.toolUsage)
       .map(([name, entry]) => ({ name, count: entry.usageCount }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
+      .sort((a, b) => b.count - a.count);
   }, [stats]);
 
   const skillUsageData = useMemo(() => {
