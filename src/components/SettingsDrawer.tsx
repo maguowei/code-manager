@@ -16,6 +16,7 @@ import type {
 } from "../types";
 import LogViewer from "./LogViewer";
 import "./SettingsDrawer.css";
+import SystemInfoDialog from "./SystemInfoDialog";
 
 interface SettingsDrawerProps {
   onClose: () => void;
@@ -32,6 +33,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
     defaultEditorApp: null,
   });
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
+  const [isSystemInfoOpen, setIsSystemInfoOpen] = useState(false);
   const [launchAtLogin, setLaunchAtLogin] = useState(false);
 
   useEffect(() => {
@@ -409,9 +411,26 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
               </button>
             </div>
           </section>
+
+          <section className="settings-section-card">
+            <div className="settings-section-head">
+              <h3>{t("settings.systemInfo")}</h3>
+              <p>{t("settings.systemInfoDesc")}</p>
+            </div>
+            <div className="settings-item">
+              <button
+                type="button"
+                className="settings-action-btn"
+                onClick={() => setIsSystemInfoOpen(true)}
+              >
+                {t("settings.viewSystemInfo")}
+              </button>
+            </div>
+          </section>
         </div>
       </aside>
       {isLogViewerOpen ? <LogViewer onClose={() => setIsLogViewerOpen(false)} /> : null}
+      {isSystemInfoOpen ? <SystemInfoDialog onClose={() => setIsSystemInfoOpen(false)} /> : null}
     </div>
   );
 }
