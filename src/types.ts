@@ -116,15 +116,6 @@ export interface MemoryState {
 
 // ===== 统计页面类型 =====
 
-export interface ModelUsage {
-  inputTokens: number;
-  outputTokens: number;
-  cacheReadInputTokens: number;
-  cacheCreationInputTokens: number;
-  webSearchRequests: number;
-  costUsd: number;
-}
-
 export interface SessionMetrics {
   // Rust 端使用 snake_case 序列化，前端字段名需匹配
   frame_duration_ms_avg: number;
@@ -145,7 +136,6 @@ export interface ProjectStats {
   lastCost: number;
   lastDuration: number;
   lastSessionId?: string;
-  lastModelUsage: Record<string, ModelUsage>;
   lastSessionMetrics?: SessionMetrics;
   lastTotalInputTokens: number;
   lastTotalOutputTokens: number;
@@ -160,11 +150,6 @@ export interface ClaudeStats {
   projects: Record<string, ProjectStats>;
   toolUsage: Record<string, UsageEntry>;
   skillUsage: Record<string, UsageEntry>;
-}
-
-export interface Snapshot {
-  timestamp: number;
-  data: ClaudeStats;
 }
 
 export type LogLevel = "error" | "warn" | "info" | "debug" | "trace" | "unknown";

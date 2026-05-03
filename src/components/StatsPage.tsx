@@ -1,49 +1,19 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
-import { type ClaudeStats, isTauri, type Snapshot } from "../types";
-import { formatDuration, formatUSD } from "./project-detail-utils";
+import { type ClaudeStats, isTauri } from "../types";
+import { formatDuration } from "./project-detail-utils";
 import "./StatsPage.css";
 
 // recharts 不支持 CSS 变量，从 App.css 提取对应暗色 hex
 const COLORS = {
-  blue: "#58a6ff",
-  green: "#3fb950",
   orange: "#f78166",
-  purple: "#bc8cff",
-  red: "#f85149",
-  teal: "#39d2c0",
-  pink: "#f778ba",
-  yellow: "#d29922",
 };
-const PIE_COLORS = [
-  COLORS.blue,
-  COLORS.green,
-  COLORS.orange,
-  COLORS.purple,
-  COLORS.red,
-  COLORS.teal,
-  COLORS.pink,
-  COLORS.yellow,
-];
 
 // recharts 图表共享样式常量
 const TICK_STYLE = { fill: "#7d8590", fontSize: 11 };
-const TICK_STYLE_SM = { fill: "#7d8590", fontSize: 10 };
 const TOOLTIP_STYLE = {
   backgroundColor: "rgba(22, 27, 34, 0.8)",
   border: "1px solid #30363d",
@@ -73,7 +43,6 @@ function StatsPage() {
   const { t } = useI18n();
   const { showToast } = useToast();
   const [stats, setStats] = useState<ClaudeStats | null>(null);
-  const [history, setHistory] = useState<Snapshot[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
@@ -82,12 +51,8 @@ function StatsPage() {
       return;
     }
     try {
-      const [s, h] = await Promise.all([
-        invoke<ClaudeStats>("get_stats"),
-        invoke<Snapshot[]>("get_stats_history"),
-      ]);
+      const s = await invoke<ClaudeStats>("get_stats");
       setStats(s);
-      setHistory(h);
     } catch {
       showToast(t("stats.loadError"), "error");
     } finally {
@@ -102,7 +67,6 @@ function StatsPage() {
   async function handleRefresh() {
     if (!isTauri()) return;
     try {
-      await invoke("take_stats_snapshot");
       await loadData();
       showToast(t("stats.refreshed"));
     } catch {
@@ -111,33 +75,6 @@ function StatsPage() {
   }
 
   // ===== 派生数据 =====
-  const totalCost = useMemo(() => {
-    if (!stats) return 0;
-    return Object.values(stats.projects).reduce((sum, p) => sum + p.lastCost, 0);
-  }, [stats]);
-
-  const projectCostData = useMemo(() => {
-    if (!stats) return [];
-    return Object.entries(stats.projects)
-      .filter(([, p]) => p.lastCost > 0)
-      .map(([path, p]) => ({ name: shortPath(path), cost: +p.lastCost.toFixed(2) }))
-      .sort((a, b) => b.cost - a.cost);
-  }, [stats]);
-
-  const modelCostData = useMemo(() => {
-    if (!stats) return [];
-    const modelMap: Record<string, number> = {};
-    Object.values(stats.projects).forEach((p) => {
-      Object.entries(p.lastModelUsage).forEach(([model, usage]) => {
-        modelMap[model] = (modelMap[model] || 0) + usage.costUsd;
-      });
-    });
-    return Object.entries(modelMap)
-      .filter(([, cost]) => cost > 0)
-      .map(([name, value]) => ({ name, value: +value.toFixed(2) }))
-      .sort((a, b) => b.value - a.value);
-  }, [stats]);
-
   const toolUsageData = useMemo(() => {
     if (!stats) return [];
     return Object.entries(stats.toolUsage)
@@ -152,17 +89,6 @@ function StatsPage() {
       .map(([name, entry]) => ({ name, count: entry.usageCount }))
       .sort((a, b) => b.count - a.count);
   }, [stats]);
-
-  const costTrendData = useMemo(() => {
-    return history.map((snap) => {
-      const total = Object.values(snap.data.projects).reduce((sum, p) => sum + p.lastCost, 0);
-      const d = new Date(snap.timestamp * 1000);
-      return {
-        date: `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`,
-        cost: +total.toFixed(2),
-      };
-    });
-  }, [history]);
 
   const sessionDurationData = useMemo(() => {
     if (!stats) return [];
@@ -252,10 +178,6 @@ function StatsPage() {
             <span className="stat-card-label">{t("stats.startups")}</span>
             <span className="stat-card-value accent-blue">{stats.numStartups}</span>
           </div>
-          <div className="stat-card" style={{ animationDelay: "0.15s" }}>
-            <span className="stat-card-label">{t("stats.totalCost")}</span>
-            <span className="stat-card-value accent-green">{formatUSD(totalCost)}</span>
-          </div>
           <div className="stat-card" style={{ animationDelay: "0.2s" }}>
             <span className="stat-card-label">{t("stats.firstUse")}</span>
             <span className="stat-card-value accent-purple">
@@ -266,96 +188,6 @@ function StatsPage() {
             <span className="stat-card-label">{t("stats.totalProjects")}</span>
             <span className="stat-card-value accent-orange">{projectCount}</span>
           </div>
-        </div>
-
-        {/* 费用统计 */}
-        <div className="stats-section" style={{ animationDelay: "0.3s" }}>
-          <h2 className="stats-section-title">{t("stats.costSection")}</h2>
-          <div className="stats-chart-group">
-            <div className="stats-chart-block">
-              <div className="stats-chart-label">{t("stats.costByProject")}</div>
-              {projectCostData.length > 0 ? (
-                <ResponsiveContainer
-                  width="100%"
-                  height={Math.max(200, projectCostData.length * 40)}
-                >
-                  <BarChart
-                    data={projectCostData}
-                    layout="vertical"
-                    margin={{ left: 20, right: 20, top: 5, bottom: 5 }}
-                  >
-                    <XAxis type="number" tick={TICK_STYLE} tickFormatter={(v) => `$${v}`} />
-                    <YAxis type="category" dataKey="name" width={120} tick={TICK_STYLE} />
-                    <Tooltip
-                      formatter={(v: number | undefined) => formatUSD(v ?? 0)}
-                      contentStyle={TOOLTIP_STYLE}
-                    />
-                    <Bar dataKey="cost" fill={COLORS.blue} radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <p className="stats-no-data">-</p>
-              )}
-            </div>
-            <div className="stats-chart-block">
-              <div className="stats-chart-label">{t("stats.costByModel")}</div>
-              {modelCostData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={250}>
-                  <PieChart>
-                    <Pie
-                      data={modelCostData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={90}
-                      paddingAngle={2}
-                      label={({ name, value }) =>
-                        `${(name ?? "").split("-").slice(0, 2).join("-")} $${value}`
-                      }
-                      labelLine={false}
-                    >
-                      {modelCostData.map((entry, i) => (
-                        <Cell key={entry.name} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(v: number | undefined) => formatUSD(v ?? 0)}
-                      contentStyle={TOOLTIP_STYLE}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <p className="stats-no-data">-</p>
-              )}
-            </div>
-          </div>
-
-          {/* 费用趋势 */}
-          {costTrendData.length > 1 && (
-            <div className="stats-chart-block">
-              <div className="stats-chart-label">{t("stats.costTrend")}</div>
-              <ResponsiveContainer width="100%" height={200}>
-                <AreaChart data={costTrendData} margin={{ left: 10, right: 10, top: 5, bottom: 5 }}>
-                  <XAxis dataKey="date" tick={TICK_STYLE_SM} />
-                  <YAxis tick={TICK_STYLE} tickFormatter={(v) => `$${v}`} />
-                  <Tooltip
-                    formatter={(v: number | undefined) => formatUSD(v ?? 0)}
-                    contentStyle={TOOLTIP_STYLE}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="cost"
-                    stroke={COLORS.green}
-                    fill={COLORS.green}
-                    fillOpacity={0.15}
-                    strokeWidth={2}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          )}
         </div>
 
         {/* 工具 & Skill 使用 */}

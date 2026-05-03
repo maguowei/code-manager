@@ -33,7 +33,7 @@ use skills::{
     add_skill, add_skill_file, delete_skill, delete_skill_file, get_skill_files, get_skills,
     sync_skill_to_codex, toggle_skill, update_skill, update_skill_file,
 };
-use stats::{get_stats, get_stats_history, take_stats_snapshot};
+use stats::get_stats;
 use tauri::Manager;
 use usage::{
     get_session_usage_detail, get_usage_by_model, get_usage_by_project, get_usage_by_session,
@@ -79,9 +79,6 @@ pub fn run() {
             let claude_directory_watcher =
                 claude_directory_watcher::start_claude_directory_watcher(app.handle().clone());
             app.manage(claude_directory_watcher);
-            let snapshot_handle = stats::start_snapshot_timer();
-            // 保存句柄，app 退出时 handle drop 但线程也会随进程终止
-            app.manage(snapshot_handle);
             // 启动 token/cost 用量统计运行时（管理状态、首扫、价格刷新、watcher 增量）
             usage::start_usage_runtime(app);
             Ok(())
@@ -125,8 +122,6 @@ pub fn run() {
             delete_memory,
             toggle_memory,
             get_stats,
-            get_stats_history,
-            take_stats_snapshot,
             get_history,
             get_history_if_changed,
             get_session_detail,

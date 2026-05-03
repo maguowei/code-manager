@@ -12,9 +12,6 @@ pub static CONFIG_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 /// 记忆文件操作互斥锁
 pub static MEMORY_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
-/// 统计快照文件操作互斥锁
-pub static STATS_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
-
 /// Skills 文件操作互斥锁
 pub static SKILLS_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
@@ -195,11 +192,6 @@ pub fn lock_config() -> Result<MutexGuard<'static, ()>, String> {
 /// 获取记忆文件写锁，防止并发写入
 pub fn lock_memory() -> Result<MutexGuard<'static, ()>, String> {
     acquire_lock(&MEMORY_LOCK)
-}
-
-/// 获取统计文件写锁，防止并发写入
-pub fn lock_stats() -> Result<MutexGuard<'static, ()>, String> {
-    acquire_lock(&STATS_LOCK)
 }
 
 /// 获取 Skills 文件写锁，防止并发写入
