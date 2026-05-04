@@ -1,6 +1,6 @@
 //! Token 用量与花费统计模块
 //!
-//! 数据源：~/.claude/projects/<project_dir>/<sessionId>.jsonl
+//! 数据源：~/.claude/projects/<project_dir>/<sessionId>.jsonl 及其 subagents/*.jsonl
 //!
 //! 提取每条 assistant 记录的 message.usage，按价格表计算 cost，提供按
 //! 日期 / 项目 / 会话 / 模型四个维度的聚合查询。message.id 全局去重。
@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
 use std::io::{Read, Seek, SeekFrom};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::sync::{Mutex, RwLock};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Listener, Manager, State};
@@ -268,6 +268,82 @@ fn index_cache_path() -> PathBuf {
 
 fn projects_root() -> PathBuf {
     utils::home_dir_or_fallback().join(".claude").join("projects")
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct UsageFile {
+    path: PathBuf,
+    project_dir_name: String,
+}
+
+fn identify_usage_file(projects_dir: &Path, path: &Path) -> Option<UsageFile> {
+    let relative_path = path.strip_prefix(projects_dir).ok()?;
+    let mut parts = Vec::new();
+
+    for component in relative_path.components() {
+        match component {
+            Component::Normal(part) => parts.push(part.to_string_lossy().into_owned()),
+            Component::CurDir => {}
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) => return None,
+        }
+    }
+
+    let file_name = parts.last()?;
+    let is_jsonl = Path::new(file_name)
+        .extension()
+        .and_then(|s| s.to_str())
+        .is_some_and(|ext| ext == "jsonl");
+    if !is_jsonl {
+        return None;
+    }
+
+    let project_dir_name = match parts.as_slice() {
+        [project_dir, _session_file] => project_dir.clone(),
+        [project_dir, _session_dir, subagents_dir, _agent_file] if subagents_dir == "subagents" => {
+            project_dir.clone()
+        }
+        _ => return None,
+    };
+
+    Some(UsageFile {
+        path: path.to_path_buf(),
+        project_dir_name,
+    })
+}
+
+fn collect_usage_files(projects_dir: &Path) -> Vec<UsageFile> {
+    fn visit(projects_dir: &Path, current: &Path, out: &mut Vec<UsageFile>) {
+        let entries = match fs::read_dir(current) {
+            Ok(entries) => entries,
+            Err(_) => return,
+        };
+
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let metadata = match fs::symlink_metadata(&path) {
+                Ok(metadata) => metadata,
+                Err(_) => continue,
+            };
+            if metadata.file_type().is_symlink() {
+                continue;
+            }
+            if metadata.is_dir() {
+                visit(projects_dir, &path, out);
+                continue;
+            }
+            if !metadata.is_file() {
+                continue;
+            }
+            if let Some(file) = identify_usage_file(projects_dir, &path) {
+                out.push(file);
+            }
+        }
+    }
+
+    let mut files = Vec::new();
+    visit(projects_dir, projects_dir, &mut files);
+    files.sort_by(|a, b| a.path.cmp(&b.path));
+    files
 }
 
 fn load_builtin_pricing() -> PricingTable {
@@ -611,94 +687,66 @@ pub fn scan_all(state: &UsageState, full_rescan: bool) -> Result<ScanResult, Str
     };
     let mut files_count: u64 = 0;
 
-    let entries = match fs::read_dir(&projects_dir) {
-        Ok(e) => e,
-        Err(err) => {
-            log::warn!("event=usage.scan status=warn reason=read_projects_failed err={err}");
-            return Ok(ScanResult::default());
-        }
-    };
+    if let Err(err) = fs::read_dir(&projects_dir) {
+        log::warn!("event=usage.scan status=warn reason=read_projects_failed err={err}");
+        return Ok(ScanResult::default());
+    }
 
-    for entry in entries.flatten() {
-        let path = entry.path();
-        let metadata = match fs::symlink_metadata(&path) {
+    for usage_file in collect_usage_files(&projects_dir) {
+        let p = usage_file.path;
+        let im = match fs::symlink_metadata(&p) {
             Ok(m) => m,
             Err(_) => continue,
         };
-        if !metadata.is_dir() || metadata.file_type().is_symlink() {
+        if !im.is_file() || im.file_type().is_symlink() {
             continue;
         }
-        let dir_name = match path.file_name().and_then(|s| s.to_str()) {
-            Some(s) => s.to_string(),
-            None => continue,
-        };
 
-        let inner_entries = match fs::read_dir(&path) {
-            Ok(e) => e,
-            Err(_) => continue,
-        };
-        for ie in inner_entries.flatten() {
-            let p = ie.path();
-            let im = match fs::symlink_metadata(&p) {
-                Ok(m) => m,
-                Err(_) => continue,
-            };
-            if !im.is_file() || im.file_type().is_symlink() {
+        files_count += 1;
+
+        let mtime = im
+            .modified()
+            .ok()
+            .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+            .map(|d| d.as_millis() as i64)
+            .unwrap_or(0);
+        let size = im.len();
+        let prev = persisted_index.get(&p).cloned();
+
+        let start_offset = match &prev {
+            Some(idx) if idx.mtime_ms == mtime && idx.size == size => {
+                new_index.insert(p.clone(), idx.clone());
                 continue;
             }
-            let Some(ext) = p.extension().and_then(|s| s.to_str()) else {
-                continue;
-            };
-            if ext != "jsonl" {
-                continue;
+            Some(idx) if idx.size <= size && idx.mtime_ms <= mtime => idx.last_offset,
+            _ => 0,
+        };
+
+        match scan_file_from_offset(
+            &p,
+            start_offset,
+            &usage_file.project_dir_name,
+            &pricing,
+            &mut new_unknown,
+            &mut local_seen,
+            &mut new_records,
+        ) {
+            Ok(end_offset) => {
+                new_index.insert(
+                    p.clone(),
+                    FileIndex {
+                        mtime_ms: mtime,
+                        size,
+                        last_offset: end_offset,
+                    },
+                );
             }
-
-            files_count += 1;
-
-            let mtime = im
-                .modified()
-                .ok()
-                .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
-                .map(|d| d.as_millis() as i64)
-                .unwrap_or(0);
-            let size = im.len();
-            let prev = persisted_index.get(&p).cloned();
-
-            let start_offset = match &prev {
-                Some(idx) if idx.mtime_ms == mtime && idx.size == size => {
-                    new_index.insert(p.clone(), idx.clone());
-                    continue;
-                }
-                Some(idx) if idx.size <= size && idx.mtime_ms <= mtime => idx.last_offset,
-                _ => 0,
-            };
-
-            match scan_file_from_offset(
-                &p,
-                start_offset,
-                &dir_name,
-                &pricing,
-                &mut new_unknown,
-                &mut local_seen,
-                &mut new_records,
-            ) {
-                Ok(end_offset) => {
-                    new_index.insert(
-                        p.clone(),
-                        FileIndex {
-                            mtime_ms: mtime,
-                            size,
-                            last_offset: end_offset,
-                        },
-                    );
-                }
-                Err(err) => {
-                    log::warn!(
-                        "event=usage.scan.file status=warn file={} err={}",
-                        p.display(),
-                        err
-                    );
-                }
+            Err(err) => {
+                log::warn!(
+                    "event=usage.scan.file status=warn file={} err={}",
+                    p.display(),
+                    err
+                );
             }
         }
     }
@@ -813,7 +861,11 @@ pub fn handle_files_changed(state: &UsageState, files: Vec<PathBuf>) -> Result<u
         .map(|s| s.seen_message_ids.clone())
         .unwrap_or_default();
 
+    let projects_dir = projects_root();
     for path in files {
+        let Some(usage_file) = identify_usage_file(&projects_dir, &path) else {
+            continue;
+        };
         let metadata = match fs::symlink_metadata(&path) {
             Ok(m) => m,
             Err(_) => {
@@ -824,12 +876,6 @@ pub fn handle_files_changed(state: &UsageState, files: Vec<PathBuf>) -> Result<u
         if !metadata.is_file() || metadata.file_type().is_symlink() {
             continue;
         }
-        let project_dir_name = path
-            .parent()
-            .and_then(|p| p.file_name())
-            .and_then(|s| s.to_str())
-            .unwrap_or("")
-            .to_string();
         let mtime = metadata
             .modified()
             .ok()
@@ -849,7 +895,7 @@ pub fn handle_files_changed(state: &UsageState, files: Vec<PathBuf>) -> Result<u
         match scan_file_from_offset(
             &path,
             start_offset,
-            &project_dir_name,
+            &usage_file.project_dir_name,
             &pricing,
             &mut unknown_local,
             &mut local_seen,
@@ -1697,6 +1743,143 @@ mod tests {
         assert_eq!(off, (line1.len() + 1) as u64);
     }
 
+    #[test]
+    fn usage_file_detection_includes_subagent_jsonl_under_project_dir() {
+        let root = PathBuf::from("/tmp/home/.claude/projects");
+        let main_file = root.join("-tmp-demo").join("session-1.jsonl");
+        let subagent_file = root
+            .join("-tmp-demo")
+            .join("session-1")
+            .join("subagents")
+            .join("agent-a.jsonl");
+        let meta_file = root
+            .join("-tmp-demo")
+            .join("session-1")
+            .join("subagents")
+            .join("agent-a.meta.json");
+
+        let main = identify_usage_file(&root, &main_file).unwrap();
+        assert_eq!(main.project_dir_name, "-tmp-demo");
+        assert_eq!(main.path, main_file);
+
+        let subagent = identify_usage_file(&root, &subagent_file).unwrap();
+        assert_eq!(subagent.project_dir_name, "-tmp-demo");
+        assert_eq!(subagent.path, subagent_file);
+
+        assert!(identify_usage_file(&root, &meta_file).is_none());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn collect_usage_files_skips_symlink_files_and_dirs() {
+        let root = tempdir().join("projects");
+        let project_dir = root.join("-tmp-demo");
+        let subagent_dir = project_dir.join("session-1").join("subagents");
+        std::fs::create_dir_all(&subagent_dir).unwrap();
+
+        let regular_file = project_dir.join("session-1.jsonl");
+        let target_file = project_dir.join("target.jsonl");
+        let symlink_file = project_dir.join("linked.jsonl");
+        let target_dir = root.join("-linked-target");
+        let symlink_dir = root.join("-linked-project");
+        std::fs::write(&regular_file, "").unwrap();
+        std::fs::write(&target_file, "").unwrap();
+        std::fs::create_dir_all(&target_dir).unwrap();
+        std::fs::write(target_dir.join("session-2.jsonl"), "").unwrap();
+        std::os::unix::fs::symlink(&target_file, &symlink_file).unwrap();
+        std::os::unix::fs::symlink(&target_dir, &symlink_dir).unwrap();
+
+        let files = collect_usage_files(&root);
+        let paths = files
+            .iter()
+            .map(|file| file.path.clone())
+            .collect::<Vec<_>>();
+
+        assert!(paths.contains(&regular_file));
+        assert!(paths.contains(&target_file));
+        assert!(!paths.contains(&symlink_file));
+        assert!(!paths.contains(&symlink_dir.join("session-2.jsonl")));
+    }
+
+    #[test]
+    fn scan_all_includes_subagent_usage_in_parent_project_and_session() {
+        let _guard = TEST_ENV_LOCK.lock().unwrap();
+        let home = tempdir();
+        let app_data = tempdir();
+        let projects = home.join(".claude").join("projects").join("-tmp-demo");
+        let main_file = projects.join("sess-1.jsonl");
+        let subagent_dir = projects.join("sess-1").join("subagents");
+        let subagent_file = subagent_dir.join("agent-a.jsonl");
+        std::fs::create_dir_all(&subagent_dir).unwrap();
+        std::fs::write(
+            &main_file,
+            format!(
+                "{}\n{}\n",
+                make_assistant_line("msg-main", "sess-1", "claude-opus-4-7", 10, 20),
+                make_assistant_line("msg-dup", "sess-1", "claude-opus-4-7", 30, 40)
+            ),
+        )
+        .unwrap();
+        std::fs::write(
+            &subagent_file,
+            format!(
+                "{}\n{}\n",
+                make_assistant_line("msg-subagent", "sess-1", "claude-opus-4-7", 50, 60),
+                make_assistant_line("msg-dup", "sess-1", "claude-opus-4-7", 30, 40)
+            ),
+        )
+        .unwrap();
+
+        let _env = TestEnv::set(&home, &app_data);
+        let state = UsageState::new();
+        state.inner.write().unwrap().pricing = sample_pricing();
+
+        let result = scan_all(&state, true).unwrap();
+        let inner = state.inner.read().unwrap();
+
+        assert_eq!(result.files_scanned, 2);
+        assert_eq!(result.new_records, 3);
+        assert_eq!(inner.records.len(), 3);
+        assert!(inner.records.iter().all(|r| r.project_dir == "-tmp-demo"));
+        assert!(inner.records.iter().all(|r| r.session_id == "sess-1"));
+        assert!(inner.records.iter().any(|r| r.message_id == "msg-subagent"));
+    }
+
+    #[test]
+    fn incremental_scan_keeps_subagent_file_on_parent_project_dir() {
+        let _guard = TEST_ENV_LOCK.lock().unwrap();
+        let home = tempdir();
+        let app_data = tempdir();
+        let subagent_dir = home
+            .join(".claude")
+            .join("projects")
+            .join("-tmp-demo")
+            .join("sess-1")
+            .join("subagents");
+        let subagent_file = subagent_dir.join("agent-a.jsonl");
+        std::fs::create_dir_all(&subagent_dir).unwrap();
+        std::fs::write(
+            &subagent_file,
+            format!(
+                "{}\n",
+                make_assistant_line("msg-subagent", "sess-1", "claude-opus-4-7", 50, 60)
+            ),
+        )
+        .unwrap();
+
+        let _env = TestEnv::set(&home, &app_data);
+        let state = UsageState::new();
+        state.inner.write().unwrap().pricing = sample_pricing();
+
+        let new_records = handle_files_changed(&state, vec![subagent_file]).unwrap();
+        let inner = state.inner.read().unwrap();
+
+        assert_eq!(new_records, 1);
+        assert_eq!(inner.records.len(), 1);
+        assert_eq!(inner.records[0].project_dir, "-tmp-demo");
+        assert_eq!(inner.records[0].session_id, "sess-1");
+    }
+
     fn make_assistant_line(id: &str, sess: &str, model: &str, input: u64, output: u64) -> String {
         serde_json::json!({
             "type": "assistant",
@@ -1724,6 +1907,41 @@ mod tests {
         ));
         std::fs::create_dir_all(&base).unwrap();
         base
+    }
+
+    static TEST_ENV_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+
+    struct TestEnv {
+        previous_home: Option<std::ffi::OsString>,
+        previous_app_data: Option<std::ffi::OsString>,
+    }
+
+    impl TestEnv {
+        fn set(home: &Path, app_data: &Path) -> Self {
+            let previous_home = std::env::var_os("AI_MANAGER_HOME_OVERRIDE");
+            let previous_app_data = std::env::var_os("AI_MANAGER_APP_DATA_DIR_OVERRIDE");
+            std::env::set_var("AI_MANAGER_HOME_OVERRIDE", home);
+            std::env::set_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE", app_data);
+            Self {
+                previous_home,
+                previous_app_data,
+            }
+        }
+    }
+
+    impl Drop for TestEnv {
+        fn drop(&mut self) {
+            if let Some(value) = self.previous_home.take() {
+                std::env::set_var("AI_MANAGER_HOME_OVERRIDE", value);
+            } else {
+                std::env::remove_var("AI_MANAGER_HOME_OVERRIDE");
+            }
+            if let Some(value) = self.previous_app_data.take() {
+                std::env::set_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE", value);
+            } else {
+                std::env::remove_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE");
+            }
+        }
     }
 
     #[test]
