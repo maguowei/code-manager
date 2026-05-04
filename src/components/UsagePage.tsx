@@ -4,7 +4,6 @@ import {
   AreaChart,
   CartesianGrid,
   Cell,
-  Legend,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -89,6 +88,27 @@ function UsagePage() {
   const { showToast } = useToast();
   const u = useUsage();
   const [openSessionId, setOpenSessionId] = useState<string | null>(null);
+  // 图表层级的模型可见性切换；与顶部 Filters.model 单选互不影响、不触发后端
+  const [hiddenCostModels, setHiddenCostModels] = useState<Set<string>>(() => new Set());
+  const [hiddenTokenSeries, setHiddenTokenSeries] = useState<Set<string>>(() => new Set());
+
+  const toggleCostModel = useCallback((key: string) => {
+    setHiddenCostModels((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const toggleTokenSeries = useCallback((key: string) => {
+    setHiddenTokenSeries((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
 
   const handleRefreshPrice = useCallback(async () => {
     try {
@@ -124,7 +144,14 @@ function UsagePage() {
     for (const point of u.timeSeries) {
       for (const m of point.byModel) allModels.add(m.model);
     }
+    // 按字母序固定颜色映射，避免数据变动导致同一模型换色
     const sortedModels = Array.from(allModels).sort();
+    const colorMap = new Map<string, string>();
+    sortedModels.forEach((model, idx) => {
+      colorMap.set(model, SERIES_COLORS[idx % SERIES_COLORS.length]);
+    });
+    const totalsByModel = new Map<string, number>();
+    for (const model of sortedModels) totalsByModel.set(model, 0);
     const rows = u.timeSeries.map((point) => {
       const row: Record<string, string | number> = {
         bucket: point.bucket,
@@ -132,11 +159,22 @@ function UsagePage() {
       };
       for (const model of sortedModels) {
         const found = point.byModel.find((x) => x.model === model);
-        row[model] = found ? +found.cost.toFixed(4) : 0;
+        const cost = found ? +found.cost.toFixed(4) : 0;
+        row[model] = cost;
+        totalsByModel.set(model, (totalsByModel.get(model) ?? 0) + cost);
       }
       return row;
     });
-    return { rows, models: sortedModels };
+    // 按合计花费降序排列，主力模型靠前；同时也是 Area 渲染顺序（堆叠从底部往上）
+    const modelStats = sortedModels
+      .map((model) => ({
+        key: model,
+        displayName: model,
+        color: colorMap.get(model) ?? SERIES_COLORS[0],
+        totalCost: totalsByModel.get(model) ?? 0,
+      }))
+      .sort((a, b) => b.totalCost - a.totalCost);
+    return { rows, modelStats };
   }, [u.timeSeries, u.timeGranularity, u.filter]);
 
   const modelCostData = useMemo<ModelCostDatum[]>(() => {
@@ -349,94 +387,137 @@ function UsagePage() {
                   </div>
                 </section>
 
-                <ChartPanel
-                  title={t("usage.charts.costTrend")}
-                  className="usage-chart-primary"
-                  actions={
+                <section className="usage-trend-section" aria-label={t("usage.charts.trends")}>
+                  <header className="usage-trend-toolbar">
+                    <h3 className="usage-trend-title">{t("usage.charts.trends")}</h3>
                     <TimeGranularitySwitch
                       value={u.timeGranularity}
                       onChange={u.setTimeGranularity}
                       t={t}
                     />
-                  }
-                >
-                  {timeSeriesChartData.rows.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={300}>
-                      <AreaChart
-                        data={timeSeriesChartData.rows}
-                        margin={{ left: 8, right: 18, top: 10, bottom: 4 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#30363d" vertical={false} />
-                        <XAxis dataKey="label" tick={TICK_STYLE_SM} />
-                        <YAxis tick={TICK_STYLE} tickFormatter={(v) => `$${v}`} width={44} />
-                        <Tooltip
-                          formatter={(v: number | undefined) => formatUSD(v ?? 0)}
-                          labelFormatter={(_, payload) =>
-                            payload?.[0]?.payload?.bucket ?? t("usage.charts.costTrend")
-                          }
-                          contentStyle={TOOLTIP_STYLE}
-                        />
-                        <Legend wrapperStyle={{ fontSize: 11 }} />
-                        {timeSeriesChartData.models.map((model, idx) => (
-                          <Area
-                            key={model}
-                            type="monotone"
-                            dataKey={model}
-                            stackId="cost"
-                            stroke={SERIES_COLORS[idx % SERIES_COLORS.length]}
-                            fill={SERIES_COLORS[idx % SERIES_COLORS.length]}
-                            fillOpacity={0.5}
-                            strokeWidth={1.5}
-                            name={shortModelName(model)}
-                          />
-                        ))}
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <NoData />
-                  )}
-                </ChartPanel>
+                  </header>
 
-                <ChartPanel title={t("usage.charts.tokenTrend")} className="usage-chart-secondary">
-                  {tokenTrendData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={240}>
-                      <AreaChart
-                        data={tokenTrendData}
-                        margin={{ left: 8, right: 18, top: 10, bottom: 4 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#30363d" vertical={false} />
-                        <XAxis dataKey="label" tick={TICK_STYLE_SM} />
-                        <YAxis
-                          tick={TICK_STYLE}
-                          tickFormatter={(v) => formatTokens(v)}
-                          width={54}
+                  <ChartPanel title={t("usage.charts.costTrend")} className="usage-chart-primary">
+                    {timeSeriesChartData.rows.length > 0 ? (
+                      <>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <AreaChart
+                            data={timeSeriesChartData.rows}
+                            margin={{ left: 8, right: 18, top: 10, bottom: 4 }}
+                          >
+                            <CartesianGrid
+                              strokeDasharray="3 3"
+                              stroke="#30363d"
+                              vertical={false}
+                            />
+                            <XAxis dataKey="label" tick={TICK_STYLE_SM} />
+                            <YAxis tick={TICK_STYLE} tickFormatter={(v) => `$${v}`} width={44} />
+                            <Tooltip
+                              formatter={(v: number | undefined) => formatUSD(v ?? 0)}
+                              labelFormatter={(_, payload) =>
+                                payload?.[0]?.payload?.bucket ?? t("usage.charts.costTrend")
+                              }
+                              contentStyle={TOOLTIP_STYLE}
+                            />
+                            {timeSeriesChartData.modelStats
+                              .filter((stat) => !hiddenCostModels.has(stat.key))
+                              .map((stat) => (
+                                <Area
+                                  key={stat.key}
+                                  type="monotone"
+                                  dataKey={stat.key}
+                                  stackId="cost"
+                                  stroke={stat.color}
+                                  fill={stat.color}
+                                  fillOpacity={0.5}
+                                  strokeWidth={1.5}
+                                  name={stat.displayName}
+                                />
+                              ))}
+                          </AreaChart>
+                        </ResponsiveContainer>
+                        <TrendLegend
+                          items={timeSeriesChartData.modelStats.map((stat) => ({
+                            key: stat.key,
+                            color: stat.color,
+                            displayName: stat.displayName,
+                            originalName: stat.key,
+                            meta: formatUSD(stat.totalCost),
+                          }))}
+                          hidden={hiddenCostModels}
+                          onToggle={toggleCostModel}
+                          ariaLabel={t("usage.charts.costTrend")}
+                          t={t}
                         />
-                        <Tooltip
-                          formatter={(v: number | undefined) => formatTokens(v ?? 0)}
-                          labelFormatter={(_, payload) =>
-                            payload?.[0]?.payload?.bucket ?? t("usage.charts.tokenTrend")
-                          }
-                          contentStyle={TOOLTIP_STYLE}
+                      </>
+                    ) : (
+                      <NoData />
+                    )}
+                  </ChartPanel>
+
+                  <ChartPanel
+                    title={t("usage.charts.tokenTrend")}
+                    className="usage-chart-secondary"
+                  >
+                    {tokenTrendData.length > 0 ? (
+                      <>
+                        <ResponsiveContainer width="100%" height={240}>
+                          <AreaChart
+                            data={tokenTrendData}
+                            margin={{ left: 8, right: 18, top: 10, bottom: 4 }}
+                          >
+                            <CartesianGrid
+                              strokeDasharray="3 3"
+                              stroke="#30363d"
+                              vertical={false}
+                            />
+                            <XAxis dataKey="label" tick={TICK_STYLE_SM} />
+                            <YAxis
+                              tick={TICK_STYLE}
+                              tickFormatter={(v) => formatTokens(v)}
+                              width={54}
+                            />
+                            <Tooltip
+                              formatter={(v: number | undefined) => formatTokens(v ?? 0)}
+                              labelFormatter={(_, payload) =>
+                                payload?.[0]?.payload?.bucket ?? t("usage.charts.tokenTrend")
+                              }
+                              contentStyle={TOOLTIP_STYLE}
+                            />
+                            {tokenTrendSeries
+                              .filter((series) => !hiddenTokenSeries.has(series.dataKey))
+                              .map((series) => (
+                                <Area
+                                  key={series.dataKey}
+                                  type="monotone"
+                                  dataKey={series.dataKey}
+                                  stroke={series.color}
+                                  fill={series.color}
+                                  fillOpacity={0.12}
+                                  strokeWidth={1.8}
+                                  name={series.name}
+                                />
+                              ))}
+                          </AreaChart>
+                        </ResponsiveContainer>
+                        <TrendLegend
+                          items={tokenTrendSeries.map((series) => ({
+                            key: series.dataKey,
+                            color: series.color,
+                            displayName: series.name,
+                            originalName: series.name,
+                          }))}
+                          hidden={hiddenTokenSeries}
+                          onToggle={toggleTokenSeries}
+                          ariaLabel={t("usage.charts.tokenTrend")}
+                          t={t}
                         />
-                        <Legend wrapperStyle={{ fontSize: 11 }} />
-                        {tokenTrendSeries.map((series) => (
-                          <Area
-                            key={series.dataKey}
-                            type="monotone"
-                            dataKey={series.dataKey}
-                            stroke={series.color}
-                            fill={series.color}
-                            fillOpacity={0.12}
-                            strokeWidth={1.8}
-                            name={series.name}
-                          />
-                        ))}
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <NoData />
-                  )}
-                </ChartPanel>
+                      </>
+                    ) : (
+                      <NoData />
+                    )}
+                  </ChartPanel>
+                </section>
               </main>
 
               <aside className="usage-side-rail" aria-label={t("usage.sideRailLabel")}>
@@ -593,6 +674,64 @@ function TimeGranularitySwitch({
   );
 }
 
+interface TrendLegendItem {
+  key: string;
+  color: string;
+  displayName: string;
+  originalName: string;
+  meta?: string;
+}
+
+function TrendLegend({
+  items,
+  hidden,
+  onToggle,
+  ariaLabel,
+  t,
+}: {
+  items: TrendLegendItem[];
+  hidden: Set<string>;
+  onToggle: (key: string) => void;
+  ariaLabel: string;
+  t: ReturnType<typeof useI18n>["t"];
+}) {
+  if (items.length === 0) return null;
+  const hint = t("usage.charts.legendToggle");
+  const hiddenLabel = t("usage.charts.legendHidden");
+  return (
+    <ul className="usage-legend-list" aria-label={ariaLabel}>
+      {items.map((item) => {
+        const isHidden = hidden.has(item.key);
+        const title = isHidden
+          ? `${item.originalName} · ${hiddenLabel}`
+          : `${item.originalName} · ${hint}`;
+        return (
+          <li key={item.key}>
+            <button
+              type="button"
+              className={`usage-legend-chip ${isHidden ? "muted" : ""}`}
+              aria-pressed={!isHidden}
+              title={title}
+              onClick={() => onToggle(item.key)}
+            >
+              <span
+                className="usage-legend-chip-swatch"
+                style={{
+                  background: isHidden ? "transparent" : item.color,
+                  borderColor: item.color,
+                }}
+                aria-hidden="true"
+              />
+              <span className="usage-legend-chip-name">{item.displayName}</span>
+              {item.meta && <span className="usage-legend-chip-meta">{item.meta}</span>}
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function ModelCostShare({
   data,
   total,
@@ -643,7 +782,7 @@ function ModelCostShare({
             <div className="usage-model-share-row">
               <span className="usage-model-swatch" style={{ background: item.color }} />
               <span className="usage-model-name" title={item.name}>
-                {shortModelName(item.name)}
+                {item.name}
               </span>
               <span className="usage-model-percent">{item.percent.toFixed(1)}%</span>
               <strong className="usage-model-cost">{formatUSD(item.value)}</strong>

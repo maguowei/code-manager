@@ -46,13 +46,18 @@ vi.mock("../../hooks/useUsage", () => ({
 vi.mock("recharts", () => {
   const Chart = ({ children }: { children?: ReactNode }) => <div>{children}</div>;
   return {
-    Area: () => null,
+    Area: ({ dataKey, name }: { dataKey?: string; name?: string }) => (
+      <div
+        data-testid="chart-area"
+        data-key={String(dataKey ?? "")}
+        data-name={String(name ?? "")}
+      />
+    ),
     AreaChart: Chart,
     Bar: () => null,
     BarChart: Chart,
     CartesianGrid: () => null,
     Cell: () => null,
-    Legend: () => null,
     Pie: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
     PieChart: Chart,
     ResponsiveContainer: ({ children }: { children?: ReactNode }) => (
@@ -224,18 +229,54 @@ const models: ModelUsageStat[] = [
   },
 ];
 
+// 多模型时间序列：用于验证图例按合计花费降序、可见性切换等
+const multiModelTimeSeries: UsageTimeSeriesPoint[] = [
+  {
+    bucket: "2026-05-23 09:00",
+    bucketStartMs: Date.UTC(2026, 4, 23, 9, 0),
+    messages: 30,
+    sessions: 5,
+    inputTokens: 600_000,
+    outputTokens: 300_000,
+    cacheCreationTokens: 30_000,
+    cacheReadTokens: 1_500_000,
+    cost: 12.34,
+    byModel: [
+      {
+        model: "claude-3-opus",
+        messages: 9,
+        inputTokens: 200_000,
+        outputTokens: 80_000,
+        cacheCreationTokens: 5_000,
+        cacheReadTokens: 100_000,
+        cost: 10,
+      },
+      {
+        model: "claude-3-7-sonnet",
+        messages: 21,
+        inputTokens: 400_000,
+        outputTokens: 220_000,
+        cacheCreationTokens: 25_000,
+        cacheReadTokens: 1_400_000,
+        cost: 2.34,
+      },
+    ],
+  },
+];
+
 function makeUsage(
   overrides: Partial<{
     tab: UsageTab;
     filter: UsageFilter;
     rescanning: boolean;
     timeGranularity: UsageTimeGranularity;
+    timeSeries: UsageTimeSeriesPoint[];
   }> = {},
 ) {
   return {
     summary,
     daily,
-    timeSeries,
+    timeSeries: overrides.timeSeries ?? timeSeries,
     timeGranularity: overrides.timeGranularity ?? "hour",
     setTimeGranularity: vi.fn(),
     projects,
@@ -261,6 +302,7 @@ function renderUsage(
     filter: UsageFilter;
     rescanning: boolean;
     timeGranularity: UsageTimeGranularity;
+    timeSeries: UsageTimeSeriesPoint[];
   }>,
 ) {
   const usage = makeUsage(overrides);
@@ -300,7 +342,7 @@ describe("UsagePage cost cockpit", () => {
     expect(screen.getByRole("group", { name: "用量筛选" })).toHaveClass("usage-command-bar");
     expect(screen.getAllByText("模型成本占比").length).toBeGreaterThanOrEqual(1);
     const modelShareList = screen.getByRole("list", { name: "模型成本占比" });
-    expect(within(modelShareList).getByText("sonnet")).toBeInTheDocument();
+    expect(within(modelShareList).getByText("claude-3-7-sonnet")).toBeInTheDocument();
     expect(within(modelShareList).getByText("$79.73")).toBeInTheDocument();
     expect(within(modelShareList).getByText("62.1%")).toBeInTheDocument();
     expect(screen.getByText("Token 趋势")).toBeInTheDocument();
@@ -377,6 +419,66 @@ describe("UsagePage cost cockpit", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "天" }));
     expect(usage.setTimeGranularity).toHaveBeenCalledWith("day");
+  });
+
+  it("groups both trend charts into a single trend section that owns the granularity switch", () => {
+    renderUsage();
+
+    const trendSection = screen.getByRole("region", { name: "趋势分析" });
+    expect(trendSection).toHaveClass("usage-trend-section");
+    expect(within(trendSection).getByText("趋势分析")).toBeInTheDocument();
+    expect(within(trendSection).getByRole("group", { name: "图表时间维度" })).toBeInTheDocument();
+    // 两个图表都在同一个 section 内
+    expect(within(trendSection).getByText("花费趋势（按模型堆叠）")).toBeInTheDocument();
+    expect(within(trendSection).getByText("Token 趋势")).toBeInTheDocument();
+  });
+
+  it("renders a clickable cost legend with full model name and total cost, sorted by spend", () => {
+    renderUsage({ timeSeries: multiModelTimeSeries });
+
+    const costLegend = screen.getByRole("list", { name: "花费趋势（按模型堆叠）" });
+    const chips = within(costLegend).getAllByRole("button");
+    // opus 总花费 $10 > sonnet 总花费 $2.34，应排在前；图例显示完整模型名
+    expect(chips[0]).toHaveTextContent("claude-3-opus");
+    expect(chips[0]).toHaveTextContent("$10.00");
+    expect(chips[1]).toHaveTextContent("claude-3-7-sonnet");
+    expect(chips[1]).toHaveTextContent("$2.34");
+    // 默认全部可见
+    for (const chip of chips) {
+      expect(chip).toHaveAttribute("aria-pressed", "true");
+      expect(chip).not.toHaveClass("muted");
+    }
+  });
+
+  it("hides a series when its cost legend chip is clicked and restores it on second click", () => {
+    renderUsage({ timeSeries: multiModelTimeSeries });
+
+    const costLegend = screen.getByRole("list", { name: "花费趋势（按模型堆叠）" });
+    const opusChip = within(costLegend).getByRole("button", { name: /claude-3-opus/ });
+
+    // 初始：opus area 存在
+    const opusAreasBefore = screen
+      .getAllByTestId("chart-area")
+      .filter((el) => el.getAttribute("data-key") === "claude-3-opus");
+    expect(opusAreasBefore.length).toBeGreaterThan(0);
+
+    // 点击隐藏：chip 进入 muted 态、area 消失
+    fireEvent.click(opusChip);
+    expect(opusChip).toHaveAttribute("aria-pressed", "false");
+    expect(opusChip).toHaveClass("muted");
+    const opusAreasAfter = screen
+      .getAllByTestId("chart-area")
+      .filter((el) => el.getAttribute("data-key") === "claude-3-opus");
+    expect(opusAreasAfter).toHaveLength(0);
+
+    // 再次点击恢复
+    fireEvent.click(opusChip);
+    expect(opusChip).toHaveAttribute("aria-pressed", "true");
+    expect(opusChip).not.toHaveClass("muted");
+    const opusAreasRestored = screen
+      .getAllByTestId("chart-area")
+      .filter((el) => el.getAttribute("data-key") === "claude-3-opus");
+    expect(opusAreasRestored.length).toBeGreaterThan(0);
   });
 
   it("resets filters back to today", () => {
