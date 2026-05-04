@@ -21,8 +21,12 @@
   - `configs.json`
   - `memories.json`
   - `model-pricing.json`
-  - `usage_index.json`
   - `skills-disabled/`
+- 用量 SQLite 缓存：Tauri SQL 插件的应用配置目录
+  - macOS：`~/Library/Application Support/com.gotobeta.app.ai-manager/usage.db`
+  - Linux：`$XDG_CONFIG_HOME/com.gotobeta.app.ai-manager/usage.db` 或 `~/.config/com.gotobeta.app.ai-manager/usage.db`
+  - Windows：`%APPDATA%\com.gotobeta.app.ai-manager\usage.db`
+  - WAL 模式可能同时生成 `usage.db-wal` 与 `usage.db-shm`
 - 应用直接操作的 Claude Code 用户目录：`~/.claude/`
   - `settings.json`
   - `CLAUDE.md`
@@ -215,11 +219,11 @@
 - 项目最近会话区域默认展开，单个项目卡片默认折叠；折叠交互继续使用原生 `details/summary`，并保持整行可点击和键盘可访问性。
 - 项目卡片标题只显示项目路径最后一级；会话 ID 放在项目名下方，不额外加“会话 ID”标签，窄宽度下允许单行省略并保留完整值的 `title`。
 - `stats.rs` 当前只提供 `get_stats` 和 `open_claude_json_in_editor`，不要在文档或前端假设存在历史快照 command。
-- Token 用量页是独立的 `UsagePage`，数据来源是 `~/.claude/projects/<project>/<session>.jsonl` 中 assistant 消息的 `message.usage`，不要和 `StatsPage` 的 `~/.claude.json` 数据源混用。
+- Token 用量页是独立的 `UsagePage`，数据来源是 `~/.claude/projects/**/*.jsonl` 中 assistant 消息的 `message.usage`，包括主会话 jsonl 与 `<session>/subagents/*.jsonl`，不要和 `StatsPage` 的 `~/.claude.json` 数据源混用。
 - `usage.rs` 会在 `lib.rs` setup 中通过 `usage::start_usage_runtime(app)` 启动：加载价格表、首次扫描、监听 `claude-directory-changed` 做增量扫描，并向前端发出 `usage-records-changed` / `usage-pricing-updated`。
 - 用量聚合维度包括 daily、project、session、model；筛选字段来自 `UsageFilter`，新增筛选条件要同步 `src/types.ts`、`useUsage.ts`、`usage.rs` 和 i18n。
-- 价格表加载顺序是本地缓存 `~/.config/ai-manager/model-pricing.json` -> 内置 `src-tauri/resources/model-pricing.json` -> 启动后尝试从 models.dev 刷新；扫描索引写入 `~/.config/ai-manager/usage_index.json`。
-- `message.id` 是 usage 记录去重锚点；处理增量扫描、重扫和未知模型时不要破坏 `seen_message_ids`、`file_index` 与 `unknown_models` 的一致性。
+- 价格表加载顺序是本地缓存 `~/.config/ai-manager/model-pricing.json` -> 内置 `src-tauri/resources/model-pricing.json` -> 启动后尝试从 models.dev 刷新；用量 records、扫描索引和 last scan metadata 写入 `sqlite:usage.db`，索引表为 `usage_file_index`。
+- `message.id` 是 usage 记录去重锚点；处理增量扫描、重扫和未知模型时不要破坏 SQLite 中的 `usage_records`、`usage_file_index` 与内存中的 `unknown_models` 一致性。
 
 ### 6. 改项目管理页
 

@@ -158,18 +158,28 @@ let (cache_5m, cache_1h) = if let Some(cc) = usage_v.get("cache_creation") {
 
 ## 增量扫描与文件 offset
 
-为避免每次启动重读 27k+ 条记录，使用 `~/.config/ai-manager/usage_index.json` 持久化每个 jsonl 的元信息：
+为避免每次启动重读全部 jsonl，用 Tauri SQL 插件的 `sqlite:usage.db` 持久化 records、文件 offset 索引和扫描 metadata。运行时不是内存库；实际文件位于 Tauri `app_config_dir`：
 
-```json
-{
-  "files": {
-    "/Users/.../-Users-x-projects/abc.jsonl": {
-      "mtimeMs": 1746281234000,
-      "size": 524288,
-      "lastOffset": 524288
-    }
-  }
-}
+- macOS：`~/Library/Application Support/com.gotobeta.app.ai-manager/usage.db`
+- Linux：`$XDG_CONFIG_HOME/com.gotobeta.app.ai-manager/usage.db` 或 `~/.config/com.gotobeta.app.ai-manager/usage.db`
+- Windows：`%APPDATA%\com.gotobeta.app.ai-manager\usage.db`
+
+当前核心表：
+
+```sql
+CREATE TABLE IF NOT EXISTS usage_records (...);
+
+CREATE TABLE IF NOT EXISTS usage_file_index (
+    path TEXT PRIMARY KEY NOT NULL,
+    mtime_ms INTEGER NOT NULL DEFAULT 0,
+    size INTEGER NOT NULL DEFAULT 0,
+    last_offset INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS usage_meta (
+    key TEXT PRIMARY KEY NOT NULL,
+    value TEXT NOT NULL
+);
 ```
 
 启动扫描时按文件比对：
@@ -233,7 +243,7 @@ watcher 触发的增量扫描不会重算已有 records 的 cost，仅追加新 
 | Cache 1h/5m | 合并按 cache_write 单价 | 合并 | 合并 |
 | 维度 | daily / project / session / model | daily / monthly / session / blocks | today / weekly / all-time |
 | 未识别模型 | cost = 0 + 警告条 | 不计费 | 仅支持 opus/sonnet/haiku |
-| 持久化 | 索引 + 价格缓存（records 不落盘） | 无（每次重扫） | SQLite 增量扫描 |
+| 持久化 | SQLite records + 文件索引 + 价格缓存 | 无（每次重扫） | SQLite 增量扫描 |
 | 5h Block 视图 | 暂未实现 | 有 | 无 |
 | 时区 | 本地时区 | UTC（默认） | 不详 |
 
@@ -255,10 +265,10 @@ watcher 触发的增量扫描不会重算已有 records 的 cost，仅追加新 
 
 1. **Cache 1h 与 5m 未分别计费** — models.dev 价格表不区分。如果 Anthropic 后续公布差异化定价，需扩展 `ModelPrice` 与 `compute_cost`。
 2. **未识别模型 cost = 0** — 第三方代理（OpenRouter / Bedrock 等）使用的非 Anthropic 模型 ID 不会被识别。后续可考虑暴露"自定义价格表"功能让用户手动补充。
-3. **不持久化 records** — 每次启动重扫。当文件数突破 1 万 / 记录突破 10 万时可能需要切换到 SQLite。
+3. **SQLite 首次建库需要全量扫描** — 从旧版本升级或 `usage.db` 不存在时，需要完整读取一次 `~/.claude/projects/**/*.jsonl` 来初始化 `usage_records` 与 `usage_file_index`。
 4. **不支持 5h Block 视图** — Claude Pro/Max 用户的滚动 5 小时配额窗口尚未实现，可作为后续 ccusage 风格的"配额预测"功能补上。
 5. **时区取一次后缓存** — 用户夏令时切换 / 跨时区出差时，应用需要重启才能正确分桶。
-6. **未做磁盘空间监控** — `usage_index.json` 体积随 jsonl 文件数线性增长（单条索引约 200 字节），1 万文件约 2 MB，量级可控。
+6. **未做磁盘空间监控** — `usage.db` 体积随 records 与 jsonl 文件数增长；WAL 模式还可能产生 `usage.db-wal` 与 `usage.db-shm`，后续可在诊断页补充数据库大小提示。
 
 ## 关键文件
 

@@ -64,11 +64,11 @@ AI Manager 的目标是把这些高频操作变成可见、可预览、可验证
 
 ### Token 用量与费用
 
-- 扫描 `~/.claude/projects/<project>/<session>.jsonl` 中 assistant 消息的 `message.usage`
+- 扫描 `~/.claude/projects/**/*.jsonl` 中 assistant 消息的 `message.usage`，包括主会话 jsonl 与 `<session>/subagents/*.jsonl`
 - 按日期、项目、会话和模型聚合消息数、Token、缓存 Token 和费用
 - 支持日期、项目、会话、模型筛选，并可打开单个会话的消息级用量明细
 - 模型价格优先使用本地缓存，内置 `model-pricing.json` 兜底，启动后会尝试从 models.dev 刷新
-- 维护增量扫描索引，`~/.claude` 目录变更后会自动刷新用量视图
+- 用 SQLite 持久化用量 records 与增量扫描索引，`~/.claude` 目录变更后会自动刷新用量视图
 
 ### 项目管理
 
@@ -100,9 +100,24 @@ AI Manager 的目标是把这些高频操作变成可见、可预览、可验证
   configs.json
   memories.json
   model-pricing.json
-  usage_index.json
   skills-disabled/
 ```
+
+### 用量 SQLite 缓存
+
+```text
+macOS:
+~/Library/Application Support/com.gotobeta.app.ai-manager/usage.db
+
+Linux:
+$XDG_CONFIG_HOME/com.gotobeta.app.ai-manager/usage.db
+或 ~/.config/com.gotobeta.app.ai-manager/usage.db
+
+Windows:
+%APPDATA%\com.gotobeta.app.ai-manager\usage.db
+```
+
+SQLite 使用 WAL 模式时，同目录可能出现 `usage.db-wal` 与 `usage.db-shm`。
 
 ### Claude Code 用户目录
 
