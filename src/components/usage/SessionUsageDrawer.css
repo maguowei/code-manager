@@ -1,18 +1,19 @@
-/* SessionUsageDrawer 专用样式（与 SessionDetailDrawer 共享 overlay/drawer 外壳） */
+/* 会话用量抽屉：消息级成本明细 */
 
 .session-usage-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--space-6);
   display: flex;
+  flex: 1;
+  min-height: 0;
   flex-direction: column;
   gap: var(--space-4);
+  overflow-y: auto;
+  padding: var(--space-5);
 }
 
 .session-usage-empty {
   padding: var(--space-8) var(--space-4);
-  text-align: center;
   color: var(--text-muted);
+  text-align: center;
 }
 
 .session-usage-error {
@@ -20,104 +21,125 @@
 }
 
 .session-usage-header {
-  display: grid;
-  grid-template-columns: 1fr auto;
+  display: flex;
+  flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-4);
-  background: var(--bg-base);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
-  border: 1px solid var(--border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0)), var(--bg-base);
 }
 
-.session-usage-meta {
+.session-usage-title-block {
   display: flex;
+  min-width: 0;
   flex-direction: column;
   gap: var(--space-1);
 }
 
-.session-usage-meta-row {
+.session-usage-session-id {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-family: "SF Mono", "Cascadia Code", monospace;
+  font-size: var(--font-sm);
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-usage-project {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-usage-summary-grid {
   display: grid;
-  grid-template-columns: 100px 1fr;
-  align-items: center;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-2);
 }
 
-.session-usage-meta-label {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.session-usage-meta-value {
-  font-size: 13px;
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  word-break: break-all;
-}
-
-.session-usage-totals {
+.session-usage-summary-item {
   display: flex;
-  gap: var(--space-3);
-}
-
-.session-usage-total {
-  display: flex;
+  min-width: 0;
   flex-direction: column;
-  align-items: flex-end;
   gap: var(--space-1);
-  min-width: 96px;
+  padding: var(--space-3);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
 }
 
-.session-usage-total .label {
-  font-size: 11px;
+.session-usage-summary-item.wide {
+  grid-column: span 2;
+}
+
+.session-usage-summary-item .label {
   color: var(--text-muted);
-  text-transform: uppercase;
+  font-size: var(--font-xs);
+  font-weight: 800;
   letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.session-usage-total .value {
-  font-size: 18px;
-  font-weight: 600;
+.session-usage-summary-item .value {
+  overflow: hidden;
   color: var(--text-primary);
+  font-family: "SF Mono", "Cascadia Code", monospace;
+  font-size: var(--font-sm);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-usage-summary-item .value.accent-green {
+  color: var(--accent-green);
 }
 
 .session-usage-table-wrap {
-  border: 1px solid var(--border);
+  max-width: 100%;
+  overflow: auto;
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
-  overflow: hidden;
   background: var(--bg-base);
+  scrollbar-color: var(--border-muted) transparent;
+  scrollbar-width: thin;
 }
 
 .session-usage-table {
   width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
+  min-width: 760px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--font-sm);
 }
 
 .session-usage-table thead {
-  background: var(--bg-elevated);
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: var(--z-index-above-content);
+  background: var(--bg-elevated);
 }
 
 .session-usage-table th {
-  text-align: left;
   padding: var(--space-2) var(--space-3);
-  font-weight: 500;
+  border-bottom: 1px solid var(--border-default);
   color: var(--text-muted);
-  border-bottom: 1px solid var(--border);
+  font-size: var(--font-xs);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
-.session-usage-table th.num,
-.session-usage-table td.num {
-  text-align: right;
-  font-family: var(--font-mono);
-}
-
 .session-usage-table td {
-  padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--border);
+  padding: 10px var(--space-3);
+  border-bottom: 1px solid var(--border-muted);
   color: var(--text-primary);
   vertical-align: middle;
 }
@@ -127,15 +149,33 @@
 }
 
 .session-usage-table tbody tr:hover {
-  background: var(--bg-elevated);
+  background: var(--bg-primary);
+}
+
+.session-usage-table th.num,
+.session-usage-table td.num {
+  font-family: "SF Mono", "Cascadia Code", monospace;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .session-usage-table .model-cell {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-secondary);
   max-width: 220px;
   overflow: hidden;
+  color: var(--text-secondary);
+  font-family: "SF Mono", "Cascadia Code", monospace;
+  font-size: var(--font-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .session-usage-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .session-usage-summary-item.wide {
+    grid-column: 1 / -1;
+  }
 }

@@ -60,7 +60,7 @@ function SessionUsageDrawer({ sessionId, onClose }: Props) {
             </svg>
           </button>
           <h2>
-            {t("usage.detail.title")} — {shortSessionId(sessionId)}
+            {t("usage.detail.title")} - {shortSessionId(sessionId)}
           </h2>
         </div>
 
@@ -72,41 +72,46 @@ function SessionUsageDrawer({ sessionId, onClose }: Props) {
           ) : detail ? (
             <>
               <div className="session-usage-header">
-                <div className="session-usage-meta">
-                  <div className="session-usage-meta-row">
-                    <span className="session-usage-meta-label">{t("usage.table.project")}</span>
-                    <span className="session-usage-meta-value" title={detail.session.projectPath}>
-                      {shortPath(detail.session.projectPath)}
-                    </span>
-                  </div>
-                  <div className="session-usage-meta-row">
-                    <span className="session-usage-meta-label">{t("usage.table.startedAt")}</span>
-                    <span className="session-usage-meta-value">
-                      {formatShortDateTime(detail.session.startedAtMs)}
-                    </span>
-                  </div>
-                  <div className="session-usage-meta-row">
-                    <span className="session-usage-meta-label">{t("usage.table.lastActive")}</span>
-                    <span className="session-usage-meta-value">
-                      {formatShortDateTime(detail.session.lastActiveMs)}
-                    </span>
-                  </div>
-                  <div className="session-usage-meta-row">
-                    <span className="session-usage-meta-label">{t("usage.table.models")}</span>
-                    <span className="session-usage-meta-value">
-                      {detail.session.models.join(", ")}
-                    </span>
-                  </div>
+                <div className="session-usage-title-block">
+                  <span className="session-usage-session-id" title={sessionId}>
+                    {sessionId}
+                  </span>
+                  <span className="session-usage-project" title={detail.session.projectPath}>
+                    {shortPath(detail.session.projectPath)}
+                  </span>
                 </div>
-                <div className="session-usage-totals">
-                  <div className="session-usage-total">
-                    <span className="label">{t("usage.cards.totalCost")}</span>
-                    <span className="value accent-green">{formatCost(detail.session.cost)}</span>
-                  </div>
-                  <div className="session-usage-total">
-                    <span className="label">{t("usage.cards.totalMessages")}</span>
-                    <span className="value">{detail.session.messages}</span>
-                  </div>
+                <div className="session-usage-summary-grid">
+                  <SummaryItem
+                    label={t("usage.cards.totalCost")}
+                    value={formatCost(detail.session.cost)}
+                    accent
+                  />
+                  <SummaryItem
+                    label={t("usage.cards.totalMessages")}
+                    value={String(detail.session.messages)}
+                  />
+                  <SummaryItem
+                    label={t("usage.table.totalTokens")}
+                    value={formatTokens(
+                      detail.session.inputTokens +
+                        detail.session.outputTokens +
+                        detail.session.cacheCreationTokens +
+                        detail.session.cacheReadTokens,
+                    )}
+                  />
+                  <SummaryItem
+                    label={t("usage.table.startedAt")}
+                    value={formatShortDateTime(detail.session.startedAtMs)}
+                  />
+                  <SummaryItem
+                    label={t("usage.table.lastActive")}
+                    value={formatShortDateTime(detail.session.lastActiveMs)}
+                  />
+                  <SummaryItem
+                    label={t("usage.table.models")}
+                    value={detail.session.models.join(", ")}
+                    wide
+                  />
                 </div>
               </div>
 
@@ -149,6 +154,27 @@ function SessionUsageDrawer({ sessionId, onClose }: Props) {
         </div>
       </div>
     </>
+  );
+}
+
+function SummaryItem({
+  label,
+  value,
+  accent = false,
+  wide = false,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+  wide?: boolean;
+}) {
+  return (
+    <div className={`session-usage-summary-item ${wide ? "wide" : ""}`}>
+      <span className="label">{label}</span>
+      <span className={`value ${accent ? "accent-green" : ""}`} title={value}>
+        {value}
+      </span>
+    </div>
   );
 }
 

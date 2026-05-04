@@ -1738,6 +1738,44 @@ mod tests {
     }
 
     #[test]
+    fn apply_filter_respects_local_date_range() {
+        let pricing = sample_pricing();
+        let noon =
+            |date: &str| parse_local_date_to_ms(date, false).unwrap() + 12 * 60 * 60 * 1000;
+        let mk = |id: &str, date: &str| UsageRecord {
+            message_id: id.into(),
+            session_id: "s".into(),
+            project_path: "/p".into(),
+            project_dir: "-p".into(),
+            timestamp_ms: noon(date),
+            model: "claude-sonnet-4-6".into(),
+            input_tokens: 1_000_000,
+            output_tokens: 0,
+            cache_creation_5m: 0,
+            cache_creation_1h: 0,
+            cache_read: 0,
+            cost_usd: 0.0,
+            git_branch: None,
+            cc_version: None,
+        };
+        let records = vec![
+            mk("before", "2026-04-18"),
+            mk("inside", "2026-04-19"),
+            mk("after", "2026-04-20"),
+        ];
+
+        let f = UsageFilter {
+            start_date: Some("2026-04-19".into()),
+            end_date: Some("2026-04-19".into()),
+            ..Default::default()
+        };
+        let r = apply_filter(&records, &f, &pricing);
+
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0].message_id, "inside");
+    }
+
+    #[test]
     fn aggregate_filters_by_date_and_model() {
         let pricing = sample_pricing();
         let mk = |id: &str, model: &str, ts: &str| UsageRecord {

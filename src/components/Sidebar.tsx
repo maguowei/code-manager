@@ -202,6 +202,7 @@ function Sidebar({ activeTab, onTabChange, onClaudeOverviewClick, onSettingsClic
           data-tooltip={t("nav.usage")}
         >
           <svg
+            data-testid="usage-dollar-icon"
             width="20"
             height="20"
             viewBox="0 0 24 24"
@@ -213,9 +214,8 @@ function Sidebar({ activeTab, onTabChange, onClaudeOverviewClick, onSettingsClic
             aria-hidden="true"
           >
             <circle cx="12" cy="12" r="9" />
-            <path d="M12 7v5l3 2" />
-            <path d="M12 3v2" />
-            <path d="M12 19v2" />
+            <path d="M12 6v12" />
+            <path d="M15.5 8.5A3.2 3.2 0 0 0 12.4 7H11a3 3 0 0 0 0 6h2a3 3 0 0 1 0 6h-1.4a3.2 3.2 0 0 1-3.1-1.5" />
           </svg>
         </button>
       </div>

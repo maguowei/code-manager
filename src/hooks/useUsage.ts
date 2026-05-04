@@ -33,6 +33,11 @@ interface UseUsageResult {
 
 const POLL_DEBOUNCE_MS = 800;
 
+export function createTodayUsageFilter(today = new Date()): UsageFilter {
+  const value = formatDateInputValue(today);
+  return { startDate: value, endDate: value };
+}
+
 export function useUsage(): UseUsageResult {
   const [summary, setSummary] = useState<UsageSummary | null>(null);
   const [daily, setDaily] = useState<DailyUsage[]>([]);
@@ -40,7 +45,7 @@ export function useUsage(): UseUsageResult {
   const [sessions, setSessions] = useState<SessionUsage[]>([]);
   const [models, setModels] = useState<ModelUsageStat[]>([]);
   const [tab, setTab] = useState<UsageTab>("daily");
-  const [filter, setFilter] = useState<UsageFilter>({});
+  const [filter, setFilter] = useState<UsageFilter>(() => createTodayUsageFilter());
   const [loading, setLoading] = useState(true);
   const [refreshingPrice, setRefreshingPrice] = useState(false);
   const [rescanning, setRescanning] = useState(false);
@@ -49,6 +54,7 @@ export function useUsage(): UseUsageResult {
   const filterRef = useRef(filter);
   filterRef.current = filter;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestSeqRef = useRef(0);
 
   // 用 currentFilter 显式参数，避免在 useEffect deps 里隐式追加 filter
   const reloadWith = useCallback(async (currentFilter: UsageFilter) => {
@@ -56,6 +62,9 @@ export function useUsage(): UseUsageResult {
       setLoading(false);
       return;
     }
+    const requestSeq = requestSeqRef.current + 1;
+    requestSeqRef.current = requestSeq;
+    setLoading(true);
     try {
       const [s, d, p, sess, m] = await Promise.all([
         invoke<UsageSummary>("get_usage_summary", { filter: currentFilter }),
@@ -64,6 +73,7 @@ export function useUsage(): UseUsageResult {
         invoke<SessionUsage[]>("get_usage_by_session", { filter: currentFilter }),
         invoke<ModelUsageStat[]>("get_usage_by_model", { filter: currentFilter }),
       ]);
+      if (requestSeq !== requestSeqRef.current) return;
       setSummary(s);
       setDaily(d);
       setProjects(p);
@@ -71,9 +81,12 @@ export function useUsage(): UseUsageResult {
       setModels(m);
       setError(null);
     } catch (e) {
+      if (requestSeq !== requestSeqRef.current) return;
       setError(typeof e === "string" ? e : String(e));
     } finally {
-      setLoading(false);
+      if (requestSeq === requestSeqRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -148,6 +161,13 @@ export function useUsage(): UseUsageResult {
     rescan,
     error,
   };
+}
+
+function formatDateInputValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 export default useUsage;

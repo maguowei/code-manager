@@ -1,9 +1,7 @@
-import { useCallback, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useMemo, useState } from "react";
 import {
   Area,
   AreaChart,
-  Bar,
-  BarChart,
   CartesianGrid,
   Cell,
   Legend,
@@ -15,7 +13,7 @@ import {
   YAxis,
 } from "recharts";
 import { useToast } from "../hooks/useToast";
-import useUsage from "../hooks/useUsage";
+import useUsage, { createTodayUsageFilter } from "../hooks/useUsage";
 import { useI18n } from "../i18n";
 import type {
   DailyUsage,
@@ -27,16 +25,10 @@ import type {
 } from "../types";
 import { formatUSD } from "./project-detail-utils";
 import "./UsagePage.css";
-import {
-  formatCost,
-  formatShortDateTime,
-  formatTokens,
-  shortPath,
-  shortSessionId,
-} from "./usage/format";
+import { formatCost, formatShortDateTime, formatTokens, shortPath } from "./usage/format";
 import SessionUsageDrawer from "./usage/SessionUsageDrawer";
 
-// 复用 StatsPage 的色板，避免每个图表色调不一致
+// Recharts 无法读取 CSS 变量，这里使用当前设计令牌对应的稳定色值
 const COLORS = {
   blue: "#58a6ff",
   green: "#3fb950",
@@ -47,11 +39,12 @@ const COLORS = {
   pink: "#f778ba",
   yellow: "#d29922",
 };
-const PIE_COLORS = [
-  COLORS.blue,
+
+const SERIES_COLORS = [
   COLORS.green,
-  COLORS.orange,
   COLORS.purple,
+  COLORS.orange,
+  COLORS.blue,
   COLORS.teal,
   COLORS.pink,
   COLORS.yellow,
@@ -61,13 +54,24 @@ const PIE_COLORS = [
 const TICK_STYLE = { fill: "#7d8590", fontSize: 11 };
 const TICK_STYLE_SM = { fill: "#7d8590", fontSize: 10 };
 const TOOLTIP_STYLE = {
-  backgroundColor: "rgba(22, 27, 34, 0.92)",
+  backgroundColor: "rgba(22, 27, 34, 0.94)",
   border: "1px solid #30363d",
   borderRadius: 8,
   color: "#e6edf3",
   backdropFilter: "blur(12px)",
-  boxShadow: "0 8px 16px rgba(0, 0, 0, 0.15)",
+  boxShadow: "0 10px 24px rgba(0, 0, 0, 0.22)",
 };
+
+const TAB_ORDER: UsageTab[] = ["daily", "project", "session", "model"];
+type DateRangePreset = "today" | "week" | "month" | "year" | "all";
+const DATE_RANGE_PRESETS: DateRangePreset[] = ["today", "week", "month", "year", "all"];
+
+interface ModelCostDatum {
+  name: string;
+  value: number;
+  percent: number;
+  color: string;
+}
 
 function UsagePage() {
   const { t } = useI18n();
@@ -95,18 +99,15 @@ function UsagePage() {
 
   const updateFilter = useCallback(
     (patch: Partial<UsageFilter>) => {
-      u.setFilter((prev) => ({ ...prev, ...patch }));
+      u.setFilter((prev) => compactUsageFilter({ ...prev, ...patch }));
     },
     [u],
   );
 
   const resetFilter = useCallback(() => {
-    u.setFilter({});
+    u.setFilter(createTodayUsageFilter());
   }, [u]);
 
-  // ===== 派生数据：图表 =====
-
-  // 每日花费按 model 堆叠：行 = date，列 = 各 model cost
   const dailyChartData = useMemo(() => {
     const allModels = new Set<string>();
     for (const d of u.daily) {
@@ -115,36 +116,67 @@ function UsagePage() {
     const sortedModels = Array.from(allModels).sort();
     const rows = u.daily.map((d) => {
       const row: Record<string, string | number> = { date: d.date };
-      for (const m of sortedModels) {
-        const found = d.byModel.find((x) => x.model === m);
-        row[m] = found ? +found.cost.toFixed(4) : 0;
+      for (const model of sortedModels) {
+        const found = d.byModel.find((x) => x.model === model);
+        row[model] = found ? +found.cost.toFixed(4) : 0;
       }
       return row;
     });
     return { rows, models: sortedModels };
   }, [u.daily]);
 
-  // 模型成本占比饼图
-  const modelPieData = useMemo(
-    () =>
-      u.models.filter((m) => m.cost > 0).map((m) => ({ name: m.model, value: +m.cost.toFixed(4) })),
-    [u.models],
-  );
+  const modelCostData = useMemo<ModelCostDatum[]>(() => {
+    const rows = u.models.filter((m) => m.cost > 0).sort((a, b) => b.cost - a.cost);
+    const total = rows.reduce((sum, m) => sum + m.cost, 0);
+    return rows.map((m, index) => ({
+      name: m.model,
+      value: +m.cost.toFixed(4),
+      percent: total > 0 ? (m.cost / total) * 100 : 0,
+      color: SERIES_COLORS[index % SERIES_COLORS.length],
+    }));
+  }, [u.models]);
 
-  // Token 类型构成（横向条形图，按 model 分行）
+  const modelCostTotal = modelCostData.reduce((sum, m) => sum + m.value, 0);
+
+  const tokenTotals = useMemo(() => {
+    const summary = u.summary;
+    return {
+      input: summary?.totalInput ?? 0,
+      output: summary?.totalOutput ?? 0,
+      cacheCreate: summary?.totalCacheCreation ?? 0,
+      cacheRead: summary?.totalCacheRead ?? 0,
+    };
+  }, [u.summary]);
+
+  const totalTokens =
+    tokenTotals.input + tokenTotals.output + tokenTotals.cacheCreate + tokenTotals.cacheRead;
+
   const tokenBreakdownData = useMemo(
-    () =>
-      u.models.slice(0, 8).map((m) => ({
-        name: shortModelName(m.model),
-        input: m.inputTokens,
-        output: m.outputTokens,
-        cacheCreate: m.cacheCreationTokens,
-        cacheRead: m.cacheReadTokens,
-      })),
-    [u.models],
+    () => [
+      {
+        name: t("usage.charts.tokenInput"),
+        value: tokenTotals.input,
+        color: COLORS.blue,
+      },
+      {
+        name: t("usage.charts.tokenOutput"),
+        value: tokenTotals.output,
+        color: COLORS.green,
+      },
+      {
+        name: t("usage.charts.tokenCacheCreate"),
+        value: tokenTotals.cacheCreate,
+        color: COLORS.orange,
+      },
+      {
+        name: t("usage.charts.tokenCacheRead"),
+        value: tokenTotals.cacheRead,
+        color: COLORS.purple,
+      },
+    ],
+    [t, tokenTotals],
   );
 
-  // 缓存节省额：cache_read 命中相对于直接 input 的差额
   const cacheSavings = useMemo(() => {
     if (!u.summary) return 0;
     const pricing = u.summary.pricing.models;
@@ -154,10 +186,19 @@ function UsagePage() {
       if (!price) continue;
       saved += (m.cacheReadTokens * (price.input - price.cache_read)) / 1_000_000;
     }
-    return saved;
+    return Math.max(saved, 0);
   }, [u.summary, u.models]);
 
-  // ===== 渲染 =====
+  const tabCounts = useMemo(
+    () => ({
+      daily: u.daily.length,
+      project: u.projects.length,
+      session: u.sessions.length,
+      model: u.models.length,
+    }),
+    [u.daily.length, u.projects.length, u.sessions.length, u.models.length],
+  );
+
   const isInitialLoading = u.loading && !u.summary;
   const isEmpty =
     !isInitialLoading &&
@@ -177,7 +218,7 @@ function UsagePage() {
         </div>
         <div className="usage-header-actions">
           {u.summary && (
-            <div className="usage-meta">
+            <div className="usage-meta" role="group" aria-label={t("usage.metaLabel")}>
               <span
                 className={`usage-badge usage-badge-${u.summary.pricing.source}`}
                 title={
@@ -197,38 +238,36 @@ function UsagePage() {
           )}
           <button
             type="button"
-            className="usage-btn usage-btn-secondary"
+            className="usage-icon-btn"
             onClick={handleRefreshPrice}
             disabled={u.refreshingPrice}
+            title={u.refreshingPrice ? t("usage.refreshing") : t("usage.refresh")}
           >
-            {u.refreshingPrice ? t("usage.refreshing") : t("usage.refresh")}
+            <RefreshIcon />
+            <span>{u.refreshingPrice ? t("usage.refreshing") : t("usage.refresh")}</span>
           </button>
           <button
             type="button"
-            className="usage-btn usage-btn-primary"
+            className="usage-icon-btn usage-icon-btn-primary"
             onClick={handleRescan}
             disabled={u.rescanning}
+            title={u.rescanning ? t("usage.rescanning") : t("usage.rescan")}
           >
-            {u.rescanning ? t("usage.rescanning") : t("usage.rescan")}
+            <ScanIcon />
+            <span>{u.rescanning ? t("usage.rescanning") : t("usage.rescan")}</span>
           </button>
         </div>
       </div>
 
       <div className="usage-scroll">
         {isInitialLoading ? (
-          <div className="usage-empty">
-            <p className="empty-text">{t("usage.scanning")}</p>
-          </div>
+          <EmptyState title={t("usage.scanning")} />
         ) : isEmpty ? (
-          <div className="usage-empty">
-            <p className="empty-text">{t("usage.empty")}</p>
-            <p className="empty-hint">{t("usage.emptyHint")}</p>
-          </div>
+          <EmptyState title={t("usage.empty")} hint={t("usage.emptyHint")} />
         ) : (
           <>
             {u.error && <div className="usage-error">{u.error}</div>}
 
-            {/* 筛选区 */}
             <Filters
               t={t}
               filter={u.filter}
@@ -238,191 +277,150 @@ function UsagePage() {
               onReset={resetFilter}
             />
 
-            {/* 概览卡片 */}
-            <div className="usage-cards">
-              <Card
-                label={t("usage.cards.totalCost")}
-                value={u.summary ? formatUSD(u.summary.totalCost) : "-"}
-                accent="green"
-              />
-              <Card
-                label={t("usage.cards.totalSessions")}
-                value={u.summary ? String(u.summary.totalSessions) : "-"}
-                accent="blue"
-              />
-              <Card
-                label={t("usage.cards.totalMessages")}
-                value={u.summary ? String(u.summary.totalMessages) : "-"}
-                accent="purple"
-              />
-              <Card
-                label={t("usage.cards.cacheSavings")}
-                value={formatUSD(cacheSavings)}
-                accent="orange"
-                hint={t("usage.cards.cacheSavingsHint")}
-              />
+            <div className="usage-cockpit">
+              <main className="usage-main-column">
+                <section className="usage-summary-grid" aria-label={t("usage.summaryLabel")}>
+                  <div className="usage-cost-panel">
+                    <span className="usage-panel-label">{t("usage.cards.totalCost")}</span>
+                    <strong className="usage-cost-value">
+                      {u.summary ? formatUSD(u.summary.totalCost) : "-"}
+                    </strong>
+                    <span className="usage-panel-subtle">{t("usage.cards.totalCostHint")}</span>
+                  </div>
+                  <div className="usage-kpi-grid">
+                    <MetricCard
+                      label={t("usage.cards.totalTokens")}
+                      value={formatDetailedTokens(totalTokens)}
+                      tone="blue"
+                    />
+                    <MetricCard
+                      label={t("usage.cards.totalSessions")}
+                      value={u.summary ? String(u.summary.totalSessions) : "-"}
+                      tone="purple"
+                    />
+                    <MetricCard
+                      label={t("usage.cards.totalMessages")}
+                      value={u.summary ? formatCount(u.summary.totalMessages) : "-"}
+                      tone="orange"
+                    />
+                    <MetricCard
+                      label={t("usage.cards.cacheSavings")}
+                      value={formatUSD(cacheSavings)}
+                      tone="green"
+                      hint={t("usage.cards.cacheSavingsHint")}
+                    />
+                  </div>
+                </section>
+
+                <ChartPanel title={t("usage.charts.dailyCost")} className="usage-chart-primary">
+                  {dailyChartData.rows.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <AreaChart
+                        data={dailyChartData.rows}
+                        margin={{ left: 8, right: 18, top: 10, bottom: 4 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#30363d" vertical={false} />
+                        <XAxis dataKey="date" tick={TICK_STYLE_SM} />
+                        <YAxis tick={TICK_STYLE} tickFormatter={(v) => `$${v}`} width={44} />
+                        <Tooltip
+                          formatter={(v: number | undefined) => formatUSD(v ?? 0)}
+                          contentStyle={TOOLTIP_STYLE}
+                        />
+                        <Legend wrapperStyle={{ fontSize: 11 }} />
+                        {dailyChartData.models.map((model, idx) => (
+                          <Area
+                            key={model}
+                            type="monotone"
+                            dataKey={model}
+                            stackId="cost"
+                            stroke={SERIES_COLORS[idx % SERIES_COLORS.length]}
+                            fill={SERIES_COLORS[idx % SERIES_COLORS.length]}
+                            fillOpacity={0.5}
+                            strokeWidth={1.5}
+                            name={shortModelName(model)}
+                          />
+                        ))}
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <NoData />
+                  )}
+                </ChartPanel>
+              </main>
+
+              <aside className="usage-side-rail" aria-label={t("usage.sideRailLabel")}>
+                <ChartPanel title={t("usage.charts.byModel")}>
+                  {modelCostData.length > 0 ? (
+                    <ModelCostShare
+                      data={modelCostData}
+                      total={modelCostTotal}
+                      label={t("usage.charts.byModel")}
+                    />
+                  ) : (
+                    <NoData />
+                  )}
+                </ChartPanel>
+
+                <ChartPanel title={t("usage.charts.tokenComposition")}>
+                  <div className="usage-token-stack">
+                    <div className="usage-token-total">
+                      <span>{t("usage.table.totalTokens")}</span>
+                      <strong>{formatDetailedTokens(totalTokens)}</strong>
+                    </div>
+                    {tokenBreakdownData.map((item) => (
+                      <TokenBar
+                        key={item.name}
+                        label={item.name}
+                        value={item.value}
+                        total={totalTokens}
+                        color={item.color}
+                      />
+                    ))}
+                  </div>
+                </ChartPanel>
+
+                {u.summary && u.summary.unknownModels.length > 0 && (
+                  <UnknownModelsAlert models={u.summary.unknownModels} t={t} />
+                )}
+              </aside>
             </div>
 
-            {/* 未识别模型警告 */}
-            {u.summary && u.summary.unknownModels.length > 0 && (
-              <div className="usage-warning">
-                <strong>{t("usage.unknownModels")}</strong>
-                <span className="usage-warning-hint">{t("usage.unknownModelsHint")}</span>
-                <div className="usage-warning-models">
-                  {u.summary.unknownModels.map((m) => (
-                    <code key={m}>{m}</code>
-                  ))}
+            <section className="usage-detail-workspace" aria-label={t("usage.details.title")}>
+              <div className="usage-detail-header">
+                <div>
+                  <h2>{t("usage.details.title")}</h2>
+                  <p>{t("usage.details.hint")}</p>
+                </div>
+                <div className="usage-detail-count">
+                  {u.summary ? `${u.summary.totalProjects} ${t("usage.table.project")}` : "-"}
                 </div>
               </div>
-            )}
 
-            {/* 图表 */}
-            <div className="usage-charts">
-              <ChartCard title={t("usage.charts.dailyCost")}>
-                {dailyChartData.rows.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={260}>
-                    <AreaChart
-                      data={dailyChartData.rows}
-                      margin={{ left: 10, right: 16, top: 8, bottom: 8 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#30363d" vertical={false} />
-                      <XAxis dataKey="date" tick={TICK_STYLE_SM} />
-                      <YAxis tick={TICK_STYLE} tickFormatter={(v) => `$${v}`} />
-                      <Tooltip
-                        formatter={(v: number | undefined) => formatUSD(v ?? 0)}
-                        contentStyle={TOOLTIP_STYLE}
-                      />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                      {dailyChartData.models.map((m, idx) => (
-                        <Area
-                          key={m}
-                          type="monotone"
-                          dataKey={m}
-                          stackId="cost"
-                          stroke={PIE_COLORS[idx % PIE_COLORS.length]}
-                          fill={PIE_COLORS[idx % PIE_COLORS.length]}
-                          fillOpacity={0.5}
-                          strokeWidth={1.5}
-                          name={shortModelName(m)}
-                        />
-                      ))}
-                    </AreaChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <p className="usage-no-data">-</p>
-                )}
-              </ChartCard>
-
-              <ChartCard title={t("usage.charts.byModel")}>
-                {modelPieData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={260}>
-                    <PieChart>
-                      <Pie
-                        data={modelPieData}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={50}
-                        outerRadius={90}
-                        paddingAngle={2}
-                        label={({ name, value }) =>
-                          `${shortModelName(name as string)} ${formatUSD((value as number) ?? 0)}`
-                        }
-                        labelLine={false}
-                      >
-                        {modelPieData.map((entry, i) => (
-                          <Cell key={entry.name} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(v: number | undefined) => formatUSD(v ?? 0)}
-                        contentStyle={TOOLTIP_STYLE}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <p className="usage-no-data">-</p>
-                )}
-              </ChartCard>
-
-              <ChartCard title={t("usage.charts.tokenBreakdown")}>
-                {tokenBreakdownData.length > 0 ? (
-                  <ResponsiveContainer
-                    width="100%"
-                    height={Math.max(220, tokenBreakdownData.length * 36)}
+              <div className="usage-tabs" role="tablist" aria-label={t("usage.details.title")}>
+                {TAB_ORDER.map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    role="tab"
+                    aria-selected={u.tab === key}
+                    className={`usage-tab-btn ${u.tab === key ? "active" : ""}`}
+                    onClick={() => u.setTab(key)}
                   >
-                    <BarChart
-                      data={tokenBreakdownData}
-                      layout="vertical"
-                      margin={{ left: 20, right: 20, top: 8, bottom: 8 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#30363d" horizontal={false} />
-                      <XAxis
-                        type="number"
-                        tick={TICK_STYLE}
-                        tickFormatter={(v) => formatTokens(v)}
-                      />
-                      <YAxis type="category" dataKey="name" width={140} tick={TICK_STYLE} />
-                      <Tooltip
-                        formatter={(v: number | undefined) => formatTokens(v ?? 0)}
-                        contentStyle={TOOLTIP_STYLE}
-                      />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Bar
-                        dataKey="input"
-                        stackId="t"
-                        fill={COLORS.blue}
-                        name={t("usage.charts.tokenInput")}
-                      />
-                      <Bar
-                        dataKey="output"
-                        stackId="t"
-                        fill={COLORS.green}
-                        name={t("usage.charts.tokenOutput")}
-                      />
-                      <Bar
-                        dataKey="cacheCreate"
-                        stackId="t"
-                        fill={COLORS.orange}
-                        name={t("usage.charts.tokenCacheCreate")}
-                      />
-                      <Bar
-                        dataKey="cacheRead"
-                        stackId="t"
-                        fill={COLORS.purple}
-                        name={t("usage.charts.tokenCacheRead")}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <p className="usage-no-data">-</p>
+                    <span>{t(`usage.tabs.${key}`)}</span>
+                    <span className="usage-tab-count">{tabCounts[key]}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="usage-tab-body">
+                {u.tab === "daily" && <DailyTable rows={u.daily} t={t} />}
+                {u.tab === "project" && <ProjectTable rows={u.projects} t={t} />}
+                {u.tab === "session" && (
+                  <SessionTable rows={u.sessions} t={t} onOpen={(id) => setOpenSessionId(id)} />
                 )}
-              </ChartCard>
-            </div>
-
-            {/* Tab 切换 */}
-            <div className="usage-tabs">
-              {(["daily", "project", "session", "model"] as UsageTab[]).map((key) => (
-                <button
-                  key={key}
-                  type="button"
-                  className={`usage-tab-btn ${u.tab === key ? "active" : ""}`}
-                  onClick={() => u.setTab(key)}
-                >
-                  {t(`usage.tabs.${key}`)}
-                </button>
-              ))}
-            </div>
-
-            <div className="usage-tab-body">
-              {u.tab === "daily" && <DailyTable rows={u.daily} t={t} />}
-              {u.tab === "project" && <ProjectTable rows={u.projects} t={t} />}
-              {u.tab === "session" && (
-                <SessionTable rows={u.sessions} t={t} onOpen={(id) => setOpenSessionId(id)} />
-              )}
-              {u.tab === "model" && <ModelTable rows={u.models} t={t} />}
-            </div>
+                {u.tab === "model" && <ModelTable rows={u.models} t={t} />}
+              </div>
+            </section>
           </>
         )}
       </div>
@@ -434,29 +432,105 @@ function UsagePage() {
   );
 }
 
-// ============= 子组件 =============
-
-interface CardProps {
+interface MetricCardProps {
   label: string;
   value: string;
-  accent: "green" | "blue" | "purple" | "orange";
+  tone: "blue" | "green" | "orange" | "purple";
   hint?: string;
 }
 
-function Card({ label, value, accent, hint }: CardProps) {
+function MetricCard({ label, value, tone, hint }: MetricCardProps) {
   return (
-    <div className="usage-card" title={hint}>
-      <span className="usage-card-label">{label}</span>
-      <span className={`usage-card-value accent-${accent}`}>{value}</span>
+    <div className={`usage-metric usage-metric-${tone}`} title={hint}>
+      <span className="usage-metric-label">{label}</span>
+      <strong className="usage-metric-value">{value}</strong>
     </div>
   );
 }
 
-function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+function ChartPanel({
+  title,
+  className,
+  children,
+}: {
+  title: string;
+  className?: string;
+  children: ReactNode;
+}) {
   return (
-    <div className="usage-chart-card">
-      <div className="usage-chart-title">{title}</div>
+    <section className={`usage-panel ${className ?? ""}`}>
+      <div className="usage-panel-title">{title}</div>
       {children}
+    </section>
+  );
+}
+
+function ModelCostShare({
+  data,
+  total,
+  label,
+}: {
+  data: ModelCostDatum[];
+  total: number;
+  label: string;
+}) {
+  return (
+    <div className="usage-model-share">
+      <div className="usage-model-donut">
+        <ResponsiveContainer width="100%" height={150}>
+          <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
+            <Pie
+              data={data}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              innerRadius={42}
+              outerRadius={68}
+              paddingAngle={2}
+              stroke="#161b22"
+              strokeWidth={2}
+            >
+              {data.map((entry) => (
+                <Cell key={entry.name} fill={entry.color} />
+              ))}
+            </Pie>
+            <Tooltip
+              formatter={(v: number | undefined) => formatUSD(v ?? 0)}
+              contentStyle={TOOLTIP_STYLE}
+              itemStyle={{ color: "#e6edf3" }}
+              labelStyle={{ color: "#e6edf3" }}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="usage-model-donut-center" aria-hidden="true">
+          <span>{label}</span>
+          <strong>{formatUSD(total)}</strong>
+        </div>
+      </div>
+
+      <div className="usage-model-share-list" role="list" aria-label={label}>
+        {data.map((item) => (
+          <div key={item.name} className="usage-model-share-item" role="listitem">
+            <div className="usage-model-share-row">
+              <span className="usage-model-swatch" style={{ background: item.color }} />
+              <span className="usage-model-name" title={item.name}>
+                {shortModelName(item.name)}
+              </span>
+              <span className="usage-model-percent">{item.percent.toFixed(1)}%</span>
+              <strong className="usage-model-cost">{formatUSD(item.value)}</strong>
+            </div>
+            <div className="usage-model-track" aria-hidden="true">
+              <span
+                style={{
+                  width: `${Math.max(item.percent, item.value > 0 ? 3 : 0)}%`,
+                  background: item.color,
+                }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -471,10 +545,15 @@ interface FiltersProps {
 }
 
 function Filters({ t, filter, allProjects, allModels, onChange, onReset }: FiltersProps) {
+  const hasActiveFilter = Boolean(
+    filter.startDate || filter.endDate || filter.projectPath || filter.model,
+  );
+  const activePreset = getActiveDateRangePreset(filter);
+
   return (
-    <div className="usage-filters">
-      <div className="usage-filter-group">
-        <label className="usage-filter-label">{t("usage.filter.dateRange")}</label>
+    <div className="usage-command-bar" role="group" aria-label={t("usage.filter.ariaLabel")}>
+      <div className="usage-filter-cluster usage-filter-cluster-date">
+        <span className="usage-filter-label">{t("usage.filter.dateRange")}</span>
         <div className="usage-date-range">
           <input
             type="date"
@@ -482,7 +561,7 @@ function Filters({ t, filter, allProjects, allModels, onChange, onReset }: Filte
             onChange={(e) => onChange({ startDate: e.target.value || undefined })}
             aria-label={t("usage.filter.startDate")}
           />
-          <span className="usage-date-sep">→</span>
+          <span className="usage-date-sep">-</span>
           <input
             type="date"
             value={filter.endDate ?? ""}
@@ -491,8 +570,25 @@ function Filters({ t, filter, allProjects, allModels, onChange, onReset }: Filte
           />
         </div>
       </div>
-      <div className="usage-filter-group">
-        <label className="usage-filter-label">{t("usage.filter.project")}</label>
+      <div
+        className="usage-quick-ranges"
+        role="group"
+        aria-label={t("usage.filter.quick.ariaLabel")}
+      >
+        {DATE_RANGE_PRESETS.map((preset) => (
+          <button
+            key={preset}
+            type="button"
+            className={`usage-quick-range-btn ${activePreset === preset ? "active" : ""}`}
+            aria-pressed={activePreset === preset}
+            onClick={() => onChange(getDateRangePresetPatch(preset))}
+          >
+            {t(`usage.filter.quick.${preset}`)}
+          </button>
+        ))}
+      </div>
+      <label className="usage-filter-cluster">
+        <span className="usage-filter-label">{t("usage.filter.project")}</span>
         <select
           value={filter.projectPath ?? ""}
           onChange={(e) => onChange({ projectPath: e.target.value || undefined })}
@@ -504,9 +600,9 @@ function Filters({ t, filter, allProjects, allModels, onChange, onReset }: Filte
             </option>
           ))}
         </select>
-      </div>
-      <div className="usage-filter-group">
-        <label className="usage-filter-label">{t("usage.filter.model")}</label>
+      </label>
+      <label className="usage-filter-cluster">
+        <span className="usage-filter-label">{t("usage.filter.model")}</span>
         <select
           value={filter.model ?? ""}
           onChange={(e) => onChange({ model: e.target.value || undefined })}
@@ -518,12 +614,84 @@ function Filters({ t, filter, allProjects, allModels, onChange, onReset }: Filte
             </option>
           ))}
         </select>
-      </div>
-      <button type="button" className="usage-btn usage-btn-text" onClick={onReset}>
+      </label>
+      <button
+        type="button"
+        className="usage-reset-btn"
+        onClick={onReset}
+        disabled={!hasActiveFilter}
+      >
         {t("usage.filter.reset")}
       </button>
     </div>
   );
+}
+
+function compactUsageFilter(filter: UsageFilter): UsageFilter {
+  const next: UsageFilter = {};
+  if (filter.startDate) next.startDate = filter.startDate;
+  if (filter.endDate) next.endDate = filter.endDate;
+  if (filter.projectPath) next.projectPath = filter.projectPath;
+  if (filter.sessionId) next.sessionId = filter.sessionId;
+  if (filter.model) next.model = filter.model;
+  if (filter.includeUnknownModels !== undefined) {
+    next.includeUnknownModels = filter.includeUnknownModels;
+  }
+  return next;
+}
+
+function getDateRangePresetPatch(
+  preset: DateRangePreset,
+  today = new Date(),
+): Partial<UsageFilter> {
+  if (preset === "all") {
+    return { startDate: undefined, endDate: undefined };
+  }
+
+  const current = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  if (preset === "today") {
+    const value = formatDateInputValue(current);
+    return { startDate: value, endDate: value };
+  }
+
+  if (preset === "week") {
+    const daysFromMonday = (current.getDay() + 6) % 7;
+    const start = new Date(current);
+    start.setDate(current.getDate() - daysFromMonday);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return { startDate: formatDateInputValue(start), endDate: formatDateInputValue(end) };
+  }
+
+  if (preset === "month") {
+    const start = new Date(current.getFullYear(), current.getMonth(), 1);
+    const end = new Date(current.getFullYear(), current.getMonth() + 1, 0);
+    return { startDate: formatDateInputValue(start), endDate: formatDateInputValue(end) };
+  }
+
+  const start = new Date(current.getFullYear(), 0, 1);
+  const end = new Date(current.getFullYear(), 11, 31);
+  return { startDate: formatDateInputValue(start), endDate: formatDateInputValue(end) };
+}
+
+function getActiveDateRangePreset(filter: UsageFilter): DateRangePreset | null {
+  if (!filter.startDate && !filter.endDate) return "all";
+
+  for (const preset of DATE_RANGE_PRESETS) {
+    if (preset === "all") continue;
+    const range = getDateRangePresetPatch(preset);
+    if (filter.startDate === range.startDate && filter.endDate === range.endDate) {
+      return preset;
+    }
+  }
+  return null;
+}
+
+function formatDateInputValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function DailyTable({ rows, t }: { rows: DailyUsage[]; t: ReturnType<typeof useI18n>["t"] }) {
@@ -583,7 +751,7 @@ function ProjectTable({ rows, t }: { rows: ProjectUsage[]; t: ReturnType<typeof 
         <tbody>
           {rows.map((p) => (
             <tr key={p.projectPath}>
-              <td title={p.projectPath} className="ellipsis">
+              <td title={p.projectPath} className="ellipsis strong-cell">
                 {shortPath(p.projectPath)}
               </td>
               <td>{formatShortDateTime(p.lastActiveMs)}</td>
@@ -633,11 +801,22 @@ function SessionTable({
             return (
               <tr
                 key={s.sessionId}
+                role="button"
+                tabIndex={0}
+                aria-label={`${s.sessionId} ${shortPath(s.projectPath)} ${formatCost(s.cost)}`}
                 className="usage-table-row-clickable"
                 onClick={() => onOpen(s.sessionId)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onOpen(s.sessionId);
+                  }
+                }}
               >
-                <td className="mono">{shortSessionId(s.sessionId)}</td>
-                <td title={s.projectPath} className="ellipsis">
+                <td className="mono" title={s.sessionId}>
+                  {displaySessionId(s.sessionId)}
+                </td>
+                <td title={s.projectPath} className="ellipsis strong-cell">
                   {shortPath(s.projectPath)}
                 </td>
                 <td>{formatShortDateTime(s.lastActiveMs)}</td>
@@ -673,7 +852,7 @@ function ModelTable({ rows, t }: { rows: ModelUsageStat[]; t: ReturnType<typeof 
         <tbody>
           {rows.map((m) => (
             <tr key={m.model}>
-              <td className="mono">{m.model}</td>
+              <td className="mono strong-cell">{m.model}</td>
               <td className="num">{m.messages}</td>
               <td className="num">{formatTokens(m.inputTokens)}</td>
               <td className="num">{formatTokens(m.outputTokens)}</td>
@@ -688,14 +867,73 @@ function ModelTable({ rows, t }: { rows: ModelUsageStat[]; t: ReturnType<typeof 
   );
 }
 
+function TokenBar({
+  label,
+  value,
+  total,
+  color,
+}: {
+  label: string;
+  value: number;
+  total: number;
+  color: string;
+}) {
+  const percentage = total > 0 ? (value / total) * 100 : 0;
+  return (
+    <div className="usage-token-row">
+      <div className="usage-token-row-head">
+        <span>{label}</span>
+        <span>{formatDetailedTokens(value)}</span>
+      </div>
+      <div className="usage-token-track" aria-hidden="true">
+        <span style={{ width: `${Math.max(percentage, value > 0 ? 3 : 0)}%`, background: color }} />
+      </div>
+      <span className="usage-token-percent">{percentage.toFixed(1)}%</span>
+    </div>
+  );
+}
+
+function UnknownModelsAlert({
+  models,
+  t,
+}: {
+  models: string[];
+  t: ReturnType<typeof useI18n>["t"];
+}) {
+  return (
+    <div className="usage-warning">
+      <div className="usage-warning-title">
+        <WarningIcon />
+        <strong>{t("usage.unknownModels")}</strong>
+      </div>
+      <span className="usage-warning-hint">{t("usage.unknownModelsHint")}</span>
+      <div className="usage-warning-models">
+        {models.map((m) => (
+          <code key={m}>{m}</code>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function EmptyTable({ t }: { t: ReturnType<typeof useI18n>["t"] }) {
   return <div className="usage-no-data">{t("usage.empty")}</div>;
 }
 
-// ============= 工具 =============
+function EmptyState({ title, hint }: { title: string; hint?: string }) {
+  return (
+    <div className="usage-empty">
+      <p className="empty-text">{title}</p>
+      {hint && <p className="empty-hint">{hint}</p>}
+    </div>
+  );
+}
+
+function NoData() {
+  return <p className="usage-no-data">-</p>;
+}
 
 function shortModelName(model: string): string {
-  // claude-opus-4-7 -> opus 4.7
   const m = model.toLowerCase();
   if (m.includes("opus")) return modelTail("opus", model);
   if (m.includes("sonnet")) return modelTail("sonnet", model);
@@ -704,10 +942,30 @@ function shortModelName(model: string): string {
 }
 
 function modelTail(family: string, model: string): string {
-  // 提取数字尾号，例如 claude-opus-4-7-20251010 -> opus 4-7
   const after = model.split(family)[1] ?? "";
   const tail = after.replace(/^[-_]/, "").split(/[-_]/).slice(0, 2).join("-");
   return tail ? `${family} ${tail}` : family;
+}
+
+function displaySessionId(id: string): string {
+  if (id.length <= 22) return id;
+  return `${id.slice(0, 20)}...`;
+}
+
+function formatDetailedTokens(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return "0";
+  const formatter = new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+  });
+  if (n >= 1_000_000_000) return `${formatter.format(n / 1_000_000_000)}B`;
+  if (n >= 1_000_000) return `${formatter.format(n / 1_000_000)}M`;
+  if (n >= 1_000) return `${formatter.format(n / 1_000)}K`;
+  return n.toLocaleString("en-US");
+}
+
+function formatCount(n: number): string {
+  return new Intl.NumberFormat("en-US").format(n);
 }
 
 function pricingSourceLabel(
@@ -722,6 +980,65 @@ function pricingSourceLabel(
     default:
       return t("usage.pricing.builtin");
   }
+}
+
+function RefreshIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <polyline points="23 4 23 10 17 10" />
+      <polyline points="1 20 1 14 7 14" />
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+    </svg>
+  );
+}
+
+function ScanIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+      <path d="M21 3v6h-6" />
+    </svg>
+  );
+}
+
+function WarningIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  );
 }
 
 export default UsagePage;
