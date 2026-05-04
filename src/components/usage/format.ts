@@ -49,11 +49,20 @@ export function todayIso(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** path 缩短：取最后两段 */
+/** path 缩短：只取最后一级目录 */
 export function shortPath(p: string): string {
   if (!p) return "-";
-  const parts = p.split("/").filter(Boolean);
-  return parts.length >= 2 ? parts.slice(-2).join("/") : p;
+  const parts = p.split(/[\\/]/).filter(Boolean);
+  return parts.length > 0 ? parts[parts.length - 1] : p;
+}
+
+/** 项目显示名：优先从真实 cwd 取最后一级，避免展示 Claude 编码目录名 */
+export function projectDisplayName(projectDir: string | undefined, projectPath: string): string {
+  const pathName = shortPath(projectPath);
+  if (pathName !== "-") return pathName;
+
+  const normalizedDir = projectDir?.trim();
+  return normalizedDir || "-";
 }
 
 /** 会话 ID 短显示（前 8 位） */

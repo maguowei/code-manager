@@ -86,8 +86,8 @@ const summary: UsageSummary = {
   },
   unknownModels: ["claude-future-1"],
   allProjects: [
-    { projectPath: "/Users/me/work/ai-manager", projectDir: "ai-manager" },
-    { projectPath: "/Users/me/work/web-studio", projectDir: "web-studio" },
+    { projectPath: "/Users/me/work/AI/ai-manager", projectDir: "-Users-me-work-AI-ai-manager" },
+    { projectPath: "/Users/me/work/web-studio", projectDir: "-Users-me-work-web-studio" },
   ],
   allModels: ["claude-3-7-sonnet", "claude-3-opus"],
 };
@@ -118,8 +118,8 @@ const daily: DailyUsage[] = [
 
 const projects: ProjectUsage[] = [
   {
-    projectPath: "/Users/me/work/ai-manager",
-    projectDir: "ai-manager",
+    projectPath: "/Users/me/work/AI/ai-manager",
+    projectDir: "-Users-me-work-AI-ai-manager",
     sessions: 96,
     messages: 1200,
     lastActiveMs: Date.UTC(2026, 4, 24, 8, 11),
@@ -132,7 +132,7 @@ const projects: ProjectUsage[] = [
   },
   {
     projectPath: "/Users/me/work/web-studio",
-    projectDir: "web-studio",
+    projectDir: "-Users-me-work-web-studio",
     sessions: 44,
     messages: 780,
     lastActiveMs: Date.UTC(2026, 4, 23, 15, 30),
@@ -148,8 +148,8 @@ const projects: ProjectUsage[] = [
 const sessions: SessionUsage[] = [
   {
     sessionId: "session-20260524-0932",
-    projectPath: "/Users/me/work/ai-manager",
-    projectDir: "ai-manager",
+    projectPath: "/Users/me/work/AI/ai-manager",
+    projectDir: "-Users-me-work-AI-ai-manager",
     startedAtMs: Date.UTC(2026, 4, 24, 8, 20),
     lastActiveMs: Date.UTC(2026, 4, 24, 9, 32),
     messages: 14,
@@ -163,7 +163,7 @@ const sessions: SessionUsage[] = [
   {
     sessionId: "session-20260524-0831",
     projectPath: "/Users/me/work/web-studio",
-    projectDir: "web-studio",
+    projectDir: "-Users-me-work-web-studio",
     startedAtMs: Date.UTC(2026, 4, 24, 8, 1),
     lastActiveMs: Date.UTC(2026, 4, 24, 8, 31),
     messages: 22,
@@ -266,6 +266,11 @@ describe("UsagePage cost cockpit", () => {
     expect(screen.getByText("每日 Token 趋势")).toBeInTheDocument();
     expect(screen.getByText("Token 构成")).toBeInTheDocument();
     expect(screen.getByText("claude-future-1")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "ai-manager" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "work/ai-manager" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", { name: "-Users-me-work-AI-ai-manager" }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows segmented tab counts and sends tab changes through useUsage", () => {
@@ -276,6 +281,15 @@ describe("UsagePage cost cockpit", () => {
     fireEvent.click(projectTab);
 
     expect(usage.setTab).toHaveBeenCalledWith("project");
+  });
+
+  it("shows only the project directory name in the project table", () => {
+    renderUsage({ tab: "project" });
+
+    const table = screen.getByRole("table");
+    expect(within(table).getByText("ai-manager")).toBeInTheDocument();
+    expect(within(table).queryByText("work/ai-manager")).not.toBeInTheDocument();
+    expect(within(table).queryByText("-Users-me-work-AI-ai-manager")).not.toBeInTheDocument();
   });
 
   it("updates date filters from manual inputs and quick ranges", () => {

@@ -25,7 +25,7 @@ import type {
 } from "../types";
 import { formatUSD } from "./project-detail-utils";
 import "./UsagePage.css";
-import { formatCost, formatShortDateTime, formatTokens, shortPath } from "./usage/format";
+import { formatCost, formatShortDateTime, formatTokens, projectDisplayName } from "./usage/format";
 import SessionUsageDrawer from "./usage/SessionUsageDrawer";
 
 // Recharts 无法读取 CSS 变量，这里使用当前设计令牌对应的稳定色值
@@ -667,7 +667,7 @@ function Filters({ t, filter, allProjects, allModels, onChange, onReset }: Filte
           <option value="">{t("usage.filter.allProjects")}</option>
           {allProjects.map((p) => (
             <option key={p.projectPath} value={p.projectPath}>
-              {shortPath(p.projectPath)}
+              {projectDisplayName(p.projectDir, p.projectPath)}
             </option>
           ))}
         </select>
@@ -823,7 +823,7 @@ function ProjectTable({ rows, t }: { rows: ProjectUsage[]; t: ReturnType<typeof 
           {rows.map((p) => (
             <tr key={p.projectPath}>
               <td title={p.projectPath} className="ellipsis strong-cell">
-                {shortPath(p.projectPath)}
+                {projectDisplayName(p.projectDir, p.projectPath)}
               </td>
               <td>{formatShortDateTime(p.lastActiveMs)}</td>
               <td className="num">{p.sessions}</td>
@@ -869,12 +869,13 @@ function SessionTable({
           {rows.map((s) => {
             const total =
               s.inputTokens + s.outputTokens + s.cacheCreationTokens + s.cacheReadTokens;
+            const projectName = projectDisplayName(s.projectDir, s.projectPath);
             return (
               <tr
                 key={s.sessionId}
                 role="button"
                 tabIndex={0}
-                aria-label={`${s.sessionId} ${shortPath(s.projectPath)} ${formatCost(s.cost)}`}
+                aria-label={`${s.sessionId} ${projectName} ${formatCost(s.cost)}`}
                 className="usage-table-row-clickable"
                 onClick={() => onOpen(s.sessionId)}
                 onKeyDown={(event) => {
@@ -888,7 +889,7 @@ function SessionTable({
                   {displaySessionId(s.sessionId)}
                 </td>
                 <td title={s.projectPath} className="ellipsis strong-cell">
-                  {shortPath(s.projectPath)}
+                  {projectName}
                 </td>
                 <td>{formatShortDateTime(s.lastActiveMs)}</td>
                 <td className="model-cell">{s.models.map(shortModelName).join(", ")}</td>

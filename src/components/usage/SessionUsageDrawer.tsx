@@ -5,7 +5,13 @@ import { useI18n } from "../../i18n";
 import { isTauri, type SessionUsageDetail } from "../../types";
 import "../SessionDetailDrawer.css";
 import "./SessionUsageDrawer.css";
-import { formatCost, formatShortDateTime, formatTokens, shortPath, shortSessionId } from "./format";
+import {
+  formatCost,
+  formatShortDateTime,
+  formatTokens,
+  projectDisplayName,
+  shortSessionId,
+} from "./format";
 
 interface Props {
   sessionId: string;
@@ -77,7 +83,7 @@ function SessionUsageDrawer({ sessionId, onClose }: Props) {
                     {sessionId}
                   </span>
                   <span className="session-usage-project" title={detail.session.projectPath}>
-                    {shortPath(detail.session.projectPath)}
+                    {projectDisplayName(detail.session.projectDir, detail.session.projectPath)}
                   </span>
                 </div>
                 <div className="session-usage-summary-grid">
