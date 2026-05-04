@@ -39,6 +39,7 @@ const COLORS = {
   teal: "#39d2c0",
   pink: "#f778ba",
   yellow: "#d29922",
+  total: "#e6edf3",
 };
 
 const SERIES_COLORS = [
@@ -66,6 +67,8 @@ const TOOLTIP_STYLE = {
 const TAB_ORDER: UsageTab[] = ["daily", "project", "session", "model"];
 type DateRangePreset = "today" | "week" | "month" | "year" | "all";
 const DATE_RANGE_PRESETS: DateRangePreset[] = ["today", "week", "month", "year", "all"];
+const CLAUDE_MODEL_FILTER = "claude-*";
+const TOTAL_COST_KEY = "__totalCost";
 
 interface ModelCostDatum {
   name: string;
@@ -77,11 +80,14 @@ interface ModelCostDatum {
 interface TimeSeriesTokenTrendDatum {
   bucket: string;
   label: string;
+  totalTokens: number;
   input: number;
   output: number;
   cacheCreate: number;
   cacheRead: number;
 }
+
+const sortTooltipItemsByValueDesc = (item: { value?: unknown }) => -Number(item.value ?? 0);
 
 function UsagePage() {
   const { t } = useI18n();
@@ -152,10 +158,14 @@ function UsagePage() {
     });
     const totalsByModel = new Map<string, number>();
     for (const model of sortedModels) totalsByModel.set(model, 0);
+    let totalCost = 0;
     const rows = u.timeSeries.map((point) => {
+      const costTotal = +point.cost.toFixed(4);
+      totalCost += point.cost;
       const row: Record<string, string | number> = {
         bucket: point.bucket,
         label: formatTimeBucketLabel(point, u.timeGranularity, u.filter),
+        [TOTAL_COST_KEY]: costTotal,
       };
       for (const model of sortedModels) {
         const found = point.byModel.find((x) => x.model === model);
@@ -173,8 +183,8 @@ function UsagePage() {
         color: colorMap.get(model) ?? SERIES_COLORS[0],
         totalCost: totalsByModel.get(model) ?? 0,
       }))
-      .sort((a, b) => b.totalCost - a.totalCost);
-    return { rows, modelStats };
+      .sort((a, b) => b.totalCost - a.totalCost || a.key.localeCompare(b.key));
+    return { rows, modelStats, totalCost: +totalCost.toFixed(4) };
   }, [u.timeSeries, u.timeGranularity, u.filter]);
 
   const modelCostData = useMemo<ModelCostDatum[]>(() => {
@@ -234,6 +244,11 @@ function UsagePage() {
       u.timeSeries.map((point) => ({
         bucket: point.bucket,
         label: formatTimeBucketLabel(point, u.timeGranularity, u.filter),
+        totalTokens:
+          point.inputTokens +
+          point.outputTokens +
+          point.cacheCreationTokens +
+          point.cacheReadTokens,
         input: point.inputTokens,
         output: point.outputTokens,
         cacheCreate: point.cacheCreationTokens,
@@ -244,6 +259,7 @@ function UsagePage() {
 
   const tokenTrendSeries = useMemo(
     () => [
+      { dataKey: "totalTokens", name: t("usage.charts.totalTokens"), color: COLORS.total },
       { dataKey: "input", name: t("usage.charts.tokenInput"), color: COLORS.blue },
       { dataKey: "output", name: t("usage.charts.tokenOutput"), color: COLORS.green },
       { dataKey: "cacheCreate", name: t("usage.charts.tokenCacheCreate"), color: COLORS.orange },
@@ -414,6 +430,7 @@ function UsagePage() {
                             <YAxis tick={TICK_STYLE} tickFormatter={(v) => `$${v}`} width={44} />
                             <Tooltip
                               formatter={(v: number | undefined) => formatUSD(v ?? 0)}
+                              itemSorter={sortTooltipItemsByValueDesc}
                               labelFormatter={(_, payload) =>
                                 payload?.[0]?.payload?.bucket ?? t("usage.charts.costTrend")
                               }
@@ -434,16 +451,37 @@ function UsagePage() {
                                   name={stat.displayName}
                                 />
                               ))}
+                            {!hiddenCostModels.has(TOTAL_COST_KEY) && (
+                              <Area
+                                key={TOTAL_COST_KEY}
+                                type="monotone"
+                                dataKey={TOTAL_COST_KEY}
+                                stroke={COLORS.total}
+                                fill={COLORS.total}
+                                fillOpacity={0.04}
+                                strokeWidth={2.2}
+                                name={t("usage.charts.totalCost")}
+                              />
+                            )}
                           </AreaChart>
                         </ResponsiveContainer>
                         <TrendLegend
-                          items={timeSeriesChartData.modelStats.map((stat) => ({
-                            key: stat.key,
-                            color: stat.color,
-                            displayName: stat.displayName,
-                            originalName: stat.key,
-                            meta: formatUSD(stat.totalCost),
-                          }))}
+                          items={[
+                            {
+                              key: TOTAL_COST_KEY,
+                              color: COLORS.total,
+                              displayName: t("usage.charts.totalCost"),
+                              originalName: t("usage.charts.totalCost"),
+                              meta: formatUSD(timeSeriesChartData.totalCost),
+                            },
+                            ...timeSeriesChartData.modelStats.map((stat) => ({
+                              key: stat.key,
+                              color: stat.color,
+                              displayName: stat.displayName,
+                              originalName: stat.key,
+                              meta: formatUSD(stat.totalCost),
+                            })),
+                          ]}
                           hidden={hiddenCostModels}
                           onToggle={toggleCostModel}
                           ariaLabel={t("usage.charts.costTrend")}
@@ -479,13 +517,18 @@ function UsagePage() {
                             />
                             <Tooltip
                               formatter={(v: number | undefined) => formatTokens(v ?? 0)}
+                              itemSorter={sortTooltipItemsByValueDesc}
                               labelFormatter={(_, payload) =>
                                 payload?.[0]?.payload?.bucket ?? t("usage.charts.tokenTrend")
                               }
                               contentStyle={TOOLTIP_STYLE}
                             />
                             {tokenTrendSeries
-                              .filter((series) => !hiddenTokenSeries.has(series.dataKey))
+                              .filter(
+                                (series) =>
+                                  series.dataKey !== "totalTokens" &&
+                                  !hiddenTokenSeries.has(series.dataKey),
+                              )
                               .map((series) => (
                                 <Area
                                   key={series.dataKey}
@@ -493,11 +536,23 @@ function UsagePage() {
                                   dataKey={series.dataKey}
                                   stroke={series.color}
                                   fill={series.color}
-                                  fillOpacity={0.12}
-                                  strokeWidth={1.8}
+                                  fillOpacity={series.dataKey === "totalTokens" ? 0.04 : 0.12}
+                                  strokeWidth={series.dataKey === "totalTokens" ? 2.2 : 1.8}
                                   name={series.name}
                                 />
                               ))}
+                            {!hiddenTokenSeries.has("totalTokens") && (
+                              <Area
+                                key="totalTokens"
+                                type="monotone"
+                                dataKey="totalTokens"
+                                stroke={COLORS.total}
+                                fill={COLORS.total}
+                                fillOpacity={0.04}
+                                strokeWidth={2.2}
+                                name={t("usage.charts.totalTokens")}
+                              />
+                            )}
                           </AreaChart>
                         </ResponsiveContainer>
                         <TrendLegend
@@ -506,6 +561,10 @@ function UsagePage() {
                             color: series.color,
                             displayName: series.name,
                             originalName: series.name,
+                            meta:
+                              series.dataKey === "totalTokens"
+                                ? formatTokens(totalTokens)
+                                : undefined,
                           }))}
                           hidden={hiddenTokenSeries}
                           onToggle={toggleTokenSeries}
@@ -816,6 +875,14 @@ function Filters({ t, filter, allProjects, allModels, onChange, onReset }: Filte
     filter.startDate || filter.endDate || filter.projectPath || filter.model,
   );
   const activePreset = getActiveDateRangePreset(filter);
+  const sortedModels = useMemo(
+    () =>
+      Array.from(new Set(allModels))
+        .filter((model) => model !== CLAUDE_MODEL_FILTER)
+        .sort((a, b) => a.localeCompare(b)),
+    [allModels],
+  );
+  const hasClaudeModels = sortedModels.some((model) => model.startsWith("claude-"));
 
   return (
     <div className="usage-command-bar" role="group" aria-label={t("usage.filter.ariaLabel")}>
@@ -875,7 +942,10 @@ function Filters({ t, filter, allProjects, allModels, onChange, onReset }: Filte
           onChange={(e) => onChange({ model: e.target.value || undefined })}
         >
           <option value="">{t("usage.filter.allModels")}</option>
-          {allModels.map((m) => (
+          {hasClaudeModels && (
+            <option value={CLAUDE_MODEL_FILTER}>{t("usage.filter.claudeModels")}</option>
+          )}
+          {sortedModels.map((m) => (
             <option key={m} value={m}>
               {m}
             </option>

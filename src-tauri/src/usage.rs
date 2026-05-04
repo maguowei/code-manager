@@ -324,6 +324,8 @@ pub struct ScanResult {
 
 const BUILTIN_PRICING: &str = include_str!("../resources/model-pricing.json");
 const MODELS_DEV_URL: &str = "https://models.dev/api.json";
+const CLAUDE_MODEL_FILTER: &str = "claude-*";
+const CLAUDE_MODEL_PREFIX: &str = "claude-";
 pub const USAGE_DB_URL: &str = "sqlite:usage.db";
 
 const USAGE_DB_SCHEMA: &str = r#"
@@ -861,8 +863,13 @@ fn push_usage_filter_sql<'a>(builder: &mut QueryBuilder<'a, Sqlite>, filter: &'a
         builder.push_bind(session_id);
     }
     if let Some(model) = filter.model.as_ref().filter(|value| !value.is_empty()) {
-        builder.push(" AND model = ");
-        builder.push_bind(model);
+        if model == CLAUDE_MODEL_FILTER {
+            builder.push(" AND model LIKE ");
+            builder.push_bind(format!("{CLAUDE_MODEL_PREFIX}%"));
+        } else {
+            builder.push(" AND model = ");
+            builder.push_bind(model);
+        }
     }
 }
 
@@ -1626,7 +1633,11 @@ fn apply_filter<'a>(
                 }
             }
             if let Some(m) = filter.model.as_ref() {
-                if !m.is_empty() && r.model != *m {
+                if m == CLAUDE_MODEL_FILTER {
+                    if !r.model.starts_with(CLAUDE_MODEL_PREFIX) {
+                        return false;
+                    }
+                } else if !m.is_empty() && r.model != *m {
                     return false;
                 }
             }
@@ -2915,5 +2926,43 @@ mod tests {
         let r = apply_filter(&records, &f, &pricing);
         assert_eq!(r.len(), 1);
         assert_eq!(r[0].message_id, "b");
+    }
+
+    #[test]
+    fn aggregate_filters_by_claude_model_prefix() {
+        let pricing = sample_pricing();
+        let mk = |id: &str, model: &str| UsageRecord {
+            message_id: id.into(),
+            session_id: "s".into(),
+            project_path: "/p".into(),
+            project_dir: "-p".into(),
+            timestamp_ms: parse_iso8601_ms("2026-04-19T10:00:00Z").unwrap(),
+            model: model.into(),
+            input_tokens: 1_000_000,
+            output_tokens: 0,
+            cache_creation_5m: 0,
+            cache_creation_1h: 0,
+            cache_read: 0,
+            cost_usd: 0.0,
+            git_branch: None,
+            cc_version: None,
+        };
+        let records = vec![
+            mk("a", "claude-opus-4-7"),
+            mk("b", "claude-sonnet-4-6"),
+            mk("c", "mimo-v2-pro"),
+        ];
+
+        let f = UsageFilter {
+            model: Some("claude-*".into()),
+            ..Default::default()
+        };
+        let r = apply_filter(&records, &f, &pricing);
+        let ids = r
+            .into_iter()
+            .map(|record| record.message_id.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(ids, vec!["a", "b"]);
     }
 }

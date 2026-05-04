@@ -96,7 +96,7 @@ const summary: UsageSummary = {
     { projectPath: "/Users/me/work/AI/ai-manager", projectDir: "-Users-me-work-AI-ai-manager" },
     { projectPath: "/Users/me/work/web-studio", projectDir: "-Users-me-work-web-studio" },
   ],
-  allModels: ["claude-3-7-sonnet", "claude-3-opus"],
+  allModels: ["mimo-v2-pro", "claude-3-opus", "claude-3-7-sonnet"],
 };
 
 const daily: DailyUsage[] = [
@@ -357,6 +357,28 @@ describe("UsagePage cost cockpit", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("shows claude-* model filter and sorts model options alphabetically", () => {
+    const usage = renderUsage();
+
+    const modelSelect = screen.getByLabelText("模型") as HTMLSelectElement;
+    const options = within(modelSelect).getAllByRole("option");
+    expect(options.map((option) => option.textContent)).toEqual([
+      "全部模型",
+      "claude-*",
+      "claude-3-7-sonnet",
+      "claude-3-opus",
+      "mimo-v2-pro",
+    ]);
+
+    fireEvent.change(modelSelect, { target: { value: "claude-*" } });
+    const modelUpdater = usage.setFilter.mock.calls[usage.setFilter.mock.calls.length - 1]?.[0];
+    expect(typeof modelUpdater).toBe("function");
+    expect(modelUpdater({ startDate: "2026-05-04" })).toEqual({
+      startDate: "2026-05-04",
+      model: "claude-*",
+    });
+  });
+
   it("shows segmented tab counts and sends tab changes through useUsage", () => {
     const usage = renderUsage();
 
@@ -433,21 +455,36 @@ describe("UsagePage cost cockpit", () => {
     expect(within(trendSection).getByText("Token 趋势")).toBeInTheDocument();
   });
 
-  it("renders a clickable cost legend with full model name and total cost, sorted by spend", () => {
+  it("renders a clickable cost legend with total cost and full model names sorted by spend", () => {
     renderUsage({ timeSeries: multiModelTimeSeries });
 
     const costLegend = screen.getByRole("list", { name: "花费趋势（按模型堆叠）" });
     const chips = within(costLegend).getAllByRole("button");
+    expect(chips[0]).toHaveTextContent("总费用");
+    expect(chips[0]).toHaveTextContent("$12.34");
     // opus 总花费 $10 > sonnet 总花费 $2.34，应排在前；图例显示完整模型名
-    expect(chips[0]).toHaveTextContent("claude-3-opus");
-    expect(chips[0]).toHaveTextContent("$10.00");
-    expect(chips[1]).toHaveTextContent("claude-3-7-sonnet");
-    expect(chips[1]).toHaveTextContent("$2.34");
+    expect(chips[1]).toHaveTextContent("claude-3-opus");
+    expect(chips[1]).toHaveTextContent("$10.00");
+    expect(chips[2]).toHaveTextContent("claude-3-7-sonnet");
+    expect(chips[2]).toHaveTextContent("$2.34");
     // 默认全部可见
     for (const chip of chips) {
       expect(chip).toHaveAttribute("aria-pressed", "true");
       expect(chip).not.toHaveClass("muted");
     }
+  });
+
+  it("adds total cost and total token trend curves", () => {
+    renderUsage({ timeSeries: multiModelTimeSeries });
+
+    const chartAreas = screen.getAllByTestId("chart-area");
+    expect(chartAreas.some((el) => el.getAttribute("data-key") === "__totalCost")).toBe(true);
+    expect(chartAreas.some((el) => el.getAttribute("data-key") === "totalTokens")).toBe(true);
+
+    const costLegend = screen.getByRole("list", { name: "花费趋势（按模型堆叠）" });
+    expect(within(costLegend).getByRole("button", { name: /总费用/ })).toBeInTheDocument();
+    const tokenLegend = screen.getByRole("list", { name: "Token 趋势" });
+    expect(within(tokenLegend).getByRole("button", { name: /总 Token/ })).toBeInTheDocument();
   });
 
   it("hides a series when its cost legend chip is clicked and restores it on second click", () => {
