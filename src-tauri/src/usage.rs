@@ -3,18 +3,19 @@
 //! 数据源：~/.claude/projects/<project_dir>/<sessionId>.jsonl 及其 subagents/*.jsonl
 //!
 //! 提取每条 assistant 记录的 message.usage，按价格表计算 cost，提供按
-//! 日期 / 项目 / 会话 / 模型四个维度的聚合查询。message.id 全局去重。
+//! 日期 / 项目 / 会话 / 模型四个维度的聚合查询。message.id 全局合并，保留最大用量快照。
 //!
 //! 价格表加载顺序：本地缓存 -> 内置兜底 -> 启动后异步从 models.dev 拉取覆盖。
 
 use crate::utils;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use sqlx::{QueryBuilder, Row, Sqlite, SqlitePool};
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Component, Path, PathBuf};
-use std::sync::{Mutex, RwLock};
+use std::sync::RwLock;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Listener, Manager, State};
 
@@ -79,20 +80,54 @@ impl UsageRecord {
     }
 }
 
+fn usage_record_token_total(record: &UsageRecord) -> u128 {
+    record.input_tokens as u128
+        + record.output_tokens as u128
+        + record.cache_creation_total() as u128
+        + record.cache_read as u128
+}
+
+fn should_replace_usage_record(existing: &UsageRecord, candidate: &UsageRecord) -> bool {
+    usage_record_token_total(candidate) > usage_record_token_total(existing)
+}
+
+fn merge_usage_record(
+    records: &mut Vec<UsageRecord>,
+    seen: &mut HashSet<String>,
+    record: UsageRecord,
+) -> bool {
+    if record.message_id.is_empty() {
+        records.push(record);
+        return true;
+    }
+
+    if seen.insert(record.message_id.clone()) {
+        records.push(record);
+        return true;
+    }
+
+    if let Some(existing) = records
+        .iter_mut()
+        .find(|existing| existing.message_id == record.message_id)
+    {
+        if should_replace_usage_record(existing, &record) {
+            *existing = record;
+            return true;
+        }
+        return false;
+    }
+
+    records.push(record);
+    true
+}
+
 /// 单文件扫描索引
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct FileIndex {
     pub mtime_ms: i64,
     pub size: u64,
     pub last_offset: u64,
-}
-
-/// 持久化的索引文件结构
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-struct PersistedIndex {
-    #[serde(default)]
-    files: HashMap<String, FileIndex>,
 }
 
 /// 内存状态
@@ -108,13 +143,28 @@ pub struct UsageStateInner {
 
 pub struct UsageState {
     pub inner: RwLock<UsageStateInner>,
+    db: RwLock<Option<SqlitePool>>,
 }
 
 impl UsageState {
     pub fn new() -> Self {
         Self {
             inner: RwLock::new(UsageStateInner::default()),
+            db: RwLock::new(None),
         }
+    }
+
+    fn set_db_pool(&self, pool: SqlitePool) -> Result<(), String> {
+        *self.db.write().map_err(|e| e.to_string())? = Some(pool);
+        Ok(())
+    }
+
+    fn db_pool(&self) -> Result<SqlitePool, String> {
+        self.db
+            .read()
+            .map_err(|e| e.to_string())?
+            .clone()
+            .ok_or_else(|| "usage SQLite 数据库尚未初始化".to_string())
     }
 }
 
@@ -125,7 +175,8 @@ impl Default for UsageState {
 }
 
 /// 互斥锁：避免多个扫描同时跑
-pub static USAGE_SCAN_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+pub static USAGE_SCAN_LOCK: Lazy<tokio::sync::Mutex<()>> =
+    Lazy::new(|| tokio::sync::Mutex::new(()));
 
 // ============ Filter / 视图 ============
 
@@ -249,6 +300,51 @@ pub struct ScanResult {
 
 const BUILTIN_PRICING: &str = include_str!("../resources/model-pricing.json");
 const MODELS_DEV_URL: &str = "https://models.dev/api.json";
+pub const USAGE_DB_URL: &str = "sqlite:usage.db";
+
+const USAGE_DB_SCHEMA: &str = r#"
+CREATE TABLE IF NOT EXISTS usage_records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    message_id TEXT NOT NULL DEFAULT '',
+    session_id TEXT NOT NULL DEFAULT '',
+    project_path TEXT NOT NULL DEFAULT '',
+    project_dir TEXT NOT NULL DEFAULT '',
+    timestamp_ms INTEGER NOT NULL DEFAULT 0,
+    model TEXT NOT NULL DEFAULT 'unknown',
+    input_tokens INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_creation_5m INTEGER NOT NULL DEFAULT 0,
+    cache_creation_1h INTEGER NOT NULL DEFAULT 0,
+    cache_read INTEGER NOT NULL DEFAULT 0,
+    cost_usd REAL NOT NULL DEFAULT 0,
+    git_branch TEXT,
+    cc_version TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_usage_records_message_id ON usage_records(message_id);
+CREATE INDEX IF NOT EXISTS idx_usage_records_timestamp_ms ON usage_records(timestamp_ms);
+CREATE INDEX IF NOT EXISTS idx_usage_records_project_path ON usage_records(project_path);
+CREATE INDEX IF NOT EXISTS idx_usage_records_session_id ON usage_records(session_id);
+CREATE INDEX IF NOT EXISTS idx_usage_records_model ON usage_records(model);
+CREATE TABLE IF NOT EXISTS usage_file_index (
+    path TEXT PRIMARY KEY NOT NULL,
+    mtime_ms INTEGER NOT NULL DEFAULT 0,
+    size INTEGER NOT NULL DEFAULT 0,
+    last_offset INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS usage_meta (
+    key TEXT PRIMARY KEY NOT NULL,
+    value TEXT NOT NULL
+);
+"#;
+
+pub fn sql_migrations() -> Vec<tauri_plugin_sql::Migration> {
+    vec![tauri_plugin_sql::Migration {
+        version: 1,
+        description: "create_usage_cache",
+        sql: USAGE_DB_SCHEMA,
+        kind: tauri_plugin_sql::MigrationKind::Up,
+    }]
+}
 
 #[derive(Debug, Default, Deserialize)]
 struct PricingFile {
@@ -262,12 +358,10 @@ fn pricing_cache_path() -> PathBuf {
     utils::get_app_data_dir().join("model-pricing.json")
 }
 
-fn index_cache_path() -> PathBuf {
-    utils::get_app_data_dir().join("usage_index.json")
-}
-
 fn projects_root() -> PathBuf {
-    utils::home_dir_or_fallback().join(".claude").join("projects")
+    utils::home_dir_or_fallback()
+        .join(".claude")
+        .join("projects")
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -379,26 +473,405 @@ fn save_pricing_cache(table: &PricingTable) -> Result<(), String> {
     utils::ensure_dir_and_write_atomic(&path, &content)
 }
 
-fn load_index() -> HashMap<PathBuf, FileIndex> {
-    let path = index_cache_path();
-    let persisted: PersistedIndex = utils::read_json_file(&path);
-    persisted
-        .files
-        .into_iter()
-        .map(|(k, v)| (PathBuf::from(k), v))
+async fn initialize_usage_database(pool: &SqlitePool) -> Result<(), String> {
+    sqlx::query("PRAGMA journal_mode = WAL")
+        .execute(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    sqlx::query("PRAGMA synchronous = NORMAL")
+        .execute(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    for statement in USAGE_DB_SCHEMA
+        .split(';')
+        .map(str::trim)
+        .filter(|statement| !statement.is_empty())
+    {
+        sqlx::query(statement)
+            .execute(pool)
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+async fn usage_db_pool_from_handle(app: &AppHandle) -> Result<SqlitePool, String> {
+    let instances = app.state::<tauri_plugin_sql::DbInstances>();
+    let pools = instances.0.read().await;
+    let pool = pools
+        .get(USAGE_DB_URL)
+        .ok_or_else(|| format!("未找到用量 SQLite 连接: {USAGE_DB_URL}"))?;
+    match pool {
+        tauri_plugin_sql::DbPool::Sqlite(pool) => Ok(pool.clone()),
+    }
+}
+
+async fn load_file_index_db(pool: &SqlitePool) -> Result<HashMap<PathBuf, FileIndex>, String> {
+    let rows = sqlx::query("SELECT path, mtime_ms, size, last_offset FROM usage_file_index")
+        .fetch_all(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    let mut index = HashMap::new();
+    for row in rows {
+        let path: String = row.try_get("path").map_err(|e| e.to_string())?;
+        index.insert(
+            PathBuf::from(path),
+            FileIndex {
+                mtime_ms: row.try_get("mtime_ms").map_err(|e| e.to_string())?,
+                size: row_i64_to_u64(&row, "size")?,
+                last_offset: row_i64_to_u64(&row, "last_offset")?,
+            },
+        );
+    }
+    Ok(index)
+}
+
+async fn replace_file_index_db(
+    pool: &SqlitePool,
+    index: &HashMap<PathBuf, FileIndex>,
+) -> Result<(), String> {
+    let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
+    sqlx::query("DELETE FROM usage_file_index")
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| e.to_string())?;
+    for (path, file_index) in index {
+        upsert_file_index_db(&mut tx, path, file_index).await?;
+    }
+    tx.commit().await.map_err(|e| e.to_string())
+}
+
+async fn upsert_file_index_entries_db(
+    pool: &SqlitePool,
+    index: &HashMap<PathBuf, FileIndex>,
+) -> Result<(), String> {
+    let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
+    for (path, file_index) in index {
+        upsert_file_index_db(&mut tx, path, file_index).await?;
+    }
+    tx.commit().await.map_err(|e| e.to_string())
+}
+
+async fn upsert_file_index_db(
+    tx: &mut sqlx::Transaction<'_, Sqlite>,
+    path: &Path,
+    file_index: &FileIndex,
+) -> Result<(), String> {
+    sqlx::query(
+        "INSERT INTO usage_file_index (path, mtime_ms, size, last_offset)
+         VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT(path) DO UPDATE SET
+            mtime_ms = excluded.mtime_ms,
+            size = excluded.size,
+            last_offset = excluded.last_offset",
+    )
+    .bind(path.to_string_lossy().to_string())
+    .bind(file_index.mtime_ms)
+    .bind(u64_to_i64(file_index.size)?)
+    .bind(u64_to_i64(file_index.last_offset)?)
+    .execute(&mut **tx)
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+async fn remove_file_index_entries_db(pool: &SqlitePool, paths: &[PathBuf]) -> Result<(), String> {
+    let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
+    for path in paths {
+        sqlx::query("DELETE FROM usage_file_index WHERE path = ?1")
+            .bind(path.to_string_lossy().to_string())
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+    tx.commit().await.map_err(|e| e.to_string())
+}
+
+async fn clear_usage_records_db(pool: &SqlitePool) -> Result<(), String> {
+    let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
+    sqlx::query("DELETE FROM usage_records")
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| e.to_string())?;
+    sqlx::query("DELETE FROM usage_file_index")
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| e.to_string())?;
+    tx.commit().await.map_err(|e| e.to_string())
+}
+
+async fn merge_usage_records_db(pool: &SqlitePool, records: &[UsageRecord]) -> Result<u64, String> {
+    let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
+    let mut changed = 0;
+    for record in records {
+        if record.message_id.is_empty() {
+            insert_usage_record_db(&mut tx, record).await?;
+            changed += 1;
+            continue;
+        }
+
+        let existing = sqlx::query(
+            "SELECT id, input_tokens, output_tokens, cache_creation_5m, cache_creation_1h, cache_read
+             FROM usage_records WHERE message_id = ?1 LIMIT 1",
+        )
+        .bind(&record.message_id)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|e| e.to_string())?;
+
+        if let Some(row) = existing {
+            let existing_total = row_i64_to_u128(&row, "input_tokens")?
+                + row_i64_to_u128(&row, "output_tokens")?
+                + row_i64_to_u128(&row, "cache_creation_5m")?
+                + row_i64_to_u128(&row, "cache_creation_1h")?
+                + row_i64_to_u128(&row, "cache_read")?;
+            if usage_record_token_total(record) > existing_total {
+                let id: i64 = row.try_get("id").map_err(|e| e.to_string())?;
+                update_usage_record_db(&mut tx, id, record).await?;
+                changed += 1;
+            }
+        } else {
+            insert_usage_record_db(&mut tx, record).await?;
+            changed += 1;
+        }
+    }
+    tx.commit().await.map_err(|e| e.to_string())?;
+    Ok(changed)
+}
+
+async fn insert_usage_record_db(
+    tx: &mut sqlx::Transaction<'_, Sqlite>,
+    record: &UsageRecord,
+) -> Result<(), String> {
+    sqlx::query(
+        "INSERT INTO usage_records (
+            message_id, session_id, project_path, project_dir, timestamp_ms, model,
+            input_tokens, output_tokens, cache_creation_5m, cache_creation_1h,
+            cache_read, cost_usd, git_branch, cc_version
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+    )
+    .bind(&record.message_id)
+    .bind(&record.session_id)
+    .bind(&record.project_path)
+    .bind(&record.project_dir)
+    .bind(record.timestamp_ms)
+    .bind(&record.model)
+    .bind(u64_to_i64(record.input_tokens)?)
+    .bind(u64_to_i64(record.output_tokens)?)
+    .bind(u64_to_i64(record.cache_creation_5m)?)
+    .bind(u64_to_i64(record.cache_creation_1h)?)
+    .bind(u64_to_i64(record.cache_read)?)
+    .bind(record.cost_usd)
+    .bind(&record.git_branch)
+    .bind(&record.cc_version)
+    .execute(&mut **tx)
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+async fn update_usage_record_db(
+    tx: &mut sqlx::Transaction<'_, Sqlite>,
+    id: i64,
+    record: &UsageRecord,
+) -> Result<(), String> {
+    sqlx::query(
+        "UPDATE usage_records SET
+            message_id = ?1,
+            session_id = ?2,
+            project_path = ?3,
+            project_dir = ?4,
+            timestamp_ms = ?5,
+            model = ?6,
+            input_tokens = ?7,
+            output_tokens = ?8,
+            cache_creation_5m = ?9,
+            cache_creation_1h = ?10,
+            cache_read = ?11,
+            cost_usd = ?12,
+            git_branch = ?13,
+            cc_version = ?14
+         WHERE id = ?15",
+    )
+    .bind(&record.message_id)
+    .bind(&record.session_id)
+    .bind(&record.project_path)
+    .bind(&record.project_dir)
+    .bind(record.timestamp_ms)
+    .bind(&record.model)
+    .bind(u64_to_i64(record.input_tokens)?)
+    .bind(u64_to_i64(record.output_tokens)?)
+    .bind(u64_to_i64(record.cache_creation_5m)?)
+    .bind(u64_to_i64(record.cache_creation_1h)?)
+    .bind(u64_to_i64(record.cache_read)?)
+    .bind(record.cost_usd)
+    .bind(&record.git_branch)
+    .bind(&record.cc_version)
+    .bind(id)
+    .execute(&mut **tx)
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+async fn load_usage_records_db(
+    pool: &SqlitePool,
+    filter: &UsageFilter,
+) -> Result<Vec<UsageRecord>, String> {
+    let mut builder = QueryBuilder::<Sqlite>::new(
+        "SELECT message_id, session_id, project_path, project_dir, timestamp_ms, model,
+            input_tokens, output_tokens, cache_creation_5m, cache_creation_1h,
+            cache_read, cost_usd, git_branch, cc_version
+         FROM usage_records WHERE 1 = 1",
+    );
+    push_usage_filter_sql(&mut builder, filter);
+    builder.push(" ORDER BY timestamp_ms ASC, id ASC");
+
+    let rows = builder
+        .build()
+        .fetch_all(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    rows.into_iter()
+        .map(|row| row_to_usage_record(&row))
         .collect()
 }
 
-fn save_index(index: &HashMap<PathBuf, FileIndex>) -> Result<(), String> {
-    let persisted = PersistedIndex {
-        files: index
-            .iter()
-            .map(|(k, v)| (k.to_string_lossy().to_string(), v.clone()))
-            .collect(),
-    };
-    let path = index_cache_path();
-    let content = serde_json::to_string(&persisted).map_err(|e| e.to_string())?;
-    utils::ensure_dir_and_write_atomic(&path, &content)
+async fn load_usage_record_rows_db(pool: &SqlitePool) -> Result<Vec<(i64, UsageRecord)>, String> {
+    let rows = sqlx::query(
+        "SELECT id, message_id, session_id, project_path, project_dir, timestamp_ms, model,
+            input_tokens, output_tokens, cache_creation_5m, cache_creation_1h,
+            cache_read, cost_usd, git_branch, cc_version
+         FROM usage_records ORDER BY timestamp_ms ASC, id ASC",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    rows.into_iter()
+        .map(|row| {
+            let id: i64 = row.try_get("id").map_err(|e| e.to_string())?;
+            Ok((id, row_to_usage_record(&row)?))
+        })
+        .collect()
+}
+
+async fn update_usage_record_costs_db(
+    pool: &SqlitePool,
+    updates: &[(i64, f64)],
+) -> Result<(), String> {
+    let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
+    for (id, cost) in updates {
+        sqlx::query("UPDATE usage_records SET cost_usd = ?1 WHERE id = ?2")
+            .bind(cost)
+            .bind(id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+    tx.commit().await.map_err(|e| e.to_string())
+}
+
+async fn count_usage_records_db(pool: &SqlitePool) -> Result<u64, String> {
+    let row = sqlx::query("SELECT COUNT(*) AS count FROM usage_records")
+        .fetch_one(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    row_i64_to_u64(&row, "count")
+}
+
+async fn save_last_scan_ms_db(pool: &SqlitePool, value: i64) -> Result<(), String> {
+    sqlx::query(
+        "INSERT INTO usage_meta (key, value) VALUES ('last_scan_ms', ?1)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    )
+    .bind(value.to_string())
+    .execute(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+async fn load_last_scan_ms_db(pool: &SqlitePool) -> Result<Option<i64>, String> {
+    let row = sqlx::query("SELECT value FROM usage_meta WHERE key = 'last_scan_ms'")
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    row.map(|row| {
+        let value: String = row.try_get("value").map_err(|e| e.to_string())?;
+        value.parse::<i64>().map_err(|e| e.to_string())
+    })
+    .transpose()
+}
+
+fn push_usage_filter_sql<'a>(builder: &mut QueryBuilder<'a, Sqlite>, filter: &'a UsageFilter) {
+    if let Some(start_ms) = filter
+        .start_date
+        .as_deref()
+        .and_then(|s| parse_local_date_to_ms(s, false))
+    {
+        builder.push(" AND timestamp_ms >= ");
+        builder.push_bind(start_ms);
+    }
+    if let Some(end_ms) = filter
+        .end_date
+        .as_deref()
+        .and_then(|s| parse_local_date_to_ms(s, true))
+    {
+        builder.push(" AND timestamp_ms <= ");
+        builder.push_bind(end_ms);
+    }
+    if let Some(project) = filter
+        .project_path
+        .as_ref()
+        .filter(|value| !value.is_empty())
+    {
+        builder.push(" AND (project_path = ");
+        builder.push_bind(project);
+        builder.push(" OR project_dir = ");
+        builder.push_bind(project);
+        builder.push(")");
+    }
+    if let Some(session_id) = filter.session_id.as_ref().filter(|value| !value.is_empty()) {
+        builder.push(" AND session_id = ");
+        builder.push_bind(session_id);
+    }
+    if let Some(model) = filter.model.as_ref().filter(|value| !value.is_empty()) {
+        builder.push(" AND model = ");
+        builder.push_bind(model);
+    }
+}
+
+fn row_to_usage_record(row: &sqlx::sqlite::SqliteRow) -> Result<UsageRecord, String> {
+    Ok(UsageRecord {
+        message_id: row.try_get("message_id").map_err(|e| e.to_string())?,
+        session_id: row.try_get("session_id").map_err(|e| e.to_string())?,
+        project_path: row.try_get("project_path").map_err(|e| e.to_string())?,
+        project_dir: row.try_get("project_dir").map_err(|e| e.to_string())?,
+        timestamp_ms: row.try_get("timestamp_ms").map_err(|e| e.to_string())?,
+        model: row.try_get("model").map_err(|e| e.to_string())?,
+        input_tokens: row_i64_to_u64(row, "input_tokens")?,
+        output_tokens: row_i64_to_u64(row, "output_tokens")?,
+        cache_creation_5m: row_i64_to_u64(row, "cache_creation_5m")?,
+        cache_creation_1h: row_i64_to_u64(row, "cache_creation_1h")?,
+        cache_read: row_i64_to_u64(row, "cache_read")?,
+        cost_usd: row.try_get("cost_usd").map_err(|e| e.to_string())?,
+        git_branch: row.try_get("git_branch").map_err(|e| e.to_string())?,
+        cc_version: row.try_get("cc_version").map_err(|e| e.to_string())?,
+    })
+}
+
+fn row_i64_to_u64(row: &sqlx::sqlite::SqliteRow, name: &str) -> Result<u64, String> {
+    let value: i64 = row.try_get(name).map_err(|e| e.to_string())?;
+    u64::try_from(value).map_err(|_| format!("{name} 包含负数: {value}"))
+}
+
+fn row_i64_to_u128(row: &sqlx::sqlite::SqliteRow, name: &str) -> Result<u128, String> {
+    row_i64_to_u64(row, name).map(u128::from)
+}
+
+fn u64_to_i64(value: u64) -> Result<i64, String> {
+    i64::try_from(value).map_err(|_| format!("Token 数值过大，无法写入 SQLite: {value}"))
 }
 
 // ============ 模型价格匹配与成本计算 ============
@@ -468,9 +941,8 @@ fn now_ms() -> i64 {
 
 /// 缓存的本地时区偏移（首次访问时尝试获取，失败回退 UTC）
 fn local_offset() -> time::UtcOffset {
-    static OFFSET: Lazy<time::UtcOffset> = Lazy::new(|| {
-        time::UtcOffset::current_local_offset().unwrap_or(time::UtcOffset::UTC)
-    });
+    static OFFSET: Lazy<time::UtcOffset> =
+        Lazy::new(|| time::UtcOffset::current_local_offset().unwrap_or(time::UtcOffset::UTC));
     *OFFSET
 }
 
@@ -494,7 +966,10 @@ fn ms_to_local_date(ms: i64) -> String {
     let secs = ms / 1000;
     let nanos = ((ms % 1000) * 1_000_000) as u32;
     let dt = match OffsetDateTime::from_unix_timestamp(secs) {
-        Ok(t) => t.replace_nanosecond(nanos).unwrap_or(t).to_offset(local_offset()),
+        Ok(t) => t
+            .replace_nanosecond(nanos)
+            .unwrap_or(t)
+            .to_offset(local_offset()),
         Err(_) => return String::new(),
     };
     format!("{:04}-{:02}-{:02}", dt.year(), dt.month() as u8, dt.day())
@@ -565,24 +1040,28 @@ fn parse_jsonl_line(
         .map(String::from)
         .filter(|s| !s.is_empty());
 
-    // 优先使用 cache_creation 子对象细分；回退到 cache_creation_input_tokens
+    let cache_creation_input_tokens = usage_v
+        .get("cache_creation_input_tokens")
+        .and_then(|x| x.as_u64())
+        .unwrap_or(0);
+
+    // 优先使用 cache_creation 子对象细分；细分缺失或全为 0 时回退到顶层字段。
     let (cache_5m, cache_1h) = if let Some(cc) = usage_v.get("cache_creation") {
-        (
-            cc.get("ephemeral_5m_input_tokens")
-                .and_then(|x| x.as_u64())
-                .unwrap_or(0),
-            cc.get("ephemeral_1h_input_tokens")
-                .and_then(|x| x.as_u64())
-                .unwrap_or(0),
-        )
+        let cache_5m = cc
+            .get("ephemeral_5m_input_tokens")
+            .and_then(|x| x.as_u64())
+            .unwrap_or(0);
+        let cache_1h = cc
+            .get("ephemeral_1h_input_tokens")
+            .and_then(|x| x.as_u64())
+            .unwrap_or(0);
+        if cache_5m == 0 && cache_1h == 0 && cache_creation_input_tokens > 0 {
+            (cache_creation_input_tokens, 0)
+        } else {
+            (cache_5m, cache_1h)
+        }
     } else {
-        (
-            usage_v
-                .get("cache_creation_input_tokens")
-                .and_then(|x| x.as_u64())
-                .unwrap_or(0),
-            0,
-        )
+        (cache_creation_input_tokens, 0)
     };
 
     let raw = RawUsage {
@@ -638,15 +1117,25 @@ fn parse_jsonl_line(
 // ============ 扫描 ============
 
 /// 全量扫描；尊重已持久化的 file_index，未变文件跳过；full_rescan=true 强制清空内存与索引
-pub fn scan_all(state: &UsageState, full_rescan: bool) -> Result<ScanResult, String> {
-    let _lock = USAGE_SCAN_LOCK.lock().map_err(|e| e.to_string())?;
-    let started = Instant::now();
+pub async fn scan_all(state: &UsageState, full_rescan: bool) -> Result<ScanResult, String> {
+    scan_all_in_projects_dir(state, full_rescan, projects_root()).await
+}
 
-    let projects_dir = projects_root();
+async fn scan_all_in_projects_dir(
+    state: &UsageState,
+    full_rescan: bool,
+    projects_dir: PathBuf,
+) -> Result<ScanResult, String> {
+    let _lock = USAGE_SCAN_LOCK.lock().await;
+    let started = Instant::now();
+    let pool = state.db_pool()?;
+
     if !projects_dir.exists() {
         log::info!("event=usage.scan status=skip reason=projects_dir_missing");
+        let last_scan_ms = now_ms();
+        let _ = save_last_scan_ms_db(&pool, last_scan_ms).await;
         if let Ok(mut inner) = state.inner.write() {
-            inner.last_scan_ms = Some(now_ms());
+            inner.last_scan_ms = Some(last_scan_ms);
         }
         return Ok(ScanResult::default());
     }
@@ -659,32 +1148,16 @@ pub fn scan_all(state: &UsageState, full_rescan: bool) -> Result<ScanResult, Str
         .clone();
 
     let persisted_index = if full_rescan {
+        clear_usage_records_db(&pool).await?;
         HashMap::new()
     } else {
-        state
-            .inner
-            .read()
-            .map(|s| s.file_index.clone())
-            .unwrap_or_default()
-    };
-    let persisted_index = if persisted_index.is_empty() && !full_rescan {
-        load_index()
-    } else {
-        persisted_index
+        load_file_index_db(&pool).await?
     };
 
     let mut new_records: Vec<UsageRecord> = Vec::new();
     let mut new_index: HashMap<PathBuf, FileIndex> = HashMap::new();
     let mut new_unknown: HashSet<String> = HashSet::new();
-    let mut local_seen: HashSet<String> = if full_rescan {
-        HashSet::new()
-    } else {
-        state
-            .inner
-            .read()
-            .map(|s| s.seen_message_ids.clone())
-            .unwrap_or_default()
-    };
+    let mut local_seen: HashSet<String> = HashSet::new();
     let mut files_count: u64 = 0;
 
     if let Err(err) = fs::read_dir(&projects_dir) {
@@ -751,7 +1224,10 @@ pub fn scan_all(state: &UsageState, full_rescan: bool) -> Result<ScanResult, Str
         }
     }
 
-    let new_records_count = new_records.len() as u64;
+    let new_records_count = merge_usage_records_db(&pool, &new_records).await?;
+    replace_file_index_db(&pool, &new_index).await?;
+    let last_scan_ms = now_ms();
+    save_last_scan_ms_db(&pool, last_scan_ms).await?;
 
     {
         let mut inner = state.inner.write().map_err(|e| e.to_string())?;
@@ -760,27 +1236,15 @@ pub fn scan_all(state: &UsageState, full_rescan: bool) -> Result<ScanResult, Str
             inner.seen_message_ids.clear();
             inner.unknown_models.clear();
         }
-        for r in new_records {
-            if !r.message_id.is_empty() && !inner.seen_message_ids.insert(r.message_id.clone()) {
-                continue;
-            }
-            inner.records.push(r);
-        }
         for m in new_unknown {
             inner.unknown_models.insert(m);
         }
         inner.file_index = new_index.clone();
-        inner.last_scan_ms = Some(now_ms());
+        inner.last_scan_ms = Some(last_scan_ms);
     }
 
-    let _ = save_index(&new_index);
-
     let elapsed_ms = started.elapsed().as_millis() as u64;
-    let total_records = state
-        .inner
-        .read()
-        .map(|s| s.records.len())
-        .unwrap_or_default();
+    let total_records = count_usage_records_db(&pool).await.unwrap_or_default();
     log::info!(
         "event=usage.scan status=ok files={files_count} new_records={new_records_count} \
          total_records={total_records} elapsed_ms={elapsed_ms}"
@@ -832,9 +1296,7 @@ fn scan_file_from_offset(
             continue;
         }
         if let Some(record) = parse_jsonl_line(trimmed, project_dir_name, pricing, unknown_models) {
-            if record.message_id.is_empty() || seen.insert(record.message_id.clone()) {
-                out.push(record);
-            }
+            merge_usage_record(out, seen, record);
         }
     }
 
@@ -842,8 +1304,17 @@ fn scan_file_from_offset(
 }
 
 /// 处理 watcher 触发的增量扫描
-pub fn handle_files_changed(state: &UsageState, files: Vec<PathBuf>) -> Result<u64, String> {
-    let _lock = USAGE_SCAN_LOCK.lock().map_err(|e| e.to_string())?;
+pub async fn handle_files_changed(state: &UsageState, files: Vec<PathBuf>) -> Result<u64, String> {
+    handle_files_changed_in_projects_dir(state, files, projects_root()).await
+}
+
+async fn handle_files_changed_in_projects_dir(
+    state: &UsageState,
+    files: Vec<PathBuf>,
+    projects_dir: PathBuf,
+) -> Result<u64, String> {
+    let _lock = USAGE_SCAN_LOCK.lock().await;
+    let pool = state.db_pool()?;
     let pricing = state
         .inner
         .read()
@@ -855,13 +1326,9 @@ pub fn handle_files_changed(state: &UsageState, files: Vec<PathBuf>) -> Result<u
     let mut updated_index: HashMap<PathBuf, FileIndex> = HashMap::new();
     let mut removed: Vec<PathBuf> = Vec::new();
     let mut unknown_local: HashSet<String> = HashSet::new();
-    let mut local_seen: HashSet<String> = state
-        .inner
-        .read()
-        .map(|s| s.seen_message_ids.clone())
-        .unwrap_or_default();
+    let mut local_seen: HashSet<String> = HashSet::new();
+    let persisted_index = load_file_index_db(&pool).await?;
 
-    let projects_dir = projects_root();
     for path in files {
         let Some(usage_file) = identify_usage_file(&projects_dir, &path) else {
             continue;
@@ -884,12 +1351,9 @@ pub fn handle_files_changed(state: &UsageState, files: Vec<PathBuf>) -> Result<u
             .unwrap_or(0);
         let size = metadata.len();
 
-        let start_offset = {
-            let inner = state.inner.read().map_err(|e| e.to_string())?;
-            match inner.file_index.get(&path) {
-                Some(idx) if idx.size <= size && idx.mtime_ms <= mtime => idx.last_offset,
-                _ => 0,
-            }
+        let start_offset = match persisted_index.get(&path) {
+            Some(idx) if idx.size <= size && idx.mtime_ms <= mtime => idx.last_offset,
+            _ => 0,
         };
 
         match scan_file_from_offset(
@@ -917,15 +1381,14 @@ pub fn handle_files_changed(state: &UsageState, files: Vec<PathBuf>) -> Result<u
         }
     }
 
-    let new_count = new_records.len() as u64;
+    let new_count = merge_usage_records_db(&pool, &new_records).await?;
+    upsert_file_index_entries_db(&pool, &updated_index).await?;
+    if !removed.is_empty() {
+        remove_file_index_entries_db(&pool, &removed).await?;
+    }
+
     {
         let mut inner = state.inner.write().map_err(|e| e.to_string())?;
-        for r in new_records {
-            if !r.message_id.is_empty() && !inner.seen_message_ids.insert(r.message_id.clone()) {
-                continue;
-            }
-            inner.records.push(r);
-        }
         for (k, v) in &updated_index {
             inner.file_index.insert(k.clone(), v.clone());
         }
@@ -935,15 +1398,6 @@ pub fn handle_files_changed(state: &UsageState, files: Vec<PathBuf>) -> Result<u
         for m in unknown_local {
             inner.unknown_models.insert(m);
         }
-    }
-
-    if new_count > 0 || !removed.is_empty() {
-        let snapshot = state
-            .inner
-            .read()
-            .map(|s| s.file_index.clone())
-            .unwrap_or_default();
-        let _ = save_index(&snapshot);
     }
 
     if new_count > 0 {
@@ -996,10 +1450,7 @@ async fn fetch_pricing_from_network() -> Result<PricingTable, String> {
         .send()
         .await
         .map_err(|e| format!("network error: {e}"))?;
-    let api: ModelsDevApi = resp
-        .json()
-        .await
-        .map_err(|e| format!("parse error: {e}"))?;
+    let api: ModelsDevApi = resp.json().await.map_err(|e| format!("parse error: {e}"))?;
 
     let mut models: HashMap<String, ModelPrice> = HashMap::new();
     for (key, prov) in &api.providers {
@@ -1036,13 +1487,16 @@ async fn fetch_pricing_from_network() -> Result<PricingTable, String> {
 }
 
 /// 应用新价格表：保存缓存、写入内存、重算所有 records 的 cost
-fn apply_new_pricing(state: &UsageState, table: PricingTable) -> Result<PricingTable, String> {
+async fn apply_new_pricing(
+    state: &UsageState,
+    table: PricingTable,
+) -> Result<PricingTable, String> {
     save_pricing_cache(&table)?;
-    let mut inner = state.inner.write().map_err(|e| e.to_string())?;
-    inner.pricing = table.clone();
-    let pricing = inner.pricing.clone();
+    let pool = state.db_pool()?;
+    let records = load_usage_record_rows_db(&pool).await?;
     let mut unknown_local: HashSet<String> = HashSet::new();
-    for r in inner.records.iter_mut() {
+    let mut updates = Vec::with_capacity(records.len());
+    for (id, r) in records {
         let raw = RawUsage {
             input_tokens: r.input_tokens,
             output_tokens: r.output_tokens,
@@ -1050,11 +1504,15 @@ fn apply_new_pricing(state: &UsageState, table: PricingTable) -> Result<PricingT
             cache_creation_1h: r.cache_creation_1h,
             cache_read: r.cache_read,
         };
-        r.cost_usd = compute_cost(&r.model, &pricing, &raw);
-        if match_model_price(&r.model, &pricing).is_none() {
+        updates.push((id, compute_cost(&r.model, &table, &raw)));
+        if match_model_price(&r.model, &table).is_none() {
             unknown_local.insert(r.model.clone());
         }
     }
+    update_usage_record_costs_db(&pool, &updates).await?;
+
+    let mut inner = state.inner.write().map_err(|e| e.to_string())?;
+    inner.pricing = table.clone();
     inner.unknown_models = unknown_local;
     Ok(table)
 }
@@ -1127,29 +1585,36 @@ fn aggregate_model_stats(records: &[&UsageRecord]) -> Vec<ModelUsageStat> {
         entry.cost += r.cost_usd;
     }
     let mut list: Vec<_> = by_model.into_values().collect();
-    list.sort_by(|a, b| b.cost.partial_cmp(&a.cost).unwrap_or(std::cmp::Ordering::Equal));
+    list.sort_by(|a, b| {
+        b.cost
+            .partial_cmp(&a.cost)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     list
 }
 
 // ============ Tauri commands ============
 
 #[tauri::command]
-pub fn get_usage_summary(
+pub async fn get_usage_summary(
     filter: UsageFilter,
     state: State<'_, UsageState>,
 ) -> Result<UsageSummary, String> {
-    let inner = state.inner.read().map_err(|e| e.to_string())?;
-    let filtered = apply_filter(&inner.records, &filter, &inner.pricing);
+    let pool = state.db_pool()?;
+    let (pricing, state_last_scan_ms) = {
+        let inner = state.inner.read().map_err(|e| e.to_string())?;
+        (inner.pricing.clone(), inner.last_scan_ms)
+    };
+    let records = load_usage_records_db(&pool, &filter).await?;
+    let filtered = apply_filter(&records, &filter, &pricing);
 
     let mut sessions: HashSet<&str> = HashSet::new();
     let mut projects: HashSet<&str> = HashSet::new();
     let mut total = UsageSummary {
-        last_scan_ms: inner.last_scan_ms,
-        pricing: inner.pricing.clone(),
-        unknown_models: inner.unknown_models.iter().cloned().collect(),
+        last_scan_ms: state_last_scan_ms.or(load_last_scan_ms_db(&pool).await?),
+        pricing: pricing.clone(),
         ..Default::default()
     };
-    total.unknown_models.sort();
 
     for r in &filtered {
         total.total_messages += 1;
@@ -1166,11 +1631,16 @@ pub fn get_usage_summary(
 
     let mut project_set: HashMap<String, String> = HashMap::new();
     let mut model_set: HashSet<String> = HashSet::new();
-    for r in &inner.records {
+    let all_records = load_usage_records_db(&pool, &UsageFilter::default()).await?;
+    let mut unknown_models: HashSet<String> = HashSet::new();
+    for r in &all_records {
         project_set
             .entry(r.project_path.clone())
             .or_insert_with(|| r.project_dir.clone());
         model_set.insert(r.model.clone());
+        if match_model_price(&r.model, &pricing).is_none() {
+            unknown_models.insert(r.model.clone());
+        }
     }
     let mut all_projects: Vec<ProjectOption> = project_set
         .into_iter()
@@ -1182,18 +1652,27 @@ pub fn get_usage_summary(
     all_projects.sort_by(|a, b| a.project_path.cmp(&b.project_path));
     let mut all_models: Vec<String> = model_set.into_iter().collect();
     all_models.sort();
+    total.unknown_models = unknown_models.into_iter().collect();
+    total.unknown_models.sort();
     total.all_projects = all_projects;
     total.all_models = all_models;
     Ok(total)
 }
 
 #[tauri::command]
-pub fn get_usage_daily(
+pub async fn get_usage_daily(
     filter: UsageFilter,
     state: State<'_, UsageState>,
 ) -> Result<Vec<DailyUsage>, String> {
-    let inner = state.inner.read().map_err(|e| e.to_string())?;
-    let filtered = apply_filter(&inner.records, &filter, &inner.pricing);
+    let pool = state.db_pool()?;
+    let pricing = state
+        .inner
+        .read()
+        .map_err(|e| e.to_string())?
+        .pricing
+        .clone();
+    let records = load_usage_records_db(&pool, &filter).await?;
+    let filtered = apply_filter(&records, &filter, &pricing);
 
     let mut buckets: HashMap<String, Vec<&UsageRecord>> = HashMap::new();
     for r in filtered {
@@ -1231,12 +1710,19 @@ pub fn get_usage_daily(
 }
 
 #[tauri::command]
-pub fn get_usage_by_project(
+pub async fn get_usage_by_project(
     filter: UsageFilter,
     state: State<'_, UsageState>,
 ) -> Result<Vec<ProjectUsage>, String> {
-    let inner = state.inner.read().map_err(|e| e.to_string())?;
-    let filtered = apply_filter(&inner.records, &filter, &inner.pricing);
+    let pool = state.db_pool()?;
+    let pricing = state
+        .inner
+        .read()
+        .map_err(|e| e.to_string())?
+        .pricing
+        .clone();
+    let records = load_usage_records_db(&pool, &filter).await?;
+    let filtered = apply_filter(&records, &filter, &pricing);
 
     let mut buckets: HashMap<String, Vec<&UsageRecord>> = HashMap::new();
     for r in filtered {
@@ -1273,17 +1759,28 @@ pub fn get_usage_by_project(
             s
         })
         .collect();
-    list.sort_by(|a, b| b.cost.partial_cmp(&a.cost).unwrap_or(std::cmp::Ordering::Equal));
+    list.sort_by(|a, b| {
+        b.cost
+            .partial_cmp(&a.cost)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     Ok(list)
 }
 
 #[tauri::command]
-pub fn get_usage_by_session(
+pub async fn get_usage_by_session(
     filter: UsageFilter,
     state: State<'_, UsageState>,
 ) -> Result<Vec<SessionUsage>, String> {
-    let inner = state.inner.read().map_err(|e| e.to_string())?;
-    let filtered = apply_filter(&inner.records, &filter, &inner.pricing);
+    let pool = state.db_pool()?;
+    let pricing = state
+        .inner
+        .read()
+        .map_err(|e| e.to_string())?
+        .pricing
+        .clone();
+    let records = load_usage_records_db(&pool, &filter).await?;
+    let filtered = apply_filter(&records, &filter, &pricing);
 
     let mut buckets: HashMap<String, Vec<&UsageRecord>> = HashMap::new();
     for r in filtered {
@@ -1337,23 +1834,37 @@ pub fn get_usage_by_session(
 }
 
 #[tauri::command]
-pub fn get_usage_by_model(
+pub async fn get_usage_by_model(
     filter: UsageFilter,
     state: State<'_, UsageState>,
 ) -> Result<Vec<ModelUsageStat>, String> {
-    let inner = state.inner.read().map_err(|e| e.to_string())?;
-    let filtered = apply_filter(&inner.records, &filter, &inner.pricing);
+    let pool = state.db_pool()?;
+    let pricing = state
+        .inner
+        .read()
+        .map_err(|e| e.to_string())?
+        .pricing
+        .clone();
+    let records = load_usage_records_db(&pool, &filter).await?;
+    let filtered = apply_filter(&records, &filter, &pricing);
     Ok(aggregate_model_stats(&filtered))
 }
 
 #[tauri::command]
-pub fn get_session_usage_detail(
+pub async fn get_session_usage_detail(
     session_id: String,
     state: State<'_, UsageState>,
 ) -> Result<SessionUsageDetail, String> {
-    let inner = state.inner.read().map_err(|e| e.to_string())?;
-    let session_records: Vec<&UsageRecord> = inner
-        .records
+    let pool = state.db_pool()?;
+    let records = load_usage_records_db(
+        &pool,
+        &UsageFilter {
+            session_id: Some(session_id.clone()),
+            ..Default::default()
+        },
+    )
+    .await?;
+    let session_records: Vec<&UsageRecord> = records
         .iter()
         .filter(|r| r.session_id == session_id)
         .collect();
@@ -1410,7 +1921,7 @@ pub async fn refresh_usage_pricing(app: AppHandle) -> Result<PricingTable, Strin
         }
     };
     let state = app.state::<UsageState>();
-    let table = apply_new_pricing(&state, table)?;
+    let table = apply_new_pricing(&state, table).await?;
     let _ = app.emit("usage-pricing-updated", ());
     log::info!(
         "event=usage.pricing.refresh status=ok models={} source=network",
@@ -1420,18 +1931,24 @@ pub async fn refresh_usage_pricing(app: AppHandle) -> Result<PricingTable, Strin
 }
 
 #[tauri::command]
-pub fn rescan_usage(state: State<'_, UsageState>) -> Result<ScanResult, String> {
-    scan_all(&state, true)
+pub async fn rescan_usage(state: State<'_, UsageState>) -> Result<ScanResult, String> {
+    scan_all(&state, true).await
 }
 
 // ============ 启动入口 ============
 
 /// 在 lib.rs setup 中调用：构造状态、加载价格、启动后台扫描与价格刷新、监听 watcher 事件。
-pub fn start_usage_runtime(app: &tauri::App) {
+pub fn start_usage_runtime(app: &tauri::App) -> Result<(), String> {
     let state = UsageState::new();
     let pricing = load_pricing();
+    let app_handle = app.handle().clone();
+    let pool = tauri::async_runtime::block_on(usage_db_pool_from_handle(&app_handle))?;
+    tauri::async_runtime::block_on(initialize_usage_database(&pool))?;
+    state.set_db_pool(pool.clone())?;
     if let Ok(mut inner) = state.inner.write() {
         inner.pricing = pricing;
+        inner.last_scan_ms =
+            tauri::async_runtime::block_on(load_last_scan_ms_db(&pool)).unwrap_or_default();
     }
     app.manage(state);
 
@@ -1440,7 +1957,7 @@ pub fn start_usage_runtime(app: &tauri::App) {
         // 1. 启动全量扫描
         {
             let state = app_handle.state::<UsageState>();
-            if let Err(e) = scan_all(&state, false) {
+            if let Err(e) = scan_all(&state, false).await {
                 log::warn!("event=usage.scan status=warn err={e}");
             } else {
                 let _ = app_handle.emit("usage-records-changed", ());
@@ -1450,7 +1967,7 @@ pub fn start_usage_runtime(app: &tauri::App) {
         match fetch_pricing_from_network().await {
             Ok(table) => {
                 let state = app_handle.state::<UsageState>();
-                match apply_new_pricing(&state, table) {
+                match apply_new_pricing(&state, table).await {
                     Ok(t) => {
                         let _ = app_handle.emit("usage-pricing-updated", ());
                         log::info!(
@@ -1471,37 +1988,39 @@ pub fn start_usage_runtime(app: &tauri::App) {
 
     // 监听 ~/.claude 目录变更事件做增量
     let app_handle = app.handle().clone();
-    app.handle().listen("claude-directory-changed", move |event| {
-        let payload_str = event.payload();
-        let parsed: serde_json::Value = match serde_json::from_str(payload_str) {
-            Ok(v) => v,
-            Err(_) => return,
-        };
-        let Some(arr) = parsed.get("paths").and_then(|x| x.as_array()) else {
-            return;
-        };
-        let claude_root = utils::home_dir_or_fallback().join(".claude");
-        let files: Vec<PathBuf> = arr
-            .iter()
-            .filter_map(|x| x.as_str())
-            .filter(|s| s.starts_with("projects/") && s.ends_with(".jsonl"))
-            .map(|s| claude_root.join(s))
-            .collect();
-        if files.is_empty() {
-            return;
-        }
-        let app_handle = app_handle.clone();
-        tauri::async_runtime::spawn(async move {
-            let state = app_handle.state::<UsageState>();
-            match handle_files_changed(&state, files) {
-                Ok(n) if n > 0 => {
-                    let _ = app_handle.emit("usage-records-changed", ());
-                }
-                Ok(_) => {}
-                Err(e) => log::warn!("event=usage.incremental status=warn err={e}"),
+    app.handle()
+        .listen("claude-directory-changed", move |event| {
+            let payload_str = event.payload();
+            let parsed: serde_json::Value = match serde_json::from_str(payload_str) {
+                Ok(v) => v,
+                Err(_) => return,
+            };
+            let Some(arr) = parsed.get("paths").and_then(|x| x.as_array()) else {
+                return;
+            };
+            let claude_root = utils::home_dir_or_fallback().join(".claude");
+            let files: Vec<PathBuf> = arr
+                .iter()
+                .filter_map(|x| x.as_str())
+                .filter(|s| s.starts_with("projects/") && s.ends_with(".jsonl"))
+                .map(|s| claude_root.join(s))
+                .collect();
+            if files.is_empty() {
+                return;
             }
+            let app_handle = app_handle.clone();
+            tauri::async_runtime::spawn(async move {
+                let state = app_handle.state::<UsageState>();
+                match handle_files_changed(&state, files).await {
+                    Ok(n) if n > 0 => {
+                        let _ = app_handle.emit("usage-records-changed", ());
+                    }
+                    Ok(_) => {}
+                    Err(e) => log::warn!("event=usage.incremental status=warn err={e}"),
+                }
+            });
         });
-    });
+    Ok(())
 }
 
 // ============ Tests ============
@@ -1640,10 +2159,34 @@ mod tests {
     }
 
     #[test]
+    fn parse_jsonl_falls_back_to_top_level_cache_creation_when_object_is_zero() {
+        let table = sample_pricing();
+        let mut unknown = HashSet::new();
+        let line = r#"{
+            "type":"assistant",
+            "sessionId":"sess-1",
+            "timestamp":"2026-04-19T15:48:44.149Z",
+            "cwd":"/tmp/demo",
+            "message":{"id":"msg-cache","role":"assistant","model":"claude-opus-4-7",
+                "usage":{"input_tokens":0,"output_tokens":0,
+                    "cache_creation_input_tokens":60882,
+                    "cache_read_input_tokens":0,
+                    "cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0}}}
+        }"#;
+
+        let r = parse_jsonl_line(line, "-tmp-demo", &table, &mut unknown).unwrap();
+
+        assert_eq!(r.cache_creation_5m, 60882);
+        assert_eq!(r.cache_creation_1h, 0);
+        assert!(r.cost_usd > 0.0);
+    }
+
+    #[test]
     fn parse_jsonl_skips_user_records() {
         let table = sample_pricing();
         let mut unknown = HashSet::new();
-        let line = r#"{"type":"user","sessionId":"s","timestamp":"2026-04-19T00:00:00Z","message":{}}"#;
+        let line =
+            r#"{"type":"user","sessionId":"s","timestamp":"2026-04-19T00:00:00Z","message":{}}"#;
         assert!(parse_jsonl_line(line, "-x", &table, &mut unknown).is_none());
     }
 
@@ -1680,27 +2223,16 @@ mod tests {
         let line1 = make_assistant_line("msg-1", "sess-1", "claude-opus-4-7", 10, 20);
         let line2 = make_assistant_line("msg-2", "sess-1", "claude-opus-4-7", 30, 40);
         std::fs::write(&path, format!("{line1}\n{line2}\n")).unwrap();
-        let off = scan_file_from_offset(
-            &path,
-            0,
-            "dir",
-            &pricing,
-            &mut unknown,
-            &mut seen,
-            &mut out,
-        )
-        .unwrap();
+        let off =
+            scan_file_from_offset(&path, 0, "dir", &pricing, &mut unknown, &mut seen, &mut out)
+                .unwrap();
         assert_eq!(out.len(), 2);
         assert_eq!(off, std::fs::metadata(&path).unwrap().len());
 
         // 追加一条 + 重复一条 msg-2
         let line3 = make_assistant_line("msg-3", "sess-1", "claude-opus-4-7", 50, 60);
         let line2_dup = make_assistant_line("msg-2", "sess-1", "claude-opus-4-7", 30, 40);
-        std::fs::write(
-            &path,
-            format!("{line1}\n{line2}\n{line3}\n{line2_dup}\n"),
-        )
-        .unwrap();
+        std::fs::write(&path, format!("{line1}\n{line2}\n{line3}\n{line2_dup}\n")).unwrap();
         let off2 = scan_file_from_offset(
             &path,
             off,
@@ -1716,6 +2248,26 @@ mod tests {
     }
 
     #[test]
+    fn scan_file_keeps_largest_usage_snapshot_for_duplicate_message_id() {
+        let dir = tempdir();
+        let path = dir.join("session.jsonl");
+        let pricing = sample_pricing();
+        let mut unknown = HashSet::new();
+        let mut seen = HashSet::new();
+        let mut out: Vec<UsageRecord> = Vec::new();
+
+        let line_low = make_assistant_line("msg-dup", "sess-1", "claude-opus-4-7", 10, 20);
+        let line_high = make_assistant_line("msg-dup", "sess-1", "claude-opus-4-7", 10, 120);
+        std::fs::write(&path, format!("{line_low}\n{line_high}\n")).unwrap();
+
+        scan_file_from_offset(&path, 0, "dir", &pricing, &mut unknown, &mut seen, &mut out)
+            .unwrap();
+
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].output_tokens, 120);
+    }
+
+    #[test]
     fn scan_file_handles_incomplete_trailing_line() {
         let dir = tempdir();
         let path = dir.join("partial.jsonl");
@@ -1728,16 +2280,9 @@ mod tests {
         let partial = "{\"type\":\"assistant\",\"sess";
         std::fs::write(&path, format!("{line1}\n{partial}")).unwrap();
 
-        let off = scan_file_from_offset(
-            &path,
-            0,
-            "dir",
-            &pricing,
-            &mut unknown,
-            &mut seen,
-            &mut out,
-        )
-        .unwrap();
+        let off =
+            scan_file_from_offset(&path, 0, "dir", &pricing, &mut unknown, &mut seen, &mut out)
+                .unwrap();
         assert_eq!(out.len(), 1, "complete line parsed");
         // offset 应停在第一行末（含换行），避免重复读到不完整行
         assert_eq!(off, (line1.len() + 1) as u64);
@@ -1803,81 +2348,204 @@ mod tests {
 
     #[test]
     fn scan_all_includes_subagent_usage_in_parent_project_and_session() {
-        let _guard = TEST_ENV_LOCK.lock().unwrap();
-        let home = tempdir();
-        let app_data = tempdir();
-        let projects = home.join(".claude").join("projects").join("-tmp-demo");
-        let main_file = projects.join("sess-1.jsonl");
-        let subagent_dir = projects.join("sess-1").join("subagents");
-        let subagent_file = subagent_dir.join("agent-a.jsonl");
-        std::fs::create_dir_all(&subagent_dir).unwrap();
-        std::fs::write(
-            &main_file,
-            format!(
-                "{}\n{}\n",
-                make_assistant_line("msg-main", "sess-1", "claude-opus-4-7", 10, 20),
-                make_assistant_line("msg-dup", "sess-1", "claude-opus-4-7", 30, 40)
-            ),
-        )
-        .unwrap();
-        std::fs::write(
-            &subagent_file,
-            format!(
-                "{}\n{}\n",
-                make_assistant_line("msg-subagent", "sess-1", "claude-opus-4-7", 50, 60),
-                make_assistant_line("msg-dup", "sess-1", "claude-opus-4-7", 30, 40)
-            ),
-        )
-        .unwrap();
+        tauri::async_runtime::block_on(async {
+            let home = tempdir();
+            let projects = home.join(".claude").join("projects").join("-tmp-demo");
+            let projects_root = home.join(".claude").join("projects");
+            let main_file = projects.join("sess-1.jsonl");
+            let subagent_dir = projects.join("sess-1").join("subagents");
+            let subagent_file = subagent_dir.join("agent-a.jsonl");
+            std::fs::create_dir_all(&subagent_dir).unwrap();
+            std::fs::write(
+                &main_file,
+                format!(
+                    "{}\n{}\n",
+                    make_assistant_line("msg-main", "sess-1", "claude-opus-4-7", 10, 20),
+                    make_assistant_line("msg-dup", "sess-1", "claude-opus-4-7", 30, 40)
+                ),
+            )
+            .unwrap();
+            std::fs::write(
+                &subagent_file,
+                format!(
+                    "{}\n{}\n",
+                    make_assistant_line("msg-subagent", "sess-1", "claude-opus-4-7", 50, 60),
+                    make_assistant_line("msg-dup", "sess-1", "claude-opus-4-7", 30, 40)
+                ),
+            )
+            .unwrap();
 
-        let _env = TestEnv::set(&home, &app_data);
-        let state = UsageState::new();
-        state.inner.write().unwrap().pricing = sample_pricing();
+            let (state, pool) = test_usage_state().await;
 
-        let result = scan_all(&state, true).unwrap();
-        let inner = state.inner.read().unwrap();
+            let result = scan_all_in_projects_dir(&state, true, projects_root)
+                .await
+                .unwrap();
+            let records = load_usage_records_db(&pool, &UsageFilter::default())
+                .await
+                .unwrap();
 
-        assert_eq!(result.files_scanned, 2);
-        assert_eq!(result.new_records, 3);
-        assert_eq!(inner.records.len(), 3);
-        assert!(inner.records.iter().all(|r| r.project_dir == "-tmp-demo"));
-        assert!(inner.records.iter().all(|r| r.session_id == "sess-1"));
-        assert!(inner.records.iter().any(|r| r.message_id == "msg-subagent"));
+            assert_eq!(result.files_scanned, 2);
+            assert_eq!(result.new_records, 3);
+            assert_eq!(records.len(), 3);
+            assert!(records.iter().all(|r| r.project_dir == "-tmp-demo"));
+            assert!(records.iter().all(|r| r.session_id == "sess-1"));
+            assert!(records.iter().any(|r| r.message_id == "msg-subagent"));
+        });
     }
 
     #[test]
     fn incremental_scan_keeps_subagent_file_on_parent_project_dir() {
-        let _guard = TEST_ENV_LOCK.lock().unwrap();
-        let home = tempdir();
-        let app_data = tempdir();
-        let subagent_dir = home
-            .join(".claude")
-            .join("projects")
-            .join("-tmp-demo")
-            .join("sess-1")
-            .join("subagents");
-        let subagent_file = subagent_dir.join("agent-a.jsonl");
-        std::fs::create_dir_all(&subagent_dir).unwrap();
-        std::fs::write(
-            &subagent_file,
-            format!(
-                "{}\n",
-                make_assistant_line("msg-subagent", "sess-1", "claude-opus-4-7", 50, 60)
-            ),
-        )
-        .unwrap();
+        tauri::async_runtime::block_on(async {
+            let home = tempdir();
+            let projects_root = home.join(".claude").join("projects");
+            let subagent_dir = home
+                .join(".claude")
+                .join("projects")
+                .join("-tmp-demo")
+                .join("sess-1")
+                .join("subagents");
+            let subagent_file = subagent_dir.join("agent-a.jsonl");
+            std::fs::create_dir_all(&subagent_dir).unwrap();
+            std::fs::write(
+                &subagent_file,
+                format!(
+                    "{}\n",
+                    make_assistant_line("msg-subagent", "sess-1", "claude-opus-4-7", 50, 60)
+                ),
+            )
+            .unwrap();
 
-        let _env = TestEnv::set(&home, &app_data);
-        let state = UsageState::new();
-        state.inner.write().unwrap().pricing = sample_pricing();
+            let (state, pool) = test_usage_state().await;
 
-        let new_records = handle_files_changed(&state, vec![subagent_file]).unwrap();
-        let inner = state.inner.read().unwrap();
+            let new_records =
+                handle_files_changed_in_projects_dir(&state, vec![subagent_file], projects_root)
+                    .await
+                    .unwrap();
+            let records = load_usage_records_db(&pool, &UsageFilter::default())
+                .await
+                .unwrap();
 
-        assert_eq!(new_records, 1);
-        assert_eq!(inner.records.len(), 1);
-        assert_eq!(inner.records[0].project_dir, "-tmp-demo");
-        assert_eq!(inner.records[0].session_id, "sess-1");
+            assert_eq!(new_records, 1);
+            assert_eq!(records.len(), 1);
+            assert_eq!(records[0].project_dir, "-tmp-demo");
+            assert_eq!(records[0].session_id, "sess-1");
+        });
+    }
+
+    #[test]
+    fn incremental_scan_replaces_duplicate_message_with_larger_snapshot() {
+        tauri::async_runtime::block_on(async {
+            let home = tempdir();
+            let projects_root = home.join(".claude").join("projects");
+            let project_dir = home.join(".claude").join("projects").join("-tmp-demo");
+            let usage_file = project_dir.join("sess-1.jsonl");
+            std::fs::create_dir_all(&project_dir).unwrap();
+
+            let low = make_assistant_line("msg-dup", "sess-1", "claude-opus-4-7", 10, 20);
+            let high = make_assistant_line("msg-dup", "sess-1", "claude-opus-4-7", 10, 120);
+            std::fs::write(&usage_file, format!("{low}\n")).unwrap();
+
+            let (state, pool) = test_usage_state().await;
+
+            assert_eq!(
+                handle_files_changed_in_projects_dir(
+                    &state,
+                    vec![usage_file.clone()],
+                    projects_root.clone(),
+                )
+                .await
+                .unwrap(),
+                1
+            );
+            std::fs::write(&usage_file, format!("{low}\n{high}\n")).unwrap();
+
+            assert_eq!(
+                handle_files_changed_in_projects_dir(&state, vec![usage_file], projects_root)
+                    .await
+                    .unwrap(),
+                1
+            );
+            let records = load_usage_records_db(&pool, &UsageFilter::default())
+                .await
+                .unwrap();
+            assert_eq!(records.len(), 1);
+            assert_eq!(records[0].output_tokens, 120);
+        });
+    }
+
+    #[test]
+    fn sqlite_usage_store_round_trips_file_index() {
+        tauri::async_runtime::block_on(async {
+            let pool = test_usage_pool().await;
+            let mut index = HashMap::new();
+            index.insert(
+                PathBuf::from("/tmp/demo/session.jsonl"),
+                FileIndex {
+                    mtime_ms: 10,
+                    size: 20,
+                    last_offset: 30,
+                },
+            );
+
+            replace_file_index_db(&pool, &index).await.unwrap();
+            let loaded = load_file_index_db(&pool).await.unwrap();
+
+            assert_eq!(loaded, index);
+        });
+    }
+
+    #[test]
+    fn sqlite_usage_store_keeps_largest_duplicate_snapshot() {
+        tauri::async_runtime::block_on(async {
+            let pool = test_usage_pool().await;
+            let low = make_usage_record("msg-dup", "sess-1", 10, 20);
+            let high = make_usage_record("msg-dup", "sess-1", 10, 120);
+
+            assert_eq!(merge_usage_records_db(&pool, &[low]).await.unwrap(), 1);
+            assert_eq!(merge_usage_records_db(&pool, &[high]).await.unwrap(), 1);
+
+            let records = load_usage_records_db(&pool, &UsageFilter::default())
+                .await
+                .unwrap();
+            assert_eq!(records.len(), 1);
+            assert_eq!(records[0].output_tokens, 120);
+        });
+    }
+
+    #[test]
+    fn sqlite_usage_store_supports_filtered_records() {
+        tauri::async_runtime::block_on(async {
+            let pool = test_usage_pool().await;
+            let mut first = make_usage_record("msg-1", "sess-1", 10, 20);
+            first.project_path = "/tmp/one".into();
+            first.project_dir = "-tmp-one".into();
+            first.model = "claude-opus-4-7".into();
+            first.timestamp_ms = parse_iso8601_ms("2026-04-19T12:00:00Z").unwrap();
+            let mut second = make_usage_record("msg-2", "sess-2", 30, 40);
+            second.project_path = "/tmp/two".into();
+            second.project_dir = "-tmp-two".into();
+            second.model = "claude-sonnet-4-6".into();
+            second.timestamp_ms = parse_iso8601_ms("2026-04-20T12:00:00Z").unwrap();
+
+            merge_usage_records_db(&pool, &[first, second])
+                .await
+                .unwrap();
+            let records = load_usage_records_db(
+                &pool,
+                &UsageFilter {
+                    start_date: Some("2026-04-19".into()),
+                    end_date: Some("2026-04-19".into()),
+                    project_path: Some("/tmp/one".into()),
+                    model: Some("claude-opus-4-7".into()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+
+            assert_eq!(records.len(), 1);
+            assert_eq!(records[0].message_id, "msg-1");
+        });
     }
 
     fn make_assistant_line(id: &str, sess: &str, model: &str, input: u64, output: u64) -> String {
@@ -1899,50 +2567,64 @@ mod tests {
         .to_string()
     }
 
+    fn make_usage_record(id: &str, sess: &str, input: u64, output: u64) -> UsageRecord {
+        let pricing = sample_pricing();
+        let raw = RawUsage {
+            input_tokens: input,
+            output_tokens: output,
+            cache_creation_5m: 0,
+            cache_creation_1h: 0,
+            cache_read: 0,
+        };
+        UsageRecord {
+            message_id: id.into(),
+            session_id: sess.into(),
+            project_path: "/tmp/demo".into(),
+            project_dir: "-tmp-demo".into(),
+            timestamp_ms: parse_iso8601_ms("2026-04-19T15:48:44.149Z").unwrap(),
+            model: "claude-opus-4-7".into(),
+            input_tokens: input,
+            output_tokens: output,
+            cache_creation_5m: 0,
+            cache_creation_1h: 0,
+            cache_read: 0,
+            cost_usd: compute_cost("claude-opus-4-7", &pricing, &raw),
+            git_branch: Some("main".into()),
+            cc_version: Some("2.1.114".into()),
+        }
+    }
+
+    async fn test_usage_pool() -> sqlx::SqlitePool {
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        initialize_usage_database(&pool).await.unwrap();
+        pool
+    }
+
+    async fn test_usage_state() -> (UsageState, sqlx::SqlitePool) {
+        let pool = test_usage_pool().await;
+        let state = UsageState::new();
+        state.set_db_pool(pool.clone()).unwrap();
+        state.inner.write().unwrap().pricing = sample_pricing();
+        (state, pool)
+    }
+
     fn tempdir() -> std::path::PathBuf {
+        let counter = TEST_DIR_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let base = std::env::temp_dir().join(format!(
-            "ai-manager-usage-test-{}-{}",
+            "ai-manager-usage-test-{}-{}-{}",
             std::process::id(),
-            now_ms()
+            now_ms(),
+            counter
         ));
         std::fs::create_dir_all(&base).unwrap();
         base
     }
 
-    static TEST_ENV_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
-
-    struct TestEnv {
-        previous_home: Option<std::ffi::OsString>,
-        previous_app_data: Option<std::ffi::OsString>,
-    }
-
-    impl TestEnv {
-        fn set(home: &Path, app_data: &Path) -> Self {
-            let previous_home = std::env::var_os("AI_MANAGER_HOME_OVERRIDE");
-            let previous_app_data = std::env::var_os("AI_MANAGER_APP_DATA_DIR_OVERRIDE");
-            std::env::set_var("AI_MANAGER_HOME_OVERRIDE", home);
-            std::env::set_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE", app_data);
-            Self {
-                previous_home,
-                previous_app_data,
-            }
-        }
-    }
-
-    impl Drop for TestEnv {
-        fn drop(&mut self) {
-            if let Some(value) = self.previous_home.take() {
-                std::env::set_var("AI_MANAGER_HOME_OVERRIDE", value);
-            } else {
-                std::env::remove_var("AI_MANAGER_HOME_OVERRIDE");
-            }
-            if let Some(value) = self.previous_app_data.take() {
-                std::env::set_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE", value);
-            } else {
-                std::env::remove_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE");
-            }
-        }
-    }
+    static TEST_DIR_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
     #[test]
     fn parse_local_date_round_trip() {
@@ -1958,8 +2640,7 @@ mod tests {
     #[test]
     fn apply_filter_respects_local_date_range() {
         let pricing = sample_pricing();
-        let noon =
-            |date: &str| parse_local_date_to_ms(date, false).unwrap() + 12 * 60 * 60 * 1000;
+        let noon = |date: &str| parse_local_date_to_ms(date, false).unwrap() + 12 * 60 * 60 * 1000;
         let mk = |id: &str, date: &str| UsageRecord {
             message_id: id.into(),
             session_id: "s".into(),

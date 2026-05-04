@@ -35,11 +35,11 @@ use skills::{
 };
 use stats::{get_stats, open_claude_json_in_editor};
 use tauri::Manager;
+use tauri_plugin_log::{RotationStrategy, Target, TargetKind, TimezoneStrategy};
 use usage::{
     get_session_usage_detail, get_usage_by_model, get_usage_by_project, get_usage_by_session,
     get_usage_daily, get_usage_summary, refresh_usage_pricing, rescan_usage,
 };
-use tauri_plugin_log::{RotationStrategy, Target, TargetKind, TimezoneStrategy};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -73,6 +73,11 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(
+            tauri_plugin_sql::Builder::default()
+                .add_migrations(usage::USAGE_DB_URL, usage::sql_migrations())
+                .build(),
+        )
         .setup(|app| {
             tray::setup_tray(app)?;
             log::info!("event=app.setup status=ok");
@@ -80,7 +85,7 @@ pub fn run() {
                 claude_directory_watcher::start_claude_directory_watcher(app.handle().clone());
             app.manage(claude_directory_watcher);
             // 启动 token/cost 用量统计运行时（管理状态、首扫、价格刷新、watcher 增量）
-            usage::start_usage_runtime(app);
+            usage::start_usage_runtime(app).map_err(std::io::Error::other)?;
             Ok(())
         })
         .on_window_event(|window, event| {
