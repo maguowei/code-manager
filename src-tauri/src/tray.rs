@@ -36,6 +36,7 @@ struct TrayLabels<'a> {
     nav_projects: &'a str,
     nav_history: &'a str,
     nav_stats: &'a str,
+    nav_usage: &'a str,
     quit: &'a str,
 }
 
@@ -54,6 +55,7 @@ fn tray_labels_for_language(language: &str) -> TrayLabels<'static> {
             nav_projects: "Projects",
             nav_history: "History",
             nav_stats: "Usage Statistics",
+            nav_usage: "Token Usage",
             quit: "Quit",
         },
         _ => TrayLabels {
@@ -69,6 +71,7 @@ fn tray_labels_for_language(language: &str) -> TrayLabels<'static> {
             nav_projects: "项目管理",
             nav_history: "历史记录",
             nav_stats: "使用统计",
+            nav_usage: "Token 用量",
             quit: "退出",
         },
     }
@@ -366,6 +369,7 @@ fn build_tray_menu(app: &AppHandle, state: &ConfigRegistry) -> tauri::Result<Men
         ("nav_projects", labels.nav_projects),
         ("nav_history", labels.nav_history),
         ("nav_stats", labels.nav_stats),
+        ("nav_usage", labels.nav_usage),
     ] {
         let item = MenuItemBuilder::with_id(id, label).build(app)?;
         items.push(Box::new(item));
@@ -688,11 +692,15 @@ mod tests {
         assert_eq!(zh.show_window, "打开 AI Manager");
         assert_eq!(zh.nav_providers, "预设管理");
         assert_eq!(zh.nav_projects, "项目管理");
+        assert_eq!(zh.nav_stats, "使用统计");
+        assert_eq!(zh.nav_usage, "Token 用量");
         assert_eq!(zh.quit, "退出");
 
         let en = tray_labels_for_language("en");
         assert_eq!(en.show_window, "Open AI Manager");
         assert_eq!(en.nav_providers, "Preset Management");
+        assert_eq!(en.nav_stats, "Usage Statistics");
+        assert_eq!(en.nav_usage, "Token Usage");
         assert_eq!(en.quit, "Quit");
     }
 
