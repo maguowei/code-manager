@@ -6,6 +6,7 @@ import type {
   ProjectUsage,
   SessionUsage,
   UsageSummary,
+  UsageTimeSeriesPoint,
 } from "../../types";
 import useUsage from "../useUsage";
 
@@ -30,6 +31,7 @@ interface Deferred<T> {
 interface UsageBatch {
   summary: Deferred<UsageSummary>;
   daily: Deferred<DailyUsage[]>;
+  timeSeries: Deferred<UsageTimeSeriesPoint[]>;
   projects: Deferred<ProjectUsage[]>;
   sessions: Deferred<SessionUsage[]>;
   models: Deferred<ModelUsageStat[]>;
@@ -85,6 +87,7 @@ function makeBatch(): UsageBatch {
   return {
     summary: deferred<UsageSummary>(),
     daily: deferred<DailyUsage[]>(),
+    timeSeries: deferred<UsageTimeSeriesPoint[]>(),
     projects: deferred<ProjectUsage[]>(),
     sessions: deferred<SessionUsage[]>(),
     models: deferred<ModelUsageStat[]>(),
@@ -94,6 +97,20 @@ function makeBatch(): UsageBatch {
 function resolveBatch(batch: UsageBatch, date: string, cost: number) {
   batch.summary.resolve(makeSummary(cost));
   batch.daily.resolve([makeDaily(date, cost)]);
+  batch.timeSeries.resolve([
+    {
+      bucket: `${date} 10:00`,
+      bucketStartMs: Date.UTC(2026, 4, 4, 10, 0),
+      messages: 1,
+      sessions: 1,
+      inputTokens: 1,
+      outputTokens: 1,
+      cacheCreationTokens: 0,
+      cacheReadTokens: 0,
+      cost,
+      byModel: [],
+    },
+  ]);
   batch.projects.resolve([]);
   batch.sessions.resolve([]);
   batch.models.resolve([]);
@@ -123,9 +140,13 @@ describe("useUsage", () => {
     render(<UsageProbe />);
 
     const today = formatDateInputValue(new Date());
-    await waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(5));
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(6));
     expect(invokeMock).toHaveBeenNthCalledWith(1, "get_usage_summary", {
       filter: { startDate: today, endDate: today },
+    });
+    expect(invokeMock).toHaveBeenNthCalledWith(3, "get_usage_time_series", {
+      filter: { startDate: today, endDate: today },
+      granularity: "hour",
     });
   });
 
@@ -133,12 +154,13 @@ describe("useUsage", () => {
     const batches = [makeBatch(), makeBatch()];
     let callIndex = 0;
     invokeMock.mockImplementation((command) => {
-      const batch = batches[Math.floor(callIndex / 5)];
+      const batch = batches[Math.floor(callIndex / 6)];
       callIndex += 1;
       if (!batch) return Promise.reject(new Error(`unexpected usage call: ${command}`));
 
       if (command === "get_usage_summary") return batch.summary.promise;
       if (command === "get_usage_daily") return batch.daily.promise;
+      if (command === "get_usage_time_series") return batch.timeSeries.promise;
       if (command === "get_usage_by_project") return batch.projects.promise;
       if (command === "get_usage_by_session") return batch.sessions.promise;
       if (command === "get_usage_by_model") return batch.models.promise;
@@ -146,12 +168,16 @@ describe("useUsage", () => {
     });
 
     render(<UsageProbe />);
-    await waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(5));
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(6));
 
     fireDateFilter();
-    await waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(10));
-    expect(invokeMock).toHaveBeenNthCalledWith(6, "get_usage_summary", {
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(12));
+    expect(invokeMock).toHaveBeenNthCalledWith(7, "get_usage_summary", {
       filter: { startDate: "2026-05-04", endDate: "2026-05-04" },
+    });
+    expect(invokeMock).toHaveBeenNthCalledWith(9, "get_usage_time_series", {
+      filter: { startDate: "2026-05-04", endDate: "2026-05-04" },
+      granularity: "hour",
     });
 
     await act(async () => {
@@ -168,6 +194,34 @@ describe("useUsage", () => {
     expect(screen.getByTestId("daily-date")).toHaveTextContent("2026-05-04");
     expect(screen.getByTestId("total-cost")).toHaveTextContent("2");
   });
+
+  it("uses day buckets for multi-day filters and preserves manual granularity until filters change", async () => {
+    invokeMock.mockResolvedValue([]);
+
+    render(<UsageProbe />);
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(6));
+
+    fireMultiDayFilter();
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(12));
+    expect(invokeMock).toHaveBeenNthCalledWith(9, "get_usage_time_series", {
+      filter: { startDate: "2026-05-01", endDate: "2026-05-31" },
+      granularity: "day",
+    });
+
+    fireFiveMinuteGranularity();
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(18));
+    expect(invokeMock).toHaveBeenNthCalledWith(15, "get_usage_time_series", {
+      filter: { startDate: "2026-05-01", endDate: "2026-05-31" },
+      granularity: "fiveMinute",
+    });
+
+    fireDateFilter();
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(24));
+    expect(invokeMock).toHaveBeenNthCalledWith(21, "get_usage_time_series", {
+      filter: { startDate: "2026-05-04", endDate: "2026-05-04" },
+      granularity: "hour",
+    });
+  });
 });
 
 function UsageProbe() {
@@ -180,8 +234,18 @@ function UsageProbe() {
       >
         filter
       </button>
+      <button
+        type="button"
+        onClick={() => usage.setFilter({ startDate: "2026-05-01", endDate: "2026-05-31" })}
+      >
+        multi-day
+      </button>
+      <button type="button" onClick={() => usage.setTimeGranularity("fiveMinute")}>
+        five-minute
+      </button>
       <span data-testid="daily-date">{usage.daily.map((d) => d.date).join(",")}</span>
       <span data-testid="total-cost">{usage.summary?.totalCost ?? 0}</span>
+      <span data-testid="granularity">{usage.timeGranularity}</span>
     </div>
   );
 }
@@ -189,6 +253,18 @@ function UsageProbe() {
 function fireDateFilter() {
   act(() => {
     screen.getByRole("button", { name: "filter" }).click();
+  });
+}
+
+function fireMultiDayFilter() {
+  act(() => {
+    screen.getByRole("button", { name: "multi-day" }).click();
+  });
+}
+
+function fireFiveMinuteGranularity() {
+  act(() => {
+    screen.getByRole("button", { name: "five-minute" }).click();
   });
 }
 

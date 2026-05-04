@@ -223,6 +223,30 @@ pub struct DailyUsage {
     pub by_model: Vec<ModelUsageStat>,
 }
 
+#[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum UsageTimeGranularity {
+    #[default]
+    Day,
+    Hour,
+    FiveMinute,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UsageTimeSeriesPoint {
+    pub bucket: String,
+    pub bucket_start_ms: i64,
+    pub messages: u64,
+    pub sessions: u64,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub cache_creation_tokens: u64,
+    pub cache_read_tokens: u64,
+    pub cost: f64,
+    pub by_model: Vec<ModelUsageStat>,
+}
+
 #[derive(Debug, Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectUsage {
@@ -962,17 +986,61 @@ fn parse_iso8601_ms(s: &str) -> Option<i64> {
 
 /// timestamp_ms -> "YYYY-MM-DD"（使用本地时区）
 fn ms_to_local_date(ms: i64) -> String {
+    let Some(dt) = ms_to_local_datetime(ms) else {
+        return String::new();
+    };
+    format!("{:04}-{:02}-{:02}", dt.year(), dt.month() as u8, dt.day())
+}
+
+fn ms_to_local_datetime(ms: i64) -> Option<time::OffsetDateTime> {
     use time::OffsetDateTime;
     let secs = ms / 1000;
     let nanos = ((ms % 1000) * 1_000_000) as u32;
-    let dt = match OffsetDateTime::from_unix_timestamp(secs) {
-        Ok(t) => t
-            .replace_nanosecond(nanos)
-            .unwrap_or(t)
+    let dt = OffsetDateTime::from_unix_timestamp(secs).ok()?;
+    Some(
+        dt.replace_nanosecond(nanos)
+            .unwrap_or(dt)
             .to_offset(local_offset()),
-        Err(_) => return String::new(),
+    )
+}
+
+fn local_bucket_for_ms(ms: i64, granularity: UsageTimeGranularity) -> Option<(String, i64)> {
+    use time::{OffsetDateTime, Time};
+
+    let dt = ms_to_local_datetime(ms)?;
+    let date = dt.date();
+    let bucket_time = match granularity {
+        UsageTimeGranularity::Day => Time::from_hms(0, 0, 0).ok()?,
+        UsageTimeGranularity::Hour => Time::from_hms(dt.hour(), 0, 0).ok()?,
+        UsageTimeGranularity::FiveMinute => {
+            let minute = (dt.minute() / 5) * 5;
+            Time::from_hms(dt.hour(), minute, 0).ok()?
+        }
     };
-    format!("{:04}-{:02}-{:02}", dt.year(), dt.month() as u8, dt.day())
+    let bucket_start = OffsetDateTime::new_in_offset(date, bucket_time, local_offset());
+    let bucket_start_ms =
+        bucket_start.unix_timestamp() * 1000 + bucket_start.nanosecond() as i64 / 1_000_000;
+    let bucket = match granularity {
+        UsageTimeGranularity::Day => {
+            format!("{:04}-{:02}-{:02}", dt.year(), dt.month() as u8, dt.day())
+        }
+        UsageTimeGranularity::Hour => format!(
+            "{:04}-{:02}-{:02} {:02}:00",
+            dt.year(),
+            dt.month() as u8,
+            dt.day(),
+            dt.hour()
+        ),
+        UsageTimeGranularity::FiveMinute => format!(
+            "{:04}-{:02}-{:02} {:02}:{:02}",
+            dt.year(),
+            dt.month() as u8,
+            dt.day(),
+            dt.hour(),
+            (dt.minute() / 5) * 5
+        ),
+    };
+    Some((bucket, bucket_start_ms))
 }
 
 fn parse_local_date_to_ms(s: &str, end_of_day: bool) -> Option<i64> {
@@ -1593,6 +1661,53 @@ fn aggregate_model_stats(records: &[&UsageRecord]) -> Vec<ModelUsageStat> {
     list
 }
 
+fn aggregate_time_series(
+    records: &[UsageRecord],
+    filter: &UsageFilter,
+    pricing: &PricingTable,
+    granularity: UsageTimeGranularity,
+) -> Vec<UsageTimeSeriesPoint> {
+    let filtered = apply_filter(records, filter, pricing);
+    let mut buckets: HashMap<i64, (String, Vec<&UsageRecord>)> = HashMap::new();
+    for r in filtered {
+        let Some((bucket, bucket_start_ms)) = local_bucket_for_ms(r.timestamp_ms, granularity)
+        else {
+            continue;
+        };
+        buckets
+            .entry(bucket_start_ms)
+            .or_insert_with(|| (bucket, Vec::new()))
+            .1
+            .push(r);
+    }
+
+    let mut list: Vec<UsageTimeSeriesPoint> = buckets
+        .into_iter()
+        .map(|(bucket_start_ms, (bucket, items))| {
+            let mut point = UsageTimeSeriesPoint {
+                bucket,
+                bucket_start_ms,
+                ..Default::default()
+            };
+            let mut sessions: HashSet<&str> = HashSet::new();
+            for r in &items {
+                point.messages += 1;
+                point.input_tokens += r.input_tokens;
+                point.output_tokens += r.output_tokens;
+                point.cache_creation_tokens += r.cache_creation_total();
+                point.cache_read_tokens += r.cache_read;
+                point.cost += r.cost_usd;
+                sessions.insert(r.session_id.as_str());
+            }
+            point.sessions = sessions.len() as u64;
+            point.by_model = aggregate_model_stats(&items);
+            point
+        })
+        .collect();
+    list.sort_by_key(|item| item.bucket_start_ms);
+    list
+}
+
 // ============ Tauri commands ============
 
 #[tauri::command]
@@ -1707,6 +1822,28 @@ pub async fn get_usage_daily(
         .collect();
     list.sort_by(|a, b| a.date.cmp(&b.date));
     Ok(list)
+}
+
+#[tauri::command]
+pub async fn get_usage_time_series(
+    filter: UsageFilter,
+    granularity: UsageTimeGranularity,
+    state: State<'_, UsageState>,
+) -> Result<Vec<UsageTimeSeriesPoint>, String> {
+    let pool = state.db_pool()?;
+    let pricing = state
+        .inner
+        .read()
+        .map_err(|e| e.to_string())?
+        .pricing
+        .clone();
+    let records = load_usage_records_db(&pool, &filter).await?;
+    Ok(aggregate_time_series(
+        &records,
+        &filter,
+        &pricing,
+        granularity,
+    ))
 }
 
 #[tauri::command]
@@ -2672,6 +2809,78 @@ mod tests {
 
         assert_eq!(r.len(), 1);
         assert_eq!(r[0].message_id, "inside");
+    }
+
+    #[test]
+    fn aggregate_time_series_supports_hour_and_five_minute_buckets() {
+        let pricing = sample_pricing();
+        let start = parse_local_date_to_ms("2026-04-19", false).unwrap();
+        let mk = |id: &str, session: &str, offset_ms: i64, model: &str, cost: f64| UsageRecord {
+            message_id: id.into(),
+            session_id: session.into(),
+            project_path: "/p".into(),
+            project_dir: "-p".into(),
+            timestamp_ms: start + offset_ms,
+            model: model.into(),
+            input_tokens: 10,
+            output_tokens: 20,
+            cache_creation_5m: 3,
+            cache_creation_1h: 4,
+            cache_read: 5,
+            cost_usd: cost,
+            git_branch: None,
+            cc_version: None,
+        };
+        let records = vec![
+            mk(
+                "a",
+                "s1",
+                10 * 60 * 60 * 1000 + 2 * 60 * 1000,
+                "claude-opus-4-7",
+                1.25,
+            ),
+            mk(
+                "b",
+                "s1",
+                10 * 60 * 60 * 1000 + 6 * 60 * 1000,
+                "claude-opus-4-7",
+                2.0,
+            ),
+            mk(
+                "c",
+                "s2",
+                11 * 60 * 60 * 1000 + 1_000,
+                "claude-sonnet-4-6",
+                3.0,
+            ),
+        ];
+        let filter = UsageFilter {
+            start_date: Some("2026-04-19".into()),
+            end_date: Some("2026-04-19".into()),
+            ..Default::default()
+        };
+
+        let hourly = aggregate_time_series(&records, &filter, &pricing, UsageTimeGranularity::Hour);
+        assert_eq!(hourly.len(), 2);
+        assert_eq!(hourly[0].bucket, "2026-04-19 10:00");
+        assert_eq!(hourly[0].messages, 2);
+        assert_eq!(hourly[0].sessions, 1);
+        assert_eq!(hourly[0].input_tokens, 20);
+        assert_eq!(hourly[0].cache_creation_tokens, 14);
+        assert!((hourly[0].cost - 3.25).abs() < f64::EPSILON);
+        assert_eq!(hourly[1].bucket, "2026-04-19 11:00");
+        assert_eq!(hourly[1].sessions, 1);
+
+        let five_minute = aggregate_time_series(
+            &records,
+            &filter,
+            &pricing,
+            UsageTimeGranularity::FiveMinute,
+        );
+        assert_eq!(five_minute.len(), 3);
+        assert_eq!(five_minute[0].bucket, "2026-04-19 10:00");
+        assert_eq!(five_minute[1].bucket, "2026-04-19 10:05");
+        assert_eq!(five_minute[2].bucket, "2026-04-19 11:00");
     }
 
     #[test]

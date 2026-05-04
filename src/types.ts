@@ -376,6 +376,21 @@ export interface DailyUsage {
   byModel: ModelUsageStat[];
 }
 
+export type UsageTimeGranularity = "day" | "hour" | "fiveMinute";
+
+export interface UsageTimeSeriesPoint {
+  bucket: string;
+  bucketStartMs: number;
+  messages: number;
+  sessions: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  cost: number;
+  byModel: ModelUsageStat[];
+}
+
 export interface ProjectUsage {
   projectPath: string;
   projectDir: string;

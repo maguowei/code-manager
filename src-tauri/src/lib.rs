@@ -38,7 +38,7 @@ use tauri::Manager;
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind, TimezoneStrategy};
 use usage::{
     get_session_usage_detail, get_usage_by_model, get_usage_by_project, get_usage_by_session,
-    get_usage_daily, get_usage_summary, refresh_usage_pricing, rescan_usage,
+    get_usage_daily, get_usage_summary, get_usage_time_series, refresh_usage_pricing, rescan_usage,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -152,6 +152,7 @@ pub fn run() {
             sync_skill_to_codex,
             get_usage_summary,
             get_usage_daily,
+            get_usage_time_series,
             get_usage_by_project,
             get_usage_by_session,
             get_usage_by_model,

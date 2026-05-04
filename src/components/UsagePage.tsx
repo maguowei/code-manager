@@ -22,6 +22,8 @@ import type {
   SessionUsage,
   UsageFilter,
   UsageTab,
+  UsageTimeGranularity,
+  UsageTimeSeriesPoint,
 } from "../types";
 import { formatUSD } from "./project-detail-utils";
 import "./UsagePage.css";
@@ -73,8 +75,9 @@ interface ModelCostDatum {
   color: string;
 }
 
-interface DailyTokenTrendDatum {
-  date: string;
+interface TimeSeriesTokenTrendDatum {
+  bucket: string;
+  label: string;
   input: number;
   output: number;
   cacheCreate: number;
@@ -116,22 +119,25 @@ function UsagePage() {
     u.setFilter(createTodayUsageFilter());
   }, [u]);
 
-  const dailyChartData = useMemo(() => {
+  const timeSeriesChartData = useMemo(() => {
     const allModels = new Set<string>();
-    for (const d of u.daily) {
-      for (const m of d.byModel) allModels.add(m.model);
+    for (const point of u.timeSeries) {
+      for (const m of point.byModel) allModels.add(m.model);
     }
     const sortedModels = Array.from(allModels).sort();
-    const rows = u.daily.map((d) => {
-      const row: Record<string, string | number> = { date: d.date };
+    const rows = u.timeSeries.map((point) => {
+      const row: Record<string, string | number> = {
+        bucket: point.bucket,
+        label: formatTimeBucketLabel(point, u.timeGranularity, u.filter),
+      };
       for (const model of sortedModels) {
-        const found = d.byModel.find((x) => x.model === model);
+        const found = point.byModel.find((x) => x.model === model);
         row[model] = found ? +found.cost.toFixed(4) : 0;
       }
       return row;
     });
     return { rows, models: sortedModels };
-  }, [u.daily]);
+  }, [u.timeSeries, u.timeGranularity, u.filter]);
 
   const modelCostData = useMemo<ModelCostDatum[]>(() => {
     const rows = u.models.filter((m) => m.cost > 0).sort((a, b) => b.cost - a.cost);
@@ -185,16 +191,17 @@ function UsagePage() {
     [t, tokenTotals],
   );
 
-  const tokenTrendData = useMemo<DailyTokenTrendDatum[]>(
+  const tokenTrendData = useMemo<TimeSeriesTokenTrendDatum[]>(
     () =>
-      u.daily.map((d) => ({
-        date: d.date,
-        input: d.inputTokens,
-        output: d.outputTokens,
-        cacheCreate: d.cacheCreationTokens,
-        cacheRead: d.cacheReadTokens,
+      u.timeSeries.map((point) => ({
+        bucket: point.bucket,
+        label: formatTimeBucketLabel(point, u.timeGranularity, u.filter),
+        input: point.inputTokens,
+        output: point.outputTokens,
+        cacheCreate: point.cacheCreationTokens,
+        cacheRead: point.cacheReadTokens,
       })),
-    [u.daily],
+    [u.timeSeries, u.timeGranularity, u.filter],
   );
 
   const tokenTrendSeries = useMemo(
@@ -342,22 +349,35 @@ function UsagePage() {
                   </div>
                 </section>
 
-                <ChartPanel title={t("usage.charts.dailyCost")} className="usage-chart-primary">
-                  {dailyChartData.rows.length > 0 ? (
+                <ChartPanel
+                  title={t("usage.charts.costTrend")}
+                  className="usage-chart-primary"
+                  actions={
+                    <TimeGranularitySwitch
+                      value={u.timeGranularity}
+                      onChange={u.setTimeGranularity}
+                      t={t}
+                    />
+                  }
+                >
+                  {timeSeriesChartData.rows.length > 0 ? (
                     <ResponsiveContainer width="100%" height={300}>
                       <AreaChart
-                        data={dailyChartData.rows}
+                        data={timeSeriesChartData.rows}
                         margin={{ left: 8, right: 18, top: 10, bottom: 4 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" stroke="#30363d" vertical={false} />
-                        <XAxis dataKey="date" tick={TICK_STYLE_SM} />
+                        <XAxis dataKey="label" tick={TICK_STYLE_SM} />
                         <YAxis tick={TICK_STYLE} tickFormatter={(v) => `$${v}`} width={44} />
                         <Tooltip
                           formatter={(v: number | undefined) => formatUSD(v ?? 0)}
+                          labelFormatter={(_, payload) =>
+                            payload?.[0]?.payload?.bucket ?? t("usage.charts.costTrend")
+                          }
                           contentStyle={TOOLTIP_STYLE}
                         />
                         <Legend wrapperStyle={{ fontSize: 11 }} />
-                        {dailyChartData.models.map((model, idx) => (
+                        {timeSeriesChartData.models.map((model, idx) => (
                           <Area
                             key={model}
                             type="monotone"
@@ -377,10 +397,7 @@ function UsagePage() {
                   )}
                 </ChartPanel>
 
-                <ChartPanel
-                  title={t("usage.charts.dailyTokenTrend")}
-                  className="usage-chart-secondary"
-                >
+                <ChartPanel title={t("usage.charts.tokenTrend")} className="usage-chart-secondary">
                   {tokenTrendData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={240}>
                       <AreaChart
@@ -388,7 +405,7 @@ function UsagePage() {
                         margin={{ left: 8, right: 18, top: 10, bottom: 4 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" stroke="#30363d" vertical={false} />
-                        <XAxis dataKey="date" tick={TICK_STYLE_SM} />
+                        <XAxis dataKey="label" tick={TICK_STYLE_SM} />
                         <YAxis
                           tick={TICK_STYLE}
                           tickFormatter={(v) => formatTokens(v)}
@@ -396,6 +413,9 @@ function UsagePage() {
                         />
                         <Tooltip
                           formatter={(v: number | undefined) => formatTokens(v ?? 0)}
+                          labelFormatter={(_, payload) =>
+                            payload?.[0]?.payload?.bucket ?? t("usage.charts.tokenTrend")
+                          }
                           contentStyle={TOOLTIP_STYLE}
                         />
                         <Legend wrapperStyle={{ fontSize: 11 }} />
@@ -522,17 +542,54 @@ function MetricCard({ label, value, tone, hint }: MetricCardProps) {
 function ChartPanel({
   title,
   className,
+  actions,
   children,
 }: {
   title: string;
   className?: string;
+  actions?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <section className={`usage-panel ${className ?? ""}`}>
-      <div className="usage-panel-title">{title}</div>
+      <div className="usage-panel-header">
+        <div className="usage-panel-title">{title}</div>
+        {actions && <div className="usage-panel-actions">{actions}</div>}
+      </div>
       {children}
     </section>
+  );
+}
+
+const TIME_GRANULARITY_ORDER: UsageTimeGranularity[] = ["day", "hour", "fiveMinute"];
+
+function TimeGranularitySwitch({
+  value,
+  onChange,
+  t,
+}: {
+  value: UsageTimeGranularity;
+  onChange: (next: UsageTimeGranularity) => void;
+  t: ReturnType<typeof useI18n>["t"];
+}) {
+  return (
+    <div
+      className="usage-time-granularity"
+      role="group"
+      aria-label={t("usage.granularity.ariaLabel")}
+    >
+      {TIME_GRANULARITY_ORDER.map((key) => (
+        <button
+          key={key}
+          type="button"
+          className={`usage-time-granularity-btn ${value === key ? "active" : ""}`}
+          aria-pressed={value === key}
+          onClick={() => onChange(key)}
+        >
+          {t(`usage.granularity.${key}`)}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -1022,6 +1079,22 @@ function modelTail(family: string, model: string): string {
 function displaySessionId(id: string): string {
   if (id.length <= 22) return id;
   return `${id.slice(0, 20)}...`;
+}
+
+function formatTimeBucketLabel(
+  point: UsageTimeSeriesPoint,
+  granularity: UsageTimeGranularity,
+  filter: UsageFilter,
+): string {
+  if (granularity === "day") {
+    return point.bucket.slice(5);
+  }
+
+  const isSingleDay = filter.startDate && filter.endDate && filter.startDate === filter.endDate;
+  if (isSingleDay) {
+    return point.bucket.slice(11);
+  }
+  return point.bucket.slice(5);
 }
 
 function formatDetailedTokens(n: number): string {

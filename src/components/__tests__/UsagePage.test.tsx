@@ -12,6 +12,8 @@ import type {
   UsageFilter,
   UsageSummary,
   UsageTab,
+  UsageTimeGranularity,
+  UsageTimeSeriesPoint,
 } from "../../types";
 import Sidebar from "../Sidebar";
 import UsagePage from "../UsagePage";
@@ -116,6 +118,31 @@ const daily: DailyUsage[] = [
   },
 ];
 
+const timeSeries: UsageTimeSeriesPoint[] = [
+  {
+    bucket: "2026-05-23 09:00",
+    bucketStartMs: Date.UTC(2026, 4, 23, 9, 0),
+    messages: 21,
+    sessions: 4,
+    inputTokens: 420_000,
+    outputTokens: 200_000,
+    cacheCreationTokens: 20_000,
+    cacheReadTokens: 1_400_000,
+    cost: 8.11,
+    byModel: [
+      {
+        model: "claude-3-7-sonnet",
+        messages: 21,
+        inputTokens: 420_000,
+        outputTokens: 200_000,
+        cacheCreationTokens: 20_000,
+        cacheReadTokens: 1_400_000,
+        cost: 8.11,
+      },
+    ],
+  },
+];
+
 const projects: ProjectUsage[] = [
   {
     projectPath: "/Users/me/work/AI/ai-manager",
@@ -198,11 +225,19 @@ const models: ModelUsageStat[] = [
 ];
 
 function makeUsage(
-  overrides: Partial<{ tab: UsageTab; filter: UsageFilter; rescanning: boolean }> = {},
+  overrides: Partial<{
+    tab: UsageTab;
+    filter: UsageFilter;
+    rescanning: boolean;
+    timeGranularity: UsageTimeGranularity;
+  }> = {},
 ) {
   return {
     summary,
     daily,
+    timeSeries,
+    timeGranularity: overrides.timeGranularity ?? "hour",
+    setTimeGranularity: vi.fn(),
     projects,
     sessions,
     models,
@@ -221,7 +256,12 @@ function makeUsage(
 }
 
 function renderUsage(
-  overrides?: Partial<{ tab: UsageTab; filter: UsageFilter; rescanning: boolean }>,
+  overrides?: Partial<{
+    tab: UsageTab;
+    filter: UsageFilter;
+    rescanning: boolean;
+    timeGranularity: UsageTimeGranularity;
+  }>,
 ) {
   const usage = makeUsage(overrides);
   useUsageMock.mockReturnValue(usage);
@@ -263,7 +303,9 @@ describe("UsagePage cost cockpit", () => {
     expect(within(modelShareList).getByText("sonnet")).toBeInTheDocument();
     expect(within(modelShareList).getByText("$79.73")).toBeInTheDocument();
     expect(within(modelShareList).getByText("62.1%")).toBeInTheDocument();
-    expect(screen.getByText("每日 Token 趋势")).toBeInTheDocument();
+    expect(screen.getByText("Token 趋势")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "图表时间维度" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "小时" })).toHaveClass("active");
     expect(screen.getByText("Token 构成")).toBeInTheDocument();
     expect(screen.getByText("claude-future-1")).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "ai-manager" })).toBeInTheDocument();
@@ -325,6 +367,16 @@ describe("UsagePage cost cockpit", () => {
     expect(
       allUpdater({ startDate: "2026-05-04", endDate: "2026-05-10", projectPath: "/p" }),
     ).toEqual({ projectPath: "/p" });
+  });
+
+  it("allows switching trend charts to day, hour, or five-minute buckets", () => {
+    const usage = renderUsage();
+
+    fireEvent.click(screen.getByRole("button", { name: "5 分钟" }));
+    expect(usage.setTimeGranularity).toHaveBeenCalledWith("fiveMinute");
+
+    fireEvent.click(screen.getByRole("button", { name: "天" }));
+    expect(usage.setTimeGranularity).toHaveBeenCalledWith("day");
   });
 
   it("resets filters back to today", () => {
