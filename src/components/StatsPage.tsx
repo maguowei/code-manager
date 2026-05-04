@@ -201,7 +201,12 @@ function StatsPage() {
             </svg>
             {t("stats.openInEditor")}
           </button>
-          <button type="button" className="stats-refresh-btn" onClick={handleRefresh}>
+          <button
+            type="button"
+            className="stats-refresh-btn"
+            onClick={handleRefresh}
+            title={t("stats.refresh")}
+          >
             <svg
               width="14"
               height="14"

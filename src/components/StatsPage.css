@@ -395,6 +395,7 @@
 .stats-refresh-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-2);
   padding: 6px 14px;
   border: 1px solid var(--border-default);
@@ -407,6 +408,7 @@
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  white-space: nowrap;
 }
 
 .stats-refresh-btn:hover {
@@ -461,6 +463,52 @@
 
 /* 响应式 */
 @media (max-width: 900px) {
+  .stats-page .page-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    height: auto;
+    min-height: 52px;
+    align-items: center;
+    gap: var(--space-3);
+    padding-top: var(--space-2);
+    padding-bottom: var(--space-2);
+  }
+
+  .stats-page-heading {
+    align-items: baseline;
+    flex-wrap: wrap;
+    column-gap: var(--space-3);
+    row-gap: 2px;
+  }
+
+  .stats-staleness-note {
+    max-width: 100%;
+  }
+
+  .page-header-actions {
+    display: grid;
+    grid-template-columns: repeat(2, 32px);
+    align-items: center;
+    justify-items: center;
+    justify-content: end;
+    gap: var(--space-2);
+  }
+
+  .stats-refresh-btn {
+    width: 32px;
+    height: 32px;
+    gap: 0;
+    padding: 0;
+    border-radius: var(--radius-md);
+    font-size: 0;
+    line-height: 0;
+  }
+
+  .stats-refresh-btn svg {
+    display: block;
+    flex-shrink: 0;
+  }
+
   .stats-overview {
     grid-template-columns: repeat(2, 1fr);
   }

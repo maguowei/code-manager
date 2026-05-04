@@ -73,6 +73,14 @@ interface ModelCostDatum {
   color: string;
 }
 
+interface DailyTokenTrendDatum {
+  date: string;
+  input: number;
+  output: number;
+  cacheCreate: number;
+  cacheRead: number;
+}
+
 function UsagePage() {
   const { t } = useI18n();
   const { showToast } = useToast();
@@ -177,6 +185,28 @@ function UsagePage() {
     [t, tokenTotals],
   );
 
+  const tokenTrendData = useMemo<DailyTokenTrendDatum[]>(
+    () =>
+      u.daily.map((d) => ({
+        date: d.date,
+        input: d.inputTokens,
+        output: d.outputTokens,
+        cacheCreate: d.cacheCreationTokens,
+        cacheRead: d.cacheReadTokens,
+      })),
+    [u.daily],
+  );
+
+  const tokenTrendSeries = useMemo(
+    () => [
+      { dataKey: "input", name: t("usage.charts.tokenInput"), color: COLORS.blue },
+      { dataKey: "output", name: t("usage.charts.tokenOutput"), color: COLORS.green },
+      { dataKey: "cacheCreate", name: t("usage.charts.tokenCacheCreate"), color: COLORS.orange },
+      { dataKey: "cacheRead", name: t("usage.charts.tokenCacheRead"), color: COLORS.purple },
+    ],
+    [t],
+  );
+
   const cacheSavings = useMemo(() => {
     if (!u.summary) return 0;
     const pricing = u.summary.pricing.models;
@@ -212,7 +242,7 @@ function UsagePage() {
   return (
     <div className="usage-page">
       <div className="page-header usage-header">
-        <div className="usage-header-left">
+        <div className="usage-page-heading">
           <h1 className="page-title">{t("usage.title")}</h1>
           <p className="usage-subtitle">{t("usage.subtitle")}</p>
         </div>
@@ -248,7 +278,7 @@ function UsagePage() {
           </button>
           <button
             type="button"
-            className="usage-icon-btn usage-icon-btn-primary"
+            className={`usage-icon-btn usage-icon-btn-primary ${u.rescanning ? "usage-icon-btn-busy" : ""}`}
             onClick={handleRescan}
             disabled={u.rescanning}
             title={u.rescanning ? t("usage.rescanning") : t("usage.rescan")}
@@ -338,6 +368,47 @@ function UsagePage() {
                             fillOpacity={0.5}
                             strokeWidth={1.5}
                             name={shortModelName(model)}
+                          />
+                        ))}
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <NoData />
+                  )}
+                </ChartPanel>
+
+                <ChartPanel
+                  title={t("usage.charts.dailyTokenTrend")}
+                  className="usage-chart-secondary"
+                >
+                  {tokenTrendData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={240}>
+                      <AreaChart
+                        data={tokenTrendData}
+                        margin={{ left: 8, right: 18, top: 10, bottom: 4 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#30363d" vertical={false} />
+                        <XAxis dataKey="date" tick={TICK_STYLE_SM} />
+                        <YAxis
+                          tick={TICK_STYLE}
+                          tickFormatter={(v) => formatTokens(v)}
+                          width={54}
+                        />
+                        <Tooltip
+                          formatter={(v: number | undefined) => formatTokens(v ?? 0)}
+                          contentStyle={TOOLTIP_STYLE}
+                        />
+                        <Legend wrapperStyle={{ fontSize: 11 }} />
+                        {tokenTrendSeries.map((series) => (
+                          <Area
+                            key={series.dataKey}
+                            type="monotone"
+                            dataKey={series.dataKey}
+                            stroke={series.color}
+                            fill={series.color}
+                            fillOpacity={0.12}
+                            strokeWidth={1.8}
+                            name={series.name}
                           />
                         ))}
                       </AreaChart>

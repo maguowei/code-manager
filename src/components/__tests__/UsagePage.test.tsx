@@ -197,7 +197,9 @@ const models: ModelUsageStat[] = [
   },
 ];
 
-function makeUsage(overrides: Partial<{ tab: UsageTab; filter: UsageFilter }> = {}) {
+function makeUsage(
+  overrides: Partial<{ tab: UsageTab; filter: UsageFilter; rescanning: boolean }> = {},
+) {
   return {
     summary,
     daily,
@@ -210,7 +212,7 @@ function makeUsage(overrides: Partial<{ tab: UsageTab; filter: UsageFilter }> = 
     setFilter: vi.fn(),
     loading: false,
     refreshingPrice: false,
-    rescanning: false,
+    rescanning: overrides.rescanning ?? false,
     reload: vi.fn(async () => undefined),
     refreshPricing: vi.fn(async () => undefined),
     rescan: vi.fn(async () => undefined),
@@ -218,7 +220,9 @@ function makeUsage(overrides: Partial<{ tab: UsageTab; filter: UsageFilter }> = 
   };
 }
 
-function renderUsage(overrides?: Partial<{ tab: UsageTab; filter: UsageFilter }>) {
+function renderUsage(
+  overrides?: Partial<{ tab: UsageTab; filter: UsageFilter; rescanning: boolean }>,
+) {
   const usage = makeUsage(overrides);
   useUsageMock.mockReturnValue(usage);
   render(
@@ -259,6 +263,7 @@ describe("UsagePage cost cockpit", () => {
     expect(within(modelShareList).getByText("sonnet")).toBeInTheDocument();
     expect(within(modelShareList).getByText("$79.73")).toBeInTheDocument();
     expect(within(modelShareList).getByText("62.1%")).toBeInTheDocument();
+    expect(screen.getByText("每日 Token 趋势")).toBeInTheDocument();
     expect(screen.getByText("Token 构成")).toBeInTheDocument();
     expect(screen.getByText("claude-future-1")).toBeInTheDocument();
   });
@@ -337,6 +342,42 @@ describe("UsagePage cost cockpit", () => {
     expect(css).toMatch(/\.usage-tabs\s*\{[^}]*border-radius:\s*var\(--radius-md\);/s);
     expect(css).toMatch(/\.usage-tab-btn\s*\{[^}]*flex-shrink:\s*0;/s);
     expect(css).toMatch(/\.usage-tab-btn\.active\s*\{[^}]*background:\s*var\(--bg-primary\);/s);
+  });
+
+  it("keeps the subtitle on the same row as the title like the stats page", () => {
+    renderUsage();
+    const heading = screen.getByRole("heading", { name: "Token 用量统计" }).parentElement;
+    const css = readFileSync("src/components/UsagePage.css", "utf8");
+
+    expect(heading).toHaveClass("usage-page-heading");
+    expect(css).toMatch(/\.usage-page-heading\s*\{[^}]*display:\s*flex;/s);
+    expect(css).toMatch(/\.usage-page-heading\s*\{[^}]*align-items:\s*center;/s);
+    expect(css).toMatch(/\.usage-page-heading \.page-title\s*\{[^}]*flex-shrink:\s*0;/s);
+  });
+
+  it("keeps the narrow header compact instead of wrapping actions into rows", () => {
+    const css = readFileSync("src/components/UsagePage.css", "utf8");
+
+    expect(css).toMatch(
+      /@media \(max-width:\s*900px\)\s*\{[\s\S]*?\.usage-header\s*\{[^}]*display:\s*grid;[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\) auto;/,
+    );
+    expect(css).toMatch(
+      /@media \(max-width:\s*900px\)\s*\{[\s\S]*?\.usage-header-actions\s*\{[^}]*display:\s*grid;[\s\S]*?grid-template-columns:\s*auto auto auto;/,
+    );
+    expect(css).toMatch(
+      /@media \(max-width:\s*900px\)\s*\{[\s\S]*?\.usage-meta-text\s*\{[^}]*display:\s*none;/,
+    );
+  });
+
+  it("shows animated feedback while rescanning usage data", () => {
+    const css = readFileSync("src/components/UsagePage.css", "utf8");
+    renderUsage({ rescanning: true });
+
+    const rescanButton = screen.getByRole("button", { name: "扫描中..." });
+    expect(rescanButton).toBeDisabled();
+    expect(rescanButton).toHaveClass("usage-icon-btn-busy");
+    expect(css).toMatch(/@keyframes usage-spin/);
+    expect(css).toMatch(/\.usage-icon-btn-busy svg\s*\{[^}]*animation:\s*usage-spin/s);
   });
 
   it("opens session usage detail from the keyboard", async () => {
