@@ -45,17 +45,70 @@ vi.mock("../../hooks/useUsage", () => ({
 
 vi.mock("recharts", () => {
   const Chart = ({ children }: { children?: ReactNode }) => <div>{children}</div>;
+  const AreaChart = ({ children }: { children?: ReactNode }) => (
+    <div data-testid="area-chart">{children}</div>
+  );
+  const BarChart = ({ children }: { children?: ReactNode }) => (
+    <div data-testid="bar-chart">{children}</div>
+  );
   return {
-    Area: ({ dataKey, name }: { dataKey?: string; name?: string }) => (
+    Area: ({
+      activeDot,
+      dataKey,
+      dot,
+      fill,
+      fillOpacity,
+      name,
+      stackId,
+      stroke,
+    }: {
+      activeDot?: unknown;
+      dataKey?: string;
+      dot?: unknown;
+      fill?: string;
+      fillOpacity?: number;
+      name?: string;
+      stackId?: string;
+      stroke?: string;
+    }) => (
       <div
         data-testid="chart-area"
+        data-active-dot={String(Boolean(activeDot))}
+        data-dot={String(Boolean(dot))}
+        data-fill={String(fill ?? "")}
+        data-fill-opacity={String(fillOpacity ?? "")}
+        data-key={String(dataKey ?? "")}
+        data-name={String(name ?? "")}
+        data-stack-id={String(stackId ?? "")}
+        data-stroke={String(stroke ?? "")}
+      />
+    ),
+    AreaChart,
+    Bar: ({
+      activeBar,
+      dataKey,
+      fill,
+      fillOpacity,
+      name,
+    }: {
+      activeBar?: { fill?: string; fillOpacity?: number; stroke?: string };
+      dataKey?: string;
+      fill?: string;
+      fillOpacity?: number;
+      name?: string;
+    }) => (
+      <div
+        data-testid="chart-bar"
+        data-active-fill={String(activeBar?.fill ?? "")}
+        data-active-fill-opacity={String(activeBar?.fillOpacity ?? "")}
+        data-active-stroke={String(activeBar?.stroke ?? "")}
+        data-fill={String(fill ?? "")}
+        data-fill-opacity={String(fillOpacity ?? "")}
         data-key={String(dataKey ?? "")}
         data-name={String(name ?? "")}
       />
     ),
-    AreaChart: Chart,
-    Bar: () => null,
-    BarChart: Chart,
+    BarChart,
     CartesianGrid: () => null,
     Cell: () => null,
     Pie: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
@@ -63,7 +116,9 @@ vi.mock("recharts", () => {
     ResponsiveContainer: ({ children }: { children?: ReactNode }) => (
       <div data-testid="responsive-chart">{children}</div>
     ),
-    Tooltip: () => null,
+    Tooltip: ({ cursor }: { cursor?: { fill?: string } }) => (
+      <div data-testid="chart-tooltip" data-cursor-fill={String(cursor?.fill ?? "")} />
+    ),
     XAxis: () => null,
     YAxis: () => null,
   };
@@ -134,6 +189,10 @@ const timeSeries: UsageTimeSeriesPoint[] = [
     cacheCreationTokens: 20_000,
     cacheReadTokens: 1_400_000,
     cost: 8.11,
+    inputCost: 1.26,
+    outputCost: 3,
+    cacheCreationCost: 0.08,
+    cacheReadCost: 3.77,
     byModel: [
       {
         model: "claude-3-7-sonnet",
@@ -241,6 +300,10 @@ const multiModelTimeSeries: UsageTimeSeriesPoint[] = [
     cacheCreationTokens: 30_000,
     cacheReadTokens: 1_500_000,
     cost: 12.34,
+    inputCost: 3,
+    outputCost: 6,
+    cacheCreationCost: 1,
+    cacheReadCost: 2.34,
     byModel: [
       {
         model: "claude-3-opus",
@@ -449,16 +512,176 @@ describe("UsagePage cost cockpit", () => {
     const trendSection = screen.getByRole("region", { name: "趋势分析" });
     expect(trendSection).toHaveClass("usage-trend-section");
     expect(within(trendSection).getByText("趋势分析")).toBeInTheDocument();
+    expect(within(trendSection).getByRole("group", { name: "趋势分类" })).toBeInTheDocument();
     expect(within(trendSection).getByRole("group", { name: "图表时间维度" })).toBeInTheDocument();
+    expect(within(trendSection).getByRole("group", { name: "图表样式" })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "费用分类" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Token 分类" })).not.toBeInTheDocument();
     // 两个图表都在同一个 section 内
-    expect(within(trendSection).getByText("花费趋势（按模型堆叠）")).toBeInTheDocument();
+    expect(within(trendSection).getByText("花费趋势")).toBeInTheDocument();
     expect(within(trendSection).getByText("Token 趋势")).toBeInTheDocument();
+  });
+
+  it("shows visible data points on both trend charts in curve mode", () => {
+    renderUsage({ timeSeries: multiModelTimeSeries });
+
+    expect(screen.getByRole("button", { name: "曲线" })).toHaveClass("active");
+    expect(screen.getAllByTestId("area-chart")).toHaveLength(2);
+    const chartAreas = screen.getAllByTestId("chart-area");
+    expect(chartAreas.length).toBeGreaterThan(0);
+    for (const area of chartAreas) {
+      expect(area).toHaveAttribute("data-dot", "true");
+      expect(area).toHaveAttribute("data-active-dot", "true");
+    }
+  });
+
+  it("defaults both trend charts to total-only visibility", () => {
+    renderUsage({ timeSeries: multiModelTimeSeries });
+
+    const chartAreas = screen.getAllByTestId("chart-area");
+    expect(chartAreas.map((el) => el.getAttribute("data-key"))).toEqual([
+      "__totalCost",
+      "totalTokens",
+    ]);
+
+    const costLegend = screen.getByRole("list", { name: "花费趋势" });
+    expect(within(costLegend).getByRole("button", { name: /总费用/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(within(costLegend).getByRole("button", { name: /claude-3-opus/ })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+
+    const tokenLegend = screen.getByRole("list", { name: "Token 趋势" });
+    expect(within(tokenLegend).getByRole("button", { name: /总 Token/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(within(tokenLegend).getByRole("button", { name: /claude-3-opus/ })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  it("uses a distinct non-white total series color and subtle bar focus styling", () => {
+    renderUsage({ timeSeries: multiModelTimeSeries });
+
+    const totalAreas = screen
+      .getAllByTestId("chart-area")
+      .filter((el) => ["__totalCost", "totalTokens"].includes(el.getAttribute("data-key") ?? ""));
+    for (const area of totalAreas) {
+      expect(area).not.toHaveAttribute("data-stroke", "#e6edf3");
+      expect(area).not.toHaveAttribute("data-fill", "#e6edf3");
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: "柱状图" }));
+
+    const totalBars = screen
+      .getAllByTestId("chart-bar")
+      .filter((el) => ["__totalCost", "totalTokens"].includes(el.getAttribute("data-key") ?? ""));
+    for (const bar of totalBars) {
+      expect(bar).not.toHaveAttribute("data-fill", "#e6edf3");
+      expect(bar).toHaveAttribute("data-active-fill", bar.getAttribute("data-fill") ?? "");
+      expect(bar).toHaveAttribute("data-active-stroke", bar.getAttribute("data-fill") ?? "");
+    }
+    const cursorFills = screen
+      .getAllByTestId("chart-tooltip")
+      .map((tooltip) => tooltip.getAttribute("data-cursor-fill") ?? "")
+      .filter(Boolean);
+    expect(cursorFills.length).toBeGreaterThan(0);
+    for (const cursorFill of cursorFills) {
+      expect(cursorFill).toContain("rgba");
+      expect(cursorFill).not.toContain("255, 255, 255");
+    }
+  });
+
+  it("switches both trend charts to bar mode", () => {
+    renderUsage({ timeSeries: multiModelTimeSeries });
+
+    fireEvent.click(screen.getByRole("button", { name: "柱状图" }));
+
+    expect(screen.getByRole("button", { name: "柱状图" })).toHaveClass("active");
+    expect(screen.queryAllByTestId("area-chart")).toHaveLength(0);
+    expect(screen.getAllByTestId("bar-chart")).toHaveLength(2);
+    const chartBars = screen.getAllByTestId("chart-bar");
+    expect(chartBars.map((el) => el.getAttribute("data-key"))).toEqual([
+      "__totalCost",
+      "totalTokens",
+    ]);
+  });
+
+  it("does not stack cost series when switching from bar back to curve mode", () => {
+    renderUsage({ timeSeries: multiModelTimeSeries });
+
+    const costLegend = screen.getByRole("list", { name: "花费趋势" });
+    fireEvent.click(within(costLegend).getByRole("button", { name: /claude-3-opus/ }));
+    fireEvent.click(screen.getByRole("button", { name: "柱状图" }));
+    fireEvent.click(screen.getByRole("button", { name: "曲线" }));
+
+    const costAreas = screen
+      .getAllByTestId("chart-area")
+      .filter((el) => ["__totalCost", "claude-3-opus"].includes(el.getAttribute("data-key") ?? ""));
+    expect(costAreas).toHaveLength(2);
+    for (const area of costAreas) {
+      expect(area).toHaveAttribute("data-stack-id", "");
+    }
+  });
+
+  it("uses one trend classification switch for both cost and token charts", () => {
+    renderUsage({ timeSeries: multiModelTimeSeries });
+
+    const trendMode = screen.getByRole("group", { name: "趋势分类" });
+    expect(within(trendMode).getByRole("button", { name: "模型" })).toHaveClass("active");
+    expect(within(trendMode).getByRole("button", { name: "模型" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.queryByRole("button", { name: "按模型" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "按类型" })).not.toBeInTheDocument();
+
+    const costLegendByModel = screen.getByRole("list", { name: "花费趋势" });
+    const tokenLegendByModel = screen.getByRole("list", { name: "Token 趋势" });
+    expect(costLegendByModel).toHaveTextContent("claude-3-opus");
+    expect(tokenLegendByModel).toHaveTextContent("claude-3-opus");
+    expect(tokenLegendByModel).toHaveTextContent("claude-3-7-sonnet");
+
+    fireEvent.click(within(trendMode).getByRole("button", { name: "类型" }));
+
+    expect(within(trendMode).getByRole("button", { name: "类型" })).toHaveClass("active");
+    const costLegend = screen.getByRole("list", { name: "花费趋势" });
+    const tokenLegend = screen.getByRole("list", { name: "Token 趋势" });
+    expect(costLegend).toHaveTextContent("输入");
+    expect(costLegend).toHaveTextContent("输出");
+    expect(costLegend).toHaveTextContent("缓存创建");
+    expect(costLegend).toHaveTextContent("缓存读取");
+    expect(tokenLegend).toHaveTextContent("输入");
+    expect(tokenLegend).toHaveTextContent("输出");
+    expect(tokenLegend).toHaveTextContent("缓存创建");
+    expect(tokenLegend).toHaveTextContent("缓存读取");
+    expect(within(costLegend).getByRole("button", { name: /总费用/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(within(costLegend).getByRole("button", { name: /输入/ })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    expect(within(tokenLegend).getByRole("button", { name: /总 Token/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(within(tokenLegend).getByRole("button", { name: "输入" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
   });
 
   it("renders a clickable cost legend with total cost and full model names sorted by spend", () => {
     renderUsage({ timeSeries: multiModelTimeSeries });
 
-    const costLegend = screen.getByRole("list", { name: "花费趋势（按模型堆叠）" });
+    const costLegend = screen.getByRole("list", { name: "花费趋势" });
     const chips = within(costLegend).getAllByRole("button");
     expect(chips[0]).toHaveTextContent("总费用");
     expect(chips[0]).toHaveTextContent("$12.34");
@@ -467,11 +690,13 @@ describe("UsagePage cost cockpit", () => {
     expect(chips[1]).toHaveTextContent("$10.00");
     expect(chips[2]).toHaveTextContent("claude-3-7-sonnet");
     expect(chips[2]).toHaveTextContent("$2.34");
-    // 默认全部可见
-    for (const chip of chips) {
-      expect(chip).toHaveAttribute("aria-pressed", "true");
-      expect(chip).not.toHaveClass("muted");
-    }
+    // 默认只显示总量，细分模型等待用户手动打开
+    expect(chips[0]).toHaveAttribute("aria-pressed", "true");
+    expect(chips[0]).not.toHaveClass("muted");
+    expect(chips[1]).toHaveAttribute("aria-pressed", "false");
+    expect(chips[1]).toHaveClass("muted");
+    expect(chips[2]).toHaveAttribute("aria-pressed", "false");
+    expect(chips[2]).toHaveClass("muted");
   });
 
   it("adds total cost and total token trend curves", () => {
@@ -481,41 +706,41 @@ describe("UsagePage cost cockpit", () => {
     expect(chartAreas.some((el) => el.getAttribute("data-key") === "__totalCost")).toBe(true);
     expect(chartAreas.some((el) => el.getAttribute("data-key") === "totalTokens")).toBe(true);
 
-    const costLegend = screen.getByRole("list", { name: "花费趋势（按模型堆叠）" });
+    const costLegend = screen.getByRole("list", { name: "花费趋势" });
     expect(within(costLegend).getByRole("button", { name: /总费用/ })).toBeInTheDocument();
     const tokenLegend = screen.getByRole("list", { name: "Token 趋势" });
     expect(within(tokenLegend).getByRole("button", { name: /总 Token/ })).toBeInTheDocument();
   });
 
-  it("hides a series when its cost legend chip is clicked and restores it on second click", () => {
+  it("toggles a hidden cost legend series on and off", () => {
     renderUsage({ timeSeries: multiModelTimeSeries });
 
-    const costLegend = screen.getByRole("list", { name: "花费趋势（按模型堆叠）" });
+    const costLegend = screen.getByRole("list", { name: "花费趋势" });
     const opusChip = within(costLegend).getByRole("button", { name: /claude-3-opus/ });
 
-    // 初始：opus area 存在
+    // 初始：默认只显示总量，opus area 不存在
     const opusAreasBefore = screen
       .getAllByTestId("chart-area")
       .filter((el) => el.getAttribute("data-key") === "claude-3-opus");
-    expect(opusAreasBefore.length).toBeGreaterThan(0);
+    expect(opusAreasBefore).toHaveLength(0);
 
-    // 点击隐藏：chip 进入 muted 态、area 消失
-    fireEvent.click(opusChip);
-    expect(opusChip).toHaveAttribute("aria-pressed", "false");
-    expect(opusChip).toHaveClass("muted");
-    const opusAreasAfter = screen
-      .getAllByTestId("chart-area")
-      .filter((el) => el.getAttribute("data-key") === "claude-3-opus");
-    expect(opusAreasAfter).toHaveLength(0);
-
-    // 再次点击恢复
+    // 点击显示：chip 退出 muted 态、area 出现
     fireEvent.click(opusChip);
     expect(opusChip).toHaveAttribute("aria-pressed", "true");
     expect(opusChip).not.toHaveClass("muted");
-    const opusAreasRestored = screen
+    const opusAreasAfter = screen
       .getAllByTestId("chart-area")
       .filter((el) => el.getAttribute("data-key") === "claude-3-opus");
-    expect(opusAreasRestored.length).toBeGreaterThan(0);
+    expect(opusAreasAfter.length).toBeGreaterThan(0);
+
+    // 再次点击隐藏
+    fireEvent.click(opusChip);
+    expect(opusChip).toHaveAttribute("aria-pressed", "false");
+    expect(opusChip).toHaveClass("muted");
+    const opusAreasHidden = screen
+      .getAllByTestId("chart-area")
+      .filter((el) => el.getAttribute("data-key") === "claude-3-opus");
+    expect(opusAreasHidden).toHaveLength(0);
   });
 
   it("resets filters back to today", () => {

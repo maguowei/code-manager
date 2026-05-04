@@ -50,6 +50,17 @@ describe("StatsPage collapsible sections", () => {
     expect(source).not.toMatch(/<details open className="stats-project-card">/);
   });
 
+  it("uses subdued hover focus styling for the tool usage bar chart", () => {
+    const source = readFileSync(`${process.cwd()}/src/components/StatsPage.tsx`, "utf8");
+
+    expect(source).toContain(
+      'const TOOL_USAGE_CURSOR_STYLE = { fill: "rgba(247, 129, 102, 0.1)" }',
+    );
+    expect(source).toContain("cursor={TOOL_USAGE_CURSOR_STYLE}");
+    expect(source).toContain("activeBar={TOOL_USAGE_ACTIVE_BAR_STYLE}");
+    expect(source).toContain("fillOpacity={0.88}");
+  });
+
   it("presents project cards as compact professional disclosure rows", () => {
     const css = readFileSync(`${process.cwd()}/src/components/StatsPage.css`, "utf8");
 

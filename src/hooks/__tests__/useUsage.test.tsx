@@ -108,6 +108,10 @@ function resolveBatch(batch: UsageBatch, date: string, cost: number) {
       cacheCreationTokens: 0,
       cacheReadTokens: 0,
       cost,
+      inputCost: cost / 2,
+      outputCost: cost / 2,
+      cacheCreationCost: 0,
+      cacheReadCost: 0,
       byModel: [],
     },
   ]);

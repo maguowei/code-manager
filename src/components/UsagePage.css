@@ -555,6 +555,13 @@
   padding: 2px var(--space-2);
 }
 
+.usage-trend-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
 .usage-trend-title {
   margin: 0;
   color: var(--text-primary);
@@ -1161,7 +1168,13 @@
     gap: var(--space-2);
   }
 
+  .usage-trend-controls {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
   .usage-panel-actions,
+  .usage-trend-controls,
   .usage-time-granularity {
     max-width: 100%;
     overflow-x: auto;

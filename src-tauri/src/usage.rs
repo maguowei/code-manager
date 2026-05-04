@@ -244,6 +244,10 @@ pub struct UsageTimeSeriesPoint {
     pub cache_creation_tokens: u64,
     pub cache_read_tokens: u64,
     pub cost: f64,
+    pub input_cost: f64,
+    pub output_cost: f64,
+    pub cache_creation_cost: f64,
+    pub cache_read_cost: f64,
     pub by_model: Vec<ModelUsageStat>,
 }
 
@@ -950,15 +954,48 @@ pub fn match_model_price(model: &str, table: &PricingTable) -> Option<ModelPrice
 }
 
 pub fn compute_cost(model: &str, table: &PricingTable, usage: &RawUsage) -> f64 {
+    compute_cost_parts(
+        model,
+        table,
+        usage.input_tokens,
+        usage.output_tokens,
+        usage.cache_creation_5m + usage.cache_creation_1h,
+        usage.cache_read,
+    )
+    .total()
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct UsageCostParts {
+    input: f64,
+    output: f64,
+    cache_creation: f64,
+    cache_read: f64,
+}
+
+impl UsageCostParts {
+    fn total(self) -> f64 {
+        self.input + self.output + self.cache_creation + self.cache_read
+    }
+}
+
+fn compute_cost_parts(
+    model: &str,
+    table: &PricingTable,
+    input_tokens: u64,
+    output_tokens: u64,
+    cache_creation_tokens: u64,
+    cache_read_tokens: u64,
+) -> UsageCostParts {
     let Some(price) = match_model_price(model, table) else {
-        return 0.0;
+        return UsageCostParts::default();
     };
-    let total_cache_creation = usage.cache_creation_5m + usage.cache_creation_1h;
-    (usage.input_tokens as f64 * price.input
-        + usage.output_tokens as f64 * price.output
-        + total_cache_creation as f64 * price.cache_write
-        + usage.cache_read as f64 * price.cache_read)
-        / 1_000_000.0
+    UsageCostParts {
+        input: input_tokens as f64 * price.input / 1_000_000.0,
+        output: output_tokens as f64 * price.output / 1_000_000.0,
+        cache_creation: cache_creation_tokens as f64 * price.cache_write / 1_000_000.0,
+        cache_read: cache_read_tokens as f64 * price.cache_read / 1_000_000.0,
+    }
 }
 
 // ============ 时间工具 ============
@@ -1708,6 +1745,18 @@ fn aggregate_time_series(
                 point.cache_creation_tokens += r.cache_creation_total();
                 point.cache_read_tokens += r.cache_read;
                 point.cost += r.cost_usd;
+                let cost_parts = compute_cost_parts(
+                    &r.model,
+                    pricing,
+                    r.input_tokens,
+                    r.output_tokens,
+                    r.cache_creation_total(),
+                    r.cache_read,
+                );
+                point.input_cost += cost_parts.input;
+                point.output_cost += cost_parts.output;
+                point.cache_creation_cost += cost_parts.cache_creation;
+                point.cache_read_cost += cost_parts.cache_read;
                 sessions.insert(r.session_id.as_str());
             }
             point.sessions = sessions.len() as u64;
@@ -2879,6 +2928,10 @@ mod tests {
         assert_eq!(hourly[0].input_tokens, 20);
         assert_eq!(hourly[0].cache_creation_tokens, 14);
         assert!((hourly[0].cost - 3.25).abs() < f64::EPSILON);
+        assert!((hourly[0].input_cost - 0.0001).abs() < f64::EPSILON);
+        assert!((hourly[0].output_cost - 0.001).abs() < f64::EPSILON);
+        assert!((hourly[0].cache_creation_cost - 0.0000875).abs() < f64::EPSILON);
+        assert!((hourly[0].cache_read_cost - 0.000005).abs() < f64::EPSILON);
         assert_eq!(hourly[1].bucket, "2026-04-19 11:00");
         assert_eq!(hourly[1].sessions, 1);
 

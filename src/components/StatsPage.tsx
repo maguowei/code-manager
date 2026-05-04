@@ -22,6 +22,13 @@ const TOOLTIP_STYLE = {
   backdropFilter: "blur(12px)",
   boxShadow: "0 8px 16px rgba(0, 0, 0, 0.15)",
 };
+const TOOL_USAGE_CURSOR_STYLE = { fill: "rgba(247, 129, 102, 0.1)" };
+const TOOL_USAGE_ACTIVE_BAR_STYLE = {
+  fill: COLORS.orange,
+  fillOpacity: 0.96,
+  stroke: COLORS.orange,
+  strokeWidth: 1.2,
+};
 
 /** 项目路径截取最后一级 */
 function shortPath(fullPath: string): string {
@@ -282,8 +289,14 @@ function StatsPage() {
                   >
                     <XAxis type="number" tick={TICK_STYLE} />
                     <YAxis type="category" dataKey="name" width={90} tick={TICK_STYLE} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Bar dataKey="count" fill={COLORS.orange} radius={[0, 4, 4, 0]} />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} cursor={TOOL_USAGE_CURSOR_STYLE} />
+                    <Bar
+                      dataKey="count"
+                      fill={COLORS.orange}
+                      fillOpacity={0.88}
+                      radius={[0, 4, 4, 0]}
+                      activeBar={TOOL_USAGE_ACTIVE_BAR_STYLE}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (

@@ -388,6 +388,10 @@ export interface UsageTimeSeriesPoint {
   cacheCreationTokens: number;
   cacheReadTokens: number;
   cost: number;
+  inputCost: number;
+  outputCost: number;
+  cacheCreationCost: number;
+  cacheReadCost: number;
   byModel: ModelUsageStat[];
 }
 

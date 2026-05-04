@@ -2,6 +2,8 @@ import { type ReactNode, useCallback, useMemo, useState } from "react";
 import {
   Area,
   AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
   Cell,
   Pie,
@@ -39,7 +41,7 @@ const COLORS = {
   teal: "#39d2c0",
   pink: "#f778ba",
   yellow: "#d29922",
-  total: "#e6edf3",
+  total: "#f2cc60",
 };
 
 const SERIES_COLORS = [
@@ -55,6 +57,7 @@ const SERIES_COLORS = [
 
 const TICK_STYLE = { fill: "#7d8590", fontSize: 11 };
 const TICK_STYLE_SM = { fill: "#7d8590", fontSize: 10 };
+const CHART_CURSOR_FILL = "rgba(242, 204, 96, 0.1)";
 const TOOLTIP_STYLE = {
   backgroundColor: "rgba(22, 27, 34, 0.94)",
   border: "1px solid #30363d",
@@ -67,8 +70,29 @@ const TOOLTIP_STYLE = {
 const TAB_ORDER: UsageTab[] = ["daily", "project", "session", "model"];
 type DateRangePreset = "today" | "week" | "month" | "year" | "all";
 const DATE_RANGE_PRESETS: DateRangePreset[] = ["today", "week", "month", "year", "all"];
+type TrendChartStyle = "curve" | "bar";
+const TREND_CHART_STYLE_ORDER: TrendChartStyle[] = ["curve", "bar"];
+type TrendBreakdownMode = "model" | "type";
+const TREND_BREAKDOWN_MODE_ORDER: TrendBreakdownMode[] = ["model", "type"];
 const CLAUDE_MODEL_FILTER = "claude-*";
 const TOTAL_COST_KEY = "__totalCost";
+const TOTAL_TOKEN_KEY = "totalTokens";
+const COST_TYPE_KEYS = {
+  input: "inputCost",
+  output: "outputCost",
+  cacheCreate: "cacheCreationCost",
+  cacheRead: "cacheReadCost",
+} as const;
+
+type SeriesVisibility = Record<string, boolean>;
+
+interface TrendSeriesItem {
+  dataKey: string;
+  name: string;
+  color: string;
+  total?: number;
+  originalName?: string;
+}
 
 interface ModelCostDatum {
   name: string;
@@ -88,6 +112,40 @@ interface TimeSeriesTokenTrendDatum {
 }
 
 const sortTooltipItemsByValueDesc = (item: { value?: unknown }) => -Number(item.value ?? 0);
+const tokenModelDataKey = (model: string) => `model:${encodeURIComponent(model)}`;
+
+function isSeriesVisible(visibility: SeriesVisibility, key: string, totalKey: string) {
+  return visibility[key] ?? key === totalKey;
+}
+
+function hiddenSeriesSet(keys: string[], visibility: SeriesVisibility, totalKey: string) {
+  return new Set(keys.filter((key) => !isSeriesVisible(visibility, key, totalKey)));
+}
+
+function defaultOnlyTotalVisibility(keys: string[], totalKey: string) {
+  return Object.fromEntries(keys.map((key) => [key, key === totalKey])) as SeriesVisibility;
+}
+
+function activeBarStyle(color: string) {
+  return { fill: color, fillOpacity: 0.92, stroke: color, strokeWidth: 1.4 };
+}
+
+function soloSeriesVisibility(
+  keys: string[],
+  visibility: SeriesVisibility,
+  key: string,
+  totalKey: string,
+) {
+  const allSoloed = keys.every((candidate) =>
+    candidate === key
+      ? isSeriesVisible(visibility, candidate, totalKey)
+      : !isSeriesVisible(visibility, candidate, totalKey),
+  );
+  if (allSoloed) return defaultOnlyTotalVisibility(keys, totalKey);
+  return Object.fromEntries(
+    keys.map((candidate) => [candidate, candidate === key]),
+  ) as SeriesVisibility;
+}
 
 function UsagePage() {
   const { t } = useI18n();
@@ -95,26 +153,10 @@ function UsagePage() {
   const u = useUsage();
   const [openSessionId, setOpenSessionId] = useState<string | null>(null);
   // 图表层级的模型可见性切换；与顶部 Filters.model 单选互不影响、不触发后端
-  const [hiddenCostModels, setHiddenCostModels] = useState<Set<string>>(() => new Set());
-  const [hiddenTokenSeries, setHiddenTokenSeries] = useState<Set<string>>(() => new Set());
-
-  const toggleCostModel = useCallback((key: string) => {
-    setHiddenCostModels((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }, []);
-
-  const toggleTokenSeries = useCallback((key: string) => {
-    setHiddenTokenSeries((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }, []);
+  const [costVisibility, setCostVisibility] = useState<SeriesVisibility>(() => ({}));
+  const [tokenVisibility, setTokenVisibility] = useState<SeriesVisibility>(() => ({}));
+  const [trendChartStyle, setTrendChartStyle] = useState<TrendChartStyle>("curve");
+  const [trendBreakdownMode, setTrendBreakdownMode] = useState<TrendBreakdownMode>("model");
 
   const handleRefreshPrice = useCallback(async () => {
     try {
@@ -175,7 +217,7 @@ function UsagePage() {
       }
       return row;
     });
-    // 按合计花费降序排列，主力模型靠前；同时也是 Area 渲染顺序（堆叠从底部往上）
+    // 按合计花费降序排列，主力模型靠前；柱状图堆叠时也保持稳定顺序
     const modelStats = sortedModels
       .map((model) => ({
         key: model,
@@ -258,14 +300,206 @@ function UsagePage() {
   );
 
   const tokenTrendSeries = useMemo(
-    () => [
-      { dataKey: "totalTokens", name: t("usage.charts.totalTokens"), color: COLORS.total },
+    (): TrendSeriesItem[] => [
+      { dataKey: TOTAL_TOKEN_KEY, name: t("usage.charts.totalTokens"), color: COLORS.total },
       { dataKey: "input", name: t("usage.charts.tokenInput"), color: COLORS.blue },
       { dataKey: "output", name: t("usage.charts.tokenOutput"), color: COLORS.green },
       { dataKey: "cacheCreate", name: t("usage.charts.tokenCacheCreate"), color: COLORS.orange },
       { dataKey: "cacheRead", name: t("usage.charts.tokenCacheRead"), color: COLORS.purple },
     ],
     [t],
+  );
+
+  const costTrendByModelSeries = useMemo(
+    (): TrendSeriesItem[] => [
+      {
+        dataKey: TOTAL_COST_KEY,
+        name: t("usage.charts.totalCost"),
+        color: COLORS.total,
+        total: timeSeriesChartData.totalCost,
+      },
+      ...timeSeriesChartData.modelStats.map((stat) => ({
+        dataKey: stat.key,
+        name: stat.displayName,
+        originalName: stat.key,
+        color: stat.color,
+        total: stat.totalCost,
+      })),
+    ],
+    [timeSeriesChartData.modelStats, timeSeriesChartData.totalCost, t],
+  );
+
+  const costTrendByType = useMemo(() => {
+    const totals = {
+      input: 0,
+      output: 0,
+      cacheCreate: 0,
+      cacheRead: 0,
+    };
+    let totalCost = 0;
+    const rows = u.timeSeries.map((point) => {
+      const inputCost = point.inputCost ?? 0;
+      const outputCost = point.outputCost ?? 0;
+      const cacheCreationCost = point.cacheCreationCost ?? 0;
+      const cacheReadCost = point.cacheReadCost ?? 0;
+      totalCost += point.cost;
+      totals.input += inputCost;
+      totals.output += outputCost;
+      totals.cacheCreate += cacheCreationCost;
+      totals.cacheRead += cacheReadCost;
+      return {
+        bucket: point.bucket,
+        label: formatTimeBucketLabel(point, u.timeGranularity, u.filter),
+        [TOTAL_COST_KEY]: +point.cost.toFixed(4),
+        [COST_TYPE_KEYS.input]: +inputCost.toFixed(4),
+        [COST_TYPE_KEYS.output]: +outputCost.toFixed(4),
+        [COST_TYPE_KEYS.cacheCreate]: +cacheCreationCost.toFixed(4),
+        [COST_TYPE_KEYS.cacheRead]: +cacheReadCost.toFixed(4),
+      };
+    });
+    const series: TrendSeriesItem[] = [
+      {
+        dataKey: TOTAL_COST_KEY,
+        name: t("usage.charts.totalCost"),
+        color: COLORS.total,
+        total: +totalCost.toFixed(4),
+      },
+      {
+        dataKey: COST_TYPE_KEYS.input,
+        name: t("usage.charts.tokenInput"),
+        color: COLORS.blue,
+        total: +totals.input.toFixed(4),
+      },
+      {
+        dataKey: COST_TYPE_KEYS.output,
+        name: t("usage.charts.tokenOutput"),
+        color: COLORS.green,
+        total: +totals.output.toFixed(4),
+      },
+      {
+        dataKey: COST_TYPE_KEYS.cacheCreate,
+        name: t("usage.charts.tokenCacheCreate"),
+        color: COLORS.orange,
+        total: +totals.cacheCreate.toFixed(4),
+      },
+      {
+        dataKey: COST_TYPE_KEYS.cacheRead,
+        name: t("usage.charts.tokenCacheRead"),
+        color: COLORS.purple,
+        total: +totals.cacheRead.toFixed(4),
+      },
+    ];
+    return { rows, series, totalCost: +totalCost.toFixed(4) };
+  }, [u.timeSeries, u.timeGranularity, u.filter, t]);
+
+  const tokenTrendByModel = useMemo(() => {
+    const allModels = new Set<string>();
+    for (const point of u.timeSeries) {
+      for (const m of point.byModel) allModels.add(m.model);
+    }
+    const sortedModels = Array.from(allModels).sort();
+    const colorMap = new Map<string, string>();
+    sortedModels.forEach((model, idx) => {
+      colorMap.set(model, SERIES_COLORS[idx % SERIES_COLORS.length]);
+    });
+    const totalsByModel = new Map<string, number>();
+    for (const model of sortedModels) totalsByModel.set(model, 0);
+    const rows = u.timeSeries.map((point) => {
+      const total =
+        point.inputTokens + point.outputTokens + point.cacheCreationTokens + point.cacheReadTokens;
+      const row: Record<string, string | number> = {
+        bucket: point.bucket,
+        label: formatTimeBucketLabel(point, u.timeGranularity, u.filter),
+        [TOTAL_TOKEN_KEY]: total,
+      };
+      for (const model of sortedModels) {
+        const found = point.byModel.find((x) => x.model === model);
+        const tokenTotal = found
+          ? found.inputTokens +
+            found.outputTokens +
+            found.cacheCreationTokens +
+            found.cacheReadTokens
+          : 0;
+        const key = tokenModelDataKey(model);
+        row[key] = tokenTotal;
+        totalsByModel.set(model, (totalsByModel.get(model) ?? 0) + tokenTotal);
+      }
+      return row;
+    });
+    const series: TrendSeriesItem[] = [
+      { dataKey: TOTAL_TOKEN_KEY, name: t("usage.charts.totalTokens"), color: COLORS.total },
+      ...sortedModels
+        .map((model) => ({
+          dataKey: tokenModelDataKey(model),
+          name: model,
+          originalName: model,
+          color: colorMap.get(model) ?? SERIES_COLORS[0],
+          total: totalsByModel.get(model) ?? 0,
+        }))
+        .sort((a, b) => (b.total ?? 0) - (a.total ?? 0) || a.name.localeCompare(b.name)),
+    ];
+    return { rows, series };
+  }, [u.timeSeries, u.timeGranularity, u.filter, t]);
+
+  const activeCostTrendData =
+    trendBreakdownMode === "model" ? timeSeriesChartData.rows : costTrendByType.rows;
+  const activeCostTrendSeries =
+    trendBreakdownMode === "model" ? costTrendByModelSeries : costTrendByType.series;
+  const activeCostTotal =
+    trendBreakdownMode === "model" ? timeSeriesChartData.totalCost : costTrendByType.totalCost;
+  const activeTokenTrendData =
+    trendBreakdownMode === "type" ? tokenTrendData : tokenTrendByModel.rows;
+  const activeTokenTrendSeries =
+    trendBreakdownMode === "type" ? tokenTrendSeries : tokenTrendByModel.series;
+
+  const costSeriesKeys = useMemo(
+    () => activeCostTrendSeries.map((series) => series.dataKey),
+    [activeCostTrendSeries],
+  );
+
+  const tokenSeriesKeys = useMemo(
+    () => activeTokenTrendSeries.map((series) => series.dataKey),
+    [activeTokenTrendSeries],
+  );
+
+  const hiddenCostModels = useMemo(
+    () => hiddenSeriesSet(costSeriesKeys, costVisibility, TOTAL_COST_KEY),
+    [costSeriesKeys, costVisibility],
+  );
+
+  const hiddenTokenSeries = useMemo(
+    () => hiddenSeriesSet(tokenSeriesKeys, tokenVisibility, TOTAL_TOKEN_KEY),
+    [tokenSeriesKeys, tokenVisibility],
+  );
+
+  const toggleCostModel = useCallback((key: string) => {
+    setCostVisibility((prev) => ({
+      ...prev,
+      [key]: !isSeriesVisible(prev, key, TOTAL_COST_KEY),
+    }));
+  }, []);
+
+  const toggleTokenSeries = useCallback((key: string) => {
+    setTokenVisibility((prev) => ({
+      ...prev,
+      [key]: !isSeriesVisible(prev, key, TOTAL_TOKEN_KEY),
+    }));
+  }, []);
+
+  const soloCostModel = useCallback(
+    (key: string) => {
+      setCostVisibility((prev) => soloSeriesVisibility(costSeriesKeys, prev, key, TOTAL_COST_KEY));
+    },
+    [costSeriesKeys],
+  );
+
+  const soloTokenSeries = useCallback(
+    (key: string) => {
+      setTokenVisibility((prev) =>
+        soloSeriesVisibility(tokenSeriesKeys, prev, key, TOTAL_TOKEN_KEY),
+      );
+    },
+    [tokenSeriesKeys],
   );
 
   const cacheSavings = useMemo(() => {
@@ -406,84 +640,154 @@ function UsagePage() {
                 <section className="usage-trend-section" aria-label={t("usage.charts.trends")}>
                   <header className="usage-trend-toolbar">
                     <h3 className="usage-trend-title">{t("usage.charts.trends")}</h3>
-                    <TimeGranularitySwitch
-                      value={u.timeGranularity}
-                      onChange={u.setTimeGranularity}
-                      t={t}
-                    />
+                    <div className="usage-trend-controls">
+                      <TrendBreakdownModeSwitch
+                        value={trendBreakdownMode}
+                        onChange={setTrendBreakdownMode}
+                        t={t}
+                      />
+                      <TrendChartStyleSwitch
+                        value={trendChartStyle}
+                        onChange={setTrendChartStyle}
+                        t={t}
+                      />
+                      <TimeGranularitySwitch
+                        value={u.timeGranularity}
+                        onChange={u.setTimeGranularity}
+                        t={t}
+                      />
+                    </div>
                   </header>
 
                   <ChartPanel title={t("usage.charts.costTrend")} className="usage-chart-primary">
-                    {timeSeriesChartData.rows.length > 0 ? (
+                    {activeCostTrendData.length > 0 ? (
                       <>
                         <ResponsiveContainer width="100%" height={300}>
-                          <AreaChart
-                            data={timeSeriesChartData.rows}
-                            margin={{ left: 8, right: 18, top: 10, bottom: 4 }}
-                          >
-                            <CartesianGrid
-                              strokeDasharray="3 3"
-                              stroke="#30363d"
-                              vertical={false}
-                            />
-                            <XAxis dataKey="label" tick={TICK_STYLE_SM} />
-                            <YAxis tick={TICK_STYLE} tickFormatter={(v) => `$${v}`} width={44} />
-                            <Tooltip
-                              formatter={(v: number | undefined) => formatUSD(v ?? 0)}
-                              itemSorter={sortTooltipItemsByValueDesc}
-                              labelFormatter={(_, payload) =>
-                                payload?.[0]?.payload?.bucket ?? t("usage.charts.costTrend")
-                              }
-                              contentStyle={TOOLTIP_STYLE}
-                            />
-                            {timeSeriesChartData.modelStats
-                              .filter((stat) => !hiddenCostModels.has(stat.key))
-                              .map((stat) => (
-                                <Area
-                                  key={stat.key}
-                                  type="monotone"
-                                  dataKey={stat.key}
-                                  stackId="cost"
-                                  stroke={stat.color}
-                                  fill={stat.color}
-                                  fillOpacity={0.5}
-                                  strokeWidth={1.5}
-                                  name={stat.displayName}
-                                />
-                              ))}
-                            {!hiddenCostModels.has(TOTAL_COST_KEY) && (
-                              <Area
-                                key={TOTAL_COST_KEY}
-                                type="monotone"
-                                dataKey={TOTAL_COST_KEY}
-                                stroke={COLORS.total}
-                                fill={COLORS.total}
-                                fillOpacity={0.04}
-                                strokeWidth={2.2}
-                                name={t("usage.charts.totalCost")}
+                          {trendChartStyle === "curve" ? (
+                            <AreaChart
+                              data={activeCostTrendData}
+                              margin={{ left: 8, right: 18, top: 10, bottom: 4 }}
+                            >
+                              <CartesianGrid
+                                strokeDasharray="3 3"
+                                stroke="#30363d"
+                                vertical={false}
                               />
-                            )}
-                          </AreaChart>
+                              <XAxis dataKey="label" tick={TICK_STYLE_SM} />
+                              <YAxis tick={TICK_STYLE} tickFormatter={(v) => `$${v}`} width={44} />
+                              <Tooltip
+                                formatter={(v: number | undefined) => formatUSD(v ?? 0)}
+                                itemSorter={sortTooltipItemsByValueDesc}
+                                cursor={{ stroke: COLORS.total, strokeOpacity: 0.34 }}
+                                labelFormatter={(_, payload) =>
+                                  payload?.[0]?.payload?.bucket ?? t("usage.charts.costTrend")
+                                }
+                                contentStyle={TOOLTIP_STYLE}
+                              />
+                              {activeCostTrendSeries
+                                .filter(
+                                  (series) =>
+                                    series.dataKey !== TOTAL_COST_KEY &&
+                                    !hiddenCostModels.has(series.dataKey),
+                                )
+                                .map((series) => (
+                                  <Area
+                                    key={series.dataKey}
+                                    type="monotone"
+                                    dataKey={series.dataKey}
+                                    stroke={series.color}
+                                    fill={series.color}
+                                    fillOpacity={0.5}
+                                    strokeWidth={1.5}
+                                    dot={{ r: 2.4, stroke: series.color, strokeWidth: 1.4 }}
+                                    activeDot={{ r: 4.2, stroke: series.color, strokeWidth: 1.6 }}
+                                    name={series.name}
+                                  />
+                                ))}
+                              {!hiddenCostModels.has(TOTAL_COST_KEY) && (
+                                <Area
+                                  key={TOTAL_COST_KEY}
+                                  type="monotone"
+                                  dataKey={TOTAL_COST_KEY}
+                                  stroke={COLORS.total}
+                                  fill={COLORS.total}
+                                  fillOpacity={0.04}
+                                  strokeWidth={2.2}
+                                  dot={{ r: 2.6, stroke: COLORS.total, strokeWidth: 1.4 }}
+                                  activeDot={{ r: 4.4, stroke: COLORS.total, strokeWidth: 1.6 }}
+                                  name={t("usage.charts.totalCost")}
+                                />
+                              )}
+                            </AreaChart>
+                          ) : (
+                            <BarChart
+                              data={activeCostTrendData}
+                              margin={{ left: 8, right: 18, top: 10, bottom: 4 }}
+                            >
+                              <CartesianGrid
+                                strokeDasharray="3 3"
+                                stroke="#30363d"
+                                vertical={false}
+                              />
+                              <XAxis dataKey="label" tick={TICK_STYLE_SM} />
+                              <YAxis tick={TICK_STYLE} tickFormatter={(v) => `$${v}`} width={44} />
+                              <Tooltip
+                                formatter={(v: number | undefined) => formatUSD(v ?? 0)}
+                                itemSorter={sortTooltipItemsByValueDesc}
+                                cursor={{ fill: CHART_CURSOR_FILL }}
+                                labelFormatter={(_, payload) =>
+                                  payload?.[0]?.payload?.bucket ?? t("usage.charts.costTrend")
+                                }
+                                contentStyle={TOOLTIP_STYLE}
+                              />
+                              {activeCostTrendSeries
+                                .filter(
+                                  (series) =>
+                                    series.dataKey !== TOTAL_COST_KEY &&
+                                    !hiddenCostModels.has(series.dataKey),
+                                )
+                                .map((series) => (
+                                  <Bar
+                                    key={series.dataKey}
+                                    dataKey={series.dataKey}
+                                    stackId="cost"
+                                    fill={series.color}
+                                    fillOpacity={0.78}
+                                    radius={[3, 3, 0, 0]}
+                                    activeBar={activeBarStyle(series.color)}
+                                    name={series.name}
+                                  />
+                                ))}
+                              {!hiddenCostModels.has(TOTAL_COST_KEY) && (
+                                <Bar
+                                  key={TOTAL_COST_KEY}
+                                  dataKey={TOTAL_COST_KEY}
+                                  fill={COLORS.total}
+                                  fillOpacity={0.72}
+                                  radius={[3, 3, 0, 0]}
+                                  activeBar={activeBarStyle(COLORS.total)}
+                                  name={t("usage.charts.totalCost")}
+                                />
+                              )}
+                            </BarChart>
+                          )}
                         </ResponsiveContainer>
                         <TrendLegend
-                          items={[
-                            {
-                              key: TOTAL_COST_KEY,
-                              color: COLORS.total,
-                              displayName: t("usage.charts.totalCost"),
-                              originalName: t("usage.charts.totalCost"),
-                              meta: formatUSD(timeSeriesChartData.totalCost),
-                            },
-                            ...timeSeriesChartData.modelStats.map((stat) => ({
-                              key: stat.key,
-                              color: stat.color,
-                              displayName: stat.displayName,
-                              originalName: stat.key,
-                              meta: formatUSD(stat.totalCost),
-                            })),
-                          ]}
+                          items={activeCostTrendSeries.map((series) => ({
+                            key: series.dataKey,
+                            color: series.color,
+                            displayName: series.name,
+                            originalName: series.originalName ?? series.name,
+                            meta:
+                              series.dataKey === TOTAL_COST_KEY
+                                ? formatUSD(activeCostTotal)
+                                : series.total
+                                  ? formatUSD(series.total)
+                                  : undefined,
+                          }))}
                           hidden={hiddenCostModels}
                           onToggle={toggleCostModel}
+                          onSolo={soloCostModel}
                           ariaLabel={t("usage.charts.costTrend")}
                           t={t}
                         />
@@ -497,77 +801,142 @@ function UsagePage() {
                     title={t("usage.charts.tokenTrend")}
                     className="usage-chart-secondary"
                   >
-                    {tokenTrendData.length > 0 ? (
+                    {activeTokenTrendData.length > 0 ? (
                       <>
                         <ResponsiveContainer width="100%" height={240}>
-                          <AreaChart
-                            data={tokenTrendData}
-                            margin={{ left: 8, right: 18, top: 10, bottom: 4 }}
-                          >
-                            <CartesianGrid
-                              strokeDasharray="3 3"
-                              stroke="#30363d"
-                              vertical={false}
-                            />
-                            <XAxis dataKey="label" tick={TICK_STYLE_SM} />
-                            <YAxis
-                              tick={TICK_STYLE}
-                              tickFormatter={(v) => formatTokens(v)}
-                              width={54}
-                            />
-                            <Tooltip
-                              formatter={(v: number | undefined) => formatTokens(v ?? 0)}
-                              itemSorter={sortTooltipItemsByValueDesc}
-                              labelFormatter={(_, payload) =>
-                                payload?.[0]?.payload?.bucket ?? t("usage.charts.tokenTrend")
-                              }
-                              contentStyle={TOOLTIP_STYLE}
-                            />
-                            {tokenTrendSeries
-                              .filter(
-                                (series) =>
-                                  series.dataKey !== "totalTokens" &&
-                                  !hiddenTokenSeries.has(series.dataKey),
-                              )
-                              .map((series) => (
-                                <Area
-                                  key={series.dataKey}
-                                  type="monotone"
-                                  dataKey={series.dataKey}
-                                  stroke={series.color}
-                                  fill={series.color}
-                                  fillOpacity={series.dataKey === "totalTokens" ? 0.04 : 0.12}
-                                  strokeWidth={series.dataKey === "totalTokens" ? 2.2 : 1.8}
-                                  name={series.name}
-                                />
-                              ))}
-                            {!hiddenTokenSeries.has("totalTokens") && (
-                              <Area
-                                key="totalTokens"
-                                type="monotone"
-                                dataKey="totalTokens"
-                                stroke={COLORS.total}
-                                fill={COLORS.total}
-                                fillOpacity={0.04}
-                                strokeWidth={2.2}
-                                name={t("usage.charts.totalTokens")}
+                          {trendChartStyle === "curve" ? (
+                            <AreaChart
+                              data={activeTokenTrendData}
+                              margin={{ left: 8, right: 18, top: 10, bottom: 4 }}
+                            >
+                              <CartesianGrid
+                                strokeDasharray="3 3"
+                                stroke="#30363d"
+                                vertical={false}
                               />
-                            )}
-                          </AreaChart>
+                              <XAxis dataKey="label" tick={TICK_STYLE_SM} />
+                              <YAxis
+                                tick={TICK_STYLE}
+                                tickFormatter={(v) => formatTokens(v)}
+                                width={54}
+                              />
+                              <Tooltip
+                                formatter={(v: number | undefined) => formatTokens(v ?? 0)}
+                                itemSorter={sortTooltipItemsByValueDesc}
+                                cursor={{ stroke: COLORS.total, strokeOpacity: 0.34 }}
+                                labelFormatter={(_, payload) =>
+                                  payload?.[0]?.payload?.bucket ?? t("usage.charts.tokenTrend")
+                                }
+                                contentStyle={TOOLTIP_STYLE}
+                              />
+                              {activeTokenTrendSeries
+                                .filter(
+                                  (series) =>
+                                    series.dataKey !== TOTAL_TOKEN_KEY &&
+                                    !hiddenTokenSeries.has(series.dataKey),
+                                )
+                                .map((series) => (
+                                  <Area
+                                    key={series.dataKey}
+                                    type="monotone"
+                                    dataKey={series.dataKey}
+                                    stroke={series.color}
+                                    fill={series.color}
+                                    fillOpacity={0.12}
+                                    strokeWidth={1.8}
+                                    dot={{ r: 2.4, stroke: series.color, strokeWidth: 1.4 }}
+                                    activeDot={{ r: 4.2, stroke: series.color, strokeWidth: 1.6 }}
+                                    name={series.name}
+                                  />
+                                ))}
+                              {!hiddenTokenSeries.has(TOTAL_TOKEN_KEY) && (
+                                <Area
+                                  key={TOTAL_TOKEN_KEY}
+                                  type="monotone"
+                                  dataKey={TOTAL_TOKEN_KEY}
+                                  stroke={COLORS.total}
+                                  fill={COLORS.total}
+                                  fillOpacity={0.04}
+                                  strokeWidth={2.2}
+                                  dot={{ r: 2.6, stroke: COLORS.total, strokeWidth: 1.4 }}
+                                  activeDot={{ r: 4.4, stroke: COLORS.total, strokeWidth: 1.6 }}
+                                  name={t("usage.charts.totalTokens")}
+                                />
+                              )}
+                            </AreaChart>
+                          ) : (
+                            <BarChart
+                              data={activeTokenTrendData}
+                              margin={{ left: 8, right: 18, top: 10, bottom: 4 }}
+                            >
+                              <CartesianGrid
+                                strokeDasharray="3 3"
+                                stroke="#30363d"
+                                vertical={false}
+                              />
+                              <XAxis dataKey="label" tick={TICK_STYLE_SM} />
+                              <YAxis
+                                tick={TICK_STYLE}
+                                tickFormatter={(v) => formatTokens(v)}
+                                width={54}
+                              />
+                              <Tooltip
+                                formatter={(v: number | undefined) => formatTokens(v ?? 0)}
+                                itemSorter={sortTooltipItemsByValueDesc}
+                                cursor={{ fill: CHART_CURSOR_FILL }}
+                                labelFormatter={(_, payload) =>
+                                  payload?.[0]?.payload?.bucket ?? t("usage.charts.tokenTrend")
+                                }
+                                contentStyle={TOOLTIP_STYLE}
+                              />
+                              {activeTokenTrendSeries
+                                .filter(
+                                  (series) =>
+                                    series.dataKey !== TOTAL_TOKEN_KEY &&
+                                    !hiddenTokenSeries.has(series.dataKey),
+                                )
+                                .map((series) => (
+                                  <Bar
+                                    key={series.dataKey}
+                                    dataKey={series.dataKey}
+                                    stackId="tokens"
+                                    fill={series.color}
+                                    fillOpacity={0.78}
+                                    radius={[3, 3, 0, 0]}
+                                    activeBar={activeBarStyle(series.color)}
+                                    name={series.name}
+                                  />
+                                ))}
+                              {!hiddenTokenSeries.has(TOTAL_TOKEN_KEY) && (
+                                <Bar
+                                  key={TOTAL_TOKEN_KEY}
+                                  dataKey={TOTAL_TOKEN_KEY}
+                                  fill={COLORS.total}
+                                  fillOpacity={0.72}
+                                  radius={[3, 3, 0, 0]}
+                                  activeBar={activeBarStyle(COLORS.total)}
+                                  name={t("usage.charts.totalTokens")}
+                                />
+                              )}
+                            </BarChart>
+                          )}
                         </ResponsiveContainer>
                         <TrendLegend
-                          items={tokenTrendSeries.map((series) => ({
+                          items={activeTokenTrendSeries.map((series) => ({
                             key: series.dataKey,
                             color: series.color,
                             displayName: series.name,
-                            originalName: series.name,
+                            originalName: series.originalName ?? series.name,
                             meta:
-                              series.dataKey === "totalTokens"
+                              series.dataKey === TOTAL_TOKEN_KEY
                                 ? formatTokens(totalTokens)
-                                : undefined,
+                                : series.total
+                                  ? formatTokens(series.total)
+                                  : undefined,
                           }))}
                           hidden={hiddenTokenSeries}
                           onToggle={toggleTokenSeries}
+                          onSolo={soloTokenSeries}
                           ariaLabel={t("usage.charts.tokenTrend")}
                           t={t}
                         />
@@ -703,6 +1072,66 @@ function ChartPanel({
 
 const TIME_GRANULARITY_ORDER: UsageTimeGranularity[] = ["day", "hour", "fiveMinute"];
 
+function TrendChartStyleSwitch({
+  value,
+  onChange,
+  t,
+}: {
+  value: TrendChartStyle;
+  onChange: (next: TrendChartStyle) => void;
+  t: ReturnType<typeof useI18n>["t"];
+}) {
+  return (
+    <div
+      className="usage-time-granularity usage-chart-style-switch"
+      role="group"
+      aria-label={t("usage.charts.style.ariaLabel")}
+    >
+      {TREND_CHART_STYLE_ORDER.map((key) => (
+        <button
+          key={key}
+          type="button"
+          className={`usage-time-granularity-btn ${value === key ? "active" : ""}`}
+          aria-pressed={value === key}
+          onClick={() => onChange(key)}
+        >
+          {t(`usage.charts.style.${key}`)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function TrendBreakdownModeSwitch({
+  value,
+  onChange,
+  t,
+}: {
+  value: TrendBreakdownMode;
+  onChange: (next: TrendBreakdownMode) => void;
+  t: ReturnType<typeof useI18n>["t"];
+}) {
+  return (
+    <div
+      className="usage-time-granularity usage-trend-mode-switch"
+      role="group"
+      aria-label={t("usage.charts.breakdown.ariaLabel")}
+    >
+      {TREND_BREAKDOWN_MODE_ORDER.map((key) => (
+        <button
+          key={key}
+          type="button"
+          className={`usage-time-granularity-btn ${value === key ? "active" : ""}`}
+          aria-pressed={value === key}
+          onClick={() => onChange(key)}
+        >
+          {t(`usage.charts.breakdown.${key}`)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function TimeGranularitySwitch({
   value,
   onChange,
@@ -745,17 +1174,20 @@ function TrendLegend({
   items,
   hidden,
   onToggle,
+  onSolo,
   ariaLabel,
   t,
 }: {
   items: TrendLegendItem[];
   hidden: Set<string>;
   onToggle: (key: string) => void;
+  onSolo?: (key: string) => void;
   ariaLabel: string;
   t: ReturnType<typeof useI18n>["t"];
 }) {
   if (items.length === 0) return null;
   const hint = t("usage.charts.legendToggle");
+  const soloHint = t("usage.charts.legendSolo");
   const hiddenLabel = t("usage.charts.legendHidden");
   return (
     <ul className="usage-legend-list" aria-label={ariaLabel}>
@@ -763,7 +1195,7 @@ function TrendLegend({
         const isHidden = hidden.has(item.key);
         const title = isHidden
           ? `${item.originalName} · ${hiddenLabel}`
-          : `${item.originalName} · ${hint}`;
+          : `${item.originalName} · ${hint} · ${soloHint}`;
         return (
           <li key={item.key}>
             <button
@@ -772,6 +1204,7 @@ function TrendLegend({
               aria-pressed={!isHidden}
               title={title}
               onClick={() => onToggle(item.key)}
+              onDoubleClick={() => onSolo?.(item.key)}
             >
               <span
                 className="usage-legend-chip-swatch"
