@@ -93,6 +93,25 @@ describe("MemoryItem", () => {
     expect(onEdit).not.toHaveBeenCalled();
   });
 
+  it("does not repeat the CLAUDE.md filename next to the type badge", () => {
+    renderMemoryItem();
+
+    expect(screen.getAllByText("CLAUDE.md")).toHaveLength(1);
+    expect(document.querySelector(".memory-target-path")).not.toBeInTheDocument();
+  });
+
+  it("shows rule paths without the rules directory prefix", () => {
+    renderMemoryItem({
+      ...baseMemory,
+      targetType: "rule",
+      rulePath: "frontend/api.md",
+    });
+
+    expect(screen.getByText("Rules")).toBeInTheDocument();
+    expect(screen.getByText("frontend/api.md")).toBeInTheDocument();
+    expect(screen.queryByText("rules/frontend/api.md")).not.toBeInTheDocument();
+  });
+
   it("reveals memory actions on hover or focus within like profile cards", () => {
     const css = readFileSync(`${process.cwd()}/src/components/MemoryItem.css`, "utf8");
 

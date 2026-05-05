@@ -20,8 +20,8 @@ function MemoryItem({ memory, isEditing, onToggle, onEdit, onDelete }: MemoryIte
   const preview = memory.content.split("\n")[0] || "";
   const targetLabel =
     memory.targetType === "rule" ? t("memory.targetType.rule") : t("memory.targetType.claude");
-  const targetPath =
-    memory.targetType === "rule" && memory.rulePath ? `rules/${memory.rulePath}` : "CLAUDE.md";
+  const targetPath = memory.targetType === "rule" ? memory.rulePath : undefined;
+  const colorSeedScope = targetPath ?? targetLabel;
 
   function handleActionClick(e: MouseEvent<HTMLElement>, action: () => void) {
     e.stopPropagation();
@@ -48,7 +48,7 @@ function MemoryItem({ memory, isEditing, onToggle, onEdit, onDelete }: MemoryIte
       <div className="memory-header">
         <ProfileNameBadge
           name={memory.name}
-          colorSeedScope={targetPath}
+          colorSeedScope={colorSeedScope}
           size="sm"
           fallbackChar="M"
         />
@@ -59,7 +59,7 @@ function MemoryItem({ memory, isEditing, onToggle, onEdit, onDelete }: MemoryIte
             <span className={`memory-target-badge memory-target-badge--${memory.targetType}`}>
               {targetLabel}
             </span>
-            <span className="memory-target-path">{targetPath}</span>
+            {targetPath ? <span className="memory-target-path">{targetPath}</span> : null}
           </div>
           {memory.targetType === "rule" && memory.pathPatterns?.length ? (
             <p className="memory-path-patterns">
