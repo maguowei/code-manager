@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::Read;
 use std::path::{Component, Path, PathBuf};
+#[cfg(target_os = "macos")]
 use std::process::Command;
 
 const DEFAULT_MAX_ENTRIES: usize = 100_000;
@@ -706,6 +707,7 @@ fn open_path_with_app(path: &Path, app_name: &str) -> Result<(), String> {
     }
 }
 
+#[cfg(target_os = "macos")]
 fn run_command_status(command: &mut Command, action_name: &str) -> Result<(), String> {
     let status = command
         .status()
