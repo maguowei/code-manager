@@ -26,6 +26,7 @@ export const MemorySchema = z
     content: z.string().default(""),
     targetType: z.enum(MEMORY_TARGET_TYPES).default("claude"),
     rulePath: z.string().default(""),
+    pathPatternsText: z.string().default(""),
   })
   .superRefine((data, ctx) => {
     if (data.targetType !== "rule") return;
@@ -74,14 +75,81 @@ export const MEMORY_RULE_PATH_FIELD: FieldConfig<MemoryFormData> = {
   required: true,
 };
 
+export const MEMORY_PATH_PATTERNS_FIELD: FieldConfig<MemoryFormData> = {
+  name: "pathPatternsText",
+  labelKey: "memory.pathPatterns",
+  placeholderKey: "memory.pathPatternsPlaceholder",
+  descriptionKey: "memory.pathPatternsHint",
+  inputType: "textarea",
+  rows: 3,
+};
+
 export function buildMemoryDefaultValues(memory: Memory | null): MemoryFormData {
   return {
     id: memory?.id ?? "",
     name: memory?.name ?? "",
-    content: memory?.content ?? "",
+    content: composeMemoryEditorContent(memory?.name ?? "", memory?.content ?? ""),
     targetType: memory?.targetType ?? "claude",
     rulePath: memory?.rulePath ?? "",
+    pathPatternsText: (memory?.pathPatterns ?? []).join("\n"),
   };
+}
+
+function splitPathPatterns(text: string) {
+  const patterns: string[] = [];
+  for (const line of text.split(/\r?\n/)) {
+    const pattern = line.trim();
+    if (pattern && !patterns.includes(pattern)) {
+      patterns.push(pattern);
+    }
+  }
+  return patterns;
+}
+
+export function stripMemoryTitleHeading(content: string) {
+  const { firstLine, rest } = splitMemoryFirstLine(content);
+  if (!extractTitleFromHeadingLine(firstLine)) {
+    return content;
+  }
+  return rest.replace(/^(?:\r?\n)(?:[ \t]*\r?\n)?/, "");
+}
+
+function stripLeadingBlankLines(content: string) {
+  return content.replace(/^(?:[ \t]*\r?\n)+/, "");
+}
+
+function splitMemoryFirstLine(content: string) {
+  const withoutLeadingBlankLines = stripLeadingBlankLines(content);
+  const firstLineBreak = withoutLeadingBlankLines.search(/\r?\n/);
+  return {
+    firstLine:
+      firstLineBreak >= 0
+        ? withoutLeadingBlankLines.slice(0, firstLineBreak)
+        : withoutLeadingBlankLines,
+    rest: firstLineBreak >= 0 ? withoutLeadingBlankLines.slice(firstLineBreak) : "",
+  };
+}
+
+function extractTitleFromHeadingLine(line: string) {
+  const match = line.trimStart().match(/^#{1}(?!#)[ \t]+(.+)$/);
+  if (!match) return undefined;
+
+  const title = match[1].replace(/[ \t]+#+[ \t]*$/, "").trim();
+  return title || undefined;
+}
+
+export function extractMemoryTitleHeading(content: string) {
+  return extractTitleFromHeadingLine(splitMemoryFirstLine(content).firstLine);
+}
+
+export function composeMemoryEditorContent(name: string, content: string) {
+  const title = name.trim();
+  if (!title) {
+    return content;
+  }
+
+  const body = stripLeadingBlankLines(stripMemoryTitleHeading(content));
+  return body ? `# ${title}\n\n${body}` : `# ${title}`;
 }
 
 export function toMemoryPayload(data: MemoryFormData) {
@@ -91,12 +159,16 @@ export function toMemoryPayload(data: MemoryFormData) {
     content: string;
     targetType: MemoryTargetType;
     rulePath?: string;
+    pathPatterns?: string[];
   } = {
     name: data.name,
-    content: data.content,
+    content: stripMemoryTitleHeading(data.content),
     targetType: data.targetType,
     rulePath: data.targetType === "rule" ? trimToUndefined(data.rulePath) : undefined,
   };
+  if (data.targetType === "rule") {
+    payload.pathPatterns = splitPathPatterns(data.pathPatternsText);
+  }
   const id = trimToUndefined(data.id);
   if (id) {
     payload.id = id;

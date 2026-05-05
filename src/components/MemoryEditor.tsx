@@ -2,13 +2,16 @@ import { markdown } from "@codemirror/lang-markdown";
 import { EditorView } from "@codemirror/view";
 import { zodResolver } from "@hookform/resolvers/zod";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Controller, type FieldError, type Resolver, useForm } from "react-hook-form";
 import useEditorTheme from "../hooks/useEditorTheme";
 import { type TranslationKey, useI18n } from "../i18n";
 import {
   buildMemoryDefaultValues,
+  composeMemoryEditorContent,
+  extractMemoryTitleHeading,
   MEMORY_NAME_FIELD,
+  MEMORY_PATH_PATTERNS_FIELD,
   MEMORY_RULE_PATH_FIELD,
   type MemoryFormData,
   MemorySchema,
@@ -28,6 +31,7 @@ interface MemoryEditorProps {
     content: string;
     targetType: MemoryTargetType;
     rulePath?: string;
+    pathPatterns?: string[];
   }) => void;
   onClose: () => void;
 }
@@ -53,6 +57,11 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
   const { t } = useI18n();
   const editorRef = useRef<ReactCodeMirrorRef>(null);
   const editorTheme = useEditorTheme();
+  const hasInitialPathPatterns = (memory?.pathPatterns ?? []).some(
+    (pattern) => pattern.trim().length > 0,
+  );
+  const [isPathPatternsOpen, setIsPathPatternsOpen] = useState(hasInitialPathPatterns);
+  const defaultValues = buildMemoryDefaultValues(memory);
   const {
     register,
     control,
@@ -62,13 +71,22 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
     formState: { errors },
   } = useForm<MemoryFormData>({
     resolver: zodResolver(MemorySchema) as Resolver<MemoryFormData>,
-    defaultValues: buildMemoryDefaultValues(memory),
+    defaultValues,
     mode: "onBlur",
   });
   const watchName = watch("name");
+  const watchContent = watch("content");
   const watchTargetType = watch("targetType");
   const watchRulePath = watch("rulePath");
+  const lastSyncedTitle = useRef(
+    extractMemoryTitleHeading(defaultValues.content) ?? defaultValues.name.trim(),
+  );
   const lastSuggestedRulePath = useRef("");
+  const pathPatternsPanelId = "memory-path-patterns-panel";
+
+  useEffect(() => {
+    setIsPathPatternsOpen(hasInitialPathPatterns);
+  }, [hasInitialPathPatterns]);
 
   useEffect(() => {
     if (memory?.rulePath || watchTargetType !== "rule") return;
@@ -83,6 +101,47 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
       shouldValidate: true,
     });
   }, [memory?.rulePath, setValue, watchName, watchRulePath, watchTargetType]);
+
+  useEffect(() => {
+    const nameTitle = watchName.trim();
+    const contentTitle = extractMemoryTitleHeading(watchContent);
+    const previousTitle = lastSyncedTitle.current;
+
+    if (contentTitle && contentTitle !== nameTitle && contentTitle !== previousTitle) {
+      lastSyncedTitle.current = contentTitle;
+      setValue("name", contentTitle, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      return;
+    }
+
+    if (!nameTitle) {
+      lastSyncedTitle.current = "";
+      return;
+    }
+
+    if (contentTitle === nameTitle) {
+      lastSyncedTitle.current = nameTitle;
+      return;
+    }
+
+    if (contentTitle && contentTitle !== previousTitle) {
+      return;
+    }
+
+    const nextContent = composeMemoryEditorContent(nameTitle, watchContent);
+    if (nextContent === watchContent) {
+      lastSyncedTitle.current = nameTitle;
+      return;
+    }
+
+    lastSyncedTitle.current = nameTitle;
+    setValue("content", nextContent, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  }, [setValue, watchContent, watchName]);
 
   function handleFormSubmit(data: MemoryFormData) {
     onSave(toMemoryPayload(data));
@@ -218,12 +277,41 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
             </div>
 
             {watchTargetType === "rule" && (
-              <SchemaFormField
-                field={MEMORY_RULE_PATH_FIELD}
-                register={register}
-                control={control}
-                error={errors.rulePath as FieldError | undefined}
-              />
+              <>
+                <SchemaFormField
+                  field={MEMORY_RULE_PATH_FIELD}
+                  register={register}
+                  control={control}
+                  error={errors.rulePath as FieldError | undefined}
+                />
+                <div className="memory-advanced-rules">
+                  <button
+                    type="button"
+                    className="memory-advanced-rules-toggle"
+                    aria-expanded={isPathPatternsOpen}
+                    aria-controls={pathPatternsPanelId}
+                    onClick={() => setIsPathPatternsOpen((isOpen) => !isOpen)}
+                  >
+                    <span>{t("memory.advancedRules")}</span>
+                    <ChevronLeftIcon
+                      size={16}
+                      className={`memory-advanced-rules-icon${
+                        isPathPatternsOpen ? " is-open" : ""
+                      }`}
+                    />
+                  </button>
+                  {isPathPatternsOpen ? (
+                    <div id={pathPatternsPanelId} className="memory-advanced-rules-panel">
+                      <SchemaFormField
+                        field={MEMORY_PATH_PATTERNS_FIELD}
+                        register={register}
+                        control={control}
+                        error={errors.pathPatternsText as FieldError | undefined}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              </>
             )}
 
             <div className="form-group">

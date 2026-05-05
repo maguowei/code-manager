@@ -61,6 +61,11 @@ function MemoryItem({ memory, isEditing, onToggle, onEdit, onDelete }: MemoryIte
             </span>
             <span className="memory-target-path">{targetPath}</span>
           </div>
+          {memory.targetType === "rule" && memory.pathPatterns?.length ? (
+            <p className="memory-path-patterns">
+              {t("memory.pathPatternsShort")}: {memory.pathPatterns.join(", ")}
+            </p>
+          ) : null}
           <p className="memory-preview">{preview}</p>
         </div>
 

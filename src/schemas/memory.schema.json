@@ -18,6 +18,14 @@
       "type": "string",
       "default": "",
       "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$)).+\\.md$"
+    },
+    "pathPatterns": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     }
   }
 }

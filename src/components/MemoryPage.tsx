@@ -3,12 +3,13 @@ import { useCallback, useEffect, useState } from "react";
 import useEscapeKey from "../hooks/useEscapeKey";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
-import type { Memory, MemoryState } from "../types";
+import type { Memory, MemoryState, UnmanagedMemory } from "../types";
 import ConfirmDialog from "./ConfirmDialog";
 import Drawer from "./Drawer";
 import { PlusIcon } from "./Icons";
 import MemoryEditor from "./MemoryEditor";
 import MemoryItem from "./MemoryItem";
+import UnmanagedMemoryItem from "./UnmanagedMemoryItem";
 import "./MemoryPage.css";
 
 type MemoryPayload = {
@@ -17,24 +18,31 @@ type MemoryPayload = {
   content: string;
   targetType: Memory["targetType"];
   rulePath?: string;
+  pathPatterns?: string[];
 };
 
 function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => void }) {
   const { t } = useI18n();
   const { showToast } = useToast();
   const [memories, setMemories] = useState<Memory[]>([]);
+  const [unmanagedMemories, setUnmanagedMemories] = useState<UnmanagedMemory[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMemory, setEditingMemory] = useState<Memory | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
+  const applyMemoryState = useCallback((state: MemoryState) => {
+    setMemories(state.memories);
+    setUnmanagedMemories(state.unmanagedMemories ?? []);
+  }, []);
+
   const loadMemories = useCallback(async () => {
     try {
       const state = await invoke<MemoryState>("get_memories");
-      setMemories(state.memories);
+      applyMemoryState(state);
     } catch (_err) {
       showToast(t("toast.memoryLoadError"), "error");
     }
-  }, [showToast, t]);
+  }, [applyMemoryState, showToast, t]);
 
   useEffect(() => {
     loadMemories();
@@ -54,7 +62,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     try {
       const state = await invoke<MemoryState>("add_memory", { data });
       setIsModalOpen(false);
-      setMemories(state.memories);
+      applyMemoryState(state);
       showToast(t("toast.memoryAdded"));
     } catch (_err) {
       showToast(t("toast.memoryAddError"), "error");
@@ -67,7 +75,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       const state = await invoke<MemoryState>("update_memory", { id: editingMemory.id, data });
       setEditingMemory(null);
       setIsModalOpen(false);
-      setMemories(state.memories);
+      applyMemoryState(state);
       showToast(t("toast.memorySaved"));
     } catch (_err) {
       showToast(t("toast.memorySaveError"), "error");
@@ -77,7 +85,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   async function handleDelete(id: string) {
     try {
       const state = await invoke<MemoryState>("delete_memory", { id });
-      setMemories(state.memories);
+      applyMemoryState(state);
       showToast(t("toast.memoryDeleted"));
     } catch (_err) {
       showToast(t("toast.memoryDeleteError"), "error");
@@ -87,9 +95,21 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   async function handleToggle(id: string) {
     try {
       const state = await invoke<MemoryState>("toggle_memory", { id });
-      setMemories(state.memories);
+      applyMemoryState(state);
     } catch (_err) {
       showToast(t("toast.memoryToggleError"), "error");
+    }
+  }
+
+  async function handleImport(memory: UnmanagedMemory) {
+    try {
+      const state = await invoke<MemoryState>("import_unmanaged_memory", {
+        source: { targetType: memory.targetType, rulePath: memory.rulePath },
+      });
+      applyMemoryState(state);
+      showToast(t("toast.memoryImported"));
+    } catch (_err) {
+      showToast(t("toast.memoryImportError"), "error");
     }
   }
 
@@ -113,6 +133,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
 
   const claudeMemories = memories.filter((memory) => memory.targetType === "claude");
   const ruleMemories = memories.filter((memory) => memory.targetType === "rule");
+  const hasAnyMemory = memories.length > 0 || unmanagedMemories.length > 0;
 
   function renderMemoryGroup(title: string, description: string, items: Memory[]) {
     if (items.length === 0) return null;
@@ -138,6 +159,27 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     );
   }
 
+  function renderUnmanagedMemoryGroup(items: UnmanagedMemory[]) {
+    if (items.length === 0) return null;
+    return (
+      <section className="memory-group memory-group-unmanaged">
+        <div className="memory-group-header">
+          <h2>{t("memory.group.unmanaged")}</h2>
+          <p>{t("memory.group.unmanagedDescription")}</p>
+        </div>
+        <div className="list-container">
+          {items.map((memory) => (
+            <UnmanagedMemoryItem
+              key={memory.id}
+              memory={memory}
+              onImport={() => handleImport(memory)}
+            />
+          ))}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <div className="list-page">
       {/* 页面标题栏 */}
@@ -152,7 +194,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       </button>
 
       {/* 记忆列表 */}
-      {memories.length === 0 ? (
+      {!hasAnyMemory ? (
         <div className="list-empty">
           <div className="empty-icon">
             <svg
@@ -184,6 +226,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
             t("memory.group.rulesDescription"),
             ruleMemories,
           )}
+          {renderUnmanagedMemoryGroup(unmanagedMemories)}
         </>
       )}
 

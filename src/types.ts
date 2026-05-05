@@ -104,14 +104,32 @@ export interface Memory {
   content: string;
   targetType: MemoryTargetType;
   rulePath?: string;
+  pathPatterns?: string[];
   isActive: boolean;
   createdAt: number;
   updatedAt: number;
 }
 
+export type UnmanagedMemoryImportStatus = "ready" | "managedPathConflict";
+
+export interface UnmanagedMemory {
+  id: string;
+  name: string;
+  content: string;
+  targetType: MemoryTargetType;
+  rulePath?: string;
+  pathPatterns: string[];
+  sourcePath: string;
+  size: number;
+  modifiedAt: number;
+  importStatus: UnmanagedMemoryImportStatus;
+}
+
 // 记忆状态
 export interface MemoryState {
+  version?: number;
   memories: Memory[];
+  unmanagedMemories?: UnmanagedMemory[];
 }
 
 // ===== 统计页面类型 =====

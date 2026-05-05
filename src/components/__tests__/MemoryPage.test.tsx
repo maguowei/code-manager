@@ -118,4 +118,44 @@ describe("MemoryPage", () => {
 
     expect(groupHeaderRule).toContain("padding: 0 var(--space-2);");
   });
+
+  it("shows unmanaged .claude memories with an import action", async () => {
+    const stateWithUnmanaged: MemoryState = {
+      memories: [],
+      unmanagedMemories: [
+        {
+          id: "unmanaged:claude",
+          name: "CLAUDE.md",
+          content: "手写全局记忆",
+          targetType: "claude",
+          rulePath: undefined,
+          pathPatterns: [],
+          sourcePath: "CLAUDE.md",
+          size: 18,
+          modifiedAt: 4,
+          importStatus: "ready",
+        },
+      ],
+    };
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_memories") return stateWithUnmanaged;
+      if (command === "import_unmanaged_memory") return initialState;
+      return null;
+    });
+
+    renderMemoryPage();
+
+    const card = (await screen.findByText("手写全局记忆")).closest(".memory-item");
+    expect(card).not.toBeNull();
+    if (!card) return;
+
+    expect(within(card as HTMLElement).getByText("未导入")).toBeInTheDocument();
+    fireEvent.click(within(card as HTMLElement).getByRole("button", { name: "导入管理" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("import_unmanaged_memory", {
+        source: { targetType: "claude", rulePath: undefined },
+      });
+    });
+  });
 });

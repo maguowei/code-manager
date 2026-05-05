@@ -73,6 +73,12 @@ const translations = {
     "memory.rulePath": "规则文件路径",
     "memory.rulePathPlaceholder": "例如：workflow.md 或 frontend/style.md",
     "memory.rulePathHint": "保存到 ~/.claude/rules/ 下，必须是 .md 相对路径",
+    "memory.pathPatterns": "路径匹配",
+    "memory.pathPatternsPlaceholder": "例如：src/**/*.tsx（每行一个 glob）",
+    "memory.pathPatternsHint":
+      "可选。保存为 rule 文件 frontmatter 的 paths，用于按项目文件路径匹配加载。",
+    "memory.pathPatternsShort": "paths",
+    "memory.advancedRules": "高级规则",
     "memory.content": "内容",
     "memory.contentPlaceholder": "输入 Markdown 内容...",
     "memory.cancel": "取消",
@@ -83,8 +89,15 @@ const translations = {
     "memory.group.claudeDescription": "用户全局主记忆，同一时间只能启用一个。",
     "memory.group.rules": "Rules（多选）",
     "memory.group.rulesDescription": "用户全局规则，可同时启用多个 rules/*.md 文件。",
+    "memory.group.unmanaged": "发现未导入的本地记忆",
+    "memory.group.unmanagedDescription":
+      "这些文件已经存在于 ~/.claude/ 中，但还不受 AI Manager 管理。导入后可在这里统一编辑、启用和删除。",
     "memory.enabled": "已启用",
     "memory.disabled": "未启用",
+    "memory.unmanaged": "未导入",
+    "memory.import": "导入管理",
+    "memory.unmanagedImportHint": "导入后会原地接管当前文件，不立即改写内容。",
+    "memory.unmanagedPathConflict": "此路径已被一条可管理记忆占用，请先编辑或删除冲突项。",
     "memory.editing": "编辑中",
     "memory.edit": "编辑",
     "memory.delete": "删除",
@@ -863,6 +876,8 @@ const translations = {
     "toast.memoryDeleted": "记忆已删除",
     "toast.memoryDeleteError": "删除记忆失败",
     "toast.memoryToggleError": "切换记忆状态失败",
+    "toast.memoryImported": "记忆已导入管理",
+    "toast.memoryImportError": "导入记忆失败",
 
     // 导航 aria-label
     "nav.ariaLabel": "主导航",
@@ -1044,6 +1059,12 @@ const translations = {
     "memory.rulePath": "Rule File Path",
     "memory.rulePathPlaceholder": "e.g. workflow.md or frontend/style.md",
     "memory.rulePathHint": "Saved under ~/.claude/rules/. Must be a .md relative path",
+    "memory.pathPatterns": "Path Matches",
+    "memory.pathPatternsPlaceholder": "e.g. src/**/*.tsx (one glob per line)",
+    "memory.pathPatternsHint":
+      "Optional. Saved as paths frontmatter in the rule file to match project file paths.",
+    "memory.pathPatternsShort": "paths",
+    "memory.advancedRules": "Advanced Rules",
     "memory.content": "Content",
     "memory.contentPlaceholder": "Enter Markdown content...",
     "memory.cancel": "Cancel",
@@ -1054,8 +1075,16 @@ const translations = {
     "memory.group.claudeDescription": "User-level main memory. Only one can be enabled at a time.",
     "memory.group.rules": "Rules (multi select)",
     "memory.group.rulesDescription": "User-level rules. Multiple rules/*.md files can be enabled.",
+    "memory.group.unmanaged": "Unimported Local Memories",
+    "memory.group.unmanagedDescription":
+      "These files already exist in ~/.claude/ but are not managed by AI Manager yet. Import them to edit, enable, and delete them here.",
     "memory.enabled": "Enabled",
     "memory.disabled": "Disabled",
+    "memory.unmanaged": "Unimported",
+    "memory.import": "Import",
+    "memory.unmanagedImportHint": "Import adopts the current file in place without rewriting it.",
+    "memory.unmanagedPathConflict":
+      "This path is already used by a managed memory. Edit or delete the conflicting item first.",
     "memory.editing": "Editing",
     "memory.edit": "Edit",
     "memory.delete": "Delete",
@@ -1864,6 +1893,8 @@ const translations = {
     "toast.memoryDeleted": "Memory deleted",
     "toast.memoryDeleteError": "Failed to delete memory",
     "toast.memoryToggleError": "Failed to toggle memory",
+    "toast.memoryImported": "Memory imported",
+    "toast.memoryImportError": "Failed to import memory",
 
     // 导航 aria-label
     "nav.ariaLabel": "Main navigation",

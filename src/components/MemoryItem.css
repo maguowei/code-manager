@@ -40,11 +40,27 @@
   border-color: var(--accent-orange);
 }
 
+.memory-item-unmanaged {
+  border-style: dashed;
+  background: var(--bg-primary);
+}
+
+.memory-item-unmanaged:hover {
+  border-color: var(--accent-orange);
+  box-shadow: 0 4px 12px rgba(247, 129, 102, 0.14);
+}
+
 .memory-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-3);
+}
+
+.list-section.compressed .memory-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  justify-content: stretch;
 }
 
 .memory-info {
@@ -79,8 +95,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  max-width: 45%;
+  flex: 0 0 auto;
   height: 22px;
   padding: 0 8px;
   border-radius: 7px;
@@ -103,6 +118,7 @@
 }
 
 .memory-target-path {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -122,6 +138,13 @@
   padding-top: 2px;
 }
 
+.list-section.compressed .memory-header-actions {
+  grid-column: 1 / -1;
+  justify-content: flex-start;
+  width: 100%;
+  padding-top: 0;
+}
+
 .memory-status {
   display: inline-flex;
   align-items: center;
@@ -135,6 +158,20 @@
 .memory-status.editing {
   background-color: var(--accent-orange-bg);
   color: var(--accent-orange);
+}
+
+.memory-status.unmanaged {
+  background-color: var(--accent-orange-bg);
+  color: var(--accent-orange);
+}
+
+.memory-path-patterns,
+.memory-unmanaged-hint {
+  margin: 0;
+  font-size: var(--font-sm);
+  line-height: 1.45;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
 }
 
 .memory-preview {
@@ -193,4 +230,32 @@
 .memory-action-btn:hover {
   border-color: var(--accent-red);
   color: var(--accent-red);
+}
+
+.memory-import-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--accent-orange);
+  border-radius: var(--radius-md);
+  background-color: var(--accent-orange-bg);
+  color: var(--accent-orange);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    opacity 160ms ease;
+}
+
+.memory-import-btn:hover:not(:disabled) {
+  background-color: rgba(247, 129, 102, 0.18);
+}
+
+.memory-import-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }

@@ -102,4 +102,26 @@ describe("MemoryItem", () => {
     expect(css).toMatch(/\.memory-actions\s*\{[^}]*max-height: 0;/s);
     expect(css).toMatch(/\.memory-actions\s*\{[^}]*margin-top: calc\(var\(--space-4\) \* -1\);/s);
   });
+
+  it("keeps the target type badge at its intrinsic width while the path truncates", () => {
+    const css = readFileSync(`${process.cwd()}/src/components/MemoryItem.css`, "utf8");
+
+    const badgeRule = css.match(/\.memory-target-badge\s*\{[^}]*\}/s)?.[0] ?? "";
+    const pathRule = css.match(/\.memory-target-path\s*\{[^}]*\}/s)?.[0] ?? "";
+
+    expect(badgeRule).not.toMatch(/max-width:\s*\d+%/);
+    expect(badgeRule).toMatch(/flex:\s*0 0 auto;/);
+    expect(pathRule).toMatch(/flex:\s*1 1 auto;/);
+  });
+
+  it("moves card controls below the main content when the editor drawer compresses the list", () => {
+    const css = readFileSync(`${process.cwd()}/src/components/MemoryItem.css`, "utf8");
+
+    expect(css).toMatch(
+      /\.list-section\.compressed \.memory-header\s*\{[\s\S]*?grid-template-columns:\s*auto minmax\(0,\s*1fr\);/,
+    );
+    expect(css).toMatch(
+      /\.list-section\.compressed \.memory-header-actions\s*\{[\s\S]*?grid-column:\s*1 \/ -1;[\s\S]*?justify-content:\s*flex-start;/,
+    );
+  });
 });
