@@ -264,9 +264,38 @@
   color: var(--text-primary);
 }
 
+.memory-toolbar-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.memory-toolbar-btn:disabled:hover {
+  background-color: transparent;
+  color: var(--text-secondary);
+}
+
 .memory-toolbar-btn-bold {
   font-weight: 900;
   font-style: italic;
+}
+
+.memory-toolbar-preview-toggle {
+  justify-content: center;
+  width: 28px;
+  height: 24px;
+  padding: 4px;
+  margin-left: auto;
+}
+
+.memory-toolbar-preview-toggle svg {
+  width: 14px;
+  height: 14px;
+}
+
+.memory-toolbar-preview-toggle[aria-pressed="true"] {
+  border-color: var(--accent-blue);
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 /* CodeMirror 覆盖 */
@@ -284,6 +313,37 @@
   font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, monospace;
   /* biome-ignore lint/complexity/noImportantStyles: 覆盖 CodeMirror 内置 overflow 样式 */
   overflow: auto !important;
+}
+
+/* Markdown 预览 */
+.memory-markdown-preview.markdown-body {
+  min-height: 300px;
+  max-height: 60vh;
+  padding: var(--space-4) var(--space-5);
+  overflow: auto;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+}
+
+.memory-markdown-preview.markdown-body pre {
+  margin: var(--space-3) 0;
+  padding: 0;
+  background: transparent;
+}
+
+.memory-markdown-preview.markdown-body pre > div {
+  /* react-syntax-highlighter 自带内边距，覆盖 github-markdown-css 的 pre 边距 */
+  margin: 0;
+}
+
+.memory-markdown-preview .markdown-preview-image-fallback {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
 }
 
 /* 深色主题适配 */
@@ -304,6 +364,11 @@
 [data-theme="dark"] .memory-toolbar-btn:hover {
   background-color: rgba(255, 255, 255, 0.08);
   color: #e6e6e6;
+}
+
+[data-theme="dark"] .memory-toolbar-btn:disabled:hover {
+  background-color: transparent;
+  color: #abb2bf;
 }
 
 @media (max-width: 640px) {

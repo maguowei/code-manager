@@ -108,6 +108,8 @@ const translations = {
     "memory.toolbar.bold": "加粗",
     "memory.toolbar.list": "插入列表",
     "memory.toolbar.code": "插入代码块",
+    "memory.toolbar.preview": "预览",
+    "memory.toolbar.source": "源码",
     "memory.validation.nameRequired": "记忆名称不能为空",
     "memory.validation.rulePathInvalid": "规则文件路径必须是 .md 相对路径，且不能包含 . 或 ..",
 
@@ -1098,6 +1100,8 @@ const translations = {
     "memory.toolbar.bold": "Bold",
     "memory.toolbar.list": "Insert List",
     "memory.toolbar.code": "Insert Code Block",
+    "memory.toolbar.preview": "Preview",
+    "memory.toolbar.source": "Source",
     "memory.validation.nameRequired": "Memory name is required",
     "memory.validation.rulePathInvalid":
       "Rule file path must be a .md relative path and cannot include . or ..",

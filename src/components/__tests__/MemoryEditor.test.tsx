@@ -23,6 +23,14 @@ vi.mock("@uiw/react-codemirror", () => ({
   ),
 }));
 
+vi.mock("../claude-overview/MarkdownPreview", () => ({
+  default: ({ content, className }: { content: string; className?: string }) => (
+    <pre className={className} data-testid="memory-markdown-preview">
+      {content}
+    </pre>
+  ),
+}));
+
 function setSystemLanguages(languages: string[]) {
   Object.defineProperty(navigator, "languages", {
     value: languages,
@@ -132,5 +140,35 @@ describe("MemoryEditor", () => {
     await waitFor(() => {
       expect(nameInput).toHaveValue("新标题");
     });
+  });
+
+  it("switches between source and markdown preview without losing draft content", () => {
+    renderMemoryEditor({
+      id: "team-rule",
+      name: "团队规范",
+      content: "## 核心原则\n\n保持简洁。",
+      targetType: "claude",
+      isActive: false,
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
+    });
+
+    const sourceEditor = screen.getByLabelText("memory-content-editor");
+    expect(sourceEditor).toHaveValue("# 团队规范\n\n## 核心原则\n\n保持简洁。");
+    expect(screen.queryByTestId("memory-markdown-preview")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "预览" }));
+
+    expect(screen.queryByLabelText("memory-content-editor")).not.toBeInTheDocument();
+    expect(screen.getByTestId("memory-markdown-preview").textContent).toBe(
+      "# 团队规范\n\n## 核心原则\n\n保持简洁。",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "源码" }));
+
+    expect(screen.getByLabelText("memory-content-editor")).toHaveValue(
+      "# 团队规范\n\n## 核心原则\n\n保持简洁。",
+    );
+    expect(screen.queryByTestId("memory-markdown-preview")).not.toBeInTheDocument();
   });
 });

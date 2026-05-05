@@ -5,7 +5,7 @@ import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { useEffect, useRef, useState } from "react";
 import { Controller, type FieldError, type Resolver, useForm } from "react-hook-form";
 import useEditorTheme from "../hooks/useEditorTheme";
-import { type TranslationKey, useI18n } from "../i18n";
+import { type Theme, type TranslationKey, useI18n } from "../i18n";
 import {
   buildMemoryDefaultValues,
   composeMemoryEditorContent,
@@ -19,9 +19,13 @@ import {
   toMemoryPayload,
 } from "../schemas/memory-schema";
 import type { Memory, MemoryTargetType } from "../types";
-import { CheckCircleIcon, ChevronLeftIcon } from "./Icons";
+import MarkdownPreview from "./claude-overview/MarkdownPreview";
+import { CheckCircleIcon, ChevronLeftIcon, CodeIcon, EyeIcon } from "./Icons";
 import SchemaFormField from "./SchemaFormField";
 import "./MemoryEditor.css";
+
+type MemoryEditorMode = "source" | "preview";
+type MarkdownPreviewThemeType = "light" | "dark";
 
 interface MemoryEditorProps {
   memory: Memory | null;
@@ -53,10 +57,46 @@ const MEMORY_TARGET_OPTIONS: Array<{
   },
 ];
 
+function getSystemMarkdownPreviewThemeType(): MarkdownPreviewThemeType {
+  if (typeof window === "undefined") {
+    return "dark";
+  }
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function useMarkdownPreviewThemeType(theme: Theme): MarkdownPreviewThemeType {
+  const [systemThemeType, setSystemThemeType] = useState<MarkdownPreviewThemeType>(
+    getSystemMarkdownPreviewThemeType,
+  );
+
+  useEffect(() => {
+    if (theme !== "system" || typeof window === "undefined") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleChange = (event: MediaQueryListEvent) => {
+      setSystemThemeType(event.matches ? "dark" : "light");
+    };
+
+    setSystemThemeType(mediaQuery.matches ? "dark" : "light");
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, [theme]);
+
+  if (theme === "light" || theme === "dark") {
+    return theme;
+  }
+
+  return systemThemeType;
+}
+
 function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
-  const { t } = useI18n();
+  const { t, theme } = useI18n();
   const editorRef = useRef<ReactCodeMirrorRef>(null);
   const editorTheme = useEditorTheme();
+  const previewThemeType = useMarkdownPreviewThemeType(theme);
+  const [editorMode, setEditorMode] = useState<MemoryEditorMode>("source");
   const hasInitialPathPatterns = (memory?.pathPatterns ?? []).some(
     (pattern) => pattern.trim().length > 0,
   );
@@ -83,6 +123,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
   );
   const lastSuggestedRulePath = useRef("");
   const pathPatternsPanelId = "memory-path-patterns-panel";
+  const isPreviewMode = editorMode === "preview";
 
   useEffect(() => {
     setIsPathPatternsOpen(hasInitialPathPatterns);
@@ -323,6 +364,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                     type="button"
                     className="memory-toolbar-btn"
                     title={t("memory.toolbar.heading")}
+                    disabled={isPreviewMode}
                     onClick={() =>
                       insertAtLineStart(`## ${t("memory.toolbar.headingPlaceholder")}\n`)
                     }
@@ -334,6 +376,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                     type="button"
                     className="memory-toolbar-btn memory-toolbar-btn-bold"
                     title={t("memory.toolbar.bold")}
+                    disabled={isPreviewMode}
                     onClick={insertBold}
                   >
                     B
@@ -343,6 +386,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                     type="button"
                     className="memory-toolbar-btn"
                     title={t("memory.toolbar.list")}
+                    disabled={isPreviewMode}
                     onClick={() => insertAtLineStart(`- ${t("memory.toolbar.listPlaceholder")}\n`)}
                   >
                     ≡
@@ -352,30 +396,53 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                     type="button"
                     className="memory-toolbar-btn"
                     title={t("memory.toolbar.code")}
+                    disabled={isPreviewMode}
                     onClick={() => insertAtCursor("```\n\n```")}
                   >
                     &lt;/&gt;
+                  </button>
+                  <button
+                    type="button"
+                    className="memory-toolbar-btn memory-toolbar-preview-toggle"
+                    aria-label={t(
+                      isPreviewMode ? "memory.toolbar.source" : "memory.toolbar.preview",
+                    )}
+                    title={t(isPreviewMode ? "memory.toolbar.source" : "memory.toolbar.preview")}
+                    aria-pressed={isPreviewMode}
+                    onClick={() =>
+                      setEditorMode((current) => (current === "preview" ? "source" : "preview"))
+                    }
+                  >
+                    {isPreviewMode ? <CodeIcon size={14} /> : <EyeIcon size={14} />}
                   </button>
                 </div>
                 <Controller
                   name="content"
                   control={control}
-                  render={({ field }) => (
-                    <CodeMirror
-                      ref={editorRef}
-                      value={field.value}
-                      onChange={field.onChange}
-                      extensions={[markdown(), EditorView.lineWrapping]}
-                      theme={editorTheme}
-                      placeholder={t("memory.contentPlaceholder")}
-                      basicSetup={{
-                        lineNumbers: true,
-                        bracketMatching: false,
-                        indentOnInput: false,
-                        foldGutter: false,
-                      }}
-                    />
-                  )}
+                  render={({ field }) =>
+                    isPreviewMode ? (
+                      <MarkdownPreview
+                        className="memory-markdown-preview"
+                        content={field.value}
+                        themeType={previewThemeType}
+                      />
+                    ) : (
+                      <CodeMirror
+                        ref={editorRef}
+                        value={field.value}
+                        onChange={field.onChange}
+                        extensions={[markdown(), EditorView.lineWrapping]}
+                        theme={editorTheme}
+                        placeholder={t("memory.contentPlaceholder")}
+                        basicSetup={{
+                          lineNumbers: true,
+                          bracketMatching: false,
+                          indentOnInput: false,
+                          foldGutter: false,
+                        }}
+                      />
+                    )
+                  }
                 />
               </div>
             </div>
