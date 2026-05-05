@@ -119,8 +119,7 @@ function HistorySessionList({ groups, searchQuery, onViewDetail }: Props) {
             </div>
             {sessions.map((session) => {
               const isExpanded = expandedSessions.has(session.sessionId);
-              const lastEntry =
-                session.entries.length > 0 ? session.entries[session.entries.length - 1] : null;
+              const firstEntry = session.entries.length > 0 ? session.entries[0] : null;
               return (
                 <div key={session.sessionId} className="history-session">
                   <div
@@ -132,9 +131,9 @@ function HistorySessionList({ groups, searchQuery, onViewDetail }: Props) {
                     <span className="session-count">
                       {session.entries.length} {t("history.messages")}
                     </span>
-                    {!isExpanded && lastEntry && (
-                      <span className="session-preview" title={lastEntry.display}>
-                        {highlightText(lastEntry.display, searchQuery)}
+                    {!isExpanded && firstEntry && (
+                      <span className="session-preview" title={firstEntry.display}>
+                        {highlightText(firstEntry.display, searchQuery)}
                       </span>
                     )}
                     <span className="session-time">{formatTime(session.lastTimestamp)}</span>
