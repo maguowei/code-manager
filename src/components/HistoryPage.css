@@ -27,6 +27,7 @@
 /* 顶部区域：热力图 + 搜索 */
 .history-top {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: var(--space-4);
   padding: var(--space-3) var(--space-4);
@@ -36,13 +37,13 @@
 
 /* 搜索框 */
 .history-search {
-  flex-shrink: 0;
+  flex: 0 1 220px;
   margin-top: 4px;
   margin-left: auto;
 }
 
 .history-search-input {
-  width: 220px;
+  width: 100%;
   padding: 8px 12px;
   border: 1px solid var(--border-color);
   border-radius: 8px;
@@ -62,14 +63,15 @@
 }
 
 /* -----------------------------------------
-   热力图：53 周 × 7 天 GitHub 风格
+   热力图：自适应周数 × 7 天 GitHub 风格
    ----------------------------------------- */
 .heatmap-container {
-  flex-shrink: 0;
+  flex: 1 1 360px;
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  /* 固定 cell 尺寸下，整体宽度 = 28(weekday) + 4(gap) + 53*12 + 52*2 = 764px */
 }
 
 .heatmap-total {
@@ -83,12 +85,13 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
+  width: max-content;
+  max-width: 100%;
 }
 
-/* 月份标签条：与下方网格列严格对齐（28px 标签列 + 53 列 12px + 2px gap） */
+/* 月份标签条：列数由 HistoryHeatmap 根据容器宽度设置 */
 .heatmap-months {
   display: grid;
-  grid-template-columns: 28px repeat(53, 12px);
   column-gap: 2px;
   font-size: 11px;
   color: var(--text-muted);
@@ -125,10 +128,9 @@
   white-space: nowrap;
 }
 
-/* 网格：53 列，每列 12px，每格 12×12 */
+/* 网格：列数由 HistoryHeatmap 根据容器宽度设置 */
 .heatmap-grid {
   display: grid;
-  grid-template-columns: repeat(53, 12px);
   column-gap: 2px;
 }
 
@@ -164,7 +166,7 @@
   background-color: rgba(58, 134, 255, 0.9);
 }
 
-.heatmap-legend {
+.heatmap-frame .heatmap-legend {
   display: flex;
   align-items: center;
   gap: 3px;
@@ -466,4 +468,88 @@
   text-align: center;
   color: var(--text-secondary);
   font-size: var(--font-base);
+}
+
+@media (max-width: 900px) {
+  .history-body {
+    flex-direction: column;
+  }
+
+  .history-projects {
+    width: 100%;
+    display: flex;
+    gap: var(--space-1);
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .history-project-item {
+    width: auto;
+    max-width: 180px;
+    flex: 0 0 auto;
+    gap: var(--space-2);
+    border-radius: var(--radius-md);
+    padding: 7px 10px;
+  }
+
+  .history-main {
+    min-height: 0;
+  }
+
+  .history-top {
+    gap: var(--space-3);
+    padding: var(--space-3);
+  }
+
+  .heatmap-container {
+    width: 100%;
+    flex-basis: auto;
+  }
+
+  .history-search {
+    width: 100%;
+    flex-basis: 100%;
+    margin-top: 0;
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .history-top {
+    padding: var(--space-2);
+  }
+
+  .history-projects {
+    padding: var(--space-2);
+  }
+
+  .history-project-item {
+    max-width: 150px;
+  }
+
+  .history-sessions {
+    padding: var(--space-2);
+  }
+
+  .history-date-label {
+    padding-inline: var(--space-2);
+  }
+
+  .history-session-row {
+    --session-padding: 6px;
+    --session-gap: 6px;
+    --id-width: 56px;
+    --time-width: 38px;
+  }
+
+  .session-count {
+    display: none;
+  }
+
+  .history-entry {
+    padding-left: 28px;
+  }
 }

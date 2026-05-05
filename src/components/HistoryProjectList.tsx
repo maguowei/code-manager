@@ -28,11 +28,11 @@ function HistoryProjectList({ groups, selectedProject, onSelect }: Props) {
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLDivElement>) => {
       if (items.length === 0) return;
-      if (e.key === "ArrowDown") {
+      if (e.key === "ArrowDown" || e.key === "ArrowRight") {
         e.preventDefault();
         const next = items[Math.min(items.length - 1, Math.max(0, currentIndex + 1))];
         onSelect(next.project);
-      } else if (e.key === "ArrowUp") {
+      } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
         e.preventDefault();
         const next = items[Math.max(0, currentIndex - 1)];
         onSelect(next.project);

@@ -11,6 +11,7 @@
   z-index: var(--z-index-drawer);
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .session-detail-drawer.open {
@@ -51,6 +52,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  min-width: 0;
   max-width: 100%;
 }
 
@@ -83,6 +85,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-width: 0;
 }
 
 /* 角色头像 */
@@ -123,6 +126,10 @@
   font-size: 10px;
   color: var(--text-muted);
   margin-left: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 消息气泡 */
@@ -132,6 +139,8 @@
   font-size: var(--font-md);
   line-height: 1.5;
   word-break: break-word;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .session-msg.user .session-msg-bubble {
@@ -429,14 +438,6 @@
   justify-content: center;
   color: var(--text-muted);
   font-size: var(--font-md);
-}
-
-/* 最小窗口适配 */
-@media (max-width: 700px) {
-  .session-detail-drawer,
-  .session-detail-overlay {
-    left: var(--sidebar-width-small);
-  }
 }
 
 /* ===== Markdown 渲染样式（GitHub markdown-body 风格） ===== */
@@ -741,4 +742,78 @@
   overflow-y: auto;
   white-space: normal;
   word-break: break-word;
+}
+
+/* 最小窗口适配 */
+@media (max-width: 700px) {
+  .session-detail-drawer,
+  .session-detail-overlay {
+    left: var(--sidebar-width-small);
+  }
+
+  .session-detail-drawer .editor-header {
+    padding: 0 var(--space-4);
+  }
+
+  .session-detail-drawer .editor-header h2 {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .session-detail-messages {
+    padding: var(--space-4);
+  }
+
+  .session-msg {
+    width: 100%;
+  }
+
+  .session-msg-bubble {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .msg-command {
+    max-width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .msg-tool-card,
+  .msg-plan,
+  .msg-image-wrapper,
+  .msg-image-figure,
+  .msg-image-placeholder {
+    max-width: 100%;
+  }
+
+  .msg-tool-card-header,
+  .msg-tool-card-body,
+  .msg-plan-toggle {
+    min-width: 0;
+  }
+
+  .msg-tool-card-header-path {
+    display: none;
+  }
+
+  .msg-tool-card-code,
+  .msg-tool-card-result,
+  .msg-tool-result,
+  .msg-thinking-content,
+  .msg-system-content,
+  .msg-plan-content {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .msg-markdown pre {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .msg-markdown table {
+    max-width: 100%;
+  }
 }
