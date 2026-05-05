@@ -28,8 +28,8 @@ vi.mock("../../hooks/useToast", () => ({
   }),
 }));
 
-const PROJECT_ALPHA = "/Users/maguowei/work/alpha";
-const PROJECT_BRAVO = "/Users/maguowei/work/bravo";
+const PROJECT_ALPHA = "/Users/test-user/work/alpha";
+const PROJECT_BRAVO = "/Users/test-user/work/bravo";
 
 const WORKSPACE_FIXTURE: ConfigWorkspace = {
   app: {

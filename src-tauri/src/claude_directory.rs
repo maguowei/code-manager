@@ -1013,11 +1013,11 @@ mod tests {
         assert!(!masked.contains("/etc/shadow"));
         assert!(!masked.contains("Permission denied"));
 
-        let other = std::io::Error::other("Disk quota exceeded for user maguowei");
+        let other = std::io::Error::other("Disk quota exceeded for user test-user");
         let masked = mask_io_error("读取文件", &other);
         assert_eq!(masked, "读取文件失败：操作失败");
         assert!(!masked.contains("Disk quota"));
-        assert!(!masked.contains("maguowei"));
+        assert!(!masked.contains("test-user"));
     }
 
     #[test]

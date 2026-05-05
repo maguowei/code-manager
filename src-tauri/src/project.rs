@@ -211,7 +211,17 @@ fn validate_project_path(project: &str) -> Result<PathBuf, String> {
     if trimmed.is_empty() {
         return Err("项目路径不能为空".to_string());
     }
-    Ok(PathBuf::from(trimmed))
+    // 防御性校验：拒绝 NUL 字符（部分系统调用的路径终止符），避免被截断绕过后续判断
+    if trimmed.contains('\0') {
+        return Err("项目路径包含非法字符".to_string());
+    }
+    let path = PathBuf::from(trimmed);
+    // 项目路径应当通过文件选择对话框获得，必须是绝对路径；
+    // 拒绝相对路径可避免后续命令在意外的工作目录上执行
+    if !path.is_absolute() {
+        return Err("项目路径必须是绝对路径".to_string());
+    }
+    Ok(path)
 }
 
 fn short_project_name(path: &Path) -> String {

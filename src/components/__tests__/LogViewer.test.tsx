@@ -55,7 +55,7 @@ describe("LogViewer", () => {
 
   it("loads and filters log entries", async () => {
     invokeMock.mockResolvedValue({
-      logDir: "/Users/maguowei/Library/Logs/com.gotobeta.app.ai-manager",
+      logDir: "/Users/test-user/Library/Logs/com.gotobeta.app.ai-manager",
       truncated: false,
       entries: [
         {
@@ -74,7 +74,7 @@ describe("LogViewer", () => {
       await screen.findByText("event=profile.upsert status=ok profile_id=profile-1"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("/Users/maguowei/Library/Logs/com.gotobeta.app.ai-manager"),
+      screen.getByText("/Users/test-user/Library/Logs/com.gotobeta.app.ai-manager"),
     ).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("级别"), { target: { value: "error" } });

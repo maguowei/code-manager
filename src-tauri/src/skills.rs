@@ -260,6 +260,7 @@ pub fn get_skills() -> Result<Vec<Skill>, String> {
 #[tauri::command]
 pub fn toggle_skill(id: String, is_active: bool) -> Result<Skill, String> {
     let result = (|| {
+        validate_skill_id(&id)?;
         let _lock = crate::utils::lock_skills()?;
 
         let src = get_skill_path(&id, is_active);
@@ -377,6 +378,7 @@ pub fn add_skill(data: SkillData) -> Result<Skill, String> {
 pub fn update_skill(id: String, is_active: bool, data: SkillData) -> Result<Skill, String> {
     let result = (|| {
         ensure_matching_skill_id(&id, &data)?;
+        validate_skill_id(&id)?;
 
         let _lock = crate::utils::lock_skills()?;
         let SkillData {
@@ -423,6 +425,7 @@ pub fn update_skill(id: String, is_active: bool, data: SkillData) -> Result<Skil
 #[tauri::command]
 pub fn delete_skill(id: String, is_active: bool) -> Result<(), String> {
     let result = (|| {
+        validate_skill_id(&id)?;
         let _lock = crate::utils::lock_skills()?;
 
         let skill_dir = get_skill_path(&id, is_active);
@@ -459,6 +462,7 @@ fn validate_file_name(name: &str) -> Result<(), String> {
 
 #[tauri::command]
 pub fn get_skill_files(id: String, is_active: bool) -> Result<Vec<SkillFile>, String> {
+    validate_skill_id(&id)?;
     let skill_dir = get_skill_path(&id, is_active);
     if !skill_dir.exists() {
         return Err(format!("Skill '{}' 不存在", id));
@@ -518,6 +522,7 @@ pub fn add_skill_file(
     data: SkillFileData,
 ) -> Result<SkillFile, String> {
     let result = (|| {
+        validate_skill_id(&id)?;
         let _lock = crate::utils::lock_skills()?;
         let SkillFileData { file_name, content } = data;
 
@@ -551,6 +556,7 @@ pub fn update_skill_file(
 ) -> Result<SkillFile, String> {
     let result = (|| {
         ensure_matching_skill_file_name(&file_name, &data)?;
+        validate_skill_id(&id)?;
 
         let _lock = crate::utils::lock_skills()?;
         let SkillFileData { file_name, content } = data;
@@ -575,6 +581,7 @@ pub fn update_skill_file(
 #[tauri::command]
 pub fn delete_skill_file(id: String, is_active: bool, file_name: String) -> Result<(), String> {
     let result = (|| {
+        validate_skill_id(&id)?;
         let _lock = crate::utils::lock_skills()?;
 
         validate_file_name(&file_name)?;
@@ -606,6 +613,7 @@ pub fn delete_skill_file(id: String, is_active: bool, file_name: String) -> Resu
 #[tauri::command]
 pub fn sync_skill_to_codex(id: String, is_active: bool) -> Result<(), String> {
     let result = (|| {
+        validate_skill_id(&id)?;
         let _lock = crate::utils::lock_skills()?;
 
         let src = get_skill_path(&id, is_active);

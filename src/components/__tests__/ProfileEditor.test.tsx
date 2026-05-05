@@ -2488,7 +2488,7 @@ describe("ProfileEditor", () => {
     const onSave = vi.fn();
     openDialogMock
       .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce("/Users/maguowei/Projects/shared");
+      .mockResolvedValueOnce("/Users/test-user/Projects/shared");
     renderEditor({
       onSave,
       profile: {
@@ -2520,7 +2520,7 @@ describe("ProfileEditor", () => {
     });
 
     expect(within(permissionsSection).getByLabelText("附加目录 1")).toHaveValue(
-      "/Users/maguowei/Projects/shared",
+      "/Users/test-user/Projects/shared",
     );
 
     await act(async () => {
@@ -2531,12 +2531,12 @@ describe("ProfileEditor", () => {
     const savedPermissions = onSave.mock.calls[0]?.[0]?.settings.permissions as
       | Record<string, unknown>
       | undefined;
-    expect(savedPermissions?.additionalDirectories).toEqual(["/Users/maguowei/Projects/shared"]);
+    expect(savedPermissions?.additionalDirectories).toEqual(["/Users/test-user/Projects/shared"]);
   });
 
   it("replaces an existing additional directory from the row select action", async () => {
     const onSave = vi.fn();
-    openDialogMock.mockResolvedValueOnce("/Users/maguowei/Projects/replacement");
+    openDialogMock.mockResolvedValueOnce("/Users/test-user/Projects/replacement");
     renderEditor({
       onSave,
       profile: {
@@ -2560,7 +2560,7 @@ describe("ProfileEditor", () => {
     });
 
     expect(within(permissionsSection).getByLabelText("附加目录 1")).toHaveValue(
-      "/Users/maguowei/Projects/replacement",
+      "/Users/test-user/Projects/replacement",
     );
 
     await act(async () => {
@@ -2571,7 +2571,7 @@ describe("ProfileEditor", () => {
       | Record<string, unknown>
       | undefined;
     expect(savedPermissions?.additionalDirectories).toEqual([
-      "/Users/maguowei/Projects/replacement",
+      "/Users/test-user/Projects/replacement",
     ]);
   });
 

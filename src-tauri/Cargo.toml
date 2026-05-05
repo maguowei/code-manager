@@ -1,8 +1,10 @@
 [package]
 name = "ai-manager"
 version = "0.17.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "AI Manager - Claude Code 桌面配置管理应用"
+authors = ["maguowei"]
+license = "MIT"
+repository = "https://github.com/maguowei/ai-manager"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
