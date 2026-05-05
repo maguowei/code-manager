@@ -84,7 +84,9 @@
 - Tauri capability：`src-tauri/capabilities/default.json`
 - 日志与诊断：`src-tauri/src/logging.rs`、`src/components/LogViewer.tsx`、`src/utils/logger.ts`
 - 系统托盘：`src-tauri/src/tray.rs`、`src-tauri/src/terminal_focus.rs`
+- 设置与系统信息：`src/components/SettingsDrawer.tsx`、`src/components/SystemInfoDialog.tsx`、`src-tauri/src/config.rs`
 - Token 用量与费用：`src/components/UsagePage.tsx`、`src/hooks/useUsage.ts`、`src-tauri/src/usage.rs`
+- URL 状态同步：`src/hooks/useUrlState.ts`
 - `~/.claude` 目录变更监听：`src-tauri/src/claude_directory_watcher.rs`
 
 ## 高频任务入口
@@ -101,10 +103,12 @@
 
 注意：
 
+- 目录树使用 `@pierre/trees`，预览使用 `@pierre/diffs` 与 `MarkdownPreview`；改 UI 时保持多预览标签、源码/Markdown 预览切换和右键菜单可访问性。
 - 目录总览只允许访问 `~/.claude` 内的相对路径，后端必须继续校验路径边界。
 - 扫描目录时跳过符号链接，避免路径逃逸。
 - 预览默认最多读取 512 KiB，二进制文件只返回状态，不应强行按文本展示。
-- 新增打开文件或系统操作时，同步检查 Tauri 插件权限。
+- 新增打开文件、定位文件或系统操作时，同步检查 Tauri 插件权限；当前定位文件依赖 `opener:allow-reveal-item-in-dir`。
+- 树宽等纯 UI 偏好存入 localStorage，不要混入 `configs.json`。
 - 用户反馈走 Toast，用户可见文本走 i18n。
 
 ### 2. 改 Profile / Preset / 配置持久化
@@ -134,6 +138,9 @@
 - 配置表单不再有单独的 `ConfigEditor.tsx`；`ProfileEditor.tsx` 与 `PresetEditor.tsx` 共享 `ConfigEditor.css`、`settings-form-registry.ts` 和 profile-editor 子组件。
 - `src/schemas/claude-settings.schema.json` 是 Claude settings 的共享 schema 锚点；Rust 通过 `include_str!` 加载并校验已知字段。
 - `validate_settings_document()` 允许未知顶层键，但会校验 schema 已知字段的嵌套结构。
+- 结构化设置分区的官方文档入口在 `StructuredSettingsSections.tsx`，新增分区时同步文档路径、i18n 和错误聚合。
+- 官方插件市场常量在 `marketplace-presets.ts`；官方插件清单加载、localStorage 缓存和元数据过滤在 `official-plugin-catalog.ts` / `EnabledPluginsEditor.tsx`。
+- 加载官方插件只追加新发现插件，必须保留已有 enabled/disabled 状态和非布尔 legacy entries。
 - `preview_profile`、`apply_profile` 和 `test_profile_model` 都依赖后端解析后的最终配置，前端不要复制合并逻辑。
 - 合并权威逻辑是 `src-tauri/src/config.rs::resolve_profile_settings()`：先展开 Preset 链，再叠加 Profile `settings`，最后写入 `$schema`。
 - 激活 Profile 最终会原子写入 `~/.claude/settings.json`，并更新 `configs.json` 的绑定状态。
@@ -153,6 +160,7 @@
 - `src/components/MemoryPage.tsx`
 - `src/components/MemoryEditor.tsx`
 - `src/components/MemoryItem.tsx`
+- `src/components/UnmanagedMemoryItem.tsx`
 - `src/schemas/memory-schema.ts`
 - `src/schemas/memory.schema.json`
 - `src-tauri/src/memory.rs`
@@ -163,7 +171,13 @@
 - 记忆分为 `claude` 与 `rule` 两类。
 - `claude` 类型同一时间只能启用一个，启用后写入 `~/.claude/CLAUDE.md`。
 - `rule` 类型可同时启用多个，分别写入 `~/.claude/rules/<rulePath>`。
+- `get_memories` 返回托管记忆和扫描出的 `unmanagedMemories`；未托管列表只用于视图，不写回 `memories.json`。
+- `import_unmanaged_memory` 用于接管当前 `~/.claude/CLAUDE.md` 或 `rules/*.md`，遇到软链接或已被托管路径占用时必须继续拒绝。
+- `import_memories_from_directory` 接受包含 `CLAUDE.md` 和 `rules/` 的普通目录，递归导入 `.md` rules，跳过软链接、重复路径和非法 rule path；批量导入后默认未启用。
+- 复制 rule 记忆时要生成不冲突的 rule path，不能复用原路径。
+- 删除活跃 rule 前通过 `preview_delete_memory` 展示将清理的空目录。
 - Rule 路径必须是 `.md` 相对路径，不能包含绝对路径、反斜杠、盘符、`.` 或 `..`。
+- Rule 的 `pathPatterns` 是结构化字段，编辑器和导入解析都要保留。
 - 启用、禁用、删除或修改活跃 Rule 时，后端会清理旧文件；不要只改前端状态。
 - 如果目标 rules 文件已存在且不是当前记忆生成的文件，后端会拒绝覆盖。
 
@@ -185,6 +199,7 @@
 - 启用 Skills 放在 `~/.claude/skills/<id>/`。
 - 禁用 Skills 放在 `~/.config/ai-manager/skills-disabled/<id>/`。
 - Skill id 只能包含小写字母、数字和连字符。
+- Skills 页标题栏有本地化官方文档入口；类似外链继续用 `openUrl`，失败时走 Toast。
 - 扫描 Skills 时不要跟随符号链接。
 - 支持文件路径必须保持在 Skill 目录内，禁止绝对路径与 `..` 路径逃逸。
 - `sync_skill_to_codex` 会在 `~/.codex/skills/<id>` 创建软链接；目标已存在且不是软链接时必须拒绝覆盖。
@@ -197,7 +212,9 @@
 - `src/components/HistoryProjectList.tsx`
 - `src/components/HistorySessionList.tsx`
 - `src/components/SessionDetailDrawer.tsx`
+- `src/components/HistoryHeatmap.tsx`
 - `src/hooks/useHistoryEntries.ts`
+- `src/hooks/useUrlState.ts`
 - `src/history-utils.ts`
 - `src-tauri/src/history.rs`
 - `src/components/StatsPage.tsx`
@@ -212,6 +229,9 @@
 注意：
 
 - 历史页数据来源是 `~/.claude/history.jsonl`，前端轮询逻辑封装在 `useHistoryEntries.ts`。
+- 历史页用 `project`、`q`、`session` 三个 URL 查询参数同步状态；不要引入路由级重构来做同一件事。
+- 历史热力图按本地日期聚合，响应式显示 53 / 39 / 26 / 13 周，星期标签列宽要能容纳中文。
+- 会话列表使用 `@tanstack/react-virtual` 的扁平列表结构，展开/折叠时保持日期分组与会话条目的顺序稳定。
 - 会话详情解析在后端，保留对 command、system、thinking、tool_use、tool_result、image、plan 等块类型的兼容。
 - 统计页当前读取 `~/.claude.json`。
 - 统计页需要明确提示统计数据来自本地历史快照，不是实时流式更新；刷新按钮重新读取最新本地数据。
@@ -221,7 +241,10 @@
 - `stats.rs` 当前只提供 `get_stats` 和 `open_claude_json_in_editor`，不要在文档或前端假设存在历史快照 command。
 - Token 用量页是独立的 `UsagePage`，数据来源是 `~/.claude/projects/**/*.jsonl` 中 assistant 消息的 `message.usage`，包括主会话 jsonl 与 `<session>/subagents/*.jsonl`，不要和 `StatsPage` 的 `~/.claude.json` 数据源混用。
 - `usage.rs` 会在 `lib.rs` setup 中通过 `usage::start_usage_runtime(app)` 启动：加载价格表、首次扫描、监听 `claude-directory-changed` 做增量扫描，并向前端发出 `usage-records-changed` / `usage-pricing-updated`。
-- 用量聚合维度包括 daily、project、session、model；筛选字段来自 `UsageFilter`，新增筛选条件要同步 `src/types.ts`、`useUsage.ts`、`usage.rs` 和 i18n。
+- 用量聚合维度包括 daily、project、session、model 和 time series；新增趋势图字段要同步 `UsageTimeSeriesPoint`、`UsageTimeGranularity`、`useUsage.ts` 和 `usage.rs`。
+- 默认筛选是今日；单日默认小时粒度，多日默认天粒度，用户也可切到 5 分钟粒度。
+- 筛选字段来自 `UsageFilter`，包括 `includeUnknownModels` 与 `claude-*` 模型快捷筛选；新增筛选条件要同步 `src/types.ts`、`useUsage.ts`、`usage.rs` 和 i18n。
+- Usage 趋势图支持按模型或 Token 类型拆分、曲线/柱状切换、图例点击隐藏和双击 solo；这些交互是前端状态，不应写入后端。
 - 价格表加载顺序是本地缓存 `~/.config/ai-manager/model-pricing.json` -> 内置 `src-tauri/resources/model-pricing.json` -> 启动后尝试从 models.dev 刷新；用量 records、扫描索引和 last scan metadata 写入 `sqlite:usage.db`，索引表为 `usage_file_index`。
 - `message.id` 是 usage 记录去重锚点；处理增量扫描、重扫和未知模型时不要破坏 SQLite 中的 `usage_records`、`usage_file_index` 与内存中的 `unknown_models` 一致性。
 
@@ -255,6 +278,7 @@
 注意：
 
 - 主托盘负责 Profile 切换和页面导航；会话托盘负责 `~/.claude/sessions/*.json` 的状态摘要。
+- 设置抽屉负责 UI 语言、主题、本机自启动、默认终端、默认编辑器、托盘展示和诊断入口；主题仍由 `i18n.ts` 的 localStorage 偏好控制，不属于后端 `AppPreferences`。
 - 会话文件只读取普通 `.json` 文件，缺少 `pid`、`sessionId`、`cwd`、`status` 或字段为空时应跳过。
 - 会话菜单项 id 需要能安全携带 `pid` 和 `cwd`；`cwd` 可能包含中文、空格、引号和 `::`。
 - Terminal.app 与 iTerm2 通过 `pid -> tty -> AppleScript` 精确聚焦已有 tab。
@@ -269,6 +293,7 @@
 - `src-tauri/src/lib.rs`
 - `src-tauri/src/logging.rs`
 - `src/components/LogViewer.tsx`
+- `src/components/SystemInfoDialog.tsx`
 - `src/utils/logger.ts`
 - `src-tauri/capabilities/default.json`
 
@@ -389,6 +414,7 @@ const result = await invoke("get_config_workspace");
 - 前后端都要先脱敏再写日志；错误消息也要经过脱敏 helper。
 - 日志查看入口保持在“设置 -> 诊断”，不要加入主侧边栏，除非产品需求明确调整。
 - 日志读取只展示最近内容，避免一次性读取超大文件造成 UI 卡顿。
+- 系统信息对话框只展示运行环境字段并支持复制 Markdown 表格，不要加入密钥、完整路径或配置内容。
 
 ## 提交前验证清单
 

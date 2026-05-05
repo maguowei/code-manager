@@ -22,9 +22,10 @@ AI Manager 的目标是把这些高频操作变成可见、可预览、可验证
 ### `~/.claude` 目录总览
 
 - 浏览 `~/.claude` 文件树，跳过符号链接和 `node_modules` 等高风险入口
-- 预览文本、Markdown 和二进制文件状态，Markdown 默认渲染预览
-- 新建、重命名、删除目录项，并可用设置中的默认编辑器打开文件
-- 监听目录变化，自动刷新当前视图
+- 支持右键新建、重命名、删除目录项，树宽可调整并持久化到本地偏好
+- 支持多文件预览标签页，文本源码与 Markdown 渲染预览可切换
+- 支持复制路径、在文件管理器中定位、用设置中的默认编辑器打开文件
+- 提供 Claude Code 官方目录文档入口，并监听目录变化自动刷新当前视图
 
 ### Profile 与 Preset
 
@@ -32,6 +33,8 @@ AI Manager 的目标是把这些高频操作变成可见、可预览、可验证
 - Preset 表示可复用配置层，内置常见 provider / model 映射，也支持自定义 Preset
 - Profile 可引用一个 Preset，并在其上叠加自身 `settings`
 - 支持编辑环境变量、权限、Sandbox、Hooks、插件市场、启用插件和状态行
+- 结构化配置分区提供官方文档入口，复杂字段同时支持控件模式与 JSON 模式
+- 支持一键添加官方插件市场，并可从官方插件清单加载、缓存、搜索和筛选插件
 - 支持预览最终配置、复制环境变量、一键测试模型和一键应用 Profile
 - 应用 Profile 时，合并逻辑由 Rust 后端统一执行，避免前端复制业务规则
 
@@ -40,6 +43,10 @@ AI Manager 的目标是把这些高频操作变成可见、可预览、可验证
 - 管理用户级 `CLAUDE.md` 和 `rules/*.md`
 - `CLAUDE.md` 类型同一时间只启用一个，启用后写入 `~/.claude/CLAUDE.md`
 - Rules 类型可同时启用多个，分别写入 `~/.claude/rules/<path>.md`
+- 自动识别尚未被 AI Manager 管理的本地记忆文件，并支持导入管理
+- 支持从外部目录批量导入 `CLAUDE.md` 与 `rules/**/*.md`，导入后默认未启用
+- 支持复制记忆、手动刷新、目录变更自动刷新和删除前清理目录预览
+- 编辑器支持 Markdown 工具栏、源码/预览切换，以及规则路径匹配 `pathPatterns`
 - 保存前校验 rules 路径，避免绝对路径、反斜杠、盘符和 `..` 路径逃逸
 
 ### Skills 管理
@@ -49,10 +56,13 @@ AI Manager 的目标是把这些高频操作变成可见、可预览、可验证
 - 禁用 Skill 位于 `~/.config/ai-manager/skills-disabled/<id>/`
 - 支持管理 `SKILL.md` 之外的附加文件
 - 支持将 Skill 同步为 `~/.codex/skills/<id>` 软链接，便于 Codex 复用
+- 提供 Claude Code Skills 官方文档入口
 
 ### 历史与会话
 
 - 读取 `~/.claude/history.jsonl`，按项目和会话查看历史详情
+- 展示 GitHub 风格会话热力图，窄屏下自动切换最近 39 / 26 / 13 周视图
+- 项目、搜索词和当前会话会同步到 URL 查询参数，便于回到同一上下文
 - 会话详情保留 text、thinking、tool_use、tool_result、command、system、image、plan 等内容块
 
 ### 统计与最近会话
@@ -66,7 +76,10 @@ AI Manager 的目标是把这些高频操作变成可见、可预览、可验证
 
 - 扫描 `~/.claude/projects/**/*.jsonl` 中 assistant 消息的 `message.usage`，包括主会话 jsonl 与 `<session>/subagents/*.jsonl`
 - 按日期、项目、会话和模型聚合消息数、Token、缓存 Token 和费用
-- 支持日期、项目、会话、模型筛选，并可打开单个会话的消息级用量明细
+- 支持日期、项目、会话、模型筛选，默认查看今日数据，并可打开单个会话的消息级用量明细
+- 支持 `claude-*` 模型快捷筛选、未知模型提示和手动全量重扫
+- 趋势分析可按模型或 Token 类型拆分，支持曲线 / 柱状图、日 / 小时 / 5 分钟粒度
+- 图例支持点击隐藏和双击 solo，便于聚焦某个模型或 Token 类型
 - 模型价格优先使用本地缓存，内置 `model-pricing.json` 兜底，启动后会尝试从 models.dev 刷新
 - 用 SQLite 持久化用量 records 与增量扫描索引，`~/.claude` 目录变更后会自动刷新用量视图
 
@@ -86,9 +99,11 @@ AI Manager 的目标是把这些高频操作变成可见、可预览、可验证
 ### 设置与诊断
 
 - 支持中文 / English UI
-- 支持设置默认终端、默认编辑器、Profile 托盘标题和会话托盘显示
+- 支持亮色 / 暗色 / 跟随系统主题
+- 支持登录时启动、默认终端、默认编辑器、Profile 托盘标题和会话托盘显示
 - 诊断日志入口位于“设置 -> 诊断 -> 查看日志”
 - 支持搜索、级别筛选、刷新、打开日志目录和一键清理
+- 支持查看并复制系统信息，便于提交问题时带上运行环境
 - 日志写入系统推荐日志目录，单文件约 2 MB 后轮转，默认保留 8 个轮转文件
 
 ## 数据与日志位置
@@ -249,6 +264,8 @@ cd src-tauri && cargo clippy -- -D warnings
 - 表单与校验：react-hook-form、Zod、JSON Schema
 - 编辑与预览：CodeMirror、react-markdown、@pierre/diffs、@pierre/trees
 - 图表：Recharts
+- 列表虚拟化：@tanstack/react-virtual
+- 本地缓存：tauri-plugin-sql + SQLite
 - 日志：tauri-plugin-log
 - 系统集成：Tauri opener、dialog、autostart、os、notification、tray icon
 
