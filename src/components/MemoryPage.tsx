@@ -161,6 +161,19 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     }
   }
 
+  async function handleDuplicate(id: string) {
+    try {
+      const state = await invoke<MemoryState>("duplicate_memory", {
+        id,
+        nameSuffix: t("memory.duplicateSuffix"),
+      });
+      applyMemoryState(state);
+      showToast(t("toast.memoryDuplicated"));
+    } catch (_err) {
+      showToast(t("toast.memoryDuplicateError"), "error");
+    }
+  }
+
   async function handleImport(memory: UnmanagedMemory) {
     try {
       const state = await invoke<MemoryState>("import_unmanaged_memory", {
@@ -228,6 +241,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
               isEditing={isModalOpen && editingMemory?.id === memory.id}
               onToggle={() => handleToggle(memory.id)}
               onEdit={() => openEditModal(memory)}
+              onDuplicate={() => handleDuplicate(memory.id)}
               onDelete={() => handleRequestDelete(memory.id)}
             />
           ))}

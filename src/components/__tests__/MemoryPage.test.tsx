@@ -321,6 +321,46 @@ describe("MemoryPage", () => {
     });
   });
 
+  it("duplicates a memory directly from the card without opening the editor", async () => {
+    const duplicatedState: MemoryState = {
+      memories: [
+        initialState.memories[0],
+        {
+          ...initialState.memories[0],
+          id: "global-a-copy",
+          name: "全局 A 副本",
+          isActive: false,
+          createdAt: 3,
+          updatedAt: 3,
+        },
+        initialState.memories[1],
+      ],
+    };
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_memories") return initialState;
+      if (command === "duplicate_memory") return duplicatedState;
+      return null;
+    });
+
+    renderMemoryPage();
+
+    const card = (await screen.findByText("全局 A")).closest(".memory-item");
+    expect(card).not.toBeNull();
+    if (!card) return;
+
+    fireEvent.click(within(card as HTMLElement).getByRole("button", { name: "复制" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("duplicate_memory", {
+        id: "global-a",
+        nameSuffix: " 副本",
+      });
+    });
+    expect(await screen.findByText("全局 A 副本")).toBeInTheDocument();
+    expect(showToastMock).toHaveBeenCalledWith("记忆已复制");
+    expect(screen.queryByRole("heading", { name: "编辑记忆" })).not.toBeInTheDocument();
+  });
+
   it("aligns memory group headers with the card list inset", () => {
     const css = readFileSync(`${process.cwd()}/src/components/MemoryPage.css`, "utf8");
     const groupHeaderRule = css.match(/\.memory-group-header\s*\{[^}]*\}/)?.[0] ?? "";

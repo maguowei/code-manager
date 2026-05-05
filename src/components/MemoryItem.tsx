@@ -1,7 +1,7 @@
 import { type KeyboardEvent, type MouseEvent, memo } from "react";
 import { useI18n } from "../i18n";
 import type { Memory } from "../types";
-import { TrashIcon } from "./Icons";
+import { CopyIcon, TrashIcon } from "./Icons";
 import ProfileNameBadge from "./ProfileNameBadge";
 import "./MemoryItem.css";
 
@@ -10,10 +10,18 @@ interface MemoryItemProps {
   isEditing: boolean;
   onToggle: () => void;
   onEdit: () => void;
+  onDuplicate: () => void;
   onDelete: () => void;
 }
 
-function MemoryItem({ memory, isEditing, onToggle, onEdit, onDelete }: MemoryItemProps) {
+function MemoryItem({
+  memory,
+  isEditing,
+  onToggle,
+  onEdit,
+  onDuplicate,
+  onDelete,
+}: MemoryItemProps) {
   const { t } = useI18n();
 
   // 截取第一行作为预览
@@ -88,6 +96,15 @@ function MemoryItem({ memory, isEditing, onToggle, onEdit, onDelete }: MemoryIte
       </div>
 
       <div className="memory-actions">
+        <button
+          type="button"
+          className="memory-action-btn"
+          onClick={(e) => handleActionClick(e, onDuplicate)}
+          aria-label={t("memory.duplicate")}
+          title={t("memory.duplicate")}
+        >
+          <CopyIcon />
+        </button>
         <button
           type="button"
           className="memory-action-btn delete"

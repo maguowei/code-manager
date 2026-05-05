@@ -246,6 +246,58 @@ pub fn update_memory(id: String, data: MemoryData) -> Result<MemoryState, String
 }
 
 #[tauri::command]
+pub fn duplicate_memory(id: String, name_suffix: String) -> Result<MemoryState, String> {
+    let result = (|| {
+        // 加锁保护并发写入
+        let _lock = crate::utils::lock_memory()?;
+
+        let mut state = load_memory_state();
+        let index = state
+            .memories
+            .iter()
+            .position(|memory| memory.id == id)
+            .ok_or("未找到要复制的记忆")?;
+        let original = state.memories[index].clone();
+        let rule_path = match original.target_type {
+            MemoryTargetType::Claude => None,
+            MemoryTargetType::Rule => {
+                let source_rule_path = original
+                    .rule_path
+                    .as_deref()
+                    .ok_or("规则记忆缺少规则文件路径")?;
+                Some(duplicate_rule_path(&state, &original.id, source_rule_path)?)
+            }
+        };
+        let now = crate::utils::current_timestamp();
+
+        let duplicated = Memory {
+            id: Uuid::new_v4().to_string(),
+            name: format!("{}{}", original.name, name_suffix),
+            content: original.content,
+            target_type: original.target_type,
+            rule_path,
+            path_patterns: original.path_patterns,
+            is_active: false,
+            created_at: now,
+            updated_at: now,
+        };
+
+        let previous = state.clone();
+        state.memories.insert(index + 1, duplicated);
+        save_and_apply_memories(&previous, &state)?;
+
+        memory_state_view(state)
+    })();
+    crate::logging::log_command_result("memory.duplicate", &result, |state| {
+        format!(
+            "source_memory_id={id} memory_count={}",
+            state.memories.len()
+        )
+    });
+    result
+}
+
+#[tauri::command]
 pub fn delete_memory(id: String) -> Result<MemoryState, String> {
     let result = (|| {
         // 加锁保护并发写入
@@ -462,6 +514,48 @@ fn validate_rule_path(rule_path: &str) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+fn duplicate_rule_path(
+    state: &MemoryState,
+    source_id: &str,
+    rule_path: &str,
+) -> Result<String, String> {
+    validate_rule_path(rule_path)?;
+
+    let path = Path::new(rule_path);
+    let file_name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or("规则文件路径不合法")?;
+    let stem = file_name.strip_suffix(".md").unwrap_or(file_name);
+    let parent = path
+        .parent()
+        .and_then(|value| value.to_str())
+        .filter(|value| !value.is_empty());
+
+    for copy_index in 1..=10_000 {
+        let copy_suffix = if copy_index == 1 {
+            "copy".to_string()
+        } else {
+            format!("copy-{copy_index}")
+        };
+        let candidate_file_name = format!("{stem}-{copy_suffix}.md");
+        let candidate = parent
+            .map(|parent| format!("{parent}/{candidate_file_name}"))
+            .unwrap_or(candidate_file_name);
+
+        let used = state.memories.iter().any(|memory| {
+            memory.id != source_id
+                && memory.target_type == MemoryTargetType::Rule
+                && memory.rule_path.as_deref() == Some(candidate.as_str())
+        });
+        if !used {
+            return Ok(candidate);
+        }
+    }
+
+    Err("无法生成唯一规则文件路径".to_string())
 }
 
 fn ensure_unique_rule_paths(
@@ -1508,6 +1602,38 @@ mod schema_tests {
         );
 
         assert_eq!(result.unwrap_err(), "记忆 id 与请求路径不一致");
+    }
+
+    #[test]
+    fn duplicate_memory_inserts_copy_after_original_and_keeps_it_inactive() {
+        let _env = TestEnv::new("duplicate-memory");
+
+        let state = add_memory(MemoryData {
+            name: "React 规则".to_string(),
+            content: "React 内容".to_string(),
+            path_patterns: vec!["src/**/*.tsx".to_string()],
+            ..memory_data(MemoryTargetType::Rule, Some("frontend/style.md"))
+        })
+        .expect("应可新增规则记忆");
+        let original = state.memories[0].clone();
+        toggle_memory(original.id.clone()).expect("应可启用原始规则");
+
+        let state =
+            duplicate_memory(original.id.clone(), " 副本".to_string()).expect("应可复制记忆");
+
+        assert_eq!(state.memories.len(), 2);
+        assert_eq!(state.memories[0].id, original.id);
+        let duplicated = &state.memories[1];
+        assert_ne!(duplicated.id, original.id);
+        assert_eq!(duplicated.name, "React 规则 副本");
+        assert_eq!(duplicated.content, "React 内容");
+        assert_eq!(duplicated.target_type, MemoryTargetType::Rule);
+        assert_eq!(
+            duplicated.rule_path.as_deref(),
+            Some("frontend/style-copy.md")
+        );
+        assert_eq!(duplicated.path_patterns, vec!["src/**/*.tsx"]);
+        assert!(!duplicated.is_active);
     }
 
     #[test]

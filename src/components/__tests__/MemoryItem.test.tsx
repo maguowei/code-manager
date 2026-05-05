@@ -18,6 +18,7 @@ const baseMemory: Memory = {
 function renderMemoryItem(memory: Memory = baseMemory) {
   const onToggle = vi.fn();
   const onEdit = vi.fn();
+  const onDuplicate = vi.fn();
   const onDelete = vi.fn();
   const view = render(
     <I18nProvider>
@@ -26,12 +27,13 @@ function renderMemoryItem(memory: Memory = baseMemory) {
         isEditing={false}
         onToggle={onToggle}
         onEdit={onEdit}
+        onDuplicate={onDuplicate}
         onDelete={onDelete}
       />
     </I18nProvider>,
   );
 
-  return { ...view, onToggle, onEdit, onDelete };
+  return { ...view, onToggle, onEdit, onDuplicate, onDelete };
 }
 
 function setSystemLanguages(languages: string[]) {
@@ -78,17 +80,21 @@ describe("MemoryItem", () => {
   });
 
   it("keeps card actions from opening the editor", () => {
-    const { onDelete, onEdit, onToggle } = renderMemoryItem();
+    const { onDelete, onDuplicate, onEdit, onToggle } = renderMemoryItem();
 
     const toggleButton = screen.getByRole("button", { name: "已启用" });
+    const duplicateButton = screen.getByRole("button", { name: "复制" });
     const deleteButton = screen.getByRole("button", { name: "删除" });
 
+    expect(duplicateButton).toHaveAttribute("aria-label", "复制");
     expect(deleteButton).toHaveAttribute("aria-label", "删除");
 
     fireEvent.click(toggleButton);
+    fireEvent.click(duplicateButton);
     fireEvent.click(deleteButton);
 
     expect(onToggle).toHaveBeenCalledTimes(1);
+    expect(onDuplicate).toHaveBeenCalledTimes(1);
     expect(onDelete).toHaveBeenCalledTimes(1);
     expect(onEdit).not.toHaveBeenCalled();
   });

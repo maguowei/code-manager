@@ -228,6 +228,11 @@
 }
 
 .memory-action-btn:hover {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+.memory-action-btn.delete:hover {
   border-color: var(--accent-red);
   color: var(--accent-red);
 }
