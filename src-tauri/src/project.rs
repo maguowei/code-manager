@@ -764,8 +764,9 @@ mod tests {
 
     #[test]
     fn parse_branches_output_marks_current_branch_and_metadata() {
+        // 使用 \x00 而非 \0 区分 null 字节与紧随的数字字面量，避免 clippy::octal_escapes 误警告
         let output =
-            "main\0*\0001710000000\0Main branch\nfeature/test\0 \0001700000000\0Feature branch\n";
+            "main\0*\x00001710000000\0Main branch\nfeature/test\0 \x00001700000000\0Feature branch\n";
 
         let branches = parse_branches_output(output);
 

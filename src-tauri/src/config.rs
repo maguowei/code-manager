@@ -2304,12 +2304,14 @@ mod tests {
 
     #[test]
     fn reorder_profiles_preserves_requested_order_and_appends_missing_items() {
-        let mut registry = ConfigRegistry::default();
-        registry.profiles = vec![
-            sample_profile("profile-a", None, serde_json::json!({})),
-            sample_profile("profile-b", None, serde_json::json!({})),
-            sample_profile("profile-c", None, serde_json::json!({})),
-        ];
+        let mut registry = ConfigRegistry {
+            profiles: vec![
+                sample_profile("profile-a", None, serde_json::json!({})),
+                sample_profile("profile-b", None, serde_json::json!({})),
+                sample_profile("profile-c", None, serde_json::json!({})),
+            ],
+            ..Default::default()
+        };
 
         reorder_profiles_in_registry(
             &mut registry,
@@ -2326,12 +2328,14 @@ mod tests {
 
     #[test]
     fn duplicate_profile_inserts_copy_right_after_original() {
-        let mut registry = ConfigRegistry::default();
-        registry.profiles = vec![
-            sample_profile("profile-a", None, serde_json::json!({ "model": "a" })),
-            sample_profile("profile-b", None, serde_json::json!({ "model": "b" })),
-            sample_profile("profile-c", None, serde_json::json!({ "model": "c" })),
-        ];
+        let mut registry = ConfigRegistry {
+            profiles: vec![
+                sample_profile("profile-a", None, serde_json::json!({ "model": "a" })),
+                sample_profile("profile-b", None, serde_json::json!({ "model": "b" })),
+                sample_profile("profile-c", None, serde_json::json!({ "model": "c" })),
+            ],
+            ..Default::default()
+        };
 
         let duplicated =
             duplicate_profile_in_registry(&mut registry, "profile-b", " 副本").unwrap();
