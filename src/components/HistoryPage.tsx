@@ -1,11 +1,12 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import {
   groupByProject,
   groupBySession,
   type HistoryProjectGroup,
-  sortProjectGroupsByMessageCount,
+  sortProjectGroupsByRecency,
 } from "../history-utils";
 import { useHistoryEntries } from "../hooks/useHistoryEntries";
+import { useUrlSearchParam } from "../hooks/useUrlState";
 import { useI18n } from "../i18n";
 import HistoryHeatmap from "./HistoryHeatmap";
 import HistoryProjectList from "./HistoryProjectList";
@@ -16,12 +17,13 @@ import "./HistoryPage.css";
 function HistoryPage() {
   const { t } = useI18n();
   const { entries: allEntries, loading } = useHistoryEntries(t("history.noData"));
-  const [selectedProject, setSelectedProject] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [viewingSession, setViewingSession] = useState<{
-    project: string;
-    sessionId: string;
-  } | null>(null);
+
+  // URL 同步状态：?project=&q=&session=
+  const [projectParam, setProjectParam] = useUrlSearchParam("project", "");
+  const [searchQuery, setSearchQuery] = useUrlSearchParam("q", "");
+  const [sessionParam, setSessionParam] = useUrlSearchParam("session", "");
+
+  const selectedProject = projectParam === "" ? null : projectParam;
 
   const sessionProjectMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -31,16 +33,45 @@ function HistoryPage() {
     return map;
   }, [allEntries]);
 
-  const handleViewDetail = useCallback(
-    (sessionId: string) => {
-      const project = selectedProject || sessionProjectMap.get(sessionId) || "";
-      setViewingSession({ project, sessionId });
+  // viewingSession 派生自 URL 参数 + sessionProjectMap（若有项目限定优先取它）
+  // project 解析为空（数据未加载或 sessionId 已无效）时不渲染 Drawer
+  const viewingSession = useMemo(() => {
+    if (!sessionParam) return null;
+    const project = selectedProject || sessionProjectMap.get(sessionParam) || "";
+    if (!project) return null;
+    return { project, sessionId: sessionParam };
+  }, [sessionParam, selectedProject, sessionProjectMap]);
+
+  const handleSelectProject = useCallback(
+    (project: string | null) => {
+      setProjectParam(project ?? "");
+      // 切换项目时清空搜索词，避免误以为"无结果"
+      if (searchQuery !== "") setSearchQuery("");
     },
-    [selectedProject, sessionProjectMap],
+    [setProjectParam, setSearchQuery, searchQuery],
   );
 
+  const handleViewDetail = useCallback(
+    (sessionId: string) => {
+      setSessionParam(sessionId);
+    },
+    [setSessionParam],
+  );
+
+  const handleCloseDetail = useCallback(() => {
+    setSessionParam("");
+  }, [setSessionParam]);
+
+  // URL 中携带的 sessionId 在数据加载完后若不存在，做一次清理
+  useEffect(() => {
+    if (!sessionParam || allEntries.length === 0) return;
+    if (!sessionProjectMap.has(sessionParam)) {
+      setSessionParam("");
+    }
+  }, [sessionParam, allEntries.length, sessionProjectMap, setSessionParam]);
+
   const projectGroups = useMemo<HistoryProjectGroup[]>(
-    () => sortProjectGroupsByMessageCount(groupByProject(allEntries)),
+    () => sortProjectGroupsByRecency(groupByProject(allEntries)),
     [allEntries],
   );
 
@@ -71,9 +102,10 @@ function HistoryPage() {
         <HistoryHeatmap entries={allEntries} />
         <div className="history-search">
           <input
-            type="text"
+            type="search"
             className="history-search-input"
             placeholder={t("history.search")}
+            aria-label={t("history.search")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -84,7 +116,7 @@ function HistoryPage() {
         <HistoryProjectList
           groups={projectGroups}
           selectedProject={selectedProject}
-          onSelect={setSelectedProject}
+          onSelect={handleSelectProject}
         />
         <HistorySessionList
           groups={sessionGroups}
@@ -97,7 +129,7 @@ function HistoryPage() {
         <SessionDetailDrawer
           project={viewingSession.project}
           sessionId={viewingSession.sessionId}
-          onClose={() => setViewingSession(null)}
+          onClose={handleCloseDetail}
         />
       )}
     </div>

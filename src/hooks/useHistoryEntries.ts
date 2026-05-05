@@ -39,7 +39,14 @@ export function useHistoryEntries(errorMessage: string) {
       });
       if (!result) return;
       mtimeRef.current = result.mtime;
-      setEntries(parseJsonl(result.content));
+      const next = parseJsonl(result.content);
+      // 仅在条目数或末尾时间戳变化时才更新 state，避免空内容刷新触发整页重渲染
+      setEntries((prev) => {
+        const prevLast = prev.length > 0 ? prev[prev.length - 1].timestamp : 0;
+        const nextLast = next.length > 0 ? next[next.length - 1].timestamp : 0;
+        if (prev.length === next.length && prevLast === nextLast) return prev;
+        return next;
+      });
     } catch {
       // 轮询失败静默忽略
     }

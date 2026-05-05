@@ -57,6 +57,10 @@
   --glow-blue: 0 0 12px rgba(88, 166, 255, 0.4);
   --glow-green: 0 0 12px rgba(63, 185, 80, 0.4);
 
+  /* 文本搜索高亮 */
+  --highlight-bg: rgba(255, 207, 51, 0.35);
+  --highlight-fg: var(--text-primary);
+
   /* 间距系统 */
   --space-1: 4px;
   --space-2: 8px;
@@ -123,6 +127,10 @@
   --shadow-blue-md: 0 4px 12px rgba(9, 105, 218, 0.3);
   --glow-blue: 0 0 12px rgba(9, 105, 218, 0.3);
   --glow-green: 0 0 12px rgba(26, 127, 55, 0.3);
+
+  /* 文本搜索高亮（浅色主题用更饱和的黄底） */
+  --highlight-bg: rgba(255, 223, 93, 0.7);
+  --highlight-fg: var(--text-primary);
   --text-link: var(--accent-blue);
 
   /* 别名变量（兼容现有代码） */
