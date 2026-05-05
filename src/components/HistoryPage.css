@@ -7,6 +7,23 @@
   overflow: hidden;
 }
 
+/* 主体区域：左侧整体侧边栏 + 右侧主区 */
+.history-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 右侧主区：上方热力图 + 搜索框，下方会话列表 */
+.history-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 /* 顶部区域：热力图 + 搜索 */
 .history-top {
   display: flex;
@@ -164,14 +181,7 @@
   margin: 0 2px;
 }
 
-/* 主体区域：左右分栏 */
-.history-body {
-  flex: 1;
-  display: flex;
-  overflow: hidden;
-}
-
-/* 左栏：项目列表 */
+/* 左栏：项目列表（侧边栏，从 page-header 下方贯通到底部） */
 .history-projects {
   width: 180px;
   flex-shrink: 0;

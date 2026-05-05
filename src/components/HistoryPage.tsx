@@ -91,6 +91,9 @@ function HistoryPage() {
   if (loading) {
     return (
       <div className="history-page">
+        <div className="page-header">
+          <h1 className="page-title">{t("history.title")}</h1>
+        </div>
         <div className="loading">{t("loading")}</div>
       </div>
     );
@@ -98,18 +101,8 @@ function HistoryPage() {
 
   return (
     <div className="history-page">
-      <div className="history-top">
-        <HistoryHeatmap entries={allEntries} />
-        <div className="history-search">
-          <input
-            type="search"
-            className="history-search-input"
-            placeholder={t("history.search")}
-            aria-label={t("history.search")}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
+      <div className="page-header">
+        <h1 className="page-title">{t("history.title")}</h1>
       </div>
 
       <div className="history-body">
@@ -118,11 +111,26 @@ function HistoryPage() {
           selectedProject={selectedProject}
           onSelect={handleSelectProject}
         />
-        <HistorySessionList
-          groups={sessionGroups}
-          searchQuery={searchQuery}
-          onViewDetail={handleViewDetail}
-        />
+        <div className="history-main">
+          <div className="history-top">
+            <HistoryHeatmap entries={allEntries} />
+            <div className="history-search">
+              <input
+                type="search"
+                className="history-search-input"
+                placeholder={t("history.search")}
+                aria-label={t("history.search")}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
+          <HistorySessionList
+            groups={sessionGroups}
+            searchQuery={searchQuery}
+            onViewDetail={handleViewDetail}
+          />
+        </div>
       </div>
 
       {viewingSession && (
