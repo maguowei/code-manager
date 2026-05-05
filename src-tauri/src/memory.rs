@@ -1219,7 +1219,7 @@ fn rule_display_name(rule_path: &str) -> String {
         .strip_suffix(".md")
         .filter(|name| !name.is_empty())
         .unwrap_or(rule_path)
-        .to_string()
+        .replace('/', "-")
 }
 
 fn normalize_relative_path(path: &Path) -> String {
@@ -1791,6 +1791,7 @@ mod schema_tests {
             .iter()
             .find(|memory| memory.source_path == "rules/frontend/style.md")
             .expect("应列出未托管 rule");
+        assert_eq!(rule.name, "frontend-style");
         assert_eq!(rule.content, "使用组件级样式。");
         assert_eq!(rule.rule_path.as_deref(), Some("frontend/style.md"));
         assert_eq!(rule.path_patterns, vec!["src/**/*.tsx"]);
@@ -1827,6 +1828,29 @@ mod schema_tests {
             .unmanaged_memories
             .iter()
             .all(|memory| memory.source_path != "rules/frontend/style.md"));
+    }
+
+    #[test]
+    fn import_unmanaged_rule_memory_uses_hyphenated_path_name_without_title() {
+        let env = TestEnv::new("import-unmanaged-rule-path-name");
+        fs::create_dir_all(env.rule_file("frontend/style.md").parent().unwrap())
+            .expect("应可创建 rules 子目录");
+        fs::write(env.rule_file("frontend/style.md"), "使用组件级样式。")
+            .expect("应可写入规则文件");
+
+        let state = import_unmanaged_memory(UnmanagedMemorySource {
+            target_type: MemoryTargetType::Rule,
+            rule_path: Some("frontend/style.md".to_string()),
+        })
+        .expect("应可导入未托管规则");
+
+        let memory = state
+            .memories
+            .iter()
+            .find(|memory| memory.rule_path.as_deref() == Some("frontend/style.md"))
+            .expect("应创建托管规则记忆");
+
+        assert_eq!(memory.name, "frontend-style");
     }
 
     #[test]
