@@ -1,7 +1,7 @@
 {
   "name": "ai-manager",
   "private": true,
-  "version": "0.13.0",
+  "version": "0.16.0",
   "packageManager": "pnpm@10.33.0",
   "type": "module",
   "scripts": {
