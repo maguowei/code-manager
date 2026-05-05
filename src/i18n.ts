@@ -62,6 +62,7 @@ const translations = {
     "memory.description": "管理用户级 CLAUDE.md 与 rules/*.md，为 Claude Code 提供全局指令",
     "memory.addMemory": "添加记忆",
     "memory.importDirectory": "导入目录",
+    "memory.importDirectoryHint": "选择包含 CLAUDE.md 和 rules 目录的文件夹，导入后默认未启用",
     "memory.importingDirectory": "导入中...",
     "memory.importDirectoryDialogTitle": "选择记忆目录",
     "memory.editTitle": "编辑记忆",
@@ -1068,6 +1069,8 @@ const translations = {
     "memory.description": "Manage user-level CLAUDE.md and rules/*.md instructions for Claude Code",
     "memory.addMemory": "Add Memory",
     "memory.importDirectory": "Import Directory",
+    "memory.importDirectoryHint":
+      "Select a folder containing CLAUDE.md and a rules directory. Imported memories stay disabled by default.",
     "memory.importingDirectory": "Importing...",
     "memory.importDirectoryDialogTitle": "Select memory directory",
     "memory.editTitle": "Edit Memory",

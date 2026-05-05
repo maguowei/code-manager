@@ -263,7 +263,12 @@ describe("MemoryPage", () => {
     renderMemoryPage();
     expect(await screen.findByText("全局 A")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "导入目录" }));
+    const importDirectoryButton = screen.getByRole("button", { name: "导入目录" });
+    expect(importDirectoryButton).toHaveAttribute(
+      "title",
+      "选择包含 CLAUDE.md 和 rules 目录的文件夹，导入后默认未启用",
+    );
+    fireEvent.click(importDirectoryButton);
 
     await waitFor(() => {
       expect(openDialogMock).toHaveBeenCalledWith({

@@ -343,7 +343,9 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
             }
             aria-busy={isImportingDirectory}
             title={
-              isImportingDirectory ? t("memory.importingDirectory") : t("memory.importDirectory")
+              isImportingDirectory
+                ? t("memory.importingDirectory")
+                : t("memory.importDirectoryHint")
             }
             onClick={handleImportDirectory}
             disabled={isImportingDirectory}
