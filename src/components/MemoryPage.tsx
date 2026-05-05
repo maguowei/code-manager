@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import useEscapeKey from "../hooks/useEscapeKey";
 import { useToast } from "../hooks/useToast";
 import { type Language, useI18n } from "../i18n";
-import type { Memory, MemoryState, UnmanagedMemory } from "../types";
+import type { Memory, MemoryDeletePreview, MemoryState, UnmanagedMemory } from "../types";
 import ConfirmDialog from "./ConfirmDialog";
 import Drawer from "./Drawer";
 import { ExternalLinkIcon, PlusIcon } from "./Icons";
@@ -30,6 +30,11 @@ function getClaudeMemoryDocsUrl(language: Language) {
   return `${CLAUDE_CODE_DOCS_BASE_URL}/${docsLocale}/${CLAUDE_MEMORY_DOCS_PATH}`;
 }
 
+type PendingDelete = {
+  id: string;
+  cleanupDirs: string[];
+};
+
 function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => void }) {
   const { language, t } = useI18n();
   const { showToast } = useToast();
@@ -37,7 +42,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   const [unmanagedMemories, setUnmanagedMemories] = useState<UnmanagedMemory[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMemory, setEditingMemory] = useState<Memory | null>(null);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
 
   const applyMemoryState = useCallback((state: MemoryState) => {
     setMemories(state.memories);
@@ -98,6 +103,15 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       showToast(t("toast.memoryDeleted"));
     } catch (_err) {
       showToast(t("toast.memoryDeleteError"), "error");
+    }
+  }
+
+  async function handleRequestDelete(id: string) {
+    try {
+      const preview = await invoke<MemoryDeletePreview>("preview_delete_memory", { id });
+      setPendingDelete({ id, cleanupDirs: preview.cleanupDirs ?? [] });
+    } catch (_err) {
+      showToast(t("toast.memoryDeletePreviewError"), "error");
     }
   }
 
@@ -169,7 +183,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
               isEditing={isModalOpen && editingMemory?.id === memory.id}
               onToggle={() => handleToggle(memory.id)}
               onEdit={() => openEditModal(memory)}
-              onDelete={() => setPendingDeleteId(memory.id)}
+              onDelete={() => handleRequestDelete(memory.id)}
             />
           ))}
         </div>
@@ -259,18 +273,36 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       )}
 
       {/* 删除确认对话框 */}
-      {pendingDeleteId && (
+      {pendingDelete && (
         <ConfirmDialog
           title={t("confirm.deleteMemoryTitle")}
-          message={t("confirm.deleteMemoryMessage")}
+          message={
+            <div className="memory-delete-confirm">
+              <p>{t("confirm.deleteMemoryMessage")}</p>
+              {pendingDelete.cleanupDirs.length > 0 && (
+                <div className="memory-delete-confirm__warning" role="alert">
+                  <div className="memory-delete-confirm__warning-title">
+                    {t("confirm.deleteMemoryCleanupDirectories")}
+                  </div>
+                  <ul className="memory-delete-confirm__dir-list">
+                    {pendingDelete.cleanupDirs.map((dir) => (
+                      <li key={dir}>
+                        <code className="memory-delete-confirm__dir">{dir}</code>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          }
           confirmText={t("confirm.delete")}
           cancelText={t("confirm.cancel")}
           danger
           onConfirm={() => {
-            handleDelete(pendingDeleteId);
-            setPendingDeleteId(null);
+            handleDelete(pendingDelete.id);
+            setPendingDelete(null);
           }}
-          onCancel={() => setPendingDeleteId(null)}
+          onCancel={() => setPendingDelete(null)}
         />
       )}
 

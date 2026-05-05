@@ -132,6 +132,10 @@ export interface MemoryState {
   unmanagedMemories?: UnmanagedMemory[];
 }
 
+export interface MemoryDeletePreview {
+  cleanupDirs: string[];
+}
+
 // ===== 统计页面类型 =====
 
 export interface SessionMetrics {

@@ -757,6 +757,7 @@ const translations = {
     // 确认对话框
     "confirm.deleteMemoryTitle": "删除记忆",
     "confirm.deleteMemoryMessage": "确定要删除这条记忆吗？此操作无法撤销。",
+    "confirm.deleteMemoryCleanupDirectories": "以下目录将被删除",
     "confirm.delete": "删除",
     "confirm.cancel": "取消",
 
@@ -880,6 +881,7 @@ const translations = {
     "toast.memorySaveError": "保存记忆失败",
     "toast.memoryDeleted": "记忆已删除",
     "toast.memoryDeleteError": "删除记忆失败",
+    "toast.memoryDeletePreviewError": "读取删除影响失败",
     "toast.memoryToggleError": "切换记忆状态失败",
     "toast.memoryImported": "记忆已导入管理",
     "toast.memoryImportError": "导入记忆失败",
@@ -1775,6 +1777,7 @@ const translations = {
     "confirm.deleteMemoryTitle": "Delete Memory",
     "confirm.deleteMemoryMessage":
       "Are you sure you want to delete this memory? This action cannot be undone.",
+    "confirm.deleteMemoryCleanupDirectories": "The following directories will be deleted",
     "confirm.delete": "Delete",
     "confirm.cancel": "Cancel",
 
@@ -1902,6 +1905,7 @@ const translations = {
     "toast.memorySaveError": "Failed to save memory",
     "toast.memoryDeleted": "Memory deleted",
     "toast.memoryDeleteError": "Failed to delete memory",
+    "toast.memoryDeletePreviewError": "Failed to inspect delete impact",
     "toast.memoryToggleError": "Failed to toggle memory",
     "toast.memoryImported": "Memory imported",
     "toast.memoryImportError": "Failed to import memory",

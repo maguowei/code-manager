@@ -51,6 +51,12 @@ impl Default for MemoryState {
     }
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MemoryDeletePreview {
+    pub cleanup_dirs: Vec<String>,
+}
+
 fn current_memory_state_version() -> u32 {
     CURRENT_MEMORY_STATE_VERSION
 }
@@ -252,6 +258,35 @@ pub fn delete_memory(id: String) -> Result<MemoryState, String> {
     })();
     crate::logging::log_command_result("memory.delete", &result, |state| {
         format!("memory_id={id} memory_count={}", state.memories.len())
+    });
+    result
+}
+
+#[tauri::command]
+pub fn preview_delete_memory(id: String) -> Result<MemoryDeletePreview, String> {
+    let result = (|| {
+        let _lock = crate::utils::lock_memory()?;
+
+        let state = load_memory_state();
+        let mut next_state = state.clone();
+        let previous_count = next_state.memories.len();
+        next_state.memories.retain(|memory| memory.id != id);
+        if next_state.memories.len() == previous_count {
+            return Err("未找到指定记忆".to_string());
+        }
+
+        let cleanup_dirs = preview_stale_rule_cleanup_dirs(&state, &next_state)?
+            .into_iter()
+            .map(|path| path.display().to_string())
+            .collect();
+
+        Ok(MemoryDeletePreview { cleanup_dirs })
+    })();
+    crate::logging::log_command_result("memory.delete_preview", &result, |preview| {
+        format!(
+            "memory_id={id} cleanup_dir_count={}",
+            preview.cleanup_dirs.len()
+        )
     });
     result
 }
@@ -839,11 +874,108 @@ fn remove_stale_rule_files(
 
         let path = get_rule_file_path(previous_rule_path);
         if path.exists() && rule_file_matches_memory(&path, previous_memory) {
+            let cleanup_dirs = collect_empty_rule_parent_dirs_after_removing_path(&path)?;
             fs::remove_file(&path).map_err(|e| format!("删除规则文件失败 {:?}: {}", path, e))?;
+            remove_empty_rule_parent_dirs(cleanup_dirs)?;
         }
     }
 
     Ok(())
+}
+
+fn preview_stale_rule_cleanup_dirs(
+    previous: &MemoryState,
+    state: &MemoryState,
+) -> Result<Vec<PathBuf>, String> {
+    let mut cleanup_dirs = Vec::new();
+
+    for previous_memory in previous
+        .memories
+        .iter()
+        .filter(|memory| memory.is_active && memory.target_type == MemoryTargetType::Rule)
+    {
+        let Some(previous_rule_path) = previous_memory.rule_path.as_deref() else {
+            continue;
+        };
+        let still_active_same_file = state.memories.iter().any(|memory| {
+            memory.id == previous_memory.id
+                && memory.is_active
+                && memory.target_type == MemoryTargetType::Rule
+                && memory.rule_path.as_deref() == Some(previous_rule_path)
+        });
+        if still_active_same_file {
+            continue;
+        }
+
+        let path = get_rule_file_path(previous_rule_path);
+        if path.exists() && rule_file_matches_memory(&path, previous_memory) {
+            cleanup_dirs.extend(collect_empty_rule_parent_dirs_after_removing_path(&path)?);
+        }
+    }
+
+    Ok(collapse_redundant_child_dirs(cleanup_dirs))
+}
+
+fn collect_empty_rule_parent_dirs_after_removing_path(
+    removed_path: &Path,
+) -> Result<Vec<PathBuf>, String> {
+    let rules_dir = get_rules_dir_path();
+    let mut cleanup_dirs = Vec::new();
+    let mut current = removed_path.parent().map(Path::to_path_buf);
+    let mut removed_child = removed_path.to_path_buf();
+
+    while let Some(dir) = current {
+        if dir == rules_dir {
+            break;
+        }
+
+        if directory_has_entries_except(&dir, &removed_child)? {
+            break;
+        }
+
+        cleanup_dirs.push(dir.clone());
+        removed_child = dir.clone();
+        current = dir.parent().map(Path::to_path_buf);
+    }
+
+    Ok(cleanup_dirs)
+}
+
+fn directory_has_entries_except(dir: &Path, ignored_path: &Path) -> Result<bool, String> {
+    let entries = fs::read_dir(dir).map_err(|e| format!("读取规则目录失败 {:?}: {}", dir, e))?;
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("读取规则目录失败 {:?}: {}", dir, e))?;
+        if entry.path() != ignored_path {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+fn remove_empty_rule_parent_dirs(cleanup_dirs: Vec<PathBuf>) -> Result<(), String> {
+    for dir in cleanup_dirs {
+        fs::remove_dir(&dir).map_err(|e| format!("删除空规则目录失败 {:?}: {}", dir, e))?;
+    }
+    Ok(())
+}
+
+fn collapse_redundant_child_dirs(mut dirs: Vec<PathBuf>) -> Vec<PathBuf> {
+    dirs.sort_by(|a, b| {
+        a.components()
+            .count()
+            .cmp(&b.components().count())
+            .then_with(|| a.cmp(b))
+    });
+    dirs.dedup();
+
+    let mut collapsed = Vec::new();
+    for dir in dirs {
+        if collapsed.iter().any(|parent: &PathBuf| dir.starts_with(parent)) {
+            continue;
+        }
+        collapsed.push(dir);
+    }
+    collapsed
 }
 
 fn ensure_matching_memory_id(expected_id: &str, data: &MemoryData) -> Result<(), String> {
@@ -1430,6 +1562,98 @@ mod schema_tests {
 
         delete_memory(rule.id).expect("应可删除规则");
         assert!(!file_exists(&env.rule_file("cleanup.md")));
+    }
+
+    #[test]
+    fn deleting_only_active_rule_in_nested_subdirectory_removes_empty_parent_directories() {
+        let env = TestEnv::new("rule-subdirectory-cleanup");
+
+        let rule = add_memory(MemoryData {
+            content: "前端规则".to_string(),
+            ..memory_data(MemoryTargetType::Rule, Some("frontend/react/style.md"))
+        })
+        .expect("应可新增子目录规则")
+        .memories
+        .into_iter()
+        .next()
+        .expect("应返回规则");
+
+        toggle_memory(rule.id.clone()).expect("应可启用规则");
+        let rule_file = env.rule_file("frontend/react/style.md");
+        let rule_dir = rule_file
+            .parent()
+            .expect("规则文件应有父目录")
+            .to_path_buf();
+        let parent_rule_dir = rule_dir.parent().expect("规则目录应有父目录").to_path_buf();
+        assert!(file_exists(&rule_file));
+        assert!(rule_dir.is_dir());
+        assert!(parent_rule_dir.is_dir());
+
+        delete_memory(rule.id).expect("应可删除子目录规则");
+
+        assert!(!file_exists(&rule_file));
+        assert!(!rule_dir.exists());
+        assert!(!parent_rule_dir.exists());
+    }
+
+    #[test]
+    fn preview_delete_memory_returns_absolute_cleanup_dir_without_redundant_children() {
+        let env = TestEnv::new("rule-delete-preview-collapse");
+
+        let rule = add_memory(MemoryData {
+            content: "前端规则".to_string(),
+            ..memory_data(MemoryTargetType::Rule, Some("frontend/react/style.md"))
+        })
+        .expect("应可新增子目录规则")
+        .memories
+        .into_iter()
+        .next()
+        .expect("应返回规则");
+        toggle_memory(rule.id.clone()).expect("应可启用规则");
+
+        let rule_dir = env
+            .rule_file("frontend/react/style.md")
+            .parent()
+            .expect("规则文件应有父目录")
+            .to_path_buf();
+        let top_deleted_dir = rule_dir.parent().expect("规则目录应有父目录").to_path_buf();
+
+        let preview = preview_delete_memory(rule.id).expect("应可预览删除记忆");
+
+        assert_eq!(
+            preview.cleanup_dirs,
+            vec![top_deleted_dir.display().to_string()]
+        );
+        assert!(!preview
+            .cleanup_dirs
+            .contains(&rule_dir.display().to_string()));
+    }
+
+    #[test]
+    fn preview_delete_memory_stops_cleanup_dirs_at_non_empty_parent() {
+        let env = TestEnv::new("rule-delete-preview-non-empty-parent");
+
+        let rule = add_memory(MemoryData {
+            content: "前端规则".to_string(),
+            ..memory_data(MemoryTargetType::Rule, Some("frontend/react/style.md"))
+        })
+        .expect("应可新增子目录规则")
+        .memories
+        .into_iter()
+        .next()
+        .expect("应返回规则");
+        toggle_memory(rule.id.clone()).expect("应可启用规则");
+
+        fs::write(env.rule_file("frontend/keep.md"), "手写规则").expect("应可写入保留文件");
+        let rule_dir = env
+            .rule_file("frontend/react/style.md")
+            .parent()
+            .expect("规则文件应有父目录")
+            .to_path_buf();
+
+        let preview = preview_delete_memory(rule.id).expect("应可预览删除记忆");
+
+        assert_eq!(preview.cleanup_dirs, vec![rule_dir.display().to_string()]);
     }
 
     #[test]

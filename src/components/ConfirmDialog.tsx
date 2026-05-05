@@ -1,9 +1,10 @@
+import type { ReactNode } from "react";
 import useEscapeKey from "../hooks/useEscapeKey";
 import "./ConfirmDialog.css";
 
 interface ConfirmDialogProps {
   title: string;
-  message: string;
+  message: ReactNode;
   confirmText: string;
   cancelText: string;
   onConfirm: () => void;

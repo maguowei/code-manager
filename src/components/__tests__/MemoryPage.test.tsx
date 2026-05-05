@@ -193,4 +193,54 @@ describe("MemoryPage", () => {
       });
     });
   });
+
+  it("shows confirmed absolute cleanup directories as a red delete warning", async () => {
+    const stateWithNestedRule: MemoryState = {
+      memories: [
+        {
+          id: "frontend-react-rule",
+          name: "React 规则",
+          content: "React 内容",
+          targetType: "rule",
+          rulePath: "frontend/react/style.md",
+          isActive: true,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+    };
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_memories") return stateWithNestedRule;
+      if (command === "preview_delete_memory") {
+        return {
+          cleanupDirs: ["/Users/test/.claude/rules/frontend"],
+        };
+      }
+      if (command === "delete_memory") return { memories: [] };
+      return null;
+    });
+
+    renderMemoryPage();
+
+    const card = (await screen.findByText("React 规则")).closest(".memory-item");
+    expect(card).not.toBeNull();
+    if (!card) return;
+
+    fireEvent.click(within(card as HTMLElement).getByRole("button", { name: "删除" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("preview_delete_memory", {
+        id: "frontend-react-rule",
+      });
+    });
+    const warning = await screen.findByRole("alert");
+    expect(warning).toHaveClass("memory-delete-confirm__warning");
+    expect(warning).toHaveTextContent("以下目录将被删除");
+    expect(warning).toHaveTextContent("/Users/test/.claude/rules/frontend");
+    expect(warning).not.toHaveTextContent("/Users/test/.claude/rules/frontend/react");
+
+    const css = readFileSync(`${process.cwd()}/src/components/MemoryPage.css`, "utf8");
+    const warningRule = css.match(/\.memory-delete-confirm__warning\s*\{[^}]*\}/)?.[0] ?? "";
+    expect(warningRule).toContain("var(--accent-red");
+  });
 });

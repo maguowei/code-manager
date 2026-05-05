@@ -25,7 +25,8 @@ use config::{
 use history::{get_history, get_history_if_changed, get_session_detail};
 use logging::{clear_app_logs, get_app_logs, open_logs_dir};
 use memory::{
-    add_memory, delete_memory, get_memories, import_unmanaged_memory, toggle_memory, update_memory,
+    add_memory, delete_memory, get_memories, import_unmanaged_memory, preview_delete_memory,
+    toggle_memory, update_memory,
 };
 use project::{
     create_project_agents_symlink, get_project_detail, open_project_in_editor,
@@ -126,6 +127,7 @@ pub fn run() {
             get_memories,
             add_memory,
             update_memory,
+            preview_delete_memory,
             delete_memory,
             toggle_memory,
             import_unmanaged_memory,
