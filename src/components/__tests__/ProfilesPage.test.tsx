@@ -287,6 +287,53 @@ describe("ProfilesPage", () => {
     );
   });
 
+  it("shows sandbox state on profile cards even when permission mode is unset", () => {
+    // 覆盖回归：未显式设置 permissions.defaultMode 时，整行曾被一并隐藏，
+    // 导致沙盒已启用状态对用户不可见
+    const workspace: ConfigWorkspace = {
+      ...WORKSPACE_FIXTURE,
+      profiles: [
+        {
+          ...makeProfile("profile-sandbox-only", "Sandbox Only Profile"),
+          settings: {
+            env: {
+              ANTHROPIC_MODEL: "claude-opus-4-7",
+            },
+            sandbox: {
+              enabled: true,
+            },
+          },
+        },
+      ],
+      bindings: {
+        userProfileId: undefined,
+      },
+    } as ConfigWorkspace;
+
+    renderPage(workspace);
+
+    const card = screen
+      .getByText("Sandbox Only Profile")
+      .closest(".profile-card") as HTMLElement | null;
+    expect(card).not.toBeNull();
+    if (!card) {
+      return;
+    }
+    const sandboxBadge = within(card).getByText("沙盒已启用");
+    expect(sandboxBadge).toHaveClass(
+      "profile-summary-sandbox-state",
+      "profile-summary-sandbox-state--enabled",
+    );
+    const permissionRow = sandboxBadge.closest(".profile-summary-row") as HTMLElement | null;
+    expect(permissionRow).not.toBeNull();
+    if (permissionRow) {
+      expect(within(permissionRow).getByText("未设置")).toHaveClass(
+        "profile-summary-permission-mode",
+        "profile-summary-permission-mode--unset",
+      );
+    }
+  });
+
   it("colors high-intensity effort levels on profile cards", () => {
     const workspace: ConfigWorkspace = {
       ...WORKSPACE_FIXTURE,

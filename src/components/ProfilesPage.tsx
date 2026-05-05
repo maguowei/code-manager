@@ -635,7 +635,8 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
               const permissionMode = profilePermissionMode(profile);
               const sandboxEnabled = profileSandboxEnabled(profile);
               const plugins = profilePluginsSummary(profile);
-              const hasSummary = model || permissionMode || plugins.totalCount > 0;
+              const hasSummary =
+                model || permissionMode || sandboxEnabled || plugins.totalCount > 0;
               return (
                 <div
                   key={profile.id}
@@ -738,22 +739,28 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                           </div>
                         </div>
                       )}
-                      {permissionMode && (
+                      {(permissionMode || sandboxEnabled) && (
                         <div className="profile-summary-row">
                           <span className="profile-summary-title">
                             {t("profiles.summary.permissionsTitle")}
                           </span>
                           <span className="profile-summary-main">
-                            <span
-                              className={[
-                                "profile-summary-permission-mode",
-                                profilePermissionModeClass(permissionMode),
-                              ]
-                                .filter(Boolean)
-                                .join(" ")}
-                            >
-                              {permissionMode}
-                            </span>
+                            {permissionMode ? (
+                              <span
+                                className={[
+                                  "profile-summary-permission-mode",
+                                  profilePermissionModeClass(permissionMode),
+                                ]
+                                  .filter(Boolean)
+                                  .join(" ")}
+                              >
+                                {permissionMode}
+                              </span>
+                            ) : (
+                              <span className="profile-summary-permission-mode profile-summary-permission-mode--unset">
+                                {t("profileEditor.permissions.unset")}
+                              </span>
+                            )}
                             <span
                               className={`profile-summary-sandbox-state profile-summary-sandbox-state--${
                                 sandboxEnabled ? "enabled" : "disabled"

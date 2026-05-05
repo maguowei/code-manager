@@ -360,6 +360,10 @@
   color: var(--accent-red);
 }
 
+.profile-summary-permission-mode--unset {
+  color: var(--text-tertiary);
+}
+
 .profile-summary-sandbox-state {
   flex-shrink: 0;
   padding-left: 6px;
