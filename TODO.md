@@ -11,7 +11,8 @@
 - [x] 支持 menubar 使用，一键切换配置
 - [ ] 支持项目管理（项目内 Skills、Configs、CLAUDE.md 管理，支持一键创建 AGENTS.md 软链接指向 CLAUDE.md）
 - [x] 完善前端检查（ESLint、类型检查等）
-- [ ] 支持用量监控
+- [x] 支持用量监控
+- [ ] [用量监控支持使用遥测实现](https://code.claude.com/docs/zh-CN/monitoring-usage)
 - [ ] 支持配置故障转移切换
 - [ ] 支持自动更新
 - [ ] 支持homebrew 安装
