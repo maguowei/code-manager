@@ -31,4 +31,22 @@ describe("drawer width constraints", () => {
     expect(configEditorCss).toContain("min-width: var(--config-editor-min-width);");
     expect(tauriConfig.app?.windows?.[0]?.minWidth).toBe(620);
   });
+
+  it("keeps the config editor scroll surface full width while constraining form content", () => {
+    const profileEditorCss = readText("src/components/ProfileEditor.css");
+    const presetEditorCss = readText("src/components/PresetEditor.css");
+
+    expect(profileEditorCss).toMatch(
+      /\.profile-editor-body,\s*\.preset-editor-body\s*\{[\s\S]*?max-width:\s*none;[\s\S]*?margin:\s*0;[\s\S]*?align-items:\s*center;/,
+    );
+    expect(profileEditorCss).toMatch(
+      /\.profile-editor-body\s*>\s*:not\(\.editor-badge-large\),\s*\.preset-editor-body\s*>\s*:not\(\.editor-badge-large\)\s*\{[\s\S]*?width:\s*min\(100%,\s*880px\);/,
+    );
+    expect(presetEditorCss).toMatch(
+      /\.preset-editor-body\s*\{[\s\S]*?max-width:\s*none;[\s\S]*?margin:\s*0;[\s\S]*?align-items:\s*center;/,
+    );
+    expect(presetEditorCss).toMatch(
+      /\.preset-editor-body\s*>\s*:not\(\.editor-badge-large\)\s*\{[\s\S]*?width:\s*min\(100%,\s*880px\);/,
+    );
+  });
 });
