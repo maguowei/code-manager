@@ -104,6 +104,8 @@ const translations = {
     "memory.openDocs": "官方文档",
     "memory.openDocsAriaLabel": "查看 Claude Code 记忆官方文档",
     "memory.openDocsError": "打开记忆文档失败",
+    "memory.refresh": "刷新",
+    "memory.refreshing": "刷新中...",
     "memory.toolbar.heading": "插入标题",
     "memory.toolbar.bold": "加粗",
     "memory.toolbar.list": "插入列表",
@@ -885,6 +887,8 @@ const translations = {
     "toast.memoryToggleError": "切换记忆状态失败",
     "toast.memoryImported": "记忆已导入管理",
     "toast.memoryImportError": "导入记忆失败",
+    "toast.memoryRefreshed": "记忆已刷新",
+    "toast.memoryRefreshError": "刷新记忆失败",
 
     // 导航 aria-label
     "nav.ariaLabel": "主导航",
@@ -1098,6 +1102,8 @@ const translations = {
     "memory.openDocs": "Docs",
     "memory.openDocsAriaLabel": "Open Claude Code memory docs",
     "memory.openDocsError": "Failed to open memory docs",
+    "memory.refresh": "Refresh",
+    "memory.refreshing": "Refreshing...",
     "memory.toolbar.heading": "Insert Heading",
     "memory.toolbar.bold": "Bold",
     "memory.toolbar.list": "Insert List",
@@ -1909,6 +1915,8 @@ const translations = {
     "toast.memoryToggleError": "Failed to toggle memory",
     "toast.memoryImported": "Memory imported",
     "toast.memoryImportError": "Failed to import memory",
+    "toast.memoryRefreshed": "Memories refreshed",
+    "toast.memoryRefreshError": "Failed to refresh memories",
 
     // 导航 aria-label
     "nav.ariaLabel": "Main navigation",

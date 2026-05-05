@@ -1,6 +1,14 @@
 /* MemoryPage 特有样式（公共列表布局见 shared.css） */
 
-.memory-docs-link {
+.memory-page-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.memory-docs-link,
+.memory-refresh-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -21,19 +29,27 @@
     color 150ms ease;
 }
 
-.memory-docs-link:hover {
+.memory-docs-link:hover,
+.memory-refresh-btn:hover:not(:disabled) {
   border-color: var(--border-active);
   background-color: var(--bg-hover);
   color: var(--text-primary);
 }
 
-.memory-docs-link:focus-visible {
+.memory-docs-link:focus-visible,
+.memory-refresh-btn:focus-visible {
   outline: 2px solid var(--accent-blue);
   outline-offset: 2px;
 }
 
-.memory-docs-link svg {
+.memory-docs-link svg,
+.memory-refresh-btn svg {
   flex: 0 0 auto;
+}
+
+.memory-refresh-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .memory-group {

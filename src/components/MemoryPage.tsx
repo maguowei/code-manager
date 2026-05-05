@@ -2,12 +2,19 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import useEscapeKey from "../hooks/useEscapeKey";
+import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
-import { type Language, useI18n } from "../i18n";
-import type { Memory, MemoryDeletePreview, MemoryState, UnmanagedMemory } from "../types";
+import { type Language, type TranslationKey, useI18n } from "../i18n";
+import type {
+  ClaudeDirectoryChangedEvent,
+  Memory,
+  MemoryDeletePreview,
+  MemoryState,
+  UnmanagedMemory,
+} from "../types";
 import ConfirmDialog from "./ConfirmDialog";
 import Drawer from "./Drawer";
-import { ExternalLinkIcon, PlusIcon } from "./Icons";
+import { ExternalLinkIcon, PlusIcon, RefreshIcon } from "./Icons";
 import MemoryEditor from "./MemoryEditor";
 import MemoryItem from "./MemoryItem";
 import UnmanagedMemoryItem from "./UnmanagedMemoryItem";
@@ -30,9 +37,19 @@ function getClaudeMemoryDocsUrl(language: Language) {
   return `${CLAUDE_CODE_DOCS_BASE_URL}/${docsLocale}/${CLAUDE_MEMORY_DOCS_PATH}`;
 }
 
+function isMemoryFileChangePath(path: string) {
+  return path === "CLAUDE.md" || path === "rules" || path.startsWith("rules/");
+}
+
 type PendingDelete = {
   id: string;
   cleanupDirs: string[];
+};
+
+type RefreshMemoriesOptions = {
+  errorMessage: TranslationKey;
+  setBusy?: boolean;
+  successMessage?: TranslationKey;
 };
 
 function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => void }) {
@@ -41,6 +58,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   const [memories, setMemories] = useState<Memory[]>([]);
   const [unmanagedMemories, setUnmanagedMemories] = useState<UnmanagedMemory[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [editingMemory, setEditingMemory] = useState<Memory | null>(null);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
 
@@ -49,18 +67,37 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     setUnmanagedMemories(state.unmanagedMemories ?? []);
   }, []);
 
-  const loadMemories = useCallback(async () => {
-    try {
-      const state = await invoke<MemoryState>("get_memories");
-      applyMemoryState(state);
-    } catch (_err) {
-      showToast(t("toast.memoryLoadError"), "error");
-    }
-  }, [applyMemoryState, showToast, t]);
+  const refreshMemories = useCallback(
+    async ({ errorMessage, setBusy, successMessage }: RefreshMemoriesOptions) => {
+      if (setBusy) {
+        setIsRefreshing(true);
+      }
+      try {
+        const state = await invoke<MemoryState>("get_memories");
+        applyMemoryState(state);
+        if (successMessage) {
+          showToast(t(successMessage));
+        }
+      } catch (_err) {
+        showToast(t(errorMessage), "error");
+      } finally {
+        if (setBusy) {
+          setIsRefreshing(false);
+        }
+      }
+    },
+    [applyMemoryState, showToast, t],
+  );
 
   useEffect(() => {
-    loadMemories();
-  }, [loadMemories]);
+    refreshMemories({ errorMessage: "toast.memoryLoadError" });
+  }, [refreshMemories]);
+
+  useTauriEvent<ClaudeDirectoryChangedEvent>("claude-directory-changed", (event) => {
+    if (event.paths.some(isMemoryFileChangePath)) {
+      refreshMemories({ errorMessage: "toast.memoryRefreshError" });
+    }
+  });
 
   // ESC 键关闭记忆编辑抽屉
   useEscapeKey(
@@ -167,6 +204,14 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     }
   }, [claudeMemoryDocsUrl, showToast, t]);
 
+  const handleRefreshMemories = useCallback(() => {
+    refreshMemories({
+      errorMessage: "toast.memoryRefreshError",
+      setBusy: true,
+      successMessage: "toast.memoryRefreshed",
+    });
+  }, [refreshMemories]);
+
   function renderMemoryGroup(title: string, description: string, items: Memory[]) {
     if (items.length === 0) return null;
     return (
@@ -217,16 +262,30 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       {/* 页面标题栏 */}
       <div className="page-header">
         <h1 className="page-title">{t("nav.memory")}</h1>
-        <button
-          type="button"
-          className="memory-docs-link"
-          aria-label={t("memory.openDocsAriaLabel")}
-          title={t("memory.openDocsAriaLabel")}
-          onClick={handleOpenDocs}
-        >
-          <span>{t("memory.openDocs")}</span>
-          <ExternalLinkIcon size={14} />
-        </button>
+        <div className="memory-page-actions">
+          <button
+            type="button"
+            className="memory-docs-link"
+            aria-label={t("memory.openDocsAriaLabel")}
+            title={t("memory.openDocsAriaLabel")}
+            onClick={handleOpenDocs}
+          >
+            <span>{t("memory.openDocs")}</span>
+            <ExternalLinkIcon size={14} />
+          </button>
+          <button
+            type="button"
+            className="memory-refresh-btn"
+            aria-label={isRefreshing ? t("memory.refreshing") : t("memory.refresh")}
+            aria-busy={isRefreshing}
+            title={isRefreshing ? t("memory.refreshing") : t("memory.refresh")}
+            onClick={handleRefreshMemories}
+            disabled={isRefreshing}
+          >
+            <RefreshIcon size={14} />
+            <span>{isRefreshing ? t("memory.refreshing") : t("memory.refresh")}</span>
+          </button>
+        </div>
       </div>
 
       {/* 添加按钮 */}

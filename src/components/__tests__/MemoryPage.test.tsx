@@ -5,14 +5,42 @@ import { I18nProvider } from "../../i18n";
 import type { MemoryState } from "../../types";
 import MemoryPage from "../MemoryPage";
 
-const { invokeMock, openUrlMock, showToastMock } = vi.hoisted(() => ({
-  invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
-  openUrlMock: vi.fn(async (_url: string) => undefined),
-  showToastMock: vi.fn(),
-}));
+type ClaudeDirectoryTestPayload = { paths: string[] };
+
+const { eventListeners, invokeMock, listenMock, openUrlMock, showToastMock } = vi.hoisted(() => {
+  type Payload = { paths: string[] };
+  const eventListeners = new Map<string, Set<(payload: Payload) => void>>();
+
+  return {
+    eventListeners,
+    invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
+    listenMock: vi.fn(async (event: string, handler: (event: { payload: Payload }) => void) => {
+      const listener = (payload: Payload) => handler({ payload });
+      const listeners = eventListeners.get(event) ?? new Set<(payload: Payload) => void>();
+      listeners.add(listener);
+      eventListeners.set(event, listeners);
+
+      return () => {
+        listeners.delete(listener);
+      };
+    }),
+    openUrlMock: vi.fn(async (_url: string) => undefined),
+    showToastMock: vi.fn(),
+  };
+});
+
+const emitTauriEvent = (event: string, payload: ClaudeDirectoryTestPayload) => {
+  for (const listener of eventListeners.get(event) ?? []) {
+    listener(payload);
+  }
+};
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: invokeMock,
+}));
+
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: listenMock,
 }));
 
 vi.mock("@tauri-apps/plugin-opener", () => ({
@@ -88,7 +116,13 @@ describe("MemoryPage", () => {
   beforeEach(() => {
     localStorage.clear();
     setSystemLanguages(["zh-CN"]);
+    Object.defineProperty(window, "__TAURI_INTERNALS__", {
+      value: {},
+      configurable: true,
+    });
+    eventListeners.clear();
     invokeMock.mockReset();
+    listenMock.mockClear();
     openUrlMock.mockReset();
     showToastMock.mockReset();
     invokeMock.mockImplementation(async (command) => {
@@ -125,6 +159,146 @@ describe("MemoryPage", () => {
     fireEvent.click(docsButton);
 
     expect(openUrlMock).toHaveBeenCalledWith("https://code.claude.com/docs/en/memory");
+  });
+
+  it("refreshes memories from the page header button", async () => {
+    const refreshedState: MemoryState = {
+      memories: [
+        ...initialState.memories,
+        {
+          id: "rule-new",
+          name: "新增规则",
+          content: "规则内容",
+          targetType: "rule",
+          rulePath: "new.md",
+          isActive: false,
+          createdAt: 3,
+          updatedAt: 3,
+        },
+      ],
+    };
+    let loadCount = 0;
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_memories") {
+        loadCount += 1;
+        return loadCount === 1 ? initialState : refreshedState;
+      }
+      return null;
+    });
+
+    renderMemoryPage();
+    expect(await screen.findByText("全局 A")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "刷新" }));
+
+    expect(await screen.findByText("新增规则")).toBeInTheDocument();
+    expect(invokeMock.mock.calls.filter(([command]) => command === "get_memories")).toHaveLength(2);
+    expect(showToastMock).toHaveBeenCalledWith("记忆已刷新");
+  });
+
+  it("refreshes automatically when a rules memory file changes", async () => {
+    const stateWithExternalRule: MemoryState = {
+      memories: [],
+      unmanagedMemories: [
+        {
+          id: "unmanaged:rule:new",
+          name: "新规则",
+          content: "外部新增规则",
+          targetType: "rule",
+          rulePath: "new.md",
+          pathPatterns: [],
+          sourcePath: "rules/new.md",
+          size: 18,
+          modifiedAt: 4,
+          importStatus: "ready",
+        },
+      ],
+    };
+    let loadCount = 0;
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_memories") {
+        loadCount += 1;
+        return loadCount === 1 ? initialState : stateWithExternalRule;
+      }
+      return null;
+    });
+
+    renderMemoryPage();
+    expect(await screen.findByText("全局 A")).toBeInTheDocument();
+
+    emitTauriEvent("claude-directory-changed", { paths: ["rules/new.md"] });
+
+    expect(await screen.findByText("新规则")).toBeInTheDocument();
+    expect(invokeMock.mock.calls.filter(([command]) => command === "get_memories")).toHaveLength(2);
+    expect(showToastMock).not.toHaveBeenCalledWith("记忆已刷新");
+  });
+
+  it("refreshes automatically when CLAUDE.md changes", async () => {
+    const stateWithExternalClaude: MemoryState = {
+      memories: [],
+      unmanagedMemories: [
+        {
+          id: "unmanaged:claude",
+          name: "CLAUDE.md",
+          content: "外部全局记忆",
+          targetType: "claude",
+          rulePath: undefined,
+          pathPatterns: [],
+          sourcePath: "CLAUDE.md",
+          size: 18,
+          modifiedAt: 5,
+          importStatus: "ready",
+        },
+      ],
+    };
+    let loadCount = 0;
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_memories") {
+        loadCount += 1;
+        return loadCount === 1 ? initialState : stateWithExternalClaude;
+      }
+      return null;
+    });
+
+    renderMemoryPage();
+    expect(await screen.findByText("全局 A")).toBeInTheDocument();
+
+    emitTauriEvent("claude-directory-changed", { paths: ["CLAUDE.md"] });
+
+    expect(await screen.findByText("外部全局记忆")).toBeInTheDocument();
+    expect(invokeMock.mock.calls.filter(([command]) => command === "get_memories")).toHaveLength(2);
+  });
+
+  it("ignores unrelated Claude directory change events", async () => {
+    renderMemoryPage();
+    expect(await screen.findByText("全局 A")).toBeInTheDocument();
+
+    emitTauriEvent("claude-directory-changed", { paths: ["sessions/session.json"] });
+
+    expect(invokeMock.mock.calls.filter(([command]) => command === "get_memories")).toHaveLength(1);
+  });
+
+  it("shows a refresh error toast when manual refresh fails", async () => {
+    let loadCount = 0;
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_memories") {
+        loadCount += 1;
+        if (loadCount > 1) {
+          throw new Error("refresh failed");
+        }
+        return initialState;
+      }
+      return null;
+    });
+
+    renderMemoryPage();
+    expect(await screen.findByText("全局 A")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "刷新" }));
+
+    await waitFor(() => {
+      expect(showToastMock).toHaveBeenCalledWith("刷新记忆失败", "error");
+    });
   });
 
   it("refreshes the list from returned state after toggling a CLAUDE.md memory", async () => {
