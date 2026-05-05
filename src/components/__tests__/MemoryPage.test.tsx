@@ -2,32 +2,34 @@ import { readFileSync } from "node:fs";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
-import type { MemoryState } from "../../types";
+import type { MemoryDirectoryImportResult, MemoryState } from "../../types";
 import MemoryPage from "../MemoryPage";
 
 type ClaudeDirectoryTestPayload = { paths: string[] };
 
-const { eventListeners, invokeMock, listenMock, openUrlMock, showToastMock } = vi.hoisted(() => {
-  type Payload = { paths: string[] };
-  const eventListeners = new Map<string, Set<(payload: Payload) => void>>();
+const { eventListeners, invokeMock, listenMock, openDialogMock, openUrlMock, showToastMock } =
+  vi.hoisted(() => {
+    type Payload = { paths: string[] };
+    const eventListeners = new Map<string, Set<(payload: Payload) => void>>();
 
-  return {
-    eventListeners,
-    invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
-    listenMock: vi.fn(async (event: string, handler: (event: { payload: Payload }) => void) => {
-      const listener = (payload: Payload) => handler({ payload });
-      const listeners = eventListeners.get(event) ?? new Set<(payload: Payload) => void>();
-      listeners.add(listener);
-      eventListeners.set(event, listeners);
+    return {
+      eventListeners,
+      invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
+      listenMock: vi.fn(async (event: string, handler: (event: { payload: Payload }) => void) => {
+        const listener = (payload: Payload) => handler({ payload });
+        const listeners = eventListeners.get(event) ?? new Set<(payload: Payload) => void>();
+        listeners.add(listener);
+        eventListeners.set(event, listeners);
 
-      return () => {
-        listeners.delete(listener);
-      };
-    }),
-    openUrlMock: vi.fn(async (_url: string) => undefined),
-    showToastMock: vi.fn(),
-  };
-});
+        return () => {
+          listeners.delete(listener);
+        };
+      }),
+      openDialogMock: vi.fn(async (_options: unknown) => null as string | string[] | null),
+      openUrlMock: vi.fn(async (_url: string) => undefined),
+      showToastMock: vi.fn(),
+    };
+  });
 
 const emitTauriEvent = (event: string, payload: ClaudeDirectoryTestPayload) => {
   for (const listener of eventListeners.get(event) ?? []) {
@@ -41,6 +43,10 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 vi.mock("@tauri-apps/api/event", () => ({
   listen: listenMock,
+}));
+
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  open: openDialogMock,
 }));
 
 vi.mock("@tauri-apps/plugin-opener", () => ({
@@ -123,6 +129,7 @@ describe("MemoryPage", () => {
     eventListeners.clear();
     invokeMock.mockReset();
     listenMock.mockClear();
+    openDialogMock.mockReset();
     openUrlMock.mockReset();
     showToastMock.mockReset();
     invokeMock.mockImplementation(async (command) => {
@@ -194,6 +201,140 @@ describe("MemoryPage", () => {
     expect(await screen.findByText("新增规则")).toBeInTheDocument();
     expect(invokeMock.mock.calls.filter(([command]) => command === "get_memories")).toHaveLength(2);
     expect(showToastMock).toHaveBeenCalledWith("记忆已刷新");
+  });
+
+  it("imports memories from a selected directory and shows a summary", async () => {
+    const importedState: MemoryState = {
+      memories: [
+        ...initialState.memories,
+        {
+          id: "imported-claude",
+          name: "导入全局",
+          content: "导入内容",
+          targetType: "claude",
+          rulePath: undefined,
+          pathPatterns: [],
+          isActive: false,
+          createdAt: 4,
+          updatedAt: 4,
+        },
+        {
+          id: "imported-rule",
+          name: "前端规则",
+          content: "规则内容",
+          targetType: "rule",
+          rulePath: "frontend/style.md",
+          pathPatterns: ["src/**/*.tsx"],
+          isActive: false,
+          createdAt: 4,
+          updatedAt: 4,
+        },
+      ],
+    };
+    const importResult: MemoryDirectoryImportResult = {
+      state: importedState,
+      imported: [
+        {
+          sourcePath: "CLAUDE.md",
+          name: "导入全局",
+          targetType: "claude",
+        },
+        {
+          sourcePath: "rules/frontend/style.md",
+          name: "前端规则",
+          targetType: "rule",
+          rulePath: "frontend/style.md",
+        },
+      ],
+      skipped: [
+        {
+          sourcePath: "rules/duplicate.md",
+          reason: "duplicateRulePath",
+        },
+      ],
+    };
+    openDialogMock.mockResolvedValue("/tmp/memory-source");
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_memories") return initialState;
+      if (command === "import_memories_from_directory") return importResult;
+      return null;
+    });
+
+    renderMemoryPage();
+    expect(await screen.findByText("全局 A")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "导入目录" }));
+
+    await waitFor(() => {
+      expect(openDialogMock).toHaveBeenCalledWith({
+        directory: true,
+        multiple: false,
+        title: "选择记忆目录",
+      });
+      expect(invokeMock).toHaveBeenCalledWith("import_memories_from_directory", {
+        sourceDir: "/tmp/memory-source",
+      });
+    });
+    expect(await screen.findByText("导入全局")).toBeInTheDocument();
+    expect(await screen.findByText("前端规则")).toBeInTheDocument();
+    expect(showToastMock).toHaveBeenCalledWith("已导入 2 条，跳过 1 条");
+  });
+
+  it("does not import memories when directory selection is cancelled", async () => {
+    openDialogMock.mockResolvedValue(null);
+
+    renderMemoryPage();
+    expect(await screen.findByText("全局 A")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "导入目录" }));
+
+    await waitFor(() => {
+      expect(openDialogMock).toHaveBeenCalled();
+    });
+    expect(
+      invokeMock.mock.calls.some(([command]) => command === "import_memories_from_directory"),
+    ).toBe(false);
+  });
+
+  it("shows an empty import toast when the selected directory has no importable memories", async () => {
+    const emptyResult: MemoryDirectoryImportResult = {
+      state: initialState,
+      imported: [],
+      skipped: [],
+    };
+    openDialogMock.mockResolvedValue("/tmp/empty-memory-source");
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_memories") return initialState;
+      if (command === "import_memories_from_directory") return emptyResult;
+      return null;
+    });
+
+    renderMemoryPage();
+    expect(await screen.findByText("全局 A")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "导入目录" }));
+
+    await waitFor(() => {
+      expect(showToastMock).toHaveBeenCalledWith("未找到可导入的记忆");
+    });
+  });
+
+  it("shows an error toast when directory import fails", async () => {
+    openDialogMock.mockResolvedValue("/tmp/broken-memory-source");
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_memories") return initialState;
+      if (command === "import_memories_from_directory") throw new Error("import failed");
+      return null;
+    });
+
+    renderMemoryPage();
+    expect(await screen.findByText("全局 A")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "导入目录" }));
+
+    await waitFor(() => {
+      expect(showToastMock).toHaveBeenCalledWith("导入目录记忆失败", "error");
+    });
   });
 
   it("refreshes automatically when a rules memory file changes", async () => {

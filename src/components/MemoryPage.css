@@ -8,6 +8,7 @@
 }
 
 .memory-docs-link,
+.memory-import-directory-btn,
 .memory-refresh-btn {
   display: inline-flex;
   align-items: center;
@@ -30,6 +31,7 @@
 }
 
 .memory-docs-link:hover,
+.memory-import-directory-btn:hover:not(:disabled),
 .memory-refresh-btn:hover:not(:disabled) {
   border-color: var(--border-active);
   background-color: var(--bg-hover);
@@ -37,16 +39,19 @@
 }
 
 .memory-docs-link:focus-visible,
+.memory-import-directory-btn:focus-visible,
 .memory-refresh-btn:focus-visible {
   outline: 2px solid var(--accent-blue);
   outline-offset: 2px;
 }
 
 .memory-docs-link svg,
+.memory-import-directory-btn svg,
 .memory-refresh-btn svg {
   flex: 0 0 auto;
 }
 
+.memory-import-directory-btn:disabled,
 .memory-refresh-btn:disabled {
   cursor: not-allowed;
   opacity: 0.65;

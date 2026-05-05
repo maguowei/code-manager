@@ -136,6 +136,32 @@ export interface MemoryDeletePreview {
   cleanupDirs: string[];
 }
 
+export type MemoryDirectoryImportSkipReason =
+  | "duplicateClaude"
+  | "duplicateRulePath"
+  | "unsupportedSymlink"
+  | "invalidRulePath"
+  | "readError";
+
+export interface MemoryDirectoryImportItem {
+  sourcePath: string;
+  name: string;
+  targetType: MemoryTargetType;
+  rulePath?: string;
+}
+
+export interface MemoryDirectoryImportSkippedItem {
+  sourcePath: string;
+  reason: MemoryDirectoryImportSkipReason;
+  detail?: string;
+}
+
+export interface MemoryDirectoryImportResult {
+  state: MemoryState;
+  imported: MemoryDirectoryImportItem[];
+  skipped: MemoryDirectoryImportSkippedItem[];
+}
+
 // ===== 统计页面类型 =====
 
 export interface SessionMetrics {

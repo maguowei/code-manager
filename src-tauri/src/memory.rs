@@ -79,6 +79,43 @@ pub struct UnmanagedMemory {
     pub import_status: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MemoryDirectoryImportSkipReason {
+    DuplicateClaude,
+    DuplicateRulePath,
+    UnsupportedSymlink,
+    InvalidRulePath,
+    ReadError,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MemoryDirectoryImportItem {
+    pub source_path: String,
+    pub name: String,
+    pub target_type: MemoryTargetType,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rule_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MemoryDirectoryImportSkippedItem {
+    pub source_path: String,
+    pub reason: MemoryDirectoryImportSkipReason,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MemoryDirectoryImportResult {
+    pub state: MemoryState,
+    pub imported: Vec<MemoryDirectoryImportItem>,
+    pub skipped: Vec<MemoryDirectoryImportSkippedItem>,
+}
+
 /// 新增/更新记忆的数据传输对象
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -428,6 +465,344 @@ pub fn import_unmanaged_memory(source: UnmanagedMemorySource) -> Result<MemorySt
         format!("memory_count={}", state.memories.len())
     });
     result
+}
+
+#[tauri::command]
+pub fn import_memories_from_directory(
+    source_dir: String,
+) -> Result<MemoryDirectoryImportResult, String> {
+    let result = (|| {
+        let source_dir = validate_memory_import_source_dir(&source_dir)?;
+
+        let _lock = crate::utils::lock_memory()?;
+        let mut state = load_memory_state();
+        let now = crate::utils::current_timestamp();
+        let mut imported = Vec::new();
+        let mut skipped = Vec::new();
+
+        import_directory_claude_memory(&source_dir, &mut state, now, &mut imported, &mut skipped);
+        import_directory_rule_memories(&source_dir, &mut state, now, &mut imported, &mut skipped)?;
+
+        if !imported.is_empty() {
+            save_memory_state(&state)?;
+        }
+
+        Ok(MemoryDirectoryImportResult {
+            state: memory_state_view(state)?,
+            imported,
+            skipped,
+        })
+    })();
+    crate::logging::log_command_result("memory.import_directory", &result, |result| {
+        format!(
+            "imported_count={} skipped_count={}",
+            result.imported.len(),
+            result.skipped.len()
+        )
+    });
+    result
+}
+
+fn validate_memory_import_source_dir(source_dir: &str) -> Result<PathBuf, String> {
+    let trimmed = source_dir.trim();
+    if trimmed.is_empty() {
+        return Err("请选择有效目录".to_string());
+    }
+    let path = PathBuf::from(trimmed);
+    let metadata = fs::symlink_metadata(&path)
+        .map_err(|e| format!("请选择有效目录，读取目录失败 {:?}: {}", path, e))?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err("请选择有效目录".to_string());
+    }
+    Ok(path)
+}
+
+fn import_directory_claude_memory(
+    source_dir: &Path,
+    state: &mut MemoryState,
+    now: u64,
+    imported: &mut Vec<MemoryDirectoryImportItem>,
+    skipped: &mut Vec<MemoryDirectoryImportSkippedItem>,
+) {
+    let source_path = "CLAUDE.md";
+    let Some(raw) =
+        read_import_source_text_file(&source_dir.join(source_path), source_path, skipped)
+    else {
+        return;
+    };
+    let (title, content) = split_memory_title_heading(&raw);
+    let name = title.unwrap_or_else(|| "CLAUDE.md".to_string());
+
+    if state.memories.iter().any(|memory| {
+        memory.target_type == MemoryTargetType::Claude
+            && memory.name == name
+            && normalize_memory_body(&memory.content) == normalize_memory_body(&content)
+    }) {
+        skipped.push(MemoryDirectoryImportSkippedItem {
+            source_path: source_path.to_string(),
+            reason: MemoryDirectoryImportSkipReason::DuplicateClaude,
+            detail: None,
+        });
+        return;
+    }
+
+    let memory = Memory {
+        id: Uuid::new_v4().to_string(),
+        name: name.clone(),
+        content: normalize_memory_body(&content),
+        target_type: MemoryTargetType::Claude,
+        rule_path: None,
+        path_patterns: Vec::new(),
+        is_active: false,
+        created_at: now,
+        updated_at: now,
+    };
+    state.memories.push(memory);
+    imported.push(MemoryDirectoryImportItem {
+        source_path: source_path.to_string(),
+        name,
+        target_type: MemoryTargetType::Claude,
+        rule_path: None,
+    });
+}
+
+fn import_directory_rule_memories(
+    source_dir: &Path,
+    state: &mut MemoryState,
+    now: u64,
+    imported: &mut Vec<MemoryDirectoryImportItem>,
+    skipped: &mut Vec<MemoryDirectoryImportSkippedItem>,
+) -> Result<(), String> {
+    let rules_dir = source_dir.join("rules");
+    let metadata = match fs::symlink_metadata(&rules_dir) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => {
+            skipped.push(MemoryDirectoryImportSkippedItem {
+                source_path: "rules".to_string(),
+                reason: MemoryDirectoryImportSkipReason::ReadError,
+                detail: Some(error.to_string()),
+            });
+            return Ok(());
+        }
+    };
+    if metadata.file_type().is_symlink() {
+        skipped.push(MemoryDirectoryImportSkippedItem {
+            source_path: "rules".to_string(),
+            reason: MemoryDirectoryImportSkipReason::UnsupportedSymlink,
+            detail: None,
+        });
+        return Ok(());
+    }
+    if !metadata.is_dir() {
+        return Ok(());
+    }
+
+    collect_directory_import_rules(
+        source_dir, &rules_dir, &rules_dir, state, now, imported, skipped,
+    )
+}
+
+fn collect_directory_import_rules(
+    source_dir: &Path,
+    rules_dir: &Path,
+    current: &Path,
+    state: &mut MemoryState,
+    now: u64,
+    imported: &mut Vec<MemoryDirectoryImportItem>,
+    skipped: &mut Vec<MemoryDirectoryImportSkippedItem>,
+) -> Result<(), String> {
+    let mut entries = match fs::read_dir(current) {
+        Ok(entries) => {
+            let mut collected = Vec::new();
+            for entry in entries {
+                match entry {
+                    Ok(entry) => collected.push(entry),
+                    Err(error) => skipped.push(MemoryDirectoryImportSkippedItem {
+                        source_path: import_source_relative_path(source_dir, current),
+                        reason: MemoryDirectoryImportSkipReason::ReadError,
+                        detail: Some(error.to_string()),
+                    }),
+                }
+            }
+            collected
+        }
+        Err(error) => {
+            skipped.push(MemoryDirectoryImportSkippedItem {
+                source_path: import_source_relative_path(source_dir, current),
+                reason: MemoryDirectoryImportSkipReason::ReadError,
+                detail: Some(error.to_string()),
+            });
+            return Ok(());
+        }
+    };
+    entries.sort_by_key(|entry| entry.file_name());
+
+    for entry in entries {
+        let path = entry.path();
+        let file_type = match entry.file_type() {
+            Ok(file_type) => file_type,
+            Err(error) => {
+                skipped.push(MemoryDirectoryImportSkippedItem {
+                    source_path: import_source_relative_path(source_dir, &path),
+                    reason: MemoryDirectoryImportSkipReason::ReadError,
+                    detail: Some(error.to_string()),
+                });
+                continue;
+            }
+        };
+
+        if file_type.is_symlink() {
+            if path.extension().and_then(|ext| ext.to_str()) == Some("md")
+                || symlink_target_is_directory(&path)
+            {
+                skipped.push(MemoryDirectoryImportSkippedItem {
+                    source_path: import_source_relative_path(source_dir, &path),
+                    reason: MemoryDirectoryImportSkipReason::UnsupportedSymlink,
+                    detail: None,
+                });
+            }
+            continue;
+        }
+
+        if file_type.is_dir() {
+            collect_directory_import_rules(
+                source_dir, rules_dir, &path, state, now, imported, skipped,
+            )?;
+            continue;
+        }
+
+        if !file_type.is_file() || path.extension().and_then(|ext| ext.to_str()) != Some("md") {
+            continue;
+        }
+
+        import_directory_rule_memory(source_dir, rules_dir, &path, state, now, imported, skipped);
+    }
+
+    Ok(())
+}
+
+fn import_directory_rule_memory(
+    source_dir: &Path,
+    rules_dir: &Path,
+    path: &Path,
+    state: &mut MemoryState,
+    now: u64,
+    imported: &mut Vec<MemoryDirectoryImportItem>,
+    skipped: &mut Vec<MemoryDirectoryImportSkippedItem>,
+) {
+    let source_path = import_source_relative_path(source_dir, path);
+    let rule_path = normalize_relative_path(match path.strip_prefix(rules_dir) {
+        Ok(relative) => relative,
+        Err(_) => {
+            skipped.push(MemoryDirectoryImportSkippedItem {
+                source_path,
+                reason: MemoryDirectoryImportSkipReason::InvalidRulePath,
+                detail: Some("规则文件路径处理失败".to_string()),
+            });
+            return;
+        }
+    });
+
+    if let Err(error) = validate_rule_path(&rule_path) {
+        skipped.push(MemoryDirectoryImportSkippedItem {
+            source_path,
+            reason: MemoryDirectoryImportSkipReason::InvalidRulePath,
+            detail: Some(error),
+        });
+        return;
+    }
+
+    let Some(raw) = read_import_source_text_file(path, &source_path, skipped) else {
+        return;
+    };
+
+    if state.memories.iter().any(|memory| {
+        memory.target_type == MemoryTargetType::Rule
+            && memory.rule_path.as_deref() == Some(rule_path.as_str())
+    }) {
+        skipped.push(MemoryDirectoryImportSkippedItem {
+            source_path,
+            reason: MemoryDirectoryImportSkipReason::DuplicateRulePath,
+            detail: None,
+        });
+        return;
+    }
+
+    let parsed = parse_rule_markdown(&raw);
+    let name = parsed
+        .title
+        .clone()
+        .unwrap_or_else(|| rule_display_name(&rule_path));
+    let memory = Memory {
+        id: Uuid::new_v4().to_string(),
+        name: name.clone(),
+        content: normalize_memory_body(&parsed.content),
+        target_type: MemoryTargetType::Rule,
+        rule_path: Some(rule_path.clone()),
+        path_patterns: parsed.path_patterns,
+        is_active: false,
+        created_at: now,
+        updated_at: now,
+    };
+    state.memories.push(memory);
+    imported.push(MemoryDirectoryImportItem {
+        source_path,
+        name,
+        target_type: MemoryTargetType::Rule,
+        rule_path: Some(rule_path),
+    });
+}
+
+fn read_import_source_text_file(
+    path: &Path,
+    source_path: &str,
+    skipped: &mut Vec<MemoryDirectoryImportSkippedItem>,
+) -> Option<String> {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return None,
+        Err(error) => {
+            skipped.push(MemoryDirectoryImportSkippedItem {
+                source_path: source_path.to_string(),
+                reason: MemoryDirectoryImportSkipReason::ReadError,
+                detail: Some(error.to_string()),
+            });
+            return None;
+        }
+    };
+    if metadata.file_type().is_symlink() {
+        skipped.push(MemoryDirectoryImportSkippedItem {
+            source_path: source_path.to_string(),
+            reason: MemoryDirectoryImportSkipReason::UnsupportedSymlink,
+            detail: None,
+        });
+        return None;
+    }
+    if !metadata.is_file() {
+        return None;
+    }
+    fs::read_to_string(path)
+        .map_err(|error| {
+            skipped.push(MemoryDirectoryImportSkippedItem {
+                source_path: source_path.to_string(),
+                reason: MemoryDirectoryImportSkipReason::ReadError,
+                detail: Some(error.to_string()),
+            });
+        })
+        .ok()
+}
+
+fn import_source_relative_path(source_dir: &Path, path: &Path) -> String {
+    path.strip_prefix(source_dir)
+        .map(normalize_relative_path)
+        .unwrap_or_else(|_| path.display().to_string())
+}
+
+fn symlink_target_is_directory(path: &Path) -> bool {
+    fs::metadata(path)
+        .map(|metadata| metadata.is_dir())
+        .unwrap_or(false)
 }
 
 #[derive(Debug, Clone)]
@@ -1527,6 +1902,16 @@ mod schema_tests {
         std::os::windows::fs::symlink_file(src, dest).expect("应可创建软链接");
     }
 
+    #[cfg(unix)]
+    fn create_test_dir_symlink(src: &Path, dest: &Path) {
+        std::os::unix::fs::symlink(src, dest).expect("应可创建目录软链接");
+    }
+
+    #[cfg(windows)]
+    fn create_test_dir_symlink(src: &Path, dest: &Path) {
+        std::os::windows::fs::symlink_dir(src, dest).expect("应可创建目录软链接");
+    }
+
     fn load_memory_json_schema() -> serde_json::Value {
         let json_schema_str = include_str!("../../src/schemas/memory.schema.json");
         serde_json::from_str(json_schema_str).expect("Memory JSON Schema 格式不合法")
@@ -2091,6 +2476,151 @@ mod schema_tests {
             .expect("应创建托管规则记忆");
 
         assert_eq!(memory.name, "frontend-style");
+    }
+
+    #[test]
+    fn import_memories_from_directory_imports_claude_and_rules_inactive_without_applying() {
+        let env = TestEnv::new("directory-import");
+        let source_dir = env.root.join("memory-source");
+        let source_rule = source_dir.join("rules").join("frontend").join("style.md");
+        fs::create_dir_all(source_rule.parent().expect("规则源文件应有父目录"))
+            .expect("应可创建源 rules 目录");
+        fs::create_dir_all(env.claude_md().parent().unwrap()).expect("应可创建当前 .claude 目录");
+        fs::write(env.claude_md(), "当前全局记忆").expect("应可写入当前 CLAUDE.md");
+        fs::create_dir_all(env.rule_file("current.md").parent().unwrap())
+            .expect("应可创建当前 rules 目录");
+        fs::write(env.rule_file("current.md"), "当前规则").expect("应可写入当前规则");
+        fs::write(source_dir.join("CLAUDE.md"), "# 导入全局\n\n导入内容")
+            .expect("应可写入源 CLAUDE.md");
+        fs::write(
+            &source_rule,
+            "---\npaths:\n  - \"src/**/*.tsx\"\n---\n\n# 前端规则\n\n使用组件级样式。",
+        )
+        .expect("应可写入源规则");
+
+        let result = import_memories_from_directory(source_dir.display().to_string())
+            .expect("应可从目录导入记忆");
+
+        assert_eq!(result.imported.len(), 2);
+        assert!(result.skipped.is_empty());
+        let claude = result
+            .state
+            .memories
+            .iter()
+            .find(|memory| memory.name == "导入全局")
+            .expect("应导入 CLAUDE.md");
+        assert_eq!(claude.content, "导入内容");
+        assert_eq!(claude.target_type, MemoryTargetType::Claude);
+        assert!(!claude.is_active);
+        let rule = result
+            .state
+            .memories
+            .iter()
+            .find(|memory| memory.rule_path.as_deref() == Some("frontend/style.md"))
+            .expect("应导入嵌套 rule");
+        assert_eq!(rule.name, "前端规则");
+        assert_eq!(rule.content, "使用组件级样式。");
+        assert_eq!(rule.path_patterns, vec!["src/**/*.tsx"]);
+        assert!(!rule.is_active);
+        assert_eq!(
+            fs::read_to_string(env.claude_md()).expect("当前 CLAUDE.md 应保留"),
+            "当前全局记忆"
+        );
+        assert_eq!(
+            fs::read_to_string(env.rule_file("current.md")).expect("当前规则应保留"),
+            "当前规则"
+        );
+        assert!(!env.rule_file("frontend/style.md").exists());
+    }
+
+    #[test]
+    fn import_memories_from_directory_skips_duplicates_and_continues() {
+        let env = TestEnv::new("directory-import-duplicates");
+        add_memory(MemoryData {
+            name: "已有全局".to_string(),
+            content: "已有内容".to_string(),
+            ..memory_data(MemoryTargetType::Claude, None)
+        })
+        .expect("应可创建已有 Claude 记忆");
+        add_memory(MemoryData {
+            name: "已有规则".to_string(),
+            content: "已有规则内容".to_string(),
+            ..memory_data(MemoryTargetType::Rule, Some("duplicate.md"))
+        })
+        .expect("应可创建已有规则记忆");
+        let source_dir = env.root.join("memory-source-duplicates");
+        fs::create_dir_all(source_dir.join("rules")).expect("应可创建源 rules 目录");
+        fs::write(source_dir.join("CLAUDE.md"), "# 已有全局\n\n已有内容")
+            .expect("应可写入重复 CLAUDE.md");
+        fs::write(source_dir.join("rules").join("duplicate.md"), "重复规则")
+            .expect("应可写入重复规则");
+        fs::write(
+            source_dir.join("rules").join("new.md"),
+            "# 新规则\n\n新规则内容",
+        )
+        .expect("应可写入新规则");
+
+        let result = import_memories_from_directory(source_dir.display().to_string())
+            .expect("应跳过冲突并继续导入");
+
+        assert_eq!(result.imported.len(), 1);
+        assert_eq!(result.imported[0].source_path, "rules/new.md");
+        assert_eq!(result.skipped.len(), 2);
+        assert!(result.skipped.iter().any(|item| {
+            item.source_path == "CLAUDE.md"
+                && item.reason == MemoryDirectoryImportSkipReason::DuplicateClaude
+        }));
+        assert!(result.skipped.iter().any(|item| {
+            item.source_path == "rules/duplicate.md"
+                && item.reason == MemoryDirectoryImportSkipReason::DuplicateRulePath
+        }));
+        assert!(result
+            .state
+            .memories
+            .iter()
+            .any(|memory| memory.rule_path.as_deref() == Some("new.md") && !memory.is_active));
+    }
+
+    #[test]
+    fn import_memories_from_directory_skips_symlink_files_and_directories() {
+        let env = TestEnv::new("directory-import-symlinks");
+        let source_dir = env.root.join("memory-source-symlinks");
+        let rules_dir = source_dir.join("rules");
+        let external_dir = env.root.join("external-rules");
+        fs::create_dir_all(&rules_dir).expect("应可创建源 rules 目录");
+        fs::create_dir_all(&external_dir).expect("应可创建外部目录");
+        let external_file = env.root.join("external.md");
+        fs::write(&external_file, "# 外部规则\n\n不应导入").expect("应可写入外部文件");
+        fs::write(external_dir.join("nested.md"), "# 外部目录规则\n\n不应导入")
+            .expect("应可写入外部目录文件");
+        create_test_symlink(&external_file, &rules_dir.join("linked.md"));
+        create_test_dir_symlink(&external_dir, &rules_dir.join("linked-dir"));
+
+        let result = import_memories_from_directory(source_dir.display().to_string())
+            .expect("应跳过软链接记忆");
+
+        assert!(result.imported.is_empty());
+        assert_eq!(result.skipped.len(), 2);
+        assert!(result.skipped.iter().any(|item| {
+            item.source_path == "rules/linked.md"
+                && item.reason == MemoryDirectoryImportSkipReason::UnsupportedSymlink
+        }));
+        assert!(result.skipped.iter().any(|item| {
+            item.source_path == "rules/linked-dir"
+                && item.reason == MemoryDirectoryImportSkipReason::UnsupportedSymlink
+        }));
+        assert!(result.state.memories.is_empty());
+    }
+
+    #[test]
+    fn import_memories_from_directory_rejects_non_directory_source() {
+        let env = TestEnv::new("directory-import-non-directory");
+        let source_file = env.root.join("not-a-directory.md");
+        fs::write(&source_file, "# 不是目录").expect("应可写入普通文件");
+
+        let err = import_memories_from_directory(source_file.display().to_string()).unwrap_err();
+
+        assert!(err.contains("请选择有效目录"));
     }
 
     #[test]

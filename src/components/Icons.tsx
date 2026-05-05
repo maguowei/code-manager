@@ -199,6 +199,26 @@ export function RefreshIcon({ size = 14, className }: IconProps) {
   );
 }
 
+/** 文件夹导入图标（选择目录） */
+export function FolderImportIcon({ size = 14, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H9l2 2h7.5A2.5 2.5 0 0 1 21 8.5v8A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5z" />
+      <path d="M12 10v6" />
+      <path d="m9.5 13.5 2.5 2.5 2.5-2.5" />
+    </svg>
+  );
+}
+
 /** 眼睛图标（显示敏感值） */
 export function EyeIcon({ size = 18, className }: IconProps) {
   return (

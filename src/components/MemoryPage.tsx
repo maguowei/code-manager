@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import useEscapeKey from "../hooks/useEscapeKey";
@@ -9,12 +10,13 @@ import type {
   ClaudeDirectoryChangedEvent,
   Memory,
   MemoryDeletePreview,
+  MemoryDirectoryImportResult,
   MemoryState,
   UnmanagedMemory,
 } from "../types";
 import ConfirmDialog from "./ConfirmDialog";
 import Drawer from "./Drawer";
-import { ExternalLinkIcon, PlusIcon, RefreshIcon } from "./Icons";
+import { ExternalLinkIcon, FolderImportIcon, PlusIcon, RefreshIcon } from "./Icons";
 import MemoryEditor from "./MemoryEditor";
 import MemoryItem from "./MemoryItem";
 import UnmanagedMemoryItem from "./UnmanagedMemoryItem";
@@ -41,6 +43,16 @@ function isMemoryFileChangePath(path: string) {
   return path === "CLAUDE.md" || path === "rules" || path.startsWith("rules/");
 }
 
+function formatDirectoryImportSummary(
+  template: string,
+  importedCount: number,
+  skippedCount: number,
+) {
+  return template
+    .replace("{imported}", String(importedCount))
+    .replace("{skipped}", String(skippedCount));
+}
+
 type PendingDelete = {
   id: string;
   cleanupDirs: string[];
@@ -59,6 +71,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   const [unmanagedMemories, setUnmanagedMemories] = useState<UnmanagedMemory[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isImportingDirectory, setIsImportingDirectory] = useState(false);
   const [editingMemory, setEditingMemory] = useState<Memory | null>(null);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
 
@@ -186,6 +199,41 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     }
   }
 
+  async function handleImportDirectory() {
+    setIsImportingDirectory(true);
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: t("memory.importDirectoryDialogTitle"),
+      });
+      const sourceDir = Array.isArray(selected) ? selected[0] : selected;
+      if (!sourceDir) {
+        return;
+      }
+
+      const result = await invoke<MemoryDirectoryImportResult>("import_memories_from_directory", {
+        sourceDir,
+      });
+      applyMemoryState(result.state);
+      if (result.imported.length === 0 && result.skipped.length === 0) {
+        showToast(t("toast.memoryDirectoryImportEmpty"));
+        return;
+      }
+      showToast(
+        formatDirectoryImportSummary(
+          t("toast.memoryDirectoryImportSummary"),
+          result.imported.length,
+          result.skipped.length,
+        ),
+      );
+    } catch (_err) {
+      showToast(t("toast.memoryDirectoryImportError"), "error");
+    } finally {
+      setIsImportingDirectory(false);
+    }
+  }
+
   function openAddModal() {
     setEditingMemory(null);
     setIsModalOpen(true);
@@ -286,6 +334,24 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
           >
             <span>{t("memory.openDocs")}</span>
             <ExternalLinkIcon size={14} />
+          </button>
+          <button
+            type="button"
+            className="memory-import-directory-btn"
+            aria-label={
+              isImportingDirectory ? t("memory.importingDirectory") : t("memory.importDirectory")
+            }
+            aria-busy={isImportingDirectory}
+            title={
+              isImportingDirectory ? t("memory.importingDirectory") : t("memory.importDirectory")
+            }
+            onClick={handleImportDirectory}
+            disabled={isImportingDirectory}
+          >
+            <FolderImportIcon size={14} />
+            <span>
+              {isImportingDirectory ? t("memory.importingDirectory") : t("memory.importDirectory")}
+            </span>
           </button>
           <button
             type="button"
