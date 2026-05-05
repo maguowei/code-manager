@@ -1,12 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useState } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import useEscapeKey from "../hooks/useEscapeKey";
 import { useToast } from "../hooks/useToast";
-import { useI18n } from "../i18n";
+import { type Language, useI18n } from "../i18n";
 import type { Memory, MemoryState, UnmanagedMemory } from "../types";
 import ConfirmDialog from "./ConfirmDialog";
 import Drawer from "./Drawer";
-import { PlusIcon } from "./Icons";
+import { ExternalLinkIcon, PlusIcon } from "./Icons";
 import MemoryEditor from "./MemoryEditor";
 import MemoryItem from "./MemoryItem";
 import UnmanagedMemoryItem from "./UnmanagedMemoryItem";
@@ -21,8 +22,16 @@ type MemoryPayload = {
   pathPatterns?: string[];
 };
 
+const CLAUDE_CODE_DOCS_BASE_URL = "https://code.claude.com/docs";
+const CLAUDE_MEMORY_DOCS_PATH = "memory";
+
+function getClaudeMemoryDocsUrl(language: Language) {
+  const docsLocale = language === "zh" ? "zh-CN" : "en";
+  return `${CLAUDE_CODE_DOCS_BASE_URL}/${docsLocale}/${CLAUDE_MEMORY_DOCS_PATH}`;
+}
+
 function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => void }) {
-  const { t } = useI18n();
+  const { language, t } = useI18n();
   const { showToast } = useToast();
   const [memories, setMemories] = useState<Memory[]>([]);
   const [unmanagedMemories, setUnmanagedMemories] = useState<UnmanagedMemory[]>([]);
@@ -134,6 +143,15 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   const claudeMemories = memories.filter((memory) => memory.targetType === "claude");
   const ruleMemories = memories.filter((memory) => memory.targetType === "rule");
   const hasAnyMemory = memories.length > 0 || unmanagedMemories.length > 0;
+  const claudeMemoryDocsUrl = useMemo(() => getClaudeMemoryDocsUrl(language), [language]);
+
+  const handleOpenDocs = useCallback(async () => {
+    try {
+      await openUrl(claudeMemoryDocsUrl);
+    } catch {
+      showToast(t("memory.openDocsError"), "error");
+    }
+  }, [claudeMemoryDocsUrl, showToast, t]);
 
   function renderMemoryGroup(title: string, description: string, items: Memory[]) {
     if (items.length === 0) return null;
@@ -185,6 +203,16 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       {/* 页面标题栏 */}
       <div className="page-header">
         <h1 className="page-title">{t("nav.memory")}</h1>
+        <button
+          type="button"
+          className="memory-docs-link"
+          aria-label={t("memory.openDocsAriaLabel")}
+          title={t("memory.openDocsAriaLabel")}
+          onClick={handleOpenDocs}
+        >
+          <span>{t("memory.openDocs")}</span>
+          <ExternalLinkIcon size={14} />
+        </button>
       </div>
 
       {/* 添加按钮 */}

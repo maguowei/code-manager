@@ -1,5 +1,41 @@
 /* MemoryPage 特有样式（公共列表布局见 shared.css） */
 
+.memory-docs-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+.memory-docs-link:hover {
+  border-color: var(--border-active);
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.memory-docs-link:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+.memory-docs-link svg {
+  flex: 0 0 auto;
+}
+
 .memory-group {
   display: flex;
   flex-direction: column;

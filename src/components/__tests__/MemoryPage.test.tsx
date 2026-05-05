@@ -5,13 +5,18 @@ import { I18nProvider } from "../../i18n";
 import type { MemoryState } from "../../types";
 import MemoryPage from "../MemoryPage";
 
-const { invokeMock, showToastMock } = vi.hoisted(() => ({
+const { invokeMock, openUrlMock, showToastMock } = vi.hoisted(() => ({
   invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
+  openUrlMock: vi.fn(async (_url: string) => undefined),
   showToastMock: vi.fn(),
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: invokeMock,
+}));
+
+vi.mock("@tauri-apps/plugin-opener", () => ({
+  openUrl: openUrlMock,
 }));
 
 vi.mock("../../hooks/useToast", () => ({
@@ -84,12 +89,42 @@ describe("MemoryPage", () => {
     localStorage.clear();
     setSystemLanguages(["zh-CN"]);
     invokeMock.mockReset();
+    openUrlMock.mockReset();
     showToastMock.mockReset();
     invokeMock.mockImplementation(async (command) => {
       if (command === "get_memories") return initialState;
       if (command === "toggle_memory") return toggledState;
       return null;
     });
+  });
+
+  it("opens the localized Claude memory docs from the page header", async () => {
+    renderMemoryPage();
+
+    const docsButton = await screen.findByRole("button", {
+      name: "查看 Claude Code 记忆官方文档",
+    });
+    expect(docsButton).toHaveTextContent("官方文档");
+
+    fireEvent.click(docsButton);
+
+    expect(openUrlMock).toHaveBeenCalledWith("https://code.claude.com/docs/zh-CN/memory");
+  });
+
+  it("uses the English Claude memory docs when the UI language is English", async () => {
+    localStorage.setItem("ai-manager-settings", JSON.stringify({ language: "en", theme: "dark" }));
+    setSystemLanguages(["en-US"]);
+
+    renderMemoryPage();
+
+    const docsButton = await screen.findByRole("button", {
+      name: "Open Claude Code memory docs",
+    });
+    expect(docsButton).toHaveTextContent("Docs");
+
+    fireEvent.click(docsButton);
+
+    expect(openUrlMock).toHaveBeenCalledWith("https://code.claude.com/docs/en/memory");
   });
 
   it("refreshes the list from returned state after toggling a CLAUDE.md memory", async () => {
