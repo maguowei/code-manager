@@ -2170,6 +2170,7 @@ mod tests {
         clear_test_env();
     }
 
+    #[cfg(unix)]
     #[test]
     fn install_status_line_preset_writes_default_script_to_user_claude_dir() {
         let _guard = crate::utils::lock_config().unwrap();
@@ -2222,6 +2223,7 @@ mod tests {
         );
     }
 
+    #[cfg(unix)]
     #[test]
     fn install_status_line_preset_keeps_matching_script_and_repairs_permissions() {
         let _guard = crate::utils::lock_config().unwrap();
@@ -2256,6 +2258,7 @@ mod tests {
         clear_test_env();
     }
 
+    #[cfg(unix)]
     #[test]
     fn install_status_line_preset_reports_overwrite_needed_for_different_script() {
         let _guard = crate::utils::lock_config().unwrap();
@@ -2277,6 +2280,7 @@ mod tests {
         clear_test_env();
     }
 
+    #[cfg(unix)]
     #[test]
     fn install_status_line_preset_overwrites_different_script_when_confirmed() {
         let _guard = crate::utils::lock_config().unwrap();
