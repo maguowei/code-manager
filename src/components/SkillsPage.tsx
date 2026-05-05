@@ -1,17 +1,27 @@
 import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import useEscapeKey from "../hooks/useEscapeKey";
 import { useToast } from "../hooks/useToast";
-import { useI18n } from "../i18n";
+import { type Language, useI18n } from "../i18n";
 import type { Skill } from "../types";
 import ConfirmDialog from "./ConfirmDialog";
 import Drawer from "./Drawer";
-import { PlusIcon } from "./Icons";
+import { ExternalLinkIcon, PlusIcon } from "./Icons";
 import SkillEditor from "./SkillEditor";
 import SkillItem from "./SkillItem";
+import "./SkillsPage.css";
+
+const CLAUDE_CODE_DOCS_BASE_URL = "https://code.claude.com/docs";
+const CLAUDE_SKILLS_DOCS_PATH = "skills";
+
+function getClaudeSkillsDocsUrl(language: Language) {
+  const docsLocale = language === "zh" ? "zh-CN" : "en";
+  return `${CLAUDE_CODE_DOCS_BASE_URL}/${docsLocale}/${CLAUDE_SKILLS_DOCS_PATH}`;
+}
 
 function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => void }) {
-  const { t } = useI18n();
+  const { language, t } = useI18n();
   const { showToast } = useToast();
   const [skills, setSkills] = useState<Skill[]>([]);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -117,12 +127,33 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       }),
     [skills],
   );
+  const claudeSkillsDocsUrl = useMemo(() => getClaudeSkillsDocsUrl(language), [language]);
+
+  const handleOpenDocs = useCallback(async () => {
+    try {
+      await openUrl(claudeSkillsDocsUrl);
+    } catch {
+      showToast(t("skills.openDocsError"), "error");
+    }
+  }, [claudeSkillsDocsUrl, showToast, t]);
 
   return (
     <div className="list-page">
-      {/* 页面标题 */}
+      {/* 页面标题栏 */}
       <div className="page-header">
         <h1 className="page-title">{t("skills.title")}</h1>
+        <div className="skills-page-actions">
+          <button
+            type="button"
+            className="skills-docs-link"
+            aria-label={t("skills.openDocsAriaLabel")}
+            title={t("skills.openDocsAriaLabel")}
+            onClick={handleOpenDocs}
+          >
+            <span>{t("skills.openDocs")}</span>
+            <ExternalLinkIcon size={14} />
+          </button>
+        </div>
       </div>
 
       {/* 添加按钮 */}

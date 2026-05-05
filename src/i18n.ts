@@ -125,6 +125,9 @@ const translations = {
     // Skills 页面
     "skills.title": "Skills 管理",
     "skills.description": "管理和配置 Claude Code 的技能扩展",
+    "skills.openDocs": "官方文档",
+    "skills.openDocsAriaLabel": "查看 Claude Code Skills 官方文档",
+    "skills.openDocsError": "打开 Skills 文档失败",
 
     // 统计页面
     "nav.stats": "统计",
@@ -1137,6 +1140,9 @@ const translations = {
     // Skills 页面
     "skills.title": "Skills Management",
     "skills.description": "Manage and configure skill extensions for Claude Code",
+    "skills.openDocs": "Docs",
+    "skills.openDocsAriaLabel": "Open Claude Code Skills docs",
+    "skills.openDocsError": "Failed to open Skills docs",
 
     // 统计页面
     "nav.stats": "Stats",
