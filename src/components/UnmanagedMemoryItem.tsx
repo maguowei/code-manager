@@ -15,6 +15,10 @@ function UnmanagedMemoryItem({ memory, onImport }: UnmanagedMemoryItemProps) {
   const targetLabel =
     memory.targetType === "rule" ? t("memory.targetType.rule") : t("memory.targetType.claude");
   const canImport = memory.importStatus === "ready";
+  const disabledImportHint =
+    memory.importStatus === "unsupportedSymlink"
+      ? t("memory.unmanagedSymlinkUnsupported")
+      : t("memory.unmanagedPathConflict");
 
   return (
     <div className="memory-item memory-item-unmanaged">
@@ -48,7 +52,7 @@ function UnmanagedMemoryItem({ memory, onImport }: UnmanagedMemoryItemProps) {
             type="button"
             className="memory-import-btn"
             disabled={!canImport}
-            title={canImport ? t("memory.import") : t("memory.unmanagedPathConflict")}
+            title={canImport ? t("memory.import") : disabledImportHint}
             onClick={onImport}
           >
             {t("memory.import")}
@@ -57,7 +61,7 @@ function UnmanagedMemoryItem({ memory, onImport }: UnmanagedMemoryItemProps) {
       </div>
 
       {!canImport ? (
-        <p className="memory-unmanaged-hint">{t("memory.unmanagedPathConflict")}</p>
+        <p className="memory-unmanaged-hint">{disabledImportHint}</p>
       ) : (
         <p className="memory-unmanaged-hint">{t("memory.unmanagedImportHint")}</p>
       )}

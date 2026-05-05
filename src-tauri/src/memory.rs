@@ -7,6 +7,9 @@ use uuid::Uuid;
 const CURRENT_MEMORY_STATE_VERSION: u32 = 2;
 const UNMANAGED_IMPORT_READY: &str = "ready";
 const UNMANAGED_IMPORT_PATH_CONFLICT: &str = "managedPathConflict";
+const UNMANAGED_IMPORT_UNSUPPORTED_SYMLINK: &str = "unsupportedSymlink";
+const SYMLINK_IMPORT_ERROR: &str = "软链接记忆文件不支持导入";
+const SYMLINK_WRITE_ERROR: &str = "软链接记忆路径不支持写入";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -106,16 +109,16 @@ fn get_memory_config_path() -> PathBuf {
 
 /// 获取 CLAUDE.md 路径
 fn get_claude_md_path() -> PathBuf {
-    crate::utils::home_dir_or_fallback()
-        .join(".claude")
-        .join("CLAUDE.md")
+    get_claude_dir_path().join("CLAUDE.md")
 }
 
 /// 获取用户级 rules 目录路径
 fn get_rules_dir_path() -> PathBuf {
-    crate::utils::home_dir_or_fallback()
-        .join(".claude")
-        .join("rules")
+    get_claude_dir_path().join("rules")
+}
+
+fn get_claude_dir_path() -> PathBuf {
+    crate::utils::home_dir_or_fallback().join(".claude")
 }
 
 /// 从文件加载记忆状态，失败时返回默认值
@@ -542,6 +545,7 @@ fn validate_claude_file_conflict(
         return Ok(());
     };
     let path = get_claude_md_path();
+    ensure_memory_write_path_has_no_symlink(&path)?;
     if path.exists() && !can_replace_claude_file(previous_active, &serialize_claude_memory(active))
     {
         return Err("CLAUDE.md 已存在，无法覆盖，请先导入为可管理记忆".to_string());
@@ -770,6 +774,9 @@ fn unquote_frontmatter_value(value: &str) -> String {
 }
 
 fn claude_file_matches_memory(path: &Path, memory: &Memory) -> bool {
+    if path_has_symlink_component(path) {
+        return false;
+    }
     fs::read_to_string(path)
         .map(|content| claude_content_matches_memory(&content, memory))
         .unwrap_or(false)
@@ -788,6 +795,9 @@ fn claude_content_matches_memory(content: &str, memory: &Memory) -> bool {
 }
 
 fn rule_file_matches_memory(path: &Path, memory: &Memory) -> bool {
+    if path_has_symlink_component(path) {
+        return false;
+    }
     let Ok(raw) = fs::read_to_string(path) else {
         return false;
     };
@@ -824,6 +834,7 @@ fn validate_rule_file_conflicts(
             return Err("规则记忆必须填写规则文件路径".to_string());
         };
         let path = get_rule_file_path(rule_path);
+        ensure_memory_write_path_has_no_symlink(&path)?;
         let was_active_same_file = previous
             .map(|previous| {
                 previous.memories.iter().any(|previous_memory| {
@@ -844,6 +855,42 @@ fn validate_rule_file_conflicts(
     }
 
     Ok(())
+}
+
+fn path_has_symlink_component(path: &Path) -> bool {
+    memory_path_has_symlink_component(path).unwrap_or(false)
+}
+
+fn ensure_memory_write_path_has_no_symlink(path: &Path) -> Result<(), String> {
+    if memory_path_has_symlink_component(path)? {
+        return Err(SYMLINK_WRITE_ERROR.to_string());
+    }
+    Ok(())
+}
+
+fn memory_path_has_symlink_component(path: &Path) -> Result<bool, String> {
+    let claude_dir = get_claude_dir_path();
+    let relative_path = path
+        .strip_prefix(&claude_dir)
+        .map_err(|_| format!("记忆路径不在 ~/.claude 内: {:?}", path))?;
+    let mut current = claude_dir;
+    match fs::symlink_metadata(&current) {
+        Ok(metadata) if metadata.file_type().is_symlink() => return Ok(true),
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(format!("检查记忆路径失败 {:?}: {}", current, error)),
+    }
+
+    for component in relative_path.components() {
+        current.push(component.as_os_str());
+        match fs::symlink_metadata(&current) {
+            Ok(metadata) if metadata.file_type().is_symlink() => return Ok(true),
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+            Err(error) => return Err(format!("检查记忆路径失败 {:?}: {}", current, error)),
+        }
+    }
+    Ok(false)
 }
 
 fn remove_stale_rule_files(
@@ -970,7 +1017,10 @@ fn collapse_redundant_child_dirs(mut dirs: Vec<PathBuf>) -> Vec<PathBuf> {
 
     let mut collapsed = Vec::new();
     for dir in dirs {
-        if collapsed.iter().any(|parent: &PathBuf| dir.starts_with(parent)) {
+        if collapsed
+            .iter()
+            .any(|parent: &PathBuf| dir.starts_with(parent))
+        {
             continue;
         }
         collapsed.push(dir);
@@ -1005,6 +1055,26 @@ fn scan_unmanaged_claude_md(
     memories: &mut Vec<UnmanagedMemory>,
 ) -> Result<(), String> {
     let path = get_claude_md_path();
+    let metadata = match fs::symlink_metadata(&path) {
+        Ok(metadata) => metadata,
+        Err(_) => return Ok(()),
+    };
+    if metadata.file_type().is_symlink() {
+        memories.push(UnmanagedMemory {
+            id: "unmanaged:claude:CLAUDE.md".to_string(),
+            name: "CLAUDE.md".to_string(),
+            content: String::new(),
+            target_type: MemoryTargetType::Claude,
+            rule_path: None,
+            path_patterns: Vec::new(),
+            source_path: "CLAUDE.md".to_string(),
+            size: metadata.len(),
+            modified_at: crate::utils::metadata_modified_secs(&metadata),
+            import_status: UNMANAGED_IMPORT_UNSUPPORTED_SYMLINK.to_string(),
+        });
+        return Ok(());
+    }
+
     let Some((content, size, modified_at)) = read_regular_text_file_if_exists(&path)? else {
         return Ok(());
     };
@@ -1036,10 +1106,13 @@ fn scan_unmanaged_rules(
     memories: &mut Vec<UnmanagedMemory>,
 ) -> Result<(), String> {
     let rules_dir = get_rules_dir_path();
-    let metadata = match fs::metadata(&rules_dir) {
+    let metadata = match fs::symlink_metadata(&rules_dir) {
         Ok(metadata) => metadata,
         Err(_) => return Ok(()),
     };
+    if metadata.file_type().is_symlink() {
+        return Ok(());
+    }
     if !metadata.is_dir() {
         return Ok(());
     }
@@ -1063,6 +1136,27 @@ fn collect_unmanaged_rules(
             .file_type()
             .map_err(|e| format!("获取 rules 文件类型失败: {}", e))?;
         if file_type.is_symlink() {
+            let path = entry.path();
+            if path.extension().and_then(|ext| ext.to_str()) == Some("md") {
+                let rule_path = normalize_relative_path(
+                    path.strip_prefix(rules_dir)
+                        .map_err(|_| "规则文件路径处理失败".to_string())?,
+                );
+                let metadata = fs::symlink_metadata(&path)
+                    .map_err(|e| format!("获取规则软链接元数据失败 {:?}: {}", path, e))?;
+                memories.push(UnmanagedMemory {
+                    id: format!("unmanaged:rule:{rule_path}"),
+                    name: rule_display_name(&rule_path),
+                    content: String::new(),
+                    target_type: MemoryTargetType::Rule,
+                    rule_path: Some(rule_path.clone()),
+                    path_patterns: Vec::new(),
+                    source_path: format!("rules/{rule_path}"),
+                    size: metadata.len(),
+                    modified_at: crate::utils::metadata_modified_secs(&metadata),
+                    import_status: UNMANAGED_IMPORT_UNSUPPORTED_SYMLINK.to_string(),
+                });
+            }
             continue;
         }
 
@@ -1159,6 +1253,12 @@ fn read_unmanaged_memory_source(
     match source.target_type {
         MemoryTargetType::Claude => {
             let path = get_claude_md_path();
+            if fs::symlink_metadata(&path)
+                .map(|metadata| metadata.file_type().is_symlink())
+                .unwrap_or(false)
+            {
+                return Err(SYMLINK_IMPORT_ERROR.to_string());
+            }
             let (content, _, _) = read_regular_text_file_if_exists(&path)?
                 .ok_or("未找到可导入的 CLAUDE.md".to_string())?;
             let (title, body) = split_memory_title_heading(&content);
@@ -1197,13 +1297,17 @@ fn read_unmanaged_memory_source(
 
 fn resolve_existing_rule_file_path(rule_path: &str) -> Result<PathBuf, String> {
     validate_rule_path(rule_path)?;
-    let mut current = get_rules_dir_path();
+    let rules_dir = get_rules_dir_path();
+    if memory_path_has_symlink_component(&rules_dir)? {
+        return Err(SYMLINK_IMPORT_ERROR.to_string());
+    }
+    let mut current = rules_dir;
     for component in Path::new(rule_path).components() {
         current.push(component.as_os_str());
         let metadata = fs::symlink_metadata(&current)
             .map_err(|_| "只能导入 ~/.claude/rules/ 内的普通 Markdown 文件".to_string())?;
         if metadata.file_type().is_symlink() {
-            return Err("只能导入 ~/.claude/rules/ 内的普通 Markdown 文件".to_string());
+            return Err(SYMLINK_IMPORT_ERROR.to_string());
         }
     }
     let metadata = fs::metadata(&current)
@@ -1317,6 +1421,16 @@ mod schema_tests {
 
     fn file_exists(path: &Path) -> bool {
         path.try_exists().expect("文件存在性检查应成功")
+    }
+
+    #[cfg(unix)]
+    fn create_test_symlink(src: &Path, dest: &Path) {
+        std::os::unix::fs::symlink(src, dest).expect("应可创建软链接");
+    }
+
+    #[cfg(windows)]
+    fn create_test_symlink(src: &Path, dest: &Path) {
+        std::os::windows::fs::symlink_file(src, dest).expect("应可创建软链接");
     }
 
     fn load_memory_json_schema() -> serde_json::Value {
@@ -1851,6 +1965,184 @@ mod schema_tests {
             .expect("应创建托管规则记忆");
 
         assert_eq!(memory.name, "frontend-style");
+    }
+
+    #[test]
+    fn get_memories_lists_symlink_memory_files_as_unsupported_unmanaged_cards() {
+        let env = TestEnv::new("unmanaged-symlink-list");
+        fs::create_dir_all(env.claude_md().parent().unwrap()).expect("应可创建 .claude 目录");
+        fs::create_dir_all(env.rule_file("frontend/style.md").parent().unwrap())
+            .expect("应可创建 rules 子目录");
+        let claude_target = env.root.join("external-claude.md");
+        let rule_target = env.root.join("external-rule.md");
+        fs::write(&claude_target, "# 外部全局记忆\n\n具体偏好").expect("应可写入目标文件");
+        fs::write(&rule_target, "# 外部规则\n\n规则内容").expect("应可写入目标文件");
+        create_test_symlink(&claude_target, &env.claude_md());
+        create_test_symlink(&rule_target, &env.rule_file("frontend/style.md"));
+
+        let state = get_memories().expect("应可读取记忆视图");
+
+        let claude = state
+            .unmanaged_memories
+            .iter()
+            .find(|memory| memory.source_path == "CLAUDE.md")
+            .expect("应列出软链接 CLAUDE.md");
+        assert_eq!(claude.name, "CLAUDE.md");
+        assert_eq!(claude.content, "");
+        assert_eq!(claude.import_status, "unsupportedSymlink");
+
+        let rule = state
+            .unmanaged_memories
+            .iter()
+            .find(|memory| memory.source_path == "rules/frontend/style.md")
+            .expect("应列出软链接 rule");
+        assert_eq!(rule.name, "frontend-style");
+        assert_eq!(rule.content, "");
+        assert_eq!(rule.import_status, "unsupportedSymlink");
+    }
+
+    #[test]
+    fn import_unmanaged_memory_rejects_symlink_files() {
+        let env = TestEnv::new("import-symlink-rejects");
+        fs::create_dir_all(env.claude_md().parent().unwrap()).expect("应可创建 .claude 目录");
+        fs::create_dir_all(env.rule_file("frontend/style.md").parent().unwrap())
+            .expect("应可创建 rules 子目录");
+        let claude_target = env.root.join("external-claude.md");
+        let rule_target = env.root.join("external-rule.md");
+        fs::write(&claude_target, "# 外部全局记忆\n\n具体偏好").expect("应可写入目标文件");
+        fs::write(&rule_target, "# 外部规则\n\n规则内容").expect("应可写入目标文件");
+        create_test_symlink(&claude_target, &env.claude_md());
+        create_test_symlink(&rule_target, &env.rule_file("frontend/style.md"));
+
+        let claude_err = import_unmanaged_memory(UnmanagedMemorySource {
+            target_type: MemoryTargetType::Claude,
+            rule_path: None,
+        })
+        .unwrap_err();
+        assert!(claude_err.contains("软链接记忆文件不支持导入"));
+
+        let rule_err = import_unmanaged_memory(UnmanagedMemorySource {
+            target_type: MemoryTargetType::Rule,
+            rule_path: Some("frontend/style.md".to_string()),
+        })
+        .unwrap_err();
+        assert!(rule_err.contains("软链接记忆文件不支持导入"));
+    }
+
+    #[test]
+    fn get_memories_does_not_follow_symlink_rules_directory() {
+        let env = TestEnv::new("unmanaged-symlink-rules-dir");
+        let rules_target = env.root.join("external-rules");
+        fs::create_dir_all(&rules_target).expect("应可创建目标 rules 目录");
+        fs::create_dir_all(env.rule_file("placeholder.md").parent().unwrap())
+            .expect("应可创建 .claude 目录");
+        fs::remove_dir(env.root.join(".claude").join("rules")).expect("应可移除普通 rules 目录");
+        fs::write(rules_target.join("style.md"), "# 外部规则\n\n规则内容")
+            .expect("应可写入目标规则");
+        create_test_symlink(&rules_target, &env.root.join(".claude").join("rules"));
+
+        let state = get_memories().expect("应可读取记忆视图");
+
+        assert!(state
+            .unmanaged_memories
+            .iter()
+            .all(|memory| memory.source_path != "rules/style.md"));
+    }
+
+    #[test]
+    fn import_unmanaged_rule_memory_rejects_symlink_parent_directory() {
+        let env = TestEnv::new("import-symlink-parent-rejects");
+        let rules_target = env.root.join("external-rules");
+        fs::create_dir_all(&rules_target).expect("应可创建目标 rules 目录");
+        fs::create_dir_all(env.rule_file("placeholder.md").parent().unwrap())
+            .expect("应可创建 .claude 目录");
+        fs::remove_dir(env.root.join(".claude").join("rules")).expect("应可移除普通 rules 目录");
+        fs::write(rules_target.join("style.md"), "# 外部规则\n\n规则内容")
+            .expect("应可写入目标规则");
+        create_test_symlink(&rules_target, &env.root.join(".claude").join("rules"));
+
+        let err = import_unmanaged_memory(UnmanagedMemorySource {
+            target_type: MemoryTargetType::Rule,
+            rule_path: Some("style.md".to_string()),
+        })
+        .unwrap_err();
+
+        assert!(err.contains("软链接记忆文件不支持导入"));
+    }
+
+    #[test]
+    fn activating_rule_memory_rejects_symlink_parent_directory() {
+        let env = TestEnv::new("activate-symlink-parent-rejects");
+        let rules_target = env.root.join("external-rules");
+        fs::create_dir_all(&rules_target).expect("应可创建目标 rules 目录");
+        fs::create_dir_all(env.rule_file("placeholder.md").parent().unwrap())
+            .expect("应可创建 .claude 目录");
+        fs::remove_dir(env.root.join(".claude").join("rules")).expect("应可移除普通 rules 目录");
+        create_test_symlink(&rules_target, &env.root.join(".claude").join("rules"));
+        let state = add_memory(memory_data(MemoryTargetType::Rule, Some("style.md")))
+            .expect("应可新增规则记忆");
+        let memory_id = state.memories[0].id.clone();
+
+        let err = toggle_memory(memory_id).unwrap_err();
+
+        assert!(err.contains("软链接记忆路径不支持写入"));
+        assert!(!rules_target.join("style.md").exists());
+    }
+
+    #[test]
+    fn activating_memory_rejects_symlink_write_path() {
+        let env = TestEnv::new("activate-symlink-rejects");
+        fs::create_dir_all(env.claude_md().parent().unwrap()).expect("应可创建 .claude 目录");
+        let target = env.root.join("external-claude.md");
+        fs::write(&target, "外部内容").expect("应可写入目标文件");
+        create_test_symlink(&target, &env.claude_md());
+        let state = add_memory(memory_data(MemoryTargetType::Claude, None)).expect("应可新增记忆");
+        let memory_id = state.memories[0].id.clone();
+
+        let err = toggle_memory(memory_id).unwrap_err();
+
+        assert!(err.contains("软链接记忆路径不支持写入"));
+        assert_eq!(
+            fs::read_to_string(&target).expect("软链接目标应保留"),
+            "外部内容"
+        );
+    }
+
+    #[test]
+    fn deleting_active_rule_memory_keeps_symlink_file() {
+        let env = TestEnv::new("delete-symlink-keeps-link");
+        fs::create_dir_all(env.rule_file("linked.md").parent().unwrap())
+            .expect("应可创建 rules 目录");
+        let now = crate::utils::current_timestamp();
+        let memory = Memory {
+            id: "linked-rule".to_string(),
+            name: "记忆".to_string(),
+            content: "内容".to_string(),
+            target_type: MemoryTargetType::Rule,
+            rule_path: Some("linked.md".to_string()),
+            path_patterns: Vec::new(),
+            is_active: true,
+            created_at: now,
+            updated_at: now,
+        };
+        let target = env.root.join("external-rule.md");
+        fs::write(&target, serialize_rule_memory(&memory)).expect("应可写入目标文件");
+        create_test_symlink(&target, &env.rule_file("linked.md"));
+        save_memory_state(&MemoryState {
+            version: CURRENT_MEMORY_STATE_VERSION,
+            memories: vec![memory],
+            unmanaged_memories: Vec::new(),
+        })
+        .expect("应可保存测试状态");
+
+        delete_memory("linked-rule".to_string()).expect("应可删除记忆");
+
+        let metadata = fs::symlink_metadata(env.rule_file("linked.md")).expect("软链接应保留");
+        assert!(metadata.file_type().is_symlink());
+        assert_eq!(
+            fs::read_to_string(&target).expect("软链接目标应保留"),
+            "# 记忆\n\n内容"
+        );
     }
 
     #[test]

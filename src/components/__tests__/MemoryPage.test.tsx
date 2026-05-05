@@ -368,6 +368,43 @@ describe("MemoryPage", () => {
     });
   });
 
+  it("shows symlink unmanaged memories as unsupported import cards", async () => {
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_memories") {
+        return {
+          memories: [],
+          unmanagedMemories: [
+            {
+              id: "unmanaged:rule:frontend/style.md",
+              name: "frontend-style",
+              content: "",
+              targetType: "rule",
+              rulePath: "frontend/style.md",
+              pathPatterns: [],
+              sourcePath: "rules/frontend/style.md",
+              size: 0,
+              modifiedAt: 4,
+              importStatus: "unsupportedSymlink",
+            },
+          ],
+        };
+      }
+      return null;
+    });
+
+    renderMemoryPage();
+
+    const card = (await screen.findByText("frontend-style")).closest(".memory-item");
+    expect(card).not.toBeNull();
+    if (!card) return;
+
+    const importButton = within(card as HTMLElement).getByRole("button", { name: "导入管理" });
+    expect(importButton).toBeDisabled();
+    expect(importButton).toHaveAttribute("title", "软链接记忆文件不支持导入");
+    expect(card).toHaveTextContent("未导入");
+    expect(card).toHaveTextContent("软链接记忆文件不支持导入");
+  });
+
   it("shows confirmed absolute cleanup directories as a red delete warning", async () => {
     const stateWithNestedRule: MemoryState = {
       memories: [

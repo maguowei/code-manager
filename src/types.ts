@@ -110,7 +110,7 @@ export interface Memory {
   updatedAt: number;
 }
 
-export type UnmanagedMemoryImportStatus = "ready" | "managedPathConflict";
+export type UnmanagedMemoryImportStatus = "ready" | "managedPathConflict" | "unsupportedSymlink";
 
 export interface UnmanagedMemory {
   id: string;

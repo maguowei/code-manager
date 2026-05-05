@@ -98,6 +98,7 @@ const translations = {
     "memory.import": "导入管理",
     "memory.unmanagedImportHint": "导入后会原地接管当前文件，不立即改写内容。",
     "memory.unmanagedPathConflict": "此路径已被一条可管理记忆占用，请先编辑或删除冲突项。",
+    "memory.unmanagedSymlinkUnsupported": "软链接记忆文件不支持导入",
     "memory.editing": "编辑中",
     "memory.edit": "编辑",
     "memory.delete": "删除",
@@ -1096,6 +1097,7 @@ const translations = {
     "memory.unmanagedImportHint": "Import adopts the current file in place without rewriting it.",
     "memory.unmanagedPathConflict":
       "This path is already used by a managed memory. Edit or delete the conflicting item first.",
+    "memory.unmanagedSymlinkUnsupported": "Symlink memory files cannot be imported",
     "memory.editing": "Editing",
     "memory.edit": "Edit",
     "memory.delete": "Delete",
