@@ -69,7 +69,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  /* 固定 cell 尺寸下，整体宽度 = 24(weekday) + 4(gap) + 53*12 + 52*2 = 760px */
+  /* 固定 cell 尺寸下，整体宽度 = 28(weekday) + 4(gap) + 53*12 + 52*2 = 764px */
 }
 
 .heatmap-total {
@@ -88,7 +88,7 @@
 /* 月份标签条：与下方网格列严格对齐（28px 标签列 + 53 列 12px + 2px gap） */
 .heatmap-months {
   display: grid;
-  grid-template-columns: 24px repeat(53, 12px);
+  grid-template-columns: 28px repeat(53, 12px);
   column-gap: 2px;
   font-size: 11px;
   color: var(--text-muted);
@@ -103,7 +103,7 @@
 /* 主体 */
 .heatmap-main {
   display: grid;
-  grid-template-columns: 24px auto;
+  grid-template-columns: 28px auto;
   gap: 4px;
 }
 
@@ -122,6 +122,7 @@
 .heatmap-weekday-label {
   font-variant-numeric: tabular-nums;
   line-height: 1;
+  white-space: nowrap;
 }
 
 /* 网格：53 列，每列 12px，每格 12×12 */
