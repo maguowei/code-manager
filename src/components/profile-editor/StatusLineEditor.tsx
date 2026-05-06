@@ -1,8 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
+import { Download } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "../../hooks/useToast";
 import { type TranslationKey, useI18n } from "../../i18n";
 import ConfirmAlertDialog from "../ConfirmAlertDialog";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
 import { readObject } from "./editor-utils";
 import {
   getStatusLineErrorKey,
@@ -10,7 +14,6 @@ import {
   readStatusLineFormValue,
   type StatusLineFormValue,
 } from "./status-line-utils";
-import "./editor-shared.css";
 
 interface StatusLineEditorProps {
   value: unknown;
@@ -111,30 +114,35 @@ function StatusLineEditor({ value, onChange, onError, showTitle = true }: Status
   }, [draft, t]);
 
   return (
-    <div className="profile-section-body">
-      <div className="profile-subsection-header">
-        <div>
+    <div className="profile-section-body flex flex-col gap-4">
+      <div className="profile-subsection-header flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
           {showTitle ? <h4>{t("profileEditor.statusLine.title")}</h4> : null}
-          <p>{t("profileEditor.statusLine.summaryHint")}</p>
+          <p className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">
+            {t("profileEditor.statusLine.summaryHint")}
+          </p>
         </div>
-        <button
+        <Button
           type="button"
+          variant="outline"
           className="profile-secondary-btn"
           disabled={isInstallingPreset}
           onClick={() => {
             void installDefaultPreset(false);
           }}
         >
+          <Download className="size-4" aria-hidden="true" />
           {t("profileEditor.statusLine.installDefaultPreset")}
-        </button>
+        </Button>
       </div>
 
-      <div className="form-group">
-        <label htmlFor="status-line-command">{t("profileEditor.statusLine.commandLabel")}</label>
-        <input
+      <div className="form-group grid gap-2">
+        <Label htmlFor="status-line-command">{t("profileEditor.statusLine.commandLabel")}</Label>
+        <Input
           id="status-line-command"
           aria-label={t("profileEditor.statusLine.commandLabel")}
-          className={validationError ? "input-error" : ""}
+          className={validationError ? "input-error border-destructive" : ""}
+          aria-invalid={!!validationError}
           placeholder={t("profileEditor.statusLine.commandPlaceholder")}
           value={draft.command}
           onChange={(event) =>
@@ -146,13 +154,14 @@ function StatusLineEditor({ value, onChange, onError, showTitle = true }: Status
         />
       </div>
 
-      <div className="form-row">
-        <div className="form-group">
-          <label htmlFor="status-line-padding">{t("profileEditor.statusLine.paddingLabel")}</label>
-          <input
+      <div className="form-row grid gap-4 md:grid-cols-2">
+        <div className="form-group grid gap-2">
+          <Label htmlFor="status-line-padding">{t("profileEditor.statusLine.paddingLabel")}</Label>
+          <Input
             id="status-line-padding"
             aria-label={t("profileEditor.statusLine.paddingLabel")}
-            className={validationError ? "input-error" : ""}
+            className={validationError ? "input-error border-destructive" : ""}
+            aria-invalid={!!validationError}
             inputMode="decimal"
             placeholder={t("profileEditor.statusLine.paddingPlaceholder")}
             value={draft.padding}
@@ -165,14 +174,15 @@ function StatusLineEditor({ value, onChange, onError, showTitle = true }: Status
           />
         </div>
 
-        <div className="form-group">
-          <label htmlFor="status-line-refresh-interval">
+        <div className="form-group grid gap-2">
+          <Label htmlFor="status-line-refresh-interval">
             {t("profileEditor.statusLine.refreshIntervalLabel")}
-          </label>
-          <input
+          </Label>
+          <Input
             id="status-line-refresh-interval"
             aria-label={t("profileEditor.statusLine.refreshIntervalLabel")}
-            className={validationError ? "input-error" : ""}
+            className={validationError ? "input-error border-destructive" : ""}
+            aria-invalid={!!validationError}
             inputMode="numeric"
             placeholder={t("profileEditor.statusLine.refreshIntervalPlaceholder")}
             value={draft.refreshInterval}
@@ -186,7 +196,9 @@ function StatusLineEditor({ value, onChange, onError, showTitle = true }: Status
         </div>
       </div>
 
-      {validationError ? <p className="field-error">{validationError}</p> : null}
+      {validationError ? (
+        <p className="field-error text-sm font-medium text-destructive">{validationError}</p>
+      ) : null}
 
       {overwriteDialogOpen ? (
         <ConfirmAlertDialog
