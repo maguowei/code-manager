@@ -1,6 +1,9 @@
+import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type TranslationKey, useI18n } from "../../i18n";
 import ConfirmAlertDialog from "../ConfirmAlertDialog";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 import {
   createRowId,
   type MarketplaceDraft,
@@ -9,7 +12,6 @@ import {
 } from "./editor-utils";
 import { buildOfficialMarketplaceDraft, OFFICIAL_MARKETPLACE_ID } from "./marketplace-presets";
 import RequiredBadge from "./RequiredBadge";
-import "./MarketplaceEditor.css";
 
 interface MarketplaceEditorProps {
   value: unknown;
@@ -486,11 +488,11 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
         </div>
       ) : null}
 
-      <div className="profile-marketplace-editor">
-        <div className="profile-marketplace-list-shell">
-          <div className="profile-marketplace-list">
-            <div className="profile-marketplace-list-header">
-              <span className="profile-marketplace-list-header-index">
+      <div className="profile-marketplace-editor flex flex-col gap-4">
+        <div className="profile-marketplace-list-shell flex min-w-0 flex-col gap-3 [container-type:inline-size]">
+          <div className="profile-marketplace-list flex flex-col overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--border-default)_88%,var(--accent-blue)_12%)] bg-[color-mix(in_srgb,var(--bg-primary)_92%,var(--accent-blue-bg)_8%)]">
+            <div className="profile-marketplace-list-header grid grid-cols-[40px_minmax(0,1fr)_minmax(0,1.35fr)_auto] items-center gap-3 border-b border-[color-mix(in_srgb,var(--border-default)_92%,transparent)] px-3.5 pt-3 pb-2.5 text-xs font-semibold text-[var(--text-secondary)] max-[720px]:hidden">
+              <span className="profile-marketplace-list-header-index inline-flex items-center justify-center text-xs font-semibold text-[var(--text-muted)] tabular-nums">
                 {t("profileEditor.common.index")}
               </span>
               <span>{t("profileEditor.marketplace.columnMarketplace")}</span>
@@ -517,21 +519,26 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                 return (
                   <div
                     key={item.id}
-                    className={`profile-marketplace-list-row${selected ? " selected" : ""}`}
+                    className={`profile-marketplace-list-row flex flex-col gap-0 border-t border-[color-mix(in_srgb,var(--border-default)_92%,transparent)] px-3.5 py-2.5 first:border-t-0 max-[720px]:gap-3 max-[720px]:py-3${selected ? " selected bg-[color-mix(in_srgb,var(--accent-blue-bg)_18%,var(--bg-primary)_82%)]" : ""}`}
                   >
-                    <div className="profile-marketplace-row-head">
+                    <div className="profile-marketplace-row-head grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 max-[720px]:items-start">
                       <button
                         type="button"
-                        className="profile-marketplace-list-main"
+                        className="profile-marketplace-list-main group grid min-h-12 w-full min-w-0 cursor-pointer grid-cols-[40px_minmax(0,1fr)_minmax(0,1.35fr)] items-center gap-3 rounded-lg border-0 bg-transparent px-2.5 py-2 text-left text-[var(--text-primary)] hover:text-[var(--accent-blue)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-blue)] max-[720px]:grid-cols-[32px_minmax(0,1fr)] max-[720px]:items-start max-[720px]:gap-x-2.5 max-[720px]:gap-y-1.5"
                         aria-pressed={selected}
                         aria-label={`${t("profileEditor.marketplace.editAriaLabel")} ${label}`}
                         onClick={() => handleSelectMarketplace(marketplace)}
                       >
-                        <span className="profile-marketplace-list-index" aria-hidden="true">
+                        <span
+                          className="profile-marketplace-list-index inline-flex items-center justify-center text-xs font-semibold text-[var(--text-muted)] tabular-nums max-[720px]:row-span-2 max-[720px]:items-start max-[720px]:pt-0.5"
+                          aria-hidden="true"
+                        >
                           {index + 1}
                         </span>
-                        <span className="profile-marketplace-list-title">
-                          <span>{label}</span>
+                        <span className="profile-marketplace-list-title inline-flex min-w-0 flex-wrap items-center gap-2 font-semibold max-[720px]:col-start-2">
+                          <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap max-[720px]:whitespace-normal max-[720px]:break-words">
+                            {label}
+                          </span>
                           <span className="profile-env-row-badge subtle">{item.sourceType}</span>
                           {draftBadge ? (
                             <span className="profile-env-row-badge">{draftBadge}</span>
@@ -540,40 +547,42 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                             <span className="profile-env-row-badge subtle">{dirtyBadge}</span>
                           ) : null}
                         </span>
-                        <span className="profile-marketplace-list-summary">
-                          <span className="profile-marketplace-summary-primary">
+                        <span className="profile-marketplace-list-summary flex min-w-0 flex-col gap-1 max-[720px]:col-start-2">
+                          <span className="profile-marketplace-summary-primary min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-medium text-[var(--text-primary)] group-hover:text-[var(--accent-blue)] group-focus-visible:text-[var(--accent-blue)] max-[720px]:whitespace-normal max-[720px]:break-words">
                             {item.primarySummary}
                           </span>
                           {item.secondarySummary.length > 0 ? (
-                            <span className="profile-marketplace-summary-secondary">
+                            <span className="profile-marketplace-summary-secondary min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-[var(--text-secondary)] group-hover:text-[var(--accent-blue)] group-focus-visible:text-[var(--accent-blue)] max-[720px]:whitespace-normal max-[720px]:break-words">
                               {item.secondarySummary.join(" · ")}
                             </span>
                           ) : null}
                         </span>
                       </button>
 
-                      <div className="profile-row-actions profile-marketplace-row-actions">
-                        <button
+                      <div className="profile-row-actions profile-marketplace-row-actions flex flex-nowrap justify-end max-[720px]:self-start">
+                        <Button
                           type="button"
-                          className="profile-icon-btn danger"
+                          variant="ghost"
+                          size="icon-sm"
+                          className="profile-icon-btn danger text-destructive hover:bg-destructive/10 hover:text-destructive"
                           aria-label={`${t("profileEditor.marketplace.deleteAriaLabel")} ${label}`}
                           onClick={() => handleDeleteMarketplace(marketplace)}
                         >
-                          ×
-                        </button>
+                          <Trash2 className="size-4" aria-hidden="true" />
+                        </Button>
                       </div>
                     </div>
 
                     {selected && draft ? (
-                      <div className="profile-marketplace-inline-editor">
-                        <div className="profile-marketplace-inline-fields">
+                      <div className="profile-marketplace-inline-editor mt-2 flex flex-col gap-3 border-t border-[color-mix(in_srgb,var(--border-default)_92%,transparent)] pt-3 pl-[62px] max-[720px]:mt-0 max-[720px]:pl-0">
+                        <div className="profile-marketplace-inline-fields flex flex-col gap-3">
                           <div className="form-row">
-                            <label className="form-group">
+                            <label className="form-group gap-2">
                               <span className="profile-inline-required-label profile-env-inline-label">
                                 <span>{t("profileEditor.marketplace.idLabel")}</span>
                                 <RequiredBadge />
                               </span>
-                              <input
+                              <Input
                                 ref={idInputRef}
                                 aria-label={t("profileEditor.marketplace.idLabel")}
                                 value={draft.marketplaceId}
@@ -584,13 +593,13 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                               />
                             </label>
 
-                            <label className="form-group">
+                            <label className="form-group gap-2">
                               <span className="profile-env-inline-label">
                                 {t("profileEditor.marketplace.sourceLabel")}
                               </span>
                               <select
                                 aria-label={t("profileEditor.marketplace.sourceLabel")}
-                                className="form-select"
+                                className="form-select h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base text-[var(--text-primary)] shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm"
                                 value={draft.sourceType}
                                 onChange={(event) =>
                                   handleDraftChange(
@@ -613,12 +622,12 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                           <div className="form-row">
                             {draft.sourceType === "github" ? (
                               <>
-                                <label className="form-group">
+                                <label className="form-group gap-2">
                                   <span className="profile-inline-required-label profile-env-inline-label">
                                     <span>{t("profileEditor.marketplace.repoLabel")}</span>
                                     <RequiredBadge />
                                   </span>
-                                  <input
+                                  <Input
                                     aria-label={t("profileEditor.marketplace.repoLabel")}
                                     value={draft.repo}
                                     placeholder="team/plugins"
@@ -628,11 +637,11 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                                   />
                                 </label>
 
-                                <label className="form-group">
+                                <label className="form-group gap-2">
                                   <span className="profile-env-inline-label">
                                     {t("profileEditor.marketplace.refLabel")}
                                   </span>
-                                  <input
+                                  <Input
                                     aria-label={t("profileEditor.marketplace.refLabel")}
                                     value={draft.ref}
                                     placeholder="main"
@@ -642,11 +651,11 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                                   />
                                 </label>
 
-                                <label className="form-group">
+                                <label className="form-group gap-2">
                                   <span className="profile-env-inline-label">
                                     {t("profileEditor.marketplace.repoPathLabel")}
                                   </span>
-                                  <input
+                                  <Input
                                     aria-label={t("profileEditor.marketplace.repoPathLabel")}
                                     value={draft.path}
                                     placeholder=".claude-plugin/marketplace.json"
@@ -659,12 +668,12 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                             ) : null}
 
                             {draft.sourceType === "git" || draft.sourceType === "url" ? (
-                              <label className="form-group">
+                              <label className="form-group gap-2">
                                 <span className="profile-inline-required-label profile-env-inline-label">
                                   <span>{t("profileEditor.marketplace.urlLabel")}</span>
                                   <RequiredBadge />
                                 </span>
-                                <input
+                                <Input
                                   aria-label={t("profileEditor.marketplace.urlLabel")}
                                   value={draft.url}
                                   placeholder={
@@ -678,12 +687,12 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                             ) : null}
 
                             {draft.sourceType === "hostPattern" ? (
-                              <label className="form-group">
+                              <label className="form-group gap-2">
                                 <span className="profile-inline-required-label profile-env-inline-label">
                                   <span>{t("profileEditor.marketplace.hostPatternLabel")}</span>
                                   <RequiredBadge />
                                 </span>
-                                <input
+                                <Input
                                   aria-label={t("profileEditor.marketplace.hostPatternLabel")}
                                   value={draft.hostPattern}
                                   placeholder="github.com/*"
@@ -695,12 +704,12 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                             ) : null}
 
                             {draft.sourceType === "npm" ? (
-                              <label className="form-group">
+                              <label className="form-group gap-2">
                                 <span className="profile-inline-required-label profile-env-inline-label">
                                   <span>{t("profileEditor.marketplace.packageLabel")}</span>
                                   <RequiredBadge />
                                 </span>
-                                <input
+                                <Input
                                   aria-label={t("profileEditor.marketplace.packageLabel")}
                                   value={draft.packageName}
                                   placeholder="@team/claude-marketplace"
@@ -712,12 +721,12 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                             ) : null}
 
                             {draft.sourceType === "file" || draft.sourceType === "directory" ? (
-                              <label className="form-group">
+                              <label className="form-group gap-2">
                                 <span className="profile-inline-required-label profile-env-inline-label">
                                   <span>{t("profileEditor.marketplace.localPathLabel")}</span>
                                   <RequiredBadge />
                                 </span>
-                                <input
+                                <Input
                                   aria-label={t("profileEditor.marketplace.localPathLabel")}
                                   value={draft.path}
                                   placeholder="/path/to/marketplace"
@@ -728,11 +737,11 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                               </label>
                             ) : null}
 
-                            <label className="form-group">
+                            <label className="form-group gap-2">
                               <span className="profile-env-inline-label">
                                 {t("profileEditor.marketplace.installLocationLabel")}
                               </span>
-                              <input
+                              <Input
                                 aria-label={t("profileEditor.marketplace.installLocationLabel")}
                                 value={draft.installLocation}
                                 placeholder="/tmp/team-market"
@@ -744,23 +753,24 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                           </div>
                         </div>
 
-                        <div className="profile-env-inline-actions">
-                          <button
+                        <div className="profile-env-inline-actions flex flex-wrap items-center gap-2">
+                          <Button
                             type="button"
                             className="profile-primary-btn"
                             aria-label={t("profileEditor.marketplace.saveAriaLabel")}
                             onClick={handleSaveDraft}
                           >
                             {t("profileEditor.marketplace.save")}
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
+                            variant="outline"
                             className="profile-secondary-btn"
                             aria-label={t("profileEditor.marketplace.cancelEditAriaLabel")}
                             onClick={handleCancelDraft}
                           >
                             {t("profileEditor.common.cancel")}
-                          </button>
+                          </Button>
                         </div>
 
                         {interactionError ? (
@@ -773,23 +783,32 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                 );
               })
             ) : (
-              <div className="profile-empty-state profile-marketplace-empty-list">{emptyHint}</div>
+              <div className="profile-empty-state profile-marketplace-empty-list flex min-h-[120px] items-center justify-center px-4 text-center">
+                {emptyHint}
+              </div>
             )}
           </div>
 
-          <div className="profile-env-footer profile-marketplace-footer-actions">
+          <div className="profile-env-footer profile-marketplace-footer-actions flex flex-wrap gap-2 max-[720px]:[&>button]:w-full max-[720px]:[&>button]:justify-center">
             {!hasOfficialMarketplace ? (
-              <button
+              <Button
                 type="button"
                 className="profile-primary-btn"
                 onClick={handleAddOfficialMarketplace}
               >
+                <Plus className="size-4" aria-hidden="true" />
                 {t("profileEditor.marketplace.addOfficial")}
-              </button>
+              </Button>
             ) : null}
-            <button type="button" className="profile-secondary-btn" onClick={handleAddMarketplace}>
+            <Button
+              type="button"
+              variant="outline"
+              className="profile-secondary-btn"
+              onClick={handleAddMarketplace}
+            >
+              <Plus className="size-4" aria-hidden="true" />
               {t("profileEditor.marketplace.addItem")}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
