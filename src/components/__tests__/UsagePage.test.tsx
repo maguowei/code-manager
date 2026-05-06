@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { TooltipProvider } from "../../components/ui/tooltip";
 import { ToastProvider } from "../../hooks/useToast";
 import { I18nProvider } from "../../i18n";
 import type {
@@ -846,12 +847,14 @@ describe("UsagePage cost cockpit", () => {
   it("uses a dollar symbol for the usage sidebar menu icon", () => {
     render(
       <I18nProvider>
-        <Sidebar
-          activeTab="usage"
-          onTabChange={vi.fn()}
-          onClaudeOverviewClick={vi.fn()}
-          onSettingsClick={vi.fn()}
-        />
+        <TooltipProvider>
+          <Sidebar
+            activeTab="usage"
+            onTabChange={vi.fn()}
+            onClaudeOverviewClick={vi.fn()}
+            onSettingsClick={vi.fn()}
+          />
+        </TooltipProvider>
       </I18nProvider>,
     );
 

@@ -1,8 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
-import "./App.css";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import ClaudeOverviewPage from "./components/ClaudeOverviewPage";
 import HistoryPage from "./components/HistoryPage";
 import MemoryPage from "./components/MemoryPage";
@@ -102,55 +102,63 @@ function App() {
     setActiveTab("claudeOverview");
   }, [activeTab]);
 
-  const content = loading ? (
-    <div className="app-container">
-      <div className="loading">{t("loading")}</div>
-    </div>
-  ) : (
-    <div className="app-container">
-      <Sidebar
-        activeTab={activeTab}
-        onTabChange={(tab) => {
-          if (tab !== "claudeOverview") {
-            previousContentTabRef.current = tab;
-          }
-          setActiveTab(tab);
-          setIsDetailDrawerOpen(false);
-        }}
-        onClaudeOverviewClick={handleClaudeOverviewClick}
-        onSettingsClick={handleSettingsClick}
-      />
-
-      <div className="content-area">
-        {activeTab === "stats" ? (
-          <StatsPage />
-        ) : activeTab === "usage" ? (
-          <UsagePage />
-        ) : activeTab === "claudeOverview" ? (
-          <ClaudeOverviewPage />
-        ) : activeTab === "projects" ? (
-          <ProjectsPage />
-        ) : activeTab === "history" ? (
-          <HistoryPage />
-        ) : activeTab === "providers" ? (
-          <PresetsPage workspace={workspace} onWorkspaceChange={loadWorkspace} />
-        ) : activeTab === "configs" ? (
-          <ProfilesPage workspace={workspace} onWorkspaceChange={loadWorkspace} />
-        ) : (
-          <div className={`list-section ${isDetailDrawerOpen ? "compressed" : ""}`}>
-            {activeTab === "memory" && <MemoryPage onDrawerChange={setIsDetailDrawerOpen} />}
-            {activeTab === "skills" && <SkillsPage onDrawerChange={setIsDetailDrawerOpen} />}
-          </div>
-        )}
-      </div>
-
-      {isSettingsOpen && <SettingsDrawer onClose={closeSettingsDrawer} />}
-    </div>
-  );
+  if (loading) {
+    return (
+      <TooltipProvider delayDuration={200}>
+        <div className="flex h-screen items-center justify-center bg-[var(--bg-base)] text-base text-[var(--text-secondary)]">
+          {t("loading")}
+        </div>
+        <Toaster richColors closeButton position="top-right" />
+      </TooltipProvider>
+    );
+  }
 
   return (
     <TooltipProvider delayDuration={200}>
-      {content}
+      <div className="flex h-screen overflow-hidden bg-[var(--bg-base)] text-[var(--text-primary)]">
+        <Sidebar
+          activeTab={activeTab}
+          onTabChange={(tab) => {
+            if (tab !== "claudeOverview") {
+              previousContentTabRef.current = tab;
+            }
+            setActiveTab(tab);
+            setIsDetailDrawerOpen(false);
+          }}
+          onClaudeOverviewClick={handleClaudeOverviewClick}
+          onSettingsClick={handleSettingsClick}
+        />
+
+        <div className="relative flex flex-1 overflow-hidden">
+          {activeTab === "stats" ? (
+            <StatsPage />
+          ) : activeTab === "usage" ? (
+            <UsagePage />
+          ) : activeTab === "claudeOverview" ? (
+            <ClaudeOverviewPage />
+          ) : activeTab === "projects" ? (
+            <ProjectsPage />
+          ) : activeTab === "history" ? (
+            <HistoryPage />
+          ) : activeTab === "providers" ? (
+            <PresetsPage workspace={workspace} onWorkspaceChange={loadWorkspace} />
+          ) : activeTab === "configs" ? (
+            <ProfilesPage workspace={workspace} onWorkspaceChange={loadWorkspace} />
+          ) : (
+            <div
+              className={cn(
+                "flex shrink-0 flex-col overflow-y-auto overflow-x-hidden bg-[var(--bg-secondary)] transition-[width] duration-300 ease-out scrollbar-none max-[1000px]:fixed max-[1000px]:inset-y-0 max-[1000px]:right-0 max-[1000px]:left-[var(--sidebar-width)] max-[1000px]:z-[var(--z-index-list)] max-[1000px]:w-auto max-[700px]:left-[var(--sidebar-width-small)]",
+                isDetailDrawerOpen ? "w-[280px]" : "w-[360px]",
+              )}
+            >
+              {activeTab === "memory" && <MemoryPage onDrawerChange={setIsDetailDrawerOpen} />}
+              {activeTab === "skills" && <SkillsPage onDrawerChange={setIsDetailDrawerOpen} />}
+            </div>
+          )}
+        </div>
+
+        {isSettingsOpen && <SettingsDrawer onClose={closeSettingsDrawer} />}
+      </div>
       <Toaster richColors closeButton position="top-right" />
     </TooltipProvider>
   );

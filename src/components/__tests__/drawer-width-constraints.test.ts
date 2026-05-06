@@ -8,14 +8,14 @@ function readText(relativePath: string): string {
 
 describe("drawer width constraints", () => {
   it("does not rely on horizontal scrolling for the main drawer", () => {
-    const css = readText("src/App.css");
+    const css = readText("src/index.css");
 
     expect(css).toContain(".drawer {");
     expect(css).not.toContain("overflow-x: auto;");
   });
 
   it("keeps config editors at a shared minimum width and raises the app window minimum width to match", () => {
-    const sharedCss = readText("src/styles/shared.css");
+    const globalCss = readText("src/index.css");
     const profileEditorCss = readText("src/components/ProfileEditor.css");
     const configEditorCss = readText("src/components/ConfigEditor.css");
     const tauriConfig = JSON.parse(readText("src-tauri/tauri.conf.json")) as {
@@ -24,7 +24,7 @@ describe("drawer width constraints", () => {
       };
     };
 
-    expect(sharedCss).toContain("--config-editor-min-width: 560px;");
+    expect(globalCss).toContain("--config-editor-min-width: 560px;");
     expect(profileEditorCss).toContain(".profile-editor-panel,");
     expect(profileEditorCss).toContain("min-width: var(--config-editor-min-width);");
     expect(configEditorCss).toContain(".modal-large {");

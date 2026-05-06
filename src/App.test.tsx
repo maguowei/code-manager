@@ -71,6 +71,9 @@ vi.mock("@/components/ui/sonner", () => ({
 
 vi.mock("@/components/ui/tooltip", () => ({
   TooltipProvider: ({ children }: { children: ReactNode }) => children,
+  Tooltip: ({ children }: { children: ReactNode }) => children,
+  TooltipTrigger: ({ children }: { children: ReactNode }) => children,
+  TooltipContent: () => null,
 }));
 
 vi.mock("@pierre/diffs/react", () => ({

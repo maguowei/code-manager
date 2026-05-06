@@ -7,7 +7,7 @@ import { type ClaudeStats, isTauri, type ProjectStats } from "../types";
 import { formatDuration } from "./project-detail-utils";
 import "./StatsPage.css";
 
-// recharts 不支持 CSS 变量，从 App.css 提取对应暗色 hex
+// recharts 不支持 CSS 变量，这里保留暗色主题对应的固定色值
 const COLORS = {
   orange: "#f78166",
 };

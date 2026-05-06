@@ -1,4 +1,4 @@
-/* ConfigEditor 特有样式（公共抽屉样式见 shared.css） */
+/* ConfigEditor 特有样式（公共抽屉样式见 index.css） */
 
 .modal-large {
   max-width: none;
@@ -195,7 +195,7 @@
   color: var(--text-primary);
 }
 
-/* 折叠区域和 Checkbox 通用样式已移至 App.css */
+/* 折叠区域和 Checkbox 通用样式已移至 index.css */
 
 /* Section Toggle (保留用于非折叠区域的标题，如"响应语言") */
 .section-toggle {
