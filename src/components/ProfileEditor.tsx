@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { CircleCheck, ExternalLink, TestTube } from "lucide-react";
+import { ArrowLeft, CircleCheck, ExternalLink, TestTube } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
@@ -58,8 +58,8 @@ import {
 import { useDocumentJsonEditor } from "./profile-editor/useDocumentJsonEditor";
 import { useObjectJsonEditor } from "./profile-editor/useObjectJsonEditor";
 import useStructuredSettingsSectionState from "./profile-editor/useStructuredSettingsSectionState";
+import { Button } from "./ui/button";
 import "./ConfigEditor.css";
-import "./ProfileEditor.css";
 
 interface ProfileEditorProps {
   profile: ConfigProfile | null;
@@ -574,28 +574,32 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
   const hasSuccessfulModelTest = latestModelTestResult?.ok === true;
 
   return (
-    <div className="editor-panel profile-editor-panel">
-      <div className="editor-header">
-        <button
+    <div className="editor-panel profile-editor-panel flex h-full min-h-0 w-full min-w-[var(--config-editor-min-width)] flex-col overflow-hidden bg-[var(--bg-elevated)]">
+      <div className="editor-header sticky top-0 z-[var(--z-index-sticky)] flex h-14 shrink-0 items-center justify-between gap-3 border-b border-[var(--border-default)] bg-[var(--bg-primary)] px-6">
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-sm"
           className="editor-back-btn"
           onClick={onClose}
           aria-label={t("common.close")}
         >
-          ←
-        </button>
-        <h2>{messages.title}</h2>
-        <button
+          <ArrowLeft className="size-4" aria-hidden="true" />
+        </Button>
+        <h2 className="min-w-0 flex-1 truncate text-lg font-semibold text-[var(--text-primary)]">
+          {messages.title}
+        </h2>
+        <Button
           type="button"
           className="editor-save-btn"
           disabled={!name.trim() || hasValidationError}
           onClick={handleSaveClick}
         >
           {messages.save}
-        </button>
+        </Button>
       </div>
 
-      <div className="editor-body profile-editor-body">
+      <div className="editor-body profile-editor-body flex min-h-0 flex-1 flex-col items-center gap-5 overflow-y-auto px-6 py-6 pb-6 [&>*]:shrink-0 [&>:not(.editor-badge-large)]:w-[min(100%,880px)]">
         <ProfileNameBadge
           name={name}
           colorSeedScope={presetSlugFromId(presetId)}
@@ -641,8 +645,8 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
 
           <div className="form-group">
             <label htmlFor="profile-preset">{messages.preset}</label>
-            <div className="profile-preset-select-grid">
-              <div className="profile-preset-select-control">
+            <div className="profile-preset-select-grid grid max-w-full grid-cols-[minmax(0,520px)_max-content] items-center gap-3 max-[700px]:grid-cols-[minmax(0,1fr)] max-[700px]:items-stretch">
+              <div className="profile-preset-select-control min-w-0">
                 <select
                   id="profile-preset"
                   className="form-select"
@@ -660,7 +664,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
               {selectedPreset?.docUrl ? (
                 <button
                   type="button"
-                  className="profile-secondary-btn profile-preset-doc-link"
+                  className="profile-secondary-btn profile-preset-doc-link min-h-[42px] whitespace-nowrap max-[700px]:min-h-[34px] max-[700px]:justify-self-start [&_svg]:shrink-0"
                   onClick={handleOpenSelectedPresetDocs}
                 >
                   <span>{messages.openPresetDocs}</span>
