@@ -1,8 +1,10 @@
 import { open } from "@tauri-apps/plugin-dialog";
+import { FolderOpen } from "lucide-react";
 import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "../../hooks/useToast";
 import { useI18n } from "../../i18n";
 import ConfirmAlertDialog from "../ConfirmAlertDialog";
+import { Button } from "../ui/button";
 import {
   buildStringListError,
   createRowId,
@@ -17,7 +19,6 @@ import {
 import { RECOMMENDED_PERMISSION_RULES } from "./permission-presets";
 import { SandboxSwitchControl } from "./SandboxEditor";
 import StringListEditor from "./StringListEditor";
-import "./PermissionsEditor.css";
 
 interface PermissionsEditorProps {
   value: unknown;
@@ -66,11 +67,15 @@ export function PermissionDefaultModeSelect({
   const { t } = useI18n();
   const label = t("profileEditor.permissions.defaultModeLabel");
   const modeOptions = getPermissionModeSelectOptions(value);
+  const selectClassName =
+    variant === "header"
+      ? "profile-permissions-header-select w-[min(168px,36vw)] min-w-[132px] max-w-[168px] cursor-pointer rounded-md border border-[var(--border-default)] bg-[var(--bg-primary)] px-3 py-2 pr-8 text-sm font-semibold text-[var(--text-primary)] outline-none transition-colors hover:border-[var(--text-muted)] focus:border-[var(--accent-blue)] focus:shadow-[0_0_0_3px_var(--accent-blue-bg)] max-[900px]:w-[min(150px,34vw)] max-[900px]:min-w-[120px] max-[900px]:max-w-[150px]"
+      : "form-select";
 
   const select = (
     <select
       id={selectId}
-      className={variant === "header" ? "profile-permissions-header-select" : "form-select"}
+      className={selectClassName}
       value={value}
       aria-label={ariaLabel}
       onChange={(event) => onChange(event.target.value)}
@@ -86,8 +91,10 @@ export function PermissionDefaultModeSelect({
 
   if (variant === "header") {
     return (
-      <div className="profile-permissions-header-field">
-        <span className="profile-permissions-header-label">{label}</span>
+      <div className="profile-permissions-header-field inline-flex min-w-0 items-center gap-2.5 max-[900px]:gap-2">
+        <span className="profile-permissions-header-label shrink-0 whitespace-nowrap text-xs font-semibold text-[var(--text-secondary)]">
+          {label}
+        </span>
         {select}
       </div>
     );
@@ -128,22 +135,6 @@ function getPermissionModeSelectOptions(value: string): readonly string[] {
     value,
     ...USER_VISIBLE_PERMISSION_MODE_OPTIONS.slice(insertIndex),
   ];
-}
-
-function DirectoryActionIcon() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      aria-hidden="true"
-    >
-      <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h4l2 2h7A2.5 2.5 0 0 1 21 9.5v7A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5z" />
-    </svg>
-  );
 }
 
 function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps) {
@@ -408,9 +399,9 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
 
   return (
     <div className="profile-section-body">
-      <div className="profile-permissions-toolbar">
-        <div className="profile-inline-switch-row profile-inline-switch-row-emphasis">
-          <span className="profile-inline-switch-title">
+      <div className="profile-permissions-toolbar mb-1.5 flex items-center justify-between gap-3.5 max-[900px]:flex-col max-[900px]:items-stretch">
+        <div className="profile-inline-switch-row profile-inline-switch-row-emphasis flex w-full max-w-[420px] items-center justify-start gap-3.5 self-start max-[900px]:max-w-none max-[900px]:justify-between">
+          <span className="profile-inline-switch-title min-w-0 text-[15px] font-bold leading-snug text-[var(--text-primary)]">
             {t("profileEditor.permissions.disableBypass")}
           </span>
           <SandboxSwitchControl
@@ -421,16 +412,17 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
           />
         </div>
 
-        <button
+        <Button
           type="button"
+          variant="outline"
           className="profile-secondary-btn profile-permissions-recommended-btn"
           onClick={() => setRecommendedDialogOpen(true)}
         >
           {t("profileEditor.permissions.loadRecommendedRules")}
-        </button>
+        </Button>
       </div>
 
-      <div className="profile-section-grid">
+      <div className="profile-section-grid grid grid-cols-2 gap-4 max-[900px]:grid-cols-1">
         <StringListEditor
           label={t("profileEditor.permissions.allowRulesTitle")}
           rows={allowRows}
@@ -491,7 +483,7 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
           itemLabelPrefix={t("profileEditor.permissions.directoryPrefix")}
           placeholder={t("profileEditor.permissions.directoryPlaceholder")}
           rowActionLabel={t("profileEditor.permissions.selectDirectory")}
-          rowActionIcon={<DirectoryActionIcon />}
+          rowActionIcon={<FolderOpen className="size-4" aria-hidden="true" />}
           onRowAction={handleSelectDirectory}
           buildRowActionAriaLabel={(itemLabel) =>
             `${t("profileEditor.permissions.selectDirectory")} ${itemLabel}`
