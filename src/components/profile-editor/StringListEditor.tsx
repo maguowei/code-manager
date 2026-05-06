@@ -1,7 +1,10 @@
+import { ChevronDown, Plus, Trash2 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { useI18n } from "../../i18n";
+import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 import type { StringRow } from "./editor-utils";
-import "./StringListEditor.css";
 
 interface StringListEditorProps {
   label: string;
@@ -76,71 +79,74 @@ function StringListEditor({
         {collapseToggleVisible ? (
           <button
             type="button"
-            className="profile-accordion-trigger profile-string-list-trigger"
+            className="profile-accordion-trigger profile-string-list-trigger min-w-0 flex-1"
             aria-expanded={bodyVisible}
             onClick={handleToggleExpanded}
           >
-            <span className="profile-accordion-header-main profile-string-list-title-row">
+            <span className="profile-accordion-header-main profile-string-list-title-row flex min-w-0 flex-wrap items-center gap-2">
               <h4>{label}</h4>
-              <span className="profile-accordion-badge">{rows.length}</span>
+              <Badge className="profile-accordion-badge">{rows.length}</Badge>
             </span>
           </button>
         ) : (
-          <div className="profile-string-list-header-copy">
-            <div className="profile-string-list-title-row">
+          <div className="profile-string-list-header-copy min-w-0 flex-1">
+            <div className="profile-string-list-title-row flex min-w-0 flex-wrap items-center gap-2">
               <h4>{label}</h4>
             </div>
           </div>
         )}
         {collapseToggleVisible ? (
           <div className="profile-subsection-actions">
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-sm"
               className="profile-accordion-chevron-btn profile-string-list-collapse-btn"
               aria-expanded={bodyVisible}
               aria-label={`${bodyVisible ? t("common.collapse") : t("common.expand")} ${label}`}
               onClick={handleToggleExpanded}
             >
-              <svg
-                className={`profile-string-list-chevron${bodyVisible ? " expanded" : ""}`}
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
+              <ChevronDown
+                className={`profile-string-list-chevron size-4 transition-transform${bodyVisible ? " expanded rotate-180" : ""}`}
                 aria-hidden="true"
-              >
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </button>
+              />
+            </Button>
           </div>
         ) : null}
       </div>
 
       {bodyVisible ? (
-        <div className="profile-string-list-body">
+        <div className="profile-string-list-body flex flex-col gap-3">
           {rows.length === 0 ? (
-            <div className="profile-empty-state">
+            <div className="profile-empty-state flex min-h-[96px] items-center justify-center rounded-lg border border-[var(--border-default)] px-4 text-center">
               {emptyHint ?? t("profileEditor.common.emptyDefault")}
             </div>
           ) : (
             <>
               {clearButtonVisible ? (
-                <div className="profile-string-list-prelude">
-                  <button type="button" className="profile-string-list-clear-btn" onClick={onClear}>
+                <div className="profile-string-list-prelude -mb-1 flex justify-end">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    className="profile-string-list-clear-btn h-auto px-1.5 py-0.5 text-xs text-[var(--text-muted)] hover:bg-[var(--bg-secondary)] hover:text-[var(--text-secondary)]"
+                    onClick={onClear}
+                  >
                     {clearLabel}
-                  </button>
+                  </Button>
                 </div>
               ) : null}
 
-              <div className="profile-row-stack">
+              <div className="profile-row-stack flex flex-col gap-3">
                 {rows.map((row, index) => {
                   const itemLabel = buildItemLabel(index);
 
                   return (
-                    <div key={row.id} className="profile-inline-row profile-string-list-row">
-                      <input
+                    <div
+                      key={row.id}
+                      className="profile-inline-row profile-string-list-row grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 max-[900px]:grid-cols-1"
+                    >
+                      <Input
                         className="form-input profile-string-list-input"
                         aria-label={itemLabel}
                         value={row.value}
@@ -158,28 +164,32 @@ function StringListEditor({
                           )
                         }
                       />
-                      <div className="profile-row-actions profile-string-list-actions">
+                      <div className="profile-row-actions profile-string-list-actions flex flex-wrap justify-end gap-2">
                         {onRowAction && rowActionLabel ? (
-                          <button
+                          <Button
                             type="button"
-                            className="profile-icon-btn profile-string-list-row-action-btn"
+                            variant="ghost"
+                            size="icon-sm"
+                            className="profile-icon-btn profile-string-list-row-action-btn text-[var(--accent-blue)] hover:bg-[var(--accent-blue-bg)] hover:text-[var(--accent-blue)]"
                             aria-label={buildRowActionLabel(itemLabel)}
                             title={rowActionLabel}
                             onClick={() => onRowAction(row, index)}
                           >
                             {rowActionIcon ?? rowActionLabel}
-                          </button>
+                          </Button>
                         ) : null}
-                        <button
+                        <Button
                           type="button"
-                          className="profile-icon-btn danger"
+                          variant="ghost"
+                          size="icon-sm"
+                          className="profile-icon-btn danger text-destructive hover:bg-destructive/10 hover:text-destructive"
                           aria-label={`${t("profileEditor.common.remove")} ${itemLabel}`}
                           onClick={() =>
                             onChange(rows.filter((candidate) => candidate.id !== row.id))
                           }
                         >
-                          ×
-                        </button>
+                          <Trash2 className="size-4" aria-hidden="true" />
+                        </Button>
                       </div>
                     </div>
                   );
@@ -188,10 +198,16 @@ function StringListEditor({
             </>
           )}
 
-          <div className="profile-subsection-actions profile-string-list-footer">
-            <button type="button" className="profile-secondary-btn" onClick={onAdd}>
+          <div className="profile-subsection-actions profile-string-list-footer flex flex-wrap items-center justify-start gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              className="profile-secondary-btn"
+              onClick={onAdd}
+            >
+              <Plus className="size-4" aria-hidden="true" />
               {addLabel}
-            </button>
+            </Button>
           </div>
         </div>
       ) : null}
