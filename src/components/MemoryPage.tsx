@@ -3,7 +3,6 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ExternalLink, FolderInput, Plus, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import useEscapeKey from "../hooks/useEscapeKey";
 import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
 import { type Language, type TranslationKey, useI18n } from "../i18n";
@@ -15,11 +14,11 @@ import type {
   MemoryState,
   UnmanagedMemory,
 } from "../types";
-import ConfirmDialog from "./ConfirmDialog";
-import Drawer from "./Drawer";
+import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import MemoryEditor from "./MemoryEditor";
 import MemoryItem from "./MemoryItem";
 import UnmanagedMemoryItem from "./UnmanagedMemoryItem";
+import { Sheet, SheetContent } from "./ui/sheet";
 import "./MemoryPage.css";
 
 type MemoryPayload = {
@@ -111,16 +110,6 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       refreshMemories({ errorMessage: "toast.memoryRefreshError" });
     }
   });
-
-  // ESC 键关闭记忆编辑抽屉
-  useEscapeKey(
-    useCallback(() => {
-      setEditingMemory(null);
-      setIsModalOpen(false);
-      onDrawerChange?.(false);
-    }, [onDrawerChange]),
-    isModalOpen,
-  );
 
   async function handleAdd(data: MemoryPayload) {
     try {
@@ -415,7 +404,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
 
       {/* 删除确认对话框 */}
       {pendingDelete && (
-        <ConfirmDialog
+        <ConfirmAlertDialog
           title={t("confirm.deleteMemoryTitle")}
           message={
             <div className="memory-delete-confirm">
@@ -449,13 +438,19 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
 
       {/* 弹窗 */}
       {isModalOpen && (
-        <Drawer onClose={closeModal}>
-          <MemoryEditor
-            memory={editingMemory}
-            onSave={editingMemory ? handleUpdate : handleAdd}
-            onClose={closeModal}
-          />
-        </Drawer>
+        <Sheet open onOpenChange={(open) => !open && closeModal()}>
+          <SheetContent
+            side="right"
+            showCloseButton={false}
+            className="left-[calc(var(--sidebar-width)+280px)] w-auto border-l-0 bg-[var(--bg-elevated)] p-0 shadow-[-4px_0_24px_rgb(0_0_0_/_0.2)] sm:max-w-none max-[1000px]:left-[var(--sidebar-width)] max-[700px]:left-[var(--sidebar-width-small)]"
+          >
+            <MemoryEditor
+              memory={editingMemory}
+              onSave={editingMemory ? handleUpdate : handleAdd}
+              onClose={closeModal}
+            />
+          </SheetContent>
+        </Sheet>
       )}
     </div>
   );

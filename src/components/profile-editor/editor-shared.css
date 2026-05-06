@@ -415,18 +415,6 @@
   color: var(--accent-green);
 }
 
-.profile-model-test-dialog-overlay {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  background: rgba(15, 23, 42, 0.56);
-  backdrop-filter: blur(10px);
-  z-index: var(--z-index-modal);
-}
-
 .profile-model-test-dialog {
   width: min(920px, 100%);
   max-height: min(84vh, 820px);
@@ -922,10 +910,6 @@
 }
 
 @media (max-width: 640px) {
-  .profile-model-test-dialog-overlay {
-    padding: 16px;
-  }
-
   .profile-model-test-dialog-header,
   .profile-model-test-dialog-body {
     padding: 18px;

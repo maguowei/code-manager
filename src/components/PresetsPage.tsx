@@ -4,14 +4,14 @@ import { useMemo, useState } from "react";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
 import type { ConfigWorkspace, SettingsPreset } from "../types";
-import ConfirmDialog from "./ConfirmDialog";
+import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import {
   getEnabledPluginsSummary,
   presetDisplayName,
   presetNameById,
 } from "./config-workspace-utils";
-import Drawer from "./Drawer";
 import PresetEditor from "./PresetEditor";
+import { Sheet, SheetContent } from "./ui/sheet";
 import "./PresetsPage.css";
 
 interface PresetsPageProps {
@@ -256,26 +256,35 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
       </div>
 
       {isDrawerOpen && (
-        <Drawer
-          onClose={() => {
-            setIsDrawerOpen(false);
-            setEditingPreset(null);
-          }}
-        >
-          <PresetEditor
-            preset={editingPreset}
-            presets={allPresets}
-            onSave={handleSave}
-            onClose={() => {
+        <Sheet
+          open
+          onOpenChange={(open) => {
+            if (!open) {
               setIsDrawerOpen(false);
               setEditingPreset(null);
-            }}
-          />
-        </Drawer>
+            }
+          }}
+        >
+          <SheetContent
+            side="right"
+            showCloseButton={false}
+            className="left-[calc(var(--sidebar-width)+280px)] w-auto border-l-0 bg-[var(--bg-elevated)] p-0 shadow-[-4px_0_24px_rgb(0_0_0_/_0.2)] sm:max-w-none max-[1000px]:left-[var(--sidebar-width)] max-[700px]:left-[var(--sidebar-width-small)]"
+          >
+            <PresetEditor
+              preset={editingPreset}
+              presets={allPresets}
+              onSave={handleSave}
+              onClose={() => {
+                setIsDrawerOpen(false);
+                setEditingPreset(null);
+              }}
+            />
+          </SheetContent>
+        </Sheet>
       )}
 
       {pendingDeleteId && (
-        <ConfirmDialog
+        <ConfirmAlertDialog
           title={t("presets.dialog.deleteTitle")}
           message={t("presets.dialog.deleteMessage")}
           confirmText={t("confirm.delete")}

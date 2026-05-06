@@ -2,14 +2,13 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ExternalLink, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import useEscapeKey from "../hooks/useEscapeKey";
 import { useToast } from "../hooks/useToast";
 import { type Language, useI18n } from "../i18n";
 import type { Skill } from "../types";
-import ConfirmDialog from "./ConfirmDialog";
-import Drawer from "./Drawer";
+import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import SkillEditor from "./SkillEditor";
 import SkillItem from "./SkillItem";
+import { Sheet, SheetContent } from "./ui/sheet";
 import "./SkillsPage.css";
 
 const CLAUDE_CODE_DOCS_BASE_URL = "https://code.claude.com/docs";
@@ -41,16 +40,6 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   useEffect(() => {
     loadSkills();
   }, [loadSkills]);
-
-  // ESC 键关闭编辑抽屉
-  useEscapeKey(
-    useCallback(() => {
-      setEditingSkill(null);
-      setIsDrawerOpen(false);
-      onDrawerChange?.(false);
-    }, [onDrawerChange]),
-    isDrawerOpen,
-  );
 
   // 切换 Skill 启用/禁用状态
   async function handleToggle(skill: Skill) {
@@ -198,7 +187,7 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
 
       {/* 删除确认对话框 */}
       {pendingDeleteId && (
-        <ConfirmDialog
+        <ConfirmAlertDialog
           title={t("confirm.deleteSkillTitle")}
           message={t("confirm.deleteSkillMessage")}
           confirmText={t("confirm.delete")}
@@ -214,14 +203,20 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
 
       {/* 编辑/新建抽屉 */}
       {isDrawerOpen && (
-        <Drawer onClose={closeDrawer}>
-          <SkillEditor
-            key={editingSkill?.id ?? "new"}
-            skill={editingSkill}
-            onSave={handleSave}
-            onClose={closeDrawer}
-          />
-        </Drawer>
+        <Sheet open onOpenChange={(open) => !open && closeDrawer()}>
+          <SheetContent
+            side="right"
+            showCloseButton={false}
+            className="left-[calc(var(--sidebar-width)+280px)] w-auto border-l-0 bg-[var(--bg-elevated)] p-0 shadow-[-4px_0_24px_rgb(0_0_0_/_0.2)] sm:max-w-none max-[1000px]:left-[var(--sidebar-width)] max-[700px]:left-[var(--sidebar-width-small)]"
+          >
+            <SkillEditor
+              key={editingSkill?.id ?? "new"}
+              skill={editingSkill}
+              onSave={handleSave}
+              onClose={closeDrawer}
+            />
+          </SheetContent>
+        </Sheet>
       )}
     </div>
   );

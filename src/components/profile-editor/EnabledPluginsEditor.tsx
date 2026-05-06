@@ -3,7 +3,7 @@ import { CircleCheck, ExternalLink, RefreshCw } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "../../hooks/useToast";
 import { useI18n } from "../../i18n";
-import ConfirmDialog from "../ConfirmDialog";
+import ConfirmAlertDialog from "../ConfirmAlertDialog";
 import { createRowId, type PluginDraft, readObject } from "./editor-utils";
 import { OFFICIAL_MARKETPLACE_ID } from "./marketplace-presets";
 import {
@@ -756,7 +756,7 @@ function EnabledPluginsEditor({
       </div>
 
       {pendingDeletePlugin ? (
-        <ConfirmDialog
+        <ConfirmAlertDialog
           title={deleteDialogTitle}
           message={t("profileEditor.plugins.deleteDialogMessage").replace(
             "{id}",

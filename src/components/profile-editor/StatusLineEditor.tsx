@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "../../hooks/useToast";
 import { type TranslationKey, useI18n } from "../../i18n";
-import ConfirmDialog from "../ConfirmDialog";
+import ConfirmAlertDialog from "../ConfirmAlertDialog";
 import { readObject } from "./editor-utils";
 import {
   getStatusLineErrorKey,
@@ -189,7 +189,7 @@ function StatusLineEditor({ value, onChange, onError, showTitle = true }: Status
       {validationError ? <p className="field-error">{validationError}</p> : null}
 
       {overwriteDialogOpen ? (
-        <ConfirmDialog
+        <ConfirmAlertDialog
           title={t("profileEditor.statusLine.overwriteDialogTitle")}
           message={t("profileEditor.statusLine.overwriteDialogMessage")}
           confirmText={t("profileEditor.statusLine.overwriteDialogConfirm")}

@@ -1,10 +1,10 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { arch, family, hostname, locale, platform, type, version } from "@tauri-apps/plugin-os";
 import { useEffect, useMemo, useState } from "react";
-import useEscapeKey from "../hooks/useEscapeKey";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
-import "./SystemInfoDialog.css";
+import { Button } from "./ui/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
 
 interface SystemInfoDialogProps {
   onClose: () => void;
@@ -25,12 +25,6 @@ function SystemInfoDialog({ onClose }: SystemInfoDialogProps) {
   const [hostNameValue, setHostNameValue] = useState<string | null>(null);
   const [localeValue, setLocaleValue] = useState<string | null>(null);
   const [asyncResolved, setAsyncResolved] = useState(false);
-
-  // ESC 关闭，阻止冒泡避免关闭外层抽屉
-  useEscapeKey((e) => {
-    e?.stopImmediatePropagation();
-    onClose();
-  });
 
   // 拉取异步字段
   useEffect(() => {
@@ -86,21 +80,16 @@ function SystemInfoDialog({ onClose }: SystemInfoDialogProps) {
   }
 
   return (
-    <div className="system-info-overlay" onClick={onClose}>
-      <div
-        className="system-info-dialog"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
         aria-labelledby="system-info-dialog-title"
+        className="flex max-h-[85vh] w-[480px] max-w-[92vw] flex-col gap-4 bg-[var(--bg-elevated)] p-6 sm:max-w-[480px]"
       >
-        <div className="system-info-dialog__header">
-          <h3 id="system-info-dialog-title" className="system-info-dialog__title">
-            {t("settings.systemInfo")}
-          </h3>
-        </div>
-        <div className="system-info-dialog__body">
-          <table className="system-info-table">
+        <DialogHeader>
+          <DialogTitle id="system-info-dialog-title">{t("settings.systemInfo")}</DialogTitle>
+        </DialogHeader>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <table className="w-full border-collapse text-[length:var(--font-sm)]">
             <tbody>
               {fields.map((f) => {
                 // 同步字段直接显示；异步字段未就绪前显示 loading 占位
@@ -110,33 +99,40 @@ function SystemInfoDialog({ onClose }: SystemInfoDialogProps) {
                   f.value ??
                   (isAsyncField && !asyncResolved ? placeholderLoading : placeholderUnknown);
                 return (
-                  <tr key={f.label}>
-                    <th scope="row">{f.label}</th>
-                    <td>{display}</td>
+                  <tr
+                    key={f.label}
+                    className="border-b border-[var(--border-subtle)] last:border-0"
+                  >
+                    <th
+                      scope="row"
+                      className="w-[40%] whitespace-nowrap py-2 pr-3 text-left font-medium text-[var(--text-secondary)]"
+                    >
+                      {f.label}
+                    </th>
+                    <td className="break-all py-2 font-mono text-[var(--text-primary)]">
+                      {display}
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
         </div>
-        <div className="system-info-dialog__actions">
-          <button
-            type="button"
-            className="system-info-dialog__btn system-info-dialog__btn--secondary"
-            onClick={onClose}
-          >
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
             {t("common.close")}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="system-info-dialog__btn system-info-dialog__btn--primary"
-            onClick={handleCopy}
+            onClick={() => {
+              void handleCopy();
+            }}
           >
             {t("settings.copySystemInfo")}
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

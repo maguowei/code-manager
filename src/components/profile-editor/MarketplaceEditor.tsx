@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type TranslationKey, useI18n } from "../../i18n";
-import ConfirmDialog from "../ConfirmDialog";
+import ConfirmAlertDialog from "../ConfirmAlertDialog";
 import {
   createRowId,
   type MarketplaceDraft,
@@ -795,7 +795,7 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
       </div>
 
       {pendingDeleteMarketplace ? (
-        <ConfirmDialog
+        <ConfirmAlertDialog
           title={deleteDialogTitle}
           message={t("profileEditor.marketplace.deleteDialogMessage").replace(
             "{id}",

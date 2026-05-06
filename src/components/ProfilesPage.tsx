@@ -4,18 +4,18 @@ import { type DragEvent, useCallback, useMemo, useRef, useState } from "react";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
 import type { ConfigProfile, ConfigWorkspace, ModelTestResult } from "../types";
-import ConfirmDialog from "./ConfirmDialog";
+import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import {
   getEnabledPluginsSummary,
   isPlainObject,
   presetNameById,
   presetSlugFromId,
 } from "./config-workspace-utils";
-import Drawer from "./Drawer";
 import ProfileEditor from "./ProfileEditor";
 import ProfileNameBadge from "./ProfileNameBadge";
 import ModelTestResultDialog from "./profile-editor/ModelTestResultDialog";
 import { readPermissionsDefaultMode } from "./profile-editor/PermissionsEditor";
+import { Sheet, SheetContent } from "./ui/sheet";
 import "./ProfilesPage.css";
 
 interface ProfilesPageProps {
@@ -855,18 +855,24 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
       </div>
 
       {isDrawerOpen && (
-        <Drawer onClose={closeDrawer}>
-          <ProfileEditor
-            profile={editingProfile}
-            presets={allPresets}
-            onSave={handleSave}
-            onClose={closeDrawer}
-          />
-        </Drawer>
+        <Sheet open onOpenChange={(open) => !open && closeDrawer()}>
+          <SheetContent
+            side="right"
+            showCloseButton={false}
+            className="left-[calc(var(--sidebar-width)+280px)] w-auto border-l-0 bg-[var(--bg-elevated)] p-0 shadow-[-4px_0_24px_rgb(0_0_0_/_0.2)] sm:max-w-none max-[1000px]:left-[var(--sidebar-width)] max-[700px]:left-[var(--sidebar-width-small)]"
+          >
+            <ProfileEditor
+              profile={editingProfile}
+              presets={allPresets}
+              onSave={handleSave}
+              onClose={closeDrawer}
+            />
+          </SheetContent>
+        </Sheet>
       )}
 
       {pendingDeleteId && (
-        <ConfirmDialog
+        <ConfirmAlertDialog
           title={t("profiles.dialog.deleteTitle")}
           message={t("profiles.dialog.deleteMessage")}
           confirmText={t("confirm.delete")}

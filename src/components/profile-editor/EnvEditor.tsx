@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../../i18n";
-import ConfirmDialog from "../ConfirmDialog";
+import ConfirmAlertDialog from "../ConfirmAlertDialog";
 import { createRowId, looksSensitiveKey } from "./editor-utils";
 import RequiredBadge from "./RequiredBadge";
 import "./EnvEditor.css";
@@ -524,7 +524,7 @@ function EnvEditor({
       </div>
 
       {pendingDeleteItem ? (
-        <ConfirmDialog
+        <ConfirmAlertDialog
           title={deleteDialogTitle}
           message={`${t("profileEditor.env.deleteDialogMessagePrefix")}${pendingDeleteItem.key}${t("profileEditor.env.deleteDialogMessageSuffix")}`}
           confirmText={deleteDialogConfirmText}

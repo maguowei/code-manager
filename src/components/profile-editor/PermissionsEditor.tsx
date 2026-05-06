@@ -2,7 +2,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "../../hooks/useToast";
 import { useI18n } from "../../i18n";
-import ConfirmDialog from "../ConfirmDialog";
+import ConfirmAlertDialog from "../ConfirmAlertDialog";
 import {
   buildStringListError,
   createRowId,
@@ -505,7 +505,7 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
       </div>
 
       {recommendedDialogOpen ? (
-        <ConfirmDialog
+        <ConfirmAlertDialog
           title={t("profileEditor.permissions.loadRecommendedDialogTitle")}
           message={t("profileEditor.permissions.loadRecommendedDialogMessage")}
           confirmText={t("profileEditor.permissions.loadRecommendedDialogConfirm")}
@@ -516,7 +516,7 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
       ) : null}
 
       {clearRulesDialog ? (
-        <ConfirmDialog
+        <ConfirmAlertDialog
           title={getClearRulesDialogTitle()}
           message={t("profileEditor.permissions.clearRulesDialogMessage")}
           confirmText={t("profileEditor.permissions.clearRulesDialogConfirm")}

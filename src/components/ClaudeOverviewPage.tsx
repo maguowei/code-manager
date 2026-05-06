@@ -37,7 +37,7 @@ import type {
   ClaudeDirectoryOverview,
   ClaudeFilePreview,
 } from "../types";
-import ConfirmDialog from "./ConfirmDialog";
+import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import MarkdownPreview from "./claude-overview/MarkdownPreview";
 import { useTheme } from "./theme-provider";
 import "./ClaudeOverviewPage.css";
@@ -1466,7 +1466,7 @@ function ClaudeOverviewPage() {
         />
       ) : null}
       {pendingDeleteEntry ? (
-        <ConfirmDialog
+        <ConfirmAlertDialog
           title={t("claudeOverview.deleteTitle").replace("{name}", pendingDeleteEntry.name)}
           message={t("claudeOverview.deleteMessage")}
           confirmText={t("confirm.delete")}

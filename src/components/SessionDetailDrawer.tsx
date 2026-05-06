@@ -4,11 +4,11 @@ import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import remarkGfm from "remark-gfm";
-import useEscapeKey from "../hooks/useEscapeKey";
 import { useToast } from "../hooks/useToast";
 import { type TranslationKey, useI18n } from "../i18n";
 import { isTauri, type MessageBlock, type SessionDetail } from "../types";
 import "./SessionDetailDrawer.css";
+import { Sheet, SheetContent } from "./ui/sheet";
 
 /** 文件类工具集合（模块级常量，避免每次渲染重建 Set） */
 const FILE_TOOLS = new Set(["Read", "Write", "Edit", "NotebookRead", "NotebookEdit"]);
@@ -448,8 +448,6 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
   const [detail, setDetail] = useState<SessionDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEscapeKey(onClose);
-
   useEffect(() => {
     if (!isTauri()) {
       setLoading(false);
@@ -465,9 +463,13 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
   const messages = detail?.messages;
 
   return (
-    <>
-      <div className="session-detail-overlay visible" onClick={onClose} />
-      <div className="session-detail-drawer open">
+    <Sheet open onOpenChange={(open) => !open && onClose()}>
+      <SheetContent
+        side="right"
+        showCloseButton={false}
+        aria-labelledby="session-detail-title"
+        className="left-[var(--sidebar-width)] w-auto min-w-0 gap-0 border-l-0 bg-[var(--bg-elevated)] p-0 sm:max-w-none max-[700px]:left-[var(--sidebar-width-small)]"
+      >
         {/* 顶部标题栏 */}
         <div className="editor-header">
           <button
@@ -488,7 +490,7 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
               <path d="M12 4L4 12M4 4l8 8" />
             </svg>
           </button>
-          <h2>
+          <h2 id="session-detail-title" className="min-w-0 truncate">
             {t("history.conversation")} — {sessionId.slice(0, 8)}
           </h2>
         </div>
@@ -523,8 +525,8 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
             ))}
           </div>
         )}
-      </div>
-    </>
+      </SheetContent>
+    </Sheet>
   );
 }
 

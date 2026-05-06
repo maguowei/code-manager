@@ -25,7 +25,7 @@ import {
 } from "../schemas/skill-schema";
 import type { Skill, SkillFile } from "../types";
 import CollapsibleSection from "./CollapsibleSection";
-import ConfirmDialog from "./ConfirmDialog";
+import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import SchemaFormField from "./SchemaFormField";
 import "./SkillEditor.css";
 
@@ -406,7 +406,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
 
         {/* 删除文件确认对话框 */}
         {pendingDeleteFile && (
-          <ConfirmDialog
+          <ConfirmAlertDialog
             title={t("confirm.deleteSkillFileTitle")}
             message={t("confirm.deleteSkillFileMessage")}
             confirmText={t("confirm.delete")}

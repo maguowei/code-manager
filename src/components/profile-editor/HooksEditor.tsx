@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { type TranslationKey, useI18n } from "../../i18n";
-import ConfirmDialog from "../ConfirmDialog";
+import ConfirmAlertDialog from "../ConfirmAlertDialog";
 import { readObject, readString } from "./editor-utils";
 import {
   hasMojibakeHookPreset,
@@ -348,7 +348,7 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
       </div>
 
       {pendingDeleteEvent ? (
-        <ConfirmDialog
+        <ConfirmAlertDialog
           title={t("profileEditor.hooks.deleteDialogTitle")}
           message={`${t("profileEditor.hooks.deleteDialogMessagePrefix")}${pendingDeleteEvent}${t("profileEditor.hooks.deleteDialogMessageSuffix")}`}
           confirmText={t("profileEditor.common.delete")}

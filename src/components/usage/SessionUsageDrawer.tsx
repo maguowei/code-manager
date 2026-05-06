@@ -1,9 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
-import useEscapeKey from "../../hooks/useEscapeKey";
 import { useI18n } from "../../i18n";
 import { isTauri, type SessionUsageDetail } from "../../types";
-import "../SessionDetailDrawer.css";
+import { Sheet, SheetContent } from "../ui/sheet";
 import "./SessionUsageDrawer.css";
 import {
   formatCost,
@@ -24,8 +23,6 @@ function SessionUsageDrawer({ sessionId, onClose }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEscapeKey(onClose);
-
   useEffect(() => {
     if (!isTauri()) {
       setLoading(false);
@@ -42,9 +39,13 @@ function SessionUsageDrawer({ sessionId, onClose }: Props) {
   }, [sessionId]);
 
   return (
-    <>
-      <div className="session-detail-overlay visible" onClick={onClose} />
-      <div className="session-detail-drawer open">
+    <Sheet open onOpenChange={(open) => !open && onClose()}>
+      <SheetContent
+        side="right"
+        showCloseButton={false}
+        aria-labelledby="session-usage-detail-title"
+        className="left-[var(--sidebar-width)] w-auto min-w-0 gap-0 border-l-0 bg-[var(--bg-elevated)] p-0 sm:max-w-none max-[700px]:left-[var(--sidebar-width-small)]"
+      >
         <div className="editor-header">
           <button
             type="button"
@@ -65,7 +66,7 @@ function SessionUsageDrawer({ sessionId, onClose }: Props) {
               <path d="M12 4L4 12M4 4l8 8" />
             </svg>
           </button>
-          <h2>
+          <h2 id="session-usage-detail-title" className="min-w-0 truncate">
             {t("usage.detail.title")} - {shortSessionId(sessionId)}
           </h2>
         </div>
@@ -158,8 +159,8 @@ function SessionUsageDrawer({ sessionId, onClose }: Props) {
             </>
           ) : null}
         </div>
-      </div>
-    </>
+      </SheetContent>
+    </Sheet>
   );
 }
 

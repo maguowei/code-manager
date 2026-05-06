@@ -4,8 +4,8 @@ import {
   enable as enableAutostart,
   isEnabled as isAutostartEnabled,
 } from "@tauri-apps/plugin-autostart";
+import { ChevronLeft } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import useEscapeKey from "../hooks/useEscapeKey";
 import { useToast } from "../hooks/useToast";
 import { type Language, useI18n } from "../i18n";
 import type {
@@ -15,9 +15,9 @@ import type {
   DefaultTerminalApp,
 } from "../types";
 import LogViewer from "./LogViewer";
-import "./SettingsDrawer.css";
 import SystemInfoDialog from "./SystemInfoDialog";
 import { type Theme, useTheme } from "./theme-provider";
+import { Sheet, SheetContent } from "./ui/sheet";
 
 interface SettingsDrawerProps {
   onClose: () => void;
@@ -110,52 +110,48 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
     { value: "dark", labelKey: "settings.themeDark", icon: "moon" },
     { value: "system", labelKey: "settings.themeSystem", icon: "monitor" },
   ];
-
-  useEscapeKey(onClose);
+  const settingsSelectClass =
+    "w-[min(240px,100%)] rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-secondary)] px-3 py-[9px] text-[length:var(--font-md)] text-[var(--text-primary)] transition-colors duration-200 hover:border-[var(--text-muted)] focus:border-[var(--accent-blue)] focus:shadow-[0_0_0_3px_var(--accent-blue-bg)] focus:outline-none max-[700px]:w-full";
 
   return (
-    <div className="settings-drawer-overlay" onClick={onClose}>
-      <aside
-        className="settings-drawer"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
+    <Sheet open onOpenChange={(open) => !open && onClose()}>
+      <SheetContent
+        side="right"
+        showCloseButton={false}
         aria-labelledby="settings-drawer-title"
-        aria-modal="true"
+        className="w-full max-w-[calc(100vw-var(--sidebar-width))] gap-0 border-l border-[var(--border-default)] bg-[var(--bg-elevated)] p-0 shadow-[-8px_0_28px_rgb(0_0_0_/_0.24)] sm:max-w-[520px] max-[700px]:max-w-[calc(100vw-var(--sidebar-width-small))]"
       >
-        <div className="settings-drawer-header">
+        <div className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border-default)] bg-[var(--bg-primary)] px-6">
           <button
             type="button"
-            className="settings-back-btn"
+            className="inline-flex size-8 items-center justify-center rounded-[var(--radius-md)] border-0 bg-transparent text-[var(--text-secondary)] transition-colors duration-150 hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
             onClick={onClose}
             aria-label={t("common.close")}
           >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
+            <ChevronLeft className="size-5" aria-hidden="true" />
           </button>
-          <h2 id="settings-drawer-title">{t("settings.title")}</h2>
+          <h2 id="settings-drawer-title" className="text-[length:var(--font-lg)] font-semibold">
+            {t("settings.title")}
+          </h2>
         </div>
 
-        <div className="settings-drawer-body">
-          <section className="settings-section-card">
-            <div className="settings-section-head">
-              <h3>{t("settings.language")}</h3>
-              <p>{t("settings.languageDesc")}</p>
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5 max-[700px]:p-4">
+          <section className="flex flex-col gap-4 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-primary)] p-4">
+            <div>
+              <h3 className="text-[length:var(--font-md)] font-semibold text-[var(--text-primary)]">
+                {t("settings.language")}
+              </h3>
+              <p className="mt-1 text-[length:var(--font-base)] leading-[1.45] text-[var(--text-secondary)]">
+                {t("settings.languageDesc")}
+              </p>
             </div>
-            <div className="settings-item">
+            <div className="flex items-center justify-between gap-4 max-[700px]:flex-col max-[700px]:items-stretch">
               <label className="sr-only" htmlFor="settings-language-select">
                 {t("settings.language")}
               </label>
               <select
                 id="settings-language-select"
-                className="settings-select"
+                className={settingsSelectClass}
                 value={language}
                 onChange={(e) => {
                   const nextLanguage = e.target.value as Language;
@@ -176,22 +172,30 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
             </div>
           </section>
 
-          <section className="settings-section-card">
-            <div className="settings-section-head">
-              <h3>{t("settings.theme")}</h3>
-              <p>{t("settings.themeDesc")}</p>
+          <section className="flex flex-col gap-4 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-primary)] p-4">
+            <div>
+              <h3 className="text-[length:var(--font-md)] font-semibold text-[var(--text-primary)]">
+                {t("settings.theme")}
+              </h3>
+              <p className="mt-1 text-[length:var(--font-base)] leading-[1.45] text-[var(--text-secondary)]">
+                {t("settings.themeDesc")}
+              </p>
             </div>
-            <div className="settings-section">
-              <div className="settings-item">
-                <div className="theme-cards">
+            <div className="flex flex-col">
+              <div className="flex items-center justify-between gap-4 max-[700px]:flex-col max-[700px]:items-stretch">
+                <div className="grid w-full grid-cols-3 gap-3 max-[700px]:grid-cols-1">
                   {themeOptions.map((option) => (
                     <button
                       type="button"
                       key={option.value}
-                      className={`theme-card ${theme === option.value ? "active" : ""}`}
+                      className={`flex flex-col items-center gap-2.5 rounded-[var(--radius-lg)] border p-[18px_10px] font-semibold transition-all duration-200 hover:-translate-y-px ${
+                        theme === option.value
+                          ? "border-[var(--accent-blue)] bg-[var(--accent-blue-bg)] text-[var(--accent-blue)] shadow-[inset_0_0_0_1px_var(--accent-blue)]"
+                          : "border-[var(--border-default)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:border-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                      }`}
                       onClick={() => setTheme(option.value)}
                     >
-                      <div className="theme-card-icon">
+                      <div className="flex items-center justify-center">
                         {option.icon === "sun" && (
                           <svg
                             width="24"
@@ -239,7 +243,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                           </svg>
                         )}
                       </div>
-                      <span className="theme-card-label">{t(option.labelKey)}</span>
+                      <span className="text-[length:var(--font-sm)]">{t(option.labelKey)}</span>
                     </button>
                   ))}
                 </div>
@@ -247,12 +251,16 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
             </div>
           </section>
 
-          <section className="settings-section-card">
-            <div className="settings-section-head">
-              <h3>{t("settings.showTrayTitle")}</h3>
-              <p>{t("settings.showTrayTitleDesc")}</p>
+          <section className="flex flex-col gap-4 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-primary)] p-4">
+            <div>
+              <h3 className="text-[length:var(--font-md)] font-semibold text-[var(--text-primary)]">
+                {t("settings.showTrayTitle")}
+              </h3>
+              <p className="mt-1 text-[length:var(--font-base)] leading-[1.45] text-[var(--text-secondary)]">
+                {t("settings.showTrayTitleDesc")}
+              </p>
             </div>
-            <div className="settings-item">
+            <div className="flex items-center justify-between gap-4 max-[700px]:flex-col max-[700px]:items-stretch">
               <button
                 type="button"
                 className={`toggle-switch${showTrayTitle ? " enabled" : ""}`}
@@ -279,12 +287,16 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
             </div>
           </section>
 
-          <section className="settings-section-card">
-            <div className="settings-section-head">
-              <h3>{t("settings.showTraySessions")}</h3>
-              <p>{t("settings.showTraySessionsDesc")}</p>
+          <section className="flex flex-col gap-4 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-primary)] p-4">
+            <div>
+              <h3 className="text-[length:var(--font-md)] font-semibold text-[var(--text-primary)]">
+                {t("settings.showTraySessions")}
+              </h3>
+              <p className="mt-1 text-[length:var(--font-base)] leading-[1.45] text-[var(--text-secondary)]">
+                {t("settings.showTraySessionsDesc")}
+              </p>
             </div>
-            <div className="settings-item">
+            <div className="flex items-center justify-between gap-4 max-[700px]:flex-col max-[700px]:items-stretch">
               <button
                 type="button"
                 className={`toggle-switch${showTraySessions ? " enabled" : ""}`}
@@ -311,12 +323,16 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
             </div>
           </section>
 
-          <section className="settings-section-card">
-            <div className="settings-section-head">
-              <h3>{t("settings.launchAtLogin")}</h3>
-              <p>{t("settings.launchAtLoginDesc")}</p>
+          <section className="flex flex-col gap-4 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-primary)] p-4">
+            <div>
+              <h3 className="text-[length:var(--font-md)] font-semibold text-[var(--text-primary)]">
+                {t("settings.launchAtLogin")}
+              </h3>
+              <p className="mt-1 text-[length:var(--font-base)] leading-[1.45] text-[var(--text-secondary)]">
+                {t("settings.launchAtLoginDesc")}
+              </p>
             </div>
-            <div className="settings-item">
+            <div className="flex items-center justify-between gap-4 max-[700px]:flex-col max-[700px]:items-stretch">
               <button
                 type="button"
                 className={`toggle-switch${launchAtLogin ? " enabled" : ""}`}
@@ -335,18 +351,22 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
             </div>
           </section>
 
-          <section className="settings-section-card">
-            <div className="settings-section-head">
-              <h3>{t("settings.defaultTerminal")}</h3>
-              <p>{t("settings.defaultTerminalDesc")}</p>
+          <section className="flex flex-col gap-4 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-primary)] p-4">
+            <div>
+              <h3 className="text-[length:var(--font-md)] font-semibold text-[var(--text-primary)]">
+                {t("settings.defaultTerminal")}
+              </h3>
+              <p className="mt-1 text-[length:var(--font-base)] leading-[1.45] text-[var(--text-secondary)]">
+                {t("settings.defaultTerminalDesc")}
+              </p>
             </div>
-            <div className="settings-item">
+            <div className="flex items-center justify-between gap-4 max-[700px]:flex-col max-[700px]:items-stretch">
               <label className="sr-only" htmlFor="settings-terminal-select">
                 {t("settings.defaultTerminal")}
               </label>
               <select
                 id="settings-terminal-select"
-                className="settings-select"
+                className={settingsSelectClass}
                 value={defaultTerminalApp}
                 onChange={(e) => {
                   void persistPreferences(
@@ -366,18 +386,22 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
             </div>
           </section>
 
-          <section className="settings-section-card">
-            <div className="settings-section-head">
-              <h3>{t("settings.defaultEditor")}</h3>
-              <p>{t("settings.defaultEditorDesc")}</p>
+          <section className="flex flex-col gap-4 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-primary)] p-4">
+            <div>
+              <h3 className="text-[length:var(--font-md)] font-semibold text-[var(--text-primary)]">
+                {t("settings.defaultEditor")}
+              </h3>
+              <p className="mt-1 text-[length:var(--font-base)] leading-[1.45] text-[var(--text-secondary)]">
+                {t("settings.defaultEditorDesc")}
+              </p>
             </div>
-            <div className="settings-item">
+            <div className="flex items-center justify-between gap-4 max-[700px]:flex-col max-[700px]:items-stretch">
               <label className="sr-only" htmlFor="settings-editor-select">
                 {t("settings.defaultEditor")}
               </label>
               <select
                 id="settings-editor-select"
-                className="settings-select"
+                className={settingsSelectClass}
                 value={defaultEditorApp ?? ""}
                 onChange={(e) =>
                   void persistPreferences(
@@ -398,15 +422,19 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
             </div>
           </section>
 
-          <section className="settings-section-card">
-            <div className="settings-section-head">
-              <h3>{t("settings.diagnostics")}</h3>
-              <p>{t("settings.diagnosticsDesc")}</p>
+          <section className="flex flex-col gap-4 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-primary)] p-4">
+            <div>
+              <h3 className="text-[length:var(--font-md)] font-semibold text-[var(--text-primary)]">
+                {t("settings.diagnostics")}
+              </h3>
+              <p className="mt-1 text-[length:var(--font-base)] leading-[1.45] text-[var(--text-secondary)]">
+                {t("settings.diagnosticsDesc")}
+              </p>
             </div>
-            <div className="settings-item">
+            <div className="flex items-center justify-between gap-4 max-[700px]:flex-col max-[700px]:items-stretch">
               <button
                 type="button"
-                className="settings-action-btn"
+                className="h-9 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-secondary)] px-3.5 text-[length:var(--font-base)] font-semibold text-[var(--text-primary)] hover:border-[var(--text-muted)] hover:bg-[var(--bg-hover)]"
                 onClick={() => setIsLogViewerOpen(true)}
               >
                 {t("settings.viewLogs")}
@@ -414,15 +442,19 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
             </div>
           </section>
 
-          <section className="settings-section-card">
-            <div className="settings-section-head">
-              <h3>{t("settings.systemInfo")}</h3>
-              <p>{t("settings.systemInfoDesc")}</p>
+          <section className="flex flex-col gap-4 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-primary)] p-4">
+            <div>
+              <h3 className="text-[length:var(--font-md)] font-semibold text-[var(--text-primary)]">
+                {t("settings.systemInfo")}
+              </h3>
+              <p className="mt-1 text-[length:var(--font-base)] leading-[1.45] text-[var(--text-secondary)]">
+                {t("settings.systemInfoDesc")}
+              </p>
             </div>
-            <div className="settings-item">
+            <div className="flex items-center justify-between gap-4 max-[700px]:flex-col max-[700px]:items-stretch">
               <button
                 type="button"
-                className="settings-action-btn"
+                className="h-9 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-secondary)] px-3.5 text-[length:var(--font-base)] font-semibold text-[var(--text-primary)] hover:border-[var(--text-muted)] hover:bg-[var(--bg-hover)]"
                 onClick={() => setIsSystemInfoOpen(true)}
               >
                 {t("settings.viewSystemInfo")}
@@ -430,10 +462,10 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
             </div>
           </section>
         </div>
-      </aside>
-      {isLogViewerOpen ? <LogViewer onClose={() => setIsLogViewerOpen(false)} /> : null}
-      {isSystemInfoOpen ? <SystemInfoDialog onClose={() => setIsSystemInfoOpen(false)} /> : null}
-    </div>
+        {isLogViewerOpen ? <LogViewer onClose={() => setIsLogViewerOpen(false)} /> : null}
+        {isSystemInfoOpen ? <SystemInfoDialog onClose={() => setIsSystemInfoOpen(false)} /> : null}
+      </SheetContent>
+    </Sheet>
   );
 }
 

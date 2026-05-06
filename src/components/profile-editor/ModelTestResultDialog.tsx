@@ -1,12 +1,12 @@
 import { Copy, TestTube } from "lucide-react";
-import { type MouseEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneLight, vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
-import useEscapeKey from "../../hooks/useEscapeKey";
 import { useToast } from "../../hooks/useToast";
 import { useI18n } from "../../i18n";
 import type { ModelTestResult } from "../../types";
 import { useTheme } from "../theme-provider";
+import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
 import "./editor-shared.css";
 
 interface ModelTestResultDialogProps {
@@ -188,11 +188,6 @@ function ModelTestResultDialog({
       : null,
   ].filter((item): item is MetaItem => item !== null);
 
-  useEscapeKey((event) => {
-    event?.stopImmediatePropagation();
-    onClose();
-  }, isOpen);
-
   useEffect(() => {
     if (isOpen) {
       setPromptDraft(promptText);
@@ -203,10 +198,6 @@ function ModelTestResultDialog({
 
   if (!isOpen) {
     return null;
-  }
-
-  function handleDialogClick(event: MouseEvent<HTMLDivElement>) {
-    event.stopPropagation();
   }
 
   function handleToggleCodePanel(panelKey: CodePanelKey) {
@@ -283,19 +274,20 @@ function ModelTestResultDialog({
   }
 
   return (
-    <div className="profile-model-test-dialog-overlay" onClick={onClose}>
-      <div
-        role="dialog"
-        aria-modal="true"
+    <Dialog modal={false} open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        showCloseButton={false}
+        aria-describedby={undefined}
         aria-labelledby={dialogTitleId}
-        className="profile-model-test-dialog"
-        onClick={handleDialogClick}
+        className="profile-model-test-dialog flex max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none"
       >
         <div className="profile-model-test-dialog-header">
           <div className="profile-model-test-dialog-header-top">
             <div className="profile-model-test-dialog-header-main">
               <div className="profile-model-test-dialog-title-wrap">
-                <h3 id={dialogTitleId}>{t("profiles.editor.modelTest.dialogTitle")}</h3>
+                <DialogTitle asChild>
+                  <h3 id={dialogTitleId}>{t("profiles.editor.modelTest.dialogTitle")}</h3>
+                </DialogTitle>
                 <span
                   className={`profile-model-test-status-badge${isSuccess ? " success" : " error"}`}
                 >
@@ -589,8 +581,8 @@ function ModelTestResultDialog({
             </section>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
