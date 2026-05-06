@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { TestTube, Trash2 } from "lucide-react";
 import { type DragEvent, useCallback, useMemo, useRef, useState } from "react";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
@@ -11,7 +12,6 @@ import {
   presetSlugFromId,
 } from "./config-workspace-utils";
 import Drawer from "./Drawer";
-import { TestTubeIcon, TrashIcon } from "./Icons";
 import ProfileEditor from "./ProfileEditor";
 import ProfileNameBadge from "./ProfileNameBadge";
 import ModelTestResultDialog from "./profile-editor/ModelTestResultDialog";
@@ -599,7 +599,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                 void handleTestAllProfiles();
               }}
             >
-              <TestTubeIcon size={15} />
+              <TestTube className="size-[15px]" aria-hidden="true" />
               <span>
                 {isTestingAllProfiles
                   ? t("profiles.actions.testingAll")
@@ -844,7 +844,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                         setPendingDeleteId(profile.id);
                       }}
                     >
-                      <TrashIcon />
+                      <Trash2 className="size-4" aria-hidden="true" />
                     </button>
                   </div>
                 </div>

@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { ExternalLink, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import useEscapeKey from "../hooks/useEscapeKey";
 import { useToast } from "../hooks/useToast";
@@ -7,7 +8,6 @@ import { type Language, useI18n } from "../i18n";
 import type { Skill } from "../types";
 import ConfirmDialog from "./ConfirmDialog";
 import Drawer from "./Drawer";
-import { ExternalLinkIcon, PlusIcon } from "./Icons";
 import SkillEditor from "./SkillEditor";
 import SkillItem from "./SkillItem";
 import "./SkillsPage.css";
@@ -151,14 +151,14 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
             onClick={handleOpenDocs}
           >
             <span>{t("skills.openDocs")}</span>
-            <ExternalLinkIcon size={14} />
+            <ExternalLink className="size-3.5" aria-hidden="true" />
           </button>
         </div>
       </div>
 
       {/* 添加按钮 */}
       <button type="button" className="add-config-btn" onClick={openAdd}>
-        <PlusIcon />
+        <Plus className="size-[18px]" aria-hidden="true" />
         <span>{t("skills.addSkill")}</span>
       </button>
 

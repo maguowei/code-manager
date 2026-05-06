@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { CircleCheck, ExternalLink, TestTube } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
@@ -20,7 +21,6 @@ import {
   setTopLevelObject,
   setTopLevelString,
 } from "./config-workspace-utils";
-import { CheckCircleIcon, ExternalLinkIcon, TestTubeIcon } from "./Icons";
 import ProfileNameBadge from "./ProfileNameBadge";
 import {
   AUTH_ENV_KEYS,
@@ -664,7 +664,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
                   onClick={handleOpenSelectedPresetDocs}
                 >
                   <span>{messages.openPresetDocs}</span>
-                  <ExternalLinkIcon size={14} />
+                  <ExternalLink className="size-3.5" aria-hidden="true" />
                 </button>
               ) : null}
             </div>
@@ -755,7 +755,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
                   void handleTestModelClick();
                 }}
               >
-                <TestTubeIcon size={16} />
+                <TestTube className="size-4" aria-hidden="true" />
               </button>
               {hasSuccessfulModelTest ? (
                 <button
@@ -765,7 +765,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
                   title={messages.reopenModelTest}
                   onClick={reopenLatestSuccessfulModelTest}
                 >
-                  <CheckCircleIcon size={16} />
+                  <CircleCheck className="size-4" aria-hidden="true" />
                 </button>
               ) : null}
             </div>

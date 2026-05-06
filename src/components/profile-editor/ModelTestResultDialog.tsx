@@ -1,3 +1,4 @@
+import { Copy, TestTube } from "lucide-react";
 import { type MouseEvent, useEffect, useMemo, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneLight, vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
@@ -5,7 +6,6 @@ import useEscapeKey from "../../hooks/useEscapeKey";
 import { useToast } from "../../hooks/useToast";
 import { useI18n } from "../../i18n";
 import type { ModelTestResult } from "../../types";
-import { CopyIcon, TestTubeIcon } from "../Icons";
 import { useTheme } from "../theme-provider";
 import "./editor-shared.css";
 
@@ -314,7 +314,7 @@ function ModelTestResultDialog({
                   onClick={() => onRetest(getRetestPromptOverride())}
                 >
                   <span className="profile-model-test-dialog-retest-icon" aria-hidden="true">
-                    <TestTubeIcon size={15} />
+                    <TestTube className="size-[15px]" aria-hidden="true" />
                   </span>
                   <span>
                     {isRetesting
@@ -331,7 +331,7 @@ function ModelTestResultDialog({
                   void handleCopyCurl();
                 }}
               >
-                <CopyIcon size={15} />
+                <Copy className="size-[15px]" aria-hidden="true" />
                 <span>{t("profiles.editor.modelTest.copyCurl")}</span>
               </button>
               <button

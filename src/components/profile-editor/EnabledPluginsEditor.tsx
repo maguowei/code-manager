@@ -1,9 +1,9 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { CircleCheck, ExternalLink, RefreshCw } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "../../hooks/useToast";
 import { useI18n } from "../../i18n";
 import ConfirmDialog from "../ConfirmDialog";
-import { CheckCircleIcon, ExternalLinkIcon, RefreshIcon } from "../Icons";
 import { createRowId, type PluginDraft, readObject } from "./editor-utils";
 import { OFFICIAL_MARKETPLACE_ID } from "./marketplace-presets";
 import {
@@ -436,7 +436,7 @@ function EnabledPluginsEditor({
         onClick={handleLoadOfficialPlugins}
         disabled={loadingOfficialPlugins}
       >
-        <RefreshIcon className="profile-plugin-refresh-icon" />
+        <RefreshCw className="profile-plugin-refresh-icon size-3.5" aria-hidden="true" />
         <span>{officialLoadLabel}</span>
       </button>
     );
@@ -581,7 +581,7 @@ function EnabledPluginsEditor({
                     role="img"
                     aria-label={verifiedBadgeAriaLabel}
                   >
-                    <CheckCircleIcon size={13} />
+                    <CircleCheck className="size-[13px]" aria-hidden="true" />
                   </span>
                 ) : null;
                 const rowLabel =
@@ -616,7 +616,10 @@ function EnabledPluginsEditor({
                                     <span className="profile-env-row-badge">{draftBadgeText}</span>
                                   ) : null}
                                   {verifiedBadgeIcon}
-                                  <ExternalLinkIcon className="profile-plugin-link-icon" />
+                                  <ExternalLink
+                                    className="profile-plugin-link-icon size-3.5"
+                                    aria-hidden="true"
+                                  />
                                 </span>
                               </button>
                             ) : (

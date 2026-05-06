@@ -3,6 +3,7 @@ import { EditorView } from "@codemirror/view";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { invoke } from "@tauri-apps/api/core";
 import CodeMirror from "@uiw/react-codemirror";
+import { ChevronLeft, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Controller, type FieldError, type Resolver, useForm } from "react-hook-form";
 import { useCodeMirrorTheme } from "../hooks/useCodeMirrorTheme";
@@ -25,7 +26,6 @@ import {
 import type { Skill, SkillFile } from "../types";
 import CollapsibleSection from "./CollapsibleSection";
 import ConfirmDialog from "./ConfirmDialog";
-import { ChevronLeftIcon } from "./Icons";
 import SchemaFormField from "./SchemaFormField";
 import "./SkillEditor.css";
 
@@ -214,7 +214,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
               onClick={onClose}
               aria-label={t("common.close")}
             >
-              <ChevronLeftIcon />
+              <ChevronLeft className="size-5" aria-hidden="true" />
             </button>
             <h2>{isEditing ? t("skills.editTitle") : t("skills.addTitle")}</h2>
             <button type="submit" className="editor-save-btn" disabled={!canSave}>
@@ -394,17 +394,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                   ) : (
                     // 添加文件按钮
                     <button type="button" className="skill-add-file-btn" onClick={openAddFileForm}>
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                      >
-                        <line x1="12" y1="5" x2="12" y2="19" />
-                        <line x1="5" y1="12" x2="19" y2="12" />
-                      </svg>
+                      <Plus className="size-3.5" aria-hidden="true" />
                       {t("skills.addFile")}
                     </button>
                   )}

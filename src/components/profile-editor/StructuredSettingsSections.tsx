@@ -1,7 +1,7 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { ExternalLink } from "lucide-react";
 import { type ReactNode, useCallback, useState } from "react";
 import { useI18n } from "../../i18n";
-import { ExternalLinkIcon } from "../Icons";
 import BehaviorFieldHeader from "./BehaviorFieldHeader";
 import DocumentEditorSection from "./DocumentEditorSection";
 import EnabledPluginsEditor from "./EnabledPluginsEditor";
@@ -230,7 +230,7 @@ function StructuredSettingsSections({
         }}
       >
         <span>{t("profileEditor.docs.openButtonLabel")}</span>
-        <ExternalLinkIcon size={14} />
+        <ExternalLink className="size-3.5" aria-hidden="true" />
       </button>
     );
   }

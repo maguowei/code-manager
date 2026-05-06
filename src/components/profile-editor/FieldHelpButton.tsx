@@ -1,4 +1,4 @@
-import { InfoIcon } from "../Icons";
+import { Info } from "lucide-react";
 
 interface FieldHelpButtonProps {
   helperKey?: string;
@@ -17,7 +17,7 @@ function FieldHelpButton({ helperKey }: FieldHelpButtonProps) {
       data-tooltip={helperKey}
       title={helperKey}
     >
-      <InfoIcon />
+      <Info className="size-3.5" aria-hidden="true" />
     </button>
   );
 }

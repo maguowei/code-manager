@@ -1,7 +1,7 @@
+import { Copy, Trash2 } from "lucide-react";
 import { type KeyboardEvent, type MouseEvent, memo } from "react";
 import { useI18n } from "../i18n";
 import type { Memory } from "../types";
-import { CopyIcon, TrashIcon } from "./Icons";
 import ProfileNameBadge from "./ProfileNameBadge";
 import "./MemoryItem.css";
 
@@ -103,7 +103,7 @@ function MemoryItem({
           aria-label={t("memory.duplicate")}
           title={t("memory.duplicate")}
         >
-          <CopyIcon />
+          <Copy className="size-4" aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -112,7 +112,7 @@ function MemoryItem({
           aria-label={t("memory.delete")}
           title={t("memory.delete")}
         >
-          <TrashIcon />
+          <Trash2 className="size-4" aria-hidden="true" />
         </button>
       </div>
     </div>

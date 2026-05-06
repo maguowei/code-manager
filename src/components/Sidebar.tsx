@@ -1,3 +1,14 @@
+import {
+  BarChart3,
+  Brain,
+  Clock,
+  DollarSign,
+  FolderOpen,
+  Server,
+  Settings,
+  SlidersHorizontal,
+  Zap,
+} from "lucide-react";
 import { useI18n } from "../i18n";
 import type { TabType } from "../types";
 import "./Sidebar.css";
@@ -35,25 +46,7 @@ function Sidebar({ activeTab, onTabChange, onClaudeOverviewClick, onSettingsClic
           aria-current={activeTab === "configs" ? "page" : undefined}
           data-tooltip={t("nav.configs")}
         >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            aria-hidden="true"
-          >
-            <line x1="4" y1="21" x2="4" y2="14" />
-            <line x1="4" y1="10" x2="4" y2="3" />
-            <line x1="12" y1="21" x2="12" y2="12" />
-            <line x1="12" y1="8" x2="12" y2="3" />
-            <line x1="20" y1="21" x2="20" y2="16" />
-            <line x1="20" y1="12" x2="20" y2="3" />
-            <line x1="1" y1="14" x2="7" y2="14" />
-            <line x1="9" y1="8" x2="15" y2="8" />
-            <line x1="17" y1="16" x2="23" y2="16" />
-          </svg>
+          <SlidersHorizontal className="size-5" aria-hidden="true" />
         </button>
 
         <button
@@ -64,18 +57,7 @@ function Sidebar({ activeTab, onTabChange, onClaudeOverviewClick, onSettingsClic
           aria-current={activeTab === "memory" ? "page" : undefined}
           data-tooltip={t("nav.memory")}
         >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            aria-hidden="true"
-          >
-            <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-1.07-4.35A3 3 0 0 1 3 12a3 3 0 0 1 1.5-2.6 2.5 2.5 0 0 1 1.07-4.35A2.5 2.5 0 0 1 9.5 2z" />
-            <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 1.07-4.35A3 3 0 0 0 21 12a3 3 0 0 0-1.5-2.6 2.5 2.5 0 0 0-1.07-4.35A2.5 2.5 0 0 0 14.5 2z" />
-          </svg>
+          <Brain className="size-5" aria-hidden="true" />
         </button>
 
         <button
@@ -86,17 +68,7 @@ function Sidebar({ activeTab, onTabChange, onClaudeOverviewClick, onSettingsClic
           aria-current={activeTab === "skills" ? "page" : undefined}
           data-tooltip={t("nav.skills")}
         >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            aria-hidden="true"
-          >
-            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-          </svg>
+          <Zap className="size-5" aria-hidden="true" />
         </button>
 
         <button
@@ -107,22 +79,7 @@ function Sidebar({ activeTab, onTabChange, onClaudeOverviewClick, onSettingsClic
           aria-current={activeTab === "providers" ? "page" : undefined}
           data-tooltip={t("nav.providers")}
         >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
-            <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
-            <line x1="6" y1="6" x2="6.01" y2="6" />
-            <line x1="6" y1="18" x2="6.01" y2="18" />
-          </svg>
+          <Server className="size-5" aria-hidden="true" />
         </button>
 
         <button
@@ -133,19 +90,7 @@ function Sidebar({ activeTab, onTabChange, onClaudeOverviewClick, onSettingsClic
           aria-current={activeTab === "projects" ? "page" : undefined}
           data-tooltip={t("nav.projects")}
         >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H10l2 2h6.5A2.5 2.5 0 0 1 21 8.5v9A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5v-11z" />
-          </svg>
+          <FolderOpen className="size-5" aria-hidden="true" />
         </button>
 
         <button
@@ -156,18 +101,7 @@ function Sidebar({ activeTab, onTabChange, onClaudeOverviewClick, onSettingsClic
           aria-current={activeTab === "history" ? "page" : undefined}
           data-tooltip={t("nav.history")}
         >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            aria-hidden="true"
-          >
-            <circle cx="12" cy="12" r="10" />
-            <polyline points="12 6 12 12 16 14" />
-          </svg>
+          <Clock className="size-5" aria-hidden="true" />
         </button>
 
         <button
@@ -178,19 +112,7 @@ function Sidebar({ activeTab, onTabChange, onClaudeOverviewClick, onSettingsClic
           aria-current={activeTab === "stats" ? "page" : undefined}
           data-tooltip={t("nav.stats")}
         >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            aria-hidden="true"
-          >
-            <line x1="18" y1="20" x2="18" y2="10" />
-            <line x1="12" y1="20" x2="12" y2="4" />
-            <line x1="6" y1="20" x2="6" y2="14" />
-          </svg>
+          <BarChart3 className="size-5" aria-hidden="true" />
         </button>
 
         <button
@@ -201,22 +123,7 @@ function Sidebar({ activeTab, onTabChange, onClaudeOverviewClick, onSettingsClic
           aria-current={activeTab === "usage" ? "page" : undefined}
           data-tooltip={t("nav.usage")}
         >
-          <svg
-            data-testid="usage-dollar-icon"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <circle cx="12" cy="12" r="9" />
-            <path d="M12 6v12" />
-            <path d="M15.5 8.5A3.2 3.2 0 0 0 12.4 7H11a3 3 0 0 0 0 6h2a3 3 0 0 1 0 6h-1.4a3.2 3.2 0 0 1-3.1-1.5" />
-          </svg>
+          <DollarSign data-testid="usage-dollar-icon" className="size-5" aria-hidden="true" />
         </button>
       </div>
 
@@ -230,18 +137,7 @@ function Sidebar({ activeTab, onTabChange, onClaudeOverviewClick, onSettingsClic
           aria-label={t("header.settings")}
           data-tooltip={t("header.settings")}
         >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            aria-hidden="true"
-          >
-            <circle cx="12" cy="12" r="3" />
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-          </svg>
+          <Settings className="size-5" aria-hidden="true" />
         </button>
       </div>
     </nav>

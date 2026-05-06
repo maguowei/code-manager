@@ -1,5 +1,5 @@
+import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
-import { EyeIcon, EyeOffIcon } from "../Icons";
 import "./editor-shared.css";
 
 interface SensitiveTextInputProps {
@@ -40,7 +40,11 @@ function SensitiveTextInput({
         title={visible ? hideLabel : showLabel}
         onClick={() => setVisible((current) => !current)}
       >
-        {visible ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
+        {visible ? (
+          <EyeOff className="size-4" aria-hidden="true" />
+        ) : (
+          <Eye className="size-4" aria-hidden="true" />
+        )}
       </button>
     </div>
   );

@@ -11,6 +11,7 @@ import {
 import { FileTree, useFileTree } from "@pierre/trees/react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
+import { Code2, Copy, ExternalLink, Eye, SquarePen } from "lucide-react";
 import {
   type CSSProperties,
   type FormEvent,
@@ -38,7 +39,6 @@ import type {
 } from "../types";
 import ConfirmDialog from "./ConfirmDialog";
 import MarkdownPreview from "./claude-overview/MarkdownPreview";
-import { CodeIcon, CopyIcon, EditIcon, ExternalLinkIcon, EyeIcon } from "./Icons";
 import { useTheme } from "./theme-provider";
 import "./ClaudeOverviewPage.css";
 
@@ -1271,7 +1271,7 @@ function ClaudeOverviewPage() {
             onClick={handleOpenDocs}
           >
             <span>{t("claudeOverview.openDocs")}</span>
-            <ExternalLinkIcon size={14} />
+            <ExternalLink className="size-3.5" aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -1356,7 +1356,11 @@ function ClaudeOverviewPage() {
                         setViewMode((current) => (current === "preview" ? "source" : "preview"))
                       }
                     >
-                      {viewMode === "preview" ? <CodeIcon /> : <EyeIcon />}
+                      {viewMode === "preview" ? (
+                        <Code2 className="size-4" aria-hidden="true" />
+                      ) : (
+                        <Eye className="size-[18px]" aria-hidden="true" />
+                      )}
                     </button>
                   </div>
                 ) : null}
@@ -1367,7 +1371,7 @@ function ClaudeOverviewPage() {
                     title={t("claudeOverview.copyPath")}
                     onClick={handleCopyPath}
                   >
-                    <CopyIcon />
+                    <Copy className="size-4" aria-hidden="true" />
                   </button>
                   <button
                     type="button"
@@ -1375,7 +1379,7 @@ function ClaudeOverviewPage() {
                     title={t("claudeOverview.openFileBrowser")}
                     onClick={handleOpenInFileBrowser}
                   >
-                    <ExternalLinkIcon />
+                    <ExternalLink className="size-3.5" aria-hidden="true" />
                   </button>
                   <button
                     type="button"
@@ -1383,7 +1387,7 @@ function ClaudeOverviewPage() {
                     title={t("claudeOverview.openEditor")}
                     onClick={handleOpenInEditor}
                   >
-                    <EditIcon />
+                    <SquarePen className="size-4" aria-hidden="true" />
                   </button>
                 </div>
               </div>

@@ -2,6 +2,7 @@ import { markdown } from "@codemirror/lang-markdown";
 import { EditorView } from "@codemirror/view";
 import { zodResolver } from "@hookform/resolvers/zod";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
+import { ChevronLeft, CircleCheck, Code2, Eye } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Controller, type FieldError, type Resolver, useForm } from "react-hook-form";
 import { useCodeMirrorTheme } from "../hooks/useCodeMirrorTheme";
@@ -20,7 +21,6 @@ import {
 } from "../schemas/memory-schema";
 import type { Memory, MemoryTargetType } from "../types";
 import MarkdownPreview from "./claude-overview/MarkdownPreview";
-import { CheckCircleIcon, ChevronLeftIcon, CodeIcon, EyeIcon } from "./Icons";
 import SchemaFormField from "./SchemaFormField";
 import "./MemoryEditor.css";
 import { useTheme } from "./theme-provider";
@@ -204,7 +204,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
               onClick={onClose}
               aria-label={t("common.close")}
             >
-              <ChevronLeftIcon />
+              <ChevronLeft className="size-5" aria-hidden="true" />
             </button>
             <h2 id="memory-modal-title">{memory ? t("memory.editTitle") : t("memory.addTitle")}</h2>
             <button type="submit" className="editor-save-btn" disabled={!watchName?.trim()}>
@@ -265,7 +265,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                             <span className="memory-target-card-main">
                               <span className="memory-target-card-title">{t(option.labelKey)}</span>
                               <span className="memory-target-card-check" aria-hidden="true">
-                                <CheckCircleIcon size={18} />
+                                <CircleCheck className="size-[18px]" aria-hidden="true" />
                               </span>
                             </span>
                             <span id={descriptionId} className="memory-target-card-description">
@@ -302,11 +302,11 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                     onClick={() => setIsPathPatternsOpen((isOpen) => !isOpen)}
                   >
                     <span>{t("memory.advancedRules")}</span>
-                    <ChevronLeftIcon
-                      size={16}
+                    <ChevronLeft
                       className={`memory-advanced-rules-icon${
                         isPathPatternsOpen ? " is-open" : ""
-                      }`}
+                      } size-4`}
+                      aria-hidden="true"
                     />
                   </button>
                   {isPathPatternsOpen ? (
@@ -381,7 +381,11 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                       setEditorMode((current) => (current === "preview" ? "source" : "preview"))
                     }
                   >
-                    {isPreviewMode ? <CodeIcon size={14} /> : <EyeIcon size={14} />}
+                    {isPreviewMode ? (
+                      <Code2 className="size-3.5" aria-hidden="true" />
+                    ) : (
+                      <Eye className="size-3.5" aria-hidden="true" />
+                    )}
                   </button>
                 </div>
                 <Controller

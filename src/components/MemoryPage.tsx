@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { ExternalLink, FolderInput, Plus, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import useEscapeKey from "../hooks/useEscapeKey";
 import useTauriEvent from "../hooks/useTauriEvent";
@@ -16,7 +17,6 @@ import type {
 } from "../types";
 import ConfirmDialog from "./ConfirmDialog";
 import Drawer from "./Drawer";
-import { ExternalLinkIcon, FolderImportIcon, PlusIcon, RefreshIcon } from "./Icons";
 import MemoryEditor from "./MemoryEditor";
 import MemoryItem from "./MemoryItem";
 import UnmanagedMemoryItem from "./UnmanagedMemoryItem";
@@ -333,7 +333,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
             onClick={handleOpenDocs}
           >
             <span>{t("memory.openDocs")}</span>
-            <ExternalLinkIcon size={14} />
+            <ExternalLink className="size-3.5" aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -350,7 +350,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
             onClick={handleImportDirectory}
             disabled={isImportingDirectory}
           >
-            <FolderImportIcon size={14} />
+            <FolderInput className="size-3.5" aria-hidden="true" />
             <span>
               {isImportingDirectory ? t("memory.importingDirectory") : t("memory.importDirectory")}
             </span>
@@ -364,7 +364,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
             onClick={handleRefreshMemories}
             disabled={isRefreshing}
           >
-            <RefreshIcon size={14} />
+            <RefreshCw className="size-3.5" aria-hidden="true" />
             <span>{isRefreshing ? t("memory.refreshing") : t("memory.refresh")}</span>
           </button>
         </div>
@@ -372,7 +372,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
 
       {/* 添加按钮 */}
       <button type="button" className="add-config-btn" onClick={openAddModal}>
-        <PlusIcon />
+        <Plus className="size-[18px]" aria-hidden="true" />
         <span>{t("memory.addMemory")}</span>
       </button>
 

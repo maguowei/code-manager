@@ -1,7 +1,7 @@
+import { Trash2 } from "lucide-react";
 import { type KeyboardEvent, memo } from "react";
 import { useI18n } from "../i18n";
 import type { Skill } from "../types";
-import { TrashIcon } from "./Icons";
 import ProfileNameBadge from "./ProfileNameBadge";
 import "./SkillItem.css";
 
@@ -104,7 +104,7 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
           aria-label={t("skills.delete")}
           title={t("skills.delete")}
         >
-          <TrashIcon />
+          <Trash2 className="size-4" aria-hidden="true" />
         </button>
       </div>
     </div>
