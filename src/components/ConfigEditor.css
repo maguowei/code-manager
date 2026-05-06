@@ -498,22 +498,22 @@
 }
 
 /* 深色主题下使用深色工具栏 */
-[data-theme="dark"] .defaults-editor {
+.dark .defaults-editor {
   border-color: #3e4452;
 }
 
-[data-theme="dark"] .defaults-toolbar {
+.dark .defaults-toolbar {
   background-color: #282c34;
   border-bottom-color: #3e4452;
 }
 
-[data-theme="dark"] .defaults-format-btn {
+.dark .defaults-format-btn {
   border-color: rgba(255, 255, 255, 0.15);
   background-color: rgba(255, 255, 255, 0.06);
   color: #abb2bf;
 }
 
-[data-theme="dark"] .defaults-format-btn:hover {
+.dark .defaults-format-btn:hover {
   background-color: rgba(255, 255, 255, 0.1);
   color: #e5e7eb;
 }
@@ -583,31 +583,31 @@
 }
 
 /* 深色主题下使用深色预览背景 */
-[data-theme="dark"] .json-preview {
+.dark .json-preview {
   border-color: #3e4452;
 }
 
-[data-theme="dark"] .json-preview-header {
+.dark .json-preview-header {
   background-color: #282c34;
   border-bottom-color: #3e4452;
 }
 
-[data-theme="dark"] .json-preview-deferred-editor {
+.dark .json-preview-deferred-editor {
   background-color: #282c34;
 }
 
-[data-theme="dark"] .json-copy-btn {
+.dark .json-copy-btn {
   border-color: rgba(255, 255, 255, 0.15);
   background-color: rgba(255, 255, 255, 0.06);
   color: #abb2bf;
 }
 
-[data-theme="dark"] .json-copy-btn:hover {
+.dark .json-copy-btn:hover {
   background-color: rgba(255, 255, 255, 0.1);
   color: #e5e7eb;
 }
 
-[data-theme="dark"] .json-copy-btn.copied {
+.dark .json-copy-btn.copied {
   border-color: rgba(152, 195, 121, 0.4);
   color: #98c379;
   background-color: rgba(152, 195, 121, 0.1);

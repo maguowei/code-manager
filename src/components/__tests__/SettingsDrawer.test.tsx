@@ -4,6 +4,7 @@ import { ToastProvider } from "../../hooks/useToast";
 import { I18nProvider } from "../../i18n";
 import type { ConfigWorkspace } from "../../types";
 import SettingsDrawer from "../SettingsDrawer";
+import { ThemeProvider } from "../theme-provider";
 
 const { invokeMock } = vi.hoisted(() => ({
   invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
@@ -30,9 +31,11 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
 function renderSettingsDrawer() {
   render(
     <I18nProvider>
-      <ToastProvider>
-        <SettingsDrawer onClose={vi.fn()} />
-      </ToastProvider>
+      <ThemeProvider>
+        <ToastProvider>
+          <SettingsDrawer onClose={vi.fn()} />
+        </ToastProvider>
+      </ThemeProvider>
     </I18nProvider>,
   );
 }

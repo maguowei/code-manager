@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import type { Memory } from "../../types";
 import MemoryEditor from "../MemoryEditor";
+import { ThemeProvider } from "../theme-provider";
 
 vi.mock("@uiw/react-codemirror", () => ({
   default: ({
@@ -46,7 +47,9 @@ function renderMemoryEditor(memory: Memory | null = null) {
   const onSave = vi.fn();
   render(
     <I18nProvider>
-      <MemoryEditor memory={memory} onSave={onSave} onClose={vi.fn()} />
+      <ThemeProvider>
+        <MemoryEditor memory={memory} onSave={onSave} onClose={vi.fn()} />
+      </ThemeProvider>
     </I18nProvider>,
   );
   return { onSave };

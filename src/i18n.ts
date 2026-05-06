@@ -12,7 +12,6 @@ import {
 import { type ConfigWorkspace, isTauri } from "./types";
 
 export type Language = "zh" | "en";
-export type Theme = "light" | "dark" | "system";
 
 // 翻译字典
 const translations = {
@@ -2087,7 +2086,6 @@ const STORAGE_KEY = "ai-manager-settings";
 
 interface AppSettings {
   language: Language;
-  theme: Theme;
 }
 
 function isChineseSystemLocale(locale: string | undefined): boolean {
@@ -2108,7 +2106,7 @@ function getSystemLanguage(): Language {
 }
 
 function loadSettings(): AppSettings {
-  const defaults: AppSettings = { language: getSystemLanguage(), theme: "dark" };
+  const defaults: AppSettings = { language: getSystemLanguage() };
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
@@ -2116,10 +2114,8 @@ function loadSettings(): AppSettings {
       // 校验解析结果，防止 localStorage 数据损坏导致崩溃
       if (parsed && typeof parsed === "object") {
         const validLanguages: Language[] = ["zh", "en"];
-        const validThemes: Theme[] = ["light", "dark", "system"];
         return {
           language: validLanguages.includes(parsed.language) ? parsed.language : defaults.language,
-          theme: validThemes.includes(parsed.theme) ? parsed.theme : defaults.theme,
         };
       }
     }
@@ -2133,24 +2129,11 @@ function saveSettings(settings: AppSettings) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
 }
 
-// 主题应用
-function applyTheme(theme: Theme) {
-  const root = document.documentElement;
-  if (theme === "system") {
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    root.setAttribute("data-theme", prefersDark ? "dark" : "light");
-  } else {
-    root.setAttribute("data-theme", theme);
-  }
-}
-
 // Context
 interface I18nContextType {
   language: Language;
-  theme: Theme;
   t: (key: TranslationKey) => string;
   setLanguage: (lang: Language) => void;
-  setTheme: (theme: Theme) => void;
 }
 
 const I18nContext = createContext<I18nContextType | null>(null);
@@ -2172,21 +2155,6 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       saveSettings(next);
       return next;
     });
-  }, []);
-
-  const setTheme = useCallback((theme: Theme) => {
-    setSettings((prev) => {
-      const next = { ...prev, theme };
-      saveSettings(next);
-      applyTheme(theme);
-      return next;
-    });
-  }, []);
-
-  // 初始化时应用主题
-  // biome-ignore lint/correctness/useExhaustiveDependencies: 仅在挂载时执行一次
-  useEffect(() => {
-    applyTheme(settings.theme);
   }, []);
 
   useEffect(() => {
@@ -2217,24 +2185,13 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // 监听系统主题变化（仅在 "system" 模式下生效）
-  useEffect(() => {
-    if (settings.theme !== "system") return;
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = () => applyTheme("system");
-    mediaQuery.addEventListener("change", handler);
-    return () => mediaQuery.removeEventListener("change", handler);
-  }, [settings.theme]);
-
   const value = useMemo<I18nContextType>(
     () => ({
       language: settings.language,
-      theme: settings.theme,
       t,
       setLanguage,
-      setTheme,
     }),
-    [settings.language, settings.theme, t, setLanguage, setTheme],
+    [settings.language, t, setLanguage],
   );
 
   return createElement(I18nContext.Provider, { value }, children);

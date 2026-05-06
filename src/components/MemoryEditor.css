@@ -347,26 +347,26 @@
 }
 
 /* 深色主题适配 */
-[data-theme="dark"] .memory-editor {
+.dark .memory-editor {
   border-color: var(--border-default);
 }
 
-[data-theme="dark"] .memory-editor-toolbar {
+.dark .memory-editor-toolbar {
   background-color: #21252b;
   border-bottom-color: #3e4452;
 }
 
-[data-theme="dark"] .memory-toolbar-btn {
+.dark .memory-toolbar-btn {
   color: #abb2bf;
   border-color: rgba(255, 255, 255, 0.12);
 }
 
-[data-theme="dark"] .memory-toolbar-btn:hover {
+.dark .memory-toolbar-btn:hover {
   background-color: rgba(255, 255, 255, 0.08);
   color: #e6e6e6;
 }
 
-[data-theme="dark"] .memory-toolbar-btn:disabled:hover {
+.dark .memory-toolbar-btn:disabled:hover {
   background-color: transparent;
   color: #abb2bf;
 }

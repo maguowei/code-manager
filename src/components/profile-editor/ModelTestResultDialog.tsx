@@ -6,6 +6,7 @@ import { useToast } from "../../hooks/useToast";
 import { useI18n } from "../../i18n";
 import type { ModelTestResult } from "../../types";
 import { CopyIcon, TestTubeIcon } from "../Icons";
+import { useTheme } from "../theme-provider";
 import "./editor-shared.css";
 
 interface ModelTestResultDialogProps {
@@ -52,20 +53,8 @@ function formatRawResponse(rawResponse: string): { content: string; language: st
   }
 }
 
-function resolveSyntaxTheme(theme: "light" | "dark" | "system") {
-  if (theme === "light") {
-    return oneLight;
-  }
-  if (theme === "dark") {
-    return vscDarkPlus;
-  }
-  if (
-    typeof document !== "undefined" &&
-    document.documentElement.getAttribute("data-theme") === "light"
-  ) {
-    return oneLight;
-  }
-  return vscDarkPlus;
+function resolveSyntaxTheme(isDark: boolean) {
+  return isDark ? vscDarkPlus : oneLight;
 }
 
 function formatHeaders(headers?: Record<string, string>): string {
@@ -121,7 +110,8 @@ function ModelTestResultDialog({
   onRetest,
   isRetesting = false,
 }: ModelTestResultDialogProps) {
-  const { t, theme } = useI18n();
+  const { t } = useI18n();
+  const { isDark } = useTheme();
   const { showToast } = useToast();
   const dialogTitleId = "profile-model-test-dialog-title";
   const promptInputId = "profile-model-test-prompt-input";
@@ -137,7 +127,7 @@ function ModelTestResultDialog({
   const promptText = result?.promptText?.trim() ?? "";
   const rawResponse = result?.rawResponse?.trim() ? result.rawResponse : "";
   const formattedRawResponse = rawResponse ? formatRawResponse(rawResponse) : null;
-  const syntaxTheme = resolveSyntaxTheme(theme);
+  const syntaxTheme = resolveSyntaxTheme(isDark);
   const requestBody = useMemo(
     () => requestBodyWithPrompt(result?.requestBody, promptDraft),
     [result?.requestBody, promptDraft],

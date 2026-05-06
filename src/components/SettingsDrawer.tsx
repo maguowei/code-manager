@@ -7,7 +7,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import useEscapeKey from "../hooks/useEscapeKey";
 import { useToast } from "../hooks/useToast";
-import { type Language, type Theme, useI18n } from "../i18n";
+import { type Language, useI18n } from "../i18n";
 import type {
   AppPreferences,
   ConfigWorkspace,
@@ -17,13 +17,15 @@ import type {
 import LogViewer from "./LogViewer";
 import "./SettingsDrawer.css";
 import SystemInfoDialog from "./SystemInfoDialog";
+import { type Theme, useTheme } from "./theme-provider";
 
 interface SettingsDrawerProps {
   onClose: () => void;
 }
 
 function SettingsDrawer({ onClose }: SettingsDrawerProps) {
-  const { t, language, theme, setLanguage, setTheme } = useI18n();
+  const { t, language, setLanguage } = useI18n();
+  const { theme, setTheme } = useTheme();
   const { showToast } = useToast();
   const [preferences, setPreferences] = useState<AppPreferences>({
     showTrayTitle: true,

@@ -1,7 +1,7 @@
 import { json } from "@codemirror/lang-json";
 import CodeMirror from "@uiw/react-codemirror";
 import { useEffect, useRef, useState } from "react";
-import useEditorTheme from "../hooks/useEditorTheme";
+import { useCodeMirrorTheme } from "../hooks/useCodeMirrorTheme";
 import { useI18n } from "../i18n";
 
 /** ConfigPreview 组件的属性定义 */
@@ -34,7 +34,7 @@ const READONLY_PREVIEW_ROOT_MARGIN = "240px 0px";
 function ConfigPreview({ content, onChange, jsonError }: ConfigPreviewProps) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
-  const editorTheme = useEditorTheme();
+  const editorTheme = useCodeMirrorTheme();
   const previewRef = useRef<HTMLDivElement>(null);
   const editable = !!onChange;
   const [editorReady, setEditorReady] = useState(editable);

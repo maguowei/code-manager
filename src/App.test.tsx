@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { ThemeProvider } from "./components/theme-provider";
 import { ToastProvider } from "./hooks/useToast";
 import { I18nProvider } from "./i18n";
 import type { ConfigWorkspace } from "./types";
@@ -334,9 +335,11 @@ const CLAUDE_OVERVIEW_FIXTURE = {
 function renderApp() {
   render(
     <I18nProvider>
-      <ToastProvider>
-        <App />
-      </ToastProvider>
+      <ThemeProvider>
+        <ToastProvider>
+          <App />
+        </ToastProvider>
+      </ThemeProvider>
     </I18nProvider>,
   );
 }
@@ -354,6 +357,7 @@ function setSystemLanguages(languages: string[]) {
 
 describe("App", () => {
   beforeEach(() => {
+    vi.useRealTimers();
     localStorage.clear();
     setSystemLanguages(["zh-CN"]);
     Object.defineProperty(navigator, "clipboard", {
@@ -374,7 +378,7 @@ describe("App", () => {
       configurable: true,
       value: undefined,
     });
-    document.documentElement.removeAttribute("data-theme");
+    document.documentElement.classList.remove("dark");
     Object.defineProperty(window, "matchMedia", {
       value: vi.fn().mockImplementation(() => ({
         matches: false,

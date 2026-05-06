@@ -4,8 +4,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { useEffect, useRef, useState } from "react";
 import { Controller, type FieldError, type Resolver, useForm } from "react-hook-form";
-import useEditorTheme from "../hooks/useEditorTheme";
-import { type Theme, type TranslationKey, useI18n } from "../i18n";
+import { useCodeMirrorTheme } from "../hooks/useCodeMirrorTheme";
+import { type TranslationKey, useI18n } from "../i18n";
 import {
   buildMemoryDefaultValues,
   composeMemoryEditorContent,
@@ -23,6 +23,7 @@ import MarkdownPreview from "./claude-overview/MarkdownPreview";
 import { CheckCircleIcon, ChevronLeftIcon, CodeIcon, EyeIcon } from "./Icons";
 import SchemaFormField from "./SchemaFormField";
 import "./MemoryEditor.css";
+import { useTheme } from "./theme-provider";
 
 type MemoryEditorMode = "source" | "preview";
 type MarkdownPreviewThemeType = "light" | "dark";
@@ -57,45 +58,12 @@ const MEMORY_TARGET_OPTIONS: Array<{
   },
 ];
 
-function getSystemMarkdownPreviewThemeType(): MarkdownPreviewThemeType {
-  if (typeof window === "undefined") {
-    return "dark";
-  }
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
-function useMarkdownPreviewThemeType(theme: Theme): MarkdownPreviewThemeType {
-  const [systemThemeType, setSystemThemeType] = useState<MarkdownPreviewThemeType>(
-    getSystemMarkdownPreviewThemeType,
-  );
-
-  useEffect(() => {
-    if (theme !== "system" || typeof window === "undefined") {
-      return;
-    }
-
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const handleChange = (event: MediaQueryListEvent) => {
-      setSystemThemeType(event.matches ? "dark" : "light");
-    };
-
-    setSystemThemeType(mediaQuery.matches ? "dark" : "light");
-    mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
-  }, [theme]);
-
-  if (theme === "light" || theme === "dark") {
-    return theme;
-  }
-
-  return systemThemeType;
-}
-
 function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
-  const { t, theme } = useI18n();
+  const { t } = useI18n();
+  const { isDark } = useTheme();
   const editorRef = useRef<ReactCodeMirrorRef>(null);
-  const editorTheme = useEditorTheme();
-  const previewThemeType = useMarkdownPreviewThemeType(theme);
+  const editorTheme = useCodeMirrorTheme();
+  const previewThemeType: MarkdownPreviewThemeType = isDark ? "dark" : "light";
   const [editorMode, setEditorMode] = useState<MemoryEditorMode>("source");
   const hasInitialPathPatterns = (memory?.pathPatterns ?? []).some(
     (pattern) => pattern.trim().length > 0,

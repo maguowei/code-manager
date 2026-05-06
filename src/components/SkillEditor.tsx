@@ -5,7 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import CodeMirror from "@uiw/react-codemirror";
 import { useEffect, useState } from "react";
 import { Controller, type FieldError, type Resolver, useForm } from "react-hook-form";
-import useEditorTheme from "../hooks/useEditorTheme";
+import { useCodeMirrorTheme } from "../hooks/useCodeMirrorTheme";
 import { useToast } from "../hooks/useToast";
 import { type TranslationKey, useI18n } from "../i18n";
 import {
@@ -38,7 +38,7 @@ interface SkillEditorProps {
 function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
   const { t } = useI18n();
   const { showToast } = useToast();
-  const editorTheme = useEditorTheme();
+  const editorTheme = useCodeMirrorTheme();
   const isEditing = skill !== null;
   const primaryFields = buildSkillPrimaryFields(isEditing);
 

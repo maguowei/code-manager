@@ -28,7 +28,7 @@ import {
 } from "react";
 import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
-import { type Language, type Theme, type TranslationKey, useI18n } from "../i18n";
+import { type Language, type TranslationKey, useI18n } from "../i18n";
 import type {
   ClaudeDirectoryChangedEvent,
   ClaudeDirectoryEntry,
@@ -39,6 +39,7 @@ import type {
 import ConfirmDialog from "./ConfirmDialog";
 import MarkdownPreview from "./claude-overview/MarkdownPreview";
 import { CodeIcon, CopyIcon, EditIcon, ExternalLinkIcon, EyeIcon } from "./Icons";
+import { useTheme } from "./theme-provider";
 import "./ClaudeOverviewPage.css";
 
 interface ClaudeDirectoryTreeProps {
@@ -316,41 +317,6 @@ function formatPreviewEncoding(encoding: string | undefined, t: (key: Translatio
 function getClaudeDirectoryDocsUrl(language: Language) {
   const docsLocale = language === "zh" ? "zh-CN" : "en";
   return `${CLAUDE_CODE_DOCS_BASE_URL}/${docsLocale}/${CLAUDE_DIRECTORY_DOCS_PATH}`;
-}
-
-function getSystemPierreThemeType(): ThemeTypes {
-  if (typeof window === "undefined") {
-    return "dark";
-  }
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
-function resolvePierreThemeType(theme: Theme, systemThemeType: ThemeTypes): ThemeTypes {
-  if (theme === "light" || theme === "dark") {
-    return theme;
-  }
-  return systemThemeType;
-}
-
-function usePierreThemeType(theme: Theme): ThemeTypes {
-  const [systemThemeType, setSystemThemeType] = useState<ThemeTypes>(getSystemPierreThemeType);
-
-  useEffect(() => {
-    if (theme !== "system" || typeof window === "undefined") {
-      return;
-    }
-
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const handleChange = (event: MediaQueryListEvent) => {
-      setSystemThemeType(event.matches ? "dark" : "light");
-    };
-
-    setSystemThemeType(mediaQuery.matches ? "dark" : "light");
-    mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
-  }, [theme]);
-
-  return useMemo(() => resolvePierreThemeType(theme, systemThemeType), [systemThemeType, theme]);
 }
 
 function fileContentsForPreview(preview: ClaudeFilePreview): FileContents {
@@ -634,7 +600,8 @@ function ClaudeOverviewFileIcon({ path }: { path: string }) {
 }
 
 function ClaudeOverviewPage() {
-  const { language, t, theme } = useI18n();
+  const { language, t } = useI18n();
+  const { isDark } = useTheme();
   const { showToast } = useToast();
   const cachedOverviewOnMountRef = useRef<ClaudeDirectoryOverview | null>(
     cachedClaudeOverviewState,
@@ -699,7 +666,7 @@ function ClaudeOverviewPage() {
     }
     return fileContentsForPreview(activePreview);
   }, [activePreview]);
-  const previewThemeType = usePierreThemeType(theme);
+  const previewThemeType: ThemeTypes = isDark ? "dark" : "light";
   const previewFileOptions = useMemo(
     () => ({
       ...PIERRE_FILE_OPTIONS,

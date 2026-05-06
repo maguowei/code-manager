@@ -12,6 +12,7 @@ import {
   OFFICIAL_MARKETPLACE_ID,
   OFFICIAL_MARKETPLACE_REPO,
 } from "../profile-editor/marketplace-presets";
+import { ThemeProvider } from "../theme-provider";
 
 const { invokeMock, showToastMock, fetchMock, openDialogMock, openUrlMock } = vi.hoisted(() => ({
   invokeMock: vi.fn(),
@@ -195,12 +196,14 @@ function renderEditor(options?: {
     >();
   render(
     <I18nProvider>
-      <ProfileEditor
-        profile={profile}
-        presets={options?.presets ?? BUILTIN_PRESETS}
-        onSave={onSave}
-        onClose={() => {}}
-      />
+      <ThemeProvider>
+        <ProfileEditor
+          profile={profile}
+          presets={options?.presets ?? BUILTIN_PRESETS}
+          onSave={onSave}
+          onClose={() => {}}
+        />
+      </ThemeProvider>
     </I18nProvider>,
   );
   return { onSave };

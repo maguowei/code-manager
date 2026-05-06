@@ -2,6 +2,7 @@ import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import ConfigPreview from "../ConfigPreview";
+import { ThemeProvider } from "../theme-provider";
 
 const codeMirrorMock = vi.hoisted(() => vi.fn());
 
@@ -29,7 +30,9 @@ const originalMatchMedia = window.matchMedia;
 function renderPreview(props: { content?: string; onChange?: (value: string) => void } = {}) {
   return render(
     <I18nProvider>
-      <ConfigPreview content={props.content ?? '{ "ok": true }'} onChange={props.onChange} />
+      <ThemeProvider>
+        <ConfigPreview content={props.content ?? '{ "ok": true }'} onChange={props.onChange} />
+      </ThemeProvider>
     </I18nProvider>,
   );
 }
@@ -105,7 +108,9 @@ describe("ConfigPreview", () => {
 
     rerender(
       <I18nProvider>
-        <ConfigPreview content='{ "second": true }' onChange={handleChange} />
+        <ThemeProvider>
+          <ConfigPreview content='{ "second": true }' onChange={handleChange} />
+        </ThemeProvider>
       </I18nProvider>,
     );
 

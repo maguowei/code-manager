@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import type { ConfigWorkspace } from "../../types";
 import ProfilesPage from "../ProfilesPage";
+import { ThemeProvider } from "../theme-provider";
 
 const { invokeMock, showToastMock } = vi.hoisted(() => ({
   invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
@@ -105,7 +106,9 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
 function renderPage(workspace: ConfigWorkspace = WORKSPACE_FIXTURE) {
   render(
     <I18nProvider>
-      <ProfilesPage workspace={workspace} onWorkspaceChange={async () => {}} />
+      <ThemeProvider>
+        <ProfilesPage workspace={workspace} onWorkspaceChange={async () => {}} />
+      </ThemeProvider>
     </I18nProvider>,
   );
 }
@@ -441,7 +444,9 @@ describe("ProfilesPage", () => {
 
     render(
       <I18nProvider>
-        <ProfilesPage workspace={unboundWorkspace} onWorkspaceChange={async () => {}} />
+        <ThemeProvider>
+          <ProfilesPage workspace={unboundWorkspace} onWorkspaceChange={async () => {}} />
+        </ThemeProvider>
       </I18nProvider>,
     );
 
@@ -466,10 +471,12 @@ describe("ProfilesPage", () => {
 
     render(
       <I18nProvider>
-        <ProfilesPage
-          workspace={{ ...WORKSPACE_FIXTURE, profiles: [] }}
-          onWorkspaceChange={async () => {}}
-        />
+        <ThemeProvider>
+          <ProfilesPage
+            workspace={{ ...WORKSPACE_FIXTURE, profiles: [] }}
+            onWorkspaceChange={async () => {}}
+          />
+        </ThemeProvider>
       </I18nProvider>,
     );
 
@@ -514,7 +521,9 @@ describe("ProfilesPage", () => {
 
     render(
       <I18nProvider>
-        <ProfilesPage workspace={orderedWorkspace} onWorkspaceChange={async () => {}} />
+        <ThemeProvider>
+          <ProfilesPage workspace={orderedWorkspace} onWorkspaceChange={async () => {}} />
+        </ThemeProvider>
       </I18nProvider>,
     );
 
@@ -648,7 +657,9 @@ describe("ProfilesPage", () => {
 
     render(
       <I18nProvider>
-        <ProfilesPage workspace={orderedWorkspace} onWorkspaceChange={async () => {}} />
+        <ThemeProvider>
+          <ProfilesPage workspace={orderedWorkspace} onWorkspaceChange={async () => {}} />
+        </ThemeProvider>
       </I18nProvider>,
     );
 
@@ -1138,7 +1149,9 @@ describe("ProfilesPage", () => {
 
     render(
       <I18nProvider>
-        <ProfilesPage workspace={orderedWorkspace} onWorkspaceChange={async () => {}} />
+        <ThemeProvider>
+          <ProfilesPage workspace={orderedWorkspace} onWorkspaceChange={async () => {}} />
+        </ThemeProvider>
       </I18nProvider>,
     );
 
@@ -1208,7 +1221,9 @@ describe("ProfilesPage", () => {
 
     render(
       <I18nProvider>
-        <ProfilesPage workspace={WORKSPACE_FIXTURE} onWorkspaceChange={onWorkspaceChange} />
+        <ThemeProvider>
+          <ProfilesPage workspace={WORKSPACE_FIXTURE} onWorkspaceChange={onWorkspaceChange} />
+        </ThemeProvider>
       </I18nProvider>,
     );
 
@@ -1241,7 +1256,9 @@ describe("ProfilesPage", () => {
 
     render(
       <I18nProvider>
-        <ProfilesPage workspace={WORKSPACE_FIXTURE} onWorkspaceChange={onWorkspaceChange} />
+        <ThemeProvider>
+          <ProfilesPage workspace={WORKSPACE_FIXTURE} onWorkspaceChange={onWorkspaceChange} />
+        </ThemeProvider>
       </I18nProvider>,
     );
 
@@ -1275,7 +1292,9 @@ describe("ProfilesPage", () => {
 
     render(
       <I18nProvider>
-        <ProfilesPage workspace={orderedWorkspace} onWorkspaceChange={onWorkspaceChange} />
+        <ThemeProvider>
+          <ProfilesPage workspace={orderedWorkspace} onWorkspaceChange={onWorkspaceChange} />
+        </ThemeProvider>
       </I18nProvider>,
     );
 
