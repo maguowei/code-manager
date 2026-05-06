@@ -24,7 +24,7 @@
 | `src/components/theme-provider.tsx` | system/light/dark 三态状态管理 + `.dark` class DOM 写入 + 持久化 |
 | `src/hooks/useCodeMirrorTheme.ts` | 监听 `<html>` class 变化返回 xcodeDark/xcodeLight |
 | `src/hooks/useIsDark.ts` | 暴露当前是否暗色（供 react-syntax-highlighter / markdown wrapper 用） |
-| `src/components/forms/StringListField.tsx` | `useFieldArray` 字符串列表通用字段 |
+| `src/components/forms/StringListField.tsx` | `useFieldArray` 字符串列表通用字段；保留自定义新增与逐行 action 扩展 |
 | `src/components/forms/KeyValueField.tsx` | 键值对动态增删通用字段 |
 | `components.json` | shadcn 配置 |
 
@@ -455,9 +455,15 @@ EOF
 - Create: `src/components/__tests__/theme-provider.test.tsx`
 - Create: `src/hooks/useCodeMirrorTheme.ts`
 - Create: `src/hooks/useIsDark.ts`
+- Modify: `src/hooks/useEditorTheme.ts`（删除或改为兼容转发）
 - Create: `src/hooks/__tests__/useCodeMirrorTheme.test.tsx`
 - Modify: `src/i18n.ts`（迁出主题逻辑）
 - Modify: `src/main.tsx`（注入 `<ThemeProvider>`）
+- Modify: `src/components/MemoryEditor.tsx`
+- Modify: `src/components/SkillEditor.tsx`
+- Modify: `src/components/ClaudeOverviewPage.tsx`
+- Modify: `src/components/ConfigPreview.tsx`
+- Modify: `src/components/SettingsDrawer.tsx`
 - Modify: `src/components/profile-editor/ModelTestResultDialog.tsx`
 - Modify: `src/App.test.tsx`（断言 `.dark` 替代 `data-theme`）
 - Modify: `src/i18n.test.tsx`
@@ -649,11 +655,25 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 function readStoredTheme(): Theme {
   if (typeof localStorage === "undefined") return "system";
   const v = localStorage.getItem(STORAGE_KEY);
-  return v === "dark" || v === "light" || v === "system" ? v : "system";
+  if (v === "dark" || v === "light" || v === "system") return v;
+  try {
+    const legacy = localStorage.getItem("ai-manager-settings");
+    const parsed = legacy ? JSON.parse(legacy) : null;
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      (parsed.theme === "dark" || parsed.theme === "light" || parsed.theme === "system")
+    ) {
+      return parsed.theme;
+    }
+  } catch {
+    // 忽略损坏的旧本地缓存
+  }
+  return "system";
 }
 
 function prefersDark(): boolean {
-  if (typeof window === "undefined") return false;
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
@@ -668,7 +688,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // 监听 system 主题变化
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
     const mql = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = (e: MediaQueryListEvent) => setSystemDark(e.matches);
     mql.addEventListener("change", handler);
@@ -721,13 +741,48 @@ function readStoredTheme(): Theme {
   // 读新 key
   const v = localStorage.getItem(STORAGE_KEY);
   if (v === "dark" || v === "light" || v === "system") return v;
-  // 兼容旧 key（如有）：占位 "ai-manager.theme.legacy"
-  // 实际旧 key 名以 i18n.ts 中现有写法为准；执行时 grep 后填回此处
+  // 兼容旧 key：i18n.ts 原本把 language/theme 放在同一个 ai-manager-settings JSON 中
+  try {
+    const legacy = localStorage.getItem("ai-manager-settings");
+    const parsed = legacy ? JSON.parse(legacy) : null;
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      (parsed.theme === "dark" || parsed.theme === "light" || parsed.theme === "system")
+    ) {
+      return parsed.theme;
+    }
+  } catch {
+    // 忽略损坏的旧本地缓存
+  }
   return "system";
 }
 ```
 
-- [ ] **Step 3.8：替换业务代码中所有 `data-theme` 使用点**
+- [ ] **Step 3.8：迁移所有 `useI18n()` 主题消费者**
+
+在删除 `i18n.ts` 的 `theme` / `setTheme` 前，先把所有主题读取点迁到 `useTheme()` 或 `useIsDark()`；否则 `pnpm build` 会直接因 `useI18n()` 返回类型变化失败。
+
+```bash
+grep -rn "useI18n().*theme\|theme, setTheme\|setTheme\|useEditorTheme" src/ --include="*.ts" --include="*.tsx"
+```
+
+必须处理的当前命中：
+- `src/components/SettingsDrawer.tsx`：`const { t, language } = useI18n()`；`const { theme, setTheme } = useTheme()`
+- `src/components/MemoryEditor.tsx`：`const { t } = useI18n()`；Markdown preview 主题用 `useTheme().isDark` 或 `useIsDark()`
+- `src/components/ClaudeOverviewPage.tsx`：`const { language, t } = useI18n()`；Pierre / Markdown 主题用 `useTheme().theme` + `isDark`
+- `src/components/profile-editor/ModelTestResultDialog.tsx`：`const { t } = useI18n()`；语法高亮主题用 `useTheme()` / `useIsDark()`
+- `src/components/ConfigPreview.tsx`、`src/components/SkillEditor.tsx`、`src/components/MemoryEditor.tsx`：把 `useEditorTheme()` import 替换为 `useCodeMirrorTheme()`；随后删除 `src/hooks/useEditorTheme.ts` 或改为转发新 hook，避免旧 hook 继续依赖 `useI18n().theme`
+
+完成后再跑：
+
+```bash
+grep -rn "theme, setTheme\|setTheme\|useEditorTheme\|const .*theme.*= useI18n" src/ --include="*.ts" --include="*.tsx"
+```
+
+预期：没有从 `useI18n()` 读取主题的命中；仅允许 `useTheme()` 相关命中。
+
+- [ ] **Step 3.9：替换业务代码中所有 `data-theme` 使用点**
 
 ```bash
 grep -rn "data-theme\|getAttribute(\"data-theme\"\|setAttribute(\"data-theme" src/ --include="*.ts" --include="*.tsx"
@@ -738,7 +793,7 @@ grep -rn "data-theme\|getAttribute(\"data-theme\"\|setAttribute(\"data-theme" sr
 - `ModelTestResultDialog.tsx:64` `getAttribute("data-theme") === "light"` → `!document.documentElement.classList.contains("dark")`
 - `i18n.test.tsx` 涉及 data-theme 断言的：换为 `classList.contains("dark")`
 
-- [ ] **Step 3.9：修改 `src/main.tsx` 注入 `<ThemeProvider>`**
+- [ ] **Step 3.10：修改 `src/main.tsx` 注入 `<ThemeProvider>`**
 
 ```tsx
 import React from "react";
@@ -765,7 +820,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 );
 ```
 
-- [ ] **Step 3.10：构建 + 测试**
+- [ ] **Step 3.11：构建 + 测试**
 
 ```bash
 pnpm biome:ci && pnpm build && pnpm test
@@ -773,15 +828,21 @@ pnpm biome:ci && pnpm build && pnpm test
 
 预期：全绿。如 i18n.test.tsx 或 App.test.tsx 中残留 data-theme 断言导致红色，定位修复。
 
-- [ ] **Step 3.11：commit**
+- [ ] **Step 3.12：commit**
 
 ```bash
 git add src/components/theme-provider.tsx \
         src/components/__tests__/theme-provider.test.tsx \
         src/hooks/useIsDark.ts \
         src/hooks/useCodeMirrorTheme.ts \
+        src/hooks/useEditorTheme.ts \
         src/hooks/__tests__/useCodeMirrorTheme.test.tsx \
         src/i18n.ts src/main.tsx \
+        src/components/MemoryEditor.tsx \
+        src/components/SkillEditor.tsx \
+        src/components/ClaudeOverviewPage.tsx \
+        src/components/ConfigPreview.tsx \
+        src/components/SettingsDrawer.tsx \
         src/App.test.tsx src/i18n.test.tsx \
         src/components/profile-editor/ModelTestResultDialog.tsx
 git commit -m "$(cat <<'EOF'
@@ -790,8 +851,8 @@ feat(theme): ThemeProvider 接管主题状态 + dark class 切换
 把主题状态/持久化/DOM 写入逻辑从 i18n.ts 整体迁出到新的
 ThemeProvider；DOM 写入由 setAttribute("data-theme") 改为
 classList.toggle("dark")；新增 useIsDark / useCodeMirrorTheme
-hook；ModelTestResultDialog 与既有测试同步替换 data-theme
-为 .dark 检测。
+hook；所有 useI18n 主题消费者迁到 useTheme / useIsDark；
+ModelTestResultDialog 与既有测试同步替换 data-theme 为 .dark 检测。
 
 EOF
 )"
@@ -1512,7 +1573,8 @@ grep -rn "SchemaFormField\|from \"@/components/SchemaFormField\"\|from \"./Schem
 - [ ] **Step 8.2：创建 `src/components/forms/StringListField.tsx`**
 
 ```tsx
-import { useFieldArray, type Control, type FieldValues, type Path } from "react-hook-form";
+import type { ReactNode } from "react";
+import { useFieldArray, useWatch, type Control, type FieldValues, type Path } from "react-hook-form";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1524,6 +1586,11 @@ interface StringListFieldProps<TFieldValues extends FieldValues> {
   labelKey: TranslationKey;
   placeholderKey?: TranslationKey;
   addLabelKey?: TranslationKey;
+  resolveAddValue?: () => Promise<string | null> | string | null;
+  resolveRowActionValue?: (currentValue: string, index: number) => Promise<string | null> | string | null;
+  rowActionLabelKey?: TranslationKey;
+  rowActionIcon?: ReactNode;
+  buildRowActionAriaLabel?: (itemLabel: string) => string;
 }
 
 export function StringListField<TFieldValues extends FieldValues>({
@@ -1532,9 +1599,26 @@ export function StringListField<TFieldValues extends FieldValues>({
   labelKey,
   placeholderKey,
   addLabelKey,
+  resolveAddValue,
+  resolveRowActionValue,
+  rowActionLabelKey,
+  rowActionIcon,
+  buildRowActionAriaLabel,
 }: StringListFieldProps<TFieldValues>) {
   const { t } = useI18n();
-  const { fields, append, remove } = useFieldArray({ control, name: name as never });
+  const { fields, append, remove, update } = useFieldArray({ control, name: name as never });
+  const values = (useWatch({ control, name }) ?? []) as string[];
+
+  async function handleAdd() {
+    const nextValue = resolveAddValue ? await resolveAddValue() : "";
+    if (nextValue !== null) append(nextValue as never);
+  }
+
+  async function handleRowAction(index: number) {
+    if (!resolveRowActionValue) return;
+    const nextValue = await resolveRowActionValue(values[index] ?? "", index);
+    if (nextValue !== null) update(index, nextValue as never);
+  }
 
   return (
     <div className="space-y-2">
@@ -1549,10 +1633,24 @@ export function StringListField<TFieldValues extends FieldValues>({
             <Button type="button" variant="ghost" size="icon" onClick={() => remove(idx)}>
               <X className="size-4" />
             </Button>
+            {resolveRowActionValue && rowActionLabelKey ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={
+                  buildRowActionAriaLabel?.(`${t(labelKey)} ${idx + 1}`) ??
+                  `${t(rowActionLabelKey)} ${idx + 1}`
+                }
+                onClick={() => void handleRowAction(idx)}
+              >
+                {rowActionIcon ?? t(rowActionLabelKey)}
+              </Button>
+            ) : null}
           </div>
         ))}
       </div>
-      <Button type="button" variant="outline" size="sm" onClick={() => append("" as never)}>
+      <Button type="button" variant="outline" size="sm" onClick={() => void handleAdd()}>
         <Plus className="size-4" />
         {addLabelKey ? t(addLabelKey) : t("common.add")}
       </Button>
@@ -1560,6 +1658,8 @@ export function StringListField<TFieldValues extends FieldValues>({
   );
 }
 ```
+
+`PermissionsEditor` 的 `additionalDirectories` 迁移时必须传入 `resolveAddValue` 与 `resolveRowActionValue`，继续调用 `@tauri-apps/plugin-dialog` 的目录选择器；取消选择返回 `null`，保持原值不变。不要用无 row action 的普通字符串列表替换该字段。
 
 - [ ] **Step 8.3：创建 `src/components/forms/KeyValueField.tsx`**
 
@@ -1704,7 +1804,7 @@ git commit -m "refactor(profile-editor): 外壳改为 shadcn Sheet"
 通用流程（每个子编辑器套用）：
 1. 读现有 `.tsx` + `.css`，了解字段结构
 2. 改为 shadcn `Form` + `FormField` + `FormItem` + `FormLabel` + `FormControl` + `FormMessage`
-3. 字符串列表用 `<StringListField>`，键值对用 `<KeyValueField>`
+3. 字符串列表用 `<StringListField>`，键值对用 `<KeyValueField>`；`additionalDirectories` 必须保留新增时选择目录和逐行重选目录能力
 4. 多选/单选用 `<Checkbox>` / `<RadioGroup>`
 5. preset 选择用 `<Select>`
 6. 删除对应 `.css`
@@ -2135,8 +2235,12 @@ pnpm tauri dev   # 桌面 dev 模式手测
 详见 spec §9 / §10。中途任何 Task 不可恢复地破坏构建：
 
 ```bash
-git reset --hard HEAD~1   # 回退最后一个失败 commit（仅本地未推送时）
+git status --short
+git diff --stat
+git revert --no-edit HEAD  # 需要撤销最近一次已提交改动时优先使用非破坏性 revert
 ```
+
+不要在共享工作区执行 `git reset --hard` 作为计划步骤；如确实需要丢弃本地未提交改动，必须先确认没有用户改动并获得明确许可。
 
 整个 PR 不可用：
 

@@ -40,7 +40,7 @@ src/
 ├── components/
 │   ├── ui/                          ★ shadcn CLI 生成的所有原子组件（28 个）
 │   ├── theme-provider.tsx           ★ system / light / dark 三态，写入 .dark class
-│   ├── forms/                       业务侧复用表单字段（StringListField / KeyValueField）
+│   ├── forms/                       业务侧复用表单字段（StringListField / KeyValueField，含 row action 扩展）
 │   ├── ProfilesPage.tsx             业务组件：保留文件名 + 内部全部改 Tailwind
 │   ├── PresetsPage.tsx
 │   ├── MemoryPage.tsx
@@ -469,14 +469,14 @@ const FormMessage = ({ className, children, ...props }: React.ComponentProps<"p"
 | `profile-editor/HooksEditor.tsx` | 中 |  |
 | `profile-editor/PermissionsEditor.tsx` | 中 |  |
 | `profile-editor/SandboxEditor.tsx` | 中 |  |
-| `profile-editor/StringListEditor.tsx` | 低 | 抽取为 `forms/StringListField` |
+| `profile-editor/StringListEditor.tsx` | 低 | 抽取为 `forms/StringListField`，保留自定义新增和逐行 action |
 | `profile-editor/EnabledPluginsEditor.tsx` | 中 |  |
 | `profile-editor/MarketplaceEditor.tsx` | 中 |  |
 | `profile-editor/StatusLineEditor.tsx` | 中 |  |
 | `profile-editor/StructuredSettingsSections.tsx` | 中 | Tabs / Accordion |
 | `profile-editor/DocumentEditorSection.tsx` | 低 |  |
 
-业务侧复用：`src/components/forms/StringListField.tsx`、`src/components/forms/KeyValueField.tsx`。
+业务侧复用：`src/components/forms/StringListField.tsx`、`src/components/forms/KeyValueField.tsx`。其中 `StringListField` 必须支持 `resolveAddValue` / `resolveRowActionValue` 这类可选扩展，确保 `PermissionsEditor` 的 `additionalDirectories` 仍能新增时打开目录选择器、已有行再次选择目录。
 
 `useObjectJsonEditor` / `useDocumentJsonEditor` / `useStructuredSettingsSectionState` / `useEscapeKey` / `useTauriEvent` / `useToast` 均不动。
 
@@ -555,16 +555,16 @@ export function useToast() {
 迁移到 `ThemeProvider` 的内容：
 
 - `theme` 状态（`"system" | "light" | "dark"`）
-- `prefers-color-scheme` 监听
+- `prefers-color-scheme` 监听；在 jsdom 或其它无 `window.matchMedia` 环境必须回退为浅色，不得抛错
 - 当前是否暗色的派生
-- 持久化键（沿用 i18n.ts 中现有的同名 key，**不变更存储字段、迁移路径透明**）
+- 持久化键使用 `ai-manager.theme`；读取时兼容旧 `ai-manager-settings` JSON 中的 `theme` 字段，迁移路径透明
 - DOM 写入：从 `setAttribute("data-theme", ...)` 改为 `classList.toggle("dark", isDark)`
 
 需要随之改写的检测点：
 
 - `App.test.tsx:377`：`removeAttribute("data-theme")` → `classList.remove("dark")`
 - `ModelTestResultDialog.tsx:64`：`getAttribute("data-theme") === "light"` → `!classList.contains("dark")`
-- 任何旧的「读 i18n 中的主题」调用点：改为 `useTheme()` from `theme-provider`。
+- 任何旧的「读 i18n 中的主题」调用点：改为 `useTheme()` from `theme-provider`；当前必须覆盖 `SettingsDrawer`、`MemoryEditor`、`ClaudeOverviewPage`、`ModelTestResultDialog` 以及 `useEditorTheme()` 的所有调用点。
 
 i18n 文案、语言键名、`useI18n()` 公共 API 不变。
 
@@ -745,7 +745,7 @@ commit 15 test: 全量测试与视觉验证
 ## 10 回滚策略
 
 - 严重不可修复问题：`git revert` PR 整体回滚。
-- 中间 commit 失败：保留前序 commit，定位失败 commit，修补后重新 push。
+- 中间 commit 失败：保留前序 commit，定位失败 commit，优先用 fix commit 或 `git revert` 非破坏性撤销；不要在共享工作区把 `git reset --hard` 写入执行计划。
 - 不做 feature flag：UI 重构无法运行时切换。
 
 ## 11 不在本次范围
