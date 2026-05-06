@@ -1,7 +1,8 @@
+import { ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
 import { useI18n } from "../../i18n";
 import ConfigPreview from "../ConfigPreview";
-import "./editor-shared.css";
+import { Button } from "../ui/button";
 
 export type SectionEditorMode = "controls" | "json";
 export type SettingsSectionVariant = "default" | "accordion";
@@ -57,47 +58,58 @@ function SettingsSectionModePanel({
   function renderModeSwitch() {
     return (
       <div
-        className="profile-mode-switch"
+        className="profile-mode-switch inline-flex items-center rounded-full border border-[var(--border-default)] bg-[color-mix(in_srgb,var(--bg-primary)_90%,var(--accent-blue)_10%)] p-1"
         role="tablist"
         aria-label={`${title} ${t("common.jsonMode")}`}
       >
-        <button
+        <Button
           type="button"
-          className={`profile-mode-switch-btn${mode === "controls" ? " active" : ""}`}
+          variant="ghost"
+          size="sm"
+          className={`profile-mode-switch-btn min-w-16 rounded-full px-3 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]${mode === "controls" ? " active bg-[var(--bg-primary)] text-[var(--text-primary)]" : ""}`}
           aria-pressed={mode === "controls"}
           onClick={() => onModeChange("controls")}
         >
           {t("common.controlMode")}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          className={`profile-mode-switch-btn${mode === "json" ? " active" : ""}`}
+          variant="ghost"
+          size="sm"
+          className={`profile-mode-switch-btn min-w-16 rounded-full px-3 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]${mode === "json" ? " active bg-[var(--bg-primary)] text-[var(--text-primary)]" : ""}`}
           aria-pressed={mode === "json"}
           onClick={() => onModeChange("json")}
         >
           {t("common.jsonMode")}
-        </button>
+        </Button>
       </div>
     );
   }
 
   function renderSectionContent() {
     if (mode === "controls") {
-      return <div className="profile-section-body">{controls}</div>;
+      return <div className="profile-section-body flex flex-col gap-4">{controls}</div>;
     }
 
     return (
-      <div className="profile-section-body">
-        <div className="profile-json-mode-panel">
-          <div className="profile-json-mode-toolbar">
-            <p className="form-hint">{jsonHint}</p>
-            <button type="button" className="profile-secondary-btn" onClick={jsonEditor.formatJson}>
+      <div className="profile-section-body flex flex-col gap-4">
+        <div className="profile-json-mode-panel flex flex-col gap-3 rounded-lg border border-dashed border-[var(--border-default)] bg-[color-mix(in_srgb,var(--bg-primary)_92%,var(--accent-orange-bg,#fff7ed)_8%)] p-4">
+          <div className="profile-json-mode-toolbar flex flex-wrap items-center justify-between gap-3">
+            <p className="form-hint m-0 min-w-[220px] flex-1 text-sm text-[var(--text-secondary)]">
+              {jsonHint}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              className="profile-secondary-btn"
+              onClick={jsonEditor.formatJson}
+            >
               {t("common.formatJson")}
-            </button>
+            </Button>
           </div>
 
           {!jsonEditor.hasAppliedDraft ? (
-            <p className="profile-json-mode-status form-hint">
+            <p className="profile-json-mode-status form-hint m-0 text-sm text-[var(--text-secondary)]">
               {t("common.sectionJsonDraftPending")}
             </p>
           ) : null}
@@ -115,78 +127,88 @@ function SettingsSectionModePanel({
   if (variant === "accordion") {
     return (
       <section
-        className={`profile-editor-section profile-editor-section-accordion${expanded ? " expanded" : ""}`}
+        className={`profile-editor-section profile-editor-section-accordion flex flex-col overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--bg-primary)]${expanded ? " expanded" : ""}`}
       >
-        <div className="profile-accordion-header">
+        <div className="profile-accordion-header flex w-full items-center justify-between gap-4 px-6 py-5">
           <button
             type="button"
-            className="profile-accordion-trigger profile-accordion-trigger-large-target"
+            className="profile-accordion-trigger profile-accordion-trigger-large-target flex min-w-0 flex-1 items-center justify-between gap-3 self-stretch border-0 bg-transparent py-5 text-left text-[var(--text-primary)]"
             aria-expanded={expanded}
             onClick={onToggleExpanded}
           >
-            <span className="profile-accordion-header-main">
+            <span className="profile-accordion-header-main inline-flex min-w-0 items-center gap-3">
               <h3>{title}</h3>
               {typeof badgeCount === "number" ? (
-                <span className="profile-accordion-badge">{badgeCount}</span>
+                <span className="profile-accordion-badge inline-flex min-w-7 items-center justify-center rounded-md bg-[color-mix(in_srgb,var(--bg-secondary,var(--bg-primary))_92%,white_8%)] px-2.5 py-1 text-xs font-semibold leading-none text-[var(--text-secondary)]">
+                  {badgeCount}
+                </span>
               ) : null}
             </span>
             {hasHeaderMeta ? (
-              <span className="profile-accordion-header-meta">{headerMeta}</span>
+              <span className="profile-accordion-header-meta min-w-0 whitespace-nowrap text-right text-sm font-medium text-[var(--text-secondary)]">
+                {headerMeta}
+              </span>
             ) : null}
           </button>
-          <div className="profile-accordion-actions">
+          <div className="profile-accordion-actions inline-flex shrink-0 items-center gap-2">
             {headerControl ? (
-              <div className="profile-accordion-header-control">{headerControl}</div>
+              <div className="profile-accordion-header-control inline-flex min-w-0 items-center">
+                {headerControl}
+              </div>
             ) : null}
-            <button
+            <Button
               type="button"
-              className="profile-accordion-chevron-btn"
+              variant="ghost"
+              size="icon-sm"
+              className="profile-accordion-chevron-btn rounded-full text-[var(--text-secondary)]"
               aria-expanded={expanded}
               aria-label={`${expanded ? t("common.collapse") : t("common.expand")} ${title}`}
               onClick={onToggleExpanded}
             >
-              <svg
-                className={`profile-accordion-chevron${expanded ? " expanded" : ""}`}
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
+              <ChevronDown
+                className={`profile-accordion-chevron size-4 transition-transform${expanded ? " expanded rotate-180" : ""}`}
                 aria-hidden="true"
-              >
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </button>
+              />
+            </Button>
           </div>
         </div>
 
         {bodyVisible ? (
-          <div className="profile-accordion-content">
-            <div className={`profile-accordion-mode-row${modeRowAction ? " has-action" : ""}`}>
+          <div className="profile-accordion-content flex flex-col gap-4 border-t border-[var(--border-default)] px-6 py-5">
+            <div
+              className={`profile-accordion-mode-row flex flex-wrap items-center justify-between gap-3${modeRowAction ? " has-action" : ""}`}
+            >
               {modeRowAction ? (
-                <div className="profile-accordion-mode-row-action">{modeRowAction}</div>
+                <div className="profile-accordion-mode-row-action min-w-0 flex-1">
+                  {modeRowAction}
+                </div>
               ) : null}
               {renderModeSwitch()}
             </div>
             {renderSectionContent()}
-            {footer ? <div className="profile-section-footer">{footer}</div> : null}
+            {footer ? (
+              <div className="profile-section-footer flex flex-wrap gap-3">{footer}</div>
+            ) : null}
           </div>
         ) : null}
 
-        {error ? <span className="field-error">{error}</span> : null}
+        {error ? (
+          <span className="field-error px-6 pb-5 text-sm font-medium text-destructive">
+            {error}
+          </span>
+        ) : null}
       </section>
     );
   }
 
   return (
-    <section className="profile-editor-section">
-      <div className="profile-section-heading">
-        <div className="profile-section-heading-main">
+    <section className="profile-editor-section flex flex-col gap-4 rounded-lg border border-[var(--border-default)] bg-[var(--bg-primary)] p-5">
+      <div className="profile-section-heading flex flex-wrap items-center justify-between gap-3">
+        <div className="profile-section-heading-main min-w-0 flex-1">
           <h3>{title}</h3>
         </div>
 
-        <div className="profile-subsection-actions">
+        <div className="profile-subsection-actions flex flex-wrap items-center gap-2">
           {headerControl}
           {modeRowAction}
           {renderModeSwitch()}
@@ -194,9 +216,11 @@ function SettingsSectionModePanel({
       </div>
 
       {renderSectionContent()}
-      {footer ? <div className="profile-section-footer">{footer}</div> : null}
+      {footer ? <div className="profile-section-footer flex flex-wrap gap-3">{footer}</div> : null}
 
-      {error ? <span className="field-error">{error}</span> : null}
+      {error ? (
+        <span className="field-error text-sm font-medium text-destructive">{error}</span>
+      ) : null}
     </section>
   );
 }

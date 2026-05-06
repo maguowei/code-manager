@@ -2,6 +2,8 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { ExternalLink } from "lucide-react";
 import { type ReactNode, useCallback, useState } from "react";
 import { useI18n } from "../../i18n";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 import BehaviorFieldHeader from "./BehaviorFieldHeader";
 import DocumentEditorSection from "./DocumentEditorSection";
 import EnabledPluginsEditor from "./EnabledPluginsEditor";
@@ -24,7 +26,6 @@ import {
   type SettingsFieldOption,
 } from "./settings-form-registry";
 import type { StructuredSettingsSectionState } from "./useStructuredSettingsSectionState";
-import "./editor-shared.css";
 
 type StructuredSettingsScope = "profiles" | "presets";
 type DocsLocale = "zh-CN" | "en";
@@ -52,6 +53,8 @@ interface BehaviorFieldState {
 }
 
 const CLAUDE_CODE_DOCS_BASE_URL = "https://code.claude.com/docs";
+const STRUCTURED_SELECT_CLASS =
+  "form-select h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base text-[var(--text-primary)] shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm";
 const STRUCTURED_SETTINGS_DOCS_PATHS: Record<StructuredSettingsDocsKey, string> = {
   behavior: "model-config",
   env: "env-vars",
@@ -220,9 +223,10 @@ function StructuredSettingsSections({
     const label = t("profileEditor.docs.openAriaLabel").replace("{section}", sectionTitle);
 
     return (
-      <button
+      <Button
         type="button"
-        className="profile-secondary-btn profile-section-doc-link"
+        variant="outline"
+        className="profile-secondary-btn profile-section-doc-link min-h-[34px] px-3 text-xs font-semibold"
         aria-label={label}
         title={label}
         onClick={() => {
@@ -231,7 +235,7 @@ function StructuredSettingsSections({
       >
         <span>{t("profileEditor.docs.openButtonLabel")}</span>
         <ExternalLink className="size-3.5" aria-hidden="true" />
-      </button>
+      </Button>
     );
   }
 
@@ -241,7 +245,7 @@ function StructuredSettingsSections({
     extraControl?: ReactNode,
   ) {
     return (
-      <div className="profile-section-row-actions">
+      <div className="profile-section-row-actions inline-flex min-w-0 flex-wrap items-center gap-2">
         {renderSectionDocsButton(docsKey, sectionTitle)}
         {extraControl}
       </div>
@@ -259,7 +263,7 @@ function StructuredSettingsSections({
             {scalarFieldRows.map((row) => (
               <div
                 key={`${scope}-behavior-row-${row.map((field) => field.key).join("-")}`}
-                className="form-row"
+                className="form-row grid gap-4 md:grid-cols-2"
               >
                 {row.map((field) => {
                   const label = field.label[language];
@@ -271,7 +275,7 @@ function StructuredSettingsSections({
                       fieldState.mappedToEnv,
                     );
                     return (
-                      <div key={field.key} className="form-group">
+                      <div key={field.key} className="form-group grid gap-2">
                         <BehaviorFieldHeader
                           label={label}
                           inputId={`${scope}-field-${field.key}`}
@@ -279,7 +283,7 @@ function StructuredSettingsSections({
                         />
                         <select
                           id={`${scope}-field-${field.key}`}
-                          className="form-select"
+                          className={STRUCTURED_SELECT_CLASS}
                           value={fieldState.value}
                           onChange={(event) =>
                             onMappedFieldChange(field, event.target.value, fieldState.mappedToEnv)
@@ -296,13 +300,13 @@ function StructuredSettingsSections({
                   }
 
                   return (
-                    <div key={field.key} className="form-group">
+                    <div key={field.key} className="form-group grid gap-2">
                       <BehaviorFieldHeader
                         label={label}
                         inputId={`${scope}-field-${field.key}`}
                         helperKey={getFieldHelperKey(field)}
                       />
-                      <input
+                      <Input
                         id={`${scope}-field-${field.key}`}
                         value={fieldState.value}
                         placeholder={field.placeholder ? field.placeholder[language] : ""}
@@ -319,12 +323,16 @@ function StructuredSettingsSections({
             {behaviorToggleFieldRows.map((row) => (
               <div
                 key={`${scope}-toggle-row-${row.map((field) => field.key).join("-")}`}
-                className="profile-toggle-grid"
+                className="profile-toggle-grid grid gap-3 md:grid-cols-2"
               >
                 {row.map((field) => (
-                  <label key={field.key} className="profile-toggle-item">
+                  <label
+                    key={field.key}
+                    className="profile-toggle-item flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-primary)] px-3 py-2 text-sm font-medium text-[var(--text-primary)]"
+                  >
                     <input
                       type="checkbox"
+                      className="size-4 accent-[var(--accent-blue)]"
                       checked={settings[field.key] === true}
                       onChange={(event) => onSimpleFieldChange(field, event.target.checked)}
                     />
@@ -353,7 +361,7 @@ function StructuredSettingsSections({
             {commonScalarFieldRows.map((row) => (
               <div
                 key={`${scope}-common-row-${row.map((field) => field.key).join("-")}`}
-                className="form-row"
+                className="form-row grid gap-4 md:grid-cols-2"
               >
                 {row.map((field) => {
                   const label = field.label[language];
@@ -365,7 +373,7 @@ function StructuredSettingsSections({
                     const options = resolveSelectOptions(field, value, false);
 
                     return (
-                      <div key={field.key} className="form-group">
+                      <div key={field.key} className="form-group grid gap-2">
                         <BehaviorFieldHeader
                           label={label}
                           inputId={inputId}
@@ -373,7 +381,7 @@ function StructuredSettingsSections({
                         />
                         <select
                           id={inputId}
-                          className="form-select"
+                          className={STRUCTURED_SELECT_CLASS}
                           value={value}
                           onChange={(event) => onSimpleFieldChange(field, event.target.value)}
                         >
@@ -383,32 +391,40 @@ function StructuredSettingsSections({
                             </option>
                           ))}
                         </select>
-                        {description ? <p className="form-hint">{description}</p> : null}
+                        {description ? (
+                          <p className="form-hint m-0 text-sm text-[var(--text-secondary)]">
+                            {description}
+                          </p>
+                        ) : null}
                       </div>
                     );
                   }
 
                   return (
-                    <div key={field.key} className="form-group">
+                    <div key={field.key} className="form-group grid gap-2">
                       <BehaviorFieldHeader
                         label={label}
                         inputId={inputId}
                         helperKey={getFieldHelperKey(field)}
                       />
-                      <input
+                      <Input
                         id={inputId}
                         value={value}
                         placeholder={field.placeholder ? field.placeholder[language] : ""}
                         onChange={(event) => onSimpleFieldChange(field, event.target.value)}
                       />
-                      {description ? <p className="form-hint">{description}</p> : null}
+                      {description ? (
+                        <p className="form-hint m-0 text-sm text-[var(--text-secondary)]">
+                          {description}
+                        </p>
+                      ) : null}
                     </div>
                   );
                 })}
               </div>
             ))}
 
-            <div className="profile-common-option-list">
+            <div className="profile-common-option-list flex flex-col gap-3">
               {commonToggleFields.map((field) => {
                 const label = field.label[language];
                 const description = field.description?.[language];
@@ -416,14 +432,21 @@ function StructuredSettingsSections({
                 const helperKey = getFieldHelperKey(field);
 
                 return (
-                  <div key={field.key} className="profile-common-option-item">
-                    <div className="profile-common-option-copy">
-                      <div className="profile-common-option-title-row">
-                        <span className="profile-common-option-title">{label}</span>
+                  <div
+                    key={field.key}
+                    className="profile-common-option-item flex items-center justify-between gap-3 rounded-lg border border-[var(--border-default)] bg-[var(--bg-primary)] px-3 py-3"
+                  >
+                    <div className="profile-common-option-copy min-w-0 flex-1">
+                      <div className="profile-common-option-title-row flex items-center gap-2">
+                        <span className="profile-common-option-title text-sm font-semibold text-[var(--text-primary)]">
+                          {label}
+                        </span>
                         <FieldHelpButton helperKey={helperKey} />
                       </div>
                       {description ? (
-                        <p className="profile-common-option-description">{description}</p>
+                        <p className="profile-common-option-description mt-1 text-sm text-[var(--text-secondary)]">
+                          {description}
+                        </p>
                       ) : null}
                     </div>
                     <SandboxSwitchControl

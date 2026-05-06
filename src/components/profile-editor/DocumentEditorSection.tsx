@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useI18n } from "../../i18n";
 import ConfigPreview from "../ConfigPreview";
-import "./editor-shared.css";
+import { Button } from "../ui/button";
 
 type DocumentEditorMode = "preview" | "json";
 
@@ -40,57 +40,71 @@ function DocumentEditorSection({
   const [mode, setMode] = useState<DocumentEditorMode>("preview");
 
   return (
-    <section className="profile-editor-section">
-      <div className="profile-section-heading">
-        <div className="profile-section-heading-main">
+    <section className="profile-editor-section flex flex-col gap-4 rounded-lg border border-[var(--border-default)] bg-[var(--bg-primary)] p-5">
+      <div className="profile-section-heading flex flex-wrap items-center justify-between gap-3">
+        <div className="profile-section-heading-main min-w-0 flex-1">
           <h3>{title}</h3>
         </div>
 
-        <div className="profile-subsection-actions">
+        <div className="profile-subsection-actions flex flex-wrap items-center gap-2">
           <div
-            className="profile-mode-switch"
+            className="profile-mode-switch inline-flex items-center rounded-full border border-[var(--border-default)] bg-[color-mix(in_srgb,var(--bg-primary)_90%,var(--accent-blue)_10%)] p-1"
             role="tablist"
             aria-label={`${title} ${editModeLabel}`}
           >
-            <button
+            <Button
               type="button"
-              className={`profile-mode-switch-btn${mode === "preview" ? " active" : ""}`}
+              variant="ghost"
+              size="sm"
+              className={`profile-mode-switch-btn min-w-16 rounded-full px-3 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]${mode === "preview" ? " active bg-[var(--bg-primary)] text-[var(--text-primary)]" : ""}`}
               aria-pressed={mode === "preview"}
               onClick={() => setMode("preview")}
             >
               {previewModeLabel}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className={`profile-mode-switch-btn${mode === "json" ? " active" : ""}`}
+              variant="ghost"
+              size="sm"
+              className={`profile-mode-switch-btn min-w-16 rounded-full px-3 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]${mode === "json" ? " active bg-[var(--bg-primary)] text-[var(--text-primary)]" : ""}`}
               aria-pressed={mode === "json"}
               onClick={() => setMode("json")}
             >
               {editModeLabel}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
 
       {mode === "preview" ? (
-        <div className="form-group">
+        <div className="form-group grid gap-2">
           <ConfigPreview content={previewContent} jsonError={previewError} />
         </div>
       ) : (
-        <div className="profile-json-mode-panel">
-          <div className="profile-json-mode-toolbar">
-            <p className="form-hint">{editHint}</p>
-            <button type="button" className="profile-secondary-btn" onClick={onFormat}>
+        <div className="profile-json-mode-panel flex flex-col gap-3 rounded-lg border border-dashed border-[var(--border-default)] bg-[color-mix(in_srgb,var(--bg-primary)_92%,var(--accent-orange-bg,#fff7ed)_8%)] p-4">
+          <div className="profile-json-mode-toolbar flex flex-wrap items-center justify-between gap-3">
+            <p className="form-hint m-0 min-w-[220px] flex-1 text-sm text-[var(--text-secondary)]">
+              {editHint}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              className="profile-secondary-btn"
+              onClick={onFormat}
+            >
               {t("common.formatJson")}
-            </button>
+            </Button>
           </div>
 
           {supportedKeys.length > 0 ? (
-            <div className="profile-supported-keys">
+            <div className="profile-supported-keys flex flex-col gap-2 text-sm text-[var(--text-secondary)]">
               <span>{supportedKeysLabel}</span>
-              <div className="profile-chip-list">
+              <div className="profile-chip-list flex flex-wrap gap-1.5">
                 {supportedKeys.map((key) => (
-                  <span key={key} className="profile-key-badge">
+                  <span
+                    key={key}
+                    className="profile-key-badge rounded-md border border-[var(--border-default)] bg-[var(--bg-secondary)] px-2 py-1 font-mono text-xs text-[var(--text-primary)]"
+                  >
                     {key}
                   </span>
                 ))}
@@ -99,7 +113,7 @@ function DocumentEditorSection({
           ) : null}
 
           {!hasAppliedDraft ? (
-            <p className="profile-json-mode-status form-hint">
+            <p className="profile-json-mode-status form-hint m-0 text-sm text-[var(--text-secondary)]">
               {t("common.sectionJsonDraftPending")}
             </p>
           ) : null}

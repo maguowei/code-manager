@@ -1,6 +1,7 @@
 import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
-import "./editor-shared.css";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 
 interface SensitiveTextInputProps {
   id: string;
@@ -24,18 +25,21 @@ function SensitiveTextInput({
   const [visible, setVisible] = useState(false);
 
   return (
-    <div className="profile-sensitive-input">
-      <input
+    <div className="profile-sensitive-input relative flex min-w-0 items-center">
+      <Input
         id={id}
         aria-label={ariaLabel}
         type={visible ? "text" : "password"}
+        className="pr-10"
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
       />
-      <button
+      <Button
         type="button"
-        className="profile-icon-btn profile-sensitive-input-toggle"
+        variant="ghost"
+        size="icon-sm"
+        className="profile-icon-btn profile-sensitive-input-toggle absolute right-1 text-[var(--text-secondary)]"
         aria-label={visible ? hideLabel : showLabel}
         title={visible ? hideLabel : showLabel}
         onClick={() => setVisible((current) => !current)}
@@ -45,7 +49,7 @@ function SensitiveTextInput({
         ) : (
           <Eye className="size-4" aria-hidden="true" />
         )}
-      </button>
+      </Button>
     </div>
   );
 }
