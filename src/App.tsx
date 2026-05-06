@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./App.css";
+import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import ClaudeOverviewPage from "./components/ClaudeOverviewPage";
 import HistoryPage from "./components/HistoryPage";
 import MemoryPage from "./components/MemoryPage";
@@ -100,15 +102,11 @@ function App() {
     setActiveTab("claudeOverview");
   }, [activeTab]);
 
-  if (loading) {
-    return (
-      <div className="app-container">
-        <div className="loading">{t("loading")}</div>
-      </div>
-    );
-  }
-
-  return (
+  const content = loading ? (
+    <div className="app-container">
+      <div className="loading">{t("loading")}</div>
+    </div>
+  ) : (
     <div className="app-container">
       <Sidebar
         activeTab={activeTab}
@@ -148,6 +146,13 @@ function App() {
 
       {isSettingsOpen && <SettingsDrawer onClose={closeSettingsDrawer} />}
     </div>
+  );
+
+  return (
+    <TooltipProvider delayDuration={200}>
+      {content}
+      <Toaster richColors closeButton position="top-right" />
+    </TooltipProvider>
   );
 }
 

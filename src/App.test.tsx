@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { ThemeProvider } from "./components/theme-provider";
@@ -54,6 +55,22 @@ vi.mock("@tauri-apps/api/event", () => ({
 vi.mock("@tauri-apps/plugin-opener", () => ({
   revealItemInDir: revealItemInDirMock,
   openUrl: openUrlMock,
+}));
+
+vi.mock("sonner", () => ({
+  Toaster: () => null,
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
+vi.mock("@/components/ui/sonner", () => ({
+  Toaster: () => null,
+}));
+
+vi.mock("@/components/ui/tooltip", () => ({
+  TooltipProvider: ({ children }: { children: ReactNode }) => children,
 }));
 
 vi.mock("@pierre/diffs/react", () => ({
