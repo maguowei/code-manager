@@ -1,9 +1,11 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { CircleCheck, ExternalLink, RefreshCw } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CircleCheck, ExternalLink, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "../../hooks/useToast";
 import { useI18n } from "../../i18n";
 import ConfirmAlertDialog from "../ConfirmAlertDialog";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 import { createRowId, type PluginDraft, readObject } from "./editor-utils";
 import { OFFICIAL_MARKETPLACE_ID } from "./marketplace-presets";
 import {
@@ -15,7 +17,6 @@ import {
 } from "./official-plugin-catalog";
 import RequiredBadge from "./RequiredBadge";
 import { SandboxSwitchControl } from "./SandboxEditor";
-import "./EnabledPluginsEditor.css";
 
 interface EnabledPluginsEditorProps {
   value: unknown;
@@ -426,9 +427,9 @@ function EnabledPluginsEditor({
     }
 
     return (
-      <button
+      <Button
         type="button"
-        className={`profile-primary-btn profile-plugin-refresh-action${loadingOfficialPlugins ? " is-loading" : ""}`}
+        className={`profile-primary-btn profile-plugin-refresh-action relative overflow-visible whitespace-nowrap${loadingOfficialPlugins ? " is-loading" : ""}`}
         title={officialActionTooltip}
         data-tooltip={officialActionTooltip}
         aria-label={officialLoadLabel}
@@ -436,9 +437,12 @@ function EnabledPluginsEditor({
         onClick={handleLoadOfficialPlugins}
         disabled={loadingOfficialPlugins}
       >
-        <RefreshCw className="profile-plugin-refresh-icon size-3.5" aria-hidden="true" />
+        <RefreshCw
+          className={`profile-plugin-refresh-icon size-3.5${loadingOfficialPlugins ? " animate-spin" : ""}`}
+          aria-hidden="true"
+        />
         <span>{officialLoadLabel}</span>
-      </button>
+      </Button>
     );
   }, [
     handleLoadOfficialPlugins,
@@ -474,30 +478,35 @@ function EnabledPluginsEditor({
         <div>{showTitle ? <h4>{t("profileEditor.plugins.title")}</h4> : null}</div>
       </div>
 
-      <div className="profile-plugin-editor">
-        <div className="profile-plugin-list-shell">
+      <div className="profile-plugin-editor flex flex-col gap-4">
+        <div className="profile-plugin-list-shell flex min-w-0 flex-col gap-3">
           {showOfficialToolbar && officialPluginAction ? (
-            <div className="profile-plugin-toolbar">{officialPluginAction}</div>
+            <div className="profile-plugin-toolbar flex flex-wrap gap-3">
+              {officialPluginAction}
+            </div>
           ) : null}
 
           {showFilters ? (
-            <div className="profile-plugin-filters">
-              <div className="profile-plugin-filter-field profile-plugin-filter-field-input profile-plugin-filter-field-search">
-                <input
+            <div className="profile-plugin-filters flex w-full flex-nowrap items-stretch gap-3 max-[1120px]:flex-wrap max-[520px]:flex-col">
+              <div className="profile-plugin-filter-field profile-plugin-filter-field-input profile-plugin-filter-field-search flex h-[42px] min-w-0 flex-[2_1_0] items-center gap-2 rounded-md border border-[var(--border-default)] bg-[var(--bg-primary)] px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--accent-blue)] focus-within:shadow-[0_0_0_3px_var(--accent-blue-bg)] hover:border-[var(--text-muted)] max-[520px]:flex-auto">
+                <Input
                   type="text"
-                  className="profile-plugin-filter-input"
+                  className="profile-plugin-filter-input h-full border-0 bg-transparent px-0 py-0 shadow-none focus-visible:ring-0"
                   value={searchQuery}
                   aria-label={searchLabel}
                   placeholder={searchPlaceholder}
                   onChange={(event) => setSearchQuery(event.target.value)}
                 />
               </div>
-              <div className="profile-plugin-filter-field profile-plugin-filter-field-select">
-                <span className="profile-plugin-filter-prefix" aria-hidden="true">
+              <div className="profile-plugin-filter-field profile-plugin-filter-field-select flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-[var(--border-default)] bg-[var(--bg-primary)] px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--accent-blue)] focus-within:shadow-[0_0_0_3px_var(--accent-blue-bg)] hover:border-[var(--text-muted)] max-[520px]:flex-auto">
+                <span
+                  className="profile-plugin-filter-prefix shrink-0 whitespace-nowrap text-[11px] font-semibold text-[var(--text-secondary)]"
+                  aria-hidden="true"
+                >
                   {statusFilterFieldLabel}
                 </span>
                 <select
-                  className="profile-plugin-filter-select"
+                  className="profile-plugin-filter-select h-full min-w-0 flex-1 cursor-pointer border-0 bg-transparent p-0 pr-5 text-[length:var(--font-base)] text-[var(--text-primary)] outline-none"
                   value={statusFilter}
                   aria-label={statusFilterLabel}
                   onChange={(event) => setStatusFilter(event.target.value as PluginStatusFilter)}
@@ -509,12 +518,15 @@ function EnabledPluginsEditor({
                   </option>
                 </select>
               </div>
-              <div className="profile-plugin-filter-field profile-plugin-filter-field-select">
-                <span className="profile-plugin-filter-prefix" aria-hidden="true">
+              <div className="profile-plugin-filter-field profile-plugin-filter-field-select flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-[var(--border-default)] bg-[var(--bg-primary)] px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--accent-blue)] focus-within:shadow-[0_0_0_3px_var(--accent-blue-bg)] hover:border-[var(--text-muted)] max-[520px]:flex-auto">
+                <span
+                  className="profile-plugin-filter-prefix shrink-0 whitespace-nowrap text-[11px] font-semibold text-[var(--text-secondary)]"
+                  aria-hidden="true"
+                >
                   {categoryFilterFieldLabel}
                 </span>
                 <select
-                  className="profile-plugin-filter-select"
+                  className="profile-plugin-filter-select h-full min-w-0 flex-1 cursor-pointer border-0 bg-transparent p-0 pr-5 text-[length:var(--font-base)] text-[var(--text-primary)] outline-none"
                   value={categoryFilter}
                   aria-label={categoryFilterLabel}
                   onChange={(event) => setCategoryFilter(event.target.value)}
@@ -527,12 +539,15 @@ function EnabledPluginsEditor({
                   ))}
                 </select>
               </div>
-              <div className="profile-plugin-filter-field profile-plugin-filter-field-select">
-                <span className="profile-plugin-filter-prefix" aria-hidden="true">
+              <div className="profile-plugin-filter-field profile-plugin-filter-field-select flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-[var(--border-default)] bg-[var(--bg-primary)] px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--accent-blue)] focus-within:shadow-[0_0_0_3px_var(--accent-blue-bg)] hover:border-[var(--text-muted)] max-[520px]:flex-auto">
+                <span
+                  className="profile-plugin-filter-prefix shrink-0 whitespace-nowrap text-[11px] font-semibold text-[var(--text-secondary)]"
+                  aria-hidden="true"
+                >
                   {sourceTypeFilterFieldLabel}
                 </span>
                 <select
-                  className="profile-plugin-filter-select"
+                  className="profile-plugin-filter-select h-full min-w-0 flex-1 cursor-pointer border-0 bg-transparent p-0 pr-5 text-[length:var(--font-base)] text-[var(--text-primary)] outline-none"
                   value={sourceTypeFilter}
                   aria-label={sourceTypeFilterLabel}
                   onChange={(event) => setSourceTypeFilter(event.target.value)}
@@ -553,20 +568,27 @@ function EnabledPluginsEditor({
           ) : null}
 
           {showEmptyState ? (
-            <div className="profile-empty-state profile-plugin-empty-list">{emptyHint}</div>
+            <div className="profile-empty-state profile-plugin-empty-list flex min-h-[120px] items-center justify-center rounded-lg border border-[var(--border-default)] px-4 text-center">
+              {emptyHint}
+            </div>
           ) : showFilteredEmptyState ? (
-            <div className="profile-empty-state profile-plugin-empty-list">{filteredEmptyHint}</div>
+            <div className="profile-empty-state profile-plugin-empty-list flex min-h-[120px] items-center justify-center rounded-lg border border-[var(--border-default)] px-4 text-center">
+              {filteredEmptyHint}
+            </div>
           ) : (
-            <div className="profile-plugin-list">
-              <div className="profile-plugin-list-header" aria-hidden="true">
-                <span className="profile-plugin-list-header-index">
+            <div className="profile-plugin-list flex flex-col overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--bg-primary)]">
+              <div
+                className="profile-plugin-list-header grid grid-cols-[40px_minmax(0,1fr)_clamp(118px,12vw,132px)_52px] items-center gap-x-3 border-b border-[var(--border-default)] px-3.5 py-3 text-xs font-semibold text-[var(--text-secondary)] max-[520px]:hidden"
+                aria-hidden="true"
+              >
+                <span className="profile-plugin-list-header-index inline-flex items-center justify-center text-[var(--text-muted)] tabular-nums">
                   {t("profileEditor.common.index")}
                 </span>
                 <span>{t("profileEditor.plugins.columnId")}</span>
-                <span className="profile-plugin-list-header-status">
+                <span className="profile-plugin-list-header-status justify-self-start">
                   {t("profileEditor.plugins.columnStatus")}
                 </span>
-                <span className="profile-plugin-list-header-actions">
+                <span className="profile-plugin-list-header-actions w-full text-right">
                   {t("profileEditor.common.actions")}
                 </span>
               </div>
@@ -577,7 +599,7 @@ function EnabledPluginsEditor({
                 const pluginMetaItems = buildOfficialPluginMetaItems(plugin.metadata);
                 const verifiedBadgeIcon = officialPlugin ? (
                   <span
-                    className="profile-plugin-verified-icon"
+                    className="profile-plugin-verified-icon inline-flex shrink-0 items-center justify-center text-[color-mix(in_srgb,#79dca3_68%,var(--text-muted))] opacity-70 transition-opacity group-hover:opacity-90 group-focus-visible:opacity-90"
                     role="img"
                     aria-label={verifiedBadgeAriaLabel}
                   >
@@ -592,26 +614,35 @@ function EnabledPluginsEditor({
                       : plugin.pluginId;
 
                 return (
-                  <div key={plugin.id} className="profile-plugin-list-row">
-                    <div className="profile-plugin-list-main">
-                      <span className="profile-plugin-index" aria-hidden="true">
+                  <div
+                    key={plugin.id}
+                    className="profile-plugin-list-row flex flex-col border-t border-[var(--border-default)] px-3.5 py-2.5 text-sm font-medium leading-[1.4] first:border-t-0 max-[520px]:gap-3 max-[520px]:py-3"
+                  >
+                    <div className="profile-plugin-list-main grid min-w-0 grid-cols-[40px_minmax(0,1fr)_52px] items-center gap-x-3 max-[520px]:grid-cols-[32px_minmax(0,1fr)_auto] max-[520px]:items-start max-[520px]:gap-x-2.5 max-[520px]:gap-y-2">
+                      <span
+                        className="profile-plugin-index inline-flex items-center justify-center text-[inherit] font-[inherit] text-[var(--text-muted)] tabular-nums max-[520px]:items-start max-[520px]:pt-0.5"
+                        aria-hidden="true"
+                      >
                         {index + 1}
                       </span>
-                      <div className="profile-plugin-list-content">
-                        <div className="profile-plugin-list-id">
-                          <div className="profile-plugin-list-identity">
+                      <div className="profile-plugin-list-content grid min-w-0 grid-cols-[minmax(0,1fr)_clamp(118px,12vw,132px)] items-center gap-x-3 max-[520px]:grid-cols-1 max-[520px]:gap-y-2">
+                        <div className="profile-plugin-list-id flex min-h-[42px] min-w-0 items-center font-[inherit] max-[520px]:min-h-0">
+                          <div className="profile-plugin-list-identity flex min-w-0 flex-1 flex-col items-start gap-1">
                             {plugin.metadata?.homepage ? (
                               <button
                                 type="button"
-                                className="profile-plugin-link"
+                                className="profile-plugin-link group relative min-w-0 max-w-full border-0 bg-transparent p-0 text-left font-[inherit] text-[inherit] hover:text-[var(--accent-blue)] focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-blue)]"
                                 aria-label={`${t("profileEditor.plugins.openHomepageAriaLabel")} ${rowLabel}`}
+                                title={plugin.metadata.description || undefined}
                                 data-description={plugin.metadata.description || undefined}
                                 onClick={() => {
                                   void openUrl(plugin.metadata?.homepage ?? "");
                                 }}
                               >
-                                <span className="profile-plugin-list-key">
-                                  <span>{rowLabel}</span>
+                                <span className="profile-plugin-list-key inline-flex min-w-0 items-center gap-2">
+                                  <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap max-[520px]:whitespace-normal max-[520px]:break-words">
+                                    {rowLabel}
+                                  </span>
                                   {isDraftRow ? (
                                     <span className="profile-env-row-badge">{draftBadgeText}</span>
                                   ) : null}
@@ -624,10 +655,13 @@ function EnabledPluginsEditor({
                               </button>
                             ) : (
                               <span
-                                className="profile-plugin-list-key profile-plugin-link-static"
+                                className="profile-plugin-list-key profile-plugin-link-static relative inline-flex min-w-0 items-center gap-2 font-[inherit] text-[inherit]"
+                                title={plugin.metadata?.description || undefined}
                                 data-description={plugin.metadata?.description || undefined}
                               >
-                                <span>{rowLabel}</span>
+                                <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap max-[520px]:whitespace-normal max-[520px]:break-words">
+                                  {rowLabel}
+                                </span>
                                 {isDraftRow ? (
                                   <span className="profile-env-row-badge">{draftBadgeText}</span>
                                 ) : null}
@@ -635,20 +669,27 @@ function EnabledPluginsEditor({
                               </span>
                             )}
                             {pluginMetaItems.length > 0 ? (
-                              <div className="profile-plugin-meta">
-                                {pluginMetaItems.map((item) => (
-                                  <span
-                                    key={`${plugin.id}:${item.kind}:${item.value}`}
-                                    className="profile-plugin-meta-item"
-                                  >
-                                    {item.value}
-                                  </span>
+                              <div className="profile-plugin-meta flex min-w-0 flex-wrap items-center gap-1.5 text-xs font-medium leading-snug text-[var(--text-muted)]">
+                                {pluginMetaItems.map((item, itemIndex) => (
+                                  <Fragment key={`${plugin.id}:${item.kind}:${item.value}`}>
+                                    {itemIndex > 0 ? (
+                                      <span
+                                        className="text-[color-mix(in_srgb,var(--text-muted)_84%,transparent)]"
+                                        aria-hidden="true"
+                                      >
+                                        ·
+                                      </span>
+                                    ) : null}
+                                    <span className="profile-plugin-meta-item inline-flex min-w-0 items-center whitespace-nowrap max-[520px]:whitespace-normal max-[520px]:break-words">
+                                      {item.value}
+                                    </span>
+                                  </Fragment>
                                 ))}
                               </div>
                             ) : null}
                           </div>
                         </div>
-                        <div className="profile-plugin-status-cell">
+                        <div className="profile-plugin-status-cell flex min-w-0 items-center justify-start gap-2.5 justify-self-start max-[520px]:flex-wrap">
                           <SandboxSwitchControl
                             enabled={plugin.enabled}
                             ariaLabel={`${t("profileEditor.plugins.statusAriaLabel")} ${rowLabel}`}
@@ -665,17 +706,19 @@ function EnabledPluginsEditor({
                             variant="header"
                           />
                           <span
-                            className={`profile-plugin-status-text${plugin.enabled ? " is-on" : ""}`}
+                            className={`profile-plugin-status-text whitespace-nowrap text-xs font-medium leading-tight${plugin.enabled ? " is-on text-[#3edc6d]" : " text-[var(--text-secondary)]"}`}
                           >
                             {plugin.enabled ? rowStatusOnText : rowStatusOffText}
                           </span>
                         </div>
                       </div>
 
-                      <div className="profile-row-actions profile-plugin-row-actions">
-                        <button
+                      <div className="profile-row-actions profile-plugin-row-actions flex justify-center self-center justify-self-end max-[520px]:items-start max-[520px]:justify-end">
+                        <Button
                           type="button"
-                          className="profile-icon-btn danger"
+                          variant="ghost"
+                          size="icon-sm"
+                          className="profile-icon-btn danger text-destructive hover:bg-destructive/10 hover:text-destructive"
                           aria-label={`${t("profileEditor.plugins.removeAriaLabel")} ${rowLabel}`}
                           onClick={() => {
                             if (isDraftRow) {
@@ -685,19 +728,19 @@ function EnabledPluginsEditor({
                             setPendingDeletePlugin(plugin);
                           }}
                         >
-                          ×
-                        </button>
+                          <Trash2 className="size-4" aria-hidden="true" />
+                        </Button>
                       </div>
                     </div>
                     {isDraftRow && draft ? (
-                      <div className="profile-env-inline-editor profile-plugin-inline-editor">
+                      <div className="profile-env-inline-editor profile-plugin-inline-editor mt-2 flex flex-col gap-3 rounded-lg border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 pl-[calc(40px+0.875rem)] max-[520px]:mt-0 max-[520px]:pl-3">
                         <div className="profile-env-inline-fields">
-                          <label className="form-group">
+                          <label className="form-group mb-0">
                             <span className="profile-inline-required-label profile-env-inline-label">
                               <span>{t("profileEditor.plugins.newIdLabel")}</span>
                               <RequiredBadge />
                             </span>
-                            <input
+                            <Input
                               ref={draftInputRef}
                               id={`plugin-draft-id-${draft.id}`}
                               aria-label={t("profileEditor.plugins.newIdLabel")}
@@ -711,23 +754,24 @@ function EnabledPluginsEditor({
                           </label>
                         </div>
 
-                        <div className="profile-env-inline-actions">
-                          <button
+                        <div className="profile-env-inline-actions flex flex-wrap items-center gap-2">
+                          <Button
                             type="button"
                             className="profile-primary-btn"
                             aria-label={saveDraftAriaLabel}
                             onClick={handleSaveDraft}
                           >
                             {t("profileEditor.common.save")}
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
+                            variant="outline"
                             className="profile-secondary-btn"
                             aria-label={cancelEditAriaLabel}
                             onClick={() => resetDraft(null)}
                           >
                             {t("profileEditor.common.cancel")}
-                          </button>
+                          </Button>
                         </div>
 
                         {interactionError ? (
@@ -746,10 +790,16 @@ function EnabledPluginsEditor({
           {!draft && draftError ? <p className="field-error">{draftError}</p> : null}
 
           <div className="profile-env-footer">
-            <div className="profile-plugin-footer-actions">
-              <button type="button" className="profile-secondary-btn" onClick={handleAddPlugin}>
+            <div className="profile-plugin-footer-actions flex flex-wrap gap-3 max-[520px]:w-full">
+              <Button
+                type="button"
+                variant="outline"
+                className="profile-secondary-btn"
+                onClick={handleAddPlugin}
+              >
+                <Plus className="size-4" aria-hidden="true" />
                 {t("profileEditor.plugins.addItem")}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

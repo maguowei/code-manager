@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { type ReactNode, useMemo, useState } from "react";
@@ -307,40 +306,96 @@ describe("EnabledPluginsEditor", () => {
   });
 
   it("keeps homepage plugin links using the same inherited font as static plugin ids", () => {
-    const css = readFileSync("src/components/profile-editor/EnabledPluginsEditor.css", "utf8");
+    localStorage.setItem(
+      OFFICIAL_PLUGIN_CACHE_KEY,
+      JSON.stringify({
+        version: 1,
+        updatedAt: "2026-04-23T00:00:00.000Z",
+        plugins: [
+          {
+            pluginId: buildOfficialPluginId("homepage-plugin"),
+            description: "带主页插件",
+            homepage: "https://example.com/homepage-plugin",
+          },
+          {
+            pluginId: buildOfficialPluginId("static-plugin"),
+            description: "静态插件",
+            homepage: "",
+          },
+        ],
+      }),
+    );
 
-    expect(css).toMatch(/\.profile-plugin-link\s*\{[^}]*font:\s*inherit;/s);
+    renderEditor({
+      showTitle: false,
+      officialMarketplaceEnabled: true,
+      value: {
+        [buildOfficialPluginId("homepage-plugin")]: true,
+        [buildOfficialPluginId("static-plugin")]: true,
+      },
+    });
+
+    expect(
+      screen.getByRole("button", {
+        name: `打开插件主页 ${buildOfficialPluginId("homepage-plugin")}`,
+      }),
+    ).toHaveClass("font-[inherit]");
+    expect(
+      screen
+        .getByText(buildOfficialPluginId("static-plugin"))
+        .closest(".profile-plugin-link-static"),
+    ).toHaveClass("font-[inherit]");
   });
 
   it("keeps plugin ids on the main body typography while using a smaller status label", () => {
-    const css = readFileSync("src/components/profile-editor/EnabledPluginsEditor.css", "utf8");
+    renderEditor({
+      showTitle: false,
+      value: {
+        "formatter@anthropic-tools": true,
+      },
+    });
 
-    expect(css).toMatch(
-      /\.profile-plugin-list-row\s*\{[^}]*font-size:\s*14px;[^}]*font-weight:\s*500;/s,
+    const pluginRow = screen
+      .getByText("formatter@anthropic-tools")
+      .closest(".profile-plugin-list-row");
+
+    expect(pluginRow).toHaveClass("text-sm", "font-medium");
+    expect(pluginRow?.querySelector(".profile-plugin-list-id")).toHaveClass("font-[inherit]");
+    expect(pluginRow?.querySelector(".profile-plugin-index")).toHaveClass(
+      "text-[inherit]",
+      "font-[inherit]",
     );
-    expect(css).toMatch(/\.profile-plugin-list-id\s*\{[^}]*font-weight:\s*inherit;/s);
-    expect(css).toMatch(/\.profile-plugin-index\s*\{[^}]*font-size:\s*inherit;/s);
-    expect(css).toMatch(/\.profile-plugin-index\s*\{[^}]*font-weight:\s*inherit;/s);
-    expect(css).toMatch(/\.profile-plugin-status-text\s*\{[^}]*font-size:\s*12px;/s);
-    expect(css).toMatch(/\.profile-plugin-status-text\s*\{[^}]*font-weight:\s*500;/s);
+    expect(pluginRow?.querySelector(".profile-plugin-status-text")).toHaveClass(
+      "text-xs",
+      "font-medium",
+    );
   });
 
   it("allocates most table width to plugin ids by keeping status and actions compact", () => {
-    const css = readFileSync("src/components/profile-editor/EnabledPluginsEditor.css", "utf8");
+    const { container } = renderEditor({
+      showTitle: false,
+      value: {
+        "formatter@anthropic-tools": true,
+      },
+    });
 
-    expect(css).toMatch(
-      /\.profile-plugin-list\s*\{[^}]*--profile-plugin-status-width:\s*clamp\(118px,\s*12vw,\s*132px\);/s,
+    expect(container.querySelector(".profile-plugin-list-header")).toHaveClass(
+      "grid-cols-[40px_minmax(0,1fr)_clamp(118px,12vw,132px)_52px]",
     );
-    expect(css).toMatch(
-      /\.profile-plugin-list\s*\{[^}]*--profile-plugin-action-width:\s*52px;[^}]*--profile-plugin-column-gap:\s*12px;/s,
+    expect(container.querySelector(".profile-plugin-list-main")).toHaveClass(
+      "grid-cols-[40px_minmax(0,1fr)_52px]",
     );
-    expect(css).toMatch(/\.profile-plugin-list-header-actions\s*\{[^}]*text-align:\s*right;/s);
-    expect(css).toMatch(/\.profile-plugin-row-actions\s*\{[^}]*justify-self:\s*end;/s);
-    expect(css).toMatch(/\.profile-plugin-status-cell\s*\{[^}]*gap:\s*10px;/s);
+    expect(container.querySelector(".profile-plugin-list-content")).toHaveClass(
+      "grid-cols-[minmax(0,1fr)_clamp(118px,12vw,132px)]",
+    );
+    expect(container.querySelector(".profile-plugin-list-header-actions")).toHaveClass(
+      "text-right",
+    );
+    expect(container.querySelector(".profile-plugin-row-actions")).toHaveClass("justify-self-end");
+    expect(container.querySelector(".profile-plugin-status-cell")?.className).toContain("gap-2.5");
   });
 
   it("fills the full filter row with a stable search field and compresses the trailing selects within the same line", () => {
-    const css = readFileSync("src/components/profile-editor/EnabledPluginsEditor.css", "utf8");
     const { container } = renderEditor({
       showTitle: false,
       value: {
@@ -359,13 +414,13 @@ describe("EnabledPluginsEditor", () => {
     expect(container.querySelectorAll(".profile-plugin-filter-field.is-expandable")).toHaveLength(
       0,
     );
-    expect(container.querySelector(".profile-plugin-filter-field-search")).not.toBeNull();
-    expect(container.querySelector(".profile-plugin-filter-field-author")).toBeNull();
-    expect(css).toMatch(/\.profile-plugin-filter-field-search\s*\{[^}]*flex:\s*2\s+1\s+0;/s);
-    expect(css).toMatch(
-      /\.profile-plugin-filter-field-select\s*\{[^}]*flex:\s*1\s+1\s+0;[^}]*min-width:\s*150px;[^}]*max-width:\s*none;/s,
+    expect(container.querySelector(".profile-plugin-filter-field-search")).toHaveClass(
+      "flex-[2_1_0]",
     );
-    expect(css).not.toMatch(/\.profile-plugin-filter-field-input\.is-expandable:focus-within/s);
+    expect(container.querySelector(".profile-plugin-filter-field-author")).toBeNull();
+    for (const selectField of container.querySelectorAll(".profile-plugin-filter-field-select")) {
+      expect(selectField).toHaveClass("flex-[1_1_0]", "min-w-[150px]");
+    }
   });
 
   it("shows a subtle verified icon even before metadata is loaded", () => {
@@ -390,10 +445,44 @@ describe("EnabledPluginsEditor", () => {
   });
 
   it("uses one shared metadata style for author and category plus a subtle verified icon", () => {
-    const css = readFileSync("src/components/profile-editor/EnabledPluginsEditor.css", "utf8");
+    localStorage.setItem(
+      OFFICIAL_PLUGIN_CACHE_KEY,
+      JSON.stringify({
+        version: 1,
+        updatedAt: "2026-04-23T00:00:00.000Z",
+        plugins: [
+          {
+            pluginId: buildOfficialPluginId("metadata-plugin"),
+            category: "development",
+            authorName: "Anthropic",
+          },
+        ],
+      }),
+    );
 
-    expect(css).not.toMatch(/\.profile-plugin-meta-author\s*\{/);
-    expect(css).toMatch(/\.profile-plugin-verified-icon\s*\{[^}]*opacity:\s*0\.[0-9]+;/s);
+    const { container } = renderEditor({
+      showTitle: false,
+      officialMarketplaceEnabled: true,
+      value: {
+        [buildOfficialPluginId("metadata-plugin")]: true,
+      },
+    });
+    const pluginRow = screen
+      .getByText(buildOfficialPluginId("metadata-plugin"))
+      .closest(".profile-plugin-list-row");
+
+    expect(container.querySelector(".profile-plugin-meta-author")).toBeNull();
+    expect(
+      within(pluginRow as HTMLElement).getByRole("img", {
+        name: "已验证插件",
+      }),
+    ).toHaveClass("opacity-70");
+    expect(within(pluginRow as HTMLElement).getByText("Anthropic")).toHaveClass(
+      "profile-plugin-meta-item",
+    );
+    expect(within(pluginRow as HTMLElement).getByText("development")).toHaveClass(
+      "profile-plugin-meta-item",
+    );
   });
 
   it("adds a placeholder plugin row, edits it inline, and saves boolean state", () => {
