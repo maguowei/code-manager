@@ -40,6 +40,8 @@ const translations = {
     "common.pluginsEnabledSummaryLabel": "已启用",
     "common.pluginsUnit": "个插件",
     "common.marketplacesUnit": "个市场",
+    "ui.commandDialogTitle": "命令面板",
+    "ui.commandDialogDescription": "搜索要运行的命令...",
     "form.required": "必填",
     "form.oneRequired": "至少一项",
 
@@ -1050,6 +1052,8 @@ const translations = {
     "common.pluginsEnabledSummaryLabel": "Enabled",
     "common.pluginsUnit": "plugins",
     "common.marketplacesUnit": "marketplaces",
+    "ui.commandDialogTitle": "Command Palette",
+    "ui.commandDialogDescription": "Search for a command to run...",
     "form.required": "Required",
     "form.oneRequired": "One required",
 
