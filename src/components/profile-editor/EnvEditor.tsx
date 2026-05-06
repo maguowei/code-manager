@@ -1,9 +1,11 @@
+import { Eye, EyeOff, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../../i18n";
 import ConfirmAlertDialog from "../ConfirmAlertDialog";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 import { createRowId, looksSensitiveKey } from "./editor-utils";
 import RequiredBadge from "./RequiredBadge";
-import "./EnvEditor.css";
 
 interface EnvEditorProps {
   value: unknown;
@@ -345,11 +347,11 @@ function EnvEditor({
         </div>
       ) : null}
 
-      <div className="profile-env-editor">
-        <div className="profile-env-list-shell">
-          <div className="profile-env-list">
-            <div className="profile-env-list-header">
-              <span className="profile-env-list-header-index">
+      <div className="profile-env-editor flex flex-col gap-4">
+        <div className="profile-env-list-shell flex min-w-0 flex-col gap-3">
+          <div className="profile-env-list flex flex-col overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--bg-primary)]">
+            <div className="profile-env-list-header grid grid-cols-[40px_minmax(0,1.2fr)_minmax(0,0.8fr)_auto] items-center gap-3 border-b border-[var(--border-default)] px-3.5 py-3 text-xs font-semibold text-[var(--text-secondary)] max-[720px]:hidden">
+              <span className="profile-env-list-header-index inline-flex items-center justify-center text-[var(--text-muted)] tabular-nums">
                 {t("profileEditor.common.index")}
               </span>
               <span>{t("profileEditor.env.columnKey")}</span>
@@ -367,24 +369,35 @@ function EnvEditor({
                     ? t("profileEditor.env.unsaved")
                     : null;
 
+                const rowClassName = [
+                  "profile-env-list-row flex flex-col px-3.5 py-2.5 first:border-t-0 border-t border-[var(--border-default)]",
+                  selected
+                    ? "selected bg-[color-mix(in_srgb,var(--accent-blue-bg)_18%,var(--bg-primary)_82%)]"
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+
                 return (
-                  <div
-                    key={item.id}
-                    className={`profile-env-list-row${selected ? " selected" : ""}`}
-                  >
-                    <div className="profile-env-row-head">
+                  <div key={item.id} className={rowClassName}>
+                    <div className="profile-env-row-head grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 max-[720px]:items-start">
                       <button
                         type="button"
-                        className="profile-env-list-main"
+                        className="profile-env-list-main grid min-h-[42px] w-full cursor-pointer grid-cols-[40px_minmax(0,1.2fr)_minmax(0,0.8fr)] items-center gap-3 rounded-md border-0 bg-transparent p-2 text-left text-[var(--text-primary)] outline-none transition-colors hover:text-[var(--accent-blue)] focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)] max-[720px]:grid-cols-[32px_minmax(0,1fr)] max-[720px]:items-start max-[720px]:gap-x-2.5 max-[720px]:gap-y-1.5"
                         aria-pressed={selected}
                         aria-label={`${t("profileEditor.env.editAriaLabel")} ${label}`}
                         onClick={() => handleSelectItem(item)}
                       >
-                        <span className="profile-env-list-index" aria-hidden="true">
+                        <span
+                          className="profile-env-list-index inline-flex items-center justify-center text-xs font-semibold text-[var(--text-muted)] tabular-nums max-[720px]:row-span-2 max-[720px]:items-start max-[720px]:pt-0.5"
+                          aria-hidden="true"
+                        >
                           {index + 1}
                         </span>
-                        <span className="profile-env-list-key">
-                          <span>{label}</span>
+                        <span className="profile-env-list-key inline-flex min-w-0 items-center gap-2 font-semibold max-[720px]:col-start-2">
+                          <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap max-[720px]:whitespace-normal max-[720px]:break-words">
+                            {label}
+                          </span>
                           {draftBadge ? (
                             <span className="profile-env-row-badge">{draftBadge}</span>
                           ) : null}
@@ -392,32 +405,34 @@ function EnvEditor({
                             <span className="profile-env-row-badge subtle">{dirtyBadge}</span>
                           ) : null}
                         </span>
-                        <span className="profile-env-list-value">
+                        <span className="profile-env-list-value min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-sm text-[var(--text-secondary)] max-[720px]:col-start-2 max-[720px]:line-clamp-2 max-[720px]:whitespace-normal max-[720px]:break-words">
                           {formatValuePreview(item.key, item.value)}
                         </span>
                       </button>
 
-                      <div className="profile-row-actions profile-env-row-actions">
-                        <button
+                      <div className="profile-row-actions profile-env-row-actions flex flex-nowrap justify-end">
+                        <Button
                           type="button"
-                          className="profile-icon-btn danger"
+                          variant="ghost"
+                          size="icon-sm"
+                          className="profile-icon-btn danger text-destructive hover:bg-destructive/10 hover:text-destructive"
                           aria-label={`${t("profileEditor.env.deleteAriaLabel")} ${label}`}
                           onClick={() => handleDeleteItem(item)}
                         >
-                          ×
-                        </button>
+                          <Trash2 className="size-4" aria-hidden="true" />
+                        </Button>
                       </div>
                     </div>
 
                     {selected && draft ? (
-                      <div className="profile-env-inline-editor">
-                        <div className="profile-env-inline-fields">
+                      <div className="profile-env-inline-editor mt-3 rounded-md border border-[var(--border-default)] bg-[var(--bg-elevated)] p-3">
+                        <div className="profile-env-inline-fields grid gap-3">
                           <label className="form-group">
                             <span className="profile-inline-required-label profile-env-inline-label">
                               <span>{t("profileEditor.env.nameLabel")}</span>
                               <RequiredBadge />
                             </span>
-                            <input
+                            <Input
                               ref={keyInputRef}
                               aria-label={t("profileEditor.env.nameLabel")}
                               value={draft.key}
@@ -442,8 +457,9 @@ function EnvEditor({
                               <span>{t("profileEditor.env.valueLabel")}</span>
                               <RequiredBadge />
                             </span>
-                            <div className="profile-env-inline-value-row">
-                              <input
+                            <div className="profile-env-inline-value-row flex items-center gap-2 max-[720px]:flex-col max-[720px]:items-stretch">
+                              <Input
+                                className="min-w-0 flex-1"
                                 aria-label={t("profileEditor.env.valueLabel")}
                                 type={
                                   shouldMaskSensitiveValues &&
@@ -468,37 +484,45 @@ function EnvEditor({
                                 }}
                               />
                               {shouldMaskSensitiveValues && looksSensitiveKey(draft.key) ? (
-                                <button
+                                <Button
                                   type="button"
-                                  className="profile-secondary-btn profile-env-visibility-btn"
+                                  variant="outline"
+                                  size="sm"
+                                  className="profile-secondary-btn profile-env-visibility-btn whitespace-nowrap"
                                   onClick={() => setIsSensitiveValueVisible((current) => !current)}
                                 >
+                                  {isSensitiveValueVisible ? (
+                                    <EyeOff className="size-4" aria-hidden="true" />
+                                  ) : (
+                                    <Eye className="size-4" aria-hidden="true" />
+                                  )}
                                   {isSensitiveValueVisible
                                     ? t("profileEditor.env.hideValue")
                                     : t("profileEditor.env.showValue")}
-                                </button>
+                                </Button>
                               ) : null}
                             </div>
                           </label>
                         </div>
 
-                        <div className="profile-env-inline-actions">
-                          <button
+                        <div className="profile-env-inline-actions mt-3 flex justify-end gap-2">
+                          <Button
                             type="button"
                             className="profile-primary-btn"
                             aria-label={t("profileEditor.env.saveAriaLabel")}
                             onClick={handleSaveDraft}
                           >
                             {t("profileEditor.common.save")}
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
+                            variant="outline"
                             className="profile-secondary-btn"
                             aria-label={t("profileEditor.env.cancelEditAriaLabel")}
                             onClick={handleCancelDraft}
                           >
                             {t("profileEditor.common.cancel")}
-                          </button>
+                          </Button>
                         </div>
 
                         {interactionError ? (
@@ -511,14 +535,22 @@ function EnvEditor({
                 );
               })
             ) : (
-              <div className="profile-empty-state profile-env-empty-list">{emptyHint}</div>
+              <div className="profile-empty-state profile-env-empty-list flex min-h-[120px] items-center justify-center px-4 text-center">
+                {emptyHint}
+              </div>
             )}
           </div>
 
-          <div className="profile-env-footer">
-            <button type="button" className="profile-secondary-btn" onClick={handleAddVariable}>
+          <div className="profile-env-footer flex justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              className="profile-secondary-btn"
+              onClick={handleAddVariable}
+            >
+              <Plus className="size-4" aria-hidden="true" />
               {t("profileEditor.env.addItem")}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
