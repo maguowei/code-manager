@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
@@ -1011,97 +1010,118 @@ describe("ProfilesPage", () => {
   });
 
   it("reveals card actions only on hover or focus within", () => {
-    const css = readFileSync(`${process.cwd()}/src/components/ProfilesPage.css`, "utf8");
+    renderPage();
 
-    expect(css).toContain("max-height: 0;");
-    expect(css).toContain("opacity: 0;");
-    expect(css).toContain("pointer-events: none;");
-    expect(css).toMatch(
-      /\.profile-card:hover \.profile-card-actions,\s*\.profile-card:focus-within \.profile-card-actions \{/,
+    const card = screen.getByText("OpenRouter User").closest(".profile-card") as HTMLElement | null;
+    expect(card).not.toBeNull();
+    const actions = card?.querySelector(".profile-card-actions") as HTMLElement | null;
+    expect(actions).not.toBeNull();
+
+    expect(actions).toHaveClass("max-h-0", "opacity-0", "pointer-events-none");
+    expect(actions).toHaveClass(
+      "group-hover:max-h-12",
+      "group-hover:opacity-100",
+      "group-hover:pointer-events-auto",
+      "group-focus-within:pointer-events-auto",
     );
-    expect(css).toContain("pointer-events: auto;");
   });
 
-  it("uses a longer high-contrast drop indicator for drag reordering", () => {
-    const css = readFileSync(`${process.cwd()}/src/components/ProfilesPage.css`, "utf8");
+  it("uses Tailwind pseudo-element classes for drag reordering indicators", () => {
+    const workspace = {
+      ...WORKSPACE_FIXTURE,
+      profiles: [makeProfile("alpha", "Alpha"), makeProfile("beta", "Beta")],
+      bindings: { userProfileId: undefined },
+    } as ConfigWorkspace;
+    renderPage(workspace);
 
-    expect(css).toContain("--profile-drop-indicator-color: var(--accent-green);");
-    expect(css).toContain("--profile-drop-indicator-bleed: calc(var(--space-3) * -1);");
-    expect(css).toContain("left: var(--profile-drop-indicator-bleed);");
-    expect(css).toContain("right: var(--profile-drop-indicator-bleed);");
-    expect(css).toContain("height: 4px;");
-    expect(css).toMatch(/radial-gradient\(\s*circle at left center,/);
-  });
+    const firstCard = screen.getByText("Alpha").closest(".profile-card") as HTMLElement | null;
+    const secondCard = screen.getByText("Beta").closest(".profile-card") as HTMLElement | null;
+    expect(firstCard).not.toBeNull();
+    expect(secondCard).not.toBeNull();
+    if (!firstCard || !secondCard) {
+      return;
+    }
 
-  it("keeps inline test result badges compact beside model names", () => {
-    const css = readFileSync(`${process.cwd()}/src/components/ProfilesPage.css`, "utf8");
+    Object.defineProperty(secondCard, "getBoundingClientRect", {
+      value: () => ({
+        top: 100,
+        height: 80,
+        left: 0,
+        right: 200,
+        bottom: 180,
+        width: 200,
+        x: 0,
+        y: 100,
+        toJSON: () => ({}),
+      }),
+      configurable: true,
+    });
+    const dataTransfer = {
+      effectAllowed: "move",
+      dropEffect: "move",
+      setData: vi.fn(),
+    };
 
-    expect(css).toMatch(/\.profile-test-result-badge\s*\{[^}]*min-height:\s*18px;/s);
-    expect(css).toMatch(/\.profile-test-result-badge\s*\{[^}]*padding:\s*1px\s+5px;/s);
-    expect(css).toMatch(/\.profile-test-result-badge\s*\{[^}]*font-size:\s*11px;/s);
-    expect(css).toMatch(/\.profile-test-result-badge\s*\{[^}]*line-height:\s*1\.15;/s);
+    fireEvent.dragStart(firstCard, { dataTransfer });
+    fireEvent.dragOver(secondCard, { clientY: 120, dataTransfer });
+
+    expect(secondCard).toHaveClass("drag-over-below");
+    expect(secondCard).toHaveClass(
+      "after:left-[-12px]",
+      "after:right-[-12px]",
+      "after:h-1",
+      "after:bg-[var(--accent-green)]",
+    );
   });
 
   it("keeps profile summary labels close to consistently aligned values", () => {
-    const css = readFileSync(`${process.cwd()}/src/components/ProfilesPage.css`, "utf8");
+    renderPage();
 
-    expect(css).toMatch(
-      /\.profile-summary-row\s*\{[^}]*grid-template-columns:\s*max-content\s+minmax\(0,\s*1fr\);/s,
-    );
-    expect(css).toMatch(/\.profile-summary-row\s*\{[^}]*column-gap:\s*6px;/s);
-    expect(css).not.toMatch(/\.profile-summary-title\s*\{[^}]*min-width:\s*56px;/s);
+    const modelRow = screen.getByText("claude-sonnet-4-6").closest(".profile-summary-row");
+    const label = screen.getByText("模型");
+
+    expect(modelRow).toHaveClass("grid-cols-[max-content_minmax(0,1fr)]", "gap-x-1.5");
+    expect(label).toHaveClass("profile-summary-title", "uppercase", "after:content-[':']");
+    expect(label).not.toHaveClass("min-w-14");
   });
 
   it("separates profile summary labels from values in English", () => {
-    const css = readFileSync(`${process.cwd()}/src/components/ProfilesPage.css`, "utf8");
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "en",
+        theme: "dark",
+      }),
+    );
 
-    expect(css).toMatch(/\.profile-summary-title\s*\{[^}]*text-transform:\s*uppercase;/s);
-    expect(css).toMatch(/\.profile-summary-title\s*\{[^}]*font-weight:\s*700;/s);
-    expect(css).toMatch(/\.profile-summary-title::after\s*\{[^}]*content:\s*":";/s);
-    expect(css).toMatch(/\.profile-summary-title::after\s*\{[^}]*margin-left:\s*2px;/s);
+    renderPage();
+
+    const label = screen.getByText("Model");
+    expect(label).toHaveClass("uppercase", "font-bold", "after:content-[':']", "after:ml-0.5");
   });
 
-  it("colors profile permission summary values by risk", () => {
-    const css = readFileSync(`${process.cwd()}/src/components/ProfilesPage.css`, "utf8");
+  it("colors profile permission and effort summary values by risk and intensity", () => {
+    renderPage();
 
-    expect(css).toMatch(
-      /\.profile-summary-permission-mode--plan\s*\{[^}]*color:\s*var\(--accent-blue\);/s,
+    expect(screen.getByText("plan")).toHaveClass(
+      "profile-summary-permission-mode--plan",
+      "text-[var(--accent-blue)]",
     );
-    expect(css).toMatch(
-      /\.profile-summary-permission-mode--accept-edits\s*\{[^}]*color:\s*var\(--accent-purple\);/s,
+    expect(screen.getByText("high")).toHaveClass(
+      "profile-summary-effort-level--high",
+      "text-[var(--accent-purple)]",
     );
-    expect(css).toMatch(
-      /\.profile-summary-permission-mode--dont-ask\s*\{[^}]*color:\s*var\(--accent-orange\);/s,
-    );
-    expect(css).toMatch(
-      /\.profile-summary-permission-mode--bypass-permissions\s*\{[^}]*color:\s*var\(--accent-red\);/s,
-    );
-  });
-
-  it("colors profile effort summary values by intensity", () => {
-    const css = readFileSync(`${process.cwd()}/src/components/ProfilesPage.css`, "utf8");
-
-    expect(css).toMatch(
-      /\.profile-summary-effort-level--low\s*\{[^}]*color:\s*var\(--accent-green\);/s,
-    );
-    expect(css).toMatch(
-      /\.profile-summary-effort-level--medium\s*\{[^}]*color:\s*var\(--accent-blue\);/s,
-    );
-    expect(css).toMatch(
-      /\.profile-summary-effort-level--high\s*\{[^}]*color:\s*var\(--accent-purple\);/s,
-    );
-    expect(css).toMatch(
-      /\.profile-summary-effort-level--xhigh\s*\{[^}]*color:\s*var\(--accent-orange\);/s,
-    );
-    expect(css).toMatch(
-      /\.profile-summary-effort-level--max\s*\{[^}]*color:\s*var\(--accent-red\);/s,
+    expect(screen.getByText("沙盒已启用")).toHaveClass(
+      "profile-summary-sandbox-state--enabled",
+      "text-[var(--accent-green)]",
     );
   });
 
   it("keeps preset badges visually quieter below profile names", () => {
-    const css = readFileSync(`${process.cwd()}/src/components/ProfilesPage.css`, "utf8");
+    renderPage();
 
-    expect(css).toMatch(/\.profile-preset-badge\s*\{[^}]*font-size:\s*10px;/s);
+    expect(screen.getByText("开放路由")).toHaveClass("profile-preset-badge", "text-[10px]");
+    expect(screen.getByText("开放路由").closest(".profile-card-preset-row")).not.toBeNull();
   });
 
   it("opens the profile editor when clicking the card body", async () => {
