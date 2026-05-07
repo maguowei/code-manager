@@ -1,5 +1,7 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { ChevronDown, ChevronRight, MessageSquare } from "lucide-react";
 import { type KeyboardEvent, memo, useCallback, useMemo, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 import {
   type FlatItem,
   flattenSessionsForVirtualizer,
@@ -10,6 +12,8 @@ import {
   toLocalDateKey,
 } from "../history-utils";
 import { useI18n } from "../i18n";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
 
 interface Props {
   groups: SessionGroup[];
@@ -24,7 +28,9 @@ function highlightText(text: string, query: string): React.ReactNode {
   return (
     <>
       {text.slice(0, idx)}
-      <mark className="search-highlight">{text.slice(idx, idx + query.length)}</mark>
+      <mark className="search-highlight rounded-sm bg-[var(--highlight-bg)] px-px text-[var(--highlight-fg)]">
+        {text.slice(idx, idx + query.length)}
+      </mark>
       {text.slice(idx + query.length)}
     </>
   );
@@ -122,8 +128,11 @@ function HistorySessionList({ groups, searchQuery, onViewDetail }: Props) {
 
   if (groups.length === 0) {
     return (
-      <div className="history-sessions">
-        <div className="empty-state">{t("history.noData")}</div>
+      <div className="history-sessions relative flex-1 overflow-y-auto px-3 py-2">
+        <div className="empty-state flex min-h-[240px] flex-col items-center justify-center gap-3 px-5 text-center text-sm text-muted-foreground">
+          <MessageSquare className="size-10" strokeWidth={1.5} aria-hidden="true" />
+          <span>{t("history.noData")}</span>
+        </div>
       </div>
     );
   }
@@ -132,8 +141,11 @@ function HistorySessionList({ groups, searchQuery, onViewDetail }: Props) {
   const totalSize = virtualizer.getTotalSize();
 
   return (
-    <div ref={scrollRef} className="history-sessions">
-      <div className="history-sessions-spacer" style={{ height: totalSize }}>
+    <div
+      ref={scrollRef}
+      className="history-sessions relative flex-1 overflow-y-auto px-3 py-2 max-sm:px-2"
+    >
+      <div className="history-sessions-spacer relative w-full" style={{ height: totalSize }}>
         {virtualItems.map((vi) => {
           const item = flatItems[vi.index];
           const top = vi.start;
@@ -144,10 +156,18 @@ function HistorySessionList({ groups, searchQuery, onViewDetail }: Props) {
             return (
               <div
                 key={vi.key}
-                className={`history-date-label${isToday ? " is-today" : ""}`}
+                className={cn(
+                  "history-date-label flex items-center justify-between border-b px-2.5 pt-1 pb-1.5 text-sm font-semibold text-muted-foreground tabular-nums max-sm:px-2",
+                  isToday && "is-today border-primary text-foreground",
+                )}
                 style={{ position: "absolute", top, left: 0, right: 0, height: vi.size }}
               >
-                <span>
+                <span
+                  className={cn(
+                    isToday &&
+                      "before:mr-1.5 before:inline-block before:h-3 before:w-[3px] before:rounded-full before:bg-primary before:align-middle before:content-['']",
+                  )}
+                >
                   {formatDateLabel(
                     item.dateKey,
                     todayKey,
@@ -156,14 +176,16 @@ function HistorySessionList({ groups, searchQuery, onViewDetail }: Props) {
                     t("history.yesterday"),
                   )}
                 </span>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="xs"
                   className="date-toggle-btn"
                   onClick={() => toggleDateGroup(item.sessionIds)}
                   aria-pressed={allExpanded}
                 >
                   {allExpanded ? t("history.collapse") : t("history.expand")}
-                </button>
+                </Button>
               </div>
             );
           }
@@ -175,39 +197,54 @@ function HistorySessionList({ groups, searchQuery, onViewDetail }: Props) {
             return (
               <div
                 key={vi.key}
-                className="history-session-row"
+                className="history-session-row flex items-center gap-0.5 [--count-width:44px] [--id-width:64px] [--session-gap:8px] [--session-padding:8px] [--time-width:42px] [--toggle-width:22px] max-sm:[--id-width:56px] max-sm:[--session-gap:6px] max-sm:[--session-padding:6px] max-sm:[--time-width:38px]"
                 style={{ position: "absolute", top, left: 0, right: 0, height: vi.size }}
               >
-                <button
+                <Button
                   type="button"
-                  className="session-toggle-btn"
+                  variant="ghost"
+                  size="icon-xs"
+                  className="session-toggle-btn h-full w-[var(--toggle-width)] shrink-0 rounded-sm p-0 text-muted-foreground"
                   onClick={() => toggleSession(session.sessionId)}
                   aria-expanded={isExpanded}
                   aria-label={isExpanded ? t("history.collapse") : t("history.expand")}
                 >
-                  <span className="session-toggle-icon" aria-hidden="true">
-                    {isExpanded ? "▼" : "▶"}
-                  </span>
-                </button>
-                <button
+                  {isExpanded ? (
+                    <ChevronDown className="size-3" aria-hidden="true" />
+                  ) : (
+                    <ChevronRight className="size-3" aria-hidden="true" />
+                  )}
+                </Button>
+                <Button
                   type="button"
-                  className="session-main-btn"
+                  variant="ghost"
+                  className="session-main-btn h-full min-w-0 flex-1 justify-start gap-[var(--session-gap)] rounded-md px-[var(--session-padding)] text-left font-normal"
                   onClick={() => onViewDetail?.(session.sessionId)}
                   onKeyDown={(e) => handleMainKeyDown(e, session.sessionId, isExpanded)}
                   aria-label={t("history.viewConversation")}
                   title={t("history.viewConversation")}
                 >
-                  <span className="session-id">{session.sessionId.slice(0, 8)}</span>
-                  <span className="session-count">
-                    {session.entries.length} {t("history.messages")}
+                  <span className="session-id w-[var(--id-width)] shrink-0 font-mono text-xs text-muted-foreground">
+                    {session.sessionId.slice(0, 8)}
                   </span>
+                  <Badge
+                    variant="secondary"
+                    className="session-count w-[var(--count-width)] shrink-0 justify-center px-1.5 py-0 text-xs font-normal max-sm:hidden"
+                  >
+                    {session.entries.length} {t("history.messages")}
+                  </Badge>
                   {!isExpanded && firstEntry && (
-                    <span className="session-preview" title={firstEntry.display}>
+                    <span
+                      className="session-preview min-w-0 flex-1 truncate text-sm text-muted-foreground"
+                      title={firstEntry.display}
+                    >
                       {highlightText(firstEntry.display, searchQuery)}
                     </span>
                   )}
-                  <span className="session-time">{formatTime(session.lastTimestamp)}</span>
-                </button>
+                  <span className="session-time ml-auto w-[var(--time-width)] shrink-0 text-xs text-muted-foreground tabular-nums">
+                    {formatTime(session.lastTimestamp)}
+                  </span>
+                </Button>
               </div>
             );
           }
@@ -216,11 +253,16 @@ function HistorySessionList({ groups, searchQuery, onViewDetail }: Props) {
           return (
             <div
               key={vi.key}
-              className="history-entry"
+              className="history-entry flex gap-2.5 rounded-sm py-1 pr-2 pl-8 transition-colors hover:bg-accent max-sm:pl-7"
               style={{ position: "absolute", top, left: 0, right: 0, height: vi.size }}
             >
-              <span className="entry-time">{formatTime(item.entry.timestamp)}</span>
-              <span className="entry-display" title={item.entry.display}>
+              <span className="entry-time w-[42px] shrink-0 font-mono text-xs leading-5 text-muted-foreground tabular-nums">
+                {formatTime(item.entry.timestamp)}
+              </span>
+              <span
+                className="entry-display truncate text-sm leading-5 text-foreground"
+                title={item.entry.display}
+              >
                 {highlightText(item.entry.display, searchQuery)}
               </span>
             </div>

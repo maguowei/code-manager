@@ -1,6 +1,10 @@
+import { Folder, Folders } from "lucide-react";
 import { type KeyboardEvent, memo, useCallback, useMemo } from "react";
+import { cn } from "@/lib/utils";
 import type { HistoryProjectGroup } from "../history-utils";
 import { useI18n } from "../i18n";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
 
 interface Props {
   groups: HistoryProjectGroup[];
@@ -52,7 +56,7 @@ function HistoryProjectList({ groups, selectedProject, onSelect }: Props) {
 
   return (
     <div
-      className="history-projects"
+      className="history-projects flex w-[180px] shrink-0 flex-col gap-1 overflow-y-auto border-r p-2 max-md:w-full max-md:flex-row max-md:overflow-x-auto max-md:overflow-y-hidden max-md:border-r-0 max-md:border-b max-md:px-3"
       role="listbox"
       aria-label={t("history.title")}
       tabIndex={0}
@@ -61,18 +65,37 @@ function HistoryProjectList({ groups, selectedProject, onSelect }: Props) {
       {items.map((item) => {
         const selected = item.project === selectedProject;
         return (
-          <button
+          <Button
             key={item.project ?? "__all__"}
             type="button"
+            variant="ghost"
             role="option"
             aria-selected={selected}
-            className={`history-project-item${selected ? " selected" : ""}`}
+            className={cn(
+              "history-project-item h-auto w-full min-w-0 justify-between gap-2 rounded-md px-3 py-2 text-left font-medium text-muted-foreground max-md:w-auto max-md:max-w-[180px] max-md:flex-none",
+              selected &&
+                "selected bg-primary/10 text-primary hover:bg-primary/10 hover:text-primary",
+            )}
             onClick={() => onSelect(item.project)}
             title={item.project ?? undefined}
           >
-            <span className="project-name">{item.label}</span>
-            {item.project !== null && <span className="project-count">{item.count}</span>}
-          </button>
+            <span className="flex min-w-0 items-center gap-2">
+              {item.project === null ? (
+                <Folders className="size-4 shrink-0" aria-hidden="true" />
+              ) : (
+                <Folder className="size-4 shrink-0" aria-hidden="true" />
+              )}
+              <span className="project-name min-w-0 truncate">{item.label}</span>
+            </span>
+            {item.project !== null && (
+              <Badge
+                variant="secondary"
+                className="project-count shrink-0 px-2 py-0 text-xs font-normal"
+              >
+                {item.count}
+              </Badge>
+            )}
+          </Button>
         );
       })}
     </div>

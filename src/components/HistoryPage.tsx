@@ -1,3 +1,4 @@
+import { Search } from "lucide-react";
 import { useCallback, useEffect, useMemo } from "react";
 import {
   groupByProject,
@@ -12,7 +13,7 @@ import HistoryHeatmap from "./HistoryHeatmap";
 import HistoryProjectList from "./HistoryProjectList";
 import HistorySessionList from "./HistorySessionList";
 import SessionDetailDrawer from "./SessionDetailDrawer";
-import "./HistoryPage.css";
+import { Input } from "./ui/input";
 
 function HistoryPage() {
   const { t } = useI18n();
@@ -90,7 +91,7 @@ function HistoryPage() {
 
   if (loading) {
     return (
-      <div className="history-page">
+      <div className="history-page flex h-full w-full flex-col overflow-hidden">
         <div className="page-header">
           <h1 className="page-title">{t("history.title")}</h1>
         </div>
@@ -100,24 +101,28 @@ function HistoryPage() {
   }
 
   return (
-    <div className="history-page">
+    <div className="history-page flex h-full w-full flex-col overflow-hidden">
       <div className="page-header">
         <h1 className="page-title">{t("history.title")}</h1>
       </div>
 
-      <div className="history-body">
+      <div className="history-body grid min-h-0 flex-1 grid-cols-[180px_minmax(0,1fr)] overflow-hidden max-md:grid-cols-1 max-md:grid-rows-[auto_minmax(0,1fr)]">
         <HistoryProjectList
           groups={projectGroups}
           selectedProject={selectedProject}
           onSelect={handleSelectProject}
         />
-        <div className="history-main">
-          <div className="history-top">
+        <div className="history-main flex min-w-0 flex-col overflow-hidden">
+          <div className="history-top flex shrink-0 flex-wrap items-start gap-4 border-b p-3 md:p-4">
             <HistoryHeatmap entries={allEntries} />
-            <div className="history-search">
-              <input
+            <div className="history-search relative mt-1 ml-auto w-full flex-none md:w-[220px]">
+              <Search
+                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
                 type="search"
-                className="history-search-input"
+                className="history-search-input pl-9"
                 placeholder={t("history.search")}
                 aria-label={t("history.search")}
                 value={searchQuery}
