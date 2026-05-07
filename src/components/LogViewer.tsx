@@ -1,10 +1,14 @@
 import { invoke } from "@tauri-apps/api/core";
+import { FolderOpen, RefreshCw, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
 import useEscapeKey from "../hooks/useEscapeKey";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
 import type { LogLevel, LogView } from "../types";
-import "./LogViewer.css";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { ScrollArea } from "./ui/scroll-area";
 
 type LevelFilter = "all" | Exclude<LogLevel, "unknown">;
 
@@ -20,6 +24,21 @@ function levelLabel(level: LogLevel): string {
 
 function logEntryKey(entry: LogView["entries"][number]): string {
   return `${entry.timestamp ?? "unknown"}-${entry.level}-${entry.target ?? ""}-${entry.raw}`;
+}
+
+function levelTextClass(level: LogLevel): string {
+  switch (level) {
+    case "error":
+      return "text-destructive";
+    case "warn":
+      return "text-yellow-500";
+    case "info":
+      return "text-foreground";
+    case "debug":
+    case "trace":
+    case "unknown":
+      return "text-muted-foreground";
+  }
 }
 
 function LogViewer({ onClose }: LogViewerProps) {
@@ -91,43 +110,46 @@ function LogViewer({ onClose }: LogViewerProps) {
   }
 
   return (
-    <div className="log-viewer-overlay" onClick={onClose}>
+    <div
+      className="log-viewer-overlay fixed inset-0 z-[var(--z-index-modal)] flex items-center justify-center bg-black/40 p-5 max-md:p-3"
+      onClick={onClose}
+    >
       <section
-        className="log-viewer"
+        className="log-viewer flex h-[min(760px,calc(100vh-40px))] w-[min(980px,calc(100vw-40px))] flex-col overflow-hidden rounded-lg border bg-background text-foreground shadow-2xl max-md:h-full max-md:w-full"
         role="dialog"
         aria-modal="true"
         aria-labelledby="log-viewer-title"
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="log-viewer-header">
-          <div className="log-viewer-title-group">
-            <h2 id="log-viewer-title">{t("logs.title")}</h2>
-            <p>{view?.logDir ?? t("logs.pathLoading")}</p>
+        <header className="log-viewer-header flex min-h-16 items-center justify-between gap-4 border-b bg-muted/30 px-5 py-4">
+          <div className="log-viewer-title-group min-w-0">
+            <h2 id="log-viewer-title" className="text-base font-semibold">
+              {t("logs.title")}
+            </h2>
+            <p className="mt-1 font-mono text-xs text-muted-foreground [overflow-wrap:anywhere]">
+              {view?.logDir ?? t("logs.pathLoading")}
+            </p>
           </div>
-          <button
+          <Button
             type="button"
-            className="log-viewer-icon-btn"
+            variant="ghost"
+            size="icon-sm"
+            className="log-viewer-icon-btn shrink-0"
             onClick={onClose}
             aria-label={t("common.close")}
           >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+            <X className="size-4" />
+          </Button>
         </header>
 
-        <div className="log-viewer-toolbar">
-          <label className="log-viewer-field">
-            <span>{t("logs.level")}</span>
-            <select value={level} onChange={(event) => setLevel(event.target.value as LevelFilter)}>
+        <div className="log-viewer-toolbar grid grid-cols-[150px_minmax(220px,1fr)_auto] items-end gap-3 border-b px-5 py-4 max-md:grid-cols-1">
+          <label className="log-viewer-field flex flex-col gap-1.5">
+            <span className="text-sm font-semibold text-muted-foreground">{t("logs.level")}</span>
+            <select
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              value={level}
+              onChange={(event) => setLevel(event.target.value as LevelFilter)}
+            >
               {LEVEL_OPTIONS.map((option) => (
                 <option key={option} value={option}>
                   {option === "all" ? t("logs.levelAll") : option.toUpperCase()}
@@ -135,54 +157,82 @@ function LogViewer({ onClose }: LogViewerProps) {
               ))}
             </select>
           </label>
-          <label className="log-viewer-search">
-            <span>{t("logs.search")}</span>
-            <input
+          <label className="log-viewer-search flex flex-col gap-1.5">
+            <span className="text-sm font-semibold text-muted-foreground">{t("logs.search")}</span>
+            <Input
               type="search"
               value={search}
               placeholder={t("logs.searchPlaceholder")}
               onChange={(event) => setSearch(event.target.value)}
             />
           </label>
-          <div className="log-viewer-actions">
-            <button type="button" onClick={loadLogs}>
+          <div className="log-viewer-actions flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={loadLogs}>
+              <RefreshCw className="size-4" />
               {t("logs.refresh")}
-            </button>
-            <button type="button" onClick={handleOpenDirectory}>
+            </Button>
+            <Button type="button" variant="outline" onClick={handleOpenDirectory}>
+              <FolderOpen className="size-4" />
               {t("logs.openDir")}
-            </button>
-            <button type="button" className="log-viewer-danger-btn" onClick={handleClearLogs}>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="log-viewer-danger-btn border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={handleClearLogs}
+            >
+              <Trash2 className="size-4" />
               {t("logs.clear")}
-            </button>
+            </Button>
           </div>
         </div>
 
-        <div className="log-viewer-body">
-          {loading ? (
-            <div className="log-viewer-empty">{t("loading")}</div>
-          ) : visibleEntries.length ? (
-            <>
-              {view?.truncated ? (
-                <div className="log-viewer-hint">{t("logs.truncated")}</div>
-              ) : null}
-              <div className="log-entry-list">
-                {visibleEntries.map(({ entry, key }) => (
-                  <article className={`log-entry log-entry--${entry.level}`} key={key}>
-                    <div className="log-entry-meta">
-                      <span className="log-entry-level">{levelLabel(entry.level)}</span>
-                      {entry.timestamp ? <span>{entry.timestamp}</span> : null}
-                      {entry.target ? (
-                        <span className="log-entry-target">{entry.target}</span>
-                      ) : null}
-                    </div>
-                    <pre>{entry.message}</pre>
-                  </article>
-                ))}
+        <div className="min-h-0 flex-1 p-5">
+          <ScrollArea className="log-viewer-body h-full rounded-md border bg-card">
+            {loading ? (
+              <div className="log-viewer-empty flex h-full min-h-[220px] items-center justify-center px-4 text-center text-muted-foreground">
+                {t("loading")}
               </div>
-            </>
-          ) : (
-            <div className="log-viewer-empty">{t("logs.empty")}</div>
-          )}
+            ) : visibleEntries.length ? (
+              <>
+                {view?.truncated ? (
+                  <div className="log-viewer-hint border-b px-3 py-2 text-sm text-muted-foreground">
+                    {t("logs.truncated")}
+                  </div>
+                ) : null}
+                <div className="log-entry-list">
+                  {visibleEntries.map(({ entry, key }) => (
+                    <div
+                      className={cn(
+                        "log-line border-b px-3 py-1 font-mono text-xs leading-5 last:border-b-0",
+                        levelTextClass(entry.level),
+                      )}
+                      key={key}
+                    >
+                      <div className="log-entry-meta flex flex-wrap gap-2">
+                        <span className="log-entry-level font-bold">{levelLabel(entry.level)}</span>
+                        {entry.timestamp ? (
+                          <span className="text-muted-foreground">{entry.timestamp}</span>
+                        ) : null}
+                        {entry.target ? (
+                          <span className="log-entry-target text-muted-foreground [overflow-wrap:anywhere]">
+                            {entry.target}
+                          </span>
+                        ) : null}
+                      </div>
+                      <pre className="mt-1 whitespace-pre-wrap font-mono text-xs leading-5 [overflow-wrap:anywhere]">
+                        {entry.message}
+                      </pre>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="log-viewer-empty flex h-full min-h-[220px] items-center justify-center px-4 text-center text-muted-foreground">
+                {t("logs.empty")}
+              </div>
+            )}
+          </ScrollArea>
         </div>
       </section>
     </div>
