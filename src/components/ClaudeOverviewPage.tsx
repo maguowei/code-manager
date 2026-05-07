@@ -30,6 +30,7 @@ import {
 import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
 import { type Language, type TranslationKey, useI18n } from "../i18n";
+import { cn } from "../lib/utils";
 import type {
   ClaudeDirectoryChangedEvent,
   ClaudeDirectoryEntry,
@@ -40,7 +41,9 @@ import type {
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import MarkdownPreview from "./claude-overview/MarkdownPreview";
 import { useTheme } from "./theme-provider";
-import "./ClaudeOverviewPage.css";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 
 interface ClaudeDirectoryTreeProps {
   paths: string[];
@@ -82,6 +85,19 @@ const MAX_TREE_PANE_WIDTH = 720;
 const TREE_PANE_WIDTH_STEP = 20;
 const TREE_PANE_WIDTH_STORAGE_KEY = "ai-manager:claude-overview-tree-pane-width";
 const TREE_LOADING_ROWS = Array.from({ length: 11 }, (_, index) => index);
+const TREE_LOADING_ROW_CLASS_NAMES = [
+  "w-[62%]",
+  "w-[48%]",
+  "w-[76%]",
+  "ml-[18px] w-[58%]",
+  "ml-[18px] w-[70%]",
+  "w-[52%]",
+  "w-[82%]",
+  "ml-[18px] w-[64%]",
+  "ml-[36px] w-[44%]",
+  "w-[72%]",
+  "w-[55%]",
+] as const;
 const FILE_TREE_FILE_ICON_NAME = "file-tree-icon-file";
 const FILE_TREE_ICON_RESOLVER = createFileTreeIconResolver();
 const FILE_TREE_ICON_SPRITE_SHEET = getBuiltInSpriteSheet("complete");
@@ -92,6 +108,20 @@ const CONTEXT_MENU_EDGE_GAP = 8;
 const CONTEXT_MENU_ANCHOR_GAP = 8;
 const CLAUDE_CODE_DOCS_BASE_URL = "https://code.claude.com/docs";
 const CLAUDE_DIRECTORY_DOCS_PATH = "claude-directory";
+const FILE_TREE_THEME_STYLE = {
+  "--trees-accent-override": "var(--primary)",
+  "--trees-bg-muted-override": "var(--muted)",
+  "--trees-bg-override": "var(--secondary)",
+  "--trees-border-color-override": "var(--border)",
+  "--trees-fg-override": "var(--foreground)",
+  "--trees-fg-muted-override": "var(--muted-foreground)",
+  "--trees-focus-ring-color-override": "var(--ring)",
+  "--trees-input-bg-override": "var(--background)",
+  "--trees-search-bg-override": "var(--background)",
+  "--trees-search-fg-override": "var(--foreground)",
+  "--trees-selected-bg-override": "var(--accent)",
+  "--trees-selected-fg-override": "var(--accent-foreground)",
+} as CSSProperties;
 
 // 根据文件路径后缀判断是否为 Markdown，用于决定是否启用渲染预览
 function isMarkdownPath(path: string) {
@@ -355,10 +385,15 @@ function ClaudeOverviewContextMenu({
   };
 
   return (
-    <div className="claude-overview-context-menu" role="menu" style={menuStyle}>
+    <div
+      className="claude-overview-context-menu z-[var(--z-index-dropdown)] flex min-w-39 flex-col gap-0.5 rounded-md border bg-popover p-1 text-popover-foreground shadow-lg"
+      role="menu"
+      style={menuStyle}
+    >
       <button
         type="button"
         role="menuitem"
+        className="min-h-8 rounded-sm px-2.5 text-left text-sm hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:outline-none"
         onClick={() => handleAction(() => onCreate(item, "file"))}
       >
         {t("claudeOverview.contextMenu.newFile")}
@@ -366,18 +401,27 @@ function ClaudeOverviewContextMenu({
       <button
         type="button"
         role="menuitem"
+        className="min-h-8 rounded-sm px-2.5 text-left text-sm hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:outline-none"
         onClick={() => handleAction(() => onCreate(item, "directory"))}
       >
         {t("claudeOverview.contextMenu.newFolder")}
       </button>
-      <button type="button" role="menuitem" onClick={() => handleAction(() => onRename(item))}>
-        {t("claudeOverview.contextMenu.rename")}
-      </button>
-      <div className="claude-overview-context-menu-separator" aria-hidden="true" />
       <button
         type="button"
         role="menuitem"
-        className="danger"
+        className="min-h-8 rounded-sm px-2.5 text-left text-sm hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:outline-none"
+        onClick={() => handleAction(() => onRename(item))}
+      >
+        {t("claudeOverview.contextMenu.rename")}
+      </button>
+      <div
+        className="claude-overview-context-menu-separator -mx-1 my-1 h-px bg-border"
+        aria-hidden="true"
+      />
+      <button
+        type="button"
+        role="menuitem"
+        className="danger min-h-8 rounded-sm px-2.5 text-left text-sm text-destructive hover:bg-destructive/10 focus-visible:bg-destructive/10 focus-visible:outline-none"
         onClick={() => handleAction(() => onDelete(item))}
       >
         {t("claudeOverview.contextMenu.delete")}
@@ -416,27 +460,32 @@ function ClaudeOverviewNameDialog({
   };
 
   return (
-    <div className="claude-overview-name-dialog-overlay" onClick={onCancel}>
+    <div
+      className="claude-overview-name-dialog-overlay fixed inset-0 z-[var(--z-index-modal)] flex items-center justify-center bg-black/50"
+      onClick={onCancel}
+    >
       <form
-        className="claude-overview-name-dialog"
+        className="claude-overview-name-dialog flex w-[360px] max-w-[calc(100vw-32px)] flex-col gap-4 rounded-lg border bg-card p-5 shadow-xl"
         aria-label={t(dialog.titleKey)}
         onClick={(event) => event.stopPropagation()}
         onSubmit={handleSubmit}
       >
-        <div className="claude-overview-name-dialog-title">{t(dialog.titleKey)}</div>
-        <label className="claude-overview-name-dialog-field">
+        <div className="claude-overview-name-dialog-title text-lg font-semibold">
+          {t(dialog.titleKey)}
+        </div>
+        <label className="claude-overview-name-dialog-field flex flex-col gap-2 text-sm text-muted-foreground">
           <span>{t("claudeOverview.nameLabel")}</span>
-          <input
+          <Input
             ref={inputRef}
             value={name}
             onChange={(event) => setName(event.currentTarget.value)}
           />
         </label>
-        <div className="claude-overview-name-dialog-actions">
-          <button type="button" onClick={onCancel}>
+        <div className="claude-overview-name-dialog-actions flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onCancel}>
             {t("confirm.cancel")}
-          </button>
-          <button type="submit">{t(dialog.confirmKey)}</button>
+          </Button>
+          <Button type="submit">{t(dialog.confirmKey)}</Button>
         </div>
       </form>
     </div>
@@ -535,10 +584,14 @@ function ClaudeDirectoryTree({ paths, onSelectPath, renderContextMenu }: ClaudeD
   );
 
   return (
-    <div className="claude-overview-file-tree-shell" onClickCapture={handleTreeClickCapture}>
+    <div
+      className="claude-overview-file-tree-shell h-full min-h-0"
+      style={FILE_TREE_THEME_STYLE}
+      onClickCapture={handleTreeClickCapture}
+    >
       <FileTree
         model={model}
-        className="claude-overview-file-tree"
+        className="claude-overview-file-tree h-full w-full bg-secondary text-foreground"
         renderContextMenu={renderContextMenu}
       />
     </div>
@@ -547,12 +600,28 @@ function ClaudeDirectoryTree({ paths, onSelectPath, renderContextMenu }: ClaudeD
 
 function ClaudeOverviewTreeLoading({ label }: { label: string }) {
   return (
-    <div className="claude-overview-tree-loading" aria-busy="true" aria-live="polite">
-      <div className="claude-overview-tree-loading-search" aria-hidden="true" />
-      <div className="claude-overview-tree-loading-label">{label}</div>
-      <div className="claude-overview-tree-loading-list" aria-hidden="true">
+    <div
+      className="claude-overview-tree-loading flex h-full min-h-0 flex-col gap-3 text-muted-foreground"
+      aria-busy="true"
+      aria-live="polite"
+    >
+      <div
+        className="claude-overview-tree-loading-search h-8 shrink-0 rounded-md border bg-background"
+        aria-hidden="true"
+      />
+      <div className="claude-overview-tree-loading-label px-2 text-xs leading-snug">{label}</div>
+      <div
+        className="claude-overview-tree-loading-list flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden"
+        aria-hidden="true"
+      >
         {TREE_LOADING_ROWS.map((rowIndex) => (
-          <span key={rowIndex} />
+          <span
+            key={rowIndex}
+            className={cn(
+              "h-[18px] rounded-sm bg-muted motion-safe:animate-pulse",
+              TREE_LOADING_ROW_CLASS_NAMES[rowIndex],
+            )}
+          />
         ))}
       </div>
     </div>
@@ -675,9 +744,19 @@ function ClaudeOverviewPage() {
     [previewThemeType],
   );
   const previewContentStyle = useMemo<CSSProperties>(
-    () => ({
-      colorScheme: previewThemeType,
-    }),
+    () =>
+      ({
+        colorScheme: previewThemeType,
+        "--diffs-dark": "var(--foreground)",
+        "--diffs-dark-bg": "var(--background)",
+        "--diffs-font-family": '"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
+        "--diffs-font-size": "var(--font-base)",
+        "--diffs-gap-block": "var(--space-4)",
+        "--diffs-gap-inline": "var(--space-5)",
+        "--diffs-light": "var(--foreground)",
+        "--diffs-light-bg": "var(--background)",
+        "--diffs-line-height": "1.55",
+      }) as CSSProperties,
     [previewThemeType],
   );
   const claudeDirectoryDocsUrl = useMemo(() => getClaudeDirectoryDocsUrl(language), [language]);
@@ -1227,72 +1306,105 @@ function ClaudeOverviewPage() {
     : t("claudeOverview.preparingTree");
 
   return (
-    <section className="claude-overview-page" aria-labelledby="claude-overview-title">
+    <section
+      className="claude-overview-page relative flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-background text-foreground"
+      aria-labelledby="claude-overview-title"
+    >
       {hasMounted ? <ClaudeOverviewIconSprite /> : null}
-      <header className="claude-overview-header">
-        <div className="claude-overview-title-group">
-          <h1 id="claude-overview-title">{t("claudeOverview.title")}</h1>
-          <p>{overview.rootPath}</p>
+      <header className="claude-overview-header flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-4 border-b bg-card px-4 py-2 max-[700px]:items-start max-[700px]:justify-start max-[700px]:gap-2">
+        <div className="claude-overview-title-group flex min-w-0 flex-1 basis-[280px] items-baseline gap-2.5 max-[700px]:flex-[0_1_auto] max-[700px]:flex-wrap">
+          <h1
+            id="claude-overview-title"
+            className="whitespace-nowrap text-base font-semibold leading-tight"
+          >
+            {t("claudeOverview.title")}
+          </h1>
+          <p className="font-mono text-xs leading-tight text-muted-foreground [overflow-wrap:anywhere]">
+            {overview.rootPath}
+          </p>
         </div>
-        <div className="claude-overview-status">
-          <span>
+        <div className="claude-overview-status flex min-h-0 shrink-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <Badge variant="outline">
             {t("claudeOverview.loadedEntryCount").replace(
               "{count}",
               String(overview.entries.length),
             )}
-          </span>
+          </Badge>
           {overview.reachedEntryLimit ? (
-            <span>
+            <Badge variant="outline">
               {t("claudeOverview.truncatedEntries").replace("{count}", String(overview.maxEntries))}
-            </span>
+            </Badge>
           ) : null}
           {overview.skippedSymlinkCount > 0 ? (
-            <span>
+            <Badge variant="outline">
               {t("claudeOverview.skippedSymlinks").replace(
                 "{count}",
                 String(overview.skippedSymlinkCount),
               )}
-            </span>
+            </Badge>
           ) : null}
           {overview.skippedNodeModulesCount > 0 ? (
-            <span>
+            <Badge variant="outline">
               {t("claudeOverview.skippedNodeModules").replace(
                 "{count}",
                 String(overview.skippedNodeModulesCount),
               )}
-            </span>
+            </Badge>
           ) : null}
         </div>
-        <div className="claude-overview-actions">
-          <button
+        <div className="claude-overview-actions flex items-center gap-2">
+          <Button variant="link" size="sm" asChild>
+            <a
+              href={claudeDirectoryDocsUrl}
+              aria-label={t("claudeOverview.openDocsAriaLabel")}
+              title={t("claudeOverview.openDocsAriaLabel")}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleOpenDocs();
+              }}
+            >
+              <span>{t("claudeOverview.openDocs")}</span>
+              <ExternalLink className="size-3.5" aria-hidden="true" />
+            </a>
+          </Button>
+          <Button
             type="button"
-            aria-label={t("claudeOverview.openDocsAriaLabel")}
-            title={t("claudeOverview.openDocsAriaLabel")}
-            onClick={handleOpenDocs}
-          >
-            <span>{t("claudeOverview.openDocs")}</span>
-            <ExternalLink className="size-3.5" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
+            variant="outline"
+            size="sm"
             onClick={handleRefreshClick}
             disabled={isRefreshButtonBusy}
             aria-busy={isRefreshButtonBusy}
           >
             {/* 双 span 叠加保证按钮宽度始终按最长文案预留,切换状态时不抖动相邻元素 */}
-            <span className="claude-overview-refresh-button-stack">
-              <span data-active={isRefreshButtonBusy}>{t("claudeOverview.refreshing")}</span>
-              <span data-active={!isRefreshButtonBusy}>{t("claudeOverview.refresh")}</span>
+            <span className="claude-overview-refresh-button-stack inline-grid items-center justify-items-center [grid-template-areas:'stack']">
+              <span
+                className={cn("[grid-area:stack]", !isRefreshButtonBusy && "invisible")}
+                data-active={isRefreshButtonBusy}
+              >
+                {t("claudeOverview.refreshing")}
+              </span>
+              <span
+                className={cn("[grid-area:stack]", isRefreshButtonBusy && "invisible")}
+                data-active={!isRefreshButtonBusy}
+              >
+                {t("claudeOverview.refresh")}
+              </span>
             </span>
-          </button>
+          </Button>
         </div>
       </header>
 
-      <div className="claude-overview-body" style={overviewBodyStyle}>
-        <section className="claude-overview-preview-pane" aria-label={t("claudeOverview.preview")}>
+      <div
+        className="claude-overview-body grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_8px_minmax(260px,var(--claude-overview-tree-width,340px))] max-[900px]:grid-cols-1 max-[900px]:grid-rows-[minmax(220px,42%)_minmax(0,1fr)]"
+        style={overviewBodyStyle}
+      >
+        <section
+          className="claude-overview-preview-pane flex min-h-0 min-w-0 flex-col overflow-hidden bg-background"
+          aria-label={t("claudeOverview.preview")}
+        >
           {openPreviews.length > 0 ? (
             <div
-              className="claude-overview-tabs"
+              className="claude-overview-tabs flex min-h-8 shrink-0 items-end gap-1 overflow-x-auto border-b bg-card px-4 pt-1.5"
               role="tablist"
               aria-label={t("claudeOverview.openFiles")}
             >
@@ -1301,23 +1413,26 @@ function ClaudeOverviewPage() {
                 return (
                   <div
                     key={openedPreview.path}
-                    className={`claude-overview-tab-shell ${isActive ? "active" : ""}`}
+                    className={cn(
+                      "claude-overview-tab-shell flex h-7 max-w-60 shrink-0 items-center rounded-t-md border border-b-0 bg-muted",
+                      isActive && "active bg-background",
+                    )}
                   >
                     <button
                       type="button"
                       role="tab"
                       aria-selected={isActive}
-                      className="claude-overview-tab"
+                      className="claude-overview-tab flex h-full min-w-0 items-center gap-1.5 overflow-hidden bg-transparent px-2.5 font-mono text-sm aria-selected:text-foreground aria-[selected=false]:text-muted-foreground"
                       onClick={() => handleSelectPreviewTab(openedPreview.path)}
                     >
                       <ClaudeOverviewFileIcon path={openedPreview.path} />
-                      <span className="claude-overview-tab-label">
+                      <span className="claude-overview-tab-label min-w-0 truncate">
                         {openedPreview.name || openedPreview.path}
                       </span>
                     </button>
                     <button
                       type="button"
-                      className="claude-overview-tab-close"
+                      className="claude-overview-tab-close mr-0.5 flex size-6 shrink-0 items-center justify-center rounded-sm text-lg leading-none text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                       aria-label={t("claudeOverview.closePreview").replace(
                         "{name}",
                         openedPreview.name || openedPreview.path,
@@ -1333,14 +1448,18 @@ function ClaudeOverviewPage() {
           ) : null}
 
           {loadingPreviewPath && !activePreview ? (
-            <div className="claude-overview-empty">{t("loading")}</div>
+            <div className="claude-overview-empty flex min-h-[180px] flex-1 items-center justify-center p-5 text-center leading-relaxed text-muted-foreground">
+              {t("loading")}
+            </div>
           ) : activePreview ? (
             <>
-              <div className="claude-overview-preview-toolbar">
+              <div className="claude-overview-preview-toolbar flex min-h-[38px] shrink-0 flex-nowrap items-center justify-end gap-3 border-b bg-card px-4 py-1 max-[700px]:flex-col max-[700px]:items-start">
                 {!activePreview.isBinary && isMarkdownPath(activePreview.path) ? (
-                  <div className="claude-overview-preview-view-toggle">
-                    <button
+                  <div className="claude-overview-preview-view-toggle mr-auto flex items-center max-[700px]:mr-0">
+                    <Button
                       type="button"
+                      variant={viewMode === "preview" ? "secondary" : "outline"}
+                      size="icon-sm"
                       aria-label={
                         viewMode === "preview"
                           ? t("claudeOverview.toggleToSource")
@@ -1361,55 +1480,66 @@ function ClaudeOverviewPage() {
                       ) : (
                         <Eye className="size-[18px]" aria-hidden="true" />
                       )}
-                    </button>
+                    </Button>
                   </div>
                 ) : null}
-                <div className="claude-overview-preview-actions">
-                  <button
+                <div className="claude-overview-preview-actions flex shrink-0 flex-wrap items-center justify-end gap-2 max-[700px]:justify-start">
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="icon-sm"
                     aria-label={t("claudeOverview.copyPath")}
                     title={t("claudeOverview.copyPath")}
                     onClick={handleCopyPath}
                   >
                     <Copy className="size-4" aria-hidden="true" />
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="icon-sm"
                     aria-label={t("claudeOverview.openFileBrowser")}
                     title={t("claudeOverview.openFileBrowser")}
                     onClick={handleOpenInFileBrowser}
                   >
                     <ExternalLink className="size-3.5" aria-hidden="true" />
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="icon-sm"
                     aria-label={t("claudeOverview.openEditor")}
                     title={t("claudeOverview.openEditor")}
                     onClick={handleOpenInEditor}
                   >
                     <SquarePen className="size-4" aria-hidden="true" />
-                  </button>
+                  </Button>
                 </div>
               </div>
               {activePreview.isBinary ? (
-                <div className="claude-overview-empty">{t("claudeOverview.binaryFile")}</div>
+                <div className="claude-overview-empty flex min-h-[180px] flex-1 items-center justify-center p-5 text-center leading-relaxed text-muted-foreground">
+                  {t("claudeOverview.binaryFile")}
+                </div>
               ) : isMarkdownPath(activePreview.path) && viewMode === "preview" ? (
                 <MarkdownPreview
-                  className="claude-overview-preview-content claude-overview-markdown"
+                  className={cn(
+                    "claude-overview-preview-content claude-overview-markdown flex-1 overflow-auto bg-transparent px-5 py-4 text-sm",
+                    previewThemeType === "dark" ? "markdown-dark" : "markdown-light",
+                  )}
                   content={activePreview.content}
                   themeType={previewThemeType === "dark" ? "dark" : "light"}
                 />
               ) : previewFile ? (
                 <PierreFile
-                  className="claude-overview-preview-content"
+                  className="claude-overview-preview-content block min-h-0 flex-1 overflow-auto"
                   file={previewFile}
                   options={previewFileOptions}
                   style={previewContentStyle}
                   disableWorkerPool
                 />
               ) : null}
-              <div className="claude-overview-preview-footer">
-                <div className="claude-overview-preview-summary">
+              <div className="claude-overview-preview-footer flex min-h-[34px] shrink-0 items-center border-t bg-card px-4 py-1 max-[700px]:flex-col max-[700px]:items-start">
+                <div className="claude-overview-preview-summary flex min-w-0 items-center gap-2 overflow-hidden truncate whitespace-nowrap text-xs leading-tight text-muted-foreground">
                   <span>{formatBytes(activePreview.size)}</span>
                   <span>
                     {formatModifiedAt(activeEntry?.modifiedAt ?? activePreview.modifiedAt)}
@@ -1422,14 +1552,18 @@ function ClaudeOverviewPage() {
               </div>
             </>
           ) : selectedEntry?.kind === "directory" ? (
-            <div className="claude-overview-empty">{t("claudeOverview.directorySelected")}</div>
+            <div className="claude-overview-empty flex min-h-[180px] flex-1 items-center justify-center p-5 text-center leading-relaxed text-muted-foreground">
+              {t("claudeOverview.directorySelected")}
+            </div>
           ) : (
-            <div className="claude-overview-empty">{t("claudeOverview.selectHint")}</div>
+            <div className="claude-overview-empty flex min-h-[180px] flex-1 items-center justify-center p-5 text-center leading-relaxed text-muted-foreground">
+              {t("claudeOverview.selectHint")}
+            </div>
           )}
         </section>
 
         <div
-          className="claude-overview-resizer"
+          className="claude-overview-resizer relative min-w-2 cursor-col-resize border-0 bg-card outline-none after:absolute after:top-0 after:bottom-0 after:left-[3px] after:w-px after:bg-border hover:after:left-0.5 hover:after:w-[3px] hover:after:rounded-full hover:after:bg-primary focus-visible:after:left-0.5 focus-visible:after:w-[3px] focus-visible:after:rounded-full focus-visible:after:bg-primary max-[900px]:hidden"
           role="separator"
           aria-label={t("claudeOverview.resizePanes")}
           aria-orientation="vertical"
@@ -1441,11 +1575,14 @@ function ClaudeOverviewPage() {
           onPointerDown={handleResizePointerDown}
         />
 
-        <section className="claude-overview-tree-pane" aria-label={t("claudeOverview.tree")}>
+        <section
+          className="claude-overview-tree-pane min-h-0 min-w-0 overflow-hidden bg-secondary p-2 max-[900px]:border-t"
+          aria-label={t("claudeOverview.tree")}
+        >
           {showTreeLoading ? (
             <ClaudeOverviewTreeLoading label={treeLoadingLabel} />
           ) : treePaths.length > 0 ? (
-            <div className="claude-overview-tree-ready">
+            <div className="claude-overview-tree-ready h-full min-h-0">
               <ClaudeDirectoryTree
                 paths={treePaths}
                 onSelectPath={handleSelectPath}
@@ -1453,7 +1590,9 @@ function ClaudeOverviewPage() {
               />
             </div>
           ) : (
-            <div className="claude-overview-empty">{t("claudeOverview.empty")}</div>
+            <div className="claude-overview-empty flex min-h-[180px] flex-1 items-center justify-center p-5 text-center leading-relaxed text-muted-foreground">
+              {t("claudeOverview.empty")}
+            </div>
           )}
         </section>
       </div>

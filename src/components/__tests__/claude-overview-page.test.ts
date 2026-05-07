@@ -8,96 +8,80 @@ function readText(relativePath: string): string {
 
 describe("ClaudeOverviewPage styles", () => {
   it("allows the file preview surface to scroll", () => {
-    const css = readText("src/components/ClaudeOverviewPage.css");
-    const previewContentRule = css.match(/\.claude-overview-preview-content\s*{(?<body>[^}]*)}/);
+    const source = readText("src/components/ClaudeOverviewPage.tsx");
 
-    expect(previewContentRule?.groups?.body).toContain("overflow: auto;");
+    expect(source).toContain("claude-overview-preview-content block min-h-0 flex-1 overflow-auto");
+    expect(source).toContain(
+      "claude-overview-preview-content claude-overview-markdown flex-1 overflow-auto",
+    );
   });
 
   it("places the preview and tree around a resizable separator", () => {
-    const css = readText("src/components/ClaudeOverviewPage.css");
-    const bodyRule = css.match(/\.claude-overview-body\s*{(?<body>[^}]*)}/);
-    const resizerRule = css.match(/\.claude-overview-resizer\s*{(?<body>[^}]*)}/);
+    const source = readText("src/components/ClaudeOverviewPage.tsx");
 
-    expect(bodyRule?.groups?.body).toContain(
-      "grid-template-columns: minmax(0, 1fr) 8px minmax(260px, var(--claude-overview-tree-width, 340px));",
+    expect(source).toContain(
+      "grid-cols-[minmax(0,1fr)_8px_minmax(260px,var(--claude-overview-tree-width,340px))]",
     );
-    expect(resizerRule?.groups?.body).toContain("cursor: col-resize;");
+    expect(source).toContain("claude-overview-resizer relative min-w-2 cursor-col-resize");
+    expect(source).toContain("max-[900px]:hidden");
   });
 
   it("keeps the overview chrome compact", () => {
-    const css = readText("src/components/ClaudeOverviewPage.css");
-    const headerRule = css.match(/\.claude-overview-header\s*{(?<body>[^}]*)}/);
-    const statusRule = css.match(/\.claude-overview-status\s*{(?<body>[^}]*)}/);
-    const previewToolbarRule = css.match(/\.claude-overview-preview-toolbar\s*{(?<body>[^}]*)}/);
-    const previewFooterRule = css.match(/\.claude-overview-preview-footer\s*{(?<body>[^}]*)}/);
+    const source = readText("src/components/ClaudeOverviewPage.tsx");
 
-    expect(headerRule?.groups?.body).toContain("min-height: 48px;");
-    expect(statusRule?.groups?.body).toContain("min-height: 0;");
-    expect(previewToolbarRule?.groups?.body).toContain("min-height: 38px;");
-    expect(previewFooterRule?.groups?.body).toContain("min-height: 34px;");
+    expect(source).toContain("claude-overview-header flex min-h-12");
+    expect(source).toContain("claude-overview-status flex min-h-0");
+    expect(source).toContain("claude-overview-preview-toolbar flex min-h-[38px]");
+    expect(source).toContain("claude-overview-preview-footer flex min-h-[34px]");
   });
 
   it("resets desktop title flex sizing in the compact overview header", () => {
-    const css = readText("src/components/ClaudeOverviewPage.css");
-    const compactHeaderMediaRule = css.match(
-      /@media \(max-width: 700px\)\s*{(?<body>[\s\S]*?)\n}\n\n@media \(prefers-reduced-motion: reduce\)/,
-    );
+    const source = readText("src/components/ClaudeOverviewPage.tsx");
 
-    expect(compactHeaderMediaRule?.groups?.body).toContain(".claude-overview-title-group");
-    expect(compactHeaderMediaRule?.groups?.body).toContain("flex: 0 1 auto;");
+    expect(source).toContain("claude-overview-title-group flex min-w-0");
+    expect(source).toContain("max-[700px]:flex-[0_1_auto]");
+    expect(source).toContain("max-[700px]:flex-wrap");
   });
 
   it("visually separates the preview metadata from file contents", () => {
-    const css = readText("src/components/ClaudeOverviewPage.css");
-    const previewFooterRule = css.match(/\.claude-overview-preview-footer\s*{(?<body>[^}]*)}/);
+    const source = readText("src/components/ClaudeOverviewPage.tsx");
 
-    expect(previewFooterRule?.groups?.body).toContain("background: var(--bg-primary);");
-    expect(previewFooterRule?.groups?.body).toContain(
-      "border-top: 1px solid var(--border-default);",
-    );
+    expect(source).toContain("claude-overview-preview-footer flex min-h-[34px]");
+    expect(source).toContain("border-t bg-card");
   });
 
   it("keeps preview actions and footer metadata in compact rows", () => {
-    const css = readText("src/components/ClaudeOverviewPage.css");
-    const previewToolbarRule = css.match(/\.claude-overview-preview-toolbar\s*{(?<body>[^}]*)}/);
-    const previewFooterRule = css.match(/\.claude-overview-preview-footer\s*{(?<body>[^}]*)}/);
-    const previewSummaryRule = css.match(/\.claude-overview-preview-summary\s*{(?<body>[^}]*)}/);
-    const actionButtonRule = css.match(
-      /\.claude-overview-preview-actions button\s*{(?<body>[^}]*)}/,
-    );
+    const source = readText("src/components/ClaudeOverviewPage.tsx");
 
-    expect(previewToolbarRule?.groups?.body).toContain("min-height: 38px;");
-    expect(previewToolbarRule?.groups?.body).toContain("justify-content: flex-end;");
-    expect(previewFooterRule?.groups?.body).toContain("min-height: 34px;");
-    expect(previewSummaryRule?.groups?.body).toContain("white-space: nowrap;");
-    expect(actionButtonRule?.groups?.body).toContain("width: 30px;");
+    expect(source).toContain("claude-overview-preview-toolbar flex min-h-[38px]");
+    expect(source).toContain("justify-end");
+    expect(source).toContain("claude-overview-preview-summary flex min-w-0 items-center gap-2");
+    expect(source).toContain('size="icon-sm"');
   });
 
   it("bridges Pierre tree colors to the app theme", () => {
-    const css = readText("src/components/ClaudeOverviewPage.css");
-    const fileTreeRule = css.match(/\.claude-overview-file-tree\s*{(?<body>[^}]*)}/);
+    const source = readText("src/components/ClaudeOverviewPage.tsx");
 
-    expect(fileTreeRule?.groups?.body).toContain("--trees-bg-override: var(--bg-secondary);");
-    expect(fileTreeRule?.groups?.body).toContain("--trees-fg-override: var(--text-primary);");
-    expect(fileTreeRule?.groups?.body).toContain(
-      "--trees-fg-muted-override: var(--text-secondary);",
-    );
-    expect(fileTreeRule?.groups?.body).toContain("--trees-search-bg-override: var(--bg-primary);");
-    expect(fileTreeRule?.groups?.body).not.toContain("--trees-muted-fg-override");
+    expect(source).toContain('"--trees-bg-override": "var(--secondary)"');
+    expect(source).toContain('"--trees-fg-override": "var(--foreground)"');
+    expect(source).toContain('"--trees-fg-muted-override": "var(--muted-foreground)"');
+    expect(source).toContain('"--trees-search-bg-override": "var(--background)"');
+    expect(source).not.toContain("--trees-muted-fg-override");
   });
 
   it("uses stable loading skeletons and reduced-motion friendly transitions for the tree", () => {
-    const css = readText("src/components/ClaudeOverviewPage.css");
-    const treeReadyRule = css.match(/\.claude-overview-tree-ready\s*{(?<body>[^}]*)}/);
-    const treeLoadingRule = css.match(/\.claude-overview-tree-loading\s*{(?<body>[^}]*)}/);
-    const skeletonRowRule = css.match(
-      /\.claude-overview-tree-loading-list span\s*{(?<body>[^}]*)}/,
-    );
+    const source = readText("src/components/ClaudeOverviewPage.tsx");
 
-    expect(treeReadyRule?.groups?.body).toContain("animation: claude-overview-tree-enter");
-    expect(treeLoadingRule?.groups?.body).toContain("height: 100%;");
-    expect(skeletonRowRule?.groups?.body).toContain("animation: claude-overview-skeleton-pulse");
-    expect(css).toContain("@media (prefers-reduced-motion: reduce)");
+    expect(source).toContain("TREE_LOADING_ROW_CLASS_NAMES");
+    expect(source).toContain("claude-overview-tree-loading flex h-full min-h-0");
+    expect(source).toContain("motion-safe:animate-pulse");
+  });
+
+  it("marks markdown previews with explicit light and dark theme classes", () => {
+    const source = readText("src/components/ClaudeOverviewPage.tsx");
+    const markdownPreview = readText("src/components/claude-overview/MarkdownPreview.tsx");
+
+    expect(source).toContain('previewThemeType === "dark" ? "markdown-dark" : "markdown-light"');
+    expect(markdownPreview).toContain("markdown-preview-image-fallback inline-block");
   });
 });

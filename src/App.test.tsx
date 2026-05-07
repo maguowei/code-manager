@@ -567,7 +567,7 @@ describe("App", () => {
 
     expect(screen.getByRole("heading", { name: "~/.claude 目录总览" })).toBeInTheDocument();
     expect(screen.queryByRole("dialog", { name: "~/.claude 目录总览" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "查看 .claude 目录官方文档" }));
+    fireEvent.click(screen.getByRole("link", { name: "查看 .claude 目录官方文档" }));
     expect(openUrlMock).toHaveBeenCalledWith("https://code.claude.com/docs/zh-CN/claude-directory");
     expect(screen.getByText("正在扫描 ~/.claude...")).toBeInTheDocument();
     expect(fileTreeOptionsMock).not.toHaveBeenCalled();
@@ -737,7 +737,7 @@ describe("App", () => {
     renderApp();
 
     fireEvent.click(await screen.findByRole("button", { name: "~/.claude Overview" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Open .claude directory docs" }));
+    fireEvent.click(await screen.findByRole("link", { name: "Open .claude directory docs" }));
 
     expect(openUrlMock).toHaveBeenCalledWith("https://code.claude.com/docs/en/claude-directory");
   });

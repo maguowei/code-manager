@@ -123,7 +123,11 @@ function MarkdownPreviewBase({ content, themeType, className }: MarkdownPreviewP
         if (typeof src === "string" && isSafeImageSrc(src)) {
           return <img src={src} alt={alt ?? ""} {...rest} />;
         }
-        return <span className="markdown-preview-image-fallback">{alt ?? ""}</span>;
+        return (
+          <span className="markdown-preview-image-fallback inline-block rounded border border-dashed px-2 py-0.5 text-xs text-muted-foreground">
+            {alt ?? ""}
+          </span>
+        );
       },
     } satisfies Components;
   }, [themeType]);

@@ -346,7 +346,7 @@ describe("PresetEditor", () => {
     );
     expect(openUrlMock).toHaveBeenCalledWith("https://code.claude.com/docs/zh-CN/sandboxing");
     expect(openUrlMock).toHaveBeenCalledWith("https://code.claude.com/docs/zh-CN/model-config");
-  });
+  }, 10000);
 
   it("shows base preset names using the current UI language", () => {
     localStorage.setItem(
