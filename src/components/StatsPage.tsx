@@ -1,34 +1,37 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { BarChart3, ChevronRight, Pencil, RefreshCw } from "lucide-react";
+import {
+  type CSSProperties,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { Bar, BarChart, XAxis, YAxis } from "recharts";
+import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
 import { type TranslationKey, useI18n } from "../i18n";
 import { type ClaudeStats, isTauri, type ProjectStats } from "../types";
 import { formatDuration } from "./project-detail-utils";
-import "./StatsPage.css";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { Card, CardContent } from "./ui/card";
+import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "./ui/chart";
 
-// recharts 不支持 CSS 变量，这里保留暗色主题对应的固定色值
-const COLORS = {
-  orange: "#f78166",
+const TOOL_USAGE_CURSOR_STYLE = {
+  fill: "color-mix(in oklch, var(--chart-1) 15%, transparent)",
 };
-
-// recharts 图表共享样式常量
-const TICK_STYLE = { fill: "#7d8590", fontSize: 11 };
-const TOOLTIP_STYLE = {
-  backgroundColor: "rgba(22, 27, 34, 0.8)",
-  border: "1px solid #30363d",
-  borderRadius: 12,
-  color: "#e6edf3",
-  backdropFilter: "blur(12px)",
-  boxShadow: "0 8px 16px rgba(0, 0, 0, 0.15)",
-};
-const TOOL_USAGE_CURSOR_STYLE = { fill: "rgba(247, 129, 102, 0.1)" };
 const TOOL_USAGE_ACTIVE_BAR_STYLE = {
-  fill: COLORS.orange,
+  fill: "var(--color-count)",
   fillOpacity: 0.96,
-  stroke: COLORS.orange,
+  stroke: "var(--color-count)",
   strokeWidth: 1.2,
 };
+
+function chartHeightStyle(height: number): CSSProperties {
+  return { "--tool-chart-height": `${height}px` } as CSSProperties;
+}
 
 /** 项目路径截取最后一级 */
 function shortPath(fullPath: string): string {
@@ -111,7 +114,17 @@ function StatsPage() {
     }
   }
 
-  // ===== 派生数据 =====
+  const toolUsageChartConfig = useMemo(
+    () =>
+      ({
+        count: {
+          label: t("stats.toolUsage"),
+          color: "var(--chart-1)",
+        },
+      }) satisfies ChartConfig,
+    [t],
+  );
+
   const toolUsageData = useMemo(() => {
     if (!stats) return [];
     return Object.entries(stats.toolUsage)
@@ -133,16 +146,15 @@ function StatsPage() {
     );
   }, [stats]);
 
-  // ===== 渲染 =====
   if (loading) {
     return (
-      <div className="stats-page">
+      <div className="stats-page flex h-full w-full flex-col overflow-hidden">
         <div className="page-header">
           <h1 className="page-title">{t("stats.title")}</h1>
         </div>
-        <div className="stats-scroll">
-          <div className="stats-empty">
-            <p className="empty-text">{t("loading")}</p>
+        <div className="stats-scroll min-h-0 flex-1 overflow-y-auto p-5">
+          <div className="stats-empty flex min-h-[320px] flex-col items-center justify-center text-center">
+            <p className="empty-text text-lg font-semibold text-foreground">{t("loading")}</p>
           </div>
         </div>
       </div>
@@ -151,28 +163,19 @@ function StatsPage() {
 
   if (!stats || stats.numStartups === 0) {
     return (
-      <div className="stats-page">
+      <div className="stats-page flex h-full w-full flex-col overflow-hidden">
         <div className="page-header">
           <h1 className="page-title">{t("stats.title")}</h1>
         </div>
-        <div className="stats-scroll">
-          <div className="stats-empty">
-            <div className="empty-icon">
-              <svg
-                width="48"
-                height="48"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              >
-                <line x1="18" y1="20" x2="18" y2="10" />
-                <line x1="12" y1="20" x2="12" y2="4" />
-                <line x1="6" y1="20" x2="6" y2="14" />
-              </svg>
+        <div className="stats-scroll min-h-0 flex-1 overflow-y-auto p-5">
+          <div className="stats-empty flex min-h-[320px] flex-col items-center justify-center text-center">
+            <div className="empty-icon mb-4 flex size-20 items-center justify-center rounded-full border bg-muted text-muted-foreground">
+              <BarChart3 className="size-12" strokeWidth={1.5} />
             </div>
-            <p className="empty-text">{t("stats.noData")}</p>
-            <p className="empty-hint">{t("stats.noDataHint")}</p>
+            <p className="empty-text mb-2 text-lg font-semibold text-foreground">
+              {t("stats.noData")}
+            </p>
+            <p className="empty-hint max-w-md text-muted-foreground">{t("stats.noDataHint")}</p>
           </div>
         </div>
       </div>
@@ -182,168 +185,235 @@ function StatsPage() {
   const projectCount = Object.keys(stats.projects).length;
 
   return (
-    <div className="stats-page">
-      <div className="page-header">
-        <div className="stats-page-heading">
-          <h1 className="page-title">{t("stats.title")}</h1>
-          <div className="stats-staleness-note">{t("stats.stalenessNotice")}</div>
+    <div className="stats-page flex h-full w-full flex-col overflow-hidden">
+      <div className="page-header max-[900px]:grid max-[900px]:h-auto max-[900px]:min-h-[52px] max-[900px]:grid-cols-[minmax(0,1fr)_auto] max-[900px]:gap-3 max-[900px]:py-2">
+        <div className="stats-page-heading flex min-w-0 items-center gap-3 max-[900px]:flex-wrap max-[900px]:items-baseline">
+          <h1 className="page-title shrink-0">{t("stats.title")}</h1>
+          <div className="stats-staleness-note min-w-0 max-w-[min(52vw,560px)] truncate text-xs leading-snug text-muted-foreground max-[900px]:max-w-full">
+            {t("stats.stalenessNotice")}
+          </div>
         </div>
-        <div className="page-header-actions">
-          <button
+        <div className="page-header-actions flex gap-2 max-[900px]:grid max-[900px]:grid-cols-[repeat(2,2rem)] max-[900px]:items-center max-[900px]:justify-end max-[900px]:justify-items-center">
+          <Button
             type="button"
-            className="stats-refresh-btn"
+            variant="outline"
+            size="sm"
+            className="stats-refresh-btn max-[900px]:size-8 max-[900px]:gap-0 max-[900px]:p-0"
             onClick={handleOpenInEditor}
             title={t("stats.openInEditor")}
           >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-            </svg>
-            {t("stats.openInEditor")}
-          </button>
-          <button
+            <Pencil className="size-4" />
+            <span className="max-[900px]:sr-only">{t("stats.openInEditor")}</span>
+          </Button>
+          <Button
             type="button"
-            className="stats-refresh-btn"
+            variant="outline"
+            size="sm"
+            className="stats-refresh-btn max-[900px]:size-8 max-[900px]:gap-0 max-[900px]:p-0"
             onClick={handleRefresh}
             title={t("stats.refresh")}
           >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <polyline points="23 4 23 10 17 10" />
-              <polyline points="1 20 1 14 7 14" />
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-            </svg>
-            {t("stats.refresh")}
-          </button>
+            <RefreshCw className="size-4" />
+            <span className="max-[900px]:sr-only">{t("stats.refresh")}</span>
+          </Button>
         </div>
       </div>
 
-      <div className="stats-scroll">
-        {/* 概览 */}
-        <div className="stats-overview">
-          <div className="stat-card" style={{ animationDelay: "0.1s" }}>
-            <span className="stat-card-label">{t("stats.startups")}</span>
-            <span className="stat-card-value accent-blue">{stats.numStartups}</span>
-          </div>
-          <div className="stat-card" style={{ animationDelay: "0.2s" }}>
-            <span className="stat-card-label">{t("stats.firstUse")}</span>
-            <span className="stat-card-value accent-purple">
-              {stats.firstStartTime ? formatDate(stats.firstStartTime) : "-"}
-            </span>
-          </div>
-          <div className="stat-card" style={{ animationDelay: "0.25s" }}>
-            <span className="stat-card-label">{t("stats.totalProjects")}</span>
-            <span className="stat-card-value accent-orange">{projectCount}</span>
-          </div>
+      <div className="stats-scroll min-h-0 flex-1 overflow-y-auto p-5">
+        <div className="stats-overview mb-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            label={t("stats.startups")}
+            value={stats.numStartups}
+            valueClassName="text-chart-1"
+          />
+          <StatCard
+            label={t("stats.firstUse")}
+            value={stats.firstStartTime ? formatDate(stats.firstStartTime) : "-"}
+            valueClassName="text-chart-4"
+          />
+          <StatCard
+            label={t("stats.totalProjects")}
+            value={projectCount}
+            valueClassName="text-chart-3"
+          />
           {stats.lastPlanModeUse != null && (
-            <div className="stat-card" style={{ animationDelay: "0.3s" }}>
-              <span className="stat-card-label">{t("stats.lastPlanModeUse")}</span>
-              <span className="stat-card-value accent-purple">
-                {formatTimestamp(stats.lastPlanModeUse)}
-              </span>
-            </div>
+            <StatCard
+              label={t("stats.lastPlanModeUse")}
+              value={formatTimestamp(stats.lastPlanModeUse)}
+              valueClassName="text-chart-4"
+            />
           )}
           {stats.btwUseCount != null && (
-            <div className="stat-card" style={{ animationDelay: "0.35s" }}>
-              <span className="stat-card-label">{t("stats.btwUseCount")}</span>
-              <span className="stat-card-value accent-blue">{stats.btwUseCount}</span>
-            </div>
+            <StatCard
+              label={t("stats.btwUseCount")}
+              value={stats.btwUseCount}
+              valueClassName="text-chart-1"
+            />
           )}
         </div>
 
-        {/* 工具 & Skill 使用 */}
         <details
           open
-          className="stats-section stats-section-collapsible"
-          style={{ animationDelay: "0.4s" }}
+          className="stats-section stats-section-collapsible group mb-5 rounded-xl border bg-card shadow-sm"
         >
-          <summary className="stats-section-title stats-section-summary">
+          <summary className="stats-section-title stats-section-summary flex cursor-pointer list-none items-center gap-2 border-b px-5 py-4 text-lg font-semibold [&::-webkit-details-marker]:hidden">
             {t("stats.toolSection")}
-            <span className="stats-summary-count">
+            <span className="stats-summary-count text-sm font-normal text-muted-foreground group-open:hidden">
               {toolUsageData.length} {t("stats.toolUsage")} · {skillUsageData.length}{" "}
               {t("stats.skillUsage")}
             </span>
+            <ChevronRight className="ml-auto size-4 text-muted-foreground transition-transform group-open:rotate-90" />
           </summary>
-          <div className="stats-chart-group">
-            <div className="stats-chart-block">
-              <div className="stats-chart-label">{t("stats.toolUsage")}</div>
+          <div className="stats-chart-group grid gap-5 p-5 lg:grid-cols-2">
+            <div className="stats-chart-block rounded-lg border bg-muted/30 p-3">
+              <div className="stats-chart-label mb-4 inline-flex rounded-md border bg-background px-2 py-0.5 text-sm font-semibold text-muted-foreground">
+                {t("stats.toolUsage")}
+              </div>
               {toolUsageData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={Math.max(200, toolUsageData.length * 36)}>
+                <ChartContainer
+                  config={toolUsageChartConfig}
+                  className="h-[var(--tool-chart-height)] min-h-[200px] w-full aspect-auto"
+                  style={chartHeightStyle(Math.max(200, toolUsageData.length * 36))}
+                >
                   <BarChart
+                    accessibilityLayer
                     data={toolUsageData}
                     layout="vertical"
                     margin={{ left: 10, right: 20, top: 5, bottom: 5 }}
                   >
-                    <XAxis type="number" tick={TICK_STYLE} />
-                    <YAxis type="category" dataKey="name" width={90} tick={TICK_STYLE} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} cursor={TOOL_USAGE_CURSOR_STYLE} />
+                    <XAxis type="number" tickLine={false} axisLine={false} />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      width={90}
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                    />
+                    <ChartTooltip
+                      cursor={TOOL_USAGE_CURSOR_STYLE}
+                      content={<ChartTooltipContent hideLabel />}
+                    />
                     <Bar
                       dataKey="count"
-                      fill={COLORS.orange}
+                      fill="var(--color-count)"
                       fillOpacity={0.88}
                       radius={[0, 4, 4, 0]}
                       activeBar={TOOL_USAGE_ACTIVE_BAR_STYLE}
                     />
                   </BarChart>
-                </ResponsiveContainer>
+                </ChartContainer>
               ) : (
-                <p className="stats-no-data">-</p>
+                <p className="stats-no-data py-4 text-center text-sm text-muted-foreground">-</p>
               )}
             </div>
-            <div className="stats-chart-block">
-              <div className="stats-chart-label">{t("stats.skillUsage")}</div>
+            <div className="stats-chart-block rounded-lg border bg-muted/30 p-3">
+              <div className="stats-chart-label mb-4 inline-flex rounded-md border bg-background px-2 py-0.5 text-sm font-semibold text-muted-foreground">
+                {t("stats.skillUsage")}
+              </div>
               {skillUsageData.length > 0 ? (
-                <div className="stats-list">
+                <div className="stats-list flex flex-col gap-2">
                   {skillUsageData.map((item) => (
-                    <div key={item.name} className="stats-list-item">
-                      <span className="stats-list-item-name">{item.name}</span>
-                      <span className="stats-list-item-value">
-                        {item.count} {t("stats.calls")}
+                    <div
+                      key={item.name}
+                      className="stats-list-item flex items-center justify-between gap-3 rounded-md border bg-card px-4 py-3"
+                    >
+                      <span className="stats-list-item-name min-w-0 truncate font-medium">
+                        {item.name}
                       </span>
+                      <Badge variant="outline" className="stats-list-item-value font-mono">
+                        {item.count} {t("stats.calls")}
+                      </Badge>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="stats-no-data">-</p>
+                <p className="stats-no-data py-4 text-center text-sm text-muted-foreground">-</p>
               )}
             </div>
           </div>
         </details>
 
-        {/* 项目 */}
         <details
           open
-          className="stats-section stats-section-collapsible stats-project-section"
-          style={{ animationDelay: "0.5s" }}
+          className="stats-section stats-section-collapsible stats-project-section group rounded-xl border bg-card shadow-sm"
         >
-          <summary className="stats-section-title stats-section-summary">
+          <summary className="stats-section-title stats-section-summary flex cursor-pointer list-none items-center gap-2 border-b px-5 py-4 text-lg font-semibold [&::-webkit-details-marker]:hidden">
             {t("stats.sessionSection")}
-            <span className="stats-summary-count">
+            <span className="stats-summary-count text-sm font-normal text-muted-foreground group-open:hidden">
               {projectEntries.length} {t("stats.totalProjects")}
             </span>
+            <ChevronRight className="ml-auto size-4 text-muted-foreground transition-transform group-open:rotate-90" />
           </summary>
-          <p className="stats-project-section-hint">{t("stats.projectSectionHint")}</p>
+          <p className="stats-project-section-hint px-5 pt-4 pb-0 text-sm leading-relaxed text-muted-foreground">
+            {t("stats.projectSectionHint")}
+          </p>
 
-          <div className="stats-project-list">
+          <div className="stats-project-list flex flex-col gap-5 p-5">
             {projectEntries.map(([path, p]) => (
               <ProjectCard key={path} path={path} project={p} t={t} />
             ))}
           </div>
         </details>
       </div>
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  valueClassName,
+}: {
+  label: string;
+  value: ReactNode;
+  valueClassName?: string;
+}) {
+  return (
+    <Card className="stat-card rounded-lg py-5 shadow-sm">
+      <CardContent className="flex flex-col gap-2 px-5">
+        <span className="stat-card-label text-sm font-medium text-muted-foreground">{label}</span>
+        <span className={cn("stat-card-value text-2xl font-bold leading-tight", valueClassName)}>
+          {value}
+        </span>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ProjectMetric({
+  label,
+  value,
+  valueClassName,
+}: {
+  label: string;
+  value: ReactNode;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="stats-project-metric flex min-w-0 flex-col gap-1 rounded-md border bg-muted/30 p-3">
+      <span className="stats-project-metric-label text-xs font-bold tracking-wide text-muted-foreground uppercase">
+        {label}
+      </span>
+      <span
+        className={cn(
+          "stats-project-metric-value font-mono text-lg font-bold [overflow-wrap:anywhere]",
+          valueClassName,
+        )}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function PerformanceMetric({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="stats-performance-card min-w-0 rounded-md border bg-muted/30 p-3">
+      <div className="stats-metric-label mb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+        {label}
+      </div>
+      <div className="stats-metric-value font-mono text-xl font-bold">{value}</div>
     </div>
   );
 }
@@ -361,91 +431,101 @@ function ProjectCard({
   const modelEntries = p.lastModelUsage ? Object.entries(p.lastModelUsage) : [];
 
   return (
-    <details className="stats-project-card">
-      <summary className="stats-project-header">
-        <div className="stats-project-title">
-          <span className="stats-project-name">{shortPath(path)}</span>
-          <span className="stats-project-session-id" title={p.lastSessionId || "-"}>
+    <details className="stats-project-card group overflow-hidden rounded-lg border bg-card shadow-sm">
+      <summary className="stats-project-header flex min-h-[72px] cursor-pointer list-none items-center justify-between gap-4 border-l-[3px] border-l-transparent p-4 transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary group-open:border-l-primary group-open:bg-muted/40 max-[600px]:flex-wrap max-[600px]:items-start max-[600px]:gap-3 [&::-webkit-details-marker]:hidden">
+        <div className="stats-project-title flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="stats-project-name font-mono text-lg font-bold leading-tight">
+            {shortPath(path)}
+          </span>
+          <span
+            className="stats-project-session-id block max-w-[min(48vw,560px)] truncate font-mono text-xs tabular-nums text-muted-foreground max-[600px]:w-full max-[600px]:max-w-none"
+            title={p.lastSessionId || "-"}
+          >
             {p.lastSessionId || "-"}
           </span>
           {p.lastSessionFirstPrompt && (
-            <span className="stats-project-prompt">
+            <span className="stats-project-prompt truncate text-sm text-muted-foreground">
               {truncateText(p.lastSessionFirstPrompt, 60)}
             </span>
           )}
         </div>
-        <div className="stats-project-summary">
-          <span className="stats-project-badge">${p.lastCost.toFixed(2)}</span>
-          <span className="stats-project-badge">{formatDuration(p.lastDuration)}</span>
+        <div className="stats-project-summary flex shrink-0 items-center justify-end gap-2 max-[600px]:order-2 max-[600px]:w-full max-[600px]:justify-start">
+          <Badge
+            variant="outline"
+            className="stats-project-badge min-w-[72px] justify-center rounded-md font-mono"
+          >
+            ${p.lastCost.toFixed(2)}
+          </Badge>
+          <Badge
+            variant="outline"
+            className="stats-project-badge min-w-[72px] justify-center rounded-md font-mono"
+          >
+            {formatDuration(p.lastDuration)}
+          </Badge>
         </div>
+        <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" />
       </summary>
 
-      <div className="stats-project-body">
-        {/* 基础指标 */}
-        <div className="stats-project-metrics">
-          <div className="stats-project-metric">
-            <span className="stats-project-metric-label">{t("stats.projectCost")}</span>
-            <span className="stats-project-metric-value">${p.lastCost.toFixed(2)}</span>
-          </div>
-          <div className="stats-project-metric">
-            <span className="stats-project-metric-label">{t("stats.sessionDuration")}</span>
-            <span className="stats-project-metric-value">{formatDuration(p.lastDuration)}</span>
-          </div>
-          <div className="stats-project-metric">
-            <span className="stats-project-metric-label">{t("stats.projectLinesAdded")}</span>
-            <span className="stats-project-metric-value accent-green">+{p.lastLinesAdded}</span>
-          </div>
-          <div className="stats-project-metric">
-            <span className="stats-project-metric-label">{t("stats.projectLinesRemoved")}</span>
-            <span className="stats-project-metric-value accent-red">-{p.lastLinesRemoved}</span>
-          </div>
-          <div className="stats-project-metric">
-            <span className="stats-project-metric-label">{t("stats.projectInputTokens")}</span>
-            <span className="stats-project-metric-value">
-              {formatTokens(p.lastTotalInputTokens)}
-            </span>
-          </div>
-          <div className="stats-project-metric">
-            <span className="stats-project-metric-label">{t("stats.projectOutputTokens")}</span>
-            <span className="stats-project-metric-value">
-              {formatTokens(p.lastTotalOutputTokens)}
-            </span>
-          </div>
-          <div className="stats-project-metric">
-            <span className="stats-project-metric-label">{t("stats.projectCacheCreation")}</span>
-            <span className="stats-project-metric-value">
-              {formatTokens(p.lastTotalCacheCreationInputTokens)}
-            </span>
-          </div>
-          <div className="stats-project-metric">
-            <span className="stats-project-metric-label">{t("stats.projectCacheRead")}</span>
-            <span className="stats-project-metric-value">
-              {formatTokens(p.lastTotalCacheReadInputTokens)}
-            </span>
-          </div>
+      <div className="stats-project-body flex flex-col gap-4 border-t bg-muted/20 p-4">
+        <div className="stats-project-metrics grid grid-cols-1 gap-2 min-[601px]:grid-cols-2 min-[901px]:grid-cols-4">
+          <ProjectMetric label={t("stats.projectCost")} value={`$${p.lastCost.toFixed(2)}`} />
+          <ProjectMetric
+            label={t("stats.sessionDuration")}
+            value={formatDuration(p.lastDuration)}
+          />
+          <ProjectMetric
+            label={t("stats.projectLinesAdded")}
+            value={`+${p.lastLinesAdded}`}
+            valueClassName="text-chart-2"
+          />
+          <ProjectMetric
+            label={t("stats.projectLinesRemoved")}
+            value={`-${p.lastLinesRemoved}`}
+            valueClassName="text-chart-1"
+          />
+          <ProjectMetric
+            label={t("stats.projectInputTokens")}
+            value={formatTokens(p.lastTotalInputTokens)}
+          />
+          <ProjectMetric
+            label={t("stats.projectOutputTokens")}
+            value={formatTokens(p.lastTotalOutputTokens)}
+          />
+          <ProjectMetric
+            label={t("stats.projectCacheCreation")}
+            value={formatTokens(p.lastTotalCacheCreationInputTokens)}
+          />
+          <ProjectMetric
+            label={t("stats.projectCacheRead")}
+            value={formatTokens(p.lastTotalCacheReadInputTokens)}
+          />
           {p.lastTotalWebSearchRequests > 0 && (
-            <div className="stats-project-metric">
-              <span className="stats-project-metric-label">{t("stats.projectWebSearch")}</span>
-              <span className="stats-project-metric-value">{p.lastTotalWebSearchRequests}</span>
-            </div>
+            <ProjectMetric
+              label={t("stats.projectWebSearch")}
+              value={p.lastTotalWebSearchRequests}
+            />
           )}
         </div>
 
-        {/* 模型明细 */}
         {modelEntries.length > 0 && (
-          <section className="stats-project-detail-section">
-            <div className="stats-project-detail-title">{t("stats.projectModelBreakdown")}</div>
-            <div className="stats-model-table-wrap">
-              <div className="stats-model-table">
-                <div className="stats-model-header">
+          <section className="stats-project-detail-section flex flex-col gap-2">
+            <div className="stats-project-detail-title text-xs font-extrabold tracking-widest text-muted-foreground uppercase">
+              {t("stats.projectModelBreakdown")}
+            </div>
+            <div className="stats-model-table-wrap overflow-x-auto rounded-md border bg-background">
+              <div className="stats-model-table min-w-[640px]">
+                <div className="stats-model-header grid grid-cols-[minmax(220px,1fr)_repeat(3,minmax(96px,auto))] gap-3 border-b bg-muted/50 px-3 py-2 text-xs font-extrabold tracking-wide text-muted-foreground uppercase [&>span:not(:first-child)]:text-right">
                   <span>{t("stats.projectModel")}</span>
                   <span>{t("stats.projectInputTokens")}</span>
                   <span>{t("stats.projectOutputTokens")}</span>
                   <span>{t("stats.projectCostUsd")}</span>
                 </div>
                 {modelEntries.map(([model, usage]) => (
-                  <div key={model} className="stats-model-row">
-                    <span className="stats-model-name">{model}</span>
+                  <div
+                    key={model}
+                    className="stats-model-row grid grid-cols-[minmax(220px,1fr)_repeat(3,minmax(96px,auto))] gap-3 border-b px-3 py-2 font-mono text-sm last:border-b-0 hover:bg-muted/40 [&>span:not(:first-child)]:text-right"
+                  >
+                    <span className="stats-model-name truncate">{model}</span>
                     <span>{formatTokens(usage.inputTokens)}</span>
                     <span>{formatTokens(usage.outputTokens)}</span>
                     <span>${usage.costUsd.toFixed(2)}</span>
@@ -456,46 +536,42 @@ function ProjectCard({
           </section>
         )}
 
-        {/* 首条 Prompt */}
         {p.lastSessionFirstPrompt && (
-          <section className="stats-project-detail-section stats-project-prompt-full">
-            <div className="stats-project-detail-title">{t("stats.projectFirstPrompt")}</div>
-            <p className="stats-project-prompt-text">{p.lastSessionFirstPrompt}</p>
+          <section className="stats-project-detail-section stats-project-prompt-full flex flex-col gap-2">
+            <div className="stats-project-detail-title text-xs font-extrabold tracking-widest text-muted-foreground uppercase">
+              {t("stats.projectFirstPrompt")}
+            </div>
+            <p className="stats-project-prompt-text m-0 whitespace-pre-wrap rounded-md border bg-background p-3 text-sm leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
+              {p.lastSessionFirstPrompt}
+            </p>
           </section>
         )}
 
-        {/* 性能指标 */}
         {p.lastSessionMetrics && (
-          <section className="stats-project-detail-section">
-            <div className="stats-project-detail-title">{t("stats.performance")}</div>
-            <div className="stats-performance-grid">
-              <div className="stats-performance-card">
-                <div className="stats-metric-label">{t("stats.frameAvg")}</div>
-                <div className="stats-metric-value">
-                  {p.lastSessionMetrics.frame_duration_ms_avg.toFixed(1)}ms
-                </div>
-              </div>
-              <div className="stats-performance-card">
-                <div className="stats-metric-label">{t("stats.frameP95")}</div>
-                <div className="stats-metric-value">
-                  {p.lastSessionMetrics.frame_duration_ms_p95.toFixed(1)}ms
-                </div>
-              </div>
+          <section className="stats-project-detail-section flex flex-col gap-2">
+            <div className="stats-project-detail-title text-xs font-extrabold tracking-widest text-muted-foreground uppercase">
+              {t("stats.performance")}
+            </div>
+            <div className="stats-performance-grid grid grid-cols-1 gap-2 min-[601px]:grid-cols-2 min-[901px]:grid-cols-4">
+              <PerformanceMetric
+                label={t("stats.frameAvg")}
+                value={`${p.lastSessionMetrics.frame_duration_ms_avg.toFixed(1)}ms`}
+              />
+              <PerformanceMetric
+                label={t("stats.frameP95")}
+                value={`${p.lastSessionMetrics.frame_duration_ms_p95.toFixed(1)}ms`}
+              />
               {p.lastSessionMetrics.hook_duration_ms_avg != null && (
-                <div className="stats-performance-card">
-                  <div className="stats-metric-label">{t("stats.hookAvg")}</div>
-                  <div className="stats-metric-value">
-                    {p.lastSessionMetrics.hook_duration_ms_avg.toFixed(1)}ms
-                  </div>
-                </div>
+                <PerformanceMetric
+                  label={t("stats.hookAvg")}
+                  value={`${p.lastSessionMetrics.hook_duration_ms_avg.toFixed(1)}ms`}
+                />
               )}
               {p.lastSessionMetrics.hook_duration_ms_p95 != null && (
-                <div className="stats-performance-card">
-                  <div className="stats-metric-label">{t("stats.hookP95")}</div>
-                  <div className="stats-metric-value">
-                    {p.lastSessionMetrics.hook_duration_ms_p95.toFixed(1)}ms
-                  </div>
-                </div>
+                <PerformanceMetric
+                  label={t("stats.hookP95")}
+                  value={`${p.lastSessionMetrics.hook_duration_ms_p95.toFixed(1)}ms`}
+                />
               )}
             </div>
           </section>

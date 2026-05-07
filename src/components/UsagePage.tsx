@@ -101,7 +101,7 @@ interface ModelCostDatum {
   color: string;
 }
 
-interface TimeSeriesTokenTrendDatum {
+interface TimeSeriesTokenTrendDatum extends Record<string, string | number> {
   bucket: string;
   label: string;
   totalTokens: number;
@@ -113,6 +113,12 @@ interface TimeSeriesTokenTrendDatum {
 
 const sortTooltipItemsByValueDesc = (item: { value?: unknown }) => -Number(item.value ?? 0);
 const tokenModelDataKey = (model: string) => `model:${encodeURIComponent(model)}`;
+
+function tooltipNumber(value: unknown): number {
+  const rawValue = Array.isArray(value) ? value[0] : value;
+  const numericValue = Number(rawValue ?? 0);
+  return Number.isFinite(numericValue) ? numericValue : 0;
+}
 
 function isSeriesVisible(visibility: SeriesVisibility, key: string, totalKey: string) {
   return visibility[key] ?? key === totalKey;
@@ -676,7 +682,7 @@ function UsagePage() {
                               <XAxis dataKey="label" tick={TICK_STYLE_SM} />
                               <YAxis tick={TICK_STYLE} tickFormatter={(v) => `$${v}`} width={44} />
                               <Tooltip
-                                formatter={(v: number | undefined) => formatUSD(v ?? 0)}
+                                formatter={(v) => formatUSD(tooltipNumber(v))}
                                 itemSorter={sortTooltipItemsByValueDesc}
                                 cursor={{ stroke: COLORS.total, strokeOpacity: 0.34 }}
                                 labelFormatter={(_, payload) =>
@@ -732,7 +738,7 @@ function UsagePage() {
                               <XAxis dataKey="label" tick={TICK_STYLE_SM} />
                               <YAxis tick={TICK_STYLE} tickFormatter={(v) => `$${v}`} width={44} />
                               <Tooltip
-                                formatter={(v: number | undefined) => formatUSD(v ?? 0)}
+                                formatter={(v) => formatUSD(tooltipNumber(v))}
                                 itemSorter={sortTooltipItemsByValueDesc}
                                 cursor={{ fill: CHART_CURSOR_FILL }}
                                 labelFormatter={(_, payload) =>
@@ -821,7 +827,7 @@ function UsagePage() {
                                 width={54}
                               />
                               <Tooltip
-                                formatter={(v: number | undefined) => formatTokens(v ?? 0)}
+                                formatter={(v) => formatTokens(tooltipNumber(v))}
                                 itemSorter={sortTooltipItemsByValueDesc}
                                 cursor={{ stroke: COLORS.total, strokeOpacity: 0.34 }}
                                 labelFormatter={(_, payload) =>
@@ -881,7 +887,7 @@ function UsagePage() {
                                 width={54}
                               />
                               <Tooltip
-                                formatter={(v: number | undefined) => formatTokens(v ?? 0)}
+                                formatter={(v) => formatTokens(tooltipNumber(v))}
                                 itemSorter={sortTooltipItemsByValueDesc}
                                 cursor={{ fill: CHART_CURSOR_FILL }}
                                 labelFormatter={(_, payload) =>
@@ -1255,7 +1261,7 @@ function ModelCostShare({
               ))}
             </Pie>
             <Tooltip
-              formatter={(v: number | undefined) => formatUSD(v ?? 0)}
+              formatter={(v) => formatUSD(tooltipNumber(v))}
               contentStyle={TOOLTIP_STYLE}
               itemStyle={{ color: "#e6edf3" }}
               labelStyle={{ color: "#e6edf3" }}
