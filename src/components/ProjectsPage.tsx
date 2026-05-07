@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { FolderOpen, RefreshCw } from "lucide-react";
 import {
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
@@ -10,6 +11,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { cn } from "@/lib/utils";
 import { shortProjectName } from "../history-utils";
 import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
@@ -25,7 +27,17 @@ import {
 } from "../types";
 import ProjectDetailPanel from "./ProjectDetailPanel";
 import { formatDuration, formatUSD } from "./project-detail-utils";
-import "./ProjectsPage.css";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { Card } from "./ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 
 const PROJECT_CONTEXT_MENU_WIDTH = 176;
 const PROJECT_CONTEXT_MENU_HEIGHT = 40;
@@ -112,20 +124,22 @@ function ProjectContextMenu({ context, menuRef, onClearLocalData, t }: ProjectCo
   return (
     <div
       ref={menuRef}
-      className="projects-context-menu"
+      className="projects-context-menu z-[var(--z-index-dropdown)] box-border flex min-w-[156px] flex-col gap-0.5 whitespace-nowrap rounded-md border bg-popover p-1 text-popover-foreground shadow-lg"
       role="menu"
       aria-label={t("projects.contextMenuLabel")}
       style={projectContextMenuStyleForPoint(context.x, context.y)}
       onContextMenu={(event) => event.preventDefault()}
     >
-      <button
+      <Button
         type="button"
         role="menuitem"
-        className="danger"
+        variant="ghost"
+        size="sm"
+        className="danger h-8 w-full justify-start text-destructive hover:text-destructive focus-visible:text-destructive"
         onClick={() => onClearLocalData(context)}
       >
         {t("projects.clearLocalData")}
-      </button>
+      </Button>
     </div>
   );
 }
@@ -138,49 +152,92 @@ type ProjectPurgeDialogProps = {
 };
 
 function ProjectPurgeDialog({ dialog, onCancel, onConfirm, t }: ProjectPurgeDialogProps) {
-  const titleId = "projects-purge-dialog-title";
   const canConfirm =
     !dialog.isPreviewing && !dialog.isPurging && dialog.error === null && dialog.output !== null;
   const output = dialog.error ?? dialog.output ?? t("projects.purgeEmptyOutput");
 
   return (
-    <div className="projects-purge-dialog-overlay" onClick={onCancel}>
-      <div
-        className="projects-purge-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        onClick={(event) => event.stopPropagation()}
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) {
+          onCancel();
+        }
+      }}
+    >
+      <DialogContent
+        className="projects-purge-dialog max-h-[min(720px,88vh)] w-[min(760px,92vw)] max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg p-0"
+        onEscapeKeyDown={(event) => {
+          if (dialog.isPurging) {
+            event.preventDefault();
+          }
+        }}
+        onPointerDownOutside={(event) => {
+          if (dialog.isPurging) {
+            event.preventDefault();
+          }
+        }}
       >
-        <div className="projects-purge-dialog-header">
-          <h3 id={titleId}>{t("projects.purgeDialogTitle")}</h3>
-          <p>{t("projects.purgeDialogDescription")}</p>
-        </div>
+        <div className="flex max-h-[min(720px,88vh)] flex-col gap-4 p-6">
+          <DialogHeader>
+            <DialogTitle>{t("projects.purgeDialogTitle")}</DialogTitle>
+            <DialogDescription>{t("projects.purgeDialogDescription")}</DialogDescription>
+          </DialogHeader>
 
-        <div className="projects-purge-target">
-          <span>{t("projects.purgeTarget")}</span>
-          <strong title={dialog.project}>{dialog.shortName}</strong>
-          <code>{dialog.project}</code>
-        </div>
+          <div className="grid grid-cols-[72px_minmax(120px,0.35fr)_minmax(0,1fr)] items-center gap-3 rounded-md border bg-muted/40 p-3 max-sm:grid-cols-1 max-sm:items-start">
+            <span className="text-sm text-muted-foreground">{t("projects.purgeTarget")}</span>
+            <strong className="min-w-0 truncate text-sm text-foreground" title={dialog.project}>
+              {dialog.shortName}
+            </strong>
+            <code className="min-w-0 truncate font-mono text-xs text-muted-foreground">
+              {dialog.project}
+            </code>
+          </div>
 
-        <div className="projects-purge-plan-header">{t("projects.purgePlan")}</div>
-        {dialog.isPreviewing ? (
-          <div className="projects-purge-loading">{t("projects.purgePreviewing")}</div>
-        ) : (
-          <pre className={`projects-purge-output${dialog.error ? " error" : ""}`}>{output}</pre>
-        )}
-
-        <div className="projects-purge-dialog-actions">
-          <button type="button" onClick={onCancel} disabled={dialog.isPurging}>
-            {t("confirm.cancel")}
-          </button>
-          {!dialog.error && (
-            <button type="button" className="danger" onClick={onConfirm} disabled={!canConfirm}>
-              {dialog.isPurging ? t("projects.purgeExecuting") : t("projects.clearLocalData")}
-            </button>
+          <div className="text-sm font-semibold text-muted-foreground">
+            {t("projects.purgePlan")}
+          </div>
+          {dialog.isPreviewing ? (
+            <div className="flex min-h-[180px] items-center justify-center rounded-md border bg-muted/30 text-sm text-muted-foreground">
+              {t("projects.purgePreviewing")}
+            </div>
+          ) : (
+            <pre
+              className={cn(
+                "min-h-[220px] flex-1 overflow-auto whitespace-pre-wrap break-words rounded-md border bg-muted/30 p-4 font-mono text-sm leading-6 text-foreground",
+                dialog.error && "border-destructive text-destructive",
+              )}
+            >
+              {output}
+            </pre>
           )}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onCancel} disabled={dialog.isPurging}>
+              {t("confirm.cancel")}
+            </Button>
+            {!dialog.error && (
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={onConfirm}
+                disabled={!canConfirm}
+              >
+                {dialog.isPurging ? t("projects.purgeExecuting") : t("projects.clearLocalData")}
+              </Button>
+            )}
+          </DialogFooter>
         </div>
-      </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ProjectEmptyState({ children }: { children: string }) {
+  return (
+    <div className="projects-empty-panel flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-muted-foreground">
+      <FolderOpen className="size-12" strokeWidth={1.5} aria-hidden="true" />
+      <div className="empty-state text-sm">{children}</div>
     </div>
   );
 }
@@ -604,7 +661,7 @@ function ProjectsPage() {
 
   if (loading) {
     return (
-      <div className="projects-page">
+      <div className="projects-page flex h-full w-full flex-col overflow-hidden">
         <div className="loading">{t("loading")}</div>
       </div>
     );
@@ -612,97 +669,92 @@ function ProjectsPage() {
 
   if (projectSummaries.length === 0) {
     return (
-      <div className="projects-page">
+      <div className="projects-page flex h-full w-full flex-col overflow-hidden">
         <div className="page-header">
           <h1 className="page-title">{t("projects.title")}</h1>
-          <button
+          <Button
             type="button"
-            className="projects-refresh-btn"
+            variant="outline"
+            size="sm"
+            className="projects-refresh-btn rounded-full"
             onClick={handleRefresh}
             disabled={isRefreshing}
           >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <polyline points="23 4 23 10 17 10" />
-              <polyline points="1 20 1 14 7 14" />
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-            </svg>
+            <RefreshCw className={cn("size-4", isRefreshing && "animate-spin")} />
             {isRefreshing ? t("projects.refreshing") : t("projects.refresh")}
-          </button>
+          </Button>
         </div>
-        <div className="projects-empty-panel">
-          <div className="empty-state">{t("projects.emptyHint")}</div>
-        </div>
+        <ProjectEmptyState>{t("projects.emptyHint")}</ProjectEmptyState>
       </div>
     );
   }
 
   return (
-    <div className="projects-page">
+    <div className="projects-page flex h-full w-full flex-col overflow-hidden">
       <div className="page-header">
         <h1 className="page-title">{t("projects.title")}</h1>
-        <button
+        <Button
           type="button"
-          className="projects-refresh-btn"
+          variant="outline"
+          size="sm"
+          className="projects-refresh-btn rounded-full"
           onClick={handleRefresh}
           disabled={isRefreshing}
         >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <polyline points="23 4 23 10 17 10" />
-            <polyline points="1 20 1 14 7 14" />
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-          </svg>
+          <RefreshCw className={cn("size-4", isRefreshing && "animate-spin")} />
           {isRefreshing ? t("projects.refreshing") : t("projects.refresh")}
-        </button>
+        </Button>
       </div>
 
-      <div className="projects-body">
-        <aside className="projects-list" aria-label={t("projects.title")}>
+      <div className="projects-body flex min-h-0 flex-1 overflow-hidden">
+        <aside
+          className="projects-list flex w-[280px] shrink-0 flex-col gap-2 overflow-y-auto border-r bg-muted/30 p-3 lg:w-80"
+          aria-label={t("projects.title")}
+        >
           {projectSummaries.map((summary) => (
-            <button
+            <Card
               key={summary.project}
-              type="button"
-              className={`projects-list-item${selectedProject === summary.project ? " selected" : ""}`}
-              onClick={() => setSelectedProject(summary.project)}
-              onContextMenu={(event) => handleProjectContextMenu(event, summary)}
-              title={summary.project}
+              className={cn(
+                "projects-list-card gap-0 rounded-lg border-transparent bg-transparent p-0 py-0 shadow-none transition-all hover:-translate-y-0.5 hover:border-border hover:bg-accent/50",
+                selectedProject === summary.project && "border-primary bg-primary/10",
+              )}
             >
-              <div className="projects-list-main">
-                <span className="projects-list-name">{summary.shortName}</span>
-                <span className="projects-list-path">{summary.project}</span>
-              </div>
-              <div className="projects-list-meta">
-                <span>
-                  {t("projects.lastCost")} {formatUSD(summary.lastCost)}
-                </span>
-                <span>
-                  {t("projects.lastDuration")} {formatDuration(summary.lastDuration)}
-                </span>
-              </div>
-            </button>
+              <button
+                type="button"
+                className={cn(
+                  "projects-list-item flex w-full flex-col gap-2 rounded-lg p-3 text-left text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                  selectedProject === summary.project && "selected",
+                )}
+                onClick={() => setSelectedProject(summary.project)}
+                onContextMenu={(event) => handleProjectContextMenu(event, summary)}
+                title={summary.project}
+              >
+                <div className="projects-list-main flex min-w-0 flex-col gap-1">
+                  <span className="projects-list-name text-sm font-semibold">
+                    {summary.shortName}
+                  </span>
+                  <span className="projects-list-path truncate text-sm text-muted-foreground">
+                    {summary.project}
+                  </span>
+                </div>
+                <div className="projects-list-meta flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  <Badge variant="secondary" className="font-normal">
+                    {t("projects.lastCost")} {formatUSD(summary.lastCost)}
+                  </Badge>
+                  <Badge variant="outline" className="font-normal text-muted-foreground">
+                    {t("projects.lastDuration")} {formatDuration(summary.lastDuration)}
+                  </Badge>
+                </div>
+              </button>
+            </Card>
           ))}
         </aside>
 
-        <section className="projects-detail">
+        <section className="projects-detail min-w-0 flex-1 bg-background">
           {!selectedSummary ? (
-            <div className="projects-empty-panel">
-              <div className="empty-state">{t("projects.empty")}</div>
-            </div>
+            <ProjectEmptyState>{t("projects.empty")}</ProjectEmptyState>
           ) : detailLoading && !detail ? (
-            <div className="projects-empty-panel">
+            <div className="projects-empty-panel flex h-full items-center justify-center">
               <div className="loading">{t("loading")}</div>
             </div>
           ) : (
