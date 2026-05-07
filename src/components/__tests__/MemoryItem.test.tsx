@@ -123,7 +123,7 @@ describe("MemoryItem", () => {
     const actions = document.querySelector(".memory-actions");
 
     expect(actions?.className).toContain("max-h-0");
-    expect(actions?.className).toContain("mt-[calc(var(--space-4)*-1)]");
+    expect(actions?.className).toContain("mt-[calc(1rem*-1)]");
     expect(actions?.className).toContain("group-hover:max-h-12");
     expect(actions?.className).toContain("group-focus-within:max-h-12");
   });

@@ -69,7 +69,7 @@ function ProfileNameBadge({
         "profile-name-badge",
         `profile-name-badge--${size}`,
         `profile-name-badge--color-${colorIndex}`,
-        "shrink-0 border-0 p-0 text-[var(--text-primary)] shadow-[inset_0_0_0_1px_rgb(255_255_255_/_0.08),0_10px_24px_rgb(15_23_42_/_0.18)]",
+        "shrink-0 border-0 p-0 text-[var(--foreground)] shadow-[inset_0_0_0_1px_rgb(255_255_255_/_0.08),0_10px_24px_rgb(15_23_42_/_0.18)]",
         size === "lg" ? "size-16 rounded-2xl" : "size-9 rounded-[10px]",
         className,
       )}

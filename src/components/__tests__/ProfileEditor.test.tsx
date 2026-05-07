@@ -1329,10 +1329,7 @@ describe("ProfileEditor", () => {
   });
 
   it("keeps model test prompt and response body text smaller than section labels", () => {
-    const css = readFileSync(
-      `${process.cwd()}/src/components/profile-editor/editor-shared.css`,
-      "utf8",
-    );
+    const css = readFileSync(`${process.cwd()}/src/index.css`, "utf8");
 
     expect(css).toMatch(
       /\.profile-model-test-content-panel--primary\s+\.profile-model-test-label\s*\{[^}]*color:\s*var\(--text-secondary\);[^}]*font-size:\s*14px;/s,

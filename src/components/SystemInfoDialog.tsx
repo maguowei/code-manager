@@ -109,9 +109,7 @@ function SystemInfoDialog({ onClose }: SystemInfoDialogProps) {
                     >
                       {f.label}
                     </th>
-                    <td className="break-all py-2 font-mono text-[var(--text-primary)]">
-                      {display}
-                    </td>
+                    <td className="break-all py-2 font-mono text-[var(--foreground)]">{display}</td>
                   </tr>
                 );
               })}

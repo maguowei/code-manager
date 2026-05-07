@@ -7,7 +7,6 @@ import { useI18n } from "../../i18n";
 import type { ModelTestResult } from "../../types";
 import { useTheme } from "../theme-provider";
 import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
-import "./editor-shared.css";
 
 interface ModelTestResultDialogProps {
   isOpen: boolean;

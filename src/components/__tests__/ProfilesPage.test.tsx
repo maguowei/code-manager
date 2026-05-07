@@ -1105,7 +1105,7 @@ describe("ProfilesPage", () => {
 
     expect(screen.getByText("plan")).toHaveClass(
       "profile-summary-permission-mode--plan",
-      "text-[var(--accent-blue)]",
+      "text-[var(--primary)]",
     );
     expect(screen.getByText("high")).toHaveClass(
       "profile-summary-effort-level--high",

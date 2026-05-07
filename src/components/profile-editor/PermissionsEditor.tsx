@@ -69,7 +69,7 @@ export function PermissionDefaultModeSelect({
   const modeOptions = getPermissionModeSelectOptions(value);
   const selectClassName =
     variant === "header"
-      ? "profile-permissions-header-select w-[min(168px,36vw)] min-w-[132px] max-w-[168px] cursor-pointer rounded-md border border-[var(--border-default)] bg-[var(--bg-primary)] px-3 py-2 pr-8 text-sm font-semibold text-[var(--text-primary)] outline-none transition-colors hover:border-[var(--text-muted)] focus:border-[var(--accent-blue)] focus:shadow-[0_0_0_3px_var(--accent-blue-bg)] max-[900px]:w-[min(150px,34vw)] max-[900px]:min-w-[120px] max-[900px]:max-w-[150px]"
+      ? "profile-permissions-header-select w-[min(168px,36vw)] min-w-[132px] max-w-[168px] cursor-pointer rounded-md border border-[var(--border-default)] bg-[var(--card)] px-3 py-2 pr-8 text-sm font-semibold text-[var(--foreground)] outline-none transition-colors hover:border-[var(--text-muted)] focus:border-[var(--primary)] focus:shadow-[0_0_0_3px_var(--accent)] max-[900px]:w-[min(150px,34vw)] max-[900px]:min-w-[120px] max-[900px]:max-w-[150px]"
       : "form-select";
 
   const select = (
@@ -401,7 +401,7 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
     <div className="profile-section-body">
       <div className="profile-permissions-toolbar mb-1.5 flex items-center justify-between gap-3.5 max-[900px]:flex-col max-[900px]:items-stretch">
         <div className="profile-inline-switch-row profile-inline-switch-row-emphasis flex w-full max-w-[420px] items-center justify-start gap-3.5 self-start max-[900px]:max-w-none max-[900px]:justify-between">
-          <span className="profile-inline-switch-title min-w-0 text-[15px] font-bold leading-snug text-[var(--text-primary)]">
+          <span className="profile-inline-switch-title min-w-0 text-[15px] font-bold leading-snug text-[var(--foreground)]">
             {t("profileEditor.permissions.disableBypass")}
           </span>
           <SandboxSwitchControl

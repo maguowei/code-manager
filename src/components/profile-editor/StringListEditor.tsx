@@ -129,7 +129,7 @@ function StringListEditor({
                     type="button"
                     variant="ghost"
                     size="xs"
-                    className="profile-string-list-clear-btn h-auto px-1.5 py-0.5 text-xs text-[var(--text-muted)] hover:bg-[var(--bg-secondary)] hover:text-[var(--text-secondary)]"
+                    className="profile-string-list-clear-btn h-auto px-1.5 py-0.5 text-xs text-[var(--text-muted)] hover:bg-[var(--secondary)] hover:text-[var(--text-secondary)]"
                     onClick={onClear}
                   >
                     {clearLabel}
@@ -170,7 +170,7 @@ function StringListEditor({
                             type="button"
                             variant="ghost"
                             size="icon-sm"
-                            className="profile-icon-btn profile-string-list-row-action-btn text-[var(--accent-blue)] hover:bg-[var(--accent-blue-bg)] hover:text-[var(--accent-blue)]"
+                            className="profile-icon-btn profile-string-list-row-action-btn text-[var(--primary)] hover:bg-[var(--accent)] hover:text-[var(--primary)]"
                             aria-label={buildRowActionLabel(itemLabel)}
                             title={rowActionLabel}
                             onClick={() => onRowAction(row, index)}

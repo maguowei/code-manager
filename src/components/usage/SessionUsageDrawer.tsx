@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { useI18n } from "../../i18n";
 import { isTauri, type SessionUsageDetail } from "../../types";
 import { Sheet, SheetContent } from "../ui/sheet";
-import "./SessionUsageDrawer.css";
 import {
   formatCost,
   formatShortDateTime,

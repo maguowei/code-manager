@@ -237,7 +237,7 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
       </div>
 
       {summaries.length === 0 ? (
-        <div className="profile-empty-state flex min-h-[120px] items-center justify-center rounded-lg border border-[var(--border-default)] bg-[var(--bg-primary)] px-4 text-center">
+        <div className="profile-empty-state flex min-h-[120px] items-center justify-center rounded-lg border border-[var(--border-default)] bg-[var(--card)] px-4 text-center">
           {t("profileEditor.hooks.emptyHint")}
         </div>
       ) : (
@@ -245,7 +245,7 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
           {summaries.map((summary) => (
             <Card
               key={summary.event}
-              className="profile-mini-card gap-4 rounded-lg border-[var(--border-default)] bg-[var(--bg-primary)] p-4 py-4 shadow-none"
+              className="profile-mini-card gap-4 rounded-lg border-[var(--border-default)] bg-[var(--card)] p-4 py-4 shadow-none"
             >
               <div className="profile-hook-summary-head flex items-center justify-between gap-3">
                 <strong>{summary.event}</strong>
@@ -277,7 +277,7 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
                   {summary.matchers.map((matcherSummary) => (
                     <div
                       key={`${summary.event}-${matcherSummary.summaryKey}`}
-                      className="profile-hook-summary-item flex flex-col gap-3 rounded-lg border border-[color-mix(in_srgb,var(--border-default)_86%,var(--accent-blue)_14%)] bg-[color-mix(in_srgb,var(--bg-primary)_96%,var(--accent-blue)_4%)] p-3"
+                      className="profile-hook-summary-item flex flex-col gap-3 rounded-lg border border-[color-mix(in_srgb,var(--border-default)_86%,var(--primary)_14%)] bg-[color-mix(in_srgb,var(--card)_96%,var(--primary)_4%)] p-3"
                       role="listitem"
                     >
                       <div className="profile-hook-summary-matcher flex flex-wrap items-center gap-2">
@@ -299,7 +299,7 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
                               ? actionSummary.fullLabel
                               : actionSummary.collapsedLabel;
                             const actionButtonClassName = [
-                              "profile-hook-summary-badge inline-flex min-h-10 w-full max-w-full cursor-pointer items-center rounded-md border border-[var(--border-default)] bg-[color-mix(in_srgb,var(--bg-primary)_94%,var(--accent-blue)_6%)] px-3 py-2 text-left font-mono text-xs leading-5 text-[var(--text-primary)] transition-colors hover:border-[color-mix(in_srgb,var(--accent-blue)_54%,var(--border-default)_46%)] hover:bg-[color-mix(in_srgb,var(--bg-primary)_84%,var(--accent-blue)_16%)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_srgb,var(--accent-blue)_60%,transparent)]",
+                              "profile-hook-summary-badge inline-flex min-h-10 w-full max-w-full cursor-pointer items-center rounded-md border border-[var(--border-default)] bg-[color-mix(in_srgb,var(--card)_94%,var(--primary)_6%)] px-3 py-2 text-left font-mono text-xs leading-5 text-[var(--foreground)] transition-colors hover:border-[color-mix(in_srgb,var(--primary)_54%,var(--border-default)_46%)] hover:bg-[color-mix(in_srgb,var(--card)_84%,var(--primary)_16%)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_srgb,var(--primary)_60%,transparent)]",
                               isExpanded
                                 ? "expanded whitespace-pre-wrap [overflow-wrap:anywhere]"
                                 : "",
@@ -330,7 +330,7 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
                                 {actionSummary.isBuiltinPreset ? (
                                   <Badge
                                     variant="outline"
-                                    className="profile-hook-preset-tag absolute top-2 right-2 border-[color-mix(in_srgb,var(--accent-blue)_28%,var(--border-default)_72%)] bg-[color-mix(in_srgb,var(--bg-primary)_88%,var(--accent-blue)_12%)] text-[var(--accent-blue)]"
+                                    className="profile-hook-preset-tag absolute top-2 right-2 border-[color-mix(in_srgb,var(--primary)_28%,var(--border-default)_72%)] bg-[color-mix(in_srgb,var(--card)_88%,var(--primary)_12%)] text-[var(--primary)]"
                                   >
                                     {t("profileEditor.hooks.builtinPresetTag")}
                                   </Badge>

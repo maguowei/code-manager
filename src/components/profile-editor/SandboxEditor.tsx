@@ -107,11 +107,11 @@ export function SandboxSwitchControl({
     ? t("profileEditor.sandbox.statusEnabled")
     : t("profileEditor.sandbox.statusDisabled");
   const switchClassName = [
-    "profile-sandbox-switch profile-sandbox-switch-compact inline-flex w-fit max-w-full cursor-pointer items-center rounded-full bg-transparent p-0 text-left text-[var(--text-primary)] outline-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--accent-blue)]",
+    "profile-sandbox-switch profile-sandbox-switch-compact inline-flex w-fit max-w-full cursor-pointer items-center rounded-full bg-transparent p-0 text-left text-[var(--foreground)] outline-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]",
     `profile-sandbox-switch-${variant}`,
     variant === "panel" ? "gap-2.5" : "mr-0.5 gap-1.5",
     visibleLabel
-      ? "profile-sandbox-switch-with-label gap-2 border border-[var(--border-default)] bg-[color-mix(in_srgb,var(--bg-primary)_92%,white_8%)] px-2.5 py-1.5 hover:border-[var(--text-muted)] max-[900px]:px-2"
+      ? "profile-sandbox-switch-with-label gap-2 border border-[var(--border-default)] bg-[color-mix(in_srgb,var(--card)_92%,white_8%)] px-2.5 py-1.5 hover:border-[var(--text-muted)] max-[900px]:px-2"
       : "",
     enabled ? "is-on" : "",
   ]
@@ -119,9 +119,7 @@ export function SandboxSwitchControl({
     .join(" ");
   const trackClassName = [
     "profile-sandbox-switch-track relative inline-flex h-5 w-9 shrink-0 rounded-full border transition-colors",
-    enabled
-      ? "border-[#3edc6d] bg-[#3edc6d]"
-      : "border-[var(--border-default)] bg-[var(--bg-primary)]",
+    enabled ? "border-[#3edc6d] bg-[#3edc6d]" : "border-[var(--border-default)] bg-[var(--card)]",
   ].join(" ");
   const thumbClassName = [
     "profile-sandbox-switch-thumb absolute top-0.5 left-0.5 size-4 rounded-full bg-white shadow-sm transition-transform",
@@ -184,7 +182,7 @@ function SandboxEditor({ value, onChange, onError }: SandboxEditorProps) {
         </div>
       </div>
 
-      <Card className="profile-mini-card profile-sandbox-status-card gap-3 rounded-lg border-[var(--border-default)] bg-[var(--bg-primary)] p-4 py-4 shadow-none">
+      <Card className="profile-mini-card profile-sandbox-status-card gap-3 rounded-lg border-[var(--border-default)] bg-[var(--card)] p-4 py-4 shadow-none">
         <div className="profile-sandbox-state-copy flex min-w-0 flex-col gap-1.5">
           <strong className="text-[15px] font-bold">
             {isZh

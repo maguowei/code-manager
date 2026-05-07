@@ -57,7 +57,6 @@ import { useObjectJsonEditor } from "./profile-editor/useObjectJsonEditor";
 import useStructuredSettingsSectionState from "./profile-editor/useStructuredSettingsSectionState";
 import { Button } from "./ui/button";
 import { Form } from "./ui/form";
-import "./ConfigEditor.css";
 
 interface PresetEditorProps {
   preset: SettingsPreset | null;
@@ -492,7 +491,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
   return (
     <Form {...form}>
       <div className="editor-panel preset-editor-panel flex h-full min-h-0 w-full min-w-[var(--config-editor-min-width)] flex-col overflow-hidden bg-[var(--bg-elevated)]">
-        <div className="editor-header sticky top-0 z-[var(--z-index-sticky)] flex h-14 shrink-0 items-center justify-between gap-3 border-b border-[var(--border-default)] bg-[var(--bg-primary)] px-6">
+        <div className="editor-header sticky top-0 z-[var(--z-index-sticky)] flex h-14 shrink-0 items-center justify-between gap-3 border-b border-[var(--border-default)] bg-[var(--card)] px-6">
           <Button
             type="button"
             variant="ghost"
@@ -503,7 +502,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
           >
             <ArrowLeft className="size-4" aria-hidden="true" />
           </Button>
-          <h2 className="min-w-0 flex-1 truncate text-lg font-semibold text-[var(--text-primary)]">
+          <h2 className="min-w-0 flex-1 truncate text-lg font-semibold text-[var(--foreground)]">
             {messages.title}
           </h2>
           <Button

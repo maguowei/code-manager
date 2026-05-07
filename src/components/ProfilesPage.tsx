@@ -196,7 +196,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
       case "low":
         return "profile-summary-effort-level--low text-[var(--accent-green)]";
       case "medium":
-        return "profile-summary-effort-level--medium text-[var(--accent-blue)]";
+        return "profile-summary-effort-level--medium text-[var(--primary)]";
       case "high":
         return "profile-summary-effort-level--high text-[var(--accent-purple)]";
       case "xhigh":
@@ -220,7 +220,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
   function profilePermissionModeClass(permissionMode: string) {
     switch (permissionMode) {
       case "plan":
-        return "profile-summary-permission-mode--plan text-[var(--accent-blue)]";
+        return "profile-summary-permission-mode--plan text-[var(--primary)]";
       case "acceptEdits":
         return "profile-summary-permission-mode--accept-edits text-[var(--accent-purple)]";
       case "dontAsk":
@@ -559,7 +559,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
     if (state.status === "running") {
       return (
         <span
-          className="profile-test-result-badge running inline-flex min-h-[18px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-tertiary)] px-[5px] py-px text-[11px] leading-[1.15] font-bold text-[var(--text-secondary)]"
+          className="profile-test-result-badge running inline-flex min-h-[18px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-[calc(var(--radius) - 4px)] border border-[var(--border-default)] bg-[var(--bg-tertiary)] px-[5px] py-px text-[11px] leading-[1.15] font-bold text-[var(--text-secondary)]"
           title={t("profiles.testAll.running")}
         >
           <span
@@ -578,7 +578,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
       <button
         type="button"
         className={cn(
-          "profile-test-result-badge inline-flex min-h-[18px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-[var(--radius-sm)] border-0 px-[5px] py-px text-[11px] leading-[1.15] font-bold text-white hover:brightness-110",
+          "profile-test-result-badge inline-flex min-h-[18px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-[calc(var(--radius) - 4px)] border-0 px-[5px] py-px text-[11px] leading-[1.15] font-bold text-white hover:brightness-110",
           state.status,
           state.status === "success" ? "bg-[var(--accent-green)]" : "bg-[var(--accent-red)]",
         )}
@@ -602,12 +602,12 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
     <>
       <div
         className={cn(
-          "list-section scrollbar-none flex w-[360px] shrink-0 flex-col overflow-y-auto overflow-x-hidden bg-[var(--bg-secondary)] transition-[width] duration-300 max-[1000px]:fixed max-[1000px]:inset-y-0 max-[1000px]:right-0 max-[1000px]:left-[var(--sidebar-width)] max-[1000px]:z-[var(--z-index-list)] max-[1000px]:w-auto max-[700px]:left-[var(--sidebar-width-small)]",
+          "list-section scrollbar-none flex w-[360px] shrink-0 flex-col overflow-y-auto overflow-x-hidden bg-[var(--secondary)] transition-[width] duration-300 max-[1000px]:fixed max-[1000px]:inset-y-0 max-[1000px]:right-0 max-[1000px]:left-[var(--sidebar-width)] max-[1000px]:z-[var(--z-index-list)] max-[1000px]:w-auto max-[700px]:left-[var(--sidebar-width-small)]",
           isDrawerOpen && "compressed w-[280px]",
         )}
       >
-        <div className="page-header sticky top-0 z-[var(--z-index-sticky)] flex h-[52px] shrink-0 items-center justify-between border-b border-[var(--border-default)] bg-[var(--bg-secondary)] px-5">
-          <h1 className="page-title text-xl font-semibold text-[var(--text-primary)]">
+        <div className="page-header sticky top-0 z-[var(--z-index-sticky)] flex h-[52px] shrink-0 items-center justify-between border-b border-[var(--border-default)] bg-[var(--secondary)] px-5">
+          <h1 className="page-title text-xl font-semibold text-[var(--foreground)]">
             {t("profiles.title")}
           </h1>
           <div className="profile-page-actions inline-flex shrink-0 items-center gap-2">
@@ -616,7 +616,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
               variant="outline"
               size="sm"
               className={cn(
-                "profile-test-all-btn border-[var(--border-default)] bg-[var(--bg-tertiary)] font-semibold text-[var(--text-primary)] hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]",
+                "profile-test-all-btn border-[var(--border-default)] bg-[var(--bg-tertiary)] font-semibold text-[var(--foreground)] hover:border-[var(--primary)] hover:text-[var(--primary)]",
                 isTestingAllProfiles && "is-testing",
               )}
               disabled={profiles.length === 0 || isTestingAllProfiles}
@@ -638,7 +638,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
         </div>
         <Button
           type="button"
-          className="mx-2 mt-4 mb-3 h-auto gap-2 rounded-[var(--radius-lg)] bg-[linear-gradient(135deg,var(--accent-blue),var(--accent-blue-dark))] p-3.5 text-base font-semibold text-white shadow-[var(--shadow-sm),var(--shadow-blue-sm)] hover:-translate-y-px hover:shadow-[var(--shadow-md),var(--shadow-blue-md)]"
+          className="mx-2 mt-4 mb-3 h-auto gap-2 rounded-[var(--radius-lg)] bg-[linear-gradient(135deg,var(--primary),var(--primary))] p-3.5 text-base font-semibold text-white shadow-[var(--shadow-sm),var(--shadow-blue-sm)] hover:-translate-y-px hover:shadow-[var(--shadow-md),var(--shadow-blue-md)]"
           onClick={() => {
             setEditingProfile(null);
             setIsDrawerOpen(true);
@@ -678,19 +678,19 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                 <Card
                   key={profile.id}
                   className={cn(
-                    "profile-card group relative flex cursor-pointer flex-col gap-4 rounded-[var(--radius-xl)] border border-[var(--border-default)] bg-[var(--bg-primary)] p-4 py-4 shadow-none transition-[transform,border-color,box-shadow,opacity] duration-200 hover:-translate-y-px hover:border-[var(--accent-blue)] hover:shadow-[0_4px_12px_rgb(59_130_246_/_0.15)] focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)] focus-visible:outline-none",
+                    "profile-card group relative flex cursor-pointer flex-col gap-4 rounded-[var(--radius-xl)] border border-[var(--border-default)] bg-[var(--card)] p-4 py-4 shadow-none transition-[transform,border-color,box-shadow,opacity] duration-200 hover:-translate-y-px hover:border-[var(--primary)] hover:shadow-[0_4px_12px_rgb(59_130_246_/_0.15)] focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:outline-none",
                     isAppliedProfile &&
-                      "active border-[var(--accent-blue)] ring-1 ring-[var(--accent-blue)] shadow-[0_0_16px_rgb(59_130_246_/_0.2)]",
+                      "active border-[var(--primary)] ring-1 ring-[var(--primary)] shadow-[0_0_16px_rgb(59_130_246_/_0.2)]",
                     isEditingProfile &&
                       "editing border-[var(--accent-orange)] ring-1 ring-[var(--accent-orange)] shadow-[0_0_18px_rgb(247_129_102_/_0.24)]",
                     dragState.draggingIndex === index &&
                       "dragging scale-[0.985] opacity-50 shadow-[0_18px_36px_rgb(59_130_246_/_0.18)]",
                     dragState.overIndex === index &&
                       dragState.overPosition === "above" &&
-                      "drag-over-above before:absolute before:top-[-6px] before:right-[-12px] before:left-[-12px] before:h-1 before:rounded-full before:bg-[var(--accent-green)] before:shadow-[0_0_0_2px_var(--bg-base),var(--glow-green)] before:content-['']",
+                      "drag-over-above before:absolute before:top-[-6px] before:right-[-12px] before:left-[-12px] before:h-1 before:rounded-full before:bg-[var(--accent-green)] before:shadow-[0_0_0_2px_var(--background),var(--glow-green)] before:content-['']",
                     dragState.overIndex === index &&
                       dragState.overPosition === "below" &&
-                      "drag-over-below after:absolute after:right-[-12px] after:bottom-[-6px] after:left-[-12px] after:h-1 after:rounded-full after:bg-[var(--accent-green)] after:shadow-[0_0_0_2px_var(--bg-base),var(--glow-green)] after:content-['']",
+                      "drag-over-below after:absolute after:right-[-12px] after:bottom-[-6px] after:left-[-12px] after:h-1 after:rounded-full after:bg-[var(--accent-green)] after:shadow-[0_0_0_2px_var(--background),var(--glow-green)] after:content-['']",
                   )}
                   role="button"
                   tabIndex={0}
@@ -725,7 +725,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                       <div className="profile-card-preset-row mt-1.5 flex items-center">
                         <Badge
                           variant="ghost"
-                          className="profile-preset-badge rounded-full bg-[rgb(59_130_246_/_0.1)] px-2 py-0.5 text-[10px] font-semibold text-[var(--accent-blue)]"
+                          className="profile-preset-badge rounded-full bg-[rgb(59_130_246_/_0.1)] px-2 py-0.5 text-[10px] font-semibold text-[var(--primary)]"
                         >
                           {presetNameById(
                             allPresets,
@@ -755,7 +755,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                         <Button
                           type="button"
                           size="sm"
-                          className="profile-card-apply-btn bg-[var(--accent-blue)] text-white hover:bg-[#2563eb]"
+                          className="profile-card-apply-btn bg-[var(--primary)] text-white hover:bg-[#2563eb]"
                           onClick={(event) => {
                             event.stopPropagation();
                             void handleApply(profile.id);
@@ -847,7 +847,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                       type="button"
                       variant="outline"
                       size="icon-sm"
-                      className="profile-card-action icon-only border-[var(--border-default)] bg-[var(--bg-tertiary)] text-[var(--text-primary)] hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
+                      className="profile-card-action icon-only border-[var(--border-default)] bg-[var(--bg-tertiary)] text-[var(--foreground)] hover:border-[var(--primary)] hover:text-[var(--primary)]"
                       aria-label={t("profiles.actions.copyEnv")}
                       title={t("profiles.actions.copyEnv")}
                       onClick={(event) => {
@@ -861,7 +861,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                       type="button"
                       variant="outline"
                       size="icon-sm"
-                      className="profile-card-action icon-only border-[var(--border-default)] bg-[var(--bg-tertiary)] text-[var(--text-primary)] hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
+                      className="profile-card-action icon-only border-[var(--border-default)] bg-[var(--bg-tertiary)] text-[var(--foreground)] hover:border-[var(--primary)] hover:text-[var(--primary)]"
                       aria-label={t("profiles.actions.duplicate")}
                       title={t("profiles.actions.duplicate")}
                       onClick={(event) => {
@@ -875,7 +875,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                       type="button"
                       variant="outline"
                       size="icon-sm"
-                      className="profile-card-action danger icon-only border-[var(--border-default)] bg-[var(--bg-tertiary)] text-[var(--text-primary)] hover:border-[var(--accent-red)] hover:text-[var(--accent-red)]"
+                      className="profile-card-action danger icon-only border-[var(--border-default)] bg-[var(--bg-tertiary)] text-[var(--foreground)] hover:border-[var(--accent-red)] hover:text-[var(--accent-red)]"
                       aria-label={t("profiles.actions.delete")}
                       title={t("profiles.actions.delete")}
                       onClick={(event) => {

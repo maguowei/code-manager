@@ -490,7 +490,7 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
 
       <div className="profile-marketplace-editor flex flex-col gap-4">
         <div className="profile-marketplace-list-shell flex min-w-0 flex-col gap-3 [container-type:inline-size]">
-          <div className="profile-marketplace-list flex flex-col overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--border-default)_88%,var(--accent-blue)_12%)] bg-[color-mix(in_srgb,var(--bg-primary)_92%,var(--accent-blue-bg)_8%)]">
+          <div className="profile-marketplace-list flex flex-col overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--border-default)_88%,var(--primary)_12%)] bg-[color-mix(in_srgb,var(--card)_92%,var(--accent)_8%)]">
             <div className="profile-marketplace-list-header grid grid-cols-[40px_minmax(0,1fr)_minmax(0,1.35fr)_auto] items-center gap-3 border-b border-[color-mix(in_srgb,var(--border-default)_92%,transparent)] px-3.5 pt-3 pb-2.5 text-xs font-semibold text-[var(--text-secondary)] max-[720px]:hidden">
               <span className="profile-marketplace-list-header-index inline-flex items-center justify-center text-xs font-semibold text-[var(--text-muted)] tabular-nums">
                 {t("profileEditor.common.index")}
@@ -519,12 +519,12 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                 return (
                   <div
                     key={item.id}
-                    className={`profile-marketplace-list-row flex flex-col gap-0 border-t border-[color-mix(in_srgb,var(--border-default)_92%,transparent)] px-3.5 py-2.5 first:border-t-0 max-[720px]:gap-3 max-[720px]:py-3${selected ? " selected bg-[color-mix(in_srgb,var(--accent-blue-bg)_18%,var(--bg-primary)_82%)]" : ""}`}
+                    className={`profile-marketplace-list-row flex flex-col gap-0 border-t border-[color-mix(in_srgb,var(--border-default)_92%,transparent)] px-3.5 py-2.5 first:border-t-0 max-[720px]:gap-3 max-[720px]:py-3${selected ? " selected bg-[color-mix(in_srgb,var(--accent)_18%,var(--card)_82%)]" : ""}`}
                   >
                     <div className="profile-marketplace-row-head grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 max-[720px]:items-start">
                       <button
                         type="button"
-                        className="profile-marketplace-list-main group grid min-h-12 w-full min-w-0 cursor-pointer grid-cols-[40px_minmax(0,1fr)_minmax(0,1.35fr)] items-center gap-3 rounded-lg border-0 bg-transparent px-2.5 py-2 text-left text-[var(--text-primary)] hover:text-[var(--accent-blue)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-blue)] max-[720px]:grid-cols-[32px_minmax(0,1fr)] max-[720px]:items-start max-[720px]:gap-x-2.5 max-[720px]:gap-y-1.5"
+                        className="profile-marketplace-list-main group grid min-h-12 w-full min-w-0 cursor-pointer grid-cols-[40px_minmax(0,1fr)_minmax(0,1.35fr)] items-center gap-3 rounded-lg border-0 bg-transparent px-2.5 py-2 text-left text-[var(--foreground)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] max-[720px]:grid-cols-[32px_minmax(0,1fr)] max-[720px]:items-start max-[720px]:gap-x-2.5 max-[720px]:gap-y-1.5"
                         aria-pressed={selected}
                         aria-label={`${t("profileEditor.marketplace.editAriaLabel")} ${label}`}
                         onClick={() => handleSelectMarketplace(marketplace)}
@@ -548,11 +548,11 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                           ) : null}
                         </span>
                         <span className="profile-marketplace-list-summary flex min-w-0 flex-col gap-1 max-[720px]:col-start-2">
-                          <span className="profile-marketplace-summary-primary min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-medium text-[var(--text-primary)] group-hover:text-[var(--accent-blue)] group-focus-visible:text-[var(--accent-blue)] max-[720px]:whitespace-normal max-[720px]:break-words">
+                          <span className="profile-marketplace-summary-primary min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-medium text-[var(--foreground)] group-hover:text-[var(--primary)] group-focus-visible:text-[var(--primary)] max-[720px]:whitespace-normal max-[720px]:break-words">
                             {item.primarySummary}
                           </span>
                           {item.secondarySummary.length > 0 ? (
-                            <span className="profile-marketplace-summary-secondary min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-[var(--text-secondary)] group-hover:text-[var(--accent-blue)] group-focus-visible:text-[var(--accent-blue)] max-[720px]:whitespace-normal max-[720px]:break-words">
+                            <span className="profile-marketplace-summary-secondary min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-[var(--text-secondary)] group-hover:text-[var(--primary)] group-focus-visible:text-[var(--primary)] max-[720px]:whitespace-normal max-[720px]:break-words">
                               {item.secondarySummary.join(" · ")}
                             </span>
                           ) : null}
@@ -599,7 +599,7 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                               </span>
                               <select
                                 aria-label={t("profileEditor.marketplace.sourceLabel")}
-                                className="form-select h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base text-[var(--text-primary)] shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm"
+                                className="form-select h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base text-[var(--foreground)] shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm"
                                 value={draft.sourceType}
                                 onChange={(event) =>
                                   handleDraftChange(

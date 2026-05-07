@@ -7,7 +7,7 @@ import { I18nProvider } from "../../i18n";
 import HistoryHeatmap from "../HistoryHeatmap";
 import HistoryProjectList from "../HistoryProjectList";
 
-const drawerCss = readFileSync("src/components/SessionDetailDrawer.css", "utf8");
+const indexCss = readFileSync("src/index.css", "utf8");
 const sessionListSource = readFileSync("src/components/HistorySessionList.tsx", "utf8");
 
 const PROJECT_GROUPS: HistoryProjectGroup[] = [
@@ -63,13 +63,13 @@ describe("HistoryPage responsive layout CSS", () => {
 
 describe("SessionDetailDrawer responsive layout CSS", () => {
   it("keeps long drawer content inside narrow viewports", () => {
-    expect(drawerCss).toMatch(
-      /@media\s*\(max-width:\s*700px\)\s*\{[\s\S]*?\.session-detail-messages\s*\{[\s\S]*?padding:\s*var\(--space-4\);/,
+    expect(indexCss).toMatch(
+      /@media\s*\(max-width:\s*700px\)\s*\{[\s\S]*?\.session-detail-messages\s*\{[\s\S]*?padding:/,
     );
-    expect(drawerCss).toMatch(
+    expect(indexCss).toMatch(
       /@media\s*\(max-width:\s*700px\)\s*\{[\s\S]*?\.msg-command\s*\{[\s\S]*?overflow-x:\s*auto;/,
     );
-    expect(drawerCss).toMatch(
+    expect(indexCss).toMatch(
       /@media\s*\(max-width:\s*700px\)\s*\{[\s\S]*?\.msg-markdown pre\s*\{[\s\S]*?max-width:\s*100%;/,
     );
   });

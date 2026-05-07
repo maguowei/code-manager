@@ -137,7 +137,7 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
             variant="link"
             size="sm"
             asChild
-            className="skills-docs-link h-auto gap-1 p-0 text-[length:var(--font-sm)] font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            className="skills-docs-link h-auto gap-1 p-0 text-[length:var(--font-sm)] font-semibold text-[var(--text-secondary)] hover:text-[var(--foreground)]"
           >
             <a
               href={claudeSkillsDocsUrl}
@@ -158,7 +158,7 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       {/* 添加按钮 */}
       <Button
         type="button"
-        className="add-config-btn gap-1.5 bg-[linear-gradient(135deg,var(--accent-blue),var(--accent-blue-dark))] font-semibold text-white shadow-[var(--shadow-sm),var(--shadow-blue-sm)] hover:-translate-y-px hover:shadow-[var(--shadow-md),var(--shadow-blue-md)]"
+        className="add-config-btn gap-1.5 bg-[linear-gradient(135deg,var(--primary),var(--primary))] font-semibold text-white shadow-[var(--shadow-sm),var(--shadow-blue-sm)] hover:-translate-y-px hover:shadow-[var(--shadow-md),var(--shadow-blue-md)]"
         onClick={openAdd}
       >
         <Plus className="size-[18px]" aria-hidden="true" />

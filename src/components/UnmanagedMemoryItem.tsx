@@ -24,7 +24,7 @@ function UnmanagedMemoryItem({ memory, onImport }: UnmanagedMemoryItemProps) {
       : t("memory.unmanagedPathConflict");
 
   return (
-    <Card className="memory-item memory-item-unmanaged relative flex cursor-default flex-col gap-4 rounded-[var(--radius-xl)] border border-dashed border-[var(--border-default)] bg-[var(--bg-primary)] p-4 text-[var(--text-primary)] shadow-none transition-[transform,border-color,box-shadow,background-color,opacity] duration-200 hover:-translate-y-px hover:border-[var(--accent-orange)] hover:shadow-[0_4px_12px_rgb(247_129_102_/_0.14)]">
+    <Card className="memory-item memory-item-unmanaged relative flex cursor-default flex-col gap-4 rounded-[var(--radius-xl)] border border-dashed border-[var(--border-default)] bg-[var(--card)] p-4 text-[var(--foreground)] shadow-none transition-[transform,border-color,box-shadow,background-color,opacity] duration-200 hover:-translate-y-px hover:border-[var(--accent-orange)] hover:shadow-[0_4px_12px_rgb(247_129_102_/_0.14)]">
       <div className="memory-header flex items-start justify-between gap-3 group-[.compressed]/list:grid group-[.compressed]/list:grid-cols-[auto_minmax(0,1fr)] group-[.compressed]/list:justify-stretch">
         <ProfileNameBadge
           name={memory.name}
@@ -34,7 +34,7 @@ function UnmanagedMemoryItem({ memory, onImport }: UnmanagedMemoryItemProps) {
         />
 
         <div className="memory-info flex min-w-0 flex-1 flex-col gap-1.5 pt-px">
-          <h3 className="memory-name truncate text-[length:var(--font-lg)] leading-snug font-semibold text-[var(--text-primary)]">
+          <h3 className="memory-name truncate text-[length:var(--font-lg)] leading-snug font-semibold text-[var(--foreground)]">
             {memory.name}
           </h3>
           <div className="memory-target-row flex min-w-0 items-center gap-2 leading-none">
@@ -43,7 +43,7 @@ function UnmanagedMemoryItem({ memory, onImport }: UnmanagedMemoryItemProps) {
                 "memory-target-badge h-[22px] shrink-0 rounded-[7px] px-2 text-xs leading-none font-semibold",
                 memory.targetType === "rule"
                   ? "memory-target-badge--rule bg-[var(--accent-green-bg)] text-[var(--accent-green)]"
-                  : "memory-target-badge--claude bg-[rgb(59_130_246_/_0.14)] text-[var(--accent-blue)]",
+                  : "memory-target-badge--claude bg-[rgb(59_130_246_/_0.14)] text-[var(--primary)]",
               )}
             >
               {targetLabel}

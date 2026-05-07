@@ -349,7 +349,7 @@ function EnvEditor({
 
       <div className="profile-env-editor flex flex-col gap-4">
         <div className="profile-env-list-shell flex min-w-0 flex-col gap-3">
-          <div className="profile-env-list flex flex-col overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--bg-primary)]">
+          <div className="profile-env-list flex flex-col overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--card)]">
             <div className="profile-env-list-header grid grid-cols-[40px_minmax(0,1.2fr)_minmax(0,0.8fr)_auto] items-center gap-3 border-b border-[var(--border-default)] px-3.5 py-3 text-xs font-semibold text-[var(--text-secondary)] max-[720px]:hidden">
               <span className="profile-env-list-header-index inline-flex items-center justify-center text-[var(--text-muted)] tabular-nums">
                 {t("profileEditor.common.index")}
@@ -372,7 +372,7 @@ function EnvEditor({
                 const rowClassName = [
                   "profile-env-list-row flex flex-col px-3.5 py-2.5 first:border-t-0 border-t border-[var(--border-default)]",
                   selected
-                    ? "selected bg-[color-mix(in_srgb,var(--accent-blue-bg)_18%,var(--bg-primary)_82%)]"
+                    ? "selected bg-[color-mix(in_srgb,var(--accent)_18%,var(--card)_82%)]"
                     : "",
                 ]
                   .filter(Boolean)
@@ -383,7 +383,7 @@ function EnvEditor({
                     <div className="profile-env-row-head grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 max-[720px]:items-start">
                       <button
                         type="button"
-                        className="profile-env-list-main grid min-h-[42px] w-full cursor-pointer grid-cols-[40px_minmax(0,1.2fr)_minmax(0,0.8fr)] items-center gap-3 rounded-md border-0 bg-transparent p-2 text-left text-[var(--text-primary)] outline-none transition-colors hover:text-[var(--accent-blue)] focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)] max-[720px]:grid-cols-[32px_minmax(0,1fr)] max-[720px]:items-start max-[720px]:gap-x-2.5 max-[720px]:gap-y-1.5"
+                        className="profile-env-list-main grid min-h-[42px] w-full cursor-pointer grid-cols-[40px_minmax(0,1.2fr)_minmax(0,0.8fr)] items-center gap-3 rounded-md border-0 bg-transparent p-2 text-left text-[var(--foreground)] outline-none transition-colors hover:text-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)] max-[720px]:grid-cols-[32px_minmax(0,1fr)] max-[720px]:items-start max-[720px]:gap-x-2.5 max-[720px]:gap-y-1.5"
                         aria-pressed={selected}
                         aria-label={`${t("profileEditor.env.editAriaLabel")} ${label}`}
                         onClick={() => handleSelectItem(item)}

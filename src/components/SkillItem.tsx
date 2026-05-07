@@ -36,9 +36,9 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
   return (
     <Card
       className={cn(
-        "skill-item group relative flex cursor-pointer flex-col gap-4 rounded-[var(--radius-xl)] border border-[var(--border-default)] bg-[linear-gradient(180deg,var(--bg-primary),var(--bg-secondary))] p-4 text-[var(--text-primary)] shadow-none transition-[transform,border-color,box-shadow,background-color,opacity] duration-200 hover:-translate-y-px hover:border-[var(--accent-blue)] hover:shadow-[0_4px_12px_rgb(59_130_246_/_0.15)]",
+        "skill-item group relative flex cursor-pointer flex-col gap-4 rounded-[var(--radius-xl)] border border-[var(--border-default)] bg-[linear-gradient(180deg,var(--card),var(--secondary))] p-4 text-[var(--foreground)] shadow-none transition-[transform,border-color,box-shadow,background-color,opacity] duration-200 hover:-translate-y-px hover:border-[var(--primary)] hover:shadow-[0_4px_12px_rgb(59_130_246_/_0.15)]",
         skill.isActive
-          ? "active border-[var(--accent-blue)] shadow-[0_0_0_1px_var(--accent-blue)_inset,0_0_16px_rgb(59_130_246_/_0.2)]"
+          ? "active border-[var(--primary)] shadow-[0_0_0_1px_var(--primary)_inset,0_0_16px_rgb(59_130_246_/_0.2)]"
           : "inactive",
         isEditing &&
           "editing border-[var(--accent-orange)] shadow-[0_0_0_1px_var(--accent-orange)_inset,0_0_18px_rgb(247_129_102_/_0.24)] hover:border-[var(--accent-orange)]",
@@ -54,7 +54,7 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
 
         {/* 名称区域 */}
         <div className="skill-info flex min-w-0 flex-1 flex-col gap-0.5">
-          <h3 className="skill-name m-0 truncate text-[length:var(--font-lg)] font-semibold text-[var(--text-primary)]">
+          <h3 className="skill-name m-0 truncate text-[length:var(--font-lg)] font-semibold text-[var(--foreground)]">
             {skill.name}
           </h3>
           {showSlashId && (
@@ -72,19 +72,19 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
             </Badge>
           )}
           {/* 开关按钮 */}
-          <div className="skill-toggle-control inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[length:var(--font-sm)] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]">
+          <div className="skill-toggle-control inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[length:var(--font-sm)] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--foreground)]">
             <Switch
               size="sm"
               checked={skill.isActive}
               onCheckedChange={() => onToggle(skill)}
               onClick={(event) => event.stopPropagation()}
               aria-label={skill.isActive ? t("skills.enabled") : t("skills.disabled")}
-              className="toggle-switch toggle-blue data-[state=checked]:bg-[var(--accent-blue)]"
+              className="toggle-switch toggle-blue data-[state=checked]:bg-[var(--primary)]"
             />
             <span
               className={cn(
                 "toggle-label whitespace-nowrap",
-                skill.isActive && "text-[var(--accent-blue)]",
+                skill.isActive && "text-[var(--primary)]",
               )}
             >
               {skill.isActive ? t("skills.enabled") : t("skills.disabled")}
@@ -101,13 +101,13 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
       )}
 
       {/* 悬停显示的操作按钮区 */}
-      <div className="skill-actions pointer-events-none mt-[calc(var(--space-4)*-1)] flex max-h-0 translate-y-2 flex-wrap justify-end gap-2 self-end overflow-hidden opacity-0 transition-[max-height,margin-top,opacity,transform] duration-200 group-hover:mt-0 group-hover:max-h-12 group-hover:translate-y-0 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:mt-0 group-focus-within:max-h-12 group-focus-within:translate-y-0 group-focus-within:opacity-100 group-focus-within:pointer-events-auto">
+      <div className="skill-actions pointer-events-none mt-[calc(1rem*-1)] flex max-h-0 translate-y-2 flex-wrap justify-end gap-2 self-end overflow-hidden opacity-0 transition-[max-height,margin-top,opacity,transform] duration-200 group-hover:mt-0 group-hover:max-h-12 group-hover:translate-y-0 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:mt-0 group-focus-within:max-h-12 group-focus-within:translate-y-0 group-focus-within:opacity-100 group-focus-within:pointer-events-auto">
         {/* 同步按钮 */}
         <Button
           type="button"
           variant="ghost"
           size="icon-sm"
-          className="skill-action-btn sync border border-[var(--border-default)] bg-[var(--bg-tertiary)] text-[var(--text-primary)] hover:border-[var(--accent-green)] hover:text-[var(--accent-green)]"
+          className="skill-action-btn sync border border-[var(--border-default)] bg-[var(--bg-tertiary)] text-[var(--foreground)] hover:border-[var(--accent-green)] hover:text-[var(--accent-green)]"
           onClick={(e) => {
             e.stopPropagation();
             onSync(skill);
@@ -123,7 +123,7 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
           type="button"
           variant="ghost"
           size="icon-sm"
-          className="skill-action-btn delete border border-[var(--border-default)] bg-[var(--bg-tertiary)] text-[var(--text-primary)] hover:border-[var(--accent-red)] hover:text-[var(--accent-red)]"
+          className="skill-action-btn delete border border-[var(--border-default)] bg-[var(--bg-tertiary)] text-[var(--foreground)] hover:border-[var(--accent-red)] hover:text-[var(--accent-red)]"
           onClick={(e) => {
             e.stopPropagation();
             onDelete(skill);

@@ -268,7 +268,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     return (
       <section className="memory-group mt-5 flex flex-col gap-3 first-of-type:mt-0">
         <div className="memory-group-header flex min-w-0 flex-col gap-1 px-2">
-          <h2 className="m-0 text-[length:var(--font-lg)] leading-snug font-bold text-[var(--text-primary)]">
+          <h2 className="m-0 text-[length:var(--font-lg)] leading-snug font-bold text-[var(--foreground)]">
             {title}
           </h2>
           <p className="m-0 text-[length:var(--font-sm)] leading-normal text-[var(--text-muted)] [overflow-wrap:anywhere]">
@@ -297,7 +297,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     return (
       <section className="memory-group memory-group-unmanaged mt-5 flex flex-col gap-3 first-of-type:mt-0">
         <div className="memory-group-header flex min-w-0 flex-col gap-1 px-2">
-          <h2 className="m-0 text-[length:var(--font-lg)] leading-snug font-bold text-[var(--text-primary)]">
+          <h2 className="m-0 text-[length:var(--font-lg)] leading-snug font-bold text-[var(--foreground)]">
             {t("memory.group.unmanaged")}
           </h2>
           <p className="m-0 text-[length:var(--font-sm)] leading-normal text-[var(--text-muted)] [overflow-wrap:anywhere]">
@@ -327,7 +327,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
             type="button"
             variant="outline"
             size="sm"
-            className="memory-docs-link border-[var(--border-default)] bg-transparent px-2.5 text-[length:var(--font-sm)] font-semibold text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+            className="memory-docs-link border-[var(--border-default)] bg-transparent px-2.5 text-[length:var(--font-sm)] font-semibold text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:bg-[var(--bg-hover)] hover:text-[var(--foreground)]"
             aria-label={t("memory.openDocsAriaLabel")}
             title={t("memory.openDocsAriaLabel")}
             onClick={handleOpenDocs}
@@ -339,7 +339,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
             type="button"
             variant="outline"
             size="sm"
-            className="memory-import-directory-btn border-[var(--border-default)] bg-transparent px-2.5 text-[length:var(--font-sm)] font-semibold text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+            className="memory-import-directory-btn border-[var(--border-default)] bg-transparent px-2.5 text-[length:var(--font-sm)] font-semibold text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:bg-[var(--bg-hover)] hover:text-[var(--foreground)]"
             aria-label={
               isImportingDirectory ? t("memory.importingDirectory") : t("memory.importDirectory")
             }
@@ -361,7 +361,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
             type="button"
             variant="outline"
             size="sm"
-            className="memory-refresh-btn border-[var(--border-default)] bg-transparent px-2.5 text-[length:var(--font-sm)] font-semibold text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+            className="memory-refresh-btn border-[var(--border-default)] bg-transparent px-2.5 text-[length:var(--font-sm)] font-semibold text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:bg-[var(--bg-hover)] hover:text-[var(--foreground)]"
             aria-label={isRefreshing ? t("memory.refreshing") : t("memory.refresh")}
             aria-busy={isRefreshing}
             title={isRefreshing ? t("memory.refreshing") : t("memory.refresh")}
@@ -377,7 +377,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       {/* 添加按钮 */}
       <Button
         type="button"
-        className="add-config-btn gap-1.5 bg-[linear-gradient(135deg,var(--accent-blue),var(--accent-blue-dark))] font-semibold text-white shadow-[var(--shadow-sm),var(--shadow-blue-sm)] hover:-translate-y-px hover:shadow-[var(--shadow-md),var(--shadow-blue-md)]"
+        className="add-config-btn gap-1.5 bg-[linear-gradient(135deg,var(--primary),var(--primary))] font-semibold text-white shadow-[var(--shadow-sm),var(--shadow-blue-sm)] hover:-translate-y-px hover:shadow-[var(--shadow-md),var(--shadow-blue-md)]"
         onClick={openAddModal}
       >
         <Plus className="size-[18px]" aria-hidden="true" />

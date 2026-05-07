@@ -81,7 +81,7 @@ function MarkdownPreviewBase({ content, themeType, className }: MarkdownPreviewP
               style={codeStyle}
               customStyle={{
                 margin: 0,
-                borderRadius: "var(--radius-sm, 6px)",
+                borderRadius: "calc(var(--radius) - 4px)",
                 fontSize: "var(--font-xs, 12px)",
               }}
               wrapLongLines={false}

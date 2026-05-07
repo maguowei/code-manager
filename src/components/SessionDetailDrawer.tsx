@@ -11,7 +11,6 @@ import { useCodeMirrorTheme } from "../hooks/useCodeMirrorTheme";
 import { useToast } from "../hooks/useToast";
 import { type TranslationKey, useI18n } from "../i18n";
 import { isTauri, type MessageBlock, type SessionDetail } from "../types";
-import "./SessionDetailDrawer.css";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Separator } from "./ui/separator";
@@ -82,11 +81,11 @@ function CodeResultBlock({ content, filePath }: { content: string; filePath: str
       style={vscDarkPlus}
       customStyle={{
         margin: 0,
-        borderRadius: "var(--radius-sm)",
+        borderRadius: "calc(var(--radius) - 4px)",
         fontSize: "var(--font-xs)",
         maxHeight: "400px",
         overflowY: "auto",
-        background: "var(--bg-primary)",
+        background: "var(--card)",
       }}
       wrapLongLines={false}
       showLineNumbers

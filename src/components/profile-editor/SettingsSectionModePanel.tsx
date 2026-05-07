@@ -58,7 +58,7 @@ function SettingsSectionModePanel({
   function renderModeSwitch() {
     return (
       <div
-        className="profile-mode-switch inline-flex items-center rounded-full border border-[var(--border-default)] bg-[color-mix(in_srgb,var(--bg-primary)_90%,var(--accent-blue)_10%)] p-1"
+        className="profile-mode-switch inline-flex items-center rounded-full border border-[var(--border-default)] bg-[color-mix(in_srgb,var(--card)_90%,var(--primary)_10%)] p-1"
         role="tablist"
         aria-label={`${title} ${t("common.jsonMode")}`}
       >
@@ -66,7 +66,7 @@ function SettingsSectionModePanel({
           type="button"
           variant="ghost"
           size="sm"
-          className={`profile-mode-switch-btn min-w-16 rounded-full px-3 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]${mode === "controls" ? " active bg-[var(--bg-primary)] text-[var(--text-primary)]" : ""}`}
+          className={`profile-mode-switch-btn min-w-16 rounded-full px-3 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--foreground)]${mode === "controls" ? " active bg-[var(--card)] text-[var(--foreground)]" : ""}`}
           aria-pressed={mode === "controls"}
           onClick={() => onModeChange("controls")}
         >
@@ -76,7 +76,7 @@ function SettingsSectionModePanel({
           type="button"
           variant="ghost"
           size="sm"
-          className={`profile-mode-switch-btn min-w-16 rounded-full px-3 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]${mode === "json" ? " active bg-[var(--bg-primary)] text-[var(--text-primary)]" : ""}`}
+          className={`profile-mode-switch-btn min-w-16 rounded-full px-3 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--foreground)]${mode === "json" ? " active bg-[var(--card)] text-[var(--foreground)]" : ""}`}
           aria-pressed={mode === "json"}
           onClick={() => onModeChange("json")}
         >
@@ -93,7 +93,7 @@ function SettingsSectionModePanel({
 
     return (
       <div className="profile-section-body flex flex-col gap-4">
-        <div className="profile-json-mode-panel flex flex-col gap-3 rounded-lg border border-dashed border-[var(--border-default)] bg-[color-mix(in_srgb,var(--bg-primary)_92%,var(--accent-orange-bg,#fff7ed)_8%)] p-4">
+        <div className="profile-json-mode-panel flex flex-col gap-3 rounded-lg border border-dashed border-[var(--border-default)] bg-[color-mix(in_srgb,var(--card)_92%,var(--accent-orange-bg,#fff7ed)_8%)] p-4">
           <div className="profile-json-mode-toolbar flex flex-wrap items-center justify-between gap-3">
             <p className="form-hint m-0 min-w-[220px] flex-1 text-sm text-[var(--text-secondary)]">
               {jsonHint}
@@ -127,19 +127,19 @@ function SettingsSectionModePanel({
   if (variant === "accordion") {
     return (
       <section
-        className={`profile-editor-section profile-editor-section-accordion flex flex-col overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--bg-primary)]${expanded ? " expanded" : ""}`}
+        className={`profile-editor-section profile-editor-section-accordion flex flex-col overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--card)]${expanded ? " expanded" : ""}`}
       >
         <div className="profile-accordion-header flex w-full items-center justify-between gap-4 px-6 py-5">
           <button
             type="button"
-            className="profile-accordion-trigger profile-accordion-trigger-large-target flex min-w-0 flex-1 items-center justify-between gap-3 self-stretch border-0 bg-transparent py-5 text-left text-[var(--text-primary)]"
+            className="profile-accordion-trigger profile-accordion-trigger-large-target flex min-w-0 flex-1 items-center justify-between gap-3 self-stretch border-0 bg-transparent py-5 text-left text-[var(--foreground)]"
             aria-expanded={expanded}
             onClick={onToggleExpanded}
           >
             <span className="profile-accordion-header-main inline-flex min-w-0 items-center gap-3">
               <h3>{title}</h3>
               {typeof badgeCount === "number" ? (
-                <span className="profile-accordion-badge inline-flex min-w-7 items-center justify-center rounded-md bg-[color-mix(in_srgb,var(--bg-secondary,var(--bg-primary))_92%,white_8%)] px-2.5 py-1 text-xs font-semibold leading-none text-[var(--text-secondary)]">
+                <span className="profile-accordion-badge inline-flex min-w-7 items-center justify-center rounded-md bg-[color-mix(in_srgb,var(--secondary,var(--card))_92%,white_8%)] px-2.5 py-1 text-xs font-semibold leading-none text-[var(--text-secondary)]">
                   {badgeCount}
                 </span>
               ) : null}
@@ -202,7 +202,7 @@ function SettingsSectionModePanel({
   }
 
   return (
-    <section className="profile-editor-section flex flex-col gap-4 rounded-lg border border-[var(--border-default)] bg-[var(--bg-primary)] p-5">
+    <section className="profile-editor-section flex flex-col gap-4 rounded-lg border border-[var(--border-default)] bg-[var(--card)] p-5">
       <div className="profile-section-heading flex flex-wrap items-center justify-between gap-3">
         <div className="profile-section-heading-main min-w-0 flex-1">
           <h3>{title}</h3>

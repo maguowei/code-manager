@@ -54,7 +54,7 @@ interface BehaviorFieldState {
 
 const CLAUDE_CODE_DOCS_BASE_URL = "https://code.claude.com/docs";
 const STRUCTURED_SELECT_CLASS =
-  "form-select h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base text-[var(--text-primary)] shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm";
+  "form-select h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base text-[var(--foreground)] shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm";
 const STRUCTURED_SETTINGS_DOCS_PATHS: Record<StructuredSettingsDocsKey, string> = {
   behavior: "model-config",
   env: "env-vars",
@@ -328,11 +328,11 @@ function StructuredSettingsSections({
                 {row.map((field) => (
                   <label
                     key={field.key}
-                    className="profile-toggle-item flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-primary)] px-3 py-2 text-sm font-medium text-[var(--text-primary)]"
+                    className="profile-toggle-item flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--card)] px-3 py-2 text-sm font-medium text-[var(--foreground)]"
                   >
                     <input
                       type="checkbox"
-                      className="size-4 accent-[var(--accent-blue)]"
+                      className="size-4 accent-[var(--primary)]"
                       checked={settings[field.key] === true}
                       onChange={(event) => onSimpleFieldChange(field, event.target.checked)}
                     />
@@ -434,11 +434,11 @@ function StructuredSettingsSections({
                 return (
                   <div
                     key={field.key}
-                    className="profile-common-option-item flex items-center justify-between gap-3 rounded-lg border border-[var(--border-default)] bg-[var(--bg-primary)] px-3 py-3"
+                    className="profile-common-option-item flex items-center justify-between gap-3 rounded-lg border border-[var(--border-default)] bg-[var(--card)] px-3 py-3"
                   >
                     <div className="profile-common-option-copy min-w-0 flex-1">
                       <div className="profile-common-option-title-row flex items-center gap-2">
-                        <span className="profile-common-option-title text-sm font-semibold text-[var(--text-primary)]">
+                        <span className="profile-common-option-title text-sm font-semibold text-[var(--foreground)]">
                           {label}
                         </span>
                         <FieldHelpButton helperKey={helperKey} />

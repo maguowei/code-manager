@@ -40,7 +40,7 @@ function DocumentEditorSection({
   const [mode, setMode] = useState<DocumentEditorMode>("preview");
 
   return (
-    <section className="profile-editor-section flex flex-col gap-4 rounded-lg border border-[var(--border-default)] bg-[var(--bg-primary)] p-5">
+    <section className="profile-editor-section flex flex-col gap-4 rounded-lg border border-[var(--border-default)] bg-[var(--card)] p-5">
       <div className="profile-section-heading flex flex-wrap items-center justify-between gap-3">
         <div className="profile-section-heading-main min-w-0 flex-1">
           <h3>{title}</h3>
@@ -48,7 +48,7 @@ function DocumentEditorSection({
 
         <div className="profile-subsection-actions flex flex-wrap items-center gap-2">
           <div
-            className="profile-mode-switch inline-flex items-center rounded-full border border-[var(--border-default)] bg-[color-mix(in_srgb,var(--bg-primary)_90%,var(--accent-blue)_10%)] p-1"
+            className="profile-mode-switch inline-flex items-center rounded-full border border-[var(--border-default)] bg-[color-mix(in_srgb,var(--card)_90%,var(--primary)_10%)] p-1"
             role="tablist"
             aria-label={`${title} ${editModeLabel}`}
           >
@@ -56,7 +56,7 @@ function DocumentEditorSection({
               type="button"
               variant="ghost"
               size="sm"
-              className={`profile-mode-switch-btn min-w-16 rounded-full px-3 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]${mode === "preview" ? " active bg-[var(--bg-primary)] text-[var(--text-primary)]" : ""}`}
+              className={`profile-mode-switch-btn min-w-16 rounded-full px-3 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--foreground)]${mode === "preview" ? " active bg-[var(--card)] text-[var(--foreground)]" : ""}`}
               aria-pressed={mode === "preview"}
               onClick={() => setMode("preview")}
             >
@@ -66,7 +66,7 @@ function DocumentEditorSection({
               type="button"
               variant="ghost"
               size="sm"
-              className={`profile-mode-switch-btn min-w-16 rounded-full px-3 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]${mode === "json" ? " active bg-[var(--bg-primary)] text-[var(--text-primary)]" : ""}`}
+              className={`profile-mode-switch-btn min-w-16 rounded-full px-3 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--foreground)]${mode === "json" ? " active bg-[var(--card)] text-[var(--foreground)]" : ""}`}
               aria-pressed={mode === "json"}
               onClick={() => setMode("json")}
             >
@@ -81,7 +81,7 @@ function DocumentEditorSection({
           <ConfigPreview content={previewContent} jsonError={previewError} />
         </div>
       ) : (
-        <div className="profile-json-mode-panel flex flex-col gap-3 rounded-lg border border-dashed border-[var(--border-default)] bg-[color-mix(in_srgb,var(--bg-primary)_92%,var(--accent-orange-bg,#fff7ed)_8%)] p-4">
+        <div className="profile-json-mode-panel flex flex-col gap-3 rounded-lg border border-dashed border-[var(--border-default)] bg-[color-mix(in_srgb,var(--card)_92%,var(--accent-orange-bg,#fff7ed)_8%)] p-4">
           <div className="profile-json-mode-toolbar flex flex-wrap items-center justify-between gap-3">
             <p className="form-hint m-0 min-w-[220px] flex-1 text-sm text-[var(--text-secondary)]">
               {editHint}
@@ -103,7 +103,7 @@ function DocumentEditorSection({
                 {supportedKeys.map((key) => (
                   <span
                     key={key}
-                    className="profile-key-badge rounded-md border border-[var(--border-default)] bg-[var(--bg-secondary)] px-2 py-1 font-mono text-xs text-[var(--text-primary)]"
+                    className="profile-key-badge rounded-md border border-[var(--border-default)] bg-[var(--secondary)] px-2 py-1 font-mono text-xs text-[var(--foreground)]"
                   >
                     {key}
                   </span>
