@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
@@ -459,7 +458,7 @@ describe("MemoryPage", () => {
     expect(within(firstCard as HTMLElement).getByText("启用")).toBeInTheDocument();
     expect(within(secondCard as HTMLElement).getByText("已启用")).toBeInTheDocument();
 
-    fireEvent.click(within(firstCard as HTMLElement).getByRole("button", { name: /启用/ }));
+    fireEvent.click(within(firstCard as HTMLElement).getByRole("switch", { name: /启用/ }));
 
     await waitFor(() => {
       expect(within(firstCard as HTMLElement).getByText("已启用")).toBeInTheDocument();
@@ -507,11 +506,14 @@ describe("MemoryPage", () => {
     expect(screen.queryByRole("heading", { name: "编辑记忆" })).not.toBeInTheDocument();
   });
 
-  it("aligns memory group headers with the card list inset", () => {
-    const css = readFileSync(`${process.cwd()}/src/components/MemoryPage.css`, "utf8");
-    const groupHeaderRule = css.match(/\.memory-group-header\s*\{[^}]*\}/)?.[0] ?? "";
+  it("aligns memory group headers with the card list inset", async () => {
+    renderMemoryPage();
 
-    expect(groupHeaderRule).toContain("padding: 0 var(--space-2);");
+    const groupHeader = (await screen.findByRole("heading", { name: /CLAUDE\.md/ })).closest(
+      ".memory-group-header",
+    );
+
+    expect(groupHeader).toHaveClass("px-2");
   });
 
   it("shows unmanaged .claude memories with an import action", async () => {
@@ -636,8 +638,7 @@ describe("MemoryPage", () => {
     expect(warning).toHaveTextContent("/Users/test/.claude/rules/frontend");
     expect(warning).not.toHaveTextContent("/Users/test/.claude/rules/frontend/react");
 
-    const css = readFileSync(`${process.cwd()}/src/components/MemoryPage.css`, "utf8");
-    const warningRule = css.match(/\.memory-delete-confirm__warning\s*\{[^}]*\}/)?.[0] ?? "";
-    expect(warningRule).toContain("var(--accent-red");
+    expect(warning).toHaveClass("border-[var(--accent-red)]");
+    expect(warning).toHaveClass("text-[var(--accent-red)]");
   });
 });

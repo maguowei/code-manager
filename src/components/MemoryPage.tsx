@@ -1,8 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ExternalLink, FolderInput, Plus, RefreshCw } from "lucide-react";
+import { BookOpen, ExternalLink, FolderInput, Plus, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
 import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
 import { type Language, type TranslationKey, useI18n } from "../i18n";
@@ -18,8 +19,8 @@ import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import MemoryEditor from "./MemoryEditor";
 import MemoryItem from "./MemoryItem";
 import UnmanagedMemoryItem from "./UnmanagedMemoryItem";
+import { Button } from "./ui/button";
 import { Sheet, SheetContent } from "./ui/sheet";
-import "./MemoryPage.css";
 
 type MemoryPayload = {
   id?: string;
@@ -265,10 +266,14 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   function renderMemoryGroup(title: string, description: string, items: Memory[]) {
     if (items.length === 0) return null;
     return (
-      <section className="memory-group">
-        <div className="memory-group-header">
-          <h2>{title}</h2>
-          <p>{description}</p>
+      <section className="memory-group mt-5 flex flex-col gap-3 first-of-type:mt-0">
+        <div className="memory-group-header flex min-w-0 flex-col gap-1 px-2">
+          <h2 className="m-0 text-[length:var(--font-lg)] leading-snug font-bold text-[var(--text-primary)]">
+            {title}
+          </h2>
+          <p className="m-0 text-[length:var(--font-sm)] leading-normal text-[var(--text-muted)] [overflow-wrap:anywhere]">
+            {description}
+          </p>
         </div>
         <div className="list-container">
           {items.map((memory) => (
@@ -290,10 +295,14 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   function renderUnmanagedMemoryGroup(items: UnmanagedMemory[]) {
     if (items.length === 0) return null;
     return (
-      <section className="memory-group memory-group-unmanaged">
-        <div className="memory-group-header">
-          <h2>{t("memory.group.unmanaged")}</h2>
-          <p>{t("memory.group.unmanagedDescription")}</p>
+      <section className="memory-group memory-group-unmanaged mt-5 flex flex-col gap-3 first-of-type:mt-0">
+        <div className="memory-group-header flex min-w-0 flex-col gap-1 px-2">
+          <h2 className="m-0 text-[length:var(--font-lg)] leading-snug font-bold text-[var(--text-primary)]">
+            {t("memory.group.unmanaged")}
+          </h2>
+          <p className="m-0 text-[length:var(--font-sm)] leading-normal text-[var(--text-muted)] [overflow-wrap:anywhere]">
+            {t("memory.group.unmanagedDescription")}
+          </p>
         </div>
         <div className="list-container">
           {items.map((memory) => (
@@ -309,24 +318,28 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   }
 
   return (
-    <div className="list-page">
+    <div className={cn("list-page group/list", isModalOpen && "compressed")}>
       {/* 页面标题栏 */}
       <div className="page-header">
         <h1 className="page-title">{t("nav.memory")}</h1>
-        <div className="memory-page-actions">
-          <button
+        <div className="memory-page-actions flex min-w-0 items-center gap-2">
+          <Button
             type="button"
-            className="memory-docs-link"
+            variant="outline"
+            size="sm"
+            className="memory-docs-link border-[var(--border-default)] bg-transparent px-2.5 text-[length:var(--font-sm)] font-semibold text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
             aria-label={t("memory.openDocsAriaLabel")}
             title={t("memory.openDocsAriaLabel")}
             onClick={handleOpenDocs}
           >
             <span>{t("memory.openDocs")}</span>
             <ExternalLink className="size-3.5" aria-hidden="true" />
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="memory-import-directory-btn"
+            variant="outline"
+            size="sm"
+            className="memory-import-directory-btn border-[var(--border-default)] bg-transparent px-2.5 text-[length:var(--font-sm)] font-semibold text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
             aria-label={
               isImportingDirectory ? t("memory.importingDirectory") : t("memory.importDirectory")
             }
@@ -343,10 +356,12 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
             <span>
               {isImportingDirectory ? t("memory.importingDirectory") : t("memory.importDirectory")}
             </span>
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="memory-refresh-btn"
+            variant="outline"
+            size="sm"
+            className="memory-refresh-btn border-[var(--border-default)] bg-transparent px-2.5 text-[length:var(--font-sm)] font-semibold text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
             aria-label={isRefreshing ? t("memory.refreshing") : t("memory.refresh")}
             aria-busy={isRefreshing}
             title={isRefreshing ? t("memory.refreshing") : t("memory.refresh")}
@@ -355,33 +370,25 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
           >
             <RefreshCw className="size-3.5" aria-hidden="true" />
             <span>{isRefreshing ? t("memory.refreshing") : t("memory.refresh")}</span>
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* 添加按钮 */}
-      <button type="button" className="add-config-btn" onClick={openAddModal}>
+      <Button
+        type="button"
+        className="add-config-btn gap-1.5 bg-[linear-gradient(135deg,var(--accent-blue),var(--accent-blue-dark))] font-semibold text-white shadow-[var(--shadow-sm),var(--shadow-blue-sm)] hover:-translate-y-px hover:shadow-[var(--shadow-md),var(--shadow-blue-md)]"
+        onClick={openAddModal}
+      >
         <Plus className="size-[18px]" aria-hidden="true" />
         <span>{t("memory.addMemory")}</span>
-      </button>
+      </Button>
 
       {/* 记忆列表 */}
       {!hasAnyMemory ? (
         <div className="list-empty">
           <div className="empty-icon">
-            <svg
-              width="48"
-              height="48"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-            >
-              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-              <line x1="8" y1="7" x2="16" y2="7" />
-              <line x1="8" y1="11" x2="14" y2="11" />
-            </svg>
+            <BookOpen className="size-12" strokeWidth={1.5} aria-hidden="true" />
           </div>
           <p className="empty-text">{t("memory.empty")}</p>
           <p className="empty-hint">{t("memory.emptyHint")}</p>
@@ -407,17 +414,22 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
         <ConfirmAlertDialog
           title={t("confirm.deleteMemoryTitle")}
           message={
-            <div className="memory-delete-confirm">
-              <p>{t("confirm.deleteMemoryMessage")}</p>
+            <div className="memory-delete-confirm flex flex-col gap-3">
+              <p className="m-0">{t("confirm.deleteMemoryMessage")}</p>
               {pendingDelete.cleanupDirs.length > 0 && (
-                <div className="memory-delete-confirm__warning" role="alert">
-                  <div className="memory-delete-confirm__warning-title">
+                <div
+                  className="memory-delete-confirm__warning rounded-[var(--radius-md)] border border-[var(--accent-red)] bg-[var(--accent-red-bg)] p-3 text-[var(--accent-red)]"
+                  role="alert"
+                >
+                  <div className="memory-delete-confirm__warning-title mb-2 font-bold">
                     {t("confirm.deleteMemoryCleanupDirectories")}
                   </div>
-                  <ul className="memory-delete-confirm__dir-list">
+                  <ul className="memory-delete-confirm__dir-list m-0 flex flex-col gap-1 pl-4">
                     {pendingDelete.cleanupDirs.map((dir) => (
                       <li key={dir}>
-                        <code className="memory-delete-confirm__dir">{dir}</code>
+                        <code className="memory-delete-confirm__dir font-mono text-[length:var(--font-sm)] [overflow-wrap:anywhere]">
+                          {dir}
+                        </code>
                       </li>
                     ))}
                   </ul>

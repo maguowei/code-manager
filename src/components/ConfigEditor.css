@@ -490,8 +490,7 @@
 }
 
 /* 校验失败时输入框/下拉框添加红色边框
-   使用 .editor-panel 前缀提升特异性 (0,3,1)，
-   覆盖 MemoryEditor.css 中 .editor-panel .form-group input 的 (0,2,1) */
+   使用 .editor-panel 前缀提升特异性，覆盖编辑器内局部表单控件样式 */
 .editor-panel .form-group input.input-error,
 .editor-panel .form-group select.input-error {
   border-color: var(--accent-red);

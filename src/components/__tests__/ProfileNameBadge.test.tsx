@@ -12,12 +12,10 @@ describe("ProfileNameBadge", () => {
     );
   });
 
-  it("defines twelve badge color classes", () => {
-    const css = readFileSync(`${process.cwd()}/src/components/ProfileNameBadge.css`, "utf8");
+  it("defines twelve badge color tokens", () => {
+    const source = readFileSync(`${process.cwd()}/src/components/ProfileNameBadge.tsx`, "utf8");
 
-    for (let colorIndex = 0; colorIndex < 12; colorIndex += 1) {
-      expect(css).toContain(`.profile-name-badge--color-${colorIndex}`);
-    }
-    expect(css).not.toContain(".profile-name-badge--color-12");
+    expect(source).toContain("const BADGE_COLOR_COUNT = 12");
+    expect(source.match(/background: "linear-gradient/g)).toHaveLength(12);
   });
 });

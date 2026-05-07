@@ -1,8 +1,11 @@
 import { memo } from "react";
+import { cn } from "@/lib/utils";
 import { useI18n } from "../i18n";
 import type { UnmanagedMemory } from "../types";
 import ProfileNameBadge from "./ProfileNameBadge";
-import "./MemoryItem.css";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { Card } from "./ui/card";
 
 interface UnmanagedMemoryItemProps {
   memory: UnmanagedMemory;
@@ -21,8 +24,8 @@ function UnmanagedMemoryItem({ memory, onImport }: UnmanagedMemoryItemProps) {
       : t("memory.unmanagedPathConflict");
 
   return (
-    <div className="memory-item memory-item-unmanaged">
-      <div className="memory-header">
+    <Card className="memory-item memory-item-unmanaged relative flex cursor-default flex-col gap-4 rounded-[var(--radius-xl)] border border-dashed border-[var(--border-default)] bg-[var(--bg-primary)] p-4 text-[var(--text-primary)] shadow-none transition-[transform,border-color,box-shadow,background-color,opacity] duration-200 hover:-translate-y-px hover:border-[var(--accent-orange)] hover:shadow-[0_4px_12px_rgb(247_129_102_/_0.14)]">
+      <div className="memory-header flex items-start justify-between gap-3 group-[.compressed]/list:grid group-[.compressed]/list:grid-cols-[auto_minmax(0,1fr)] group-[.compressed]/list:justify-stretch">
         <ProfileNameBadge
           name={memory.name}
           colorSeedScope={`unmanaged:${memory.sourcePath}`}
@@ -30,42 +33,63 @@ function UnmanagedMemoryItem({ memory, onImport }: UnmanagedMemoryItemProps) {
           fallbackChar="U"
         />
 
-        <div className="memory-info">
-          <h3 className="memory-name">{memory.name}</h3>
-          <div className="memory-target-row">
-            <span className={`memory-target-badge memory-target-badge--${memory.targetType}`}>
+        <div className="memory-info flex min-w-0 flex-1 flex-col gap-1.5 pt-px">
+          <h3 className="memory-name truncate text-[length:var(--font-lg)] leading-snug font-semibold text-[var(--text-primary)]">
+            {memory.name}
+          </h3>
+          <div className="memory-target-row flex min-w-0 items-center gap-2 leading-none">
+            <Badge
+              className={cn(
+                "memory-target-badge h-[22px] shrink-0 rounded-[7px] px-2 text-xs leading-none font-semibold",
+                memory.targetType === "rule"
+                  ? "memory-target-badge--rule bg-[var(--accent-green-bg)] text-[var(--accent-green)]"
+                  : "memory-target-badge--claude bg-[rgb(59_130_246_/_0.14)] text-[var(--accent-blue)]",
+              )}
+            >
               {targetLabel}
+            </Badge>
+            <span className="memory-target-path min-w-0 flex-1 truncate text-xs leading-[22px] text-[var(--text-muted)]">
+              {memory.sourcePath}
             </span>
-            <span className="memory-target-path">{memory.sourcePath}</span>
           </div>
           {memory.pathPatterns.length > 0 ? (
-            <p className="memory-path-patterns">
+            <p className="memory-path-patterns m-0 text-[length:var(--font-sm)] leading-normal text-[var(--text-muted)] [overflow-wrap:anywhere]">
               {t("memory.pathPatternsShort")}: {memory.pathPatterns.join(", ")}
             </p>
           ) : null}
-          <p className="memory-preview">{preview}</p>
+          <p className="memory-preview m-0 line-clamp-2 text-[length:var(--font-sm)] leading-normal text-[var(--text-secondary)] [overflow-wrap:anywhere]">
+            {preview}
+          </p>
         </div>
 
-        <div className="memory-header-actions">
-          <span className="memory-status unmanaged">{t("memory.unmanaged")}</span>
-          <button
+        <div className="memory-header-actions flex shrink-0 flex-wrap items-center justify-end gap-1.5 pt-0.5 group-[.compressed]/list:col-span-full group-[.compressed]/list:w-full group-[.compressed]/list:justify-start group-[.compressed]/list:pt-0">
+          <Badge className="memory-status unmanaged rounded-[var(--radius-md)] bg-[var(--accent-orange-bg)] px-2.5 py-1.5 text-[length:var(--font-sm)] font-semibold text-[var(--accent-orange)]">
+            {t("memory.unmanaged")}
+          </Badge>
+          <Button
             type="button"
-            className="memory-import-btn"
+            variant="outline"
+            size="sm"
+            className="memory-import-btn border-[var(--accent-orange)] bg-[var(--accent-orange-bg)] text-[var(--accent-orange)] hover:bg-[rgb(247_129_102_/_0.18)] hover:text-[var(--accent-orange)]"
             disabled={!canImport}
             title={canImport ? t("memory.import") : disabledImportHint}
             onClick={onImport}
           >
             {t("memory.import")}
-          </button>
+          </Button>
         </div>
       </div>
 
       {!canImport ? (
-        <p className="memory-unmanaged-hint">{disabledImportHint}</p>
+        <p className="memory-unmanaged-hint m-0 text-[length:var(--font-sm)] leading-normal text-[var(--text-muted)] [overflow-wrap:anywhere]">
+          {disabledImportHint}
+        </p>
       ) : (
-        <p className="memory-unmanaged-hint">{t("memory.unmanagedImportHint")}</p>
+        <p className="memory-unmanaged-hint m-0 text-[length:var(--font-sm)] leading-normal text-[var(--text-muted)] [overflow-wrap:anywhere]">
+          {t("memory.unmanagedImportHint")}
+        </p>
       )}
-    </div>
+    </Card>
   );
 }
 

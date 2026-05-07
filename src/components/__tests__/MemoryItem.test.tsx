@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
@@ -82,7 +81,7 @@ describe("MemoryItem", () => {
   it("keeps card actions from opening the editor", () => {
     const { onDelete, onDuplicate, onEdit, onToggle } = renderMemoryItem();
 
-    const toggleButton = screen.getByRole("button", { name: "已启用" });
+    const toggleButton = screen.getByRole("switch", { name: "已启用" });
     const duplicateButton = screen.getByRole("button", { name: "复制" });
     const deleteButton = screen.getByRole("button", { name: "删除" });
 
@@ -119,34 +118,42 @@ describe("MemoryItem", () => {
   });
 
   it("reveals memory actions on hover or focus within like profile cards", () => {
-    const css = readFileSync(`${process.cwd()}/src/components/MemoryItem.css`, "utf8");
+    renderMemoryItem();
 
-    expect(css).toMatch(
-      /\.memory-item:hover \.memory-actions,\s*\.memory-item:focus-within \.memory-actions \{/,
-    );
-    expect(css).toMatch(/\.memory-actions\s*\{[^}]*max-height: 0;/s);
-    expect(css).toMatch(/\.memory-actions\s*\{[^}]*margin-top: calc\(var\(--space-4\) \* -1\);/s);
+    const actions = document.querySelector(".memory-actions");
+
+    expect(actions?.className).toContain("max-h-0");
+    expect(actions?.className).toContain("mt-[calc(var(--space-4)*-1)]");
+    expect(actions?.className).toContain("group-hover:max-h-12");
+    expect(actions?.className).toContain("group-focus-within:max-h-12");
   });
 
   it("keeps the target type badge at its intrinsic width while the path truncates", () => {
-    const css = readFileSync(`${process.cwd()}/src/components/MemoryItem.css`, "utf8");
+    renderMemoryItem({
+      ...baseMemory,
+      targetType: "rule",
+      rulePath: "frontend/deeply/nested/path/style.md",
+    });
 
-    const badgeRule = css.match(/\.memory-target-badge\s*\{[^}]*\}/s)?.[0] ?? "";
-    const pathRule = css.match(/\.memory-target-path\s*\{[^}]*\}/s)?.[0] ?? "";
+    const badge = screen.getByText("Rules").closest(".memory-target-badge");
+    const path = screen.getByText("frontend/deeply/nested/path/style.md");
 
-    expect(badgeRule).not.toMatch(/max-width:\s*\d+%/);
-    expect(badgeRule).toMatch(/flex:\s*0 0 auto;/);
-    expect(pathRule).toMatch(/flex:\s*1 1 auto;/);
+    expect(badge?.className).not.toContain("max-w-");
+    expect(badge).toHaveClass("shrink-0");
+    expect(path).toHaveClass("min-w-0");
+    expect(path).toHaveClass("flex-1");
+    expect(path).toHaveClass("truncate");
   });
 
   it("moves card controls below the main content when the editor drawer compresses the list", () => {
-    const css = readFileSync(`${process.cwd()}/src/components/MemoryItem.css`, "utf8");
+    renderMemoryItem();
 
-    expect(css).toMatch(
-      /\.list-section\.compressed \.memory-header\s*\{[\s\S]*?grid-template-columns:\s*auto minmax\(0,\s*1fr\);/,
-    );
-    expect(css).toMatch(
-      /\.list-section\.compressed \.memory-header-actions\s*\{[\s\S]*?grid-column:\s*1 \/ -1;[\s\S]*?justify-content:\s*flex-start;/,
-    );
+    const header = document.querySelector(".memory-header");
+    const headerActions = document.querySelector(".memory-header-actions");
+
+    expect(header?.className).toContain("group-[.compressed]/list:grid");
+    expect(header?.className).toContain("group-[.compressed]/list:grid-cols-[auto_minmax(0,1fr)]");
+    expect(headerActions?.className).toContain("group-[.compressed]/list:col-span-full");
+    expect(headerActions?.className).toContain("group-[.compressed]/list:justify-start");
   });
 });
