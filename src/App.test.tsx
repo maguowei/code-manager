@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
@@ -638,30 +638,28 @@ describe("App", () => {
     });
     const previewElement = await screen.findByTestId("pierre-file-preview");
     expect(previewElement).toBeInTheDocument();
-    expect(previewElement).toHaveClass("claude-overview-preview-content");
+    expect(previewElement).toHaveAttribute("data-overflow", "wrap");
     const javascriptTab = screen.getByRole("tab", { name: "check-license-rule.js" });
     expect(javascriptTab).toHaveAttribute("aria-selected", "true");
-    expect(javascriptTab.querySelector(".claude-overview-tab-file-icon")).toHaveAttribute(
+    expect(within(javascriptTab).getByTestId("claude-overview-tab-file-icon")).toHaveAttribute(
       "data-icon-token",
       "javascript",
     );
     fireEvent.click(screen.getByRole("button", { name: "settings.json" }));
     const jsonTab = await screen.findByRole("tab", { name: "settings.json" });
     expect(jsonTab).toHaveAttribute("aria-selected", "true");
-    expect(jsonTab.querySelector(".claude-overview-tab-file-icon")).toHaveAttribute(
+    expect(within(jsonTab).getByTestId("claude-overview-tab-file-icon")).toHaveAttribute(
       "data-icon-token",
       "json",
     );
-    expect(document.querySelector(".claude-overview-preview-toolbar")).not.toHaveTextContent(
+    expect(screen.getByTestId("claude-overview-preview-toolbar")).not.toHaveTextContent(
       "settings.json",
     );
-    const previewFooter = document.querySelector(".claude-overview-preview-footer");
+    const previewFooter = screen.getByTestId("claude-overview-preview-footer");
     expect(previewFooter).toHaveTextContent("19 B");
     expect(previewFooter).toHaveTextContent("UTF-8");
     expect(previewFooter).toHaveTextContent(new Date(2 * 1000).toLocaleString());
-    expect(document.querySelector(".claude-overview-preview-toolbar")).not.toHaveTextContent(
-      "19 B",
-    );
+    expect(screen.getByTestId("claude-overview-preview-toolbar")).not.toHaveTextContent("19 B");
     expect(screen.getByRole("tab", { name: "check-license-rule.js" })).toHaveAttribute(
       "aria-selected",
       "false",

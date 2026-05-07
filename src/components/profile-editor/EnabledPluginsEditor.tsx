@@ -6,6 +6,14 @@ import { useI18n } from "../../i18n";
 import ConfirmAlertDialog from "../ConfirmAlertDialog";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 import { createRowId, type PluginDraft, readObject } from "./editor-utils";
 import { OFFICIAL_MARKETPLACE_ID } from "./marketplace-presets";
 import {
@@ -481,14 +489,14 @@ function EnabledPluginsEditor({
       <div className="profile-plugin-editor flex flex-col gap-4">
         <div className="profile-plugin-list-shell flex min-w-0 flex-col gap-3">
           {showOfficialToolbar && officialPluginAction ? (
-            <div className="profile-plugin-toolbar flex flex-wrap gap-3">
+            <div className="profile-plugin-toolbar flex flex-wrap gap-3" data-slot="plugin-toolbar">
               {officialPluginAction}
             </div>
           ) : null}
 
           {showFilters ? (
             <div className="profile-plugin-filters flex w-full flex-nowrap items-stretch gap-3 max-[1120px]:flex-wrap max-[520px]:flex-col">
-              <div className="profile-plugin-filter-field profile-plugin-filter-field-input profile-plugin-filter-field-search flex h-[42px] min-w-0 flex-[2_1_0] items-center gap-2 rounded-md border border-[var(--border-default)] bg-[var(--card)] px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--primary)] focus-within:shadow-[0_0_0_3px_var(--accent)] hover:border-[var(--text-muted)] max-[520px]:flex-auto">
+              <div className="profile-plugin-filter-field profile-plugin-filter-field-input profile-plugin-filter-field-search flex h-[42px] min-w-0 flex-[2_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--primary)] focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
                 <Input
                   type="text"
                   className="profile-plugin-filter-input h-full border-0 bg-transparent px-0 py-0 shadow-none focus-visible:ring-0"
@@ -498,90 +506,136 @@ function EnabledPluginsEditor({
                   onChange={(event) => setSearchQuery(event.target.value)}
                 />
               </div>
-              <div className="profile-plugin-filter-field profile-plugin-filter-field-select flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-[var(--border-default)] bg-[var(--card)] px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--primary)] focus-within:shadow-[0_0_0_3px_var(--accent)] hover:border-[var(--text-muted)] max-[520px]:flex-auto">
+              <div className="profile-plugin-filter-field profile-plugin-filter-field-select flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--primary)] focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
                 <span
-                  className="profile-plugin-filter-prefix shrink-0 whitespace-nowrap text-[11px] font-semibold text-[var(--text-secondary)]"
+                  className="profile-plugin-filter-prefix shrink-0 whitespace-nowrap text-[11px] font-semibold text-muted-foreground"
                   aria-hidden="true"
                 >
                   {statusFilterFieldLabel}
                 </span>
-                <select
-                  className="profile-plugin-filter-select h-full min-w-0 flex-1 cursor-pointer border-0 bg-transparent p-0 pr-5 text-[length:var(--font-base)] text-[var(--foreground)] outline-none"
+                <Select
                   value={statusFilter}
-                  aria-label={statusFilterLabel}
-                  onChange={(event) => setStatusFilter(event.target.value as PluginStatusFilter)}
+                  onValueChange={(nextValue) => setStatusFilter(nextValue as PluginStatusFilter)}
                 >
-                  <option value="all">{t("profileEditor.plugins.statusFilterAll")}</option>
-                  <option value="enabled">{t("profileEditor.plugins.statusFilterEnabled")}</option>
-                  <option value="disabled">
-                    {t("profileEditor.plugins.statusFilterDisabled")}
-                  </option>
-                </select>
+                  <SelectTrigger
+                    aria-label={statusFilterLabel}
+                    className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 shadow-none focus:ring-0"
+                    value={statusFilter}
+                    data-value={statusFilter}
+                    onChange={(event) =>
+                      setStatusFilter(
+                        (event.target as HTMLButtonElement).value as PluginStatusFilter,
+                      )
+                    }
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="all">
+                        {t("profileEditor.plugins.statusFilterAll")}
+                      </SelectItem>
+                      <SelectItem value="enabled">
+                        {t("profileEditor.plugins.statusFilterEnabled")}
+                      </SelectItem>
+                      <SelectItem value="disabled">
+                        {t("profileEditor.plugins.statusFilterDisabled")}
+                      </SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="profile-plugin-filter-field profile-plugin-filter-field-select flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-[var(--border-default)] bg-[var(--card)] px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--primary)] focus-within:shadow-[0_0_0_3px_var(--accent)] hover:border-[var(--text-muted)] max-[520px]:flex-auto">
+              <div className="profile-plugin-filter-field profile-plugin-filter-field-select flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--primary)] focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
                 <span
-                  className="profile-plugin-filter-prefix shrink-0 whitespace-nowrap text-[11px] font-semibold text-[var(--text-secondary)]"
+                  className="profile-plugin-filter-prefix shrink-0 whitespace-nowrap text-[11px] font-semibold text-muted-foreground"
                   aria-hidden="true"
                 >
                   {categoryFilterFieldLabel}
                 </span>
-                <select
-                  className="profile-plugin-filter-select h-full min-w-0 flex-1 cursor-pointer border-0 bg-transparent p-0 pr-5 text-[length:var(--font-base)] text-[var(--foreground)] outline-none"
-                  value={categoryFilter}
-                  aria-label={categoryFilterLabel}
-                  onChange={(event) => setCategoryFilter(event.target.value)}
-                >
-                  <option value="all">{t("profileEditor.plugins.metadataFilterAll")}</option>
-                  {categoryOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger
+                    aria-label={categoryFilterLabel}
+                    className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 shadow-none focus:ring-0"
+                    value={categoryFilter}
+                    data-value={categoryFilter}
+                    onChange={(event) =>
+                      setCategoryFilter((event.target as HTMLButtonElement).value)
+                    }
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="all">
+                        {t("profileEditor.plugins.metadataFilterAll")}
+                      </SelectItem>
+                      {categoryOptions.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="profile-plugin-filter-field profile-plugin-filter-field-select flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-[var(--border-default)] bg-[var(--card)] px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--primary)] focus-within:shadow-[0_0_0_3px_var(--accent)] hover:border-[var(--text-muted)] max-[520px]:flex-auto">
+              <div className="profile-plugin-filter-field profile-plugin-filter-field-select flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--primary)] focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
                 <span
-                  className="profile-plugin-filter-prefix shrink-0 whitespace-nowrap text-[11px] font-semibold text-[var(--text-secondary)]"
+                  className="profile-plugin-filter-prefix shrink-0 whitespace-nowrap text-[11px] font-semibold text-muted-foreground"
                   aria-hidden="true"
                 >
                   {sourceTypeFilterFieldLabel}
                 </span>
-                <select
-                  className="profile-plugin-filter-select h-full min-w-0 flex-1 cursor-pointer border-0 bg-transparent p-0 pr-5 text-[length:var(--font-base)] text-[var(--foreground)] outline-none"
-                  value={sourceTypeFilter}
-                  aria-label={sourceTypeFilterLabel}
-                  onChange={(event) => setSourceTypeFilter(event.target.value)}
-                >
-                  <option value="all">{t("profileEditor.plugins.metadataFilterAll")}</option>
-                  {sourceTypeOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option === "unknown"
-                        ? t("profileEditor.plugins.sourceTypeUnknown")
-                        : option === "path"
-                          ? t("profileEditor.plugins.sourceTypePath")
-                          : option}
-                    </option>
-                  ))}
-                </select>
+                <Select value={sourceTypeFilter} onValueChange={setSourceTypeFilter}>
+                  <SelectTrigger
+                    aria-label={sourceTypeFilterLabel}
+                    className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 shadow-none focus:ring-0"
+                    value={sourceTypeFilter}
+                    data-value={sourceTypeFilter}
+                    onChange={(event) =>
+                      setSourceTypeFilter((event.target as HTMLButtonElement).value)
+                    }
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="all">
+                        {t("profileEditor.plugins.metadataFilterAll")}
+                      </SelectItem>
+                      {sourceTypeOptions.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option === "unknown"
+                            ? t("profileEditor.plugins.sourceTypeUnknown")
+                            : option === "path"
+                              ? t("profileEditor.plugins.sourceTypePath")
+                              : option}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           ) : null}
 
           {showEmptyState ? (
-            <div className="profile-empty-state profile-plugin-empty-list flex min-h-[120px] items-center justify-center rounded-lg border border-[var(--border-default)] px-4 text-center">
+            <div className="profile-empty-state profile-plugin-empty-list flex min-h-[120px] items-center justify-center rounded-lg border border-border px-4 text-center">
               {emptyHint}
             </div>
           ) : showFilteredEmptyState ? (
-            <div className="profile-empty-state profile-plugin-empty-list flex min-h-[120px] items-center justify-center rounded-lg border border-[var(--border-default)] px-4 text-center">
+            <div className="profile-empty-state profile-plugin-empty-list flex min-h-[120px] items-center justify-center rounded-lg border border-border px-4 text-center">
               {filteredEmptyHint}
             </div>
           ) : (
-            <div className="profile-plugin-list flex flex-col overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--card)]">
+            <div
+              className="profile-plugin-list flex flex-col overflow-hidden rounded-lg border border-border bg-card"
+              data-slot="plugin-list"
+            >
               <div
-                className="profile-plugin-list-header grid grid-cols-[40px_minmax(0,1fr)_clamp(118px,12vw,132px)_52px] items-center gap-x-3 border-b border-[var(--border-default)] px-3.5 py-3 text-xs font-semibold text-[var(--text-secondary)] max-[520px]:hidden"
+                className="profile-plugin-list-header grid grid-cols-[40px_minmax(0,1fr)_clamp(118px,12vw,132px)_52px] items-center gap-x-3 border-b border-border px-3.5 py-3 text-xs font-semibold text-muted-foreground max-[520px]:hidden"
                 aria-hidden="true"
               >
-                <span className="profile-plugin-list-header-index inline-flex items-center justify-center text-[var(--text-muted)] tabular-nums">
+                <span className="profile-plugin-list-header-index inline-flex items-center justify-center text-muted-foreground tabular-nums">
                   {t("profileEditor.common.index")}
                 </span>
                 <span>{t("profileEditor.plugins.columnId")}</span>
@@ -599,7 +653,7 @@ function EnabledPluginsEditor({
                 const pluginMetaItems = buildOfficialPluginMetaItems(plugin.metadata);
                 const verifiedBadgeIcon = officialPlugin ? (
                   <span
-                    className="profile-plugin-verified-icon inline-flex shrink-0 items-center justify-center text-[color-mix(in_srgb,#79dca3_68%,var(--text-muted))] opacity-70 transition-opacity group-hover:opacity-90 group-focus-visible:opacity-90"
+                    className="profile-plugin-verified-icon inline-flex shrink-0 items-center justify-center text-[color-mix(in_srgb,var(--chart-2)_68%,var(--muted-foreground))] opacity-70 transition-opacity group-hover:opacity-90 group-focus-visible:opacity-90"
                     role="img"
                     aria-label={verifiedBadgeAriaLabel}
                   >
@@ -616,11 +670,15 @@ function EnabledPluginsEditor({
                 return (
                   <div
                     key={plugin.id}
-                    className="profile-plugin-list-row flex flex-col border-t border-[var(--border-default)] px-3.5 py-2.5 text-sm font-medium leading-[1.4] first:border-t-0 max-[520px]:gap-3 max-[520px]:py-3"
+                    className="profile-plugin-list-row flex flex-col border-t border-border px-3.5 py-2.5 text-sm font-medium leading-[1.4] first:border-t-0 max-[520px]:gap-3 max-[520px]:py-3"
+                    data-slot="plugin-list-row"
                   >
-                    <div className="profile-plugin-list-main grid min-w-0 grid-cols-[40px_minmax(0,1fr)_52px] items-center gap-x-3 max-[520px]:grid-cols-[32px_minmax(0,1fr)_auto] max-[520px]:items-start max-[520px]:gap-x-2.5 max-[520px]:gap-y-2">
+                    <div
+                      className="profile-plugin-list-main grid min-w-0 grid-cols-[40px_minmax(0,1fr)_52px] items-center gap-x-3 max-[520px]:grid-cols-[32px_minmax(0,1fr)_auto] max-[520px]:items-start max-[520px]:gap-x-2.5 max-[520px]:gap-y-2"
+                      data-slot="plugin-list-main"
+                    >
                       <span
-                        className="profile-plugin-index inline-flex items-center justify-center text-[inherit] font-[inherit] text-[var(--text-muted)] tabular-nums max-[520px]:items-start max-[520px]:pt-0.5"
+                        className="profile-plugin-index inline-flex items-center justify-center text-[inherit] font-[inherit] text-muted-foreground tabular-nums max-[520px]:items-start max-[520px]:pt-0.5"
                         aria-hidden="true"
                       >
                         {index + 1}
@@ -629,9 +687,10 @@ function EnabledPluginsEditor({
                         <div className="profile-plugin-list-id flex min-h-[42px] min-w-0 items-center font-[inherit] max-[520px]:min-h-0">
                           <div className="profile-plugin-list-identity flex min-w-0 flex-1 flex-col items-start gap-1">
                             {plugin.metadata?.homepage ? (
-                              <button
+                              <Button
                                 type="button"
-                                className="profile-plugin-link group relative min-w-0 max-w-full border-0 bg-transparent p-0 text-left font-[inherit] text-[inherit] hover:text-[var(--primary)] focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+                                variant="ghost"
+                                className="group relative h-auto min-w-0 max-w-full justify-start whitespace-normal rounded-md bg-transparent p-0 text-left font-[inherit] text-[inherit] hover:bg-transparent hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                                 aria-label={`${t("profileEditor.plugins.openHomepageAriaLabel")} ${rowLabel}`}
                                 title={plugin.metadata.description || undefined}
                                 data-description={plugin.metadata.description || undefined}
@@ -652,7 +711,7 @@ function EnabledPluginsEditor({
                                     aria-hidden="true"
                                   />
                                 </span>
-                              </button>
+                              </Button>
                             ) : (
                               <span
                                 className="profile-plugin-list-key profile-plugin-link-static relative inline-flex min-w-0 items-center gap-2 font-[inherit] text-[inherit]"
@@ -669,12 +728,12 @@ function EnabledPluginsEditor({
                               </span>
                             )}
                             {pluginMetaItems.length > 0 ? (
-                              <div className="profile-plugin-meta flex min-w-0 flex-wrap items-center gap-1.5 text-xs font-medium leading-snug text-[var(--text-muted)]">
+                              <div className="profile-plugin-meta flex min-w-0 flex-wrap items-center gap-1.5 text-xs font-medium leading-snug text-muted-foreground">
                                 {pluginMetaItems.map((item, itemIndex) => (
                                   <Fragment key={`${plugin.id}:${item.kind}:${item.value}`}>
                                     {itemIndex > 0 ? (
                                       <span
-                                        className="text-[color-mix(in_srgb,var(--text-muted)_84%,transparent)]"
+                                        className="text-[color-mix(in_srgb,var(--muted-foreground)_84%,transparent)]"
                                         aria-hidden="true"
                                       >
                                         ·
@@ -706,7 +765,7 @@ function EnabledPluginsEditor({
                             variant="header"
                           />
                           <span
-                            className={`profile-plugin-status-text whitespace-nowrap text-xs font-medium leading-tight${plugin.enabled ? " is-on text-[#3edc6d]" : " text-[var(--text-secondary)]"}`}
+                            className={`profile-plugin-status-text whitespace-nowrap text-xs font-medium leading-tight${plugin.enabled ? " is-on text-[var(--chart-2)]" : " text-muted-foreground"}`}
                           >
                             {plugin.enabled ? rowStatusOnText : rowStatusOffText}
                           </span>
@@ -718,7 +777,7 @@ function EnabledPluginsEditor({
                           type="button"
                           variant="ghost"
                           size="icon-sm"
-                          className="profile-icon-btn danger text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          className=" danger text-destructive hover:bg-destructive/10 hover:text-destructive"
                           aria-label={`${t("profileEditor.plugins.removeAriaLabel")} ${rowLabel}`}
                           onClick={() => {
                             if (isDraftRow) {
@@ -733,9 +792,9 @@ function EnabledPluginsEditor({
                       </div>
                     </div>
                     {isDraftRow && draft ? (
-                      <div className="profile-env-inline-editor profile-plugin-inline-editor mt-2 flex flex-col gap-3 rounded-lg border border-[var(--border-default)] bg-[var(--secondary)] p-3 pl-[calc(40px+0.875rem)] max-[520px]:mt-0 max-[520px]:pl-3">
+                      <div className="profile-env-inline-editor profile-plugin-inline-editor mt-2 flex flex-col gap-3 rounded-lg border border-border bg-secondary p-3 pl-[calc(40px+0.875rem)] max-[520px]:mt-0 max-[520px]:pl-3">
                         <div className="profile-env-inline-fields">
-                          <label className="form-group mb-0">
+                          <label className="grid gap-2 mb-0">
                             <span className="profile-inline-required-label profile-env-inline-label">
                               <span>{t("profileEditor.plugins.newIdLabel")}</span>
                               <RequiredBadge />
@@ -766,7 +825,7 @@ function EnabledPluginsEditor({
                           <Button
                             type="button"
                             variant="outline"
-                            className="profile-secondary-btn"
+                            className=""
                             aria-label={cancelEditAriaLabel}
                             onClick={() => resetDraft(null)}
                           >
@@ -791,12 +850,7 @@ function EnabledPluginsEditor({
 
           <div className="profile-env-footer">
             <div className="profile-plugin-footer-actions flex flex-wrap gap-3 max-[520px]:w-full">
-              <Button
-                type="button"
-                variant="outline"
-                className="profile-secondary-btn"
-                onClick={handleAddPlugin}
-              >
+              <Button type="button" variant="outline" className="" onClick={handleAddPlugin}>
                 <Plus className="size-4" aria-hidden="true" />
                 {t("profileEditor.plugins.addItem")}
               </Button>

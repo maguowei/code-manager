@@ -24,6 +24,26 @@ function renderEditor() {
   return { onChange, onError };
 }
 
+function getEnvRow(label: string): HTMLElement {
+  const row = screen
+    .getByRole("button", { name: `编辑环境变量 ${label}` })
+    .closest('[data-slot="env-list-row"]');
+  expect(row).not.toBeNull();
+  return row as HTMLElement;
+}
+
+function getEnvRowForButton(button: HTMLElement): HTMLElement {
+  const row = button.closest('[data-slot="env-list-row"]');
+  expect(row).not.toBeNull();
+  return row as HTMLElement;
+}
+
+function getEnvRowHeadForButton(button: HTMLElement): HTMLElement {
+  const rowHead = button.closest('[data-slot="env-row-head"]');
+  expect(rowHead).not.toBeNull();
+  return rowHead as HTMLElement;
+}
+
 describe("EnvEditor", () => {
   it("renders a browsable env list with an empty editor state by default", () => {
     renderEditor();
@@ -34,21 +54,16 @@ describe("EnvEditor", () => {
     expect(
       screen.getByRole("button", { name: "编辑环境变量 ANTHROPIC_MODEL" }),
     ).toBeInTheDocument();
-    const firstRow = openAiButton.closest(".profile-env-list-row");
-    const secondRow = screen
-      .getByRole("button", { name: "编辑环境变量 ANTHROPIC_MODEL" })
-      .closest(".profile-env-list-row");
-    expect(firstRow).not.toBeNull();
-    expect(secondRow).not.toBeNull();
-    const firstRowHead = openAiButton.closest(".profile-env-row-head");
-    expect(firstRowHead).not.toBeNull();
+    const firstRow = getEnvRowForButton(openAiButton);
+    const secondRow = getEnvRow("ANTHROPIC_MODEL");
+    const firstRowHead = getEnvRowHeadForButton(openAiButton);
     expect(
-      within(firstRowHead as HTMLElement).getByRole("button", {
+      within(firstRowHead).getByRole("button", {
         name: "删除环境变量 OPENAI_API_KEY",
       }),
     ).toBeInTheDocument();
-    expect(within(firstRow as HTMLElement).getByText("1")).toBeInTheDocument();
-    expect(within(secondRow as HTMLElement).getByText("2")).toBeInTheDocument();
+    expect(within(firstRow).getByText("1")).toBeInTheDocument();
+    expect(within(secondRow).getByText("2")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "新增环境变量" })).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "上移环境变量 OPENAI_API_KEY" }),
@@ -65,15 +80,12 @@ describe("EnvEditor", () => {
   it("opens inline editor when the index area is clicked", () => {
     renderEditor();
 
-    const row = screen
-      .getByRole("button", { name: "编辑环境变量 OPENAI_API_KEY" })
-      .closest(".profile-env-list-row");
-    expect(row).not.toBeNull();
+    const row = getEnvRow("OPENAI_API_KEY");
 
-    fireEvent.click(within(row as HTMLElement).getByText("1"));
+    fireEvent.click(within(row).getByText("1"));
 
-    expect(within(row as HTMLElement).getByLabelText("环境变量名称")).toHaveValue("OPENAI_API_KEY");
-    expect(within(row as HTMLElement).getByLabelText("环境变量值")).toHaveValue("visible-token");
+    expect(within(row).getByLabelText("环境变量名称")).toHaveValue("OPENAI_API_KEY");
+    expect(within(row).getByLabelText("环境变量值")).toHaveValue("visible-token");
   });
 
   it("edits a selected variable inline and preserves hidden keys on save", () => {
@@ -82,22 +94,19 @@ describe("EnvEditor", () => {
     const editButton = screen.getByRole("button", { name: "编辑环境变量 OPENAI_API_KEY" });
     fireEvent.click(editButton);
 
-    const row = editButton.closest(".profile-env-list-row");
-    expect(row).not.toBeNull();
+    const row = getEnvRowForButton(editButton);
+    expect(within(row).queryByRole("heading", { name: "OPENAI_API_KEY" })).not.toBeInTheDocument();
     expect(
-      within(row as HTMLElement).queryByRole("heading", { name: "OPENAI_API_KEY" }),
-    ).not.toBeInTheDocument();
-    expect(
-      within(row as HTMLElement).queryByText(
+      within(row).queryByText(
         "把没有官方 settings 键的能力放进 env，例如 API Key 或其它工具变量。",
       ),
     ).not.toBeInTheDocument();
-    expect(within(row as HTMLElement).getByLabelText("环境变量名称")).toHaveValue("OPENAI_API_KEY");
+    expect(within(row).getByLabelText("环境变量名称")).toHaveValue("OPENAI_API_KEY");
 
-    fireEvent.change(within(row as HTMLElement).getByLabelText("环境变量值"), {
+    fireEvent.change(within(row).getByLabelText("环境变量值"), {
       target: { value: "updated-token" },
     });
-    fireEvent.click(within(row as HTMLElement).getByRole("button", { name: "保存环境变量" }));
+    fireEvent.click(within(row).getByRole("button", { name: "保存环境变量" }));
 
     expect(onChange).toHaveBeenLastCalledWith({
       ANTHROPIC_AUTH_TOKEN: "token",
@@ -112,9 +121,8 @@ describe("EnvEditor", () => {
     const editButton = screen.getByRole("button", { name: "编辑环境变量 OPENAI_API_KEY" });
     fireEvent.click(editButton);
 
-    const row = editButton.closest(".profile-env-list-row");
-    expect(row).not.toBeNull();
-    expect(within(row as HTMLElement).getByLabelText("环境变量名称")).toHaveValue("OPENAI_API_KEY");
+    const row = getEnvRowForButton(editButton);
+    expect(within(row).getByLabelText("环境变量名称")).toHaveValue("OPENAI_API_KEY");
 
     fireEvent.click(screen.getByRole("button", { name: "编辑环境变量 OPENAI_API_KEY" }));
 
@@ -127,16 +135,15 @@ describe("EnvEditor", () => {
 
     const openAiButton = screen.getByRole("button", { name: "编辑环境变量 OPENAI_API_KEY" });
     fireEvent.click(openAiButton);
-    const row = openAiButton.closest(".profile-env-list-row");
-    expect(row).not.toBeNull();
+    const row = getEnvRowForButton(openAiButton);
 
-    fireEvent.change(within(row as HTMLElement).getByLabelText("环境变量值"), {
+    fireEvent.change(within(row).getByLabelText("环境变量值"), {
       target: { value: "pending-change" },
     });
     fireEvent.click(screen.getByRole("button", { name: "编辑环境变量 ANTHROPIC_MODEL" }));
 
-    expect(within(row as HTMLElement).getByLabelText("环境变量名称")).toHaveValue("OPENAI_API_KEY");
-    expect(within(row as HTMLElement).getByLabelText("环境变量值")).toHaveValue("pending-change");
+    expect(within(row).getByLabelText("环境变量名称")).toHaveValue("OPENAI_API_KEY");
+    expect(within(row).getByLabelText("环境变量值")).toHaveValue("pending-change");
     expect(screen.getByText("请先保存或取消当前环境变量编辑。")).toBeInTheDocument();
   });
 
@@ -146,18 +153,15 @@ describe("EnvEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "新增环境变量" }));
 
     const draftButton = screen.getByRole("button", { name: "编辑环境变量 新环境变量" });
-    const draftRow = draftButton.closest(".profile-env-list-row");
-    expect(draftRow).not.toBeNull();
-    expect(within(draftRow as HTMLElement).queryByRole("heading")).not.toBeInTheDocument();
+    const draftRow = getEnvRowForButton(draftButton);
+    expect(within(draftRow).queryByRole("heading")).not.toBeInTheDocument();
     expect(
-      within(draftRow as HTMLElement).queryByText("新增环境变量后，请先保存或取消。"),
+      within(draftRow).queryByText("新增环境变量后，请先保存或取消。"),
     ).not.toBeInTheDocument();
-    expect(within(draftRow as HTMLElement).getByLabelText("环境变量名称")).toHaveValue("");
-    expect(within(draftRow as HTMLElement).getByLabelText("环境变量值")).toHaveValue("");
+    expect(within(draftRow).getByLabelText("环境变量名称")).toHaveValue("");
+    expect(within(draftRow).getByLabelText("环境变量值")).toHaveValue("");
 
-    fireEvent.click(
-      within(draftRow as HTMLElement).getByRole("button", { name: "取消编辑环境变量" }),
-    );
+    fireEvent.click(within(draftRow).getByRole("button", { name: "取消编辑环境变量" }));
 
     expect(
       screen.queryByRole("button", { name: "编辑环境变量 新环境变量" }),
@@ -174,10 +178,9 @@ describe("EnvEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "新增环境变量" }));
 
     const draftButton = screen.getByRole("button", { name: "删除环境变量 新环境变量" });
-    const draftRow = draftButton.closest(".profile-env-list-row");
-    expect(draftRow).not.toBeNull();
+    const draftRow = getEnvRowForButton(draftButton);
 
-    fireEvent.change(within(draftRow as HTMLElement).getByLabelText("环境变量名称"), {
+    fireEvent.change(within(draftRow).getByLabelText("环境变量名称"), {
       target: { value: "OPENAI_BASE_URL" },
     });
     fireEvent.click(draftButton);
@@ -196,16 +199,15 @@ describe("EnvEditor", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "新增环境变量" }));
     const draftButton = screen.getByRole("button", { name: "编辑环境变量 新环境变量" });
-    const draftRow = draftButton.closest(".profile-env-list-row");
-    expect(draftRow).not.toBeNull();
+    const draftRow = getEnvRowForButton(draftButton);
 
-    fireEvent.change(within(draftRow as HTMLElement).getByLabelText("环境变量名称"), {
+    fireEvent.change(within(draftRow).getByLabelText("环境变量名称"), {
       target: { value: "OPENAI_BASE_URL" },
     });
-    fireEvent.change(within(draftRow as HTMLElement).getByLabelText("环境变量值"), {
+    fireEvent.change(within(draftRow).getByLabelText("环境变量值"), {
       target: { value: "https://example.com" },
     });
-    fireEvent.click(within(draftRow as HTMLElement).getByRole("button", { name: "保存环境变量" }));
+    fireEvent.click(within(draftRow).getByRole("button", { name: "保存环境变量" }));
 
     expect(onChange).toHaveBeenLastCalledWith({
       ANTHROPIC_AUTH_TOKEN: "token",
@@ -221,13 +223,13 @@ describe("EnvEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "删除环境变量 OPENAI_API_KEY" }));
 
     const dialogMessage = "确定要从当前设置中移除环境变量 OPENAI_API_KEY 吗？";
-    const dialog = screen.getByText(dialogMessage).closest(".confirm-dialog");
-    expect(dialog).not.toBeNull();
+    const dialog = screen.getByRole("alertdialog", { name: "删除环境变量" });
+    expect(within(dialog).getByText(dialogMessage)).toBeInTheDocument();
     expect(screen.queryByLabelText("环境变量名称")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("环境变量值")).not.toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
 
-    fireEvent.click(within(dialog as HTMLElement).getByRole("button", { name: "删除" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "删除" }));
 
     expect(onChange).toHaveBeenLastCalledWith({
       ANTHROPIC_AUTH_TOKEN: "token",
@@ -241,10 +243,10 @@ describe("EnvEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "删除环境变量 OPENAI_API_KEY" }));
 
     const dialogMessage = "确定要从当前设置中移除环境变量 OPENAI_API_KEY 吗？";
-    const dialog = screen.getByText(dialogMessage).closest(".confirm-dialog");
-    expect(dialog).not.toBeNull();
+    const dialog = screen.getByRole("alertdialog", { name: "删除环境变量" });
+    expect(within(dialog).getByText(dialogMessage)).toBeInTheDocument();
 
-    fireEvent.click(within(dialog as HTMLElement).getByRole("button", { name: "取消" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
 
     expect(screen.getByRole("button", { name: "编辑环境变量 OPENAI_API_KEY" })).toBeInTheDocument();
     expect(screen.queryByText(dialogMessage)).not.toBeInTheDocument();

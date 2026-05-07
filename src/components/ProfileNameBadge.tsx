@@ -5,18 +5,66 @@ import { Badge } from "./ui/badge";
 
 const BADGE_COLOR_COUNT = 12;
 const BADGE_COLORS: CSSProperties[] = [
-  { background: "linear-gradient(135deg, #3a86ff22, #3a86ff44)", color: "#3a86ff" },
-  { background: "linear-gradient(135deg, #ff006e22, #ff006e44)", color: "#ff006e" },
-  { background: "linear-gradient(135deg, #3fb95022, #3fb95044)", color: "#3fb950" },
-  { background: "linear-gradient(135deg, #f7816622, #f7816644)", color: "#f78166" },
-  { background: "linear-gradient(135deg, #a371f722, #a371f744)", color: "#a371f7" },
-  { background: "linear-gradient(135deg, #ffa50022, #ffa50044)", color: "#ffa500" },
-  { background: "linear-gradient(135deg, #06b6d422, #06b6d444)", color: "#06b6d4" },
-  { background: "linear-gradient(135deg, #4f46e522, #4f46e544)", color: "#4f46e5" },
-  { background: "linear-gradient(135deg, #0f766e22, #0f766e44)", color: "#0f766e" },
-  { background: "linear-gradient(135deg, #e11d4822, #e11d4844)", color: "#e11d48" },
-  { background: "linear-gradient(135deg, #ca8a0422, #ca8a0444)", color: "#ca8a04" },
-  { background: "linear-gradient(135deg, #65a30d22, #65a30d44)", color: "#65a30d" },
+  {
+    background:
+      "linear-gradient(135deg, color-mix(in oklch, var(--chart-1) 16%, transparent), color-mix(in oklch, var(--chart-1) 34%, transparent))",
+    color: "var(--chart-1)",
+  },
+  {
+    background:
+      "linear-gradient(135deg, color-mix(in oklch, var(--chart-2) 16%, transparent), color-mix(in oklch, var(--chart-2) 34%, transparent))",
+    color: "var(--chart-2)",
+  },
+  {
+    background:
+      "linear-gradient(135deg, color-mix(in oklch, var(--chart-3) 16%, transparent), color-mix(in oklch, var(--chart-3) 34%, transparent))",
+    color: "var(--chart-3)",
+  },
+  {
+    background:
+      "linear-gradient(135deg, color-mix(in oklch, var(--chart-4) 16%, transparent), color-mix(in oklch, var(--chart-4) 34%, transparent))",
+    color: "var(--chart-4)",
+  },
+  {
+    background:
+      "linear-gradient(135deg, color-mix(in oklch, var(--chart-5) 16%, transparent), color-mix(in oklch, var(--chart-5) 34%, transparent))",
+    color: "var(--chart-5)",
+  },
+  {
+    background:
+      "linear-gradient(135deg, color-mix(in oklch, var(--primary) 14%, transparent), color-mix(in oklch, var(--primary) 28%, transparent))",
+    color: "var(--primary)",
+  },
+  {
+    background:
+      "linear-gradient(135deg, color-mix(in oklch, var(--chart-1) 10%, var(--card)), color-mix(in oklch, var(--chart-2) 28%, transparent))",
+    color: "var(--chart-2)",
+  },
+  {
+    background:
+      "linear-gradient(135deg, color-mix(in oklch, var(--chart-2) 10%, var(--card)), color-mix(in oklch, var(--chart-3) 28%, transparent))",
+    color: "var(--chart-3)",
+  },
+  {
+    background:
+      "linear-gradient(135deg, color-mix(in oklch, var(--chart-3) 10%, var(--card)), color-mix(in oklch, var(--chart-4) 28%, transparent))",
+    color: "var(--chart-4)",
+  },
+  {
+    background:
+      "linear-gradient(135deg, color-mix(in oklch, var(--chart-4) 10%, var(--card)), color-mix(in oklch, var(--chart-5) 28%, transparent))",
+    color: "var(--chart-5)",
+  },
+  {
+    background:
+      "linear-gradient(135deg, color-mix(in oklch, var(--chart-5) 10%, var(--card)), color-mix(in oklch, var(--chart-1) 28%, transparent))",
+    color: "var(--chart-1)",
+  },
+  {
+    background:
+      "linear-gradient(135deg, color-mix(in oklch, var(--primary) 10%, var(--card)), color-mix(in oklch, var(--chart-4) 28%, transparent))",
+    color: "var(--primary)",
+  },
 ];
 
 interface ProfileNameBadgeProps {
@@ -65,11 +113,11 @@ function ProfileNameBadge({
   return (
     <Badge
       variant="ghost"
+      data-slot="profile-name-badge"
+      data-size={size}
+      data-color-index={colorIndex}
       className={cn(
-        "profile-name-badge",
-        `profile-name-badge--${size}`,
-        `profile-name-badge--color-${colorIndex}`,
-        "shrink-0 border-0 p-0 text-[var(--foreground)] shadow-[inset_0_0_0_1px_rgb(255_255_255_/_0.08),0_10px_24px_rgb(15_23_42_/_0.18)]",
+        "shrink-0 border-0 p-0 text-foreground shadow-[inset_0_0_0_1px_rgb(255_255_255_/_0.08),0_10px_24px_rgb(15_23_42_/_0.18)]",
         size === "lg" ? "size-16 rounded-2xl" : "size-9 rounded-[10px]",
         className,
       )}
@@ -80,10 +128,8 @@ function ProfileNameBadge({
         size={size === "lg" ? "lg" : "default"}
         className="size-full rounded-[inherit] bg-transparent"
       >
-        <AvatarFallback className="profile-name-badge__text rounded-[inherit] bg-transparent font-bold leading-none text-inherit select-none">
-          <span className={size === "lg" ? "text-2xl" : "text-[length:var(--font-md)]"}>
-            {badgeText}
-          </span>
+        <AvatarFallback className="rounded-[inherit] bg-transparent font-bold leading-none text-inherit select-none">
+          <span className={size === "lg" ? "text-2xl" : "text-sm"}>{badgeText}</span>
         </AvatarFallback>
       </Avatar>
     </Badge>

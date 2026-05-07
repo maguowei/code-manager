@@ -21,6 +21,14 @@ import {
   setTopLevelString,
 } from "./config-workspace-utils";
 import {
+  EditorDescription,
+  EditorEnvHint,
+  EditorField,
+  EditorFieldGrid,
+  EditorLabelRow,
+  EditorSection,
+} from "./editor-layout";
+import {
   AUTH_ENV_KEYS,
   applyNewConfigDefaults,
   BEHAVIOR_ENV_DEFAULTS,
@@ -55,8 +63,19 @@ import {
 import { useDocumentJsonEditor } from "./profile-editor/useDocumentJsonEditor";
 import { useObjectJsonEditor } from "./profile-editor/useObjectJsonEditor";
 import useStructuredSettingsSectionState from "./profile-editor/useStructuredSettingsSectionState";
+import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Form } from "./ui/form";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 interface PresetEditorProps {
   preset: SettingsPreset | null;
@@ -74,6 +93,8 @@ interface PresetEditorProps {
   }) => Promise<void> | void;
   onClose: () => void;
 }
+
+const NO_BASE_PRESET_VALUE = "__none__";
 
 function resolvePresetLocalizedName(preset: SettingsPreset | null): LocalizedText {
   return normalizeLocalizedText(preset?.localizedName, preset?.name ?? "");
@@ -490,24 +511,25 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
 
   return (
     <Form {...form}>
-      <div className="editor-panel preset-editor-panel flex h-full min-h-0 w-full min-w-[var(--config-editor-min-width)] flex-col overflow-hidden bg-[var(--bg-elevated)]">
-        <div className="editor-header sticky top-0 z-[var(--z-index-sticky)] flex h-14 shrink-0 items-center justify-between gap-3 border-b border-[var(--border-default)] bg-[var(--card)] px-6">
+      <div
+        data-slot="preset-editor-panel"
+        className="flex h-full min-h-0 w-full min-w-[560px] flex-col overflow-hidden bg-card"
+      >
+        <div className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-6">
           <Button
             type="button"
             variant="ghost"
             size="icon-sm"
-            className="editor-back-btn"
             onClick={onClose}
             aria-label={t("common.close")}
           >
             <ArrowLeft className="size-4" aria-hidden="true" />
           </Button>
-          <h2 className="min-w-0 flex-1 truncate text-lg font-semibold text-[var(--foreground)]">
+          <h2 className="min-w-0 flex-1 truncate text-lg font-semibold text-foreground">
             {messages.title}
           </h2>
           <Button
             type="button"
-            className="editor-save-btn"
             disabled={!buildPresetLocalizedName(nameZh, nameEn) || hasValidationError}
             onClick={() => {
               void handleSaveClick();
@@ -517,103 +539,115 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
           </Button>
         </div>
 
-        <div className="editor-body preset-editor-body flex min-h-0 flex-1 flex-col items-center gap-5 overflow-y-auto px-6 py-6 pb-6 [&>*]:shrink-0 [&>:not(.editor-badge-large)]:w-[min(100%,880px)]">
-          <section className="profile-editor-section">
-            <div className="profile-section-heading">
-              <h3>{messages.metadata}</h3>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="preset-name-zh" className="label-required">
+        <div
+          data-slot="preset-editor-body"
+          className="flex min-h-0 flex-1 flex-col items-center gap-5 overflow-y-auto px-6 py-6 pb-6 [&>*]:shrink-0 [&>:not([data-slot=profile-name-badge])]:w-[min(100%,880px)]"
+        >
+          <EditorSection title={messages.metadata}>
+            <EditorFieldGrid>
+              <EditorField>
+                <Label htmlFor="preset-name-zh" className="inline-flex items-center gap-2">
                   <span>{messages.nameZh}</span>
                   <RequiredBadge text={t("form.oneRequired")} />
-                </label>
-                <input
+                </Label>
+                <Input
                   id="preset-name-zh"
                   value={nameZh}
                   onChange={(event) => setNameZh(event.target.value)}
                   placeholder={messages.nameZhPlaceholder}
                 />
-              </div>
-              <div className="form-group">
-                <label htmlFor="preset-name-en" className="label-required">
+              </EditorField>
+              <EditorField>
+                <Label htmlFor="preset-name-en" className="inline-flex items-center gap-2">
                   <span>{messages.nameEn}</span>
                   <RequiredBadge text={t("form.oneRequired")} />
-                </label>
-                <input
+                </Label>
+                <Input
                   id="preset-name-en"
                   value={nameEn}
                   onChange={(event) => setNameEn(event.target.value)}
                   placeholder={messages.nameEnPlaceholder}
                 />
-              </div>
-            </div>
+              </EditorField>
+            </EditorFieldGrid>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="preset-doc-url">{messages.docUrl}</label>
-                <input
+            <EditorFieldGrid className="md:grid-cols-1">
+              <EditorField>
+                <Label htmlFor="preset-doc-url">{messages.docUrl}</Label>
+                <Input
                   id="preset-doc-url"
                   value={docUrl}
                   onChange={(event) => setDocUrl(event.target.value)}
                   placeholder="https://..."
                 />
-              </div>
-            </div>
+              </EditorField>
+            </EditorFieldGrid>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="preset-description">{messages.description}</label>
-                <input
+            <EditorFieldGrid className="md:grid-cols-1">
+              <EditorField>
+                <Label htmlFor="preset-description">{messages.description}</Label>
+                <Input
                   id="preset-description"
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
                   placeholder={messages.descriptionPlaceholder}
                 />
-              </div>
-            </div>
+              </EditorField>
+            </EditorFieldGrid>
 
-            <div className="form-group">
-              <label htmlFor="preset-model-suggestions">{messages.modelSuggestions}</label>
-              <input
+            <EditorField>
+              <Label htmlFor="preset-model-suggestions">{messages.modelSuggestions}</Label>
+              <Input
                 id="preset-model-suggestions"
                 value={modelSuggestions}
                 onChange={(event) => setModelSuggestions(event.target.value)}
                 placeholder={t("presets.editor.placeholders.modelSuggestions")}
               />
-              <p className="form-hint">{messages.modelSuggestionsHint}</p>
-            </div>
-          </section>
+              <EditorDescription>{messages.modelSuggestionsHint}</EditorDescription>
+            </EditorField>
+          </EditorSection>
 
-          <section className="profile-editor-section">
-            <div className="profile-section-heading">
-              <h3>{messages.auth}</h3>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="preset-base-preset">{messages.basePreset}</label>
-              <select
-                id="preset-base-preset"
-                className="form-select"
-                value={basePresetId}
-                onChange={(event) => handleBasePresetChange(event.target.value)}
+          <EditorSection title={messages.auth}>
+            <EditorField>
+              <Label htmlFor="preset-base-preset">{messages.basePreset}</Label>
+              <Select
+                value={basePresetId || NO_BASE_PRESET_VALUE}
+                onValueChange={(value) =>
+                  handleBasePresetChange(value === NO_BASE_PRESET_VALUE ? "" : value)
+                }
               >
-                <option value="">{t("presets.editor.options.none")}</option>
-                {selectableBasePresets.map((candidate) => (
-                  <option key={candidate.id} value={candidate.id}>
-                    {presetDisplayName(candidate, language)}
-                  </option>
-                ))}
-              </select>
-            </div>
+                <SelectTrigger
+                  id="preset-base-preset"
+                  className="w-full"
+                  value={basePresetId}
+                  data-value={basePresetId}
+                  onChange={(event) =>
+                    handleBasePresetChange((event.target as HTMLButtonElement).value)
+                  }
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value={NO_BASE_PRESET_VALUE}>
+                      {t("presets.editor.options.none")}
+                    </SelectItem>
+                    {selectableBasePresets.map((candidate) => (
+                      <SelectItem key={candidate.id} value={candidate.id}>
+                        {presetDisplayName(candidate, language)}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </EditorField>
 
-            <div className="form-group">
-              <div className="field-label-wrap">
-                <label htmlFor="preset-base-url">{messages.baseUrl}</label>
-                <span className="field-label-env">{messages.baseUrlEnv}</span>
-              </div>
-              <input
+            <EditorField>
+              <EditorLabelRow>
+                <Label htmlFor="preset-base-url">{messages.baseUrl}</Label>
+                <EditorEnvHint>{messages.baseUrlEnv}</EditorEnvHint>
+              </EditorLabelRow>
+              <Input
                 id="preset-base-url"
                 aria-label={messages.baseUrlEnv}
                 value={readEnvString(settingsPatch, "ANTHROPIC_BASE_URL")}
@@ -622,13 +656,13 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
                   applyPatch(setEnvString(settingsPatch, "ANTHROPIC_BASE_URL", event.target.value))
                 }
               />
-            </div>
+            </EditorField>
 
-            <div className="form-group">
-              <div className="field-label-wrap">
-                <label htmlFor="preset-auth-token">{messages.authToken}</label>
-                <span className="field-label-env">{messages.authTokenEnv}</span>
-              </div>
+            <EditorField>
+              <EditorLabelRow>
+                <Label htmlFor="preset-auth-token">{messages.authToken}</Label>
+                <EditorEnvHint>{messages.authTokenEnv}</EditorEnvHint>
+              </EditorLabelRow>
               <SensitiveTextInput
                 id="preset-auth-token"
                 ariaLabel={messages.authTokenEnv}
@@ -640,17 +674,19 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
                   applyPatch(setEnvString(settingsPatch, "ANTHROPIC_AUTH_TOKEN", value))
                 }
               />
-            </div>
+            </EditorField>
 
             {selectedBasePreset && selectedBasePreset.modelSuggestions.length > 0 && (
-              <div className="form-group">
-                <label>{messages.baseSuggestions}</label>
-                <div className="profile-chip-list">
+              <EditorField>
+                <Label>{messages.baseSuggestions}</Label>
+                <div className="flex flex-wrap gap-2">
                   {selectedBasePreset.modelSuggestions.map((model) => (
-                    <button
+                    <Button
                       key={model}
                       type="button"
-                      className="profile-chip"
+                      variant="outline"
+                      size="sm"
+                      className="h-auto rounded-full px-2.5 py-1 font-mono text-xs"
                       onClick={() =>
                         setModelSuggestions((current) => {
                           const items = current
@@ -664,13 +700,15 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
                         })
                       }
                     >
-                      {model}
-                    </button>
+                      <Badge variant="secondary" className="rounded-full font-mono">
+                        {model}
+                      </Badge>
+                    </Button>
                   ))}
                 </div>
-              </div>
+              </EditorField>
             )}
-          </section>
+          </EditorSection>
 
           <StructuredSettingsSections
             scope="presets"

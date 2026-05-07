@@ -3,7 +3,16 @@ import { ExternalLink } from "lucide-react";
 import { type ReactNode, useCallback, useState } from "react";
 import { useI18n } from "../../i18n";
 import { Button } from "../ui/button";
+import { Checkbox } from "../ui/checkbox";
 import { Input } from "../ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 import BehaviorFieldHeader from "./BehaviorFieldHeader";
 import DocumentEditorSection from "./DocumentEditorSection";
 import EnabledPluginsEditor from "./EnabledPluginsEditor";
@@ -46,6 +55,7 @@ type StructuredObjectKey =
   | "extraKnownMarketplaces"
   | "enabledPlugins"
   | "statusLine";
+const EMPTY_SELECT_VALUE = "__empty__";
 
 interface BehaviorFieldState {
   mappedToEnv: boolean;
@@ -53,8 +63,6 @@ interface BehaviorFieldState {
 }
 
 const CLAUDE_CODE_DOCS_BASE_URL = "https://code.claude.com/docs";
-const STRUCTURED_SELECT_CLASS =
-  "form-select h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base text-[var(--foreground)] shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm";
 const STRUCTURED_SETTINGS_DOCS_PATHS: Record<StructuredSettingsDocsKey, string> = {
   behavior: "model-config",
   env: "env-vars",
@@ -226,7 +234,7 @@ function StructuredSettingsSections({
       <Button
         type="button"
         variant="outline"
-        className="profile-secondary-btn profile-section-doc-link min-h-[34px] px-3 text-xs font-semibold"
+        className="profile-section-doc-link min-h-[34px] px-3 text-xs font-semibold"
         aria-label={label}
         title={label}
         onClick={() => {
@@ -263,7 +271,7 @@ function StructuredSettingsSections({
             {scalarFieldRows.map((row) => (
               <div
                 key={`${scope}-behavior-row-${row.map((field) => field.key).join("-")}`}
-                className="form-row grid gap-4 md:grid-cols-2"
+                className="grid gap-4 md:grid-cols-2"
               >
                 {row.map((field) => {
                   const label = field.label[language];
@@ -275,32 +283,56 @@ function StructuredSettingsSections({
                       fieldState.mappedToEnv,
                     );
                     return (
-                      <div key={field.key} className="form-group grid gap-2">
+                      <div key={field.key} className="grid gap-2" data-slot="settings-field">
                         <BehaviorFieldHeader
                           label={label}
                           inputId={`${scope}-field-${field.key}`}
                           helperKey={getFieldHelperKey(field)}
                         />
-                        <select
-                          id={`${scope}-field-${field.key}`}
-                          className={STRUCTURED_SELECT_CLASS}
-                          value={fieldState.value}
-                          onChange={(event) =>
-                            onMappedFieldChange(field, event.target.value, fieldState.mappedToEnv)
+                        <Select
+                          value={fieldState.value || EMPTY_SELECT_VALUE}
+                          onValueChange={(value) =>
+                            onMappedFieldChange(
+                              field,
+                              value === EMPTY_SELECT_VALUE ? "" : value,
+                              fieldState.mappedToEnv,
+                            )
                           }
                         >
-                          {options.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label[language]}
-                            </option>
-                          ))}
-                        </select>
+                          <SelectTrigger
+                            id={`${scope}-field-${field.key}`}
+                            className="w-full"
+                            value={fieldState.value}
+                            data-value={fieldState.value}
+                            onChange={(event) =>
+                              onMappedFieldChange(
+                                field,
+                                (event.target as HTMLButtonElement).value,
+                                fieldState.mappedToEnv,
+                              )
+                            }
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              {options.map((option) => (
+                                <SelectItem
+                                  key={option.value || EMPTY_SELECT_VALUE}
+                                  value={option.value || EMPTY_SELECT_VALUE}
+                                >
+                                  {option.label[language]}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
                       </div>
                     );
                   }
 
                   return (
-                    <div key={field.key} className="form-group grid gap-2">
+                    <div key={field.key} className="grid gap-2" data-slot="settings-field">
                       <BehaviorFieldHeader
                         label={label}
                         inputId={`${scope}-field-${field.key}`}
@@ -328,13 +360,11 @@ function StructuredSettingsSections({
                 {row.map((field) => (
                   <label
                     key={field.key}
-                    className="profile-toggle-item flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--card)] px-3 py-2 text-sm font-medium text-[var(--foreground)]"
+                    className="profile-toggle-item flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm font-medium text-foreground"
                   >
-                    <input
-                      type="checkbox"
-                      className="size-4 accent-[var(--primary)]"
+                    <Checkbox
                       checked={settings[field.key] === true}
-                      onChange={(event) => onSimpleFieldChange(field, event.target.checked)}
+                      onCheckedChange={(checked) => onSimpleFieldChange(field, checked === true)}
                     />
                     <span>{field.label[language]}</span>
                   </label>
@@ -361,7 +391,7 @@ function StructuredSettingsSections({
             {commonScalarFieldRows.map((row) => (
               <div
                 key={`${scope}-common-row-${row.map((field) => field.key).join("-")}`}
-                className="form-row grid gap-4 md:grid-cols-2"
+                className="grid gap-4 md:grid-cols-2"
               >
                 {row.map((field) => {
                   const label = field.label[language];
@@ -373,35 +403,54 @@ function StructuredSettingsSections({
                     const options = resolveSelectOptions(field, value, false);
 
                     return (
-                      <div key={field.key} className="form-group grid gap-2">
+                      <div key={field.key} className="grid gap-2" data-slot="settings-field">
                         <BehaviorFieldHeader
                           label={label}
                           inputId={inputId}
                           helperKey={getFieldHelperKey(field)}
                         />
-                        <select
-                          id={inputId}
-                          className={STRUCTURED_SELECT_CLASS}
-                          value={value}
-                          onChange={(event) => onSimpleFieldChange(field, event.target.value)}
+                        <Select
+                          value={value || EMPTY_SELECT_VALUE}
+                          onValueChange={(nextValue) =>
+                            onSimpleFieldChange(
+                              field,
+                              nextValue === EMPTY_SELECT_VALUE ? "" : nextValue,
+                            )
+                          }
                         >
-                          {options.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label[language]}
-                            </option>
-                          ))}
-                        </select>
+                          <SelectTrigger
+                            id={inputId}
+                            className="w-full"
+                            value={value}
+                            data-value={value}
+                            onChange={(event) =>
+                              onSimpleFieldChange(field, (event.target as HTMLButtonElement).value)
+                            }
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              {options.map((option) => (
+                                <SelectItem
+                                  key={option.value || EMPTY_SELECT_VALUE}
+                                  value={option.value || EMPTY_SELECT_VALUE}
+                                >
+                                  {option.label[language]}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
                         {description ? (
-                          <p className="form-hint m-0 text-sm text-[var(--text-secondary)]">
-                            {description}
-                          </p>
+                          <p className="m-0 text-sm text-muted-foreground">{description}</p>
                         ) : null}
                       </div>
                     );
                   }
 
                   return (
-                    <div key={field.key} className="form-group grid gap-2">
+                    <div key={field.key} className="grid gap-2" data-slot="settings-field">
                       <BehaviorFieldHeader
                         label={label}
                         inputId={inputId}
@@ -414,9 +463,7 @@ function StructuredSettingsSections({
                         onChange={(event) => onSimpleFieldChange(field, event.target.value)}
                       />
                       {description ? (
-                        <p className="form-hint m-0 text-sm text-[var(--text-secondary)]">
-                          {description}
-                        </p>
+                        <p className="m-0 text-sm text-muted-foreground">{description}</p>
                       ) : null}
                     </div>
                   );
@@ -434,17 +481,18 @@ function StructuredSettingsSections({
                 return (
                   <div
                     key={field.key}
-                    className="profile-common-option-item flex items-center justify-between gap-3 rounded-lg border border-[var(--border-default)] bg-[var(--card)] px-3 py-3"
+                    data-slot="common-option"
+                    className="profile-common-option-item flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-3"
                   >
                     <div className="profile-common-option-copy min-w-0 flex-1">
                       <div className="profile-common-option-title-row flex items-center gap-2">
-                        <span className="profile-common-option-title text-sm font-semibold text-[var(--foreground)]">
+                        <span className="profile-common-option-title text-sm font-semibold text-foreground">
                           {label}
                         </span>
                         <FieldHelpButton helperKey={helperKey} />
                       </div>
                       {description ? (
-                        <p className="profile-common-option-description mt-1 text-sm text-[var(--text-secondary)]">
+                        <p className="profile-common-option-description mt-1 text-sm text-muted-foreground">
                           {description}
                         </p>
                       ) : null}

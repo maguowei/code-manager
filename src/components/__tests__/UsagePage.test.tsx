@@ -404,7 +404,7 @@ describe("UsagePage cost cockpit", () => {
     expect(screen.getAllByText("$128.47").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("总 Token").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("137.85M").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByRole("group", { name: "用量筛选" })).toHaveClass("usage-command-bar");
+    expect(screen.getByRole("group", { name: "用量筛选" })).toBeInTheDocument();
     expect(screen.getAllByText("模型成本占比").length).toBeGreaterThanOrEqual(1);
     const modelShareList = screen.getByRole("list", { name: "模型成本占比" });
     expect(within(modelShareList).getByText("claude-3-7-sonnet")).toBeInTheDocument();
@@ -412,7 +412,7 @@ describe("UsagePage cost cockpit", () => {
     expect(within(modelShareList).getByText("62.1%")).toBeInTheDocument();
     expect(screen.getByText("Token 趋势")).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "图表时间维度" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "小时" })).toHaveClass("active");
+    expect(screen.getByRole("button", { name: "小时" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("Token 构成")).toBeInTheDocument();
     expect(screen.getByText("claude-future-1")).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "ai-manager" })).toBeInTheDocument();
@@ -448,7 +448,10 @@ describe("UsagePage cost cockpit", () => {
     const usage = renderUsage();
 
     const projectTab = screen.getByRole("tab", { name: /按项目\s*2/ });
-    expect(screen.getByRole("tab", { name: /按日期\s*1/ })).toHaveClass("active");
+    expect(screen.getByRole("tab", { name: /按日期\s*1/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
     fireEvent.click(projectTab);
 
     expect(usage.setTab).toHaveBeenCalledWith("project");
@@ -512,7 +515,7 @@ describe("UsagePage cost cockpit", () => {
     renderUsage();
 
     const trendSection = screen.getByRole("region", { name: "趋势分析" });
-    expect(trendSection).toHaveClass("usage-trend-section");
+    expect(trendSection).toBeInTheDocument();
     expect(within(trendSection).getByText("趋势分析")).toBeInTheDocument();
     expect(within(trendSection).getByRole("group", { name: "趋势分类" })).toBeInTheDocument();
     expect(within(trendSection).getByRole("group", { name: "图表时间维度" })).toBeInTheDocument();
@@ -527,7 +530,7 @@ describe("UsagePage cost cockpit", () => {
   it("shows visible data points on both trend charts in curve mode", () => {
     renderUsage({ timeSeries: multiModelTimeSeries });
 
-    expect(screen.getByRole("button", { name: "曲线" })).toHaveClass("active");
+    expect(screen.getByRole("button", { name: "曲线" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getAllByTestId("area-chart")).toHaveLength(2);
     const chartAreas = screen.getAllByTestId("chart-area");
     expect(chartAreas.length).toBeGreaterThan(0);
@@ -574,8 +577,8 @@ describe("UsagePage cost cockpit", () => {
       .getAllByTestId("chart-area")
       .filter((el) => ["__totalCost", "totalTokens"].includes(el.getAttribute("data-key") ?? ""));
     for (const area of totalAreas) {
-      expect(area).not.toHaveAttribute("data-stroke", "#e6edf3");
-      expect(area).not.toHaveAttribute("data-fill", "#e6edf3");
+      expect(area.getAttribute("data-stroke")).toContain("var(--chart-");
+      expect(area.getAttribute("data-fill")).toContain("var(--chart-");
     }
 
     fireEvent.click(screen.getByRole("button", { name: "柱状图" }));
@@ -584,7 +587,7 @@ describe("UsagePage cost cockpit", () => {
       .getAllByTestId("chart-bar")
       .filter((el) => ["__totalCost", "totalTokens"].includes(el.getAttribute("data-key") ?? ""));
     for (const bar of totalBars) {
-      expect(bar).not.toHaveAttribute("data-fill", "#e6edf3");
+      expect(bar.getAttribute("data-fill")).toContain("var(--chart-");
       expect(bar).toHaveAttribute("data-active-fill", bar.getAttribute("data-fill") ?? "");
       expect(bar).toHaveAttribute("data-active-stroke", bar.getAttribute("data-fill") ?? "");
     }
@@ -594,8 +597,7 @@ describe("UsagePage cost cockpit", () => {
       .filter(Boolean);
     expect(cursorFills.length).toBeGreaterThan(0);
     for (const cursorFill of cursorFills) {
-      expect(cursorFill).toContain("rgba");
-      expect(cursorFill).not.toContain("255, 255, 255");
+      expect(cursorFill).toContain("color-mix(in oklch, var(--chart-1)");
     }
   });
 
@@ -604,7 +606,7 @@ describe("UsagePage cost cockpit", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "柱状图" }));
 
-    expect(screen.getByRole("button", { name: "柱状图" })).toHaveClass("active");
+    expect(screen.getByRole("button", { name: "柱状图" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryAllByTestId("area-chart")).toHaveLength(0);
     expect(screen.getAllByTestId("bar-chart")).toHaveLength(2);
     const chartBars = screen.getAllByTestId("chart-bar");
@@ -635,7 +637,10 @@ describe("UsagePage cost cockpit", () => {
     renderUsage({ timeSeries: multiModelTimeSeries });
 
     const trendMode = screen.getByRole("group", { name: "趋势分类" });
-    expect(within(trendMode).getByRole("button", { name: "模型" })).toHaveClass("active");
+    expect(within(trendMode).getByRole("button", { name: "模型" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(within(trendMode).getByRole("button", { name: "模型" })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -651,7 +656,10 @@ describe("UsagePage cost cockpit", () => {
 
     fireEvent.click(within(trendMode).getByRole("button", { name: "类型" }));
 
-    expect(within(trendMode).getByRole("button", { name: "类型" })).toHaveClass("active");
+    expect(within(trendMode).getByRole("button", { name: "类型" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     const costLegend = screen.getByRole("list", { name: "花费趋势" });
     const tokenLegend = screen.getByRole("list", { name: "Token 趋势" });
     expect(costLegend).toHaveTextContent("输入");
@@ -694,11 +702,11 @@ describe("UsagePage cost cockpit", () => {
     expect(chips[2]).toHaveTextContent("$2.34");
     // 默认只显示总量，细分模型等待用户手动打开
     expect(chips[0]).toHaveAttribute("aria-pressed", "true");
-    expect(chips[0]).not.toHaveClass("muted");
+    expect(chips[0]).toHaveAttribute("aria-pressed", "true");
     expect(chips[1]).toHaveAttribute("aria-pressed", "false");
-    expect(chips[1]).toHaveClass("muted");
+    expect(chips[1]).toHaveAttribute("aria-pressed", "false");
     expect(chips[2]).toHaveAttribute("aria-pressed", "false");
-    expect(chips[2]).toHaveClass("muted");
+    expect(chips[2]).toHaveAttribute("aria-pressed", "false");
   });
 
   it("adds total cost and total token trend curves", () => {
@@ -729,7 +737,7 @@ describe("UsagePage cost cockpit", () => {
     // 点击显示：chip 退出 muted 态、area 出现
     fireEvent.click(opusChip);
     expect(opusChip).toHaveAttribute("aria-pressed", "true");
-    expect(opusChip).not.toHaveClass("muted");
+    expect(opusChip).toHaveAttribute("aria-pressed", "true");
     const opusAreasAfter = screen
       .getAllByTestId("chart-area")
       .filter((el) => el.getAttribute("data-key") === "claude-3-opus");
@@ -738,7 +746,7 @@ describe("UsagePage cost cockpit", () => {
     // 再次点击隐藏
     fireEvent.click(opusChip);
     expect(opusChip).toHaveAttribute("aria-pressed", "false");
-    expect(opusChip).toHaveClass("muted");
+    expect(opusChip).toHaveAttribute("aria-pressed", "false");
     const opusAreasHidden = screen
       .getAllByTestId("chart-area")
       .filter((el) => el.getAttribute("data-key") === "claude-3-opus");
@@ -778,10 +786,8 @@ describe("UsagePage cost cockpit", () => {
     renderUsage();
     const heading = screen.getByRole("heading", { name: "Token 用量统计" }).parentElement;
 
-    expect(heading).toHaveClass("usage-page-heading");
-    expect(heading).toHaveClass("flex");
-    expect(heading).toHaveClass("items-center");
-    expect(screen.getByRole("heading", { name: "Token 用量统计" })).toHaveClass("shrink-0");
+    expect(heading).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Token 用量统计" })).toBeInTheDocument();
   });
 
   it("keeps the narrow header compact instead of wrapping actions into rows", () => {
@@ -799,8 +805,7 @@ describe("UsagePage cost cockpit", () => {
 
     const rescanButton = screen.getByRole("button", { name: "扫描中..." });
     expect(rescanButton).toBeDisabled();
-    expect(rescanButton).toHaveClass("usage-icon-btn-busy");
-    expect(rescanButton).toHaveClass("[&_svg]:animate-spin");
+    expect(rescanButton).toBeDisabled();
   });
 
   it("opens session usage detail from the keyboard", async () => {

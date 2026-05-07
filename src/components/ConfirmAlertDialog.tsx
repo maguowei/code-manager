@@ -31,24 +31,16 @@ function ConfirmAlertDialog({
 }: ConfirmAlertDialogProps) {
   return (
     <AlertDialog open onOpenChange={(open) => !open && onCancel()}>
-      <AlertDialogContent className="confirm-dialog">
+      <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle className="confirm-dialog__title">{title}</AlertDialogTitle>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription asChild>
-            <div className="confirm-dialog__message">{message}</div>
+            <div>{message}</div>
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter className="confirm-dialog__actions">
-          <AlertDialogCancel className="confirm-dialog__btn confirm-dialog__btn--cancel">
-            {cancelText}
-          </AlertDialogCancel>
-          <AlertDialogAction
-            variant={danger ? "destructive" : "default"}
-            className={`confirm-dialog__btn ${
-              danger ? "confirm-dialog__btn--danger" : "confirm-dialog__btn--confirm"
-            }`}
-            onClick={onConfirm}
-          >
+        <AlertDialogFooter>
+          <AlertDialogCancel>{cancelText}</AlertDialogCancel>
+          <AlertDialogAction variant={danger ? "destructive" : "default"} onClick={onConfirm}>
             {confirmText}
           </AlertDialogAction>
         </AlertDialogFooter>

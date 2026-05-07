@@ -52,18 +52,15 @@ describe("MemoryItem", () => {
     setSystemLanguages(["zh-CN"]);
   });
 
-  it("keeps the preview text in the same content column as the target metadata", () => {
+  it("renders preview text together with the target metadata", () => {
     renderMemoryItem();
 
-    const card = screen.getByText("强制约束规范").closest(".memory-item") as HTMLElement | null;
+    const card = screen.getByRole("button", { name: /强制约束规范/ });
     const preview = screen.getByText("## 核心原则");
-    const metadata = card?.querySelector<HTMLElement>(".memory-target-row") ?? null;
-    const contentColumn = screen
-      .getByText("强制约束规范")
-      .closest(".memory-info") as HTMLElement | null;
+    const metadata = screen.getByText("CLAUDE.md");
 
-    expect(contentColumn).toContainElement(metadata);
-    expect(contentColumn).toContainElement(preview);
+    expect(card).toContainElement(metadata);
+    expect(card).toContainElement(preview);
   });
 
   it("opens the memory editor from the keyboard", () => {
@@ -102,7 +99,7 @@ describe("MemoryItem", () => {
     renderMemoryItem();
 
     expect(screen.getAllByText("CLAUDE.md")).toHaveLength(1);
-    expect(document.querySelector(".memory-target-path")).not.toBeInTheDocument();
+    expect(screen.queryByText("rules/CLAUDE.md")).not.toBeInTheDocument();
   });
 
   it("shows rule paths without the rules directory prefix", () => {
@@ -117,43 +114,32 @@ describe("MemoryItem", () => {
     expect(screen.queryByText("rules/frontend/api.md")).not.toBeInTheDocument();
   });
 
-  it("reveals memory actions on hover or focus within like profile cards", () => {
+  it("exposes memory actions without opening the editor", () => {
     renderMemoryItem();
 
-    const actions = document.querySelector(".memory-actions");
-
-    expect(actions?.className).toContain("max-h-0");
-    expect(actions?.className).toContain("mt-[calc(1rem*-1)]");
-    expect(actions?.className).toContain("group-hover:max-h-12");
-    expect(actions?.className).toContain("group-focus-within:max-h-12");
+    expect(screen.getByRole("switch", { name: "已启用" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "复制" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "删除" })).toBeInTheDocument();
   });
 
-  it("keeps the target type badge at its intrinsic width while the path truncates", () => {
+  it("shows target type and rule path metadata", () => {
     renderMemoryItem({
       ...baseMemory,
       targetType: "rule",
       rulePath: "frontend/deeply/nested/path/style.md",
     });
 
-    const badge = screen.getByText("Rules").closest(".memory-target-badge");
-    const path = screen.getByText("frontend/deeply/nested/path/style.md");
-
-    expect(badge?.className).not.toContain("max-w-");
-    expect(badge).toHaveClass("shrink-0");
-    expect(path).toHaveClass("min-w-0");
-    expect(path).toHaveClass("flex-1");
-    expect(path).toHaveClass("truncate");
+    expect(screen.getByText("Rules")).toBeInTheDocument();
+    expect(screen.getByText("frontend/deeply/nested/path/style.md")).toBeInTheDocument();
   });
 
-  it("moves card controls below the main content when the editor drawer compresses the list", () => {
+  it("keeps card controls available with the main content", () => {
     renderMemoryItem();
 
-    const header = document.querySelector(".memory-header");
-    const headerActions = document.querySelector(".memory-header-actions");
+    const card = screen.getByRole("button", { name: /强制约束规范/ });
 
-    expect(header?.className).toContain("group-[.compressed]/list:grid");
-    expect(header?.className).toContain("group-[.compressed]/list:grid-cols-[auto_minmax(0,1fr)]");
-    expect(headerActions?.className).toContain("group-[.compressed]/list:col-span-full");
-    expect(headerActions?.className).toContain("group-[.compressed]/list:justify-start");
+    expect(card).toContainElement(screen.getByText("强制约束规范"));
+    expect(screen.getByRole("button", { name: "复制" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "删除" })).toBeInTheDocument();
   });
 });

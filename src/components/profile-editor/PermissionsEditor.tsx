@@ -6,6 +6,14 @@ import { useI18n } from "../../i18n";
 import ConfirmAlertDialog from "../ConfirmAlertDialog";
 import { Button } from "../ui/button";
 import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import {
   buildStringListError,
   createRowId,
   PERMISSION_MODE_OPTIONS,
@@ -27,6 +35,7 @@ interface PermissionsEditorProps {
 }
 
 type PermissionRuleListKey = "allow" | "ask" | "deny";
+const UNSET_PERMISSION_MODE_VALUE = "__unset__";
 
 interface PermissionDefaultModeSelectProps {
   value: string;
@@ -67,32 +76,47 @@ export function PermissionDefaultModeSelect({
   const { t } = useI18n();
   const label = t("profileEditor.permissions.defaultModeLabel");
   const modeOptions = getPermissionModeSelectOptions(value);
-  const selectClassName =
-    variant === "header"
-      ? "profile-permissions-header-select w-[min(168px,36vw)] min-w-[132px] max-w-[168px] cursor-pointer rounded-md border border-[var(--border-default)] bg-[var(--card)] px-3 py-2 pr-8 text-sm font-semibold text-[var(--foreground)] outline-none transition-colors hover:border-[var(--text-muted)] focus:border-[var(--primary)] focus:shadow-[0_0_0_3px_var(--accent)] max-[900px]:w-[min(150px,34vw)] max-[900px]:min-w-[120px] max-[900px]:max-w-[150px]"
-      : "form-select";
 
   const select = (
-    <select
-      id={selectId}
-      className={selectClassName}
-      value={value}
-      aria-label={ariaLabel}
-      onChange={(event) => onChange(event.target.value)}
+    <Select
+      value={value || UNSET_PERMISSION_MODE_VALUE}
+      onValueChange={(nextValue) =>
+        onChange(nextValue === UNSET_PERMISSION_MODE_VALUE ? "" : nextValue)
+      }
     >
-      <option value="">{t("profileEditor.permissions.unset")}</option>
-      {modeOptions.map((mode) => (
-        <option key={mode} value={mode}>
-          {mode}
-        </option>
-      ))}
-    </select>
+      <SelectTrigger
+        id={selectId}
+        aria-label={ariaLabel}
+        value={value}
+        data-value={value}
+        onChange={(event) => onChange((event.target as HTMLButtonElement).value)}
+        className={
+          variant === "header"
+            ? "w-[min(168px,36vw)] min-w-[132px] max-w-[168px] bg-card text-sm font-semibold max-[900px]:w-[min(150px,34vw)] max-[900px]:min-w-[120px] max-[900px]:max-w-[150px]"
+            : "w-full"
+        }
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectGroup>
+          <SelectItem value={UNSET_PERMISSION_MODE_VALUE}>
+            {t("profileEditor.permissions.unset")}
+          </SelectItem>
+          {modeOptions.map((mode) => (
+            <SelectItem key={mode} value={mode}>
+              {mode}
+            </SelectItem>
+          ))}
+        </SelectGroup>
+      </SelectContent>
+    </Select>
   );
 
   if (variant === "header") {
     return (
       <div className="profile-permissions-header-field inline-flex min-w-0 items-center gap-2.5 max-[900px]:gap-2">
-        <span className="profile-permissions-header-label shrink-0 whitespace-nowrap text-xs font-semibold text-[var(--text-secondary)]">
+        <span className="profile-permissions-header-label shrink-0 whitespace-nowrap text-xs font-semibold text-muted-foreground">
           {label}
         </span>
         {select}
@@ -101,7 +125,7 @@ export function PermissionDefaultModeSelect({
   }
 
   return (
-    <div className="form-group">
+    <div className="grid gap-2">
       <label htmlFor={selectId}>{label}</label>
       {select}
     </div>
@@ -401,7 +425,7 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
     <div className="profile-section-body">
       <div className="profile-permissions-toolbar mb-1.5 flex items-center justify-between gap-3.5 max-[900px]:flex-col max-[900px]:items-stretch">
         <div className="profile-inline-switch-row profile-inline-switch-row-emphasis flex w-full max-w-[420px] items-center justify-start gap-3.5 self-start max-[900px]:max-w-none max-[900px]:justify-between">
-          <span className="profile-inline-switch-title min-w-0 text-[15px] font-bold leading-snug text-[var(--foreground)]">
+          <span className="profile-inline-switch-title min-w-0 text-[15px] font-bold leading-snug text-foreground">
             {t("profileEditor.permissions.disableBypass")}
           </span>
           <SandboxSwitchControl
@@ -415,7 +439,7 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
         <Button
           type="button"
           variant="outline"
-          className="profile-secondary-btn profile-permissions-recommended-btn"
+          className="profile-permissions-recommended-btn"
           onClick={() => setRecommendedDialogOpen(true)}
         >
           {t("profileEditor.permissions.loadRecommendedRules")}

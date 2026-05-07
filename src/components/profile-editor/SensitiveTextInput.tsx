@@ -39,7 +39,7 @@ function SensitiveTextInput({
         type="button"
         variant="ghost"
         size="icon-sm"
-        className="profile-icon-btn profile-sensitive-input-toggle absolute right-1 text-[var(--text-secondary)]"
+        className="  absolute right-1 text-muted-foreground"
         aria-label={visible ? hideLabel : showLabel}
         title={visible ? hideLabel : showLabel}
         onClick={() => setVisible((current) => !current)}

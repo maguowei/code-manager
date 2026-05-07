@@ -83,13 +83,13 @@ function SystemInfoDialog({ onClose }: SystemInfoDialogProps) {
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         aria-labelledby="system-info-dialog-title"
-        className="flex max-h-[85vh] w-[480px] max-w-[92vw] flex-col gap-4 bg-[var(--bg-elevated)] p-6 sm:max-w-[480px]"
+        className="flex max-h-[85vh] w-[480px] max-w-[92vw] flex-col gap-4 bg-card p-6 sm:max-w-[480px]"
       >
         <DialogHeader>
           <DialogTitle id="system-info-dialog-title">{t("settings.systemInfo")}</DialogTitle>
         </DialogHeader>
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <table className="w-full border-collapse text-[length:var(--font-sm)]">
+          <table className="w-full border-collapse text-xs">
             <tbody>
               {fields.map((f) => {
                 // 同步字段直接显示；异步字段未就绪前显示 loading 占位
@@ -99,17 +99,14 @@ function SystemInfoDialog({ onClose }: SystemInfoDialogProps) {
                   f.value ??
                   (isAsyncField && !asyncResolved ? placeholderLoading : placeholderUnknown);
                 return (
-                  <tr
-                    key={f.label}
-                    className="border-b border-[var(--border-subtle)] last:border-0"
-                  >
+                  <tr key={f.label} className="border-b border-border/60 last:border-0">
                     <th
                       scope="row"
-                      className="w-[40%] whitespace-nowrap py-2 pr-3 text-left font-medium text-[var(--text-secondary)]"
+                      className="w-[40%] whitespace-nowrap py-2 pr-3 text-left font-medium text-muted-foreground"
                     >
                       {f.label}
                     </th>
-                    <td className="break-all py-2 font-mono text-[var(--foreground)]">{display}</td>
+                    <td className="break-all py-2 font-mono text-foreground">{display}</td>
                   </tr>
                 );
               })}

@@ -50,15 +50,16 @@ function MemoryItem({
   return (
     <Card
       className={cn(
-        "memory-item group relative flex cursor-pointer flex-col gap-4 rounded-[var(--radius-xl)] border border-[var(--border-default)] bg-[linear-gradient(180deg,var(--card),var(--secondary))] p-4 text-[var(--foreground)] shadow-none transition-[transform,border-color,box-shadow,background-color,opacity] duration-200 hover:-translate-y-px hover:border-[var(--primary)] hover:shadow-[0_4px_12px_rgb(59_130_246_/_0.15)]",
+        "memory-item group relative flex cursor-pointer flex-col gap-4 rounded-xl border border-border bg-[linear-gradient(180deg,var(--card),var(--secondary))] p-4 text-foreground shadow-none transition-[transform,border-color,box-shadow,background-color,opacity] duration-200 hover:-translate-y-px hover:border-primary hover:shadow-[0_4px_12px_rgb(59_130_246_/_0.15)]",
         memory.isActive &&
           "active border-[var(--primary)] shadow-[0_0_0_1px_var(--primary)_inset,0_0_16px_rgb(59_130_246_/_0.2)]",
         isEditing &&
-          "editing border-[var(--accent-orange)] shadow-[0_0_0_1px_var(--accent-orange)_inset,0_0_18px_rgb(247_129_102_/_0.24)] hover:border-[var(--accent-orange)]",
+          "editing border-chart-3 shadow-[0_0_0_1px_var(--chart-3)_inset,0_0_18px_rgb(247_129_102_/_0.24)] hover:border-chart-3",
       )}
       role="button"
       tabIndex={0}
       aria-label={memory.name}
+      data-slot="memory-item"
       onClick={onEdit}
       onKeyDown={handleCardKeyDown}
     >
@@ -71,7 +72,7 @@ function MemoryItem({
         />
 
         <div className="memory-info flex min-w-0 flex-1 flex-col gap-1.5 pt-px">
-          <h3 className="memory-name truncate text-[length:var(--font-lg)] leading-snug font-semibold text-[var(--foreground)]">
+          <h3 className="memory-name truncate text-base leading-snug font-semibold text-foreground">
             {memory.name}
           </h3>
           <div className="memory-target-row flex min-w-0 items-center gap-2 leading-none">
@@ -79,48 +80,45 @@ function MemoryItem({
               className={cn(
                 "memory-target-badge inline-flex h-[22px] shrink-0 items-center justify-center overflow-hidden rounded-[7px] px-2 text-xs leading-none font-semibold whitespace-nowrap text-ellipsis",
                 memory.targetType === "rule"
-                  ? "memory-target-badge--rule bg-[var(--accent-green-bg)] text-[var(--accent-green)]"
+                  ? "memory-target-badge--rule bg-chart-2/10 text-chart-2"
                   : "memory-target-badge--claude bg-[rgb(59_130_246_/_0.14)] text-[var(--primary)]",
               )}
             >
               {targetLabel}
             </span>
             {targetPath ? (
-              <span className="memory-target-path min-w-0 flex-1 truncate text-xs leading-[22px] text-[var(--text-muted)]">
+              <span className="memory-target-path min-w-0 flex-1 truncate text-xs leading-[22px] text-muted-foreground">
                 {targetPath}
               </span>
             ) : null}
           </div>
           {memory.targetType === "rule" && memory.pathPatterns?.length ? (
-            <p className="memory-path-patterns m-0 text-[length:var(--font-sm)] leading-normal text-[var(--text-muted)] [overflow-wrap:anywhere]">
+            <p className="memory-path-patterns m-0 text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]">
               {t("memory.pathPatternsShort")}: {memory.pathPatterns.join(", ")}
             </p>
           ) : null}
-          <p className="memory-preview m-0 line-clamp-2 text-[length:var(--font-sm)] leading-normal text-[var(--text-secondary)] [overflow-wrap:anywhere]">
+          <p className="memory-preview m-0 line-clamp-2 text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]">
             {preview}
           </p>
         </div>
 
         <div className="memory-header-actions flex shrink-0 flex-wrap items-center justify-end gap-1.5 pt-0.5 group-[.compressed]/list:col-span-full group-[.compressed]/list:w-full group-[.compressed]/list:justify-start group-[.compressed]/list:pt-0">
           {isEditing && (
-            <span className="memory-status editing inline-flex items-center gap-1 rounded-[var(--radius-md)] bg-[var(--accent-orange-bg)] px-2.5 py-1.5 text-[length:var(--font-sm)] font-semibold text-[var(--accent-orange)]">
+            <span className="memory-status editing inline-flex items-center gap-1 rounded-md bg-chart-3/10 px-2.5 py-1.5 text-xs font-semibold text-chart-3">
               {t("memory.editing")}
             </span>
           )}
-          <div className="memory-toggle-control inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[length:var(--font-sm)] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--foreground)]">
+          <div className="memory-toggle-control inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
             <Switch
               size="sm"
               checked={memory.isActive}
               onCheckedChange={onToggle}
               onClick={(event) => event.stopPropagation()}
               aria-label={memory.isActive ? t("memory.enabled") : t("memory.activate")}
-              className="memory-toggle-switch data-[state=checked]:bg-[var(--accent-green)]"
+              className="memory-toggle-switch data-[state=checked]:bg-chart-2"
             />
             <span
-              className={cn(
-                "toggle-label whitespace-nowrap",
-                memory.isActive && "text-[var(--accent-green)]",
-              )}
+              className={cn("toggle-label whitespace-nowrap", memory.isActive && "text-chart-2")}
             >
               {memory.isActive ? t("memory.enabled") : t("memory.activate")}
             </span>
@@ -133,7 +131,7 @@ function MemoryItem({
           type="button"
           variant="ghost"
           size="icon-sm"
-          className="memory-action-btn border border-[var(--border-default)] bg-[var(--bg-tertiary)] text-[var(--foreground)] hover:border-[var(--primary)] hover:text-[var(--primary)]"
+          className="memory-action-btn border border-border bg-muted text-foreground hover:border-primary hover:text-[var(--primary)]"
           onClick={(e) => handleActionClick(e, onDuplicate)}
           aria-label={t("memory.duplicate")}
           title={t("memory.duplicate")}
@@ -144,7 +142,7 @@ function MemoryItem({
           type="button"
           variant="ghost"
           size="icon-sm"
-          className="memory-action-btn delete border border-[var(--border-default)] bg-[var(--bg-tertiary)] text-[var(--foreground)] hover:border-[var(--accent-red)] hover:text-[var(--accent-red)]"
+          className="memory-action-btn delete border border-border bg-muted text-foreground hover:border-destructive hover:text-destructive"
           onClick={(e) => handleActionClick(e, onDelete)}
           aria-label={t("memory.delete")}
           title={t("memory.delete")}

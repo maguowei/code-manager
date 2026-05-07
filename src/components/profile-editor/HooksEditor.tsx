@@ -237,7 +237,7 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
       </div>
 
       {summaries.length === 0 ? (
-        <div className="profile-empty-state flex min-h-[120px] items-center justify-center rounded-lg border border-[var(--border-default)] bg-[var(--card)] px-4 text-center">
+        <div className="profile-empty-state flex min-h-[120px] items-center justify-center rounded-lg border border-border bg-card px-4 text-center">
           {t("profileEditor.hooks.emptyHint")}
         </div>
       ) : (
@@ -245,12 +245,12 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
           {summaries.map((summary) => (
             <Card
               key={summary.event}
-              className="profile-mini-card gap-4 rounded-lg border-[var(--border-default)] bg-[var(--card)] p-4 py-4 shadow-none"
+              className="profile-mini-card gap-4 rounded-lg border-border bg-card p-4 py-4 shadow-none"
             >
               <div className="profile-hook-summary-head flex items-center justify-between gap-3">
                 <strong>{summary.event}</strong>
                 <div className="profile-hook-summary-actions inline-flex items-center gap-2.5">
-                  <span className="profile-hook-summary-meta text-sm text-[var(--text-secondary)]">
+                  <span className="profile-hook-summary-meta text-sm text-muted-foreground">
                     {t("profileEditor.hooks.matcherActionSummary")
                       .replace("{matcherCount}", String(summary.matcherCount))
                       .replace("{actionCount}", String(summary.actionCount))}
@@ -259,7 +259,7 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
                     type="button"
                     variant="ghost"
                     size="icon-sm"
-                    className="profile-icon-btn danger profile-hook-delete-btn text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    className=" danger  text-destructive hover:bg-destructive/10 hover:text-destructive"
                     aria-label={`${t("profileEditor.common.delete")} Hook ${summary.event}`}
                     onClick={() => setPendingDeleteEvent(summary.event)}
                   >
@@ -269,7 +269,7 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
               </div>
 
               {summary.matchers.length === 0 ? (
-                <div className="profile-empty-state flex min-h-[96px] items-center justify-center rounded-lg border border-[var(--border-default)] px-4 text-center">
+                <div className="profile-empty-state flex min-h-[96px] items-center justify-center rounded-lg border border-border px-4 text-center">
                   {t("profileEditor.hooks.cannotSummarize")}
                 </div>
               ) : (
@@ -277,7 +277,7 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
                   {summary.matchers.map((matcherSummary) => (
                     <div
                       key={`${summary.event}-${matcherSummary.summaryKey}`}
-                      className="profile-hook-summary-item flex flex-col gap-3 rounded-lg border border-[color-mix(in_srgb,var(--border-default)_86%,var(--primary)_14%)] bg-[color-mix(in_srgb,var(--card)_96%,var(--primary)_4%)] p-3"
+                      className="profile-hook-summary-item flex flex-col gap-3 rounded-lg border border-[color-mix(in_srgb,var(--border)_86%,var(--primary)_14%)] bg-[color-mix(in_srgb,var(--card)_96%,var(--primary)_4%)] p-3"
                       role="listitem"
                     >
                       <div className="profile-hook-summary-matcher flex flex-wrap items-center gap-2">
@@ -287,7 +287,7 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
                       </div>
 
                       {matcherSummary.actionSummaries.length > 0 ? (
-                        <div className="profile-chip-list flex w-full flex-col items-stretch gap-2">
+                        <div className=" flex w-full flex-col items-stretch gap-2">
                           {matcherSummary.actionSummaries.map((actionSummary) => {
                             const actionKey = [
                               summary.event,
@@ -299,7 +299,7 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
                               ? actionSummary.fullLabel
                               : actionSummary.collapsedLabel;
                             const actionButtonClassName = [
-                              "profile-hook-summary-badge inline-flex min-h-10 w-full max-w-full cursor-pointer items-center rounded-md border border-[var(--border-default)] bg-[color-mix(in_srgb,var(--card)_94%,var(--primary)_6%)] px-3 py-2 text-left font-mono text-xs leading-5 text-[var(--foreground)] transition-colors hover:border-[color-mix(in_srgb,var(--primary)_54%,var(--border-default)_46%)] hover:bg-[color-mix(in_srgb,var(--card)_84%,var(--primary)_16%)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_srgb,var(--primary)_60%,transparent)]",
+                              "profile-hook-summary-badge inline-flex min-h-10 w-full max-w-full cursor-pointer items-center rounded-md border border-border bg-[color-mix(in_srgb,var(--card)_94%,var(--primary)_6%)] px-3 py-2 text-left font-mono text-xs leading-5 text-foreground transition-colors hover:border-[color-mix(in_srgb,var(--primary)_54%,var(--border)_46%)] hover:bg-[color-mix(in_srgb,var(--card)_84%,var(--primary)_16%)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_srgb,var(--primary)_60%,transparent)]",
                               isExpanded
                                 ? "expanded whitespace-pre-wrap [overflow-wrap:anywhere]"
                                 : "",
@@ -311,6 +311,8 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
                             return (
                               <span
                                 key={actionKey}
+                                data-slot="hook-action-summary"
+                                data-preset={actionSummary.isBuiltinPreset ? "true" : "false"}
                                 className={[
                                   "profile-hook-action-summary relative inline-flex w-full max-w-full flex-wrap items-start gap-1.5",
                                   isExpanded ? "expanded" : "",
@@ -330,7 +332,7 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
                                 {actionSummary.isBuiltinPreset ? (
                                   <Badge
                                     variant="outline"
-                                    className="profile-hook-preset-tag absolute top-2 right-2 border-[color-mix(in_srgb,var(--primary)_28%,var(--border-default)_72%)] bg-[color-mix(in_srgb,var(--card)_88%,var(--primary)_12%)] text-[var(--primary)]"
+                                    className="profile-hook-preset-tag absolute top-2 right-2 border-[color-mix(in_srgb,var(--primary)_28%,var(--border)_72%)] bg-[color-mix(in_srgb,var(--card)_88%,var(--primary)_12%)] text-[var(--primary)]"
                                   >
                                     {t("profileEditor.hooks.builtinPresetTag")}
                                   </Badge>
@@ -340,7 +342,7 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
                           })}
                         </div>
                       ) : (
-                        <div className="profile-empty-state flex min-h-[88px] items-center justify-center rounded-lg border border-[var(--border-default)] px-4 text-center">
+                        <div className="profile-empty-state flex min-h-[88px] items-center justify-center rounded-lg border border-border px-4 text-center">
                           {matcherSummary.hasUnsupportedStructure
                             ? t("profileEditor.hooks.matcherCannotSummarize")
                             : t("profileEditor.hooks.matcherNoActions")}
@@ -352,7 +354,7 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
               )}
 
               {summary.hasUnsupportedStructure && summary.matchers.length > 0 ? (
-                <p className="form-hint">{t("profileEditor.hooks.partialSummarize")}</p>
+                <p className="">{t("profileEditor.hooks.partialSummarize")}</p>
               ) : null}
             </Card>
           ))}

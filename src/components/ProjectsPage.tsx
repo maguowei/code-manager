@@ -124,7 +124,7 @@ function ProjectContextMenu({ context, menuRef, onClearLocalData, t }: ProjectCo
   return (
     <div
       ref={menuRef}
-      className="projects-context-menu z-[var(--z-index-dropdown)] box-border flex min-w-[156px] flex-col gap-0.5 whitespace-nowrap rounded-md border bg-popover p-1 text-popover-foreground shadow-lg"
+      className="projects-context-menu z-50 box-border flex min-w-[156px] flex-col gap-0.5 whitespace-nowrap rounded-md border bg-popover p-1 text-popover-foreground shadow-lg"
       role="menu"
       aria-label={t("projects.contextMenuLabel")}
       style={projectContextMenuStyleForPoint(context.x, context.y)}
@@ -727,6 +727,7 @@ function ProjectsPage() {
                 )}
                 onClick={() => setSelectedProject(summary.project)}
                 onContextMenu={(event) => handleProjectContextMenu(event, summary)}
+                aria-pressed={selectedProject === summary.project}
                 title={summary.project}
               >
                 <div className="projects-list-main flex min-w-0 flex-col gap-1">

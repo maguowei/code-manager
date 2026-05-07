@@ -74,8 +74,8 @@ function StringListEditor({
   }
 
   return (
-    <div className="profile-subsection">
-      <div className="profile-subsection-header">
+    <div className="profile-subsection" data-slot="profile-subsection">
+      <div className="profile-subsection-header" data-slot="profile-subsection-header">
         {collapseToggleVisible ? (
           <button
             type="button"
@@ -118,7 +118,10 @@ function StringListEditor({
       {bodyVisible ? (
         <div className="profile-string-list-body flex flex-col gap-3">
           {rows.length === 0 ? (
-            <div className="profile-empty-state flex min-h-[96px] items-center justify-center rounded-lg border border-[var(--border-default)] px-4 text-center">
+            <div
+              className="profile-empty-state flex min-h-[96px] items-center justify-center rounded-lg border border-border px-4 text-center"
+              data-slot="profile-empty-state"
+            >
               {emptyHint ?? t("profileEditor.common.emptyDefault")}
             </div>
           ) : (
@@ -129,7 +132,7 @@ function StringListEditor({
                     type="button"
                     variant="ghost"
                     size="xs"
-                    className="profile-string-list-clear-btn h-auto px-1.5 py-0.5 text-xs text-[var(--text-muted)] hover:bg-[var(--secondary)] hover:text-[var(--text-secondary)]"
+                    className="profile-string-list-clear-btn h-auto px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-secondary hover:text-muted-foreground"
                     onClick={onClear}
                   >
                     {clearLabel}
@@ -170,7 +173,7 @@ function StringListEditor({
                             type="button"
                             variant="ghost"
                             size="icon-sm"
-                            className="profile-icon-btn profile-string-list-row-action-btn text-[var(--primary)] hover:bg-[var(--accent)] hover:text-[var(--primary)]"
+                            className="  text-[var(--primary)] hover:bg-[var(--accent)] hover:text-[var(--primary)]"
                             aria-label={buildRowActionLabel(itemLabel)}
                             title={rowActionLabel}
                             onClick={() => onRowAction(row, index)}
@@ -182,7 +185,7 @@ function StringListEditor({
                           type="button"
                           variant="ghost"
                           size="icon-sm"
-                          className="profile-icon-btn danger text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          className=" danger text-destructive hover:bg-destructive/10 hover:text-destructive"
                           aria-label={`${t("profileEditor.common.remove")} ${itemLabel}`}
                           onClick={() =>
                             onChange(rows.filter((candidate) => candidate.id !== row.id))
@@ -199,12 +202,7 @@ function StringListEditor({
           )}
 
           <div className="profile-subsection-actions profile-string-list-footer flex flex-wrap items-center justify-start gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              className="profile-secondary-btn"
-              onClick={onAdd}
-            >
+            <Button type="button" variant="outline" className="" onClick={onAdd}>
               <Plus className="size-4" aria-hidden="true" />
               {addLabel}
             </Button>

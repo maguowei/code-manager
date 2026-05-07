@@ -1,7 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
+import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useI18n } from "../../i18n";
+import { cn } from "../../lib/utils";
 import { isTauri, type SessionUsageDetail } from "../../types";
+import { Button } from "../ui/button";
 import { Sheet, SheetContent } from "../ui/sheet";
 import {
   formatCost,
@@ -43,50 +46,50 @@ function SessionUsageDrawer({ sessionId, onClose }: Props) {
         side="right"
         showCloseButton={false}
         aria-labelledby="session-usage-detail-title"
-        className="left-[var(--sidebar-width)] w-auto min-w-0 gap-0 border-l-0 bg-[var(--bg-elevated)] p-0 sm:max-w-none max-[700px]:left-[var(--sidebar-width-small)]"
+        className="left-[60px] flex w-auto min-w-0 flex-col gap-0 border-l-0 bg-card p-0 sm:max-w-none max-[700px]:left-[48px]"
       >
-        <div className="editor-header">
-          <button
+        <div className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-6">
+          <Button
             type="button"
-            className="editor-back-btn"
+            variant="ghost"
+            size="icon-sm"
             onClick={onClose}
             title={t("common.close")}
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              aria-hidden="true"
-            >
-              <path d="M12 4L4 12M4 4l8 8" />
-            </svg>
-          </button>
+            <X className="size-4" aria-hidden="true" />
+          </Button>
           <h2 id="session-usage-detail-title" className="min-w-0 truncate">
             {t("usage.detail.title")} - {shortSessionId(sessionId)}
           </h2>
         </div>
 
-        <div className="session-usage-body">
+        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 py-6">
           {loading ? (
-            <div className="session-usage-empty">{t("loading")}</div>
+            <div className="flex min-h-[120px] items-center justify-center rounded-lg border border-border px-4 text-center text-muted-foreground">
+              {t("loading")}
+            </div>
           ) : error ? (
-            <div className="session-usage-empty session-usage-error">{error}</div>
+            <div className="flex min-h-[120px] items-center justify-center rounded-lg border border-destructive/30 px-4 text-center text-destructive">
+              {error}
+            </div>
           ) : detail ? (
             <>
-              <div className="session-usage-header">
-                <div className="session-usage-title-block">
-                  <span className="session-usage-session-id" title={sessionId}>
+              <div className="flex flex-col gap-4">
+                <div className="flex min-w-0 flex-col gap-1">
+                  <span
+                    className="min-w-0 truncate font-mono text-sm font-semibold text-foreground"
+                    title={sessionId}
+                  >
                     {sessionId}
                   </span>
-                  <span className="session-usage-project" title={detail.session.projectPath}>
+                  <span
+                    className="min-w-0 truncate text-sm text-muted-foreground"
+                    title={detail.session.projectPath}
+                  >
                     {projectDisplayName(detail.session.projectDir, detail.session.projectPath)}
                   </span>
                 </div>
-                <div className="session-usage-summary-grid">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   <SummaryItem
                     label={t("usage.cards.totalCost")}
                     value={formatCost(detail.session.cost)}
@@ -122,33 +125,50 @@ function SessionUsageDrawer({ sessionId, onClose }: Props) {
               </div>
 
               {detail.messages.length === 0 ? (
-                <div className="session-usage-empty">{t("usage.detail.empty")}</div>
+                <div className="flex min-h-[120px] items-center justify-center rounded-lg border border-border px-4 text-center text-muted-foreground">
+                  {t("usage.detail.empty")}
+                </div>
               ) : (
-                <div className="session-usage-table-wrap">
-                  <table className="session-usage-table">
+                <div className="overflow-x-auto rounded-lg border border-border">
+                  <table className="w-full min-w-[760px] border-collapse text-sm">
                     <thead>
-                      <tr>
-                        <th>{t("usage.detail.timestamp")}</th>
-                        <th>{t("usage.detail.model")}</th>
-                        <th className="num">{t("usage.table.input")}</th>
-                        <th className="num">{t("usage.table.output")}</th>
-                        <th className="num">{t("usage.table.cacheCreate")}</th>
-                        <th className="num">{t("usage.table.cacheRead")}</th>
-                        <th className="num">{t("usage.detail.cost")}</th>
+                      <tr className="border-b border-border bg-secondary text-left text-xs font-semibold text-muted-foreground">
+                        <th className="px-3 py-2">{t("usage.detail.timestamp")}</th>
+                        <th className="px-3 py-2">{t("usage.detail.model")}</th>
+                        <th className="px-3 py-2 text-right">{t("usage.table.input")}</th>
+                        <th className="px-3 py-2 text-right">{t("usage.table.output")}</th>
+                        <th className="px-3 py-2 text-right">{t("usage.table.cacheCreate")}</th>
+                        <th className="px-3 py-2 text-right">{t("usage.table.cacheRead")}</th>
+                        <th className="px-3 py-2 text-right">{t("usage.detail.cost")}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {detail.messages.map((m) => (
-                        <tr key={m.messageId || `${m.sessionId}-${m.timestampMs}`}>
-                          <td>{formatShortDateTime(m.timestampMs)}</td>
-                          <td className="model-cell">{m.model}</td>
-                          <td className="num">{formatTokens(m.inputTokens)}</td>
-                          <td className="num">{formatTokens(m.outputTokens)}</td>
-                          <td className="num">
+                        <tr
+                          key={m.messageId || `${m.sessionId}-${m.timestampMs}`}
+                          className="border-b border-border/70 last:border-0"
+                        >
+                          <td className="px-3 py-2 text-muted-foreground">
+                            {formatShortDateTime(m.timestampMs)}
+                          </td>
+                          <td className="max-w-[220px] truncate px-3 py-2 font-mono text-xs">
+                            {m.model}
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums">
+                            {formatTokens(m.inputTokens)}
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums">
+                            {formatTokens(m.outputTokens)}
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums">
                             {formatTokens(m.cacheCreation5m + m.cacheCreation1h)}
                           </td>
-                          <td className="num">{formatTokens(m.cacheRead)}</td>
-                          <td className="num">{formatCost(m.costUsd)}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">
+                            {formatTokens(m.cacheRead)}
+                          </td>
+                          <td className="px-3 py-2 text-right font-semibold tabular-nums">
+                            {formatCost(m.costUsd)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -175,9 +195,20 @@ function SummaryItem({
   wide?: boolean;
 }) {
   return (
-    <div className={`session-usage-summary-item ${wide ? "wide" : ""}`}>
-      <span className="label">{label}</span>
-      <span className={`value ${accent ? "accent-green" : ""}`} title={value}>
+    <div
+      className={cn(
+        "grid gap-1 rounded-lg border border-border bg-card p-3",
+        wide && "sm:col-span-2 xl:col-span-3",
+      )}
+    >
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <span
+        className={cn(
+          "min-w-0 truncate text-base font-semibold text-foreground",
+          accent && "text-chart-2",
+        )}
+        title={value}
+      >
         {value}
       </span>
     </div>

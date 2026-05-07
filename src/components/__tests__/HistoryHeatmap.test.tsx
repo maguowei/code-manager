@@ -31,10 +31,10 @@ describe("getResponsiveHeatmapWeeks", () => {
 
 describe("HistoryHeatmap", () => {
   it("keeps the less-to-more legend inside the heatmap frame", () => {
-    const { container } = renderHeatmap();
+    renderHeatmap();
 
-    const frame = container.querySelector<HTMLElement>(".heatmap-frame");
-    const legend = screen.getByText("少").closest<HTMLElement>(".heatmap-legend");
+    const legend = screen.getByText("少").closest<HTMLElement>('[data-slot="heatmap-legend"]');
+    const frame = legend?.closest<HTMLElement>('[data-slot="heatmap-frame"]');
 
     expect(frame).toContainElement(legend);
   });

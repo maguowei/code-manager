@@ -159,7 +159,7 @@ describe("ProjectsPage purge context menu", () => {
     fireEvent.contextMenu(bravoButton, { clientX: 120, clientY: 160 });
 
     await waitFor(() => {
-      expect(bravoButton).toHaveClass("selected");
+      expect(bravoButton).toHaveAttribute("aria-pressed", "true");
     });
     const menu = screen.getByRole("menu");
     expect(within(menu).getByRole("menuitem", { name: "清除本地数据" })).toBeInTheDocument();

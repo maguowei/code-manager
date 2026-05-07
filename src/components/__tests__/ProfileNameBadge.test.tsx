@@ -7,8 +7,9 @@ describe("ProfileNameBadge", () => {
   it("maps badge color seeds across twelve friendly color slots", () => {
     render(<ProfileNameBadge name="Alpha" colorSeedScope="anthropic" />);
 
-    expect(screen.getByText("A").closest(".profile-name-badge")).toHaveClass(
-      "profile-name-badge--color-11",
+    expect(screen.getByText("A").closest("[data-slot='profile-name-badge']")).toHaveAttribute(
+      "data-color-index",
+      "11",
     );
   });
 
@@ -16,6 +17,6 @@ describe("ProfileNameBadge", () => {
     const source = readFileSync(`${process.cwd()}/src/components/ProfileNameBadge.tsx`, "utf8");
 
     expect(source).toContain("const BADGE_COLOR_COUNT = 12");
-    expect(source.match(/background: "linear-gradient/g)).toHaveLength(12);
+    expect(source.match(/background:\s*"linear-gradient/g) ?? []).toHaveLength(12);
   });
 });

@@ -92,17 +92,14 @@ describe("SkillItem", () => {
     expect(screen.queryByRole("button", { name: "编辑 Skill" })).not.toBeInTheDocument();
   });
 
-  it("does not dim inactive skills and reveals actions on hover or focus within", () => {
+  it("keeps inactive skills interactive and exposes card actions", () => {
     renderSkillItem();
 
     const card = screen.getByRole("button", { name: /Code Review/ });
-    const actions = document.querySelector(".skill-actions");
 
-    expect(card.className).toContain("inactive");
-    expect(card.className).not.toContain("opacity-");
-    expect(actions?.className).toContain("max-h-0");
-    expect(actions?.className).toContain("mt-[calc(1rem*-1)]");
-    expect(actions?.className).toContain("group-hover:max-h-12");
-    expect(actions?.className).toContain("group-focus-within:max-h-12");
+    expect(card).toHaveTextContent("已禁用");
+    expect(screen.getByRole("switch", { name: "已禁用" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "同步到 ~/.codex/skills" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "删除" })).toBeInTheDocument();
   });
 });

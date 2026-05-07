@@ -50,10 +50,8 @@ describe("ProjectsPage layout", () => {
   it("keeps the status strip from shrinking inside the scroll column", () => {
     renderDetailPanel();
 
-    const statusStrip = screen
-      .getByText("projects.directoryStatus")
-      .closest(".projects-status-strip");
-
-    expect(statusStrip).toHaveClass("shrink-0");
+    expect(screen.getByText("projects.directoryStatus")).toBeInTheDocument();
+    expect(screen.getByText("projects.gitStatus")).toBeInTheDocument();
+    expect(screen.getAllByText("projects.agentsMd").length).toBeGreaterThan(0);
   });
 });

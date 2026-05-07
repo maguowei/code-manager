@@ -60,27 +60,24 @@ describe("StringListEditor", () => {
 
     const subsection = screen
       .getByRole("heading", { name: "允许规则" })
-      .closest(".profile-subsection") as HTMLElement | null;
+      .closest('[data-slot="profile-subsection"]') as HTMLElement | null;
     expect(subsection).not.toBeNull();
     if (!subsection) {
       return;
     }
 
-    const emptyState = subsection.querySelector(".profile-empty-state") as HTMLElement | null;
+    const emptyState = within(subsection).getByText("当前没有允许规则。");
     const addButton = within(subsection).getByRole("button", { name: "新增允许规则" });
 
-    expect(emptyState).not.toBeNull();
     expect(
       within(subsection).queryByRole("button", { name: "收起 允许规则" }),
     ).not.toBeInTheDocument();
     expect(
       within(subsection).queryByRole("button", { name: "展开 允许规则" }),
     ).not.toBeInTheDocument();
-    if (emptyState) {
-      expect(emptyState.compareDocumentPosition(addButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
-        Node.DOCUMENT_POSITION_FOLLOWING,
-      );
-    }
+    expect(emptyState.compareDocumentPosition(addButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
   });
 
   it("shows populated lists expanded by default and supports collapsing", () => {
@@ -88,7 +85,7 @@ describe("StringListEditor", () => {
 
     const subsection = screen
       .getByRole("heading", { name: "允许规则" })
-      .closest(".profile-subsection") as HTMLElement | null;
+      .closest('[data-slot="profile-subsection"]') as HTMLElement | null;
     expect(subsection).not.toBeNull();
     if (!subsection) {
       return;
@@ -97,11 +94,8 @@ describe("StringListEditor", () => {
     const collapseButton = within(subsection).getByRole("button", { name: "收起 允许规则" });
     const input = within(subsection).getByLabelText("允许规则 1");
     const addButton = within(subsection).getByRole("button", { name: "新增允许规则" });
-    const expandedChevron = collapseButton.querySelector("svg");
 
     expect(collapseButton).toHaveAttribute("aria-expanded", "true");
-    expect(expandedChevron).toHaveClass("profile-string-list-chevron", "expanded");
-    expect(expandedChevron).not.toHaveClass("profile-accordion-chevron");
     expect(input.compareDocumentPosition(addButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
@@ -109,10 +103,7 @@ describe("StringListEditor", () => {
     fireEvent.click(collapseButton);
 
     const expandButton = within(subsection).getByRole("button", { name: "展开 允许规则" });
-    const collapsedChevron = expandButton.querySelector("svg");
     expect(expandButton).toHaveAttribute("aria-expanded", "false");
-    expect(collapsedChevron).toHaveClass("profile-string-list-chevron");
-    expect(collapsedChevron).not.toHaveClass("expanded");
     expect(within(subsection).queryByLabelText("允许规则 1")).not.toBeInTheDocument();
     expect(
       within(subsection).queryByRole("button", { name: "新增允许规则" }),
@@ -135,7 +126,6 @@ describe("StringListEditor", () => {
       return;
     }
 
-    expect(titleTrigger).not.toHaveClass("profile-accordion-trigger-large-target");
     expect(titleTrigger).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByLabelText("允许规则 1")).toBeInTheDocument();
 
@@ -157,35 +147,16 @@ describe("StringListEditor", () => {
 
     const subsection = screen
       .getByRole("heading", { name: "允许规则" })
-      .closest(".profile-subsection") as HTMLElement | null;
+      .closest('[data-slot="profile-subsection"]') as HTMLElement | null;
     expect(subsection).not.toBeNull();
     if (!subsection) {
       return;
     }
 
     const input = within(subsection).getByLabelText("允许规则 1");
-    const headerClearButton = subsection.querySelector(
-      ".profile-subsection-header .profile-string-list-clear-btn",
-    );
-    const prelude = subsection.querySelector(".profile-string-list-prelude") as HTMLElement | null;
-    const footerClearButton = subsection.querySelector(
-      ".profile-string-list-footer .profile-string-list-clear-btn",
-    );
-    const rowStack = subsection.querySelector(".profile-row-stack") as HTMLElement | null;
-
-    expect(headerClearButton).toBeNull();
-    expect(footerClearButton).toBeNull();
-    expect(prelude).not.toBeNull();
-    expect(rowStack).not.toBeNull();
-    if (!prelude || !rowStack) {
-      return;
-    }
-
-    const clearButton = within(prelude).getByRole("button", { name: "清空允许规则" });
-    expect(clearButton).toHaveClass("profile-string-list-clear-btn");
-    expect(clearButton.compareDocumentPosition(rowStack) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
+    const clearButtons = within(subsection).getAllByRole("button", { name: "清空允许规则" });
+    expect(clearButtons).toHaveLength(1);
+    const clearButton = clearButtons[0];
     expect(clearButton.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
@@ -201,7 +172,7 @@ describe("StringListEditor", () => {
 
     const subsection = screen
       .getByRole("heading", { name: "允许规则" })
-      .closest(".profile-subsection") as HTMLElement | null;
+      .closest('[data-slot="profile-subsection"]') as HTMLElement | null;
     expect(subsection).not.toBeNull();
     if (!subsection) {
       return;

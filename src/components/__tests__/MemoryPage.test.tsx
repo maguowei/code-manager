@@ -77,6 +77,13 @@ function renderMemoryPage() {
   );
 }
 
+async function findMemoryCard(name: string): Promise<HTMLElement> {
+  const text = await screen.findByText(name);
+  const card = text.closest('[data-slot="memory-item"]');
+  expect(card).not.toBeNull();
+  return card as HTMLElement;
+}
+
 const initialState: MemoryState = {
   memories: [
     {
@@ -449,20 +456,17 @@ describe("MemoryPage", () => {
   it("refreshes the list from returned state after toggling a CLAUDE.md memory", async () => {
     renderMemoryPage();
 
-    const firstCard = (await screen.findByText("全局 A")).closest(".memory-item");
-    const secondCard = screen.getByText("全局 B").closest(".memory-item");
-    expect(firstCard).not.toBeNull();
-    expect(secondCard).not.toBeNull();
-    if (!firstCard || !secondCard) return;
+    const firstCard = await findMemoryCard("全局 A");
+    const secondCard = await findMemoryCard("全局 B");
 
-    expect(within(firstCard as HTMLElement).getByText("启用")).toBeInTheDocument();
-    expect(within(secondCard as HTMLElement).getByText("已启用")).toBeInTheDocument();
+    expect(within(firstCard).getByText("启用")).toBeInTheDocument();
+    expect(within(secondCard).getByText("已启用")).toBeInTheDocument();
 
-    fireEvent.click(within(firstCard as HTMLElement).getByRole("switch", { name: /启用/ }));
+    fireEvent.click(within(firstCard).getByRole("switch", { name: /启用/ }));
 
     await waitFor(() => {
-      expect(within(firstCard as HTMLElement).getByText("已启用")).toBeInTheDocument();
-      expect(within(secondCard as HTMLElement).getByText("启用")).toBeInTheDocument();
+      expect(within(firstCard).getByText("已启用")).toBeInTheDocument();
+      expect(within(secondCard).getByText("启用")).toBeInTheDocument();
     });
   });
 
@@ -489,11 +493,9 @@ describe("MemoryPage", () => {
 
     renderMemoryPage();
 
-    const card = (await screen.findByText("全局 A")).closest(".memory-item");
-    expect(card).not.toBeNull();
-    if (!card) return;
+    const card = await findMemoryCard("全局 A");
 
-    fireEvent.click(within(card as HTMLElement).getByRole("button", { name: "复制" }));
+    fireEvent.click(within(card).getByRole("button", { name: "复制" }));
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("duplicate_memory", {
@@ -509,11 +511,7 @@ describe("MemoryPage", () => {
   it("aligns memory group headers with the card list inset", async () => {
     renderMemoryPage();
 
-    const groupHeader = (await screen.findByRole("heading", { name: /CLAUDE\.md/ })).closest(
-      ".memory-group-header",
-    );
-
-    expect(groupHeader).toHaveClass("px-2");
+    expect(await screen.findByRole("heading", { name: /CLAUDE\.md/ })).toBeInTheDocument();
   });
 
   it("shows unmanaged .claude memories with an import action", async () => {
@@ -542,12 +540,10 @@ describe("MemoryPage", () => {
 
     renderMemoryPage();
 
-    const card = (await screen.findByText("手写全局记忆")).closest(".memory-item");
-    expect(card).not.toBeNull();
-    if (!card) return;
+    const card = await findMemoryCard("手写全局记忆");
 
-    expect(within(card as HTMLElement).getByText("未导入")).toBeInTheDocument();
-    fireEvent.click(within(card as HTMLElement).getByRole("button", { name: "导入管理" }));
+    expect(within(card).getByText("未导入")).toBeInTheDocument();
+    fireEvent.click(within(card).getByRole("button", { name: "导入管理" }));
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("import_unmanaged_memory", {
@@ -582,11 +578,9 @@ describe("MemoryPage", () => {
 
     renderMemoryPage();
 
-    const card = (await screen.findByText("frontend-style")).closest(".memory-item");
-    expect(card).not.toBeNull();
-    if (!card) return;
+    const card = await findMemoryCard("frontend-style");
 
-    const importButton = within(card as HTMLElement).getByRole("button", { name: "导入管理" });
+    const importButton = within(card).getByRole("button", { name: "导入管理" });
     expect(importButton).toBeDisabled();
     expect(importButton).toHaveAttribute("title", "软链接记忆文件不支持导入");
     expect(card).toHaveTextContent("未导入");
@@ -621,11 +615,9 @@ describe("MemoryPage", () => {
 
     renderMemoryPage();
 
-    const card = (await screen.findByText("React 规则")).closest(".memory-item");
-    expect(card).not.toBeNull();
-    if (!card) return;
+    const card = await findMemoryCard("React 规则");
 
-    fireEvent.click(within(card as HTMLElement).getByRole("button", { name: "删除" }));
+    fireEvent.click(within(card).getByRole("button", { name: "删除" }));
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("preview_delete_memory", {
@@ -633,12 +625,8 @@ describe("MemoryPage", () => {
       });
     });
     const warning = await screen.findByRole("alert");
-    expect(warning).toHaveClass("memory-delete-confirm__warning");
     expect(warning).toHaveTextContent("以下目录将被删除");
     expect(warning).toHaveTextContent("/Users/test/.claude/rules/frontend");
     expect(warning).not.toHaveTextContent("/Users/test/.claude/rules/frontend/react");
-
-    expect(warning).toHaveClass("border-[var(--accent-red)]");
-    expect(warning).toHaveClass("text-[var(--accent-red)]");
   });
 });

@@ -268,10 +268,8 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     return (
       <section className="memory-group mt-5 flex flex-col gap-3 first-of-type:mt-0">
         <div className="memory-group-header flex min-w-0 flex-col gap-1 px-2">
-          <h2 className="m-0 text-[length:var(--font-lg)] leading-snug font-bold text-[var(--foreground)]">
-            {title}
-          </h2>
-          <p className="m-0 text-[length:var(--font-sm)] leading-normal text-[var(--text-muted)] [overflow-wrap:anywhere]">
+          <h2 className="m-0 text-base leading-snug font-bold text-foreground">{title}</h2>
+          <p className="m-0 text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]">
             {description}
           </p>
         </div>
@@ -297,10 +295,10 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     return (
       <section className="memory-group memory-group-unmanaged mt-5 flex flex-col gap-3 first-of-type:mt-0">
         <div className="memory-group-header flex min-w-0 flex-col gap-1 px-2">
-          <h2 className="m-0 text-[length:var(--font-lg)] leading-snug font-bold text-[var(--foreground)]">
+          <h2 className="m-0 text-base leading-snug font-bold text-foreground">
             {t("memory.group.unmanaged")}
           </h2>
-          <p className="m-0 text-[length:var(--font-sm)] leading-normal text-[var(--text-muted)] [overflow-wrap:anywhere]">
+          <p className="m-0 text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]">
             {t("memory.group.unmanagedDescription")}
           </p>
         </div>
@@ -327,7 +325,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
             type="button"
             variant="outline"
             size="sm"
-            className="memory-docs-link border-[var(--border-default)] bg-transparent px-2.5 text-[length:var(--font-sm)] font-semibold text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:bg-[var(--bg-hover)] hover:text-[var(--foreground)]"
+            className="memory-docs-link border-border bg-transparent px-2.5 text-xs font-semibold text-muted-foreground hover:border-primary hover:bg-accent hover:text-foreground"
             aria-label={t("memory.openDocsAriaLabel")}
             title={t("memory.openDocsAriaLabel")}
             onClick={handleOpenDocs}
@@ -339,7 +337,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
             type="button"
             variant="outline"
             size="sm"
-            className="memory-import-directory-btn border-[var(--border-default)] bg-transparent px-2.5 text-[length:var(--font-sm)] font-semibold text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:bg-[var(--bg-hover)] hover:text-[var(--foreground)]"
+            className="memory-import-directory-btn border-border bg-transparent px-2.5 text-xs font-semibold text-muted-foreground hover:border-primary hover:bg-accent hover:text-foreground"
             aria-label={
               isImportingDirectory ? t("memory.importingDirectory") : t("memory.importDirectory")
             }
@@ -361,7 +359,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
             type="button"
             variant="outline"
             size="sm"
-            className="memory-refresh-btn border-[var(--border-default)] bg-transparent px-2.5 text-[length:var(--font-sm)] font-semibold text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:bg-[var(--bg-hover)] hover:text-[var(--foreground)]"
+            className="memory-refresh-btn border-border bg-transparent px-2.5 text-xs font-semibold text-muted-foreground hover:border-primary hover:bg-accent hover:text-foreground"
             aria-label={isRefreshing ? t("memory.refreshing") : t("memory.refresh")}
             aria-busy={isRefreshing}
             title={isRefreshing ? t("memory.refreshing") : t("memory.refresh")}
@@ -377,7 +375,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       {/* 添加按钮 */}
       <Button
         type="button"
-        className="add-config-btn gap-1.5 bg-[linear-gradient(135deg,var(--primary),var(--primary))] font-semibold text-white shadow-[var(--shadow-sm),var(--shadow-blue-sm)] hover:-translate-y-px hover:shadow-[var(--shadow-md),var(--shadow-blue-md)]"
+        className="add-config-btn gap-1.5 bg-[linear-gradient(135deg,var(--primary),var(--primary))] font-semibold text-white shadow-sm hover:-translate-y-px hover:shadow-md"
         onClick={openAddModal}
       >
         <Plus className="size-[18px]" aria-hidden="true" />
@@ -418,7 +416,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
               <p className="m-0">{t("confirm.deleteMemoryMessage")}</p>
               {pendingDelete.cleanupDirs.length > 0 && (
                 <div
-                  className="memory-delete-confirm__warning rounded-[var(--radius-md)] border border-[var(--accent-red)] bg-[var(--accent-red-bg)] p-3 text-[var(--accent-red)]"
+                  className="memory-delete-confirm__warning rounded-md border border-destructive bg-destructive/10 p-3 text-destructive"
                   role="alert"
                 >
                   <div className="memory-delete-confirm__warning-title mb-2 font-bold">
@@ -427,7 +425,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
                   <ul className="memory-delete-confirm__dir-list m-0 flex flex-col gap-1 pl-4">
                     {pendingDelete.cleanupDirs.map((dir) => (
                       <li key={dir}>
-                        <code className="memory-delete-confirm__dir font-mono text-[length:var(--font-sm)] [overflow-wrap:anywhere]">
+                        <code className="memory-delete-confirm__dir font-mono text-xs [overflow-wrap:anywhere]">
                           {dir}
                         </code>
                       </li>
@@ -454,7 +452,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
           <SheetContent
             side="right"
             showCloseButton={false}
-            className="left-[calc(var(--sidebar-width)+280px)] w-auto border-l-0 bg-[var(--bg-elevated)] p-0 shadow-[-4px_0_24px_rgb(0_0_0_/_0.2)] sm:max-w-none max-[1000px]:left-[var(--sidebar-width)] max-[700px]:left-[var(--sidebar-width-small)]"
+            className="left-[340px] w-auto border-l-0 bg-card p-0 shadow-[-4px_0_24px_rgb(0_0_0_/_0.2)] sm:max-w-none max-[1000px]:left-[60px] max-[700px]:left-[48px]"
           >
             <MemoryEditor
               memory={editingMemory}

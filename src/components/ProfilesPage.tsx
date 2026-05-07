@@ -194,15 +194,15 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
   function profileEffortLevelClass(effort: string) {
     switch (effort) {
       case "low":
-        return "profile-summary-effort-level--low text-[var(--accent-green)]";
+        return "profile-summary-effort-level--low text-chart-2";
       case "medium":
         return "profile-summary-effort-level--medium text-[var(--primary)]";
       case "high":
-        return "profile-summary-effort-level--high text-[var(--accent-purple)]";
+        return "profile-summary-effort-level--high text-chart-4";
       case "xhigh":
-        return "profile-summary-effort-level--xhigh text-[var(--accent-orange)]";
+        return "profile-summary-effort-level--xhigh text-chart-3";
       case "max":
-        return "profile-summary-effort-level--max text-[var(--accent-red)]";
+        return "profile-summary-effort-level--max text-destructive";
       default:
         return "";
     }
@@ -222,11 +222,11 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
       case "plan":
         return "profile-summary-permission-mode--plan text-[var(--primary)]";
       case "acceptEdits":
-        return "profile-summary-permission-mode--accept-edits text-[var(--accent-purple)]";
+        return "profile-summary-permission-mode--accept-edits text-chart-4";
       case "dontAsk":
-        return "profile-summary-permission-mode--dont-ask text-[var(--accent-orange)]";
+        return "profile-summary-permission-mode--dont-ask text-chart-3";
       case "bypassPermissions":
-        return "profile-summary-permission-mode--bypass-permissions text-[var(--accent-red)]";
+        return "profile-summary-permission-mode--bypass-permissions text-destructive";
       default:
         return "";
     }
@@ -559,7 +559,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
     if (state.status === "running") {
       return (
         <span
-          className="profile-test-result-badge running inline-flex min-h-[18px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-[calc(var(--radius) - 4px)] border border-[var(--border-default)] bg-[var(--bg-tertiary)] px-[5px] py-px text-[11px] leading-[1.15] font-bold text-[var(--text-secondary)]"
+          className="profile-test-result-badge running inline-flex min-h-[18px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-sm border border-border bg-muted px-[5px] py-px text-[11px] leading-[1.15] font-bold text-muted-foreground"
           title={t("profiles.testAll.running")}
         >
           <span
@@ -578,9 +578,9 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
       <button
         type="button"
         className={cn(
-          "profile-test-result-badge inline-flex min-h-[18px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-[calc(var(--radius) - 4px)] border-0 px-[5px] py-px text-[11px] leading-[1.15] font-bold text-white hover:brightness-110",
+          "profile-test-result-badge inline-flex min-h-[18px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-sm border-0 px-[5px] py-px text-[11px] leading-[1.15] font-bold text-white hover:brightness-110",
           state.status,
-          state.status === "success" ? "bg-[var(--accent-green)]" : "bg-[var(--accent-red)]",
+          state.status === "success" ? "bg-chart-2" : "bg-destructive",
         )}
         aria-label={ariaLabel}
         title={ariaLabel}
@@ -602,12 +602,12 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
     <>
       <div
         className={cn(
-          "list-section scrollbar-none flex w-[360px] shrink-0 flex-col overflow-y-auto overflow-x-hidden bg-[var(--secondary)] transition-[width] duration-300 max-[1000px]:fixed max-[1000px]:inset-y-0 max-[1000px]:right-0 max-[1000px]:left-[var(--sidebar-width)] max-[1000px]:z-[var(--z-index-list)] max-[1000px]:w-auto max-[700px]:left-[var(--sidebar-width-small)]",
+          "list-section scrollbar-none flex w-[360px] shrink-0 flex-col overflow-y-auto overflow-x-hidden bg-secondary transition-[width] duration-300 max-[1000px]:fixed max-[1000px]:inset-y-0 max-[1000px]:right-0 max-[1000px]:left-[60px] max-[1000px]:z-50 max-[1000px]:w-auto max-[700px]:left-[48px]",
           isDrawerOpen && "compressed w-[280px]",
         )}
       >
-        <div className="page-header sticky top-0 z-[var(--z-index-sticky)] flex h-[52px] shrink-0 items-center justify-between border-b border-[var(--border-default)] bg-[var(--secondary)] px-5">
-          <h1 className="page-title text-xl font-semibold text-[var(--foreground)]">
+        <div className="page-header sticky top-0 z-10 flex h-[52px] shrink-0 items-center justify-between border-b border-border bg-secondary px-5">
+          <h1 className="page-title text-xl font-semibold text-foreground">
             {t("profiles.title")}
           </h1>
           <div className="profile-page-actions inline-flex shrink-0 items-center gap-2">
@@ -616,7 +616,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
               variant="outline"
               size="sm"
               className={cn(
-                "profile-test-all-btn border-[var(--border-default)] bg-[var(--bg-tertiary)] font-semibold text-[var(--foreground)] hover:border-[var(--primary)] hover:text-[var(--primary)]",
+                "profile-test-all-btn border-border bg-muted font-semibold text-foreground hover:border-primary hover:text-[var(--primary)]",
                 isTestingAllProfiles && "is-testing",
               )}
               disabled={profiles.length === 0 || isTestingAllProfiles}
@@ -638,7 +638,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
         </div>
         <Button
           type="button"
-          className="mx-2 mt-4 mb-3 h-auto gap-2 rounded-[var(--radius-lg)] bg-[linear-gradient(135deg,var(--primary),var(--primary))] p-3.5 text-base font-semibold text-white shadow-[var(--shadow-sm),var(--shadow-blue-sm)] hover:-translate-y-px hover:shadow-[var(--shadow-md),var(--shadow-blue-md)]"
+          className="mx-2 mt-4 mb-3 h-auto gap-2 rounded-lg bg-[linear-gradient(135deg,var(--primary),var(--primary))] p-3.5 text-base font-semibold text-white shadow-sm hover:-translate-y-px hover:shadow-md"
           onClick={() => {
             setEditingProfile(null);
             setIsDrawerOpen(true);
@@ -651,7 +651,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
         {profiles.length === 0 ? (
           <div className="config-list-empty flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
             <p className="empty-text mb-2 text-lg font-medium">{t("profiles.empty")}</p>
-            <p className="empty-hint max-w-[360px] text-center text-sm leading-normal text-[var(--text-muted)]">
+            <p className="empty-hint max-w-[360px] text-center text-sm leading-normal text-muted-foreground">
               {t("profiles.emptyHint")}
             </p>
           </div>
@@ -678,22 +678,27 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                 <Card
                   key={profile.id}
                   className={cn(
-                    "profile-card group relative flex cursor-pointer flex-col gap-4 rounded-[var(--radius-xl)] border border-[var(--border-default)] bg-[var(--card)] p-4 py-4 shadow-none transition-[transform,border-color,box-shadow,opacity] duration-200 hover:-translate-y-px hover:border-[var(--primary)] hover:shadow-[0_4px_12px_rgb(59_130_246_/_0.15)] focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:outline-none",
+                    "profile-card group relative flex cursor-pointer flex-col gap-4 rounded-xl border border-border bg-card p-4 py-4 shadow-none transition-[transform,border-color,box-shadow,opacity] duration-200 hover:-translate-y-px hover:border-primary hover:shadow-[0_4px_12px_rgb(59_130_246_/_0.15)] focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:outline-none",
                     isAppliedProfile &&
                       "active border-[var(--primary)] ring-1 ring-[var(--primary)] shadow-[0_0_16px_rgb(59_130_246_/_0.2)]",
                     isEditingProfile &&
-                      "editing border-[var(--accent-orange)] ring-1 ring-[var(--accent-orange)] shadow-[0_0_18px_rgb(247_129_102_/_0.24)]",
+                      "editing border-chart-3 ring-1 ring-[var(--chart-3)] shadow-[0_0_18px_rgb(247_129_102_/_0.24)]",
                     dragState.draggingIndex === index &&
                       "dragging scale-[0.985] opacity-50 shadow-[0_18px_36px_rgb(59_130_246_/_0.18)]",
                     dragState.overIndex === index &&
                       dragState.overPosition === "above" &&
-                      "drag-over-above before:absolute before:top-[-6px] before:right-[-12px] before:left-[-12px] before:h-1 before:rounded-full before:bg-[var(--accent-green)] before:shadow-[0_0_0_2px_var(--background),var(--glow-green)] before:content-['']",
+                      "drag-over-above before:absolute before:top-[-6px] before:right-[-12px] before:left-[-12px] before:h-1 before:rounded-full before:bg-chart-2 before:shadow-[0_0_0_2px_var(--background),var(--glow-green)] before:content-['']",
                     dragState.overIndex === index &&
                       dragState.overPosition === "below" &&
-                      "drag-over-below after:absolute after:right-[-12px] after:bottom-[-6px] after:left-[-12px] after:h-1 after:rounded-full after:bg-[var(--accent-green)] after:shadow-[0_0_0_2px_var(--background),var(--glow-green)] after:content-['']",
+                      "drag-over-below after:absolute after:right-[-12px] after:bottom-[-6px] after:left-[-12px] after:h-1 after:rounded-full after:bg-chart-2 after:shadow-[0_0_0_2px_var(--background),var(--glow-green)] after:content-['']",
                   )}
                   role="button"
                   tabIndex={0}
+                  aria-label={profile.name}
+                  data-slot="profile-card"
+                  data-drag-over={
+                    dragState.overIndex === index ? dragState.overPosition : undefined
+                  }
                   draggable
                   onClick={() => {
                     setEditingProfile(profile);
@@ -736,7 +741,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                         </Badge>
                       </div>
                       {profile.description && (
-                        <p className="profile-card-description mt-1.5 line-clamp-2 text-sm leading-normal text-[var(--text-secondary)]">
+                        <p className="profile-card-description mt-1.5 line-clamp-2 text-sm leading-normal text-muted-foreground">
                           {profile.description}
                         </p>
                       )}
@@ -744,18 +749,18 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
 
                     <div className="profile-card-head-actions flex flex-wrap items-center justify-end gap-2">
                       {isEditingProfile ? (
-                        <Badge className="profile-status-badge editing rounded-[var(--radius-md)] bg-[var(--accent-orange-bg)] px-2.5 py-1.5 text-sm font-semibold text-[var(--accent-orange)]">
+                        <Badge className="profile-status-badge editing rounded-md bg-chart-3/10 px-2.5 py-1.5 text-sm font-semibold text-chart-3">
                           {t("profiles.badges.editing")}
                         </Badge>
                       ) : isAppliedProfile ? (
-                        <Badge className="profile-status-badge active rounded-[var(--radius-md)] bg-[rgb(34_197_94_/_0.15)] px-2.5 py-1.5 text-sm font-semibold text-[var(--accent-green)]">
+                        <Badge className="profile-status-badge active rounded-md bg-[rgb(34_197_94_/_0.15)] px-2.5 py-1.5 text-sm font-semibold text-chart-2">
                           {t("profiles.badges.inUse")}
                         </Badge>
                       ) : (
                         <Button
                           type="button"
                           size="sm"
-                          className="profile-card-apply-btn bg-[var(--primary)] text-white hover:bg-[#2563eb]"
+                          className="profile-card-apply-btn bg-[var(--primary)] text-white hover:bg-[var(--primary)]"
                           onClick={(event) => {
                             event.stopPropagation();
                             void handleApply(profile.id);
@@ -770,8 +775,8 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                   {hasSummary && (
                     <div className="profile-card-summary flex flex-col gap-2">
                       {model && (
-                        <div className="profile-summary-row grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-[var(--text-secondary)]">
-                          <span className="profile-summary-title inline-flex shrink-0 items-center text-[11px] leading-none font-bold text-[var(--text-tertiary)] uppercase after:ml-0.5 after:font-bold after:text-[var(--border-default)] after:content-[':']">
+                        <div className="profile-summary-row grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground">
+                          <span className="profile-summary-title inline-flex shrink-0 items-center text-[11px] leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-[var(--border)] after:content-[':']">
                             {t("profiles.summary.modelTitle")}
                           </span>
                           <div className="profile-summary-main inline-flex min-w-0 items-center gap-1.5">
@@ -792,8 +797,8 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                         </div>
                       )}
                       {(permissionMode || sandboxEnabled) && (
-                        <div className="profile-summary-row grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-[var(--text-secondary)]">
-                          <span className="profile-summary-title inline-flex shrink-0 items-center text-[11px] leading-none font-bold text-[var(--text-tertiary)] uppercase after:ml-0.5 after:font-bold after:text-[var(--border-default)] after:content-[':']">
+                        <div className="profile-summary-row grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground">
+                          <span className="profile-summary-title inline-flex shrink-0 items-center text-[11px] leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-[var(--border)] after:content-[':']">
                             {t("profiles.summary.permissionsTitle")}
                           </span>
                           <span className="profile-summary-main inline-flex min-w-0 items-center gap-1.5">
@@ -807,16 +812,16 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                                 {permissionMode}
                               </span>
                             ) : (
-                              <span className="profile-summary-permission-mode profile-summary-permission-mode--unset text-[var(--text-tertiary)]">
+                              <span className="profile-summary-permission-mode profile-summary-permission-mode--unset text-muted-foreground">
                                 {t("profileEditor.permissions.unset")}
                               </span>
                             )}
                             <span
                               className={cn(
-                                "profile-summary-sandbox-state shrink-0 border-l border-[var(--border-muted)] pl-1.5 text-[11px] leading-none whitespace-nowrap",
+                                "profile-summary-sandbox-state shrink-0 border-l border-border/70 pl-1.5 text-[11px] leading-none whitespace-nowrap",
                                 sandboxEnabled
-                                  ? "profile-summary-sandbox-state--enabled text-[var(--accent-green)]"
-                                  : "profile-summary-sandbox-state--disabled text-[var(--text-tertiary)]",
+                                  ? "profile-summary-sandbox-state--enabled text-chart-2"
+                                  : "profile-summary-sandbox-state--disabled text-muted-foreground",
                               )}
                             >
                               {t(
@@ -829,8 +834,8 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                         </div>
                       )}
                       {plugins.totalCount > 0 && (
-                        <div className="profile-summary-row grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-[var(--text-secondary)]">
-                          <span className="profile-summary-title inline-flex shrink-0 items-center text-[11px] leading-none font-bold text-[var(--text-tertiary)] uppercase after:ml-0.5 after:font-bold after:text-[var(--border-default)] after:content-[':']">
+                        <div className="profile-summary-row grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground">
+                          <span className="profile-summary-title inline-flex shrink-0 items-center text-[11px] leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-[var(--border)] after:content-[':']">
                             {t("profiles.summary.pluginsTitle")}
                           </span>
                           <span className="min-w-0 truncate">
@@ -847,7 +852,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                       type="button"
                       variant="outline"
                       size="icon-sm"
-                      className="profile-card-action icon-only border-[var(--border-default)] bg-[var(--bg-tertiary)] text-[var(--foreground)] hover:border-[var(--primary)] hover:text-[var(--primary)]"
+                      className="profile-card-action icon-only border-border bg-muted text-foreground hover:border-primary hover:text-[var(--primary)]"
                       aria-label={t("profiles.actions.copyEnv")}
                       title={t("profiles.actions.copyEnv")}
                       onClick={(event) => {
@@ -861,7 +866,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                       type="button"
                       variant="outline"
                       size="icon-sm"
-                      className="profile-card-action icon-only border-[var(--border-default)] bg-[var(--bg-tertiary)] text-[var(--foreground)] hover:border-[var(--primary)] hover:text-[var(--primary)]"
+                      className="profile-card-action icon-only border-border bg-muted text-foreground hover:border-primary hover:text-[var(--primary)]"
                       aria-label={t("profiles.actions.duplicate")}
                       title={t("profiles.actions.duplicate")}
                       onClick={(event) => {
@@ -875,7 +880,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                       type="button"
                       variant="outline"
                       size="icon-sm"
-                      className="profile-card-action danger icon-only border-[var(--border-default)] bg-[var(--bg-tertiary)] text-[var(--foreground)] hover:border-[var(--accent-red)] hover:text-[var(--accent-red)]"
+                      className="profile-card-action danger icon-only border-border bg-muted text-foreground hover:border-destructive hover:text-destructive"
                       aria-label={t("profiles.actions.delete")}
                       title={t("profiles.actions.delete")}
                       onClick={(event) => {
@@ -898,7 +903,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
           <SheetContent
             side="right"
             showCloseButton={false}
-            className="left-[calc(var(--sidebar-width)+280px)] w-auto border-l-0 bg-[var(--bg-elevated)] p-0 shadow-[-4px_0_24px_rgb(0_0_0_/_0.2)] sm:max-w-none max-[1000px]:left-[var(--sidebar-width)] max-[700px]:left-[var(--sidebar-width-small)]"
+            className="left-[340px] w-auto border-l-0 bg-card p-0 shadow-[-4px_0_24px_rgb(0_0_0_/_0.2)] sm:max-w-none max-[1000px]:left-[60px] max-[700px]:left-[48px]"
           >
             <ProfileEditor
               profile={editingProfile}

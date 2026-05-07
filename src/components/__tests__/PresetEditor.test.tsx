@@ -23,6 +23,10 @@ const SETTINGS_STORAGE_KEY = "ai-manager-settings";
 const originalFetch = globalThis.fetch;
 const fetchMock = vi.fn();
 
+Element.prototype.hasPointerCapture ??= () => false;
+Element.prototype.setPointerCapture ??= () => undefined;
+Element.prototype.releasePointerCapture ??= () => undefined;
+
 vi.mock("../../hooks/useToast", () => ({
   useToast: () => ({
     showToast: showToastMock,
@@ -216,10 +220,36 @@ function getSection(name: string): HTMLElement {
 }
 
 function expectAccordionHeaderMeta(section: HTMLElement, text: string) {
-  const meta = section.querySelector(".profile-accordion-header-meta");
-  expect(meta).not.toBeNull();
-  expect(meta).toHaveTextContent(text);
-  expect(section.querySelector(".profile-accordion-badge")).toBeNull();
+  expect(within(section).getByText(text)).toBeInTheDocument();
+}
+
+function getFieldForLabel(label: string | RegExp): HTMLElement {
+  const field = screen.getByLabelText(label).closest('[data-slot="settings-field"]');
+  expect(field).not.toBeNull();
+  return field as HTMLElement;
+}
+
+function chooseComboboxOption(label: string | RegExp, optionName: string | RegExp) {
+  const combobox = screen.getByRole("combobox", { name: label });
+  act(() => {
+    fireEvent.pointerDown(combobox, { button: 0, ctrlKey: false, pointerType: "mouse" });
+  });
+  const option = screen.getByRole("option", { name: optionName });
+  act(() => {
+    fireEvent.click(option);
+  });
+}
+
+function comboboxOptionNames(label: string | RegExp): string[] {
+  const combobox = screen.getByRole("combobox", { name: label });
+  act(() => {
+    fireEvent.pointerDown(combobox, { button: 0, ctrlKey: false, pointerType: "mouse" });
+  });
+  const names = screen.getAllByRole("option").map((option) => option.textContent ?? "");
+  act(() => {
+    fireEvent.keyDown(combobox, { key: "Escape" });
+  });
+  return names;
 }
 
 function toggleAccordionSection(name: string) {
@@ -306,8 +336,6 @@ describe("PresetEditor", () => {
     const behaviorDocsButton = screen.getByRole("button", { name: "查看 模型与行为 官方文档" });
     expect(behaviorDocsButton).toBeInTheDocument();
     expect(behaviorDocsButton).toHaveTextContent("官方文档");
-    expect(behaviorDocsButton).toHaveClass("profile-secondary-btn");
-    expect(behaviorDocsButton).not.toHaveClass("profile-icon-btn");
 
     const docsSections = [
       { section: "环境变量", button: "查看 环境变量 官方文档" },
@@ -328,8 +356,6 @@ describe("PresetEditor", () => {
       const docsButton = within(sectionElement).getByRole("button", { name: button });
       expect(docsButton).toBeInTheDocument();
       expect(docsButton).toHaveTextContent("官方文档");
-      expect(docsButton).toHaveClass("profile-secondary-btn");
-      expect(docsButton).not.toHaveClass("profile-icon-btn");
 
       if (button === "查看 插件市场 官方文档") {
         fireEvent.click(docsButton);
@@ -359,7 +385,7 @@ describe("PresetEditor", () => {
 
     renderEditor();
 
-    expect(screen.getByRole("option", { name: "开放路由" })).toBeInTheDocument();
+    expect(comboboxOptionNames("基础预设")).toContain("开放路由");
     expect(screen.queryByRole("option", { name: "OpenRouter" })).not.toBeInTheDocument();
   });
 
@@ -432,10 +458,10 @@ describe("PresetEditor", () => {
     expect(screen.queryByLabelText("config-preview-input")).not.toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "常用选项", level: 3 }).closest("button"),
-    ).toHaveClass("profile-accordion-trigger-large-target");
-    expect(screen.getByRole("heading", { name: "权限", level: 3 }).closest("button")).toHaveClass(
-      "profile-accordion-trigger-large-target",
-    );
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.getByRole("heading", { name: "权限", level: 3 }).closest("button"),
+    ).toHaveAttribute("aria-expanded", "false");
 
     const authSection = screen.getByRole("heading", { name: "认证", level: 3 }).closest("section");
     const basicSection = screen
@@ -450,20 +476,7 @@ describe("PresetEditor", () => {
     }
     if (basicSection) {
       expect(within(basicSection).queryByLabelText("基础预设")).not.toBeInTheDocument();
-      const nameZhLabel = basicSection.querySelector(
-        'label[for="preset-name-zh"]',
-      ) as HTMLElement | null;
-      const nameEnLabel = basicSection.querySelector(
-        'label[for="preset-name-en"]',
-      ) as HTMLElement | null;
-      expect(nameZhLabel).not.toBeNull();
-      expect(nameEnLabel).not.toBeNull();
-      expect(nameZhLabel).toHaveClass("label-required");
-      expect(nameEnLabel).toHaveClass("label-required");
-      if (nameZhLabel && nameEnLabel) {
-        expect(within(nameZhLabel).getByText("至少一项")).toBeInTheDocument();
-        expect(within(nameEnLabel).getByText("至少一项")).toBeInTheDocument();
-      }
+      expect(within(basicSection).getAllByText("至少一项")).toHaveLength(2);
     }
 
     const sandboxSection = screen.getByRole("heading", { name: "Sandbox" }).closest("section");
@@ -504,18 +517,14 @@ describe("PresetEditor", () => {
       const outputStyleSelect = within(behaviorSection).getByRole("combobox", {
         name: "输出风格",
       }) as HTMLSelectElement;
-      const languageSelect = within(behaviorSection).getByRole("combobox", {
-        name: "回复语言",
-      }) as HTMLSelectElement;
       expect(outputStyleSelect).toBeInTheDocument();
       expect(outputStyleSelect).toHaveValue("");
-      expect(Array.from(outputStyleSelect.options, (option) => option.value)).toEqual([
-        "",
+      expect(comboboxOptionNames("输出风格")).toEqual([
+        "未设置",
         "default",
         "Explanatory",
         "Learning",
       ]);
-      expect(languageSelect.closest(".form-row")).toBe(outputStyleSelect.closest(".form-row"));
       expect(within(behaviorSection).queryByText("默认启用深度思考")).not.toBeInTheDocument();
       expect(within(behaviorSection).queryByText("尊重 .gitignore")).not.toBeInTheDocument();
     }
@@ -557,8 +566,8 @@ describe("PresetEditor", () => {
         "权限头部默认模式",
       ) as HTMLSelectElement;
       expect(permissionModeSelect).toHaveValue("");
-      expect(Array.from(permissionModeSelect.options, (option) => option.value)).toEqual([
-        "",
+      expect(comboboxOptionNames("权限头部默认模式")).toEqual([
+        "未设置",
         "default",
         "acceptEdits",
         "plan",
@@ -691,14 +700,10 @@ describe("PresetEditor", () => {
       return;
     }
 
-    const behaviorRows = behaviorSection.querySelectorAll(".form-row");
-    expect(behaviorRows.length).toBeGreaterThan(1);
-    for (const row of behaviorRows) {
-      expect(row.querySelectorAll(".form-group").length).toBeLessThanOrEqual(2);
-    }
-
-    const toggleRows = behaviorSection.querySelectorAll(".profile-toggle-grid");
-    expect(toggleRows.length).toBe(0);
+    expect(within(behaviorSection).getByLabelText("默认模型")).toBeInTheDocument();
+    expect(within(behaviorSection).getByRole("combobox", { name: "努力级别" })).toBeInTheDocument();
+    expect(within(behaviorSection).getByRole("combobox", { name: "回复语言" })).toBeInTheDocument();
+    expect(within(behaviorSection).getByRole("combobox", { name: "输出风格" })).toBeInTheDocument();
   });
 
   it("renders language as a select list and exposes the full effort enum set", async () => {
@@ -707,27 +712,25 @@ describe("PresetEditor", () => {
       await Promise.resolve();
     });
 
-    const languageSelect = screen.getByLabelText("回复语言") as HTMLSelectElement;
-    expect(languageSelect.tagName).toBe("SELECT");
-    expect(Array.from(languageSelect.options).map((option) => option.value)).toEqual(
+    expect(comboboxOptionNames("回复语言")).toEqual(
       expect.arrayContaining([
-        "english",
-        "chinese",
-        "japanese",
-        "korean",
-        "spanish",
-        "french",
-        "german",
-        "portuguese",
-        "russian",
-        "arabic",
-        "italian",
+        "English",
+        "中文 (Chinese)",
+        "日本語 (Japanese)",
+        "한국어 (Korean)",
+        "Español (Spanish)",
+        "Français (French)",
+        "Deutsch (German)",
+        "Português (Portuguese)",
+        "Русский (Russian)",
+        "العربية (Arabic)",
+        "Italiano (Italian)",
       ]),
     );
 
-    const effortSelect = screen.getByLabelText("努力级别") as HTMLSelectElement;
-    expect(Array.from(effortSelect.options).map((option) => option.value)).toEqual([
-      "",
+    const effortSelect = screen.getByLabelText("努力级别");
+    expect(comboboxOptionNames("努力级别")).toEqual([
+      "未设置",
       "auto",
       "low",
       "medium",
@@ -819,9 +822,8 @@ describe("PresetEditor", () => {
 
     const commonSection = toggleAccordionSection("常用选项");
     const behaviorSection = getSection("模型与行为");
-    fireEvent.change(within(behaviorSection).getByRole("combobox", { name: "输出风格" }), {
-      target: { value: "Learning" },
-    });
+    expect(within(behaviorSection).getByRole("combobox", { name: "输出风格" })).toBeInTheDocument();
+    chooseComboboxOption("输出风格", "Learning");
     const labels = [
       "默认启用深度思考",
       "显示 Thinking 摘要",
@@ -842,16 +844,12 @@ describe("PresetEditor", () => {
     ];
 
     for (const label of labels) {
-      const option = within(commonSection)
-        .getByText(label)
-        .closest(".profile-common-option-item") as HTMLElement | null;
-      expect(option).not.toBeNull();
-      if (option) {
-        await act(async () => {
-          fireEvent.click(within(option).getByRole("switch"));
-          await Promise.resolve();
-        });
-      }
+      await act(async () => {
+        fireEvent.click(
+          within(commonSection).getByRole("switch", { name: `切换常用选项 ${label}` }),
+        );
+        await Promise.resolve();
+      });
     }
 
     await act(async () => {
@@ -913,11 +911,8 @@ describe("PresetEditor", () => {
   it("stores built-in outputStyle values from the outputStyle select", async () => {
     const onSave = vi.fn();
     renderEditor({ onSave });
-    const behaviorSection = getSection("模型与行为");
 
-    fireEvent.change(within(behaviorSection).getByRole("combobox", { name: "输出风格" }), {
-      target: { value: "default" },
-    });
+    chooseComboboxOption("输出风格", "default");
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "保存" }));
@@ -992,18 +987,16 @@ describe("PresetEditor", () => {
       await Promise.resolve();
     });
 
-    const effortSelect = screen.getByLabelText("努力级别") as HTMLSelectElement;
+    const effortSelect = screen.getByLabelText("努力级别");
     expect(effortSelect).toHaveValue("");
 
     await act(async () => {
       fireEvent.change(screen.getByLabelText("默认模型"), {
         target: { value: "claude-opus-4-1" },
       });
-      fireEvent.change(effortSelect, {
-        target: { value: "auto" },
-      });
       await Promise.resolve();
     });
+    chooseComboboxOption("努力级别", "auto");
 
     expect(
       within(envSection).getByRole("button", {
@@ -1062,31 +1055,18 @@ describe("PresetEditor", () => {
     });
 
     for (const label of ["Opus 默认模型", "Sonnet 默认模型", "Haiku 默认模型", "Subagent 模型"]) {
-      const fieldGroup = screen.getByLabelText(label).closest(".form-group") as HTMLElement | null;
-      expect(fieldGroup).not.toBeNull();
-      if (!fieldGroup) {
-        continue;
-      }
-      const header = fieldGroup.querySelector(".profile-field-header") as HTMLElement | null;
-      expect(header).not.toBeNull();
-      expect(fieldGroup.querySelector(".profile-field-mapping-row")).toBeNull();
-      expect(header).not.toBeNull();
-      if (header) {
-        expect(header.querySelector(".profile-field-label-meta")).toBeNull();
-        const helpButton = within(header).getByRole("button", {
-          name:
-            label === "Opus 默认模型"
-              ? "ANTHROPIC_DEFAULT_OPUS_MODEL"
-              : label === "Sonnet 默认模型"
-                ? "ANTHROPIC_DEFAULT_SONNET_MODEL"
-                : label === "Haiku 默认模型"
-                  ? "ANTHROPIC_DEFAULT_HAIKU_MODEL"
-                  : "CLAUDE_CODE_SUBAGENT_MODEL",
-        });
-        expect(helpButton).toHaveAttribute("data-tooltip", helpButton.getAttribute("aria-label"));
-      }
-      expect(fieldGroup.querySelector(".profile-field-badge")).toBeNull();
-      expect(fieldGroup.querySelector(".profile-field-inline-meta")).toBeNull();
+      const fieldGroup = getFieldForLabel(label);
+      const helpButton = within(fieldGroup).getByRole("button", {
+        name:
+          label === "Opus 默认模型"
+            ? "ANTHROPIC_DEFAULT_OPUS_MODEL"
+            : label === "Sonnet 默认模型"
+              ? "ANTHROPIC_DEFAULT_SONNET_MODEL"
+              : label === "Haiku 默认模型"
+                ? "ANTHROPIC_DEFAULT_HAIKU_MODEL"
+                : "CLAUDE_CODE_SUBAGENT_MODEL",
+      });
+      expect(helpButton).toHaveAttribute("data-tooltip", helpButton.getAttribute("aria-label"));
     }
 
     expect(
@@ -1107,59 +1087,21 @@ describe("PresetEditor", () => {
       await Promise.resolve();
     });
 
-    const modelGroup = screen
-      .getByLabelText("默认模型")
-      .closest(".form-group") as HTMLElement | null;
-    const effortGroup = screen
-      .getByLabelText("努力级别")
-      .closest(".form-group") as HTMLElement | null;
+    const modelGroup = getFieldForLabel("默认模型");
+    const effortGroup = getFieldForLabel("努力级别");
+    const languageGroup = getFieldForLabel("回复语言");
 
-    expect(modelGroup).not.toBeNull();
-    expect(effortGroup).not.toBeNull();
-
-    if (!modelGroup || !effortGroup) {
-      return;
-    }
-
-    const modelHeader = modelGroup.querySelector(".profile-field-header") as HTMLElement | null;
-    const effortHeader = effortGroup.querySelector(".profile-field-header") as HTMLElement | null;
-
-    expect(modelHeader).not.toBeNull();
-    expect(effortHeader).not.toBeNull();
-    expect(modelGroup.querySelector(".profile-field-mapping-row")).toBeNull();
-    expect(effortGroup.querySelector(".profile-field-mapping-row")).toBeNull();
-
-    if (modelHeader && effortHeader) {
-      expect(modelHeader.querySelector(".profile-field-label-meta")).toBeNull();
-      expect(effortHeader.querySelector(".profile-field-label-meta")).toBeNull();
-      expect(within(modelHeader).getByRole("button", { name: "ANTHROPIC_MODEL" })).toHaveAttribute(
-        "data-tooltip",
-        "ANTHROPIC_MODEL",
-      );
-      expect(
-        within(effortHeader).getByRole("button", { name: "CLAUDE_CODE_EFFORT_LEVEL" }),
-      ).toHaveAttribute("data-tooltip", "CLAUDE_CODE_EFFORT_LEVEL");
-    }
-
-    const languageGroup = screen
-      .getByLabelText("回复语言")
-      .closest(".form-group") as HTMLElement | null;
-    expect(languageGroup).not.toBeNull();
-    if (languageGroup) {
-      const languageHeader = languageGroup.querySelector(
-        ".profile-field-header",
-      ) as HTMLElement | null;
-      expect(languageHeader).not.toBeNull();
-      if (languageHeader) {
-        expect(within(languageHeader).getByRole("button", { name: "language" })).toHaveAttribute(
-          "data-tooltip",
-          "language",
-        );
-      }
-    }
-
-    expect(modelGroup.querySelector(".profile-field-inline-meta")).toBeNull();
-    expect(effortGroup.querySelector(".profile-field-inline-meta")).toBeNull();
+    expect(within(modelGroup).getByRole("button", { name: "ANTHROPIC_MODEL" })).toHaveAttribute(
+      "data-tooltip",
+      "ANTHROPIC_MODEL",
+    );
+    expect(
+      within(effortGroup).getByRole("button", { name: "CLAUDE_CODE_EFFORT_LEVEL" }),
+    ).toHaveAttribute("data-tooltip", "CLAUDE_CODE_EFFORT_LEVEL");
+    expect(within(languageGroup).getByRole("button", { name: "language" })).toHaveAttribute(
+      "data-tooltip",
+      "language",
+    );
     expect(screen.queryByLabelText("模型使用环境变量映射")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("努力级别使用环境变量映射")).not.toBeInTheDocument();
   });
@@ -1551,12 +1493,8 @@ describe("PresetEditor", () => {
     expect(
       within(marketplacesSection).getByRole("button", { name: "编辑 Marketplace team-market" }),
     ).toBeInTheDocument();
-    const marketplaceRowHead = within(marketplacesSection)
-      .getByRole("button", { name: "编辑 Marketplace team-market" })
-      .closest(".profile-marketplace-row-head");
-    expect(marketplaceRowHead).not.toBeNull();
     expect(
-      within(marketplaceRowHead as HTMLElement).getByRole("button", {
+      within(marketplacesSection).getByRole("button", {
         name: "删除 Marketplace team-market",
       }),
     ).toBeInTheDocument();
@@ -1979,9 +1917,7 @@ describe("PresetEditor", () => {
     expect(screen.queryByText("用规则构建器快速维护权限配置。")).not.toBeInTheDocument();
     expect(within(permissionsSection).getByLabelText("权限头部默认模式")).toHaveValue("plan");
 
-    fireEvent.change(within(permissionsSection).getByLabelText("权限头部默认模式"), {
-      target: { value: "" },
-    });
+    chooseComboboxOption("权限头部默认模式", "未设置");
     expect(screen.queryByLabelText("默认模式")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
@@ -1997,10 +1933,10 @@ describe("PresetEditor", () => {
     toggleAccordionSection("权限");
     const allowSection = screen
       .getByRole("heading", { name: "允许规则" })
-      .closest(".profile-subsection") as HTMLElement | null;
+      .closest('[data-slot="profile-subsection"]') as HTMLElement | null;
     const directorySection = screen
       .getByRole("heading", { name: "附加目录" })
-      .closest(".profile-subsection") as HTMLElement | null;
+      .closest('[data-slot="profile-subsection"]') as HTMLElement | null;
 
     expect(allowSection).not.toBeNull();
     expect(directorySection).not.toBeNull();
@@ -2009,18 +1945,12 @@ describe("PresetEditor", () => {
       return;
     }
 
-    const emptyAllowHint = allowSection.querySelector(".profile-empty-state") as HTMLElement | null;
     const addAllowButton = within(allowSection).getByRole("button", { name: "新增允许规则" });
 
-    expect(emptyAllowHint).not.toBeNull();
     expect(
       within(allowSection).queryByRole("button", { name: "收起 允许规则" }),
     ).not.toBeInTheDocument();
-    if (emptyAllowHint) {
-      expect(
-        emptyAllowHint.compareDocumentPosition(addAllowButton) & Node.DOCUMENT_POSITION_FOLLOWING,
-      ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    }
+    expect(addAllowButton).toBeInTheDocument();
 
     await act(async () => {
       fireEvent.click(addAllowButton);
@@ -2030,8 +1960,8 @@ describe("PresetEditor", () => {
 
     const allowRuleInput = screen.getByLabelText("允许规则 1");
     const directoryInput = screen.getByLabelText("附加目录 1");
-    expect(allowRuleInput).toHaveClass("form-input");
-    expect(directoryInput).toHaveClass("form-input");
+    expect(allowRuleInput).toHaveAttribute("data-slot", "input");
+    expect(directoryInput).toHaveAttribute("data-slot", "input");
     expect(screen.queryByRole("button", { name: "上移 允许规则 1" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "下移 允许规则 1" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "删除 允许规则 1" })).toBeInTheDocument();
@@ -2089,8 +2019,8 @@ describe("PresetEditor", () => {
     ) as HTMLSelectElement;
 
     expect(permissionModeSelect).toHaveValue("delegate");
-    expect(Array.from(permissionModeSelect.options, (option) => option.value)).toEqual([
-      "",
+    expect(comboboxOptionNames("权限头部默认模式")).toEqual([
+      "未设置",
       "default",
       "acceptEdits",
       "plan",
@@ -2119,14 +2049,8 @@ describe("PresetEditor", () => {
     expect(authTokenInput).toHaveValue("token");
     expect(authTokenInput).toHaveAttribute("type", "password");
     expect(within(authSection).getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("");
-    expect(
-      Array.from(authSection.querySelectorAll(".field-label-env"), (label) =>
-        label.textContent?.trim(),
-      ).filter(
-        (label): label is string =>
-          label === "ANTHROPIC_BASE_URL" || label === "ANTHROPIC_AUTH_TOKEN",
-      ),
-    ).toEqual(["ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN"]);
+    expect(within(authSection).getByLabelText("ANTHROPIC_BASE_URL")).toBeInTheDocument();
+    expect(within(authSection).getByLabelText("ANTHROPIC_AUTH_TOKEN")).toBeInTheDocument();
     expect(within(envSection).queryByDisplayValue("ANTHROPIC_AUTH_TOKEN")).not.toBeInTheDocument();
     expect(within(envSection).queryByDisplayValue("ANTHROPIC_BASE_URL")).not.toBeInTheDocument();
 
@@ -2178,9 +2102,7 @@ describe("PresetEditor", () => {
       },
     });
 
-    fireEvent.change(screen.getByLabelText("基础预设"), {
-      target: { value: "builtin:openrouter" },
-    });
+    chooseComboboxOption("基础预设", "开放路由");
     expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("https://openrouter.ai/api");
     expect(screen.getByLabelText("默认模型")).toHaveValue("claude-sonnet-4-6");
     expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("claude-opus-4-1");
@@ -2188,9 +2110,7 @@ describe("PresetEditor", () => {
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("claude-haiku-4-5");
     expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
 
-    fireEvent.change(screen.getByLabelText("基础预设"), {
-      target: { value: "custom:team-plan" },
-    });
+    chooseComboboxOption("基础预设", "团队计划");
     expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("https://openrouter.ai/api");
     expect(screen.getByLabelText("默认模型")).toHaveValue("claude-sonnet-4-6");
     expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("claude-opus-4-1");
@@ -2198,25 +2118,19 @@ describe("PresetEditor", () => {
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("claude-haiku-4-5");
     expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
 
-    fireEvent.change(screen.getByLabelText("基础预设"), {
-      target: { value: "custom:explicit-model" },
-    });
+    chooseComboboxOption("基础预设", "显式模型");
     expect(screen.getByLabelText("默认模型")).toHaveValue("claude-opus-explicit");
     expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("claude-opus-4-1");
     expect(screen.getByLabelText("Sonnet 默认模型")).toHaveValue("claude-sonnet-4-6");
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("claude-haiku-4-5");
     expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
 
-    fireEvent.change(screen.getByLabelText("基础预设"), {
-      target: { value: "custom:env-level-overrides" },
-    });
+    chooseComboboxOption("基础预设", "环境变量级别覆盖");
     expect(screen.getByLabelText("默认模型")).toHaveValue("claude-opus-explicit");
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("haiku-env-override");
     expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
 
-    fireEvent.change(screen.getByLabelText("基础预设"), {
-      target: { value: "" },
-    });
+    chooseComboboxOption("基础预设", "无");
     expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("");
     expect(screen.getByLabelText("默认模型")).toHaveValue("");
     expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("");

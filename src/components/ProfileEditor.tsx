@@ -21,6 +21,14 @@ import {
   setTopLevelObject,
   setTopLevelString,
 } from "./config-workspace-utils";
+import {
+  EditorDescription,
+  EditorEnvHint,
+  EditorField,
+  EditorFieldGrid,
+  EditorLabelRow,
+  EditorSection,
+} from "./editor-layout";
 import ProfileNameBadge from "./ProfileNameBadge";
 import {
   AUTH_ENV_KEYS,
@@ -58,7 +66,18 @@ import {
 import { useDocumentJsonEditor } from "./profile-editor/useDocumentJsonEditor";
 import { useObjectJsonEditor } from "./profile-editor/useObjectJsonEditor";
 import useStructuredSettingsSectionState from "./profile-editor/useStructuredSettingsSectionState";
+import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 interface ProfileEditorProps {
   profile: ConfigProfile | null;
@@ -72,6 +91,8 @@ interface ProfileEditorProps {
   }) => Promise<void> | void;
   onClose: () => void;
 }
+
+const NO_PRESET_VALUE = "__none__";
 
 function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps) {
   const { language, t } = useI18n();
@@ -573,24 +594,25 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
   const hasSuccessfulModelTest = latestModelTestResult?.ok === true;
 
   return (
-    <div className="editor-panel profile-editor-panel flex h-full min-h-0 w-full min-w-[var(--config-editor-min-width)] flex-col overflow-hidden bg-[var(--bg-elevated)]">
-      <div className="editor-header sticky top-0 z-[var(--z-index-sticky)] flex h-14 shrink-0 items-center justify-between gap-3 border-b border-[var(--border-default)] bg-[var(--card)] px-6">
+    <div
+      data-slot="profile-editor-panel"
+      className="flex h-full min-h-0 w-full min-w-[560px] flex-col overflow-hidden bg-card"
+    >
+      <div className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-6">
         <Button
           type="button"
           variant="ghost"
           size="icon-sm"
-          className="editor-back-btn"
           onClick={onClose}
           aria-label={t("common.close")}
         >
           <ArrowLeft className="size-4" aria-hidden="true" />
         </Button>
-        <h2 className="min-w-0 flex-1 truncate text-lg font-semibold text-[var(--foreground)]">
+        <h2 className="min-w-0 flex-1 truncate text-lg font-semibold text-foreground">
           {messages.title}
         </h2>
         <Button
           type="button"
-          className="editor-save-btn"
           disabled={!name.trim() || hasValidationError}
           onClick={handleSaveClick}
         >
@@ -598,88 +620,100 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
         </Button>
       </div>
 
-      <div className="editor-body profile-editor-body flex min-h-0 flex-1 flex-col items-center gap-5 overflow-y-auto px-6 py-6 pb-6 [&>*]:shrink-0 [&>:not(.editor-badge-large)]:w-[min(100%,880px)]">
+      <div
+        data-slot="profile-editor-body"
+        className="flex min-h-0 flex-1 flex-col items-center gap-5 overflow-y-auto px-6 py-6 pb-6 [&>*]:shrink-0 [&>:not([data-slot=profile-name-badge])]:w-[min(100%,880px)]"
+      >
         <ProfileNameBadge
           name={name}
           colorSeedScope={presetSlugFromId(presetId)}
           size="lg"
           fallbackChar="P"
-          className="editor-badge-large"
         />
 
-        <section className="profile-editor-section">
-          <div className="profile-section-heading">
-            <h3>{messages.basicInfo}</h3>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="profile-name" className="label-required">
+        <EditorSection title={messages.basicInfo}>
+          <EditorFieldGrid>
+            <EditorField>
+              <Label htmlFor="profile-name" className="inline-flex items-center gap-2">
                 <span>{messages.name}</span>
                 <RequiredBadge />
-              </label>
-              <input
+              </Label>
+              <Input
                 id="profile-name"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder={messages.namePlaceholder}
               />
-            </div>
-            <div className="form-group">
-              <label htmlFor="profile-description">{messages.description}</label>
-              <input
+            </EditorField>
+            <EditorField>
+              <Label htmlFor="profile-description">{messages.description}</Label>
+              <Input
                 id="profile-description"
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 placeholder={messages.descriptionPlaceholder}
               />
-            </div>
-          </div>
-        </section>
+            </EditorField>
+          </EditorFieldGrid>
+        </EditorSection>
 
-        <section className="profile-editor-section">
-          <div className="profile-section-heading">
-            <h3>{messages.auth}</h3>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="profile-preset">{messages.preset}</label>
+        <EditorSection title={messages.auth}>
+          <EditorField>
+            <Label htmlFor="profile-preset">{messages.preset}</Label>
             <div className="profile-preset-select-grid grid max-w-full grid-cols-[minmax(0,520px)_max-content] items-center gap-3 max-[700px]:grid-cols-[minmax(0,1fr)] max-[700px]:items-stretch">
-              <div className="profile-preset-select-control min-w-0">
-                <select
-                  id="profile-preset"
-                  className="form-select"
-                  value={presetId}
-                  onChange={(event) => handlePresetChange(event.target.value)}
+              <div className="min-w-0">
+                <Select
+                  value={presetId || NO_PRESET_VALUE}
+                  onValueChange={(value) =>
+                    handlePresetChange(value === NO_PRESET_VALUE ? "" : value)
+                  }
                 >
-                  <option value="">{t("profiles.editor.options.noPreset")}</option>
-                  {presets.map((preset) => (
-                    <option key={preset.id} value={preset.id}>
-                      {presetDisplayName(preset, language)}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger
+                    id="profile-preset"
+                    className="w-full"
+                    value={presetId}
+                    data-value={presetId}
+                    onChange={(event) =>
+                      handlePresetChange((event.target as HTMLButtonElement).value)
+                    }
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value={NO_PRESET_VALUE}>
+                        {t("profiles.editor.options.noPreset")}
+                      </SelectItem>
+                      {presets.map((preset) => (
+                        <SelectItem key={preset.id} value={preset.id}>
+                          {presetDisplayName(preset, language)}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
               </div>
               {selectedPreset?.docUrl ? (
-                <button
+                <Button
                   type="button"
-                  className="profile-secondary-btn profile-preset-doc-link min-h-[42px] whitespace-nowrap max-[700px]:min-h-[34px] max-[700px]:justify-self-start [&_svg]:shrink-0"
+                  variant="outline"
+                  className="profile-preset-doc-link min-h-9 whitespace-nowrap max-[700px]:justify-self-start"
                   onClick={handleOpenSelectedPresetDocs}
                 >
                   <span>{messages.openPresetDocs}</span>
                   <ExternalLink className="size-3.5" aria-hidden="true" />
-                </button>
+                </Button>
               ) : null}
             </div>
-            <p className="form-hint">{messages.presetHint}</p>
-          </div>
+            <EditorDescription>{messages.presetHint}</EditorDescription>
+          </EditorField>
 
-          <div className="form-group">
-            <div className="field-label-wrap">
-              <label htmlFor="profile-base-url">{messages.baseUrl}</label>
-              <span className="field-label-env">{messages.baseUrlEnv}</span>
-            </div>
-            <input
+          <EditorField>
+            <EditorLabelRow>
+              <Label htmlFor="profile-base-url">{messages.baseUrl}</Label>
+              <EditorEnvHint>{messages.baseUrlEnv}</EditorEnvHint>
+            </EditorLabelRow>
+            <Input
               id="profile-base-url"
               aria-label={messages.baseUrlEnv}
               value={readEnvString(settings, "ANTHROPIC_BASE_URL")}
@@ -688,13 +722,13 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
                 applySettings(setEnvString(settings, "ANTHROPIC_BASE_URL", event.target.value))
               }
             />
-          </div>
+          </EditorField>
 
-          <div className="form-group">
-            <div className="field-label-wrap">
-              <label htmlFor="profile-auth-token">{messages.authToken}</label>
-              <span className="field-label-env">{messages.authTokenEnv}</span>
-            </div>
+          <EditorField>
+            <EditorLabelRow>
+              <Label htmlFor="profile-auth-token">{messages.authToken}</Label>
+              <EditorEnvHint>{messages.authTokenEnv}</EditorEnvHint>
+            </EditorLabelRow>
             <SensitiveTextInput
               id="profile-auth-token"
               ariaLabel={messages.authTokenEnv}
@@ -706,28 +740,32 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
                 applySettings(setEnvString(settings, "ANTHROPIC_AUTH_TOKEN", value))
               }
             />
-          </div>
+          </EditorField>
 
           {selectedPreset && selectedPreset.modelSuggestions.length > 0 && (
-            <div className="form-group">
-              <label>{messages.suggestedModels}</label>
-              <div className="profile-chip-list">
+            <EditorField>
+              <Label>{messages.suggestedModels}</Label>
+              <div className="flex flex-wrap gap-2">
                 {selectedPreset.modelSuggestions.map((model) => (
-                  <button
+                  <Button
                     key={model}
                     type="button"
-                    className="profile-chip"
+                    variant="outline"
+                    size="sm"
+                    className="h-auto rounded-full px-2.5 py-1 font-mono text-xs"
                     onClick={() => {
                       void handleCopySuggestedModel(model);
                     }}
                   >
-                    {model}
-                  </button>
+                    <Badge variant="secondary" className="rounded-full font-mono">
+                      {model}
+                    </Badge>
+                  </Button>
                 ))}
               </div>
-            </div>
+            </EditorField>
           )}
-        </section>
+        </EditorSection>
 
         <StructuredSettingsSections
           scope="profiles"
@@ -747,10 +785,11 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
           commonScalarFieldRows={commonScalarFieldRows}
           commonToggleFields={commonToggleFields}
           behaviorHeaderControl={
-            <div className="profile-model-test-header-actions">
-              <button
+            <div className="inline-flex items-center gap-2">
+              <Button
                 type="button"
-                className={`profile-icon-btn profile-model-test-trigger${isTestingModel ? " is-testing" : ""}`}
+                variant="ghost"
+                size="icon-sm"
                 aria-label={isTestingModel ? messages.testingModel : messages.testModel}
                 title={isTestingModel ? messages.testingModel : messages.testModel}
                 disabled={!canTestModel || isTestingModel}
@@ -759,17 +798,18 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
                 }}
               >
                 <TestTube className="size-4" aria-hidden="true" />
-              </button>
+              </Button>
               {hasSuccessfulModelTest ? (
-                <button
+                <Button
                   type="button"
-                  className="profile-icon-btn profile-model-test-success-trigger"
+                  variant="ghost"
+                  size="icon-sm"
                   aria-label={messages.reopenModelTest}
                   title={messages.reopenModelTest}
                   onClick={reopenLatestSuccessfulModelTest}
                 >
                   <CircleCheck className="size-4" aria-hidden="true" />
-                </button>
+                </Button>
               ) : null}
             </div>
           }

@@ -34,17 +34,16 @@ import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } f
 import { formatCost, formatShortDateTime, formatTokens, projectDisplayName } from "./usage/format";
 import SessionUsageDrawer from "./usage/SessionUsageDrawer";
 
-// Recharts 无法读取 CSS 变量，这里使用当前设计令牌对应的稳定色值
 const COLORS = {
-  blue: "#58a6ff",
-  green: "#3fb950",
-  orange: "#f78166",
-  purple: "#bc8cff",
-  red: "#f85149",
-  teal: "#39d2c0",
-  pink: "#f778ba",
-  yellow: "#d29922",
-  total: "#f2cc60",
+  blue: "var(--chart-1)",
+  green: "var(--chart-2)",
+  orange: "var(--chart-3)",
+  purple: "var(--chart-4)",
+  red: "var(--destructive)",
+  teal: "var(--chart-5)",
+  pink: "color-mix(in oklch, var(--chart-4) 72%, var(--chart-5))",
+  yellow: "color-mix(in oklch, var(--chart-3) 78%, var(--chart-1))",
+  total: "var(--chart-1)",
 };
 
 const SERIES_COLORS = [
@@ -58,9 +57,11 @@ const SERIES_COLORS = [
   COLORS.red,
 ];
 
-const TICK_STYLE = { fill: "#7d8590", fontSize: 11 };
-const TICK_STYLE_SM = { fill: "#7d8590", fontSize: 10 };
-const CHART_CURSOR_FILL = "rgba(242, 204, 96, 0.1)";
+const TICK_STYLE = { fill: "var(--muted-foreground)", fontSize: 11 };
+const TICK_STYLE_SM = { fill: "var(--muted-foreground)", fontSize: 10 };
+const CHART_GRID_STROKE = "var(--border)";
+const CHART_CURSOR_FILL = "color-mix(in oklch, var(--chart-1) 15%, transparent)";
+const CHART_CURSOR_STROKE = "var(--chart-1)";
 const USAGE_CHART_CONFIG = {} satisfies ChartConfig;
 
 const TAB_ORDER: UsageTab[] = ["daily", "project", "session", "model"];
@@ -712,14 +713,14 @@ function UsagePage() {
                             >
                               <CartesianGrid
                                 strokeDasharray="3 3"
-                                stroke="#30363d"
+                                stroke={CHART_GRID_STROKE}
                                 vertical={false}
                               />
                               <XAxis dataKey="label" tick={TICK_STYLE_SM} />
                               <YAxis tick={TICK_STYLE} tickFormatter={(v) => `$${v}`} width={44} />
                               <ChartTooltip
                                 itemSorter={sortTooltipItemsByValueDesc}
-                                cursor={{ stroke: COLORS.total, strokeOpacity: 0.34 }}
+                                cursor={{ stroke: CHART_CURSOR_STROKE, strokeOpacity: 0.34 }}
                                 content={
                                   <ChartTooltipContent
                                     formatter={(v) => formatUSD(tooltipNumber(v))}
@@ -771,7 +772,7 @@ function UsagePage() {
                             >
                               <CartesianGrid
                                 strokeDasharray="3 3"
-                                stroke="#30363d"
+                                stroke={CHART_GRID_STROKE}
                                 vertical={false}
                               />
                               <XAxis dataKey="label" tick={TICK_STYLE_SM} />
@@ -862,7 +863,7 @@ function UsagePage() {
                             >
                               <CartesianGrid
                                 strokeDasharray="3 3"
-                                stroke="#30363d"
+                                stroke={CHART_GRID_STROKE}
                                 vertical={false}
                               />
                               <XAxis dataKey="label" tick={TICK_STYLE_SM} />
@@ -873,7 +874,7 @@ function UsagePage() {
                               />
                               <ChartTooltip
                                 itemSorter={sortTooltipItemsByValueDesc}
-                                cursor={{ stroke: COLORS.total, strokeOpacity: 0.34 }}
+                                cursor={{ stroke: CHART_CURSOR_STROKE, strokeOpacity: 0.34 }}
                                 content={
                                   <ChartTooltipContent
                                     formatter={(v) => formatTokens(tooltipNumber(v))}
@@ -925,7 +926,7 @@ function UsagePage() {
                             >
                               <CartesianGrid
                                 strokeDasharray="3 3"
-                                stroke="#30363d"
+                                stroke={CHART_GRID_STROKE}
                                 vertical={false}
                               />
                               <XAxis dataKey="label" tick={TICK_STYLE_SM} />
@@ -1353,7 +1354,7 @@ function ModelCostShare({
               innerRadius={42}
               outerRadius={68}
               paddingAngle={2}
-              stroke="#161b22"
+              stroke="var(--background)"
               strokeWidth={2}
             >
               {data.map((entry) => (
@@ -1442,7 +1443,7 @@ function Filters({ t, filter, allProjects, allModels, onChange, onReset }: Filte
 
   return (
     <div
-      className="usage-command-bar sticky top-0 z-[var(--z-index-sticky)] flex flex-wrap items-end gap-3 rounded-lg border bg-card/95 p-3 shadow-sm backdrop-blur"
+      className="usage-command-bar sticky top-0 z-10 flex flex-wrap items-end gap-3 rounded-lg border bg-card/95 p-3 shadow-sm backdrop-blur"
       role="group"
       aria-label={t("usage.filter.ariaLabel")}
     >

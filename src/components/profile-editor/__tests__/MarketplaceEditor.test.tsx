@@ -90,11 +90,11 @@ describe("MarketplaceEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "删除 Marketplace team-market" }));
 
     const dialogMessage = "确定要从当前设置中移除 Marketplace team-market 吗？";
-    const dialog = screen.getByText(dialogMessage).closest(".confirm-dialog");
-    expect(dialog).not.toBeNull();
+    const dialog = screen.getByRole("alertdialog", { name: "删除 Marketplace" });
+    expect(within(dialog).getByText(dialogMessage)).toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
 
-    fireEvent.click(within(dialog as HTMLElement).getByRole("button", { name: "删除" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "删除" }));
 
     expect(onChange).toHaveBeenLastCalledWith({
       "backup-market": {
@@ -112,10 +112,10 @@ describe("MarketplaceEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "删除 Marketplace team-market" }));
 
     const dialogMessage = "确定要从当前设置中移除 Marketplace team-market 吗？";
-    const dialog = screen.getByText(dialogMessage).closest(".confirm-dialog");
-    expect(dialog).not.toBeNull();
+    const dialog = screen.getByRole("alertdialog", { name: "删除 Marketplace" });
+    expect(within(dialog).getByText(dialogMessage)).toBeInTheDocument();
 
-    fireEvent.click(within(dialog as HTMLElement).getByRole("button", { name: "取消" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
 
     expect(
       screen.getByRole("button", { name: "编辑 Marketplace team-market" }),

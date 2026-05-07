@@ -218,13 +218,13 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
         control={control}
         name={fieldConfig.name}
         render={({ field }) => (
-          <FormItem className="form-group flex flex-col gap-3">
+          <FormItem className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
-              <FormLabel className="text-[length:var(--font-base)] font-medium text-[var(--foreground)]">
+              <FormLabel className="text-sm font-medium text-foreground">
                 {t(fieldConfig.labelKey)}
               </FormLabel>
               {isRequired ? (
-                <span className="required-badge inline-flex items-center justify-center rounded-full bg-[var(--accent-red-bg)] px-1.5 py-px text-[length:var(--font-xs)] font-semibold text-[var(--accent-red)]">
+                <span className="inline-flex items-center justify-center rounded-full bg-destructive/10 px-1.5 py-px text-xs font-semibold text-destructive">
                   {t("form.required")}
                 </span>
               ) : null}
@@ -242,7 +242,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                   readOnly={fieldConfig.readOnly}
                   onBlur={field.onBlur}
                   onChange={field.onChange}
-                  className="rounded-[var(--radius-md)] border-[var(--border-default)] bg-[var(--card)] px-3 py-2.5 text-[length:var(--font-base)] text-[var(--foreground)] placeholder:text-[var(--text-muted)] hover:border-[var(--text-muted)] focus-visible:border-[var(--primary)] focus-visible:ring-[3px] focus-visible:ring-[var(--accent)]"
+                  className="rounded-md border-border bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground hover:border-muted-foreground focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/50"
                 />
               ) : (
                 <Input
@@ -257,20 +257,19 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                   onBlur={field.onBlur}
                   onChange={field.onChange}
                   className={cn(
-                    "h-auto rounded-[var(--radius-md)] border-[var(--border-default)] bg-[var(--card)] px-3 py-2.5 text-[length:var(--font-base)] text-[var(--foreground)] placeholder:text-[var(--text-muted)] hover:border-[var(--text-muted)] focus-visible:border-[var(--primary)] focus-visible:ring-[3px] focus-visible:ring-[var(--accent)]",
+                    "h-auto rounded-md border-border bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground hover:border-muted-foreground focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/50",
                     fieldConfig.inputClassName,
-                    fieldConfig.readOnly &&
-                      "cursor-default font-mono text-[length:var(--font-sm)] opacity-60",
+                    fieldConfig.readOnly && "cursor-default font-mono text-xs opacity-60",
                   )}
                 />
               )}
             </FormControl>
             {fieldConfig.descriptionKey ? (
-              <FormDescription className="form-hint field-hint m-0 text-[length:var(--font-xs)] leading-normal text-[var(--text-muted)]">
+              <FormDescription className="m-0 text-xs leading-normal text-muted-foreground">
                 {t(fieldConfig.descriptionKey)}
               </FormDescription>
             ) : null}
-            <FormMessage className="field-error mt-1 text-[11px] text-[var(--accent-red)]" />
+            <FormMessage className="mt-1 text-[11px] text-destructive" />
           </FormItem>
         )}
       />
@@ -290,21 +289,21 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                 <Checkbox
                   checked={!!field.value}
                   onCheckedChange={(checked) => field.onChange(checked === true)}
-                  className="mt-0.5 border-[var(--border-default)] data-[state=checked]:border-[var(--primary)] data-[state=checked]:bg-[var(--primary)]"
+                  className="mt-0.5 border-border data-[state=checked]:border-primary data-[state=checked]:bg-primary"
                 />
               </FormControl>
               <div className="grid min-w-0 gap-1">
-                <FormLabel className="text-[length:var(--font-sm)] font-medium text-[var(--foreground)]">
+                <FormLabel className="text-xs font-medium text-foreground">
                   {t(fieldConfig.labelKey)}
                 </FormLabel>
                 {fieldConfig.descriptionKey ? (
-                  <FormDescription className="form-hint m-0 text-[length:var(--font-xs)] leading-normal text-[var(--text-muted)]">
+                  <FormDescription className="m-0 text-xs leading-normal text-muted-foreground">
                     {t(fieldConfig.descriptionKey)}
                   </FormDescription>
                 ) : null}
               </div>
             </div>
-            <FormMessage className="field-error mt-1 text-[11px] text-[var(--accent-red)]" />
+            <FormMessage className="mt-1 text-[11px] text-destructive" />
           </FormItem>
         )}
       />
@@ -313,54 +312,52 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
 
   return (
     <Form {...form}>
-      <div className="editor-drawer-container">
-        <div className="editor-panel" role="dialog" aria-modal="true">
-          <form onSubmit={handleSubmit(handleSkillSubmit)}>
+      <div className="flex h-full min-h-0 w-full min-w-[560px] bg-card">
+        <div
+          className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card"
+          role="dialog"
+          aria-modal="true"
+        >
+          <form className="flex h-full min-h-0 flex-col" onSubmit={handleSubmit(handleSkillSubmit)}>
             {/* 顶部操作栏 */}
-            <div className="editor-header">
+            <div className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-6">
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="editor-back-btn"
                 onClick={onClose}
                 aria-label={t("common.close")}
               >
                 <ChevronLeft className="size-5" aria-hidden="true" />
               </Button>
-              <h2>{isEditing ? t("skills.editTitle") : t("skills.addTitle")}</h2>
-              <Button type="submit" className="editor-save-btn" disabled={!canSave}>
+              <h2 className="min-w-0 flex-1 truncate text-lg font-semibold text-foreground">
+                {isEditing ? t("skills.editTitle") : t("skills.addTitle")}
+              </h2>
+              <Button type="submit" disabled={!canSave}>
                 {t("skills.save")}
               </Button>
             </div>
 
             {/* 正文区域 */}
-            <div className="editor-body">
+            <div className="flex min-h-0 flex-1 flex-col items-center gap-5 overflow-y-auto px-6 py-6 pb-6 [&>*]:shrink-0 [&>:not([data-slot=profile-name-badge])]:w-[min(100%,880px)]">
               {/* 大徽章头像 */}
-              <ProfileNameBadge
-                name={watchId || skill?.id}
-                size="lg"
-                fallbackChar="S"
-                className="editor-badge-large"
-              />
+              <ProfileNameBadge name={watchId || skill?.id} size="lg" fallbackChar="S" />
 
               {primaryFields.map(renderSkillField)}
 
               {/* 高级开关：disable-model-invocation 和 user-invocable */}
-              <div className="form-group skill-checkboxes flex flex-col gap-1">
+              <div className="flex flex-col gap-1">
                 {SKILL_BOOLEAN_FIELDS.map(renderSkillBooleanField)}
               </div>
 
               {/* Markdown 内容编辑器 */}
-              <div className="form-group flex flex-col gap-3">
-                <label className="text-[length:var(--font-base)] font-medium text-[var(--foreground)]">
-                  {t("skills.content")}
-                </label>
+              <div className="flex flex-col gap-3">
+                <label className="text-sm font-medium text-foreground">{t("skills.content")}</label>
                 <FormField
                   control={control}
                   name="content"
                   render={({ field }) => (
-                    <div className="skill-editor-wrap overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-default)] focus-within:border-[var(--primary)] focus-within:shadow-[0_0_0_3px_var(--accent)] [&_.cm-editor]:text-[13px] [&_.cm-editor]:leading-[1.6] [&_.cm-editor.cm-focused]:outline-none [&_.cm-scroller]:font-mono [&_.cm-scroller]:overflow-auto">
+                    <div className="skill-editor-wrap overflow-hidden rounded-md border border-border focus-within:border-[var(--primary)] focus-within:ring-[3px] focus-within:ring-ring/50 [&_.cm-editor]:text-[13px] [&_.cm-editor]:leading-[1.6] [&_.cm-editor.cm-focused]:outline-none [&_.cm-scroller]:font-mono [&_.cm-scroller]:overflow-auto">
                       <CodeMirror
                         value={field.value}
                         onChange={field.onChange}
@@ -388,13 +385,13 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                     {files.map((file) => (
                       <Card
                         key={file.name}
-                        className="skill-file-item overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--card)] py-0 shadow-none"
+                        className="skill-file-item overflow-hidden rounded-md border border-border bg-card py-0 shadow-none"
                       >
                         {editingFile === file.name ? (
                           // 文件编辑模式
                           <div className="skill-file-editor flex flex-col">
-                            <div className="skill-file-editor-header flex items-center justify-between gap-2 border-b border-[var(--border-default)] bg-[var(--secondary)] px-3 py-2">
-                              <span className="skill-file-name min-w-0 truncate font-mono text-[length:var(--font-sm)] text-[var(--foreground)]">
+                            <div className="skill-file-editor-header flex items-center justify-between gap-2 border-b border-border bg-secondary px-3 py-2">
+                              <span className="skill-file-name min-w-0 truncate font-mono text-xs text-foreground">
                                 {file.name}
                               </span>
                               <div className="skill-file-editor-actions flex shrink-0 gap-1.5">
@@ -402,7 +399,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                                   type="button"
                                   variant="outline"
                                   size="xs"
-                                  className="file-btn cancel border-[var(--border-default)] bg-[var(--secondary)] text-[var(--text-secondary)] hover:text-[var(--foreground)]"
+                                  className="file-btn cancel border-border bg-secondary text-muted-foreground hover:text-foreground"
                                   onClick={cancelEditFile}
                                 >
                                   {t("skills.cancelEdit")}
@@ -418,12 +415,12 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                               </div>
                             </div>
                             <Textarea
-                              className="skill-file-textarea min-h-48 rounded-none border-0 bg-[var(--card)] px-3 py-2.5 font-mono text-[13px] leading-normal text-[var(--foreground)] shadow-none focus-visible:ring-0"
+                              className="skill-file-textarea min-h-48 rounded-none border-0 bg-card px-3 py-2.5 font-mono text-[13px] leading-normal text-foreground shadow-none focus-visible:ring-0"
                               rows={8}
                               {...editFileForm.register("content")}
                             />
                             {editFileForm.formState.errors.content?.message && (
-                              <span className="field-error px-3 pb-3 text-[11px] text-[var(--accent-red)]">
+                              <span className="px-3 pb-3 text-[11px] text-destructive">
                                 {t(editFileForm.formState.errors.content.message as TranslationKey)}
                               </span>
                             )}
@@ -431,12 +428,12 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                         ) : (
                           // 文件列表行
                           <div className="skill-file-row flex items-center justify-between gap-2 px-3 py-2.5">
-                            <span className="skill-file-name flex min-w-0 items-center gap-1.5 font-mono text-[length:var(--font-sm)] text-[var(--foreground)]">
+                            <span className="skill-file-name flex min-w-0 items-center gap-1.5 font-mono text-xs text-foreground">
                               <span className="truncate">{file.name}</span>
                               {file.isBinary && (
                                 <Badge
                                   variant="secondary"
-                                  className="skill-file-binary-tag shrink-0 rounded bg-[var(--bg-tertiary)] px-1.5 py-px text-[10px] font-semibold text-[var(--text-muted)]"
+                                  className="skill-file-binary-tag shrink-0 rounded bg-muted px-1.5 py-px text-[10px] font-semibold text-muted-foreground"
                                 >
                                   {t("skills.binaryFile")}
                                 </Badge>
@@ -448,7 +445,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                                   type="button"
                                   variant="outline"
                                   size="xs"
-                                  className="file-btn edit border-[var(--border-default)] bg-[var(--secondary)] text-[var(--text-secondary)] hover:text-[var(--foreground)]"
+                                  className="file-btn edit border-border bg-secondary text-muted-foreground hover:text-foreground"
                                   onClick={() => startEditFile(file)}
                                 >
                                   {t("skills.editFile")}
@@ -458,7 +455,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                                 type="button"
                                 variant="ghost"
                                 size="xs"
-                                className="file-btn delete text-[var(--accent-red)] hover:bg-[var(--accent-red-bg)] hover:text-[var(--accent-red)]"
+                                className="file-btn delete text-destructive hover:bg-destructive/10 hover:text-destructive"
                                 onClick={() => setPendingDeleteFile(file.name)}
                               >
                                 {t("skills.deleteFile")}
@@ -471,26 +468,26 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
 
                     {/* 添加文件表单 */}
                     {showAddFile ? (
-                      <div className="skill-add-file-form flex flex-col gap-2 rounded-[var(--radius-md)] border border-dashed border-[var(--border-default)] p-3">
+                      <div className="skill-add-file-form flex flex-col gap-2 rounded-md border border-dashed border-border p-3">
                         <Input
                           type="text"
-                          className="skill-file-name-input h-auto rounded-[var(--radius-md)] border-[var(--border-default)] bg-[var(--card)] px-3 py-2 font-mono text-[length:var(--font-sm)] text-[var(--foreground)]"
+                          className="skill-file-name-input h-auto rounded-md border-border bg-card px-3 py-2 font-mono text-xs text-foreground"
                           placeholder={t("skills.fileNamePlaceholder")}
                           {...addFileForm.register("fileName")}
                         />
                         {addFileForm.formState.errors.fileName?.message && (
-                          <span className="field-error text-[11px] text-[var(--accent-red)]">
+                          <span className="text-[11px] text-destructive">
                             {t(addFileForm.formState.errors.fileName.message as TranslationKey)}
                           </span>
                         )}
                         <Textarea
-                          className="skill-file-textarea min-h-36 rounded-[var(--radius-md)] border-[var(--border-default)] bg-[var(--card)] px-3 py-2.5 font-mono text-[13px] leading-normal text-[var(--foreground)]"
+                          className="skill-file-textarea min-h-36 rounded-md border-border bg-card px-3 py-2.5 font-mono text-[13px] leading-normal text-foreground"
                           placeholder={t("skills.fileContent")}
                           rows={6}
                           {...addFileForm.register("content")}
                         />
                         {addFileForm.formState.errors.content?.message && (
-                          <span className="field-error text-[11px] text-[var(--accent-red)]">
+                          <span className="text-[11px] text-destructive">
                             {t(addFileForm.formState.errors.content.message as TranslationKey)}
                           </span>
                         )}
@@ -499,7 +496,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                             type="button"
                             variant="outline"
                             size="xs"
-                            className="file-btn cancel border-[var(--border-default)] bg-[var(--secondary)] text-[var(--text-secondary)] hover:text-[var(--foreground)]"
+                            className="file-btn cancel border-border bg-secondary text-muted-foreground hover:text-foreground"
                             onClick={cancelAddFile}
                           >
                             {t("skills.cancelEdit")}
@@ -519,7 +516,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                       <Button
                         type="button"
                         variant="outline"
-                        className="skill-add-file-btn w-full border-dashed border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
+                        className="skill-add-file-btn w-full border-dashed border-border bg-transparent text-muted-foreground hover:bg-secondary hover:text-foreground"
                         onClick={openAddFileForm}
                       >
                         <Plus className="size-3.5" aria-hidden="true" />

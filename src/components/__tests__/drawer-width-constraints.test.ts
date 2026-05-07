@@ -7,12 +7,11 @@ function readText(relativePath: string): string {
 }
 
 describe("drawer width constraints", () => {
-  it("does not rely on horizontal scrolling for the main drawer", () => {
+  it("does not restore legacy drawer CSS in the global stylesheet", () => {
     const css = readText("src/index.css");
-    const drawerRule = css.match(/\.drawer\s*\{(?<body>[\s\S]*?)\n {2}\}/)?.groups?.body ?? "";
 
-    expect(css).toContain(".drawer {");
-    expect(drawerRule).not.toContain("overflow-x: auto;");
+    expect(css).not.toContain(".drawer {");
+    expect(css).not.toContain("overflow-x: auto;");
   });
 
   it("keeps config editors at a shared minimum width and raises the app window minimum width to match", () => {
@@ -24,9 +23,9 @@ describe("drawer width constraints", () => {
       };
     };
 
-    expect(globalCss).toContain("--config-editor-min-width: 560px;");
-    expect(profileEditorSource).toContain("profile-editor-panel");
-    expect(profileEditorSource).toContain("min-w-[var(--config-editor-min-width)]");
+    expect(globalCss).not.toContain("--config-editor-min-width");
+    expect(profileEditorSource).toContain('data-slot="profile-editor-panel"');
+    expect(profileEditorSource).toContain("min-w-[560px]");
     expect(tauriConfig.app?.windows?.[0]?.minWidth).toBe(620);
   });
 
@@ -34,13 +33,17 @@ describe("drawer width constraints", () => {
     const profileEditorSource = readText("src/components/ProfileEditor.tsx");
     const presetEditorSource = readText("src/components/PresetEditor.tsx");
 
-    expect(profileEditorSource).toContain("profile-editor-body");
+    expect(profileEditorSource).toContain('data-slot="profile-editor-body"');
     expect(profileEditorSource).toContain("items-center");
-    expect(profileEditorSource).toContain("[&>:not(.editor-badge-large)]:w-[min(100%,880px)]");
-    expect(presetEditorSource).toContain("preset-editor-panel");
-    expect(presetEditorSource).toContain("min-w-[var(--config-editor-min-width)]");
-    expect(presetEditorSource).toContain("preset-editor-body");
+    expect(profileEditorSource).toContain(
+      "[&>:not([data-slot=profile-name-badge])]:w-[min(100%,880px)]",
+    );
+    expect(presetEditorSource).toContain('data-slot="preset-editor-panel"');
+    expect(presetEditorSource).toContain("min-w-[560px]");
+    expect(presetEditorSource).toContain('data-slot="preset-editor-body"');
     expect(presetEditorSource).toContain("items-center");
-    expect(presetEditorSource).toContain("[&>:not(.editor-badge-large)]:w-[min(100%,880px)]");
+    expect(presetEditorSource).toContain(
+      "[&>:not([data-slot=profile-name-badge])]:w-[min(100%,880px)]",
+    );
   });
 });

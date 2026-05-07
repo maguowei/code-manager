@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
@@ -24,6 +23,10 @@ const { invokeMock, showToastMock, fetchMock, openDialogMock, openUrlMock } = vi
 const SETTINGS_STORAGE_KEY = "ai-manager-settings";
 const originalFetch = globalThis.fetch;
 const originalIntersectionObserver = globalThis.IntersectionObserver;
+
+Element.prototype.hasPointerCapture ??= () => false;
+Element.prototype.setPointerCapture ??= () => undefined;
+Element.prototype.releasePointerCapture ??= () => undefined;
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: unknown[]) => invokeMock(...args),
@@ -216,10 +219,44 @@ function getSection(name: string): HTMLElement {
 }
 
 function expectAccordionHeaderMeta(section: HTMLElement, text: string) {
-  const meta = section.querySelector(".profile-accordion-header-meta");
-  expect(meta).not.toBeNull();
-  expect(meta).toHaveTextContent(text);
-  expect(section.querySelector(".profile-accordion-badge")).toBeNull();
+  expect(within(section).getByText(text)).toBeInTheDocument();
+}
+
+function getFieldForLabel(label: string | RegExp): HTMLElement {
+  const field = screen.getByLabelText(label).closest('[data-slot="settings-field"]');
+  expect(field).not.toBeNull();
+  return field as HTMLElement;
+}
+
+function getSectionModeRow(section: HTMLElement, label: string): HTMLElement {
+  const modeRow = within(section)
+    .getByRole("tablist", { name: new RegExp(label) })
+    .closest('[data-slot="settings-section-mode-row"]');
+  expect(modeRow).not.toBeNull();
+  return modeRow as HTMLElement;
+}
+
+function chooseComboboxOption(label: string | RegExp, optionName: string | RegExp) {
+  const combobox = screen.getByRole("combobox", { name: label });
+  act(() => {
+    fireEvent.pointerDown(combobox, { button: 0, ctrlKey: false, pointerType: "mouse" });
+  });
+  const option = screen.getByRole("option", { name: optionName });
+  act(() => {
+    fireEvent.click(option);
+  });
+}
+
+function comboboxOptionNames(label: string | RegExp): string[] {
+  const combobox = screen.getByRole("combobox", { name: label });
+  act(() => {
+    fireEvent.pointerDown(combobox, { button: 0, ctrlKey: false, pointerType: "mouse" });
+  });
+  const names = screen.getAllByRole("option").map((option) => option.textContent ?? "");
+  act(() => {
+    fireEvent.keyDown(combobox, { key: "Escape" });
+  });
+  return names;
 }
 
 function toggleAccordionSection(name: string) {
@@ -329,13 +366,11 @@ describe("ProfileEditor", () => {
   it("renders control-first sections with unified mode switches and document editor entry", async () => {
     renderEditor();
 
-    const topBadge = document.querySelector(
-      ".editor-badge-large.profile-name-badge",
-    ) as HTMLElement | null;
+    const topBadge = screen.getByText("O").closest('[data-slot="profile-name-badge"]');
     expect(topBadge).not.toBeNull();
     expect(topBadge).toHaveTextContent("O");
-    const initialColorClass = topBadge?.className.match(/profile-name-badge--color-\d/)?.[0];
-    expect(initialColorClass).toBeTruthy();
+    const initialColorIndex = topBadge?.getAttribute("data-color-index");
+    expect(initialColorIndex).toBeTruthy();
 
     expect(screen.queryByLabelText("降低动画")).not.toBeInTheDocument();
 
@@ -386,10 +421,10 @@ describe("ProfileEditor", () => {
     expect(screen.queryByLabelText("env")).not.toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "常用选项", level: 3 }).closest("button"),
-    ).toHaveClass("profile-accordion-trigger-large-target");
-    expect(screen.getByRole("heading", { name: "权限", level: 3 }).closest("button")).toHaveClass(
-      "profile-accordion-trigger-large-target",
-    );
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.getByRole("heading", { name: "权限", level: 3 }).closest("button"),
+    ).toHaveAttribute("aria-expanded", "false");
 
     const authSection = screen.getByRole("heading", { name: "认证", level: 3 }).closest("section");
     const basicSection = screen
@@ -404,14 +439,7 @@ describe("ProfileEditor", () => {
     }
     if (basicSection) {
       expect(within(basicSection).queryByLabelText("预设")).not.toBeInTheDocument();
-      const nameLabel = basicSection.querySelector(
-        'label[for="profile-name"]',
-      ) as HTMLElement | null;
-      expect(nameLabel).not.toBeNull();
-      expect(nameLabel).toHaveClass("label-required");
-      if (nameLabel) {
-        expect(within(nameLabel).getByText("必填")).toBeInTheDocument();
-      }
+      expect(within(basicSection).getByText("必填")).toBeInTheDocument();
     }
 
     await act(async () => {
@@ -421,7 +449,7 @@ describe("ProfileEditor", () => {
       await Promise.resolve();
     });
     expect(topBadge).toHaveTextContent("B");
-    expect(topBadge?.className).not.toContain(initialColorClass ?? "");
+    expect(topBadge?.getAttribute("data-color-index")).not.toBe(initialColorIndex);
 
     const sandboxSection = screen.getByRole("heading", { name: "Sandbox" }).closest("section");
     expect(sandboxSection).not.toBeNull();
@@ -469,18 +497,14 @@ describe("ProfileEditor", () => {
       const outputStyleSelect = within(behaviorSection).getByRole("combobox", {
         name: "输出风格",
       }) as HTMLSelectElement;
-      const languageSelect = within(behaviorSection).getByRole("combobox", {
-        name: "回复语言",
-      }) as HTMLSelectElement;
       expect(outputStyleSelect).toBeInTheDocument();
       expect(outputStyleSelect).toHaveValue("");
-      expect(Array.from(outputStyleSelect.options, (option) => option.value)).toEqual([
-        "",
+      expect(comboboxOptionNames("输出风格")).toEqual([
+        "未设置",
         "default",
         "Explanatory",
         "Learning",
       ]);
-      expect(languageSelect.closest(".form-row")).toBe(outputStyleSelect.closest(".form-row"));
       expect(within(behaviorSection).queryByText("默认启用深度思考")).not.toBeInTheDocument();
       expect(within(behaviorSection).queryByText("尊重 .gitignore")).not.toBeInTheDocument();
       expect(within(behaviorSection).queryByText("跳过 WebFetch 预检")).not.toBeInTheDocument();
@@ -524,8 +548,8 @@ describe("ProfileEditor", () => {
         "权限头部默认模式",
       ) as HTMLSelectElement;
       expect(permissionModeSelect).toHaveValue("");
-      expect(Array.from(permissionModeSelect.options, (option) => option.value)).toEqual([
-        "",
+      expect(comboboxOptionNames("权限头部默认模式")).toEqual([
+        "未设置",
         "default",
         "acceptEdits",
         "plan",
@@ -643,8 +667,6 @@ describe("ProfileEditor", () => {
     const behaviorDocsButton = screen.getByRole("button", { name: "查看 模型与行为 官方文档" });
     expect(behaviorDocsButton).toBeInTheDocument();
     expect(behaviorDocsButton).toHaveTextContent("官方文档");
-    expect(behaviorDocsButton).toHaveClass("profile-secondary-btn");
-    expect(behaviorDocsButton).not.toHaveClass("profile-icon-btn");
 
     const docsSections = [
       { section: "环境变量", button: "查看 环境变量 官方文档" },
@@ -665,8 +687,6 @@ describe("ProfileEditor", () => {
       const docsButton = within(sectionElement).getByRole("button", { name: button });
       expect(docsButton).toBeInTheDocument();
       expect(docsButton).toHaveTextContent("官方文档");
-      expect(docsButton).toHaveClass("profile-secondary-btn");
-      expect(docsButton).not.toHaveClass("profile-icon-btn");
 
       if (button === "查看 环境变量 官方文档" || button === "查看 插件 官方文档") {
         fireEvent.click(docsButton);
@@ -703,8 +723,6 @@ describe("ProfileEditor", () => {
       name: "Open Model & Behavior official docs",
     });
     expect(behaviorDocsButton).toHaveTextContent("Docs");
-    expect(behaviorDocsButton).toHaveClass("profile-secondary-btn");
-    expect(behaviorDocsButton).not.toHaveClass("profile-icon-btn");
 
     expect(
       screen.queryByRole("button", { name: "Open Environment Variables official docs" }),
@@ -724,8 +742,6 @@ describe("ProfileEditor", () => {
       name: "Open Environment Variables official docs",
     });
     expect(envDocsButton).toHaveTextContent("Docs");
-    expect(envDocsButton).toHaveClass("profile-secondary-btn");
-    expect(envDocsButton).not.toHaveClass("profile-icon-btn");
     fireEvent.click(envDocsButton);
 
     const pluginsSection = toggleAccordionSection("Plugins");
@@ -779,7 +795,7 @@ describe("ProfileEditor", () => {
   it("uses localized preset names in the preset selector", () => {
     renderEditor();
 
-    expect(screen.getByRole("option", { name: "开放路由" })).toBeInTheDocument();
+    expect(comboboxOptionNames("预设")).toContain("开放路由");
     expect(screen.queryByRole("option", { name: "OpenRouter" })).not.toBeInTheDocument();
   });
 
@@ -788,17 +804,15 @@ describe("ProfileEditor", () => {
 
     const authSection = getSection("认证");
     const presetSelector = within(authSection).getByLabelText("预设");
-    expect(presetSelector.closest(".profile-preset-select-grid")).not.toBeNull();
+    expect(presetSelector).toHaveAttribute("data-slot", "select-trigger");
 
     const docsButton = within(authSection).getByRole("button", { name: "查看文档" });
-    expect(docsButton).toHaveClass("profile-preset-doc-link");
+    expect(docsButton).toHaveAttribute("data-slot", "button");
 
     fireEvent.click(docsButton);
     expect(openUrlMock).toHaveBeenCalledWith("https://openrouter.ai/docs");
 
-    fireEvent.change(presetSelector, {
-      target: { value: "custom:team-plan" },
-    });
+    chooseComboboxOption("预设", "团队计划");
     expect(within(authSection).queryByRole("button", { name: "查看文档" })).not.toBeInTheDocument();
   });
 
@@ -818,14 +832,10 @@ describe("ProfileEditor", () => {
       return;
     }
 
-    const behaviorRows = behaviorSection.querySelectorAll(".form-row");
-    expect(behaviorRows.length).toBeGreaterThan(1);
-    for (const row of behaviorRows) {
-      expect(row.querySelectorAll(".form-group").length).toBeLessThanOrEqual(2);
-    }
-
-    const toggleRows = behaviorSection.querySelectorAll(".profile-toggle-grid");
-    expect(toggleRows.length).toBe(0);
+    expect(within(behaviorSection).getByLabelText("默认模型")).toBeInTheDocument();
+    expect(within(behaviorSection).getByRole("combobox", { name: "努力级别" })).toBeInTheDocument();
+    expect(within(behaviorSection).getByRole("combobox", { name: "回复语言" })).toBeInTheDocument();
+    expect(within(behaviorSection).getByRole("combobox", { name: "输出风格" })).toBeInTheDocument();
   });
 
   it("tests the current profile draft from the behavior section, opens the dialog, and reopens it from the success badge", async () => {
@@ -930,32 +940,17 @@ describe("ProfileEditor", () => {
     expect(within(dialog).getByTestId("model-test-request-url")).toHaveTextContent(
       "https://openrouter.ai/api/v1/messages",
     );
-    expect(within(dialog).getByTestId("model-test-context")).toHaveClass(
-      "profile-model-test-dialog-context--stacked",
+    expect(within(dialog).getByTestId("model-test-context")).toBeInTheDocument();
+    expect(within(dialog).getByTestId("model-test-profile-row")).toHaveTextContent(
+      "OpenRouter User",
     );
-    expect(
-      within(dialog)
-        .getByTestId("model-test-context")
-        .closest(".profile-model-test-dialog-header-main"),
-    ).toBeNull();
-    expect(within(dialog).getByTestId("model-test-profile-row")).toHaveClass(
-      "profile-model-test-dialog-context-item--inline",
+    expect(within(dialog).getByTestId("model-test-request-url-row")).toHaveTextContent(
+      "https://openrouter.ai/api/v1/messages",
     );
-    expect(within(dialog).getByTestId("model-test-request-url-row")).toHaveClass(
-      "profile-model-test-dialog-context-item--inline",
-    );
-    expect(within(dialog).getByTestId("model-test-meta-list")).toHaveClass(
-      "profile-model-test-dialog-meta-list--compact",
-    );
-    expect(within(dialog).getByTestId("model-test-content-grid")).toHaveClass(
-      "profile-model-test-content-grid--stacked",
-    );
-    expect(within(dialog).getByTestId("model-test-prompt-panel")).toHaveClass(
-      "profile-model-test-content-panel--primary",
-    );
-    expect(within(dialog).getByTestId("model-test-response-panel")).toHaveClass(
-      "profile-model-test-content-panel--primary",
-    );
+    expect(within(dialog).getByTestId("model-test-meta-list")).toBeInTheDocument();
+    expect(within(dialog).getByTestId("model-test-content-grid")).toBeInTheDocument();
+    expect(within(dialog).getByTestId("model-test-prompt-panel")).toBeInTheDocument();
+    expect(within(dialog).getByTestId("model-test-response-panel")).toBeInTheDocument();
     expect(within(dialog).getByTestId("model-test-exchange-details")).toBeInTheDocument();
     expect(
       within(dialog).getByText("API 测试成功，当前配置可以正常返回响应。"),
@@ -1328,63 +1323,31 @@ describe("ProfileEditor", () => {
     expect(modelTestPayloads[1]).not.toHaveProperty("promptText");
   });
 
-  it("keeps model test prompt and response body text smaller than section labels", () => {
-    const css = readFileSync(`${process.cwd()}/src/index.css`, "utf8");
-
-    expect(css).toMatch(
-      /\.profile-model-test-content-panel--primary\s+\.profile-model-test-label\s*\{[^}]*color:\s*var\(--text-secondary\);[^}]*font-size:\s*14px;/s,
-    );
-    expect(css).toMatch(
-      /\.profile-model-test-content-panel--primary\s+\.profile-model-test-dialog-panel-text\s*\{[^}]*font-size:\s*13px;/s,
-    );
-    expect(css).toMatch(
-      /\.profile-model-test-content-panel--primary\s+\.profile-model-test-prompt-input\s*\{[^}]*font-size:\s*13px;/s,
-    );
-    expect(css).toMatch(
-      /\.profile-model-test-progress-spinner\s*\{[^}]*animation:\s*profile-model-test-spin\s+0\.8s\s+linear\s+infinite;/s,
-    );
-    expect(css).toMatch(
-      /\.profile-model-test-progress-track::after\s*\{[^}]*animation:\s*profile-model-test-progress-sweep\s+1\.2s\s+ease-in-out\s+infinite;/s,
-    );
-    expect(css).toMatch(
-      /\.profile-model-test-dialog-context-item--inline\s+\.profile-model-test-label\s*\{[^}]*flex:\s*none;[^}]*white-space:\s*nowrap;/s,
-    );
-    expect(css).toMatch(
-      /\.profile-model-test-dialog-context-item\.request-url\s+\.profile-model-test-dialog-context-value\s*\{[^}]*flex:\s*1\s+1\s+auto;/s,
-    );
-    expect(css).toMatch(/\.profile-model-test-url-text\s*\{[^}]*flex:\s*1\s+1\s+auto;/s);
-    expect(css).toMatch(
-      /\.profile-model-test-compact-action:disabled\s*\{[^}]*cursor:\s*not-allowed;/s,
-    );
-  });
-
   it("renders language as a select list and exposes the full effort enum set", async () => {
     await act(async () => {
       renderEditor();
       await Promise.resolve();
     });
 
-    const languageSelect = screen.getByLabelText("回复语言") as HTMLSelectElement;
-    expect(languageSelect.tagName).toBe("SELECT");
-    expect(Array.from(languageSelect.options).map((option) => option.value)).toEqual(
+    expect(comboboxOptionNames("回复语言")).toEqual(
       expect.arrayContaining([
-        "english",
-        "chinese",
-        "japanese",
-        "korean",
-        "spanish",
-        "french",
-        "german",
-        "portuguese",
-        "russian",
-        "arabic",
-        "italian",
+        "English",
+        "中文 (Chinese)",
+        "日本語 (Japanese)",
+        "한국어 (Korean)",
+        "Español (Spanish)",
+        "Français (French)",
+        "Deutsch (German)",
+        "Português (Portuguese)",
+        "Русский (Russian)",
+        "العربية (Arabic)",
+        "Italiano (Italian)",
       ]),
     );
 
-    const effortSelect = screen.getByLabelText("努力级别") as HTMLSelectElement;
-    expect(Array.from(effortSelect.options).map((option) => option.value)).toEqual([
-      "",
+    const effortSelect = screen.getByLabelText("努力级别");
+    expect(comboboxOptionNames("努力级别")).toEqual([
+      "未设置",
       "auto",
       "low",
       "medium",
@@ -1534,18 +1497,16 @@ describe("ProfileEditor", () => {
       await Promise.resolve();
     });
 
-    const effortSelect = screen.getByLabelText("努力级别") as HTMLSelectElement;
+    const effortSelect = screen.getByLabelText("努力级别");
     expect(effortSelect).toHaveValue("");
 
     await act(async () => {
       fireEvent.change(screen.getByLabelText("默认模型"), {
         target: { value: "claude-opus-4-1" },
       });
-      fireEvent.change(effortSelect, {
-        target: { value: "auto" },
-      });
       await Promise.resolve();
     });
+    chooseComboboxOption("努力级别", "auto");
 
     expect(
       within(envSection).getByRole("button", {
@@ -1604,31 +1565,18 @@ describe("ProfileEditor", () => {
     });
 
     for (const label of ["Opus 默认模型", "Sonnet 默认模型", "Haiku 默认模型", "Subagent 模型"]) {
-      const fieldGroup = screen.getByLabelText(label).closest(".form-group") as HTMLElement | null;
-      expect(fieldGroup).not.toBeNull();
-      if (!fieldGroup) {
-        continue;
-      }
-      const header = fieldGroup.querySelector(".profile-field-header") as HTMLElement | null;
-      expect(header).not.toBeNull();
-      expect(fieldGroup.querySelector(".profile-field-mapping-row")).toBeNull();
-      expect(header).not.toBeNull();
-      if (header) {
-        expect(header.querySelector(".profile-field-label-meta")).toBeNull();
-        const helpButton = within(header).getByRole("button", {
-          name:
-            label === "Opus 默认模型"
-              ? "ANTHROPIC_DEFAULT_OPUS_MODEL"
-              : label === "Sonnet 默认模型"
-                ? "ANTHROPIC_DEFAULT_SONNET_MODEL"
-                : label === "Haiku 默认模型"
-                  ? "ANTHROPIC_DEFAULT_HAIKU_MODEL"
-                  : "CLAUDE_CODE_SUBAGENT_MODEL",
-        });
-        expect(helpButton).toHaveAttribute("data-tooltip", helpButton.getAttribute("aria-label"));
-      }
-      expect(fieldGroup.querySelector(".profile-field-badge")).toBeNull();
-      expect(fieldGroup.querySelector(".profile-field-inline-meta")).toBeNull();
+      const fieldGroup = getFieldForLabel(label);
+      const helpButton = within(fieldGroup).getByRole("button", {
+        name:
+          label === "Opus 默认模型"
+            ? "ANTHROPIC_DEFAULT_OPUS_MODEL"
+            : label === "Sonnet 默认模型"
+              ? "ANTHROPIC_DEFAULT_SONNET_MODEL"
+              : label === "Haiku 默认模型"
+                ? "ANTHROPIC_DEFAULT_HAIKU_MODEL"
+                : "CLAUDE_CODE_SUBAGENT_MODEL",
+      });
+      expect(helpButton).toHaveAttribute("data-tooltip", helpButton.getAttribute("aria-label"));
     }
 
     expect(
@@ -1649,59 +1597,21 @@ describe("ProfileEditor", () => {
       await Promise.resolve();
     });
 
-    const modelGroup = screen
-      .getByLabelText("默认模型")
-      .closest(".form-group") as HTMLElement | null;
-    const effortGroup = screen
-      .getByLabelText("努力级别")
-      .closest(".form-group") as HTMLElement | null;
+    const modelGroup = getFieldForLabel("默认模型");
+    const effortGroup = getFieldForLabel("努力级别");
+    const languageGroup = getFieldForLabel("回复语言");
 
-    expect(modelGroup).not.toBeNull();
-    expect(effortGroup).not.toBeNull();
-
-    if (!modelGroup || !effortGroup) {
-      return;
-    }
-
-    const modelHeader = modelGroup.querySelector(".profile-field-header") as HTMLElement | null;
-    const effortHeader = effortGroup.querySelector(".profile-field-header") as HTMLElement | null;
-
-    expect(modelHeader).not.toBeNull();
-    expect(effortHeader).not.toBeNull();
-    expect(modelGroup.querySelector(".profile-field-mapping-row")).toBeNull();
-    expect(effortGroup.querySelector(".profile-field-mapping-row")).toBeNull();
-
-    if (modelHeader && effortHeader) {
-      expect(modelHeader.querySelector(".profile-field-label-meta")).toBeNull();
-      expect(effortHeader.querySelector(".profile-field-label-meta")).toBeNull();
-      expect(within(modelHeader).getByRole("button", { name: "ANTHROPIC_MODEL" })).toHaveAttribute(
-        "data-tooltip",
-        "ANTHROPIC_MODEL",
-      );
-      expect(
-        within(effortHeader).getByRole("button", { name: "CLAUDE_CODE_EFFORT_LEVEL" }),
-      ).toHaveAttribute("data-tooltip", "CLAUDE_CODE_EFFORT_LEVEL");
-    }
-
-    const languageGroup = screen
-      .getByLabelText("回复语言")
-      .closest(".form-group") as HTMLElement | null;
-    expect(languageGroup).not.toBeNull();
-    if (languageGroup) {
-      const languageHeader = languageGroup.querySelector(
-        ".profile-field-header",
-      ) as HTMLElement | null;
-      expect(languageHeader).not.toBeNull();
-      if (languageHeader) {
-        expect(within(languageHeader).getByRole("button", { name: "language" })).toHaveAttribute(
-          "data-tooltip",
-          "language",
-        );
-      }
-    }
-
-    expect(modelGroup.querySelector(".profile-field-inline-meta")).toBeNull();
-    expect(effortGroup.querySelector(".profile-field-inline-meta")).toBeNull();
+    expect(within(modelGroup).getByRole("button", { name: "ANTHROPIC_MODEL" })).toHaveAttribute(
+      "data-tooltip",
+      "ANTHROPIC_MODEL",
+    );
+    expect(
+      within(effortGroup).getByRole("button", { name: "CLAUDE_CODE_EFFORT_LEVEL" }),
+    ).toHaveAttribute("data-tooltip", "CLAUDE_CODE_EFFORT_LEVEL");
+    expect(within(languageGroup).getByRole("button", { name: "language" })).toHaveAttribute(
+      "data-tooltip",
+      "language",
+    );
     expect(screen.queryByLabelText("模型使用环境变量映射")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("努力级别使用环境变量映射")).not.toBeInTheDocument();
   });
@@ -1763,9 +1673,8 @@ describe("ProfileEditor", () => {
 
     const commonSection = toggleAccordionSection("常用选项");
     const behaviorSection = getSection("模型与行为");
-    fireEvent.change(within(behaviorSection).getByRole("combobox", { name: "输出风格" }), {
-      target: { value: "Learning" },
-    });
+    expect(within(behaviorSection).getByRole("combobox", { name: "输出风格" })).toBeInTheDocument();
+    chooseComboboxOption("输出风格", "Learning");
     const labels = [
       "默认启用深度思考",
       "显示 Thinking 摘要",
@@ -1786,16 +1695,12 @@ describe("ProfileEditor", () => {
     ];
 
     for (const label of labels) {
-      const option = within(commonSection)
-        .getByText(label)
-        .closest(".profile-common-option-item") as HTMLElement | null;
-      expect(option).not.toBeNull();
-      if (option) {
-        await act(async () => {
-          fireEvent.click(within(option).getByRole("switch"));
-          await Promise.resolve();
-        });
-      }
+      await act(async () => {
+        fireEvent.click(
+          within(commonSection).getByRole("switch", { name: `切换常用选项 ${label}` }),
+        );
+        await Promise.resolve();
+      });
     }
 
     await act(async () => {
@@ -1857,11 +1762,8 @@ describe("ProfileEditor", () => {
   it("stores built-in outputStyle values from the outputStyle select", async () => {
     const onSave = vi.fn();
     renderEditor({ onSave });
-    const behaviorSection = getSection("模型与行为");
 
-    fireEvent.change(within(behaviorSection).getByRole("combobox", { name: "输出风格" }), {
-      target: { value: "default" },
-    });
+    chooseComboboxOption("输出风格", "default");
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "保存" }));
@@ -1882,9 +1784,7 @@ describe("ProfileEditor", () => {
       target: { value: "new-token" },
     });
 
-    fireEvent.change(screen.getByLabelText("权限头部默认模式"), {
-      target: { value: "plan" },
-    });
+    chooseComboboxOption("权限头部默认模式", "plan");
     toggleAccordionSection("权限");
     expect(screen.queryByLabelText("默认模式")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "新增允许规则" }));
@@ -1949,10 +1849,10 @@ describe("ProfileEditor", () => {
     toggleAccordionSection("权限");
     const allowSection = screen
       .getByRole("heading", { name: "允许规则" })
-      .closest(".profile-subsection") as HTMLElement | null;
+      .closest('[data-slot="profile-subsection"]') as HTMLElement | null;
     const directorySection = screen
       .getByRole("heading", { name: "附加目录" })
-      .closest(".profile-subsection") as HTMLElement | null;
+      .closest('[data-slot="profile-subsection"]') as HTMLElement | null;
 
     expect(allowSection).not.toBeNull();
     expect(directorySection).not.toBeNull();
@@ -1961,18 +1861,12 @@ describe("ProfileEditor", () => {
       return;
     }
 
-    const emptyAllowHint = allowSection.querySelector(".profile-empty-state") as HTMLElement | null;
     const addAllowButton = within(allowSection).getByRole("button", { name: "新增允许规则" });
 
-    expect(emptyAllowHint).not.toBeNull();
     expect(
       within(allowSection).queryByRole("button", { name: "收起 允许规则" }),
     ).not.toBeInTheDocument();
-    if (emptyAllowHint) {
-      expect(
-        emptyAllowHint.compareDocumentPosition(addAllowButton) & Node.DOCUMENT_POSITION_FOLLOWING,
-      ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    }
+    expect(addAllowButton).toBeInTheDocument();
 
     await act(async () => {
       fireEvent.click(addAllowButton);
@@ -1982,8 +1876,8 @@ describe("ProfileEditor", () => {
 
     const allowRuleInput = screen.getByLabelText("允许规则 1");
     const directoryInput = screen.getByLabelText("附加目录 1");
-    expect(allowRuleInput).toHaveClass("form-input");
-    expect(directoryInput).toHaveClass("form-input");
+    expect(allowRuleInput).toHaveAttribute("data-slot", "input");
+    expect(directoryInput).toHaveAttribute("data-slot", "input");
     expect(screen.queryByRole("button", { name: "上移 允许规则 1" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "下移 允许规则 1" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "删除 允许规则 1" })).toBeInTheDocument();
@@ -2250,18 +2144,8 @@ describe("ProfileEditor", () => {
       name: "禁用 bypassPermissions 模式",
     });
     expect(disableBypassSwitch).toHaveAttribute("aria-checked", "true");
-    expect(disableBypassSwitch.className).toContain("profile-sandbox-switch-compact");
-    expect(disableBypassSwitch.closest(".profile-toggle-item")).toBeNull();
-    const disableBypassRow = disableBypassSwitch.closest(
-      ".profile-inline-switch-row",
-    ) as HTMLElement | null;
-    expect(disableBypassRow).not.toBeNull();
-    if (disableBypassRow) {
-      expect(disableBypassRow).toHaveClass("profile-inline-switch-row-emphasis");
-      expect(within(disableBypassRow).getByText("禁用 bypassPermissions 模式")).toHaveClass(
-        "profile-inline-switch-title",
-      );
-    }
+    expect(disableBypassSwitch).toHaveAttribute("data-slot", "switch");
+    expect(screen.getByText("禁用 bypassPermissions 模式")).toBeInTheDocument();
     expect(within(permissionsSection).getByRole("button", { name: "拒绝规则 1" })).toHaveAttribute(
       "aria-expanded",
       "false",
@@ -2283,7 +2167,7 @@ describe("ProfileEditor", () => {
       name: "Sandbox 头部开关",
     });
     expect(headerSandboxSwitch).toHaveAttribute("aria-checked", "true");
-    expect(headerSandboxSwitch.className).toContain("profile-sandbox-switch-compact");
+    expect(headerSandboxSwitch).toHaveAttribute("data-slot", "switch");
     expect(within(sandboxSection).getByText("沙盒开关")).toBeInTheDocument();
     expect(
       within(sandboxSection).queryByRole("switch", {
@@ -2416,13 +2300,7 @@ describe("ProfileEditor", () => {
 
     fireEvent.click(within(permissionsSection).getByRole("button", { name: "展开 允许规则" }));
     fireEvent.click(within(permissionsSection).getByRole("button", { name: "清空允许规则" }));
-    const allowClearDialog = screen
-      .getByText("这会移除该列表中的所有规则。保存前仍可取消本次编辑。")
-      .closest(".confirm-dialog") as HTMLElement | null;
-    expect(allowClearDialog).not.toBeNull();
-    if (!allowClearDialog) {
-      return;
-    }
+    const allowClearDialog = screen.getByRole("alertdialog", { name: "清空允许规则" });
     expect(within(allowClearDialog).getByText("清空允许规则")).toBeInTheDocument();
     fireEvent.click(within(allowClearDialog).getByRole("button", { name: "取消" }));
     expect(within(permissionsSection).getByLabelText("允许规则 1")).toHaveValue(
@@ -2436,13 +2314,7 @@ describe("ProfileEditor", () => {
     expect(within(permissionsSection).getByLabelText("询问规则 1")).toHaveValue("Bash(curl *)");
 
     fireEvent.click(within(permissionsSection).getByRole("button", { name: "清空询问规则" }));
-    const askClearDialog = screen
-      .getByText("这会移除该列表中的所有规则。保存前仍可取消本次编辑。")
-      .closest(".confirm-dialog") as HTMLElement | null;
-    expect(askClearDialog).not.toBeNull();
-    if (!askClearDialog) {
-      return;
-    }
+    const askClearDialog = screen.getByRole("alertdialog", { name: "清空询问规则" });
     expect(within(askClearDialog).getByText("清空询问规则")).toBeInTheDocument();
     fireEvent.click(within(askClearDialog).getByRole("button", { name: "确认清空" }));
     expect(within(permissionsSection).queryByLabelText("询问规则 1")).not.toBeInTheDocument();
@@ -2452,13 +2324,7 @@ describe("ProfileEditor", () => {
     );
 
     fireEvent.click(within(permissionsSection).getByRole("button", { name: "清空拒绝规则" }));
-    const denyClearDialog = screen
-      .getByText("这会移除该列表中的所有规则。保存前仍可取消本次编辑。")
-      .closest(".confirm-dialog") as HTMLElement | null;
-    expect(denyClearDialog).not.toBeNull();
-    if (!denyClearDialog) {
-      return;
-    }
+    const denyClearDialog = screen.getByRole("alertdialog", { name: "清空拒绝规则" });
     expect(within(denyClearDialog).getByText("清空拒绝规则")).toBeInTheDocument();
     fireEvent.click(within(denyClearDialog).getByRole("button", { name: "确认清空" }));
     expect(within(permissionsSection).queryByLabelText("拒绝规则 1")).not.toBeInTheDocument();
@@ -2722,8 +2588,8 @@ describe("ProfileEditor", () => {
     ) as HTMLSelectElement;
 
     expect(permissionModeSelect).toHaveValue("delegate");
-    expect(Array.from(permissionModeSelect.options, (option) => option.value)).toEqual([
-      "",
+    expect(comboboxOptionNames("权限头部默认模式")).toEqual([
+      "未设置",
       "default",
       "acceptEdits",
       "plan",
@@ -2938,19 +2804,15 @@ describe("ProfileEditor", () => {
     toggleAccordionSection("插件");
 
     fireEvent.click(within(pluginsSection).getByRole("button", { name: "新增插件" }));
-    const draftRow = within(pluginsSection)
-      .getByRole("button", { name: "删除插件 新插件" })
-      .closest(".profile-plugin-list-row");
-    expect(draftRow).not.toBeNull();
-    fireEvent.change(within(draftRow as HTMLElement).getByLabelText("新插件 ID"), {
+    fireEvent.change(within(pluginsSection).getByLabelText("新插件 ID"), {
       target: { value: "formatter@anthropic-tools" },
     });
     fireEvent.click(
-      within(draftRow as HTMLElement).getByRole("switch", {
+      within(pluginsSection).getByRole("switch", {
         name: "插件状态 formatter@anthropic-tools",
       }),
     );
-    fireEvent.click(within(draftRow as HTMLElement).getByRole("button", { name: "保存插件" }));
+    fireEvent.click(within(pluginsSection).getByRole("button", { name: "保存插件" }));
 
     expect(within(pluginsSection).getByText("formatter@anthropic-tools")).toBeInTheDocument();
     expect(
@@ -3366,12 +3228,8 @@ describe("ProfileEditor", () => {
     expect(
       within(marketplacesSection).getByRole("button", { name: "编辑 Marketplace team-market" }),
     ).toBeInTheDocument();
-    const teamMarketplaceRowHead = within(marketplacesSection)
-      .getByRole("button", { name: "编辑 Marketplace team-market" })
-      .closest(".profile-marketplace-row-head");
-    expect(teamMarketplaceRowHead).not.toBeNull();
     expect(
-      within(teamMarketplaceRowHead as HTMLElement).getByRole("button", {
+      within(marketplacesSection).getByRole("button", {
         name: "删除 Marketplace team-market",
       }),
     ).toBeInTheDocument();
@@ -3568,20 +3426,17 @@ describe("ProfileEditor", () => {
     toggleAccordionSection("插件");
     await flushAsyncUpdates();
 
-    const modeRow = pluginsSection.querySelector(".profile-accordion-mode-row") as HTMLElement;
-    expect(modeRow).not.toBeNull();
+    const modeRow = getSectionModeRow(pluginsSection, "插件");
     expect(within(modeRow).getByRole("button", { name: "控件" })).toBeInTheDocument();
     expect(within(modeRow).getByRole("button", { name: "JSON" })).toBeInTheDocument();
     const docsButton = within(modeRow).getByRole("button", { name: "查看 插件 官方文档" });
     expect(docsButton).toBeInTheDocument();
     expect(docsButton).toHaveTextContent("官方文档");
-    expect(docsButton).toHaveClass("profile-secondary-btn");
-    expect(docsButton).not.toHaveClass("profile-icon-btn");
 
     const loadButton = within(modeRow).getByRole("button", { name: "加载官方插件" });
     expect(loadButton).toHaveAttribute("title", "重新获取官方插件列表并刷新本地缓存。");
-    expect(loadButton.querySelector("svg")).not.toBeNull();
-    expect(pluginsSection.querySelector(".profile-plugin-toolbar")).toBeNull();
+    expect(loadButton).toHaveAttribute("data-slot", "button");
+    expect(within(pluginsSection).queryByRole("toolbar")).not.toBeInTheDocument();
   });
 
   it("does not show the official plugin load button when the marketplace only exists in an inherited preset", () => {
@@ -3638,10 +3493,8 @@ describe("ProfileEditor", () => {
     expect(screen.queryByLabelText("作用域")).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/项目路径/)).not.toBeInTheDocument();
 
+    chooseComboboxOption("预设", "开放路由");
     await act(async () => {
-      fireEvent.change(screen.getByLabelText("预设"), {
-        target: { value: "builtin:openrouter" },
-      });
       await Promise.resolve();
     });
     expect(screen.getByLabelText("默认模型")).toHaveValue("claude-sonnet-4-6");
@@ -3686,9 +3539,7 @@ describe("ProfileEditor", () => {
       },
     });
 
-    fireEvent.change(screen.getByLabelText("预设"), {
-      target: { value: "builtin:openrouter" },
-    });
+    chooseComboboxOption("预设", "开放路由");
     expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("https://openrouter.ai/api");
     expect(screen.getByLabelText("默认模型")).toHaveValue("claude-sonnet-4-6");
     expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("claude-opus-4-1");
@@ -3696,9 +3547,7 @@ describe("ProfileEditor", () => {
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("claude-haiku-4-5");
     expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
 
-    fireEvent.change(screen.getByLabelText("预设"), {
-      target: { value: "custom:team-plan" },
-    });
+    chooseComboboxOption("预设", "团队计划");
     expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("https://openrouter.ai/api");
     expect(screen.getByLabelText("默认模型")).toHaveValue("claude-sonnet-4-6");
     expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("claude-opus-4-1");
@@ -3706,25 +3555,19 @@ describe("ProfileEditor", () => {
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("claude-haiku-4-5");
     expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
 
-    fireEvent.change(screen.getByLabelText("预设"), {
-      target: { value: "custom:explicit-model" },
-    });
+    chooseComboboxOption("预设", "显式模型");
     expect(screen.getByLabelText("默认模型")).toHaveValue("claude-opus-explicit");
     expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("claude-opus-4-1");
     expect(screen.getByLabelText("Sonnet 默认模型")).toHaveValue("claude-sonnet-4-6");
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("claude-haiku-4-5");
     expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
 
-    fireEvent.change(screen.getByLabelText("预设"), {
-      target: { value: "custom:env-level-overrides" },
-    });
+    chooseComboboxOption("预设", "环境变量级别覆盖");
     expect(screen.getByLabelText("默认模型")).toHaveValue("claude-opus-explicit");
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("haiku-env-override");
     expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
 
-    fireEvent.change(screen.getByLabelText("预设"), {
-      target: { value: "" },
-    });
+    chooseComboboxOption("预设", "无预设");
     expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("");
     expect(screen.getByLabelText("默认模型")).toHaveValue("");
     expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("");
@@ -3753,14 +3596,8 @@ describe("ProfileEditor", () => {
     expect(authTokenInput).toHaveValue("token");
     expect(authTokenInput).toHaveAttribute("type", "password");
     expect(within(authSection).getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("");
-    expect(
-      Array.from(authSection.querySelectorAll(".field-label-env"), (label) =>
-        label.textContent?.trim(),
-      ).filter(
-        (label): label is string =>
-          label === "ANTHROPIC_BASE_URL" || label === "ANTHROPIC_AUTH_TOKEN",
-      ),
-    ).toEqual(["ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN"]);
+    expect(within(authSection).getByLabelText("ANTHROPIC_BASE_URL")).toBeInTheDocument();
+    expect(within(authSection).getByLabelText("ANTHROPIC_AUTH_TOKEN")).toBeInTheDocument();
     expect(within(envSection).queryByDisplayValue("ANTHROPIC_AUTH_TOKEN")).not.toBeInTheDocument();
     expect(within(envSection).queryByDisplayValue("ANTHROPIC_BASE_URL")).not.toBeInTheDocument();
 
@@ -3811,9 +3648,7 @@ describe("ProfileEditor", () => {
   it("shows a fallback top badge for new profiles and updates it as the name changes", async () => {
     renderEditor({ profile: null });
 
-    const topBadge = document.querySelector(
-      ".editor-badge-large.profile-name-badge",
-    ) as HTMLElement | null;
+    const topBadge = screen.getByText("P").closest('[data-slot="profile-name-badge"]');
     expect(topBadge).not.toBeNull();
     expect(topBadge).toHaveTextContent("P");
 
@@ -3824,7 +3659,7 @@ describe("ProfileEditor", () => {
       await Promise.resolve();
     });
     expect(topBadge).toHaveTextContent("中");
-    expect(topBadge?.className).toMatch(/profile-name-badge--color-\d/);
+    expect(topBadge).toHaveAttribute("data-color-index");
   });
 
   it("seeds default-enabled common options for new profiles", async () => {

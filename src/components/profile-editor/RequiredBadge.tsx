@@ -7,7 +7,11 @@ interface RequiredBadgeProps {
 function RequiredBadge({ text }: RequiredBadgeProps) {
   const { t } = useI18n();
 
-  return <span className="required-badge">{text ?? t("form.required")}</span>;
+  return (
+    <span className="inline-flex items-center justify-center rounded-full bg-destructive/10 px-1.5 py-px text-xs font-semibold text-destructive">
+      {text ?? t("form.required")}
+    </span>
+  );
 }
 
 export default RequiredBadge;

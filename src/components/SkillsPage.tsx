@@ -137,7 +137,7 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
             variant="link"
             size="sm"
             asChild
-            className="skills-docs-link h-auto gap-1 p-0 text-[length:var(--font-sm)] font-semibold text-[var(--text-secondary)] hover:text-[var(--foreground)]"
+            className="skills-docs-link h-auto gap-1 p-0 text-xs font-semibold text-muted-foreground hover:text-foreground"
           >
             <a
               href={claudeSkillsDocsUrl}
@@ -158,7 +158,7 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       {/* 添加按钮 */}
       <Button
         type="button"
-        className="add-config-btn gap-1.5 bg-[linear-gradient(135deg,var(--primary),var(--primary))] font-semibold text-white shadow-[var(--shadow-sm),var(--shadow-blue-sm)] hover:-translate-y-px hover:shadow-[var(--shadow-md),var(--shadow-blue-md)]"
+        className="add-config-btn gap-1.5 bg-[linear-gradient(135deg,var(--primary),var(--primary))] font-semibold text-white shadow-sm hover:-translate-y-px hover:shadow-md"
         onClick={openAdd}
       >
         <Plus className="size-[18px]" aria-hidden="true" />
@@ -212,7 +212,7 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
           <SheetContent
             side="right"
             showCloseButton={false}
-            className="left-[calc(var(--sidebar-width)+280px)] w-auto border-l-0 bg-[var(--bg-elevated)] p-0 shadow-[-4px_0_24px_rgb(0_0_0_/_0.2)] sm:max-w-none max-[1000px]:left-[var(--sidebar-width)] max-[700px]:left-[var(--sidebar-width-small)]"
+            className="left-[340px] w-auto border-l-0 bg-card p-0 shadow-[-4px_0_24px_rgb(0_0_0_/_0.2)] sm:max-w-none max-[1000px]:left-[60px] max-[700px]:left-[48px]"
           >
             <SkillEditor
               key={editingSkill?.id ?? "new"}

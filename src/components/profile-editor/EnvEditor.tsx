@@ -349,9 +349,9 @@ function EnvEditor({
 
       <div className="profile-env-editor flex flex-col gap-4">
         <div className="profile-env-list-shell flex min-w-0 flex-col gap-3">
-          <div className="profile-env-list flex flex-col overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--card)]">
-            <div className="profile-env-list-header grid grid-cols-[40px_minmax(0,1.2fr)_minmax(0,0.8fr)_auto] items-center gap-3 border-b border-[var(--border-default)] px-3.5 py-3 text-xs font-semibold text-[var(--text-secondary)] max-[720px]:hidden">
-              <span className="profile-env-list-header-index inline-flex items-center justify-center text-[var(--text-muted)] tabular-nums">
+          <div className="profile-env-list flex flex-col overflow-hidden rounded-lg border border-border bg-card">
+            <div className="profile-env-list-header grid grid-cols-[40px_minmax(0,1.2fr)_minmax(0,0.8fr)_auto] items-center gap-3 border-b border-border px-3.5 py-3 text-xs font-semibold text-muted-foreground max-[720px]:hidden">
+              <span className="profile-env-list-header-index inline-flex items-center justify-center text-muted-foreground tabular-nums">
                 {t("profileEditor.common.index")}
               </span>
               <span>{t("profileEditor.env.columnKey")}</span>
@@ -370,7 +370,7 @@ function EnvEditor({
                     : null;
 
                 const rowClassName = [
-                  "profile-env-list-row flex flex-col px-3.5 py-2.5 first:border-t-0 border-t border-[var(--border-default)]",
+                  "profile-env-list-row flex flex-col px-3.5 py-2.5 first:border-t-0 border-t border-border",
                   selected
                     ? "selected bg-[color-mix(in_srgb,var(--accent)_18%,var(--card)_82%)]"
                     : "",
@@ -379,17 +379,21 @@ function EnvEditor({
                   .join(" ");
 
                 return (
-                  <div key={item.id} className={rowClassName}>
-                    <div className="profile-env-row-head grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 max-[720px]:items-start">
-                      <button
+                  <div key={item.id} className={rowClassName} data-slot="env-list-row">
+                    <div
+                      className="profile-env-row-head grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 max-[720px]:items-start"
+                      data-slot="env-row-head"
+                    >
+                      <Button
                         type="button"
-                        className="profile-env-list-main grid min-h-[42px] w-full cursor-pointer grid-cols-[40px_minmax(0,1.2fr)_minmax(0,0.8fr)] items-center gap-3 rounded-md border-0 bg-transparent p-2 text-left text-[var(--foreground)] outline-none transition-colors hover:text-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)] max-[720px]:grid-cols-[32px_minmax(0,1fr)] max-[720px]:items-start max-[720px]:gap-x-2.5 max-[720px]:gap-y-1.5"
+                        variant="ghost"
+                        className="grid h-auto min-h-[42px] w-full cursor-pointer grid-cols-[40px_minmax(0,1.2fr)_minmax(0,0.8fr)] items-center justify-start gap-3 whitespace-normal rounded-md bg-transparent p-2 text-left text-foreground hover:bg-transparent hover:text-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)] max-[720px]:grid-cols-[32px_minmax(0,1fr)] max-[720px]:items-start max-[720px]:gap-x-2.5 max-[720px]:gap-y-1.5"
                         aria-pressed={selected}
                         aria-label={`${t("profileEditor.env.editAriaLabel")} ${label}`}
                         onClick={() => handleSelectItem(item)}
                       >
                         <span
-                          className="profile-env-list-index inline-flex items-center justify-center text-xs font-semibold text-[var(--text-muted)] tabular-nums max-[720px]:row-span-2 max-[720px]:items-start max-[720px]:pt-0.5"
+                          className="profile-env-list-index inline-flex items-center justify-center text-xs font-semibold text-muted-foreground tabular-nums max-[720px]:row-span-2 max-[720px]:items-start max-[720px]:pt-0.5"
                           aria-hidden="true"
                         >
                           {index + 1}
@@ -405,17 +409,17 @@ function EnvEditor({
                             <span className="profile-env-row-badge subtle">{dirtyBadge}</span>
                           ) : null}
                         </span>
-                        <span className="profile-env-list-value min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-sm text-[var(--text-secondary)] max-[720px]:col-start-2 max-[720px]:line-clamp-2 max-[720px]:whitespace-normal max-[720px]:break-words">
+                        <span className="profile-env-list-value min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-sm text-muted-foreground max-[720px]:col-start-2 max-[720px]:line-clamp-2 max-[720px]:whitespace-normal max-[720px]:break-words">
                           {formatValuePreview(item.key, item.value)}
                         </span>
-                      </button>
+                      </Button>
 
                       <div className="profile-row-actions profile-env-row-actions flex flex-nowrap justify-end">
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon-sm"
-                          className="profile-icon-btn danger text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          className=" danger text-destructive hover:bg-destructive/10 hover:text-destructive"
                           aria-label={`${t("profileEditor.env.deleteAriaLabel")} ${label}`}
                           onClick={() => handleDeleteItem(item)}
                         >
@@ -425,9 +429,9 @@ function EnvEditor({
                     </div>
 
                     {selected && draft ? (
-                      <div className="profile-env-inline-editor mt-3 rounded-md border border-[var(--border-default)] bg-[var(--bg-elevated)] p-3">
+                      <div className="profile-env-inline-editor mt-3 rounded-md border border-border bg-card p-3">
                         <div className="profile-env-inline-fields grid gap-3">
-                          <label className="form-group">
+                          <label className="grid gap-2">
                             <span className="profile-inline-required-label profile-env-inline-label">
                               <span>{t("profileEditor.env.nameLabel")}</span>
                               <RequiredBadge />
@@ -452,7 +456,7 @@ function EnvEditor({
                             />
                           </label>
 
-                          <label className="form-group">
+                          <label className="grid gap-2">
                             <span className="profile-inline-required-label profile-env-inline-label">
                               <span>{t("profileEditor.env.valueLabel")}</span>
                               <RequiredBadge />
@@ -488,7 +492,7 @@ function EnvEditor({
                                   type="button"
                                   variant="outline"
                                   size="sm"
-                                  className="profile-secondary-btn profile-env-visibility-btn whitespace-nowrap"
+                                  className="  whitespace-nowrap"
                                   onClick={() => setIsSensitiveValueVisible((current) => !current)}
                                 >
                                   {isSensitiveValueVisible ? (
@@ -517,7 +521,7 @@ function EnvEditor({
                           <Button
                             type="button"
                             variant="outline"
-                            className="profile-secondary-btn"
+                            className=""
                             aria-label={t("profileEditor.env.cancelEditAriaLabel")}
                             onClick={handleCancelDraft}
                           >
@@ -542,12 +546,7 @@ function EnvEditor({
           </div>
 
           <div className="profile-env-footer flex justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              className="profile-secondary-btn"
-              onClick={handleAddVariable}
-            >
+            <Button type="button" variant="outline" className="" onClick={handleAddVariable}>
               <Plus className="size-4" aria-hidden="true" />
               {t("profileEditor.env.addItem")}
             </Button>

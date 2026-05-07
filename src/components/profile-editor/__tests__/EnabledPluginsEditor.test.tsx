@@ -46,6 +46,31 @@ function renderEditor(options?: {
   return { ...result, onChange, onError };
 }
 
+function chooseComboboxOption(label: string | RegExp, optionName: string | RegExp) {
+  const combobox = screen.getByRole("combobox", { name: label });
+  act(() => {
+    fireEvent.pointerDown(combobox, { button: 0, ctrlKey: false, pointerType: "mouse" });
+  });
+  const option = screen.getByRole("option", { name: optionName });
+  act(() => {
+    fireEvent.click(option);
+  });
+}
+
+function getPluginRow(pluginId: string): HTMLElement {
+  const row = screen.getByText(pluginId).closest('[data-slot="plugin-list-row"]');
+  expect(row).not.toBeNull();
+  return row as HTMLElement;
+}
+
+function getPluginRowByDeleteAction(label: string): HTMLElement {
+  const row = screen
+    .getByRole("button", { name: `删除插件 ${label}` })
+    .closest('[data-slot="plugin-list-row"]');
+  expect(row).not.toBeNull();
+  return row as HTMLElement;
+}
+
 describe("EnabledPluginsEditor", () => {
   beforeEach(() => {
     fetchMock.mockReset();
@@ -69,7 +94,7 @@ describe("EnabledPluginsEditor", () => {
   });
 
   it("renders read-only plugin rows with switch controls and a footer add button", () => {
-    const { container } = renderEditor({
+    renderEditor({
       value: {
         "formatter@anthropic-tools": true,
       },
@@ -77,26 +102,18 @@ describe("EnabledPluginsEditor", () => {
     });
 
     expect(screen.queryByRole("heading", { name: "插件", level: 4 })).not.toBeInTheDocument();
-    expect(container.querySelector(".profile-plugin-list")).not.toBeNull();
     expect(screen.getByText("操作")).toBeInTheDocument();
     expect(screen.getByText("formatter@anthropic-tools")).toBeInTheDocument();
     expect(screen.queryByLabelText("插件 ID 1")).not.toBeInTheDocument();
-    const pluginRow = screen
-      .getByText("formatter@anthropic-tools")
-      .closest(".profile-plugin-list-row");
-    expect(pluginRow).not.toBeNull();
-    const pluginRowMain = (pluginRow as HTMLElement | null)?.querySelector(
-      ".profile-plugin-list-main",
-    );
-    expect(pluginRowMain).not.toBeNull();
+    const pluginRow = getPluginRow("formatter@anthropic-tools");
     expect(
-      within(pluginRowMain as HTMLElement).getByRole("switch", {
+      within(pluginRow).getByRole("switch", {
         name: "插件状态 formatter@anthropic-tools",
       }),
     ).toHaveAttribute("aria-checked", "true");
-    expect(within(pluginRowMain as HTMLElement).getByText("已启用")).toBeInTheDocument();
+    expect(within(pluginRow).getByText("已启用")).toBeInTheDocument();
     expect(
-      within(pluginRowMain as HTMLElement).getByRole("button", {
+      within(pluginRow).getByRole("button", {
         name: "删除插件 formatter@anthropic-tools",
       }),
     ).toBeInTheDocument();
@@ -137,9 +154,7 @@ describe("EnabledPluginsEditor", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "搜索插件 ID" }), {
       target: { value: "formatter" },
     });
-    fireEvent.change(screen.getByRole("combobox", { name: "状态筛选" }), {
-      target: { value: "disabled" },
-    });
+    chooseComboboxOption("状态筛选", "未启用");
 
     expect(screen.queryByText("formatter@anthropic-tools")).not.toBeInTheDocument();
     expect(screen.getByText("formatter-reviewer@anthropic-tools")).toBeInTheDocument();
@@ -155,9 +170,7 @@ describe("EnabledPluginsEditor", () => {
       },
     });
 
-    fireEvent.change(screen.getByRole("combobox", { name: "状态筛选" }), {
-      target: { value: "enabled" },
-    });
+    chooseComboboxOption("状态筛选", "已启用");
 
     const formatterSwitch = screen.getByRole("switch", {
       name: "插件状态 formatter@anthropic-tools",
@@ -183,9 +196,7 @@ describe("EnabledPluginsEditor", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "搜索插件 ID" }), {
       target: { value: "reviewer" },
     });
-    fireEvent.change(screen.getByRole("combobox", { name: "状态筛选" }), {
-      target: { value: "disabled" },
-    });
+    chooseComboboxOption("状态筛选", "未启用");
     fireEvent.click(screen.getByRole("button", { name: "新增插件" }));
 
     expect(screen.getByLabelText("新插件 ID")).toBeInTheDocument();
@@ -263,49 +274,35 @@ describe("EnabledPluginsEditor", () => {
     });
     expect(fetchMock).not.toHaveBeenCalled();
 
-    const reviewerRow = screen
-      .getByText(buildOfficialPluginId("reviewer-plugin"))
-      .closest(".profile-plugin-list-row");
-    const writerRow = screen
-      .getByText(buildOfficialPluginId("writer-plugin"))
-      .closest(".profile-plugin-list-row");
+    const reviewerRow = getPluginRow(buildOfficialPluginId("reviewer-plugin"));
+    const writerRow = getPluginRow(buildOfficialPluginId("writer-plugin"));
 
-    expect(reviewerRow).not.toBeNull();
-    expect(writerRow).not.toBeNull();
-    expect(within(reviewerRow as HTMLElement).queryByText("已验证")).not.toBeInTheDocument();
+    expect(within(reviewerRow).queryByText("已验证")).not.toBeInTheDocument();
     expect(
-      within(reviewerRow as HTMLElement).getByRole("img", {
+      within(reviewerRow).getByRole("img", {
         name: "已验证插件",
       }),
-    ).toHaveClass("profile-plugin-verified-icon");
-    expect(within(reviewerRow as HTMLElement).getByText("Anthropic")).toHaveClass(
-      "profile-plugin-meta-item",
-    );
-    expect(within(reviewerRow as HTMLElement).getByText("development")).toBeInTheDocument();
-    expect(within(writerRow as HTMLElement).queryByText("已验证")).not.toBeInTheDocument();
+    ).toBeInTheDocument();
+    expect(within(reviewerRow).getByText("Anthropic")).toBeInTheDocument();
+    expect(within(reviewerRow).getByText("development")).toBeInTheDocument();
+    expect(within(writerRow).queryByText("已验证")).not.toBeInTheDocument();
     expect(
-      within(writerRow as HTMLElement).getByRole("img", {
+      within(writerRow).getByRole("img", {
         name: "已验证插件",
       }),
-    ).toHaveClass("profile-plugin-verified-icon");
-    expect(within(writerRow as HTMLElement).getByText("Writer Team")).toHaveClass(
-      "profile-plugin-meta-item",
-    );
-    expect(within(writerRow as HTMLElement).getByText("productivity")).toBeInTheDocument();
+    ).toBeInTheDocument();
+    expect(within(writerRow).getByText("Writer Team")).toBeInTheDocument();
+    expect(within(writerRow).getByText("productivity")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole("combobox", { name: "类别筛选" }), {
-      target: { value: "development" },
-    });
-    fireEvent.change(screen.getByRole("combobox", { name: "来源类型筛选" }), {
-      target: { value: "url" },
-    });
+    chooseComboboxOption("类别筛选", "development");
+    chooseComboboxOption("来源类型筛选", "url");
 
     expect(screen.getByText(buildOfficialPluginId("reviewer-plugin"))).toBeInTheDocument();
     expect(screen.queryByText(buildOfficialPluginId("writer-plugin"))).not.toBeInTheDocument();
     expect(screen.queryByText("manual-plugin@example")).not.toBeInTheDocument();
   });
 
-  it("keeps homepage plugin links using the same inherited font as static plugin ids", () => {
+  it("renders homepage plugin links and static plugin ids with the same identity text", () => {
     localStorage.setItem(
       OFFICIAL_PLUGIN_CACHE_KEY,
       JSON.stringify({
@@ -339,15 +336,11 @@ describe("EnabledPluginsEditor", () => {
       screen.getByRole("button", {
         name: `打开插件主页 ${buildOfficialPluginId("homepage-plugin")}`,
       }),
-    ).toHaveClass("font-[inherit]");
-    expect(
-      screen
-        .getByText(buildOfficialPluginId("static-plugin"))
-        .closest(".profile-plugin-link-static"),
-    ).toHaveClass("font-[inherit]");
+    ).toHaveAttribute("data-description", "带主页插件");
+    expect(screen.getByText(buildOfficialPluginId("static-plugin"))).toBeInTheDocument();
   });
 
-  it("keeps plugin ids on the main body typography while using a smaller status label", () => {
+  it("keeps plugin ids, status labels, and row actions available in each row", () => {
     renderEditor({
       showTitle: false,
       value: {
@@ -355,48 +348,31 @@ describe("EnabledPluginsEditor", () => {
       },
     });
 
-    const pluginRow = screen
-      .getByText("formatter@anthropic-tools")
-      .closest(".profile-plugin-list-row");
+    const pluginRow = getPluginRow("formatter@anthropic-tools");
 
-    expect(pluginRow).toHaveClass("text-sm", "font-medium");
-    expect(pluginRow?.querySelector(".profile-plugin-list-id")).toHaveClass("font-[inherit]");
-    expect(pluginRow?.querySelector(".profile-plugin-index")).toHaveClass(
-      "text-[inherit]",
-      "font-[inherit]",
-    );
-    expect(pluginRow?.querySelector(".profile-plugin-status-text")).toHaveClass(
-      "text-xs",
-      "font-medium",
-    );
+    expect(within(pluginRow).getByText("formatter@anthropic-tools")).toBeInTheDocument();
+    expect(within(pluginRow).getByText("已启用")).toBeInTheDocument();
+    expect(
+      within(pluginRow).getByRole("button", { name: "删除插件 formatter@anthropic-tools" }),
+    ).toBeInTheDocument();
   });
 
-  it("allocates most table width to plugin ids by keeping status and actions compact", () => {
-    const { container } = renderEditor({
+  it("renders the table headers for id, status, and actions", () => {
+    renderEditor({
       showTitle: false,
       value: {
         "formatter@anthropic-tools": true,
       },
     });
 
-    expect(container.querySelector(".profile-plugin-list-header")).toHaveClass(
-      "grid-cols-[40px_minmax(0,1fr)_clamp(118px,12vw,132px)_52px]",
-    );
-    expect(container.querySelector(".profile-plugin-list-main")).toHaveClass(
-      "grid-cols-[40px_minmax(0,1fr)_52px]",
-    );
-    expect(container.querySelector(".profile-plugin-list-content")).toHaveClass(
-      "grid-cols-[minmax(0,1fr)_clamp(118px,12vw,132px)]",
-    );
-    expect(container.querySelector(".profile-plugin-list-header-actions")).toHaveClass(
-      "text-right",
-    );
-    expect(container.querySelector(".profile-plugin-row-actions")).toHaveClass("justify-self-end");
-    expect(container.querySelector(".profile-plugin-status-cell")?.className).toContain("gap-2.5");
+    expect(screen.getByText("序号")).toBeInTheDocument();
+    expect(screen.getByText("插件 ID")).toBeInTheDocument();
+    expect(screen.getByText("状态")).toBeInTheDocument();
+    expect(screen.getByText("操作")).toBeInTheDocument();
   });
 
   it("fills the full filter row with a stable search field and compresses the trailing selects within the same line", () => {
-    const { container } = renderEditor({
+    renderEditor({
       showTitle: false,
       value: {
         "formatter@anthropic-tools": true,
@@ -411,16 +387,10 @@ describe("EnabledPluginsEditor", () => {
         name: "搜索作者",
       }),
     ).not.toBeInTheDocument();
-    expect(container.querySelectorAll(".profile-plugin-filter-field.is-expandable")).toHaveLength(
-      0,
-    );
-    expect(container.querySelector(".profile-plugin-filter-field-search")).toHaveClass(
-      "flex-[2_1_0]",
-    );
-    expect(container.querySelector(".profile-plugin-filter-field-author")).toBeNull();
-    for (const selectField of container.querySelectorAll(".profile-plugin-filter-field-select")) {
-      expect(selectField).toHaveClass("flex-[1_1_0]", "min-w-[150px]");
-    }
+    expect(screen.getByRole("textbox", { name: "搜索插件 ID" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "状态筛选" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "类别筛选" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "来源类型筛选" })).toBeInTheDocument();
   });
 
   it("shows a subtle verified icon even before metadata is loaded", () => {
@@ -431,20 +401,17 @@ describe("EnabledPluginsEditor", () => {
       },
     });
 
-    const officialRow = screen
-      .getByText(buildOfficialPluginId("plain-official-plugin"))
-      .closest(".profile-plugin-list-row");
+    const officialRow = getPluginRow(buildOfficialPluginId("plain-official-plugin"));
 
-    expect(officialRow).not.toBeNull();
-    expect(within(officialRow as HTMLElement).queryByText("已验证")).not.toBeInTheDocument();
+    expect(within(officialRow).queryByText("已验证")).not.toBeInTheDocument();
     expect(
-      within(officialRow as HTMLElement).getByRole("img", {
+      within(officialRow).getByRole("img", {
         name: "已验证插件",
       }),
-    ).toHaveClass("profile-plugin-verified-icon");
+    ).toBeInTheDocument();
   });
 
-  it("uses one shared metadata style for author and category plus a subtle verified icon", () => {
+  it("uses one shared metadata surface for author and category plus a verified icon", () => {
     localStorage.setItem(
       OFFICIAL_PLUGIN_CACHE_KEY,
       JSON.stringify({
@@ -460,29 +427,22 @@ describe("EnabledPluginsEditor", () => {
       }),
     );
 
-    const { container } = renderEditor({
+    renderEditor({
       showTitle: false,
       officialMarketplaceEnabled: true,
       value: {
         [buildOfficialPluginId("metadata-plugin")]: true,
       },
     });
-    const pluginRow = screen
-      .getByText(buildOfficialPluginId("metadata-plugin"))
-      .closest(".profile-plugin-list-row");
+    const pluginRow = getPluginRow(buildOfficialPluginId("metadata-plugin"));
 
-    expect(container.querySelector(".profile-plugin-meta-author")).toBeNull();
     expect(
-      within(pluginRow as HTMLElement).getByRole("img", {
+      within(pluginRow).getByRole("img", {
         name: "已验证插件",
       }),
-    ).toHaveClass("opacity-70");
-    expect(within(pluginRow as HTMLElement).getByText("Anthropic")).toHaveClass(
-      "profile-plugin-meta-item",
-    );
-    expect(within(pluginRow as HTMLElement).getByText("development")).toHaveClass(
-      "profile-plugin-meta-item",
-    );
+    ).toBeInTheDocument();
+    expect(within(pluginRow).getByText("Anthropic")).toBeInTheDocument();
+    expect(within(pluginRow).getByText("development")).toBeInTheDocument();
   });
 
   it("adds a placeholder plugin row, edits it inline, and saves boolean state", () => {
@@ -492,37 +452,31 @@ describe("EnabledPluginsEditor", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "新增插件" }));
 
-    const draftRow = screen
-      .getByRole("button", { name: "删除插件 新插件" })
-      .closest(".profile-plugin-list-row");
-    expect(draftRow).not.toBeNull();
-    expect(within(draftRow as HTMLElement).getByText("新插件")).toBeInTheDocument();
-    expect(within(draftRow as HTMLElement).getByText("草稿")).toBeInTheDocument();
-    expect(
-      within(draftRow as HTMLElement).getByRole("switch", { name: "插件状态 新插件" }),
-    ).toHaveAttribute("aria-checked", "true");
-    expect(within(draftRow as HTMLElement).getByLabelText("新插件 ID")).toBeInTheDocument();
-
-    fireEvent.click(
-      within(draftRow as HTMLElement).getByRole("switch", { name: "插件状态 新插件" }),
+    const draftRow = getPluginRowByDeleteAction("新插件");
+    expect(within(draftRow).getByText("新插件")).toBeInTheDocument();
+    expect(within(draftRow).getByText("草稿")).toBeInTheDocument();
+    expect(within(draftRow).getByRole("switch", { name: "插件状态 新插件" })).toHaveAttribute(
+      "aria-checked",
+      "true",
     );
-    fireEvent.change(within(draftRow as HTMLElement).getByLabelText("新插件 ID"), {
+    expect(within(draftRow).getByLabelText("新插件 ID")).toBeInTheDocument();
+
+    fireEvent.click(within(draftRow).getByRole("switch", { name: "插件状态 新插件" }));
+    fireEvent.change(within(draftRow).getByLabelText("新插件 ID"), {
       target: { value: "formatter@anthropic-tools" },
     });
     expect(
-      within(draftRow as HTMLElement).getByRole("button", {
+      within(draftRow).getByRole("button", {
         name: "删除插件 formatter@anthropic-tools",
       }),
     ).toBeInTheDocument();
     expect(
-      within(draftRow as HTMLElement).getByRole("switch", {
+      within(draftRow).getByRole("switch", {
         name: "插件状态 formatter@anthropic-tools",
       }),
     ).toHaveAttribute("aria-checked", "false");
-    expect(
-      within(draftRow as HTMLElement).getByText("formatter@anthropic-tools"),
-    ).toBeInTheDocument();
-    fireEvent.click(within(draftRow as HTMLElement).getByRole("button", { name: "保存插件" }));
+    expect(within(draftRow).getByText("formatter@anthropic-tools")).toBeInTheDocument();
+    fireEvent.click(within(draftRow).getByRole("button", { name: "保存插件" }));
 
     expect(screen.queryByLabelText("新插件 ID")).not.toBeInTheDocument();
     expect(screen.getByText("formatter@anthropic-tools")).toBeInTheDocument();
@@ -541,12 +495,9 @@ describe("EnabledPluginsEditor", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: "新增插件" }));
-    const draftRow = screen
-      .getByRole("button", { name: "删除插件 新插件" })
-      .closest(".profile-plugin-list-row");
-    expect(draftRow).not.toBeNull();
+    const draftRow = getPluginRowByDeleteAction("新插件");
 
-    fireEvent.click(within(draftRow as HTMLElement).getByRole("button", { name: "取消编辑插件" }));
+    fireEvent.click(within(draftRow).getByRole("button", { name: "取消编辑插件" }));
     expect(screen.queryByText("新插件")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("新插件 ID")).not.toBeInTheDocument();
 
@@ -595,11 +546,11 @@ describe("EnabledPluginsEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "删除插件 formatter@anthropic-tools" }));
 
     const dialogMessage = "确定要从当前设置中移除插件 formatter@anthropic-tools 吗？";
-    const dialog = screen.getByText(dialogMessage).closest(".confirm-dialog");
-    expect(dialog).not.toBeNull();
+    const dialog = screen.getByRole("alertdialog", { name: "删除插件" });
+    expect(within(dialog).getByText(dialogMessage)).toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
 
-    fireEvent.click(within(dialog as HTMLElement).getByRole("button", { name: "删除" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "删除" }));
 
     expect(screen.getByText("1")).toBeInTheDocument();
     expect(screen.queryByText("2")).not.toBeInTheDocument();
@@ -623,10 +574,10 @@ describe("EnabledPluginsEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "删除插件 formatter@anthropic-tools" }));
 
     const dialogMessage = "确定要从当前设置中移除插件 formatter@anthropic-tools 吗？";
-    const dialog = screen.getByText(dialogMessage).closest(".confirm-dialog");
-    expect(dialog).not.toBeNull();
+    const dialog = screen.getByRole("alertdialog", { name: "删除插件" });
+    expect(within(dialog).getByText(dialogMessage)).toBeInTheDocument();
 
-    fireEvent.click(within(dialog as HTMLElement).getByRole("button", { name: "取消" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
 
     expect(screen.getByText("formatter@anthropic-tools")).toBeInTheDocument();
     expect(screen.queryByText(dialogMessage)).not.toBeInTheDocument();
@@ -642,21 +593,13 @@ describe("EnabledPluginsEditor", () => {
   });
 
   it("shows the official load button when the official marketplace is enabled", () => {
-    const { container } = renderEditor({
+    renderEditor({
       showTitle: false,
       officialMarketplaceEnabled: true,
     });
 
-    const toolbar = container.querySelector(".profile-plugin-toolbar");
-    const footerActions = container.querySelector(".profile-plugin-footer-actions");
-
-    expect(toolbar).not.toBeNull();
-    expect(
-      within(toolbar as HTMLElement).getByRole("button", { name: "加载官方插件" }),
-    ).toBeInTheDocument();
-    expect(
-      within(footerActions as HTMLElement).queryByRole("button", { name: "加载官方插件" }),
-    ).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "加载官方插件" })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "新增插件" })).toBeInTheDocument();
   });
 
   it("can render the official load action outside the editor toolbar with refresh affordance", async () => {
@@ -666,7 +609,7 @@ describe("EnabledPluginsEditor", () => {
 
       return (
         <I18nProvider>
-          <div className="external-mode-row">{action}</div>
+          <div data-testid="external-mode-row">{action}</div>
           <EnabledPluginsEditor
             value={value}
             onChange={() => {}}
@@ -680,23 +623,22 @@ describe("EnabledPluginsEditor", () => {
       );
     }
 
-    const { container } = render(<ExternalActionHost />);
+    render(<ExternalActionHost />);
 
     await waitFor(() => {
       expect(
-        within(container.querySelector(".external-mode-row") as HTMLElement).getByRole("button", {
+        within(screen.getByTestId("external-mode-row")).getByRole("button", {
           name: "加载官方插件",
         }),
       ).toBeInTheDocument();
     });
-    const actionButton = within(
-      container.querySelector(".external-mode-row") as HTMLElement,
-    ).getByRole("button", { name: "加载官方插件" });
+    const actionButton = within(screen.getByTestId("external-mode-row")).getByRole("button", {
+      name: "加载官方插件",
+    });
 
     expect(actionButton).toHaveAttribute("title", "重新获取官方插件列表并刷新本地缓存。");
     expect(actionButton).toHaveAttribute("data-tooltip", "重新获取官方插件列表并刷新本地缓存。");
-    expect(actionButton.querySelector("svg")).not.toBeNull();
-    expect(container.querySelector(".profile-plugin-toolbar")).toBeNull();
+    expect(screen.getAllByRole("button", { name: "加载官方插件" })).toHaveLength(1);
   });
 
   it("keeps the official refresh action label unchanged while loading", async () => {
@@ -1028,9 +970,7 @@ describe("EnabledPluginsEditor", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "搜索插件 ID" }), {
       target: { value: "reviewer" },
     });
-    fireEvent.change(screen.getByRole("combobox", { name: "状态筛选" }), {
-      target: { value: "disabled" },
-    });
+    chooseComboboxOption("状态筛选", "未启用");
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "加载官方插件" }));

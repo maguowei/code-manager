@@ -240,7 +240,7 @@ function ModelTestResultDialog({
           <span className="profile-model-test-label">{label}</span>
           <button
             type="button"
-            className="profile-secondary-btn profile-model-test-compact-action"
+            className=" profile-model-test-compact-action"
             onClick={() => handleToggleCodePanel(panelKey)}
           >
             {expanded ? hideLabel : viewLabel}
@@ -300,7 +300,7 @@ function ModelTestResultDialog({
               {onRetest ? (
                 <button
                   type="button"
-                  className={`profile-secondary-btn profile-model-test-dialog-retest${isRetesting ? " is-testing" : ""}`}
+                  className={` profile-model-test-dialog-retest${isRetesting ? " " : ""}`}
                   disabled={isRetesting}
                   onClick={() => onRetest(getRetestPromptOverride())}
                 >
@@ -316,7 +316,7 @@ function ModelTestResultDialog({
               ) : null}
               <button
                 type="button"
-                className="profile-secondary-btn profile-model-test-dialog-copy-curl"
+                className=" profile-model-test-dialog-copy-curl"
                 disabled={!curlCommand}
                 onClick={() => {
                   void handleCopyCurl();
@@ -438,7 +438,7 @@ function ModelTestResultDialog({
                   {isPromptEditing ? (
                     <button
                       type="button"
-                      className="profile-secondary-btn profile-model-test-compact-action"
+                      className=" profile-model-test-compact-action"
                       disabled={isRetesting || !onRetest || !canSendPromptRequest}
                       onClick={() => {
                         if (!onRetest) {
@@ -455,7 +455,7 @@ function ModelTestResultDialog({
                   ) : (
                     <button
                       type="button"
-                      className="profile-secondary-btn profile-model-test-compact-action"
+                      className=" profile-model-test-compact-action"
                       disabled={isRetesting}
                       onClick={() => setIsPromptEditing(true)}
                     >
@@ -542,7 +542,7 @@ function ModelTestResultDialog({
                     </span>
                     <button
                       type="button"
-                      className="profile-secondary-btn profile-model-test-compact-action"
+                      className=" profile-model-test-compact-action"
                       onClick={onToggleRawResponse}
                     >
                       {rawResponseExpanded

@@ -196,51 +196,52 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
 
   return (
     <Form {...form}>
-      <div className="editor-drawer-container">
+      <div className="flex h-full min-h-0 w-full min-w-[560px] bg-card">
         <div
-          className="editor-panel"
+          className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card"
           role="dialog"
           aria-labelledby="memory-modal-title"
           aria-modal="true"
         >
-          <form id="memory-form" onSubmit={handleSubmit(handleFormSubmit)}>
-            <div className="editor-header">
+          <form
+            id="memory-form"
+            className="flex h-full min-h-0 flex-col"
+            onSubmit={handleSubmit(handleFormSubmit)}
+          >
+            <div className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-6">
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="editor-back-btn"
                 onClick={onClose}
                 aria-label={t("common.close")}
               >
                 <ChevronLeft className="size-5" aria-hidden="true" />
               </Button>
-              <h2 id="memory-modal-title">
+              <h2
+                id="memory-modal-title"
+                className="min-w-0 flex-1 truncate text-lg font-semibold text-foreground"
+              >
                 {memory ? t("memory.editTitle") : t("memory.addTitle")}
               </h2>
-              <Button type="submit" className="editor-save-btn" disabled={!watchName?.trim()}>
+              <Button type="submit" disabled={!watchName?.trim()}>
                 {t("memory.save")}
               </Button>
             </div>
 
-            <div className="editor-body">
-              <ProfileNameBadge
-                name={watchName}
-                size="lg"
-                fallbackChar="M"
-                className="editor-badge-large"
-              />
+            <div className="flex min-h-0 flex-1 flex-col items-center gap-5 overflow-y-auto px-6 py-6 pb-6 [&>*]:shrink-0 [&>:not([data-slot=profile-name-badge])]:w-[min(100%,880px)]">
+              <ProfileNameBadge name={watchName} size="lg" fallbackChar="M" />
 
               <FormField
                 control={control}
                 name={MEMORY_NAME_FIELD.name}
                 render={({ field }) => (
-                  <FormItem className="form-group flex flex-col gap-3">
+                  <FormItem className="flex flex-col gap-3">
                     <div className="flex items-center gap-2">
-                      <FormLabel className="text-[length:var(--font-base)] font-medium text-[var(--foreground)]">
+                      <FormLabel className="text-sm font-medium text-foreground">
                         {t(MEMORY_NAME_FIELD.labelKey)}
                       </FormLabel>
-                      <span className="required-badge inline-flex items-center justify-center rounded-full bg-[var(--accent-red-bg)] px-1.5 py-px text-[length:var(--font-xs)] font-semibold text-[var(--accent-red)]">
+                      <span className="inline-flex items-center justify-center rounded-full bg-destructive/10 px-1.5 py-px text-xs font-semibold text-destructive">
                         {t("form.required")}
                       </span>
                     </div>
@@ -252,10 +253,10 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                             ? t(MEMORY_NAME_FIELD.placeholderKey)
                             : undefined
                         }
-                        className="h-auto rounded-[var(--radius-md)] border-[var(--border-default)] bg-[var(--card)] px-3 py-2.5 text-[length:var(--font-base)] text-[var(--foreground)] placeholder:text-[var(--text-muted)] hover:border-[var(--text-muted)] focus-visible:border-[var(--primary)] focus-visible:ring-[3px] focus-visible:ring-[var(--accent)]"
+                        className="h-auto rounded-md border-border bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground hover:border-muted-foreground focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/50"
                       />
                     </FormControl>
-                    <FormMessage className="field-error mt-1 text-[11px] text-[var(--accent-red)]" />
+                    <FormMessage className="mt-1 text-[11px] text-destructive" />
                   </FormItem>
                 )}
               />
@@ -264,13 +265,13 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                 control={control}
                 name="targetType"
                 render={({ field }) => (
-                  <FormItem className="form-group memory-target-field flex flex-col gap-2">
+                  <FormItem className="flex flex-col gap-2">
                     <div
                       id="memory-target-type-label"
-                      className="memory-target-label label-required flex items-center gap-2 text-[length:var(--font-base)] font-medium text-[var(--foreground)]"
+                      className="memory-target-label label-required flex items-center gap-2 text-sm font-medium text-foreground"
                     >
                       <span>{t("memory.targetType")}</span>
-                      <span className="required-badge inline-flex items-center justify-center rounded-full bg-[var(--accent-red-bg)] px-1.5 py-px text-[length:var(--font-xs)] font-semibold text-[var(--accent-red)]">
+                      <span className="inline-flex items-center justify-center rounded-full bg-destructive/10 px-1.5 py-px text-xs font-semibold text-destructive">
                         {t("form.required")}
                       </span>
                     </div>
@@ -308,18 +309,18 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                               />
                               <span
                                 className={cn(
-                                  "memory-target-card-content flex min-h-[92px] flex-col gap-2 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--card)] p-3.5 text-[var(--text-secondary)] transition-[border-color,background-color,box-shadow,color] duration-150 group-hover/memory-target:border-[var(--text-muted)] group-hover/memory-target:bg-[var(--secondary)]",
+                                  "memory-target-card-content flex min-h-[92px] flex-col gap-2 rounded-md border border-border bg-card p-3.5 text-muted-foreground transition-[border-color,background-color,box-shadow,color] duration-150 group-hover/memory-target:border-muted-foreground group-hover/memory-target:bg-secondary",
                                   isSelected &&
-                                    "border-[var(--primary)] bg-[var(--accent)] text-[var(--foreground)] shadow-[0_0_0_1px_var(--primary)_inset]",
+                                    "border-[var(--primary)] bg-[var(--accent)] text-foreground shadow-[0_0_0_1px_var(--primary)_inset]",
                                 )}
                               >
                                 <span className="memory-target-card-main flex items-center justify-between gap-2">
-                                  <span className="memory-target-card-title min-w-0 truncate text-[length:var(--font-base)] leading-snug font-bold text-[var(--foreground)]">
+                                  <span className="memory-target-card-title min-w-0 truncate text-sm leading-snug font-bold text-foreground">
                                     {t(option.labelKey)}
                                   </span>
                                   <span
                                     className={cn(
-                                      "memory-target-card-check inline-flex shrink-0 items-center justify-center text-[var(--text-muted)] opacity-0",
+                                      "memory-target-card-check inline-flex shrink-0 items-center justify-center text-muted-foreground opacity-0",
                                       isSelected && "text-[var(--primary)] opacity-100",
                                     )}
                                     aria-hidden="true"
@@ -330,8 +331,8 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                                 <span
                                   id={descriptionId}
                                   className={cn(
-                                    "memory-target-card-description text-[length:var(--font-sm)] leading-normal text-[var(--text-muted)] [overflow-wrap:anywhere]",
-                                    isSelected && "text-[var(--text-secondary)]",
+                                    "memory-target-card-description text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]",
+                                    isSelected && "text-muted-foreground",
                                   )}
                                 >
                                   {t(option.descriptionKey)}
@@ -342,7 +343,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                         })}
                       </div>
                     </FormControl>
-                    <FormMessage className="field-error mt-1 text-[11px] text-[var(--accent-red)]" />
+                    <FormMessage className="mt-1 text-[11px] text-destructive" />
                   </FormItem>
                 )}
               />
@@ -353,12 +354,12 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                     control={control}
                     name={MEMORY_RULE_PATH_FIELD.name}
                     render={({ field }) => (
-                      <FormItem className="form-group flex flex-col gap-3">
+                      <FormItem className="flex flex-col gap-3">
                         <div className="flex items-center gap-2">
-                          <FormLabel className="text-[length:var(--font-base)] font-medium text-[var(--foreground)]">
+                          <FormLabel className="text-sm font-medium text-foreground">
                             {t(MEMORY_RULE_PATH_FIELD.labelKey)}
                           </FormLabel>
-                          <span className="required-badge inline-flex items-center justify-center rounded-full bg-[var(--accent-red-bg)] px-1.5 py-px text-[length:var(--font-xs)] font-semibold text-[var(--accent-red)]">
+                          <span className="inline-flex items-center justify-center rounded-full bg-destructive/10 px-1.5 py-px text-xs font-semibold text-destructive">
                             {t("form.required")}
                           </span>
                         </div>
@@ -370,23 +371,23 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                                 ? t(MEMORY_RULE_PATH_FIELD.placeholderKey)
                                 : undefined
                             }
-                            className="h-auto rounded-[var(--radius-md)] border-[var(--border-default)] bg-[var(--card)] px-3 py-2.5 text-[length:var(--font-base)] text-[var(--foreground)] placeholder:text-[var(--text-muted)] hover:border-[var(--text-muted)] focus-visible:border-[var(--primary)] focus-visible:ring-[3px] focus-visible:ring-[var(--accent)]"
+                            className="h-auto rounded-md border-border bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground hover:border-muted-foreground focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/50"
                           />
                         </FormControl>
                         {MEMORY_RULE_PATH_FIELD.descriptionKey ? (
-                          <FormDescription className="form-hint text-[length:var(--font-sm)] leading-normal text-[var(--text-muted)]">
+                          <FormDescription className="text-xs leading-normal text-muted-foreground">
                             {t(MEMORY_RULE_PATH_FIELD.descriptionKey)}
                           </FormDescription>
                         ) : null}
-                        <FormMessage className="field-error mt-1 text-[11px] text-[var(--accent-red)]" />
+                        <FormMessage className="mt-1 text-[11px] text-destructive" />
                       </FormItem>
                     )}
                   />
-                  <div className="memory-advanced-rules overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--card)]">
+                  <div className="memory-advanced-rules overflow-hidden rounded-md border border-border bg-card">
                     <Button
                       type="button"
                       variant="ghost"
-                      className="memory-advanced-rules-toggle h-auto w-full justify-between gap-2 rounded-none px-3.5 py-3 text-[length:var(--font-base)] font-semibold text-[var(--foreground)] hover:bg-[var(--bg-hover)] hover:text-[var(--foreground)]"
+                      className="memory-advanced-rules-toggle h-auto w-full justify-between gap-2 rounded-none px-3.5 py-3 text-sm font-semibold text-foreground hover:bg-accent hover:text-foreground"
                       aria-expanded={isPathPatternsOpen}
                       aria-controls={pathPatternsPanelId}
                       onClick={() => setIsPathPatternsOpen((isOpen) => !isOpen)}
@@ -394,7 +395,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                       <span>{t("memory.advancedRules")}</span>
                       <ChevronLeft
                         className={cn(
-                          "memory-advanced-rules-icon size-4 shrink-0 text-[var(--text-muted)] transition-transform duration-150 -rotate-90",
+                          "memory-advanced-rules-icon size-4 shrink-0 text-muted-foreground transition-transform duration-150 -rotate-90",
                           isPathPatternsOpen && "is-open rotate-90",
                         )}
                         aria-hidden="true"
@@ -403,14 +404,14 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                     {isPathPatternsOpen ? (
                       <div
                         id={pathPatternsPanelId}
-                        className="memory-advanced-rules-panel border-t border-[var(--border-default)] px-3.5 pt-3 pb-3.5"
+                        className="memory-advanced-rules-panel border-t border-border px-3.5 pt-3 pb-3.5"
                       >
                         <FormField
                           control={control}
                           name={MEMORY_PATH_PATTERNS_FIELD.name}
                           render={({ field }) => (
-                            <FormItem className="form-group flex flex-col gap-3">
-                              <FormLabel className="text-[length:var(--font-base)] font-medium text-[var(--foreground)]">
+                            <FormItem className="flex flex-col gap-3">
+                              <FormLabel className="text-sm font-medium text-foreground">
                                 {t(MEMORY_PATH_PATTERNS_FIELD.labelKey)}
                               </FormLabel>
                               <FormControl>
@@ -422,15 +423,15 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                                       ? t(MEMORY_PATH_PATTERNS_FIELD.placeholderKey)
                                       : undefined
                                   }
-                                  className="rounded-[var(--radius-md)] border-[var(--border-default)] bg-[var(--card)] px-3 py-2.5 text-[length:var(--font-base)] text-[var(--foreground)] placeholder:text-[var(--text-muted)] hover:border-[var(--text-muted)] focus-visible:border-[var(--primary)] focus-visible:ring-[3px] focus-visible:ring-[var(--accent)]"
+                                  className="rounded-md border-border bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground hover:border-muted-foreground focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/50"
                                 />
                               </FormControl>
                               {MEMORY_PATH_PATTERNS_FIELD.descriptionKey ? (
-                                <FormDescription className="form-hint text-[length:var(--font-sm)] leading-normal text-[var(--text-muted)]">
+                                <FormDescription className="text-xs leading-normal text-muted-foreground">
                                   {t(MEMORY_PATH_PATTERNS_FIELD.descriptionKey)}
                                 </FormDescription>
                               ) : null}
-                              <FormMessage className="field-error mt-1 text-[11px] text-[var(--accent-red)]" />
+                              <FormMessage className="mt-1 text-[11px] text-destructive" />
                             </FormItem>
                           )}
                         />
@@ -440,22 +441,20 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                 </>
               )}
 
-              <div className="form-group flex flex-col gap-3">
-                <label className="text-[length:var(--font-base)] font-medium text-[var(--foreground)]">
-                  {t("memory.content")}
-                </label>
+              <div className="flex flex-col gap-3">
+                <label className="text-sm font-medium text-foreground">{t("memory.content")}</label>
                 <FormField
                   control={control}
                   name="content"
                   render={({ field }) => (
-                    <div className="memory-editor overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-default)] focus-within:border-[var(--primary)] focus-within:shadow-[0_0_0_3px_var(--accent)] dark:border-[var(--border-default)] [&_.cm-editor]:min-h-[300px] [&_.cm-editor]:text-[13px] [&_.cm-editor]:leading-[1.6] [&_.cm-editor.cm-focused]:outline-none [&_.cm-scroller]:font-mono [&_.cm-scroller]:overflow-auto">
-                      <div className="memory-editor-toolbar flex items-center gap-1 border-b border-[#e0e0e0] bg-[#f5f5f7] px-2 py-1.5 dark:border-[#3e4452] dark:bg-[#21252b]">
+                    <div className="memory-editor overflow-hidden rounded-md border border-border focus-within:border-[var(--primary)] focus-within:ring-[3px] focus-within:ring-ring/50 dark:border-border [&_.cm-editor]:min-h-[300px] [&_.cm-editor]:text-[13px] [&_.cm-editor]:leading-[1.6] [&_.cm-editor.cm-focused]:outline-none [&_.cm-scroller]:font-mono [&_.cm-scroller]:overflow-auto">
+                      <div className="memory-editor-toolbar flex items-center gap-1 border-b border-[var(--border)] bg-[var(--muted)] px-2 py-1.5 dark:border-[var(--border)] dark:bg-[var(--muted)]">
                         {/* 标题 */}
                         <Button
                           type="button"
                           variant="outline"
                           size="xs"
-                          className="memory-toolbar-btn border-black/15 bg-transparent text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/15 dark:text-[#abb2bf] dark:hover:bg-white/10 dark:hover:text-[#e5e7eb]"
+                          className="memory-toolbar-btn border-black/15 bg-transparent text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/15 dark:text-[var(--muted-foreground)] dark:hover:bg-white/10 dark:hover:text-[var(--foreground)]"
                           title={t("memory.toolbar.heading")}
                           disabled={isPreviewMode}
                           onClick={() =>
@@ -469,7 +468,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                           type="button"
                           variant="outline"
                           size="xs"
-                          className="memory-toolbar-btn memory-toolbar-btn-bold border-black/15 bg-transparent text-xs font-black text-[var(--text-secondary)] italic hover:bg-[var(--bg-hover)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/15 dark:text-[#abb2bf] dark:hover:bg-white/10 dark:hover:text-[#e5e7eb]"
+                          className="memory-toolbar-btn memory-toolbar-btn-bold border-black/15 bg-transparent text-xs font-black text-muted-foreground italic hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/15 dark:text-[var(--muted-foreground)] dark:hover:bg-white/10 dark:hover:text-[var(--foreground)]"
                           title={t("memory.toolbar.bold")}
                           disabled={isPreviewMode}
                           onClick={insertBold}
@@ -481,7 +480,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                           type="button"
                           variant="outline"
                           size="xs"
-                          className="memory-toolbar-btn border-black/15 bg-transparent text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/15 dark:text-[#abb2bf] dark:hover:bg-white/10 dark:hover:text-[#e5e7eb]"
+                          className="memory-toolbar-btn border-black/15 bg-transparent text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/15 dark:text-[var(--muted-foreground)] dark:hover:bg-white/10 dark:hover:text-[var(--foreground)]"
                           title={t("memory.toolbar.list")}
                           disabled={isPreviewMode}
                           onClick={() =>
@@ -495,7 +494,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                           type="button"
                           variant="outline"
                           size="xs"
-                          className="memory-toolbar-btn border-black/15 bg-transparent text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/15 dark:text-[#abb2bf] dark:hover:bg-white/10 dark:hover:text-[#e5e7eb]"
+                          className="memory-toolbar-btn border-black/15 bg-transparent text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/15 dark:text-[var(--muted-foreground)] dark:hover:bg-white/10 dark:hover:text-[var(--foreground)]"
                           title={t("memory.toolbar.code")}
                           disabled={isPreviewMode}
                           onClick={() => insertAtCursor("```\n\n```")}
@@ -506,7 +505,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                           type="button"
                           variant="outline"
                           size="icon-xs"
-                          className="memory-toolbar-btn memory-toolbar-preview-toggle ml-auto border-black/15 bg-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--foreground)] aria-pressed:border-[var(--primary)] dark:border-white/15 dark:text-[#abb2bf] dark:hover:bg-white/10 dark:hover:text-[#e5e7eb]"
+                          className="memory-toolbar-btn memory-toolbar-preview-toggle ml-auto border-black/15 bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground aria-pressed:border-primary dark:border-white/15 dark:text-[var(--muted-foreground)] dark:hover:bg-white/10 dark:hover:text-[var(--foreground)]"
                           aria-label={t(
                             isPreviewMode ? "memory.toolbar.source" : "memory.toolbar.preview",
                           )}
@@ -529,7 +528,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                       </div>
                       {isPreviewMode ? (
                         <MarkdownPreview
-                          className="memory-markdown-preview min-h-[300px] max-h-[60vh] overflow-auto bg-[var(--card)] px-5 py-4 text-[length:var(--font-sm)] text-[var(--foreground)] [&_pre]:my-3 [&_pre]:bg-transparent [&_pre]:p-0 [&_pre>div]:m-0 [&_.markdown-preview-image-fallback]:inline-block [&_.markdown-preview-image-fallback]:rounded-[calc(var(--radius) - 4px)] [&_.markdown-preview-image-fallback]:border [&_.markdown-preview-image-fallback]:border-dashed [&_.markdown-preview-image-fallback]:border-[var(--border-default)] [&_.markdown-preview-image-fallback]:px-2 [&_.markdown-preview-image-fallback]:py-0.5 [&_.markdown-preview-image-fallback]:text-[length:var(--font-xs)] [&_.markdown-preview-image-fallback]:text-[var(--text-secondary)]"
+                          className="memory-markdown-preview min-h-[300px] max-h-[60vh] overflow-auto bg-card px-5 py-4 text-xs text-foreground [&_pre]:my-3 [&_pre]:bg-transparent [&_pre]:p-0 [&_pre>div]:m-0 [&_.markdown-preview-image-fallback]:inline-block [&_.markdown-preview-image-fallback]:rounded-sm [&_.markdown-preview-image-fallback]:border [&_.markdown-preview-image-fallback]:border-dashed [&_.markdown-preview-image-fallback]:border-border [&_.markdown-preview-image-fallback]:px-2 [&_.markdown-preview-image-fallback]:py-0.5 [&_.markdown-preview-image-fallback]:text-xs [&_.markdown-preview-image-fallback]:text-muted-foreground"
                           content={field.value}
                           themeType={previewThemeType}
                         />

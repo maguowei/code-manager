@@ -45,7 +45,7 @@ function Sidebar({ activeTab, onTabChange, onClaudeOverviewClick, onSettingsClic
   const { t } = useI18n();
   return (
     <nav
-      className="flex h-screen w-[var(--sidebar-width)] shrink-0 flex-col items-center border-r border-[var(--border-default)] bg-[var(--card)] px-2 py-3 transition-[width,padding] duration-300 max-[700px]:w-[var(--sidebar-width-small)] max-[700px]:px-1 max-[700px]:py-2"
+      className="flex h-screen w-[60px] shrink-0 flex-col items-center border-r border-border bg-card px-2 py-3 transition-[width,padding] duration-300 max-[700px]:w-[48px] max-[700px]:px-1 max-[700px]:py-2"
       aria-label={t("nav.ariaLabel")}
     >
       <Tooltip>
@@ -55,8 +55,8 @@ function Sidebar({ activeTab, onTabChange, onClaudeOverviewClick, onSettingsClic
             variant="ghost"
             size="icon"
             className={cn(
-              "mb-5 size-10 rounded-lg bg-linear-to-br from-[var(--primary)] to-[var(--accent-purple)] text-base font-bold text-white shadow-[var(--glow-blue)] transition-[filter,transform,box-shadow] duration-150 hover:text-white hover:brightness-110 active:scale-95 max-[700px]:size-8 max-[700px]:text-sm",
-              activeTab === "claudeOverview" && "brightness-110 shadow-[var(--shadow-blue-md)]",
+              "mb-5 size-10 rounded-lg bg-linear-to-br from-[var(--primary)] to-[var(--chart-4)] text-base font-bold text-white shadow-[0 0 12px color-mix(in oklch, var(--primary) 28%, transparent)] transition-[filter,transform,box-shadow] duration-150 hover:text-white hover:brightness-110 active:scale-95 max-[700px]:size-8 max-[700px]:text-sm",
+              activeTab === "claudeOverview" && "brightness-110 shadow-md",
             )}
             onClick={onClaudeOverviewClick}
             aria-label={t("nav.claudeOverview")}
@@ -81,7 +81,7 @@ function Sidebar({ activeTab, onTabChange, onClaudeOverviewClick, onSettingsClic
                   variant="ghost"
                   size="icon"
                   className={cn(
-                    "relative size-11 rounded-lg text-[var(--text-secondary)] transition-all duration-150 hover:bg-[var(--bg-tertiary)] hover:text-[var(--foreground)] active:scale-95 max-[700px]:size-9",
+                    "relative size-11 rounded-lg text-muted-foreground transition-all duration-150 hover:bg-muted hover:text-foreground active:scale-95 max-[700px]:size-9",
                     active &&
                       "bg-[var(--accent)] text-[var(--primary)] before:absolute before:left-[-8px] before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-r-sm before:bg-[var(--primary)] hover:bg-[var(--accent)] hover:text-[var(--primary)] max-[700px]:before:left-[-4px]",
                   )}
@@ -106,14 +106,14 @@ function Sidebar({ activeTab, onTabChange, onClaudeOverviewClick, onSettingsClic
 
       <div className="flex-1" />
 
-      <div className="mt-3 flex w-full justify-center border-t border-[var(--border-default)] pt-3">
+      <div className="mt-3 flex w-full justify-center border-t border-border pt-3">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="size-11 rounded-lg text-[var(--text-secondary)] transition-all duration-150 hover:bg-[var(--bg-tertiary)] hover:text-[var(--foreground)] active:scale-95 max-[700px]:size-9"
+              className="size-11 rounded-lg text-muted-foreground transition-all duration-150 hover:bg-muted hover:text-foreground active:scale-95 max-[700px]:size-9"
               onClick={onSettingsClick}
               aria-label={t("header.settings")}
             >

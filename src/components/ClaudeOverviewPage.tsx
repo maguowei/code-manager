@@ -120,7 +120,7 @@ const FILE_TREE_THEME_STYLE = {
   "--trees-search-bg-override": "var(--background)",
   "--trees-search-fg-override": "var(--foreground)",
   "--trees-selected-bg-override": "var(--accent)",
-  "--trees-selected-fg-override": "var(--accent-foreground)",
+  "--trees-selected-fg-override": "var(--foreground)",
 } as CSSProperties;
 
 // 根据文件路径后缀判断是否为 Markdown，用于决定是否启用渲染预览
@@ -386,7 +386,7 @@ function ClaudeOverviewContextMenu({
 
   return (
     <div
-      className="claude-overview-context-menu z-[var(--z-index-dropdown)] flex min-w-39 flex-col gap-0.5 rounded-md border bg-popover p-1 text-popover-foreground shadow-lg"
+      className="claude-overview-context-menu z-50 flex min-w-39 flex-col gap-0.5 rounded-md border bg-popover p-1 text-popover-foreground shadow-lg"
       role="menu"
       style={menuStyle}
     >
@@ -461,7 +461,7 @@ function ClaudeOverviewNameDialog({
 
   return (
     <div
-      className="claude-overview-name-dialog-overlay fixed inset-0 z-[var(--z-index-modal)] flex items-center justify-center bg-black/50"
+      className="claude-overview-name-dialog-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       onClick={onCancel}
     >
       <form
@@ -658,6 +658,7 @@ function ClaudeOverviewFileIcon({ path }: { path: string }) {
       aria-hidden="true"
       data-icon-name={icon.remappedFrom ?? icon.name}
       data-icon-token={iconToken}
+      data-testid="claude-overview-tab-file-icon"
       height={iconHeight}
       style={iconStyle}
       viewBox={icon.viewBox ?? `0 0 ${iconWidth} ${iconHeight}`}
@@ -750,7 +751,7 @@ function ClaudeOverviewPage() {
         "--diffs-dark": "var(--foreground)",
         "--diffs-dark-bg": "var(--background)",
         "--diffs-font-family": '"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
-        "--diffs-font-size": "var(--font-base)",
+        "--diffs-font-size": "0.875rem",
         "--diffs-gap-block": "1rem",
         "--diffs-gap-inline": "1.25rem",
         "--diffs-light": "var(--foreground)",
@@ -1453,7 +1454,10 @@ function ClaudeOverviewPage() {
             </div>
           ) : activePreview ? (
             <>
-              <div className="claude-overview-preview-toolbar flex min-h-[38px] shrink-0 flex-nowrap items-center justify-end gap-3 border-b bg-card px-4 py-1 max-[700px]:flex-col max-[700px]:items-start">
+              <div
+                className="claude-overview-preview-toolbar flex min-h-[38px] shrink-0 flex-nowrap items-center justify-end gap-3 border-b bg-card px-4 py-1 max-[700px]:flex-col max-[700px]:items-start"
+                data-testid="claude-overview-preview-toolbar"
+              >
                 {!activePreview.isBinary && isMarkdownPath(activePreview.path) ? (
                   <div className="claude-overview-preview-view-toggle mr-auto flex items-center max-[700px]:mr-0">
                     <Button
@@ -1538,7 +1542,10 @@ function ClaudeOverviewPage() {
                   disableWorkerPool
                 />
               ) : null}
-              <div className="claude-overview-preview-footer flex min-h-[34px] shrink-0 items-center border-t bg-card px-4 py-1 max-[700px]:flex-col max-[700px]:items-start">
+              <div
+                className="claude-overview-preview-footer flex min-h-[34px] shrink-0 items-center border-t bg-card px-4 py-1 max-[700px]:flex-col max-[700px]:items-start"
+                data-testid="claude-overview-preview-footer"
+              >
                 <div className="claude-overview-preview-summary flex min-w-0 items-center gap-2 overflow-hidden truncate whitespace-nowrap text-xs leading-tight text-muted-foreground">
                   <span>{formatBytes(activePreview.size)}</span>
                   <span>

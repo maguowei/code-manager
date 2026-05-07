@@ -105,7 +105,7 @@ function App() {
   if (loading) {
     return (
       <TooltipProvider delayDuration={200}>
-        <div className="flex h-screen items-center justify-center bg-[var(--background)] text-base text-[var(--text-secondary)]">
+        <div className="flex h-screen items-center justify-center bg-[var(--background)] text-base text-muted-foreground">
           {t("loading")}
         </div>
         <Toaster richColors closeButton position="top-right" />
@@ -115,7 +115,7 @@ function App() {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="flex h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
+      <div className="flex h-screen overflow-hidden bg-[var(--background)] text-foreground">
         <Sidebar
           activeTab={activeTab}
           onTabChange={(tab) => {
@@ -147,7 +147,7 @@ function App() {
           ) : (
             <div
               className={cn(
-                "flex shrink-0 flex-col overflow-y-auto overflow-x-hidden bg-[var(--secondary)] transition-[width] duration-300 ease-out scrollbar-none max-[1000px]:fixed max-[1000px]:inset-y-0 max-[1000px]:right-0 max-[1000px]:left-[var(--sidebar-width)] max-[1000px]:z-[var(--z-index-list)] max-[1000px]:w-auto max-[700px]:left-[var(--sidebar-width-small)]",
+                "flex shrink-0 flex-col overflow-y-auto overflow-x-hidden bg-secondary transition-[width] duration-300 ease-out scrollbar-none max-[1000px]:fixed max-[1000px]:inset-y-0 max-[1000px]:right-0 max-[1000px]:left-[60px] max-[1000px]:z-50 max-[1000px]:w-auto max-[700px]:left-[48px]",
                 isDetailDrawerOpen ? "w-[280px]" : "w-[360px]",
               )}
             >

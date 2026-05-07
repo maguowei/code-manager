@@ -106,7 +106,7 @@ function HistoryHeatmap({ entries }: Props) {
     >
       <div className="heatmap-total text-sm text-muted-foreground tabular-nums">{totalLabel}</div>
 
-      <div className="heatmap-frame flex w-max max-w-full flex-col gap-1">
+      <div className="heatmap-frame flex w-max max-w-full flex-col gap-1" data-slot="heatmap-frame">
         {/* 月份标签条 */}
         <div
           className="heatmap-months grid h-3.5 gap-x-0.5 text-[11px] text-muted-foreground"
@@ -184,7 +184,10 @@ function HistoryHeatmap({ entries }: Props) {
           </svg>
         </div>
 
-        <div className="heatmap-legend flex items-center justify-end gap-1">
+        <div
+          className="heatmap-legend flex items-center justify-end gap-1"
+          data-slot="heatmap-legend"
+        >
           <span className="heatmap-legend-label mx-0.5 text-[11px] text-muted-foreground">
             {t("history.heatmapLess")}
           </span>

@@ -18,6 +18,14 @@ function renderEditor(options?: {
   return { ...result, onChange, onError };
 }
 
+function getHookActionSummary(text: string | ((content: string) => boolean)): HTMLElement {
+  const action = screen
+    .getByText(text)
+    .closest('[data-slot="hook-action-summary"]') as HTMLElement | null;
+  expect(action).not.toBeNull();
+  return action as HTMLElement;
+}
+
 describe("HooksEditor", () => {
   it("adds the mojibake check preset from an empty hooks object", () => {
     const { onChange } = renderEditor();
@@ -173,23 +181,13 @@ describe("HooksEditor", () => {
       },
     });
 
-    const customAction = screen
-      .getByText("command: pnpm build")
-      .closest(".profile-hook-action-summary");
-    const presetAction = screen
-      .getByText((content) => content.startsWith("command: FILE="))
-      .closest(".profile-hook-action-summary");
+    const customAction = getHookActionSummary("command: pnpm build");
+    const presetAction = getHookActionSummary((content) => content.startsWith("command: FILE="));
 
-    expect(customAction).not.toBeNull();
-    expect(presetAction).not.toBeNull();
-    if (!customAction || !presetAction) {
-      return;
-    }
-
-    expect(customAction).not.toHaveClass("has-preset-tag");
-    expect(presetAction).toHaveClass("has-preset-tag");
-    expect(within(customAction as HTMLElement).queryByText("乱码检测")).not.toBeInTheDocument();
-    expect(within(presetAction as HTMLElement).getByText("乱码检测")).toBeInTheDocument();
+    expect(customAction).toHaveAttribute("data-preset", "false");
+    expect(presetAction).toHaveAttribute("data-preset", "true");
+    expect(within(customAction).queryByText("乱码检测")).not.toBeInTheDocument();
+    expect(within(presetAction).getByText("乱码检测")).toBeInTheDocument();
   });
 
   it("renders hook matchers as separated rule items", () => {
@@ -239,34 +237,22 @@ describe("HooksEditor", () => {
       },
     });
 
-    const presetAction = screen
-      .getByText((content) => content.startsWith("command: FILE="))
-      .closest(".profile-hook-action-summary");
-    expect(presetAction).not.toBeNull();
-    if (!presetAction) {
-      return;
-    }
+    const presetAction = getHookActionSummary((content) => content.startsWith("command: FILE="));
 
     expect(
-      within(presetAction as HTMLElement).queryByText((content) =>
-        content.includes("检测到乱码字符"),
-      ),
+      within(presetAction).queryByText((content) => content.includes("检测到乱码字符")),
     ).not.toBeInTheDocument();
 
-    const commandButton = within(presetAction as HTMLElement).getByRole("button");
+    const commandButton = within(presetAction).getByRole("button");
     expect(commandButton).not.toHaveAttribute("title");
     fireEvent.click(commandButton);
     expect(
-      within(presetAction as HTMLElement).getByText((content) =>
-        content.includes("检测到乱码字符"),
-      ),
+      within(presetAction).getByText((content) => content.includes("检测到乱码字符")),
     ).toBeInTheDocument();
 
     fireEvent.click(commandButton);
     expect(
-      within(presetAction as HTMLElement).queryByText((content) =>
-        content.includes("检测到乱码字符"),
-      ),
+      within(presetAction).queryByText((content) => content.includes("检测到乱码字符")),
     ).not.toBeInTheDocument();
   });
 
@@ -301,19 +287,19 @@ describe("HooksEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "删除 Hook PostToolUse" }));
 
     const dialogMessage = "确定要从当前设置中移除 Hook 事件 PostToolUse 吗？";
-    const dialog = screen.getByText(dialogMessage).closest(".confirm-dialog");
-    expect(dialog).not.toBeNull();
+    const dialog = screen.getByRole("alertdialog", { name: "删除 Hook" });
+    expect(within(dialog).getByText(dialogMessage)).toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
 
-    fireEvent.click(within(dialog as HTMLElement).getByRole("button", { name: "取消" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
     expect(screen.getByText("PostToolUse")).toBeInTheDocument();
     expect(screen.queryByText(dialogMessage)).not.toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "删除 Hook PostToolUse" }));
-    const confirmDialog = screen.getByText(dialogMessage).closest(".confirm-dialog");
-    expect(confirmDialog).not.toBeNull();
-    fireEvent.click(within(confirmDialog as HTMLElement).getByRole("button", { name: "删除" }));
+    const confirmDialog = screen.getByRole("alertdialog", { name: "删除 Hook" });
+    expect(within(confirmDialog).getByText(dialogMessage)).toBeInTheDocument();
+    fireEvent.click(within(confirmDialog).getByRole("button", { name: "删除" }));
 
     expect(screen.queryByText("PostToolUse")).not.toBeInTheDocument();
     expect(screen.getByText("PreToolUse")).toBeInTheDocument();

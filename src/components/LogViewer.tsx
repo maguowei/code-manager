@@ -111,7 +111,7 @@ function LogViewer({ onClose }: LogViewerProps) {
 
   return (
     <div
-      className="log-viewer-overlay fixed inset-0 z-[var(--z-index-modal)] flex items-center justify-center bg-black/40 p-5 max-md:p-3"
+      className="log-viewer-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5 max-md:p-3"
       onClick={onClose}
     >
       <section

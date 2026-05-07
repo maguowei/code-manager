@@ -82,7 +82,7 @@ function CodeResultBlock({ content, filePath }: { content: string; filePath: str
       customStyle={{
         margin: 0,
         borderRadius: "calc(var(--radius) - 4px)",
-        fontSize: "var(--font-xs)",
+        fontSize: "0.75rem",
         maxHeight: "400px",
         overflowY: "auto",
         background: "var(--card)",
@@ -492,7 +492,7 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
       <SheetContent
         side="right"
         showCloseButton={false}
-        className="left-[var(--sidebar-width)] w-auto min-w-0 gap-0 border-l bg-background p-0 sm:max-w-none max-[700px]:left-[var(--sidebar-width-small)]"
+        className="left-[60px] w-auto min-w-0 gap-0 border-l bg-background p-0 sm:max-w-none max-[700px]:left-[48px]"
       >
         <SheetHeader className="border-b px-5 py-3 pr-12">
           <SheetTitle id="session-detail-title" className="min-w-0 truncate">
