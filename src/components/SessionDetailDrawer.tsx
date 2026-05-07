@@ -1,20 +1,32 @@
+import { json } from "@codemirror/lang-json";
 import { invoke } from "@tauri-apps/api/core";
+import CodeMirror from "@uiw/react-codemirror";
+import { X } from "lucide-react";
 import { memo, type ReactNode, useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import remarkGfm from "remark-gfm";
+import { useCodeMirrorTheme } from "../hooks/useCodeMirrorTheme";
 import { useToast } from "../hooks/useToast";
 import { type TranslationKey, useI18n } from "../i18n";
 import { isTauri, type MessageBlock, type SessionDetail } from "../types";
 import "./SessionDetailDrawer.css";
-import { Sheet, SheetContent } from "./ui/sheet";
+import { Button } from "./ui/button";
+import { Card } from "./ui/card";
+import { Separator } from "./ui/separator";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
 
 /** 文件类工具集合（模块级常量，避免每次渲染重建 Set） */
 const FILE_TOOLS = new Set(["Read", "Write", "Edit", "NotebookRead", "NotebookEdit"]);
 
 /** ReactMarkdown 插件列表（模块级常量，所有实例共享，避免每次渲染重建数组） */
 const REMARK_PLUGINS = [remarkGfm];
+const JSON_EXTENSIONS = [json()];
+const READONLY_CODEMIRROR_SETUP = {
+  lineNumbers: true,
+  foldGutter: false,
+};
 
 /** 扩展名到 Prism 语言标识的映射（模块级常量） */
 const EXT_LANG_MAP: Record<string, string> = {
@@ -222,6 +234,22 @@ function getHeaderHintFromParsed(p: Record<string, unknown> | null): {
   return {};
 }
 
+function JsonCodeCard({ value }: { value: string }) {
+  const editorTheme = useCodeMirrorTheme();
+
+  return (
+    <Card className="msg-tool-card-json-code gap-0 overflow-hidden rounded-md border bg-card p-0 py-0">
+      <CodeMirror
+        value={value}
+        extensions={JSON_EXTENSIONS}
+        theme={editorTheme}
+        editable={false}
+        basicSetup={READONLY_CODEMIRROR_SETUP}
+      />
+    </Card>
+  );
+}
+
 /** 工具输入参数渲染：JSON 对象按字段展示，字符串值用 Markdown 渲染 */
 function InputPreview({
   inputPreview,
@@ -241,9 +269,7 @@ function InputPreview({
                 <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{value}</ReactMarkdown>
               </div>
             ) : (
-              <pre className="msg-tool-card-field-value msg-tool-card-code">
-                {JSON.stringify(value, null, 2)}
-              </pre>
+              <JsonCodeCard value={JSON.stringify(value, null, 2)} />
             )}
           </div>
         ))}
@@ -467,33 +493,25 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
       <SheetContent
         side="right"
         showCloseButton={false}
-        aria-labelledby="session-detail-title"
-        className="left-[var(--sidebar-width)] w-auto min-w-0 gap-0 border-l-0 bg-[var(--bg-elevated)] p-0 sm:max-w-none max-[700px]:left-[var(--sidebar-width-small)]"
+        className="left-[var(--sidebar-width)] w-auto min-w-0 gap-0 border-l bg-background p-0 sm:max-w-none max-[700px]:left-[var(--sidebar-width-small)]"
       >
-        {/* 顶部标题栏 */}
-        <div className="editor-header">
-          <button
+        <SheetHeader className="border-b px-5 py-3 pr-12">
+          <SheetTitle id="session-detail-title" className="min-w-0 truncate">
+            {t("history.conversation")} — {sessionId.slice(0, 8)}
+          </SheetTitle>
+          <SheetDescription className="truncate">{project}</SheetDescription>
+          <Button
             type="button"
-            className="editor-back-btn"
+            variant="ghost"
+            size="icon-sm"
+            className="absolute top-3 right-4"
             onClick={onClose}
             title={t("common.close")}
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            >
-              <path d="M12 4L4 12M4 4l8 8" />
-            </svg>
-          </button>
-          <h2 id="session-detail-title" className="min-w-0 truncate">
-            {t("history.conversation")} — {sessionId.slice(0, 8)}
-          </h2>
-        </div>
+            <X className="size-4" />
+            <span className="sr-only">{t("common.close")}</span>
+          </Button>
+        </SheetHeader>
 
         {/* 内容区 */}
         {loading ? (
@@ -504,22 +522,25 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
           <div className="session-detail-messages">
             {messages.map((msg, i) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: 消息列表无唯一标识符
-              <div key={i} className={`session-msg ${msg.role}`}>
-                <div className="session-msg-header">
-                  <span className={`session-msg-avatar ${msg.role}`}>
-                    {msg.role === "user" ? "U" : "A"}
-                  </span>
-                  <span className="session-msg-role">
-                    {msg.role === "user" ? t("history.roleUser") : t("history.roleAssistant")}
-                  </span>
-                  {msg.timestamp && (
-                    <span className="session-msg-time">
-                      {new Date(msg.timestamp).toLocaleString()}
+              <div key={i}>
+                {i > 0 && <Separator className="my-3" />}
+                <div className={`session-msg ${msg.role}`}>
+                  <div className="session-msg-header">
+                    <span className={`session-msg-avatar ${msg.role}`}>
+                      {msg.role === "user" ? "U" : "A"}
                     </span>
-                  )}
-                </div>
-                <div className="session-msg-bubble">
-                  <MessageBlocks blocks={msg.blocks} t={t} />
+                    <span className="session-msg-role">
+                      {msg.role === "user" ? t("history.roleUser") : t("history.roleAssistant")}
+                    </span>
+                    {msg.timestamp && (
+                      <span className="session-msg-time">
+                        {new Date(msg.timestamp).toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                  <div className="session-msg-bubble">
+                    <MessageBlocks blocks={msg.blocks} t={t} />
+                  </div>
                 </div>
               </div>
             ))}
