@@ -1,15 +1,16 @@
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ExternalLink, Plus } from "lucide-react";
+import { ExternalLink, Plus, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
 import { type Language, useI18n } from "../i18n";
 import type { Skill } from "../types";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import SkillEditor from "./SkillEditor";
 import SkillItem from "./SkillItem";
+import { Button } from "./ui/button";
 import { Sheet, SheetContent } from "./ui/sheet";
-import "./SkillsPage.css";
 
 const CLAUDE_CODE_DOCS_BASE_URL = "https://code.claude.com/docs";
 const CLAUDE_SKILLS_DOCS_PATH = "skills";
@@ -127,44 +128,48 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   }, [claudeSkillsDocsUrl, showToast, t]);
 
   return (
-    <div className="list-page">
+    <div className={cn("list-page group/list", isDrawerOpen && "compressed")}>
       {/* 页面标题栏 */}
       <div className="page-header">
         <h1 className="page-title">{t("skills.title")}</h1>
-        <div className="skills-page-actions">
-          <button
-            type="button"
-            className="skills-docs-link"
-            aria-label={t("skills.openDocsAriaLabel")}
-            title={t("skills.openDocsAriaLabel")}
-            onClick={handleOpenDocs}
+        <div className="skills-page-actions flex min-w-0 items-center gap-2">
+          <Button
+            variant="link"
+            size="sm"
+            asChild
+            className="skills-docs-link h-auto gap-1 p-0 text-[length:var(--font-sm)] font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
           >
-            <span>{t("skills.openDocs")}</span>
-            <ExternalLink className="size-3.5" aria-hidden="true" />
-          </button>
+            <a
+              href={claudeSkillsDocsUrl}
+              aria-label={t("skills.openDocsAriaLabel")}
+              title={t("skills.openDocsAriaLabel")}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleOpenDocs();
+              }}
+            >
+              <span>{t("skills.openDocs")}</span>
+              <ExternalLink className="size-3.5" aria-hidden="true" />
+            </a>
+          </Button>
         </div>
       </div>
 
       {/* 添加按钮 */}
-      <button type="button" className="add-config-btn" onClick={openAdd}>
+      <Button
+        type="button"
+        className="add-config-btn gap-1.5 bg-[linear-gradient(135deg,var(--accent-blue),var(--accent-blue-dark))] font-semibold text-white shadow-[var(--shadow-sm),var(--shadow-blue-sm)] hover:-translate-y-px hover:shadow-[var(--shadow-md),var(--shadow-blue-md)]"
+        onClick={openAdd}
+      >
         <Plus className="size-[18px]" aria-hidden="true" />
         <span>{t("skills.addSkill")}</span>
-      </button>
+      </Button>
 
       {/* Skills 列表 */}
       {sortedSkills.length === 0 ? (
         <div className="list-empty">
           <div className="empty-icon">
-            <svg
-              width="48"
-              height="48"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-            >
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-            </svg>
+            <Zap className="size-12" strokeWidth={1.5} aria-hidden="true" />
           </div>
           <p className="empty-text">{t("skills.empty")}</p>
           <p className="empty-hint">{t("skills.emptyHint")}</p>

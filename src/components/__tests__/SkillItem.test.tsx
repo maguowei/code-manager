@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
@@ -70,7 +69,7 @@ describe("SkillItem", () => {
   it("keeps action buttons from opening the editor", () => {
     const { onDelete, onEdit, onSync, onToggle } = renderSkillItem();
 
-    const toggleButton = screen.getByRole("button", { name: "已禁用" });
+    const toggleButton = screen.getByRole("switch", { name: "已禁用" });
     const syncButton = screen.getByRole("button", { name: "同步到 ~/.codex/skills" });
     const deleteButton = screen.getByRole("button", { name: "删除" });
 
@@ -94,13 +93,16 @@ describe("SkillItem", () => {
   });
 
   it("does not dim inactive skills and reveals actions on hover or focus within", () => {
-    const css = readFileSync(`${process.cwd()}/src/components/SkillItem.css`, "utf8");
+    renderSkillItem();
 
-    expect(css).not.toMatch(/\.skill-item\.inactive\s*\{[^}]*opacity:/s);
-    expect(css).toMatch(
-      /\.skill-item:hover \.skill-actions,\s*\.skill-item:focus-within \.skill-actions \{/,
-    );
-    expect(css).toMatch(/\.skill-actions\s*\{[^}]*max-height: 0;/s);
-    expect(css).toMatch(/\.skill-actions\s*\{[^}]*margin-top: calc\(var\(--space-4\) \* -1\);/s);
+    const card = screen.getByRole("button", { name: /Code Review/ });
+    const actions = document.querySelector(".skill-actions");
+
+    expect(card.className).toContain("inactive");
+    expect(card.className).not.toContain("opacity-");
+    expect(actions?.className).toContain("max-h-0");
+    expect(actions?.className).toContain("mt-[calc(var(--space-4)*-1)]");
+    expect(actions?.className).toContain("group-hover:max-h-12");
+    expect(actions?.className).toContain("group-focus-within:max-h-12");
   });
 });

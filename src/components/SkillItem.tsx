@@ -1,9 +1,13 @@
-import { Trash2 } from "lucide-react";
+import { RefreshCw, Trash2 } from "lucide-react";
 import { type KeyboardEvent, memo } from "react";
+import { cn } from "@/lib/utils";
 import { useI18n } from "../i18n";
 import type { Skill } from "../types";
 import ProfileNameBadge from "./ProfileNameBadge";
-import "./SkillItem.css";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { Card } from "./ui/card";
+import { Switch } from "./ui/switch";
 
 // SkillItem 组件属性定义
 interface SkillItemProps {
@@ -30,57 +34,80 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
   }
 
   return (
-    <div
-      className={["skill-item", skill.isActive ? "active" : "inactive", isEditing ? "editing" : ""]
-        .filter(Boolean)
-        .join(" ")}
+    <Card
+      className={cn(
+        "skill-item group relative flex cursor-pointer flex-col gap-4 rounded-[var(--radius-xl)] border border-[var(--border-default)] bg-[linear-gradient(180deg,var(--bg-primary),var(--bg-secondary))] p-4 text-[var(--text-primary)] shadow-none transition-[transform,border-color,box-shadow,background-color,opacity] duration-200 hover:-translate-y-px hover:border-[var(--accent-blue)] hover:shadow-[0_4px_12px_rgb(59_130_246_/_0.15)]",
+        skill.isActive
+          ? "active border-[var(--accent-blue)] shadow-[0_0_0_1px_var(--accent-blue)_inset,0_0_16px_rgb(59_130_246_/_0.2)]"
+          : "inactive",
+        isEditing &&
+          "editing border-[var(--accent-orange)] shadow-[0_0_0_1px_var(--accent-orange)_inset,0_0_18px_rgb(247_129_102_/_0.24)] hover:border-[var(--accent-orange)]",
+      )}
       role="button"
       tabIndex={0}
       aria-label={skill.name}
       onClick={() => onEdit(skill)}
       onKeyDown={handleCardKeyDown}
     >
-      <div className="skill-header">
+      <div className="skill-header flex items-start justify-between gap-3 group-[.compressed]/list:grid group-[.compressed]/list:grid-cols-[auto_minmax(0,1fr)] group-[.compressed]/list:justify-stretch">
         <ProfileNameBadge name={skill.name} colorSeedScope={skill.id} size="sm" fallbackChar="S" />
 
         {/* 名称区域 */}
-        <div className="skill-info">
-          <h3 className="skill-name">{skill.name}</h3>
-          {showSlashId && <span className="skill-slash-id">/{skill.id}</span>}
+        <div className="skill-info flex min-w-0 flex-1 flex-col gap-0.5">
+          <h3 className="skill-name m-0 truncate text-[length:var(--font-lg)] font-semibold text-[var(--text-primary)]">
+            {skill.name}
+          </h3>
+          {showSlashId && (
+            <span className="skill-slash-id truncate font-mono text-[length:var(--font-xs)] text-[var(--text-muted)]">
+              /{skill.id}
+            </span>
+          )}
         </div>
 
         {/* 右侧操作区：启用/禁用开关 */}
-        <div className="skill-header-actions">
-          {isEditing && <span className="skill-status editing">{t("skills.editing")}</span>}
+        <div className="skill-header-actions flex shrink-0 flex-wrap items-center justify-end gap-1.5 group-[.compressed]/list:col-span-full group-[.compressed]/list:w-full group-[.compressed]/list:justify-start">
+          {isEditing && (
+            <Badge className="skill-status editing rounded-[var(--radius-md)] bg-[var(--accent-orange-bg)] px-2.5 py-1.5 text-[length:var(--font-sm)] font-semibold text-[var(--accent-orange)]">
+              {t("skills.editing")}
+            </Badge>
+          )}
           {/* 开关按钮 */}
-          <button
-            type="button"
-            className={`toggle-switch toggle-blue${skill.isActive ? " enabled" : ""}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggle(skill);
-            }}
-            title={skill.isActive ? t("skills.enabled") : t("skills.disabled")}
-          >
-            <span className="toggle-track">
-              <span className="toggle-thumb" />
-            </span>
-            <span className="toggle-label">
+          <div className="skill-toggle-control inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[length:var(--font-sm)] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]">
+            <Switch
+              size="sm"
+              checked={skill.isActive}
+              onCheckedChange={() => onToggle(skill)}
+              onClick={(event) => event.stopPropagation()}
+              aria-label={skill.isActive ? t("skills.enabled") : t("skills.disabled")}
+              className="toggle-switch toggle-blue data-[state=checked]:bg-[var(--accent-blue)]"
+            />
+            <span
+              className={cn(
+                "toggle-label whitespace-nowrap",
+                skill.isActive && "text-[var(--accent-blue)]",
+              )}
+            >
               {skill.isActive ? t("skills.enabled") : t("skills.disabled")}
             </span>
-          </button>
+          </div>
         </div>
       </div>
 
       {/* 描述预览（最多 2 行，CSS 截断） */}
-      {skill.description && <p className="skill-description">{skill.description}</p>}
+      {skill.description && (
+        <p className="skill-description m-0 line-clamp-2 text-[length:var(--font-sm)] leading-normal text-[var(--text-secondary)]">
+          {skill.description}
+        </p>
+      )}
 
       {/* 悬停显示的操作按钮区 */}
-      <div className="skill-actions">
+      <div className="skill-actions pointer-events-none mt-[calc(var(--space-4)*-1)] flex max-h-0 translate-y-2 flex-wrap justify-end gap-2 self-end overflow-hidden opacity-0 transition-[max-height,margin-top,opacity,transform] duration-200 group-hover:mt-0 group-hover:max-h-12 group-hover:translate-y-0 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:mt-0 group-focus-within:max-h-12 group-focus-within:translate-y-0 group-focus-within:opacity-100 group-focus-within:pointer-events-auto">
         {/* 同步按钮 */}
-        <button
+        <Button
           type="button"
-          className="skill-action-btn sync"
+          variant="ghost"
+          size="icon-sm"
+          className="skill-action-btn sync border border-[var(--border-default)] bg-[var(--bg-tertiary)] text-[var(--text-primary)] hover:border-[var(--accent-green)] hover:text-[var(--accent-green)]"
           onClick={(e) => {
             e.stopPropagation();
             onSync(skill);
@@ -88,15 +115,15 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
           aria-label={t("skills.syncToCodex")}
           title={t("skills.syncToCodex")}
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z" />
-          </svg>
-        </button>
+          <RefreshCw className="size-4" aria-hidden="true" />
+        </Button>
 
         {/* 删除按钮 */}
-        <button
+        <Button
           type="button"
-          className="skill-action-btn delete"
+          variant="ghost"
+          size="icon-sm"
+          className="skill-action-btn delete border border-[var(--border-default)] bg-[var(--bg-tertiary)] text-[var(--text-primary)] hover:border-[var(--accent-red)] hover:text-[var(--accent-red)]"
           onClick={(e) => {
             e.stopPropagation();
             onDelete(skill);
@@ -105,9 +132,9 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
           title={t("skills.delete")}
         >
           <Trash2 className="size-4" aria-hidden="true" />
-        </button>
+        </Button>
       </div>
-    </div>
+    </Card>
   );
 }
 

@@ -55,7 +55,7 @@ describe("SkillsPage", () => {
   it("opens the localized Claude skills docs from the page header", async () => {
     renderSkillsPage();
 
-    const docsButton = await screen.findByRole("button", {
+    const docsButton = await screen.findByRole("link", {
       name: "查看 Claude Code Skills 官方文档",
     });
     expect(docsButton).toHaveTextContent("官方文档");
@@ -71,7 +71,7 @@ describe("SkillsPage", () => {
 
     renderSkillsPage();
 
-    const docsButton = await screen.findByRole("button", {
+    const docsButton = await screen.findByRole("link", {
       name: "Open Claude Code Skills docs",
     });
     expect(docsButton).toHaveTextContent("Docs");
