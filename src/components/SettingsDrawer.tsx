@@ -4,10 +4,11 @@ import {
   enable as enableAutostart,
   isEnabled as isAutostartEnabled,
 } from "@tauri-apps/plugin-autostart";
-import { ChevronLeft } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { ChevronLeft, FileText, Info, type LucideIcon, Monitor, Moon, Sun } from "lucide-react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useToast } from "../hooks/useToast";
-import { type Language, useI18n } from "../i18n";
+import { type Language, type TranslationKey, useI18n } from "../i18n";
+import { cn } from "../lib/utils";
 import type {
   AppPreferences,
   ConfigWorkspace,
@@ -17,10 +18,68 @@ import type {
 import LogViewer from "./LogViewer";
 import SystemInfoDialog from "./SystemInfoDialog";
 import { type Theme, useTheme } from "./theme-provider";
-import { Sheet, SheetContent } from "./ui/sheet";
+import { Button } from "./ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { Label } from "./ui/label";
+import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet";
+import { Switch } from "./ui/switch";
 
 interface SettingsDrawerProps {
   onClose: () => void;
+}
+
+interface SettingsSectionCardProps {
+  title: string;
+  description: string;
+  children: ReactNode;
+}
+
+const EDITOR_UNSET_VALUE = "__unset";
+
+const languageOptions: {
+  value: Language;
+  labelKey: TranslationKey;
+}[] = [
+  { value: "zh", labelKey: "settings.languageChinese" },
+  { value: "en", labelKey: "settings.languageEnglish" },
+];
+
+const themeOptions: {
+  value: Theme;
+  labelKey: "settings.themeLight" | "settings.themeDark" | "settings.themeSystem";
+  Icon: LucideIcon;
+}[] = [
+  { value: "system", labelKey: "settings.themeSystem", Icon: Monitor },
+  { value: "light", labelKey: "settings.themeLight", Icon: Sun },
+  { value: "dark", labelKey: "settings.themeDark", Icon: Moon },
+];
+
+const terminalOptions: { value: DefaultTerminalApp; label: string }[] = [
+  { value: "terminal", label: "Terminal" },
+  { value: "iterm", label: "iTerm" },
+  { value: "warp", label: "Warp" },
+  { value: "ghostty", label: "Ghostty" },
+];
+
+const editorOptions: { value: DefaultEditorApp; label: string }[] = [
+  { value: "vscode", label: "VS Code" },
+  { value: "cursor", label: "Cursor" },
+  { value: "windsurf", label: "Windsurf" },
+  { value: "zed", label: "Zed" },
+];
+
+function SettingsSectionCard({ title, description, children }: SettingsSectionCardProps) {
+  return (
+    <Card className="gap-4 rounded-lg py-0 shadow-xs">
+      <CardHeader className="gap-1 px-4 pt-4">
+        <CardTitle className="text-sm leading-5">{title}</CardTitle>
+        <CardDescription className="leading-5">{description}</CardDescription>
+      </CardHeader>
+      <CardContent className="px-4 pb-4">{children}</CardContent>
+    </Card>
+  );
 }
 
 function SettingsDrawer({ onClose }: SettingsDrawerProps) {
@@ -101,17 +160,39 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
     }
   }
 
-  const themeOptions: {
-    value: Theme;
-    labelKey: "settings.themeLight" | "settings.themeDark" | "settings.themeSystem";
-    icon: string;
-  }[] = [
-    { value: "light", labelKey: "settings.themeLight", icon: "sun" },
-    { value: "dark", labelKey: "settings.themeDark", icon: "moon" },
-    { value: "system", labelKey: "settings.themeSystem", icon: "monitor" },
-  ];
-  const settingsSelectClass =
-    "w-[min(240px,100%)] rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-secondary)] px-3 py-[9px] text-[length:var(--font-md)] text-[var(--text-primary)] transition-colors duration-200 hover:border-[var(--text-muted)] focus:border-[var(--accent-blue)] focus:shadow-[0_0_0_3px_var(--accent-blue-bg)] focus:outline-none max-[700px]:w-full";
+  function handleLanguageChange(nextLanguage: string) {
+    const resolvedLanguage = nextLanguage as Language;
+    const rollback = nextPreferences;
+    setLanguage(resolvedLanguage);
+    void persistPreferences(
+      {
+        ...nextPreferences,
+        uiLanguage: resolvedLanguage,
+      },
+      rollback,
+    );
+  }
+
+  function handleTerminalChange(nextTerminal: string) {
+    void persistPreferences(
+      {
+        ...nextPreferences,
+        defaultTerminalApp: nextTerminal as DefaultTerminalApp,
+      },
+      nextPreferences,
+    );
+  }
+
+  function handleEditorChange(nextEditor: string) {
+    void persistPreferences(
+      {
+        ...nextPreferences,
+        defaultEditorApp:
+          nextEditor === EDITOR_UNSET_VALUE ? null : (nextEditor as DefaultEditorApp),
+      },
+      nextPreferences,
+    );
+  }
 
   return (
     <Sheet open onOpenChange={(open) => !open && onClose()}>
@@ -119,348 +200,213 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
         side="right"
         showCloseButton={false}
         aria-labelledby="settings-drawer-title"
-        className="w-full max-w-[calc(100vw-var(--sidebar-width))] gap-0 border-l border-[var(--border-default)] bg-[var(--bg-elevated)] p-0 shadow-[-8px_0_28px_rgb(0_0_0_/_0.24)] sm:max-w-[520px] max-[700px]:max-w-[calc(100vw-var(--sidebar-width-small))]"
+        className="flex w-full flex-col gap-0 p-0 sm:max-w-md"
       >
-        <div className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border-default)] bg-[var(--bg-primary)] px-6">
-          <button
+        <SheetHeader className="flex h-14 shrink-0 flex-row items-center gap-3 border-b px-4 py-0">
+          <Button
             type="button"
-            className="inline-flex size-8 items-center justify-center rounded-[var(--radius-md)] border-0 bg-transparent text-[var(--text-secondary)] transition-colors duration-150 hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+            variant="ghost"
+            size="icon-sm"
             onClick={onClose}
             aria-label={t("common.close")}
           >
             <ChevronLeft className="size-5" aria-hidden="true" />
-          </button>
-          <h2 id="settings-drawer-title" className="text-[length:var(--font-lg)] font-semibold">
+          </Button>
+          <SheetTitle id="settings-drawer-title" className="text-base">
             {t("settings.title")}
-          </h2>
-        </div>
+          </SheetTitle>
+        </SheetHeader>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5 max-[700px]:p-4">
-          <section className="flex flex-col gap-4 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-primary)] p-4">
-            <div>
-              <h3 className="text-[length:var(--font-md)] font-semibold text-[var(--text-primary)]">
-                {t("settings.language")}
-              </h3>
-              <p className="mt-1 text-[length:var(--font-base)] leading-[1.45] text-[var(--text-secondary)]">
-                {t("settings.languageDesc")}
-              </p>
-            </div>
-            <div className="flex items-center justify-between gap-4 max-[700px]:flex-col max-[700px]:items-stretch">
-              <label className="sr-only" htmlFor="settings-language-select">
-                {t("settings.language")}
-              </label>
-              <select
-                id="settings-language-select"
-                className={settingsSelectClass}
-                value={language}
-                onChange={(e) => {
-                  const nextLanguage = e.target.value as Language;
-                  const rollback = nextPreferences;
-                  setLanguage(nextLanguage);
-                  void persistPreferences(
-                    {
-                      ...nextPreferences,
-                      uiLanguage: nextLanguage,
-                    },
-                    rollback,
-                  );
-                }}
-              >
-                <option value="zh">中文</option>
-                <option value="en">English</option>
-              </select>
-            </div>
-          </section>
-
-          <section className="flex flex-col gap-4 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-primary)] p-4">
-            <div>
-              <h3 className="text-[length:var(--font-md)] font-semibold text-[var(--text-primary)]">
-                {t("settings.theme")}
-              </h3>
-              <p className="mt-1 text-[length:var(--font-base)] leading-[1.45] text-[var(--text-secondary)]">
-                {t("settings.themeDesc")}
-              </p>
-            </div>
-            <div className="flex flex-col">
-              <div className="flex items-center justify-between gap-4 max-[700px]:flex-col max-[700px]:items-stretch">
-                <div className="grid w-full grid-cols-3 gap-3 max-[700px]:grid-cols-1">
-                  {themeOptions.map((option) => (
-                    <button
-                      type="button"
-                      key={option.value}
-                      className={`flex flex-col items-center gap-2.5 rounded-[var(--radius-lg)] border p-[18px_10px] font-semibold transition-all duration-200 hover:-translate-y-px ${
-                        theme === option.value
-                          ? "border-[var(--accent-blue)] bg-[var(--accent-blue-bg)] text-[var(--accent-blue)] shadow-[inset_0_0_0_1px_var(--accent-blue)]"
-                          : "border-[var(--border-default)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:border-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                      }`}
-                      onClick={() => setTheme(option.value)}
-                    >
-                      <div className="flex items-center justify-center">
-                        {option.icon === "sun" && (
-                          <svg
-                            width="24"
-                            height="24"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          >
-                            <circle cx="12" cy="12" r="5" />
-                            <line x1="12" y1="1" x2="12" y2="3" />
-                            <line x1="12" y1="21" x2="12" y2="23" />
-                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-                            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                            <line x1="1" y1="12" x2="3" y2="12" />
-                            <line x1="21" y1="12" x2="23" y2="12" />
-                            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-                            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-                          </svg>
-                        )}
-                        {option.icon === "moon" && (
-                          <svg
-                            width="24"
-                            height="24"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          >
-                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-                          </svg>
-                        )}
-                        {option.icon === "monitor" && (
-                          <svg
-                            width="24"
-                            height="24"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          >
-                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-                            <line x1="8" y1="21" x2="16" y2="21" />
-                            <line x1="12" y1="17" x2="12" y2="21" />
-                          </svg>
-                        )}
-                      </div>
-                      <span className="text-[length:var(--font-sm)]">{t(option.labelKey)}</span>
-                    </button>
+        <div className="min-h-0 flex-1 overflow-y-auto bg-muted/30">
+          <div className="flex flex-col gap-4 p-4">
+            <SettingsSectionCard
+              title={t("settings.language")}
+              description={t("settings.languageDesc")}
+            >
+              <Select value={language} onValueChange={handleLanguageChange}>
+                <SelectTrigger
+                  id="settings-language-select"
+                  aria-label={t("settings.language")}
+                  className="w-full sm:w-60"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {languageOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {t(option.labelKey)}
+                    </SelectItem>
                   ))}
-                </div>
-              </div>
-            </div>
-          </section>
+                </SelectContent>
+              </Select>
+            </SettingsSectionCard>
 
-          <section className="flex flex-col gap-4 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-primary)] p-4">
-            <div>
-              <h3 className="text-[length:var(--font-md)] font-semibold text-[var(--text-primary)]">
-                {t("settings.showTrayTitle")}
-              </h3>
-              <p className="mt-1 text-[length:var(--font-base)] leading-[1.45] text-[var(--text-secondary)]">
-                {t("settings.showTrayTitleDesc")}
-              </p>
-            </div>
-            <div className="flex items-center justify-between gap-4 max-[700px]:flex-col max-[700px]:items-stretch">
-              <button
-                type="button"
-                className={`toggle-switch${showTrayTitle ? " enabled" : ""}`}
-                onClick={() => {
-                  void persistPreferences(
-                    {
-                      ...nextPreferences,
-                      showTrayTitle: !showTrayTitle,
-                    },
-                    nextPreferences,
-                  );
-                }}
-                role="switch"
-                aria-checked={showTrayTitle}
-                aria-label={t("settings.showTrayTitle")}
+            <SettingsSectionCard title={t("settings.theme")} description={t("settings.themeDesc")}>
+              <RadioGroup
+                value={theme}
+                onValueChange={(value) => setTheme(value as Theme)}
+                className="grid grid-cols-1 gap-2 sm:grid-cols-3"
+                aria-label={t("settings.theme")}
               >
-                <span className="toggle-track">
-                  <span className="toggle-thumb" />
-                </span>
-                <span className="toggle-label">
+                {themeOptions.map(({ value, labelKey, Icon }) => {
+                  const itemId = `settings-theme-${value}`;
+                  const checked = theme === value;
+                  return (
+                    <div
+                      key={value}
+                      className={cn(
+                        "flex items-center gap-3 rounded-md border bg-background p-3 transition-colors",
+                        checked
+                          ? "border-primary text-primary"
+                          : "border-input text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                      )}
+                    >
+                      <RadioGroupItem value={value} id={itemId} />
+                      <Label htmlFor={itemId} className="flex-1 cursor-pointer">
+                        <Icon className="size-4" aria-hidden="true" />
+                        <span>{t(labelKey)}</span>
+                      </Label>
+                    </div>
+                  );
+                })}
+              </RadioGroup>
+            </SettingsSectionCard>
+
+            <SettingsSectionCard
+              title={t("settings.showTrayTitle")}
+              description={t("settings.showTrayTitleDesc")}
+            >
+              <div className="flex items-center justify-between gap-4">
+                <Label htmlFor="settings-show-tray-title" className="text-muted-foreground">
                   {showTrayTitle ? t("settings.enabled") : t("settings.disabled")}
-                </span>
-              </button>
-            </div>
-          </section>
+                </Label>
+                <Switch
+                  id="settings-show-tray-title"
+                  checked={showTrayTitle}
+                  onCheckedChange={(checked) => {
+                    void persistPreferences(
+                      {
+                        ...nextPreferences,
+                        showTrayTitle: checked,
+                      },
+                      nextPreferences,
+                    );
+                  }}
+                  aria-label={t("settings.showTrayTitle")}
+                />
+              </div>
+            </SettingsSectionCard>
 
-          <section className="flex flex-col gap-4 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-primary)] p-4">
-            <div>
-              <h3 className="text-[length:var(--font-md)] font-semibold text-[var(--text-primary)]">
-                {t("settings.showTraySessions")}
-              </h3>
-              <p className="mt-1 text-[length:var(--font-base)] leading-[1.45] text-[var(--text-secondary)]">
-                {t("settings.showTraySessionsDesc")}
-              </p>
-            </div>
-            <div className="flex items-center justify-between gap-4 max-[700px]:flex-col max-[700px]:items-stretch">
-              <button
-                type="button"
-                className={`toggle-switch${showTraySessions ? " enabled" : ""}`}
-                onClick={() => {
-                  void persistPreferences(
-                    {
-                      ...nextPreferences,
-                      showTraySessions: !showTraySessions,
-                    },
-                    nextPreferences,
-                  );
-                }}
-                role="switch"
-                aria-checked={showTraySessions}
-                aria-label={t("settings.showTraySessions")}
-              >
-                <span className="toggle-track">
-                  <span className="toggle-thumb" />
-                </span>
-                <span className="toggle-label">
+            <SettingsSectionCard
+              title={t("settings.showTraySessions")}
+              description={t("settings.showTraySessionsDesc")}
+            >
+              <div className="flex items-center justify-between gap-4">
+                <Label htmlFor="settings-show-tray-sessions" className="text-muted-foreground">
                   {showTraySessions ? t("settings.enabled") : t("settings.disabled")}
-                </span>
-              </button>
-            </div>
-          </section>
+                </Label>
+                <Switch
+                  id="settings-show-tray-sessions"
+                  checked={showTraySessions}
+                  onCheckedChange={(checked) => {
+                    void persistPreferences(
+                      {
+                        ...nextPreferences,
+                        showTraySessions: checked,
+                      },
+                      nextPreferences,
+                    );
+                  }}
+                  aria-label={t("settings.showTraySessions")}
+                />
+              </div>
+            </SettingsSectionCard>
 
-          <section className="flex flex-col gap-4 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-primary)] p-4">
-            <div>
-              <h3 className="text-[length:var(--font-md)] font-semibold text-[var(--text-primary)]">
-                {t("settings.launchAtLogin")}
-              </h3>
-              <p className="mt-1 text-[length:var(--font-base)] leading-[1.45] text-[var(--text-secondary)]">
-                {t("settings.launchAtLoginDesc")}
-              </p>
-            </div>
-            <div className="flex items-center justify-between gap-4 max-[700px]:flex-col max-[700px]:items-stretch">
-              <button
-                type="button"
-                className={`toggle-switch${launchAtLogin ? " enabled" : ""}`}
-                onClick={() => void toggleLaunchAtLogin(!launchAtLogin)}
-                role="switch"
-                aria-checked={launchAtLogin}
-                aria-label={t("settings.launchAtLogin")}
-              >
-                <span className="toggle-track">
-                  <span className="toggle-thumb" />
-                </span>
-                <span className="toggle-label">
+            <SettingsSectionCard
+              title={t("settings.launchAtLogin")}
+              description={t("settings.launchAtLoginDesc")}
+            >
+              <div className="flex items-center justify-between gap-4">
+                <Label htmlFor="settings-launch-at-login" className="text-muted-foreground">
                   {launchAtLogin ? t("settings.enabled") : t("settings.disabled")}
-                </span>
-              </button>
-            </div>
-          </section>
+                </Label>
+                <Switch
+                  id="settings-launch-at-login"
+                  checked={launchAtLogin}
+                  onCheckedChange={(checked) => void toggleLaunchAtLogin(checked)}
+                  aria-label={t("settings.launchAtLogin")}
+                />
+              </div>
+            </SettingsSectionCard>
 
-          <section className="flex flex-col gap-4 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-primary)] p-4">
-            <div>
-              <h3 className="text-[length:var(--font-md)] font-semibold text-[var(--text-primary)]">
-                {t("settings.defaultTerminal")}
-              </h3>
-              <p className="mt-1 text-[length:var(--font-base)] leading-[1.45] text-[var(--text-secondary)]">
-                {t("settings.defaultTerminalDesc")}
-              </p>
-            </div>
-            <div className="flex items-center justify-between gap-4 max-[700px]:flex-col max-[700px]:items-stretch">
-              <label className="sr-only" htmlFor="settings-terminal-select">
-                {t("settings.defaultTerminal")}
-              </label>
-              <select
-                id="settings-terminal-select"
-                className={settingsSelectClass}
-                value={defaultTerminalApp}
-                onChange={(e) => {
-                  void persistPreferences(
-                    {
-                      ...nextPreferences,
-                      defaultTerminalApp: e.target.value as DefaultTerminalApp,
-                    },
-                    nextPreferences,
-                  );
-                }}
-              >
-                <option value="terminal">Terminal</option>
-                <option value="iterm">iTerm</option>
-                <option value="warp">Warp</option>
-                <option value="ghostty">Ghostty</option>
-              </select>
-            </div>
-          </section>
+            <SettingsSectionCard
+              title={t("settings.defaultTerminal")}
+              description={t("settings.defaultTerminalDesc")}
+            >
+              <Select value={defaultTerminalApp} onValueChange={handleTerminalChange}>
+                <SelectTrigger
+                  id="settings-terminal-select"
+                  aria-label={t("settings.defaultTerminal")}
+                  className="w-full sm:w-60"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {terminalOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SettingsSectionCard>
 
-          <section className="flex flex-col gap-4 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-primary)] p-4">
-            <div>
-              <h3 className="text-[length:var(--font-md)] font-semibold text-[var(--text-primary)]">
-                {t("settings.defaultEditor")}
-              </h3>
-              <p className="mt-1 text-[length:var(--font-base)] leading-[1.45] text-[var(--text-secondary)]">
-                {t("settings.defaultEditorDesc")}
-              </p>
-            </div>
-            <div className="flex items-center justify-between gap-4 max-[700px]:flex-col max-[700px]:items-stretch">
-              <label className="sr-only" htmlFor="settings-editor-select">
-                {t("settings.defaultEditor")}
-              </label>
-              <select
-                id="settings-editor-select"
-                className={settingsSelectClass}
-                value={defaultEditorApp ?? ""}
-                onChange={(e) =>
-                  void persistPreferences(
-                    {
-                      ...nextPreferences,
-                      defaultEditorApp: (e.target.value || null) as DefaultEditorApp | null,
-                    },
-                    nextPreferences,
-                  )
-                }
+            <SettingsSectionCard
+              title={t("settings.defaultEditor")}
+              description={t("settings.defaultEditorDesc")}
+            >
+              <Select
+                value={defaultEditorApp ?? EDITOR_UNSET_VALUE}
+                onValueChange={handleEditorChange}
               >
-                <option value="">{t("settings.editorUnset")}</option>
-                <option value="vscode">VS Code</option>
-                <option value="cursor">Cursor</option>
-                <option value="windsurf">Windsurf</option>
-                <option value="zed">Zed</option>
-              </select>
-            </div>
-          </section>
+                <SelectTrigger
+                  id="settings-editor-select"
+                  aria-label={t("settings.defaultEditor")}
+                  className="w-full sm:w-60"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={EDITOR_UNSET_VALUE}>{t("settings.editorUnset")}</SelectItem>
+                  {editorOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SettingsSectionCard>
 
-          <section className="flex flex-col gap-4 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-primary)] p-4">
-            <div>
-              <h3 className="text-[length:var(--font-md)] font-semibold text-[var(--text-primary)]">
-                {t("settings.diagnostics")}
-              </h3>
-              <p className="mt-1 text-[length:var(--font-base)] leading-[1.45] text-[var(--text-secondary)]">
-                {t("settings.diagnosticsDesc")}
-              </p>
-            </div>
-            <div className="flex items-center justify-between gap-4 max-[700px]:flex-col max-[700px]:items-stretch">
-              <button
-                type="button"
-                className="h-9 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-secondary)] px-3.5 text-[length:var(--font-base)] font-semibold text-[var(--text-primary)] hover:border-[var(--text-muted)] hover:bg-[var(--bg-hover)]"
-                onClick={() => setIsLogViewerOpen(true)}
-              >
+            <SettingsSectionCard
+              title={t("settings.diagnostics")}
+              description={t("settings.diagnosticsDesc")}
+            >
+              <Button type="button" variant="outline" onClick={() => setIsLogViewerOpen(true)}>
+                <FileText className="size-4" aria-hidden="true" />
                 {t("settings.viewLogs")}
-              </button>
-            </div>
-          </section>
+              </Button>
+            </SettingsSectionCard>
 
-          <section className="flex flex-col gap-4 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-primary)] p-4">
-            <div>
-              <h3 className="text-[length:var(--font-md)] font-semibold text-[var(--text-primary)]">
-                {t("settings.systemInfo")}
-              </h3>
-              <p className="mt-1 text-[length:var(--font-base)] leading-[1.45] text-[var(--text-secondary)]">
-                {t("settings.systemInfoDesc")}
-              </p>
-            </div>
-            <div className="flex items-center justify-between gap-4 max-[700px]:flex-col max-[700px]:items-stretch">
-              <button
-                type="button"
-                className="h-9 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-secondary)] px-3.5 text-[length:var(--font-base)] font-semibold text-[var(--text-primary)] hover:border-[var(--text-muted)] hover:bg-[var(--bg-hover)]"
-                onClick={() => setIsSystemInfoOpen(true)}
-              >
+            <SettingsSectionCard
+              title={t("settings.systemInfo")}
+              description={t("settings.systemInfoDesc")}
+            >
+              <Button type="button" variant="outline" onClick={() => setIsSystemInfoOpen(true)}>
+                <Info className="size-4" aria-hidden="true" />
                 {t("settings.viewSystemInfo")}
-              </button>
-            </div>
-          </section>
+              </Button>
+            </SettingsSectionCard>
+          </div>
         </div>
         {isLogViewerOpen ? <LogViewer onClose={() => setIsLogViewerOpen(false)} /> : null}
         {isSystemInfoOpen ? <SystemInfoDialog onClose={() => setIsSystemInfoOpen(false)} /> : null}

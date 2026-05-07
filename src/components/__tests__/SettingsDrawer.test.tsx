@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../hooks/useToast";
 import { I18nProvider } from "../../i18n";
@@ -104,6 +104,24 @@ describe("SettingsDrawer", () => {
         defaultTerminalApp: "terminal",
         defaultEditorApp: null,
       },
+    });
+  });
+
+  it("switches theme through the three-state radio group", async () => {
+    renderSettingsDrawer();
+
+    const darkRadio = await screen.findByRole("radio", { name: "深色" });
+    fireEvent.click(darkRadio);
+
+    await waitFor(() => {
+      expect(localStorage.getItem("ai-manager.theme")).toBe("dark");
+    });
+
+    const systemRadio = screen.getByRole("radio", { name: "跟随系统" });
+    fireEvent.click(systemRadio);
+
+    await waitFor(() => {
+      expect(localStorage.getItem("ai-manager.theme")).toBe("system");
     });
   });
 });
