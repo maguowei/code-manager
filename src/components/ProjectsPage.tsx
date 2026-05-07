@@ -356,10 +356,13 @@ function ProjectsPage() {
       return;
     }
 
-    if (!selectedSummary) {
-      setSelectedProject(projectSummaries[0].project);
-    }
-  }, [projectSummaries, selectedSummary]);
+    setSelectedProject((current) => {
+      if (current && projectSummaries.some((summary) => summary.project === current)) {
+        return current;
+      }
+      return projectSummaries[0].project;
+    });
+  }, [projectSummaries]);
 
   useEffect(() => {
     if (!selectedProject) {
