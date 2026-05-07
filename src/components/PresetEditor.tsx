@@ -1,4 +1,6 @@
+import { ArrowLeft } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
 import { useI18n } from "../i18n";
 import type { LocalizedText, SettingsPreset } from "../types";
 import {
@@ -53,8 +55,9 @@ import {
 import { useDocumentJsonEditor } from "./profile-editor/useDocumentJsonEditor";
 import { useObjectJsonEditor } from "./profile-editor/useObjectJsonEditor";
 import useStructuredSettingsSectionState from "./profile-editor/useStructuredSettingsSectionState";
+import { Button } from "./ui/button";
+import { Form } from "./ui/form";
 import "./ConfigEditor.css";
-import "./PresetEditor.css";
 
 interface PresetEditorProps {
   preset: SettingsPreset | null;
@@ -94,6 +97,7 @@ function buildPresetLocalizedName(nameZh: string, nameEn: string): LocalizedText
 
 function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
   const { language, t } = useI18n();
+  const form = useForm();
   const initialLocalizedName = useMemo(() => resolvePresetLocalizedName(preset), [preset]);
   const [nameZh, setNameZh] = useState(initialLocalizedName.zh);
   const [nameEn, setNameEn] = useState(initialLocalizedName.en);
@@ -486,221 +490,227 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
   };
 
   return (
-    <div className="editor-panel preset-editor-panel">
-      <div className="editor-header">
-        <button
-          type="button"
-          className="editor-back-btn"
-          onClick={onClose}
-          aria-label={t("common.close")}
-        >
-          ←
-        </button>
-        <h2>{messages.title}</h2>
-        <button
-          type="button"
-          className="editor-save-btn"
-          disabled={!buildPresetLocalizedName(nameZh, nameEn) || hasValidationError}
-          onClick={() => {
-            void handleSaveClick();
-          }}
-        >
-          {messages.save}
-        </button>
-      </div>
+    <Form {...form}>
+      <div className="editor-panel preset-editor-panel flex h-full min-h-0 w-full min-w-[var(--config-editor-min-width)] flex-col overflow-hidden bg-[var(--bg-elevated)]">
+        <div className="editor-header sticky top-0 z-[var(--z-index-sticky)] flex h-14 shrink-0 items-center justify-between gap-3 border-b border-[var(--border-default)] bg-[var(--bg-primary)] px-6">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="editor-back-btn"
+            onClick={onClose}
+            aria-label={t("common.close")}
+          >
+            <ArrowLeft className="size-4" aria-hidden="true" />
+          </Button>
+          <h2 className="min-w-0 flex-1 truncate text-lg font-semibold text-[var(--text-primary)]">
+            {messages.title}
+          </h2>
+          <Button
+            type="button"
+            className="editor-save-btn"
+            disabled={!buildPresetLocalizedName(nameZh, nameEn) || hasValidationError}
+            onClick={() => {
+              void handleSaveClick();
+            }}
+          >
+            {messages.save}
+          </Button>
+        </div>
 
-      <div className="editor-body preset-editor-body">
-        <section className="profile-editor-section">
-          <div className="profile-section-heading">
-            <h3>{messages.metadata}</h3>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="preset-name-zh" className="label-required">
-                <span>{messages.nameZh}</span>
-                <RequiredBadge text={t("form.oneRequired")} />
-              </label>
-              <input
-                id="preset-name-zh"
-                value={nameZh}
-                onChange={(event) => setNameZh(event.target.value)}
-                placeholder={messages.nameZhPlaceholder}
-              />
+        <div className="editor-body preset-editor-body flex min-h-0 flex-1 flex-col items-center gap-5 overflow-y-auto px-6 py-6 pb-6 [&>*]:shrink-0 [&>:not(.editor-badge-large)]:w-[min(100%,880px)]">
+          <section className="profile-editor-section">
+            <div className="profile-section-heading">
+              <h3>{messages.metadata}</h3>
             </div>
-            <div className="form-group">
-              <label htmlFor="preset-name-en" className="label-required">
-                <span>{messages.nameEn}</span>
-                <RequiredBadge text={t("form.oneRequired")} />
-              </label>
-              <input
-                id="preset-name-en"
-                value={nameEn}
-                onChange={(event) => setNameEn(event.target.value)}
-                placeholder={messages.nameEnPlaceholder}
-              />
-            </div>
-          </div>
 
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="preset-doc-url">{messages.docUrl}</label>
-              <input
-                id="preset-doc-url"
-                value={docUrl}
-                onChange={(event) => setDocUrl(event.target.value)}
-                placeholder="https://..."
-              />
-            </div>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="preset-description">{messages.description}</label>
-              <input
-                id="preset-description"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder={messages.descriptionPlaceholder}
-              />
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="preset-model-suggestions">{messages.modelSuggestions}</label>
-            <input
-              id="preset-model-suggestions"
-              value={modelSuggestions}
-              onChange={(event) => setModelSuggestions(event.target.value)}
-              placeholder={t("presets.editor.placeholders.modelSuggestions")}
-            />
-            <p className="form-hint">{messages.modelSuggestionsHint}</p>
-          </div>
-        </section>
-
-        <section className="profile-editor-section">
-          <div className="profile-section-heading">
-            <h3>{messages.auth}</h3>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="preset-base-preset">{messages.basePreset}</label>
-            <select
-              id="preset-base-preset"
-              className="form-select"
-              value={basePresetId}
-              onChange={(event) => handleBasePresetChange(event.target.value)}
-            >
-              <option value="">{t("presets.editor.options.none")}</option>
-              {selectableBasePresets.map((candidate) => (
-                <option key={candidate.id} value={candidate.id}>
-                  {presetDisplayName(candidate, language)}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <div className="field-label-wrap">
-              <label htmlFor="preset-base-url">{messages.baseUrl}</label>
-              <span className="field-label-env">{messages.baseUrlEnv}</span>
-            </div>
-            <input
-              id="preset-base-url"
-              aria-label={messages.baseUrlEnv}
-              value={readEnvString(settingsPatch, "ANTHROPIC_BASE_URL")}
-              placeholder="https://api.anthropic.com"
-              onChange={(event) =>
-                applyPatch(setEnvString(settingsPatch, "ANTHROPIC_BASE_URL", event.target.value))
-              }
-            />
-          </div>
-
-          <div className="form-group">
-            <div className="field-label-wrap">
-              <label htmlFor="preset-auth-token">{messages.authToken}</label>
-              <span className="field-label-env">{messages.authTokenEnv}</span>
-            </div>
-            <SensitiveTextInput
-              id="preset-auth-token"
-              ariaLabel={messages.authTokenEnv}
-              value={readEnvString(settingsPatch, "ANTHROPIC_AUTH_TOKEN")}
-              placeholder="sk-ant-..."
-              showLabel={messages.showAuthToken}
-              hideLabel={messages.hideAuthToken}
-              onChange={(value) =>
-                applyPatch(setEnvString(settingsPatch, "ANTHROPIC_AUTH_TOKEN", value))
-              }
-            />
-          </div>
-
-          {selectedBasePreset && selectedBasePreset.modelSuggestions.length > 0 && (
-            <div className="form-group">
-              <label>{messages.baseSuggestions}</label>
-              <div className="profile-chip-list">
-                {selectedBasePreset.modelSuggestions.map((model) => (
-                  <button
-                    key={model}
-                    type="button"
-                    className="profile-chip"
-                    onClick={() =>
-                      setModelSuggestions((current) => {
-                        const items = current
-                          .split(",")
-                          .map((item) => item.trim())
-                          .filter(Boolean);
-                        if (items.includes(model)) {
-                          return current;
-                        }
-                        return [...items, model].join(", ");
-                      })
-                    }
-                  >
-                    {model}
-                  </button>
-                ))}
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="preset-name-zh" className="label-required">
+                  <span>{messages.nameZh}</span>
+                  <RequiredBadge text={t("form.oneRequired")} />
+                </label>
+                <input
+                  id="preset-name-zh"
+                  value={nameZh}
+                  onChange={(event) => setNameZh(event.target.value)}
+                  placeholder={messages.nameZhPlaceholder}
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="preset-name-en" className="label-required">
+                  <span>{messages.nameEn}</span>
+                  <RequiredBadge text={t("form.oneRequired")} />
+                </label>
+                <input
+                  id="preset-name-en"
+                  value={nameEn}
+                  onChange={(event) => setNameEn(event.target.value)}
+                  placeholder={messages.nameEnPlaceholder}
+                />
               </div>
             </div>
-          )}
-        </section>
 
-        <StructuredSettingsSections
-          scope="presets"
-          settings={settingsPatch}
-          supportedKeys={supportedKeysInPatch}
-          previewContent={prettyJson(settingsPatch)}
-          hiddenEnvKeys={hiddenEnvKeys}
-          visibleEnvCount={visibleEnvCount}
-          marketplaceCount={marketplaceCount}
-          permissionsDefaultMode={permissionsDefaultMode}
-          hooksTypeCount={hooksTypeCount}
-          sandboxPresentation={sandboxPresentation}
-          enabledPluginsSummary={enabledPluginsSummary}
-          scalarFieldRows={scalarFieldRows}
-          behaviorToggleFieldRows={behaviorToggleFieldRows}
-          commonScalarFieldRows={commonScalarFieldRows}
-          commonToggleFields={commonToggleFields}
-          readBehaviorFieldState={readBehaviorFieldState}
-          readSimpleFieldValue={readSimpleFieldValue}
-          readToggleFieldEnabled={readToggleFieldEnabled}
-          resolveSelectOptions={resolveSelectOptions}
-          onMappedFieldChange={handleMappedFieldChange}
-          onSimpleFieldChange={handleSimpleFieldChange}
-          onStructuredObjectChange={handleStructuredObjectChange}
-          sectionState={sectionState}
-          documentJsonEditor={documentJsonEditor}
-          behaviorJsonEditor={behaviorJsonEditor}
-          commonJsonEditor={commonJsonEditor}
-          envJsonEditor={envJsonEditor}
-          permissionsJsonEditor={permissionsJsonEditor}
-          sandboxJsonEditor={sandboxJsonEditor}
-          hooksJsonEditor={hooksJsonEditor}
-          marketplacesJsonEditor={marketplacesJsonEditor}
-          pluginsJsonEditor={pluginsJsonEditor}
-          statusLineJsonEditor={statusLineJsonEditor}
-        />
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="preset-doc-url">{messages.docUrl}</label>
+                <input
+                  id="preset-doc-url"
+                  value={docUrl}
+                  onChange={(event) => setDocUrl(event.target.value)}
+                  placeholder="https://..."
+                />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="preset-description">{messages.description}</label>
+                <input
+                  id="preset-description"
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder={messages.descriptionPlaceholder}
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="preset-model-suggestions">{messages.modelSuggestions}</label>
+              <input
+                id="preset-model-suggestions"
+                value={modelSuggestions}
+                onChange={(event) => setModelSuggestions(event.target.value)}
+                placeholder={t("presets.editor.placeholders.modelSuggestions")}
+              />
+              <p className="form-hint">{messages.modelSuggestionsHint}</p>
+            </div>
+          </section>
+
+          <section className="profile-editor-section">
+            <div className="profile-section-heading">
+              <h3>{messages.auth}</h3>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="preset-base-preset">{messages.basePreset}</label>
+              <select
+                id="preset-base-preset"
+                className="form-select"
+                value={basePresetId}
+                onChange={(event) => handleBasePresetChange(event.target.value)}
+              >
+                <option value="">{t("presets.editor.options.none")}</option>
+                {selectableBasePresets.map((candidate) => (
+                  <option key={candidate.id} value={candidate.id}>
+                    {presetDisplayName(candidate, language)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <div className="field-label-wrap">
+                <label htmlFor="preset-base-url">{messages.baseUrl}</label>
+                <span className="field-label-env">{messages.baseUrlEnv}</span>
+              </div>
+              <input
+                id="preset-base-url"
+                aria-label={messages.baseUrlEnv}
+                value={readEnvString(settingsPatch, "ANTHROPIC_BASE_URL")}
+                placeholder="https://api.anthropic.com"
+                onChange={(event) =>
+                  applyPatch(setEnvString(settingsPatch, "ANTHROPIC_BASE_URL", event.target.value))
+                }
+              />
+            </div>
+
+            <div className="form-group">
+              <div className="field-label-wrap">
+                <label htmlFor="preset-auth-token">{messages.authToken}</label>
+                <span className="field-label-env">{messages.authTokenEnv}</span>
+              </div>
+              <SensitiveTextInput
+                id="preset-auth-token"
+                ariaLabel={messages.authTokenEnv}
+                value={readEnvString(settingsPatch, "ANTHROPIC_AUTH_TOKEN")}
+                placeholder="sk-ant-..."
+                showLabel={messages.showAuthToken}
+                hideLabel={messages.hideAuthToken}
+                onChange={(value) =>
+                  applyPatch(setEnvString(settingsPatch, "ANTHROPIC_AUTH_TOKEN", value))
+                }
+              />
+            </div>
+
+            {selectedBasePreset && selectedBasePreset.modelSuggestions.length > 0 && (
+              <div className="form-group">
+                <label>{messages.baseSuggestions}</label>
+                <div className="profile-chip-list">
+                  {selectedBasePreset.modelSuggestions.map((model) => (
+                    <button
+                      key={model}
+                      type="button"
+                      className="profile-chip"
+                      onClick={() =>
+                        setModelSuggestions((current) => {
+                          const items = current
+                            .split(",")
+                            .map((item) => item.trim())
+                            .filter(Boolean);
+                          if (items.includes(model)) {
+                            return current;
+                          }
+                          return [...items, model].join(", ");
+                        })
+                      }
+                    >
+                      {model}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          <StructuredSettingsSections
+            scope="presets"
+            settings={settingsPatch}
+            supportedKeys={supportedKeysInPatch}
+            previewContent={prettyJson(settingsPatch)}
+            hiddenEnvKeys={hiddenEnvKeys}
+            visibleEnvCount={visibleEnvCount}
+            marketplaceCount={marketplaceCount}
+            permissionsDefaultMode={permissionsDefaultMode}
+            hooksTypeCount={hooksTypeCount}
+            sandboxPresentation={sandboxPresentation}
+            enabledPluginsSummary={enabledPluginsSummary}
+            scalarFieldRows={scalarFieldRows}
+            behaviorToggleFieldRows={behaviorToggleFieldRows}
+            commonScalarFieldRows={commonScalarFieldRows}
+            commonToggleFields={commonToggleFields}
+            readBehaviorFieldState={readBehaviorFieldState}
+            readSimpleFieldValue={readSimpleFieldValue}
+            readToggleFieldEnabled={readToggleFieldEnabled}
+            resolveSelectOptions={resolveSelectOptions}
+            onMappedFieldChange={handleMappedFieldChange}
+            onSimpleFieldChange={handleSimpleFieldChange}
+            onStructuredObjectChange={handleStructuredObjectChange}
+            sectionState={sectionState}
+            documentJsonEditor={documentJsonEditor}
+            behaviorJsonEditor={behaviorJsonEditor}
+            commonJsonEditor={commonJsonEditor}
+            envJsonEditor={envJsonEditor}
+            permissionsJsonEditor={permissionsJsonEditor}
+            sandboxJsonEditor={sandboxJsonEditor}
+            hooksJsonEditor={hooksJsonEditor}
+            marketplacesJsonEditor={marketplacesJsonEditor}
+            pluginsJsonEditor={pluginsJsonEditor}
+            statusLineJsonEditor={statusLineJsonEditor}
+          />
+        </div>
       </div>
-    </div>
+    </Form>
   );
 }
 

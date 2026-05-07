@@ -34,16 +34,15 @@ describe("drawer width constraints", () => {
 
   it("keeps the config editor scroll surface full width while constraining form content", () => {
     const profileEditorSource = readText("src/components/ProfileEditor.tsx");
-    const presetEditorCss = readText("src/components/PresetEditor.css");
+    const presetEditorSource = readText("src/components/PresetEditor.tsx");
 
     expect(profileEditorSource).toContain("profile-editor-body");
     expect(profileEditorSource).toContain("items-center");
     expect(profileEditorSource).toContain("[&>:not(.editor-badge-large)]:w-[min(100%,880px)]");
-    expect(presetEditorCss).toMatch(
-      /\.preset-editor-body\s*\{[\s\S]*?max-width:\s*none;[\s\S]*?margin:\s*0;[\s\S]*?align-items:\s*center;/,
-    );
-    expect(presetEditorCss).toMatch(
-      /\.preset-editor-body\s*>\s*:not\(\.editor-badge-large\)\s*\{[\s\S]*?width:\s*min\(100%,\s*880px\);/,
-    );
+    expect(presetEditorSource).toContain("preset-editor-panel");
+    expect(presetEditorSource).toContain("min-w-[var(--config-editor-min-width)]");
+    expect(presetEditorSource).toContain("preset-editor-body");
+    expect(presetEditorSource).toContain("items-center");
+    expect(presetEditorSource).toContain("[&>:not(.editor-badge-large)]:w-[min(100%,880px)]");
   });
 });
