@@ -1,3 +1,4 @@
+import { RefreshCw, ScanLine, TriangleAlert } from "lucide-react";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import {
   Area,
@@ -8,11 +9,10 @@ import {
   Cell,
   Pie,
   PieChart,
-  ResponsiveContainer,
-  Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
 import useUsage, { createTodayUsageFilter } from "../hooks/useUsage";
 import { useI18n } from "../i18n";
@@ -27,7 +27,10 @@ import type {
   UsageTimeSeriesPoint,
 } from "../types";
 import { formatUSD } from "./project-detail-utils";
-import "./UsagePage.css";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { Card, CardContent } from "./ui/card";
+import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "./ui/chart";
 import { formatCost, formatShortDateTime, formatTokens, projectDisplayName } from "./usage/format";
 import SessionUsageDrawer from "./usage/SessionUsageDrawer";
 
@@ -58,14 +61,7 @@ const SERIES_COLORS = [
 const TICK_STYLE = { fill: "#7d8590", fontSize: 11 };
 const TICK_STYLE_SM = { fill: "#7d8590", fontSize: 10 };
 const CHART_CURSOR_FILL = "rgba(242, 204, 96, 0.1)";
-const TOOLTIP_STYLE = {
-  backgroundColor: "rgba(22, 27, 34, 0.94)",
-  border: "1px solid #30363d",
-  borderRadius: 8,
-  color: "#e6edf3",
-  backdropFilter: "blur(12px)",
-  boxShadow: "0 10px 24px rgba(0, 0, 0, 0.22)",
-};
+const USAGE_CHART_CONFIG = {} satisfies ChartConfig;
 
 const TAB_ORDER: UsageTab[] = ["daily", "project", "session", "model"];
 type DateRangePreset = "today" | "week" | "month" | "year" | "all";
@@ -541,17 +537,31 @@ function UsagePage() {
     !u.filter.model;
 
   return (
-    <div className="usage-page">
-      <div className="page-header usage-header">
-        <div className="usage-page-heading">
-          <h1 className="page-title">{t("usage.title")}</h1>
-          <p className="usage-subtitle">{t("usage.subtitle")}</p>
+    <div className="usage-page flex h-full w-full flex-col overflow-hidden bg-background">
+      <div className="page-header usage-header gap-4 max-[900px]:grid max-[900px]:h-auto max-[900px]:min-h-[52px] max-[900px]:grid-cols-[minmax(0,1fr)_auto] max-[900px]:py-2">
+        <div className="usage-page-heading flex min-w-0 items-center gap-3">
+          <h1 className="page-title shrink-0">{t("usage.title")}</h1>
+          <p className="usage-subtitle min-w-0 max-w-[min(52vw,560px)] truncate text-xs leading-snug text-muted-foreground">
+            {t("usage.subtitle")}
+          </p>
         </div>
-        <div className="usage-header-actions">
+        <div className="usage-header-actions flex min-w-0 items-center gap-2 max-[900px]:grid max-[900px]:grid-cols-[auto_auto_auto]">
           {u.summary && (
-            <div className="usage-meta" role="group" aria-label={t("usage.metaLabel")}>
-              <span
-                className={`usage-badge usage-badge-${u.summary.pricing.source}`}
+            <div
+              className="usage-meta inline-flex min-w-0 items-center gap-2 text-xs text-muted-foreground"
+              role="group"
+              aria-label={t("usage.metaLabel")}
+            >
+              <Badge
+                variant="outline"
+                className={cn(
+                  "usage-badge h-6 rounded-md px-2 text-xs font-bold whitespace-nowrap",
+                  u.summary.pricing.source === "network" &&
+                    "usage-badge-network border-chart-2/60 bg-chart-2/10 text-chart-2",
+                  u.summary.pricing.source === "cache" &&
+                    "usage-badge-cache border-chart-1/60 bg-chart-1/10 text-chart-1",
+                  u.summary.pricing.source === "builtin" && "usage-badge-builtin",
+                )}
                 title={
                   u.summary.pricing.fetchedAtMs
                     ? `${t("usage.pricingFetched")}: ${formatShortDateTime(u.summary.pricing.fetchedAtMs)}`
@@ -559,45 +569,54 @@ function UsagePage() {
                 }
               >
                 {pricingSourceLabel(u.summary.pricing.source, t)}
-              </span>
+              </Badge>
               {u.summary.lastScanMs && (
-                <span className="usage-meta-text">
+                <span className="usage-meta-text truncate max-[900px]:hidden">
                   {t("usage.lastScan")}: {formatShortDateTime(u.summary.lastScanMs)}
                 </span>
               )}
             </div>
           )}
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             className="usage-icon-btn"
             onClick={handleRefreshPrice}
             disabled={u.refreshingPrice}
             title={u.refreshingPrice ? t("usage.refreshing") : t("usage.refresh")}
           >
-            <RefreshIcon />
+            <RefreshCw className="size-4" />
             <span>{u.refreshingPrice ? t("usage.refreshing") : t("usage.refresh")}</span>
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className={`usage-icon-btn usage-icon-btn-primary ${u.rescanning ? "usage-icon-btn-busy" : ""}`}
+            className={cn(
+              "usage-icon-btn usage-icon-btn-primary",
+              u.rescanning && "usage-icon-btn-busy [&_svg]:animate-spin",
+            )}
             onClick={handleRescan}
             disabled={u.rescanning}
             title={u.rescanning ? t("usage.rescanning") : t("usage.rescan")}
           >
-            <ScanIcon />
+            <ScanLine className="size-4" />
             <span>{u.rescanning ? t("usage.rescanning") : t("usage.rescan")}</span>
-          </button>
+          </Button>
         </div>
       </div>
 
-      <div className="usage-scroll">
+      <div className="usage-scroll flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 pt-4 pb-5">
         {isInitialLoading ? (
           <EmptyState title={t("usage.scanning")} />
         ) : isEmpty ? (
           <EmptyState title={t("usage.empty")} hint={t("usage.emptyHint")} />
         ) : (
           <>
-            {u.error && <div className="usage-error">{u.error}</div>}
+            {u.error && (
+              <div className="usage-error rounded-md border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                {u.error}
+              </div>
+            )}
 
             <Filters
               t={t}
@@ -608,17 +627,26 @@ function UsagePage() {
               onReset={resetFilter}
             />
 
-            <div className="usage-cockpit">
-              <main className="usage-main-column">
-                <section className="usage-summary-grid" aria-label={t("usage.summaryLabel")}>
-                  <div className="usage-cost-panel">
-                    <span className="usage-panel-label">{t("usage.cards.totalCost")}</span>
-                    <strong className="usage-cost-value">
-                      {u.summary ? formatUSD(u.summary.totalCost) : "-"}
-                    </strong>
-                    <span className="usage-panel-subtle">{t("usage.cards.totalCostHint")}</span>
-                  </div>
-                  <div className="usage-kpi-grid">
+            <div className="usage-cockpit grid grid-cols-[minmax(0,1fr)_360px] gap-4 max-[1180px]:grid-cols-1">
+              <main className="usage-main-column flex min-w-0 flex-col gap-4">
+                <section
+                  className="usage-summary-grid grid grid-cols-[minmax(280px,0.9fr)_minmax(0,1.6fr)] gap-4 max-[900px]:grid-cols-1"
+                  aria-label={t("usage.summaryLabel")}
+                >
+                  <Card className="usage-cost-panel overflow-hidden rounded-lg border-chart-1/30 bg-card">
+                    <CardContent className="flex h-full min-h-[150px] flex-col justify-between gap-4 px-5">
+                      <span className="usage-panel-label text-xs font-extrabold tracking-wide text-muted-foreground uppercase">
+                        {t("usage.cards.totalCost")}
+                      </span>
+                      <strong className="usage-cost-value text-4xl font-extrabold tracking-tight text-chart-1">
+                        {u.summary ? formatUSD(u.summary.totalCost) : "-"}
+                      </strong>
+                      <span className="usage-panel-subtle text-sm text-muted-foreground">
+                        {t("usage.cards.totalCostHint")}
+                      </span>
+                    </CardContent>
+                  </Card>
+                  <div className="usage-kpi-grid grid grid-cols-2 gap-3 max-[640px]:grid-cols-1">
                     <MetricCard
                       label={t("usage.cards.totalTokens")}
                       value={formatDetailedTokens(totalTokens)}
@@ -643,10 +671,15 @@ function UsagePage() {
                   </div>
                 </section>
 
-                <section className="usage-trend-section" aria-label={t("usage.charts.trends")}>
-                  <header className="usage-trend-toolbar">
-                    <h3 className="usage-trend-title">{t("usage.charts.trends")}</h3>
-                    <div className="usage-trend-controls">
+                <section
+                  className="usage-trend-section rounded-xl border bg-card p-4 shadow-sm"
+                  aria-label={t("usage.charts.trends")}
+                >
+                  <header className="usage-trend-toolbar mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <h3 className="usage-trend-title text-lg font-semibold">
+                      {t("usage.charts.trends")}
+                    </h3>
+                    <div className="usage-trend-controls flex flex-wrap gap-2">
                       <TrendBreakdownModeSwitch
                         value={trendBreakdownMode}
                         onChange={setTrendBreakdownMode}
@@ -668,7 +701,10 @@ function UsagePage() {
                   <ChartPanel title={t("usage.charts.costTrend")} className="usage-chart-primary">
                     {activeCostTrendData.length > 0 ? (
                       <>
-                        <ResponsiveContainer width="100%" height={300}>
+                        <ChartContainer
+                          config={USAGE_CHART_CONFIG}
+                          className="h-[300px] w-full aspect-auto"
+                        >
                           {trendChartStyle === "curve" ? (
                             <AreaChart
                               data={activeCostTrendData}
@@ -681,14 +717,17 @@ function UsagePage() {
                               />
                               <XAxis dataKey="label" tick={TICK_STYLE_SM} />
                               <YAxis tick={TICK_STYLE} tickFormatter={(v) => `$${v}`} width={44} />
-                              <Tooltip
-                                formatter={(v) => formatUSD(tooltipNumber(v))}
+                              <ChartTooltip
                                 itemSorter={sortTooltipItemsByValueDesc}
                                 cursor={{ stroke: COLORS.total, strokeOpacity: 0.34 }}
-                                labelFormatter={(_, payload) =>
-                                  payload?.[0]?.payload?.bucket ?? t("usage.charts.costTrend")
+                                content={
+                                  <ChartTooltipContent
+                                    formatter={(v) => formatUSD(tooltipNumber(v))}
+                                    labelFormatter={(_, payload) =>
+                                      payload?.[0]?.payload?.bucket ?? t("usage.charts.costTrend")
+                                    }
+                                  />
                                 }
-                                contentStyle={TOOLTIP_STYLE}
                               />
                               {activeCostTrendSeries
                                 .filter(
@@ -737,14 +776,17 @@ function UsagePage() {
                               />
                               <XAxis dataKey="label" tick={TICK_STYLE_SM} />
                               <YAxis tick={TICK_STYLE} tickFormatter={(v) => `$${v}`} width={44} />
-                              <Tooltip
-                                formatter={(v) => formatUSD(tooltipNumber(v))}
+                              <ChartTooltip
                                 itemSorter={sortTooltipItemsByValueDesc}
                                 cursor={{ fill: CHART_CURSOR_FILL }}
-                                labelFormatter={(_, payload) =>
-                                  payload?.[0]?.payload?.bucket ?? t("usage.charts.costTrend")
+                                content={
+                                  <ChartTooltipContent
+                                    formatter={(v) => formatUSD(tooltipNumber(v))}
+                                    labelFormatter={(_, payload) =>
+                                      payload?.[0]?.payload?.bucket ?? t("usage.charts.costTrend")
+                                    }
+                                  />
                                 }
-                                contentStyle={TOOLTIP_STYLE}
                               />
                               {activeCostTrendSeries
                                 .filter(
@@ -777,7 +819,7 @@ function UsagePage() {
                               )}
                             </BarChart>
                           )}
-                        </ResponsiveContainer>
+                        </ChartContainer>
                         <TrendLegend
                           items={activeCostTrendSeries.map((series) => ({
                             key: series.dataKey,
@@ -809,7 +851,10 @@ function UsagePage() {
                   >
                     {activeTokenTrendData.length > 0 ? (
                       <>
-                        <ResponsiveContainer width="100%" height={240}>
+                        <ChartContainer
+                          config={USAGE_CHART_CONFIG}
+                          className="h-[240px] w-full aspect-auto"
+                        >
                           {trendChartStyle === "curve" ? (
                             <AreaChart
                               data={activeTokenTrendData}
@@ -826,14 +871,17 @@ function UsagePage() {
                                 tickFormatter={(v) => formatTokens(v)}
                                 width={54}
                               />
-                              <Tooltip
-                                formatter={(v) => formatTokens(tooltipNumber(v))}
+                              <ChartTooltip
                                 itemSorter={sortTooltipItemsByValueDesc}
                                 cursor={{ stroke: COLORS.total, strokeOpacity: 0.34 }}
-                                labelFormatter={(_, payload) =>
-                                  payload?.[0]?.payload?.bucket ?? t("usage.charts.tokenTrend")
+                                content={
+                                  <ChartTooltipContent
+                                    formatter={(v) => formatTokens(tooltipNumber(v))}
+                                    labelFormatter={(_, payload) =>
+                                      payload?.[0]?.payload?.bucket ?? t("usage.charts.tokenTrend")
+                                    }
+                                  />
                                 }
-                                contentStyle={TOOLTIP_STYLE}
                               />
                               {activeTokenTrendSeries
                                 .filter(
@@ -886,14 +934,17 @@ function UsagePage() {
                                 tickFormatter={(v) => formatTokens(v)}
                                 width={54}
                               />
-                              <Tooltip
-                                formatter={(v) => formatTokens(tooltipNumber(v))}
+                              <ChartTooltip
                                 itemSorter={sortTooltipItemsByValueDesc}
                                 cursor={{ fill: CHART_CURSOR_FILL }}
-                                labelFormatter={(_, payload) =>
-                                  payload?.[0]?.payload?.bucket ?? t("usage.charts.tokenTrend")
+                                content={
+                                  <ChartTooltipContent
+                                    formatter={(v) => formatTokens(tooltipNumber(v))}
+                                    labelFormatter={(_, payload) =>
+                                      payload?.[0]?.payload?.bucket ?? t("usage.charts.tokenTrend")
+                                    }
+                                  />
                                 }
-                                contentStyle={TOOLTIP_STYLE}
                               />
                               {activeTokenTrendSeries
                                 .filter(
@@ -926,7 +977,7 @@ function UsagePage() {
                               )}
                             </BarChart>
                           )}
-                        </ResponsiveContainer>
+                        </ChartContainer>
                         <TrendLegend
                           items={activeTokenTrendSeries.map((series) => ({
                             key: series.dataKey,
@@ -954,7 +1005,10 @@ function UsagePage() {
                 </section>
               </main>
 
-              <aside className="usage-side-rail" aria-label={t("usage.sideRailLabel")}>
+              <aside
+                className="usage-side-rail flex min-w-0 flex-col gap-4"
+                aria-label={t("usage.sideRailLabel")}
+              >
                 <ChartPanel title={t("usage.charts.byModel")}>
                   {modelCostData.length > 0 ? (
                     <ModelCostShare
@@ -968,10 +1022,14 @@ function UsagePage() {
                 </ChartPanel>
 
                 <ChartPanel title={t("usage.charts.tokenComposition")}>
-                  <div className="usage-token-stack">
-                    <div className="usage-token-total">
-                      <span>{t("usage.table.totalTokens")}</span>
-                      <strong>{formatDetailedTokens(totalTokens)}</strong>
+                  <div className="usage-token-stack flex flex-col gap-3">
+                    <div className="usage-token-total rounded-md border bg-muted/30 p-3">
+                      <span className="text-xs font-semibold text-muted-foreground">
+                        {t("usage.table.totalTokens")}
+                      </span>
+                      <strong className="mt-1 block font-mono text-xl">
+                        {formatDetailedTokens(totalTokens)}
+                      </strong>
                     </div>
                     {tokenBreakdownData.map((item) => (
                       <TokenBar
@@ -991,34 +1049,46 @@ function UsagePage() {
               </aside>
             </div>
 
-            <section className="usage-detail-workspace" aria-label={t("usage.details.title")}>
-              <div className="usage-detail-header">
+            <section
+              className="usage-detail-workspace shrink-0 overflow-visible rounded-xl border bg-card p-4 shadow-sm"
+              aria-label={t("usage.details.title")}
+            >
+              <div className="usage-detail-header mb-3 flex items-start justify-between gap-3">
                 <div>
-                  <h2>{t("usage.details.title")}</h2>
-                  <p>{t("usage.details.hint")}</p>
+                  <h2 className="text-lg font-semibold">{t("usage.details.title")}</h2>
+                  <p className="text-sm text-muted-foreground">{t("usage.details.hint")}</p>
                 </div>
-                <div className="usage-detail-count">
+                <Badge variant="outline" className="usage-detail-count shrink-0 font-mono">
                   {u.summary ? `${u.summary.totalProjects} ${t("usage.table.project")}` : "-"}
-                </div>
+                </Badge>
               </div>
 
-              <div className="usage-tabs" role="tablist" aria-label={t("usage.details.title")}>
+              <div
+                className="usage-tabs inline-flex max-w-full gap-1 overflow-x-auto rounded-md border bg-secondary p-1"
+                role="tablist"
+                aria-label={t("usage.details.title")}
+              >
                 {TAB_ORDER.map((key) => (
                   <button
                     key={key}
                     type="button"
                     role="tab"
                     aria-selected={u.tab === key}
-                    className={`usage-tab-btn ${u.tab === key ? "active" : ""}`}
+                    className={cn(
+                      "usage-tab-btn flex shrink-0 items-center gap-2 rounded-sm px-3 py-1.5 text-sm font-medium text-muted-foreground",
+                      u.tab === key && "active bg-background text-foreground shadow-sm",
+                    )}
                     onClick={() => u.setTab(key)}
                   >
                     <span>{t(`usage.tabs.${key}`)}</span>
-                    <span className="usage-tab-count">{tabCounts[key]}</span>
+                    <span className="usage-tab-count rounded-full bg-muted px-1.5 py-0.5 text-xs">
+                      {tabCounts[key]}
+                    </span>
                   </button>
                 ))}
               </div>
 
-              <div className="usage-tab-body">
+              <div className="usage-tab-body mt-4">
                 {u.tab === "daily" && <DailyTable rows={u.daily} t={t} />}
                 {u.tab === "project" && <ProjectTable rows={u.projects} t={t} />}
                 {u.tab === "session" && (
@@ -1047,10 +1117,24 @@ interface MetricCardProps {
 
 function MetricCard({ label, value, tone, hint }: MetricCardProps) {
   return (
-    <div className={`usage-metric usage-metric-${tone}`} title={hint}>
-      <span className="usage-metric-label">{label}</span>
-      <strong className="usage-metric-value">{value}</strong>
-    </div>
+    <Card className={cn("usage-metric rounded-lg py-4", `usage-metric-${tone}`)} title={hint}>
+      <CardContent className="flex flex-col gap-2 px-4">
+        <span className="usage-metric-label text-xs font-extrabold tracking-wide text-muted-foreground uppercase">
+          {label}
+        </span>
+        <strong
+          className={cn(
+            "usage-metric-value font-mono text-2xl font-bold",
+            tone === "blue" && "text-chart-1",
+            tone === "green" && "text-chart-2",
+            tone === "orange" && "text-chart-3",
+            tone === "purple" && "text-chart-4",
+          )}
+        >
+          {value}
+        </strong>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1066,10 +1150,10 @@ function ChartPanel({
   children: ReactNode;
 }) {
   return (
-    <section className={`usage-panel ${className ?? ""}`}>
-      <div className="usage-panel-header">
-        <div className="usage-panel-title">{title}</div>
-        {actions && <div className="usage-panel-actions">{actions}</div>}
+    <section className={cn("usage-panel rounded-lg border bg-card p-4 shadow-sm", className)}>
+      <div className="usage-panel-header mb-3 flex items-center justify-between gap-3">
+        <div className="usage-panel-title text-sm font-semibold">{title}</div>
+        {actions && <div className="usage-panel-actions flex items-center gap-2">{actions}</div>}
       </div>
       {children}
     </section>
@@ -1089,7 +1173,7 @@ function TrendChartStyleSwitch({
 }) {
   return (
     <div
-      className="usage-time-granularity usage-chart-style-switch"
+      className="usage-time-granularity usage-chart-style-switch inline-flex rounded-md border bg-secondary p-1"
       role="group"
       aria-label={t("usage.charts.style.ariaLabel")}
     >
@@ -1097,7 +1181,10 @@ function TrendChartStyleSwitch({
         <button
           key={key}
           type="button"
-          className={`usage-time-granularity-btn ${value === key ? "active" : ""}`}
+          className={cn(
+            "usage-time-granularity-btn rounded-sm px-2.5 py-1 text-xs font-medium text-muted-foreground",
+            value === key && "active bg-background text-foreground shadow-sm",
+          )}
           aria-pressed={value === key}
           onClick={() => onChange(key)}
         >
@@ -1119,7 +1206,7 @@ function TrendBreakdownModeSwitch({
 }) {
   return (
     <div
-      className="usage-time-granularity usage-trend-mode-switch"
+      className="usage-time-granularity usage-trend-mode-switch inline-flex rounded-md border bg-secondary p-1"
       role="group"
       aria-label={t("usage.charts.breakdown.ariaLabel")}
     >
@@ -1127,7 +1214,10 @@ function TrendBreakdownModeSwitch({
         <button
           key={key}
           type="button"
-          className={`usage-time-granularity-btn ${value === key ? "active" : ""}`}
+          className={cn(
+            "usage-time-granularity-btn rounded-sm px-2.5 py-1 text-xs font-medium text-muted-foreground",
+            value === key && "active bg-background text-foreground shadow-sm",
+          )}
           aria-pressed={value === key}
           onClick={() => onChange(key)}
         >
@@ -1149,7 +1239,7 @@ function TimeGranularitySwitch({
 }) {
   return (
     <div
-      className="usage-time-granularity"
+      className="usage-time-granularity inline-flex rounded-md border bg-secondary p-1"
       role="group"
       aria-label={t("usage.granularity.ariaLabel")}
     >
@@ -1157,7 +1247,10 @@ function TimeGranularitySwitch({
         <button
           key={key}
           type="button"
-          className={`usage-time-granularity-btn ${value === key ? "active" : ""}`}
+          className={cn(
+            "usage-time-granularity-btn rounded-sm px-2.5 py-1 text-xs font-medium text-muted-foreground",
+            value === key && "active bg-background text-foreground shadow-sm",
+          )}
           aria-pressed={value === key}
           onClick={() => onChange(key)}
         >
@@ -1196,7 +1289,7 @@ function TrendLegend({
   const soloHint = t("usage.charts.legendSolo");
   const hiddenLabel = t("usage.charts.legendHidden");
   return (
-    <ul className="usage-legend-list" aria-label={ariaLabel}>
+    <ul className="usage-legend-list mt-3 flex flex-wrap gap-2" aria-label={ariaLabel}>
       {items.map((item) => {
         const isHidden = hidden.has(item.key);
         const title = isHidden
@@ -1206,22 +1299,29 @@ function TrendLegend({
           <li key={item.key}>
             <button
               type="button"
-              className={`usage-legend-chip ${isHidden ? "muted" : ""}`}
+              className={cn(
+                "usage-legend-chip inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs",
+                isHidden && "muted opacity-45",
+              )}
               aria-pressed={!isHidden}
               title={title}
               onClick={() => onToggle(item.key)}
               onDoubleClick={() => onSolo?.(item.key)}
             >
               <span
-                className="usage-legend-chip-swatch"
+                className="usage-legend-chip-swatch size-2.5 rounded-full border"
                 style={{
                   background: isHidden ? "transparent" : item.color,
                   borderColor: item.color,
                 }}
                 aria-hidden="true"
               />
-              <span className="usage-legend-chip-name">{item.displayName}</span>
-              {item.meta && <span className="usage-legend-chip-meta">{item.meta}</span>}
+              <span className="usage-legend-chip-name max-w-40 truncate">{item.displayName}</span>
+              {item.meta && (
+                <span className="usage-legend-chip-meta font-mono text-muted-foreground">
+                  {item.meta}
+                </span>
+              )}
             </button>
           </li>
         );
@@ -1241,8 +1341,8 @@ function ModelCostShare({
 }) {
   return (
     <div className="usage-model-share">
-      <div className="usage-model-donut">
-        <ResponsiveContainer width="100%" height={150}>
+      <div className="usage-model-donut relative">
+        <ChartContainer config={USAGE_CHART_CONFIG} className="h-[150px] w-full aspect-auto">
           <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
             <Pie
               data={data}
@@ -1260,33 +1360,50 @@ function ModelCostShare({
                 <Cell key={entry.name} fill={entry.color} />
               ))}
             </Pie>
-            <Tooltip
-              formatter={(v) => formatUSD(tooltipNumber(v))}
-              contentStyle={TOOLTIP_STYLE}
-              itemStyle={{ color: "#e6edf3" }}
-              labelStyle={{ color: "#e6edf3" }}
+            <ChartTooltip
+              content={<ChartTooltipContent formatter={(v) => formatUSD(tooltipNumber(v))} />}
             />
           </PieChart>
-        </ResponsiveContainer>
-        <div className="usage-model-donut-center" aria-hidden="true">
-          <span>{label}</span>
-          <strong>{formatUSD(total)}</strong>
+        </ChartContainer>
+        <div
+          className="usage-model-donut-center pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center"
+          aria-hidden="true"
+        >
+          <span className="text-xs text-muted-foreground">{label}</span>
+          <strong className="font-mono text-lg">{formatUSD(total)}</strong>
         </div>
       </div>
 
-      <div className="usage-model-share-list" role="list" aria-label={label}>
+      <div
+        className="usage-model-share-list mt-3 flex flex-col gap-3"
+        role="list"
+        aria-label={label}
+      >
         {data.map((item) => (
-          <div key={item.name} className="usage-model-share-item" role="listitem">
-            <div className="usage-model-share-row">
-              <span className="usage-model-swatch" style={{ background: item.color }} />
-              <span className="usage-model-name" title={item.name}>
+          <div
+            key={item.name}
+            className="usage-model-share-item flex flex-col gap-1"
+            role="listitem"
+          >
+            <div className="usage-model-share-row grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-2 text-sm">
+              <span
+                className="usage-model-swatch size-2.5 rounded-full"
+                style={{ background: item.color }}
+              />
+              <span className="usage-model-name truncate" title={item.name}>
                 {item.name}
               </span>
-              <span className="usage-model-percent">{item.percent.toFixed(1)}%</span>
-              <strong className="usage-model-cost">{formatUSD(item.value)}</strong>
+              <span className="usage-model-percent font-mono text-muted-foreground">
+                {item.percent.toFixed(1)}%
+              </span>
+              <strong className="usage-model-cost font-mono">{formatUSD(item.value)}</strong>
             </div>
-            <div className="usage-model-track" aria-hidden="true">
+            <div
+              className="usage-model-track h-1.5 overflow-hidden rounded-full bg-muted"
+              aria-hidden="true"
+            >
               <span
+                className="block h-full rounded-full"
                 style={{
                   width: `${Math.max(item.percent, item.value > 0 ? 3 : 0)}%`,
                   background: item.color,
@@ -1324,18 +1441,26 @@ function Filters({ t, filter, allProjects, allModels, onChange, onReset }: Filte
   const hasClaudeModels = sortedModels.some((model) => model.startsWith("claude-"));
 
   return (
-    <div className="usage-command-bar" role="group" aria-label={t("usage.filter.ariaLabel")}>
-      <div className="usage-filter-cluster usage-filter-cluster-date">
-        <span className="usage-filter-label">{t("usage.filter.dateRange")}</span>
-        <div className="usage-date-range">
+    <div
+      className="usage-command-bar sticky top-0 z-[var(--z-index-sticky)] flex flex-wrap items-end gap-3 rounded-lg border bg-card/95 p-3 shadow-sm backdrop-blur"
+      role="group"
+      aria-label={t("usage.filter.ariaLabel")}
+    >
+      <div className="usage-filter-cluster usage-filter-cluster-date flex min-w-[296px] flex-col gap-1">
+        <span className="usage-filter-label text-xs font-extrabold tracking-wide text-muted-foreground uppercase">
+          {t("usage.filter.dateRange")}
+        </span>
+        <div className="usage-date-range flex items-center gap-2">
           <input
+            className="h-8 min-w-0 rounded-md border bg-background px-2 text-sm"
             type="date"
             value={filter.startDate ?? ""}
             onChange={(e) => onChange({ startDate: e.target.value || undefined })}
             aria-label={t("usage.filter.startDate")}
           />
-          <span className="usage-date-sep">-</span>
+          <span className="usage-date-sep text-muted-foreground">-</span>
           <input
+            className="h-8 min-w-0 rounded-md border bg-background px-2 text-sm"
             type="date"
             value={filter.endDate ?? ""}
             onChange={(e) => onChange({ endDate: e.target.value || undefined })}
@@ -1344,7 +1469,7 @@ function Filters({ t, filter, allProjects, allModels, onChange, onReset }: Filte
         </div>
       </div>
       <div
-        className="usage-quick-ranges"
+        className="usage-quick-ranges flex flex-wrap gap-1"
         role="group"
         aria-label={t("usage.filter.quick.ariaLabel")}
       >
@@ -1352,7 +1477,10 @@ function Filters({ t, filter, allProjects, allModels, onChange, onReset }: Filte
           <button
             key={preset}
             type="button"
-            className={`usage-quick-range-btn ${activePreset === preset ? "active" : ""}`}
+            className={cn(
+              "usage-quick-range-btn rounded-md border px-2.5 py-1 text-xs font-semibold text-muted-foreground",
+              activePreset === preset && "active bg-primary text-primary-foreground",
+            )}
             aria-pressed={activePreset === preset}
             onClick={() => onChange(getDateRangePresetPatch(preset))}
           >
@@ -1360,9 +1488,12 @@ function Filters({ t, filter, allProjects, allModels, onChange, onReset }: Filte
           </button>
         ))}
       </div>
-      <label className="usage-filter-cluster">
-        <span className="usage-filter-label">{t("usage.filter.project")}</span>
+      <label className="usage-filter-cluster flex min-w-38 flex-col gap-1">
+        <span className="usage-filter-label text-xs font-extrabold tracking-wide text-muted-foreground uppercase">
+          {t("usage.filter.project")}
+        </span>
         <select
+          className="h-8 w-full rounded-md border bg-background px-2 text-sm"
           value={filter.projectPath ?? ""}
           onChange={(e) => onChange({ projectPath: e.target.value || undefined })}
         >
@@ -1374,9 +1505,12 @@ function Filters({ t, filter, allProjects, allModels, onChange, onReset }: Filte
           ))}
         </select>
       </label>
-      <label className="usage-filter-cluster">
-        <span className="usage-filter-label">{t("usage.filter.model")}</span>
+      <label className="usage-filter-cluster flex min-w-38 flex-col gap-1">
+        <span className="usage-filter-label text-xs font-extrabold tracking-wide text-muted-foreground uppercase">
+          {t("usage.filter.model")}
+        </span>
         <select
+          className="h-8 w-full rounded-md border bg-background px-2 text-sm"
           value={filter.model ?? ""}
           onChange={(e) => onChange({ model: e.target.value || undefined })}
         >
@@ -1391,14 +1525,16 @@ function Filters({ t, filter, allProjects, allModels, onChange, onReset }: Filte
           ))}
         </select>
       </label>
-      <button
+      <Button
         type="button"
+        variant="outline"
+        size="sm"
         className="usage-reset-btn"
         onClick={onReset}
         disabled={!hasActiveFilter}
       >
         {t("usage.filter.reset")}
-      </button>
+      </Button>
     </div>
   );
 }
@@ -1473,8 +1609,8 @@ function formatDateInputValue(date: Date): string {
 function DailyTable({ rows, t }: { rows: DailyUsage[]; t: ReturnType<typeof useI18n>["t"] }) {
   if (rows.length === 0) return <EmptyTable t={t} />;
   return (
-    <div className="usage-table-wrap">
-      <table className="usage-table">
+    <div className="usage-table-wrap overflow-x-auto rounded-lg border">
+      <table className="usage-table w-full min-w-[860px] border-collapse text-sm [&_.accent-green]:text-chart-2 [&_.ellipsis]:max-w-[260px] [&_.ellipsis]:truncate [&_.mono]:font-mono [&_.num]:text-right [&_.strong-cell]:font-medium [&_tbody_tr:last-child_td]:border-b-0 [&_td]:border-b [&_td]:px-3 [&_td]:py-2 [&_th]:border-b [&_th]:bg-muted/50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted-foreground">
         <thead>
           <tr>
             <th>{t("usage.table.date")}</th>
@@ -1509,8 +1645,8 @@ function DailyTable({ rows, t }: { rows: DailyUsage[]; t: ReturnType<typeof useI
 function ProjectTable({ rows, t }: { rows: ProjectUsage[]; t: ReturnType<typeof useI18n>["t"] }) {
   if (rows.length === 0) return <EmptyTable t={t} />;
   return (
-    <div className="usage-table-wrap">
-      <table className="usage-table">
+    <div className="usage-table-wrap overflow-x-auto rounded-lg border">
+      <table className="usage-table w-full min-w-[920px] border-collapse text-sm [&_.accent-green]:text-chart-2 [&_.ellipsis]:max-w-[260px] [&_.ellipsis]:truncate [&_.mono]:font-mono [&_.num]:text-right [&_.strong-cell]:font-medium [&_tbody_tr:last-child_td]:border-b-0 [&_td]:border-b [&_td]:px-3 [&_td]:py-2 [&_th]:border-b [&_th]:bg-muted/50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted-foreground">
         <thead>
           <tr>
             <th>{t("usage.table.project")}</th>
@@ -1557,8 +1693,8 @@ function SessionTable({
 }) {
   if (rows.length === 0) return <EmptyTable t={t} />;
   return (
-    <div className="usage-table-wrap">
-      <table className="usage-table">
+    <div className="usage-table-wrap overflow-x-auto rounded-lg border">
+      <table className="usage-table w-full min-w-[920px] border-collapse text-sm [&_.accent-green]:text-chart-2 [&_.ellipsis]:max-w-[260px] [&_.ellipsis]:truncate [&_.model-cell]:max-w-[220px] [&_.model-cell]:truncate [&_.mono]:font-mono [&_.num]:text-right [&_.strong-cell]:font-medium [&_tbody_tr:last-child_td]:border-b-0 [&_td]:border-b [&_td]:px-3 [&_td]:py-2 [&_th]:border-b [&_th]:bg-muted/50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted-foreground">
         <thead>
           <tr>
             <th>{t("usage.table.session")}</th>
@@ -1581,7 +1717,7 @@ function SessionTable({
                 role="button"
                 tabIndex={0}
                 aria-label={`${s.sessionId} ${projectName} ${formatCost(s.cost)}`}
-                className="usage-table-row-clickable"
+                className="usage-table-row-clickable cursor-pointer hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-primary"
                 onClick={() => onOpen(s.sessionId)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
@@ -1613,8 +1749,8 @@ function SessionTable({
 function ModelTable({ rows, t }: { rows: ModelUsageStat[]; t: ReturnType<typeof useI18n>["t"] }) {
   if (rows.length === 0) return <EmptyTable t={t} />;
   return (
-    <div className="usage-table-wrap">
-      <table className="usage-table">
+    <div className="usage-table-wrap overflow-x-auto rounded-lg border">
+      <table className="usage-table w-full min-w-[760px] border-collapse text-sm [&_.accent-green]:text-chart-2 [&_.mono]:font-mono [&_.num]:text-right [&_.strong-cell]:font-medium [&_tbody_tr:last-child_td]:border-b-0 [&_td]:border-b [&_td]:px-3 [&_td]:py-2 [&_th]:border-b [&_th]:bg-muted/50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted-foreground">
         <thead>
           <tr>
             <th>{t("usage.table.model")}</th>
@@ -1657,15 +1793,23 @@ function TokenBar({
 }) {
   const percentage = total > 0 ? (value / total) * 100 : 0;
   return (
-    <div className="usage-token-row">
-      <div className="usage-token-row-head">
+    <div className="usage-token-row flex flex-col gap-1">
+      <div className="usage-token-row-head flex items-center justify-between gap-2 text-sm">
         <span>{label}</span>
-        <span>{formatDetailedTokens(value)}</span>
+        <span className="font-mono text-muted-foreground">{formatDetailedTokens(value)}</span>
       </div>
-      <div className="usage-token-track" aria-hidden="true">
-        <span style={{ width: `${Math.max(percentage, value > 0 ? 3 : 0)}%`, background: color }} />
+      <div
+        className="usage-token-track h-2 overflow-hidden rounded-full bg-muted"
+        aria-hidden="true"
+      >
+        <span
+          className="block h-full rounded-full"
+          style={{ width: `${Math.max(percentage, value > 0 ? 3 : 0)}%`, background: color }}
+        />
       </div>
-      <span className="usage-token-percent">{percentage.toFixed(1)}%</span>
+      <span className="usage-token-percent text-right font-mono text-xs text-muted-foreground">
+        {percentage.toFixed(1)}%
+      </span>
     </div>
   );
 }
@@ -1678,15 +1822,19 @@ function UnknownModelsAlert({
   t: ReturnType<typeof useI18n>["t"];
 }) {
   return (
-    <div className="usage-warning">
-      <div className="usage-warning-title">
-        <WarningIcon />
+    <div className="usage-warning rounded-lg border border-chart-3/40 bg-chart-3/10 p-4">
+      <div className="usage-warning-title flex items-center gap-2 text-sm">
+        <TriangleAlert className="size-4" />
         <strong>{t("usage.unknownModels")}</strong>
       </div>
-      <span className="usage-warning-hint">{t("usage.unknownModelsHint")}</span>
-      <div className="usage-warning-models">
+      <span className="usage-warning-hint mt-1 block text-sm text-muted-foreground">
+        {t("usage.unknownModelsHint")}
+      </span>
+      <div className="usage-warning-models mt-3 flex flex-wrap gap-2">
         {models.map((m) => (
-          <code key={m}>{m}</code>
+          <code key={m} className="rounded-md border bg-background px-2 py-1 text-xs">
+            {m}
+          </code>
         ))}
       </div>
     </div>
@@ -1694,20 +1842,24 @@ function UnknownModelsAlert({
 }
 
 function EmptyTable({ t }: { t: ReturnType<typeof useI18n>["t"] }) {
-  return <div className="usage-no-data">{t("usage.empty")}</div>;
+  return (
+    <div className="usage-no-data rounded-lg border bg-muted/30 p-6 text-center text-muted-foreground">
+      {t("usage.empty")}
+    </div>
+  );
 }
 
 function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
-    <div className="usage-empty">
-      <p className="empty-text">{title}</p>
-      {hint && <p className="empty-hint">{hint}</p>}
+    <div className="usage-empty flex min-h-[320px] flex-1 flex-col items-center justify-center p-8 text-center">
+      <p className="empty-text text-lg font-bold text-foreground">{title}</p>
+      {hint && <p className="empty-hint mt-2 max-w-md text-muted-foreground">{hint}</p>}
     </div>
   );
 }
 
 function NoData() {
-  return <p className="usage-no-data">-</p>;
+  return <p className="usage-no-data py-6 text-center text-muted-foreground">-</p>;
 }
 
 function shortModelName(model: string): string {
@@ -1773,65 +1925,6 @@ function pricingSourceLabel(
     default:
       return t("usage.pricing.builtin");
   }
-}
-
-function RefreshIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <polyline points="23 4 23 10 17 10" />
-      <polyline points="1 20 1 14 7 14" />
-      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-    </svg>
-  );
-}
-
-function ScanIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-      <path d="M21 3v6h-6" />
-    </svg>
-  );
-}
-
-function WarningIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-      <line x1="12" y1="9" x2="12" y2="13" />
-      <line x1="12" y1="17" x2="12.01" y2="17" />
-    </svg>
-  );
 }
 
 export default UsagePage;

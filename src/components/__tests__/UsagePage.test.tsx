@@ -112,6 +112,7 @@ vi.mock("recharts", () => {
     BarChart,
     CartesianGrid: () => null,
     Cell: () => null,
+    Legend: () => null,
     Pie: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
     PieChart: Chart,
     ResponsiveContainer: ({ children }: { children?: ReactNode }) => (
@@ -764,51 +765,42 @@ describe("UsagePage cost cockpit", () => {
   });
 
   it("keeps the detail workspace tabs visible as a segmented control", () => {
-    const css = readFileSync("src/components/UsagePage.css", "utf8");
+    const source = readFileSync("src/components/UsagePage.tsx", "utf8");
 
-    expect(css).toMatch(/\.usage-detail-workspace\s*\{[^}]*flex-shrink:\s*0;/s);
-    expect(css).toMatch(/\.usage-detail-workspace\s*\{[^}]*overflow:\s*visible;/s);
-    expect(css).toMatch(/\.usage-tabs\s*\{[^}]*background:\s*var\(--bg-secondary\);/s);
-    expect(css).toMatch(/\.usage-tabs\s*\{[^}]*border:\s*1px solid var\(--border-default\);/s);
-    expect(css).toMatch(/\.usage-tabs\s*\{[^}]*border-radius:\s*var\(--radius-md\);/s);
-    expect(css).toMatch(/\.usage-tab-btn\s*\{[^}]*flex-shrink:\s*0;/s);
-    expect(css).toMatch(/\.usage-tab-btn\.active\s*\{[^}]*background:\s*var\(--bg-primary\);/s);
+    expect(source).toContain("usage-detail-workspace shrink-0 overflow-visible");
+    expect(source).toContain("usage-tabs inline-flex max-w-full gap-1 overflow-x-auto");
+    expect(source).toContain("rounded-md border bg-secondary p-1");
+    expect(source).toContain("usage-tab-btn flex shrink-0 items-center gap-2");
+    expect(source).toContain('u.tab === key && "active bg-background text-foreground shadow-sm"');
   });
 
   it("keeps the subtitle on the same row as the title like the stats page", () => {
     renderUsage();
     const heading = screen.getByRole("heading", { name: "Token 用量统计" }).parentElement;
-    const css = readFileSync("src/components/UsagePage.css", "utf8");
 
     expect(heading).toHaveClass("usage-page-heading");
-    expect(css).toMatch(/\.usage-page-heading\s*\{[^}]*display:\s*flex;/s);
-    expect(css).toMatch(/\.usage-page-heading\s*\{[^}]*align-items:\s*center;/s);
-    expect(css).toMatch(/\.usage-page-heading \.page-title\s*\{[^}]*flex-shrink:\s*0;/s);
+    expect(heading).toHaveClass("flex");
+    expect(heading).toHaveClass("items-center");
+    expect(screen.getByRole("heading", { name: "Token 用量统计" })).toHaveClass("shrink-0");
   });
 
   it("keeps the narrow header compact instead of wrapping actions into rows", () => {
-    const css = readFileSync("src/components/UsagePage.css", "utf8");
+    const source = readFileSync("src/components/UsagePage.tsx", "utf8");
 
-    expect(css).toMatch(
-      /@media \(max-width:\s*900px\)\s*\{[\s\S]*?\.usage-header\s*\{[^}]*display:\s*grid;[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\) auto;/,
-    );
-    expect(css).toMatch(
-      /@media \(max-width:\s*900px\)\s*\{[\s\S]*?\.usage-header-actions\s*\{[^}]*display:\s*grid;[\s\S]*?grid-template-columns:\s*auto auto auto;/,
-    );
-    expect(css).toMatch(
-      /@media \(max-width:\s*900px\)\s*\{[\s\S]*?\.usage-meta-text\s*\{[^}]*display:\s*none;/,
-    );
+    expect(source).toContain("usage-header gap-4 max-[900px]:grid");
+    expect(source).toContain("max-[900px]:grid-cols-[minmax(0,1fr)_auto]");
+    expect(source).toContain("usage-header-actions flex min-w-0 items-center gap-2");
+    expect(source).toContain("max-[900px]:grid-cols-[auto_auto_auto]");
+    expect(source).toContain("usage-meta-text truncate max-[900px]:hidden");
   });
 
   it("shows animated feedback while rescanning usage data", () => {
-    const css = readFileSync("src/components/UsagePage.css", "utf8");
     renderUsage({ rescanning: true });
 
     const rescanButton = screen.getByRole("button", { name: "扫描中..." });
     expect(rescanButton).toBeDisabled();
     expect(rescanButton).toHaveClass("usage-icon-btn-busy");
-    expect(css).toMatch(/@keyframes usage-spin/);
-    expect(css).toMatch(/\.usage-icon-btn-busy svg\s*\{[^}]*animation:\s*usage-spin/s);
+    expect(rescanButton).toHaveClass("[&_svg]:animate-spin");
   });
 
   it("opens session usage detail from the keyboard", async () => {
