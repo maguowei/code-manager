@@ -487,20 +487,20 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
   }
 
   return (
-    <div className="profile-subsection">
+    <div className="flex flex-col gap-3.5">
       {showTitle ? (
-        <div className="profile-subsection-header">
+        <div className="flex items-start justify-between gap-3">
           <div>
             <h4>{t("profileEditor.marketplace.title")}</h4>
           </div>
         </div>
       ) : null}
 
-      <div className="profile-marketplace-editor flex flex-col gap-4">
-        <div className="profile-marketplace-list-shell flex min-w-0 flex-col gap-3 [container-type:inline-size]">
-          <div className="profile-marketplace-list flex flex-col overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--border)_88%,var(--primary)_12%)] bg-[color-mix(in_srgb,var(--card)_92%,var(--accent)_8%)]">
-            <div className="profile-marketplace-list-header grid grid-cols-[40px_minmax(0,1fr)_minmax(0,1.35fr)_auto] items-center gap-3 border-b border-[color-mix(in_srgb,var(--border)_92%,transparent)] px-3.5 pt-3 pb-2.5 text-xs font-semibold text-muted-foreground max-[720px]:hidden">
-              <span className="profile-marketplace-list-header-index inline-flex items-center justify-center text-xs font-semibold text-muted-foreground tabular-nums">
+      <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-3 [container-type:inline-size]">
+          <div className="flex flex-col overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--border)_88%,var(--primary)_12%)] bg-[color-mix(in_srgb,var(--card)_92%,var(--accent)_8%)]">
+            <div className="grid grid-cols-[40px_minmax(0,1fr)_minmax(0,1.35fr)_auto] items-center gap-3 border-b border-[color-mix(in_srgb,var(--border)_92%,transparent)] px-3.5 pt-3 pb-2.5 text-xs font-semibold text-muted-foreground max-[720px]:hidden">
+              <span className="inline-flex items-center justify-center text-xs font-semibold text-muted-foreground tabular-nums">
                 {t("profileEditor.common.index")}
               </span>
               <span>{t("profileEditor.marketplace.columnMarketplace")}</span>
@@ -529,7 +529,7 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                     key={item.id}
                     className={`profile-marketplace-list-row flex flex-col gap-0 border-t border-[color-mix(in_srgb,var(--border)_92%,transparent)] px-3.5 py-2.5 first:border-t-0 max-[720px]:gap-3 max-[720px]:py-3${selected ? " selected bg-[color-mix(in_srgb,var(--accent)_18%,var(--card)_82%)]" : ""}`}
                   >
-                    <div className="profile-marketplace-row-head grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 max-[720px]:items-start">
+                    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 max-[720px]:items-start">
                       <Button
                         type="button"
                         variant="ghost"
@@ -539,36 +539,42 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                         onClick={() => handleSelectMarketplace(marketplace)}
                       >
                         <span
-                          className="profile-marketplace-list-index inline-flex items-center justify-center text-xs font-semibold text-muted-foreground tabular-nums max-[720px]:row-span-2 max-[720px]:items-start max-[720px]:pt-0.5"
+                          className="inline-flex items-center justify-center text-xs font-semibold text-muted-foreground tabular-nums max-[720px]:row-span-2 max-[720px]:items-start max-[720px]:pt-0.5"
                           aria-hidden="true"
                         >
                           {index + 1}
                         </span>
-                        <span className="profile-marketplace-list-title inline-flex min-w-0 flex-wrap items-center gap-2 font-semibold max-[720px]:col-start-2">
+                        <span className="inline-flex min-w-0 flex-wrap items-center gap-2 font-semibold max-[720px]:col-start-2">
                           <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap max-[720px]:whitespace-normal max-[720px]:break-words">
                             {label}
                           </span>
-                          <span className="profile-env-row-badge subtle">{item.sourceType}</span>
+                          <span className="inline-flex items-center rounded-full bg-border/80 px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
+                            {item.sourceType}
+                          </span>
                           {draftBadge ? (
-                            <span className="profile-env-row-badge">{draftBadge}</span>
+                            <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-bold text-primary">
+                              {draftBadge}
+                            </span>
                           ) : null}
                           {dirtyBadge ? (
-                            <span className="profile-env-row-badge subtle">{dirtyBadge}</span>
+                            <span className="inline-flex items-center rounded-full bg-border/80 px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
+                              {dirtyBadge}
+                            </span>
                           ) : null}
                         </span>
-                        <span className="profile-marketplace-list-summary flex min-w-0 flex-col gap-1 max-[720px]:col-start-2">
-                          <span className="profile-marketplace-summary-primary min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-medium text-foreground group-hover:text-[var(--primary)] group-focus-visible:text-[var(--primary)] max-[720px]:whitespace-normal max-[720px]:break-words">
+                        <span className="flex min-w-0 flex-col gap-1 max-[720px]:col-start-2">
+                          <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-medium text-foreground group-hover:text-[var(--primary)] group-focus-visible:text-[var(--primary)] max-[720px]:whitespace-normal max-[720px]:break-words">
                             {item.primarySummary}
                           </span>
                           {item.secondarySummary.length > 0 ? (
-                            <span className="profile-marketplace-summary-secondary min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-muted-foreground group-hover:text-[var(--primary)] group-focus-visible:text-[var(--primary)] max-[720px]:whitespace-normal max-[720px]:break-words">
+                            <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-muted-foreground group-hover:text-[var(--primary)] group-focus-visible:text-[var(--primary)] max-[720px]:whitespace-normal max-[720px]:break-words">
                               {item.secondarySummary.join(" · ")}
                             </span>
                           ) : null}
                         </span>
                       </Button>
 
-                      <div className="profile-row-actions profile-marketplace-row-actions flex flex-nowrap justify-end max-[720px]:self-start">
+                      <div className="flex flex-nowrap items-center justify-end gap-2 max-[720px]:self-start">
                         <Button
                           type="button"
                           variant="ghost"
@@ -583,11 +589,11 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                     </div>
 
                     {selected && draft ? (
-                      <div className="profile-marketplace-inline-editor mt-2 flex flex-col gap-3 border-t border-[color-mix(in_srgb,var(--border)_92%,transparent)] pt-3 pl-[62px] max-[720px]:mt-0 max-[720px]:pl-0">
-                        <div className="profile-marketplace-inline-fields flex flex-col gap-3">
+                      <div className="mt-2 flex flex-col gap-3 border-t border-[color-mix(in_srgb,var(--border)_92%,transparent)] pt-3 pl-[62px] max-[720px]:mt-0 max-[720px]:pl-0">
+                        <div className="flex flex-col gap-3">
                           <div className="grid gap-3 md:grid-cols-2">
                             <label className="grid gap-2 gap-2">
-                              <span className="profile-inline-required-label profile-env-inline-label">
+                              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                                 <span>{t("profileEditor.marketplace.idLabel")}</span>
                                 <RequiredBadge />
                               </span>
@@ -603,7 +609,7 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                             </label>
 
                             <label className="grid gap-2 gap-2">
-                              <span className="profile-env-inline-label">
+                              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                                 {t("profileEditor.marketplace.sourceLabel")}
                               </span>
                               <Select
@@ -649,7 +655,7 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                             {draft.sourceType === "github" ? (
                               <>
                                 <label className="grid gap-2 gap-2">
-                                  <span className="profile-inline-required-label profile-env-inline-label">
+                                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                                     <span>{t("profileEditor.marketplace.repoLabel")}</span>
                                     <RequiredBadge />
                                   </span>
@@ -664,7 +670,7 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                                 </label>
 
                                 <label className="grid gap-2 gap-2">
-                                  <span className="profile-env-inline-label">
+                                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                                     {t("profileEditor.marketplace.refLabel")}
                                   </span>
                                   <Input
@@ -678,7 +684,7 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                                 </label>
 
                                 <label className="grid gap-2 gap-2">
-                                  <span className="profile-env-inline-label">
+                                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                                     {t("profileEditor.marketplace.repoPathLabel")}
                                   </span>
                                   <Input
@@ -695,7 +701,7 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
 
                             {draft.sourceType === "git" || draft.sourceType === "url" ? (
                               <label className="grid gap-2 gap-2">
-                                <span className="profile-inline-required-label profile-env-inline-label">
+                                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                                   <span>{t("profileEditor.marketplace.urlLabel")}</span>
                                   <RequiredBadge />
                                 </span>
@@ -714,7 +720,7 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
 
                             {draft.sourceType === "hostPattern" ? (
                               <label className="grid gap-2 gap-2">
-                                <span className="profile-inline-required-label profile-env-inline-label">
+                                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                                   <span>{t("profileEditor.marketplace.hostPatternLabel")}</span>
                                   <RequiredBadge />
                                 </span>
@@ -731,7 +737,7 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
 
                             {draft.sourceType === "npm" ? (
                               <label className="grid gap-2 gap-2">
-                                <span className="profile-inline-required-label profile-env-inline-label">
+                                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                                   <span>{t("profileEditor.marketplace.packageLabel")}</span>
                                   <RequiredBadge />
                                 </span>
@@ -748,7 +754,7 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
 
                             {draft.sourceType === "file" || draft.sourceType === "directory" ? (
                               <label className="grid gap-2 gap-2">
-                                <span className="profile-inline-required-label profile-env-inline-label">
+                                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                                   <span>{t("profileEditor.marketplace.localPathLabel")}</span>
                                   <RequiredBadge />
                                 </span>
@@ -764,7 +770,7 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                             ) : null}
 
                             <label className="grid gap-2 gap-2">
-                              <span className="profile-env-inline-label">
+                              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                                 {t("profileEditor.marketplace.installLocationLabel")}
                               </span>
                               <Input
@@ -779,10 +785,10 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                           </div>
                         </div>
 
-                        <div className="profile-env-inline-actions flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <Button
                             type="button"
-                            className="profile-primary-btn"
+                            className=""
                             aria-label={t("profileEditor.marketplace.saveAriaLabel")}
                             onClick={handleSaveDraft}
                           >
@@ -813,19 +819,15 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                 );
               })
             ) : (
-              <div className="profile-empty-state profile-marketplace-empty-list flex min-h-[120px] items-center justify-center px-4 text-center">
+              <div className="flex min-h-[120px] items-center justify-center px-4 text-center">
                 {emptyHint}
               </div>
             )}
           </div>
 
-          <div className="profile-env-footer profile-marketplace-footer-actions flex flex-wrap gap-2 max-[720px]:[&>button]:w-full max-[720px]:[&>button]:justify-center">
+          <div className="flex flex-wrap gap-2 max-[720px]:[&>button]:w-full max-[720px]:[&>button]:justify-center">
             {!hasOfficialMarketplace ? (
-              <Button
-                type="button"
-                className="profile-primary-btn"
-                onClick={handleAddOfficialMarketplace}
-              >
+              <Button type="button" className="" onClick={handleAddOfficialMarketplace}>
                 <Plus className="size-4" aria-hidden="true" />
                 {t("profileEditor.marketplace.addOfficial")}
               </Button>
