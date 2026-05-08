@@ -1018,6 +1018,9 @@ const translations = {
     "history.heatmapWeekday.5": "周五",
     "history.viewConversation": "查看对话",
     "history.conversation": "对话详情",
+    "history.messageCountUnit": "条消息",
+    "history.timeUnknown": "时间未知",
+    "history.event": "事件",
     "history.thinking": "思考过程",
     "history.toolUse": "工具调用",
     "history.toolResult": "返回结果",
@@ -1028,6 +1031,7 @@ const translations = {
     "history.roleAssistant": "助手",
     "history.image": "图片",
     "history.plan": "实施计划",
+    "history.planSourceClaude": "Claude",
   },
   en: {
     // 通用
@@ -2072,6 +2076,9 @@ const translations = {
     "history.heatmapWeekday.5": "Fri",
     "history.viewConversation": "View Conversation",
     "history.conversation": "Conversation Detail",
+    "history.messageCountUnit": "messages",
+    "history.timeUnknown": "Unknown time",
+    "history.event": "Event",
     "history.thinking": "Thinking",
     "history.toolUse": "Tool Use",
     "history.toolResult": "Result",
@@ -2082,6 +2089,7 @@ const translations = {
     "history.roleAssistant": "Assistant",
     "history.image": "Image",
     "history.plan": "Implementation Plan",
+    "history.planSourceClaude": "Claude",
   },
 } as const;
 

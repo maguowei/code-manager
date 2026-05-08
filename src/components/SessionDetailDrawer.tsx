@@ -2,19 +2,36 @@ import { json } from "@codemirror/lang-json";
 import { EditorView } from "@codemirror/view";
 import { invoke } from "@tauri-apps/api/core";
 import CodeMirror from "@uiw/react-codemirror";
-import { X } from "lucide-react";
+import {
+  AlertTriangle,
+  Bot,
+  Brain,
+  ChevronDown,
+  ChevronRight,
+  ClipboardList,
+  Clock3,
+  Image as ImageIcon,
+  Info,
+  MessageSquare,
+  Terminal,
+  User,
+  Wrench,
+  X,
+} from "lucide-react";
 import { memo, type ReactNode, useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import remarkGfm from "remark-gfm";
+import { cn } from "@/lib/utils";
 import { useCodeMirrorTheme } from "../hooks/useCodeMirrorTheme";
 import { useToast } from "../hooks/useToast";
 import { type TranslationKey, useI18n } from "../i18n";
-import { isTauri, type MessageBlock, type SessionDetail } from "../types";
+import { isTauri, type MessageBlock, type SessionDetail, type SessionMessage } from "../types";
+import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
-import { Separator } from "./ui/separator";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
 
 /** 文件类工具集合（模块级常量，避免每次渲染重建 Set） */
@@ -27,6 +44,16 @@ const READONLY_CODEMIRROR_SETUP = {
   lineNumbers: true,
   foldGutter: false,
 };
+
+/** ANSI CSI / OSC 控制序列，历史原文不变，仅展示时清洗 */
+const ESC_PATTERN = "\\x1B";
+const BEL_PATTERN = "\\x07";
+const C1_CSI_PATTERN = "\\x9B";
+const ANSI_SEQUENCE_RE = new RegExp(
+  `(?:${ESC_PATTERN}\\][^${BEL_PATTERN}]*(?:${BEL_PATTERN}|${ESC_PATTERN}\\\\)|${ESC_PATTERN}\\[[0-?]*[ -/]*[@-~]|${C1_CSI_PATTERN}[0-?]*[ -/]*[@-~])`,
+  "g",
+);
+const EVENT_BLOCK_TYPES = new Set<MessageBlock["type"]>(["command", "system", "plan"]);
 
 /** 扩展名到 Prism 语言标识的映射（模块级常量） */
 const EXT_LANG_MAP: Record<string, string> = {
@@ -61,6 +88,59 @@ const EXT_LANG_MAP: Record<string, string> = {
   r: "r",
 };
 
+export type MessagePresentation = {
+  kind: "message" | "event";
+  tone: "default" | "error";
+};
+
+export function stripAnsiForDisplay(value: string): string {
+  return stripInvisibleControls(
+    value.replace(ANSI_SEQUENCE_RE, "").replaceAll("\r\n", "\n").replaceAll("\r", "\n"),
+  );
+}
+
+function stripInvisibleControls(value: string): string {
+  let result = "";
+  for (const char of value) {
+    const code = char.charCodeAt(0);
+    if (
+      code <= 0x08 ||
+      code === 0x0b ||
+      code === 0x0c ||
+      (code >= 0x0e && code <= 0x1f) ||
+      (code >= 0x7f && code <= 0x9f)
+    ) {
+      continue;
+    }
+    result += char;
+  }
+  return result;
+}
+
+function isEventBlock(block: MessageBlock): boolean {
+  return EVENT_BLOCK_TYPES.has(block.type);
+}
+
+function isErrorText(value: string): boolean {
+  return /^(?:api\s+error|error):/i.test(value.trim());
+}
+
+export function getMessagePresentation(message: SessionMessage): MessagePresentation {
+  const visibleBlocks = message.blocks.filter((block) => {
+    if (block.type === "text") return stripAnsiForDisplay(block.text).trim().length > 0;
+    if (block.type === "tool_result") return stripAnsiForDisplay(block.content).trim().length > 0;
+    return true;
+  });
+  const kind = visibleBlocks.length > 0 && visibleBlocks.every(isEventBlock) ? "event" : "message";
+  const tone = visibleBlocks.some(
+    (block) => block.type === "text" && isErrorText(stripAnsiForDisplay(block.text)),
+  )
+    ? "error"
+    : "default";
+
+  return { kind, tone };
+}
+
 /** 根据文件扩展名获取 Prism 语言标识 */
 function langFromPath(filePath: string): string {
   const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
@@ -72,10 +152,31 @@ function stripLineNumbers(content: string): string {
   return content.replace(/^ *\d+\t/gm, "");
 }
 
+function formatTimestamp(timestamp?: string): string | null {
+  if (!timestamp) return null;
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return stripAnsiForDisplay(timestamp);
+  return date.toLocaleString();
+}
+
+function formatDateRange(messages: SessionMessage[], fallback: string): string {
+  const timestamps = messages
+    .map((msg) => formatTimestamp(msg.timestamp))
+    .filter((timestamp): timestamp is string => Boolean(timestamp));
+  if (timestamps.length === 0) return fallback;
+  const first = timestamps[0];
+  const last = timestamps[timestamps.length - 1];
+  return first === last ? first : `${first} - ${last}`;
+}
+
+function formatMessageCount(count: number, unit: string): string {
+  return `${count} ${unit}`;
+}
+
 /** 文件类工具的返回结果用代码高亮渲染 */
 function CodeResultBlock({ content, filePath }: { content: string; filePath: string }) {
   const lang = langFromPath(filePath);
-  const code = stripLineNumbers(content);
+  const code = stripLineNumbers(stripAnsiForDisplay(content));
   return (
     <SyntaxHighlighter
       language={lang}
@@ -99,66 +200,105 @@ function CodeResultBlock({ content, filePath }: { content: string; filePath: str
   );
 }
 
+function MarkdownBlock({
+  children,
+  className,
+  variant = "default",
+}: {
+  children: string;
+  className?: string;
+  variant?: "default" | "error";
+}) {
+  const content = stripAnsiForDisplay(children);
+
+  return (
+    <div
+      data-variant={variant === "error" ? "error" : undefined}
+      className={cn(
+        "min-w-0 max-w-full [overflow-wrap:anywhere] [&_*]:max-w-full [&_ol]:pl-5 [&_p]:my-1 [&_pre]:overflow-x-auto [&_ul]:pl-5",
+        variant === "error" &&
+          "rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-destructive",
+        className,
+      )}
+    >
+      <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{content}</ReactMarkdown>
+    </div>
+  );
+}
+
 /** 通用可折叠块，ThinkingBlock / SystemBlock / PlanBlock 共用 */
 function CollapsibleBlock({
   wrapClass,
-  toggleClass,
   contentClass,
   label,
+  summary,
+  icon,
   children,
-  arrowPosition = "inline",
 }: {
   wrapClass?: string;
-  toggleClass: string;
   contentClass: string;
   label: ReactNode;
+  summary?: ReactNode;
+  icon: ReactNode;
   children: ReactNode;
-  arrowPosition?: "inline" | "trailing";
 }) {
   const [expanded, setExpanded] = useState(false);
-  const arrow = expanded ? "\u25BC" : "\u25B6";
+  const Chevron = expanded ? ChevronDown : ChevronRight;
+
   return (
-    <div
-      className={`min-w-0 max-w-full [overflow-wrap:anywhere]${wrapClass ? ` ${wrapClass}` : ""}`}
+    <Collapsible
+      open={expanded}
+      onOpenChange={setExpanded}
+      className={cn("min-w-0 max-w-full [overflow-wrap:anywhere]", wrapClass)}
     >
-      <button
-        type="button"
-        className={`${toggleClass} max-w-full text-left [overflow-wrap:anywhere]`}
-        aria-expanded={expanded}
-        onClick={() => setExpanded(!expanded)}
-      >
-        {arrowPosition === "inline" && <>{arrow} </>}
-        {label}
-        {arrowPosition === "trailing" && (
-          <span className="ml-auto shrink-0 text-xs text-muted-foreground">{arrow}</span>
-        )}
-      </button>
-      {expanded && <div className={`${contentClass} min-w-0 max-w-full`}>{children}</div>}
-    </div>
+      <CollapsibleTrigger asChild>
+        <button
+          type="button"
+          className="flex min-w-0 max-w-full cursor-pointer items-center gap-2 text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <Chevron className="size-3 shrink-0" aria-hidden="true" />
+          <span className="shrink-0" aria-hidden="true">
+            {icon}
+          </span>
+          <span className="shrink-0 font-medium">{label}</span>
+          {summary && <span className="min-w-0 truncate">{summary}</span>}
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className={cn("min-w-0 max-w-full", contentClass)}>
+        {children}
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
 /** 渲染单个 thinking 块（可折叠） */
 function ThinkingBlock({ thinking, label }: { thinking: string; label: string }) {
+  const content = stripAnsiForDisplay(thinking);
   return (
     <CollapsibleBlock
-      toggleClass="inline cursor-pointer text-xs text-muted-foreground hover:text-foreground"
-      contentClass="mt-1 rounded-md border border-border bg-muted/50 p-3 text-sm [&_pre]:overflow-x-auto [&_p]:my-1"
+      icon={<Brain className="size-3.5" />}
+      contentClass="mt-2 rounded-md border bg-muted/40 p-3 text-sm leading-6 [&_pre]:overflow-x-auto [&_p]:my-1"
       label={label}
+      summary={content.split("\n")[0]}
     >
-      <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{thinking}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{content}</ReactMarkdown>
     </CollapsibleBlock>
   );
 }
 
 /** 渲染斜杠命令块 */
-function CommandBlock({ name, args }: { name: string; args?: string }) {
+function CommandBlock({ name, args, label }: { name: string; args?: string; label: string }) {
   return (
-    <div className="flex min-w-0 max-w-full flex-wrap items-baseline gap-x-1 font-mono text-sm [overflow-wrap:anywhere]">
-      <span className="text-muted-foreground">&gt;</span>
-      <span className="min-w-0 font-medium [overflow-wrap:anywhere]">{name}</span>
+    <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm [overflow-wrap:anywhere]">
+      <Terminal className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <span className="shrink-0 text-xs font-semibold text-muted-foreground">{label}</span>
+      <code className="min-w-0 rounded-sm bg-background px-1.5 py-0.5 font-mono font-medium [overflow-wrap:anywhere]">
+        {stripAnsiForDisplay(name)}
+      </code>
       {args && (
-        <span className="min-w-0 text-muted-foreground [overflow-wrap:anywhere]">{args}</span>
+        <span className="min-w-0 text-muted-foreground [overflow-wrap:anywhere]">
+          {stripAnsiForDisplay(args)}
+        </span>
       )}
     </div>
   );
@@ -166,14 +306,15 @@ function CommandBlock({ name, args }: { name: string; args?: string }) {
 
 /** 渲染系统信息块（可折叠） */
 function SystemBlock({ summary, label }: { summary: string; label: string }) {
+  const content = stripAnsiForDisplay(summary);
   return (
     <CollapsibleBlock
-      wrapClass=""
-      toggleClass="inline cursor-pointer text-xs text-muted-foreground hover:text-foreground"
-      contentClass="mt-1 text-sm text-muted-foreground"
+      icon={<Info className="size-3.5" />}
+      contentClass="mt-2 rounded-md border bg-muted/30 px-3 py-2 text-sm leading-6 text-muted-foreground"
       label={label}
+      summary={content}
     >
-      {summary}
+      {content}
     </CollapsibleBlock>
   );
 }
@@ -183,30 +324,32 @@ function PlanBlock({
   summary,
   content,
   label,
+  sourceLabel,
 }: {
   summary: string;
   content: string;
   label: string;
+  sourceLabel: string;
 }) {
-  const planLabel = (
-    <>
-      <span>&#x1f4cb;</span>
-      <span className="font-medium">{label}</span>
-      <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-bold text-primary">
-        Claude
-      </span>
-      <span className="text-muted-foreground">{summary}</span>
-    </>
-  );
+  const cleanSummary = stripAnsiForDisplay(summary);
+  const cleanContent = stripAnsiForDisplay(content);
+
   return (
     <CollapsibleBlock
-      wrapClass="rounded-md border border-border bg-muted/30 p-3"
-      toggleClass="flex min-w-0 max-w-full cursor-pointer items-center gap-2 text-left"
-      contentClass="mt-2 [&_pre]:overflow-x-auto [&_p]:my-1"
-      label={planLabel}
-      arrowPosition="trailing"
+      wrapClass="rounded-md border bg-muted/30 p-3"
+      icon={<ClipboardList className="size-3.5" />}
+      contentClass="mt-3 border-t pt-3 text-sm leading-6 [&_pre]:overflow-x-auto [&_p]:my-1"
+      label={
+        <span className="inline-flex items-center gap-2">
+          {label}
+          <Badge variant="outline" className="h-5 px-1.5 text-[11px]">
+            {sourceLabel}
+          </Badge>
+        </span>
+      }
+      summary={cleanSummary}
     >
-      <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{content}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{cleanContent}</ReactMarkdown>
     </CollapsibleBlock>
   );
 }
@@ -217,30 +360,30 @@ function getHeaderHintFromParsed(p: Record<string, unknown> | null): {
   secondary?: string;
 } {
   if (!p) return {};
-  const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
+  const str = (v: unknown): string | undefined =>
+    typeof v === "string" ? stripAnsiForDisplay(v) : undefined;
 
-  if (str(p.file_path)) return { primary: p.file_path as string };
-  if (str(p.notebook_path)) return { primary: p.notebook_path as string };
-  if (str(p.pattern)) return { primary: p.pattern as string, secondary: str(p.path) };
-  if (str(p.command)) return { primary: p.command as string };
-  if (str(p.url)) return { primary: p.url as string };
-  if (str(p.query)) return { primary: p.query as string };
-  if (str(p.description))
-    return { primary: p.description as string, secondary: str(p.subagent_type) };
+  if (str(p.file_path)) return { primary: str(p.file_path) };
+  if (str(p.notebook_path)) return { primary: str(p.notebook_path) };
+  if (str(p.pattern)) return { primary: str(p.pattern), secondary: str(p.path) };
+  if (str(p.command)) return { primary: str(p.command) };
+  if (str(p.url)) return { primary: str(p.url) };
+  if (str(p.query)) return { primary: str(p.query) };
+  if (str(p.description)) return { primary: str(p.description), secondary: str(p.subagent_type) };
   if (str(p.summary))
     return {
-      primary: p.summary as string,
-      secondary: str(p.to) ? `→ ${p.to as string}` : undefined,
+      primary: str(p.summary),
+      secondary: str(p.to) ? `-> ${str(p.to)}` : undefined,
     };
-  if (str(p.subject)) return { primary: p.subject as string };
+  if (str(p.subject)) return { primary: str(p.subject) };
   if (str(p.taskId) || typeof p.taskId === "number") {
     return { primary: `#${p.taskId}`, secondary: str(p.status) };
   }
   if (str(p.operation) && str(p.filePath))
-    return { primary: p.operation as string, secondary: p.filePath as string };
-  if (str(p.filePath)) return { primary: p.filePath as string };
-  if (str(p.path)) return { primary: p.path as string };
-  if (str(p.prompt)) return { primary: p.prompt as string };
+    return { primary: str(p.operation), secondary: str(p.filePath) };
+  if (str(p.filePath)) return { primary: str(p.filePath) };
+  if (str(p.path)) return { primary: str(p.path) };
+  if (str(p.prompt)) return { primary: str(p.prompt) };
   return {};
 }
 
@@ -250,7 +393,7 @@ function JsonCodeCard({ value }: { value: string }) {
   return (
     <Card className="min-w-0 max-w-full gap-0 overflow-hidden rounded-md border bg-card p-0 py-0">
       <CodeMirror
-        value={value}
+        value={stripAnsiForDisplay(value)}
         extensions={JSON_EXTENSIONS}
         theme={editorTheme}
         editable={false}
@@ -275,9 +418,7 @@ function InputPreview({
           <div key={key} className="min-w-0 max-w-full">
             <span className="block text-xs font-semibold text-muted-foreground">{key}</span>
             {typeof value === "string" ? (
-              <div className="min-w-0 max-w-full [overflow-wrap:anywhere]">
-                <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{value}</ReactMarkdown>
-              </div>
+              <MarkdownBlock className="text-sm leading-6">{value}</MarkdownBlock>
             ) : (
               <JsonCodeCard value={JSON.stringify(value, null, 2)} />
             )}
@@ -286,11 +427,7 @@ function InputPreview({
       </div>
     );
   }
-  return (
-    <div className="min-w-0 max-w-full [overflow-wrap:anywhere]">
-      <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{inputPreview}</ReactMarkdown>
-    </div>
-  );
+  return <MarkdownBlock className="text-sm leading-6">{inputPreview}</MarkdownBlock>;
 }
 
 /** 工具调用折叠卡片 - 合并 tool_use 和可选的 tool_result */
@@ -300,14 +437,17 @@ function ToolCallCard({
   resultContent,
   inputLabel,
   resultLabel,
+  toolLabel,
 }: {
   name: string;
   inputPreview: string;
   resultContent?: string;
   inputLabel: string;
   resultLabel: string;
+  toolLabel: string;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const Chevron = expanded ? ChevronDown : ChevronRight;
 
   // 统一解析一次，供 getHeaderHintFromParsed / InputPreview / filePath 共用
   const parsedInput = useMemo<Record<string, unknown> | null>(() => {
@@ -321,31 +461,38 @@ function ToolCallCard({
   }, [inputPreview]);
 
   const headerHint = getHeaderHintFromParsed(parsedInput);
-  const filePath = typeof parsedInput?.file_path === "string" ? parsedInput.file_path : undefined;
+  const filePath =
+    typeof parsedInput?.file_path === "string" ? stripAnsiForDisplay(parsedInput.file_path) : "";
   const isFileTool = FILE_TOOLS.has(name) && !!filePath;
 
   return (
-    <div className="min-w-0 max-w-full rounded-md border bg-card p-3">
-      <button
-        type="button"
-        className="flex min-w-0 max-w-full cursor-pointer items-center gap-2 text-left"
-        aria-expanded={expanded}
-        onClick={() => setExpanded(!expanded)}
-      >
-        <span>&#x1f6e0;</span>
-        <span className="shrink-0 font-semibold">{name}</span>
-        {!expanded && headerHint.primary && (
-          <span className="flex min-w-0 flex-1 gap-2 text-muted-foreground">
-            <span className="min-w-0 truncate">{headerHint.primary}</span>
-            {headerHint.secondary && (
-              <span className="min-w-0 truncate">{headerHint.secondary}</span>
-            )}
-          </span>
-        )}
-        <span className="ml-auto shrink-0">{expanded ? "\u25BC" : "\u25B6"}</span>
-      </button>
-      {expanded && (
-        <div className="mt-3 flex min-w-0 max-w-full flex-col gap-3">
+    <Collapsible
+      open={expanded}
+      onOpenChange={setExpanded}
+      data-slot="session-tool-card"
+      className="min-w-0 max-w-full rounded-md border bg-card"
+    >
+      <CollapsibleTrigger asChild>
+        <button
+          type="button"
+          className="flex min-w-0 max-w-full cursor-pointer items-center gap-2 px-3 py-2 text-left"
+        >
+          <Chevron className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <Wrench className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <span className="shrink-0 text-xs font-semibold text-muted-foreground">{toolLabel}</span>
+          <span className="shrink-0 font-semibold">{stripAnsiForDisplay(name)}</span>
+          {!expanded && headerHint.primary && (
+            <span className="flex min-w-0 flex-1 gap-2 text-muted-foreground">
+              <span className="min-w-0 truncate">{headerHint.primary}</span>
+              {headerHint.secondary && (
+                <span className="min-w-0 truncate">{headerHint.secondary}</span>
+              )}
+            </span>
+          )}
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="border-t px-3 py-3">
+        <div className="flex min-w-0 max-w-full flex-col gap-3">
           {inputPreview && (
             <div className="min-w-0 max-w-full">
               <span className="mb-1 block text-xs font-semibold text-muted-foreground">
@@ -360,14 +507,54 @@ function ToolCallCard({
                 {resultLabel}
               </span>
               {isFileTool ? (
-                <CodeResultBlock content={resultContent} filePath={filePath ?? ""} />
+                <CodeResultBlock content={resultContent} filePath={filePath} />
               ) : (
-                <div className="min-w-0 max-w-full [overflow-wrap:anywhere]">
-                  <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{resultContent}</ReactMarkdown>
-                </div>
+                <MarkdownBlock className="text-sm leading-6">{resultContent}</MarkdownBlock>
               )}
             </div>
           )}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function MessageImageBlock({
+  block,
+  t,
+}: {
+  block: Extract<MessageBlock, { type: "image" }>;
+  t: (key: TranslationKey) => string;
+}) {
+  return (
+    <div className="min-w-0 max-w-full">
+      {block.data ? (
+        <figure
+          data-slot="msg-image-figure"
+          className="group/figure relative overflow-hidden rounded-md border"
+        >
+          <img
+            src={`data:${block.media_type};base64,${block.data}`}
+            alt={block.media_type}
+            className="max-h-[500px] max-w-full object-contain group-data-[error]/figure:opacity-50"
+            onError={(e) => {
+              const fig = (e.target as HTMLElement).closest('[data-slot="msg-image-figure"]');
+              if (fig) fig.setAttribute("data-error", "true");
+            }}
+          />
+          <figcaption className="flex items-center gap-1.5 border-t bg-muted/50 px-2 py-1 text-xs text-muted-foreground">
+            <ImageIcon className="size-3.5" aria-hidden="true" />
+            <span>
+              {t("history.image")} · {stripAnsiForDisplay(block.media_type)}
+            </span>
+          </figcaption>
+        </figure>
+      ) : (
+        <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+          <ImageIcon className="size-4" aria-hidden="true" />
+          <span>
+            {t("history.image")} ({stripAnsiForDisplay(block.media_type)})
+          </span>
         </div>
       )}
     </div>
@@ -387,16 +574,19 @@ const MessageBlocks = memo(function MessageBlocks({
   while (i < blocks.length) {
     const block = blocks[i];
     switch (block.type) {
-      case "text":
+      case "text": {
+        const content = stripAnsiForDisplay(block.text);
         elements.push(
-          <div
+          <MarkdownBlock
             key={i}
-            className="min-w-0 max-w-full [overflow-wrap:anywhere] [&_*]:max-w-full [&_ol]:pl-5 [&_p]:my-1 [&_pre]:overflow-x-auto [&_ul]:pl-5"
+            className="text-sm leading-6"
+            variant={isErrorText(content) ? "error" : "default"}
           >
-            <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{block.text}</ReactMarkdown>
-          </div>,
+            {content}
+          </MarkdownBlock>,
         );
         break;
+      }
       case "thinking":
         elements.push(
           <ThinkingBlock key={i} thinking={block.thinking} label={t("history.thinking")} />,
@@ -413,6 +603,7 @@ const MessageBlocks = memo(function MessageBlocks({
             resultContent={resultContent}
             inputLabel={t("history.toolInput")}
             resultLabel={t("history.toolResult")}
+            toolLabel={t("history.toolUse")}
           />,
         );
         if (resultContent !== undefined) i++;
@@ -420,54 +611,21 @@ const MessageBlocks = memo(function MessageBlocks({
       }
       case "tool_result":
         elements.push(
-          <div
-            key={i}
-            className="min-w-0 max-w-full [overflow-wrap:anywhere] [&_*]:max-w-full [&_pre]:overflow-x-auto"
-          >
-            <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{block.content || "..."}</ReactMarkdown>
-          </div>,
+          <MarkdownBlock key={i} className="text-sm leading-6">
+            {block.content || "..."}
+          </MarkdownBlock>,
         );
         break;
       case "command":
-        elements.push(<CommandBlock key={i} name={block.name} args={block.args} />);
+        elements.push(
+          <CommandBlock key={i} name={block.name} args={block.args} label={t("history.command")} />,
+        );
         break;
       case "system":
         elements.push(<SystemBlock key={i} summary={block.summary} label={t("history.system")} />);
         break;
       case "image":
-        elements.push(
-          <div key={i} className="min-w-0 max-w-full">
-            {block.data ? (
-              <figure
-                data-slot="msg-image-figure"
-                className="group/figure relative overflow-hidden rounded-md border"
-              >
-                <img
-                  src={`data:${block.media_type};base64,${block.data}`}
-                  alt={block.media_type}
-                  className="max-h-[500px] max-w-full object-contain group-data-[error]/figure:opacity-50"
-                  onError={(e) => {
-                    const fig = (e.target as HTMLElement).closest('[data-slot="msg-image-figure"]');
-                    if (fig) fig.setAttribute("data-error", "true");
-                  }}
-                />
-                <figcaption className="flex items-center gap-1.5 border-t bg-muted/50 px-2 py-1 text-xs text-muted-foreground">
-                  <span>&#x1f5bc;</span>
-                  <span>
-                    {t("history.image")} · {block.media_type}
-                  </span>
-                </figcaption>
-              </figure>
-            ) : (
-              <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-                <span>&#x1f5bc;</span>
-                <span>
-                  {t("history.image")} ({block.media_type})
-                </span>
-              </div>
-            )}
-          </div>,
-        );
+        elements.push(<MessageImageBlock key={i} block={block} t={t} />);
         break;
       case "plan":
         elements.push(
@@ -476,6 +634,7 @@ const MessageBlocks = memo(function MessageBlocks({
             summary={block.summary}
             content={block.content}
             label={t("history.plan")}
+            sourceLabel={t("history.planSourceClaude")}
           />,
         );
         break;
@@ -484,6 +643,86 @@ const MessageBlocks = memo(function MessageBlocks({
   }
   return <>{elements}</>;
 });
+
+function EventMessage({ msg, t }: { msg: SessionMessage; t: (key: TranslationKey) => string }) {
+  return (
+    <div data-slot="session-event" className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)] gap-3">
+      <div className="flex justify-center pt-1">
+        <span className="flex size-7 items-center justify-center rounded-full border bg-muted text-muted-foreground">
+          <Clock3 className="size-3.5" aria-hidden="true" />
+        </span>
+      </div>
+      <div className="min-w-0 rounded-md border bg-muted/20 px-3 py-2">
+        <div className="mb-2 flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span className="font-medium">{t("history.event")}</span>
+          {msg.timestamp && <span>{formatTimestamp(msg.timestamp)}</span>}
+        </div>
+        <div className="min-w-0 space-y-2">
+          <MessageBlocks blocks={msg.blocks} t={t} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RoleIcon({ role }: { role: SessionMessage["role"] }) {
+  if (role === "assistant") return <Bot className="size-4" aria-hidden="true" />;
+  return <User className="size-4" aria-hidden="true" />;
+}
+
+function ConversationMessage({
+  msg,
+  presentation,
+  t,
+}: {
+  msg: SessionMessage;
+  presentation: MessagePresentation;
+  t: (key: TranslationKey) => string;
+}) {
+  const roleLabel = msg.role === "assistant" ? t("history.roleAssistant") : t("history.roleUser");
+  const timestamp = formatTimestamp(msg.timestamp);
+  const isError = presentation.tone === "error";
+
+  return (
+    <article
+      data-slot="session-message"
+      data-variant={isError ? "error" : undefined}
+      className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)] gap-3"
+    >
+      <div className="flex justify-center pt-1">
+        <span
+          className={cn(
+            "flex size-8 items-center justify-center rounded-full border bg-background text-muted-foreground",
+            msg.role === "assistant" && "bg-primary/10 text-primary",
+            isError && "border-destructive/40 bg-destructive/10 text-destructive",
+          )}
+        >
+          {isError ? (
+            <AlertTriangle className="size-4" aria-hidden="true" />
+          ) : (
+            <RoleIcon role={msg.role} />
+          )}
+        </span>
+      </div>
+      <div
+        className={cn(
+          "min-w-0 rounded-md border bg-card px-4 py-3",
+          isError && "border-destructive/40 bg-destructive/5",
+        )}
+      >
+        <div className="mb-2 flex min-w-0 flex-wrap items-center gap-2 text-sm text-muted-foreground">
+          <span className={cn("shrink-0 font-medium", isError && "text-destructive")}>
+            {roleLabel}
+          </span>
+          {timestamp && <span className="min-w-0 text-xs tabular-nums">{timestamp}</span>}
+        </div>
+        <div className="min-w-0 max-w-3xl space-y-2 text-foreground">
+          <MessageBlocks blocks={msg.blocks} t={t} />
+        </div>
+      </div>
+    </article>
+  );
+}
 
 interface Props {
   project: string;
@@ -510,6 +749,11 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
   }, [project, sessionId, showToast, t]);
 
   const messages = detail?.messages;
+  const headerProject = detail?.project ?? project;
+  const messageMeta = messages
+    ? formatMessageCount(messages.length, t("history.messageCountUnit"))
+    : null;
+  const timeRange = messages ? formatDateRange(messages, t("history.timeUnknown")) : null;
 
   return (
     <Sheet open onOpenChange={(open) => !open && onClose()}>
@@ -518,25 +762,45 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
         showCloseButton={false}
         className="left-[60px] w-auto min-w-0 gap-0 overflow-hidden border-l bg-background p-0 sm:max-w-none max-[700px]:left-[48px]"
       >
-        <SheetHeader className="shrink-0 border-b px-5 py-3 pr-12">
-          <SheetTitle id="session-detail-title" className="min-w-0 truncate">
-            {t("history.conversation")} — {sessionId.slice(0, 8)}
-          </SheetTitle>
-          <SheetDescription className="truncate">{project}</SheetDescription>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="absolute top-3 right-4"
-            onClick={onClose}
-            title={t("common.close")}
-          >
-            <X className="size-4" />
-            <span className="sr-only">{t("common.close")}</span>
-          </Button>
+        <SheetHeader className="shrink-0 border-b px-5 py-4 pr-12">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <SheetTitle className="flex min-w-0 flex-wrap items-baseline gap-2 text-lg">
+                <span>{t("history.conversation")}</span>
+                <span className="min-w-0 font-mono text-muted-foreground">
+                  {sessionId.slice(0, 8)}
+                </span>
+              </SheetTitle>
+              <SheetDescription className="mt-1 truncate">
+                {stripAnsiForDisplay(headerProject)}
+              </SheetDescription>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="absolute top-3 right-4"
+              onClick={onClose}
+              title={t("common.close")}
+            >
+              <X className="size-4" />
+              <span className="sr-only">{t("common.close")}</span>
+            </Button>
+          </div>
+          {messageMeta && timeRange && (
+            <div className="mt-3 flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <Badge variant="outline" className="gap-1.5 rounded-md px-2 py-1 font-normal">
+                <MessageSquare className="size-3.5" aria-hidden="true" />
+                {messageMeta}
+              </Badge>
+              <span className="flex min-w-0 items-center gap-1.5 rounded-md border px-2 py-1 tabular-nums">
+                <Clock3 className="size-3.5 shrink-0" aria-hidden="true" />
+                <span className="min-w-0 truncate">{timeRange}</span>
+              </span>
+            </div>
+          )}
         </SheetHeader>
 
-        {/* 内容区 */}
         {loading ? (
           <div className="flex flex-1 items-center justify-center text-muted-foreground">
             {t("loading")}
@@ -546,31 +810,19 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
             {t("history.noData")}
           </div>
         ) : (
-          <div className="min-w-0 flex-1 overflow-y-auto px-5 py-3">
-            {messages.map((msg, i) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: 消息列表无唯一标识符
-              <div key={i}>
-                {i > 0 && <Separator className="my-3" />}
-                <div className="min-w-0 max-w-full">
-                  <div className="mb-2 flex min-w-0 flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                    <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
-                      {msg.role === "user" ? "U" : "A"}
-                    </span>
-                    <span className="shrink-0 font-medium">
-                      {msg.role === "user" ? t("history.roleUser") : t("history.roleAssistant")}
-                    </span>
-                    {msg.timestamp && (
-                      <span className="min-w-0 text-muted-foreground">
-                        {new Date(msg.timestamp).toLocaleString()}
-                      </span>
-                    )}
-                  </div>
-                  <div className="min-w-0 max-w-full space-y-2 text-sm leading-6 text-foreground [overflow-wrap:anywhere]">
-                    <MessageBlocks blocks={msg.blocks} t={t} />
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="min-w-0 flex-1 overflow-y-auto bg-muted/10">
+            <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-5 py-5 max-sm:px-3">
+              {messages.map((msg, i) => {
+                const presentation = getMessagePresentation(msg);
+                return presentation.kind === "event" ? (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: 消息列表无唯一标识符
+                  <EventMessage key={i} msg={msg} t={t} />
+                ) : (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: 消息列表无唯一标识符
+                  <ConversationMessage key={i} msg={msg} presentation={presentation} t={t} />
+                );
+              })}
+            </div>
           </div>
         )}
       </SheetContent>
