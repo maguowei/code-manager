@@ -1,4 +1,5 @@
 import { json } from "@codemirror/lang-json";
+import { EditorView } from "@codemirror/view";
 import { invoke } from "@tauri-apps/api/core";
 import CodeMirror from "@uiw/react-codemirror";
 import { X } from "lucide-react";
@@ -21,7 +22,7 @@ const FILE_TOOLS = new Set(["Read", "Write", "Edit", "NotebookRead", "NotebookEd
 
 /** ReactMarkdown 插件列表（模块级常量，所有实例共享，避免每次渲染重建数组） */
 const REMARK_PLUGINS = [remarkGfm];
-const JSON_EXTENSIONS = [json()];
+const JSON_EXTENSIONS = [json(), EditorView.lineWrapping];
 const READONLY_CODEMIRROR_SETUP = {
   lineNumbers: true,
   foldGutter: false,

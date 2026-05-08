@@ -800,9 +800,13 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                         </div>
 
                         {interactionError ? (
-                          <p className="field-error">{interactionError}</p>
+                          <p className="m-0 text-sm font-medium text-destructive">
+                            {interactionError}
+                          </p>
                         ) : null}
-                        {draftError ? <p className="field-error">{draftError}</p> : null}
+                        {draftError ? (
+                          <p className="m-0 text-sm font-medium text-destructive">{draftError}</p>
+                        ) : null}
                       </div>
                     ) : null}
                   </div>

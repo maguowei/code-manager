@@ -361,7 +361,9 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
         </div>
       )}
 
-      {interactionError ? <p className="field-error">{interactionError}</p> : null}
+      {interactionError ? (
+        <p className="m-0 text-sm font-medium text-destructive">{interactionError}</p>
+      ) : null}
 
       <div className="profile-env-footer flex justify-end">
         <div className="profile-hook-footer-actions flex flex-wrap gap-3">

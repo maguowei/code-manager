@@ -834,9 +834,13 @@ function EnabledPluginsEditor({
                         </div>
 
                         {interactionError ? (
-                          <p className="field-error">{interactionError}</p>
+                          <p className="m-0 text-sm font-medium text-destructive">
+                            {interactionError}
+                          </p>
                         ) : null}
-                        {draftError ? <p className="field-error">{draftError}</p> : null}
+                        {draftError ? (
+                          <p className="m-0 text-sm font-medium text-destructive">{draftError}</p>
+                        ) : null}
                       </div>
                     ) : null}
                   </div>
@@ -845,8 +849,12 @@ function EnabledPluginsEditor({
             </div>
           )}
 
-          {!draft && interactionError ? <p className="field-error">{interactionError}</p> : null}
-          {!draft && draftError ? <p className="field-error">{draftError}</p> : null}
+          {!draft && interactionError ? (
+            <p className="m-0 text-sm font-medium text-destructive">{interactionError}</p>
+          ) : null}
+          {!draft && draftError ? (
+            <p className="m-0 text-sm font-medium text-destructive">{draftError}</p>
+          ) : null}
 
           <div className="profile-env-footer">
             <div className="profile-plugin-footer-actions flex flex-wrap gap-3 max-[520px]:w-full">

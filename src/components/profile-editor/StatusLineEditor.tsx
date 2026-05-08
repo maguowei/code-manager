@@ -197,7 +197,7 @@ function StatusLineEditor({ value, onChange, onError, showTitle = true }: Status
       </div>
 
       {validationError ? (
-        <p className="field-error text-sm font-medium text-destructive">{validationError}</p>
+        <p className="m-0 text-sm font-medium text-destructive">{validationError}</p>
       ) : null}
 
       {overwriteDialogOpen ? (
