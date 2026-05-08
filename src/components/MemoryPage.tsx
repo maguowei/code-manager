@@ -456,7 +456,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
           <SheetContent
             side="right"
             showCloseButton={false}
-            className="left-[340px] w-auto border-l-0 bg-card p-0 shadow-lg sm:max-w-none max-[1000px]:left-[60px] max-[700px]:left-[48px]"
+            className="left-[340px] w-auto border-l-0 bg-card p-0 shadow-floating sm:max-w-none max-[1000px]:left-[60px] max-[700px]:left-[48px]"
           >
             <MemoryEditor
               memory={editingMemory}

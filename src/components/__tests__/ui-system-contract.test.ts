@@ -78,6 +78,19 @@ describe("ui system contract", () => {
     expect(source).not.toContain("bg-[var(");
   });
 
+  it("defines desktop shell tokens without raw utility color overrides", () => {
+    const css = readFileSync("src/index.css", "utf8");
+
+    expect(css).toContain("--shadow-panel:");
+    expect(css).toContain("--shadow-floating:");
+    expect(css).toContain("--shadow-toolbar:");
+    expect(css).toContain("--shadow-panel: 0 1px 2px");
+    expect(css).toContain("0 18px 45px");
+    expect(css).toContain("--shadow-toolbar: 0 1px 0");
+    expect(css).toContain("--background: oklch(0.976 0.004 255)");
+    expect(css).toContain("--sidebar: oklch(0.932 0.006 255)");
+  });
+
   it("keeps profile editor surfaces off raw theme formulas", () => {
     for (const file of [
       "src/components/profile-editor/SandboxEditor.tsx",

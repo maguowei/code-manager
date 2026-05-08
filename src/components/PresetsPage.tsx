@@ -27,7 +27,7 @@ interface PresetsPageProps {
 }
 
 const PRESET_CARD_CLASS =
-  "preset-card flex flex-col gap-3 rounded-lg border border-border bg-card p-4 text-foreground shadow-none transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-px hover:border-primary hover:bg-accent/40 hover:shadow-sm";
+  "preset-card flex flex-col gap-3 rounded-lg border border-border bg-card p-4 text-foreground shadow-panel transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-px hover:border-primary hover:bg-accent/40";
 
 const PRESET_BUILTIN_CARD_CLASS = "builtin bg-muted/40";
 
@@ -324,7 +324,7 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
           <SheetContent
             side="right"
             showCloseButton={false}
-            className="left-[340px] w-auto border-l-0 bg-card p-0 shadow-lg sm:max-w-none max-[1000px]:left-[60px] max-[700px]:left-[48px]"
+            className="left-[340px] w-auto border-l-0 bg-card p-0 shadow-floating sm:max-w-none max-[1000px]:left-[60px] max-[700px]:left-[48px]"
           >
             <PresetEditor
               preset={editingPreset}

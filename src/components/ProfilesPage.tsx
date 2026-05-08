@@ -678,7 +678,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                 <Card
                   key={profile.id}
                   className={cn(
-                    "group relative flex cursor-pointer flex-col gap-4 rounded-lg border border-border bg-card p-4 py-4 shadow-none transition-[transform,border-color,box-shadow,opacity] duration-200 hover:-translate-y-px hover:border-primary hover:bg-accent/40 hover:shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                    "group relative flex cursor-pointer flex-col gap-4 rounded-lg border border-border bg-card p-4 py-4 shadow-panel transition-[transform,border-color,box-shadow,opacity] duration-200 hover:-translate-y-px hover:border-primary hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                     isAppliedProfile && "active border-primary ring-1 ring-primary/30",
                     isEditingProfile && "editing border-chart-3 ring-1 ring-chart-3/30",
                     dragState.draggingIndex === index &&
@@ -898,7 +898,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
           <SheetContent
             side="right"
             showCloseButton={false}
-            className="left-[340px] w-auto border-l-0 bg-card p-0 shadow-lg sm:max-w-none max-[1000px]:left-[60px] max-[700px]:left-[48px]"
+            className="left-[340px] w-auto border-l-0 bg-card p-0 shadow-floating sm:max-w-none max-[1000px]:left-[60px] max-[700px]:left-[48px]"
           >
             <ProfileEditor
               profile={editingProfile}

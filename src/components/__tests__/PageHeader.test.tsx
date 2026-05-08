@@ -18,7 +18,14 @@ describe("PageHeader", () => {
     );
 
     const header = screen.getByRole("banner");
-    expect(header).toHaveClass("page-header", "sticky", "min-h-[52px]", "border-b");
+    expect(header).toHaveClass(
+      "page-header",
+      "sticky",
+      "min-h-[52px]",
+      "border-b",
+      "shadow-toolbar",
+      "backdrop-blur",
+    );
     expect(within(header).getByRole("heading", { name: "配置" })).toHaveClass("page-title");
     expect(within(header).getByText("管理 Claude Code 的本地配置")).toHaveClass(
       "text-muted-foreground",

@@ -36,7 +36,7 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
   return (
     <Card
       className={cn(
-        "skill-item group relative flex cursor-pointer flex-col gap-4 rounded-lg border border-border bg-card p-4 text-foreground shadow-none transition-[transform,border-color,box-shadow,background-color,opacity] duration-200 hover:-translate-y-px hover:border-primary hover:bg-accent/40 hover:shadow-sm",
+        "skill-item group relative flex cursor-pointer flex-col gap-4 rounded-lg border border-border bg-card p-4 text-foreground shadow-panel transition-[transform,border-color,box-shadow,background-color,opacity] duration-200 hover:-translate-y-px hover:border-primary hover:bg-accent/40",
         skill.isActive ? "active border-primary ring-1 ring-primary/30" : "inactive",
         isEditing && "editing border-chart-3 ring-1 ring-chart-3/30 hover:border-chart-3",
       )}

@@ -18,9 +18,9 @@ interface PageHeaderProps {
 }
 
 const SURFACE_CLASS: Record<PageHeaderSurface, string> = {
-  background: "bg-background",
-  secondary: "bg-secondary",
-  card: "bg-card",
+  background: "bg-background supports-[backdrop-filter]:bg-background/90",
+  secondary: "bg-secondary supports-[backdrop-filter]:bg-secondary/90",
+  card: "bg-card supports-[backdrop-filter]:bg-card/90",
 };
 
 function PageHeader({
@@ -40,7 +40,7 @@ function PageHeader({
   return (
     <header
       className={cn(
-        "page-header sticky top-0 z-10 shrink-0 border-b border-border px-5 py-3",
+        "page-header sticky top-0 z-10 shrink-0 border-b border-border px-5 py-3 shadow-toolbar backdrop-blur",
         SURFACE_CLASS[surface],
         isListVariant
           ? "flex min-h-[52px] flex-col items-start gap-2"
