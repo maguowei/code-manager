@@ -68,6 +68,7 @@
 - 所有用户可见文本必须走 `useI18n()` 的 `t()` 函数，不要硬编码中英文字符串。
 - 所有前端通知优先走 `useToast()`，不要把 `console.error` 当作用户反馈。
 - 新增有层叠关系或浮层的样式时，使用 shadcn 语义变量（`bg-background` / `text-foreground` / `text-muted-foreground` / `text-destructive` / `border` 等）和 shadcn 原子组件内置的层级，不要硬编码十六进制色值或 z-index 数字；详见 `.claude/rules/frontend-ui.md`。
+- 前端视觉默认采用“均衡管理台”风格：克制、紧凑、可扫描，不做营销式 hero、大字号展示或装饰性卡片堆叠；详见 `.claude/rules/frontend-ui.md`。
 - Rust 新增文件读写、锁、时间、JSON 工具时，优先复用 `src-tauri/src/utils.rs`。
 
 ## 规则索引
