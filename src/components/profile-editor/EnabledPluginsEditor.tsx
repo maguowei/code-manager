@@ -437,7 +437,7 @@ function EnabledPluginsEditor({
     return (
       <Button
         type="button"
-        className={`profile-primary-btn profile-plugin-refresh-action relative overflow-visible whitespace-nowrap${loadingOfficialPlugins ? " is-loading" : ""}`}
+        className={`relative overflow-visible whitespace-nowrap${loadingOfficialPlugins ? " is-loading" : ""}`}
         title={officialActionTooltip}
         data-tooltip={officialActionTooltip}
         aria-label={officialLoadLabel}
@@ -446,7 +446,7 @@ function EnabledPluginsEditor({
         disabled={loadingOfficialPlugins}
       >
         <RefreshCw
-          className={`profile-plugin-refresh-icon size-3.5${loadingOfficialPlugins ? " animate-spin" : ""}`}
+          className={`size-3.5${loadingOfficialPlugins ? " animate-spin" : ""}`}
           aria-hidden="true"
         />
         <span>{officialLoadLabel}</span>
@@ -481,34 +481,34 @@ function EnabledPluginsEditor({
   const showFilteredEmptyState = plugins.length > 0 && filteredPlugins.length === 0 && !draft;
 
   return (
-    <div className="profile-subsection">
-      <div className="profile-subsection-header">
+    <div className="flex flex-col gap-3.5">
+      <div className="flex items-start justify-between gap-3">
         <div>{showTitle ? <h4>{t("profileEditor.plugins.title")}</h4> : null}</div>
       </div>
 
-      <div className="profile-plugin-editor flex flex-col gap-4">
-        <div className="profile-plugin-list-shell flex min-w-0 flex-col gap-3">
+      <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-3">
           {showOfficialToolbar && officialPluginAction ? (
-            <div className="profile-plugin-toolbar flex flex-wrap gap-3" data-slot="plugin-toolbar">
+            <div className="flex flex-wrap gap-3" data-slot="plugin-toolbar">
               {officialPluginAction}
             </div>
           ) : null}
 
           {showFilters ? (
-            <div className="profile-plugin-filters flex w-full flex-nowrap items-stretch gap-3 max-[1120px]:flex-wrap max-[520px]:flex-col">
-              <div className="profile-plugin-filter-field profile-plugin-filter-field-input profile-plugin-filter-field-search flex h-[42px] min-w-0 flex-[2_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--primary)] focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
+            <div className="flex w-full flex-nowrap items-stretch gap-3 max-[1120px]:flex-wrap max-[520px]:flex-col">
+              <div className="flex h-[42px] min-w-0 flex-[2_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--primary)] focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
                 <Input
                   type="text"
-                  className="profile-plugin-filter-input h-full border-0 bg-transparent px-0 py-0 shadow-none focus-visible:ring-0"
+                  className="h-full border-0 bg-transparent px-0 py-0 shadow-none focus-visible:ring-0"
                   value={searchQuery}
                   aria-label={searchLabel}
                   placeholder={searchPlaceholder}
                   onChange={(event) => setSearchQuery(event.target.value)}
                 />
               </div>
-              <div className="profile-plugin-filter-field profile-plugin-filter-field-select flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--primary)] focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
+              <div className="flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--primary)] focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
                 <span
-                  className="profile-plugin-filter-prefix shrink-0 whitespace-nowrap text-[11px] font-semibold text-muted-foreground"
+                  className="shrink-0 whitespace-nowrap text-[11px] font-semibold text-muted-foreground"
                   aria-hidden="true"
                 >
                   {statusFilterFieldLabel}
@@ -545,9 +545,9 @@ function EnabledPluginsEditor({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="profile-plugin-filter-field profile-plugin-filter-field-select flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--primary)] focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
+              <div className="flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--primary)] focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
                 <span
-                  className="profile-plugin-filter-prefix shrink-0 whitespace-nowrap text-[11px] font-semibold text-muted-foreground"
+                  className="shrink-0 whitespace-nowrap text-[11px] font-semibold text-muted-foreground"
                   aria-hidden="true"
                 >
                   {categoryFilterFieldLabel}
@@ -578,9 +578,9 @@ function EnabledPluginsEditor({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="profile-plugin-filter-field profile-plugin-filter-field-select flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--primary)] focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
+              <div className="flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--primary)] focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
                 <span
-                  className="profile-plugin-filter-prefix shrink-0 whitespace-nowrap text-[11px] font-semibold text-muted-foreground"
+                  className="shrink-0 whitespace-nowrap text-[11px] font-semibold text-muted-foreground"
                   aria-hidden="true"
                 >
                   {sourceTypeFilterFieldLabel}
@@ -619,32 +619,30 @@ function EnabledPluginsEditor({
           ) : null}
 
           {showEmptyState ? (
-            <div className="profile-empty-state profile-plugin-empty-list flex min-h-[120px] items-center justify-center rounded-lg border border-border px-4 text-center">
+            <div className="flex min-h-[120px] items-center justify-center rounded-lg border border-border px-4 text-center">
               {emptyHint}
             </div>
           ) : showFilteredEmptyState ? (
-            <div className="profile-empty-state profile-plugin-empty-list flex min-h-[120px] items-center justify-center rounded-lg border border-border px-4 text-center">
+            <div className="flex min-h-[120px] items-center justify-center rounded-lg border border-border px-4 text-center">
               {filteredEmptyHint}
             </div>
           ) : (
             <div
-              className="profile-plugin-list flex flex-col overflow-hidden rounded-lg border border-border bg-card"
+              className="flex flex-col overflow-hidden rounded-lg border border-border bg-card"
               data-slot="plugin-list"
             >
               <div
-                className="profile-plugin-list-header grid grid-cols-[40px_minmax(0,1fr)_clamp(118px,12vw,132px)_52px] items-center gap-x-3 border-b border-border px-3.5 py-3 text-xs font-semibold text-muted-foreground max-[520px]:hidden"
+                className="grid grid-cols-[40px_minmax(0,1fr)_clamp(118px,12vw,132px)_52px] items-center gap-x-3 border-b border-border px-3.5 py-3 text-xs font-semibold text-muted-foreground max-[520px]:hidden"
                 aria-hidden="true"
               >
-                <span className="profile-plugin-list-header-index inline-flex items-center justify-center text-muted-foreground tabular-nums">
+                <span className="inline-flex items-center justify-center text-muted-foreground tabular-nums">
                   {t("profileEditor.common.index")}
                 </span>
                 <span>{t("profileEditor.plugins.columnId")}</span>
-                <span className="profile-plugin-list-header-status justify-self-start">
+                <span className="justify-self-start">
                   {t("profileEditor.plugins.columnStatus")}
                 </span>
-                <span className="profile-plugin-list-header-actions w-full text-right">
-                  {t("profileEditor.common.actions")}
-                </span>
+                <span className="w-full text-right">{t("profileEditor.common.actions")}</span>
               </div>
 
               {visiblePlugins.map((plugin, index) => {
@@ -653,7 +651,7 @@ function EnabledPluginsEditor({
                 const pluginMetaItems = buildOfficialPluginMetaItems(plugin.metadata);
                 const verifiedBadgeIcon = officialPlugin ? (
                   <span
-                    className="profile-plugin-verified-icon inline-flex shrink-0 items-center justify-center text-[color-mix(in_srgb,var(--chart-2)_68%,var(--muted-foreground))] opacity-70 transition-opacity group-hover:opacity-90 group-focus-visible:opacity-90"
+                    className="inline-flex shrink-0 items-center justify-center text-[color-mix(in_srgb,var(--chart-2)_68%,var(--muted-foreground))] opacity-70 transition-opacity group-hover:opacity-90 group-focus-visible:opacity-90"
                     role="img"
                     aria-label={verifiedBadgeAriaLabel}
                   >
@@ -670,22 +668,22 @@ function EnabledPluginsEditor({
                 return (
                   <div
                     key={plugin.id}
-                    className="profile-plugin-list-row flex flex-col border-t border-border px-3.5 py-2.5 text-sm font-medium leading-[1.4] first:border-t-0 max-[520px]:gap-3 max-[520px]:py-3"
+                    className="flex flex-col border-t border-border px-3.5 py-2.5 text-sm font-medium leading-[1.4] first:border-t-0 max-[520px]:gap-3 max-[520px]:py-3"
                     data-slot="plugin-list-row"
                   >
                     <div
-                      className="profile-plugin-list-main grid min-w-0 grid-cols-[40px_minmax(0,1fr)_52px] items-center gap-x-3 max-[520px]:grid-cols-[32px_minmax(0,1fr)_auto] max-[520px]:items-start max-[520px]:gap-x-2.5 max-[520px]:gap-y-2"
+                      className="grid min-w-0 grid-cols-[40px_minmax(0,1fr)_52px] items-center gap-x-3 max-[520px]:grid-cols-[32px_minmax(0,1fr)_auto] max-[520px]:items-start max-[520px]:gap-x-2.5 max-[520px]:gap-y-2"
                       data-slot="plugin-list-main"
                     >
                       <span
-                        className="profile-plugin-index inline-flex items-center justify-center text-[inherit] font-[inherit] text-muted-foreground tabular-nums max-[520px]:items-start max-[520px]:pt-0.5"
+                        className="inline-flex items-center justify-center text-[inherit] font-[inherit] text-muted-foreground tabular-nums max-[520px]:items-start max-[520px]:pt-0.5"
                         aria-hidden="true"
                       >
                         {index + 1}
                       </span>
-                      <div className="profile-plugin-list-content grid min-w-0 grid-cols-[minmax(0,1fr)_clamp(118px,12vw,132px)] items-center gap-x-3 max-[520px]:grid-cols-1 max-[520px]:gap-y-2">
-                        <div className="profile-plugin-list-id flex min-h-[42px] min-w-0 items-center font-[inherit] max-[520px]:min-h-0">
-                          <div className="profile-plugin-list-identity flex min-w-0 flex-1 flex-col items-start gap-1">
+                      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_clamp(118px,12vw,132px)] items-center gap-x-3 max-[520px]:grid-cols-1 max-[520px]:gap-y-2">
+                        <div className="flex min-h-[42px] min-w-0 items-center font-[inherit] max-[520px]:min-h-0">
+                          <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
                             {plugin.metadata?.homepage ? (
                               <Button
                                 type="button"
@@ -698,23 +696,22 @@ function EnabledPluginsEditor({
                                   void openUrl(plugin.metadata?.homepage ?? "");
                                 }}
                               >
-                                <span className="profile-plugin-list-key inline-flex min-w-0 items-center gap-2">
+                                <span className="inline-flex min-w-0 items-center gap-2">
                                   <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap max-[520px]:whitespace-normal max-[520px]:break-words">
                                     {rowLabel}
                                   </span>
                                   {isDraftRow ? (
-                                    <span className="profile-env-row-badge">{draftBadgeText}</span>
+                                    <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-bold text-primary">
+                                      {draftBadgeText}
+                                    </span>
                                   ) : null}
                                   {verifiedBadgeIcon}
-                                  <ExternalLink
-                                    className="profile-plugin-link-icon size-3.5"
-                                    aria-hidden="true"
-                                  />
+                                  <ExternalLink className="size-3.5" aria-hidden="true" />
                                 </span>
                               </Button>
                             ) : (
                               <span
-                                className="profile-plugin-list-key profile-plugin-link-static relative inline-flex min-w-0 items-center gap-2 font-[inherit] text-[inherit]"
+                                className="relative inline-flex min-w-0 items-center gap-2 font-[inherit] text-[inherit]"
                                 title={plugin.metadata?.description || undefined}
                                 data-description={plugin.metadata?.description || undefined}
                               >
@@ -722,13 +719,15 @@ function EnabledPluginsEditor({
                                   {rowLabel}
                                 </span>
                                 {isDraftRow ? (
-                                  <span className="profile-env-row-badge">{draftBadgeText}</span>
+                                  <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-bold text-primary">
+                                    {draftBadgeText}
+                                  </span>
                                 ) : null}
                                 {verifiedBadgeIcon}
                               </span>
                             )}
                             {pluginMetaItems.length > 0 ? (
-                              <div className="profile-plugin-meta flex min-w-0 flex-wrap items-center gap-1.5 text-xs font-medium leading-snug text-muted-foreground">
+                              <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs font-medium leading-snug text-muted-foreground">
                                 {pluginMetaItems.map((item, itemIndex) => (
                                   <Fragment key={`${plugin.id}:${item.kind}:${item.value}`}>
                                     {itemIndex > 0 ? (
@@ -739,7 +738,7 @@ function EnabledPluginsEditor({
                                         ·
                                       </span>
                                     ) : null}
-                                    <span className="profile-plugin-meta-item inline-flex min-w-0 items-center whitespace-nowrap max-[520px]:whitespace-normal max-[520px]:break-words">
+                                    <span className="inline-flex min-w-0 items-center whitespace-nowrap max-[520px]:whitespace-normal max-[520px]:break-words">
                                       {item.value}
                                     </span>
                                   </Fragment>
@@ -748,7 +747,7 @@ function EnabledPluginsEditor({
                             ) : null}
                           </div>
                         </div>
-                        <div className="profile-plugin-status-cell flex min-w-0 items-center justify-start gap-2.5 justify-self-start max-[520px]:flex-wrap">
+                        <div className="flex min-w-0 items-center justify-start gap-2.5 justify-self-start max-[520px]:flex-wrap">
                           <SandboxSwitchControl
                             enabled={plugin.enabled}
                             ariaLabel={`${t("profileEditor.plugins.statusAriaLabel")} ${rowLabel}`}
@@ -765,14 +764,14 @@ function EnabledPluginsEditor({
                             variant="header"
                           />
                           <span
-                            className={`profile-plugin-status-text whitespace-nowrap text-xs font-medium leading-tight${plugin.enabled ? " is-on text-[var(--chart-2)]" : " text-muted-foreground"}`}
+                            className={`whitespace-nowrap text-xs font-medium leading-tight${plugin.enabled ? " is-on text-[var(--chart-2)]" : " text-muted-foreground"}`}
                           >
                             {plugin.enabled ? rowStatusOnText : rowStatusOffText}
                           </span>
                         </div>
                       </div>
 
-                      <div className="profile-row-actions profile-plugin-row-actions flex justify-center self-center justify-self-end max-[520px]:items-start max-[520px]:justify-end">
+                      <div className="flex justify-center self-center justify-self-end max-[520px]:items-start max-[520px]:justify-end">
                         <Button
                           type="button"
                           variant="ghost"
@@ -792,10 +791,10 @@ function EnabledPluginsEditor({
                       </div>
                     </div>
                     {isDraftRow && draft ? (
-                      <div className="profile-env-inline-editor profile-plugin-inline-editor mt-2 flex flex-col gap-3 rounded-lg border border-border bg-secondary p-3 pl-[calc(40px+0.875rem)] max-[520px]:mt-0 max-[520px]:pl-3">
-                        <div className="profile-env-inline-fields">
+                      <div className="mt-2 flex flex-col gap-3 rounded-lg border border-border bg-secondary p-3 pl-[calc(40px+0.875rem)] max-[520px]:mt-0 max-[520px]:pl-3">
+                        <div className="">
                           <label className="grid gap-2 mb-0">
-                            <span className="profile-inline-required-label profile-env-inline-label">
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                               <span>{t("profileEditor.plugins.newIdLabel")}</span>
                               <RequiredBadge />
                             </span>
@@ -803,7 +802,7 @@ function EnabledPluginsEditor({
                               ref={draftInputRef}
                               id={`plugin-draft-id-${draft.id}`}
                               aria-label={t("profileEditor.plugins.newIdLabel")}
-                              className="profile-plugin-draft-input"
+                              className=""
                               value={draft.pluginId}
                               placeholder="formatter@anthropic-tools"
                               onChange={(event) =>
@@ -813,10 +812,10 @@ function EnabledPluginsEditor({
                           </label>
                         </div>
 
-                        <div className="profile-env-inline-actions flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <Button
                             type="button"
-                            className="profile-primary-btn"
+                            className=""
                             aria-label={saveDraftAriaLabel}
                             onClick={handleSaveDraft}
                           >
@@ -856,8 +855,8 @@ function EnabledPluginsEditor({
             <p className="m-0 text-sm font-medium text-destructive">{draftError}</p>
           ) : null}
 
-          <div className="profile-env-footer">
-            <div className="profile-plugin-footer-actions flex flex-wrap gap-3 max-[520px]:w-full">
+          <div className="">
+            <div className="flex flex-wrap gap-3 max-[520px]:w-full">
               <Button type="button" variant="outline" className="" onClick={handleAddPlugin}>
                 <Plus className="size-4" aria-hidden="true" />
                 {t("profileEditor.plugins.addItem")}
