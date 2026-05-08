@@ -15,12 +15,12 @@
 ## 项目快速事实
 
 - 项目：AI Manager，基于 Tauri 2 的 Claude Code 本地配置管理桌面应用。
-- 当前版本：`0.13.0`，版本号同时出现在 `package.json` 与 `src-tauri/tauri.conf.json`。
-- 前端：React 19 + TypeScript + Vite。
+- 当前版本：`0.17.0`，版本号同时出现在 `package.json` 与 `src-tauri/tauri.conf.json`。
+- 前端：React 19 + TypeScript + Vite + Tailwind CSS v4 + shadcn/ui（详见 `.claude/rules/frontend-ui.md`）。
 - 后端：Rust + Tauri commands。
 - 包管理器：`pnpm`，项目声明 `pnpm@10.33.0`。
 - 应用标识符：`com.gotobeta.app.ai-manager`。
-- 当前仓库不使用 Go、Python 或 Tailwind CSS；如后续引入，遵守仓库通用约束：Go 1.26、Python >= 3.14、Tailwind CSS v4。
+- 当前仓库不使用 Go、Python；如后续引入，遵守仓库通用约束：Go 1.26、Python >= 3.14。
 
 ## 关键数据目录
 
@@ -67,7 +67,7 @@
 - 代码注释使用中文。
 - 所有用户可见文本必须走 `useI18n()` 的 `t()` 函数，不要硬编码中英文字符串。
 - 所有前端通知优先走 `useToast()`，不要把 `console.error` 当作用户反馈。
-- 新增有层叠关系的样式时，复用 `src/styles/shared.css` 中的 z-index 变量，不要硬编码层级数值。
+- 新增有层叠关系或浮层的样式时，使用 shadcn 语义变量（`bg-background` / `text-foreground` / `text-muted-foreground` / `text-destructive` / `border` 等）和 shadcn 原子组件内置的层级，不要硬编码十六进制色值或 z-index 数字；详见 `.claude/rules/frontend-ui.md`。
 - Rust 新增文件读写、锁、时间、JSON 工具时，优先复用 `src-tauri/src/utils.rs`。
 
 ## 规则索引
@@ -92,7 +92,8 @@
 - 类型契约：`src/types.ts`
 - 共享 schema 与表单定义：`src/schemas/`
 - 公共 hooks：`src/hooks/`
-- 公共样式与 z-index 令牌：`src/styles/shared.css`
+- Tailwind v4 入口与 OKLCH 主题变量：`src/index.css`
+- shadcn 原子组件：`src/components/ui/`，类名拼接工具：`src/lib/utils.ts`（`cn()`）
 - Tauri 命令注册：`src-tauri/src/lib.rs`
 - Rust 公共工具：`src-tauri/src/utils.rs`
 - Tauri capability：`src-tauri/capabilities/default.json`
@@ -141,7 +142,7 @@ cd src-tauri && cargo test
 ## 已知陷阱
 
 - CodeMirror 多版本冲突会导致空白页。排查：`grep "'@codemirror/state@" pnpm-lock.yaml`，预期只有一个版本；如出现多个版本，在 `package.json` 里用 `pnpm.overrides` 统一。
-- 不要忽略共享样式层级：抽屉、设置面板、模态框、下拉菜单和 Toast 的层级集中在 CSS 变量里。
+- 不要自实现浮层：抽屉、设置面板、模态框、下拉菜单和 Toast 都用 shadcn `Sheet` / `Dialog` / `DropdownMenu` / `Popover` / sonner，层级由组件本身管理。
 - 不要混淆 Stats 与 Usage：`StatsPage` 用 `~/.claude.json`，`UsagePage` 用 `~/.claude/projects/**/*.jsonl`。
 - 不要把日志当成配置数据：日志目录由 Tauri 的 `app_log_dir()` 解析，不要迁移到 `~/.config/ai-manager/`。
 - 不要相信旧文件名：当前配置 schema 是 `src/schemas/claude-settings.schema.json`。
