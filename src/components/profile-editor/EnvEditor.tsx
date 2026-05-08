@@ -337,9 +337,9 @@ function EnvEditor({
   }
 
   return (
-    <div className="profile-subsection">
+    <div className="flex flex-col gap-3.5">
       {showTitle ? (
-        <div className="profile-subsection-header">
+        <div className="flex items-start justify-between gap-3">
           <div>
             <h4>{t("profileEditor.env.title")}</h4>
             <p>{emptyHint}</p>
@@ -347,11 +347,11 @@ function EnvEditor({
         </div>
       ) : null}
 
-      <div className="profile-env-editor flex flex-col gap-4">
-        <div className="profile-env-list-shell flex min-w-0 flex-col gap-3">
-          <div className="profile-env-list flex flex-col overflow-hidden rounded-lg border border-border bg-card">
-            <div className="profile-env-list-header grid grid-cols-[40px_minmax(0,1.2fr)_minmax(0,0.8fr)_auto] items-center gap-3 border-b border-border px-3.5 py-3 text-xs font-semibold text-muted-foreground max-[720px]:hidden">
-              <span className="profile-env-list-header-index inline-flex items-center justify-center text-muted-foreground tabular-nums">
+      <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-3">
+          <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-card">
+            <div className="grid grid-cols-[40px_minmax(0,1.2fr)_minmax(0,0.8fr)_auto] items-center gap-3 border-b border-border px-3.5 py-3 text-xs font-semibold text-muted-foreground max-[720px]:hidden">
+              <span className="inline-flex items-center justify-center text-muted-foreground tabular-nums">
                 {t("profileEditor.common.index")}
               </span>
               <span>{t("profileEditor.env.columnKey")}</span>
@@ -381,7 +381,7 @@ function EnvEditor({
                 return (
                   <div key={item.id} className={rowClassName} data-slot="env-list-row">
                     <div
-                      className="profile-env-row-head grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 max-[720px]:items-start"
+                      className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 max-[720px]:items-start"
                       data-slot="env-row-head"
                     >
                       <Button
@@ -393,28 +393,32 @@ function EnvEditor({
                         onClick={() => handleSelectItem(item)}
                       >
                         <span
-                          className="profile-env-list-index inline-flex items-center justify-center text-xs font-semibold text-muted-foreground tabular-nums max-[720px]:row-span-2 max-[720px]:items-start max-[720px]:pt-0.5"
+                          className="inline-flex items-center justify-center text-xs font-semibold text-muted-foreground tabular-nums max-[720px]:row-span-2 max-[720px]:items-start max-[720px]:pt-0.5"
                           aria-hidden="true"
                         >
                           {index + 1}
                         </span>
-                        <span className="profile-env-list-key inline-flex min-w-0 items-center gap-2 font-semibold max-[720px]:col-start-2">
+                        <span className="inline-flex min-w-0 items-center gap-2 font-semibold max-[720px]:col-start-2">
                           <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap max-[720px]:whitespace-normal max-[720px]:break-words">
                             {label}
                           </span>
                           {draftBadge ? (
-                            <span className="profile-env-row-badge">{draftBadge}</span>
+                            <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-bold text-primary">
+                              {draftBadge}
+                            </span>
                           ) : null}
                           {dirtyBadge ? (
-                            <span className="profile-env-row-badge subtle">{dirtyBadge}</span>
+                            <span className="inline-flex items-center rounded-full bg-border/80 px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
+                              {dirtyBadge}
+                            </span>
                           ) : null}
                         </span>
-                        <span className="profile-env-list-value min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-sm text-muted-foreground max-[720px]:col-start-2 max-[720px]:line-clamp-2 max-[720px]:whitespace-normal max-[720px]:break-words">
+                        <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-sm text-muted-foreground max-[720px]:col-start-2 max-[720px]:line-clamp-2 max-[720px]:whitespace-normal max-[720px]:break-words">
                           {formatValuePreview(item.key, item.value)}
                         </span>
                       </Button>
 
-                      <div className="profile-row-actions profile-env-row-actions flex flex-nowrap justify-end">
+                      <div className="flex flex-nowrap items-center justify-end gap-2">
                         <Button
                           type="button"
                           variant="ghost"
@@ -429,10 +433,10 @@ function EnvEditor({
                     </div>
 
                     {selected && draft ? (
-                      <div className="profile-env-inline-editor mt-3 rounded-md border border-border bg-card p-3">
-                        <div className="profile-env-inline-fields grid gap-3">
+                      <div className="mt-3 rounded-md border border-border bg-card p-3">
+                        <div className="grid gap-3">
                           <label className="grid gap-2">
-                            <span className="profile-inline-required-label profile-env-inline-label">
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                               <span>{t("profileEditor.env.nameLabel")}</span>
                               <RequiredBadge />
                             </span>
@@ -457,11 +461,11 @@ function EnvEditor({
                           </label>
 
                           <label className="grid gap-2">
-                            <span className="profile-inline-required-label profile-env-inline-label">
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                               <span>{t("profileEditor.env.valueLabel")}</span>
                               <RequiredBadge />
                             </span>
-                            <div className="profile-env-inline-value-row flex items-center gap-2 max-[720px]:flex-col max-[720px]:items-stretch">
+                            <div className="flex items-center gap-2 max-[720px]:flex-col max-[720px]:items-stretch">
                               <Input
                                 className="min-w-0 flex-1"
                                 aria-label={t("profileEditor.env.valueLabel")}
@@ -509,10 +513,10 @@ function EnvEditor({
                           </label>
                         </div>
 
-                        <div className="profile-env-inline-actions mt-3 flex justify-end gap-2">
+                        <div className="mt-3 flex justify-end gap-2">
                           <Button
                             type="button"
-                            className="profile-primary-btn"
+                            className=""
                             aria-label={t("profileEditor.env.saveAriaLabel")}
                             onClick={handleSaveDraft}
                           >
@@ -543,13 +547,13 @@ function EnvEditor({
                 );
               })
             ) : (
-              <div className="profile-empty-state profile-env-empty-list flex min-h-[120px] items-center justify-center px-4 text-center">
+              <div className="flex min-h-[120px] items-center justify-center px-4 text-center">
                 {emptyHint}
               </div>
             )}
           </div>
 
-          <div className="profile-env-footer flex justify-end">
+          <div className="flex justify-end">
             <Button type="button" variant="outline" className="" onClick={handleAddVariable}>
               <Plus className="size-4" aria-hidden="true" />
               {t("profileEditor.env.addItem")}
