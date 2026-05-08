@@ -382,6 +382,12 @@ function renderUsage(
   return usage;
 }
 
+function clickCalendarDate(value: string) {
+  const button = document.querySelector(`button[data-day="${value}"]`);
+  expect(button).toBeInstanceOf(HTMLButtonElement);
+  fireEvent.click(button as HTMLButtonElement);
+}
+
 describe("UsagePage cost cockpit", () => {
   beforeEach(() => {
     vi.useRealTimers();
@@ -466,22 +472,37 @@ describe("UsagePage cost cockpit", () => {
     expect(within(table).queryByText("-Users-me-work-AI-ai-manager")).not.toBeInTheDocument();
   });
 
-  it("updates date filters from manual inputs and quick ranges", () => {
+  it("renders date filters with shadcn picker triggers instead of native date inputs", () => {
+    renderUsage({
+      filter: {
+        startDate: "2026-04-01",
+        endDate: "2026-04-30",
+      },
+    });
+
+    expect(document.querySelectorAll('input[type="date"]')).toHaveLength(0);
+    expect(screen.getByRole("button", { name: /开始日期 2026\/04\/01/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /结束日期 2026\/04\/30/ })).toBeInTheDocument();
+  });
+
+  it("updates date filters from shadcn pickers and quick ranges", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 4, 4, 12, 0, 0));
     const usage = renderUsage();
 
-    fireEvent.change(screen.getByLabelText("开始日期"), { target: { value: "2026-04-21" } });
+    fireEvent.click(screen.getByRole("button", { name: /开始日期 未选择/ }));
+    clickCalendarDate("2026-05-01");
     const startUpdater = usage.setFilter.mock.calls[usage.setFilter.mock.calls.length - 1]?.[0];
     expect(typeof startUpdater).toBe("function");
-    expect(startUpdater({})).toEqual({ startDate: "2026-04-21" });
+    expect(startUpdater({})).toEqual({ startDate: "2026-05-01" });
 
-    fireEvent.change(screen.getByLabelText("结束日期"), { target: { value: "2026-04-25" } });
+    fireEvent.click(screen.getByRole("button", { name: /结束日期 未选择/ }));
+    clickCalendarDate("2026-05-04");
     const endUpdater = usage.setFilter.mock.calls[usage.setFilter.mock.calls.length - 1]?.[0];
     expect(typeof endUpdater).toBe("function");
-    expect(endUpdater({ startDate: "2026-04-21" })).toEqual({
-      startDate: "2026-04-21",
-      endDate: "2026-04-25",
+    expect(endUpdater({ startDate: "2026-05-01" })).toEqual({
+      startDate: "2026-05-01",
+      endDate: "2026-05-04",
     });
 
     fireEvent.click(screen.getByRole("button", { name: "本周" }));

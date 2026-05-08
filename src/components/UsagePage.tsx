@@ -1,5 +1,6 @@
-import { RefreshCw, ScanLine, TriangleAlert } from "lucide-react";
+import { CalendarIcon, RefreshCw, ScanLine, TriangleAlert } from "lucide-react";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
+import { enUS, zhCN } from "react-day-picker/locale";
 import {
   Area,
   AreaChart,
@@ -30,8 +31,10 @@ import PageHeader from "./PageHeader";
 import { formatUSD } from "./project-detail-utils";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
+import { Calendar } from "./ui/calendar";
 import { Card, CardContent } from "./ui/card";
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "./ui/chart";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { SegmentedControl } from "./ui/segmented-control";
 import { formatCost, formatShortDateTime, formatTokens, projectDisplayName } from "./usage/format";
 import SessionUsageDrawer from "./usage/SessionUsageDrawer";
@@ -153,7 +156,7 @@ function soloSeriesVisibility(
 }
 
 function UsagePage() {
-  const { t } = useI18n();
+  const { language, t } = useI18n();
   const { showToast } = useToast();
   const u = useUsage();
   const [openSessionId, setOpenSessionId] = useState<string | null>(null);
@@ -626,6 +629,7 @@ function UsagePage() {
 
             <Filters
               t={t}
+              language={language}
               filter={u.filter}
               allProjects={u.summary?.allProjects ?? []}
               allModels={u.summary?.allModels ?? []}
@@ -1401,6 +1405,7 @@ function ModelCostShare({
 
 interface FiltersProps {
   t: ReturnType<typeof useI18n>["t"];
+  language: ReturnType<typeof useI18n>["language"];
   filter: UsageFilter;
   allProjects: { projectPath: string; projectDir: string }[];
   allModels: string[];
@@ -1408,7 +1413,7 @@ interface FiltersProps {
   onReset: () => void;
 }
 
-function Filters({ t, filter, allProjects, allModels, onChange, onReset }: FiltersProps) {
+function Filters({ t, language, filter, allProjects, allModels, onChange, onReset }: FiltersProps) {
   const hasActiveFilter = Boolean(
     filter.startDate || filter.endDate || filter.projectPath || filter.model,
   );
@@ -1433,20 +1438,20 @@ function Filters({ t, filter, allProjects, allModels, onChange, onReset }: Filte
           {t("usage.filter.dateRange")}
         </span>
         <div className="usage-date-range flex items-center gap-2">
-          <input
-            className="h-8 min-w-0 rounded-md border bg-background px-2 text-sm"
-            type="date"
-            value={filter.startDate ?? ""}
-            onChange={(e) => onChange({ startDate: e.target.value || undefined })}
-            aria-label={t("usage.filter.startDate")}
+          <DatePickerField
+            label={t("usage.filter.startDate")}
+            language={language}
+            value={filter.startDate}
+            placeholder={t("usage.filter.noDate")}
+            onChange={(value) => onChange({ startDate: value })}
           />
           <span className="usage-date-sep text-muted-foreground">-</span>
-          <input
-            className="h-8 min-w-0 rounded-md border bg-background px-2 text-sm"
-            type="date"
-            value={filter.endDate ?? ""}
-            onChange={(e) => onChange({ endDate: e.target.value || undefined })}
-            aria-label={t("usage.filter.endDate")}
+          <DatePickerField
+            label={t("usage.filter.endDate")}
+            language={language}
+            value={filter.endDate}
+            placeholder={t("usage.filter.noDate")}
+            onChange={(value) => onChange({ endDate: value })}
           />
         </div>
       </div>
@@ -1524,6 +1529,54 @@ function Filters({ t, filter, allProjects, allModels, onChange, onReset }: Filte
   );
 }
 
+interface DatePickerFieldProps {
+  label: string;
+  language: ReturnType<typeof useI18n>["language"];
+  value?: string;
+  placeholder: string;
+  onChange: (value: string | undefined) => void;
+}
+
+function DatePickerField({ label, language, value, placeholder, onChange }: DatePickerFieldProps) {
+  const [open, setOpen] = useState(false);
+  const selectedDate = parseDateInputValue(value);
+  const displayValue = value ? formatDateDisplayValue(value) : placeholder;
+  const calendarLocale = language === "zh" ? zhCN : enUS;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={cn(
+            "h-8 min-w-32 justify-start px-2 font-normal",
+            !value && "text-muted-foreground",
+          )}
+          aria-label={`${label} ${displayValue}`}
+        >
+          <CalendarIcon data-icon="inline-start" />
+          <span>{displayValue}</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-auto p-0">
+        <Calendar
+          mode="single"
+          selected={selectedDate}
+          defaultMonth={selectedDate}
+          locale={calendarLocale}
+          captionLayout="dropdown"
+          onSelect={(date) => {
+            onChange(date ? formatDateInputValue(date) : undefined);
+            if (date) setOpen(false);
+          }}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function compactUsageFilter(filter: UsageFilter): UsageFilter {
   const next: UsageFilter = {};
   if (filter.startDate) next.startDate = filter.startDate;
@@ -1589,6 +1642,25 @@ function formatDateInputValue(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function formatDateDisplayValue(value: string): string {
+  return value.replaceAll("-", "/");
+}
+
+function parseDateInputValue(value?: string): Date | undefined {
+  if (!value) return undefined;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return undefined;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return undefined;
+  }
+  return date;
 }
 
 function DailyTable({ rows, t }: { rows: DailyUsage[]; t: ReturnType<typeof useI18n>["t"] }) {
