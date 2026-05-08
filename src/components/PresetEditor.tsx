@@ -515,7 +515,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
         data-slot="preset-editor-panel"
         className="flex h-full min-h-0 w-full min-w-[560px] flex-col overflow-hidden bg-card"
       >
-        <div className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-6">
+        <div className="sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-5">
           <Button
             type="button"
             variant="ghost"
@@ -525,7 +525,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
           >
             <ArrowLeft className="size-4" aria-hidden="true" />
           </Button>
-          <h2 className="min-w-0 flex-1 truncate text-lg font-semibold text-foreground">
+          <h2 className="min-w-0 flex-1 truncate text-base font-semibold text-foreground">
             {messages.title}
           </h2>
           <Button

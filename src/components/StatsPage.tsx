@@ -153,7 +153,7 @@ function StatsPage() {
         <PageHeader title={t("stats.title")} />
         <div className="stats-scroll min-h-0 flex-1 overflow-y-auto p-5">
           <div className="stats-empty flex min-h-[320px] flex-col items-center justify-center text-center">
-            <p className="empty-text text-lg font-semibold text-foreground">{t("loading")}</p>
+            <p className="empty-text text-base font-semibold text-foreground">{t("loading")}</p>
           </div>
         </div>
       </div>
@@ -169,7 +169,7 @@ function StatsPage() {
             <div className="empty-icon mb-4 flex size-20 items-center justify-center rounded-full border bg-muted text-muted-foreground">
               <BarChart3 className="size-12" strokeWidth={1.5} />
             </div>
-            <p className="empty-text mb-2 text-lg font-semibold text-foreground">
+            <p className="empty-text mb-2 text-base font-semibold text-foreground">
               {t("stats.noData")}
             </p>
             <p className="empty-hint max-w-md text-muted-foreground">{t("stats.noDataHint")}</p>
@@ -255,7 +255,7 @@ function StatsPage() {
           open
           className="stats-section stats-section-collapsible group mb-5 rounded-xl border bg-card shadow-sm"
         >
-          <summary className="stats-section-title stats-section-summary flex cursor-pointer list-none items-center gap-2 border-b px-5 py-4 text-lg font-semibold [&::-webkit-details-marker]:hidden">
+          <summary className="stats-section-title stats-section-summary flex cursor-pointer list-none items-center gap-2 border-b px-5 py-3.5 text-base font-semibold [&::-webkit-details-marker]:hidden">
             {t("stats.toolSection")}
             <span className="stats-summary-count text-sm font-normal text-muted-foreground group-open:hidden">
               {toolUsageData.length} {t("stats.toolUsage")} · {skillUsageData.length}{" "}
@@ -337,7 +337,7 @@ function StatsPage() {
           open
           className="stats-section stats-section-collapsible stats-project-section group rounded-xl border bg-card shadow-sm"
         >
-          <summary className="stats-section-title stats-section-summary flex cursor-pointer list-none items-center gap-2 border-b px-5 py-4 text-lg font-semibold [&::-webkit-details-marker]:hidden">
+          <summary className="stats-section-title stats-section-summary flex cursor-pointer list-none items-center gap-2 border-b px-5 py-3.5 text-base font-semibold [&::-webkit-details-marker]:hidden">
             {t("stats.sessionSection")}
             <span className="stats-summary-count text-sm font-normal text-muted-foreground group-open:hidden">
               {projectEntries.length} {t("stats.totalProjects")}
@@ -372,7 +372,7 @@ function StatCard({
     <Card className="stat-card rounded-lg py-5 shadow-sm">
       <CardContent className="flex flex-col gap-2 px-5">
         <span className="stat-card-label text-sm font-medium text-muted-foreground">{label}</span>
-        <span className={cn("stat-card-value text-2xl font-bold leading-tight", valueClassName)}>
+        <span className={cn("stat-card-value text-xl font-bold leading-tight", valueClassName)}>
           {value}
         </span>
       </CardContent>
@@ -396,7 +396,7 @@ function ProjectMetric({
       </span>
       <span
         className={cn(
-          "stats-project-metric-value font-mono text-lg font-bold [overflow-wrap:anywhere]",
+          "stats-project-metric-value font-mono text-base font-bold [overflow-wrap:anywhere]",
           valueClassName,
         )}
       >
@@ -412,7 +412,7 @@ function PerformanceMetric({ label, value }: { label: string; value: ReactNode }
       <div className="stats-metric-label mb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
         {label}
       </div>
-      <div className="stats-metric-value font-mono text-xl font-bold">{value}</div>
+      <div className="stats-metric-value font-mono text-lg font-bold">{value}</div>
     </div>
   );
 }
@@ -433,7 +433,7 @@ function ProjectCard({
     <details className="stats-project-card group overflow-hidden rounded-lg border bg-card shadow-sm">
       <summary className="stats-project-header flex min-h-[72px] cursor-pointer list-none items-center justify-between gap-4 border-l-[3px] border-l-transparent p-4 transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary group-open:border-l-primary group-open:bg-muted/40 max-[600px]:flex-wrap max-[600px]:items-start max-[600px]:gap-3 [&::-webkit-details-marker]:hidden">
         <div className="stats-project-title flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="stats-project-name font-mono text-lg font-bold leading-tight">
+          <span className="stats-project-name font-mono text-base font-bold leading-tight">
             {shortPath(path)}
           </span>
           <span

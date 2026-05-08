@@ -202,7 +202,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
         aria-labelledby="settings-drawer-title"
         className="flex w-full flex-col gap-0 p-0 sm:max-w-md"
       >
-        <SheetHeader className="flex h-14 shrink-0 flex-row items-center gap-3 border-b px-4 py-0">
+        <SheetHeader className="flex h-12 shrink-0 flex-row items-center gap-3 border-b px-4 py-0">
           <Button
             type="button"
             variant="ghost"

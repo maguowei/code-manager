@@ -57,7 +57,7 @@ function PageHeader({
       >
         <h1
           className={cn(
-            "page-title min-w-0 truncate text-xl leading-tight font-semibold text-foreground",
+            "page-title min-w-0 truncate text-lg leading-tight font-semibold text-foreground",
             titleClassName,
           )}
         >

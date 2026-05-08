@@ -120,7 +120,7 @@ export function SandboxSwitchControl({
   return (
     <div className={switchClassName}>
       {visibleLabel ? (
-        <span className="whitespace-nowrap text-xs font-semibold text-muted-foreground max-[900px]:text-[11px]">
+        <span className="whitespace-nowrap text-xs font-semibold text-muted-foreground">
           {visibleLabel}
         </span>
       ) : null}

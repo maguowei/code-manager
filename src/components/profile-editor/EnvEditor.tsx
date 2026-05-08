@@ -403,12 +403,12 @@ function EnvEditor({
                             {label}
                           </span>
                           {draftBadge ? (
-                            <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-bold text-primary">
+                            <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-xs font-bold text-primary">
                               {draftBadge}
                             </span>
                           ) : null}
                           {dirtyBadge ? (
-                            <span className="inline-flex items-center rounded-full bg-border/80 px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
+                            <span className="inline-flex items-center rounded-full bg-border/80 px-2 py-0.5 text-xs font-bold text-muted-foreground">
                               {dirtyBadge}
                             </span>
                           ) : null}

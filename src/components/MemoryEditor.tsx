@@ -208,7 +208,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
             className="flex h-full min-h-0 flex-col"
             onSubmit={handleSubmit(handleFormSubmit)}
           >
-            <div className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-6">
+            <div className="sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-5">
               <Button
                 type="button"
                 variant="ghost"
@@ -220,7 +220,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
               </Button>
               <h2
                 id="memory-modal-title"
-                className="min-w-0 flex-1 truncate text-lg font-semibold text-foreground"
+                className="min-w-0 flex-1 truncate text-base font-semibold text-foreground"
               >
                 {memory ? t("memory.editTitle") : t("memory.addTitle")}
               </h2>
@@ -256,7 +256,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                         className="h-auto rounded-md border-border bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground hover:border-muted-foreground focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/50"
                       />
                     </FormControl>
-                    <FormMessage className="mt-1 text-[11px] text-destructive" />
+                    <FormMessage className="mt-1 text-xs text-destructive" />
                   </FormItem>
                 )}
               />
@@ -343,7 +343,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                         })}
                       </div>
                     </FormControl>
-                    <FormMessage className="mt-1 text-[11px] text-destructive" />
+                    <FormMessage className="mt-1 text-xs text-destructive" />
                   </FormItem>
                 )}
               />
@@ -379,7 +379,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                             {t(MEMORY_RULE_PATH_FIELD.descriptionKey)}
                           </FormDescription>
                         ) : null}
-                        <FormMessage className="mt-1 text-[11px] text-destructive" />
+                        <FormMessage className="mt-1 text-xs text-destructive" />
                       </FormItem>
                     )}
                   />
@@ -431,7 +431,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                                   {t(MEMORY_PATH_PATTERNS_FIELD.descriptionKey)}
                                 </FormDescription>
                               ) : null}
-                              <FormMessage className="mt-1 text-[11px] text-destructive" />
+                              <FormMessage className="mt-1 text-xs text-destructive" />
                             </FormItem>
                           )}
                         />

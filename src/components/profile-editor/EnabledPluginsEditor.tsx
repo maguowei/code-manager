@@ -508,7 +508,7 @@ function EnabledPluginsEditor({
               </div>
               <div className="flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--primary)] focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
                 <span
-                  className="shrink-0 whitespace-nowrap text-[11px] font-semibold text-muted-foreground"
+                  className="shrink-0 whitespace-nowrap text-xs font-semibold text-muted-foreground"
                   aria-hidden="true"
                 >
                   {statusFilterFieldLabel}
@@ -547,7 +547,7 @@ function EnabledPluginsEditor({
               </div>
               <div className="flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--primary)] focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
                 <span
-                  className="shrink-0 whitespace-nowrap text-[11px] font-semibold text-muted-foreground"
+                  className="shrink-0 whitespace-nowrap text-xs font-semibold text-muted-foreground"
                   aria-hidden="true"
                 >
                   {categoryFilterFieldLabel}
@@ -580,7 +580,7 @@ function EnabledPluginsEditor({
               </div>
               <div className="flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--primary)] focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
                 <span
-                  className="shrink-0 whitespace-nowrap text-[11px] font-semibold text-muted-foreground"
+                  className="shrink-0 whitespace-nowrap text-xs font-semibold text-muted-foreground"
                   aria-hidden="true"
                 >
                   {sourceTypeFilterFieldLabel}
@@ -701,7 +701,7 @@ function EnabledPluginsEditor({
                                     {rowLabel}
                                   </span>
                                   {isDraftRow ? (
-                                    <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-bold text-primary">
+                                    <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-xs font-bold text-primary">
                                       {draftBadgeText}
                                     </span>
                                   ) : null}
@@ -719,7 +719,7 @@ function EnabledPluginsEditor({
                                   {rowLabel}
                                 </span>
                                 {isDraftRow ? (
-                                  <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-bold text-primary">
+                                  <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-xs font-bold text-primary">
                                     {draftBadgeText}
                                   </span>
                                 ) : null}

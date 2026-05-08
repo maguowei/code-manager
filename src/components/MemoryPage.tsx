@@ -397,7 +397,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
           <div className="empty-icon mb-4 text-muted-foreground">
             <BookOpen className="size-12" strokeWidth={1.5} aria-hidden="true" />
           </div>
-          <p className="empty-text mb-2 text-lg font-medium">{t("memory.empty")}</p>
+          <p className="empty-text mb-2 text-base font-medium">{t("memory.empty")}</p>
           <p className="empty-hint max-w-[360px] text-sm leading-normal text-muted-foreground">
             {t("memory.emptyHint")}
           </p>

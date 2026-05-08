@@ -269,7 +269,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                 {t(fieldConfig.descriptionKey)}
               </FormDescription>
             ) : null}
-            <FormMessage className="mt-1 text-[11px] text-destructive" />
+            <FormMessage className="mt-1 text-xs text-destructive" />
           </FormItem>
         )}
       />
@@ -303,7 +303,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                 ) : null}
               </div>
             </div>
-            <FormMessage className="mt-1 text-[11px] text-destructive" />
+            <FormMessage className="mt-1 text-xs text-destructive" />
           </FormItem>
         )}
       />
@@ -320,7 +320,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
         >
           <form className="flex h-full min-h-0 flex-col" onSubmit={handleSubmit(handleSkillSubmit)}>
             {/* 顶部操作栏 */}
-            <div className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-6">
+            <div className="sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-5">
               <Button
                 type="button"
                 variant="ghost"
@@ -330,7 +330,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
               >
                 <ChevronLeft className="size-5" aria-hidden="true" />
               </Button>
-              <h2 className="min-w-0 flex-1 truncate text-lg font-semibold text-foreground">
+              <h2 className="min-w-0 flex-1 truncate text-base font-semibold text-foreground">
                 {isEditing ? t("skills.editTitle") : t("skills.addTitle")}
               </h2>
               <Button type="submit" disabled={!canSave}>
@@ -420,7 +420,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                               {...editFileForm.register("content")}
                             />
                             {editFileForm.formState.errors.content?.message && (
-                              <span className="px-3 pb-3 text-[11px] text-destructive">
+                              <span className="px-3 pb-3 text-xs text-destructive">
                                 {t(editFileForm.formState.errors.content.message as TranslationKey)}
                               </span>
                             )}
@@ -433,7 +433,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                               {file.isBinary && (
                                 <Badge
                                   variant="secondary"
-                                  className="skill-file-binary-tag shrink-0 rounded bg-muted px-1.5 py-px text-[10px] font-semibold text-muted-foreground"
+                                  className="skill-file-binary-tag shrink-0 rounded bg-muted px-1.5 py-px text-xs font-semibold text-muted-foreground"
                                 >
                                   {t("skills.binaryFile")}
                                 </Badge>
@@ -475,7 +475,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                           {...addFileForm.register("fileName")}
                         />
                         {addFileForm.formState.errors.fileName?.message && (
-                          <span className="text-[11px] text-destructive">
+                          <span className="text-xs text-destructive">
                             {t(addFileForm.formState.errors.fileName.message as TranslationKey)}
                           </span>
                         )}
@@ -486,7 +486,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                           {...addFileForm.register("content")}
                         />
                         {addFileForm.formState.errors.content?.message && (
-                          <span className="text-[11px] text-destructive">
+                          <span className="text-xs text-destructive">
                             {t(addFileForm.formState.errors.content.message as TranslationKey)}
                           </span>
                         )}

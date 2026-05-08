@@ -86,7 +86,7 @@ function StringListEditor({
           >
             <span className="flex min-w-0 flex-wrap items-center gap-2">
               <h4>{label}</h4>
-              <Badge className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+              <Badge className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
                 {rows.length}
               </Badge>
             </span>

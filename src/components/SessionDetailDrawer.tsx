@@ -343,7 +343,7 @@ function PlanBlock({
       label={
         <span className="inline-flex items-center gap-2">
           {label}
-          <Badge variant="outline" className="h-5 px-1.5 text-[11px]">
+          <Badge variant="outline" className="h-5 px-1.5 text-xs">
             {sourceLabel}
           </Badge>
         </span>
@@ -767,7 +767,7 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
         <SheetHeader className="shrink-0 border-b px-5 py-4 pr-12">
           <div className="flex min-w-0 items-start gap-3">
             <div className="min-w-0 flex-1">
-              <SheetTitle className="flex min-w-0 flex-wrap items-baseline gap-2 text-lg">
+              <SheetTitle className="flex min-w-0 flex-wrap items-baseline gap-2 text-base">
                 <span>{t("history.conversation")}</span>
                 <span className="min-w-0 font-mono text-muted-foreground">
                   {sessionId.slice(0, 8)}

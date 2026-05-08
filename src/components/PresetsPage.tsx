@@ -12,6 +12,7 @@ import {
   presetDisplayName,
   presetNameById,
 } from "./config-workspace-utils";
+import { LIST_PANEL_COMPRESSED_WIDTH_CLASS, LIST_PANEL_WIDTH_CLASS } from "./layout-size-classes";
 import PageHeader from "./PageHeader";
 import PresetEditor from "./PresetEditor";
 import { Badge } from "./ui/badge";
@@ -145,8 +146,9 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
     <>
       <div
         className={cn(
-          "list-section scrollbar-none flex w-[360px] shrink-0 flex-col overflow-y-auto overflow-x-hidden bg-secondary transition-[width] duration-300 max-[1000px]:fixed max-[1000px]:inset-y-0 max-[1000px]:right-0 max-[1000px]:left-[60px] max-[1000px]:z-50 max-[1000px]:w-auto max-[700px]:left-[48px]",
-          isDrawerOpen && "compressed w-[280px]",
+          "list-section scrollbar-none flex shrink-0 flex-col overflow-y-auto overflow-x-hidden bg-secondary transition-[width] duration-300 max-[1000px]:fixed max-[1000px]:inset-y-0 max-[1000px]:right-0 max-[1000px]:left-[60px] max-[1000px]:z-50 max-[1000px]:w-auto max-[700px]:left-[48px]",
+          isDrawerOpen && "compressed",
+          isDrawerOpen ? LIST_PANEL_COMPRESSED_WIDTH_CLASS : LIST_PANEL_WIDTH_CLASS,
         )}
       >
         <PageHeader title={t("presets.title")} surface="secondary" variant="list" />
@@ -223,7 +225,7 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
 
           {workspace.customPresets.length === 0 ? (
             <div className="config-list-empty flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
-              <p className="empty-text mb-2 text-lg font-medium">{t("presets.custom.empty")}</p>
+              <p className="empty-text mb-2 text-base font-medium">{t("presets.custom.empty")}</p>
               <p className="empty-hint max-w-[360px] text-center text-sm leading-normal text-muted-foreground">
                 {t("presets.custom.emptyHint")}
               </p>

@@ -48,7 +48,7 @@ function SessionUsageDrawer({ sessionId, onClose }: Props) {
         aria-labelledby="session-usage-detail-title"
         className="left-[60px] flex w-auto min-w-0 flex-col gap-0 border-l-0 bg-card p-0 sm:max-w-none max-[700px]:left-[48px]"
       >
-        <div className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-6">
+        <div className="sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-5">
           <Button
             type="button"
             variant="ghost"

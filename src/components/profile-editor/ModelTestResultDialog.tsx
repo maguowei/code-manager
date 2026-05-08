@@ -238,7 +238,7 @@ function ModelTestResultDialog({
     return (
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
-          <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+          <span className="shrink-0 text-xs font-bold uppercase tracking-wide text-muted-foreground">
             {label}
           </span>
           <Button
@@ -293,7 +293,7 @@ function ModelTestResultDialog({
                   <h3 id={dialogTitleId}>{t("profiles.editor.modelTest.dialogTitle")}</h3>
                 </DialogTitle>
                 <span
-                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold ${isSuccess ? "bg-chart-2 text-white" : "bg-destructive text-destructive-foreground"}`}
+                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold ${isSuccess ? "bg-chart-2 text-white" : "bg-destructive text-destructive-foreground"}`}
                   data-testid="model-test-status-badge"
                 >
                   {isSuccess
@@ -353,7 +353,7 @@ function ModelTestResultDialog({
                   className="inline-flex items-center gap-2"
                   data-testid="model-test-profile-row"
                 >
-                  <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  <span className="shrink-0 text-xs font-bold uppercase tracking-wide text-muted-foreground">
                     {t("profiles.editor.modelTest.profileName")}
                   </span>
                   <span
@@ -369,7 +369,7 @@ function ModelTestResultDialog({
                   className="inline-flex min-w-0 items-center gap-2"
                   data-testid="model-test-request-url-row"
                 >
-                  <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  <span className="shrink-0 text-xs font-bold uppercase tracking-wide text-muted-foreground">
                     {t("profiles.editor.modelTest.requestUrl")}
                   </span>
                   <span
@@ -377,7 +377,7 @@ function ModelTestResultDialog({
                     data-testid="model-test-request-url"
                   >
                     {result?.requestMethod ? (
-                      <span className="mr-1 inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-[11px] font-bold text-muted-foreground">
+                      <span className="mr-1 inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-xs font-bold text-muted-foreground">
                         {result.requestMethod}
                       </span>
                     ) : null}
@@ -400,7 +400,7 @@ function ModelTestResultDialog({
                   key={item.key}
                   className="flex flex-col gap-0.5 rounded-md border border-border bg-card px-3 py-2"
                 >
-                  <dt className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  <dt className="shrink-0 text-xs font-bold uppercase tracking-wide text-muted-foreground">
                     {item.label}
                   </dt>
                   <dd
@@ -440,13 +440,13 @@ function ModelTestResultDialog({
                 <div className="flex items-center justify-between gap-2">
                   {isPromptEditing ? (
                     <label
-                      className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted-foreground"
+                      className="shrink-0 text-xs font-bold uppercase tracking-wide text-muted-foreground"
                       htmlFor={promptInputId}
                     >
                       {t("profiles.editor.modelTest.prompt")}
                     </label>
                   ) : (
-                    <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                    <span className="shrink-0 text-xs font-bold uppercase tracking-wide text-muted-foreground">
                       {t("profiles.editor.modelTest.prompt")}
                     </span>
                   )}
@@ -502,7 +502,7 @@ function ModelTestResultDialog({
               className={`flex flex-col gap-2 rounded-md border bg-card p-3 ${isSuccess ? "border-chart-2" : "border-destructive bg-destructive/10"}`}
               data-testid="model-test-response-panel"
             >
-              <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              <span className="shrink-0 text-xs font-bold uppercase tracking-wide text-muted-foreground">
                 {isSuccess
                   ? t("profiles.editor.modelTest.response")
                   : t("profiles.editor.modelTest.errorMessage")}
@@ -555,7 +555,7 @@ function ModelTestResultDialog({
               {rawResponse ? (
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                    <span className="shrink-0 text-xs font-bold uppercase tracking-wide text-muted-foreground">
                       {t("profiles.editor.modelTest.rawResponse")}
                     </span>
                     <Button

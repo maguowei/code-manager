@@ -548,16 +548,16 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                           <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap max-[720px]:whitespace-normal max-[720px]:break-words">
                             {label}
                           </span>
-                          <span className="inline-flex items-center rounded-full bg-border/80 px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
+                          <span className="inline-flex items-center rounded-full bg-border/80 px-2 py-0.5 text-xs font-bold text-muted-foreground">
                             {item.sourceType}
                           </span>
                           {draftBadge ? (
-                            <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-bold text-primary">
+                            <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-xs font-bold text-primary">
                               {draftBadge}
                             </span>
                           ) : null}
                           {dirtyBadge ? (
-                            <span className="inline-flex items-center rounded-full bg-border/80 px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
+                            <span className="inline-flex items-center rounded-full bg-border/80 px-2 py-0.5 text-xs font-bold text-muted-foreground">
                               {dirtyBadge}
                             </span>
                           ) : null}

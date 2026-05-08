@@ -325,9 +325,7 @@ function ProjectDetailPanel({
       <header className="projects-hero grid gap-6 border-b pb-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,0.95fr)]">
         <div className="projects-hero-main flex min-w-0 flex-col gap-4">
           <div className="projects-hero-copy">
-            <h2 className="text-2xl font-bold leading-tight text-foreground">
-              {summary.shortName}
-            </h2>
+            <h2 className="text-xl font-bold leading-tight text-foreground">{summary.shortName}</h2>
             <p className="projects-hero-path mt-2 break-all text-sm text-muted-foreground">
               {summary.project}
             </p>

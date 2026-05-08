@@ -21,10 +21,10 @@ function EditorSection({ title, children, className }: EditorSectionProps) {
   return (
     <section
       data-slot="editor-section"
-      className={cn("flex flex-col gap-4 rounded-lg border bg-card p-5", className)}
+      className={cn("flex flex-col gap-3 rounded-lg border bg-card p-4", className)}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-base font-semibold text-foreground">{title}</h3>
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
       </div>
       {children}
     </section>
@@ -52,9 +52,7 @@ function EditorLabelRow({ children, className }: EditorLabelRowProps) {
 }
 
 function EditorEnvHint({ children }: { children: ReactNode }) {
-  return (
-    <span className="font-mono text-[10px] tracking-wide text-muted-foreground">{children}</span>
-  );
+  return <span className="font-mono text-xs tracking-wide text-muted-foreground">{children}</span>;
 }
 
 function EditorDescription({ children, className }: EditorLabelRowProps) {

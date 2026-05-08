@@ -176,7 +176,7 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
           <div className="empty-icon mb-4 text-muted-foreground">
             <Zap className="size-12" strokeWidth={1.5} aria-hidden="true" />
           </div>
-          <p className="empty-text mb-2 text-lg font-medium">{t("skills.empty")}</p>
+          <p className="empty-text mb-2 text-base font-medium">{t("skills.empty")}</p>
           <p className="empty-hint max-w-[360px] text-sm leading-normal text-muted-foreground">
             {t("skills.emptyHint")}
           </p>

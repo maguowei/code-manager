@@ -5,6 +5,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import ClaudeOverviewPage from "./components/ClaudeOverviewPage";
 import HistoryPage from "./components/HistoryPage";
+import {
+  LIST_PANEL_COMPRESSED_WIDTH_CLASS,
+  LIST_PANEL_WIDTH_CLASS,
+} from "./components/layout-size-classes";
 import MemoryPage from "./components/MemoryPage";
 import PresetsPage from "./components/PresetsPage";
 import ProfilesPage from "./components/ProfilesPage";
@@ -148,7 +152,7 @@ function App() {
             <div
               className={cn(
                 "flex shrink-0 flex-col overflow-y-auto overflow-x-hidden bg-secondary transition-[width] duration-300 ease-out scrollbar-none max-[1000px]:fixed max-[1000px]:inset-y-0 max-[1000px]:right-0 max-[1000px]:left-[60px] max-[1000px]:z-50 max-[1000px]:w-auto max-[700px]:left-[48px]",
-                isDetailDrawerOpen ? "w-[280px]" : "w-[360px]",
+                isDetailDrawerOpen ? LIST_PANEL_COMPRESSED_WIDTH_CLASS : LIST_PANEL_WIDTH_CLASS,
               )}
             >
               {activeTab === "memory" && <MemoryPage onDrawerChange={setIsDetailDrawerOpen} />}

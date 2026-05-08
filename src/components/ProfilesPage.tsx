@@ -12,6 +12,7 @@ import {
   presetNameById,
   presetSlugFromId,
 } from "./config-workspace-utils";
+import { LIST_PANEL_COMPRESSED_WIDTH_CLASS, LIST_PANEL_WIDTH_CLASS } from "./layout-size-classes";
 import PageHeader from "./PageHeader";
 import ProfileEditor from "./ProfileEditor";
 import ProfileNameBadge from "./ProfileNameBadge";
@@ -560,7 +561,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
     if (state.status === "running") {
       return (
         <span
-          className="running inline-flex min-h-[18px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-sm border border-border bg-muted px-[5px] py-px text-[11px] leading-[1.15] font-bold text-muted-foreground"
+          className="running inline-flex min-h-5 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-sm border border-border bg-muted px-1.5 py-px text-xs leading-tight font-bold text-muted-foreground"
           title={t("profiles.testAll.running")}
         >
           <span
@@ -581,7 +582,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
         variant="ghost"
         size="xs"
         className={cn(
-          "h-auto min-h-[18px] shrink-0 gap-1 rounded-sm border-0 px-[5px] py-px text-[11px] leading-[1.15] font-bold text-white hover:text-white",
+          "h-auto min-h-5 shrink-0 gap-1 rounded-sm border-0 px-1.5 py-px text-xs leading-tight font-bold text-white hover:text-white",
           state.status,
           state.status === "success" ? "bg-chart-2" : "bg-destructive",
         )}
@@ -605,8 +606,9 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
     <>
       <div
         className={cn(
-          "list-section scrollbar-none flex w-[360px] shrink-0 flex-col overflow-y-auto overflow-x-hidden bg-secondary transition-[width] duration-300 max-[1000px]:fixed max-[1000px]:inset-y-0 max-[1000px]:right-0 max-[1000px]:left-[60px] max-[1000px]:z-50 max-[1000px]:w-auto max-[700px]:left-[48px]",
-          isDrawerOpen && "compressed w-[280px]",
+          "list-section scrollbar-none flex shrink-0 flex-col overflow-y-auto overflow-x-hidden bg-secondary transition-[width] duration-300 max-[1000px]:fixed max-[1000px]:inset-y-0 max-[1000px]:right-0 max-[1000px]:left-[60px] max-[1000px]:z-50 max-[1000px]:w-auto max-[700px]:left-[48px]",
+          isDrawerOpen && "compressed",
+          isDrawerOpen ? LIST_PANEL_COMPRESSED_WIDTH_CLASS : LIST_PANEL_WIDTH_CLASS,
         )}
       >
         <PageHeader
@@ -653,7 +655,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
 
         {profiles.length === 0 ? (
           <div className="config-list-empty flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
-            <p className="empty-text mb-2 text-lg font-medium">{t("profiles.empty")}</p>
+            <p className="empty-text mb-2 text-base font-medium">{t("profiles.empty")}</p>
             <p className="empty-hint max-w-[360px] text-center text-sm leading-normal text-muted-foreground">
               {t("profiles.emptyHint")}
             </p>
@@ -728,12 +730,12 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center">
-                        <h3 className="truncate text-lg font-semibold">{profile.name}</h3>
+                        <h3 className="truncate text-base font-semibold">{profile.name}</h3>
                       </div>
                       <div className="mt-1.5 flex items-center">
                         <Badge
                           variant="ghost"
-                          className="rounded-full bg-[rgb(59_130_246_/_0.1)] px-2 py-0.5 text-[10px] font-semibold text-[var(--primary)]"
+                          className="rounded-full bg-[rgb(59_130_246_/_0.1)] px-2 py-0.5 text-xs font-semibold text-[var(--primary)]"
                         >
                           {presetNameById(
                             allPresets,
@@ -779,7 +781,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                     <div className="flex flex-col gap-2">
                       {model && (
                         <div className="grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground">
-                          <span className="inline-flex shrink-0 items-center text-[11px] leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-[var(--border)] after:content-[':']">
+                          <span className="inline-flex shrink-0 items-center text-xs leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-[var(--border)] after:content-[':']">
                             {t("profiles.summary.modelTitle")}
                           </span>
                           <div className="inline-flex min-w-0 items-center gap-1.5">
@@ -800,7 +802,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                       )}
                       {(permissionMode || sandboxEnabled) && (
                         <div className="grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground">
-                          <span className="inline-flex shrink-0 items-center text-[11px] leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-[var(--border)] after:content-[':']">
+                          <span className="inline-flex shrink-0 items-center text-xs leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-[var(--border)] after:content-[':']">
                             {t("profiles.summary.permissionsTitle")}
                           </span>
                           <span className="inline-flex min-w-0 items-center gap-1.5">
@@ -815,7 +817,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                             )}
                             <span
                               className={cn(
-                                "shrink-0 border-l border-border/70 pl-1.5 text-[11px] leading-none whitespace-nowrap",
+                                "shrink-0 border-l border-border/70 pl-1.5 text-xs leading-none whitespace-nowrap",
                                 sandboxEnabled
                                   ? "text-[var(--chart-2)] text-chart-2"
                                   : "text-muted-foreground text-muted-foreground",
@@ -832,7 +834,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                       )}
                       {plugins.totalCount > 0 && (
                         <div className="grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground">
-                          <span className="inline-flex shrink-0 items-center text-[11px] leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-[var(--border)] after:content-[':']">
+                          <span className="inline-flex shrink-0 items-center text-xs leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-[var(--border)] after:content-[':']">
                             {t("profiles.summary.pluginsTitle")}
                           </span>
                           <span className="min-w-0 truncate">

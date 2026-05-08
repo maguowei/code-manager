@@ -48,7 +48,7 @@ describe("StatsPage collapsible sections", () => {
 
     expect(source).toContain("stats-section stats-section-collapsible group");
     expect(source).toContain(
-      "stats-section-title stats-section-summary flex cursor-pointer list-none items-center gap-2 border-b px-5 py-4",
+      "stats-section-title stats-section-summary flex cursor-pointer list-none items-center gap-2 border-b px-5 py-3.5",
     );
     expect(source).toContain("[&::-webkit-details-marker]:hidden");
     expect(source).toContain("group-open:hidden");

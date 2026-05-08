@@ -644,7 +644,7 @@ function UsagePage() {
                       <span className="usage-panel-label text-xs font-extrabold tracking-wide text-muted-foreground uppercase">
                         {t("usage.cards.totalCost")}
                       </span>
-                      <strong className="usage-cost-value text-4xl font-extrabold tracking-tight text-chart-1">
+                      <strong className="usage-cost-value text-2xl font-extrabold tracking-tight text-chart-1">
                         {u.summary ? formatUSD(u.summary.totalCost) : "-"}
                       </strong>
                       <span className="usage-panel-subtle text-sm text-muted-foreground">
@@ -682,7 +682,7 @@ function UsagePage() {
                   aria-label={t("usage.charts.trends")}
                 >
                   <header className="usage-trend-toolbar mb-4 flex flex-wrap items-center justify-between gap-3">
-                    <h3 className="usage-trend-title text-lg font-semibold">
+                    <h3 className="usage-trend-title text-base font-semibold">
                       {t("usage.charts.trends")}
                     </h3>
                     <div className="usage-trend-controls flex flex-wrap gap-2">
@@ -1033,7 +1033,7 @@ function UsagePage() {
                       <span className="text-xs font-semibold text-muted-foreground">
                         {t("usage.table.totalTokens")}
                       </span>
-                      <strong className="mt-1 block font-mono text-xl">
+                      <strong className="mt-1 block font-mono text-lg">
                         {formatDetailedTokens(totalTokens)}
                       </strong>
                     </div>
@@ -1061,7 +1061,7 @@ function UsagePage() {
             >
               <div className="usage-detail-header mb-3 flex items-start justify-between gap-3">
                 <div>
-                  <h2 className="text-lg font-semibold">{t("usage.details.title")}</h2>
+                  <h2 className="text-base font-semibold">{t("usage.details.title")}</h2>
                   <p className="text-sm text-muted-foreground">{t("usage.details.hint")}</p>
                 </div>
                 <Badge variant="outline" className="usage-detail-count shrink-0 font-mono">
@@ -1131,7 +1131,7 @@ function MetricCard({ label, value, tone, hint }: MetricCardProps) {
         </span>
         <strong
           className={cn(
-            "usage-metric-value font-mono text-2xl font-bold",
+            "usage-metric-value font-mono text-xl font-bold",
             tone === "blue" && "text-chart-1",
             tone === "green" && "text-chart-2",
             tone === "orange" && "text-chart-3",
@@ -1352,7 +1352,7 @@ function ModelCostShare({
           aria-hidden="true"
         >
           <span className="text-xs text-muted-foreground">{label}</span>
-          <strong className="font-mono text-lg">{formatUSD(total)}</strong>
+          <strong className="font-mono text-base">{formatUSD(total)}</strong>
         </div>
       </div>
 
@@ -1837,7 +1837,7 @@ function EmptyTable({ t }: { t: ReturnType<typeof useI18n>["t"] }) {
 function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
     <div className="usage-empty flex min-h-[320px] flex-1 flex-col items-center justify-center p-8 text-center">
-      <p className="empty-text text-lg font-bold text-foreground">{title}</p>
+      <p className="empty-text text-base font-bold text-foreground">{title}</p>
       {hint && <p className="empty-hint mt-2 max-w-md text-muted-foreground">{hint}</p>}
     </div>
   );
