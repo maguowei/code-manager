@@ -9,7 +9,7 @@ interface BehaviorFieldHeaderProps {
 function BehaviorFieldHeader({ label, inputId, helperKey }: BehaviorFieldHeaderProps) {
   return (
     <div className="flex items-center gap-2" data-slot="behavior-field-header">
-      <label htmlFor={inputId} className="profile-field-label text-sm font-medium">
+      <label htmlFor={inputId} className="text-sm font-medium">
         {label}
       </label>
       <FieldHelpButton helperKey={helperKey} />

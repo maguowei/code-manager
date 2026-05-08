@@ -527,7 +527,7 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                 return (
                   <div
                     key={item.id}
-                    className={`profile-marketplace-list-row flex flex-col gap-0 border-t border-[color-mix(in_srgb,var(--border)_92%,transparent)] px-3.5 py-2.5 first:border-t-0 max-[720px]:gap-3 max-[720px]:py-3${selected ? " selected bg-[color-mix(in_srgb,var(--accent)_18%,var(--card)_82%)]" : ""}`}
+                    className={`flex flex-col gap-0 border-t border-[color-mix(in_srgb,var(--border)_92%,transparent)] px-3.5 py-2.5 first:border-t-0 max-[720px]:gap-3 max-[720px]:py-3${selected ? " selected bg-[color-mix(in_srgb,var(--accent)_18%,var(--card)_82%)]" : ""}`}
                   >
                     <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 max-[720px]:items-start">
                       <Button
