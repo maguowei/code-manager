@@ -576,10 +576,12 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
     const ariaLabel = modelTestResultAriaLabel(profile, state);
 
     return (
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="xs"
         className={cn(
-          "inline-flex min-h-[18px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-sm border-0 px-[5px] py-px text-[11px] leading-[1.15] font-bold text-white hover:brightness-110",
+          "h-auto min-h-[18px] shrink-0 gap-1 rounded-sm border-0 px-[5px] py-px text-[11px] leading-[1.15] font-bold text-white hover:text-white",
           state.status,
           state.status === "success" ? "bg-chart-2" : "bg-destructive",
         )}
@@ -591,7 +593,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
         }}
       >
         {label}
-      </button>
+      </Button>
     );
   }
 
@@ -639,7 +641,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
         />
         <Button
           type="button"
-          className="mx-2 mt-4 mb-3 h-auto gap-2 rounded-lg bg-[linear-gradient(135deg,var(--primary),var(--primary))] p-3.5 text-base font-semibold text-white shadow-sm hover:-translate-y-px hover:shadow-md"
+          className="mx-2 mt-4 mb-3 h-auto gap-2 rounded-lg p-3.5 text-base font-semibold"
           onClick={() => {
             setEditingProfile(null);
             setIsDrawerOpen(true);
@@ -761,7 +763,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                         <Button
                           type="button"
                           size="sm"
-                          className="bg-[var(--primary)] text-white hover:bg-[var(--primary)]"
+                          className="font-semibold"
                           onClick={(event) => {
                             event.stopPropagation();
                             void handleApply(profile.id);
@@ -847,7 +849,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                       type="button"
                       variant="outline"
                       size="icon-sm"
-                      className="icon-only border-border bg-muted text-foreground hover:border-primary hover:text-[var(--primary)]"
+                      className="border-border bg-muted text-foreground hover:border-primary hover:text-primary"
                       aria-label={t("profiles.actions.copyEnv")}
                       title={t("profiles.actions.copyEnv")}
                       onClick={(event) => {
@@ -861,7 +863,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                       type="button"
                       variant="outline"
                       size="icon-sm"
-                      className="icon-only border-border bg-muted text-foreground hover:border-primary hover:text-[var(--primary)]"
+                      className="border-border bg-muted text-foreground hover:border-primary hover:text-primary"
                       aria-label={t("profiles.actions.duplicate")}
                       title={t("profiles.actions.duplicate")}
                       onClick={(event) => {
@@ -875,7 +877,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                       type="button"
                       variant="outline"
                       size="icon-sm"
-                      className="danger icon-only border-border bg-muted text-foreground hover:border-destructive hover:text-destructive"
+                      className="border-border bg-muted text-foreground hover:border-destructive hover:text-destructive"
                       aria-label={t("profiles.actions.delete")}
                       title={t("profiles.actions.delete")}
                       onClick={(event) => {

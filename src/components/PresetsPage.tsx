@@ -210,7 +210,7 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
             </div>
             <Button
               type="button"
-              className="add-config-btn gap-1.5 bg-[linear-gradient(135deg,var(--primary),var(--primary))] font-semibold text-white shadow-sm hover:-translate-y-px hover:shadow-md"
+              className="gap-1.5 font-semibold"
               onClick={() => {
                 setEditingPreset(null);
                 setIsDrawerOpen(true);
@@ -292,7 +292,7 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
                     <div className="preset-card-actions flex flex-wrap gap-2">
                       <Button
                         type="button"
-                        className="preset-card-action primary bg-[linear-gradient(135deg,var(--primary),var(--primary))] text-white shadow-sm hover:-translate-y-px hover:bg-[linear-gradient(135deg,var(--primary),var(--primary))] hover:text-white hover:shadow-md"
+                        className="preset-card-action font-semibold"
                         onClick={() => {
                           setEditingPreset(preset);
                           setIsDrawerOpen(true);
@@ -302,8 +302,8 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
                       </Button>
                       <Button
                         type="button"
-                        variant="outline"
-                        className="preset-card-action danger border-border bg-muted text-foreground hover:-translate-y-px hover:border-destructive hover:text-destructive"
+                        variant="destructive-outline"
+                        className="preset-card-action"
                         onClick={() => setPendingDeleteId(preset.id)}
                       >
                         {t("presets.actions.delete")}

@@ -77,9 +77,10 @@ function StringListEditor({
     <div className="flex flex-col gap-3.5" data-slot="profile-subsection">
       <div className="flex items-start justify-between gap-3" data-slot="profile-subsection-header">
         {collapseToggleVisible ? (
-          <button
+          <Button
             type="button"
-            className="min-w-0 flex-1"
+            variant="ghost"
+            className="h-auto min-w-0 flex-1 justify-start bg-transparent p-0 text-left hover:bg-transparent"
             aria-expanded={bodyVisible}
             onClick={handleToggleExpanded}
           >
@@ -89,7 +90,7 @@ function StringListEditor({
                 {rows.length}
               </Badge>
             </span>
-          </button>
+          </Button>
         ) : (
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 flex-wrap items-center gap-2">

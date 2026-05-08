@@ -708,10 +708,11 @@ function ProjectsPage() {
                 selectedProject === summary.project && "border-primary bg-primary/10",
               )}
             >
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 className={cn(
-                  "projects-list-item flex w-full flex-col gap-2 rounded-lg p-3 text-left text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                  "projects-list-item h-auto w-full flex-col items-stretch justify-start gap-2 rounded-lg p-3 text-left whitespace-normal text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
                   selectedProject === summary.project && "selected",
                 )}
                 onClick={() => setSelectedProject(summary.project)}
@@ -735,7 +736,7 @@ function ProjectsPage() {
                     {t("projects.lastDuration")} {formatDuration(summary.lastDuration)}
                   </Badge>
                 </div>
-              </button>
+              </Button>
             </Card>
           ))}
         </aside>

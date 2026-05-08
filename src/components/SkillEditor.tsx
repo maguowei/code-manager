@@ -399,7 +399,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                                   type="button"
                                   variant="outline"
                                   size="xs"
-                                  className="file-btn cancel border-border bg-secondary text-muted-foreground hover:text-foreground"
+                                  className="border-border bg-secondary text-muted-foreground hover:text-foreground"
                                   onClick={cancelEditFile}
                                 >
                                   {t("skills.cancelEdit")}
@@ -407,7 +407,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                                 <Button
                                   type="button"
                                   size="xs"
-                                  className="file-btn save bg-[var(--primary)] text-white hover:bg-[var(--primary)]"
+                                  className="font-semibold"
                                   onClick={() => void submitEditFile()}
                                 >
                                   {t("skills.saveFile")}
@@ -445,7 +445,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                                   type="button"
                                   variant="outline"
                                   size="xs"
-                                  className="file-btn edit border-border bg-secondary text-muted-foreground hover:text-foreground"
+                                  className="border-border bg-secondary text-muted-foreground hover:text-foreground"
                                   onClick={() => startEditFile(file)}
                                 >
                                   {t("skills.editFile")}
@@ -453,9 +453,8 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                               )}
                               <Button
                                 type="button"
-                                variant="ghost"
+                                variant="destructive-ghost"
                                 size="xs"
-                                className="file-btn delete text-destructive hover:bg-destructive/10 hover:text-destructive"
                                 onClick={() => setPendingDeleteFile(file.name)}
                               >
                                 {t("skills.deleteFile")}
@@ -496,7 +495,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                             type="button"
                             variant="outline"
                             size="xs"
-                            className="file-btn cancel border-border bg-secondary text-muted-foreground hover:text-foreground"
+                            className="border-border bg-secondary text-muted-foreground hover:text-foreground"
                             onClick={cancelAddFile}
                           >
                             {t("skills.cancelEdit")}
@@ -504,7 +503,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                           <Button
                             type="button"
                             size="xs"
-                            className="file-btn save bg-[var(--primary)] text-white hover:bg-[var(--primary)]"
+                            className="font-semibold"
                             onClick={() => void submitAddFile()}
                           >
                             {t("skills.saveFile")}
@@ -516,7 +515,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                       <Button
                         type="button"
                         variant="outline"
-                        className="skill-add-file-btn w-full border-dashed border-border bg-transparent text-muted-foreground hover:bg-secondary hover:text-foreground"
+                        className="w-full border-dashed border-border bg-transparent text-muted-foreground hover:bg-secondary hover:text-foreground"
                         onClick={openAddFileForm}
                       >
                         <Plus className="size-3.5" aria-hidden="true" />

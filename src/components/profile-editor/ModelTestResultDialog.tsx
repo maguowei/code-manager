@@ -1,4 +1,4 @@
-import { Copy, TestTube } from "lucide-react";
+import { Copy, TestTube, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneLight, vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
@@ -6,6 +6,7 @@ import { useToast } from "../../hooks/useToast";
 import { useI18n } from "../../i18n";
 import type { ModelTestResult } from "../../types";
 import { useTheme } from "../theme-provider";
+import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
 
 interface ModelTestResultDialogProps {
@@ -240,13 +241,15 @@ function ModelTestResultDialog({
           <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
             {label}
           </span>
-          <button
+          <Button
             type="button"
-            className="shrink-0 cursor-pointer text-xs font-medium text-[var(--primary)] underline-offset-2 hover:underline disabled:pointer-events-none disabled:opacity-50"
+            variant="link"
+            size="xs"
+            className="h-auto shrink-0 p-0 text-xs font-medium"
             onClick={() => handleToggleCodePanel(panelKey)}
           >
             {expanded ? hideLabel : viewLabel}
-          </button>
+          </Button>
         </div>
         {expanded ? (
           <div className="raw" data-testid={testId}>
@@ -301,9 +304,10 @@ function ModelTestResultDialog({
             </div>
             <div className="flex shrink-0 items-center gap-2">
               {onRetest ? (
-                <button
+                <Button
                   type="button"
-                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
+                  variant="outline"
+                  size="sm"
                   disabled={isRetesting}
                   onClick={() => onRetest(getRetestPromptOverride())}
                 >
@@ -315,11 +319,12 @@ function ModelTestResultDialog({
                       ? t("profiles.editor.modelTest.retesting")
                       : t("profiles.editor.modelTest.retest")}
                   </span>
-                </button>
+                </Button>
               ) : null}
-              <button
+              <Button
                 type="button"
-                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
+                variant="outline"
+                size="sm"
                 disabled={!curlCommand}
                 onClick={() => {
                   void handleCopyCurl();
@@ -327,16 +332,18 @@ function ModelTestResultDialog({
               >
                 <Copy className="size-[15px]" aria-hidden="true" />
                 <span>{t("profiles.editor.modelTest.copyCurl")}</span>
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className="inline-flex size-7 items-center justify-center rounded-md text-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                variant="ghost"
+                size="icon-sm"
+                className="size-7 text-muted-foreground hover:bg-muted hover:text-foreground"
                 aria-label={t("common.close")}
                 title={t("common.close")}
                 onClick={onClose}
               >
-                ×
-              </button>
+                <X className="size-4" aria-hidden="true" />
+              </Button>
             </div>
           </div>
           {trimmedProfileName || requestUrl ? (
@@ -444,9 +451,11 @@ function ModelTestResultDialog({
                     </span>
                   )}
                   {isPromptEditing ? (
-                    <button
+                    <Button
                       type="button"
-                      className="shrink-0 cursor-pointer text-xs font-medium text-[var(--primary)] underline-offset-2 hover:underline disabled:pointer-events-none disabled:opacity-50"
+                      variant="link"
+                      size="xs"
+                      className="h-auto shrink-0 p-0 text-xs font-medium"
                       disabled={isRetesting || !onRetest || !canSendPromptRequest}
                       onClick={() => {
                         if (!onRetest) {
@@ -459,16 +468,18 @@ function ModelTestResultDialog({
                       {isRetesting
                         ? t("profiles.editor.modelTest.retesting")
                         : t("profiles.editor.modelTest.sendPromptRequest")}
-                    </button>
+                    </Button>
                   ) : (
-                    <button
+                    <Button
                       type="button"
-                      className="shrink-0 cursor-pointer text-xs font-medium text-[var(--primary)] underline-offset-2 hover:underline disabled:pointer-events-none disabled:opacity-50"
+                      variant="link"
+                      size="xs"
+                      className="h-auto shrink-0 p-0 text-xs font-medium"
                       disabled={isRetesting}
                       onClick={() => setIsPromptEditing(true)}
                     >
                       {t("profiles.editor.modelTest.editPrompt")}
-                    </button>
+                    </Button>
                   )}
                 </div>
                 {isPromptEditing ? (
@@ -547,15 +558,17 @@ function ModelTestResultDialog({
                     <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                       {t("profiles.editor.modelTest.rawResponse")}
                     </span>
-                    <button
+                    <Button
                       type="button"
-                      className="shrink-0 cursor-pointer text-xs font-medium text-[var(--primary)] underline-offset-2 hover:underline disabled:pointer-events-none disabled:opacity-50"
+                      variant="link"
+                      size="xs"
+                      className="h-auto shrink-0 p-0 text-xs font-medium"
                       onClick={onToggleRawResponse}
                     >
                       {rawResponseExpanded
                         ? t("profiles.editor.modelTest.hideRawResponse")
                         : t("profiles.editor.modelTest.viewRawResponse")}
-                    </button>
+                    </Button>
                   </div>
                   {rawResponseExpanded ? (
                     <div className="raw" data-testid="model-test-raw-response-code">

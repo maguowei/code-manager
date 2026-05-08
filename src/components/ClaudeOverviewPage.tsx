@@ -11,7 +11,7 @@ import {
 import { FileTree, useFileTree } from "@pierre/trees/react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
-import { Code2, Copy, ExternalLink, Eye, SquarePen } from "lucide-react";
+import { Code2, Copy, ExternalLink, Eye, SquarePen, X } from "lucide-react";
 import {
   type CSSProperties,
   type FormEvent,
@@ -390,42 +390,46 @@ function ClaudeOverviewContextMenu({
       role="menu"
       style={menuStyle}
     >
-      <button
+      <Button
         type="button"
         role="menuitem"
-        className="min-h-8 rounded-sm px-2.5 text-left text-sm hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:outline-none"
+        variant="ghost"
+        className="h-auto min-h-8 w-full justify-start rounded-sm px-2.5 text-left text-sm hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:outline-none"
         onClick={() => handleAction(() => onCreate(item, "file"))}
       >
         {t("claudeOverview.contextMenu.newFile")}
-      </button>
-      <button
+      </Button>
+      <Button
         type="button"
         role="menuitem"
-        className="min-h-8 rounded-sm px-2.5 text-left text-sm hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:outline-none"
+        variant="ghost"
+        className="h-auto min-h-8 w-full justify-start rounded-sm px-2.5 text-left text-sm hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:outline-none"
         onClick={() => handleAction(() => onCreate(item, "directory"))}
       >
         {t("claudeOverview.contextMenu.newFolder")}
-      </button>
-      <button
+      </Button>
+      <Button
         type="button"
         role="menuitem"
-        className="min-h-8 rounded-sm px-2.5 text-left text-sm hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:outline-none"
+        variant="ghost"
+        className="h-auto min-h-8 w-full justify-start rounded-sm px-2.5 text-left text-sm hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:outline-none"
         onClick={() => handleAction(() => onRename(item))}
       >
         {t("claudeOverview.contextMenu.rename")}
-      </button>
+      </Button>
       <div
         className="claude-overview-context-menu-separator -mx-1 my-1 h-px bg-border"
         aria-hidden="true"
       />
-      <button
+      <Button
         type="button"
         role="menuitem"
-        className="danger min-h-8 rounded-sm px-2.5 text-left text-sm text-destructive hover:bg-destructive/10 focus-visible:bg-destructive/10 focus-visible:outline-none"
+        variant="destructive-ghost"
+        className="danger h-auto min-h-8 w-full justify-start rounded-sm px-2.5 text-left text-sm text-destructive hover:bg-destructive/10 focus-visible:bg-destructive/10 focus-visible:outline-none"
         onClick={() => handleAction(() => onDelete(item))}
       >
         {t("claudeOverview.contextMenu.delete")}
-      </button>
+      </Button>
     </div>
   );
 }
@@ -1419,29 +1423,32 @@ function ClaudeOverviewPage() {
                       isActive && "active bg-background",
                     )}
                   >
-                    <button
+                    <Button
                       type="button"
                       role="tab"
+                      variant="ghost"
                       aria-selected={isActive}
-                      className="claude-overview-tab flex h-full min-w-0 items-center gap-1.5 overflow-hidden bg-transparent px-2.5 font-mono text-sm aria-selected:text-foreground aria-[selected=false]:text-muted-foreground"
+                      className="claude-overview-tab h-full min-w-0 justify-start gap-1.5 overflow-hidden bg-transparent px-2.5 font-mono text-sm aria-selected:text-foreground aria-[selected=false]:text-muted-foreground"
                       onClick={() => handleSelectPreviewTab(openedPreview.path)}
                     >
                       <ClaudeOverviewFileIcon path={openedPreview.path} />
                       <span className="claude-overview-tab-label min-w-0 truncate">
                         {openedPreview.name || openedPreview.path}
                       </span>
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
-                      className="claude-overview-tab-close mr-0.5 flex size-6 shrink-0 items-center justify-center rounded-sm text-lg leading-none text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                      variant="ghost"
+                      size="icon-xs"
+                      className="claude-overview-tab-close mr-0.5 size-6 shrink-0 rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                       aria-label={t("claudeOverview.closePreview").replace(
                         "{name}",
                         openedPreview.name || openedPreview.path,
                       )}
                       onClick={() => handleClosePreview(openedPreview.path)}
                     >
-                      ×
-                    </button>
+                      <X className="size-3.5" aria-hidden="true" />
+                    </Button>
                   </div>
                 );
               })}

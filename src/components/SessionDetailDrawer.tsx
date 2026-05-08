@@ -252,9 +252,10 @@ function CollapsibleBlock({
       className={cn("min-w-0 max-w-full [overflow-wrap:anywhere]", wrapClass)}
     >
       <CollapsibleTrigger asChild>
-        <button
+        <Button
           type="button"
-          className="flex min-w-0 max-w-full cursor-pointer items-center gap-2 text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
+          variant="ghost"
+          className="h-auto min-w-0 max-w-full justify-start gap-2 bg-transparent p-0 text-left text-xs text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground"
         >
           <Chevron className="size-3 shrink-0" aria-hidden="true" />
           <span className="shrink-0" aria-hidden="true">
@@ -262,7 +263,7 @@ function CollapsibleBlock({
           </span>
           <span className="shrink-0 font-medium">{label}</span>
           {summary && <span className="min-w-0 truncate">{summary}</span>}
-        </button>
+        </Button>
       </CollapsibleTrigger>
       <CollapsibleContent className={cn("min-w-0 max-w-full", contentClass)}>
         {children}
@@ -473,9 +474,10 @@ function ToolCallCard({
       className="min-w-0 max-w-full rounded-md border bg-card"
     >
       <CollapsibleTrigger asChild>
-        <button
+        <Button
           type="button"
-          className="flex min-w-0 max-w-full cursor-pointer items-center gap-2 px-3 py-2 text-left"
+          variant="ghost"
+          className="h-auto min-w-0 max-w-full justify-start gap-2 px-3 py-2 text-left whitespace-normal"
         >
           <Chevron className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
           <Wrench className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -489,7 +491,7 @@ function ToolCallCard({
               )}
             </span>
           )}
-        </button>
+        </Button>
       </CollapsibleTrigger>
       <CollapsibleContent className="border-t px-3 py-3">
         <div className="flex min-w-0 max-w-full flex-col gap-3">

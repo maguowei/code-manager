@@ -32,6 +32,7 @@ import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "./ui/chart";
+import { SegmentedControl } from "./ui/segmented-control";
 import { formatCost, formatShortDateTime, formatTokens, projectDisplayName } from "./usage/format";
 import SessionUsageDrawer from "./usage/SessionUsageDrawer";
 
@@ -1074,13 +1075,14 @@ function UsagePage() {
                 aria-label={t("usage.details.title")}
               >
                 {TAB_ORDER.map((key) => (
-                  <button
+                  <Button
                     key={key}
                     type="button"
                     role="tab"
+                    variant="ghost"
                     aria-selected={u.tab === key}
                     className={cn(
-                      "usage-tab-btn flex shrink-0 items-center gap-2 rounded-sm px-3 py-1.5 text-sm font-medium text-muted-foreground",
+                      "usage-tab-btn h-auto shrink-0 gap-2 rounded-sm px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-transparent",
                       u.tab === key && "active bg-background text-foreground shadow-sm",
                     )}
                     onClick={() => u.setTab(key)}
@@ -1089,7 +1091,7 @@ function UsagePage() {
                     <span className="usage-tab-count rounded-full bg-muted px-1.5 py-0.5 text-xs">
                       {tabCounts[key]}
                     </span>
-                  </button>
+                  </Button>
                 ))}
               </div>
 
@@ -1177,26 +1179,17 @@ function TrendChartStyleSwitch({
   t: ReturnType<typeof useI18n>["t"];
 }) {
   return (
-    <div
-      className="usage-time-granularity usage-chart-style-switch inline-flex rounded-md border bg-secondary p-1"
-      role="group"
-      aria-label={t("usage.charts.style.ariaLabel")}
-    >
-      {TREND_CHART_STYLE_ORDER.map((key) => (
-        <button
-          key={key}
-          type="button"
-          className={cn(
-            "usage-time-granularity-btn rounded-sm px-2.5 py-1 text-xs font-medium text-muted-foreground",
-            value === key && "active bg-background text-foreground shadow-sm",
-          )}
-          aria-pressed={value === key}
-          onClick={() => onChange(key)}
-        >
-          {t(`usage.charts.style.${key}`)}
-        </button>
-      ))}
-    </div>
+    <SegmentedControl
+      ariaLabel={t("usage.charts.style.ariaLabel")}
+      value={value}
+      onValueChange={onChange}
+      className="usage-time-granularity usage-chart-style-switch"
+      itemClassName="usage-time-granularity-btn"
+      items={TREND_CHART_STYLE_ORDER.map((key) => ({
+        value: key,
+        label: t(`usage.charts.style.${key}`),
+      }))}
+    />
   );
 }
 
@@ -1210,26 +1203,17 @@ function TrendBreakdownModeSwitch({
   t: ReturnType<typeof useI18n>["t"];
 }) {
   return (
-    <div
-      className="usage-time-granularity usage-trend-mode-switch inline-flex rounded-md border bg-secondary p-1"
-      role="group"
-      aria-label={t("usage.charts.breakdown.ariaLabel")}
-    >
-      {TREND_BREAKDOWN_MODE_ORDER.map((key) => (
-        <button
-          key={key}
-          type="button"
-          className={cn(
-            "usage-time-granularity-btn rounded-sm px-2.5 py-1 text-xs font-medium text-muted-foreground",
-            value === key && "active bg-background text-foreground shadow-sm",
-          )}
-          aria-pressed={value === key}
-          onClick={() => onChange(key)}
-        >
-          {t(`usage.charts.breakdown.${key}`)}
-        </button>
-      ))}
-    </div>
+    <SegmentedControl
+      ariaLabel={t("usage.charts.breakdown.ariaLabel")}
+      value={value}
+      onValueChange={onChange}
+      className="usage-time-granularity usage-trend-mode-switch"
+      itemClassName="usage-time-granularity-btn"
+      items={TREND_BREAKDOWN_MODE_ORDER.map((key) => ({
+        value: key,
+        label: t(`usage.charts.breakdown.${key}`),
+      }))}
+    />
   );
 }
 
@@ -1243,26 +1227,17 @@ function TimeGranularitySwitch({
   t: ReturnType<typeof useI18n>["t"];
 }) {
   return (
-    <div
-      className="usage-time-granularity inline-flex rounded-md border bg-secondary p-1"
-      role="group"
-      aria-label={t("usage.granularity.ariaLabel")}
-    >
-      {TIME_GRANULARITY_ORDER.map((key) => (
-        <button
-          key={key}
-          type="button"
-          className={cn(
-            "usage-time-granularity-btn rounded-sm px-2.5 py-1 text-xs font-medium text-muted-foreground",
-            value === key && "active bg-background text-foreground shadow-sm",
-          )}
-          aria-pressed={value === key}
-          onClick={() => onChange(key)}
-        >
-          {t(`usage.granularity.${key}`)}
-        </button>
-      ))}
-    </div>
+    <SegmentedControl
+      ariaLabel={t("usage.granularity.ariaLabel")}
+      value={value}
+      onValueChange={onChange}
+      className="usage-time-granularity"
+      itemClassName="usage-time-granularity-btn"
+      items={TIME_GRANULARITY_ORDER.map((key) => ({
+        value: key,
+        label: t(`usage.granularity.${key}`),
+      }))}
+    />
   );
 }
 
@@ -1302,10 +1277,12 @@ function TrendLegend({
           : `${item.originalName} · ${hint} · ${soloHint}`;
         return (
           <li key={item.key}>
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="xs"
               className={cn(
-                "usage-legend-chip inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs",
+                "usage-legend-chip h-auto gap-1.5 rounded-full px-2 py-1 text-xs",
                 isHidden && "muted opacity-45",
               )}
               aria-pressed={!isHidden}
@@ -1327,7 +1304,7 @@ function TrendLegend({
                   {item.meta}
                 </span>
               )}
-            </button>
+            </Button>
           </li>
         );
       })}
@@ -1479,18 +1456,21 @@ function Filters({ t, filter, allProjects, allModels, onChange, onReset }: Filte
         aria-label={t("usage.filter.quick.ariaLabel")}
       >
         {DATE_RANGE_PRESETS.map((preset) => (
-          <button
+          <Button
             key={preset}
             type="button"
+            variant={activePreset === preset ? "default" : "outline"}
+            size="xs"
             className={cn(
-              "usage-quick-range-btn rounded-md border px-2.5 py-1 text-xs font-semibold text-muted-foreground",
-              activePreset === preset && "active bg-primary text-primary-foreground",
+              "usage-quick-range-btn h-auto rounded-md px-2.5 py-1 text-xs font-semibold",
+              activePreset !== preset && "text-muted-foreground",
+              activePreset === preset && "active",
             )}
             aria-pressed={activePreset === preset}
             onClick={() => onChange(getDateRangePresetPatch(preset))}
           >
             {t(`usage.filter.quick.${preset}`)}
-          </button>
+          </Button>
         ))}
       </div>
       <label className="usage-filter-cluster flex min-w-38 flex-col gap-1">

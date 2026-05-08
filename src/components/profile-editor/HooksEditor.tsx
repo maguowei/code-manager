@@ -319,14 +319,15 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
                                   .filter(Boolean)
                                   .join(" ")}
                               >
-                                <button
+                                <Button
                                   type="button"
+                                  variant="ghost"
                                   className={actionButtonClassName}
                                   aria-expanded={isExpanded}
                                   onClick={() => toggleActionExpanded(actionKey)}
                                 >
                                   {actionLabel}
-                                </button>
+                                </Button>
                                 {actionSummary.isBuiltinPreset ? (
                                   <Badge
                                     variant="outline"
