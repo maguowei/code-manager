@@ -36,12 +36,9 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
   return (
     <Card
       className={cn(
-        "skill-item group relative flex cursor-pointer flex-col gap-4 rounded-xl border border-border bg-[linear-gradient(180deg,var(--card),var(--secondary))] p-4 text-foreground shadow-none transition-[transform,border-color,box-shadow,background-color,opacity] duration-200 hover:-translate-y-px hover:border-primary hover:shadow-[0_4px_12px_rgb(59_130_246_/_0.15)]",
-        skill.isActive
-          ? "active border-[var(--primary)] shadow-[0_0_0_1px_var(--primary)_inset,0_0_16px_rgb(59_130_246_/_0.2)]"
-          : "inactive",
-        isEditing &&
-          "editing border-chart-3 shadow-[0_0_0_1px_var(--chart-3)_inset,0_0_18px_rgb(247_129_102_/_0.24)] hover:border-chart-3",
+        "skill-item group relative flex cursor-pointer flex-col gap-4 rounded-lg border border-border bg-card p-4 text-foreground shadow-none transition-[transform,border-color,box-shadow,background-color,opacity] duration-200 hover:-translate-y-px hover:border-primary hover:bg-accent/40 hover:shadow-sm",
+        skill.isActive ? "active border-primary ring-1 ring-primary/30" : "inactive",
+        isEditing && "editing border-chart-3 ring-1 ring-chart-3/30 hover:border-chart-3",
       )}
       role="button"
       tabIndex={0}
@@ -112,7 +109,7 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
           aria-label={t("skills.syncToCodex")}
           title={t("skills.syncToCodex")}
         >
-          <RefreshCw className="size-4" aria-hidden="true" />
+          <RefreshCw aria-hidden="true" />
         </Button>
 
         {/* 删除按钮 */}
@@ -128,7 +125,7 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
           aria-label={t("skills.delete")}
           title={t("skills.delete")}
         >
-          <Trash2 className="size-4" aria-hidden="true" />
+          <Trash2 aria-hidden="true" />
         </Button>
       </div>
     </Card>

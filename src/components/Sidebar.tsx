@@ -55,8 +55,8 @@ function Sidebar({ activeTab, onTabChange, onClaudeOverviewClick, onSettingsClic
             variant="ghost"
             size="icon"
             className={cn(
-              "mb-5 size-10 rounded-lg bg-linear-to-br from-[var(--primary)] to-[var(--chart-4)] text-base font-bold text-white shadow-[0 0 12px color-mix(in oklch, var(--primary) 28%, transparent)] transition-[filter,transform,box-shadow] duration-150 hover:text-white hover:brightness-110 active:scale-95 max-[700px]:size-8 max-[700px]:text-sm",
-              activeTab === "claudeOverview" && "brightness-110 shadow-md",
+              "mb-5 size-10 rounded-lg bg-primary text-base font-bold text-primary-foreground transition-[background-color,transform] duration-150 hover:bg-primary/90 hover:text-primary-foreground active:scale-95 max-[700px]:size-8 max-[700px]:text-sm",
+              activeTab === "claudeOverview" && "ring-2 ring-ring/50",
             )}
             onClick={onClaudeOverviewClick}
             aria-label={t("nav.claudeOverview")}
@@ -83,17 +83,13 @@ function Sidebar({ activeTab, onTabChange, onClaudeOverviewClick, onSettingsClic
                   className={cn(
                     "relative size-11 rounded-lg text-muted-foreground transition-all duration-150 hover:bg-muted hover:text-foreground active:scale-95 max-[700px]:size-9",
                     active &&
-                      "bg-[var(--accent)] text-[var(--primary)] before:absolute before:left-[-8px] before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-r-sm before:bg-[var(--primary)] hover:bg-[var(--accent)] hover:text-[var(--primary)] max-[700px]:before:left-[-4px]",
+                      "bg-accent text-primary before:absolute before:left-[-8px] before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-r-sm before:bg-primary hover:bg-accent hover:text-primary max-[700px]:before:left-[-4px]",
                   )}
                   onClick={() => onTabChange(key)}
                   aria-label={t(label)}
                   aria-current={active ? "page" : undefined}
                 >
-                  <Icon
-                    data-testid={testId}
-                    className="size-5 max-[700px]:size-[18px]"
-                    aria-hidden="true"
-                  />
+                  <Icon data-testid={testId} aria-hidden="true" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="right" sideOffset={8}>
@@ -117,7 +113,7 @@ function Sidebar({ activeTab, onTabChange, onClaudeOverviewClick, onSettingsClic
               onClick={onSettingsClick}
               aria-label={t("header.settings")}
             >
-              <Settings className="size-5 max-[700px]:size-[18px]" aria-hidden="true" />
+              <Settings aria-hidden="true" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="right" sideOffset={8}>

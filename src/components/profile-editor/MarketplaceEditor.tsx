@@ -498,8 +498,8 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
 
       <div className="flex flex-col gap-4">
         <div className="flex min-w-0 flex-col gap-3 [container-type:inline-size]">
-          <div className="flex flex-col overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--border)_88%,var(--primary)_12%)] bg-[color-mix(in_srgb,var(--card)_92%,var(--accent)_8%)]">
-            <div className="grid grid-cols-[40px_minmax(0,1fr)_minmax(0,1.35fr)_auto] items-center gap-3 border-b border-[color-mix(in_srgb,var(--border)_92%,transparent)] px-3.5 pt-3 pb-2.5 text-xs font-semibold text-muted-foreground max-[720px]:hidden">
+          <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-card">
+            <div className="grid grid-cols-[40px_minmax(0,1fr)_minmax(0,1.35fr)_auto] items-center gap-3 border-b border-border px-3.5 pt-3 pb-2.5 text-xs font-semibold text-muted-foreground max-[720px]:hidden">
               <span className="inline-flex items-center justify-center text-xs font-semibold text-muted-foreground tabular-nums">
                 {t("profileEditor.common.index")}
               </span>
@@ -527,13 +527,13 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                 return (
                   <div
                     key={item.id}
-                    className={`flex flex-col gap-0 border-t border-[color-mix(in_srgb,var(--border)_92%,transparent)] px-3.5 py-2.5 first:border-t-0 max-[720px]:gap-3 max-[720px]:py-3${selected ? " selected bg-[color-mix(in_srgb,var(--accent)_18%,var(--card)_82%)]" : ""}`}
+                    className={`flex flex-col gap-0 border-t border-border px-3.5 py-2.5 first:border-t-0 max-[720px]:gap-3 max-[720px]:py-3${selected ? " selected bg-accent/40" : ""}`}
                   >
                     <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 max-[720px]:items-start">
                       <Button
                         type="button"
                         variant="ghost"
-                        className="group grid h-auto min-h-12 w-full min-w-0 cursor-pointer grid-cols-[40px_minmax(0,1fr)_minmax(0,1.35fr)] items-center justify-start gap-3 whitespace-normal rounded-lg bg-transparent px-2.5 py-2 text-left text-foreground hover:bg-transparent hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary max-[720px]:grid-cols-[32px_minmax(0,1fr)] max-[720px]:items-start max-[720px]:gap-x-2.5 max-[720px]:gap-y-1.5"
+                        className="group grid h-auto min-h-12 w-full min-w-0 cursor-pointer grid-cols-[40px_minmax(0,1fr)_minmax(0,1.35fr)] items-center justify-start gap-3 whitespace-normal rounded-lg bg-transparent px-2.5 py-2 text-left text-foreground hover:bg-transparent hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary max-[720px]:grid-cols-[32px_minmax(0,1fr)] max-[720px]:items-start max-[720px]:gap-x-2.5 max-[720px]:gap-y-1.5"
                         aria-pressed={selected}
                         aria-label={`${t("profileEditor.marketplace.editAriaLabel")} ${label}`}
                         onClick={() => handleSelectMarketplace(marketplace)}
@@ -563,11 +563,11 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                           ) : null}
                         </span>
                         <span className="flex min-w-0 flex-col gap-1 max-[720px]:col-start-2">
-                          <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-medium text-foreground group-hover:text-[var(--primary)] group-focus-visible:text-[var(--primary)] max-[720px]:whitespace-normal max-[720px]:break-words">
+                          <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-medium text-foreground group-hover:text-primary group-focus-visible:text-primary max-[720px]:whitespace-normal max-[720px]:break-words">
                             {item.primarySummary}
                           </span>
                           {item.secondarySummary.length > 0 ? (
-                            <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-muted-foreground group-hover:text-[var(--primary)] group-focus-visible:text-[var(--primary)] max-[720px]:whitespace-normal max-[720px]:break-words">
+                            <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-muted-foreground group-hover:text-primary group-focus-visible:text-primary max-[720px]:whitespace-normal max-[720px]:break-words">
                               {item.secondarySummary.join(" · ")}
                             </span>
                           ) : null}
@@ -589,7 +589,7 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
                     </div>
 
                     {selected && draft ? (
-                      <div className="mt-2 flex flex-col gap-3 border-t border-[color-mix(in_srgb,var(--border)_92%,transparent)] pt-3 pl-[62px] max-[720px]:mt-0 max-[720px]:pl-0">
+                      <div className="mt-2 flex flex-col gap-3 border-t border-border pt-3 pl-[62px] max-[720px]:mt-0 max-[720px]:pl-0">
                         <div className="flex flex-col gap-3">
                           <div className="grid gap-3 md:grid-cols-2">
                             <label className="grid gap-2 gap-2">

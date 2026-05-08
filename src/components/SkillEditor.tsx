@@ -357,7 +357,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                   control={control}
                   name="content"
                   render={({ field }) => (
-                    <div className="skill-editor-wrap overflow-hidden rounded-md border border-border focus-within:border-[var(--primary)] focus-within:ring-[3px] focus-within:ring-ring/50 [&_.cm-editor]:text-[13px] [&_.cm-editor]:leading-[1.6] [&_.cm-editor.cm-focused]:outline-none [&_.cm-scroller]:font-mono [&_.cm-scroller]:overflow-auto">
+                    <div className="skill-editor-wrap overflow-hidden rounded-md border border-border focus-within:border-primary focus-within:ring-[3px] focus-within:ring-ring/50 [&_.cm-editor]:text-[13px] [&_.cm-editor]:leading-[1.6] [&_.cm-editor.cm-focused]:outline-none [&_.cm-scroller]:font-mono [&_.cm-scroller]:overflow-auto">
                       <CodeMirror
                         value={field.value}
                         onChange={field.onChange}

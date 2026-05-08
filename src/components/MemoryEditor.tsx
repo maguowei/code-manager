@@ -311,7 +311,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                                 className={cn(
                                   "memory-target-card-content flex min-h-[92px] flex-col gap-2 rounded-md border border-border bg-card p-3.5 text-muted-foreground transition-[border-color,background-color,box-shadow,color] duration-150 group-hover/memory-target:border-muted-foreground group-hover/memory-target:bg-secondary",
                                   isSelected &&
-                                    "border-[var(--primary)] bg-[var(--accent)] text-foreground shadow-[0_0_0_1px_var(--primary)_inset]",
+                                    "border-primary bg-accent text-foreground ring-1 ring-primary/30",
                                 )}
                               >
                                 <span className="memory-target-card-main flex items-center justify-between gap-2">
@@ -321,7 +321,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                                   <span
                                     className={cn(
                                       "memory-target-card-check inline-flex shrink-0 items-center justify-center text-muted-foreground opacity-0",
-                                      isSelected && "text-[var(--primary)] opacity-100",
+                                      isSelected && "text-primary opacity-100",
                                     )}
                                     aria-hidden="true"
                                   >
@@ -447,14 +447,14 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                   control={control}
                   name="content"
                   render={({ field }) => (
-                    <div className="memory-editor overflow-hidden rounded-md border border-border focus-within:border-[var(--primary)] focus-within:ring-[3px] focus-within:ring-ring/50 dark:border-border [&_.cm-editor]:min-h-[300px] [&_.cm-editor]:text-[13px] [&_.cm-editor]:leading-[1.6] [&_.cm-editor.cm-focused]:outline-none [&_.cm-scroller]:font-mono [&_.cm-scroller]:overflow-auto">
-                      <div className="memory-editor-toolbar flex items-center gap-1 border-b border-[var(--border)] bg-[var(--muted)] px-2 py-1.5 dark:border-[var(--border)] dark:bg-[var(--muted)]">
+                    <div className="memory-editor overflow-hidden rounded-md border border-border focus-within:border-primary focus-within:ring-[3px] focus-within:ring-ring/50 dark:border-border [&_.cm-editor]:min-h-[300px] [&_.cm-editor]:text-[13px] [&_.cm-editor]:leading-[1.6] [&_.cm-editor.cm-focused]:outline-none [&_.cm-scroller]:font-mono [&_.cm-scroller]:overflow-auto">
+                      <div className="memory-editor-toolbar flex items-center gap-1 border-b border-border bg-muted px-2 py-1.5 dark:border-border dark:bg-muted">
                         {/* 标题 */}
                         <Button
                           type="button"
                           variant="outline"
                           size="xs"
-                          className="memory-toolbar-btn border-black/15 bg-transparent text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/15 dark:text-[var(--muted-foreground)] dark:hover:bg-white/10 dark:hover:text-[var(--foreground)]"
+                          className="memory-toolbar-btn border-border bg-transparent text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 dark:hover:bg-accent dark:hover:text-foreground"
                           title={t("memory.toolbar.heading")}
                           disabled={isPreviewMode}
                           onClick={() =>
@@ -468,7 +468,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                           type="button"
                           variant="outline"
                           size="xs"
-                          className="memory-toolbar-btn memory-toolbar-btn-bold border-black/15 bg-transparent text-xs font-black text-muted-foreground italic hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/15 dark:text-[var(--muted-foreground)] dark:hover:bg-white/10 dark:hover:text-[var(--foreground)]"
+                          className="memory-toolbar-btn memory-toolbar-btn-bold border-border bg-transparent text-xs font-black text-muted-foreground italic hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 dark:hover:bg-accent dark:hover:text-foreground"
                           title={t("memory.toolbar.bold")}
                           disabled={isPreviewMode}
                           onClick={insertBold}
@@ -480,7 +480,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                           type="button"
                           variant="outline"
                           size="xs"
-                          className="memory-toolbar-btn border-black/15 bg-transparent text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/15 dark:text-[var(--muted-foreground)] dark:hover:bg-white/10 dark:hover:text-[var(--foreground)]"
+                          className="memory-toolbar-btn border-border bg-transparent text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 dark:hover:bg-accent dark:hover:text-foreground"
                           title={t("memory.toolbar.list")}
                           disabled={isPreviewMode}
                           onClick={() =>
@@ -494,7 +494,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                           type="button"
                           variant="outline"
                           size="xs"
-                          className="memory-toolbar-btn border-black/15 bg-transparent text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/15 dark:text-[var(--muted-foreground)] dark:hover:bg-white/10 dark:hover:text-[var(--foreground)]"
+                          className="memory-toolbar-btn border-border bg-transparent text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 dark:hover:bg-accent dark:hover:text-foreground"
                           title={t("memory.toolbar.code")}
                           disabled={isPreviewMode}
                           onClick={() => insertAtCursor("```\n\n```")}
@@ -505,7 +505,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                           type="button"
                           variant="outline"
                           size="icon-xs"
-                          className="memory-toolbar-btn memory-toolbar-preview-toggle ml-auto border-black/15 bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground aria-pressed:border-primary dark:border-white/15 dark:text-[var(--muted-foreground)] dark:hover:bg-white/10 dark:hover:text-[var(--foreground)]"
+                          className="memory-toolbar-btn memory-toolbar-preview-toggle ml-auto border-border bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground aria-pressed:border-primary dark:hover:bg-accent dark:hover:text-foreground"
                           aria-label={t(
                             isPreviewMode ? "memory.toolbar.source" : "memory.toolbar.preview",
                           )}

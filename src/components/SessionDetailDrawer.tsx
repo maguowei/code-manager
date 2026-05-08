@@ -659,7 +659,7 @@ function EventMessage({ msg, t }: { msg: SessionMessage; t: (key: TranslationKey
           <span className="font-medium">{t("history.event")}</span>
           {msg.timestamp && <span>{formatTimestamp(msg.timestamp)}</span>}
         </div>
-        <div className="min-w-0 space-y-2">
+        <div className="flex min-w-0 flex-col gap-2">
           <MessageBlocks blocks={msg.blocks} t={t} />
         </div>
       </div>
@@ -718,7 +718,7 @@ function ConversationMessage({
           </span>
           {timestamp && <span className="min-w-0 text-xs tabular-nums">{timestamp}</span>}
         </div>
-        <div className="min-w-0 max-w-3xl space-y-2 text-foreground">
+        <div className="flex min-w-0 max-w-3xl flex-col gap-2 text-foreground">
           <MessageBlocks blocks={msg.blocks} t={t} />
         </div>
       </div>

@@ -1,70 +1,21 @@
-import type { CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Badge } from "./ui/badge";
 
 const BADGE_COLOR_COUNT = 12;
-const BADGE_COLORS: CSSProperties[] = [
-  {
-    background:
-      "linear-gradient(135deg, color-mix(in oklch, var(--chart-1) 16%, transparent), color-mix(in oklch, var(--chart-1) 34%, transparent))",
-    color: "var(--chart-1)",
-  },
-  {
-    background:
-      "linear-gradient(135deg, color-mix(in oklch, var(--chart-2) 16%, transparent), color-mix(in oklch, var(--chart-2) 34%, transparent))",
-    color: "var(--chart-2)",
-  },
-  {
-    background:
-      "linear-gradient(135deg, color-mix(in oklch, var(--chart-3) 16%, transparent), color-mix(in oklch, var(--chart-3) 34%, transparent))",
-    color: "var(--chart-3)",
-  },
-  {
-    background:
-      "linear-gradient(135deg, color-mix(in oklch, var(--chart-4) 16%, transparent), color-mix(in oklch, var(--chart-4) 34%, transparent))",
-    color: "var(--chart-4)",
-  },
-  {
-    background:
-      "linear-gradient(135deg, color-mix(in oklch, var(--chart-5) 16%, transparent), color-mix(in oklch, var(--chart-5) 34%, transparent))",
-    color: "var(--chart-5)",
-  },
-  {
-    background:
-      "linear-gradient(135deg, color-mix(in oklch, var(--primary) 14%, transparent), color-mix(in oklch, var(--primary) 28%, transparent))",
-    color: "var(--primary)",
-  },
-  {
-    background:
-      "linear-gradient(135deg, color-mix(in oklch, var(--chart-1) 10%, var(--card)), color-mix(in oklch, var(--chart-2) 28%, transparent))",
-    color: "var(--chart-2)",
-  },
-  {
-    background:
-      "linear-gradient(135deg, color-mix(in oklch, var(--chart-2) 10%, var(--card)), color-mix(in oklch, var(--chart-3) 28%, transparent))",
-    color: "var(--chart-3)",
-  },
-  {
-    background:
-      "linear-gradient(135deg, color-mix(in oklch, var(--chart-3) 10%, var(--card)), color-mix(in oklch, var(--chart-4) 28%, transparent))",
-    color: "var(--chart-4)",
-  },
-  {
-    background:
-      "linear-gradient(135deg, color-mix(in oklch, var(--chart-4) 10%, var(--card)), color-mix(in oklch, var(--chart-5) 28%, transparent))",
-    color: "var(--chart-5)",
-  },
-  {
-    background:
-      "linear-gradient(135deg, color-mix(in oklch, var(--chart-5) 10%, var(--card)), color-mix(in oklch, var(--chart-1) 28%, transparent))",
-    color: "var(--chart-1)",
-  },
-  {
-    background:
-      "linear-gradient(135deg, color-mix(in oklch, var(--primary) 10%, var(--card)), color-mix(in oklch, var(--chart-4) 28%, transparent))",
-    color: "var(--primary)",
-  },
+const BADGE_COLOR_CLASSES = [
+  "bg-chart-1/10 text-chart-1",
+  "bg-chart-2/10 text-chart-2",
+  "bg-chart-3/10 text-chart-3",
+  "bg-chart-4/10 text-chart-4",
+  "bg-chart-5/10 text-chart-5",
+  "bg-primary/10 text-primary",
+  "bg-chart-2/10 text-chart-2",
+  "bg-chart-3/10 text-chart-3",
+  "bg-chart-4/10 text-chart-4",
+  "bg-chart-5/10 text-chart-5",
+  "bg-chart-1/10 text-chart-1",
+  "bg-primary/10 text-primary",
 ];
 
 interface ProfileNameBadgeProps {
@@ -117,11 +68,11 @@ function ProfileNameBadge({
       data-size={size}
       data-color-index={colorIndex}
       className={cn(
-        "shrink-0 border-0 p-0 text-foreground shadow-[inset_0_0_0_1px_rgb(255_255_255_/_0.08),0_10px_24px_rgb(15_23_42_/_0.18)]",
+        "shrink-0 border border-border p-0 shadow-sm",
         size === "lg" ? "size-16 rounded-2xl" : "size-9 rounded-[10px]",
+        BADGE_COLOR_CLASSES[colorIndex],
         className,
       )}
-      style={BADGE_COLORS[colorIndex]}
       aria-hidden="true"
     >
       <Avatar

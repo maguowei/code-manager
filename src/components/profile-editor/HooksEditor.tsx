@@ -277,7 +277,7 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
                   {summary.matchers.map((matcherSummary) => (
                     <div
                       key={`${summary.event}-${matcherSummary.summaryKey}`}
-                      className="flex flex-col gap-3 rounded-lg border border-[color-mix(in_srgb,var(--border)_86%,var(--primary)_14%)] bg-[color-mix(in_srgb,var(--card)_96%,var(--primary)_4%)] p-3"
+                      className="flex flex-col gap-3 rounded-lg border border-border bg-muted/50 p-3"
                       role="listitem"
                     >
                       <div className="flex flex-wrap items-center gap-2">
@@ -297,7 +297,7 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
                               ? actionSummary.fullLabel
                               : actionSummary.collapsedLabel;
                             const actionButtonClassName = [
-                              "inline-flex min-h-10 w-full max-w-full cursor-pointer items-center rounded-md border border-border bg-[color-mix(in_srgb,var(--card)_94%,var(--primary)_6%)] px-3 py-2 text-left font-mono text-xs leading-5 text-foreground transition-colors hover:border-[color-mix(in_srgb,var(--primary)_54%,var(--border)_46%)] hover:bg-[color-mix(in_srgb,var(--card)_84%,var(--primary)_16%)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_srgb,var(--primary)_60%,transparent)]",
+                              "inline-flex min-h-10 w-full max-w-full cursor-pointer items-center rounded-md border border-border bg-background px-3 py-2 text-left font-mono text-xs leading-5 text-foreground transition-colors hover:border-primary hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
                               isExpanded
                                 ? "expanded whitespace-pre-wrap [overflow-wrap:anywhere]"
                                 : "",
@@ -331,7 +331,7 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
                                 {actionSummary.isBuiltinPreset ? (
                                   <Badge
                                     variant="outline"
-                                    className="absolute top-2 right-2 border-[color-mix(in_srgb,var(--primary)_28%,var(--border)_72%)] bg-[color-mix(in_srgb,var(--card)_88%,var(--primary)_12%)] text-[var(--primary)]"
+                                    className="absolute top-2 right-2 border-primary/30 bg-primary/10 text-primary"
                                   >
                                     {t("profileEditor.hooks.builtinPresetTag")}
                                   </Badge>

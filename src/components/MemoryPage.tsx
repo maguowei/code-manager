@@ -16,6 +16,7 @@ import type {
   UnmanagedMemory,
 } from "../types";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
+import EmptyState from "./EmptyState";
 import MemoryEditor from "./MemoryEditor";
 import MemoryItem from "./MemoryItem";
 import PageHeader from "./PageHeader";
@@ -393,15 +394,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
 
       {/* 记忆列表 */}
       {!hasAnyMemory ? (
-        <div className="list-empty flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
-          <div className="empty-icon mb-4 text-muted-foreground">
-            <BookOpen className="size-12" strokeWidth={1.5} aria-hidden="true" />
-          </div>
-          <p className="empty-text mb-2 text-base font-medium">{t("memory.empty")}</p>
-          <p className="empty-hint max-w-[360px] text-sm leading-normal text-muted-foreground">
-            {t("memory.emptyHint")}
-          </p>
-        </div>
+        <EmptyState title={t("memory.empty")} hint={t("memory.emptyHint")} icon={BookOpen} />
       ) : (
         <div className="memory-groups flex flex-col gap-5 p-4">
           {renderMemoryGroup(
@@ -463,7 +456,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
           <SheetContent
             side="right"
             showCloseButton={false}
-            className="left-[340px] w-auto border-l-0 bg-card p-0 shadow-[-4px_0_24px_rgb(0_0_0_/_0.2)] sm:max-w-none max-[1000px]:left-[60px] max-[700px]:left-[48px]"
+            className="left-[340px] w-auto border-l-0 bg-card p-0 shadow-lg sm:max-w-none max-[1000px]:left-[60px] max-[700px]:left-[48px]"
           >
             <MemoryEditor
               memory={editingMemory}

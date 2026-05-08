@@ -6,6 +6,7 @@ import { useI18n } from "../../i18n";
 import ConfirmAlertDialog from "../ConfirmAlertDialog";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { InputGroup, InputGroupInput } from "../ui/input-group";
 import {
   Select,
   SelectContent,
@@ -496,17 +497,17 @@ function EnabledPluginsEditor({
 
           {showFilters ? (
             <div className="flex w-full flex-nowrap items-stretch gap-3 max-[1120px]:flex-wrap max-[520px]:flex-col">
-              <div className="flex h-[42px] min-w-0 flex-[2_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--primary)] focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
-                <Input
+              <InputGroup className="h-[42px] min-w-0 flex-[2_1_0] bg-card px-2.5 hover:border-muted-foreground max-[520px]:flex-auto">
+                <InputGroupInput
                   type="text"
-                  className="h-full border-0 bg-transparent px-0 py-0 shadow-none focus-visible:ring-0"
+                  className="h-full px-0 py-0"
                   value={searchQuery}
                   aria-label={searchLabel}
                   placeholder={searchPlaceholder}
                   onChange={(event) => setSearchQuery(event.target.value)}
                 />
-              </div>
-              <div className="flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--primary)] focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
+              </InputGroup>
+              <div className="flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-primary focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
                 <span
                   className="shrink-0 whitespace-nowrap text-xs font-semibold text-muted-foreground"
                   aria-hidden="true"
@@ -545,7 +546,7 @@ function EnabledPluginsEditor({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--primary)] focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
+              <div className="flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-primary focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
                 <span
                   className="shrink-0 whitespace-nowrap text-xs font-semibold text-muted-foreground"
                   aria-hidden="true"
@@ -578,7 +579,7 @@ function EnabledPluginsEditor({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-[var(--primary)] focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
+              <div className="flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-primary focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
                 <span
                   className="shrink-0 whitespace-nowrap text-xs font-semibold text-muted-foreground"
                   aria-hidden="true"
@@ -651,7 +652,7 @@ function EnabledPluginsEditor({
                 const pluginMetaItems = buildOfficialPluginMetaItems(plugin.metadata);
                 const verifiedBadgeIcon = officialPlugin ? (
                   <span
-                    className="inline-flex shrink-0 items-center justify-center text-[color-mix(in_srgb,var(--chart-2)_68%,var(--muted-foreground))] opacity-70 transition-opacity group-hover:opacity-90 group-focus-visible:opacity-90"
+                    className="inline-flex shrink-0 items-center justify-center text-chart-2 opacity-70 transition-opacity group-hover:opacity-90 group-focus-visible:opacity-90"
                     role="img"
                     aria-label={verifiedBadgeAriaLabel}
                   >
@@ -688,7 +689,7 @@ function EnabledPluginsEditor({
                               <Button
                                 type="button"
                                 variant="ghost"
-                                className="group relative h-auto min-w-0 max-w-full justify-start whitespace-normal rounded-md bg-transparent p-0 text-left font-[inherit] text-[inherit] hover:bg-transparent hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                className="group relative h-auto min-w-0 max-w-full justify-start whitespace-normal rounded-md bg-transparent p-0 text-left font-[inherit] text-[inherit] hover:bg-transparent hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                                 aria-label={`${t("profileEditor.plugins.openHomepageAriaLabel")} ${rowLabel}`}
                                 title={plugin.metadata.description || undefined}
                                 data-description={plugin.metadata.description || undefined}
@@ -731,10 +732,7 @@ function EnabledPluginsEditor({
                                 {pluginMetaItems.map((item, itemIndex) => (
                                   <Fragment key={`${plugin.id}:${item.kind}:${item.value}`}>
                                     {itemIndex > 0 ? (
-                                      <span
-                                        className="text-[color-mix(in_srgb,var(--muted-foreground)_84%,transparent)]"
-                                        aria-hidden="true"
-                                      >
+                                      <span className="text-muted-foreground" aria-hidden="true">
                                         ·
                                       </span>
                                     ) : null}
@@ -764,7 +762,7 @@ function EnabledPluginsEditor({
                             variant="header"
                           />
                           <span
-                            className={`whitespace-nowrap text-xs font-medium leading-tight${plugin.enabled ? " is-on text-[var(--chart-2)]" : " text-muted-foreground"}`}
+                            className={`whitespace-nowrap text-xs font-medium leading-tight${plugin.enabled ? " is-on text-chart-2" : " text-muted-foreground"}`}
                           >
                             {plugin.enabled ? rowStatusOnText : rowStatusOffText}
                           </span>

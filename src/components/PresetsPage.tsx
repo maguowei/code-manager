@@ -12,6 +12,7 @@ import {
   presetDisplayName,
   presetNameById,
 } from "./config-workspace-utils";
+import EmptyState from "./EmptyState";
 import { LIST_PANEL_COMPRESSED_WIDTH_CLASS, LIST_PANEL_WIDTH_CLASS } from "./layout-size-classes";
 import PageHeader from "./PageHeader";
 import PresetEditor from "./PresetEditor";
@@ -26,13 +27,12 @@ interface PresetsPageProps {
 }
 
 const PRESET_CARD_CLASS =
-  "preset-card [--preset-accent:var(--chart-2)] [--preset-accent-bg:color-mix(in_srgb,color-mix(in oklch, var(--chart-2) 12%, transparent)_72%,var(--card)_28%)] [--preset-accent-border:color-mix(in_srgb,var(--border)_78%,var(--chart-2)_22%)] [--preset-summary-bg:color-mix(in_srgb,var(--card)_88%,color-mix(in oklch, var(--chart-2) 12%, transparent)_12%)] flex flex-col gap-3 rounded-xl border border-border bg-[linear-gradient(180deg,var(--card),var(--secondary))] p-[18px] text-foreground shadow-sm transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-px hover:border-[var(--preset-accent-border)] hover:shadow-[0_0_0_1px_color-mix(in_srgb,var(--preset-accent)_18%,transparent)_inset,0_10px_24px_color-mix(in_srgb,var(--preset-accent)_16%,transparent)] max-[700px]:p-4";
+  "preset-card flex flex-col gap-3 rounded-lg border border-border bg-card p-4 text-foreground shadow-none transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-px hover:border-primary hover:bg-accent/40 hover:shadow-sm";
 
-const PRESET_BUILTIN_CARD_CLASS =
-  "builtin [--preset-accent:var(--primary)] [--preset-accent-bg:color-mix(in_srgb,var(--accent)_72%,var(--card)_28%)] [--preset-accent-border:color-mix(in_srgb,var(--border)_78%,var(--primary)_22%)] [--preset-summary-bg:color-mix(in_srgb,var(--card)_88%,var(--accent)_12%)] bg-[linear-gradient(180deg,var(--card),var(--muted))]";
+const PRESET_BUILTIN_CARD_CLASS = "builtin bg-muted/40";
 
 const PRESET_CHIP_CLASS =
-  "preset-chip inline-flex min-h-7 items-center rounded-full border border-[color-mix(in_srgb,var(--preset-accent)_24%,transparent)] bg-[var(--preset-accent-bg)] px-2.5 py-1 text-xs font-semibold text-[var(--preset-accent)]";
+  "preset-chip inline-flex min-h-7 items-center rounded-full border border-border bg-secondary px-2.5 py-1 text-xs font-semibold text-foreground";
 
 function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
   const { language, t } = useI18n();
@@ -70,7 +70,7 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
       <Button
         type="button"
         variant="link"
-        className="preset-card-doc-link h-auto min-h-7 gap-1.5 p-0 text-xs font-semibold text-primary hover:text-[var(--primary)]"
+        className="preset-card-doc-link h-auto min-h-7 gap-1.5 p-0 text-xs font-semibold text-primary hover:text-primary"
         onClick={() => openPresetDocs(docUrl)}
       >
         <span>{t("presets.actions.openDocs")}</span>
@@ -94,10 +94,7 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
             ))
           ) : (
             <span
-              className={cn(
-                PRESET_CHIP_CLASS,
-                "preset-chip-empty border-border bg-[color-mix(in_srgb,var(--card)_74%,var(--muted)_26%)] text-muted-foreground",
-              )}
+              className={cn(PRESET_CHIP_CLASS, "preset-chip-empty bg-muted text-muted-foreground")}
             >
               —
             </span>
@@ -181,7 +178,7 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
                     </div>
                     <Badge
                       variant="outline"
-                      className="preset-source-badge shrink-0 border-[color-mix(in_srgb,var(--preset-accent)_22%,transparent)] bg-[var(--preset-accent-bg)] px-2.5 py-1 text-xs font-semibold text-[var(--preset-accent)] max-[700px]:order-[-1]"
+                      className="preset-source-badge shrink-0 bg-background px-2.5 py-1 text-xs font-semibold text-primary max-[700px]:order-[-1]"
                     >
                       {t("presets.builtin.badge")}
                     </Badge>
@@ -189,7 +186,7 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
 
                   <div className="preset-card-body flex flex-col gap-2.5">
                     <div className="preset-card-meta-row flex flex-wrap items-center gap-2.5">
-                      <div className="preset-card-id inline-flex max-w-full items-center self-start rounded-full border border-border bg-[color-mix(in_srgb,var(--card)_82%,var(--muted)_18%)] px-[9px] py-1 font-mono text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]">
+                      <div className="preset-card-id inline-flex max-w-full items-center self-start rounded-full border border-border bg-muted px-[9px] py-1 font-mono text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]">
                         {preset.id}
                       </div>
                       {renderDocLink(preset.docUrl)}
@@ -218,18 +215,13 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
                 setIsDrawerOpen(true);
               }}
             >
-              <Plus className="size-4" aria-hidden="true" />
+              <Plus data-icon="inline-start" aria-hidden="true" />
               <span>{t("presets.add")}</span>
             </Button>
           </div>
 
           {workspace.customPresets.length === 0 ? (
-            <div className="config-list-empty flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
-              <p className="empty-text mb-2 text-base font-medium">{t("presets.custom.empty")}</p>
-              <p className="empty-hint max-w-[360px] text-center text-sm leading-normal text-muted-foreground">
-                {t("presets.custom.emptyHint")}
-              </p>
-            </div>
+            <EmptyState title={t("presets.custom.empty")} hint={t("presets.custom.emptyHint")} />
           ) : (
             <div className="preset-list flex flex-col gap-3">
               {workspace.customPresets.map((preset) => {
@@ -252,7 +244,7 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
                       </div>
                       <Badge
                         variant="outline"
-                        className="preset-source-badge custom shrink-0 border-[color-mix(in_srgb,var(--preset-accent)_22%,transparent)] bg-[var(--preset-accent-bg)] px-2.5 py-1 text-xs font-semibold text-chart-2 max-[700px]:order-[-1]"
+                        className="preset-source-badge custom shrink-0 bg-background px-2.5 py-1 text-xs font-semibold text-chart-2 max-[700px]:order-[-1]"
                       >
                         {t("presets.custom.badge")}
                       </Badge>
@@ -260,14 +252,14 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
 
                     <div className="preset-card-body flex flex-col gap-2.5">
                       <div className="preset-card-meta-row flex flex-wrap items-center gap-2.5">
-                        <div className="preset-card-id inline-flex max-w-full items-center self-start rounded-full border border-border bg-[color-mix(in_srgb,var(--card)_82%,var(--muted)_18%)] px-[9px] py-1 font-mono text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]">
+                        <div className="preset-card-id inline-flex max-w-full items-center self-start rounded-full border border-border bg-muted px-[9px] py-1 font-mono text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]">
                           {preset.id}
                         </div>
                         {renderDocLink(preset.docUrl)}
                       </div>
 
                       <div className="preset-card-summary flex flex-col gap-2.5">
-                        <div className="preset-summary-block rounded-lg border border-[var(--preset-accent-border)] bg-[var(--preset-summary-bg)] px-3 py-[11px]">
+                        <div className="preset-summary-block rounded-lg border border-border bg-muted/50 px-3 py-[11px]">
                           <span className="preset-summary-label inline-flex items-center text-xs leading-normal font-semibold text-muted-foreground">
                             {t("presets.editor.fields.basePreset")}
                           </span>
@@ -277,7 +269,7 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
                         </div>
 
                         {pluginsSummary.totalCount > 0 ? (
-                          <div className="preset-summary-block rounded-lg border border-[var(--preset-accent-border)] bg-[var(--preset-summary-bg)] px-3 py-[11px]">
+                          <div className="preset-summary-block rounded-lg border border-border bg-muted/50 px-3 py-[11px]">
                             <span className="preset-summary-label inline-flex items-center text-xs leading-normal font-semibold text-muted-foreground">
                               {t("common.pluginsEnabledSummaryLabel")}
                             </span>
@@ -332,7 +324,7 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
           <SheetContent
             side="right"
             showCloseButton={false}
-            className="left-[340px] w-auto border-l-0 bg-card p-0 shadow-[-4px_0_24px_rgb(0_0_0_/_0.2)] sm:max-w-none max-[1000px]:left-[60px] max-[700px]:left-[48px]"
+            className="left-[340px] w-auto border-l-0 bg-card p-0 shadow-lg sm:max-w-none max-[1000px]:left-[60px] max-[700px]:left-[48px]"
           >
             <PresetEditor
               preset={editingPreset}

@@ -20,9 +20,16 @@ import SystemInfoDialog from "./SystemInfoDialog";
 import { type Theme, useTheme } from "./theme-provider";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { Label } from "./ui/label";
+import { Field, FieldContent, FieldGroup, FieldLabel, FieldTitle } from "./ui/field";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet";
 import { Switch } from "./ui/switch";
 
@@ -79,6 +86,15 @@ function SettingsSectionCard({ title, description, children }: SettingsSectionCa
       </CardHeader>
       <CardContent className="px-4 pb-4">{children}</CardContent>
     </Card>
+  );
+}
+
+function SettingsStateLabel({ enabled }: { enabled: boolean }) {
+  const { t } = useI18n();
+  return (
+    <FieldTitle className={cn("text-muted-foreground", enabled && "text-foreground")}>
+      {enabled ? t("settings.enabled") : t("settings.disabled")}
+    </FieldTitle>
   );
 }
 
@@ -210,7 +226,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
             onClick={onClose}
             aria-label={t("common.close")}
           >
-            <ChevronLeft className="size-5" aria-hidden="true" />
+            <ChevronLeft aria-hidden="true" />
           </Button>
           <SheetTitle id="settings-drawer-title" className="text-base">
             {t("settings.title")}
@@ -223,168 +239,197 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
               title={t("settings.language")}
               description={t("settings.languageDesc")}
             >
-              <Select value={language} onValueChange={handleLanguageChange}>
-                <SelectTrigger
-                  id="settings-language-select"
-                  aria-label={t("settings.language")}
-                  className="w-full sm:w-60"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {languageOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {t(option.labelKey)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FieldGroup className="gap-4">
+                <Field>
+                  <Select value={language} onValueChange={handleLanguageChange}>
+                    <SelectTrigger
+                      id="settings-language-select"
+                      aria-label={t("settings.language")}
+                      className="w-full sm:w-60"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {languageOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {t(option.labelKey)}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </FieldGroup>
             </SettingsSectionCard>
 
             <SettingsSectionCard title={t("settings.theme")} description={t("settings.themeDesc")}>
-              <RadioGroup
-                value={theme}
-                onValueChange={(value) => setTheme(value as Theme)}
-                className="grid grid-cols-1 gap-2 sm:grid-cols-3"
-                aria-label={t("settings.theme")}
-              >
-                {themeOptions.map(({ value, labelKey, Icon }) => {
-                  const itemId = `settings-theme-${value}`;
-                  const checked = theme === value;
-                  return (
-                    <div
-                      key={value}
-                      className={cn(
-                        "flex items-center gap-3 rounded-md border bg-background p-3 transition-colors",
-                        checked
-                          ? "border-primary text-primary"
-                          : "border-input text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                      )}
-                    >
-                      <RadioGroupItem value={value} id={itemId} />
-                      <Label htmlFor={itemId} className="flex-1 cursor-pointer">
-                        <Icon className="size-4" aria-hidden="true" />
-                        <span>{t(labelKey)}</span>
-                      </Label>
-                    </div>
-                  );
-                })}
-              </RadioGroup>
+              <FieldGroup className="gap-4">
+                <RadioGroup
+                  value={theme}
+                  onValueChange={(value) => setTheme(value as Theme)}
+                  className="grid grid-cols-1 gap-2 sm:grid-cols-3"
+                  aria-label={t("settings.theme")}
+                >
+                  {themeOptions.map(({ value, labelKey, Icon }) => {
+                    const itemId = `settings-theme-${value}`;
+                    const checked = theme === value;
+                    return (
+                      <Field
+                        key={value}
+                        orientation="horizontal"
+                        className={cn(
+                          "items-center rounded-md border bg-background p-3 transition-colors",
+                          checked
+                            ? "border-primary text-primary"
+                            : "border-input text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                        )}
+                      >
+                        <RadioGroupItem value={value} id={itemId} />
+                        <FieldLabel htmlFor={itemId} className="min-w-0 flex-1 cursor-pointer">
+                          <Icon aria-hidden="true" />
+                          <span>{t(labelKey)}</span>
+                        </FieldLabel>
+                      </Field>
+                    );
+                  })}
+                </RadioGroup>
+              </FieldGroup>
             </SettingsSectionCard>
 
             <SettingsSectionCard
               title={t("settings.showTrayTitle")}
               description={t("settings.showTrayTitleDesc")}
             >
-              <div className="flex items-center justify-between gap-4">
-                <Label htmlFor="settings-show-tray-title" className="text-muted-foreground">
-                  {showTrayTitle ? t("settings.enabled") : t("settings.disabled")}
-                </Label>
-                <Switch
-                  id="settings-show-tray-title"
-                  checked={showTrayTitle}
-                  onCheckedChange={(checked) => {
-                    void persistPreferences(
-                      {
-                        ...nextPreferences,
-                        showTrayTitle: checked,
-                      },
-                      nextPreferences,
-                    );
-                  }}
-                  aria-label={t("settings.showTrayTitle")}
-                />
-              </div>
+              <FieldGroup className="gap-4">
+                <Field orientation="horizontal" className="items-center justify-between gap-4">
+                  <FieldContent>
+                    <SettingsStateLabel enabled={showTrayTitle} />
+                  </FieldContent>
+                  <Switch
+                    id="settings-show-tray-title"
+                    checked={showTrayTitle}
+                    onCheckedChange={(checked) => {
+                      void persistPreferences(
+                        {
+                          ...nextPreferences,
+                          showTrayTitle: checked,
+                        },
+                        nextPreferences,
+                      );
+                    }}
+                    aria-label={t("settings.showTrayTitle")}
+                  />
+                </Field>
+              </FieldGroup>
             </SettingsSectionCard>
 
             <SettingsSectionCard
               title={t("settings.showTraySessions")}
               description={t("settings.showTraySessionsDesc")}
             >
-              <div className="flex items-center justify-between gap-4">
-                <Label htmlFor="settings-show-tray-sessions" className="text-muted-foreground">
-                  {showTraySessions ? t("settings.enabled") : t("settings.disabled")}
-                </Label>
-                <Switch
-                  id="settings-show-tray-sessions"
-                  checked={showTraySessions}
-                  onCheckedChange={(checked) => {
-                    void persistPreferences(
-                      {
-                        ...nextPreferences,
-                        showTraySessions: checked,
-                      },
-                      nextPreferences,
-                    );
-                  }}
-                  aria-label={t("settings.showTraySessions")}
-                />
-              </div>
+              <FieldGroup className="gap-4">
+                <Field orientation="horizontal" className="items-center justify-between gap-4">
+                  <FieldContent>
+                    <SettingsStateLabel enabled={showTraySessions} />
+                  </FieldContent>
+                  <Switch
+                    id="settings-show-tray-sessions"
+                    checked={showTraySessions}
+                    onCheckedChange={(checked) => {
+                      void persistPreferences(
+                        {
+                          ...nextPreferences,
+                          showTraySessions: checked,
+                        },
+                        nextPreferences,
+                      );
+                    }}
+                    aria-label={t("settings.showTraySessions")}
+                  />
+                </Field>
+              </FieldGroup>
             </SettingsSectionCard>
 
             <SettingsSectionCard
               title={t("settings.launchAtLogin")}
               description={t("settings.launchAtLoginDesc")}
             >
-              <div className="flex items-center justify-between gap-4">
-                <Label htmlFor="settings-launch-at-login" className="text-muted-foreground">
-                  {launchAtLogin ? t("settings.enabled") : t("settings.disabled")}
-                </Label>
-                <Switch
-                  id="settings-launch-at-login"
-                  checked={launchAtLogin}
-                  onCheckedChange={(checked) => void toggleLaunchAtLogin(checked)}
-                  aria-label={t("settings.launchAtLogin")}
-                />
-              </div>
+              <FieldGroup className="gap-4">
+                <Field orientation="horizontal" className="items-center justify-between gap-4">
+                  <FieldContent>
+                    <SettingsStateLabel enabled={launchAtLogin} />
+                  </FieldContent>
+                  <Switch
+                    id="settings-launch-at-login"
+                    checked={launchAtLogin}
+                    onCheckedChange={(checked) => void toggleLaunchAtLogin(checked)}
+                    aria-label={t("settings.launchAtLogin")}
+                  />
+                </Field>
+              </FieldGroup>
             </SettingsSectionCard>
 
             <SettingsSectionCard
               title={t("settings.defaultTerminal")}
               description={t("settings.defaultTerminalDesc")}
             >
-              <Select value={defaultTerminalApp} onValueChange={handleTerminalChange}>
-                <SelectTrigger
-                  id="settings-terminal-select"
-                  aria-label={t("settings.defaultTerminal")}
-                  className="w-full sm:w-60"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {terminalOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FieldGroup className="gap-4">
+                <Field>
+                  <Select value={defaultTerminalApp} onValueChange={handleTerminalChange}>
+                    <SelectTrigger
+                      id="settings-terminal-select"
+                      aria-label={t("settings.defaultTerminal")}
+                      className="w-full sm:w-60"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {terminalOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </FieldGroup>
             </SettingsSectionCard>
 
             <SettingsSectionCard
               title={t("settings.defaultEditor")}
               description={t("settings.defaultEditorDesc")}
             >
-              <Select
-                value={defaultEditorApp ?? EDITOR_UNSET_VALUE}
-                onValueChange={handleEditorChange}
-              >
-                <SelectTrigger
-                  id="settings-editor-select"
-                  aria-label={t("settings.defaultEditor")}
-                  className="w-full sm:w-60"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={EDITOR_UNSET_VALUE}>{t("settings.editorUnset")}</SelectItem>
-                  {editorOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FieldGroup className="gap-4">
+                <Field>
+                  <Select
+                    value={defaultEditorApp ?? EDITOR_UNSET_VALUE}
+                    onValueChange={handleEditorChange}
+                  >
+                    <SelectTrigger
+                      id="settings-editor-select"
+                      aria-label={t("settings.defaultEditor")}
+                      className="w-full sm:w-60"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value={EDITOR_UNSET_VALUE}>
+                          {t("settings.editorUnset")}
+                        </SelectItem>
+                        {editorOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </FieldGroup>
             </SettingsSectionCard>
 
             <SettingsSectionCard
@@ -392,7 +437,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
               description={t("settings.diagnosticsDesc")}
             >
               <Button type="button" variant="outline" onClick={() => setIsLogViewerOpen(true)}>
-                <FileText className="size-4" aria-hidden="true" />
+                <FileText data-icon="inline-start" aria-hidden="true" />
                 {t("settings.viewLogs")}
               </Button>
             </SettingsSectionCard>
@@ -402,7 +447,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
               description={t("settings.systemInfoDesc")}
             >
               <Button type="button" variant="outline" onClick={() => setIsSystemInfoOpen(true)}>
-                <Info className="size-4" aria-hidden="true" />
+                <Info data-icon="inline-start" aria-hidden="true" />
                 {t("settings.viewSystemInfo")}
               </Button>
             </SettingsSectionCard>

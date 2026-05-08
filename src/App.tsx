@@ -109,7 +109,7 @@ function App() {
   if (loading) {
     return (
       <TooltipProvider delayDuration={200}>
-        <div className="flex h-screen items-center justify-center bg-[var(--background)] text-base text-muted-foreground">
+        <div className="flex h-screen items-center justify-center bg-background text-base text-muted-foreground">
           {t("loading")}
         </div>
         <Toaster richColors closeButton position="top-right" />
@@ -119,7 +119,7 @@ function App() {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="flex h-screen overflow-hidden bg-[var(--background)] text-foreground">
+      <div className="flex h-screen overflow-hidden bg-background text-foreground">
         <Sidebar
           activeTab={activeTab}
           onTabChange={(tab) => {

@@ -132,7 +132,7 @@ export function SandboxSwitchControl({
       />
       {variant === "panel" ? (
         <span
-          className={`text-sm font-semibold leading-tight transition-colors${enabled ? " text-[var(--chart-2)]" : " text-muted-foreground"}`}
+          className={`text-sm font-semibold leading-tight transition-colors${enabled ? " text-chart-2" : " text-muted-foreground"}`}
         >
           {statusText}
         </span>

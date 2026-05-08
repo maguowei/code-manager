@@ -371,9 +371,7 @@ function EnvEditor({
 
                 const rowClassName = [
                   "flex flex-col px-3.5 py-2.5 first:border-t-0 border-t border-border",
-                  selected
-                    ? "selected bg-[color-mix(in_srgb,var(--accent)_18%,var(--card)_82%)]"
-                    : "",
+                  selected ? "selected bg-accent/40" : "",
                 ]
                   .filter(Boolean)
                   .join(" ");
@@ -387,7 +385,7 @@ function EnvEditor({
                       <Button
                         type="button"
                         variant="ghost"
-                        className="grid h-auto min-h-[42px] w-full cursor-pointer grid-cols-[40px_minmax(0,1.2fr)_minmax(0,0.8fr)] items-center justify-start gap-3 whitespace-normal rounded-md bg-transparent p-2 text-left text-foreground hover:bg-transparent hover:text-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)] max-[720px]:grid-cols-[32px_minmax(0,1fr)] max-[720px]:items-start max-[720px]:gap-x-2.5 max-[720px]:gap-y-1.5"
+                        className="grid h-auto min-h-[42px] w-full cursor-pointer grid-cols-[40px_minmax(0,1.2fr)_minmax(0,0.8fr)] items-center justify-start gap-3 whitespace-normal rounded-md bg-transparent p-2 text-left text-foreground hover:bg-transparent hover:text-primary focus-visible:ring-2 focus-visible:ring-primary max-[720px]:grid-cols-[32px_minmax(0,1fr)] max-[720px]:items-start max-[720px]:gap-x-2.5 max-[720px]:gap-y-1.5"
                         aria-pressed={selected}
                         aria-label={`${t("profileEditor.env.editAriaLabel")} ${label}`}
                         onClick={() => handleSelectItem(item)}

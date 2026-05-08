@@ -176,7 +176,7 @@ function StringListEditor({
                             type="button"
                             variant="ghost"
                             size="icon-sm"
-                            className="  text-[var(--primary)] hover:bg-[var(--accent)] hover:text-[var(--primary)]"
+                            className="text-primary hover:bg-accent hover:text-primary"
                             aria-label={buildRowActionLabel(itemLabel)}
                             title={rowActionLabel}
                             onClick={() => onRowAction(row, index)}

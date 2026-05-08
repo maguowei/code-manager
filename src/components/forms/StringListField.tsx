@@ -119,9 +119,9 @@ export function StringListField<
   }
 
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-2">
       <Label>{label}</Label>
-      <div className="space-y-2">
+      <div className="flex flex-col gap-2">
         {values.map((value, index) => {
           const itemLabel = `${label} ${index + 1}`;
           const rowId = rowIds[index];

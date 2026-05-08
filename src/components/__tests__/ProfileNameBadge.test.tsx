@@ -17,6 +17,9 @@ describe("ProfileNameBadge", () => {
     const source = readFileSync(`${process.cwd()}/src/components/ProfileNameBadge.tsx`, "utf8");
 
     expect(source).toContain("const BADGE_COLOR_COUNT = 12");
-    expect(source.match(/background:\s*"linear-gradient/g) ?? []).toHaveLength(12);
+    expect(source).toContain("const BADGE_COLOR_CLASSES = [");
+    expect(source.match(/bg-(?:chart-[1-5]|primary)\/10/g) ?? []).toHaveLength(12);
+    expect(source).not.toContain("color-mix");
+    expect(source).not.toContain("linear-gradient");
   });
 });

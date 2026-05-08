@@ -103,9 +103,9 @@ export function KeyValueField<
   }
 
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-2">
       <Label>{label}</Label>
-      <div className="space-y-2">
+      <div className="flex flex-col gap-2">
         {values.map((item, index) => (
           <div key={rowIds[index]} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
             <Input

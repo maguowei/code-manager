@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
 import { type TranslationKey, useI18n } from "../i18n";
 import { type ClaudeStats, isTauri, type ProjectStats } from "../types";
+import EmptyState from "./EmptyState";
 import PageHeader from "./PageHeader";
 import { formatDuration } from "./project-detail-utils";
 import { Badge } from "./ui/badge";
@@ -152,9 +153,7 @@ function StatsPage() {
       <div className="stats-page flex h-full w-full flex-col overflow-hidden">
         <PageHeader title={t("stats.title")} />
         <div className="stats-scroll min-h-0 flex-1 overflow-y-auto p-5">
-          <div className="stats-empty flex min-h-[320px] flex-col items-center justify-center text-center">
-            <p className="empty-text text-base font-semibold text-foreground">{t("loading")}</p>
-          </div>
+          <EmptyState title={t("loading")} loading className="min-h-[320px]" />
         </div>
       </div>
     );
@@ -165,15 +164,12 @@ function StatsPage() {
       <div className="stats-page flex h-full w-full flex-col overflow-hidden">
         <PageHeader title={t("stats.title")} />
         <div className="stats-scroll min-h-0 flex-1 overflow-y-auto p-5">
-          <div className="stats-empty flex min-h-[320px] flex-col items-center justify-center text-center">
-            <div className="empty-icon mb-4 flex size-20 items-center justify-center rounded-full border bg-muted text-muted-foreground">
-              <BarChart3 className="size-12" strokeWidth={1.5} />
-            </div>
-            <p className="empty-text mb-2 text-base font-semibold text-foreground">
-              {t("stats.noData")}
-            </p>
-            <p className="empty-hint max-w-md text-muted-foreground">{t("stats.noDataHint")}</p>
-          </div>
+          <EmptyState
+            title={t("stats.noData")}
+            hint={t("stats.noDataHint")}
+            icon={BarChart3}
+            className="min-h-[320px]"
+          />
         </div>
       </div>
     );

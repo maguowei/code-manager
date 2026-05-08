@@ -7,6 +7,7 @@ import { useToast } from "../hooks/useToast";
 import { type Language, useI18n } from "../i18n";
 import type { Skill } from "../types";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
+import EmptyState from "./EmptyState";
 import PageHeader from "./PageHeader";
 import SkillEditor from "./SkillEditor";
 import SkillItem from "./SkillItem";
@@ -172,15 +173,7 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
 
       {/* Skills 列表 */}
       {sortedSkills.length === 0 ? (
-        <div className="list-empty flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
-          <div className="empty-icon mb-4 text-muted-foreground">
-            <Zap className="size-12" strokeWidth={1.5} aria-hidden="true" />
-          </div>
-          <p className="empty-text mb-2 text-base font-medium">{t("skills.empty")}</p>
-          <p className="empty-hint max-w-[360px] text-sm leading-normal text-muted-foreground">
-            {t("skills.emptyHint")}
-          </p>
-        </div>
+        <EmptyState title={t("skills.empty")} hint={t("skills.emptyHint")} icon={Zap} />
       ) : (
         <div className="list-container flex flex-col gap-3 p-4">
           {sortedSkills.map((skill) => (
@@ -219,7 +212,7 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
           <SheetContent
             side="right"
             showCloseButton={false}
-            className="left-[340px] w-auto border-l-0 bg-card p-0 shadow-[-4px_0_24px_rgb(0_0_0_/_0.2)] sm:max-w-none max-[1000px]:left-[60px] max-[700px]:left-[48px]"
+            className="left-[340px] w-auto border-l-0 bg-card p-0 shadow-lg sm:max-w-none max-[1000px]:left-[60px] max-[700px]:left-[48px]"
           >
             <SkillEditor
               key={editingSkill?.id ?? "new"}

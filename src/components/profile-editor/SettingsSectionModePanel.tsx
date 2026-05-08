@@ -59,7 +59,7 @@ function SettingsSectionModePanel({
   function renderModeSwitch() {
     return (
       <div
-        className="inline-flex items-center rounded-full border border-border bg-[color-mix(in_srgb,var(--card)_90%,var(--primary)_10%)] p-1"
+        className="inline-flex items-center rounded-full border border-border bg-muted/50 p-1"
         role="tablist"
         aria-label={`${title} ${t("common.jsonMode")}`}
       >
@@ -100,7 +100,7 @@ function SettingsSectionModePanel({
 
     return (
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-[color-mix(in_oklch,var(--card)_92%,var(--chart-3)_8%)] p-4">
+        <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-muted/50 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="m-0 min-w-[220px] flex-1 text-sm text-muted-foreground">{jsonHint}</p>
             <Button type="button" variant="outline" onClick={jsonEditor.formatJson}>

@@ -50,11 +50,9 @@ function MemoryItem({
   return (
     <Card
       className={cn(
-        "memory-item group relative flex cursor-pointer flex-col gap-4 rounded-xl border border-border bg-[linear-gradient(180deg,var(--card),var(--secondary))] p-4 text-foreground shadow-none transition-[transform,border-color,box-shadow,background-color,opacity] duration-200 hover:-translate-y-px hover:border-primary hover:shadow-[0_4px_12px_rgb(59_130_246_/_0.15)]",
-        memory.isActive &&
-          "active border-[var(--primary)] shadow-[0_0_0_1px_var(--primary)_inset,0_0_16px_rgb(59_130_246_/_0.2)]",
-        isEditing &&
-          "editing border-chart-3 shadow-[0_0_0_1px_var(--chart-3)_inset,0_0_18px_rgb(247_129_102_/_0.24)] hover:border-chart-3",
+        "memory-item group relative flex cursor-pointer flex-col gap-4 rounded-lg border border-border bg-card p-4 text-foreground shadow-none transition-[transform,border-color,box-shadow,background-color,opacity] duration-200 hover:-translate-y-px hover:border-primary hover:bg-accent/40 hover:shadow-sm",
+        memory.isActive && "active border-primary ring-1 ring-primary/30",
+        isEditing && "editing border-chart-3 ring-1 ring-chart-3/30 hover:border-chart-3",
       )}
       role="button"
       tabIndex={0}
@@ -81,7 +79,7 @@ function MemoryItem({
                 "memory-target-badge inline-flex h-[22px] shrink-0 items-center justify-center overflow-hidden rounded-[7px] px-2 text-xs leading-none font-semibold whitespace-nowrap text-ellipsis",
                 memory.targetType === "rule"
                   ? "memory-target-badge--rule bg-chart-2/10 text-chart-2"
-                  : "memory-target-badge--claude bg-[rgb(59_130_246_/_0.14)] text-[var(--primary)]",
+                  : "memory-target-badge--claude bg-primary/10 text-primary",
               )}
             >
               {targetLabel}
@@ -131,12 +129,12 @@ function MemoryItem({
           type="button"
           variant="ghost"
           size="icon-sm"
-          className="memory-action-btn border border-border bg-muted text-foreground hover:border-primary hover:text-[var(--primary)]"
+          className="memory-action-btn border border-border bg-muted text-foreground hover:border-primary hover:text-primary"
           onClick={(e) => handleActionClick(e, onDuplicate)}
           aria-label={t("memory.duplicate")}
           title={t("memory.duplicate")}
         >
-          <Copy className="size-4" aria-hidden="true" />
+          <Copy aria-hidden="true" />
         </Button>
         <Button
           type="button"
@@ -147,7 +145,7 @@ function MemoryItem({
           aria-label={t("memory.delete")}
           title={t("memory.delete")}
         >
-          <Trash2 className="size-4" aria-hidden="true" />
+          <Trash2 aria-hidden="true" />
         </Button>
       </div>
     </Card>
