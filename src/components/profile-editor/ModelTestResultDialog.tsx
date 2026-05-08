@@ -112,8 +112,8 @@ function ModelTestResultDialog({
   const { t } = useI18n();
   const { isDark } = useTheme();
   const { showToast } = useToast();
-  const dialogTitleId = "profile-model-test-dialog-title";
-  const promptInputId = "profile-model-test-prompt-input";
+  const dialogTitleId = "model-test-dialog-title";
+  const promptInputId = "model-test-prompt-input";
   const [promptDraft, setPromptDraft] = useState("");
   const [isPromptEditing, setIsPromptEditing] = useState(false);
   const [expandedCodePanels, setExpandedCodePanels] = useState<Record<CodePanelKey, boolean>>(
@@ -235,20 +235,22 @@ function ModelTestResultDialog({
     const expanded = expandedCodePanels[panelKey];
 
     return (
-      <div className="profile-model-test-dialog-raw">
-        <div className="profile-model-test-dialog-section-header">
-          <span className="profile-model-test-label">{label}</span>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            {label}
+          </span>
           <button
             type="button"
-            className=" profile-model-test-compact-action"
+            className=" shrink-0 cursor-pointer text-xs font-medium text-[var(--primary)] underline-offset-2 hover:underline disabled:pointer-events-none disabled:opacity-50"
             onClick={() => handleToggleCodePanel(panelKey)}
           >
             {expanded ? hideLabel : viewLabel}
           </button>
         </div>
         {expanded ? (
-          <div className="profile-model-test-dialog-summary raw" data-testid={testId}>
-            <div className="profile-model-test-code-shell">
+          <div className="raw" data-testid={testId}>
+            <div className="overflow-x-auto rounded-md bg-muted/50 p-3 font-mono text-[13px] leading-7">
               <SyntaxHighlighter
                 language={language}
                 style={syntaxTheme}
@@ -278,17 +280,17 @@ function ModelTestResultDialog({
         showCloseButton={false}
         aria-describedby={undefined}
         aria-labelledby={dialogTitleId}
-        className="profile-model-test-dialog flex max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none"
+        className="flex max-h-[80vh] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none flex max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none"
       >
-        <div className="profile-model-test-dialog-header">
-          <div className="profile-model-test-dialog-header-top">
-            <div className="profile-model-test-dialog-header-main">
-              <div className="profile-model-test-dialog-title-wrap">
+        <div className="flex flex-col gap-3 border-b border-border px-5 py-4">
+          <div className="flex flex-col gap-3 border-b border-border px-5 py-4-top">
+            <div className="flex flex-col gap-3 border-b border-border px-5 py-4-main">
+              <div className="flex min-w-0 items-center gap-2">
                 <DialogTitle asChild>
                   <h3 id={dialogTitleId}>{t("profiles.editor.modelTest.dialogTitle")}</h3>
                 </DialogTitle>
                 <span
-                  className={`profile-model-test-status-badge${isSuccess ? " success" : " error"}`}
+                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold${isSuccess ? " success" : " error"}`}
                 >
                   {isSuccess
                     ? t("profiles.editor.modelTest.status.success")
@@ -296,15 +298,15 @@ function ModelTestResultDialog({
                 </span>
               </div>
             </div>
-            <div className="profile-model-test-dialog-actions">
+            <div className="flex shrink-0 items-center gap-2">
               {onRetest ? (
                 <button
                   type="button"
-                  className={` profile-model-test-dialog-retest${isRetesting ? " " : ""}`}
+                  className={` inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-50${isRetesting ? " " : ""}`}
                   disabled={isRetesting}
                   onClick={() => onRetest(getRetestPromptOverride())}
                 >
-                  <span className="profile-model-test-dialog-retest-icon" aria-hidden="true">
+                  <span className="inline-flex items-center" aria-hidden="true">
                     <TestTube className="size-[15px]" aria-hidden="true" />
                   </span>
                   <span>
@@ -316,7 +318,7 @@ function ModelTestResultDialog({
               ) : null}
               <button
                 type="button"
-                className=" profile-model-test-dialog-copy-curl"
+                className=" inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
                 disabled={!curlCommand}
                 onClick={() => {
                   void handleCopyCurl();
@@ -327,7 +329,7 @@ function ModelTestResultDialog({
               </button>
               <button
                 type="button"
-                className="profile-model-test-dialog-close"
+                className="inline-flex size-7 items-center justify-center rounded-md text-lg text-muted-foreground hover:bg-muted hover:text-foreground"
                 aria-label={t("common.close")}
                 title={t("common.close")}
                 onClick={onClose}
@@ -337,20 +339,17 @@ function ModelTestResultDialog({
             </div>
           </div>
           {trimmedProfileName || requestUrl ? (
-            <div
-              className="profile-model-test-dialog-context profile-model-test-dialog-context--stacked"
-              data-testid="model-test-context"
-            >
+            <div className="flex flex-col gap-1.5" data-testid="model-test-context">
               {trimmedProfileName ? (
                 <div
-                  className="profile-model-test-dialog-context-item profile-model-test-dialog-context-item--inline"
+                  className="inline-flex items-center gap-2"
                   data-testid="model-test-profile-row"
                 >
-                  <span className="profile-model-test-label">
+                  <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                     {t("profiles.editor.modelTest.profileName")}
                   </span>
                   <span
-                    className="profile-model-test-dialog-context-value"
+                    className="min-w-0 flex-1 truncate font-mono text-xs"
                     data-testid="model-test-profile-name"
                   >
                     {trimmedProfileName}
@@ -359,22 +358,19 @@ function ModelTestResultDialog({
               ) : null}
               {requestUrl ? (
                 <div
-                  className="profile-model-test-dialog-context-item profile-model-test-dialog-context-item--inline request-url"
+                  className="inline-flex items-center gap-2 request-url"
                   data-testid="model-test-request-url-row"
                 >
-                  <span className="profile-model-test-label">
+                  <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                     {t("profiles.editor.modelTest.requestUrl")}
                   </span>
-                  <span
-                    className="profile-model-test-dialog-context-value is-code"
-                    data-testid="model-test-request-url"
-                  >
+                  <span className="is-code" data-testid="model-test-request-url">
                     {result?.requestMethod ? (
-                      <span className="profile-model-test-method-badge">
+                      <span className="mr-1 inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-[11px] font-bold text-muted-foreground">
                         {result.requestMethod}
                       </span>
                     ) : null}
-                    <span className="profile-model-test-url-text">{requestUrl}</span>
+                    <span className="min-w-0 truncate font-mono text-xs">{requestUrl}</span>
                   </span>
                 </div>
               ) : null}
@@ -382,17 +378,22 @@ function ModelTestResultDialog({
           ) : null}
         </div>
 
-        <div className="profile-model-test-dialog-body">
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
           {metaItems.length > 0 ? (
             <dl
-              className="profile-model-test-dialog-meta-list profile-model-test-dialog-meta-list--compact"
+              className="flex flex-col gap-2 grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2"
               data-testid="model-test-meta-list"
             >
               {metaItems.map((item) => (
-                <div key={item.key} className="profile-model-test-dialog-meta-item">
-                  <dt className="profile-model-test-label">{item.label}</dt>
+                <div
+                  key={item.key}
+                  className="flex flex-col gap-0.5 rounded-md border border-border bg-card px-3 py-2"
+                >
+                  <dt className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                    {item.label}
+                  </dt>
                   <dd
-                    className={`profile-model-test-dialog-meta-value${item.isCode ? " is-code" : ""}`}
+                    className={`truncate text-sm font-medium text-foreground${item.isCode ? " is-code" : ""}`}
                   >
                     {item.value}
                   </dd>
@@ -403,42 +404,45 @@ function ModelTestResultDialog({
 
           {isRetesting ? (
             <div
-              className="profile-model-test-progress-indicator"
+              className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2"
               role="status"
               aria-live="polite"
               data-testid="model-test-progress-indicator"
             >
-              <span className="profile-model-test-progress-spinner" aria-hidden="true" />
-              <span className="profile-model-test-progress-text">
+              <span
+                className="size-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent"
+                aria-hidden="true"
+              />
+              <span className="text-sm font-medium text-muted-foreground">
                 {t("profiles.editor.modelTest.retesting")}
               </span>
-              <span className="profile-model-test-progress-track" aria-hidden="true" />
+              <span className="hidden" aria-hidden="true" />
             </div>
           ) : null}
 
-          <div
-            className="profile-model-test-content-grid profile-model-test-content-grid--stacked"
-            data-testid="model-test-content-grid"
-          >
+          <div className="grid gap-3 flex flex-col gap-3" data-testid="model-test-content-grid">
             {promptText ? (
               <div
-                className="profile-model-test-dialog-panel profile-model-test-content-panel profile-model-test-content-panel--primary"
+                className="flex flex-col gap-2 rounded-md border border-border bg-card p-3 flex flex-col gap-2 rounded-md border border-border bg-card p-3"
                 data-testid="model-test-prompt-panel"
               >
-                <div className="profile-model-test-dialog-section-header">
+                <div className="flex items-center justify-between gap-2">
                   {isPromptEditing ? (
-                    <label className="profile-model-test-label" htmlFor={promptInputId}>
+                    <label
+                      className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted-foreground"
+                      htmlFor={promptInputId}
+                    >
                       {t("profiles.editor.modelTest.prompt")}
                     </label>
                   ) : (
-                    <span className="profile-model-test-label">
+                    <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                       {t("profiles.editor.modelTest.prompt")}
                     </span>
                   )}
                   {isPromptEditing ? (
                     <button
                       type="button"
-                      className=" profile-model-test-compact-action"
+                      className=" shrink-0 cursor-pointer text-xs font-medium text-[var(--primary)] underline-offset-2 hover:underline disabled:pointer-events-none disabled:opacity-50"
                       disabled={isRetesting || !onRetest || !canSendPromptRequest}
                       onClick={() => {
                         if (!onRetest) {
@@ -455,7 +459,7 @@ function ModelTestResultDialog({
                   ) : (
                     <button
                       type="button"
-                      className=" profile-model-test-compact-action"
+                      className=" shrink-0 cursor-pointer text-xs font-medium text-[var(--primary)] underline-offset-2 hover:underline disabled:pointer-events-none disabled:opacity-50"
                       disabled={isRetesting}
                       onClick={() => setIsPromptEditing(true)}
                     >
@@ -466,13 +470,13 @@ function ModelTestResultDialog({
                 {isPromptEditing ? (
                   <textarea
                     id={promptInputId}
-                    className="profile-model-test-prompt-input"
+                    className="w-full min-h-[120px] rounded-md border border-border bg-card p-3 font-mono text-sm leading-6 text-foreground"
                     value={promptDraft}
                     disabled={isRetesting}
                     onChange={(event) => setPromptDraft(event.target.value)}
                   />
                 ) : (
-                  <p className="profile-model-test-dialog-panel-text profile-model-test-prompt-display">
+                  <p className="whitespace-pre-wrap font-mono text-sm leading-6 text-foreground [overflow-wrap:anywhere]">
                     {promptDraft}
                   </p>
                 )}
@@ -480,24 +484,23 @@ function ModelTestResultDialog({
             ) : null}
 
             <div
-              className={`profile-model-test-dialog-summary profile-model-test-content-panel profile-model-test-content-panel--primary${isSuccess ? " success" : " error"}`}
+              className={`flex flex-col gap-2 rounded-md border border-border bg-card p-3${isSuccess ? " success" : " error"}`}
               data-testid="model-test-response-panel"
             >
-              <span className="profile-model-test-label">
+              <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                 {isSuccess
                   ? t("profiles.editor.modelTest.response")
                   : t("profiles.editor.modelTest.errorMessage")}
               </span>
-              <p className="profile-model-test-dialog-panel-text">{summaryText}</p>
+              <p className="whitespace-pre-wrap text-sm leading-6 text-foreground [overflow-wrap:anywhere]">
+                {summaryText}
+              </p>
             </div>
           </div>
 
           {(result?.requestHeaders || requestBody || result?.responseHeaders || rawResponse) && (
-            <section
-              className="profile-model-test-exchange-details"
-              data-testid="model-test-exchange-details"
-            >
-              <div className="profile-model-test-exchange-header">
+            <section className="flex flex-col gap-3" data-testid="model-test-exchange-details">
+              <div className="flex items-center gap-2">
                 <h4>{t("profiles.editor.modelTest.exchangeDetails")}</h4>
               </div>
 
@@ -535,14 +538,14 @@ function ModelTestResultDialog({
                 : null}
 
               {rawResponse ? (
-                <div className="profile-model-test-dialog-raw">
-                  <div className="profile-model-test-dialog-section-header">
-                    <span className="profile-model-test-label">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                       {t("profiles.editor.modelTest.rawResponse")}
                     </span>
                     <button
                       type="button"
-                      className=" profile-model-test-compact-action"
+                      className=" shrink-0 cursor-pointer text-xs font-medium text-[var(--primary)] underline-offset-2 hover:underline disabled:pointer-events-none disabled:opacity-50"
                       onClick={onToggleRawResponse}
                     >
                       {rawResponseExpanded
@@ -551,11 +554,8 @@ function ModelTestResultDialog({
                     </button>
                   </div>
                   {rawResponseExpanded ? (
-                    <div
-                      className="profile-model-test-dialog-summary raw"
-                      data-testid="model-test-raw-response-code"
-                    >
-                      <div className="profile-model-test-code-shell">
+                    <div className="raw" data-testid="model-test-raw-response-code">
+                      <div className="overflow-x-auto rounded-md bg-muted/50 p-3 font-mono text-[13px] leading-7">
                         <SyntaxHighlighter
                           language={formattedRawResponse?.language ?? "text"}
                           style={syntaxTheme}
