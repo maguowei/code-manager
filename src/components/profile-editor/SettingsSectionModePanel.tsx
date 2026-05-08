@@ -137,7 +137,7 @@ function SettingsSectionModePanel({
           <Button
             type="button"
             variant="ghost"
-            className="h-auto min-w-0 flex-1 justify-between gap-3 self-stretch whitespace-normal rounded-none px-0 py-5 text-left text-foreground hover:bg-transparent hover:text-foreground"
+            className="h-auto min-w-0 flex-1 justify-between gap-3 self-stretch whitespace-normal rounded-md px-2 py-5 text-left text-foreground hover:bg-transparent hover:text-foreground focus-visible:border-transparent focus-visible:bg-transparent focus-visible:ring-0 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary/60"
             aria-expanded={expanded}
             onClick={onToggleExpanded}
           >

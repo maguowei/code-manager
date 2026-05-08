@@ -101,6 +101,17 @@ describe("ui system contract", () => {
     }
   });
 
+  it("keeps accordion section focus from drawing a full-row shadcn button ring", () => {
+    const source = readFileSync(
+      "src/components/profile-editor/SettingsSectionModePanel.tsx",
+      "utf8",
+    );
+
+    expect(source).toContain("focus-visible:ring-0");
+    expect(source).toContain("focus-visible:outline-primary/60");
+    expect(source).not.toContain("self-stretch whitespace-normal rounded-none");
+  });
+
   it("keeps split editor drawers on semantic sheet surfaces", () => {
     for (const file of [
       "src/components/ProfilesPage.tsx",
