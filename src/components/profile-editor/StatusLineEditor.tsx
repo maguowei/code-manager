@@ -114,8 +114,8 @@ function StatusLineEditor({ value, onChange, onError, showTitle = true }: Status
   }, [draft, t]);
 
   return (
-    <div className="profile-section-body flex flex-col gap-4">
-      <div className="profile-subsection-header flex flex-wrap items-start justify-between gap-3">
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           {showTitle ? <h4>{t("profileEditor.statusLine.title")}</h4> : null}
           <p className="mt-1 text-sm leading-relaxed text-muted-foreground">

@@ -115,8 +115,8 @@ export function PermissionDefaultModeSelect({
 
   if (variant === "header") {
     return (
-      <div className="profile-permissions-header-field inline-flex min-w-0 items-center gap-2.5 max-[900px]:gap-2">
-        <span className="profile-permissions-header-label shrink-0 whitespace-nowrap text-xs font-semibold text-muted-foreground">
+      <div className="inline-flex min-w-0 items-center gap-2.5 max-[900px]:gap-2">
+        <span className="shrink-0 whitespace-nowrap text-xs font-semibold text-muted-foreground">
           {label}
         </span>
         {select}
@@ -422,10 +422,10 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
   }
 
   return (
-    <div className="profile-section-body">
-      <div className="profile-permissions-toolbar mb-1.5 flex items-center justify-between gap-3.5 max-[900px]:flex-col max-[900px]:items-stretch">
-        <div className="profile-inline-switch-row profile-inline-switch-row-emphasis flex w-full max-w-[420px] items-center justify-start gap-3.5 self-start max-[900px]:max-w-none max-[900px]:justify-between">
-          <span className="profile-inline-switch-title min-w-0 text-[15px] font-bold leading-snug text-foreground">
+    <div className="flex flex-col gap-4">
+      <div className="mb-1.5 flex items-center justify-between gap-3.5 max-[900px]:flex-col max-[900px]:items-stretch">
+        <div className="flex w-full max-w-[420px] items-center justify-start gap-3.5 self-start max-[900px]:max-w-none max-[900px]:justify-between">
+          <span className="min-w-0 text-[15px] font-bold leading-snug text-foreground">
             {t("profileEditor.permissions.disableBypass")}
           </span>
           <SandboxSwitchControl
@@ -439,14 +439,14 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
         <Button
           type="button"
           variant="outline"
-          className="profile-permissions-recommended-btn"
+          className=""
           onClick={() => setRecommendedDialogOpen(true)}
         >
           {t("profileEditor.permissions.loadRecommendedRules")}
         </Button>
       </div>
 
-      <div className="profile-section-grid grid grid-cols-2 gap-4 max-[900px]:grid-cols-1">
+      <div className="grid grid-cols-2 gap-4 max-[900px]:grid-cols-1">
         <StringListEditor
           label={t("profileEditor.permissions.allowRulesTitle")}
           rows={allowRows}

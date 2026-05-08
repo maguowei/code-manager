@@ -660,7 +660,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
         <EditorSection title={messages.auth}>
           <EditorField>
             <Label htmlFor="profile-preset">{messages.preset}</Label>
-            <div className="profile-preset-select-grid grid max-w-full grid-cols-[minmax(0,520px)_max-content] items-center gap-3 max-[700px]:grid-cols-[minmax(0,1fr)] max-[700px]:items-stretch">
+            <div className="grid max-w-full grid-cols-[minmax(0,520px)_max-content] items-center gap-3 max-[700px]:grid-cols-[minmax(0,1fr)] max-[700px]:items-stretch">
               <div className="min-w-0">
                 <Select
                   value={presetId || NO_PRESET_VALUE}
@@ -697,7 +697,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
                 <Button
                   type="button"
                   variant="outline"
-                  className="profile-preset-doc-link min-h-9 whitespace-nowrap max-[700px]:justify-self-start"
+                  className="min-h-9 whitespace-nowrap max-[700px]:justify-self-start"
                   onClick={handleOpenSelectedPresetDocs}
                 >
                   <span>{messages.openPresetDocs}</span>

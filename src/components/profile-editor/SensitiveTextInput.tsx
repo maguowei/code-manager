@@ -25,7 +25,7 @@ function SensitiveTextInput({
   const [visible, setVisible] = useState(false);
 
   return (
-    <div className="profile-sensitive-input relative flex min-w-0 items-center">
+    <div className="relative flex min-w-0 items-center">
       <Input
         id={id}
         aria-label={ariaLabel}

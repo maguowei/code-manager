@@ -194,15 +194,15 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
   function profileEffortLevelClass(effort: string) {
     switch (effort) {
       case "low":
-        return "profile-summary-effort-level--low text-chart-2";
+        return "text-muted-foreground text-chart-2";
       case "medium":
-        return "profile-summary-effort-level--medium text-[var(--primary)]";
+        return "text-[var(--chart-4)] text-[var(--primary)]";
       case "high":
-        return "profile-summary-effort-level--high text-chart-4";
+        return "text-[var(--chart-2)] text-chart-4";
       case "xhigh":
-        return "profile-summary-effort-level--xhigh text-chart-3";
+        return "text-[var(--chart-1)] text-chart-3";
       case "max":
-        return "profile-summary-effort-level--max text-destructive";
+        return "text-[var(--chart-1)] text-destructive";
       default:
         return "";
     }
@@ -220,13 +220,13 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
   function profilePermissionModeClass(permissionMode: string) {
     switch (permissionMode) {
       case "plan":
-        return "profile-summary-permission-mode--plan text-[var(--primary)]";
+        return "text-[var(--chart-4)] text-[var(--primary)]";
       case "acceptEdits":
-        return "profile-summary-permission-mode--accept-edits text-chart-4";
+        return "text-[var(--chart-2)] text-chart-4";
       case "dontAsk":
-        return "profile-summary-permission-mode--dont-ask text-chart-3";
+        return "text-[var(--chart-1)] text-chart-3";
       case "bypassPermissions":
-        return "profile-summary-permission-mode--bypass-permissions text-destructive";
+        return "text-[var(--chart-3)] text-destructive";
       default:
         return "";
     }
@@ -559,11 +559,11 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
     if (state.status === "running") {
       return (
         <span
-          className="profile-test-result-badge running inline-flex min-h-[18px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-sm border border-border bg-muted px-[5px] py-px text-[11px] leading-[1.15] font-bold text-muted-foreground"
+          className="running inline-flex min-h-[18px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-sm border border-border bg-muted px-[5px] py-px text-[11px] leading-[1.15] font-bold text-muted-foreground"
           title={t("profiles.testAll.running")}
         >
           <span
-            className="profile-test-result-spinner size-2.5 animate-spin rounded-full border-[1.5px] border-current border-r-transparent"
+            className="size-2.5 animate-spin rounded-full border-[1.5px] border-current border-r-transparent"
             aria-hidden="true"
           />
           <span>{t("profiles.testAll.runningBadge")}</span>
@@ -578,7 +578,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
       <button
         type="button"
         className={cn(
-          "profile-test-result-badge inline-flex min-h-[18px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-sm border-0 px-[5px] py-px text-[11px] leading-[1.15] font-bold text-white hover:brightness-110",
+          "inline-flex min-h-[18px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-sm border-0 px-[5px] py-px text-[11px] leading-[1.15] font-bold text-white hover:brightness-110",
           state.status,
           state.status === "success" ? "bg-chart-2" : "bg-destructive",
         )}
@@ -610,13 +610,13 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
           <h1 className="page-title text-xl font-semibold text-foreground">
             {t("profiles.title")}
           </h1>
-          <div className="profile-page-actions inline-flex shrink-0 items-center gap-2">
+          <div className="inline-flex shrink-0 items-center gap-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
               className={cn(
-                "profile-test-all-btn border-border bg-muted font-semibold text-foreground hover:border-primary hover:text-[var(--primary)]",
+                "border-border bg-muted font-semibold text-foreground hover:border-primary hover:text-[var(--primary)]",
                 isTestingAllProfiles && "is-testing",
               )}
               disabled={profiles.length === 0 || isTestingAllProfiles}
@@ -660,7 +660,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
             className={cn(
               "profiles-grid flex flex-col gap-3 p-4",
               dragState.draggingIndex !== null &&
-                "is-dragging [&_.profile-card:not(.dragging)]:opacity-70",
+                "is-dragging [&_[data-slot=profile-card]:not(.dragging)]:opacity-70",
             )}
             onDragOver={(event) => event.preventDefault()}
           >
@@ -678,7 +678,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                 <Card
                   key={profile.id}
                   className={cn(
-                    "profile-card group relative flex cursor-pointer flex-col gap-4 rounded-xl border border-border bg-card p-4 py-4 shadow-none transition-[transform,border-color,box-shadow,opacity] duration-200 hover:-translate-y-px hover:border-primary hover:shadow-[0_4px_12px_rgb(59_130_246_/_0.15)] focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:outline-none",
+                    "group relative flex cursor-pointer flex-col gap-4 rounded-xl border border-border bg-card p-4 py-4 shadow-none transition-[transform,border-color,box-shadow,opacity] duration-200 hover:-translate-y-px hover:border-primary hover:shadow-[0_4px_12px_rgb(59_130_246_/_0.15)] focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:outline-none",
                     isAppliedProfile &&
                       "active border-[var(--primary)] ring-1 ring-[var(--primary)] shadow-[0_0_16px_rgb(59_130_246_/_0.2)]",
                     isEditingProfile &&
@@ -717,20 +717,20 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                   onDragLeave={(event) => handleDragLeave(event, index)}
                   onDrop={(event) => handleDrop(event, index)}
                 >
-                  <div className="profile-card-head flex items-start justify-between gap-3">
+                  <div className="flex items-start justify-between gap-3">
                     <ProfileNameBadge
                       name={profile.name}
                       colorSeedScope={presetSlugFromId(profile.presetId)}
                       size="sm"
                     />
-                    <div className="profile-card-title-block min-w-0 flex-1">
-                      <div className="profile-card-title-row flex items-center">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center">
                         <h3 className="truncate text-lg font-semibold">{profile.name}</h3>
                       </div>
-                      <div className="profile-card-preset-row mt-1.5 flex items-center">
+                      <div className="mt-1.5 flex items-center">
                         <Badge
                           variant="ghost"
-                          className="profile-preset-badge rounded-full bg-[rgb(59_130_246_/_0.1)] px-2 py-0.5 text-[10px] font-semibold text-[var(--primary)]"
+                          className="rounded-full bg-[rgb(59_130_246_/_0.1)] px-2 py-0.5 text-[10px] font-semibold text-[var(--primary)]"
                         >
                           {presetNameById(
                             allPresets,
@@ -741,26 +741,26 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                         </Badge>
                       </div>
                       {profile.description && (
-                        <p className="profile-card-description mt-1.5 line-clamp-2 text-sm leading-normal text-muted-foreground">
+                        <p className="mt-1.5 line-clamp-2 text-sm leading-normal text-muted-foreground">
                           {profile.description}
                         </p>
                       )}
                     </div>
 
-                    <div className="profile-card-head-actions flex flex-wrap items-center justify-end gap-2">
+                    <div className="flex flex-wrap items-center justify-end gap-2">
                       {isEditingProfile ? (
-                        <Badge className="profile-status-badge editing rounded-md bg-chart-3/10 px-2.5 py-1.5 text-sm font-semibold text-chart-3">
+                        <Badge className="editing rounded-md bg-chart-3/10 px-2.5 py-1.5 text-sm font-semibold text-chart-3">
                           {t("profiles.badges.editing")}
                         </Badge>
                       ) : isAppliedProfile ? (
-                        <Badge className="profile-status-badge active rounded-md bg-[rgb(34_197_94_/_0.15)] px-2.5 py-1.5 text-sm font-semibold text-chart-2">
+                        <Badge className="active rounded-md bg-[rgb(34_197_94_/_0.15)] px-2.5 py-1.5 text-sm font-semibold text-chart-2">
                           {t("profiles.badges.inUse")}
                         </Badge>
                       ) : (
                         <Button
                           type="button"
                           size="sm"
-                          className="profile-card-apply-btn bg-[var(--primary)] text-white hover:bg-[var(--primary)]"
+                          className="bg-[var(--primary)] text-white hover:bg-[var(--primary)]"
                           onClick={(event) => {
                             event.stopPropagation();
                             void handleApply(profile.id);
@@ -773,19 +773,18 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                   </div>
 
                   {hasSummary && (
-                    <div className="profile-card-summary flex flex-col gap-2">
+                    <div className="flex flex-col gap-2">
                       {model && (
-                        <div className="profile-summary-row grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground">
-                          <span className="profile-summary-title inline-flex shrink-0 items-center text-[11px] leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-[var(--border)] after:content-[':']">
+                        <div className="grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground">
+                          <span className="inline-flex shrink-0 items-center text-[11px] leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-[var(--border)] after:content-[':']">
                             {t("profiles.summary.modelTitle")}
                           </span>
-                          <div className="profile-summary-main inline-flex min-w-0 items-center gap-1.5">
+                          <div className="inline-flex min-w-0 items-center gap-1.5">
                             <span className="min-w-0 truncate">{model}</span>
                             {renderProfileModelTestState(profile)}
                             {effort && (
                               <span
                                 className={cn(
-                                  "profile-summary-effort-level",
                                   "shrink-0 whitespace-nowrap",
                                   profileEffortLevelClass(effort),
                                 )}
@@ -797,31 +796,26 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                         </div>
                       )}
                       {(permissionMode || sandboxEnabled) && (
-                        <div className="profile-summary-row grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground">
-                          <span className="profile-summary-title inline-flex shrink-0 items-center text-[11px] leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-[var(--border)] after:content-[':']">
+                        <div className="grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground">
+                          <span className="inline-flex shrink-0 items-center text-[11px] leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-[var(--border)] after:content-[':']">
                             {t("profiles.summary.permissionsTitle")}
                           </span>
-                          <span className="profile-summary-main inline-flex min-w-0 items-center gap-1.5">
+                          <span className="inline-flex min-w-0 items-center gap-1.5">
                             {permissionMode ? (
-                              <span
-                                className={cn(
-                                  "profile-summary-permission-mode",
-                                  profilePermissionModeClass(permissionMode),
-                                )}
-                              >
+                              <span className={cn(profilePermissionModeClass(permissionMode))}>
                                 {permissionMode}
                               </span>
                             ) : (
-                              <span className="profile-summary-permission-mode profile-summary-permission-mode--unset text-muted-foreground">
+                              <span className="text-muted-foreground text-muted-foreground">
                                 {t("profileEditor.permissions.unset")}
                               </span>
                             )}
                             <span
                               className={cn(
-                                "profile-summary-sandbox-state shrink-0 border-l border-border/70 pl-1.5 text-[11px] leading-none whitespace-nowrap",
+                                "shrink-0 border-l border-border/70 pl-1.5 text-[11px] leading-none whitespace-nowrap",
                                 sandboxEnabled
-                                  ? "profile-summary-sandbox-state--enabled text-chart-2"
-                                  : "profile-summary-sandbox-state--disabled text-muted-foreground",
+                                  ? "text-[var(--chart-2)] text-chart-2"
+                                  : "text-muted-foreground text-muted-foreground",
                               )}
                             >
                               {t(
@@ -834,8 +828,8 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                         </div>
                       )}
                       {plugins.totalCount > 0 && (
-                        <div className="profile-summary-row grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground">
-                          <span className="profile-summary-title inline-flex shrink-0 items-center text-[11px] leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-[var(--border)] after:content-[':']">
+                        <div className="grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground">
+                          <span className="inline-flex shrink-0 items-center text-[11px] leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-[var(--border)] after:content-[':']">
                             {t("profiles.summary.pluginsTitle")}
                           </span>
                           <span className="min-w-0 truncate">
@@ -847,12 +841,12 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                     </div>
                   )}
 
-                  <div className="profile-card-actions mt-[-1rem] flex max-h-0 flex-wrap justify-end gap-2 self-end overflow-hidden opacity-0 transition-[max-height,margin-top,opacity,transform] duration-200 group-hover:mt-0 group-hover:max-h-12 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:mt-0 group-focus-within:max-h-12 group-focus-within:translate-y-0 group-focus-within:opacity-100 pointer-events-none translate-y-2 group-hover:pointer-events-auto group-focus-within:pointer-events-auto">
+                  <div className="mt-[-1rem] flex max-h-0 flex-wrap justify-end gap-2 self-end overflow-hidden opacity-0 transition-[max-height,margin-top,opacity,transform] duration-200 group-hover:mt-0 group-hover:max-h-12 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:mt-0 group-focus-within:max-h-12 group-focus-within:translate-y-0 group-focus-within:opacity-100 pointer-events-none translate-y-2 group-hover:pointer-events-auto group-focus-within:pointer-events-auto">
                     <Button
                       type="button"
                       variant="outline"
                       size="icon-sm"
-                      className="profile-card-action icon-only border-border bg-muted text-foreground hover:border-primary hover:text-[var(--primary)]"
+                      className="icon-only border-border bg-muted text-foreground hover:border-primary hover:text-[var(--primary)]"
                       aria-label={t("profiles.actions.copyEnv")}
                       title={t("profiles.actions.copyEnv")}
                       onClick={(event) => {
@@ -866,7 +860,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                       type="button"
                       variant="outline"
                       size="icon-sm"
-                      className="profile-card-action icon-only border-border bg-muted text-foreground hover:border-primary hover:text-[var(--primary)]"
+                      className="icon-only border-border bg-muted text-foreground hover:border-primary hover:text-[var(--primary)]"
                       aria-label={t("profiles.actions.duplicate")}
                       title={t("profiles.actions.duplicate")}
                       onClick={(event) => {
@@ -880,7 +874,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                       type="button"
                       variant="outline"
                       size="icon-sm"
-                      className="profile-card-action danger icon-only border-border bg-muted text-foreground hover:border-destructive hover:text-destructive"
+                      className="danger icon-only border-border bg-muted text-foreground hover:border-destructive hover:text-destructive"
                       aria-label={t("profiles.actions.delete")}
                       title={t("profiles.actions.delete")}
                       onClick={(event) => {

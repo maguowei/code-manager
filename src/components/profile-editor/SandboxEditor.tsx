@@ -160,15 +160,15 @@ function SandboxEditor({ value, onChange, onError }: SandboxEditorProps) {
   }
 
   return (
-    <div className="profile-section-body">
-      <div className="profile-subsection-header">
+    <div className="flex flex-col gap-4">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <h4>{t("profileEditor.sandbox.statusTitle")}</h4>
         </div>
       </div>
 
-      <Card className="profile-mini-card profile-sandbox-status-card gap-3 rounded-lg border-border bg-card p-4 py-4 shadow-none">
-        <div className="profile-sandbox-state-copy flex min-w-0 flex-col gap-1.5">
+      <Card className="gap-3 rounded-lg border-border bg-card p-4 py-4 shadow-none">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <strong className="text-[15px] font-bold">
             {isZh
               ? `当前状态：${presentation.enabled ? t("profileEditor.sandbox.statusEnabled") : t("profileEditor.sandbox.statusDisabled")}`
@@ -182,25 +182,21 @@ function SandboxEditor({ value, onChange, onError }: SandboxEditorProps) {
         {presentation.extraKeys.length > 0 ? (
           <div className=" flex flex-wrap gap-2">
             {presentation.extraKeys.map((key) => (
-              <Badge key={key} variant="outline" className="profile-key-badge">
+              <Badge key={key} variant="outline" className="">
                 {key}
               </Badge>
             ))}
           </div>
         ) : (
-          <div className="profile-empty-state flex min-h-[96px] items-center justify-center rounded-lg border border-border px-4 text-center">
+          <div className="flex min-h-[96px] items-center justify-center rounded-lg border border-border px-4 text-center">
             {presentation.emptyState}
           </div>
         )}
       </Card>
 
-      <div className="profile-env-footer flex justify-end">
+      <div className="flex justify-end">
         {recommendedPresetApplied ? null : (
-          <Button
-            type="button"
-            className="profile-primary-btn"
-            onClick={handleAddRecommendedPreset}
-          >
+          <Button type="button" className="" onClick={handleAddRecommendedPreset}>
             <Plus className="size-4" aria-hidden="true" />
             {t("profileEditor.sandbox.addRecommendedPreset")}
           </Button>

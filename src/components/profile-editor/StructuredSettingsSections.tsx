@@ -234,7 +234,7 @@ function StructuredSettingsSections({
       <Button
         type="button"
         variant="outline"
-        className="profile-section-doc-link min-h-[34px] px-3 text-xs font-semibold"
+        className="min-h-[34px] px-3 text-xs font-semibold"
         aria-label={label}
         title={label}
         onClick={() => {
@@ -253,7 +253,7 @@ function StructuredSettingsSections({
     extraControl?: ReactNode,
   ) {
     return (
-      <div className="profile-section-row-actions inline-flex min-w-0 flex-wrap items-center gap-2">
+      <div className="inline-flex min-w-0 flex-wrap items-center gap-2">
         {renderSectionDocsButton(docsKey, sectionTitle)}
         {extraControl}
       </div>
@@ -355,12 +355,12 @@ function StructuredSettingsSections({
             {behaviorToggleFieldRows.map((row) => (
               <div
                 key={`${scope}-toggle-row-${row.map((field) => field.key).join("-")}`}
-                className="profile-toggle-grid grid gap-3 md:grid-cols-2"
+                className="grid gap-3 md:grid-cols-2"
               >
                 {row.map((field) => (
                   <label
                     key={field.key}
-                    className="profile-toggle-item flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm font-medium text-foreground"
+                    className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm font-medium text-foreground"
                   >
                     <Checkbox
                       checked={settings[field.key] === true}
@@ -471,7 +471,7 @@ function StructuredSettingsSections({
               </div>
             ))}
 
-            <div className="profile-common-option-list flex flex-col gap-3">
+            <div className="flex flex-col gap-3">
               {commonToggleFields.map((field) => {
                 const label = field.label[language];
                 const description = field.description?.[language];
@@ -482,19 +482,15 @@ function StructuredSettingsSections({
                   <div
                     key={field.key}
                     data-slot="common-option"
-                    className="profile-common-option-item flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-3"
+                    className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-3"
                   >
-                    <div className="profile-common-option-copy min-w-0 flex-1">
-                      <div className="profile-common-option-title-row flex items-center gap-2">
-                        <span className="profile-common-option-title text-sm font-semibold text-foreground">
-                          {label}
-                        </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-foreground">{label}</span>
                         <FieldHelpButton helperKey={helperKey} />
                       </div>
                       {description ? (
-                        <p className="profile-common-option-description mt-1 text-sm text-muted-foreground">
-                          {description}
-                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
                       ) : null}
                     </div>
                     <SandboxSwitchControl

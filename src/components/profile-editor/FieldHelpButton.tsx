@@ -12,7 +12,7 @@ function FieldHelpButton({ helperKey }: FieldHelpButtonProps) {
   return (
     <button
       type="button"
-      className="profile-field-help inline-flex size-6 items-center justify-center rounded-full border border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      className="inline-flex size-6 items-center justify-center rounded-full border border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       aria-label={helperKey}
       data-tooltip={helperKey}
       title={helperKey}
