@@ -205,7 +205,10 @@ function WorktreesSection({ detail, t }: WorktreesSectionProps) {
                     <span className="text-xs text-muted-foreground sm:hidden">
                       {t("projects.worktreePath")}
                     </span>
-                    <span className="projects-row-path truncate text-sm font-semibold leading-6 text-foreground">
+                    <span
+                      className="projects-row-path text-sm font-semibold leading-6 break-all text-foreground"
+                      title={worktree.path}
+                    >
                       {worktree.path}
                     </span>
                   </div>

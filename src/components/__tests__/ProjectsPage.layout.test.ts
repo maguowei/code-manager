@@ -54,4 +54,42 @@ describe("ProjectsPage layout", () => {
     expect(screen.getByText("projects.gitStatus")).toBeInTheDocument();
     expect(screen.getAllByText("projects.agentsMd").length).toBeGreaterThan(0);
   });
+
+  it("keeps full worktree paths inspectable in the detail table", () => {
+    const worktreePath =
+      "/Users/test-user/work/alpha/.worktrees/very-long-feature-branch-name-that-needs-inspection";
+
+    render(
+      createElement(ProjectDetailPanel, {
+        t: (key) => key,
+        summary: SUMMARY,
+        detail: {
+          ...DETAIL,
+          worktrees: [
+            {
+              path: worktreePath,
+              branch: "feature/long-path",
+              head: "1234567890abcdef",
+              isCurrent: false,
+              isDetached: false,
+            },
+          ],
+        },
+        defaultEditorApp: "vscode",
+        canCreateAgentsLink: true,
+        canOpenRepository: true,
+        canOpenProjectDirectory: true,
+        canOpenInEditor: true,
+        isLinkingAgents: false,
+        onOpenInTerminal: () => undefined,
+        onOpenInEditor: () => undefined,
+        onOpenRepository: () => undefined,
+        onCreateAgentsLink: () => undefined,
+      }),
+    );
+
+    const pathCell = screen.getByText(worktreePath);
+    expect(pathCell).toHaveAttribute("title", worktreePath);
+    expect(pathCell).not.toHaveClass("truncate");
+  });
 });

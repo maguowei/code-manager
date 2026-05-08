@@ -57,6 +57,7 @@ describe("EnvEditor", () => {
     const firstRow = getEnvRowForButton(openAiButton);
     const secondRow = getEnvRow("ANTHROPIC_MODEL");
     const firstRowHead = getEnvRowHeadForButton(openAiButton);
+    expect(firstRow.className).not.toContain("profile-env-list-row");
     expect(
       within(firstRowHead).getByRole("button", {
         name: "删除环境变量 OPENAI_API_KEY",

@@ -370,7 +370,7 @@ function EnvEditor({
                     : null;
 
                 const rowClassName = [
-                  "profile-env-list-row flex flex-col px-3.5 py-2.5 first:border-t-0 border-t border-border",
+                  "flex flex-col px-3.5 py-2.5 first:border-t-0 border-t border-border",
                   selected
                     ? "selected bg-[color-mix(in_srgb,var(--accent)_18%,var(--card)_82%)]"
                     : "",

@@ -933,6 +933,23 @@ describe("ProfileEditor", () => {
       },
     });
     const dialog = screen.getByRole("dialog", { name: "模型测试结果" });
+    const dialogClassTokens = Array.from(dialog.querySelectorAll<HTMLElement>("[class]"))
+      .flatMap((element) => Array.from(element.classList))
+      .join(" ");
+
+    expect(dialogClassTokens).not.toContain("py-4-top");
+    expect(dialogClassTokens).not.toContain("py-4-main");
+    expect(within(dialog).getByTestId("model-test-meta-list").getAttribute("class")).not.toContain(
+      "flex flex-col",
+    );
+    expect(
+      within(dialog).getByTestId("model-test-content-grid").getAttribute("class"),
+    ).not.toContain("grid gap-3 flex");
+    expect(
+      within(dialog).getByTestId("model-test-prompt-panel").getAttribute("class"),
+    ).not.toContain("p-3 flex flex-col");
+    expect(within(dialog).getByTestId("model-test-status-badge")).toHaveClass("bg-chart-2");
+    expect(within(dialog).getByTestId("model-test-response-panel")).toHaveClass("border-chart-2");
     expect(within(dialog).getByText("测试成功")).toBeInTheDocument();
     expect(within(dialog).getByTestId("model-test-profile-name")).toHaveTextContent(
       "OpenRouter User",

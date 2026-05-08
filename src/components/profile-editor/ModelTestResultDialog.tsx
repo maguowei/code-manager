@@ -242,7 +242,7 @@ function ModelTestResultDialog({
           </span>
           <button
             type="button"
-            className=" shrink-0 cursor-pointer text-xs font-medium text-[var(--primary)] underline-offset-2 hover:underline disabled:pointer-events-none disabled:opacity-50"
+            className="shrink-0 cursor-pointer text-xs font-medium text-[var(--primary)] underline-offset-2 hover:underline disabled:pointer-events-none disabled:opacity-50"
             onClick={() => handleToggleCodePanel(panelKey)}
           >
             {expanded ? hideLabel : viewLabel}
@@ -280,17 +280,18 @@ function ModelTestResultDialog({
         showCloseButton={false}
         aria-describedby={undefined}
         aria-labelledby={dialogTitleId}
-        className="flex max-h-[80vh] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none flex max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none"
+        className="flex max-h-[80vh] w-[min(960px,calc(100vw-2rem))] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none"
       >
         <div className="flex flex-col gap-3 border-b border-border px-5 py-4">
-          <div className="flex flex-col gap-3 border-b border-border px-5 py-4-top">
-            <div className="flex flex-col gap-3 border-b border-border px-5 py-4-main">
-              <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 items-start justify-between gap-3 max-[640px]:flex-col">
+            <div className="min-w-0">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <DialogTitle asChild>
                   <h3 id={dialogTitleId}>{t("profiles.editor.modelTest.dialogTitle")}</h3>
                 </DialogTitle>
                 <span
-                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold${isSuccess ? " success" : " error"}`}
+                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold ${isSuccess ? "bg-chart-2 text-white" : "bg-destructive text-destructive-foreground"}`}
+                  data-testid="model-test-status-badge"
                 >
                   {isSuccess
                     ? t("profiles.editor.modelTest.status.success")
@@ -302,7 +303,7 @@ function ModelTestResultDialog({
               {onRetest ? (
                 <button
                   type="button"
-                  className={` inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-50${isRetesting ? " " : ""}`}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
                   disabled={isRetesting}
                   onClick={() => onRetest(getRetestPromptOverride())}
                 >
@@ -318,7 +319,7 @@ function ModelTestResultDialog({
               ) : null}
               <button
                 type="button"
-                className=" inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
                 disabled={!curlCommand}
                 onClick={() => {
                   void handleCopyCurl();
@@ -358,13 +359,16 @@ function ModelTestResultDialog({
               ) : null}
               {requestUrl ? (
                 <div
-                  className="inline-flex items-center gap-2 request-url"
+                  className="inline-flex min-w-0 items-center gap-2"
                   data-testid="model-test-request-url-row"
                 >
                   <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                     {t("profiles.editor.modelTest.requestUrl")}
                   </span>
-                  <span className="is-code" data-testid="model-test-request-url">
+                  <span
+                    className="inline-flex min-w-0 items-center gap-1"
+                    data-testid="model-test-request-url"
+                  >
                     {result?.requestMethod ? (
                       <span className="mr-1 inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-[11px] font-bold text-muted-foreground">
                         {result.requestMethod}
@@ -381,7 +385,7 @@ function ModelTestResultDialog({
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
           {metaItems.length > 0 ? (
             <dl
-              className="flex flex-col gap-2 grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2"
+              className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2"
               data-testid="model-test-meta-list"
             >
               {metaItems.map((item) => (
@@ -393,7 +397,7 @@ function ModelTestResultDialog({
                     {item.label}
                   </dt>
                   <dd
-                    className={`truncate text-sm font-medium text-foreground${item.isCode ? " is-code" : ""}`}
+                    className={`truncate text-sm font-medium text-foreground${item.isCode ? " font-mono" : ""}`}
                   >
                     {item.value}
                   </dd>
@@ -420,10 +424,10 @@ function ModelTestResultDialog({
             </div>
           ) : null}
 
-          <div className="grid gap-3 flex flex-col gap-3" data-testid="model-test-content-grid">
+          <div className="grid gap-3" data-testid="model-test-content-grid">
             {promptText ? (
               <div
-                className="flex flex-col gap-2 rounded-md border border-border bg-card p-3 flex flex-col gap-2 rounded-md border border-border bg-card p-3"
+                className="flex flex-col gap-2 rounded-md border border-border bg-card p-3"
                 data-testid="model-test-prompt-panel"
               >
                 <div className="flex items-center justify-between gap-2">
@@ -442,7 +446,7 @@ function ModelTestResultDialog({
                   {isPromptEditing ? (
                     <button
                       type="button"
-                      className=" shrink-0 cursor-pointer text-xs font-medium text-[var(--primary)] underline-offset-2 hover:underline disabled:pointer-events-none disabled:opacity-50"
+                      className="shrink-0 cursor-pointer text-xs font-medium text-[var(--primary)] underline-offset-2 hover:underline disabled:pointer-events-none disabled:opacity-50"
                       disabled={isRetesting || !onRetest || !canSendPromptRequest}
                       onClick={() => {
                         if (!onRetest) {
@@ -459,7 +463,7 @@ function ModelTestResultDialog({
                   ) : (
                     <button
                       type="button"
-                      className=" shrink-0 cursor-pointer text-xs font-medium text-[var(--primary)] underline-offset-2 hover:underline disabled:pointer-events-none disabled:opacity-50"
+                      className="shrink-0 cursor-pointer text-xs font-medium text-[var(--primary)] underline-offset-2 hover:underline disabled:pointer-events-none disabled:opacity-50"
                       disabled={isRetesting}
                       onClick={() => setIsPromptEditing(true)}
                     >
@@ -484,7 +488,7 @@ function ModelTestResultDialog({
             ) : null}
 
             <div
-              className={`flex flex-col gap-2 rounded-md border border-border bg-card p-3${isSuccess ? " success" : " error"}`}
+              className={`flex flex-col gap-2 rounded-md border bg-card p-3 ${isSuccess ? "border-chart-2" : "border-destructive bg-destructive/10"}`}
               data-testid="model-test-response-panel"
             >
               <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
@@ -545,7 +549,7 @@ function ModelTestResultDialog({
                     </span>
                     <button
                       type="button"
-                      className=" shrink-0 cursor-pointer text-xs font-medium text-[var(--primary)] underline-offset-2 hover:underline disabled:pointer-events-none disabled:opacity-50"
+                      className="shrink-0 cursor-pointer text-xs font-medium text-[var(--primary)] underline-offset-2 hover:underline disabled:pointer-events-none disabled:opacity-50"
                       onClick={onToggleRawResponse}
                     >
                       {rawResponseExpanded
