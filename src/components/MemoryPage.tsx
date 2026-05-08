@@ -266,14 +266,14 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   function renderMemoryGroup(title: string, description: string, items: Memory[]) {
     if (items.length === 0) return null;
     return (
-      <section className="memory-group mt-5 flex flex-col gap-3 first-of-type:mt-0">
-        <div className="memory-group-header flex min-w-0 flex-col gap-1 px-2">
+      <section className="memory-group flex flex-col gap-3">
+        <div className="memory-group-header flex min-w-0 flex-col gap-1 px-1">
           <h2 className="m-0 text-base leading-snug font-bold text-foreground">{title}</h2>
           <p className="m-0 text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]">
             {description}
           </p>
         </div>
-        <div className="list-container">
+        <div className="list-container flex flex-col gap-3">
           {items.map((memory) => (
             <MemoryItem
               key={memory.id}
@@ -293,8 +293,8 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   function renderUnmanagedMemoryGroup(items: UnmanagedMemory[]) {
     if (items.length === 0) return null;
     return (
-      <section className="memory-group memory-group-unmanaged mt-5 flex flex-col gap-3 first-of-type:mt-0">
-        <div className="memory-group-header flex min-w-0 flex-col gap-1 px-2">
+      <section className="memory-group memory-group-unmanaged flex flex-col gap-3">
+        <div className="memory-group-header flex min-w-0 flex-col gap-1 px-1">
           <h2 className="m-0 text-base leading-snug font-bold text-foreground">
             {t("memory.group.unmanaged")}
           </h2>
@@ -302,7 +302,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
             {t("memory.group.unmanagedDescription")}
           </p>
         </div>
-        <div className="list-container">
+        <div className="list-container flex flex-col gap-3">
           {items.map((memory) => (
             <UnmanagedMemoryItem
               key={memory.id}
@@ -316,11 +316,18 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   }
 
   return (
-    <div className={cn("list-page group/list", isModalOpen && "compressed")}>
+    <div
+      className={cn(
+        "list-page group/list flex min-h-full flex-col gap-5 px-4 py-5",
+        isModalOpen && "compressed",
+      )}
+    >
       {/* 页面标题栏 */}
-      <div className="page-header">
-        <h1 className="page-title">{t("nav.memory")}</h1>
-        <div className="memory-page-actions flex min-w-0 items-center gap-2">
+      <div className="page-header flex min-w-0 flex-col gap-3">
+        <h1 className="page-title text-2xl leading-tight font-semibold text-foreground">
+          {t("nav.memory")}
+        </h1>
+        <div className="memory-page-actions flex min-w-0 flex-wrap items-center gap-2">
           <Button
             type="button"
             variant="outline"
@@ -375,7 +382,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       {/* 添加按钮 */}
       <Button
         type="button"
-        className="add-config-btn gap-1.5 bg-[linear-gradient(135deg,var(--primary),var(--primary))] font-semibold text-white shadow-sm hover:-translate-y-px hover:shadow-md"
+        className="add-config-btn w-fit gap-1.5 bg-[linear-gradient(135deg,var(--primary),var(--primary))] font-semibold text-white shadow-sm hover:-translate-y-px hover:shadow-md"
         onClick={openAddModal}
       >
         <Plus className="size-[18px]" aria-hidden="true" />
