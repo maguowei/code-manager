@@ -119,7 +119,7 @@ function CollapsibleBlock({
   const arrow = expanded ? "\u25BC" : "\u25B6";
   return (
     <div
-      className={`msg-block min-w-0 max-w-full [overflow-wrap:anywhere]${wrapClass ? ` ${wrapClass}` : ""}`}
+      className={`min-w-0 max-w-full [overflow-wrap:anywhere]${wrapClass ? ` ${wrapClass}` : ""}`}
     >
       <button
         type="button"
@@ -129,7 +129,9 @@ function CollapsibleBlock({
       >
         {arrowPosition === "inline" && <>{arrow} </>}
         {label}
-        {arrowPosition === "trailing" && <span className="msg-plan-arrow">{arrow}</span>}
+        {arrowPosition === "trailing" && (
+          <span className="ml-auto shrink-0 text-xs text-muted-foreground">{arrow}</span>
+        )}
       </button>
       {expanded && <div className={`${contentClass} min-w-0 max-w-full`}>{children}</div>}
     </div>
@@ -140,8 +142,8 @@ function CollapsibleBlock({
 function ThinkingBlock({ thinking, label }: { thinking: string; label: string }) {
   return (
     <CollapsibleBlock
-      toggleClass="msg-thinking-toggle"
-      contentClass="msg-thinking-content msg-markdown"
+      toggleClass="inline cursor-pointer text-xs text-muted-foreground hover:text-foreground"
+      contentClass="mt-1 rounded-md border border-border bg-muted/50 p-3 text-sm [&_pre]:overflow-x-auto [&_p]:my-1"
       label={label}
     >
       <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{thinking}</ReactMarkdown>
@@ -152,10 +154,12 @@ function ThinkingBlock({ thinking, label }: { thinking: string; label: string })
 /** 渲染斜杠命令块 */
 function CommandBlock({ name, args }: { name: string; args?: string }) {
   return (
-    <div className="msg-block msg-command flex min-w-0 max-w-full flex-wrap items-baseline gap-x-1 [overflow-wrap:anywhere]">
-      <span className="msg-command-prompt">&gt;</span>
-      <span className="msg-command-name min-w-0 [overflow-wrap:anywhere]">{name}</span>
-      {args && <span className="msg-command-args min-w-0 [overflow-wrap:anywhere]">{args}</span>}
+    <div className="flex min-w-0 max-w-full flex-wrap items-baseline gap-x-1 font-mono text-sm [overflow-wrap:anywhere]">
+      <span className="text-muted-foreground">&gt;</span>
+      <span className="min-w-0 font-medium [overflow-wrap:anywhere]">{name}</span>
+      {args && (
+        <span className="min-w-0 text-muted-foreground [overflow-wrap:anywhere]">{args}</span>
+      )}
     </div>
   );
 }
@@ -164,9 +168,9 @@ function CommandBlock({ name, args }: { name: string; args?: string }) {
 function SystemBlock({ summary, label }: { summary: string; label: string }) {
   return (
     <CollapsibleBlock
-      wrapClass="msg-system"
-      toggleClass="msg-system-toggle"
-      contentClass="msg-system-content"
+      wrapClass=""
+      toggleClass="inline cursor-pointer text-xs text-muted-foreground hover:text-foreground"
+      contentClass="mt-1 text-sm text-muted-foreground"
       label={label}
     >
       {summary}
@@ -186,17 +190,19 @@ function PlanBlock({
 }) {
   const planLabel = (
     <>
-      <span className="msg-plan-icon">&#x1f4cb;</span>
-      <span className="msg-plan-label">{label}</span>
-      <span className="msg-plan-claude-badge">Claude</span>
-      <span className="msg-plan-summary">{summary}</span>
+      <span>&#x1f4cb;</span>
+      <span className="font-medium">{label}</span>
+      <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-bold text-primary">
+        Claude
+      </span>
+      <span className="text-muted-foreground">{summary}</span>
     </>
   );
   return (
     <CollapsibleBlock
-      wrapClass="msg-plan"
-      toggleClass="msg-plan-toggle"
-      contentClass="msg-plan-content msg-markdown"
+      wrapClass="rounded-md border border-border bg-muted/30 p-3"
+      toggleClass="flex min-w-0 max-w-full cursor-pointer items-center gap-2 text-left"
+      contentClass="mt-2 [&_pre]:overflow-x-auto [&_p]:my-1"
       label={planLabel}
       arrowPosition="trailing"
     >
@@ -242,7 +248,7 @@ function JsonCodeCard({ value }: { value: string }) {
   const editorTheme = useCodeMirrorTheme();
 
   return (
-    <Card className="msg-tool-card-json-code min-w-0 max-w-full gap-0 overflow-hidden rounded-md border bg-card p-0 py-0">
+    <Card className="min-w-0 max-w-full gap-0 overflow-hidden rounded-md border bg-card p-0 py-0">
       <CodeMirror
         value={value}
         extensions={JSON_EXTENSIONS}
@@ -264,14 +270,12 @@ function InputPreview({
 }) {
   if (parsedInput) {
     return (
-      <div className="msg-tool-card-input-fields flex min-w-0 max-w-full flex-col gap-3">
+      <div className="flex min-w-0 max-w-full flex-col gap-3">
         {Object.entries(parsedInput).map(([key, value]) => (
-          <div key={key} className="msg-tool-card-field min-w-0 max-w-full">
-            <span className="msg-tool-card-field-key block text-xs font-semibold text-muted-foreground">
-              {key}
-            </span>
+          <div key={key} className="min-w-0 max-w-full">
+            <span className="block text-xs font-semibold text-muted-foreground">{key}</span>
             {typeof value === "string" ? (
-              <div className="msg-tool-card-field-value msg-tool-card-result msg-markdown min-w-0 max-w-full [overflow-wrap:anywhere]">
+              <div className="min-w-0 max-w-full [overflow-wrap:anywhere]">
                 <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{value}</ReactMarkdown>
               </div>
             ) : (
@@ -283,7 +287,7 @@ function InputPreview({
     );
   }
   return (
-    <div className="msg-tool-card-result msg-markdown min-w-0 max-w-full [overflow-wrap:anywhere]">
+    <div className="min-w-0 max-w-full [overflow-wrap:anywhere]">
       <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{inputPreview}</ReactMarkdown>
     </div>
   );
@@ -321,48 +325,44 @@ function ToolCallCard({
   const isFileTool = FILE_TOOLS.has(name) && !!filePath;
 
   return (
-    <div className="msg-block msg-tool-card min-w-0 max-w-full rounded-md border bg-card p-3">
+    <div className="min-w-0 max-w-full rounded-md border bg-card p-3">
       <button
         type="button"
-        className="msg-tool-card-header flex min-w-0 max-w-full items-center gap-2 text-left"
+        className="flex min-w-0 max-w-full cursor-pointer items-center gap-2 text-left"
         aria-expanded={expanded}
         onClick={() => setExpanded(!expanded)}
       >
-        <span className="msg-tool-card-icon">&#x1f6e0;</span>
-        <span className="msg-tool-card-name shrink-0 font-semibold">{name}</span>
+        <span>&#x1f6e0;</span>
+        <span className="shrink-0 font-semibold">{name}</span>
         {!expanded && headerHint.primary && (
-          <span className="msg-tool-card-header-hint flex min-w-0 flex-1 gap-2 text-muted-foreground">
-            <span className="msg-tool-card-filepath min-w-0 truncate">{headerHint.primary}</span>
+          <span className="flex min-w-0 flex-1 gap-2 text-muted-foreground">
+            <span className="min-w-0 truncate">{headerHint.primary}</span>
             {headerHint.secondary && (
-              <span className="msg-tool-card-header-path min-w-0 truncate">
-                {headerHint.secondary}
-              </span>
+              <span className="min-w-0 truncate">{headerHint.secondary}</span>
             )}
           </span>
         )}
-        <span className="msg-tool-card-arrow ml-auto shrink-0">
-          {expanded ? "\u25BC" : "\u25B6"}
-        </span>
+        <span className="ml-auto shrink-0">{expanded ? "\u25BC" : "\u25B6"}</span>
       </button>
       {expanded && (
-        <div className="msg-tool-card-body mt-3 flex min-w-0 max-w-full flex-col gap-3">
+        <div className="mt-3 flex min-w-0 max-w-full flex-col gap-3">
           {inputPreview && (
-            <div className="msg-tool-card-section min-w-0 max-w-full">
-              <span className="msg-tool-card-label mb-1 block text-xs font-semibold text-muted-foreground">
+            <div className="min-w-0 max-w-full">
+              <span className="mb-1 block text-xs font-semibold text-muted-foreground">
                 {inputLabel}
               </span>
               <InputPreview inputPreview={inputPreview} parsedInput={parsedInput} />
             </div>
           )}
           {resultContent && (
-            <div className="msg-tool-card-section min-w-0 max-w-full">
-              <span className="msg-tool-card-label mb-1 block text-xs font-semibold text-muted-foreground">
+            <div className="min-w-0 max-w-full">
+              <span className="mb-1 block text-xs font-semibold text-muted-foreground">
                 {resultLabel}
               </span>
               {isFileTool ? (
                 <CodeResultBlock content={resultContent} filePath={filePath ?? ""} />
               ) : (
-                <div className="msg-tool-card-result msg-markdown min-w-0 max-w-full [overflow-wrap:anywhere]">
+                <div className="min-w-0 max-w-full [overflow-wrap:anywhere]">
                   <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{resultContent}</ReactMarkdown>
                 </div>
               )}
@@ -391,7 +391,7 @@ const MessageBlocks = memo(function MessageBlocks({
         elements.push(
           <div
             key={i}
-            className="msg-block msg-markdown min-w-0 max-w-full [overflow-wrap:anywhere] [&_*]:max-w-full [&_ol]:pl-5 [&_p]:my-1 [&_pre]:overflow-x-auto [&_ul]:pl-5"
+            className="min-w-0 max-w-full [overflow-wrap:anywhere] [&_*]:max-w-full [&_ol]:pl-5 [&_p]:my-1 [&_pre]:overflow-x-auto [&_ul]:pl-5"
           >
             <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{block.text}</ReactMarkdown>
           </div>,
@@ -422,7 +422,7 @@ const MessageBlocks = memo(function MessageBlocks({
         elements.push(
           <div
             key={i}
-            className="msg-block msg-tool-result msg-markdown min-w-0 max-w-full [overflow-wrap:anywhere] [&_*]:max-w-full [&_pre]:overflow-x-auto"
+            className="min-w-0 max-w-full [overflow-wrap:anywhere] [&_*]:max-w-full [&_pre]:overflow-x-auto"
           >
             <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{block.content || "..."}</ReactMarkdown>
           </div>,
@@ -436,29 +436,32 @@ const MessageBlocks = memo(function MessageBlocks({
         break;
       case "image":
         elements.push(
-          <div key={i} className="msg-block msg-image-wrapper min-w-0 max-w-full">
+          <div key={i} className="min-w-0 max-w-full">
             {block.data ? (
-              <figure className="msg-image-figure">
+              <figure
+                data-slot="msg-image-figure"
+                className="group/figure relative overflow-hidden rounded-md border"
+              >
                 <img
                   src={`data:${block.media_type};base64,${block.data}`}
                   alt={block.media_type}
-                  className="msg-image-preview"
+                  className="max-h-[500px] max-w-full object-contain group-data-[error]/figure:opacity-50"
                   onError={(e) => {
-                    const fig = (e.target as HTMLElement).closest(".msg-image-figure");
-                    if (fig) fig.classList.add("msg-image-error");
+                    const fig = (e.target as HTMLElement).closest('[data-slot="msg-image-figure"]');
+                    if (fig) fig.setAttribute("data-error", "true");
                   }}
                 />
-                <figcaption className="msg-image-caption">
-                  <span className="msg-image-icon">&#x1f5bc;</span>
+                <figcaption className="flex items-center gap-1.5 border-t bg-muted/50 px-2 py-1 text-xs text-muted-foreground">
+                  <span>&#x1f5bc;</span>
                   <span>
                     {t("history.image")} · {block.media_type}
                   </span>
                 </figcaption>
               </figure>
             ) : (
-              <div className="msg-image-placeholder">
-                <span className="msg-image-icon">&#x1f5bc;</span>
-                <span className="msg-image-label">
+              <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+                <span>&#x1f5bc;</span>
+                <span>
                   {t("history.image")} ({block.media_type})
                 </span>
               </div>
@@ -535,36 +538,34 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
 
         {/* 内容区 */}
         {loading ? (
-          <div className="session-detail-loading flex flex-1 items-center justify-center text-muted-foreground">
+          <div className="flex flex-1 items-center justify-center text-muted-foreground">
             {t("loading")}
           </div>
         ) : !messages || messages.length === 0 ? (
-          <div className="session-detail-empty flex flex-1 items-center justify-center text-muted-foreground">
+          <div className="flex flex-1 items-center justify-center text-muted-foreground">
             {t("history.noData")}
           </div>
         ) : (
-          <div className="session-detail-messages min-w-0 flex-1 overflow-y-auto px-5 py-3">
+          <div className="min-w-0 flex-1 overflow-y-auto px-5 py-3">
             {messages.map((msg, i) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: 消息列表无唯一标识符
               <div key={i}>
                 {i > 0 && <Separator className="my-3" />}
-                <div className={`session-msg ${msg.role} min-w-0 max-w-full`}>
-                  <div className="session-msg-header mb-2 flex min-w-0 flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                    <span
-                      className={`session-msg-avatar ${msg.role} inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold`}
-                    >
+                <div className="min-w-0 max-w-full">
+                  <div className="mb-2 flex min-w-0 flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                    <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
                       {msg.role === "user" ? "U" : "A"}
                     </span>
-                    <span className="session-msg-role shrink-0 font-medium">
+                    <span className="shrink-0 font-medium">
                       {msg.role === "user" ? t("history.roleUser") : t("history.roleAssistant")}
                     </span>
                     {msg.timestamp && (
-                      <span className="session-msg-time min-w-0 text-muted-foreground">
+                      <span className="min-w-0 text-muted-foreground">
                         {new Date(msg.timestamp).toLocaleString()}
                       </span>
                     )}
                   </div>
-                  <div className="session-msg-bubble min-w-0 max-w-full space-y-2 text-sm leading-6 text-foreground [overflow-wrap:anywhere]">
+                  <div className="min-w-0 max-w-full space-y-2 text-sm leading-6 text-foreground [overflow-wrap:anywhere]">
                     <MessageBlocks blocks={msg.blocks} t={t} />
                   </div>
                 </div>
