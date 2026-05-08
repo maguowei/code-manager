@@ -12,6 +12,7 @@ import {
   presetNameById,
   presetSlugFromId,
 } from "./config-workspace-utils";
+import PageHeader from "./PageHeader";
 import ProfileEditor from "./ProfileEditor";
 import ProfileNameBadge from "./ProfileNameBadge";
 import ModelTestResultDialog from "./profile-editor/ModelTestResultDialog";
@@ -606,11 +607,11 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
           isDrawerOpen && "compressed w-[280px]",
         )}
       >
-        <div className="page-header sticky top-0 z-10 flex h-[52px] shrink-0 items-center justify-between border-b border-border bg-secondary px-5">
-          <h1 className="page-title text-xl font-semibold text-foreground">
-            {t("profiles.title")}
-          </h1>
-          <div className="inline-flex shrink-0 items-center gap-2">
+        <PageHeader
+          title={t("profiles.title")}
+          surface="secondary"
+          variant="list"
+          actions={
             <Button
               type="button"
               variant="outline"
@@ -634,8 +635,8 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                   : t("profiles.actions.testAll")}
               </span>
             </Button>
-          </div>
-        </div>
+          }
+        />
         <Button
           type="button"
           className="mx-2 mt-4 mb-3 h-auto gap-2 rounded-lg bg-[linear-gradient(135deg,var(--primary),var(--primary))] p-3.5 text-base font-semibold text-white shadow-sm hover:-translate-y-px hover:shadow-md"

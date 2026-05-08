@@ -792,11 +792,18 @@ describe("UsagePage cost cockpit", () => {
 
   it("keeps the narrow header compact instead of wrapping actions into rows", () => {
     const source = readFileSync("src/components/UsagePage.tsx", "utf8");
+    const headerSource = readFileSync("src/components/PageHeader.tsx", "utf8");
 
-    expect(source).toContain("usage-header gap-4 max-[900px]:grid");
-    expect(source).toContain("max-[900px]:grid-cols-[minmax(0,1fr)_auto]");
-    expect(source).toContain("usage-header-actions flex min-w-0 items-center gap-2");
-    expect(source).toContain("max-[900px]:grid-cols-[auto_auto_auto]");
+    expect(source).toContain("import PageHeader from");
+    expect(source).toContain("<PageHeader");
+    expect(source).toContain('className="usage-header gap-4"');
+    expect(source).toContain('description={t("usage.subtitle")}');
+    expect(source).toContain('descriptionClassName="usage-subtitle"');
+    expect(source).toContain(
+      'actionsClassName="usage-header-actions max-[900px]:grid max-[900px]:grid-cols-[auto_auto_auto]"',
+    );
+    expect(headerSource).toContain("page-header sticky top-0 z-10 shrink-0 border-b");
+    expect(headerSource).toContain("max-[900px]:grid-cols-[minmax(0,1fr)_auto]");
     expect(source).toContain("usage-meta-text truncate max-[900px]:hidden");
   });
 

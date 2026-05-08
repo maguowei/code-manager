@@ -12,6 +12,7 @@ import { useI18n } from "../i18n";
 import HistoryHeatmap from "./HistoryHeatmap";
 import HistoryProjectList from "./HistoryProjectList";
 import HistorySessionList from "./HistorySessionList";
+import PageHeader from "./PageHeader";
 import SessionDetailDrawer from "./SessionDetailDrawer";
 import { Input } from "./ui/input";
 
@@ -92,9 +93,7 @@ function HistoryPage() {
   if (loading) {
     return (
       <div className="history-page flex h-full w-full flex-col overflow-hidden">
-        <div className="page-header">
-          <h1 className="page-title">{t("history.title")}</h1>
-        </div>
+        <PageHeader title={t("history.title")} />
         <div className="loading">{t("loading")}</div>
       </div>
     );
@@ -102,9 +101,7 @@ function HistoryPage() {
 
   return (
     <div className="history-page flex h-full w-full flex-col overflow-hidden">
-      <div className="page-header">
-        <h1 className="page-title">{t("history.title")}</h1>
-      </div>
+      <PageHeader title={t("history.title")} />
 
       <div className="history-body grid min-h-0 flex-1 grid-cols-[180px_minmax(0,1fr)] overflow-hidden max-md:grid-cols-1 max-md:grid-rows-[auto_minmax(0,1fr)]">
         <HistoryProjectList

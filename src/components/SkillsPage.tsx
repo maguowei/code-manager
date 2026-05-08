@@ -7,6 +7,7 @@ import { useToast } from "../hooks/useToast";
 import { type Language, useI18n } from "../i18n";
 import type { Skill } from "../types";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
+import PageHeader from "./PageHeader";
 import SkillEditor from "./SkillEditor";
 import SkillItem from "./SkillItem";
 import { Button } from "./ui/button";
@@ -131,12 +132,12 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     <div
       className={cn("list-page group/list flex min-h-full flex-col", isDrawerOpen && "compressed")}
     >
-      {/* 页面标题栏 */}
-      <div className="page-header sticky top-0 z-10 flex min-h-[52px] shrink-0 flex-col items-start gap-2 border-b border-border bg-secondary px-5 py-3">
-        <h1 className="page-title text-xl leading-tight font-semibold text-foreground">
-          {t("skills.title")}
-        </h1>
-        <div className="skills-page-actions flex min-w-0 items-center gap-2">
+      <PageHeader
+        title={t("skills.title")}
+        surface="secondary"
+        variant="list"
+        actionsClassName="skills-page-actions"
+        actions={
           <Button
             variant="outline"
             size="sm"
@@ -156,8 +157,8 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
               <ExternalLink className="size-3.5" aria-hidden="true" />
             </a>
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* 添加按钮 */}
       <Button

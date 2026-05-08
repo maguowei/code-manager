@@ -12,6 +12,7 @@ import {
   presetDisplayName,
   presetNameById,
 } from "./config-workspace-utils";
+import PageHeader from "./PageHeader";
 import PresetEditor from "./PresetEditor";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -148,9 +149,7 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
           isDrawerOpen && "compressed w-[280px]",
         )}
       >
-        <div className="page-header sticky top-0 z-10 flex h-[52px] shrink-0 items-center justify-between border-b border-border bg-secondary px-5">
-          <h1 className="page-title text-xl font-semibold text-foreground">{t("presets.title")}</h1>
-        </div>
+        <PageHeader title={t("presets.title")} surface="secondary" variant="list" />
 
         <div className="preset-section-block flex flex-col gap-4 border-b border-border p-4">
           <div className="preset-section-header flex items-start justify-between gap-4">

@@ -18,6 +18,7 @@ import type {
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import MemoryEditor from "./MemoryEditor";
 import MemoryItem from "./MemoryItem";
+import PageHeader from "./PageHeader";
 import UnmanagedMemoryItem from "./UnmanagedMemoryItem";
 import { Button } from "./ui/button";
 import { Sheet, SheetContent } from "./ui/sheet";
@@ -319,62 +320,66 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     <div
       className={cn("list-page group/list flex min-h-full flex-col", isModalOpen && "compressed")}
     >
-      {/* 页面标题栏 */}
-      <div className="page-header sticky top-0 z-10 flex min-h-[52px] shrink-0 flex-col items-start gap-2 border-b border-border bg-secondary px-5 py-3">
-        <h1 className="page-title text-xl leading-tight font-semibold text-foreground">
-          {t("nav.memory")}
-        </h1>
-        <div className="memory-page-actions flex min-w-0 flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="memory-docs-link border-border bg-transparent px-2.5 text-xs font-semibold text-muted-foreground hover:border-primary hover:bg-accent hover:text-foreground"
-            aria-label={t("memory.openDocsAriaLabel")}
-            title={t("memory.openDocsAriaLabel")}
-            onClick={handleOpenDocs}
-          >
-            <span>{t("memory.openDocs")}</span>
-            <ExternalLink className="size-3.5" aria-hidden="true" />
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="memory-import-directory-btn border-border bg-transparent px-2.5 text-xs font-semibold text-muted-foreground hover:border-primary hover:bg-accent hover:text-foreground"
-            aria-label={
-              isImportingDirectory ? t("memory.importingDirectory") : t("memory.importDirectory")
-            }
-            aria-busy={isImportingDirectory}
-            title={
-              isImportingDirectory
-                ? t("memory.importingDirectory")
-                : t("memory.importDirectoryHint")
-            }
-            onClick={handleImportDirectory}
-            disabled={isImportingDirectory}
-          >
-            <FolderInput className="size-3.5" aria-hidden="true" />
-            <span>
-              {isImportingDirectory ? t("memory.importingDirectory") : t("memory.importDirectory")}
-            </span>
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="memory-refresh-btn border-border bg-transparent px-2.5 text-xs font-semibold text-muted-foreground hover:border-primary hover:bg-accent hover:text-foreground"
-            aria-label={isRefreshing ? t("memory.refreshing") : t("memory.refresh")}
-            aria-busy={isRefreshing}
-            title={isRefreshing ? t("memory.refreshing") : t("memory.refresh")}
-            onClick={handleRefreshMemories}
-            disabled={isRefreshing}
-          >
-            <RefreshCw className="size-3.5" aria-hidden="true" />
-            <span>{isRefreshing ? t("memory.refreshing") : t("memory.refresh")}</span>
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title={t("nav.memory")}
+        surface="secondary"
+        variant="list"
+        actionsClassName="memory-page-actions"
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="memory-docs-link border-border bg-transparent px-2.5 text-xs font-semibold text-muted-foreground hover:border-primary hover:bg-accent hover:text-foreground"
+              aria-label={t("memory.openDocsAriaLabel")}
+              title={t("memory.openDocsAriaLabel")}
+              onClick={handleOpenDocs}
+            >
+              <span>{t("memory.openDocs")}</span>
+              <ExternalLink className="size-3.5" aria-hidden="true" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="memory-import-directory-btn border-border bg-transparent px-2.5 text-xs font-semibold text-muted-foreground hover:border-primary hover:bg-accent hover:text-foreground"
+              aria-label={
+                isImportingDirectory ? t("memory.importingDirectory") : t("memory.importDirectory")
+              }
+              aria-busy={isImportingDirectory}
+              title={
+                isImportingDirectory
+                  ? t("memory.importingDirectory")
+                  : t("memory.importDirectoryHint")
+              }
+              onClick={handleImportDirectory}
+              disabled={isImportingDirectory}
+            >
+              <FolderInput className="size-3.5" aria-hidden="true" />
+              <span>
+                {isImportingDirectory
+                  ? t("memory.importingDirectory")
+                  : t("memory.importDirectory")}
+              </span>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="memory-refresh-btn border-border bg-transparent px-2.5 text-xs font-semibold text-muted-foreground hover:border-primary hover:bg-accent hover:text-foreground"
+              aria-label={isRefreshing ? t("memory.refreshing") : t("memory.refresh")}
+              aria-busy={isRefreshing}
+              title={isRefreshing ? t("memory.refreshing") : t("memory.refresh")}
+              onClick={handleRefreshMemories}
+              disabled={isRefreshing}
+            >
+              <RefreshCw className="size-3.5" aria-hidden="true" />
+              <span>{isRefreshing ? t("memory.refreshing") : t("memory.refresh")}</span>
+            </Button>
+          </>
+        }
+      />
 
       {/* 添加按钮 */}
       <Button

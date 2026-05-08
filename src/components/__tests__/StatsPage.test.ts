@@ -4,10 +4,12 @@ import { describe, expect, it } from "vitest";
 describe("StatsPage collapsible sections", () => {
   it("documents snapshot freshness and recent-session project context", () => {
     const source = readFileSync(`${process.cwd()}/src/components/StatsPage.tsx`, "utf8");
+    const headerSource = readFileSync(`${process.cwd()}/src/components/PageHeader.tsx`, "utf8");
     const i18n = readFileSync(`${process.cwd()}/src/i18n.ts`, "utf8");
 
     expect(source).toContain("return parts.length > 0 ? parts.at(-1) || fullPath : fullPath;");
-    expect(source).toContain("stats-staleness-note min-w-0 max-w-[min(52vw,560px)] truncate");
+    expect(source).toContain('descriptionClassName="stats-staleness-note"');
+    expect(headerSource).toContain("max-w-[min(52vw,560px)] truncate");
     expect(source).toContain('t("stats.stalenessNotice")');
     expect(source).toContain('t("stats.projectSectionHint")');
     expect(source).toContain("p.lastSessionId");

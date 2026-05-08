@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
 import { type TranslationKey, useI18n } from "../i18n";
 import { type ClaudeStats, isTauri, type ProjectStats } from "../types";
+import PageHeader from "./PageHeader";
 import { formatDuration } from "./project-detail-utils";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -149,9 +150,7 @@ function StatsPage() {
   if (loading) {
     return (
       <div className="stats-page flex h-full w-full flex-col overflow-hidden">
-        <div className="page-header">
-          <h1 className="page-title">{t("stats.title")}</h1>
-        </div>
+        <PageHeader title={t("stats.title")} />
         <div className="stats-scroll min-h-0 flex-1 overflow-y-auto p-5">
           <div className="stats-empty flex min-h-[320px] flex-col items-center justify-center text-center">
             <p className="empty-text text-lg font-semibold text-foreground">{t("loading")}</p>
@@ -164,9 +163,7 @@ function StatsPage() {
   if (!stats || stats.numStartups === 0) {
     return (
       <div className="stats-page flex h-full w-full flex-col overflow-hidden">
-        <div className="page-header">
-          <h1 className="page-title">{t("stats.title")}</h1>
-        </div>
+        <PageHeader title={t("stats.title")} />
         <div className="stats-scroll min-h-0 flex-1 overflow-y-auto p-5">
           <div className="stats-empty flex min-h-[320px] flex-col items-center justify-center text-center">
             <div className="empty-icon mb-4 flex size-20 items-center justify-center rounded-full border bg-muted text-muted-foreground">
@@ -186,38 +183,40 @@ function StatsPage() {
 
   return (
     <div className="stats-page flex h-full w-full flex-col overflow-hidden">
-      <div className="page-header max-[900px]:grid max-[900px]:h-auto max-[900px]:min-h-[52px] max-[900px]:grid-cols-[minmax(0,1fr)_auto] max-[900px]:gap-3 max-[900px]:py-2">
-        <div className="stats-page-heading flex min-w-0 items-center gap-3 max-[900px]:flex-wrap max-[900px]:items-baseline">
-          <h1 className="page-title shrink-0">{t("stats.title")}</h1>
-          <div className="stats-staleness-note min-w-0 max-w-[min(52vw,560px)] truncate text-xs leading-snug text-muted-foreground max-[900px]:max-w-full">
-            {t("stats.stalenessNotice")}
-          </div>
-        </div>
-        <div className="page-header-actions flex gap-2 max-[900px]:grid max-[900px]:grid-cols-[repeat(2,2rem)] max-[900px]:items-center max-[900px]:justify-end max-[900px]:justify-items-center">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="stats-refresh-btn max-[900px]:size-8 max-[900px]:gap-0 max-[900px]:p-0"
-            onClick={handleOpenInEditor}
-            title={t("stats.openInEditor")}
-          >
-            <Pencil className="size-4" />
-            <span className="max-[900px]:sr-only">{t("stats.openInEditor")}</span>
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="stats-refresh-btn max-[900px]:size-8 max-[900px]:gap-0 max-[900px]:p-0"
-            onClick={handleRefresh}
-            title={t("stats.refresh")}
-          >
-            <RefreshCw className="size-4" />
-            <span className="max-[900px]:sr-only">{t("stats.refresh")}</span>
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title={t("stats.title")}
+        description={t("stats.stalenessNotice")}
+        mainClassName="stats-page-heading"
+        titleClassName="shrink-0"
+        descriptionClassName="stats-staleness-note"
+        actionsClassName="max-[900px]:grid max-[900px]:grid-cols-[repeat(2,2rem)] max-[900px]:items-center max-[900px]:justify-end max-[900px]:justify-items-center"
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="stats-refresh-btn max-[900px]:size-8 max-[900px]:gap-0 max-[900px]:p-0"
+              onClick={handleOpenInEditor}
+              title={t("stats.openInEditor")}
+            >
+              <Pencil className="size-4" />
+              <span className="max-[900px]:sr-only">{t("stats.openInEditor")}</span>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="stats-refresh-btn max-[900px]:size-8 max-[900px]:gap-0 max-[900px]:p-0"
+              onClick={handleRefresh}
+              title={t("stats.refresh")}
+            >
+              <RefreshCw className="size-4" />
+              <span className="max-[900px]:sr-only">{t("stats.refresh")}</span>
+            </Button>
+          </>
+        }
+      />
 
       <div className="stats-scroll min-h-0 flex-1 overflow-y-auto p-5">
         <div className="stats-overview mb-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">

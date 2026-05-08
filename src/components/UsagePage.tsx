@@ -26,6 +26,7 @@ import type {
   UsageTimeGranularity,
   UsageTimeSeriesPoint,
 } from "../types";
+import PageHeader from "./PageHeader";
 import { formatUSD } from "./project-detail-utils";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -539,72 +540,75 @@ function UsagePage() {
 
   return (
     <div className="usage-page flex h-full w-full flex-col overflow-hidden bg-background">
-      <div className="page-header usage-header gap-4 max-[900px]:grid max-[900px]:h-auto max-[900px]:min-h-[52px] max-[900px]:grid-cols-[minmax(0,1fr)_auto] max-[900px]:py-2">
-        <div className="usage-page-heading flex min-w-0 items-center gap-3">
-          <h1 className="page-title shrink-0">{t("usage.title")}</h1>
-          <p className="usage-subtitle min-w-0 max-w-[min(52vw,560px)] truncate text-xs leading-snug text-muted-foreground">
-            {t("usage.subtitle")}
-          </p>
-        </div>
-        <div className="usage-header-actions flex min-w-0 items-center gap-2 max-[900px]:grid max-[900px]:grid-cols-[auto_auto_auto]">
-          {u.summary && (
-            <div
-              className="usage-meta inline-flex min-w-0 items-center gap-2 text-xs text-muted-foreground"
-              role="group"
-              aria-label={t("usage.metaLabel")}
-            >
-              <Badge
-                variant="outline"
-                className={cn(
-                  "usage-badge h-6 rounded-md px-2 text-xs font-bold whitespace-nowrap",
-                  u.summary.pricing.source === "network" &&
-                    "usage-badge-network border-chart-2/60 bg-chart-2/10 text-chart-2",
-                  u.summary.pricing.source === "cache" &&
-                    "usage-badge-cache border-chart-1/60 bg-chart-1/10 text-chart-1",
-                  u.summary.pricing.source === "builtin" && "usage-badge-builtin",
-                )}
-                title={
-                  u.summary.pricing.fetchedAtMs
-                    ? `${t("usage.pricingFetched")}: ${formatShortDateTime(u.summary.pricing.fetchedAtMs)}`
-                    : undefined
-                }
+      <PageHeader
+        title={t("usage.title")}
+        description={t("usage.subtitle")}
+        className="usage-header gap-4"
+        mainClassName="usage-page-heading"
+        titleClassName="shrink-0"
+        descriptionClassName="usage-subtitle"
+        actionsClassName="usage-header-actions max-[900px]:grid max-[900px]:grid-cols-[auto_auto_auto]"
+        actions={
+          <>
+            {u.summary && (
+              <div
+                className="usage-meta inline-flex min-w-0 items-center gap-2 text-xs text-muted-foreground"
+                role="group"
+                aria-label={t("usage.metaLabel")}
               >
-                {pricingSourceLabel(u.summary.pricing.source, t)}
-              </Badge>
-              {u.summary.lastScanMs && (
-                <span className="usage-meta-text truncate max-[900px]:hidden">
-                  {t("usage.lastScan")}: {formatShortDateTime(u.summary.lastScanMs)}
-                </span>
-              )}
-            </div>
-          )}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="usage-icon-btn"
-            onClick={handleRefreshPrice}
-            disabled={u.refreshingPrice}
-            title={u.refreshingPrice ? t("usage.refreshing") : t("usage.refresh")}
-          >
-            <RefreshCw className="size-4" />
-            <span>{u.refreshingPrice ? t("usage.refreshing") : t("usage.refresh")}</span>
-          </Button>
-          <Button
-            type="button"
-            className={cn(
-              "usage-icon-btn usage-icon-btn-primary",
-              u.rescanning && "usage-icon-btn-busy [&_svg]:animate-spin",
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "usage-badge h-6 rounded-md px-2 text-xs font-bold whitespace-nowrap",
+                    u.summary.pricing.source === "network" &&
+                      "usage-badge-network border-chart-2/60 bg-chart-2/10 text-chart-2",
+                    u.summary.pricing.source === "cache" &&
+                      "usage-badge-cache border-chart-1/60 bg-chart-1/10 text-chart-1",
+                    u.summary.pricing.source === "builtin" && "usage-badge-builtin",
+                  )}
+                  title={
+                    u.summary.pricing.fetchedAtMs
+                      ? `${t("usage.pricingFetched")}: ${formatShortDateTime(u.summary.pricing.fetchedAtMs)}`
+                      : undefined
+                  }
+                >
+                  {pricingSourceLabel(u.summary.pricing.source, t)}
+                </Badge>
+                {u.summary.lastScanMs && (
+                  <span className="usage-meta-text truncate max-[900px]:hidden">
+                    {t("usage.lastScan")}: {formatShortDateTime(u.summary.lastScanMs)}
+                  </span>
+                )}
+              </div>
             )}
-            onClick={handleRescan}
-            disabled={u.rescanning}
-            title={u.rescanning ? t("usage.rescanning") : t("usage.rescan")}
-          >
-            <ScanLine className="size-4" />
-            <span>{u.rescanning ? t("usage.rescanning") : t("usage.rescan")}</span>
-          </Button>
-        </div>
-      </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="usage-icon-btn"
+              onClick={handleRefreshPrice}
+              disabled={u.refreshingPrice}
+              title={u.refreshingPrice ? t("usage.refreshing") : t("usage.refresh")}
+            >
+              <RefreshCw className="size-4" />
+              <span>{u.refreshingPrice ? t("usage.refreshing") : t("usage.refresh")}</span>
+            </Button>
+            <Button
+              type="button"
+              className={cn(
+                "usage-icon-btn usage-icon-btn-primary",
+                u.rescanning && "usage-icon-btn-busy [&_svg]:animate-spin",
+              )}
+              onClick={handleRescan}
+              disabled={u.rescanning}
+              title={u.rescanning ? t("usage.rescanning") : t("usage.rescan")}
+            >
+              <ScanLine className="size-4" />
+              <span>{u.rescanning ? t("usage.rescanning") : t("usage.rescan")}</span>
+            </Button>
+          </>
+        }
+      />
 
       <div className="usage-scroll flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 pt-4 pb-5">
         {isInitialLoading ? (
