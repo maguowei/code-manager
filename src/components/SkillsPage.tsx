@@ -128,16 +128,20 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   }, [claudeSkillsDocsUrl, showToast, t]);
 
   return (
-    <div className={cn("list-page group/list", isDrawerOpen && "compressed")}>
+    <div
+      className={cn("list-page group/list flex min-h-full flex-col", isDrawerOpen && "compressed")}
+    >
       {/* 页面标题栏 */}
-      <div className="page-header">
-        <h1 className="page-title">{t("skills.title")}</h1>
+      <div className="page-header sticky top-0 z-10 flex min-h-[52px] shrink-0 flex-col items-start gap-2 border-b border-border bg-secondary px-5 py-3">
+        <h1 className="page-title text-xl leading-tight font-semibold text-foreground">
+          {t("skills.title")}
+        </h1>
         <div className="skills-page-actions flex min-w-0 items-center gap-2">
           <Button
-            variant="link"
+            variant="outline"
             size="sm"
             asChild
-            className="skills-docs-link h-auto gap-1 p-0 text-xs font-semibold text-muted-foreground hover:text-foreground"
+            className="skills-docs-link border-border bg-transparent px-2.5 text-xs font-semibold text-muted-foreground hover:border-primary hover:bg-accent hover:text-foreground"
           >
             <a
               href={claudeSkillsDocsUrl}
@@ -158,24 +162,26 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       {/* 添加按钮 */}
       <Button
         type="button"
-        className="add-config-btn gap-1.5 bg-[linear-gradient(135deg,var(--primary),var(--primary))] font-semibold text-white shadow-sm hover:-translate-y-px hover:shadow-md"
+        className="add-config-btn mx-2 mt-4 mb-3 h-auto gap-2 rounded-lg bg-[linear-gradient(135deg,var(--primary),var(--primary))] p-3.5 text-base font-semibold text-white shadow-sm hover:-translate-y-px hover:shadow-md"
         onClick={openAdd}
       >
-        <Plus className="size-[18px]" aria-hidden="true" />
+        <Plus className="size-4" aria-hidden="true" />
         <span>{t("skills.addSkill")}</span>
       </Button>
 
       {/* Skills 列表 */}
       {sortedSkills.length === 0 ? (
-        <div className="list-empty">
-          <div className="empty-icon">
+        <div className="list-empty flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
+          <div className="empty-icon mb-4 text-muted-foreground">
             <Zap className="size-12" strokeWidth={1.5} aria-hidden="true" />
           </div>
-          <p className="empty-text">{t("skills.empty")}</p>
-          <p className="empty-hint">{t("skills.emptyHint")}</p>
+          <p className="empty-text mb-2 text-lg font-medium">{t("skills.empty")}</p>
+          <p className="empty-hint max-w-[360px] text-sm leading-normal text-muted-foreground">
+            {t("skills.emptyHint")}
+          </p>
         </div>
       ) : (
-        <div className="list-container">
+        <div className="list-container flex flex-col gap-3 p-4">
           {sortedSkills.map((skill) => (
             <SkillItem
               key={skill.id}

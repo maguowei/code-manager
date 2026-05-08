@@ -53,8 +53,8 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
         <ProfileNameBadge name={skill.name} colorSeedScope={skill.id} size="sm" fallbackChar="S" />
 
         {/* 名称区域 */}
-        <div className="skill-info flex min-w-0 flex-1 flex-col gap-0.5">
-          <h3 className="skill-name m-0 truncate text-base font-semibold text-foreground">
+        <div className="skill-info flex min-w-0 flex-1 flex-col gap-1.5 pt-px">
+          <h3 className="skill-name m-0 truncate text-base leading-snug font-semibold text-foreground">
             {skill.name}
           </h3>
           {showSlashId && (
@@ -65,7 +65,7 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
         </div>
 
         {/* 右侧操作区：启用/禁用开关 */}
-        <div className="skill-header-actions flex shrink-0 flex-wrap items-center justify-end gap-1.5 group-[.compressed]/list:col-span-full group-[.compressed]/list:w-full group-[.compressed]/list:justify-start">
+        <div className="skill-header-actions flex shrink-0 flex-wrap items-center justify-end gap-1.5 pt-0.5 group-[.compressed]/list:col-span-full group-[.compressed]/list:w-full group-[.compressed]/list:justify-start group-[.compressed]/list:pt-0">
           {isEditing && (
             <Badge className="skill-status editing rounded-md bg-chart-3/10 px-2.5 py-1.5 text-xs font-semibold text-chart-3">
               {t("skills.editing")}
@@ -79,13 +79,10 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
               onCheckedChange={() => onToggle(skill)}
               onClick={(event) => event.stopPropagation()}
               aria-label={skill.isActive ? t("skills.enabled") : t("skills.disabled")}
-              className="toggle-switch toggle-blue data-[state=checked]:bg-primary"
+              className="toggle-switch toggle-blue data-[state=checked]:bg-chart-2"
             />
             <span
-              className={cn(
-                "toggle-label whitespace-nowrap",
-                skill.isActive && "text-[var(--primary)]",
-              )}
+              className={cn("toggle-label whitespace-nowrap", skill.isActive && "text-chart-2")}
             >
               {skill.isActive ? t("skills.enabled") : t("skills.disabled")}
             </span>
@@ -105,7 +102,7 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
         {/* 同步按钮 */}
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           size="icon-sm"
           className="skill-action-btn sync border border-border bg-muted text-foreground hover:border-chart-2 hover:text-chart-2"
           onClick={(e) => {
@@ -121,7 +118,7 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
         {/* 删除按钮 */}
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           size="icon-sm"
           className="skill-action-btn delete border border-border bg-muted text-foreground hover:border-destructive hover:text-destructive"
           onClick={(e) => {

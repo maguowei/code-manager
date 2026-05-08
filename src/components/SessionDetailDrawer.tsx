@@ -84,7 +84,9 @@ function CodeResultBlock({ content, filePath }: { content: string; filePath: str
         borderRadius: "calc(var(--radius) - 4px)",
         fontSize: "0.75rem",
         maxHeight: "400px",
+        maxWidth: "100%",
         overflowY: "auto",
+        overflowX: "auto",
         background: "var(--card)",
       }}
       wrapLongLines={false}
@@ -115,10 +117,12 @@ function CollapsibleBlock({
   const [expanded, setExpanded] = useState(false);
   const arrow = expanded ? "\u25BC" : "\u25B6";
   return (
-    <div className={`msg-block${wrapClass ? ` ${wrapClass}` : ""}`}>
+    <div
+      className={`msg-block min-w-0 max-w-full [overflow-wrap:anywhere]${wrapClass ? ` ${wrapClass}` : ""}`}
+    >
       <button
         type="button"
-        className={toggleClass}
+        className={`${toggleClass} max-w-full text-left [overflow-wrap:anywhere]`}
         aria-expanded={expanded}
         onClick={() => setExpanded(!expanded)}
       >
@@ -126,7 +130,7 @@ function CollapsibleBlock({
         {label}
         {arrowPosition === "trailing" && <span className="msg-plan-arrow">{arrow}</span>}
       </button>
-      {expanded && <div className={contentClass}>{children}</div>}
+      {expanded && <div className={`${contentClass} min-w-0 max-w-full`}>{children}</div>}
     </div>
   );
 }
@@ -147,10 +151,10 @@ function ThinkingBlock({ thinking, label }: { thinking: string; label: string })
 /** 渲染斜杠命令块 */
 function CommandBlock({ name, args }: { name: string; args?: string }) {
   return (
-    <div className="msg-block msg-command">
+    <div className="msg-block msg-command flex min-w-0 max-w-full flex-wrap items-baseline gap-x-1 [overflow-wrap:anywhere]">
       <span className="msg-command-prompt">&gt;</span>
-      <span className="msg-command-name">{name}</span>
-      {args && <span className="msg-command-args">{args}</span>}
+      <span className="msg-command-name min-w-0 [overflow-wrap:anywhere]">{name}</span>
+      {args && <span className="msg-command-args min-w-0 [overflow-wrap:anywhere]">{args}</span>}
     </div>
   );
 }
@@ -237,7 +241,7 @@ function JsonCodeCard({ value }: { value: string }) {
   const editorTheme = useCodeMirrorTheme();
 
   return (
-    <Card className="msg-tool-card-json-code gap-0 overflow-hidden rounded-md border bg-card p-0 py-0">
+    <Card className="msg-tool-card-json-code min-w-0 max-w-full gap-0 overflow-hidden rounded-md border bg-card p-0 py-0">
       <CodeMirror
         value={value}
         extensions={JSON_EXTENSIONS}
@@ -259,12 +263,14 @@ function InputPreview({
 }) {
   if (parsedInput) {
     return (
-      <div className="msg-tool-card-input-fields">
+      <div className="msg-tool-card-input-fields flex min-w-0 max-w-full flex-col gap-3">
         {Object.entries(parsedInput).map(([key, value]) => (
-          <div key={key} className="msg-tool-card-field">
-            <span className="msg-tool-card-field-key">{key}</span>
+          <div key={key} className="msg-tool-card-field min-w-0 max-w-full">
+            <span className="msg-tool-card-field-key block text-xs font-semibold text-muted-foreground">
+              {key}
+            </span>
             {typeof value === "string" ? (
-              <div className="msg-tool-card-field-value msg-tool-card-result msg-markdown">
+              <div className="msg-tool-card-field-value msg-tool-card-result msg-markdown min-w-0 max-w-full [overflow-wrap:anywhere]">
                 <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{value}</ReactMarkdown>
               </div>
             ) : (
@@ -276,7 +282,7 @@ function InputPreview({
     );
   }
   return (
-    <div className="msg-tool-card-result msg-markdown">
+    <div className="msg-tool-card-result msg-markdown min-w-0 max-w-full [overflow-wrap:anywhere]">
       <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{inputPreview}</ReactMarkdown>
     </div>
   );
@@ -314,40 +320,48 @@ function ToolCallCard({
   const isFileTool = FILE_TOOLS.has(name) && !!filePath;
 
   return (
-    <div className="msg-block msg-tool-card">
+    <div className="msg-block msg-tool-card min-w-0 max-w-full rounded-md border bg-card p-3">
       <button
         type="button"
-        className="msg-tool-card-header"
+        className="msg-tool-card-header flex min-w-0 max-w-full items-center gap-2 text-left"
         aria-expanded={expanded}
         onClick={() => setExpanded(!expanded)}
       >
         <span className="msg-tool-card-icon">&#x1f6e0;</span>
-        <span className="msg-tool-card-name">{name}</span>
+        <span className="msg-tool-card-name shrink-0 font-semibold">{name}</span>
         {!expanded && headerHint.primary && (
-          <span className="msg-tool-card-header-hint">
-            <span className="msg-tool-card-filepath">{headerHint.primary}</span>
+          <span className="msg-tool-card-header-hint flex min-w-0 flex-1 gap-2 text-muted-foreground">
+            <span className="msg-tool-card-filepath min-w-0 truncate">{headerHint.primary}</span>
             {headerHint.secondary && (
-              <span className="msg-tool-card-header-path">{headerHint.secondary}</span>
+              <span className="msg-tool-card-header-path min-w-0 truncate">
+                {headerHint.secondary}
+              </span>
             )}
           </span>
         )}
-        <span className="msg-tool-card-arrow">{expanded ? "\u25BC" : "\u25B6"}</span>
+        <span className="msg-tool-card-arrow ml-auto shrink-0">
+          {expanded ? "\u25BC" : "\u25B6"}
+        </span>
       </button>
       {expanded && (
-        <div className="msg-tool-card-body">
+        <div className="msg-tool-card-body mt-3 flex min-w-0 max-w-full flex-col gap-3">
           {inputPreview && (
-            <div className="msg-tool-card-section">
-              <span className="msg-tool-card-label">{inputLabel}</span>
+            <div className="msg-tool-card-section min-w-0 max-w-full">
+              <span className="msg-tool-card-label mb-1 block text-xs font-semibold text-muted-foreground">
+                {inputLabel}
+              </span>
               <InputPreview inputPreview={inputPreview} parsedInput={parsedInput} />
             </div>
           )}
           {resultContent && (
-            <div className="msg-tool-card-section">
-              <span className="msg-tool-card-label">{resultLabel}</span>
+            <div className="msg-tool-card-section min-w-0 max-w-full">
+              <span className="msg-tool-card-label mb-1 block text-xs font-semibold text-muted-foreground">
+                {resultLabel}
+              </span>
               {isFileTool ? (
                 <CodeResultBlock content={resultContent} filePath={filePath ?? ""} />
               ) : (
-                <div className="msg-tool-card-result msg-markdown">
+                <div className="msg-tool-card-result msg-markdown min-w-0 max-w-full [overflow-wrap:anywhere]">
                   <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{resultContent}</ReactMarkdown>
                 </div>
               )}
@@ -374,7 +388,10 @@ const MessageBlocks = memo(function MessageBlocks({
     switch (block.type) {
       case "text":
         elements.push(
-          <div key={i} className="msg-block msg-markdown">
+          <div
+            key={i}
+            className="msg-block msg-markdown min-w-0 max-w-full [overflow-wrap:anywhere] [&_*]:max-w-full [&_ol]:pl-5 [&_p]:my-1 [&_pre]:overflow-x-auto [&_ul]:pl-5"
+          >
             <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{block.text}</ReactMarkdown>
           </div>,
         );
@@ -402,7 +419,10 @@ const MessageBlocks = memo(function MessageBlocks({
       }
       case "tool_result":
         elements.push(
-          <div key={i} className="msg-block msg-tool-result msg-markdown">
+          <div
+            key={i}
+            className="msg-block msg-tool-result msg-markdown min-w-0 max-w-full [overflow-wrap:anywhere] [&_*]:max-w-full [&_pre]:overflow-x-auto"
+          >
             <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{block.content || "..."}</ReactMarkdown>
           </div>,
         );
@@ -415,7 +435,7 @@ const MessageBlocks = memo(function MessageBlocks({
         break;
       case "image":
         elements.push(
-          <div key={i} className="msg-block msg-image-wrapper">
+          <div key={i} className="msg-block msg-image-wrapper min-w-0 max-w-full">
             {block.data ? (
               <figure className="msg-image-figure">
                 <img
@@ -492,9 +512,9 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
       <SheetContent
         side="right"
         showCloseButton={false}
-        className="left-[60px] w-auto min-w-0 gap-0 border-l bg-background p-0 sm:max-w-none max-[700px]:left-[48px]"
+        className="left-[60px] w-auto min-w-0 gap-0 overflow-hidden border-l bg-background p-0 sm:max-w-none max-[700px]:left-[48px]"
       >
-        <SheetHeader className="border-b px-5 py-3 pr-12">
+        <SheetHeader className="shrink-0 border-b px-5 py-3 pr-12">
           <SheetTitle id="session-detail-title" className="min-w-0 truncate">
             {t("history.conversation")} — {sessionId.slice(0, 8)}
           </SheetTitle>
@@ -514,30 +534,36 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
 
         {/* 内容区 */}
         {loading ? (
-          <div className="session-detail-loading">{t("loading")}</div>
+          <div className="session-detail-loading flex flex-1 items-center justify-center text-muted-foreground">
+            {t("loading")}
+          </div>
         ) : !messages || messages.length === 0 ? (
-          <div className="session-detail-empty">{t("history.noData")}</div>
+          <div className="session-detail-empty flex flex-1 items-center justify-center text-muted-foreground">
+            {t("history.noData")}
+          </div>
         ) : (
-          <div className="session-detail-messages">
+          <div className="session-detail-messages min-w-0 flex-1 overflow-y-auto px-5 py-3">
             {messages.map((msg, i) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: 消息列表无唯一标识符
               <div key={i}>
                 {i > 0 && <Separator className="my-3" />}
-                <div className={`session-msg ${msg.role}`}>
-                  <div className="session-msg-header">
-                    <span className={`session-msg-avatar ${msg.role}`}>
+                <div className={`session-msg ${msg.role} min-w-0 max-w-full`}>
+                  <div className="session-msg-header mb-2 flex min-w-0 flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                    <span
+                      className={`session-msg-avatar ${msg.role} inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold`}
+                    >
                       {msg.role === "user" ? "U" : "A"}
                     </span>
-                    <span className="session-msg-role">
+                    <span className="session-msg-role shrink-0 font-medium">
                       {msg.role === "user" ? t("history.roleUser") : t("history.roleAssistant")}
                     </span>
                     {msg.timestamp && (
-                      <span className="session-msg-time">
+                      <span className="session-msg-time min-w-0 text-muted-foreground">
                         {new Date(msg.timestamp).toLocaleString()}
                       </span>
                     )}
                   </div>
-                  <div className="session-msg-bubble">
+                  <div className="session-msg-bubble min-w-0 max-w-full space-y-2 text-sm leading-6 text-foreground [overflow-wrap:anywhere]">
                     <MessageBlocks blocks={msg.blocks} t={t} />
                   </div>
                 </div>

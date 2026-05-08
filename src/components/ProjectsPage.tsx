@@ -670,13 +670,15 @@ function ProjectsPage() {
   if (projectSummaries.length === 0) {
     return (
       <div className="projects-page flex h-full w-full flex-col overflow-hidden">
-        <div className="page-header">
-          <h1 className="page-title">{t("projects.title")}</h1>
+        <div className="page-header sticky top-0 z-10 flex min-h-[52px] shrink-0 items-center justify-between gap-3 border-b border-border bg-background px-5 py-3">
+          <h1 className="page-title min-w-0 truncate text-xl font-semibold text-foreground">
+            {t("projects.title")}
+          </h1>
           <Button
             type="button"
             variant="outline"
             size="sm"
-            className="projects-refresh-btn rounded-full"
+            className="projects-refresh-btn shrink-0 rounded-full"
             onClick={handleRefresh}
             disabled={isRefreshing}
           >
@@ -691,13 +693,15 @@ function ProjectsPage() {
 
   return (
     <div className="projects-page flex h-full w-full flex-col overflow-hidden">
-      <div className="page-header">
-        <h1 className="page-title">{t("projects.title")}</h1>
+      <div className="page-header sticky top-0 z-10 flex min-h-[52px] shrink-0 items-center justify-between gap-3 border-b border-border bg-background px-5 py-3">
+        <h1 className="page-title min-w-0 truncate text-xl font-semibold text-foreground">
+          {t("projects.title")}
+        </h1>
         <Button
           type="button"
           variant="outline"
           size="sm"
-          className="projects-refresh-btn rounded-full"
+          className="projects-refresh-btn shrink-0 rounded-full"
           onClick={handleRefresh}
           disabled={isRefreshing}
         >
@@ -751,7 +755,7 @@ function ProjectsPage() {
           ))}
         </aside>
 
-        <section className="projects-detail min-w-0 flex-1 bg-background">
+        <section className="projects-detail min-w-0 flex-1 overflow-hidden bg-background">
           {!selectedSummary ? (
             <ProjectEmptyState>{t("projects.empty")}</ProjectEmptyState>
           ) : detailLoading && !detail ? (

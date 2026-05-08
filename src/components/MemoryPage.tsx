@@ -317,14 +317,11 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
 
   return (
     <div
-      className={cn(
-        "list-page group/list flex min-h-full flex-col gap-5 px-4 py-5",
-        isModalOpen && "compressed",
-      )}
+      className={cn("list-page group/list flex min-h-full flex-col", isModalOpen && "compressed")}
     >
       {/* 页面标题栏 */}
-      <div className="page-header flex min-w-0 flex-col gap-3">
-        <h1 className="page-title text-2xl leading-tight font-semibold text-foreground">
+      <div className="page-header sticky top-0 z-10 flex min-h-[52px] shrink-0 flex-col items-start gap-2 border-b border-border bg-secondary px-5 py-3">
+        <h1 className="page-title text-xl leading-tight font-semibold text-foreground">
           {t("nav.memory")}
         </h1>
         <div className="memory-page-actions flex min-w-0 flex-wrap items-center gap-2">
@@ -382,24 +379,26 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       {/* 添加按钮 */}
       <Button
         type="button"
-        className="add-config-btn w-fit gap-1.5 bg-[linear-gradient(135deg,var(--primary),var(--primary))] font-semibold text-white shadow-sm hover:-translate-y-px hover:shadow-md"
+        className="add-config-btn mx-2 mt-4 mb-3 h-auto gap-2 rounded-lg bg-[linear-gradient(135deg,var(--primary),var(--primary))] p-3.5 text-base font-semibold text-white shadow-sm hover:-translate-y-px hover:shadow-md"
         onClick={openAddModal}
       >
-        <Plus className="size-[18px]" aria-hidden="true" />
+        <Plus className="size-4" aria-hidden="true" />
         <span>{t("memory.addMemory")}</span>
       </Button>
 
       {/* 记忆列表 */}
       {!hasAnyMemory ? (
-        <div className="list-empty">
-          <div className="empty-icon">
+        <div className="list-empty flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
+          <div className="empty-icon mb-4 text-muted-foreground">
             <BookOpen className="size-12" strokeWidth={1.5} aria-hidden="true" />
           </div>
-          <p className="empty-text">{t("memory.empty")}</p>
-          <p className="empty-hint">{t("memory.emptyHint")}</p>
+          <p className="empty-text mb-2 text-lg font-medium">{t("memory.empty")}</p>
+          <p className="empty-hint max-w-[360px] text-sm leading-normal text-muted-foreground">
+            {t("memory.emptyHint")}
+          </p>
         </div>
       ) : (
-        <>
+        <div className="memory-groups flex flex-col gap-5 p-4">
           {renderMemoryGroup(
             t("memory.group.claude"),
             t("memory.group.claudeDescription"),
@@ -411,7 +410,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
             ruleMemories,
           )}
           {renderUnmanagedMemoryGroup(unmanagedMemories)}
-        </>
+        </div>
       )}
 
       {/* 删除确认对话框 */}

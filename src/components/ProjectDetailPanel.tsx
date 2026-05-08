@@ -75,7 +75,10 @@ function statusToneClass(tone: StatusTone) {
 
 function StatusBadge({ tone, children }: { tone: StatusTone; children: ReactNode }) {
   return (
-    <Badge variant="outline" className={cn("projects-status-chip", statusToneClass(tone))}>
+    <Badge
+      variant="outline"
+      className={cn("projects-status-chip max-w-full whitespace-nowrap", statusToneClass(tone))}
+    >
       {children}
     </Badge>
   );
@@ -118,49 +121,51 @@ function BranchesSection({ detail, t }: BranchesSectionProps) {
           {t("projects.noBranches")}
         </div>
       ) : (
-        <div className="projects-table flex flex-col border-t">
-          <div className="projects-table-header projects-branch-grid hidden gap-4 border-b py-2 text-sm font-semibold text-muted-foreground sm:grid sm:grid-cols-[minmax(0,0.9fr)_minmax(220px,1.3fr)_160px]">
-            <span>{t("projects.branchColumn")}</span>
-            <span>{t("projects.commitColumn")}</span>
-            <span>{t("projects.updatedColumn")}</span>
-          </div>
-          <div className="projects-table-body">
-            {detail.branches.map((branch) => (
-              <div
-                key={branch.name}
-                className="projects-table-row projects-branch-grid grid gap-2 border-b py-3 last:border-b-0 sm:grid-cols-[minmax(0,0.9fr)_minmax(220px,1.3fr)_160px] sm:gap-4"
-              >
-                <div className="projects-table-cell grid min-w-0 gap-1 sm:block">
-                  <span className="text-xs text-muted-foreground sm:hidden">
-                    {t("projects.branchColumn")}
-                  </span>
-                  <div className="projects-row-title-wrap flex flex-wrap items-center gap-2">
-                    <span className="projects-row-title text-sm font-semibold leading-6 text-foreground">
-                      {branch.name}
+        <div className="projects-table overflow-x-auto border-t">
+          <div className="projects-table-inner min-w-[640px]">
+            <div className="projects-table-header projects-branch-grid hidden gap-4 border-b py-2 text-sm font-semibold text-muted-foreground sm:grid sm:grid-cols-[minmax(160px,0.9fr)_minmax(260px,1.3fr)_160px]">
+              <span>{t("projects.branchColumn")}</span>
+              <span>{t("projects.commitColumn")}</span>
+              <span>{t("projects.updatedColumn")}</span>
+            </div>
+            <div className="projects-table-body">
+              {detail.branches.map((branch) => (
+                <div
+                  key={branch.name}
+                  className="projects-table-row projects-branch-grid grid gap-2 border-b py-3 last:border-b-0 sm:grid-cols-[minmax(160px,0.9fr)_minmax(260px,1.3fr)_160px] sm:gap-4"
+                >
+                  <div className="projects-table-cell grid min-w-0 gap-1 sm:block">
+                    <span className="text-xs text-muted-foreground sm:hidden">
+                      {t("projects.branchColumn")}
                     </span>
-                    {branch.isCurrent && (
-                      <StatusBadge tone="success">{t("projects.current")}</StatusBadge>
-                    )}
+                    <div className="projects-row-title-wrap flex flex-wrap items-center gap-2">
+                      <span className="projects-row-title text-sm font-semibold leading-6 text-foreground">
+                        {branch.name}
+                      </span>
+                      {branch.isCurrent && (
+                        <StatusBadge tone="success">{t("projects.current")}</StatusBadge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="projects-table-cell grid min-w-0 gap-1 sm:block">
+                    <span className="text-xs text-muted-foreground sm:hidden">
+                      {t("projects.commitColumn")}
+                    </span>
+                    <span className="projects-row-secondary text-sm leading-6 break-words text-muted-foreground">
+                      {branch.lastCommitSubject ?? "—"}
+                    </span>
+                  </div>
+                  <div className="projects-table-cell grid min-w-0 gap-1 sm:block">
+                    <span className="text-xs text-muted-foreground sm:hidden">
+                      {t("projects.updatedColumn")}
+                    </span>
+                    <span className="projects-row-secondary text-sm leading-6 text-muted-foreground">
+                      {formatCommitTime(branch.lastCommitAt) ?? "—"}
+                    </span>
                   </div>
                 </div>
-                <div className="projects-table-cell grid min-w-0 gap-1 sm:block">
-                  <span className="text-xs text-muted-foreground sm:hidden">
-                    {t("projects.commitColumn")}
-                  </span>
-                  <span className="projects-row-secondary text-sm leading-6 break-words text-muted-foreground">
-                    {branch.lastCommitSubject ?? "—"}
-                  </span>
-                </div>
-                <div className="projects-table-cell grid min-w-0 gap-1 sm:block">
-                  <span className="text-xs text-muted-foreground sm:hidden">
-                    {t("projects.updatedColumn")}
-                  </span>
-                  <span className="projects-row-secondary text-sm leading-6 text-muted-foreground">
-                    {formatCommitTime(branch.lastCommitAt) ?? "—"}
-                  </span>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -182,64 +187,66 @@ function WorktreesSection({ detail, t }: WorktreesSectionProps) {
           {t("projects.noWorktrees")}
         </div>
       ) : (
-        <div className="projects-table flex flex-col border-t">
-          <div className="projects-table-header projects-worktree-grid hidden gap-4 border-b py-2 text-sm font-semibold text-muted-foreground sm:grid sm:grid-cols-[minmax(0,1.45fr)_minmax(120px,0.7fr)_minmax(90px,0.5fr)_140px]">
-            <span>{t("projects.worktreePath")}</span>
-            <span>{t("projects.branchRef")}</span>
-            <span>{t("projects.head")}</span>
-            <span>{t("projects.flags")}</span>
-          </div>
-          <div className="projects-table-body">
-            {detail.worktrees.map((worktree) => (
-              <div
-                key={worktree.path}
-                className="projects-table-row projects-worktree-grid grid gap-2 border-b py-3 last:border-b-0 sm:grid-cols-[minmax(0,1.45fr)_minmax(120px,0.7fr)_minmax(90px,0.5fr)_140px] sm:gap-4"
-              >
-                <div className="projects-table-cell grid min-w-0 gap-1 sm:block">
-                  <span className="text-xs text-muted-foreground sm:hidden">
-                    {t("projects.worktreePath")}
-                  </span>
-                  <span className="projects-row-path text-sm font-semibold leading-6 break-all text-foreground">
-                    {worktree.path}
-                  </span>
-                </div>
-                <div className="projects-table-cell grid min-w-0 gap-1 sm:block">
-                  <span className="text-xs text-muted-foreground sm:hidden">
-                    {t("projects.branchRef")}
-                  </span>
-                  <span className="projects-row-secondary text-sm leading-6 break-words text-muted-foreground">
-                    {worktree.branch ?? "—"}
-                  </span>
-                </div>
-                <div className="projects-table-cell grid min-w-0 gap-1 sm:block">
-                  <span className="text-xs text-muted-foreground sm:hidden">
-                    {t("projects.head")}
-                  </span>
-                  <span className="projects-row-secondary text-sm leading-6 text-muted-foreground">
-                    {worktree.head ? worktree.head.slice(0, 8) : "—"}
-                  </span>
-                </div>
-                <div className="projects-table-cell grid min-w-0 gap-1 sm:block">
-                  <span className="text-xs text-muted-foreground sm:hidden">
-                    {t("projects.flags")}
-                  </span>
-                  <div className="projects-flag-group flex min-h-5 flex-wrap gap-2">
-                    {worktree.isCurrent || worktree.isDetached ? (
-                      <>
-                        {worktree.isCurrent && (
-                          <StatusBadge tone="success">{t("projects.current")}</StatusBadge>
-                        )}
-                        {worktree.isDetached && (
-                          <StatusBadge tone="warning">{t("projects.detached")}</StatusBadge>
-                        )}
-                      </>
-                    ) : (
-                      <span className="projects-flag-empty text-sm text-muted-foreground">—</span>
-                    )}
+        <div className="projects-table overflow-x-auto border-t">
+          <div className="projects-table-inner min-w-[760px]">
+            <div className="projects-table-header projects-worktree-grid hidden gap-4 border-b py-2 text-sm font-semibold text-muted-foreground sm:grid sm:grid-cols-[minmax(240px,1.45fr)_minmax(140px,0.7fr)_minmax(90px,0.5fr)_120px]">
+              <span>{t("projects.worktreePath")}</span>
+              <span>{t("projects.branchRef")}</span>
+              <span>{t("projects.head")}</span>
+              <span>{t("projects.flags")}</span>
+            </div>
+            <div className="projects-table-body">
+              {detail.worktrees.map((worktree) => (
+                <div
+                  key={worktree.path}
+                  className="projects-table-row projects-worktree-grid grid gap-2 border-b py-3 last:border-b-0 sm:grid-cols-[minmax(240px,1.45fr)_minmax(140px,0.7fr)_minmax(90px,0.5fr)_120px] sm:gap-4"
+                >
+                  <div className="projects-table-cell grid min-w-0 gap-1 sm:block">
+                    <span className="text-xs text-muted-foreground sm:hidden">
+                      {t("projects.worktreePath")}
+                    </span>
+                    <span className="projects-row-path truncate text-sm font-semibold leading-6 text-foreground">
+                      {worktree.path}
+                    </span>
+                  </div>
+                  <div className="projects-table-cell grid min-w-0 gap-1 sm:block">
+                    <span className="text-xs text-muted-foreground sm:hidden">
+                      {t("projects.branchRef")}
+                    </span>
+                    <span className="projects-row-secondary text-sm leading-6 break-words text-muted-foreground">
+                      {worktree.branch ?? "—"}
+                    </span>
+                  </div>
+                  <div className="projects-table-cell grid min-w-0 gap-1 sm:block">
+                    <span className="text-xs text-muted-foreground sm:hidden">
+                      {t("projects.head")}
+                    </span>
+                    <span className="projects-row-secondary text-sm leading-6 text-muted-foreground">
+                      {worktree.head ? worktree.head.slice(0, 8) : "—"}
+                    </span>
+                  </div>
+                  <div className="projects-table-cell grid min-w-0 gap-1 sm:block">
+                    <span className="text-xs text-muted-foreground sm:hidden">
+                      {t("projects.flags")}
+                    </span>
+                    <div className="projects-flag-group flex min-h-5 flex-wrap gap-2">
+                      {worktree.isCurrent || worktree.isDetached ? (
+                        <>
+                          {worktree.isCurrent && (
+                            <StatusBadge tone="success">{t("projects.current")}</StatusBadge>
+                          )}
+                          {worktree.isDetached && (
+                            <StatusBadge tone="warning">{t("projects.detached")}</StatusBadge>
+                          )}
+                        </>
+                      ) : (
+                        <span className="projects-flag-empty text-sm text-muted-foreground">—</span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -267,13 +274,19 @@ function OverviewPanel({ detail, summary, t }: OverviewPanelProps) {
         </div>
         <div className="projects-definition-row grid grid-cols-[120px_minmax(0,1fr)] gap-3 border-b py-3 first:pt-0 last:border-b-0 last:pb-0 max-sm:grid-cols-1 max-sm:gap-1">
           <dt className="text-sm text-muted-foreground">{t("projects.lastSessionId")}</dt>
-          <dd className="break-all text-sm font-semibold leading-6 text-foreground">
+          <dd
+            className="min-w-0 truncate text-sm font-semibold leading-6 text-foreground"
+            title={summary.lastSessionId ?? undefined}
+          >
             {summary.lastSessionId ?? t("projects.lastSessionIdMissing")}
           </dd>
         </div>
         <div className="projects-definition-row grid grid-cols-[120px_minmax(0,1fr)] gap-3 border-b py-3 first:pt-0 last:border-b-0 last:pb-0 max-sm:grid-cols-1 max-sm:gap-1">
           <dt className="text-sm text-muted-foreground">{t("projects.repoRoot")}</dt>
-          <dd className="break-all text-sm font-semibold leading-6 text-foreground">
+          <dd
+            className="min-w-0 truncate text-sm font-semibold leading-6 text-foreground"
+            title={detail?.repoRoot ?? undefined}
+          >
             {detail?.repoRoot ?? t("projects.repoRootUnavailable")}
           </dd>
         </div>
@@ -458,13 +471,13 @@ function ProjectDetailPanel({
         </div>
       </Card>
 
-      <div className="projects-detail-grid grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(260px,0.85fr)]">
+      <div className="projects-detail-grid grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(260px,0.85fr)]">
         <div className="projects-detail-main flex min-w-0 flex-col gap-6">
           <BranchesSection detail={detail} t={t} />
           <WorktreesSection detail={detail} t={t} />
         </div>
 
-        <aside className="projects-detail-side min-w-0 lg:border-l lg:pl-5">
+        <aside className="projects-detail-side min-w-0 xl:border-l xl:pl-5">
           <OverviewPanel detail={detail} summary={summary} t={t} />
         </aside>
       </div>
