@@ -547,7 +547,13 @@ fn notify_session_focus_failure(
     failure: &crate::terminal_focus::FocusFailure,
 ) {
     let (title, body) = failure.user_message(language);
-    if let Err(e) = app.notification().builder().title(&title).body(&body).show() {
+    if let Err(e) = app
+        .notification()
+        .builder()
+        .title(&title)
+        .body(&body)
+        .show()
+    {
         // 通知失败不是核心路径，只记日志避免用户什么都看不到时噪声堆叠。
         log::warn!("event=tray.session_focus.notify status=err error={e}");
     }

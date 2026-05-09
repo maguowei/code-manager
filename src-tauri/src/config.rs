@@ -2062,8 +2062,10 @@ mod tests {
         assert_eq!(deepseek.name, "DeepSeek");
         assert_eq!(
             deepseek.doc_url,
-            Some("https://api-docs.deepseek.com/zh-cn/quick_start/agent_integrations/claude_code"
-                .to_string())
+            Some(
+                "https://api-docs.deepseek.com/zh-cn/quick_start/agent_integrations/claude_code"
+                    .to_string()
+            )
         );
         assert_eq!(
             deepseek.model_suggestions,

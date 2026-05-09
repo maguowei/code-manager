@@ -40,9 +40,7 @@ impl FocusFailure {
             (true, Self::TabNotFound) => {
                 "No matching terminal tab was found. It may have been closed.".to_string()
             }
-            (true, Self::EmptyCwd) => {
-                "Session has no working directory to focus.".to_string()
-            }
+            (true, Self::EmptyCwd) => "Session has no working directory to focus.".to_string(),
             (true, Self::Unsupported(slug)) => {
                 format!("Terminal '{slug}' does not support external focus.")
             }
@@ -68,11 +66,7 @@ pub fn terminal_supports_focus(app_slug: &str) -> bool {
 /// - 命中：返回 Ok(())。
 /// - 未命中或调用失败：返回 Err(FocusFailure)，同时在内部记 warn 日志。
 ///   调用方仅负责把失败原因转成系统通知 / Toast，不会自动新开 tab。
-pub fn focus_session_in_terminal(
-    pid: u32,
-    cwd: &str,
-    app_slug: &str,
-) -> Result<(), FocusFailure> {
+pub fn focus_session_in_terminal(pid: u32, cwd: &str, app_slug: &str) -> Result<(), FocusFailure> {
     match app_slug {
         "terminal" => focus_via_tty("Terminal", pid, terminal_app_script),
         "iterm" => focus_via_tty("iTerm", pid, iterm_script),

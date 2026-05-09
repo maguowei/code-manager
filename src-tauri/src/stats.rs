@@ -150,10 +150,7 @@ pub fn open_claude_json_in_editor() -> Result<(), String> {
                 if s.success() {
                     Ok(())
                 } else {
-                    Err(format!(
-                        "启动 {app_name} 失败，退出码: {:?}",
-                        s.code()
-                    ))
+                    Err(format!("启动 {app_name} 失败，退出码: {:?}", s.code()))
                 }
             })
     }
@@ -227,8 +224,13 @@ mod tests {
             project.last_session_first_prompt.as_deref(),
             Some("帮我重构这个函数")
         );
-        let model_usage = project.last_model_usage.as_ref().expect("model usage should exist");
-        let opus = model_usage.get("claude-opus-4-7").expect("opus entry should exist");
+        let model_usage = project
+            .last_model_usage
+            .as_ref()
+            .expect("model usage should exist");
+        let opus = model_usage
+            .get("claude-opus-4-7")
+            .expect("opus entry should exist");
         assert_eq!(opus.input_tokens, 1000);
         assert!((opus.cost_usd - 3.2).abs() < f64::EPSILON);
     }
