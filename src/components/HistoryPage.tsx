@@ -103,7 +103,7 @@ function HistoryPage() {
     <div className="history-page flex h-full w-full flex-col overflow-hidden">
       <PageHeader title={t("history.title")} />
 
-      <div className="history-body grid min-h-0 flex-1 grid-cols-[180px_minmax(0,1fr)] overflow-hidden max-md:grid-cols-1 max-md:grid-rows-[auto_minmax(0,1fr)]">
+      <div className="history-body grid min-h-0 flex-1 grid-cols-[220px_minmax(0,1fr)] overflow-hidden max-md:grid-cols-1 max-md:grid-rows-[auto_minmax(0,1fr)]">
         <HistoryProjectList
           groups={projectGroups}
           selectedProject={selectedProject}
