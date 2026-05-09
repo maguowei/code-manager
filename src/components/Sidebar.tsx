@@ -89,7 +89,7 @@ function Sidebar({ activeTab, onTabChange, onClaudeOverviewClick, onSettingsClic
                   aria-label={t(label)}
                   aria-current={active ? "page" : undefined}
                 >
-                  <Icon data-testid={testId} aria-hidden="true" />
+                  <Icon className="size-5" data-testid={testId} aria-hidden="true" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="right" sideOffset={8}>
@@ -113,7 +113,7 @@ function Sidebar({ activeTab, onTabChange, onClaudeOverviewClick, onSettingsClic
               onClick={onSettingsClick}
               aria-label={t("header.settings")}
             >
-              <Settings aria-hidden="true" />
+              <Settings className="size-5" aria-hidden="true" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="right" sideOffset={8}>
