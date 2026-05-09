@@ -17,6 +17,7 @@ import type {
 } from "../types";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import EmptyState from "./EmptyState";
+import { LIST_DETAIL_DRAWER_OFFSET_CLASS } from "./layout-size-classes";
 import MemoryEditor from "./MemoryEditor";
 import MemoryItem from "./MemoryItem";
 import PageHeader from "./PageHeader";
@@ -456,7 +457,10 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
           <SheetContent
             side="right"
             showCloseButton={false}
-            className="left-[340px] w-auto border-l-0 bg-card p-0 shadow-floating sm:max-w-none max-[1000px]:left-[60px] max-[700px]:left-[48px]"
+            className={cn(
+              LIST_DETAIL_DRAWER_OFFSET_CLASS,
+              "w-auto border-l-0 bg-card p-0 shadow-floating sm:max-w-none",
+            )}
           >
             <MemoryEditor
               memory={editingMemory}

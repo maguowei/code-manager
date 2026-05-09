@@ -13,7 +13,11 @@ import {
   presetNameById,
 } from "./config-workspace-utils";
 import EmptyState from "./EmptyState";
-import { LIST_PANEL_COMPRESSED_WIDTH_CLASS, LIST_PANEL_WIDTH_CLASS } from "./layout-size-classes";
+import {
+  LIST_DETAIL_DRAWER_OFFSET_CLASS,
+  LIST_PANEL_COMPRESSED_WIDTH_CLASS,
+  LIST_PANEL_WIDTH_CLASS,
+} from "./layout-size-classes";
 import PageHeader from "./PageHeader";
 import PresetEditor from "./PresetEditor";
 import { Badge } from "./ui/badge";
@@ -324,7 +328,10 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
           <SheetContent
             side="right"
             showCloseButton={false}
-            className="left-[340px] w-auto border-l-0 bg-card p-0 shadow-floating sm:max-w-none max-[1000px]:left-[60px] max-[700px]:left-[48px]"
+            className={cn(
+              LIST_DETAIL_DRAWER_OFFSET_CLASS,
+              "w-auto border-l-0 bg-card p-0 shadow-floating sm:max-w-none",
+            )}
           >
             <PresetEditor
               preset={editingPreset}

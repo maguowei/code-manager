@@ -13,7 +13,11 @@ import {
   presetSlugFromId,
 } from "./config-workspace-utils";
 import EmptyState from "./EmptyState";
-import { LIST_PANEL_COMPRESSED_WIDTH_CLASS, LIST_PANEL_WIDTH_CLASS } from "./layout-size-classes";
+import {
+  LIST_DETAIL_DRAWER_OFFSET_CLASS,
+  LIST_PANEL_COMPRESSED_WIDTH_CLASS,
+  LIST_PANEL_WIDTH_CLASS,
+} from "./layout-size-classes";
 import PageHeader from "./PageHeader";
 import ProfileEditor from "./ProfileEditor";
 import ProfileNameBadge from "./ProfileNameBadge";
@@ -898,7 +902,10 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
           <SheetContent
             side="right"
             showCloseButton={false}
-            className="left-[340px] w-auto border-l-0 bg-card p-0 shadow-floating sm:max-w-none max-[1000px]:left-[60px] max-[700px]:left-[48px]"
+            className={cn(
+              LIST_DETAIL_DRAWER_OFFSET_CLASS,
+              "w-auto border-l-0 bg-card p-0 shadow-floating sm:max-w-none",
+            )}
           >
             <ProfileEditor
               profile={editingProfile}

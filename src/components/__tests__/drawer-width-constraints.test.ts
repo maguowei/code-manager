@@ -46,4 +46,26 @@ describe("drawer width constraints", () => {
       "[&>:not([data-slot=profile-name-badge])]:w-[min(100%,880px)]",
     );
   });
+
+  it("offsets list detail drawers after the sidebar and compressed list panel", () => {
+    const layoutSizeSource = readText("src/components/layout-size-classes.ts");
+    const profilesPageSource = readText("src/components/ProfilesPage.tsx");
+    const presetsPageSource = readText("src/components/PresetsPage.tsx");
+    const memoryPageSource = readText("src/components/MemoryPage.tsx");
+    const skillsPageSource = readText("src/components/SkillsPage.tsx");
+
+    expect(layoutSizeSource).toContain('LIST_PANEL_COMPRESSED_WIDTH_CLASS = "w-[300px]"');
+    expect(layoutSizeSource).toContain("LIST_DETAIL_DRAWER_OFFSET_CLASS");
+    expect(layoutSizeSource).toContain("left-[360px]");
+
+    for (const source of [
+      profilesPageSource,
+      presetsPageSource,
+      memoryPageSource,
+      skillsPageSource,
+    ]) {
+      expect(source).toContain("LIST_DETAIL_DRAWER_OFFSET_CLASS");
+      expect(source).not.toContain("left-[340px]");
+    }
+  });
 });

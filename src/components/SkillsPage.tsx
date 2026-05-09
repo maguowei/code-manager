@@ -8,6 +8,7 @@ import { type Language, useI18n } from "../i18n";
 import type { Skill } from "../types";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import EmptyState from "./EmptyState";
+import { LIST_DETAIL_DRAWER_OFFSET_CLASS } from "./layout-size-classes";
 import PageHeader from "./PageHeader";
 import SkillEditor from "./SkillEditor";
 import SkillItem from "./SkillItem";
@@ -212,7 +213,10 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
           <SheetContent
             side="right"
             showCloseButton={false}
-            className="left-[340px] w-auto border-l-0 bg-card p-0 shadow-floating sm:max-w-none max-[1000px]:left-[60px] max-[700px]:left-[48px]"
+            className={cn(
+              LIST_DETAIL_DRAWER_OFFSET_CLASS,
+              "w-auto border-l-0 bg-card p-0 shadow-floating sm:max-w-none",
+            )}
           >
             <SkillEditor
               key={editingSkill?.id ?? "new"}
