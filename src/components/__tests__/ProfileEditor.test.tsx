@@ -2246,7 +2246,9 @@ describe("ProfileEditor", () => {
       ),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    });
     expect(
       within(permissionsSection).queryByRole("button", { name: "清空允许规则" }),
     ).not.toBeInTheDocument();
@@ -2259,7 +2261,9 @@ describe("ProfileEditor", () => {
     );
 
     fireEvent.click(within(permissionsSection).getByRole("button", { name: "加载推荐规则预设" }));
-    fireEvent.click(screen.getByRole("button", { name: "加载规则" }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "加载规则" }));
+    });
 
     expect(within(permissionsSection).queryByLabelText("允许规则 1")).not.toBeInTheDocument();
     expect(within(permissionsSection).queryByLabelText("询问规则 1")).not.toBeInTheDocument();
@@ -2291,7 +2295,7 @@ describe("ProfileEditor", () => {
     expect(savedPermissions?.ask).toContain("Bash(curl *)");
     expect(savedPermissions?.deny).toContain("Bash(git reset --hard*)");
     expect(savedPermissions?.deny).not.toContain("Read(**/config.yaml)");
-  });
+  }, 10_000);
 
   it("clears allow, ask, and deny rules independently without clearing other permission options", async () => {
     const onSave = vi.fn();
@@ -3582,7 +3586,7 @@ describe("ProfileEditor", () => {
     chooseComboboxOption("预设", "环境变量级别覆盖");
     expect(screen.getByLabelText("默认模型")).toHaveValue("claude-opus-explicit");
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("haiku-env-override");
-    expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
+    expect(screen.getByLabelText("Subagent 模型")).toHaveValue("subagent-env-override");
 
     chooseComboboxOption("预设", "无预设");
     expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("");

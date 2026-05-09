@@ -79,7 +79,7 @@ function Sidebar({ activeTab, onTabChange, onClaudeOverviewClick, onSettingsClic
                 <Button
                   type="button"
                   variant="ghost"
-                  size="icon"
+                  size="icon-lg"
                   className={cn(
                     "relative size-11 rounded-lg text-muted-foreground transition-all duration-150 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:scale-95 max-[700px]:size-9",
                     active &&
@@ -89,7 +89,7 @@ function Sidebar({ activeTab, onTabChange, onClaudeOverviewClick, onSettingsClic
                   aria-label={t(label)}
                   aria-current={active ? "page" : undefined}
                 >
-                  <Icon className="size-5" data-testid={testId} aria-hidden="true" />
+                  <Icon data-testid={testId} aria-hidden="true" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="right" sideOffset={8}>
@@ -108,12 +108,12 @@ function Sidebar({ activeTab, onTabChange, onClaudeOverviewClick, onSettingsClic
             <Button
               type="button"
               variant="ghost"
-              size="icon"
+              size="icon-lg"
               className="size-11 rounded-lg text-muted-foreground transition-all duration-150 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:scale-95 max-[700px]:size-9"
               onClick={onSettingsClick}
               aria-label={t("header.settings")}
             >
-              <Settings className="size-5" aria-hidden="true" />
+              <Settings aria-hidden="true" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="right" sideOffset={8}>

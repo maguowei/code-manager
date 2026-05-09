@@ -43,6 +43,7 @@ describe("ui system contract", () => {
 
   it("keeps Sidebar on semantic shadcn button styling", () => {
     const source = readFileSync("src/components/Sidebar.tsx", "utf8");
+    const buttonSource = readFileSync("src/components/ui/button.tsx", "utf8");
 
     expect(source).not.toContain("from-[var(");
     expect(source).not.toContain("text-[var(");
@@ -50,6 +51,8 @@ describe("ui system contract", () => {
     expect(source).not.toContain("shadow-[");
     expect(source).not.toMatch(/<Icon[^>]*className=/);
     expect(source).not.toMatch(/<Settings[^>]*className=/);
+    expect(source).toContain('size="icon-lg"');
+    expect(buttonSource).toContain(`"icon-lg": "size-10 [&_svg:not([class*='size-'])]:size-5"`);
   });
 
   it("keeps primary list item cards on semantic surfaces", () => {

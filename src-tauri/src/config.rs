@@ -302,6 +302,8 @@ struct BuiltinPresetSeed {
     slug: String,
     base_url: String,
     doc_url: Option<String>,
+    #[serde(default)]
+    env: BTreeMap<String, String>,
     models: Vec<BuiltinPresetModel>,
 }
 
@@ -403,18 +405,23 @@ fn parse_builtin_presets() -> Vec<SettingsPreset> {
         .into_iter()
         .map(|seed| {
             let mut settings_patch = Map::new();
+            let mut env = Map::new();
+            for (key, value) in seed.env {
+                let key = key.trim();
+                let value = value.trim();
+                if key.is_empty() || value.is_empty() || key == "ANTHROPIC_BASE_URL" {
+                    continue;
+                }
+                env.insert(key.to_string(), Value::String(value.to_string()));
+            }
             if !seed.base_url.trim().is_empty() {
-                settings_patch.insert(
-                    "env".to_string(),
-                    Value::Object(
-                        [(
-                            "ANTHROPIC_BASE_URL".to_string(),
-                            Value::String(seed.base_url.trim().to_string()),
-                        )]
-                        .into_iter()
-                        .collect(),
-                    ),
+                env.insert(
+                    "ANTHROPIC_BASE_URL".to_string(),
+                    Value::String(seed.base_url.trim().to_string()),
                 );
+            }
+            if !env.is_empty() {
+                settings_patch.insert("env".to_string(), Value::Object(env));
             }
 
             SettingsPreset {
@@ -2042,6 +2049,60 @@ mod tests {
                 },
             ])
         );
+    }
+
+    #[test]
+    fn builtin_presets_include_deepseek_official_claude_code_env() {
+        let deepseek = builtin_presets()
+            .iter()
+            .find(|preset| preset.id == "builtin:deepseek")
+            .unwrap();
+        let env = deepseek.settings_patch["env"].as_object().unwrap();
+
+        assert_eq!(deepseek.name, "DeepSeek");
+        assert_eq!(
+            deepseek.doc_url,
+            Some("https://api-docs.deepseek.com/zh-cn/quick_start/agent_integrations/claude_code"
+                .to_string())
+        );
+        assert_eq!(
+            deepseek.model_suggestions,
+            vec![
+                "deepseek-v4-pro[1m]".to_string(),
+                "deepseek-v4-flash".to_string()
+            ]
+        );
+        assert_eq!(
+            env.get("ANTHROPIC_BASE_URL"),
+            Some(&Value::String(
+                "https://api.deepseek.com/anthropic".to_string()
+            ))
+        );
+        assert_eq!(
+            env.get("ANTHROPIC_MODEL"),
+            Some(&Value::String("deepseek-v4-pro[1m]".to_string()))
+        );
+        assert_eq!(
+            env.get("ANTHROPIC_DEFAULT_OPUS_MODEL"),
+            Some(&Value::String("deepseek-v4-pro[1m]".to_string()))
+        );
+        assert_eq!(
+            env.get("ANTHROPIC_DEFAULT_SONNET_MODEL"),
+            Some(&Value::String("deepseek-v4-pro[1m]".to_string()))
+        );
+        assert_eq!(
+            env.get("ANTHROPIC_DEFAULT_HAIKU_MODEL"),
+            Some(&Value::String("deepseek-v4-flash".to_string()))
+        );
+        assert_eq!(
+            env.get("CLAUDE_CODE_SUBAGENT_MODEL"),
+            Some(&Value::String("deepseek-v4-flash".to_string()))
+        );
+        assert_eq!(
+            env.get("CLAUDE_CODE_EFFORT_LEVEL"),
+            Some(&Value::String("max".to_string()))
+        );
+        assert!(!env.contains_key("ANTHROPIC_AUTH_TOKEN"));
     }
 
     #[test]

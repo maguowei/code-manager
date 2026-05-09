@@ -2128,7 +2128,7 @@ describe("PresetEditor", () => {
     chooseComboboxOption("基础预设", "环境变量级别覆盖");
     expect(screen.getByLabelText("默认模型")).toHaveValue("claude-opus-explicit");
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("haiku-env-override");
-    expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
+    expect(screen.getByLabelText("Subagent 模型")).toHaveValue("subagent-env-override");
 
     chooseComboboxOption("基础预设", "无");
     expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("");

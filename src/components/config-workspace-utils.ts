@@ -303,6 +303,7 @@ export interface PresetAutofillValues {
   resolvedSonnetModel?: string;
   resolvedHaikuModel?: string;
   resolvedSubagentModel?: string;
+  resolvedEffortLevel?: string;
 }
 
 export function resolvePresetAutofillValues(
@@ -349,7 +350,8 @@ export function resolvePresetAutofillValues(
       categoryOpusModel ||
       categoryOtherModel ||
       resolvedModel,
-    resolvedSubagentModel: undefined,
+    resolvedSubagentModel: resolveExplicitEnvValue(chain, "CLAUDE_CODE_SUBAGENT_MODEL"),
+    resolvedEffortLevel: resolveExplicitEnvValue(chain, "CLAUDE_CODE_EFFORT_LEVEL"),
   };
 }
 
@@ -460,6 +462,7 @@ export function applyPresetAutofill(
     ["ANTHROPIC_DEFAULT_SONNET_MODEL", resolved.resolvedSonnetModel],
     ["ANTHROPIC_DEFAULT_HAIKU_MODEL", resolved.resolvedHaikuModel],
     ["CLAUDE_CODE_SUBAGENT_MODEL", resolved.resolvedSubagentModel],
+    ["CLAUDE_CODE_EFFORT_LEVEL", resolved.resolvedEffortLevel],
   ];
 
   return updates.reduce(

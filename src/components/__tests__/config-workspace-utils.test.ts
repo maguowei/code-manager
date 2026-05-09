@@ -104,6 +104,32 @@ const PRESETS: SettingsPreset[] = [
     settingsPatch: {},
     source: "custom",
   },
+  {
+    id: "builtin:deepseek",
+    name: "DeepSeek",
+    description: "DeepSeek 预设",
+    localizedName: {
+      zh: "DeepSeek",
+      en: "DeepSeek",
+    },
+    models: [
+      { id: "deepseek-v4-pro[1m]", category: "sonnet" },
+      { id: "deepseek-v4-flash", category: "haiku" },
+    ],
+    modelSuggestions: ["deepseek-v4-pro[1m]", "deepseek-v4-flash"],
+    settingsPatch: {
+      env: {
+        ANTHROPIC_BASE_URL: "https://api.deepseek.com/anthropic",
+        ANTHROPIC_MODEL: "deepseek-v4-pro[1m]",
+        ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-v4-pro[1m]",
+        ANTHROPIC_DEFAULT_SONNET_MODEL: "deepseek-v4-pro[1m]",
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: "deepseek-v4-flash",
+        CLAUDE_CODE_SUBAGENT_MODEL: "deepseek-v4-flash",
+        CLAUDE_CODE_EFFORT_LEVEL: "max",
+      },
+    },
+    source: "builtin",
+  },
 ];
 
 describe("config-workspace-utils preset autofill", () => {
@@ -147,6 +173,7 @@ describe("config-workspace-utils preset autofill", () => {
       resolvedSonnetModel: "claude-sonnet-4-6",
       resolvedHaikuModel: "claude-haiku-4-5",
       resolvedSubagentModel: undefined,
+      resolvedEffortLevel: undefined,
     });
 
     expect(resolvePresetAutofillValues(PRESETS, "custom:team-plan")).toEqual({
@@ -156,6 +183,7 @@ describe("config-workspace-utils preset autofill", () => {
       resolvedSonnetModel: "claude-sonnet-4-6",
       resolvedHaikuModel: "claude-haiku-4-5",
       resolvedSubagentModel: undefined,
+      resolvedEffortLevel: undefined,
     });
 
     expect(resolvePresetAutofillValues(PRESETS, "custom:explicit-model")).toEqual({
@@ -165,6 +193,7 @@ describe("config-workspace-utils preset autofill", () => {
       resolvedSonnetModel: "claude-sonnet-4-6",
       resolvedHaikuModel: "claude-haiku-4-5",
       resolvedSubagentModel: undefined,
+      resolvedEffortLevel: undefined,
     });
 
     expect(resolvePresetAutofillValues(PRESETS, "custom:env-model")).toEqual({
@@ -173,7 +202,8 @@ describe("config-workspace-utils preset autofill", () => {
       resolvedOpusModel: "claude-opus-4-1",
       resolvedSonnetModel: "claude-sonnet-4-6",
       resolvedHaikuModel: "haiku-env-override",
-      resolvedSubagentModel: undefined,
+      resolvedSubagentModel: "subagent-env-override",
+      resolvedEffortLevel: undefined,
     });
 
     expect(resolvePresetAutofillValues(PRESETS, "custom:sonnet-only")).toEqual({
@@ -183,6 +213,7 @@ describe("config-workspace-utils preset autofill", () => {
       resolvedSonnetModel: "claude-sonnet-only",
       resolvedHaikuModel: "claude-sonnet-only",
       resolvedSubagentModel: undefined,
+      resolvedEffortLevel: undefined,
     });
   });
 
@@ -194,6 +225,19 @@ describe("config-workspace-utils preset autofill", () => {
       resolvedSonnetModel: "claude-suggestion-only",
       resolvedHaikuModel: "claude-suggestion-only",
       resolvedSubagentModel: undefined,
+      resolvedEffortLevel: undefined,
+    });
+  });
+
+  it("resolves DeepSeek official subagent and effort env overrides from the preset chain", () => {
+    expect(resolvePresetAutofillValues(PRESETS, "builtin:deepseek")).toEqual({
+      resolvedBaseUrl: "https://api.deepseek.com/anthropic",
+      resolvedModel: "deepseek-v4-pro[1m]",
+      resolvedOpusModel: "deepseek-v4-pro[1m]",
+      resolvedSonnetModel: "deepseek-v4-pro[1m]",
+      resolvedHaikuModel: "deepseek-v4-flash",
+      resolvedSubagentModel: "deepseek-v4-flash",
+      resolvedEffortLevel: "max",
     });
   });
 
@@ -207,6 +251,7 @@ describe("config-workspace-utils preset autofill", () => {
         ANTHROPIC_DEFAULT_SONNET_MODEL: "manual-sonnet",
         ANTHROPIC_DEFAULT_HAIKU_MODEL: "manual-haiku",
         CLAUDE_CODE_SUBAGENT_MODEL: "manual-subagent",
+        CLAUDE_CODE_EFFORT_LEVEL: "manual-effort",
         OTHER_ENV: "keep-me",
       },
       permissions: {
@@ -236,6 +281,36 @@ describe("config-workspace-utils preset autofill", () => {
       },
       permissions: {
         defaultMode: "plan",
+      },
+    });
+  });
+
+  it("applies DeepSeek official env defaults without touching auth or unrelated values", () => {
+    const seededSettings = {
+      env: {
+        ANTHROPIC_AUTH_TOKEN: "token",
+        ANTHROPIC_BASE_URL: "https://manual.example.com",
+        ANTHROPIC_MODEL: "manual-model",
+        ANTHROPIC_DEFAULT_OPUS_MODEL: "manual-opus",
+        ANTHROPIC_DEFAULT_SONNET_MODEL: "manual-sonnet",
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: "manual-haiku",
+        CLAUDE_CODE_SUBAGENT_MODEL: "manual-subagent",
+        CLAUDE_CODE_EFFORT_LEVEL: "manual-effort",
+        OTHER_ENV: "keep-me",
+      },
+    };
+
+    expect(applyPresetAutofill(seededSettings, PRESETS, "builtin:deepseek")).toEqual({
+      env: {
+        ANTHROPIC_AUTH_TOKEN: "token",
+        ANTHROPIC_BASE_URL: "https://api.deepseek.com/anthropic",
+        ANTHROPIC_MODEL: "deepseek-v4-pro[1m]",
+        ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-v4-pro[1m]",
+        ANTHROPIC_DEFAULT_SONNET_MODEL: "deepseek-v4-pro[1m]",
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: "deepseek-v4-flash",
+        CLAUDE_CODE_SUBAGENT_MODEL: "deepseek-v4-flash",
+        CLAUDE_CODE_EFFORT_LEVEL: "max",
+        OTHER_ENV: "keep-me",
       },
     });
   });
