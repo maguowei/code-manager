@@ -4,6 +4,7 @@ use serde::Serialize;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
+#[cfg(target_os = "macos")]
 use std::process::Command;
 
 /// 用于匹配 "Implement the following plan:" 前缀的常量
