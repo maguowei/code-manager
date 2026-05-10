@@ -154,7 +154,7 @@ function SettingsSectionModePanel({
             }}
           >
             <span className="inline-flex min-w-0 items-center gap-3">
-              <h3>{title}</h3>
+              <h3 className="text-base leading-6 font-semibold text-foreground">{title}</h3>
               {typeof badgeCount === "number" ? (
                 <span
                   data-slot="settings-section-badge"
@@ -228,7 +228,7 @@ function SettingsSectionModePanel({
     <section className="flex flex-col gap-4 rounded-lg border border-border/80 bg-card p-5 shadow-panel">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h3>{title}</h3>
+          <h3 className="text-base leading-6 font-semibold text-foreground">{title}</h3>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">

@@ -425,6 +425,7 @@ describe("ProfileEditor", () => {
     expect(
       screen.getByRole("heading", { name: "权限", level: 3 }).closest("button"),
     ).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("heading", { name: "模型与行为", level: 3 })).toHaveClass("text-base");
 
     const authSection = screen.getByRole("heading", { name: "认证", level: 3 }).closest("section");
     const basicSection = screen
@@ -433,11 +434,18 @@ describe("ProfileEditor", () => {
     expect(basicSection).not.toBeNull();
     expect(authSection).not.toBeNull();
     if (authSection) {
+      expect(within(authSection).getByRole("heading", { name: "认证", level: 3 })).toHaveClass(
+        "text-base",
+      );
+      expect(within(authSection).getByLabelText("预设")).toHaveClass("text-sm");
       expect(within(authSection).getByLabelText("预设")).toBeInTheDocument();
       expect(within(authSection).getByLabelText("ANTHROPIC_AUTH_TOKEN")).toHaveValue("token");
       expect(within(authSection).getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("");
     }
     if (basicSection) {
+      expect(within(basicSection).getByRole("heading", { name: "基础信息", level: 3 })).toHaveClass(
+        "text-base",
+      );
       expect(within(basicSection).queryByLabelText("预设")).not.toBeInTheDocument();
       expect(within(basicSection).getByText("必填")).toBeInTheDocument();
     }
