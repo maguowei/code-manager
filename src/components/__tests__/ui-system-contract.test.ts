@@ -91,9 +91,12 @@ describe("ui system contract", () => {
     expect(css).toContain("0 18px 45px");
     expect(css).toContain("--shadow-toolbar: 0 1px 0");
     expect(css).toContain("--background: oklch(0.988 0.016 214)");
-    expect(css).toContain("--card: oklch(0.998 0.012 214 / 72%)");
+    expect(css).toContain("--card: oklch(1 0 0)");
+    expect(css).toContain("--popover: oklch(1 0 0 / 98%)");
     expect(css).toContain("--primary: oklch(0.618 0.193 258.3)");
+    expect(css).toContain("--secondary: oklch(0.94 0.026 216)");
     expect(css).toContain("--accent: oklch(0.925 0.07 212 / 56%)");
+    expect(css).toContain("--input: oklch(0.78 0.045 220 / 62%)");
     expect(css).toContain("--ring: oklch(0.68 0.17 255)");
     expect(css).toContain("--chart-1: oklch(0.66 0.2 255)");
     expect(css).toContain("--chart-2: oklch(0.76 0.16 205)");
@@ -190,16 +193,27 @@ describe("ui system contract", () => {
   it("keeps local surface controls responsive without thick focus treatment", () => {
     const surfaceSource = readFileSync("src/components/surface-classes.ts", "utf8");
     const memoryEditorSource = readFileSync("src/components/MemoryEditor.tsx", "utf8");
+    const inputSource = readFileSync("src/components/ui/input.tsx", "utf8");
+    const selectSource = readFileSync("src/components/ui/select.tsx", "utf8");
+    const textareaSource = readFileSync("src/components/ui/textarea.tsx", "utf8");
+    const buttonSource = readFileSync("src/components/ui/button.tsx", "utf8");
 
-    expect(surfaceSource).toContain("hover:bg-muted/50");
+    expect(surfaceSource).toContain("bg-background");
+    expect(surfaceSource).toContain("hover:bg-muted");
     expect(surfaceSource).toContain("hover:border-muted-foreground/45");
-    expect(surfaceSource).toContain("focus-visible:bg-muted/60");
+    expect(surfaceSource).toContain("focus-visible:bg-background");
     expect(surfaceSource).toContain("focus-visible:ring-0");
-    expect(surfaceSource).toContain("focus-within:bg-muted/60");
+    expect(surfaceSource).toContain("focus-within:bg-background");
     expect(surfaceSource).toContain("focus-within:ring-0");
     expect(surfaceSource).toContain("ring-border/30");
+    expect(surfaceSource).toContain("bg-secondary/45");
     expect(surfaceSource).not.toContain("focus-visible:shadow-toolbar");
     expect(surfaceSource).not.toContain("focus-within:shadow-toolbar");
+    expect(inputSource).toContain("border-input bg-background");
+    expect(selectSource).toContain("border-input bg-background");
+    expect(textareaSource).toContain("border-input bg-background");
+    expect(buttonSource).toContain("outline:");
+    expect(buttonSource).toContain("border border-input bg-card");
     expect(memoryEditorSource).toContain("group-focus-within/memory-target:bg-muted/60");
     expect(memoryEditorSource).toContain('data-slot="memory-editor-section"');
     expect(memoryEditorSource).toContain("PANEL_SURFACE_CLASS");

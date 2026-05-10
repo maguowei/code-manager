@@ -6,22 +6,22 @@
 :root {
   --background: oklch(0.988 0.016 214);
   --foreground: oklch(0.19 0.05 246);
-  --card: oklch(0.998 0.012 214 / 72%);
+  --card: oklch(1 0 0);
   --card-foreground: oklch(0.19 0.05 246);
-  --popover: oklch(0.998 0.012 214 / 88%);
+  --popover: oklch(1 0 0 / 98%);
   --popover-foreground: oklch(0.19 0.05 246);
   --primary: oklch(0.618 0.193 258.3);
   --primary-foreground: oklch(0.985 0.012 220);
-  --secondary: oklch(0.955 0.028 216 / 58%);
+  --secondary: oklch(0.94 0.026 216);
   --secondary-foreground: oklch(0.25 0.08 252);
-  --muted: oklch(0.958 0.022 216 / 54%);
+  --muted: oklch(0.965 0.018 216);
   --muted-foreground: oklch(0.45 0.05 242);
   --accent: oklch(0.925 0.07 212 / 56%);
   --accent-foreground: oklch(0.22 0.09 252);
   --destructive: oklch(0.64 0.22 26);
   --destructive-foreground: oklch(0.985 0.012 220);
   --border: oklch(0.78 0.052 220 / 42%);
-  --input: oklch(0.84 0.05 220 / 56%);
+  --input: oklch(0.78 0.045 220 / 62%);
   --ring: oklch(0.68 0.17 255);
   --chart-1: oklch(0.66 0.2 255);
   --chart-2: oklch(0.76 0.16 205);
