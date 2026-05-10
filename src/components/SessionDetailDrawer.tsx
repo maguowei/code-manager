@@ -10,6 +10,7 @@ import {
   ChevronRight,
   ClipboardList,
   Clock3,
+  Copy,
   Image as ImageIcon,
   Info,
   MessageSquare,
@@ -171,6 +172,36 @@ function formatDateRange(messages: SessionMessage[], fallback: string): string {
 
 function formatMessageCount(count: number, unit: string): string {
   return `${count} ${unit}`;
+}
+
+function messageBlockToCopyText(block: MessageBlock, t: (key: TranslationKey) => string): string {
+  switch (block.type) {
+    case "text":
+      return stripAnsiForDisplay(block.text);
+    case "thinking":
+      return `${t("history.thinking")}\n${stripAnsiForDisplay(block.thinking)}`;
+    case "tool_use":
+      return `${t("history.toolUse")} ${stripAnsiForDisplay(block.name)}\n${stripAnsiForDisplay(
+        block.input_preview,
+      )}`;
+    case "tool_result":
+      return `${t("history.toolResult")}\n${stripAnsiForDisplay(block.content || "...")}`;
+    case "command":
+      return `${stripAnsiForDisplay(block.name)}${block.args ? ` ${stripAnsiForDisplay(block.args)}` : ""}`;
+    case "system":
+      return `${t("history.system")}\n${stripAnsiForDisplay(block.summary)}`;
+    case "image":
+      return `${t("history.image")} · ${stripAnsiForDisplay(block.media_type)}`;
+    case "plan":
+      return `${stripAnsiForDisplay(block.summary)}\n\n${stripAnsiForDisplay(block.content)}`;
+  }
+}
+
+function messageToCopyText(message: SessionMessage, t: (key: TranslationKey) => string): string {
+  return message.blocks
+    .map((block) => messageBlockToCopyText(block, t).trim())
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 /** 文件类工具的返回结果用代码高亮渲染 */
@@ -646,22 +677,68 @@ const MessageBlocks = memo(function MessageBlocks({
   return <>{elements}</>;
 });
 
-function EventMessage({ msg, t }: { msg: SessionMessage; t: (key: TranslationKey) => string }) {
+function MessageHoverActions({
+  timestamp,
+  onCopy,
+  t,
+}: {
+  timestamp: string | null;
+  onCopy: () => void;
+  t: (key: TranslationKey) => string;
+}) {
   return (
-    <div data-slot="session-event" className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)] gap-3">
-      <div className="flex justify-center pt-1">
+    <div
+      data-slot="session-message-actions"
+      className="pointer-events-none absolute right-2 bottom-2 flex max-w-[calc(100%-1rem)] translate-y-1 items-center justify-end gap-1.5 rounded-md border bg-card/95 px-1 py-0.5 opacity-0 shadow-xs transition-[opacity,transform] duration-150 ease-out group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100 motion-reduce:translate-y-0 motion-reduce:transition-none"
+    >
+      {timestamp && (
+        <span className="text-right text-xs tabular-nums text-muted-foreground">{timestamp}</span>
+      )}
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-xs"
+        className="bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground"
+        aria-label={t("history.copyMessage")}
+        title={t("history.copyMessage")}
+        onClick={(event) => {
+          event.stopPropagation();
+          onCopy();
+        }}
+      >
+        <Copy aria-hidden="true" />
+      </Button>
+    </div>
+  );
+}
+
+function EventMessage({
+  msg,
+  t,
+  onCopy,
+}: {
+  msg: SessionMessage;
+  t: (key: TranslationKey) => string;
+  onCopy: () => void;
+}) {
+  const timestamp = formatTimestamp(msg.timestamp);
+
+  return (
+    <div
+      data-slot="session-event"
+      className="group grid min-w-0 grid-cols-[2rem_minmax(0,1fr)_2rem] gap-3"
+    >
+      <div className="col-start-1 row-start-1 flex flex-col items-center gap-1 pt-1 text-xs text-muted-foreground">
         <span className="flex size-7 items-center justify-center rounded-full border bg-card text-muted-foreground shadow-xs">
           <Clock3 className="size-3.5" aria-hidden="true" />
         </span>
+        <span className="font-semibold leading-none">{t("history.event")}</span>
       </div>
-      <div className="min-w-0 rounded-md border bg-card px-3 py-2 shadow-xs">
-        <div className="mb-2 flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span className="font-medium">{t("history.event")}</span>
-          {msg.timestamp && <span>{formatTimestamp(msg.timestamp)}</span>}
-        </div>
+      <div className="relative col-start-2 row-start-1 min-w-0 rounded-md border bg-card px-3 py-2 shadow-xs transition-colors group-hover:border-muted-foreground/40 group-focus-within:border-muted-foreground/40">
         <div className="flex min-w-0 flex-col gap-2">
           <MessageBlocks blocks={msg.blocks} t={t} />
         </div>
+        <MessageHoverActions timestamp={timestamp} onCopy={onCopy} t={t} />
       </div>
     </div>
   );
@@ -676,26 +753,36 @@ function ConversationMessage({
   msg,
   presentation,
   t,
+  onCopy,
 }: {
   msg: SessionMessage;
   presentation: MessagePresentation;
   t: (key: TranslationKey) => string;
+  onCopy: () => void;
 }) {
   const roleLabel = msg.role === "assistant" ? t("history.roleAssistant") : t("history.roleUser");
   const timestamp = formatTimestamp(msg.timestamp);
   const isError = presentation.tone === "error";
+  const isUser = msg.role === "user";
 
   return (
     <article
       data-slot="session-message"
+      data-role={msg.role}
       data-variant={isError ? "error" : undefined}
-      className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)] gap-3"
+      className="group grid min-w-0 grid-cols-[2rem_minmax(0,1fr)_2rem] gap-3"
     >
-      <div className="flex justify-center pt-1">
+      <div
+        className={cn(
+          "row-start-1 flex flex-col items-center gap-1 pt-1 text-xs text-muted-foreground",
+          isUser ? "col-start-3" : "col-start-1",
+        )}
+      >
         <span
           className={cn(
             "flex size-8 items-center justify-center rounded-full border bg-background text-muted-foreground",
             msg.role === "assistant" && "bg-primary/10 text-primary",
+            isUser && "bg-card text-foreground",
             isError && "border-destructive/40 bg-destructive/10 text-destructive",
           )}
         >
@@ -705,22 +792,21 @@ function ConversationMessage({
             <RoleIcon role={msg.role} />
           )}
         </span>
+        <span className={cn("font-semibold leading-none", isError && "text-destructive")}>
+          {roleLabel}
+        </span>
       </div>
       <div
         className={cn(
-          "min-w-0 rounded-md border bg-card px-4 py-3",
-          isError && "border-destructive/40 bg-destructive/5",
+          "relative col-start-2 row-start-1 min-w-0 rounded-md border bg-card px-4 py-3 transition-colors group-hover:border-muted-foreground/40 group-focus-within:border-muted-foreground/40",
+          isError &&
+            "border-destructive/40 bg-destructive/5 group-hover:border-destructive/60 group-focus-within:border-destructive/60",
         )}
       >
-        <div className="mb-2 flex min-w-0 flex-wrap items-center gap-2 text-sm text-muted-foreground">
-          <span className={cn("shrink-0 font-medium", isError && "text-destructive")}>
-            {roleLabel}
-          </span>
-          {timestamp && <span className="min-w-0 text-xs tabular-nums">{timestamp}</span>}
-        </div>
         <div className="flex min-w-0 max-w-3xl flex-col gap-2 text-foreground">
           <MessageBlocks blocks={msg.blocks} t={t} />
         </div>
+        <MessageHoverActions timestamp={timestamp} onCopy={onCopy} t={t} />
       </div>
     </article>
   );
@@ -756,6 +842,16 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
     ? formatMessageCount(messages.length, t("history.messageCountUnit"))
     : null;
   const timeRange = messages ? formatDateRange(messages, t("history.timeUnknown")) : null;
+  const handleCopyMessage = async (message: SessionMessage) => {
+    try {
+      const content = messageToCopyText(message, t);
+      if (!content) throw new Error("empty message");
+      await navigator.clipboard.writeText(content);
+      showToast(t("history.messageCopied"));
+    } catch {
+      showToast(t("history.messageCopyError"), "error");
+    }
+  };
 
   return (
     <Sheet open onOpenChange={(open) => !open && onClose()}>
@@ -814,14 +910,24 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
         ) : (
           <div className="min-w-0 flex-1 overflow-y-auto bg-secondary">
             <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-5 py-5 max-sm:px-3">
-              {messages.map((msg, i) => {
+              {messages.map((msg) => {
                 const presentation = getMessagePresentation(msg);
+                const messageKey = `${msg.timestamp ?? "untimed"}-${messageToCopyText(msg, t)}`;
                 return presentation.kind === "event" ? (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: 消息列表无唯一标识符
-                  <EventMessage key={i} msg={msg} t={t} />
+                  <EventMessage
+                    key={messageKey}
+                    msg={msg}
+                    t={t}
+                    onCopy={() => void handleCopyMessage(msg)}
+                  />
                 ) : (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: 消息列表无唯一标识符
-                  <ConversationMessage key={i} msg={msg} presentation={presentation} t={t} />
+                  <ConversationMessage
+                    key={messageKey}
+                    msg={msg}
+                    presentation={presentation}
+                    t={t}
+                    onCopy={() => void handleCopyMessage(msg)}
+                  />
                 );
               })}
             </div>

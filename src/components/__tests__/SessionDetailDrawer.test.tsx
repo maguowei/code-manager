@@ -51,6 +51,12 @@ describe("SessionDetailDrawer", () => {
       configurable: true,
       value: {},
     });
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: vi.fn(async () => undefined),
+      },
+    });
   });
 
   it("shows session context in the drawer header", async () => {
@@ -83,6 +89,59 @@ describe("SessionDetailDrawer", () => {
         ).toLocaleString()}`,
       ),
     ).toBeInTheDocument();
+
+    const userArticle = screen.getByText("第一条消息").closest('[data-slot="session-message"]');
+    const assistantArticle = screen
+      .getByText("最后一条消息")
+      .closest('[data-slot="session-message"]');
+    expect(userArticle).toHaveAttribute("data-role", "user");
+    expect(userArticle).toHaveClass("grid-cols-[2rem_minmax(0,1fr)_2rem]");
+    expect(userArticle?.querySelector(".col-start-2")).toHaveClass(
+      "bg-card",
+      "relative",
+      "row-start-1",
+      "group-hover:border-muted-foreground/40",
+    );
+    expect(userArticle?.querySelector(".col-start-2")).not.toHaveClass("group-hover:ring-ring");
+    expect(userArticle?.querySelector(".col-start-3")).toHaveClass("row-start-1");
+    expect(userArticle?.querySelector(".max-w-3xl")).not.toHaveClass("text-right");
+    expect(userArticle?.querySelector(".max-w-3xl")).not.toHaveClass("ml-auto");
+    expect(within(userArticle as HTMLElement).getByText("用户").parentElement).toHaveClass(
+      "col-start-3",
+      "text-xs",
+    );
+    expect(
+      within(userArticle as HTMLElement)
+        .getByText(new Date("2026-05-08T14:21:27").toLocaleString())
+        .closest('[data-slot="session-message-actions"]'),
+    ).toHaveClass("absolute", "bottom-2", "opacity-0", "group-hover:opacity-100");
+    expect(
+      within(userArticle as HTMLElement).getByRole("button", { name: "复制消息" }),
+    ).toBeInTheDocument();
+    expect(assistantArticle).toHaveAttribute("data-role", "assistant");
+    expect(assistantArticle).toHaveClass("grid-cols-[2rem_minmax(0,1fr)_2rem]");
+    expect(assistantArticle?.querySelector(".col-start-1")).toHaveClass("row-start-1");
+    expect(assistantArticle?.querySelector(".col-start-2")).toHaveClass(
+      "bg-card",
+      "relative",
+      "row-start-1",
+      "group-hover:border-muted-foreground/40",
+    );
+    expect(assistantArticle?.querySelector(".col-start-2")).not.toHaveClass(
+      "group-hover:ring-ring",
+    );
+    expect(within(assistantArticle as HTMLElement).getByText("助手").parentElement).toHaveClass(
+      "col-start-1",
+      "text-xs",
+    );
+    expect(
+      within(assistantArticle as HTMLElement)
+        .getByText(new Date("2026-05-08T14:21:45").toLocaleString())
+        .closest('[data-slot="session-message-actions"]'),
+    ).toHaveClass("absolute", "bottom-2", "opacity-0", "group-hover:opacity-100");
+    expect(
+      within(assistantArticle as HTMLElement).getByRole("button", { name: "复制消息" }),
+    ).toBeInTheDocument();
   });
 
   it("renders command and system-only messages as compact events", async () => {
@@ -104,6 +163,29 @@ describe("SessionDetailDrawer", () => {
     expect(await screen.findByText("命令")).toBeInTheDocument();
     expect(screen.getByText("/model")).toBeInTheDocument();
     expect(screen.getByText("系统信息")).toBeInTheDocument();
+    const eventLabel = screen.getByText("事件");
+    const eventArticle = eventLabel.closest('[data-slot="session-event"]');
+    expect(eventArticle).toHaveClass("grid-cols-[2rem_minmax(0,1fr)_2rem]");
+    expect(eventArticle?.querySelector(".col-start-1")).toHaveClass("row-start-1");
+    expect(eventLabel.closest(".col-start-1")).toHaveClass("text-xs");
+    expect(eventArticle?.querySelector(".col-start-2")).toHaveClass(
+      "bg-card",
+      "relative",
+      "row-start-1",
+      "group-hover:border-muted-foreground/40",
+    );
+    expect(eventArticle?.querySelector(".col-start-2")).not.toHaveClass("group-hover:ring-ring");
+    expect(
+      within(eventArticle as HTMLElement)
+        .getByText(new Date("2026-05-08T14:21:30").toLocaleString())
+        .closest('[data-slot="session-message-actions"]'),
+    ).toHaveClass("absolute", "bottom-2", "opacity-0", "group-hover:opacity-100");
+    fireEvent.click(within(eventArticle as HTMLElement).getByRole("button", { name: "复制消息" }));
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+        "/model\n\n系统信息\n模型切换提示",
+      );
+    });
     expect(screen.queryByText("用户")).not.toBeInTheDocument();
   });
 
@@ -123,6 +205,15 @@ describe("SessionDetailDrawer", () => {
     expect(await screen.findByText("Set model to mimo-v2.5-pro")).toBeInTheDocument();
     expect(document.body.textContent).not.toContain(String.fromCharCode(27));
     expect(screen.queryByText(/□/)).not.toBeInTheDocument();
+    const messageArticle = screen
+      .getByText("Set model to mimo-v2.5-pro")
+      .closest('[data-slot="session-message"]');
+    fireEvent.click(
+      within(messageArticle as HTMLElement).getByRole("button", { name: "复制消息" }),
+    );
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith("Set model to mimo-v2.5-pro");
+    });
   });
 
   it("marks assistant API errors with destructive semantics", async () => {
@@ -140,6 +231,8 @@ describe("SessionDetailDrawer", () => {
 
     const error = await screen.findByText("API Error: 400 Not supported model claude-opus-4-7");
     expect(error.closest('[data-variant="error"]')).toBeInTheDocument();
+    expect(error.closest(".col-start-2")).toHaveClass("group-hover:border-destructive/60");
+    expect(error.closest(".col-start-2")).not.toHaveClass("group-hover:ring-destructive/40");
   });
 
   it("keeps tool call details collapsed until expanded", async () => {

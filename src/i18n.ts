@@ -1033,6 +1033,9 @@ const translations = {
     "history.image": "图片",
     "history.plan": "实施计划",
     "history.planSourceClaude": "Claude",
+    "history.copyMessage": "复制消息",
+    "history.messageCopied": "消息已复制",
+    "history.messageCopyError": "复制消息失败",
   },
   en: {
     // 通用
@@ -2092,6 +2095,9 @@ const translations = {
     "history.image": "Image",
     "history.plan": "Implementation Plan",
     "history.planSourceClaude": "Claude",
+    "history.copyMessage": "Copy message",
+    "history.messageCopied": "Message copied",
+    "history.messageCopyError": "Failed to copy message",
   },
 } as const;
 

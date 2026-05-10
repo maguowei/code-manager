@@ -48,8 +48,10 @@ describe("StatsPage collapsible sections", () => {
 
     expect(source).toContain("stats-section stats-section-collapsible group");
     expect(source).toContain(
-      "stats-section-title stats-section-summary flex cursor-pointer list-none items-center gap-2 border-b px-5 py-3.5",
+      "stats-section-title stats-section-summary flex cursor-pointer list-none items-center gap-2 px-5 py-3.5",
     );
+    expect(source).toContain("group-open:border-b");
+    expect(source).not.toContain("gap-2 border-b px-5 py-3.5");
     expect(source).toContain("[&::-webkit-details-marker]:hidden");
     expect(source).toContain("group-open:hidden");
     expect(source).toContain("group-open:rotate-90");
@@ -63,7 +65,9 @@ describe("StatsPage collapsible sections", () => {
     );
     expect(source).toContain("PANEL_SURFACE_CLASS");
     expect(source).toMatch(/<summary className="stats-section-title stats-section-summary/);
-    expect(source).toContain('"stats-project-card group overflow-hidden rounded-lg border"');
+    expect(source).toContain(
+      '"stats-project-card group/project-card overflow-hidden rounded-lg border"',
+    );
     expect(source).not.toMatch(/<details open className="stats-project-card/);
   });
 
@@ -76,11 +80,25 @@ describe("StatsPage collapsible sections", () => {
     expect(source).toContain("fillOpacity={0.88}");
   });
 
+  it("keeps tool and skill usage blocks on card surfaces over the secondary canvas", () => {
+    const source = readFileSync(`${process.cwd()}/src/components/StatsPage.tsx`, "utf8");
+
+    expect(source).toContain("stats-chart-block rounded-lg border bg-card p-3 shadow-xs");
+    expect(source).toContain(
+      "stats-list-item flex items-center justify-between gap-3 rounded-md border bg-card px-4 py-3 shadow-xs",
+    );
+    expect(source).not.toContain(
+      'className={cn("stats-chart-block rounded-lg border p-3", SUBTLE_SURFACE_CLASS)}',
+    );
+  });
+
   it("presents project cards as compact professional disclosure rows", () => {
     const source = readFileSync(`${process.cwd()}/src/components/StatsPage.tsx`, "utf8");
 
     expect(source).toContain("stats-project-list flex flex-col gap-5 p-5");
-    expect(source).toContain('"stats-project-card group overflow-hidden rounded-lg border"');
+    expect(source).toContain(
+      '"stats-project-card group/project-card overflow-hidden rounded-lg border"',
+    );
     expect(source).toContain("PANEL_SURFACE_CLASS");
     expect(source).toContain("stats-project-session-id block max-w-[min(48vw,560px)]");
     expect(source).not.toContain(".stats-project-session-id-label");
@@ -89,7 +107,9 @@ describe("StatsPage collapsible sections", () => {
     expect(source).toContain("border-l-[3px] border-l-transparent");
     expect(source).toContain("hover:bg-muted/50 focus-visible:outline-2");
     expect(source).toContain("focus-visible:outline-primary");
-    expect(source).toContain("group-open:border-l-primary");
+    expect(source).toContain("group-open/project-card:border-l-primary");
+    expect(source).toContain("group-open/project-card:rotate-90");
+    expect(source).not.toContain("group-open:border-l-primary");
   });
 
   it("uses compact grids and section headers for project details", () => {

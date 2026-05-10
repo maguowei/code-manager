@@ -260,7 +260,7 @@ function StatsPage() {
             PANEL_SURFACE_CLASS,
           )}
         >
-          <summary className="stats-section-title stats-section-summary flex cursor-pointer list-none items-center gap-2 border-b px-5 py-3.5 text-base font-semibold [&::-webkit-details-marker]:hidden">
+          <summary className="stats-section-title stats-section-summary flex cursor-pointer list-none items-center gap-2 px-5 py-3.5 text-base font-semibold group-open:border-b [&::-webkit-details-marker]:hidden">
             {t("stats.toolSection")}
             <span className="stats-summary-count text-sm font-normal text-muted-foreground group-open:hidden">
               {toolUsageData.length} {t("stats.toolUsage")} · {skillUsageData.length}{" "}
@@ -269,7 +269,7 @@ function StatsPage() {
             <ChevronRight className="ml-auto size-4 text-muted-foreground transition-transform group-open:rotate-90" />
           </summary>
           <div className="stats-chart-group grid gap-5 p-5 lg:grid-cols-2">
-            <div className={cn("stats-chart-block rounded-lg border p-3", SUBTLE_SURFACE_CLASS)}>
+            <div className="stats-chart-block rounded-lg border bg-card p-3 shadow-xs">
               <div className="stats-chart-label mb-4 inline-flex rounded-md border bg-background px-2 py-0.5 text-sm font-semibold text-muted-foreground">
                 {t("stats.toolUsage")}
               </div>
@@ -311,7 +311,7 @@ function StatsPage() {
                 <p className="stats-no-data py-4 text-center text-sm text-muted-foreground">-</p>
               )}
             </div>
-            <div className={cn("stats-chart-block rounded-lg border p-3", SUBTLE_SURFACE_CLASS)}>
+            <div className="stats-chart-block rounded-lg border bg-card p-3 shadow-xs">
               <div className="stats-chart-label mb-4 inline-flex rounded-md border bg-background px-2 py-0.5 text-sm font-semibold text-muted-foreground">
                 {t("stats.skillUsage")}
               </div>
@@ -320,10 +320,7 @@ function StatsPage() {
                   {skillUsageData.map((item) => (
                     <div
                       key={item.name}
-                      className={cn(
-                        "stats-list-item flex items-center justify-between gap-3 rounded-md border px-4 py-3",
-                        SUBTLE_SURFACE_CLASS,
-                      )}
+                      className="stats-list-item flex items-center justify-between gap-3 rounded-md border bg-card px-4 py-3 shadow-xs"
                     >
                       <span className="stats-list-item-name min-w-0 truncate font-medium">
                         {item.name}
@@ -348,7 +345,7 @@ function StatsPage() {
             PANEL_SURFACE_CLASS,
           )}
         >
-          <summary className="stats-section-title stats-section-summary flex cursor-pointer list-none items-center gap-2 border-b px-5 py-3.5 text-base font-semibold [&::-webkit-details-marker]:hidden">
+          <summary className="stats-section-title stats-section-summary flex cursor-pointer list-none items-center gap-2 px-5 py-3.5 text-base font-semibold group-open:border-b [&::-webkit-details-marker]:hidden">
             {t("stats.sessionSection")}
             <span className="stats-summary-count text-sm font-normal text-muted-foreground group-open:hidden">
               {projectEntries.length} {t("stats.totalProjects")}
@@ -450,11 +447,11 @@ function ProjectCard({
   return (
     <details
       className={cn(
-        "stats-project-card group overflow-hidden rounded-lg border",
+        "stats-project-card group/project-card overflow-hidden rounded-lg border",
         PANEL_SURFACE_CLASS,
       )}
     >
-      <summary className="stats-project-header flex min-h-[72px] cursor-pointer list-none items-center justify-between gap-4 border-l-[3px] border-l-transparent p-4 transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary group-open:border-l-primary group-open:bg-muted/40 max-[600px]:flex-wrap max-[600px]:items-start max-[600px]:gap-3 [&::-webkit-details-marker]:hidden">
+      <summary className="stats-project-header flex min-h-[72px] cursor-pointer list-none items-center justify-between gap-4 border-l-[3px] border-l-transparent p-4 transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary group-open/project-card:border-l-primary group-open/project-card:bg-muted/40 max-[600px]:flex-wrap max-[600px]:items-start max-[600px]:gap-3 [&::-webkit-details-marker]:hidden">
         <div className="stats-project-title flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="stats-project-name font-mono text-base font-bold leading-tight">
             {shortPath(path)}
@@ -485,7 +482,7 @@ function ProjectCard({
             {formatDuration(p.lastDuration)}
           </Badge>
         </div>
-        <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" />
+        <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-open/project-card:rotate-90" />
       </summary>
 
       <div className="stats-project-body flex flex-col gap-4 border-t bg-muted/20 p-4">
