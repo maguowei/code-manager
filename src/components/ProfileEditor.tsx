@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ArrowLeft, CircleCheck, ExternalLink, TestTube } from "lucide-react";
+import { ArrowLeft, CircleAlert, CircleCheck, ExternalLink, TestTube } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
@@ -80,6 +80,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
+import { Spinner } from "./ui/spinner";
 
 interface ProfileEditorProps {
   profile: ConfigProfile | null;
@@ -282,11 +283,10 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     setIsRawResponseExpanded(false);
   }
 
-  function reopenLatestSuccessfulModelTest() {
-    if (!latestModelTestResult?.ok) {
+  function reopenLatestModelTestResult() {
+    if (!latestModelTestResult && !modelTestError) {
       return;
     }
-    setModelTestError("");
     setIsRawResponseExpanded(false);
     setIsModelTestDialogOpen(true);
   }
@@ -560,7 +560,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     save: t("profiles.editor.save"),
     testModel: t("profiles.editor.actions.testModel"),
     testingModel: t("profiles.editor.actions.testingModel"),
-    reopenModelTest: t("profiles.editor.modelTest.reopenSuccess"),
+    reopenModelTest: t("profiles.editor.modelTest.reopenResult"),
     name: t("profiles.editor.fields.name"),
     namePlaceholder: t("profiles.editor.placeholders.name"),
     description: t("profiles.editor.fields.description"),
@@ -593,7 +593,24 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     expertHint: t("profiles.editor.hints.expert"),
     expertStructuredKeys: t("profiles.editor.hints.expertStructuredKeys"),
   };
-  const hasSuccessfulModelTest = latestModelTestResult?.ok === true;
+  const latestModelTestStatus = latestModelTestResult
+    ? latestModelTestResult.ok
+      ? "success"
+      : "failed"
+    : modelTestError
+      ? "failed"
+      : null;
+  const latestModelTestLabel =
+    latestModelTestStatus === "success" && latestModelTestResult
+      ? `${t("profiles.editor.modelTest.status.success")} · ${latestModelTestResult.durationMs} ms`
+      : latestModelTestStatus === "failed"
+        ? t("profiles.editor.modelTest.status.error")
+        : "";
+  const latestModelTestAriaLabel = latestModelTestLabel
+    ? t("profiles.editor.modelTest.reopenResultAriaLabel")
+        .replace("{action}", messages.reopenModelTest)
+        .replace("{result}", latestModelTestLabel)
+    : messages.reopenModelTest;
 
   return (
     <div
@@ -795,6 +812,10 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
                 type="button"
                 variant="ghost"
                 size="icon-sm"
+                className={cn(
+                  "transition-transform active:scale-95",
+                  isTestingModel && "is-testing bg-primary/10 text-primary ring-1 ring-primary/20",
+                )}
                 aria-label={isTestingModel ? messages.testingModel : messages.testModel}
                 title={isTestingModel ? messages.testingModel : messages.testModel}
                 disabled={!canTestModel || isTestingModel}
@@ -802,18 +823,37 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
                   void handleTestModelClick();
                 }}
               >
-                <TestTube className="size-4" aria-hidden="true" />
+                {isTestingModel ? (
+                  <Spinner
+                    data-testid="profile-editor-model-test-spinner"
+                    className="size-4"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <TestTube className="size-4" aria-hidden="true" />
+                )}
               </Button>
-              {hasSuccessfulModelTest ? (
+              {latestModelTestStatus ? (
                 <Button
                   type="button"
                   variant="ghost"
-                  size="icon-sm"
-                  aria-label={messages.reopenModelTest}
-                  title={messages.reopenModelTest}
-                  onClick={reopenLatestSuccessfulModelTest}
+                  size="sm"
+                  className={cn(
+                    "h-8 rounded-full border px-2.5 text-xs font-semibold shadow-xs",
+                    latestModelTestStatus === "success"
+                      ? "border-chart-2/40 bg-chart-2/10 text-chart-2 hover:bg-chart-2/15 hover:text-chart-2"
+                      : "border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/15 hover:text-destructive",
+                  )}
+                  aria-label={latestModelTestAriaLabel}
+                  title={latestModelTestAriaLabel}
+                  onClick={reopenLatestModelTestResult}
                 >
-                  <CircleCheck className="size-4" aria-hidden="true" />
+                  {latestModelTestStatus === "success" ? (
+                    <CircleCheck className="size-4" aria-hidden="true" />
+                  ) : (
+                    <CircleAlert className="size-4" aria-hidden="true" />
+                  )}
+                  <span>{latestModelTestLabel}</span>
                 </Button>
               ) : null}
             </div>

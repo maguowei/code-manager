@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { Copy, Plus, TestTube, Trash2, Variable } from "lucide-react";
+import { CircleAlert, CircleCheck, Copy, Plus, TestTube, Trash2, Variable } from "lucide-react";
 import { type DragEvent, useCallback, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
@@ -534,7 +534,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
 
   function modelTestResultLabel(state: Exclude<ProfileModelTestState, { status: "running" }>) {
     return state.status === "success"
-      ? `${state.result.durationMs} ms`
+      ? t("profiles.testAll.successResult").replace("{durationMs}", String(state.result.durationMs))
       : t("profiles.testAll.failed");
   }
 
@@ -579,6 +579,8 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
 
     const label = modelTestResultLabel(state);
     const ariaLabel = modelTestResultAriaLabel(profile, state);
+    const isSuccess = state.status === "success";
+    const ResultIcon = isSuccess ? CircleCheck : CircleAlert;
 
     return (
       <Button
@@ -586,9 +588,11 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
         variant="ghost"
         size="xs"
         className={cn(
-          "h-auto min-h-5 shrink-0 gap-1 rounded-sm border-0 px-1.5 py-px text-xs leading-tight font-bold text-white hover:text-white",
+          "h-auto min-h-5 max-w-full shrink-0 gap-1 overflow-hidden rounded-sm border px-1.5 py-px text-xs leading-tight font-bold",
           state.status,
-          state.status === "success" ? "bg-chart-2" : "bg-destructive",
+          isSuccess
+            ? "border-chart-2/40 bg-chart-2/10 text-chart-2 hover:bg-chart-2/15 hover:text-chart-2"
+            : "border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/15 hover:text-destructive",
         )}
         aria-label={ariaLabel}
         title={ariaLabel}
@@ -597,7 +601,8 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
           openProfileModelTestResult(profile, state);
         }}
       >
-        {label}
+        <ResultIcon className="size-3" aria-hidden="true" />
+        <span className="min-w-0 truncate">{label}</span>
       </Button>
     );
   }
@@ -793,8 +798,11 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                           <span className="inline-flex shrink-0 items-center text-xs leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-border after:content-[':']">
                             {t("profiles.summary.modelTitle")}
                           </span>
-                          <div className="inline-flex min-w-0 items-center gap-1.5">
-                            <span className="min-w-0 truncate">{model}</span>
+                          <div
+                            data-slot="profile-model-summary-value"
+                            className="flex min-w-0 flex-wrap items-center gap-1.5"
+                          >
+                            <span className="min-w-0 max-w-full truncate">{model}</span>
                             {renderProfileModelTestState(profile)}
                             {effort && (
                               <span

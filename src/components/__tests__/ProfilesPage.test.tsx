@@ -474,12 +474,14 @@ describe("ProfilesPage", () => {
     const alphaCard = getProfileCard("Alpha");
     const betaCard = getProfileCard("Beta");
 
-    expect(within(alphaCard).getByText("52 ms")).toBeInTheDocument();
+    expect(within(alphaCard).getByText("成功 · 52 ms")).toBeInTheDocument();
     expect(within(betaCard).getByText("失败")).toBeInTheDocument();
     expect(within(alphaCard).getByText("model-profile-a")).toBeInTheDocument();
     expect(within(betaCard).getByText("model-profile-b")).toBeInTheDocument();
 
-    fireEvent.click(within(alphaCard).getByRole("button", { name: "Alpha 测试结果：52 ms" }));
+    fireEvent.click(
+      within(alphaCard).getByRole("button", { name: "Alpha 测试结果：成功 · 52 ms" }),
+    );
     expect(screen.getByRole("dialog", { name: "模型测试结果" })).toBeInTheDocument();
     expect(screen.getByText("Alpha 测试成功")).toBeInTheDocument();
 
@@ -859,7 +861,7 @@ describe("ProfilesPage", () => {
     expect(within(dialog).getByText("重新测试成功")).toBeInTheDocument();
     expect(within(dialog).getByText("88 ms")).toBeInTheDocument();
     expect(
-      within(card).getByRole("button", { name: "OpenRouter User 测试结果：88 ms" }),
+      within(card).getByRole("button", { name: "OpenRouter User 测试结果：成功 · 88 ms" }),
     ).toBeInTheDocument();
   });
 
@@ -929,6 +931,66 @@ describe("ProfilesPage", () => {
     renderPage();
 
     expect(screen.getByText("Model")).toBeInTheDocument();
+  });
+
+  it("keeps long english model test result pills inside the model summary", async () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "en",
+        theme: "dark",
+      }),
+    );
+    invokeMock.mockImplementation((command: string) => {
+      if (command === "test_profile_model") {
+        return Promise.resolve({
+          ok: true,
+          responseText: "Test succeeded.",
+          promptText: "Confirm this request succeeded.",
+          resolvedModel: "claude-opus-4-7",
+          durationMs: 3652,
+          rawResponse: JSON.stringify({ content: [{ type: "text", text: "Test succeeded." }] }),
+        });
+      }
+      return Promise.resolve(null);
+    });
+    const workspace: ConfigWorkspace = {
+      ...WORKSPACE_FIXTURE,
+      profiles: [
+        {
+          ...WORKSPACE_FIXTURE.profiles[0],
+          settings: {
+            ...WORKSPACE_FIXTURE.profiles[0].settings,
+            env: {
+              ANTHROPIC_AUTH_TOKEN: "token",
+              ANTHROPIC_MODEL: "claude-opus-4-7",
+              CLAUDE_CODE_EFFORT_LEVEL: "xhigh",
+            },
+          },
+        },
+      ],
+    } as ConfigWorkspace;
+
+    renderPage(workspace);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Test All" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const card = getProfileCard("OpenRouter User");
+    const resultButton = within(card).getByRole("button", {
+      name: "OpenRouter User test result: Success · 3652 ms",
+    });
+    const modelSummaryValue = resultButton.closest('[data-slot="profile-model-summary-value"]');
+
+    expect(resultButton).toHaveClass("max-w-full");
+    expect(resultButton).toHaveClass("overflow-hidden");
+    expect(within(resultButton).getByText("Success · 3652 ms")).toHaveClass("truncate");
+    expect(modelSummaryValue).not.toBeNull();
+    expect(modelSummaryValue).toHaveClass("flex-wrap");
+    expect(within(modelSummaryValue as HTMLElement).getByText("xhigh")).toBeInTheDocument();
   });
 
   it("colors profile permission and effort summary values by risk and intensity", () => {

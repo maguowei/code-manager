@@ -850,7 +850,7 @@ describe("ProfileEditor", () => {
     expect(within(behaviorSection).getByRole("combobox", { name: "输出风格" })).toBeInTheDocument();
   });
 
-  it("tests the current profile draft from the behavior section, opens the dialog, and reopens it from the success badge", async () => {
+  it("tests the current profile draft from the behavior section, opens the dialog, and reopens it from the result badge", async () => {
     invokeMock.mockImplementation(async (command: string, payload?: unknown) => {
       if (command === "get_config_workspace") {
         return WORKSPACE_FIXTURE;
@@ -923,6 +923,7 @@ describe("ProfileEditor", () => {
     const behaviorSection = getSection("模型与行为");
     const testButton = within(behaviorSection).getByRole("button", { name: "测试模型" });
     expect(testButton).not.toHaveTextContent("测试模型");
+    expect(testButton).toHaveClass("active:scale-95");
 
     await act(async () => {
       fireEvent.click(testButton);
@@ -987,6 +988,13 @@ describe("ProfileEditor", () => {
     expect(within(dialog).getByText("claude-sonnet-4-6")).toBeInTheDocument();
     expect(within(dialog).getByText("openrouter/claude-sonnet-4-6")).toBeInTheDocument();
     expect(within(dialog).getByText("123 ms")).toBeInTheDocument();
+    const successResultButton = within(behaviorSection).getByRole("button", {
+      name: "查看最近一次测试结果：测试成功 · 123 ms",
+    });
+    expect(successResultButton).toHaveTextContent("测试成功 · 123 ms");
+    expect(successResultButton).toHaveClass("border-chart-2/40");
+    expect(successResultButton).toHaveClass("bg-chart-2/10");
+    expect(successResultButton).toHaveClass("text-chart-2");
     expect(within(dialog).getByText("req_test_123")).toBeInTheDocument();
     expect(within(dialog).getByText("end_turn")).toBeInTheDocument();
     expect(within(dialog).queryByTestId("model-test-request-headers-code")).not.toBeInTheDocument();
@@ -1064,9 +1072,7 @@ describe("ProfileEditor", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
     expect(screen.queryByRole("dialog", { name: "模型测试结果" })).not.toBeInTheDocument();
 
-    fireEvent.click(
-      within(behaviorSection).getByRole("button", { name: "查看最近一次成功测试结果" }),
-    );
+    fireEvent.click(successResultButton);
     expect(screen.getByRole("dialog", { name: "模型测试结果" })).toBeInTheDocument();
   });
 
@@ -1119,7 +1125,13 @@ describe("ProfileEditor", () => {
       await Promise.resolve();
     });
 
-    expect(within(behaviorSection).getByRole("button", { name: "测试中..." })).toBeDisabled();
+    const runningButton = within(behaviorSection).getByRole("button", { name: "测试中..." });
+    expect(runningButton).toBeDisabled();
+    expect(runningButton).toHaveClass("is-testing");
+    expect(runningButton).toHaveClass("active:scale-95");
+    expect(
+      within(runningButton).getByTestId("profile-editor-model-test-spinner"),
+    ).toBeInTheDocument();
 
     await act(async () => {
       resolveTest?.({
@@ -1189,7 +1201,9 @@ describe("ProfileEditor", () => {
     expect(dialog).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
     expect(
-      within(behaviorSection).getByRole("button", { name: "查看最近一次成功测试结果" }),
+      within(behaviorSection).getByRole("button", {
+        name: "查看最近一次测试结果：测试成功 · 45 ms",
+      }),
     ).toBeInTheDocument();
 
     await act(async () => {
@@ -1200,7 +1214,9 @@ describe("ProfileEditor", () => {
     });
 
     expect(
-      within(behaviorSection).queryByRole("button", { name: "查看最近一次成功测试结果" }),
+      within(behaviorSection).queryByRole("button", {
+        name: "查看最近一次测试结果：测试成功 · 45 ms",
+      }),
     ).not.toBeInTheDocument();
 
     fireEvent.click(within(behaviorSection).getByRole("button", { name: "JSON" }));
@@ -1255,8 +1271,10 @@ describe("ProfileEditor", () => {
       await Promise.resolve();
     });
 
+    const behaviorSection = getSection("模型与行为");
+
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "测试模型" }));
+      fireEvent.click(within(behaviorSection).getByRole("button", { name: "测试模型" }));
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -1272,6 +1290,13 @@ describe("ProfileEditor", () => {
         "Please reply with one short sentence confirming this API test request succeeded.",
       ),
     ).toBeInTheDocument();
+    const failureResultButton = within(behaviorSection).getByRole("button", {
+      name: "查看最近一次测试结果：测试失败",
+    });
+    expect(failureResultButton).toHaveTextContent("测试失败");
+    expect(failureResultButton).toHaveClass("border-destructive/40");
+    expect(failureResultButton).toHaveClass("bg-destructive/10");
+    expect(failureResultButton).toHaveClass("text-destructive");
 
     await act(async () => {
       fireEvent.click(within(dialog).getByRole("button", { name: "查看响应体" }));
@@ -1280,6 +1305,12 @@ describe("ProfileEditor", () => {
     const rawResponseViewer = within(dialog).getByTestId("model-test-raw-response-code");
     expect(rawResponseViewer.textContent).toContain('{\n  "error": {\n');
     expect(rawResponseViewer.textContent).toContain('"type": "authentication_error"');
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
+    expect(screen.queryByRole("dialog", { name: "模型测试结果" })).not.toBeInTheDocument();
+    fireEvent.click(failureResultButton);
+    expect(screen.getByRole("dialog", { name: "模型测试结果" })).toBeInTheDocument();
+    expect(screen.getByText("模型测试失败（HTTP 401）：invalid api key")).toBeInTheDocument();
   });
 
   it("opens the failed dialog without a raw response toggle when invoke rejects", async () => {
@@ -1328,8 +1359,10 @@ describe("ProfileEditor", () => {
       await Promise.resolve();
     });
 
+    const behaviorSection = getSection("模型与行为");
+
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "测试模型" }));
+      fireEvent.click(within(behaviorSection).getByRole("button", { name: "测试模型" }));
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -1338,9 +1371,24 @@ describe("ProfileEditor", () => {
     expect(within(dialog).getByText("测试失败")).toBeInTheDocument();
     expect(within(dialog).getByText("Error: 模型测试请求失败：network down")).toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: "查看响应体" })).not.toBeInTheDocument();
+    const failureResultButton = within(behaviorSection).getByRole("button", {
+      name: "查看最近一次测试结果：测试失败",
+    });
+    expect(failureResultButton).toHaveTextContent("测试失败");
+    expect(failureResultButton).toHaveClass("border-destructive/40");
+    expect(failureResultButton).toHaveClass("bg-destructive/10");
+    expect(failureResultButton).toHaveClass("text-destructive");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
+    expect(screen.queryByRole("dialog", { name: "模型测试结果" })).not.toBeInTheDocument();
+    fireEvent.click(failureResultButton);
+    const reopenedDialog = screen.getByRole("dialog", { name: "模型测试结果" });
+    expect(
+      within(reopenedDialog).getByText("Error: 模型测试请求失败：network down"),
+    ).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(within(dialog).getByRole("button", { name: "重新测试" }));
+      fireEvent.click(within(reopenedDialog).getByRole("button", { name: "重新测试" }));
       await Promise.resolve();
       await Promise.resolve();
     });
