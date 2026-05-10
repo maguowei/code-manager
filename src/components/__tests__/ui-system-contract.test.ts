@@ -228,7 +228,7 @@ describe("ui system contract", () => {
     expect(overviewSource).toContain(
       "claude-overview-tree-pane flex min-h-0 min-w-0 w-full overflow-hidden",
     );
-    expect(overviewSource).toContain("claude-overview-tree-ready h-full min-h-0");
+    expect(overviewSource).toContain("claude-overview-tree-ready h-full min-h-0 w-full flex-1");
     expect(overviewSource).toContain("PANEL_SURFACE_CLASS");
     expect(overviewSource).toContain("TREE_PANE_RATIO_STORAGE_KEY");
     expect(overviewSource).toContain('"--trees-font-size-override": "0.8125rem"');

@@ -1739,7 +1739,7 @@ function ClaudeOverviewPage() {
           {showTreeLoading ? (
             <div
               className={cn(
-                "claude-overview-tree-loading-panel h-full min-h-0 overflow-hidden rounded-lg border",
+                "claude-overview-tree-loading-panel h-full min-h-0 w-full flex-1 overflow-hidden rounded-lg border",
                 PANEL_SURFACE_CLASS,
               )}
             >
@@ -1748,7 +1748,7 @@ function ClaudeOverviewPage() {
           ) : treePaths.length > 0 ? (
             <div
               className={cn(
-                "claude-overview-tree-ready h-full min-h-0 overflow-hidden rounded-lg border",
+                "claude-overview-tree-ready h-full min-h-0 w-full flex-1 overflow-hidden rounded-lg border",
                 PANEL_SURFACE_CLASS,
               )}
             >
@@ -1761,7 +1761,7 @@ function ClaudeOverviewPage() {
           ) : (
             <div
               className={cn(
-                "claude-overview-empty flex min-h-[180px] flex-1 items-center justify-center rounded-lg border p-5 text-center leading-relaxed text-muted-foreground",
+                "claude-overview-empty flex min-h-[180px] w-full flex-1 items-center justify-center rounded-lg border p-5 text-center leading-relaxed text-muted-foreground",
                 PANEL_SURFACE_CLASS,
               )}
             >

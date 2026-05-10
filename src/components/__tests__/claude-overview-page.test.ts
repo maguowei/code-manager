@@ -122,10 +122,10 @@ describe("ClaudeOverviewPage styles", () => {
       "claude-overview-tree-pane flex min-h-0 min-w-0 w-full overflow-hidden",
     );
     expect(source).toContain(
-      "claude-overview-tree-ready h-full min-h-0 overflow-hidden rounded-lg border",
+      "claude-overview-tree-ready h-full min-h-0 w-full flex-1 overflow-hidden rounded-lg border",
     );
     expect(source).toContain(
-      "claude-overview-tree-loading-panel h-full min-h-0 overflow-hidden rounded-lg border",
+      "claude-overview-tree-loading-panel h-full min-h-0 w-full flex-1 overflow-hidden rounded-lg border",
     );
     expect(source).toContain(
       "claude-overview-resizer relative min-w-2 cursor-col-resize border-0 bg-transparent",
