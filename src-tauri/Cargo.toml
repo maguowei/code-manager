@@ -1,6 +1,6 @@
 [package]
 name = "ai-manager"
-version = "0.17.0"
+version = "0.18.0"
 description = "AI Manager - Claude Code 桌面配置管理应用"
 authors = ["maguowei"]
 license = "MIT"
