@@ -321,7 +321,7 @@ function ThinkingBlock({ thinking, label }: { thinking: string; label: string })
 /** 渲染斜杠命令块 */
 function CommandBlock({ name, args, label }: { name: string; args?: string; label: string }) {
   return (
-    <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm [overflow-wrap:anywhere]">
+    <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 rounded-md border bg-card px-3 py-2 text-sm [overflow-wrap:anywhere]">
       <Terminal className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       <span className="shrink-0 text-xs font-semibold text-muted-foreground">{label}</span>
       <code className="min-w-0 rounded-sm bg-card px-1.5 py-0.5 font-mono font-medium [overflow-wrap:anywhere]">

@@ -175,6 +175,8 @@ describe("SessionDetailDrawer", () => {
       "group-hover:border-muted-foreground/40",
     );
     expect(eventArticle?.querySelector(".col-start-2")).not.toHaveClass("group-hover:ring-ring");
+    expect(screen.getByText("/model").closest("div")).toHaveClass("bg-card");
+    expect(screen.getByText("/model").closest("div")).not.toHaveClass("bg-background");
     expect(
       within(eventArticle as HTMLElement)
         .getByText(new Date("2026-05-08T14:21:30").toLocaleString())
