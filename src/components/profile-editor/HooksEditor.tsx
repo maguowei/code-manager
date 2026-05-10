@@ -277,7 +277,7 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
                   {summary.matchers.map((matcherSummary) => (
                     <div
                       key={`${summary.event}-${matcherSummary.summaryKey}`}
-                      className="flex flex-col gap-3 rounded-lg border border-border bg-muted/50 p-3"
+                      className="flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-muted/50 p-3"
                       role="listitem"
                     >
                       <div className="flex flex-wrap items-center gap-2">
@@ -285,7 +285,7 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
                       </div>
 
                       {matcherSummary.actionSummaries.length > 0 ? (
-                        <div className=" flex w-full flex-col items-stretch gap-2">
+                        <div className="flex w-full min-w-0 flex-col items-stretch gap-2">
                           {matcherSummary.actionSummaries.map((actionSummary) => {
                             const actionKey = [
                               summary.event,
@@ -297,10 +297,8 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
                               ? actionSummary.fullLabel
                               : actionSummary.collapsedLabel;
                             const actionButtonClassName = [
-                              "inline-flex min-h-10 w-full max-w-full cursor-pointer items-center rounded-md border border-border bg-background px-3 py-2 text-left font-mono text-xs leading-5 text-foreground transition-colors hover:border-primary hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
-                              isExpanded
-                                ? "expanded whitespace-pre-wrap [overflow-wrap:anywhere]"
-                                : "",
+                              "inline-flex h-auto min-h-10 w-full min-w-0 max-w-full shrink cursor-pointer items-start justify-start whitespace-normal rounded-md border border-border bg-background px-3 py-2 text-left font-mono text-xs leading-5 text-foreground [overflow-wrap:anywhere] transition-colors hover:border-primary hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+                              isExpanded ? "expanded whitespace-pre-wrap" : "",
                               actionSummary.isBuiltinPreset ? "pr-24" : "",
                             ]
                               .filter(Boolean)
@@ -312,7 +310,7 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
                                 data-slot="hook-action-summary"
                                 data-preset={actionSummary.isBuiltinPreset ? "true" : "false"}
                                 className={[
-                                  "relative inline-flex w-full max-w-full flex-wrap items-start gap-1.5",
+                                  "relative inline-flex w-full min-w-0 max-w-full flex-wrap items-start gap-1.5",
                                   isExpanded ? "expanded" : "",
                                   actionSummary.isBuiltinPreset ? "has-preset-tag" : "",
                                 ]

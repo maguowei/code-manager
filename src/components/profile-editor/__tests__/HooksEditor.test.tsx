@@ -256,6 +256,33 @@ describe("HooksEditor", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("allows long expanded command actions to grow and wrap inside their container", () => {
+    renderEditor({
+      value: {
+        PostToolUse: [
+          {
+            matcher: "Edit|Write",
+            hooks: [
+              {
+                type: "command",
+                command: MOJIBAKE_POST_TOOL_USE_COMMAND,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    const presetAction = getHookActionSummary((content) => content.startsWith("command: FILE="));
+    const commandButton = within(presetAction).getByRole("button");
+
+    fireEvent.click(commandButton);
+
+    expect(presetAction).toHaveClass("min-w-0", "max-w-full");
+    expect(commandButton).toHaveClass("h-auto", "min-w-0", "max-w-full", "whitespace-pre-wrap");
+    expect(commandButton.className).toContain("[overflow-wrap:anywhere]");
+  });
+
   it("confirms before deleting a configured hook event", () => {
     const { onChange } = renderEditor({
       value: {
