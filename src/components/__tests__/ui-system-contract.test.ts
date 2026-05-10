@@ -90,8 +90,22 @@ describe("ui system contract", () => {
     expect(css).toContain("--shadow-panel: 0 1px 2px");
     expect(css).toContain("0 18px 45px");
     expect(css).toContain("--shadow-toolbar: 0 1px 0");
-    expect(css).toContain("--background: oklch(0.976 0.004 255)");
-    expect(css).toContain("--sidebar: oklch(0.932 0.006 255)");
+    expect(css).toContain("--background: oklch(0.988 0.016 214)");
+    expect(css).toContain("--card: oklch(0.998 0.012 214 / 72%)");
+    expect(css).toContain("--primary: oklch(0.618 0.193 258.3)");
+    expect(css).toContain("--accent: oklch(0.925 0.07 212 / 56%)");
+    expect(css).toContain("--ring: oklch(0.68 0.17 255)");
+    expect(css).toContain("--chart-1: oklch(0.66 0.2 255)");
+    expect(css).toContain("--chart-2: oklch(0.76 0.16 205)");
+    expect(css).toContain("--color-accent-foreground: var(--accent-foreground)");
+    expect(css).toContain("--sidebar: oklch(0.95 0.026 214 / 68%)");
+    expect(css).toContain("--sidebar-primary: oklch(0.618 0.193 258.3)");
+    expect(css).toContain("--background: oklch(0.176 0.014 258.4)");
+    expect(css).toContain("--card: oklch(0.22 0.016 256.8 / 74%)");
+    expect(css).toContain("--border: oklch(0.33 0.015 252.3 / 76%)");
+    expect(css).toContain("--primary: oklch(0.618 0.193 258.3)");
+    expect(css).toContain("text-rendering: geometricPrecision");
+    expect(css).toContain("font-synthesis-weight: none");
   });
 
   it("keeps profile editor surfaces off raw theme formulas", () => {
