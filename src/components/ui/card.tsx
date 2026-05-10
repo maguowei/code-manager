@@ -1,5 +1,6 @@
 import type * as React from "react";
 
+import { TYPOGRAPHY } from "@/components/typography-classes";
 import { cn } from "@/lib/utils";
 
 function Card({ className, ...props }: React.ComponentProps<"div">) {
@@ -29,13 +30,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="card-title"
-      className={cn("leading-none font-semibold", className)}
-      {...props}
-    />
-  );
+  return <div data-slot="card-title" className={cn(TYPOGRAPHY.cardTitle, className)} {...props} />;
 }
 
 function CardDescription({ className, ...props }: React.ComponentProps<"div">) {

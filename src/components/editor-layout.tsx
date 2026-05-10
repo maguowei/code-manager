@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { CONTROL_SURFACE_CLASS, PANEL_SURFACE_CLASS } from "./surface-classes";
+import { TYPOGRAPHY } from "./typography-classes";
 
 const EDITOR_CONTROL_SURFACE_CLASS = CONTROL_SURFACE_CLASS;
 
@@ -27,7 +28,7 @@ function EditorSection({ title, children, className }: EditorSectionProps) {
       className={cn("flex flex-col gap-3 rounded-lg border p-4", PANEL_SURFACE_CLASS, className)}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-base leading-6 font-semibold text-foreground">{title}</h3>
+        <h3 className={TYPOGRAPHY.sectionTitle}>{title}</h3>
       </div>
       {children}
     </section>

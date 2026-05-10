@@ -35,6 +35,7 @@ import {
   SUBTLE_SURFACE_CLASS,
   TOOLBAR_SURFACE_CLASS,
 } from "./surface-classes";
+import { TYPOGRAPHY } from "./typography-classes";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Calendar } from "./ui/calendar";
@@ -655,7 +656,12 @@ function UsagePage() {
                       <span className="usage-panel-label text-xs font-extrabold tracking-wide text-muted-foreground uppercase">
                         {t("usage.cards.totalCost")}
                       </span>
-                      <strong className="usage-cost-value text-2xl font-extrabold tracking-tight text-chart-1">
+                      <strong
+                        className={cn(
+                          "usage-cost-value tracking-tight text-chart-1",
+                          TYPOGRAPHY.metricEmphasis,
+                        )}
+                      >
                         {u.summary ? formatUSD(u.summary.totalCost) : "-"}
                       </strong>
                       <span className="usage-panel-subtle text-sm text-muted-foreground">
@@ -1150,7 +1156,8 @@ function MetricCard({ label, value, tone, hint }: MetricCardProps) {
         </span>
         <strong
           className={cn(
-            "usage-metric-value font-mono text-xl font-bold",
+            "usage-metric-value font-mono",
+            TYPOGRAPHY.metricValue,
             tone === "blue" && "text-chart-1",
             tone === "green" && "text-chart-2",
             tone === "orange" && "text-chart-3",
@@ -1691,7 +1698,7 @@ function DailyTable({ rows, t }: { rows: DailyUsage[]; t: ReturnType<typeof useI
   if (rows.length === 0) return <EmptyTable t={t} />;
   return (
     <div className="usage-table-wrap overflow-x-auto rounded-lg border">
-      <table className="usage-table w-full min-w-[860px] border-collapse text-sm [&_.accent-green]:text-chart-2 [&_.ellipsis]:max-w-[260px] [&_.ellipsis]:truncate [&_.mono]:font-mono [&_.num]:text-right [&_.strong-cell]:font-medium [&_tbody_tr:last-child_td]:border-b-0 [&_td]:border-b [&_td]:px-3 [&_td]:py-2 [&_th]:border-b [&_th]:bg-muted/50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted-foreground">
+      <table className="usage-table w-full min-w-[860px] border-collapse text-sm [&_.accent-green]:text-chart-2 [&_.ellipsis]:max-w-[260px] [&_.ellipsis]:truncate [&_.mono]:font-mono [&_.num]:text-right [&_.num]:tabular-nums [&_.strong-cell]:font-medium [&_tbody_tr:last-child_td]:border-b-0 [&_td]:border-b [&_td]:px-3 [&_td]:py-2 [&_th]:border-b [&_th]:bg-muted/50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted-foreground">
         <thead>
           <tr>
             <th>{t("usage.table.date")}</th>
@@ -1727,7 +1734,7 @@ function ProjectTable({ rows, t }: { rows: ProjectUsage[]; t: ReturnType<typeof 
   if (rows.length === 0) return <EmptyTable t={t} />;
   return (
     <div className="usage-table-wrap overflow-x-auto rounded-lg border">
-      <table className="usage-table w-full min-w-[920px] border-collapse text-sm [&_.accent-green]:text-chart-2 [&_.ellipsis]:max-w-[260px] [&_.ellipsis]:truncate [&_.mono]:font-mono [&_.num]:text-right [&_.strong-cell]:font-medium [&_tbody_tr:last-child_td]:border-b-0 [&_td]:border-b [&_td]:px-3 [&_td]:py-2 [&_th]:border-b [&_th]:bg-muted/50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted-foreground">
+      <table className="usage-table w-full min-w-[920px] border-collapse text-sm [&_.accent-green]:text-chart-2 [&_.ellipsis]:max-w-[260px] [&_.ellipsis]:truncate [&_.mono]:font-mono [&_.num]:text-right [&_.num]:tabular-nums [&_.strong-cell]:font-medium [&_tbody_tr:last-child_td]:border-b-0 [&_td]:border-b [&_td]:px-3 [&_td]:py-2 [&_th]:border-b [&_th]:bg-muted/50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted-foreground">
         <thead>
           <tr>
             <th>{t("usage.table.project")}</th>
@@ -1775,7 +1782,7 @@ function SessionTable({
   if (rows.length === 0) return <EmptyTable t={t} />;
   return (
     <div className="usage-table-wrap overflow-x-auto rounded-lg border">
-      <table className="usage-table w-full min-w-[920px] border-collapse text-sm [&_.accent-green]:text-chart-2 [&_.ellipsis]:max-w-[260px] [&_.ellipsis]:truncate [&_.model-cell]:max-w-[220px] [&_.model-cell]:truncate [&_.mono]:font-mono [&_.num]:text-right [&_.strong-cell]:font-medium [&_tbody_tr:last-child_td]:border-b-0 [&_td]:border-b [&_td]:px-3 [&_td]:py-2 [&_th]:border-b [&_th]:bg-muted/50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted-foreground">
+      <table className="usage-table w-full min-w-[920px] border-collapse text-sm [&_.accent-green]:text-chart-2 [&_.ellipsis]:max-w-[260px] [&_.ellipsis]:truncate [&_.model-cell]:max-w-[220px] [&_.model-cell]:truncate [&_.mono]:font-mono [&_.num]:text-right [&_.num]:tabular-nums [&_.strong-cell]:font-medium [&_tbody_tr:last-child_td]:border-b-0 [&_td]:border-b [&_td]:px-3 [&_td]:py-2 [&_th]:border-b [&_th]:bg-muted/50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted-foreground">
         <thead>
           <tr>
             <th>{t("usage.table.session")}</th>
@@ -1831,7 +1838,7 @@ function ModelTable({ rows, t }: { rows: ModelUsageStat[]; t: ReturnType<typeof 
   if (rows.length === 0) return <EmptyTable t={t} />;
   return (
     <div className="usage-table-wrap overflow-x-auto rounded-lg border">
-      <table className="usage-table w-full min-w-[760px] border-collapse text-sm [&_.accent-green]:text-chart-2 [&_.mono]:font-mono [&_.num]:text-right [&_.strong-cell]:font-medium [&_tbody_tr:last-child_td]:border-b-0 [&_td]:border-b [&_td]:px-3 [&_td]:py-2 [&_th]:border-b [&_th]:bg-muted/50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted-foreground">
+      <table className="usage-table w-full min-w-[760px] border-collapse text-sm [&_.accent-green]:text-chart-2 [&_.mono]:font-mono [&_.num]:text-right [&_.num]:tabular-nums [&_.strong-cell]:font-medium [&_tbody_tr:last-child_td]:border-b-0 [&_td]:border-b [&_td]:px-3 [&_td]:py-2 [&_th]:border-b [&_th]:bg-muted/50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted-foreground">
         <thead>
           <tr>
             <th>{t("usage.table.model")}</th>

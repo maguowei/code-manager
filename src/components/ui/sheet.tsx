@@ -2,6 +2,7 @@ import { XIcon } from "lucide-react";
 import { Dialog as SheetPrimitive } from "radix-ui";
 import type * as React from "react";
 
+import { TYPOGRAPHY } from "@/components/typography-classes";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 
@@ -104,7 +105,7 @@ function SheetTitle({ className, ...props }: React.ComponentProps<typeof SheetPr
   return (
     <SheetPrimitive.Title
       data-slot="sheet-title"
-      className={cn("font-semibold text-foreground", className)}
+      className={cn(TYPOGRAPHY.drawerTitle, className)}
       {...props}
     />
   );

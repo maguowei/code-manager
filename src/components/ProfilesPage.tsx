@@ -23,6 +23,7 @@ import ProfileEditor from "./ProfileEditor";
 import ProfileNameBadge from "./ProfileNameBadge";
 import ModelTestResultDialog from "./profile-editor/ModelTestResultDialog";
 import { readPermissionsDefaultMode } from "./profile-editor/PermissionsEditor";
+import { TYPOGRAPHY } from "./typography-classes";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -751,13 +752,21 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
 
                     <div className="flex flex-wrap items-center justify-end gap-2">
                       {isEditingProfile ? (
-                        <Badge className="editing rounded-md bg-chart-3/10 px-2.5 py-1.5 text-sm font-semibold text-chart-3">
+                        <Badge
+                          className={cn(
+                            "editing rounded-md bg-chart-3/10 px-2.5 py-1.5 text-chart-3",
+                            TYPOGRAPHY.badge,
+                          )}
+                        >
                           {t("profiles.badges.editing")}
                         </Badge>
                       ) : isAppliedProfile ? (
                         <Badge
                           variant="secondary"
-                          className="active rounded-md px-2.5 py-1.5 text-sm font-semibold text-chart-2"
+                          className={cn(
+                            "active rounded-md px-2.5 py-1.5 text-chart-2",
+                            TYPOGRAPHY.badge,
+                          )}
                         >
                           {t("profiles.badges.inUse")}
                         </Badge>

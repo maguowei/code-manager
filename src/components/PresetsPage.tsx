@@ -20,6 +20,7 @@ import {
 } from "./layout-size-classes";
 import PageHeader from "./PageHeader";
 import PresetEditor from "./PresetEditor";
+import { TYPOGRAPHY } from "./typography-classes";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -158,7 +159,7 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
           <div className="preset-section-header flex items-start justify-between gap-4">
             <div>
               <h2 className="text-base font-semibold">{t("presets.builtin.title")}</h2>
-              <p className="mt-1.5 leading-normal text-muted-foreground">
+              <p className={cn("mt-1.5", TYPOGRAPHY.mutedBody)}>
                 {t("presets.builtin.description")}
               </p>
             </div>
@@ -207,7 +208,7 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
           <div className="preset-section-header flex items-start justify-between gap-4">
             <div>
               <h2 className="text-base font-semibold">{t("presets.custom.title")}</h2>
-              <p className="mt-1.5 leading-normal text-muted-foreground">
+              <p className={cn("mt-1.5", TYPOGRAPHY.mutedBody)}>
                 {t("presets.custom.description")}
               </p>
             </div>

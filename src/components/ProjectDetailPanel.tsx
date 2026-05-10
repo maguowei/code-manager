@@ -11,6 +11,7 @@ import {
   type TranslateFn,
 } from "./project-detail-utils";
 import { PANEL_SURFACE_CLASS } from "./surface-classes";
+import { TYPOGRAPHY } from "./typography-classes";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -336,7 +337,7 @@ function ProjectDetailPanel({
           )}
         >
           <div className="projects-hero-copy">
-            <h2 className="text-xl font-bold leading-tight text-foreground">{summary.shortName}</h2>
+            <h2 className={TYPOGRAPHY.pageTitle}>{summary.shortName}</h2>
             <p className="projects-hero-path mt-2 break-all text-sm text-muted-foreground">
               {summary.project}
             </p>

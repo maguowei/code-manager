@@ -1,0 +1,15 @@
+export const TYPOGRAPHY = {
+  pageTitle: "text-lg leading-tight font-semibold text-foreground",
+  pageDescription: "text-sm leading-snug text-muted-foreground",
+  sectionTitle: "text-base leading-6 font-semibold text-foreground",
+  dialogTitle: "text-lg leading-none font-semibold",
+  drawerTitle: "text-base leading-tight font-semibold text-foreground",
+  cardTitle: "text-base leading-none font-semibold",
+  fieldLabel: "text-sm leading-none font-medium",
+  body: "text-sm leading-normal text-foreground",
+  mutedBody: "text-sm leading-normal text-muted-foreground",
+  auxiliary: "text-xs leading-snug text-muted-foreground",
+  badge: "text-xs font-semibold",
+  metricValue: "text-xl leading-tight font-bold",
+  metricEmphasis: "text-2xl leading-tight font-extrabold",
+} as const;

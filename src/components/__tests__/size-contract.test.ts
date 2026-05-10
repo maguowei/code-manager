@@ -7,7 +7,7 @@ const runtimeExtensions = new Set([".ts", ".tsx"]);
 const ignoredPathParts = new Set(["__tests__"]);
 
 const compactFontPattern = /text-\[(?:10|11)px\]/g;
-const oversizedDisplayPattern = /\btext-4xl\b/g;
+const oversizedDisplayPattern = /\btext-(?:3xl|4xl)\b/g;
 const compactFontAllowlist = new Set([join("HistoryHeatmap.tsx")]);
 
 function extensionOf(path: string) {

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { TYPOGRAPHY } from "./typography-classes";
 
 type PageHeaderSurface = "background" | "secondary" | "card";
 type PageHeaderVariant = "default" | "list";
@@ -55,18 +56,14 @@ function PageHeader({
           mainClassName,
         )}
       >
-        <h1
-          className={cn(
-            "page-title min-w-0 truncate text-lg leading-tight font-semibold text-foreground",
-            titleClassName,
-          )}
-        >
+        <h1 className={cn("page-title min-w-0 truncate", TYPOGRAPHY.pageTitle, titleClassName)}>
           {title}
         </h1>
         {description ? (
           <p
             className={cn(
-              "page-header-description min-w-0 max-w-[min(52vw,560px)] truncate text-xs leading-snug text-muted-foreground max-[900px]:max-w-full",
+              "page-header-description min-w-0 max-w-[min(52vw,560px)] truncate max-[900px]:max-w-full",
+              TYPOGRAPHY.pageDescription,
               descriptionClassName,
             )}
           >

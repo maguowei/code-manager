@@ -289,6 +289,44 @@ describe("ui system contract", () => {
     expect(skillEditorSource).toContain("bg-secondary");
   });
 
+  it("routes shared typography hierarchy through typography classes", () => {
+    for (const [file, expectedTokens] of [
+      ["src/components/PageHeader.tsx", ["TYPOGRAPHY.pageTitle", "TYPOGRAPHY.pageDescription"]],
+      ["src/components/editor-layout.tsx", ["TYPOGRAPHY.sectionTitle"]],
+      ["src/components/profile-editor/SettingsSectionModePanel.tsx", ["TYPOGRAPHY.sectionTitle"]],
+      ["src/components/profile-editor/DocumentEditorSection.tsx", ["TYPOGRAPHY.sectionTitle"]],
+      ["src/components/ui/card.tsx", ["TYPOGRAPHY.cardTitle"]],
+      ["src/components/ui/dialog.tsx", ["TYPOGRAPHY.dialogTitle"]],
+      ["src/components/ui/alert-dialog.tsx", ["TYPOGRAPHY.dialogTitle"]],
+      ["src/components/ui/sheet.tsx", ["TYPOGRAPHY.drawerTitle"]],
+    ] as const) {
+      const source = readFileSync(file, "utf8");
+
+      for (const token of expectedTokens) {
+        expect(source, file).toContain(token);
+      }
+    }
+  });
+
+  it("routes page-level typography refinements through the shared hierarchy", () => {
+    for (const [file, expectedTokens] of [
+      ["src/components/ClaudeOverviewPage.tsx", ["TYPOGRAPHY.pageTitle"]],
+      ["src/components/ProjectDetailPanel.tsx", ["TYPOGRAPHY.pageTitle"]],
+      ["src/components/ProfilesPage.tsx", ["TYPOGRAPHY.badge"]],
+      ["src/components/PresetsPage.tsx", ["TYPOGRAPHY.mutedBody"]],
+      [
+        "src/components/UsagePage.tsx",
+        ["TYPOGRAPHY.metricEmphasis", "TYPOGRAPHY.metricValue", "[&_.num]:tabular-nums"],
+      ],
+    ] as const) {
+      const source = readFileSync(file, "utf8");
+
+      for (const token of expectedTokens) {
+        expect(source, file).toContain(token);
+      }
+    }
+  });
+
   it("uses InputGroup for plugin list search affordance", () => {
     const source = readFileSync("src/components/profile-editor/EnabledPluginsEditor.tsx", "utf8");
 

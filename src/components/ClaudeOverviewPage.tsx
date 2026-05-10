@@ -42,6 +42,7 @@ import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import MarkdownPreview from "./claude-overview/MarkdownPreview";
 import { PANEL_SURFACE_CLASS } from "./surface-classes";
 import { useTheme } from "./theme-provider";
+import { TYPOGRAPHY } from "./typography-classes";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -1319,10 +1320,7 @@ function ClaudeOverviewPage() {
       {hasMounted ? <ClaudeOverviewIconSprite /> : null}
       <header className="claude-overview-header flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-4 border-b bg-card/95 px-4 py-2 shadow-toolbar max-[700px]:items-start max-[700px]:justify-start max-[700px]:gap-2">
         <div className="claude-overview-title-group flex min-w-0 flex-1 basis-[280px] items-baseline gap-2.5 max-[700px]:flex-[0_1_auto] max-[700px]:flex-wrap">
-          <h1
-            id="claude-overview-title"
-            className="whitespace-nowrap text-base font-semibold leading-tight"
-          >
+          <h1 id="claude-overview-title" className={cn("whitespace-nowrap", TYPOGRAPHY.pageTitle)}>
             {t("claudeOverview.title")}
           </h1>
           <p className="font-mono text-xs leading-tight text-muted-foreground [overflow-wrap:anywhere]">

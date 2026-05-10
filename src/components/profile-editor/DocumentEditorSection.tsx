@@ -2,6 +2,7 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../../i18n";
 import ConfigPreview from "../ConfigPreview";
+import { TYPOGRAPHY } from "../typography-classes";
 import { Button } from "../ui/button";
 
 type DocumentEditorMode = "preview" | "json";
@@ -44,7 +45,7 @@ function DocumentEditorSection({
     <section className="flex flex-col gap-4 rounded-lg border border-border/80 bg-card p-5 shadow-panel">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h3>{title}</h3>
+          <h3 className={TYPOGRAPHY.sectionTitle}>{title}</h3>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
