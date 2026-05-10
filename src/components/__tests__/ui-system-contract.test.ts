@@ -337,6 +337,24 @@ describe("ui system contract", () => {
     expect(source).not.toContain("SUBTLE_SURFACE_CLASS");
   });
 
+  it("keeps stats project detail metric cards on bright panel surfaces", () => {
+    const source = readFileSync("src/components/StatsPage.tsx", "utf8");
+
+    expect(source).toContain("stats-project-body flex flex-col gap-4 border-t bg-muted/20 p-4");
+    expect(source).toMatch(
+      /"stats-project-metric flex min-w-0 flex-col gap-1 rounded-md border p-3",\s*PANEL_SURFACE_CLASS/,
+    );
+    expect(source).toMatch(
+      /"stats-performance-card min-w-0 rounded-md border p-3",\s*PANEL_SURFACE_CLASS/,
+    );
+    expect(source).not.toMatch(
+      /"stats-project-metric flex min-w-0 flex-col gap-1 rounded-md border p-3",\s*SUBTLE_SURFACE_CLASS/,
+    );
+    expect(source).not.toMatch(
+      /"stats-performance-card min-w-0 rounded-md border p-3",\s*SUBTLE_SURFACE_CLASS/,
+    );
+  });
+
   it("keeps local surface controls responsive without thick focus treatment", () => {
     const surfaceSource = readFileSync("src/components/surface-classes.ts", "utf8");
     const memoryEditorSource = readFileSync("src/components/MemoryEditor.tsx", "utf8");

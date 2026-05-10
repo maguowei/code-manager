@@ -16,11 +16,7 @@ import { type ClaudeStats, isTauri, type ProjectStats } from "../types";
 import EmptyState from "./EmptyState";
 import PageHeader from "./PageHeader";
 import { formatDuration } from "./project-detail-utils";
-import {
-  CONTROL_SURFACE_CLASS,
-  PANEL_SURFACE_CLASS,
-  SUBTLE_SURFACE_CLASS,
-} from "./surface-classes";
+import { CONTROL_SURFACE_CLASS, PANEL_SURFACE_CLASS } from "./surface-classes";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
@@ -401,7 +397,7 @@ function ProjectMetric({
     <div
       className={cn(
         "stats-project-metric flex min-w-0 flex-col gap-1 rounded-md border p-3",
-        SUBTLE_SURFACE_CLASS,
+        PANEL_SURFACE_CLASS,
       )}
     >
       <span className="stats-project-metric-label text-xs font-bold tracking-wide text-muted-foreground uppercase">
@@ -422,7 +418,7 @@ function ProjectMetric({
 function PerformanceMetric({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div
-      className={cn("stats-performance-card min-w-0 rounded-md border p-3", SUBTLE_SURFACE_CLASS)}
+      className={cn("stats-performance-card min-w-0 rounded-md border p-3", PANEL_SURFACE_CLASS)}
     >
       <div className="stats-metric-label mb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
         {label}
