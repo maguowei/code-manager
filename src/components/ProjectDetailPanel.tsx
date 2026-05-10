@@ -10,7 +10,7 @@ import {
   formatUSD,
   type TranslateFn,
 } from "./project-detail-utils";
-import { PANEL_SURFACE_CLASS, SUBTLE_SURFACE_CLASS } from "./surface-classes";
+import { PANEL_SURFACE_CLASS } from "./surface-classes";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -101,12 +101,7 @@ function SectionHeading({ title, description, action }: SectionHeadingProps) {
 
 function StatusStripItem({ label, value, tone }: StatusStripItemProps) {
   return (
-    <div
-      className={cn(
-        "projects-status-item min-w-0 border-t p-4 first:border-t-0 md:border-t-0 md:border-l md:first:border-l-0",
-        SUBTLE_SURFACE_CLASS,
-      )}
-    >
+    <div className="projects-status-item min-w-0 border-t bg-card p-4 first:border-t-0 md:border-t-0 md:border-l md:first:border-l-0">
       <span className="projects-status-item-label text-sm text-muted-foreground">{label}</span>
       <StatusBadge tone={tone}>{value}</StatusBadge>
     </div>
@@ -333,8 +328,13 @@ function ProjectDetailPanel({
 
   return (
     <div className="projects-detail-scroll flex h-full flex-col gap-6 overflow-y-auto p-5 lg:p-6">
-      <header className="projects-hero grid gap-6 border-b pb-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,0.95fr)]">
-        <div className="projects-hero-main flex min-w-0 flex-col gap-4">
+      <header className="projects-hero grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,0.95fr)]">
+        <Card
+          className={cn(
+            "projects-hero-main flex min-w-0 flex-col gap-4 rounded-lg p-5",
+            PANEL_SURFACE_CLASS,
+          )}
+        >
           <div className="projects-hero-copy">
             <h2 className="text-xl font-bold leading-tight text-foreground">{summary.shortName}</h2>
             <p className="projects-hero-path mt-2 break-all text-sm text-muted-foreground">
@@ -352,7 +352,7 @@ function ProjectDetailPanel({
               </span>
             </div>
           </div>
-        </div>
+        </Card>
 
         <Card className={cn("projects-hero-side gap-4 rounded-lg p-5", PANEL_SURFACE_CLASS)}>
           <SectionHeading title={t("projects.quickActions")} />

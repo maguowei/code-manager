@@ -73,6 +73,11 @@ describe("ui system contract", () => {
       expect(source, file).not.toContain("bg-[var(");
       expect(source, file).not.toMatch(/<(?:Copy|Trash2|RefreshCw|Plus)[^>]*className=/);
     }
+
+    const presetsSource = readFileSync("src/components/PresetsPage.tsx", "utf8");
+    expect(presetsSource).toContain("PRESET_CARD_CLASS");
+    expect(presetsSource).toContain("bg-card");
+    expect(presetsSource).not.toContain('PRESET_BUILTIN_CARD_CLASS = "builtin bg-muted');
   });
 
   it("keeps the app shell background on semantic tokens", () => {
@@ -178,16 +183,62 @@ describe("ui system contract", () => {
     const usageSource = readFileSync("src/components/UsagePage.tsx", "utf8");
     const projectsSource = readFileSync("src/components/ProjectsPage.tsx", "utf8");
     const historySource = readFileSync("src/components/HistoryPage.tsx", "utf8");
+    const historyProjectsSource = readFileSync("src/components/HistoryProjectList.tsx", "utf8");
+    const historySessionsSource = readFileSync("src/components/HistorySessionList.tsx", "utf8");
     const overviewSource = readFileSync("src/components/ClaudeOverviewPage.tsx", "utf8");
 
     expect(statsSource).toContain('surface="secondary"');
     expect(usageSource).toContain('surface="secondary"');
     expect(projectsSource).toContain('surface="secondary"');
     expect(historySource).toContain('surface="secondary"');
+    expect(historySource).toContain("history-body grid min-h-0 flex-1");
+    expect(historySource).toContain("PANEL_SURFACE_CLASS");
+    expect(historyProjectsSource).toContain("PANEL_SURFACE_CLASS");
+    expect(historyProjectsSource).not.toContain("border-r bg-secondary");
+    expect(historySessionsSource).toContain("bg-card");
+    expect(historySessionsSource).not.toContain("bg-secondary px-3 py-2");
+    expect(projectsSource).toContain("projects-body flex min-h-0 flex-1 gap-3");
+    expect(projectsSource).toContain("projects-list flex w-[280px]");
+    expect(projectsSource).toContain(
+      "projects-list-card gap-0 rounded-lg border-border/80 bg-card",
+    );
+    expect(projectsSource).toContain("PANEL_SURFACE_CLASS");
+    expect(projectsSource).not.toContain("border-r bg-secondary");
+    expect(projectsSource).not.toContain("border-transparent bg-transparent");
+    expect(projectsSource).not.toContain(
+      "projects-list-card gap-0 rounded-lg border-border/80 bg-background",
+    );
     expect(overviewSource).toContain("claude-overview-preview-pane");
     expect(overviewSource).toContain("bg-card");
     expect(overviewSource).toContain("claude-overview-tree-pane");
     expect(overviewSource).toContain("bg-secondary");
+    expect(overviewSource).toContain("claude-overview-tree-ready h-full min-h-0");
+    expect(overviewSource).toContain("PANEL_SURFACE_CLASS");
+  });
+
+  it("keeps the projects detail hero on card panels instead of the page canvas", () => {
+    const detailSource = readFileSync("src/components/ProjectDetailPanel.tsx", "utf8");
+
+    expect(detailSource).toContain("projects-hero grid gap-6");
+    expect(detailSource).toContain("projects-hero-main flex min-w-0 flex-col gap-4 rounded-lg p-5");
+    expect(detailSource).toContain("projects-hero-side gap-4 rounded-lg p-5");
+    expect(detailSource).toContain("projects-status-item min-w-0 border-t bg-card");
+    expect(detailSource).toContain("PANEL_SURFACE_CLASS");
+    expect(detailSource).not.toContain("projects-hero grid gap-6 border-b pb-5");
+    expect(detailSource).not.toContain("SUBTLE_SURFACE_CLASS");
+  });
+
+  it("keeps session detail drawer content panels distinct from the secondary canvas", () => {
+    const source = readFileSync("src/components/SessionDetailDrawer.tsx", "utf8");
+
+    expect(source).toContain("border-l bg-secondary");
+    expect(source).toContain('SheetHeader className="shrink-0 border-b bg-card/95');
+    expect(source).toContain('data-slot="session-event"');
+    expect(source).toContain("rounded-md border bg-card px-3 py-2 shadow-xs");
+    expect(source).toContain("rounded-md border bg-background px-3 py-2");
+    expect(source).toContain("rounded-sm bg-card px-1.5 py-0.5");
+    expect(source).not.toContain("rounded-md border bg-muted/20 px-3 py-2");
+    expect(source).not.toContain("rounded-md border bg-muted/40 px-3 py-2");
   });
 
   it("keeps local surface controls responsive without thick focus treatment", () => {

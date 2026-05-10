@@ -40,6 +40,7 @@ import type {
 } from "../types";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import MarkdownPreview from "./claude-overview/MarkdownPreview";
+import { PANEL_SURFACE_CLASS } from "./surface-classes";
 import { useTheme } from "./theme-provider";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -111,7 +112,7 @@ const CLAUDE_DIRECTORY_DOCS_PATH = "claude-directory";
 const FILE_TREE_THEME_STYLE = {
   "--trees-accent-override": "var(--primary)",
   "--trees-bg-muted-override": "var(--muted)",
-  "--trees-bg-override": "var(--secondary)",
+  "--trees-bg-override": "var(--card)",
   "--trees-border-color-override": "var(--border)",
   "--trees-fg-override": "var(--foreground)",
   "--trees-fg-muted-override": "var(--muted-foreground)",
@@ -1419,7 +1420,7 @@ function ClaudeOverviewPage() {
                   <div
                     key={openedPreview.path}
                     className={cn(
-                      "claude-overview-tab-shell flex h-7 max-w-60 shrink-0 items-center rounded-t-md border border-b-0 bg-muted",
+                      "claude-overview-tab-shell flex h-7 min-w-0 max-w-60 shrink-0 items-center overflow-hidden rounded-t-md border border-b-0 bg-muted",
                       isActive && "active bg-background",
                     )}
                   >
@@ -1428,11 +1429,11 @@ function ClaudeOverviewPage() {
                       role="tab"
                       variant="ghost"
                       aria-selected={isActive}
-                      className="claude-overview-tab h-full min-w-0 justify-start gap-1.5 overflow-hidden bg-transparent px-2.5 font-mono text-sm aria-selected:text-foreground aria-[selected=false]:text-muted-foreground"
+                      className="claude-overview-tab h-full min-w-0 flex-1 justify-start gap-1.5 overflow-hidden bg-transparent px-2.5 font-mono text-sm aria-selected:text-foreground aria-[selected=false]:text-muted-foreground"
                       onClick={() => handleSelectPreviewTab(openedPreview.path)}
                     >
                       <ClaudeOverviewFileIcon path={openedPreview.path} />
-                      <span className="claude-overview-tab-label min-w-0 truncate">
+                      <span className="claude-overview-tab-label block min-w-0 flex-1 truncate">
                         {openedPreview.name || openedPreview.path}
                       </span>
                     </Button>
@@ -1594,9 +1595,21 @@ function ClaudeOverviewPage() {
           aria-label={t("claudeOverview.tree")}
         >
           {showTreeLoading ? (
-            <ClaudeOverviewTreeLoading label={treeLoadingLabel} />
+            <div
+              className={cn(
+                "claude-overview-tree-loading-panel h-full min-h-0 overflow-hidden rounded-lg border",
+                PANEL_SURFACE_CLASS,
+              )}
+            >
+              <ClaudeOverviewTreeLoading label={treeLoadingLabel} />
+            </div>
           ) : treePaths.length > 0 ? (
-            <div className="claude-overview-tree-ready h-full min-h-0">
+            <div
+              className={cn(
+                "claude-overview-tree-ready h-full min-h-0 overflow-hidden rounded-lg border",
+                PANEL_SURFACE_CLASS,
+              )}
+            >
               <ClaudeDirectoryTree
                 paths={treePaths}
                 onSelectPath={handleSelectPath}
@@ -1604,7 +1617,12 @@ function ClaudeOverviewPage() {
               />
             </div>
           ) : (
-            <div className="claude-overview-empty flex min-h-[180px] flex-1 items-center justify-center p-5 text-center leading-relaxed text-muted-foreground">
+            <div
+              className={cn(
+                "claude-overview-empty flex min-h-[180px] flex-1 items-center justify-center rounded-lg border p-5 text-center leading-relaxed text-muted-foreground",
+                PANEL_SURFACE_CLASS,
+              )}
+            >
               {t("claudeOverview.empty")}
             </div>
           )}

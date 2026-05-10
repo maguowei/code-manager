@@ -3,6 +3,7 @@ import { type KeyboardEvent, memo, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import type { HistoryProjectGroup } from "../history-utils";
 import { useI18n } from "../i18n";
+import { PANEL_SURFACE_CLASS } from "./surface-classes";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 
@@ -56,7 +57,10 @@ function HistoryProjectList({ groups, selectedProject, onSelect }: Props) {
 
   return (
     <div
-      className="history-projects flex w-[220px] shrink-0 flex-col gap-1 overflow-y-auto border-r bg-secondary p-2 max-md:w-full max-md:flex-row max-md:overflow-x-auto max-md:overflow-y-hidden max-md:border-r-0 max-md:border-b max-md:px-3"
+      className={cn(
+        "history-projects flex w-[220px] shrink-0 flex-col gap-1 overflow-y-auto rounded-lg border p-2 max-md:w-full max-md:flex-row max-md:overflow-x-auto max-md:overflow-y-hidden max-md:px-3",
+        PANEL_SURFACE_CLASS,
+      )}
       role="listbox"
       aria-label={t("history.title")}
       tabIndex={0}

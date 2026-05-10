@@ -28,7 +28,11 @@ import {
 import PageHeader from "./PageHeader";
 import ProjectDetailPanel from "./ProjectDetailPanel";
 import { formatDuration, formatUSD } from "./project-detail-utils";
-import { CONTROL_SURFACE_CLASS, SUBTLE_SURFACE_CLASS } from "./surface-classes";
+import {
+  CONTROL_SURFACE_CLASS,
+  PANEL_SURFACE_CLASS,
+  SUBTLE_SURFACE_CLASS,
+} from "./surface-classes";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -711,16 +715,19 @@ function ProjectsPage() {
     <div className="projects-page flex h-full w-full flex-col overflow-hidden bg-secondary">
       <PageHeader title={t("projects.title")} surface="secondary" actions={projectHeaderActions} />
 
-      <div className="projects-body flex min-h-0 flex-1 overflow-hidden bg-secondary">
+      <div className="projects-body flex min-h-0 flex-1 gap-3 overflow-hidden bg-secondary p-3">
         <aside
-          className="projects-list flex w-[280px] shrink-0 flex-col gap-2 overflow-y-auto border-r bg-secondary p-3 lg:w-80"
+          className={cn(
+            "projects-list flex w-[280px] shrink-0 flex-col gap-2 overflow-y-auto rounded-lg border p-3 lg:w-80",
+            PANEL_SURFACE_CLASS,
+          )}
           aria-label={t("projects.title")}
         >
           {projectSummaries.map((summary) => (
             <Card
               key={summary.project}
               className={cn(
-                "projects-list-card gap-0 rounded-lg border-transparent bg-transparent p-0 py-0 shadow-none transition-all hover:-translate-y-0.5 hover:border-border hover:bg-accent/50 hover:shadow-xs",
+                "projects-list-card gap-0 rounded-lg border-border/80 bg-card p-0 py-0 shadow-xs transition-all hover:-translate-y-0.5 hover:border-primary/55 hover:bg-accent/50",
                 selectedProject === summary.project && "border-primary bg-primary/10 shadow-xs",
               )}
             >

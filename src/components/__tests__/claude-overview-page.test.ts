@@ -59,10 +59,20 @@ describe("ClaudeOverviewPage styles", () => {
     expect(source).toContain('size="icon-sm"');
   });
 
+  it("truncates long preview tab filenames within the tab shell", () => {
+    const source = readText("src/components/ClaudeOverviewPage.tsx");
+
+    expect(source).toContain("claude-overview-tab-shell flex h-7 min-w-0 max-w-60");
+    expect(source).toContain("items-center overflow-hidden rounded-t-md");
+    expect(source).toContain("claude-overview-tab h-full min-w-0 flex-1");
+    expect(source).toContain("claude-overview-tab-label block min-w-0 flex-1 truncate");
+    expect(source).toContain("claude-overview-tab-close mr-0.5 size-6 shrink-0");
+  });
+
   it("bridges Pierre tree colors to the app theme", () => {
     const source = readText("src/components/ClaudeOverviewPage.tsx");
 
-    expect(source).toContain('"--trees-bg-override": "var(--secondary)"');
+    expect(source).toContain('"--trees-bg-override": "var(--card)"');
     expect(source).toContain('"--trees-fg-override": "var(--foreground)"');
     expect(source).toContain('"--trees-fg-muted-override": "var(--muted-foreground)"');
     expect(source).toContain('"--trees-search-bg-override": "var(--background)"');
@@ -75,6 +85,21 @@ describe("ClaudeOverviewPage styles", () => {
     expect(source).toContain("TREE_LOADING_ROW_CLASS_NAMES");
     expect(source).toContain("claude-overview-tree-loading flex h-full min-h-0");
     expect(source).toContain("motion-safe:animate-pulse");
+  });
+
+  it("places the file tree inside a card surface over the secondary canvas", () => {
+    const source = readText("src/components/ClaudeOverviewPage.tsx");
+
+    expect(source).toContain(
+      "claude-overview-tree-pane min-h-0 min-w-0 overflow-hidden bg-secondary",
+    );
+    expect(source).toContain(
+      "claude-overview-tree-ready h-full min-h-0 overflow-hidden rounded-lg border",
+    );
+    expect(source).toContain(
+      "claude-overview-tree-loading-panel h-full min-h-0 overflow-hidden rounded-lg border",
+    );
+    expect(source).toContain("PANEL_SURFACE_CLASS");
   });
 
   it("marks markdown previews with explicit light and dark theme classes", () => {

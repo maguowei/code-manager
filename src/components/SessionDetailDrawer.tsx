@@ -278,7 +278,7 @@ function ThinkingBlock({ thinking, label }: { thinking: string; label: string })
   return (
     <CollapsibleBlock
       icon={<Brain className="size-3.5" />}
-      contentClass="mt-2 rounded-md border bg-muted/40 p-3 text-sm leading-6 [&_pre]:overflow-x-auto [&_p]:my-1"
+      contentClass="mt-2 rounded-md border bg-background p-3 text-sm leading-6 [&_pre]:overflow-x-auto [&_p]:my-1"
       label={label}
       summary={content.split("\n")[0]}
     >
@@ -290,10 +290,10 @@ function ThinkingBlock({ thinking, label }: { thinking: string; label: string })
 /** 渲染斜杠命令块 */
 function CommandBlock({ name, args, label }: { name: string; args?: string; label: string }) {
   return (
-    <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm [overflow-wrap:anywhere]">
+    <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm [overflow-wrap:anywhere]">
       <Terminal className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       <span className="shrink-0 text-xs font-semibold text-muted-foreground">{label}</span>
-      <code className="min-w-0 rounded-sm bg-background px-1.5 py-0.5 font-mono font-medium [overflow-wrap:anywhere]">
+      <code className="min-w-0 rounded-sm bg-card px-1.5 py-0.5 font-mono font-medium [overflow-wrap:anywhere]">
         {stripAnsiForDisplay(name)}
       </code>
       {args && (
@@ -311,7 +311,7 @@ function SystemBlock({ summary, label }: { summary: string; label: string }) {
   return (
     <CollapsibleBlock
       icon={<Info className="size-3.5" />}
-      contentClass="mt-2 rounded-md border bg-muted/30 px-3 py-2 text-sm leading-6 text-muted-foreground"
+      contentClass="mt-2 rounded-md border bg-background px-3 py-2 text-sm leading-6 text-muted-foreground"
       label={label}
       summary={content}
     >
@@ -337,7 +337,7 @@ function PlanBlock({
 
   return (
     <CollapsibleBlock
-      wrapClass="rounded-md border bg-muted/30 p-3"
+      wrapClass="rounded-md border bg-background p-3"
       icon={<ClipboardList className="size-3.5" />}
       contentClass="mt-3 border-t pt-3 text-sm leading-6 [&_pre]:overflow-x-auto [&_p]:my-1"
       label={
@@ -650,11 +650,11 @@ function EventMessage({ msg, t }: { msg: SessionMessage; t: (key: TranslationKey
   return (
     <div data-slot="session-event" className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)] gap-3">
       <div className="flex justify-center pt-1">
-        <span className="flex size-7 items-center justify-center rounded-full border bg-muted text-muted-foreground">
+        <span className="flex size-7 items-center justify-center rounded-full border bg-card text-muted-foreground shadow-xs">
           <Clock3 className="size-3.5" aria-hidden="true" />
         </span>
       </div>
-      <div className="min-w-0 rounded-md border bg-muted/20 px-3 py-2">
+      <div className="min-w-0 rounded-md border bg-card px-3 py-2 shadow-xs">
         <div className="mb-2 flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <span className="font-medium">{t("history.event")}</span>
           {msg.timestamp && <span>{formatTimestamp(msg.timestamp)}</span>}
@@ -764,7 +764,7 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
         showCloseButton={false}
         className="left-[60px] w-auto min-w-0 gap-0 overflow-hidden border-l bg-secondary p-0 sm:max-w-none max-[700px]:left-[48px]"
       >
-        <SheetHeader className="shrink-0 border-b px-5 py-4 pr-12">
+        <SheetHeader className="shrink-0 border-b bg-card/95 px-5 py-4 pr-12 shadow-toolbar">
           <div className="flex min-w-0 items-start gap-3">
             <div className="min-w-0 flex-1">
               <SheetTitle className="flex min-w-0 flex-wrap items-baseline gap-2 text-base">

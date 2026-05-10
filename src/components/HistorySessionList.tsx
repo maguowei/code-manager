@@ -128,7 +128,7 @@ function HistorySessionList({ groups, searchQuery, onViewDetail }: Props) {
 
   if (groups.length === 0) {
     return (
-      <div className="history-sessions relative flex-1 overflow-y-auto bg-secondary px-3 py-2">
+      <div className="history-sessions relative flex-1 overflow-y-auto bg-card px-3 py-2">
         <div className="empty-state flex min-h-[240px] flex-col items-center justify-center gap-3 px-5 text-center text-sm text-muted-foreground">
           <MessageSquare className="size-10" strokeWidth={1.5} aria-hidden="true" />
           <span>{t("history.noData")}</span>
@@ -143,7 +143,7 @@ function HistorySessionList({ groups, searchQuery, onViewDetail }: Props) {
   return (
     <div
       ref={scrollRef}
-      className="history-sessions relative flex-1 overflow-y-auto bg-secondary px-3 py-2 max-sm:px-2"
+      className="history-sessions relative flex-1 overflow-y-auto bg-card px-3 py-2 max-sm:px-2"
     >
       <div className="history-sessions-spacer relative w-full" style={{ height: totalSize }}>
         {virtualItems.map((vi) => {

@@ -1,5 +1,6 @@
 import { Search } from "lucide-react";
 import { useCallback, useEffect, useMemo } from "react";
+import { cn } from "@/lib/utils";
 import {
   groupByProject,
   groupBySession,
@@ -14,6 +15,7 @@ import HistoryProjectList from "./HistoryProjectList";
 import HistorySessionList from "./HistorySessionList";
 import PageHeader from "./PageHeader";
 import SessionDetailDrawer from "./SessionDetailDrawer";
+import { PANEL_SURFACE_CLASS } from "./surface-classes";
 import { Input } from "./ui/input";
 
 function HistoryPage() {
@@ -103,14 +105,19 @@ function HistoryPage() {
     <div className="history-page flex h-full w-full flex-col overflow-hidden bg-secondary">
       <PageHeader title={t("history.title")} surface="secondary" />
 
-      <div className="history-body grid min-h-0 flex-1 grid-cols-[220px_minmax(0,1fr)] overflow-hidden bg-secondary max-md:grid-cols-1 max-md:grid-rows-[auto_minmax(0,1fr)]">
+      <div className="history-body grid min-h-0 flex-1 grid-cols-[220px_minmax(0,1fr)] gap-3 overflow-hidden bg-secondary p-3 max-md:grid-cols-1 max-md:grid-rows-[auto_minmax(0,1fr)] max-md:p-2">
         <HistoryProjectList
           groups={projectGroups}
           selectedProject={selectedProject}
           onSelect={handleSelectProject}
         />
-        <div className="history-main flex min-w-0 flex-col overflow-hidden bg-secondary">
-          <div className="history-top flex shrink-0 flex-wrap items-start gap-4 border-b bg-card/70 p-3 md:p-4">
+        <div
+          className={cn(
+            "history-main flex min-w-0 flex-col overflow-hidden rounded-lg border",
+            PANEL_SURFACE_CLASS,
+          )}
+        >
+          <div className="history-top flex shrink-0 flex-wrap items-start gap-4 border-b bg-card/95 p-3 md:p-4">
             <HistoryHeatmap entries={allEntries} />
             <div className="history-search relative mt-1 ml-auto w-full flex-none md:w-[220px]">
               <Search
