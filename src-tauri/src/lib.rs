@@ -22,7 +22,9 @@ use config::{
     install_status_line_preset, preview_profile, reorder_profiles, set_app_preferences,
     test_profile_model, upsert_preset, upsert_profile,
 };
-use history::{get_history, get_history_if_changed, get_session_detail};
+use history::{
+    get_history, get_history_if_changed, get_session_detail, open_session_file_in_editor,
+};
 use logging::{clear_app_logs, get_app_logs, open_logs_dir};
 use memory::{
     add_memory, delete_memory, duplicate_memory, get_memories, import_memories_from_directory,
@@ -138,6 +140,7 @@ pub fn run() {
             get_history,
             get_history_if_changed,
             get_session_detail,
+            open_session_file_in_editor,
             get_app_logs,
             open_logs_dir,
             clear_app_logs,

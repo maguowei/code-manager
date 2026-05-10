@@ -11,6 +11,7 @@ import {
   ClipboardList,
   Clock3,
   Copy,
+  FileJson,
   Hash,
   Image as ImageIcon,
   Info,
@@ -854,6 +855,29 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
     ? formatMessageCount(messages.length, t("history.messageCountUnit"))
     : null;
   const timeRange = messages ? formatDateRange(messages, t("history.timeUnknown")) : null;
+  const handleCopyHeaderValue = async (
+    value: string,
+    successKey: TranslationKey,
+    errorKey: TranslationKey,
+  ) => {
+    try {
+      if (!value) throw new Error("empty value");
+      await navigator.clipboard.writeText(value);
+      showToast(t(successKey));
+    } catch {
+      showToast(t(errorKey), "error");
+    }
+  };
+  const handleOpenRawSessionFile = async () => {
+    if (!isTauri()) return;
+
+    try {
+      await invoke("open_session_file_in_editor", { project: headerProject, sessionId });
+      showToast(t("history.rawSessionFileOpenRequested"));
+    } catch {
+      showToast(t("history.rawSessionFileOpenError"), "error");
+    }
+  };
   const handleCopyMessage = async (message: SessionMessage) => {
     try {
       const content = messageToCopyText(message, t);
@@ -884,24 +908,55 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
                   data-slot="session-detail-context"
                   className="flex min-w-[180px] flex-1 flex-wrap items-center gap-2"
                 >
-                  <SheetDescription
-                    className="min-w-0 truncate text-sm font-semibold text-foreground"
-                    title={stripAnsiForDisplay(headerProject)}
-                  >
-                    {headerProjectName}
+                  <SheetDescription asChild>
+                    <button
+                      type="button"
+                      className="min-w-0 truncate rounded-md border border-transparent px-1 text-sm font-semibold text-foreground transition-colors hover:border-border hover:bg-accent hover:text-accent-foreground focus-visible:border-primary/70 focus-visible:bg-accent focus-visible:outline-none focus-visible:ring-0"
+                      title={stripAnsiForDisplay(headerProject)}
+                      aria-label={t("history.copyProjectPath")}
+                      onClick={() =>
+                        void handleCopyHeaderValue(
+                          stripAnsiForDisplay(headerProject),
+                          "history.projectPathCopied",
+                          "history.projectPathCopyError",
+                        )
+                      }
+                    >
+                      {headerProjectName}
+                    </button>
                   </SheetDescription>
-                  <Badge
-                    variant="outline"
+                  <button
+                    type="button"
                     data-slot="session-id-badge"
+                    aria-label={t("history.copySessionId")}
                     title={sessionId}
-                    className="max-w-full gap-1.5 rounded-md px-2 py-1 font-normal text-muted-foreground"
+                    className="inline-flex max-w-full shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-md border border-border px-2 py-1 text-xs font-normal whitespace-nowrap text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:border-primary/70 focus-visible:bg-accent focus-visible:outline-none focus-visible:ring-0"
+                    onClick={() =>
+                      void handleCopyHeaderValue(
+                        sessionId,
+                        "history.sessionIdCopied",
+                        "history.sessionIdCopyError",
+                      )
+                    }
                   >
                     <Hash className="size-3.5 shrink-0" aria-hidden="true" />
                     <span className="shrink-0 font-medium">{t("history.session")}</span>
                     <span className="min-w-0 truncate font-mono tabular-nums">
                       {sessionId.slice(0, 8)}
                     </span>
-                  </Badge>
+                  </button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="xs"
+                    className="shrink-0 gap-1.5 text-muted-foreground"
+                    onClick={() => void handleOpenRawSessionFile()}
+                    title={t("history.openRawSessionFile")}
+                    aria-label={t("history.openRawSessionFile")}
+                  >
+                    <FileJson className="size-3.5" aria-hidden="true" />
+                    <span>{t("history.openRawSessionFileShort")}</span>
+                  </Button>
                 </div>
                 {messageMeta && timeRange && (
                   <div
@@ -920,17 +975,21 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
                 )}
               </div>
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="absolute top-3 right-4"
-              onClick={onClose}
-              title={t("common.close")}
+            <div
+              data-slot="session-detail-actions"
+              className="absolute top-3 right-4 flex items-center gap-1"
             >
-              <X className="size-4" />
-              <span className="sr-only">{t("common.close")}</span>
-            </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={onClose}
+                title={t("common.close")}
+              >
+                <X className="size-4" />
+                <span className="sr-only">{t("common.close")}</span>
+              </Button>
+            </div>
           </div>
         </SheetHeader>
 

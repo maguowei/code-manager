@@ -3,6 +3,8 @@ use regex::Regex;
 use serde::Serialize;
 use std::fs;
 use std::io::{BufRead, BufReader};
+use std::path::{Path, PathBuf};
+use std::process::Command;
 
 /// 用于匹配 "Implement the following plan:" 前缀的常量
 const PLAN_PREFIX: &str = "Implement the following plan:";
@@ -19,6 +21,44 @@ fn get_history_path() -> std::path::PathBuf {
     crate::utils::home_dir_or_fallback()
         .join(".claude")
         .join("history.jsonl")
+}
+
+fn encoded_project_path(project: &str) -> String {
+    project.replace(['/', '.'], "-")
+}
+
+fn validate_session_file_inputs(
+    project: &str,
+    session_id: &str,
+) -> Result<(String, String), String> {
+    let project = project.trim();
+    let session_id = session_id.trim();
+    if project.is_empty() {
+        return Err("项目路径不能为空".to_string());
+    }
+    if project.contains('\0') {
+        return Err("项目路径包含非法字符".to_string());
+    }
+    if session_id.is_empty() {
+        return Err("会话 ID 不能为空".to_string());
+    }
+    if session_id.contains(['/', '\\', '\0']) {
+        return Err("会话 ID 包含非法字符".to_string());
+    }
+    Ok((project.to_string(), session_id.to_string()))
+}
+
+fn session_file_path_unchecked(project: &str, session_id: &str) -> PathBuf {
+    crate::utils::home_dir_or_fallback()
+        .join(".claude")
+        .join("projects")
+        .join(encoded_project_path(project))
+        .join(format!("{}.jsonl", session_id))
+}
+
+fn session_file_path(project: &str, session_id: &str) -> Result<PathBuf, String> {
+    let (project, session_id) = validate_session_file_inputs(project, session_id)?;
+    Ok(session_file_path_unchecked(&project, &session_id))
 }
 
 /// 获取文件修改时间（Unix 秒）
@@ -306,13 +346,7 @@ fn parse_content_blocks(content: &serde_json::Value) -> Vec<MessageBlock> {
 /// 获取指定 session 的完整对话记录
 #[tauri::command]
 pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDetail, String> {
-    // 编码项目路径：/ 和 . 都替换为 -（与 Claude 实际编码规则一致）
-    let encoded = project.replace(['/', '.'], "-");
-    let session_file = crate::utils::home_dir_or_fallback()
-        .join(".claude")
-        .join("projects")
-        .join(&encoded)
-        .join(format!("{}.jsonl", session_id));
+    let session_file = session_file_path_unchecked(project, session_id);
 
     if !session_file.exists() {
         return Ok(SessionDetail {
@@ -467,4 +501,82 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
         project: project.to_string(),
         messages,
     })
+}
+
+#[tauri::command]
+pub fn open_session_file_in_editor(project: &str, session_id: &str) -> Result<(), String> {
+    let result = (|| {
+        let session_file = session_file_path(project, session_id)?;
+        if !session_file.is_file() {
+            return Err("原始对话记录文件不存在".to_string());
+        }
+        let preferences = crate::config::load_app_preferences();
+        let editor = preferences
+            .default_editor_app
+            .as_deref()
+            .ok_or_else(|| "请先在设置中选择默认编辑器".to_string())?;
+        let app_name = editor_app_name(editor)?;
+        open_path_with_app(&session_file, app_name)
+    })();
+    crate::logging::log_command_result("history.open_session_file_editor", &result, |_| {
+        format!(
+            "project={} session_id={}",
+            crate::utils::truncate(project, 120),
+            crate::utils::truncate(session_id, 80)
+        )
+    });
+    result
+}
+
+fn editor_app_name(app: &str) -> Result<&'static str, String> {
+    crate::config::EDITOR_APPS
+        .iter()
+        .find(|(slug, _)| *slug == app)
+        .map(|(_, display)| *display)
+        .ok_or_else(|| "默认编辑器配置无效，请重新选择".to_string())
+}
+
+fn open_path_with_app(path: &Path, app_name: &str) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let status = Command::new("open")
+            .arg("-a")
+            .arg(app_name)
+            .arg(path)
+            .status()
+            .map_err(|e| format!("启动 {app_name} 失败: {e}"))?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err(format!("启动 {app_name} 失败，退出码: {:?}", status.code()))
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (path, app_name);
+        Err("当前平台暂不支持打开本地应用".to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn session_file_path_uses_claude_project_encoding() {
+        let path = session_file_path("/Users/demo/project.name", "session-123").unwrap();
+
+        assert!(path.ends_with(Path::new(
+            ".claude/projects/-Users-demo-project-name/session-123.jsonl"
+        )));
+    }
+
+    #[test]
+    fn session_file_path_rejects_unsafe_session_ids() {
+        let err = session_file_path("/Users/demo/project", "../session").unwrap_err();
+
+        assert!(err.contains("会话 ID"));
+    }
 }

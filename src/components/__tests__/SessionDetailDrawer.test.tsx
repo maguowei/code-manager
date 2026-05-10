@@ -161,6 +161,57 @@ describe("SessionDetailDrawer", () => {
     ).toBeInTheDocument();
   });
 
+  it("copies full header identifiers and opens the raw session file", async () => {
+    const detail: SessionDetail = {
+      session_id: SESSION_ID,
+      project: "/Users/maguowei/Work/AI/ai-manager",
+      messages: [
+        {
+          role: "user",
+          timestamp: "2026-05-08T14:21:27",
+          blocks: [{ type: "text", text: "第一条消息" }],
+        },
+      ],
+    };
+
+    renderDrawer(detail);
+
+    await screen.findByRole("heading", { name: "对话详情" });
+    const projectButton = screen.getByRole("button", { name: "复制项目路径" });
+    const sessionButton = screen.getByRole("button", { name: "复制会话 ID" });
+    const rawFileButton = screen.getByRole("button", { name: "在编辑器中打开原始记录" });
+    expect(projectButton).toHaveTextContent("ai-manager");
+    expect(projectButton).toHaveAttribute("title", "/Users/maguowei/Work/AI/ai-manager");
+    expect(sessionButton).toHaveTextContent("ee6bf047");
+    expect(sessionButton).toHaveAttribute("title", SESSION_ID);
+    const context = projectButton.closest('[data-slot="session-detail-context"]');
+    const headerActions = screen
+      .getByRole("button", { name: "关闭" })
+      .closest('[data-slot="session-detail-actions"]');
+    expect(context).toContainElement(rawFileButton);
+    expect(headerActions).not.toContainElement(rawFileButton);
+
+    fireEvent.click(projectButton);
+    fireEvent.click(sessionButton);
+
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+        "/Users/maguowei/Work/AI/ai-manager",
+      );
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(SESSION_ID);
+    });
+
+    invokeMock.mockClear();
+    fireEvent.click(rawFileButton);
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("open_session_file_in_editor", {
+        project: "/Users/maguowei/Work/AI/ai-manager",
+        sessionId: SESSION_ID,
+      });
+    });
+  });
+
   it("renders user command-only messages as user input messages", async () => {
     renderDrawer({
       session_id: SESSION_ID,
