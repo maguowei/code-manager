@@ -128,16 +128,16 @@ function SettingsSectionModePanel({
     return (
       <section
         data-slot="settings-section"
-        className="flex flex-col overflow-hidden rounded-lg border border-border/80 bg-card shadow-panel"
+        className="group flex flex-col overflow-hidden rounded-lg border border-border/80 bg-card shadow-panel transition-colors hover:border-muted-foreground/40 focus-within:border-muted-foreground/40"
       >
         <div
           data-slot="settings-section-header"
-          className="flex w-full items-center justify-between gap-4 bg-card/95 px-6 py-5"
+          className="flex w-full items-center justify-between gap-4 bg-transparent px-6 py-5"
         >
           <Button
             type="button"
             variant="ghost"
-            className="h-auto min-w-0 flex-1 justify-between gap-3 self-stretch whitespace-normal rounded-md px-2 py-5 text-left text-foreground hover:bg-transparent hover:text-foreground focus-visible:border-transparent focus-visible:bg-transparent focus-visible:ring-0 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary/60"
+            className="h-auto min-w-0 flex-1 justify-between gap-3 self-stretch whitespace-normal rounded-md bg-transparent px-2 py-5 text-left text-foreground hover:bg-transparent hover:text-foreground focus-visible:border-transparent focus-visible:bg-transparent focus-visible:ring-0 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary/60 dark:hover:bg-transparent"
             aria-expanded={expanded}
             onClick={onToggleExpanded}
           >
@@ -174,7 +174,7 @@ function SettingsSectionModePanel({
               type="button"
               variant="ghost"
               size="icon-sm"
-              className="rounded-full text-muted-foreground"
+              className="rounded-full bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground dark:hover:bg-transparent"
               aria-expanded={expanded}
               aria-label={`${expanded ? t("common.collapse") : t("common.expand")} ${title}`}
               onClick={onToggleExpanded}
