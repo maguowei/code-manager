@@ -20,16 +20,30 @@ describe("ClaudeOverviewPage styles", () => {
     const source = readText("src/components/ClaudeOverviewPage.tsx");
 
     expect(source).toContain(
-      "grid-cols-[minmax(0,1fr)_8px_minmax(260px,var(--claude-overview-tree-width,340px))]",
+      "grid-cols-[minmax(0,var(--claude-overview-preview-width))_8px_minmax(0,var(--claude-overview-tree-width))]",
     );
+    expect(source).toContain("TREE_PANE_RATIO_STORAGE_KEY");
+    expect(source).toContain("LEGACY_TREE_PANE_WIDTH_STORAGE_KEY");
+    expect(source).toContain("DEFAULT_TREE_PANE_RATIO = 0.28");
+    expect(source).toContain("MIN_TREE_PANE_RATIO = 0.2");
+    expect(source).toContain("MAX_TREE_PANE_RATIO = 0.42");
+    expect(source).toContain("TREE_PANE_RATIO_STEP = 0.02");
+    expect(source).toContain("clampTreePaneRatio");
+    expect(source).toContain("ResizeObserver");
+    expect(source).toContain("overviewBodyRef");
+    expect(source).toContain("--claude-overview-preview-width");
     expect(source).toContain("claude-overview-resizer relative min-w-2 cursor-col-resize");
     expect(source).toContain("max-[900px]:hidden");
+    expect(source).not.toContain("applyTreePaneWidth");
   });
 
   it("keeps the overview chrome compact", () => {
     const source = readText("src/components/ClaudeOverviewPage.tsx");
 
     expect(source).toContain("claude-overview-header flex min-h-12");
+    expect(source).toContain("bg-secondary");
+    expect(source).toContain("supports-[backdrop-filter]:bg-secondary/90");
+    expect(source).not.toContain("bg-card/95 px-4 py-2 shadow-toolbar");
     expect(source).toContain("claude-overview-status flex min-h-0");
     expect(source).toContain("claude-overview-preview-toolbar flex min-h-[38px]");
     expect(source).toContain("claude-overview-preview-footer flex min-h-[34px]");
@@ -75,7 +89,15 @@ describe("ClaudeOverviewPage styles", () => {
     expect(source).toContain('"--trees-bg-override": "var(--card)"');
     expect(source).toContain('"--trees-fg-override": "var(--foreground)"');
     expect(source).toContain('"--trees-fg-muted-override": "var(--muted-foreground)"');
-    expect(source).toContain('"--trees-search-bg-override": "var(--background)"');
+    expect(source).toContain('"--trees-search-bg-override": "var(--card)"');
+    expect(source).toContain('"--trees-font-size-override": "0.8125rem"');
+    expect(source).toContain('"--trees-item-height": "1.75rem"');
+    expect(source).toContain('"--trees-search-font-weight-override": "500"');
+    expect(source).toContain("[data-file-tree-search-input]");
+    expect(source).toContain("background-color: var(--card);");
+    expect(source).toContain(
+      "box-shadow: 0 0 0 1px color-mix(in oklch, var(--primary) 42%, transparent);",
+    );
     expect(source).not.toContain("--trees-muted-fg-override");
   });
 
@@ -90,8 +112,14 @@ describe("ClaudeOverviewPage styles", () => {
   it("places the file tree inside a card surface over the secondary canvas", () => {
     const source = readText("src/components/ClaudeOverviewPage.tsx");
 
+    expect(source).toContain("claude-overview-page relative flex h-full w-full");
+    expect(source).toContain("claude-overview-body grid min-h-0 w-full flex-1 bg-secondary p-3");
     expect(source).toContain(
-      "claude-overview-tree-pane min-h-0 min-w-0 overflow-hidden bg-secondary",
+      "claude-overview-preview-pane flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border",
+    );
+    expect(source).toContain("claude-overview-file-tree h-full w-full bg-card text-foreground");
+    expect(source).toContain(
+      "claude-overview-tree-pane flex min-h-0 min-w-0 w-full overflow-hidden",
     );
     expect(source).toContain(
       "claude-overview-tree-ready h-full min-h-0 overflow-hidden rounded-lg border",
@@ -99,7 +127,13 @@ describe("ClaudeOverviewPage styles", () => {
     expect(source).toContain(
       "claude-overview-tree-loading-panel h-full min-h-0 overflow-hidden rounded-lg border",
     );
+    expect(source).toContain(
+      "claude-overview-resizer relative min-w-2 cursor-col-resize border-0 bg-transparent",
+    );
     expect(source).toContain("PANEL_SURFACE_CLASS");
+    expect(source).not.toContain(
+      "claude-overview-tree-pane min-h-0 min-w-0 overflow-hidden bg-secondary p-2",
+    );
   });
 
   it("marks markdown previews with explicit light and dark theme classes", () => {
@@ -107,6 +141,8 @@ describe("ClaudeOverviewPage styles", () => {
     const markdownPreview = readText("src/components/claude-overview/MarkdownPreview.tsx");
 
     expect(source).toContain('previewThemeType === "dark" ? "markdown-dark" : "markdown-light"');
+    expect(source).toContain('"--diffs-dark-bg": "var(--card)"');
+    expect(source).toContain('"--diffs-light-bg": "var(--card)"');
     expect(markdownPreview).toContain("markdown-preview-image-fallback inline-block");
   });
 });

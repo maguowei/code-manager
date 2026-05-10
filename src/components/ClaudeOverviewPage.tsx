@@ -79,13 +79,15 @@ const PIERRE_FILE_OPTIONS = {
   tokenizeMaxLineLength: 2000,
 } satisfies FileOptions<undefined>;
 
-const DEFAULT_TREE_PANE_WIDTH = 340;
+const DEFAULT_TREE_PANE_RATIO = 0.28;
 // 刷新按钮"刷新中..."状态的最小展示时长,避免本地 IPC 极快返回时按钮抖动看不清反馈
 const MIN_REFRESH_FEEDBACK_MS = 500;
-const MIN_TREE_PANE_WIDTH = 260;
-const MAX_TREE_PANE_WIDTH = 720;
-const TREE_PANE_WIDTH_STEP = 20;
-const TREE_PANE_WIDTH_STORAGE_KEY = "ai-manager:claude-overview-tree-pane-width";
+const MIN_TREE_PANE_RATIO = 0.2;
+const MAX_TREE_PANE_RATIO = 0.42;
+const TREE_PANE_RATIO_STEP = 0.02;
+const RESIZER_WIDTH = 8;
+const TREE_PANE_RATIO_STORAGE_KEY = "ai-manager:claude-overview-tree-pane-ratio";
+const LEGACY_TREE_PANE_WIDTH_STORAGE_KEY = "ai-manager:claude-overview-tree-pane-width";
 const TREE_LOADING_ROWS = Array.from({ length: 11 }, (_, index) => index);
 const TREE_LOADING_ROW_CLASS_NAMES = [
   "w-[62%]",
@@ -118,9 +120,12 @@ const FILE_TREE_THEME_STYLE = {
   "--trees-fg-override": "var(--foreground)",
   "--trees-fg-muted-override": "var(--muted-foreground)",
   "--trees-focus-ring-color-override": "var(--ring)",
-  "--trees-input-bg-override": "var(--background)",
-  "--trees-search-bg-override": "var(--background)",
+  "--trees-font-size-override": "0.8125rem",
+  "--trees-input-bg-override": "var(--card)",
+  "--trees-item-height": "1.75rem",
+  "--trees-search-bg-override": "var(--card)",
   "--trees-search-fg-override": "var(--foreground)",
+  "--trees-search-font-weight-override": "500",
   "--trees-selected-bg-override": "var(--accent)",
   "--trees-selected-fg-override": "var(--foreground)",
 } as CSSProperties;
@@ -158,11 +163,12 @@ function defaultViewModeForPath(path: string | null | undefined): PreviewViewMod
 let cachedClaudeOverviewState: ClaudeDirectoryOverview | null = null;
 
 type ClaudeOverviewBodyStyle = CSSProperties & {
+  "--claude-overview-preview-width": string;
   "--claude-overview-tree-width": string;
 };
 
-function clampTreePaneWidth(width: number) {
-  return Math.min(MAX_TREE_PANE_WIDTH, Math.max(MIN_TREE_PANE_WIDTH, Math.round(width)));
+function clampTreePaneRatio(ratio: number) {
+  return Math.min(MAX_TREE_PANE_RATIO, Math.max(MIN_TREE_PANE_RATIO, ratio));
 }
 
 function clampNumber(value: number, min: number, max: number) {
@@ -199,30 +205,53 @@ function contextMenuStyleForAnchor(
   };
 }
 
-function readInitialTreePaneWidth() {
+function readInitialTreePaneRatio() {
   if (typeof localStorage === "undefined") {
-    return DEFAULT_TREE_PANE_WIDTH;
+    return DEFAULT_TREE_PANE_RATIO;
   }
 
-  const storedValue = localStorage.getItem(TREE_PANE_WIDTH_STORAGE_KEY);
+  const storedValue = localStorage.getItem(TREE_PANE_RATIO_STORAGE_KEY);
   if (storedValue === null) {
-    return DEFAULT_TREE_PANE_WIDTH;
+    return DEFAULT_TREE_PANE_RATIO;
+  }
+
+  const storedRatio = Number(storedValue);
+  return Number.isFinite(storedRatio) ? clampTreePaneRatio(storedRatio) : DEFAULT_TREE_PANE_RATIO;
+}
+
+function readLegacyTreePaneWidth() {
+  if (typeof localStorage === "undefined") {
+    return null;
+  }
+
+  const storedValue = localStorage.getItem(LEGACY_TREE_PANE_WIDTH_STORAGE_KEY);
+  if (storedValue === null) {
+    return null;
   }
 
   const storedWidth = Number(storedValue);
-  return Number.isFinite(storedWidth) ? clampTreePaneWidth(storedWidth) : DEFAULT_TREE_PANE_WIDTH;
+  return Number.isFinite(storedWidth) && storedWidth > 0 ? storedWidth : null;
 }
 
-function saveTreePaneWidth(width: number) {
+function saveTreePaneRatio(ratio: number) {
   if (typeof localStorage === "undefined") {
     return;
   }
 
   try {
-    localStorage.setItem(TREE_PANE_WIDTH_STORAGE_KEY, String(clampTreePaneWidth(width)));
+    localStorage.setItem(TREE_PANE_RATIO_STORAGE_KEY, String(clampTreePaneRatio(ratio)));
   } catch {
     // 本地布局偏好写入失败不影响目录浏览。
   }
+}
+
+function getPaneWidthsForRatio(bodyWidth: number, treePaneRatio: number) {
+  const availableWidth = Math.max(0, bodyWidth - RESIZER_WIDTH);
+  const treeWidth = Math.round(availableWidth * clampTreePaneRatio(treePaneRatio));
+  return {
+    previewWidth: Math.max(0, availableWidth - treeWidth),
+    treeWidth,
+  };
 }
 
 function treePathForEntry(entry: ClaudeDirectoryEntry) {
@@ -549,6 +578,39 @@ function ClaudeDirectoryTree({ paths, onSelectPath, renderContextMenu }: ClaudeD
         border-radius: 6px;
       }
 
+      [data-file-tree-search-container] {
+        margin-bottom: 0.25rem;
+        padding-block: 0.75rem 0.5rem;
+        padding-inline: 0.75rem;
+      }
+
+      [data-file-tree-search-input] {
+        height: 2rem;
+        padding-inline: 0.75rem;
+        color: var(--foreground);
+        background-color: var(--card);
+        border-color: var(--border);
+        border-radius: 0.5rem;
+        box-shadow: none;
+        transition:
+          background-color 150ms ease,
+          border-color 150ms ease,
+          box-shadow 150ms ease;
+      }
+
+      [data-file-tree-search-input]:hover {
+        background-color: var(--muted);
+        border-color: color-mix(in oklch, var(--muted-foreground) 45%, var(--border));
+      }
+
+      [data-file-tree-search-input]:focus-visible,
+      [data-file-tree-search-input][data-file-tree-search-input-fake-focus='true'] {
+        background-color: var(--card);
+        border-color: var(--primary);
+        outline: none;
+        box-shadow: 0 0 0 1px color-mix(in oklch, var(--primary) 42%, transparent);
+      }
+
       button[data-type='item']:not(:has([data-item-rename-input])) > [data-item-section='content'] {
         flex: 0 0 0;
         min-width: 0;
@@ -597,7 +659,7 @@ function ClaudeDirectoryTree({ paths, onSelectPath, renderContextMenu }: ClaudeD
     >
       <FileTree
         model={model}
-        className="claude-overview-file-tree h-full w-full bg-secondary text-foreground"
+        className="claude-overview-file-tree h-full w-full bg-card text-foreground"
         renderContextMenu={renderContextMenu}
       />
     </div>
@@ -696,7 +758,8 @@ function ClaudeOverviewPage() {
   // 刷新按钮专用显示态,与 loadingOverview 解耦,带最小持续时间,避免 IPC 极快返回时按钮抖动
   const [isRefreshButtonBusy, setIsRefreshButtonBusy] = useState(false);
   const [loadingPreviewPath, setLoadingPreviewPath] = useState<string | null>(null);
-  const [treePaneWidth, setTreePaneWidth] = useState(readInitialTreePaneWidth);
+  const [treePaneRatio, setTreePaneRatio] = useState(readInitialTreePaneRatio);
+  const [overviewBodyWidth, setOverviewBodyWidth] = useState(0);
   // Markdown 文件默认进入渲染预览，其它文件维持源码视图；切换 tab/打开新文件时按文件类型重置
   const [viewMode, setViewMode] = useState<PreviewViewMode>("source");
   const [nameDialog, setNameDialog] = useState<ClaudeOverviewNameDialogState | null>(null);
@@ -706,10 +769,17 @@ function ClaudeOverviewPage() {
   const latestOverviewRequestIdRef = useRef(0);
   const latestPreviewRequestPathRef = useRef<string | null>(null);
   const activePreviewPathRef = useRef<string | null>(null);
-  const latestTreePaneWidthRef = useRef(treePaneWidth);
+  const overviewBodyRef = useRef<HTMLDivElement | null>(null);
+  const latestTreePaneRatioRef = useRef(treePaneRatio);
+  const latestOverviewBodyWidthRef = useRef(overviewBodyWidth);
+  const migratedLegacyTreePaneWidthRef = useRef(false);
   const openPreviewsRef = useRef<ClaudeFilePreview[]>([]);
   const resizeFrameRef = useRef<number | null>(null);
-  const resizeStateRef = useRef<{ startWidth: number; startX: number } | null>(null);
+  const resizeStateRef = useRef<{
+    availableWidth: number;
+    startRatio: number;
+    startX: number;
+  } | null>(null);
   const refreshBusyTimerRef = useRef<number | null>(null);
 
   const entryByPath = useMemo(() => {
@@ -726,11 +796,24 @@ function ClaudeOverviewPage() {
     () => deferredOverviewEntries.map(treePathForEntry),
     [deferredOverviewEntries],
   );
+  const paneWidths = useMemo(
+    () => getPaneWidthsForRatio(overviewBodyWidth, treePaneRatio),
+    [overviewBodyWidth, treePaneRatio],
+  );
   const overviewBodyStyle = useMemo<ClaudeOverviewBodyStyle>(
-    () => ({
-      "--claude-overview-tree-width": `${treePaneWidth}px`,
-    }),
-    [treePaneWidth],
+    () =>
+      overviewBodyWidth > 0
+        ? {
+            "--claude-overview-preview-width": `${paneWidths.previewWidth}px`,
+            "--claude-overview-tree-width": `${paneWidths.treeWidth}px`,
+          }
+        : {
+            "--claude-overview-preview-width": `calc((100% - ${RESIZER_WIDTH}px) * ${
+              1 - treePaneRatio
+            })`,
+            "--claude-overview-tree-width": `calc((100% - ${RESIZER_WIDTH}px) * ${treePaneRatio})`,
+          },
+    [overviewBodyWidth, paneWidths.previewWidth, paneWidths.treeWidth, treePaneRatio],
   );
   const activePreview = useMemo(
     () => openPreviews.find((preview) => preview.path === activePreviewPath) ?? null,
@@ -755,13 +838,13 @@ function ClaudeOverviewPage() {
       ({
         colorScheme: previewThemeType,
         "--diffs-dark": "var(--foreground)",
-        "--diffs-dark-bg": "var(--background)",
+        "--diffs-dark-bg": "var(--card)",
         "--diffs-font-family": '"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
         "--diffs-font-size": "0.875rem",
         "--diffs-gap-block": "1rem",
         "--diffs-gap-inline": "1.25rem",
         "--diffs-light": "var(--foreground)",
-        "--diffs-light-bg": "var(--background)",
+        "--diffs-light-bg": "var(--card)",
         "--diffs-line-height": "1.55",
       }) as CSSProperties,
     [previewThemeType],
@@ -781,6 +864,59 @@ function ClaudeOverviewPage() {
     activePreviewPathRef.current = activePreviewPath;
   }, [activePreviewPath]);
 
+  useEffect(() => {
+    latestTreePaneRatioRef.current = treePaneRatio;
+  }, [treePaneRatio]);
+
+  useEffect(() => {
+    latestOverviewBodyWidthRef.current = overviewBodyWidth;
+  }, [overviewBodyWidth]);
+
+  useEffect(() => {
+    const overviewBody = overviewBodyRef.current;
+    if (!overviewBody) {
+      return;
+    }
+
+    const updateBodyWidth = () => {
+      setOverviewBodyWidth(Math.max(0, overviewBody.getBoundingClientRect().width));
+    };
+
+    updateBodyWidth();
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      const [entry] = entries;
+      setOverviewBodyWidth(Math.max(0, entry?.contentRect.width ?? 0));
+    });
+    observer.observe(overviewBody);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (
+      migratedLegacyTreePaneWidthRef.current ||
+      typeof localStorage === "undefined" ||
+      overviewBodyWidth <= RESIZER_WIDTH ||
+      localStorage.getItem(TREE_PANE_RATIO_STORAGE_KEY) !== null
+    ) {
+      return;
+    }
+
+    migratedLegacyTreePaneWidthRef.current = true;
+    const legacyWidth = readLegacyTreePaneWidth();
+    if (legacyWidth === null) {
+      return;
+    }
+
+    const nextRatio = clampTreePaneRatio(legacyWidth / (overviewBodyWidth - RESIZER_WIDTH));
+    latestTreePaneRatioRef.current = nextRatio;
+    setTreePaneRatio(nextRatio);
+    saveTreePaneRatio(nextRatio);
+  }, [overviewBodyWidth]);
+
   useEffect(
     () => () => {
       latestOverviewRequestIdRef.current += 1;
@@ -797,10 +933,10 @@ function ClaudeOverviewPage() {
     [],
   );
 
-  const applyTreePaneWidth = useCallback((nextWidth: number) => {
-    const clampedWidth = clampTreePaneWidth(nextWidth);
-    latestTreePaneWidthRef.current = clampedWidth;
-    setTreePaneWidth(clampedWidth);
+  const applyTreePaneRatio = useCallback((nextRatio: number) => {
+    const clampedRatio = clampTreePaneRatio(nextRatio);
+    latestTreePaneRatioRef.current = clampedRatio;
+    setTreePaneRatio(clampedRatio);
   }, []);
 
   const loadOverview = useCallback(
@@ -1211,19 +1347,23 @@ function ClaudeOverviewPage() {
       }
 
       event.preventDefault();
+      const availableWidth = Math.max(1, latestOverviewBodyWidthRef.current - RESIZER_WIDTH);
       resizeStateRef.current = {
-        startWidth: latestTreePaneWidthRef.current,
+        availableWidth,
+        startRatio: latestTreePaneRatioRef.current,
         startX: event.clientX,
       };
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
 
-      const applyPointerWidth = (clientX: number) => {
+      const applyPointerRatio = (clientX: number) => {
         const resizeState = resizeStateRef.current;
         if (!resizeState) {
           return;
         }
-        applyTreePaneWidth(resizeState.startWidth - (clientX - resizeState.startX));
+        applyTreePaneRatio(
+          resizeState.startRatio - (clientX - resizeState.startX) / resizeState.availableWidth,
+        );
       };
 
       const handlePointerMove = (moveEvent: PointerEvent) => {
@@ -1232,7 +1372,7 @@ function ClaudeOverviewPage() {
         }
         resizeFrameRef.current = window.requestAnimationFrame(() => {
           resizeFrameRef.current = null;
-          applyPointerWidth(moveEvent.clientX);
+          applyPointerRatio(moveEvent.clientX);
         });
       };
 
@@ -1241,9 +1381,9 @@ function ClaudeOverviewPage() {
           window.cancelAnimationFrame(resizeFrameRef.current);
           resizeFrameRef.current = null;
         }
-        applyPointerWidth(endEvent.clientX);
+        applyPointerRatio(endEvent.clientX);
         resizeStateRef.current = null;
-        saveTreePaneWidth(latestTreePaneWidthRef.current);
+        saveTreePaneRatio(latestTreePaneRatioRef.current);
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
         window.removeEventListener("pointermove", handlePointerMove);
@@ -1255,33 +1395,33 @@ function ClaudeOverviewPage() {
       window.addEventListener("pointerup", finishResize, { once: true });
       window.addEventListener("pointercancel", finishResize, { once: true });
     },
-    [applyTreePaneWidth],
+    [applyTreePaneRatio],
   );
 
   const handleResizeKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLElement>) => {
-      const currentWidth = latestTreePaneWidthRef.current;
-      let nextWidth: number | null = null;
+      const currentRatio = latestTreePaneRatioRef.current;
+      let nextRatio: number | null = null;
 
       if (event.key === "ArrowLeft") {
-        nextWidth = currentWidth + TREE_PANE_WIDTH_STEP;
+        nextRatio = currentRatio + TREE_PANE_RATIO_STEP;
       } else if (event.key === "ArrowRight") {
-        nextWidth = currentWidth - TREE_PANE_WIDTH_STEP;
+        nextRatio = currentRatio - TREE_PANE_RATIO_STEP;
       } else if (event.key === "Home") {
-        nextWidth = MIN_TREE_PANE_WIDTH;
+        nextRatio = MIN_TREE_PANE_RATIO;
       } else if (event.key === "End") {
-        nextWidth = MAX_TREE_PANE_WIDTH;
+        nextRatio = MAX_TREE_PANE_RATIO;
       }
 
-      if (nextWidth === null) {
+      if (nextRatio === null) {
         return;
       }
 
       event.preventDefault();
-      applyTreePaneWidth(nextWidth);
-      saveTreePaneWidth(nextWidth);
+      applyTreePaneRatio(nextRatio);
+      saveTreePaneRatio(nextRatio);
     },
-    [applyTreePaneWidth],
+    [applyTreePaneRatio],
   );
 
   const handleRefreshClick = useCallback(() => {
@@ -1314,11 +1454,11 @@ function ClaudeOverviewPage() {
 
   return (
     <section
-      className="claude-overview-page relative flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-secondary text-foreground"
+      className="claude-overview-page relative flex h-full w-full min-w-0 flex-1 flex-col overflow-hidden bg-secondary text-foreground"
       aria-labelledby="claude-overview-title"
     >
       {hasMounted ? <ClaudeOverviewIconSprite /> : null}
-      <header className="claude-overview-header flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-4 border-b bg-card/95 px-4 py-2 shadow-toolbar max-[700px]:items-start max-[700px]:justify-start max-[700px]:gap-2">
+      <header className="claude-overview-header flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border bg-secondary px-5 py-2.5 shadow-toolbar backdrop-blur supports-[backdrop-filter]:bg-secondary/90 max-[700px]:items-start max-[700px]:justify-start max-[700px]:gap-2">
         <div className="claude-overview-title-group flex min-w-0 flex-1 basis-[280px] items-baseline gap-2.5 max-[700px]:flex-[0_1_auto] max-[700px]:flex-wrap">
           <h1 id="claude-overview-title" className={cn("whitespace-nowrap", TYPOGRAPHY.pageTitle)}>
             {t("claudeOverview.title")}
@@ -1399,11 +1539,15 @@ function ClaudeOverviewPage() {
       </header>
 
       <div
-        className="claude-overview-body grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_8px_minmax(260px,var(--claude-overview-tree-width,340px))] max-[900px]:grid-cols-1 max-[900px]:grid-rows-[minmax(220px,42%)_minmax(0,1fr)]"
+        ref={overviewBodyRef}
+        className="claude-overview-body grid min-h-0 w-full flex-1 bg-secondary p-3 grid-cols-[minmax(0,var(--claude-overview-preview-width))_8px_minmax(0,var(--claude-overview-tree-width))] max-[900px]:grid-cols-1 max-[900px]:grid-rows-[minmax(220px,42%)_minmax(0,1fr)] max-[900px]:gap-3"
         style={overviewBodyStyle}
       >
         <section
-          className="claude-overview-preview-pane flex min-h-0 min-w-0 flex-col overflow-hidden bg-card"
+          className={cn(
+            "claude-overview-preview-pane flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border",
+            PANEL_SURFACE_CLASS,
+          )}
           aria-label={t("claudeOverview.preview")}
         >
           {openPreviews.length > 0 ? (
@@ -1576,20 +1720,20 @@ function ClaudeOverviewPage() {
         </section>
 
         <div
-          className="claude-overview-resizer relative min-w-2 cursor-col-resize border-0 bg-card/95 outline-none after:absolute after:top-0 after:bottom-0 after:left-[3px] after:w-px after:bg-border hover:after:left-0.5 hover:after:w-[3px] hover:after:rounded-full hover:after:bg-primary focus-visible:after:left-0.5 focus-visible:after:w-[3px] focus-visible:after:rounded-full focus-visible:after:bg-primary max-[900px]:hidden"
+          className="claude-overview-resizer relative min-w-2 cursor-col-resize border-0 bg-transparent outline-none after:absolute after:top-0 after:bottom-0 after:left-[3px] after:w-px after:bg-border hover:after:left-0.5 hover:after:w-[3px] hover:after:rounded-full hover:after:bg-primary focus-visible:after:left-0.5 focus-visible:after:w-[3px] focus-visible:after:rounded-full focus-visible:after:bg-primary max-[900px]:hidden"
           role="separator"
           aria-label={t("claudeOverview.resizePanes")}
           aria-orientation="vertical"
-          aria-valuemin={MIN_TREE_PANE_WIDTH}
-          aria-valuemax={MAX_TREE_PANE_WIDTH}
-          aria-valuenow={treePaneWidth}
+          aria-valuemin={Math.round(MIN_TREE_PANE_RATIO * 100)}
+          aria-valuemax={Math.round(MAX_TREE_PANE_RATIO * 100)}
+          aria-valuenow={Math.round(treePaneRatio * 100)}
           tabIndex={0}
           onKeyDown={handleResizeKeyDown}
           onPointerDown={handleResizePointerDown}
         />
 
         <section
-          className="claude-overview-tree-pane min-h-0 min-w-0 overflow-hidden bg-secondary p-2 max-[900px]:border-t"
+          className="claude-overview-tree-pane flex min-h-0 min-w-0 w-full overflow-hidden"
           aria-label={t("claudeOverview.tree")}
         >
           {showTreeLoading ? (

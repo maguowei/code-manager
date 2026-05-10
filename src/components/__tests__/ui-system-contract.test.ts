@@ -212,12 +212,30 @@ describe("ui system contract", () => {
     expect(projectsSource).not.toContain(
       "projects-list-card gap-0 rounded-lg border-border/80 bg-background",
     );
-    expect(overviewSource).toContain("claude-overview-preview-pane");
-    expect(overviewSource).toContain("bg-card");
-    expect(overviewSource).toContain("claude-overview-tree-pane");
-    expect(overviewSource).toContain("bg-secondary");
+    expect(overviewSource).toContain("claude-overview-page relative flex h-full w-full");
+    expect(overviewSource).toContain("claude-overview-header flex min-h-12 shrink-0 flex-wrap");
+    expect(overviewSource).toContain("supports-[backdrop-filter]:bg-secondary/90");
+    expect(overviewSource).not.toContain("bg-card/95 px-4 py-2 shadow-toolbar");
+    expect(overviewSource).toContain(
+      "claude-overview-body grid min-h-0 w-full flex-1 bg-secondary p-3",
+    );
+    expect(overviewSource).toContain(
+      "grid-cols-[minmax(0,var(--claude-overview-preview-width))_8px_minmax(0,var(--claude-overview-tree-width))]",
+    );
+    expect(overviewSource).toContain(
+      "claude-overview-preview-pane flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border",
+    );
+    expect(overviewSource).toContain(
+      "claude-overview-tree-pane flex min-h-0 min-w-0 w-full overflow-hidden",
+    );
     expect(overviewSource).toContain("claude-overview-tree-ready h-full min-h-0");
     expect(overviewSource).toContain("PANEL_SURFACE_CLASS");
+    expect(overviewSource).toContain("TREE_PANE_RATIO_STORAGE_KEY");
+    expect(overviewSource).toContain('"--trees-font-size-override": "0.8125rem"');
+    expect(overviewSource).toContain('"--diffs-light-bg": "var(--card)"');
+    expect(overviewSource).not.toContain(
+      "claude-overview-tree-pane min-h-0 min-w-0 overflow-hidden bg-secondary p-2",
+    );
   });
 
   it("keeps the projects detail hero on card panels instead of the page canvas", () => {
