@@ -95,19 +95,23 @@ describe("ui system contract", () => {
     expect(css).toContain("--shadow-panel: 0 1px 2px");
     expect(css).toContain("0 18px 45px");
     expect(css).toContain("--shadow-toolbar: 0 1px 0");
-    expect(css).toContain("--background: oklch(0.988 0.016 214)");
+    expect(css).toContain("--background: oklch(1 0 0)");
+    expect(css).toContain("--foreground: oklch(0.145 0 0)");
     expect(css).toContain("--card: oklch(1 0 0)");
-    expect(css).toContain("--popover: oklch(1 0 0 / 98%)");
+    expect(css).toContain("--popover: oklch(1 0 0)");
     expect(css).toContain("--primary: oklch(0.618 0.193 258.3)");
-    expect(css).toContain("--secondary: oklch(0.94 0.026 216)");
-    expect(css).toContain("--accent: oklch(0.925 0.07 212 / 56%)");
-    expect(css).toContain("--input: oklch(0.78 0.045 220 / 62%)");
+    expect(css).toContain("--secondary: oklch(0.985 0 0)");
+    expect(css).toContain("--accent: oklch(0.97 0 0)");
+    expect(css).toContain("--input: oklch(0.922 0 0)");
     expect(css).toContain("--ring: oklch(0.68 0.17 255)");
-    expect(css).toContain("--chart-1: oklch(0.66 0.2 255)");
-    expect(css).toContain("--chart-2: oklch(0.76 0.16 205)");
+    expect(css).toContain("--chart-1: oklch(0.646 0.222 41.116)");
+    expect(css).toContain("--chart-2: oklch(0.6 0.118 184.704)");
     expect(css).toContain("--color-accent-foreground: var(--accent-foreground)");
-    expect(css).toContain("--sidebar: oklch(0.95 0.026 214 / 68%)");
+    expect(css).toContain("--sidebar: oklch(0.985 0 0)");
     expect(css).toContain("--sidebar-primary: oklch(0.618 0.193 258.3)");
+    expect(css).not.toContain("--background: oklch(0.988 0.016 214)");
+    expect(css).not.toContain("--secondary: oklch(0.94 0.026 216)");
+    expect(css).not.toContain("--sidebar: oklch(0.95 0.026 214 / 68%)");
     expect(css).toContain("--background: oklch(0.176 0.014 258.4)");
     expect(css).toContain("--card: oklch(0.22 0.016 256.8 / 74%)");
     expect(css).toContain("--border: oklch(0.33 0.015 252.3 / 76%)");
@@ -150,7 +154,15 @@ describe("ui system contract", () => {
     expect(source).toContain("hover:border-muted-foreground/40");
     expect(source).toContain("dark:hover:bg-transparent");
     expect(source).toContain("cursor-pointer");
+    expect(source).toContain("px-5 py-3");
+    expect(source).toContain("min-h-10");
     expect(source).toContain("event.stopPropagation()");
+    expect(source).not.toContain(
+      'className="flex w-full cursor-pointer items-center justify-between gap-4 bg-transparent px-6 py-5"',
+    );
+    expect(source).not.toContain(
+      "gap-3 self-stretch whitespace-normal rounded-md bg-transparent px-2 py-5",
+    );
     expect(source).not.toContain("self-stretch whitespace-normal rounded-none");
   });
 

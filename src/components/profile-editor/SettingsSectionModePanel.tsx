@@ -141,13 +141,13 @@ function SettingsSectionModePanel({
       >
         <div
           data-slot="settings-section-header"
-          className="flex w-full cursor-pointer items-center justify-between gap-4 bg-transparent px-6 py-5"
+          className="flex w-full cursor-pointer items-center justify-between gap-3 bg-transparent px-5 py-3"
           onClick={handleAccordionHeaderClick}
         >
           <Button
             type="button"
             variant="ghost"
-            className="h-auto min-w-0 flex-1 justify-between gap-3 self-stretch whitespace-normal rounded-md bg-transparent px-2 py-5 text-left text-foreground hover:bg-transparent hover:text-foreground focus-visible:border-transparent focus-visible:bg-transparent focus-visible:ring-0 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary/60 dark:hover:bg-transparent"
+            className="h-auto min-h-10 min-w-0 flex-1 justify-between gap-3 whitespace-normal rounded-md bg-transparent px-0 py-2 text-left text-foreground hover:bg-transparent hover:text-foreground focus-visible:border-transparent focus-visible:bg-transparent focus-visible:ring-0 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary/60 dark:hover:bg-transparent"
             aria-expanded={expanded}
             onClick={(event) => {
               event.stopPropagation();
