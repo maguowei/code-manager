@@ -904,7 +904,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
             showCloseButton={false}
             className={cn(
               LIST_DETAIL_DRAWER_OFFSET_CLASS,
-              "w-auto border-l-0 bg-card p-0 shadow-floating sm:max-w-none",
+              "w-auto border-l-0 bg-secondary p-0 shadow-floating sm:max-w-none",
             )}
           >
             <SheetTitle className="sr-only">{t("profiles.title")}</SheetTitle>

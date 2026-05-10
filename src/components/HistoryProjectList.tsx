@@ -56,7 +56,7 @@ function HistoryProjectList({ groups, selectedProject, onSelect }: Props) {
 
   return (
     <div
-      className="history-projects flex w-[220px] shrink-0 flex-col gap-1 overflow-y-auto border-r p-2 max-md:w-full max-md:flex-row max-md:overflow-x-auto max-md:overflow-y-hidden max-md:border-r-0 max-md:border-b max-md:px-3"
+      className="history-projects flex w-[220px] shrink-0 flex-col gap-1 overflow-y-auto border-r bg-secondary p-2 max-md:w-full max-md:flex-row max-md:overflow-x-auto max-md:overflow-y-hidden max-md:border-r-0 max-md:border-b max-md:px-3"
       role="listbox"
       aria-label={t("history.title")}
       tabIndex={0}

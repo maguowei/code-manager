@@ -515,7 +515,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
     <Form {...form}>
       <div
         data-slot="preset-editor-panel"
-        className="flex h-full min-h-0 w-full min-w-[560px] flex-col overflow-hidden bg-background"
+        className="flex h-full min-h-0 w-full min-w-[560px] flex-col overflow-hidden bg-secondary"
       >
         <div className="sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border/80 bg-card/95 px-5 shadow-toolbar">
           <Button
@@ -543,7 +543,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
 
         <div
           data-slot="preset-editor-body"
-          className="flex min-h-0 flex-1 flex-col items-center gap-5 overflow-y-auto px-6 py-6 pb-6 [&>*]:shrink-0 [&>:not([data-slot=profile-name-badge])]:w-[min(100%,880px)]"
+          className="flex min-h-0 flex-1 flex-col items-center gap-5 overflow-y-auto bg-secondary px-6 py-6 pb-6 [&>*]:shrink-0 [&>:not([data-slot=profile-name-badge])]:w-[min(100%,880px)]"
         >
           <EditorSection title={messages.metadata}>
             <EditorFieldGrid>

@@ -51,7 +51,7 @@ function SessionUsageDrawer({ sessionId, onClose }: Props) {
         side="right"
         showCloseButton={false}
         aria-labelledby="session-usage-detail-title"
-        className="left-[60px] flex w-auto min-w-0 flex-col gap-0 border-l-0 bg-background p-0 sm:max-w-none max-[700px]:left-[48px]"
+        className="left-[60px] flex w-auto min-w-0 flex-col gap-0 border-l-0 bg-secondary p-0 sm:max-w-none max-[700px]:left-[48px]"
       >
         <div
           className={cn(
@@ -73,7 +73,7 @@ function SessionUsageDrawer({ sessionId, onClose }: Props) {
           </h2>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 py-6">
+        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto bg-secondary px-6 py-6">
           {loading ? (
             <div
               className={cn(

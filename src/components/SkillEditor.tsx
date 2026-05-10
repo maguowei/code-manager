@@ -322,9 +322,9 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
 
   return (
     <Form {...form}>
-      <div className="flex h-full min-h-0 w-full min-w-[560px] bg-background">
+      <div className="flex h-full min-h-0 w-full min-w-[560px] bg-secondary">
         <div
-          className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-background"
+          className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-secondary"
           role="dialog"
           aria-modal="true"
         >
@@ -354,19 +354,27 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
             </div>
 
             {/* 正文区域 */}
-            <div className="flex min-h-0 flex-1 flex-col items-center gap-5 overflow-y-auto px-6 py-6 pb-6 [&>*]:shrink-0 [&>:not([data-slot=profile-name-badge])]:w-[min(100%,880px)]">
+            <div className="flex min-h-0 flex-1 flex-col items-center gap-5 overflow-y-auto bg-secondary px-6 py-6 pb-6 [&>*]:shrink-0 [&>:not([data-slot=profile-name-badge])]:w-[min(100%,880px)]">
               {/* 大徽章头像 */}
               <ProfileNameBadge name={watchId || skill?.id} size="lg" fallbackChar="S" />
 
-              {primaryFields.map(renderSkillField)}
+              <section
+                data-slot="skill-editor-section"
+                className={cn("flex flex-col gap-4 rounded-lg border p-4", PANEL_SURFACE_CLASS)}
+              >
+                {primaryFields.map(renderSkillField)}
 
-              {/* 高级开关：disable-model-invocation 和 user-invocable */}
-              <div className="flex flex-col gap-1">
-                {SKILL_BOOLEAN_FIELDS.map(renderSkillBooleanField)}
-              </div>
+                {/* 高级开关：disable-model-invocation 和 user-invocable */}
+                <div className="flex flex-col gap-1">
+                  {SKILL_BOOLEAN_FIELDS.map(renderSkillBooleanField)}
+                </div>
+              </section>
 
               {/* Markdown 内容编辑器 */}
-              <div className="flex flex-col gap-3">
+              <section
+                data-slot="skill-editor-section"
+                className={cn("flex flex-col gap-3 rounded-lg border p-4", PANEL_SURFACE_CLASS)}
+              >
                 <label className="text-sm font-medium text-foreground">{t("skills.content")}</label>
                 <FormField
                   control={control}
@@ -395,7 +403,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                     </div>
                   )}
                 />
-              </div>
+              </section>
 
               {/* 支持文件区（仅编辑模式可用） */}
               {isEditing && (

@@ -687,8 +687,8 @@ function ProjectsPage() {
 
   if (loading) {
     return (
-      <div className="projects-page flex h-full w-full flex-col overflow-hidden">
-        <PageHeader title={t("projects.title")} />
+      <div className="projects-page flex h-full w-full flex-col overflow-hidden bg-secondary">
+        <PageHeader title={t("projects.title")} surface="secondary" />
         <div className="loading">{t("loading")}</div>
       </div>
     );
@@ -696,20 +696,24 @@ function ProjectsPage() {
 
   if (projectSummaries.length === 0) {
     return (
-      <div className="projects-page flex h-full w-full flex-col overflow-hidden">
-        <PageHeader title={t("projects.title")} actions={projectHeaderActions} />
+      <div className="projects-page flex h-full w-full flex-col overflow-hidden bg-secondary">
+        <PageHeader
+          title={t("projects.title")}
+          surface="secondary"
+          actions={projectHeaderActions}
+        />
         <ProjectEmptyState>{t("projects.emptyHint")}</ProjectEmptyState>
       </div>
     );
   }
 
   return (
-    <div className="projects-page flex h-full w-full flex-col overflow-hidden">
-      <PageHeader title={t("projects.title")} actions={projectHeaderActions} />
+    <div className="projects-page flex h-full w-full flex-col overflow-hidden bg-secondary">
+      <PageHeader title={t("projects.title")} surface="secondary" actions={projectHeaderActions} />
 
-      <div className="projects-body flex min-h-0 flex-1 overflow-hidden">
+      <div className="projects-body flex min-h-0 flex-1 overflow-hidden bg-secondary">
         <aside
-          className="projects-list flex w-[280px] shrink-0 flex-col gap-2 overflow-y-auto border-r bg-muted/30 p-3 lg:w-80"
+          className="projects-list flex w-[280px] shrink-0 flex-col gap-2 overflow-y-auto border-r bg-secondary p-3 lg:w-80"
           aria-label={t("projects.title")}
         >
           {projectSummaries.map((summary) => (
@@ -753,7 +757,7 @@ function ProjectsPage() {
           ))}
         </aside>
 
-        <section className="projects-detail min-w-0 flex-1 overflow-hidden bg-background">
+        <section className="projects-detail min-w-0 flex-1 overflow-hidden bg-secondary">
           {!selectedSummary ? (
             <ProjectEmptyState>{t("projects.empty")}</ProjectEmptyState>
           ) : detailLoading && !detail ? (

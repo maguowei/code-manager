@@ -762,7 +762,7 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
       <SheetContent
         side="right"
         showCloseButton={false}
-        className="left-[60px] w-auto min-w-0 gap-0 overflow-hidden border-l bg-background p-0 sm:max-w-none max-[700px]:left-[48px]"
+        className="left-[60px] w-auto min-w-0 gap-0 overflow-hidden border-l bg-secondary p-0 sm:max-w-none max-[700px]:left-[48px]"
       >
         <SheetHeader className="shrink-0 border-b px-5 py-4 pr-12">
           <div className="flex min-w-0 items-start gap-3">
@@ -812,7 +812,7 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
             {t("history.noData")}
           </div>
         ) : (
-          <div className="min-w-0 flex-1 overflow-y-auto bg-muted/10">
+          <div className="min-w-0 flex-1 overflow-y-auto bg-secondary">
             <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-5 py-5 max-sm:px-3">
               {messages.map((msg, i) => {
                 const presentation = getMessagePresentation(msg);

@@ -202,9 +202,9 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
 
   return (
     <Form {...form}>
-      <div className="flex h-full min-h-0 w-full min-w-[560px] bg-background">
+      <div className="flex h-full min-h-0 w-full min-w-[560px] bg-secondary">
         <div
-          className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-background"
+          className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-secondary"
           role="dialog"
           aria-labelledby="memory-modal-title"
           aria-modal="true"
@@ -240,234 +240,242 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
               </Button>
             </div>
 
-            <div className="flex min-h-0 flex-1 flex-col items-center gap-5 overflow-y-auto px-6 py-6 pb-6 [&>*]:shrink-0 [&>:not([data-slot=profile-name-badge])]:w-[min(100%,880px)]">
+            <div className="flex min-h-0 flex-1 flex-col items-center gap-5 overflow-y-auto bg-secondary px-6 py-6 pb-6 [&>*]:shrink-0 [&>:not([data-slot=profile-name-badge])]:w-[min(100%,880px)]">
               <ProfileNameBadge name={watchName} size="lg" fallbackChar="M" />
 
-              <FormField
-                control={control}
-                name={MEMORY_NAME_FIELD.name}
-                render={({ field }) => (
-                  <FormItem className="flex flex-col gap-3">
-                    <div className="flex items-center gap-2">
-                      <FormLabel className="text-sm font-medium text-foreground">
-                        {t(MEMORY_NAME_FIELD.labelKey)}
-                      </FormLabel>
-                      <span className="inline-flex items-center justify-center rounded-full bg-destructive/10 px-1.5 py-px text-xs font-semibold text-destructive">
-                        {t("form.required")}
-                      </span>
-                    </div>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        placeholder={
-                          MEMORY_NAME_FIELD.placeholderKey
-                            ? t(MEMORY_NAME_FIELD.placeholderKey)
-                            : undefined
-                        }
-                        className={cn(
-                          "h-auto rounded-md border-border px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground hover:border-muted-foreground focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                          CONTROL_SURFACE_CLASS,
-                        )}
-                      />
-                    </FormControl>
-                    <FormMessage className="mt-1 text-xs text-destructive" />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={control}
-                name="targetType"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col gap-2">
-                    <div
-                      id="memory-target-type-label"
-                      className="memory-target-label label-required flex items-center gap-2 text-sm font-medium text-foreground"
-                    >
-                      <span>{t("memory.targetType")}</span>
-                      <span className="inline-flex items-center justify-center rounded-full bg-destructive/10 px-1.5 py-px text-xs font-semibold text-destructive">
-                        {t("form.required")}
-                      </span>
-                    </div>
-                    <FormControl>
-                      <div
-                        className="memory-target-card-group grid grid-cols-2 gap-3 max-[640px]:grid-cols-1"
-                        role="radiogroup"
-                        aria-labelledby="memory-target-type-label"
-                      >
-                        {MEMORY_TARGET_OPTIONS.map((option) => {
-                          const isSelected = field.value === option.value;
-                          const optionId = `memory-target-${option.value}`;
-                          const descriptionId = `${optionId}-description`;
-
-                          return (
-                            <label
-                              key={option.value}
-                              className={cn(
-                                "memory-target-card group/memory-target relative block min-w-0 cursor-pointer",
-                                isSelected && "is-selected",
-                              )}
-                              htmlFor={optionId}
-                            >
-                              <input
-                                ref={field.ref}
-                                id={optionId}
-                                className="memory-target-input pointer-events-none absolute size-px opacity-0"
-                                type="radio"
-                                name={field.name}
-                                value={option.value}
-                                checked={isSelected}
-                                aria-describedby={descriptionId}
-                                onBlur={field.onBlur}
-                                onChange={() => field.onChange(option.value)}
-                              />
-                              <span
-                                className={cn(
-                                  "memory-target-card-content flex min-h-[92px] flex-col gap-2 rounded-md border p-3.5 text-muted-foreground transition-[border-color,background-color,color] duration-150 group-hover/memory-target:border-muted-foreground/60 group-hover/memory-target:bg-muted/50 group-focus-within/memory-target:border-primary/70 group-focus-within/memory-target:bg-muted/60",
-                                  SUBTLE_SURFACE_CLASS,
-                                  isSelected &&
-                                    "border-primary bg-accent text-foreground ring-1 ring-primary/30",
-                                )}
-                              >
-                                <span className="memory-target-card-main flex items-center justify-between gap-2">
-                                  <span className="memory-target-card-title min-w-0 truncate text-sm leading-snug font-bold text-foreground">
-                                    {t(option.labelKey)}
-                                  </span>
-                                  <span
-                                    className={cn(
-                                      "memory-target-card-check inline-flex shrink-0 items-center justify-center text-muted-foreground opacity-0",
-                                      isSelected && "text-primary opacity-100",
-                                    )}
-                                    aria-hidden="true"
-                                  >
-                                    <CircleCheck className="size-[18px]" aria-hidden="true" />
-                                  </span>
-                                </span>
-                                <span
-                                  id={descriptionId}
-                                  className={cn(
-                                    "memory-target-card-description text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]",
-                                    isSelected && "text-muted-foreground",
-                                  )}
-                                >
-                                  {t(option.descriptionKey)}
-                                </span>
-                              </span>
-                            </label>
-                          );
-                        })}
+              <section
+                data-slot="memory-editor-section"
+                className={cn("flex flex-col gap-4 rounded-lg border p-4", PANEL_SURFACE_CLASS)}
+              >
+                <FormField
+                  control={control}
+                  name={MEMORY_NAME_FIELD.name}
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col gap-3">
+                      <div className="flex items-center gap-2">
+                        <FormLabel className="text-sm font-medium text-foreground">
+                          {t(MEMORY_NAME_FIELD.labelKey)}
+                        </FormLabel>
+                        <span className="inline-flex items-center justify-center rounded-full bg-destructive/10 px-1.5 py-px text-xs font-semibold text-destructive">
+                          {t("form.required")}
+                        </span>
                       </div>
-                    </FormControl>
-                    <FormMessage className="mt-1 text-xs text-destructive" />
-                  </FormItem>
-                )}
-              />
-
-              {watchTargetType === "rule" && (
-                <>
-                  <FormField
-                    control={control}
-                    name={MEMORY_RULE_PATH_FIELD.name}
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col gap-3">
-                        <div className="flex items-center gap-2">
-                          <FormLabel className="text-sm font-medium text-foreground">
-                            {t(MEMORY_RULE_PATH_FIELD.labelKey)}
-                          </FormLabel>
-                          <span className="inline-flex items-center justify-center rounded-full bg-destructive/10 px-1.5 py-px text-xs font-semibold text-destructive">
-                            {t("form.required")}
-                          </span>
-                        </div>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            placeholder={
-                              MEMORY_RULE_PATH_FIELD.placeholderKey
-                                ? t(MEMORY_RULE_PATH_FIELD.placeholderKey)
-                                : undefined
-                            }
-                            className={cn(
-                              "h-auto rounded-md border-border px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground hover:border-muted-foreground focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                              CONTROL_SURFACE_CLASS,
-                            )}
-                          />
-                        </FormControl>
-                        {MEMORY_RULE_PATH_FIELD.descriptionKey ? (
-                          <FormDescription className="text-xs leading-normal text-muted-foreground">
-                            {t(MEMORY_RULE_PATH_FIELD.descriptionKey)}
-                          </FormDescription>
-                        ) : null}
-                        <FormMessage className="mt-1 text-xs text-destructive" />
-                      </FormItem>
-                    )}
-                  />
-                  <div
-                    className={cn(
-                      "memory-advanced-rules overflow-hidden rounded-md border",
-                      PANEL_SURFACE_CLASS,
-                    )}
-                  >
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="memory-advanced-rules-toggle h-auto w-full justify-between gap-2 rounded-none px-3.5 py-3 text-sm font-semibold text-foreground hover:bg-accent hover:text-foreground"
-                      aria-expanded={isPathPatternsOpen}
-                      aria-controls={pathPatternsPanelId}
-                      onClick={() => setIsPathPatternsOpen((isOpen) => !isOpen)}
-                    >
-                      <span>{t("memory.advancedRules")}</span>
-                      <ChevronLeft
-                        className={cn(
-                          "memory-advanced-rules-icon size-4 shrink-0 text-muted-foreground transition-transform duration-150 -rotate-90",
-                          isPathPatternsOpen && "is-open rotate-90",
-                        )}
-                        aria-hidden="true"
-                      />
-                    </Button>
-                    {isPathPatternsOpen ? (
-                      <div
-                        id={pathPatternsPanelId}
-                        className="memory-advanced-rules-panel border-t border-border/80 px-3.5 pt-3 pb-3.5"
-                      >
-                        <FormField
-                          control={control}
-                          name={MEMORY_PATH_PATTERNS_FIELD.name}
-                          render={({ field }) => (
-                            <FormItem className="flex flex-col gap-3">
-                              <FormLabel className="text-sm font-medium text-foreground">
-                                {t(MEMORY_PATH_PATTERNS_FIELD.labelKey)}
-                              </FormLabel>
-                              <FormControl>
-                                <Textarea
-                                  {...field}
-                                  rows={MEMORY_PATH_PATTERNS_FIELD.rows}
-                                  placeholder={
-                                    MEMORY_PATH_PATTERNS_FIELD.placeholderKey
-                                      ? t(MEMORY_PATH_PATTERNS_FIELD.placeholderKey)
-                                      : undefined
-                                  }
-                                  className={cn(
-                                    "rounded-md border-border px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground hover:border-muted-foreground focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                                    CONTROL_SURFACE_CLASS,
-                                  )}
-                                />
-                              </FormControl>
-                              {MEMORY_PATH_PATTERNS_FIELD.descriptionKey ? (
-                                <FormDescription className="text-xs leading-normal text-muted-foreground">
-                                  {t(MEMORY_PATH_PATTERNS_FIELD.descriptionKey)}
-                                </FormDescription>
-                              ) : null}
-                              <FormMessage className="mt-1 text-xs text-destructive" />
-                            </FormItem>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder={
+                            MEMORY_NAME_FIELD.placeholderKey
+                              ? t(MEMORY_NAME_FIELD.placeholderKey)
+                              : undefined
+                          }
+                          className={cn(
+                            "h-auto rounded-md border-border px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground hover:border-muted-foreground focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                            CONTROL_SURFACE_CLASS,
                           )}
                         />
-                      </div>
-                    ) : null}
-                  </div>
-                </>
-              )}
+                      </FormControl>
+                      <FormMessage className="mt-1 text-xs text-destructive" />
+                    </FormItem>
+                  )}
+                />
 
-              <div className="flex flex-col gap-3">
+                <FormField
+                  control={control}
+                  name="targetType"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col gap-2">
+                      <div
+                        id="memory-target-type-label"
+                        className="memory-target-label label-required flex items-center gap-2 text-sm font-medium text-foreground"
+                      >
+                        <span>{t("memory.targetType")}</span>
+                        <span className="inline-flex items-center justify-center rounded-full bg-destructive/10 px-1.5 py-px text-xs font-semibold text-destructive">
+                          {t("form.required")}
+                        </span>
+                      </div>
+                      <FormControl>
+                        <div
+                          className="memory-target-card-group grid grid-cols-2 gap-3 max-[640px]:grid-cols-1"
+                          role="radiogroup"
+                          aria-labelledby="memory-target-type-label"
+                        >
+                          {MEMORY_TARGET_OPTIONS.map((option) => {
+                            const isSelected = field.value === option.value;
+                            const optionId = `memory-target-${option.value}`;
+                            const descriptionId = `${optionId}-description`;
+
+                            return (
+                              <label
+                                key={option.value}
+                                className={cn(
+                                  "memory-target-card group/memory-target relative block min-w-0 cursor-pointer",
+                                  isSelected && "is-selected",
+                                )}
+                                htmlFor={optionId}
+                              >
+                                <input
+                                  ref={field.ref}
+                                  id={optionId}
+                                  className="memory-target-input pointer-events-none absolute size-px opacity-0"
+                                  type="radio"
+                                  name={field.name}
+                                  value={option.value}
+                                  checked={isSelected}
+                                  aria-describedby={descriptionId}
+                                  onBlur={field.onBlur}
+                                  onChange={() => field.onChange(option.value)}
+                                />
+                                <span
+                                  className={cn(
+                                    "memory-target-card-content flex min-h-[92px] flex-col gap-2 rounded-md border p-3.5 text-muted-foreground transition-[border-color,background-color,color] duration-150 group-hover/memory-target:border-muted-foreground/60 group-hover/memory-target:bg-muted/50 group-focus-within/memory-target:border-primary/70 group-focus-within/memory-target:bg-muted/60",
+                                    SUBTLE_SURFACE_CLASS,
+                                    isSelected &&
+                                      "border-primary bg-accent text-foreground ring-1 ring-primary/30",
+                                  )}
+                                >
+                                  <span className="memory-target-card-main flex items-center justify-between gap-2">
+                                    <span className="memory-target-card-title min-w-0 truncate text-sm leading-snug font-bold text-foreground">
+                                      {t(option.labelKey)}
+                                    </span>
+                                    <span
+                                      className={cn(
+                                        "memory-target-card-check inline-flex shrink-0 items-center justify-center text-muted-foreground opacity-0",
+                                        isSelected && "text-primary opacity-100",
+                                      )}
+                                      aria-hidden="true"
+                                    >
+                                      <CircleCheck className="size-[18px]" aria-hidden="true" />
+                                    </span>
+                                  </span>
+                                  <span
+                                    id={descriptionId}
+                                    className={cn(
+                                      "memory-target-card-description text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]",
+                                      isSelected && "text-muted-foreground",
+                                    )}
+                                  >
+                                    {t(option.descriptionKey)}
+                                  </span>
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </FormControl>
+                      <FormMessage className="mt-1 text-xs text-destructive" />
+                    </FormItem>
+                  )}
+                />
+
+                {watchTargetType === "rule" && (
+                  <>
+                    <FormField
+                      control={control}
+                      name={MEMORY_RULE_PATH_FIELD.name}
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col gap-3">
+                          <div className="flex items-center gap-2">
+                            <FormLabel className="text-sm font-medium text-foreground">
+                              {t(MEMORY_RULE_PATH_FIELD.labelKey)}
+                            </FormLabel>
+                            <span className="inline-flex items-center justify-center rounded-full bg-destructive/10 px-1.5 py-px text-xs font-semibold text-destructive">
+                              {t("form.required")}
+                            </span>
+                          </div>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              placeholder={
+                                MEMORY_RULE_PATH_FIELD.placeholderKey
+                                  ? t(MEMORY_RULE_PATH_FIELD.placeholderKey)
+                                  : undefined
+                              }
+                              className={cn(
+                                "h-auto rounded-md border-border px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground hover:border-muted-foreground focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                                CONTROL_SURFACE_CLASS,
+                              )}
+                            />
+                          </FormControl>
+                          {MEMORY_RULE_PATH_FIELD.descriptionKey ? (
+                            <FormDescription className="text-xs leading-normal text-muted-foreground">
+                              {t(MEMORY_RULE_PATH_FIELD.descriptionKey)}
+                            </FormDescription>
+                          ) : null}
+                          <FormMessage className="mt-1 text-xs text-destructive" />
+                        </FormItem>
+                      )}
+                    />
+                    <div
+                      className={cn(
+                        "memory-advanced-rules overflow-hidden rounded-md border",
+                        PANEL_SURFACE_CLASS,
+                      )}
+                    >
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="memory-advanced-rules-toggle h-auto w-full justify-between gap-2 rounded-none px-3.5 py-3 text-sm font-semibold text-foreground hover:bg-accent hover:text-foreground"
+                        aria-expanded={isPathPatternsOpen}
+                        aria-controls={pathPatternsPanelId}
+                        onClick={() => setIsPathPatternsOpen((isOpen) => !isOpen)}
+                      >
+                        <span>{t("memory.advancedRules")}</span>
+                        <ChevronLeft
+                          className={cn(
+                            "memory-advanced-rules-icon size-4 shrink-0 text-muted-foreground transition-transform duration-150 -rotate-90",
+                            isPathPatternsOpen && "is-open rotate-90",
+                          )}
+                          aria-hidden="true"
+                        />
+                      </Button>
+                      {isPathPatternsOpen ? (
+                        <div
+                          id={pathPatternsPanelId}
+                          className="memory-advanced-rules-panel border-t border-border/80 px-3.5 pt-3 pb-3.5"
+                        >
+                          <FormField
+                            control={control}
+                            name={MEMORY_PATH_PATTERNS_FIELD.name}
+                            render={({ field }) => (
+                              <FormItem className="flex flex-col gap-3">
+                                <FormLabel className="text-sm font-medium text-foreground">
+                                  {t(MEMORY_PATH_PATTERNS_FIELD.labelKey)}
+                                </FormLabel>
+                                <FormControl>
+                                  <Textarea
+                                    {...field}
+                                    rows={MEMORY_PATH_PATTERNS_FIELD.rows}
+                                    placeholder={
+                                      MEMORY_PATH_PATTERNS_FIELD.placeholderKey
+                                        ? t(MEMORY_PATH_PATTERNS_FIELD.placeholderKey)
+                                        : undefined
+                                    }
+                                    className={cn(
+                                      "rounded-md border-border px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground hover:border-muted-foreground focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                                      CONTROL_SURFACE_CLASS,
+                                    )}
+                                  />
+                                </FormControl>
+                                {MEMORY_PATH_PATTERNS_FIELD.descriptionKey ? (
+                                  <FormDescription className="text-xs leading-normal text-muted-foreground">
+                                    {t(MEMORY_PATH_PATTERNS_FIELD.descriptionKey)}
+                                  </FormDescription>
+                                ) : null}
+                                <FormMessage className="mt-1 text-xs text-destructive" />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  </>
+                )}
+              </section>
+
+              <section
+                data-slot="memory-editor-section"
+                className={cn("flex flex-col gap-3 rounded-lg border p-4", PANEL_SURFACE_CLASS)}
+              >
                 <label className="text-sm font-medium text-foreground">{t("memory.content")}</label>
                 <FormField
                   control={control}
@@ -582,7 +590,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
                     </div>
                   )}
                 />
-              </div>
+              </section>
             </div>
           </form>
         </div>

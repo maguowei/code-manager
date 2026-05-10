@@ -549,10 +549,11 @@ function UsagePage() {
     !u.filter.model;
 
   return (
-    <div className="usage-page flex h-full w-full flex-col overflow-hidden bg-background">
+    <div className="usage-page flex h-full w-full flex-col overflow-hidden bg-secondary">
       <PageHeader
         title={t("usage.title")}
         description={t("usage.subtitle")}
+        surface="secondary"
         className="usage-header gap-4"
         mainClassName="usage-page-heading"
         titleClassName="shrink-0"
@@ -620,7 +621,7 @@ function UsagePage() {
         }
       />
 
-      <div className="usage-scroll flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 pt-4 pb-5">
+      <div className="usage-scroll flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto bg-secondary px-5 pt-4 pb-5">
         {isInitialLoading ? (
           <EmptyState title={t("usage.scanning")} />
         ) : isEmpty ? (

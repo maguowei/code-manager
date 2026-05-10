@@ -155,9 +155,9 @@ function StatsPage() {
 
   if (loading) {
     return (
-      <div className="stats-page flex h-full w-full flex-col overflow-hidden">
-        <PageHeader title={t("stats.title")} />
-        <div className="stats-scroll min-h-0 flex-1 overflow-y-auto p-5">
+      <div className="stats-page flex h-full w-full flex-col overflow-hidden bg-secondary">
+        <PageHeader title={t("stats.title")} surface="secondary" />
+        <div className="stats-scroll min-h-0 flex-1 overflow-y-auto bg-secondary p-5">
           <EmptyState title={t("loading")} loading className="min-h-[320px]" />
         </div>
       </div>
@@ -166,9 +166,9 @@ function StatsPage() {
 
   if (!stats || stats.numStartups === 0) {
     return (
-      <div className="stats-page flex h-full w-full flex-col overflow-hidden">
-        <PageHeader title={t("stats.title")} />
-        <div className="stats-scroll min-h-0 flex-1 overflow-y-auto p-5">
+      <div className="stats-page flex h-full w-full flex-col overflow-hidden bg-secondary">
+        <PageHeader title={t("stats.title")} surface="secondary" />
+        <div className="stats-scroll min-h-0 flex-1 overflow-y-auto bg-secondary p-5">
           <EmptyState
             title={t("stats.noData")}
             hint={t("stats.noDataHint")}
@@ -183,9 +183,10 @@ function StatsPage() {
   const projectCount = Object.keys(stats.projects).length;
 
   return (
-    <div className="stats-page flex h-full w-full flex-col overflow-hidden">
+    <div className="stats-page flex h-full w-full flex-col overflow-hidden bg-secondary">
       <PageHeader
         title={t("stats.title")}
+        surface="secondary"
         description={t("stats.stalenessNotice")}
         mainClassName="stats-page-heading"
         titleClassName="shrink-0"
@@ -219,7 +220,7 @@ function StatsPage() {
         }
       />
 
-      <div className="stats-scroll min-h-0 flex-1 overflow-y-auto p-5">
+      <div className="stats-scroll min-h-0 flex-1 overflow-y-auto bg-secondary p-5">
         <div className="stats-overview mb-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <StatCard
             label={t("stats.startups")}

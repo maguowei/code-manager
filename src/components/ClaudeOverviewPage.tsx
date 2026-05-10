@@ -1312,11 +1312,11 @@ function ClaudeOverviewPage() {
 
   return (
     <section
-      className="claude-overview-page relative flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-background text-foreground"
+      className="claude-overview-page relative flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-secondary text-foreground"
       aria-labelledby="claude-overview-title"
     >
       {hasMounted ? <ClaudeOverviewIconSprite /> : null}
-      <header className="claude-overview-header flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-4 border-b bg-card px-4 py-2 max-[700px]:items-start max-[700px]:justify-start max-[700px]:gap-2">
+      <header className="claude-overview-header flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-4 border-b bg-card/95 px-4 py-2 shadow-toolbar max-[700px]:items-start max-[700px]:justify-start max-[700px]:gap-2">
         <div className="claude-overview-title-group flex min-w-0 flex-1 basis-[280px] items-baseline gap-2.5 max-[700px]:flex-[0_1_auto] max-[700px]:flex-wrap">
           <h1
             id="claude-overview-title"
@@ -1404,12 +1404,12 @@ function ClaudeOverviewPage() {
         style={overviewBodyStyle}
       >
         <section
-          className="claude-overview-preview-pane flex min-h-0 min-w-0 flex-col overflow-hidden bg-background"
+          className="claude-overview-preview-pane flex min-h-0 min-w-0 flex-col overflow-hidden bg-card"
           aria-label={t("claudeOverview.preview")}
         >
           {openPreviews.length > 0 ? (
             <div
-              className="claude-overview-tabs flex min-h-8 shrink-0 items-end gap-1 overflow-x-auto border-b bg-card px-4 pt-1.5"
+              className="claude-overview-tabs flex min-h-8 shrink-0 items-end gap-1 overflow-x-auto border-b bg-card/95 px-4 pt-1.5"
               role="tablist"
               aria-label={t("claudeOverview.openFiles")}
             >
@@ -1462,7 +1462,7 @@ function ClaudeOverviewPage() {
           ) : activePreview ? (
             <>
               <div
-                className="claude-overview-preview-toolbar flex min-h-[38px] shrink-0 flex-nowrap items-center justify-end gap-3 border-b bg-card px-4 py-1 max-[700px]:flex-col max-[700px]:items-start"
+                className="claude-overview-preview-toolbar flex min-h-[38px] shrink-0 flex-nowrap items-center justify-end gap-3 border-b bg-card/95 px-4 py-1 max-[700px]:flex-col max-[700px]:items-start"
                 data-testid="claude-overview-preview-toolbar"
               >
                 {!activePreview.isBinary && isMarkdownPath(activePreview.path) ? (
@@ -1550,7 +1550,7 @@ function ClaudeOverviewPage() {
                 />
               ) : null}
               <div
-                className="claude-overview-preview-footer flex min-h-[34px] shrink-0 items-center border-t bg-card px-4 py-1 max-[700px]:flex-col max-[700px]:items-start"
+                className="claude-overview-preview-footer flex min-h-[34px] shrink-0 items-center border-t bg-card/95 px-4 py-1 max-[700px]:flex-col max-[700px]:items-start"
                 data-testid="claude-overview-preview-footer"
               >
                 <div className="claude-overview-preview-summary flex min-w-0 items-center gap-2 overflow-hidden truncate whitespace-nowrap text-xs leading-tight text-muted-foreground">
@@ -1577,7 +1577,7 @@ function ClaudeOverviewPage() {
         </section>
 
         <div
-          className="claude-overview-resizer relative min-w-2 cursor-col-resize border-0 bg-card outline-none after:absolute after:top-0 after:bottom-0 after:left-[3px] after:w-px after:bg-border hover:after:left-0.5 hover:after:w-[3px] hover:after:rounded-full hover:after:bg-primary focus-visible:after:left-0.5 focus-visible:after:w-[3px] focus-visible:after:rounded-full focus-visible:after:bg-primary max-[900px]:hidden"
+          className="claude-overview-resizer relative min-w-2 cursor-col-resize border-0 bg-card/95 outline-none after:absolute after:top-0 after:bottom-0 after:left-[3px] after:w-px after:bg-border hover:after:left-0.5 hover:after:w-[3px] hover:after:rounded-full hover:after:bg-primary focus-visible:after:left-0.5 focus-visible:after:w-[3px] focus-visible:after:rounded-full focus-visible:after:bg-primary max-[900px]:hidden"
           role="separator"
           aria-label={t("claudeOverview.resizePanes")}
           aria-orientation="vertical"

@@ -154,6 +154,39 @@ describe("ui system contract", () => {
     }
   });
 
+  it("keeps global page and drawer canvases visually separated from content surfaces", () => {
+    for (const file of [
+      "src/components/ProfileEditor.tsx",
+      "src/components/PresetEditor.tsx",
+      "src/components/MemoryEditor.tsx",
+      "src/components/SkillEditor.tsx",
+      "src/components/usage/SessionUsageDrawer.tsx",
+      "src/components/SessionDetailDrawer.tsx",
+      "src/components/StatsPage.tsx",
+      "src/components/UsagePage.tsx",
+      "src/components/ProjectsPage.tsx",
+      "src/components/HistoryPage.tsx",
+    ]) {
+      const source = readFileSync(file, "utf8");
+      expect(source, file).toContain("bg-secondary");
+    }
+
+    const statsSource = readFileSync("src/components/StatsPage.tsx", "utf8");
+    const usageSource = readFileSync("src/components/UsagePage.tsx", "utf8");
+    const projectsSource = readFileSync("src/components/ProjectsPage.tsx", "utf8");
+    const historySource = readFileSync("src/components/HistoryPage.tsx", "utf8");
+    const overviewSource = readFileSync("src/components/ClaudeOverviewPage.tsx", "utf8");
+
+    expect(statsSource).toContain('surface="secondary"');
+    expect(usageSource).toContain('surface="secondary"');
+    expect(projectsSource).toContain('surface="secondary"');
+    expect(historySource).toContain('surface="secondary"');
+    expect(overviewSource).toContain("claude-overview-preview-pane");
+    expect(overviewSource).toContain("bg-card");
+    expect(overviewSource).toContain("claude-overview-tree-pane");
+    expect(overviewSource).toContain("bg-secondary");
+  });
+
   it("keeps local surface controls responsive without thick focus treatment", () => {
     const surfaceSource = readFileSync("src/components/surface-classes.ts", "utf8");
     const memoryEditorSource = readFileSync("src/components/MemoryEditor.tsx", "utf8");
@@ -164,10 +197,27 @@ describe("ui system contract", () => {
     expect(surfaceSource).toContain("focus-visible:ring-0");
     expect(surfaceSource).toContain("focus-within:bg-muted/60");
     expect(surfaceSource).toContain("focus-within:ring-0");
+    expect(surfaceSource).toContain("ring-border/30");
     expect(surfaceSource).not.toContain("focus-visible:shadow-toolbar");
     expect(surfaceSource).not.toContain("focus-within:shadow-toolbar");
     expect(memoryEditorSource).toContain("group-focus-within/memory-target:bg-muted/60");
+    expect(memoryEditorSource).toContain('data-slot="memory-editor-section"');
+    expect(memoryEditorSource).toContain("PANEL_SURFACE_CLASS");
+    expect(memoryEditorSource).toContain("SUBTLE_SURFACE_CLASS");
+    expect(memoryEditorSource).toContain("bg-secondary");
     expect(memoryEditorSource).not.toContain("group-focus-within/memory-target:shadow-toolbar");
+  });
+
+  it("keeps memory and skill editors on card-like content sections over the secondary canvas", () => {
+    const memoryEditorSource = readFileSync("src/components/MemoryEditor.tsx", "utf8");
+    const skillEditorSource = readFileSync("src/components/SkillEditor.tsx", "utf8");
+
+    expect(memoryEditorSource).toContain('data-slot="memory-editor-section"');
+    expect(skillEditorSource).toContain('data-slot="skill-editor-section"');
+    expect(memoryEditorSource).toContain("PANEL_SURFACE_CLASS");
+    expect(skillEditorSource).toContain("PANEL_SURFACE_CLASS");
+    expect(memoryEditorSource).toContain("bg-secondary");
+    expect(skillEditorSource).toContain("bg-secondary");
   });
 
   it("uses InputGroup for plugin list search affordance", () => {
