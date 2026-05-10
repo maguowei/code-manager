@@ -38,7 +38,7 @@ function highlightText(text: string, query: string): React.ReactNode {
 
 const SIZE_DATE_HEADER = 36;
 const SIZE_SESSION = 36;
-const SIZE_ENTRY = 28;
+const SIZE_ENTRY = 32;
 
 function estimateRowSize(item: FlatItem): number {
   switch (item.kind) {
@@ -143,7 +143,7 @@ function HistorySessionList({ groups, searchQuery, onViewDetail }: Props) {
   return (
     <div
       ref={scrollRef}
-      className="history-sessions relative flex-1 overflow-y-auto bg-card px-3 py-2 max-sm:px-2"
+      className="history-sessions relative flex-1 overflow-y-auto bg-card px-3 py-2 [--count-width:86px] [--id-width:64px] [--session-gap:8px] [--session-padding:8px] [--time-width:42px] [--toggle-width:22px] max-sm:px-2 max-sm:[--id-width:56px] max-sm:[--session-gap:6px] max-sm:[--session-padding:6px] max-sm:[--time-width:38px]"
     >
       <div className="history-sessions-spacer relative w-full" style={{ height: totalSize }}>
         {virtualItems.map((vi) => {
@@ -197,7 +197,7 @@ function HistorySessionList({ groups, searchQuery, onViewDetail }: Props) {
             return (
               <div
                 key={vi.key}
-                className="history-session-row flex items-center gap-0.5 [--count-width:44px] [--id-width:64px] [--session-gap:8px] [--session-padding:8px] [--time-width:42px] [--toggle-width:22px] max-sm:[--id-width:56px] max-sm:[--session-gap:6px] max-sm:[--session-padding:6px] max-sm:[--time-width:38px]"
+                className="history-session-row flex items-center gap-0.5"
                 style={{ position: "absolute", top, left: 0, right: 0, height: vi.size }}
               >
                 <Button
@@ -230,8 +230,9 @@ function HistorySessionList({ groups, searchQuery, onViewDetail }: Props) {
                   <Badge
                     variant="secondary"
                     className="session-count w-[var(--count-width)] shrink-0 justify-center px-1.5 py-0 text-xs font-normal max-sm:hidden"
+                    title={`${session.entries.length} ${t("history.userInputs")}`}
                   >
-                    {session.entries.length} {t("history.messages")}
+                    {session.entries.length} {t("history.userInputs")}
                   </Badge>
                   {!isExpanded && firstEntry && (
                     <span
@@ -253,16 +254,13 @@ function HistorySessionList({ groups, searchQuery, onViewDetail }: Props) {
           return (
             <div
               key={vi.key}
-              className="history-entry flex gap-2.5 rounded-sm py-1 pr-2 pl-8 transition-colors hover:bg-accent max-sm:pl-7"
+              className="history-entry group grid grid-cols-[var(--time-width)_minmax(0,1fr)] items-center gap-[var(--session-gap)] rounded-md py-1 pr-2 pl-[calc(var(--toggle-width)+var(--session-padding))] transition-colors hover:bg-muted/60 max-sm:pl-[calc(var(--toggle-width)+var(--session-padding))]"
               style={{ position: "absolute", top, left: 0, right: 0, height: vi.size }}
             >
-              <span className="entry-time w-[42px] shrink-0 font-mono text-xs leading-5 text-muted-foreground tabular-nums">
+              <span className="entry-time rounded-sm bg-muted/50 px-1.5 text-center font-mono text-xs leading-5 text-muted-foreground tabular-nums transition-colors group-hover:bg-background">
                 {formatTime(item.entry.timestamp)}
               </span>
-              <span
-                className="entry-display truncate text-sm leading-5 text-foreground"
-                title={item.entry.display}
-              >
+              <span className="entry-display min-w-0 truncate rounded-sm px-1.5 py-0.5 text-sm leading-5 font-medium text-foreground">
                 {highlightText(item.entry.display, searchQuery)}
               </span>
             </div>

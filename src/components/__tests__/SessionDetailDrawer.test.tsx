@@ -79,9 +79,18 @@ describe("SessionDetailDrawer", () => {
 
     renderDrawer(detail);
 
-    expect(await screen.findByRole("heading", { name: /对话详情/ })).toHaveTextContent("ee6bf047");
-    expect(screen.getByText("/Users/maguowei/Work/AI/ai-manager")).toBeInTheDocument();
-    expect(screen.getByText("2 条消息")).toBeInTheDocument();
+    const heading = await screen.findByRole("heading", { name: "对话详情" });
+    expect(heading).toBeInTheDocument();
+    const projectName = screen.getByText("ai-manager");
+    expect(projectName).toHaveAttribute("title", "/Users/maguowei/Work/AI/ai-manager");
+    expect(screen.queryByText("/Users/maguowei/Work/AI/ai-manager")).not.toBeInTheDocument();
+    const sessionBadge = screen.getByText("ee6bf047");
+    expect(sessionBadge.closest('[data-slot="session-id-badge"]')).toHaveAttribute(
+      "title",
+      SESSION_ID,
+    );
+    const messageCount = screen.getByText("2 条消息");
+    expect(messageCount).toBeInTheDocument();
     expect(
       screen.getByText(
         `${new Date("2026-05-08T14:21:27").toLocaleString()} - ${new Date(
@@ -89,6 +98,14 @@ describe("SessionDetailDrawer", () => {
         ).toLocaleString()}`,
       ),
     ).toBeInTheDocument();
+    expect(messageCount.closest('[data-slot="session-detail-meta"]')).toHaveClass(
+      "ml-auto",
+      "justify-end",
+    );
+    const contextRow = messageCount.closest('[data-slot="session-detail-context-row"]');
+    expect(contextRow).toContainElement(projectName);
+    expect(contextRow).toContainElement(sessionBadge);
+    expect(contextRow).toContainElement(messageCount);
 
     const userArticle = screen.getByText("第一条消息").closest('[data-slot="session-message"]');
     const assistantArticle = screen
@@ -144,7 +161,7 @@ describe("SessionDetailDrawer", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders command and system-only messages as compact events", async () => {
+  it("renders user command-only messages as user input messages", async () => {
     renderDrawer({
       session_id: SESSION_ID,
       project: "/Users/maguowei/Work/AI/ai-manager",
@@ -152,17 +169,48 @@ describe("SessionDetailDrawer", () => {
         {
           role: "user",
           timestamp: "2026-05-08T14:21:30",
-          blocks: [
-            { type: "command", name: "/model" },
-            { type: "system", summary: "模型切换提示" },
-          ],
+          blocks: [{ type: "command", name: "/model" }],
         },
       ],
     });
 
     expect(await screen.findByText("命令")).toBeInTheDocument();
     expect(screen.getByText("/model")).toBeInTheDocument();
-    expect(screen.getByText("系统信息")).toBeInTheDocument();
+    const messageLabel = screen.getByText("用户");
+    const messageArticle = messageLabel.closest('[data-slot="session-message"]');
+    expect(messageArticle).toHaveAttribute("data-role", "user");
+    expect(messageArticle).toHaveClass("grid-cols-[2rem_minmax(0,1fr)_2rem]");
+    expect(messageLabel.closest(".col-start-3")).toHaveClass("text-xs");
+    expect(screen.getByText("/model").closest("div")).toHaveClass("bg-card");
+    expect(screen.getByText("/model").closest("div")).not.toHaveClass("bg-background");
+    expect(
+      within(messageArticle as HTMLElement)
+        .getByText(new Date("2026-05-08T14:21:30").toLocaleString())
+        .closest('[data-slot="session-message-actions"]'),
+    ).toHaveClass("absolute", "bottom-2", "opacity-0", "group-hover:opacity-100");
+    fireEvent.click(
+      within(messageArticle as HTMLElement).getByRole("button", { name: "复制消息" }),
+    );
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith("/model");
+    });
+    expect(screen.queryByText("事件")).not.toBeInTheDocument();
+  });
+
+  it("renders system-only messages as compact events", async () => {
+    renderDrawer({
+      session_id: SESSION_ID,
+      project: "/Users/maguowei/Work/AI/ai-manager",
+      messages: [
+        {
+          role: "user",
+          timestamp: "2026-05-08T14:21:30",
+          blocks: [{ type: "system", summary: "模型切换提示" }],
+        },
+      ],
+    });
+
+    expect(await screen.findByText("系统信息")).toBeInTheDocument();
     const eventLabel = screen.getByText("事件");
     const eventArticle = eventLabel.closest('[data-slot="session-event"]');
     expect(eventArticle).toHaveClass("grid-cols-[2rem_minmax(0,1fr)_2rem]");
@@ -175,8 +223,6 @@ describe("SessionDetailDrawer", () => {
       "group-hover:border-muted-foreground/40",
     );
     expect(eventArticle?.querySelector(".col-start-2")).not.toHaveClass("group-hover:ring-ring");
-    expect(screen.getByText("/model").closest("div")).toHaveClass("bg-card");
-    expect(screen.getByText("/model").closest("div")).not.toHaveClass("bg-background");
     expect(
       within(eventArticle as HTMLElement)
         .getByText(new Date("2026-05-08T14:21:30").toLocaleString())
@@ -184,9 +230,7 @@ describe("SessionDetailDrawer", () => {
     ).toHaveClass("absolute", "bottom-2", "opacity-0", "group-hover:opacity-100");
     fireEvent.click(within(eventArticle as HTMLElement).getByRole("button", { name: "复制消息" }));
     await waitFor(() => {
-      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-        "/model\n\n系统信息\n模型切换提示",
-      );
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith("系统信息\n模型切换提示");
     });
     expect(screen.queryByText("用户")).not.toBeInTheDocument();
   });

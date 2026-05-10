@@ -11,6 +11,7 @@ import {
   ClipboardList,
   Clock3,
   Copy,
+  Hash,
   Image as ImageIcon,
   Info,
   MessageSquare,
@@ -118,7 +119,8 @@ function stripInvisibleControls(value: string): string {
   return result;
 }
 
-function isEventBlock(block: MessageBlock): boolean {
+function isEventBlock(block: MessageBlock, role: SessionMessage["role"]): boolean {
+  if (block.type === "command" && role === "user") return false;
   return EVENT_BLOCK_TYPES.has(block.type);
 }
 
@@ -132,7 +134,10 @@ export function getMessagePresentation(message: SessionMessage): MessagePresenta
     if (block.type === "tool_result") return stripAnsiForDisplay(block.content).trim().length > 0;
     return true;
   });
-  const kind = visibleBlocks.length > 0 && visibleBlocks.every(isEventBlock) ? "event" : "message";
+  const kind =
+    visibleBlocks.length > 0 && visibleBlocks.every((block) => isEventBlock(block, message.role))
+      ? "event"
+      : "message";
   const tone = visibleBlocks.some(
     (block) => block.type === "text" && isErrorText(stripAnsiForDisplay(block.text)),
   )
@@ -172,6 +177,12 @@ function formatDateRange(messages: SessionMessage[], fallback: string): string {
 
 function formatMessageCount(count: number, unit: string): string {
   return `${count} ${unit}`;
+}
+
+function getProjectDisplayName(projectPath: string): string {
+  const cleanPath = stripAnsiForDisplay(projectPath).trim();
+  const parts = cleanPath.split(/[\\/]+/).filter(Boolean);
+  return parts.at(-1) ?? cleanPath;
 }
 
 function messageBlockToCopyText(block: MessageBlock, t: (key: TranslationKey) => string): string {
@@ -838,6 +849,7 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
 
   const messages = detail?.messages;
   const headerProject = detail?.project ?? project;
+  const headerProjectName = getProjectDisplayName(headerProject);
   const messageMeta = messages
     ? formatMessageCount(messages.length, t("history.messageCountUnit"))
     : null;
@@ -860,18 +872,53 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
         showCloseButton={false}
         className="left-[60px] w-auto min-w-0 gap-0 overflow-hidden border-l bg-secondary p-0 sm:max-w-none max-[700px]:left-[48px]"
       >
-        <SheetHeader className="shrink-0 border-b bg-card/95 px-5 py-4 pr-12 shadow-toolbar">
+        <SheetHeader className="shrink-0 border-b bg-card/95 px-5 py-3 pr-12 shadow-toolbar">
           <div className="flex min-w-0 items-start gap-3">
             <div className="min-w-0 flex-1">
-              <SheetTitle className="flex min-w-0 flex-wrap items-baseline gap-2 text-base">
-                <span>{t("history.conversation")}</span>
-                <span className="min-w-0 font-mono text-muted-foreground">
-                  {sessionId.slice(0, 8)}
-                </span>
-              </SheetTitle>
-              <SheetDescription className="mt-1 truncate">
-                {stripAnsiForDisplay(headerProject)}
-              </SheetDescription>
+              <SheetTitle className="text-base">{t("history.conversation")}</SheetTitle>
+              <div
+                data-slot="session-detail-context-row"
+                className="mt-1.5 flex min-w-0 items-center gap-4 max-md:flex-wrap"
+              >
+                <div
+                  data-slot="session-detail-context"
+                  className="flex min-w-[180px] flex-1 flex-wrap items-center gap-2"
+                >
+                  <SheetDescription
+                    className="min-w-0 truncate text-sm font-semibold text-foreground"
+                    title={stripAnsiForDisplay(headerProject)}
+                  >
+                    {headerProjectName}
+                  </SheetDescription>
+                  <Badge
+                    variant="outline"
+                    data-slot="session-id-badge"
+                    title={sessionId}
+                    className="max-w-full gap-1.5 rounded-md px-2 py-1 font-normal text-muted-foreground"
+                  >
+                    <Hash className="size-3.5 shrink-0" aria-hidden="true" />
+                    <span className="shrink-0 font-medium">{t("history.session")}</span>
+                    <span className="min-w-0 truncate font-mono tabular-nums">
+                      {sessionId.slice(0, 8)}
+                    </span>
+                  </Badge>
+                </div>
+                {messageMeta && timeRange && (
+                  <div
+                    data-slot="session-detail-meta"
+                    className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground max-md:ml-0 max-md:justify-start"
+                  >
+                    <Badge variant="outline" className="gap-1.5 rounded-md px-2 py-1 font-normal">
+                      <MessageSquare className="size-3.5" aria-hidden="true" />
+                      {messageMeta}
+                    </Badge>
+                    <span className="flex min-w-0 items-center gap-1.5 rounded-md border px-2 py-1 tabular-nums">
+                      <Clock3 className="size-3.5 shrink-0" aria-hidden="true" />
+                      <span className="min-w-0 truncate">{timeRange}</span>
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
             <Button
               type="button"
@@ -885,18 +932,6 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
               <span className="sr-only">{t("common.close")}</span>
             </Button>
           </div>
-          {messageMeta && timeRange && (
-            <div className="mt-3 flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <Badge variant="outline" className="gap-1.5 rounded-md px-2 py-1 font-normal">
-                <MessageSquare className="size-3.5" aria-hidden="true" />
-                {messageMeta}
-              </Badge>
-              <span className="flex min-w-0 items-center gap-1.5 rounded-md border px-2 py-1 tabular-nums">
-                <Clock3 className="size-3.5 shrink-0" aria-hidden="true" />
-                <span className="min-w-0 truncate">{timeRange}</span>
-              </span>
-            </div>
-          )}
         </SheetHeader>
 
         {loading ? (

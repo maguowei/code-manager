@@ -8,6 +8,8 @@ import HistoryHeatmap from "../HistoryHeatmap";
 import HistoryProjectList from "../HistoryProjectList";
 
 const sessionListSource = readFileSync("src/components/HistorySessionList.tsx", "utf8");
+const historyPageSource = readFileSync("src/components/HistoryPage.tsx", "utf8");
+const sessionDetailSource = readFileSync("src/components/SessionDetailDrawer.tsx", "utf8");
 
 const PROJECT_GROUPS: HistoryProjectGroup[] = [
   {
@@ -50,5 +52,14 @@ describe("HistoryPage responsive layout CSS", () => {
   it("compresses low-priority session row columns on very narrow pages", () => {
     expect(sessionListSource).toContain("max-sm:[--id-width:56px]");
     expect(sessionListSource).toContain("max-sm:hidden");
+  });
+
+  it("keeps search focus lightweight and user input counts explicit", () => {
+    expect(historyPageSource).toContain("history-search group");
+    expect(historyPageSource).toContain("hover:bg-card");
+    expect(historyPageSource).toContain("focus-visible:ring-0");
+    expect(sessionListSource).toContain('t("history.userInputs")');
+    expect(sessionListSource).not.toContain("title={item.entry.display}");
+    expect(sessionDetailSource).toContain('data-slot="session-detail-context-row"');
   });
 });

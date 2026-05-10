@@ -15,7 +15,7 @@ import HistoryProjectList from "./HistoryProjectList";
 import HistorySessionList from "./HistorySessionList";
 import PageHeader from "./PageHeader";
 import SessionDetailDrawer from "./SessionDetailDrawer";
-import { PANEL_SURFACE_CLASS } from "./surface-classes";
+import { CONTROL_SURFACE_CLASS, PANEL_SURFACE_CLASS } from "./surface-classes";
 import { Input } from "./ui/input";
 
 function HistoryPage() {
@@ -119,14 +119,17 @@ function HistoryPage() {
         >
           <div className="history-top flex shrink-0 flex-wrap items-start gap-4 border-b bg-card/95 p-3 md:p-4">
             <HistoryHeatmap entries={allEntries} />
-            <div className="history-search relative mt-1 ml-auto w-full flex-none md:w-[220px]">
+            <div className="history-search group relative mt-1 ml-auto w-full flex-none md:w-[220px]">
               <Search
-                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary group-hover:text-foreground"
                 aria-hidden="true"
               />
               <Input
                 type="search"
-                className="history-search-input pl-9"
+                className={cn(
+                  CONTROL_SURFACE_CLASS,
+                  "history-search-input border-border/80 bg-background/70 pl-9 hover:bg-card focus-visible:border-primary/70 focus-visible:bg-card focus-visible:ring-0",
+                )}
                 placeholder={t("history.search")}
                 aria-label={t("history.search")}
                 value={searchQuery}
