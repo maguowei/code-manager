@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { Copy, Files, Plus, TestTube, Trash2 } from "lucide-react";
+import { Copy, Plus, TestTube, Trash2, Variable } from "lucide-react";
 import { type DragEvent, useCallback, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
@@ -868,7 +868,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                         void handleCopyEnv(profile);
                       }}
                     >
-                      <Copy aria-hidden="true" />
+                      <Variable aria-hidden="true" />
                     </Button>
                     <Button
                       type="button"
@@ -882,7 +882,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                         void handleDuplicate(profile);
                       }}
                     >
-                      <Files aria-hidden="true" />
+                      <Copy aria-hidden="true" />
                     </Button>
                     <Button
                       type="button"
