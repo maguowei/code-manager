@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { CONTROL_SURFACE_CLASS, PANEL_SURFACE_CLASS } from "./surface-classes";
+
+const EDITOR_CONTROL_SURFACE_CLASS = CONTROL_SURFACE_CLASS;
 
 interface EditorSectionProps {
   title: string;
@@ -21,7 +24,7 @@ function EditorSection({ title, children, className }: EditorSectionProps) {
   return (
     <section
       data-slot="editor-section"
-      className={cn("flex flex-col gap-3 rounded-lg border bg-card p-4", className)}
+      className={cn("flex flex-col gap-3 rounded-lg border p-4", PANEL_SURFACE_CLASS, className)}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-foreground">{title}</h3>
@@ -62,6 +65,7 @@ function EditorDescription({ children, className }: EditorLabelRowProps) {
 }
 
 export {
+  EDITOR_CONTROL_SURFACE_CLASS,
   EditorDescription,
   EditorEnvHint,
   EditorField,

@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ArrowLeft, CircleCheck, ExternalLink, TestTube } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
 import type { ConfigProfile, ModelTestResult, SettingsPreset } from "../types";
@@ -22,6 +23,7 @@ import {
   setTopLevelString,
 } from "./config-workspace-utils";
 import {
+  EDITOR_CONTROL_SURFACE_CLASS,
   EditorDescription,
   EditorEnvHint,
   EditorField,
@@ -596,9 +598,9 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
   return (
     <div
       data-slot="profile-editor-panel"
-      className="flex h-full min-h-0 w-full min-w-[560px] flex-col overflow-hidden bg-card"
+      className="flex h-full min-h-0 w-full min-w-[560px] flex-col overflow-hidden bg-background"
     >
-      <div className="sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-5">
+      <div className="sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border/80 bg-card/95 px-5 shadow-toolbar">
         <Button
           type="button"
           variant="ghost"
@@ -640,6 +642,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
               </Label>
               <Input
                 id="profile-name"
+                className={EDITOR_CONTROL_SURFACE_CLASS}
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder={messages.namePlaceholder}
@@ -649,6 +652,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
               <Label htmlFor="profile-description">{messages.description}</Label>
               <Input
                 id="profile-description"
+                className={EDITOR_CONTROL_SURFACE_CLASS}
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 placeholder={messages.descriptionPlaceholder}
@@ -670,7 +674,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
                 >
                   <SelectTrigger
                     id="profile-preset"
-                    className="w-full"
+                    className={cn("w-full", EDITOR_CONTROL_SURFACE_CLASS)}
                     value={presetId}
                     data-value={presetId}
                     onChange={(event) =>
@@ -716,6 +720,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
             <Input
               id="profile-base-url"
               aria-label={messages.baseUrlEnv}
+              className={EDITOR_CONTROL_SURFACE_CLASS}
               value={readEnvString(settings, "ANTHROPIC_BASE_URL")}
               placeholder="https://api.anthropic.com"
               onChange={(event) =>

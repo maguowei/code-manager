@@ -29,6 +29,12 @@ import type {
 } from "../types";
 import PageHeader from "./PageHeader";
 import { formatUSD } from "./project-detail-utils";
+import {
+  CONTROL_SURFACE_CLASS,
+  PANEL_SURFACE_CLASS,
+  SUBTLE_SURFACE_CLASS,
+  TOOLBAR_SURFACE_CLASS,
+} from "./surface-classes";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Calendar } from "./ui/calendar";
@@ -682,7 +688,7 @@ function UsagePage() {
                 </section>
 
                 <section
-                  className="usage-trend-section rounded-xl border bg-card p-4 shadow-sm"
+                  className={cn("usage-trend-section rounded-xl border p-4", PANEL_SURFACE_CLASS)}
                   aria-label={t("usage.charts.trends")}
                 >
                   <header className="usage-trend-toolbar mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -1033,7 +1039,12 @@ function UsagePage() {
 
                 <ChartPanel title={t("usage.charts.tokenComposition")}>
                   <div className="usage-token-stack flex flex-col gap-3">
-                    <div className="usage-token-total rounded-md border bg-muted/30 p-3">
+                    <div
+                      className={cn(
+                        "usage-token-total rounded-md border p-3",
+                        SUBTLE_SURFACE_CLASS,
+                      )}
+                    >
                       <span className="text-xs font-semibold text-muted-foreground">
                         {t("usage.table.totalTokens")}
                       </span>
@@ -1060,7 +1071,10 @@ function UsagePage() {
             </div>
 
             <section
-              className="usage-detail-workspace shrink-0 overflow-visible rounded-xl border bg-card p-4 shadow-sm"
+              className={cn(
+                "usage-detail-workspace shrink-0 overflow-visible rounded-xl border p-4",
+                PANEL_SURFACE_CLASS,
+              )}
               aria-label={t("usage.details.title")}
             >
               <div className="usage-detail-header mb-3 flex items-start justify-between gap-3">
@@ -1074,7 +1088,7 @@ function UsagePage() {
               </div>
 
               <div
-                className="usage-tabs inline-flex max-w-full gap-1 overflow-x-auto rounded-md border bg-secondary p-1"
+                className="usage-tabs inline-flex max-w-full gap-1 overflow-x-auto rounded-md border border-border/80 bg-muted/50 p-1"
                 role="tablist"
                 aria-label={t("usage.details.title")}
               >
@@ -1087,7 +1101,7 @@ function UsagePage() {
                     aria-selected={u.tab === key}
                     className={cn(
                       "usage-tab-btn h-auto shrink-0 gap-2 rounded-sm px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-transparent",
-                      u.tab === key && "active bg-background text-foreground shadow-sm",
+                      u.tab === key && "active bg-background text-foreground shadow-xs",
                     )}
                     onClick={() => u.setTab(key)}
                   >
@@ -1161,7 +1175,7 @@ function ChartPanel({
   children: ReactNode;
 }) {
   return (
-    <section className={cn("usage-panel rounded-lg border bg-card p-4 shadow-sm", className)}>
+    <section className={cn("usage-panel rounded-lg border p-4", PANEL_SURFACE_CLASS, className)}>
       <div className="usage-panel-header mb-3 flex items-center justify-between gap-3">
         <div className="usage-panel-title text-sm font-semibold">{title}</div>
         {actions && <div className="usage-panel-actions flex items-center gap-2">{actions}</div>}
@@ -1429,7 +1443,10 @@ function Filters({ t, language, filter, allProjects, allModels, onChange, onRese
 
   return (
     <div
-      className="usage-command-bar sticky top-0 z-10 flex flex-wrap items-end gap-3 rounded-lg border bg-card/95 p-3 shadow-sm backdrop-blur"
+      className={cn(
+        "usage-command-bar sticky top-0 z-10 flex flex-wrap items-end gap-3 rounded-lg border p-3 backdrop-blur",
+        TOOLBAR_SURFACE_CLASS,
+      )}
       role="group"
       aria-label={t("usage.filter.ariaLabel")}
     >
@@ -1483,7 +1500,10 @@ function Filters({ t, language, filter, allProjects, allModels, onChange, onRese
           {t("usage.filter.project")}
         </span>
         <select
-          className="h-8 w-full rounded-md border bg-background px-2 text-sm"
+          className={cn(
+            "h-8 w-full rounded-md border px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+            CONTROL_SURFACE_CLASS,
+          )}
           value={filter.projectPath ?? ""}
           onChange={(e) => onChange({ projectPath: e.target.value || undefined })}
         >
@@ -1500,7 +1520,10 @@ function Filters({ t, language, filter, allProjects, allModels, onChange, onRese
           {t("usage.filter.model")}
         </span>
         <select
-          className="h-8 w-full rounded-md border bg-background px-2 text-sm"
+          className={cn(
+            "h-8 w-full rounded-md border px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+            CONTROL_SURFACE_CLASS,
+          )}
           value={filter.model ?? ""}
           onChange={(e) => onChange({ model: e.target.value || undefined })}
         >
@@ -1889,7 +1912,10 @@ function UnknownModelsAlert({
       </span>
       <div className="usage-warning-models mt-3 flex flex-wrap gap-2">
         {models.map((m) => (
-          <code key={m} className="rounded-md border bg-background px-2 py-1 text-xs">
+          <code
+            key={m}
+            className={cn("rounded-md border px-2 py-1 text-xs", CONTROL_SURFACE_CLASS)}
+          >
             {m}
           </code>
         ))}
@@ -1900,7 +1926,12 @@ function UnknownModelsAlert({
 
 function EmptyTable({ t }: { t: ReturnType<typeof useI18n>["t"] }) {
   return (
-    <div className="usage-no-data rounded-lg border bg-muted/30 p-6 text-center text-muted-foreground">
+    <div
+      className={cn(
+        "usage-no-data rounded-lg border p-6 text-center text-muted-foreground",
+        SUBTLE_SURFACE_CLASS,
+      )}
+    >
       {t("usage.empty")}
     </div>
   );

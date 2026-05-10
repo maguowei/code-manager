@@ -798,10 +798,10 @@ describe("UsagePage cost cockpit", () => {
 
     expect(source).toContain("usage-detail-workspace shrink-0 overflow-visible");
     expect(source).toContain("usage-tabs inline-flex max-w-full gap-1 overflow-x-auto");
-    expect(source).toContain("rounded-md border bg-secondary p-1");
+    expect(source).toContain("rounded-md border border-border/80 bg-muted/50 p-1");
     expect(source).toContain('variant="ghost"');
     expect(source).toContain("usage-tab-btn h-auto shrink-0 gap-2");
-    expect(source).toContain('u.tab === key && "active bg-background text-foreground shadow-sm"');
+    expect(source).toContain('u.tab === key && "active bg-background text-foreground shadow-xs"');
   });
 
   it("keeps the subtitle on the same row as the title like the stats page", () => {

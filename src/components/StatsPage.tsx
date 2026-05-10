@@ -16,6 +16,11 @@ import { type ClaudeStats, isTauri, type ProjectStats } from "../types";
 import EmptyState from "./EmptyState";
 import PageHeader from "./PageHeader";
 import { formatDuration } from "./project-detail-utils";
+import {
+  CONTROL_SURFACE_CLASS,
+  PANEL_SURFACE_CLASS,
+  SUBTLE_SURFACE_CLASS,
+} from "./surface-classes";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
@@ -249,7 +254,10 @@ function StatsPage() {
 
         <details
           open
-          className="stats-section stats-section-collapsible group mb-5 rounded-xl border bg-card shadow-sm"
+          className={cn(
+            "stats-section stats-section-collapsible group mb-5 rounded-xl border",
+            PANEL_SURFACE_CLASS,
+          )}
         >
           <summary className="stats-section-title stats-section-summary flex cursor-pointer list-none items-center gap-2 border-b px-5 py-3.5 text-base font-semibold [&::-webkit-details-marker]:hidden">
             {t("stats.toolSection")}
@@ -260,7 +268,7 @@ function StatsPage() {
             <ChevronRight className="ml-auto size-4 text-muted-foreground transition-transform group-open:rotate-90" />
           </summary>
           <div className="stats-chart-group grid gap-5 p-5 lg:grid-cols-2">
-            <div className="stats-chart-block rounded-lg border bg-muted/30 p-3">
+            <div className={cn("stats-chart-block rounded-lg border p-3", SUBTLE_SURFACE_CLASS)}>
               <div className="stats-chart-label mb-4 inline-flex rounded-md border bg-background px-2 py-0.5 text-sm font-semibold text-muted-foreground">
                 {t("stats.toolUsage")}
               </div>
@@ -302,7 +310,7 @@ function StatsPage() {
                 <p className="stats-no-data py-4 text-center text-sm text-muted-foreground">-</p>
               )}
             </div>
-            <div className="stats-chart-block rounded-lg border bg-muted/30 p-3">
+            <div className={cn("stats-chart-block rounded-lg border p-3", SUBTLE_SURFACE_CLASS)}>
               <div className="stats-chart-label mb-4 inline-flex rounded-md border bg-background px-2 py-0.5 text-sm font-semibold text-muted-foreground">
                 {t("stats.skillUsage")}
               </div>
@@ -311,7 +319,10 @@ function StatsPage() {
                   {skillUsageData.map((item) => (
                     <div
                       key={item.name}
-                      className="stats-list-item flex items-center justify-between gap-3 rounded-md border bg-card px-4 py-3"
+                      className={cn(
+                        "stats-list-item flex items-center justify-between gap-3 rounded-md border px-4 py-3",
+                        SUBTLE_SURFACE_CLASS,
+                      )}
                     >
                       <span className="stats-list-item-name min-w-0 truncate font-medium">
                         {item.name}
@@ -331,7 +342,10 @@ function StatsPage() {
 
         <details
           open
-          className="stats-section stats-section-collapsible stats-project-section group rounded-xl border bg-card shadow-sm"
+          className={cn(
+            "stats-section stats-section-collapsible stats-project-section group rounded-xl border",
+            PANEL_SURFACE_CLASS,
+          )}
         >
           <summary className="stats-section-title stats-section-summary flex cursor-pointer list-none items-center gap-2 border-b px-5 py-3.5 text-base font-semibold [&::-webkit-details-marker]:hidden">
             {t("stats.sessionSection")}
@@ -365,7 +379,7 @@ function StatCard({
   valueClassName?: string;
 }) {
   return (
-    <Card className="stat-card rounded-lg py-5 shadow-sm">
+    <Card className="stat-card rounded-lg py-5">
       <CardContent className="flex flex-col gap-2 px-5">
         <span className="stat-card-label text-sm font-medium text-muted-foreground">{label}</span>
         <span className={cn("stat-card-value text-xl font-bold leading-tight", valueClassName)}>
@@ -386,7 +400,12 @@ function ProjectMetric({
   valueClassName?: string;
 }) {
   return (
-    <div className="stats-project-metric flex min-w-0 flex-col gap-1 rounded-md border bg-muted/30 p-3">
+    <div
+      className={cn(
+        "stats-project-metric flex min-w-0 flex-col gap-1 rounded-md border p-3",
+        SUBTLE_SURFACE_CLASS,
+      )}
+    >
       <span className="stats-project-metric-label text-xs font-bold tracking-wide text-muted-foreground uppercase">
         {label}
       </span>
@@ -404,7 +423,9 @@ function ProjectMetric({
 
 function PerformanceMetric({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="stats-performance-card min-w-0 rounded-md border bg-muted/30 p-3">
+    <div
+      className={cn("stats-performance-card min-w-0 rounded-md border p-3", SUBTLE_SURFACE_CLASS)}
+    >
       <div className="stats-metric-label mb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
         {label}
       </div>
@@ -426,7 +447,12 @@ function ProjectCard({
   const modelEntries = p.lastModelUsage ? Object.entries(p.lastModelUsage) : [];
 
   return (
-    <details className="stats-project-card group overflow-hidden rounded-lg border bg-card shadow-sm">
+    <details
+      className={cn(
+        "stats-project-card group overflow-hidden rounded-lg border",
+        PANEL_SURFACE_CLASS,
+      )}
+    >
       <summary className="stats-project-header flex min-h-[72px] cursor-pointer list-none items-center justify-between gap-4 border-l-[3px] border-l-transparent p-4 transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary group-open:border-l-primary group-open:bg-muted/40 max-[600px]:flex-wrap max-[600px]:items-start max-[600px]:gap-3 [&::-webkit-details-marker]:hidden">
         <div className="stats-project-title flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="stats-project-name font-mono text-base font-bold leading-tight">
@@ -507,7 +533,12 @@ function ProjectCard({
             <div className="stats-project-detail-title text-xs font-extrabold tracking-widest text-muted-foreground uppercase">
               {t("stats.projectModelBreakdown")}
             </div>
-            <div className="stats-model-table-wrap overflow-x-auto rounded-md border bg-background">
+            <div
+              className={cn(
+                "stats-model-table-wrap overflow-x-auto rounded-md border",
+                CONTROL_SURFACE_CLASS,
+              )}
+            >
               <div className="stats-model-table min-w-[640px]">
                 <div className="stats-model-header grid grid-cols-[minmax(220px,1fr)_repeat(3,minmax(96px,auto))] gap-3 border-b bg-muted/50 px-3 py-2 text-xs font-extrabold tracking-wide text-muted-foreground uppercase [&>span:not(:first-child)]:text-right">
                   <span>{t("stats.projectModel")}</span>
@@ -536,7 +567,12 @@ function ProjectCard({
             <div className="stats-project-detail-title text-xs font-extrabold tracking-widest text-muted-foreground uppercase">
               {t("stats.projectFirstPrompt")}
             </div>
-            <p className="stats-project-prompt-text m-0 whitespace-pre-wrap rounded-md border bg-background p-3 text-sm leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
+            <p
+              className={cn(
+                "stats-project-prompt-text m-0 whitespace-pre-wrap rounded-md border p-3 text-sm leading-relaxed text-muted-foreground [overflow-wrap:anywhere]",
+                CONTROL_SURFACE_CLASS,
+              )}
+            >
               {p.lastSessionFirstPrompt}
             </p>
           </section>

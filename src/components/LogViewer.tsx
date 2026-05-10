@@ -6,6 +6,12 @@ import useEscapeKey from "../hooks/useEscapeKey";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
 import type { LogLevel, LogView } from "../types";
+import {
+  CONTROL_SURFACE_CLASS,
+  FLOATING_SURFACE_CLASS,
+  PANEL_SURFACE_CLASS,
+  TOOLBAR_SURFACE_CLASS,
+} from "./surface-classes";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
@@ -115,13 +121,21 @@ function LogViewer({ onClose }: LogViewerProps) {
       onClick={onClose}
     >
       <section
-        className="log-viewer flex h-[min(760px,calc(100vh-40px))] w-[min(980px,calc(100vw-40px))] flex-col overflow-hidden rounded-lg border bg-background text-foreground shadow-2xl max-md:h-full max-md:w-full"
+        className={cn(
+          "log-viewer flex h-[min(760px,calc(100vh-40px))] w-[min(980px,calc(100vw-40px))] flex-col overflow-hidden rounded-lg border text-foreground max-md:h-full max-md:w-full",
+          FLOATING_SURFACE_CLASS,
+        )}
         role="dialog"
         aria-modal="true"
         aria-labelledby="log-viewer-title"
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="log-viewer-header flex min-h-16 items-center justify-between gap-4 border-b bg-muted/30 px-5 py-4">
+        <header
+          className={cn(
+            "log-viewer-header flex min-h-16 items-center justify-between gap-4 border-b px-5 py-4",
+            TOOLBAR_SURFACE_CLASS,
+          )}
+        >
           <div className="log-viewer-title-group min-w-0">
             <h2 id="log-viewer-title" className="text-base font-semibold">
               {t("logs.title")}
@@ -142,11 +156,14 @@ function LogViewer({ onClose }: LogViewerProps) {
           </Button>
         </header>
 
-        <div className="log-viewer-toolbar grid grid-cols-[150px_minmax(220px,1fr)_auto] items-end gap-3 border-b px-5 py-4 max-md:grid-cols-1">
+        <div className="log-viewer-toolbar grid grid-cols-[150px_minmax(220px,1fr)_auto] items-end gap-3 border-b border-border/80 bg-card/70 px-5 py-4 max-md:grid-cols-1">
           <label className="log-viewer-field flex flex-col gap-1.5">
             <span className="text-sm font-semibold text-muted-foreground">{t("logs.level")}</span>
             <select
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className={cn(
+                "h-9 rounded-md border border-input px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                CONTROL_SURFACE_CLASS,
+              )}
               value={level}
               onChange={(event) => setLevel(event.target.value as LevelFilter)}
             >
@@ -163,6 +180,7 @@ function LogViewer({ onClose }: LogViewerProps) {
               type="search"
               value={search}
               placeholder={t("logs.searchPlaceholder")}
+              className={CONTROL_SURFACE_CLASS}
               onChange={(event) => setSearch(event.target.value)}
             />
           </label>
@@ -188,7 +206,9 @@ function LogViewer({ onClose }: LogViewerProps) {
         </div>
 
         <div className="min-h-0 flex-1 p-5">
-          <ScrollArea className="log-viewer-body h-full rounded-md border bg-card">
+          <ScrollArea
+            className={cn("log-viewer-body h-full rounded-md border", PANEL_SURFACE_CLASS)}
+          >
             {loading ? (
               <div className="log-viewer-empty flex h-full min-h-[220px] items-center justify-center px-4 text-center text-muted-foreground">
                 {t("loading")}

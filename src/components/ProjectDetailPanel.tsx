@@ -10,6 +10,7 @@ import {
   formatUSD,
   type TranslateFn,
 } from "./project-detail-utils";
+import { PANEL_SURFACE_CLASS, SUBTLE_SURFACE_CLASS } from "./surface-classes";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -100,7 +101,12 @@ function SectionHeading({ title, description, action }: SectionHeadingProps) {
 
 function StatusStripItem({ label, value, tone }: StatusStripItemProps) {
   return (
-    <div className="projects-status-item min-w-0 border-t p-4 first:border-t-0 md:border-t-0 md:border-l md:first:border-l-0">
+    <div
+      className={cn(
+        "projects-status-item min-w-0 border-t p-4 first:border-t-0 md:border-t-0 md:border-l md:first:border-l-0",
+        SUBTLE_SURFACE_CLASS,
+      )}
+    >
       <span className="projects-status-item-label text-sm text-muted-foreground">{label}</span>
       <StatusBadge tone={tone}>{value}</StatusBadge>
     </div>
@@ -109,7 +115,7 @@ function StatusStripItem({ label, value, tone }: StatusStripItemProps) {
 
 function BranchesSection({ detail, t }: BranchesSectionProps) {
   return (
-    <Card className="projects-structure-section gap-4 rounded-lg p-5">
+    <Card className={cn("projects-structure-section gap-4 rounded-lg p-5", PANEL_SURFACE_CLASS)}>
       <SectionHeading title={t("projects.branches")} />
 
       {!detail?.isGitRepo ? (
@@ -175,7 +181,7 @@ function BranchesSection({ detail, t }: BranchesSectionProps) {
 
 function WorktreesSection({ detail, t }: WorktreesSectionProps) {
   return (
-    <Card className="projects-structure-section gap-4 rounded-lg p-5">
+    <Card className={cn("projects-structure-section gap-4 rounded-lg p-5", PANEL_SURFACE_CLASS)}>
       <SectionHeading title={t("projects.worktrees")} />
 
       {!detail?.isGitRepo ? (
@@ -259,7 +265,12 @@ function WorktreesSection({ detail, t }: WorktreesSectionProps) {
 
 function OverviewPanel({ detail, summary, t }: OverviewPanelProps) {
   return (
-    <Card className="projects-overview-panel gap-4 rounded-lg p-5 lg:sticky lg:top-0">
+    <Card
+      className={cn(
+        "projects-overview-panel gap-4 rounded-lg p-5 lg:sticky lg:top-0",
+        PANEL_SURFACE_CLASS,
+      )}
+    >
       <SectionHeading title={t("projects.overview")} />
 
       <dl className="projects-definition-list flex flex-col">
@@ -343,7 +354,7 @@ function ProjectDetailPanel({
           </div>
         </div>
 
-        <Card className="projects-hero-side gap-4 rounded-lg p-5">
+        <Card className={cn("projects-hero-side gap-4 rounded-lg p-5", PANEL_SURFACE_CLASS)}>
           <SectionHeading title={t("projects.quickActions")} />
           <div className="projects-hero-actions grid grid-cols-1 gap-2 sm:grid-cols-2">
             <Button
@@ -384,7 +395,12 @@ function ProjectDetailPanel({
         </Card>
       </header>
 
-      <Card className="projects-status-strip grid shrink-0 gap-0 overflow-hidden rounded-lg p-0 py-0 md:grid-cols-3">
+      <Card
+        className={cn(
+          "projects-status-strip grid shrink-0 gap-0 overflow-hidden rounded-lg p-0 py-0 md:grid-cols-3",
+          PANEL_SURFACE_CLASS,
+        )}
+      >
         <StatusStripItem
           label={t("projects.directoryStatus")}
           value={detail?.exists ? t("projects.directoryExists") : t("projects.directoryMissing")}
@@ -416,7 +432,7 @@ function ProjectDetailPanel({
         )}
       </div>
 
-      <Card className="projects-agents-panel gap-4 rounded-lg p-5">
+      <Card className={cn("projects-agents-panel gap-4 rounded-lg p-5", PANEL_SURFACE_CLASS)}>
         <SectionHeading
           title={t("projects.agentsTitle")}
           description={t("projects.agentsHelp")}

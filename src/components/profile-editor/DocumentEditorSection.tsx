@@ -41,7 +41,7 @@ function DocumentEditorSection({
   const [mode, setMode] = useState<DocumentEditorMode>("preview");
 
   return (
-    <section className="flex flex-col gap-4 rounded-lg border border-border bg-card p-5">
+    <section className="flex flex-col gap-4 rounded-lg border border-border/80 bg-card p-5 shadow-panel">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h3>{title}</h3>
@@ -59,7 +59,7 @@ function DocumentEditorSection({
               size="sm"
               className={cn(
                 "min-w-16 rounded-full px-3 text-xs font-semibold text-muted-foreground hover:text-foreground",
-                mode === "preview" && "bg-card text-foreground",
+                mode === "preview" && "bg-background text-foreground shadow-xs",
               )}
               aria-pressed={mode === "preview"}
               onClick={() => setMode("preview")}
@@ -72,7 +72,7 @@ function DocumentEditorSection({
               size="sm"
               className={cn(
                 "min-w-16 rounded-full px-3 text-xs font-semibold text-muted-foreground hover:text-foreground",
-                mode === "json" && "bg-card text-foreground",
+                mode === "json" && "bg-background text-foreground shadow-xs",
               )}
               aria-pressed={mode === "json"}
               onClick={() => setMode("json")}
@@ -88,7 +88,7 @@ function DocumentEditorSection({
           <ConfigPreview content={previewContent} jsonError={previewError} />
         </div>
       ) : (
-        <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-muted/50 p-4">
+        <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border/80 bg-muted/50 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="m-0 min-w-[220px] flex-1 text-sm text-muted-foreground">{editHint}</p>
             <Button type="button" variant="outline" onClick={onFormat}>

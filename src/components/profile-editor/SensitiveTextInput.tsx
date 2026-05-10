@@ -1,5 +1,7 @@
 import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
+import { EDITOR_CONTROL_SURFACE_CLASS } from "../editor-layout";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 
@@ -30,7 +32,7 @@ function SensitiveTextInput({
         id={id}
         aria-label={ariaLabel}
         type={visible ? "text" : "password"}
-        className="pr-10"
+        className={cn("pr-10", EDITOR_CONTROL_SURFACE_CLASS)}
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
@@ -39,7 +41,7 @@ function SensitiveTextInput({
         type="button"
         variant="ghost"
         size="icon-sm"
-        className="  absolute right-1 text-muted-foreground"
+        className="absolute right-1 text-muted-foreground"
         aria-label={visible ? hideLabel : showLabel}
         title={visible ? hideLabel : showLabel}
         onClick={() => setVisible((current) => !current)}

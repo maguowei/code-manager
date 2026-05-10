@@ -154,6 +154,22 @@ describe("ui system contract", () => {
     }
   });
 
+  it("keeps local surface controls responsive without thick focus treatment", () => {
+    const surfaceSource = readFileSync("src/components/surface-classes.ts", "utf8");
+    const memoryEditorSource = readFileSync("src/components/MemoryEditor.tsx", "utf8");
+
+    expect(surfaceSource).toContain("hover:bg-muted/50");
+    expect(surfaceSource).toContain("hover:border-muted-foreground/45");
+    expect(surfaceSource).toContain("focus-visible:bg-muted/60");
+    expect(surfaceSource).toContain("focus-visible:ring-0");
+    expect(surfaceSource).toContain("focus-within:bg-muted/60");
+    expect(surfaceSource).toContain("focus-within:ring-0");
+    expect(surfaceSource).not.toContain("focus-visible:shadow-toolbar");
+    expect(surfaceSource).not.toContain("focus-within:shadow-toolbar");
+    expect(memoryEditorSource).toContain("group-focus-within/memory-target:bg-muted/60");
+    expect(memoryEditorSource).not.toContain("group-focus-within/memory-target:shadow-toolbar");
+  });
+
   it("uses InputGroup for plugin list search affordance", () => {
     const source = readFileSync("src/components/profile-editor/EnabledPluginsEditor.tsx", "utf8");
 

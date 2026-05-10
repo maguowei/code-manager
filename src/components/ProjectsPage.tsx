@@ -28,6 +28,7 @@ import {
 import PageHeader from "./PageHeader";
 import ProjectDetailPanel from "./ProjectDetailPanel";
 import { formatDuration, formatUSD } from "./project-detail-utils";
+import { CONTROL_SURFACE_CLASS, SUBTLE_SURFACE_CLASS } from "./surface-classes";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -185,7 +186,12 @@ function ProjectPurgeDialog({ dialog, onCancel, onConfirm, t }: ProjectPurgeDial
             <DialogDescription>{t("projects.purgeDialogDescription")}</DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-[72px_minmax(120px,0.35fr)_minmax(0,1fr)] items-center gap-3 rounded-md border bg-muted/40 p-3 max-sm:grid-cols-1 max-sm:items-start">
+          <div
+            className={cn(
+              "grid grid-cols-[72px_minmax(120px,0.35fr)_minmax(0,1fr)] items-center gap-3 rounded-md border p-3 max-sm:grid-cols-1 max-sm:items-start",
+              SUBTLE_SURFACE_CLASS,
+            )}
+          >
             <span className="text-sm text-muted-foreground">{t("projects.purgeTarget")}</span>
             <strong className="min-w-0 truncate text-sm text-foreground" title={dialog.project}>
               {dialog.shortName}
@@ -199,13 +205,19 @@ function ProjectPurgeDialog({ dialog, onCancel, onConfirm, t }: ProjectPurgeDial
             {t("projects.purgePlan")}
           </div>
           {dialog.isPreviewing ? (
-            <div className="flex min-h-[180px] items-center justify-center rounded-md border bg-muted/30 text-sm text-muted-foreground">
+            <div
+              className={cn(
+                "flex min-h-[180px] items-center justify-center rounded-md border text-sm text-muted-foreground",
+                SUBTLE_SURFACE_CLASS,
+              )}
+            >
               {t("projects.purgePreviewing")}
             </div>
           ) : (
             <pre
               className={cn(
-                "min-h-[220px] flex-1 overflow-auto whitespace-pre-wrap break-words rounded-md border bg-muted/30 p-4 font-mono text-sm leading-6 text-foreground",
+                "min-h-[220px] flex-1 overflow-auto whitespace-pre-wrap break-words rounded-md border p-4 font-mono text-sm leading-6 text-foreground",
+                CONTROL_SURFACE_CLASS,
                 dialog.error && "border-destructive text-destructive",
               )}
             >
@@ -704,8 +716,8 @@ function ProjectsPage() {
             <Card
               key={summary.project}
               className={cn(
-                "projects-list-card gap-0 rounded-lg border-transparent bg-transparent p-0 py-0 shadow-none transition-all hover:-translate-y-0.5 hover:border-border hover:bg-accent/50",
-                selectedProject === summary.project && "border-primary bg-primary/10",
+                "projects-list-card gap-0 rounded-lg border-transparent bg-transparent p-0 py-0 shadow-none transition-all hover:-translate-y-0.5 hover:border-border hover:bg-accent/50 hover:shadow-xs",
+                selectedProject === summary.project && "border-primary bg-primary/10 shadow-xs",
               )}
             >
               <Button

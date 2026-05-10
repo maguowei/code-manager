@@ -58,11 +58,12 @@ describe("StatsPage collapsible sections", () => {
   it("keeps the projects section open while project cards are collapsed by default", () => {
     const source = readFileSync(`${process.cwd()}/src/components/StatsPage.tsx`, "utf8");
 
-    expect(source).toMatch(
-      /<details\s+open\s+className="stats-section stats-section-collapsible stats-project-section group/,
+    expect(source).toContain(
+      '"stats-section stats-section-collapsible stats-project-section group rounded-xl border"',
     );
+    expect(source).toContain("PANEL_SURFACE_CLASS");
     expect(source).toMatch(/<summary className="stats-section-title stats-section-summary/);
-    expect(source).toMatch(/<details className="stats-project-card group/);
+    expect(source).toContain('"stats-project-card group overflow-hidden rounded-lg border"');
     expect(source).not.toMatch(/<details open className="stats-project-card/);
   });
 
@@ -79,9 +80,8 @@ describe("StatsPage collapsible sections", () => {
     const source = readFileSync(`${process.cwd()}/src/components/StatsPage.tsx`, "utf8");
 
     expect(source).toContain("stats-project-list flex flex-col gap-5 p-5");
-    expect(source).toContain(
-      "stats-project-card group overflow-hidden rounded-lg border bg-card shadow-sm",
-    );
+    expect(source).toContain('"stats-project-card group overflow-hidden rounded-lg border"');
+    expect(source).toContain("PANEL_SURFACE_CLASS");
     expect(source).toContain("stats-project-session-id block max-w-[min(48vw,560px)]");
     expect(source).not.toContain(".stats-project-session-id-label");
     expect(source).not.toContain(".stats-project-session-id-value");
@@ -111,9 +111,8 @@ describe("StatsPage collapsible sections", () => {
   it("keeps model details stable and readable across widths", () => {
     const source = readFileSync(`${process.cwd()}/src/components/StatsPage.tsx`, "utf8");
 
-    expect(source).toContain(
-      "stats-model-table-wrap overflow-x-auto rounded-md border bg-background",
-    );
+    expect(source).toContain('"stats-model-table-wrap overflow-x-auto rounded-md border"');
+    expect(source).toContain("CONTROL_SURFACE_CLASS");
     expect(source).toContain("stats-model-table min-w-[640px]");
     expect(source).toContain(
       "stats-model-header grid grid-cols-[minmax(220px,1fr)_repeat(3,minmax(96px,auto))]",

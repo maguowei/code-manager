@@ -23,7 +23,7 @@ import PresetEditor from "./PresetEditor";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
-import { Sheet, SheetContent } from "./ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "./ui/sheet";
 
 interface PresetsPageProps {
   workspace: ConfigWorkspace;
@@ -333,6 +333,8 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
               "w-auto border-l-0 bg-card p-0 shadow-floating sm:max-w-none",
             )}
           >
+            <SheetTitle className="sr-only">{t("presets.title")}</SheetTitle>
+            <SheetDescription className="sr-only">{t("presets.title")}</SheetDescription>
             <PresetEditor
               preset={editingPreset}
               presets={allPresets}

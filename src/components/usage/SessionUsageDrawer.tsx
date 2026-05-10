@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
 import { isTauri, type SessionUsageDetail } from "../../types";
+import {
+  PANEL_SURFACE_CLASS,
+  SUBTLE_SURFACE_CLASS,
+  TOOLBAR_SURFACE_CLASS,
+} from "../surface-classes";
 import { Button } from "../ui/button";
 import { Sheet, SheetContent } from "../ui/sheet";
 import {
@@ -46,9 +51,14 @@ function SessionUsageDrawer({ sessionId, onClose }: Props) {
         side="right"
         showCloseButton={false}
         aria-labelledby="session-usage-detail-title"
-        className="left-[60px] flex w-auto min-w-0 flex-col gap-0 border-l-0 bg-card p-0 sm:max-w-none max-[700px]:left-[48px]"
+        className="left-[60px] flex w-auto min-w-0 flex-col gap-0 border-l-0 bg-background p-0 sm:max-w-none max-[700px]:left-[48px]"
       >
-        <div className="sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-5">
+        <div
+          className={cn(
+            "sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between gap-3 border-b px-5",
+            TOOLBAR_SURFACE_CLASS,
+          )}
+        >
           <Button
             type="button"
             variant="ghost"
@@ -65,7 +75,12 @@ function SessionUsageDrawer({ sessionId, onClose }: Props) {
 
         <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 py-6">
           {loading ? (
-            <div className="flex min-h-[120px] items-center justify-center rounded-lg border border-border px-4 text-center text-muted-foreground">
+            <div
+              className={cn(
+                "flex min-h-[120px] items-center justify-center rounded-lg border px-4 text-center text-muted-foreground",
+                PANEL_SURFACE_CLASS,
+              )}
+            >
               {t("loading")}
             </div>
           ) : error ? (
@@ -125,14 +140,19 @@ function SessionUsageDrawer({ sessionId, onClose }: Props) {
               </div>
 
               {detail.messages.length === 0 ? (
-                <div className="flex min-h-[120px] items-center justify-center rounded-lg border border-border px-4 text-center text-muted-foreground">
+                <div
+                  className={cn(
+                    "flex min-h-[120px] items-center justify-center rounded-lg border px-4 text-center text-muted-foreground",
+                    PANEL_SURFACE_CLASS,
+                  )}
+                >
                   {t("usage.detail.empty")}
                 </div>
               ) : (
-                <div className="overflow-x-auto rounded-lg border border-border">
+                <div className={cn("overflow-x-auto rounded-lg border", PANEL_SURFACE_CLASS)}>
                   <table className="w-full min-w-[760px] border-collapse text-sm">
                     <thead>
-                      <tr className="border-b border-border bg-secondary text-left text-xs font-semibold text-muted-foreground">
+                      <tr className="border-b border-border/80 bg-muted/50 text-left text-xs font-semibold text-muted-foreground">
                         <th className="px-3 py-2">{t("usage.detail.timestamp")}</th>
                         <th className="px-3 py-2">{t("usage.detail.model")}</th>
                         <th className="px-3 py-2 text-right">{t("usage.table.input")}</th>
@@ -197,7 +217,8 @@ function SummaryItem({
   return (
     <div
       className={cn(
-        "grid gap-1 rounded-lg border border-border bg-card p-3",
+        "grid gap-1 rounded-lg border p-3",
+        SUBTLE_SURFACE_CLASS,
         wide && "sm:col-span-2 xl:col-span-3",
       )}
     >

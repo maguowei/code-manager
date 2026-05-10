@@ -29,6 +29,12 @@ import type { Skill, SkillFile } from "../types";
 import CollapsibleSection from "./CollapsibleSection";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import ProfileNameBadge from "./ProfileNameBadge";
+import {
+  CONTROL_SURFACE_CLASS,
+  PANEL_SURFACE_CLASS,
+  SUBTLE_SURFACE_CLASS,
+  TOOLBAR_SURFACE_CLASS,
+} from "./surface-classes";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -242,7 +248,10 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                   readOnly={fieldConfig.readOnly}
                   onBlur={field.onBlur}
                   onChange={field.onChange}
-                  className="rounded-md border-border bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground hover:border-muted-foreground focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                  className={cn(
+                    "rounded-md border-border px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground hover:border-muted-foreground focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                    CONTROL_SURFACE_CLASS,
+                  )}
                 />
               ) : (
                 <Input
@@ -257,7 +266,8 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                   onBlur={field.onBlur}
                   onChange={field.onChange}
                   className={cn(
-                    "h-auto rounded-md border-border bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground hover:border-muted-foreground focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                    "h-auto rounded-md border-border px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground hover:border-muted-foreground focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                    CONTROL_SURFACE_CLASS,
                     fieldConfig.inputClassName,
                     fieldConfig.readOnly && "cursor-default font-mono text-xs opacity-60",
                   )}
@@ -312,15 +322,20 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
 
   return (
     <Form {...form}>
-      <div className="flex h-full min-h-0 w-full min-w-[560px] bg-card">
+      <div className="flex h-full min-h-0 w-full min-w-[560px] bg-background">
         <div
-          className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card"
+          className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-background"
           role="dialog"
           aria-modal="true"
         >
           <form className="flex h-full min-h-0 flex-col" onSubmit={handleSubmit(handleSkillSubmit)}>
             {/* 顶部操作栏 */}
-            <div className="sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-5">
+            <div
+              className={cn(
+                "sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between gap-3 border-b px-5",
+                TOOLBAR_SURFACE_CLASS,
+              )}
+            >
               <Button
                 type="button"
                 variant="ghost"
@@ -357,7 +372,12 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                   control={control}
                   name="content"
                   render={({ field }) => (
-                    <div className="skill-editor-wrap overflow-hidden rounded-md border border-border focus-within:border-primary focus-within:ring-[3px] focus-within:ring-ring/50 [&_.cm-editor]:text-[13px] [&_.cm-editor]:leading-[1.6] [&_.cm-editor.cm-focused]:outline-none [&_.cm-scroller]:font-mono [&_.cm-scroller]:overflow-auto">
+                    <div
+                      className={cn(
+                        "skill-editor-wrap overflow-hidden rounded-md border border-border/80 focus-within:border-primary focus-within:ring-[3px] focus-within:ring-ring/50 [&_.cm-editor]:text-[13px] [&_.cm-editor]:leading-[1.6] [&_.cm-editor.cm-focused]:outline-none [&_.cm-scroller]:font-mono [&_.cm-scroller]:overflow-auto",
+                        CONTROL_SURFACE_CLASS,
+                      )}
+                    >
                       <CodeMirror
                         value={field.value}
                         onChange={field.onChange}
@@ -385,12 +405,15 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                     {files.map((file) => (
                       <Card
                         key={file.name}
-                        className="skill-file-item overflow-hidden rounded-md border border-border bg-card py-0 shadow-none"
+                        className={cn(
+                          "skill-file-item overflow-hidden rounded-md border py-0",
+                          PANEL_SURFACE_CLASS,
+                        )}
                       >
                         {editingFile === file.name ? (
                           // 文件编辑模式
                           <div className="skill-file-editor flex flex-col">
-                            <div className="skill-file-editor-header flex items-center justify-between gap-2 border-b border-border bg-secondary px-3 py-2">
+                            <div className="skill-file-editor-header flex items-center justify-between gap-2 border-b border-border/80 bg-muted/50 px-3 py-2">
                               <span className="skill-file-name min-w-0 truncate font-mono text-xs text-foreground">
                                 {file.name}
                               </span>
@@ -415,7 +438,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                               </div>
                             </div>
                             <Textarea
-                              className="skill-file-textarea min-h-48 rounded-none border-0 bg-card px-3 py-2.5 font-mono text-[13px] leading-normal text-foreground shadow-none focus-visible:ring-0"
+                              className="skill-file-textarea min-h-48 rounded-none border-0 bg-background/80 px-3 py-2.5 font-mono text-[13px] leading-normal text-foreground shadow-none transition-colors focus-visible:bg-background focus-visible:ring-0"
                               rows={8}
                               {...editFileForm.register("content")}
                             />
@@ -467,10 +490,18 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
 
                     {/* 添加文件表单 */}
                     {showAddFile ? (
-                      <div className="skill-add-file-form flex flex-col gap-2 rounded-md border border-dashed border-border p-3">
+                      <div
+                        className={cn(
+                          "skill-add-file-form flex flex-col gap-2 rounded-md border border-dashed p-3",
+                          SUBTLE_SURFACE_CLASS,
+                        )}
+                      >
                         <Input
                           type="text"
-                          className="skill-file-name-input h-auto rounded-md border-border bg-card px-3 py-2 font-mono text-xs text-foreground"
+                          className={cn(
+                            "skill-file-name-input h-auto rounded-md border-border px-3 py-2 font-mono text-xs text-foreground",
+                            CONTROL_SURFACE_CLASS,
+                          )}
                           placeholder={t("skills.fileNamePlaceholder")}
                           {...addFileForm.register("fileName")}
                         />
@@ -480,7 +511,10 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                           </span>
                         )}
                         <Textarea
-                          className="skill-file-textarea min-h-36 rounded-md border-border bg-card px-3 py-2.5 font-mono text-[13px] leading-normal text-foreground"
+                          className={cn(
+                            "skill-file-textarea min-h-36 rounded-md border-border px-3 py-2.5 font-mono text-[13px] leading-normal text-foreground",
+                            CONTROL_SURFACE_CLASS,
+                          )}
                           placeholder={t("skills.fileContent")}
                           rows={6}
                           {...addFileForm.register("content")}

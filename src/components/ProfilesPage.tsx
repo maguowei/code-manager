@@ -26,7 +26,7 @@ import { readPermissionsDefaultMode } from "./profile-editor/PermissionsEditor";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
-import { Sheet, SheetContent } from "./ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "./ui/sheet";
 import { Spinner } from "./ui/spinner";
 
 interface ProfilesPageProps {
@@ -907,6 +907,8 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
               "w-auto border-l-0 bg-card p-0 shadow-floating sm:max-w-none",
             )}
           >
+            <SheetTitle className="sr-only">{t("profiles.title")}</SheetTitle>
+            <SheetDescription className="sr-only">{t("profiles.title")}</SheetDescription>
             <ProfileEditor
               profile={editingProfile}
               presets={allPresets}

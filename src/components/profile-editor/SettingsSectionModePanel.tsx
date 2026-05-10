@@ -69,7 +69,7 @@ function SettingsSectionModePanel({
           size="sm"
           className={cn(
             "min-w-16 rounded-full px-3 text-xs font-semibold text-muted-foreground hover:text-foreground",
-            mode === "controls" && "bg-card text-foreground",
+            mode === "controls" && "bg-background text-foreground shadow-xs",
           )}
           aria-pressed={mode === "controls"}
           onClick={() => onModeChange("controls")}
@@ -82,7 +82,7 @@ function SettingsSectionModePanel({
           size="sm"
           className={cn(
             "min-w-16 rounded-full px-3 text-xs font-semibold text-muted-foreground hover:text-foreground",
-            mode === "json" && "bg-card text-foreground",
+            mode === "json" && "bg-background text-foreground shadow-xs",
           )}
           aria-pressed={mode === "json"}
           onClick={() => onModeChange("json")}
@@ -100,7 +100,7 @@ function SettingsSectionModePanel({
 
     return (
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-muted/50 p-4">
+        <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border/80 bg-muted/50 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="m-0 min-w-[220px] flex-1 text-sm text-muted-foreground">{jsonHint}</p>
             <Button type="button" variant="outline" onClick={jsonEditor.formatJson}>
@@ -128,11 +128,11 @@ function SettingsSectionModePanel({
     return (
       <section
         data-slot="settings-section"
-        className="flex flex-col overflow-hidden rounded-lg border border-border bg-card"
+        className="flex flex-col overflow-hidden rounded-lg border border-border/80 bg-card shadow-panel"
       >
         <div
           data-slot="settings-section-header"
-          className="flex w-full items-center justify-between gap-4 px-6 py-5"
+          className="flex w-full items-center justify-between gap-4 bg-card/95 px-6 py-5"
         >
           <Button
             type="button"
@@ -188,7 +188,7 @@ function SettingsSectionModePanel({
         </div>
 
         {bodyVisible ? (
-          <div className="flex flex-col gap-4 border-t border-border px-6 py-5">
+          <div className="flex flex-col gap-4 border-t border-border/80 px-6 py-5">
             <div
               data-slot="settings-section-mode-row"
               className="flex flex-wrap items-center justify-between gap-3"
@@ -209,7 +209,7 @@ function SettingsSectionModePanel({
   }
 
   return (
-    <section className="flex flex-col gap-4 rounded-lg border border-border bg-card p-5">
+    <section className="flex flex-col gap-4 rounded-lg border border-border/80 bg-card p-5 shadow-panel">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h3>{title}</h3>

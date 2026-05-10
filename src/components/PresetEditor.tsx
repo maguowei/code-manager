@@ -1,6 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
+import { cn } from "@/lib/utils";
 import { useI18n } from "../i18n";
 import type { LocalizedText, SettingsPreset } from "../types";
 import {
@@ -21,6 +22,7 @@ import {
   setTopLevelString,
 } from "./config-workspace-utils";
 import {
+  EDITOR_CONTROL_SURFACE_CLASS,
   EditorDescription,
   EditorEnvHint,
   EditorField,
@@ -513,9 +515,9 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
     <Form {...form}>
       <div
         data-slot="preset-editor-panel"
-        className="flex h-full min-h-0 w-full min-w-[560px] flex-col overflow-hidden bg-card"
+        className="flex h-full min-h-0 w-full min-w-[560px] flex-col overflow-hidden bg-background"
       >
-        <div className="sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-5">
+        <div className="sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border/80 bg-card/95 px-5 shadow-toolbar">
           <Button
             type="button"
             variant="ghost"
@@ -552,6 +554,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
                 </Label>
                 <Input
                   id="preset-name-zh"
+                  className={EDITOR_CONTROL_SURFACE_CLASS}
                   value={nameZh}
                   onChange={(event) => setNameZh(event.target.value)}
                   placeholder={messages.nameZhPlaceholder}
@@ -564,6 +567,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
                 </Label>
                 <Input
                   id="preset-name-en"
+                  className={EDITOR_CONTROL_SURFACE_CLASS}
                   value={nameEn}
                   onChange={(event) => setNameEn(event.target.value)}
                   placeholder={messages.nameEnPlaceholder}
@@ -576,6 +580,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
                 <Label htmlFor="preset-doc-url">{messages.docUrl}</Label>
                 <Input
                   id="preset-doc-url"
+                  className={EDITOR_CONTROL_SURFACE_CLASS}
                   value={docUrl}
                   onChange={(event) => setDocUrl(event.target.value)}
                   placeholder="https://..."
@@ -588,6 +593,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
                 <Label htmlFor="preset-description">{messages.description}</Label>
                 <Input
                   id="preset-description"
+                  className={EDITOR_CONTROL_SURFACE_CLASS}
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
                   placeholder={messages.descriptionPlaceholder}
@@ -599,6 +605,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
               <Label htmlFor="preset-model-suggestions">{messages.modelSuggestions}</Label>
               <Input
                 id="preset-model-suggestions"
+                className={EDITOR_CONTROL_SURFACE_CLASS}
                 value={modelSuggestions}
                 onChange={(event) => setModelSuggestions(event.target.value)}
                 placeholder={t("presets.editor.placeholders.modelSuggestions")}
@@ -618,7 +625,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
               >
                 <SelectTrigger
                   id="preset-base-preset"
-                  className="w-full"
+                  className={cn("w-full", EDITOR_CONTROL_SURFACE_CLASS)}
                   value={basePresetId}
                   data-value={basePresetId}
                   onChange={(event) =>
@@ -650,6 +657,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
               <Input
                 id="preset-base-url"
                 aria-label={messages.baseUrlEnv}
+                className={EDITOR_CONTROL_SURFACE_CLASS}
                 value={readEnvString(settingsPatch, "ANTHROPIC_BASE_URL")}
                 placeholder="https://api.anthropic.com"
                 onChange={(event) =>

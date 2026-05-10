@@ -1,7 +1,9 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ExternalLink } from "lucide-react";
 import { type ReactNode, useCallback, useState } from "react";
+import { cn } from "@/lib/utils";
 import { useI18n } from "../../i18n";
+import { EDITOR_CONTROL_SURFACE_CLASS } from "../editor-layout";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { Input } from "../ui/input";
@@ -301,7 +303,7 @@ function StructuredSettingsSections({
                         >
                           <SelectTrigger
                             id={`${scope}-field-${field.key}`}
-                            className="w-full"
+                            className={cn("w-full", EDITOR_CONTROL_SURFACE_CLASS)}
                             value={fieldState.value}
                             data-value={fieldState.value}
                             onChange={(event) =>
@@ -340,6 +342,7 @@ function StructuredSettingsSections({
                       />
                       <Input
                         id={`${scope}-field-${field.key}`}
+                        className={EDITOR_CONTROL_SURFACE_CLASS}
                         value={fieldState.value}
                         placeholder={field.placeholder ? field.placeholder[language] : ""}
                         onChange={(event) =>
@@ -360,7 +363,7 @@ function StructuredSettingsSections({
                 {row.map((field) => (
                   <label
                     key={field.key}
-                    className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm font-medium text-foreground"
+                    className="flex items-center gap-2 rounded-lg border border-border/80 bg-background/60 px-3 py-2 text-sm font-medium text-foreground shadow-xs"
                   >
                     <Checkbox
                       checked={settings[field.key] === true}
@@ -420,7 +423,7 @@ function StructuredSettingsSections({
                         >
                           <SelectTrigger
                             id={inputId}
-                            className="w-full"
+                            className={cn("w-full", EDITOR_CONTROL_SURFACE_CLASS)}
                             value={value}
                             data-value={value}
                             onChange={(event) =>
@@ -458,6 +461,7 @@ function StructuredSettingsSections({
                       />
                       <Input
                         id={inputId}
+                        className={EDITOR_CONTROL_SURFACE_CLASS}
                         value={value}
                         placeholder={field.placeholder ? field.placeholder[language] : ""}
                         onChange={(event) => onSimpleFieldChange(field, event.target.value)}
@@ -482,7 +486,7 @@ function StructuredSettingsSections({
                   <div
                     key={field.key}
                     data-slot="common-option"
-                    className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-3"
+                    className="flex items-center justify-between gap-3 rounded-lg border border-border/80 bg-background/60 px-3 py-3 shadow-xs"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
