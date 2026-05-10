@@ -4,11 +4,7 @@ import { useEffect, useState } from "react";
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
 import { isTauri, type SessionUsageDetail } from "../../types";
-import {
-  PANEL_SURFACE_CLASS,
-  SUBTLE_SURFACE_CLASS,
-  TOOLBAR_SURFACE_CLASS,
-} from "../surface-classes";
+import { PANEL_SURFACE_CLASS, TOOLBAR_SURFACE_CLASS } from "../surface-classes";
 import { Button } from "../ui/button";
 import { Sheet, SheetContent } from "../ui/sheet";
 import {
@@ -217,8 +213,8 @@ function SummaryItem({
   return (
     <div
       className={cn(
-        "grid gap-1 rounded-lg border p-3",
-        SUBTLE_SURFACE_CLASS,
+        "usage-summary-card grid gap-1 rounded-lg border p-3",
+        PANEL_SURFACE_CLASS,
         wide && "sm:col-span-2 xl:col-span-3",
       )}
     >

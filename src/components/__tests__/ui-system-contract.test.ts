@@ -328,6 +328,15 @@ describe("ui system contract", () => {
     expect(source).not.toContain("rounded-md border bg-muted/40 px-3 py-2");
   });
 
+  it("keeps usage session detail summary cards on bright panel surfaces", () => {
+    const source = readFileSync("src/components/usage/SessionUsageDrawer.tsx", "utf8");
+
+    expect(source).toContain("bg-secondary");
+    expect(source).toContain("usage-summary-card grid gap-1 rounded-lg border p-3");
+    expect(source).toContain("PANEL_SURFACE_CLASS");
+    expect(source).not.toContain("SUBTLE_SURFACE_CLASS");
+  });
+
   it("keeps local surface controls responsive without thick focus treatment", () => {
     const surfaceSource = readFileSync("src/components/surface-classes.ts", "utf8");
     const memoryEditorSource = readFileSync("src/components/MemoryEditor.tsx", "utf8");
