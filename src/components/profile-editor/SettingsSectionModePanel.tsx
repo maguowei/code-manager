@@ -1,5 +1,5 @@
 import { ChevronDown } from "lucide-react";
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../../i18n";
 import ConfigPreview from "../ConfigPreview";
@@ -124,6 +124,14 @@ function SettingsSectionModePanel({
     );
   }
 
+  function handleAccordionHeaderClick() {
+    onToggleExpanded?.();
+  }
+
+  function handleAccordionControlClick(event: MouseEvent) {
+    event.stopPropagation();
+  }
+
   if (variant === "accordion") {
     return (
       <section
@@ -132,14 +140,18 @@ function SettingsSectionModePanel({
       >
         <div
           data-slot="settings-section-header"
-          className="flex w-full items-center justify-between gap-4 bg-transparent px-6 py-5"
+          className="flex w-full cursor-pointer items-center justify-between gap-4 bg-transparent px-6 py-5"
+          onClick={handleAccordionHeaderClick}
         >
           <Button
             type="button"
             variant="ghost"
             className="h-auto min-w-0 flex-1 justify-between gap-3 self-stretch whitespace-normal rounded-md bg-transparent px-2 py-5 text-left text-foreground hover:bg-transparent hover:text-foreground focus-visible:border-transparent focus-visible:bg-transparent focus-visible:ring-0 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary/60 dark:hover:bg-transparent"
             aria-expanded={expanded}
-            onClick={onToggleExpanded}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleExpanded?.();
+            }}
           >
             <span className="inline-flex min-w-0 items-center gap-3">
               <h3>{title}</h3>
@@ -166,6 +178,7 @@ function SettingsSectionModePanel({
               <div
                 className="inline-flex min-w-0 items-center"
                 data-slot="settings-section-header-control"
+                onClick={handleAccordionControlClick}
               >
                 {headerControl}
               </div>
@@ -177,7 +190,10 @@ function SettingsSectionModePanel({
               className="rounded-full bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground dark:hover:bg-transparent"
               aria-expanded={expanded}
               aria-label={`${expanded ? t("common.collapse") : t("common.expand")} ${title}`}
-              onClick={onToggleExpanded}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleExpanded?.();
+              }}
             >
               <ChevronDown
                 className={cn("size-4 transition-transform", expanded && "rotate-180")}

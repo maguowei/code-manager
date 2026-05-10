@@ -149,6 +149,8 @@ describe("ui system contract", () => {
     expect(source).toContain("focus-visible:outline-primary/60");
     expect(source).toContain("hover:border-muted-foreground/40");
     expect(source).toContain("dark:hover:bg-transparent");
+    expect(source).toContain("cursor-pointer");
+    expect(source).toContain("event.stopPropagation()");
     expect(source).not.toContain("self-stretch whitespace-normal rounded-none");
   });
 

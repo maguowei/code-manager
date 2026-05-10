@@ -518,7 +518,11 @@ describe("ProfileEditor", () => {
       expect(within(commonSection).queryByRole("button", { name: "控件" })).not.toBeInTheDocument();
       expect(within(commonSection).queryByRole("button", { name: "JSON" })).not.toBeInTheDocument();
 
-      fireEvent.click(within(commonSection).getByRole("button", { name: "展开 常用选项" }));
+      const commonHeader = within(commonSection)
+        .getByText("已启用 0/16")
+        .closest('[data-slot="settings-section-header"]');
+      expect(commonHeader).toHaveClass("cursor-pointer");
+      fireEvent.click(commonHeader as HTMLElement);
       expect(within(commonSection).getByRole("button", { name: "控件" })).toBeInTheDocument();
       expect(within(commonSection).getByRole("button", { name: "JSON" })).toBeInTheDocument();
       expect(screen.queryByRole("textbox", { name: "输出风格" })).not.toBeInTheDocument();
