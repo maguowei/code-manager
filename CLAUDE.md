@@ -1,75 +1,42 @@
 # CLAUDE.md
 
-本文件面向在本仓库中工作的编程智能体，例如 Claude Code、Codex 以及读取 `AGENTS.md` / `CLAUDE.md` 的同类代理。
+本文件面向在本仓库中工作的编程智能体，例如 Claude Code、Codex 以及读取 `AGENTS.md` / `CLAUDE.md` 的同类代理。它是每次会话都要加载的执行手册，不是产品介绍页；产品定位、安装方式和人类读者入口在 `README.md`。
 
-它是仓库执行手册的入口，不是产品介绍页。产品定位、安装方式和面向人类的阅读入口在 `README.md`。
+## 使用方式
 
-## Memory 布局原则
-
-- 参考 Claude Code memory 最佳实践：主 `CLAUDE.md` 只保留每次会话都应加载的事实和硬约束，目标控制在 200 行以内。
-- 细粒度规则放在 `.claude/rules/*.md`，并尽量使用 `paths` frontmatter 做路径触发，减少无关上下文。
-- 不要用 `@.claude/rules/...` 把大规则重新 import 回本文件；import 会在启动时展开，无法节省上下文。
+- 主文件只保留每次会话都应知道的事实、硬约束、索引和验证入口，目标控制在 200 行以内。
+- 细粒度规则放在 `.claude/rules/*.md`，用 `paths` frontmatter 做路径触发；不要用 `@.claude/rules/...` 把大规则 import 回本文件。
 - Claude Code 会自动发现 `.claude/rules/`；若当前代理不会自动加载规则，修改相关文件前先手动阅读“规则索引”中的匹配文件。
-- `AGENTS.md` 是指向本文件的软链接，不单独维护。
+- `AGENTS.md` 是指向本文件的软链接，不单独维护；修改 memory 布局时先读 `.claude/rules/agent-memory-layout.md`。
 
-## 项目快速事实
+## 项目速览
 
 - 项目：AI Manager，基于 Tauri 2 的 Claude Code 本地配置管理桌面应用。
-- 当前版本：`0.17.0`，版本号同时出现在 `package.json` 与 `src-tauri/tauri.conf.json`。
-- 前端：React 19 + TypeScript + Vite + Tailwind CSS v4 + shadcn/ui（详见 `.claude/rules/frontend-ui.md`）。
+- 当前版本：`0.17.0`，同时维护在 `package.json` 与 `src-tauri/tauri.conf.json`。
+- 前端：React 19 + TypeScript + Vite + Tailwind CSS v4 + shadcn/ui。
 - 后端：Rust + Tauri commands。
-- 包管理器：`pnpm`，项目声明 `pnpm@10.33.0`。
+- 包管理器：`pnpm`，项目声明 `pnpm@10.33.0`；不要改用 `npm`。
 - 应用标识符：`com.gotobeta.app.ai-manager`。
-- 当前仓库不使用 Go、Python；如后续引入，遵守仓库通用约束：Go 1.26、Python >= 3.14。
+- 当前仓库不使用 Go、Python；如后续引入，遵守 Go 1.26、Python >= 3.14。
 
-## 关键数据目录
+## 会话工作流
 
-- 应用数据：`~/.config/ai-manager/`
-  - `configs.json`
-  - `memories.json`
-  - `model-pricing.json`
-  - `skills-disabled/`
-- 用量 SQLite 缓存：Tauri SQL 插件的应用配置目录。
-  - macOS：`~/Library/Application Support/com.gotobeta.app.ai-manager/usage.db`
-  - Linux：`$XDG_CONFIG_HOME/com.gotobeta.app.ai-manager/usage.db` 或 `~/.config/com.gotobeta.app.ai-manager/usage.db`
-  - Windows：`%APPDATA%\com.gotobeta.app.ai-manager\usage.db`
-  - WAL 模式可能同时生成 `usage.db-wal` 与 `usage.db-shm`。
-- 应用直接操作的 Claude Code 用户目录：`~/.claude/`
-  - `settings.json`
-  - `CLAUDE.md`
-  - `rules/`
-  - `skills/`
-  - `sessions/`
-  - `statusline.sh`
-- 可选 Codex 同步目录：`~/.codex/skills/`。
-- 历史、统计与用量输入：
-  - `~/.claude/history.jsonl`
-  - `~/.claude/projects/`
-  - `~/.claude.json`
-- 测试可用环境变量覆盖本机目录：
-  - `AI_MANAGER_HOME_OVERRIDE`
-  - `AI_MANAGER_APP_DATA_DIR_OVERRIDE`
-- 应用日志：系统推荐日志目录，不放在 `~/.config/ai-manager/`。
-  - macOS：`~/Library/Logs/com.gotobeta.app.ai-manager/ai-manager.log`
-  - Linux：`$XDG_DATA_HOME/com.gotobeta.app.ai-manager/logs/ai-manager.log` 或 `~/.local/share/com.gotobeta.app.ai-manager/logs/ai-manager.log`
-  - Windows：`%LOCALAPPDATA%\com.gotobeta.app.ai-manager\logs\ai-manager.log`
+1. 先判断改动范围，阅读命中的 `.claude/rules/*.md`，再打开相关代码。
+2. 非简单任务先列计划并持续更新；方向偏离时停下重新规划。
+3. 改动前检查工作区状态；工作区可能是脏的，不要回退你没创建的改动。
+4. 保持最小影响面，沿用现有模式；先找根因，不用临时绕过方案。
+5. 完成前运行与改动范围匹配的验证命令，并检查 diff；没有新鲜验证证据，不要声称完成。
 
-## 工作约束
+## 硬约束
 
-- 只做必要改动，优先最小影响面。
-- 先找根因，再改代码；不要用临时绕过方案。
-- 沿用现有模式，不为了“顺手优化”做无关重构。
-- 工作区可能是脏的，不要回退你没创建的改动。
-- 非简单任务先列计划并持续更新进度；方向偏离时停下来重新规划。
-- 完成前必须有新鲜验证证据；没有运行过验证命令，不要声称完成或通过。
-- 使用 `pnpm`，不要改用 `npm`。
-- `pnpm check` 会执行 `biome check --write .` 并修改文件；只想做 CI 检查时用 `pnpm biome:ci`。
 - 代码注释使用中文。
 - 所有用户可见文本必须走 `useI18n()` 的 `t()` 函数，不要硬编码中英文字符串。
 - 所有前端通知优先走 `useToast()`，不要把 `console.error` 当作用户反馈。
-- 新增有层叠关系或浮层的样式时，使用 shadcn 语义变量（`bg-background` / `text-foreground` / `text-muted-foreground` / `text-destructive` / `border` 等）和 shadcn 原子组件内置的层级，不要硬编码十六进制色值或 z-index 数字；详见 `.claude/rules/frontend-ui.md`。
-- 前端视觉默认采用“均衡管理台”风格：克制、紧凑、可扫描，不做营销式 hero、大字号展示或装饰性卡片堆叠；详见 `.claude/rules/frontend-ui.md`。
+- `pnpm check` 会执行 `biome check --write .` 并修改文件；只想做 CI 检查时用 `pnpm biome:ci`。
+- 新增有层叠关系或浮层的样式时，使用 shadcn 语义变量和 shadcn 原子组件内置层级，不要硬编码十六进制色值或 z-index 数字。
+- 前端视觉默认采用“均衡管理台”风格：克制、紧凑、可扫描，不做营销式 hero、大字号展示或装饰性卡片堆叠。
 - Rust 新增文件读写、锁、时间、JSON 工具时，优先复用 `src-tauri/src/utils.rs`。
+- 数据库设计禁止使用外键。
 
 ## 规则索引
 
@@ -85,7 +52,7 @@
 | `.claude/rules/history-stats-usage.md` | 历史、统计、Token 用量与费用 |
 | `.claude/rules/projects-tray-diagnostics.md` | 项目管理、系统托盘、会话聚焦、日志与诊断 |
 
-## 修改前快速入口
+## 快速入口
 
 - 应用壳与页面编排：`src/App.tsx`
 - React 入口、全局 Provider 与错误日志：`src/main.tsx`
@@ -108,37 +75,30 @@
 - 配置预览、配置应用、模型测试、Provider/Preset、Skills、Memory 的真实持久化规则都在 Rust；前端负责调用与展示，不要复制后端业务逻辑。
 - `StatsPage` 读取 `~/.claude.json`；`UsagePage` 扫描 `~/.claude/projects/**/*.jsonl`。两者字段相似但数据来源不同。
 
-## 提交前验证清单
+## 关键数据目录
+
+| 用途 | 路径 |
+| --- | --- |
+| 应用数据 | `~/.config/ai-manager/` |
+| Claude Code 用户目录 | `~/.claude/` |
+| 可选 Codex Skills 同步 | `~/.codex/skills/` |
+| 历史输入 | `~/.claude/history.jsonl` |
+| 用量输入 | `~/.claude/projects/` |
+| 统计输入 | `~/.claude.json` |
+| 测试目录覆盖 | `AI_MANAGER_HOME_OVERRIDE`、`AI_MANAGER_APP_DATA_DIR_OVERRIDE` |
+
+日志使用系统推荐日志目录，不放在 `~/.config/ai-manager/`。用量 SQLite 缓存使用 Tauri SQL 插件的应用配置目录，WAL 模式可能同时生成 `usage.db-wal` 与 `usage.db-shm`。
+
+## 验证清单
 
 按改动范围选最小充分集，但不要跳过相关验证。
 
-### 文档
-
-```bash
-git diff --check
-```
-
-### 前端
-
-```bash
-pnpm biome:ci
-pnpm build
-pnpm test
-```
-
-### Rust
-
-```bash
-cd src-tauri && cargo test
-cd src-tauri && cargo clippy -- -D warnings
-```
-
-### 前后端契约
-
-```bash
-pnpm build
-cd src-tauri && cargo test
-```
+| 改动范围 | 命令 |
+| --- | --- |
+| 文档 | `git diff --check` |
+| 前端 | `pnpm biome:ci`、`pnpm build`、`pnpm test` |
+| Rust | `cd src-tauri && cargo test`、`cd src-tauri && cargo clippy -- -D warnings` |
+| 前后端契约 | `pnpm build`、`cd src-tauri && cargo test` |
 
 ## 已知陷阱
 
@@ -150,9 +110,9 @@ cd src-tauri && cargo test
 
 ## 参考阅读顺序
 
-1. `README.md`
-2. 本文件
-3. 命中路径对应的 `.claude/rules/*.md`
+1. 本文件
+2. 命中路径对应的 `.claude/rules/*.md`
+3. `README.md`
 4. `src/App.tsx`
 5. `src/main.tsx`
 6. `src-tauri/src/lib.rs`
