@@ -1,5 +1,6 @@
 import { Plus } from "lucide-react";
 import { useEffect, useMemo } from "react";
+import { cn } from "@/lib/utils";
 import { useI18n } from "../../i18n";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -107,18 +108,24 @@ export function SandboxSwitchControl({
   const statusText = enabled
     ? t("profileEditor.sandbox.statusEnabled")
     : t("profileEditor.sandbox.statusDisabled");
-  const switchClassName = [
-    "inline-flex w-fit max-w-full items-center rounded-full bg-transparent p-0 text-left text-foreground",
-    variant === "panel" ? "gap-2.5" : "mr-0.5 gap-1.5",
-    visibleLabel
-      ? "gap-2 border border-border bg-card px-2.5 py-1.5 hover:border-muted-foreground max-[900px]:px-2"
-      : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const switchClassName = cn(
+    "inline-flex w-fit max-w-full cursor-pointer select-none items-center rounded-full text-left text-foreground transition-colors",
+    variant === "panel"
+      ? "gap-2.5 border border-border/80 bg-card px-2.5 py-1.5 shadow-xs hover:bg-accent/60"
+      : "mr-0.5 gap-1.5 px-1.5 py-1 hover:bg-accent/50",
+    visibleLabel &&
+      "gap-2 border border-border bg-card px-2.5 py-1.5 shadow-xs hover:border-muted-foreground max-[900px]:px-2",
+  );
 
   return (
-    <div className={switchClassName}>
+    <div
+      className={switchClassName}
+      data-slot="switch-hit-area"
+      onClick={(event) => {
+        event.stopPropagation();
+        onToggle();
+      }}
+    >
       {visibleLabel ? (
         <span className="whitespace-nowrap text-xs font-semibold text-muted-foreground">
           {visibleLabel}
@@ -129,6 +136,7 @@ export function SandboxSwitchControl({
         onCheckedChange={onToggle}
         aria-label={ariaLabel}
         size={variant === "header" ? "sm" : "default"}
+        onClick={(event) => event.stopPropagation()}
       />
       {variant === "panel" ? (
         <span

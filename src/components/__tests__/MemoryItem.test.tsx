@@ -95,6 +95,18 @@ describe("MemoryItem", () => {
     expect(onEdit).not.toHaveBeenCalled();
   });
 
+  it("toggles from the whole status pill without opening the editor", () => {
+    const { onEdit, onToggle } = renderMemoryItem();
+
+    const hitArea = screen.getByText("已启用").closest('[data-slot="switch-hit-area"]');
+    expect(hitArea).toBeInstanceOf(HTMLElement);
+
+    fireEvent.click(hitArea as HTMLElement);
+
+    expect(onToggle).toHaveBeenCalledTimes(1);
+    expect(onEdit).not.toHaveBeenCalled();
+  });
+
   it("does not repeat the CLAUDE.md filename next to the type badge", () => {
     renderMemoryItem();
 

@@ -183,6 +183,42 @@ describe("ui system contract", () => {
     }
   });
 
+  it("keeps switch controls large enough for comfortable pointer use", () => {
+    const source = readFileSync("src/components/ui/switch.tsx", "utf8");
+
+    expect(source).toContain("data-[size=default]:h-6 data-[size=default]:w-11");
+    expect(source).toContain("data-[size=sm]:h-5 data-[size=sm]:w-9");
+    expect(source).toContain("group-data-[size=default]/switch:size-5");
+    expect(source).toContain("group-data-[size=sm]/switch:size-4");
+    expect(source).toContain("data-[state=checked]:translate-x-[calc(100%+2px)]");
+    expect(source).not.toContain("data-[size=default]:h-[1.15rem]");
+    expect(source).not.toContain("data-[size=sm]:h-3.5");
+  });
+
+  it("keeps text-adjacent switch hit areas clickable", () => {
+    for (const file of [
+      "src/components/profile-editor/SandboxEditor.tsx",
+      "src/components/MemoryItem.tsx",
+      "src/components/SkillItem.tsx",
+    ]) {
+      const source = readFileSync(file, "utf8");
+
+      expect(source, file).toContain('data-slot="switch-hit-area"');
+      expect(source, file).toContain("cursor-pointer");
+    }
+  });
+
+  it("keeps memory and skill switch hit areas quiet until hover", () => {
+    for (const file of ["src/components/MemoryItem.tsx", "src/components/SkillItem.tsx"]) {
+      const source = readFileSync(file, "utf8");
+
+      expect(source, file).toContain("border border-transparent bg-transparent");
+      expect(source, file).toContain("hover:border-border/80 hover:bg-card/80");
+      expect(source, file).toContain("focus-within:border-border/80 focus-within:bg-card/80");
+      expect(source, file).not.toContain("border border-border/80 bg-card/80");
+    }
+  });
+
   it("keeps split editor drawers on semantic sheet surfaces", () => {
     for (const file of [
       "src/components/ProfilesPage.tsx",

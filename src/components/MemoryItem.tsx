@@ -106,7 +106,14 @@ function MemoryItem({
               {t("memory.editing")}
             </span>
           )}
-          <div className="memory-toggle-control inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+          <div
+            className="memory-toggle-control inline-flex cursor-pointer select-none items-center gap-2 rounded-full border border-transparent bg-transparent px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-border/80 hover:bg-card/80 hover:text-foreground focus-within:border-border/80 focus-within:bg-card/80"
+            data-slot="switch-hit-area"
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggle();
+            }}
+          >
             <Switch
               size="sm"
               checked={memory.isActive}

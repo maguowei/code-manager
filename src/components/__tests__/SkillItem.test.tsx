@@ -92,6 +92,18 @@ describe("SkillItem", () => {
     expect(screen.queryByRole("button", { name: "编辑 Skill" })).not.toBeInTheDocument();
   });
 
+  it("toggles from the whole status pill without opening the editor", () => {
+    const { onEdit, onToggle } = renderSkillItem();
+
+    const hitArea = screen.getByText("已禁用").closest('[data-slot="switch-hit-area"]');
+    expect(hitArea).toBeInstanceOf(HTMLElement);
+
+    fireEvent.click(hitArea as HTMLElement);
+
+    expect(onToggle).toHaveBeenCalledTimes(1);
+    expect(onEdit).not.toHaveBeenCalled();
+  });
+
   it("keeps inactive skills interactive and exposes card actions", () => {
     renderSkillItem();
 
