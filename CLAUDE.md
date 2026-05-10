@@ -62,6 +62,10 @@
 - 公共 hooks：`src/hooks/`
 - Tailwind v4 入口与 OKLCH 主题变量：`src/index.css`
 - shadcn 原子组件：`src/components/ui/`，类名拼接工具：`src/lib/utils.ts`（`cn()`）
+- 字号层级常量：`src/components/typography-classes.ts`（`TYPOGRAPHY`）
+- 表面样式常量：`src/components/surface-classes.ts`（`PANEL_SURFACE_CLASS` 等）
+- 列表与抽屉布局常量：`src/components/layout-size-classes.ts`（`LIST_PANEL_WIDTH_CLASS` / `LIST_DETAIL_DRAWER_OFFSET_CLASS`）
+- `~/.claude` 文件树预览页：`src/components/ClaudeOverviewPage.tsx`
 - Tauri 命令注册：`src-tauri/src/lib.rs`
 - Rust 公共工具：`src-tauri/src/utils.rs`
 - Tauri capability：`src-tauri/capabilities/default.json`

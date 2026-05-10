@@ -46,6 +46,7 @@ paths:
 - 合并权威逻辑是 `src-tauri/src/config.rs::resolve_profile_settings()`：先展开 Preset 链，再叠加 Profile `settings`，最后写入 `$schema`。
 - 激活 Profile 最终会原子写入 `~/.claude/settings.json`，并更新 `configs.json` 的绑定状态。
 - 已绑定的 Profile 被修改时，后端会重新应用到用户设置；不要绕开 `upsert_profile`。
+- 内置 Preset 现已包含 Anthropic、DeepSeek 等；新增 provider 同步 `builtin-providers.json` 的 `localizedName` / `slug` / `baseUrl` / `docUrl`，并在 Profile 编辑器的环境变量自动填充逻辑中覆盖默认 model 字段（`ANTHROPIC_MODEL`、`ANTHROPIC_DEFAULT_OPUS_MODEL`、`ANTHROPIC_DEFAULT_SONNET_MODEL`、`ANTHROPIC_DEFAULT_HAIKU_MODEL`、`CLAUDE_CODE_SUBAGENT_MODEL`）。
 
 ## 结构化编辑器
 
@@ -54,6 +55,7 @@ paths:
 - 结构化设置分区的官方文档入口在 `StructuredSettingsSections.tsx`，新增分区时同步文档路径、i18n 和错误聚合。
 - 官方插件市场常量在 `marketplace-presets.ts`；官方插件清单加载、localStorage 缓存和元数据过滤在 `official-plugin-catalog.ts` / `EnabledPluginsEditor.tsx`。
 - 加载官方插件只追加新发现插件，必须保留已有 enabled/disabled 状态和非布尔 legacy entries。
+- 复制环境变量按钮使用 `lucide-react` 的 `Variable` 图标，复制完整配置使用 `Copy` 图标；新增分区如需复制类操作沿用同一图标语义，避免在前端再生成图标自实现。
 
 ## 新增配置字段同步点
 

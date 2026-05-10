@@ -34,6 +34,7 @@ paths:
 - 历史热力图按本地日期聚合，响应式显示 53 / 39 / 26 / 13 周，星期标签列宽要能容纳中文。
 - 会话列表使用 `@tanstack/react-virtual` 的扁平列表结构，展开/折叠时保持日期分组与会话条目的顺序稳定。
 - 会话详情解析在后端，保留对 command、system、thinking、tool_use、tool_result、image、plan 等块类型的兼容。
+- 会话详情头部支持复制 `cwd` 路径、复制会话 ID、跳转到原始 jsonl；命令块外层背景使用 `bg-card`，与会话卡片保持同一层级。
 
 ## 统计页
 
@@ -51,6 +52,7 @@ paths:
 - `usage.rs` 会在 `lib.rs` setup 中通过 `usage::start_usage_runtime(app)` 启动：加载价格表、首次扫描、监听 `claude-directory-changed` 做增量扫描，并向前端发出 `usage-records-changed` / `usage-pricing-updated`。
 - 用量聚合维度包括 daily、project、session、model 和 time series；新增趋势图字段要同步 `UsageTimeSeriesPoint`、`UsageTimeGranularity`、`useUsage.ts` 和 `usage.rs`。
 - 默认筛选是今日；单日默认小时粒度，多日默认天粒度，用户也可切到 5 分钟粒度。
+- 日期筛选使用 shadcn `Calendar` 浮层（`src/components/ui/calendar.tsx`），不要回退到原生 `<input type="date">`；筛选区控件继续使用 `surface-classes` 与 `TYPOGRAPHY` 常量。
 - 筛选字段来自 `UsageFilter`，包括 `includeUnknownModels` 与 `claude-*` 模型快捷筛选；新增筛选条件要同步 `src/types.ts`、`useUsage.ts`、`usage.rs` 和 i18n。
 - Usage 趋势图支持按模型或 Token 类型拆分、曲线/柱状切换、图例点击隐藏和双击 solo；这些交互是前端状态，不应写入后端。
 - 价格表加载顺序是本地缓存 `~/.config/ai-manager/model-pricing.json` -> 内置 `src-tauri/resources/model-pricing.json` -> 启动后尝试从 models.dev 刷新。
