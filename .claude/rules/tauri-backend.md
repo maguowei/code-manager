@@ -39,7 +39,6 @@ const result = await invoke("get_config_workspace");
 
 - `lock_config()`
 - `lock_memory()`
-- `lock_stats()`
 - `lock_skills()`
 - `read_json_file()`
 - `read_json_file_strict()`
@@ -53,8 +52,7 @@ const result = await invoke("get_config_workspace");
 
 - 后端继续负责配置合并、路径校验、目录遍历安全、真实落盘和日志脱敏。
 - 路径相关 command 必须继续防止符号链接、绝对路径和 `..` 路径逃逸。
-- 不要记录密钥、Token、完整 settings、Memory 内容、Skill 文件内容、模型测试请求体或响应体。
-- 新增日志字段时优先记录稳定标识符和状态，例如 `event=profile.apply status=ok profile_id=...`。
+- 日志脱敏字段清单与日志格式规范见 `.claude/rules/projects-tray-diagnostics.md` 的「日志与诊断」一节，不要在两处维护副本。
 
 ## 验证
 

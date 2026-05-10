@@ -39,7 +39,7 @@ paths:
 
 ## 关键约束
 
-- 配置表单不再有单独的 `ConfigEditor.tsx`；`ProfileEditor.tsx` 与 `PresetEditor.tsx` 共享 `ConfigEditor.css`、`settings-form-registry.ts` 和 profile-editor 子组件。
+- 配置表单不再有单独的 `ConfigEditor.tsx`；`ProfileEditor.tsx` 与 `PresetEditor.tsx` 共享 `settings-form-registry.ts` 与 profile-editor 子组件。
 - `src/schemas/claude-settings.schema.json` 是 Claude settings 的共享 schema 锚点；Rust 通过 `include_str!` 加载并校验已知字段。
 - `validate_settings_document()` 允许未知顶层键，但会校验 schema 已知字段的嵌套结构。
 - `preview_profile`、`apply_profile` 和 `test_profile_model` 都依赖后端解析后的最终配置，前端不要复制合并逻辑。

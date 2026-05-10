@@ -15,6 +15,7 @@
 - 当前版本：`0.17.0`，同时维护在 `package.json` 与 `src-tauri/tauri.conf.json`。
 - 前端：React 19 + TypeScript + Vite + Tailwind CSS v4 + shadcn/ui。
 - 后端：Rust + Tauri commands。
+- 前端测试：Vitest（`pnpm test` 等价 `vitest run`）。
 - 包管理器：`pnpm`，项目声明 `pnpm@10.33.0`；不要改用 `npm`。
 - 应用标识符：`com.gotobeta.app.ai-manager`。
 - 当前仓库不使用 Go、Python；如后续引入，遵守 Go 1.26、Python >= 3.14。
@@ -96,6 +97,8 @@
 ## 验证清单
 
 按改动范围选最小充分集，但不要跳过相关验证。
+
+本地启动桌面应用：`pnpm tauri dev`（会通过 `tauri.conf.json` 的 `beforeDevCommand` 触发 `pnpm dev`，单独跑 `pnpm dev` 只能起 Vite，没有原生壳）。`pnpm tauri build` 出生产包。新克隆仓库后 `pnpm install` 会运行 `prepare` 脚本，由 lefthook 安装 git hooks。
 
 | 改动范围 | 命令 |
 | --- | --- |
