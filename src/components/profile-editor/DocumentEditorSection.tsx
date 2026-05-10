@@ -50,7 +50,7 @@ function DocumentEditorSection({
 
         <div className="flex flex-wrap items-center gap-2">
           <div
-            className="inline-flex items-center rounded-full border border-border bg-muted/50 p-1"
+            className="inline-flex items-center rounded-full border border-border/80 bg-muted/40 p-1 shadow-xs"
             role="tablist"
             aria-label={`${title} ${editModeLabel}`}
           >
@@ -59,8 +59,8 @@ function DocumentEditorSection({
               variant="ghost"
               size="sm"
               className={cn(
-                "min-w-16 rounded-full px-3 text-xs font-semibold text-muted-foreground hover:text-foreground",
-                mode === "preview" && "bg-background text-foreground shadow-xs",
+                "min-w-16 rounded-full px-3 text-xs font-semibold text-muted-foreground hover:bg-primary/10 hover:text-primary",
+                mode === "preview" && "bg-primary/10 text-primary shadow-xs",
               )}
               aria-pressed={mode === "preview"}
               onClick={() => setMode("preview")}
@@ -72,8 +72,8 @@ function DocumentEditorSection({
               variant="ghost"
               size="sm"
               className={cn(
-                "min-w-16 rounded-full px-3 text-xs font-semibold text-muted-foreground hover:text-foreground",
-                mode === "json" && "bg-background text-foreground shadow-xs",
+                "min-w-16 rounded-full px-3 text-xs font-semibold text-muted-foreground hover:bg-primary/10 hover:text-primary",
+                mode === "json" && "bg-primary/10 text-primary shadow-xs",
               )}
               aria-pressed={mode === "json"}
               onClick={() => setMode("json")}

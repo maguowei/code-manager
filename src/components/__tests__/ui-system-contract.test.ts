@@ -166,6 +166,23 @@ describe("ui system contract", () => {
     expect(source).not.toContain("self-stretch whitespace-normal rounded-none");
   });
 
+  it("keeps profile editor mode switches noticeable without stealing focus", () => {
+    for (const file of [
+      "src/components/profile-editor/SettingsSectionModePanel.tsx",
+      "src/components/profile-editor/DocumentEditorSection.tsx",
+    ]) {
+      const source = readFileSync(file, "utf8");
+
+      expect(source, file).toContain("border-border/80 bg-muted/40 p-1 shadow-xs");
+      expect(source, file).toContain("hover:bg-primary/10 hover:text-primary");
+      expect(source, file).toContain("bg-primary/10 text-primary shadow-xs");
+      expect(source, file).not.toContain("border-primary/30");
+      expect(source, file).not.toContain("ring-primary/10");
+      expect(source, file).not.toContain("bg-primary text-primary-foreground");
+      expect(source, file).not.toContain("border border-border bg-muted/50 p-1");
+    }
+  });
+
   it("keeps split editor drawers on semantic sheet surfaces", () => {
     for (const file of [
       "src/components/ProfilesPage.tsx",

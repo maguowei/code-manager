@@ -60,7 +60,7 @@ function SettingsSectionModePanel({
   function renderModeSwitch() {
     return (
       <div
-        className="inline-flex items-center rounded-full border border-border bg-muted/50 p-1"
+        className="inline-flex items-center rounded-full border border-border/80 bg-muted/40 p-1 shadow-xs"
         role="tablist"
         aria-label={`${title} ${t("common.jsonMode")}`}
       >
@@ -69,8 +69,8 @@ function SettingsSectionModePanel({
           variant="ghost"
           size="sm"
           className={cn(
-            "min-w-16 rounded-full px-3 text-xs font-semibold text-muted-foreground hover:text-foreground",
-            mode === "controls" && "bg-background text-foreground shadow-xs",
+            "min-w-16 rounded-full px-3 text-xs font-semibold text-muted-foreground hover:bg-primary/10 hover:text-primary",
+            mode === "controls" && "bg-primary/10 text-primary shadow-xs",
           )}
           aria-pressed={mode === "controls"}
           onClick={() => onModeChange("controls")}
@@ -82,8 +82,8 @@ function SettingsSectionModePanel({
           variant="ghost"
           size="sm"
           className={cn(
-            "min-w-16 rounded-full px-3 text-xs font-semibold text-muted-foreground hover:text-foreground",
-            mode === "json" && "bg-background text-foreground shadow-xs",
+            "min-w-16 rounded-full px-3 text-xs font-semibold text-muted-foreground hover:bg-primary/10 hover:text-primary",
+            mode === "json" && "bg-primary/10 text-primary shadow-xs",
           )}
           aria-pressed={mode === "json"}
           onClick={() => onModeChange("json")}
