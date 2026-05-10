@@ -26,12 +26,16 @@ describe("ClaudeOverviewPage styles", () => {
     expect(source).toContain("LEGACY_TREE_PANE_WIDTH_STORAGE_KEY");
     expect(source).toContain("DEFAULT_TREE_PANE_RATIO = 0.28");
     expect(source).toContain("MIN_TREE_PANE_RATIO = 0.2");
-    expect(source).toContain("MAX_TREE_PANE_RATIO = 0.42");
+    expect(source).toContain("MAX_TREE_PANE_RATIO = 0.52");
     expect(source).toContain("TREE_PANE_RATIO_STEP = 0.02");
     expect(source).toContain("clampTreePaneRatio");
     expect(source).toContain("ResizeObserver");
     expect(source).toContain("overviewBodyRef");
     expect(source).toContain("--claude-overview-preview-width");
+    expect(source).toContain("writeOverviewPaneWidthVars");
+    expect(source).toContain('style.setProperty("--claude-overview-preview-width"');
+    expect(source).toContain("applyPointerRatio(moveEvent.clientX, { commit: false })");
+    expect(source).toContain("setTreePaneRatio(finalRatio)");
     expect(source).toContain("claude-overview-resizer relative min-w-2 cursor-col-resize");
     expect(source).toContain("max-[900px]:hidden");
     expect(source).not.toContain("applyTreePaneWidth");

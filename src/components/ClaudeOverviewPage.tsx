@@ -83,7 +83,7 @@ const DEFAULT_TREE_PANE_RATIO = 0.28;
 // 刷新按钮"刷新中..."状态的最小展示时长,避免本地 IPC 极快返回时按钮抖动看不清反馈
 const MIN_REFRESH_FEEDBACK_MS = 500;
 const MIN_TREE_PANE_RATIO = 0.2;
-const MAX_TREE_PANE_RATIO = 0.42;
+const MAX_TREE_PANE_RATIO = 0.52;
 const TREE_PANE_RATIO_STEP = 0.02;
 const RESIZER_WIDTH = 8;
 const TREE_PANE_RATIO_STORAGE_KEY = "ai-manager:claude-overview-tree-pane-ratio";
@@ -252,6 +252,20 @@ function getPaneWidthsForRatio(bodyWidth: number, treePaneRatio: number) {
     previewWidth: Math.max(0, availableWidth - treeWidth),
     treeWidth,
   };
+}
+
+function writeOverviewPaneWidthVars(
+  overviewBody: HTMLElement | null,
+  bodyWidth: number,
+  treePaneRatio: number,
+) {
+  if (!overviewBody || bodyWidth <= 0) {
+    return;
+  }
+
+  const { previewWidth, treeWidth } = getPaneWidthsForRatio(bodyWidth, treePaneRatio);
+  overviewBody.style.setProperty("--claude-overview-preview-width", `${previewWidth}px`);
+  overviewBody.style.setProperty("--claude-overview-tree-width", `${treeWidth}px`);
 }
 
 function treePathForEntry(entry: ClaudeDirectoryEntry) {
@@ -933,11 +947,24 @@ function ClaudeOverviewPage() {
     [],
   );
 
-  const applyTreePaneRatio = useCallback((nextRatio: number) => {
-    const clampedRatio = clampTreePaneRatio(nextRatio);
-    latestTreePaneRatioRef.current = clampedRatio;
-    setTreePaneRatio(clampedRatio);
-  }, []);
+  const applyTreePaneRatio = useCallback(
+    (nextRatio: number, options: { commit?: boolean } = {}) => {
+      const clampedRatio = clampTreePaneRatio(nextRatio);
+      latestTreePaneRatioRef.current = clampedRatio;
+      writeOverviewPaneWidthVars(
+        overviewBodyRef.current,
+        latestOverviewBodyWidthRef.current,
+        clampedRatio,
+      );
+
+      if (options.commit === false) {
+        return;
+      }
+
+      setTreePaneRatio(clampedRatio);
+    },
+    [],
+  );
 
   const loadOverview = useCallback(
     async (options: LoadOverviewOptions = {}) => {
@@ -1356,13 +1383,17 @@ function ClaudeOverviewPage() {
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
 
-      const applyPointerRatio = (clientX: number) => {
+      const applyPointerRatio = (
+        clientX: number,
+        options: { commit?: boolean } = { commit: false },
+      ) => {
         const resizeState = resizeStateRef.current;
         if (!resizeState) {
           return;
         }
         applyTreePaneRatio(
           resizeState.startRatio - (clientX - resizeState.startX) / resizeState.availableWidth,
+          options,
         );
       };
 
@@ -1372,7 +1403,7 @@ function ClaudeOverviewPage() {
         }
         resizeFrameRef.current = window.requestAnimationFrame(() => {
           resizeFrameRef.current = null;
-          applyPointerRatio(moveEvent.clientX);
+          applyPointerRatio(moveEvent.clientX, { commit: false });
         });
       };
 
@@ -1381,9 +1412,11 @@ function ClaudeOverviewPage() {
           window.cancelAnimationFrame(resizeFrameRef.current);
           resizeFrameRef.current = null;
         }
-        applyPointerRatio(endEvent.clientX);
+        applyPointerRatio(endEvent.clientX, { commit: false });
+        const finalRatio = latestTreePaneRatioRef.current;
+        setTreePaneRatio(finalRatio);
         resizeStateRef.current = null;
-        saveTreePaneRatio(latestTreePaneRatioRef.current);
+        saveTreePaneRatio(finalRatio);
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
         window.removeEventListener("pointermove", handlePointerMove);
