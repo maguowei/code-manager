@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ExternalLink, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
+import { showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
@@ -129,8 +130,8 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
       setIsDrawerOpen(false);
       setEditingPreset(null);
       showToast(t("presets.toast.saved"));
-    } catch {
-      showToast(t("presets.toast.saveError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("presets.toast.saveError"), err);
     }
   }
 
@@ -139,8 +140,8 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
       await invoke("delete_preset", { id });
       await onWorkspaceChange();
       showToast(t("presets.toast.deleted"));
-    } catch {
-      showToast(t("presets.toast.deleteError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("presets.toast.deleteError"), err);
     }
   }
 

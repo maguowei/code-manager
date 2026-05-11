@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { CircleAlert, CircleCheck, Copy, Plus, TestTube, Trash2, Variable } from "lucide-react";
 import { type DragEvent, useCallback, useMemo, useRef, useState } from "react";
+import { getUserFacingErrorReason, showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
@@ -297,8 +298,8 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
       await onWorkspaceChange();
       closeDrawer();
       showToast(t("profiles.toast.saved"));
-    } catch {
-      showToast(t("profiles.toast.saveError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("profiles.toast.saveError"), err);
     }
   }
 
@@ -307,8 +308,8 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
       await invoke("apply_profile", { id });
       await onWorkspaceChange();
       showToast(t("profiles.toast.applied"));
-    } catch {
-      showToast(t("profiles.toast.applyError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("profiles.toast.applyError"), err);
     }
   }
 
@@ -317,8 +318,8 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
       await invoke("delete_profile", { id });
       await onWorkspaceChange();
       showToast(t("profiles.toast.deleted"));
-    } catch {
-      showToast(t("profiles.toast.deleteError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("profiles.toast.deleteError"), err);
     }
   }
 
@@ -340,8 +341,8 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
       }
       await navigator.clipboard.writeText(exportText);
       showToast(t("profiles.toast.envCopied"));
-    } catch {
-      showToast(t("profiles.toast.envCopyError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("profiles.toast.envCopyError"), err);
     }
   }
 
@@ -353,8 +354,8 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
       });
       await onWorkspaceChange();
       showToast(t("profiles.toast.duplicated"));
-    } catch {
-      showToast(t("profiles.toast.duplicateError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("profiles.toast.duplicateError"), err);
     }
   }
 
@@ -363,8 +364,8 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
       try {
         await invoke("reorder_profiles", { ids });
         await onWorkspaceChange();
-      } catch {
-        showToast(t("profiles.toast.reorderError"), "error");
+      } catch (err) {
+        showOperationError(showToast, t("profiles.toast.reorderError"), err);
       }
     },
     [onWorkspaceChange, showToast, t],
@@ -403,7 +404,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
             [profile.id]: {
               status: "failed",
               result: null,
-              errorMessage: String(error),
+              errorMessage: getUserFacingErrorReason(error) ?? t("profiles.testAll.failed"),
             },
           }));
         }
@@ -477,7 +478,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
       }
     } catch (error) {
       if (retestModelRunIdRef.current === runId) {
-        const errorMessage = String(error);
+        const errorMessage = getUserFacingErrorReason(error) ?? t("profiles.testAll.failed");
         setProfileModelTestStates((current) => ({
           ...current,
           [profile.id]: {

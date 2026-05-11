@@ -6,6 +6,7 @@ import {
 } from "@tauri-apps/plugin-autostart";
 import { ChevronLeft, FileText, Info, type LucideIcon, Monitor, Moon, Sun } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { showOperationError } from "@/lib/user-facing-error";
 import { useToast } from "../hooks/useToast";
 import { type Language, type TranslationKey, useI18n } from "../i18n";
 import { cn } from "../lib/utils";
@@ -121,8 +122,8 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
           setLanguage(workspace.app.uiLanguage as Language);
         }
       })
-      .catch(() => {
-        showToast(t("toast.configLoadError"), "error");
+      .catch((err) => {
+        showOperationError(showToast, t("toast.configLoadError"), err);
       });
   }, [language, setLanguage, showToast, t]);
 
@@ -130,8 +131,8 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   useEffect(() => {
     isAutostartEnabled()
       .then(setLaunchAtLogin)
-      .catch(() => {
-        showToast(t("toast.autostartQueryError"), "error");
+      .catch((err) => {
+        showOperationError(showToast, t("toast.autostartQueryError"), err);
       });
   }, [showToast, t]);
 
@@ -152,12 +153,12 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
     setPreferences(next);
     try {
       await invoke<AppPreferences>("set_app_preferences", { data: next });
-    } catch {
+    } catch (err) {
       setPreferences(rollback);
       if (rollback.uiLanguage !== language) {
         setLanguage(rollback.uiLanguage as Language);
       }
-      showToast(t("toast.configSaveError"), "error");
+      showOperationError(showToast, t("toast.configSaveError"), err);
     }
   }
 
@@ -170,9 +171,9 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
       } else {
         await disableAutostart();
       }
-    } catch {
+    } catch (err) {
       setLaunchAtLogin(!next);
-      showToast(t("toast.autostartSaveError"), "error");
+      showOperationError(showToast, t("toast.autostartSaveError"), err);
     }
   }
 

@@ -6,6 +6,7 @@ import CodeMirror from "@uiw/react-codemirror";
 import { ChevronLeft, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { type Resolver, useForm } from "react-hook-form";
+import { showOperationError } from "@/lib/user-facing-error";
 import { useCodeMirrorTheme } from "../hooks/useCodeMirrorTheme";
 import { useToast } from "../hooks/useToast";
 import { type TranslationKey, useI18n } from "../i18n";
@@ -123,8 +124,8 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
       });
       setFiles(result);
       setFilesLoaded(true);
-    } catch (_err) {
-      showToast(t("toast.skillLoadError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("toast.skillLoadError"), err);
     }
   }
 
@@ -144,8 +145,11 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
       showToast(t(isEditing ? "toast.skillSaved" : "toast.skillAdded"));
       onSave(saved);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      showToast(msg || (isEditing ? t("toast.skillSaveError") : t("toast.skillAddError")), "error");
+      showOperationError(
+        showToast,
+        t(isEditing ? "toast.skillSaveError" : "toast.skillAddError"),
+        err,
+      );
     } finally {
       setIsSaving(false);
     }
@@ -165,8 +169,8 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
       addFileForm.reset(buildSkillFileDefaultValues());
       setShowAddFile(false);
       showToast(t("toast.skillFileAdded"));
-    } catch (_err) {
-      showToast(t("toast.skillFileAddError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("toast.skillFileAddError"), err);
     }
   });
 
@@ -185,8 +189,8 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
       setEditingFile(null);
       editFileForm.reset(buildSkillFileDefaultValues());
       showToast(t("toast.skillFileSaved"));
-    } catch (_err) {
-      showToast(t("toast.skillFileSaveError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("toast.skillFileSaveError"), err);
     }
   });
 
@@ -201,8 +205,8 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
       });
       setFiles((prev) => prev.filter((file) => file.name !== fileName));
       showToast(t("toast.skillFileDeleted"));
-    } catch (_err) {
-      showToast(t("toast.skillFileDeleteError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("toast.skillFileDeleteError"), err);
     }
   }
 

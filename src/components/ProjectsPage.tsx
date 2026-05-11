@@ -11,6 +11,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import { shortProjectName } from "../history-utils";
 import useTauriEvent from "../hooks/useTauriEvent";
@@ -353,9 +354,9 @@ function ProjectsPage() {
     });
 
     loadProjects()
-      .catch(() => {
+      .catch((err) => {
         if (cancelled) return;
-        showToast(t("toast.projectListError"), "error");
+        showOperationError(showToast, t("toast.projectListError"), err);
       })
       .finally(() => {
         if (cancelled) return;
@@ -455,10 +456,10 @@ function ProjectsPage() {
 
     let cancelled = false;
 
-    loadProjectDetail(selectedProject).catch(() => {
+    loadProjectDetail(selectedProject).catch((err) => {
       if (cancelled) return;
       setDetail(null);
-      showToast(t("toast.projectDetailError"), "error");
+      showOperationError(showToast, t("toast.projectDetailError"), err);
     });
 
     return () => {
@@ -491,8 +492,8 @@ function ProjectsPage() {
       }
 
       showToast(t("toast.projectRefreshed"));
-    } catch {
-      showToast(t("toast.projectRefreshError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("toast.projectRefreshError"), err);
     } finally {
       setIsRefreshing(false);
     }
@@ -506,8 +507,8 @@ function ProjectsPage() {
       await invoke("create_project_agents_symlink", { project: selectedProject });
       await loadProjectDetail(selectedProject, { clearBeforeLoad: false });
       showToast(t("toast.projectAgentsLinked"));
-    } catch {
-      showToast(t("toast.projectAgentsLinkError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("toast.projectAgentsLinkError"), err);
     } finally {
       setIsLinkingAgents(false);
     }
@@ -518,8 +519,8 @@ function ProjectsPage() {
 
     try {
       await openUrl(detail.repositoryUrl);
-    } catch {
-      showToast(t("toast.projectOpenRepositoryError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("toast.projectOpenRepositoryError"), err);
     }
   }, [detail?.repositoryUrl, showToast, t]);
 
@@ -529,8 +530,8 @@ function ProjectsPage() {
 
     try {
       await invoke("open_project_in_terminal", { project: projectPath });
-    } catch {
-      showToast(t("toast.projectOpenTerminalError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("toast.projectOpenTerminalError"), err);
     }
   }, [detail?.path, selectedSummary?.project, showToast, t]);
 
@@ -540,8 +541,8 @@ function ProjectsPage() {
 
     try {
       await invoke("open_project_in_editor", { project: projectPath });
-    } catch {
-      showToast(t("toast.projectOpenEditorError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("toast.projectOpenEditorError"), err);
     }
   }, [defaultEditorApp, detail?.path, selectedSummary?.project, showToast, t]);
 
@@ -599,7 +600,7 @@ function ProjectsPage() {
               }
             : current,
         );
-        showToast(t("toast.projectPurgePreviewError"), "error");
+        showOperationError(showToast, t("toast.projectPurgePreviewError"), error);
       }
     },
     [showToast, t],
@@ -666,7 +667,7 @@ function ProjectsPage() {
             }
           : current,
       );
-      showToast(t("toast.projectPurgeError"), "error");
+      showOperationError(showToast, t("toast.projectPurgeError"), error);
     }
   }, [purgeDialog, refreshProjectsAfterPurge, showToast, t]);
 

@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getUserFacingErrorReason } from "@/lib/user-facing-error";
 import {
   type DailyUsage,
   isTauri,
@@ -47,7 +48,7 @@ export function getDefaultUsageTimeGranularity(filter: UsageFilter): UsageTimeGr
   return filter.startDate && filter.endDate && filter.startDate === filter.endDate ? "hour" : "day";
 }
 
-export function useUsage(): UseUsageResult {
+export function useUsage(errorFallback = "加载用量数据失败"): UseUsageResult {
   const [summary, setSummary] = useState<UsageSummary | null>(null);
   const [daily, setDaily] = useState<DailyUsage[]>([]);
   const [timeSeries, setTimeSeries] = useState<UsageTimeSeriesPoint[]>([]);
@@ -113,14 +114,14 @@ export function useUsage(): UseUsageResult {
         setError(null);
       } catch (e) {
         if (requestSeq !== requestSeqRef.current) return;
-        setError(typeof e === "string" ? e : String(e));
+        setError(getUserFacingErrorReason(e) ?? errorFallback);
       } finally {
         if (requestSeq === requestSeqRef.current) {
           setLoading(false);
         }
       }
     },
-    [],
+    [errorFallback],
   );
 
   // 对外暴露的 reload：使用最新 filter（来自 ref）
@@ -158,12 +159,12 @@ export function useUsage(): UseUsageResult {
       await invoke("refresh_usage_pricing");
       await reloadWith(filterRef.current, timeGranularityRef.current);
     } catch (e) {
-      setError(typeof e === "string" ? e : String(e));
+      setError(getUserFacingErrorReason(e) ?? errorFallback);
       throw e;
     } finally {
       setRefreshingPrice(false);
     }
-  }, [reloadWith]);
+  }, [errorFallback, reloadWith]);
 
   const rescan = useCallback(async () => {
     if (!isTauri()) return;
@@ -172,12 +173,12 @@ export function useUsage(): UseUsageResult {
       await invoke("rescan_usage");
       await reloadWith(filterRef.current, timeGranularityRef.current);
     } catch (e) {
-      setError(typeof e === "string" ? e : String(e));
+      setError(getUserFacingErrorReason(e) ?? errorFallback);
       throw e;
     } finally {
       setRescanning(false);
     }
-  }, [reloadWith]);
+  }, [errorFallback, reloadWith]);
 
   return {
     summary,

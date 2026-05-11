@@ -27,6 +27,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { showOperationError } from "@/lib/user-facing-error";
 import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
 import { type Language, type TranslationKey, useI18n } from "../i18n";
@@ -991,7 +992,7 @@ function ClaudeOverviewPage() {
           setLoadingOverview(false);
         });
         return nextOverview;
-      } catch {
+      } catch (error) {
         if (latestOverviewRequestIdRef.current !== requestId) {
           return null;
         }
@@ -1002,7 +1003,7 @@ function ClaudeOverviewPage() {
           });
         }
         setLoadingOverview(false);
-        showToast(t("claudeOverview.loadError"), "error");
+        showOperationError(showToast, t("claudeOverview.loadError"), error);
         return null;
       }
     },
@@ -1050,8 +1051,8 @@ function ClaudeOverviewPage() {
           setSelectedPath(nextPreview.path);
           setViewMode(defaultViewModeForPath(nextPreview.path));
         }
-      } catch {
-        showToast(t("claudeOverview.previewError"), "error");
+      } catch (error) {
+        showOperationError(showToast, t("claudeOverview.previewError"), error);
       } finally {
         setLoadingPreviewPath((currentPath) => (currentPath === path ? null : currentPath));
       }
@@ -1246,8 +1247,8 @@ function ClaudeOverviewPage() {
         }
         setNameDialog(null);
         await loadOverview({ preserveCurrent: true });
-      } catch {
-        showToast(t("claudeOverview.operationError"), "error");
+      } catch (error) {
+        showOperationError(showToast, t("claudeOverview.operationError"), error);
       }
     },
     [loadOverview, nameDialog, showToast, t],
@@ -1279,8 +1280,8 @@ function ClaudeOverviewPage() {
       setPendingDeleteEntry(null);
       showToast(t("claudeOverview.deleteSuccess"));
       await loadOverview({ preserveCurrent: true });
-    } catch {
-      showToast(t("claudeOverview.operationError"), "error");
+    } catch (error) {
+      showOperationError(showToast, t("claudeOverview.operationError"), error);
     }
   }, [loadOverview, pendingDeleteEntry, showToast, t]);
 
@@ -1332,8 +1333,8 @@ function ClaudeOverviewPage() {
         absolutePreviewPath(overview.rootPath, activePreview.path),
       );
       showToast(t("claudeOverview.pathCopied"));
-    } catch {
-      showToast(t("claudeOverview.pathCopyError"), "error");
+    } catch (error) {
+      showOperationError(showToast, t("claudeOverview.pathCopyError"), error);
     }
   }, [activePreview, overview.rootPath, showToast, t]);
 
@@ -1343,8 +1344,8 @@ function ClaudeOverviewPage() {
     }
     try {
       await revealItemInDir(absolutePreviewPath(overview.rootPath, activePreview.path));
-    } catch {
-      showToast(t("claudeOverview.openFileBrowserError"), "error");
+    } catch (error) {
+      showOperationError(showToast, t("claudeOverview.openFileBrowserError"), error);
     }
   }, [activePreview, overview.rootPath, showToast, t]);
 
@@ -1354,16 +1355,16 @@ function ClaudeOverviewPage() {
     }
     try {
       await invoke("open_claude_file_in_editor", { path: activePreview.path });
-    } catch {
-      showToast(t("claudeOverview.openEditorError"), "error");
+    } catch (error) {
+      showOperationError(showToast, t("claudeOverview.openEditorError"), error);
     }
   }, [activePreview, showToast, t]);
 
   const handleOpenDocs = useCallback(async () => {
     try {
       await openUrl(claudeDirectoryDocsUrl);
-    } catch {
-      showToast(t("claudeOverview.openDocsError"), "error");
+    } catch (error) {
+      showOperationError(showToast, t("claudeOverview.openDocsError"), error);
     }
   }, [claudeDirectoryDocsUrl, showToast, t]);
 

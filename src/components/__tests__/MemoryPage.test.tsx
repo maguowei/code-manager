@@ -228,10 +228,9 @@ describe("MemoryPage", () => {
     fireEvent.click(within(card).getByRole("switch", { name: "启用" }));
 
     await waitFor(() => {
-      expect(showToastMock).toHaveBeenCalledWith(
-        "切换记忆状态失败：CLAUDE.md 已存在，无法覆盖，请先导入为可管理记忆",
-        "error",
-      );
+      expect(showToastMock).toHaveBeenCalledWith("切换记忆状态失败", "error", {
+        description: "CLAUDE.md 已存在，无法覆盖，请先导入为可管理记忆",
+      });
     });
   });
 
@@ -392,7 +391,9 @@ describe("MemoryPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "导入记忆" }));
 
     await waitFor(() => {
-      expect(showToastMock).toHaveBeenCalledWith("导入目录记忆失败", "error");
+      expect(showToastMock).toHaveBeenCalledWith("导入目录记忆失败", "error", {
+        description: "import failed",
+      });
     });
   });
 
@@ -497,7 +498,9 @@ describe("MemoryPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "刷新" }));
 
     await waitFor(() => {
-      expect(showToastMock).toHaveBeenCalledWith("刷新记忆失败", "error");
+      expect(showToastMock).toHaveBeenCalledWith("刷新记忆失败", "error", {
+        description: "refresh failed",
+      });
     });
   });
 

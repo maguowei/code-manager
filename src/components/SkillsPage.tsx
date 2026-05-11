@@ -11,6 +11,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
@@ -271,8 +272,8 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
         if (successMessage) {
           showToast(t(successMessage));
         }
-      } catch {
-        showToast(t(errorMessage), "error");
+      } catch (err) {
+        showOperationError(showToast, t(errorMessage), err);
       } finally {
         if (setBusy) {
           setIsRefreshing(false);
@@ -300,8 +301,8 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
         isActive: skill.isActive,
       });
       setSkills((prev) => prev.map((s) => (s.id === toggled.id ? toggled : s)));
-    } catch {
-      showToast(t("toast.skillToggleError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("toast.skillToggleError"), err);
     }
   }
 
@@ -313,8 +314,8 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       await invoke("delete_skill", { id, isActive: skill.isActive });
       setSkills((prev) => prev.filter((s) => s.id !== id));
       showToast(t("toast.skillDeleted"));
-    } catch {
-      showToast(t("toast.skillDeleteError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("toast.skillDeleteError"), err);
     }
   }
 
@@ -323,8 +324,8 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     try {
       await invoke("sync_skill_to_codex", { id: skill.id, isActive: skill.isActive });
       showToast(t("toast.skillSynced"));
-    } catch {
-      showToast(t("toast.skillSyncError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("toast.skillSyncError"), err);
     }
   }
 
@@ -380,8 +381,8 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       });
       setSkills(result.skills);
       setDirectoryImportResult(result);
-    } catch (_err) {
-      showToast(t("toast.skillDirectoryImportError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("toast.skillDirectoryImportError"), err);
     } finally {
       setIsImportingDirectory(false);
     }
@@ -409,8 +410,8 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   const handleOpenDocs = useCallback(async () => {
     try {
       await openUrl(claudeSkillsDocsUrl);
-    } catch {
-      showToast(t("skills.openDocsError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("skills.openDocsError"), err);
     }
   }, [claudeSkillsDocsUrl, showToast, t]);
 

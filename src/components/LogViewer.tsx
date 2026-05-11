@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { FolderOpen, RefreshCw, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import useEscapeKey from "../hooks/useEscapeKey";
 import { useToast } from "../hooks/useToast";
@@ -81,8 +82,8 @@ function LogViewer({ onClose }: LogViewerProps) {
     try {
       const nextView = await invoke<LogView>("get_app_logs", { query });
       setView(nextView);
-    } catch {
-      showToast(t("logs.loadError"), "error");
+    } catch (error) {
+      showOperationError(showToast, t("logs.loadError"), error);
     } finally {
       setLoading(false);
     }
@@ -97,8 +98,8 @@ function LogViewer({ onClose }: LogViewerProps) {
   async function handleOpenDirectory() {
     try {
       await invoke("open_logs_dir");
-    } catch {
-      showToast(t("logs.openDirError"), "error");
+    } catch (error) {
+      showOperationError(showToast, t("logs.openDirError"), error);
     }
   }
 
@@ -108,8 +109,8 @@ function LogViewer({ onClose }: LogViewerProps) {
       const nextView = await invoke<LogView>("clear_app_logs");
       setView(nextView);
       showToast(t("logs.clearSuccess"), "success");
-    } catch {
-      showToast(t("logs.clearError"), "error");
+    } catch (error) {
+      showOperationError(showToast, t("logs.clearError"), error);
     } finally {
       setLoading(false);
     }

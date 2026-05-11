@@ -1,6 +1,7 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { arch, family, hostname, locale, platform, type, version } from "@tauri-apps/plugin-os";
 import { useEffect, useMemo, useState } from "react";
+import { showOperationError } from "@/lib/user-facing-error";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
 import { Button } from "./ui/button";
@@ -74,8 +75,8 @@ function SystemInfoDialog({ onClose }: SystemInfoDialogProps) {
     try {
       await navigator.clipboard.writeText(buildMarkdown());
       showToast(t("settings.systemInfoCopied"), "success");
-    } catch {
-      showToast(t("settings.systemInfoCopyFailed"), "error");
+    } catch (error) {
+      showOperationError(showToast, t("settings.systemInfoCopyFailed"), error);
     }
   }
 

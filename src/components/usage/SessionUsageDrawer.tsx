@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { getUserFacingErrorReason } from "@/lib/user-facing-error";
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
 import { isTauri, type SessionUsageDetail } from "../../types";
@@ -37,9 +38,9 @@ function SessionUsageDrawer({ sessionId, onClose }: Props) {
         setDetail(d);
         setError(null);
       })
-      .catch((e) => setError(typeof e === "string" ? e : String(e)))
+      .catch((e) => setError(getUserFacingErrorReason(e) ?? t("usage.detailLoadError")))
       .finally(() => setLoading(false));
-  }, [sessionId]);
+  }, [sessionId, t]);
 
   return (
     <Sheet open onOpenChange={(open) => !open && onClose()}>

@@ -1369,7 +1369,7 @@ describe("ProfileEditor", () => {
 
     const dialog = screen.getByRole("dialog", { name: "模型测试结果" });
     expect(within(dialog).getByText("测试失败")).toBeInTheDocument();
-    expect(within(dialog).getByText("Error: 模型测试请求失败：network down")).toBeInTheDocument();
+    expect(within(dialog).getByText("模型测试请求失败：network down")).toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: "查看响应体" })).not.toBeInTheDocument();
     const failureResultButton = within(behaviorSection).getByRole("button", {
       name: "查看最近一次测试结果：测试失败",
@@ -1383,9 +1383,7 @@ describe("ProfileEditor", () => {
     expect(screen.queryByRole("dialog", { name: "模型测试结果" })).not.toBeInTheDocument();
     fireEvent.click(failureResultButton);
     const reopenedDialog = screen.getByRole("dialog", { name: "模型测试结果" });
-    expect(
-      within(reopenedDialog).getByText("Error: 模型测试请求失败：network down"),
-    ).toBeInTheDocument();
+    expect(within(reopenedDialog).getByText("模型测试请求失败：network down")).toBeInTheDocument();
 
     await act(async () => {
       fireEvent.click(within(reopenedDialog).getByRole("button", { name: "重新测试" }));

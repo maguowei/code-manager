@@ -361,6 +361,39 @@ describe("ProfilesPage", () => {
     expect(within(card).queryByText("使用中")).not.toBeInTheDocument();
   });
 
+  it("shows the backend reason when applying a profile fails", async () => {
+    const unboundWorkspace: ConfigWorkspace = {
+      ...WORKSPACE_FIXTURE,
+      bindings: {
+        userProfileId: undefined,
+      },
+    } as ConfigWorkspace;
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "apply_profile") {
+        throw "settings 必须是 JSON object";
+      }
+      return null;
+    });
+
+    render(
+      <I18nProvider>
+        <ThemeProvider>
+          <ProfilesPage workspace={unboundWorkspace} onWorkspaceChange={async () => {}} />
+        </ThemeProvider>
+      </I18nProvider>,
+    );
+
+    fireEvent.click(
+      within(getProfileCard("OpenRouter User")).getByRole("button", { name: "启用" }),
+    );
+
+    await waitFor(() => {
+      expect(showToastMock).toHaveBeenCalledWith("应用配置失败", "error", {
+        description: "settings 必须是 JSON object",
+      });
+    });
+  });
+
   it("disables the batch test action when there are no profiles", () => {
     localStorage.setItem(
       SETTINGS_STORAGE_KEY,
@@ -618,7 +651,7 @@ describe("ProfilesPage", () => {
 
     fireEvent.click(within(card).getByRole("button", { name: "OpenRouter User 测试结果：失败" }));
     expect(screen.getByRole("dialog", { name: "模型测试结果" })).toBeInTheDocument();
-    expect(screen.getByText("Error: 模型测试请求失败：network down")).toBeInTheDocument();
+    expect(screen.getByText("模型测试请求失败：network down")).toBeInTheDocument();
   });
 
   it("retests a rejected batch result with the default prompt when no prompt metadata exists", async () => {
@@ -1171,7 +1204,9 @@ describe("ProfilesPage", () => {
     expect(screen.queryByRole("heading", { name: "新建配置" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("名称")).not.toBeInTheDocument();
     expect(onWorkspaceChange).not.toHaveBeenCalled();
-    expect(showToastMock).toHaveBeenCalledWith("复制配置失败", "error");
+    expect(showToastMock).toHaveBeenCalledWith("复制配置失败", "error", {
+      description: "duplicate failed",
+    });
   });
 
   it("persists drag reordering for profile cards", async () => {

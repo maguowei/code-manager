@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { Bar, BarChart, XAxis, YAxis } from "recharts";
+import { showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
 import { type TranslationKey, useI18n } from "../i18n";
@@ -87,8 +88,8 @@ function StatsPage() {
     try {
       const s = await invoke<ClaudeStats>("get_stats");
       setStats(s);
-    } catch {
-      showToast(t("stats.loadError"), "error");
+    } catch (error) {
+      showOperationError(showToast, t("stats.loadError"), error);
     } finally {
       setLoading(false);
     }
@@ -103,8 +104,8 @@ function StatsPage() {
     try {
       await loadData();
       showToast(t("stats.refreshed"));
-    } catch {
-      showToast(t("stats.refreshError"), "error");
+    } catch (error) {
+      showOperationError(showToast, t("stats.refreshError"), error);
     }
   }
 
@@ -112,8 +113,8 @@ function StatsPage() {
     if (!isTauri()) return;
     try {
       await invoke("open_claude_json_in_editor");
-    } catch {
-      showToast(t("stats.openEditorError"), "error");
+    } catch (error) {
+      showOperationError(showToast, t("stats.openEditorError"), error);
     }
   }
 

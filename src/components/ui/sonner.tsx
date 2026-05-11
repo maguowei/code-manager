@@ -8,7 +8,16 @@ import {
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 import { useTheme } from "@/components/theme-provider";
 
-const Toaster = ({ ...props }: ToasterProps) => {
+const toastClassNames: NonNullable<NonNullable<ToasterProps["toastOptions"]>["classNames"]> = {
+  content: "ai-toast-content",
+  description: "ai-toast-description",
+  error: "ai-toast-error",
+  icon: "ai-toast-icon",
+  title: "ai-toast-title",
+  toast: "ai-toast",
+};
+
+const Toaster = ({ toastOptions, ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme();
 
   return (
@@ -30,6 +39,13 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--border-radius": "var(--radius)",
         } as React.CSSProperties
       }
+      toastOptions={{
+        ...toastOptions,
+        classNames: {
+          ...toastClassNames,
+          ...toastOptions?.classNames,
+        },
+      }}
       {...props}
     />
   );

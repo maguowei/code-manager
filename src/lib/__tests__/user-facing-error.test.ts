@@ -1,0 +1,64 @@
+import { describe, expect, it, vi } from "vitest";
+import { getUserFacingErrorReason, showOperationError } from "../user-facing-error";
+
+describe("getUserFacingErrorReason", () => {
+  it("extracts plain string and Error messages", () => {
+    expect(getUserFacingErrorReason("CLAUDE.md 已存在，无法覆盖")).toBe(
+      "CLAUDE.md 已存在，无法覆盖",
+    );
+    expect(getUserFacingErrorReason(new Error("项目目录不存在"))).toBe("项目目录不存在");
+  });
+
+  it("hides empty, stack, and low-level JavaScript errors", () => {
+    expect(getUserFacingErrorReason("")).toBeNull();
+    expect(getUserFacingErrorReason("undefined")).toBeNull();
+    expect(
+      getUserFacingErrorReason(new TypeError("Cannot read properties of undefined")),
+    ).toBeNull();
+    expect(getUserFacingErrorReason("Error: TypeError: Cannot read properties")).toBeNull();
+    expect(getUserFacingErrorReason("Error: boom\n    at fn (/tmp/app.ts:1:2)")).toBeNull();
+  });
+
+  it("masks absolute paths and truncates long messages", () => {
+    const reason = getUserFacingErrorReason(
+      '读取文件失败 "/Users/maguowei/.claude/CLAUDE.md": Permission denied',
+    );
+
+    expect(reason).toBe('读取文件失败 "~/.claude/CLAUDE.md": Permission denied');
+    expect(reason).not.toContain("/Users/maguowei");
+    expect(getUserFacingErrorReason("读取 /private/var/tmp/source/CLAUDE.md 失败")).toBe(
+      "读取 …/CLAUDE.md 失败",
+    );
+
+    const longReason = getUserFacingErrorReason(`失败原因：${"很长".repeat(120)}`);
+
+    expect(longReason).not.toBeNull();
+    expect(longReason?.length).toBeLessThanOrEqual(181);
+    expect(longReason?.endsWith("…")).toBe(true);
+  });
+
+  it("hides large HTML and JSON payloads", () => {
+    expect(getUserFacingErrorReason("<html><body>Internal Server Error</body></html>")).toBeNull();
+    expect(getUserFacingErrorReason(JSON.stringify({ error: "x".repeat(160) }))).toBeNull();
+  });
+});
+
+describe("showOperationError", () => {
+  it("shows a friendly reason as toast description", () => {
+    const showToast = vi.fn();
+
+    showOperationError(showToast, "切换记忆状态失败", "CLAUDE.md 已存在，无法覆盖");
+
+    expect(showToast).toHaveBeenCalledWith("切换记忆状态失败", "error", {
+      description: "CLAUDE.md 已存在，无法覆盖",
+    });
+  });
+
+  it("falls back to the title when no safe reason exists", () => {
+    const showToast = vi.fn();
+
+    showOperationError(showToast, "切换记忆状态失败", new TypeError("Cannot read x"));
+
+    expect(showToast).toHaveBeenCalledWith("切换记忆状态失败", "error");
+  });
+});

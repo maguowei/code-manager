@@ -1,6 +1,7 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { FolderOpen } from "lucide-react";
 import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef, useState } from "react";
+import { showOperationError } from "@/lib/user-facing-error";
 import { useToast } from "../../hooks/useToast";
 import { useI18n } from "../../i18n";
 import ConfirmAlertDialog from "../ConfirmAlertDialog";
@@ -345,8 +346,8 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
       });
 
       return typeof selected === "string" ? selected : null;
-    } catch {
-      showToast(t("profileEditor.permissions.directorySelectError"), "error");
+    } catch (error) {
+      showOperationError(showToast, t("profileEditor.permissions.directorySelectError"), error);
       return null;
     }
   }

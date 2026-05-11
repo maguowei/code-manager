@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { showOperationError } from "@/lib/user-facing-error";
 import { type HistoryResult, parseJsonl } from "../history-utils";
 import type { HistoryEntry } from "../types";
 import { isTauri } from "../types";
@@ -23,8 +24,8 @@ export function useHistoryEntries(errorMessage: string) {
       const result = await invoke<HistoryResult>("get_history");
       mtimeRef.current = result.mtime;
       setEntries(parseJsonl(result.content));
-    } catch {
-      showToast(errorMessage, "error");
+    } catch (error) {
+      showOperationError(showToast, errorMessage, error);
     } finally {
       setLoading(false);
     }

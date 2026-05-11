@@ -7,6 +7,14 @@ function readText(relativePath: string): string {
 }
 
 describe("ClaudeOverviewPage styles", () => {
+  it("surfaces operation failure reasons through the shared toast helper", () => {
+    const source = readText("src/components/ClaudeOverviewPage.tsx");
+
+    expect(source).toContain(
+      'showOperationError(showToast, t("claudeOverview.operationError"), error)',
+    );
+  });
+
   it("allows the file preview surface to scroll", () => {
     const source = readText("src/components/ClaudeOverviewPage.tsx");
 

@@ -13,6 +13,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
 import useUsage, { createTodayUsageFilter } from "../hooks/useUsage";
@@ -165,7 +166,7 @@ function soloSeriesVisibility(
 function UsagePage() {
   const { language, t } = useI18n();
   const { showToast } = useToast();
-  const u = useUsage();
+  const u = useUsage(t("usage.loadError"));
   const [openSessionId, setOpenSessionId] = useState<string | null>(null);
   // 图表层级的模型可见性切换；与顶部 Filters.model 单选互不影响、不触发后端
   const [costVisibility, setCostVisibility] = useState<SeriesVisibility>(() => ({}));
@@ -177,8 +178,8 @@ function UsagePage() {
     try {
       await u.refreshPricing();
       showToast(t("usage.refreshSuccess"));
-    } catch {
-      showToast(t("usage.refreshError"), "error");
+    } catch (error) {
+      showOperationError(showToast, t("usage.refreshError"), error);
     }
   }, [u, showToast, t]);
 
@@ -186,8 +187,8 @@ function UsagePage() {
     try {
       await u.rescan();
       showToast(t("usage.rescanSuccess"));
-    } catch {
-      showToast(t("usage.rescanError"), "error");
+    } catch (error) {
+      showOperationError(showToast, t("usage.rescanError"), error);
     }
   }, [u, showToast, t]);
 

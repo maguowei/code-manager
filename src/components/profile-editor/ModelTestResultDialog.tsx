@@ -2,6 +2,7 @@ import { Copy, TestTube, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneLight, vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { showOperationError } from "@/lib/user-facing-error";
 import { useToast } from "../../hooks/useToast";
 import { useI18n } from "../../i18n";
 import type { ModelTestResult } from "../../types";
@@ -215,8 +216,8 @@ function ModelTestResultDialog({
     try {
       await navigator.clipboard.writeText(curlCommand);
       showToast(t("profiles.editor.modelTest.curlCopied"));
-    } catch {
-      showToast(t("profiles.editor.modelTest.curlCopyFailed"), "error");
+    } catch (error) {
+      showOperationError(showToast, t("profiles.editor.modelTest.curlCopyFailed"), error);
     }
   }
 

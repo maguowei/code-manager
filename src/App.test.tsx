@@ -607,11 +607,11 @@ describe("App", () => {
     expect(screen.queryByText("已达到 100000 个条目上限")).not.toBeInTheDocument();
     const resizer = screen.getByRole("separator", { name: "调整目录树宽度" });
     expect(resizer.parentElement).toHaveStyle({
-      "--claude-overview-tree-width": "340px",
+      "--claude-overview-tree-width": "calc((100% - 8px) * 0.28)",
     });
     fireEvent.keyDown(resizer, { key: "ArrowLeft" });
     expect(resizer.parentElement).toHaveStyle({
-      "--claude-overview-tree-width": "360px",
+      "--claude-overview-tree-width": "calc((100% - 8px) * 0.30000000000000004)",
     });
     fireEvent.click(screen.getByRole("button", { name: "scripts" }));
     expect(screen.getByText("选择目录中的文件查看内容")).toBeInTheDocument();

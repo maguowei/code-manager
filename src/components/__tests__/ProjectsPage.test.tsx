@@ -218,4 +218,33 @@ describe("ProjectsPage purge context menu", () => {
     });
     expect(invokeMock.mock.calls.filter(([command]) => command === "get_stats").length).toBe(2);
   });
+
+  it("shows the backend reason when creating AGENTS.md symlink fails", async () => {
+    invokeMock.mockImplementation(async (command, args) => {
+      const project = (args as { project?: string } | undefined)?.project ?? PROJECT_ALPHA;
+
+      if (command === "get_config_workspace") return WORKSPACE_FIXTURE;
+      if (command === "get_stats") return makeStats();
+      if (command === "get_project_detail") return makeProjectDetail(project);
+      if (command === "create_project_agents_symlink") {
+        throw "项目根目录缺少 CLAUDE.md，无法创建 AGENTS.md";
+      }
+      return null;
+    });
+
+    renderPage();
+    expect(await screen.findByText(PROJECT_ALPHA)).toBeInTheDocument();
+
+    const agentsButton = await screen.findByRole("button", { name: "生成 / 修复 AGENTS.md" });
+    await waitFor(() => {
+      expect(agentsButton).toBeEnabled();
+    });
+    fireEvent.click(agentsButton);
+
+    await waitFor(() => {
+      expect(showToastMock).toHaveBeenCalledWith("生成 AGENTS.md 软链失败", "error", {
+        description: "项目根目录缺少 CLAUDE.md，无法创建 AGENTS.md",
+      });
+    });
+  });
 });

@@ -194,6 +194,49 @@ describe("SkillsPage", () => {
     expect(showToastMock).toHaveBeenCalledWith("Skills 已刷新");
   });
 
+  it("shows the backend reason when toggling a skill fails", async () => {
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_skills") return [managedSkill];
+      if (command === "toggle_skill") {
+        throw "目标目录已存在，无法移动 Skill";
+      }
+      return null;
+    });
+
+    renderSkillsPage();
+    const skillCard = (await screen.findByText("Managed Skill")).closest('[role="button"]');
+    expect(skillCard).not.toBeNull();
+
+    fireEvent.click(within(skillCard as HTMLElement).getByRole("switch", { name: "已启用" }));
+
+    await waitFor(() => {
+      expect(showToastMock).toHaveBeenCalledWith("切换 Skill 状态失败", "error", {
+        description: "目标目录已存在，无法移动 Skill",
+      });
+    });
+  });
+
+  it("shows the backend reason when syncing a skill fails", async () => {
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_skills") return [managedSkill];
+      if (command === "sync_skill_to_codex") {
+        throw "目标 ~/.codex/skills/managed-skill 已存在且不是软链接";
+      }
+      return null;
+    });
+
+    renderSkillsPage();
+    expect(await screen.findByText("Managed Skill")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "同步到 ~/.codex/skills" }));
+
+    await waitFor(() => {
+      expect(showToastMock).toHaveBeenCalledWith("同步 Skill 失败", "error", {
+        description: "目标 ~/.codex/skills/managed-skill 已存在且不是软链接",
+      });
+    });
+  });
+
   it("imports skills from a selected directory and requires confirming the result", async () => {
     const importResult: SkillDirectoryImportResult = {
       skills: [managedSkill, unmanagedSkill],

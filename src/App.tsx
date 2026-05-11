@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import ClaudeOverviewPage from "./components/ClaudeOverviewPage";
 import HistoryPage from "./components/HistoryPage";
@@ -57,13 +58,13 @@ function App() {
     try {
       const nextWorkspace = await invoke<ConfigWorkspace>("get_config_workspace");
       setWorkspace(nextWorkspace);
-    } catch {
+    } catch (error) {
       setWorkspace(EMPTY_WORKSPACE);
-      showToast("加载配置工作区失败", "error");
+      showOperationError(showToast, t("toast.configWorkspaceLoadError"), error);
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, t]);
 
   useEffect(() => {
     void loadWorkspace();

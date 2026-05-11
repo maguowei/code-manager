@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ArrowLeft, CircleAlert, CircleCheck, ExternalLink, TestTube } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { getUserFacingErrorReason, showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
@@ -466,7 +467,9 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     } catch (error) {
       if (modelTestRunIdRef.current === runId) {
         setLatestModelTestResult(null);
-        setModelTestError(String(error));
+        setModelTestError(
+          getUserFacingErrorReason(error) ?? t("profiles.editor.modelTest.errorMessage"),
+        );
         setIsModelTestDialogOpen(true);
       }
     } finally {
@@ -480,8 +483,8 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     try {
       await navigator.clipboard.writeText(model);
       showToast(t("profiles.toast.modelCopied"));
-    } catch {
-      showToast(t("profiles.toast.modelCopyError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("profiles.toast.modelCopyError"), err);
     }
   }
 
@@ -509,14 +512,14 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
             return;
           }
           setPreviewJson("{}");
-          setPreviewError(String(error));
+          setPreviewError(getUserFacingErrorReason(error) ?? t("profiles.toast.saveError"));
         });
     }, 300);
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [description, name, presetId, profile?.id, settings]);
+  }, [description, name, presetId, profile?.id, settings, t]);
 
   const behaviorFields = PROFILE_SETTINGS_FORM_REGISTRY.filter(
     (field) => field.section === "behavior",

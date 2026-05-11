@@ -11,6 +11,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
@@ -82,20 +83,6 @@ const memoryImportSkipReasonLabels: Record<MemoryDirectoryImportSkipReason, Tran
 
 function formatImportCount(template: string, count: number) {
   return template.replace("{count}", String(count));
-}
-
-function getErrorReason(error: unknown) {
-  if (typeof error === "string") {
-    return error.trim();
-  }
-  if (error instanceof Error) {
-    return error.message.trim();
-  }
-  return "";
-}
-
-function formatErrorWithReason(template: string, reason: string) {
-  return template.replace("{reason}", reason);
 }
 
 interface MemoryImportResultDialogProps {
@@ -319,8 +306,8 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
         if (successMessage) {
           showToast(t(successMessage));
         }
-      } catch (_err) {
-        showToast(t(errorMessage), "error");
+      } catch (err) {
+        showOperationError(showToast, t(errorMessage), err);
       } finally {
         if (setBusy) {
           setIsRefreshing(false);
@@ -346,8 +333,8 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       setIsModalOpen(false);
       applyMemoryState(state);
       showToast(t("toast.memoryAdded"));
-    } catch (_err) {
-      showToast(t("toast.memoryAddError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("toast.memoryAddError"), err);
     }
   }
 
@@ -359,8 +346,8 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       setIsModalOpen(false);
       applyMemoryState(state);
       showToast(t("toast.memorySaved"));
-    } catch (_err) {
-      showToast(t("toast.memorySaveError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("toast.memorySaveError"), err);
     }
   }
 
@@ -369,8 +356,8 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       const state = await invoke<MemoryState>("delete_memory", { id });
       applyMemoryState(state);
       showToast(t("toast.memoryDeleted"));
-    } catch (_err) {
-      showToast(t("toast.memoryDeleteError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("toast.memoryDeleteError"), err);
     }
   }
 
@@ -378,8 +365,8 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     try {
       const preview = await invoke<MemoryDeletePreview>("preview_delete_memory", { id });
       setPendingDelete({ id, cleanupDirs: preview.cleanupDirs ?? [] });
-    } catch (_err) {
-      showToast(t("toast.memoryDeletePreviewError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("toast.memoryDeletePreviewError"), err);
     }
   }
 
@@ -388,13 +375,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       const state = await invoke<MemoryState>("toggle_memory", { id });
       applyMemoryState(state);
     } catch (err) {
-      const reason = getErrorReason(err);
-      showToast(
-        reason
-          ? formatErrorWithReason(t("toast.memoryToggleErrorWithReason"), reason)
-          : t("toast.memoryToggleError"),
-        "error",
-      );
+      showOperationError(showToast, t("toast.memoryToggleError"), err);
     }
   }
 
@@ -406,8 +387,8 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       });
       applyMemoryState(state);
       showToast(t("toast.memoryDuplicated"));
-    } catch (_err) {
-      showToast(t("toast.memoryDuplicateError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("toast.memoryDuplicateError"), err);
     }
   }
 
@@ -418,8 +399,8 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       });
       applyMemoryState(state);
       showToast(t("toast.memoryImported"));
-    } catch (_err) {
-      showToast(t("toast.memoryImportError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("toast.memoryImportError"), err);
     }
   }
 
@@ -441,8 +422,8 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       });
       applyMemoryState(result.state);
       setDirectoryImportResult(result);
-    } catch (_err) {
-      showToast(t("toast.memoryDirectoryImportError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("toast.memoryDirectoryImportError"), err);
     } finally {
       setIsImportingDirectory(false);
     }
@@ -474,8 +455,8 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   const handleOpenDocs = useCallback(async () => {
     try {
       await openUrl(claudeMemoryDocsUrl);
-    } catch {
-      showToast(t("memory.openDocsError"), "error");
+    } catch (err) {
+      showOperationError(showToast, t("memory.openDocsError"), err);
     }
   }, [claudeMemoryDocsUrl, showToast, t]);
 

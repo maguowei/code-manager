@@ -26,6 +26,7 @@ import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import remarkGfm from "remark-gfm";
+import { showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import { useCodeMirrorTheme } from "../hooks/useCodeMirrorTheme";
 import { useToast } from "../hooks/useToast";
@@ -844,7 +845,7 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
     setLoading(true);
     invoke<SessionDetail>("get_session_detail", { project, sessionId })
       .then(setDetail)
-      .catch(() => showToast(t("history.noData"), "error"))
+      .catch((error) => showOperationError(showToast, t("history.noData"), error))
       .finally(() => setLoading(false));
   }, [project, sessionId, showToast, t]);
 
@@ -861,11 +862,11 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
     errorKey: TranslationKey,
   ) => {
     try {
-      if (!value) throw new Error("empty value");
+      if (!value) throw new Error(t("history.copyValueEmpty"));
       await navigator.clipboard.writeText(value);
       showToast(t(successKey));
-    } catch {
-      showToast(t(errorKey), "error");
+    } catch (error) {
+      showOperationError(showToast, t(errorKey), error);
     }
   };
   const handleOpenRawSessionFile = async () => {
@@ -874,18 +875,18 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
     try {
       await invoke("open_session_file_in_editor", { project: headerProject, sessionId });
       showToast(t("history.rawSessionFileOpenRequested"));
-    } catch {
-      showToast(t("history.rawSessionFileOpenError"), "error");
+    } catch (error) {
+      showOperationError(showToast, t("history.rawSessionFileOpenError"), error);
     }
   };
   const handleCopyMessage = async (message: SessionMessage) => {
     try {
       const content = messageToCopyText(message, t);
-      if (!content) throw new Error("empty message");
+      if (!content) throw new Error(t("history.copyMessageEmpty"));
       await navigator.clipboard.writeText(content);
       showToast(t("history.messageCopied"));
-    } catch {
-      showToast(t("history.messageCopyError"), "error");
+    } catch (error) {
+      showOperationError(showToast, t("history.messageCopyError"), error);
     }
   };
 
@@ -909,8 +910,10 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
                   className="flex min-w-[180px] flex-1 flex-wrap items-center gap-2"
                 >
                   <SheetDescription asChild>
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="sm"
                       className="min-w-0 truncate rounded-md border border-transparent px-1 text-sm font-semibold text-foreground transition-colors hover:border-border hover:bg-accent hover:text-accent-foreground focus-visible:border-primary/70 focus-visible:bg-accent focus-visible:outline-none focus-visible:ring-0"
                       title={stripAnsiForDisplay(headerProject)}
                       aria-label={t("history.copyProjectPath")}
@@ -923,10 +926,12 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
                       }
                     >
                       {headerProjectName}
-                    </button>
+                    </Button>
                   </SheetDescription>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     data-slot="session-id-badge"
                     aria-label={t("history.copySessionId")}
                     title={sessionId}
@@ -944,7 +949,7 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
                     <span className="min-w-0 truncate font-mono tabular-nums">
                       {sessionId.slice(0, 8)}
                     </span>
-                  </button>
+                  </Button>
                   <Button
                     type="button"
                     variant="outline"
