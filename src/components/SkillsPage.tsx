@@ -504,9 +504,6 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
             <h2 className="m-0 text-base leading-snug font-bold text-foreground">
               {t("skills.list")}
             </h2>
-            <p className="m-0 text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]">
-              {t("skills.listDescription")}
-            </p>
           </div>
           <div className="list-container flex flex-col gap-3">
             {sortedSkills.map((skill) => (

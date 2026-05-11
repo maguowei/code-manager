@@ -387,9 +387,16 @@ describe("SkillsPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Linked Skill/ }));
 
-    expect(await screen.findByText("软链接 Skill 不支持应用内修改")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("Linked Skill")).toBeDisabled();
+    const nameInput = await screen.findByDisplayValue("Linked Skill");
+    expect(screen.queryByText("软链接 Skill 不支持应用内修改")).not.toBeInTheDocument();
+    expect(nameInput).toHaveAttribute("readonly");
     expect(screen.getByLabelText("mock-code-editor")).toHaveAttribute("readonly");
+
+    fireEvent.pointerDown(nameInput);
+
+    expect(showToastMock).toHaveBeenCalledWith("软链接 Skill 不支持应用内修改", "error", {
+      description: "/tmp/external/linked-skill",
+    });
   });
 
   it("uses the symlink delete confirmation copy for symlink skills", async () => {

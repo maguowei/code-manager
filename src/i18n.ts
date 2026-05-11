@@ -1053,6 +1053,7 @@ const translations = {
     "toast.skillSyncError": "同步 Skill 失败",
     "toast.skillOpenEditorRequested": "已请求用编辑器打开 Skill 目录",
     "toast.skillOpenEditorError": "用编辑器打开 Skill 目录失败",
+    "toast.skillSymlinkReadonly": "软链接 Skill 不支持应用内修改",
 
     // 历史页面
     "nav.history": "历史",
@@ -2201,6 +2202,7 @@ const translations = {
     "toast.skillSyncError": "Failed to sync Skill",
     "toast.skillOpenEditorRequested": "Requested opening the Skill directory in editor",
     "toast.skillOpenEditorError": "Failed to open Skill directory in editor",
+    "toast.skillSymlinkReadonly": "Symlink Skills cannot be modified in app",
 
     // 历史页面
     "nav.history": "History",

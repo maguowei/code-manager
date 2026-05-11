@@ -101,17 +101,25 @@ describe("SkillEditor", () => {
     showToastMock.mockReset();
   });
 
-  it("opens symlink skills in a read-only editor with a clear warning", async () => {
+  it("opens symlink skills as read-only and warns only when users try to edit", async () => {
     const { onClose, onSave } = renderSkillEditor(symlinkSkill);
 
-    expect(await screen.findByText("软链接 Skill 不支持应用内修改")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("Linked Skill")).toBeDisabled();
-    expect(screen.getByDisplayValue("软链接 Skill")).toBeDisabled();
+    const nameInput = await screen.findByDisplayValue("Linked Skill");
+    expect(nameInput).toHaveAttribute("readonly");
+    expect(screen.getByDisplayValue("软链接 Skill")).toHaveAttribute("readonly");
     expect(screen.getByLabelText("mock-code-editor")).toHaveAttribute("readonly");
+    expect((screen.getByLabelText("mock-code-editor") as HTMLTextAreaElement).value).toContain(
+      'name: "Linked Skill"',
+    );
     expect(screen.queryByRole("button", { name: "保存" })).not.toBeInTheDocument();
+
+    fireEvent.pointerDown(nameInput);
+
+    expect(showToastMock).toHaveBeenCalledWith("软链接 Skill 不支持应用内修改", "error", {
+      description: "/tmp/external/linked-skill",
+    });
     expect(onClose).not.toHaveBeenCalled();
     expect(onSave).not.toHaveBeenCalled();
-    expect(showToastMock).not.toHaveBeenCalledWith("软链接 Skill 不支持编辑内容", "error");
   });
 
   it("shows support files as a read-only tree without file editing actions", async () => {
@@ -141,21 +149,34 @@ describe("SkillEditor", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "预览" }));
 
+    expect(screen.getByLabelText("mock-markdown-preview")).toHaveTextContent('name: "Local Skill"');
+    expect(screen.getByLabelText("mock-markdown-preview")).toHaveTextContent(
+      'description: "普通 Skill"',
+    );
     expect(screen.getByLabelText("mock-markdown-preview")).toHaveTextContent("内容");
     expect(screen.queryByLabelText("mock-code-editor")).not.toBeInTheDocument();
     expect(screen.getByTitle("插入标题")).toBeDisabled();
     expect(screen.getByRole("button", { name: "源码" })).toBeInTheDocument();
   });
 
-  it("keeps formatting shortcuts disabled for read-only symlink skills but allows preview", async () => {
+  it("warns on formatting shortcuts for read-only symlink skills but allows preview", async () => {
     renderSkillEditor(symlinkSkill);
 
-    expect(await screen.findByText("软链接 Skill 不支持应用内修改")).toBeInTheDocument();
-    expect(screen.getByTitle("插入标题")).toBeDisabled();
-    expect(screen.getByTitle("加粗")).toBeDisabled();
+    expect(await screen.findByDisplayValue("Linked Skill")).toBeInTheDocument();
+    expect(screen.getByTitle("插入标题")).toBeEnabled();
+    expect(screen.getByTitle("加粗")).toBeEnabled();
+
+    fireEvent.click(screen.getByTitle("插入标题"));
+
+    expect(showToastMock).toHaveBeenCalledWith("软链接 Skill 不支持应用内修改", "error", {
+      description: "/tmp/external/linked-skill",
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "预览" }));
 
+    expect(screen.getByLabelText("mock-markdown-preview")).toHaveTextContent(
+      'name: "Linked Skill"',
+    );
     expect(screen.getByLabelText("mock-markdown-preview")).toHaveTextContent("内容");
     expect(screen.getByRole("button", { name: "源码" })).toBeInTheDocument();
   });

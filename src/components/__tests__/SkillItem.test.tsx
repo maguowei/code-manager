@@ -121,6 +121,9 @@ describe("SkillItem", () => {
     const card = screen.getByRole("button", { name: /Code Review/ });
 
     expect(card).toHaveTextContent("已禁用");
+    expect(
+      screen.queryByText("Review code changes with repository conventions."),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "已禁用" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "同步到 ~/.codex/skills" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "删除" })).toBeInTheDocument();

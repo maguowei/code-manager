@@ -141,13 +141,6 @@ function SkillItem({
         </div>
       </div>
 
-      {/* 描述预览（最多 2 行，CSS 截断） */}
-      {skill.description && (
-        <p className="skill-description m-0 line-clamp-2 text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]">
-          {skill.description}
-        </p>
-      )}
-
       <div className="skill-actions pointer-events-none mt-[calc(1rem*-1)] flex max-h-0 translate-y-2 flex-wrap justify-end gap-2 self-end overflow-hidden opacity-0 transition-[max-height,margin-top,opacity,transform] duration-200 group-hover:mt-0 group-hover:max-h-12 group-hover:translate-y-0 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:mt-0 group-focus-within:max-h-12 group-focus-within:translate-y-0 group-focus-within:opacity-100 group-focus-within:pointer-events-auto">
         <Button
           type="button"

@@ -3,16 +3,7 @@ import { EditorView } from "@codemirror/view";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { invoke } from "@tauri-apps/api/core";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
-import {
-  ChevronLeft,
-  CircleAlert,
-  Code2,
-  ExternalLink,
-  Eye,
-  FileText,
-  Folder,
-  FolderOpen,
-} from "lucide-react";
+import { ChevronLeft, Code2, ExternalLink, Eye, FileText, Folder, FolderOpen } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { type Resolver, useForm } from "react-hook-form";
 import { showOperationError } from "@/lib/user-facing-error";
@@ -24,6 +15,8 @@ import type { FieldConfig } from "../schemas/form-fields";
 import {
   buildSkillDefaultValues,
   buildSkillPrimaryFields,
+  composeSkillMarkdownDocument,
+  parseSkillMarkdownDocument,
   SKILL_BOOLEAN_FIELDS,
   type SkillFormData,
   SkillSchema,
@@ -36,7 +29,6 @@ import ProfileNameBadge from "./ProfileNameBadge";
 import {
   CONTROL_SURFACE_CLASS,
   PANEL_SURFACE_CLASS,
-  SUBTLE_SURFACE_CLASS,
   TOOLBAR_SURFACE_CLASS,
 } from "./surface-classes";
 import { useTheme } from "./theme-provider";
@@ -74,19 +66,23 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
   const isEditing = skill !== null;
   const isReadOnly = skill?.isSymlink === true;
   const primaryFields = buildSkillPrimaryFields(isEditing);
+  const defaultValues = buildSkillDefaultValues(skill);
 
   const form = useForm<SkillFormData>({
     resolver: zodResolver(SkillSchema) as Resolver<SkillFormData>,
-    defaultValues: buildSkillDefaultValues(skill),
+    defaultValues,
     mode: "onBlur",
   });
-  const { control, handleSubmit, watch } = form;
+  const { control, getValues, handleSubmit, setValue, watch } = form;
 
   // 支持文件相关状态
   const [fileTree, setFileTree] = useState<SkillFileTreeEntry[]>([]);
   const [filesLoaded, setFilesLoaded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editorMode, setEditorMode] = useState<SkillEditorMode>("source");
+  const [skillMarkdown, setSkillMarkdown] = useState(() =>
+    composeSkillMarkdownDocument(defaultValues),
+  );
 
   const watchId = watch("id");
   const canSave = watchId.trim().length > 0 && !isSaving && !isReadOnly;
@@ -121,7 +117,8 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
     if (isReadOnly) return;
     setIsSaving(true);
     try {
-      const payload = toSkillPayload(data);
+      const parsedDocument = parseSkillMarkdownDocument(skillMarkdown, data);
+      const payload = toSkillPayload({ ...parsedDocument, id: data.id });
       const saved =
         isEditing && skill
           ? await invoke<Skill>("update_skill", {
@@ -153,10 +150,43 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
     }
   }
 
+  function handleReadonlyAttempt() {
+    showToast(t("toast.skillSymlinkReadonly"), "error", {
+      description: skill?.linkTarget ?? undefined,
+    });
+  }
+
+  function syncMarkdownFromForm(nextValues: Partial<SkillFormData>) {
+    setSkillMarkdown(composeSkillMarkdownDocument({ ...getValues(), ...nextValues }));
+  }
+
+  function handleMarkdownChange(raw: string) {
+    setSkillMarkdown(raw);
+    const parsedDocument = parseSkillMarkdownDocument(raw, getValues());
+    setValue("name", parsedDocument.name, { shouldDirty: true, shouldValidate: true });
+    setValue("description", parsedDocument.description, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    setValue("content", parsedDocument.content, { shouldDirty: true, shouldValidate: true });
+    setValue("disableModelInvocation", parsedDocument.disableModelInvocation, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    setValue("userInvocable", parsedDocument.userInvocable, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  }
+
   // 在光标位置插入文本（选中文字时替换）
   function insertAtCursor(text: string) {
     const view = editorRef.current?.view;
-    if (!view || isReadOnly || isPreviewMode) return;
+    if (isReadOnly) {
+      handleReadonlyAttempt();
+      return;
+    }
+    if (!view || isPreviewMode) return;
     view.dispatch(view.state.replaceSelection(text));
     view.focus();
   }
@@ -164,7 +194,11 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
   // 在当前行行首插入前缀
   function insertAtLineStart(prefix: string) {
     const view = editorRef.current?.view;
-    if (!view || isReadOnly || isPreviewMode) return;
+    if (isReadOnly) {
+      handleReadonlyAttempt();
+      return;
+    }
+    if (!view || isPreviewMode) return;
     const { from } = view.state.selection.main;
     const line = view.state.doc.lineAt(from);
     view.dispatch({ changes: { from: line.from, insert: prefix } });
@@ -174,7 +208,11 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
   // 加粗：选中文字时包裹，否则插入占位符
   function insertBold() {
     const view = editorRef.current?.view;
-    if (!view || isReadOnly || isPreviewMode) return;
+    if (isReadOnly) {
+      handleReadonlyAttempt();
+      return;
+    }
+    if (!view || isPreviewMode) return;
     const { from, to } = view.state.selection.main;
     const selected = view.state.sliceDoc(from, to);
     view.dispatch(
@@ -215,10 +253,16 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                   placeholder={
                     fieldConfig.placeholderKey ? t(fieldConfig.placeholderKey) : undefined
                   }
-                  disabled={isReadOnly}
+                  aria-disabled={isReadOnly}
                   readOnly={fieldConfig.readOnly || isReadOnly}
                   onBlur={field.onBlur}
-                  onChange={field.onChange}
+                  onPointerDown={isReadOnly ? handleReadonlyAttempt : undefined}
+                  onChange={(event) => {
+                    field.onChange(event);
+                    syncMarkdownFromForm({
+                      [fieldConfig.name]: event.target.value,
+                    } as Partial<SkillFormData>);
+                  }}
                   className={cn(
                     "rounded-md border-border px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground hover:border-muted-foreground focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/50",
                     CONTROL_SURFACE_CLASS,
@@ -234,10 +278,16 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                   placeholder={
                     fieldConfig.placeholderKey ? t(fieldConfig.placeholderKey) : undefined
                   }
-                  disabled={isReadOnly}
+                  aria-disabled={isReadOnly}
                   readOnly={fieldConfig.readOnly || isReadOnly}
                   onBlur={field.onBlur}
-                  onChange={field.onChange}
+                  onPointerDown={isReadOnly ? handleReadonlyAttempt : undefined}
+                  onChange={(event) => {
+                    field.onChange(event);
+                    syncMarkdownFromForm({
+                      [fieldConfig.name]: event.target.value,
+                    } as Partial<SkillFormData>);
+                  }}
                   className={cn(
                     "h-auto rounded-md border-border px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground hover:border-muted-foreground focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/50",
                     CONTROL_SURFACE_CLASS,
@@ -272,8 +322,18 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
               <FormControl>
                 <Checkbox
                   checked={!!field.value}
-                  onCheckedChange={(checked) => field.onChange(checked === true)}
-                  disabled={isReadOnly}
+                  onCheckedChange={(checked) => {
+                    if (isReadOnly) {
+                      handleReadonlyAttempt();
+                      return;
+                    }
+                    const nextValue = checked === true;
+                    field.onChange(nextValue);
+                    syncMarkdownFromForm({
+                      [fieldConfig.name]: nextValue,
+                    } as Partial<SkillFormData>);
+                  }}
+                  aria-disabled={isReadOnly}
                   className="mt-0.5 border-border data-[state=checked]:border-primary data-[state=checked]:bg-primary"
                 />
               </FormControl>
@@ -375,26 +435,6 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
               {/* 大徽章头像 */}
               <ProfileNameBadge name={watchId || skill?.id} size="lg" fallbackChar="S" />
 
-              {isReadOnly ? (
-                <section
-                  data-slot="skill-editor-section"
-                  className={cn("flex flex-col gap-2 rounded-lg border p-4", SUBTLE_SURFACE_CLASS)}
-                >
-                  <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                    <CircleAlert className="size-4 text-muted-foreground" aria-hidden="true" />
-                    <span>{t("skills.symlinkReadonlyTitle")}</span>
-                  </div>
-                  <p className="m-0 text-xs leading-normal text-muted-foreground">
-                    {t("skills.symlinkReadonlyDescription")}
-                  </p>
-                  {skill?.linkTarget ? (
-                    <code className="rounded-md bg-muted px-2 py-1 font-mono text-xs text-muted-foreground [overflow-wrap:anywhere]">
-                      {skill.linkTarget}
-                    </code>
-                  ) : null}
-                </section>
-              ) : null}
-
               <section
                 data-slot="skill-editor-section"
                 className={cn("flex flex-col gap-4 rounded-lg border p-4", PANEL_SURFACE_CLASS)}
@@ -416,7 +456,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                 <FormField
                   control={control}
                   name="content"
-                  render={({ field }) => (
+                  render={() => (
                     <div
                       className={cn(
                         "skill-editor-wrap overflow-hidden rounded-md border border-border/80 focus-within:border-primary focus-within:ring-[3px] focus-within:ring-ring/50 [&_.cm-editor]:min-h-[360px] [&_.cm-editor]:text-[13px] [&_.cm-editor]:leading-[1.6] [&_.cm-editor.cm-focused]:outline-none [&_.cm-scroller]:font-mono [&_.cm-scroller]:overflow-auto",
@@ -430,7 +470,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                           size="xs"
                           className="skill-toolbar-btn border-border bg-transparent text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 dark:hover:bg-accent dark:hover:text-foreground"
                           title={t("skills.toolbar.heading")}
-                          disabled={isReadOnly || isPreviewMode}
+                          disabled={isPreviewMode}
                           onClick={() =>
                             insertAtLineStart(`## ${t("skills.toolbar.headingPlaceholder")}\n`)
                           }
@@ -443,7 +483,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                           size="xs"
                           className="skill-toolbar-btn skill-toolbar-btn-bold border-border bg-transparent text-xs font-black text-muted-foreground italic hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 dark:hover:bg-accent dark:hover:text-foreground"
                           title={t("skills.toolbar.bold")}
-                          disabled={isReadOnly || isPreviewMode}
+                          disabled={isPreviewMode}
                           onClick={insertBold}
                         >
                           B
@@ -454,7 +494,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                           size="xs"
                           className="skill-toolbar-btn border-border bg-transparent text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 dark:hover:bg-accent dark:hover:text-foreground"
                           title={t("skills.toolbar.list")}
-                          disabled={isReadOnly || isPreviewMode}
+                          disabled={isPreviewMode}
                           onClick={() =>
                             insertAtLineStart(`- ${t("skills.toolbar.listPlaceholder")}\n`)
                           }
@@ -467,7 +507,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                           size="xs"
                           className="skill-toolbar-btn border-border bg-transparent text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 dark:hover:bg-accent dark:hover:text-foreground"
                           title={t("skills.toolbar.code")}
-                          disabled={isReadOnly || isPreviewMode}
+                          disabled={isPreviewMode}
                           onClick={() => insertAtCursor("```\n\n```")}
                         >
                           &lt;/&gt;
@@ -500,26 +540,28 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                       {isPreviewMode ? (
                         <MarkdownPreview
                           className="skill-markdown-preview min-h-[360px] max-h-[60vh] overflow-auto bg-background/80 px-5 py-4 text-xs text-foreground [&_pre]:my-3 [&_pre]:bg-transparent [&_pre]:p-0 [&_pre>div]:m-0 [&_.markdown-preview-image-fallback]:inline-block [&_.markdown-preview-image-fallback]:rounded-sm [&_.markdown-preview-image-fallback]:border [&_.markdown-preview-image-fallback]:border-dashed [&_.markdown-preview-image-fallback]:border-border [&_.markdown-preview-image-fallback]:px-2 [&_.markdown-preview-image-fallback]:py-0.5 [&_.markdown-preview-image-fallback]:text-xs [&_.markdown-preview-image-fallback]:text-muted-foreground"
-                          content={field.value}
+                          content={skillMarkdown}
                           themeType={previewThemeType}
                         />
                       ) : (
-                        <CodeMirror
-                          ref={editorRef}
-                          value={field.value}
-                          onChange={isReadOnly ? undefined : field.onChange}
-                          readOnly={isReadOnly}
-                          editable={!isReadOnly}
-                          extensions={[markdown(), EditorView.lineWrapping]}
-                          theme={editorTheme}
-                          placeholder={t("skills.contentPlaceholder")}
-                          basicSetup={{
-                            lineNumbers: true,
-                            bracketMatching: false,
-                            indentOnInput: false,
-                            foldGutter: false,
-                          }}
-                        />
+                        <div onPointerDownCapture={isReadOnly ? handleReadonlyAttempt : undefined}>
+                          <CodeMirror
+                            ref={editorRef}
+                            value={skillMarkdown}
+                            onChange={isReadOnly ? undefined : handleMarkdownChange}
+                            readOnly={isReadOnly}
+                            editable={!isReadOnly}
+                            extensions={[markdown(), EditorView.lineWrapping]}
+                            theme={editorTheme}
+                            placeholder={t("skills.contentPlaceholder")}
+                            basicSetup={{
+                              lineNumbers: true,
+                              bracketMatching: false,
+                              indentOnInput: false,
+                              foldGutter: false,
+                            }}
+                          />
+                        </div>
                       )}
                     </div>
                   )}
