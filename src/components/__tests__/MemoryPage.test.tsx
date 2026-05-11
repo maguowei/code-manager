@@ -78,10 +78,14 @@ function renderMemoryPage() {
 }
 
 async function findMemoryCard(name: string): Promise<HTMLElement> {
-  const text = await screen.findByText(name);
-  const card = text.closest('[data-slot="memory-item"]');
-  expect(card).not.toBeNull();
-  return card as HTMLElement;
+  return waitFor(() => {
+    const card = screen
+      .getAllByText(name)
+      .map((text) => text.closest('[data-slot="memory-item"]'))
+      .find(Boolean);
+    expect(card).not.toBeNull();
+    return card as HTMLElement;
+  });
 }
 
 const initialState: MemoryState = {
@@ -209,6 +213,28 @@ describe("MemoryPage", () => {
     expect(showToastMock).toHaveBeenCalledWith("记忆已刷新");
   });
 
+  it("shows the backend reason when toggling memory fails", async () => {
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_memories") return initialState;
+      if (command === "toggle_memory") {
+        throw "CLAUDE.md 已存在，无法覆盖，请先导入为可管理记忆";
+      }
+      return null;
+    });
+
+    renderMemoryPage();
+    const card = await findMemoryCard("全局 A");
+
+    fireEvent.click(within(card).getByRole("switch", { name: "启用" }));
+
+    await waitFor(() => {
+      expect(showToastMock).toHaveBeenCalledWith(
+        "切换记忆状态失败：CLAUDE.md 已存在，无法覆盖，请先导入为可管理记忆",
+        "error",
+      );
+    });
+  });
+
   it("imports memories from a selected directory and requires confirming the result", async () => {
     const importedState: MemoryState = {
       memories: [
@@ -286,8 +312,8 @@ describe("MemoryPage", () => {
         sourceDir: "/tmp/memory-source",
       });
     });
-    expect(await screen.findByText("导入全局")).toBeInTheDocument();
-    expect(await screen.findByText("前端规则")).toBeInTheDocument();
+    expect(await findMemoryCard("导入全局")).toBeInTheDocument();
+    expect(await findMemoryCard("前端规则")).toBeInTheDocument();
 
     const dialog = await screen.findByRole("dialog", { name: "导入结果" });
     expect(within(dialog).getByText("成功 2 条，失败 1 条")).toBeInTheDocument();
@@ -296,7 +322,7 @@ describe("MemoryPage", () => {
     expect(within(dialog).getByText("2 项")).toBeInTheDocument();
     expect(within(dialog).getByText("1 项")).toBeInTheDocument();
     expect(within(dialog).getByText("导入全局")).toBeInTheDocument();
-    expect(within(dialog).getByText("CLAUDE.md")).toBeInTheDocument();
+    expect(within(dialog).getAllByText("CLAUDE.md")).toHaveLength(2);
     expect(within(dialog).getByText("前端规则")).toBeInTheDocument();
     expect(within(dialog).getByText("frontend/style.md")).toBeInTheDocument();
     expect(within(dialog).getByText("rules/duplicate.md")).toBeInTheDocument();

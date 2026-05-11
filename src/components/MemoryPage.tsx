@@ -84,6 +84,20 @@ function formatImportCount(template: string, count: number) {
   return template.replace("{count}", String(count));
 }
 
+function getErrorReason(error: unknown) {
+  if (typeof error === "string") {
+    return error.trim();
+  }
+  if (error instanceof Error) {
+    return error.message.trim();
+  }
+  return "";
+}
+
+function formatErrorWithReason(template: string, reason: string) {
+  return template.replace("{reason}", reason);
+}
+
 interface MemoryImportResultDialogProps {
   result: MemoryDirectoryImportResult;
   onConfirm: () => void;
@@ -373,8 +387,14 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     try {
       const state = await invoke<MemoryState>("toggle_memory", { id });
       applyMemoryState(state);
-    } catch (_err) {
-      showToast(t("toast.memoryToggleError"), "error");
+    } catch (err) {
+      const reason = getErrorReason(err);
+      showToast(
+        reason
+          ? formatErrorWithReason(t("toast.memoryToggleErrorWithReason"), reason)
+          : t("toast.memoryToggleError"),
+        "error",
+      );
     }
   }
 
