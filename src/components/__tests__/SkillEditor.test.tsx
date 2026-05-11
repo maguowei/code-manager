@@ -1,8 +1,9 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import type { Skill } from "../../types";
 import SkillEditor from "../SkillEditor";
+import { ThemeProvider } from "../theme-provider";
 
 const { invokeMock, showToastMock } = vi.hoisted(() => ({
   invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => []),
@@ -17,6 +18,12 @@ vi.mock("@uiw/react-codemirror", () => ({
       value={value ?? ""}
       onChange={() => undefined}
     />
+  ),
+}));
+
+vi.mock("../claude-overview/MarkdownPreview", () => ({
+  default: ({ content }: { content: string }) => (
+    <article aria-label="mock-markdown-preview">{content}</article>
   ),
 }));
 
@@ -67,9 +74,11 @@ function renderSkillEditor(skill: Skill | null) {
   const onSave = vi.fn();
   const onClose = vi.fn();
   render(
-    <I18nProvider>
-      <SkillEditor skill={skill} onSave={onSave} onClose={onClose} />
-    </I18nProvider>,
+    <ThemeProvider>
+      <I18nProvider>
+        <SkillEditor skill={skill} onSave={onSave} onClose={onClose} />
+      </I18nProvider>
+    </ThemeProvider>,
   );
   return { onClose, onSave };
 }
@@ -120,5 +129,34 @@ describe("SkillEditor", () => {
         isActive: true,
       });
     });
+  });
+
+  it("matches the memory markdown toolbar and switches to preview mode", async () => {
+    renderSkillEditor(localSkill);
+
+    expect(await screen.findByTitle("插入标题")).toBeEnabled();
+    expect(screen.getByTitle("加粗")).toBeEnabled();
+    expect(screen.getByTitle("插入列表")).toBeEnabled();
+    expect(screen.getByTitle("插入代码块")).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "预览" }));
+
+    expect(screen.getByLabelText("mock-markdown-preview")).toHaveTextContent("内容");
+    expect(screen.queryByLabelText("mock-code-editor")).not.toBeInTheDocument();
+    expect(screen.getByTitle("插入标题")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "源码" })).toBeInTheDocument();
+  });
+
+  it("keeps formatting shortcuts disabled for read-only symlink skills but allows preview", async () => {
+    renderSkillEditor(symlinkSkill);
+
+    expect(await screen.findByText("软链接 Skill 不支持应用内修改")).toBeInTheDocument();
+    expect(screen.getByTitle("插入标题")).toBeDisabled();
+    expect(screen.getByTitle("加粗")).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "预览" }));
+
+    expect(screen.getByLabelText("mock-markdown-preview")).toHaveTextContent("内容");
+    expect(screen.getByRole("button", { name: "源码" })).toBeInTheDocument();
   });
 });

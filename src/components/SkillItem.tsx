@@ -1,5 +1,5 @@
 import { FolderOpen, Link2, RefreshCw, Trash2 } from "lucide-react";
-import { type KeyboardEvent, memo } from "react";
+import { type KeyboardEvent, type MouseEvent, memo } from "react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../i18n";
 import type { Skill } from "../types";
@@ -33,8 +33,10 @@ function SkillItem({
   const { t } = useI18n();
   const isSymlink = skill.isSymlink;
 
-  // 当 name 与 id 不同时显示 slash-command 路径
-  const showSlashId = skill.name !== skill.id;
+  function handleActionClick(event: MouseEvent<HTMLElement>, action: () => void) {
+    event.stopPropagation();
+    action();
+  }
 
   function handleCardKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.target !== event.currentTarget) return;
@@ -47,8 +49,8 @@ function SkillItem({
   return (
     <Card
       className={cn(
-        "skill-item group relative flex cursor-pointer flex-col gap-4 rounded-lg border border-border bg-card p-4 text-foreground shadow-panel transition-[transform,border-color,box-shadow,background-color,opacity] duration-200 hover:-translate-y-px hover:border-primary/70 hover:bg-accent/35",
-        skill.isActive ? "active border-primary/60 bg-primary/5" : "inactive",
+        "skill-item group relative flex cursor-pointer flex-col gap-4 rounded-lg border border-border bg-card p-4 text-foreground shadow-panel transition-[transform,border-color,box-shadow,background-color,opacity] duration-200 hover:-translate-y-px hover:border-primary hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+        skill.isActive && "active border-primary ring-1 ring-primary/30",
         isEditing && "editing border-chart-3 ring-1 ring-chart-3/30 hover:border-chart-3",
       )}
       role="button"
@@ -62,59 +64,58 @@ function SkillItem({
       <div className="skill-header flex items-start justify-between gap-3 group-[.compressed]/list:grid group-[.compressed]/list:grid-cols-[auto_minmax(0,1fr)] group-[.compressed]/list:justify-stretch">
         <ProfileNameBadge name={skill.name} colorSeedScope={skill.id} size="sm" fallbackChar="S" />
 
-        {/* 名称区域 */}
         <div className="skill-info flex min-w-0 flex-1 flex-col gap-1.5 pt-px">
           <h3 className="skill-name m-0 truncate text-base leading-snug font-semibold text-foreground">
             {skill.name}
           </h3>
-          {showSlashId && (
-            <span className="skill-slash-id truncate font-mono text-xs text-muted-foreground">
+          <div className="skill-source-row flex min-w-0 flex-wrap items-center gap-2 leading-none">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge
+                  variant={isSymlink ? "outline" : "secondary"}
+                  className={cn(
+                    "skill-source-badge inline-flex h-[22px] shrink-0 items-center gap-1 rounded-[7px] px-2 text-xs leading-none font-semibold",
+                    isSymlink ? "text-muted-foreground" : "text-primary",
+                  )}
+                  title={isSymlink ? (skill.linkTarget ?? undefined) : undefined}
+                >
+                  {isSymlink ? <Link2 className="size-3" aria-hidden="true" /> : null}
+                  <span title={isSymlink ? (skill.linkTarget ?? undefined) : undefined}>
+                    {isSymlink ? t("skills.symlinkBadge") : t("skills.localDirectoryBadge")}
+                  </span>
+                </Badge>
+              </TooltipTrigger>
+              {isSymlink && skill.linkTarget ? (
+                <TooltipContent className="max-w-[320px] [overflow-wrap:anywhere]">
+                  {skill.linkTarget}
+                </TooltipContent>
+              ) : null}
+            </Tooltip>
+            {isSymlink ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge
+                    variant="outline"
+                    className="skill-readonly-badge inline-flex h-[22px] shrink-0 items-center rounded-[7px] px-2 text-xs leading-none font-semibold text-muted-foreground"
+                  >
+                    {t("skills.readOnlyBadge")}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>{t("skills.symlinkReadonlyHint")}</TooltipContent>
+              </Tooltip>
+            ) : null}
+            <span className="skill-slash-id min-w-0 truncate font-mono text-xs leading-[22px] text-muted-foreground">
               /{skill.id}
             </span>
-          )}
+          </div>
         </div>
 
-        {/* 右侧操作区：启用/禁用开关 */}
         <div className="skill-header-actions flex shrink-0 flex-wrap items-center justify-end gap-1.5 pt-0.5 group-[.compressed]/list:col-span-full group-[.compressed]/list:w-full group-[.compressed]/list:justify-start group-[.compressed]/list:pt-0">
           {isEditing && (
             <Badge className="skill-status editing rounded-md bg-chart-3/10 px-2.5 py-1.5 text-xs font-semibold text-chart-3">
               {t("skills.editing")}
             </Badge>
           )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge
-                variant={isSymlink ? "outline" : "secondary"}
-                className="skill-status source rounded-md px-2.5 py-1.5 text-xs font-semibold text-muted-foreground"
-                title={isSymlink ? (skill.linkTarget ?? undefined) : undefined}
-              >
-                {isSymlink ? <Link2 aria-hidden="true" /> : null}
-                <span title={isSymlink ? (skill.linkTarget ?? undefined) : undefined}>
-                  {isSymlink ? t("skills.symlinkBadge") : t("skills.localDirectoryBadge")}
-                </span>
-              </Badge>
-            </TooltipTrigger>
-            {isSymlink && skill.linkTarget ? (
-              <TooltipContent className="max-w-[320px] [overflow-wrap:anywhere]">
-                {skill.linkTarget}
-              </TooltipContent>
-            ) : null}
-          </Tooltip>
-          {isSymlink && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge
-                  variant="outline"
-                  className="skill-status read-only rounded-md px-2.5 py-1.5 text-xs font-semibold text-muted-foreground"
-                  title={skill.linkTarget ?? undefined}
-                >
-                  {t("skills.readOnlyBadge")}
-                </Badge>
-              </TooltipTrigger>
-              <TooltipContent>{t("skills.symlinkReadonlyHint")}</TooltipContent>
-            </Tooltip>
-          )}
-          {/* 开关按钮 */}
           <div
             className="skill-toggle-control inline-flex cursor-pointer select-none items-center gap-2 rounded-full border border-transparent bg-transparent px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-border/80 hover:bg-card/80 hover:text-foreground focus-within:border-border/80 focus-within:bg-card/80"
             data-slot="switch-hit-area"
@@ -142,53 +143,42 @@ function SkillItem({
 
       {/* 描述预览（最多 2 行，CSS 截断） */}
       {skill.description && (
-        <p className="skill-description m-0 line-clamp-2 text-xs leading-normal text-muted-foreground">
+        <p className="skill-description m-0 line-clamp-2 text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]">
           {skill.description}
         </p>
       )}
 
-      <div className="skill-actions flex flex-wrap justify-end gap-2 self-end">
+      <div className="skill-actions pointer-events-none mt-[calc(1rem*-1)] flex max-h-0 translate-y-2 flex-wrap justify-end gap-2 self-end overflow-hidden opacity-0 transition-[max-height,margin-top,opacity,transform] duration-200 group-hover:mt-0 group-hover:max-h-12 group-hover:translate-y-0 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:mt-0 group-focus-within:max-h-12 group-focus-within:translate-y-0 group-focus-within:opacity-100 group-focus-within:pointer-events-auto">
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           size="icon-sm"
           className="skill-action-btn open border border-border bg-muted text-foreground hover:border-primary hover:text-primary"
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpenExternal(skill);
-          }}
+          onClick={(event) => handleActionClick(event, () => onOpenExternal(skill))}
           aria-label={t("skills.openInEditor")}
           title={t("skills.openInEditor")}
         >
           <FolderOpen aria-hidden="true" />
         </Button>
 
-        {/* 同步按钮 */}
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           size="icon-sm"
           className="skill-action-btn sync border border-border bg-muted text-foreground hover:border-chart-2 hover:text-chart-2"
-          onClick={(e) => {
-            e.stopPropagation();
-            onSync(skill);
-          }}
+          onClick={(event) => handleActionClick(event, () => onSync(skill))}
           aria-label={t("skills.syncToCodex")}
           title={t("skills.syncToCodex")}
         >
           <RefreshCw aria-hidden="true" />
         </Button>
 
-        {/* 删除按钮 */}
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           size="icon-sm"
           className="skill-action-btn delete border border-border bg-muted text-foreground hover:border-destructive hover:text-destructive"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete(skill);
-          }}
+          onClick={(event) => handleActionClick(event, () => onDelete(skill))}
           aria-label={t("skills.delete")}
           title={t("skills.delete")}
         >

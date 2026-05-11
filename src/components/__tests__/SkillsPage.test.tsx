@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import type { Skill } from "../../types";
 import SkillsPage from "../SkillsPage";
+import { ThemeProvider } from "../theme-provider";
 import { TooltipProvider } from "../ui/tooltip";
 
 type ClaudeDirectoryTestPayload = { paths: string[] };
@@ -94,11 +95,13 @@ function setSystemLanguages(languages: string[]) {
 
 function renderSkillsPage() {
   render(
-    <I18nProvider>
-      <TooltipProvider>
-        <SkillsPage />
-      </TooltipProvider>
-    </I18nProvider>,
+    <ThemeProvider>
+      <I18nProvider>
+        <TooltipProvider>
+          <SkillsPage />
+        </TooltipProvider>
+      </I18nProvider>
+    </ThemeProvider>,
   );
 }
 

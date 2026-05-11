@@ -2,9 +2,18 @@ import { markdown } from "@codemirror/lang-markdown";
 import { EditorView } from "@codemirror/view";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { invoke } from "@tauri-apps/api/core";
-import CodeMirror from "@uiw/react-codemirror";
-import { ChevronLeft, CircleAlert, ExternalLink, FileText, Folder, FolderOpen } from "lucide-react";
-import { useEffect, useState } from "react";
+import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
+import {
+  ChevronLeft,
+  CircleAlert,
+  Code2,
+  ExternalLink,
+  Eye,
+  FileText,
+  Folder,
+  FolderOpen,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { type Resolver, useForm } from "react-hook-form";
 import { showOperationError } from "@/lib/user-facing-error";
 import { useCodeMirrorTheme } from "../hooks/useCodeMirrorTheme";
@@ -22,6 +31,7 @@ import {
 } from "../schemas/skill-schema";
 import type { Skill, SkillFileTreeEntry } from "../types";
 import CollapsibleSection from "./CollapsibleSection";
+import MarkdownPreview from "./claude-overview/MarkdownPreview";
 import ProfileNameBadge from "./ProfileNameBadge";
 import {
   CONTROL_SURFACE_CLASS,
@@ -29,6 +39,7 @@ import {
   SUBTLE_SURFACE_CLASS,
   TOOLBAR_SURFACE_CLASS,
 } from "./surface-classes";
+import { useTheme } from "./theme-provider";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
@@ -50,10 +61,16 @@ interface SkillEditorProps {
   onClose: () => void;
 }
 
+type SkillEditorMode = "source" | "preview";
+type MarkdownPreviewThemeType = "light" | "dark";
+
 function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
   const { t } = useI18n();
   const { showToast } = useToast();
+  const { isDark } = useTheme();
+  const editorRef = useRef<ReactCodeMirrorRef>(null);
   const editorTheme = useCodeMirrorTheme();
+  const previewThemeType: MarkdownPreviewThemeType = isDark ? "dark" : "light";
   const isEditing = skill !== null;
   const isReadOnly = skill?.isSymlink === true;
   const primaryFields = buildSkillPrimaryFields(isEditing);
@@ -69,9 +86,11 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
   const [fileTree, setFileTree] = useState<SkillFileTreeEntry[]>([]);
   const [filesLoaded, setFilesLoaded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [editorMode, setEditorMode] = useState<SkillEditorMode>("source");
 
   const watchId = watch("id");
   const canSave = watchId.trim().length > 0 && !isSaving && !isReadOnly;
+  const isPreviewMode = editorMode === "preview";
 
   // 编辑模式下进入页面时自动懒加载支持文件
   // CollapsibleSection 暂不支持 onExpand 回调，故在 isEditing && !filesLoaded 时通过 useEffect 触发
@@ -132,6 +151,38 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
     } catch (err) {
       showOperationError(showToast, t("toast.skillOpenEditorError"), err);
     }
+  }
+
+  // 在光标位置插入文本（选中文字时替换）
+  function insertAtCursor(text: string) {
+    const view = editorRef.current?.view;
+    if (!view || isReadOnly || isPreviewMode) return;
+    view.dispatch(view.state.replaceSelection(text));
+    view.focus();
+  }
+
+  // 在当前行行首插入前缀
+  function insertAtLineStart(prefix: string) {
+    const view = editorRef.current?.view;
+    if (!view || isReadOnly || isPreviewMode) return;
+    const { from } = view.state.selection.main;
+    const line = view.state.doc.lineAt(from);
+    view.dispatch({ changes: { from: line.from, insert: prefix } });
+    view.focus();
+  }
+
+  // 加粗：选中文字时包裹，否则插入占位符
+  function insertBold() {
+    const view = editorRef.current?.view;
+    if (!view || isReadOnly || isPreviewMode) return;
+    const { from, to } = view.state.selection.main;
+    const selected = view.state.sliceDoc(from, to);
+    view.dispatch(
+      view.state.replaceSelection(
+        selected ? `**${selected}**` : `**${t("skills.toolbar.boldPlaceholder")}**`,
+      ),
+    );
+    view.focus();
   }
 
   function renderSkillField(fieldConfig: FieldConfig<SkillFormData>) {
@@ -368,26 +419,108 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                   render={({ field }) => (
                     <div
                       className={cn(
-                        "skill-editor-wrap overflow-hidden rounded-md border border-border/80 focus-within:border-primary focus-within:ring-[3px] focus-within:ring-ring/50 [&_.cm-editor]:text-[13px] [&_.cm-editor]:leading-[1.6] [&_.cm-editor.cm-focused]:outline-none [&_.cm-scroller]:font-mono [&_.cm-scroller]:overflow-auto",
+                        "skill-editor-wrap overflow-hidden rounded-md border border-border/80 focus-within:border-primary focus-within:ring-[3px] focus-within:ring-ring/50 [&_.cm-editor]:min-h-[360px] [&_.cm-editor]:text-[13px] [&_.cm-editor]:leading-[1.6] [&_.cm-editor.cm-focused]:outline-none [&_.cm-scroller]:font-mono [&_.cm-scroller]:overflow-auto",
                         CONTROL_SURFACE_CLASS,
                       )}
                     >
-                      <CodeMirror
-                        value={field.value}
-                        onChange={isReadOnly ? undefined : field.onChange}
-                        readOnly={isReadOnly}
-                        editable={!isReadOnly}
-                        height="360px"
-                        extensions={[markdown(), EditorView.lineWrapping]}
-                        theme={editorTheme}
-                        placeholder={t("skills.contentPlaceholder")}
-                        basicSetup={{
-                          lineNumbers: true,
-                          bracketMatching: false,
-                          indentOnInput: false,
-                          foldGutter: false,
-                        }}
-                      />
+                      <div className="skill-editor-toolbar flex items-center gap-1 border-b border-border/80 bg-muted/50 px-2 py-1.5">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="xs"
+                          className="skill-toolbar-btn border-border bg-transparent text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 dark:hover:bg-accent dark:hover:text-foreground"
+                          title={t("skills.toolbar.heading")}
+                          disabled={isReadOnly || isPreviewMode}
+                          onClick={() =>
+                            insertAtLineStart(`## ${t("skills.toolbar.headingPlaceholder")}\n`)
+                          }
+                        >
+                          H
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="xs"
+                          className="skill-toolbar-btn skill-toolbar-btn-bold border-border bg-transparent text-xs font-black text-muted-foreground italic hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 dark:hover:bg-accent dark:hover:text-foreground"
+                          title={t("skills.toolbar.bold")}
+                          disabled={isReadOnly || isPreviewMode}
+                          onClick={insertBold}
+                        >
+                          B
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="xs"
+                          className="skill-toolbar-btn border-border bg-transparent text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 dark:hover:bg-accent dark:hover:text-foreground"
+                          title={t("skills.toolbar.list")}
+                          disabled={isReadOnly || isPreviewMode}
+                          onClick={() =>
+                            insertAtLineStart(`- ${t("skills.toolbar.listPlaceholder")}\n`)
+                          }
+                        >
+                          ≡
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="xs"
+                          className="skill-toolbar-btn border-border bg-transparent text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 dark:hover:bg-accent dark:hover:text-foreground"
+                          title={t("skills.toolbar.code")}
+                          disabled={isReadOnly || isPreviewMode}
+                          onClick={() => insertAtCursor("```\n\n```")}
+                        >
+                          &lt;/&gt;
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon-xs"
+                          className="skill-toolbar-btn skill-toolbar-preview-toggle ml-auto border-border bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground aria-pressed:border-primary dark:hover:bg-accent dark:hover:text-foreground"
+                          aria-label={t(
+                            isPreviewMode ? "skills.toolbar.source" : "skills.toolbar.preview",
+                          )}
+                          title={t(
+                            isPreviewMode ? "skills.toolbar.source" : "skills.toolbar.preview",
+                          )}
+                          aria-pressed={isPreviewMode}
+                          onClick={() =>
+                            setEditorMode((current) =>
+                              current === "preview" ? "source" : "preview",
+                            )
+                          }
+                        >
+                          {isPreviewMode ? (
+                            <Code2 className="size-3.5" aria-hidden="true" />
+                          ) : (
+                            <Eye className="size-3.5" aria-hidden="true" />
+                          )}
+                        </Button>
+                      </div>
+                      {isPreviewMode ? (
+                        <MarkdownPreview
+                          className="skill-markdown-preview min-h-[360px] max-h-[60vh] overflow-auto bg-background/80 px-5 py-4 text-xs text-foreground [&_pre]:my-3 [&_pre]:bg-transparent [&_pre]:p-0 [&_pre>div]:m-0 [&_.markdown-preview-image-fallback]:inline-block [&_.markdown-preview-image-fallback]:rounded-sm [&_.markdown-preview-image-fallback]:border [&_.markdown-preview-image-fallback]:border-dashed [&_.markdown-preview-image-fallback]:border-border [&_.markdown-preview-image-fallback]:px-2 [&_.markdown-preview-image-fallback]:py-0.5 [&_.markdown-preview-image-fallback]:text-xs [&_.markdown-preview-image-fallback]:text-muted-foreground"
+                          content={field.value}
+                          themeType={previewThemeType}
+                        />
+                      ) : (
+                        <CodeMirror
+                          ref={editorRef}
+                          value={field.value}
+                          onChange={isReadOnly ? undefined : field.onChange}
+                          readOnly={isReadOnly}
+                          editable={!isReadOnly}
+                          extensions={[markdown(), EditorView.lineWrapping]}
+                          theme={editorTheme}
+                          placeholder={t("skills.contentPlaceholder")}
+                          basicSetup={{
+                            lineNumbers: true,
+                            bracketMatching: false,
+                            indentOnInput: false,
+                            foldGutter: false,
+                          }}
+                        />
+                      )}
                     </div>
                   )}
                 />
