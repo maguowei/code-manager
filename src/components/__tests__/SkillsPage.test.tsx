@@ -58,11 +58,28 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
   openUrl: openUrlMock,
 }));
 
+vi.mock("@uiw/react-codemirror", () => ({
+  default: ({ readOnly, value }: { readOnly?: boolean; value?: string }) => (
+    <textarea
+      aria-label="mock-code-editor"
+      readOnly={readOnly}
+      value={value ?? ""}
+      onChange={() => undefined}
+    />
+  ),
+}));
+
 vi.mock("../../hooks/useToast", () => ({
   useToast: () => ({
     showToast: showToastMock,
   }),
 }));
+
+class ResizeObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
 
 function setSystemLanguages(languages: string[]) {
   Object.defineProperty(navigator, "languages", {
@@ -85,9 +102,9 @@ function renderSkillsPage() {
   );
 }
 
-const managedSkill = {
-  id: "managed-skill",
-  name: "Managed Skill",
+const localSkill = {
+  id: "local-skill",
+  name: "Local Skill",
   description: "普通 Skill",
   content: "内容",
   disableModelInvocation: false,
@@ -95,11 +112,11 @@ const managedSkill = {
   isActive: true,
   createdAt: 1,
   updatedAt: 1,
-  isManaged: true,
+  isSymlink: false,
   linkTarget: null,
 } as Skill;
 
-const unmanagedSkill = {
+const symlinkSkill = {
   id: "linked-skill",
   name: "Linked Skill",
   description: "软链接 Skill",
@@ -109,7 +126,7 @@ const unmanagedSkill = {
   isActive: false,
   createdAt: 2,
   updatedAt: 2,
-  isManaged: false,
+  isSymlink: true,
   linkTarget: "/tmp/external/linked-skill",
 } as Skill;
 
@@ -121,6 +138,7 @@ describe("SkillsPage", () => {
       value: {},
       configurable: true,
     });
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
     eventListeners.clear();
     invokeMock.mockReset();
     listenMock.mockClear();
@@ -159,19 +177,15 @@ describe("SkillsPage", () => {
     expect(openUrlMock).toHaveBeenCalledWith("https://code.claude.com/docs/en/skills");
   });
 
-  it("groups managed and unmanaged skills separately", async () => {
-    invokeMock.mockResolvedValue([unmanagedSkill, managedSkill]);
+  it("renders skills as one source-marked list", async () => {
+    invokeMock.mockResolvedValue([symlinkSkill, localSkill]);
 
     renderSkillsPage();
 
-    expect(await screen.findByText("托管 Skills")).toBeInTheDocument();
-    expect(screen.getByText("未托管 Skills")).toBeInTheDocument();
-    const managedGroup = screen.getByText("托管 Skills").closest("section");
-    const unmanagedGroup = screen.getByText("未托管 Skills").closest("section");
-    expect(managedGroup).not.toBeNull();
-    expect(unmanagedGroup).not.toBeNull();
-    expect(within(managedGroup as HTMLElement).getByText("Managed Skill")).toBeInTheDocument();
-    expect(within(unmanagedGroup as HTMLElement).getByText("Linked Skill")).toBeInTheDocument();
+    expect(await screen.findByText("Local Skill")).toBeInTheDocument();
+    expect(screen.getByText("Linked Skill")).toBeInTheDocument();
+    expect(screen.getByText("本地目录")).toBeInTheDocument();
+    expect(screen.getByText("软链接")).toBeInTheDocument();
   });
 
   it("refreshes skills from the page header button", async () => {
@@ -179,13 +193,13 @@ describe("SkillsPage", () => {
     invokeMock.mockImplementation(async (command) => {
       if (command === "get_skills") {
         loadCount += 1;
-        return loadCount === 1 ? [managedSkill] : [managedSkill, unmanagedSkill];
+        return loadCount === 1 ? [localSkill] : [localSkill, symlinkSkill];
       }
       return null;
     });
 
     renderSkillsPage();
-    expect(await screen.findByText("Managed Skill")).toBeInTheDocument();
+    expect(await screen.findByText("Local Skill")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "刷新" }));
 
@@ -196,7 +210,7 @@ describe("SkillsPage", () => {
 
   it("shows the backend reason when toggling a skill fails", async () => {
     invokeMock.mockImplementation(async (command) => {
-      if (command === "get_skills") return [managedSkill];
+      if (command === "get_skills") return [localSkill];
       if (command === "toggle_skill") {
         throw "目标目录已存在，无法移动 Skill";
       }
@@ -204,7 +218,7 @@ describe("SkillsPage", () => {
     });
 
     renderSkillsPage();
-    const skillCard = (await screen.findByText("Managed Skill")).closest('[role="button"]');
+    const skillCard = (await screen.findByText("Local Skill")).closest('[role="button"]');
     expect(skillCard).not.toBeNull();
 
     fireEvent.click(within(skillCard as HTMLElement).getByRole("switch", { name: "已启用" }));
@@ -218,29 +232,29 @@ describe("SkillsPage", () => {
 
   it("shows the backend reason when syncing a skill fails", async () => {
     invokeMock.mockImplementation(async (command) => {
-      if (command === "get_skills") return [managedSkill];
+      if (command === "get_skills") return [localSkill];
       if (command === "sync_skill_to_codex") {
-        throw "目标 ~/.codex/skills/managed-skill 已存在且不是软链接";
+        throw "目标 ~/.codex/skills/local-skill 已存在且不是软链接";
       }
       return null;
     });
 
     renderSkillsPage();
-    expect(await screen.findByText("Managed Skill")).toBeInTheDocument();
+    expect(await screen.findByText("Local Skill")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "同步到 ~/.codex/skills" }));
 
     await waitFor(() => {
       expect(showToastMock).toHaveBeenCalledWith("同步 Skill 失败", "error", {
-        description: "目标 ~/.codex/skills/managed-skill 已存在且不是软链接",
+        description: "目标 ~/.codex/skills/local-skill 已存在且不是软链接",
       });
     });
   });
 
   it("imports skills from a selected directory and requires confirming the result", async () => {
     const importResult: SkillDirectoryImportResult = {
-      skills: [managedSkill, unmanagedSkill],
-      imported: ["managed-skill", "linked-skill"],
+      skills: [localSkill, symlinkSkill],
+      imported: ["local-skill", "linked-skill"],
       skipped: [
         { id: "Invalid_Skill", reason: "invalid-id" },
         { id: "existing-skill", reason: "exists" },
@@ -269,7 +283,7 @@ describe("SkillsPage", () => {
         sourceDir: "/tmp/skill-source",
       });
     });
-    expect(await screen.findByText("Managed Skill")).toBeInTheDocument();
+    expect(await screen.findByText("Local Skill")).toBeInTheDocument();
     expect(await screen.findByText("Linked Skill")).toBeInTheDocument();
 
     const dialog = await screen.findByRole("dialog", { name: "导入结果" });
@@ -278,7 +292,7 @@ describe("SkillsPage", () => {
     expect(within(dialog).getByText("失败 3")).toBeInTheDocument();
     expect(within(dialog).getByText("2 项")).toBeInTheDocument();
     expect(within(dialog).getByText("3 项")).toBeInTheDocument();
-    expect(within(dialog).getByText("managed-skill")).toBeInTheDocument();
+    expect(within(dialog).getByText("local-skill")).toBeInTheDocument();
     expect(within(dialog).getByText("linked-skill")).toBeInTheDocument();
     expect(within(dialog).getByText("Invalid_Skill")).toBeInTheDocument();
     expect(within(dialog).getByText("名称不符合 Skill id 规则")).toBeInTheDocument();
@@ -297,8 +311,8 @@ describe("SkillsPage", () => {
 
   it("shows a focused all-success import result without the failure section", async () => {
     const importResult: SkillDirectoryImportResult = {
-      skills: [managedSkill, unmanagedSkill],
-      imported: ["managed-skill", "linked-skill"],
+      skills: [localSkill, symlinkSkill],
+      imported: ["local-skill", "linked-skill"],
       skipped: [],
     };
     openDialogMock.mockResolvedValue("/tmp/skill-source");
@@ -318,7 +332,7 @@ describe("SkillsPage", () => {
     expect(within(dialog).getByText("已导入 2 个 Skill")).toBeInTheDocument();
     expect(within(dialog).getByText("成功 2")).toBeInTheDocument();
     expect(within(dialog).getByText("2 项")).toBeInTheDocument();
-    expect(within(dialog).getByText("managed-skill")).toBeInTheDocument();
+    expect(within(dialog).getByText("local-skill")).toBeInTheDocument();
     expect(within(dialog).getByText("linked-skill")).toBeInTheDocument();
     expect(within(dialog).getAllByText("已导入")).toHaveLength(2);
     expect(within(dialog).queryByText("导入失败")).not.toBeInTheDocument();
@@ -347,13 +361,13 @@ describe("SkillsPage", () => {
     invokeMock.mockImplementation(async (command) => {
       if (command === "get_skills") {
         loadCount += 1;
-        return loadCount === 1 ? [managedSkill] : [managedSkill, unmanagedSkill];
+        return loadCount === 1 ? [localSkill] : [localSkill, symlinkSkill];
       }
       return null;
     });
 
     renderSkillsPage();
-    expect(await screen.findByText("Managed Skill")).toBeInTheDocument();
+    expect(await screen.findByText("Local Skill")).toBeInTheDocument();
 
     emitTauriEvent("claude-directory-changed", { paths: ["skills/linked-skill/SKILL.md"] });
 
@@ -362,8 +376,21 @@ describe("SkillsPage", () => {
     expect(showToastMock).not.toHaveBeenCalledWith("Skills 已刷新");
   });
 
-  it("uses the symlink delete confirmation copy for unmanaged skills", async () => {
-    invokeMock.mockResolvedValue([unmanagedSkill]);
+  it("opens a read-only editor drawer for symlink skills", async () => {
+    invokeMock.mockResolvedValue([symlinkSkill]);
+
+    renderSkillsPage();
+    expect(await screen.findByText("Linked Skill")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Linked Skill/ }));
+
+    expect(await screen.findByText("软链接 Skill 不支持应用内修改")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Linked Skill")).toBeDisabled();
+    expect(screen.getByLabelText("mock-code-editor")).toHaveAttribute("readonly");
+  });
+
+  it("uses the symlink delete confirmation copy for symlink skills", async () => {
+    invokeMock.mockResolvedValue([symlinkSkill]);
 
     renderSkillsPage();
     expect(await screen.findByText("Linked Skill")).toBeInTheDocument();

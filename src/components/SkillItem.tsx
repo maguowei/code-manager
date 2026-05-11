@@ -1,4 +1,4 @@
-import { Link2, RefreshCw, Trash2 } from "lucide-react";
+import { FolderOpen, Link2, RefreshCw, Trash2 } from "lucide-react";
 import { type KeyboardEvent, memo } from "react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../i18n";
@@ -18,17 +18,25 @@ interface SkillItemProps {
   onDelete: (skill: Skill) => void;
   onToggle: (skill: Skill) => void;
   onSync: (skill: Skill) => void;
+  onOpenExternal: (skill: Skill) => void;
 }
 
-function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: SkillItemProps) {
+function SkillItem({
+  skill,
+  isEditing,
+  onEdit,
+  onDelete,
+  onToggle,
+  onSync,
+  onOpenExternal,
+}: SkillItemProps) {
   const { t } = useI18n();
-  const isManaged = skill.isManaged !== false;
+  const isSymlink = skill.isSymlink;
 
   // 当 name 与 id 不同时显示 slash-command 路径
   const showSlashId = skill.name !== skill.id;
 
   function handleCardKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (!isManaged) return;
     if (event.target !== event.currentTarget) return;
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
@@ -39,19 +47,15 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
   return (
     <Card
       className={cn(
-        "skill-item group relative flex cursor-pointer flex-col gap-4 rounded-lg border border-border bg-card p-4 text-foreground shadow-panel transition-[transform,border-color,box-shadow,background-color,opacity] duration-200 hover:-translate-y-px hover:border-primary hover:bg-accent/40",
-        !isManaged && "cursor-default hover:translate-y-0",
-        skill.isActive ? "active border-primary ring-1 ring-primary/30" : "inactive",
+        "skill-item group relative flex cursor-pointer flex-col gap-4 rounded-lg border border-border bg-card p-4 text-foreground shadow-panel transition-[transform,border-color,box-shadow,background-color,opacity] duration-200 hover:-translate-y-px hover:border-primary/70 hover:bg-accent/35",
+        skill.isActive ? "active border-primary/60 bg-primary/5" : "inactive",
         isEditing && "editing border-chart-3 ring-1 ring-chart-3/30 hover:border-chart-3",
       )}
       role="button"
-      tabIndex={isManaged ? 0 : -1}
+      tabIndex={0}
       aria-label={skill.name}
-      aria-disabled={!isManaged}
       onClick={() => {
-        if (isManaged) {
-          onEdit(skill);
-        }
+        onEdit(skill);
       }}
       onKeyDown={handleCardKeyDown}
     >
@@ -77,23 +81,37 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
               {t("skills.editing")}
             </Badge>
           )}
-          {!isManaged && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge
+                variant={isSymlink ? "outline" : "secondary"}
+                className="skill-status source rounded-md px-2.5 py-1.5 text-xs font-semibold text-muted-foreground"
+                title={isSymlink ? (skill.linkTarget ?? undefined) : undefined}
+              >
+                {isSymlink ? <Link2 aria-hidden="true" /> : null}
+                <span title={isSymlink ? (skill.linkTarget ?? undefined) : undefined}>
+                  {isSymlink ? t("skills.symlinkBadge") : t("skills.localDirectoryBadge")}
+                </span>
+              </Badge>
+            </TooltipTrigger>
+            {isSymlink && skill.linkTarget ? (
+              <TooltipContent className="max-w-[320px] [overflow-wrap:anywhere]">
+                {skill.linkTarget}
+              </TooltipContent>
+            ) : null}
+          </Tooltip>
+          {isSymlink && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Badge
                   variant="outline"
-                  className="skill-status symlink rounded-md px-2.5 py-1.5 text-xs font-semibold text-muted-foreground"
+                  className="skill-status read-only rounded-md px-2.5 py-1.5 text-xs font-semibold text-muted-foreground"
                   title={skill.linkTarget ?? undefined}
                 >
-                  <Link2 aria-hidden="true" />
-                  <span title={skill.linkTarget ?? undefined}>{t("skills.symlinkBadge")}</span>
+                  {t("skills.readOnlyBadge")}
                 </Badge>
               </TooltipTrigger>
-              {skill.linkTarget && (
-                <TooltipContent className="max-w-[320px] [overflow-wrap:anywhere]">
-                  {skill.linkTarget}
-                </TooltipContent>
-              )}
+              <TooltipContent>{t("skills.symlinkReadonlyHint")}</TooltipContent>
             </Tooltip>
           )}
           {/* 开关按钮 */}
@@ -129,8 +147,22 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
         </p>
       )}
 
-      {/* 悬停显示的操作按钮区 */}
-      <div className="skill-actions pointer-events-none mt-[calc(1rem*-1)] flex max-h-0 translate-y-2 flex-wrap justify-end gap-2 self-end overflow-hidden opacity-0 transition-[max-height,margin-top,opacity,transform] duration-200 group-hover:mt-0 group-hover:max-h-12 group-hover:translate-y-0 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:mt-0 group-focus-within:max-h-12 group-focus-within:translate-y-0 group-focus-within:opacity-100 group-focus-within:pointer-events-auto">
+      <div className="skill-actions flex flex-wrap justify-end gap-2 self-end">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          className="skill-action-btn open border border-border bg-muted text-foreground hover:border-primary hover:text-primary"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenExternal(skill);
+          }}
+          aria-label={t("skills.openInEditor")}
+          title={t("skills.openInEditor")}
+        >
+          <FolderOpen aria-hidden="true" />
+        </Button>
+
         {/* 同步按钮 */}
         <Button
           type="button"

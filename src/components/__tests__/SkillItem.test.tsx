@@ -15,7 +15,7 @@ const baseSkill: Skill = {
   isActive: false,
   createdAt: 1,
   updatedAt: 1,
-  isManaged: true,
+  isSymlink: false,
   linkTarget: null,
 } as Skill;
 
@@ -24,6 +24,7 @@ function renderSkillItem(skill: Skill = baseSkill) {
   const onDelete = vi.fn();
   const onToggle = vi.fn();
   const onSync = vi.fn();
+  const onOpenExternal = vi.fn();
   const view = render(
     <I18nProvider>
       <TooltipProvider>
@@ -34,12 +35,13 @@ function renderSkillItem(skill: Skill = baseSkill) {
           onDelete={onDelete}
           onToggle={onToggle}
           onSync={onSync}
+          onOpenExternal={onOpenExternal}
         />
       </TooltipProvider>
     </I18nProvider>,
   );
 
-  return { ...view, onDelete, onEdit, onSync, onToggle };
+  return { ...view, onDelete, onEdit, onOpenExternal, onSync, onToggle };
 }
 
 function setSystemLanguages(languages: string[]) {
@@ -72,20 +74,24 @@ describe("SkillItem", () => {
   });
 
   it("keeps action buttons from opening the editor", () => {
-    const { onDelete, onEdit, onSync, onToggle } = renderSkillItem();
+    const { onDelete, onEdit, onOpenExternal, onSync, onToggle } = renderSkillItem();
 
     const toggleButton = screen.getByRole("switch", { name: "已禁用" });
+    const openButton = screen.getByRole("button", { name: "用编辑器打开 Skill 目录" });
     const syncButton = screen.getByRole("button", { name: "同步到 ~/.codex/skills" });
     const deleteButton = screen.getByRole("button", { name: "删除" });
 
+    expect(openButton).toHaveAttribute("aria-label", "用编辑器打开 Skill 目录");
     expect(syncButton).toHaveAttribute("aria-label", "同步到 ~/.codex/skills");
     expect(deleteButton).toHaveAttribute("aria-label", "删除");
 
     fireEvent.click(toggleButton);
+    fireEvent.click(openButton);
     fireEvent.click(syncButton);
     fireEvent.click(deleteButton);
 
     expect(onToggle).toHaveBeenCalledTimes(1);
+    expect(onOpenExternal).toHaveBeenCalledTimes(1);
     expect(onSync).toHaveBeenCalledTimes(1);
     expect(onDelete).toHaveBeenCalledTimes(1);
     expect(onEdit).not.toHaveBeenCalled();
@@ -120,16 +126,16 @@ describe("SkillItem", () => {
     expect(screen.getByRole("button", { name: "删除" })).toBeInTheDocument();
   });
 
-  it("marks unmanaged symlink skills and disables the edit entry point", () => {
+  it("marks symlink skills while keeping the read-only editor entry point", () => {
     const { onDelete, onEdit, onSync, onToggle } = renderSkillItem({
       ...baseSkill,
-      isManaged: false,
+      isSymlink: true,
       linkTarget: "/tmp/external/code-review",
     } as Skill);
 
     const card = screen.getByRole("button", { name: /Code Review/ });
-    expect(card).toHaveAttribute("aria-disabled", "true");
-    expect(screen.getByText("链接")).toHaveAttribute("title", "/tmp/external/code-review");
+    expect(card).not.toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByText("软链接")).toHaveAttribute("title", "/tmp/external/code-review");
 
     fireEvent.click(card);
     fireEvent.keyDown(card, { key: "Enter" });
@@ -137,7 +143,7 @@ describe("SkillItem", () => {
     fireEvent.click(screen.getByRole("button", { name: "同步到 ~/.codex/skills" }));
     fireEvent.click(screen.getByRole("button", { name: "删除" }));
 
-    expect(onEdit).not.toHaveBeenCalled();
+    expect(onEdit).toHaveBeenCalledTimes(2);
     expect(onToggle).toHaveBeenCalledTimes(1);
     expect(onSync).toHaveBeenCalledTimes(1);
     expect(onDelete).toHaveBeenCalledTimes(1);

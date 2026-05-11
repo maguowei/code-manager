@@ -48,9 +48,7 @@ paths:
 - `src/components/SkillEditor.tsx`
 - `src/components/SkillItem.tsx`
 - `src/schemas/skill-schema.ts`
-- `src/schemas/skill-file-schema.ts`
 - `src/schemas/skill.schema.json`
-- `src/schemas/skill-file.schema.json`
 - `src-tauri/src/skills.rs`
 
 ## Skills 落盘模型
@@ -59,7 +57,8 @@ paths:
 - 禁用 Skills 放在 `~/.config/ai-manager/skills-disabled/<id>/`。
 - Skill id 只能包含小写字母、数字和连字符。
 - Skills 页标题栏有本地化官方文档入口；类似外链继续用 `openUrl`，失败时走 Toast。
-- 扫描 Skills 时允许识别目录级软链接，但只能读取目标目录的 `SKILL.md` 作为未托管 Skill 视图；不要递归读取支持文件，所有写入和支持文件操作仍必须拒绝软链接 Skill。
-- 从目录导入 Skills 时支持导入合法目录级软链接；导入后保留软链接形态并作为未托管 Skill 展示，不复制目标目录内容。
-- 支持文件路径必须保持在 Skill 目录内，禁止绝对路径与 `..` 路径逃逸。
+- 扫描 Skills 时允许识别目录级软链接，但只能读取目标目录的 `SKILL.md` 作为软链接 Skill 视图；不要递归读取支持文件，所有应用内写入仍必须拒绝软链接 Skill。
+- 从目录导入 Skills 时支持导入合法目录级软链接；导入后保留软链接形态并作为软链接 Skill 展示，不复制目标目录内容。
+- 应用内只支持编辑 `SKILL.md`；支持文件仅展示只读文件树，不提供新增、编辑、删除。
+- 支持文件树只列普通目录 Skill 内部条目，必须跳过目录内软链接，禁止绝对路径与 `..` 路径逃逸。
 - `sync_skill_to_codex` 会在 `~/.codex/skills/<id>` 创建软链接；目标已存在且不是软链接时必须拒绝覆盖。

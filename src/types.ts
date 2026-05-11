@@ -283,7 +283,7 @@ export interface Skill {
   isActive: boolean;
   createdAt: number;
   updatedAt: number;
-  isManaged: boolean;
+  isSymlink: boolean;
   linkTarget: string | null;
 }
 
@@ -298,10 +298,13 @@ export interface SkillDirectoryImportResult {
   skipped: SkillDirectoryImportSkippedItem[];
 }
 
-// Skill 支持文件
-export interface SkillFile {
-  name: string;
-  content: string;
+export type SkillFileTreeEntryKind = "file" | "directory";
+
+// Skill 支持文件树条目
+export interface SkillFileTreeEntry {
+  path: string;
+  kind: SkillFileTreeEntryKind;
+  size: number;
   isBinary: boolean;
 }
 

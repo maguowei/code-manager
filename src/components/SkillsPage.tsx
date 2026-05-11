@@ -347,10 +347,6 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
 
   // 打开编辑抽屉
   function openEdit(skill: Skill) {
-    if (skill.isManaged === false) {
-      showToast(t("skills.symlinkNotEditableHint"), "error");
-      return;
-    }
     setEditingSkill(skill);
     setIsDrawerOpen(true);
     onDrawerChange?.(true);
@@ -396,14 +392,7 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     });
   }, [refreshSkills]);
 
-  const managedSkills = useMemo(
-    () => sortSkillsForList(skills.filter((skill) => skill.isManaged !== false)),
-    [skills],
-  );
-  const unmanagedSkills = useMemo(
-    () => sortSkillsForList(skills.filter((skill) => skill.isManaged === false)),
-    [skills],
-  );
+  const sortedSkills = useMemo(() => sortSkillsForList(skills), [skills]);
   const hasAnySkill = skills.length > 0;
   const claudeSkillsDocsUrl = useMemo(() => getClaudeSkillsDocsUrl(language), [language]);
 
@@ -415,31 +404,13 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     }
   }, [claudeSkillsDocsUrl, showToast, t]);
 
-  function renderSkillGroup(title: string, description: string, items: Skill[]) {
-    if (items.length === 0) return null;
-    return (
-      <section className="skill-group flex flex-col gap-3">
-        <div className="skill-group-header flex min-w-0 flex-col gap-1 px-1">
-          <h2 className="m-0 text-base leading-snug font-bold text-foreground">{title}</h2>
-          <p className="m-0 text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]">
-            {description}
-          </p>
-        </div>
-        <div className="list-container flex flex-col gap-3">
-          {items.map((skill) => (
-            <SkillItem
-              key={skill.id}
-              skill={skill}
-              isEditing={isDrawerOpen && editingSkill?.id === skill.id}
-              onToggle={handleToggle}
-              onEdit={openEdit}
-              onDelete={setPendingDeleteSkill}
-              onSync={handleSync}
-            />
-          ))}
-        </div>
-      </section>
-    );
+  async function handleOpenInEditor(skill: Skill) {
+    try {
+      await invoke("open_skill_in_editor", { id: skill.id, isActive: skill.isActive });
+      showToast(t("toast.skillOpenEditorRequested"));
+    } catch (err) {
+      showOperationError(showToast, t("toast.skillOpenEditorError"), err);
+    }
   }
 
   return (
@@ -528,30 +499,42 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       {!hasAnySkill ? (
         <EmptyState title={t("skills.empty")} hint={t("skills.emptyHint")} icon={Zap} />
       ) : (
-        <div className="skill-groups flex flex-col gap-5 p-4">
-          {renderSkillGroup(
-            t("skills.group.managed"),
-            t("skills.group.managedDescription"),
-            managedSkills,
-          )}
-          {renderSkillGroup(
-            t("skills.group.unmanaged"),
-            t("skills.group.unmanagedDescription"),
-            unmanagedSkills,
-          )}
-        </div>
+        <section className="skill-groups flex flex-col gap-3 p-4" aria-label={t("skills.list")}>
+          <div className="skill-group-header flex min-w-0 flex-col gap-1 px-1">
+            <h2 className="m-0 text-base leading-snug font-bold text-foreground">
+              {t("skills.list")}
+            </h2>
+            <p className="m-0 text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]">
+              {t("skills.listDescription")}
+            </p>
+          </div>
+          <div className="list-container flex flex-col gap-3">
+            {sortedSkills.map((skill) => (
+              <SkillItem
+                key={skill.id}
+                skill={skill}
+                isEditing={isDrawerOpen && editingSkill?.id === skill.id}
+                onToggle={handleToggle}
+                onEdit={openEdit}
+                onDelete={setPendingDeleteSkill}
+                onSync={handleSync}
+                onOpenExternal={handleOpenInEditor}
+              />
+            ))}
+          </div>
+        </section>
       )}
 
       {/* 删除确认对话框 */}
       {pendingDeleteSkill && (
         <ConfirmAlertDialog
           title={t(
-            pendingDeleteSkill.isManaged === false
+            pendingDeleteSkill.isSymlink
               ? "confirm.deleteSymlinkSkillTitle"
               : "confirm.deleteSkillTitle",
           )}
           message={t(
-            pendingDeleteSkill.isManaged === false
+            pendingDeleteSkill.isSymlink
               ? "confirm.deleteSymlinkSkillMessage"
               : "confirm.deleteSkillMessage",
           )}
