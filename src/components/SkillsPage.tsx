@@ -1,20 +1,44 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ExternalLink, FolderInput, Plus, RefreshCw, Zap } from "lucide-react";
+import {
+  CheckCircle2,
+  CircleAlert,
+  ExternalLink,
+  FolderInput,
+  Plus,
+  RefreshCw,
+  Zap,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
 import { type Language, type TranslationKey, useI18n } from "../i18n";
-import type { ClaudeDirectoryChangedEvent, Skill, SkillDirectoryImportResult } from "../types";
+import type {
+  ClaudeDirectoryChangedEvent,
+  Skill,
+  SkillDirectoryImportResult,
+  SkillDirectoryImportSkipReason,
+} from "../types";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import EmptyState from "./EmptyState";
 import { LIST_DETAIL_DRAWER_OFFSET_CLASS } from "./layout-size-classes";
 import PageHeader from "./PageHeader";
 import SkillEditor from "./SkillEditor";
 import SkillItem from "./SkillItem";
+import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
+import { ScrollArea } from "./ui/scroll-area";
 import { Sheet, SheetContent } from "./ui/sheet";
 
 const CLAUDE_CODE_DOCS_BASE_URL = "https://code.claude.com/docs";
@@ -29,14 +53,185 @@ function isSkillsFileChangePath(path: string) {
   return path === "skills" || path.startsWith("skills/");
 }
 
-function formatDirectoryImportSummary(
-  template: string,
-  importedCount: number,
-  skippedCount: number,
-) {
+function formatImportResultSummary(template: string, importedCount: number, skippedCount: number) {
   return template
     .replace("{imported}", String(importedCount))
     .replace("{skipped}", String(skippedCount));
+}
+
+const importSkipReasonLabels: Record<SkillDirectoryImportSkipReason, TranslationKey> = {
+  "invalid-id": "skills.importResultReason.invalidId",
+  exists: "skills.importResultReason.exists",
+  "missing-skill-md": "skills.importResultReason.missingSkillMd",
+};
+
+function formatImportCount(template: string, count: number) {
+  return template.replace("{count}", String(count));
+}
+
+interface SkillImportResultDialogProps {
+  result: SkillDirectoryImportResult;
+  onConfirm: () => void;
+}
+
+function SkillImportResultDialog({ result, onConfirm }: SkillImportResultDialogProps) {
+  const { t } = useI18n();
+  const hasImported = result.imported.length > 0;
+  const hasSkipped = result.skipped.length > 0;
+  const isEmpty = !hasImported && !hasSkipped;
+  const isAllSuccess = hasImported && !hasSkipped;
+  const isAllFailed = !hasImported && hasSkipped;
+  const statusTitle = isAllSuccess
+    ? t("skills.importResultAllSuccessTitle")
+    : isAllFailed
+      ? t("skills.importResultAllFailedTitle")
+      : hasSkipped
+        ? t("skills.importResultPartialTitle")
+        : t("skills.importResultEmptyTitle");
+  const statusDescription = isAllSuccess
+    ? formatImportResultSummary(
+        t("skills.importResultImportedCount"),
+        result.imported.length,
+        result.skipped.length,
+      )
+    : hasSkipped
+      ? formatImportResultSummary(
+          t("skills.importResultSummary"),
+          result.imported.length,
+          result.skipped.length,
+        )
+      : t("skills.importResultEmptyDescription");
+  const StatusIcon = hasSkipped || isEmpty ? CircleAlert : CheckCircle2;
+  const summaryIconClass = hasSkipped
+    ? "text-destructive"
+    : isEmpty
+      ? "text-muted-foreground"
+      : "text-primary";
+
+  return (
+    <Dialog open>
+      <DialogContent
+        showCloseButton={false}
+        className="skills-import-result-dialog sm:max-w-xl"
+        onEscapeKeyDown={(event) => event.preventDefault()}
+        onPointerDownOutside={(event) => event.preventDefault()}
+      >
+        <DialogHeader>
+          <DialogTitle>{t("skills.importResultTitle")}</DialogTitle>
+          <DialogDescription>{t("skills.importResultDescription")}</DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-4">
+          <Card className="gap-0 py-0 shadow-none">
+            <CardHeader className="grid-cols-[auto_1fr_auto] grid-rows-1 items-center gap-x-3 px-4 py-4">
+              <StatusIcon className={cn("size-5 shrink-0", summaryIconClass)} aria-hidden="true" />
+              <div className="min-w-0">
+                <CardTitle>{statusTitle}</CardTitle>
+                <CardDescription className="mt-1">{statusDescription}</CardDescription>
+              </div>
+              <CardAction className="col-start-3 row-span-1 row-start-1 flex flex-wrap justify-end gap-2">
+                {hasImported ? (
+                  <Badge variant="secondary">
+                    {formatImportCount(
+                      t("skills.importResultSuccessCount"),
+                      result.imported.length,
+                    )}
+                  </Badge>
+                ) : null}
+                {hasSkipped ? (
+                  <Badge variant="destructive">
+                    {formatImportCount(t("skills.importResultFailureCount"), result.skipped.length)}
+                  </Badge>
+                ) : null}
+              </CardAction>
+            </CardHeader>
+          </Card>
+
+          {hasImported ? (
+            <Card className="gap-0 py-0 shadow-none">
+              <CardHeader className="px-4 py-3">
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle2 className="size-4 text-primary" aria-hidden="true" />
+                  <span>{t("skills.importResultSuccessTitle")}</span>
+                </CardTitle>
+                <CardAction>
+                  <Badge variant="outline">
+                    {formatImportCount(t("skills.importResultItemCount"), result.imported.length)}
+                  </Badge>
+                </CardAction>
+              </CardHeader>
+              <CardContent className="px-0 pb-1">
+                <ScrollArea className="max-h-44">
+                  <ul className="m-0 flex flex-col p-0">
+                    {result.imported.map((id) => (
+                      <li
+                        key={id}
+                        className="grid min-w-0 grid-cols-[auto_1fr_auto] items-center gap-3 border-t border-border/70 px-4 py-2.5"
+                      >
+                        <CheckCircle2 className="size-3.5 text-primary" aria-hidden="true" />
+                        <code className="min-w-0 truncate font-mono text-sm text-foreground">
+                          {id}
+                        </code>
+                        <Badge variant="secondary">{t("skills.importResultImportedBadge")}</Badge>
+                      </li>
+                    ))}
+                  </ul>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {hasSkipped ? (
+            <Card className="gap-0 py-0 shadow-none">
+              <CardHeader className="px-4 py-3">
+                <CardTitle className="flex items-center gap-2">
+                  <CircleAlert className="size-4 text-destructive" aria-hidden="true" />
+                  <span>{t("skills.importResultFailureTitle")}</span>
+                </CardTitle>
+                <CardAction>
+                  <Badge variant="destructive">
+                    {formatImportCount(t("skills.importResultItemCount"), result.skipped.length)}
+                  </Badge>
+                </CardAction>
+              </CardHeader>
+              <CardContent className="px-0 pb-1">
+                <ScrollArea className="max-h-52">
+                  <ul className="m-0 flex flex-col p-0">
+                    {result.skipped.map((item) => (
+                      <li
+                        key={`${item.id}-${item.reason}`}
+                        className="grid min-w-0 grid-cols-[auto_1fr_auto] items-start gap-3 border-t border-border/70 px-4 py-2.5"
+                      >
+                        <CircleAlert
+                          className="mt-0.5 size-3.5 text-destructive"
+                          aria-hidden="true"
+                        />
+                        <div className="min-w-0">
+                          <code className="block truncate font-mono text-sm text-foreground">
+                            {item.id}
+                          </code>
+                          <span className="mt-0.5 block text-xs text-muted-foreground">
+                            {t(importSkipReasonLabels[item.reason])}
+                          </span>
+                        </div>
+                        <Badge variant="outline">{t("skills.importResultFailedBadge")}</Badge>
+                      </li>
+                    ))}
+                  </ul>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          ) : null}
+        </div>
+
+        <DialogFooter>
+          <Button type="button" onClick={onConfirm}>
+            {t("skills.importResultConfirm")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function sortSkillsForList(items: Skill[]) {
@@ -61,6 +256,8 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   const [isImportingDirectory, setIsImportingDirectory] = useState(false);
   const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
   const [pendingDeleteSkill, setPendingDeleteSkill] = useState<Skill | null>(null);
+  const [directoryImportResult, setDirectoryImportResult] =
+    useState<SkillDirectoryImportResult | null>(null);
 
   // 加载 Skills 列表
   const refreshSkills = useCallback(
@@ -182,17 +379,7 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
         sourceDir,
       });
       setSkills(result.skills);
-      if (result.imported.length === 0 && result.skipped.length === 0) {
-        showToast(t("toast.skillDirectoryImportEmpty"));
-        return;
-      }
-      showToast(
-        formatDirectoryImportSummary(
-          t("toast.skillDirectoryImportSummary"),
-          result.imported.length,
-          result.skipped.length,
-        ),
-      );
+      setDirectoryImportResult(result);
     } catch (_err) {
       showToast(t("toast.skillDirectoryImportError"), "error");
     } finally {
@@ -377,6 +564,13 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
           onCancel={() => setPendingDeleteSkill(null)}
         />
       )}
+
+      {directoryImportResult ? (
+        <SkillImportResultDialog
+          result={directoryImportResult}
+          onConfirm={() => setDirectoryImportResult(null)}
+        />
+      ) : null}
 
       {/* 编辑/新建抽屉 */}
       {isDrawerOpen && (

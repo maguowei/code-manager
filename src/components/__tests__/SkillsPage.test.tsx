@@ -194,11 +194,15 @@ describe("SkillsPage", () => {
     expect(showToastMock).toHaveBeenCalledWith("Skills 已刷新");
   });
 
-  it("imports skills from a selected directory and shows a summary", async () => {
+  it("imports skills from a selected directory and requires confirming the result", async () => {
     const importResult: SkillDirectoryImportResult = {
       skills: [managedSkill, unmanagedSkill],
-      imported: ["managed-skill"],
-      skipped: [{ id: "linked-skill", reason: "is-symlink" }],
+      imported: ["managed-skill", "linked-skill"],
+      skipped: [
+        { id: "Invalid_Skill", reason: "invalid-id" },
+        { id: "existing-skill", reason: "exists" },
+        { id: "missing-skill-md", reason: "missing-skill-md" },
+      ],
     };
     openDialogMock.mockResolvedValue("/tmp/skill-source");
     invokeMock.mockImplementation(async (command) => {
@@ -224,7 +228,59 @@ describe("SkillsPage", () => {
     });
     expect(await screen.findByText("Managed Skill")).toBeInTheDocument();
     expect(await screen.findByText("Linked Skill")).toBeInTheDocument();
-    expect(showToastMock).toHaveBeenCalledWith("已导入 1 个 Skill，跳过 1 个");
+
+    const dialog = await screen.findByRole("dialog", { name: "导入结果" });
+    expect(within(dialog).getByText("成功 2 个，失败 3 个")).toBeInTheDocument();
+    expect(within(dialog).getByText("成功 2")).toBeInTheDocument();
+    expect(within(dialog).getByText("失败 3")).toBeInTheDocument();
+    expect(within(dialog).getByText("2 项")).toBeInTheDocument();
+    expect(within(dialog).getByText("3 项")).toBeInTheDocument();
+    expect(within(dialog).getByText("managed-skill")).toBeInTheDocument();
+    expect(within(dialog).getByText("linked-skill")).toBeInTheDocument();
+    expect(within(dialog).getByText("Invalid_Skill")).toBeInTheDocument();
+    expect(within(dialog).getByText("名称不符合 Skill id 规则")).toBeInTheDocument();
+    expect(within(dialog).getByText("existing-skill")).toBeInTheDocument();
+    expect(within(dialog).getByText("同名 Skill 已存在")).toBeInTheDocument();
+    expect(within(dialog).getByText("missing-skill-md")).toBeInTheDocument();
+    expect(within(dialog).getByText("缺少有效的 SKILL.md 或软链接目标无效")).toBeInTheDocument();
+    expect(showToastMock).not.toHaveBeenCalledWith("已导入 2 个 Skill，跳过 3 个");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "确认" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "导入结果" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("shows a focused all-success import result without the failure section", async () => {
+    const importResult: SkillDirectoryImportResult = {
+      skills: [managedSkill, unmanagedSkill],
+      imported: ["managed-skill", "linked-skill"],
+      skipped: [],
+    };
+    openDialogMock.mockResolvedValue("/tmp/skill-source");
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_skills") return [];
+      if (command === "import_skills_from_directory") return importResult;
+      return null;
+    });
+
+    renderSkillsPage();
+    expect(await screen.findByText("暂无 Skills")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "导入目录" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "导入结果" });
+    expect(within(dialog).getByText("全部导入成功")).toBeInTheDocument();
+    expect(within(dialog).getByText("已导入 2 个 Skill")).toBeInTheDocument();
+    expect(within(dialog).getByText("成功 2")).toBeInTheDocument();
+    expect(within(dialog).getByText("2 项")).toBeInTheDocument();
+    expect(within(dialog).getByText("managed-skill")).toBeInTheDocument();
+    expect(within(dialog).getByText("linked-skill")).toBeInTheDocument();
+    expect(within(dialog).getAllByText("已导入")).toHaveLength(2);
+    expect(within(dialog).queryByText("导入失败")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("没有失败项")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("失败 0 个")).not.toBeInTheDocument();
   });
 
   it("does not import skills when directory selection is cancelled", async () => {

@@ -8,20 +8,20 @@
 
 当前 Skills 页只能通过编辑器手动创建 skill，扫描 `~/.claude/skills/` 时主动跳过软链接（`src-tauri/src/skills.rs:215`）。Memory 页已经具备「外部目录导入」与「未托管项展示+接管」能力，Skills 页需要对齐：
 
-1. 支持从外部目录导入 skill（单 skill / 集合目录都支持）。
+1. 支持从外部目录导入 skill（普通目录、目录软链接、集合目录都支持）。
 2. 扫描时识别软链接形式的 skill 并展示，作为「未托管 Skills」与托管 skill 共存。
 
 ## 目标与非目标
 
 **目标**
 
-- 用户可一键从外部目录导入 skill 到本地（复制为禁用态）。
+- 用户可一键从外部普通目录或目录软链接导入 skill 到本地；普通目录复制为禁用态，软链接保留链接形态并导入为禁用态未托管 skill。
 - 软链接形式的 skill 在列表中可见，可启停、可同步到 Codex、可删除链接，但不可编辑内容。
-- Memory 页已建立的交互范式（页头按钮、Toast 汇总、`claude-directory-changed` 自动刷新）在 Skills 页一致复用。
+- Memory 页已建立的页头按钮与 `claude-directory-changed` 自动刷新范式在 Skills 页一致复用；导入完成后改为展示需要用户确认的结果对话框。
 
 **非目标**
 
-- 不支持「软链接形式导入」（外部目录导入只复制，不创链接）。
+- 不支持在导入软链接时把目标目录复制成托管 skill；软链接导入保持链接形态。
 - 不为软链接 skill 提供只读编辑器视图，仅入口禁用 + 后端兜底拒写。
 - 不修改 `SKILL.md` 文件 schema 与 Codex 同步落盘策略，仅扩展运行时视图字段。
 
@@ -58,17 +58,19 @@ import_skills_from_directory(sourceDir: String)
 ```
 
 行为：
-1. 校验 `sourceDir` 存在且是目录。
-2. 自动判定形态：源根目录含 `SKILL.md` → 单 skill 模式；否则 → 集合目录模式，遍历一级子目录。
+1. 校验 `sourceDir` 存在，且是普通目录或指向目录的软链接。
+2. 自动判定形态：源根目录或其链接目标含 `SKILL.md` → 单 skill 模式；否则 → 集合目录模式，遍历一级普通子目录和目录软链接。
 3. 单 skill 模式：源目录名作为 id；目标路径 `~/.config/ai-manager/skills-disabled/<id>/`。
-4. 集合目录模式：每个一级子目录视为候选 skill；子目录名作为 id；同样目标到 `skills-disabled/<id>/`。
-5. 跳过条件（计入 `skipped` 列表，附 `reason`）：
+4. 集合目录模式：每个一级普通子目录或目录软链接视为候选 skill；子目录名作为 id；同样目标到 `skills-disabled/<id>/`。
+5. 导入结果：
+   - 普通目录：递归复制为 `skills-disabled/<id>/`，返回 `isManaged = true`。
+   - 目录软链接：在 `skills-disabled/<id>` 创建指向 canonical 目标的新目录软链接，返回 `isManaged = false` 与 `linkTarget`。
+6. 跳过条件（计入 `skipped` 列表，附 `reason`）：
    - `invalid-id`：id 不符合 `^[a-z0-9-]+$`（与 `validate_skill_id` 一致）。
    - `exists`：`~/.claude/skills/<id>` 或 `skills-disabled/<id>` 已存在。
-   - `missing-skill-md`：集合模式下子目录缺 `SKILL.md`。
-   - `is-symlink`：源条目是软链接（不复制，避免间接绕过 isManaged 语义）。
-6. 复制时跳过软链接条目，避免路径逃逸。
-7. 返回完整 `skills` 列表（等同 `get_skills` 的结果）。
+   - `missing-skill-md`：候选目录缺 `SKILL.md`，或候选软链接悬空、目标不是目录、目标缺 `SKILL.md`。
+7. 普通目录复制时跳过目录内部的软链接条目，避免路径逃逸。
+8. 返回完整 `skills` 列表（等同 `get_skills` 的结果）。
 
 ### 现有 command 行为变更（按 `isManaged` 分支）
 
@@ -87,7 +89,8 @@ import_skills_from_directory(sourceDir: String)
 
 顺序：`[打开文档] [从目录导入] [刷新]`
 
-- `[从目录导入]`：图标 `FolderInput`，loading 时禁用 + 文案切换。点击 `@tauri-apps/plugin-dialog` 的 `open({ directory: true })` 取目录后 `invoke("import_skills_from_directory")`，Toast 汇总文案 `{imported} 已导入，{skipped} 跳过`。
+- `[从目录导入]`：图标 `FolderInput`，loading 时禁用 + 文案切换。点击 `@tauri-apps/plugin-dialog` 的 `open({ directory: true })` 取目录后 `invoke("import_skills_from_directory")`。
+- 导入完成后展示阻塞式结果对话框：顶部用状态摘要说明全部成功、部分成功、全部失败或空结果；成功列表展示 Skill id；仅在存在失败项时展示失败列表与本地化失败原因；用户必须点击确认按钮后才关闭。
 - `[刷新]`：图标 `RefreshCw`，`aria-busy` 行为同 MemoryPage。
 - 订阅 `claude-directory-changed`：`paths` 含 `"skills"` 或 `startsWith("skills/")` 时自动重拉。
 
@@ -126,11 +129,18 @@ import_skills_from_directory(sourceDir: String)
 skills.importDirectory, skills.importDirectoryHint,
 skills.importingDirectory, skills.importDirectoryDialogTitle,
 skills.refresh, skills.refreshing,
+skills.importResultTitle, skills.importResultDescription,
+skills.importResultAllSuccessTitle, skills.importResultPartialTitle,
+skills.importResultAllFailedTitle, skills.importResultEmptyTitle,
+skills.importResultEmptyDescription, skills.importResultSummary,
+skills.importResultImportedCount, skills.importResultSuccessTitle,
+skills.importResultFailureTitle, skills.importResultConfirm,
+skills.importResultReason.invalidId, skills.importResultReason.exists,
+skills.importResultReason.missingSkillMd,
 skills.group.managed, skills.group.managedDescription,
 skills.group.unmanaged, skills.group.unmanagedDescription,
 skills.symlinkBadge, skills.symlinkNotEditableHint,
 toast.skillRefreshed, toast.skillRefreshError,
-toast.skillDirectoryImportSummary, toast.skillDirectoryImportEmpty,
 toast.skillDirectoryImportError,
 confirm.deleteSymlinkSkillTitle, confirm.deleteSymlinkSkillMessage
 ```
@@ -154,11 +164,12 @@ confirm.deleteSymlinkSkillTitle, confirm.deleteSymlinkSkillMessage
 | `update_skill_rejects_symlink` | 后端兜底：未托管不可写 |
 | `sync_skill_to_codex_links_to_canonical_target` | codex 同步指向最终目标，不是链套链 |
 | `import_skills_from_directory_single_skill` | 源根有 `SKILL.md` → 复制为单 skill |
-| `import_skills_from_directory_collection` | 源根无 `SKILL.md` → 批量复制子目录 |
+| `import_skills_from_directory_symlink_root` | 源根是指向合法 skill 的目录软链接 → 导入为未托管禁用 skill |
+| `import_skills_from_directory_collection` | 源根无 `SKILL.md` → 批量导入一级普通子目录和目录软链接 |
 | `import_skills_from_directory_skips_id_conflict` | 同 id 已存在 → `reason: "exists"` |
 | `import_skills_from_directory_skips_invalid_id` | 子目录名违规 → `reason: "invalid-id"` |
 | `import_skills_from_directory_skips_subdir_without_skill_md` | 集合模式下无 `SKILL.md` 跳过 |
-| `import_skills_from_directory_skips_symlink_entry` | 源条目是软链接 → 跳过 |
+| `import_skills_from_directory_imports_symlink_entry` | 集合模式下合法目录软链接 → 导入为未托管禁用 skill |
 
 Symlink 创建：Unix 用 `std::os::unix::fs::symlink`，Windows 用 `std::os::windows::fs::symlink_dir`，复用现有 `sync_skill_to_codex` 的 cfg 分支。
 
@@ -167,7 +178,7 @@ Symlink 创建：Unix 用 `std::os::unix::fs::symlink`，Windows 用 `std::os::w
 `SkillsPage`：
 - 渲染时按 `isManaged` 拆为两个 section，标题文案来自 i18n。
 - 未托管 skill 卡片显示 `Link2` 徽标，编辑按钮 `aria-disabled`。
-- 「从目录导入」点击后 `invoke` 被以 `import_skills_from_directory` 调用，summary toast 文案占位符正确替换。
+- 「从目录导入」点击后 `invoke` 被以 `import_skills_from_directory` 调用；全部成功时对话框展示“全部导入成功”和成功列表且不展示失败区；存在失败时展示失败列表与失败原因；点击确认后关闭。
 - 监听 `claude-directory-changed` 事件含 `skills` 路径时触发 `get_skills`。
 - 「刷新」按钮 `aria-busy` 行为与 MemoryPage 同形。
 

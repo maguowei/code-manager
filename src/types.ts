@@ -270,11 +270,7 @@ export interface ClaudeDirectoryChangedEvent {
   paths: string[];
 }
 
-export type SkillDirectoryImportSkipReason =
-  | "invalid-id"
-  | "exists"
-  | "missing-skill-md"
-  | "is-symlink";
+export type SkillDirectoryImportSkipReason = "invalid-id" | "exists" | "missing-skill-md";
 
 // Skill 条目
 export interface Skill {
