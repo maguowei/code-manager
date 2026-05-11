@@ -209,7 +209,7 @@ describe("MemoryPage", () => {
     expect(showToastMock).toHaveBeenCalledWith("记忆已刷新");
   });
 
-  it("imports memories from a selected directory and shows a summary", async () => {
+  it("imports memories from a selected directory and requires confirming the result", async () => {
     const importedState: MemoryState = {
       memories: [
         ...initialState.memories,
@@ -269,7 +269,7 @@ describe("MemoryPage", () => {
     renderMemoryPage();
     expect(await screen.findByText("全局 A")).toBeInTheDocument();
 
-    const importDirectoryButton = screen.getByRole("button", { name: "导入目录" });
+    const importDirectoryButton = screen.getByRole("button", { name: "导入记忆" });
     expect(importDirectoryButton).toHaveAttribute(
       "title",
       "选择包含 CLAUDE.md 和 rules 目录的文件夹，导入后默认未启用",
@@ -288,7 +288,26 @@ describe("MemoryPage", () => {
     });
     expect(await screen.findByText("导入全局")).toBeInTheDocument();
     expect(await screen.findByText("前端规则")).toBeInTheDocument();
-    expect(showToastMock).toHaveBeenCalledWith("已导入 2 条，跳过 1 条");
+
+    const dialog = await screen.findByRole("dialog", { name: "导入结果" });
+    expect(within(dialog).getByText("成功 2 条，失败 1 条")).toBeInTheDocument();
+    expect(within(dialog).getByText("成功 2")).toBeInTheDocument();
+    expect(within(dialog).getByText("失败 1")).toBeInTheDocument();
+    expect(within(dialog).getByText("2 项")).toBeInTheDocument();
+    expect(within(dialog).getByText("1 项")).toBeInTheDocument();
+    expect(within(dialog).getByText("导入全局")).toBeInTheDocument();
+    expect(within(dialog).getByText("CLAUDE.md")).toBeInTheDocument();
+    expect(within(dialog).getByText("前端规则")).toBeInTheDocument();
+    expect(within(dialog).getByText("frontend/style.md")).toBeInTheDocument();
+    expect(within(dialog).getByText("rules/duplicate.md")).toBeInTheDocument();
+    expect(within(dialog).getByText("同路径 Rule 已存在")).toBeInTheDocument();
+    expect(showToastMock).not.toHaveBeenCalledWith("已导入 2 条，跳过 1 条");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "确认" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "导入结果" })).not.toBeInTheDocument();
+    });
   });
 
   it("does not import memories when directory selection is cancelled", async () => {
@@ -297,7 +316,7 @@ describe("MemoryPage", () => {
     renderMemoryPage();
     expect(await screen.findByText("全局 A")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "导入目录" }));
+    fireEvent.click(screen.getByRole("button", { name: "导入记忆" }));
 
     await waitFor(() => {
       expect(openDialogMock).toHaveBeenCalled();
@@ -307,7 +326,7 @@ describe("MemoryPage", () => {
     ).toBe(false);
   });
 
-  it("shows an empty import toast when the selected directory has no importable memories", async () => {
+  it("shows an empty import result when the selected directory has no importable memories", async () => {
     const emptyResult: MemoryDirectoryImportResult = {
       state: initialState,
       imported: [],
@@ -323,11 +342,14 @@ describe("MemoryPage", () => {
     renderMemoryPage();
     expect(await screen.findByText("全局 A")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "导入目录" }));
+    fireEvent.click(screen.getByRole("button", { name: "导入记忆" }));
 
-    await waitFor(() => {
-      expect(showToastMock).toHaveBeenCalledWith("未找到可导入的记忆");
-    });
+    const dialog = await screen.findByRole("dialog", { name: "导入结果" });
+    expect(within(dialog).getByText("没有可导入的记忆")).toBeInTheDocument();
+    expect(within(dialog).getByText("没有发现可导入的记忆文件。")).toBeInTheDocument();
+    expect(within(dialog).queryByText("导入成功")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("导入失败")).not.toBeInTheDocument();
+    expect(showToastMock).not.toHaveBeenCalledWith("未找到可导入的记忆");
   });
 
   it("shows an error toast when directory import fails", async () => {
@@ -341,7 +363,7 @@ describe("MemoryPage", () => {
     renderMemoryPage();
     expect(await screen.findByText("全局 A")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "导入目录" }));
+    fireEvent.click(screen.getByRole("button", { name: "导入记忆" }));
 
     await waitFor(() => {
       expect(showToastMock).toHaveBeenCalledWith("导入目录记忆失败", "error");

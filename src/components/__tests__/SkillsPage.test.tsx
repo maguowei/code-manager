@@ -214,7 +214,7 @@ describe("SkillsPage", () => {
     renderSkillsPage();
     expect(await screen.findByText("暂无 Skills")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "导入目录" }));
+    fireEvent.click(screen.getByRole("button", { name: "导入 Skills" }));
 
     await waitFor(() => {
       expect(openDialogMock).toHaveBeenCalledWith({
@@ -268,7 +268,7 @@ describe("SkillsPage", () => {
     renderSkillsPage();
     expect(await screen.findByText("暂无 Skills")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "导入目录" }));
+    fireEvent.click(screen.getByRole("button", { name: "导入 Skills" }));
 
     const dialog = await screen.findByRole("dialog", { name: "导入结果" });
     expect(within(dialog).getByText("全部导入成功")).toBeInTheDocument();
@@ -289,7 +289,7 @@ describe("SkillsPage", () => {
     renderSkillsPage();
     expect(await screen.findByText("暂无 Skills")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "导入目录" }));
+    fireEvent.click(screen.getByRole("button", { name: "导入 Skills" }));
 
     await waitFor(() => {
       expect(openDialogMock).toHaveBeenCalled();

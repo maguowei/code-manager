@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 /// Skill 元数据，对应 ~/.claude/skills/<id>/ 目录
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -134,10 +134,50 @@ fn resolve_display_name(name: &str, id: &str) -> String {
     }
 }
 
-fn canonical_path_string(path: &Path) -> Result<String, String> {
+fn normalize_path(path: PathBuf) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                normalized.pop();
+            }
+            Component::Prefix(_) | Component::RootDir | Component::Normal(_) => {
+                normalized.push(component.as_os_str());
+            }
+        }
+    }
+    normalized
+}
+
+fn resolve_skill_dir_symlink_target(path: &Path, is_active: bool) -> Result<PathBuf, String> {
+    if let Ok(target) = path.canonicalize() {
+        return Ok(target);
+    }
+
+    let link_target = fs::read_link(path).map_err(|e| format!("读取 Skill 软链接失败: {}", e))?;
+    if link_target.is_relative() {
+        let previous_parent = if is_active {
+            get_disabled_dir()
+        } else {
+            get_skills_dir()
+        };
+        if let Ok(target) = normalize_path(previous_parent.join(&link_target)).canonicalize() {
+            return Ok(target);
+        }
+    }
+
     path.canonicalize()
         .map_err(|e| format!("解析软链接目标失败: {}", e))
-        .map(|target| target.to_string_lossy().to_string())
+}
+
+fn ensure_valid_skill_dir_target(target: &Path) -> Result<(), String> {
+    let target_metadata =
+        fs::metadata(target).map_err(|e| format!("读取 Skill 软链接目标失败: {}", e))?;
+    if !target_metadata.is_dir() || !target.join("SKILL.md").is_file() {
+        return Err("软链接 Skill 目标缺少有效的 SKILL.md".to_string());
+    }
+    Ok(())
 }
 
 fn read_skill_from_path(
@@ -284,26 +324,24 @@ fn scan_skills_dir(dir: &Path, is_active: bool) -> Vec<Skill> {
             None => continue,
         };
 
-        let (is_managed, link_target) = if file_type.is_symlink() {
-            let target = match path.canonicalize() {
+        let (read_root, is_managed, link_target) = if file_type.is_symlink() {
+            let target = match resolve_skill_dir_symlink_target(&path, is_active) {
                 Ok(target) => target,
                 Err(_) => continue,
             };
-            let target_metadata = match fs::metadata(&target) {
-                Ok(metadata) => metadata,
-                Err(_) => continue,
-            };
-            if !target_metadata.is_dir() || !target.join("SKILL.md").is_file() {
+            if ensure_valid_skill_dir_target(&target).is_err() {
                 continue;
             }
-            (false, Some(target.to_string_lossy().to_string()))
+            let link_target = target.to_string_lossy().to_string();
+            (target, false, Some(link_target))
         } else if file_type.is_dir() {
-            (true, None)
+            (path.clone(), true, None)
         } else {
             continue;
         };
 
-        if let Ok(skill) = read_skill_from_path(id, &path, is_active, is_managed, link_target) {
+        if let Ok(skill) = read_skill_from_path(id, &read_root, is_active, is_managed, link_target)
+        {
             skills.push(skill);
         }
     }
@@ -322,7 +360,7 @@ pub fn get_skills() -> Result<Vec<Skill>, String> {
     Ok(skills)
 }
 
-/// 切换 Skill 的启用/禁用状态（通过移动目录实现）
+/// 切换 Skill 的启用/禁用状态
 #[tauri::command]
 pub fn toggle_skill(id: String, is_active: bool) -> Result<Skill, String> {
     let result = (|| {
@@ -340,21 +378,40 @@ pub fn toggle_skill(id: String, is_active: bool) -> Result<Skill, String> {
         // 确保目标根目录存在
         fs::create_dir_all(&dst_root).map_err(|e| format!("创建目录失败: {}", e))?;
 
+        let src_metadata =
+            fs::symlink_metadata(&src).map_err(|_| format!("Skill '{}' 不存在", id))?;
+        let new_is_active = !is_active;
+        if src_metadata.file_type().is_symlink() {
+            let target = resolve_skill_dir_symlink_target(&src, is_active)?;
+            ensure_valid_skill_dir_target(&target)?;
+            if path_exists_including_symlink(&dst) {
+                return Err(format!("Skill '{}' 已存在", id));
+            }
+
+            create_skill_dir_symlink(&target, &dst)?;
+            if let Err(error) = fs::remove_file(&src) {
+                let _ = fs::remove_file(&dst);
+                return Err(format!("移动 Skill 软链接失败: {}", error));
+            }
+
+            return read_skill_from_path(
+                id,
+                &target,
+                new_is_active,
+                false,
+                Some(target.to_string_lossy().to_string()),
+            );
+        }
+
+        if !src_metadata.is_dir() {
+            return Err(format!("Skill '{}' 不是有效目录", id));
+        }
+
         // 移动目录
         fs::rename(&src, &dst).map_err(|e| format!("移动 Skill 目录失败: {}", e))?;
 
         // 读取新位置的 SKILL.md 并返回更新后的 Skill
-        let new_is_active = !is_active;
-        let dst_metadata =
-            fs::symlink_metadata(&dst).map_err(|e| format!("读取 Skill 目录失败: {}", e))?;
-        let is_managed = !dst_metadata.file_type().is_symlink();
-        let link_target = if is_managed {
-            None
-        } else {
-            Some(canonical_path_string(&dst)?)
-        };
-
-        read_skill_from_path(id, &dst, new_is_active, is_managed, link_target)
+        read_skill_from_path(id, &dst, new_is_active, true, None)
     })();
     crate::logging::log_command_result("skill.toggle", &result, |skill| {
         format!("skill_id={} active={}", skill.id, skill.is_active)
@@ -1258,6 +1315,62 @@ mod schema_tests {
             .file_type()
             .is_symlink());
         assert!(file_exists(&external.join("SKILL.md")));
+    }
+
+    #[test]
+    fn toggle_skill_keeps_relative_symlink_visible_after_disabling() {
+        let env = TestEnv::new("toggle-relative-symlink");
+        let external = env.root.join("external").join("linked-skill");
+        write_skill_dir(&external, "Linked Skill");
+        fs::create_dir_all(env.active_skill_dir("linked-skill").parent().unwrap())
+            .expect("应可创建 Skills 根目录");
+        create_test_dir_symlink(
+            Path::new("../../external/linked-skill"),
+            &env.active_skill_dir("linked-skill"),
+        );
+
+        let toggled = toggle_skill("linked-skill".to_string(), true).expect("应可禁用相对软链接");
+        let skills = get_skills().expect("应可重新扫描 Skills");
+        let scanned = skills
+            .iter()
+            .find(|skill| skill.id == "linked-skill")
+            .expect("禁用后的相对软链接仍应出现在列表中");
+
+        assert!(!toggled.is_active);
+        assert!(!toggled.is_managed);
+        assert!(!scanned.is_active);
+        assert!(!scanned.is_managed);
+        assert_eq!(
+            scanned.link_target.as_deref(),
+            Some(
+                external
+                    .canonicalize()
+                    .expect("目标应可 canonicalize")
+                    .to_str()
+                    .unwrap()
+            )
+        );
+    }
+
+    #[test]
+    fn scan_disabled_symlink_recovers_relative_target_moved_from_active_dir() {
+        let env = TestEnv::new("scan-moved-relative-symlink");
+        let external = env.root.join("external").join("linked-skill");
+        write_skill_dir(&external, "Linked Skill");
+        fs::create_dir_all(env.disabled_skill_dir("linked-skill").parent().unwrap())
+            .expect("应可创建禁用目录");
+        create_test_dir_symlink(
+            Path::new("../../external/linked-skill"),
+            &env.disabled_skill_dir("linked-skill"),
+        );
+
+        let skills = scan_skills_dir(&get_disabled_dir(), false);
+
+        assert_eq!(skills.len(), 1);
+        assert_eq!(skills[0].id, "linked-skill");
+        assert_eq!(skills[0].name, "Linked Skill");
+        assert!(!skills[0].is_active);
+        assert!(!skills[0].is_managed);
     }
 
     #[test]
