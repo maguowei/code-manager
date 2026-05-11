@@ -15,6 +15,10 @@ pub static MEMORY_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 /// Skills 文件操作互斥锁
 pub static SKILLS_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
+/// 测试中修改进程级环境变量时共用，避免不同模块并行测试互相污染。
+#[cfg(test)]
+pub static TEST_ENV_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+
 /// 安全获取用户主目录
 pub fn get_home_dir() -> Result<PathBuf, String> {
     if let Some(path) = env::var_os("AI_MANAGER_HOME_OVERRIDE") {

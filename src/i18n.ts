@@ -130,6 +130,21 @@ const translations = {
     "skills.openDocs": "官方文档",
     "skills.openDocsAriaLabel": "查看 Claude Code Skills 官方文档",
     "skills.openDocsError": "打开 Skills 文档失败",
+    "skills.importDirectory": "导入目录",
+    "skills.importDirectoryHint":
+      "选择单个 Skill 或包含多个 Skill 子目录的文件夹，导入后默认未启用",
+    "skills.importingDirectory": "导入中...",
+    "skills.importDirectoryDialogTitle": "选择 Skills 目录",
+    "skills.refresh": "刷新",
+    "skills.refreshing": "刷新中...",
+    "skills.group.managed": "托管 Skills",
+    "skills.group.managedDescription":
+      "由 AI Manager 管理的本地 Skills，可编辑、启停、同步和删除。",
+    "skills.group.unmanaged": "未托管 Skills",
+    "skills.group.unmanagedDescription":
+      "这些 Skills 来自 ~/.claude/skills 中的软链接，可启停、同步和删除链接，但不在这里编辑源内容。",
+    "skills.symlinkBadge": "链接",
+    "skills.symlinkNotEditableHint": "软链接 Skill 不支持编辑内容",
 
     // 统计页面
     "nav.stats": "统计",
@@ -912,6 +927,11 @@ const translations = {
     "toast.memoryDirectoryImportError": "导入目录记忆失败",
     "toast.memoryRefreshed": "记忆已刷新",
     "toast.memoryRefreshError": "刷新记忆失败",
+    "toast.skillRefreshed": "Skills 已刷新",
+    "toast.skillRefreshError": "刷新 Skills 失败",
+    "toast.skillDirectoryImportSummary": "已导入 {imported} 个 Skill，跳过 {skipped} 个",
+    "toast.skillDirectoryImportEmpty": "未找到可导入的 Skill",
+    "toast.skillDirectoryImportError": "导入目录 Skills 失败",
 
     // 导航 aria-label
     "nav.ariaLabel": "主导航",
@@ -967,6 +987,8 @@ const translations = {
     "skills.validation.fileNameInvalid": "文件名不能是绝对路径，且不能包含 ..",
     "confirm.deleteSkillTitle": "删除 Skill",
     "confirm.deleteSkillMessage": "确定要删除此 Skill 吗？此操作将删除整个目录，无法撤销。",
+    "confirm.deleteSymlinkSkillTitle": "删除软链接 Skill",
+    "confirm.deleteSymlinkSkillMessage": "确定要删除此 Skill 的软链接吗？源目录不会被删除。",
     "confirm.deleteSkillFileTitle": "删除文件",
     "confirm.deleteSkillFileMessage": "确定要删除此文件吗？此操作无法撤销。",
     "toast.skillLoadError": "加载 Skills 失败",
@@ -1173,6 +1195,21 @@ const translations = {
     "skills.openDocs": "Docs",
     "skills.openDocsAriaLabel": "Open Claude Code Skills docs",
     "skills.openDocsError": "Failed to open Skills docs",
+    "skills.importDirectory": "Import Directory",
+    "skills.importDirectoryHint":
+      "Select one Skill folder or a folder containing Skill subdirectories. Imported Skills are disabled by default.",
+    "skills.importingDirectory": "Importing...",
+    "skills.importDirectoryDialogTitle": "Select Skills directory",
+    "skills.refresh": "Refresh",
+    "skills.refreshing": "Refreshing...",
+    "skills.group.managed": "Managed Skills",
+    "skills.group.managedDescription":
+      "Local Skills managed by AI Manager. They can be edited, toggled, synced, and deleted.",
+    "skills.group.unmanaged": "Unmanaged Skills",
+    "skills.group.unmanagedDescription":
+      "These Skills are symlinks in ~/.claude/skills. You can toggle, sync, and delete the link, but cannot edit source content here.",
+    "skills.symlinkBadge": "Link",
+    "skills.symlinkNotEditableHint": "Symlink Skills cannot be edited here",
 
     // 统计页面
     "nav.stats": "Stats",
@@ -1984,6 +2021,11 @@ const translations = {
     "toast.memoryDirectoryImportError": "Failed to import memories from directory",
     "toast.memoryRefreshed": "Memories refreshed",
     "toast.memoryRefreshError": "Failed to refresh memories",
+    "toast.skillRefreshed": "Skills refreshed",
+    "toast.skillRefreshError": "Failed to refresh Skills",
+    "toast.skillDirectoryImportSummary": "Imported {imported} Skills, skipped {skipped}",
+    "toast.skillDirectoryImportEmpty": "No importable Skills found",
+    "toast.skillDirectoryImportError": "Failed to import Skills from directory",
 
     // 导航 aria-label
     "nav.ariaLabel": "Main navigation",
@@ -2043,6 +2085,9 @@ const translations = {
     "confirm.deleteSkillTitle": "Delete Skill",
     "confirm.deleteSkillMessage":
       "Are you sure you want to delete this Skill? This will remove the entire directory and cannot be undone.",
+    "confirm.deleteSymlinkSkillTitle": "Delete Symlink Skill",
+    "confirm.deleteSymlinkSkillMessage":
+      "Are you sure you want to delete this Skill symlink? The source directory will not be deleted.",
     "confirm.deleteSkillFileTitle": "Delete File",
     "confirm.deleteSkillFileMessage":
       "Are you sure you want to delete this file? This cannot be undone.",

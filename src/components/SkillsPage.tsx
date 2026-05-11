@@ -1,11 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ExternalLink, Plus, Zap } from "lucide-react";
+import { ExternalLink, FolderInput, Plus, RefreshCw, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
+import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
-import { type Language, useI18n } from "../i18n";
-import type { Skill } from "../types";
+import { type Language, type TranslationKey, useI18n } from "../i18n";
+import type { ClaudeDirectoryChangedEvent, Skill, SkillDirectoryImportResult } from "../types";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import EmptyState from "./EmptyState";
 import { LIST_DETAIL_DRAWER_OFFSET_CLASS } from "./layout-size-classes";
@@ -23,27 +25,75 @@ function getClaudeSkillsDocsUrl(language: Language) {
   return `${CLAUDE_CODE_DOCS_BASE_URL}/${docsLocale}/${CLAUDE_SKILLS_DOCS_PATH}`;
 }
 
+function isSkillsFileChangePath(path: string) {
+  return path === "skills" || path.startsWith("skills/");
+}
+
+function formatDirectoryImportSummary(
+  template: string,
+  importedCount: number,
+  skippedCount: number,
+) {
+  return template
+    .replace("{imported}", String(importedCount))
+    .replace("{skipped}", String(skippedCount));
+}
+
+function sortSkillsForList(items: Skill[]) {
+  return [...items].sort((a, b) => {
+    if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
+    return a.id.localeCompare(b.id);
+  });
+}
+
+type RefreshSkillsOptions = {
+  errorMessage: TranslationKey;
+  setBusy?: boolean;
+  successMessage?: TranslationKey;
+};
+
 function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => void }) {
   const { language, t } = useI18n();
   const { showToast } = useToast();
   const [skills, setSkills] = useState<Skill[]>([]);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isImportingDirectory, setIsImportingDirectory] = useState(false);
   const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [pendingDeleteSkill, setPendingDeleteSkill] = useState<Skill | null>(null);
 
   // 加载 Skills 列表
-  const loadSkills = useCallback(async () => {
-    try {
-      const list = await invoke<Skill[]>("get_skills");
-      setSkills(list);
-    } catch {
-      showToast(t("toast.skillLoadError"), "error");
-    }
-  }, [showToast, t]);
+  const refreshSkills = useCallback(
+    async ({ errorMessage, setBusy, successMessage }: RefreshSkillsOptions) => {
+      if (setBusy) {
+        setIsRefreshing(true);
+      }
+      try {
+        const list = await invoke<Skill[]>("get_skills");
+        setSkills(list);
+        if (successMessage) {
+          showToast(t(successMessage));
+        }
+      } catch {
+        showToast(t(errorMessage), "error");
+      } finally {
+        if (setBusy) {
+          setIsRefreshing(false);
+        }
+      }
+    },
+    [showToast, t],
+  );
 
   useEffect(() => {
-    loadSkills();
-  }, [loadSkills]);
+    refreshSkills({ errorMessage: "toast.skillLoadError" });
+  }, [refreshSkills]);
+
+  useTauriEvent<ClaudeDirectoryChangedEvent>("claude-directory-changed", (event) => {
+    if (event.paths.some(isSkillsFileChangePath)) {
+      refreshSkills({ errorMessage: "toast.skillRefreshError" });
+    }
+  });
 
   // 切换 Skill 启用/禁用状态
   async function handleToggle(skill: Skill) {
@@ -99,6 +149,10 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
 
   // 打开编辑抽屉
   function openEdit(skill: Skill) {
+    if (skill.isManaged === false) {
+      showToast(t("skills.symlinkNotEditableHint"), "error");
+      return;
+    }
     setEditingSkill(skill);
     setIsDrawerOpen(true);
     onDrawerChange?.(true);
@@ -111,15 +165,58 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     onDrawerChange?.(false);
   }
 
-  // 启用的 Skill 排在前面，同状态内按 id 字典序排列
-  const sortedSkills = useMemo(
-    () =>
-      [...skills].sort((a, b) => {
-        if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
-        return a.id.localeCompare(b.id);
-      }),
+  async function handleImportDirectory() {
+    setIsImportingDirectory(true);
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: t("skills.importDirectoryDialogTitle"),
+      });
+      const sourceDir = Array.isArray(selected) ? selected[0] : selected;
+      if (!sourceDir) {
+        return;
+      }
+
+      const result = await invoke<SkillDirectoryImportResult>("import_skills_from_directory", {
+        sourceDir,
+      });
+      setSkills(result.skills);
+      if (result.imported.length === 0 && result.skipped.length === 0) {
+        showToast(t("toast.skillDirectoryImportEmpty"));
+        return;
+      }
+      showToast(
+        formatDirectoryImportSummary(
+          t("toast.skillDirectoryImportSummary"),
+          result.imported.length,
+          result.skipped.length,
+        ),
+      );
+    } catch (_err) {
+      showToast(t("toast.skillDirectoryImportError"), "error");
+    } finally {
+      setIsImportingDirectory(false);
+    }
+  }
+
+  const handleRefreshSkills = useCallback(() => {
+    refreshSkills({
+      errorMessage: "toast.skillRefreshError",
+      setBusy: true,
+      successMessage: "toast.skillRefreshed",
+    });
+  }, [refreshSkills]);
+
+  const managedSkills = useMemo(
+    () => sortSkillsForList(skills.filter((skill) => skill.isManaged !== false)),
     [skills],
   );
+  const unmanagedSkills = useMemo(
+    () => sortSkillsForList(skills.filter((skill) => skill.isManaged === false)),
+    [skills],
+  );
+  const hasAnySkill = skills.length > 0;
   const claudeSkillsDocsUrl = useMemo(() => getClaudeSkillsDocsUrl(language), [language]);
 
   const handleOpenDocs = useCallback(async () => {
@@ -129,6 +226,33 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       showToast(t("skills.openDocsError"), "error");
     }
   }, [claudeSkillsDocsUrl, showToast, t]);
+
+  function renderSkillGroup(title: string, description: string, items: Skill[]) {
+    if (items.length === 0) return null;
+    return (
+      <section className="skill-group flex flex-col gap-3">
+        <div className="skill-group-header flex min-w-0 flex-col gap-1 px-1">
+          <h2 className="m-0 text-base leading-snug font-bold text-foreground">{title}</h2>
+          <p className="m-0 text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]">
+            {description}
+          </p>
+        </div>
+        <div className="list-container flex flex-col gap-3">
+          {items.map((skill) => (
+            <SkillItem
+              key={skill.id}
+              skill={skill}
+              isEditing={isDrawerOpen && editingSkill?.id === skill.id}
+              onToggle={handleToggle}
+              onEdit={openEdit}
+              onDelete={setPendingDeleteSkill}
+              onSync={handleSync}
+            />
+          ))}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <div
@@ -140,25 +264,65 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
         variant="list"
         actionsClassName="skills-page-actions"
         actions={
-          <Button
-            variant="outline"
-            size="sm"
-            asChild
-            className="skills-docs-link border-border bg-transparent px-2.5 text-xs font-semibold text-muted-foreground hover:border-primary hover:bg-accent hover:text-foreground"
-          >
-            <a
-              href={claudeSkillsDocsUrl}
-              aria-label={t("skills.openDocsAriaLabel")}
-              title={t("skills.openDocsAriaLabel")}
-              onClick={(event) => {
-                event.preventDefault();
-                void handleOpenDocs();
-              }}
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              asChild
+              className="skills-docs-link border-border bg-transparent px-2.5 text-xs font-semibold text-muted-foreground hover:border-primary hover:bg-accent hover:text-foreground"
             >
-              <span>{t("skills.openDocs")}</span>
-              <ExternalLink className="size-3.5" aria-hidden="true" />
-            </a>
-          </Button>
+              <a
+                href={claudeSkillsDocsUrl}
+                aria-label={t("skills.openDocsAriaLabel")}
+                title={t("skills.openDocsAriaLabel")}
+                onClick={(event) => {
+                  event.preventDefault();
+                  void handleOpenDocs();
+                }}
+              >
+                <span>{t("skills.openDocs")}</span>
+                <ExternalLink className="size-3.5" aria-hidden="true" />
+              </a>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="skills-import-directory-btn border-border bg-transparent px-2.5 text-xs font-semibold text-muted-foreground hover:border-primary hover:bg-accent hover:text-foreground"
+              aria-label={
+                isImportingDirectory ? t("skills.importingDirectory") : t("skills.importDirectory")
+              }
+              aria-busy={isImportingDirectory}
+              title={
+                isImportingDirectory
+                  ? t("skills.importingDirectory")
+                  : t("skills.importDirectoryHint")
+              }
+              onClick={handleImportDirectory}
+              disabled={isImportingDirectory}
+            >
+              <FolderInput className="size-3.5" aria-hidden="true" />
+              <span>
+                {isImportingDirectory
+                  ? t("skills.importingDirectory")
+                  : t("skills.importDirectory")}
+              </span>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="skills-refresh-btn border-border bg-transparent px-2.5 text-xs font-semibold text-muted-foreground hover:border-primary hover:bg-accent hover:text-foreground"
+              aria-label={isRefreshing ? t("skills.refreshing") : t("skills.refresh")}
+              aria-busy={isRefreshing}
+              title={isRefreshing ? t("skills.refreshing") : t("skills.refresh")}
+              onClick={handleRefreshSkills}
+              disabled={isRefreshing}
+            >
+              <RefreshCw className="size-3.5" aria-hidden="true" />
+              <span>{isRefreshing ? t("skills.refreshing") : t("skills.refresh")}</span>
+            </Button>
+          </>
         }
       />
 
@@ -173,37 +337,44 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       </Button>
 
       {/* Skills 列表 */}
-      {sortedSkills.length === 0 ? (
+      {!hasAnySkill ? (
         <EmptyState title={t("skills.empty")} hint={t("skills.emptyHint")} icon={Zap} />
       ) : (
-        <div className="list-container flex flex-col gap-3 p-4">
-          {sortedSkills.map((skill) => (
-            <SkillItem
-              key={skill.id}
-              skill={skill}
-              isEditing={isDrawerOpen && editingSkill?.id === skill.id}
-              onToggle={handleToggle}
-              onEdit={openEdit}
-              onDelete={(s) => setPendingDeleteId(s.id)}
-              onSync={handleSync}
-            />
-          ))}
+        <div className="skill-groups flex flex-col gap-5 p-4">
+          {renderSkillGroup(
+            t("skills.group.managed"),
+            t("skills.group.managedDescription"),
+            managedSkills,
+          )}
+          {renderSkillGroup(
+            t("skills.group.unmanaged"),
+            t("skills.group.unmanagedDescription"),
+            unmanagedSkills,
+          )}
         </div>
       )}
 
       {/* 删除确认对话框 */}
-      {pendingDeleteId && (
+      {pendingDeleteSkill && (
         <ConfirmAlertDialog
-          title={t("confirm.deleteSkillTitle")}
-          message={t("confirm.deleteSkillMessage")}
+          title={t(
+            pendingDeleteSkill.isManaged === false
+              ? "confirm.deleteSymlinkSkillTitle"
+              : "confirm.deleteSkillTitle",
+          )}
+          message={t(
+            pendingDeleteSkill.isManaged === false
+              ? "confirm.deleteSymlinkSkillMessage"
+              : "confirm.deleteSkillMessage",
+          )}
           confirmText={t("confirm.delete")}
           cancelText={t("confirm.cancel")}
           danger
           onConfirm={() => {
-            handleDelete(pendingDeleteId);
-            setPendingDeleteId(null);
+            handleDelete(pendingDeleteSkill.id);
+            setPendingDeleteSkill(null);
           }}
-          onCancel={() => setPendingDeleteId(null)}
+          onCancel={() => setPendingDeleteSkill(null)}
         />
       )}
 

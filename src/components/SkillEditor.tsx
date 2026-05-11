@@ -62,6 +62,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
   const { showToast } = useToast();
   const editorTheme = useCodeMirrorTheme();
   const isEditing = skill !== null;
+  const isUnmanagedSkill = skill?.isManaged === false;
   const primaryFields = buildSkillPrimaryFields(isEditing);
 
   const form = useForm<SkillFormData>({
@@ -92,14 +93,25 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
   const watchId = watch("id");
   const canSave = watchId.trim().length > 0 && !isSaving;
 
+  useEffect(() => {
+    if (isUnmanagedSkill) {
+      showToast(t("skills.symlinkNotEditableHint"), "error");
+      onClose();
+    }
+  }, [isUnmanagedSkill, onClose, showToast, t]);
+
   // 编辑模式下进入页面时自动懒加载支持文件
   // CollapsibleSection 暂不支持 onExpand 回调，故在 isEditing && !filesLoaded 时通过 useEffect 触发
   // biome-ignore lint/correctness/useExhaustiveDependencies: 仅在 isEditing 变化时触发，filesLoaded/loadFiles 为稳定引用
   useEffect(() => {
-    if (isEditing && !filesLoaded) {
+    if (isEditing && !isUnmanagedSkill && !filesLoaded) {
       void loadFiles();
     }
-  }, [isEditing]);
+  }, [isEditing, isUnmanagedSkill]);
+
+  if (isUnmanagedSkill) {
+    return null;
+  }
 
   // 懒加载支持文件（仅编辑模式下）
   async function loadFiles() {

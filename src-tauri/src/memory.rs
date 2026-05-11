@@ -1813,10 +1813,8 @@ mod schema_tests {
     use std::env;
     use std::fs;
     use std::path::{Path, PathBuf};
-    use std::sync::{Mutex, MutexGuard};
+    use std::sync::MutexGuard;
     use std::time::{SystemTime, UNIX_EPOCH};
-
-    static TEST_ENV_LOCK: Mutex<()> = Mutex::new(());
 
     struct TestEnv {
         _guard: MutexGuard<'static, ()>,
@@ -1828,7 +1826,9 @@ mod schema_tests {
 
     impl TestEnv {
         fn new(name: &str) -> Self {
-            let guard = TEST_ENV_LOCK.lock().expect("测试环境锁应可获取");
+            let guard = crate::utils::TEST_ENV_LOCK
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
             let config_guard = crate::utils::lock_config().expect("配置锁应可获取");
             let suffix = SystemTime::now()
                 .duration_since(UNIX_EPOCH)

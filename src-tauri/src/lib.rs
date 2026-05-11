@@ -36,7 +36,8 @@ use project::{
 };
 use skills::{
     add_skill, add_skill_file, delete_skill, delete_skill_file, get_skill_files, get_skills,
-    sync_skill_to_codex, toggle_skill, update_skill, update_skill_file,
+    import_skills_from_directory, sync_skill_to_codex, toggle_skill, update_skill,
+    update_skill_file,
 };
 use stats::{get_stats, open_claude_json_in_editor};
 use tauri::Manager;
@@ -159,6 +160,7 @@ pub fn run() {
             add_skill_file,
             update_skill_file,
             delete_skill_file,
+            import_skills_from_directory,
             sync_skill_to_codex,
             get_usage_summary,
             get_usage_daily,

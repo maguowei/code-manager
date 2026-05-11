@@ -1,4 +1,4 @@
-import { RefreshCw, Trash2 } from "lucide-react";
+import { Link2, RefreshCw, Trash2 } from "lucide-react";
 import { type KeyboardEvent, memo } from "react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../i18n";
@@ -8,6 +8,7 @@ import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Switch } from "./ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 // SkillItem 组件属性定义
 interface SkillItemProps {
@@ -21,11 +22,13 @@ interface SkillItemProps {
 
 function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: SkillItemProps) {
   const { t } = useI18n();
+  const isManaged = skill.isManaged !== false;
 
   // 当 name 与 id 不同时显示 slash-command 路径
   const showSlashId = skill.name !== skill.id;
 
   function handleCardKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (!isManaged) return;
     if (event.target !== event.currentTarget) return;
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
@@ -37,13 +40,19 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
     <Card
       className={cn(
         "skill-item group relative flex cursor-pointer flex-col gap-4 rounded-lg border border-border bg-card p-4 text-foreground shadow-panel transition-[transform,border-color,box-shadow,background-color,opacity] duration-200 hover:-translate-y-px hover:border-primary hover:bg-accent/40",
+        !isManaged && "cursor-default hover:translate-y-0",
         skill.isActive ? "active border-primary ring-1 ring-primary/30" : "inactive",
         isEditing && "editing border-chart-3 ring-1 ring-chart-3/30 hover:border-chart-3",
       )}
       role="button"
-      tabIndex={0}
+      tabIndex={isManaged ? 0 : -1}
       aria-label={skill.name}
-      onClick={() => onEdit(skill)}
+      aria-disabled={!isManaged}
+      onClick={() => {
+        if (isManaged) {
+          onEdit(skill);
+        }
+      }}
       onKeyDown={handleCardKeyDown}
     >
       <div className="skill-header flex items-start justify-between gap-3 group-[.compressed]/list:grid group-[.compressed]/list:grid-cols-[auto_minmax(0,1fr)] group-[.compressed]/list:justify-stretch">
@@ -67,6 +76,25 @@ function SkillItem({ skill, isEditing, onEdit, onDelete, onToggle, onSync }: Ski
             <Badge className="skill-status editing rounded-md bg-chart-3/10 px-2.5 py-1.5 text-xs font-semibold text-chart-3">
               {t("skills.editing")}
             </Badge>
+          )}
+          {!isManaged && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge
+                  variant="outline"
+                  className="skill-status symlink rounded-md px-2.5 py-1.5 text-xs font-semibold text-muted-foreground"
+                  title={skill.linkTarget ?? undefined}
+                >
+                  <Link2 aria-hidden="true" />
+                  <span title={skill.linkTarget ?? undefined}>{t("skills.symlinkBadge")}</span>
+                </Badge>
+              </TooltipTrigger>
+              {skill.linkTarget && (
+                <TooltipContent className="max-w-[320px] [overflow-wrap:anywhere]">
+                  {skill.linkTarget}
+                </TooltipContent>
+              )}
+            </Tooltip>
           )}
           {/* 开关按钮 */}
           <div

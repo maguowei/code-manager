@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import type { Skill } from "../../types";
 import SkillItem from "../SkillItem";
+import { TooltipProvider } from "../ui/tooltip";
 
 const baseSkill: Skill = {
   id: "code-review",
@@ -14,7 +15,9 @@ const baseSkill: Skill = {
   isActive: false,
   createdAt: 1,
   updatedAt: 1,
-};
+  isManaged: true,
+  linkTarget: null,
+} as Skill;
 
 function renderSkillItem(skill: Skill = baseSkill) {
   const onEdit = vi.fn();
@@ -23,14 +26,16 @@ function renderSkillItem(skill: Skill = baseSkill) {
   const onSync = vi.fn();
   const view = render(
     <I18nProvider>
-      <SkillItem
-        skill={skill}
-        isEditing={false}
-        onEdit={onEdit}
-        onDelete={onDelete}
-        onToggle={onToggle}
-        onSync={onSync}
-      />
+      <TooltipProvider>
+        <SkillItem
+          skill={skill}
+          isEditing={false}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onToggle={onToggle}
+          onSync={onSync}
+        />
+      </TooltipProvider>
     </I18nProvider>,
   );
 
@@ -113,5 +118,28 @@ describe("SkillItem", () => {
     expect(screen.getByRole("switch", { name: "已禁用" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "同步到 ~/.codex/skills" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "删除" })).toBeInTheDocument();
+  });
+
+  it("marks unmanaged symlink skills and disables the edit entry point", () => {
+    const { onDelete, onEdit, onSync, onToggle } = renderSkillItem({
+      ...baseSkill,
+      isManaged: false,
+      linkTarget: "/tmp/external/code-review",
+    } as Skill);
+
+    const card = screen.getByRole("button", { name: /Code Review/ });
+    expect(card).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByText("链接")).toHaveAttribute("title", "/tmp/external/code-review");
+
+    fireEvent.click(card);
+    fireEvent.keyDown(card, { key: "Enter" });
+    fireEvent.click(screen.getByRole("switch", { name: "已禁用" }));
+    fireEvent.click(screen.getByRole("button", { name: "同步到 ~/.codex/skills" }));
+    fireEvent.click(screen.getByRole("button", { name: "删除" }));
+
+    expect(onEdit).not.toHaveBeenCalled();
+    expect(onToggle).toHaveBeenCalledTimes(1);
+    expect(onSync).toHaveBeenCalledTimes(1);
+    expect(onDelete).toHaveBeenCalledTimes(1);
   });
 });

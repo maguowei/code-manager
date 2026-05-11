@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Skill 元数据，对应 ~/.claude/skills/<id>/ 目录
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16,6 +16,8 @@ pub struct Skill {
     pub is_active: bool, // true = ~/.claude/skills/，false = skills-disabled/
     pub created_at: u64,
     pub updated_at: u64,
+    pub is_managed: bool,
+    pub link_target: Option<String>,
 }
 
 /// 支持文件（SKILL.md 以外的文件）
@@ -51,6 +53,30 @@ pub struct SkillFileData {
     pub content: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum SkillDirectoryImportSkipReason {
+    InvalidId,
+    Exists,
+    MissingSkillMd,
+    IsSymlink,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillDirectoryImportSkippedItem {
+    pub id: String,
+    pub reason: SkillDirectoryImportSkipReason,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillDirectoryImportResult {
+    pub skills: Vec<Skill>,
+    pub imported: Vec<String>,
+    pub skipped: Vec<SkillDirectoryImportSkippedItem>,
+}
+
 /// 获取启用 Skills 的根目录：~/.claude/skills/
 fn get_skills_dir() -> PathBuf {
     crate::utils::home_dir_or_fallback()
@@ -77,6 +103,14 @@ fn get_skill_md_path(id: &str, is_active: bool) -> PathBuf {
     get_skill_path(id, is_active).join("SKILL.md")
 }
 
+fn path_exists_including_symlink(path: &Path) -> bool {
+    match fs::symlink_metadata(path) {
+        Ok(_) => true,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+        Err(_) => true,
+    }
+}
+
 /// 从文件系统元数据获取 (created_at, updated_at) 时间戳（秒）
 fn get_file_times(path: &std::path::Path) -> (u64, u64) {
     let meta = match fs::metadata(path) {
@@ -99,6 +133,40 @@ fn resolve_display_name(name: &str, id: &str) -> String {
     } else {
         name.to_string()
     }
+}
+
+fn canonical_path_string(path: &Path) -> Result<String, String> {
+    path.canonicalize()
+        .map_err(|e| format!("解析软链接目标失败: {}", e))
+        .map(|target| target.to_string_lossy().to_string())
+}
+
+fn read_skill_from_path(
+    id: String,
+    path: &Path,
+    is_active: bool,
+    is_managed: bool,
+    link_target: Option<String>,
+) -> Result<Skill, String> {
+    let skill_md = path.join("SKILL.md");
+    let raw = fs::read_to_string(&skill_md).map_err(|e| format!("读取 SKILL.md 失败: {}", e))?;
+    let (name, description, disable_model_invocation, user_invocable, content) =
+        parse_skill_md(&raw);
+    let (created_at, updated_at) = get_file_times(&skill_md);
+
+    Ok(Skill {
+        name: resolve_display_name(&name, &id),
+        id,
+        description,
+        content,
+        disable_model_invocation,
+        user_invocable,
+        is_active,
+        created_at,
+        updated_at,
+        is_managed,
+        link_target,
+    })
 }
 
 /// 解析 SKILL.md 内容，返回 (name, description, disable_model_invocation, user_invocable, content)
@@ -199,7 +267,7 @@ fn serialize_skill_md(
 }
 
 /// 从指定目录扫描 Skills，返回 Skill 列表
-fn scan_skills_dir(dir: &std::path::Path, is_active: bool) -> Vec<Skill> {
+fn scan_skills_dir(dir: &Path, is_active: bool) -> Vec<Skill> {
     let entries = match fs::read_dir(dir) {
         Ok(e) => e,
         Err(_) => return vec![],
@@ -207,39 +275,38 @@ fn scan_skills_dir(dir: &std::path::Path, is_active: bool) -> Vec<Skill> {
 
     let mut skills = vec![];
     for entry in entries.flatten() {
-        // 使用 file_type() 而非 is_dir()，避免跟随符号链接导致路径逃逸
         let file_type = match entry.file_type() {
             Ok(ft) => ft,
             Err(_) => continue,
         };
-        if file_type.is_symlink() || !file_type.is_dir() {
-            continue;
-        }
         let path = entry.path();
         let id = match path.file_name().and_then(|n| n.to_str()) {
             Some(n) => n.to_string(),
             None => continue,
         };
-        let skill_md = path.join("SKILL.md");
-        let raw = match fs::read_to_string(&skill_md) {
-            Ok(c) => c,
-            Err(_) => continue,
-        };
-        let (name, description, disable_model_invocation, user_invocable, content) =
-            parse_skill_md(&raw);
-        let (created_at, updated_at) = get_file_times(&skill_md);
 
-        skills.push(Skill {
-            name: resolve_display_name(&name, &id),
-            id,
-            description,
-            content,
-            disable_model_invocation,
-            user_invocable,
-            is_active,
-            created_at,
-            updated_at,
-        });
+        let (is_managed, link_target) = if file_type.is_symlink() {
+            let target = match path.canonicalize() {
+                Ok(target) => target,
+                Err(_) => continue,
+            };
+            let target_metadata = match fs::metadata(&target) {
+                Ok(metadata) => metadata,
+                Err(_) => continue,
+            };
+            if !target_metadata.is_dir() || !target.join("SKILL.md").is_file() {
+                continue;
+            }
+            (false, Some(target.to_string_lossy().to_string()))
+        } else if file_type.is_dir() {
+            (true, None)
+        } else {
+            continue;
+        };
+
+        if let Ok(skill) = read_skill_from_path(id, &path, is_active, is_managed, link_target) {
+            skills.push(skill);
+        }
     }
 
     // 按 id 字典序排序
@@ -279,24 +346,16 @@ pub fn toggle_skill(id: String, is_active: bool) -> Result<Skill, String> {
 
         // 读取新位置的 SKILL.md 并返回更新后的 Skill
         let new_is_active = !is_active;
-        let skill_md = dst.join("SKILL.md");
-        let raw =
-            fs::read_to_string(&skill_md).map_err(|e| format!("读取 SKILL.md 失败: {}", e))?;
-        let (name, description, disable_model_invocation, user_invocable, content) =
-            parse_skill_md(&raw);
-        let (created_at, updated_at) = get_file_times(&skill_md);
+        let dst_metadata =
+            fs::symlink_metadata(&dst).map_err(|e| format!("读取 Skill 目录失败: {}", e))?;
+        let is_managed = !dst_metadata.file_type().is_symlink();
+        let link_target = if is_managed {
+            None
+        } else {
+            Some(canonical_path_string(&dst)?)
+        };
 
-        Ok(Skill {
-            name: resolve_display_name(&name, &id),
-            id,
-            description,
-            content,
-            disable_model_invocation,
-            user_invocable,
-            is_active: new_is_active,
-            created_at,
-            updated_at,
-        })
+        read_skill_from_path(id, &dst, new_is_active, is_managed, link_target)
     })();
     crate::logging::log_command_result("skill.toggle", &result, |skill| {
         format!("skill_id={} active={}", skill.id, skill.is_active)
@@ -318,6 +377,19 @@ fn validate_skill_id(id: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn ensure_managed_skill_root(id: &str, is_active: bool) -> Result<PathBuf, String> {
+    let skill_dir = get_skill_path(id, is_active);
+    let metadata =
+        fs::symlink_metadata(&skill_dir).map_err(|_| format!("Skill '{}' 不存在", id))?;
+    if metadata.file_type().is_symlink() {
+        return Err("软链接 Skill 不支持编辑内容或支持文件".to_string());
+    }
+    if !metadata.is_dir() {
+        return Err(format!("Skill '{}' 不是有效目录", id));
+    }
+    Ok(skill_dir)
+}
+
 #[tauri::command]
 pub fn add_skill(data: SkillData) -> Result<Skill, String> {
     let result = (|| {
@@ -334,12 +406,12 @@ pub fn add_skill(data: SkillData) -> Result<Skill, String> {
         validate_skill_id(&id)?;
 
         let skill_dir = get_skills_dir().join(&id);
-        if skill_dir.exists() {
+        if path_exists_including_symlink(&skill_dir) {
             return Err(format!("Skill '{}' 已存在", id));
         }
 
         // 检查禁用目录中是否已有同名
-        if get_disabled_dir().join(&id).exists() {
+        if path_exists_including_symlink(&get_disabled_dir().join(&id)) {
             return Err(format!("Skill '{}' 已存在（已禁用）", id));
         }
 
@@ -366,6 +438,8 @@ pub fn add_skill(data: SkillData) -> Result<Skill, String> {
             is_active: true,
             created_at,
             updated_at,
+            is_managed: true,
+            link_target: None,
         })
     })();
     crate::logging::log_command_result("skill.add", &result, |skill| {
@@ -391,6 +465,7 @@ pub fn update_skill(id: String, is_active: bool, data: SkillData) -> Result<Skil
         } = data;
 
         let skill_md = get_skill_md_path(&id, is_active);
+        ensure_managed_skill_root(&id, is_active)?;
         let display_name = resolve_display_name(&name, &id);
         let raw = serialize_skill_md(
             &display_name,
@@ -414,6 +489,8 @@ pub fn update_skill(id: String, is_active: bool, data: SkillData) -> Result<Skil
             is_active,
             created_at,
             updated_at,
+            is_managed: true,
+            link_target: None,
         })
     })();
     crate::logging::log_command_result("skill.update", &result, |skill| {
@@ -429,11 +506,15 @@ pub fn delete_skill(id: String, is_active: bool) -> Result<(), String> {
         let _lock = crate::utils::lock_skills()?;
 
         let skill_dir = get_skill_path(&id, is_active);
-        if !skill_dir.exists() {
-            return Err(format!("Skill '{}' 不存在", id));
+        let metadata =
+            fs::symlink_metadata(&skill_dir).map_err(|_| format!("Skill '{}' 不存在", id))?;
+        if metadata.file_type().is_symlink() {
+            fs::remove_file(&skill_dir).map_err(|e| format!("删除 Skill 软链接失败: {}", e))?;
+        } else if metadata.is_dir() {
+            fs::remove_dir_all(&skill_dir).map_err(|e| format!("删除 Skill 目录失败: {}", e))?;
+        } else {
+            return Err(format!("Skill '{}' 不是有效目录", id));
         }
-
-        fs::remove_dir_all(&skill_dir).map_err(|e| format!("删除 Skill 目录失败: {}", e))?;
 
         Ok(())
     })();
@@ -463,10 +544,7 @@ fn validate_file_name(name: &str) -> Result<(), String> {
 #[tauri::command]
 pub fn get_skill_files(id: String, is_active: bool) -> Result<Vec<SkillFile>, String> {
     validate_skill_id(&id)?;
-    let skill_dir = get_skill_path(&id, is_active);
-    if !skill_dir.exists() {
-        return Err(format!("Skill '{}' 不存在", id));
-    }
+    let skill_dir = ensure_managed_skill_root(&id, is_active)?;
 
     let mut files = vec![];
     collect_files(&skill_dir, &skill_dir, &mut files)?;
@@ -528,7 +606,8 @@ pub fn add_skill_file(
 
         validate_file_name(&file_name)?;
 
-        let file_path = get_skill_path(&id, is_active).join(&file_name);
+        let skill_dir = ensure_managed_skill_root(&id, is_active)?;
+        let file_path = skill_dir.join(&file_name);
         if file_path.exists() {
             return Err(format!("文件 '{}' 已存在", file_name));
         }
@@ -563,7 +642,8 @@ pub fn update_skill_file(
 
         validate_file_name(&file_name)?;
 
-        let file_path = get_skill_path(&id, is_active).join(&file_name);
+        let skill_dir = ensure_managed_skill_root(&id, is_active)?;
+        let file_path = skill_dir.join(&file_name);
         crate::utils::ensure_dir_and_write(&file_path, &content)?;
 
         Ok(SkillFile {
@@ -586,13 +666,13 @@ pub fn delete_skill_file(id: String, is_active: bool, file_name: String) -> Resu
 
         validate_file_name(&file_name)?;
 
-        let file_path = get_skill_path(&id, is_active).join(&file_name);
+        let skill_root = ensure_managed_skill_root(&id, is_active)?;
+        let file_path = skill_root.join(&file_name);
         fs::remove_file(&file_path)
             .map_err(|e| format!("删除文件失败（文件可能不存在）: {}", e))?;
 
         // 若父目录（非 skill 根目录）为空，则删除父目录
         if let Some(parent) = file_path.parent() {
-            let skill_root = get_skill_path(&id, is_active);
             if parent != skill_root {
                 if let Ok(mut entries) = fs::read_dir(parent) {
                     if entries.next().is_none() {
@@ -611,15 +691,209 @@ pub fn delete_skill_file(id: String, is_active: bool, file_name: String) -> Resu
 }
 
 #[tauri::command]
+pub fn import_skills_from_directory(
+    source_dir: String,
+) -> Result<SkillDirectoryImportResult, String> {
+    let result = (|| {
+        let source_dir = validate_skill_import_source_dir(&source_dir)?;
+        let _lock = crate::utils::lock_skills()?;
+        fs::create_dir_all(get_disabled_dir()).map_err(|e| format!("创建禁用目录失败: {}", e))?;
+
+        let mut imported = Vec::new();
+        let mut skipped = Vec::new();
+        if source_dir.join("SKILL.md").is_file() {
+            let id = source_dir
+                .file_name()
+                .and_then(|name| name.to_str())
+                .ok_or_else(|| "源目录名称无效".to_string())?
+                .to_string();
+            import_skill_candidate(&source_dir, id, &mut imported, &mut skipped)?;
+        } else {
+            let mut entries = fs::read_dir(&source_dir)
+                .map_err(|e| format!("读取导入目录失败: {}", e))?
+                .flatten()
+                .collect::<Vec<_>>();
+            entries.sort_by_key(|entry| entry.file_name());
+            for entry in entries {
+                let path = entry.path();
+                let id = match path.file_name().and_then(|name| name.to_str()) {
+                    Some(id) => id.to_string(),
+                    None => continue,
+                };
+                let file_type = match entry.file_type() {
+                    Ok(file_type) => file_type,
+                    Err(_) => continue,
+                };
+                if file_type.is_symlink() {
+                    skipped.push(SkillDirectoryImportSkippedItem {
+                        id,
+                        reason: SkillDirectoryImportSkipReason::IsSymlink,
+                    });
+                    continue;
+                }
+                if !file_type.is_dir() {
+                    continue;
+                }
+                import_skill_candidate(&path, id, &mut imported, &mut skipped)?;
+            }
+        }
+
+        let mut skills = scan_skills_dir(&get_skills_dir(), true);
+        let mut disabled = scan_skills_dir(&get_disabled_dir(), false);
+        skills.append(&mut disabled);
+
+        Ok(SkillDirectoryImportResult {
+            skills,
+            imported,
+            skipped,
+        })
+    })();
+    crate::logging::log_command_result("skill.import_directory", &result, |result| {
+        format!(
+            "imported_count={} skipped_count={}",
+            result.imported.len(),
+            result.skipped.len()
+        )
+    });
+    result
+}
+
+fn validate_skill_import_source_dir(source_dir: &str) -> Result<PathBuf, String> {
+    let trimmed = source_dir.trim();
+    if trimmed.is_empty() {
+        return Err("请选择有效目录".to_string());
+    }
+    let path = PathBuf::from(trimmed);
+    let metadata = fs::symlink_metadata(&path)
+        .map_err(|e| format!("请选择有效目录，读取目录失败 {:?}: {}", path, e))?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err("请选择有效目录".to_string());
+    }
+    Ok(path)
+}
+
+fn import_skill_candidate(
+    source: &Path,
+    id: String,
+    imported: &mut Vec<String>,
+    skipped: &mut Vec<SkillDirectoryImportSkippedItem>,
+) -> Result<(), String> {
+    if let Err(_error) = validate_skill_id(&id) {
+        skipped.push(SkillDirectoryImportSkippedItem {
+            id,
+            reason: SkillDirectoryImportSkipReason::InvalidId,
+        });
+        return Ok(());
+    }
+
+    let metadata = match fs::symlink_metadata(source) {
+        Ok(metadata) => metadata,
+        Err(_) => {
+            skipped.push(SkillDirectoryImportSkippedItem {
+                id,
+                reason: SkillDirectoryImportSkipReason::MissingSkillMd,
+            });
+            return Ok(());
+        }
+    };
+    if metadata.file_type().is_symlink() {
+        skipped.push(SkillDirectoryImportSkippedItem {
+            id,
+            reason: SkillDirectoryImportSkipReason::IsSymlink,
+        });
+        return Ok(());
+    }
+    if !metadata.is_dir() {
+        return Ok(());
+    }
+
+    if path_exists_including_symlink(&get_skills_dir().join(&id))
+        || path_exists_including_symlink(&get_disabled_dir().join(&id))
+    {
+        skipped.push(SkillDirectoryImportSkippedItem {
+            id,
+            reason: SkillDirectoryImportSkipReason::Exists,
+        });
+        return Ok(());
+    }
+
+    let skill_md = source.join("SKILL.md");
+    let skill_md_metadata = match fs::symlink_metadata(&skill_md) {
+        Ok(metadata) => metadata,
+        Err(_) => {
+            skipped.push(SkillDirectoryImportSkippedItem {
+                id,
+                reason: SkillDirectoryImportSkipReason::MissingSkillMd,
+            });
+            return Ok(());
+        }
+    };
+    if skill_md_metadata.file_type().is_symlink() || !skill_md_metadata.is_file() {
+        skipped.push(SkillDirectoryImportSkippedItem {
+            id,
+            reason: SkillDirectoryImportSkipReason::MissingSkillMd,
+        });
+        return Ok(());
+    }
+
+    let target = get_disabled_dir().join(&id);
+    if let Err(error) = copy_skill_dir_without_symlinks(source, &target) {
+        let _ = fs::remove_dir_all(&target);
+        return Err(error);
+    }
+    imported.push(id);
+    Ok(())
+}
+
+fn copy_skill_dir_without_symlinks(source: &Path, target: &Path) -> Result<(), String> {
+    fs::create_dir_all(target).map_err(|e| format!("创建 Skill 目录失败: {}", e))?;
+    let mut entries = fs::read_dir(source)
+        .map_err(|e| format!("读取 Skill 源目录失败: {}", e))?
+        .flatten()
+        .collect::<Vec<_>>();
+    entries.sort_by_key(|entry| entry.file_name());
+
+    for entry in entries {
+        let file_type = match entry.file_type() {
+            Ok(file_type) => file_type,
+            Err(_) => continue,
+        };
+        if file_type.is_symlink() {
+            continue;
+        }
+
+        let source_path = entry.path();
+        let target_path = target.join(entry.file_name());
+        if file_type.is_dir() {
+            copy_skill_dir_without_symlinks(&source_path, &target_path)?;
+        } else if file_type.is_file() {
+            if let Some(parent) = target_path.parent() {
+                fs::create_dir_all(parent).map_err(|e| format!("创建目录失败: {}", e))?;
+            }
+            fs::copy(&source_path, &target_path).map_err(|e| format!("复制文件失败: {}", e))?;
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
 pub fn sync_skill_to_codex(id: String, is_active: bool) -> Result<(), String> {
     let result = (|| {
         validate_skill_id(&id)?;
         let _lock = crate::utils::lock_skills()?;
 
         let src = get_skill_path(&id, is_active);
-        if !src.exists() {
-            return Err(format!("Skill '{}' 不存在", id));
-        }
+        let src_metadata =
+            fs::symlink_metadata(&src).map_err(|_| format!("Skill '{}' 不存在", id))?;
+        let link_src = if src_metadata.file_type().is_symlink() {
+            src.canonicalize()
+                .map_err(|e| format!("解析 Skill 软链接目标失败: {}", e))?
+        } else if src_metadata.is_dir() {
+            src.clone()
+        } else {
+            return Err(format!("Skill '{}' 不是有效目录", id));
+        };
 
         let codex_skills_dir = crate::utils::home_dir_or_fallback()
             .join(".codex")
@@ -647,10 +921,11 @@ pub fn sync_skill_to_codex(id: String, is_active: bool) -> Result<(), String> {
         }
 
         #[cfg(unix)]
-        std::os::unix::fs::symlink(&src, &dest).map_err(|e| format!("创建软链接失败: {}", e))?;
+        std::os::unix::fs::symlink(&link_src, &dest)
+            .map_err(|e| format!("创建软链接失败: {}", e))?;
 
         #[cfg(windows)]
-        std::os::windows::fs::symlink_dir(&src, &dest)
+        std::os::windows::fs::symlink_dir(&link_src, &dest)
             .map_err(|e| format!("创建软链接失败: {}", e))?;
 
         Ok(())
@@ -683,6 +958,105 @@ mod schema_tests {
     use super::*;
     use schemars::schema_for;
     use serde_json::json;
+    use std::env;
+    use std::path::{Path, PathBuf};
+    use std::sync::MutexGuard;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    struct TestEnv {
+        root: PathBuf,
+        previous_home: Option<String>,
+        previous_app_data: Option<String>,
+        _guard: MutexGuard<'static, ()>,
+    }
+
+    impl TestEnv {
+        fn new(name: &str) -> Self {
+            let guard = crate::utils::TEST_ENV_LOCK
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
+            let suffix = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("系统时间应晚于 Unix epoch")
+                .as_nanos();
+            let root = env::temp_dir().join(format!(
+                "ai-manager-skills-test-{}-{}-{}",
+                name,
+                std::process::id(),
+                suffix
+            ));
+            let _ = fs::remove_dir_all(&root);
+            fs::create_dir_all(&root).expect("应可创建测试根目录");
+            let app_data = root.join(".config").join("ai-manager");
+            let previous_home = env::var("AI_MANAGER_HOME_OVERRIDE").ok();
+            let previous_app_data = env::var("AI_MANAGER_APP_DATA_DIR_OVERRIDE").ok();
+            env::set_var("AI_MANAGER_HOME_OVERRIDE", &root);
+            env::set_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE", &app_data);
+
+            Self {
+                root,
+                previous_home,
+                previous_app_data,
+                _guard: guard,
+            }
+        }
+
+        fn active_skill_dir(&self, id: &str) -> PathBuf {
+            self.root.join(".claude").join("skills").join(id)
+        }
+
+        fn disabled_skill_dir(&self, id: &str) -> PathBuf {
+            self.root
+                .join(".config")
+                .join("ai-manager")
+                .join("skills-disabled")
+                .join(id)
+        }
+
+        fn codex_skill_dir(&self, id: &str) -> PathBuf {
+            self.root.join(".codex").join("skills").join(id)
+        }
+    }
+
+    impl Drop for TestEnv {
+        fn drop(&mut self) {
+            match &self.previous_home {
+                Some(value) => env::set_var("AI_MANAGER_HOME_OVERRIDE", value),
+                None => env::remove_var("AI_MANAGER_HOME_OVERRIDE"),
+            }
+            match &self.previous_app_data {
+                Some(value) => env::set_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE", value),
+                None => env::remove_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE"),
+            }
+            let _ = fs::remove_dir_all(&self.root);
+        }
+    }
+
+    fn write_skill_dir(path: &Path, name: &str) {
+        fs::create_dir_all(path).expect("应可创建 Skill 目录");
+        fs::write(
+            path.join("SKILL.md"),
+            format!(
+                "---\nname: \"{}\"\ndescription: \"测试 Skill\"\n---\n\n测试内容",
+                name
+            ),
+        )
+        .expect("应可写入 SKILL.md");
+    }
+
+    #[cfg(unix)]
+    fn create_test_dir_symlink(src: &Path, dest: &Path) {
+        std::os::unix::fs::symlink(src, dest).expect("应可创建目录软链接");
+    }
+
+    #[cfg(windows)]
+    fn create_test_dir_symlink(src: &Path, dest: &Path) {
+        std::os::windows::fs::symlink_dir(src, dest).expect("应可创建目录软链接");
+    }
+
+    fn file_exists(path: &Path) -> bool {
+        path.try_exists().expect("文件存在性检查应成功")
+    }
 
     fn load_skill_json_schema() -> serde_json::Value {
         let json_schema_str = include_str!("../../src/schemas/skill.schema.json");
@@ -766,6 +1140,226 @@ mod schema_tests {
             json_schema["properties"]["userInvocable"]["default"],
             json!(true)
         );
+    }
+
+    #[test]
+    fn scan_skills_dir_marks_plain_dir_managed() {
+        let env = TestEnv::new("scan-managed");
+        write_skill_dir(&env.active_skill_dir("plain-skill"), "Plain Skill");
+
+        let skills = scan_skills_dir(&get_skills_dir(), true);
+
+        assert_eq!(skills.len(), 1);
+        assert_eq!(skills[0].id, "plain-skill");
+        assert!(skills[0].is_managed);
+        assert_eq!(skills[0].link_target, None);
+    }
+
+    #[test]
+    fn scan_skills_dir_marks_symlink_unmanaged() {
+        let env = TestEnv::new("scan-symlink");
+        let external = env.root.join("external").join("linked-skill");
+        write_skill_dir(&external, "Linked Skill");
+        fs::create_dir_all(env.active_skill_dir("linked-skill").parent().unwrap())
+            .expect("应可创建 Skills 根目录");
+        create_test_dir_symlink(&external, &env.active_skill_dir("linked-skill"));
+
+        let skills = scan_skills_dir(&get_skills_dir(), true);
+
+        assert_eq!(skills.len(), 1);
+        assert_eq!(skills[0].id, "linked-skill");
+        assert_eq!(skills[0].name, "Linked Skill");
+        assert!(!skills[0].is_managed);
+        assert_eq!(
+            skills[0].link_target.as_deref(),
+            Some(
+                external
+                    .canonicalize()
+                    .expect("目标应可 canonicalize")
+                    .to_str()
+                    .unwrap()
+            )
+        );
+    }
+
+    #[test]
+    fn scan_skills_dir_skips_invalid_symlinks() {
+        let env = TestEnv::new("scan-invalid-symlink");
+        let root = get_skills_dir();
+        fs::create_dir_all(&root).expect("应可创建 Skills 根目录");
+        create_test_dir_symlink(&env.root.join("missing-target"), &root.join("dangling"));
+        let without_skill_md = env.root.join("external").join("without-skill-md");
+        fs::create_dir_all(&without_skill_md).expect("应可创建外部目录");
+        create_test_dir_symlink(&without_skill_md, &root.join("without-skill-md"));
+
+        let skills = scan_skills_dir(&root, true);
+
+        assert!(skills.is_empty());
+    }
+
+    #[test]
+    fn toggle_skill_moves_symlink_node_only() {
+        let env = TestEnv::new("toggle-symlink");
+        let external = env.root.join("external").join("linked-skill");
+        write_skill_dir(&external, "Linked Skill");
+        fs::create_dir_all(env.active_skill_dir("linked-skill").parent().unwrap())
+            .expect("应可创建 Skills 根目录");
+        create_test_dir_symlink(&external, &env.active_skill_dir("linked-skill"));
+
+        let toggled = toggle_skill("linked-skill".to_string(), true).expect("应可移动软链接节点");
+
+        assert!(!toggled.is_active);
+        assert!(!toggled.is_managed);
+        assert!(!file_exists(&env.active_skill_dir("linked-skill")));
+        assert!(fs::symlink_metadata(env.disabled_skill_dir("linked-skill"))
+            .expect("禁用目录应存在软链接节点")
+            .file_type()
+            .is_symlink());
+        assert!(file_exists(&external.join("SKILL.md")));
+    }
+
+    #[test]
+    fn delete_skill_unlinks_symlink_only() {
+        let env = TestEnv::new("delete-symlink");
+        let external = env.root.join("external").join("linked-skill");
+        write_skill_dir(&external, "Linked Skill");
+        fs::create_dir_all(env.active_skill_dir("linked-skill").parent().unwrap())
+            .expect("应可创建 Skills 根目录");
+        create_test_dir_symlink(&external, &env.active_skill_dir("linked-skill"));
+
+        delete_skill("linked-skill".to_string(), true).expect("应可删除软链接节点");
+
+        assert!(!file_exists(&env.active_skill_dir("linked-skill")));
+        assert!(file_exists(&external.join("SKILL.md")));
+    }
+
+    #[test]
+    fn managed_write_commands_reject_symlink_skill_roots() {
+        let env = TestEnv::new("reject-symlink-writes");
+        let external = env.root.join("external").join("linked-skill");
+        write_skill_dir(&external, "Linked Skill");
+        fs::write(external.join("notes.md"), "外部支持文件").expect("应可写入外部支持文件");
+        fs::create_dir_all(env.active_skill_dir("linked-skill").parent().unwrap())
+            .expect("应可创建 Skills 根目录");
+        create_test_dir_symlink(&external, &env.active_skill_dir("linked-skill"));
+
+        let data = SkillData {
+            id: "linked-skill".to_string(),
+            name: "Linked Skill".to_string(),
+            description: "更新".to_string(),
+            content: "更新内容".to_string(),
+            disable_model_invocation: false,
+            user_invocable: true,
+        };
+        assert!(update_skill("linked-skill".to_string(), true, data)
+            .unwrap_err()
+            .contains("软链接"));
+        assert!(get_skill_files("linked-skill".to_string(), true)
+            .unwrap_err()
+            .contains("软链接"));
+        assert!(add_skill_file(
+            "linked-skill".to_string(),
+            true,
+            SkillFileData {
+                file_name: "new.md".to_string(),
+                content: "内容".to_string(),
+            },
+        )
+        .unwrap_err()
+        .contains("软链接"));
+        assert!(update_skill_file(
+            "linked-skill".to_string(),
+            true,
+            "notes.md".to_string(),
+            SkillFileData {
+                file_name: "notes.md".to_string(),
+                content: "更新".to_string(),
+            },
+        )
+        .unwrap_err()
+        .contains("软链接"));
+        assert!(
+            delete_skill_file("linked-skill".to_string(), true, "notes.md".to_string(),)
+                .unwrap_err()
+                .contains("软链接")
+        );
+    }
+
+    #[test]
+    fn sync_skill_to_codex_links_to_canonical_target() {
+        let env = TestEnv::new("sync-symlink");
+        let external = env.root.join("external").join("linked-skill");
+        write_skill_dir(&external, "Linked Skill");
+        fs::create_dir_all(env.active_skill_dir("linked-skill").parent().unwrap())
+            .expect("应可创建 Skills 根目录");
+        create_test_dir_symlink(&external, &env.active_skill_dir("linked-skill"));
+
+        sync_skill_to_codex("linked-skill".to_string(), true).expect("应可同步软链接 Skill");
+
+        let codex_link = env.codex_skill_dir("linked-skill");
+        let link_target = fs::read_link(&codex_link).expect("Codex 目标应是软链接");
+        assert_eq!(
+            link_target,
+            external.canonicalize().expect("源目标应可 canonicalize")
+        );
+    }
+
+    #[test]
+    fn import_skills_from_directory_imports_single_skill_disabled() {
+        let env = TestEnv::new("import-single");
+        let source = env.root.join("source-skill");
+        write_skill_dir(&source, "Imported Skill");
+
+        let result =
+            import_skills_from_directory(source.display().to_string()).expect("应可导入单个 Skill");
+
+        assert_eq!(result.imported, vec!["source-skill"]);
+        assert!(result.skipped.is_empty());
+        assert!(file_exists(
+            &env.disabled_skill_dir("source-skill").join("SKILL.md")
+        ));
+        let imported = result
+            .skills
+            .iter()
+            .find(|skill| skill.id == "source-skill")
+            .expect("返回列表应包含导入 Skill");
+        assert!(!imported.is_active);
+        assert!(imported.is_managed);
+    }
+
+    #[test]
+    fn import_skills_from_directory_imports_collection_and_skips_invalid_candidates() {
+        let env = TestEnv::new("import-collection");
+        write_skill_dir(&env.active_skill_dir("existing-skill"), "Existing Skill");
+        let source = env.root.join("skill-collection");
+        write_skill_dir(&source.join("valid-skill"), "Valid Skill");
+        write_skill_dir(&source.join("Invalid_Skill"), "Invalid Skill");
+        write_skill_dir(&source.join("existing-skill"), "Duplicate Skill");
+        fs::create_dir_all(source.join("missing-skill-md")).expect("应可创建缺失目录");
+        let external = env.root.join("external").join("linked-skill");
+        write_skill_dir(&external, "Linked Skill");
+        create_test_dir_symlink(&external, &source.join("linked-skill"));
+
+        let result =
+            import_skills_from_directory(source.display().to_string()).expect("应可批量导入 Skill");
+
+        assert_eq!(result.imported, vec!["valid-skill"]);
+        assert!(file_exists(
+            &env.disabled_skill_dir("valid-skill").join("SKILL.md")
+        ));
+        assert!(result.skipped.iter().any(|item| {
+            item.id == "Invalid_Skill" && item.reason == SkillDirectoryImportSkipReason::InvalidId
+        }));
+        assert!(result.skipped.iter().any(|item| {
+            item.id == "existing-skill" && item.reason == SkillDirectoryImportSkipReason::Exists
+        }));
+        assert!(result.skipped.iter().any(|item| {
+            item.id == "missing-skill-md"
+                && item.reason == SkillDirectoryImportSkipReason::MissingSkillMd
+        }));
+        assert!(result.skipped.iter().any(|item| {
+            item.id == "linked-skill" && item.reason == SkillDirectoryImportSkipReason::IsSymlink
+        }));
     }
 
     #[test]

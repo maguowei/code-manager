@@ -270,6 +270,12 @@ export interface ClaudeDirectoryChangedEvent {
   paths: string[];
 }
 
+export type SkillDirectoryImportSkipReason =
+  | "invalid-id"
+  | "exists"
+  | "missing-skill-md"
+  | "is-symlink";
+
 // Skill 条目
 export interface Skill {
   id: string;
@@ -281,6 +287,19 @@ export interface Skill {
   isActive: boolean;
   createdAt: number;
   updatedAt: number;
+  isManaged: boolean;
+  linkTarget: string | null;
+}
+
+export interface SkillDirectoryImportSkippedItem {
+  id: string;
+  reason: SkillDirectoryImportSkipReason;
+}
+
+export interface SkillDirectoryImportResult {
+  skills: Skill[];
+  imported: string[];
+  skipped: SkillDirectoryImportSkippedItem[];
 }
 
 // Skill 支持文件
