@@ -13,6 +13,7 @@ import {
   PANEL_SURFACE_CLASS,
   TOOLBAR_SURFACE_CLASS,
 } from "./surface-classes";
+import { TONE_TEXT_CLASS } from "./tone-classes";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
@@ -36,15 +37,15 @@ function logEntryKey(entry: LogView["entries"][number]): string {
 function levelTextClass(level: LogLevel): string {
   switch (level) {
     case "error":
-      return "text-destructive";
+      return TONE_TEXT_CLASS.danger;
     case "warn":
-      return "text-yellow-500";
+      return TONE_TEXT_CLASS.warning;
     case "info":
-      return "text-foreground";
+      return TONE_TEXT_CLASS.info;
     case "debug":
     case "trace":
     case "unknown":
-      return "text-muted-foreground";
+      return TONE_TEXT_CLASS.muted;
   }
 }
 

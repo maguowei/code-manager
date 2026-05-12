@@ -7,6 +7,7 @@ import { useToast } from "../../hooks/useToast";
 import { useI18n } from "../../i18n";
 import type { ModelTestResult } from "../../types";
 import { useTheme } from "../theme-provider";
+import { TONE_SOLID_CLASS } from "../tone-classes";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
 
@@ -294,7 +295,9 @@ function ModelTestResultDialog({
                   <h3 id={dialogTitleId}>{t("profiles.editor.modelTest.dialogTitle")}</h3>
                 </DialogTitle>
                 <span
-                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold ${isSuccess ? "bg-chart-2 text-white" : "bg-destructive text-destructive-foreground"}`}
+                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold ${
+                    isSuccess ? TONE_SOLID_CLASS.success : TONE_SOLID_CLASS.danger
+                  }`}
                   data-testid="model-test-status-badge"
                 >
                   {isSuccess

@@ -53,6 +53,7 @@ describe("ProjectsPage layout", () => {
     expect(screen.getByText("projects.directoryStatus")).toBeInTheDocument();
     expect(screen.getByText("projects.gitStatus")).toBeInTheDocument();
     expect(screen.getAllByText("projects.agentsMd").length).toBeGreaterThan(0);
+    expect(screen.getByText("projects.directoryExists")).toHaveClass("text-success");
   });
 
   it("keeps full worktree paths inspectable in the detail table", () => {
@@ -91,5 +92,32 @@ describe("ProjectsPage layout", () => {
     const pathCell = screen.getByText(worktreePath);
     expect(pathCell).toHaveAttribute("title", worktreePath);
     expect(pathCell).not.toHaveClass("truncate");
+  });
+
+  it("renders git warnings through the shared warning tone", () => {
+    render(
+      createElement(ProjectDetailPanel, {
+        t: (key) => key,
+        summary: SUMMARY,
+        detail: {
+          ...DETAIL,
+          isGitRepo: false,
+          repoRoot: undefined,
+        },
+        defaultEditorApp: "vscode",
+        canCreateAgentsLink: true,
+        canOpenRepository: true,
+        canOpenProjectDirectory: true,
+        canOpenInEditor: true,
+        isLinkingAgents: false,
+        onOpenInTerminal: () => undefined,
+        onOpenInEditor: () => undefined,
+        onOpenRepository: () => undefined,
+        onCreateAgentsLink: () => undefined,
+      }),
+    );
+
+    expect(screen.getByText("projects.notGitRepo")).toHaveClass("text-warning");
+    expect(screen.getAllByText("projects.notGitRepoHint")[0]).toHaveClass("text-warning");
   });
 });

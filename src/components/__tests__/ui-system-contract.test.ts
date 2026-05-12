@@ -95,29 +95,65 @@ describe("ui system contract", () => {
     expect(css).toContain("--shadow-panel: 0 1px 2px");
     expect(css).toContain("0 18px 45px");
     expect(css).toContain("--shadow-toolbar: 0 1px 0");
-    expect(css).toContain("--background: oklch(1 0 0)");
-    expect(css).toContain("--foreground: oklch(0.145 0 0)");
-    expect(css).toContain("--card: oklch(1 0 0)");
-    expect(css).toContain("--popover: oklch(1 0 0)");
+    expect(css).toContain("--background: oklch(0.986 0.012 230)");
+    expect(css).toContain("--foreground: oklch(0.205 0.035 252)");
+    expect(css).toContain("--card: oklch(0.998 0.004 230)");
+    expect(css).toContain("--popover: oklch(0.998 0.004 230)");
     expect(css).toContain("--primary: oklch(0.618 0.193 258.3)");
-    expect(css).toContain("--secondary: oklch(0.985 0 0)");
-    expect(css).toContain("--accent: oklch(0.97 0 0)");
-    expect(css).toContain("--input: oklch(0.922 0 0)");
+    expect(css).toContain("--primary-foreground: oklch(0.985 0.012 220)");
+    expect(css).toContain("--secondary: oklch(0.957 0.018 232)");
+    expect(css).toContain("--accent: oklch(0.94 0.032 224)");
+    expect(css).toContain("--input: oklch(0.875 0.024 232)");
     expect(css).toContain("--ring: oklch(0.68 0.17 255)");
-    expect(css).toContain("--chart-1: oklch(0.646 0.222 41.116)");
-    expect(css).toContain("--chart-2: oklch(0.6 0.118 184.704)");
+    expect(css).toContain("--success: oklch(0.53 0.13 170)");
+    expect(css).toContain("--warning: oklch(0.57 0.13 78)");
+    expect(css).toContain("--info: oklch(0.56 0.15 235)");
+    expect(css).toContain("--chart-1: oklch(0.56 0.17 248)");
+    expect(css).toContain("--chart-2: oklch(0.58 0.14 172)");
+    expect(css).toContain("--chart-3: oklch(0.66 0.16 78)");
+    expect(css).toContain("--chart-4: oklch(0.58 0.15 304)");
+    expect(css).toContain("--chart-5: oklch(0.64 0.15 28)");
     expect(css).toContain("--color-accent-foreground: var(--accent-foreground)");
-    expect(css).toContain("--sidebar: oklch(0.985 0 0)");
+    expect(css).toContain("--color-success: var(--success)");
+    expect(css).toContain("--color-warning: var(--warning)");
+    expect(css).toContain("--color-info: var(--info)");
+    expect(css).toContain("--sidebar: oklch(0.952 0.018 232)");
     expect(css).toContain("--sidebar-primary: oklch(0.618 0.193 258.3)");
-    expect(css).not.toContain("--background: oklch(0.988 0.016 214)");
-    expect(css).not.toContain("--secondary: oklch(0.94 0.026 216)");
-    expect(css).not.toContain("--sidebar: oklch(0.95 0.026 214 / 68%)");
-    expect(css).toContain("--background: oklch(0.176 0.014 258.4)");
-    expect(css).toContain("--card: oklch(0.22 0.016 256.8 / 74%)");
-    expect(css).toContain("--border: oklch(0.33 0.015 252.3 / 76%)");
+    expect(css).not.toContain("--background: oklch(1 0 0)");
+    expect(css).not.toContain("--foreground: oklch(0.145 0 0)");
+    expect(css).not.toContain("--secondary: oklch(0.985 0 0)");
+    expect(css).not.toContain("--accent: oklch(0.97 0 0)");
+    expect(css).toContain("--background: oklch(0.17 0.02 250)");
+    expect(css).toContain("--card: oklch(0.225 0.025 248 / 78%)");
+    expect(css).toContain("--border: oklch(0.34 0.032 244 / 76%)");
     expect(css).toContain("--primary: oklch(0.618 0.193 258.3)");
+    expect(css).toContain("--success: oklch(0.76 0.13 178)");
+    expect(css).toContain("--warning: oklch(0.82 0.15 82)");
+    expect(css).toContain("--info: oklch(0.72 0.14 235)");
     expect(css).toContain("text-rendering: geometricPrecision");
     expect(css).toContain("font-synthesis-weight: none");
+  });
+
+  it("keeps status colors on shared tone tokens instead of raw utility hues", () => {
+    const toneSource = readFileSync("src/components/tone-classes.ts", "utf8");
+
+    expect(toneSource).toContain("success");
+    expect(toneSource).toContain("warning");
+    expect(toneSource).toContain("info");
+    expect(toneSource).toContain("border-success/30 bg-success/10 text-success");
+    expect(toneSource).toContain("border-warning/35 bg-warning/10 text-warning");
+    expect(toneSource).toContain("border-info/30 bg-info/10 text-info");
+
+    for (const file of [
+      "src/components/ProjectDetailPanel.tsx",
+      "src/components/LogViewer.tsx",
+      "src/components/profile-editor/ModelTestResultDialog.tsx",
+    ]) {
+      const source = readFileSync(file, "utf8");
+
+      expect(source, file).not.toMatch(/(?:text|bg|border)-(?:yellow|emerald)-\d/);
+      expect(source, file).not.toContain("text-white");
+    }
   });
 
   it("keeps profile editor surfaces off raw theme formulas", () => {

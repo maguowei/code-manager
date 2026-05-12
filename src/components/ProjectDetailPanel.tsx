@@ -11,6 +11,7 @@ import {
   type TranslateFn,
 } from "./project-detail-utils";
 import { PANEL_SURFACE_CLASS } from "./surface-classes";
+import { TONE_ALERT_CLASS, TONE_BADGE_CLASS, TONE_TEXT_CLASS } from "./tone-classes";
 import { TYPOGRAPHY } from "./typography-classes";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -65,13 +66,13 @@ type OverviewPanelProps = {
 function statusToneClass(tone: StatusTone) {
   switch (tone) {
     case "success":
-      return "border-emerald-500/20 bg-emerald-500/10 text-emerald-600";
+      return TONE_BADGE_CLASS.success;
     case "warning":
-      return "border-yellow-500/20 bg-yellow-500/10 text-yellow-600";
+      return TONE_BADGE_CLASS.warning;
     case "danger":
-      return "border-destructive/20 bg-destructive/10 text-destructive";
+      return TONE_BADGE_CLASS.danger;
     case "muted":
-      return "border-border bg-muted text-muted-foreground";
+      return TONE_BADGE_CLASS.muted;
   }
 }
 
@@ -389,7 +390,12 @@ function ProjectDetailPanel({
             </Button>
           </div>
           {!defaultEditorApp && (
-            <p className="projects-note projects-note-warning text-sm leading-6 text-yellow-600">
+            <p
+              className={cn(
+                "projects-note projects-note-warning text-sm leading-6",
+                TONE_TEXT_CLASS.warning,
+              )}
+            >
               {t("projects.editorNotConfiguredHint")}
             </p>
           )}
@@ -417,17 +423,32 @@ function ProjectDetailPanel({
 
       <div className="projects-alert-stack flex flex-col gap-2">
         {!detail?.exists && (
-          <p className="projects-inline-alert rounded-md border-l-4 border-destructive bg-destructive/10 px-3 py-2 text-sm leading-6 text-destructive">
+          <p
+            className={cn(
+              "projects-inline-alert rounded-md border-l-4 px-3 py-2 text-sm leading-6",
+              TONE_ALERT_CLASS.danger,
+            )}
+          >
             {t("projects.directoryMissing")}
           </p>
         )}
         {detail?.exists && !detail.isGitRepo && (
-          <p className="projects-inline-alert rounded-md border-l-4 border-yellow-500 bg-yellow-500/10 px-3 py-2 text-sm leading-6 text-yellow-600">
+          <p
+            className={cn(
+              "projects-inline-alert rounded-md border-l-4 px-3 py-2 text-sm leading-6",
+              TONE_ALERT_CLASS.warning,
+            )}
+          >
             {t("projects.notGitRepoHint")}
           </p>
         )}
         {detail?.agentsStatus === "plainFileConflict" && (
-          <p className="projects-inline-alert rounded-md border-l-4 border-yellow-500 bg-yellow-500/10 px-3 py-2 text-sm leading-6 text-yellow-600">
+          <p
+            className={cn(
+              "projects-inline-alert rounded-md border-l-4 px-3 py-2 text-sm leading-6",
+              TONE_ALERT_CLASS.warning,
+            )}
+          >
             {t("projects.agentsDisabledConflict")}
           </p>
         )}
@@ -476,7 +497,12 @@ function ProjectDetailPanel({
 
           <div className="projects-agents-notes flex flex-col justify-center gap-2">
             {!detail?.hasClaudeMd && (
-              <p className="projects-note projects-note-warning text-sm leading-6 text-yellow-600">
+              <p
+                className={cn(
+                  "projects-note projects-note-warning text-sm leading-6",
+                  TONE_TEXT_CLASS.warning,
+                )}
+              >
                 {t("projects.agentsDisabledNoClaude")}
               </p>
             )}

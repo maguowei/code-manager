@@ -961,7 +961,7 @@ describe("ProfileEditor", () => {
     expect(
       within(dialog).getByTestId("model-test-prompt-panel").getAttribute("class"),
     ).not.toContain("p-3 flex flex-col");
-    expect(within(dialog).getByTestId("model-test-status-badge")).toHaveClass("bg-chart-2");
+    expect(within(dialog).getByTestId("model-test-status-badge")).toHaveClass("bg-success");
     expect(within(dialog).getByTestId("model-test-response-panel")).toHaveClass("border-chart-2");
     expect(within(dialog).getByText("测试成功")).toBeInTheDocument();
     expect(within(dialog).getByTestId("model-test-profile-name")).toHaveTextContent(

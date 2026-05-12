@@ -87,6 +87,28 @@ describe("LogViewer", () => {
     });
   });
 
+  it("renders warning log levels with the shared warning tone", async () => {
+    invokeMock.mockResolvedValue({
+      logDir: "/tmp/logs",
+      truncated: false,
+      entries: [
+        {
+          timestamp: "2026-04-29 12:00:00",
+          level: "warn",
+          target: "ai_manager_lib::config",
+          message: "event=profile.apply status=warn",
+          raw: "[2026-04-29][12:00:00][ai_manager_lib::config][WARN] event=profile.apply status=warn",
+        },
+      ],
+    });
+
+    renderLogViewer();
+
+    expect(
+      (await screen.findByText("WARN", { selector: ".log-entry-level" })).closest(".log-line"),
+    ).toHaveClass("text-warning");
+  });
+
   it("opens log directory from the viewer", async () => {
     invokeMock.mockResolvedValue({
       logDir: "/tmp/logs",
