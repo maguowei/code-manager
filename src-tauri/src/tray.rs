@@ -45,33 +45,33 @@ fn tray_labels_for_language(language: &str) -> TrayLabels<'static> {
         "en" => TrayLabels {
             language: "en",
             show_window: "Open AI Manager",
-            nav_configs: "Configuration",
+            nav_configs: "Profiles",
             no_configs: "No configs",
             active_sessions: "Active Sessions",
             sessions_title: "Sessions",
             nav_memory: "Memory",
             nav_skills: "Skills",
-            nav_providers: "Preset Management",
+            nav_providers: "Presets",
             nav_projects: "Projects",
             nav_history: "History",
-            nav_stats: "Usage Statistics",
-            nav_usage: "Token Usage",
+            nav_stats: "Stats",
+            nav_usage: "Usage",
             quit: "Quit",
         },
         _ => TrayLabels {
             language: "zh",
             show_window: "打开 AI Manager",
-            nav_configs: "配置管理",
+            nav_configs: "配置",
             no_configs: "暂无配置",
             active_sessions: "当前会话",
             sessions_title: "会话",
-            nav_memory: "记忆管理",
-            nav_skills: "Skills 管理",
-            nav_providers: "预设管理",
-            nav_projects: "项目管理",
-            nav_history: "历史记录",
-            nav_stats: "使用统计",
-            nav_usage: "Token 用量",
+            nav_memory: "记忆",
+            nav_skills: "Skills",
+            nav_providers: "预设",
+            nav_projects: "项目",
+            nav_history: "历史",
+            nav_stats: "统计",
+            nav_usage: "用量",
             quit: "退出",
         },
     }
@@ -696,17 +696,26 @@ mod tests {
     fn tray_labels_follow_selected_language() {
         let zh = tray_labels_for_language("zh");
         assert_eq!(zh.show_window, "打开 AI Manager");
-        assert_eq!(zh.nav_providers, "预设管理");
-        assert_eq!(zh.nav_projects, "项目管理");
-        assert_eq!(zh.nav_stats, "使用统计");
-        assert_eq!(zh.nav_usage, "Token 用量");
+        assert_eq!(zh.nav_configs, "配置");
+        assert_eq!(zh.nav_memory, "记忆");
+        assert_eq!(zh.nav_skills, "Skills");
+        assert_eq!(zh.nav_providers, "预设");
+        assert_eq!(zh.nav_projects, "项目");
+        assert_eq!(zh.nav_history, "历史");
+        assert_eq!(zh.nav_stats, "统计");
+        assert_eq!(zh.nav_usage, "用量");
         assert_eq!(zh.quit, "退出");
 
         let en = tray_labels_for_language("en");
         assert_eq!(en.show_window, "Open AI Manager");
-        assert_eq!(en.nav_providers, "Preset Management");
-        assert_eq!(en.nav_stats, "Usage Statistics");
-        assert_eq!(en.nav_usage, "Token Usage");
+        assert_eq!(en.nav_configs, "Profiles");
+        assert_eq!(en.nav_memory, "Memory");
+        assert_eq!(en.nav_skills, "Skills");
+        assert_eq!(en.nav_providers, "Presets");
+        assert_eq!(en.nav_projects, "Projects");
+        assert_eq!(en.nav_history, "History");
+        assert_eq!(en.nav_stats, "Stats");
+        assert_eq!(en.nav_usage, "Usage");
         assert_eq!(en.quit, "Quit");
     }
 

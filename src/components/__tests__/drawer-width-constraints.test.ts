@@ -70,7 +70,7 @@ describe("drawer width constraints", () => {
 
     expect(layoutSizeSource).toContain('LIST_PANEL_COMPRESSED_WIDTH_CLASS = "w-[300px]"');
     expect(layoutSizeSource).toContain("LIST_DETAIL_DRAWER_OFFSET_CLASS");
-    expect(layoutSizeSource).toContain("left-[360px]");
+    expect(layoutSizeSource).toContain("left-[468px]");
 
     for (const source of [
       profilesPageSource,
