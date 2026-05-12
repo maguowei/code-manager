@@ -4,7 +4,18 @@ import {
   enable as enableAutostart,
   isEnabled as isAutostartEnabled,
 } from "@tauri-apps/plugin-autostart";
-import { ChevronLeft, FileText, Info, type LucideIcon, Monitor, Moon, Sun } from "lucide-react";
+import { platform } from "@tauri-apps/plugin-os";
+import {
+  ChevronLeft,
+  Code2,
+  FileText,
+  Info,
+  type LucideIcon,
+  Monitor,
+  Moon,
+  Sun,
+  Terminal as TerminalIcon,
+} from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { showOperationError } from "@/lib/user-facing-error";
 import { useToast } from "../hooks/useToast";
@@ -15,6 +26,7 @@ import type {
   ConfigWorkspace,
   DefaultEditorApp,
   DefaultTerminalApp,
+  NativeOpenAppOptions,
 } from "../types";
 import LogViewer from "./LogViewer";
 import SystemInfoDialog from "./SystemInfoDialog";
@@ -44,6 +56,11 @@ interface SettingsSectionCardProps {
   children: ReactNode;
 }
 
+interface NativeOpenSelectOption<T extends string> {
+  value: T;
+  label: string;
+}
+
 const EDITOR_UNSET_VALUE = "__unset";
 
 const languageOptions: {
@@ -64,19 +81,57 @@ const themeOptions: {
   { value: "dark", labelKey: "settings.themeDark", Icon: Moon },
 ];
 
-const terminalOptions: { value: DefaultTerminalApp; label: string }[] = [
+const terminalOptions: NativeOpenSelectOption<DefaultTerminalApp>[] = [
   { value: "terminal", label: "Terminal" },
   { value: "iterm", label: "iTerm" },
   { value: "warp", label: "Warp" },
   { value: "ghostty", label: "Ghostty" },
 ];
 
-const editorOptions: { value: DefaultEditorApp; label: string }[] = [
+const editorOptions: NativeOpenSelectOption<DefaultEditorApp>[] = [
   { value: "vscode", label: "VS Code" },
   { value: "cursor", label: "Cursor" },
   { value: "windsurf", label: "Windsurf" },
   { value: "zed", label: "Zed" },
 ];
+
+function getCurrentPlatform(): string {
+  try {
+    return platform();
+  } catch {
+    return "macos";
+  }
+}
+
+function getTerminalOptionsForPlatform(platformName: string) {
+  if (platformName === "linux") {
+    return terminalOptions.filter((option) => option.value !== "iterm");
+  }
+  if (platformName === "windows") {
+    return terminalOptions.filter((option) => option.value === "terminal");
+  }
+  return terminalOptions;
+}
+
+function mergeAvailableOptions<T extends string>(
+  options: NativeOpenSelectOption<T>[],
+  availableOptions: { slug: T }[] | undefined,
+  currentValue: T | null | undefined,
+) {
+  if (!availableOptions) {
+    return options;
+  }
+
+  const availableSlugs = new Set(availableOptions.map((option) => option.slug));
+  const visibleOptions = options.filter((option) => availableSlugs.has(option.value));
+  if (currentValue && !visibleOptions.some((option) => option.value === currentValue)) {
+    const currentOption = options.find((option) => option.value === currentValue);
+    if (currentOption) {
+      visibleOptions.push(currentOption);
+    }
+  }
+  return visibleOptions;
+}
 
 function SettingsSectionCard({ title, description, children }: SettingsSectionCardProps) {
   return (
@@ -99,6 +154,27 @@ function SettingsStateLabel({ enabled }: { enabled: boolean }) {
   );
 }
 
+function NativeOpenOptionContent({
+  option,
+  kind,
+}: {
+  option: NativeOpenSelectOption<DefaultEditorApp | DefaultTerminalApp>;
+  kind: "editor" | "terminal";
+}) {
+  const Icon = kind === "editor" ? Code2 : TerminalIcon;
+  return (
+    <span className="flex min-w-0 items-center gap-3 py-0.5">
+      <span
+        data-slot="native-open-option-icon"
+        className="flex size-6 shrink-0 items-center justify-center rounded-md border bg-muted text-muted-foreground shadow-xs"
+      >
+        <Icon className="size-4" aria-hidden="true" />
+      </span>
+      <span className="truncate">{option.label}</span>
+    </span>
+  );
+}
+
 function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   const { t, language, setLanguage } = useI18n();
   const { theme, setTheme } = useTheme();
@@ -114,6 +190,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
   const [isSystemInfoOpen, setIsSystemInfoOpen] = useState(false);
   const [launchAtLogin, setLaunchAtLogin] = useState(false);
+  const [nativeOpenOptions, setNativeOpenOptions] = useState<NativeOpenAppOptions | null>(null);
 
   useEffect(() => {
     invoke<ConfigWorkspace>("get_config_workspace")
@@ -137,11 +214,39 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
       });
   }, [showToast, t]);
 
+  useEffect(() => {
+    let cancelled = false;
+    invoke<NativeOpenAppOptions>("get_native_open_app_options")
+      .then((options) => {
+        if (!cancelled) {
+          setNativeOpenOptions(options);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setNativeOpenOptions(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const showTrayTitle = preferences.showTrayTitle;
   const showTraySessions = preferences.showTraySessions;
   const collapseSidebarByDefault = preferences.collapseSidebarByDefault;
   const defaultTerminalApp = preferences.defaultTerminalApp;
   const defaultEditorApp = preferences.defaultEditorApp;
+  const visibleTerminalOptions = mergeAvailableOptions(
+    getTerminalOptionsForPlatform(getCurrentPlatform()),
+    nativeOpenOptions?.terminals,
+    defaultTerminalApp,
+  );
+  const visibleEditorOptions = mergeAvailableOptions(
+    editorOptions,
+    nativeOpenOptions?.editors,
+    defaultEditorApp,
+  );
 
   const nextPreferences = useMemo(
     () => ({
@@ -414,11 +519,15 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                     >
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="min-w-60 rounded-xl">
                       <SelectGroup>
-                        {terminalOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
+                        {visibleTerminalOptions.map((option) => (
+                          <SelectItem
+                            key={option.value}
+                            value={option.value}
+                            textValue={option.label}
+                          >
+                            <NativeOpenOptionContent option={option} kind="terminal" />
                           </SelectItem>
                         ))}
                       </SelectGroup>
@@ -445,14 +554,18 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                     >
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="min-w-60 rounded-xl">
                       <SelectGroup>
                         <SelectItem value={EDITOR_UNSET_VALUE}>
                           {t("settings.editorUnset")}
                         </SelectItem>
-                        {editorOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
+                        {visibleEditorOptions.map((option) => (
+                          <SelectItem
+                            key={option.value}
+                            value={option.value}
+                            textValue={option.label}
+                          >
+                            <NativeOpenOptionContent option={option} kind="editor" />
                           </SelectItem>
                         ))}
                       </SelectGroup>

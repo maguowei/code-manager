@@ -1,9 +1,7 @@
-use crate::config::{AppPreferences, EDITOR_APPS};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
-use std::process::Command;
 
 /// Skill 元数据，对应 ~/.claude/skills/<id>/ 目录
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,12 +73,6 @@ pub struct SkillDirectoryImportResult {
     pub skills: Vec<Skill>,
     pub imported: Vec<String>,
     pub skipped: Vec<SkillDirectoryImportSkippedItem>,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-struct OpenAppRequest {
-    app_name: String,
-    args: Vec<String>,
 }
 
 /// 获取启用 Skills 的根目录：~/.claude/skills/
@@ -804,72 +796,17 @@ pub fn open_skill_in_editor(id: String, is_active: bool) -> Result<(), String> {
     let result = (|| {
         validate_skill_id(&id)?;
         let preferences = crate::config::load_app_preferences();
-        let request = build_skill_editor_open_request(&id, is_active, &preferences)?;
-        run_open_app_request(&request)
+        let skill_root = resolve_existing_skill_root(&id, is_active)?;
+        let editor = preferences
+            .default_editor_app
+            .as_deref()
+            .ok_or_else(|| "请先在设置中选择默认编辑器".to_string())?;
+        crate::native_open::open_path_in_editor(&skill_root, editor)
     })();
     crate::logging::log_command_result("skill.open_editor", &result, |_| {
         format!("skill_id={id} active={is_active}")
     });
     result
-}
-
-fn build_skill_editor_open_request(
-    id: &str,
-    is_active: bool,
-    preferences: &AppPreferences,
-) -> Result<OpenAppRequest, String> {
-    let skill_root = resolve_existing_skill_root(id, is_active)?;
-    let editor = preferences
-        .default_editor_app
-        .as_deref()
-        .ok_or_else(|| "请先在设置中选择默认编辑器".to_string())?;
-    let app_name = editor_app_name(editor)?;
-    Ok(build_open_app_request(&skill_root, app_name))
-}
-
-fn build_open_app_request(path: &Path, app_name: &str) -> OpenAppRequest {
-    OpenAppRequest {
-        app_name: app_name.to_string(),
-        args: vec![
-            "-a".to_string(),
-            app_name.to_string(),
-            path.to_string_lossy().to_string(),
-        ],
-    }
-}
-
-fn editor_app_name(app: &str) -> Result<&'static str, String> {
-    EDITOR_APPS
-        .iter()
-        .find(|(slug, _)| *slug == app)
-        .map(|(_, display)| *display)
-        .ok_or_else(|| "默认编辑器配置无效，请重新选择".to_string())
-}
-
-fn run_open_app_request(request: &OpenAppRequest) -> Result<(), String> {
-    #[cfg(target_os = "macos")]
-    {
-        let status = Command::new("open")
-            .args(&request.args)
-            .status()
-            .map_err(|e| format!("启动 {} 失败: {}", request.app_name, e))?;
-
-        if status.success() {
-            Ok(())
-        } else {
-            Err(format!(
-                "启动 {} 失败，退出码: {:?}",
-                request.app_name,
-                status.code()
-            ))
-        }
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    {
-        let _ = request;
-        Err("当前平台暂不支持打开本地应用".to_string())
-    }
 }
 
 #[tauri::command]
@@ -1359,17 +1296,6 @@ mod schema_tests {
         serde_json::from_str(json_schema_str).expect("Skill JSON Schema 格式不合法")
     }
 
-    fn sample_app_preferences(default_editor_app: Option<&str>) -> crate::config::AppPreferences {
-        crate::config::AppPreferences {
-            show_tray_title: true,
-            show_tray_sessions: true,
-            collapse_sidebar_by_default: false,
-            ui_language: "zh".to_string(),
-            default_terminal_app: "terminal".to_string(),
-            default_editor_app: default_editor_app.map(ToOwned::to_owned),
-        }
-    }
-
     #[test]
     fn skill_data_has_all_json_schema_fields() {
         let rust_schema = schema_for!(SkillData);
@@ -1667,30 +1593,20 @@ mod schema_tests {
     }
 
     #[test]
-    fn skill_editor_open_request_uses_symlink_target() {
+    fn resolve_existing_skill_root_uses_symlink_target() {
         let env = TestEnv::new("open-symlink");
         let external = env.root.join("external").join("linked-skill");
         write_skill_dir(&external, "Linked Skill");
         fs::create_dir_all(env.active_skill_dir("linked-skill").parent().unwrap())
             .expect("应可创建 Skills 根目录");
         create_test_dir_symlink(&external, &env.active_skill_dir("linked-skill"));
-        let preferences = sample_app_preferences(Some("cursor"));
 
-        let request = build_skill_editor_open_request("linked-skill", true, &preferences)
-            .expect("应可构建请求");
+        let skill_root =
+            resolve_existing_skill_root("linked-skill", true).expect("应可解析 Skill 根目录");
 
-        assert_eq!(request.app_name, "Cursor");
         assert_eq!(
-            request.args,
-            vec![
-                "-a".to_string(),
-                "Cursor".to_string(),
-                external
-                    .canonicalize()
-                    .expect("源目标应可 canonicalize")
-                    .to_string_lossy()
-                    .to_string()
-            ]
+            skill_root,
+            external.canonicalize().expect("源目标应可 canonicalize")
         );
     }
 

@@ -133,32 +133,7 @@ pub fn open_claude_json_in_editor() -> Result<(), String> {
         .default_editor_app
         .as_deref()
         .ok_or_else(|| "请先在设置中选择默认编辑器".to_string())?;
-    let app_name = crate::config::EDITOR_APPS
-        .iter()
-        .find(|(slug, _)| *slug == editor)
-        .map(|(_, display)| *display)
-        .ok_or_else(|| "默认编辑器配置无效，请重新选择".to_string())?;
-    #[cfg(target_os = "macos")]
-    {
-        std::process::Command::new("open")
-            .arg("-a")
-            .arg(app_name)
-            .arg(&path)
-            .status()
-            .map_err(|e| format!("启动 {app_name} 失败: {e}"))
-            .and_then(|s| {
-                if s.success() {
-                    Ok(())
-                } else {
-                    Err(format!("启动 {app_name} 失败，退出码: {:?}", s.code()))
-                }
-            })
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        let _ = (path, app_name);
-        Err("当前平台暂不支持打开本地应用".to_string())
-    }
+    crate::native_open::open_path_in_editor(&path, editor)
 }
 
 #[cfg(test)]

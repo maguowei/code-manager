@@ -3,9 +3,7 @@ use regex::Regex;
 use serde::Serialize;
 use std::fs;
 use std::io::{BufRead, BufReader};
-use std::path::{Path, PathBuf};
-#[cfg(target_os = "macos")]
-use std::process::Command;
+use std::path::PathBuf;
 
 /// 用于匹配 "Implement the following plan:" 前缀的常量
 const PLAN_PREFIX: &str = "Implement the following plan:";
@@ -516,8 +514,7 @@ pub fn open_session_file_in_editor(project: &str, session_id: &str) -> Result<()
             .default_editor_app
             .as_deref()
             .ok_or_else(|| "请先在设置中选择默认编辑器".to_string())?;
-        let app_name = editor_app_name(editor)?;
-        open_path_with_app(&session_file, app_name)
+        crate::native_open::open_path_in_editor(&session_file, editor)
     })();
     crate::logging::log_command_result("history.open_session_file_editor", &result, |_| {
         format!(
@@ -527,37 +524,6 @@ pub fn open_session_file_in_editor(project: &str, session_id: &str) -> Result<()
         )
     });
     result
-}
-
-fn editor_app_name(app: &str) -> Result<&'static str, String> {
-    crate::config::EDITOR_APPS
-        .iter()
-        .find(|(slug, _)| *slug == app)
-        .map(|(_, display)| *display)
-        .ok_or_else(|| "默认编辑器配置无效，请重新选择".to_string())
-}
-
-fn open_path_with_app(path: &Path, app_name: &str) -> Result<(), String> {
-    #[cfg(target_os = "macos")]
-    {
-        let status = Command::new("open")
-            .arg("-a")
-            .arg(app_name)
-            .arg(path)
-            .status()
-            .map_err(|e| format!("启动 {app_name} 失败: {e}"))?;
-        if status.success() {
-            Ok(())
-        } else {
-            Err(format!("启动 {app_name} 失败，退出码: {:?}", status.code()))
-        }
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    {
-        let _ = (path, app_name);
-        Err("当前平台暂不支持打开本地应用".to_string())
-    }
 }
 
 #[cfg(test)]

@@ -6,12 +6,17 @@ import type { ConfigWorkspace } from "../../types";
 import SettingsDrawer from "../SettingsDrawer";
 import { ThemeProvider } from "../theme-provider";
 
-const { invokeMock } = vi.hoisted(() => ({
+const { invokeMock, platformMock } = vi.hoisted(() => ({
   invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
+  platformMock: vi.fn(() => "macos"),
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: invokeMock,
+}));
+
+vi.mock("@tauri-apps/plugin-os", () => ({
+  platform: platformMock,
 }));
 
 const WORKSPACE_FIXTURE: ConfigWorkspace = {
@@ -56,8 +61,25 @@ describe("SettingsDrawer", () => {
   beforeEach(() => {
     localStorage.clear();
     setSystemLanguages(["zh-CN"]);
+    platformMock.mockReturnValue("macos");
     invokeMock.mockReset();
     invokeMock.mockImplementation(async (command) => {
+      if (command === "get_native_open_app_options") {
+        return {
+          editors: [
+            { slug: "vscode", label: "VS Code" },
+            { slug: "cursor", label: "Cursor" },
+            { slug: "windsurf", label: "Windsurf" },
+            { slug: "zed", label: "Zed" },
+          ],
+          terminals: [
+            { slug: "terminal", label: "Terminal" },
+            { slug: "iterm", label: "iTerm" },
+            { slug: "warp", label: "Warp" },
+            { slug: "ghostty", label: "Ghostty" },
+          ],
+        };
+      }
       if (command === "get_app_logs") {
         return {
           logDir: "/tmp/logs",
@@ -125,6 +147,74 @@ describe("SettingsDrawer", () => {
         defaultEditorApp: null,
       },
     });
+  });
+
+  it("hides macOS-only terminal choices on Linux", async () => {
+    platformMock.mockReturnValue("linux");
+    renderSettingsDrawer();
+
+    const terminalSelect = await screen.findByRole("combobox", { name: "默认终端" });
+    fireEvent.click(terminalSelect);
+
+    expect(screen.getByRole("option", { name: "Terminal" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Warp" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Ghostty" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "iTerm" })).not.toBeInTheDocument();
+  });
+
+  it("hides unsupported terminal choices on Windows", async () => {
+    platformMock.mockReturnValue("windows");
+    renderSettingsDrawer();
+
+    const terminalSelect = await screen.findByRole("combobox", { name: "默认终端" });
+    fireEvent.click(terminalSelect);
+
+    expect(screen.getByRole("option", { name: "Terminal" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "iTerm" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Warp" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Ghostty" })).not.toBeInTheDocument();
+  });
+
+  it("shows only locally available supported tools with app-style icons", async () => {
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_native_open_app_options") {
+        return {
+          editors: [{ slug: "vscode", label: "VS Code" }],
+          terminals: [{ slug: "ghostty", label: "Ghostty" }],
+        };
+      }
+      if (command === "get_app_logs") {
+        return {
+          logDir: "/tmp/logs",
+          truncated: false,
+          entries: [],
+        };
+      }
+      return {
+        ...WORKSPACE_FIXTURE,
+        app: {
+          ...WORKSPACE_FIXTURE.app,
+          defaultTerminalApp: "ghostty",
+          defaultEditorApp: "vscode",
+        },
+      };
+    });
+    renderSettingsDrawer();
+
+    const editorSelect = await screen.findByRole("combobox", { name: "默认编辑器" });
+    fireEvent.click(editorSelect);
+
+    const vscodeOption = screen.getByRole("option", { name: "VS Code" });
+    expect(vscodeOption.querySelector('[data-slot="native-open-option-icon"]')).toBeTruthy();
+    expect(screen.queryByRole("option", { name: "Cursor" })).not.toBeInTheDocument();
+
+    fireEvent.click(vscodeOption);
+    const terminalSelect = screen.getByRole("combobox", { name: "默认终端" });
+    fireEvent.click(terminalSelect);
+
+    const ghosttyOption = screen.getByRole("option", { name: "Ghostty" });
+    expect(ghosttyOption.querySelector('[data-slot="native-open-option-icon"]')).toBeTruthy();
+    expect(screen.queryByRole("option", { name: "Terminal" })).not.toBeInTheDocument();
   });
 
   it("switches theme through the three-state radio group", async () => {

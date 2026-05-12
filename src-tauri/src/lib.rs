@@ -4,6 +4,7 @@ mod config;
 mod history;
 mod logging;
 mod memory;
+mod native_open;
 mod project;
 mod skills;
 mod stats;
@@ -30,6 +31,7 @@ use memory::{
     add_memory, delete_memory, duplicate_memory, get_memories, import_memories_from_directory,
     import_unmanaged_memory, preview_delete_memory, toggle_memory, update_memory,
 };
+use native_open::get_native_open_app_options;
 use project::{
     create_project_agents_symlink, get_project_detail, open_project_in_editor,
     open_project_in_terminal, preview_project_local_data_purge, purge_project_local_data,
@@ -127,6 +129,7 @@ pub fn run() {
             upsert_preset,
             delete_preset,
             set_app_preferences,
+            get_native_open_app_options,
             get_memories,
             add_memory,
             update_memory,

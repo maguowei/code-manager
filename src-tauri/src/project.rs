@@ -1,4 +1,3 @@
-use crate::config::{AppPreferences, EDITOR_APPS, TERMINAL_APPS};
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -64,12 +63,6 @@ pub struct ProjectPurgeOutput {
 struct ProjectFileStatus {
     has_claude_md: bool,
     agents_status: AgentsStatus,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-struct OpenAppRequest {
-    app_name: String,
-    args: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -169,8 +162,7 @@ pub fn open_project_in_terminal(project: &str) -> Result<(), String> {
     let result = (|| {
         let project_path = validate_project_path(project)?;
         let preferences = crate::config::load_app_preferences();
-        let request = build_terminal_open_request(&project_path, &preferences)?;
-        run_open_app_request(&request)
+        crate::native_open::open_dir_in_terminal(&project_path, &preferences.default_terminal_app)
     })();
     crate::logging::log_command_result("project.open_terminal", &result, |_| {
         format!("project={}", crate::utils::truncate(project, 160))
@@ -183,8 +175,11 @@ pub fn open_project_in_editor(project: &str) -> Result<(), String> {
     let result = (|| {
         let project_path = validate_project_path(project)?;
         let preferences = crate::config::load_app_preferences();
-        let request = build_editor_open_request(&project_path, &preferences)?;
-        run_open_app_request(&request)
+        let editor = preferences
+            .default_editor_app
+            .as_deref()
+            .ok_or_else(|| "请先在设置中选择默认编辑器".to_string())?;
+        crate::native_open::open_path_in_editor(&project_path, editor)
     })();
     crate::logging::log_command_result("project.open_editor", &result, |_| {
         format!("project={}", crate::utils::truncate(project, 160))
@@ -519,89 +514,6 @@ fn sanitize_repository_path(path: &str) -> Option<String> {
     Some(normalized.to_string())
 }
 
-fn build_terminal_open_request(
-    project: &Path,
-    preferences: &AppPreferences,
-) -> Result<OpenAppRequest, String> {
-    ensure_project_dir_exists(project)?;
-    let app_name = terminal_app_name(&preferences.default_terminal_app)?;
-    Ok(build_open_app_request(project, app_name))
-}
-
-fn build_editor_open_request(
-    project: &Path,
-    preferences: &AppPreferences,
-) -> Result<OpenAppRequest, String> {
-    ensure_project_dir_exists(project)?;
-    let editor = preferences
-        .default_editor_app
-        .as_deref()
-        .ok_or_else(|| "请先在设置中选择默认编辑器".to_string())?;
-    let app_name = editor_app_name(editor)?;
-    Ok(build_open_app_request(project, app_name))
-}
-
-fn ensure_project_dir_exists(project: &Path) -> Result<(), String> {
-    if project.is_dir() {
-        Ok(())
-    } else {
-        Err("项目目录不存在".to_string())
-    }
-}
-
-fn build_open_app_request(project: &Path, app_name: &str) -> OpenAppRequest {
-    OpenAppRequest {
-        app_name: app_name.to_string(),
-        args: vec![
-            "-a".to_string(),
-            app_name.to_string(),
-            project.to_string_lossy().to_string(),
-        ],
-    }
-}
-
-fn terminal_app_name(app: &str) -> Result<&'static str, String> {
-    TERMINAL_APPS
-        .iter()
-        .find(|(slug, _)| *slug == app)
-        .map(|(_, display)| *display)
-        .ok_or_else(|| "默认终端配置无效，请重新选择".to_string())
-}
-
-fn editor_app_name(app: &str) -> Result<&'static str, String> {
-    EDITOR_APPS
-        .iter()
-        .find(|(slug, _)| *slug == app)
-        .map(|(_, display)| *display)
-        .ok_or_else(|| "默认编辑器配置无效，请重新选择".to_string())
-}
-
-fn run_open_app_request(request: &OpenAppRequest) -> Result<(), String> {
-    #[cfg(target_os = "macos")]
-    {
-        let status = Command::new("open")
-            .args(&request.args)
-            .status()
-            .map_err(|e| format!("启动 {} 失败: {}", request.app_name, e))?;
-
-        if status.success() {
-            Ok(())
-        } else {
-            Err(format!(
-                "启动 {} 失败，退出码: {:?}",
-                request.app_name,
-                status.code()
-            ))
-        }
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    {
-        let _ = request;
-        Err("当前平台暂不支持打开本地应用".to_string())
-    }
-}
-
 fn run_claude_project_purge(
     project: &str,
     mode: ProjectPurgeMode,
@@ -759,7 +671,6 @@ fn paths_match(left: &Path, right: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::AppPreferences;
     use std::path::Path;
 
     #[test]
@@ -927,82 +838,6 @@ mod tests {
     }
 
     #[test]
-    fn build_terminal_open_request_uses_configured_terminal_app() {
-        let sandbox = TestDir::new();
-        let state = sample_app_state("iterm", Some("cursor"));
-
-        let request = build_terminal_open_request(sandbox.path(), &state).unwrap();
-
-        assert_eq!(request.app_name, "iTerm");
-        assert_eq!(
-            request.args,
-            vec![
-                "-a".to_string(),
-                "iTerm".to_string(),
-                sandbox.path().to_string_lossy().to_string()
-            ]
-        );
-    }
-
-    #[test]
-    fn build_terminal_open_request_supports_ghostty() {
-        let sandbox = TestDir::new();
-        let state = sample_app_state("ghostty", Some("cursor"));
-
-        let request = build_terminal_open_request(sandbox.path(), &state).unwrap();
-
-        assert_eq!(request.app_name, "Ghostty");
-        assert_eq!(
-            request.args,
-            vec![
-                "-a".to_string(),
-                "Ghostty".to_string(),
-                sandbox.path().to_string_lossy().to_string()
-            ]
-        );
-    }
-
-    #[test]
-    fn build_editor_open_request_requires_configured_editor() {
-        let sandbox = TestDir::new();
-        let state = sample_app_state("terminal", None);
-
-        let err = build_editor_open_request(sandbox.path(), &state).unwrap_err();
-
-        assert!(err.contains("默认编辑器"));
-    }
-
-    #[test]
-    fn build_open_requests_reject_missing_directory() {
-        let missing = std::env::temp_dir().join(format!(
-            "ai-manager-project-missing-{}",
-            uuid::Uuid::new_v4()
-        ));
-        let state = sample_app_state("terminal", Some("vscode"));
-
-        let err = build_terminal_open_request(&missing, &state).unwrap_err();
-        assert!(err.contains("项目目录不存在"));
-    }
-
-    #[test]
-    fn build_editor_open_request_uses_configured_editor_app() {
-        let sandbox = TestDir::new();
-        let state = sample_app_state("terminal", Some("vscode"));
-
-        let request = build_editor_open_request(sandbox.path(), &state).unwrap();
-
-        assert_eq!(request.app_name, "Visual Studio Code");
-        assert_eq!(
-            request.args,
-            vec![
-                "-a".to_string(),
-                "Visual Studio Code".to_string(),
-                sandbox.path().to_string_lossy().to_string()
-            ]
-        );
-    }
-
-    #[test]
     fn build_claude_project_purge_args_uses_expected_flags() {
         assert_eq!(
             build_claude_project_purge_args("/tmp/my-repo", ProjectPurgeMode::DryRun),
@@ -1100,20 +935,6 @@ mod tests {
             .status()
             .unwrap();
         assert!(status.success(), "git command failed: {:?}", args);
-    }
-
-    fn sample_app_state(
-        default_terminal_app: &str,
-        default_editor_app: Option<&str>,
-    ) -> AppPreferences {
-        AppPreferences {
-            show_tray_title: true,
-            show_tray_sessions: true,
-            collapse_sidebar_by_default: false,
-            ui_language: "zh".to_string(),
-            default_terminal_app: default_terminal_app.to_string(),
-            default_editor_app: default_editor_app.map(ToOwned::to_owned),
-        }
     }
 
     #[cfg(unix)]

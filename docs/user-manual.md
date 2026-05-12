@@ -386,9 +386,27 @@ Skills 页用于管理 `~/.claude/skills/` 下的 Claude Code Skill。
 
 项目详情顶部提供：
 
-- 用终端打开项目：使用设置中的默认终端，支持 Terminal、iTerm、Warp 和 Ghostty。
-- 用编辑器打开项目：需要先在设置中选择默认编辑器，支持 VS Code、Cursor、Windsurf 和 Zed。
+- 用终端打开项目：使用设置中的默认终端。可选项会按当前平台和本机已安装情况过滤。
+- 用编辑器打开项目：需要先在设置中选择默认编辑器。可选项会按当前平台和本机已安装情况过滤。
 - 打开源码仓库：使用项目 Git 远程地址。
+
+当前支持的编辑器：
+
+| 编辑器 | macOS | Linux | Windows |
+| --- | --- | --- | --- |
+| VS Code | 支持 | 需要 `code` CLI | 需要 `code` CLI |
+| Cursor | 支持 | 需要 `cursor` CLI | 需要 `cursor` CLI |
+| Windsurf | 支持 | 需要 `windsurf` CLI | 需要 `windsurf` CLI |
+| Zed | 支持 | 需要 `zed` CLI | 需要 `zed` CLI |
+
+当前支持的终端：
+
+| 终端 | macOS | Linux | Windows |
+| --- | --- | --- | --- |
+| Terminal | 支持 Terminal.app | 依次尝试 `$TERMINAL`、`xdg-terminal-exec`、`x-terminal-emulator` 和常见终端命令 | 依次尝试 Windows Terminal、PowerShell、cmd |
+| iTerm | 支持 | 不支持 | 不支持 |
+| Warp | 支持 | 需要 `warp-terminal` CLI | 暂不支持 |
+| Ghostty | 支持 | 需要 `ghostty` CLI | 暂不支持 |
 
 ### 状态检查
 
@@ -548,10 +566,12 @@ URL 会同步 `project`、`q` 和 `session` 参数，便于保留当前筛选状
 - 在菜单栏显示当前配置。
 - 在菜单栏显示当前会话。
 - 开机自启动。
-- 默认终端：Terminal、iTerm、Warp、Ghostty。
-- 默认编辑器：VS Code、Cursor、Windsurf、Zed 或未设置。
+- 默认终端：按当前平台和本机安装情况展示可用的 Terminal、iTerm、Warp、Ghostty。
+- 默认编辑器：按当前平台和本机安装情况展示可用的 VS Code、Cursor、Windsurf、Zed，或选择未设置。
 
 默认终端影响项目页的用终端打开。默认编辑器影响项目页、统计页、目录总览和 Skill 相关的外部编辑操作。
+
+可用项来自内置支持清单和系统检测，不会自动列出电脑里的所有应用。这样可以保证每个选项都有明确的打开命令和项目路径参数。Linux 和 Windows 的编辑器需要对应 CLI 在 `PATH` 中可访问；Windows 的默认终端会优先使用 Windows Terminal，失败后回退 PowerShell 和 cmd。
 
 ### 日志查看
 

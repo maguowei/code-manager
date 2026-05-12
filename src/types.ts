@@ -18,6 +18,21 @@ export type DefaultTerminalApp = "terminal" | "iterm" | "warp" | "ghostty";
 
 export type DefaultEditorApp = "vscode" | "cursor" | "windsurf" | "zed";
 
+export interface NativeEditorAppOption {
+  slug: DefaultEditorApp;
+  label: string;
+}
+
+export interface NativeTerminalAppOption {
+  slug: DefaultTerminalApp;
+  label: string;
+}
+
+export interface NativeOpenAppOptions {
+  editors: NativeEditorAppOption[];
+  terminals: NativeTerminalAppOption[];
+}
+
 export interface AppPreferences {
   showTrayTitle: boolean;
   showTraySessions: boolean;

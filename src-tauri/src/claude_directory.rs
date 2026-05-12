@@ -2,8 +2,6 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::Read;
 use std::path::{Component, Path, PathBuf};
-#[cfg(target_os = "macos")]
-use std::process::Command;
 
 const DEFAULT_MAX_ENTRIES: usize = 100_000;
 const DEFAULT_MAX_DEPTH: usize = 128;
@@ -152,8 +150,7 @@ pub fn open_claude_file_in_editor(path: String) -> Result<(), String> {
             .default_editor_app
             .as_deref()
             .ok_or_else(|| "请先在设置中选择默认编辑器".to_string())?;
-        let app_name = editor_app_name(editor)?;
-        open_path_with_app(&target_path, app_name)
+        crate::native_open::open_path_in_editor(&target_path, editor)
     })();
     crate::logging::log_command_result("claude_directory.open_editor", &result, |_| {
         format!("path={}", crate::utils::truncate(&path, 160))
@@ -681,42 +678,6 @@ fn normalize_relative_path(path: &Path) -> String {
         })
         .collect::<Vec<_>>()
         .join("/")
-}
-
-fn editor_app_name(app: &str) -> Result<&'static str, String> {
-    crate::config::EDITOR_APPS
-        .iter()
-        .find(|(slug, _)| *slug == app)
-        .map(|(_, display)| *display)
-        .ok_or_else(|| "默认编辑器配置无效，请重新选择".to_string())
-}
-
-fn open_path_with_app(path: &Path, app_name: &str) -> Result<(), String> {
-    #[cfg(target_os = "macos")]
-    {
-        run_command_status(
-            Command::new("open").arg("-a").arg(app_name).arg(path),
-            app_name,
-        )
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    {
-        let _ = (path, app_name);
-        Err("当前平台暂不支持打开本地应用".to_string())
-    }
-}
-
-#[cfg(target_os = "macos")]
-fn run_command_status(command: &mut Command, action_name: &str) -> Result<(), String> {
-    let status = command
-        .status()
-        .map_err(|e| mask_io_error(&format!("启动 {}", action_name), &e))?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format!("{}启动失败", action_name))
-    }
 }
 
 #[cfg(test)]
