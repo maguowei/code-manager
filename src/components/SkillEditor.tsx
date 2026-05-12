@@ -32,9 +32,9 @@ import {
   TOOLBAR_SURFACE_CLASS,
 } from "./surface-classes";
 import { useTheme } from "./theme-provider";
+import { TYPOGRAPHY } from "./typography-classes";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Checkbox } from "./ui/checkbox";
 import {
   Form,
   FormControl,
@@ -45,6 +45,7 @@ import {
   FormMessage,
 } from "./ui/form";
 import { Input } from "./ui/input";
+import { Switch } from "./ui/switch";
 import { Textarea } from "./ui/textarea";
 
 interface SkillEditorProps {
@@ -87,6 +88,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
   const watchId = watch("id");
   const canSave = watchId.trim().length > 0 && !isSaving && !isReadOnly;
   const isPreviewMode = editorMode === "preview";
+  const sortedFileTree = fileTree.slice().sort((a, b) => a.path.localeCompare(b.path));
 
   // 编辑模式下进入页面时自动懒加载支持文件
   // CollapsibleSection 暂不支持 onExpand 回调，故在 isEditing && !filesLoaded 时通过 useEffect 触发
@@ -317,36 +319,43 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
         control={control}
         name={fieldConfig.name}
         render={({ field }) => (
-          <FormItem className="checkbox-group flex flex-col gap-1.5">
-            <div className="flex items-start gap-2">
-              <FormControl>
-                <Checkbox
-                  checked={!!field.value}
-                  onCheckedChange={(checked) => {
-                    if (isReadOnly) {
+          <FormItem className="flex flex-col gap-1">
+            <div
+              data-slot="skill-boolean-option"
+              className="flex items-center justify-between gap-3 rounded-lg border border-border/80 bg-background/60 px-3 py-3 shadow-xs"
+              onPointerDown={
+                isReadOnly
+                  ? (event) => {
+                      event.preventDefault();
                       handleReadonlyAttempt();
-                      return;
                     }
-                    const nextValue = checked === true;
-                    field.onChange(nextValue);
-                    syncMarkdownFromForm({
-                      [fieldConfig.name]: nextValue,
-                    } as Partial<SkillFormData>);
-                  }}
-                  aria-disabled={isReadOnly}
-                  className="mt-0.5 border-border data-[state=checked]:border-primary data-[state=checked]:bg-primary"
-                />
-              </FormControl>
-              <div className="grid min-w-0 gap-1">
-                <FormLabel className="text-xs font-medium text-foreground">
-                  {t(fieldConfig.labelKey)}
-                </FormLabel>
+                  : undefined
+              }
+            >
+              <div className="min-w-0 flex-1">
+                <FormLabel className={TYPOGRAPHY.fieldLabel}>{t(fieldConfig.labelKey)}</FormLabel>
                 {fieldConfig.descriptionKey ? (
                   <FormDescription className="m-0 text-xs leading-normal text-muted-foreground">
                     {t(fieldConfig.descriptionKey)}
                   </FormDescription>
                 ) : null}
               </div>
+              <FormControl>
+                <Switch
+                  checked={!!field.value}
+                  onCheckedChange={(checked) => {
+                    if (isReadOnly) {
+                      handleReadonlyAttempt();
+                      return;
+                    }
+                    field.onChange(checked);
+                    syncMarkdownFromForm({
+                      [fieldConfig.name]: checked,
+                    } as Partial<SkillFormData>);
+                  }}
+                  aria-disabled={isReadOnly}
+                />
+              </FormControl>
             </div>
             <FormMessage className="mt-1 text-xs text-destructive" />
           </FormItem>
@@ -357,19 +366,25 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
 
   function renderFileTreeEntry(entry: SkillFileTreeEntry) {
     const Icon = entry.kind === "directory" ? Folder : FileText;
+    const depth = entry.path.split("/").length - 1;
+    const basename = entry.path.split("/").pop() ?? entry.path;
     return (
       <li
         key={entry.path}
-        className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-t border-border/70 px-3 py-2 first:border-t-0"
+        className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-t border-border/70 py-2 pr-3 first:border-t-0"
+        // 文件树层级来自路径深度，只能用内联 style 承载动态缩进值。
+        style={{ paddingLeft: `calc(${depth} * 1rem + 0.75rem)` }}
       >
         <Icon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-        <code className="min-w-0 truncate font-mono text-xs text-foreground">{entry.path}</code>
+        <code title={entry.path} className="min-w-0 truncate font-mono text-xs text-foreground">
+          {basename}
+        </code>
         {entry.kind === "file" ? (
           <div className="flex shrink-0 items-center gap-1.5">
             {entry.isBinary ? (
               <Badge
                 variant="secondary"
-                className="skill-file-binary-tag rounded bg-muted px-1.5 py-px text-xs font-semibold text-muted-foreground"
+                className="skill-file-binary-tag rounded bg-muted px-1 py-px text-xs font-semibold text-muted-foreground"
               >
                 {t("skills.binaryFile")}
               </Badge>
@@ -378,11 +393,7 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
               {t("skills.fileSizeBytes").replace("{size}", String(entry.size))}
             </span>
           </div>
-        ) : (
-          <Badge variant="outline" className="rounded px-1.5 py-px text-xs font-normal">
-            {t("skills.directory")}
-          </Badge>
-        )}
+        ) : null}
       </li>
     );
   }
@@ -417,9 +428,15 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
               </h2>
               <div className="flex shrink-0 items-center gap-2">
                 {isEditing ? (
-                  <Button type="button" variant="outline" size="sm" onClick={handleOpenInEditor}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleOpenInEditor}
+                    aria-label={t("skills.openInEditor")}
+                  >
                     <FolderOpen className="size-3.5" aria-hidden="true" />
-                    <span>{t("skills.openInEditor")}</span>
+                    <span>{t("skills.openDirectory")}</span>
                   </Button>
                 ) : null}
                 {!isReadOnly ? (
@@ -581,8 +598,10 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
                       PANEL_SURFACE_CLASS,
                     )}
                   >
-                    {fileTree.length > 0 ? (
-                      <ul className="m-0 flex flex-col p-0">{fileTree.map(renderFileTreeEntry)}</ul>
+                    {sortedFileTree.length > 0 ? (
+                      <ul className="m-0 flex flex-col p-0">
+                        {sortedFileTree.map(renderFileTreeEntry)}
+                      </ul>
                     ) : (
                       <div className="px-3 py-3 text-xs text-muted-foreground">
                         {t("skills.fileTreeEmpty")}

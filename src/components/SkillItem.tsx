@@ -104,9 +104,6 @@ function SkillItem({
                 <TooltipContent>{t("skills.symlinkReadonlyHint")}</TooltipContent>
               </Tooltip>
             ) : null}
-            <span className="skill-slash-id min-w-0 truncate font-mono text-xs leading-[22px] text-muted-foreground">
-              /{skill.id}
-            </span>
           </div>
         </div>
 

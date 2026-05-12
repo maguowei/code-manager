@@ -186,6 +186,7 @@ describe("SkillsPage", () => {
     renderSkillsPage();
 
     expect(await screen.findByText("Local Skill")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Skills 列表" })).toBeInTheDocument();
     expect(screen.getByText("Linked Skill")).toBeInTheDocument();
     expect(screen.getByText("本地目录")).toBeInTheDocument();
     expect(screen.getByText("软链接")).toBeInTheDocument();

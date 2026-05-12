@@ -181,7 +181,6 @@ const translations = {
     "skills.refresh": "刷新",
     "skills.refreshing": "刷新中...",
     "skills.list": "Skills 列表",
-    "skills.listDescription": "本地目录可在应用内编辑 SKILL.md；软链接只读展示内容。",
     "skills.localDirectoryBadge": "本地目录",
     "skills.symlinkBadge": "软链接",
     "skills.readOnlyBadge": "只读",
@@ -1028,7 +1027,7 @@ const translations = {
     "skills.fileTreeReadonlyHint":
       "支持文件仅展示目录树；如需编辑，请用外部编辑器打开 Skill 目录。",
     "skills.openInEditor": "用编辑器打开 Skill 目录",
-    "skills.directory": "目录",
+    "skills.openDirectory": "打开 Skill 目录",
     "skills.fileSizeBytes": "{size} B",
     "skills.symlinkReadonlyTitle": "软链接 Skill 不支持应用内修改",
     "skills.symlinkReadonlyDescription":
@@ -1295,8 +1294,6 @@ const translations = {
     "skills.refresh": "Refresh",
     "skills.refreshing": "Refreshing...",
     "skills.list": "Skills",
-    "skills.listDescription":
-      "Local directories can edit SKILL.md in app. Symlink Skills are read-only here.",
     "skills.localDirectoryBadge": "Local Directory",
     "skills.symlinkBadge": "Symlink",
     "skills.readOnlyBadge": "Read-only",
@@ -2174,7 +2171,7 @@ const translations = {
     "skills.fileTreeReadonlyHint":
       "Supporting files are shown as a directory tree only. Open the Skill directory in an external editor to change them.",
     "skills.openInEditor": "Open Skill Directory in Editor",
-    "skills.directory": "Directory",
+    "skills.openDirectory": "Open Skill Directory",
     "skills.fileSizeBytes": "{size} B",
     "skills.symlinkReadonlyTitle": "Symlink Skills cannot be modified in app",
     "skills.symlinkReadonlyDescription":

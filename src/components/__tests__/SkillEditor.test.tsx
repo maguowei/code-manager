@@ -126,7 +126,8 @@ describe("SkillEditor", () => {
     renderSkillEditor(localSkill);
 
     expect(await screen.findByText("examples.md")).toBeInTheDocument();
-    expect(screen.getByText("scripts/helper.sh")).toBeInTheDocument();
+    expect(screen.getByText("helper.sh")).toBeInTheDocument();
+    expect(screen.getByTitle("scripts/helper.sh")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "添加文件" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "编辑文件" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "删除文件" })).not.toBeInTheDocument();

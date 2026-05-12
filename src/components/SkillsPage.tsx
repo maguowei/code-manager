@@ -500,11 +500,6 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
         <EmptyState title={t("skills.empty")} hint={t("skills.emptyHint")} icon={Zap} />
       ) : (
         <section className="skill-groups flex flex-col gap-3 p-4" aria-label={t("skills.list")}>
-          <div className="skill-group-header flex min-w-0 flex-col gap-1 px-1">
-            <h2 className="m-0 text-base leading-snug font-bold text-foreground">
-              {t("skills.list")}
-            </h2>
-          </div>
           <div className="list-container flex flex-col gap-3">
             {sortedSkills.map((skill) => (
               <SkillItem

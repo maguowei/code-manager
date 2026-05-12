@@ -120,6 +120,7 @@ describe("SkillItem", () => {
 
     const card = screen.getByRole("button", { name: /Code Review/ });
 
+    expect(screen.queryByText(/^\/code-review$/)).not.toBeInTheDocument();
     expect(card).toHaveTextContent("已禁用");
     expect(
       screen.queryByText("Review code changes with repository conventions."),
