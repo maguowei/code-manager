@@ -876,6 +876,7 @@ describe("UsagePage cost cockpit", () => {
         <TooltipProvider>
           <Sidebar
             activeTab="usage"
+            collapseSidebarByDefault={false}
             onTabChange={vi.fn()}
             onClaudeOverviewClick={vi.fn()}
             onSettingsClick={vi.fn()}

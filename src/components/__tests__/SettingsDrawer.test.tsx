@@ -18,6 +18,7 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
   app: {
     showTrayTitle: true,
     showTraySessions: true,
+    collapseSidebarByDefault: false,
     uiLanguage: "zh",
     defaultTerminalApp: "terminal",
     defaultEditorApp: null,
@@ -100,6 +101,25 @@ describe("SettingsDrawer", () => {
       data: {
         showTrayTitle: true,
         showTraySessions: false,
+        collapseSidebarByDefault: false,
+        uiLanguage: "zh",
+        defaultTerminalApp: "terminal",
+        defaultEditorApp: null,
+      },
+    });
+  });
+
+  it("persists the sidebar icon-only default switch independently", async () => {
+    renderSettingsDrawer();
+
+    expect(await screen.findByText("默认收起侧边栏")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("switch", { name: "默认收起侧边栏" }));
+
+    expect(invokeMock).toHaveBeenCalledWith("set_app_preferences", {
+      data: {
+        showTrayTitle: true,
+        showTraySessions: true,
+        collapseSidebarByDefault: true,
         uiLanguage: "zh",
         defaultTerminalApp: "terminal",
         defaultEditorApp: null,

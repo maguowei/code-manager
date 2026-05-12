@@ -47,6 +47,8 @@ pub struct AppPreferences {
     pub show_tray_title: bool,
     #[serde(default = "default_true")]
     pub show_tray_sessions: bool,
+    #[serde(default)]
+    pub collapse_sidebar_by_default: bool,
     #[serde(default = "default_ui_language")]
     pub ui_language: String,
     #[serde(default = "default_terminal_app")]
@@ -60,6 +62,7 @@ impl Default for AppPreferences {
         Self {
             show_tray_title: default_true(),
             show_tray_sessions: default_true(),
+            collapse_sidebar_by_default: false,
             ui_language: default_ui_language(),
             default_terminal_app: default_terminal_app(),
             default_editor_app: None,
@@ -246,6 +249,8 @@ struct ModelTestResultContext {
 pub struct AppPreferencesInput {
     pub show_tray_title: bool,
     pub show_tray_sessions: bool,
+    #[serde(default)]
+    pub collapse_sidebar_by_default: bool,
     pub ui_language: String,
     pub default_terminal_app: String,
     pub default_editor_app: Option<String>,
@@ -669,6 +674,7 @@ fn normalize_app_preferences(input: AppPreferencesInput) -> Result<AppPreference
     Ok(AppPreferences {
         show_tray_title: input.show_tray_title,
         show_tray_sessions: input.show_tray_sessions,
+        collapse_sidebar_by_default: input.collapse_sidebar_by_default,
         ui_language,
         default_terminal_app,
         default_editor_app,
@@ -2001,6 +2007,20 @@ mod tests {
     }
 
     #[test]
+    fn app_preferences_default_to_expanded_sidebar() {
+        let preferences: AppPreferences = serde_json::from_value(serde_json::json!({
+            "showTrayTitle": true,
+            "showTraySessions": true,
+            "uiLanguage": "zh",
+            "defaultTerminalApp": "terminal",
+            "defaultEditorApp": null
+        }))
+        .unwrap();
+
+        assert!(!preferences.collapse_sidebar_by_default);
+    }
+
+    #[test]
     fn compile_schema_regex_reuses_cached_patterns() {
         let first = compile_schema_regex("^Bash\\(.+\\)$").unwrap();
         let second = compile_schema_regex("^Bash\\(.+\\)$").unwrap();
@@ -2488,6 +2508,7 @@ mod tests {
             app: AppPreferences {
                 show_tray_title: true,
                 show_tray_sessions: true,
+                collapse_sidebar_by_default: false,
                 ui_language: "zh".to_string(),
                 default_terminal_app: "terminal".to_string(),
                 default_editor_app: Some("cursor".to_string()),

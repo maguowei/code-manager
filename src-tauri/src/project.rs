@@ -1109,6 +1109,7 @@ mod tests {
         AppPreferences {
             show_tray_title: true,
             show_tray_sessions: true,
+            collapse_sidebar_by_default: false,
             ui_language: "zh".to_string(),
             default_terminal_app: default_terminal_app.to_string(),
             default_editor_app: default_editor_app.map(ToOwned::to_owned),

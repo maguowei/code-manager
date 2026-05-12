@@ -106,6 +106,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   const [preferences, setPreferences] = useState<AppPreferences>({
     showTrayTitle: true,
     showTraySessions: true,
+    collapseSidebarByDefault: false,
     uiLanguage: "zh",
     defaultTerminalApp: "terminal",
     defaultEditorApp: null,
@@ -138,6 +139,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
 
   const showTrayTitle = preferences.showTrayTitle;
   const showTraySessions = preferences.showTraySessions;
+  const collapseSidebarByDefault = preferences.collapseSidebarByDefault;
   const defaultTerminalApp = preferences.defaultTerminalApp;
   const defaultEditorApp = preferences.defaultEditorApp;
 
@@ -295,6 +297,33 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                     );
                   })}
                 </RadioGroup>
+              </FieldGroup>
+            </SettingsSectionCard>
+
+            <SettingsSectionCard
+              title={t("settings.collapseSidebarByDefault")}
+              description={t("settings.collapseSidebarByDefaultDesc")}
+            >
+              <FieldGroup className="gap-4">
+                <Field orientation="horizontal" className="items-center justify-between gap-4">
+                  <FieldContent>
+                    <SettingsStateLabel enabled={collapseSidebarByDefault} />
+                  </FieldContent>
+                  <Switch
+                    id="settings-collapse-sidebar-by-default"
+                    checked={collapseSidebarByDefault}
+                    onCheckedChange={(checked) => {
+                      void persistPreferences(
+                        {
+                          ...nextPreferences,
+                          collapseSidebarByDefault: checked,
+                        },
+                        nextPreferences,
+                      );
+                    }}
+                    aria-label={t("settings.collapseSidebarByDefault")}
+                  />
+                </Field>
               </FieldGroup>
             </SettingsSectionCard>
 

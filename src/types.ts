@@ -21,6 +21,7 @@ export type DefaultEditorApp = "vscode" | "cursor" | "windsurf" | "zed";
 export interface AppPreferences {
   showTrayTitle: boolean;
   showTraySessions: boolean;
+  collapseSidebarByDefault: boolean;
   uiLanguage: "zh" | "en";
   defaultTerminalApp: DefaultTerminalApp;
   defaultEditorApp: DefaultEditorApp | null;

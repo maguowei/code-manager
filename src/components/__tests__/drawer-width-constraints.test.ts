@@ -70,7 +70,7 @@ describe("drawer width constraints", () => {
 
     expect(layoutSizeSource).toContain('LIST_PANEL_COMPRESSED_WIDTH_CLASS = "w-[300px]"');
     expect(layoutSizeSource).toContain("LIST_DETAIL_DRAWER_OFFSET_CLASS");
-    expect(layoutSizeSource).toContain("left-[468px]");
+    expect(layoutSizeSource).toContain("left-[calc(var(--app-sidebar-width)+300px)]");
 
     for (const source of [
       profilesPageSource,

@@ -847,6 +847,8 @@ const translations = {
     "settings.themeLight": "浅色",
     "settings.themeDark": "深色",
     "settings.themeSystem": "跟随系统",
+    "settings.collapseSidebarByDefault": "默认收起侧边栏",
+    "settings.collapseSidebarByDefaultDesc": "启动后侧边栏仅显示菜单图标，窄屏仍会自动收起",
     "settings.showTrayTitle": "在菜单栏显示当前配置",
     "settings.showTrayTitleDesc": "在系统托盘图标旁显示当前激活的配置名称",
     "settings.showTraySessions": "在菜单栏显示当前会话",
@@ -1992,6 +1994,9 @@ const translations = {
     "settings.themeLight": "Light",
     "settings.themeDark": "Dark",
     "settings.themeSystem": "System",
+    "settings.collapseSidebarByDefault": "Collapse sidebar by default",
+    "settings.collapseSidebarByDefaultDesc":
+      "Show menu icons only after launch. Narrow screens still collapse automatically.",
     "settings.showTrayTitle": "Show active config in menu bar",
     "settings.showTrayTitleDesc":
       "Display the active configuration name next to the system tray icon",

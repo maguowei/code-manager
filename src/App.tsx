@@ -28,6 +28,7 @@ const EMPTY_WORKSPACE: ConfigWorkspace = {
   app: {
     showTrayTitle: true,
     showTraySessions: true,
+    collapseSidebarByDefault: false,
     uiLanguage: "zh",
     defaultTerminalApp: "terminal",
     defaultEditorApp: null,
@@ -69,6 +70,17 @@ function App() {
   useEffect(() => {
     void loadWorkspace();
   }, [loadWorkspace]);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      "--app-sidebar-width",
+      workspace.app.collapseSidebarByDefault ? "60px" : "168px",
+    );
+
+    return () => {
+      document.documentElement.style.removeProperty("--app-sidebar-width");
+    };
+  }, [workspace.app.collapseSidebarByDefault]);
 
   useTauriEvent<void>("config-workspace-changed", () => {
     void loadWorkspace();
@@ -123,6 +135,7 @@ function App() {
       <div className="flex h-screen overflow-hidden bg-background text-foreground">
         <Sidebar
           activeTab={activeTab}
+          collapseSidebarByDefault={workspace.app.collapseSidebarByDefault}
           onTabChange={(tab) => {
             if (tab !== "claudeOverview") {
               previousContentTabRef.current = tab;

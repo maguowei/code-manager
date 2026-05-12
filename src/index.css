@@ -4,6 +4,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
+  --app-sidebar-width: 168px;
   --background: oklch(0.986 0.012 230);
   --foreground: oklch(0.205 0.035 252);
   --card: oklch(0.998 0.004 230);

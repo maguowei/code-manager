@@ -75,6 +75,7 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
   app: {
     showTrayTitle: true,
     showTraySessions: true,
+    collapseSidebarByDefault: false,
     uiLanguage: "zh",
     defaultTerminalApp: "terminal",
     defaultEditorApp: null,

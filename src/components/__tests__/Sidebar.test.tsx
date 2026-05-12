@@ -5,12 +5,13 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { I18nProvider } from "@/i18n";
 import Sidebar from "../Sidebar";
 
-function renderSidebar() {
+function renderSidebar({ collapseSidebarByDefault = false } = {}) {
   render(
     <I18nProvider>
       <TooltipProvider>
         <Sidebar
           activeTab="configs"
+          collapseSidebarByDefault={collapseSidebarByDefault}
           onTabChange={vi.fn()}
           onClaudeOverviewClick={vi.fn()}
           onSettingsClick={vi.fn()}
@@ -37,5 +38,13 @@ describe("Sidebar", () => {
     expect(source).toContain("max-[1000px]:w-[60px]");
     expect(source).toContain("max-[1000px]:sr-only");
     expect(source).toContain("max-[700px]:w-[48px]");
+  });
+
+  it("hides menu labels on desktop when the icon-only default is enabled", () => {
+    renderSidebar({ collapseSidebarByDefault: true });
+
+    const configsButton = screen.getByRole("button", { name: "配置" });
+
+    expect(within(configsButton).getByText("配置")).toHaveClass("sr-only");
   });
 });
