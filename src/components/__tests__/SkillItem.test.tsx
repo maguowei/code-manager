@@ -16,12 +16,14 @@ const baseSkill: Skill = {
   createdAt: 1,
   updatedAt: 1,
   isSymlink: false,
+  hasSymlinkContent: false,
   linkTarget: null,
 } as Skill;
 
 function renderSkillItem(skill: Skill = baseSkill) {
   const onEdit = vi.fn();
   const onDelete = vi.fn();
+  const onDuplicate = vi.fn();
   const onToggle = vi.fn();
   const onSync = vi.fn();
   const onOpenExternal = vi.fn();
@@ -33,6 +35,7 @@ function renderSkillItem(skill: Skill = baseSkill) {
           isEditing={false}
           onEdit={onEdit}
           onDelete={onDelete}
+          onDuplicate={onDuplicate}
           onToggle={onToggle}
           onSync={onSync}
           onOpenExternal={onOpenExternal}
@@ -41,7 +44,7 @@ function renderSkillItem(skill: Skill = baseSkill) {
     </I18nProvider>,
   );
 
-  return { ...view, onDelete, onEdit, onOpenExternal, onSync, onToggle };
+  return { ...view, onDelete, onDuplicate, onEdit, onOpenExternal, onSync, onToggle };
 }
 
 function setSystemLanguages(languages: string[]) {
@@ -74,25 +77,29 @@ describe("SkillItem", () => {
   });
 
   it("keeps action buttons from opening the editor", () => {
-    const { onDelete, onEdit, onOpenExternal, onSync, onToggle } = renderSkillItem();
+    const { onDelete, onDuplicate, onEdit, onOpenExternal, onSync, onToggle } = renderSkillItem();
 
     const toggleButton = screen.getByRole("switch", { name: "已禁用" });
     const openButton = screen.getByRole("button", { name: "用编辑器打开 Skill 目录" });
     const syncButton = screen.getByRole("button", { name: "同步到 ~/.codex/skills" });
+    const duplicateButton = screen.getByRole("button", { name: "复制" });
     const deleteButton = screen.getByRole("button", { name: "删除" });
 
     expect(openButton).toHaveAttribute("aria-label", "用编辑器打开 Skill 目录");
     expect(syncButton).toHaveAttribute("aria-label", "同步到 ~/.codex/skills");
+    expect(duplicateButton).toHaveAttribute("aria-label", "复制");
     expect(deleteButton).toHaveAttribute("aria-label", "删除");
 
     fireEvent.click(toggleButton);
     fireEvent.click(openButton);
     fireEvent.click(syncButton);
+    fireEvent.click(duplicateButton);
     fireEvent.click(deleteButton);
 
     expect(onToggle).toHaveBeenCalledTimes(1);
     expect(onOpenExternal).toHaveBeenCalledTimes(1);
     expect(onSync).toHaveBeenCalledTimes(1);
+    expect(onDuplicate).toHaveBeenCalledTimes(1);
     expect(onDelete).toHaveBeenCalledTimes(1);
     expect(onEdit).not.toHaveBeenCalled();
   });
@@ -127,13 +134,15 @@ describe("SkillItem", () => {
     ).not.toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "已禁用" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "同步到 ~/.codex/skills" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "复制" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "删除" })).toBeInTheDocument();
   });
 
   it("marks symlink skills while keeping the read-only editor entry point", () => {
-    const { onDelete, onEdit, onSync, onToggle } = renderSkillItem({
+    const { onDelete, onDuplicate, onEdit, onSync, onToggle } = renderSkillItem({
       ...baseSkill,
       isSymlink: true,
+      hasSymlinkContent: true,
       linkTarget: "/tmp/external/code-review",
     } as Skill);
 
@@ -145,11 +154,13 @@ describe("SkillItem", () => {
     fireEvent.keyDown(card, { key: "Enter" });
     fireEvent.click(screen.getByRole("switch", { name: "已禁用" }));
     fireEvent.click(screen.getByRole("button", { name: "同步到 ~/.codex/skills" }));
+    fireEvent.click(screen.getByRole("button", { name: "复制" }));
     fireEvent.click(screen.getByRole("button", { name: "删除" }));
 
     expect(onEdit).toHaveBeenCalledTimes(2);
     expect(onToggle).toHaveBeenCalledTimes(1);
     expect(onSync).toHaveBeenCalledTimes(1);
+    expect(onDuplicate).toHaveBeenCalledTimes(1);
     expect(onDelete).toHaveBeenCalledTimes(1);
   });
 });

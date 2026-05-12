@@ -58,6 +58,7 @@ const symlinkSkill = {
   createdAt: 1,
   updatedAt: 1,
   isSymlink: true,
+  hasSymlinkContent: true,
   linkTarget: "/tmp/external/linked-skill",
 } as Skill;
 
@@ -67,6 +68,7 @@ const localSkill = {
   name: "Local Skill",
   description: "普通 Skill",
   isSymlink: false,
+  hasSymlinkContent: false,
   linkTarget: null,
 } as Skill;
 

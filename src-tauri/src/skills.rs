@@ -19,6 +19,7 @@ pub struct Skill {
     pub created_at: u64,
     pub updated_at: u64,
     pub is_symlink: bool,
+    pub has_symlink_content: bool,
     pub link_target: Option<String>,
 }
 
@@ -210,8 +211,30 @@ fn read_skill_from_path(
         created_at,
         updated_at,
         is_symlink,
+        has_symlink_content: is_symlink || contains_symlink_content(path),
         link_target,
     })
+}
+
+fn contains_symlink_content(path: &Path) -> bool {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(_) => return false,
+    };
+    if metadata.file_type().is_symlink() {
+        return true;
+    }
+    if !metadata.is_dir() {
+        return false;
+    }
+
+    let entries = match fs::read_dir(path) {
+        Ok(entries) => entries,
+        Err(_) => return false,
+    };
+    entries
+        .flatten()
+        .any(|entry| contains_symlink_content(&entry.path()))
 }
 
 /// 解析 SKILL.md 内容，返回 (name, description, disable_model_invocation, user_invocable, content)
@@ -501,6 +524,7 @@ pub fn add_skill(data: SkillData) -> Result<Skill, String> {
             created_at,
             updated_at,
             is_symlink: false,
+            has_symlink_content: false,
             link_target: None,
         })
     })();
@@ -540,6 +564,7 @@ pub fn update_skill(id: String, is_active: bool, data: SkillData) -> Result<Skil
             .map_err(|e| format!("Skill '{}' 不存在或写入失败: {}", id, e))?;
 
         let (created_at, updated_at) = get_file_times(&skill_md);
+        let has_symlink_content = contains_symlink_content(&get_skill_path(&id, is_active));
 
         Ok(Skill {
             id,
@@ -552,11 +577,50 @@ pub fn update_skill(id: String, is_active: bool, data: SkillData) -> Result<Skil
             created_at,
             updated_at,
             is_symlink: false,
+            has_symlink_content,
             link_target: None,
         })
     })();
     crate::logging::log_command_result("skill.update", &result, |skill| {
         format!("skill_id={} active={}", skill.id, skill.is_active)
+    });
+    result
+}
+
+#[tauri::command]
+pub fn duplicate_skill(id: String, is_active: bool, name_suffix: String) -> Result<Skill, String> {
+    let result = (|| {
+        validate_skill_id(&id)?;
+        let _lock = crate::utils::lock_skills()?;
+
+        let source_root = resolve_existing_skill_root(&id, is_active)?;
+        fs::create_dir_all(get_disabled_dir()).map_err(|e| format!("创建禁用目录失败: {}", e))?;
+
+        let original = read_skill_from_path(id.clone(), &source_root, is_active, false, None)?;
+        let duplicated_id = next_available_skill_copy_id(&id)?;
+        let target = get_disabled_dir().join(&duplicated_id);
+        if let Err(error) = copy_skill_dir_resolving_symlinks(&source_root, &target) {
+            let _ = fs::remove_dir_all(&target);
+            return Err(error);
+        }
+
+        let duplicated_name = format!("{}{}", original.name, name_suffix);
+        let raw = serialize_skill_md(
+            &duplicated_name,
+            &original.description,
+            original.disable_model_invocation,
+            original.user_invocable,
+            &original.content,
+        );
+        if let Err(error) = crate::utils::ensure_dir_and_write(&target.join("SKILL.md"), &raw) {
+            let _ = fs::remove_dir_all(&target);
+            return Err(format!("写入 Skill 副本失败: {}", error));
+        }
+
+        read_skill_from_path(duplicated_id, &target, false, false, None)
+    })();
+    crate::logging::log_command_result("skill.duplicate", &result, |skill| {
+        format!("source_skill_id={id} skill_id={}", skill.id)
     });
     result
 }
@@ -584,6 +648,27 @@ pub fn delete_skill(id: String, is_active: bool) -> Result<(), String> {
         format!("skill_id={id} active={is_active}")
     });
     result
+}
+
+fn skill_id_exists(id: &str) -> bool {
+    path_exists_including_symlink(&get_skills_dir().join(id))
+        || path_exists_including_symlink(&get_disabled_dir().join(id))
+}
+
+fn next_available_skill_copy_id(source_id: &str) -> Result<String, String> {
+    for copy_index in 1..=10_000 {
+        let copy_suffix = if copy_index == 1 {
+            "copy".to_string()
+        } else {
+            format!("copy-{copy_index}")
+        };
+        let candidate = format!("{source_id}-{copy_suffix}");
+        if !skill_id_exists(&candidate) {
+            return Ok(candidate);
+        }
+    }
+
+    Err("无法生成不冲突的 Skill 副本名称".to_string())
 }
 
 #[tauri::command]
@@ -1017,6 +1102,77 @@ fn copy_skill_dir_without_symlinks(source: &Path, target: &Path) -> Result<(), S
     Ok(())
 }
 
+fn copy_skill_dir_resolving_symlinks(source: &Path, target: &Path) -> Result<(), String> {
+    let mut ancestors = Vec::new();
+    copy_dir_entries_resolving_symlinks(source, target, &mut ancestors)
+}
+
+fn copy_dir_entries_resolving_symlinks(
+    source: &Path,
+    target: &Path,
+    ancestors: &mut Vec<PathBuf>,
+) -> Result<(), String> {
+    let canonical_source = source
+        .canonicalize()
+        .map_err(|e| format!("解析 Skill 源目录失败: {}", e))?;
+    if ancestors
+        .iter()
+        .any(|ancestor| ancestor == &canonical_source)
+    {
+        return Err("复制 Skill 目录失败: 软链接形成循环".to_string());
+    }
+    ancestors.push(canonical_source);
+
+    fs::create_dir_all(target).map_err(|e| format!("创建 Skill 目录失败: {}", e))?;
+    let mut entries = fs::read_dir(source)
+        .map_err(|e| format!("读取 Skill 源目录失败: {}", e))?
+        .flatten()
+        .collect::<Vec<_>>();
+    entries.sort_by_key(|entry| entry.file_name());
+
+    for entry in entries {
+        copy_entry_resolving_symlinks(&entry.path(), &target.join(entry.file_name()), ancestors)?;
+    }
+
+    ancestors.pop();
+    Ok(())
+}
+
+fn copy_entry_resolving_symlinks(
+    source: &Path,
+    target: &Path,
+    ancestors: &mut Vec<PathBuf>,
+) -> Result<(), String> {
+    let metadata = fs::symlink_metadata(source).map_err(|e| format!("读取 Skill 源失败: {}", e))?;
+    let file_type = metadata.file_type();
+
+    if file_type.is_symlink() {
+        let target_metadata =
+            fs::metadata(source).map_err(|e| format!("读取 Skill 软链接目标失败: {}", e))?;
+        if target_metadata.is_dir() {
+            copy_dir_entries_resolving_symlinks(source, target, ancestors)
+        } else if target_metadata.is_file() {
+            copy_file_resolving_symlink(source, target)
+        } else {
+            Ok(())
+        }
+    } else if metadata.is_dir() {
+        copy_dir_entries_resolving_symlinks(source, target, ancestors)
+    } else if metadata.is_file() {
+        copy_file_resolving_symlink(source, target)
+    } else {
+        Ok(())
+    }
+}
+
+fn copy_file_resolving_symlink(source: &Path, target: &Path) -> Result<(), String> {
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("创建目录失败: {}", e))?;
+    }
+    fs::copy(source, target).map_err(|e| format!("复制文件失败: {}", e))?;
+    Ok(())
+}
+
 #[tauri::command]
 pub fn sync_skill_to_codex(id: String, is_active: bool) -> Result<(), String> {
     let result = (|| {
@@ -1184,6 +1340,16 @@ mod schema_tests {
         std::os::windows::fs::symlink_dir(src, dest).expect("应可创建目录软链接");
     }
 
+    #[cfg(unix)]
+    fn create_test_file_symlink(src: &Path, dest: &Path) {
+        std::os::unix::fs::symlink(src, dest).expect("应可创建文件软链接");
+    }
+
+    #[cfg(windows)]
+    fn create_test_file_symlink(src: &Path, dest: &Path) {
+        std::os::windows::fs::symlink_file(src, dest).expect("应可创建文件软链接");
+    }
+
     fn file_exists(path: &Path) -> bool {
         path.try_exists().expect("文件存在性检查应成功")
     }
@@ -1287,6 +1453,7 @@ mod schema_tests {
         assert_eq!(skills.len(), 1);
         assert_eq!(skills[0].id, "plain-skill");
         assert!(!skills[0].is_symlink);
+        assert!(!skills[0].has_symlink_content);
         assert_eq!(skills[0].link_target, None);
     }
 
@@ -1305,6 +1472,7 @@ mod schema_tests {
         assert_eq!(skills[0].id, "linked-skill");
         assert_eq!(skills[0].name, "Linked Skill");
         assert!(skills[0].is_symlink);
+        assert!(skills[0].has_symlink_content);
         assert_eq!(
             skills[0].link_target.as_deref(),
             Some(
@@ -1315,6 +1483,23 @@ mod schema_tests {
                     .unwrap()
             )
         );
+    }
+
+    #[test]
+    fn scan_skills_dir_marks_internal_symlink_content() {
+        let env = TestEnv::new("scan-internal-symlink");
+        let skill_dir = env.active_skill_dir("plain-skill");
+        write_skill_dir(&skill_dir, "Plain Skill");
+        let external = env.root.join("external").join("support");
+        fs::create_dir_all(&external).expect("应可创建外部目录");
+        create_test_dir_symlink(&external, &skill_dir.join("linked-support"));
+
+        let skills = scan_skills_dir(&get_skills_dir(), true);
+
+        assert_eq!(skills.len(), 1);
+        assert_eq!(skills[0].id, "plain-skill");
+        assert!(!skills[0].is_symlink);
+        assert!(skills[0].has_symlink_content);
     }
 
     #[test]
@@ -1459,7 +1644,10 @@ mod schema_tests {
         create_test_dir_symlink(&env.root, &skill_dir.join("linked-dir"));
 
         let tree = get_skill_file_tree("tree-skill".to_string(), true).expect("应可读取文件树");
-        let paths = tree.iter().map(|entry| entry.path.as_str()).collect::<Vec<_>>();
+        let paths = tree
+            .iter()
+            .map(|entry| entry.path.as_str())
+            .collect::<Vec<_>>();
 
         assert!(paths.contains(&"asset.bin"));
         assert!(paths.contains(&"examples.md"));
@@ -1471,7 +1659,9 @@ mod schema_tests {
             entry.path == "scripts" && entry.kind == SkillFileTreeEntryKind::Directory
         }));
         assert!(tree.iter().any(|entry| {
-            entry.path == "asset.bin" && entry.kind == SkillFileTreeEntryKind::File && entry.is_binary
+            entry.path == "asset.bin"
+                && entry.kind == SkillFileTreeEntryKind::File
+                && entry.is_binary
         }));
     }
 
@@ -1485,8 +1675,8 @@ mod schema_tests {
         create_test_dir_symlink(&external, &env.active_skill_dir("linked-skill"));
         let preferences = sample_app_preferences(Some("cursor"));
 
-        let request =
-            build_skill_editor_open_request("linked-skill", true, &preferences).expect("应可构建请求");
+        let request = build_skill_editor_open_request("linked-skill", true, &preferences)
+            .expect("应可构建请求");
 
         assert_eq!(request.app_name, "Cursor");
         assert_eq!(
@@ -1519,6 +1709,96 @@ mod schema_tests {
         assert_eq!(
             link_target,
             external.canonicalize().expect("源目标应可 canonicalize")
+        );
+    }
+
+    #[test]
+    fn duplicate_skill_copies_local_skill_as_disabled_template() {
+        let env = TestEnv::new("duplicate-local-template");
+        let source = env.active_skill_dir("review-skill");
+        write_skill_dir(&source, "Review Skill");
+        fs::create_dir_all(source.join("scripts")).expect("应可创建支持文件目录");
+        fs::write(source.join("examples.md"), "示例内容").expect("应可写入支持文件");
+        fs::write(source.join("scripts/helper.sh"), "#!/bin/sh").expect("应可写入脚本");
+        let linked_dir_source = env.root.join("external").join("linked-dir-source");
+        fs::create_dir_all(&linked_dir_source).expect("应可创建软链接目录目标");
+        fs::write(linked_dir_source.join("linked.md"), "软链接目录内容")
+            .expect("应可写入软链接目录目标文件");
+        let linked_file_source = env.root.join("external").join("linked-file.md");
+        fs::write(&linked_file_source, "软链接文件内容").expect("应可写入软链接文件目标");
+        create_test_dir_symlink(&linked_dir_source, &source.join("linked-dir"));
+        create_test_file_symlink(&linked_file_source, &source.join("linked-file.md"));
+
+        let duplicated = duplicate_skill("review-skill".to_string(), true, " 副本".to_string())
+            .expect("应可复制 Skill 模板");
+
+        assert_eq!(duplicated.id, "review-skill-copy");
+        assert_eq!(duplicated.name, "Review Skill 副本");
+        assert_eq!(duplicated.description, "测试 Skill");
+        assert_eq!(duplicated.content, "测试内容");
+        assert!(!duplicated.is_active);
+        assert!(!duplicated.is_symlink);
+        assert!(!duplicated.has_symlink_content);
+        assert_eq!(duplicated.link_target, None);
+        assert!(file_exists(
+            &env.active_skill_dir("review-skill").join("SKILL.md")
+        ));
+
+        let target = env.disabled_skill_dir("review-skill-copy");
+        assert!(file_exists(&target.join("SKILL.md")));
+        assert!(file_exists(&target.join("examples.md")));
+        assert!(file_exists(&target.join("scripts/helper.sh")));
+        assert!(target.join("linked-dir").is_dir());
+        assert!(!fs::symlink_metadata(target.join("linked-dir"))
+            .expect("副本中的软链接目录应被展开为普通目录")
+            .file_type()
+            .is_symlink());
+        assert_eq!(
+            fs::read_to_string(target.join("linked-dir").join("linked.md"))
+                .expect("应可读取展开后的软链接目录内容"),
+            "软链接目录内容"
+        );
+        assert_eq!(
+            fs::read_to_string(target.join("linked-file.md")).expect("应可读取展开后的软链接文件"),
+            "软链接文件内容"
+        );
+        assert!(!fs::symlink_metadata(target.join("linked-file.md"))
+            .expect("副本中的软链接文件应被展开为普通文件")
+            .file_type()
+            .is_symlink());
+        let raw = fs::read_to_string(target.join("SKILL.md")).expect("应可读取副本 SKILL.md");
+        assert!(raw.contains("name: \"Review Skill 副本\""));
+    }
+
+    #[test]
+    fn duplicate_skill_copies_symlink_source_into_local_disabled_template() {
+        let env = TestEnv::new("duplicate-symlink-template");
+        let external = env.root.join("external").join("linked-skill");
+        write_skill_dir(&external, "Linked Skill");
+        fs::write(external.join("examples.md"), "外部示例").expect("应可写入外部支持文件");
+        fs::create_dir_all(env.active_skill_dir("linked-skill").parent().unwrap())
+            .expect("应可创建 Skills 根目录");
+        create_test_dir_symlink(&external, &env.active_skill_dir("linked-skill"));
+
+        let duplicated = duplicate_skill("linked-skill".to_string(), true, " 副本".to_string())
+            .expect("应可从软链接 Skill 复制本地模板");
+
+        assert_eq!(duplicated.id, "linked-skill-copy");
+        assert_eq!(duplicated.name, "Linked Skill 副本");
+        assert!(!duplicated.is_active);
+        assert!(!duplicated.is_symlink);
+        assert!(!duplicated.has_symlink_content);
+        assert_eq!(duplicated.link_target, None);
+        assert!(file_exists(&external.join("SKILL.md")));
+        assert!(file_exists(
+            &env.disabled_skill_dir("linked-skill-copy")
+                .join("examples.md")
+        ));
+        assert!(
+            !fs::symlink_metadata(env.disabled_skill_dir("linked-skill-copy"))
+                .expect("副本应为普通目录")
+                .file_type()
+                .is_symlink()
         );
     }
 
@@ -1643,5 +1923,4 @@ mod schema_tests {
 
         assert_eq!(result.unwrap_err(), "Skill id 与请求路径不一致");
     }
-
 }

@@ -256,6 +256,7 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isImportingDirectory, setIsImportingDirectory] = useState(false);
   const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
+  const [pendingDuplicateSkill, setPendingDuplicateSkill] = useState<Skill | null>(null);
   const [pendingDeleteSkill, setPendingDeleteSkill] = useState<Skill | null>(null);
   const [directoryImportResult, setDirectoryImportResult] =
     useState<SkillDirectoryImportResult | null>(null);
@@ -327,6 +328,37 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     } catch (err) {
       showOperationError(showToast, t("toast.skillSyncError"), err);
     }
+  }
+
+  // 复制 Skill 为未启用的本地模板副本
+  async function handleDuplicate(skill: Skill) {
+    try {
+      const duplicated = await invoke<Skill>("duplicate_skill", {
+        id: skill.id,
+        isActive: skill.isActive,
+        nameSuffix: t("skills.duplicateSuffix"),
+      });
+      setSkills((prev) => {
+        const next = prev.filter((item) => item.id !== duplicated.id);
+        const sourceIndex = next.findIndex((item) => item.id === skill.id);
+        if (sourceIndex === -1) {
+          return [...next, duplicated];
+        }
+        return [...next.slice(0, sourceIndex + 1), duplicated, ...next.slice(sourceIndex + 1)];
+      });
+      showToast(t("toast.skillDuplicated"));
+    } catch (err) {
+      showOperationError(showToast, t("toast.skillDuplicateError"), err);
+    }
+  }
+
+  function handleRequestDuplicate(skill: Skill) {
+    if (skill.hasSymlinkContent) {
+      setPendingDuplicateSkill(skill);
+      return;
+    }
+
+    void handleDuplicate(skill);
   }
 
   // 保存（新建或编辑）后更新列表并关闭抽屉
@@ -509,6 +541,7 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
                 onToggle={handleToggle}
                 onEdit={openEdit}
                 onDelete={setPendingDeleteSkill}
+                onDuplicate={handleRequestDuplicate}
                 onSync={handleSync}
                 onOpenExternal={handleOpenInEditor}
               />
@@ -538,6 +571,21 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
             setPendingDeleteSkill(null);
           }}
           onCancel={() => setPendingDeleteSkill(null)}
+        />
+      )}
+
+      {pendingDuplicateSkill && (
+        <ConfirmAlertDialog
+          title={t("confirm.duplicateSymlinkSkillTitle")}
+          message={t("confirm.duplicateSymlinkSkillMessage")}
+          confirmText={t("skills.duplicate")}
+          cancelText={t("confirm.cancel")}
+          onConfirm={() => {
+            const skill = pendingDuplicateSkill;
+            setPendingDuplicateSkill(null);
+            void handleDuplicate(skill);
+          }}
+          onCancel={() => setPendingDuplicateSkill(null)}
         />
       )}
 

@@ -284,6 +284,7 @@ export interface Skill {
   createdAt: number;
   updatedAt: number;
   isSymlink: boolean;
+  hasSymlinkContent: boolean;
   linkTarget: string | null;
 }
 

@@ -116,6 +116,7 @@ const localSkill = {
   createdAt: 1,
   updatedAt: 1,
   isSymlink: false,
+  hasSymlinkContent: false,
   linkTarget: null,
 } as Skill;
 
@@ -130,6 +131,7 @@ const symlinkSkill = {
   createdAt: 2,
   updatedAt: 2,
   isSymlink: true,
+  hasSymlinkContent: true,
   linkTarget: "/tmp/external/linked-skill",
 } as Skill;
 
@@ -253,6 +255,106 @@ describe("SkillsPage", () => {
         description: "目标 ~/.codex/skills/local-skill 已存在且不是软链接",
       });
     });
+  });
+
+  it("duplicates a skill directly from the card without opening the editor", async () => {
+    const duplicatedSkill = {
+      ...localSkill,
+      id: "local-skill-copy",
+      name: "Local Skill 副本",
+      isActive: false,
+      createdAt: 3,
+      updatedAt: 3,
+    } as Skill;
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_skills") return [localSkill];
+      if (command === "duplicate_skill") return duplicatedSkill;
+      return null;
+    });
+
+    renderSkillsPage();
+    const card = (await screen.findByText("Local Skill")).closest('[role="button"]');
+    expect(card).toBeInstanceOf(HTMLElement);
+
+    fireEvent.click(within(card as HTMLElement).getByRole("button", { name: "复制" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("duplicate_skill", {
+        id: "local-skill",
+        isActive: true,
+        nameSuffix: " 副本",
+      });
+    });
+    expect(await screen.findByText("Local Skill 副本")).toBeInTheDocument();
+    expect(showToastMock).toHaveBeenCalledWith("Skill 已复制");
+    expect(screen.queryByRole("heading", { name: "编辑 Skill" })).not.toBeInTheDocument();
+  });
+
+  it("confirms the actual meaning before copying symlink-backed skill content", async () => {
+    const duplicatedSkill = {
+      ...symlinkSkill,
+      id: "linked-skill-copy",
+      name: "Linked Skill 副本",
+      isActive: false,
+      isSymlink: false,
+      hasSymlinkContent: false,
+      linkTarget: null,
+      createdAt: 4,
+      updatedAt: 4,
+    } as Skill;
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_skills") return [symlinkSkill];
+      if (command === "duplicate_skill") return duplicatedSkill;
+      return null;
+    });
+
+    renderSkillsPage();
+    const card = (await screen.findByText("Linked Skill")).closest('[role="button"]');
+    expect(card).toBeInstanceOf(HTMLElement);
+
+    fireEvent.click(within(card as HTMLElement).getByRole("button", { name: "复制" }));
+
+    expect(invokeMock).not.toHaveBeenCalledWith("duplicate_skill", expect.anything());
+    const dialog = await screen.findByRole("alertdialog", { name: "复制软链接内容" });
+    expect(
+      within(dialog).getByText(
+        "将把当前 Skill 中的软链接目标内容复制为一个新的本地未启用副本，副本会变成普通文件或目录，后续可直接编辑；原始软链接和源目录不会被修改。",
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "复制" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("duplicate_skill", {
+        id: "linked-skill",
+        isActive: false,
+        nameSuffix: " 副本",
+      });
+    });
+    expect(await screen.findByText("Linked Skill 副本")).toBeInTheDocument();
+    expect(showToastMock).toHaveBeenCalledWith("Skill 已复制");
+  });
+
+  it("keeps the skill list unchanged when duplicate fails", async () => {
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_skills") return [localSkill];
+      if (command === "duplicate_skill") throw "Skill 'local-skill-copy' 已存在";
+      return null;
+    });
+
+    renderSkillsPage();
+    const card = (await screen.findByText("Local Skill")).closest('[role="button"]');
+    expect(card).toBeInstanceOf(HTMLElement);
+
+    fireEvent.click(within(card as HTMLElement).getByRole("button", { name: "复制" }));
+
+    await waitFor(() => {
+      expect(showToastMock).toHaveBeenCalledWith("复制 Skill 失败", "error", {
+        description: "Skill 'local-skill-copy' 已存在",
+      });
+    });
+    expect(screen.getByText("Local Skill")).toBeInTheDocument();
+    expect(screen.queryByText("Local Skill 副本")).not.toBeInTheDocument();
   });
 
   it("imports skills from a selected directory and requires confirming the result", async () => {

@@ -1,4 +1,4 @@
-import { FolderOpen, Link2, RefreshCw, Trash2 } from "lucide-react";
+import { Copy, FolderOpen, Link2, RefreshCw, Trash2 } from "lucide-react";
 import { type KeyboardEvent, type MouseEvent, memo } from "react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../i18n";
@@ -16,6 +16,7 @@ interface SkillItemProps {
   isEditing?: boolean;
   onEdit: (skill: Skill) => void;
   onDelete: (skill: Skill) => void;
+  onDuplicate: (skill: Skill) => void;
   onToggle: (skill: Skill) => void;
   onSync: (skill: Skill) => void;
   onOpenExternal: (skill: Skill) => void;
@@ -26,6 +27,7 @@ function SkillItem({
   isEditing,
   onEdit,
   onDelete,
+  onDuplicate,
   onToggle,
   onSync,
   onOpenExternal,
@@ -161,6 +163,18 @@ function SkillItem({
           title={t("skills.syncToCodex")}
         >
           <RefreshCw aria-hidden="true" />
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="skill-action-btn duplicate border border-border bg-muted text-foreground hover:border-primary hover:text-primary"
+          onClick={(event) => handleActionClick(event, () => onDuplicate(skill))}
+          aria-label={t("skills.duplicate")}
+          title={t("skills.duplicate")}
+        >
+          <Copy aria-hidden="true" />
         </Button>
 
         <Button

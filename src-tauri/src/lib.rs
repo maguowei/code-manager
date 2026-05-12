@@ -35,8 +35,9 @@ use project::{
     open_project_in_terminal, preview_project_local_data_purge, purge_project_local_data,
 };
 use skills::{
-    add_skill, delete_skill, get_skill_file_tree, get_skills, import_skills_from_directory,
-    open_skill_in_editor, sync_skill_to_codex, toggle_skill, update_skill,
+    add_skill, delete_skill, duplicate_skill, get_skill_file_tree, get_skills,
+    import_skills_from_directory, open_skill_in_editor, sync_skill_to_codex, toggle_skill,
+    update_skill,
 };
 use stats::{get_stats, open_claude_json_in_editor};
 use tauri::Manager;
@@ -153,6 +154,7 @@ pub fn run() {
             get_skills,
             add_skill,
             update_skill,
+            duplicate_skill,
             delete_skill,
             toggle_skill,
             get_skill_file_tree,
