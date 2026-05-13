@@ -55,7 +55,14 @@ import { TYPOGRAPHY } from "./typography-classes";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "./ui/sheet";
 import { Spinner } from "./ui/spinner";
 
@@ -559,6 +566,40 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
       showToast(t("profiles.toast.applied"));
     } catch (err) {
       showOperationError(showToast, t("profiles.toast.applyError"), err);
+    }
+  }
+
+  async function handleMismatchAcceptActual() {
+    if (!activeSettingsMismatch) return;
+    const profile = profiles.find((p) => p.id === activeSettingsMismatch.profileId);
+    if (!profile) return;
+    try {
+      await invoke("upsert_profile", {
+        data: {
+          id: profile.id,
+          name: profile.name,
+          description: profile.description,
+          presetId: profile.presetId,
+          settings: activeSettingsMismatch.actualSettings,
+        },
+      });
+      await onWorkspaceChange();
+      setIsSettingsMismatchDialogOpen(false);
+      showToast(t("profiles.mismatch.toast.accepted"));
+    } catch (err) {
+      showOperationError(showToast, t("profiles.mismatch.toast.acceptError"), err);
+    }
+  }
+
+  async function handleMismatchDiscardChanges() {
+    if (!activeSettingsMismatch) return;
+    try {
+      await invoke("apply_profile", { id: activeSettingsMismatch.profileId });
+      await onWorkspaceChange();
+      setIsSettingsMismatchDialogOpen(false);
+      showToast(t("profiles.mismatch.toast.discarded"));
+    } catch (err) {
+      showOperationError(showToast, t("profiles.mismatch.toast.discardError"), err);
     }
   }
 
@@ -1510,6 +1551,14 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
               ) : null}
             </div>
           ) : null}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => void handleMismatchDiscardChanges()}>
+              {t("profiles.mismatch.discardChanges")}
+            </Button>
+            <Button onClick={() => void handleMismatchAcceptActual()}>
+              {t("profiles.mismatch.acceptActual")}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
