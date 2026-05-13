@@ -1,4 +1,12 @@
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  createEvent,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import type { ConfigWorkspace } from "../../types";
@@ -144,6 +152,15 @@ function createDeferred<T>() {
     reject = rejectPromise;
   });
   return { promise, resolve, reject };
+}
+
+function fireDragOverWithClientY(element: HTMLElement, clientY: number, dataTransfer: unknown) {
+  const event = createEvent.dragOver(element, { dataTransfer });
+  Object.defineProperty(event, "clientY", {
+    configurable: true,
+    value: clientY,
+  });
+  fireEvent(element, event);
 }
 
 describe("ProfilesPage", () => {
@@ -1024,6 +1041,199 @@ describe("ProfilesPage", () => {
     fireEvent.dragOver(secondCard, { clientY: 120, dataTransfer });
 
     expect(secondCard).toHaveAttribute("data-drag-over", "below");
+  });
+
+  it("auto-scrolls the profile list while dragging near the bottom edge", () => {
+    const workspace = {
+      ...WORKSPACE_FIXTURE,
+      profiles: [makeProfile("alpha", "Alpha"), makeProfile("beta", "Beta")],
+      bindings: { userProfileId: undefined },
+    } as ConfigWorkspace;
+    const frameCallbacks = new Map<number, FrameRequestCallback>();
+    let nextFrameId = 1;
+    const requestFrameSpy = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback) => {
+        const frameId = nextFrameId;
+        nextFrameId += 1;
+        frameCallbacks.set(frameId, callback);
+        return frameId;
+      });
+    const cancelFrameSpy = vi.spyOn(window, "cancelAnimationFrame").mockImplementation((id) => {
+      frameCallbacks.delete(id);
+    });
+
+    try {
+      renderPage(workspace);
+
+      const firstCard = getProfileCard("Alpha");
+      const list = document.querySelector('[data-slot="profiles-list-scroll"]') as HTMLElement;
+      Object.defineProperty(list, "getBoundingClientRect", {
+        value: () => ({
+          top: 0,
+          height: 300,
+          left: 0,
+          right: 280,
+          bottom: 300,
+          width: 280,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        }),
+        configurable: true,
+      });
+      list.scrollTop = 10;
+
+      const dataTransfer = {
+        effectAllowed: "move",
+        dropEffect: "move",
+        setData: vi.fn(),
+      };
+
+      fireEvent.dragStart(firstCard, { dataTransfer });
+      expect(dataTransfer.setData).toHaveBeenCalledWith("text/plain", "0");
+      fireDragOverWithClientY(list, 294, dataTransfer);
+
+      const frame = Array.from(frameCallbacks.entries())[0];
+      expect(frame).toBeDefined();
+      if (!frame) {
+        throw new Error("未调度拖拽自动滚动帧");
+      }
+      frameCallbacks.delete(frame[0]);
+      frame[1](0);
+
+      expect(list.scrollTop).toBeGreaterThan(10);
+    } finally {
+      requestFrameSpy.mockRestore();
+      cancelFrameSpy.mockRestore();
+    }
+  });
+
+  it("auto-scrolls the profile list while dragging near the top edge", () => {
+    const workspace = {
+      ...WORKSPACE_FIXTURE,
+      profiles: [makeProfile("alpha", "Alpha"), makeProfile("beta", "Beta")],
+      bindings: { userProfileId: undefined },
+    } as ConfigWorkspace;
+    const frameCallbacks = new Map<number, FrameRequestCallback>();
+    let nextFrameId = 1;
+    const requestFrameSpy = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback) => {
+        const frameId = nextFrameId;
+        nextFrameId += 1;
+        frameCallbacks.set(frameId, callback);
+        return frameId;
+      });
+    const cancelFrameSpy = vi.spyOn(window, "cancelAnimationFrame").mockImplementation((id) => {
+      frameCallbacks.delete(id);
+    });
+
+    try {
+      renderPage(workspace);
+
+      const firstCard = getProfileCard("Alpha");
+      const list = document.querySelector('[data-slot="profiles-list-scroll"]') as HTMLElement;
+      Object.defineProperty(list, "getBoundingClientRect", {
+        value: () => ({
+          top: 0,
+          height: 300,
+          left: 0,
+          right: 280,
+          bottom: 300,
+          width: 280,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        }),
+        configurable: true,
+      });
+      list.scrollTop = 80;
+
+      const dataTransfer = {
+        effectAllowed: "move",
+        dropEffect: "move",
+        setData: vi.fn(),
+      };
+
+      fireEvent.dragStart(firstCard, { dataTransfer });
+      expect(dataTransfer.setData).toHaveBeenCalledWith("text/plain", "0");
+      fireDragOverWithClientY(list, 4, dataTransfer);
+
+      const frame = Array.from(frameCallbacks.entries())[0];
+      expect(frame).toBeDefined();
+      if (!frame) {
+        throw new Error("未调度拖拽自动滚动帧");
+      }
+      frameCallbacks.delete(frame[0]);
+      frame[1](0);
+
+      expect(list.scrollTop).toBeLessThan(80);
+    } finally {
+      requestFrameSpy.mockRestore();
+      cancelFrameSpy.mockRestore();
+    }
+  });
+
+  it("stops profile list auto-scroll after dragging ends", () => {
+    const workspace = {
+      ...WORKSPACE_FIXTURE,
+      profiles: [makeProfile("alpha", "Alpha"), makeProfile("beta", "Beta")],
+      bindings: { userProfileId: undefined },
+    } as ConfigWorkspace;
+    const frameCallbacks = new Map<number, FrameRequestCallback>();
+    let nextFrameId = 1;
+    const requestFrameSpy = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback) => {
+        const frameId = nextFrameId;
+        nextFrameId += 1;
+        frameCallbacks.set(frameId, callback);
+        return frameId;
+      });
+    const cancelFrameSpy = vi.spyOn(window, "cancelAnimationFrame").mockImplementation((id) => {
+      frameCallbacks.delete(id);
+    });
+
+    try {
+      renderPage(workspace);
+
+      const firstCard = getProfileCard("Alpha");
+      const list = document.querySelector('[data-slot="profiles-list-scroll"]') as HTMLElement;
+      Object.defineProperty(list, "getBoundingClientRect", {
+        value: () => ({
+          top: 0,
+          height: 300,
+          left: 0,
+          right: 280,
+          bottom: 300,
+          width: 280,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        }),
+        configurable: true,
+      });
+      list.scrollTop = 80;
+
+      const dataTransfer = {
+        effectAllowed: "move",
+        dropEffect: "move",
+        setData: vi.fn(),
+      };
+
+      fireEvent.dragStart(firstCard, { dataTransfer });
+      expect(dataTransfer.setData).toHaveBeenCalledWith("text/plain", "0");
+      fireDragOverWithClientY(list, 4, dataTransfer);
+      fireEvent.dragEnd(firstCard, { dataTransfer });
+
+      expect(cancelFrameSpy).toHaveBeenCalled();
+      expect(frameCallbacks.size).toBe(0);
+      expect(list.scrollTop).toBe(80);
+    } finally {
+      requestFrameSpy.mockRestore();
+      cancelFrameSpy.mockRestore();
+    }
   });
 
   it("keeps profile summary labels close to consistently aligned values", () => {

@@ -9,7 +9,7 @@ import {
   Trash2,
   Variable,
 } from "lucide-react";
-import { type DragEvent, useCallback, useMemo, useRef, useState } from "react";
+import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getUserFacingErrorReason, showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
@@ -73,6 +73,9 @@ const unmanagedUserSettingsStatusLabels: Record<
   readError: "profiles.unmanaged.status.readError",
 };
 
+const PROFILE_DRAG_AUTO_SCROLL_EDGE_PX = 56;
+const PROFILE_DRAG_AUTO_SCROLL_MAX_SPEED = 18;
+
 function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
   const { language, t } = useI18n();
   const { showToast } = useToast();
@@ -89,7 +92,10 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
   );
   const [retestingProfileId, setRetestingProfileId] = useState<string | null>(null);
   const [isRawResponseExpanded, setIsRawResponseExpanded] = useState(false);
+  const listScrollRef = useRef<HTMLDivElement | null>(null);
   const dragIndexRef = useRef<number | null>(null);
+  const dragAutoScrollFrameRef = useRef<number | null>(null);
+  const dragAutoScrollVelocityRef = useRef(0);
   const modelTestRunIdRef = useRef(0);
   const retestModelRunIdRef = useRef(0);
   const dragOverRef = useRef<{
@@ -160,6 +166,69 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
     setIsRawResponseExpanded(false);
   }
 
+  const stopDragAutoScroll = useCallback(() => {
+    if (dragAutoScrollFrameRef.current !== null) {
+      window.cancelAnimationFrame(dragAutoScrollFrameRef.current);
+      dragAutoScrollFrameRef.current = null;
+    }
+    dragAutoScrollVelocityRef.current = 0;
+  }, []);
+
+  const runDragAutoScroll = useCallback(() => {
+    const list = listScrollRef.current;
+    const velocity = dragAutoScrollVelocityRef.current;
+    if (!list || velocity === 0 || dragIndexRef.current === null) {
+      dragAutoScrollFrameRef.current = null;
+      return;
+    }
+
+    list.scrollTop += velocity;
+    dragAutoScrollFrameRef.current = window.requestAnimationFrame(runDragAutoScroll);
+  }, []);
+
+  const updateDragAutoScroll = useCallback(
+    (clientY: number) => {
+      if (dragIndexRef.current === null) {
+        stopDragAutoScroll();
+        return;
+      }
+
+      const list = listScrollRef.current;
+      if (!list) {
+        stopDragAutoScroll();
+        return;
+      }
+
+      const rect = list.getBoundingClientRect();
+      const topDistance = clientY - rect.top;
+      const bottomDistance = rect.bottom - clientY;
+      let velocity = 0;
+
+      if (topDistance < PROFILE_DRAG_AUTO_SCROLL_EDGE_PX) {
+        const intensity =
+          (PROFILE_DRAG_AUTO_SCROLL_EDGE_PX - Math.max(0, topDistance)) /
+          PROFILE_DRAG_AUTO_SCROLL_EDGE_PX;
+        velocity = -Math.ceil(intensity * PROFILE_DRAG_AUTO_SCROLL_MAX_SPEED);
+      } else if (bottomDistance < PROFILE_DRAG_AUTO_SCROLL_EDGE_PX) {
+        const intensity =
+          (PROFILE_DRAG_AUTO_SCROLL_EDGE_PX - Math.max(0, bottomDistance)) /
+          PROFILE_DRAG_AUTO_SCROLL_EDGE_PX;
+        velocity = Math.ceil(intensity * PROFILE_DRAG_AUTO_SCROLL_MAX_SPEED);
+      }
+
+      dragAutoScrollVelocityRef.current = velocity;
+      if (velocity === 0) {
+        stopDragAutoScroll();
+        return;
+      }
+
+      if (dragAutoScrollFrameRef.current === null) {
+        dragAutoScrollFrameRef.current = window.requestAnimationFrame(runDragAutoScroll);
+      }
+    },
+    [runDragAutoScroll, stopDragAutoScroll],
+  );
+
   const handleDragStart = useCallback((event: DragEvent<HTMLDivElement>, index: number) => {
     dragIndexRef.current = index;
     dragOverRef.current = { overIndex: null, overPosition: null };
@@ -169,10 +238,21 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
   }, []);
 
   const handleDragEnd = useCallback(() => {
+    stopDragAutoScroll();
     dragIndexRef.current = null;
     dragOverRef.current = { overIndex: null, overPosition: null };
     setDragState({ draggingIndex: null, overIndex: null, overPosition: null });
-  }, []);
+  }, [stopDragAutoScroll]);
+
+  const handleListDragOver = useCallback(
+    (event: DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      updateDragAutoScroll(event.clientY);
+    },
+    [updateDragAutoScroll],
+  );
+
+  useEffect(() => stopDragAutoScroll, [stopDragAutoScroll]);
 
   const handleDragOver = useCallback((event: DragEvent<HTMLDivElement>, index: number) => {
     event.preventDefault();
@@ -817,11 +897,14 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
   return (
     <>
       <div
+        ref={listScrollRef}
         className={cn(
           "list-section scrollbar-none flex shrink-0 flex-col overflow-y-auto overflow-x-hidden bg-secondary transition-[width] duration-300 max-[1000px]:fixed max-[1000px]:inset-y-0 max-[1000px]:right-0 max-[1000px]:left-[60px] max-[1000px]:z-50 max-[1000px]:w-auto max-[700px]:left-[48px]",
           isDrawerOpen && "compressed",
           isDrawerOpen ? LIST_PANEL_COMPRESSED_WIDTH_CLASS : LIST_PANEL_WIDTH_CLASS,
         )}
+        data-slot="profiles-list-scroll"
+        onDragOver={handleListDragOver}
       >
         <PageHeader
           title={t("profiles.title")}
@@ -875,7 +958,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
               dragState.draggingIndex !== null &&
                 "is-dragging [&_[data-slot=profile-card]:not(.dragging)]:opacity-70",
             )}
-            onDragOver={(event) => event.preventDefault()}
+            onDragOver={handleListDragOver}
           >
             {workspace.unmanagedUserSettings
               ? renderUnmanagedUserSettingsCard(workspace.unmanagedUserSettings)
