@@ -186,6 +186,8 @@ pub struct ConfigWorkspace {
     pub bindings: BindingState,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unmanaged_user_settings: Option<UnmanagedUserSettings>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub active_user_settings_mismatch: Option<ActiveUserSettingsMismatch>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -200,6 +202,15 @@ pub struct UnmanagedUserSettings {
     pub error_message: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub matched_profile_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ActiveUserSettingsMismatch {
+    pub profile_id: String,
+    pub source_path: String,
+    pub expected_settings: Value,
+    pub actual_settings: Value,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -536,9 +547,13 @@ fn save_registry(registry: &ConfigRegistry) -> Result<(), String> {
     crate::utils::ensure_dir_and_write_atomic(&path, &content)
 }
 
-fn build_workspace(mut registry: ConfigRegistry) -> ConfigWorkspace {
-    reconcile_user_profile_binding(&mut registry);
-    let unmanaged_user_settings = scan_unmanaged_user_settings(&registry);
+fn build_workspace(registry: ConfigRegistry) -> ConfigWorkspace {
+    let unmanaged_user_settings = if registry.profiles.is_empty() {
+        scan_unmanaged_user_settings(&registry)
+    } else {
+        None
+    };
+    let active_user_settings_mismatch = detect_active_user_settings_mismatch(&registry);
     ConfigWorkspace {
         app: registry.app.clone(),
         builtin_presets: builtin_presets().to_vec(),
@@ -546,6 +561,7 @@ fn build_workspace(mut registry: ConfigRegistry) -> ConfigWorkspace {
         profiles: registry.profiles,
         bindings: registry.bindings,
         unmanaged_user_settings,
+        active_user_settings_mismatch,
     }
 }
 
@@ -622,37 +638,30 @@ fn bound_profile_matches_user_settings(registry: &ConfigRegistry, settings: &Val
         .unwrap_or(false)
 }
 
-fn user_profile_binding_matches_current_settings(registry: &ConfigRegistry) -> bool {
-    let Some(bound_profile_id) = registry.bindings.user_profile_id.as_deref() else {
-        return true;
-    };
-    let Some(profile) = registry
+fn detect_active_user_settings_mismatch(
+    registry: &ConfigRegistry,
+) -> Option<ActiveUserSettingsMismatch> {
+    let bound_profile_id = registry.bindings.user_profile_id.as_deref()?;
+    let profile = registry
         .profiles
         .iter()
-        .find(|profile| profile.id == bound_profile_id)
-    else {
-        return false;
-    };
+        .find(|profile| profile.id == bound_profile_id)?;
     let Ok((settings, _, _)) = read_user_settings_document() else {
-        return false;
+        return None;
     };
-
-    resolve_profile_settings(registry, profile)
-        .map(|resolved| settings_equivalent(&resolved, &settings))
-        .unwrap_or(false)
-}
-
-fn reconcile_user_profile_binding(registry: &mut ConfigRegistry) -> bool {
-    if registry.bindings.user_profile_id.is_none() {
-        return false;
-    }
-    if user_profile_binding_matches_current_settings(registry) {
-        return false;
+    let Ok(resolved) = resolve_profile_settings(registry, profile) else {
+        return None;
+    };
+    if settings_equivalent(&resolved, &settings) {
+        return None;
     }
 
-    registry.bindings.user_profile_id = None;
-    registry.bindings.user_last_applied_at = None;
-    true
+    Some(ActiveUserSettingsMismatch {
+        profile_id: bound_profile_id.to_string(),
+        source_path: USER_SETTINGS_SOURCE_PATH.to_string(),
+        expected_settings: settings_without_schema(&resolved),
+        actual_settings: settings,
+    })
 }
 
 fn read_user_settings_document() -> Result<(Value, u64, u64), String> {
@@ -1810,16 +1819,8 @@ fn import_user_settings_profile_in_registry(
 }
 
 #[tauri::command]
-pub fn get_config_workspace(app_handle: AppHandle) -> Result<ConfigWorkspace, String> {
-    let mut registry = load_registry()?;
-    if reconcile_user_profile_binding(&mut registry) {
-        if let Err(error) = save_registry(&registry) {
-            log::warn!(
-                "event=config.binding_reconcile status=warn reason=save_failed error={error}"
-            );
-        }
-        rebuild_tray_menu(&app_handle, Some(&registry));
-    }
+pub fn get_config_workspace(_app_handle: AppHandle) -> Result<ConfigWorkspace, String> {
+    let registry = load_registry()?;
     Ok(build_workspace(registry))
 }
 
@@ -2627,14 +2628,15 @@ mod tests {
         let workspace = build_workspace(registry);
 
         assert!(workspace.unmanaged_user_settings.is_none());
+        assert!(workspace.active_user_settings_mismatch.is_none());
 
         clear_test_env();
     }
 
     #[test]
-    fn workspace_clears_user_binding_when_settings_file_differs() {
+    fn workspace_reports_user_settings_mismatch_without_clearing_binding() {
         let _guard = crate::utils::lock_config().unwrap();
-        let root = temp_root("clear-stale-user-binding");
+        let root = temp_root("report-user-settings-mismatch");
         set_test_env(&root);
         let settings_path = root.join(".claude").join("settings.json");
         fs::create_dir_all(settings_path.parent().unwrap()).unwrap();
@@ -2657,13 +2659,49 @@ mod tests {
 
         let workspace = build_workspace(registry);
 
-        assert_eq!(workspace.bindings.user_profile_id, None);
-        assert_eq!(workspace.bindings.user_last_applied_at, None);
-        let unmanaged = workspace
-            .unmanaged_user_settings
-            .expect("手动修改后的用户配置应重新显示为未托管");
-        assert_eq!(unmanaged.import_status, "ready");
-        assert_eq!(unmanaged.settings["model"], "claude-opus-4-7");
+        assert_eq!(workspace.bindings.user_profile_id.as_deref(), Some("user-1"));
+        assert_eq!(
+            workspace.bindings.user_last_applied_at.as_deref(),
+            Some("2026-05-13T00:00:00Z")
+        );
+        assert!(workspace.unmanaged_user_settings.is_none());
+        let mismatch = workspace
+            .active_user_settings_mismatch
+            .expect("手动修改后的用户配置应报告差异");
+        assert_eq!(mismatch.profile_id, "user-1");
+        assert_eq!(mismatch.source_path, "settings.json");
+        assert_eq!(mismatch.expected_settings["model"], "claude-sonnet-4-6");
+        assert_eq!(mismatch.actual_settings["model"], "claude-opus-4-7");
+
+        clear_test_env();
+    }
+
+    #[test]
+    fn workspace_skips_unmanaged_user_settings_when_profiles_exist() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("skip-unmanaged-when-profiles-exist");
+        set_test_env(&root);
+        let settings_path = root.join(".claude").join("settings.json");
+        fs::create_dir_all(settings_path.parent().unwrap()).unwrap();
+        fs::write(
+            &settings_path,
+            r#"{
+  "model": "claude-opus-4-7"
+}"#,
+        )
+        .unwrap();
+
+        let mut registry = ConfigRegistry::default();
+        registry.profiles.push(sample_profile(
+            "user-1",
+            None,
+            serde_json::json!({ "model": "claude-sonnet-4-6" }),
+        ));
+
+        let workspace = build_workspace(registry);
+
+        assert!(workspace.unmanaged_user_settings.is_none());
+        assert!(workspace.active_user_settings_mismatch.is_none());
 
         clear_test_env();
     }

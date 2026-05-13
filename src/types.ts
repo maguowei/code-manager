@@ -106,6 +106,13 @@ export interface UnmanagedUserSettings {
   matchedProfileId?: string;
 }
 
+export interface ActiveUserSettingsMismatch {
+  profileId: string;
+  sourcePath: string;
+  expectedSettings: Record<string, unknown>;
+  actualSettings: Record<string, unknown>;
+}
+
 export interface ConfigWorkspace {
   app: AppPreferences;
   builtinPresets: SettingsPreset[];
@@ -113,6 +120,7 @@ export interface ConfigWorkspace {
   profiles: ConfigProfile[];
   bindings: BindingState;
   unmanagedUserSettings?: UnmanagedUserSettings;
+  activeUserSettingsMismatch?: ActiveUserSettingsMismatch;
 }
 
 export interface ModelTestResult {

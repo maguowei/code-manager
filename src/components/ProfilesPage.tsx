@@ -1,3 +1,5 @@
+import type { FileContents, MultiFileDiffProps, ThemeTypes } from "@pierre/diffs/react";
+import { MultiFileDiff } from "@pierre/diffs/react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   CircleAlert,
@@ -9,12 +11,21 @@ import {
   Trash2,
   Variable,
 } from "lucide-react";
-import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type DragEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { getUserFacingErrorReason, showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
 import type {
+  ActiveUserSettingsMismatch,
   ConfigProfile,
   ConfigWorkspace,
   ModelTestResult,
@@ -39,10 +50,12 @@ import ProfileEditor from "./ProfileEditor";
 import ProfileNameBadge from "./ProfileNameBadge";
 import ModelTestResultDialog from "./profile-editor/ModelTestResultDialog";
 import { readPermissionsDefaultMode } from "./profile-editor/PermissionsEditor";
+import { useTheme } from "./theme-provider";
 import { TYPOGRAPHY } from "./typography-classes";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "./ui/sheet";
 import { Spinner } from "./ui/spinner";
 
@@ -62,6 +75,13 @@ interface ActiveModelTestDialog {
   errorMessage: string;
 }
 
+interface SettingsDiffEntry {
+  path: string;
+  status: "added" | "removed" | "changed";
+}
+
+type SettingsMismatchDiffOptions = NonNullable<MultiFileDiffProps<undefined>["options"]>;
+
 const unmanagedUserSettingsStatusLabels: Record<
   UnmanagedUserSettingsImportStatus,
   `profiles.unmanaged.status.${UnmanagedUserSettingsImportStatus}`
@@ -73,12 +93,102 @@ const unmanagedUserSettingsStatusLabels: Record<
   readError: "profiles.unmanaged.status.readError",
 };
 
+const settingsDiffStatusLabels: Record<
+  SettingsDiffEntry["status"],
+  `profiles.mismatch.diffStatus.${SettingsDiffEntry["status"]}`
+> = {
+  added: "profiles.mismatch.diffStatus.added",
+  removed: "profiles.mismatch.diffStatus.removed",
+  changed: "profiles.mismatch.diffStatus.changed",
+};
+
 const PROFILE_DRAG_AUTO_SCROLL_EDGE_PX = 56;
 const PROFILE_DRAG_AUTO_SCROLL_MAX_SPEED = 18;
+const SETTINGS_MISMATCH_VISIBLE_DIFF_LIMIT = 8;
+const SETTINGS_MISMATCH_DIFF_BASE_OPTIONS = {
+  diffIndicators: "bars",
+  diffStyle: "split",
+  hunkSeparators: "line-info-basic",
+  lineDiffType: "word-alt",
+  overflow: "wrap",
+  parseDiffOptions: {
+    context: 6,
+  },
+  theme: {
+    dark: "pierre-dark",
+    light: "pierre-light",
+  },
+  tokenizeMaxLineLength: 2000,
+} satisfies SettingsMismatchDiffOptions;
+
+function formatSettingsJson(settings: Record<string, unknown>) {
+  return JSON.stringify(settings, null, 2);
+}
+
+function buildSettingsDiffFile(name: string, settings: Record<string, unknown>): FileContents {
+  return {
+    name,
+    contents: `${formatSettingsJson(settings)}\n`,
+    lang: "json",
+    cacheKey: `${name}:${JSON.stringify(settings)}`,
+  };
+}
+
+function formatSettingsPath(path: string[]) {
+  return path.join(".");
+}
+
+function valuesEqual(left: unknown, right: unknown) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function collectSettingsDiffs(
+  expected: Record<string, unknown>,
+  actual: Record<string, unknown>,
+  prefix: string[] = [],
+): SettingsDiffEntry[] {
+  const keys = Array.from(new Set([...Object.keys(expected), ...Object.keys(actual)])).sort();
+  const diffs: SettingsDiffEntry[] = [];
+
+  for (const key of keys) {
+    const nextPrefix = [...prefix, key];
+    const hasExpected = Object.hasOwn(expected, key);
+    const hasActual = Object.hasOwn(actual, key);
+
+    if (!hasExpected) {
+      diffs.push({ path: formatSettingsPath(nextPrefix), status: "added" });
+      continue;
+    }
+    if (!hasActual) {
+      diffs.push({ path: formatSettingsPath(nextPrefix), status: "removed" });
+      continue;
+    }
+
+    const expectedValue = expected[key];
+    const actualValue = actual[key];
+    if (isPlainObject(expectedValue) && isPlainObject(actualValue)) {
+      diffs.push(
+        ...collectSettingsDiffs(
+          expectedValue as Record<string, unknown>,
+          actualValue as Record<string, unknown>,
+          nextPrefix,
+        ),
+      );
+      continue;
+    }
+
+    if (!valuesEqual(expectedValue, actualValue)) {
+      diffs.push({ path: formatSettingsPath(nextPrefix), status: "changed" });
+    }
+  }
+
+  return diffs;
+}
 
 function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
   const { language, t } = useI18n();
   const { showToast } = useToast();
+  const { isDark } = useTheme();
   const [editingProfile, setEditingProfile] = useState<ConfigProfile | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -90,6 +200,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
   const [activeModelTestDialog, setActiveModelTestDialog] = useState<ActiveModelTestDialog | null>(
     null,
   );
+  const [isSettingsMismatchDialogOpen, setIsSettingsMismatchDialogOpen] = useState(false);
   const [retestingProfileId, setRetestingProfileId] = useState<string | null>(null);
   const [isRawResponseExpanded, setIsRawResponseExpanded] = useState(false);
   const listScrollRef = useRef<HTMLDivElement | null>(null);
@@ -116,6 +227,11 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
 
   function isAppliedToUserSettings(profile: ConfigProfile) {
     return workspace.bindings.userProfileId === profile.id;
+  }
+
+  function profileSettingsMismatch(profile: ConfigProfile): ActiveUserSettingsMismatch | null {
+    const mismatch = workspace.activeUserSettingsMismatch;
+    return mismatch?.profileId === profile.id ? mismatch : null;
   }
 
   function profileToModelTestData(profile: ConfigProfile) {
@@ -253,6 +369,12 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
   );
 
   useEffect(() => stopDragAutoScroll, [stopDragAutoScroll]);
+
+  useEffect(() => {
+    if (!workspace.activeUserSettingsMismatch) {
+      setIsSettingsMismatchDialogOpen(false);
+    }
+  }, [workspace.activeUserSettingsMismatch]);
 
   const handleDragOver = useCallback((event: DragEvent<HTMLDivElement>, index: number) => {
     event.preventDefault();
@@ -893,6 +1015,50 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
   const activeModelTestProfile = activeModelTestDialog
     ? (profiles.find((profile) => profile.id === activeModelTestDialog.profileId) ?? null)
     : null;
+  const activeSettingsMismatch = workspace.activeUserSettingsMismatch ?? null;
+  const settingsMismatchDiffs = activeSettingsMismatch
+    ? collectSettingsDiffs(
+        activeSettingsMismatch.expectedSettings,
+        activeSettingsMismatch.actualSettings,
+      )
+    : [];
+  const visibleSettingsMismatchDiffs = settingsMismatchDiffs.slice(
+    0,
+    SETTINGS_MISMATCH_VISIBLE_DIFF_LIMIT,
+  );
+  const settingsDiffThemeType: ThemeTypes = isDark ? "dark" : "light";
+  const settingsDiffOptions = useMemo(
+    () => ({
+      ...SETTINGS_MISMATCH_DIFF_BASE_OPTIONS,
+      themeType: settingsDiffThemeType,
+    }),
+    [settingsDiffThemeType],
+  );
+  const settingsDiffStyle = useMemo<CSSProperties>(
+    () =>
+      ({
+        colorScheme: settingsDiffThemeType,
+        "--diffs-dark": "var(--foreground)",
+        "--diffs-dark-bg": "var(--card)",
+        "--diffs-font-family": '"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
+        "--diffs-font-size": "0.8125rem",
+        "--diffs-gap-block": "0.75rem",
+        "--diffs-gap-inline": "1rem",
+        "--diffs-light": "var(--foreground)",
+        "--diffs-light-bg": "var(--card)",
+        "--diffs-line-height": "1.5",
+      }) as CSSProperties,
+    [settingsDiffThemeType],
+  );
+  const settingsDiffOldFile = activeSettingsMismatch
+    ? buildSettingsDiffFile("ai-manager-settings.json", activeSettingsMismatch.expectedSettings)
+    : null;
+  const settingsDiffNewFile = activeSettingsMismatch
+    ? buildSettingsDiffFile(
+        activeSettingsMismatch.sourcePath,
+        activeSettingsMismatch.actualSettings,
+      )
+    : null;
 
   return (
     <>
@@ -960,7 +1126,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
             )}
             onDragOver={handleListDragOver}
           >
-            {workspace.unmanagedUserSettings
+            {profiles.length === 0 && workspace.unmanagedUserSettings
               ? renderUnmanagedUserSettingsCard(workspace.unmanagedUserSettings)
               : null}
             {profiles.map((profile, index) => {
@@ -973,6 +1139,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                 model || permissionMode || sandboxEnabled || plugins.totalCount > 0;
               const isEditingProfile = isDrawerOpen && editingProfile?.id === profile.id;
               const isAppliedProfile = isAppliedToUserSettings(profile);
+              const settingsMismatch = profileSettingsMismatch(profile);
               return (
                 <Card
                   key={profile.id}
@@ -1152,6 +1319,29 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                     </div>
                   )}
 
+                  {settingsMismatch ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-auto w-full justify-start gap-2 border-chart-3/50 bg-chart-3/10 px-2.5 py-2 text-left font-semibold text-chart-3 hover:bg-chart-3/15 hover:text-chart-3"
+                      title={t("profiles.mismatch.tooltip")}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setIsSettingsMismatchDialogOpen(true);
+                      }}
+                    >
+                      <CircleAlert className="size-4 shrink-0" aria-hidden="true" />
+                      <span className="min-w-0 truncate">{t("profiles.mismatch.button")}</span>
+                      <span
+                        aria-hidden="true"
+                        className="min-w-0 flex-1 truncate text-xs font-normal text-muted-foreground"
+                      >
+                        {t("profiles.mismatch.inlineHint")}
+                      </span>
+                    </Button>
+                  ) : null}
+
                   <div className="mt-[-1rem] flex max-h-0 flex-wrap justify-end gap-2 self-end overflow-hidden opacity-0 transition-[max-height,margin-top,opacity,transform] duration-200 group-hover:mt-0 group-hover:max-h-12 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:mt-0 group-focus-within:max-h-12 group-focus-within:translate-y-0 group-focus-within:opacity-100 pointer-events-none translate-y-2 group-hover:pointer-events-auto group-focus-within:pointer-events-auto">
                     <Button
                       type="button"
@@ -1253,6 +1443,75 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
           !!activeModelTestDialog && retestingProfileId === activeModelTestDialog.profileId
         }
       />
+
+      <Dialog
+        open={isSettingsMismatchDialogOpen && !!activeSettingsMismatch}
+        onOpenChange={setIsSettingsMismatchDialogOpen}
+      >
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-5xl">
+          <DialogHeader>
+            <DialogTitle>{t("profiles.mismatch.dialogTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("profiles.mismatch.dialogDescription").replace(
+                "{sourcePath}",
+                activeSettingsMismatch?.sourcePath ?? "settings.json",
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          {activeSettingsMismatch ? (
+            <div className="flex flex-col gap-4">
+              <div className="rounded-lg border border-border bg-muted/40 p-3">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <span className={cn(TYPOGRAPHY.fieldLabel, "text-foreground")}>
+                    {t("profiles.mismatch.diffSummaryTitle")}
+                  </span>
+                  <Badge variant="secondary" className="rounded-full">
+                    {t("profiles.mismatch.diffCount").replace(
+                      "{count}",
+                      String(settingsMismatchDiffs.length),
+                    )}
+                  </Badge>
+                </div>
+                {visibleSettingsMismatchDiffs.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {visibleSettingsMismatchDiffs.map((diff) => (
+                      <Badge
+                        key={`${diff.status}:${diff.path}`}
+                        variant="outline"
+                        className="max-w-full gap-1 rounded-md bg-background"
+                      >
+                        <span className="shrink-0 text-muted-foreground">
+                          {t(settingsDiffStatusLabels[diff.status])}
+                        </span>
+                        <span className="min-w-0 truncate font-mono">{diff.path}</span>
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="m-0 text-sm text-muted-foreground">
+                    {t("profiles.mismatch.noDiffSummary")}
+                  </p>
+                )}
+              </div>
+
+              {settingsDiffOldFile && settingsDiffNewFile ? (
+                <div
+                  data-slot="settings-mismatch-diff"
+                  className="min-w-0 overflow-hidden rounded-lg border border-border bg-card"
+                >
+                  <MultiFileDiff
+                    oldFile={settingsDiffOldFile}
+                    newFile={settingsDiffNewFile}
+                    options={settingsDiffOptions}
+                    style={settingsDiffStyle}
+                  />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

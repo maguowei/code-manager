@@ -13,8 +13,9 @@ import type { ConfigWorkspace } from "../../types";
 import ProfilesPage from "../ProfilesPage";
 import { ThemeProvider } from "../theme-provider";
 
-const { invokeMock, showToastMock } = vi.hoisted(() => ({
+const { invokeMock, multiFileDiffMock, showToastMock } = vi.hoisted(() => ({
   invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
+  multiFileDiffMock: vi.fn(),
   showToastMock: vi.fn(),
 }));
 
@@ -26,6 +27,27 @@ vi.mock("../../hooks/useToast", () => ({
   useToast: () => ({
     showToast: showToastMock,
   }),
+}));
+
+vi.mock("@pierre/diffs/react", () => ({
+  MultiFileDiff: (props: {
+    oldFile: { name: string; contents: string };
+    newFile: { name: string; contents: string };
+    options?: { diffStyle?: string; overflow?: string; themeType?: string };
+  }) => {
+    multiFileDiffMock(props);
+    return (
+      <div
+        data-testid="pierre-multi-file-diff"
+        data-old-file-name={props.oldFile.name}
+        data-old-file-contents={props.oldFile.contents}
+        data-new-file-name={props.newFile.name}
+        data-new-file-contents={props.newFile.contents}
+        data-diff-style={props.options?.diffStyle ?? ""}
+        data-overflow={props.options?.overflow ?? ""}
+      />
+    );
+  },
 }));
 
 vi.mock("../ConfigPreview", () => ({
@@ -235,6 +257,8 @@ describe("ProfilesPage", () => {
     const onWorkspaceChange = vi.fn(async () => {});
     const workspace: ConfigWorkspace = {
       ...WORKSPACE_FIXTURE,
+      profiles: [],
+      bindings: {},
       unmanagedUserSettings: {
         sourcePath: "settings.json",
         settings: {
@@ -287,6 +311,8 @@ describe("ProfilesPage", () => {
   it("disables unmanaged user settings import when the file is invalid", () => {
     const workspace: ConfigWorkspace = {
       ...WORKSPACE_FIXTURE,
+      profiles: [],
+      bindings: {},
       unmanagedUserSettings: {
         sourcePath: "settings.json",
         settings: {},
@@ -306,6 +332,78 @@ describe("ProfilesPage", () => {
     expect(within(card).getByText("JSON 格式无效")).toBeInTheDocument();
     expect(within(card).getByText("解析 JSON 失败")).toBeInTheDocument();
     expect(within(card).getByRole("button", { name: "导入管理" })).toBeDisabled();
+  });
+
+  it("does not show unmanaged user settings when profiles already exist", () => {
+    const workspace: ConfigWorkspace = {
+      ...WORKSPACE_FIXTURE,
+      unmanagedUserSettings: {
+        sourcePath: "settings.json",
+        settings: {
+          model: "claude-opus-4-7",
+        },
+        size: 32,
+        modifiedAt: 8,
+        importStatus: "ready",
+      },
+    };
+
+    renderPage(workspace);
+
+    expect(screen.queryByText("发现未导入的用户设置")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "OpenRouter User" })).toBeInTheDocument();
+  });
+
+  it("keeps the active profile in use and opens a settings mismatch comparison", () => {
+    const workspace: ConfigWorkspace = {
+      ...WORKSPACE_FIXTURE,
+      activeUserSettingsMismatch: {
+        profileId: "user-openrouter",
+        sourcePath: "settings.json",
+        expectedSettings: {
+          model: "claude-sonnet-4-6",
+        },
+        actualSettings: {
+          model: "claude-opus-4-7",
+          skipDangerousModePermissionPrompt: true,
+        },
+      },
+    };
+
+    renderPage(workspace);
+
+    const card = screen.getByRole("button", { name: "OpenRouter User" });
+    expect(within(card).getByText("使用中")).toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: "启用" })).not.toBeInTheDocument();
+
+    fireEvent.click(within(card).getByRole("button", { name: "配置被手动修改" }));
+
+    expect(screen.getByRole("dialog", { name: "配置差异" })).toBeInTheDocument();
+    expect(screen.getByText("skipDangerousModePermissionPrompt")).toBeInTheDocument();
+    const diffViewer = screen.getByTestId("pierre-multi-file-diff");
+    expect(diffViewer).toHaveAttribute("data-old-file-name", "ai-manager-settings.json");
+    expect(diffViewer).toHaveAttribute("data-new-file-name", "settings.json");
+    expect(diffViewer).toHaveAttribute("data-diff-style", "split");
+    expect(diffViewer).toHaveAttribute("data-overflow", "wrap");
+    expect(diffViewer.getAttribute("data-old-file-contents")).toContain("claude-sonnet-4-6");
+    expect(diffViewer.getAttribute("data-new-file-contents")).toContain("claude-opus-4-7");
+    expect(diffViewer.getAttribute("data-new-file-contents")).toContain(
+      "skipDangerousModePermissionPrompt",
+    );
+    expect(multiFileDiffMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        oldFile: expect.objectContaining({
+          contents: expect.stringContaining("claude-sonnet-4-6"),
+        }),
+        newFile: expect.objectContaining({
+          contents: expect.stringContaining("claude-opus-4-7"),
+        }),
+        options: expect.objectContaining({
+          diffStyle: "split",
+          lineDiffType: "word-alt",
+        }),
+      }),
+    );
   });
 
   it("colors high-risk permission modes on profile cards", () => {

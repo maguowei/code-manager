@@ -14,6 +14,7 @@ const {
   fileTreeOptionsMock,
   invokeMock,
   listenMock,
+  multiFileDiffMock,
   openUrlMock,
   revealItemInDirMock,
 } = vi.hoisted(() => {
@@ -39,6 +40,7 @@ const {
         listeners.delete(listener);
       };
     }),
+    multiFileDiffMock: vi.fn(),
     openUrlMock: vi.fn(async () => undefined),
     revealItemInDirMock: vi.fn(async () => undefined),
   };
@@ -91,6 +93,21 @@ vi.mock("@pierre/diffs/react", () => ({
         data-file-name={props.file.name}
         data-file-contents={props.file.contents}
         data-overflow={props.options?.overflow ?? ""}
+      />
+    );
+  },
+  MultiFileDiff: (props: {
+    oldFile: { name: string; contents: string };
+    newFile: { name: string; contents: string };
+    options?: { diffStyle?: string; overflow?: string };
+  }) => {
+    multiFileDiffMock(props);
+    return (
+      <div
+        data-testid="pierre-multi-file-diff"
+        data-old-file-name={props.oldFile.name}
+        data-new-file-name={props.newFile.name}
+        data-diff-style={props.options?.diffStyle ?? ""}
       />
     );
   },
@@ -496,7 +513,7 @@ describe("App", () => {
     });
   });
 
-  it("removes the in-use profile badge after user settings is edited externally", async () => {
+  it("keeps the in-use profile badge and shows a mismatch warning after user settings is edited externally", async () => {
     enableTauriEvents();
     const activeWorkspace: ConfigWorkspace = {
       ...WORKSPACE_FIXTURE,
@@ -530,15 +547,15 @@ describe("App", () => {
     };
     const staleWorkspace: ConfigWorkspace = {
       ...activeWorkspace,
-      bindings: {},
-      unmanagedUserSettings: {
+      activeUserSettingsMismatch: {
+        profileId: "user-openrouter",
         sourcePath: "settings.json",
-        settings: {
+        expectedSettings: {
+          model: "claude-sonnet-4-6",
+        },
+        actualSettings: {
           model: "claude-opus-4-7",
         },
-        size: 32,
-        modifiedAt: 8,
-        importStatus: "ready",
       },
     };
     let returnStaleWorkspace = false;
@@ -559,10 +576,13 @@ describe("App", () => {
 
     await waitFor(() => {
       const refreshedCard = screen.getByRole("button", { name: "OpenRouter User" });
-      expect(within(refreshedCard).queryByText("使用中")).not.toBeInTheDocument();
-      expect(within(refreshedCard).getByRole("button", { name: "启用" })).toBeInTheDocument();
+      expect(within(refreshedCard).getByText("使用中")).toBeInTheDocument();
+      expect(
+        within(refreshedCard).getByRole("button", { name: "配置被手动修改" }),
+      ).toBeInTheDocument();
+      expect(within(refreshedCard).queryByRole("button", { name: "启用" })).not.toBeInTheDocument();
     });
-    expect(screen.getByText("发现未导入的用户设置")).toBeInTheDocument();
+    expect(screen.queryByText("发现未导入的用户设置")).not.toBeInTheDocument();
   });
 
   it("shows the Claude directory overview as a main page from the AI menu button", async () => {
