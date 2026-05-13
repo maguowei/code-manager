@@ -66,6 +66,19 @@ describe("SettingsDrawer", () => {
     invokeMock.mockImplementation(async (command) => {
       if (command === "get_native_open_app_options") {
         return {
+          platform: "macos",
+          supportedEditors: [
+            { slug: "vscode", label: "VS Code" },
+            { slug: "cursor", label: "Cursor" },
+            { slug: "windsurf", label: "Windsurf" },
+            { slug: "zed", label: "Zed" },
+          ],
+          supportedTerminals: [
+            { slug: "terminal", label: "Terminal" },
+            { slug: "iterm", label: "iTerm" },
+            { slug: "warp", label: "Warp" },
+            { slug: "ghostty", label: "Ghostty" },
+          ],
           editors: [
             { slug: "vscode", label: "VS Code" },
             { slug: "cursor", label: "Cursor" },
@@ -151,27 +164,89 @@ describe("SettingsDrawer", () => {
 
   it("hides macOS-only terminal choices on Linux", async () => {
     platformMock.mockReturnValue("linux");
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_native_open_app_options") {
+        return {
+          platform: "linux",
+          supportedEditors: [
+            { slug: "vscode", label: "VS Code" },
+            { slug: "cursor", label: "Cursor" },
+            { slug: "windsurf", label: "Windsurf" },
+            { slug: "zed", label: "Zed" },
+          ],
+          supportedTerminals: [
+            { slug: "terminal", label: "Terminal" },
+            { slug: "warp", label: "Warp" },
+            { slug: "ghostty", label: "Ghostty" },
+          ],
+          editors: [],
+          terminals: [
+            { slug: "terminal", label: "Terminal" },
+            { slug: "warp", label: "Warp" },
+            { slug: "ghostty", label: "Ghostty" },
+          ],
+        };
+      }
+      if (command === "get_app_logs") {
+        return {
+          logDir: "/tmp/logs",
+          truncated: false,
+          entries: [],
+        };
+      }
+      return WORKSPACE_FIXTURE;
+    });
     renderSettingsDrawer();
 
     const terminalSelect = await screen.findByRole("combobox", { name: "默认终端" });
     fireEvent.click(terminalSelect);
 
-    expect(screen.getByRole("option", { name: "Terminal" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "系统默认终端" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Warp" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Ghostty" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "iTerm" })).not.toBeInTheDocument();
   });
 
-  it("hides unsupported terminal choices on Windows", async () => {
+  it("shows supported Windows terminal choices including Warp", async () => {
     platformMock.mockReturnValue("windows");
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_native_open_app_options") {
+        return {
+          platform: "windows",
+          supportedEditors: [
+            { slug: "vscode", label: "VS Code" },
+            { slug: "cursor", label: "Cursor" },
+            { slug: "windsurf", label: "Windsurf" },
+            { slug: "zed", label: "Zed" },
+          ],
+          supportedTerminals: [
+            { slug: "terminal", label: "Terminal" },
+            { slug: "warp", label: "Warp" },
+          ],
+          editors: [],
+          terminals: [
+            { slug: "terminal", label: "Terminal" },
+            { slug: "warp", label: "Warp" },
+          ],
+        };
+      }
+      if (command === "get_app_logs") {
+        return {
+          logDir: "/tmp/logs",
+          truncated: false,
+          entries: [],
+        };
+      }
+      return WORKSPACE_FIXTURE;
+    });
     renderSettingsDrawer();
 
     const terminalSelect = await screen.findByRole("combobox", { name: "默认终端" });
     fireEvent.click(terminalSelect);
 
-    expect(screen.getByRole("option", { name: "Terminal" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "系统默认终端" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Warp" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "iTerm" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: "Warp" })).not.toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "Ghostty" })).not.toBeInTheDocument();
   });
 
@@ -179,6 +254,19 @@ describe("SettingsDrawer", () => {
     invokeMock.mockImplementation(async (command) => {
       if (command === "get_native_open_app_options") {
         return {
+          platform: "macos",
+          supportedEditors: [
+            { slug: "vscode", label: "VS Code" },
+            { slug: "cursor", label: "Cursor" },
+            { slug: "windsurf", label: "Windsurf" },
+            { slug: "zed", label: "Zed" },
+          ],
+          supportedTerminals: [
+            { slug: "terminal", label: "Terminal" },
+            { slug: "iterm", label: "iTerm" },
+            { slug: "warp", label: "Warp" },
+            { slug: "ghostty", label: "Ghostty" },
+          ],
           editors: [{ slug: "vscode", label: "VS Code" }],
           terminals: [{ slug: "ghostty", label: "Ghostty" }],
         };
@@ -215,6 +303,94 @@ describe("SettingsDrawer", () => {
     const ghosttyOption = screen.getByRole("option", { name: "Ghostty" });
     expect(ghosttyOption.querySelector('[data-slot="native-open-option-icon"]')).toBeTruthy();
     expect(screen.queryByRole("option", { name: "Terminal" })).not.toBeInTheDocument();
+  });
+
+  it("shows a help popover with supported and detected Windows terminal tools", async () => {
+    platformMock.mockReturnValue("windows");
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_native_open_app_options") {
+        return {
+          platform: "windows",
+          supportedEditors: [
+            { slug: "vscode", label: "VS Code" },
+            { slug: "cursor", label: "Cursor" },
+            { slug: "windsurf", label: "Windsurf" },
+            { slug: "zed", label: "Zed" },
+          ],
+          supportedTerminals: [
+            { slug: "terminal", label: "Terminal" },
+            { slug: "warp", label: "Warp" },
+          ],
+          editors: [{ slug: "vscode", label: "VS Code" }],
+          terminals: [{ slug: "terminal", label: "Terminal" }],
+        };
+      }
+      if (command === "get_app_logs") {
+        return {
+          logDir: "/tmp/logs",
+          truncated: false,
+          entries: [],
+        };
+      }
+      return WORKSPACE_FIXTURE;
+    });
+    renderSettingsDrawer();
+
+    fireEvent.click(await screen.findByRole("button", { name: "查看默认终端支持列表" }));
+
+    expect(await screen.findByText("当前系统")).toBeInTheDocument();
+    expect(screen.getByText("Windows")).toBeInTheDocument();
+    expect(screen.getAllByText("系统默认终端").length).toBeGreaterThan(0);
+    expect(screen.getByText("Warp")).toBeInTheDocument();
+    expect(screen.getByText("已检测到")).toBeInTheDocument();
+    expect(screen.getByText("未检测到")).toBeInTheDocument();
+  });
+
+  it("shows empty detection hints when no supported tools are available locally", async () => {
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_native_open_app_options") {
+        return {
+          platform: "windows",
+          supportedEditors: [
+            { slug: "vscode", label: "VS Code" },
+            { slug: "cursor", label: "Cursor" },
+            { slug: "windsurf", label: "Windsurf" },
+            { slug: "zed", label: "Zed" },
+          ],
+          supportedTerminals: [
+            { slug: "terminal", label: "Terminal" },
+            { slug: "warp", label: "Warp" },
+          ],
+          editors: [],
+          terminals: [],
+        };
+      }
+      if (command === "get_app_logs") {
+        return {
+          logDir: "/tmp/logs",
+          truncated: false,
+          entries: [],
+        };
+      }
+      return {
+        ...WORKSPACE_FIXTURE,
+        app: {
+          ...WORKSPACE_FIXTURE.app,
+          defaultTerminalApp: "warp",
+          defaultEditorApp: "cursor",
+        },
+      };
+    });
+    renderSettingsDrawer();
+
+    expect(await screen.findByText("未检测到可用终端。")).toBeInTheDocument();
+    expect(screen.getByText("未检测到可用编辑器。")).toBeInTheDocument();
+    expect(screen.getAllByText("当前选择未检测到，可能无法启动。")).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole("button", { name: "查看默认编辑器支持列表" }));
+    expect(
+      await screen.findByText("支持但未检测到，请确认已安装在常见位置或可通过 PATH 访问。"),
+    ).toBeInTheDocument();
   });
 
   it("switches theme through the three-state radio group", async () => {

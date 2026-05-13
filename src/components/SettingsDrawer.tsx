@@ -27,6 +27,7 @@ import type {
   DefaultEditorApp,
   DefaultTerminalApp,
   NativeOpenAppOptions,
+  NativeOpenPlatform,
 } from "../types";
 import LogViewer from "./LogViewer";
 import SystemInfoDialog from "./SystemInfoDialog";
@@ -34,6 +35,14 @@ import { type Theme, useTheme } from "./theme-provider";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Field, FieldContent, FieldGroup, FieldLabel, FieldTitle } from "./ui/field";
+import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "./ui/popover";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import {
   Select,
@@ -53,6 +62,7 @@ interface SettingsDrawerProps {
 interface SettingsSectionCardProps {
   title: string;
   description: string;
+  headerAction?: ReactNode;
   children: ReactNode;
 }
 
@@ -95,28 +105,41 @@ const editorOptions: NativeOpenSelectOption<DefaultEditorApp>[] = [
   { value: "zed", label: "Zed" },
 ];
 
-function getCurrentPlatform(): string {
+function normalizePlatformName(platformName: string): NativeOpenPlatform {
+  if (platformName === "macos" || platformName === "linux" || platformName === "windows") {
+    return platformName;
+  }
+  return "other";
+}
+
+function getCurrentPlatform(): NativeOpenPlatform {
   try {
-    return platform();
+    return normalizePlatformName(platform());
   } catch {
     return "macos";
   }
 }
 
-function getTerminalOptionsForPlatform(platformName: string) {
+function getTerminalOptionsForPlatform(platformName: NativeOpenPlatform) {
+  if (platformName === "macos") {
+    return terminalOptions;
+  }
   if (platformName === "linux") {
     return terminalOptions.filter((option) => option.value !== "iterm");
   }
   if (platformName === "windows") {
-    return terminalOptions.filter((option) => option.value === "terminal");
+    return terminalOptions.filter(
+      (option) => option.value === "terminal" || option.value === "warp",
+    );
   }
-  return terminalOptions;
+  return [];
 }
 
 function mergeAvailableOptions<T extends string>(
   options: NativeOpenSelectOption<T>[],
   availableOptions: { slug: T }[] | undefined,
   currentValue: T | null | undefined,
+  fallbackOptions: NativeOpenSelectOption<T>[] = options,
 ) {
   if (!availableOptions) {
     return options;
@@ -125,7 +148,7 @@ function mergeAvailableOptions<T extends string>(
   const availableSlugs = new Set(availableOptions.map((option) => option.slug));
   const visibleOptions = options.filter((option) => availableSlugs.has(option.value));
   if (currentValue && !visibleOptions.some((option) => option.value === currentValue)) {
-    const currentOption = options.find((option) => option.value === currentValue);
+    const currentOption = fallbackOptions.find((option) => option.value === currentValue);
     if (currentOption) {
       visibleOptions.push(currentOption);
     }
@@ -133,12 +156,58 @@ function mergeAvailableOptions<T extends string>(
   return visibleOptions;
 }
 
-function SettingsSectionCard({ title, description, children }: SettingsSectionCardProps) {
+function toSelectOptions<T extends string>(
+  options: { slug: T; label: string }[],
+): NativeOpenSelectOption<T>[] {
+  return options.map((option) => ({
+    value: option.slug,
+    label: option.label,
+  }));
+}
+
+function getNativeOpenOptionLabel(
+  option: NativeOpenSelectOption<DefaultEditorApp | DefaultTerminalApp>,
+  kind: "editor" | "terminal",
+  t: (key: TranslationKey) => string,
+) {
+  if (kind === "terminal" && option.value === "terminal") {
+    return t("settings.systemDefaultTerminal");
+  }
+  return option.label;
+}
+
+function getPlatformDisplayName(
+  platformName: NativeOpenPlatform,
+  t: (key: TranslationKey) => string,
+) {
+  switch (platformName) {
+    case "macos":
+      return t("settings.platformMacos");
+    case "linux":
+      return t("settings.platformLinux");
+    case "windows":
+      return t("settings.platformWindows");
+    case "other":
+      return t("settings.platformOther");
+  }
+}
+
+function SettingsSectionCard({
+  title,
+  description,
+  headerAction,
+  children,
+}: SettingsSectionCardProps) {
   return (
     <Card className="gap-4 rounded-lg py-0 shadow-xs">
       <CardHeader className="gap-1 px-4 pt-4">
-        <CardTitle className="text-sm leading-5">{title}</CardTitle>
-        <CardDescription className="leading-5">{description}</CardDescription>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <CardTitle className="text-sm leading-5">{title}</CardTitle>
+            <CardDescription className="leading-5">{description}</CardDescription>
+          </div>
+          {headerAction}
+        </div>
       </CardHeader>
       <CardContent className="px-4 pb-4">{children}</CardContent>
     </Card>
@@ -154,13 +223,7 @@ function SettingsStateLabel({ enabled }: { enabled: boolean }) {
   );
 }
 
-function NativeOpenOptionContent({
-  option,
-  kind,
-}: {
-  option: NativeOpenSelectOption<DefaultEditorApp | DefaultTerminalApp>;
-  kind: "editor" | "terminal";
-}) {
+function NativeOpenOptionContent({ kind, label }: { kind: "editor" | "terminal"; label: string }) {
   const Icon = kind === "editor" ? Code2 : TerminalIcon;
   return (
     <span className="flex min-w-0 items-center gap-3 py-0.5">
@@ -170,8 +233,93 @@ function NativeOpenOptionContent({
       >
         <Icon className="size-4" aria-hidden="true" />
       </span>
-      <span className="truncate">{option.label}</span>
+      <span className="truncate">{label}</span>
     </span>
+  );
+}
+
+function NativeOpenHelpButton({
+  ariaLabel,
+  title,
+  kind,
+  platformName,
+  supportedOptions,
+  detectedOptions,
+}: {
+  ariaLabel: string;
+  title: string;
+  kind: "editor" | "terminal";
+  platformName: NativeOpenPlatform;
+  supportedOptions: NativeOpenSelectOption<DefaultEditorApp | DefaultTerminalApp>[];
+  detectedOptions: NativeOpenSelectOption<DefaultEditorApp | DefaultTerminalApp>[];
+}) {
+  const { t } = useI18n();
+  const detectedSlugs = new Set(detectedOptions.map((option) => option.value));
+  const hasSupportedOptions = supportedOptions.length > 0;
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          className="size-7 rounded-full text-muted-foreground hover:text-foreground"
+          aria-label={ariaLabel}
+        >
+          <Info className="size-3.5" aria-hidden="true" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80">
+        <PopoverHeader>
+          <PopoverTitle>{title}</PopoverTitle>
+          <PopoverDescription>
+            {kind === "terminal"
+              ? t("settings.nativeOpenTerminalHelpDesc")
+              : t("settings.nativeOpenEditorHelpDesc")}
+          </PopoverDescription>
+        </PopoverHeader>
+        <div className="mt-3 flex flex-col gap-3 text-sm">
+          <div className="flex items-center justify-between gap-3 rounded-md border bg-muted/40 px-3 py-2">
+            <span className="text-muted-foreground">{t("settings.nativeOpenCurrentPlatform")}</span>
+            <span className="font-medium">{getPlatformDisplayName(platformName, t)}</span>
+          </div>
+          {hasSupportedOptions ? (
+            <ul className="flex flex-col gap-2">
+              {supportedOptions.map((option) => {
+                const detected = detectedSlugs.has(option.value);
+                const label = getNativeOpenOptionLabel(option, kind, t);
+                return (
+                  <li
+                    key={option.value}
+                    className="flex items-center justify-between gap-3 rounded-md border px-3 py-2"
+                  >
+                    <span className="min-w-0 truncate">{label}</span>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded-md px-2 py-0.5 text-xs",
+                        detected ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      {detected
+                        ? t("settings.nativeOpenDetected")
+                        : t("settings.nativeOpenNotDetected")}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="rounded-md border bg-muted/40 px-3 py-2 text-muted-foreground">
+              {t("settings.nativeOpenUnsupportedPlatform")}
+            </p>
+          )}
+          {detectedOptions.length === 0 ? (
+            <p className="text-muted-foreground">{t("settings.nativeOpenNoDetectedHelp")}</p>
+          ) : null}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -237,16 +385,42 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   const collapseSidebarByDefault = preferences.collapseSidebarByDefault;
   const defaultTerminalApp = preferences.defaultTerminalApp;
   const defaultEditorApp = preferences.defaultEditorApp;
+  const platformName = nativeOpenOptions?.platform ?? getCurrentPlatform();
+  const supportedTerminalOptions = nativeOpenOptions?.supportedTerminals
+    ? toSelectOptions(nativeOpenOptions.supportedTerminals)
+    : getTerminalOptionsForPlatform(platformName);
+  const supportedEditorOptions = nativeOpenOptions?.supportedEditors
+    ? toSelectOptions(nativeOpenOptions.supportedEditors)
+    : editorOptions;
+  const detectedTerminalOptions = nativeOpenOptions?.terminals
+    ? toSelectOptions(nativeOpenOptions.terminals)
+    : supportedTerminalOptions;
+  const detectedEditorOptions = nativeOpenOptions?.editors
+    ? toSelectOptions(nativeOpenOptions.editors)
+    : supportedEditorOptions;
   const visibleTerminalOptions = mergeAvailableOptions(
-    getTerminalOptionsForPlatform(getCurrentPlatform()),
+    supportedTerminalOptions,
     nativeOpenOptions?.terminals,
     defaultTerminalApp,
+    terminalOptions,
   );
   const visibleEditorOptions = mergeAvailableOptions(
-    editorOptions,
+    supportedEditorOptions,
     nativeOpenOptions?.editors,
     defaultEditorApp,
+    editorOptions,
   );
+  const hasDetectedTerminalOptions =
+    !nativeOpenOptions?.terminals || nativeOpenOptions.terminals.length > 0;
+  const hasDetectedEditorOptions =
+    !nativeOpenOptions?.editors || nativeOpenOptions.editors.length > 0;
+  const isCurrentTerminalUnavailable =
+    Boolean(nativeOpenOptions?.terminals) &&
+    !nativeOpenOptions?.terminals?.some((option) => option.slug === defaultTerminalApp);
+  const isCurrentEditorUnavailable =
+    Boolean(nativeOpenOptions?.editors) &&
+    Boolean(defaultEditorApp) &&
+    !nativeOpenOptions?.editors?.some((option) => option.slug === defaultEditorApp);
 
   const nextPreferences = useMemo(
     () => ({
@@ -508,6 +682,16 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
             <SettingsSectionCard
               title={t("settings.defaultTerminal")}
               description={t("settings.defaultTerminalDesc")}
+              headerAction={
+                <NativeOpenHelpButton
+                  ariaLabel={t("settings.defaultTerminalHelp")}
+                  title={t("settings.defaultTerminal")}
+                  kind="terminal"
+                  platformName={platformName}
+                  supportedOptions={supportedTerminalOptions}
+                  detectedOptions={detectedTerminalOptions}
+                />
+              }
             >
               <FieldGroup className="gap-4">
                 <Field>
@@ -521,18 +705,27 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                     </SelectTrigger>
                     <SelectContent className="min-w-60 rounded-xl">
                       <SelectGroup>
-                        {visibleTerminalOptions.map((option) => (
-                          <SelectItem
-                            key={option.value}
-                            value={option.value}
-                            textValue={option.label}
-                          >
-                            <NativeOpenOptionContent option={option} kind="terminal" />
-                          </SelectItem>
-                        ))}
+                        {visibleTerminalOptions.map((option) => {
+                          const label = getNativeOpenOptionLabel(option, "terminal", t);
+                          return (
+                            <SelectItem key={option.value} value={option.value} textValue={label}>
+                              <NativeOpenOptionContent kind="terminal" label={label} />
+                            </SelectItem>
+                          );
+                        })}
                       </SelectGroup>
                     </SelectContent>
                   </Select>
+                  {!hasDetectedTerminalOptions ? (
+                    <p className="text-sm text-muted-foreground">
+                      {t("settings.noDetectedTerminal")}
+                    </p>
+                  ) : null}
+                  {isCurrentTerminalUnavailable ? (
+                    <p className="text-sm text-muted-foreground">
+                      {t("settings.currentNativeOpenUnavailable")}
+                    </p>
+                  ) : null}
                 </Field>
               </FieldGroup>
             </SettingsSectionCard>
@@ -540,6 +733,16 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
             <SettingsSectionCard
               title={t("settings.defaultEditor")}
               description={t("settings.defaultEditorDesc")}
+              headerAction={
+                <NativeOpenHelpButton
+                  ariaLabel={t("settings.defaultEditorHelp")}
+                  title={t("settings.defaultEditor")}
+                  kind="editor"
+                  platformName={platformName}
+                  supportedOptions={supportedEditorOptions}
+                  detectedOptions={detectedEditorOptions}
+                />
+              }
             >
               <FieldGroup className="gap-4">
                 <Field>
@@ -565,12 +768,22 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                             value={option.value}
                             textValue={option.label}
                           >
-                            <NativeOpenOptionContent option={option} kind="editor" />
+                            <NativeOpenOptionContent kind="editor" label={option.label} />
                           </SelectItem>
                         ))}
                       </SelectGroup>
                     </SelectContent>
                   </Select>
+                  {!hasDetectedEditorOptions ? (
+                    <p className="text-sm text-muted-foreground">
+                      {t("settings.noDetectedEditor")}
+                    </p>
+                  ) : null}
+                  {isCurrentEditorUnavailable ? (
+                    <p className="text-sm text-muted-foreground">
+                      {t("settings.currentNativeOpenUnavailable")}
+                    </p>
+                  ) : null}
                 </Field>
               </FieldGroup>
             </SettingsSectionCard>

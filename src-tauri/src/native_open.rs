@@ -15,8 +15,20 @@ pub struct NativeOpenAppOption {
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct NativeOpenAppOptions {
+    pub platform: NativePlatform,
+    pub supported_editors: Vec<NativeOpenAppOption>,
+    pub supported_terminals: Vec<NativeOpenAppOption>,
     pub editors: Vec<NativeOpenAppOption>,
     pub terminals: Vec<NativeOpenAppOption>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum NativePlatform {
+    Macos,
+    Linux,
+    Windows,
+    Other,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -48,13 +60,70 @@ impl NativeOpenCommand {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum NativePlatform {
-    Macos,
-    Linux,
-    Windows,
-    Other,
+#[derive(Debug, Clone, Copy)]
+struct EditorOptionDefinition {
+    slug: &'static str,
+    label: &'static str,
+    command: &'static str,
+    mac_app_names: &'static [&'static str],
 }
+
+#[derive(Debug, Clone, Copy)]
+struct TerminalOptionDefinition {
+    slug: &'static str,
+    label: &'static str,
+}
+
+const VSCODE_MAC_APP_NAMES: &[&str] = &["Visual Studio Code"];
+const CURSOR_MAC_APP_NAMES: &[&str] = &["Cursor"];
+const WINDSURF_MAC_APP_NAMES: &[&str] = &["Windsurf"];
+const ZED_MAC_APP_NAMES: &[&str] = &["Zed"];
+
+const EDITOR_OPTION_DEFINITIONS: &[EditorOptionDefinition] = &[
+    EditorOptionDefinition {
+        slug: "vscode",
+        label: "VS Code",
+        command: "code",
+        mac_app_names: VSCODE_MAC_APP_NAMES,
+    },
+    EditorOptionDefinition {
+        slug: "cursor",
+        label: "Cursor",
+        command: "cursor",
+        mac_app_names: CURSOR_MAC_APP_NAMES,
+    },
+    EditorOptionDefinition {
+        slug: "windsurf",
+        label: "Windsurf",
+        command: "windsurf",
+        mac_app_names: WINDSURF_MAC_APP_NAMES,
+    },
+    EditorOptionDefinition {
+        slug: "zed",
+        label: "Zed",
+        command: "zed",
+        mac_app_names: ZED_MAC_APP_NAMES,
+    },
+];
+
+const TERMINAL_OPTION_DEFINITIONS: &[TerminalOptionDefinition] = &[
+    TerminalOptionDefinition {
+        slug: "terminal",
+        label: "Terminal",
+    },
+    TerminalOptionDefinition {
+        slug: "iterm",
+        label: "iTerm",
+    },
+    TerminalOptionDefinition {
+        slug: "warp",
+        label: "Warp",
+    },
+    TerminalOptionDefinition {
+        slug: "ghostty",
+        label: "Ghostty",
+    },
+];
 
 #[tauri::command]
 pub fn get_native_open_app_options() -> NativeOpenAppOptions {
@@ -165,6 +234,9 @@ fn detect_native_open_app_options(
     mac_app_exists: impl Fn(&str) -> bool,
 ) -> NativeOpenAppOptions {
     NativeOpenAppOptions {
+        platform,
+        supported_editors: supported_editor_options(platform),
+        supported_terminals: supported_terminal_options(platform),
         editors: detect_editor_options(platform, &command_exists, &mac_app_exists),
         terminals: detect_terminal_options(
             platform,
@@ -180,25 +252,21 @@ fn detect_editor_options(
     command_exists: &impl Fn(&str) -> bool,
     mac_app_exists: &impl Fn(&str) -> bool,
 ) -> Vec<NativeOpenAppOption> {
-    [
-        ("vscode", "VS Code", "code", &["Visual Studio Code"][..]),
-        ("cursor", "Cursor", "cursor", &["Cursor"][..]),
-        ("windsurf", "Windsurf", "windsurf", &["Windsurf"][..]),
-        ("zed", "Zed", "zed", &["Zed"][..]),
-    ]
-    .into_iter()
-    .filter(|(_, _, command, app_names)| match platform {
-        NativePlatform::Macos => {
-            command_exists(command) || app_names.iter().any(|app_name| mac_app_exists(app_name))
-        }
-        NativePlatform::Linux | NativePlatform::Windows => command_exists(command),
-        NativePlatform::Other => false,
-    })
-    .map(|(slug, label, _, _)| NativeOpenAppOption {
-        slug: slug.to_string(),
-        label: label.to_string(),
-    })
-    .collect()
+    EDITOR_OPTION_DEFINITIONS
+        .into_iter()
+        .filter(|definition| match platform {
+            NativePlatform::Macos => {
+                command_exists(definition.command)
+                    || definition
+                        .mac_app_names
+                        .iter()
+                        .any(|app_name| mac_app_exists(app_name))
+            }
+            NativePlatform::Linux | NativePlatform::Windows => command_exists(definition.command),
+            NativePlatform::Other => false,
+        })
+        .map(|definition| option_from_parts(definition.slug, definition.label))
+        .collect()
 }
 
 fn detect_terminal_options(
@@ -207,21 +275,56 @@ fn detect_terminal_options(
     command_exists: &impl Fn(&str) -> bool,
     mac_app_exists: &impl Fn(&str) -> bool,
 ) -> Vec<NativeOpenAppOption> {
-    [
-        ("terminal", "Terminal"),
-        ("iterm", "iTerm"),
-        ("warp", "Warp"),
-        ("ghostty", "Ghostty"),
-    ]
-    .into_iter()
-    .filter(|(slug, _)| {
-        terminal_is_available(platform, slug, terminal_env, command_exists, mac_app_exists)
-    })
-    .map(|(slug, label)| NativeOpenAppOption {
+    TERMINAL_OPTION_DEFINITIONS
+        .into_iter()
+        .filter(|definition| {
+            terminal_is_supported(platform, definition.slug)
+                && terminal_is_available(
+                    platform,
+                    definition.slug,
+                    terminal_env,
+                    command_exists,
+                    mac_app_exists,
+                )
+        })
+        .map(|definition| option_from_parts(definition.slug, definition.label))
+        .collect()
+}
+
+fn supported_editor_options(platform: NativePlatform) -> Vec<NativeOpenAppOption> {
+    match platform {
+        NativePlatform::Macos | NativePlatform::Linux | NativePlatform::Windows => {
+            EDITOR_OPTION_DEFINITIONS
+                .iter()
+                .map(|definition| option_from_parts(definition.slug, definition.label))
+                .collect()
+        }
+        NativePlatform::Other => Vec::new(),
+    }
+}
+
+fn supported_terminal_options(platform: NativePlatform) -> Vec<NativeOpenAppOption> {
+    TERMINAL_OPTION_DEFINITIONS
+        .iter()
+        .filter(|definition| terminal_is_supported(platform, definition.slug))
+        .map(|definition| option_from_parts(definition.slug, definition.label))
+        .collect()
+}
+
+fn option_from_parts(slug: &str, label: &str) -> NativeOpenAppOption {
+    NativeOpenAppOption {
         slug: slug.to_string(),
         label: label.to_string(),
-    })
-    .collect()
+    }
+}
+
+fn terminal_is_supported(platform: NativePlatform, terminal_slug: &str) -> bool {
+    match platform {
+        NativePlatform::Macos => matches!(terminal_slug, "terminal" | "iterm" | "warp" | "ghostty"),
+        NativePlatform::Linux => matches!(terminal_slug, "terminal" | "warp" | "ghostty"),
+        NativePlatform::Windows => matches!(terminal_slug, "terminal" | "warp"),
+        NativePlatform::Other => false,
+    }
 }
 
 fn terminal_is_available(
@@ -256,6 +359,9 @@ fn terminal_is_available(
         (NativePlatform::Windows, "terminal") => ["wt.exe", "powershell.exe", "cmd.exe"]
             .into_iter()
             .any(command_exists),
+        (NativePlatform::Windows, "warp") => windows_warp_program_candidates()
+            .iter()
+            .any(|program| command_exists(program)),
         _ => false,
     }
 }
@@ -370,12 +476,51 @@ fn windows_terminal_candidates(
                 .with_hidden_window(),
             ])
         }
-        "iterm" | "ghostty" | "warp" => Err(format!(
+        "warp" => Ok(windows_warp_program_candidates()
+            .into_iter()
+            .map(|program| NativeOpenCommand::new(program, Vec::new()).with_current_dir(dir))
+            .collect()),
+        "iterm" | "ghostty" => Err(format!(
             "当前平台暂不支持 {} 终端",
             terminal_display_name(terminal_slug)
         )),
         _ => Err("默认终端配置无效，请重新选择".to_string()),
     }
+}
+
+fn windows_warp_program_candidates() -> Vec<String> {
+    windows_warp_program_candidates_from_env(
+        env::var_os("LOCALAPPDATA"),
+        env::var_os("PROGRAMFILES"),
+    )
+}
+
+fn windows_warp_program_candidates_from_env(
+    local_app_data: Option<OsString>,
+    program_files: Option<OsString>,
+) -> Vec<String> {
+    let mut programs = Vec::new();
+    push_unique_program(&mut programs, "warp.exe");
+    if let Some(base_dir) = local_app_data {
+        push_unique_program(
+            &mut programs,
+            &PathBuf::from(base_dir)
+                .join("Programs")
+                .join("Warp")
+                .join("warp.exe")
+                .to_string_lossy(),
+        );
+    }
+    if let Some(base_dir) = program_files {
+        push_unique_program(
+            &mut programs,
+            &PathBuf::from(base_dir)
+                .join("Warp")
+                .join("warp.exe")
+                .to_string_lossy(),
+        );
+    }
+    programs
 }
 
 fn terminal_display_name(terminal_slug: &str) -> &'static str {
@@ -634,8 +779,38 @@ mod tests {
     }
 
     #[test]
-    fn windows_rejects_non_system_terminal_apps_for_now() {
-        for app in ["iterm", "ghostty", "warp"] {
+    fn windows_terminal_candidates_support_warp_with_default_install_paths() {
+        let candidates = windows_terminal_candidates("warp", Path::new("C:\\Projects\\demo"))
+            .expect("Windows 应支持 Warp 终端");
+
+        assert!(candidates
+            .iter()
+            .any(|candidate| candidate.program == "warp.exe"));
+        assert!(candidates
+            .iter()
+            .all(|candidate| candidate.current_dir.as_deref()
+                == Some(Path::new("C:\\Projects\\demo"))));
+    }
+
+    #[test]
+    fn windows_warp_program_candidates_include_official_install_paths() {
+        let candidates = windows_warp_program_candidates_from_env(
+            Some(OsString::from("C:\\Users\\demo\\AppData\\Local")),
+            Some(OsString::from("C:\\Program Files")),
+        )
+        .into_iter()
+        .map(|candidate| candidate.replace('/', "\\"))
+        .collect::<Vec<_>>();
+
+        assert!(candidates.contains(&"warp.exe".to_string()));
+        assert!(candidates
+            .contains(&"C:\\Users\\demo\\AppData\\Local\\Programs\\Warp\\warp.exe".to_string()));
+        assert!(candidates.contains(&"C:\\Program Files\\Warp\\warp.exe".to_string()));
+    }
+
+    #[test]
+    fn windows_rejects_non_windows_terminal_apps_for_now() {
+        for app in ["iterm", "ghostty"] {
             let err = windows_terminal_candidates(app, Path::new("C:\\Projects\\demo"))
                 .expect_err("非系统终端在 Windows v1 应被拒绝");
             assert!(err.contains("当前平台暂不支持"));
@@ -668,6 +843,40 @@ mod tests {
         );
 
         assert!(options.terminals.is_empty());
+    }
+
+    #[test]
+    fn native_open_options_include_supported_lists_for_windows() {
+        let options = detect_native_open_app_options(
+            NativePlatform::Windows,
+            None,
+            |command| matches!(command, "wt.exe" | "warp.exe" | "code"),
+            |_| false,
+        );
+
+        assert_eq!(options.platform, NativePlatform::Windows);
+        assert_eq!(
+            option_slugs(&options.supported_terminals),
+            vec!["terminal", "warp"]
+        );
+        assert_eq!(option_slugs(&options.terminals), vec!["terminal", "warp"]);
+        assert_eq!(
+            option_slugs(&options.supported_editors),
+            vec!["vscode", "cursor", "windsurf", "zed"]
+        );
+        assert_eq!(option_slugs(&options.editors), vec!["vscode"]);
+    }
+
+    #[test]
+    fn native_open_options_report_empty_supported_lists_for_other_platforms() {
+        let options =
+            detect_native_open_app_options(NativePlatform::Other, None, |_| true, |_| true);
+
+        assert_eq!(options.platform, NativePlatform::Other);
+        assert!(options.supported_terminals.is_empty());
+        assert!(options.supported_editors.is_empty());
+        assert!(options.terminals.is_empty());
+        assert!(options.editors.is_empty());
     }
 
     #[test]

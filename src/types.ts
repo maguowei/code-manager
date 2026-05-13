@@ -18,6 +18,8 @@ export type DefaultTerminalApp = "terminal" | "iterm" | "warp" | "ghostty";
 
 export type DefaultEditorApp = "vscode" | "cursor" | "windsurf" | "zed";
 
+export type NativeOpenPlatform = "macos" | "linux" | "windows" | "other";
+
 export interface NativeEditorAppOption {
   slug: DefaultEditorApp;
   label: string;
@@ -29,6 +31,9 @@ export interface NativeTerminalAppOption {
 }
 
 export interface NativeOpenAppOptions {
+  platform: NativeOpenPlatform;
+  supportedEditors: NativeEditorAppOption[];
+  supportedTerminals: NativeTerminalAppOption[];
   editors: NativeEditorAppOption[];
   terminals: NativeTerminalAppOption[];
 }
