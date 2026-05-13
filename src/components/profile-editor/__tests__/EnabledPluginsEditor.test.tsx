@@ -773,16 +773,17 @@ describe("EnabledPluginsEditor", () => {
       screen.getByRole("switch", { name: `插件状态 ${buildOfficialPluginId("reviewer-plugin")}` }),
     ).toHaveAttribute("aria-checked", "false");
 
-    await waitFor(() => {
-      expect(onChange).toHaveBeenLastCalledWith({
-        "formatter@anthropic-tools": true,
-        [buildOfficialPluginId("existing-plugin")]: true,
-        "legacy-tools@anthropic-tools": ["format", "lint"],
-        [buildOfficialPluginId("reviewer-plugin")]: false,
-        [buildOfficialPluginId("writer-plugin")]: false,
-        [buildOfficialPluginId("mystery-plugin")]: false,
-      });
-    });
+    // 仅加载目录不应改写 settings：原有启用项和 legacy 条目保持原状，
+    // 新拉到的目录项不进入 enabledPlugins，直到用户显式启用为止。
+    const pluginIdsSeenByOnChange = new Set<string>();
+    for (const [arg] of vi.mocked(onChange).mock.calls) {
+      for (const key of Object.keys(arg as Record<string, unknown>)) {
+        pluginIdsSeenByOnChange.add(key);
+      }
+    }
+    expect(pluginIdsSeenByOnChange.has(buildOfficialPluginId("reviewer-plugin"))).toBe(false);
+    expect(pluginIdsSeenByOnChange.has(buildOfficialPluginId("writer-plugin"))).toBe(false);
+    expect(pluginIdsSeenByOnChange.has(buildOfficialPluginId("mystery-plugin"))).toBe(false);
 
     expect(JSON.parse(localStorage.getItem(OFFICIAL_PLUGIN_CACHE_KEY) ?? "{}")).toMatchObject({
       version: 1,
@@ -850,9 +851,8 @@ describe("EnabledPluginsEditor", () => {
       await Promise.resolve();
     });
 
-    expect(onChange).toHaveBeenLastCalledWith({
-      [buildOfficialPluginId("alpha-plugin")]: false,
-    });
+    // 首次加载只把目录项挂到 UI 列表，不把任何新 pluginId 写回 enabledPlugins。
+    expect(screen.getByText(buildOfficialPluginId("alpha-plugin"))).toBeInTheDocument();
 
     await act(async () => {
       vi.advanceTimersByTime(500);
@@ -865,10 +865,83 @@ describe("EnabledPluginsEditor", () => {
       await Promise.resolve();
     });
 
-    expect(onChange).toHaveBeenLastCalledWith({
-      [buildOfficialPluginId("alpha-plugin")]: false,
-      [buildOfficialPluginId("beta-plugin")]: false,
+    // 二次加载新增的条目同样只进 UI，不进 onChange。
+    expect(screen.getByText(buildOfficialPluginId("beta-plugin"))).toBeInTheDocument();
+    for (const [arg] of vi.mocked(onChange).mock.calls) {
+      const keys = Object.keys(arg as Record<string, unknown>);
+      expect(keys).not.toContain(buildOfficialPluginId("alpha-plugin"));
+      expect(keys).not.toContain(buildOfficialPluginId("beta-plugin"));
+    }
+  });
+
+  it("commits a loaded official plugin to settings only after the user enables it", async () => {
+    const { onChange } = renderEditor({
+      showTitle: false,
+      officialMarketplaceEnabled: true,
     });
+
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        plugins: [{ name: "promote-plugin" }],
+      }),
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "加载官方插件" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const switchControl = screen.getByRole("switch", {
+      name: `插件状态 ${buildOfficialPluginId("promote-plugin")}`,
+    });
+    expect(switchControl).toHaveAttribute("aria-checked", "false");
+
+    fireEvent.click(switchControl);
+    await waitFor(() => {
+      expect(onChange).toHaveBeenLastCalledWith({
+        [buildOfficialPluginId("promote-plugin")]: true,
+      });
+    });
+
+    fireEvent.click(switchControl);
+    await waitFor(() => {
+      expect(onChange).toHaveBeenLastCalledWith({
+        [buildOfficialPluginId("promote-plugin")]: false,
+      });
+    });
+  });
+
+  it("does not write a loaded but never enabled official plugin into settings when removed", async () => {
+    const { onChange } = renderEditor({
+      showTitle: false,
+      officialMarketplaceEnabled: true,
+    });
+
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        plugins: [{ name: "ephemeral-plugin" }],
+      }),
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "加载官方插件" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const ephemeralPluginId = buildOfficialPluginId("ephemeral-plugin");
+    expect(screen.getByText(ephemeralPluginId)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: `删除插件 ${ephemeralPluginId}` }));
+    const dialog = screen.getByRole("alertdialog", { name: "删除插件" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "删除" }));
+
+    for (const [arg] of vi.mocked(onChange).mock.calls) {
+      expect(Object.keys(arg as Record<string, unknown>)).not.toContain(ephemeralPluginId);
+    }
   });
 
   it("blocks official plugin loading when a draft plugin is still dirty", () => {
@@ -917,11 +990,12 @@ describe("EnabledPluginsEditor", () => {
 
     expect(screen.getByText(buildOfficialPluginId("cached-plugin"))).toBeInTheDocument();
     expect(screen.queryByText("加载官方插件失败，请稍后重试。")).not.toBeInTheDocument();
-    await waitFor(() => {
-      expect(onChange).toHaveBeenLastCalledWith({
-        [buildOfficialPluginId("cached-plugin")]: false,
-      });
-    });
+    // 缓存回退同样只补齐 UI 列表，不应把缓存里的官方插件写回 enabledPlugins。
+    for (const [arg] of vi.mocked(onChange).mock.calls) {
+      expect(Object.keys(arg as Record<string, unknown>)).not.toContain(
+        buildOfficialPluginId("cached-plugin"),
+      );
+    }
   });
 
   it("shows an error and keeps the current list unchanged when the official manifest is invalid", async () => {

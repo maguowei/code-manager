@@ -37,7 +37,14 @@ interface EnabledPluginsEditorProps {
   onOfficialActionChange?: (action: ReactNode | null) => void;
 }
 
+// 已 commit 的插件条目会被写回 settings；未 commit 的只在 UI 列表中展示，
+// 典型来源是点击"加载官方插件"拉来的目录项。
+interface PluginEntry extends PluginDraft {
+  committed: boolean;
+}
+
 interface PluginListItem extends PluginDraft {
+  committed?: boolean;
   isDraft?: boolean;
   metadata?: OfficialPluginMetadata;
 }
@@ -57,21 +64,24 @@ function waitForOfficialPluginFeedback(): Promise<void> {
   });
 }
 
-function buildPluginDrafts(value: Record<string, boolean>): PluginDraft[] {
+function buildPluginEntries(value: Record<string, boolean>): PluginEntry[] {
   return Object.entries(value).map(([pluginId, enabled]) => ({
     id: `plugin:${pluginId}`,
     pluginId,
     enabled,
+    committed: true,
   }));
 }
 
 function buildPluginRecord(
-  plugins: PluginDraft[],
+  plugins: PluginEntry[],
   preservedEntries: Record<string, unknown>,
 ): Record<string, unknown> {
   return plugins.reduce<Record<string, unknown>>(
     (accumulator, plugin) => {
-      accumulator[plugin.pluginId] = plugin.enabled;
+      if (plugin.committed) {
+        accumulator[plugin.pluginId] = plugin.enabled;
+      }
       return accumulator;
     },
     { ...preservedEntries },
@@ -117,11 +127,12 @@ function splitPluginEntries(value: unknown): {
   };
 }
 
-function createOfficialPluginDraft(pluginId: string): PluginDraft {
+function createOfficialPluginEntry(pluginId: string): PluginEntry {
   return {
     id: `plugin:${pluginId}`,
     pluginId,
     enabled: false,
+    committed: false,
   };
 }
 
@@ -167,7 +178,7 @@ function EnabledPluginsEditor({
     () => splitPluginEntries(value),
     [value],
   );
-  const initialPlugins = useMemo(() => buildPluginDrafts(booleanEntries), [booleanEntries]);
+  const initialPlugins = useMemo(() => buildPluginEntries(booleanEntries), [booleanEntries]);
   const [plugins, setPlugins] = useState(initialPlugins);
   const [officialPluginCatalog, setOfficialPluginCatalog] = useState<OfficialPluginMetadata[]>(
     () => loadOfficialPluginCache()?.plugins ?? [],
@@ -176,7 +187,7 @@ function EnabledPluginsEditor({
   const [draftError, setDraftError] = useState("");
   const [interactionError, setInteractionError] = useState("");
   const [loadingOfficialPlugins, setLoadingOfficialPlugins] = useState(false);
-  const [pendingDeletePlugin, setPendingDeletePlugin] = useState<PluginDraft | null>(null);
+  const [pendingDeletePlugin, setPendingDeletePlugin] = useState<PluginEntry | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<PluginStatusFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState<PluginMetadataFilterValue>("all");
@@ -321,10 +332,21 @@ function EnabledPluginsEditor({
     setInteractionError("");
   }
 
-  function updatePlugin(pluginId: string, updater: (plugin: PluginDraft) => PluginDraft) {
+  function updatePlugin(pluginId: string, updater: (plugin: PluginEntry) => PluginEntry) {
     setInteractionError("");
     setPlugins((current) =>
-      current.map((plugin) => (plugin.id === pluginId ? updater(plugin) : plugin)),
+      current.map((plugin) => {
+        if (plugin.id !== pluginId) {
+          return plugin;
+        }
+        const updated = updater(plugin);
+        // 第一次被启用时晋升为 committed，从此参与 settings 写出；
+        // 之后即使被关回 false 也保留 committed，保留显式禁用语义。
+        return {
+          ...updated,
+          committed: plugin.committed || updated.enabled,
+        };
+      }),
     );
   }
 
@@ -367,6 +389,7 @@ function EnabledPluginsEditor({
         id: `plugin:${pluginId}`,
         pluginId,
         enabled: draft.enabled,
+        committed: true,
       },
     ]);
     resetDraft(null);
@@ -383,7 +406,7 @@ function EnabledPluginsEditor({
         const nextPlugins = officialPlugins
           .map((plugin) => plugin.pluginId)
           .filter((pluginId) => !existingIds.has(pluginId))
-          .map((pluginId) => createOfficialPluginDraft(pluginId));
+          .map((pluginId) => createOfficialPluginEntry(pluginId));
 
         if (nextPlugins.length === 0) {
           return current;
@@ -781,7 +804,12 @@ function EnabledPluginsEditor({
                               resetDraft(null);
                               return;
                             }
-                            setPendingDeletePlugin(plugin);
+                            setPendingDeletePlugin({
+                              id: plugin.id,
+                              pluginId: plugin.pluginId,
+                              enabled: plugin.enabled,
+                              committed: plugin.committed ?? true,
+                            });
                           }}
                         >
                           <Trash2 className="size-4" aria-hidden="true" />
