@@ -253,7 +253,7 @@ fn detect_editor_options(
     mac_app_exists: &impl Fn(&str) -> bool,
 ) -> Vec<NativeOpenAppOption> {
     EDITOR_OPTION_DEFINITIONS
-        .into_iter()
+        .iter()
         .filter(|definition| match platform {
             NativePlatform::Macos => {
                 command_exists(definition.command)
@@ -276,7 +276,7 @@ fn detect_terminal_options(
     mac_app_exists: &impl Fn(&str) -> bool,
 ) -> Vec<NativeOpenAppOption> {
     TERMINAL_OPTION_DEFINITIONS
-        .into_iter()
+        .iter()
         .filter(|definition| {
             terminal_is_supported(platform, definition.slug)
                 && terminal_is_available(
@@ -416,14 +416,6 @@ fn linux_terminal_candidates(
                 "x-terminal-emulator",
                 "gnome-terminal",
                 "konsole",
-                "xfce4-terminal",
-                "mate-terminal",
-                "lxterminal",
-                "tilix",
-                "alacritty",
-                "kitty",
-                "wezterm",
-                "foot",
             ] {
                 push_unique_program(&mut programs, program);
             }
@@ -724,12 +716,23 @@ mod tests {
     fn linux_terminal_candidates_try_environment_then_standard_fallbacks() {
         let candidates = linux_terminal_candidates("terminal", Some("custom-terminal")).unwrap();
 
-        assert_eq!(candidates.first().unwrap().program, "custom-terminal");
+        assert_eq!(candidates.len(), 5);
+        assert_eq!(candidates[0].program, "custom-terminal");
         assert_eq!(candidates[1].program, "xdg-terminal-exec");
         assert_eq!(candidates[2].program, "x-terminal-emulator");
-        assert!(candidates
-            .iter()
-            .any(|candidate| candidate.program == "gnome-terminal"));
+        assert_eq!(candidates[3].program, "gnome-terminal");
+        assert_eq!(candidates[4].program, "konsole");
+    }
+
+    #[test]
+    fn linux_terminal_candidates_without_env_has_four_fallbacks() {
+        let candidates = linux_terminal_candidates("terminal", None).unwrap();
+
+        assert_eq!(candidates.len(), 4);
+        assert_eq!(candidates[0].program, "xdg-terminal-exec");
+        assert_eq!(candidates[1].program, "x-terminal-emulator");
+        assert_eq!(candidates[2].program, "gnome-terminal");
+        assert_eq!(candidates[3].program, "konsole");
     }
 
     #[test]
