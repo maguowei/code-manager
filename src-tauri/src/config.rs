@@ -26,6 +26,12 @@ const SYSTEM_LOCALE_ENV_KEYS: [&str; 4] = ["LC_ALL", "LC_MESSAGES", "LANGUAGE", 
 const DEFAULT_STATUS_LINE_PRESET_ID: &str = "default";
 const DEFAULT_STATUS_LINE_COMMAND_PATH: &str = "~/.claude/statusline.sh";
 const DEFAULT_STATUS_LINE_SCRIPT: &str = include_str!("../resources/statusline/default.sh");
+const USER_SETTINGS_SOURCE_PATH: &str = "settings.json";
+const USER_SETTINGS_IMPORT_READY: &str = "ready";
+const USER_SETTINGS_IMPORT_INVALID_JSON: &str = "invalidJson";
+const USER_SETTINGS_IMPORT_INVALID_SCHEMA: &str = "invalidSchema";
+const USER_SETTINGS_IMPORT_UNSUPPORTED_SYMLINK: &str = "unsupportedSymlink";
+const USER_SETTINGS_IMPORT_READ_ERROR: &str = "readError";
 #[cfg(not(unix))]
 const STATUS_LINE_PRESET_UNSUPPORTED_PLATFORM_ERROR: &str =
     "status_line_preset_unsupported_platform";
@@ -178,6 +184,22 @@ pub struct ConfigWorkspace {
     pub custom_presets: Vec<SettingsPreset>,
     pub profiles: Vec<ConfigProfile>,
     pub bindings: BindingState,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unmanaged_user_settings: Option<UnmanagedUserSettings>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct UnmanagedUserSettings {
+    pub source_path: String,
+    pub settings: Value,
+    pub size: u64,
+    pub modified_at: u64,
+    pub import_status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_message: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub matched_profile_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -296,6 +318,14 @@ pub struct PresetInput {
     #[serde(default)]
     pub model_suggestions: Vec<String>,
     pub settings_patch: Value,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct UserSettingsImportInput {
+    pub name: String,
+    pub description: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -507,12 +537,14 @@ fn save_registry(registry: &ConfigRegistry) -> Result<(), String> {
 }
 
 fn build_workspace(registry: ConfigRegistry) -> ConfigWorkspace {
+    let unmanaged_user_settings = scan_unmanaged_user_settings(&registry);
     ConfigWorkspace {
         app: registry.app.clone(),
         builtin_presets: builtin_presets().to_vec(),
         custom_presets: registry.custom_presets,
         profiles: registry.profiles,
         bindings: registry.bindings,
+        unmanaged_user_settings,
     }
 }
 
@@ -524,6 +556,190 @@ fn normalize_settings_document(settings: Value) -> Result<Value, String> {
         return Err("settings 必须是 JSON object".to_string());
     }
     Ok(settings)
+}
+
+fn empty_user_settings_status(status: &str, size: u64, modified_at: u64) -> UnmanagedUserSettings {
+    UnmanagedUserSettings {
+        source_path: USER_SETTINGS_SOURCE_PATH.to_string(),
+        settings: Value::Object(Map::new()),
+        size,
+        modified_at,
+        import_status: status.to_string(),
+        error_message: None,
+        matched_profile_id: None,
+    }
+}
+
+fn user_settings_error_status(
+    status: &str,
+    error_message: String,
+    size: u64,
+    modified_at: u64,
+) -> UnmanagedUserSettings {
+    UnmanagedUserSettings {
+        error_message: Some(error_message),
+        ..empty_user_settings_status(status, size, modified_at)
+    }
+}
+
+fn settings_without_schema(settings: &Value) -> Value {
+    let mut object = settings.as_object().cloned().unwrap_or_default();
+    object.remove("$schema");
+    stable_sort_json(Value::Object(object))
+}
+
+fn settings_equivalent(left: &Value, right: &Value) -> bool {
+    settings_without_schema(left) == settings_without_schema(right)
+}
+
+fn find_profile_matching_settings(
+    registry: &ConfigRegistry,
+    settings: &Value,
+) -> Option<String> {
+    registry.profiles.iter().find_map(|profile| {
+        resolve_profile_settings(registry, profile)
+            .ok()
+            .filter(|resolved| settings_equivalent(resolved, settings))
+            .map(|_| profile.id.clone())
+    })
+}
+
+fn bound_profile_matches_user_settings(registry: &ConfigRegistry, settings: &Value) -> bool {
+    let Some(bound_profile_id) = registry.bindings.user_profile_id.as_deref() else {
+        return false;
+    };
+    let Some(profile) = registry
+        .profiles
+        .iter()
+        .find(|profile| profile.id == bound_profile_id)
+    else {
+        return false;
+    };
+
+    resolve_profile_settings(registry, profile)
+        .map(|resolved| settings_equivalent(&resolved, settings))
+        .unwrap_or(false)
+}
+
+fn read_user_settings_document() -> Result<(Value, u64, u64), String> {
+    let path = get_user_settings_path()?;
+    let metadata = fs::symlink_metadata(&path)
+        .map_err(|error| format!("读取文件失败 {:?}: {}", path, error))?;
+    if metadata.file_type().is_symlink() {
+        return Err("用户 settings.json 软链接不支持导入".to_string());
+    }
+    if !metadata.is_file() {
+        return Err("用户 settings.json 必须是普通文件".to_string());
+    }
+
+    let content =
+        fs::read_to_string(&path).map_err(|error| format!("读取文件失败 {:?}: {}", path, error))?;
+    let parsed: Value = serde_json::from_str(&content)
+        .map_err(|error| format!("解析 JSON 失败 {:?}: {}", path, error))?;
+    let settings = normalize_settings_document(parsed)?;
+    validate_settings_document(&settings)?;
+
+    Ok((
+        settings_without_schema(&settings),
+        metadata.len(),
+        crate::utils::metadata_modified_secs(&metadata),
+    ))
+}
+
+fn scan_unmanaged_user_settings(registry: &ConfigRegistry) -> Option<UnmanagedUserSettings> {
+    let path = match get_user_settings_path() {
+        Ok(path) => path,
+        Err(error) => {
+            return Some(user_settings_error_status(
+                USER_SETTINGS_IMPORT_READ_ERROR,
+                error,
+                0,
+                0,
+            ));
+        }
+    };
+    let metadata = match fs::symlink_metadata(&path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return None,
+        Err(error) => {
+            return Some(user_settings_error_status(
+                USER_SETTINGS_IMPORT_READ_ERROR,
+                format!("读取 settings.json 失败: {}", error),
+                0,
+                0,
+            ));
+        }
+    };
+    let size = metadata.len();
+    let modified_at = crate::utils::metadata_modified_secs(&metadata);
+    if metadata.file_type().is_symlink() {
+        return Some(empty_user_settings_status(
+            USER_SETTINGS_IMPORT_UNSUPPORTED_SYMLINK,
+            size,
+            modified_at,
+        ));
+    }
+    if !metadata.is_file() {
+        return Some(user_settings_error_status(
+            USER_SETTINGS_IMPORT_READ_ERROR,
+            "用户 settings.json 必须是普通文件".to_string(),
+            size,
+            modified_at,
+        ));
+    }
+
+    let content = match fs::read_to_string(&path) {
+        Ok(content) => content,
+        Err(error) => {
+            return Some(user_settings_error_status(
+                USER_SETTINGS_IMPORT_READ_ERROR,
+                format!("读取 settings.json 失败: {}", error),
+                size,
+                modified_at,
+            ));
+        }
+    };
+    let parsed: Value = match serde_json::from_str(&content) {
+        Ok(parsed) => parsed,
+        Err(error) => {
+            return Some(user_settings_error_status(
+                USER_SETTINGS_IMPORT_INVALID_JSON,
+                format!("解析 JSON 失败: {}", error),
+                size,
+                modified_at,
+            ));
+        }
+    };
+    let settings = match normalize_settings_document(parsed).and_then(|settings| {
+        validate_settings_document(&settings)?;
+        Ok(settings_without_schema(&settings))
+    }) {
+        Ok(settings) => settings,
+        Err(error) => {
+            return Some(user_settings_error_status(
+                USER_SETTINGS_IMPORT_INVALID_SCHEMA,
+                error,
+                size,
+                modified_at,
+            ));
+        }
+    };
+
+    if bound_profile_matches_user_settings(registry, &settings) {
+        return None;
+    }
+
+    let matched_profile_id = find_profile_matching_settings(registry, &settings);
+
+    Some(UnmanagedUserSettings {
+        source_path: USER_SETTINGS_SOURCE_PATH.to_string(),
+        settings,
+        size,
+        modified_at,
+        import_status: USER_SETTINGS_IMPORT_READY.to_string(),
+        error_message: None,
+        matched_profile_id,
+    })
 }
 
 fn normalize_model_suggestions(models: Vec<String>) -> Vec<String> {
@@ -1501,6 +1717,47 @@ fn duplicate_profile_in_registry(
     Ok(duplicated)
 }
 
+fn import_user_settings_profile_in_registry(
+    registry: &mut ConfigRegistry,
+    input: UserSettingsImportInput,
+) -> Result<ConfigProfile, String> {
+    let (settings, _, _) = read_user_settings_document()?;
+    let now = crate::utils::current_rfc3339_timestamp();
+
+    if let Some(existing_profile_id) = find_profile_matching_settings(registry, &settings) {
+        let profile = registry
+            .profiles
+            .iter()
+            .find(|profile| profile.id == existing_profile_id)
+            .cloned()
+            .ok_or("未找到匹配的 profile".to_string())?;
+        registry.bindings.user_profile_id = Some(profile.id.clone());
+        registry.bindings.user_last_applied_at = Some(now);
+        return Ok(profile);
+    }
+
+    let name = input.name.trim();
+    let description = input.description.trim();
+    let profile = ConfigProfile {
+        id: Uuid::new_v4().to_string(),
+        name: if name.is_empty() {
+            "Imported User Settings".to_string()
+        } else {
+            name.to_string()
+        },
+        description: description.to_string(),
+        preset_id: None,
+        settings,
+        created_at: now.clone(),
+        updated_at: now.clone(),
+    };
+
+    registry.bindings.user_profile_id = Some(profile.id.clone());
+    registry.bindings.user_last_applied_at = Some(now);
+    registry.profiles.push(profile.clone());
+    Ok(profile)
+}
+
 #[tauri::command]
 pub fn get_config_workspace() -> Result<ConfigWorkspace, String> {
     Ok(build_workspace(load_registry()?))
@@ -1633,6 +1890,26 @@ pub fn apply_profile(app_handle: AppHandle, id: String) -> Result<(), String> {
         Ok(())
     })();
     crate::logging::log_command_result("profile.apply", &result, |_| format!("profile_id={id}"));
+    result
+}
+
+#[tauri::command]
+pub fn import_user_settings_profile(
+    app_handle: AppHandle,
+    data: UserSettingsImportInput,
+) -> Result<ConfigProfile, String> {
+    let result = (|| {
+        let _lock = crate::utils::lock_config()?;
+        let mut registry = load_registry()?;
+        let profile = import_user_settings_profile_in_registry(&mut registry, data)?;
+        save_registry(&registry)?;
+        rebuild_tray_menu(&app_handle, Some(&registry));
+        let _ = app_handle.emit("config-workspace-changed", ());
+        Ok(profile)
+    })();
+    crate::logging::log_command_result("profile.import_user_settings", &result, |profile| {
+        format!("profile_id={}", profile.id)
+    });
     result
 }
 
@@ -2227,6 +2504,186 @@ mod tests {
         });
 
         assert!(validate_settings_document(&settings).is_ok());
+    }
+
+    #[test]
+    fn workspace_discovers_unmanaged_user_settings() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("discover-user-settings");
+        set_test_env(&root);
+        let settings_path = root.join(".claude").join("settings.json");
+        fs::create_dir_all(settings_path.parent().unwrap()).unwrap();
+        fs::write(
+            &settings_path,
+            r#"{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "model": "claude-sonnet-4-6",
+  "permissions": {
+    "defaultMode": "plan"
+  }
+}"#,
+        )
+        .unwrap();
+
+        let workspace = build_workspace(ConfigRegistry::default());
+        let unmanaged = workspace
+            .unmanaged_user_settings
+            .expect("应发现未托管用户配置");
+
+        assert_eq!(unmanaged.source_path, "settings.json");
+        assert_eq!(unmanaged.import_status, "ready");
+        assert_eq!(unmanaged.settings["model"], "claude-sonnet-4-6");
+        assert_eq!(unmanaged.settings.get("$schema"), None);
+        assert!(unmanaged.size > 0);
+        assert!(unmanaged.modified_at > 0);
+
+        clear_test_env();
+    }
+
+    #[test]
+    fn workspace_hides_user_settings_when_bound_profile_matches() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("hide-bound-user-settings");
+        set_test_env(&root);
+        let settings_path = root.join(".claude").join("settings.json");
+        fs::create_dir_all(settings_path.parent().unwrap()).unwrap();
+        fs::write(
+            &settings_path,
+            r#"{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "model": "claude-sonnet-4-6"
+}"#,
+        )
+        .unwrap();
+
+        let mut registry = ConfigRegistry::default();
+        registry.profiles.push(sample_profile(
+            "user-1",
+            None,
+            serde_json::json!({ "model": "claude-sonnet-4-6" }),
+        ));
+        registry.bindings.user_profile_id = Some("user-1".to_string());
+
+        let workspace = build_workspace(registry);
+
+        assert!(workspace.unmanaged_user_settings.is_none());
+
+        clear_test_env();
+    }
+
+    #[test]
+    fn import_user_settings_creates_profile_without_rewriting_file() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("import-user-settings");
+        set_test_env(&root);
+        let settings_path = root.join(".claude").join("settings.json");
+        fs::create_dir_all(settings_path.parent().unwrap()).unwrap();
+        let original = r#"{"$schema":"https://json.schemastore.org/claude-code-settings.json","model":"claude-sonnet-4-6"}"#;
+        fs::write(&settings_path, original).unwrap();
+        let mut registry = ConfigRegistry::default();
+
+        let imported = import_user_settings_profile_in_registry(
+            &mut registry,
+            UserSettingsImportInput {
+                name: "导入的用户设置".to_string(),
+                description: "从 ~/.claude/settings.json 导入".to_string(),
+            },
+        )
+        .unwrap();
+
+        assert_eq!(registry.profiles.len(), 1);
+        assert_eq!(registry.bindings.user_profile_id.as_deref(), Some(imported.id.as_str()));
+        assert!(registry.bindings.user_last_applied_at.is_some());
+        assert_eq!(imported.preset_id, None);
+        assert_eq!(imported.settings.get("$schema"), None);
+        assert_eq!(imported.settings["model"], "claude-sonnet-4-6");
+        assert_eq!(fs::read_to_string(&settings_path).unwrap(), original);
+
+        clear_test_env();
+    }
+
+    #[test]
+    fn import_user_settings_reuses_matching_profile() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("import-user-settings-reuse");
+        set_test_env(&root);
+        let settings_path = root.join(".claude").join("settings.json");
+        fs::create_dir_all(settings_path.parent().unwrap()).unwrap();
+        fs::write(
+            &settings_path,
+            r#"{"$schema":"https://json.schemastore.org/claude-code-settings.json","model":"claude-sonnet-4-6"}"#,
+        )
+        .unwrap();
+        let mut registry = ConfigRegistry::default();
+        registry.profiles.push(sample_profile(
+            "existing-profile",
+            None,
+            serde_json::json!({ "model": "claude-sonnet-4-6" }),
+        ));
+
+        let imported = import_user_settings_profile_in_registry(
+            &mut registry,
+            UserSettingsImportInput {
+                name: "导入的用户设置".to_string(),
+                description: "从 ~/.claude/settings.json 导入".to_string(),
+            },
+        )
+        .unwrap();
+
+        assert_eq!(imported.id, "existing-profile");
+        assert_eq!(registry.profiles.len(), 1);
+        assert_eq!(
+            registry.bindings.user_profile_id.as_deref(),
+            Some("existing-profile")
+        );
+
+        clear_test_env();
+    }
+
+    #[test]
+    fn workspace_reports_invalid_user_settings_status() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("invalid-user-settings");
+        set_test_env(&root);
+        let settings_path = root.join(".claude").join("settings.json");
+        fs::create_dir_all(settings_path.parent().unwrap()).unwrap();
+        fs::write(&settings_path, "{ invalid json").unwrap();
+
+        let workspace = build_workspace(ConfigRegistry::default());
+        let unmanaged = workspace
+            .unmanaged_user_settings
+            .expect("应显示无法导入的用户配置");
+
+        assert_eq!(unmanaged.import_status, "invalidJson");
+        assert!(unmanaged.error_message.unwrap().contains("解析 JSON 失败"));
+
+        clear_test_env();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn workspace_reports_symlink_user_settings_as_unsupported() {
+        use std::os::unix::fs::symlink;
+
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("symlink-user-settings");
+        set_test_env(&root);
+        let settings_path = root.join(".claude").join("settings.json");
+        let external_path = root.join("external-settings.json");
+        fs::create_dir_all(settings_path.parent().unwrap()).unwrap();
+        fs::write(&external_path, "{}").unwrap();
+        symlink(&external_path, &settings_path).unwrap();
+
+        let workspace = build_workspace(ConfigRegistry::default());
+        let unmanaged = workspace
+            .unmanaged_user_settings
+            .expect("应显示软链接用户配置");
+
+        assert_eq!(unmanaged.import_status, "unsupportedSymlink");
+        assert!(unmanaged.settings.is_object());
+        assert!(unmanaged.settings.as_object().unwrap().is_empty());
+
+        clear_test_env();
     }
 
     #[test]

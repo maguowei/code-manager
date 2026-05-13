@@ -1,11 +1,26 @@
 import { invoke } from "@tauri-apps/api/core";
-import { CircleAlert, CircleCheck, Copy, Plus, TestTube, Trash2, Variable } from "lucide-react";
+import {
+  CircleAlert,
+  CircleCheck,
+  Copy,
+  FileInput,
+  Plus,
+  TestTube,
+  Trash2,
+  Variable,
+} from "lucide-react";
 import { type DragEvent, useCallback, useMemo, useRef, useState } from "react";
 import { getUserFacingErrorReason, showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
-import type { ConfigProfile, ConfigWorkspace, ModelTestResult } from "../types";
+import type {
+  ConfigProfile,
+  ConfigWorkspace,
+  ModelTestResult,
+  UnmanagedUserSettings,
+  UnmanagedUserSettingsImportStatus,
+} from "../types";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import {
   getEnabledPluginsSummary,
@@ -47,6 +62,17 @@ interface ActiveModelTestDialog {
   errorMessage: string;
 }
 
+const unmanagedUserSettingsStatusLabels: Record<
+  UnmanagedUserSettingsImportStatus,
+  `profiles.unmanaged.status.${UnmanagedUserSettingsImportStatus}`
+> = {
+  ready: "profiles.unmanaged.status.ready",
+  invalidJson: "profiles.unmanaged.status.invalidJson",
+  invalidSchema: "profiles.unmanaged.status.invalidSchema",
+  unsupportedSymlink: "profiles.unmanaged.status.unsupportedSymlink",
+  readError: "profiles.unmanaged.status.readError",
+};
+
 function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
   const { language, t } = useI18n();
   const { showToast } = useToast();
@@ -54,6 +80,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [isTestingAllProfiles, setIsTestingAllProfiles] = useState(false);
+  const [isImportingUserSettings, setIsImportingUserSettings] = useState(false);
   const [profileModelTestStates, setProfileModelTestStates] = useState<
     Record<string, ProfileModelTestState>
   >({});
@@ -179,26 +206,34 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
     });
   }, []);
 
-  function profilePrimaryModel(profile: ConfigProfile) {
-    const env = isPlainObject(profile.settings.env) ? profile.settings.env : {};
+  function settingsPrimaryModel(settings: Record<string, unknown>) {
+    const env = isPlainObject(settings.env) ? settings.env : {};
     if (typeof env.ANTHROPIC_MODEL === "string" && env.ANTHROPIC_MODEL.trim()) {
       return env.ANTHROPIC_MODEL.trim();
     }
-    if (typeof profile.settings.model === "string" && profile.settings.model.trim()) {
-      return profile.settings.model.trim();
+    if (typeof settings.model === "string" && settings.model.trim()) {
+      return settings.model.trim();
+    }
+    return "";
+  }
+
+  function profilePrimaryModel(profile: ConfigProfile) {
+    return settingsPrimaryModel(profile.settings);
+  }
+
+  function settingsEffortLevel(settings: Record<string, unknown>) {
+    const env = isPlainObject(settings.env) ? settings.env : {};
+    if (typeof env.CLAUDE_CODE_EFFORT_LEVEL === "string" && env.CLAUDE_CODE_EFFORT_LEVEL.trim()) {
+      return env.CLAUDE_CODE_EFFORT_LEVEL.trim();
+    }
+    if (typeof settings.effortLevel === "string" && settings.effortLevel.trim()) {
+      return settings.effortLevel.trim();
     }
     return "";
   }
 
   function profileEffortLevel(profile: ConfigProfile) {
-    const env = isPlainObject(profile.settings.env) ? profile.settings.env : {};
-    if (typeof env.CLAUDE_CODE_EFFORT_LEVEL === "string" && env.CLAUDE_CODE_EFFORT_LEVEL.trim()) {
-      return env.CLAUDE_CODE_EFFORT_LEVEL.trim();
-    }
-    if (typeof profile.settings.effortLevel === "string" && profile.settings.effortLevel.trim()) {
-      return profile.settings.effortLevel.trim();
-    }
-    return "";
+    return settingsEffortLevel(profile.settings);
   }
 
   function profileEffortLevelClass(effort: string) {
@@ -218,13 +253,21 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
     }
   }
 
+  function settingsPermissionMode(settings: Record<string, unknown>) {
+    return readPermissionsDefaultMode(settings.permissions).trim();
+  }
+
   function profilePermissionMode(profile: ConfigProfile) {
-    return readPermissionsDefaultMode(profile.settings.permissions).trim();
+    return settingsPermissionMode(profile.settings);
+  }
+
+  function settingsSandboxEnabled(settings: Record<string, unknown>) {
+    const sandbox = isPlainObject(settings.sandbox) ? settings.sandbox : {};
+    return sandbox.enabled === true;
   }
 
   function profileSandboxEnabled(profile: ConfigProfile) {
-    const sandbox = isPlainObject(profile.settings.sandbox) ? profile.settings.sandbox : {};
-    return sandbox.enabled === true;
+    return settingsSandboxEnabled(profile.settings);
   }
 
   function profilePermissionModeClass(permissionMode: string) {
@@ -242,8 +285,12 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
     }
   }
 
+  function settingsPluginsSummary(settings: Record<string, unknown>) {
+    return getEnabledPluginsSummary(settings.enabledPlugins);
+  }
+
   function profilePluginsSummary(profile: ConfigProfile) {
-    return getEnabledPluginsSummary(profile.settings.enabledPlugins);
+    return settingsPluginsSummary(profile.settings);
   }
 
   function shellEscape(value: string) {
@@ -310,6 +357,24 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
       showToast(t("profiles.toast.applied"));
     } catch (err) {
       showOperationError(showToast, t("profiles.toast.applyError"), err);
+    }
+  }
+
+  async function handleImportUserSettings() {
+    setIsImportingUserSettings(true);
+    try {
+      await invoke("import_user_settings_profile", {
+        data: {
+          name: t("profiles.unmanaged.importedName"),
+          description: t("profiles.unmanaged.importedDescription"),
+        },
+      });
+      await onWorkspaceChange();
+      showToast(t("profiles.toast.imported"));
+    } catch (err) {
+      showOperationError(showToast, t("profiles.toast.importError"), err);
+    } finally {
+      setIsImportingUserSettings(false);
     }
   }
 
@@ -608,6 +673,143 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
     );
   }
 
+  function renderUnmanagedUserSettingsCard(userSettings: UnmanagedUserSettings) {
+    const statusLabel = t(
+      unmanagedUserSettingsStatusLabels[userSettings.importStatus] ??
+        "profiles.unmanaged.status.readError",
+    );
+    const canImport = userSettings.importStatus === "ready";
+    const model = settingsPrimaryModel(userSettings.settings);
+    const effort = settingsEffortLevel(userSettings.settings);
+    const permissionMode = settingsPermissionMode(userSettings.settings);
+    const sandboxEnabled = settingsSandboxEnabled(userSettings.settings);
+    const plugins = settingsPluginsSummary(userSettings.settings);
+    const hasSummary =
+      canImport && (model || permissionMode || sandboxEnabled || plugins.totalCount > 0);
+    const importTitle = canImport
+      ? t("profiles.unmanaged.importHint")
+      : (userSettings.errorMessage ?? statusLabel);
+
+    return (
+      <Card
+        key="unmanaged-user-settings"
+        data-slot="unmanaged-user-settings-card"
+        className="flex cursor-default flex-col gap-3 rounded-lg border border-dashed border-border bg-card p-4 text-foreground shadow-panel"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-chart-3/10 text-chart-3">
+              <FileInput className="size-4" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <h3 className="truncate text-base font-semibold">{t("profiles.unmanaged.title")}</h3>
+              <div className="mt-1.5 flex min-w-0 items-center gap-2">
+                <Badge
+                  variant="secondary"
+                  className="rounded-full px-2 py-0.5 text-xs font-semibold text-chart-3"
+                >
+                  {t("profiles.unmanaged.badge")}
+                </Badge>
+                <span className="min-w-0 truncate text-xs text-muted-foreground">
+                  {userSettings.sourcePath}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="shrink-0 border-chart-3 bg-chart-3/10 font-semibold text-chart-3 hover:bg-chart-3/20 hover:text-chart-3"
+            disabled={!canImport || isImportingUserSettings}
+            title={importTitle}
+            onClick={() => {
+              void handleImportUserSettings();
+            }}
+          >
+            {isImportingUserSettings
+              ? t("profiles.unmanaged.importing")
+              : t("profiles.unmanaged.import")}
+          </Button>
+        </div>
+
+        <p className="m-0 text-sm leading-normal text-muted-foreground [overflow-wrap:anywhere]">
+          {canImport ? t("profiles.unmanaged.description") : statusLabel}
+        </p>
+
+        {hasSummary ? (
+          <div className="flex flex-col gap-2">
+            {model ? (
+              <div className="grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground">
+                <span className="inline-flex shrink-0 items-center text-xs leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-border after:content-[':']">
+                  {t("profiles.summary.modelTitle")}
+                </span>
+                <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+                  <span className="min-w-0 max-w-full truncate">{model}</span>
+                  {effort ? (
+                    <span
+                      className={cn("shrink-0 whitespace-nowrap", profileEffortLevelClass(effort))}
+                    >
+                      {effort}
+                    </span>
+                  ) : null}
+                </span>
+              </div>
+            ) : null}
+            {permissionMode || sandboxEnabled ? (
+              <div className="grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground">
+                <span className="inline-flex shrink-0 items-center text-xs leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-border after:content-[':']">
+                  {t("profiles.summary.permissionsTitle")}
+                </span>
+                <span className="inline-flex min-w-0 items-center gap-1.5">
+                  {permissionMode ? (
+                    <span className={cn(profilePermissionModeClass(permissionMode))}>
+                      {permissionMode}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      {t("profileEditor.permissions.unset")}
+                    </span>
+                  )}
+                  <span
+                    className={cn(
+                      "shrink-0 border-l border-border/70 pl-1.5 text-xs leading-none whitespace-nowrap",
+                      sandboxEnabled ? "text-chart-2" : "text-muted-foreground",
+                    )}
+                  >
+                    {t(
+                      sandboxEnabled
+                        ? "profiles.summary.sandboxEnabled"
+                        : "profiles.summary.sandboxDisabled",
+                    )}
+                  </span>
+                </span>
+              </div>
+            ) : null}
+            {plugins.totalCount > 0 ? (
+              <div className="grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground">
+                <span className="inline-flex shrink-0 items-center text-xs leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-border after:content-[':']">
+                  {t("profiles.summary.pluginsTitle")}
+                </span>
+                <span className="min-w-0 truncate">
+                  {t("common.pluginsEnabledSummaryLabel")} {plugins.enabledCount}/
+                  {plugins.totalCount}
+                </span>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {!canImport && userSettings.errorMessage ? (
+          <p className="m-0 text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]">
+            {userSettings.errorMessage}
+          </p>
+        ) : null}
+      </Card>
+    );
+  }
+
   const activeModelTestProfile = activeModelTestDialog
     ? (profiles.find((profile) => profile.id === activeModelTestDialog.profileId) ?? null)
     : null;
@@ -664,7 +866,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
           <span>{t("profiles.add")}</span>
         </Button>
 
-        {profiles.length === 0 ? (
+        {profiles.length === 0 && !workspace.unmanagedUserSettings ? (
           <EmptyState title={t("profiles.empty")} hint={t("profiles.emptyHint")} />
         ) : (
           <div
@@ -675,6 +877,9 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
             )}
             onDragOver={(event) => event.preventDefault()}
           >
+            {workspace.unmanagedUserSettings
+              ? renderUnmanagedUserSettingsCard(workspace.unmanagedUserSettings)
+              : null}
             {profiles.map((profile, index) => {
               const model = profilePrimaryModel(profile);
               const effort = profileEffortLevel(profile);

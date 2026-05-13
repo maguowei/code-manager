@@ -22,7 +22,12 @@ import UsagePage from "./components/UsagePage";
 import useTauriEvent from "./hooks/useTauriEvent";
 import { useToast } from "./hooks/useToast";
 import { useI18n } from "./i18n";
-import { type ConfigWorkspace, isTauri, type TabType } from "./types";
+import {
+  type ClaudeDirectoryChangedEvent,
+  type ConfigWorkspace,
+  isTauri,
+  type TabType,
+} from "./types";
 
 const EMPTY_WORKSPACE: ConfigWorkspace = {
   app: {
@@ -38,6 +43,10 @@ const EMPTY_WORKSPACE: ConfigWorkspace = {
   profiles: [],
   bindings: {},
 };
+
+function isUserSettingsChangePath(path: string) {
+  return path === "settings.json";
+}
 
 function App() {
   const { t } = useI18n();
@@ -84,6 +93,12 @@ function App() {
 
   useTauriEvent<void>("config-workspace-changed", () => {
     void loadWorkspace();
+  });
+
+  useTauriEvent<ClaudeDirectoryChangedEvent>("claude-directory-changed", (event) => {
+    if (event.paths.some(isUserSettingsChangePath)) {
+      void loadWorkspace();
+    }
   });
 
   useTauriEvent<string>("navigate-to-tab", (tab) => {

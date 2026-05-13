@@ -103,11 +103,14 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
   },
 } as ConfigWorkspace;
 
-function renderPage(workspace: ConfigWorkspace = WORKSPACE_FIXTURE) {
+function renderPage(
+  workspace: ConfigWorkspace = WORKSPACE_FIXTURE,
+  onWorkspaceChange: () => Promise<void> = async () => {},
+) {
   render(
     <I18nProvider>
       <ThemeProvider>
-        <ProfilesPage workspace={workspace} onWorkspaceChange={async () => {}} />
+        <ProfilesPage workspace={workspace} onWorkspaceChange={onWorkspaceChange} />
       </ThemeProvider>
     </I18nProvider>,
   );
@@ -209,6 +212,83 @@ describe("ProfilesPage", () => {
     expect(within(card).getByRole("button", { name: "删除" })).toBeInTheDocument();
     expect(within(card).queryByText("删除")).not.toBeInTheDocument();
     expect(within(card).queryByRole("button", { name: "编辑" })).not.toBeInTheDocument();
+  });
+
+  it("shows unmanaged user settings and imports them in place", async () => {
+    const onWorkspaceChange = vi.fn(async () => {});
+    const workspace: ConfigWorkspace = {
+      ...WORKSPACE_FIXTURE,
+      unmanagedUserSettings: {
+        sourcePath: "settings.json",
+        settings: {
+          model: "claude-sonnet-4-6",
+          permissions: {
+            defaultMode: "plan",
+          },
+          enabledPlugins: {
+            "formatter@anthropic-tools": true,
+          },
+        },
+        size: 128,
+        modifiedAt: 4,
+        importStatus: "ready",
+      },
+    };
+    invokeMock.mockResolvedValue({
+      id: "imported-user-settings",
+      name: "导入的用户设置",
+      description: "从 ~/.claude/settings.json 导入",
+      settings: {},
+      createdAt: "2026-05-13T00:00:00Z",
+      updatedAt: "2026-05-13T00:00:00Z",
+    });
+
+    renderPage(workspace, onWorkspaceChange);
+
+    const card = screen
+      .getByText("发现未导入的用户设置")
+      .closest('[data-slot="unmanaged-user-settings-card"]') as HTMLElement;
+    expect(card).toBeTruthy();
+    expect(within(card).getByText("settings.json")).toBeInTheDocument();
+    expect(within(card).getByText("claude-sonnet-4-6")).toBeInTheDocument();
+    expect(within(card).getByText("plan")).toBeInTheDocument();
+
+    fireEvent.click(within(card).getByRole("button", { name: "导入管理" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("import_user_settings_profile", {
+        data: {
+          name: "导入的用户设置",
+          description: "从 ~/.claude/settings.json 导入",
+        },
+      });
+    });
+    expect(onWorkspaceChange).toHaveBeenCalled();
+    expect(showToastMock).toHaveBeenCalledWith("配置已导入管理");
+  });
+
+  it("disables unmanaged user settings import when the file is invalid", () => {
+    const workspace: ConfigWorkspace = {
+      ...WORKSPACE_FIXTURE,
+      unmanagedUserSettings: {
+        sourcePath: "settings.json",
+        settings: {},
+        size: 20,
+        modifiedAt: 4,
+        importStatus: "invalidJson",
+        errorMessage: "解析 JSON 失败",
+      },
+    };
+
+    renderPage(workspace);
+
+    const card = screen
+      .getByText("发现未导入的用户设置")
+      .closest('[data-slot="unmanaged-user-settings-card"]') as HTMLElement;
+
+    expect(within(card).getByText("JSON 格式无效")).toBeInTheDocument();
+    expect(within(card).getByText("解析 JSON 失败")).toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: "导入管理" })).toBeDisabled();
   });
 
   it("colors high-risk permission modes on profile cards", () => {

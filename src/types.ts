@@ -89,12 +89,30 @@ export interface BindingState {
   userLastAppliedAt?: string;
 }
 
+export type UnmanagedUserSettingsImportStatus =
+  | "ready"
+  | "invalidJson"
+  | "invalidSchema"
+  | "unsupportedSymlink"
+  | "readError";
+
+export interface UnmanagedUserSettings {
+  sourcePath: string;
+  settings: Record<string, unknown>;
+  size: number;
+  modifiedAt: number;
+  importStatus: UnmanagedUserSettingsImportStatus;
+  errorMessage?: string;
+  matchedProfileId?: string;
+}
+
 export interface ConfigWorkspace {
   app: AppPreferences;
   builtinPresets: SettingsPreset[];
   customPresets: SettingsPreset[];
   profiles: ConfigProfile[];
   bindings: BindingState;
+  unmanagedUserSettings?: UnmanagedUserSettings;
 }
 
 export interface ModelTestResult {

@@ -20,8 +20,8 @@ use claude_directory::{
 };
 use config::{
     apply_profile, delete_preset, delete_profile, duplicate_profile, get_config_workspace,
-    install_status_line_preset, preview_profile, reorder_profiles, set_app_preferences,
-    test_profile_model, upsert_preset, upsert_profile,
+    import_user_settings_profile, install_status_line_preset, preview_profile, reorder_profiles,
+    set_app_preferences, test_profile_model, upsert_preset, upsert_profile,
 };
 use history::{
     get_history, get_history_if_changed, get_session_detail, open_session_file_in_editor,
@@ -123,6 +123,7 @@ pub fn run() {
             reorder_profiles,
             delete_profile,
             apply_profile,
+            import_user_settings_profile,
             install_status_line_preset,
             preview_profile,
             test_profile_model,

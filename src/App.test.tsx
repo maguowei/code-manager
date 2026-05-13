@@ -467,6 +467,35 @@ describe("App", () => {
     });
   });
 
+  it("reloads the config workspace when user settings changes", async () => {
+    enableTauriEvents();
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_config_workspace") {
+        return WORKSPACE_FIXTURE;
+      }
+      return null;
+    });
+
+    renderApp();
+
+    await waitFor(() => {
+      expect(
+        invokeMock.mock.calls.filter(([command]) => command === "get_config_workspace"),
+      ).toHaveLength(2);
+    });
+    const workspaceLoadCount = invokeMock.mock.calls.filter(
+      ([command]) => command === "get_config_workspace",
+    ).length;
+
+    emitTauriEvent("claude-directory-changed", { paths: ["settings.json"] });
+
+    await waitFor(() => {
+      expect(
+        invokeMock.mock.calls.filter(([command]) => command === "get_config_workspace"),
+      ).toHaveLength(workspaceLoadCount + 1);
+    });
+  });
+
   it("shows the Claude directory overview as a main page from the AI menu button", async () => {
     localStorage.setItem("ai-manager-settings", JSON.stringify({ language: "zh", theme: "light" }));
     let resolveOverview: ((overview: unknown) => void) | undefined;
