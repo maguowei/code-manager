@@ -496,6 +496,75 @@ describe("App", () => {
     });
   });
 
+  it("removes the in-use profile badge after user settings is edited externally", async () => {
+    enableTauriEvents();
+    const activeWorkspace: ConfigWorkspace = {
+      ...WORKSPACE_FIXTURE,
+      builtinPresets: [
+        {
+          id: "builtin:openrouter",
+          name: "OpenRouter",
+          description: "OpenRouter 预设",
+          modelSuggestions: [],
+          settingsPatch: {},
+          source: "builtin",
+        },
+      ],
+      profiles: [
+        {
+          id: "user-openrouter",
+          name: "OpenRouter User",
+          description: "默认用户配置",
+          presetId: "builtin:openrouter",
+          settings: {
+            model: "claude-sonnet-4-6",
+          },
+          createdAt: "2026-05-13T00:00:00Z",
+          updatedAt: "2026-05-13T00:00:00Z",
+        },
+      ],
+      bindings: {
+        userProfileId: "user-openrouter",
+        userLastAppliedAt: "2026-05-13T00:00:00Z",
+      },
+    };
+    const staleWorkspace: ConfigWorkspace = {
+      ...activeWorkspace,
+      bindings: {},
+      unmanagedUserSettings: {
+        sourcePath: "settings.json",
+        settings: {
+          model: "claude-opus-4-7",
+        },
+        size: 32,
+        modifiedAt: 8,
+        importStatus: "ready",
+      },
+    };
+    let returnStaleWorkspace = false;
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_config_workspace") {
+        return returnStaleWorkspace ? staleWorkspace : activeWorkspace;
+      }
+      return null;
+    });
+
+    renderApp();
+
+    const activeCard = await screen.findByRole("button", { name: "OpenRouter User" });
+    expect(within(activeCard).getByText("使用中")).toBeInTheDocument();
+
+    returnStaleWorkspace = true;
+    emitTauriEvent("claude-directory-changed", { paths: ["settings.json"] });
+
+    await waitFor(() => {
+      const refreshedCard = screen.getByRole("button", { name: "OpenRouter User" });
+      expect(within(refreshedCard).queryByText("使用中")).not.toBeInTheDocument();
+      expect(within(refreshedCard).getByRole("button", { name: "启用" })).toBeInTheDocument();
+    });
+    expect(screen.getByText("发现未导入的用户设置")).toBeInTheDocument();
+  });
+
   it("shows the Claude directory overview as a main page from the AI menu button", async () => {
     localStorage.setItem("ai-manager-settings", JSON.stringify({ language: "zh", theme: "light" }));
     let resolveOverview: ((overview: unknown) => void) | undefined;

@@ -536,7 +536,8 @@ fn save_registry(registry: &ConfigRegistry) -> Result<(), String> {
     crate::utils::ensure_dir_and_write_atomic(&path, &content)
 }
 
-fn build_workspace(registry: ConfigRegistry) -> ConfigWorkspace {
+fn build_workspace(mut registry: ConfigRegistry) -> ConfigWorkspace {
+    reconcile_user_profile_binding(&mut registry);
     let unmanaged_user_settings = scan_unmanaged_user_settings(&registry);
     ConfigWorkspace {
         app: registry.app.clone(),
@@ -619,6 +620,39 @@ fn bound_profile_matches_user_settings(registry: &ConfigRegistry, settings: &Val
     resolve_profile_settings(registry, profile)
         .map(|resolved| settings_equivalent(&resolved, settings))
         .unwrap_or(false)
+}
+
+fn user_profile_binding_matches_current_settings(registry: &ConfigRegistry) -> bool {
+    let Some(bound_profile_id) = registry.bindings.user_profile_id.as_deref() else {
+        return true;
+    };
+    let Some(profile) = registry
+        .profiles
+        .iter()
+        .find(|profile| profile.id == bound_profile_id)
+    else {
+        return false;
+    };
+    let Ok((settings, _, _)) = read_user_settings_document() else {
+        return false;
+    };
+
+    resolve_profile_settings(registry, profile)
+        .map(|resolved| settings_equivalent(&resolved, &settings))
+        .unwrap_or(false)
+}
+
+fn reconcile_user_profile_binding(registry: &mut ConfigRegistry) -> bool {
+    if registry.bindings.user_profile_id.is_none() {
+        return false;
+    }
+    if user_profile_binding_matches_current_settings(registry) {
+        return false;
+    }
+
+    registry.bindings.user_profile_id = None;
+    registry.bindings.user_last_applied_at = None;
+    true
 }
 
 fn read_user_settings_document() -> Result<(Value, u64, u64), String> {
@@ -1717,6 +1751,22 @@ fn duplicate_profile_in_registry(
     Ok(duplicated)
 }
 
+fn move_profile_to_front(registry: &mut ConfigRegistry, profile_id: &str) {
+    let Some(index) = registry
+        .profiles
+        .iter()
+        .position(|profile| profile.id == profile_id)
+    else {
+        return;
+    };
+    if index == 0 {
+        return;
+    }
+
+    let profile = registry.profiles.remove(index);
+    registry.profiles.insert(0, profile);
+}
+
 fn import_user_settings_profile_in_registry(
     registry: &mut ConfigRegistry,
     input: UserSettingsImportInput,
@@ -1733,6 +1783,7 @@ fn import_user_settings_profile_in_registry(
             .ok_or("未找到匹配的 profile".to_string())?;
         registry.bindings.user_profile_id = Some(profile.id.clone());
         registry.bindings.user_last_applied_at = Some(now);
+        move_profile_to_front(registry, &profile.id);
         return Ok(profile);
     }
 
@@ -1754,13 +1805,22 @@ fn import_user_settings_profile_in_registry(
 
     registry.bindings.user_profile_id = Some(profile.id.clone());
     registry.bindings.user_last_applied_at = Some(now);
-    registry.profiles.push(profile.clone());
+    registry.profiles.insert(0, profile.clone());
     Ok(profile)
 }
 
 #[tauri::command]
-pub fn get_config_workspace() -> Result<ConfigWorkspace, String> {
-    Ok(build_workspace(load_registry()?))
+pub fn get_config_workspace(app_handle: AppHandle) -> Result<ConfigWorkspace, String> {
+    let mut registry = load_registry()?;
+    if reconcile_user_profile_binding(&mut registry) {
+        if let Err(error) = save_registry(&registry) {
+            log::warn!(
+                "event=config.binding_reconcile status=warn reason=save_failed error={error}"
+            );
+        }
+        rebuild_tray_menu(&app_handle, Some(&registry));
+    }
+    Ok(build_workspace(registry))
 }
 
 #[tauri::command]
@@ -2572,6 +2632,43 @@ mod tests {
     }
 
     #[test]
+    fn workspace_clears_user_binding_when_settings_file_differs() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("clear-stale-user-binding");
+        set_test_env(&root);
+        let settings_path = root.join(".claude").join("settings.json");
+        fs::create_dir_all(settings_path.parent().unwrap()).unwrap();
+        fs::write(
+            &settings_path,
+            r#"{
+  "model": "claude-opus-4-7"
+}"#,
+        )
+        .unwrap();
+
+        let mut registry = ConfigRegistry::default();
+        registry.profiles.push(sample_profile(
+            "user-1",
+            None,
+            serde_json::json!({ "model": "claude-sonnet-4-6" }),
+        ));
+        registry.bindings.user_profile_id = Some("user-1".to_string());
+        registry.bindings.user_last_applied_at = Some("2026-05-13T00:00:00Z".to_string());
+
+        let workspace = build_workspace(registry);
+
+        assert_eq!(workspace.bindings.user_profile_id, None);
+        assert_eq!(workspace.bindings.user_last_applied_at, None);
+        let unmanaged = workspace
+            .unmanaged_user_settings
+            .expect("手动修改后的用户配置应重新显示为未托管");
+        assert_eq!(unmanaged.import_status, "ready");
+        assert_eq!(unmanaged.settings["model"], "claude-opus-4-7");
+
+        clear_test_env();
+    }
+
+    #[test]
     fn import_user_settings_creates_profile_without_rewriting_file() {
         let _guard = crate::utils::lock_config().unwrap();
         let root = temp_root("import-user-settings");
@@ -2581,6 +2678,11 @@ mod tests {
         let original = r#"{"$schema":"https://json.schemastore.org/claude-code-settings.json","model":"claude-sonnet-4-6"}"#;
         fs::write(&settings_path, original).unwrap();
         let mut registry = ConfigRegistry::default();
+        registry.profiles.push(sample_profile(
+            "existing-profile",
+            None,
+            serde_json::json!({ "model": "claude-opus-4-7" }),
+        ));
 
         let imported = import_user_settings_profile_in_registry(
             &mut registry,
@@ -2591,7 +2693,9 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(registry.profiles.len(), 1);
+        assert_eq!(registry.profiles.len(), 2);
+        assert_eq!(registry.profiles[0].id, imported.id);
+        assert_eq!(registry.profiles[1].id, "existing-profile");
         assert_eq!(registry.bindings.user_profile_id.as_deref(), Some(imported.id.as_str()));
         assert!(registry.bindings.user_last_applied_at.is_some());
         assert_eq!(imported.preset_id, None);
@@ -2616,6 +2720,11 @@ mod tests {
         .unwrap();
         let mut registry = ConfigRegistry::default();
         registry.profiles.push(sample_profile(
+            "other-profile",
+            None,
+            serde_json::json!({ "model": "claude-opus-4-7" }),
+        ));
+        registry.profiles.push(sample_profile(
             "existing-profile",
             None,
             serde_json::json!({ "model": "claude-sonnet-4-6" }),
@@ -2631,7 +2740,9 @@ mod tests {
         .unwrap();
 
         assert_eq!(imported.id, "existing-profile");
-        assert_eq!(registry.profiles.len(), 1);
+        assert_eq!(registry.profiles.len(), 2);
+        assert_eq!(registry.profiles[0].id, "existing-profile");
+        assert_eq!(registry.profiles[1].id, "other-profile");
         assert_eq!(
             registry.bindings.user_profile_id.as_deref(),
             Some("existing-profile")
