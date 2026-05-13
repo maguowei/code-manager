@@ -23,7 +23,7 @@
 ## 会话工作流
 
 1. 先判断改动范围，阅读命中的 `.claude/rules/*.md`，再打开相关代码。
-2. 非简单任务先列计划并持续更新；方向偏离时停下重新规划。
+2. 非简单任务先用 TaskCreate 列计划，每完成一步用 TaskUpdate 标记进度；方向偏离时停下重新规划。
 3. 改动前检查工作区状态；工作区可能是脏的，不要回退你没创建的改动。
 4. 保持最小影响面，沿用现有模式；先找根因，不用临时绕过方案。
 5. 完成前运行与改动范围匹配的验证命令，并检查 diff；没有新鲜验证证据，不要声称完成。
@@ -69,6 +69,10 @@
 - `~/.claude` 文件树预览页：`src/components/ClaudeOverviewPage.tsx`
 - Tauri 命令注册：`src-tauri/src/lib.rs`
 - Rust 公共工具：`src-tauri/src/utils.rs`
+- 配置系统核心：`src-tauri/src/config.rs`
+- 记忆管理：`src-tauri/src/memory.rs`
+- Skills 管理：`src-tauri/src/skills.rs`
+- 用量统计：`src-tauri/src/usage.rs`
 - Tauri capability：`src-tauri/capabilities/default.json`
 
 ## 架构同步点
@@ -114,6 +118,7 @@
 - 不要混淆 Stats 与 Usage：`StatsPage` 用 `~/.claude.json`，`UsagePage` 用 `~/.claude/projects/**/*.jsonl`。
 - 不要把日志当成配置数据：日志目录由 Tauri 的 `app_log_dir()` 解析，不要迁移到 `~/.config/ai-manager/`。
 - 不要相信旧文件名：当前配置 schema 是 `src/schemas/claude-settings.schema.json`。
+- Tauri 事件监听器必须在组件卸载时清理；使用 `useTauriEvent` hook 而非直接调用 `listen()`，否则会内存泄漏。
 
 ## 参考阅读顺序
 
