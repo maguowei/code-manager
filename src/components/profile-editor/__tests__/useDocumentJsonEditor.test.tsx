@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { describe, expect, it } from "vitest";
 import { useDocumentJsonEditor } from "../useDocumentJsonEditor";
 
@@ -52,6 +52,43 @@ function UnreadRawJsonHarness({ value }: { value: Record<string, unknown> }) {
   });
 
   return <span>ready</span>;
+}
+
+function QueuedApplyHarness() {
+  const [value, setValue] = useState<Record<string, unknown>>({
+    model: "claude-sonnet-4-6",
+  });
+  const queuedValuesRef = useRef<Record<string, unknown>[]>([]);
+  const editor = useDocumentJsonEditor({
+    value,
+    onApply: (next) => {
+      queuedValuesRef.current.push(next);
+    },
+    validateMessage: "完整设置 JSON 必须是 JSON 对象",
+  });
+
+  return (
+    <div>
+      <textarea
+        aria-label="json-input"
+        value={editor.rawJson}
+        onChange={(event) => editor.handleJsonChange(event.target.value)}
+      />
+      <span data-testid="committed-json">{JSON.stringify(value)}</span>
+      <button
+        type="button"
+        onClick={() => {
+          const [next, ...rest] = queuedValuesRef.current;
+          queuedValuesRef.current = rest;
+          if (next) {
+            setValue(next);
+          }
+        }}
+      >
+        flush-next
+      </button>
+    </div>
+  );
 }
 
 describe("useDocumentJsonEditor", () => {
@@ -118,7 +155,7 @@ describe("useDocumentJsonEditor", () => {
     expect(screen.getByTestId("committed-model")).toHaveTextContent("claude-opus-4-1");
   });
 
-  it("normalizes manually cleared drafts to an empty object", () => {
+  it("applies manually cleared drafts as an empty object while keeping the editor blank", () => {
     render(<HookHarness />);
 
     fireEvent.change(screen.getByLabelText("json-input"), {
@@ -126,6 +163,61 @@ describe("useDocumentJsonEditor", () => {
         value: "",
       },
     });
+
+    expect(screen.getByLabelText("json-input")).toHaveValue("");
+    expect(screen.getByTestId("json-error")).toHaveTextContent("");
+    expect(screen.getByTestId("draft-status")).toHaveTextContent("applied");
+    expect(screen.getByTestId("committed-json")).toHaveTextContent("{}");
+
+    fireEvent.change(screen.getByLabelText("json-input"), {
+      target: {
+        value: '{"model":"claude-haiku-4-5"}',
+      },
+    });
+
+    expect(screen.getByLabelText("json-input")).toHaveValue('{"model":"claude-haiku-4-5"}');
+    expect(screen.getByTestId("json-error")).toHaveTextContent("");
+    expect(screen.getByTestId("draft-status")).toHaveTextContent("applied");
+    expect(screen.getByTestId("committed-json")).toHaveTextContent('{"model":"claude-haiku-4-5"}');
+  });
+
+  it("ignores a delayed empty-object confirmation after a newer local paste", () => {
+    render(<QueuedApplyHarness />);
+
+    fireEvent.change(screen.getByLabelText("json-input"), {
+      target: {
+        value: "",
+      },
+    });
+    expect(screen.getByLabelText("json-input")).toHaveValue("");
+
+    fireEvent.change(screen.getByLabelText("json-input"), {
+      target: {
+        value: '{"model":"claude-haiku-4-5"}',
+      },
+    });
+    expect(screen.getByLabelText("json-input")).toHaveValue('{"model":"claude-haiku-4-5"}');
+
+    fireEvent.click(screen.getByRole("button", { name: "flush-next" }));
+
+    expect(screen.getByTestId("committed-json")).toHaveTextContent("{}");
+    expect(screen.getByLabelText("json-input")).toHaveValue('{"model":"claude-haiku-4-5"}');
+
+    fireEvent.click(screen.getByRole("button", { name: "flush-next" }));
+
+    expect(screen.getByTestId("committed-json")).toHaveTextContent('{"model":"claude-haiku-4-5"}');
+    expect(screen.getByLabelText("json-input")).toHaveValue('{"model":"claude-haiku-4-5"}');
+  });
+
+  it("formats manually cleared drafts as an empty object", () => {
+    render(<HookHarness />);
+
+    fireEvent.change(screen.getByLabelText("json-input"), {
+      target: {
+        value: "",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "format" }));
 
     expect(screen.getByLabelText("json-input")).toHaveValue("{}");
     expect(screen.getByTestId("json-error")).toHaveTextContent("");

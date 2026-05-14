@@ -22,6 +22,7 @@ export function useDocumentJsonEditor({
   const [hasAppliedDraft, setHasAppliedDraft] = useState(true);
   const lastAppliedSourceJsonRef = useRef<string | null>(null);
   const lastSeenSourceJsonRef = useRef<string | null>(null);
+  const pendingAppliedSourceJsonsRef = useRef<Set<string>>(new Set());
 
   const readNormalizedValue = useCallback(() => {
     const nextValue = readObject(value);
@@ -47,7 +48,10 @@ export function useDocumentJsonEditor({
 
     lastSeenSourceJsonRef.current = sourceJson;
 
-    if (sourceJson === lastAppliedSourceJsonRef.current) {
+    if (
+      pendingAppliedSourceJsonsRef.current.delete(sourceJson) ||
+      sourceJson === lastAppliedSourceJsonRef.current
+    ) {
       setJsonError("");
       setHasAppliedDraft(true);
       return;
@@ -70,12 +74,12 @@ export function useDocumentJsonEditor({
     return nextSourceJson;
   }
 
-  function normalizeClearedJson(nextValue: string) {
+  function buildParseableJson(nextValue: string) {
     return nextValue.trim() === "" ? EMPTY_OBJECT_JSON : nextValue;
   }
 
   function parseJsonObject(nextValue: string): Record<string, unknown> {
-    const parsed = JSON.parse(nextValue) as unknown;
+    const parsed = JSON.parse(buildParseableJson(nextValue)) as unknown;
     if (parsed === null || Array.isArray(parsed) || typeof parsed !== "object") {
       throw new Error(validateMessage);
     }
@@ -98,16 +102,16 @@ export function useDocumentJsonEditor({
     setHasAppliedDraft(true);
 
     if (nextSourceJson !== currentSourceJson) {
+      pendingAppliedSourceJsonsRef.current.add(nextSourceJson);
       onApply(nextObject);
     }
   }
 
   function handleJsonChange(nextValue: string) {
-    const nextRawJson = normalizeClearedJson(nextValue);
-    setRawJson(nextRawJson);
+    setRawJson(nextValue);
 
     try {
-      const nextObject = parseJsonObject(nextRawJson);
+      const nextObject = parseJsonObject(nextValue);
       applyNextObject(nextObject);
     } catch (error) {
       setHasAppliedDraft(false);

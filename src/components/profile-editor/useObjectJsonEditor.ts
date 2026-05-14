@@ -25,30 +25,52 @@ export function useObjectJsonEditor({
   const [rawJson, setRawJson] = useState<string | null>(null);
   const [jsonError, setJsonError] = useState("");
   const [hasAppliedDraft, setHasAppliedDraft] = useState(true);
-  const rawJsonRef = useRef<string | null>(null);
+  const lastAppliedSourceJsonRef = useRef<string | null>(null);
+  const lastSeenSourceJsonRef = useRef<string | null>(null);
+  const pendingAppliedSourceJsonsRef = useRef<Set<string>>(new Set());
+
+  const sourceJson = useMemo(() => {
+    if (lastAppliedSourceJsonRef.current === null && lastSeenSourceJsonRef.current === null) {
+      return null;
+    }
+
+    return prettyJson(objectValue);
+  }, [objectValue]);
 
   useEffect(() => {
-    rawJsonRef.current = rawJson;
-  }, [rawJson]);
+    if (sourceJson === null || sourceJson === lastSeenSourceJsonRef.current) {
+      return;
+    }
 
-  useEffect(() => {
-    if (rawJsonRef.current === null) {
+    lastSeenSourceJsonRef.current = sourceJson;
+
+    if (
+      pendingAppliedSourceJsonsRef.current.delete(sourceJson) ||
+      sourceJson === lastAppliedSourceJsonRef.current
+    ) {
       setJsonError("");
       setHasAppliedDraft(true);
       return;
     }
 
-    const sourceJson = prettyJson(objectValue);
     setRawJson(sourceJson);
     setJsonError("");
     setHasAppliedDraft(true);
-  }, [objectValue]);
+    lastAppliedSourceJsonRef.current = sourceJson;
+  }, [sourceJson]);
 
   function readRawJson() {
-    return rawJson ?? prettyJson(objectValue);
+    if (rawJson !== null) {
+      return rawJson;
+    }
+
+    const nextSourceJson = prettyJson(objectValue);
+    lastAppliedSourceJsonRef.current ??= nextSourceJson;
+    lastSeenSourceJsonRef.current ??= nextSourceJson;
+    return nextSourceJson;
   }
 
-  function normalizeClearedJson(nextValue: string) {
+  function buildParseableJson(nextValue: string) {
     return nextValue.trim() === "" ? EMPTY_OBJECT_JSON : nextValue;
   }
 
@@ -62,29 +84,34 @@ export function useObjectJsonEditor({
   }
 
   function applyNextObject(nextObject: Record<string, unknown>, nextRawJson: string) {
+    const nextSourceJson = prettyJson(nextObject);
+    const currentSourceJson = prettyJson(objectValue);
+
+    lastAppliedSourceJsonRef.current = nextSourceJson;
+    lastSeenSourceJsonRef.current ??= currentSourceJson;
     setRawJson(nextRawJson);
     setJsonError("");
     setHasAppliedDraft(true);
+
     if (JSON.stringify(nextObject) !== JSON.stringify(objectValue)) {
+      pendingAppliedSourceJsonsRef.current.add(nextSourceJson);
       onChange(nextObject);
     }
   }
 
   function handleJsonChange(nextValue: string) {
-    const nextRawJson = normalizeClearedJson(nextValue);
-
     try {
-      const nextObject = parseJsonObject(nextRawJson);
-      applyNextObject(nextObject, nextRawJson);
+      const nextObject = parseJsonObject(nextValue);
+      applyNextObject(nextObject, nextValue);
     } catch (error) {
-      setRawJson(nextRawJson);
+      setRawJson(nextValue);
       setHasAppliedDraft(false);
       setJsonError(error instanceof Error ? error.message : String(error));
     }
   }
 
   function parseJsonObject(nextValue: string): Record<string, unknown> {
-    const parsed = JSON.parse(nextValue) as unknown;
+    const parsed = JSON.parse(buildParseableJson(nextValue)) as unknown;
     if (parsed === null || Array.isArray(parsed) || typeof parsed !== "object") {
       throw new Error(
         isZh ? `${label} JSON 必须是 JSON 对象` : `${label} JSON must be a JSON object`,
