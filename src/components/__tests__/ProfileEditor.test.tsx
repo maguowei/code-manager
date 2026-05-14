@@ -3424,7 +3424,7 @@ describe("ProfileEditor", () => {
     );
   });
 
-  it("loads official plugins in profile view and saves them as disabled by default", async () => {
+  it("loads official plugins in profile view without writing them to enabledPlugins until enabled", async () => {
     const onSave = vi.fn();
     fetchMock.mockResolvedValue({
       ok: true,
@@ -3471,17 +3471,13 @@ describe("ProfileEditor", () => {
       fireEvent.click(screen.getByRole("button", { name: "保存" }));
     });
 
-    expect(onSave).toHaveBeenCalledWith(
-      expect.objectContaining({
-        settings: expect.objectContaining({
-          enabledPlugins: {
-            "formatter@anthropic-tools": true,
-            "reviewer-plugin@claude-plugins-official": false,
-            "writer-plugin@claude-plugins-official": false,
-          },
-        }),
-      }),
-    );
+    // 仅加载官方插件目录不应改写 enabledPlugins：reviewer / writer 仅出现在 UI 列表，
+    // 没有用户显式启用，所以不会被写回 settings。
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const savedProfile = onSave.mock.calls[0][0];
+    expect(savedProfile.settings.enabledPlugins).toEqual({
+      "formatter@anthropic-tools": true,
+    });
   });
 
   it("places the official plugin refresh action beside the controls/json switch", async () => {

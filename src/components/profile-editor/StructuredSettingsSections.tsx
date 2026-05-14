@@ -713,6 +713,7 @@ function StructuredSettingsSections({
         hasAppliedDraft={documentJsonEditor.hasAppliedDraft}
         onEditChange={documentJsonEditor.handleJsonChange}
         onFormat={documentJsonEditor.formatJson}
+        onClear={documentJsonEditor.clearJson}
         previewModeLabel={t("common.previewMode")}
         editModeLabel={messages.editModeLabel}
         editHint={messages.editHint}

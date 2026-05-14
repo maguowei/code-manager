@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { prettyJson } from "../config-workspace-utils";
 import { readObject } from "./editor-utils";
 
+const EMPTY_OBJECT_JSON = prettyJson({});
+
 interface UseObjectJsonEditorOptions {
   value: unknown;
   onChange: (next: Record<string, unknown>) => void;
@@ -46,6 +48,10 @@ export function useObjectJsonEditor({
     return rawJson ?? prettyJson(objectValue);
   }
 
+  function normalizeClearedJson(nextValue: string) {
+    return nextValue.trim() === "" ? EMPTY_OBJECT_JSON : nextValue;
+  }
+
   function buildUnsupportedKeysError(keys: string[]): string {
     if (!allowedKeys || keys.length === 0) {
       return "";
@@ -55,17 +61,23 @@ export function useObjectJsonEditor({
       : `${label} JSON contains unsupported keys: ${keys.join(", ")}`;
   }
 
+  function applyNextObject(nextObject: Record<string, unknown>, nextRawJson: string) {
+    setRawJson(nextRawJson);
+    setJsonError("");
+    setHasAppliedDraft(true);
+    if (JSON.stringify(nextObject) !== JSON.stringify(objectValue)) {
+      onChange(nextObject);
+    }
+  }
+
   function handleJsonChange(nextValue: string) {
-    setRawJson(nextValue);
+    const nextRawJson = normalizeClearedJson(nextValue);
 
     try {
-      const nextObject = parseJsonObject(nextValue);
-      setJsonError("");
-      setHasAppliedDraft(true);
-      if (JSON.stringify(nextObject) !== JSON.stringify(objectValue)) {
-        onChange(nextObject);
-      }
+      const nextObject = parseJsonObject(nextRawJson);
+      applyNextObject(nextObject, nextRawJson);
     } catch (error) {
+      setRawJson(nextRawJson);
       setHasAppliedDraft(false);
       setJsonError(error instanceof Error ? error.message : String(error));
     }
@@ -101,16 +113,15 @@ export function useObjectJsonEditor({
   function formatJson() {
     try {
       const nextObject = parseJsonObject(readRawJson());
-      setJsonError("");
-      setHasAppliedDraft(true);
-      setRawJson(prettyJson(nextObject));
-      if (JSON.stringify(nextObject) !== JSON.stringify(objectValue)) {
-        onChange(nextObject);
-      }
+      applyNextObject(nextObject, prettyJson(nextObject));
     } catch (error) {
       setHasAppliedDraft(false);
       setJsonError(error instanceof Error ? error.message : String(error));
     }
+  }
+
+  function clearJson() {
+    applyNextObject({}, EMPTY_OBJECT_JSON);
   }
 
   return {
@@ -121,5 +132,6 @@ export function useObjectJsonEditor({
     hasAppliedDraft,
     handleJsonChange,
     formatJson,
+    clearJson,
   };
 }

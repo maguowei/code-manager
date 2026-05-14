@@ -1584,7 +1584,7 @@ describe("PresetEditor", () => {
     );
   });
 
-  it("loads official plugins in preset view and saves them as disabled by default", async () => {
+  it("loads official plugins in preset view without writing them to enabledPlugins until enabled", async () => {
     const onSave = vi.fn();
     fetchMock.mockResolvedValue({
       ok: true,
@@ -1632,16 +1632,13 @@ describe("PresetEditor", () => {
       await Promise.resolve();
     });
 
-    expect(onSave).toHaveBeenCalledWith(
-      expect.objectContaining({
-        settingsPatch: expect.objectContaining({
-          enabledPlugins: {
-            "formatter@anthropic-tools": true,
-            "reviewer-plugin@claude-plugins-official": false,
-          },
-        }),
-      }),
-    );
+    // 仅加载官方插件目录不应改写 enabledPlugins：reviewer-plugin 保持仅在 UI 列表中展示，
+    // 直到用户首次启用后才会被写回 settings。
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const savedPreset = onSave.mock.calls[0][0];
+    expect(savedPreset.settingsPatch.enabledPlugins).toEqual({
+      "formatter@anthropic-tools": true,
+    });
   });
 
   it("saves status line settings from structured controls in preset view", async () => {

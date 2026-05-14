@@ -1,3 +1,4 @@
+import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../../i18n";
@@ -16,6 +17,7 @@ interface DocumentEditorSectionProps {
   hasAppliedDraft: boolean;
   onEditChange: (nextValue: string) => void;
   onFormat: () => void;
+  onClear: () => void;
   previewModeLabel: string;
   editModeLabel: string;
   editHint: string;
@@ -32,6 +34,7 @@ function DocumentEditorSection({
   hasAppliedDraft,
   onEditChange,
   onFormat,
+  onClear,
   previewModeLabel,
   editModeLabel,
   editHint,
@@ -92,9 +95,15 @@ function DocumentEditorSection({
         <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border/80 bg-muted/50 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="m-0 min-w-[220px] flex-1 text-sm text-muted-foreground">{editHint}</p>
-            <Button type="button" variant="outline" onClick={onFormat}>
-              {t("common.formatJson")}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" variant="destructive-outline" onClick={onClear}>
+                <Trash2 className="size-4" aria-hidden="true" />
+                {t("common.clearJson")}
+              </Button>
+              <Button type="button" variant="outline" onClick={onFormat}>
+                {t("common.formatJson")}
+              </Button>
+            </div>
           </div>
 
           {supportedKeys.length > 0 ? (

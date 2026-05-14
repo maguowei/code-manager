@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { prettyJson } from "../config-workspace-utils";
 import { readObject } from "./editor-utils";
 
+const EMPTY_OBJECT_JSON = prettyJson({});
+
 interface UseDocumentJsonEditorOptions {
   value: unknown;
   onApply: (next: Record<string, unknown>) => void;
@@ -68,6 +70,10 @@ export function useDocumentJsonEditor({
     return nextSourceJson;
   }
 
+  function normalizeClearedJson(nextValue: string) {
+    return nextValue.trim() === "" ? EMPTY_OBJECT_JSON : nextValue;
+  }
+
   function parseJsonObject(nextValue: string): Record<string, unknown> {
     const parsed = JSON.parse(nextValue) as unknown;
     if (parsed === null || Array.isArray(parsed) || typeof parsed !== "object") {
@@ -75,6 +81,10 @@ export function useDocumentJsonEditor({
     }
 
     const nextObject = parsed as Record<string, unknown>;
+    if (Object.keys(nextObject).length === 0) {
+      return nextObject;
+    }
+
     return normalize ? normalize(nextObject) : nextObject;
   }
 
@@ -93,10 +103,11 @@ export function useDocumentJsonEditor({
   }
 
   function handleJsonChange(nextValue: string) {
-    setRawJson(nextValue);
+    const nextRawJson = normalizeClearedJson(nextValue);
+    setRawJson(nextRawJson);
 
     try {
-      const nextObject = parseJsonObject(nextValue);
+      const nextObject = parseJsonObject(nextRawJson);
       applyNextObject(nextObject);
     } catch (error) {
       setHasAppliedDraft(false);
@@ -117,6 +128,11 @@ export function useDocumentJsonEditor({
     }
   }
 
+  function clearJson() {
+    setRawJson(EMPTY_OBJECT_JSON);
+    applyNextObject({});
+  }
+
   return {
     get rawJson() {
       return readRawJson();
@@ -125,5 +141,6 @@ export function useDocumentJsonEditor({
     hasAppliedDraft,
     handleJsonChange,
     formatJson,
+    clearJson,
   };
 }

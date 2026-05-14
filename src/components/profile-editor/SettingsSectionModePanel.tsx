@@ -1,4 +1,4 @@
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Trash2 } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../../i18n";
@@ -15,6 +15,7 @@ export interface SectionJsonEditorState {
   hasAppliedDraft: boolean;
   handleJsonChange: (nextValue: string) => void;
   formatJson: () => void;
+  clearJson: () => void;
 }
 
 interface SettingsSectionModePanelProps {
@@ -104,9 +105,15 @@ function SettingsSectionModePanel({
         <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border/80 bg-muted/50 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="m-0 min-w-[220px] flex-1 text-sm text-muted-foreground">{jsonHint}</p>
-            <Button type="button" variant="outline" onClick={jsonEditor.formatJson}>
-              {t("common.formatJson")}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" variant="destructive-outline" onClick={jsonEditor.clearJson}>
+                <Trash2 className="size-4" aria-hidden="true" />
+                {t("common.clearJson")}
+              </Button>
+              <Button type="button" variant="outline" onClick={jsonEditor.formatJson}>
+                {t("common.formatJson")}
+              </Button>
+            </div>
           </div>
 
           {!jsonEditor.hasAppliedDraft ? (

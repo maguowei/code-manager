@@ -23,9 +23,13 @@ function HookHarness() {
       />
       <span data-testid="json-error">{editor.jsonError}</span>
       <span data-testid="draft-status">{editor.hasAppliedDraft ? "applied" : "pending"}</span>
+      <span data-testid="committed-json">{JSON.stringify(value)}</span>
       <span data-testid="committed-model">{String(value.model ?? "")}</span>
       <button type="button" onClick={editor.formatJson}>
         format
+      </button>
+      <button type="button" onClick={editor.clearJson}>
+        clear
       </button>
       <button
         type="button"
@@ -114,5 +118,31 @@ describe("useObjectJsonEditor", () => {
     expect(screen.getByLabelText("json-input")).toHaveValue(`{\n  "model": "claude-opus-4-1"\n}`);
     expect(screen.getByTestId("draft-status")).toHaveTextContent("applied");
     expect(screen.getByTestId("committed-model")).toHaveTextContent("claude-opus-4-1");
+  });
+
+  it("normalizes manually cleared drafts to an empty object", () => {
+    render(<HookHarness />);
+
+    fireEvent.change(screen.getByLabelText("json-input"), {
+      target: {
+        value: "",
+      },
+    });
+
+    expect(screen.getByLabelText("json-input")).toHaveValue("{}");
+    expect(screen.getByTestId("json-error")).toHaveTextContent("");
+    expect(screen.getByTestId("draft-status")).toHaveTextContent("applied");
+    expect(screen.getByTestId("committed-json")).toHaveTextContent("{}");
+  });
+
+  it("clears json to an empty object through the clear action", () => {
+    render(<HookHarness />);
+
+    fireEvent.click(screen.getByRole("button", { name: "clear" }));
+
+    expect(screen.getByLabelText("json-input")).toHaveValue("{}");
+    expect(screen.getByTestId("json-error")).toHaveTextContent("");
+    expect(screen.getByTestId("draft-status")).toHaveTextContent("applied");
+    expect(screen.getByTestId("committed-json")).toHaveTextContent("{}");
   });
 });

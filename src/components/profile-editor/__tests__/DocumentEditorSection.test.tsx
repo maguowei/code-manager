@@ -32,6 +32,7 @@ describe("DocumentEditorSection", () => {
   it("switches between preview and json edit modes with shared metadata", () => {
     const handleEditChange = vi.fn();
     const handleFormat = vi.fn();
+    const handleClear = vi.fn();
     const getEditContent = vi.fn(() => '{"env":{"ANTHROPIC_AUTH_TOKEN":"token"}}');
 
     render(
@@ -44,6 +45,7 @@ describe("DocumentEditorSection", () => {
           hasAppliedDraft={false}
           onEditChange={handleEditChange}
           onFormat={handleFormat}
+          onClear={handleClear}
           previewModeLabel="预览"
           editModeLabel="编辑源 JSON"
           editHint="预览展示合成结果，编辑作用于源配置。"
@@ -73,8 +75,10 @@ describe("DocumentEditorSection", () => {
       },
     });
     fireEvent.click(screen.getByRole("button", { name: "格式化 JSON" }));
+    fireEvent.click(screen.getByRole("button", { name: "清空 JSON" }));
 
     expect(handleEditChange).toHaveBeenCalledWith('{"env":{"ANTHROPIC_AUTH_TOKEN":"next-token"}}');
     expect(handleFormat).toHaveBeenCalledTimes(1);
+    expect(handleClear).toHaveBeenCalledTimes(1);
   });
 });
