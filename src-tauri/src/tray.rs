@@ -30,6 +30,7 @@ struct TrayLabels<'a> {
     no_configs: &'a str,
     active_sessions: &'a str,
     sessions_title: &'a str,
+    no_sessions: &'a str,
     nav_memory: &'a str,
     nav_skills: &'a str,
     nav_providers: &'a str,
@@ -49,6 +50,7 @@ fn tray_labels_for_language(language: &str) -> TrayLabels<'static> {
             no_configs: "No configs",
             active_sessions: "Active Sessions",
             sessions_title: "Sessions",
+            no_sessions: "No Sessions",
             nav_memory: "Memory",
             nav_skills: "Skills",
             nav_providers: "Presets",
@@ -65,6 +67,7 @@ fn tray_labels_for_language(language: &str) -> TrayLabels<'static> {
             no_configs: "暂无配置",
             active_sessions: "当前会话",
             sessions_title: "会话",
+            no_sessions: "无会话",
             nav_memory: "记忆",
             nav_skills: "Skills",
             nav_providers: "预设",
@@ -210,7 +213,7 @@ fn sessions_tray_title_for_frame(
         });
 
     match sessions {
-        [] => None,
+        [] => Some(labels.no_sessions.to_string()),
         [session] => Some(session_tray_summary(session, labels.language, frame)),
         _ => highlighted
             .map(|session| session_tray_summary(session, labels.language, frame))
@@ -489,21 +492,22 @@ fn apply_sessions_tray_title(
     state: &ConfigRegistry,
     sessions: &[TraySession],
 ) -> bool {
-    // 注意：会话托盘没有 icon，仅靠 title 显示。
-    // 不能使用 set_visible(false) —— macOS NSStatusItem 一旦隐藏后再 set_visible(true) 不会恢复
-    // （Tauri 已知 bug #10150）。改用空 title：title 为空且无 icon 时状态栏宽度为 0，等同隐藏。
+    // 会话托盘没有 icon，仅靠 title 显示；开启时必须保持非空 title，
+    // 避免状态栏项进入零宽后在部分机器上无法稳定恢复。
     if !state.app.show_tray_sessions {
-        let _ = tray.set_title(Some(""));
+        if let Err(e) = tray.set_title(Some("")) {
+            log::warn!("event=tray.sessions_title status=err action=clear error={e}");
+        }
         return false;
     }
 
     let labels = tray_labels_for_language(&state.app.ui_language);
-    let Some(title) = sessions_tray_title(sessions, &labels) else {
-        let _ = tray.set_title(Some(""));
-        return false;
-    };
+    let title =
+        sessions_tray_title(sessions, &labels).unwrap_or_else(|| labels.no_sessions.to_string());
 
-    let _ = tray.set_title(Some(title.as_str()));
+    if let Err(e) = tray.set_title(Some(title.as_str())) {
+        log::warn!("event=tray.sessions_title status=err action=set error={e}");
+    }
     true
 }
 
@@ -571,7 +575,11 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     };
     let sessions_menu = build_sessions_tray_menu(handle, &state, &sessions)?;
     let labels = tray_labels_for_language(&state.app.ui_language);
-    let sessions_title = sessions_tray_title(&sessions, &labels);
+    let sessions_title = if state.app.show_tray_sessions {
+        sessions_tray_title(&sessions, &labels)
+    } else {
+        None
+    };
 
     // 获取应用图标，若不存在则返回 IO 错误
     let icon = app
@@ -616,7 +624,7 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     }
     let _sessions_tray = sessions_builder.build(app)?;
     // sessions_builder 仅在 sessions_title 为 Some 时设置 title（见上方 if let 分支）；
-    // 当 show_tray_sessions=false 或当前无会话时，title 本就未设置，状态栏自然为空，无需再调用 set_visible。
+    // 关闭 show_tray_sessions 时不设置 title，让该区域自然隐藏，无需再调用 set_visible。
 
     // 构建托盘图标，若设置开启且有激活配置则在图标旁显示配置名
     let mut builder = TrayIconBuilder::with_id(MAIN_TRAY_ID)
@@ -697,6 +705,7 @@ mod tests {
         let zh = tray_labels_for_language("zh");
         assert_eq!(zh.show_window, "打开 AI Manager");
         assert_eq!(zh.nav_configs, "配置");
+        assert_eq!(zh.no_sessions, "无会话");
         assert_eq!(zh.nav_memory, "记忆");
         assert_eq!(zh.nav_skills, "Skills");
         assert_eq!(zh.nav_providers, "预设");
@@ -709,6 +718,7 @@ mod tests {
         let en = tray_labels_for_language("en");
         assert_eq!(en.show_window, "Open AI Manager");
         assert_eq!(en.nav_configs, "Profiles");
+        assert_eq!(en.no_sessions, "No Sessions");
         assert_eq!(en.nav_memory, "Memory");
         assert_eq!(en.nav_skills, "Skills");
         assert_eq!(en.nav_providers, "Presets");
@@ -776,7 +786,10 @@ mod tests {
         let waiting = test_session("/Users/demo/work/waiting-repo", "waiting", 2000);
         let running = test_session("/Users/demo/work/running-repo", "running", 1500);
 
-        assert_eq!(sessions_tray_title_for_frame(&[], &zh, 0), None);
+        assert_eq!(
+            sessions_tray_title_for_frame(&[], &zh, 0).as_deref(),
+            Some("无会话")
+        );
         assert_eq!(
             sessions_tray_title_for_frame(std::slice::from_ref(&idle), &zh, 0).as_deref(),
             Some("ai-manager · 空闲")
@@ -825,15 +838,17 @@ mod tests {
         );
     }
 
-    /// 回归测试：空 sessions 时 sessions_tray_title 必须返回 None，
-    /// 这是 apply_sessions_tray_title 走"清空 title"路径的契约前提。
-    /// 防止未来误改成返回空串等价物，导致 macOS 状态栏继续占位。
+    /// 回归测试：会话托盘开启时，空 sessions 也必须返回非空占位标题，
+    /// 防止无 icon 的 sessions tray 进入零宽状态后无法稳定恢复。
     #[test]
-    fn sessions_tray_title_returns_none_for_empty_sessions() {
+    fn sessions_tray_title_returns_placeholder_for_empty_sessions() {
         let zh = tray_labels_for_language("zh");
-        assert_eq!(sessions_tray_title(&[], &zh), None);
+        assert_eq!(sessions_tray_title(&[], &zh).as_deref(), Some("无会话"));
         let en = tray_labels_for_language("en");
-        assert_eq!(sessions_tray_title(&[], &en), None);
+        assert_eq!(
+            sessions_tray_title(&[], &en).as_deref(),
+            Some("No Sessions")
+        );
     }
 
     /// 回归测试：项目名超过 SESSION_TRAY_TITLE_PROJECT_MAX_CHARS 必须被截断并追加省略号，
