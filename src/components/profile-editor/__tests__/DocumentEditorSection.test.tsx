@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../../i18n";
 import DocumentEditorSection from "../DocumentEditorSection";
@@ -79,6 +79,20 @@ describe("DocumentEditorSection", () => {
 
     expect(handleEditChange).toHaveBeenCalledWith('{"env":{"ANTHROPIC_AUTH_TOKEN":"next-token"}}');
     expect(handleFormat).toHaveBeenCalledTimes(1);
+    expect(handleClear).not.toHaveBeenCalled();
+
+    const dialog = screen.getByRole("alertdialog", { name: "清空 JSON" });
+    expect(within(dialog).getByText("清空后 JSON 将保留为空对象 {}。")).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
+    expect(handleClear).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "清空 JSON" }));
+    fireEvent.click(
+      within(screen.getByRole("alertdialog", { name: "清空 JSON" })).getByRole("button", {
+        name: "清空 JSON",
+      }),
+    );
+
     expect(handleClear).toHaveBeenCalledTimes(1);
   });
 });

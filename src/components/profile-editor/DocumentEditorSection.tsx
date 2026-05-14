@@ -3,6 +3,7 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../../i18n";
 import ConfigPreview from "../ConfigPreview";
+import ConfirmAlertDialog from "../ConfirmAlertDialog";
 import { TYPOGRAPHY } from "../typography-classes";
 import { Button } from "../ui/button";
 
@@ -43,6 +44,7 @@ function DocumentEditorSection({
 }: DocumentEditorSectionProps) {
   const { t } = useI18n();
   const [mode, setMode] = useState<DocumentEditorMode>("preview");
+  const [clearJsonDialogOpen, setClearJsonDialogOpen] = useState(false);
 
   return (
     <section className="flex flex-col gap-4 rounded-lg border border-border/80 bg-card p-5 shadow-panel">
@@ -96,7 +98,11 @@ function DocumentEditorSection({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="m-0 min-w-[220px] flex-1 text-sm text-muted-foreground">{editHint}</p>
             <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" variant="destructive-outline" onClick={onClear}>
+              <Button
+                type="button"
+                variant="destructive-outline"
+                onClick={() => setClearJsonDialogOpen(true)}
+              >
                 <Trash2 className="size-4" aria-hidden="true" />
                 {t("common.clearJson")}
               </Button>
@@ -131,6 +137,21 @@ function DocumentEditorSection({
           <ConfigPreview content={getEditContent()} onChange={onEditChange} jsonError={editError} />
         </div>
       )}
+
+      {clearJsonDialogOpen ? (
+        <ConfirmAlertDialog
+          title={t("common.clearJson")}
+          message={t("common.clearJsonDialogMessage")}
+          confirmText={t("common.clearJson")}
+          cancelText={t("profileEditor.common.cancel")}
+          danger
+          onConfirm={() => {
+            onClear();
+            setClearJsonDialogOpen(false);
+          }}
+          onCancel={() => setClearJsonDialogOpen(false)}
+        />
+      ) : null}
     </section>
   );
 }

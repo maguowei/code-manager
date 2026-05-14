@@ -1,8 +1,9 @@
 import { ChevronDown, Trash2 } from "lucide-react";
-import type { MouseEvent, ReactNode } from "react";
+import { type MouseEvent, type ReactNode, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../../i18n";
 import ConfigPreview from "../ConfigPreview";
+import ConfirmAlertDialog from "../ConfirmAlertDialog";
 import { TYPOGRAPHY } from "../typography-classes";
 import { Button } from "../ui/button";
 
@@ -54,6 +55,7 @@ function SettingsSectionModePanel({
   footer,
 }: SettingsSectionModePanelProps) {
   const { t } = useI18n();
+  const [clearJsonDialogOpen, setClearJsonDialogOpen] = useState(false);
   const bodyVisible = variant === "accordion" ? expanded : true;
   const hasHeaderMeta =
     headerMeta !== undefined && headerMeta !== null && headerMeta !== false && headerMeta !== "";
@@ -106,7 +108,11 @@ function SettingsSectionModePanel({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="m-0 min-w-[220px] flex-1 text-sm text-muted-foreground">{jsonHint}</p>
             <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" variant="destructive-outline" onClick={jsonEditor.clearJson}>
+              <Button
+                type="button"
+                variant="destructive-outline"
+                onClick={() => setClearJsonDialogOpen(true)}
+              >
                 <Trash2 className="size-4" aria-hidden="true" />
                 {t("common.clearJson")}
               </Button>
@@ -138,6 +144,27 @@ function SettingsSectionModePanel({
 
   function handleAccordionControlClick(event: MouseEvent) {
     event.stopPropagation();
+  }
+
+  function renderClearJsonDialog() {
+    if (!clearJsonDialogOpen) {
+      return null;
+    }
+
+    return (
+      <ConfirmAlertDialog
+        title={t("common.clearJson")}
+        message={t("common.clearJsonDialogMessage")}
+        confirmText={t("common.clearJson")}
+        cancelText={t("profileEditor.common.cancel")}
+        danger
+        onConfirm={() => {
+          jsonEditor.clearJson();
+          setClearJsonDialogOpen(false);
+        }}
+        onCancel={() => setClearJsonDialogOpen(false)}
+      />
+    );
   }
 
   if (variant === "accordion") {
@@ -228,6 +255,7 @@ function SettingsSectionModePanel({
         {error ? (
           <span className="px-6 pb-5 text-sm font-medium text-destructive">{error}</span>
         ) : null}
+        {renderClearJsonDialog()}
       </section>
     );
   }
@@ -250,6 +278,7 @@ function SettingsSectionModePanel({
       {footer ? <div className="flex flex-wrap gap-3">{footer}</div> : null}
 
       {error ? <span className="text-sm font-medium text-destructive">{error}</span> : null}
+      {renderClearJsonDialog()}
     </section>
   );
 }
