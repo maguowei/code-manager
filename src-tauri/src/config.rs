@@ -54,6 +54,8 @@ pub struct AppPreferences {
     #[serde(default = "default_true")]
     pub show_tray_sessions: bool,
     #[serde(default)]
+    pub system_notifications_enabled: bool,
+    #[serde(default)]
     pub collapse_sidebar_by_default: bool,
     #[serde(default = "default_ui_language")]
     pub ui_language: String,
@@ -68,6 +70,7 @@ impl Default for AppPreferences {
         Self {
             show_tray_title: default_true(),
             show_tray_sessions: default_true(),
+            system_notifications_enabled: false,
             collapse_sidebar_by_default: false,
             ui_language: default_ui_language(),
             default_terminal_app: default_terminal_app(),
@@ -282,6 +285,8 @@ struct ModelTestResultContext {
 pub struct AppPreferencesInput {
     pub show_tray_title: bool,
     pub show_tray_sessions: bool,
+    #[serde(default)]
+    pub system_notifications_enabled: bool,
     #[serde(default)]
     pub collapse_sidebar_by_default: bool,
     pub ui_language: String,
@@ -609,10 +614,7 @@ fn settings_equivalent(left: &Value, right: &Value) -> bool {
     settings_without_schema(left) == settings_without_schema(right)
 }
 
-fn find_profile_matching_settings(
-    registry: &ConfigRegistry,
-    settings: &Value,
-) -> Option<String> {
+fn find_profile_matching_settings(registry: &ConfigRegistry, settings: &Value) -> Option<String> {
     registry.profiles.iter().find_map(|profile| {
         resolve_profile_settings(registry, profile)
             .ok()
@@ -933,6 +935,7 @@ fn normalize_app_preferences(input: AppPreferencesInput) -> Result<AppPreference
     Ok(AppPreferences {
         show_tray_title: input.show_tray_title,
         show_tray_sessions: input.show_tray_sessions,
+        system_notifications_enabled: input.system_notifications_enabled,
         collapse_sidebar_by_default: input.collapse_sidebar_by_default,
         ui_language,
         default_terminal_app,
@@ -2356,6 +2359,7 @@ mod tests {
         .unwrap();
 
         assert!(!preferences.collapse_sidebar_by_default);
+        assert!(!preferences.system_notifications_enabled);
     }
 
     #[test]
@@ -2659,7 +2663,10 @@ mod tests {
 
         let workspace = build_workspace(registry);
 
-        assert_eq!(workspace.bindings.user_profile_id.as_deref(), Some("user-1"));
+        assert_eq!(
+            workspace.bindings.user_profile_id.as_deref(),
+            Some("user-1")
+        );
         assert_eq!(
             workspace.bindings.user_last_applied_at.as_deref(),
             Some("2026-05-13T00:00:00Z")
@@ -2734,7 +2741,10 @@ mod tests {
         assert_eq!(registry.profiles.len(), 2);
         assert_eq!(registry.profiles[0].id, imported.id);
         assert_eq!(registry.profiles[1].id, "existing-profile");
-        assert_eq!(registry.bindings.user_profile_id.as_deref(), Some(imported.id.as_str()));
+        assert_eq!(
+            registry.bindings.user_profile_id.as_deref(),
+            Some(imported.id.as_str())
+        );
         assert!(registry.bindings.user_last_applied_at.is_some());
         assert_eq!(imported.preset_id, None);
         assert_eq!(imported.settings.get("$schema"), None);
@@ -3114,6 +3124,7 @@ mod tests {
             app: AppPreferences {
                 show_tray_title: true,
                 show_tray_sessions: true,
+                system_notifications_enabled: false,
                 collapse_sidebar_by_default: false,
                 ui_language: "zh".to_string(),
                 default_terminal_app: "terminal".to_string(),

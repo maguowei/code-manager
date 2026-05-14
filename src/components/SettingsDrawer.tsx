@@ -4,6 +4,7 @@ import {
   enable as enableAutostart,
   isEnabled as isAutostartEnabled,
 } from "@tauri-apps/plugin-autostart";
+import { isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification";
 import { platform } from "@tauri-apps/plugin-os";
 import {
   ChevronLeft,
@@ -323,6 +324,36 @@ function NativeOpenHelpButton({
   );
 }
 
+function SystemNotificationsHelpButton() {
+  const { t } = useI18n();
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          className="size-7 rounded-full text-muted-foreground hover:text-foreground"
+          aria-label={t("settings.systemNotificationsHelp")}
+        >
+          <Info className="size-3.5" aria-hidden="true" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80">
+        <PopoverHeader>
+          <PopoverTitle>{t("settings.systemNotificationsHelpTitle")}</PopoverTitle>
+          <PopoverDescription>{t("settings.systemNotificationsHelpDesc")}</PopoverDescription>
+        </PopoverHeader>
+        <ul className="mt-3 flex list-disc flex-col gap-2 pl-5 text-sm text-muted-foreground">
+          <li>{t("settings.systemNotificationsTriggerPendingSession")}</li>
+          <li>{t("settings.systemNotificationsTriggerFocusFailure")}</li>
+        </ul>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   const { t, language, setLanguage } = useI18n();
   const { theme, setTheme } = useTheme();
@@ -330,6 +361,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   const [preferences, setPreferences] = useState<AppPreferences>({
     showTrayTitle: true,
     showTraySessions: true,
+    systemNotificationsEnabled: false,
     collapseSidebarByDefault: false,
     uiLanguage: "zh",
     defaultTerminalApp: "terminal",
@@ -382,6 +414,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
 
   const showTrayTitle = preferences.showTrayTitle;
   const showTraySessions = preferences.showTraySessions;
+  const systemNotificationsEnabled = preferences.systemNotificationsEnabled;
   const collapseSidebarByDefault = preferences.collapseSidebarByDefault;
   const defaultTerminalApp = preferences.defaultTerminalApp;
   const defaultEditorApp = preferences.defaultEditorApp;
@@ -441,6 +474,38 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
       }
       showOperationError(showToast, t("toast.configSaveError"), err);
     }
+  }
+
+  async function ensureSystemNotificationPermission() {
+    try {
+      if (await isPermissionGranted()) {
+        return true;
+      }
+      return (await requestPermission()) === "granted";
+    } catch (err) {
+      showOperationError(showToast, t("toast.systemNotificationsPermissionError"), err);
+      return false;
+    }
+  }
+
+  async function toggleSystemNotifications(checked: boolean) {
+    const rollback = nextPreferences;
+    const next = {
+      ...nextPreferences,
+      systemNotificationsEnabled: checked,
+    };
+    if (!checked) {
+      await persistPreferences(next, rollback);
+      return;
+    }
+
+    const granted = await ensureSystemNotificationPermission();
+    if (!granted) {
+      showToast(t("toast.systemNotificationsPermissionDenied"), "error");
+      return;
+    }
+
+    await persistPreferences(next, rollback);
   }
 
   // 乐观切换：失败时回滚 UI 并提示
@@ -655,6 +720,28 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                       );
                     }}
                     aria-label={t("settings.showTraySessions")}
+                  />
+                </Field>
+              </FieldGroup>
+            </SettingsSectionCard>
+
+            <SettingsSectionCard
+              title={t("settings.systemNotifications")}
+              description={t("settings.systemNotificationsDesc")}
+              headerAction={<SystemNotificationsHelpButton />}
+            >
+              <FieldGroup className="gap-4">
+                <Field orientation="horizontal" className="items-center justify-between gap-4">
+                  <FieldContent>
+                    <SettingsStateLabel enabled={systemNotificationsEnabled} />
+                  </FieldContent>
+                  <Switch
+                    id="settings-system-notifications"
+                    checked={systemNotificationsEnabled}
+                    onCheckedChange={(checked) => {
+                      void toggleSystemNotifications(checked);
+                    }}
+                    aria-label={t("settings.systemNotifications")}
                   />
                 </Field>
               </FieldGroup>

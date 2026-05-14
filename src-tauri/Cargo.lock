@@ -35,6 +35,7 @@ dependencies = [
  "dirs 5.0.1",
  "fancy-regex",
  "log",
+ "mac-notification-sys",
  "notify",
  "once_cell",
  "regex",

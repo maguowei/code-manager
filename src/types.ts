@@ -41,6 +41,7 @@ export interface NativeOpenAppOptions {
 export interface AppPreferences {
   showTrayTitle: boolean;
   showTraySessions: boolean;
+  systemNotificationsEnabled: boolean;
   collapseSidebarByDefault: boolean;
   uiLanguage: "zh" | "en";
   defaultTerminalApp: DefaultTerminalApp;

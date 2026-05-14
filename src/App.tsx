@@ -33,6 +33,7 @@ const EMPTY_WORKSPACE: ConfigWorkspace = {
   app: {
     showTrayTitle: true,
     showTraySessions: true,
+    systemNotificationsEnabled: false,
     collapseSidebarByDefault: false,
     uiLanguage: "zh",
     defaultTerminalApp: "terminal",

@@ -5,11 +5,16 @@ import { I18nProvider } from "../../i18n";
 import type { ConfigWorkspace } from "../../types";
 import SettingsDrawer from "../SettingsDrawer";
 import { ThemeProvider } from "../theme-provider";
+import { Toaster } from "../ui/sonner";
 
-const { invokeMock, platformMock } = vi.hoisted(() => ({
-  invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
-  platformMock: vi.fn(() => "macos"),
-}));
+const { invokeMock, isPermissionGrantedMock, platformMock, requestPermissionMock } = vi.hoisted(
+  () => ({
+    invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
+    isPermissionGrantedMock: vi.fn<() => Promise<boolean>>(async () => false),
+    platformMock: vi.fn(() => "macos"),
+    requestPermissionMock: vi.fn<() => Promise<string>>(async () => "granted"),
+  }),
+);
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: invokeMock,
@@ -19,10 +24,16 @@ vi.mock("@tauri-apps/plugin-os", () => ({
   platform: platformMock,
 }));
 
+vi.mock("@tauri-apps/plugin-notification", () => ({
+  isPermissionGranted: isPermissionGrantedMock,
+  requestPermission: requestPermissionMock,
+}));
+
 const WORKSPACE_FIXTURE: ConfigWorkspace = {
   app: {
     showTrayTitle: true,
     showTraySessions: true,
+    systemNotificationsEnabled: false,
     collapseSidebarByDefault: false,
     uiLanguage: "zh",
     defaultTerminalApp: "terminal",
@@ -40,6 +51,7 @@ function renderSettingsDrawer() {
       <ThemeProvider>
         <ToastProvider>
           <SettingsDrawer onClose={vi.fn()} />
+          <Toaster richColors closeButton position="top-right" />
         </ToastProvider>
       </ThemeProvider>
     </I18nProvider>,
@@ -61,7 +73,11 @@ describe("SettingsDrawer", () => {
   beforeEach(() => {
     localStorage.clear();
     setSystemLanguages(["zh-CN"]);
+    isPermissionGrantedMock.mockReset();
+    isPermissionGrantedMock.mockResolvedValue(false);
     platformMock.mockReturnValue("macos");
+    requestPermissionMock.mockReset();
+    requestPermissionMock.mockResolvedValue("granted");
     invokeMock.mockReset();
     invokeMock.mockImplementation(async (command) => {
       if (command === "get_native_open_app_options") {
@@ -136,6 +152,7 @@ describe("SettingsDrawer", () => {
       data: {
         showTrayTitle: true,
         showTraySessions: false,
+        systemNotificationsEnabled: false,
         collapseSidebarByDefault: false,
         uiLanguage: "zh",
         defaultTerminalApp: "terminal",
@@ -154,12 +171,88 @@ describe("SettingsDrawer", () => {
       data: {
         showTrayTitle: true,
         showTraySessions: true,
+        systemNotificationsEnabled: false,
         collapseSidebarByDefault: true,
         uiLanguage: "zh",
         defaultTerminalApp: "terminal",
         defaultEditorApp: null,
       },
     });
+  });
+
+  it("requests permission before enabling system notifications", async () => {
+    renderSettingsDrawer();
+
+    expect(await screen.findByText("系统通知")).toBeInTheDocument();
+    const notificationSwitch = screen.getByRole("switch", { name: "系统通知" });
+    expect(notificationSwitch).not.toBeChecked();
+
+    fireEvent.click(notificationSwitch);
+
+    await waitFor(() => {
+      expect(requestPermissionMock).toHaveBeenCalledTimes(1);
+      expect(invokeMock).toHaveBeenCalledWith("set_app_preferences", {
+        data: {
+          showTrayTitle: true,
+          showTraySessions: true,
+          systemNotificationsEnabled: true,
+          collapseSidebarByDefault: false,
+          uiLanguage: "zh",
+          defaultTerminalApp: "terminal",
+          defaultEditorApp: null,
+        },
+      });
+    });
+  });
+
+  it("does not enable system notifications when permission is denied", async () => {
+    requestPermissionMock.mockResolvedValue("denied");
+    renderSettingsDrawer();
+
+    const notificationSwitch = await screen.findByRole("switch", { name: "系统通知" });
+    fireEvent.click(notificationSwitch);
+
+    await waitFor(() => {
+      expect(requestPermissionMock).toHaveBeenCalledTimes(1);
+      expect(invokeMock).not.toHaveBeenCalledWith(
+        "set_app_preferences",
+        expect.objectContaining({
+          data: expect.objectContaining({ systemNotificationsEnabled: true }),
+        }),
+      );
+    });
+    expect(notificationSwitch).not.toBeChecked();
+    expect(await screen.findByText("未获得系统通知权限，已保持关闭")).toBeInTheDocument();
+  });
+
+  it("does not enable system notifications when permission request fails", async () => {
+    requestPermissionMock.mockRejectedValue(new Error("permission unavailable"));
+    renderSettingsDrawer();
+
+    const notificationSwitch = await screen.findByRole("switch", { name: "系统通知" });
+    fireEvent.click(notificationSwitch);
+
+    await waitFor(() => {
+      expect(requestPermissionMock).toHaveBeenCalledTimes(1);
+      expect(invokeMock).not.toHaveBeenCalledWith(
+        "set_app_preferences",
+        expect.objectContaining({
+          data: expect.objectContaining({ systemNotificationsEnabled: true }),
+        }),
+      );
+    });
+    expect(notificationSwitch).not.toBeChecked();
+    expect(await screen.findByText("请求系统通知权限失败")).toBeInTheDocument();
+  });
+
+  it("lists actual system notification triggers in the help popover", async () => {
+    renderSettingsDrawer();
+
+    fireEvent.click(await screen.findByRole("button", { name: "查看系统通知触发场景" }));
+
+    expect(await screen.findByText("系统通知触发场景")).toBeInTheDocument();
+    expect(screen.getByText("Claude 会话进入待处理状态。")).toBeInTheDocument();
+    expect(screen.getByText("点击会话跳转但终端定位失败。")).toBeInTheDocument();
   });
 
   it("hides macOS-only terminal choices on Linux", async () => {

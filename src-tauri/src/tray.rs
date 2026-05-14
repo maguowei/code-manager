@@ -1,8 +1,12 @@
-use crate::config::{apply_profile_inner, load_registry_or_default, ConfigRegistry};
+use crate::config::{
+    apply_profile_inner, load_registry_or_default, AppPreferences, ConfigRegistry,
+};
 use serde::Deserialize;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Mutex, OnceLock};
 use std::thread;
 use std::time::Duration;
 use tauri::{
@@ -22,6 +26,7 @@ const SESSION_TRAY_ANIMATION_INTERVAL: Duration = Duration::from_millis(300);
 /// macOS 菜单栏宽度有限，长项目名会挤占其它状态栏图标，需要主动截断。
 const SESSION_TRAY_TITLE_PROJECT_MAX_CHARS: usize = 16;
 static SESSION_TRAY_ANIMATION_FRAME: AtomicUsize = AtomicUsize::new(0);
+static PENDING_SESSION_NOTIFIER: OnceLock<Mutex<PendingSessionNotifier>> = OnceLock::new();
 
 struct TrayLabels<'a> {
     language: &'a str,
@@ -100,6 +105,82 @@ struct TraySession {
     status: String,
     updated_at: u64,
     waiting_for: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PendingSessionFocusTarget {
+    pid: u32,
+    cwd: String,
+    session_id: String,
+    terminal_app: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PendingSessionNotification {
+    title: String,
+    body: String,
+    language: String,
+    focus_target: Option<PendingSessionFocusTarget>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PendingSessionNotificationInteraction {
+    FocusTerminal,
+    Plain,
+}
+
+#[derive(Debug, Default)]
+struct PendingSessionNotifier {
+    seen_snapshot: bool,
+    waiting_session_ids: BTreeSet<String>,
+}
+
+impl PendingSessionNotifier {
+    fn observe(
+        &mut self,
+        preferences: &AppPreferences,
+        sessions: &[TraySession],
+        language: &str,
+        interaction: PendingSessionNotificationInteraction,
+    ) -> Vec<PendingSessionNotification> {
+        let waiting_sessions = sessions
+            .iter()
+            .filter(|session| is_waiting_session_status(&session.status))
+            .map(|session| (session.session_id.clone(), session))
+            .collect::<BTreeMap<_, _>>();
+        let waiting_session_ids = waiting_sessions.keys().cloned().collect::<BTreeSet<_>>();
+        let new_waiting_sessions = waiting_sessions
+            .iter()
+            .filter(|(session_id, _)| !self.waiting_session_ids.contains(*session_id))
+            .map(|(_, session)| (*session).clone())
+            .collect::<Vec<_>>();
+
+        let can_notify = self.seen_snapshot && preferences.system_notifications_enabled;
+        self.seen_snapshot = true;
+        self.waiting_session_ids = waiting_session_ids;
+
+        if !can_notify || new_waiting_sessions.is_empty() {
+            return Vec::new();
+        }
+
+        if new_waiting_sessions.len() == 1 {
+            return vec![build_pending_session_notification(
+                &new_waiting_sessions[0],
+                language,
+                &preferences.default_terminal_app,
+                interaction,
+            )];
+        }
+
+        vec![build_pending_sessions_summary_notification(
+            &new_waiting_sessions,
+            language,
+        )]
+    }
+}
+
+fn pending_session_notifier() -> &'static Mutex<PendingSessionNotifier> {
+    PENDING_SESSION_NOTIFIER.get_or_init(|| Mutex::new(PendingSessionNotifier::default()))
 }
 
 impl From<RawTraySession> for TraySession {
@@ -267,6 +348,108 @@ fn is_running_session_status(status: &str) -> bool {
 
 fn is_idle_session_status(status: &str) -> bool {
     status.trim().eq_ignore_ascii_case("idle")
+}
+
+fn session_focus_failure_notification_enabled(preferences: &AppPreferences) -> bool {
+    preferences.system_notifications_enabled
+}
+
+fn pending_session_notification_interaction(
+    default_terminal_app: &str,
+) -> PendingSessionNotificationInteraction {
+    pending_session_notification_interaction_for_platform(
+        default_terminal_app,
+        cfg!(target_os = "macos"),
+    )
+}
+
+fn pending_session_notification_interaction_for_platform(
+    default_terminal_app: &str,
+    is_macos: bool,
+) -> PendingSessionNotificationInteraction {
+    if is_macos && crate::terminal_focus::terminal_supports_focus(default_terminal_app) {
+        PendingSessionNotificationInteraction::FocusTerminal
+    } else {
+        PendingSessionNotificationInteraction::Plain
+    }
+}
+
+fn build_pending_session_notification(
+    session: &TraySession,
+    language: &str,
+    default_terminal_app: &str,
+    interaction: PendingSessionNotificationInteraction,
+) -> PendingSessionNotification {
+    let is_en = language == "en";
+    let project_name = session_project_name(&session.cwd);
+    let title = if is_en {
+        "Claude session needs attention"
+    } else {
+        "Claude 会话待处理"
+    }
+    .to_string();
+    let body = match (is_en, session.waiting_for.as_deref()) {
+        (_, Some(waiting_for)) => format!(
+            "{} · {}",
+            crate::utils::truncate(&project_name, 48),
+            crate::utils::truncate(waiting_for, SESSION_MENU_LABEL_MAX_CHARS)
+        ),
+        (true, None) => format!(
+            "{} needs attention",
+            crate::utils::truncate(&project_name, 48)
+        ),
+        (false, None) => format!("{} 需要处理", crate::utils::truncate(&project_name, 48)),
+    };
+    let focus_target =
+        (interaction == PendingSessionNotificationInteraction::FocusTerminal).then(|| {
+            PendingSessionFocusTarget {
+                pid: session.pid,
+                cwd: session.cwd.clone(),
+                session_id: session.session_id.clone(),
+                terminal_app: default_terminal_app.to_string(),
+            }
+        });
+
+    PendingSessionNotification {
+        title,
+        body,
+        language: language.to_string(),
+        focus_target,
+    }
+}
+
+fn build_pending_sessions_summary_notification(
+    sessions: &[TraySession],
+    language: &str,
+) -> PendingSessionNotification {
+    let is_en = language == "en";
+    let title = if is_en {
+        "Multiple Claude sessions need attention"
+    } else {
+        "多个 Claude 会话待处理"
+    }
+    .to_string();
+    let project_names = sessions
+        .iter()
+        .map(|session| crate::utils::truncate(&session_project_name(&session.cwd), 32))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let body = if is_en {
+        format!(
+            "{} sessions need attention: {}",
+            sessions.len(),
+            project_names
+        )
+    } else {
+        format!("{} 个会话需要处理：{}", sessions.len(), project_names)
+    };
+
+    PendingSessionNotification {
+        title,
+        body,
+        language: language.to_string(),
+        focus_target: None,
+    }
 }
 
 fn session_menu_item_label(session: &TraySession, language: &str) -> String {
@@ -468,11 +651,13 @@ pub fn rebuild_tray_menu(app_handle: &AppHandle, state: Option<&ConfigRegistry>)
 }
 
 fn rebuild_sessions_tray(app_handle: &AppHandle, state: &ConfigRegistry) {
+    let sessions = load_tray_sessions();
+    handle_pending_session_notifications(app_handle, state, &sessions);
+
     let Some(tray) = app_handle.tray_by_id(SESSIONS_TRAY_ID) else {
         return;
     };
 
-    let sessions = load_tray_sessions();
     if !apply_sessions_tray_title(&tray, state, &sessions) {
         return;
     }
@@ -548,8 +733,14 @@ fn show_main_window(app: &AppHandle) {
 fn notify_session_focus_failure(
     app: &AppHandle,
     language: &str,
+    notifications_enabled: bool,
     failure: &crate::terminal_focus::FocusFailure,
 ) {
+    if !notifications_enabled {
+        log::warn!("event=tray.session_focus.notify status=skip reason=disabled");
+        return;
+    }
+
     let (title, body) = failure.user_message(language);
     if let Err(e) = app
         .notification()
@@ -563,16 +754,128 @@ fn notify_session_focus_failure(
     }
 }
 
+fn handle_pending_session_notifications(
+    app: &AppHandle,
+    state: &ConfigRegistry,
+    sessions: &[TraySession],
+) {
+    let labels = tray_labels_for_language(&state.app.ui_language);
+    let interaction = pending_session_notification_interaction(&state.app.default_terminal_app);
+    let notifications = match pending_session_notifier().lock() {
+        Ok(mut notifier) => notifier.observe(&state.app, sessions, labels.language, interaction),
+        Err(e) => {
+            log::warn!("event=tray.pending_session_notify status=err reason=lock error={e}");
+            return;
+        }
+    };
+
+    for notification in notifications {
+        show_pending_session_notification(app, notification);
+    }
+}
+
+fn show_pending_session_notification(app: &AppHandle, notification: PendingSessionNotification) {
+    if let Some(target) = notification.focus_target.clone() {
+        show_clickable_pending_session_notification(app, notification, target);
+    } else {
+        show_plain_pending_session_notification(app, &notification);
+    }
+}
+
+fn show_plain_pending_session_notification(
+    app: &AppHandle,
+    notification: &PendingSessionNotification,
+) {
+    if let Err(e) = app
+        .notification()
+        .builder()
+        .title(&notification.title)
+        .body(&notification.body)
+        .show()
+    {
+        log::warn!("event=tray.pending_session_notify status=err mode=plain error={e}");
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn show_clickable_pending_session_notification(
+    app: &AppHandle,
+    notification: PendingSessionNotification,
+    target: PendingSessionFocusTarget,
+) {
+    let app_handle = app.clone();
+    let bundle_identifier = app.config().identifier.clone();
+    let _ = thread::Builder::new()
+        .name("pending-session-notification".to_string())
+        .spawn(move || {
+            match send_macos_clickable_notification(
+                &bundle_identifier,
+                &notification.title,
+                &notification.body,
+            ) {
+                Ok(true) => {
+                    log::info!(
+                        "event=tray.pending_session_notify.click status=ok session_id={}",
+                        crate::utils::truncate(&target.session_id, 80)
+                    );
+                    if let Err(failure) = crate::terminal_focus::focus_session_in_terminal(
+                        target.pid,
+                        &target.cwd,
+                        &target.terminal_app,
+                    ) {
+                        let prefs = load_registry_or_default().app;
+                        notify_session_focus_failure(
+                            &app_handle,
+                            &prefs.ui_language,
+                            session_focus_failure_notification_enabled(&prefs),
+                            &failure,
+                        );
+                    }
+                }
+                Ok(false) => {}
+                Err(e) => {
+                    log::warn!(
+                        "event=tray.pending_session_notify status=err mode=clickable error={e}"
+                    );
+                    show_plain_pending_session_notification(&app_handle, &notification);
+                }
+            }
+        });
+}
+
+#[cfg(not(target_os = "macos"))]
+fn show_clickable_pending_session_notification(
+    app: &AppHandle,
+    notification: PendingSessionNotification,
+    _target: PendingSessionFocusTarget,
+) {
+    show_plain_pending_session_notification(app, &notification);
+}
+
+#[cfg(target_os = "macos")]
+fn send_macos_clickable_notification(
+    bundle_identifier: &str,
+    title: &str,
+    body: &str,
+) -> Result<bool, String> {
+    use mac_notification_sys::{Notification, NotificationResponse};
+
+    let _ = mac_notification_sys::set_application(bundle_identifier);
+    let mut notification = Notification::new();
+    notification.title(title).message(body).wait_for_click(true);
+    match notification.send().map_err(|e| e.to_string())? {
+        NotificationResponse::ActionButton(_) | NotificationResponse::Click => Ok(true),
+        _ => Ok(false),
+    }
+}
+
 /// 初始化系统托盘
 pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     let handle = app.handle();
     let state = load_registry_or_default();
     let menu = build_tray_menu(handle, &state)?;
-    let sessions = if state.app.show_tray_sessions {
-        load_tray_sessions()
-    } else {
-        Vec::new()
-    };
+    let sessions = load_tray_sessions();
+    handle_pending_session_notifications(handle, &state, &sessions);
     let sessions_menu = build_sessions_tray_menu(handle, &state, &sessions)?;
     let labels = tray_labels_for_language(&state.app.ui_language);
     let sessions_title = if state.app.show_tray_sessions {
@@ -604,6 +907,7 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
                 return;
             };
             let prefs = load_registry_or_default().app;
+            let notifications_enabled = session_focus_failure_notification_enabled(&prefs);
             let slug = prefs.default_terminal_app;
             let language = prefs.ui_language;
             if !crate::terminal_focus::terminal_supports_focus(&slug) {
@@ -615,7 +919,12 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
                 if let Err(failure) =
                     crate::terminal_focus::focus_session_in_terminal(pid, &cwd, &slug)
                 {
-                    notify_session_focus_failure(&app_handle, &language, &failure);
+                    notify_session_focus_failure(
+                        &app_handle,
+                        &language,
+                        notifications_enabled,
+                        &failure,
+                    );
                 }
             });
         });
@@ -678,10 +987,14 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::{
-        load_tray_sessions_from_dir, parse_session_menu_item_id, session_menu_item_id,
-        session_menu_item_label, session_status_label, sessions_tray_title,
-        sessions_tray_title_for_frame, tray_labels_for_language, TraySession,
+        build_pending_session_notification, load_tray_sessions_from_dir,
+        parse_session_menu_item_id, pending_session_notification_interaction_for_platform,
+        session_focus_failure_notification_enabled, session_menu_item_id, session_menu_item_label,
+        session_status_label, sessions_tray_title, sessions_tray_title_for_frame,
+        tray_labels_for_language, PendingSessionFocusTarget, PendingSessionNotificationInteraction,
+        PendingSessionNotifier, TraySession,
     };
+    use crate::config::AppPreferences;
     use std::fs;
     use std::path::Path;
 
@@ -697,6 +1010,33 @@ mod tests {
             status: status.to_string(),
             updated_at,
             waiting_for: None,
+        }
+    }
+
+    fn test_session_with_id(
+        session_id: &str,
+        cwd: &str,
+        status: &str,
+        updated_at: u64,
+    ) -> TraySession {
+        TraySession {
+            session_id: session_id.to_string(),
+            ..test_session(cwd, status, updated_at)
+        }
+    }
+
+    fn test_preferences(
+        system_notifications_enabled: bool,
+        default_terminal_app: &str,
+    ) -> AppPreferences {
+        AppPreferences {
+            show_tray_title: true,
+            show_tray_sessions: true,
+            system_notifications_enabled,
+            collapse_sidebar_by_default: false,
+            ui_language: "zh".to_string(),
+            default_terminal_app: default_terminal_app.to_string(),
+            default_editor_app: None,
         }
     }
 
@@ -835,6 +1175,214 @@ mod tests {
         assert_eq!(
             session_menu_item_label(&session, "en"),
             "ai-manager · Waiting · approve Bash"
+        );
+    }
+
+    #[test]
+    fn pending_session_notifier_uses_first_snapshot_as_baseline() {
+        let mut notifier = PendingSessionNotifier::default();
+        let waiting = test_session("/Users/demo/work/ai-manager", "waiting", 2000);
+
+        let notifications = notifier.observe(
+            &test_preferences(true, "terminal"),
+            std::slice::from_ref(&waiting),
+            "zh",
+            PendingSessionNotificationInteraction::Plain,
+        );
+
+        assert!(notifications.is_empty());
+    }
+
+    #[test]
+    fn pending_session_notifier_reports_new_waiting_session_once() {
+        let mut notifier = PendingSessionNotifier::default();
+        let idle = test_session("/Users/demo/work/ai-manager", "idle", 1000);
+        let mut waiting = test_session("/Users/demo/work/ai-manager", "waiting", 2000);
+        waiting.waiting_for = Some("approve Bash".to_string());
+        notifier.observe(
+            &test_preferences(true, "terminal"),
+            std::slice::from_ref(&idle),
+            "zh",
+            PendingSessionNotificationInteraction::Plain,
+        );
+
+        let first_notifications = notifier.observe(
+            &test_preferences(true, "terminal"),
+            std::slice::from_ref(&waiting),
+            "zh",
+            PendingSessionNotificationInteraction::Plain,
+        );
+        let repeated_notifications = notifier.observe(
+            &test_preferences(true, "terminal"),
+            std::slice::from_ref(&waiting),
+            "zh",
+            PendingSessionNotificationInteraction::Plain,
+        );
+
+        assert_eq!(first_notifications.len(), 1);
+        assert_eq!(first_notifications[0].title, "Claude 会话待处理");
+        assert_eq!(first_notifications[0].body, "ai-manager · approve Bash");
+        assert!(first_notifications[0].focus_target.is_none());
+        assert!(repeated_notifications.is_empty());
+    }
+
+    #[test]
+    fn pending_session_notifier_reports_waiting_again_after_recovery() {
+        let mut notifier = PendingSessionNotifier::default();
+        let idle = test_session("/Users/demo/work/ai-manager", "idle", 1000);
+        let waiting = test_session("/Users/demo/work/ai-manager", "waiting", 2000);
+        notifier.observe(
+            &test_preferences(true, "terminal"),
+            std::slice::from_ref(&idle),
+            "zh",
+            PendingSessionNotificationInteraction::Plain,
+        );
+        let _ = notifier.observe(
+            &test_preferences(true, "terminal"),
+            std::slice::from_ref(&waiting),
+            "zh",
+            PendingSessionNotificationInteraction::Plain,
+        );
+        let _ = notifier.observe(
+            &test_preferences(true, "terminal"),
+            std::slice::from_ref(&idle),
+            "zh",
+            PendingSessionNotificationInteraction::Plain,
+        );
+
+        let notifications = notifier.observe(
+            &test_preferences(true, "terminal"),
+            std::slice::from_ref(&waiting),
+            "zh",
+            PendingSessionNotificationInteraction::Plain,
+        );
+
+        assert_eq!(notifications.len(), 1);
+    }
+
+    #[test]
+    fn pending_session_notifier_updates_baseline_when_system_notifications_disabled() {
+        let mut notifier = PendingSessionNotifier::default();
+        let idle = test_session("/Users/demo/work/ai-manager", "idle", 1000);
+        let waiting = test_session("/Users/demo/work/ai-manager", "waiting", 2000);
+        notifier.observe(
+            &test_preferences(false, "terminal"),
+            std::slice::from_ref(&idle),
+            "zh",
+            PendingSessionNotificationInteraction::Plain,
+        );
+        let disabled_notifications = notifier.observe(
+            &test_preferences(false, "terminal"),
+            std::slice::from_ref(&waiting),
+            "zh",
+            PendingSessionNotificationInteraction::Plain,
+        );
+
+        let enabled_notifications = notifier.observe(
+            &test_preferences(true, "terminal"),
+            std::slice::from_ref(&waiting),
+            "zh",
+            PendingSessionNotificationInteraction::Plain,
+        );
+
+        assert!(disabled_notifications.is_empty());
+        assert!(enabled_notifications.is_empty());
+    }
+
+    #[test]
+    fn session_focus_failure_notification_respects_system_notification_preference() {
+        assert!(!session_focus_failure_notification_enabled(
+            &test_preferences(false, "terminal")
+        ));
+        assert!(session_focus_failure_notification_enabled(
+            &test_preferences(true, "terminal")
+        ));
+    }
+
+    #[test]
+    fn pending_session_notifier_summarizes_multiple_new_waiting_sessions_without_focus_target() {
+        let mut notifier = PendingSessionNotifier::default();
+        notifier.observe(
+            &test_preferences(true, "terminal"),
+            &[],
+            "zh",
+            PendingSessionNotificationInteraction::FocusTerminal,
+        );
+        let first =
+            test_session_with_id("session-1", "/Users/demo/work/ai-manager", "waiting", 2000);
+        let second = test_session_with_id("session-2", "/Users/demo/work/docs", "waiting", 1900);
+
+        let notifications = notifier.observe(
+            &test_preferences(true, "terminal"),
+            &[first, second],
+            "zh",
+            PendingSessionNotificationInteraction::FocusTerminal,
+        );
+
+        assert_eq!(notifications.len(), 1);
+        assert_eq!(notifications[0].title, "多个 Claude 会话待处理");
+        assert!(notifications[0].body.contains("2 个会话需要处理"));
+        assert!(notifications[0].body.contains("ai-manager"));
+        assert!(notifications[0].body.contains("docs"));
+        assert!(notifications[0].focus_target.is_none());
+    }
+
+    #[test]
+    fn pending_session_notification_keeps_focus_target_when_terminal_can_focus() {
+        let session = TraySession {
+            pid: 4242,
+            session_id: "session-focus".to_string(),
+            cwd: "/Users/demo/work/ai-manager".to_string(),
+            status: "waiting".to_string(),
+            updated_at: 2000,
+            waiting_for: None,
+        };
+
+        let notification = build_pending_session_notification(
+            &session,
+            "zh",
+            "terminal",
+            PendingSessionNotificationInteraction::FocusTerminal,
+        );
+
+        assert_eq!(
+            notification.focus_target,
+            Some(PendingSessionFocusTarget {
+                pid: 4242,
+                cwd: "/Users/demo/work/ai-manager".to_string(),
+                session_id: "session-focus".to_string(),
+                terminal_app: "terminal".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn pending_session_notification_omits_focus_target_when_terminal_cannot_focus() {
+        let session = test_session("/Users/demo/work/ai-manager", "waiting", 2000);
+
+        let notification = build_pending_session_notification(
+            &session,
+            "zh",
+            "warp",
+            PendingSessionNotificationInteraction::Plain,
+        );
+
+        assert!(notification.focus_target.is_none());
+    }
+
+    #[test]
+    fn pending_session_notification_interaction_requires_macos_and_focusable_terminal() {
+        assert_eq!(
+            pending_session_notification_interaction_for_platform("terminal", true),
+            PendingSessionNotificationInteraction::FocusTerminal
+        );
+        assert_eq!(
+            pending_session_notification_interaction_for_platform("warp", true),
+            PendingSessionNotificationInteraction::Plain
+        );
+        assert_eq!(
+            pending_session_notification_interaction_for_platform("terminal", false),
+            PendingSessionNotificationInteraction::Plain
         );
     }
 

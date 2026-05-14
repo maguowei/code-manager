@@ -42,3 +42,6 @@ notify = "8"
 tauri-plugin-sql = { version = "2.4.0", default-features = false, features = ["sqlite"] }
 sqlx = { version = "0.8.6", default-features = false, features = ["sqlite", "runtime-tokio-rustls"] }
 tokio = { version = "1", features = ["sync"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+mac-notification-sys = "0.6.12"
