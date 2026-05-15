@@ -69,7 +69,7 @@ export interface UseEnabledPluginsStateResult {
   preservedEntries: Record<string, unknown>;
   addPlugin: (pluginId: string, enabled: boolean) => boolean;
   togglePlugin: (pluginId: string) => void;
-  removePlugin: (id: string) => void;
+  removePlugin: (pluginId: string) => void;
 }
 
 export function useEnabledPluginsState({
@@ -93,17 +93,20 @@ export function useEnabledPluginsState({
     if (!recordsEqual(next, sourceEntries)) onChange(next);
   }, [onChange, plugins, preservedEntries, sourceEntries]);
 
-  const addPlugin = useCallback((pluginId: string, enabled: boolean): boolean => {
-    let added = true;
-    setPlugins((current) => {
-      if (current.some((plugin) => plugin.pluginId === pluginId)) {
-        added = false;
-        return current;
+  const addPlugin = useCallback(
+    (pluginId: string, enabled: boolean): boolean => {
+      // 同步检查当前 plugins 状态，避免在 setPlugins updater 内读取外部变量的竞态问题
+      if (plugins.some((plugin) => plugin.pluginId === pluginId)) {
+        return false;
       }
-      return [...current, { id: `plugin:${pluginId}`, pluginId, enabled, committed: true }];
-    });
-    return added;
-  }, []);
+      setPlugins((current) => [
+        ...current,
+        { id: `plugin:${pluginId}`, pluginId, enabled, committed: true },
+      ]);
+      return true;
+    },
+    [plugins],
+  );
 
   const togglePlugin = useCallback((pluginId: string) => {
     setPlugins((current) =>
@@ -115,8 +118,8 @@ export function useEnabledPluginsState({
     );
   }, []);
 
-  const removePlugin = useCallback((id: string) => {
-    setPlugins((current) => current.filter((plugin) => plugin.id !== id));
+  const removePlugin = useCallback((pluginId: string) => {
+    setPlugins((current) => current.filter((plugin) => plugin.pluginId !== pluginId));
   }, []);
 
   return { plugins, preservedEntries, addPlugin, togglePlugin, removePlugin };
