@@ -12,7 +12,7 @@
 ## 项目速览
 
 - 项目：AI Manager，基于 Tauri 2 的 Claude Code 本地配置管理桌面应用。
-- 当前版本：`0.17.0`，同时维护在 `package.json` 与 `src-tauri/tauri.conf.json`。
+- 当前版本：`0.18.0`，同时维护在 `package.json` 与 `src-tauri/tauri.conf.json`。
 - 前端：React 19 + TypeScript + Vite + Tailwind CSS v4 + shadcn/ui。
 - 后端：Rust + Tauri commands。
 - 前端测试：Vitest（`pnpm test` 等价 `vitest run`）。
@@ -104,12 +104,16 @@
 
 本地启动桌面应用：`pnpm tauri dev`（会通过 `tauri.conf.json` 的 `beforeDevCommand` 触发 `pnpm dev`，单独跑 `pnpm dev` 只能起 Vite，没有原生壳）。`pnpm tauri build` 出生产包。新克隆仓库后 `pnpm install` 会运行 `prepare` 脚本，由 lefthook 安装 git hooks。
 
+常用工作流优先看 `Makefile`：`make init` 安装依赖，`make dev` 等价 `pnpm tauri dev`，`make build` 等价 `pnpm tauri build`，`make test` 顺序运行 Rust 与前端测试，`make lint` 只跑 Rust clippy，`make check` 只跑 Rust `cargo check`。
+
 | 改动范围 | 命令 |
 | --- | --- |
 | 文档 | `git diff --check` |
 | 前端 | `pnpm biome:ci`、`pnpm build`、`pnpm test` |
 | Rust | `cd src-tauri && cargo test`、`cd src-tauri && cargo clippy -- -D warnings` |
 | 前后端契约 | `pnpm build`、`cd src-tauri && cargo test` |
+
+前端局部改动可先用 `pnpm exec vitest run <test-file...>` 跑相关测试；收尾仍按上表补足改动范围需要的验证。
 
 ## 已知陷阱
 
