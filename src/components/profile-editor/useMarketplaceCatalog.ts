@@ -121,11 +121,13 @@ export function useMarketplaceCatalog({
 
   useEffect(() => {
     if (!active) return;
-    void runWithConcurrency(sourcesRef.current, CONCURRENCY, (source) => fetchOne(source));
+    const supported = sourcesRef.current.filter((s) => s.sourceType === "github");
+    void runWithConcurrency(supported, CONCURRENCY, (source) => fetchOne(source));
   }, [active, fetchOne]);
 
   const refreshAll = useCallback(async () => {
-    await runWithConcurrency(sourcesRef.current, CONCURRENCY, (source) => fetchOne(source));
+    const supported = sourcesRef.current.filter((s) => s.sourceType === "github");
+    await runWithConcurrency(supported, CONCURRENCY, (source) => fetchOne(source));
   }, [fetchOne]);
 
   const refreshOne = useCallback(

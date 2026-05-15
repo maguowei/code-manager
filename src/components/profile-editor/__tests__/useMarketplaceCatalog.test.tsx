@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { saveMarketplaceCatalogCache } from "../marketplace-catalog";
 import { useMarketplaceCatalog } from "../useMarketplaceCatalog";
 
 const originalFetch = globalThis.fetch;
@@ -84,5 +85,39 @@ describe("useMarketplaceCatalog", () => {
       expect(statuses).toContain("ready");
       expect(statuses).toContain("error");
     });
+  });
+
+  it("refreshOne 只重新拉取指定 marketplace", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ plugins: [] }),
+    } as unknown as Response);
+    const { result } = renderHook(() => useMarketplaceCatalog({ sources: SOURCES, active: false }));
+    await act(async () => {
+      await result.current.refreshOne("claude-plugins-official");
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.current.byMarketplace["claude-plugins-official"].status).toBe("ready");
+    expect(result.current.byMarketplace.dev.status).toBe("idle");
+  });
+
+  it("从 localStorage 缓存初始化时 status 为 ready", () => {
+    saveMarketplaceCatalogCache("claude-plugins-official", [
+      {
+        pluginId: "alpha@claude-plugins-official",
+        marketplaceId: "claude-plugins-official",
+        description: "",
+        category: "",
+        authorName: "",
+        sourceType: "github",
+        homepage: "",
+        isOfficial: true,
+      },
+    ]);
+    const { result } = renderHook(() => useMarketplaceCatalog({ sources: SOURCES, active: false }));
+    expect(result.current.byMarketplace["claude-plugins-official"].status).toBe("ready");
+    expect(result.current.byMarketplace["claude-plugins-official"].plugins).toHaveLength(1);
+    expect(result.current.byMarketplace.dev.status).toBe("idle");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
