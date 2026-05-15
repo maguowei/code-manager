@@ -1,6 +1,6 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ExternalLink } from "lucide-react";
-import { type ReactNode, useCallback, useState } from "react";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../../i18n";
 import { EDITOR_CONTROL_SURFACE_CLASS } from "../editor-layout";
@@ -19,11 +19,9 @@ import BehaviorFieldHeader from "./BehaviorFieldHeader";
 import DocumentEditorSection from "./DocumentEditorSection";
 import EnabledPluginsEditor from "./EnabledPluginsEditor";
 import EnvEditor from "./EnvEditor";
-import { readObject } from "./editor-utils";
 import FieldHelpButton from "./FieldHelpButton";
 import HooksEditor from "./HooksEditor";
 import MarketplaceEditor from "./MarketplaceEditor";
-import { OFFICIAL_MARKETPLACE_ID } from "./marketplace-presets";
 import PermissionsEditor, {
   PermissionDefaultModeSelect,
   setPermissionsDefaultMode,
@@ -36,6 +34,7 @@ import {
   type SettingsFieldDefinition,
   type SettingsFieldOption,
 } from "./settings-form-registry";
+import type { MarketplaceSourceInput } from "./useMarketplaceCatalog";
 import type { StructuredSettingsSectionState } from "./useStructuredSettingsSectionState";
 
 type StructuredSettingsScope = "profiles" | "presets";
@@ -127,6 +126,7 @@ interface StructuredSettingsSectionsProps {
   statusLineJsonEditor: SectionJsonEditorState;
   behaviorHeaderControl?: ReactNode;
   behaviorFooter?: ReactNode;
+  marketplaceSources?: MarketplaceSourceInput[];
 }
 
 function StructuredSettingsSections({
@@ -166,20 +166,14 @@ function StructuredSettingsSections({
   statusLineJsonEditor,
   behaviorHeaderControl,
   behaviorFooter,
+  marketplaceSources,
 }: StructuredSettingsSectionsProps) {
   const { language, t } = useI18n();
-  const [officialPluginAction, setOfficialPluginAction] = useState<ReactNode>(null);
   const isProfileScope = scope === "profiles";
-  const officialMarketplaceEnabled = Object.keys(
-    readObject(settings.extraKnownMarketplaces),
-  ).includes(OFFICIAL_MARKETPLACE_ID);
   const enabledCommonToggleCount = commonToggleFields.filter((field) =>
     readToggleFieldEnabled(field),
   ).length;
   const docsLocale: DocsLocale = language === "zh" ? "zh-CN" : "en";
-  const handleOfficialPluginActionChange = useCallback((action: ReactNode | null) => {
-    setOfficialPluginAction(action);
-  }, []);
   const messages = isProfileScope
     ? {
         behavior: t("profiles.editor.sections.behavior"),
@@ -659,20 +653,14 @@ function StructuredSettingsSections({
         variant="accordion"
         mode={sectionState.sectionModes.plugins}
         onModeChange={(mode) => sectionState.handleSectionModeChange("plugins", mode)}
-        modeRowAction={renderSectionModeRowAction(
-          "plugins",
-          messages.plugins,
-          officialPluginAction,
-        )}
+        modeRowAction={renderSectionModeRowAction("plugins", messages.plugins)}
         controls={
           <EnabledPluginsEditor
             value={settings.enabledPlugins}
             onChange={(value) => onStructuredObjectChange("enabledPlugins", value)}
             onError={(message) => sectionState.setSectionError("enabledPlugins", message)}
             showTitle={false}
-            officialMarketplaceEnabled={officialMarketplaceEnabled}
-            showOfficialToolbar={false}
-            onOfficialActionChange={handleOfficialPluginActionChange}
+            marketplaceSources={marketplaceSources}
           />
         }
         jsonEditor={pluginsJsonEditor}

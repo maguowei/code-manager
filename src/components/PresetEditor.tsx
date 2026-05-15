@@ -40,7 +40,7 @@ import {
   readAttributionDisabled,
   setAttributionDisabled,
 } from "./profile-editor/editor-shared-constants";
-import { readString } from "./profile-editor/editor-utils";
+import { readObject, readString } from "./profile-editor/editor-utils";
 import { readPermissionsDefaultMode } from "./profile-editor/PermissionsEditor";
 import RequiredBadge from "./profile-editor/RequiredBadge";
 import { getSandboxPresentation } from "./profile-editor/SandboxEditor";
@@ -63,6 +63,7 @@ import {
   validateStatusLineObject,
 } from "./profile-editor/status-line-utils";
 import { useDocumentJsonEditor } from "./profile-editor/useDocumentJsonEditor";
+import type { MarketplaceSourceInput } from "./profile-editor/useMarketplaceCatalog";
 import { useObjectJsonEditor } from "./profile-editor/useObjectJsonEditor";
 import useStructuredSettingsSectionState from "./profile-editor/useStructuredSettingsSectionState";
 import { Badge } from "./ui/badge";
@@ -293,6 +294,21 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
     () => getSandboxPresentation(settingsPatch.sandbox, language === "zh"),
     [settingsPatch.sandbox, language],
   );
+  const marketplaceSources = useMemo<MarketplaceSourceInput[]>(() => {
+    return Object.entries(readObject(settingsPatch.extraKnownMarketplaces)).map(
+      ([marketplaceId, entry]) => {
+        const record = readObject(entry);
+        const source = readObject(record.source);
+        return {
+          marketplaceId,
+          sourceType: typeof source.source === "string" ? source.source : "unknown",
+          repo: typeof source.repo === "string" ? source.repo : "",
+          ref: typeof source.ref === "string" ? source.ref : "",
+          path: typeof source.path === "string" ? source.path : "",
+        };
+      },
+    );
+  }, [settingsPatch.extraKnownMarketplaces]);
 
   function applyPatch(next: Record<string, unknown>) {
     const normalized = applyEnvDefaults(next, BEHAVIOR_ENV_DEFAULTS);
@@ -752,6 +768,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
             marketplacesJsonEditor={marketplacesJsonEditor}
             pluginsJsonEditor={pluginsJsonEditor}
             statusLineJsonEditor={statusLineJsonEditor}
+            marketplaceSources={marketplaceSources}
           />
         </div>
       </div>

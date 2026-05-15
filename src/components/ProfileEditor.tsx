@@ -43,7 +43,7 @@ import {
   readAttributionDisabled,
   setAttributionDisabled,
 } from "./profile-editor/editor-shared-constants";
-import { readString } from "./profile-editor/editor-utils";
+import { readObject, readString } from "./profile-editor/editor-utils";
 import ModelTestResultDialog from "./profile-editor/ModelTestResultDialog";
 import { readPermissionsDefaultMode } from "./profile-editor/PermissionsEditor";
 import RequiredBadge from "./profile-editor/RequiredBadge";
@@ -67,6 +67,7 @@ import {
   validateStatusLineObject,
 } from "./profile-editor/status-line-utils";
 import { useDocumentJsonEditor } from "./profile-editor/useDocumentJsonEditor";
+import type { MarketplaceSourceInput } from "./profile-editor/useMarketplaceCatalog";
 import { useObjectJsonEditor } from "./profile-editor/useObjectJsonEditor";
 import useStructuredSettingsSectionState from "./profile-editor/useStructuredSettingsSectionState";
 import { Badge } from "./ui/badge";
@@ -269,6 +270,21 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     () => getSandboxPresentation(settings.sandbox, language === "zh"),
     [settings.sandbox, language],
   );
+  const marketplaceSources = useMemo<MarketplaceSourceInput[]>(() => {
+    return Object.entries(readObject(settings.extraKnownMarketplaces)).map(
+      ([marketplaceId, entry]) => {
+        const record = readObject(entry);
+        const source = readObject(record.source);
+        return {
+          marketplaceId,
+          sourceType: typeof source.source === "string" ? source.source : "unknown",
+          repo: typeof source.repo === "string" ? source.repo : "",
+          ref: typeof source.ref === "string" ? source.ref : "",
+          path: typeof source.path === "string" ? source.path : "",
+        };
+      },
+    );
+  }, [settings.extraKnownMarketplaces]);
 
   function clearModelTestState() {
     modelTestRunIdRef.current += 1;
@@ -879,6 +895,7 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
           marketplacesJsonEditor={marketplacesJsonEditor}
           pluginsJsonEditor={pluginsJsonEditor}
           statusLineJsonEditor={statusLineJsonEditor}
+          marketplaceSources={marketplaceSources}
         />
 
         <ModelTestResultDialog
