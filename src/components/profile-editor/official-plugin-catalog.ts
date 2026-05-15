@@ -1,14 +1,13 @@
 import { readObject } from "./editor-utils";
-import { buildOfficialPluginId, OFFICIAL_MARKETPLACE_RAW_URL } from "./marketplace-presets";
+import {
+  fetchMarketplaceCatalog,
+  type MarketplacePluginEntry,
+  parseMarketplacePluginCatalog,
+} from "./marketplace-catalog";
+import { OFFICIAL_MARKETPLACE_ID, OFFICIAL_MARKETPLACE_REPO } from "./marketplace-presets";
 
-export interface OfficialPluginMetadata {
-  pluginId: string;
-  description: string;
-  category: string;
-  authorName: string;
-  sourceType: string;
-  homepage: string;
-}
+// OfficialPluginMetadata 是 MarketplacePluginEntry 的别名，保持向后兼容
+export type OfficialPluginMetadata = MarketplacePluginEntry;
 
 export interface OfficialPluginCacheV1 {
   version: 1;
@@ -16,6 +15,7 @@ export interface OfficialPluginCacheV1 {
   plugins: OfficialPluginMetadata[];
 }
 
+// 保持旧缓存键不变，避免破坏已有缓存读写逻辑
 export const OFFICIAL_PLUGIN_CACHE_KEY = "ai-manager-official-plugin-cache:v1";
 
 function readTrimmedString(value: unknown): string {
@@ -31,22 +31,16 @@ function normalizeOfficialPluginMetadata(value: unknown): OfficialPluginMetadata
 
   return {
     pluginId,
+    // 旧缓存条目可能没有 marketplaceId，回退到官方市场 ID
+    marketplaceId: readTrimmedString(record.marketplaceId) || OFFICIAL_MARKETPLACE_ID,
     description: readTrimmedString(record.description),
     category: readTrimmedString(record.category),
     authorName: readTrimmedString(record.authorName),
     sourceType: readTrimmedString(record.sourceType) || "unknown",
     homepage: readTrimmedString(record.homepage),
+    // 旧缓存条目可能没有 isOfficial，官方缓存默认为 true
+    isOfficial: record.isOfficial === undefined ? true : record.isOfficial === true,
   };
-}
-
-function normalizeSourceType(source: unknown): string {
-  if (typeof source === "string") {
-    return "path";
-  }
-
-  const sourceRecord = readObject(source);
-  const sourceType = readTrimmedString(sourceRecord.source);
-  return sourceType || "unknown";
 }
 
 export function createOfficialPluginMetadataMap(
@@ -94,47 +88,17 @@ export function saveOfficialPluginCache(plugins: OfficialPluginMetadata[]): Offi
   return cache;
 }
 
+// parseOfficialPluginCatalog 委托给通用模块，保持向后兼容
 export function parseOfficialPluginCatalog(manifest: unknown): OfficialPluginMetadata[] {
-  const manifestRecord = readObject(manifest);
-  if (!Array.isArray(manifestRecord.plugins)) {
-    throw new Error("invalid official marketplace manifest");
-  }
-
-  const plugins: OfficialPluginMetadata[] = [];
-  const seen = new Set<string>();
-
-  manifestRecord.plugins.forEach((entry) => {
-    const pluginRecord = readObject(entry);
-    const pluginName = readTrimmedString(pluginRecord.name);
-    if (!pluginName) {
-      return;
-    }
-
-    const pluginId = buildOfficialPluginId(pluginName);
-    if (seen.has(pluginId)) {
-      return;
-    }
-
-    seen.add(pluginId);
-    const authorRecord = readObject(pluginRecord.author);
-    plugins.push({
-      pluginId,
-      description: readTrimmedString(pluginRecord.description),
-      category: readTrimmedString(pluginRecord.category),
-      authorName: readTrimmedString(authorRecord.name),
-      sourceType: normalizeSourceType(pluginRecord.source),
-      homepage: readTrimmedString(pluginRecord.homepage),
-    });
-  });
-
-  return plugins;
+  return parseMarketplacePluginCatalog(manifest, OFFICIAL_MARKETPLACE_ID);
 }
 
 export async function fetchOfficialPluginCatalog(): Promise<OfficialPluginMetadata[]> {
-  const response = await fetch(OFFICIAL_MARKETPLACE_RAW_URL);
-  if (!response.ok) {
-    throw new Error("failed to load official plugins");
-  }
-
-  return parseOfficialPluginCatalog(await response.json());
+  return fetchMarketplaceCatalog({
+    marketplaceId: OFFICIAL_MARKETPLACE_ID,
+    sourceType: "github",
+    repo: OFFICIAL_MARKETPLACE_REPO,
+    ref: "",
+    path: "",
+  });
 }
