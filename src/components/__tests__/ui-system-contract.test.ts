@@ -474,7 +474,7 @@ describe("ui system contract", () => {
   });
 
   it("uses InputGroup for plugin list search affordance", () => {
-    const source = readFileSync("src/components/profile-editor/EnabledPluginsEditor.tsx", "utf8");
+    const source = readFileSync("src/components/profile-editor/EnabledPluginsTab.tsx", "utf8");
 
     expect(source).toContain("InputGroup");
     expect(source).toContain("InputGroupInput");

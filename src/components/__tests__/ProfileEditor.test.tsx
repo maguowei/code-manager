@@ -649,7 +649,9 @@ describe("ProfileEditor", () => {
 
       expect(within(pluginsSection).getByRole("button", { name: "控件" })).toBeInTheDocument();
       expect(within(pluginsSection).getByRole("button", { name: "JSON" })).toBeInTheDocument();
-      expect(within(pluginsSection).getByRole("button", { name: "新增插件" })).toBeInTheDocument();
+      expect(
+        within(pluginsSection).getByRole("button", { name: "手动输入 ID" }),
+      ).toBeInTheDocument();
       expect(within(pluginsSection).queryByLabelText("新插件 ID")).not.toBeInTheDocument();
       expect(within(pluginsSection).queryByText("插件模式")).not.toBeInTheDocument();
       expect(
@@ -2884,16 +2886,16 @@ describe("ProfileEditor", () => {
 
     toggleAccordionSection("插件");
 
-    fireEvent.click(within(pluginsSection).getByRole("button", { name: "新增插件" }));
+    fireEvent.click(within(pluginsSection).getByRole("button", { name: "手动输入 ID" }));
     fireEvent.change(within(pluginsSection).getByLabelText("新插件 ID"), {
       target: { value: "formatter@anthropic-tools" },
     });
+    fireEvent.click(within(pluginsSection).getByRole("button", { name: "保存插件" }));
     fireEvent.click(
       within(pluginsSection).getByRole("switch", {
         name: "插件状态 formatter@anthropic-tools",
       }),
     );
-    fireEvent.click(within(pluginsSection).getByRole("button", { name: "保存插件" }));
 
     expect(within(pluginsSection).getByText("formatter@anthropic-tools")).toBeInTheDocument();
     expect(
@@ -3425,7 +3427,7 @@ describe("ProfileEditor", () => {
     );
   });
 
-  it("loads official plugins in profile view without writing them to enabledPlugins until enabled", async () => {
+  it("shows marketplace plugins in the browse tab without writing them to enabledPlugins until enabled", async () => {
     const onSave = vi.fn();
     fetchMock.mockResolvedValue({
       ok: true,
@@ -3457,23 +3459,15 @@ describe("ProfileEditor", () => {
     const pluginsSection = getSection("插件");
     toggleAccordionSection("插件");
 
-    await act(async () => {
-      fireEvent.click(within(pluginsSection).getByRole("button", { name: "加载官方插件" }));
-      await Promise.resolve();
-    });
-    await flushAsyncUpdates();
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(
-      within(pluginsSection).getByText("reviewer-plugin@claude-plugins-official"),
-    ).toBeInTheDocument();
+    // 双 Tab 结构已替换原来的加载官方插件按钮
+    expect(within(pluginsSection).getByRole("tab", { name: /已启用/ })).toBeInTheDocument();
+    expect(within(pluginsSection).getByRole("tab", { name: "浏览市场" })).toBeInTheDocument();
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "保存" }));
     });
 
-    // 仅加载官方插件目录不应改写 enabledPlugins：reviewer / writer 仅出现在 UI 列表，
-    // 没有用户显式启用，所以不会被写回 settings。
+    // 浏览市场中的插件不会自动写入 enabledPlugins
     expect(onSave).toHaveBeenCalledTimes(1);
     const savedProfile = onSave.mock.calls[0][0];
     expect(savedProfile.settings.enabledPlugins).toEqual({
@@ -3481,7 +3475,7 @@ describe("ProfileEditor", () => {
     });
   });
 
-  it("places the official plugin refresh action beside the controls/json switch", async () => {
+  it("keeps the plugin refresh action in the browse tab", async () => {
     renderEditor({
       profile: {
         ...PROFILE_FIXTURE,
@@ -3510,10 +3504,11 @@ describe("ProfileEditor", () => {
     expect(docsButton).toBeInTheDocument();
     expect(docsButton).toHaveTextContent("官方文档");
 
-    const loadButton = within(modeRow).getByRole("button", { name: "加载官方插件" });
-    expect(loadButton).toHaveAttribute("title", "重新获取官方插件列表并刷新本地缓存。");
-    expect(loadButton).toHaveAttribute("data-slot", "button");
-    expect(within(pluginsSection).queryByRole("toolbar")).not.toBeInTheDocument();
+    // 刷新按钮已移至浏览市场 Tab，不再出现在模式切换行
+    expect(within(modeRow).queryByRole("button", { name: "加载官方插件" })).not.toBeInTheDocument();
+
+    // 浏览市场 Tab 存在，刷新功能在此 Tab 内
+    expect(within(pluginsSection).getByRole("tab", { name: "浏览市场" })).toBeInTheDocument();
   });
 
   it("does not show the official plugin load button when the marketplace only exists in an inherited preset", () => {
