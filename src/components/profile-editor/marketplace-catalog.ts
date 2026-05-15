@@ -20,17 +20,6 @@ export interface MarketplaceFetchInput {
   path: string;
 }
 
-export type MarketplaceCatalogStatus = "idle" | "loading" | "ready" | "error";
-
-export interface MarketplaceCatalogState {
-  marketplaceId: string;
-  status: MarketplaceCatalogStatus;
-  plugins: MarketplacePluginEntry[];
-  error?: string;
-  cachedAt?: string;
-  unsupported?: boolean;
-}
-
 export const MARKETPLACE_CATALOG_CACHE_KEY = "ai-manager-marketplace-plugin-cache:v1";
 const CACHE_VERSION = 1;
 
@@ -123,8 +112,4 @@ export function saveMarketplaceCatalogCache(
   current[marketplaceId] = { plugins, cachedAt: new Date().toISOString() };
   const cache: CacheV1 = { version: CACHE_VERSION, byMarketplace: current };
   localStorage.setItem(MARKETPLACE_CATALOG_CACHE_KEY, JSON.stringify(cache));
-}
-
-export function isSupportedMarketplaceSource(sourceType: string): boolean {
-  return sourceType === "github";
 }

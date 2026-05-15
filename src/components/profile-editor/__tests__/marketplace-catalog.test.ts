@@ -76,6 +76,38 @@ describe("marketplace-catalog", () => {
     ]);
   });
 
+  it("fetchMarketplaceCatalog 成功时返回解析后的插件列表", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        plugins: [
+          {
+            name: "alpha",
+            description: "desc",
+            category: "cat",
+            author: { name: "Anthropic" },
+            source: { source: "github" },
+            homepage: "https://example.com",
+          },
+        ],
+      }),
+    } as unknown as Response);
+    const result = await fetchMarketplaceCatalog({
+      marketplaceId: "claude-plugins-official",
+      sourceType: "github",
+      repo: "anthropics/claude-plugins-official",
+      ref: "main",
+      path: "",
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      pluginId: "alpha@claude-plugins-official",
+      marketplaceId: "claude-plugins-official",
+      description: "desc",
+      isOfficial: true,
+    });
+  });
+
   it("fetchMarketplaceCatalog 失败抛错", async () => {
     fetchMock.mockResolvedValueOnce({ ok: false, status: 404 } as Response);
     await expect(
