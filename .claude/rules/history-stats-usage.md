@@ -25,7 +25,7 @@ paths:
 
 - 历史：`src/components/HistoryPage.tsx`、`src/hooks/useHistoryEntries.ts`、`src/history-utils.ts`、`src-tauri/src/history.rs`
 - 统计：`src/components/StatsPage.tsx`、`src-tauri/src/stats.rs`
-- 用量：`src/components/UsagePage.tsx`、`src/hooks/useUsage.ts`、`src-tauri/src/usage.rs`、`src-tauri/resources/model-pricing.json`
+- 用量：`src/components/UsagePage.tsx`、`src/components/usage/PricingTableDialog.tsx`、`src/hooks/useUsage.ts`、`src-tauri/src/usage.rs`、`src-tauri/resources/model-pricing.json`
 
 ## 历史页
 
@@ -51,7 +51,7 @@ paths:
 - 不要把 `UsagePage` 和 `StatsPage` 的数据源、刷新机制或聚合逻辑混用。
 - `usage.rs` 会在 `lib.rs` setup 中通过 `usage::start_usage_runtime(app)` 启动：加载价格表、首次扫描、监听 `claude-directory-changed` 做增量扫描，并向前端发出 `usage-records-changed` / `usage-pricing-updated`。
 - 用量聚合维度包括 daily、project、session、model 和 time series；新增趋势图字段要同步 `UsageTimeSeriesPoint`、`UsageTimeGranularity`、`useUsage.ts` 和 `usage.rs`。
-- 默认筛选是今日；单日默认小时粒度，多日默认天粒度，用户也可切到 5 分钟粒度。
+- 默认筛选是今日；快捷筛选包括今日、最近 7 天、最近 30 天、本周、本月、今年和全部。单日默认小时粒度，多日默认天粒度，用户也可切到 5 分钟粒度。
 - 日期筛选使用 shadcn `Calendar` 浮层（`src/components/ui/calendar.tsx`），不要回退到原生 `<input type="date">`；筛选区控件继续使用 `surface-classes` 与 `TYPOGRAPHY` 常量。
 - 筛选字段来自 `UsageFilter`，包括 `includeUnknownModels` 与 `claude-*` 模型快捷筛选；新增筛选条件要同步 `src/types.ts`、`useUsage.ts`、`usage.rs` 和 i18n。
 - Usage 趋势图支持按模型或 Token 类型拆分、曲线/柱状切换、图例点击隐藏和双击 solo；这些交互是前端状态，不应写入后端。
@@ -61,5 +61,6 @@ paths:
 - models.dev 导入范围由 `is_supported_models_dev_provider()` 控制：Anthropic、Moonshot / MoonshotAI、Z.ai / Zhipu / BigModel、MiniMax、Xiaomi / MiMo、DeepSeek。缺失 cache 字段时只按 input 推导 `cache_write = input * 1.25`、`cache_read = input * 0.1`，不要凭空补 input / output。
 - 模型价格匹配优先精确命中，其次忽略大小写、provider 前缀、点/短横线/下划线等常见差异；Claude 的 opus / sonnet / haiku 可按系列兜底匹配同类最低 input 单价。
 - `thirdPartyProviderPricingEnabled` 默认开启；关闭后 Kimi / MiMo / GLM / MiniMax / DeepSeek 费用按 0 计入，且不作为未知模型提示。其他无法匹配价格的模型费用为 0，并进入未知模型列表。
+- `PricingTableDialog` 只展示当前 `PricingTable` 与当前筛选下的模型用量，不触发价格刷新；第三方计价关闭时要显示说明，但仍允许查看价目。
 - 用量 records、扫描索引和 last scan metadata 写入 `sqlite:usage.db`，索引表为 `usage_file_index`。
 - `message.id` 是 usage 记录去重锚点；处理增量扫描、重扫和未知模型时不要破坏 SQLite 中的 `usage_records`、`usage_file_index` 与内存中的 `unknown_models` 一致性。

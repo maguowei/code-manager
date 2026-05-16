@@ -61,6 +61,7 @@
 - 类型契约：`src/types.ts`
 - 共享 schema 与表单定义：`src/schemas/`
 - 公共 hooks：`src/hooks/`
+- 编辑器退出保护：`src/components/editor-exit-guard.ts`、`src/components/UnsavedChangesAlertDialog.tsx`
 - Tailwind v4 入口与 OKLCH 主题变量：`src/index.css`
 - shadcn 原子组件：`src/components/ui/`，类名拼接工具：`src/lib/utils.ts`（`cn()`）
 - 字号层级常量：`src/components/typography-classes.ts`（`TYPOGRAPHY`）
@@ -89,6 +90,7 @@
 | 用途 | 路径 |
 | --- | --- |
 | 应用数据 | `~/.config/ai-manager/` |
+| 配置注册 | `~/.config/ai-manager/config-registry.json` |
 | Claude Code 用户目录 | `~/.claude/` |
 | 可选 Codex Skills 同步 | `~/.codex/skills/` |
 | 历史输入 | `~/.claude/history.jsonl` |

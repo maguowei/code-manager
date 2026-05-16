@@ -35,12 +35,12 @@ AI Manager 的目标不是替代 Claude Code，而是为本机配置、会话数
 | 能力 | 说明 |
 | --- | --- |
 | `~/.claude` 总览 | 浏览、预览、编辑和定位 Claude Code 用户目录，跳过符号链接、`node_modules` 等高风险入口。 |
-| Profile / Preset | 管理最终写入 `~/.claude/settings.json` 的配置层，支持环境变量、权限、Sandbox、Hooks、插件、状态行、预览、复制、模型测试和一键应用。 |
+| Profile / Preset | 管理最终写入 `~/.claude/settings.json` 的配置层，支持环境变量、权限、Sandbox、Hooks、插件市场、插件双 Tab 浏览、状态行、预览、复制、模型测试和一键应用。 |
 | 记忆管理 | 管理用户级 `CLAUDE.md` 与 `rules/*.md`，支持导入、启用、禁用、复制、预览和路径校验。 |
 | Skills 管理 | 新建、编辑、删除、启用、禁用 Claude Code Skills，并可同步为 `~/.codex/skills/<id>` 软链接。 |
 | 历史与会话 | 读取 `~/.claude/history.jsonl`，按项目和会话查看历史详情，保留文本、思考、工具调用、命令、图片和计划等内容块。 |
 | 统计与最近会话 | 从 `~/.claude.json` 读取本地统计快照，展示启动次数、工具调用、Skill 使用和项目最近会话。 |
-| Token 用量与费用 | 扫描 `~/.claude/projects/**/*.jsonl`，按日期、项目、会话和模型聚合 Token、缓存 Token 与费用，并用 SQLite 做增量缓存。 |
+| Token 用量与费用 | 扫描 `~/.claude/projects/**/*.jsonl`，按日期、项目、会话和模型聚合 Token、缓存 Token 与费用，支持快捷筛选、模型价目表和 SQLite 增量缓存。 |
 | 项目管理 | 展示仓库路径、远程地址、分支、worktree 和 `AGENTS.md` / `CLAUDE.md` 软链状态，支持打开终端、编辑器和清理本地项目数据。 |
 | 系统托盘与会话聚焦 | 菜单栏显示当前 Profile 和 Claude Code 活跃会话，并尝试聚焦 Terminal.app、iTerm2 或 Ghostty 中已有的会话 tab。 |
 | 设置与诊断 | 支持中英文、主题、登录启动、默认终端和编辑器、脱敏日志查看、系统信息复制和日志轮转。 |
@@ -64,6 +64,8 @@ cost =
 models.dev 只导入官方 provider 价格：Anthropic、Moonshot / MoonshotAI（Kimi）、Z.ai / Zhipu / BigModel（GLM）、MiniMax、Xiaomi / MiMo、DeepSeek。不会导入 OpenRouter、ModelScope、DashScope 等二级转售或包装 provider。若 models.dev 某个模型缺少 cache 单价，会只按已有 input 单价推导 cache 字段：`cache_write = input * 1.25`，`cache_read = input * 0.1`；不会凭空补 input / output 价格。
 
 模型匹配优先精确命中，其次忽略大小写、provider 前缀、点/短横线/下划线等常见差异；Claude 的 opus / sonnet / haiku 还会按系列兜底匹配同类最低 input 单价。Kimi、MiMo、GLM、MiniMax、DeepSeek 受全局“第三方模型计价”开关控制：默认开启；关闭后这些系列费用按 `$0` 计入，且不作为未知模型提示。其他无法匹配价格的模型费用为 `$0`，并进入未知模型列表。
+
+用量页可直接打开当前模型价目表，按模型搜索并查看输入、输出、缓存写入、缓存读取价格及当前用量；设置页的“第三方模型计价”开关会同步影响价目表提示和费用计算。
 
 ## 打开编辑器和终端的平台支持
 
@@ -102,7 +104,7 @@ AI Manager 主要读取和写入本机文件。配置合并、目录扫描、用
 
 ```text
 ~/.config/ai-manager/
-  configs.json
+  config-registry.json
   memories.json
   model-pricing.json
   skills-disabled/

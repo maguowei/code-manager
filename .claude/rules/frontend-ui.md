@@ -48,6 +48,7 @@ paths:
 - CodeMirror 主题用 `useCodeMirrorTheme()`；其他需要响应主题的逻辑用 `useIsDark()`。
 - 图标库统一使用 `lucide-react`，按 Tailwind size 类（`size-3.5` / `size-4` / `size-5` / `size-6`）控制尺寸。
 - 复杂编辑器优先复用 `useObjectJsonEditor`、`useDocumentJsonEditor`、`useStructuredSettingsSectionState` 等现有 hook。
+- Profile、Preset、Memory、Skill 这类抽屉编辑器必须暴露 `EditorExitGuard`；关闭、切换条目或跳转页面前如有 dirty draft，统一走 `UnsavedChangesAlertDialog`，不要直接丢弃用户输入。
 
 ## 当前设计风格
 

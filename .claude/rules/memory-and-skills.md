@@ -41,6 +41,7 @@ paths:
 - Rule 的 `pathPatterns` 是结构化字段，编辑器和导入解析都要保留。
 - 启用、禁用、删除或修改活跃 Rule 时，后端会清理旧文件；不要只改前端状态。
 - 如果目标 rules 文件已存在且不是当前记忆生成的文件，后端会拒绝覆盖。
+- `MemoryEditor` 通过 `EditorExitGuard` 向 `MemoryPage` 暴露 dirty、save 和 save-disabled 状态；关闭抽屉、切换记忆或跳转页面前必须用 `UnsavedChangesAlertDialog` 处理保存、丢弃或继续编辑。
 
 ## Skills 管理先读
 
@@ -62,3 +63,4 @@ paths:
 - 应用内只支持编辑 `SKILL.md`；支持文件仅展示只读文件树，不提供新增、编辑、删除。
 - 支持文件树只列普通目录 Skill 内部条目，必须跳过目录内软链接，禁止绝对路径与 `..` 路径逃逸。
 - `sync_skill_to_codex` 会在 `~/.codex/skills/<id>` 创建软链接；目标已存在且不是软链接时必须拒绝覆盖。
+- `SkillEditor` 同样接入 `EditorExitGuard`；关闭、切换、复制或跳转前遇到 dirty draft 时走 `UnsavedChangesAlertDialog`，保存失败要保持编辑器打开并保留用户输入。
