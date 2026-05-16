@@ -31,6 +31,10 @@ export function useToast(): ToastContextValue {
       toast.error(message);
       return;
     }
+    if (options?.description) {
+      toast.success(message, { description: options.description });
+      return;
+    }
     toast.success(message);
   }, []);
 

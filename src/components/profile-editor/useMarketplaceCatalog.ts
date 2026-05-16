@@ -35,8 +35,16 @@ interface UseMarketplaceCatalogOptions {
 
 export interface UseMarketplaceCatalogResult {
   byMarketplace: Record<string, MarketplaceCatalogState>;
-  refreshAll: () => Promise<void>;
-  refreshOne: (marketplaceId: string) => Promise<void>;
+  refreshAll: () => Promise<MarketplaceRefreshSummary[]>;
+  refreshOne: (marketplaceId: string) => Promise<MarketplaceRefreshSummary | null>;
+}
+
+export interface MarketplaceRefreshSummary {
+  marketplaceId: string;
+  status: MarketplaceCatalogStatus;
+  pluginCount: number;
+  error?: string;
+  unsupported?: boolean;
 }
 
 function isSupportedSource(sourceType: string): boolean {
@@ -96,10 +104,15 @@ export function useMarketplaceCatalog({
   );
 
   const fetchOne = useCallback(
-    async (input: MarketplaceFetchInput) => {
+    async (input: MarketplaceFetchInput): Promise<MarketplaceRefreshSummary> => {
       if (!isSupportedSource(input.sourceType)) {
         setEntry(input.marketplaceId, { status: "ready", unsupported: true, plugins: [] });
-        return;
+        return {
+          marketplaceId: input.marketplaceId,
+          status: "ready",
+          pluginCount: 0,
+          unsupported: true,
+        };
       }
       setEntry(input.marketplaceId, { status: "loading", error: undefined });
       try {
@@ -111,9 +124,20 @@ export function useMarketplaceCatalog({
           cachedAt: new Date().toISOString(),
           error: undefined,
         });
+        return {
+          marketplaceId: input.marketplaceId,
+          status: "ready",
+          pluginCount: plugins.length,
+        };
       } catch (error) {
         const message = error instanceof Error ? error.message : "fetch failed";
         setEntry(input.marketplaceId, { status: "error", error: message });
+        return {
+          marketplaceId: input.marketplaceId,
+          status: "error",
+          pluginCount: 0,
+          error: message,
+        };
       }
     },
     [setEntry],
@@ -122,19 +146,25 @@ export function useMarketplaceCatalog({
   useEffect(() => {
     if (!active) return;
     const supported = sourcesRef.current.filter((s) => s.sourceType === "github");
-    void runWithConcurrency(supported, CONCURRENCY, (source) => fetchOne(source));
+    void runWithConcurrency(supported, CONCURRENCY, async (source) => {
+      await fetchOne(source);
+    });
   }, [active, fetchOne]);
 
   const refreshAll = useCallback(async () => {
-    const supported = sourcesRef.current.filter((s) => s.sourceType === "github");
-    await runWithConcurrency(supported, CONCURRENCY, (source) => fetchOne(source));
+    const sources = sourcesRef.current;
+    const summaries: Record<string, MarketplaceRefreshSummary> = {};
+    await runWithConcurrency(sources, CONCURRENCY, async (source) => {
+      summaries[source.marketplaceId] = await fetchOne(source);
+    });
+    return sources.map((source) => summaries[source.marketplaceId]).filter(Boolean);
   }, [fetchOne]);
 
   const refreshOne = useCallback(
     async (marketplaceId: string) => {
       const source = sourcesRef.current.find((item) => item.marketplaceId === marketplaceId);
-      if (!source) return;
-      await fetchOne(source);
+      if (!source) return null;
+      return fetchOne(source);
     },
     [fetchOne],
   );

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { KeyboardEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { useToast } from "@/hooks/useToast";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../../i18n";
 import { Badge } from "../ui/badge";
@@ -71,6 +72,7 @@ export default function BrowseMarketplaceTab({
   onManagePlugin,
 }: BrowseMarketplaceTabProps) {
   const { language, t } = useI18n();
+  const { showToast } = useToast();
   const { byMarketplace, refreshAll, refreshOne } = useMarketplaceCatalog({ sources, active });
   const [searchQuery, setSearchQuery] = useState("");
   const [marketplaceFilter, setMarketplaceFilter] = useState<"all" | string>("all");
@@ -252,12 +254,26 @@ export default function BrowseMarketplaceTab({
       : t("profileEditor.plugins.browse.installCountUnknown");
   }
 
+  function formatRefreshSuccessDescription(
+    summaries: Awaited<ReturnType<typeof refreshAll>>,
+  ): string {
+    return summaries
+      .map((summary) =>
+        formatTemplate(t("profileEditor.plugins.browse.refreshSuccessItem"), {
+          marketplace: summary.marketplaceId,
+          count: summary.pluginCount,
+        }),
+      )
+      .join("\n");
+  }
+
   async function handleRefreshAll() {
     if (refreshingAll) return;
     const startedAt = Date.now();
     setRefreshingAll(true);
+    let summaries: Awaited<ReturnType<typeof refreshAll>> = [];
     try {
-      await refreshAll();
+      summaries = await refreshAll();
     } finally {
       const remainingMs = MIN_REFRESH_FEEDBACK_MS - (Date.now() - startedAt);
       if (remainingMs > 0) {
@@ -265,6 +281,9 @@ export default function BrowseMarketplaceTab({
       }
       setRefreshingAll(false);
     }
+    showToast(t("profileEditor.plugins.browse.refreshSuccess"), "success", {
+      description: formatRefreshSuccessDescription(summaries),
+    });
   }
 
   function toggleDetails(pluginId: string) {
@@ -641,7 +660,7 @@ export default function BrowseMarketplaceTab({
                               asChild
                               variant="ghost"
                               className={cn(
-                                "h-auto w-full cursor-pointer justify-start whitespace-normal rounded-md bg-transparent p-0 text-left text-xs font-[inherit] leading-relaxed text-muted-foreground underline-offset-4 hover:bg-transparent hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+                                "h-auto w-full cursor-pointer justify-start whitespace-normal rounded-md bg-transparent p-0 text-left text-xs font-[inherit] leading-relaxed text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
                                 !expanded && "line-clamp-3",
                               )}
                             >

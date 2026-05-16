@@ -37,7 +37,7 @@ interface EnabledPluginsTabProps {
 type PluginStatusFilter = "all" | "enabled" | "disabled";
 type PluginMetadataFilterValue = "all" | string;
 type PluginMetaItem = {
-  kind: "author" | "category";
+  kind: "author" | "category" | "marketplace";
   value: string;
 };
 
@@ -50,13 +50,23 @@ function isOfficialPlugin(pluginId: string): boolean {
   return pluginId.endsWith(`@${OFFICIAL_MARKETPLACE_ID}`);
 }
 
-function buildOfficialPluginMetaItems(metadata?: MarketplacePluginEntry): PluginMetaItem[] {
-  if (!metadata) {
-    return [];
+function extractMarketplaceId(pluginId: string): string {
+  const separatorIndex = pluginId.lastIndexOf("@");
+  if (separatorIndex < 0 || separatorIndex === pluginId.length - 1) {
+    return "";
   }
+  return pluginId.slice(separatorIndex + 1).trim();
+}
+
+function buildPluginMetaItems(
+  pluginId: string,
+  metadata?: MarketplacePluginEntry,
+): PluginMetaItem[] {
+  const marketplaceId = metadata?.marketplaceId.trim() || extractMarketplaceId(pluginId);
   const metaItems: PluginMetaItem[] = [
-    { kind: "author", value: metadata.authorName.trim() },
-    { kind: "category", value: metadata.category.trim() },
+    { kind: "author", value: metadata?.authorName.trim() ?? "" },
+    { kind: "category", value: metadata?.category.trim() ?? "" },
+    { kind: "marketplace", value: marketplaceId },
   ];
   return metaItems.filter((item) => item.value.length > 0);
 }
@@ -415,7 +425,7 @@ function EnabledPluginsTab({
                 {visiblePlugins.map((plugin, index) => {
                   const isDraftRow = plugin.isDraft === true;
                   const officialPlugin = isOfficialPlugin(plugin.pluginId);
-                  const pluginMetaItems = buildOfficialPluginMetaItems(plugin.metadata);
+                  const pluginMetaItems = buildPluginMetaItems(plugin.pluginId, plugin.metadata);
                   const verifiedBadgeIcon = officialPlugin ? (
                     <span
                       className="inline-flex shrink-0 items-center justify-center text-chart-2 opacity-70 transition-opacity group-hover:opacity-90 group-focus-visible:opacity-90"
@@ -513,7 +523,9 @@ function EnabledPluginsTab({
                                         </span>
                                       ) : null}
                                       <span className="inline-flex min-w-0 items-center whitespace-nowrap max-[520px]:whitespace-normal max-[520px]:break-words">
-                                        {item.value}
+                                        {item.kind === "marketplace"
+                                          ? `${t("profileEditor.plugins.marketplaceMetaLabel")} ${item.value}`
+                                          : item.value}
                                       </span>
                                     </Fragment>
                                   ))}

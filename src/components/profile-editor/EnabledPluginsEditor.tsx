@@ -49,11 +49,16 @@ function EnabledPluginsEditor({
     setActiveTab("enabled");
   }
 
+  function handleTabChange(value: string) {
+    setActiveTab(value as "enabled" | "browse");
+    setManageTarget(null);
+  }
+
   return (
     <div className="flex flex-col gap-3.5">
       {showTitle ? <h4>{t("profileEditor.plugins.title")}</h4> : null}
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "enabled" | "browse")}>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList>
           <TabsTrigger value="enabled">
             {t("profileEditor.plugins.tabConfigured")} ({plugins.length})

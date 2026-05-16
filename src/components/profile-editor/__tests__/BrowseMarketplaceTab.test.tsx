@@ -5,13 +5,18 @@ import { TooltipProvider } from "../../ui/tooltip";
 import BrowseMarketplaceTab from "../BrowseMarketplaceTab";
 import type { PluginEntry } from "../useEnabledPluginsState";
 
-const { invokeMock, openUrlMock } = vi.hoisted(() => ({
+const { invokeMock, openUrlMock, showToastMock } = vi.hoisted(() => ({
   invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
   openUrlMock: vi.fn(async (_url: string) => null),
+  showToastMock: vi.fn(),
 }));
 
 vi.mock("@tauri-apps/plugin-opener", () => ({
   openUrl: openUrlMock,
+}));
+
+vi.mock("@/hooks/useToast", () => ({
+  useToast: () => ({ showToast: showToastMock }),
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -41,6 +46,7 @@ beforeEach(() => {
     return null;
   });
   openUrlMock.mockReset();
+  showToastMock.mockReset();
   localStorage.clear();
   Object.defineProperty(window, "__TAURI_INTERNALS__", {
     value: undefined,
@@ -210,6 +216,44 @@ describe("BrowseMarketplaceTab", () => {
     expect(screen.getByRole("button", { name: "刷新" })).toBeEnabled();
   });
 
+  it("刷新成功后提示各插件市场的插件数量", async () => {
+    const sources = [
+      ...SOURCES,
+      {
+        marketplaceId: "team-market",
+        sourceType: "github",
+        repo: "team/plugins",
+        ref: "",
+        path: "",
+      },
+    ];
+    fetchMock.mockImplementation(async (url: string) => {
+      const plugins = url.includes("team/plugins")
+        ? [{ name: "team-a" }, { name: "team-b" }]
+        : [{ name: "alpha" }];
+      return {
+        ok: true,
+        json: async () => ({ plugins }),
+      } as unknown as Response;
+    });
+    renderTab({ sources });
+    await screen.findByText("alpha");
+
+    fireEvent.click(screen.getByRole("button", { name: "刷新" }));
+
+    await waitFor(() => {
+      expect(showToastMock).toHaveBeenCalledWith(
+        "插件市场已刷新",
+        "success",
+        expect.objectContaining({
+          description: expect.stringContaining("claude-plugins-official：1 个插件"),
+        }),
+      );
+    });
+    const description = showToastMock.mock.calls[0]?.[2]?.description;
+    expect(description).toContain("team-market：2 个插件");
+  });
+
   it("插件市场筛选默认只显示全部", async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
@@ -245,6 +289,7 @@ describe("BrowseMarketplaceTab", () => {
 
     expect(details).toHaveAttribute("data-expanded", "false");
     expect(details).toHaveClass("line-clamp-3");
+    expect(details.className).not.toContain("hover:underline");
     expect(details).toHaveAttribute("aria-expanded", "false");
     expect(details).toHaveAttribute("title", "点击展开完整详情");
     expect(screen.queryByRole("button", { name: "展开" })).not.toBeInTheDocument();

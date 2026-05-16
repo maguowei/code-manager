@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../../i18n";
 import EnabledPluginsEditor from "../EnabledPluginsEditor";
+import { OFFICIAL_PLUGIN_CACHE_KEY } from "../official-plugin-catalog";
 import type { MarketplaceSourceInput } from "../useMarketplaceCatalog";
 
 vi.mock("@tauri-apps/plugin-opener", () => ({
@@ -140,6 +141,46 @@ describe("EnabledPluginsEditor", () => {
       expect(betaConfiguredRow).toHaveFocus();
       expect(scrollIntoViewMock).toHaveBeenCalled();
     });
+
+    it("手动点击已配置 Tab 不复用管理定位滚动", async () => {
+      const scrollIntoViewMock = vi.fn();
+      Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+        value: scrollIntoViewMock,
+        configurable: true,
+      });
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => ({ plugins: [{ name: "alpha" }, { name: "beta" }] }),
+      } as unknown as Response);
+      const user = userEvent.setup();
+      renderEditor({
+        value: {
+          "alpha@claude-plugins-official": true,
+          "beta@claude-plugins-official": true,
+        },
+        marketplaceSources: SOURCES,
+      });
+      await user.click(screen.getByRole("tab", { name: /浏览市场/ }));
+      const betaBrowseRow = (await screen.findByText("beta")).closest("[data-slot='browse-row']");
+      expect(betaBrowseRow).not.toBeNull();
+      await user.click(
+        within(betaBrowseRow as HTMLElement).getByRole("button", {
+          name: "管理",
+        }),
+      );
+      expect(scrollIntoViewMock).toHaveBeenCalled();
+
+      scrollIntoViewMock.mockClear();
+      await user.click(screen.getByRole("tab", { name: /浏览市场/ }));
+      await user.click(screen.getByRole("tab", { name: /已配置/ }));
+
+      expect(screen.getByRole("tab", { name: /已配置/ })).toHaveAttribute("data-state", "active");
+      const betaConfiguredRow = screen
+        .getByText("beta@claude-plugins-official")
+        .closest("[data-slot='plugin-list-row']");
+      expect(betaConfiguredRow).not.toHaveAttribute("data-managed-target");
+      expect(scrollIntoViewMock).not.toHaveBeenCalled();
+    });
   });
 
   describe("Tab 1 已启用", () => {
@@ -166,6 +207,37 @@ describe("EnabledPluginsEditor", () => {
       const saveBtn = screen.getByRole("button", { name: /保存插件/ });
       fireEvent.click(saveBtn);
       expect(screen.getByText("manual@local")).toBeInTheDocument();
+    });
+
+    it("已配置列表展示插件所属市场", () => {
+      localStorage.setItem(
+        OFFICIAL_PLUGIN_CACHE_KEY,
+        JSON.stringify({
+          version: 1,
+          updatedAt: "2026-05-16T00:00:00.000Z",
+          plugins: [
+            {
+              pluginId: "alpha@claude-plugins-official",
+              marketplaceId: "claude-plugins-official",
+              description: "Alpha plugin",
+              category: "development",
+              authorName: "Anthropic",
+              sourceType: "github",
+              homepage: "",
+              isOfficial: true,
+            },
+          ],
+        }),
+      );
+      renderEditor({ value: { "alpha@claude-plugins-official": true } });
+
+      const row = screen
+        .getByText("alpha@claude-plugins-official")
+        .closest("[data-slot='plugin-list-row']");
+      expect(row).not.toBeNull();
+      expect(
+        within(row as HTMLElement).getByText("市场 claude-plugins-official"),
+      ).toBeInTheDocument();
     });
 
     it("开关切换调用 onChange", () => {

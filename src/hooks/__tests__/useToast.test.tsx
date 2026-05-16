@@ -50,6 +50,17 @@ describe("useToast (sonner adapter)", () => {
     expect(toast.success).not.toHaveBeenCalled();
   });
 
+  it("success 类型支持展示描述", () => {
+    const { result } = renderHook(() => useToast());
+
+    act(() => {
+      result.current.showToast("ok", "success", { description: "具体数量" });
+    });
+
+    expect(toast.success).toHaveBeenCalledWith("ok", { description: "具体数量" });
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
   it("保持 showToast 引用稳定，避免依赖它的 effect 重复触发", () => {
     const { result, rerender } = renderHook(() => useToast());
     const firstShowToast = result.current.showToast;
