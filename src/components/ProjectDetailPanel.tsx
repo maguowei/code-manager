@@ -75,6 +75,7 @@ type BranchesSectionProps = {
 type WorktreesSectionProps = {
   detail: ProjectDetail | null;
   isPreviewing?: boolean;
+  onCopyWorktreePath: (path: string) => void;
   onOpenWorktreeInTerminal?: (path: string) => void;
   onPreviewCleanup?: () => void;
   t: TranslateFn;
@@ -243,6 +244,7 @@ function BranchesSection({ detail, isPreviewing, onPreviewCleanup, t }: Branches
 function WorktreesSection({
   detail,
   isPreviewing,
+  onCopyWorktreePath,
   onOpenWorktreeInTerminal,
   onPreviewCleanup,
   t,
@@ -294,12 +296,17 @@ function WorktreesSection({
                     <span className="text-xs text-muted-foreground sm:hidden">
                       {t("projects.worktreePath")}
                     </span>
-                    <span
-                      className="projects-row-path text-sm font-semibold leading-6 break-all text-foreground"
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="projects-row-path h-auto max-w-full min-w-0 shrink justify-start whitespace-normal rounded-md border border-transparent px-1 py-0 text-left text-sm font-semibold leading-6 break-all text-foreground hover:border-border hover:bg-accent hover:text-accent-foreground focus-visible:border-primary/70 focus-visible:bg-accent focus-visible:ring-0"
                       title={worktree.path}
+                      aria-label={`${t("projects.copyWorktreePath")} ${worktree.path}`}
+                      onClick={() => onCopyWorktreePath(worktree.path)}
                     >
                       {worktree.path}
-                    </span>
+                    </Button>
                   </div>
                   <div className="projects-table-cell grid min-w-0 gap-1 sm:block">
                     <span className="text-xs text-muted-foreground sm:hidden">
@@ -372,12 +379,6 @@ function OverviewPanel({ onCopySessionId, summary, t }: OverviewPanelProps) {
 
       <dl className="projects-definition-list flex flex-col">
         <div className="projects-definition-row grid grid-cols-[120px_minmax(0,1fr)] gap-3 border-b py-3 first:pt-0 last:border-b-0 last:pb-0 max-sm:grid-cols-1 max-sm:gap-1">
-          <dt className="text-sm text-muted-foreground">{t("projects.lastActive")}</dt>
-          <dd className="text-sm font-semibold leading-6 text-foreground">
-            {formatHistoryTimestamp(summary.lastActiveAt)}
-          </dd>
-        </div>
-        <div className="projects-definition-row grid grid-cols-[120px_minmax(0,1fr)] gap-3 border-b py-3 first:pt-0 last:border-b-0 last:pb-0 max-sm:grid-cols-1 max-sm:gap-1">
           <dt className="text-sm text-muted-foreground">{t("projects.sessionCount")}</dt>
           <dd className="text-sm font-semibold leading-6 text-foreground">
             {summary.sessionCount}
@@ -411,6 +412,12 @@ function OverviewPanel({ onCopySessionId, summary, t }: OverviewPanelProps) {
                 {t("projects.lastSessionIdMissing")}
               </span>
             )}
+          </dd>
+        </div>
+        <div className="projects-definition-row grid grid-cols-[120px_minmax(0,1fr)] gap-3 border-b py-3 first:pt-0 last:border-b-0 last:pb-0 max-sm:grid-cols-1 max-sm:gap-1">
+          <dt className="text-sm text-muted-foreground">{t("projects.lastActive")}</dt>
+          <dd className="text-sm font-semibold leading-6 text-foreground">
+            {formatHistoryTimestamp(summary.lastActiveAt)}
           </dd>
         </div>
       </dl>
@@ -532,6 +539,11 @@ function ProjectDetailPanel({
   const handleCopySessionId = useCallback(
     (sessionId: string) =>
       handleCopyValue(sessionId, "projects.sessionIdCopied", "projects.sessionIdCopyError"),
+    [handleCopyValue],
+  );
+  const handleCopyWorktreePath = useCallback(
+    (path: string) =>
+      handleCopyValue(path, "projects.worktreePathCopied", "projects.worktreePathCopyError"),
     [handleCopyValue],
   );
 
@@ -755,6 +767,7 @@ function ProjectDetailPanel({
           <WorktreesSection
             detail={detail}
             isPreviewing={isWorktreeCleanupPreviewing}
+            onCopyWorktreePath={handleCopyWorktreePath}
             onOpenWorktreeInTerminal={onOpenWorktreeInTerminal}
             onPreviewCleanup={onPreviewWorktreeCleanup}
             t={t}

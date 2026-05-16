@@ -120,6 +120,23 @@ describe("ProjectsPage layout", () => {
     expect(writeText).toHaveBeenCalledWith(fullSessionId);
   });
 
+  it("places last active as the final overview item", () => {
+    renderDetailPanel();
+
+    const overviewPanel = screen.getByText("projects.overview").closest(".projects-overview-panel");
+    expect(overviewPanel).not.toBeNull();
+    const overviewLabels = Array.from(
+      (overviewPanel as HTMLElement).querySelectorAll(".projects-definition-row dt"),
+    ).map((label) => label.textContent);
+
+    expect(overviewLabels).toEqual([
+      "projects.sessionCount",
+      "projects.messageCount",
+      "projects.lastSessionId",
+      "projects.lastActive",
+    ]);
+  });
+
   it("right aligns timestamps in recent session cards", () => {
     renderDetailPanel();
 
@@ -299,6 +316,56 @@ describe("ProjectsPage layout", () => {
     const pathCell = screen.getByText(worktreePath);
     expect(pathCell).toHaveAttribute("title", worktreePath);
     expect(pathCell).not.toHaveClass("truncate");
+  });
+
+  it("copies the full worktree path from the path cell", () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    const worktreePath =
+      "/Users/test-user/work/alpha/.worktrees/very-long-feature-branch-name-that-needs-inspection";
+
+    render(
+      createElement(ProjectDetailPanel, {
+        t: (key) => key,
+        summary: SUMMARY,
+        detail: {
+          ...DETAIL,
+          worktrees: [
+            {
+              path: worktreePath,
+              branch: "feature/long-path",
+              head: "1234567890abcdef",
+              isCurrent: false,
+              isDetached: false,
+            },
+          ],
+        },
+        defaultEditorApp: "vscode",
+        canCreateAgentsLink: true,
+        canOpenRepository: true,
+        canOpenProjectDirectory: true,
+        canOpenInEditor: true,
+        isLinkingAgents: false,
+        onOpenInTerminal: () => undefined,
+        onOpenInEditor: () => undefined,
+        onOpenRepository: () => undefined,
+        onCreateAgentsLink: () => undefined,
+        onOpenSession: () => undefined,
+        onOpenProjectHistory: () => undefined,
+      }),
+    );
+
+    const pathButton = screen.getByRole("button", {
+      name: `projects.copyWorktreePath ${worktreePath}`,
+    });
+    fireEvent.click(pathButton);
+
+    expect(pathButton).toHaveTextContent(worktreePath);
+    expect(pathButton).toHaveAttribute("title", worktreePath);
+    expect(writeText).toHaveBeenCalledWith(worktreePath);
   });
 
   it("renders git warnings through the shared warning tone", () => {
