@@ -441,7 +441,9 @@ describe("UsagePage cost cockpit", () => {
     });
 
     expect(
-      screen.getByText("第三方模型计价已停用，Kimi / MiMo / GLM / MiniMax 费用按 $0 计入"),
+      screen.getByText(
+        "第三方模型计价已停用，Kimi / MiMo / GLM / MiniMax / DeepSeek 费用按 $0 计入",
+      ),
     ).toBeInTheDocument();
   });
 

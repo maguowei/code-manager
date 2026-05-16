@@ -952,7 +952,7 @@ fn is_target_third_party_model(model: &str) -> bool {
     let normalized = normalize_model_key(model);
     normalized
         .split('-')
-        .any(|part| matches!(part, "kimi" | "mimo" | "glm" | "minimax"))
+        .any(|part| matches!(part, "kimi" | "mimo" | "glm" | "minimax" | "deepseek"))
 }
 
 /// 根据 model id 查价格，未命中时按子串模糊匹配（opus / sonnet / haiku）
@@ -1707,6 +1707,7 @@ fn is_supported_models_dev_provider(provider: &str) -> bool {
             | "xiaomi"
             | "mimo"
             | "xiaomi-mimo"
+            | "deepseek"
     )
 }
 
@@ -2636,6 +2637,12 @@ mod tests {
                     "mimo-v2.5-pro": { "cost": { "input": 1.0, "output": 3.0 } }
                 }
             },
+            "deepseek": {
+                "id": "deepseek",
+                "models": {
+                    "deepseek-v4.1": { "cost": { "input": 0.4, "output": 1.6 } }
+                }
+            },
             "openrouter": {
                 "id": "openrouter",
                 "models": {
@@ -2652,6 +2659,7 @@ mod tests {
         assert!(table.models.contains_key("glm-5.1"));
         assert!(table.models.contains_key("MiniMax-M2.7"));
         assert!(table.models.contains_key("mimo-v2.5-pro"));
+        assert!(table.models.contains_key("deepseek-v4.1"));
         assert!(!table.models.contains_key("minimax/minimax-m2.7"));
         Ok(())
     }
@@ -2677,6 +2685,15 @@ mod tests {
                 cache_write: 0.15,
             },
         );
+        table.models.insert(
+            "deepseek-v4.1".to_string(),
+            ModelPrice {
+                input: 0.4,
+                output: 1.6,
+                cache_read: 0.04,
+                cache_write: 0.4,
+            },
+        );
 
         assert_eq!(
             match_model_price("moonshotai/kimi-k2-6", &table)
@@ -2690,6 +2707,12 @@ mod tests {
                 .output,
             1.5
         );
+        assert_eq!(
+            match_model_price("deepseek/deepseek-v4-1", &table)
+                .expect("deepseek price")
+                .output,
+            1.6
+        );
     }
 
     #[test]
@@ -2702,6 +2725,15 @@ mod tests {
                 output: 2.2,
                 cache_read: 0.06,
                 cache_write: 0.6,
+            },
+        );
+        table.models.insert(
+            "deepseek-v4.1".to_string(),
+            ModelPrice {
+                input: 0.4,
+                output: 1.6,
+                cache_read: 0.04,
+                cache_write: 0.4,
             },
         );
         let usage = RawUsage {
@@ -2720,6 +2752,18 @@ mod tests {
         assert!((enabled_cost - 2.8).abs() < 1e-9, "cost was {enabled_cost}");
         assert_eq!(disabled_cost, 0.0);
         assert!(!is_unknown_model("zhipuai/glm-5-1", &table, false));
+
+        let deepseek_enabled_cost =
+            compute_cost_with_third_party_pricing("deepseek/deepseek-v4-1", &table, &usage, true);
+        let deepseek_disabled_cost =
+            compute_cost_with_third_party_pricing("deepseek/deepseek-v4-1", &table, &usage, false);
+
+        assert!(
+            (deepseek_enabled_cost - 2.0).abs() < 1e-9,
+            "cost was {deepseek_enabled_cost}"
+        );
+        assert_eq!(deepseek_disabled_cost, 0.0);
+        assert!(!is_unknown_model("deepseek/deepseek-v4-1", &table, false));
     }
 
     #[test]

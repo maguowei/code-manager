@@ -187,6 +187,7 @@ describe("SettingsDrawer", () => {
     renderSettingsDrawer();
 
     expect(await screen.findByText("第三方模型计价")).toBeInTheDocument();
+    expect(screen.getByText(/DeepSeek/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("switch", { name: "第三方模型计价" }));
 
     expect(invokeMock).toHaveBeenCalledWith("set_app_preferences", {
