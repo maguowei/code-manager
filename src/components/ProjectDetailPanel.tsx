@@ -1,4 +1,12 @@
-import { Code2, ExternalLink, Link2, List, MessageSquareText, Terminal } from "lucide-react";
+import {
+  Code2,
+  ExternalLink,
+  Link2,
+  List,
+  MessageSquareText,
+  SearchCheck,
+  Terminal,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import type { DefaultEditorApp, ProjectDetail, ProjectSummary } from "../types";
@@ -33,8 +41,13 @@ type ProjectDetailPanelProps = {
   onOpenInEditor: () => void;
   onOpenRepository: () => void;
   onCreateAgentsLink: () => void;
+  onPreviewBranchCleanup?: () => void;
+  onPreviewWorktreeCleanup?: () => void;
+  onOpenWorktreeInTerminal?: (path: string) => void;
   onOpenSession: (sessionId: string) => void;
   onOpenProjectHistory: () => void;
+  isBranchCleanupPreviewing?: boolean;
+  isWorktreeCleanupPreviewing?: boolean;
 };
 
 type SectionHeadingProps = {
@@ -51,11 +64,16 @@ type StatusStripItemProps = {
 
 type BranchesSectionProps = {
   detail: ProjectDetail | null;
+  isPreviewing?: boolean;
+  onPreviewCleanup?: () => void;
   t: TranslateFn;
 };
 
 type WorktreesSectionProps = {
   detail: ProjectDetail | null;
+  isPreviewing?: boolean;
+  onOpenWorktreeInTerminal?: (path: string) => void;
+  onPreviewCleanup?: () => void;
   t: TranslateFn;
 };
 
@@ -134,10 +152,25 @@ function StatusStripItem({ label, value, tone }: StatusStripItemProps) {
   );
 }
 
-function BranchesSection({ detail, t }: BranchesSectionProps) {
+function BranchesSection({ detail, isPreviewing, onPreviewCleanup, t }: BranchesSectionProps) {
   return (
     <Card className={cn("projects-structure-section gap-4 rounded-lg p-5", PANEL_SURFACE_CLASS)}>
-      <SectionHeading title={t("projects.branches")} />
+      <SectionHeading
+        title={t("projects.branches")}
+        action={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="projects-cleanup-preview-btn"
+            onClick={onPreviewCleanup}
+            disabled={!detail?.isGitRepo || isPreviewing || !onPreviewCleanup}
+          >
+            <SearchCheck className="size-4" aria-hidden="true" />
+            {isPreviewing ? t("projects.cleanupDetecting") : t("projects.detectCleanableBranches")}
+          </Button>
+        }
+      />
 
       {!detail?.isGitRepo ? (
         <div className="projects-empty-block flex min-h-[120px] items-center justify-center border-t px-4 text-center text-sm text-muted-foreground">
@@ -200,10 +233,31 @@ function BranchesSection({ detail, t }: BranchesSectionProps) {
   );
 }
 
-function WorktreesSection({ detail, t }: WorktreesSectionProps) {
+function WorktreesSection({
+  detail,
+  isPreviewing,
+  onOpenWorktreeInTerminal,
+  onPreviewCleanup,
+  t,
+}: WorktreesSectionProps) {
   return (
     <Card className={cn("projects-structure-section gap-4 rounded-lg p-5", PANEL_SURFACE_CLASS)}>
-      <SectionHeading title={t("projects.worktrees")} />
+      <SectionHeading
+        title={t("projects.worktrees")}
+        action={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="projects-cleanup-preview-btn"
+            onClick={onPreviewCleanup}
+            disabled={!detail?.isGitRepo || isPreviewing || !onPreviewCleanup}
+          >
+            <SearchCheck className="size-4" aria-hidden="true" />
+            {isPreviewing ? t("projects.cleanupDetecting") : t("projects.detectCleanableWorktrees")}
+          </Button>
+        }
+      />
 
       {!detail?.isGitRepo ? (
         <div className="projects-empty-block flex min-h-[120px] items-center justify-center border-t px-4 text-center text-sm text-muted-foreground">
@@ -216,17 +270,18 @@ function WorktreesSection({ detail, t }: WorktreesSectionProps) {
       ) : (
         <div className="projects-table border-t">
           <div className="projects-table-inner w-full">
-            <div className="projects-table-header projects-worktree-grid hidden gap-4 border-b py-2 text-sm font-semibold text-muted-foreground sm:grid sm:grid-cols-[minmax(0,1.45fr)_minmax(0,0.7fr)_minmax(0,0.5fr)_minmax(0,0.6fr)]">
+            <div className="projects-table-header projects-worktree-grid hidden gap-4 border-b py-2 text-sm font-semibold text-muted-foreground sm:grid sm:grid-cols-[minmax(0,1.35fr)_minmax(0,0.65fr)_minmax(0,0.45fr)_minmax(0,0.55fr)_48px]">
               <span>{t("projects.worktreePath")}</span>
               <span>{t("projects.branchRef")}</span>
               <span>{t("projects.head")}</span>
               <span>{t("projects.flags")}</span>
+              <span>{t("projects.actions")}</span>
             </div>
             <div className="projects-table-body">
               {detail.worktrees.map((worktree) => (
                 <div
                   key={worktree.path}
-                  className="projects-table-row projects-worktree-grid grid gap-2 border-b py-3 last:border-b-0 sm:grid-cols-[minmax(0,1.45fr)_minmax(0,0.7fr)_minmax(0,0.5fr)_minmax(0,0.6fr)] sm:gap-4"
+                  className="projects-table-row projects-worktree-grid grid gap-2 border-b py-3 last:border-b-0 sm:grid-cols-[minmax(0,1.35fr)_minmax(0,0.65fr)_minmax(0,0.45fr)_minmax(0,0.55fr)_48px] sm:gap-4"
                 >
                   <div className="projects-table-cell grid min-w-0 gap-1 sm:block">
                     <span className="text-xs text-muted-foreground sm:hidden">
@@ -273,6 +328,23 @@ function WorktreesSection({ detail, t }: WorktreesSectionProps) {
                         <span className="projects-flag-empty text-sm text-muted-foreground">—</span>
                       )}
                     </div>
+                  </div>
+                  <div className="projects-table-cell grid min-w-0 gap-1 sm:block">
+                    <span className="text-xs text-muted-foreground sm:hidden">
+                      {t("projects.actions")}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      className="projects-worktree-terminal-btn size-7 rounded-md text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                      onClick={() => onOpenWorktreeInTerminal?.(worktree.path)}
+                      disabled={!onOpenWorktreeInTerminal}
+                      aria-label={`${t("projects.openWorktreeInTerminal")} ${worktree.path}`}
+                      title={`${t("projects.openWorktreeInTerminal")} ${worktree.path}`}
+                    >
+                      <Terminal className="size-3.5" aria-hidden="true" />
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -410,8 +482,13 @@ function ProjectDetailPanel({
   onOpenInEditor,
   onOpenRepository,
   onCreateAgentsLink,
+  onPreviewBranchCleanup,
+  onPreviewWorktreeCleanup,
+  onOpenWorktreeInTerminal,
   onOpenSession,
   onOpenProjectHistory,
+  isBranchCleanupPreviewing,
+  isWorktreeCleanupPreviewing,
 }: ProjectDetailPanelProps) {
   const directoryTone: StatusTone = detail?.exists ? "success" : "danger";
   const gitTone: StatusTone = detail?.isGitRepo ? "success" : detail?.exists ? "warning" : "muted";
@@ -619,8 +696,19 @@ function ProjectDetailPanel({
 
       <div className="projects-detail-grid grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(260px,0.85fr)]">
         <div className="projects-detail-main flex min-w-0 flex-col gap-6">
-          <BranchesSection detail={detail} t={t} />
-          <WorktreesSection detail={detail} t={t} />
+          <BranchesSection
+            detail={detail}
+            isPreviewing={isBranchCleanupPreviewing}
+            onPreviewCleanup={onPreviewBranchCleanup}
+            t={t}
+          />
+          <WorktreesSection
+            detail={detail}
+            isPreviewing={isWorktreeCleanupPreviewing}
+            onOpenWorktreeInTerminal={onOpenWorktreeInTerminal}
+            onPreviewCleanup={onPreviewWorktreeCleanup}
+            t={t}
+          />
         </div>
 
         <aside className="projects-detail-side flex min-w-0 flex-col gap-6 xl:border-l xl:pl-5">

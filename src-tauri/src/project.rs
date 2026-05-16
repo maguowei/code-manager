@@ -1,4 +1,5 @@
 use serde::Serialize;
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -59,10 +60,81 @@ pub struct ProjectPurgeOutput {
     pub output: String,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ProjectGitCleanupReason {
+    Merged,
+    UpstreamGone,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectBranchCleanupCandidate {
+    pub name: String,
+    pub reason: ProjectGitCleanupReason,
+    pub force_delete: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_commit_at: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_commit_subject: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectWorktreeCleanupCandidate {
+    pub path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub head: Option<String>,
+    pub reason: ProjectGitCleanupReason,
+    pub is_detached: bool,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectGitCleanupPreview {
+    pub project: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub repo_root: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub base_branch: Option<String>,
+    pub branch_candidates: Vec<ProjectBranchCleanupCandidate>,
+    pub worktree_candidates: Vec<ProjectWorktreeCleanupCandidate>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectGitCleanupResult {
+    pub project: String,
+    pub deleted_branches: Vec<String>,
+    pub deleted_worktrees: Vec<String>,
+    pub errors: Vec<String>,
+}
+
 #[derive(Debug, PartialEq, Eq)]
 struct ProjectFileStatus {
     has_claude_md: bool,
     agents_status: AgentsStatus,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct BranchCleanupInfo {
+    name: String,
+    is_current: bool,
+    last_commit_at: Option<u64>,
+    last_commit_subject: Option<String>,
+    upstream_track: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct WorktreeCleanupInfo {
+    path: String,
+    branch: Option<String>,
+    head: Option<String>,
+    is_current: bool,
+    is_detached: bool,
+    is_locked: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -79,6 +151,8 @@ impl ProjectPurgeMode {
         }
     }
 }
+
+const PROTECTED_BRANCHES: &[&str] = &["main", "master", "dev", "develop", "trunk"];
 
 #[tauri::command]
 pub fn get_project_detail(project: &str) -> Result<ProjectDetail, String> {
@@ -198,6 +272,40 @@ pub fn preview_project_local_data_purge(project: &str) -> Result<ProjectPurgeOut
 pub fn purge_project_local_data(project: &str) -> Result<ProjectPurgeOutput, String> {
     let result = run_claude_project_purge(project, ProjectPurgeMode::Execute);
     log_project_purge_result("project.local_data_purge.execute", project, &result);
+    result
+}
+
+#[tauri::command]
+pub fn preview_project_branch_cleanup(project: &str) -> Result<ProjectGitCleanupPreview, String> {
+    let result = build_project_branch_cleanup_preview(project);
+    log_project_git_cleanup_result("project.branch_cleanup.preview", project, result.is_ok());
+    result
+}
+
+#[tauri::command]
+pub fn cleanup_project_branches(
+    project: &str,
+    branches: Vec<String>,
+) -> Result<ProjectGitCleanupResult, String> {
+    let result = run_project_branch_cleanup(project, branches);
+    log_project_git_cleanup_result("project.branch_cleanup.execute", project, result.is_ok());
+    result
+}
+
+#[tauri::command]
+pub fn preview_project_worktree_cleanup(project: &str) -> Result<ProjectGitCleanupPreview, String> {
+    let result = build_project_worktree_cleanup_preview(project);
+    log_project_git_cleanup_result("project.worktree_cleanup.preview", project, result.is_ok());
+    result
+}
+
+#[tauri::command]
+pub fn cleanup_project_worktrees(
+    project: &str,
+    worktrees: Vec<String>,
+) -> Result<ProjectGitCleanupResult, String> {
+    let result = run_project_worktree_cleanup(project, worktrees);
+    log_project_git_cleanup_result("project.worktree_cleanup.execute", project, result.is_ok());
     result
 }
 
@@ -378,6 +486,559 @@ fn parse_worktrees_output(output: &str, current_root: &Path) -> Vec<ProjectWorkt
             .then_with(|| a.path.cmp(&b.path))
     });
     worktrees
+}
+
+fn build_project_branch_cleanup_preview(project: &str) -> Result<ProjectGitCleanupPreview, String> {
+    let project_path = validate_existing_project_dir(project)?;
+    let project_display = project_path.to_string_lossy().to_string();
+    let repo_root = git_repo_root(&project_path)?;
+    let branch_infos = load_branch_cleanup_infos(&project_path)?;
+    let worktree_infos = load_worktree_cleanup_infos(&project_path, Path::new(&repo_root))?;
+    let local_branches = branch_infos
+        .iter()
+        .map(|branch| branch.name.clone())
+        .collect::<HashSet<_>>();
+    let current_branch = branch_infos
+        .iter()
+        .find(|branch| branch.is_current)
+        .map(|branch| branch.name.as_str());
+    let remote_default_branch = resolve_remote_default_local_branch(&project_path, &local_branches);
+    let base_branch = select_cleanup_base_branch(
+        current_branch,
+        remote_default_branch.as_deref(),
+        &local_branches,
+    );
+
+    let occupied_branches = worktree_infos
+        .iter()
+        .filter_map(|worktree| worktree.branch.clone())
+        .collect::<HashSet<_>>();
+    let branch_candidates = base_branch
+        .as_deref()
+        .map(|base| {
+            build_branch_cleanup_candidates(
+                &project_path,
+                &branch_infos,
+                base,
+                &occupied_branches,
+                remote_default_branch.as_deref(),
+                true,
+            )
+        })
+        .unwrap_or_default();
+
+    Ok(ProjectGitCleanupPreview {
+        project: project_display,
+        repo_root: Some(repo_root),
+        base_branch,
+        branch_candidates,
+        worktree_candidates: Vec::new(),
+    })
+}
+
+fn run_project_branch_cleanup(
+    project: &str,
+    branches: Vec<String>,
+) -> Result<ProjectGitCleanupResult, String> {
+    let project_path = validate_existing_project_dir(project)?;
+    let project_display = project_path.to_string_lossy().to_string();
+    let preview = build_project_branch_cleanup_preview(project)?;
+    let candidates = preview
+        .branch_candidates
+        .into_iter()
+        .map(|candidate| (candidate.name.clone(), candidate))
+        .collect::<std::collections::HashMap<_, _>>();
+    let mut requested = HashSet::new();
+    let mut deleted_branches = Vec::new();
+    let mut errors = Vec::new();
+
+    for branch in branches {
+        if !requested.insert(branch.clone()) {
+            continue;
+        }
+        let Some(candidate) = candidates.get(&branch) else {
+            continue;
+        };
+        let flag = if candidate.force_delete { "-D" } else { "-d" };
+        match run_git(&project_path, &["branch", flag, &candidate.name]) {
+            Ok(_) => deleted_branches.push(candidate.name.clone()),
+            Err(error) => errors.push(format!("{}: {}", candidate.name, error)),
+        }
+    }
+
+    Ok(ProjectGitCleanupResult {
+        project: project_display,
+        deleted_branches,
+        deleted_worktrees: Vec::new(),
+        errors,
+    })
+}
+
+fn build_project_worktree_cleanup_preview(
+    project: &str,
+) -> Result<ProjectGitCleanupPreview, String> {
+    let project_path = validate_existing_project_dir(project)?;
+    let project_display = project_path.to_string_lossy().to_string();
+    let repo_root = git_repo_root(&project_path)?;
+    let branch_infos = load_branch_cleanup_infos(&project_path)?;
+    let worktree_infos = load_worktree_cleanup_infos(&project_path, Path::new(&repo_root))?;
+    let local_branches = branch_infos
+        .iter()
+        .map(|branch| branch.name.clone())
+        .collect::<HashSet<_>>();
+    let current_branch = branch_infos
+        .iter()
+        .find(|branch| branch.is_current)
+        .map(|branch| branch.name.as_str());
+    let remote_default_branch = resolve_remote_default_local_branch(&project_path, &local_branches);
+    let base_branch = select_cleanup_base_branch(
+        current_branch,
+        remote_default_branch.as_deref(),
+        &local_branches,
+    );
+    let branch_lookup = branch_infos
+        .iter()
+        .map(|branch| (branch.name.as_str(), branch))
+        .collect::<std::collections::HashMap<_, _>>();
+    let worktree_candidates = base_branch
+        .as_deref()
+        .map(|base| {
+            build_worktree_cleanup_candidates(
+                &project_path,
+                &worktree_infos,
+                &branch_lookup,
+                base,
+                remote_default_branch.as_deref(),
+            )
+        })
+        .unwrap_or_default();
+
+    Ok(ProjectGitCleanupPreview {
+        project: project_display,
+        repo_root: Some(repo_root),
+        base_branch,
+        branch_candidates: Vec::new(),
+        worktree_candidates,
+    })
+}
+
+fn run_project_worktree_cleanup(
+    project: &str,
+    worktrees: Vec<String>,
+) -> Result<ProjectGitCleanupResult, String> {
+    let project_path = validate_existing_project_dir(project)?;
+    let project_display = project_path.to_string_lossy().to_string();
+    let preview = build_project_worktree_cleanup_preview(project)?;
+    let candidates = preview
+        .worktree_candidates
+        .into_iter()
+        .map(|candidate| (candidate.path.clone(), candidate))
+        .collect::<std::collections::HashMap<_, _>>();
+    let mut requested = HashSet::new();
+    let mut deleted_worktrees = Vec::new();
+    let mut errors = Vec::new();
+
+    for worktree in worktrees {
+        if !requested.insert(worktree.clone()) {
+            continue;
+        }
+        let Some(candidate) = candidates.get(&worktree) else {
+            continue;
+        };
+        match run_git(&project_path, &["worktree", "remove", &candidate.path]) {
+            Ok(_) => deleted_worktrees.push(candidate.path.clone()),
+            Err(error) => errors.push(format!("{}: {}", candidate.path, error)),
+        }
+    }
+
+    if let Err(error) = run_git(&project_path, &["worktree", "prune"]) {
+        errors.push(format!("worktree prune: {}", error));
+    }
+
+    Ok(ProjectGitCleanupResult {
+        project: project_display,
+        deleted_branches: Vec::new(),
+        deleted_worktrees,
+        errors,
+    })
+}
+
+fn validate_existing_project_dir(project: &str) -> Result<PathBuf, String> {
+    let project_path = validate_project_path(project)?;
+    if !project_path.is_dir() {
+        return Err("项目目录不存在".to_string());
+    }
+    Ok(project_path)
+}
+
+fn load_branch_cleanup_infos(project: &Path) -> Result<Vec<BranchCleanupInfo>, String> {
+    let output = run_git(
+        project,
+        &[
+            "for-each-ref",
+            "refs/heads",
+            "--sort=-committerdate",
+            "--format=%(refname:short)%00%(HEAD)%00%(committerdate:unix)%00%(subject)%00%(upstream:track)",
+        ],
+    )?;
+    Ok(parse_branch_cleanup_infos(&output))
+}
+
+fn parse_branch_cleanup_infos(output: &str) -> Vec<BranchCleanupInfo> {
+    output
+        .lines()
+        .filter_map(|line| {
+            let mut parts = line.split('\0');
+            let name = parts.next()?.trim();
+            if name.is_empty() {
+                return None;
+            }
+            let is_current = parts
+                .next()
+                .map(|value| value.trim() == "*")
+                .unwrap_or(false);
+            let last_commit_at = parts.next().and_then(|value| {
+                let trimmed = value.trim();
+                if trimmed.is_empty() || trimmed == "0" {
+                    None
+                } else {
+                    trimmed.parse::<u64>().ok()
+                }
+            });
+            let last_commit_subject = parts
+                .next()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(ToOwned::to_owned);
+            let upstream_track = parts
+                .next()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(ToOwned::to_owned);
+
+            Some(BranchCleanupInfo {
+                name: name.to_string(),
+                is_current,
+                last_commit_at,
+                last_commit_subject,
+                upstream_track,
+            })
+        })
+        .collect()
+}
+
+fn load_worktree_cleanup_infos(
+    project: &Path,
+    current_root: &Path,
+) -> Result<Vec<WorktreeCleanupInfo>, String> {
+    let output = run_git(project, &["worktree", "list", "--porcelain"])?;
+    Ok(parse_worktree_cleanup_infos(&output, current_root))
+}
+
+fn parse_worktree_cleanup_infos(output: &str, current_root: &Path) -> Vec<WorktreeCleanupInfo> {
+    let mut worktrees = Vec::new();
+    let mut current_path: Option<String> = None;
+    let mut current_branch: Option<String> = None;
+    let mut current_head: Option<String> = None;
+    let mut current_detached = false;
+    let mut current_locked = false;
+
+    let push_current = |worktrees: &mut Vec<WorktreeCleanupInfo>,
+                        current_path: &mut Option<String>,
+                        current_branch: &mut Option<String>,
+                        current_head: &mut Option<String>,
+                        current_detached: &mut bool,
+                        current_locked: &mut bool| {
+        if let Some(path) = current_path.take() {
+            let path_buf = PathBuf::from(&path);
+            worktrees.push(WorktreeCleanupInfo {
+                is_current: paths_match(&path_buf, current_root),
+                path,
+                branch: current_branch.take(),
+                head: current_head.take(),
+                is_detached: *current_detached,
+                is_locked: *current_locked,
+            });
+            *current_detached = false;
+            *current_locked = false;
+        }
+    };
+
+    for line in output.lines() {
+        if line.trim().is_empty() {
+            push_current(
+                &mut worktrees,
+                &mut current_path,
+                &mut current_branch,
+                &mut current_head,
+                &mut current_detached,
+                &mut current_locked,
+            );
+            continue;
+        }
+
+        if let Some(path) = line.strip_prefix("worktree ") {
+            push_current(
+                &mut worktrees,
+                &mut current_path,
+                &mut current_branch,
+                &mut current_head,
+                &mut current_detached,
+                &mut current_locked,
+            );
+            current_path = Some(path.trim().to_string());
+            continue;
+        }
+
+        if let Some(head) = line.strip_prefix("HEAD ") {
+            current_head = Some(head.trim().to_string());
+            continue;
+        }
+
+        if let Some(branch) = line.strip_prefix("branch ") {
+            current_branch = Some(branch.trim().trim_start_matches("refs/heads/").to_string());
+            current_detached = false;
+            continue;
+        }
+
+        if line == "detached" {
+            current_detached = true;
+            continue;
+        }
+
+        if line == "locked" || line.starts_with("locked ") {
+            current_locked = true;
+        }
+    }
+
+    push_current(
+        &mut worktrees,
+        &mut current_path,
+        &mut current_branch,
+        &mut current_head,
+        &mut current_detached,
+        &mut current_locked,
+    );
+
+    worktrees
+}
+
+fn select_cleanup_base_branch(
+    current_branch: Option<&str>,
+    remote_default_branch: Option<&str>,
+    local_branches: &HashSet<String>,
+) -> Option<String> {
+    if current_branch.is_some_and(is_protected_branch) {
+        return current_branch.map(ToOwned::to_owned);
+    }
+
+    if let Some(remote_default_branch) = remote_default_branch {
+        return Some(remote_default_branch.to_string());
+    }
+
+    PROTECTED_BRANCHES
+        .iter()
+        .find(|branch| local_branches.contains(**branch))
+        .map(|branch| (*branch).to_string())
+        .or_else(|| current_branch.map(ToOwned::to_owned))
+}
+
+fn resolve_remote_default_local_branch(
+    project: &Path,
+    local_branches: &HashSet<String>,
+) -> Option<String> {
+    let output = run_git(
+        project,
+        &[
+            "symbolic-ref",
+            "--quiet",
+            "--short",
+            "refs/remotes/origin/HEAD",
+        ],
+    )
+    .ok()?;
+    let local_name = output.trim().strip_prefix("origin/")?.to_string();
+    if local_branches.contains(&local_name) {
+        Some(local_name)
+    } else {
+        None
+    }
+}
+
+fn build_branch_cleanup_candidates(
+    project: &Path,
+    branch_infos: &[BranchCleanupInfo],
+    base_branch: &str,
+    occupied_branches: &HashSet<String>,
+    remote_default_branch: Option<&str>,
+    skip_occupied_branches: bool,
+) -> Vec<ProjectBranchCleanupCandidate> {
+    branch_infos
+        .iter()
+        .filter_map(|branch| {
+            evaluate_branch_cleanup_candidate(
+                project,
+                branch,
+                base_branch,
+                occupied_branches,
+                remote_default_branch,
+                skip_occupied_branches,
+            )
+        })
+        .collect()
+}
+
+fn evaluate_branch_cleanup_candidate(
+    project: &Path,
+    branch: &BranchCleanupInfo,
+    base_branch: &str,
+    occupied_branches: &HashSet<String>,
+    remote_default_branch: Option<&str>,
+    skip_occupied_branches: bool,
+) -> Option<ProjectBranchCleanupCandidate> {
+    if branch.is_current
+        || branch.name == base_branch
+        || is_protected_branch(&branch.name)
+        || remote_default_branch == Some(branch.name.as_str())
+        || (skip_occupied_branches && occupied_branches.contains(&branch.name))
+    {
+        return None;
+    }
+
+    if git_status_success(
+        project,
+        &["merge-base", "--is-ancestor", &branch.name, base_branch],
+    ) {
+        return Some(ProjectBranchCleanupCandidate {
+            name: branch.name.clone(),
+            reason: ProjectGitCleanupReason::Merged,
+            force_delete: false,
+            last_commit_at: branch.last_commit_at,
+            last_commit_subject: branch.last_commit_subject.clone(),
+        });
+    }
+
+    if branch_upstream_is_gone(branch)
+        && git_cherry_has_no_unique_patches(project, base_branch, &branch.name)
+    {
+        return Some(ProjectBranchCleanupCandidate {
+            name: branch.name.clone(),
+            reason: ProjectGitCleanupReason::UpstreamGone,
+            force_delete: true,
+            last_commit_at: branch.last_commit_at,
+            last_commit_subject: branch.last_commit_subject.clone(),
+        });
+    }
+
+    None
+}
+
+fn build_worktree_cleanup_candidates(
+    project: &Path,
+    worktree_infos: &[WorktreeCleanupInfo],
+    branch_lookup: &std::collections::HashMap<&str, &BranchCleanupInfo>,
+    base_branch: &str,
+    remote_default_branch: Option<&str>,
+) -> Vec<ProjectWorktreeCleanupCandidate> {
+    let occupied_branches = HashSet::new();
+    worktree_infos
+        .iter()
+        .filter_map(|worktree| {
+            evaluate_worktree_cleanup_candidate(
+                project,
+                worktree,
+                branch_lookup,
+                base_branch,
+                remote_default_branch,
+                &occupied_branches,
+            )
+        })
+        .collect()
+}
+
+fn evaluate_worktree_cleanup_candidate(
+    project: &Path,
+    worktree: &WorktreeCleanupInfo,
+    branch_lookup: &std::collections::HashMap<&str, &BranchCleanupInfo>,
+    base_branch: &str,
+    remote_default_branch: Option<&str>,
+    occupied_branches: &HashSet<String>,
+) -> Option<ProjectWorktreeCleanupCandidate> {
+    if worktree.is_current || worktree.is_locked || !Path::new(&worktree.path).is_dir() {
+        return None;
+    }
+    if !worktree_is_clean(&worktree.path) {
+        return None;
+    }
+
+    let reason = if let Some(branch) = &worktree.branch {
+        let branch_info = branch_lookup.get(branch.as_str())?;
+        evaluate_branch_cleanup_candidate(
+            project,
+            branch_info,
+            base_branch,
+            occupied_branches,
+            remote_default_branch,
+            false,
+        )
+        .map(|candidate| candidate.reason)?
+    } else if let Some(head) = &worktree.head {
+        if git_status_success(project, &["merge-base", "--is-ancestor", head, base_branch])
+            || git_cherry_has_no_unique_patches(project, base_branch, head)
+        {
+            ProjectGitCleanupReason::Merged
+        } else {
+            return None;
+        }
+    } else {
+        return None;
+    };
+
+    Some(ProjectWorktreeCleanupCandidate {
+        path: worktree.path.clone(),
+        branch: worktree.branch.clone(),
+        head: worktree.head.clone(),
+        reason,
+        is_detached: worktree.is_detached,
+    })
+}
+
+fn is_protected_branch(branch: &str) -> bool {
+    PROTECTED_BRANCHES.contains(&branch)
+}
+
+fn branch_upstream_is_gone(branch: &BranchCleanupInfo) -> bool {
+    branch
+        .upstream_track
+        .as_deref()
+        .is_some_and(|track| track.contains("gone"))
+}
+
+fn git_cherry_has_no_unique_patches(project: &Path, base_branch: &str, branch: &str) -> bool {
+    run_git(project, &["cherry", base_branch, branch])
+        .map(|output| {
+            !output
+                .lines()
+                .any(|line| line.trim_start().starts_with('+'))
+        })
+        .unwrap_or(false)
+}
+
+fn worktree_is_clean(worktree_path: &str) -> bool {
+    let path = Path::new(worktree_path);
+    run_git(path, &["status", "--porcelain", "--untracked-files=normal"])
+        .map(|output| output.trim().is_empty())
+        .unwrap_or(false)
+}
+
+fn git_status_success(project: &Path, args: &[&str]) -> bool {
+    Command::new("git")
+        .arg("-C")
+        .arg(project)
+        .args(args)
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
 }
 
 fn resolve_repository_url(project: &Path) -> Option<String> {
@@ -594,6 +1255,15 @@ fn log_project_purge_result(
     }
 }
 
+fn log_project_git_cleanup_result(event: &str, project: &str, ok: bool) {
+    let project = crate::utils::truncate(project, 160);
+    if ok {
+        log::info!("event={event} status=ok project={project}");
+    } else {
+        log::error!("event={event} status=error project={project}");
+    }
+}
+
 fn inspect_project_files(project_dir: &Path) -> Result<ProjectFileStatus, String> {
     let claude_path = project_dir.join("CLAUDE.md");
     let agents_path = project_dir.join("AGENTS.md");
@@ -717,6 +1387,203 @@ mod tests {
         assert!(!worktrees[1].is_current);
         assert!(worktrees[1].is_detached);
         assert_eq!(worktrees[1].head.as_deref(), Some("2222222"));
+    }
+
+    #[test]
+    fn preview_branch_cleanup_skips_protected_current_and_worktree_branches() {
+        let repo = TestDir::new();
+        init_git_repo_with_commit(repo.path());
+        create_merged_branch(repo.path(), "feature/merged");
+        run_git_command(repo.path(), &["branch", "dev"]);
+        run_git_command(repo.path(), &["branch", "feature/worktree"]);
+        let worktree_dir = TestDir::new();
+        run_git_command(
+            repo.path(),
+            &[
+                "worktree",
+                "add",
+                worktree_dir.path().to_str().unwrap(),
+                "feature/worktree",
+            ],
+        );
+
+        let preview = preview_project_branch_cleanup(repo.path().to_str().unwrap()).unwrap();
+
+        assert_eq!(preview.base_branch.as_deref(), Some("main"));
+        assert_eq!(preview.branch_candidates.len(), 1);
+        assert_eq!(preview.branch_candidates[0].name, "feature/merged");
+        assert_eq!(
+            preview.branch_candidates[0].reason,
+            ProjectGitCleanupReason::Merged
+        );
+        assert!(!preview.branch_candidates[0].force_delete);
+    }
+
+    #[test]
+    fn preview_branch_cleanup_includes_upstream_gone_when_patch_equivalent() {
+        let repo = TestDir::new();
+        init_git_repo_with_commit(repo.path());
+        run_git_command(
+            repo.path(),
+            &["remote", "add", "origin", "https://example.com/repo.git"],
+        );
+        create_patch_equivalent_upstream_gone_branch(repo.path(), "feature/gone");
+        create_unmerged_upstream_gone_branch(repo.path(), "feature/unique");
+
+        let preview = preview_project_branch_cleanup(repo.path().to_str().unwrap()).unwrap();
+        let names = preview
+            .branch_candidates
+            .iter()
+            .map(|candidate| candidate.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(names.contains(&"feature/gone"));
+        assert!(!names.contains(&"feature/unique"));
+        let gone = preview
+            .branch_candidates
+            .iter()
+            .find(|candidate| candidate.name == "feature/gone")
+            .unwrap();
+        assert_eq!(gone.reason, ProjectGitCleanupReason::UpstreamGone);
+        assert!(gone.force_delete);
+    }
+
+    #[test]
+    fn cleanup_project_branches_deletes_only_current_safe_candidates() {
+        let repo = TestDir::new();
+        init_git_repo_with_commit(repo.path());
+        create_merged_branch(repo.path(), "feature/merged");
+        create_unmerged_upstream_gone_branch(repo.path(), "feature/unique");
+
+        let result = cleanup_project_branches(
+            repo.path().to_str().unwrap(),
+            vec![
+                "feature/merged".to_string(),
+                "feature/unique".to_string(),
+                "main".to_string(),
+            ],
+        )
+        .unwrap();
+
+        assert_eq!(result.deleted_branches, vec!["feature/merged"]);
+        assert!(branch_exists(repo.path(), "main"));
+        assert!(!branch_exists(repo.path(), "feature/merged"));
+        assert!(branch_exists(repo.path(), "feature/unique"));
+    }
+
+    #[test]
+    fn preview_worktree_cleanup_skips_current_dirty_and_locked_worktrees() {
+        let repo = TestDir::new();
+        init_git_repo_with_commit(repo.path());
+        create_merged_branch(repo.path(), "feature/clean-worktree");
+        create_merged_branch(repo.path(), "feature/dirty-worktree");
+        create_merged_branch(repo.path(), "feature/locked-worktree");
+
+        let clean_worktree = TestDir::new();
+        let dirty_worktree = TestDir::new();
+        let locked_worktree = TestDir::new();
+        run_git_command(
+            repo.path(),
+            &[
+                "worktree",
+                "add",
+                clean_worktree.path().to_str().unwrap(),
+                "feature/clean-worktree",
+            ],
+        );
+        run_git_command(
+            repo.path(),
+            &[
+                "worktree",
+                "add",
+                dirty_worktree.path().to_str().unwrap(),
+                "feature/dirty-worktree",
+            ],
+        );
+        std::fs::write(dirty_worktree.path().join("dirty.txt"), "dirty").unwrap();
+        run_git_command(
+            repo.path(),
+            &[
+                "worktree",
+                "add",
+                locked_worktree.path().to_str().unwrap(),
+                "feature/locked-worktree",
+            ],
+        );
+        run_git_command(
+            repo.path(),
+            &["worktree", "lock", locked_worktree.path().to_str().unwrap()],
+        );
+
+        let preview = preview_project_worktree_cleanup(repo.path().to_str().unwrap()).unwrap();
+        let paths = preview
+            .worktree_candidates
+            .iter()
+            .map(|candidate| candidate.path.as_str())
+            .collect::<Vec<_>>();
+
+        let clean_worktree_path = std::fs::canonicalize(clean_worktree.path())
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+        assert_eq!(paths, vec![clean_worktree_path.as_str()]);
+        assert_eq!(
+            preview.worktree_candidates[0].reason,
+            ProjectGitCleanupReason::Merged
+        );
+        assert_eq!(
+            preview.worktree_candidates[0].branch.as_deref(),
+            Some("feature/clean-worktree")
+        );
+    }
+
+    #[test]
+    fn cleanup_project_worktrees_removes_only_current_safe_candidates() {
+        let repo = TestDir::new();
+        init_git_repo_with_commit(repo.path());
+        create_merged_branch(repo.path(), "feature/clean-worktree");
+        create_merged_branch(repo.path(), "feature/dirty-worktree");
+
+        let clean_worktree = TestDir::new();
+        let dirty_worktree = TestDir::new();
+        run_git_command(
+            repo.path(),
+            &[
+                "worktree",
+                "add",
+                clean_worktree.path().to_str().unwrap(),
+                "feature/clean-worktree",
+            ],
+        );
+        run_git_command(
+            repo.path(),
+            &[
+                "worktree",
+                "add",
+                dirty_worktree.path().to_str().unwrap(),
+                "feature/dirty-worktree",
+            ],
+        );
+        std::fs::write(dirty_worktree.path().join("dirty.txt"), "dirty").unwrap();
+
+        let clean_worktree_path = std::fs::canonicalize(clean_worktree.path())
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+        let result = cleanup_project_worktrees(
+            repo.path().to_str().unwrap(),
+            vec![
+                clean_worktree_path.clone(),
+                dirty_worktree.path().to_str().unwrap().to_string(),
+                repo.path().to_str().unwrap().to_string(),
+            ],
+        )
+        .unwrap();
+
+        assert_eq!(result.deleted_worktrees, vec![clean_worktree_path]);
+        assert!(!clean_worktree.path().exists());
+        assert!(dirty_worktree.path().exists());
+        assert!(repo.path().exists());
     }
 
     #[test]
@@ -925,6 +1792,82 @@ mod tests {
         for (name, url) in remotes {
             run_git_command(path, &["remote", "add", name, url]);
         }
+    }
+
+    fn init_git_repo_with_commit(path: &Path) {
+        run_git_command(path, &["init"]);
+        run_git_command(path, &["config", "user.email", "test@example.com"]);
+        run_git_command(path, &["config", "user.name", "AI Manager Test"]);
+        std::fs::write(path.join("README.md"), "initial\n").unwrap();
+        run_git_command(path, &["add", "README.md"]);
+        run_git_command(path, &["commit", "-m", "initial"]);
+        run_git_command(path, &["branch", "-M", "main"]);
+    }
+
+    fn create_merged_branch(path: &Path, branch: &str) {
+        run_git_command(path, &["checkout", "-b", branch]);
+        let file_name = branch.replace('/', "-");
+        std::fs::write(path.join(format!("{file_name}.txt")), format!("{branch}\n")).unwrap();
+        run_git_command(path, &["add", "."]);
+        run_git_command(path, &["commit", "-m", branch]);
+        run_git_command(path, &["checkout", "main"]);
+        run_git_command(
+            path,
+            &["merge", "--no-ff", branch, "-m", &format!("merge {branch}")],
+        );
+    }
+
+    fn create_patch_equivalent_upstream_gone_branch(path: &Path, branch: &str) {
+        run_git_command(path, &["checkout", "-b", branch]);
+        std::fs::write(path.join("gone.txt"), "gone\n").unwrap();
+        run_git_command(path, &["add", "gone.txt"]);
+        run_git_command(path, &["commit", "-m", branch]);
+        run_git_command(path, &["checkout", "main"]);
+        std::fs::write(path.join("main-shift.txt"), "main shift\n").unwrap();
+        run_git_command(path, &["add", "main-shift.txt"]);
+        run_git_command(path, &["commit", "-m", "main shift"]);
+        run_git_command(path, &["cherry-pick", branch]);
+        set_upstream_gone(path, branch);
+    }
+
+    fn create_unmerged_upstream_gone_branch(path: &Path, branch: &str) {
+        run_git_command(path, &["checkout", "-b", branch]);
+        let file_name = branch.replace('/', "-");
+        std::fs::write(path.join(format!("{file_name}.txt")), format!("{branch}\n")).unwrap();
+        run_git_command(path, &["add", "."]);
+        run_git_command(path, &["commit", "-m", branch]);
+        run_git_command(path, &["checkout", "main"]);
+        set_upstream_gone(path, branch);
+    }
+
+    fn set_upstream_gone(path: &Path, branch: &str) {
+        run_git_command(
+            path,
+            &["config", &format!("branch.{branch}.remote"), "origin"],
+        );
+        run_git_command(
+            path,
+            &[
+                "config",
+                &format!("branch.{branch}.merge"),
+                &format!("refs/heads/{branch}"),
+            ],
+        );
+    }
+
+    fn branch_exists(path: &Path, branch: &str) -> bool {
+        Command::new("git")
+            .arg("-C")
+            .arg(path)
+            .args([
+                "show-ref",
+                "--verify",
+                "--quiet",
+                &format!("refs/heads/{branch}"),
+            ])
+            .status()
+            .unwrap()
+            .success()
     }
 
     fn run_git_command(path: &Path, args: &[&str]) {

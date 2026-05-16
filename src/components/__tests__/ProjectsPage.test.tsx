@@ -98,8 +98,29 @@ function makeProjectDetail(project: string): ProjectDetail {
     repositoryUrl: "https://github.example.com/team/repo",
     hasClaudeMd: true,
     agentsStatus: "missing",
-    branches: [],
-    worktrees: [],
+    branches: [
+      {
+        name: "main",
+        isCurrent: true,
+        lastCommitAt: 1710000000,
+        lastCommitSubject: "initial",
+      },
+      {
+        name: "feature/old",
+        isCurrent: false,
+        lastCommitAt: 1700000000,
+        lastCommitSubject: "feat: old branch",
+      },
+    ],
+    worktrees: [
+      {
+        path: `${project}/.worktrees/feature-old`,
+        branch: "feature/old",
+        head: "1234567890abcdef",
+        isCurrent: false,
+        isDetached: false,
+      },
+    ],
   };
 }
 
@@ -132,6 +153,54 @@ function mockProjectInvokes() {
           project,
           output: `Deleted Claude project state for ${project}`,
         };
+      case "preview_project_branch_cleanup":
+        return {
+          project,
+          repoRoot: project,
+          baseBranch: "main",
+          branchCandidates: [
+            {
+              name: "feature/old",
+              reason: "merged",
+              forceDelete: false,
+              lastCommitAt: 1700000000,
+              lastCommitSubject: "feat: old branch",
+            },
+          ],
+          worktreeCandidates: [],
+        };
+      case "cleanup_project_branches":
+        return {
+          project,
+          deletedBranches: ["feature/old"],
+          deletedWorktrees: [],
+          errors: [],
+        };
+      case "preview_project_worktree_cleanup":
+        return {
+          project,
+          repoRoot: project,
+          baseBranch: "main",
+          branchCandidates: [],
+          worktreeCandidates: [
+            {
+              path: `${project}/.worktrees/feature-old`,
+              branch: "feature/old",
+              head: "1234567890abcdef",
+              reason: "merged",
+              isDetached: false,
+            },
+          ],
+        };
+      case "cleanup_project_worktrees":
+        return {
+          project,
+          deletedBranches: [],
+          deletedWorktrees: [`${project}/.worktrees/feature-old`],
+          errors: [],
+        };
+      case "open_project_in_terminal":
+        return null;
       default:
         return null;
     }
@@ -295,4 +364,133 @@ describe("ProjectsPage purge context menu", () => {
       });
     });
   });
+
+  it("detects branch cleanup candidates and executes the previewed selection", async () => {
+    renderPage();
+
+    const cleanupButton = await screen.findByRole("button", { name: "检测可清理分支" });
+    await waitFor(() => {
+      expect(cleanupButton).toBeEnabled();
+    });
+    fireEvent.click(cleanupButton);
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("preview_project_branch_cleanup", {
+        project: PROJECT_ALPHA,
+      });
+    });
+    const dialog = await screen.findByRole("dialog", { name: "清理本地分支" });
+    expect(dialog).toHaveTextContent("基准分支");
+    expect(dialog).toHaveTextContent("main");
+    expect(dialog).toHaveTextContent("feature/old");
+    expect(dialog).toHaveTextContent("已合并");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "清理 1 个分支" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("cleanup_project_branches", {
+        project: PROJECT_ALPHA,
+        branches: ["feature/old"],
+      });
+    });
+    await waitFor(() => {
+      expect(showToastMock).toHaveBeenCalledWith("分支清理完成");
+    });
+  });
+
+  it("disables branch cleanup confirmation when no candidates are detected", async () => {
+    invokeMock.mockImplementation(async (command, args) => {
+      const project = (args as { project?: string } | undefined)?.project ?? PROJECT_ALPHA;
+      if (command === "preview_project_branch_cleanup") {
+        return {
+          project,
+          repoRoot: project,
+          baseBranch: "main",
+          branchCandidates: [],
+          worktreeCandidates: [],
+        };
+      }
+      return mockProjectInvokesForCommand(command, args);
+    });
+
+    renderPage();
+
+    const cleanupButton = await screen.findByRole("button", { name: "检测可清理分支" });
+    await waitFor(() => {
+      expect(cleanupButton).toBeEnabled();
+    });
+    fireEvent.click(cleanupButton);
+
+    const dialog = await screen.findByRole("dialog", { name: "清理本地分支" });
+    expect(dialog).toHaveTextContent("没有可清理的本地分支");
+    expect(within(dialog).getByRole("button", { name: "清理 0 个分支" })).toBeDisabled();
+  });
+
+  it("detects worktree cleanup candidates and executes the previewed selection", async () => {
+    renderPage();
+
+    const cleanupButton = await screen.findByRole("button", { name: "检测可清理 Worktrees" });
+    await waitFor(() => {
+      expect(cleanupButton).toBeEnabled();
+    });
+    fireEvent.click(cleanupButton);
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("preview_project_worktree_cleanup", {
+        project: PROJECT_ALPHA,
+      });
+    });
+    const dialog = await screen.findByRole("dialog", { name: "清理 Worktrees" });
+    expect(dialog).toHaveTextContent(`${PROJECT_ALPHA}/.worktrees/feature-old`);
+    expect(dialog).toHaveTextContent("feature/old");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "清理 1 个 Worktree" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("cleanup_project_worktrees", {
+        project: PROJECT_ALPHA,
+        worktrees: [`${PROJECT_ALPHA}/.worktrees/feature-old`],
+      });
+    });
+    await waitFor(() => {
+      expect(showToastMock).toHaveBeenCalledWith("Worktree 清理完成");
+    });
+  });
+
+  it("opens a worktree row in the configured terminal", async () => {
+    renderPage();
+
+    const worktreePath = `${PROJECT_ALPHA}/.worktrees/feature-old`;
+    const button = await screen.findByRole("button", { name: `用终端打开 ${worktreePath}` });
+    fireEvent.click(button);
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("open_project_in_terminal", {
+        project: worktreePath,
+      });
+    });
+  });
 });
+
+function mockProjectInvokesForCommand(command: string, args?: unknown) {
+  const project = (args as { project?: string } | undefined)?.project ?? PROJECT_ALPHA;
+
+  switch (command) {
+    case "get_config_workspace":
+      return WORKSPACE_FIXTURE;
+    case "get_history":
+      return { content: makeHistoryContent(), mtime: 1 };
+    case "get_history_if_changed":
+      return null;
+    case "get_project_detail":
+      return makeProjectDetail(project);
+    case "get_session_detail":
+      return {
+        session_id: (args as { sessionId?: string } | undefined)?.sessionId ?? "session-alpha",
+        project,
+        messages: [],
+      };
+    default:
+      return null;
+  }
+}

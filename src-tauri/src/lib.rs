@@ -33,8 +33,10 @@ use memory::{
 };
 use native_open::get_native_open_app_options;
 use project::{
-    create_project_agents_symlink, get_project_detail, open_project_in_editor,
-    open_project_in_terminal, preview_project_local_data_purge, purge_project_local_data,
+    cleanup_project_branches, cleanup_project_worktrees, create_project_agents_symlink,
+    get_project_detail, open_project_in_editor, open_project_in_terminal,
+    preview_project_branch_cleanup, preview_project_local_data_purge,
+    preview_project_worktree_cleanup, purge_project_local_data,
 };
 use skills::{
     add_skill, delete_skill, duplicate_skill, get_skill_file_tree, get_skills,
@@ -155,6 +157,10 @@ pub fn run() {
             open_project_in_editor,
             preview_project_local_data_purge,
             purge_project_local_data,
+            preview_project_branch_cleanup,
+            cleanup_project_branches,
+            preview_project_worktree_cleanup,
+            cleanup_project_worktrees,
             get_skills,
             add_skill,
             update_skill,

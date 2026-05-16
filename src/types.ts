@@ -421,6 +421,39 @@ export interface ProjectPurgeOutput {
   output: string;
 }
 
+export type ProjectGitCleanupReason = "merged" | "upstreamGone";
+
+export interface ProjectBranchCleanupCandidate {
+  name: string;
+  reason: ProjectGitCleanupReason;
+  forceDelete: boolean;
+  lastCommitAt?: number;
+  lastCommitSubject?: string;
+}
+
+export interface ProjectWorktreeCleanupCandidate {
+  path: string;
+  branch?: string;
+  head?: string;
+  reason: ProjectGitCleanupReason;
+  isDetached: boolean;
+}
+
+export interface ProjectGitCleanupPreview {
+  project: string;
+  repoRoot?: string;
+  baseBranch?: string;
+  branchCandidates: ProjectBranchCleanupCandidate[];
+  worktreeCandidates: ProjectWorktreeCleanupCandidate[];
+}
+
+export interface ProjectGitCleanupResult {
+  project: string;
+  deletedBranches: string[];
+  deletedWorktrees: string[];
+  errors: string[];
+}
+
 // 对话消息内容块
 export type MessageBlock =
   | { type: "text"; text: string }

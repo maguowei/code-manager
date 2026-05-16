@@ -22,9 +22,14 @@ import {
   type ConfigWorkspace,
   type DefaultEditorApp,
   isTauri,
+  type ProjectBranchCleanupCandidate,
   type ProjectDetail,
+  type ProjectGitCleanupPreview,
+  type ProjectGitCleanupReason,
+  type ProjectGitCleanupResult,
   type ProjectPurgeOutput,
   type ProjectSummary,
+  type ProjectWorktreeCleanupCandidate,
 } from "../types";
 import PageHeader from "./PageHeader";
 import ProjectDetailPanel from "./ProjectDetailPanel";
@@ -39,6 +44,7 @@ import {
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
+import { Checkbox } from "./ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -66,6 +72,18 @@ type ProjectPurgeDialogState = {
   error: string | null;
   isPreviewing: boolean;
   isPurging: boolean;
+};
+
+type ProjectGitCleanupKind = "branches" | "worktrees";
+
+type ProjectGitCleanupDialogState = {
+  kind: ProjectGitCleanupKind;
+  project: string;
+  preview: ProjectGitCleanupPreview | null;
+  selectedItems: string[];
+  error: string | null;
+  isPreviewing: boolean;
+  isCleaning: boolean;
 };
 
 type ProjectsPageProps = {
@@ -239,6 +257,216 @@ function ProjectPurgeDialog({ dialog, onCancel, onConfirm, t }: ProjectPurgeDial
   );
 }
 
+type ProjectGitCleanupDialogProps = {
+  dialog: ProjectGitCleanupDialogState;
+  onCancel: () => void;
+  onConfirm: () => void;
+  onToggleItem: (item: string, checked: boolean) => void;
+  t: (key: TranslationKey) => string;
+};
+
+type ProjectGitCleanupRow =
+  | {
+      id: string;
+      title: string;
+      subtitle?: string;
+      reason: ProjectGitCleanupReason;
+      forceDelete?: boolean;
+      kind: "branch";
+    }
+  | {
+      id: string;
+      title: string;
+      subtitle?: string;
+      reason: ProjectGitCleanupReason;
+      kind: "worktree";
+    };
+
+function cleanupReasonLabel(reason: ProjectGitCleanupReason, t: (key: TranslationKey) => string) {
+  switch (reason) {
+    case "upstreamGone":
+      return t("projects.cleanupReasonUpstreamGone");
+    default:
+      return t("projects.cleanupReasonMerged");
+  }
+}
+
+function cleanupDialogRows(dialog: ProjectGitCleanupDialogState): ProjectGitCleanupRow[] {
+  if (dialog.kind === "branches") {
+    return (dialog.preview?.branchCandidates ?? []).map(
+      (candidate: ProjectBranchCleanupCandidate) => ({
+        id: candidate.name,
+        title: candidate.name,
+        subtitle: candidate.lastCommitSubject,
+        reason: candidate.reason,
+        forceDelete: candidate.forceDelete,
+        kind: "branch",
+      }),
+    );
+  }
+
+  return (dialog.preview?.worktreeCandidates ?? []).map(
+    (candidate: ProjectWorktreeCleanupCandidate) => ({
+      id: candidate.path,
+      title: candidate.path,
+      subtitle: candidate.branch ?? candidate.head?.slice(0, 8),
+      reason: candidate.reason,
+      kind: "worktree",
+    }),
+  );
+}
+
+function ProjectGitCleanupDialog({
+  dialog,
+  onCancel,
+  onConfirm,
+  onToggleItem,
+  t,
+}: ProjectGitCleanupDialogProps) {
+  const rows = cleanupDialogRows(dialog);
+  const selectedSet = new Set(dialog.selectedItems);
+  const selectedCount = dialog.selectedItems.length;
+  const title =
+    dialog.kind === "branches"
+      ? t("projects.branchCleanupDialogTitle")
+      : t("projects.worktreeCleanupDialogTitle");
+  const emptyText =
+    dialog.kind === "branches"
+      ? t("projects.noBranchCleanupCandidates")
+      : t("projects.noWorktreeCleanupCandidates");
+  const unit =
+    dialog.kind === "branches"
+      ? t("projects.branchCleanupUnit")
+      : t("projects.worktreeCleanupUnit");
+  const canConfirm =
+    !dialog.isPreviewing && !dialog.isCleaning && !dialog.error && selectedCount > 0;
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) {
+          onCancel();
+        }
+      }}
+    >
+      <DialogContent
+        className="projects-git-cleanup-dialog max-h-[min(720px,88vh)] w-[min(760px,92vw)] max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg p-0"
+        onEscapeKeyDown={(event) => {
+          if (dialog.isCleaning) {
+            event.preventDefault();
+          }
+        }}
+        onPointerDownOutside={(event) => {
+          if (dialog.isCleaning) {
+            event.preventDefault();
+          }
+        }}
+      >
+        <div className="flex max-h-[min(720px,88vh)] flex-col gap-4 p-6">
+          <DialogHeader>
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription>{t("projects.gitCleanupDialogDescription")}</DialogDescription>
+          </DialogHeader>
+
+          <div
+            className={cn(
+              "grid grid-cols-[88px_minmax(0,1fr)] items-center gap-3 rounded-md border p-3 max-sm:grid-cols-1 max-sm:items-start",
+              SUBTLE_SURFACE_CLASS,
+            )}
+          >
+            <span className="text-sm text-muted-foreground">{t("projects.cleanupBaseBranch")}</span>
+            <strong className="min-w-0 truncate text-sm text-foreground">
+              {dialog.preview?.baseBranch ?? "—"}
+            </strong>
+          </div>
+
+          {dialog.isPreviewing ? (
+            <div
+              className={cn(
+                "flex min-h-[180px] items-center justify-center rounded-md border text-sm text-muted-foreground",
+                SUBTLE_SURFACE_CLASS,
+              )}
+            >
+              {t("projects.cleanupDetecting")}
+            </div>
+          ) : dialog.error ? (
+            <pre
+              className={cn(
+                "min-h-[180px] overflow-auto whitespace-pre-wrap break-words rounded-md border p-4 font-mono text-sm leading-6 text-destructive",
+                CONTROL_SURFACE_CLASS,
+              )}
+            >
+              {dialog.error}
+            </pre>
+          ) : rows.length === 0 ? (
+            <div
+              className={cn(
+                "flex min-h-[180px] items-center justify-center rounded-md border px-4 text-center text-sm text-muted-foreground",
+                SUBTLE_SURFACE_CLASS,
+              )}
+            >
+              {emptyText}
+            </div>
+          ) : (
+            <div className="projects-git-cleanup-list flex min-h-0 flex-1 flex-col gap-2 overflow-auto rounded-md border p-2">
+              {rows.map((row) => {
+                const checked = selectedSet.has(row.id);
+                return (
+                  <label
+                    key={row.id}
+                    className="grid cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 rounded-md p-2 hover:bg-muted/60"
+                  >
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={(value) => onToggleItem(row.id, value === true)}
+                      aria-label={row.title}
+                    />
+                    <span className="min-w-0">
+                      <span className="block break-words text-sm font-semibold text-foreground [overflow-wrap:anywhere]">
+                        {row.title}
+                      </span>
+                      {row.subtitle && (
+                        <span className="mt-1 block break-words text-xs text-muted-foreground [overflow-wrap:anywhere]">
+                          {row.subtitle}
+                        </span>
+                      )}
+                    </span>
+                    <span className="flex flex-wrap justify-end gap-2">
+                      <Badge variant="outline" className={cn(PROJECT_TAG_CLASS, "font-normal")}>
+                        {cleanupReasonLabel(row.reason, t)}
+                      </Badge>
+                      {row.kind === "branch" && row.forceDelete && (
+                        <Badge
+                          variant="outline"
+                          className={cn(PROJECT_TAG_CLASS, "font-normal text-warning")}
+                        >
+                          {t("projects.cleanupForceDelete")}
+                        </Badge>
+                      )}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onCancel} disabled={dialog.isCleaning}>
+              {t("confirm.cancel")}
+            </Button>
+            <Button type="button" variant="destructive" onClick={onConfirm} disabled={!canConfirm}>
+              {dialog.isCleaning
+                ? t("projects.cleanupExecuting")
+                : `${t("projects.cleanupAction")} ${selectedCount} ${unit}`}
+            </Button>
+          </DialogFooter>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ProjectEmptyState({ children }: { children: string }) {
   return (
     <div className="projects-empty-panel flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-muted-foreground">
@@ -274,6 +502,9 @@ function ProjectsPage({ onOpenProjectHistory }: ProjectsPageProps = {}) {
     null,
   );
   const [purgeDialog, setPurgeDialog] = useState<ProjectPurgeDialogState | null>(null);
+  const [gitCleanupDialog, setGitCleanupDialog] = useState<ProjectGitCleanupDialogState | null>(
+    null,
+  );
   const projectContextMenuRef = useRef<HTMLDivElement>(null);
   const detailRequestIdRef = useRef(0);
 
@@ -374,6 +605,10 @@ function ProjectsPage({ onOpenProjectHistory }: ProjectsPageProps = {}) {
     setPurgeDialog((current) => (current?.isPurging ? current : null));
   }, []);
 
+  const handleCloseGitCleanupDialog = useCallback(() => {
+    setGitCleanupDialog((current) => (current?.isCleaning ? current : null));
+  }, []);
+
   useEffect(() => {
     if (!purgeDialog) return;
 
@@ -386,6 +621,19 @@ function ProjectsPage({ onOpenProjectHistory }: ProjectsPageProps = {}) {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [handleClosePurgeDialog, purgeDialog]);
+
+  useEffect(() => {
+    if (!gitCleanupDialog) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        handleCloseGitCleanupDialog();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [gitCleanupDialog, handleCloseGitCleanupDialog]);
 
   const selectedSummary = useMemo(
     () => projectSummaries.find((summary) => summary.project === selectedProject) ?? null,
@@ -514,6 +762,19 @@ function ProjectsPage({ onOpenProjectHistory }: ProjectsPageProps = {}) {
       showOperationError(showToast, t("toast.projectOpenEditorError"), err);
     }
   }, [defaultEditorApp, detail?.path, selectedSummary?.project, showToast, t]);
+
+  const handleOpenWorktreeInTerminal = useCallback(
+    async (worktreePath: string) => {
+      if (!isTauri()) return;
+
+      try {
+        await invoke("open_project_in_terminal", { project: worktreePath });
+      } catch (err) {
+        showOperationError(showToast, t("toast.projectOpenWorktreeTerminalError"), err);
+      }
+    },
+    [showToast, t],
+  );
 
   const handleOpenSession = useCallback(
     (sessionId: string) => {
@@ -658,6 +919,139 @@ function ProjectsPage({ onOpenProjectHistory }: ProjectsPageProps = {}) {
     }
   }, [purgeDialog, refreshProjectsAfterPurge, showToast, t]);
 
+  const handleRequestGitCleanupPreview = useCallback(
+    async (kind: ProjectGitCleanupKind) => {
+      const projectPath = detail?.path ?? selectedSummary?.project;
+      if (!projectPath || !isTauri()) return;
+
+      setGitCleanupDialog({
+        kind,
+        project: projectPath,
+        preview: null,
+        selectedItems: [],
+        error: null,
+        isPreviewing: true,
+        isCleaning: false,
+      });
+
+      try {
+        const command =
+          kind === "branches"
+            ? "preview_project_branch_cleanup"
+            : "preview_project_worktree_cleanup";
+        const preview = await invoke<ProjectGitCleanupPreview>(command, { project: projectPath });
+        const selectedItems =
+          kind === "branches"
+            ? preview.branchCandidates.map((candidate) => candidate.name)
+            : preview.worktreeCandidates.map((candidate) => candidate.path);
+        setGitCleanupDialog((current) =>
+          current?.project === projectPath && current.kind === kind
+            ? {
+                ...current,
+                preview,
+                selectedItems,
+                error: null,
+                isPreviewing: false,
+              }
+            : current,
+        );
+      } catch (error) {
+        setGitCleanupDialog((current) =>
+          current?.project === projectPath && current.kind === kind
+            ? {
+                ...current,
+                preview: null,
+                selectedItems: [],
+                error: errorToMessage(error),
+                isPreviewing: false,
+              }
+            : current,
+        );
+        const toastKey =
+          kind === "branches"
+            ? "toast.projectBranchCleanupPreviewError"
+            : "toast.projectWorktreeCleanupPreviewError";
+        showOperationError(showToast, t(toastKey), error);
+      }
+    },
+    [detail?.path, selectedSummary?.project, showToast, t],
+  );
+
+  const handleToggleGitCleanupItem = useCallback((item: string, checked: boolean) => {
+    setGitCleanupDialog((current) => {
+      if (!current) return current;
+      const nextItems = checked
+        ? Array.from(new Set([...current.selectedItems, item]))
+        : current.selectedItems.filter((candidate) => candidate !== item);
+      return { ...current, selectedItems: nextItems };
+    });
+  }, []);
+
+  const handleConfirmGitCleanup = useCallback(async () => {
+    const currentDialog = gitCleanupDialog;
+    if (
+      !currentDialog ||
+      currentDialog.isPreviewing ||
+      currentDialog.isCleaning ||
+      currentDialog.error ||
+      currentDialog.selectedItems.length === 0 ||
+      !isTauri()
+    ) {
+      return;
+    }
+
+    setGitCleanupDialog((current) =>
+      current?.project === currentDialog.project && current.kind === currentDialog.kind
+        ? { ...current, isCleaning: true }
+        : current,
+    );
+
+    try {
+      const result =
+        currentDialog.kind === "branches"
+          ? await invoke<ProjectGitCleanupResult>("cleanup_project_branches", {
+              project: currentDialog.project,
+              branches: currentDialog.selectedItems,
+            })
+          : await invoke<ProjectGitCleanupResult>("cleanup_project_worktrees", {
+              project: currentDialog.project,
+              worktrees: currentDialog.selectedItems,
+            });
+
+      await loadProjectDetail(currentDialog.project, { clearBeforeLoad: false });
+      setGitCleanupDialog(null);
+
+      const successKey =
+        currentDialog.kind === "branches"
+          ? "toast.projectBranchCleanupCompleted"
+          : "toast.projectWorktreeCleanupCompleted";
+      const partialKey =
+        currentDialog.kind === "branches"
+          ? "toast.projectBranchCleanupPartialError"
+          : "toast.projectWorktreeCleanupPartialError";
+      if (result.errors.length > 0) {
+        showToast(t(partialKey), "error", { description: result.errors.join("\n") });
+      } else {
+        showToast(t(successKey));
+      }
+    } catch (error) {
+      setGitCleanupDialog((current) =>
+        current?.project === currentDialog.project && current.kind === currentDialog.kind
+          ? {
+              ...current,
+              error: errorToMessage(error),
+              isCleaning: false,
+            }
+          : current,
+      );
+      const toastKey =
+        currentDialog.kind === "branches"
+          ? "toast.projectBranchCleanupError"
+          : "toast.projectWorktreeCleanupError";
+      showOperationError(showToast, t(toastKey), error);
+    }
+  }, [gitCleanupDialog, loadProjectDetail, showToast, t]);
+
   const canCreateAgentsLink =
     Boolean(detail?.hasClaudeMd) && detail?.agentsStatus !== "plainFileConflict";
   const canOpenRepository = Boolean(detail?.repositoryUrl);
@@ -786,8 +1180,17 @@ function ProjectsPage({ onOpenProjectHistory }: ProjectsPageProps = {}) {
               onOpenInEditor={handleOpenInEditor}
               onOpenRepository={handleOpenRepository}
               onCreateAgentsLink={handleCreateAgentsLink}
+              onPreviewBranchCleanup={() => handleRequestGitCleanupPreview("branches")}
+              onPreviewWorktreeCleanup={() => handleRequestGitCleanupPreview("worktrees")}
+              onOpenWorktreeInTerminal={handleOpenWorktreeInTerminal}
               onOpenSession={handleOpenSession}
               onOpenProjectHistory={handleOpenProjectHistory}
+              isBranchCleanupPreviewing={
+                gitCleanupDialog?.kind === "branches" && gitCleanupDialog.isPreviewing
+              }
+              isWorktreeCleanupPreviewing={
+                gitCleanupDialog?.kind === "worktrees" && gitCleanupDialog.isPreviewing
+              }
             />
           )}
         </section>
@@ -807,6 +1210,16 @@ function ProjectsPage({ onOpenProjectHistory }: ProjectsPageProps = {}) {
           dialog={purgeDialog}
           onCancel={handleClosePurgeDialog}
           onConfirm={handleConfirmPurge}
+          t={t}
+        />
+      )}
+
+      {gitCleanupDialog && (
+        <ProjectGitCleanupDialog
+          dialog={gitCleanupDialog}
+          onCancel={handleCloseGitCleanupDialog}
+          onConfirm={handleConfirmGitCleanup}
+          onToggleItem={handleToggleGitCleanupItem}
           t={t}
         />
       )}
