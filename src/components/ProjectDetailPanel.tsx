@@ -519,6 +519,7 @@ function ProjectDetailPanel({
   const agentsLabel = detail
     ? agentsStatusLabel(detail.agentsStatus, t)
     : t("projects.agentsMissing");
+  const repositoryUrl = detail?.repositoryUrl;
   const handleCopyValue = useCallback(
     async (value: string, successKey: TranslationKey, errorKey: TranslationKey) => {
       try {
@@ -534,6 +535,15 @@ function ProjectDetailPanel({
   const handleCopyProjectPath = useCallback(
     (projectPath: string) =>
       handleCopyValue(projectPath, "projects.projectPathCopied", "projects.projectPathCopyError"),
+    [handleCopyValue],
+  );
+  const handleCopyRepositoryUrl = useCallback(
+    (repositoryUrl: string) =>
+      handleCopyValue(
+        repositoryUrl,
+        "projects.repositoryUrlCopied",
+        "projects.repositoryUrlCopyError",
+      ),
     [handleCopyValue],
   );
   const handleCopySessionId = useCallback(
@@ -580,9 +590,23 @@ function ProjectDetailPanel({
               <span className="projects-identity-label text-sm text-muted-foreground">
                 {t("projects.repository")}
               </span>
-              <span className="projects-identity-value break-all text-sm leading-6 text-foreground">
-                {detail?.repositoryUrl ?? t("projects.repositoryUnavailable")}
-              </span>
+              {repositoryUrl ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="projects-identity-value h-auto max-w-full min-w-0 shrink justify-start whitespace-normal rounded-md border border-transparent px-1 py-0 text-left text-sm leading-6 break-all text-foreground hover:border-border hover:bg-accent hover:text-accent-foreground focus-visible:border-primary/70 focus-visible:bg-accent focus-visible:ring-0"
+                  title={repositoryUrl}
+                  aria-label={`${t("projects.copyRepositoryUrl")} ${repositoryUrl}`}
+                  onClick={() => void handleCopyRepositoryUrl(repositoryUrl)}
+                >
+                  {repositoryUrl}
+                </Button>
+              ) : (
+                <span className="projects-identity-value break-all text-sm leading-6 text-foreground">
+                  {t("projects.repositoryUnavailable")}
+                </span>
+              )}
             </div>
           </div>
         </Card>

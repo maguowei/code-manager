@@ -76,6 +76,24 @@ describe("ProjectsPage layout", () => {
     expect(writeText).toHaveBeenCalledWith(SUMMARY.project);
   });
 
+  it("copies the source repository url from the repository address", () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    renderDetailPanel();
+
+    const repositoryButton = screen.getByRole("button", {
+      name: `projects.copyRepositoryUrl ${DETAIL.repositoryUrl}`,
+    });
+    fireEvent.click(repositoryButton);
+
+    expect(repositoryButton).toHaveTextContent(DETAIL.repositoryUrl as string);
+    expect(repositoryButton).toHaveAttribute("title", DETAIL.repositoryUrl);
+    expect(writeText).toHaveBeenCalledWith(DETAIL.repositoryUrl);
+  });
+
   it("keeps the overview compact with a short copyable last session id and no git root row", () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
