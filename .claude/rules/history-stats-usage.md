@@ -55,6 +55,11 @@ paths:
 - 日期筛选使用 shadcn `Calendar` 浮层（`src/components/ui/calendar.tsx`），不要回退到原生 `<input type="date">`；筛选区控件继续使用 `surface-classes` 与 `TYPOGRAPHY` 常量。
 - 筛选字段来自 `UsageFilter`，包括 `includeUnknownModels` 与 `claude-*` 模型快捷筛选；新增筛选条件要同步 `src/types.ts`、`useUsage.ts`、`usage.rs` 和 i18n。
 - Usage 趋势图支持按模型或 Token 类型拆分、曲线/柱状切换、图例点击隐藏和双击 solo；这些交互是前端状态，不应写入后端。
-- 价格表加载顺序是本地缓存 `~/.config/ai-manager/model-pricing.json` -> 内置 `src-tauri/resources/model-pricing.json` -> 启动后尝试从 models.dev 刷新。
+- 费用公式是 `input_tokens * input_price + output_tokens * output_price + (cache_creation_5m + cache_creation_1h) * cache_write_price + cache_read * cache_read_price` 后统一除以 1_000_000；价格单位是 USD / 1M tokens。
+- 价格表加载顺序是本地缓存 `~/.config/ai-manager/model-pricing.json` -> 内置 `src-tauri/resources/model-pricing.json` -> 启动后尝试从 models.dev 刷新；网络刷新成功后要保存缓存、重算所有 `usage_records.cost_usd` 并发出 `usage-pricing-updated`。
+- 内置价格表只做 Anthropic/Claude 兜底；Kimi、MiMo、GLM、MiniMax、DeepSeek 的价格只来自 models.dev 官方 provider，不写手工兜底价，不导入 OpenRouter、ModelScope、DashScope 等二级转售或包装 provider。
+- models.dev 导入范围由 `is_supported_models_dev_provider()` 控制：Anthropic、Moonshot / MoonshotAI、Z.ai / Zhipu / BigModel、MiniMax、Xiaomi / MiMo、DeepSeek。缺失 cache 字段时只按 input 推导 `cache_write = input * 1.25`、`cache_read = input * 0.1`，不要凭空补 input / output。
+- 模型价格匹配优先精确命中，其次忽略大小写、provider 前缀、点/短横线/下划线等常见差异；Claude 的 opus / sonnet / haiku 可按系列兜底匹配同类最低 input 单价。
+- `thirdPartyProviderPricingEnabled` 默认开启；关闭后 Kimi / MiMo / GLM / MiniMax / DeepSeek 费用按 0 计入，且不作为未知模型提示。其他无法匹配价格的模型费用为 0，并进入未知模型列表。
 - 用量 records、扫描索引和 last scan metadata 写入 `sqlite:usage.db`，索引表为 `usage_file_index`。
 - `message.id` 是 usage 记录去重锚点；处理增量扫描、重扫和未知模型时不要破坏 SQLite 中的 `usage_records`、`usage_file_index` 与内存中的 `unknown_models` 一致性。
