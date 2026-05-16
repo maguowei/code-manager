@@ -29,6 +29,7 @@ import {
 import PageHeader from "./PageHeader";
 import ProjectDetailPanel from "./ProjectDetailPanel";
 import { formatDuration, formatUSD } from "./project-detail-utils";
+import { PROJECT_TAG_CLASS } from "./project-tag-classes";
 import {
   CONTROL_SURFACE_CLASS,
   PANEL_SURFACE_CLASS,
@@ -753,10 +754,13 @@ function ProjectsPage() {
                   </span>
                 </div>
                 <div className="projects-list-meta flex flex-wrap gap-2 text-xs text-muted-foreground">
-                  <Badge variant="secondary" className="font-normal">
+                  <Badge variant="secondary" className={cn(PROJECT_TAG_CLASS, "font-normal")}>
                     {t("projects.lastCost")} {formatUSD(summary.lastCost)}
                   </Badge>
-                  <Badge variant="outline" className="font-normal text-muted-foreground">
+                  <Badge
+                    variant="outline"
+                    className={cn(PROJECT_TAG_CLASS, "font-normal text-muted-foreground")}
+                  >
                     {t("projects.lastDuration")} {formatDuration(summary.lastDuration)}
                   </Badge>
                 </div>

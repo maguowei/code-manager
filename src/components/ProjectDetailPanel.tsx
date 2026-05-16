@@ -10,6 +10,7 @@ import {
   formatUSD,
   type TranslateFn,
 } from "./project-detail-utils";
+import { PROJECT_TAG_CLASS, PROJECT_TAG_PAIR_CLASS } from "./project-tag-classes";
 import { PANEL_SURFACE_CLASS } from "./surface-classes";
 import { TONE_ALERT_CLASS, TONE_BADGE_CLASS, TONE_TEXT_CLASS } from "./tone-classes";
 import { TYPOGRAPHY } from "./typography-classes";
@@ -80,7 +81,11 @@ function StatusBadge({ tone, children }: { tone: StatusTone; children: ReactNode
   return (
     <Badge
       variant="outline"
-      className={cn("projects-status-chip max-w-full whitespace-nowrap", statusToneClass(tone))}
+      className={cn(
+        "projects-status-chip truncate whitespace-nowrap",
+        PROJECT_TAG_CLASS,
+        statusToneClass(tone),
+      )}
     >
       {children}
     </Badge>
@@ -89,22 +94,33 @@ function StatusBadge({ tone, children }: { tone: StatusTone; children: ReactNode
 
 function SectionHeading({ title, description, action }: SectionHeadingProps) {
   return (
-    <div className="projects-section-heading flex items-start justify-between gap-3">
-      <div className="projects-section-heading-copy min-w-0">
+    <div className="projects-section-heading flex flex-wrap items-start justify-between gap-3">
+      <div className="projects-section-heading-copy min-w-0 flex-1">
         <h3 className="text-base font-semibold text-foreground">{title}</h3>
         {description && (
           <p className="mt-1.5 text-sm leading-6 text-muted-foreground">{description}</p>
         )}
       </div>
-      {action && <div className="projects-section-heading-action shrink-0">{action}</div>}
+      {action && (
+        <div className="projects-section-heading-action shrink-0 max-sm:w-full max-sm:[&>button]:w-full">
+          {action}
+        </div>
+      )}
     </div>
   );
 }
 
 function StatusStripItem({ label, value, tone }: StatusStripItemProps) {
   return (
-    <div className="projects-status-item min-w-0 border-t bg-card p-4 first:border-t-0 md:border-t-0 md:border-l md:first:border-l-0">
-      <span className="projects-status-item-label text-sm text-muted-foreground">{label}</span>
+    <div
+      className={cn(
+        "projects-status-item border-t bg-card p-4 first:border-t-0 md:border-t-0 md:border-l md:first:border-l-0",
+        PROJECT_TAG_PAIR_CLASS,
+      )}
+    >
+      <span className="projects-status-item-label shrink-0 text-sm leading-5 text-muted-foreground">
+        {label}
+      </span>
       <StatusBadge tone={tone}>{value}</StatusBadge>
     </div>
   );
@@ -473,11 +489,16 @@ function ProjectDetailPanel({
 
         <div className="projects-agents-layout grid gap-5 md:grid-cols-[minmax(0,1.1fr)_minmax(220px,0.9fr)]">
           <dl className="projects-agents-state-list flex flex-col">
-            <div className="projects-status-row grid grid-cols-[120px_minmax(0,1fr)] items-start gap-3 border-b py-3 first:pt-0 last:border-b-0 last:pb-0 max-sm:grid-cols-1 max-sm:gap-1">
-              <dt className="projects-status-label text-sm text-muted-foreground">
+            <div
+              className={cn(
+                "projects-status-row border-b py-3 first:pt-0 last:border-b-0 last:pb-0",
+                PROJECT_TAG_PAIR_CLASS,
+              )}
+            >
+              <dt className="projects-status-label shrink-0 text-sm leading-5 text-muted-foreground">
                 {t("projects.claudeMd")}
               </dt>
-              <dd>
+              <dd className="min-w-0">
                 <StatusBadge tone={detail?.hasClaudeMd ? "success" : "muted"}>
                   {detail?.hasClaudeMd
                     ? t("projects.claudeMdPresent")
@@ -485,11 +506,16 @@ function ProjectDetailPanel({
                 </StatusBadge>
               </dd>
             </div>
-            <div className="projects-status-row grid grid-cols-[120px_minmax(0,1fr)] items-start gap-3 border-b py-3 first:pt-0 last:border-b-0 last:pb-0 max-sm:grid-cols-1 max-sm:gap-1">
-              <dt className="projects-status-label text-sm text-muted-foreground">
+            <div
+              className={cn(
+                "projects-status-row border-b py-3 first:pt-0 last:border-b-0 last:pb-0",
+                PROJECT_TAG_PAIR_CLASS,
+              )}
+            >
+              <dt className="projects-status-label shrink-0 text-sm leading-5 text-muted-foreground">
                 {t("projects.agentsMd")}
               </dt>
-              <dd>
+              <dd className="min-w-0">
                 <StatusBadge tone={agentsTone}>{agentsLabel}</StatusBadge>
               </dd>
             </div>

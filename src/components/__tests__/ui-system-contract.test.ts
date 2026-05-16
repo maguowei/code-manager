@@ -345,7 +345,8 @@ describe("ui system contract", () => {
     expect(detailSource).toContain("projects-hero grid gap-6");
     expect(detailSource).toContain("projects-hero-main flex min-w-0 flex-col gap-4 rounded-lg p-5");
     expect(detailSource).toContain("projects-hero-side gap-4 rounded-lg p-5");
-    expect(detailSource).toContain("projects-status-item min-w-0 border-t bg-card");
+    expect(detailSource).toContain("projects-status-item border-t bg-card");
+    expect(detailSource).toContain("PROJECT_TAG_PAIR_CLASS");
     expect(detailSource).toContain("PANEL_SURFACE_CLASS");
     expect(detailSource).not.toContain("projects-hero grid gap-6 border-b pb-5");
     expect(detailSource).not.toContain("SUBTLE_SURFACE_CLASS");

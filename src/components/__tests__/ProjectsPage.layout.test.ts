@@ -56,6 +56,33 @@ describe("ProjectsPage layout", () => {
     expect(screen.getByText("projects.directoryExists")).toHaveClass("text-success");
   });
 
+  it("keeps project status labels and badges on the same compact rhythm", () => {
+    renderDetailPanel();
+
+    const directoryStatusItem = screen.getByText("projects.directoryStatus").closest("div");
+    expect(directoryStatusItem).toHaveClass("flex", "flex-wrap", "items-center");
+    expect(directoryStatusItem).toHaveClass("gap-x-2", "gap-y-1");
+
+    const agentsStatusRow = screen.getByText("projects.claudeMd").closest("div");
+    expect(agentsStatusRow).toHaveClass("flex", "flex-wrap", "items-center");
+    expect(agentsStatusRow).toHaveClass("gap-x-2", "gap-y-1");
+    expect(agentsStatusRow).not.toHaveClass("grid");
+
+    expect(screen.getByText("projects.directoryExists")).toHaveClass("min-h-5", "px-2.5");
+    expect(screen.getByText("projects.claudeMdPresent")).toHaveClass("min-h-5", "px-2.5");
+  });
+
+  it("lets section heading actions wrap below the title on narrow widths", () => {
+    renderDetailPanel();
+
+    const agentsAction = screen
+      .getByRole("button", { name: "projects.linkAgents" })
+      .closest(".projects-section-heading-action");
+
+    expect(agentsAction).toHaveClass("max-sm:w-full");
+    expect(agentsAction).toHaveClass("max-sm:[&>button]:w-full");
+  });
+
   it("keeps full worktree paths inspectable in the detail table", () => {
     const worktreePath =
       "/Users/test-user/work/alpha/.worktrees/very-long-feature-branch-name-that-needs-inspection";
