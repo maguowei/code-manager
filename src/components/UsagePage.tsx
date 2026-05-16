@@ -78,8 +78,16 @@ const CHART_CURSOR_STROKE = "var(--chart-1)";
 const USAGE_CHART_CONFIG = {} satisfies ChartConfig;
 
 const TAB_ORDER: UsageTab[] = ["daily", "project", "session", "model"];
-type DateRangePreset = "today" | "week" | "month" | "year" | "all";
-const DATE_RANGE_PRESETS: DateRangePreset[] = ["today", "week", "month", "year", "all"];
+type DateRangePreset = "today" | "week" | "last7" | "last30" | "month" | "year" | "all";
+const DATE_RANGE_PRESETS: DateRangePreset[] = [
+  "today",
+  "week",
+  "last7",
+  "last30",
+  "month",
+  "year",
+  "all",
+];
 type TrendChartStyle = "curve" | "bar";
 const TREND_CHART_STYLE_ORDER: TrendChartStyle[] = ["curve", "bar"];
 type TrendBreakdownMode = "model" | "type";
@@ -1643,6 +1651,12 @@ function getDateRangePresetPatch(
     const end = new Date(start);
     end.setDate(start.getDate() + 6);
     return { startDate: formatDateInputValue(start), endDate: formatDateInputValue(end) };
+  }
+
+  if (preset === "last7" || preset === "last30") {
+    const start = new Date(current);
+    start.setDate(current.getDate() - (preset === "last7" ? 6 : 29));
+    return { startDate: formatDateInputValue(start), endDate: formatDateInputValue(current) };
   }
 
   if (preset === "month") {

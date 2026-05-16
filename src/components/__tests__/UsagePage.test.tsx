@@ -487,7 +487,7 @@ describe("UsagePage cost cockpit", () => {
 
   it("updates date filters from shadcn pickers and quick ranges", () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date(2026, 4, 4, 12, 0, 0));
+    vi.setSystemTime(new Date(2026, 4, 16, 12, 0, 0));
     const usage = renderUsage();
 
     fireEvent.click(screen.getByRole("button", { name: /开始日期 未选择/ }));
@@ -505,20 +505,42 @@ describe("UsagePage cost cockpit", () => {
       endDate: "2026-05-04",
     });
 
+    expect(screen.getByRole("button", { name: "最近 7 天" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "最近 30 天" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "最近 7 天" }));
+    const last7Updater = usage.setFilter.mock.calls[usage.setFilter.mock.calls.length - 1]?.[0];
+    expect(typeof last7Updater).toBe("function");
+    expect(last7Updater({ projectPath: "/p", model: "claude-3-opus" })).toEqual({
+      projectPath: "/p",
+      model: "claude-3-opus",
+      startDate: "2026-05-10",
+      endDate: "2026-05-16",
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "最近 30 天" }));
+    const last30Updater = usage.setFilter.mock.calls[usage.setFilter.mock.calls.length - 1]?.[0];
+    expect(typeof last30Updater).toBe("function");
+    expect(last30Updater({ model: "claude-3-opus" })).toEqual({
+      model: "claude-3-opus",
+      startDate: "2026-04-17",
+      endDate: "2026-05-16",
+    });
+
     fireEvent.click(screen.getByRole("button", { name: "本周" }));
     const weekUpdater = usage.setFilter.mock.calls[usage.setFilter.mock.calls.length - 1]?.[0];
     expect(typeof weekUpdater).toBe("function");
     expect(weekUpdater({ model: "claude-3-opus" })).toEqual({
       model: "claude-3-opus",
-      startDate: "2026-05-04",
-      endDate: "2026-05-10",
+      startDate: "2026-05-11",
+      endDate: "2026-05-17",
     });
 
     fireEvent.click(screen.getByRole("button", { name: "全部" }));
     const allUpdater = usage.setFilter.mock.calls[usage.setFilter.mock.calls.length - 1]?.[0];
     expect(typeof allUpdater).toBe("function");
     expect(
-      allUpdater({ startDate: "2026-05-04", endDate: "2026-05-10", projectPath: "/p" }),
+      allUpdater({ startDate: "2026-05-11", endDate: "2026-05-17", projectPath: "/p" }),
     ).toEqual({ projectPath: "/p" });
   });
 
