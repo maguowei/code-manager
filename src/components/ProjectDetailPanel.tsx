@@ -1,5 +1,6 @@
 import {
   Code2,
+  DollarSign,
   ExternalLink,
   Link2,
   List,
@@ -49,6 +50,7 @@ type ProjectDetailPanelProps = {
   onOpenWorktreeInTerminal?: (path: string) => void;
   onOpenSession: (sessionId: string) => void;
   onOpenProjectHistory: () => void;
+  onOpenProjectUsage: () => void;
   isBranchCleanupPreviewing?: boolean;
   isWorktreeCleanupPreviewing?: boolean;
 };
@@ -509,6 +511,7 @@ function ProjectDetailPanel({
   onOpenWorktreeInTerminal,
   onOpenSession,
   onOpenProjectHistory,
+  onOpenProjectUsage,
   isBranchCleanupPreviewing,
   isWorktreeCleanupPreviewing,
 }: ProjectDetailPanelProps) {
@@ -632,6 +635,15 @@ function ProjectDetailPanel({
             >
               <Code2 className="size-4" />
               {t("projects.openInEditor")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="projects-link-btn"
+              onClick={onOpenProjectUsage}
+            >
+              <DollarSign className="size-4" />
+              {t("projects.viewTokenUsageCost")}
             </Button>
             <Button
               type="button"

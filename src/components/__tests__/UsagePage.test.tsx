@@ -385,6 +385,7 @@ function renderUsage(
   overrides?: Partial<{
     tab: UsageTab;
     filter: UsageFilter;
+    projectRequest: { project: string; requestId: number } | null;
     rescanning: boolean;
     summary: UsageSummary;
     timeGranularity: UsageTimeGranularity;
@@ -396,7 +397,7 @@ function renderUsage(
   render(
     <I18nProvider>
       <ToastProvider>
-        <UsagePage />
+        <UsagePage projectRequest={overrides?.projectRequest ?? null} />
       </ToastProvider>
     </I18nProvider>,
   );
@@ -566,6 +567,33 @@ describe("UsagePage cost cockpit", () => {
     fireEvent.click(projectTab);
 
     expect(usage.setTab).toHaveBeenCalledWith("project");
+  });
+
+  it("applies a project usage navigation request with all dates selected", async () => {
+    const projectPath = "/Users/me/work/unknown-project";
+    const usage = renderUsage({
+      filter: {
+        startDate: "2026-05-01",
+        endDate: "2026-05-31",
+        projectPath,
+        model: "claude-3-opus",
+      },
+      projectRequest: {
+        project: projectPath,
+        requestId: 42,
+      },
+    });
+
+    await waitFor(() => {
+      expect(usage.setFilter).toHaveBeenCalledWith({ projectPath });
+    });
+    expect(usage.setTab).toHaveBeenCalledWith("project");
+
+    const projectSelect = screen.getByLabelText("项目") as HTMLSelectElement;
+    expect(projectSelect).toHaveValue(projectPath);
+    expect(within(projectSelect).getByRole("option", { name: "unknown-project" })).toHaveValue(
+      projectPath,
+    );
   });
 
   it("shows only the project directory name in the project table", () => {

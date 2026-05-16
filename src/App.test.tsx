@@ -600,6 +600,92 @@ describe("App", () => {
     });
   }
 
+  it("opens token usage for a project with the project selected and all dates", async () => {
+    enableTauriEvents();
+    const project = "/Users/test-user/work/alpha";
+    const historyContent = JSON.stringify({
+      display: "inspect token usage",
+      pastedContents: {},
+      project,
+      sessionId: "session-alpha",
+      timestamp: 1778932800000,
+    });
+    const workspaceWithEditor: ConfigWorkspace = {
+      ...WORKSPACE_FIXTURE,
+      app: {
+        ...WORKSPACE_FIXTURE.app,
+        defaultEditorApp: "vscode",
+      },
+    };
+
+    invokeMock.mockImplementation(async (command, _args) => {
+      if (command === "get_config_workspace") {
+        return workspaceWithEditor;
+      }
+      if (command === "get_history") {
+        return { content: historyContent, mtime: 1 };
+      }
+      if (command === "get_history_if_changed") {
+        return null;
+      }
+      if (command === "get_project_detail") {
+        return {
+          path: project,
+          shortName: "alpha",
+          exists: true,
+          isGitRepo: true,
+          repoRoot: project,
+          repositoryUrl: "https://github.example.com/team/alpha",
+          hasClaudeMd: true,
+          agentsStatus: "missing",
+          branches: [],
+          worktrees: [],
+        };
+      }
+      if (command === "get_usage_summary") {
+        return {
+          totalMessages: 1,
+          totalSessions: 1,
+          totalProjects: 1,
+          totalInput: 100,
+          totalOutput: 50,
+          totalCacheCreation: 0,
+          totalCacheRead: 0,
+          totalCost: 0.01,
+          lastScanMs: null,
+          pricing: { source: "builtin", fetchedAtMs: null, models: {} },
+          thirdPartyProviderPricingEnabled: true,
+          unknownModels: [],
+          allProjects: [{ projectPath: project, projectDir: "-Users-test-user-work-alpha" }],
+          allModels: [],
+        };
+      }
+      if (
+        command === "get_usage_daily" ||
+        command === "get_usage_time_series" ||
+        command === "get_usage_by_project" ||
+        command === "get_usage_by_session" ||
+        command === "get_usage_by_model"
+      ) {
+        return [];
+      }
+      return null;
+    });
+
+    renderApp();
+
+    fireEvent.click(await screen.findByRole("button", { name: "项目" }));
+    fireEvent.click(await screen.findByRole("button", { name: "查看 Token 用量与成本" }));
+
+    expect(await screen.findByRole("heading", { name: "Token 用量统计" })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("get_usage_summary", {
+        filter: { projectPath: project },
+      });
+    });
+    expect(screen.getByRole("combobox", { name: "项目" })).toHaveValue(project);
+  });
+
   it("toggles the settings drawer from the sidebar settings button", async () => {
     renderApp();
 

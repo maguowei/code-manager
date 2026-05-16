@@ -1,5 +1,5 @@
 import { CalendarIcon, RefreshCw, ScanLine, TriangleAlert } from "lucide-react";
-import { type ReactNode, useCallback, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { enUS, zhCN } from "react-day-picker/locale";
 import {
   Area,
@@ -172,7 +172,16 @@ function soloSeriesVisibility(
   ) as SeriesVisibility;
 }
 
-function UsagePage() {
+type UsageProjectRequest = {
+  project: string;
+  requestId: number;
+};
+
+type UsagePageProps = {
+  projectRequest?: UsageProjectRequest | null;
+};
+
+function UsagePage({ projectRequest = null }: UsagePageProps = {}) {
   const { language, t } = useI18n();
   const { showToast } = useToast();
   const u = useUsage(t("usage.loadError"));
@@ -183,6 +192,15 @@ function UsagePage() {
   const [tokenVisibility, setTokenVisibility] = useState<SeriesVisibility>(() => ({}));
   const [trendChartStyle, setTrendChartStyle] = useState<TrendChartStyle>("curve");
   const [trendBreakdownMode, setTrendBreakdownMode] = useState<TrendBreakdownMode>("model");
+  const { setFilter, setTab } = u;
+
+  useEffect(() => {
+    const project = projectRequest?.project;
+    if (!project) return;
+
+    setFilter({ projectPath: project });
+    setTab("project");
+  }, [projectRequest, setFilter, setTab]);
 
   const handleRefreshPrice = useCallback(async () => {
     try {
@@ -1483,6 +1501,17 @@ function Filters({ t, language, filter, allProjects, allModels, onChange, onRese
         .sort((a, b) => a.localeCompare(b)),
     [allModels],
   );
+  const projectOptions = useMemo(() => {
+    const selectedProject = filter.projectPath?.trim();
+    if (
+      !selectedProject ||
+      allProjects.some((project) => project.projectPath === selectedProject)
+    ) {
+      return allProjects;
+    }
+
+    return [{ projectPath: selectedProject, projectDir: selectedProject }, ...allProjects];
+  }, [allProjects, filter.projectPath]);
   const hasClaudeModels = sortedModels.some((model) => model.startsWith("claude-"));
 
   return (
@@ -1552,7 +1581,7 @@ function Filters({ t, language, filter, allProjects, allModels, onChange, onRese
           onChange={(e) => onChange({ projectPath: e.target.value || undefined })}
         >
           <option value="">{t("usage.filter.allProjects")}</option>
-          {allProjects.map((p) => (
+          {projectOptions.map((p) => (
             <option key={p.projectPath} value={p.projectPath}>
               {projectDisplayName(p.projectDir, p.projectPath)}
             </option>

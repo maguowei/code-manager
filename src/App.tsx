@@ -64,9 +64,14 @@ function App() {
     project: string;
     requestId: number;
   } | null>(null);
+  const [usageProjectRequest, setUsageProjectRequest] = useState<{
+    project: string;
+    requestId: number;
+  } | null>(null);
   const previousContentTabRef = useRef<TabType>("configs");
   const editorExitGuardRef = useRef<EditorExitGuard | null>(null);
   const historyProjectRequestIdRef = useRef(0);
+  const usageProjectRequestIdRef = useRef(0);
 
   const loadWorkspace = useCallback(async () => {
     if (!isTauri()) {
@@ -139,6 +144,9 @@ function App() {
     if (activeTab !== "history") {
       setHistoryProjectRequest(null);
     }
+    if (activeTab !== "usage") {
+      setUsageProjectRequest(null);
+    }
   }, [activeTab]);
 
   useTauriEvent<string>("navigate-to-tab", (tab) => {
@@ -196,6 +204,20 @@ function App() {
     [activateTab, runWithEditorExitGuard],
   );
 
+  const handleOpenProjectUsage = useCallback(
+    (project: string) => {
+      runWithEditorExitGuard(() => {
+        usageProjectRequestIdRef.current += 1;
+        setUsageProjectRequest({
+          project,
+          requestId: usageProjectRequestIdRef.current,
+        });
+        activateTab("usage");
+      });
+    },
+    [activateTab, runWithEditorExitGuard],
+  );
+
   if (loading) {
     return (
       <TooltipProvider delayDuration={200}>
@@ -235,9 +257,12 @@ function App() {
           {activeTab === "claudeOverview" ? null : activeTab === "stats" ? (
             <StatsPage />
           ) : activeTab === "usage" ? (
-            <UsagePage />
+            <UsagePage projectRequest={usageProjectRequest} />
           ) : activeTab === "projects" ? (
-            <ProjectsPage onOpenProjectHistory={handleOpenProjectHistory} />
+            <ProjectsPage
+              onOpenProjectHistory={handleOpenProjectHistory}
+              onOpenProjectUsage={handleOpenProjectUsage}
+            />
           ) : activeTab === "history" ? (
             <HistoryPage projectRequest={historyProjectRequest} />
           ) : activeTab === "providers" ? (

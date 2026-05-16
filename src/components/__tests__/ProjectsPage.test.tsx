@@ -298,6 +298,16 @@ describe("ProjectsPage purge context menu", () => {
     expect(onOpenProjectHistory).toHaveBeenCalledWith(PROJECT_ALPHA);
   });
 
+  it("opens token usage for the selected project from the project panel", async () => {
+    const onOpenProjectUsage = vi.fn();
+    renderPage({ onOpenProjectUsage });
+
+    const usageButton = await screen.findByRole("button", { name: "查看 Token 用量与成本" });
+    fireEvent.click(usageButton);
+
+    expect(onOpenProjectUsage).toHaveBeenCalledWith(PROJECT_ALPHA);
+  });
+
   it("cancels the preview dialog without executing purge", async () => {
     renderPage();
 

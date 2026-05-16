@@ -54,6 +54,7 @@ function renderDetailPanel() {
       onCreateAgentsLink: () => undefined,
       onOpenSession: () => undefined,
       onOpenProjectHistory: () => undefined,
+      onOpenProjectUsage: () => undefined,
     }),
   );
 }
@@ -122,6 +123,7 @@ describe("ProjectsPage layout", () => {
         onCreateAgentsLink: () => undefined,
         onOpenSession: () => undefined,
         onOpenProjectHistory: () => undefined,
+        onOpenProjectUsage: () => undefined,
       }),
     );
 
@@ -228,12 +230,42 @@ describe("ProjectsPage layout", () => {
         onCreateAgentsLink: () => undefined,
         onOpenSession: () => undefined,
         onOpenProjectHistory,
+        onOpenProjectUsage: () => undefined,
       }),
     );
 
     fireEvent.click(screen.getByRole("button", { name: "projects.viewAllSessions" }));
 
     expect(onOpenProjectHistory).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers a button to open token usage and cost for the project", () => {
+    const onOpenProjectUsage = vi.fn();
+
+    render(
+      createElement(ProjectDetailPanel, {
+        t: (key) => key,
+        summary: SUMMARY,
+        detail: DETAIL,
+        defaultEditorApp: "vscode",
+        canCreateAgentsLink: true,
+        canOpenRepository: true,
+        canOpenProjectDirectory: true,
+        canOpenInEditor: true,
+        isLinkingAgents: false,
+        onOpenInTerminal: () => undefined,
+        onOpenInEditor: () => undefined,
+        onOpenRepository: () => undefined,
+        onCreateAgentsLink: () => undefined,
+        onOpenSession: () => undefined,
+        onOpenProjectHistory: () => undefined,
+        onOpenProjectUsage,
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "projects.viewTokenUsageCost" }));
+
+    expect(onOpenProjectUsage).toHaveBeenCalledTimes(1);
   });
 
   it("keeps overview in normal flow so it does not cover recent sessions while scrolling", () => {
@@ -285,6 +317,7 @@ describe("ProjectsPage layout", () => {
         onCreateAgentsLink: () => undefined,
         onOpenSession: () => undefined,
         onOpenProjectHistory: () => undefined,
+        onOpenProjectUsage: () => undefined,
       }),
     );
 
@@ -328,6 +361,7 @@ describe("ProjectsPage layout", () => {
         onCreateAgentsLink: () => undefined,
         onOpenSession: () => undefined,
         onOpenProjectHistory: () => undefined,
+        onOpenProjectUsage: () => undefined,
       }),
     );
 
@@ -373,6 +407,7 @@ describe("ProjectsPage layout", () => {
         onCreateAgentsLink: () => undefined,
         onOpenSession: () => undefined,
         onOpenProjectHistory: () => undefined,
+        onOpenProjectUsage: () => undefined,
       }),
     );
 
@@ -408,6 +443,7 @@ describe("ProjectsPage layout", () => {
         onCreateAgentsLink: () => undefined,
         onOpenSession: () => undefined,
         onOpenProjectHistory: () => undefined,
+        onOpenProjectUsage: () => undefined,
       }),
     );
 

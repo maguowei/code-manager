@@ -88,6 +88,7 @@ type ProjectGitCleanupDialogState = {
 
 type ProjectsPageProps = {
   onOpenProjectHistory?: (project: string) => void;
+  onOpenProjectUsage?: (project: string) => void;
 };
 
 function clampNumber(value: number, min: number, max: number) {
@@ -476,7 +477,7 @@ function ProjectEmptyState({ children }: { children: string }) {
   );
 }
 
-function ProjectsPage({ onOpenProjectHistory }: ProjectsPageProps = {}) {
+function ProjectsPage({ onOpenProjectHistory, onOpenProjectUsage }: ProjectsPageProps = {}) {
   const { t } = useI18n();
   const { showToast } = useToast();
   const {
@@ -792,6 +793,11 @@ function ProjectsPage({ onOpenProjectHistory }: ProjectsPageProps = {}) {
     if (!selectedSummary) return;
     onOpenProjectHistory?.(selectedSummary.project);
   }, [onOpenProjectHistory, selectedSummary]);
+
+  const handleOpenProjectUsage = useCallback(() => {
+    if (!selectedSummary) return;
+    onOpenProjectUsage?.(selectedSummary.project);
+  }, [onOpenProjectUsage, selectedSummary]);
 
   const handleProjectContextMenu = useCallback(
     (event: ReactMouseEvent<HTMLButtonElement>, summary: ProjectSummary) => {
@@ -1185,6 +1191,7 @@ function ProjectsPage({ onOpenProjectHistory }: ProjectsPageProps = {}) {
               onOpenWorktreeInTerminal={handleOpenWorktreeInTerminal}
               onOpenSession={handleOpenSession}
               onOpenProjectHistory={handleOpenProjectHistory}
+              onOpenProjectUsage={handleOpenProjectUsage}
               isBranchCleanupPreviewing={
                 gitCleanupDialog?.kind === "branches" && gitCleanupDialog.isPreviewing
               }
