@@ -43,6 +43,7 @@ export interface AppPreferences {
   showTraySessions: boolean;
   systemNotificationsEnabled: boolean;
   collapseSidebarByDefault: boolean;
+  thirdPartyProviderPricingEnabled: boolean;
   uiLanguage: "zh" | "en";
   defaultTerminalApp: DefaultTerminalApp;
   defaultEditorApp: DefaultEditorApp | null;
@@ -555,6 +556,7 @@ export interface UsageSummary {
   totalCost: number;
   lastScanMs: number | null;
   pricing: PricingTable;
+  thirdPartyProviderPricingEnabled: boolean;
   unknownModels: string[];
   allProjects: ProjectOption[];
   allModels: string[];

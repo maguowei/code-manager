@@ -32,6 +32,7 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
     showTraySessions: true,
     systemNotificationsEnabled: false,
     collapseSidebarByDefault: false,
+    thirdPartyProviderPricingEnabled: true,
     uiLanguage: "en",
     defaultTerminalApp: "terminal",
     defaultEditorApp: null,

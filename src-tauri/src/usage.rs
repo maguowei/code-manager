@@ -304,6 +304,7 @@ pub struct UsageSummary {
     pub total_cost: f64,
     pub last_scan_ms: Option<i64>,
     pub pricing: PricingTable,
+    pub third_party_provider_pricing_enabled: bool,
     pub unknown_models: Vec<String>,
     pub all_projects: Vec<ProjectOption>,
     pub all_models: Vec<String>,
@@ -501,6 +502,10 @@ fn save_pricing_cache(table: &PricingTable) -> Result<(), String> {
     let path = pricing_cache_path();
     let content = serde_json::to_string_pretty(table).map_err(|e| e.to_string())?;
     utils::ensure_dir_and_write_atomic(&path, &content)
+}
+
+fn third_party_provider_pricing_enabled() -> bool {
+    crate::config::load_app_preferences().third_party_provider_pricing_enabled
 }
 
 async fn initialize_usage_database(pool: &SqlitePool) -> Result<(), String> {
@@ -920,6 +925,36 @@ pub struct RawUsage {
     pub cache_read: u64,
 }
 
+fn normalize_model_key(model: &str) -> String {
+    let lower = model.trim().to_ascii_lowercase();
+    let without_provider = lower.rsplit('/').next().unwrap_or(&lower);
+    let without_suffix = without_provider
+        .split(':')
+        .next()
+        .unwrap_or(without_provider);
+    let mut normalized = String::new();
+    let mut last_was_separator = false;
+
+    for ch in without_suffix.chars() {
+        if ch.is_ascii_alphanumeric() {
+            normalized.push(ch);
+            last_was_separator = false;
+        } else if matches!(ch, '-' | '_' | '.' | ' ') && !last_was_separator {
+            normalized.push('-');
+            last_was_separator = true;
+        }
+    }
+
+    normalized.trim_matches('-').to_string()
+}
+
+fn is_target_third_party_model(model: &str) -> bool {
+    let normalized = normalize_model_key(model);
+    normalized
+        .split('-')
+        .any(|part| matches!(part, "kimi" | "mimo" | "glm" | "minimax"))
+}
+
 /// 根据 model id 查价格，未命中时按子串模糊匹配（opus / sonnet / haiku）
 pub fn match_model_price(model: &str, table: &PricingTable) -> Option<ModelPrice> {
     if let Some(p) = table.models.get(model) {
@@ -929,6 +964,14 @@ pub fn match_model_price(model: &str, table: &PricingTable) -> Option<ModelPrice
     for (k, v) in &table.models {
         if lower == k.to_lowercase() {
             return Some(v.clone());
+        }
+    }
+    let normalized = normalize_model_key(model);
+    if !normalized.is_empty() {
+        for (k, v) in &table.models {
+            if normalized == normalize_model_key(k) {
+                return Some(v.clone());
+            }
         }
     }
     let category = if lower.contains("opus") {
@@ -953,16 +996,60 @@ pub fn match_model_price(model: &str, table: &PricingTable) -> Option<ModelPrice
     candidate.cloned()
 }
 
+#[cfg(test)]
 pub fn compute_cost(model: &str, table: &PricingTable, usage: &RawUsage) -> f64 {
-    compute_cost_parts(
+    compute_cost_with_third_party_pricing(model, table, usage, true)
+}
+
+pub fn compute_cost_with_third_party_pricing(
+    model: &str,
+    table: &PricingTable,
+    usage: &RawUsage,
+    third_party_provider_pricing_enabled: bool,
+) -> f64 {
+    compute_cost_parts_with_third_party_pricing(
         model,
         table,
         usage.input_tokens,
         usage.output_tokens,
         usage.cache_creation_5m + usage.cache_creation_1h,
         usage.cache_read,
+        third_party_provider_pricing_enabled,
     )
     .total()
+}
+
+pub fn is_unknown_model(
+    model: &str,
+    table: &PricingTable,
+    third_party_provider_pricing_enabled: bool,
+) -> bool {
+    if !third_party_provider_pricing_enabled && is_target_third_party_model(model) {
+        return false;
+    }
+    match_model_price(model, table).is_none()
+}
+
+fn compute_cost_parts_with_third_party_pricing(
+    model: &str,
+    table: &PricingTable,
+    input_tokens: u64,
+    output_tokens: u64,
+    cache_creation_tokens: u64,
+    cache_read_tokens: u64,
+    third_party_provider_pricing_enabled: bool,
+) -> UsageCostParts {
+    if !third_party_provider_pricing_enabled && is_target_third_party_model(model) {
+        return UsageCostParts::default();
+    }
+    compute_cost_parts(
+        model,
+        table,
+        input_tokens,
+        output_tokens,
+        cache_creation_tokens,
+        cache_read_tokens,
+    )
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -1106,11 +1193,22 @@ fn parse_local_date_to_ms(s: &str, end_of_day: bool) -> Option<i64> {
 // ============ JSONL 解析 ============
 
 /// 解析单行 jsonl，仅当 type=assistant 且含 message.usage 时返回 Some
+#[cfg(test)]
 fn parse_jsonl_line(
     line: &str,
     project_dir_name: &str,
     pricing: &PricingTable,
     unknown_models: &mut HashSet<String>,
+) -> Option<UsageRecord> {
+    parse_jsonl_line_with_third_party_pricing(line, project_dir_name, pricing, unknown_models, true)
+}
+
+fn parse_jsonl_line_with_third_party_pricing(
+    line: &str,
+    project_dir_name: &str,
+    pricing: &PricingTable,
+    unknown_models: &mut HashSet<String>,
+    third_party_provider_pricing_enabled: bool,
 ) -> Option<UsageRecord> {
     let v: serde_json::Value = serde_json::from_str(line).ok()?;
     if v.get("type").and_then(|x| x.as_str()) != Some("assistant") {
@@ -1202,11 +1300,16 @@ fn parse_jsonl_line(
         return None;
     }
 
-    if match_model_price(&model, pricing).is_none() {
+    if is_unknown_model(&model, pricing, third_party_provider_pricing_enabled) {
         unknown_models.insert(model.clone());
     }
 
-    let cost_usd = compute_cost(&model, pricing, &raw);
+    let cost_usd = compute_cost_with_third_party_pricing(
+        &model,
+        pricing,
+        &raw,
+        third_party_provider_pricing_enabled,
+    );
 
     Some(UsageRecord {
         message_id,
@@ -1258,6 +1361,7 @@ async fn scan_all_in_projects_dir(
         .map_err(|e| e.to_string())?
         .pricing
         .clone();
+    let third_party_pricing_enabled = third_party_provider_pricing_enabled();
 
     let persisted_index = if full_rescan {
         clear_usage_records_db(&pool).await?;
@@ -1307,15 +1411,16 @@ async fn scan_all_in_projects_dir(
             _ => 0,
         };
 
-        match scan_file_from_offset(
-            &p,
-            start_offset,
-            &usage_file.project_dir_name,
-            &pricing,
-            &mut new_unknown,
-            &mut local_seen,
-            &mut new_records,
-        ) {
+        let mut scan_context = ScanFileContext {
+            project_dir_name: &usage_file.project_dir_name,
+            pricing: &pricing,
+            unknown_models: &mut new_unknown,
+            seen: &mut local_seen,
+            out: &mut new_records,
+            third_party_provider_pricing_enabled: third_party_pricing_enabled,
+        };
+
+        match scan_file_from_offset_with_third_party_pricing(&p, start_offset, &mut scan_context) {
             Ok(end_offset) => {
                 new_index.insert(
                     p.clone(),
@@ -1370,6 +1475,7 @@ async fn scan_all_in_projects_dir(
 }
 
 /// 从指定 offset 处开始扫描文件，返回扫描结束时的新 offset
+#[cfg(test)]
 fn scan_file_from_offset(
     path: &Path,
     start_offset: u64,
@@ -1378,6 +1484,31 @@ fn scan_file_from_offset(
     unknown_models: &mut HashSet<String>,
     seen: &mut HashSet<String>,
     out: &mut Vec<UsageRecord>,
+) -> Result<u64, String> {
+    let mut scan_context = ScanFileContext {
+        project_dir_name,
+        pricing,
+        unknown_models,
+        seen,
+        out,
+        third_party_provider_pricing_enabled: true,
+    };
+    scan_file_from_offset_with_third_party_pricing(path, start_offset, &mut scan_context)
+}
+
+struct ScanFileContext<'a> {
+    project_dir_name: &'a str,
+    pricing: &'a PricingTable,
+    unknown_models: &'a mut HashSet<String>,
+    seen: &'a mut HashSet<String>,
+    out: &'a mut Vec<UsageRecord>,
+    third_party_provider_pricing_enabled: bool,
+}
+
+fn scan_file_from_offset_with_third_party_pricing(
+    path: &Path,
+    start_offset: u64,
+    context: &mut ScanFileContext<'_>,
 ) -> Result<u64, String> {
     let mut file = File::open(path).map_err(|e| e.to_string())?;
     let total_size = file.metadata().map_err(|e| e.to_string())?.len();
@@ -1407,8 +1538,14 @@ fn scan_file_from_offset(
         if trimmed.is_empty() {
             continue;
         }
-        if let Some(record) = parse_jsonl_line(trimmed, project_dir_name, pricing, unknown_models) {
-            merge_usage_record(out, seen, record);
+        if let Some(record) = parse_jsonl_line_with_third_party_pricing(
+            trimmed,
+            context.project_dir_name,
+            context.pricing,
+            context.unknown_models,
+            context.third_party_provider_pricing_enabled,
+        ) {
+            merge_usage_record(context.out, context.seen, record);
         }
     }
 
@@ -1433,6 +1570,7 @@ async fn handle_files_changed_in_projects_dir(
         .map_err(|e| e.to_string())?
         .pricing
         .clone();
+    let third_party_pricing_enabled = third_party_provider_pricing_enabled();
 
     let mut new_records: Vec<UsageRecord> = Vec::new();
     let mut updated_index: HashMap<PathBuf, FileIndex> = HashMap::new();
@@ -1468,15 +1606,17 @@ async fn handle_files_changed_in_projects_dir(
             _ => 0,
         };
 
-        match scan_file_from_offset(
-            &path,
-            start_offset,
-            &usage_file.project_dir_name,
-            &pricing,
-            &mut unknown_local,
-            &mut local_seen,
-            &mut new_records,
-        ) {
+        let mut scan_context = ScanFileContext {
+            project_dir_name: &usage_file.project_dir_name,
+            pricing: &pricing,
+            unknown_models: &mut unknown_local,
+            seen: &mut local_seen,
+            out: &mut new_records,
+            third_party_provider_pricing_enabled: third_party_pricing_enabled,
+        };
+
+        match scan_file_from_offset_with_third_party_pricing(&path, start_offset, &mut scan_context)
+        {
             Ok(end_offset) => {
                 updated_index.insert(
                     path,
@@ -1552,30 +1692,37 @@ struct ModelCostEntry {
     cache_write: Option<f64>,
 }
 
-async fn fetch_pricing_from_network() -> Result<PricingTable, String> {
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(15))
-        .build()
-        .map_err(|e| format!("client build error: {e}"))?;
-    let resp = client
-        .get(MODELS_DEV_URL)
-        .send()
-        .await
-        .map_err(|e| format!("network error: {e}"))?;
-    let api: ModelsDevApi = resp.json().await.map_err(|e| format!("parse error: {e}"))?;
+fn is_supported_models_dev_provider(provider: &str) -> bool {
+    matches!(
+        normalize_model_key(provider).as_str(),
+        "anthropic"
+            | "moonshot"
+            | "moonshotai"
+            | "zai"
+            | "z-ai"
+            | "zhipu"
+            | "zhipuai"
+            | "bigmodel"
+            | "minimax"
+            | "xiaomi"
+            | "mimo"
+            | "xiaomi-mimo"
+    )
+}
 
+fn pricing_table_from_models_dev_api(api: ModelsDevApi) -> Result<PricingTable, String> {
     let mut models: HashMap<String, ModelPrice> = HashMap::new();
-    for (key, prov) in &api.providers {
-        let pid = prov.id.as_deref().unwrap_or(key);
-        if !pid.eq_ignore_ascii_case("anthropic") {
+    for (key, prov) in api.providers {
+        let pid = prov.id.as_deref().unwrap_or(&key);
+        if !is_supported_models_dev_provider(&key) && !is_supported_models_dev_provider(pid) {
             continue;
         }
-        for (mid, m) in &prov.models {
-            if let Some(c) = &m.cost {
+        for (mid, m) in prov.models {
+            if let Some(c) = m.cost {
                 let input = c.input.unwrap_or(0.0);
                 let output = c.output.unwrap_or(0.0);
                 models.insert(
-                    mid.clone(),
+                    mid,
                     ModelPrice {
                         input,
                         output,
@@ -1588,7 +1735,7 @@ async fn fetch_pricing_from_network() -> Result<PricingTable, String> {
     }
 
     if models.is_empty() {
-        return Err("no anthropic models found in api response".into());
+        return Err("no supported models found in api response".into());
     }
 
     Ok(PricingTable {
@@ -1598,12 +1745,43 @@ async fn fetch_pricing_from_network() -> Result<PricingTable, String> {
     })
 }
 
+async fn fetch_pricing_from_network() -> Result<PricingTable, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .map_err(|e| format!("client build error: {e}"))?;
+    let resp = client
+        .get(MODELS_DEV_URL)
+        .send()
+        .await
+        .map_err(|e| format!("network error: {e}"))?;
+    let api: ModelsDevApi = resp.json().await.map_err(|e| format!("parse error: {e}"))?;
+
+    pricing_table_from_models_dev_api(api)
+}
+
 /// 应用新价格表：保存缓存、写入内存、重算所有 records 的 cost
 async fn apply_new_pricing(
     state: &UsageState,
     table: PricingTable,
 ) -> Result<PricingTable, String> {
     save_pricing_cache(&table)?;
+    let third_party_pricing_enabled = third_party_provider_pricing_enabled();
+    let unknown_local =
+        recompute_usage_record_costs_with_pricing(state, &table, third_party_pricing_enabled)
+            .await?;
+
+    let mut inner = state.inner.write().map_err(|e| e.to_string())?;
+    inner.pricing = table.clone();
+    inner.unknown_models = unknown_local;
+    Ok(table)
+}
+
+async fn recompute_usage_record_costs_with_pricing(
+    state: &UsageState,
+    pricing: &PricingTable,
+    third_party_provider_pricing_enabled: bool,
+) -> Result<HashSet<String>, String> {
     let pool = state.db_pool()?;
     let records = load_usage_record_rows_db(&pool).await?;
     let mut unknown_local: HashSet<String> = HashSet::new();
@@ -1616,25 +1794,71 @@ async fn apply_new_pricing(
             cache_creation_1h: r.cache_creation_1h,
             cache_read: r.cache_read,
         };
-        updates.push((id, compute_cost(&r.model, &table, &raw)));
-        if match_model_price(&r.model, &table).is_none() {
+        updates.push((
+            id,
+            compute_cost_with_third_party_pricing(
+                &r.model,
+                pricing,
+                &raw,
+                third_party_provider_pricing_enabled,
+            ),
+        ));
+        if is_unknown_model(&r.model, pricing, third_party_provider_pricing_enabled) {
             unknown_local.insert(r.model.clone());
         }
     }
     update_usage_record_costs_db(&pool, &updates).await?;
+    Ok(unknown_local)
+}
 
+async fn recompute_usage_record_costs(state: &UsageState) -> Result<(), String> {
+    let pricing = state
+        .inner
+        .read()
+        .map_err(|e| e.to_string())?
+        .pricing
+        .clone();
+    let third_party_pricing_enabled = third_party_provider_pricing_enabled();
+    let unknown_local =
+        recompute_usage_record_costs_with_pricing(state, &pricing, third_party_pricing_enabled)
+            .await?;
     let mut inner = state.inner.write().map_err(|e| e.to_string())?;
-    inner.pricing = table.clone();
     inner.unknown_models = unknown_local;
-    Ok(table)
+    Ok(())
+}
+
+pub fn schedule_usage_cost_recompute(app_handle: AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        let Some(state) = app_handle.try_state::<UsageState>() else {
+            log::warn!("event=usage.pricing.recompute status=skip reason=state_missing");
+            return;
+        };
+        match recompute_usage_record_costs(&state).await {
+            Ok(()) => {
+                let _ = app_handle.emit("usage-pricing-updated", ());
+                log::info!("event=usage.pricing.recompute status=ok");
+            }
+            Err(e) => log::warn!("event=usage.pricing.recompute status=warn err={e}"),
+        }
+    });
 }
 
 // ============ 聚合 ============
 
+#[cfg(test)]
 fn apply_filter<'a>(
     records: &'a [UsageRecord],
     filter: &UsageFilter,
     pricing: &PricingTable,
+) -> Vec<&'a UsageRecord> {
+    apply_filter_with_third_party_pricing(records, filter, pricing, true)
+}
+
+fn apply_filter_with_third_party_pricing<'a>(
+    records: &'a [UsageRecord],
+    filter: &UsageFilter,
+    pricing: &PricingTable,
+    third_party_provider_pricing_enabled: bool,
 ) -> Vec<&'a UsageRecord> {
     let start_ms = filter
         .start_date
@@ -1678,7 +1902,9 @@ fn apply_filter<'a>(
                     return false;
                 }
             }
-            if !include_unknown && match_model_price(&r.model, pricing).is_none() {
+            if !include_unknown
+                && is_unknown_model(&r.model, pricing, third_party_provider_pricing_enabled)
+            {
                 return false;
             }
             true
@@ -1709,13 +1935,29 @@ fn aggregate_model_stats(records: &[&UsageRecord]) -> Vec<ModelUsageStat> {
     list
 }
 
+#[cfg(test)]
 fn aggregate_time_series(
     records: &[UsageRecord],
     filter: &UsageFilter,
     pricing: &PricingTable,
     granularity: UsageTimeGranularity,
 ) -> Vec<UsageTimeSeriesPoint> {
-    let filtered = apply_filter(records, filter, pricing);
+    aggregate_time_series_with_third_party_pricing(records, filter, pricing, granularity, true)
+}
+
+fn aggregate_time_series_with_third_party_pricing(
+    records: &[UsageRecord],
+    filter: &UsageFilter,
+    pricing: &PricingTable,
+    granularity: UsageTimeGranularity,
+    third_party_provider_pricing_enabled: bool,
+) -> Vec<UsageTimeSeriesPoint> {
+    let filtered = apply_filter_with_third_party_pricing(
+        records,
+        filter,
+        pricing,
+        third_party_provider_pricing_enabled,
+    );
     let mut buckets: HashMap<i64, (String, Vec<&UsageRecord>)> = HashMap::new();
     for r in filtered {
         let Some((bucket, bucket_start_ms)) = local_bucket_for_ms(r.timestamp_ms, granularity)
@@ -1745,13 +1987,14 @@ fn aggregate_time_series(
                 point.cache_creation_tokens += r.cache_creation_total();
                 point.cache_read_tokens += r.cache_read;
                 point.cost += r.cost_usd;
-                let cost_parts = compute_cost_parts(
+                let cost_parts = compute_cost_parts_with_third_party_pricing(
                     &r.model,
                     pricing,
                     r.input_tokens,
                     r.output_tokens,
                     r.cache_creation_total(),
                     r.cache_read,
+                    third_party_provider_pricing_enabled,
                 );
                 point.input_cost += cost_parts.input;
                 point.output_cost += cost_parts.output;
@@ -1780,14 +2023,21 @@ pub async fn get_usage_summary(
         let inner = state.inner.read().map_err(|e| e.to_string())?;
         (inner.pricing.clone(), inner.last_scan_ms)
     };
+    let third_party_pricing_enabled = third_party_provider_pricing_enabled();
     let records = load_usage_records_db(&pool, &filter).await?;
-    let filtered = apply_filter(&records, &filter, &pricing);
+    let filtered = apply_filter_with_third_party_pricing(
+        &records,
+        &filter,
+        &pricing,
+        third_party_pricing_enabled,
+    );
 
     let mut sessions: HashSet<&str> = HashSet::new();
     let mut projects: HashSet<&str> = HashSet::new();
     let mut total = UsageSummary {
         last_scan_ms: state_last_scan_ms.or(load_last_scan_ms_db(&pool).await?),
         pricing: pricing.clone(),
+        third_party_provider_pricing_enabled: third_party_pricing_enabled,
         ..Default::default()
     };
 
@@ -1813,7 +2063,7 @@ pub async fn get_usage_summary(
             .entry(r.project_path.clone())
             .or_insert_with(|| r.project_dir.clone());
         model_set.insert(r.model.clone());
-        if match_model_price(&r.model, &pricing).is_none() {
+        if is_unknown_model(&r.model, &pricing, third_party_pricing_enabled) {
             unknown_models.insert(r.model.clone());
         }
     }
@@ -1846,8 +2096,14 @@ pub async fn get_usage_daily(
         .map_err(|e| e.to_string())?
         .pricing
         .clone();
+    let third_party_pricing_enabled = third_party_provider_pricing_enabled();
     let records = load_usage_records_db(&pool, &filter).await?;
-    let filtered = apply_filter(&records, &filter, &pricing);
+    let filtered = apply_filter_with_third_party_pricing(
+        &records,
+        &filter,
+        &pricing,
+        third_party_pricing_enabled,
+    );
 
     let mut buckets: HashMap<String, Vec<&UsageRecord>> = HashMap::new();
     for r in filtered {
@@ -1897,12 +2153,14 @@ pub async fn get_usage_time_series(
         .map_err(|e| e.to_string())?
         .pricing
         .clone();
+    let third_party_pricing_enabled = third_party_provider_pricing_enabled();
     let records = load_usage_records_db(&pool, &filter).await?;
-    Ok(aggregate_time_series(
+    Ok(aggregate_time_series_with_third_party_pricing(
         &records,
         &filter,
         &pricing,
         granularity,
+        third_party_pricing_enabled,
     ))
 }
 
@@ -1918,8 +2176,14 @@ pub async fn get_usage_by_project(
         .map_err(|e| e.to_string())?
         .pricing
         .clone();
+    let third_party_pricing_enabled = third_party_provider_pricing_enabled();
     let records = load_usage_records_db(&pool, &filter).await?;
-    let filtered = apply_filter(&records, &filter, &pricing);
+    let filtered = apply_filter_with_third_party_pricing(
+        &records,
+        &filter,
+        &pricing,
+        third_party_pricing_enabled,
+    );
 
     let mut buckets: HashMap<String, Vec<&UsageRecord>> = HashMap::new();
     for r in filtered {
@@ -1976,8 +2240,14 @@ pub async fn get_usage_by_session(
         .map_err(|e| e.to_string())?
         .pricing
         .clone();
+    let third_party_pricing_enabled = third_party_provider_pricing_enabled();
     let records = load_usage_records_db(&pool, &filter).await?;
-    let filtered = apply_filter(&records, &filter, &pricing);
+    let filtered = apply_filter_with_third_party_pricing(
+        &records,
+        &filter,
+        &pricing,
+        third_party_pricing_enabled,
+    );
 
     let mut buckets: HashMap<String, Vec<&UsageRecord>> = HashMap::new();
     for r in filtered {
@@ -2042,8 +2312,14 @@ pub async fn get_usage_by_model(
         .map_err(|e| e.to_string())?
         .pricing
         .clone();
+    let third_party_pricing_enabled = third_party_provider_pricing_enabled();
     let records = load_usage_records_db(&pool, &filter).await?;
-    let filtered = apply_filter(&records, &filter, &pricing);
+    let filtered = apply_filter_with_third_party_pricing(
+        &records,
+        &filter,
+        &pricing,
+        third_party_pricing_enabled,
+    );
     Ok(aggregate_model_stats(&filtered))
 }
 
@@ -2323,6 +2599,127 @@ mod tests {
         };
         let cost = compute_cost("gpt-4o", &table, &usage);
         assert_eq!(cost, 0.0);
+    }
+
+    #[test]
+    fn models_dev_pricing_imports_supported_official_providers_only() -> Result<(), String> {
+        let api: ModelsDevApi = serde_json::from_value(serde_json::json!({
+            "anthropic": {
+                "id": "anthropic",
+                "models": {
+                    "claude-sonnet-4-6": {
+                        "cost": { "input": 3.0, "output": 15.0, "cache_read": 0.3, "cache_write": 3.75 }
+                    }
+                }
+            },
+            "moonshotai": {
+                "id": "moonshotai",
+                "models": {
+                    "kimi-k2.6": { "cost": { "input": 0.9, "output": 3.72 } }
+                }
+            },
+            "zhipuai": {
+                "id": "zhipuai",
+                "models": {
+                    "glm-5.1": { "cost": { "input": 0.6, "output": 2.2, "cache_read": 0.06 } }
+                }
+            },
+            "minimax": {
+                "id": "minimax",
+                "models": {
+                    "MiniMax-M2.7": { "cost": { "input": 0.15, "output": 1.5 } }
+                }
+            },
+            "xiaomi": {
+                "id": "xiaomi",
+                "models": {
+                    "mimo-v2.5-pro": { "cost": { "input": 1.0, "output": 3.0 } }
+                }
+            },
+            "openrouter": {
+                "id": "openrouter",
+                "models": {
+                    "minimax/minimax-m2.7": { "cost": { "input": 0.01, "output": 0.02 } }
+                }
+            }
+        }))
+        .unwrap();
+
+        let table = pricing_table_from_models_dev_api(api)?;
+
+        assert!(table.models.contains_key("claude-sonnet-4-6"));
+        assert!(table.models.contains_key("kimi-k2.6"));
+        assert!(table.models.contains_key("glm-5.1"));
+        assert!(table.models.contains_key("MiniMax-M2.7"));
+        assert!(table.models.contains_key("mimo-v2.5-pro"));
+        assert!(!table.models.contains_key("minimax/minimax-m2.7"));
+        Ok(())
+    }
+
+    #[test]
+    fn third_party_model_matching_accepts_provider_prefix_and_separator_aliases() {
+        let mut table = sample_pricing();
+        table.models.insert(
+            "kimi-k2.6".to_string(),
+            ModelPrice {
+                input: 0.9,
+                output: 3.72,
+                cache_read: 0.09,
+                cache_write: 0.9,
+            },
+        );
+        table.models.insert(
+            "MiniMax-M2.7".to_string(),
+            ModelPrice {
+                input: 0.15,
+                output: 1.5,
+                cache_read: 0.015,
+                cache_write: 0.15,
+            },
+        );
+
+        assert_eq!(
+            match_model_price("moonshotai/kimi-k2-6", &table)
+                .expect("kimi price")
+                .output,
+            3.72
+        );
+        assert_eq!(
+            match_model_price("minimax-m2.7:cloud", &table)
+                .expect("minimax price")
+                .output,
+            1.5
+        );
+    }
+
+    #[test]
+    fn third_party_pricing_toggle_zeroes_cost_without_marking_unknown() {
+        let mut table = sample_pricing();
+        table.models.insert(
+            "glm-5.1".to_string(),
+            ModelPrice {
+                input: 0.6,
+                output: 2.2,
+                cache_read: 0.06,
+                cache_write: 0.6,
+            },
+        );
+        let usage = RawUsage {
+            input_tokens: 1_000_000,
+            output_tokens: 1_000_000,
+            cache_creation_5m: 0,
+            cache_creation_1h: 0,
+            cache_read: 0,
+        };
+
+        let enabled_cost =
+            compute_cost_with_third_party_pricing("zhipuai/glm-5-1", &table, &usage, true);
+        let disabled_cost =
+            compute_cost_with_third_party_pricing("zhipuai/glm-5-1", &table, &usage, false);
+
+        assert!((enabled_cost - 2.8).abs() < 1e-9, "cost was {enabled_cost}");
+        assert_eq!(disabled_cost, 0.0);
+        assert!(!is_unknown_model("zhipuai/glm-5-1", &table, false));
     }
 
     #[test]

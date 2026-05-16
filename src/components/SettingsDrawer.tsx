@@ -363,6 +363,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
     showTraySessions: true,
     systemNotificationsEnabled: false,
     collapseSidebarByDefault: false,
+    thirdPartyProviderPricingEnabled: true,
     uiLanguage: "zh",
     defaultTerminalApp: "terminal",
     defaultEditorApp: null,
@@ -416,6 +417,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   const showTraySessions = preferences.showTraySessions;
   const systemNotificationsEnabled = preferences.systemNotificationsEnabled;
   const collapseSidebarByDefault = preferences.collapseSidebarByDefault;
+  const thirdPartyProviderPricingEnabled = preferences.thirdPartyProviderPricingEnabled;
   const defaultTerminalApp = preferences.defaultTerminalApp;
   const defaultEditorApp = preferences.defaultEditorApp;
   const platformName = nativeOpenOptions?.platform ?? getCurrentPlatform();
@@ -742,6 +744,33 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                       void toggleSystemNotifications(checked);
                     }}
                     aria-label={t("settings.systemNotifications")}
+                  />
+                </Field>
+              </FieldGroup>
+            </SettingsSectionCard>
+
+            <SettingsSectionCard
+              title={t("settings.thirdPartyProviderPricing")}
+              description={t("settings.thirdPartyProviderPricingDesc")}
+            >
+              <FieldGroup className="gap-4">
+                <Field orientation="horizontal" className="items-center justify-between gap-4">
+                  <FieldContent>
+                    <SettingsStateLabel enabled={thirdPartyProviderPricingEnabled} />
+                  </FieldContent>
+                  <Switch
+                    id="settings-third-party-provider-pricing"
+                    checked={thirdPartyProviderPricingEnabled}
+                    onCheckedChange={(checked) => {
+                      void persistPreferences(
+                        {
+                          ...nextPreferences,
+                          thirdPartyProviderPricingEnabled: checked,
+                        },
+                        nextPreferences,
+                      );
+                    }}
+                    aria-label={t("settings.thirdPartyProviderPricing")}
                   />
                 </Field>
               </FieldGroup>

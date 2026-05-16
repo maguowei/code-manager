@@ -35,6 +35,7 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
     showTraySessions: true,
     systemNotificationsEnabled: false,
     collapseSidebarByDefault: false,
+    thirdPartyProviderPricingEnabled: true,
     uiLanguage: "zh",
     defaultTerminalApp: "terminal",
     defaultEditorApp: null,
@@ -154,6 +155,7 @@ describe("SettingsDrawer", () => {
         showTraySessions: false,
         systemNotificationsEnabled: false,
         collapseSidebarByDefault: false,
+        thirdPartyProviderPricingEnabled: true,
         uiLanguage: "zh",
         defaultTerminalApp: "terminal",
         defaultEditorApp: null,
@@ -173,6 +175,27 @@ describe("SettingsDrawer", () => {
         showTraySessions: true,
         systemNotificationsEnabled: false,
         collapseSidebarByDefault: true,
+        thirdPartyProviderPricingEnabled: true,
+        uiLanguage: "zh",
+        defaultTerminalApp: "terminal",
+        defaultEditorApp: null,
+      },
+    });
+  });
+
+  it("persists the third-party provider pricing switch independently", async () => {
+    renderSettingsDrawer();
+
+    expect(await screen.findByText("第三方模型计价")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("switch", { name: "第三方模型计价" }));
+
+    expect(invokeMock).toHaveBeenCalledWith("set_app_preferences", {
+      data: {
+        showTrayTitle: true,
+        showTraySessions: true,
+        systemNotificationsEnabled: false,
+        collapseSidebarByDefault: false,
+        thirdPartyProviderPricingEnabled: false,
         uiLanguage: "zh",
         defaultTerminalApp: "terminal",
         defaultEditorApp: null,
@@ -197,6 +220,7 @@ describe("SettingsDrawer", () => {
           showTraySessions: true,
           systemNotificationsEnabled: true,
           collapseSidebarByDefault: false,
+          thirdPartyProviderPricingEnabled: true,
           uiLanguage: "zh",
           defaultTerminalApp: "terminal",
           defaultEditorApp: null,

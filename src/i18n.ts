@@ -824,6 +824,9 @@ const translations = {
     "usage.pricing.builtin": "内置价格",
     "usage.pricing.cache": "本地缓存",
     "usage.pricing.network": "models.dev 实时",
+    "usage.thirdPartyProviderPricing.enabled": "第三方模型计价已开启",
+    "usage.thirdPartyProviderPricing.disabled":
+      "第三方模型计价已停用，Kimi / MiMo / GLM / MiniMax 费用按 $0 计入",
     "usage.filter.ariaLabel": "用量筛选",
     "usage.filter.dateRange": "日期范围",
     "usage.filter.startDate": "开始日期",
@@ -950,6 +953,9 @@ const translations = {
     "settings.systemNotificationsHelpDesc": "当前开启后可能触发的系统通知：",
     "settings.systemNotificationsTriggerPendingSession": "Claude 会话进入待处理状态。",
     "settings.systemNotificationsTriggerFocusFailure": "点击会话跳转但终端定位失败。",
+    "settings.thirdPartyProviderPricing": "第三方模型计价",
+    "settings.thirdPartyProviderPricingDesc":
+      "使用 models.dev 为 Kimi、MiMo、GLM、MiniMax 系列模型估算费用，关闭后这些模型按 $0 计入。",
     "settings.launchAtLogin": "开机自启动",
     "settings.launchAtLoginDesc": "登录系统后自动启动 AI Manager，配合托盘常驻更方便",
     "settings.defaultTerminal": "默认终端",
@@ -2090,6 +2096,9 @@ const translations = {
     "usage.pricing.builtin": "Built-in",
     "usage.pricing.cache": "Local cache",
     "usage.pricing.network": "models.dev live",
+    "usage.thirdPartyProviderPricing.enabled": "Third-party model pricing enabled",
+    "usage.thirdPartyProviderPricing.disabled":
+      "Third-party model pricing disabled; Kimi / MiMo / GLM / MiniMax costs count as $0",
     "usage.filter.ariaLabel": "Usage filters",
     "usage.filter.dateRange": "Date range",
     "usage.filter.startDate": "Start date",
@@ -2225,6 +2234,9 @@ const translations = {
       "A Claude session enters the waiting state.",
     "settings.systemNotificationsTriggerFocusFailure":
       "A session jump is clicked, but terminal focus fails.",
+    "settings.thirdPartyProviderPricing": "Third-party model pricing",
+    "settings.thirdPartyProviderPricingDesc":
+      "Use models.dev to estimate costs for Kimi, MiMo, GLM, and MiniMax models. When disabled, these models count as $0.",
     "settings.launchAtLogin": "Launch at Login",
     "settings.launchAtLoginDesc": "Automatically start AI Manager when you log in to your system",
     "settings.defaultTerminal": "Default Terminal",

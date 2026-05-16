@@ -37,6 +37,7 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
     showTraySessions: true,
     systemNotificationsEnabled: false,
     collapseSidebarByDefault: false,
+    thirdPartyProviderPricingEnabled: true,
     uiLanguage: "zh",
     defaultTerminalApp: "terminal",
     defaultEditorApp: "vscode",

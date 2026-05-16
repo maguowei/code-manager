@@ -595,6 +595,14 @@ function UsagePage() {
                 >
                   {pricingSourceLabel(u.summary.pricing.source, t)}
                 </Badge>
+                {u.summary.thirdPartyProviderPricingEnabled ? (
+                  <Badge
+                    variant="outline"
+                    className="usage-badge h-6 rounded-md border-chart-2/60 bg-chart-2/10 px-2 text-xs font-bold whitespace-nowrap text-chart-2"
+                  >
+                    {t("usage.thirdPartyProviderPricing.enabled")}
+                  </Badge>
+                ) : null}
                 {u.summary.lastScanMs && (
                   <span className="usage-meta-text truncate max-[900px]:hidden">
                     {t("usage.lastScan")}: {formatShortDateTime(u.summary.lastScanMs)}
@@ -674,7 +682,9 @@ function UsagePage() {
                         {u.summary ? formatUSD(u.summary.totalCost) : "-"}
                       </strong>
                       <span className="usage-panel-subtle text-sm text-muted-foreground">
-                        {t("usage.cards.totalCostHint")}
+                        {u.summary?.thirdPartyProviderPricingEnabled === false
+                          ? t("usage.thirdPartyProviderPricing.disabled")
+                          : t("usage.cards.totalCostHint")}
                       </span>
                     </CardContent>
                   </Card>

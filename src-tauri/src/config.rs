@@ -57,6 +57,8 @@ pub struct AppPreferences {
     pub system_notifications_enabled: bool,
     #[serde(default)]
     pub collapse_sidebar_by_default: bool,
+    #[serde(default = "default_true")]
+    pub third_party_provider_pricing_enabled: bool,
     #[serde(default = "default_ui_language")]
     pub ui_language: String,
     #[serde(default = "default_terminal_app")]
@@ -72,6 +74,7 @@ impl Default for AppPreferences {
             show_tray_sessions: default_true(),
             system_notifications_enabled: false,
             collapse_sidebar_by_default: false,
+            third_party_provider_pricing_enabled: true,
             ui_language: default_ui_language(),
             default_terminal_app: default_terminal_app(),
             default_editor_app: None,
@@ -289,6 +292,8 @@ pub struct AppPreferencesInput {
     pub system_notifications_enabled: bool,
     #[serde(default)]
     pub collapse_sidebar_by_default: bool,
+    #[serde(default = "default_true")]
+    pub third_party_provider_pricing_enabled: bool,
     pub ui_language: String,
     pub default_terminal_app: String,
     pub default_editor_app: Option<String>,
@@ -937,6 +942,7 @@ fn normalize_app_preferences(input: AppPreferencesInput) -> Result<AppPreference
         show_tray_sessions: input.show_tray_sessions,
         system_notifications_enabled: input.system_notifications_enabled,
         collapse_sidebar_by_default: input.collapse_sidebar_by_default,
+        third_party_provider_pricing_enabled: input.third_party_provider_pricing_enabled,
         ui_language,
         default_terminal_app,
         default_editor_app,
@@ -2266,11 +2272,15 @@ pub fn set_app_preferences(
         let _lock = crate::utils::lock_config()?;
         let preferences = normalize_app_preferences(data)?;
         let mut registry = load_registry()?;
+        let previous_third_party_pricing = registry.app.third_party_provider_pricing_enabled;
         registry.app = preferences.clone();
         save_registry(&registry)?;
         rebuild_tray_menu(&app_handle, Some(&registry));
         let _ = app_handle.emit("config-workspace-changed", ());
         let _ = app_handle.emit("project-launcher-settings-changed", ());
+        if previous_third_party_pricing != preferences.third_party_provider_pricing_enabled {
+            crate::usage::schedule_usage_cost_recompute(app_handle.clone());
+        }
         Ok(preferences)
     })();
     crate::logging::log_command_result("settings.update", &result, |_| String::new());
@@ -2360,6 +2370,7 @@ mod tests {
 
         assert!(!preferences.collapse_sidebar_by_default);
         assert!(!preferences.system_notifications_enabled);
+        assert!(preferences.third_party_provider_pricing_enabled);
     }
 
     #[test]
@@ -3126,6 +3137,7 @@ mod tests {
                 show_tray_sessions: true,
                 system_notifications_enabled: false,
                 collapse_sidebar_by_default: false,
+                third_party_provider_pricing_enabled: true,
                 ui_language: "zh".to_string(),
                 default_terminal_app: "terminal".to_string(),
                 default_editor_app: Some("cursor".to_string()),

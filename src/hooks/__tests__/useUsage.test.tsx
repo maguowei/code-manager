@@ -63,6 +63,7 @@ function makeSummary(totalCost: number): UsageSummary {
       fetchedAtMs: null,
       models: {},
     },
+    thirdPartyProviderPricingEnabled: true,
     unknownModels: [],
     allProjects: [],
     allModels: [],

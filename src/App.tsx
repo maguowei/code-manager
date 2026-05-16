@@ -36,6 +36,7 @@ const EMPTY_WORKSPACE: ConfigWorkspace = {
     showTraySessions: true,
     systemNotificationsEnabled: false,
     collapseSidebarByDefault: false,
+    thirdPartyProviderPricingEnabled: true,
     uiLanguage: "zh",
     defaultTerminalApp: "terminal",
     defaultEditorApp: null,

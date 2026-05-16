@@ -148,6 +148,7 @@ const summary: UsageSummary = {
       },
     },
   },
+  thirdPartyProviderPricingEnabled: true,
   unknownModels: ["claude-future-1"],
   allProjects: [
     { projectPath: "/Users/me/work/AI/ai-manager", projectDir: "-Users-me-work-AI-ai-manager" },
@@ -334,12 +335,13 @@ function makeUsage(
     tab: UsageTab;
     filter: UsageFilter;
     rescanning: boolean;
+    summary: UsageSummary;
     timeGranularity: UsageTimeGranularity;
     timeSeries: UsageTimeSeriesPoint[];
   }> = {},
 ) {
   return {
-    summary,
+    summary: overrides.summary ?? summary,
     daily,
     timeSeries: overrides.timeSeries ?? timeSeries,
     timeGranularity: overrides.timeGranularity ?? "hour",
@@ -366,6 +368,7 @@ function renderUsage(
     tab: UsageTab;
     filter: UsageFilter;
     rescanning: boolean;
+    summary: UsageSummary;
     timeGranularity: UsageTimeGranularity;
     timeSeries: UsageTimeSeriesPoint[];
   }>,
@@ -408,6 +411,7 @@ describe("UsagePage cost cockpit", () => {
     renderUsage();
 
     expect(screen.getAllByText("$128.47").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("第三方模型计价已开启")).toBeInTheDocument();
     expect(screen.getAllByText("总 Token").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("137.85M").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole("group", { name: "用量筛选" })).toBeInTheDocument();
@@ -426,6 +430,19 @@ describe("UsagePage cost cockpit", () => {
     expect(
       screen.queryByRole("option", { name: "-Users-me-work-AI-ai-manager" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("explains when third-party provider pricing is disabled", () => {
+    renderUsage({
+      summary: {
+        ...summary,
+        thirdPartyProviderPricingEnabled: false,
+      },
+    });
+
+    expect(
+      screen.getByText("第三方模型计价已停用，Kimi / MiMo / GLM / MiniMax 费用按 $0 计入"),
+    ).toBeInTheDocument();
   });
 
   it("shows claude-* model filter and sorts model options alphabetically", () => {

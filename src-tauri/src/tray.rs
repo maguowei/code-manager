@@ -1034,6 +1034,7 @@ mod tests {
             show_tray_sessions: true,
             system_notifications_enabled,
             collapse_sidebar_by_default: false,
+            third_party_provider_pricing_enabled: true,
             ui_language: "zh".to_string(),
             default_terminal_app: default_terminal_app.to_string(),
             default_editor_app: None,
