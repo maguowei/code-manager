@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import type { ConfigWorkspace, HistoryEntry, ProjectDetail } from "../../types";
@@ -137,10 +138,10 @@ function mockProjectInvokes() {
   });
 }
 
-function renderPage() {
+function renderPage(props?: ComponentProps<typeof ProjectsPage>) {
   render(
     <I18nProvider>
-      <ProjectsPage />
+      <ProjectsPage {...props} />
     </I18nProvider>,
   );
 }
@@ -216,6 +217,16 @@ describe("ProjectsPage purge context menu", () => {
         sessionId: "session-alpha",
       });
     });
+  });
+
+  it("opens the selected project in history from the recent sessions panel", async () => {
+    const onOpenProjectHistory = vi.fn();
+    renderPage({ onOpenProjectHistory });
+
+    const viewAllButton = await screen.findByRole("button", { name: "查看全部会话" });
+    fireEvent.click(viewAllButton);
+
+    expect(onOpenProjectHistory).toHaveBeenCalledWith(PROJECT_ALPHA);
   });
 
   it("cancels the preview dialog without executing purge", async () => {

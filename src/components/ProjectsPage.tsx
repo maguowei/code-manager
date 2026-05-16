@@ -68,6 +68,10 @@ type ProjectPurgeDialogState = {
   isPurging: boolean;
 };
 
+type ProjectsPageProps = {
+  onOpenProjectHistory?: (project: string) => void;
+};
+
 function clampNumber(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
@@ -244,7 +248,7 @@ function ProjectEmptyState({ children }: { children: string }) {
   );
 }
 
-function ProjectsPage() {
+function ProjectsPage({ onOpenProjectHistory }: ProjectsPageProps = {}) {
   const { t } = useI18n();
   const { showToast } = useToast();
   const {
@@ -523,6 +527,11 @@ function ProjectsPage() {
     setViewingSession(null);
   }, []);
 
+  const handleOpenProjectHistory = useCallback(() => {
+    if (!selectedSummary) return;
+    onOpenProjectHistory?.(selectedSummary.project);
+  }, [onOpenProjectHistory, selectedSummary]);
+
   const handleProjectContextMenu = useCallback(
     (event: ReactMouseEvent<HTMLButtonElement>, summary: ProjectSummary) => {
       event.preventDefault();
@@ -778,6 +787,7 @@ function ProjectsPage() {
               onOpenRepository={handleOpenRepository}
               onCreateAgentsLink={handleCreateAgentsLink}
               onOpenSession={handleOpenSession}
+              onOpenProjectHistory={handleOpenProjectHistory}
             />
           )}
         </section>

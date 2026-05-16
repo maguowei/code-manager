@@ -1,5 +1,5 @@
 import { Search } from "lucide-react";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { cn } from "@/lib/utils";
 import {
   groupByProject,
@@ -18,9 +18,19 @@ import SessionDetailDrawer from "./SessionDetailDrawer";
 import { CONTROL_SURFACE_CLASS, PANEL_SURFACE_CLASS } from "./surface-classes";
 import { Input } from "./ui/input";
 
-function HistoryPage() {
+type HistoryProjectRequest = {
+  project: string;
+  requestId: number;
+};
+
+type HistoryPageProps = {
+  projectRequest?: HistoryProjectRequest | null;
+};
+
+function HistoryPage({ projectRequest = null }: HistoryPageProps) {
   const { t } = useI18n();
   const { entries: allEntries, loading } = useHistoryEntries(t("history.noData"));
+  const handledProjectRequestIdRef = useRef<number | null>(null);
 
   // URL 同步状态：?project=&q=&session=
   const [projectParam, setProjectParam] = useUrlSearchParam("project", "");
@@ -28,6 +38,17 @@ function HistoryPage() {
   const [sessionParam, setSessionParam] = useUrlSearchParam("session", "");
 
   const selectedProject = projectParam === "" ? null : projectParam;
+
+  useEffect(() => {
+    if (!projectRequest || handledProjectRequestIdRef.current === projectRequest.requestId) {
+      return;
+    }
+
+    handledProjectRequestIdRef.current = projectRequest.requestId;
+    setProjectParam(projectRequest.project);
+    if (searchQuery !== "") setSearchQuery("");
+    if (sessionParam !== "") setSessionParam("");
+  }, [projectRequest, searchQuery, sessionParam, setProjectParam, setSearchQuery, setSessionParam]);
 
   const sessionProjectMap = useMemo(() => {
     const map = new Map<string, string>();

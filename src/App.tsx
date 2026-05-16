@@ -60,8 +60,13 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
   const [hasVisitedClaudeOverview, setHasVisitedClaudeOverview] = useState(false);
+  const [historyProjectRequest, setHistoryProjectRequest] = useState<{
+    project: string;
+    requestId: number;
+  } | null>(null);
   const previousContentTabRef = useRef<TabType>("configs");
   const editorExitGuardRef = useRef<EditorExitGuard | null>(null);
+  const historyProjectRequestIdRef = useRef(0);
 
   const loadWorkspace = useCallback(async () => {
     if (!isTauri()) {
@@ -130,6 +135,12 @@ function App() {
     setIsDetailDrawerOpen(false);
   }, []);
 
+  useEffect(() => {
+    if (activeTab !== "history") {
+      setHistoryProjectRequest(null);
+    }
+  }, [activeTab]);
+
   useTauriEvent<string>("navigate-to-tab", (tab) => {
     const nextTab = tab as TabType;
     runWithEditorExitGuard(() => activateTab(nextTab));
@@ -170,6 +181,20 @@ function App() {
       setActiveTab("claudeOverview");
     });
   }, [activeTab, runWithEditorExitGuard]);
+
+  const handleOpenProjectHistory = useCallback(
+    (project: string) => {
+      runWithEditorExitGuard(() => {
+        historyProjectRequestIdRef.current += 1;
+        setHistoryProjectRequest({
+          project,
+          requestId: historyProjectRequestIdRef.current,
+        });
+        activateTab("history");
+      });
+    },
+    [activateTab, runWithEditorExitGuard],
+  );
 
   if (loading) {
     return (
@@ -212,9 +237,9 @@ function App() {
           ) : activeTab === "usage" ? (
             <UsagePage />
           ) : activeTab === "projects" ? (
-            <ProjectsPage />
+            <ProjectsPage onOpenProjectHistory={handleOpenProjectHistory} />
           ) : activeTab === "history" ? (
-            <HistoryPage />
+            <HistoryPage projectRequest={historyProjectRequest} />
           ) : activeTab === "providers" ? (
             <PresetsPage
               workspace={workspace}

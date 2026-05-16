@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { createElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ProjectDetail, ProjectSummary } from "../../types";
 import ProjectDetailPanel from "../ProjectDetailPanel";
 
@@ -53,6 +53,7 @@ function renderDetailPanel() {
       onOpenRepository: () => undefined,
       onCreateAgentsLink: () => undefined,
       onOpenSession: () => undefined,
+      onOpenProjectHistory: () => undefined,
     }),
   );
 }
@@ -103,6 +104,34 @@ describe("ProjectsPage layout", () => {
     expect(screen.queryByText("projects.lastDuration")).not.toBeInTheDocument();
   });
 
+  it("offers a button to open all sessions for the project", () => {
+    const onOpenProjectHistory = vi.fn();
+
+    render(
+      createElement(ProjectDetailPanel, {
+        t: (key) => key,
+        summary: SUMMARY,
+        detail: DETAIL,
+        defaultEditorApp: "vscode",
+        canCreateAgentsLink: true,
+        canOpenRepository: true,
+        canOpenProjectDirectory: true,
+        canOpenInEditor: true,
+        isLinkingAgents: false,
+        onOpenInTerminal: () => undefined,
+        onOpenInEditor: () => undefined,
+        onOpenRepository: () => undefined,
+        onCreateAgentsLink: () => undefined,
+        onOpenSession: () => undefined,
+        onOpenProjectHistory,
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "projects.viewAllSessions" }));
+
+    expect(onOpenProjectHistory).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps overview in normal flow so it does not cover recent sessions while scrolling", () => {
     renderDetailPanel();
 
@@ -151,6 +180,7 @@ describe("ProjectsPage layout", () => {
         onOpenRepository: () => undefined,
         onCreateAgentsLink: () => undefined,
         onOpenSession: () => undefined,
+        onOpenProjectHistory: () => undefined,
       }),
     );
 
@@ -193,6 +223,7 @@ describe("ProjectsPage layout", () => {
         onOpenRepository: () => undefined,
         onCreateAgentsLink: () => undefined,
         onOpenSession: () => undefined,
+        onOpenProjectHistory: () => undefined,
       }),
     );
 
@@ -222,6 +253,7 @@ describe("ProjectsPage layout", () => {
         onOpenRepository: () => undefined,
         onCreateAgentsLink: () => undefined,
         onOpenSession: () => undefined,
+        onOpenProjectHistory: () => undefined,
       }),
     );
 

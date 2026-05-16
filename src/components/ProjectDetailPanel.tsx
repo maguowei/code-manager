@@ -1,4 +1,4 @@
-import { Code2, ExternalLink, Link2, MessageSquareText, Terminal } from "lucide-react";
+import { Code2, ExternalLink, Link2, List, MessageSquareText, Terminal } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import type { DefaultEditorApp, ProjectDetail, ProjectSummary } from "../types";
@@ -34,6 +34,7 @@ type ProjectDetailPanelProps = {
   onOpenRepository: () => void;
   onCreateAgentsLink: () => void;
   onOpenSession: (sessionId: string) => void;
+  onOpenProjectHistory: () => void;
 };
 
 type SectionHeadingProps = {
@@ -68,6 +69,7 @@ type RecentSessionsSectionProps = {
   summary: ProjectSummary;
   t: TranslateFn;
   onOpenSession: (sessionId: string) => void;
+  onOpenProjectHistory: () => void;
 };
 
 function statusToneClass(tone: StatusTone) {
@@ -329,10 +331,31 @@ function OverviewPanel({ detail, summary, t }: OverviewPanelProps) {
   );
 }
 
-function RecentSessionsSection({ summary, t, onOpenSession }: RecentSessionsSectionProps) {
+function RecentSessionsSection({
+  summary,
+  t,
+  onOpenSession,
+  onOpenProjectHistory,
+}: RecentSessionsSectionProps) {
   return (
     <Card className={cn("projects-recent-sessions gap-4 rounded-lg p-5", PANEL_SURFACE_CLASS)}>
-      <SectionHeading title={t("projects.recentSessions")} />
+      <SectionHeading
+        title={t("projects.recentSessions")}
+        action={
+          summary.sessionCount > 0 ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="projects-view-all-sessions-btn"
+              onClick={onOpenProjectHistory}
+            >
+              <List className="size-4" aria-hidden="true" />
+              {t("projects.viewAllSessions")}
+            </Button>
+          ) : undefined
+        }
+      />
 
       {summary.recentSessions.length === 0 ? (
         <div className="projects-empty-block flex min-h-[120px] items-center justify-center border-t px-4 text-center text-sm text-muted-foreground">
@@ -388,6 +411,7 @@ function ProjectDetailPanel({
   onOpenRepository,
   onCreateAgentsLink,
   onOpenSession,
+  onOpenProjectHistory,
 }: ProjectDetailPanelProps) {
   const directoryTone: StatusTone = detail?.exists ? "success" : "danger";
   const gitTone: StatusTone = detail?.isGitRepo ? "success" : detail?.exists ? "warning" : "muted";
@@ -601,7 +625,12 @@ function ProjectDetailPanel({
 
         <aside className="projects-detail-side flex min-w-0 flex-col gap-6 xl:border-l xl:pl-5">
           <OverviewPanel detail={detail} summary={summary} t={t} />
-          <RecentSessionsSection summary={summary} t={t} onOpenSession={onOpenSession} />
+          <RecentSessionsSection
+            summary={summary}
+            t={t}
+            onOpenSession={onOpenSession}
+            onOpenProjectHistory={onOpenProjectHistory}
+          />
         </aside>
       </div>
     </div>
