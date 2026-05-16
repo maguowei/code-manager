@@ -72,7 +72,7 @@ const EMPTY_OVERVIEW_STATE: ClaudeDirectoryOverview = {
 
 const PIERRE_FILE_OPTIONS = {
   disableFileHeader: true,
-  overflow: "wrap",
+  overflow: "scroll",
   theme: {
     dark: "pierre-dark",
     light: "pierre-light",

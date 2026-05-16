@@ -59,6 +59,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
+  const [hasVisitedClaudeOverview, setHasVisitedClaudeOverview] = useState(false);
   const previousContentTabRef = useRef<TabType>("configs");
   const editorExitGuardRef = useRef<EditorExitGuard | null>(null);
 
@@ -120,7 +121,9 @@ function App() {
   }, []);
 
   const activateTab = useCallback((nextTab: TabType) => {
-    if (nextTab !== "claudeOverview") {
+    if (nextTab === "claudeOverview") {
+      setHasVisitedClaudeOverview(true);
+    } else {
       previousContentTabRef.current = nextTab;
     }
     setActiveTab(nextTab);
@@ -163,6 +166,7 @@ function App() {
         return;
       }
       previousContentTabRef.current = activeTab;
+      setHasVisitedClaudeOverview(true);
       setActiveTab("claudeOverview");
     });
   }, [activeTab, runWithEditorExitGuard]);
@@ -192,12 +196,21 @@ function App() {
         />
 
         <div className="relative flex flex-1 overflow-hidden">
-          {activeTab === "stats" ? (
+          {activeTab === "claudeOverview" || hasVisitedClaudeOverview ? (
+            <div
+              className={cn(
+                "absolute inset-0 min-w-0",
+                activeTab === "claudeOverview" ? "block" : "hidden",
+              )}
+              aria-hidden={activeTab !== "claudeOverview"}
+            >
+              <ClaudeOverviewPage />
+            </div>
+          ) : null}
+          {activeTab === "claudeOverview" ? null : activeTab === "stats" ? (
             <StatsPage />
           ) : activeTab === "usage" ? (
             <UsagePage />
-          ) : activeTab === "claudeOverview" ? (
-            <ClaudeOverviewPage />
           ) : activeTab === "projects" ? (
             <ProjectsPage />
           ) : activeTab === "history" ? (

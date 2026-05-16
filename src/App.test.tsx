@@ -998,7 +998,7 @@ describe("App", () => {
     });
     const previewElement = await screen.findByTestId("pierre-file-preview");
     expect(previewElement).toBeInTheDocument();
-    expect(previewElement).toHaveAttribute("data-overflow", "wrap");
+    expect(previewElement).toHaveAttribute("data-overflow", "scroll");
     const javascriptTab = screen.getByRole("tab", { name: "check-license-rule.js" });
     expect(javascriptTab).toHaveAttribute("aria-selected", "true");
     expect(within(javascriptTab).getByTestId("claude-overview-tab-file-icon")).toHaveAttribute(
@@ -1044,7 +1044,7 @@ describe("App", () => {
         },
         options: expect.objectContaining({
           disableFileHeader: true,
-          overflow: "wrap",
+          overflow: "scroll",
           themeType: "light",
         }),
         style: expect.objectContaining({
@@ -1072,6 +1072,60 @@ describe("App", () => {
     await waitFor(() => {
       expect(screen.queryByRole("heading", { name: "~/.claude 目录总览" })).not.toBeInTheDocument();
     });
+  });
+
+  it("keeps Claude overview open previews when switching away and back", async () => {
+    localStorage.setItem("ai-manager-settings", JSON.stringify({ language: "zh", theme: "light" }));
+    invokeMock.mockImplementation(async (command, args) => {
+      if (command === "get_config_workspace") {
+        return WORKSPACE_FIXTURE;
+      }
+      if (command === "get_claude_directory_overview") {
+        return CLAUDE_OVERVIEW_FIXTURE;
+      }
+      if (command === "read_claude_file_preview") {
+        const path = (args as { path: string }).path;
+        return {
+          path,
+          name: path.split("/").pop() ?? path,
+          content: '{"model":"sonnet"}',
+          isBinary: false,
+          truncated: false,
+          size: 18,
+          modifiedAt: 2,
+          encoding: "utf-8",
+        };
+      }
+      return null;
+    });
+
+    renderApp();
+    fireEvent.click(await screen.findByRole("button", { name: "~/.claude 目录总览" }));
+    fireEvent.click(await screen.findByRole("button", { name: "settings.json" }));
+
+    const openedTab = await screen.findByRole("tab", { name: "settings.json" });
+    expect(openedTab).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("pierre-file-preview")).toHaveAttribute(
+      "data-file-contents",
+      '{"model":"sonnet"}',
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "配置" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: "~/.claude 目录总览" })).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "~/.claude 目录总览" }));
+
+    const restoredTab = await screen.findByRole("tab", { name: "settings.json" });
+    expect(restoredTab).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("pierre-file-preview")).toHaveAttribute(
+      "data-file-contents",
+      '{"model":"sonnet"}',
+    );
+    expect(
+      invokeMock.mock.calls.filter(([command]) => command === "read_claude_file_preview"),
+    ).toHaveLength(1);
   });
 
   it("opens the English Claude directory docs from the overview when language is English", async () => {
