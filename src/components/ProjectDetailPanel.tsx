@@ -7,8 +7,11 @@ import {
   SearchCheck,
   Terminal,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useCallback } from "react";
 import { cn } from "@/lib/utils";
+import { useToast } from "../hooks/useToast";
+import type { TranslationKey } from "../i18n";
+import { showOperationError } from "../lib/user-facing-error";
 import type { DefaultEditorApp, ProjectDetail, ProjectSummary } from "../types";
 import {
   agentsStatusLabel,
@@ -78,7 +81,7 @@ type WorktreesSectionProps = {
 };
 
 type OverviewPanelProps = {
-  detail: ProjectDetail | null;
+  onCopySessionId: (sessionId: string) => void;
   summary: ProjectSummary;
   t: TranslateFn;
 };
@@ -101,6 +104,10 @@ function statusToneClass(tone: StatusTone) {
     case "muted":
       return TONE_BADGE_CLASS.muted;
   }
+}
+
+function shortSessionId(sessionId: string) {
+  return sessionId.slice(0, 8);
 }
 
 function StatusBadge({ tone, children }: { tone: StatusTone; children: ReactNode }) {
@@ -356,7 +363,9 @@ function WorktreesSection({
   );
 }
 
-function OverviewPanel({ detail, summary, t }: OverviewPanelProps) {
+function OverviewPanel({ onCopySessionId, summary, t }: OverviewPanelProps) {
+  const lastSessionId = summary.lastSessionId;
+
   return (
     <Card className={cn("projects-overview-panel gap-4 rounded-lg p-5", PANEL_SURFACE_CLASS)}>
       <SectionHeading title={t("projects.overview")} />
@@ -382,20 +391,26 @@ function OverviewPanel({ detail, summary, t }: OverviewPanelProps) {
         </div>
         <div className="projects-definition-row grid grid-cols-[120px_minmax(0,1fr)] gap-3 border-b py-3 first:pt-0 last:border-b-0 last:pb-0 max-sm:grid-cols-1 max-sm:gap-1">
           <dt className="text-sm text-muted-foreground">{t("projects.lastSessionId")}</dt>
-          <dd
-            className="min-w-0 truncate text-sm font-semibold leading-6 text-foreground"
-            title={summary.lastSessionId ?? undefined}
-          >
-            {summary.lastSessionId ?? t("projects.lastSessionIdMissing")}
-          </dd>
-        </div>
-        <div className="projects-definition-row grid grid-cols-[120px_minmax(0,1fr)] gap-3 border-b py-3 first:pt-0 last:border-b-0 last:pb-0 max-sm:grid-cols-1 max-sm:gap-1">
-          <dt className="text-sm text-muted-foreground">{t("projects.repoRoot")}</dt>
-          <dd
-            className="min-w-0 truncate text-sm font-semibold leading-6 text-foreground"
-            title={detail?.repoRoot ?? undefined}
-          >
-            {detail?.repoRoot ?? t("projects.repoRootUnavailable")}
+          <dd className="min-w-0">
+            {lastSessionId ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="projects-overview-session-id-btn h-auto max-w-full min-w-0 justify-start truncate rounded-md border border-transparent px-1 py-0 text-sm font-semibold leading-6 text-foreground hover:border-border hover:bg-accent hover:text-accent-foreground focus-visible:border-primary/70 focus-visible:bg-accent focus-visible:ring-0"
+                title={lastSessionId}
+                aria-label={t("projects.copySessionId")}
+                onClick={() => onCopySessionId(lastSessionId)}
+              >
+                <span className="min-w-0 truncate font-mono tabular-nums">
+                  {shortSessionId(lastSessionId)}
+                </span>
+              </Button>
+            ) : (
+              <span className="text-sm font-semibold leading-6 text-foreground">
+                {t("projects.lastSessionIdMissing")}
+              </span>
+            )}
           </dd>
         </div>
       </dl>
@@ -457,7 +472,7 @@ function RecentSessionsSection({
                 <MessageSquareText className="size-3.5 shrink-0" aria-hidden="true" />
                 <span className="min-w-0 truncate">{session.firstPrompt || "—"}</span>
               </div>
-              <span className="text-xs text-muted-foreground">
+              <span className="projects-recent-session-time w-full text-right text-xs text-muted-foreground">
                 {formatHistoryTimestamp(session.lastTimestamp)}
               </span>
             </Button>
@@ -490,12 +505,35 @@ function ProjectDetailPanel({
   isBranchCleanupPreviewing,
   isWorktreeCleanupPreviewing,
 }: ProjectDetailPanelProps) {
+  const { showToast } = useToast();
   const directoryTone: StatusTone = detail?.exists ? "success" : "danger";
   const gitTone: StatusTone = detail?.isGitRepo ? "success" : detail?.exists ? "warning" : "muted";
   const agentsTone: StatusTone = detail ? agentsStatusTone(detail.agentsStatus) : "muted";
   const agentsLabel = detail
     ? agentsStatusLabel(detail.agentsStatus, t)
     : t("projects.agentsMissing");
+  const handleCopyValue = useCallback(
+    async (value: string, successKey: TranslationKey, errorKey: TranslationKey) => {
+      try {
+        if (!value) throw new Error(t("projects.copyValueEmpty"));
+        await navigator.clipboard.writeText(value);
+        showToast(t(successKey));
+      } catch (error) {
+        showOperationError(showToast, t(errorKey), error);
+      }
+    },
+    [showToast, t],
+  );
+  const handleCopyProjectPath = useCallback(
+    (projectPath: string) =>
+      handleCopyValue(projectPath, "projects.projectPathCopied", "projects.projectPathCopyError"),
+    [handleCopyValue],
+  );
+  const handleCopySessionId = useCallback(
+    (sessionId: string) =>
+      handleCopyValue(sessionId, "projects.sessionIdCopied", "projects.sessionIdCopyError"),
+    [handleCopyValue],
+  );
 
   return (
     <div className="projects-detail-scroll flex h-full flex-col gap-6 overflow-y-auto p-5 lg:p-6">
@@ -507,10 +545,22 @@ function ProjectDetailPanel({
           )}
         >
           <div className="projects-hero-copy">
-            <h2 className={TYPOGRAPHY.pageTitle}>{summary.shortName}</h2>
-            <p className="projects-hero-path mt-2 break-all text-sm text-muted-foreground">
-              {summary.project}
-            </p>
+            <h2 className="min-w-0">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "projects-hero-title-btn h-auto max-w-full min-w-0 justify-start truncate rounded-md border border-transparent px-1 py-0 text-left hover:border-border hover:bg-accent hover:text-accent-foreground focus-visible:border-primary/70 focus-visible:bg-accent focus-visible:ring-0",
+                  TYPOGRAPHY.pageTitle,
+                )}
+                title={summary.project}
+                aria-label={t("projects.copyProjectPath")}
+                onClick={() => void handleCopyProjectPath(summary.project)}
+              >
+                <span className="min-w-0 truncate">{summary.shortName}</span>
+              </Button>
+            </h2>
           </div>
 
           <div className="projects-identity-meta flex flex-col gap-3">
@@ -712,7 +762,7 @@ function ProjectDetailPanel({
         </div>
 
         <aside className="projects-detail-side flex min-w-0 flex-col gap-6 xl:border-l xl:pl-5">
-          <OverviewPanel detail={detail} summary={summary} t={t} />
+          <OverviewPanel onCopySessionId={handleCopySessionId} summary={summary} t={t} />
           <RecentSessionsSection
             summary={summary}
             t={t}

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { ProjectDetail, ProjectSummary } from "../../types";
@@ -59,6 +59,75 @@ function renderDetailPanel() {
 }
 
 describe("ProjectsPage layout", () => {
+  it("shows the project path only as the title hover text and copies it from the project name", () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    renderDetailPanel();
+
+    const projectNameButton = screen.getByRole("button", { name: "projects.copyProjectPath" });
+    fireEvent.click(projectNameButton);
+
+    expect(projectNameButton).toHaveTextContent(SUMMARY.shortName);
+    expect(projectNameButton).toHaveAttribute("title", SUMMARY.project);
+    expect(document.querySelector(".projects-hero-path")).not.toBeInTheDocument();
+    expect(writeText).toHaveBeenCalledWith(SUMMARY.project);
+  });
+
+  it("keeps the overview compact with a short copyable last session id and no git root row", () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    const fullSessionId = "a1184267-94ed-4c39-97d5-7476d94504cc";
+
+    render(
+      createElement(ProjectDetailPanel, {
+        t: (key) => key,
+        summary: {
+          ...SUMMARY,
+          lastSessionId: fullSessionId,
+        },
+        detail: DETAIL,
+        defaultEditorApp: "vscode",
+        canCreateAgentsLink: true,
+        canOpenRepository: true,
+        canOpenProjectDirectory: true,
+        canOpenInEditor: true,
+        isLinkingAgents: false,
+        onOpenInTerminal: () => undefined,
+        onOpenInEditor: () => undefined,
+        onOpenRepository: () => undefined,
+        onCreateAgentsLink: () => undefined,
+        onOpenSession: () => undefined,
+        onOpenProjectHistory: () => undefined,
+      }),
+    );
+
+    const overviewPanel = screen.getByText("projects.overview").closest(".projects-overview-panel");
+    expect(overviewPanel).not.toBeNull();
+    const overview = within(overviewPanel as HTMLElement);
+    const sessionIdButton = overview.getByRole("button", { name: "projects.copySessionId" });
+    fireEvent.click(sessionIdButton);
+
+    expect(overview.queryByText("projects.repoRoot")).not.toBeInTheDocument();
+    expect(sessionIdButton).toHaveTextContent("a1184267");
+    expect(sessionIdButton).not.toHaveTextContent(fullSessionId);
+    expect(sessionIdButton).toHaveAttribute("title", fullSessionId);
+    expect(writeText).toHaveBeenCalledWith(fullSessionId);
+  });
+
+  it("right aligns timestamps in recent session cards", () => {
+    renderDetailPanel();
+
+    const sessionTime = document.querySelector(".projects-recent-session-time");
+
+    expect(sessionTime).toHaveClass("w-full", "text-right");
+  });
+
   it("keeps the status strip from shrinking inside the scroll column", () => {
     renderDetailPanel();
 
