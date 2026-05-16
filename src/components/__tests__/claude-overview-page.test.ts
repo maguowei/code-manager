@@ -42,10 +42,12 @@ describe("ClaudeOverviewPage styles", () => {
     expect(source).toContain("--claude-overview-preview-width");
     expect(source).toContain("writeOverviewPaneWidthVars");
     expect(source).toContain('style.setProperty("--claude-overview-preview-width"');
-    expect(source).toContain("resizeGuideRef");
+    expect(source).toContain("resizePreviewOverlayRef");
     expect(source).toContain("resizeShieldRef");
-    expect(source).toContain("writeOverviewResizeGuideTransform");
-    expect(source).toContain("resizeGuide.style.transform");
+    expect(source).toContain("writeOverviewResizePreviewVars");
+    expect(source).toContain('"--claude-overview-resize-preview-width"');
+    expect(source).toContain('"--claude-overview-resize-tree-width"');
+    expect(source).toContain("resizePreviewOverlay.style.setProperty");
     expect(source).toContain("setResizeDragChromeVisible(true)");
     expect(source).toContain("setPointerCapture");
     expect(source).toContain("applyResizeGuideRatio(moveEvent.clientX)");
@@ -53,9 +55,17 @@ describe("ClaudeOverviewPage styles", () => {
     expect(source).toContain("setTreePaneRatio(finalRatio)");
     expect(source).toContain("claude-overview-resizer relative min-w-2 cursor-col-resize");
     expect(source).toContain("claude-overview-resize-shield pointer-events-none absolute");
-    expect(source).toContain("claude-overview-resize-guide pointer-events-none absolute");
+    expect(source).toContain("claude-overview-resize-preview-overlay pointer-events-none absolute");
+    expect(source).toContain(
+      "grid-cols-[minmax(0,var(--claude-overview-resize-preview-width))_8px_minmax(0,var(--claude-overview-resize-tree-width))]",
+    );
+    expect(source).toContain("claude-overview-resize-preview-pane");
+    expect(source).toContain("claude-overview-resize-tree-preview-pane");
+    expect(source).toContain("claude-overview-resize-preview-divider");
     expect(source).toContain("max-[900px]:hidden");
     expect(source).not.toContain("--claude-overview-resize-guide-x");
+    expect(source).not.toContain("resizeGuide.style.transform");
+    expect(source).not.toContain("claude-overview-resize-guide");
     expect(source).not.toContain("isResizingPanes");
     expect(source).not.toContain("applyTreePaneWidth");
   });
