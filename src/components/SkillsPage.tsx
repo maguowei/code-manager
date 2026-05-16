@@ -10,7 +10,7 @@ import {
   RefreshCw,
   Zap,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import useTauriEvent from "../hooks/useTauriEvent";
@@ -24,10 +24,12 @@ import type {
 } from "../types";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import EmptyState from "./EmptyState";
+import type { EditorExitGuard } from "./editor-exit-guard";
 import { LIST_DETAIL_DRAWER_OFFSET_CLASS } from "./layout-size-classes";
 import PageHeader from "./PageHeader";
-import SkillEditor from "./SkillEditor";
+import SkillEditor, { type SkillEditorHandle } from "./SkillEditor";
 import SkillItem from "./SkillItem";
+import UnsavedChangesAlertDialog from "./UnsavedChangesAlertDialog";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
@@ -248,7 +250,12 @@ type RefreshSkillsOptions = {
   successMessage?: TranslationKey;
 };
 
-function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => void }) {
+interface SkillsPageProps {
+  onDrawerChange?: (isOpen: boolean) => void;
+  onEditorExitGuardChange?: (guard: EditorExitGuard | null) => void;
+}
+
+function SkillsPage({ onDrawerChange, onEditorExitGuardChange }: SkillsPageProps) {
   const { language, t } = useI18n();
   const { showToast } = useToast();
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -258,8 +265,11 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
   const [pendingDuplicateSkill, setPendingDuplicateSkill] = useState<Skill | null>(null);
   const [pendingDeleteSkill, setPendingDeleteSkill] = useState<Skill | null>(null);
+  const [pendingEditorExitAction, setPendingEditorExitAction] = useState<(() => void) | null>(null);
+  const [isSavingEditorExit, setIsSavingEditorExit] = useState(false);
   const [directoryImportResult, setDirectoryImportResult] =
     useState<SkillDirectoryImportResult | null>(null);
+  const skillEditorRef = useRef<SkillEditorHandle | null>(null);
 
   // 加载 Skills 列表
   const refreshSkills = useCallback(
@@ -370,24 +380,77 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     closeDrawer();
   }
 
+  const requestEditorExit = useCallback((action: () => void) => {
+    if (skillEditorRef.current?.isDirty()) {
+      setPendingEditorExitAction(() => action);
+      return;
+    }
+
+    action();
+  }, []);
+
+  async function saveAndRunPendingEditorExit() {
+    const action = pendingEditorExitAction;
+    const editor = skillEditorRef.current;
+    if (!action || !editor?.canSave()) {
+      return;
+    }
+
+    setIsSavingEditorExit(true);
+    try {
+      const saved = await editor.save();
+      if (saved) {
+        setPendingEditorExitAction(null);
+        action();
+      }
+    } finally {
+      setIsSavingEditorExit(false);
+    }
+  }
+
+  function discardAndRunPendingEditorExit() {
+    const action = pendingEditorExitAction;
+    setPendingEditorExitAction(null);
+    action?.();
+  }
+
+  useEffect(() => {
+    if (!onEditorExitGuardChange) {
+      return;
+    }
+
+    if (!isDrawerOpen) {
+      onEditorExitGuardChange(null);
+      return;
+    }
+
+    onEditorExitGuardChange({ requestExit: requestEditorExit });
+    return () => onEditorExitGuardChange(null);
+  }, [isDrawerOpen, onEditorExitGuardChange, requestEditorExit]);
+
   // 打开新建抽屉
   function openAdd() {
-    setEditingSkill(null);
-    setIsDrawerOpen(true);
-    onDrawerChange?.(true);
+    requestEditorExit(() => {
+      setEditingSkill(null);
+      setIsDrawerOpen(true);
+      onDrawerChange?.(true);
+    });
   }
 
   // 打开编辑抽屉
   function openEdit(skill: Skill) {
-    setEditingSkill(skill);
-    setIsDrawerOpen(true);
-    onDrawerChange?.(true);
+    requestEditorExit(() => {
+      setEditingSkill(skill);
+      setIsDrawerOpen(true);
+      onDrawerChange?.(true);
+    });
   }
 
   // 关闭抽屉并重置编辑状态
   function closeDrawer() {
     setEditingSkill(null);
     setIsDrawerOpen(false);
+    setPendingEditorExitAction(null);
     onDrawerChange?.(false);
   }
 
@@ -598,7 +661,7 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
 
       {/* 编辑/新建抽屉 */}
       {isDrawerOpen && (
-        <Sheet open onOpenChange={(open) => !open && closeDrawer()}>
+        <Sheet open onOpenChange={(open) => !open && requestEditorExit(closeDrawer)}>
           <SheetContent
             side="right"
             showCloseButton={false}
@@ -608,13 +671,26 @@ function SkillsPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
             )}
           >
             <SkillEditor
-              key={editingSkill?.id ?? "new"}
+              key={editingSkill?.id ?? "new-skill"}
+              ref={skillEditorRef}
               skill={editingSkill}
               onSave={handleSave}
-              onClose={closeDrawer}
+              onClose={() => requestEditorExit(closeDrawer)}
             />
           </SheetContent>
         </Sheet>
+      )}
+
+      {pendingEditorExitAction && (
+        <UnsavedChangesAlertDialog
+          canSave={skillEditorRef.current?.canSave() ?? false}
+          isSaving={isSavingEditorExit}
+          onCancel={() => setPendingEditorExitAction(null)}
+          onDiscard={discardAndRunPendingEditorExit}
+          onSaveAndExit={() => {
+            void saveAndRunPendingEditorExit();
+          }}
+        />
       )}
     </div>
   );

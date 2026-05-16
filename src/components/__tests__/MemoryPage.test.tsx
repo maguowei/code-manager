@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import type { MemoryDirectoryImportResult, MemoryState } from "../../types";
 import MemoryPage from "../MemoryPage";
+import { ThemeProvider } from "../theme-provider";
 
 type ClaudeDirectoryTestPayload = { paths: string[] };
 
@@ -52,6 +53,25 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
   openUrl: openUrlMock,
 }));
 
+vi.mock("@uiw/react-codemirror", () => ({
+  default: ({
+    value,
+    onChange,
+    placeholder,
+  }: {
+    value?: string;
+    onChange?: (value: string) => void;
+    placeholder?: string;
+  }) => (
+    <textarea
+      aria-label="memory-content-editor"
+      placeholder={placeholder}
+      value={value ?? ""}
+      onChange={(event) => onChange?.(event.target.value)}
+    />
+  ),
+}));
+
 vi.mock("../../hooks/useToast", () => ({
   useToast: () => ({
     showToast: showToastMock,
@@ -72,7 +92,9 @@ function setSystemLanguages(languages: string[]) {
 function renderMemoryPage() {
   render(
     <I18nProvider>
-      <MemoryPage />
+      <ThemeProvider>
+        <MemoryPage />
+      </ThemeProvider>
     </I18nProvider>,
   );
 }
@@ -557,6 +579,93 @@ describe("MemoryPage", () => {
     expect(await screen.findByText("全局 A 副本")).toBeInTheDocument();
     expect(showToastMock).toHaveBeenCalledWith("记忆已复制");
     expect(screen.queryByRole("heading", { name: "编辑记忆" })).not.toBeInTheDocument();
+  });
+
+  it("asks before closing a dirty memory editor and can keep editing or discard", async () => {
+    renderMemoryPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "全局 A" }));
+    fireEvent.change(await screen.findByDisplayValue("全局 A"), {
+      target: { value: "全局 A 草稿" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+
+    expect(screen.getByRole("alertdialog", { name: "存在未保存的更改" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
+
+    expect(screen.getByDisplayValue("全局 A 草稿")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+    fireEvent.click(screen.getByRole("button", { name: "不保存退出" }));
+
+    await waitFor(() => {
+      expect(screen.queryByDisplayValue("全局 A 草稿")).not.toBeInTheDocument();
+    });
+    expect(invokeMock.mock.calls.some(([command]) => command === "update_memory")).toBe(false);
+  });
+
+  it("saves a dirty memory before switching to another memory", async () => {
+    const updatedState: MemoryState = {
+      memories: [
+        {
+          ...initialState.memories[0],
+          name: "全局 A 已保存",
+          updatedAt: 4,
+        },
+        initialState.memories[1],
+      ],
+    };
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_memories") return initialState;
+      if (command === "update_memory") return updatedState;
+      return null;
+    });
+
+    renderMemoryPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "全局 A" }));
+    fireEvent.change(await screen.findByDisplayValue("全局 A"), {
+      target: { value: "全局 A 已保存" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "全局 B", hidden: true }));
+
+    expect(screen.getByRole("alertdialog", { name: "存在未保存的更改" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "保存并退出" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("update_memory", {
+        id: "global-a",
+        data: expect.objectContaining({
+          name: "全局 A 已保存",
+        }),
+      });
+    });
+    expect(await screen.findByDisplayValue("全局 B")).toBeInTheDocument();
+  });
+
+  it("disables save in the unsaved dialog when a dirty rule memory is invalid", async () => {
+    renderMemoryPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "添加记忆" }));
+    fireEvent.change(screen.getByPlaceholderText("例如：项目规范、代码风格"), {
+      target: { value: "无效规则" },
+    });
+    fireEvent.click(screen.getByRole("radio", { name: /Rules/ }));
+    fireEvent.change(screen.getByPlaceholderText("例如：workflow.md 或 frontend/style.md"), {
+      target: { value: "invalid" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+
+    const dialog = screen.getByRole("alertdialog", { name: "存在未保存的更改" });
+    expect(within(dialog).getByRole("button", { name: "保存并退出" })).toBeDisabled();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "不保存退出" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: "添加记忆" })).not.toBeInTheDocument();
+    });
   });
 
   it("aligns memory group headers with the card list inset", async () => {

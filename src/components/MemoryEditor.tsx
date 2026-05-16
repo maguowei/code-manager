@@ -3,7 +3,7 @@ import { EditorView } from "@codemirror/view";
 import { zodResolver } from "@hookform/resolvers/zod";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { ChevronLeft, CircleCheck, Code2, Eye } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { type Resolver, useForm } from "react-hook-form";
 import { useCodeMirrorTheme } from "../hooks/useCodeMirrorTheme";
 import { type TranslationKey, useI18n } from "../i18n";
@@ -17,6 +17,7 @@ import {
   MEMORY_RULE_PATH_FIELD,
   type MemoryFormData,
   MemorySchema,
+  stripMemoryTitleHeading,
   suggestRulePathFromName,
   toMemoryPayload,
 } from "../schemas/memory-schema";
@@ -55,8 +56,14 @@ interface MemoryEditorProps {
     targetType: MemoryTargetType;
     rulePath?: string;
     pathPatterns?: string[];
-  }) => void;
+  }) => unknown;
   onClose: () => void;
+}
+
+export interface MemoryEditorHandle {
+  isDirty: () => boolean;
+  canSave: () => boolean;
+  save: () => Promise<boolean>;
 }
 
 const MEMORY_TARGET_OPTIONS: Array<{
@@ -76,7 +83,42 @@ const MEMORY_TARGET_OPTIONS: Array<{
   },
 ];
 
-function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
+function splitMemoryPathPatterns(text: string) {
+  const patterns: string[] = [];
+  for (const line of text.split(/\r?\n/)) {
+    const pattern = line.trim();
+    if (pattern && !patterns.includes(pattern)) {
+      patterns.push(pattern);
+    }
+  }
+  return patterns;
+}
+
+function normalizeMemoryFormData(data: MemoryFormData) {
+  const id = data.id.trim();
+  const rulePath = data.rulePath.trim();
+  return {
+    id: id || undefined,
+    name: data.name.trim(),
+    content: stripMemoryTitleHeading(data.content),
+    targetType: data.targetType,
+    rulePath: data.targetType === "rule" && rulePath ? rulePath : undefined,
+    pathPatterns:
+      data.targetType === "rule" ? splitMemoryPathPatterns(data.pathPatternsText) : undefined,
+  };
+}
+
+function memorySaveDataEquals(
+  left: ReturnType<typeof normalizeMemoryFormData>,
+  right: ReturnType<typeof normalizeMemoryFormData>,
+) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+const MemoryEditor = forwardRef<MemoryEditorHandle, MemoryEditorProps>(function MemoryEditor(
+  { memory, onSave, onClose },
+  ref,
+) {
   const { t } = useI18n();
   const { isDark } = useTheme();
   const editorRef = useRef<ReactCodeMirrorRef>(null);
@@ -93,11 +135,13 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
     defaultValues,
     mode: "onBlur",
   });
-  const { control, handleSubmit, watch, setValue } = form;
+  const { control, getValues, handleSubmit, setValue, trigger, watch } = form;
   const watchName = watch("name");
   const watchContent = watch("content");
   const watchTargetType = watch("targetType");
   const watchRulePath = watch("rulePath");
+  const watchPathPatternsText = watch("pathPatternsText");
+  const initialSaveDataRef = useRef(normalizeMemoryFormData(defaultValues));
   const lastSyncedTitle = useRef(
     extractMemoryTitleHeading(defaultValues.content) ?? defaultValues.name.trim(),
   );
@@ -164,8 +208,31 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
     });
   }, [setValue, watchContent, watchName]);
 
-  function handleFormSubmit(data: MemoryFormData) {
-    onSave(toMemoryPayload(data));
+  async function saveMemoryForm(data: MemoryFormData) {
+    const result = await onSave(toMemoryPayload(data));
+    return result !== false;
+  }
+
+  async function handleFormSubmit(data: MemoryFormData) {
+    await saveMemoryForm(data);
+  }
+
+  async function handleSaveClick() {
+    if (!canSaveMemory) {
+      return false;
+    }
+
+    const isValid = await trigger();
+    if (!isValid) {
+      return false;
+    }
+
+    const parsed = MemorySchema.safeParse(getValues());
+    if (!parsed.success) {
+      return false;
+    }
+
+    return saveMemoryForm(parsed.data);
   }
 
   // 在光标位置插入文本（选中文字时替换）
@@ -199,6 +266,24 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
     );
     view.focus();
   }
+
+  const currentFormData: MemoryFormData = {
+    ...defaultValues,
+    name: watchName,
+    content: watchContent,
+    targetType: watchTargetType,
+    rulePath: watchRulePath,
+    pathPatternsText: watchPathPatternsText,
+  };
+  const currentSaveData = normalizeMemoryFormData(currentFormData);
+  const isDirty = !memorySaveDataEquals(initialSaveDataRef.current, currentSaveData);
+  const canSaveMemory = MemorySchema.safeParse(currentFormData).success;
+
+  useImperativeHandle(ref, () => ({
+    isDirty: () => isDirty,
+    canSave: () => canSaveMemory,
+    save: handleSaveClick,
+  }));
 
   return (
     <Form {...form}>
@@ -235,7 +320,7 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
               >
                 {memory ? t("memory.editTitle") : t("memory.addTitle")}
               </h2>
-              <Button type="submit" disabled={!watchName?.trim()}>
+              <Button type="submit" disabled={!canSaveMemory}>
                 {t("memory.save")}
               </Button>
             </div>
@@ -597,6 +682,6 @@ function MemoryEditor({ memory, onSave, onClose }: MemoryEditorProps) {
       </div>
     </Form>
   );
-}
+});
 
 export default MemoryEditor;

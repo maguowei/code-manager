@@ -59,6 +59,28 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
   openUrl: openUrlMock,
 }));
 
+vi.mock("@uiw/react-codemirror", () => ({
+  default: ({
+    readOnly,
+    value,
+    onChange,
+    placeholder,
+  }: {
+    readOnly?: boolean;
+    value?: string;
+    onChange?: (value: string) => void;
+    placeholder?: string;
+  }) => (
+    <textarea
+      aria-label="mock-code-editor"
+      placeholder={placeholder}
+      readOnly={readOnly}
+      value={value ?? ""}
+      onChange={(event) => onChange?.(event.target.value)}
+    />
+  ),
+}));
+
 vi.mock("sonner", () => ({
   Toaster: () => null,
   toast: {
@@ -337,6 +359,12 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
   bindings: {},
 };
 
+class ResizeObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
 const CONFIG_WORKSPACE_WITH_EDITORS: ConfigWorkspace = {
   ...WORKSPACE_FIXTURE,
   builtinPresets: [
@@ -460,6 +488,7 @@ describe("App", () => {
       configurable: true,
       value: undefined,
     });
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
     document.documentElement.classList.remove("dark");
     Object.defineProperty(window, "matchMedia", {
       value: vi.fn().mockImplementation(() => ({
@@ -518,6 +547,53 @@ describe("App", () => {
     invokeMock.mockImplementation(async (command) => {
       if (command === "get_config_workspace") {
         return CONFIG_WORKSPACE_WITH_EDITORS;
+      }
+      return null;
+    });
+  }
+
+  function mockMemoryAndSkillWorkspace() {
+    enableTauriEvents();
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_config_workspace") {
+        return WORKSPACE_FIXTURE;
+      }
+      if (command === "get_memories") {
+        return {
+          memories: [
+            {
+              id: "memory-a",
+              name: "团队记忆",
+              content: "记忆内容",
+              targetType: "claude",
+              isActive: false,
+              createdAt: 1,
+              updatedAt: 1,
+            },
+          ],
+          unmanagedMemories: [],
+        };
+      }
+      if (command === "get_skills") {
+        return [
+          {
+            id: "local-skill",
+            name: "Local Skill",
+            description: "普通 Skill",
+            content: "内容",
+            disableModelInvocation: false,
+            userInvocable: true,
+            isActive: true,
+            createdAt: 1,
+            updatedAt: 1,
+            isSymlink: false,
+            hasSymlinkContent: false,
+            linkTarget: null,
+          },
+        ];
+      }
+      if (command === "get_skill_file_tree") {
+        return [];
       }
       return null;
     });
@@ -598,6 +674,48 @@ describe("App", () => {
 
     expect(screen.getByRole("heading", { name: "存在未保存的更改" })).toBeInTheDocument();
     expect(screen.getByDisplayValue("Team Plan Draft")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "不保存退出" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("dialog", { name: "设置" })).toBeInTheDocument();
+    });
+  });
+
+  it("blocks sidebar navigation while the memory editor has unsaved changes", async () => {
+    mockMemoryAndSkillWorkspace();
+    renderApp();
+
+    fireEvent.click(await screen.findByRole("button", { name: "记忆" }));
+    fireEvent.click(await screen.findByRole("button", { name: "团队记忆" }));
+    fireEvent.change(await screen.findByDisplayValue("团队记忆"), {
+      target: { value: "团队记忆草稿" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "预设", hidden: true }));
+
+    expect(screen.getByRole("heading", { name: "存在未保存的更改" })).toBeInTheDocument();
+    expect(screen.getByDisplayValue("团队记忆草稿")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "不保存退出" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "预设" })).toBeInTheDocument();
+    });
+  });
+
+  it("blocks the settings drawer while the skill editor has unsaved changes", async () => {
+    mockMemoryAndSkillWorkspace();
+    renderApp();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Skills" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Local Skill" }));
+    fireEvent.change(await screen.findByDisplayValue("Local Skill"), {
+      target: { value: "Local Skill Draft" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "设置", hidden: true }));
+
+    expect(screen.getByRole("heading", { name: "存在未保存的更改" })).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Local Skill Draft")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "不保存退出" }));
 

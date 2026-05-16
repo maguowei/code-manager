@@ -220,8 +220,18 @@ function App() {
                 isDetailDrawerOpen ? LIST_PANEL_COMPRESSED_WIDTH_CLASS : LIST_PANEL_WIDTH_CLASS,
               )}
             >
-              {activeTab === "memory" && <MemoryPage onDrawerChange={setIsDetailDrawerOpen} />}
-              {activeTab === "skills" && <SkillsPage onDrawerChange={setIsDetailDrawerOpen} />}
+              {activeTab === "memory" && (
+                <MemoryPage
+                  onDrawerChange={setIsDetailDrawerOpen}
+                  onEditorExitGuardChange={setEditorExitGuard}
+                />
+              )}
+              {activeTab === "skills" && (
+                <SkillsPage
+                  onDrawerChange={setIsDetailDrawerOpen}
+                  onEditorExitGuardChange={setEditorExitGuard}
+                />
+              )}
             </div>
           )}
         </div>

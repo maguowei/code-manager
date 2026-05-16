@@ -515,4 +515,52 @@ describe("SkillsPage", () => {
       screen.getByText("确定要删除此 Skill 的软链接吗？源目录不会被删除。"),
     ).toBeInTheDocument();
   });
+
+  it("asks before closing a dirty skill editor and keeps the editor when save fails", async () => {
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_skills") return [localSkill];
+      if (command === "get_skill_file_tree") return [];
+      if (command === "update_skill") throw new Error("save failed");
+      return null;
+    });
+
+    renderSkillsPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Local Skill" }));
+    fireEvent.change(await screen.findByDisplayValue("Local Skill"), {
+      target: { value: "Local Skill Draft" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+
+    expect(screen.getByRole("alertdialog", { name: "存在未保存的更改" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "保存并退出" }));
+
+    await waitFor(() => {
+      expect(showToastMock).toHaveBeenCalledWith("保存 Skill 失败", "error", {
+        description: "save failed",
+      });
+    });
+    expect(screen.getByRole("alertdialog", { name: "存在未保存的更改" })).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Local Skill Draft")).toBeInTheDocument();
+  });
+
+  it("disables save in the unsaved dialog when a dirty new skill is invalid", async () => {
+    renderSkillsPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "添加 Skill" }));
+    fireEvent.change(await screen.findByPlaceholderText("如：My Skill（默认与目录名相同）"), {
+      target: { value: "Only Display Name" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+
+    const dialog = screen.getByRole("alertdialog", { name: "存在未保存的更改" });
+    expect(within(dialog).getByRole("button", { name: "保存并退出" })).toBeDisabled();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "不保存退出" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: "添加 Skill" })).not.toBeInTheDocument();
+    });
+  });
 });

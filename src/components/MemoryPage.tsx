@@ -10,7 +10,7 @@ import {
   Plus,
   RefreshCw,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import useTauriEvent from "../hooks/useTauriEvent";
@@ -27,11 +27,13 @@ import type {
 } from "../types";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import EmptyState from "./EmptyState";
+import type { EditorExitGuard } from "./editor-exit-guard";
 import { LIST_DETAIL_DRAWER_OFFSET_CLASS } from "./layout-size-classes";
-import MemoryEditor from "./MemoryEditor";
+import MemoryEditor, { type MemoryEditorHandle } from "./MemoryEditor";
 import MemoryItem from "./MemoryItem";
 import PageHeader from "./PageHeader";
 import UnmanagedMemoryItem from "./UnmanagedMemoryItem";
+import UnsavedChangesAlertDialog from "./UnsavedChangesAlertDialog";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
@@ -277,7 +279,12 @@ type RefreshMemoriesOptions = {
   successMessage?: TranslationKey;
 };
 
-function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => void }) {
+interface MemoryPageProps {
+  onDrawerChange?: (isOpen: boolean) => void;
+  onEditorExitGuardChange?: (guard: EditorExitGuard | null) => void;
+}
+
+function MemoryPage({ onDrawerChange, onEditorExitGuardChange }: MemoryPageProps) {
   const { language, t } = useI18n();
   const { showToast } = useToast();
   const [memories, setMemories] = useState<Memory[]>([]);
@@ -287,8 +294,11 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
   const [isImportingDirectory, setIsImportingDirectory] = useState(false);
   const [editingMemory, setEditingMemory] = useState<Memory | null>(null);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
+  const [pendingEditorExitAction, setPendingEditorExitAction] = useState<(() => void) | null>(null);
+  const [isSavingEditorExit, setIsSavingEditorExit] = useState(false);
   const [directoryImportResult, setDirectoryImportResult] =
     useState<MemoryDirectoryImportResult | null>(null);
+  const memoryEditorRef = useRef<MemoryEditorHandle | null>(null);
 
   const applyMemoryState = useCallback((state: MemoryState) => {
     setMemories(state.memories);
@@ -333,21 +343,25 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
       setIsModalOpen(false);
       applyMemoryState(state);
       showToast(t("toast.memoryAdded"));
+      return true;
     } catch (err) {
       showOperationError(showToast, t("toast.memoryAddError"), err);
+      return false;
     }
   }
 
   async function handleUpdate(data: MemoryPayload) {
-    if (!editingMemory) return;
+    if (!editingMemory) return false;
     try {
       const state = await invoke<MemoryState>("update_memory", { id: editingMemory.id, data });
       setEditingMemory(null);
       setIsModalOpen(false);
       applyMemoryState(state);
       showToast(t("toast.memorySaved"));
+      return true;
     } catch (err) {
       showOperationError(showToast, t("toast.memorySaveError"), err);
+      return false;
     }
   }
 
@@ -429,21 +443,74 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
     }
   }
 
+  const requestEditorExit = useCallback((action: () => void) => {
+    if (memoryEditorRef.current?.isDirty()) {
+      setPendingEditorExitAction(() => action);
+      return;
+    }
+
+    action();
+  }, []);
+
+  async function saveAndRunPendingEditorExit() {
+    const action = pendingEditorExitAction;
+    const editor = memoryEditorRef.current;
+    if (!action || !editor?.canSave()) {
+      return;
+    }
+
+    setIsSavingEditorExit(true);
+    try {
+      const saved = await editor.save();
+      if (saved) {
+        setPendingEditorExitAction(null);
+        action();
+      }
+    } finally {
+      setIsSavingEditorExit(false);
+    }
+  }
+
+  function discardAndRunPendingEditorExit() {
+    const action = pendingEditorExitAction;
+    setPendingEditorExitAction(null);
+    action?.();
+  }
+
+  useEffect(() => {
+    if (!onEditorExitGuardChange) {
+      return;
+    }
+
+    if (!isModalOpen) {
+      onEditorExitGuardChange(null);
+      return;
+    }
+
+    onEditorExitGuardChange({ requestExit: requestEditorExit });
+    return () => onEditorExitGuardChange(null);
+  }, [isModalOpen, onEditorExitGuardChange, requestEditorExit]);
+
   function openAddModal() {
-    setEditingMemory(null);
-    setIsModalOpen(true);
-    onDrawerChange?.(true);
+    requestEditorExit(() => {
+      setEditingMemory(null);
+      setIsModalOpen(true);
+      onDrawerChange?.(true);
+    });
   }
 
   function openEditModal(memory: Memory) {
-    setEditingMemory(memory);
-    setIsModalOpen(true);
-    onDrawerChange?.(true);
+    requestEditorExit(() => {
+      setEditingMemory(memory);
+      setIsModalOpen(true);
+      onDrawerChange?.(true);
+    });
   }
 
   function closeModal() {
     setEditingMemory(null);
     setIsModalOpen(false);
+    setPendingEditorExitAction(null);
     onDrawerChange?.(false);
   }
 
@@ -662,7 +729,7 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
 
       {/* 弹窗 */}
       {isModalOpen && (
-        <Sheet open onOpenChange={(open) => !open && closeModal()}>
+        <Sheet open onOpenChange={(open) => !open && requestEditorExit(closeModal)}>
           <SheetContent
             side="right"
             showCloseButton={false}
@@ -672,12 +739,26 @@ function MemoryPage({ onDrawerChange }: { onDrawerChange?: (isOpen: boolean) => 
             )}
           >
             <MemoryEditor
+              key={editingMemory?.id ?? "new-memory"}
+              ref={memoryEditorRef}
               memory={editingMemory}
               onSave={editingMemory ? handleUpdate : handleAdd}
-              onClose={closeModal}
+              onClose={() => requestEditorExit(closeModal)}
             />
           </SheetContent>
         </Sheet>
+      )}
+
+      {pendingEditorExitAction && (
+        <UnsavedChangesAlertDialog
+          canSave={memoryEditorRef.current?.canSave() ?? false}
+          isSaving={isSavingEditorExit}
+          onCancel={() => setPendingEditorExitAction(null)}
+          onDiscard={discardAndRunPendingEditorExit}
+          onSaveAndExit={() => {
+            void saveAndRunPendingEditorExit();
+          }}
+        />
       )}
     </div>
   );

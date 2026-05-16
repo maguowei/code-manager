@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { invoke } from "@tauri-apps/api/core";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { ChevronLeft, Code2, ExternalLink, Eye, FileText, Folder, FolderOpen } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { type Resolver, useForm } from "react-hook-form";
 import { showOperationError } from "@/lib/user-facing-error";
 import { useCodeMirrorTheme } from "../hooks/useCodeMirrorTheme";
@@ -57,7 +57,40 @@ interface SkillEditorProps {
 type SkillEditorMode = "source" | "preview";
 type MarkdownPreviewThemeType = "light" | "dark";
 
-function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
+export interface SkillEditorHandle {
+  isDirty: () => boolean;
+  canSave: () => boolean;
+  save: () => Promise<boolean>;
+}
+
+type SkillEditorSaveData = ReturnType<typeof toSkillPayload>;
+
+function parseSkillSaveData(markdownDocument: string, fallback: SkillFormData) {
+  return {
+    ...parseSkillMarkdownDocument(markdownDocument, fallback),
+    id: fallback.id,
+  };
+}
+
+function normalizeSkillFormData(data: SkillFormData): SkillEditorSaveData {
+  return {
+    id: data.id.trim(),
+    name: data.name.trim(),
+    description: data.description.trim(),
+    content: data.content,
+    disableModelInvocation: data.disableModelInvocation,
+    userInvocable: data.userInvocable,
+  };
+}
+
+function skillSaveDataEquals(left: SkillEditorSaveData, right: SkillEditorSaveData) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+const SkillEditor = forwardRef<SkillEditorHandle, SkillEditorProps>(function SkillEditor(
+  { skill, onSave, onClose },
+  ref,
+) {
   const { t } = useI18n();
   const { showToast } = useToast();
   const { isDark } = useTheme();
@@ -74,7 +107,12 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
     defaultValues,
     mode: "onBlur",
   });
-  const { control, getValues, handleSubmit, setValue, watch } = form;
+  const { control, getValues, handleSubmit, setValue, trigger, watch } = form;
+  const initialSaveDataRef = useRef(
+    normalizeSkillFormData(
+      parseSkillSaveData(composeSkillMarkdownDocument(defaultValues), defaultValues),
+    ),
+  );
 
   // 支持文件相关状态
   const [fileTree, setFileTree] = useState<SkillFileTreeEntry[]>([]);
@@ -86,9 +124,12 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
   );
 
   const watchId = watch("id");
-  const canSave = watchId.trim().length > 0 && !isSaving && !isReadOnly;
   const isPreviewMode = editorMode === "preview";
   const sortedFileTree = fileTree.slice().sort((a, b) => a.path.localeCompare(b.path));
+  const currentSkillDraft = parseSkillSaveData(skillMarkdown, { ...getValues(), id: watchId });
+  const canSave = SkillSchema.safeParse(currentSkillDraft).success && !isSaving && !isReadOnly;
+  const currentSaveData = normalizeSkillFormData(currentSkillDraft);
+  const isDirty = !isReadOnly && !skillSaveDataEquals(initialSaveDataRef.current, currentSaveData);
 
   // 编辑模式下进入页面时自动懒加载支持文件
   // CollapsibleSection 暂不支持 onExpand 回调，故在 isEditing && !filesLoaded 时通过 useEffect 触发
@@ -114,13 +155,16 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
     }
   }
 
-  // 提交表单，新建或更新 Skill
-  async function handleSkillSubmit(data: SkillFormData) {
-    if (isReadOnly) return;
+  async function saveSkillForm(data: SkillFormData) {
+    if (isReadOnly) return false;
     setIsSaving(true);
     try {
       const parsedDocument = parseSkillMarkdownDocument(skillMarkdown, data);
-      const payload = toSkillPayload({ ...parsedDocument, id: data.id });
+      const validated = SkillSchema.safeParse({ ...parsedDocument, id: data.id });
+      if (!validated.success) {
+        return false;
+      }
+      const payload = toSkillPayload(validated.data);
       const saved =
         isEditing && skill
           ? await invoke<Skill>("update_skill", {
@@ -131,15 +175,35 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
           : await invoke<Skill>("add_skill", { data: payload });
       showToast(t(isEditing ? "toast.skillSaved" : "toast.skillAdded"));
       onSave(saved);
+      return true;
     } catch (err) {
       showOperationError(
         showToast,
         t(isEditing ? "toast.skillSaveError" : "toast.skillAddError"),
         err,
       );
+      return false;
     } finally {
       setIsSaving(false);
     }
+  }
+
+  // 提交表单，新建或更新 Skill
+  async function handleSkillSubmit(data: SkillFormData) {
+    await saveSkillForm(data);
+  }
+
+  async function handleSaveClick() {
+    if (!canSave) {
+      return false;
+    }
+
+    const isValid = await trigger();
+    if (!isValid) {
+      return false;
+    }
+
+    return saveSkillForm(getValues());
   }
 
   async function handleOpenInEditor() {
@@ -398,6 +462,12 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
     );
   }
 
+  useImperativeHandle(ref, () => ({
+    isDirty: () => isDirty,
+    canSave: () => canSave,
+    save: handleSaveClick,
+  }));
+
   return (
     <Form {...form}>
       <div className="flex h-full min-h-0 w-full min-w-[560px] bg-secondary">
@@ -630,6 +700,6 @@ function SkillEditor({ skill, onSave, onClose }: SkillEditorProps) {
       </div>
     </Form>
   );
-}
+});
 
 export default SkillEditor;
