@@ -40,18 +40,20 @@ import {
   presetSlugFromId,
 } from "./config-workspace-utils";
 import EmptyState from "./EmptyState";
+import type { EditorExitGuard } from "./editor-exit-guard";
 import {
   LIST_DETAIL_DRAWER_OFFSET_CLASS,
   LIST_PANEL_COMPRESSED_WIDTH_CLASS,
   LIST_PANEL_WIDTH_CLASS,
 } from "./layout-size-classes";
 import PageHeader from "./PageHeader";
-import ProfileEditor from "./ProfileEditor";
+import ProfileEditor, { type ProfileEditorHandle } from "./ProfileEditor";
 import ProfileNameBadge from "./ProfileNameBadge";
 import ModelTestResultDialog from "./profile-editor/ModelTestResultDialog";
 import { readPermissionsDefaultMode } from "./profile-editor/PermissionsEditor";
 import { useTheme } from "./theme-provider";
 import { TYPOGRAPHY } from "./typography-classes";
+import UnsavedChangesAlertDialog from "./UnsavedChangesAlertDialog";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -69,6 +71,7 @@ import { Spinner } from "./ui/spinner";
 interface ProfilesPageProps {
   workspace: ConfigWorkspace;
   onWorkspaceChange: () => Promise<void>;
+  onEditorExitGuardChange?: (guard: EditorExitGuard | null) => void;
 }
 
 type ProfileModelTestState =
@@ -192,12 +195,18 @@ function collectSettingsDiffs(
   return diffs;
 }
 
-function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
+function ProfilesPage({
+  workspace,
+  onWorkspaceChange,
+  onEditorExitGuardChange,
+}: ProfilesPageProps) {
   const { language, t } = useI18n();
   const { showToast } = useToast();
   const { isDark } = useTheme();
   const [editingProfile, setEditingProfile] = useState<ConfigProfile | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [pendingEditorExitAction, setPendingEditorExitAction] = useState<(() => void) | null>(null);
+  const [isSavingEditorExit, setIsSavingEditorExit] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [isTestingAllProfiles, setIsTestingAllProfiles] = useState(false);
   const [isImportingUserSettings, setIsImportingUserSettings] = useState(false);
@@ -211,6 +220,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
   const [retestingProfileId, setRetestingProfileId] = useState<string | null>(null);
   const [isRawResponseExpanded, setIsRawResponseExpanded] = useState(false);
   const listScrollRef = useRef<HTMLDivElement | null>(null);
+  const profileEditorRef = useRef<ProfileEditorHandle | null>(null);
   const dragIndexRef = useRef<number | null>(null);
   const dragAutoScrollFrameRef = useRef<number | null>(null);
   const dragAutoScrollVelocityRef = useRef(0);
@@ -282,7 +292,56 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
   function closeDrawer() {
     setIsDrawerOpen(false);
     setEditingProfile(null);
+    setPendingEditorExitAction(null);
   }
+
+  const requestEditorExit = useCallback((action: () => void) => {
+    if (profileEditorRef.current?.isDirty()) {
+      setPendingEditorExitAction(() => action);
+      return;
+    }
+
+    action();
+  }, []);
+
+  async function saveAndRunPendingEditorExit() {
+    const action = pendingEditorExitAction;
+    const editor = profileEditorRef.current;
+    if (!action || !editor?.canSave()) {
+      return;
+    }
+
+    setIsSavingEditorExit(true);
+    try {
+      const saved = await editor.save();
+      if (saved) {
+        setPendingEditorExitAction(null);
+        action();
+      }
+    } finally {
+      setIsSavingEditorExit(false);
+    }
+  }
+
+  function discardAndRunPendingEditorExit() {
+    const action = pendingEditorExitAction;
+    setPendingEditorExitAction(null);
+    action?.();
+  }
+
+  useEffect(() => {
+    if (!onEditorExitGuardChange) {
+      return;
+    }
+
+    if (!isDrawerOpen) {
+      onEditorExitGuardChange(null);
+      return;
+    }
+
+    onEditorExitGuardChange({ requestExit: requestEditorExit });
+    return () => onEditorExitGuardChange(null);
+  }, [isDrawerOpen, onEditorExitGuardChange, requestEditorExit]);
 
   function closeModelTestDialog() {
     setActiveModelTestDialog(null);
@@ -554,8 +613,10 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
       await onWorkspaceChange();
       closeDrawer();
       showToast(t("profiles.toast.saved"));
+      return true;
     } catch (err) {
       showOperationError(showToast, t("profiles.toast.saveError"), err);
+      return false;
     }
   }
 
@@ -1148,8 +1209,10 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
           type="button"
           className="mx-2 mt-4 mb-3 h-auto gap-2 rounded-lg p-3.5 text-base font-semibold"
           onClick={() => {
-            setEditingProfile(null);
-            setIsDrawerOpen(true);
+            requestEditorExit(() => {
+              setEditingProfile(null);
+              setIsDrawerOpen(true);
+            });
           }}
         >
           <Plus data-icon="inline-start" aria-hidden="true" />
@@ -1206,14 +1269,18 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
                   }
                   draggable
                   onClick={() => {
-                    setEditingProfile(profile);
-                    setIsDrawerOpen(true);
+                    requestEditorExit(() => {
+                      setEditingProfile(profile);
+                      setIsDrawerOpen(true);
+                    });
                   }}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      setEditingProfile(profile);
-                      setIsDrawerOpen(true);
+                      requestEditorExit(() => {
+                        setEditingProfile(profile);
+                        setIsDrawerOpen(true);
+                      });
                     }
                   }}
                   onDragStart={(event) => handleDragStart(event, index)}
@@ -1435,7 +1502,7 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
       </div>
 
       {isDrawerOpen && (
-        <Sheet open onOpenChange={(open) => !open && closeDrawer()}>
+        <Sheet open onOpenChange={(open) => !open && requestEditorExit(closeDrawer)}>
           <SheetContent
             side="right"
             showCloseButton={false}
@@ -1447,13 +1514,27 @@ function ProfilesPage({ workspace, onWorkspaceChange }: ProfilesPageProps) {
             <SheetTitle className="sr-only">{t("profiles.title")}</SheetTitle>
             <SheetDescription className="sr-only">{t("profiles.title")}</SheetDescription>
             <ProfileEditor
+              key={editingProfile?.id ?? "new-profile"}
+              ref={profileEditorRef}
               profile={editingProfile}
               presets={allPresets}
               onSave={handleSave}
-              onClose={closeDrawer}
+              onClose={() => requestEditorExit(closeDrawer)}
             />
           </SheetContent>
         </Sheet>
+      )}
+
+      {pendingEditorExitAction && (
+        <UnsavedChangesAlertDialog
+          canSave={profileEditorRef.current?.canSave() ?? false}
+          isSaving={isSavingEditorExit}
+          onCancel={() => setPendingEditorExitAction(null)}
+          onDiscard={discardAndRunPendingEditorExit}
+          onSaveAndExit={() => {
+            void saveAndRunPendingEditorExit();
+          }}
+        />
       )}
 
       {pendingDeleteId && (

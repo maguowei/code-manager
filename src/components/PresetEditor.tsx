@@ -1,5 +1,5 @@
 import { ArrowLeft } from "lucide-react";
-import { useMemo, useState } from "react";
+import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../i18n";
@@ -80,20 +80,29 @@ import {
   SelectValue,
 } from "./ui/select";
 
+interface PresetEditorSaveData {
+  id?: string;
+  name: string;
+  localizedName?: LocalizedText;
+  description: string;
+  basePresetId?: string;
+  docUrl?: string;
+  models?: SettingsPreset["models"];
+  modelSuggestions: string[];
+  settingsPatch: Record<string, unknown>;
+}
+
+export interface PresetEditorHandle {
+  isDirty: () => boolean;
+  canSave: () => boolean;
+  save: () => Promise<boolean>;
+}
+
 interface PresetEditorProps {
   preset: SettingsPreset | null;
   presets: SettingsPreset[];
-  onSave: (data: {
-    id?: string;
-    name: string;
-    localizedName?: LocalizedText;
-    description: string;
-    basePresetId?: string;
-    docUrl?: string;
-    models?: SettingsPreset["models"];
-    modelSuggestions: string[];
-    settingsPatch: Record<string, unknown>;
-  }) => Promise<void> | void;
+  // biome-ignore lint/suspicious/noConfusingVoidType: onSave 需要兼容既有的无返回值保存回调。
+  onSave: (data: PresetEditorSaveData) => Promise<boolean | void> | boolean | void;
   onClose: () => void;
 }
 
@@ -118,22 +127,94 @@ function buildPresetLocalizedName(nameZh: string, nameEn: string): LocalizedText
   );
 }
 
-function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
+function buildInitialPresetSettingsPatch(
+  preset: SettingsPreset | null,
+  language: "zh" | "en",
+): Record<string, unknown> {
+  const next = applyEnvDefaults(cloneSettings(preset?.settingsPatch), BEHAVIOR_ENV_DEFAULTS);
+  return preset ? next : applyNewConfigDefaults(next, language);
+}
+
+function buildPresetSaveData(
+  preset: SettingsPreset | null,
+  nameZh: string,
+  nameEn: string,
+  description: string,
+  basePresetId: string,
+  docUrl: string,
+  modelSuggestions: string,
+  settingsPatch: Record<string, unknown>,
+): PresetEditorSaveData | null {
+  const localizedName = buildPresetLocalizedName(nameZh, nameEn);
+  if (!localizedName) {
+    return null;
+  }
+
+  return {
+    id: preset?.id,
+    name: localizedName.en || localizedName.zh,
+    localizedName,
+    description: description.trim(),
+    basePresetId: basePresetId || undefined,
+    docUrl: docUrl.trim() || undefined,
+    models: preset?.models,
+    modelSuggestions: modelSuggestions
+      .split(",")
+      .map((model) => model.trim())
+      .filter(Boolean),
+    settingsPatch,
+  };
+}
+
+function presetSaveDataEquals(
+  left: PresetEditorSaveData | null,
+  right: PresetEditorSaveData | null,
+) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+const PresetEditor = forwardRef<PresetEditorHandle, PresetEditorProps>(function PresetEditor(
+  { preset, presets, onSave, onClose },
+  ref,
+) {
   const { language, t } = useI18n();
   const form = useForm();
-  const initialLocalizedName = useMemo(() => resolvePresetLocalizedName(preset), [preset]);
-  const [nameZh, setNameZh] = useState(initialLocalizedName.zh);
-  const [nameEn, setNameEn] = useState(initialLocalizedName.en);
+  const initialDraftRef = useRef<{
+    nameZh: string;
+    nameEn: string;
+    settingsPatch: Record<string, unknown>;
+    saveData: PresetEditorSaveData | null;
+  } | null>(null);
+  if (initialDraftRef.current === null) {
+    const initialLocalizedName = resolvePresetLocalizedName(preset);
+    const initialSettingsPatch = buildInitialPresetSettingsPatch(preset, language);
+    initialDraftRef.current = {
+      nameZh: initialLocalizedName.zh,
+      nameEn: initialLocalizedName.en,
+      settingsPatch: initialSettingsPatch,
+      saveData: buildPresetSaveData(
+        preset,
+        initialLocalizedName.zh,
+        initialLocalizedName.en,
+        preset?.description ?? "",
+        preset?.basePresetId ?? "",
+        preset?.docUrl ?? "",
+        preset?.modelSuggestions.join(", ") ?? "",
+        initialSettingsPatch,
+      ),
+    };
+  }
+  const [nameZh, setNameZh] = useState(initialDraftRef.current.nameZh);
+  const [nameEn, setNameEn] = useState(initialDraftRef.current.nameEn);
   const [description, setDescription] = useState(preset?.description ?? "");
   const [basePresetId, setBasePresetId] = useState(preset?.basePresetId ?? "");
   const [docUrl, setDocUrl] = useState(preset?.docUrl ?? "");
   const [modelSuggestions, setModelSuggestions] = useState(
     preset?.modelSuggestions.join(", ") ?? "",
   );
-  const [settingsPatch, setSettingsPatch] = useState<Record<string, unknown>>(() => {
-    const next = applyEnvDefaults(cloneSettings(preset?.settingsPatch), BEHAVIOR_ENV_DEFAULTS);
-    return preset ? next : applyNewConfigDefaults(next, language);
-  });
+  const [settingsPatch, setSettingsPatch] = useState<Record<string, unknown>>(() =>
+    cloneSettings(initialDraftRef.current?.settingsPatch),
+  );
   const selectableBasePresets = useMemo(
     () => presets.filter((candidate) => candidate.id !== preset?.id),
     [preset?.id, presets],
@@ -418,38 +499,12 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
   }
 
   async function handleSaveClick() {
-    const localizedName = buildPresetLocalizedName(nameZh, nameEn);
-    if (
-      !localizedName ||
-      documentJsonEditor.jsonError ||
-      behaviorJsonEditor.jsonError ||
-      commonJsonEditor.jsonError ||
-      envJsonEditor.jsonError ||
-      permissionsJsonEditor.jsonError ||
-      sandboxJsonEditor.jsonError ||
-      hooksJsonEditor.jsonError ||
-      marketplacesJsonEditor.jsonError ||
-      pluginsJsonEditor.jsonError ||
-      statusLineJsonEditor.jsonError ||
-      sectionState.hasEditorErrors
-    ) {
-      return;
+    if (!canSavePreset || !currentSaveData) {
+      return false;
     }
 
-    await onSave({
-      id: preset?.id,
-      name: localizedName.en || localizedName.zh,
-      localizedName,
-      description: description.trim(),
-      basePresetId: basePresetId || undefined,
-      docUrl: docUrl.trim() || undefined,
-      models: preset?.models,
-      modelSuggestions: modelSuggestions
-        .split(",")
-        .map((model) => model.trim())
-        .filter(Boolean),
-      settingsPatch,
-    });
+    const result = await onSave(currentSaveData);
+    return result !== false;
   }
 
   const behaviorFields = PROFILE_SETTINGS_FORM_REGISTRY.filter(
@@ -487,6 +542,24 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
     !!pluginsJsonEditor.jsonError ||
     !!statusLineJsonEditor.jsonError ||
     sectionState.hasEditorErrors;
+  const currentSaveData = buildPresetSaveData(
+    preset,
+    nameZh,
+    nameEn,
+    description,
+    basePresetId,
+    docUrl,
+    modelSuggestions,
+    settingsPatch,
+  );
+  const canSavePreset = !!currentSaveData && !hasValidationError;
+  const isDirty = !presetSaveDataEquals(initialDraftRef.current.saveData, currentSaveData);
+
+  useImperativeHandle(ref, () => ({
+    isDirty: () => isDirty,
+    canSave: () => canSavePreset,
+    save: handleSaveClick,
+  }));
 
   const messages = {
     title: preset ? t("presets.editor.title.edit") : t("presets.editor.title.add"),
@@ -548,7 +621,7 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
           </h2>
           <Button
             type="button"
-            disabled={!buildPresetLocalizedName(nameZh, nameEn) || hasValidationError}
+            disabled={!canSavePreset}
             onClick={() => {
               void handleSaveClick();
             }}
@@ -774,6 +847,6 @@ function PresetEditor({ preset, presets, onSave, onClose }: PresetEditorProps) {
       </div>
     </Form>
   );
-}
+});
 
 export default PresetEditor;

@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ExternalLink, Plus } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
@@ -14,14 +14,16 @@ import {
   presetNameById,
 } from "./config-workspace-utils";
 import EmptyState from "./EmptyState";
+import type { EditorExitGuard } from "./editor-exit-guard";
 import {
   LIST_DETAIL_DRAWER_OFFSET_CLASS,
   LIST_PANEL_COMPRESSED_WIDTH_CLASS,
   LIST_PANEL_WIDTH_CLASS,
 } from "./layout-size-classes";
 import PageHeader from "./PageHeader";
-import PresetEditor from "./PresetEditor";
+import PresetEditor, { type PresetEditorHandle } from "./PresetEditor";
 import { TYPOGRAPHY } from "./typography-classes";
+import UnsavedChangesAlertDialog from "./UnsavedChangesAlertDialog";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -30,6 +32,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "./ui/sheet";
 interface PresetsPageProps {
   workspace: ConfigWorkspace;
   onWorkspaceChange: () => Promise<void>;
+  onEditorExitGuardChange?: (guard: EditorExitGuard | null) => void;
 }
 
 const PRESET_CARD_CLASS =
@@ -40,12 +43,15 @@ const PRESET_BUILTIN_CARD_CLASS = "builtin";
 const PRESET_CHIP_CLASS =
   "preset-chip inline-flex min-h-7 items-center rounded-full border border-border bg-secondary px-2.5 py-1 text-xs font-semibold text-foreground";
 
-function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
+function PresetsPage({ workspace, onWorkspaceChange, onEditorExitGuardChange }: PresetsPageProps) {
   const { language, t } = useI18n();
   const { showToast } = useToast();
   const [editingPreset, setEditingPreset] = useState<SettingsPreset | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [pendingEditorExitAction, setPendingEditorExitAction] = useState<(() => void) | null>(null);
+  const [isSavingEditorExit, setIsSavingEditorExit] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const presetEditorRef = useRef<PresetEditorHandle | null>(null);
 
   const allPresets = useMemo(
     () => [...workspace.builtinPresets, ...workspace.customPresets],
@@ -110,6 +116,60 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
     );
   }
 
+  function closeDrawer() {
+    setIsDrawerOpen(false);
+    setEditingPreset(null);
+    setPendingEditorExitAction(null);
+  }
+
+  const requestEditorExit = useCallback((action: () => void) => {
+    if (presetEditorRef.current?.isDirty()) {
+      setPendingEditorExitAction(() => action);
+      return;
+    }
+
+    action();
+  }, []);
+
+  async function saveAndRunPendingEditorExit() {
+    const action = pendingEditorExitAction;
+    const editor = presetEditorRef.current;
+    if (!action || !editor?.canSave()) {
+      return;
+    }
+
+    setIsSavingEditorExit(true);
+    try {
+      const saved = await editor.save();
+      if (saved) {
+        setPendingEditorExitAction(null);
+        action();
+      }
+    } finally {
+      setIsSavingEditorExit(false);
+    }
+  }
+
+  function discardAndRunPendingEditorExit() {
+    const action = pendingEditorExitAction;
+    setPendingEditorExitAction(null);
+    action?.();
+  }
+
+  useEffect(() => {
+    if (!onEditorExitGuardChange) {
+      return;
+    }
+
+    if (!isDrawerOpen) {
+      onEditorExitGuardChange(null);
+      return;
+    }
+
+    onEditorExitGuardChange({ requestExit: requestEditorExit });
+    return () => onEditorExitGuardChange(null);
+  }, [isDrawerOpen, onEditorExitGuardChange, requestEditorExit]);
+
   async function handleSave(data: {
     id?: string;
     name: string;
@@ -127,11 +187,12 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
     try {
       await invoke("upsert_preset", { data });
       await onWorkspaceChange();
-      setIsDrawerOpen(false);
-      setEditingPreset(null);
+      closeDrawer();
       showToast(t("presets.toast.saved"));
+      return true;
     } catch (err) {
       showOperationError(showToast, t("presets.toast.saveError"), err);
+      return false;
     }
   }
 
@@ -217,8 +278,10 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
               type="button"
               className="gap-1.5 font-semibold"
               onClick={() => {
-                setEditingPreset(null);
-                setIsDrawerOpen(true);
+                requestEditorExit(() => {
+                  setEditingPreset(null);
+                  setIsDrawerOpen(true);
+                });
               }}
             >
               <Plus data-icon="inline-start" aria-hidden="true" />
@@ -294,8 +357,10 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
                         type="button"
                         className="preset-card-action font-semibold"
                         onClick={() => {
-                          setEditingPreset(preset);
-                          setIsDrawerOpen(true);
+                          requestEditorExit(() => {
+                            setEditingPreset(preset);
+                            setIsDrawerOpen(true);
+                          });
                         }}
                       >
                         {t("presets.actions.edit")}
@@ -322,8 +387,7 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
           open
           onOpenChange={(open) => {
             if (!open) {
-              setIsDrawerOpen(false);
-              setEditingPreset(null);
+              requestEditorExit(closeDrawer);
             }
           }}
         >
@@ -338,16 +402,27 @@ function PresetsPage({ workspace, onWorkspaceChange }: PresetsPageProps) {
             <SheetTitle className="sr-only">{t("presets.title")}</SheetTitle>
             <SheetDescription className="sr-only">{t("presets.title")}</SheetDescription>
             <PresetEditor
+              key={editingPreset?.id ?? "new-preset"}
+              ref={presetEditorRef}
               preset={editingPreset}
               presets={allPresets}
               onSave={handleSave}
-              onClose={() => {
-                setIsDrawerOpen(false);
-                setEditingPreset(null);
-              }}
+              onClose={() => requestEditorExit(closeDrawer)}
             />
           </SheetContent>
         </Sheet>
+      )}
+
+      {pendingEditorExitAction && (
+        <UnsavedChangesAlertDialog
+          canSave={presetEditorRef.current?.canSave() ?? false}
+          isSaving={isSavingEditorExit}
+          onCancel={() => setPendingEditorExitAction(null)}
+          onDiscard={discardAndRunPendingEditorExit}
+          onSaveAndExit={() => {
+            void saveAndRunPendingEditorExit();
+          }}
+        />
       )}
 
       {pendingDeleteId && (

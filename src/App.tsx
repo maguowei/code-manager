@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import ClaudeOverviewPage from "./components/ClaudeOverviewPage";
+import type { EditorExitGuard } from "./components/editor-exit-guard";
 import HistoryPage from "./components/HistoryPage";
 import {
   LIST_PANEL_COMPRESSED_WIDTH_CLASS,
@@ -58,6 +59,7 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
   const previousContentTabRef = useRef<TabType>("configs");
+  const editorExitGuardRef = useRef<EditorExitGuard | null>(null);
 
   const loadWorkspace = useCallback(async () => {
     if (!isTauri()) {
@@ -102,13 +104,31 @@ function App() {
     }
   });
 
-  useTauriEvent<string>("navigate-to-tab", (tab) => {
-    const nextTab = tab as TabType;
+  const setEditorExitGuard = useCallback((guard: EditorExitGuard | null) => {
+    editorExitGuardRef.current = guard;
+  }, []);
+
+  const runWithEditorExitGuard = useCallback((action: () => void) => {
+    const guard = editorExitGuardRef.current;
+    if (guard) {
+      guard.requestExit(action);
+      return;
+    }
+
+    action();
+  }, []);
+
+  const activateTab = useCallback((nextTab: TabType) => {
     if (nextTab !== "claudeOverview") {
       previousContentTabRef.current = nextTab;
     }
     setActiveTab(nextTab);
     setIsDetailDrawerOpen(false);
+  }, []);
+
+  useTauriEvent<string>("navigate-to-tab", (tab) => {
+    const nextTab = tab as TabType;
+    runWithEditorExitGuard(() => activateTab(nextTab));
   });
 
   const closeSettingsDrawer = useCallback(() => {
@@ -117,23 +137,34 @@ function App() {
   }, [loadWorkspace]);
 
   const handleSettingsClick = useCallback(() => {
+    const toggleSettingsDrawer = () => {
+      if (isSettingsOpen) {
+        closeSettingsDrawer();
+        return;
+      }
+      setIsSettingsOpen(true);
+    };
+
     if (isSettingsOpen) {
-      closeSettingsDrawer();
+      toggleSettingsDrawer();
       return;
     }
-    setIsSettingsOpen(true);
-  }, [closeSettingsDrawer, isSettingsOpen]);
+
+    runWithEditorExitGuard(toggleSettingsDrawer);
+  }, [closeSettingsDrawer, isSettingsOpen, runWithEditorExitGuard]);
 
   const handleClaudeOverviewClick = useCallback(() => {
-    setIsSettingsOpen(false);
-    setIsDetailDrawerOpen(false);
-    if (activeTab === "claudeOverview") {
-      setActiveTab(previousContentTabRef.current);
-      return;
-    }
-    previousContentTabRef.current = activeTab;
-    setActiveTab("claudeOverview");
-  }, [activeTab]);
+    runWithEditorExitGuard(() => {
+      setIsSettingsOpen(false);
+      setIsDetailDrawerOpen(false);
+      if (activeTab === "claudeOverview") {
+        setActiveTab(previousContentTabRef.current);
+        return;
+      }
+      previousContentTabRef.current = activeTab;
+      setActiveTab("claudeOverview");
+    });
+  }, [activeTab, runWithEditorExitGuard]);
 
   if (loading) {
     return (
@@ -153,11 +184,7 @@ function App() {
           activeTab={activeTab}
           collapseSidebarByDefault={workspace.app.collapseSidebarByDefault}
           onTabChange={(tab) => {
-            if (tab !== "claudeOverview") {
-              previousContentTabRef.current = tab;
-            }
-            setActiveTab(tab);
-            setIsDetailDrawerOpen(false);
+            runWithEditorExitGuard(() => activateTab(tab));
           }}
           onClaudeOverviewClick={handleClaudeOverviewClick}
           onSettingsClick={handleSettingsClick}
@@ -175,9 +202,17 @@ function App() {
           ) : activeTab === "history" ? (
             <HistoryPage />
           ) : activeTab === "providers" ? (
-            <PresetsPage workspace={workspace} onWorkspaceChange={loadWorkspace} />
+            <PresetsPage
+              workspace={workspace}
+              onWorkspaceChange={loadWorkspace}
+              onEditorExitGuardChange={setEditorExitGuard}
+            />
           ) : activeTab === "configs" ? (
-            <ProfilesPage workspace={workspace} onWorkspaceChange={loadWorkspace} />
+            <ProfilesPage
+              workspace={workspace}
+              onWorkspaceChange={loadWorkspace}
+              onEditorExitGuardChange={setEditorExitGuard}
+            />
           ) : (
             <div
               className={cn(

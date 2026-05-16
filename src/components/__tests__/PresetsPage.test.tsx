@@ -1,20 +1,26 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import type { ConfigWorkspace } from "../../types";
 import PresetsPage from "../PresetsPage";
 
+const { invokeMock, openUrlMock, showToastMock } = vi.hoisted(() => ({
+  invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
+  openUrlMock: vi.fn(async () => null),
+  showToastMock: vi.fn(),
+}));
+
 vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn(async () => null),
+  invoke: invokeMock,
 }));
 
 vi.mock("@tauri-apps/plugin-opener", () => ({
-  openUrl: vi.fn(async () => null),
+  openUrl: openUrlMock,
 }));
 
 vi.mock("../../hooks/useToast", () => ({
   useToast: () => ({
-    showToast: vi.fn(),
+    showToast: showToastMock,
   }),
 }));
 
@@ -50,17 +56,43 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
   bindings: {},
 } as ConfigWorkspace;
 
-function renderPage() {
+function renderPage(workspace: ConfigWorkspace = WORKSPACE_FIXTURE) {
   render(
     <I18nProvider>
-      <PresetsPage workspace={WORKSPACE_FIXTURE} onWorkspaceChange={async () => {}} />
+      <PresetsPage workspace={workspace} onWorkspaceChange={async () => {}} />
     </I18nProvider>,
   );
+}
+
+function workspaceWithCustomPresets(): ConfigWorkspace {
+  return {
+    ...WORKSPACE_FIXTURE,
+    customPresets: [
+      {
+        id: "custom:team-plan",
+        name: "Team Plan",
+        localizedName: {
+          zh: "团队计划",
+          en: "Team Plan",
+        },
+        description: "Team default preset",
+        basePresetId: "builtin:openrouter",
+        docUrl: "https://docs.example.com/team-plan",
+        modelSuggestions: ["claude-sonnet-4-6"],
+        settingsPatch: {},
+        source: "custom",
+      },
+    ],
+  };
 }
 
 describe("PresetsPage", () => {
   beforeEach(() => {
     localStorage.clear();
+    invokeMock.mockReset();
+    invokeMock.mockResolvedValue(null);
+    openUrlMock.mockClear();
+    showToastMock.mockClear();
   });
 
   it("switches page copy with the current UI language", () => {
@@ -177,5 +209,90 @@ describe("PresetsPage", () => {
     }
 
     expect(within(builtinCard).queryByText("Enabled 1/2")).not.toBeInTheDocument();
+  });
+
+  it("asks before closing a dirty preset editor and can discard changes", async () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "en",
+        theme: "dark",
+      }),
+    );
+
+    renderPage(workspaceWithCustomPresets());
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByDisplayValue("Team Plan"), {
+      target: { value: "Team Plan Draft" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+
+    expect(screen.getByRole("heading", { name: "Unsaved changes" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: "Edit Preset" })).not.toBeInTheDocument();
+    });
+    expect(invokeMock).not.toHaveBeenCalledWith("upsert_preset", expect.anything());
+  });
+
+  it("keeps a dirty preset open when saving from the unsaved dialog fails", async () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "en",
+        theme: "dark",
+      }),
+    );
+    invokeMock.mockRejectedValueOnce(new Error("save failed"));
+
+    renderPage(workspaceWithCustomPresets());
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByDisplayValue("Team Plan"), {
+      target: { value: "Team Plan Draft" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save and exit" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith(
+        "upsert_preset",
+        expect.objectContaining({
+          data: expect.objectContaining({
+            id: "custom:team-plan",
+            name: "Team Plan Draft",
+          }),
+        }),
+      );
+    });
+    expect(screen.getByRole("heading", { name: "Edit Preset", hidden: true })).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Team Plan Draft")).toBeInTheDocument();
+  });
+
+  it("disables save in the unsaved preset dialog when the draft is invalid", () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "en",
+        theme: "dark",
+      }),
+    );
+
+    renderPage(workspaceWithCustomPresets());
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByDisplayValue("团队计划"), {
+      target: { value: "" },
+    });
+    fireEvent.change(screen.getByDisplayValue("Team Plan"), {
+      target: { value: "" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+
+    expect(screen.getByRole("button", { name: "Save and exit" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+    expect(screen.queryByRole("heading", { name: "Edit Preset" })).not.toBeInTheDocument();
   });
 });

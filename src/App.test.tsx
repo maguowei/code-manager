@@ -337,6 +337,49 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
   bindings: {},
 };
 
+const CONFIG_WORKSPACE_WITH_EDITORS: ConfigWorkspace = {
+  ...WORKSPACE_FIXTURE,
+  builtinPresets: [
+    {
+      id: "builtin:openrouter",
+      name: "OpenRouter",
+      localizedName: {
+        zh: "开放路由",
+        en: "OpenRouter",
+      },
+      description: "OpenRouter 预设",
+      modelSuggestions: [],
+      settingsPatch: {},
+      source: "builtin",
+    },
+  ],
+  customPresets: [
+    {
+      id: "custom:team-plan",
+      name: "Team Plan",
+      localizedName: {
+        zh: "团队计划",
+        en: "Team Plan",
+      },
+      description: "团队预设",
+      modelSuggestions: [],
+      settingsPatch: {},
+      source: "custom",
+    },
+  ],
+  profiles: [
+    {
+      id: "user-openrouter",
+      name: "OpenRouter User",
+      description: "默认用户配置",
+      presetId: "builtin:openrouter",
+      settings: {},
+      createdAt: "2026-05-13T00:00:00Z",
+      updatedAt: "2026-05-13T00:00:00Z",
+    },
+  ],
+};
+
 const CLAUDE_OVERVIEW_FIXTURE = {
   rootPath: "/Users/test/.claude",
   maxEntries: 100000,
@@ -470,6 +513,16 @@ describe("App", () => {
     });
   }
 
+  function mockConfigEditorWorkspace() {
+    enableTauriEvents();
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_config_workspace") {
+        return CONFIG_WORKSPACE_WITH_EDITORS;
+      }
+      return null;
+    });
+  }
+
   it("toggles the settings drawer from the sidebar settings button", async () => {
     renderApp();
 
@@ -482,6 +535,74 @@ describe("App", () => {
 
     await waitFor(() => {
       expect(screen.queryByRole("dialog", { name: "设置" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("blocks sidebar navigation while the profile editor has unsaved changes", async () => {
+    mockConfigEditorWorkspace();
+    renderApp();
+
+    fireEvent.click(await screen.findByRole("button", { name: "OpenRouter User" }));
+    fireEvent.change(await screen.findByDisplayValue("OpenRouter User"), {
+      target: { value: "OpenRouter Draft" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "预设", hidden: true }));
+
+    expect(screen.getByRole("heading", { name: "存在未保存的更改" })).toBeInTheDocument();
+    expect(screen.getByDisplayValue("OpenRouter Draft")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "不保存退出" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "预设" })).toBeInTheDocument();
+    });
+  });
+
+  it("saves profile changes before running a guarded sidebar navigation", async () => {
+    mockConfigEditorWorkspace();
+    renderApp();
+
+    fireEvent.click(await screen.findByRole("button", { name: "OpenRouter User" }));
+    fireEvent.change(await screen.findByDisplayValue("OpenRouter User"), {
+      target: { value: "OpenRouter Saved Draft" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "预设", hidden: true }));
+    fireEvent.click(screen.getByRole("button", { name: "保存并退出" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith(
+        "upsert_profile",
+        expect.objectContaining({
+          data: expect.objectContaining({
+            id: "user-openrouter",
+            name: "OpenRouter Saved Draft",
+          }),
+        }),
+      );
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "预设" })).toBeInTheDocument();
+    });
+  });
+
+  it("blocks the settings drawer while the preset editor has unsaved changes", async () => {
+    mockConfigEditorWorkspace();
+    renderApp();
+
+    fireEvent.click(await screen.findByRole("button", { name: "预设" }));
+    fireEvent.click(await screen.findByRole("button", { name: "编辑" }));
+    fireEvent.change(await screen.findByDisplayValue("Team Plan"), {
+      target: { value: "Team Plan Draft" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "设置", hidden: true }));
+
+    expect(screen.getByRole("heading", { name: "存在未保存的更改" })).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Team Plan Draft")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "不保存退出" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("dialog", { name: "设置" })).toBeInTheDocument();
     });
   });
 

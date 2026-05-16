@@ -1454,6 +1454,112 @@ describe("ProfilesPage", () => {
     expect(screen.getByDisplayValue("OpenRouter User")).toBeInTheDocument();
   });
 
+  it("asks before closing a dirty profile editor and can keep editing or discard", async () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "zh",
+        theme: "dark",
+      }),
+    );
+
+    renderPage();
+
+    await act(async () => {
+      fireEvent.click(getProfileCard("OpenRouter User"));
+      await Promise.resolve();
+    });
+    fireEvent.change(screen.getByDisplayValue("OpenRouter User"), {
+      target: { value: "OpenRouter Draft" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+
+    expect(screen.getByRole("heading", { name: "存在未保存的更改" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
+    expect(screen.getByDisplayValue("OpenRouter Draft")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+    fireEvent.click(screen.getByRole("button", { name: "不保存退出" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: "编辑配置" })).not.toBeInTheDocument();
+    });
+    expect(invokeMock).not.toHaveBeenCalledWith("upsert_profile", expect.anything());
+  });
+
+  it("saves a dirty profile before closing from the unsaved changes dialog", async () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "zh",
+        theme: "dark",
+      }),
+    );
+
+    renderPage();
+
+    await act(async () => {
+      fireEvent.click(getProfileCard("OpenRouter User"));
+      await Promise.resolve();
+    });
+    fireEvent.change(screen.getByDisplayValue("OpenRouter User"), {
+      target: { value: "OpenRouter Saved Draft" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存并退出" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith(
+        "upsert_profile",
+        expect.objectContaining({
+          data: expect.objectContaining({
+            id: "user-openrouter",
+            name: "OpenRouter Saved Draft",
+          }),
+        }),
+      );
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: "编辑配置" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("asks before switching away from a dirty profile editor", async () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "zh",
+        theme: "dark",
+      }),
+    );
+    const workspace: ConfigWorkspace = {
+      ...WORKSPACE_FIXTURE,
+      profiles: [makeProfile("profile-a", "Alpha"), makeProfile("profile-b", "Beta")],
+      bindings: {},
+    };
+
+    renderPage(workspace);
+
+    await act(async () => {
+      fireEvent.click(getProfileCard("Alpha"));
+      await Promise.resolve();
+    });
+    fireEvent.change(screen.getByDisplayValue("Alpha"), {
+      target: { value: "Alpha Draft" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Beta", hidden: true }));
+
+    expect(screen.getByRole("heading", { name: "存在未保存的更改" })).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Alpha Draft")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "不保存退出" }));
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Beta")).toBeInTheDocument();
+    });
+  });
+
   it("renders profile cards in workspace order without re-sorting them", () => {
     localStorage.setItem(
       SETTINGS_STORAGE_KEY,

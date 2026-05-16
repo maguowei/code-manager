@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ArrowLeft, CircleAlert, CircleCheck, ExternalLink, TestTube } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { getUserFacingErrorReason, showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
@@ -84,31 +84,80 @@ import {
 } from "./ui/select";
 import { Spinner } from "./ui/spinner";
 
+interface ProfileEditorSaveData {
+  id?: string;
+  name: string;
+  description: string;
+  presetId?: string;
+  settings: Record<string, unknown>;
+}
+
+export interface ProfileEditorHandle {
+  isDirty: () => boolean;
+  canSave: () => boolean;
+  save: () => Promise<boolean>;
+}
+
 interface ProfileEditorProps {
   profile: ConfigProfile | null;
   presets: SettingsPreset[];
-  onSave: (data: {
-    id?: string;
-    name: string;
-    description: string;
-    presetId?: string;
-    settings: Record<string, unknown>;
-  }) => Promise<void> | void;
+  // biome-ignore lint/suspicious/noConfusingVoidType: onSave 需要兼容既有的无返回值保存回调。
+  onSave: (data: ProfileEditorSaveData) => Promise<boolean | void> | boolean | void;
   onClose: () => void;
 }
 
 const NO_PRESET_VALUE = "__none__";
 
-function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps) {
+function buildInitialProfileSettings(
+  profile: ConfigProfile | null,
+  language: "zh" | "en",
+): Record<string, unknown> {
+  const next = applyEnvDefaults(cloneSettings(profile?.settings), BEHAVIOR_ENV_DEFAULTS);
+  return profile ? next : applyNewConfigDefaults(next, language);
+}
+
+function buildProfileSaveData(
+  profileId: string | undefined,
+  name: string,
+  description: string,
+  presetId: string,
+  settings: Record<string, unknown>,
+): ProfileEditorSaveData {
+  return {
+    id: profileId,
+    name: name.trim(),
+    description: description.trim(),
+    presetId: presetId || undefined,
+    settings,
+  };
+}
+
+function profileSaveDataEquals(left: ProfileEditorSaveData, right: ProfileEditorSaveData) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(function ProfileEditor(
+  { profile, presets, onSave, onClose },
+  ref,
+) {
   const { language, t } = useI18n();
   const { showToast } = useToast();
-  const [name, setName] = useState(profile?.name ?? "");
-  const [description, setDescription] = useState(profile?.description ?? "");
-  const [presetId, setPresetId] = useState(profile?.presetId ?? "");
-  const [settings, setSettings] = useState<Record<string, unknown>>(() => {
-    const next = applyEnvDefaults(cloneSettings(profile?.settings), BEHAVIOR_ENV_DEFAULTS);
-    return profile ? next : applyNewConfigDefaults(next, language);
-  });
+  const initialDraftRef = useRef<ProfileEditorSaveData | null>(null);
+  if (initialDraftRef.current === null) {
+    initialDraftRef.current = buildProfileSaveData(
+      profile?.id,
+      profile?.name ?? "",
+      profile?.description ?? "",
+      profile?.presetId ?? "",
+      buildInitialProfileSettings(profile, language),
+    );
+  }
+  const [name, setName] = useState(initialDraftRef.current.name);
+  const [description, setDescription] = useState(initialDraftRef.current.description);
+  const [presetId, setPresetId] = useState(initialDraftRef.current.presetId ?? "");
+  const [settings, setSettings] = useState<Record<string, unknown>>(() =>
+    cloneSettings(initialDraftRef.current?.settings),
+  );
   const [previewJson, setPreviewJson] = useState("{}");
   const [previewError, setPreviewError] = useState("");
   const [isTestingModel, setIsTestingModel] = useState(false);
@@ -421,33 +470,15 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     void openUrl(docUrl);
   }
 
-  function handleSaveClick() {
-    if (
-      !name.trim() ||
-      documentJsonEditor.jsonError ||
-      behaviorJsonEditor.jsonError ||
-      commonJsonEditor.jsonError ||
-      envJsonEditor.jsonError ||
-      permissionsJsonEditor.jsonError ||
-      sandboxJsonEditor.jsonError ||
-      hooksJsonEditor.jsonError ||
-      marketplacesJsonEditor.jsonError ||
-      pluginsJsonEditor.jsonError ||
-      statusLineJsonEditor.jsonError
-    ) {
-      return;
-    }
-    if (sectionState.hasEditorErrors) {
-      return;
+  async function handleSaveClick(): Promise<boolean> {
+    if (!canSaveProfile) {
+      return false;
     }
 
-    void onSave({
-      id: profile?.id,
-      name: name.trim(),
-      description: description.trim(),
-      presetId: presetId || undefined,
-      settings,
-    });
+    const result = await onSave(
+      buildProfileSaveData(profile?.id, name, description, presetId, settings),
+    );
+    return result !== false;
   }
 
   async function handleTestModelClick(promptText?: string, keepDialogOpen = false) {
@@ -572,7 +603,16 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
     !!pluginsJsonEditor.jsonError ||
     !!statusLineJsonEditor.jsonError ||
     sectionState.hasEditorErrors;
+  const canSaveProfile = !!name.trim() && !hasValidationError;
+  const currentSaveData = buildProfileSaveData(profile?.id, name, description, presetId, settings);
+  const isDirty = !profileSaveDataEquals(initialDraftRef.current, currentSaveData);
   const canTestModel = !!name.trim() && !hasValidationError;
+
+  useImperativeHandle(ref, () => ({
+    isDirty: () => isDirty,
+    canSave: () => canSaveProfile,
+    save: handleSaveClick,
+  }));
 
   const messages = {
     title: profile ? t("profiles.editor.title.edit") : t("profiles.editor.title.add"),
@@ -651,8 +691,10 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
         </h2>
         <Button
           type="button"
-          disabled={!name.trim() || hasValidationError}
-          onClick={handleSaveClick}
+          disabled={!canSaveProfile}
+          onClick={() => {
+            void handleSaveClick();
+          }}
         >
           {messages.save}
         </Button>
@@ -914,6 +956,6 @@ function ProfileEditor({ profile, presets, onSave, onClose }: ProfileEditorProps
       </div>
     </div>
   );
-}
+});
 
 export default ProfileEditor;
