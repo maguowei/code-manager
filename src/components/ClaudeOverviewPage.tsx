@@ -269,6 +269,35 @@ function writeOverviewPaneWidthVars(
   overviewBody.style.setProperty("--claude-overview-tree-width", `${treeWidth}px`);
 }
 
+function writeOverviewResizeGuideTransform(
+  resizeGuide: HTMLElement | null,
+  bodyWidth: number,
+  treePaneRatio: number,
+) {
+  if (!resizeGuide || bodyWidth <= 0) {
+    return;
+  }
+
+  const { previewWidth } = getPaneWidthsForRatio(bodyWidth, treePaneRatio);
+  resizeGuide.style.transform = `translate3d(calc(${
+    previewWidth + RESIZER_WIDTH / 2
+  }px + 0.75rem), 0, 0) translateX(-50%)`;
+}
+
+function setResizeDragChromeVisibility(
+  resizeGuide: HTMLElement | null,
+  resizeShield: HTMLElement | null,
+  visible: boolean,
+) {
+  if (resizeGuide) {
+    resizeGuide.style.opacity = visible ? "1" : "0";
+  }
+  if (resizeShield) {
+    resizeShield.style.opacity = visible ? "1" : "0";
+    resizeShield.style.pointerEvents = visible ? "auto" : "none";
+  }
+}
+
 function treePathForEntry(entry: ClaudeDirectoryEntry) {
   return entry.kind === "directory" ? `${entry.path}/` : entry.path;
 }
@@ -785,6 +814,8 @@ function ClaudeOverviewPage() {
   const latestPreviewRequestPathRef = useRef<string | null>(null);
   const activePreviewPathRef = useRef<string | null>(null);
   const overviewBodyRef = useRef<HTMLDivElement | null>(null);
+  const resizeGuideRef = useRef<HTMLDivElement | null>(null);
+  const resizeShieldRef = useRef<HTMLDivElement | null>(null);
   const latestTreePaneRatioRef = useRef(treePaneRatio);
   const latestOverviewBodyWidthRef = useRef(overviewBodyWidth);
   const migratedLegacyTreePaneWidthRef = useRef(false);
@@ -932,6 +963,10 @@ function ClaudeOverviewPage() {
     saveTreePaneRatio(nextRatio);
   }, [overviewBodyWidth]);
 
+  const setResizeDragChromeVisible = useCallback((visible: boolean) => {
+    setResizeDragChromeVisibility(resizeGuideRef.current, resizeShieldRef.current, visible);
+  }, []);
+
   useEffect(
     () => () => {
       latestOverviewRequestIdRef.current += 1;
@@ -942,6 +977,7 @@ function ClaudeOverviewPage() {
         window.clearTimeout(refreshBusyTimerRef.current);
         refreshBusyTimerRef.current = null;
       }
+      setResizeDragChromeVisibility(resizeGuideRef.current, resizeShieldRef.current, false);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
     },
@@ -1375,26 +1411,43 @@ function ClaudeOverviewPage() {
       }
 
       event.preventDefault();
+      const resizeHandle = event.currentTarget;
+      resizeHandle.setPointerCapture(event.pointerId);
       const availableWidth = Math.max(1, latestOverviewBodyWidthRef.current - RESIZER_WIDTH);
       resizeStateRef.current = {
         availableWidth,
         startRatio: latestTreePaneRatioRef.current,
         startX: event.clientX,
       };
+      writeOverviewResizeGuideTransform(
+        resizeGuideRef.current,
+        latestOverviewBodyWidthRef.current,
+        latestTreePaneRatioRef.current,
+      );
+      setResizeDragChromeVisible(true);
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
 
-      const applyPointerRatio = (
-        clientX: number,
-        options: { commit?: boolean } = { commit: false },
-      ) => {
+      const calculatePointerRatio = (clientX: number) => {
         const resizeState = resizeStateRef.current;
         if (!resizeState) {
+          return null;
+        }
+        return clampTreePaneRatio(
+          resizeState.startRatio - (clientX - resizeState.startX) / resizeState.availableWidth,
+        );
+      };
+
+      const applyResizeGuideRatio = (clientX: number) => {
+        const nextRatio = calculatePointerRatio(clientX);
+        if (nextRatio === null) {
           return;
         }
-        applyTreePaneRatio(
-          resizeState.startRatio - (clientX - resizeState.startX) / resizeState.availableWidth,
-          options,
+        latestTreePaneRatioRef.current = nextRatio;
+        writeOverviewResizeGuideTransform(
+          resizeGuideRef.current,
+          latestOverviewBodyWidthRef.current,
+          nextRatio,
         );
       };
 
@@ -1404,7 +1457,7 @@ function ClaudeOverviewPage() {
         }
         resizeFrameRef.current = window.requestAnimationFrame(() => {
           resizeFrameRef.current = null;
-          applyPointerRatio(moveEvent.clientX, { commit: false });
+          applyResizeGuideRatio(moveEvent.clientX);
         });
       };
 
@@ -1413,11 +1466,16 @@ function ClaudeOverviewPage() {
           window.cancelAnimationFrame(resizeFrameRef.current);
           resizeFrameRef.current = null;
         }
-        applyPointerRatio(endEvent.clientX, { commit: false });
+        applyResizeGuideRatio(endEvent.clientX);
         const finalRatio = latestTreePaneRatioRef.current;
+        applyTreePaneRatio(finalRatio, { commit: false });
         setTreePaneRatio(finalRatio);
         resizeStateRef.current = null;
         saveTreePaneRatio(finalRatio);
+        if (resizeHandle.hasPointerCapture(endEvent.pointerId)) {
+          resizeHandle.releasePointerCapture(endEvent.pointerId);
+        }
+        setResizeDragChromeVisible(false);
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
         window.removeEventListener("pointermove", handlePointerMove);
@@ -1429,7 +1487,7 @@ function ClaudeOverviewPage() {
       window.addEventListener("pointerup", finishResize, { once: true });
       window.addEventListener("pointercancel", finishResize, { once: true });
     },
-    [applyTreePaneRatio],
+    [applyTreePaneRatio, setResizeDragChromeVisible],
   );
 
   const handleResizeKeyDown = useCallback(
@@ -1574,7 +1632,7 @@ function ClaudeOverviewPage() {
 
       <div
         ref={overviewBodyRef}
-        className="claude-overview-body grid min-h-0 w-full flex-1 bg-secondary p-3 grid-cols-[minmax(0,var(--claude-overview-preview-width))_8px_minmax(0,var(--claude-overview-tree-width))] max-[900px]:grid-cols-1 max-[900px]:grid-rows-[minmax(220px,42%)_minmax(0,1fr)] max-[900px]:gap-3"
+        className="claude-overview-body grid min-h-0 w-full flex-1 bg-secondary p-3 relative grid-cols-[minmax(0,var(--claude-overview-preview-width))_8px_minmax(0,var(--claude-overview-tree-width))] max-[900px]:grid-cols-1 max-[900px]:grid-rows-[minmax(220px,42%)_minmax(0,1fr)] max-[900px]:gap-3"
         style={overviewBodyStyle}
       >
         <section
@@ -1803,6 +1861,18 @@ function ClaudeOverviewPage() {
             </div>
           )}
         </section>
+        <div
+          ref={resizeShieldRef}
+          className="claude-overview-resize-shield pointer-events-none absolute inset-3 z-10 cursor-col-resize opacity-0 max-[900px]:hidden"
+          style={{ pointerEvents: "none" }}
+          aria-hidden="true"
+        />
+        <div
+          ref={resizeGuideRef}
+          className="claude-overview-resize-guide pointer-events-none absolute top-3 bottom-3 left-0 z-20 w-[3px] rounded-full bg-primary opacity-0 shadow-toolbar will-change-transform max-[900px]:hidden"
+          style={{ transform: "translate3d(0, 0, 0) translateX(-50%)" }}
+          aria-hidden="true"
+        />
       </div>
       {nameDialog ? (
         <ClaudeOverviewNameDialog

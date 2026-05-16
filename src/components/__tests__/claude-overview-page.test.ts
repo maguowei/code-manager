@@ -42,10 +42,21 @@ describe("ClaudeOverviewPage styles", () => {
     expect(source).toContain("--claude-overview-preview-width");
     expect(source).toContain("writeOverviewPaneWidthVars");
     expect(source).toContain('style.setProperty("--claude-overview-preview-width"');
-    expect(source).toContain("applyPointerRatio(moveEvent.clientX, { commit: false })");
+    expect(source).toContain("resizeGuideRef");
+    expect(source).toContain("resizeShieldRef");
+    expect(source).toContain("writeOverviewResizeGuideTransform");
+    expect(source).toContain("resizeGuide.style.transform");
+    expect(source).toContain("setResizeDragChromeVisible(true)");
+    expect(source).toContain("setPointerCapture");
+    expect(source).toContain("applyResizeGuideRatio(moveEvent.clientX)");
+    expect(source).toContain("applyTreePaneRatio(finalRatio, { commit: false })");
     expect(source).toContain("setTreePaneRatio(finalRatio)");
     expect(source).toContain("claude-overview-resizer relative min-w-2 cursor-col-resize");
+    expect(source).toContain("claude-overview-resize-shield pointer-events-none absolute");
+    expect(source).toContain("claude-overview-resize-guide pointer-events-none absolute");
     expect(source).toContain("max-[900px]:hidden");
+    expect(source).not.toContain("--claude-overview-resize-guide-x");
+    expect(source).not.toContain("isResizingPanes");
     expect(source).not.toContain("applyTreePaneWidth");
   });
 
