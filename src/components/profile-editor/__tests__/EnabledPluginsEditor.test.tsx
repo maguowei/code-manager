@@ -209,7 +209,7 @@ describe("EnabledPluginsEditor", () => {
       expect(screen.getByText("manual@local")).toBeInTheDocument();
     });
 
-    it("已配置列表展示插件所属市场", () => {
+    it("已配置列表隐藏插件所属市场但保留作者和类别", () => {
       localStorage.setItem(
         OFFICIAL_PLUGIN_CACHE_KEY,
         JSON.stringify({
@@ -235,9 +235,11 @@ describe("EnabledPluginsEditor", () => {
         .getByText("alpha@claude-plugins-official")
         .closest("[data-slot='plugin-list-row']");
       expect(row).not.toBeNull();
+      expect(within(row as HTMLElement).getByText("Anthropic")).toBeInTheDocument();
+      expect(within(row as HTMLElement).getByText("development")).toBeInTheDocument();
       expect(
-        within(row as HTMLElement).getByText("市场 claude-plugins-official"),
-      ).toBeInTheDocument();
+        within(row as HTMLElement).queryByText("市场 claude-plugins-official"),
+      ).not.toBeInTheDocument();
     });
 
     it("开关切换调用 onChange", () => {
