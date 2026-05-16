@@ -45,6 +45,7 @@ import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } f
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { SegmentedControl } from "./ui/segmented-control";
 import { formatCost, formatShortDateTime, formatTokens, projectDisplayName } from "./usage/format";
+import PricingTableDialog from "./usage/PricingTableDialog";
 import SessionUsageDrawer from "./usage/SessionUsageDrawer";
 
 const COLORS = {
@@ -176,6 +177,7 @@ function UsagePage() {
   const { showToast } = useToast();
   const u = useUsage(t("usage.loadError"));
   const [openSessionId, setOpenSessionId] = useState<string | null>(null);
+  const [pricingDialogOpen, setPricingDialogOpen] = useState(false);
   // 图表层级的模型可见性切换；与顶部 Filters.model 单选互不影响、不触发后端
   const [costVisibility, setCostVisibility] = useState<SeriesVisibility>(() => ({}));
   const [tokenVisibility, setTokenVisibility] = useState<SeriesVisibility>(() => ({}));
@@ -577,8 +579,10 @@ function UsagePage() {
                 role="group"
                 aria-label={t("usage.metaLabel")}
               >
-                <Badge
+                <Button
+                  type="button"
                   variant="outline"
+                  size="xs"
                   className={cn(
                     "usage-badge h-6 rounded-md px-2 text-xs font-bold whitespace-nowrap",
                     u.summary.pricing.source === "network" &&
@@ -592,9 +596,11 @@ function UsagePage() {
                       ? `${t("usage.pricingFetched")}: ${formatShortDateTime(u.summary.pricing.fetchedAtMs)}`
                       : undefined
                   }
+                  aria-label={`${t("usage.pricingTable.open")}: ${pricingSourceLabel(u.summary.pricing.source, t)}`}
+                  onClick={() => setPricingDialogOpen(true)}
                 >
                   {pricingSourceLabel(u.summary.pricing.source, t)}
-                </Badge>
+                </Button>
                 {u.summary.thirdPartyProviderPricingEnabled ? (
                   <Badge
                     variant="outline"
@@ -638,6 +644,17 @@ function UsagePage() {
           </>
         }
       />
+      {u.summary && (
+        <PricingTableDialog
+          open={pricingDialogOpen}
+          onOpenChange={setPricingDialogOpen}
+          pricing={u.summary.pricing}
+          usedModels={u.models}
+          thirdPartyProviderPricingEnabled={u.summary.thirdPartyProviderPricingEnabled}
+          refreshing={u.refreshingPrice}
+          onRefresh={handleRefreshPrice}
+        />
+      )}
 
       <div className="usage-scroll flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto bg-secondary px-5 pt-4 pb-5">
         {isInitialLoading ? (

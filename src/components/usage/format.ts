@@ -20,6 +20,17 @@ export function formatCost(n: number): string {
   return `$${n.toFixed(2)}`;
 }
 
+/** 每百万 Token 单价显示 */
+export function formatPricePerMillion(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return "$0";
+  if (n >= 0.01) return `$${n.toFixed(2)}`;
+  if (n >= 0.0001) {
+    const value = n.toFixed(4).replace(/0+$/, "").replace(/\.$/, "");
+    return `$${value}`;
+  }
+  return "<$0.0001";
+}
+
 /** ms 时间戳 -> 本地短日期字符串 */
 export function formatDateTime(ms: number): string {
   if (!ms) return "-";

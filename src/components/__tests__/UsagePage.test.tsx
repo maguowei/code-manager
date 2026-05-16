@@ -146,6 +146,24 @@ const summary: UsageSummary = {
         cache_read: 0.3,
         cache_write: 3.75,
       },
+      "claude-3-opus": {
+        input: 15,
+        output: 75,
+        cache_read: 1.5,
+        cache_write: 18.75,
+      },
+      "glm-4.5": {
+        input: 0.6,
+        output: 2,
+        cache_read: 0.05,
+        cache_write: 0.6,
+      },
+      "mimo-v2-pro": {
+        input: 0.15,
+        output: 0.6,
+        cache_read: 0.03,
+        cache_write: 0.18,
+      },
     },
   },
   thirdPartyProviderPricingEnabled: true,
@@ -443,6 +461,74 @@ describe("UsagePage cost cockpit", () => {
     expect(
       screen.getByText(
         "第三方模型计价已停用，Kimi / MiMo / GLM / MiniMax / DeepSeek 费用按 $0 计入",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("opens the model pricing table from the pricing source entry", () => {
+    renderUsage();
+
+    fireEvent.click(screen.getByRole("button", { name: /查看模型价目表/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "模型价目表" });
+    expect(within(dialog).getByText("models.dev 实时")).toBeInTheDocument();
+    expect(within(dialog).getByText("价格更新于 2026-05-23 17:15")).toBeInTheDocument();
+    expect(within(dialog).getByText("USD / 1M tokens")).toBeInTheDocument();
+    expect(within(dialog).getByText("claude-3-7-sonnet")).toBeInTheDocument();
+    expect(within(dialog).getByText("mimo-v2-pro")).toBeInTheDocument();
+    expect(within(dialog).getByText("$3.00")).toBeInTheDocument();
+    expect(within(dialog).getAllByText("$15.00").length).toBeGreaterThanOrEqual(1);
+    expect(within(dialog).getByText("$3.75")).toBeInTheDocument();
+    expect(within(dialog).getByText("$0.30")).toBeInTheDocument();
+    expect(within(dialog).getAllByText("当前用量")).toHaveLength(2);
+  });
+
+  it("filters the model pricing table by model name", () => {
+    renderUsage();
+
+    fireEvent.click(screen.getByRole("button", { name: /查看模型价目表/ }));
+    const dialog = screen.getByRole("dialog", { name: "模型价目表" });
+
+    fireEvent.change(within(dialog).getByPlaceholderText("搜索模型"), {
+      target: { value: "glm" },
+    });
+
+    expect(within(dialog).getByText("glm-4.5")).toBeInTheDocument();
+    expect(within(dialog).queryByText("claude-3-7-sonnet")).not.toBeInTheDocument();
+
+    fireEvent.change(within(dialog).getByPlaceholderText("搜索模型"), {
+      target: { value: "missing-model" },
+    });
+
+    expect(within(dialog).getByText("没有匹配的模型价格")).toBeInTheDocument();
+  });
+
+  it("refreshes pricing from the model pricing dialog", async () => {
+    const usage = renderUsage();
+
+    fireEvent.click(screen.getByRole("button", { name: /查看模型价目表/ }));
+    const dialog = screen.getByRole("dialog", { name: "模型价目表" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "刷新价格" }));
+
+    await waitFor(() => {
+      expect(usage.refreshPricing).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("shows third-party pricing disabled details in the model pricing dialog", () => {
+    renderUsage({
+      summary: {
+        ...summary,
+        thirdPartyProviderPricingEnabled: false,
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /查看模型价目表/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "模型价目表" });
+    expect(
+      within(dialog).getByText(
+        "第三方模型计价已停用，Kimi / MiMo / GLM / MiniMax / DeepSeek 当前仍可查看价目，费用计算按 $0 计入",
       ),
     ).toBeInTheDocument();
   });
