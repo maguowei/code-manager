@@ -31,11 +31,23 @@ function EnabledPluginsEditor({
     onChange,
   });
   const [activeTab, setActiveTab] = useState<"enabled" | "browse">("enabled");
+  const [manageTarget, setManageTarget] = useState<{
+    pluginId: string;
+    requestId: number;
+  } | null>(null);
 
   const metadataMap = useMemo(() => {
     const cached = loadOfficialPluginCache()?.plugins ?? [];
     return createOfficialPluginMetadataMap(cached);
   }, []);
+
+  function handleManagePlugin(pluginId: string) {
+    setManageTarget((current) => ({
+      pluginId,
+      requestId: (current?.requestId ?? 0) + 1,
+    }));
+    setActiveTab("enabled");
+  }
 
   return (
     <div className="flex flex-col gap-3.5">
@@ -44,7 +56,7 @@ function EnabledPluginsEditor({
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "enabled" | "browse")}>
         <TabsList>
           <TabsTrigger value="enabled">
-            {t("profileEditor.plugins.tabEnabled")} ({plugins.length})
+            {t("profileEditor.plugins.tabConfigured")} ({plugins.length})
           </TabsTrigger>
           <TabsTrigger value="browse">{t("profileEditor.plugins.tabBrowse")}</TabsTrigger>
         </TabsList>
@@ -57,6 +69,7 @@ function EnabledPluginsEditor({
             onRemovePlugin={removePlugin}
             onAddPlugin={(pluginId) => addPlugin(pluginId, true)}
             onGoBrowse={() => setActiveTab("browse")}
+            manageTarget={manageTarget}
             onError={onError}
           />
         </TabsContent>
@@ -67,7 +80,7 @@ function EnabledPluginsEditor({
             plugins={plugins}
             active={activeTab === "browse"}
             onAddPlugin={(pluginId) => addPlugin(pluginId, true)}
-            onTogglePlugin={togglePlugin}
+            onManagePlugin={handleManagePlugin}
           />
         </TabsContent>
       </Tabs>

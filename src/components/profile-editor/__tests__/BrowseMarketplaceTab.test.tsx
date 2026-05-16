@@ -1,8 +1,22 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../../i18n";
+import { TooltipProvider } from "../../ui/tooltip";
 import BrowseMarketplaceTab from "../BrowseMarketplaceTab";
 import type { PluginEntry } from "../useEnabledPluginsState";
+
+const { invokeMock, openUrlMock } = vi.hoisted(() => ({
+  invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
+  openUrlMock: vi.fn(async (_url: string) => null),
+}));
+
+vi.mock("@tauri-apps/plugin-opener", () => ({
+  openUrl: openUrlMock,
+}));
+
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: invokeMock,
+}));
 
 const originalFetch = globalThis.fetch;
 const fetchMock = vi.fn();
@@ -19,7 +33,19 @@ const SOURCES = [
 
 beforeEach(() => {
   fetchMock.mockReset();
+  invokeMock.mockReset();
+  invokeMock.mockImplementation(async (command) => {
+    if (command === "get_config_workspace") {
+      return { app: { uiLanguage: "zh" } };
+    }
+    return null;
+  });
+  openUrlMock.mockReset();
   localStorage.clear();
+  Object.defineProperty(window, "__TAURI_INTERNALS__", {
+    value: undefined,
+    configurable: true,
+  });
   Object.defineProperty(globalThis, "fetch", {
     value: fetchMock,
     writable: true,
@@ -28,6 +54,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   Object.defineProperty(globalThis, "fetch", {
     value: originalFetch,
     writable: true,
@@ -40,21 +67,30 @@ function renderTab(props?: {
   plugins?: PluginEntry[];
   active?: boolean;
   onAddPlugin?: (pluginId: string) => boolean;
-  onTogglePlugin?: (pluginId: string) => void;
+  onManagePlugin?: () => void;
 }) {
   const onAddPlugin = props?.onAddPlugin ?? vi.fn(() => true);
-  const onTogglePlugin = props?.onTogglePlugin ?? vi.fn();
+  const onManagePlugin = props?.onManagePlugin ?? vi.fn();
   return render(
     <I18nProvider>
-      <BrowseMarketplaceTab
-        sources={props?.sources ?? SOURCES}
-        plugins={props?.plugins ?? []}
-        active={props?.active ?? true}
-        onAddPlugin={onAddPlugin}
-        onTogglePlugin={onTogglePlugin}
-      />
+      <TooltipProvider>
+        <BrowseMarketplaceTab
+          sources={props?.sources ?? SOURCES}
+          plugins={props?.plugins ?? []}
+          active={props?.active ?? true}
+          onAddPlugin={onAddPlugin}
+          onManagePlugin={onManagePlugin}
+        />
+      </TooltipProvider>
     </I18nProvider>,
   );
+}
+
+function enableTauriRuntime() {
+  Object.defineProperty(window, "__TAURI_INTERNALS__", {
+    value: {},
+    configurable: true,
+  });
 }
 
 describe("BrowseMarketplaceTab", () => {
@@ -67,34 +103,35 @@ describe("BrowseMarketplaceTab", () => {
     } as unknown as Response);
     renderTab();
     await waitFor(() => {
-      const rows = screen.getAllByRole("button", { name: /\+ 启用/ });
+      const rows = screen.getAllByRole("button", { name: /添加并启用/ });
       expect(rows).toHaveLength(2);
     });
-    const rows = screen.getAllByRole("button", { name: /\+ 启用/ });
+    const rows = screen.getAllByRole("button", { name: /添加并启用/ });
     const firstRow = rows[0].closest("[data-slot='browse-row']");
     const secondRow = rows[1].closest("[data-slot='browse-row']");
     expect(firstRow).toHaveTextContent("alpha");
     expect(secondRow).toHaveTextContent("zoo");
   });
 
-  it("点击 + 启用 调用 onAddPlugin", async () => {
+  it("点击添加并启用调用 onAddPlugin", async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ plugins: [{ name: "alpha" }] }),
     } as unknown as Response);
     const onAddPlugin = vi.fn(() => true);
     renderTab({ onAddPlugin });
-    const btn = await screen.findByRole("button", { name: /\+ 启用/ });
+    const btn = await screen.findByRole("button", { name: /添加并启用/ });
+    expect(btn).toHaveAttribute("data-variant", "default");
     fireEvent.click(btn);
     expect(onAddPlugin).toHaveBeenCalledWith("alpha@claude-plugins-official");
   });
 
-  it("已启用行 hover 后显示取消启用，点击调用 onTogglePlugin", async () => {
+  it("已配置行显示管理入口且不直接切换启用状态", async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ plugins: [{ name: "alpha" }] }),
     } as unknown as Response);
-    const onTogglePlugin = vi.fn();
+    const onManagePlugin = vi.fn();
     renderTab({
       plugins: [
         {
@@ -104,13 +141,341 @@ describe("BrowseMarketplaceTab", () => {
           committed: true,
         },
       ],
-      onTogglePlugin,
+      onManagePlugin,
     });
-    const enabledBtn = await screen.findByRole("button", { name: "已启用" });
-    fireEvent.mouseEnter(enabledBtn);
-    const disableBtn = await screen.findByRole("button", { name: "取消启用" });
-    fireEvent.click(disableBtn);
-    expect(onTogglePlugin).toHaveBeenCalledWith("alpha@claude-plugins-official");
+    const configuredBadge = await screen.findByText("已配置");
+    expect(configuredBadge).toHaveAttribute("data-variant", "secondary");
+    expect(screen.queryByRole("button", { name: "取消启用" })).not.toBeInTheDocument();
+    const manageButton = screen.getByRole("button", { name: "管理" });
+    expect(manageButton).toHaveAttribute("data-variant", "outline");
+    fireEvent.click(manageButton);
+    expect(onManagePlugin).toHaveBeenCalledTimes(1);
+  });
+
+  it("刷新时显示进行中反馈并禁用按钮", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ plugins: [{ name: "alpha" }] }),
+    } as unknown as Response);
+    renderTab();
+    const refreshButton = await screen.findByRole("button", { name: "刷新" });
+    let resolveRefresh: (value: unknown) => void = () => {};
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveRefresh = resolve;
+        }),
+    );
+
+    fireEvent.click(refreshButton);
+
+    expect(screen.getByRole("button", { name: "刷新中..." })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "刷新中..." })).toHaveAttribute("aria-busy", "true");
+
+    resolveRefresh({
+      ok: true,
+      json: async () => ({ plugins: [{ name: "alpha" }] }),
+    } as unknown as Response);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "刷新" })).toBeEnabled();
+    });
+  });
+
+  it("刷新很快完成时仍保留最短反馈时长", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ plugins: [{ name: "alpha" }] }),
+    } as unknown as Response);
+    renderTab();
+    const refreshButton = await screen.findByRole("button", { name: "刷新" });
+
+    vi.useFakeTimers();
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ plugins: [{ name: "alpha" }] }),
+    } as unknown as Response);
+
+    fireEvent.click(refreshButton);
+
+    expect(screen.getByRole("button", { name: "刷新中..." })).toBeDisabled();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(499);
+    });
+    expect(screen.getByRole("button", { name: "刷新中..." })).toBeDisabled();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(screen.getByRole("button", { name: "刷新" })).toBeEnabled();
+  });
+
+  it("插件市场筛选默认只显示全部", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ plugins: [{ name: "alpha" }] }),
+    } as unknown as Response);
+    renderTab();
+    await screen.findByText("alpha");
+    const marketplaceFilter = screen.getByRole("combobox", { name: "插件市场" });
+    expect(marketplaceFilter).toHaveTextContent("全部");
+    expect(marketplaceFilter).not.toHaveTextContent("marketplace");
+  });
+
+  it("插件详情默认三行折叠并可点击详情展开收起", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        plugins: [
+          {
+            name: "alpha",
+            description:
+              "This plugin has a very long description that explains a lot of implementation detail, usage context, guardrails, examples, and workflow notes so the market row should not become too tall by default.",
+            author: { name: "Anthropic" },
+          },
+        ],
+      }),
+    } as unknown as Response);
+    renderTab();
+    await screen.findByText("alpha");
+
+    const details = screen.getByRole("button", {
+      name: "展开插件详情 alpha@claude-plugins-official",
+    });
+
+    expect(details).toHaveAttribute("data-expanded", "false");
+    expect(details).toHaveClass("line-clamp-3");
+    expect(details).toHaveAttribute("aria-expanded", "false");
+    expect(details).toHaveAttribute("title", "点击展开完整详情");
+    expect(screen.queryByRole("button", { name: "展开" })).not.toBeInTheDocument();
+
+    fireEvent.click(details);
+
+    expect(details).toHaveAttribute("data-expanded", "true");
+    expect(details).not.toHaveClass("line-clamp-3");
+    expect(details).toHaveAttribute("aria-expanded", "true");
+    expect(details).toHaveAttribute("title", "点击收起详情");
+    expect(screen.queryByRole("button", { name: "收起" })).not.toBeInTheDocument();
+
+    fireEvent.click(details);
+
+    expect(details).toHaveAttribute("data-expanded", "false");
+    expect(details).toHaveClass("line-clamp-3");
+  });
+
+  it("保留插件主页跳转入口", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        plugins: [
+          {
+            name: "alpha",
+            homepage: "https://example.com/alpha",
+          },
+        ],
+      }),
+    } as unknown as Response);
+    renderTab();
+    const homepageButton = await screen.findByRole("button", {
+      name: "打开插件主页 alpha@claude-plugins-official",
+    });
+    fireEvent.click(homepageButton);
+    expect(openUrlMock).toHaveBeenCalledWith("https://example.com/alpha");
+  });
+
+  it("读取安装数量缓存并在独立列展示", async () => {
+    enableTauriRuntime();
+    invokeMock.mockImplementation(async (command, args) => {
+      if (command === "get_config_workspace") {
+        return { app: { uiLanguage: "zh" } };
+      }
+      if (command === "read_claude_file_preview") {
+        expect(args).toEqual({ path: "plugins/install-counts-cache.json" });
+        return {
+          path: "plugins/install-counts-cache.json",
+          name: "install-counts-cache.json",
+          content: JSON.stringify({
+            version: 1,
+            counts: [
+              { plugin: "alpha@claude-plugins-official", unique_installs: 1234 },
+              { plugin: "zoo@claude-plugins-official", unique_installs: 56 },
+            ],
+          }),
+          isBinary: false,
+          truncated: false,
+          size: 100,
+          modifiedAt: 0,
+          encoding: "utf-8",
+        };
+      }
+      return null;
+    });
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ plugins: [{ name: "alpha" }, { name: "zoo" }] }),
+    } as unknown as Response);
+
+    renderTab();
+
+    expect(await screen.findByText("安装数")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("1,234")).toBeInTheDocument();
+    });
+    expect(screen.getByText("56")).toBeInTheDocument();
+  });
+
+  it("默认移除排序下拉框并按安装数量降序排序", async () => {
+    enableTauriRuntime();
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_config_workspace") {
+        return { app: { uiLanguage: "zh" } };
+      }
+      if (command === "read_claude_file_preview") {
+        return {
+          path: "plugins/install-counts-cache.json",
+          name: "install-counts-cache.json",
+          content: JSON.stringify({
+            version: 1,
+            counts: [
+              { plugin: "alpha@claude-plugins-official", unique_installs: 10 },
+              { plugin: "zoo@claude-plugins-official", unique_installs: 90 },
+            ],
+          }),
+          isBinary: false,
+          truncated: false,
+          size: 100,
+          modifiedAt: 0,
+          encoding: "utf-8",
+        };
+      }
+      return null;
+    });
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ plugins: [{ name: "zoo" }, { name: "alpha" }, { name: "beta" }] }),
+    } as unknown as Response);
+
+    renderTab();
+    await screen.findByText("alpha");
+    await waitFor(() => {
+      expect(screen.getByText("90")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole("combobox", { name: "排序" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "按安装数升序排序" })).toBeInTheDocument();
+    expect(screen.getByText("当前排序：安装数 ↓")).toBeInTheDocument();
+
+    const rows = screen
+      .getAllByRole("button", { name: /添加并启用/ })
+      .map((button) => button.closest("[data-slot='browse-row']"));
+    expect(rows[0]).toHaveTextContent("zoo");
+    expect(rows[1]).toHaveTextContent("alpha");
+    expect(rows[2]).toHaveTextContent("beta");
+  });
+
+  it("点击插件 ID 和安装数表头切换排序方向", async () => {
+    enableTauriRuntime();
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_config_workspace") {
+        return { app: { uiLanguage: "zh" } };
+      }
+      if (command === "read_claude_file_preview") {
+        return {
+          path: "plugins/install-counts-cache.json",
+          name: "install-counts-cache.json",
+          content: JSON.stringify({
+            version: 1,
+            counts: [
+              { plugin: "alpha@claude-plugins-official", unique_installs: 10 },
+              { plugin: "zoo@claude-plugins-official", unique_installs: 90 },
+            ],
+          }),
+          isBinary: false,
+          truncated: false,
+          size: 100,
+          modifiedAt: 0,
+          encoding: "utf-8",
+        };
+      }
+      return null;
+    });
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ plugins: [{ name: "zoo" }, { name: "alpha" }, { name: "beta" }] }),
+    } as unknown as Response);
+
+    renderTab();
+    await waitFor(() => {
+      expect(screen.getByText("90")).toBeInTheDocument();
+    });
+
+    const rowTexts = () =>
+      screen
+        .getAllByRole("button", { name: /添加并启用/ })
+        .map((button) => button.closest("[data-slot='browse-row']")?.textContent ?? "");
+
+    expect(rowTexts()[0]).toContain("zoo");
+    expect(rowTexts()[1]).toContain("alpha");
+    expect(rowTexts()[2]).toContain("beta");
+    expect(screen.getByRole("columnheader", { name: /安装数/ })).toHaveAttribute(
+      "aria-sort",
+      "descending",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "按插件 ID 升序排序" }));
+    expect(rowTexts()[0]).toContain("alpha");
+    expect(rowTexts()[1]).toContain("beta");
+    expect(rowTexts()[2]).toContain("zoo");
+    expect(screen.getByRole("columnheader", { name: /插件 ID/ })).toHaveAttribute(
+      "aria-sort",
+      "ascending",
+    );
+    expect(screen.getByText("当前排序：插件 ID ↑")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "按插件 ID 降序排序" }));
+    expect(rowTexts()[0]).toContain("zoo");
+    expect(rowTexts()[1]).toContain("beta");
+    expect(rowTexts()[2]).toContain("alpha");
+    expect(screen.getByRole("columnheader", { name: /插件 ID/ })).toHaveAttribute(
+      "aria-sort",
+      "descending",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "按安装数降序排序" }));
+    expect(rowTexts()[0]).toContain("zoo");
+    expect(rowTexts()[1]).toContain("alpha");
+    expect(rowTexts()[2]).toContain("beta");
+
+    fireEvent.click(screen.getByRole("button", { name: "按安装数升序排序" }));
+    expect(rowTexts()[0]).toContain("alpha");
+    expect(rowTexts()[1]).toContain("zoo");
+    expect(rowTexts()[2]).toContain("beta");
+    expect(screen.getByRole("columnheader", { name: /安装数/ })).toHaveAttribute(
+      "aria-sort",
+      "ascending",
+    );
+    expect(screen.getByText("当前排序：安装数 ↑")).toBeInTheDocument();
+  });
+
+  it("官方插件只显示验证图标并显示类别", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        plugins: [
+          {
+            name: "alpha",
+            description: "A plugin with a complete description that should wrap in the list.",
+            category: "development",
+          },
+        ],
+      }),
+    } as unknown as Response);
+    renderTab();
+    await screen.findByText("alpha");
+    expect(screen.queryByText("已验证")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("已验证插件")).toBeInTheDocument();
+    expect(screen.getByText("development")).toBeInTheDocument();
+    expect(screen.getByText(/complete description that should wrap/)).toBeInTheDocument();
   });
 
   it("无 marketplace 时显示空状态", () => {

@@ -1,6 +1,7 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { CircleCheck, ExternalLink, Plus, Trash2 } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 import { useI18n } from "../../i18n";
 import ConfirmAlertDialog from "../ConfirmAlertDialog";
 import { Button } from "../ui/button";
@@ -30,6 +31,7 @@ interface EnabledPluginsTabProps {
   onAddPlugin: (pluginId: string) => boolean;
   onGoBrowse: () => void;
   onError: (message: string) => void;
+  manageTarget?: { pluginId: string; requestId: number } | null;
 }
 
 type PluginStatusFilter = "all" | "enabled" | "disabled";
@@ -77,9 +79,11 @@ function EnabledPluginsTab({
   onAddPlugin,
   onGoBrowse,
   onError,
+  manageTarget,
 }: EnabledPluginsTabProps) {
   const { t } = useI18n();
   const draftInputRef = useRef<HTMLInputElement | null>(null);
+  const managedRowRef = useRef<HTMLDivElement | null>(null);
   const [draftActive, setDraftActive] = useState(false);
   const [draftPluginId, setDraftPluginId] = useState("");
   const [draftError, setDraftError] = useState("");
@@ -108,6 +112,8 @@ function EnabledPluginsTab({
   const draftRowLabel = t("profileEditor.plugins.newItem");
   const draftBadgeText = t("profileEditor.common.draft");
   const filteredEmptyHint = t("profileEditor.plugins.filteredEmptyHint");
+  const managedPluginId = manageTarget?.pluginId;
+  const manageRequestId = manageTarget?.requestId;
 
   // --- 错误聚合 ---
   useEffect(() => {
@@ -190,6 +196,33 @@ function EnabledPluginsTab({
     }
     return items;
   }, [draftActive, draftPluginId, filteredPlugins, metadataMap]);
+
+  const managedTargetVisible = useMemo(
+    () =>
+      Boolean(
+        manageTarget &&
+          visiblePlugins.some(
+            (plugin) => !plugin.isDraft && plugin.pluginId === manageTarget.pluginId,
+          ),
+      ),
+    [manageTarget, visiblePlugins],
+  );
+
+  useEffect(() => {
+    if (!manageTarget) return;
+    setSearchQuery("");
+    setStatusFilter("all");
+    setCategoryFilter("all");
+    setSourceTypeFilter("all");
+  }, [manageTarget]);
+
+  useEffect(() => {
+    if (!manageTarget || !managedTargetVisible) return;
+    const targetRow = managedRowRef.current;
+    if (!targetRow) return;
+    targetRow.scrollIntoView?.({ block: "center", behavior: "smooth" });
+    targetRow.focus({ preventScroll: true });
+  }, [manageTarget, managedTargetVisible]);
 
   // --- 草稿操作 ---
   useEffect(() => {
@@ -398,12 +431,22 @@ function EnabledPluginsTab({
                       : isDraftRow
                         ? draftRowLabel
                         : plugin.pluginId;
+                  const isManagedTarget =
+                    !isDraftRow &&
+                    managedPluginId === plugin.pluginId &&
+                    manageRequestId !== undefined;
 
                   return (
                     <div
                       key={plugin.id}
-                      className="flex flex-col border-t border-border px-3.5 py-2.5 text-sm font-medium leading-[1.4] first:border-t-0 max-[520px]:gap-3 max-[520px]:py-3"
+                      ref={isManagedTarget ? managedRowRef : undefined}
+                      tabIndex={isManagedTarget ? -1 : undefined}
+                      className={cn(
+                        "flex flex-col border-t border-border px-3.5 py-2.5 text-sm font-medium leading-[1.4] outline-none first:border-t-0 max-[520px]:gap-3 max-[520px]:py-3",
+                        isManagedTarget && "bg-primary/5 ring-1 ring-inset ring-primary/30",
+                      )}
                       data-slot="plugin-list-row"
+                      data-managed-target={isManagedTarget ? "true" : undefined}
                     >
                       <div
                         className="grid min-w-0 grid-cols-[40px_minmax(0,1fr)_52px] items-center gap-x-3 max-[520px]:grid-cols-[32px_minmax(0,1fr)_auto] max-[520px]:items-start max-[520px]:gap-x-2.5 max-[520px]:gap-y-2"

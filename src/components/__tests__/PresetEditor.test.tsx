@@ -1619,7 +1619,7 @@ describe("PresetEditor", () => {
     toggleAccordionSection("插件");
 
     // 双 Tab 结构已替换原来的加载官方插件按钮
-    expect(within(pluginsSection).getByRole("tab", { name: /已启用/ })).toBeInTheDocument();
+    expect(within(pluginsSection).getByRole("tab", { name: /已配置/ })).toBeInTheDocument();
     expect(within(pluginsSection).getByRole("tab", { name: "浏览市场" })).toBeInTheDocument();
 
     await act(async () => {

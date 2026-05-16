@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../../i18n";
@@ -62,9 +62,9 @@ function renderEditor(options?: {
 
 describe("EnabledPluginsEditor", () => {
   describe("双 Tab 结构", () => {
-    it("默认显示「已启用」Tab", () => {
+    it("默认显示「已配置」Tab", () => {
       renderEditor({ value: { "a@x": true, "b@y": false } });
-      expect(screen.getByRole("tab", { name: /已启用/ })).toHaveAttribute("data-state", "active");
+      expect(screen.getByRole("tab", { name: /已配置/ })).toHaveAttribute("data-state", "active");
       expect(screen.getByText("a@x")).toBeInTheDocument();
       expect(screen.getByText("b@y")).toBeInTheDocument();
     });
@@ -98,13 +98,47 @@ describe("EnabledPluginsEditor", () => {
       // 切到浏览市场 Tab
       await user.click(screen.getByRole("tab", { name: /浏览市场/ }));
       // 等待插件列表加载
-      const enableBtn = await screen.findByRole("button", { name: /\+ 启用/ });
+      const enableBtn = await screen.findByRole("button", { name: /添加并启用/ });
       await user.click(enableBtn);
-      // 切回已启用 Tab - EnabledPluginsTab 显示完整 pluginId
-      await user.click(screen.getByRole("tab", { name: /已启用/ }));
+      // 切回已配置 Tab - EnabledPluginsTab 显示完整 pluginId
+      await user.click(screen.getByRole("tab", { name: /已配置/ }));
       await waitFor(() => {
         expect(screen.getByText("alpha@claude-plugins-official")).toBeInTheDocument();
       });
+    });
+
+    it("浏览市场已配置插件点击管理后切回已配置 Tab 并定位目标插件", async () => {
+      const scrollIntoViewMock = vi.fn();
+      Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+        value: scrollIntoViewMock,
+        configurable: true,
+      });
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => ({ plugins: [{ name: "alpha" }, { name: "beta" }] }),
+      } as unknown as Response);
+      const user = userEvent.setup();
+      renderEditor({
+        value: {
+          "alpha@claude-plugins-official": true,
+          "beta@claude-plugins-official": true,
+        },
+        marketplaceSources: SOURCES,
+      });
+      await user.click(screen.getByRole("tab", { name: /浏览市场/ }));
+      const betaBrowseRow = (await screen.findByText("beta")).closest("[data-slot='browse-row']");
+      expect(betaBrowseRow).not.toBeNull();
+      const manageBtn = within(betaBrowseRow as HTMLElement).getByRole("button", {
+        name: "管理",
+      });
+      await user.click(manageBtn);
+      expect(screen.getByRole("tab", { name: /已配置/ })).toHaveAttribute("data-state", "active");
+      const betaConfiguredRow = screen
+        .getByText("beta@claude-plugins-official")
+        .closest("[data-slot='plugin-list-row']");
+      expect(betaConfiguredRow).toHaveAttribute("data-managed-target", "true");
+      expect(betaConfiguredRow).toHaveFocus();
+      expect(scrollIntoViewMock).toHaveBeenCalled();
     });
   });
 
