@@ -13,12 +13,12 @@ import {
 } from "react";
 import { showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
-import { shortProjectName } from "../history-utils";
+import { buildProjectSummariesFromHistory } from "../history-utils";
+import { useHistoryEntries } from "../hooks/useHistoryEntries";
 import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
 import { type TranslationKey, useI18n } from "../i18n";
 import {
-  type ClaudeStats,
   type ConfigWorkspace,
   type DefaultEditorApp,
   isTauri,
@@ -28,8 +28,9 @@ import {
 } from "../types";
 import PageHeader from "./PageHeader";
 import ProjectDetailPanel from "./ProjectDetailPanel";
-import { formatDuration, formatUSD } from "./project-detail-utils";
+import { formatHistoryTimestamp } from "./project-detail-utils";
 import { PROJECT_TAG_CLASS } from "./project-tag-classes";
+import SessionDetailDrawer from "./SessionDetailDrawer";
 import {
   CONTROL_SURFACE_CLASS,
   PANEL_SURFACE_CLASS,
@@ -66,24 +67,6 @@ type ProjectPurgeDialogState = {
   isPreviewing: boolean;
   isPurging: boolean;
 };
-
-function buildProjectSummaries(stats: ClaudeStats): ProjectSummary[] {
-  return Object.entries(stats.projects)
-    .map(([project, projectStats]) => ({
-      project,
-      shortName: shortProjectName(project),
-      lastCost: projectStats.lastCost,
-      lastDuration: projectStats.lastDuration,
-      lastSessionId: projectStats.lastSessionId,
-      lastSessionModified: projectStats.lastSessionModified,
-    }))
-    .sort(
-      (a, b) =>
-        b.lastSessionModified - a.lastSessionModified ||
-        b.lastDuration - a.lastDuration ||
-        a.project.localeCompare(b.project),
-    );
-}
 
 function clampNumber(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -264,38 +247,31 @@ function ProjectEmptyState({ children }: { children: string }) {
 function ProjectsPage() {
   const { t } = useI18n();
   const { showToast } = useToast();
-  const [projectSummaries, setProjectSummaries] = useState<ProjectSummary[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    entries: historyEntries,
+    loading,
+    reloadHistory,
+  } = useHistoryEntries(t("toast.projectListError"));
+  const projectSummaries = useMemo(
+    () => buildProjectSummariesFromHistory(historyEntries),
+    [historyEntries],
+  );
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [detail, setDetail] = useState<ProjectDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [isLinkingAgents, setIsLinkingAgents] = useState(false);
   const [defaultEditorApp, setDefaultEditorApp] = useState<DefaultEditorApp | null>(null);
+  const [viewingSession, setViewingSession] = useState<{
+    project: string;
+    sessionId: string;
+  } | null>(null);
   const [projectContextMenu, setProjectContextMenu] = useState<ProjectContextMenuState | null>(
     null,
   );
   const [purgeDialog, setPurgeDialog] = useState<ProjectPurgeDialogState | null>(null);
   const projectContextMenuRef = useRef<HTMLDivElement>(null);
-  const projectsRequestIdRef = useRef(0);
   const detailRequestIdRef = useRef(0);
-
-  const loadProjects = useCallback(async () => {
-    if (!isTauri()) {
-      setProjectSummaries([]);
-      return [] as ProjectSummary[];
-    }
-
-    const requestId = ++projectsRequestIdRef.current;
-    const stats = await invoke<ClaudeStats>("get_stats");
-    const summaries = buildProjectSummaries(stats);
-
-    if (projectsRequestIdRef.current === requestId) {
-      setProjectSummaries(summaries);
-    }
-
-    return summaries;
-  }, []);
 
   const loadProjectDetail = useCallback(
     async (project: string, options?: { clearBeforeLoad?: boolean }) => {
@@ -340,34 +316,21 @@ function ProjectsPage() {
 
   useEffect(() => {
     if (!isTauri()) {
-      setProjectSummaries([]);
       setDefaultEditorApp(null);
-      setLoading(false);
       return;
     }
 
     let cancelled = false;
-    setLoading(true);
 
     loadLauncherSettings().catch(() => {
       if (cancelled) return;
       setDefaultEditorApp(null);
     });
 
-    loadProjects()
-      .catch((err) => {
-        if (cancelled) return;
-        showOperationError(showToast, t("toast.projectListError"), err);
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setLoading(false);
-      });
-
     return () => {
       cancelled = true;
     };
-  }, [loadLauncherSettings, loadProjects, showToast, t]);
+  }, [loadLauncherSettings]);
 
   useTauriEvent<void>("project-launcher-settings-changed", () => {
     void loadLauncherSettings();
@@ -473,7 +436,8 @@ function ProjectsPage() {
 
     setIsRefreshing(true);
     try {
-      const summaries = await loadProjects();
+      const entries = await reloadHistory({ suppressErrorToast: true });
+      const summaries = buildProjectSummariesFromHistory(entries);
 
       if (summaries.length === 0) {
         detailRequestIdRef.current += 1;
@@ -498,7 +462,7 @@ function ProjectsPage() {
     } finally {
       setIsRefreshing(false);
     }
-  }, [loadProjectDetail, loadProjects, selectedProject, showToast, t]);
+  }, [loadProjectDetail, reloadHistory, selectedProject, showToast, t]);
 
   const handleCreateAgentsLink = useCallback(async () => {
     if (!selectedProject || !isTauri()) return;
@@ -546,6 +510,18 @@ function ProjectsPage() {
       showOperationError(showToast, t("toast.projectOpenEditorError"), err);
     }
   }, [defaultEditorApp, detail?.path, selectedSummary?.project, showToast, t]);
+
+  const handleOpenSession = useCallback(
+    (sessionId: string) => {
+      if (!selectedSummary) return;
+      setViewingSession({ project: selectedSummary.project, sessionId });
+    },
+    [selectedSummary],
+  );
+
+  const handleCloseSession = useCallback(() => {
+    setViewingSession(null);
+  }, []);
 
   const handleProjectContextMenu = useCallback(
     (event: ReactMouseEvent<HTMLButtonElement>, summary: ProjectSummary) => {
@@ -608,7 +584,8 @@ function ProjectsPage() {
   );
 
   const refreshProjectsAfterPurge = useCallback(async () => {
-    const summaries = await loadProjects();
+    const entries = await reloadHistory({ suppressErrorToast: true });
+    const summaries = buildProjectSummariesFromHistory(entries);
 
     if (summaries.length === 0) {
       detailRequestIdRef.current += 1;
@@ -632,7 +609,7 @@ function ProjectsPage() {
     setDetail(null);
     setDetailLoading(false);
     setSelectedProject(nextSelectedProject);
-  }, [loadProjectDetail, loadProjects, selectedProject]);
+  }, [loadProjectDetail, reloadHistory, selectedProject]);
 
   const handleConfirmPurge = useCallback(async () => {
     const currentDialog = purgeDialog;
@@ -749,21 +726,30 @@ function ProjectsPage() {
                   <span className="projects-list-name text-sm font-semibold">
                     {summary.shortName}
                   </span>
-                  <span className="projects-list-path truncate text-sm text-muted-foreground">
+                  <span
+                    className="projects-list-path truncate text-xs leading-5 text-muted-foreground/80"
+                    title={summary.project}
+                  >
                     {summary.project}
                   </span>
                 </div>
-                <div className="projects-list-meta flex flex-wrap gap-2 text-xs text-muted-foreground">
-                  <Badge variant="secondary" className={cn(PROJECT_TAG_CLASS, "font-normal")}>
-                    {t("projects.lastCost")} {formatUSD(summary.lastCost)}
+                <div className="projects-list-counts flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  <Badge
+                    variant="outline"
+                    className={cn(PROJECT_TAG_CLASS, "font-normal text-muted-foreground")}
+                  >
+                    {summary.sessionCount} {t("projects.sessionsUnit")}
                   </Badge>
                   <Badge
                     variant="outline"
                     className={cn(PROJECT_TAG_CLASS, "font-normal text-muted-foreground")}
                   >
-                    {t("projects.lastDuration")} {formatDuration(summary.lastDuration)}
+                    {summary.messageCount} {t("projects.inputsUnit")}
                   </Badge>
                 </div>
+                <span className="projects-list-last-active text-xs leading-5 text-muted-foreground">
+                  {t("projects.lastActive")} {formatHistoryTimestamp(summary.lastActiveAt)}
+                </span>
               </Button>
             </Card>
           ))}
@@ -791,6 +777,7 @@ function ProjectsPage() {
               onOpenInEditor={handleOpenInEditor}
               onOpenRepository={handleOpenRepository}
               onCreateAgentsLink={handleCreateAgentsLink}
+              onOpenSession={handleOpenSession}
             />
           )}
         </section>
@@ -811,6 +798,14 @@ function ProjectsPage() {
           onCancel={handleClosePurgeDialog}
           onConfirm={handleConfirmPurge}
           t={t}
+        />
+      )}
+
+      {viewingSession && (
+        <SessionDetailDrawer
+          project={viewingSession.project}
+          sessionId={viewingSession.sessionId}
+          onClose={handleCloseSession}
         />
       )}
     </div>

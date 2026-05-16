@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
-import type { ClaudeStats, ConfigWorkspace, ProjectDetail } from "../../types";
+import type { ConfigWorkspace, HistoryEntry, ProjectDetail } from "../../types";
 import ProjectsPage from "../ProjectsPage";
 
 const { invokeMock, listenMock, showToastMock } = vi.hoisted(() => ({
@@ -48,41 +48,43 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
   bindings: {},
 };
 
-function makeStats(): ClaudeStats {
+function makeHistoryEntry(
+  partial: Partial<HistoryEntry> & Pick<HistoryEntry, "project" | "sessionId" | "timestamp">,
+): HistoryEntry {
   return {
-    numStartups: 1,
-    firstStartTime: "2026-05-01T10:00:00Z",
-    projects: {
-      [PROJECT_ALPHA]: {
-        lastCost: 1.2,
-        lastDuration: 120,
-        lastSessionId: "session-alpha",
-        lastTotalInputTokens: 10,
-        lastTotalOutputTokens: 20,
-        lastTotalCacheCreationInputTokens: 0,
-        lastTotalCacheReadInputTokens: 0,
-        lastSessionModified: 200,
-        lastLinesAdded: 0,
-        lastLinesRemoved: 0,
-        lastTotalWebSearchRequests: 0,
-      },
-      [PROJECT_BRAVO]: {
-        lastCost: 0.4,
-        lastDuration: 60,
-        lastSessionId: "session-bravo",
-        lastTotalInputTokens: 4,
-        lastTotalOutputTokens: 8,
-        lastTotalCacheCreationInputTokens: 0,
-        lastTotalCacheReadInputTokens: 0,
-        lastSessionModified: 100,
-        lastLinesAdded: 0,
-        lastLinesRemoved: 0,
-        lastTotalWebSearchRequests: 0,
-      },
-    },
-    toolUsage: {},
-    skillUsage: {},
+    display: partial.display ?? "test prompt",
+    pastedContents: partial.pastedContents ?? {},
+    project: partial.project,
+    sessionId: partial.sessionId,
+    timestamp: partial.timestamp,
   };
+}
+
+function makeHistoryEntries(): HistoryEntry[] {
+  return [
+    makeHistoryEntry({
+      display: "alpha first prompt",
+      project: PROJECT_ALPHA,
+      sessionId: "session-alpha",
+      timestamp: 200,
+    }),
+    makeHistoryEntry({
+      display: "alpha follow-up prompt",
+      project: PROJECT_ALPHA,
+      sessionId: "session-alpha",
+      timestamp: 220,
+    }),
+    makeHistoryEntry({
+      display: "bravo first prompt",
+      project: PROJECT_BRAVO,
+      sessionId: "session-bravo",
+      timestamp: 100,
+    }),
+  ];
+}
+
+function makeHistoryContent(entries: HistoryEntry[] = makeHistoryEntries()) {
+  return entries.map((entry) => JSON.stringify(entry)).join("\n");
 }
 
 function makeProjectDetail(project: string): ProjectDetail {
@@ -107,10 +109,18 @@ function mockProjectInvokes() {
     switch (command) {
       case "get_config_workspace":
         return WORKSPACE_FIXTURE;
-      case "get_stats":
-        return makeStats();
+      case "get_history":
+        return { content: makeHistoryContent(), mtime: 1 };
+      case "get_history_if_changed":
+        return null;
       case "get_project_detail":
         return makeProjectDetail(project);
+      case "get_session_detail":
+        return {
+          session_id: (args as { sessionId?: string } | undefined)?.sessionId ?? "session-alpha",
+          project,
+          messages: [],
+        };
       case "preview_project_local_data_purge":
         return {
           project,
@@ -158,7 +168,16 @@ describe("ProjectsPage purge context menu", () => {
   it("opens the purge context menu from a right-click and selects that project", async () => {
     renderPage();
 
+    const alphaButton = await findProjectButton(PROJECT_ALPHA);
+    expect(within(alphaButton).getByText("1 个会话")).toBeInTheDocument();
+    expect(within(alphaButton).getByText("2 条输入")).toBeInTheDocument();
+    expect(within(alphaButton).getByText(/最近活跃/)).toBeInTheDocument();
+    expect(within(alphaButton).queryByText("session-")).not.toBeInTheDocument();
+
     const bravoButton = await findProjectButton(PROJECT_BRAVO);
+    expect(invokeMock).not.toHaveBeenCalledWith("get_stats");
+    expect(screen.queryByText("最近费用")).not.toBeInTheDocument();
+    expect(screen.queryByText("最近时长")).not.toBeInTheDocument();
     fireEvent.contextMenu(bravoButton, { clientX: 120, clientY: 160 });
 
     await waitFor(() => {
@@ -183,6 +202,20 @@ describe("ProjectsPage purge context menu", () => {
     const dialog = await screen.findByRole("dialog", { name: "清除本地数据" });
     expect(dialog).toHaveTextContent(`Dry run plan for ${PROJECT_BRAVO}`);
     expect(within(dialog).getByRole("button", { name: "清除本地数据" })).toBeEnabled();
+  });
+
+  it("opens recent session details from the project panel", async () => {
+    renderPage();
+
+    const sessionButton = await screen.findByRole("button", { name: /session-alpha/ });
+    fireEvent.click(sessionButton);
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("get_session_detail", {
+        project: PROJECT_ALPHA,
+        sessionId: "session-alpha",
+      });
+    });
   });
 
   it("cancels the preview dialog without executing purge", async () => {
@@ -219,7 +252,7 @@ describe("ProjectsPage purge context menu", () => {
     await waitFor(() => {
       expect(showToastMock).toHaveBeenCalledWith("项目本地数据已清除");
     });
-    expect(invokeMock.mock.calls.filter(([command]) => command === "get_stats").length).toBe(2);
+    expect(invokeMock.mock.calls.filter(([command]) => command === "get_history").length).toBe(2);
   });
 
   it("shows the backend reason when creating AGENTS.md symlink fails", async () => {
@@ -227,7 +260,8 @@ describe("ProjectsPage purge context menu", () => {
       const project = (args as { project?: string } | undefined)?.project ?? PROJECT_ALPHA;
 
       if (command === "get_config_workspace") return WORKSPACE_FIXTURE;
-      if (command === "get_stats") return makeStats();
+      if (command === "get_history") return { content: makeHistoryContent(), mtime: 1 };
+      if (command === "get_history_if_changed") return null;
       if (command === "get_project_detail") return makeProjectDetail(project);
       if (command === "create_project_agents_symlink") {
         throw "项目根目录缺少 CLAUDE.md，无法创建 AGENTS.md";

@@ -1,4 +1,4 @@
-import type { HistoryEntry } from "./types";
+import type { HistoryEntry, ProjectRecentSessionSummary, ProjectSummary } from "./types";
 
 export interface HistoryResult {
   content: string;
@@ -91,6 +91,54 @@ export function groupBySession(entries: HistoryEntry[]): SessionGroup[] {
       };
     })
     .sort((a, b) => b.lastTimestamp - a.lastTimestamp);
+}
+
+export function buildProjectSummariesFromHistory(
+  entries: HistoryEntry[],
+  recentSessionLimit = 5,
+): ProjectSummary[] {
+  const projectEntries = new Map<string, HistoryEntry[]>();
+  for (const entry of entries) {
+    const group = projectEntries.get(entry.project) ?? [];
+    group.push(entry);
+    projectEntries.set(entry.project, group);
+  }
+
+  return Array.from(projectEntries.entries())
+    .map(([project, entries]) => {
+      const sessions = groupBySession(entries);
+      const recentSessions: ProjectRecentSessionSummary[] = sessions
+        .slice(0, recentSessionLimit)
+        .map((session) => {
+          const firstEntry = session.entries[0];
+          const lastEntry = session.entries[session.entries.length - 1];
+          return {
+            sessionId: session.sessionId,
+            firstPrompt: firstEntry?.display ?? "",
+            lastPrompt: lastEntry?.display ?? "",
+            messageCount: session.entries.length,
+            firstTimestamp: session.firstTimestamp,
+            lastTimestamp: session.lastTimestamp,
+          };
+        });
+      const lastSession = sessions[0];
+
+      return {
+        project,
+        shortName: shortProjectName(project),
+        lastActiveAt: lastSession?.lastTimestamp ?? 0,
+        messageCount: entries.length,
+        sessionCount: sessions.length,
+        lastSessionId: lastSession?.sessionId,
+        recentSessions,
+      };
+    })
+    .sort(
+      (a, b) =>
+        b.lastActiveAt - a.lastActiveAt ||
+        b.messageCount - a.messageCount ||
+        a.project.localeCompare(b.project),
+    );
 }
 
 /** 把时间戳转为本机时区下的 YYYY-MM-DD 键，用于跨 locale 稳定比较 */

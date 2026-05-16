@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildHeatmapWeeks,
+  buildProjectSummariesFromHistory,
   flattenSessionsForVirtualizer,
   formatDateLabel,
   formatTime,
@@ -67,6 +68,62 @@ describe("formatDateLabel", () => {
     expect(formatDateLabel("2026-05-03", "2026-05-05", "2026-05-04", "今天", "昨天")).toBe(
       "2026-05-03",
     );
+  });
+});
+
+describe("buildProjectSummariesFromHistory", () => {
+  it("groups history entries into recent project summaries", () => {
+    const projectAlpha = "/Users/test-user/work/alpha";
+    const projectBravo = "/Users/test-user/work/bravo";
+    const alphaSessions = Array.from({ length: 6 }, (_, index) =>
+      makeEntry({
+        display: `alpha session ${index + 1}`,
+        project: projectAlpha,
+        sessionId: `alpha-session-${index + 1}`,
+        timestamp: 1_000 + index * 100,
+      }),
+    );
+    const entries = [
+      ...alphaSessions,
+      makeEntry({
+        display: "alpha newest follow-up",
+        project: projectAlpha,
+        sessionId: "alpha-session-6",
+        timestamp: 1_650,
+      }),
+      makeEntry({
+        display: "bravo latest",
+        project: projectBravo,
+        sessionId: "bravo-session-1",
+        timestamp: 1_800,
+      }),
+    ];
+
+    const summaries = buildProjectSummariesFromHistory(entries);
+
+    expect(summaries.map((summary) => summary.project)).toEqual([projectBravo, projectAlpha]);
+    const alpha = summaries.find((summary) => summary.project === projectAlpha);
+    expect(alpha).toMatchObject({
+      shortName: "alpha",
+      messageCount: 7,
+      sessionCount: 6,
+      lastActiveAt: 1_650,
+      lastSessionId: "alpha-session-6",
+    });
+    expect(alpha?.recentSessions.map((session) => session.sessionId)).toEqual([
+      "alpha-session-6",
+      "alpha-session-5",
+      "alpha-session-4",
+      "alpha-session-3",
+      "alpha-session-2",
+    ]);
+    expect(alpha?.recentSessions[0]).toMatchObject({
+      firstPrompt: "alpha session 6",
+      lastPrompt: "alpha newest follow-up",
+      messageCount: 2,
+      firstTimestamp: 1_500,
+      lastTimestamp: 1_650,
+    });
   });
 });
 

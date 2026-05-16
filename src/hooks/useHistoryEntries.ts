@@ -14,22 +14,31 @@ export function useHistoryEntries(errorMessage: string) {
   const [loading, setLoading] = useState(true);
   const mtimeRef = useRef(0);
 
-  const loadHistory = useCallback(async () => {
-    if (!isTauri()) {
-      setLoading(false);
-      return;
-    }
+  const loadHistory = useCallback(
+    async (options?: { suppressErrorToast?: boolean }): Promise<HistoryEntry[]> => {
+      if (!isTauri()) {
+        setLoading(false);
+        setEntries([]);
+        return [];
+      }
 
-    try {
-      const result = await invoke<HistoryResult>("get_history");
-      mtimeRef.current = result.mtime;
-      setEntries(parseJsonl(result.content));
-    } catch (error) {
-      showOperationError(showToast, errorMessage, error);
-    } finally {
-      setLoading(false);
-    }
-  }, [errorMessage, showToast]);
+      try {
+        const result = await invoke<HistoryResult>("get_history");
+        mtimeRef.current = result.mtime;
+        const next = parseJsonl(result.content);
+        setEntries(next);
+        return next;
+      } catch (error) {
+        if (!options?.suppressErrorToast) {
+          showOperationError(showToast, errorMessage, error);
+        }
+        throw error;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [errorMessage, showToast],
+  );
 
   const pollHistory = useCallback(async () => {
     if (!isTauri()) return;
@@ -54,7 +63,7 @@ export function useHistoryEntries(errorMessage: string) {
   }, []);
 
   useEffect(() => {
-    loadHistory();
+    void loadHistory().catch(() => undefined);
   }, [loadHistory]);
 
   useEffect(() => {
@@ -88,5 +97,5 @@ export function useHistoryEntries(errorMessage: string) {
     };
   }, [pollHistory]);
 
-  return { entries, loading };
+  return { entries, loading, reloadHistory: loadHistory };
 }

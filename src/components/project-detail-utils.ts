@@ -21,6 +21,11 @@ export function formatCommitTime(timestamp?: number) {
   return new Date(timestamp * 1000).toLocaleString();
 }
 
+export function formatHistoryTimestamp(timestamp?: number) {
+  if (!timestamp) return "—";
+  return new Date(timestamp).toLocaleString();
+}
+
 export function agentsStatusLabel(status: AgentsStatus, t: TranslateFn) {
   switch (status) {
     case "correctSymlink":

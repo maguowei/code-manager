@@ -33,6 +33,7 @@ paths:
 约束：
 
 - 该区域强调“操作与仓库状态”，不要退回松散的同权重卡片布局。
+- 项目列表来自 `~/.claude/history.jsonl`，不要回退到 `~/.claude.json`。
 - 后端通过 `git` 获取 repo root、remote、branch、worktree 信息；错误消息不要泄露敏感 remote 凭据。
 - `AGENTS.md` 管理只应创建指向 `CLAUDE.md` 的相对软链接。
 - 打开终端或编辑器使用设置中的默认应用，统一走 `src-tauri/src/native_open.rs`，不要在具体模块里重复平台分支。

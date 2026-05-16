@@ -41,7 +41,7 @@ AI Manager 的目标不是替代 Claude Code，而是为本机配置、会话数
 | 历史与会话 | 读取 `~/.claude/history.jsonl`，按项目和会话查看历史详情，保留文本、思考、工具调用、命令、图片和计划等内容块。 |
 | 统计与最近会话 | 从 `~/.claude.json` 读取本地统计快照，展示启动次数、工具调用、Skill 使用和项目最近会话。 |
 | Token 用量与费用 | 扫描 `~/.claude/projects/**/*.jsonl`，按日期、项目、会话和模型聚合 Token、缓存 Token 与费用，支持快捷筛选、模型价目表和 SQLite 增量缓存。 |
-| 项目管理 | 展示仓库路径、远程地址、分支、worktree 和 `AGENTS.md` / `CLAUDE.md` 软链状态，支持打开终端、编辑器和清理本地项目数据。 |
+| 项目管理 | 从 `~/.claude/history.jsonl` 汇总项目和最近会话，展示仓库路径、远程地址、分支、worktree 和 `AGENTS.md` / `CLAUDE.md` 软链状态，支持打开终端、编辑器和清理本地项目数据。 |
 | 系统托盘与会话聚焦 | 菜单栏显示当前 Profile 和 Claude Code 活跃会话，并尝试聚焦 Terminal.app、iTerm2 或 Ghostty 中已有的会话 tab。 |
 | 设置与诊断 | 支持中英文、主题、登录启动、默认终端和编辑器、脱敏日志查看、系统信息复制和日志轮转。 |
 

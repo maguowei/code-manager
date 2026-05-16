@@ -1,4 +1,4 @@
-import { Code2, ExternalLink, Link2, Terminal } from "lucide-react";
+import { Code2, ExternalLink, Link2, MessageSquareText, Terminal } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import type { DefaultEditorApp, ProjectDetail, ProjectSummary } from "../types";
@@ -6,8 +6,7 @@ import {
   agentsStatusLabel,
   agentsStatusTone,
   formatCommitTime,
-  formatDuration,
-  formatUSD,
+  formatHistoryTimestamp,
   type TranslateFn,
 } from "./project-detail-utils";
 import { PROJECT_TAG_CLASS, PROJECT_TAG_PAIR_CLASS } from "./project-tag-classes";
@@ -34,6 +33,7 @@ type ProjectDetailPanelProps = {
   onOpenInEditor: () => void;
   onOpenRepository: () => void;
   onCreateAgentsLink: () => void;
+  onOpenSession: (sessionId: string) => void;
 };
 
 type SectionHeadingProps = {
@@ -62,6 +62,12 @@ type OverviewPanelProps = {
   detail: ProjectDetail | null;
   summary: ProjectSummary;
   t: TranslateFn;
+};
+
+type RecentSessionsSectionProps = {
+  summary: ProjectSummary;
+  t: TranslateFn;
+  onOpenSession: (sessionId: string) => void;
 };
 
 function statusToneClass(tone: StatusTone) {
@@ -140,9 +146,9 @@ function BranchesSection({ detail, t }: BranchesSectionProps) {
           {t("projects.noBranches")}
         </div>
       ) : (
-        <div className="projects-table overflow-x-auto border-t">
-          <div className="projects-table-inner min-w-[640px]">
-            <div className="projects-table-header projects-branch-grid hidden gap-4 border-b py-2 text-sm font-semibold text-muted-foreground sm:grid sm:grid-cols-[minmax(160px,0.9fr)_minmax(260px,1.3fr)_160px]">
+        <div className="projects-table border-t">
+          <div className="projects-table-inner w-full">
+            <div className="projects-table-header projects-branch-grid hidden gap-4 border-b py-2 text-sm font-semibold text-muted-foreground sm:grid sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.3fr)_minmax(120px,0.7fr)]">
               <span>{t("projects.branchColumn")}</span>
               <span>{t("projects.commitColumn")}</span>
               <span>{t("projects.updatedColumn")}</span>
@@ -151,14 +157,14 @@ function BranchesSection({ detail, t }: BranchesSectionProps) {
               {detail.branches.map((branch) => (
                 <div
                   key={branch.name}
-                  className="projects-table-row projects-branch-grid grid gap-2 border-b py-3 last:border-b-0 sm:grid-cols-[minmax(160px,0.9fr)_minmax(260px,1.3fr)_160px] sm:gap-4"
+                  className="projects-table-row projects-branch-grid grid gap-2 border-b py-3 last:border-b-0 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.3fr)_minmax(120px,0.7fr)] sm:gap-4"
                 >
                   <div className="projects-table-cell grid min-w-0 gap-1 sm:block">
                     <span className="text-xs text-muted-foreground sm:hidden">
                       {t("projects.branchColumn")}
                     </span>
                     <div className="projects-row-title-wrap flex flex-wrap items-center gap-2">
-                      <span className="projects-row-title text-sm font-semibold leading-6 text-foreground">
+                      <span className="projects-row-title text-sm font-semibold leading-6 break-words text-foreground [overflow-wrap:anywhere]">
                         {branch.name}
                       </span>
                       {branch.isCurrent && (
@@ -170,7 +176,7 @@ function BranchesSection({ detail, t }: BranchesSectionProps) {
                     <span className="text-xs text-muted-foreground sm:hidden">
                       {t("projects.commitColumn")}
                     </span>
-                    <span className="projects-row-secondary text-sm leading-6 break-words text-muted-foreground">
+                    <span className="projects-row-secondary text-sm leading-6 break-words text-muted-foreground [overflow-wrap:anywhere]">
                       {branch.lastCommitSubject ?? "—"}
                     </span>
                   </div>
@@ -206,9 +212,9 @@ function WorktreesSection({ detail, t }: WorktreesSectionProps) {
           {t("projects.noWorktrees")}
         </div>
       ) : (
-        <div className="projects-table overflow-x-auto border-t">
-          <div className="projects-table-inner min-w-[760px]">
-            <div className="projects-table-header projects-worktree-grid hidden gap-4 border-b py-2 text-sm font-semibold text-muted-foreground sm:grid sm:grid-cols-[minmax(240px,1.45fr)_minmax(140px,0.7fr)_minmax(90px,0.5fr)_120px]">
+        <div className="projects-table border-t">
+          <div className="projects-table-inner w-full">
+            <div className="projects-table-header projects-worktree-grid hidden gap-4 border-b py-2 text-sm font-semibold text-muted-foreground sm:grid sm:grid-cols-[minmax(0,1.45fr)_minmax(0,0.7fr)_minmax(0,0.5fr)_minmax(0,0.6fr)]">
               <span>{t("projects.worktreePath")}</span>
               <span>{t("projects.branchRef")}</span>
               <span>{t("projects.head")}</span>
@@ -218,7 +224,7 @@ function WorktreesSection({ detail, t }: WorktreesSectionProps) {
               {detail.worktrees.map((worktree) => (
                 <div
                   key={worktree.path}
-                  className="projects-table-row projects-worktree-grid grid gap-2 border-b py-3 last:border-b-0 sm:grid-cols-[minmax(240px,1.45fr)_minmax(140px,0.7fr)_minmax(90px,0.5fr)_120px] sm:gap-4"
+                  className="projects-table-row projects-worktree-grid grid gap-2 border-b py-3 last:border-b-0 sm:grid-cols-[minmax(0,1.45fr)_minmax(0,0.7fr)_minmax(0,0.5fr)_minmax(0,0.6fr)] sm:gap-4"
                 >
                   <div className="projects-table-cell grid min-w-0 gap-1 sm:block">
                     <span className="text-xs text-muted-foreground sm:hidden">
@@ -235,7 +241,7 @@ function WorktreesSection({ detail, t }: WorktreesSectionProps) {
                     <span className="text-xs text-muted-foreground sm:hidden">
                       {t("projects.branchRef")}
                     </span>
-                    <span className="projects-row-secondary text-sm leading-6 break-words text-muted-foreground">
+                    <span className="projects-row-secondary text-sm leading-6 break-words text-muted-foreground [overflow-wrap:anywhere]">
                       {worktree.branch ?? "—"}
                     </span>
                   </div>
@@ -278,25 +284,26 @@ function WorktreesSection({ detail, t }: WorktreesSectionProps) {
 
 function OverviewPanel({ detail, summary, t }: OverviewPanelProps) {
   return (
-    <Card
-      className={cn(
-        "projects-overview-panel gap-4 rounded-lg p-5 lg:sticky lg:top-0",
-        PANEL_SURFACE_CLASS,
-      )}
-    >
+    <Card className={cn("projects-overview-panel gap-4 rounded-lg p-5", PANEL_SURFACE_CLASS)}>
       <SectionHeading title={t("projects.overview")} />
 
       <dl className="projects-definition-list flex flex-col">
         <div className="projects-definition-row grid grid-cols-[120px_minmax(0,1fr)] gap-3 border-b py-3 first:pt-0 last:border-b-0 last:pb-0 max-sm:grid-cols-1 max-sm:gap-1">
-          <dt className="text-sm text-muted-foreground">{t("projects.lastCost")}</dt>
+          <dt className="text-sm text-muted-foreground">{t("projects.lastActive")}</dt>
           <dd className="text-sm font-semibold leading-6 text-foreground">
-            {formatUSD(summary.lastCost)}
+            {formatHistoryTimestamp(summary.lastActiveAt)}
           </dd>
         </div>
         <div className="projects-definition-row grid grid-cols-[120px_minmax(0,1fr)] gap-3 border-b py-3 first:pt-0 last:border-b-0 last:pb-0 max-sm:grid-cols-1 max-sm:gap-1">
-          <dt className="text-sm text-muted-foreground">{t("projects.lastDuration")}</dt>
+          <dt className="text-sm text-muted-foreground">{t("projects.sessionCount")}</dt>
           <dd className="text-sm font-semibold leading-6 text-foreground">
-            {formatDuration(summary.lastDuration)}
+            {summary.sessionCount}
+          </dd>
+        </div>
+        <div className="projects-definition-row grid grid-cols-[120px_minmax(0,1fr)] gap-3 border-b py-3 first:pt-0 last:border-b-0 last:pb-0 max-sm:grid-cols-1 max-sm:gap-1">
+          <dt className="text-sm text-muted-foreground">{t("projects.messageCount")}</dt>
+          <dd className="text-sm font-semibold leading-6 text-foreground">
+            {summary.messageCount}
           </dd>
         </div>
         <div className="projects-definition-row grid grid-cols-[120px_minmax(0,1fr)] gap-3 border-b py-3 first:pt-0 last:border-b-0 last:pb-0 max-sm:grid-cols-1 max-sm:gap-1">
@@ -322,6 +329,50 @@ function OverviewPanel({ detail, summary, t }: OverviewPanelProps) {
   );
 }
 
+function RecentSessionsSection({ summary, t, onOpenSession }: RecentSessionsSectionProps) {
+  return (
+    <Card className={cn("projects-recent-sessions gap-4 rounded-lg p-5", PANEL_SURFACE_CLASS)}>
+      <SectionHeading title={t("projects.recentSessions")} />
+
+      {summary.recentSessions.length === 0 ? (
+        <div className="projects-empty-block flex min-h-[120px] items-center justify-center border-t px-4 text-center text-sm text-muted-foreground">
+          {t("projects.noRecentSessions")}
+        </div>
+      ) : (
+        <div className="projects-recent-session-list flex flex-col gap-2 border-t pt-3">
+          {summary.recentSessions.map((session) => (
+            <Button
+              key={session.sessionId}
+              type="button"
+              variant="ghost"
+              className="projects-recent-session-item h-auto min-w-0 flex-col items-stretch justify-start gap-2 rounded-md border bg-card p-3 text-left whitespace-normal hover:bg-muted/60"
+              onClick={() => onOpenSession(session.sessionId)}
+              aria-label={session.sessionId}
+              title={session.sessionId}
+            >
+              <div className="flex min-w-0 items-center justify-between gap-3">
+                <span className="min-w-0 truncate font-mono text-sm font-semibold">
+                  {session.sessionId.slice(0, 8)}
+                </span>
+                <Badge variant="secondary" className={cn(PROJECT_TAG_CLASS, "font-normal")}>
+                  {session.messageCount} {t("projects.inputsUnit")}
+                </Badge>
+              </div>
+              <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                <MessageSquareText className="size-3.5 shrink-0" aria-hidden="true" />
+                <span className="min-w-0 truncate">{session.firstPrompt || "—"}</span>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {formatHistoryTimestamp(session.lastTimestamp)}
+              </span>
+            </Button>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function ProjectDetailPanel({
   t,
   summary,
@@ -336,6 +387,7 @@ function ProjectDetailPanel({
   onOpenInEditor,
   onOpenRepository,
   onCreateAgentsLink,
+  onOpenSession,
 }: ProjectDetailPanelProps) {
   const directoryTone: StatusTone = detail?.exists ? "success" : "danger";
   const gitTone: StatusTone = detail?.isGitRepo ? "success" : detail?.exists ? "warning" : "muted";
@@ -547,8 +599,9 @@ function ProjectDetailPanel({
           <WorktreesSection detail={detail} t={t} />
         </div>
 
-        <aside className="projects-detail-side min-w-0 xl:border-l xl:pl-5">
+        <aside className="projects-detail-side flex min-w-0 flex-col gap-6 xl:border-l xl:pl-5">
           <OverviewPanel detail={detail} summary={summary} t={t} />
+          <RecentSessionsSection summary={summary} t={t} onOpenSession={onOpenSession} />
         </aside>
       </div>
     </div>

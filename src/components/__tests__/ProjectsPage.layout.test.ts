@@ -7,10 +7,20 @@ import ProjectDetailPanel from "../ProjectDetailPanel";
 const SUMMARY: ProjectSummary = {
   project: "/Users/test-user/work/alpha",
   shortName: "alpha",
-  lastCost: 1.2,
-  lastDuration: 120,
+  lastActiveAt: 200,
+  messageCount: 2,
+  sessionCount: 1,
   lastSessionId: "session-alpha",
-  lastSessionModified: 200,
+  recentSessions: [
+    {
+      sessionId: "session-alpha",
+      firstPrompt: "alpha first prompt",
+      lastPrompt: "alpha follow-up prompt",
+      messageCount: 2,
+      firstTimestamp: 100,
+      lastTimestamp: 200,
+    },
+  ],
 };
 
 const DETAIL: ProjectDetail = {
@@ -42,6 +52,7 @@ function renderDetailPanel() {
       onOpenInEditor: () => undefined,
       onOpenRepository: () => undefined,
       onCreateAgentsLink: () => undefined,
+      onOpenSession: () => undefined,
     }),
   );
 }
@@ -83,6 +94,74 @@ describe("ProjectsPage layout", () => {
     expect(agentsAction).toHaveClass("max-sm:[&>button]:w-full");
   });
 
+  it("renders recent sessions instead of cost and duration in the detail panel", () => {
+    renderDetailPanel();
+
+    expect(screen.getByText("projects.recentSessions")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /session-alpha/ })).toBeInTheDocument();
+    expect(screen.queryByText("projects.lastCost")).not.toBeInTheDocument();
+    expect(screen.queryByText("projects.lastDuration")).not.toBeInTheDocument();
+  });
+
+  it("keeps overview in normal flow so it does not cover recent sessions while scrolling", () => {
+    renderDetailPanel();
+
+    const overviewPanel = screen.getByText("projects.overview").closest(".projects-overview-panel");
+
+    expect(overviewPanel).not.toHaveClass("sticky");
+    expect(overviewPanel).not.toHaveClass("lg:sticky");
+    expect(overviewPanel).not.toHaveClass("top-0");
+    expect(overviewPanel).not.toHaveClass("lg:top-0");
+  });
+
+  it("keeps branch and worktree tables inside the panel without horizontal scrolling", () => {
+    render(
+      createElement(ProjectDetailPanel, {
+        t: (key) => key,
+        summary: SUMMARY,
+        detail: {
+          ...DETAIL,
+          branches: [
+            {
+              name: "feature/very-long-local-branch-name-that-should-wrap-inside-the-card",
+              isCurrent: true,
+              lastCommitSubject:
+                "feat(projects): keep project management tables inside their panel width",
+              lastCommitAt: 1778932800,
+            },
+          ],
+          worktrees: [
+            {
+              path: "/Users/test-user/work/alpha/.worktrees/very-long-feature-branch-name-that-needs-inspection",
+              branch: "feature/long-path",
+              head: "1234567890abcdef",
+              isCurrent: false,
+              isDetached: false,
+            },
+          ],
+        },
+        defaultEditorApp: "vscode",
+        canCreateAgentsLink: true,
+        canOpenRepository: true,
+        canOpenProjectDirectory: true,
+        canOpenInEditor: true,
+        isLinkingAgents: false,
+        onOpenInTerminal: () => undefined,
+        onOpenInEditor: () => undefined,
+        onOpenRepository: () => undefined,
+        onCreateAgentsLink: () => undefined,
+        onOpenSession: () => undefined,
+      }),
+    );
+
+    for (const table of document.querySelectorAll(".projects-table")) {
+      expect(table).not.toHaveClass("overflow-x-auto");
+    }
+    for (const tableInner of document.querySelectorAll(".projects-table-inner")) {
+      expect(tableInner.className).not.toMatch(/min-w-\[/);
+    }
+  });
+
   it("keeps full worktree paths inspectable in the detail table", () => {
     const worktreePath =
       "/Users/test-user/work/alpha/.worktrees/very-long-feature-branch-name-that-needs-inspection";
@@ -113,6 +192,7 @@ describe("ProjectsPage layout", () => {
         onOpenInEditor: () => undefined,
         onOpenRepository: () => undefined,
         onCreateAgentsLink: () => undefined,
+        onOpenSession: () => undefined,
       }),
     );
 
@@ -141,6 +221,7 @@ describe("ProjectsPage layout", () => {
         onOpenInEditor: () => undefined,
         onOpenRepository: () => undefined,
         onCreateAgentsLink: () => undefined,
+        onOpenSession: () => undefined,
       }),
     );
 

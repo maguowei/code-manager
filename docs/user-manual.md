@@ -370,7 +370,7 @@ Skills 页用于管理 `~/.claude/skills/` 下的 Claude Code Skill。
 
 ## 项目管理
 
-项目页从 Claude 统计中提取项目列表，按最近活跃排序。
+项目页从 `~/.claude/history.jsonl` 中提取项目列表，按最近活跃排序。
 
 ### 项目列表
 
@@ -378,8 +378,9 @@ Skills 页用于管理 `~/.claude/skills/` 下的 Claude Code Skill。
 
 - 项目短名称。
 - 项目路径。
-- 最近费用。
-- 最近会话时长。
+- 最近活跃时间。
+- 会话数量与输入数量。
+- 最近会话 ID。
 
 点击项目后，右侧展示项目详情。
 
@@ -419,7 +420,8 @@ Skills 页用于管理 `~/.claude/skills/` 下的 Claude Code Skill。
 - `AGENTS.md` 状态。
 - 本地分支、最近提交和更新时间。
 - Worktree 路径、分支、HEAD 和状态。
-- 最近会话费用、时长、会话 ID 和 Git 根目录。
+- 最近活跃时间、会话数量、输入数量、最近会话 ID 和 Git 根目录。
+- 最近 5 个会话，可点击查看会话详情。
 
 ### 生成或修复 `AGENTS.md`
 
@@ -735,11 +737,11 @@ usage.db-shm
 
 ### 为什么项目页没有项目？
 
-项目页来自 Claude 统计数据。使用 Claude Code 后，相关项目会出现在 `~/.claude.json`，AI Manager 才能展示。
+项目页来自 `~/.claude/history.jsonl`。使用 Claude Code 产生历史记录后，相关项目会显示在 AI Manager 中。
 
 ### 为什么统计页和用量页费用不一致？
 
-统计页读取 `~/.claude.json` 的最近会话快照；用量页扫描 `~/.claude/projects/**/*.jsonl` 并按当前价格表重新估算。两者数据源和计算口径不同。
+统计页读取 `~/.claude.json` 的本地统计快照；用量页扫描 `~/.claude/projects/**/*.jsonl` 并按当前价格表重新估算。两者数据源和计算口径不同。
 
 ### 为什么某些模型费用为 0？
 

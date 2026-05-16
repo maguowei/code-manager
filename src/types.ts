@@ -367,13 +367,23 @@ export interface HistoryEntry {
   sessionId: string;
 }
 
+export interface ProjectRecentSessionSummary {
+  sessionId: string;
+  firstPrompt: string;
+  lastPrompt: string;
+  messageCount: number;
+  firstTimestamp: number;
+  lastTimestamp: number;
+}
+
 export interface ProjectSummary {
   project: string;
   shortName: string;
-  lastCost: number;
-  lastDuration: number;
+  lastActiveAt: number;
+  messageCount: number;
+  sessionCount: number;
   lastSessionId?: string;
-  lastSessionModified: number;
+  recentSessions: ProjectRecentSessionSummary[];
 }
 
 export type AgentsStatus = "missing" | "correctSymlink" | "wrongSymlink" | "plainFileConflict";

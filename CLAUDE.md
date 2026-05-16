@@ -83,7 +83,7 @@
 - 新增或修改 Tauri command 时，同步 Rust command、`generate_handler![]`、前端调用、`src/types.ts`、i18n、测试；涉及插件 API 时检查 `src-tauri/capabilities/default.json`。
 - JSON Schema 是配置系统的前后端共享契约锚点。
 - 配置预览、配置应用、模型测试、Provider/Preset、Skills、Memory 的真实持久化规则都在 Rust；前端负责调用与展示，不要复制后端业务逻辑。
-- `StatsPage` 读取 `~/.claude.json`；`UsagePage` 扫描 `~/.claude/projects/**/*.jsonl`。两者字段相似但数据来源不同。
+- `ProjectsPage` 读取 `~/.claude/history.jsonl`；`StatsPage` 读取 `~/.claude.json`；`UsagePage` 扫描 `~/.claude/projects/**/*.jsonl`。三者数据源不同，不要混用。
 
 ## 关键数据目录
 
@@ -121,7 +121,7 @@
 
 - CodeMirror 多版本冲突会导致空白页。排查：`grep "'@codemirror/state@" pnpm-lock.yaml`，预期只有一个版本；如出现多个版本，在 `package.json` 里用 `pnpm.overrides` 统一。
 - 不要自实现浮层：抽屉、设置面板、模态框、下拉菜单和 Toast 都用 shadcn `Sheet` / `Dialog` / `DropdownMenu` / `Popover` / sonner，层级由组件本身管理。
-- 不要混淆 Stats 与 Usage：`StatsPage` 用 `~/.claude.json`，`UsagePage` 用 `~/.claude/projects/**/*.jsonl`。
+- 不要混淆 Projects、Stats 与 Usage：`ProjectsPage` 用 `~/.claude/history.jsonl`，`StatsPage` 用 `~/.claude.json`，`UsagePage` 用 `~/.claude/projects/**/*.jsonl`。
 - 不要把日志当成配置数据：日志目录由 Tauri 的 `app_log_dir()` 解析，不要迁移到 `~/.config/ai-manager/`。
 - 不要相信旧文件名：当前配置 schema 是 `src/schemas/claude-settings.schema.json`。
 - Tauri 事件监听器必须在组件卸载时清理；使用 `useTauriEvent` hook 而非直接调用 `listen()`，否则会内存泄漏。
