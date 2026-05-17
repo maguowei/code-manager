@@ -24,5 +24,5 @@ paths:
 ## 维护检查
 
 - 修改 `CLAUDE.md` 后运行 `wc -l CLAUDE.md`，确认仍低于 200 行。
-- 新增规则时确认 frontmatter 的 `paths` 覆盖目标文件。
+- 新增规则时确认 frontmatter 的 `paths` 覆盖目标文件，并用 `git grep -n "paths:" .claude/rules` 抽查 glob 是否仍指向真实文件。
 - 修改规则后运行 `git diff --check` 和乱码扫描。

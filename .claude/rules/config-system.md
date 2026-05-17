@@ -57,7 +57,7 @@ paths:
 - `EnabledPluginsEditor.tsx` 是插件分区容器，表单模式分为“已配置”和“浏览市场”两个 Tab；已配置列表只反映 `settings.enabledPlugins` 的真实条目，不要重新引入“加载官方插件”把浏览项混进配置列表。
 - `BrowseMarketplaceTab.tsx` 只在切到浏览 Tab 时按已配置 marketplace 拉取清单；当前只支持 `source: github`，其他来源显示 unsupported 状态，不应伪造插件数据。
 - 插件浏览支持搜索、marketplace / 状态 / 类别 / 来源筛选、插件 ID 或安装数排序、主页外链；安装数来自 `plugins/install-counts-cache.json`，加载失败时按未知数据展示。
-- 插件编辑必须保留已有 enabled/disabled 状态和非布尔 legacy entries；跨 Tab 启用、禁用和删除要通过共享状态写回 `enabledPlugins`，不要直接改 DOM 或复制后端 settings 合并逻辑。
+- 插件编辑必须保留已有 enabled/disabled 状态和非布尔 legacy entries；跨 Tab 启用、禁用和删除要通过 `useEnabledPluginsState`（`src/components/profile-editor/useEnabledPluginsState.ts`）写回 `enabledPlugins`，浏览 Tab 的多源拉取与缓存走 `useMarketplaceCatalog`（同目录），不要直接改 DOM 或复制后端 settings 合并逻辑。
 - 复制环境变量按钮使用 `lucide-react` 的 `Variable` 图标，复制完整配置使用 `Copy` 图标；新增分区如需复制类操作沿用同一图标语义，避免在前端再生成图标自实现。
 
 ## 新增配置字段同步点
