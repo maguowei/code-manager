@@ -108,6 +108,8 @@ AI Manager 主要读取和写入本机文件。配置合并、目录扫描、用
 | Linux | `$XDG_CONFIG_HOME/ai-manager/` 或 `~/.config/ai-manager/` |
 | Windows | `%APPDATA%\ai-manager\` |
 
+> 本应用刻意复用 `~/.config/ai-manager/` 而不是 macOS 标准的 `~/Library/Application Support/...`，便于跨平台同步备份与统一脚本访问。
+
 ```text
 <应用数据目录>/
   config-registry.json
@@ -183,6 +185,8 @@ xattr -rd com.apple.quarantine /Applications/ai-manager.app
 - Rust stable
 - 满足 Tauri 2 运行所需的系统依赖
 
+首次 `pnpm install` 会触发 `prepare` 脚本，由 lefthook 安装 git hooks；提交前 staged 的 `.ts` / `.tsx` / `.json` / `.css` 文件会被 `biome check --write` 修改并自动重新 stage。
+
 ### 快速开始
 
 ```bash
@@ -230,6 +234,11 @@ make preview          # 预览生产前端构建
 | 前后端契约 | `pnpm build`、`cd src-tauri && cargo test` |
 
 注意：`pnpm check` 会执行 `biome check --write .` 并可能改写文件；只想做 CI 检查时使用 `pnpm biome:ci`。
+
+### CI 与 Release
+
+- CI workflow（`.github/workflows/ci.yml`）在 `macos-26`、`ubuntu-24.04`、`windows-latest` 三平台并行运行 `pnpm biome:ci`、`pnpm build`、`cargo check`、`cargo clippy -- -D warnings`、`cargo test`。文档类改动（`**.md`）不会触发 CI。
+- Release workflow（`.github/workflows/release.yml`）由 `v*` 形式的 git tag 触发，macOS 构建 universal 包，Linux / Windows 构建各自平台包。
 
 ## 技术栈与仓库结构
 
@@ -280,6 +289,8 @@ make preview          # 预览生产前端构建
 ## 进一步阅读
 
 - [CLAUDE.md](./CLAUDE.md)：面向 Claude Code、Codex 等编程智能体的仓库执行手册
+- [docs/user-manual.md](./docs/user-manual.md)：面向终端用户的完整使用手册
+- [docs/claude-code-best-practices.md](./docs/claude-code-best-practices.md)：Claude Code / Codex 在本仓库的扩展最佳实践
 - [LICENSE](./LICENSE)：许可证
 
 ## License
