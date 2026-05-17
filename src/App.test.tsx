@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { ThemeProvider } from "./components/theme-provider";
-import { ToastProvider } from "./hooks/useToast";
 import { I18nProvider } from "./i18n";
 import type { ConfigWorkspace } from "./types";
 
@@ -447,9 +446,7 @@ function renderApp() {
   render(
     <I18nProvider>
       <ThemeProvider>
-        <ToastProvider>
-          <App />
-        </ToastProvider>
+        <App />
       </ThemeProvider>
     </I18nProvider>,
   );

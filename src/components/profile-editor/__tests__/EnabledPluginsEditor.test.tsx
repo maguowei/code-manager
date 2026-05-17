@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../../i18n";
 import EnabledPluginsEditor from "../EnabledPluginsEditor";
-import { OFFICIAL_PLUGIN_CACHE_KEY } from "../official-plugin-catalog";
+import { saveMarketplaceCatalogCache } from "../marketplace-catalog";
 import type { MarketplaceSourceInput } from "../useMarketplaceCatalog";
 
 vi.mock("@tauri-apps/plugin-opener", () => ({
@@ -210,25 +210,18 @@ describe("EnabledPluginsEditor", () => {
     });
 
     it("已配置列表隐藏插件所属市场但保留作者和类别", () => {
-      localStorage.setItem(
-        OFFICIAL_PLUGIN_CACHE_KEY,
-        JSON.stringify({
-          version: 1,
-          updatedAt: "2026-05-16T00:00:00.000Z",
-          plugins: [
-            {
-              pluginId: "alpha@claude-plugins-official",
-              marketplaceId: "claude-plugins-official",
-              description: "Alpha plugin",
-              category: "development",
-              authorName: "Anthropic",
-              sourceType: "github",
-              homepage: "",
-              isOfficial: true,
-            },
-          ],
-        }),
-      );
+      saveMarketplaceCatalogCache("claude-plugins-official", [
+        {
+          pluginId: "alpha@claude-plugins-official",
+          marketplaceId: "claude-plugins-official",
+          description: "Alpha plugin",
+          category: "development",
+          authorName: "Anthropic",
+          sourceType: "github",
+          homepage: "",
+          isOfficial: true,
+        },
+      ]);
       renderEditor({ value: { "alpha@claude-plugins-official": true } });
 
       const row = screen

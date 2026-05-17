@@ -3,7 +3,6 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "../../components/ui/tooltip";
-import { ToastProvider } from "../../hooks/useToast";
 import { I18nProvider } from "../../i18n";
 import type {
   DailyUsage,
@@ -396,9 +395,7 @@ function renderUsage(
   useUsageMock.mockReturnValue(usage);
   render(
     <I18nProvider>
-      <ToastProvider>
-        <UsagePage projectRequest={overrides?.projectRequest ?? null} />
-      </ToastProvider>
+      <UsagePage projectRequest={overrides?.projectRequest ?? null} />
     </I18nProvider>,
   );
   return usage;

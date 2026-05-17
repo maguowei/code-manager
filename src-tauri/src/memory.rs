@@ -162,9 +162,6 @@ fn get_claude_dir_path() -> PathBuf {
 pub fn load_memory_state() -> MemoryState {
     let path = get_memory_config_path();
     let mut state: MemoryState = crate::utils::read_json_file(&path);
-    if state.version == 0 {
-        state.version = CURRENT_MEMORY_STATE_VERSION;
-    }
     state.unmanaged_memories.clear();
     state
 }

@@ -186,7 +186,7 @@ function renderEditor(options?: {
     description: string;
     presetId?: string;
     settings: Record<string, unknown>;
-  }) => void | Promise<void>;
+  }) => boolean | Promise<boolean>;
 }) {
   const profile = options && "profile" in options ? (options.profile ?? null) : PROFILE_FIXTURE;
   const onSave =
@@ -198,8 +198,8 @@ function renderEditor(options?: {
         description: string;
         presetId?: string;
         settings: Record<string, unknown>;
-      }) => void | Promise<void>
-    >();
+      }) => boolean | Promise<boolean>
+    >(() => true);
   render(
     <I18nProvider>
       <ThemeProvider>

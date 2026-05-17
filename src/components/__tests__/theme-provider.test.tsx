@@ -75,16 +75,16 @@ describe("ThemeProvider", () => {
     expect(localStorage.getItem("ai-manager.theme")).toBe("light");
   });
 
-  it("从 ai-manager-settings 兼容读取旧 theme 并迁移到新 key", async () => {
+  it("忽略 ai-manager-settings 中的旧 theme 字段", async () => {
     localStorage.setItem("ai-manager-settings", JSON.stringify({ language: "zh", theme: "dark" }));
 
     renderProbe();
 
-    expect(screen.getByTestId("theme")).toHaveTextContent("dark");
-    expect(screen.getByTestId("isDark")).toHaveTextContent("true");
-    expect(document.documentElement.classList.contains("dark")).toBe(true);
+    expect(screen.getByTestId("theme")).toHaveTextContent("system");
+    expect(screen.getByTestId("isDark")).toHaveTextContent("false");
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
     await waitFor(() => {
-      expect(localStorage.getItem("ai-manager.theme")).toBe("dark");
+      expect(localStorage.getItem("ai-manager.theme")).toBe("system");
     });
   });
 });
