@@ -1522,10 +1522,7 @@ mod tests {
             .map(|candidate| candidate.path.as_str())
             .collect::<Vec<_>>();
 
-        let clean_worktree_path = std::fs::canonicalize(clean_worktree.path())
-            .unwrap()
-            .to_string_lossy()
-            .to_string();
+        let clean_worktree_path = worktree_path_in_git_format(clean_worktree.path());
         assert_eq!(paths, vec![clean_worktree_path.as_str()]);
         assert_eq!(
             preview.worktree_candidates[0].reason,
@@ -1566,16 +1563,15 @@ mod tests {
         );
         std::fs::write(dirty_worktree.path().join("dirty.txt"), "dirty").unwrap();
 
-        let clean_worktree_path = std::fs::canonicalize(clean_worktree.path())
-            .unwrap()
-            .to_string_lossy()
-            .to_string();
+        let clean_worktree_path = worktree_path_in_git_format(clean_worktree.path());
+        let dirty_worktree_path = worktree_path_in_git_format(dirty_worktree.path());
+        let repo_path = worktree_path_in_git_format(repo.path());
         let result = cleanup_project_worktrees(
             repo.path().to_str().unwrap(),
             vec![
                 clean_worktree_path.clone(),
-                dirty_worktree.path().to_str().unwrap().to_string(),
-                repo.path().to_str().unwrap().to_string(),
+                dirty_worktree_path,
+                repo_path,
             ],
         )
         .unwrap();
@@ -1868,6 +1864,13 @@ mod tests {
             .status()
             .unwrap()
             .success()
+    }
+
+    /// 把本机绝对路径转换为 `git worktree list --porcelain` 在 Windows 上输出的格式：
+    /// 去掉 `\\?\` verbatim 前缀，并把反斜杠替换成正斜杠；其它平台直接使用 `to_string_lossy()`。
+    fn worktree_path_in_git_format(path: &Path) -> String {
+        let canon = std::fs::canonicalize(path).expect("测试路径应可 canonicalize");
+        crate::utils::normalize_path_for_display(&canon)
     }
 
     fn run_git_command(path: &Path, args: &[&str]) {

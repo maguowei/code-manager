@@ -211,3 +211,85 @@ pub fn truncate(s: &str, max_len: usize) -> String {
         Some((byte_idx, _)) => format!("{}...", &s[..byte_idx]),
     }
 }
+
+/// 去掉 Windows 上 `std::fs::canonicalize` 返回的 `\\?\` 和 `\\?\UNC\` verbatim 前缀；
+/// 其它平台原样返回。用于把 verbatim 路径还原为人类与外部工具（git 等）期望的常规路径。
+#[allow(dead_code)]
+pub fn strip_windows_verbatim_prefix(path: &str) -> &str {
+    #[cfg(windows)]
+    {
+        if let Some(rest) = path.strip_prefix(r"\\?\UNC\") {
+            return rest;
+        }
+        if let Some(rest) = path.strip_prefix(r"\\?\") {
+            return rest;
+        }
+        path
+    }
+    #[cfg(not(windows))]
+    {
+        path
+    }
+}
+
+/// 将路径转换为跨平台一致的字符串表示：在 Windows 上去掉 verbatim 前缀并将 `\` 替换为 `/`；
+/// 其它平台直接返回 `to_string_lossy`。便于做字符串比较、向前端透传或测试断言。
+#[allow(dead_code)]
+pub fn normalize_path_for_display(path: &Path) -> String {
+    let raw = path.to_string_lossy();
+    let stripped = strip_windows_verbatim_prefix(&raw);
+    #[cfg(windows)]
+    {
+        stripped.replace('\\', "/")
+    }
+    #[cfg(not(windows))]
+    {
+        stripped.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn strip_windows_verbatim_prefix_handles_common_shapes() {
+        // 普通路径在所有平台上保持原样
+        assert_eq!(strip_windows_verbatim_prefix("C:/Users/test"), "C:/Users/test");
+        assert_eq!(strip_windows_verbatim_prefix("/tmp/file"), "/tmp/file");
+
+        // verbatim 前缀仅在 Windows 上生效
+        #[cfg(windows)]
+        {
+            assert_eq!(
+                strip_windows_verbatim_prefix(r"\\?\C:\Users\test"),
+                r"C:\Users\test"
+            );
+            assert_eq!(
+                strip_windows_verbatim_prefix(r"\\?\UNC\server\share"),
+                r"server\share"
+            );
+        }
+
+        // 非 Windows 平台上含 `\\?\` 字面量的字符串保持原样
+        #[cfg(not(windows))]
+        {
+            assert_eq!(
+                strip_windows_verbatim_prefix(r"\\?\C:\Users\test"),
+                r"\\?\C:\Users\test"
+            );
+        }
+    }
+
+    #[test]
+    fn normalize_path_for_display_converts_separators_on_windows() {
+        let p = PathBuf::from("/tmp/example/dir");
+        assert_eq!(normalize_path_for_display(&p), "/tmp/example/dir");
+
+        #[cfg(windows)]
+        {
+            let p = PathBuf::from(r"C:\Users\test");
+            assert_eq!(normalize_path_for_display(&p), "C:/Users/test");
+        }
+    }
+}

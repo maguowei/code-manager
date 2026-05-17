@@ -161,7 +161,18 @@ fn resolve_skill_dir_symlink_target(path: &Path, is_active: bool) -> Result<Path
         } else {
             get_skills_dir()
         };
-        if let Ok(target) = normalize_path(previous_parent.join(&link_target)).canonicalize() {
+        // Windows 上把 POSIX 风格的相对分隔符换成本地分隔符，避免 join + canonicalize 在混合分隔符上报 os error 123
+        let target_lookup = {
+            #[cfg(windows)]
+            {
+                PathBuf::from(link_target.to_string_lossy().replace('/', "\\"))
+            }
+            #[cfg(not(windows))]
+            {
+                link_target.clone()
+            }
+        };
+        if let Ok(target) = normalize_path(previous_parent.join(&target_lookup)).canonicalize() {
             return Ok(target);
         }
     }
@@ -410,8 +421,8 @@ pub fn toggle_skill(id: String, is_active: bool) -> Result<Skill, String> {
             }
 
             create_skill_dir_symlink(&target, &dst)?;
-            if let Err(error) = fs::remove_file(&src) {
-                let _ = fs::remove_file(&dst);
+            if let Err(error) = remove_symlink_node(&src) {
+                let _ = remove_symlink_node(&dst);
                 return Err(format!("移动 Skill 软链接失败: {}", error));
             }
 
@@ -627,7 +638,8 @@ pub fn delete_skill(id: String, is_active: bool) -> Result<(), String> {
         let metadata =
             fs::symlink_metadata(&skill_dir).map_err(|_| format!("Skill '{}' 不存在", id))?;
         if metadata.file_type().is_symlink() {
-            fs::remove_file(&skill_dir).map_err(|e| format!("删除 Skill 软链接失败: {}", e))?;
+            remove_symlink_node(&skill_dir)
+                .map_err(|e| format!("删除 Skill 软链接失败: {}", e))?;
         } else if metadata.is_dir() {
             fs::remove_dir_all(&skill_dir).map_err(|e| format!("删除 Skill 目录失败: {}", e))?;
         } else {
@@ -695,7 +707,8 @@ fn collect_file_tree(
         if rel == Path::new("SKILL.md") {
             continue;
         }
-        let relative_path = rel.to_string_lossy().to_string();
+        // Windows 上 strip_prefix 结果会带反斜杠分隔符，统一替换为 `/`，方便前端做稳定的字符串比较
+        let relative_path = rel.to_string_lossy().replace('\\', "/");
 
         if file_type.is_dir() {
             entries.push(SkillFileTreeEntry {
@@ -1007,6 +1020,24 @@ fn create_skill_dir_symlink(target: &Path, dest: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// 删除一个软链接节点本身（不影响目标）。Windows 上目录软链接必须用 `remove_dir`，
+/// 文件软链接用 `remove_file`；Unix 上 `remove_file` 即可。
+fn remove_symlink_node(path: &Path) -> std::io::Result<()> {
+    #[cfg(unix)]
+    {
+        std::fs::remove_file(path)
+    }
+    #[cfg(windows)]
+    {
+        let metadata = std::fs::symlink_metadata(path)?;
+        if metadata.is_dir() {
+            std::fs::remove_dir(path)
+        } else {
+            std::fs::remove_file(path)
+        }
+    }
+}
+
 fn copy_skill_dir_without_symlinks(source: &Path, target: &Path) -> Result<(), String> {
     fs::create_dir_all(target).map_err(|e| format!("创建 Skill 目录失败: {}", e))?;
     let mut entries = fs::read_dir(source)
@@ -1140,7 +1171,8 @@ pub fn sync_skill_to_codex(id: String, is_active: bool) -> Result<(), String> {
         // 检查目标路径状态，一次 lstat 系统调用覆盖所有情况（含悬空软链接）
         match fs::symlink_metadata(&dest) {
             Ok(meta) if meta.is_symlink() => {
-                fs::remove_file(&dest).map_err(|e| format!("删除旧的软链接失败: {}", e))?;
+                remove_symlink_node(&dest)
+                    .map_err(|e| format!("删除旧的软链接失败: {}", e))?;
             }
             Ok(_) => {
                 return Err(format!("目标路径已存在且不是软链接，无法覆盖: {:?}", dest));
@@ -1623,8 +1655,11 @@ mod schema_tests {
 
         let codex_link = env.codex_skill_dir("linked-skill");
         let link_target = fs::read_link(&codex_link).expect("Codex 目标应是软链接");
+        // Windows 上 `read_link` 不会带 `\\?\` verbatim 前缀，`canonicalize` 会带，所以两边都 canonicalize 后再比对
         assert_eq!(
-            link_target,
+            link_target
+                .canonicalize()
+                .expect("软链接目标应可 canonicalize"),
             external.canonicalize().expect("源目标应可 canonicalize")
         );
     }
