@@ -39,6 +39,19 @@ export function agentsStatusLabel(status: AgentsStatus, t: TranslateFn) {
   }
 }
 
+export function agentsSkillsStatusLabel(status: AgentsStatus, t: TranslateFn) {
+  switch (status) {
+    case "correctSymlink":
+      return t("projects.agentsSkillsCorrect");
+    case "wrongSymlink":
+      return t("projects.agentsSkillsWrong");
+    case "plainFileConflict":
+      return t("projects.agentsSkillsConflict");
+    default:
+      return t("projects.agentsSkillsMissing");
+  }
+}
+
 export function agentsStatusTone(status: AgentsStatus) {
   switch (status) {
     case "correctSymlink":

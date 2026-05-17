@@ -97,7 +97,11 @@ function makeProjectDetail(project: string): ProjectDetail {
     repoRoot: project,
     repositoryUrl: "https://github.example.com/team/repo",
     hasClaudeMd: true,
+    hasProjectClaudeDir: true,
+    hasProjectClaudeSkills: true,
     agentsStatus: "missing",
+    agentsSkillsStatus: "missing",
+    projectSkills: [{ id: "review-skill", isSymlink: false }],
     branches: [
       {
         name: "main",
@@ -395,6 +399,30 @@ describe("ProjectsPage purge context menu", () => {
       expect(showToastMock).toHaveBeenCalledWith("生成 AGENTS.md 软链失败", "error", {
         description: "项目根目录缺少 CLAUDE.md，无法创建 AGENTS.md",
       });
+    });
+  });
+
+  it("creates the project Skills symlink for Codex and refreshes the detail", async () => {
+    mockProjectInvokes();
+
+    renderPage();
+    expect(await screen.findByText(PROJECT_ALPHA)).toBeInTheDocument();
+
+    const skillsButton = await screen.findByRole("button", {
+      name: "生成 / 修复 .agents/skills",
+    });
+    await waitFor(() => {
+      expect(skillsButton).toBeEnabled();
+    });
+    fireEvent.click(skillsButton);
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("create_project_agents_skills_symlink", {
+        project: PROJECT_ALPHA,
+      });
+    });
+    await waitFor(() => {
+      expect(showToastMock).toHaveBeenCalledWith(".agents/skills 软链已生成");
     });
   });
 

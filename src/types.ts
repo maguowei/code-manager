@@ -403,6 +403,11 @@ export interface ProjectWorktree {
   isDetached: boolean;
 }
 
+export interface ProjectSkillSummary {
+  id: string;
+  isSymlink: boolean;
+}
+
 export interface ProjectDetail {
   path: string;
   shortName: string;
@@ -411,7 +416,11 @@ export interface ProjectDetail {
   repoRoot?: string;
   repositoryUrl?: string;
   hasClaudeMd: boolean;
+  hasProjectClaudeDir: boolean;
+  hasProjectClaudeSkills: boolean;
   agentsStatus: AgentsStatus;
+  agentsSkillsStatus: AgentsStatus;
+  projectSkills: ProjectSkillSummary[];
   branches: ProjectBranch[];
   worktrees: ProjectWorktree[];
 }

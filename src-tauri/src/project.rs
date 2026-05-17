@@ -36,6 +36,13 @@ pub struct ProjectWorktree {
     pub is_detached: bool,
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectSkillSummary {
+    pub id: String,
+    pub is_symlink: bool,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectDetail {
@@ -48,7 +55,11 @@ pub struct ProjectDetail {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub repository_url: Option<String>,
     pub has_claude_md: bool,
+    pub has_project_claude_dir: bool,
+    pub has_project_claude_skills: bool,
     pub agents_status: AgentsStatus,
+    pub agents_skills_status: AgentsStatus,
+    pub project_skills: Vec<ProjectSkillSummary>,
     pub branches: Vec<ProjectBranch>,
     pub worktrees: Vec<ProjectWorktree>,
 }
@@ -115,7 +126,11 @@ pub struct ProjectGitCleanupResult {
 #[derive(Debug, PartialEq, Eq)]
 struct ProjectFileStatus {
     has_claude_md: bool,
+    has_project_claude_dir: bool,
+    has_project_claude_skills: bool,
     agents_status: AgentsStatus,
+    agents_skills_status: AgentsStatus,
+    project_skills: Vec<ProjectSkillSummary>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -169,7 +184,11 @@ pub fn get_project_detail(project: &str) -> Result<ProjectDetail, String> {
             repo_root: None,
             repository_url: None,
             has_claude_md: false,
+            has_project_claude_dir: false,
+            has_project_claude_skills: false,
             agents_status: AgentsStatus::Missing,
+            agents_skills_status: AgentsStatus::Missing,
+            project_skills: Vec::new(),
             branches: Vec::new(),
             worktrees: Vec::new(),
         });
@@ -210,7 +229,11 @@ pub fn get_project_detail(project: &str) -> Result<ProjectDetail, String> {
         repo_root: repo_root_str,
         repository_url,
         has_claude_md: file_status.has_claude_md,
+        has_project_claude_dir: file_status.has_project_claude_dir,
+        has_project_claude_skills: file_status.has_project_claude_skills,
         agents_status: file_status.agents_status,
+        agents_skills_status: file_status.agents_skills_status,
+        project_skills: file_status.project_skills,
         branches,
         worktrees,
     })
@@ -226,6 +249,21 @@ pub fn create_project_agents_symlink(project: &str) -> Result<(), String> {
         create_agents_symlink(&project_path)
     })();
     crate::logging::log_command_result("project.agents_symlink", &result, |_| {
+        format!("project={}", crate::utils::truncate(project, 160))
+    });
+    result
+}
+
+#[tauri::command]
+pub fn create_project_agents_skills_symlink(project: &str) -> Result<(), String> {
+    let result = (|| {
+        let project_path = validate_project_path(project)?;
+        if !project_path.is_dir() {
+            return Err("项目目录不存在".to_string());
+        }
+        create_project_agents_skills_symlink_for_dir(&project_path)
+    })();
+    crate::logging::log_command_result("project.agents_skills_symlink", &result, |_| {
         format!("project={}", crate::utils::truncate(project, 160))
     });
     result
@@ -1267,7 +1305,12 @@ fn log_project_git_cleanup_result(event: &str, project: &str, ok: bool) {
 fn inspect_project_files(project_dir: &Path) -> Result<ProjectFileStatus, String> {
     let claude_path = project_dir.join("CLAUDE.md");
     let agents_path = project_dir.join("AGENTS.md");
+    let project_claude_dir = project_dir.join(".claude");
+    let project_claude_skills_path = project_claude_dir.join("skills");
     let has_claude_md = claude_path.is_file();
+    let has_project_claude_dir = project_claude_dir.is_dir();
+    let has_project_claude_skills = project_claude_skills_path.is_dir();
+    let project_skills = scan_project_skills(&project_claude_skills_path);
 
     let agents_status = match fs::symlink_metadata(&agents_path) {
         Ok(meta) if meta.file_type().is_symlink() => {
@@ -1293,10 +1336,104 @@ fn inspect_project_files(project_dir: &Path) -> Result<ProjectFileStatus, String
         Err(e) => return Err(format!("读取 AGENTS.md 状态失败: {}", e)),
     };
 
+    let agents_skills_status = inspect_agents_skills_status(
+        project_dir,
+        &project_claude_skills_path,
+        has_project_claude_skills,
+    )?;
+
     Ok(ProjectFileStatus {
         has_claude_md,
+        has_project_claude_dir,
+        has_project_claude_skills,
         agents_status,
+        agents_skills_status,
+        project_skills,
     })
+}
+
+fn inspect_agents_skills_status(
+    project_dir: &Path,
+    project_claude_skills_path: &Path,
+    has_project_claude_skills: bool,
+) -> Result<AgentsStatus, String> {
+    let agents_dir = project_dir.join(".agents");
+    let agents_skills_path = agents_dir.join("skills");
+
+    match fs::symlink_metadata(&agents_skills_path) {
+        Ok(meta) if meta.file_type().is_symlink() => {
+            let target = fs::read_link(&agents_skills_path)
+                .map_err(|e| format!("读取 .agents/skills 软链接失败: {}", e))?;
+            let resolved = if target.is_absolute() {
+                target
+            } else {
+                agents_dir.join(target)
+            };
+
+            if has_project_claude_skills && paths_match(&resolved, project_claude_skills_path) {
+                Ok(AgentsStatus::CorrectSymlink)
+            } else {
+                Ok(AgentsStatus::WrongSymlink)
+            }
+        }
+        Ok(_) => Ok(AgentsStatus::PlainFileConflict),
+        Err(e)
+            if e.kind() == std::io::ErrorKind::NotFound
+                || e.kind() == std::io::ErrorKind::NotADirectory =>
+        {
+            match fs::symlink_metadata(&agents_dir) {
+                Ok(meta) if !meta.is_dir() => Ok(AgentsStatus::PlainFileConflict),
+                Ok(_) => Ok(AgentsStatus::Missing),
+                Err(parent_error)
+                    if parent_error.kind() == std::io::ErrorKind::NotFound
+                        || parent_error.kind() == std::io::ErrorKind::NotADirectory =>
+                {
+                    Ok(AgentsStatus::Missing)
+                }
+                Err(parent_error) => Err(format!("读取 .agents 状态失败: {}", parent_error)),
+            }
+        }
+        Err(e) => Err(format!("读取 .agents/skills 状态失败: {}", e)),
+    }
+}
+
+fn scan_project_skills(skills_dir: &Path) -> Vec<ProjectSkillSummary> {
+    let entries = match fs::read_dir(skills_dir) {
+        Ok(entries) => entries,
+        Err(_) => return Vec::new(),
+    };
+
+    let mut skills = Vec::new();
+    for entry in entries.flatten() {
+        let file_type = match entry.file_type() {
+            Ok(file_type) => file_type,
+            Err(_) => continue,
+        };
+        let id = match entry.file_name().to_str() {
+            Some(id) if !id.is_empty() => id.to_string(),
+            _ => continue,
+        };
+        let skill_root = if file_type.is_symlink() {
+            match entry.path().canonicalize() {
+                Ok(target) => target,
+                Err(_) => continue,
+            }
+        } else if file_type.is_dir() {
+            entry.path()
+        } else {
+            continue;
+        };
+
+        if skill_root.join("SKILL.md").is_file() {
+            skills.push(ProjectSkillSummary {
+                id,
+                is_symlink: file_type.is_symlink(),
+            });
+        }
+    }
+
+    skills.sort_by(|a, b| a.id.cmp(&b.id));
+    skills
 }
 
 fn create_agents_symlink(project_dir: &Path) -> Result<(), String> {
@@ -1346,6 +1483,61 @@ fn create_agents_symlink(project_dir: &Path) -> Result<(), String> {
     Ok(())
 }
 
+fn create_project_agents_skills_symlink_for_dir(project_dir: &Path) -> Result<(), String> {
+    let project_claude_skills_path = project_dir.join(".claude").join("skills");
+    if !project_claude_skills_path.is_dir() {
+        return Err("项目缺少 .claude/skills，无法创建 .agents/skills".to_string());
+    }
+
+    let agents_dir = project_dir.join(".agents");
+    match fs::symlink_metadata(&agents_dir) {
+        Ok(meta) if meta.is_dir() => {}
+        Ok(_) => {
+            return Err(format!(
+                "目标路径已存在且不是目录，无法创建 .agents/skills: {:?}",
+                agents_dir
+            ));
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            fs::create_dir_all(&agents_dir).map_err(|e| format!("创建 .agents 目录失败: {}", e))?;
+        }
+        Err(e) => return Err(format!("获取 .agents 元数据失败: {}", e)),
+    }
+
+    let agents_skills_path = agents_dir.join("skills");
+    match fs::symlink_metadata(&agents_skills_path) {
+        Ok(meta) if meta.file_type().is_symlink() => {
+            let status =
+                inspect_agents_skills_status(project_dir, &project_claude_skills_path, true)?;
+            if status == AgentsStatus::CorrectSymlink {
+                return Ok(());
+            }
+            remove_symlink_node(&agents_skills_path)
+                .map_err(|e| format!("删除旧的 .agents/skills 软链接失败: {}", e))?;
+        }
+        Ok(_) => {
+            return Err(format!(
+                "目标路径已存在且不是软链接，无法覆盖: {:?}",
+                agents_skills_path
+            ));
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => return Err(format!("获取 .agents/skills 元数据失败: {}", e)),
+    }
+
+    let relative_target = Path::new("../.claude/skills");
+
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(relative_target, &agents_skills_path)
+        .map_err(|e| format!("创建 .agents/skills 软链接失败: {}", e))?;
+
+    #[cfg(windows)]
+    std::os::windows::fs::symlink_dir(relative_target, &agents_skills_path)
+        .map_err(|e| format!("创建 .agents/skills 软链接失败: {}", e))?;
+
+    Ok(())
+}
+
 fn files_are_same(left: &Path, right: &Path) -> bool {
     let (Ok(left), Ok(right)) = (fs::metadata(left), fs::metadata(right)) else {
         return false;
@@ -1367,6 +1559,23 @@ fn files_are_same(left: &Path, right: &Path) -> bool {
     #[cfg(not(any(unix, windows)))]
     {
         false
+    }
+}
+
+fn remove_symlink_node(path: &Path) -> std::io::Result<()> {
+    #[cfg(unix)]
+    {
+        fs::remove_file(path)
+    }
+
+    #[cfg(windows)]
+    {
+        fs::remove_dir(path).or_else(|_| fs::remove_file(path))
+    }
+
+    #[cfg(not(any(unix, windows)))]
+    {
+        fs::remove_file(path)
     }
 }
 
@@ -1689,6 +1898,45 @@ mod tests {
         std::fs::write(plain.path().join("AGENTS.md"), "plain").unwrap();
 
         let err = create_agents_symlink(plain.path()).unwrap_err();
+        assert!(err.contains("不是软链接"));
+    }
+
+    #[test]
+    fn inspect_project_files_exposes_project_claude_skills_and_agents_skills_status() {
+        let sandbox = TestDir::new();
+        fs::create_dir_all(sandbox.path().join(".claude/skills/review-skill")).unwrap();
+        fs::write(
+            sandbox.path().join(".claude/skills/review-skill/SKILL.md"),
+            "---\nname: Review Skill\n---\n",
+        )
+        .unwrap();
+
+        let initial = inspect_project_files(sandbox.path()).unwrap();
+        assert!(initial.has_project_claude_dir);
+        assert!(initial.has_project_claude_skills);
+        assert_eq!(initial.agents_skills_status, AgentsStatus::Missing);
+        assert_eq!(initial.project_skills.len(), 1);
+        assert_eq!(initial.project_skills[0].id, "review-skill");
+
+        create_project_agents_skills_symlink_for_dir(sandbox.path()).unwrap();
+        let linked = inspect_project_files(sandbox.path()).unwrap();
+        assert_eq!(linked.agents_skills_status, AgentsStatus::CorrectSymlink);
+
+        let link_target = fs::read_link(sandbox.path().join(".agents/skills")).unwrap();
+        assert_eq!(link_target, Path::new("../.claude/skills"));
+    }
+
+    #[test]
+    fn create_project_agents_skills_symlink_rejects_missing_source_or_conflict() {
+        let missing = TestDir::new();
+        let err = create_project_agents_skills_symlink_for_dir(missing.path()).unwrap_err();
+        assert!(err.contains(".claude/skills"));
+
+        let conflict = TestDir::new();
+        fs::create_dir_all(conflict.path().join(".claude/skills")).unwrap();
+        fs::create_dir_all(conflict.path().join(".agents/skills")).unwrap();
+
+        let err = create_project_agents_skills_symlink_for_dir(conflict.path()).unwrap_err();
         assert!(err.contains("不是软链接"));
     }
 

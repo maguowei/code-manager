@@ -32,6 +32,10 @@ const DETAIL: ProjectDetail = {
   repositoryUrl: "https://github.example.com/team/repo",
   hasClaudeMd: true,
   agentsStatus: "missing",
+  hasProjectClaudeDir: true,
+  hasProjectClaudeSkills: true,
+  agentsSkillsStatus: "missing",
+  projectSkills: [{ id: "review-skill", isSymlink: false }],
   branches: [],
   worktrees: [],
 };
@@ -185,6 +189,48 @@ describe("ProjectsPage layout", () => {
     expect(agentsStatusRow).not.toHaveClass("grid");
 
     expect(screen.getByText("projects.claudeMdPresent")).toHaveClass("min-h-5", "px-2.5");
+  });
+
+  it("shows project-level Claude Skills and Codex symlink status in the AGENTS panel", () => {
+    renderDetailPanel();
+
+    expect(screen.getByText("projects.projectClaudeDirectory")).toBeInTheDocument();
+    expect(screen.getByText("projects.projectClaudeSkills")).toBeInTheDocument();
+    expect(screen.getByText("projects.agentsSkills")).toBeInTheDocument();
+    expect(screen.getByText("review-skill")).toBeInTheDocument();
+    expect(screen.getByText("projects.projectSkillsCount")).toBeInTheDocument();
+  });
+
+  it("offers a separate action for linking project Skills into .agents/skills", () => {
+    const onCreateAgentsSkillsLink = vi.fn();
+
+    render(
+      createElement(ProjectDetailPanel, {
+        t: (key) => key,
+        summary: SUMMARY,
+        detail: DETAIL,
+        defaultEditorApp: "vscode",
+        canCreateAgentsLink: true,
+        canCreateAgentsSkillsLink: true,
+        canOpenRepository: true,
+        canOpenProjectDirectory: true,
+        canOpenInEditor: true,
+        isLinkingAgents: false,
+        isLinkingAgentsSkills: false,
+        onOpenInTerminal: () => undefined,
+        onOpenInEditor: () => undefined,
+        onOpenRepository: () => undefined,
+        onCreateAgentsLink: () => undefined,
+        onCreateAgentsSkillsLink,
+        onOpenSession: () => undefined,
+        onOpenProjectHistory: () => undefined,
+        onOpenProjectUsage: () => undefined,
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "projects.linkAgentsSkills" }));
+
+    expect(onCreateAgentsSkillsLink).toHaveBeenCalledTimes(1);
   });
 
   it("keeps quick actions in the side panel while allowing narrow buttons to wrap", () => {

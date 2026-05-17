@@ -33,9 +33,9 @@ use memory::{
 };
 use native_open::get_native_open_app_options;
 use project::{
-    cleanup_project_branches, cleanup_project_worktrees, create_project_agents_symlink,
-    get_project_detail, open_project_in_editor, open_project_in_terminal,
-    preview_project_branch_cleanup, preview_project_local_data_purge,
+    cleanup_project_branches, cleanup_project_worktrees, create_project_agents_skills_symlink,
+    create_project_agents_symlink, get_project_detail, open_project_in_editor,
+    open_project_in_terminal, preview_project_branch_cleanup, preview_project_local_data_purge,
     preview_project_worktree_cleanup, purge_project_local_data,
 };
 use skills::{
@@ -152,6 +152,7 @@ pub fn run() {
             open_logs_dir,
             clear_app_logs,
             get_project_detail,
+            create_project_agents_skills_symlink,
             create_project_agents_symlink,
             open_project_in_terminal,
             open_project_in_editor,
