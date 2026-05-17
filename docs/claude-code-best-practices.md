@@ -1,6 +1,8 @@
 # Claude Code 使用最佳实践
 
-本文档面向在 AI Manager 仓库中使用 Claude Code、Codex 或兼容代理的开发者。目标不是复述 Claude Code 官方教程，而是把官方建议映射到本项目的真实架构、验证命令和协作规则上。
+> 本文档是 `CLAUDE.md` 与 `.claude/rules/*.md` 的扩展手册。硬约束、快速入口、验证清单和已知陷阱以 `CLAUDE.md` 为权威来源；本文档只补充工作流、提示模板、上下文管理和失败模式，避免重复。
+
+本文档面向在 AI Manager 仓库中使用 Claude Code、Codex 或兼容代理的开发者。目标不是复述 Claude Code 官方教程，而是把官方建议映射到本项目的真实协作规则上。
 
 参考来源：
 
@@ -12,30 +14,7 @@
 
 ## 项目画像
 
-AI Manager 是面向 Claude Code 用户的本地桌面配置管理应用。它不是 Web SaaS，而是一个本地 Tauri 2 桌面管理台，核心职责是让 Claude Code 的配置、记忆、Skills、历史、统计、用量、项目状态和诊断信息可见、可编辑、可验证。
-
-当前仓库事实：
-
-- 版本：`package.json` 与 `src-tauri/tauri.conf.json` 均为 `0.18.0`。
-- 前端：React 19、TypeScript、Vite、Tailwind CSS v4、shadcn/ui、Vitest、Biome。
-- 后端：Rust、Tauri commands、Tauri plugins、SQLite 用量缓存。
-- 包管理器：`pnpm@10.33.0`，不要使用 `npm`。
-- 应用标识符：`com.gotobeta.app.ai-manager`。
-- `AGENTS.md` 是指向 `CLAUDE.md` 的软链接，根级指令和 `.claude/rules/*.md` 是代理每次工作的入口。
-
-主要功能边界：
-
-| 功能域 | 关键文件 | 使用 Claude Code 时的注意点 |
-| --- | --- | --- |
-| 应用壳与导航 | `src/App.tsx`、`src/components/Sidebar.tsx` | 所有用户可见文本走 `useI18n()`，通知走 `useToast()`。 |
-| Profile / Preset | `src/components/ProfileEditor.tsx`、`src/components/PresetEditor.tsx`、`src/components/profile-editor/`、`src-tauri/src/config.rs` | 合并和落盘权威逻辑在 Rust；插件分区已拆为已配置 / 浏览市场双 Tab，前端不要复制配置合并逻辑。 |
-| Claude settings schema | `src/schemas/claude-settings.schema.json` | 新配置字段要同步 schema、表单、类型、Rust 校验、i18n 和测试。 |
-| Memory | `src/components/MemoryPage.tsx`、`src-tauri/src/memory.rs` | 路径必须安全，启用后写入 `~/.claude/CLAUDE.md` 或 `~/.claude/rules/`。 |
-| Skills | `src/components/SkillsPage.tsx`、`src-tauri/src/skills.rs` | Skill id 只允许小写字母、数字和连字符；扫描时不要跟随符号链接。 |
-| 历史 | `src/components/HistoryPage.tsx`、`src-tauri/src/history.rs` | 数据源是 `~/.claude/history.jsonl`。 |
-| 统计 | `src/components/StatsPage.tsx`、`src-tauri/src/stats.rs` | 数据源是 `~/.claude.json`，不要和 Usage 混用。 |
-| Token 用量 | `src/components/UsagePage.tsx`、`src/components/usage/PricingTableDialog.tsx`、`src-tauri/src/usage.rs` | 数据源是 `~/.claude/projects/**/*.jsonl`，SQLite 只做缓存和索引；第三方模型计价、价目表和未知模型提示要保持同一价格表口径。 |
-| 项目与诊断 | `src/components/ProjectsPage.tsx`、`src-tauri/src/project.rs`、`src-tauri/src/logging.rs` | 项目列表来自 `~/.claude/history.jsonl`；日志不能记录密钥、Token、完整 settings、Memory 内容或 Skill 文件内容。 |
+AI Manager 是面向 Claude Code 用户的本地 Tauri 2 桌面管理台，让 Claude Code 的配置、记忆、Skills、历史、统计、用量、项目状态和诊断信息可见、可编辑、可验证。版本、技术栈、应用标识符等基础事实在 `CLAUDE.md` 的「项目速览」和 `README.md` 中维护；功能域到关键文件的映射在 `CLAUDE.md` 的「快速入口」和对应 `.claude/rules/*.md` 中维护，本文档不再重复一份。
 
 ## 总体原则
 
@@ -58,16 +37,7 @@ git status --short
 rg --files
 ```
 
-然后按修改范围读取规则：
-
-- 前端、样式、i18n、测试：`.claude/rules/frontend-ui.md`
-- Tauri command、Rust、capability：`.claude/rules/tauri-backend.md`
-- Profile / Preset / settings schema：`.claude/rules/config-system.md`
-- Memory / Skills：`.claude/rules/memory-and-skills.md`
-- History / Stats / Usage：`.claude/rules/history-stats-usage.md`
-- Projects / Tray / Diagnostics：`.claude/rules/projects-tray-diagnostics.md`
-
-如果只改文档，仍要先确认现有 `docs/` 结构和相邻文档风格。
+然后按修改范围读取命中的 `.claude/rules/*.md`（完整索引见 `CLAUDE.md` 的「规则索引」表）。如果只改文档，仍要先确认现有 `docs/` 结构和相邻文档风格。
 
 ### 2. 计划
 
@@ -96,35 +66,20 @@ rg --files
 
 ### 3. 实施
 
-本仓库实施时优先遵守现有结构：
+实施时的硬约束（i18n、Toast、shadcn 语义变量、Tauri command 同步、`utils.rs` 复用、无外键等）在 `CLAUDE.md` 的「硬约束」与「架构同步点」中维护，本节只列具体执行习惯：
 
 - 搜索用 `rg` / `rg --files`。
 - 文件编辑保持小补丁，避免把无关格式化混入业务 diff。
-- 新增用户可见文案必须补 i18n key。
-- 新增前端用户反馈用 `useToast()`。
-- 前端类名用 Tailwind v4 + shadcn 语义变量，不写硬编码色值或 z-index。
-- React 组件优先复用 `src/components/ui/`、`TYPOGRAPHY`、`surface-classes`、`layout-size-classes`。
-- 新增 Tauri command 时同步 Rust command、`generate_handler![]`、前端 `invoke()`、`src/types.ts`、capability、i18n 和测试。
-- Rust 文件读写、JSON、锁和时间工具优先复用 `src-tauri/src/utils.rs`。
-- 数据库设计禁止使用外键。
+- 改动跨前后端时按"先 Rust command + types + capability，再前端 invoke + i18n + 测试"的顺序写，避免反复来回切换。
 
 ### 4. 验证
 
-按改动范围选择最小充分集：
-
-| 改动范围 | 必跑命令 |
-| --- | --- |
-| 文档 | `git diff --check` |
-| 前端 | `pnpm biome:ci`、`pnpm build`、`pnpm test` |
-| Rust | `cd src-tauri && cargo test`、`cd src-tauri && cargo clippy -- -D warnings` |
-| 前后端契约 | `pnpm build`、`cd src-tauri && cargo test` |
-| Tauri capability 或插件 | 契约命令 + 相关手动路径说明 |
-| UI 视觉改动 | 前端命令 + 本地应用或浏览器截图核验 |
-
-注意：
+按改动范围选最小充分集（完整清单见 `CLAUDE.md` 的「验证清单」与 `README.md` 的 CI 段），并注意：
 
 - `pnpm check` 会写文件，只做 CI 检查时使用 `pnpm biome:ci`。
 - `pnpm dev` 只启动 Vite；需要原生壳时使用 `pnpm tauri dev`。
+- Tauri capability 或插件改动除了契约命令，还要本地实际触发相关路径说明。
+- UI 视觉改动在前端命令之外补本地应用或浏览器截图核验。
 - 文档变更不触发当前 CI 的代码检查，但本地仍要跑 `git diff --check`，避免尾随空格和 Markdown 断裂。
 
 ### 5. 收尾
@@ -147,39 +102,14 @@ refactor(settings): 收敛设置抽屉表单结构
 
 ## Claude Code 配置建议
 
-### CLAUDE.md
-
-`CLAUDE.md` 适合放每次会话都必须知道的事实。本项目已经使用根级 `CLAUDE.md`，它应继续保持短小、索引化、可执行。
-
-适合放入 `CLAUDE.md`：
-
-- 技术栈和包管理器。
-- 高风险约束，例如 i18n、Toast、日志脱敏、数据库无外键。
-- 常用验证命令。
-- `.claude/rules/` 索引。
-- 已知陷阱，例如 `pnpm check` 会写文件。
-
-不适合放入 `CLAUDE.md`：
-
-- 大段产品介绍。
-- 文件逐个讲解。
-- 容易变化的 TODO。
-- 可以从代码直接推断的普通语言规则。
-
-### `.claude/rules/`
-
-官方文档支持通过 frontmatter 的 `paths` 字段做路径触发。本项目已经这样组织规则，后续应继续保持：
-
-- 一个规则文件只服务一个领域。
-- `paths` 覆盖真实入口，不要写过宽的 `src/**/*` 造成无关任务被规则淹没。
-- 改 `CLAUDE.md` 或 rules 布局前先读 `.claude/rules/agent-memory-layout.md`。
-- 当规则被代理反复忽略时，先检查是否太长、太泛、路径不命中或表述不够具体。
+> CLAUDE.md / `.claude/rules/` 的取舍规则、维护检查与 200 行硬约束已在 `.claude/rules/agent-memory-layout.md` 中维护，本文档不再重复。本节只补充 Skills、Hooks 与权限模式三类没有 path-scoped rule 的话题。
 
 ### Skills
 
-官方建议把可复用工作流做成 skills。本项目已有 `.claude/skills/release-new-version/SKILL.md`，适合继续沉淀以下流程：
+官方建议把可复用工作流做成 skills。本项目当前已落地 `.claude/skills/release-new-version/SKILL.md`（手动触发，`disable-model-invocation: true`）。
 
-- 发布新版本。
+未来候选（尚未落地，不要假设已存在）：
+
 - 批量同步 Claude Code 配置。
 - 复杂 review 模板。
 - 用量价格表对账。
@@ -193,13 +123,13 @@ refactor(settings): 收敛设置抽屉表单结构
 
 ### Hooks
 
-官方文档把 hooks 定位为“必须每次发生且没有例外”的确定性动作。本项目可以考虑的 hooks：
+官方文档把 hooks 定位为"必须每次发生且没有例外"的确定性动作。本项目可以考虑的 hooks：
 
 - 编辑 `src/**/*.{ts,tsx}` 后运行局部格式检查或提示运行 `pnpm biome:ci`。
 - 提交前阻止包含密钥样式字段的日志或文档片段。
 - 修改 `src-tauri/capabilities/default.json` 后提示同步 Tauri command 和前端调用说明。
 
-不建议把耗时全量命令无条件放进每次编辑后执行，例如 `pnpm build`、`cargo test`。这些更适合任务收尾或 pre-commit。
+不建议把耗时全量命令无条件放进每次编辑后执行，例如 `pnpm build`、`cargo test`。这些更适合任务收尾或 pre-commit（本仓库 pre-commit 由 lefthook 配置，详见 `lefthook.yml`）。
 
 ### 权限模式
 
