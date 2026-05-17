@@ -89,8 +89,8 @@
 
 | 用途 | 路径 |
 | --- | --- |
-| 应用数据 | `~/.config/ai-manager/` |
-| 配置注册 | `~/.config/ai-manager/config-registry.json` |
+| 应用数据 | macOS: `~/.config/ai-manager/`；Linux: `$XDG_CONFIG_HOME/ai-manager/` 或 `~/.config/ai-manager/`；Windows: `%APPDATA%\ai-manager\` |
+| 配置注册 | `<应用数据目录>/config-registry.json` |
 | Claude Code 用户目录 | `~/.claude/` |
 | 可选 Codex Skills 同步 | `~/.codex/skills/` |
 | 历史输入 | `~/.claude/history.jsonl` |
@@ -98,7 +98,7 @@
 | 统计输入 | `~/.claude.json` |
 | 测试目录覆盖 | `AI_MANAGER_HOME_OVERRIDE`、`AI_MANAGER_APP_DATA_DIR_OVERRIDE` |
 
-日志使用系统推荐日志目录，不放在 `~/.config/ai-manager/`。用量 SQLite 缓存使用 Tauri SQL 插件的应用配置目录，WAL 模式可能同时生成 `usage.db-wal` 与 `usage.db-shm`。
+日志使用系统推荐日志目录，不放在应用数据目录。用量 SQLite 缓存使用 Tauri SQL 插件的应用配置目录，WAL 模式可能同时生成 `usage.db-wal` 与 `usage.db-shm`。
 
 ## 验证清单
 
@@ -122,7 +122,7 @@
 - CodeMirror 多版本冲突会导致空白页。排查：`grep "'@codemirror/state@" pnpm-lock.yaml`，预期只有一个版本；如出现多个版本，在 `package.json` 里用 `pnpm.overrides` 统一。
 - 不要自实现浮层：抽屉、设置面板、模态框、下拉菜单和 Toast 都用 shadcn `Sheet` / `Dialog` / `DropdownMenu` / `Popover` / sonner，层级由组件本身管理。
 - 不要混淆 Projects、Stats 与 Usage：`ProjectsPage` 用 `~/.claude/history.jsonl`，`StatsPage` 用 `~/.claude.json`，`UsagePage` 用 `~/.claude/projects/**/*.jsonl`。
-- 不要把日志当成配置数据：日志目录由 Tauri 的 `app_log_dir()` 解析，不要迁移到 `~/.config/ai-manager/`。
+- 不要把日志当成配置数据：日志目录由 Tauri 的 `app_log_dir()` 解析，不要迁移到 AI Manager 应用数据目录。
 - 不要相信旧文件名：当前配置 schema 是 `src/schemas/claude-settings.schema.json`。
 - Tauri 事件监听器必须在组件卸载时清理；使用 `useTauriEvent` hook 而非直接调用 `listen()`，否则会内存泄漏。
 

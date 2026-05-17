@@ -59,7 +59,7 @@ cost =
   + cache_read * cache_read_price / 1_000_000
 ```
 
-价格表加载顺序是本地缓存 `~/.config/ai-manager/model-pricing.json` -> 内置 Anthropic 兜底表 -> 启动后或手动刷新时从 `models.dev/api.json` 拉取。网络刷新成功后会保存缓存并重算所有已扫描记录；无网络且没有缓存时，第三方模型不会使用手写兜底价。
+价格表加载顺序是应用数据目录下的 `model-pricing.json` -> 内置 Anthropic 兜底表 -> 启动后或手动刷新时从 `models.dev/api.json` 拉取。网络刷新成功后会保存缓存并重算所有已扫描记录；无网络且没有缓存时，第三方模型不会使用手写兜底价。
 
 models.dev 只导入官方 provider 价格：Anthropic、Moonshot / MoonshotAI（Kimi）、Z.ai / Zhipu / BigModel（GLM）、MiniMax、Xiaomi / MiMo、DeepSeek。不会导入 OpenRouter、ModelScope、DashScope 等二级转售或包装 provider。若 models.dev 某个模型缺少 cache 单价，会只按已有 input 单价推导 cache 字段：`cache_write = input * 1.25`，`cache_read = input * 0.1`；不会凭空补 input / output 价格。
 
@@ -86,7 +86,7 @@ AI Manager 的项目页、Skills、历史文件、`~/.claude` 文件和统计文
 | --- | --- | --- | --- |
 | Terminal | `open -a "Terminal"` | 依次尝试 `$TERMINAL`、`xdg-terminal-exec`、`x-terminal-emulator` 和常见终端命令 | 依次尝试 Windows Terminal、PowerShell、cmd |
 | iTerm | `open -a "iTerm"` | 不支持 | 不支持 |
-| Warp | `open -a "Warp"` | `warp-terminal` | 暂不支持 |
+| Warp | `open -a "Warp"` | `warp-terminal` | `warp.exe` 或官方安装路径 |
 | Ghostty | `open -a "Ghostty"` | `ghostty` | 暂不支持 |
 
 说明：
@@ -102,8 +102,14 @@ AI Manager 主要读取和写入本机文件。配置合并、目录扫描、用
 
 ### 应用管理数据
 
+| 平台 | 应用数据目录 |
+| --- | --- |
+| macOS | `~/.config/ai-manager/` |
+| Linux | `$XDG_CONFIG_HOME/ai-manager/` 或 `~/.config/ai-manager/` |
+| Windows | `%APPDATA%\ai-manager\` |
+
 ```text
-~/.config/ai-manager/
+<应用数据目录>/
   config-registry.json
   memories.json
   model-pricing.json

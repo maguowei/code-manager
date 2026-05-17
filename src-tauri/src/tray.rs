@@ -374,6 +374,14 @@ fn pending_session_notification_interaction_for_platform(
     }
 }
 
+fn session_menu_focus_enabled(default_terminal_app: &str) -> bool {
+    session_menu_focus_enabled_for_platform(default_terminal_app, cfg!(target_os = "macos"))
+}
+
+fn session_menu_focus_enabled_for_platform(default_terminal_app: &str, is_macos: bool) -> bool {
+    is_macos && crate::terminal_focus::terminal_supports_focus(default_terminal_app)
+}
+
 fn build_pending_session_notification(
     session: &TraySession,
     language: &str,
@@ -589,8 +597,7 @@ fn build_sessions_tray_menu(
     items.push(Box::new(header));
     items.push(Box::new(PredefinedMenuItem::separator(app)?));
 
-    let supports_focus =
-        crate::terminal_focus::terminal_supports_focus(&state.app.default_terminal_app);
+    let supports_focus = session_menu_focus_enabled(&state.app.default_terminal_app);
     for session in sessions {
         let item = MenuItemBuilder::with_id(
             session_menu_item_id(session),
@@ -677,8 +684,16 @@ fn apply_sessions_tray_title(
     state: &ConfigRegistry,
     sessions: &[TraySession],
 ) -> bool {
-    // 会话托盘没有 icon，仅靠 title 显示；开启时必须保持非空 title，
-    // 避免状态栏项进入零宽后在部分机器上无法稳定恢复。
+    if let Err(e) = tray.set_visible(state.app.show_tray_sessions) {
+        log::warn!(
+            "event=tray.sessions_visible status=err visible={} error={e}",
+            state.app.show_tray_sessions
+        );
+    }
+
+    // macOS 会话托盘仅靠 title 显示；开启时必须保持非空 title，
+    // 避免状态栏项进入零宽后在部分机器上无法稳定恢复。Windows 不支持 title，
+    // Linux title 依赖 icon，因此非 macOS 在创建时会补一个图标。
     if !state.app.show_tray_sessions {
         if let Err(e) = tray.set_title(Some("")) {
             log::warn!("event=tray.sessions_title status=err action=clear error={e}");
@@ -910,7 +925,7 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
             let notifications_enabled = session_focus_failure_notification_enabled(&prefs);
             let slug = prefs.default_terminal_app;
             let language = prefs.ui_language;
-            if !crate::terminal_focus::terminal_supports_focus(&slug) {
+            if !session_menu_focus_enabled(&slug) {
                 return;
             }
             // osascript 可能耗数百毫秒，丢线程避免阻塞 UI 事件循环。
@@ -931,9 +946,12 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     if let Some(title) = &sessions_title {
         sessions_builder = sessions_builder.title(title);
     }
-    let _sessions_tray = sessions_builder.build(app)?;
-    // sessions_builder 仅在 sessions_title 为 Some 时设置 title（见上方 if let 分支）；
-    // 关闭 show_tray_sessions 时不设置 title，让该区域自然隐藏，无需再调用 set_visible。
+    #[cfg(not(target_os = "macos"))]
+    {
+        sessions_builder = sessions_builder.icon(icon.clone());
+    }
+    let sessions_tray = sessions_builder.build(app)?;
+    let _ = sessions_tray.set_visible(state.app.show_tray_sessions);
 
     // 构建托盘图标，若设置开启且有激活配置则在图标旁显示配置名
     let mut builder = TrayIconBuilder::with_id(MAIN_TRAY_ID)
@@ -989,10 +1007,10 @@ mod tests {
     use super::{
         build_pending_session_notification, load_tray_sessions_from_dir,
         parse_session_menu_item_id, pending_session_notification_interaction_for_platform,
-        session_focus_failure_notification_enabled, session_menu_item_id, session_menu_item_label,
-        session_status_label, sessions_tray_title, sessions_tray_title_for_frame,
-        tray_labels_for_language, PendingSessionFocusTarget, PendingSessionNotificationInteraction,
-        PendingSessionNotifier, TraySession,
+        session_focus_failure_notification_enabled, session_menu_focus_enabled_for_platform,
+        session_menu_item_id, session_menu_item_label, session_status_label, sessions_tray_title,
+        sessions_tray_title_for_frame, tray_labels_for_language, PendingSessionFocusTarget,
+        PendingSessionNotificationInteraction, PendingSessionNotifier, TraySession,
     };
     use crate::config::AppPreferences;
     use std::fs;
@@ -1385,6 +1403,15 @@ mod tests {
             pending_session_notification_interaction_for_platform("terminal", false),
             PendingSessionNotificationInteraction::Plain
         );
+    }
+
+    #[test]
+    fn session_menu_focus_enablement_requires_macos_and_focusable_terminal() {
+        assert!(session_menu_focus_enabled_for_platform("terminal", true));
+        assert!(session_menu_focus_enabled_for_platform("ghostty", true));
+        assert!(!session_menu_focus_enabled_for_platform("warp", true));
+        assert!(!session_menu_focus_enabled_for_platform("terminal", false));
+        assert!(!session_menu_focus_enabled_for_platform("ghostty", false));
     }
 
     /// 回归测试：会话托盘开启时，空 sessions 也必须返回非空占位标题，

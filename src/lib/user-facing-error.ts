@@ -36,15 +36,32 @@ function stripGenericErrorPrefix(value: string) {
 }
 
 function sanitizeAbsolutePaths(value: string) {
-  return value.replace(/\/Users\/[^/\s"'`),\]}:]+/g, "~").replace(/\/home\/[^/\s"'`),\]}:]+/g, "~");
+  return value
+    .replace(/\/Users\/[^/"'`),\]}:]+/g, "~")
+    .replace(/\/home\/[^/"'`),\]}:]+/g, "~")
+    .replace(/[A-Za-z]:\\Users\\[^\\"'`),\]}:]+/g, "~");
 }
 
 function shortenNonHomeAbsolutePaths(value: string) {
-  return value.replace(
+  const shortenedPosix = value.replace(
     /(^|[\s"'`(])\/(?!Users\/|home\/)([^\s"'`),\]}:]+(?:\/[^\s"'`),\]}:]+)+)/g,
     (_match, prefix: string, path: string) => {
       const basename = path.split("/").filter(Boolean).at(-1);
       return `${prefix}…/${basename ?? "path"}`;
+    },
+  );
+  const shortenedQuotedWindows = shortenedPosix.replace(
+    /(^|[\s(])(["'`])([A-Za-z]:\\[^"'`\r\n]*\\[^"'`\r\n]*?)\2/g,
+    (_match, prefix: string, quote: string, path: string) => {
+      const basename = path.split("\\").filter(Boolean).at(-1);
+      return `${prefix}${quote}…\\${basename ?? "path"}${quote}`;
+    },
+  );
+  return shortenedQuotedWindows.replace(
+    /(^|[\s"'`(])[A-Za-z]:\\(?!Users\\)([^\\\s"'`),\]}:]+(?:\\[^\\\s"'`),\]}:]+)+)/g,
+    (_match, prefix: string, path: string) => {
+      const basename = path.split("\\").filter(Boolean).at(-1);
+      return `${prefix}…\\${basename ?? "path"}`;
     },
   );
 }
