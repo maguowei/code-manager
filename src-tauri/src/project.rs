@@ -1568,11 +1568,7 @@ mod tests {
         let repo_path = worktree_path_in_git_format(repo.path());
         let result = cleanup_project_worktrees(
             repo.path().to_str().unwrap(),
-            vec![
-                clean_worktree_path.clone(),
-                dirty_worktree_path,
-                repo_path,
-            ],
+            vec![clean_worktree_path.clone(), dirty_worktree_path, repo_path],
         )
         .unwrap();
 

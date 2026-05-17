@@ -156,11 +156,6 @@ fn resolve_skill_dir_symlink_target(path: &Path, is_active: bool) -> Result<Path
 
     let link_target = fs::read_link(path).map_err(|e| format!("读取 Skill 软链接失败: {}", e))?;
     if link_target.is_relative() {
-        let previous_parent = if is_active {
-            get_disabled_dir()
-        } else {
-            get_skills_dir()
-        };
         // Windows 上把 POSIX 风格的相对分隔符换成本地分隔符，避免 join + canonicalize 在混合分隔符上报 os error 123
         let target_lookup = {
             #[cfg(windows)]
@@ -172,8 +167,22 @@ fn resolve_skill_dir_symlink_target(path: &Path, is_active: bool) -> Result<Path
                 link_target.clone()
             }
         };
-        if let Ok(target) = normalize_path(previous_parent.join(&target_lookup)).canonicalize() {
-            return Ok(target);
+
+        // 候选基址：优先 link 当前所在目录，再回退到 toggle 之前所在的目录
+        let mut bases: Vec<PathBuf> = Vec::with_capacity(2);
+        if let Some(parent) = path.parent() {
+            bases.push(parent.to_path_buf());
+        }
+        bases.push(if is_active {
+            get_disabled_dir()
+        } else {
+            get_skills_dir()
+        });
+
+        for base in &bases {
+            if let Ok(target) = normalize_path(base.join(&target_lookup)).canonicalize() {
+                return Ok(target);
+            }
         }
     }
 
@@ -638,8 +647,7 @@ pub fn delete_skill(id: String, is_active: bool) -> Result<(), String> {
         let metadata =
             fs::symlink_metadata(&skill_dir).map_err(|_| format!("Skill '{}' 不存在", id))?;
         if metadata.file_type().is_symlink() {
-            remove_symlink_node(&skill_dir)
-                .map_err(|e| format!("删除 Skill 软链接失败: {}", e))?;
+            remove_symlink_node(&skill_dir).map_err(|e| format!("删除 Skill 软链接失败: {}", e))?;
         } else if metadata.is_dir() {
             fs::remove_dir_all(&skill_dir).map_err(|e| format!("删除 Skill 目录失败: {}", e))?;
         } else {
@@ -1029,8 +1037,11 @@ fn remove_symlink_node(path: &Path) -> std::io::Result<()> {
     }
     #[cfg(windows)]
     {
+        // 软链接节点本身的 metadata::is_dir() 永远为 false（file_type 是 symlink），
+        // 必须用 FileTypeExt::is_symlink_dir() 才能区分 dir reparse point 与 file reparse point
+        use std::os::windows::fs::FileTypeExt;
         let metadata = std::fs::symlink_metadata(path)?;
-        if metadata.is_dir() {
+        if metadata.file_type().is_symlink_dir() {
             std::fs::remove_dir(path)
         } else {
             std::fs::remove_file(path)
@@ -1171,8 +1182,7 @@ pub fn sync_skill_to_codex(id: String, is_active: bool) -> Result<(), String> {
         // 检查目标路径状态，一次 lstat 系统调用覆盖所有情况（含悬空软链接）
         match fs::symlink_metadata(&dest) {
             Ok(meta) if meta.is_symlink() => {
-                remove_symlink_node(&dest)
-                    .map_err(|e| format!("删除旧的软链接失败: {}", e))?;
+                remove_symlink_node(&dest).map_err(|e| format!("删除旧的软链接失败: {}", e))?;
             }
             Ok(_) => {
                 return Err(format!("目标路径已存在且不是软链接，无法覆盖: {:?}", dest));

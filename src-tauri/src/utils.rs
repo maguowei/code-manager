@@ -255,7 +255,10 @@ mod tests {
     #[test]
     fn strip_windows_verbatim_prefix_handles_common_shapes() {
         // 普通路径在所有平台上保持原样
-        assert_eq!(strip_windows_verbatim_prefix("C:/Users/test"), "C:/Users/test");
+        assert_eq!(
+            strip_windows_verbatim_prefix("C:/Users/test"),
+            "C:/Users/test"
+        );
         assert_eq!(strip_windows_verbatim_prefix("/tmp/file"), "/tmp/file");
 
         // verbatim 前缀仅在 Windows 上生效
