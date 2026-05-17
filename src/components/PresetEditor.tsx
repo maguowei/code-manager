@@ -101,8 +101,7 @@ export interface PresetEditorHandle {
 interface PresetEditorProps {
   preset: SettingsPreset | null;
   presets: SettingsPreset[];
-  // biome-ignore lint/suspicious/noConfusingVoidType: onSave 需要兼容既有的无返回值保存回调。
-  onSave: (data: PresetEditorSaveData) => Promise<boolean | void> | boolean | void;
+  onSave: (data: PresetEditorSaveData) => Promise<boolean> | boolean;
   onClose: () => void;
 }
 
@@ -504,7 +503,7 @@ const PresetEditor = forwardRef<PresetEditorHandle, PresetEditorProps>(function 
     }
 
     const result = await onSave(currentSaveData);
-    return result !== false;
+    return result;
   }
 
   const behaviorFields = PROFILE_SETTINGS_FORM_REGISTRY.filter(

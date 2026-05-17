@@ -1,6 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ToastProvider } from "../../hooks/useToast";
 import { I18nProvider } from "../../i18n";
 import LogViewer from "../LogViewer";
 
@@ -15,9 +14,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 function renderLogViewer(onClose = vi.fn()) {
   render(
     <I18nProvider>
-      <ToastProvider>
-        <LogViewer onClose={onClose} />
-      </ToastProvider>
+      <LogViewer onClose={onClose} />
     </I18nProvider>,
   );
 }

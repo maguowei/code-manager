@@ -101,8 +101,7 @@ export interface ProfileEditorHandle {
 interface ProfileEditorProps {
   profile: ConfigProfile | null;
   presets: SettingsPreset[];
-  // biome-ignore lint/suspicious/noConfusingVoidType: onSave 需要兼容既有的无返回值保存回调。
-  onSave: (data: ProfileEditorSaveData) => Promise<boolean | void> | boolean | void;
+  onSave: (data: ProfileEditorSaveData) => Promise<boolean> | boolean;
   onClose: () => void;
 }
 
@@ -478,7 +477,7 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
     const result = await onSave(
       buildProfileSaveData(profile?.id, name, description, presetId, settings),
     );
-    return result !== false;
+    return result;
   }
 
   async function handleTestModelClick(promptText?: string, keepDialogOpen = false) {

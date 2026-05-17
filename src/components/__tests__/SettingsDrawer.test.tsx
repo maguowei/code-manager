@@ -1,6 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ToastProvider } from "../../hooks/useToast";
 import { I18nProvider } from "../../i18n";
 import type { ConfigWorkspace } from "../../types";
 import SettingsDrawer from "../SettingsDrawer";
@@ -50,10 +49,8 @@ function renderSettingsDrawer() {
   render(
     <I18nProvider>
       <ThemeProvider>
-        <ToastProvider>
-          <SettingsDrawer onClose={vi.fn()} />
-          <Toaster richColors closeButton position="top-right" />
-        </ToastProvider>
+        <SettingsDrawer onClose={vi.fn()} />
+        <Toaster richColors closeButton position="top-right" />
       </ThemeProvider>
     </I18nProvider>,
   );

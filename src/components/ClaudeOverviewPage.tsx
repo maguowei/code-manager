@@ -88,7 +88,6 @@ const MAX_TREE_PANE_RATIO = 0.52;
 const TREE_PANE_RATIO_STEP = 0.02;
 const RESIZER_WIDTH = 8;
 const TREE_PANE_RATIO_STORAGE_KEY = "ai-manager:claude-overview-tree-pane-ratio";
-const LEGACY_TREE_PANE_WIDTH_STORAGE_KEY = "ai-manager:claude-overview-tree-pane-width";
 const TREE_LOADING_ROWS = Array.from({ length: 11 }, (_, index) => index);
 const TREE_LOADING_ROW_CLASS_NAMES = [
   "w-[62%]",
@@ -224,20 +223,6 @@ function readInitialTreePaneRatio() {
 
   const storedRatio = Number(storedValue);
   return Number.isFinite(storedRatio) ? clampTreePaneRatio(storedRatio) : DEFAULT_TREE_PANE_RATIO;
-}
-
-function readLegacyTreePaneWidth() {
-  if (typeof localStorage === "undefined") {
-    return null;
-  }
-
-  const storedValue = localStorage.getItem(LEGACY_TREE_PANE_WIDTH_STORAGE_KEY);
-  if (storedValue === null) {
-    return null;
-  }
-
-  const storedWidth = Number(storedValue);
-  return Number.isFinite(storedWidth) && storedWidth > 0 ? storedWidth : null;
 }
 
 function saveTreePaneRatio(ratio: number) {
@@ -827,7 +812,6 @@ function ClaudeOverviewPage() {
   const resizeShieldRef = useRef<HTMLDivElement | null>(null);
   const latestTreePaneRatioRef = useRef(treePaneRatio);
   const latestOverviewBodyWidthRef = useRef(overviewBodyWidth);
-  const migratedLegacyTreePaneWidthRef = useRef(false);
   const openPreviewsRef = useRef<ClaudeFilePreview[]>([]);
   const resizeFrameRef = useRef<number | null>(null);
   const resizeStateRef = useRef<{
@@ -957,28 +941,6 @@ function ClaudeOverviewPage() {
     observer.observe(overviewBody);
     return () => observer.disconnect();
   }, []);
-
-  useEffect(() => {
-    if (
-      migratedLegacyTreePaneWidthRef.current ||
-      typeof localStorage === "undefined" ||
-      overviewBodyWidth <= RESIZER_WIDTH ||
-      localStorage.getItem(TREE_PANE_RATIO_STORAGE_KEY) !== null
-    ) {
-      return;
-    }
-
-    migratedLegacyTreePaneWidthRef.current = true;
-    const legacyWidth = readLegacyTreePaneWidth();
-    if (legacyWidth === null) {
-      return;
-    }
-
-    const nextRatio = clampTreePaneRatio(legacyWidth / (overviewBodyWidth - RESIZER_WIDTH));
-    latestTreePaneRatioRef.current = nextRatio;
-    setTreePaneRatio(nextRatio);
-    saveTreePaneRatio(nextRatio);
-  }, [overviewBodyWidth]);
 
   const setResizeDragChromeVisible = useCallback((visible: boolean) => {
     setResizeDragChromeVisibility(

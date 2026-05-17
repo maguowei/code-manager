@@ -1,6 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ToastProvider } from "../../hooks/useToast";
 import { I18nProvider } from "../../i18n";
 import type { SessionDetail } from "../../types";
 import SessionDetailDrawer from "../SessionDetailDrawer";
@@ -29,13 +28,11 @@ function renderDrawer(detail: SessionDetail) {
 
   render(
     <I18nProvider>
-      <ToastProvider>
-        <SessionDetailDrawer
-          project="/Users/maguowei/Work/AI/ai-manager"
-          sessionId={detail.session_id}
-          onClose={vi.fn()}
-        />
-      </ToastProvider>
+      <SessionDetailDrawer
+        project="/Users/maguowei/Work/AI/ai-manager"
+        sessionId={detail.session_id}
+        onClose={vi.fn()}
+      />
     </I18nProvider>,
   );
 }

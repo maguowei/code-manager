@@ -3,10 +3,7 @@ import { useI18n } from "../../i18n";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import BrowseMarketplaceTab from "./BrowseMarketplaceTab";
 import EnabledPluginsTab from "./EnabledPluginsTab";
-import {
-  createOfficialPluginMetadataMap,
-  loadOfficialPluginCache,
-} from "./official-plugin-catalog";
+import { loadMarketplaceCatalogCache, type MarketplacePluginEntry } from "./marketplace-catalog";
 import { useEnabledPluginsState } from "./useEnabledPluginsState";
 import type { MarketplaceSourceInput } from "./useMarketplaceCatalog";
 
@@ -16,6 +13,15 @@ interface EnabledPluginsEditorProps {
   onError: (message: string) => void;
   showTitle?: boolean;
   marketplaceSources?: MarketplaceSourceInput[];
+}
+
+function createPluginMetadataMap(
+  plugins: MarketplacePluginEntry[],
+): Record<string, MarketplacePluginEntry> {
+  return plugins.reduce<Record<string, MarketplacePluginEntry>>((accumulator, plugin) => {
+    accumulator[plugin.pluginId] = plugin;
+    return accumulator;
+  }, {});
 }
 
 function EnabledPluginsEditor({
@@ -37,8 +43,9 @@ function EnabledPluginsEditor({
   } | null>(null);
 
   const metadataMap = useMemo(() => {
-    const cached = loadOfficialPluginCache()?.plugins ?? [];
-    return createOfficialPluginMetadataMap(cached);
+    const cache = loadMarketplaceCatalogCache() ?? {};
+    const cached = Object.values(cache).flatMap((entry) => entry.plugins);
+    return createPluginMetadataMap(cached);
   }, []);
 
   function handleManagePlugin(pluginId: string) {

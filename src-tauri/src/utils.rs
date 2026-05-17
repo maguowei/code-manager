@@ -32,21 +32,21 @@ pub fn home_dir_or_fallback() -> PathBuf {
     get_home_dir().unwrap_or_else(|_| PathBuf::from("."))
 }
 
-fn legacy_app_data_dir_from_home(home_dir: &Path) -> PathBuf {
+fn app_config_dir_from_home(home_dir: &Path) -> PathBuf {
     home_dir.join(".config").join("ai-manager")
 }
 
 fn platform_app_data_dir_from_home(home_dir: &Path) -> PathBuf {
     #[cfg(target_os = "macos")]
     {
-        legacy_app_data_dir_from_home(home_dir)
+        app_config_dir_from_home(home_dir)
     }
 
     #[cfg(not(target_os = "macos"))]
     {
         dirs::config_dir()
             .map(|dir| dir.join("ai-manager"))
-            .unwrap_or_else(|| legacy_app_data_dir_from_home(home_dir))
+            .unwrap_or_else(|| app_config_dir_from_home(home_dir))
     }
 }
 
@@ -56,7 +56,7 @@ pub fn get_app_data_dir() -> PathBuf {
         return PathBuf::from(path);
     }
     if let Some(path) = env::var_os("AI_MANAGER_HOME_OVERRIDE") {
-        return legacy_app_data_dir_from_home(&PathBuf::from(path));
+        return app_config_dir_from_home(&PathBuf::from(path));
     }
     platform_app_data_dir_from_home(&home_dir_or_fallback())
 }
@@ -67,7 +67,7 @@ pub fn get_app_data_dir_strict() -> Result<PathBuf, String> {
         return Ok(PathBuf::from(path));
     }
     if let Some(path) = env::var_os("AI_MANAGER_HOME_OVERRIDE") {
-        return Ok(legacy_app_data_dir_from_home(&PathBuf::from(path)));
+        return Ok(app_config_dir_from_home(&PathBuf::from(path)));
     }
     Ok(platform_app_data_dir_from_home(&get_home_dir()?))
 }

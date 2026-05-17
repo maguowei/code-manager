@@ -17,7 +17,6 @@ interface ThemeContextValue {
 }
 
 const STORAGE_KEY = "ai-manager.theme";
-const LEGACY_SETTINGS_KEY = "ai-manager-settings";
 const THEME_VALUES: Theme[] = ["system", "light", "dark"];
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -34,16 +33,6 @@ function readStoredTheme(): Theme {
   const stored = localStorage.getItem(STORAGE_KEY);
   if (isTheme(stored)) {
     return stored;
-  }
-
-  try {
-    const legacy = localStorage.getItem(LEGACY_SETTINGS_KEY);
-    const parsed = legacy ? JSON.parse(legacy) : null;
-    if (parsed && typeof parsed === "object" && isTheme(parsed.theme)) {
-      return parsed.theme;
-    }
-  } catch {
-    // 忽略损坏的旧本地缓存
   }
 
   return "system";

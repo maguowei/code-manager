@@ -9,6 +9,7 @@ vi.mock("sonner", () => ({
 }));
 
 import { toast } from "sonner";
+import * as toastModule from "@/hooks/useToast";
 import { useToast } from "@/hooks/useToast";
 
 describe("useToast (sonner adapter)", () => {
@@ -68,5 +69,9 @@ describe("useToast (sonner adapter)", () => {
     rerender();
 
     expect(result.current.showToast).toBe(firstShowToast);
+  });
+
+  it("不再导出空的 ToastProvider 兼容组件", () => {
+    expect(toastModule).not.toHaveProperty("ToastProvider");
   });
 });

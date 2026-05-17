@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
 
 /** Toast 消息类型 */
@@ -13,11 +13,6 @@ export type ShowToast = (message: string, type?: ToastType, options?: ToastOptio
 /** Toast hook 返回值接口 */
 interface ToastContextValue {
   showToast: ShowToast;
-}
-
-/** 兼容性 Provider：保留命名以减少调用点变更，不再持有状态 */
-export function ToastProvider({ children }: { children: ReactNode }) {
-  return <>{children}</>;
 }
 
 /** 获取 showToast 函数的 hook */

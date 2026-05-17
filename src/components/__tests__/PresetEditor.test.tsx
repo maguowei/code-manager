@@ -179,7 +179,7 @@ function renderEditor(options?: {
     models?: SettingsPreset["models"];
     modelSuggestions: string[];
     settingsPatch: Record<string, unknown>;
-  }) => void | Promise<void>;
+  }) => boolean | Promise<boolean>;
 }) {
   const preset = options && "preset" in options ? (options.preset ?? null) : PRESET_FIXTURE;
   const onSave =
@@ -198,8 +198,8 @@ function renderEditor(options?: {
         models?: SettingsPreset["models"];
         modelSuggestions: string[];
         settingsPatch: Record<string, unknown>;
-      }) => void | Promise<void>
-    >();
+      }) => boolean | Promise<boolean>
+    >(() => true);
   render(
     <I18nProvider>
       <PresetEditor

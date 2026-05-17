@@ -31,7 +31,6 @@ describe("ClaudeOverviewPage styles", () => {
       "grid-cols-[minmax(0,var(--claude-overview-preview-width))_8px_minmax(0,var(--claude-overview-tree-width))]",
     );
     expect(source).toContain("TREE_PANE_RATIO_STORAGE_KEY");
-    expect(source).toContain("LEGACY_TREE_PANE_WIDTH_STORAGE_KEY");
     expect(source).toContain("DEFAULT_TREE_PANE_RATIO = 0.28");
     expect(source).toContain("MIN_TREE_PANE_RATIO = 0.2");
     expect(source).toContain("MAX_TREE_PANE_RATIO = 0.52");
