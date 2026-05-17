@@ -3,7 +3,7 @@ import { EditorView } from "@codemirror/view";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { invoke } from "@tauri-apps/api/core";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
-import { ChevronLeft, Code2, ExternalLink, Eye, FileText, Folder, FolderOpen } from "lucide-react";
+import { ChevronLeft, Code2, Eye, FileText, Folder } from "lucide-react";
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { type Resolver, useForm } from "react-hook-form";
 import { showOperationError } from "@/lib/user-facing-error";
@@ -505,7 +505,7 @@ const SkillEditor = forwardRef<SkillEditorHandle, SkillEditorProps>(function Ski
                     onClick={handleOpenInEditor}
                     aria-label={t("skills.openInEditor")}
                   >
-                    <FolderOpen className="size-3.5" aria-hidden="true" />
+                    <Code2 className="size-3.5" aria-hidden="true" />
                     <span>{t("skills.openDirectory")}</span>
                   </Button>
                 ) : null}
@@ -687,7 +687,7 @@ const SkillEditor = forwardRef<SkillEditorHandle, SkillEditorProps>(function Ski
                         size="xs"
                         onClick={handleOpenInEditor}
                       >
-                        <ExternalLink className="size-3.5" aria-hidden="true" />
+                        <Code2 className="size-3.5" aria-hidden="true" />
                         {t("skills.openInEditor")}
                       </Button>
                     </div>

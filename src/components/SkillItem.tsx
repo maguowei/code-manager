@@ -1,4 +1,4 @@
-import { Copy, FolderOpen, Link2, RefreshCw, Trash2 } from "lucide-react";
+import { Code2, Copy, Link2, RefreshCw, Trash2 } from "lucide-react";
 import { type KeyboardEvent, type MouseEvent, memo } from "react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../i18n";
@@ -150,7 +150,7 @@ function SkillItem({
           aria-label={t("skills.openInEditor")}
           title={t("skills.openInEditor")}
         >
-          <FolderOpen aria-hidden="true" />
+          <Code2 aria-hidden="true" />
         </Button>
 
         <Button
