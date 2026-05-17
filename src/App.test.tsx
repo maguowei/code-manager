@@ -634,7 +634,11 @@ describe("App", () => {
           repoRoot: project,
           repositoryUrl: "https://github.example.com/team/alpha",
           hasClaudeMd: true,
+          hasProjectClaudeDir: true,
+          hasProjectClaudeSkills: true,
           agentsStatus: "missing",
+          agentsSkillsStatus: "missing",
+          projectSkills: [{ id: "review-skill", isSymlink: false }],
           branches: [],
           worktrees: [],
         };

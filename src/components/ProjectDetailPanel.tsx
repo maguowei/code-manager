@@ -15,6 +15,7 @@ import type { TranslationKey } from "../i18n";
 import { showOperationError } from "../lib/user-facing-error";
 import type { DefaultEditorApp, ProjectDetail, ProjectSummary } from "../types";
 import {
+  agentsSkillsStatusLabel,
   agentsStatusLabel,
   agentsStatusTone,
   formatCommitTime,
@@ -37,14 +38,17 @@ type ProjectDetailPanelProps = {
   detail: ProjectDetail | null;
   defaultEditorApp: DefaultEditorApp | null;
   canCreateAgentsLink: boolean;
+  canCreateAgentsSkillsLink?: boolean;
   canOpenRepository: boolean;
   canOpenProjectDirectory: boolean;
   canOpenInEditor: boolean;
   isLinkingAgents: boolean;
+  isLinkingAgentsSkills?: boolean;
   onOpenInTerminal: () => void;
   onOpenInEditor: () => void;
   onOpenRepository: () => void;
   onCreateAgentsLink: () => void;
+  onCreateAgentsSkillsLink?: () => void;
   onPreviewBranchCleanup?: () => void;
   onPreviewWorktreeCleanup?: () => void;
   onOpenWorktreeInTerminal?: (path: string) => void;
@@ -142,6 +146,26 @@ function SectionHeading({ title, description, action }: SectionHeadingProps) {
 
 function QuickActionLabel({ children }: { children: ReactNode }) {
   return <span className="min-w-0 truncate">{children}</span>;
+}
+
+function StatusRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div
+      className={cn(
+        "projects-status-row border-b py-3 first:pt-0 last:border-b-0 last:pb-0",
+        PROJECT_TAG_PAIR_CLASS,
+      )}
+    >
+      <dt className="projects-status-label shrink-0 text-sm leading-5 text-muted-foreground">
+        {label}
+      </dt>
+      <dd className="min-w-0">{children}</dd>
+    </div>
+  );
+}
+
+function projectSkillsCountLabel(t: TranslateFn, count: number) {
+  return t("projects.projectSkillsCount").replace("{count}", String(count));
 }
 
 function BranchesSection({ detail, isPreviewing, onPreviewCleanup, t }: BranchesSectionProps) {
@@ -480,14 +504,17 @@ function ProjectDetailPanel({
   detail,
   defaultEditorApp,
   canCreateAgentsLink,
+  canCreateAgentsSkillsLink = false,
   canOpenRepository,
   canOpenProjectDirectory,
   canOpenInEditor,
   isLinkingAgents,
+  isLinkingAgentsSkills = false,
   onOpenInTerminal,
   onOpenInEditor,
   onOpenRepository,
   onCreateAgentsLink,
+  onCreateAgentsSkillsLink,
   onPreviewBranchCleanup,
   onPreviewWorktreeCleanup,
   onOpenWorktreeInTerminal,
@@ -502,6 +529,13 @@ function ProjectDetailPanel({
   const agentsLabel = detail
     ? agentsStatusLabel(detail.agentsStatus, t)
     : t("projects.agentsMissing");
+  const agentsSkillsTone: StatusTone = detail
+    ? agentsStatusTone(detail.agentsSkillsStatus)
+    : "muted";
+  const agentsSkillsLabel = detail
+    ? agentsSkillsStatusLabel(detail.agentsSkillsStatus, t)
+    : t("projects.agentsSkillsMissing");
+  const projectSkills = detail?.projectSkills ?? [];
   const repositoryUrl = detail?.repositoryUrl;
   const handleCopyValue = useCallback(
     async (value: string, successKey: TranslationKey, errorKey: TranslationKey) => {
@@ -672,57 +706,90 @@ function ProjectDetailPanel({
             {t("projects.agentsDisabledConflict")}
           </p>
         )}
+        {detail?.agentsSkillsStatus === "plainFileConflict" && (
+          <p
+            className={cn(
+              "projects-inline-alert rounded-md border-l-4 px-3 py-2 text-sm leading-6",
+              TONE_ALERT_CLASS.warning,
+            )}
+          >
+            {t("projects.agentsSkillsDisabledConflict")}
+          </p>
+        )}
       </div>
 
       <Card className={cn("projects-agents-panel gap-4 rounded-lg p-5", PANEL_SURFACE_CLASS)}>
         <SectionHeading
           title={t("projects.agentsTitle")}
-          description={t("projects.agentsHelp")}
+          description={t("projects.projectClaudeManagementHelp")}
           action={
-            <Button
-              type="button"
-              className="projects-action-btn"
-              onClick={onCreateAgentsLink}
-              disabled={!canCreateAgentsLink || isLinkingAgents}
-            >
-              <Link2 className="size-4" />
-              {isLinkingAgents ? t("projects.linkingAgents") : t("projects.linkAgents")}
-            </Button>
+            <div className="projects-agents-actions flex flex-wrap justify-end gap-2 max-sm:w-full max-sm:flex-col">
+              <Button
+                type="button"
+                className="projects-action-btn"
+                onClick={onCreateAgentsLink}
+                disabled={!canCreateAgentsLink || isLinkingAgents}
+              >
+                <Link2 className="size-4" />
+                {isLinkingAgents ? t("projects.linkingAgents") : t("projects.linkAgents")}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="projects-action-btn"
+                onClick={onCreateAgentsSkillsLink}
+                disabled={
+                  !canCreateAgentsSkillsLink || isLinkingAgentsSkills || !onCreateAgentsSkillsLink
+                }
+              >
+                <Link2 className="size-4" />
+                {isLinkingAgentsSkills
+                  ? t("projects.linkingAgentsSkills")
+                  : t("projects.linkAgentsSkills")}
+              </Button>
+            </div>
           }
         />
 
         <div className="projects-agents-layout grid gap-5 md:grid-cols-[minmax(0,1.1fr)_minmax(220px,0.9fr)]">
           <dl className="projects-agents-state-list flex flex-col">
-            <div
-              className={cn(
-                "projects-status-row border-b py-3 first:pt-0 last:border-b-0 last:pb-0",
-                PROJECT_TAG_PAIR_CLASS,
-              )}
-            >
-              <dt className="projects-status-label shrink-0 text-sm leading-5 text-muted-foreground">
-                {t("projects.claudeMd")}
-              </dt>
-              <dd className="min-w-0">
-                <StatusBadge tone={detail?.hasClaudeMd ? "success" : "muted"}>
-                  {detail?.hasClaudeMd
-                    ? t("projects.claudeMdPresent")
-                    : t("projects.claudeMdMissing")}
+            <StatusRow label={t("projects.claudeMd")}>
+              <StatusBadge tone={detail?.hasClaudeMd ? "success" : "muted"}>
+                {detail?.hasClaudeMd
+                  ? t("projects.claudeMdPresent")
+                  : t("projects.claudeMdMissing")}
+              </StatusBadge>
+            </StatusRow>
+            <StatusRow label={t("projects.agentsMd")}>
+              <StatusBadge tone={agentsTone}>{agentsLabel}</StatusBadge>
+            </StatusRow>
+            <StatusRow label={t("projects.projectClaudeDirectory")}>
+              <StatusBadge tone={detail?.hasProjectClaudeDir ? "success" : "muted"}>
+                {detail?.hasProjectClaudeDir
+                  ? t("projects.projectClaudeDirectoryPresent")
+                  : t("projects.projectClaudeDirectoryMissing")}
+              </StatusBadge>
+            </StatusRow>
+            <StatusRow label={t("projects.projectClaudeSkills")}>
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <StatusBadge tone={detail?.hasProjectClaudeSkills ? "success" : "muted"}>
+                  {detail?.hasProjectClaudeSkills
+                    ? t("projects.projectClaudeSkillsPresent")
+                    : t("projects.projectClaudeSkillsMissing")}
                 </StatusBadge>
-              </dd>
-            </div>
-            <div
-              className={cn(
-                "projects-status-row border-b py-3 first:pt-0 last:border-b-0 last:pb-0",
-                PROJECT_TAG_PAIR_CLASS,
-              )}
-            >
-              <dt className="projects-status-label shrink-0 text-sm leading-5 text-muted-foreground">
-                {t("projects.agentsMd")}
-              </dt>
-              <dd className="min-w-0">
-                <StatusBadge tone={agentsTone}>{agentsLabel}</StatusBadge>
-              </dd>
-            </div>
+                {detail?.hasProjectClaudeSkills && (
+                  <Badge
+                    variant="outline"
+                    className={cn(PROJECT_TAG_CLASS, TONE_BADGE_CLASS.muted)}
+                  >
+                    {projectSkillsCountLabel(t, projectSkills.length)}
+                  </Badge>
+                )}
+              </div>
+            </StatusRow>
+            <StatusRow label={t("projects.agentsSkills")}>
+              <StatusBadge tone={agentsSkillsTone}>{agentsSkillsLabel}</StatusBadge>
+            </StatusRow>
           </dl>
 
           <div className="projects-agents-notes flex flex-col justify-center gap-2">
@@ -736,10 +803,44 @@ function ProjectDetailPanel({
                 {t("projects.agentsDisabledNoClaude")}
               </p>
             )}
+            {!detail?.hasProjectClaudeSkills && (
+              <p
+                className={cn(
+                  "projects-note projects-note-warning text-sm leading-6",
+                  TONE_TEXT_CLASS.warning,
+                )}
+              >
+                {t("projects.agentsSkillsDisabledNoProjectSkills")}
+              </p>
+            )}
             {detail?.agentsStatus === "wrongSymlink" && (
               <p className="projects-note text-sm leading-6 text-muted-foreground">
                 {t("projects.agentsHelp")}
               </p>
+            )}
+            {detail?.agentsSkillsStatus === "wrongSymlink" && (
+              <p className="projects-note text-sm leading-6 text-muted-foreground">
+                {t("projects.agentsSkillsHelp")}
+              </p>
+            )}
+            {projectSkills.length > 0 ? (
+              <div className="projects-project-skills-list flex min-w-0 flex-wrap gap-2">
+                {projectSkills.map((skill) => (
+                  <Badge
+                    key={skill.id}
+                    variant="outline"
+                    className={cn(PROJECT_TAG_CLASS, "font-normal text-muted-foreground")}
+                  >
+                    {skill.id}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              detail?.hasProjectClaudeSkills && (
+                <p className="projects-note text-sm leading-6 text-muted-foreground">
+                  {t("projects.projectSkillsEmpty")}
+                </p>
+              )
             )}
           </div>
         </div>

@@ -495,6 +495,7 @@ function ProjectsPage({ onOpenProjectHistory, onOpenProjectUsage }: ProjectsPage
   const [detail, setDetail] = useState<ProjectDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [isLinkingAgents, setIsLinkingAgents] = useState(false);
+  const [isLinkingAgentsSkills, setIsLinkingAgentsSkills] = useState(false);
   const [projectDirectoryExistsByPath, setProjectDirectoryExistsByPath] = useState<
     Record<string, boolean>
   >({});
@@ -736,6 +737,21 @@ function ProjectsPage({ onOpenProjectHistory, onOpenProjectUsage }: ProjectsPage
       showOperationError(showToast, t("toast.projectAgentsLinkError"), err);
     } finally {
       setIsLinkingAgents(false);
+    }
+  }, [loadProjectDetail, selectedProject, showToast, t]);
+
+  const handleCreateAgentsSkillsLink = useCallback(async () => {
+    if (!selectedProject || !isTauri()) return;
+
+    setIsLinkingAgentsSkills(true);
+    try {
+      await invoke("create_project_agents_skills_symlink", { project: selectedProject });
+      await loadProjectDetail(selectedProject, { clearBeforeLoad: false });
+      showToast(t("toast.projectAgentsSkillsLinked"));
+    } catch (err) {
+      showOperationError(showToast, t("toast.projectAgentsSkillsLinkError"), err);
+    } finally {
+      setIsLinkingAgentsSkills(false);
     }
   }, [loadProjectDetail, selectedProject, showToast, t]);
 
@@ -1067,6 +1083,8 @@ function ProjectsPage({ onOpenProjectHistory, onOpenProjectUsage }: ProjectsPage
 
   const canCreateAgentsLink =
     Boolean(detail?.hasClaudeMd) && detail?.agentsStatus !== "plainFileConflict";
+  const canCreateAgentsSkillsLink =
+    Boolean(detail?.hasProjectClaudeSkills) && detail?.agentsSkillsStatus !== "plainFileConflict";
   const canOpenRepository = Boolean(detail?.repositoryUrl);
   const canOpenProjectDirectory = Boolean(detail?.exists);
   const canOpenInEditor = canOpenProjectDirectory && Boolean(defaultEditorApp);
@@ -1193,14 +1211,17 @@ function ProjectsPage({ onOpenProjectHistory, onOpenProjectUsage }: ProjectsPage
               detail={detail}
               defaultEditorApp={defaultEditorApp}
               canCreateAgentsLink={canCreateAgentsLink}
+              canCreateAgentsSkillsLink={canCreateAgentsSkillsLink}
               canOpenRepository={canOpenRepository}
               canOpenProjectDirectory={canOpenProjectDirectory}
               canOpenInEditor={canOpenInEditor}
               isLinkingAgents={isLinkingAgents}
+              isLinkingAgentsSkills={isLinkingAgentsSkills}
               onOpenInTerminal={handleOpenInTerminal}
               onOpenInEditor={handleOpenInEditor}
               onOpenRepository={handleOpenRepository}
               onCreateAgentsLink={handleCreateAgentsLink}
+              onCreateAgentsSkillsLink={handleCreateAgentsSkillsLink}
               onPreviewBranchCleanup={() => handleRequestGitCleanupPreview("branches")}
               onPreviewWorktreeCleanup={() => handleRequestGitCleanupPreview("worktrees")}
               onOpenWorktreeInTerminal={handleOpenWorktreeInTerminal}
