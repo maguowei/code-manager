@@ -165,28 +165,25 @@ describe("ProjectsPage layout", () => {
     expect(sessionTime).toHaveClass("w-full", "text-right");
   });
 
-  it("keeps only git and AGENTS statuses in the compact status strip", () => {
+  it("removes the compact status strip and keeps AGENTS status in its own panel", () => {
     renderDetailPanel();
 
     expect(screen.queryByText("projects.directoryStatus")).not.toBeInTheDocument();
     expect(screen.queryByText("projects.directoryExists")).not.toBeInTheDocument();
-    expect(screen.getByText("projects.gitStatus")).toBeInTheDocument();
-    expect(screen.getAllByText("projects.agentsMd").length).toBeGreaterThan(0);
+    expect(document.querySelector(".projects-status-strip")).not.toBeInTheDocument();
+    expect(screen.queryByText("projects.gitStatus")).not.toBeInTheDocument();
+    expect(screen.queryByText("projects.gitRepo")).not.toBeInTheDocument();
+    expect(screen.getAllByText("projects.agentsMd")).toHaveLength(1);
   });
 
-  it("keeps project status labels and badges on the same compact rhythm", () => {
+  it("keeps AGENTS panel status labels and badges on the same compact rhythm", () => {
     renderDetailPanel();
-
-    const gitStatusItem = screen.getByText("projects.gitStatus").closest("div");
-    expect(gitStatusItem).toHaveClass("flex", "flex-wrap", "items-center");
-    expect(gitStatusItem).toHaveClass("gap-x-2", "gap-y-1");
 
     const agentsStatusRow = screen.getByText("projects.claudeMd").closest("div");
     expect(agentsStatusRow).toHaveClass("flex", "flex-wrap", "items-center");
     expect(agentsStatusRow).toHaveClass("gap-x-2", "gap-y-1");
     expect(agentsStatusRow).not.toHaveClass("grid");
 
-    expect(screen.getByText("projects.gitRepo")).toHaveClass("min-h-5", "px-2.5");
     expect(screen.getByText("projects.claudeMdPresent")).toHaveClass("min-h-5", "px-2.5");
   });
 
@@ -468,7 +465,6 @@ describe("ProjectsPage layout", () => {
       }),
     );
 
-    expect(screen.getByText("projects.notGitRepo")).toHaveClass("text-warning");
     expect(screen.getAllByText("projects.notGitRepoHint")[0]).toHaveClass("text-warning");
   });
 });

@@ -61,12 +61,6 @@ type SectionHeadingProps = {
   action?: ReactNode;
 };
 
-type StatusStripItemProps = {
-  label: string;
-  value: string;
-  tone: StatusTone;
-};
-
 type BranchesSectionProps = {
   detail: ProjectDetail | null;
   isPreviewing?: boolean;
@@ -148,22 +142,6 @@ function SectionHeading({ title, description, action }: SectionHeadingProps) {
 
 function QuickActionLabel({ children }: { children: ReactNode }) {
   return <span className="min-w-0 truncate">{children}</span>;
-}
-
-function StatusStripItem({ label, value, tone }: StatusStripItemProps) {
-  return (
-    <div
-      className={cn(
-        "projects-status-item border-t bg-card p-4 first:border-t-0 md:border-t-0 md:border-l md:first:border-l-0",
-        PROJECT_TAG_PAIR_CLASS,
-      )}
-    >
-      <span className="projects-status-item-label shrink-0 text-sm leading-5 text-muted-foreground">
-        {label}
-      </span>
-      <StatusBadge tone={tone}>{value}</StatusBadge>
-    </div>
-  );
 }
 
 function BranchesSection({ detail, isPreviewing, onPreviewCleanup, t }: BranchesSectionProps) {
@@ -520,7 +498,6 @@ function ProjectDetailPanel({
   isWorktreeCleanupPreviewing,
 }: ProjectDetailPanelProps) {
   const { showToast } = useToast();
-  const gitTone: StatusTone = detail?.isGitRepo ? "success" : detail?.exists ? "warning" : "muted";
   const agentsTone: StatusTone = detail ? agentsStatusTone(detail.agentsStatus) : "muted";
   const agentsLabel = detail
     ? agentsStatusLabel(detail.agentsStatus, t)
@@ -673,20 +650,6 @@ function ProjectDetailPanel({
           )}
         </Card>
       </header>
-
-      <Card
-        className={cn(
-          "projects-status-strip grid shrink-0 gap-0 overflow-hidden rounded-lg p-0 py-0 md:grid-cols-2",
-          PANEL_SURFACE_CLASS,
-        )}
-      >
-        <StatusStripItem
-          label={t("projects.gitStatus")}
-          value={detail?.isGitRepo ? t("projects.gitRepo") : t("projects.notGitRepo")}
-          tone={gitTone}
-        />
-        <StatusStripItem label={t("projects.agentsMd")} value={agentsLabel} tone={agentsTone} />
-      </Card>
 
       <div className="projects-alert-stack flex flex-col gap-2">
         {detail?.exists && !detail.isGitRepo && (

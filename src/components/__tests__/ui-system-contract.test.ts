@@ -346,9 +346,11 @@ describe("ui system contract", () => {
     expect(detailSource).toContain("lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,0.95fr)]");
     expect(detailSource).toContain("projects-hero-main flex min-w-0 flex-col gap-4 rounded-lg p-5");
     expect(detailSource).toContain("projects-hero-side min-w-0 gap-4 rounded-lg p-5");
-    expect(detailSource).toContain("projects-status-item border-t bg-card");
+    expect(detailSource).toContain("projects-agents-panel gap-4 rounded-lg p-5");
     expect(detailSource).toContain("PROJECT_TAG_PAIR_CLASS");
     expect(detailSource).toContain("PANEL_SURFACE_CLASS");
+    expect(detailSource).not.toContain("projects-status-strip");
+    expect(detailSource).not.toContain("projects-status-item");
     expect(detailSource).not.toContain("projects-hero grid gap-6 border-b pb-5");
     expect(detailSource).not.toContain("SUBTLE_SURFACE_CLASS");
   });
