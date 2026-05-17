@@ -38,6 +38,7 @@
 - 前端视觉默认采用“均衡管理台”风格：克制、紧凑、可扫描，不做营销式 hero、大字号展示或装饰性卡片堆叠。
 - Rust 新增文件读写、锁、时间、JSON 工具时，优先复用 `src-tauri/src/utils.rs`。
 - 数据库设计禁止使用外键。
+- `package.json` 的 `prepare` 脚本会自动安装 lefthook git hooks；提交前 staged 的 ts/tsx/json/css 会被 `biome check --write` 修改并 `stage_fixed`。
 
 ## 规则索引
 
@@ -55,12 +56,18 @@
 
 ## 快速入口
 
+前端：
+
 - 应用壳与页面编排：`src/App.tsx`
 - React 入口、全局 Provider 与错误日志：`src/main.tsx`
 - 国际化：`src/i18n.ts`
 - 类型契约：`src/types.ts`
 - 共享 schema 与表单定义：`src/schemas/`
 - 公共 hooks：`src/hooks/`
+- 共享表单原子：`src/components/forms/`（`StringListField` / `KeyValueField`）
+- 主题状态：`src/components/theme-provider.tsx`
+- 脱敏前端 logger：`src/utils/logger.ts`（与 Rust `logging.rs` 配合）
+- 历史聚合工具：`src/history-utils.ts`
 - 编辑器退出保护：`src/components/editor-exit-guard.ts`、`src/components/UnsavedChangesAlertDialog.tsx`
 - Tailwind v4 入口与 OKLCH 主题变量：`src/index.css`
 - shadcn 原子组件：`src/components/ui/`，类名拼接工具：`src/lib/utils.ts`（`cn()`）
@@ -68,12 +75,18 @@
 - 表面样式常量：`src/components/surface-classes.ts`（`PANEL_SURFACE_CLASS` 等）
 - 列表与抽屉布局常量：`src/components/layout-size-classes.ts`（`LIST_PANEL_WIDTH_CLASS` / `LIST_DETAIL_DRAWER_OFFSET_CLASS`）
 - `~/.claude` 文件树预览页：`src/components/ClaudeOverviewPage.tsx`
+- Vitest 全局 setup：`src/test/setup.ts`（配套 `vitest.config.ts`）
+
+后端：
+
 - Tauri 命令注册：`src-tauri/src/lib.rs`
 - Rust 公共工具：`src-tauri/src/utils.rs`
 - 配置系统核心：`src-tauri/src/config.rs`
 - 记忆管理：`src-tauri/src/memory.rs`
 - Skills 管理：`src-tauri/src/skills.rs`
 - 用量统计：`src-tauri/src/usage.rs`
+- 项目管理与清理：`src-tauri/src/project.rs`
+- 终端会话聚焦：`src-tauri/src/terminal_focus.rs`
 - Tauri capability：`src-tauri/capabilities/default.json`
 
 ## 架构同步点
@@ -84,6 +97,7 @@
 - JSON Schema 是配置系统的前后端共享契约锚点。
 - 配置预览、配置应用、模型测试、Provider/Preset、Skills、Memory 的真实持久化规则都在 Rust；前端负责调用与展示，不要复制后端业务逻辑。
 - `ProjectsPage` 读取 `~/.claude/history.jsonl`；`StatsPage` 读取 `~/.claude.json`；`UsagePage` 扫描 `~/.claude/projects/**/*.jsonl`。三者数据源不同，不要混用。
+- 用量 watcher 与 SQLite 迁移由 `usage::start_usage_runtime(app)` 在 `lib.rs::setup` 中启动；新增用量字段需要同步 `usage.rs` 的 `sql_migrations()`、`UsageRecord` struct、前端 `useUsage.ts` 与 `src/types.ts`。
 
 ## 关键数据目录
 
@@ -120,6 +134,7 @@
 ## 已知陷阱
 
 - CodeMirror 多版本冲突会导致空白页。排查：`grep "'@codemirror/state@" pnpm-lock.yaml`，预期只有一个版本；如出现多个版本，在 `package.json` 里用 `pnpm.overrides` 统一。
+- `invoke` 必须从 `@tauri-apps/api/core` 导入，不要使用 v1 的旧路径或 `@tauri-apps/api` 根导出。
 - 不要自实现浮层：抽屉、设置面板、模态框、下拉菜单和 Toast 都用 shadcn `Sheet` / `Dialog` / `DropdownMenu` / `Popover` / sonner，层级由组件本身管理。
 - 不要混淆 Projects、Stats 与 Usage：`ProjectsPage` 用 `~/.claude/history.jsonl`，`StatsPage` 用 `~/.claude.json`，`UsagePage` 用 `~/.claude/projects/**/*.jsonl`。
 - 不要把日志当成配置数据：日志目录由 Tauri 的 `app_log_dir()` 解析，不要迁移到 AI Manager 应用数据目录。
@@ -136,3 +151,4 @@
 6. `src-tauri/src/lib.rs`
 7. `src-tauri/src/utils.rs`
 8. 你要改的功能模块对应前后端文件
+9. 涉及发版流程时阅读 `.claude/skills/release-new-version/SKILL.md`（手动触发，模型不得自动调用）

@@ -62,5 +62,5 @@ paths:
 - 模型价格匹配优先精确命中，其次忽略大小写、provider 前缀、点/短横线/下划线等常见差异；Claude 的 opus / sonnet / haiku 可按系列兜底匹配同类最低 input 单价。
 - `thirdPartyProviderPricingEnabled` 默认开启；关闭后 Kimi / MiMo / GLM / MiniMax / DeepSeek 费用按 0 计入，且不作为未知模型提示。其他无法匹配价格的模型费用为 0，并进入未知模型列表。
 - `PricingTableDialog` 只展示当前 `PricingTable` 与当前筛选下的模型用量，不触发价格刷新；第三方计价关闭时要显示说明，但仍允许查看价目。
-- 用量 records、扫描索引和 last scan metadata 写入 `sqlite:usage.db`，索引表为 `usage_file_index`。
+- 用量 records、扫描索引和 last scan metadata 写入 `sqlite:usage.db`，索引表为 `usage_file_index`。SQL 迁移在 `usage::sql_migrations()` 中维护；新增列必须追加迁移条目（不要改既有迁移），并同步 `UsageRecord` struct、相关 command 与前端 `src/types.ts`。
 - `message.id` 是 usage 记录去重锚点；处理增量扫描、重扫和未知模型时不要破坏 SQLite 中的 `usage_records`、`usage_file_index` 与内存中的 `unknown_models` 一致性。

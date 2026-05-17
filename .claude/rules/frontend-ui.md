@@ -21,18 +21,20 @@ paths:
 - 类型契约：`src/types.ts`
 - 共享 schema 与表单定义：`src/schemas/`
 - 公共 hooks：`src/hooks/`
+- 脱敏前端 logger：`src/utils/logger.ts`
 - Tailwind v4 入口与 OKLCH 主题变量：`src/index.css`
 - shadcn 原子组件：`src/components/ui/`
-- 业务复用表单字段：`src/components/forms/`
+- 业务复用表单字段：`src/components/forms/`（`KeyValueField.tsx` / `StringListField.tsx`）
 - 主题状态管理：`src/components/theme-provider.tsx`
 - 字号层级常量：`src/components/typography-classes.ts`（`TYPOGRAPHY`）
 - 表面样式常量：`src/components/surface-classes.ts`（`PANEL_SURFACE_CLASS` / `SUBTLE_SURFACE_CLASS` / `TOOLBAR_SURFACE_CLASS` / `FLOATING_SURFACE_CLASS` / `CONTROL_SURFACE_CLASS`）
 - 列表与抽屉布局常量：`src/components/layout-size-classes.ts`（`LIST_PANEL_WIDTH_CLASS` / `LIST_PANEL_COMPRESSED_WIDTH_CLASS` / `LIST_DETAIL_DRAWER_OFFSET_CLASS`）
 - 页面头部统一组件：`src/components/PageHeader.tsx`（契约测试：`page-header-usage.test.ts`）
+- Vitest 全局 setup：`src/test/setup.ts`（配置入口 `vitest.config.ts`）
 
 ## 通用约束
 
-- 所有用户可见文本（按钮、标签、提示、空状态、错误提示等）必须走 `useI18n()` 的 `t()` 函数。
+- 所有用户可见文本（按钮、标签、提示、空状态、错误提示等）必须走 `useI18n()` 的 `t()` 函数。新增 key 时同步检查 `src/i18n.ts` 内的英文 fallback，确保两种语言都覆盖。
 - 所有用户反馈优先走 `useToast()`（底层 sonner），不要把 `console.error` 当作用户反馈。
 - 样式使用 Tailwind v4 工具类；颜色一律走 shadcn 语义变量（`bg-background` / `text-foreground` / `text-muted-foreground` / `bg-primary` / `text-destructive` / `border` 等），禁止硬编码十六进制色值。
 - 字号层级统一通过 `TYPOGRAPHY.*` 获取（`pageTitle` / `pageDescription` / `sectionTitle` / `dialogTitle` / `drawerTitle` / `cardTitle` / `fieldLabel` / `body` / `mutedBody` / `auxiliary` / `badge` / `metricValue` / `metricEmphasis`），不要在业务组件里直接拼 `text-lg font-semibold` 这类组合；新增层级先扩 `typography-classes.ts`。

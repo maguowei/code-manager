@@ -42,6 +42,12 @@ paths:
 - 终端当前支持：macOS 的 Terminal.app、iTerm、Warp、Ghostty；Linux 的 `$TERMINAL` / `xdg-terminal-exec` / `x-terminal-emulator` / 常见终端、Warp CLI、Ghostty CLI；Windows 的 Windows Terminal、PowerShell、cmd。
 - 如果只是调整信息展示，优先保持现有后端数据契约不变。
 
+### 分支与 Worktree 清理
+
+- 清理走两段式 preview/apply：分支用 `preview_project_branch_cleanup` -> `cleanup_project_branches`，worktree 用 `preview_project_worktree_cleanup` -> `cleanup_project_worktrees`；本地项目数据用 `preview_project_local_data_purge` -> `purge_project_local_data`。
+- UI 必须先调用 preview 显式展示将清理的分支 / worktree / 文件列表，由用户在弹窗中确认后再调用 apply，不要把两步合并成一次调用。
+- 后端只清理 preview 列表中已包含的条目，前端不要本地伪造清理项。
+
 ## 系统托盘与会话聚焦
 
 先读：
