@@ -2,6 +2,8 @@
 
 适用版本：`0.18.0`
 
+> 本文档面向终端用户。面向 Claude Code / Codex 等编程代理的执行手册见仓库根目录的 `CLAUDE.md`。
+
 AI Manager 是面向 Claude Code 用户的本地桌面管理工具。它把 `~/.claude` 目录、Profile、Preset、记忆、Skills、历史、统计、Token 用量、项目状态、系统托盘和诊断日志集中到一个 Tauri 应用中，帮助你用更可见、可预览、可验证的方式维护 Claude Code 本地配置。
 
 ## 目录
