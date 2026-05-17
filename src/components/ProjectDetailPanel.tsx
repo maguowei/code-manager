@@ -146,6 +146,10 @@ function SectionHeading({ title, description, action }: SectionHeadingProps) {
   );
 }
 
+function QuickActionLabel({ children }: { children: ReactNode }) {
+  return <span className="min-w-0 truncate">{children}</span>;
+}
+
 function StatusStripItem({ label, value, tone }: StatusStripItemProps) {
   return (
     <div
@@ -516,7 +520,6 @@ function ProjectDetailPanel({
   isWorktreeCleanupPreviewing,
 }: ProjectDetailPanelProps) {
   const { showToast } = useToast();
-  const directoryTone: StatusTone = detail?.exists ? "success" : "danger";
   const gitTone: StatusTone = detail?.isGitRepo ? "success" : detail?.exists ? "warning" : "muted";
   const agentsTone: StatusTone = detail ? agentsStatusTone(detail.agentsStatus) : "muted";
   const agentsLabel = detail
@@ -614,46 +617,48 @@ function ProjectDetailPanel({
           </div>
         </Card>
 
-        <Card className={cn("projects-hero-side gap-4 rounded-lg p-5", PANEL_SURFACE_CLASS)}>
+        <Card
+          className={cn("projects-hero-side min-w-0 gap-4 rounded-lg p-5", PANEL_SURFACE_CLASS)}
+        >
           <SectionHeading title={t("projects.quickActions")} />
           <div className="projects-hero-actions grid grid-cols-1 gap-2 sm:grid-cols-2">
             <Button
               type="button"
-              className="projects-action-btn projects-action-btn-primary sm:col-span-2"
+              className="projects-action-btn projects-action-btn-primary min-w-0 overflow-hidden sm:col-span-2"
               onClick={onOpenInTerminal}
               disabled={!canOpenProjectDirectory}
             >
-              <Terminal className="size-4" />
-              {t("projects.openInTerminal")}
+              <Terminal className="size-4" aria-hidden="true" />
+              <QuickActionLabel>{t("projects.openInTerminal")}</QuickActionLabel>
             </Button>
             <Button
               type="button"
               variant="outline"
-              className="projects-link-btn"
+              className="projects-link-btn min-w-0 overflow-hidden"
               onClick={onOpenInEditor}
               disabled={!canOpenInEditor}
             >
-              <Code2 className="size-4" />
-              {t("projects.openInEditor")}
+              <Code2 className="size-4" aria-hidden="true" />
+              <QuickActionLabel>{t("projects.openInEditor")}</QuickActionLabel>
             </Button>
             <Button
               type="button"
               variant="outline"
-              className="projects-link-btn"
+              className="projects-link-btn min-w-0 overflow-hidden"
               onClick={onOpenProjectUsage}
             >
-              <DollarSign className="size-4" />
-              {t("projects.viewTokenUsageCost")}
+              <DollarSign className="size-4" aria-hidden="true" />
+              <QuickActionLabel>{t("projects.viewTokenUsageCost")}</QuickActionLabel>
             </Button>
             <Button
               type="button"
               variant="outline"
-              className="projects-link-btn"
+              className="projects-link-btn min-w-0 overflow-hidden"
               onClick={onOpenRepository}
               disabled={!canOpenRepository}
             >
-              <ExternalLink className="size-4" />
-              {t("projects.openRepository")}
+              <ExternalLink className="size-4" aria-hidden="true" />
+              <QuickActionLabel>{t("projects.openRepository")}</QuickActionLabel>
             </Button>
           </div>
           {!defaultEditorApp && (
@@ -671,15 +676,10 @@ function ProjectDetailPanel({
 
       <Card
         className={cn(
-          "projects-status-strip grid shrink-0 gap-0 overflow-hidden rounded-lg p-0 py-0 md:grid-cols-3",
+          "projects-status-strip grid shrink-0 gap-0 overflow-hidden rounded-lg p-0 py-0 md:grid-cols-2",
           PANEL_SURFACE_CLASS,
         )}
       >
-        <StatusStripItem
-          label={t("projects.directoryStatus")}
-          value={detail?.exists ? t("projects.directoryExists") : t("projects.directoryMissing")}
-          tone={directoryTone}
-        />
         <StatusStripItem
           label={t("projects.gitStatus")}
           value={detail?.isGitRepo ? t("projects.gitRepo") : t("projects.notGitRepo")}
@@ -689,16 +689,6 @@ function ProjectDetailPanel({
       </Card>
 
       <div className="projects-alert-stack flex flex-col gap-2">
-        {!detail?.exists && (
-          <p
-            className={cn(
-              "projects-inline-alert rounded-md border-l-4 px-3 py-2 text-sm leading-6",
-              TONE_ALERT_CLASS.danger,
-            )}
-          >
-            {t("projects.directoryMissing")}
-          </p>
-        )}
         {detail?.exists && !detail.isGitRepo && (
           <p
             className={cn(

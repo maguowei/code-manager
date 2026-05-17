@@ -165,29 +165,50 @@ describe("ProjectsPage layout", () => {
     expect(sessionTime).toHaveClass("w-full", "text-right");
   });
 
-  it("keeps the status strip from shrinking inside the scroll column", () => {
+  it("keeps only git and AGENTS statuses in the compact status strip", () => {
     renderDetailPanel();
 
-    expect(screen.getByText("projects.directoryStatus")).toBeInTheDocument();
+    expect(screen.queryByText("projects.directoryStatus")).not.toBeInTheDocument();
+    expect(screen.queryByText("projects.directoryExists")).not.toBeInTheDocument();
     expect(screen.getByText("projects.gitStatus")).toBeInTheDocument();
     expect(screen.getAllByText("projects.agentsMd").length).toBeGreaterThan(0);
-    expect(screen.getByText("projects.directoryExists")).toHaveClass("text-success");
   });
 
   it("keeps project status labels and badges on the same compact rhythm", () => {
     renderDetailPanel();
 
-    const directoryStatusItem = screen.getByText("projects.directoryStatus").closest("div");
-    expect(directoryStatusItem).toHaveClass("flex", "flex-wrap", "items-center");
-    expect(directoryStatusItem).toHaveClass("gap-x-2", "gap-y-1");
+    const gitStatusItem = screen.getByText("projects.gitStatus").closest("div");
+    expect(gitStatusItem).toHaveClass("flex", "flex-wrap", "items-center");
+    expect(gitStatusItem).toHaveClass("gap-x-2", "gap-y-1");
 
     const agentsStatusRow = screen.getByText("projects.claudeMd").closest("div");
     expect(agentsStatusRow).toHaveClass("flex", "flex-wrap", "items-center");
     expect(agentsStatusRow).toHaveClass("gap-x-2", "gap-y-1");
     expect(agentsStatusRow).not.toHaveClass("grid");
 
-    expect(screen.getByText("projects.directoryExists")).toHaveClass("min-h-5", "px-2.5");
+    expect(screen.getByText("projects.gitRepo")).toHaveClass("min-h-5", "px-2.5");
     expect(screen.getByText("projects.claudeMdPresent")).toHaveClass("min-h-5", "px-2.5");
+  });
+
+  it("keeps quick actions in the side panel while allowing narrow buttons to wrap", () => {
+    renderDetailPanel();
+
+    const hero = document.querySelector(".projects-hero");
+    const actions = document.querySelector(".projects-hero-actions");
+    const terminalButton = screen.getByRole("button", { name: "projects.openInTerminal" });
+    const usageButton = screen.getByRole("button", { name: "projects.viewTokenUsageCost" });
+
+    expect(hero).toHaveClass("lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,0.95fr)]");
+    expect(hero).not.toHaveClass("2xl:grid-cols-[minmax(0,1.6fr)_minmax(280px,0.95fr)]");
+    expect(actions).toHaveClass("sm:grid-cols-2");
+    expect(actions).not.toHaveClass("2xl:grid-cols-2");
+    expect(terminalButton).toHaveClass("sm:col-span-2");
+    expect(usageButton).toHaveClass("min-w-0", "overflow-hidden");
+    expect(usageButton).not.toHaveClass("whitespace-normal");
+    expect(within(usageButton).getByText("projects.viewTokenUsageCost")).toHaveClass(
+      "min-w-0",
+      "truncate",
+    );
   });
 
   it("lets section heading actions wrap below the title on narrow widths", () => {

@@ -675,7 +675,7 @@ describe("App", () => {
     renderApp();
 
     fireEvent.click(await screen.findByRole("button", { name: "项目" }));
-    fireEvent.click(await screen.findByRole("button", { name: "查看 Token 用量与成本" }));
+    fireEvent.click(await screen.findByRole("button", { name: "查看Token用量" }));
 
     expect(await screen.findByRole("heading", { name: "Token 用量统计" })).toBeInTheDocument();
     await waitFor(() => {

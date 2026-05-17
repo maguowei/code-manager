@@ -41,6 +41,7 @@ import {
   PANEL_SURFACE_CLASS,
   SUBTLE_SURFACE_CLASS,
 } from "./surface-classes";
+import { TONE_BADGE_CLASS } from "./tone-classes";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -494,6 +495,9 @@ function ProjectsPage({ onOpenProjectHistory, onOpenProjectUsage }: ProjectsPage
   const [detail, setDetail] = useState<ProjectDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [isLinkingAgents, setIsLinkingAgents] = useState(false);
+  const [projectDirectoryExistsByPath, setProjectDirectoryExistsByPath] = useState<
+    Record<string, boolean>
+  >({});
   const [defaultEditorApp, setDefaultEditorApp] = useState<DefaultEditorApp | null>(null);
   const [viewingSession, setViewingSession] = useState<{
     project: string;
@@ -527,6 +531,9 @@ function ProjectsPage({ onOpenProjectHistory, onOpenProjectUsage }: ProjectsPage
 
       try {
         const result = await invoke<ProjectDetail>("get_project_detail", { project });
+        setProjectDirectoryExistsByPath((current) =>
+          current[project] === result.exists ? current : { ...current, [project]: result.exists },
+        );
         if (detailRequestIdRef.current === requestId) {
           setDetail(result);
         }
@@ -1155,6 +1162,14 @@ function ProjectsPage({ onOpenProjectHistory, onOpenProjectUsage }: ProjectsPage
                   >
                     {summary.messageCount} {t("projects.inputsUnit")}
                   </Badge>
+                  {projectDirectoryExistsByPath[summary.project] === false && (
+                    <Badge
+                      variant="outline"
+                      className={cn(PROJECT_TAG_CLASS, "font-normal", TONE_BADGE_CLASS.danger)}
+                    >
+                      {t("projects.projectDirectoryMissing")}
+                    </Badge>
+                  )}
                 </div>
                 <span className="projects-list-last-active text-xs leading-5 text-muted-foreground">
                   {t("projects.lastActive")} {formatHistoryTimestamp(summary.lastActiveAt)}

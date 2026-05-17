@@ -302,10 +302,33 @@ describe("ProjectsPage purge context menu", () => {
     const onOpenProjectUsage = vi.fn();
     renderPage({ onOpenProjectUsage });
 
-    const usageButton = await screen.findByRole("button", { name: "查看 Token 用量与成本" });
+    const usageButton = await screen.findByRole("button", { name: "查看Token用量" });
     fireEvent.click(usageButton);
 
     expect(onOpenProjectUsage).toHaveBeenCalledWith(PROJECT_ALPHA);
+  });
+
+  it("shows a missing directory warning on the selected project list card only", async () => {
+    invokeMock.mockImplementation(async (command, args) => {
+      const project = (args as { project?: string } | undefined)?.project ?? PROJECT_ALPHA;
+      if (command === "get_project_detail") {
+        return {
+          ...makeProjectDetail(project),
+          exists: project !== PROJECT_ALPHA,
+        };
+      }
+      return mockProjectInvokesForCommand(command, args);
+    });
+
+    renderPage();
+
+    const alphaButton = await findProjectButton(PROJECT_ALPHA);
+
+    await waitFor(() => {
+      expect(within(alphaButton).getByText("项目目录不存在")).toBeInTheDocument();
+    });
+    expect(within(alphaButton).queryByText("目录存在")).not.toBeInTheDocument();
+    expect(screen.queryByText("目录状态")).not.toBeInTheDocument();
   });
 
   it("cancels the preview dialog without executing purge", async () => {
