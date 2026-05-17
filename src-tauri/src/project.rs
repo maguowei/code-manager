@@ -1285,6 +1285,9 @@ fn inspect_project_files(project_dir: &Path) -> Result<ProjectFileStatus, String
                 AgentsStatus::WrongSymlink
             }
         }
+        Ok(_) if has_claude_md && files_are_same(&agents_path, &claude_path) => {
+            AgentsStatus::CorrectSymlink
+        }
         Ok(_) => AgentsStatus::PlainFileConflict,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => AgentsStatus::Missing,
         Err(e) => return Err(format!("读取 AGENTS.md 状态失败: {}", e)),
@@ -1311,6 +1314,9 @@ fn create_agents_symlink(project_dir: &Path) -> Result<(), String> {
             }
             fs::remove_file(&agents_path).map_err(|e| format!("删除旧的软链接失败: {}", e))?;
         }
+        Ok(_) if files_are_same(&agents_path, &claude_path) => {
+            return Ok(());
+        }
         Ok(_) => {
             return Err(format!(
                 "目标路径已存在且不是软链接，无法覆盖: {:?}",
@@ -1326,10 +1332,42 @@ fn create_agents_symlink(project_dir: &Path) -> Result<(), String> {
         .map_err(|e| format!("创建软链接失败: {}", e))?;
 
     #[cfg(windows)]
-    std::os::windows::fs::symlink_file(Path::new("CLAUDE.md"), &agents_path)
-        .map_err(|e| format!("创建软链接失败: {}", e))?;
+    std::os::windows::fs::symlink_file(Path::new("CLAUDE.md"), &agents_path).or_else(
+        |symlink_error| {
+            fs::hard_link(&claude_path, &agents_path).map_err(|hard_link_error| {
+                format!(
+                    "创建软链接失败: {}; 创建硬链接也失败: {}",
+                    symlink_error, hard_link_error
+                )
+            })
+        },
+    )?;
 
     Ok(())
+}
+
+fn files_are_same(left: &Path, right: &Path) -> bool {
+    let (Ok(left), Ok(right)) = (fs::metadata(left), fs::metadata(right)) else {
+        return false;
+    };
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        left.dev() == right.dev() && left.ino() == right.ino()
+    }
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        left.volume_serial_number() == right.volume_serial_number()
+            && left.file_index() == right.file_index()
+    }
+
+    #[cfg(not(any(unix, windows)))]
+    {
+        false
+    }
 }
 
 fn paths_match(left: &Path, right: &Path) -> bool {
@@ -1597,6 +1635,33 @@ mod tests {
 
         let wrong = inspect_project_files(sandbox.path()).unwrap();
         assert_eq!(wrong.agents_status, AgentsStatus::WrongSymlink);
+    }
+
+    #[test]
+    fn inspect_agents_status_accepts_hard_link_alias() {
+        let sandbox = TestDir::new();
+        let claude_path = sandbox.path().join("CLAUDE.md");
+        let agents_path = sandbox.path().join("AGENTS.md");
+        std::fs::write(&claude_path, "hello").unwrap();
+        std::fs::hard_link(&claude_path, &agents_path).unwrap();
+
+        let status = inspect_project_files(sandbox.path()).unwrap();
+
+        assert_eq!(status.agents_status, AgentsStatus::CorrectSymlink);
+    }
+
+    #[test]
+    fn create_agents_symlink_accepts_existing_hard_link_alias() {
+        let sandbox = TestDir::new();
+        let claude_path = sandbox.path().join("CLAUDE.md");
+        let agents_path = sandbox.path().join("AGENTS.md");
+        std::fs::write(&claude_path, "hello").unwrap();
+        std::fs::hard_link(&claude_path, &agents_path).unwrap();
+
+        create_agents_symlink(sandbox.path()).unwrap();
+
+        let status = inspect_project_files(sandbox.path()).unwrap();
+        assert_eq!(status.agents_status, AgentsStatus::CorrectSymlink);
     }
 
     #[test]

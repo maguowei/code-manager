@@ -213,7 +213,7 @@ refactor(settings): 收敛设置抽屉表单结构
 | CI / 脚本中只允许预批准工具 | `dontAsk` |
 | 本机真实工作区 | 不使用 `bypassPermissions` |
 
-本项目涉及本地 `~/.claude/`、`~/.config/ai-manager/`、日志目录、SQLite 缓存和 Tauri capability。凡是会写用户目录、清理项目数据、删除 Skill/Memory、修改权限配置的任务，都应保留人工确认或先做 preview。
+本项目涉及本地 `~/.claude/`、AI Manager 应用数据目录、日志目录、SQLite 缓存和 Tauri capability。凡是会写用户目录、清理项目数据、删除 Skill/Memory、修改权限配置的任务，都应保留人工确认或先做 preview。
 
 ## 上下文管理
 

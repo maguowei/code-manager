@@ -39,7 +39,7 @@ function chartHeightStyle(height: number): CSSProperties {
 
 /** 项目路径截取最后一级 */
 function shortPath(fullPath: string): string {
-  const parts = fullPath.split("/").filter(Boolean);
+  const parts = fullPath.split(/[\\/]/).filter(Boolean);
   return parts.length > 0 ? parts.at(-1) || fullPath : fullPath;
 }
 

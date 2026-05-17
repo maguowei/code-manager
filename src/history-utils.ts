@@ -23,7 +23,7 @@ export interface SessionGroup {
 
 /** 从完整路径提取项目短名 */
 export function shortProjectName(fullPath: string): string {
-  const parts = fullPath.split("/").filter(Boolean);
+  const parts = fullPath.split(/[\\/]/).filter(Boolean);
   return parts.length > 0 ? parts[parts.length - 1] : fullPath;
 }
 

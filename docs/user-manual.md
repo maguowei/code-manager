@@ -407,7 +407,7 @@ Skills 页用于管理 `~/.claude/skills/` 下的 Claude Code Skill。
 | --- | --- | --- | --- |
 | Terminal | 支持 Terminal.app | 依次尝试 `$TERMINAL`、`xdg-terminal-exec`、`x-terminal-emulator` 和常见终端命令 | 依次尝试 Windows Terminal、PowerShell、cmd |
 | iTerm | 支持 | 不支持 | 不支持 |
-| Warp | 支持 | 需要 `warp-terminal` CLI | 暂不支持 |
+| Warp | 支持 | 需要 `warp-terminal` CLI | 需要 `warp.exe` 或官方安装路径 |
 | Ghostty | 支持 | 需要 `ghostty` CLI | 暂不支持 |
 
 ### 状态检查
@@ -612,8 +612,14 @@ AI Manager 主要读写本机文件。配置合并、目录扫描、用量聚合
 
 ### 应用管理数据
 
+| 平台 | 应用数据目录 |
+| --- | --- |
+| macOS | `~/.config/ai-manager/` |
+| Linux | `$XDG_CONFIG_HOME/ai-manager/` 或 `~/.config/ai-manager/` |
+| Windows | `%APPDATA%\ai-manager\` |
+
 ```text
-~/.config/ai-manager/
+<应用数据目录>/
   config-registry.json
   memories.json
   model-pricing.json

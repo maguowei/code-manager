@@ -32,12 +32,33 @@ pub fn home_dir_or_fallback() -> PathBuf {
     get_home_dir().unwrap_or_else(|_| PathBuf::from("."))
 }
 
-/// 获取应用数据目录（~/.config/ai-manager），失败时降级为当前目录
+fn legacy_app_data_dir_from_home(home_dir: &Path) -> PathBuf {
+    home_dir.join(".config").join("ai-manager")
+}
+
+fn platform_app_data_dir_from_home(home_dir: &Path) -> PathBuf {
+    #[cfg(target_os = "macos")]
+    {
+        legacy_app_data_dir_from_home(home_dir)
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        dirs::config_dir()
+            .map(|dir| dir.join("ai-manager"))
+            .unwrap_or_else(|| legacy_app_data_dir_from_home(home_dir))
+    }
+}
+
+/// 获取应用数据目录：macOS 默认保留 `~/.config/ai-manager`，其它平台使用系统配置目录。
 pub fn get_app_data_dir() -> PathBuf {
     if let Some(path) = env::var_os("AI_MANAGER_APP_DATA_DIR_OVERRIDE") {
         return PathBuf::from(path);
     }
-    home_dir_or_fallback().join(".config").join("ai-manager")
+    if let Some(path) = env::var_os("AI_MANAGER_HOME_OVERRIDE") {
+        return legacy_app_data_dir_from_home(&PathBuf::from(path));
+    }
+    platform_app_data_dir_from_home(&home_dir_or_fallback())
 }
 
 /// 严格获取应用数据目录，失败时返回错误，不做降级。
@@ -45,7 +66,10 @@ pub fn get_app_data_dir_strict() -> Result<PathBuf, String> {
     if let Some(path) = env::var_os("AI_MANAGER_APP_DATA_DIR_OVERRIDE") {
         return Ok(PathBuf::from(path));
     }
-    Ok(get_home_dir()?.join(".config").join("ai-manager"))
+    if let Some(path) = env::var_os("AI_MANAGER_HOME_OVERRIDE") {
+        return Ok(legacy_app_data_dir_from_home(&PathBuf::from(path)));
+    }
+    Ok(platform_app_data_dir_from_home(&get_home_dir()?))
 }
 
 /// 获取当前 Unix 时间戳（秒）
@@ -153,13 +177,72 @@ pub fn ensure_dir_and_write_atomic(path: &Path, content: &str) -> Result<(), Str
         let _ = fs::set_permissions(&temp_path, fs::Permissions::from_mode(0o600));
     }
 
+    replace_file_with_temp(path, &temp_path)?;
+    Ok(())
+}
+
+fn replace_file_with_temp(path: &Path, temp_path: &Path) -> Result<(), String> {
     #[cfg(windows)]
-    if path.exists() {
-        fs::remove_file(path).map_err(|e| format!("替换文件失败 {:?}: {}", path, e))?;
+    {
+        replace_file_with_temp_windows(path, temp_path)
     }
 
-    fs::rename(&temp_path, path).map_err(|e| format!("原子替换文件失败 {:?}: {}", path, e))?;
-    Ok(())
+    #[cfg(not(windows))]
+    {
+        fs::rename(temp_path, path)
+            .map_err(|e| format!("原子替换文件失败 {:?}: {}", path, e))
+    }
+}
+
+#[cfg(windows)]
+fn replace_file_with_temp_windows(path: &Path, temp_path: &Path) -> Result<(), String> {
+    if !path.exists() {
+        return fs::rename(temp_path, path)
+            .map_err(|e| format!("原子替换文件失败 {:?}: {}", path, e));
+    }
+
+    let backup_path = windows_backup_path(path);
+    if backup_path.exists() {
+        fs::remove_file(&backup_path)
+            .map_err(|e| format!("清理旧备份文件失败 {:?}: {}", backup_path, e))?;
+    }
+
+    fs::rename(path, &backup_path).map_err(|e| format!("创建替换备份失败 {:?}: {}", path, e))?;
+
+    match fs::rename(temp_path, path) {
+        Ok(()) => {
+            let _ = fs::remove_file(&backup_path);
+            Ok(())
+        }
+        Err(error) => {
+            let restore_result = fs::rename(&backup_path, path);
+            if let Err(restore_error) = restore_result {
+                return Err(format!(
+                    "原子替换文件失败 {:?}: {}; 恢复原文件也失败: {}",
+                    path, error, restore_error
+                ));
+            }
+            Err(format!("原子替换文件失败 {:?}: {}", path, error))
+        }
+    }
+}
+
+#[cfg(windows)]
+fn windows_backup_path(path: &Path) -> PathBuf {
+    let backup_name = format!(
+        ".{}.backup-{}-{}",
+        path.file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("config"),
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()
+    );
+    path.parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join(backup_name)
 }
 
 /// 读取 JSON 文件并反序列化，失败时返回默认值
@@ -294,5 +377,82 @@ mod tests {
             let p = PathBuf::from(r"C:\Users\test");
             assert_eq!(normalize_path_for_display(&p), "C:/Users/test");
         }
+    }
+
+    #[test]
+    fn replace_file_with_temp_keeps_original_when_replacement_fails() {
+        let root = std::env::temp_dir().join(format!(
+            "ai-manager-utils-replace-{}-{}",
+            std::process::id(),
+            current_timestamp()
+        ));
+        fs::create_dir_all(&root).expect("应可创建测试目录");
+        let target = root.join("settings.json");
+        let bad_temp = root.join("bad-temp-dir");
+        fs::write(&target, "original").expect("应可写入原文件");
+        fs::create_dir_all(&bad_temp).expect("应可创建无效替换目录");
+
+        let result = replace_file_with_temp(&target, &bad_temp);
+
+        assert!(result.is_err());
+        assert_eq!(
+            fs::read_to_string(&target).expect("失败后原文件仍应存在"),
+            "original"
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn app_data_dir_uses_expected_platform_default() {
+        let root = std::env::temp_dir().join(format!(
+            "ai-manager-utils-app-data-{}-{}",
+            std::process::id(),
+            current_timestamp()
+        ));
+
+        #[cfg(target_os = "macos")]
+        assert_eq!(
+            platform_app_data_dir_from_home(&root),
+            root.join(".config").join("ai-manager")
+        );
+
+        #[cfg(not(target_os = "macos"))]
+        assert!(platform_app_data_dir_from_home(&root).ends_with("ai-manager"));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn app_data_dir_uses_home_override_when_app_data_override_is_absent() {
+        let _guard = TEST_ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let root = std::env::temp_dir().join(format!(
+            "ai-manager-utils-home-override-{}-{}",
+            std::process::id(),
+            current_timestamp()
+        ));
+        let previous_home = env::var_os("AI_MANAGER_HOME_OVERRIDE");
+        let previous_app_data = env::var_os("AI_MANAGER_APP_DATA_DIR_OVERRIDE");
+        env::set_var("AI_MANAGER_HOME_OVERRIDE", &root);
+        env::remove_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE");
+
+        assert_eq!(
+            get_app_data_dir(),
+            root.join(".config").join("ai-manager")
+        );
+        assert_eq!(
+            get_app_data_dir_strict().expect("严格路径应可读取 home override"),
+            root.join(".config").join("ai-manager")
+        );
+
+        match previous_home {
+            Some(value) => env::set_var("AI_MANAGER_HOME_OVERRIDE", value),
+            None => env::remove_var("AI_MANAGER_HOME_OVERRIDE"),
+        }
+        match previous_app_data {
+            Some(value) => env::set_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE", value),
+            None => env::remove_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE"),
+        }
+        let _ = fs::remove_dir_all(root);
     }
 }

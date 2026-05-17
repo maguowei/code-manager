@@ -7,6 +7,7 @@ import {
   formatTime,
   groupSessionsByDate,
   type SessionGroup,
+  shortProjectName,
   toLocalDateKey,
 } from "./history-utils";
 import type { HistoryEntry } from "./types";
@@ -35,6 +36,14 @@ function makeSession(
     lastTimestamp: lastTs,
   };
 }
+
+describe("shortProjectName", () => {
+  it("extracts the last segment from POSIX and Windows paths", () => {
+    expect(shortProjectName("/Users/demo/project.name")).toBe("project.name");
+    expect(shortProjectName(String.raw`C:\Users\demo\project.name`)).toBe("project.name");
+    expect(shortProjectName(String.raw`\\server\share\repo`)).toBe("repo");
+  });
+});
 
 describe("toLocalDateKey", () => {
   it("returns YYYY-MM-DD in local timezone", () => {

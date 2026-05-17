@@ -23,7 +23,7 @@ fn get_history_path() -> std::path::PathBuf {
 }
 
 fn encoded_project_path(project: &str) -> String {
-    project.replace(['/', '.'], "-")
+    project.replace(['/', '\\', '.', ':'], "-")
 }
 
 fn validate_session_file_inputs(
@@ -537,6 +537,12 @@ mod tests {
 
         assert!(path.ends_with(Path::new(
             ".claude/projects/-Users-demo-project-name/session-123.jsonl"
+        )));
+
+        let windows_path = session_file_path(r"C:\Users\demo\project.name", "session-123").unwrap();
+
+        assert!(windows_path.ends_with(Path::new(
+            ".claude/projects/C--Users-demo-project-name/session-123.jsonl"
         )));
     }
 
