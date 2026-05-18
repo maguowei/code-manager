@@ -643,32 +643,30 @@ describe("App", () => {
           worktrees: [],
         };
       }
-      if (command === "get_usage_summary") {
+      if (command === "get_usage_snapshot") {
         return {
-          totalMessages: 1,
-          totalSessions: 1,
-          totalProjects: 1,
-          totalInput: 100,
-          totalOutput: 50,
-          totalCacheCreation: 0,
-          totalCacheRead: 0,
-          totalCost: 0.01,
-          lastScanMs: null,
-          pricing: { source: "builtin", fetchedAtMs: null, models: {} },
-          thirdPartyProviderPricingEnabled: true,
-          unknownModels: [],
-          allProjects: [{ projectPath: project, projectDir: "-Users-test-user-work-alpha" }],
-          allModels: [],
+          summary: {
+            totalMessages: 1,
+            totalSessions: 1,
+            totalProjects: 1,
+            totalInput: 100,
+            totalOutput: 50,
+            totalCacheCreation: 0,
+            totalCacheRead: 0,
+            totalCost: 0.01,
+            lastScanMs: null,
+            pricing: { source: "builtin", fetchedAtMs: null, models: {} },
+            thirdPartyProviderPricingEnabled: true,
+            unknownModels: [],
+            allProjects: [{ projectPath: project, projectDir: "-Users-test-user-work-alpha" }],
+            allModels: [],
+          },
+          daily: [],
+          timeSeries: [],
+          projects: [],
+          sessions: [],
+          models: [],
         };
-      }
-      if (
-        command === "get_usage_daily" ||
-        command === "get_usage_time_series" ||
-        command === "get_usage_by_project" ||
-        command === "get_usage_by_session" ||
-        command === "get_usage_by_model"
-      ) {
-        return [];
       }
       return null;
     });
@@ -680,8 +678,9 @@ describe("App", () => {
 
     expect(await screen.findByRole("heading", { name: "Token 用量统计" })).toBeInTheDocument();
     await waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith("get_usage_summary", {
+      expect(invokeMock).toHaveBeenCalledWith("get_usage_snapshot", {
         filter: { projectPath: project },
+        granularity: "day",
       });
     });
     expect(screen.getByRole("combobox", { name: "项目" })).toHaveValue(project);
