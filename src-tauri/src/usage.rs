@@ -325,6 +325,19 @@ pub struct ScanResult {
     pub elapsed_ms: u64,
 }
 
+/// 用量页一次刷新的全量聚合视图：把 summary/daily/timeSeries/projects/sessions/models
+/// 合并为单次 Tauri command 返回，避免前端 6 个 invoke 串行触发后端 7 次全表扫描。
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UsageSnapshot {
+    pub summary: UsageSummary,
+    pub daily: Vec<DailyUsage>,
+    pub time_series: Vec<UsageTimeSeriesPoint>,
+    pub projects: Vec<ProjectUsage>,
+    pub sessions: Vec<SessionUsage>,
+    pub models: Vec<ModelUsageStat>,
+}
+
 // ============ 路径与价格加载 ============
 
 const BUILTIN_PRICING: &str = include_str!("../resources/model-pricing.json");
@@ -514,6 +527,21 @@ async fn initialize_usage_database(pool: &SqlitePool) -> Result<(), String> {
         .await
         .map_err(|e| e.to_string())?;
     sqlx::query("PRAGMA synchronous = NORMAL")
+        .execute(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    // 64MB 页缓存：负数表示按 KB 计算 -65536 = 64MB
+    sqlx::query("PRAGMA cache_size = -65536")
+        .execute(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    // 临时表/排序走内存，避免落盘
+    sqlx::query("PRAGMA temp_store = MEMORY")
+        .execute(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    // 256MB mmap 读，减少全表扫描的 syscall 开销
+    sqlx::query("PRAGMA mmap_size = 268435456")
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
@@ -1946,6 +1974,7 @@ fn aggregate_time_series(
     aggregate_time_series_with_third_party_pricing(records, filter, pricing, granularity, true)
 }
 
+#[cfg(test)]
 fn aggregate_time_series_with_third_party_pricing(
     records: &[UsageRecord],
     filter: &UsageFilter,
@@ -1959,6 +1988,21 @@ fn aggregate_time_series_with_third_party_pricing(
         pricing,
         third_party_provider_pricing_enabled,
     );
+    aggregate_time_series_from_filtered(
+        &filtered,
+        pricing,
+        granularity,
+        third_party_provider_pricing_enabled,
+    )
+}
+
+/// 从已过滤记录构造时间序列：避免在 `get_usage_snapshot` 中再做一次 filter。
+fn aggregate_time_series_from_filtered(
+    filtered: &[&UsageRecord],
+    pricing: &PricingTable,
+    granularity: UsageTimeGranularity,
+    third_party_provider_pricing_enabled: bool,
+) -> Vec<UsageTimeSeriesPoint> {
     let mut buckets: HashMap<i64, (String, Vec<&UsageRecord>)> = HashMap::new();
     for r in filtered {
         let Some((bucket, bucket_start_ms)) = local_bucket_for_ms(r.timestamp_ms, granularity)
@@ -1969,7 +2013,7 @@ fn aggregate_time_series_with_third_party_pricing(
             .entry(bucket_start_ms)
             .or_insert_with(|| (bucket, Vec::new()))
             .1
-            .push(r);
+            .push(*r);
     }
 
     let mut list: Vec<UsageTimeSeriesPoint> = buckets
@@ -2012,37 +2056,13 @@ fn aggregate_time_series_with_third_party_pricing(
     list
 }
 
-// ============ Tauri commands ============
-
-#[tauri::command]
-pub async fn get_usage_summary(
-    filter: UsageFilter,
-    state: State<'_, UsageState>,
-) -> Result<UsageSummary, String> {
-    let pool = state.db_pool()?;
-    let (pricing, state_last_scan_ms) = {
-        let inner = state.inner.read().map_err(|e| e.to_string())?;
-        (inner.pricing.clone(), inner.last_scan_ms)
-    };
-    let third_party_pricing_enabled = third_party_provider_pricing_enabled();
-    let records = load_usage_records_db(&pool, &filter).await?;
-    let filtered = apply_filter_with_third_party_pricing(
-        &records,
-        &filter,
-        &pricing,
-        third_party_pricing_enabled,
-    );
-
+/// 从已过滤记录累加 summary 的 totals 字段；
+/// pricing / last_scan_ms / all_projects / all_models / unknown_models 由 command 单独填充。
+fn aggregate_summary_totals(filtered: &[&UsageRecord]) -> UsageSummary {
     let mut sessions: HashSet<&str> = HashSet::new();
     let mut projects: HashSet<&str> = HashSet::new();
-    let mut total = UsageSummary {
-        last_scan_ms: state_last_scan_ms.or(load_last_scan_ms_db(&pool).await?),
-        pricing: pricing.clone(),
-        third_party_provider_pricing_enabled: third_party_pricing_enabled,
-        ..Default::default()
-    };
-
-    for r in &filtered {
+    let mut total = UsageSummary::default();
+    for r in filtered {
         total.total_messages += 1;
         total.total_input += r.input_tokens;
         total.total_output += r.output_tokens;
@@ -2054,67 +2074,18 @@ pub async fn get_usage_summary(
     }
     total.total_sessions = sessions.len() as u64;
     total.total_projects = projects.len() as u64;
-
-    let mut project_set: HashMap<String, String> = HashMap::new();
-    let mut model_set: HashSet<String> = HashSet::new();
-    let all_records = load_usage_records_db(&pool, &UsageFilter::default()).await?;
-    let mut unknown_models: HashSet<String> = HashSet::new();
-    for r in &all_records {
-        project_set
-            .entry(r.project_path.clone())
-            .or_insert_with(|| r.project_dir.clone());
-        model_set.insert(r.model.clone());
-        if is_unknown_model(&r.model, &pricing, third_party_pricing_enabled) {
-            unknown_models.insert(r.model.clone());
-        }
-    }
-    let mut all_projects: Vec<ProjectOption> = project_set
-        .into_iter()
-        .map(|(path, dir)| ProjectOption {
-            project_path: path,
-            project_dir: dir,
-        })
-        .collect();
-    all_projects.sort_by(|a, b| a.project_path.cmp(&b.project_path));
-    let mut all_models: Vec<String> = model_set.into_iter().collect();
-    all_models.sort();
-    total.unknown_models = unknown_models.into_iter().collect();
-    total.unknown_models.sort();
-    total.all_projects = all_projects;
-    total.all_models = all_models;
-    Ok(total)
+    total
 }
 
-#[tauri::command]
-pub async fn get_usage_daily(
-    filter: UsageFilter,
-    state: State<'_, UsageState>,
-) -> Result<Vec<DailyUsage>, String> {
-    let pool = state.db_pool()?;
-    let pricing = state
-        .inner
-        .read()
-        .map_err(|e| e.to_string())?
-        .pricing
-        .clone();
-    let third_party_pricing_enabled = third_party_provider_pricing_enabled();
-    let records = load_usage_records_db(&pool, &filter).await?;
-    let filtered = apply_filter_with_third_party_pricing(
-        &records,
-        &filter,
-        &pricing,
-        third_party_pricing_enabled,
-    );
-
+fn aggregate_daily_from_filtered(filtered: &[&UsageRecord]) -> Vec<DailyUsage> {
     let mut buckets: HashMap<String, Vec<&UsageRecord>> = HashMap::new();
     for r in filtered {
         let date = ms_to_local_date(r.timestamp_ms);
         if date.is_empty() {
             continue;
         }
-        buckets.entry(date).or_default().push(r);
+        buckets.entry(date).or_default().push(*r);
     }
-
     let mut list: Vec<DailyUsage> = buckets
         .into_iter()
         .map(|(date, items)| {
@@ -2138,59 +2109,14 @@ pub async fn get_usage_daily(
         })
         .collect();
     list.sort_by(|a, b| a.date.cmp(&b.date));
-    Ok(list)
+    list
 }
 
-#[tauri::command]
-pub async fn get_usage_time_series(
-    filter: UsageFilter,
-    granularity: UsageTimeGranularity,
-    state: State<'_, UsageState>,
-) -> Result<Vec<UsageTimeSeriesPoint>, String> {
-    let pool = state.db_pool()?;
-    let pricing = state
-        .inner
-        .read()
-        .map_err(|e| e.to_string())?
-        .pricing
-        .clone();
-    let third_party_pricing_enabled = third_party_provider_pricing_enabled();
-    let records = load_usage_records_db(&pool, &filter).await?;
-    Ok(aggregate_time_series_with_third_party_pricing(
-        &records,
-        &filter,
-        &pricing,
-        granularity,
-        third_party_pricing_enabled,
-    ))
-}
-
-#[tauri::command]
-pub async fn get_usage_by_project(
-    filter: UsageFilter,
-    state: State<'_, UsageState>,
-) -> Result<Vec<ProjectUsage>, String> {
-    let pool = state.db_pool()?;
-    let pricing = state
-        .inner
-        .read()
-        .map_err(|e| e.to_string())?
-        .pricing
-        .clone();
-    let third_party_pricing_enabled = third_party_provider_pricing_enabled();
-    let records = load_usage_records_db(&pool, &filter).await?;
-    let filtered = apply_filter_with_third_party_pricing(
-        &records,
-        &filter,
-        &pricing,
-        third_party_pricing_enabled,
-    );
-
+fn aggregate_projects_from_filtered(filtered: &[&UsageRecord]) -> Vec<ProjectUsage> {
     let mut buckets: HashMap<String, Vec<&UsageRecord>> = HashMap::new();
     for r in filtered {
-        buckets.entry(r.project_path.clone()).or_default().push(r);
+        buckets.entry(r.project_path.clone()).or_default().push(*r);
     }
-
     let mut list: Vec<ProjectUsage> = buckets
         .into_iter()
         .map(|(path, items)| {
@@ -2226,35 +2152,14 @@ pub async fn get_usage_by_project(
             .partial_cmp(&a.cost)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
-    Ok(list)
+    list
 }
 
-#[tauri::command]
-pub async fn get_usage_by_session(
-    filter: UsageFilter,
-    state: State<'_, UsageState>,
-) -> Result<Vec<SessionUsage>, String> {
-    let pool = state.db_pool()?;
-    let pricing = state
-        .inner
-        .read()
-        .map_err(|e| e.to_string())?
-        .pricing
-        .clone();
-    let third_party_pricing_enabled = third_party_provider_pricing_enabled();
-    let records = load_usage_records_db(&pool, &filter).await?;
-    let filtered = apply_filter_with_third_party_pricing(
-        &records,
-        &filter,
-        &pricing,
-        third_party_pricing_enabled,
-    );
-
+fn aggregate_sessions_from_filtered(filtered: &[&UsageRecord]) -> Vec<SessionUsage> {
     let mut buckets: HashMap<String, Vec<&UsageRecord>> = HashMap::new();
     for r in filtered {
-        buckets.entry(r.session_id.clone()).or_default().push(r);
+        buckets.entry(r.session_id.clone()).or_default().push(*r);
     }
-
     let mut list: Vec<SessionUsage> = buckets
         .into_iter()
         .map(|(sid, items)| {
@@ -2298,22 +2203,25 @@ pub async fn get_usage_by_session(
         })
         .collect();
     list.sort_by_key(|s| std::cmp::Reverse(s.last_active_ms));
-    Ok(list)
+    list
 }
 
+// ============ Tauri commands ============
+
 #[tauri::command]
-pub async fn get_usage_by_model(
+pub async fn get_usage_snapshot(
     filter: UsageFilter,
+    granularity: UsageTimeGranularity,
     state: State<'_, UsageState>,
-) -> Result<Vec<ModelUsageStat>, String> {
+) -> Result<UsageSnapshot, String> {
     let pool = state.db_pool()?;
-    let pricing = state
-        .inner
-        .read()
-        .map_err(|e| e.to_string())?
-        .pricing
-        .clone();
+    let (pricing, state_last_scan_ms) = {
+        let inner = state.inner.read().map_err(|e| e.to_string())?;
+        (inner.pricing.clone(), inner.last_scan_ms)
+    };
     let third_party_pricing_enabled = third_party_provider_pricing_enabled();
+
+    // 一次性拉取符合 filter 的事实数据，所有聚合都基于它
     let records = load_usage_records_db(&pool, &filter).await?;
     let filtered = apply_filter_with_third_party_pricing(
         &records,
@@ -2321,7 +2229,74 @@ pub async fn get_usage_by_model(
         &pricing,
         third_party_pricing_enabled,
     );
-    Ok(aggregate_model_stats(&filtered))
+
+    // summary 主体：totals 来自 filtered，pricing/all_projects/all_models/unknown_models 走轻量 lookup
+    let mut summary = aggregate_summary_totals(&filtered);
+    summary.last_scan_ms = state_last_scan_ms.or(load_last_scan_ms_db(&pool).await?);
+    summary.pricing = pricing.clone();
+    summary.third_party_provider_pricing_enabled = third_party_pricing_enabled;
+
+    let (all_projects, all_models) = load_usage_lookup_db(&pool).await?;
+    let mut unknown_models: Vec<String> = all_models
+        .iter()
+        .filter(|m| is_unknown_model(m, &pricing, third_party_pricing_enabled))
+        .cloned()
+        .collect();
+    unknown_models.sort();
+    summary.unknown_models = unknown_models;
+    summary.all_projects = all_projects;
+    summary.all_models = all_models;
+
+    let daily = aggregate_daily_from_filtered(&filtered);
+    let time_series = aggregate_time_series_from_filtered(
+        &filtered,
+        &pricing,
+        granularity,
+        third_party_pricing_enabled,
+    );
+    let projects = aggregate_projects_from_filtered(&filtered);
+    let sessions = aggregate_sessions_from_filtered(&filtered);
+    let models = aggregate_model_stats(&filtered);
+
+    Ok(UsageSnapshot {
+        summary,
+        daily,
+        time_series,
+        projects,
+        sessions,
+        models,
+    })
+}
+
+/// 从 usage_records 读取去重的 project / model 列表。
+/// 用来填充用量页下拉与推导 unknown_models，避免再次拉全表事实数据。
+async fn load_usage_lookup_db(
+    pool: &SqlitePool,
+) -> Result<(Vec<ProjectOption>, Vec<String>), String> {
+    let project_rows = sqlx::query(
+        "SELECT DISTINCT project_path, project_dir FROM usage_records ORDER BY project_path",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    let mut projects: Vec<ProjectOption> = Vec::with_capacity(project_rows.len());
+    for row in project_rows {
+        projects.push(ProjectOption {
+            project_path: row.try_get("project_path").map_err(|e| e.to_string())?,
+            project_dir: row.try_get("project_dir").map_err(|e| e.to_string())?,
+        });
+    }
+
+    let model_rows = sqlx::query("SELECT DISTINCT model FROM usage_records ORDER BY model")
+        .fetch_all(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    let mut models: Vec<String> = Vec::with_capacity(model_rows.len());
+    for row in model_rows {
+        models.push(row.try_get("model").map_err(|e| e.to_string())?);
+    }
+
+    Ok((projects, models))
 }
 
 #[tauri::command]
@@ -3183,6 +3158,120 @@ mod tests {
 
             assert_eq!(records.len(), 1);
             assert_eq!(records[0].message_id, "msg-1");
+        });
+    }
+
+    /// 护栏：snapshot 抽离的各 helper 之间维度一致，且 summary 累加等于各分维度累加。
+    /// 这是 6 个旧 command 行为合并到 `get_usage_snapshot` 后的等价性测试。
+    #[test]
+    fn aggregate_helpers_are_dimensionally_consistent() {
+        let pricing = sample_pricing();
+        let mk = |id: &str, sess: &str, project: &str, model: &str, ts: &str| {
+            let mut r = make_usage_record(id, sess, 100, 200);
+            r.project_path = project.into();
+            r.project_dir = project.trim_start_matches('/').replace('/', "-");
+            r.model = model.into();
+            r.timestamp_ms = parse_iso8601_ms(ts).unwrap();
+            r
+        };
+        let records = vec![
+            mk(
+                "msg-a",
+                "sess-1",
+                "/tmp/one",
+                "claude-opus-4-7",
+                "2026-04-19T10:00:00Z",
+            ),
+            mk(
+                "msg-b",
+                "sess-1",
+                "/tmp/one",
+                "claude-sonnet-4-6",
+                "2026-04-19T15:00:00Z",
+            ),
+            mk(
+                "msg-c",
+                "sess-2",
+                "/tmp/two",
+                "claude-opus-4-7",
+                "2026-04-20T10:00:00Z",
+            ),
+        ];
+
+        let filter = UsageFilter::default();
+        let filtered = apply_filter_with_third_party_pricing(&records, &filter, &pricing, true);
+
+        let summary = aggregate_summary_totals(&filtered);
+        let daily = aggregate_daily_from_filtered(&filtered);
+        let projects = aggregate_projects_from_filtered(&filtered);
+        let sessions = aggregate_sessions_from_filtered(&filtered);
+        let models = aggregate_model_stats(&filtered);
+        let time_series = aggregate_time_series_from_filtered(
+            &filtered,
+            &pricing,
+            UsageTimeGranularity::Day,
+            true,
+        );
+
+        assert_eq!(summary.total_messages, records.len() as u64);
+        assert_eq!(summary.total_sessions, 2);
+        assert_eq!(summary.total_projects, 2);
+
+        let daily_msgs: u64 = daily.iter().map(|d| d.messages).sum();
+        let project_msgs: u64 = projects.iter().map(|p| p.messages).sum();
+        let session_msgs: u64 = sessions.iter().map(|s| s.messages).sum();
+        let model_msgs: u64 = models.iter().map(|m| m.messages).sum();
+        let ts_msgs: u64 = time_series.iter().map(|t| t.messages).sum();
+        assert_eq!(daily_msgs, summary.total_messages);
+        assert_eq!(project_msgs, summary.total_messages);
+        assert_eq!(session_msgs, summary.total_messages);
+        assert_eq!(model_msgs, summary.total_messages);
+        assert_eq!(ts_msgs, summary.total_messages);
+
+        let daily_input: u64 = daily.iter().map(|d| d.input_tokens).sum();
+        let project_input: u64 = projects.iter().map(|p| p.input_tokens).sum();
+        let session_input: u64 = sessions.iter().map(|s| s.input_tokens).sum();
+        let model_input: u64 = models.iter().map(|m| m.input_tokens).sum();
+        assert_eq!(daily_input, summary.total_input);
+        assert_eq!(project_input, summary.total_input);
+        assert_eq!(session_input, summary.total_input);
+        assert_eq!(model_input, summary.total_input);
+
+        // daily/time_series 在 Day 粒度下应有 2 个桶（4/19 与 4/20）
+        assert_eq!(daily.len(), 2);
+        assert_eq!(time_series.len(), 2);
+        // sessions: sess-1 有两条 message（且模型不同），sess-2 一条
+        let sess_one = sessions.iter().find(|s| s.session_id == "sess-1").unwrap();
+        assert_eq!(sess_one.messages, 2);
+        assert_eq!(sess_one.models.len(), 2);
+    }
+
+    /// load_usage_lookup_db 返回去重 + 排序后的 project 列表与 model 列表，替代旧 get_usage_summary
+    /// 中的"无 filter 全量加载"路径。
+    #[test]
+    fn usage_lookup_returns_distinct_sorted_projects_and_models() {
+        tauri::async_runtime::block_on(async {
+            let pool = test_usage_pool().await;
+            let mut a = make_usage_record("a", "s1", 1, 1);
+            a.project_path = "/p1".into();
+            a.project_dir = "-p1".into();
+            a.model = "claude-opus-4-7".into();
+            let mut b = make_usage_record("b", "s2", 1, 1);
+            b.project_path = "/p1".into();
+            b.project_dir = "-p1".into();
+            b.model = "claude-sonnet-4-6".into();
+            let mut c = make_usage_record("c", "s3", 1, 1);
+            c.project_path = "/p2".into();
+            c.project_dir = "-p2".into();
+            c.model = "claude-sonnet-4-6".into();
+
+            merge_usage_records_db(&pool, &[a, b, c]).await.unwrap();
+
+            let (projects, models) = load_usage_lookup_db(&pool).await.unwrap();
+            assert_eq!(projects.len(), 2);
+            assert_eq!(projects[0].project_path, "/p1");
+            assert_eq!(projects[1].project_path, "/p2");
+            assert_eq!(models, vec!["claude-opus-4-7", "claude-sonnet-4-6"]);
         });
     }
 

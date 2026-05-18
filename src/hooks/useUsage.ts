@@ -8,6 +8,7 @@ import {
   type ProjectUsage,
   type SessionUsage,
   type UsageFilter,
+  type UsageSnapshot,
   type UsageSummary,
   type UsageTab,
   type UsageTimeGranularity,
@@ -93,24 +94,17 @@ export function useUsage(errorFallback = "加载用量数据失败"): UseUsageRe
       requestSeqRef.current = requestSeq;
       setLoading(true);
       try {
-        const [s, d, series, p, sess, m] = await Promise.all([
-          invoke<UsageSummary>("get_usage_summary", { filter: currentFilter }),
-          invoke<DailyUsage[]>("get_usage_daily", { filter: currentFilter }),
-          invoke<UsageTimeSeriesPoint[]>("get_usage_time_series", {
-            filter: currentFilter,
-            granularity,
-          }),
-          invoke<ProjectUsage[]>("get_usage_by_project", { filter: currentFilter }),
-          invoke<SessionUsage[]>("get_usage_by_session", { filter: currentFilter }),
-          invoke<ModelUsageStat[]>("get_usage_by_model", { filter: currentFilter }),
-        ]);
+        const snapshot = await invoke<UsageSnapshot>("get_usage_snapshot", {
+          filter: currentFilter,
+          granularity,
+        });
         if (requestSeq !== requestSeqRef.current) return;
-        setSummary(s);
-        setDaily(d);
-        setTimeSeries(series);
-        setProjects(p);
-        setSessions(sess);
-        setModels(m);
+        setSummary(snapshot.summary);
+        setDaily(snapshot.daily);
+        setTimeSeries(snapshot.timeSeries);
+        setProjects(snapshot.projects);
+        setSessions(snapshot.sessions);
+        setModels(snapshot.models);
         setError(null);
       } catch (e) {
         if (requestSeq !== requestSeqRef.current) return;

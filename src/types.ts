@@ -614,6 +614,16 @@ export interface UsageSummary {
   allModels: string[];
 }
 
+// 用量页一次刷新的全量聚合视图：把 summary/daily/timeSeries/projects/sessions/models 合并为单次响应
+export interface UsageSnapshot {
+  summary: UsageSummary;
+  daily: DailyUsage[];
+  timeSeries: UsageTimeSeriesPoint[];
+  projects: ProjectUsage[];
+  sessions: SessionUsage[];
+  models: ModelUsageStat[];
+}
+
 export interface SessionUsageDetail {
   session: SessionUsage;
   messages: UsageRecord[];
