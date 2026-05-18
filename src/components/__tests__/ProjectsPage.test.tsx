@@ -101,6 +101,8 @@ function makeProjectDetail(project: string): ProjectDetail {
     hasProjectClaudeSkills: true,
     agentsStatus: "missing",
     agentsSkillsStatus: "missing",
+    memoryPairStatus: "onlyClaude",
+    skillsPairStatus: "onlyClaude",
     projectSkills: [{ id: "review-skill", isSymlink: false }],
     branches: [
       {
@@ -389,7 +391,8 @@ describe("ProjectsPage purge context menu", () => {
     renderPage();
     expect(await screen.findByText(PROJECT_ALPHA)).toBeInTheDocument();
 
-    const agentsButton = await screen.findByRole("button", { name: "生成 / 修复 AGENTS.md" });
+    const memorySection = await screen.findByTestId("pair-section-memory");
+    const agentsButton = within(memorySection).getByRole("button", { name: "同步配对" });
     await waitFor(() => {
       expect(agentsButton).toBeEnabled();
     });
@@ -408,9 +411,8 @@ describe("ProjectsPage purge context menu", () => {
     renderPage();
     expect(await screen.findByText(PROJECT_ALPHA)).toBeInTheDocument();
 
-    const skillsButton = await screen.findByRole("button", {
-      name: "生成 / 修复 .agents/skills",
-    });
+    const skillsSection = await screen.findByTestId("pair-section-skills");
+    const skillsButton = within(skillsSection).getByRole("button", { name: "同步配对" });
     await waitFor(() => {
       expect(skillsButton).toBeEnabled();
     });

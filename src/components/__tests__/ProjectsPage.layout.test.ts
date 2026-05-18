@@ -35,6 +35,8 @@ const DETAIL: ProjectDetail = {
   hasProjectClaudeDir: true,
   hasProjectClaudeSkills: true,
   agentsSkillsStatus: "missing",
+  memoryPairStatus: "onlyClaude",
+  skillsPairStatus: "onlyClaude",
   projectSkills: [{ id: "review-skill", isSymlink: false }],
   branches: [],
   worktrees: [],
@@ -228,7 +230,11 @@ describe("ProjectsPage layout", () => {
       }),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "projects.linkAgentsSkills" }));
+    fireEvent.click(
+      within(screen.getByTestId("pair-section-skills")).getByRole("button", {
+        name: /projects\.sync/,
+      }),
+    );
 
     expect(onCreateAgentsSkillsLink).toHaveBeenCalledTimes(1);
   });
@@ -254,15 +260,15 @@ describe("ProjectsPage layout", () => {
     );
   });
 
-  it("lets section heading actions wrap below the title on narrow widths", () => {
+  it("lets pair section actions wrap below the title on narrow widths", () => {
     renderDetailPanel();
 
-    const agentsAction = screen
-      .getByRole("button", { name: "projects.linkAgents" })
-      .closest(".projects-section-heading-action");
+    const heading = screen
+      .getByTestId("pair-section-memory")
+      .querySelector(".projects-pair-heading");
 
-    expect(agentsAction).toHaveClass("max-sm:w-full");
-    expect(agentsAction).toHaveClass("max-sm:[&>button]:w-full");
+    expect(heading).toHaveClass("flex-wrap");
+    expect(heading).toHaveClass("items-start");
   });
 
   it("renders recent sessions instead of cost and duration in the detail panel", () => {

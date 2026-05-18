@@ -1081,10 +1081,12 @@ function ProjectsPage({ onOpenProjectHistory, onOpenProjectUsage }: ProjectsPage
     }
   }, [gitCleanupDialog, loadProjectDetail, showToast, t]);
 
-  const canCreateAgentsLink =
-    Boolean(detail?.hasClaudeMd) && detail?.agentsStatus !== "plainFileConflict";
-  const canCreateAgentsSkillsLink =
-    Boolean(detail?.hasProjectClaudeSkills) && detail?.agentsSkillsStatus !== "plainFileConflict";
+  const canCreateAgentsLink = detail
+    ? ["onlyClaude", "onlyAgents", "wrongSymlink"].includes(detail.memoryPairStatus)
+    : false;
+  const canCreateAgentsSkillsLink = detail
+    ? ["onlyClaude", "onlyAgents", "wrongSymlink"].includes(detail.skillsPairStatus)
+    : false;
   const canOpenRepository = Boolean(detail?.repositoryUrl);
   const canOpenProjectDirectory = Boolean(detail?.exists);
   const canOpenInEditor = canOpenProjectDirectory && Boolean(defaultEditorApp);
