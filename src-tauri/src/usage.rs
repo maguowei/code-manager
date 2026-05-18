@@ -2270,11 +2270,16 @@ pub async fn get_usage_snapshot(
 
 /// 从 usage_records 读取去重的 project / model 列表。
 /// 用来填充用量页下拉与推导 unknown_models，避免再次拉全表事实数据。
+/// project 按 project_path 聚合，project_dir 取字典序最小值，保证每个项目只出一行——
+/// 与旧 get_usage_summary 中 `HashMap<project_path, project_dir>` 的语义对齐。
 async fn load_usage_lookup_db(
     pool: &SqlitePool,
 ) -> Result<(Vec<ProjectOption>, Vec<String>), String> {
     let project_rows = sqlx::query(
-        "SELECT DISTINCT project_path, project_dir FROM usage_records ORDER BY project_path",
+        "SELECT project_path, MIN(project_dir) AS project_dir
+         FROM usage_records
+         GROUP BY project_path
+         ORDER BY project_path",
     )
     .fetch_all(pool)
     .await
@@ -3272,6 +3277,34 @@ mod tests {
             assert_eq!(projects[0].project_path, "/p1");
             assert_eq!(projects[1].project_path, "/p2");
             assert_eq!(models, vec!["claude-opus-4-7", "claude-sonnet-4-6"]);
+        });
+    }
+
+    /// 回归：同一 project_path 在历史数据中出现多个 project_dir（例如 Claude Code
+    /// 转义规则跨版本变化、jsonl 被搬运）时，lookup 仍应每个项目只出一行，
+    /// project_dir 取字典序最小值——与旧 `HashMap<project_path, project_dir>` 行为对齐。
+    #[test]
+    fn usage_lookup_collapses_multiple_project_dirs_per_path() {
+        tauri::async_runtime::block_on(async {
+            let pool = test_usage_pool().await;
+            let mut a = make_usage_record("a", "s1", 1, 1);
+            a.project_path = "/p1".into();
+            a.project_dir = "-p1-new".into();
+            let mut b = make_usage_record("b", "s2", 1, 1);
+            b.project_path = "/p1".into();
+            b.project_dir = "-p1-old".into();
+            let mut c = make_usage_record("c", "s3", 1, 1);
+            c.project_path = "/p2".into();
+            c.project_dir = "-p2".into();
+
+            merge_usage_records_db(&pool, &[a, b, c]).await.unwrap();
+
+            let (projects, _models) = load_usage_lookup_db(&pool).await.unwrap();
+            assert_eq!(projects.len(), 2);
+            assert_eq!(projects[0].project_path, "/p1");
+            assert_eq!(projects[0].project_dir, "-p1-new"); // MIN("-p1-new", "-p1-old") = "-p1-new"
+            assert_eq!(projects[1].project_path, "/p2");
+            assert_eq!(projects[1].project_dir, "-p2");
         });
     }
 
