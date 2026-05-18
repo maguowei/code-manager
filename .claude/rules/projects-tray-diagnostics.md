@@ -35,7 +35,7 @@ paths:
 - 该区域强调“操作与仓库状态”，不要退回松散的同权重卡片布局。
 - 项目列表来自 `~/.claude/history.jsonl`，不要回退到 `~/.claude.json`。
 - 后端通过 `git` 获取 repo root、remote、branch、worktree 信息；错误消息不要泄露敏感 remote 凭据。
-- `AGENTS.md` 管理只应创建指向 `CLAUDE.md` 的相对软链接。
+- `AGENTS.md` / `.agents/skills` 与 `CLAUDE.md` / `.claude/skills` 是双向配对：任一端为真文件 / 真目录都可派生另一端的相对软链；两端都不存在、内容冲突或孤儿软链时禁止自动操作并显式提示用户手动处理。
 - 打开终端或编辑器使用设置中的默认应用，统一走 `src-tauri/src/native_open.rs`，不要在具体模块里重复平台分支。
 - 设置页展示的终端和编辑器来自内置支持清单 + 本机检测；不要把系统任意 App 直接列入可选项，除非同时补齐对应平台的打开命令和测试。
 - 编辑器当前支持 VS Code、Cursor、Windsurf、Zed；Linux 和 Windows 依赖对应 CLI 在 `PATH` 中。

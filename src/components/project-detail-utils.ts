@@ -1,5 +1,5 @@
 import type { useI18n } from "../i18n";
-import type { AgentsStatus } from "../types";
+import type { AgentsStatus, PairStatus } from "../types";
 
 export type TranslateFn = ReturnType<typeof useI18n>["t"];
 
@@ -62,5 +62,47 @@ export function agentsStatusTone(status: AgentsStatus) {
       return "danger";
     default:
       return "muted";
+  }
+}
+
+/// 判定 pair status 下"同步配对"按钮是否可用
+export function isPairActionable(status: PairStatus) {
+  return status === "onlyClaude" || status === "onlyAgents" || status === "wrongSymlink";
+}
+
+/// pair status 在卡片右上角徽标的 tone
+export function pairStatusTone(status: PairStatus) {
+  switch (status) {
+    case "paired":
+      return "success";
+    case "onlyClaude":
+    case "onlyAgents":
+    case "wrongSymlink":
+      return "warning";
+    case "conflict":
+    case "orphanSymlink":
+      return "danger";
+    default:
+      return "muted";
+  }
+}
+
+/// pair status 的简短文本（用于徽标 / 旁注）
+export function pairStatusLabel(status: PairStatus, t: TranslateFn): string {
+  switch (status) {
+    case "paired":
+      return t("projects.pairPaired");
+    case "onlyClaude":
+      return t("projects.pairOnlyClaude");
+    case "onlyAgents":
+      return t("projects.pairOnlyAgents");
+    case "wrongSymlink":
+      return t("projects.pairWrongSymlink");
+    case "conflict":
+      return t("projects.pairConflict");
+    case "orphanSymlink":
+      return t("projects.pairOrphanSymlink");
+    default:
+      return t("projects.pairBothMissing");
   }
 }

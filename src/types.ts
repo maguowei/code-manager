@@ -388,6 +388,15 @@ export interface ProjectSummary {
 
 export type AgentsStatus = "missing" | "correctSymlink" | "wrongSymlink" | "plainFileConflict";
 
+export type PairStatus =
+  | "bothMissing"
+  | "onlyClaude"
+  | "onlyAgents"
+  | "paired"
+  | "wrongSymlink"
+  | "conflict"
+  | "orphanSymlink";
+
 export interface ProjectBranch {
   name: string;
   isCurrent: boolean;
@@ -420,6 +429,8 @@ export interface ProjectDetail {
   hasProjectClaudeSkills: boolean;
   agentsStatus: AgentsStatus;
   agentsSkillsStatus: AgentsStatus;
+  memoryPairStatus: PairStatus;
+  skillsPairStatus: PairStatus;
   projectSkills: ProjectSkillSummary[];
   branches: ProjectBranch[];
   worktrees: ProjectWorktree[];

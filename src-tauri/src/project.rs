@@ -13,6 +13,26 @@ pub enum AgentsStatus {
     PlainFileConflict,
 }
 
+/// 两端配对的整体状态，覆盖 CLAUDE.md ↔ AGENTS.md 与 `.claude/skills` ↔ `.agents/skills`
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum PairStatus {
+    /// 两端都不存在
+    BothMissing,
+    /// 仅 Claude 端为真文件 / 真目录，可派生 Codex 端软链
+    OnlyClaude,
+    /// 仅 Codex 端为真文件 / 真目录，可派生 Claude 端软链
+    OnlyAgents,
+    /// 已成对（hard link / 内容相同 / 软链方向正确）
+    Paired,
+    /// 一端是真源，另一端是错误软链，可删除旧软链后重建
+    WrongSymlink,
+    /// 两端都是真文件且无法判源（内容不同或互不相关）
+    Conflict,
+    /// 两端都是软链，或仅有孤儿软链而无真源，无法修复
+    OrphanSymlink,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectBranch {
@@ -59,6 +79,8 @@ pub struct ProjectDetail {
     pub has_project_claude_skills: bool,
     pub agents_status: AgentsStatus,
     pub agents_skills_status: AgentsStatus,
+    pub memory_pair_status: PairStatus,
+    pub skills_pair_status: PairStatus,
     pub project_skills: Vec<ProjectSkillSummary>,
     pub branches: Vec<ProjectBranch>,
     pub worktrees: Vec<ProjectWorktree>,
@@ -130,6 +152,8 @@ struct ProjectFileStatus {
     has_project_claude_skills: bool,
     agents_status: AgentsStatus,
     agents_skills_status: AgentsStatus,
+    memory_pair_status: PairStatus,
+    skills_pair_status: PairStatus,
     project_skills: Vec<ProjectSkillSummary>,
 }
 
@@ -188,6 +212,8 @@ pub fn get_project_detail(project: &str) -> Result<ProjectDetail, String> {
             has_project_claude_skills: false,
             agents_status: AgentsStatus::Missing,
             agents_skills_status: AgentsStatus::Missing,
+            memory_pair_status: PairStatus::BothMissing,
+            skills_pair_status: PairStatus::BothMissing,
             project_skills: Vec::new(),
             branches: Vec::new(),
             worktrees: Vec::new(),
@@ -233,6 +259,8 @@ pub fn get_project_detail(project: &str) -> Result<ProjectDetail, String> {
         has_project_claude_skills: file_status.has_project_claude_skills,
         agents_status: file_status.agents_status,
         agents_skills_status: file_status.agents_skills_status,
+        memory_pair_status: file_status.memory_pair_status,
+        skills_pair_status: file_status.skills_pair_status,
         project_skills: file_status.project_skills,
         branches,
         worktrees,
@@ -1336,11 +1364,16 @@ fn inspect_project_files(project_dir: &Path) -> Result<ProjectFileStatus, String
         Err(e) => return Err(format!("读取 AGENTS.md 状态失败: {}", e)),
     };
 
+    let memory_pair_status = inspect_memory_pair_status(&claude_path, &agents_path)?;
+
     let agents_skills_status = inspect_agents_skills_status(
         project_dir,
         &project_claude_skills_path,
         has_project_claude_skills,
     )?;
+
+    let skills_pair_status =
+        inspect_skills_pair_status(project_dir, &project_claude_skills_path)?;
 
     Ok(ProjectFileStatus {
         has_claude_md,
@@ -1348,8 +1381,143 @@ fn inspect_project_files(project_dir: &Path) -> Result<ProjectFileStatus, String
         has_project_claude_skills,
         agents_status,
         agents_skills_status,
+        memory_pair_status,
+        skills_pair_status,
         project_skills,
     })
+}
+
+/// 端点种类：用于 PairStatus 的分支判定
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EndpointKind {
+    /// 不存在
+    Missing,
+    /// 真文件 / 真目录（包含 hard link）
+    Source,
+    /// 软链接（无论 target 是否可达）
+    Symlink,
+    /// 既不是普通文件 / 目录也不是软链（FIFO、socket 等），或类型不匹配预期
+    Foreign,
+}
+
+fn classify_file_endpoint(path: &Path) -> Result<EndpointKind, String> {
+    match fs::symlink_metadata(path) {
+        Ok(meta) if meta.file_type().is_symlink() => Ok(EndpointKind::Symlink),
+        Ok(meta) if meta.is_file() => Ok(EndpointKind::Source),
+        Ok(_) => Ok(EndpointKind::Foreign),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(EndpointKind::Missing),
+        Err(e) => Err(format!("读取 {:?} 状态失败: {}", path, e)),
+    }
+}
+
+fn classify_dir_endpoint(path: &Path) -> Result<EndpointKind, String> {
+    match fs::symlink_metadata(path) {
+        Ok(meta) if meta.file_type().is_symlink() => Ok(EndpointKind::Symlink),
+        Ok(meta) if meta.is_dir() => Ok(EndpointKind::Source),
+        Ok(_) => Ok(EndpointKind::Foreign),
+        Err(e)
+            if e.kind() == std::io::ErrorKind::NotFound
+                || e.kind() == std::io::ErrorKind::NotADirectory =>
+        {
+            Ok(EndpointKind::Missing)
+        }
+        Err(e) => Err(format!("读取 {:?} 状态失败: {}", path, e)),
+    }
+}
+
+/// 比较 Claude / Agents 两端的 Memory 配对状态
+fn inspect_memory_pair_status(claude_path: &Path, agents_path: &Path) -> Result<PairStatus, String> {
+    let claude_kind = classify_file_endpoint(claude_path)?;
+    let agents_kind = classify_file_endpoint(agents_path)?;
+
+    let pair = match (claude_kind, agents_kind) {
+        (EndpointKind::Missing, EndpointKind::Missing) => PairStatus::BothMissing,
+        (EndpointKind::Source, EndpointKind::Missing) => PairStatus::OnlyClaude,
+        (EndpointKind::Missing, EndpointKind::Source) => PairStatus::OnlyAgents,
+        (EndpointKind::Source, EndpointKind::Source) => {
+            if files_are_same(claude_path, agents_path) {
+                PairStatus::Paired
+            } else {
+                PairStatus::Conflict
+            }
+        }
+        (EndpointKind::Source, EndpointKind::Symlink) => {
+            if symlink_points_to(agents_path, claude_path)? {
+                PairStatus::Paired
+            } else {
+                PairStatus::WrongSymlink
+            }
+        }
+        (EndpointKind::Symlink, EndpointKind::Source) => {
+            if symlink_points_to(claude_path, agents_path)? {
+                PairStatus::Paired
+            } else {
+                PairStatus::WrongSymlink
+            }
+        }
+        (EndpointKind::Symlink, EndpointKind::Symlink) => PairStatus::OrphanSymlink,
+        (EndpointKind::Symlink, EndpointKind::Missing)
+        | (EndpointKind::Missing, EndpointKind::Symlink) => PairStatus::OrphanSymlink,
+        // 任何 Foreign / 非常规组合都按冲突处理，让用户手动介入
+        _ => PairStatus::Conflict,
+    };
+
+    Ok(pair)
+}
+
+/// 比较项目级 Skills 目录两端的配对状态
+fn inspect_skills_pair_status(
+    project_dir: &Path,
+    project_claude_skills_path: &Path,
+) -> Result<PairStatus, String> {
+    let agents_dir = project_dir.join(".agents");
+    let agents_skills_path = agents_dir.join("skills");
+
+    let claude_kind = classify_dir_endpoint(project_claude_skills_path)?;
+    let agents_kind = classify_dir_endpoint(&agents_skills_path)?;
+
+    let pair = match (claude_kind, agents_kind) {
+        (EndpointKind::Missing, EndpointKind::Missing) => PairStatus::BothMissing,
+        (EndpointKind::Source, EndpointKind::Missing) => PairStatus::OnlyClaude,
+        (EndpointKind::Missing, EndpointKind::Source) => PairStatus::OnlyAgents,
+        (EndpointKind::Source, EndpointKind::Source) => {
+            // 两个真目录都存在但没有软链关系，无法判源
+            PairStatus::Conflict
+        }
+        (EndpointKind::Source, EndpointKind::Symlink) => {
+            if symlink_points_to(&agents_skills_path, project_claude_skills_path)? {
+                PairStatus::Paired
+            } else {
+                PairStatus::WrongSymlink
+            }
+        }
+        (EndpointKind::Symlink, EndpointKind::Source) => {
+            if symlink_points_to(project_claude_skills_path, &agents_skills_path)? {
+                PairStatus::Paired
+            } else {
+                PairStatus::WrongSymlink
+            }
+        }
+        (EndpointKind::Symlink, EndpointKind::Symlink) => PairStatus::OrphanSymlink,
+        (EndpointKind::Symlink, EndpointKind::Missing)
+        | (EndpointKind::Missing, EndpointKind::Symlink) => PairStatus::OrphanSymlink,
+        _ => PairStatus::Conflict,
+    };
+
+    Ok(pair)
+}
+
+/// 读取软链 target 并与期望目标做规范化比对
+fn symlink_points_to(symlink_path: &Path, expected_target: &Path) -> Result<bool, String> {
+    let target = fs::read_link(symlink_path)
+        .map_err(|e| format!("读取 {:?} 软链接失败: {}", symlink_path, e))?;
+    let parent = symlink_path.parent().unwrap_or(Path::new(""));
+    let resolved = if target.is_absolute() {
+        target
+    } else {
+        parent.join(target)
+    };
+    Ok(paths_match(&resolved, expected_target))
 }
 
 fn inspect_agents_skills_status(
@@ -1438,104 +1606,209 @@ fn scan_project_skills(skills_dir: &Path) -> Vec<ProjectSkillSummary> {
 
 fn create_agents_symlink(project_dir: &Path) -> Result<(), String> {
     let claude_path = project_dir.join("CLAUDE.md");
-    if !claude_path.is_file() {
-        return Err("项目根目录缺少 CLAUDE.md，无法创建 AGENTS.md".to_string());
-    }
-
     let agents_path = project_dir.join("AGENTS.md");
-    match fs::symlink_metadata(&agents_path) {
-        Ok(meta) if meta.file_type().is_symlink() => {
-            let status = inspect_project_files(project_dir)?;
-            if status.agents_status == AgentsStatus::CorrectSymlink {
-                return Ok(());
-            }
-            fs::remove_file(&agents_path).map_err(|e| format!("删除旧的软链接失败: {}", e))?;
+    let pair = inspect_memory_pair_status(&claude_path, &agents_path)?;
+
+    match pair {
+        PairStatus::Paired => Ok(()),
+        PairStatus::OnlyClaude => create_memory_symlink_to(&claude_path, &agents_path),
+        PairStatus::OnlyAgents => create_memory_symlink_to(&agents_path, &claude_path),
+        PairStatus::WrongSymlink => repair_memory_symlink(&claude_path, &agents_path),
+        PairStatus::BothMissing => {
+            Err("项目根目录缺少 CLAUDE.md 和 AGENTS.md，无法生成软链接".to_string())
         }
-        Ok(_) if files_are_same(&agents_path, &claude_path) => {
-            return Ok(());
-        }
-        Ok(_) => {
-            return Err(format!(
-                "目标路径已存在且不是软链接，无法覆盖: {:?}",
-                agents_path
-            ));
-        }
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-        Err(e) => return Err(format!("获取 AGENTS.md 元数据失败: {}", e)),
+        PairStatus::Conflict => Err(format!(
+            "CLAUDE.md 与 AGENTS.md 都已存在为普通文件且内容不一致，请先手动处理: {:?}",
+            agents_path
+        )),
+        PairStatus::OrphanSymlink => Err(format!(
+            "两端都是软链或仅有孤儿软链，无法确定源文件，请先手动处理: {:?}",
+            agents_path
+        )),
     }
+}
+
+/// 在 `link_path` 处创建一条相对软链指向同目录下的 `source_path`
+fn create_memory_symlink_to(source_path: &Path, link_path: &Path) -> Result<(), String> {
+    let source_name = source_path
+        .file_name()
+        .ok_or_else(|| format!("无法解析源文件名: {:?}", source_path))?;
+    let relative_target = Path::new(source_name);
 
     #[cfg(unix)]
-    std::os::unix::fs::symlink(Path::new("CLAUDE.md"), &agents_path)
+    std::os::unix::fs::symlink(relative_target, link_path)
         .map_err(|e| format!("创建软链接失败: {}", e))?;
 
     #[cfg(windows)]
-    std::os::windows::fs::symlink_file(Path::new("CLAUDE.md"), &agents_path).or_else(
-        |symlink_error| {
-            fs::hard_link(&claude_path, &agents_path).map_err(|hard_link_error| {
-                format!(
-                    "创建软链接失败: {}; 创建硬链接也失败: {}",
-                    symlink_error, hard_link_error
-                )
-            })
-        },
-    )?;
+    std::os::windows::fs::symlink_file(relative_target, link_path).or_else(|symlink_error| {
+        fs::hard_link(source_path, link_path).map_err(|hard_link_error| {
+            format!(
+                "创建软链接失败: {}; 创建硬链接也失败: {}",
+                symlink_error, hard_link_error
+            )
+        })
+    })?;
 
+    let _ = source_path;
     Ok(())
+}
+
+/// 删除指向错误目标的旧软链接，再按"以真源为方向"重建
+fn repair_memory_symlink(claude_path: &Path, agents_path: &Path) -> Result<(), String> {
+    let claude_kind = classify_file_endpoint(claude_path)?;
+    let agents_kind = classify_file_endpoint(agents_path)?;
+
+    match (claude_kind, agents_kind) {
+        (EndpointKind::Source, EndpointKind::Symlink) => {
+            fs::remove_file(agents_path).map_err(|e| format!("删除旧的软链接失败: {}", e))?;
+            create_memory_symlink_to(claude_path, agents_path)
+        }
+        (EndpointKind::Symlink, EndpointKind::Source) => {
+            fs::remove_file(claude_path).map_err(|e| format!("删除旧的软链接失败: {}", e))?;
+            create_memory_symlink_to(agents_path, claude_path)
+        }
+        _ => Err("当前状态不可修复，请手动处理".to_string()),
+    }
 }
 
 fn create_project_agents_skills_symlink_for_dir(project_dir: &Path) -> Result<(), String> {
     let project_claude_skills_path = project_dir.join(".claude").join("skills");
-    if !project_claude_skills_path.is_dir() {
-        return Err("项目缺少 .claude/skills，无法创建 .agents/skills".to_string());
-    }
+    let agents_skills_path = project_dir.join(".agents").join("skills");
+    let pair = inspect_skills_pair_status(project_dir, &project_claude_skills_path)?;
 
+    match pair {
+        PairStatus::Paired => Ok(()),
+        PairStatus::OnlyClaude => create_skills_symlink_at_agents(
+            project_dir,
+            &project_claude_skills_path,
+            &agents_skills_path,
+        ),
+        PairStatus::OnlyAgents => {
+            create_skills_symlink_at_claude(project_dir, &agents_skills_path)
+        }
+        PairStatus::WrongSymlink => repair_skills_symlink(
+            project_dir,
+            &project_claude_skills_path,
+            &agents_skills_path,
+        ),
+        PairStatus::BothMissing => {
+            Err("项目缺少 .claude/skills 与 .agents/skills，无法生成软链接".to_string())
+        }
+        PairStatus::Conflict => Err(format!(
+            ".claude/skills 与 .agents/skills 都已存在为真目录，请先手动处理: {:?}",
+            agents_skills_path
+        )),
+        PairStatus::OrphanSymlink => Err(format!(
+            "两端都是软链或仅有孤儿软链，无法确定源目录，请先手动处理: {:?}",
+            agents_skills_path
+        )),
+    }
+}
+
+/// `.claude/skills` 是真目录时，在 `.agents/skills` 处创建相对软链
+fn create_skills_symlink_at_agents(
+    project_dir: &Path,
+    project_claude_skills_path: &Path,
+    agents_skills_path: &Path,
+) -> Result<(), String> {
     let agents_dir = project_dir.join(".agents");
-    match fs::symlink_metadata(&agents_dir) {
-        Ok(meta) if meta.is_dir() => {}
-        Ok(_) => {
-            return Err(format!(
-                "目标路径已存在且不是目录，无法创建 .agents/skills: {:?}",
-                agents_dir
-            ));
-        }
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            fs::create_dir_all(&agents_dir).map_err(|e| format!("创建 .agents 目录失败: {}", e))?;
-        }
-        Err(e) => return Err(format!("获取 .agents 元数据失败: {}", e)),
-    }
+    ensure_real_directory(&agents_dir, "创建 .agents 目录失败")?;
 
-    let agents_skills_path = agents_dir.join("skills");
-    match fs::symlink_metadata(&agents_skills_path) {
-        Ok(meta) if meta.file_type().is_symlink() => {
-            let status =
-                inspect_agents_skills_status(project_dir, &project_claude_skills_path, true)?;
-            if status == AgentsStatus::CorrectSymlink {
-                return Ok(());
-            }
-            remove_symlink_node(&agents_skills_path)
+    if let Ok(meta) = fs::symlink_metadata(agents_skills_path) {
+        if meta.file_type().is_symlink() {
+            remove_symlink_node(agents_skills_path)
                 .map_err(|e| format!("删除旧的 .agents/skills 软链接失败: {}", e))?;
-        }
-        Ok(_) => {
+        } else {
             return Err(format!(
                 "目标路径已存在且不是软链接，无法覆盖: {:?}",
                 agents_skills_path
             ));
         }
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-        Err(e) => return Err(format!("获取 .agents/skills 元数据失败: {}", e)),
     }
 
     let relative_target = Path::new("../.claude/skills");
 
     #[cfg(unix)]
-    std::os::unix::fs::symlink(relative_target, &agents_skills_path)
+    std::os::unix::fs::symlink(relative_target, agents_skills_path)
         .map_err(|e| format!("创建 .agents/skills 软链接失败: {}", e))?;
 
     #[cfg(windows)]
-    std::os::windows::fs::symlink_dir(relative_target, &agents_skills_path)
+    std::os::windows::fs::symlink_dir(relative_target, agents_skills_path)
         .map_err(|e| format!("创建 .agents/skills 软链接失败: {}", e))?;
 
+    let _ = project_claude_skills_path;
     Ok(())
+}
+
+/// `.agents/skills` 是真目录时，在 `.claude/skills` 处创建相对软链
+fn create_skills_symlink_at_claude(
+    project_dir: &Path,
+    agents_skills_path: &Path,
+) -> Result<(), String> {
+    let claude_dir = project_dir.join(".claude");
+    ensure_real_directory(&claude_dir, "创建 .claude 目录失败")?;
+
+    let project_claude_skills_path = claude_dir.join("skills");
+    if let Ok(meta) = fs::symlink_metadata(&project_claude_skills_path) {
+        if meta.file_type().is_symlink() {
+            remove_symlink_node(&project_claude_skills_path)
+                .map_err(|e| format!("删除旧的 .claude/skills 软链接失败: {}", e))?;
+        } else {
+            return Err(format!(
+                "目标路径已存在且不是软链接，无法覆盖: {:?}",
+                project_claude_skills_path
+            ));
+        }
+    }
+
+    let relative_target = Path::new("../.agents/skills");
+
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(relative_target, &project_claude_skills_path)
+        .map_err(|e| format!("创建 .claude/skills 软链接失败: {}", e))?;
+
+    #[cfg(windows)]
+    std::os::windows::fs::symlink_dir(relative_target, &project_claude_skills_path)
+        .map_err(|e| format!("创建 .claude/skills 软链接失败: {}", e))?;
+
+    let _ = agents_skills_path;
+    Ok(())
+}
+
+fn repair_skills_symlink(
+    project_dir: &Path,
+    project_claude_skills_path: &Path,
+    agents_skills_path: &Path,
+) -> Result<(), String> {
+    let claude_kind = classify_dir_endpoint(project_claude_skills_path)?;
+    let agents_kind = classify_dir_endpoint(agents_skills_path)?;
+
+    match (claude_kind, agents_kind) {
+        (EndpointKind::Source, EndpointKind::Symlink) => create_skills_symlink_at_agents(
+            project_dir,
+            project_claude_skills_path,
+            agents_skills_path,
+        ),
+        (EndpointKind::Symlink, EndpointKind::Source) => {
+            create_skills_symlink_at_claude(project_dir, agents_skills_path)
+        }
+        _ => Err("当前状态不可修复，请手动处理".to_string()),
+    }
+}
+
+/// 确保 `dir` 是真目录；不存在时创建，存在但不是目录时报错
+fn ensure_real_directory(dir: &Path, create_err_label: &str) -> Result<(), String> {
+    match fs::symlink_metadata(dir) {
+        Ok(meta) if meta.is_dir() && !meta.file_type().is_symlink() => Ok(()),
+        Ok(_) => Err(format!(
+            "目标路径已存在且不是普通目录，无法继续: {:?}",
+            dir
+        )),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            fs::create_dir_all(dir).map_err(|e| format!("{}: {}", create_err_label, e))
+        }
+        Err(e) => Err(format!("读取 {:?} 状态失败: {}", dir, e)),
+    }
 }
 
 fn files_are_same(left: &Path, right: &Path) -> bool {
@@ -1898,7 +2171,41 @@ mod tests {
         std::fs::write(plain.path().join("AGENTS.md"), "plain").unwrap();
 
         let err = create_agents_symlink(plain.path()).unwrap_err();
-        assert!(err.contains("不是软链接"));
+        assert!(err.contains("内容不一致"));
+    }
+
+    #[test]
+    fn create_agents_symlink_reverse_creates_claude_md_from_agents_md() {
+        let sandbox = TestDir::new();
+        std::fs::write(sandbox.path().join("AGENTS.md"), "agents-source").unwrap();
+
+        create_agents_symlink(sandbox.path()).unwrap();
+
+        let status = inspect_project_files(sandbox.path()).unwrap();
+        assert!(status.has_claude_md);
+        assert_eq!(status.memory_pair_status, PairStatus::Paired);
+
+        let link_target = std::fs::read_link(sandbox.path().join("CLAUDE.md")).unwrap();
+        assert_eq!(link_target, Path::new("AGENTS.md"));
+    }
+
+    #[test]
+    fn inspect_memory_pair_status_reports_only_agents_when_claude_missing() {
+        let sandbox = TestDir::new();
+        std::fs::write(sandbox.path().join("AGENTS.md"), "agents").unwrap();
+
+        let status = inspect_project_files(sandbox.path()).unwrap();
+        assert_eq!(status.memory_pair_status, PairStatus::OnlyAgents);
+    }
+
+    #[test]
+    fn inspect_memory_pair_status_reports_conflict_when_both_plain_differ() {
+        let sandbox = TestDir::new();
+        std::fs::write(sandbox.path().join("CLAUDE.md"), "claude").unwrap();
+        std::fs::write(sandbox.path().join("AGENTS.md"), "agents").unwrap();
+
+        let status = inspect_project_files(sandbox.path()).unwrap();
+        assert_eq!(status.memory_pair_status, PairStatus::Conflict);
     }
 
     #[test]
@@ -1930,14 +2237,34 @@ mod tests {
     fn create_project_agents_skills_symlink_rejects_missing_source_or_conflict() {
         let missing = TestDir::new();
         let err = create_project_agents_skills_symlink_for_dir(missing.path()).unwrap_err();
-        assert!(err.contains(".claude/skills"));
+        assert!(err.contains(".claude/skills") || err.contains(".agents/skills"));
 
         let conflict = TestDir::new();
         fs::create_dir_all(conflict.path().join(".claude/skills")).unwrap();
         fs::create_dir_all(conflict.path().join(".agents/skills")).unwrap();
 
         let err = create_project_agents_skills_symlink_for_dir(conflict.path()).unwrap_err();
-        assert!(err.contains("不是软链接"));
+        assert!(err.contains("都已存在为真目录"));
+    }
+
+    #[test]
+    fn create_project_agents_skills_symlink_reverse_creates_claude_skills_from_agents_skills() {
+        let sandbox = TestDir::new();
+        fs::create_dir_all(sandbox.path().join(".agents/skills/codex-skill")).unwrap();
+        fs::write(
+            sandbox.path().join(".agents/skills/codex-skill/SKILL.md"),
+            "---\nname: Codex Skill\n---\n",
+        )
+        .unwrap();
+
+        create_project_agents_skills_symlink_for_dir(sandbox.path()).unwrap();
+
+        let linked = inspect_project_files(sandbox.path()).unwrap();
+        assert!(linked.has_project_claude_skills);
+        assert_eq!(linked.skills_pair_status, PairStatus::Paired);
+
+        let link_target = fs::read_link(sandbox.path().join(".claude/skills")).unwrap();
+        assert_eq!(link_target, Path::new("../.agents/skills"));
     }
 
     #[test]
