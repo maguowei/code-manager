@@ -352,13 +352,14 @@ function makeUsage(
     tab: UsageTab;
     filter: UsageFilter;
     rescanning: boolean;
-    summary: UsageSummary;
+    loading: boolean;
+    summary: UsageSummary | null;
     timeGranularity: UsageTimeGranularity;
     timeSeries: UsageTimeSeriesPoint[];
   }> = {},
 ) {
   return {
-    summary: overrides.summary ?? summary,
+    summary: "summary" in overrides ? (overrides.summary ?? null) : summary,
     daily,
     timeSeries: overrides.timeSeries ?? timeSeries,
     timeGranularity: overrides.timeGranularity ?? "hour",
@@ -370,7 +371,7 @@ function makeUsage(
     setTab: vi.fn(),
     filter: overrides.filter ?? {},
     setFilter: vi.fn(),
-    loading: false,
+    loading: overrides.loading ?? false,
     refreshingPrice: false,
     rescanning: overrides.rescanning ?? false,
     reload: vi.fn(async () => undefined),
@@ -386,7 +387,8 @@ function renderUsage(
     filter: UsageFilter;
     projectRequest: { project: string; requestId: number } | null;
     rescanning: boolean;
-    summary: UsageSummary;
+    loading: boolean;
+    summary: UsageSummary | null;
     timeGranularity: UsageTimeGranularity;
     timeSeries: UsageTimeSeriesPoint[];
   }>,
@@ -987,6 +989,19 @@ describe("UsagePage cost cockpit", () => {
     const rescanButton = screen.getByRole("button", { name: "扫描中..." });
     expect(rescanButton).toBeDisabled();
     expect(rescanButton).toBeDisabled();
+  });
+
+  it("renders skeleton placeholder while the initial usage scan is in flight", () => {
+    renderUsage({ loading: true, summary: null });
+
+    const status = screen.getByRole("status");
+    expect(status).toHaveAttribute("aria-busy", "true");
+    const skeletons = status.querySelectorAll('[data-slot="skeleton"]');
+    expect(skeletons.length).toBeGreaterThan(6);
+    // sr-only 文案承载 ariaLabel，确保屏幕阅读器仍能感知扫描状态
+    expect((status.textContent ?? "").trim().length).toBeGreaterThan(0);
+    // 不再回落到旧版纯文字 EmptyState
+    expect(screen.queryByText("正在扫描 ~/.claude/projects ...")).not.toBeNull();
   });
 
   it("opens session usage detail from the keyboard", async () => {

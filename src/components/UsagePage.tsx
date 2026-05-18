@@ -47,6 +47,7 @@ import { SegmentedControl } from "./ui/segmented-control";
 import { formatCost, formatShortDateTime, formatTokens, projectDisplayName } from "./usage/format";
 import PricingTableDialog from "./usage/PricingTableDialog";
 import SessionUsageDrawer from "./usage/SessionUsageDrawer";
+import UsagePageSkeleton from "./usage/UsagePageSkeleton";
 
 const COLORS = {
   blue: "var(--chart-1)",
@@ -676,7 +677,7 @@ function UsagePage({ projectRequest = null }: UsagePageProps = {}) {
 
       <div className="usage-scroll flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto bg-secondary px-5 pt-4 pb-5">
         {isInitialLoading ? (
-          <EmptyState title={t("usage.scanning")} />
+          <UsagePageSkeleton ariaLabel={t("usage.scanning")} />
         ) : isEmpty ? (
           <EmptyState title={t("usage.empty")} hint={t("usage.emptyHint")} />
         ) : (
