@@ -14,6 +14,7 @@ import { useToast } from "../hooks/useToast";
 import type { TranslationKey } from "../i18n";
 import { showOperationError } from "../lib/user-facing-error";
 import type { DefaultEditorApp, PairStatus, ProjectDetail, ProjectSummary } from "../types";
+import { ProjectClaudeExplorer } from "./ProjectClaudeExplorer";
 import {
   agentsSkillsStatusLabel,
   agentsStatusLabel,
@@ -57,6 +58,7 @@ type ProjectDetailPanelProps = {
   onOpenSession: (sessionId: string) => void;
   onOpenProjectHistory: () => void;
   onOpenProjectUsage: () => void;
+  onRefreshDetail?: () => void;
   isBranchCleanupPreviewing?: boolean;
   isWorktreeCleanupPreviewing?: boolean;
 };
@@ -586,6 +588,7 @@ function ProjectDetailPanel({
   onOpenSession,
   onOpenProjectHistory,
   onOpenProjectUsage,
+  onRefreshDetail,
   isBranchCleanupPreviewing,
   isWorktreeCleanupPreviewing,
 }: ProjectDetailPanelProps) {
@@ -855,6 +858,15 @@ function ProjectDetailPanel({
               </StatusBadge>
             </StatusRow>
           </dl>
+          {detail?.hasProjectClaudeDir && (
+            <ProjectClaudeExplorer
+              project={summary.project}
+              hasSettingsJson={detail.hasProjectClaudeSettings}
+              hasSettingsLocalJson={detail.hasProjectClaudeSettingsLocal}
+              onAfterMutate={onRefreshDetail}
+              t={t}
+            />
+          )}
           {projectSkills.length > 0 ? (
             <div className="projects-project-skills-list flex min-w-0 flex-wrap gap-2">
               {projectSkills.map((skill) => (

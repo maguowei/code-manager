@@ -99,6 +99,8 @@ function makeProjectDetail(project: string): ProjectDetail {
     hasClaudeMd: true,
     hasProjectClaudeDir: true,
     hasProjectClaudeSkills: true,
+    hasProjectClaudeSettings: false,
+    hasProjectClaudeSettingsLocal: false,
     agentsStatus: "missing",
     agentsSkillsStatus: "missing",
     memoryPairStatus: "onlyClaude",

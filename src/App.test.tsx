@@ -636,6 +636,8 @@ describe("App", () => {
           hasClaudeMd: true,
           hasProjectClaudeDir: true,
           hasProjectClaudeSkills: true,
+          hasProjectClaudeSettings: false,
+          hasProjectClaudeSettingsLocal: false,
           agentsStatus: "missing",
           agentsSkillsStatus: "missing",
           projectSkills: [{ id: "review-skill", isSymlink: false }],

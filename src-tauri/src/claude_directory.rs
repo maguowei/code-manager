@@ -605,7 +605,7 @@ fn resolve_operation_path_inside_root(root: &Path, rel_path: &Path) -> Result<Pa
         .map_err(|_| "只能操作 ~/.claude 内的文件".to_string())
 }
 
-fn validate_relative_claude_path(path: &str) -> Result<PathBuf, String> {
+pub(crate) fn validate_relative_claude_path(path: &str) -> Result<PathBuf, String> {
     let trimmed = path.trim();
     if trimmed.is_empty() || trimmed.contains('\\') || trimmed.contains(':') {
         return Err("只能读取 ~/.claude 内的文件".to_string());
@@ -640,7 +640,7 @@ fn validate_relative_claude_path(path: &str) -> Result<PathBuf, String> {
     Ok(rel_path)
 }
 
-fn resolve_existing_path_inside_root(root: &Path, rel_path: &Path) -> Result<PathBuf, String> {
+pub(crate) fn resolve_existing_path_inside_root(root: &Path, rel_path: &Path) -> Result<PathBuf, String> {
     // 所有 IO 错误统一为越界文案，防止攻击者通过错误差异判断"路径是否存在但不在白名单"。
     let root_canonical =
         fs::canonicalize(root).map_err(|_| "只能读取 ~/.claude 内的文件".to_string())?;

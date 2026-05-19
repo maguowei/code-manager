@@ -315,6 +315,9 @@ export interface ClaudeFilePreview {
   encoding: string;
 }
 
+/** 项目级 settings 文件的归属（共享 vs 本地覆盖） */
+export type ProjectClaudeSettingsScope = "shared" | "local";
+
 export interface ClaudeDirectoryChangedEvent {
   paths: string[];
 }
@@ -427,6 +430,8 @@ export interface ProjectDetail {
   hasClaudeMd: boolean;
   hasProjectClaudeDir: boolean;
   hasProjectClaudeSkills: boolean;
+  hasProjectClaudeSettings: boolean;
+  hasProjectClaudeSettingsLocal: boolean;
   agentsStatus: AgentsStatus;
   agentsSkillsStatus: AgentsStatus;
   memoryPairStatus: PairStatus;
