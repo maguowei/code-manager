@@ -2289,6 +2289,7 @@ describe("ProfileEditor", () => {
           permissions: {
             defaultMode: "dontAsk",
             disableBypassPermissionsMode: "disable",
+            disableAutoMode: "disable",
             allow: ["Bash(old-allow *)"],
             ask: ["Bash(rm *)"],
             deny: ["Read(**/config.yaml)"],
@@ -2351,6 +2352,7 @@ describe("ProfileEditor", () => {
     expect(savedPermissions).toMatchObject({
       defaultMode: "dontAsk",
       disableBypassPermissionsMode: "disable",
+      disableAutoMode: "disable",
       additionalDirectories: ["~/projects/shared"],
     });
     expect(savedPermissions?.allow).toContain("Bash(go test *)");

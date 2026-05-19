@@ -37,6 +37,26 @@ interface PermissionsEditorProps {
 
 type PermissionRuleListKey = "allow" | "ask" | "deny";
 const UNSET_PERMISSION_MODE_VALUE = "__unset__";
+const MANAGED_PERMISSION_KEYS = [
+  "defaultMode",
+  "disableBypassPermissionsMode",
+  "allow",
+  "deny",
+  "ask",
+  "additionalDirectories",
+] as const;
+const PERMISSION_LIST_KEYS = ["allow", "deny", "ask", "additionalDirectories"] as const;
+
+type PermissionListKey = (typeof PERMISSION_LIST_KEYS)[number];
+
+interface PermissionsDraftValue {
+  defaultMode: string;
+  disableBypass: boolean;
+  allowRows: StringRow[];
+  denyRows: StringRow[];
+  askRows: StringRow[];
+  directoryRows: StringRow[];
+}
 
 interface PermissionDefaultModeSelectProps {
   value: string;
@@ -65,6 +85,109 @@ export function setPermissionsDefaultMode(
   }
 
   return nextPermissions;
+}
+
+function normalizePermissionStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
+}
+
+function normalizePermissionList(
+  target: Record<string, unknown>,
+  source: Record<string, unknown>,
+  key: PermissionListKey,
+) {
+  const normalized = normalizePermissionStringArray(source[key]);
+  if (normalized.length > 0) {
+    target[key] = normalized;
+  } else {
+    delete target[key];
+  }
+}
+
+function normalizePermissionsValue(value: unknown): Record<string, unknown> {
+  const source = readObject(value);
+  const normalized = { ...source };
+
+  if (typeof source.defaultMode === "string" && source.defaultMode) {
+    normalized.defaultMode = source.defaultMode;
+  } else {
+    delete normalized.defaultMode;
+  }
+
+  if (source.disableBypassPermissionsMode === "disable") {
+    normalized.disableBypassPermissionsMode = "disable";
+  } else {
+    delete normalized.disableBypassPermissionsMode;
+  }
+
+  for (const key of PERMISSION_LIST_KEYS) {
+    normalizePermissionList(normalized, source, key);
+  }
+
+  return normalized;
+}
+
+function sortJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sortJsonValue);
+  }
+
+  if (value === null || typeof value !== "object") {
+    return value;
+  }
+
+  return Object.keys(value as Record<string, unknown>)
+    .sort()
+    .reduce<Record<string, unknown>>((accumulator, key) => {
+      accumulator[key] = sortJsonValue((value as Record<string, unknown>)[key]);
+      return accumulator;
+    }, {});
+}
+
+function permissionsValueEquals(left: unknown, right: unknown): boolean {
+  return (
+    JSON.stringify(sortJsonValue(normalizePermissionsValue(left))) ===
+    JSON.stringify(sortJsonValue(normalizePermissionsValue(right)))
+  );
+}
+
+function setPermissionListFromRows(
+  target: Record<string, unknown>,
+  key: PermissionListKey,
+  rows: StringRow[],
+) {
+  const values = stringArrayFromRows(rows);
+  if (values.length > 0) {
+    target[key] = values;
+  }
+}
+
+function buildPermissionsValue(
+  permissionObject: Record<string, unknown>,
+  draft: PermissionsDraftValue,
+): Record<string, unknown> {
+  const nextValue = { ...permissionObject };
+  for (const key of MANAGED_PERMISSION_KEYS) {
+    delete nextValue[key];
+  }
+
+  if (draft.defaultMode) {
+    nextValue.defaultMode = draft.defaultMode;
+  }
+  if (draft.disableBypass) {
+    nextValue.disableBypassPermissionsMode = "disable";
+  }
+  setPermissionListFromRows(nextValue, "allow", draft.allowRows);
+  setPermissionListFromRows(nextValue, "deny", draft.denyRows);
+  setPermissionListFromRows(nextValue, "ask", draft.askRows);
+  setPermissionListFromRows(nextValue, "additionalDirectories", draft.directoryRows);
+
+  return nextValue;
 }
 
 export function PermissionDefaultModeSelect({
@@ -258,26 +381,15 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
       return;
     }
 
-    const nextValue: Record<string, unknown> = {};
-    if (defaultMode) {
-      nextValue.defaultMode = defaultMode;
-    }
-    if (disableBypass) {
-      nextValue.disableBypassPermissionsMode = "disable";
-    }
-    if (allowRows.length > 0) {
-      nextValue.allow = stringArrayFromRows(allowRows);
-    }
-    if (denyRows.length > 0) {
-      nextValue.deny = stringArrayFromRows(denyRows);
-    }
-    if (askRows.length > 0) {
-      nextValue.ask = stringArrayFromRows(askRows);
-    }
-    if (directoryRows.length > 0) {
-      nextValue.additionalDirectories = stringArrayFromRows(directoryRows);
-    }
-    if (JSON.stringify(nextValue) !== JSON.stringify(value ?? {})) {
+    const nextValue = buildPermissionsValue(permissionObject, {
+      defaultMode,
+      disableBypass,
+      allowRows,
+      denyRows,
+      askRows,
+      directoryRows,
+    });
+    if (!permissionsValueEquals(nextValue, value)) {
       onChange(nextValue);
     }
   }, [
@@ -289,6 +401,7 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
     disableBypass,
     isZh,
     onChange,
+    permissionObject,
     t,
     value,
   ]);

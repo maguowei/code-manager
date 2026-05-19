@@ -1489,6 +1489,56 @@ describe("ProfilesPage", () => {
     expect(invokeMock).not.toHaveBeenCalledWith("upsert_profile", expect.anything());
   });
 
+  it("does not ask before closing after only expanding permissions", async () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "zh",
+        theme: "dark",
+      }),
+    );
+    const workspace: ConfigWorkspace = {
+      ...WORKSPACE_FIXTURE,
+      profiles: [
+        {
+          ...WORKSPACE_FIXTURE.profiles[0],
+          settings: {
+            ...WORKSPACE_FIXTURE.profiles[0].settings,
+            permissions: {
+              allow: ["Bash(git status:*)"],
+              defaultMode: "plan",
+            },
+          },
+        },
+      ],
+    } as ConfigWorkspace;
+
+    renderPage(workspace);
+
+    await act(async () => {
+      fireEvent.click(getProfileCard("OpenRouter User"));
+      await Promise.resolve();
+    });
+
+    const permissionsSection = screen
+      .getByRole("heading", { name: "权限", level: 3 })
+      .closest("section");
+    expect(permissionsSection).not.toBeNull();
+    if (!permissionsSection) {
+      return;
+    }
+
+    const [toggleButton] = within(permissionsSection).getAllByRole("button");
+    fireEvent.click(toggleButton);
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+
+    expect(screen.queryByRole("heading", { name: "存在未保存的更改" })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: "编辑配置" })).not.toBeInTheDocument();
+    });
+    expect(invokeMock).not.toHaveBeenCalledWith("upsert_profile", expect.anything());
+  });
+
   it("saves a dirty profile before closing from the unsaved changes dialog", async () => {
     localStorage.setItem(
       SETTINGS_STORAGE_KEY,
