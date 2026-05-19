@@ -34,8 +34,10 @@ use memory::{
 use native_open::get_native_open_app_options;
 use project::{
     cleanup_project_branches, cleanup_project_worktrees, create_project_agents_skills_symlink,
-    create_project_agents_symlink, get_project_detail, open_project_in_editor,
-    open_project_in_terminal, preview_project_branch_cleanup, preview_project_local_data_purge,
+    create_project_agents_symlink, create_project_claude_settings_file, get_project_detail,
+    get_project_claude_directory_overview, get_project_claude_file_preview,
+    open_project_claude_file_in_editor, open_project_in_editor, open_project_in_terminal,
+    preview_project_branch_cleanup, preview_project_local_data_purge,
     preview_project_worktree_cleanup, purge_project_local_data,
 };
 use skills::{
@@ -149,6 +151,10 @@ pub fn run() {
             open_logs_dir,
             clear_app_logs,
             get_project_detail,
+            get_project_claude_directory_overview,
+            get_project_claude_file_preview,
+            create_project_claude_settings_file,
+            open_project_claude_file_in_editor,
             create_project_agents_skills_symlink,
             create_project_agents_symlink,
             open_project_in_terminal,

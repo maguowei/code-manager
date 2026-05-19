@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -77,6 +77,8 @@ pub struct ProjectDetail {
     pub has_claude_md: bool,
     pub has_project_claude_dir: bool,
     pub has_project_claude_skills: bool,
+    pub has_project_claude_settings: bool,
+    pub has_project_claude_settings_local: bool,
     pub agents_status: AgentsStatus,
     pub agents_skills_status: AgentsStatus,
     pub memory_pair_status: PairStatus,
@@ -150,6 +152,8 @@ struct ProjectFileStatus {
     has_claude_md: bool,
     has_project_claude_dir: bool,
     has_project_claude_skills: bool,
+    has_project_claude_settings: bool,
+    has_project_claude_settings_local: bool,
     agents_status: AgentsStatus,
     agents_skills_status: AgentsStatus,
     memory_pair_status: PairStatus,
@@ -210,6 +214,8 @@ pub fn get_project_detail(project: &str) -> Result<ProjectDetail, String> {
             has_claude_md: false,
             has_project_claude_dir: false,
             has_project_claude_skills: false,
+            has_project_claude_settings: false,
+            has_project_claude_settings_local: false,
             agents_status: AgentsStatus::Missing,
             agents_skills_status: AgentsStatus::Missing,
             memory_pair_status: PairStatus::BothMissing,
@@ -257,6 +263,8 @@ pub fn get_project_detail(project: &str) -> Result<ProjectDetail, String> {
         has_claude_md: file_status.has_claude_md,
         has_project_claude_dir: file_status.has_project_claude_dir,
         has_project_claude_skills: file_status.has_project_claude_skills,
+        has_project_claude_settings: file_status.has_project_claude_settings,
+        has_project_claude_settings_local: file_status.has_project_claude_settings_local,
         agents_status: file_status.agents_status,
         agents_skills_status: file_status.agents_skills_status,
         memory_pair_status: file_status.memory_pair_status,
@@ -1338,6 +1346,9 @@ fn inspect_project_files(project_dir: &Path) -> Result<ProjectFileStatus, String
     let has_claude_md = claude_path.is_file();
     let has_project_claude_dir = project_claude_dir.is_dir();
     let has_project_claude_skills = project_claude_skills_path.is_dir();
+    let has_project_claude_settings = project_claude_dir.join("settings.json").is_file();
+    let has_project_claude_settings_local =
+        project_claude_dir.join("settings.local.json").is_file();
     let project_skills = scan_project_skills(&project_claude_skills_path);
 
     let agents_status = match fs::symlink_metadata(&agents_path) {
@@ -1378,6 +1389,8 @@ fn inspect_project_files(project_dir: &Path) -> Result<ProjectFileStatus, String
         has_claude_md,
         has_project_claude_dir,
         has_project_claude_skills,
+        has_project_claude_settings,
+        has_project_claude_settings_local,
         agents_status,
         agents_skills_status,
         memory_pair_status,
@@ -1853,6 +1866,167 @@ fn paths_match(left: &Path, right: &Path) -> bool {
     let left = fs::canonicalize(left).unwrap_or_else(|_| left.to_path_buf());
     let right = fs::canonicalize(right).unwrap_or_else(|_| right.to_path_buf());
     left == right
+}
+
+// =========================================================================
+// 项目级 .claude/ 目录预览：嵌入「项目目录」卡片，与全局 ~/.claude/ 隔离。
+// 仅 settings.json / settings.local.json 支持一键创建；其它创建/删除/重命名
+// 走全局 ClaudeOverviewPage，不在这里复刻。
+// =========================================================================
+
+/// 项目级 settings 文件的归属（共享 vs 本地覆盖）
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ProjectClaudeSettingsScope {
+    Shared,
+    Local,
+}
+
+const PROJECT_CLAUDE_OVERVIEW_MAX_ENTRIES: usize = 10_000;
+const PROJECT_CLAUDE_OVERVIEW_MAX_DEPTH: usize = 16;
+const PROJECT_CLAUDE_PREVIEW_MAX_BYTES: usize = 512 * 1024;
+
+fn project_claude_root(project: &str) -> Result<PathBuf, String> {
+    let project_path = validate_project_path(project)?;
+    let claude_root = project_path.join(".claude");
+    if !claude_root.is_dir() {
+        return Err("项目 .claude/ 目录不存在".to_string());
+    }
+    Ok(claude_root)
+}
+
+/// 解析项目级 .claude/ 内的相对路径，沿用 claude_directory 的校验，错误文案改为项目场景
+fn resolve_project_claude_file(claude_root: &Path, relative_path: &str) -> Result<PathBuf, String> {
+    let rel_path = crate::claude_directory::validate_relative_claude_path(relative_path)
+        .map_err(|_| "只能访问项目 .claude/ 内的文件".to_string())?;
+    crate::claude_directory::resolve_existing_path_inside_root(claude_root, &rel_path)
+        .map_err(|_| "只能访问项目 .claude/ 内的文件".to_string())
+}
+
+#[tauri::command]
+pub fn get_project_claude_directory_overview(
+    project: &str,
+) -> Result<crate::claude_directory::ClaudeDirectoryOverview, String> {
+    let result = (|| {
+        let claude_root = project_claude_root(project)?;
+        crate::claude_directory::scan_claude_directory_with_options(
+            &claude_root,
+            crate::claude_directory::ScanOptions {
+                max_entries: PROJECT_CLAUDE_OVERVIEW_MAX_ENTRIES,
+                max_depth: PROJECT_CLAUDE_OVERVIEW_MAX_DEPTH,
+            },
+        )
+    })();
+    crate::logging::log_command_result(
+        "project.claude_directory_overview",
+        &result,
+        |overview| {
+            format!(
+                "entry_count={} truncated={}",
+                overview.entries.len(),
+                overview.truncated
+            )
+        },
+    );
+    result
+}
+
+#[tauri::command]
+pub fn get_project_claude_file_preview(
+    project: &str,
+    relative_path: String,
+) -> Result<crate::claude_directory::ClaudeFilePreview, String> {
+    let result = (|| {
+        let claude_root = project_claude_root(project)?;
+        // 先用项目侧错误文案过一次路径校验；通过后再调全局预览实现
+        let _ = resolve_project_claude_file(&claude_root, &relative_path)?;
+        crate::claude_directory::read_claude_file_preview_from_root(
+            &claude_root,
+            &relative_path,
+            PROJECT_CLAUDE_PREVIEW_MAX_BYTES,
+        )
+    })();
+    crate::logging::log_command_result(
+        "project.claude_directory_preview",
+        &result,
+        |preview| {
+            format!(
+                "path={} size={} binary={} truncated={}",
+                crate::utils::truncate(&preview.path, 160),
+                preview.size,
+                preview.is_binary,
+                preview.truncated
+            )
+        },
+    );
+    result
+}
+
+#[tauri::command]
+pub fn create_project_claude_settings_file(
+    project: &str,
+    scope: ProjectClaudeSettingsScope,
+) -> Result<(), String> {
+    let result = (|| {
+        let project_path = validate_project_path(project)?;
+        if !project_path.is_dir() {
+            return Err("项目目录不存在".to_string());
+        }
+        let claude_root = project_path.join(".claude");
+        let filename = match scope {
+            ProjectClaudeSettingsScope::Shared => "settings.json",
+            ProjectClaudeSettingsScope::Local => "settings.local.json",
+        };
+        let target = claude_root.join(filename);
+        if target.exists() {
+            return Err("文件已存在".to_string());
+        }
+        fs::create_dir_all(&claude_root)
+            .map_err(|e| format!("创建项目 .claude/ 目录失败: {}", e))?;
+        crate::utils::ensure_dir_and_write_atomic(&target, "{}\n")
+    })();
+    crate::logging::log_command_result("project.claude_settings_create", &result, |_| {
+        format!(
+            "project={} scope={:?}",
+            crate::utils::truncate(project, 160),
+            scope
+        )
+    });
+    result
+}
+
+#[tauri::command]
+pub fn open_project_claude_file_in_editor(
+    project: &str,
+    relative_path: String,
+) -> Result<(), String> {
+    let result = (|| {
+        let claude_root = project_claude_root(project)?;
+        let target = resolve_project_claude_file(&claude_root, &relative_path)?;
+        let metadata =
+            fs::metadata(&target).map_err(|e| format!("读取文件元数据失败: {}", e))?;
+        if !metadata.is_file() {
+            return Err("只能用默认编辑器打开项目 .claude/ 内的文件".to_string());
+        }
+        let preferences = crate::config::load_app_preferences();
+        let editor = preferences
+            .default_editor_app
+            .as_deref()
+            .ok_or_else(|| "请先在设置中选择默认编辑器".to_string())?;
+        crate::native_open::open_path_in_editor(&target, editor)
+    })();
+    crate::logging::log_command_result(
+        "project.claude_directory_open_editor",
+        &result,
+        |_| {
+            format!(
+                "project={} rel={}",
+                crate::utils::truncate(project, 160),
+                crate::utils::truncate(&relative_path, 160)
+            )
+        },
+    );
+    result
 }
 
 #[cfg(test)]
@@ -2524,5 +2698,152 @@ mod tests {
     #[cfg(windows)]
     fn create_test_symlink(src: &Path, dest: &Path) {
         std::os::windows::fs::symlink_file(src, dest).unwrap();
+    }
+
+    // ------------------------------------------------------------------------
+    // 项目级 .claude/ Explorer 相关测试
+    // ------------------------------------------------------------------------
+
+    #[test]
+    fn get_project_claude_directory_overview_requires_claude_subdir() {
+        let project = TestDir::new();
+        let err = get_project_claude_directory_overview(project.path().to_str().unwrap())
+            .expect_err("无 .claude/ 时应拒绝");
+        assert!(err.contains(".claude/"));
+    }
+
+    #[test]
+    fn get_project_claude_directory_overview_lists_entries_under_claude() {
+        let project = TestDir::new();
+        let claude = project.path().join(".claude");
+        std::fs::create_dir_all(&claude).unwrap();
+        std::fs::write(claude.join("settings.json"), "{}\n").unwrap();
+        std::fs::create_dir_all(claude.join("commands")).unwrap();
+        std::fs::write(claude.join("commands/run.md"), "hello\n").unwrap();
+
+        let overview = get_project_claude_directory_overview(project.path().to_str().unwrap())
+            .expect("应可读取目录");
+        let names: Vec<&str> = overview
+            .entries
+            .iter()
+            .map(|entry| entry.path.as_str())
+            .collect();
+        assert!(names.contains(&"settings.json"));
+        assert!(names.contains(&"commands"));
+        assert!(names.contains(&"commands/run.md"));
+    }
+
+    #[test]
+    fn get_project_claude_file_preview_rejects_path_escape() {
+        let project = TestDir::new();
+        let claude = project.path().join(".claude");
+        std::fs::create_dir_all(&claude).unwrap();
+        std::fs::write(claude.join("settings.json"), "{}\n").unwrap();
+
+        for bad in ["../etc/passwd", "/etc/passwd", "", "../settings.json"] {
+            let err = get_project_claude_file_preview(
+                project.path().to_str().unwrap(),
+                bad.to_string(),
+            )
+            .expect_err(&format!("路径 {bad} 应被拒"));
+            assert!(
+                err.contains("项目 .claude/") || err.contains("项目路径"),
+                "非预期错误: {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn get_project_claude_file_preview_truncates_large_file() {
+        let project = TestDir::new();
+        let claude = project.path().join(".claude");
+        std::fs::create_dir_all(&claude).unwrap();
+        // 600 KB 全 'a'，应被 512 KB 截断
+        let big_content = "a".repeat(600 * 1024);
+        std::fs::write(claude.join("big.txt"), &big_content).unwrap();
+
+        let preview = get_project_claude_file_preview(
+            project.path().to_str().unwrap(),
+            "big.txt".to_string(),
+        )
+        .expect("应可读取");
+        assert!(preview.truncated);
+        assert_eq!(preview.content.len(), 512 * 1024);
+        assert!(!preview.is_binary);
+    }
+
+    #[test]
+    fn get_project_claude_file_preview_detects_binary() {
+        let project = TestDir::new();
+        let claude = project.path().join(".claude");
+        std::fs::create_dir_all(&claude).unwrap();
+        // 包含 NUL 字节的内容会被识别为二进制
+        std::fs::write(claude.join("bin.dat"), [0u8, 1, 2, 3, 0xff]).unwrap();
+
+        let preview = get_project_claude_file_preview(
+            project.path().to_str().unwrap(),
+            "bin.dat".to_string(),
+        )
+        .expect("应可读取");
+        assert!(preview.is_binary);
+        assert_eq!(preview.content, "");
+    }
+
+    #[test]
+    fn create_project_claude_settings_file_writes_skeleton_when_missing() {
+        let project = TestDir::new();
+        // .claude/ 不存在，create 应自动建目录
+        create_project_claude_settings_file(
+            project.path().to_str().unwrap(),
+            ProjectClaudeSettingsScope::Shared,
+        )
+        .expect("应可创建");
+        let content =
+            std::fs::read_to_string(project.path().join(".claude/settings.json")).unwrap();
+        assert_eq!(content, "{}\n");
+
+        create_project_claude_settings_file(
+            project.path().to_str().unwrap(),
+            ProjectClaudeSettingsScope::Local,
+        )
+        .expect("应可创建 local");
+        let local =
+            std::fs::read_to_string(project.path().join(".claude/settings.local.json")).unwrap();
+        assert_eq!(local, "{}\n");
+    }
+
+    #[test]
+    fn create_project_claude_settings_file_rejects_when_exists() {
+        let project = TestDir::new();
+        let claude = project.path().join(".claude");
+        std::fs::create_dir_all(&claude).unwrap();
+        std::fs::write(claude.join("settings.json"), "{\"existing\":true}").unwrap();
+
+        let err = create_project_claude_settings_file(
+            project.path().to_str().unwrap(),
+            ProjectClaudeSettingsScope::Shared,
+        )
+        .expect_err("已存在时应拒绝");
+        assert!(err.contains("已存在"));
+        // 原文件内容保留不被覆盖
+        let content = std::fs::read_to_string(claude.join("settings.json")).unwrap();
+        assert_eq!(content, "{\"existing\":true}");
+    }
+
+    #[test]
+    fn inspect_project_files_reports_settings_presence() {
+        let project = TestDir::new();
+        let claude = project.path().join(".claude");
+        std::fs::create_dir_all(&claude).unwrap();
+        std::fs::write(claude.join("settings.json"), "{}\n").unwrap();
+
+        let status = inspect_project_files(project.path()).unwrap();
+        assert!(status.has_project_claude_dir);
+        assert!(status.has_project_claude_settings);
+        assert!(!status.has_project_claude_settings_local);
+
+        std::fs::write(claude.join("settings.local.json"), "{}\n").unwrap();
+        let status = inspect_project_files(project.path()).unwrap();
+        assert!(status.has_project_claude_settings_local);
     }
 }

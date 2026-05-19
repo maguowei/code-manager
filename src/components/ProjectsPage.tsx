@@ -1230,6 +1230,11 @@ function ProjectsPage({ onOpenProjectHistory, onOpenProjectUsage }: ProjectsPage
               onOpenSession={handleOpenSession}
               onOpenProjectHistory={handleOpenProjectHistory}
               onOpenProjectUsage={handleOpenProjectUsage}
+              onRefreshDetail={() => {
+                if (selectedSummary) {
+                  void loadProjectDetail(selectedSummary.project, { clearBeforeLoad: false });
+                }
+              }}
               isBranchCleanupPreviewing={
                 gitCleanupDialog?.kind === "branches" && gitCleanupDialog.isPreviewing
               }
