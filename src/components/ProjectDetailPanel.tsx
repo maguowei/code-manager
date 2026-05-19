@@ -2,13 +2,14 @@ import {
   Code2,
   DollarSign,
   ExternalLink,
+  FolderTree,
   Link2,
   List,
   MessageSquareText,
   SearchCheck,
   Terminal,
 } from "lucide-react";
-import { type ReactNode, useCallback } from "react";
+import { type ReactNode, useCallback, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
 import type { TranslationKey } from "../i18n";
@@ -593,6 +594,7 @@ function ProjectDetailPanel({
   isWorktreeCleanupPreviewing,
 }: ProjectDetailPanelProps) {
   const { showToast } = useToast();
+  const [explorerOpen, setExplorerOpen] = useState(false);
   const agentsTone: StatusTone = detail ? agentsStatusTone(detail.agentsStatus) : "muted";
   const agentsLabel = detail
     ? agentsStatusLabel(detail.agentsStatus, t)
@@ -846,9 +848,23 @@ function ProjectDetailPanel({
         </PairSection>
 
         <div className="projects-pair-section flex flex-col gap-3 border-t pt-5 first:border-t-0 first:pt-0">
-          <h4 className={cn("min-w-0 text-foreground", TYPOGRAPHY.cardTitle)}>
-            {t("projects.projectDirGroupTitle")}
-          </h4>
+          <div className="projects-pair-heading flex flex-wrap items-start justify-between gap-3">
+            <h4 className={cn("min-w-0 text-foreground", TYPOGRAPHY.cardTitle)}>
+              {t("projects.projectDirGroupTitle")}
+            </h4>
+            {detail?.hasProjectClaudeDir && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="projects-action-btn shrink-0"
+                onClick={() => setExplorerOpen(true)}
+              >
+                <FolderTree className="size-4" />
+                {t("projects.claudeExplorer.openButton")}
+              </Button>
+            )}
+          </div>
           <dl className="projects-agents-state-list flex flex-col">
             <StatusRow label={t("projects.projectClaudeDirectory")}>
               <StatusBadge tone={detail?.hasProjectClaudeDir ? "success" : "muted"}>
@@ -860,6 +876,8 @@ function ProjectDetailPanel({
           </dl>
           {detail?.hasProjectClaudeDir && (
             <ProjectClaudeExplorer
+              open={explorerOpen}
+              onOpenChange={setExplorerOpen}
               project={summary.project}
               hasSettingsJson={detail.hasProjectClaudeSettings}
               hasSettingsLocalJson={detail.hasProjectClaudeSettingsLocal}

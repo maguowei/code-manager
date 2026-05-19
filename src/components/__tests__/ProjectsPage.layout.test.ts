@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { I18nProvider } from "../../i18n";
 import type { ProjectDetail, ProjectSummary } from "../../types";
 import ProjectDetailPanel from "../ProjectDetailPanel";
 
@@ -46,24 +47,28 @@ const DETAIL: ProjectDetail = {
 
 function renderDetailPanel() {
   render(
-    createElement(ProjectDetailPanel, {
-      t: (key) => key,
-      summary: SUMMARY,
-      detail: DETAIL,
-      defaultEditorApp: "vscode",
-      canCreateAgentsLink: true,
-      canOpenRepository: true,
-      canOpenProjectDirectory: true,
-      canOpenInEditor: true,
-      isLinkingAgents: false,
-      onOpenInTerminal: () => undefined,
-      onOpenInEditor: () => undefined,
-      onOpenRepository: () => undefined,
-      onCreateAgentsLink: () => undefined,
-      onOpenSession: () => undefined,
-      onOpenProjectHistory: () => undefined,
-      onOpenProjectUsage: () => undefined,
-    }),
+    createElement(
+      I18nProvider,
+      null,
+      createElement(ProjectDetailPanel, {
+        t: (key) => key,
+        summary: SUMMARY,
+        detail: DETAIL,
+        defaultEditorApp: "vscode",
+        canCreateAgentsLink: true,
+        canOpenRepository: true,
+        canOpenProjectDirectory: true,
+        canOpenInEditor: true,
+        isLinkingAgents: false,
+        onOpenInTerminal: () => undefined,
+        onOpenInEditor: () => undefined,
+        onOpenRepository: () => undefined,
+        onCreateAgentsLink: () => undefined,
+        onOpenSession: () => undefined,
+        onOpenProjectHistory: () => undefined,
+        onOpenProjectUsage: () => undefined,
+      }),
+    ),
   );
 }
 
@@ -112,27 +117,31 @@ describe("ProjectsPage layout", () => {
     const fullSessionId = "a1184267-94ed-4c39-97d5-7476d94504cc";
 
     render(
-      createElement(ProjectDetailPanel, {
-        t: (key) => key,
-        summary: {
-          ...SUMMARY,
-          lastSessionId: fullSessionId,
-        },
-        detail: DETAIL,
-        defaultEditorApp: "vscode",
-        canCreateAgentsLink: true,
-        canOpenRepository: true,
-        canOpenProjectDirectory: true,
-        canOpenInEditor: true,
-        isLinkingAgents: false,
-        onOpenInTerminal: () => undefined,
-        onOpenInEditor: () => undefined,
-        onOpenRepository: () => undefined,
-        onCreateAgentsLink: () => undefined,
-        onOpenSession: () => undefined,
-        onOpenProjectHistory: () => undefined,
-        onOpenProjectUsage: () => undefined,
-      }),
+      createElement(
+        I18nProvider,
+        null,
+        createElement(ProjectDetailPanel, {
+          t: (key) => key,
+          summary: {
+            ...SUMMARY,
+            lastSessionId: fullSessionId,
+          },
+          detail: DETAIL,
+          defaultEditorApp: "vscode",
+          canCreateAgentsLink: true,
+          canOpenRepository: true,
+          canOpenProjectDirectory: true,
+          canOpenInEditor: true,
+          isLinkingAgents: false,
+          onOpenInTerminal: () => undefined,
+          onOpenInEditor: () => undefined,
+          onOpenRepository: () => undefined,
+          onCreateAgentsLink: () => undefined,
+          onOpenSession: () => undefined,
+          onOpenProjectHistory: () => undefined,
+          onOpenProjectUsage: () => undefined,
+        }),
+      ),
     );
 
     const overviewPanel = screen.getByText("projects.overview").closest(".projects-overview-panel");
@@ -209,27 +218,31 @@ describe("ProjectsPage layout", () => {
     const onCreateAgentsSkillsLink = vi.fn();
 
     render(
-      createElement(ProjectDetailPanel, {
-        t: (key) => key,
-        summary: SUMMARY,
-        detail: DETAIL,
-        defaultEditorApp: "vscode",
-        canCreateAgentsLink: true,
-        canCreateAgentsSkillsLink: true,
-        canOpenRepository: true,
-        canOpenProjectDirectory: true,
-        canOpenInEditor: true,
-        isLinkingAgents: false,
-        isLinkingAgentsSkills: false,
-        onOpenInTerminal: () => undefined,
-        onOpenInEditor: () => undefined,
-        onOpenRepository: () => undefined,
-        onCreateAgentsLink: () => undefined,
-        onCreateAgentsSkillsLink,
-        onOpenSession: () => undefined,
-        onOpenProjectHistory: () => undefined,
-        onOpenProjectUsage: () => undefined,
-      }),
+      createElement(
+        I18nProvider,
+        null,
+        createElement(ProjectDetailPanel, {
+          t: (key) => key,
+          summary: SUMMARY,
+          detail: DETAIL,
+          defaultEditorApp: "vscode",
+          canCreateAgentsLink: true,
+          canCreateAgentsSkillsLink: true,
+          canOpenRepository: true,
+          canOpenProjectDirectory: true,
+          canOpenInEditor: true,
+          isLinkingAgents: false,
+          isLinkingAgentsSkills: false,
+          onOpenInTerminal: () => undefined,
+          onOpenInEditor: () => undefined,
+          onOpenRepository: () => undefined,
+          onCreateAgentsLink: () => undefined,
+          onCreateAgentsSkillsLink,
+          onOpenSession: () => undefined,
+          onOpenProjectHistory: () => undefined,
+          onOpenProjectUsage: () => undefined,
+        }),
+      ),
     );
 
     fireEvent.click(
@@ -286,24 +299,28 @@ describe("ProjectsPage layout", () => {
     const onOpenProjectHistory = vi.fn();
 
     render(
-      createElement(ProjectDetailPanel, {
-        t: (key) => key,
-        summary: SUMMARY,
-        detail: DETAIL,
-        defaultEditorApp: "vscode",
-        canCreateAgentsLink: true,
-        canOpenRepository: true,
-        canOpenProjectDirectory: true,
-        canOpenInEditor: true,
-        isLinkingAgents: false,
-        onOpenInTerminal: () => undefined,
-        onOpenInEditor: () => undefined,
-        onOpenRepository: () => undefined,
-        onCreateAgentsLink: () => undefined,
-        onOpenSession: () => undefined,
-        onOpenProjectHistory,
-        onOpenProjectUsage: () => undefined,
-      }),
+      createElement(
+        I18nProvider,
+        null,
+        createElement(ProjectDetailPanel, {
+          t: (key) => key,
+          summary: SUMMARY,
+          detail: DETAIL,
+          defaultEditorApp: "vscode",
+          canCreateAgentsLink: true,
+          canOpenRepository: true,
+          canOpenProjectDirectory: true,
+          canOpenInEditor: true,
+          isLinkingAgents: false,
+          onOpenInTerminal: () => undefined,
+          onOpenInEditor: () => undefined,
+          onOpenRepository: () => undefined,
+          onCreateAgentsLink: () => undefined,
+          onOpenSession: () => undefined,
+          onOpenProjectHistory,
+          onOpenProjectUsage: () => undefined,
+        }),
+      ),
     );
 
     fireEvent.click(screen.getByRole("button", { name: "projects.viewAllSessions" }));
@@ -315,24 +332,28 @@ describe("ProjectsPage layout", () => {
     const onOpenProjectUsage = vi.fn();
 
     render(
-      createElement(ProjectDetailPanel, {
-        t: (key) => key,
-        summary: SUMMARY,
-        detail: DETAIL,
-        defaultEditorApp: "vscode",
-        canCreateAgentsLink: true,
-        canOpenRepository: true,
-        canOpenProjectDirectory: true,
-        canOpenInEditor: true,
-        isLinkingAgents: false,
-        onOpenInTerminal: () => undefined,
-        onOpenInEditor: () => undefined,
-        onOpenRepository: () => undefined,
-        onCreateAgentsLink: () => undefined,
-        onOpenSession: () => undefined,
-        onOpenProjectHistory: () => undefined,
-        onOpenProjectUsage,
-      }),
+      createElement(
+        I18nProvider,
+        null,
+        createElement(ProjectDetailPanel, {
+          t: (key) => key,
+          summary: SUMMARY,
+          detail: DETAIL,
+          defaultEditorApp: "vscode",
+          canCreateAgentsLink: true,
+          canOpenRepository: true,
+          canOpenProjectDirectory: true,
+          canOpenInEditor: true,
+          isLinkingAgents: false,
+          onOpenInTerminal: () => undefined,
+          onOpenInEditor: () => undefined,
+          onOpenRepository: () => undefined,
+          onCreateAgentsLink: () => undefined,
+          onOpenSession: () => undefined,
+          onOpenProjectHistory: () => undefined,
+          onOpenProjectUsage,
+        }),
+      ),
     );
 
     fireEvent.click(screen.getByRole("button", { name: "projects.viewTokenUsageCost" }));
@@ -353,44 +374,48 @@ describe("ProjectsPage layout", () => {
 
   it("keeps branch and worktree tables inside the panel without horizontal scrolling", () => {
     render(
-      createElement(ProjectDetailPanel, {
-        t: (key) => key,
-        summary: SUMMARY,
-        detail: {
-          ...DETAIL,
-          branches: [
-            {
-              name: "feature/very-long-local-branch-name-that-should-wrap-inside-the-card",
-              isCurrent: true,
-              lastCommitSubject:
-                "feat(projects): keep project management tables inside their panel width",
-              lastCommitAt: 1778932800,
-            },
-          ],
-          worktrees: [
-            {
-              path: "/Users/test-user/work/alpha/.worktrees/very-long-feature-branch-name-that-needs-inspection",
-              branch: "feature/long-path",
-              head: "1234567890abcdef",
-              isCurrent: false,
-              isDetached: false,
-            },
-          ],
-        },
-        defaultEditorApp: "vscode",
-        canCreateAgentsLink: true,
-        canOpenRepository: true,
-        canOpenProjectDirectory: true,
-        canOpenInEditor: true,
-        isLinkingAgents: false,
-        onOpenInTerminal: () => undefined,
-        onOpenInEditor: () => undefined,
-        onOpenRepository: () => undefined,
-        onCreateAgentsLink: () => undefined,
-        onOpenSession: () => undefined,
-        onOpenProjectHistory: () => undefined,
-        onOpenProjectUsage: () => undefined,
-      }),
+      createElement(
+        I18nProvider,
+        null,
+        createElement(ProjectDetailPanel, {
+          t: (key) => key,
+          summary: SUMMARY,
+          detail: {
+            ...DETAIL,
+            branches: [
+              {
+                name: "feature/very-long-local-branch-name-that-should-wrap-inside-the-card",
+                isCurrent: true,
+                lastCommitSubject:
+                  "feat(projects): keep project management tables inside their panel width",
+                lastCommitAt: 1778932800,
+              },
+            ],
+            worktrees: [
+              {
+                path: "/Users/test-user/work/alpha/.worktrees/very-long-feature-branch-name-that-needs-inspection",
+                branch: "feature/long-path",
+                head: "1234567890abcdef",
+                isCurrent: false,
+                isDetached: false,
+              },
+            ],
+          },
+          defaultEditorApp: "vscode",
+          canCreateAgentsLink: true,
+          canOpenRepository: true,
+          canOpenProjectDirectory: true,
+          canOpenInEditor: true,
+          isLinkingAgents: false,
+          onOpenInTerminal: () => undefined,
+          onOpenInEditor: () => undefined,
+          onOpenRepository: () => undefined,
+          onCreateAgentsLink: () => undefined,
+          onOpenSession: () => undefined,
+          onOpenProjectHistory: () => undefined,
+          onOpenProjectUsage: () => undefined,
+        }),
+      ),
     );
 
     for (const table of document.querySelectorAll(".projects-table")) {
@@ -406,35 +431,39 @@ describe("ProjectsPage layout", () => {
       "/Users/test-user/work/alpha/.worktrees/very-long-feature-branch-name-that-needs-inspection";
 
     render(
-      createElement(ProjectDetailPanel, {
-        t: (key) => key,
-        summary: SUMMARY,
-        detail: {
-          ...DETAIL,
-          worktrees: [
-            {
-              path: worktreePath,
-              branch: "feature/long-path",
-              head: "1234567890abcdef",
-              isCurrent: false,
-              isDetached: false,
-            },
-          ],
-        },
-        defaultEditorApp: "vscode",
-        canCreateAgentsLink: true,
-        canOpenRepository: true,
-        canOpenProjectDirectory: true,
-        canOpenInEditor: true,
-        isLinkingAgents: false,
-        onOpenInTerminal: () => undefined,
-        onOpenInEditor: () => undefined,
-        onOpenRepository: () => undefined,
-        onCreateAgentsLink: () => undefined,
-        onOpenSession: () => undefined,
-        onOpenProjectHistory: () => undefined,
-        onOpenProjectUsage: () => undefined,
-      }),
+      createElement(
+        I18nProvider,
+        null,
+        createElement(ProjectDetailPanel, {
+          t: (key) => key,
+          summary: SUMMARY,
+          detail: {
+            ...DETAIL,
+            worktrees: [
+              {
+                path: worktreePath,
+                branch: "feature/long-path",
+                head: "1234567890abcdef",
+                isCurrent: false,
+                isDetached: false,
+              },
+            ],
+          },
+          defaultEditorApp: "vscode",
+          canCreateAgentsLink: true,
+          canOpenRepository: true,
+          canOpenProjectDirectory: true,
+          canOpenInEditor: true,
+          isLinkingAgents: false,
+          onOpenInTerminal: () => undefined,
+          onOpenInEditor: () => undefined,
+          onOpenRepository: () => undefined,
+          onCreateAgentsLink: () => undefined,
+          onOpenSession: () => undefined,
+          onOpenProjectHistory: () => undefined,
+          onOpenProjectUsage: () => undefined,
+        }),
+      ),
     );
 
     const pathCell = screen.getByText(worktreePath);
@@ -452,35 +481,39 @@ describe("ProjectsPage layout", () => {
       "/Users/test-user/work/alpha/.worktrees/very-long-feature-branch-name-that-needs-inspection";
 
     render(
-      createElement(ProjectDetailPanel, {
-        t: (key) => key,
-        summary: SUMMARY,
-        detail: {
-          ...DETAIL,
-          worktrees: [
-            {
-              path: worktreePath,
-              branch: "feature/long-path",
-              head: "1234567890abcdef",
-              isCurrent: false,
-              isDetached: false,
-            },
-          ],
-        },
-        defaultEditorApp: "vscode",
-        canCreateAgentsLink: true,
-        canOpenRepository: true,
-        canOpenProjectDirectory: true,
-        canOpenInEditor: true,
-        isLinkingAgents: false,
-        onOpenInTerminal: () => undefined,
-        onOpenInEditor: () => undefined,
-        onOpenRepository: () => undefined,
-        onCreateAgentsLink: () => undefined,
-        onOpenSession: () => undefined,
-        onOpenProjectHistory: () => undefined,
-        onOpenProjectUsage: () => undefined,
-      }),
+      createElement(
+        I18nProvider,
+        null,
+        createElement(ProjectDetailPanel, {
+          t: (key) => key,
+          summary: SUMMARY,
+          detail: {
+            ...DETAIL,
+            worktrees: [
+              {
+                path: worktreePath,
+                branch: "feature/long-path",
+                head: "1234567890abcdef",
+                isCurrent: false,
+                isDetached: false,
+              },
+            ],
+          },
+          defaultEditorApp: "vscode",
+          canCreateAgentsLink: true,
+          canOpenRepository: true,
+          canOpenProjectDirectory: true,
+          canOpenInEditor: true,
+          isLinkingAgents: false,
+          onOpenInTerminal: () => undefined,
+          onOpenInEditor: () => undefined,
+          onOpenRepository: () => undefined,
+          onCreateAgentsLink: () => undefined,
+          onOpenSession: () => undefined,
+          onOpenProjectHistory: () => undefined,
+          onOpenProjectUsage: () => undefined,
+        }),
+      ),
     );
 
     const pathButton = screen.getByRole("button", {
@@ -495,28 +528,32 @@ describe("ProjectsPage layout", () => {
 
   it("renders git warnings through the shared warning tone", () => {
     render(
-      createElement(ProjectDetailPanel, {
-        t: (key) => key,
-        summary: SUMMARY,
-        detail: {
-          ...DETAIL,
-          isGitRepo: false,
-          repoRoot: undefined,
-        },
-        defaultEditorApp: "vscode",
-        canCreateAgentsLink: true,
-        canOpenRepository: true,
-        canOpenProjectDirectory: true,
-        canOpenInEditor: true,
-        isLinkingAgents: false,
-        onOpenInTerminal: () => undefined,
-        onOpenInEditor: () => undefined,
-        onOpenRepository: () => undefined,
-        onCreateAgentsLink: () => undefined,
-        onOpenSession: () => undefined,
-        onOpenProjectHistory: () => undefined,
-        onOpenProjectUsage: () => undefined,
-      }),
+      createElement(
+        I18nProvider,
+        null,
+        createElement(ProjectDetailPanel, {
+          t: (key) => key,
+          summary: SUMMARY,
+          detail: {
+            ...DETAIL,
+            isGitRepo: false,
+            repoRoot: undefined,
+          },
+          defaultEditorApp: "vscode",
+          canCreateAgentsLink: true,
+          canOpenRepository: true,
+          canOpenProjectDirectory: true,
+          canOpenInEditor: true,
+          isLinkingAgents: false,
+          onOpenInTerminal: () => undefined,
+          onOpenInEditor: () => undefined,
+          onOpenRepository: () => undefined,
+          onCreateAgentsLink: () => undefined,
+          onOpenSession: () => undefined,
+          onOpenProjectHistory: () => undefined,
+          onOpenProjectUsage: () => undefined,
+        }),
+      ),
     );
 
     expect(screen.getAllByText("projects.notGitRepoHint")[0]).toHaveClass("text-warning");
