@@ -1,23 +1,11 @@
-import type { FileContents, FileOptions, ThemeTypes } from "@pierre/diffs/react";
-import { File as PierreFile } from "@pierre/diffs/react";
-import {
-  type ContextMenuItem,
-  type ContextMenuOpenContext,
-  createFileTreeIconResolver,
-  getBuiltInFileIconColor,
-  getBuiltInSpriteSheet,
-  prepareFileTreeInput,
-} from "@pierre/trees";
-import { FileTree, useFileTree } from "@pierre/trees/react";
+import type { ContextMenuItem, ContextMenuOpenContext } from "@pierre/trees";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
-import { Code2, Copy, ExternalLink, Eye, SquarePen, X } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import {
   type CSSProperties,
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
-  type MouseEvent as ReactMouseEvent,
-  type ReactNode,
   type PointerEvent as ReactPointerEvent,
   startTransition,
   useCallback,
@@ -40,19 +28,25 @@ import type {
   ClaudeFilePreview,
 } from "../types";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
-import MarkdownPreview from "./claude-overview/MarkdownPreview";
+import {
+  ClaudeDirectoryTree,
+  ClaudeOverviewIconSprite,
+  ClaudeOverviewTreeLoading,
+} from "./claude-overview/ClaudeDirectoryTree";
+import { ClaudeFilePreviewPane } from "./claude-overview/ClaudeFilePreviewPane";
+import {
+  absolutePreviewPath,
+  defaultViewModeForPath,
+  normalizeTreePath,
+  type PreviewViewMode,
+  treePathForEntry,
+} from "./claude-overview/file-viewer-utils";
 import { PANEL_SURFACE_CLASS } from "./surface-classes";
 import { useTheme } from "./theme-provider";
 import { TYPOGRAPHY } from "./typography-classes";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-
-interface ClaudeDirectoryTreeProps {
-  paths: string[];
-  onSelectPath: (path: string) => void;
-  renderContextMenu: (item: ContextMenuItem, context: ContextMenuOpenContext) => ReactNode;
-}
 
 interface LoadOverviewOptions {
   preserveCurrent?: boolean;
@@ -70,16 +64,6 @@ const EMPTY_OVERVIEW_STATE: ClaudeDirectoryOverview = {
   skippedNodeModulesCount: 0,
 };
 
-const PIERRE_FILE_OPTIONS = {
-  disableFileHeader: true,
-  overflow: "scroll",
-  theme: {
-    dark: "pierre-dark",
-    light: "pierre-light",
-  },
-  tokenizeMaxLineLength: 2000,
-} satisfies FileOptions<undefined>;
-
 const DEFAULT_TREE_PANE_RATIO = 0.28;
 // 刷新按钮"刷新中..."状态的最小展示时长,避免本地 IPC 极快返回时按钮抖动看不清反馈
 const MIN_REFRESH_FEEDBACK_MS = 500;
@@ -88,55 +72,12 @@ const MAX_TREE_PANE_RATIO = 0.52;
 const TREE_PANE_RATIO_STEP = 0.02;
 const RESIZER_WIDTH = 8;
 const TREE_PANE_RATIO_STORAGE_KEY = "ai-manager:claude-overview-tree-pane-ratio";
-const TREE_LOADING_ROWS = Array.from({ length: 11 }, (_, index) => index);
-const TREE_LOADING_ROW_CLASS_NAMES = [
-  "w-[62%]",
-  "w-[48%]",
-  "w-[76%]",
-  "ml-[18px] w-[58%]",
-  "ml-[18px] w-[70%]",
-  "w-[52%]",
-  "w-[82%]",
-  "ml-[18px] w-[64%]",
-  "ml-[36px] w-[44%]",
-  "w-[72%]",
-  "w-[55%]",
-] as const;
-const FILE_TREE_FILE_ICON_NAME = "file-tree-icon-file";
-const FILE_TREE_ICON_RESOLVER = createFileTreeIconResolver();
-const FILE_TREE_ICON_SPRITE_SHEET = getBuiltInSpriteSheet("complete");
-const MARKDOWN_EXTENSIONS = new Set(["md", "markdown"]);
 const CONTEXT_MENU_WIDTH = 176;
 const CONTEXT_MENU_ESTIMATED_HEIGHT = 152;
 const CONTEXT_MENU_EDGE_GAP = 8;
 const CONTEXT_MENU_ANCHOR_GAP = 8;
 const CLAUDE_CODE_DOCS_BASE_URL = "https://code.claude.com/docs";
 const CLAUDE_DIRECTORY_DOCS_PATH = "claude-directory";
-const FILE_TREE_THEME_STYLE = {
-  "--trees-accent-override": "var(--primary)",
-  "--trees-bg-muted-override": "var(--muted)",
-  "--trees-bg-override": "var(--card)",
-  "--trees-border-color-override": "var(--border)",
-  "--trees-fg-override": "var(--foreground)",
-  "--trees-fg-muted-override": "var(--muted-foreground)",
-  "--trees-focus-ring-color-override": "var(--ring)",
-  "--trees-font-size-override": "0.8125rem",
-  "--trees-input-bg-override": "var(--card)",
-  "--trees-item-height": "1.75rem",
-  "--trees-search-bg-override": "var(--card)",
-  "--trees-search-fg-override": "var(--foreground)",
-  "--trees-search-font-weight-override": "500",
-  "--trees-selected-bg-override": "var(--accent)",
-  "--trees-selected-fg-override": "var(--foreground)",
-} as CSSProperties;
-
-// 根据文件路径后缀判断是否为 Markdown，用于决定是否启用渲染预览
-function isMarkdownPath(path: string) {
-  const ext = path.split(".").pop()?.toLowerCase() ?? "";
-  return MARKDOWN_EXTENSIONS.has(ext);
-}
-
-type PreviewViewMode = "preview" | "source";
 type ClaudeOverviewNameDialogMode = "create" | "rename";
 
 interface ClaudeOverviewNameDialogState {
@@ -153,11 +94,6 @@ interface ClaudeOverviewDeleteState {
   kind: ClaudeDirectoryEntryOperationKind;
   name: string;
   path: string;
-}
-
-// 切换到目标文件时计算默认视图：Markdown 默认渲染预览，其它一律源码
-function defaultViewModeForPath(path: string | null | undefined): PreviewViewMode {
-  return path && isMarkdownPath(path) ? "preview" : "source";
 }
 
 let cachedClaudeOverviewState: ClaudeDirectoryOverview | null = null;
@@ -292,14 +228,6 @@ function setResizeDragChromeVisibility(
   }
 }
 
-function treePathForEntry(entry: ClaudeDirectoryEntry) {
-  return entry.kind === "directory" ? `${entry.path}/` : entry.path;
-}
-
-function normalizeTreePath(path: string) {
-  return path.endsWith("/") ? path.slice(0, -1) : path;
-}
-
 function getParentPath(path: string) {
   const normalizedPath = normalizeTreePath(path);
   const separatorIndex = normalizedPath.lastIndexOf("/");
@@ -349,85 +277,9 @@ function isValidEntryNameInput(name: string) {
   );
 }
 
-function getEventTreeItemPath(event: ReactMouseEvent<HTMLElement>) {
-  const nativeEvent = event.nativeEvent as MouseEvent & {
-    composedPath?: () => EventTarget[];
-  };
-  const eventPath =
-    typeof nativeEvent.composedPath === "function" ? nativeEvent.composedPath() : [];
-
-  for (const target of eventPath) {
-    if (!(target instanceof HTMLElement)) {
-      continue;
-    }
-    const treeItemElement =
-      target.dataset.type === "item" ? target : target.closest<HTMLElement>("[data-type='item']");
-    const itemPath = treeItemElement?.dataset.itemPath;
-    if (itemPath) {
-      return normalizeTreePath(itemPath);
-    }
-  }
-
-  if (event.target instanceof HTMLElement) {
-    const treeItemElement = event.target.closest<HTMLElement>("[data-type='item']");
-    const itemPath = treeItemElement?.dataset.itemPath;
-    if (itemPath) {
-      return normalizeTreePath(itemPath);
-    }
-  }
-
-  return null;
-}
-
-function getMonotonicTime() {
-  return typeof performance !== "undefined" ? performance.now() : Date.now();
-}
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-  if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`;
-  }
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function formatModifiedAt(timestamp: number) {
-  if (!timestamp) {
-    return "-";
-  }
-  return new Date(timestamp * 1000).toLocaleString();
-}
-
-function formatPreviewEncoding(encoding: string | undefined, t: (key: TranslationKey) => string) {
-  switch (encoding) {
-    case "utf-8":
-      return t("claudeOverview.encodingUtf8");
-    case "utf-8-lossy":
-      return t("claudeOverview.encodingUtf8Lossy");
-    case "binary":
-      return t("claudeOverview.encodingBinary");
-    default:
-      return encoding || t("claudeOverview.encodingUnknown");
-  }
-}
-
 function getClaudeDirectoryDocsUrl(language: Language) {
   const docsLocale = language === "zh" ? "zh-CN" : "en";
   return `${CLAUDE_CODE_DOCS_BASE_URL}/${docsLocale}/${CLAUDE_DIRECTORY_DOCS_PATH}`;
-}
-
-function fileContentsForPreview(preview: ClaudeFilePreview): FileContents {
-  return {
-    name: preview.name || preview.path,
-    contents: preview.content,
-    cacheKey: `${preview.path}:${preview.size}:${preview.modifiedAt}`,
-  };
-}
-
-function absolutePreviewPath(rootPath: string, relativePath: string) {
-  return `${rootPath.replace(/\/$/, "")}/${relativePath}`;
 }
 
 interface ClaudeOverviewContextMenuProps {
@@ -565,216 +417,6 @@ function ClaudeOverviewNameDialog({
   );
 }
 
-function ClaudeDirectoryTree({ paths, onSelectPath, renderContextMenu }: ClaudeDirectoryTreeProps) {
-  const onSelectPathRef = useRef(onSelectPath);
-  const lastHandledPathRef = useRef<{ path: string; timestamp: number } | null>(null);
-  onSelectPathRef.current = onSelectPath;
-
-  const handlePath = useCallback((path: string) => {
-    const now = getMonotonicTime();
-    const lastHandledPath = lastHandledPathRef.current;
-    if (lastHandledPath?.path === path && now - lastHandledPath.timestamp < 80) {
-      return;
-    }
-    lastHandledPathRef.current = { path, timestamp: now };
-    onSelectPathRef.current(path);
-  }, []);
-
-  // 把 raw paths 转成 @pierre/trees 的 preparedInput,避免组件内反复整形大型路径列表
-  const preparedInput = useMemo(() => prepareFileTreeInput(paths), [paths]);
-
-  const { model } = useFileTree({
-    preparedInput,
-    dragAndDrop: false,
-    flattenEmptyDirectories: false,
-    initialExpansion: "closed",
-    initialExpandedPaths: [],
-    initialVisibleRowCount: 24,
-    composition: {
-      contextMenu: {
-        enabled: true,
-        triggerMode: "both",
-        buttonVisibility: "when-needed",
-      },
-    },
-    overscan: 8,
-    onSelectionChange: (selectedPaths) => {
-      const selectedPath = selectedPaths[selectedPaths.length - 1];
-      if (selectedPath) {
-        handlePath(normalizeTreePath(selectedPath));
-      }
-    },
-    renaming: false,
-    search: true,
-    density: "compact",
-    renderRowDecoration: ({ item }) => ({
-      text: item.name,
-      title: item.name,
-    }),
-    unsafeCSS: `
-      button[data-type='item'] {
-        border-radius: 6px;
-      }
-
-      [data-file-tree-search-container] {
-        margin-bottom: 0.25rem;
-        padding-block: 0.75rem 0.5rem;
-        padding-inline: 0.75rem;
-      }
-
-      [data-file-tree-search-input] {
-        height: 2rem;
-        padding-inline: 0.75rem;
-        color: var(--foreground);
-        background-color: var(--card);
-        border-color: var(--border);
-        border-radius: 0.5rem;
-        box-shadow: none;
-        transition:
-          background-color 150ms ease,
-          border-color 150ms ease,
-          box-shadow 150ms ease;
-      }
-
-      [data-file-tree-search-input]:hover {
-        background-color: var(--muted);
-        border-color: color-mix(in oklch, var(--muted-foreground) 45%, var(--border));
-      }
-
-      [data-file-tree-search-input]:focus-visible,
-      [data-file-tree-search-input][data-file-tree-search-input-fake-focus='true'] {
-        background-color: var(--card);
-        border-color: var(--primary);
-        outline: none;
-        box-shadow: 0 0 0 1px color-mix(in oklch, var(--primary) 42%, transparent);
-      }
-
-      button[data-type='item']:not(:has([data-item-rename-input])) > [data-item-section='content'] {
-        flex: 0 0 0;
-        min-width: 0;
-        visibility: hidden;
-        width: 0;
-      }
-
-      button[data-type='item'] > [data-item-section='decoration'] {
-        color: inherit;
-        flex: 1 1 auto;
-        justify-content: flex-start;
-        text-align: start;
-      }
-
-      button[data-type='item'] > [data-item-section='decoration'] > span {
-        color: inherit;
-        justify-content: flex-start;
-        min-width: 0;
-        overflow: hidden;
-        text-align: start;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-    `,
-  });
-
-  useEffect(() => {
-    model.resetPaths(paths, { initialExpandedPaths: [] });
-  }, [model, paths]);
-
-  const handleTreeClickCapture = useCallback(
-    (event: ReactMouseEvent<HTMLElement>) => {
-      const clickedPath = getEventTreeItemPath(event);
-      if (clickedPath) {
-        handlePath(clickedPath);
-      }
-    },
-    [handlePath],
-  );
-
-  return (
-    <div
-      className="claude-overview-file-tree-shell h-full min-h-0"
-      style={FILE_TREE_THEME_STYLE}
-      onClickCapture={handleTreeClickCapture}
-    >
-      <FileTree
-        model={model}
-        className="claude-overview-file-tree h-full w-full bg-card text-foreground"
-        renderContextMenu={renderContextMenu}
-      />
-    </div>
-  );
-}
-
-function ClaudeOverviewTreeLoading({ label }: { label: string }) {
-  return (
-    <div
-      className="claude-overview-tree-loading flex h-full min-h-0 flex-col gap-3 text-muted-foreground"
-      aria-busy="true"
-      aria-live="polite"
-    >
-      <div
-        className="claude-overview-tree-loading-search h-8 shrink-0 rounded-md border bg-background"
-        aria-hidden="true"
-      />
-      <div className="claude-overview-tree-loading-label px-2 text-xs leading-snug">{label}</div>
-      <div
-        className="claude-overview-tree-loading-list flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden"
-        aria-hidden="true"
-      >
-        {TREE_LOADING_ROWS.map((rowIndex) => (
-          <span
-            key={rowIndex}
-            className={cn(
-              "h-[18px] rounded-sm bg-muted motion-safe:animate-pulse",
-              TREE_LOADING_ROW_CLASS_NAMES[rowIndex],
-            )}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ClaudeOverviewIconSprite() {
-  return (
-    <div
-      className="claude-overview-icon-sprite"
-      aria-hidden="true"
-      // Pierre Trees 的内置图标以 symbol sprite 暴露；这里复用同一份 sprite 保持标签页图标一致。
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: sprite 来自本地 @pierre/trees 包，不包含用户输入。
-      dangerouslySetInnerHTML={{ __html: FILE_TREE_ICON_SPRITE_SHEET }}
-    />
-  );
-}
-
-function ClaudeOverviewFileIcon({ path }: { path: string }) {
-  const icon = FILE_TREE_ICON_RESOLVER.resolveIcon(FILE_TREE_FILE_ICON_NAME, path);
-  const iconToken = icon.token ?? "default";
-  const iconWidth = icon.width ?? 16;
-  const iconHeight = icon.height ?? 16;
-  const iconStyle = useMemo<CSSProperties>(
-    () => ({
-      color: getBuiltInFileIconColor(iconToken),
-    }),
-    [iconToken],
-  );
-
-  return (
-    <svg
-      className="claude-overview-tab-file-icon"
-      aria-hidden="true"
-      data-icon-name={icon.remappedFrom ?? icon.name}
-      data-icon-token={iconToken}
-      data-testid="claude-overview-tab-file-icon"
-      height={iconHeight}
-      style={iconStyle}
-      viewBox={icon.viewBox ?? `0 0 ${iconWidth} ${iconHeight}`}
-      width={iconWidth}
-    >
-      <use href={`#${icon.name.replace(/^#/, "")}`} />
-    </svg>
-  );
-}
-
 function ClaudeOverviewPage() {
   const { language, t } = useI18n();
   const { isDark } = useTheme();
@@ -866,36 +508,7 @@ function ClaudeOverviewPage() {
     () => openPreviews.find((preview) => preview.path === activePreviewPath) ?? null,
     [activePreviewPath, openPreviews],
   );
-  const previewFile = useMemo(() => {
-    if (!activePreview || activePreview.isBinary) {
-      return null;
-    }
-    return fileContentsForPreview(activePreview);
-  }, [activePreview]);
-  const previewThemeType: ThemeTypes = isDark ? "dark" : "light";
-  const previewFileOptions = useMemo(
-    () => ({
-      ...PIERRE_FILE_OPTIONS,
-      themeType: previewThemeType,
-    }),
-    [previewThemeType],
-  );
-  const previewContentStyle = useMemo<CSSProperties>(
-    () =>
-      ({
-        colorScheme: previewThemeType,
-        "--diffs-dark": "var(--foreground)",
-        "--diffs-dark-bg": "var(--card)",
-        "--diffs-font-family": '"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
-        "--diffs-font-size": "0.875rem",
-        "--diffs-gap-block": "1rem",
-        "--diffs-gap-inline": "1.25rem",
-        "--diffs-light": "var(--foreground)",
-        "--diffs-light-bg": "var(--card)",
-        "--diffs-line-height": "1.55",
-      }) as CSSProperties,
-    [previewThemeType],
-  );
+  const previewThemeType = isDark ? "dark" : "light";
   const claudeDirectoryDocsUrl = useMemo(() => getClaudeDirectoryDocsUrl(language), [language]);
 
   const selectedEntry = selectedPath ? entryByPath.get(selectedPath) : undefined;
@@ -1629,173 +1242,25 @@ function ClaudeOverviewPage() {
           )}
           aria-label={t("claudeOverview.preview")}
         >
-          {openPreviews.length > 0 ? (
-            <div
-              className="claude-overview-tabs flex min-h-8 shrink-0 items-end gap-1 overflow-x-auto border-b bg-card/95 px-4 pt-1.5"
-              role="tablist"
-              aria-label={t("claudeOverview.openFiles")}
-            >
-              {openPreviews.map((openedPreview) => {
-                const isActive = openedPreview.path === activePreviewPath;
-                return (
-                  <div
-                    key={openedPreview.path}
-                    className={cn(
-                      "claude-overview-tab-shell flex h-7 min-w-0 max-w-60 shrink-0 items-center overflow-hidden rounded-t-md border border-b-0 bg-muted",
-                      isActive && "active bg-background",
-                    )}
-                  >
-                    <Button
-                      type="button"
-                      role="tab"
-                      variant="ghost"
-                      aria-selected={isActive}
-                      className="claude-overview-tab h-full min-w-0 flex-1 justify-start gap-1.5 overflow-hidden bg-transparent px-2.5 font-mono text-sm aria-selected:text-foreground aria-[selected=false]:text-muted-foreground"
-                      onClick={() => handleSelectPreviewTab(openedPreview.path)}
-                    >
-                      <ClaudeOverviewFileIcon path={openedPreview.path} />
-                      <span className="claude-overview-tab-label block min-w-0 flex-1 truncate">
-                        {openedPreview.name || openedPreview.path}
-                      </span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      className="claude-overview-tab-close mr-0.5 size-6 shrink-0 rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                      aria-label={t("claudeOverview.closePreview").replace(
-                        "{name}",
-                        openedPreview.name || openedPreview.path,
-                      )}
-                      onClick={() => handleClosePreview(openedPreview.path)}
-                    >
-                      <X className="size-3.5" aria-hidden="true" />
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
-
-          {loadingPreviewPath && !activePreview ? (
-            <div className="claude-overview-empty flex min-h-[180px] flex-1 items-center justify-center p-5 text-center leading-relaxed text-muted-foreground">
-              {t("loading")}
-            </div>
-          ) : activePreview ? (
-            <>
-              <div
-                className="claude-overview-preview-toolbar flex min-h-[38px] shrink-0 flex-nowrap items-center justify-end gap-3 border-b bg-card/95 px-4 py-1 max-[700px]:flex-col max-[700px]:items-start"
-                data-testid="claude-overview-preview-toolbar"
-              >
-                {!activePreview.isBinary && isMarkdownPath(activePreview.path) ? (
-                  <div className="claude-overview-preview-view-toggle mr-auto flex items-center max-[700px]:mr-0">
-                    <Button
-                      type="button"
-                      variant={viewMode === "preview" ? "secondary" : "outline"}
-                      size="icon-sm"
-                      aria-label={
-                        viewMode === "preview"
-                          ? t("claudeOverview.toggleToSource")
-                          : t("claudeOverview.toggleToPreview")
-                      }
-                      title={
-                        viewMode === "preview"
-                          ? t("claudeOverview.toggleToSource")
-                          : t("claudeOverview.toggleToPreview")
-                      }
-                      aria-pressed={viewMode === "preview"}
-                      onClick={() =>
-                        setViewMode((current) => (current === "preview" ? "source" : "preview"))
-                      }
-                    >
-                      {viewMode === "preview" ? (
-                        <Code2 className="size-4" aria-hidden="true" />
-                      ) : (
-                        <Eye className="size-[18px]" aria-hidden="true" />
-                      )}
-                    </Button>
-                  </div>
-                ) : null}
-                <div className="claude-overview-preview-actions flex shrink-0 flex-wrap items-center justify-end gap-2 max-[700px]:justify-start">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon-sm"
-                    aria-label={t("claudeOverview.copyPath")}
-                    title={t("claudeOverview.copyPath")}
-                    onClick={handleCopyPath}
-                  >
-                    <Copy className="size-4" aria-hidden="true" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon-sm"
-                    aria-label={t("claudeOverview.openFileBrowser")}
-                    title={t("claudeOverview.openFileBrowser")}
-                    onClick={handleOpenInFileBrowser}
-                  >
-                    <ExternalLink className="size-3.5" aria-hidden="true" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon-sm"
-                    aria-label={t("claudeOverview.openEditor")}
-                    title={t("claudeOverview.openEditor")}
-                    onClick={handleOpenInEditor}
-                  >
-                    <SquarePen className="size-4" aria-hidden="true" />
-                  </Button>
-                </div>
-              </div>
-              {activePreview.isBinary ? (
-                <div className="claude-overview-empty flex min-h-[180px] flex-1 items-center justify-center p-5 text-center leading-relaxed text-muted-foreground">
-                  {t("claudeOverview.binaryFile")}
-                </div>
-              ) : isMarkdownPath(activePreview.path) && viewMode === "preview" ? (
-                <MarkdownPreview
-                  className={cn(
-                    "claude-overview-preview-content claude-overview-markdown flex-1 overflow-auto bg-transparent px-5 py-4 text-sm",
-                    previewThemeType === "dark" ? "markdown-dark" : "markdown-light",
-                  )}
-                  content={activePreview.content}
-                  themeType={previewThemeType === "dark" ? "dark" : "light"}
-                />
-              ) : previewFile ? (
-                <PierreFile
-                  className="claude-overview-preview-content block min-h-0 flex-1 overflow-auto"
-                  file={previewFile}
-                  options={previewFileOptions}
-                  style={previewContentStyle}
-                  disableWorkerPool
-                />
-              ) : null}
-              <div
-                className="claude-overview-preview-footer flex min-h-[34px] shrink-0 items-center border-t bg-card/95 px-4 py-1 max-[700px]:flex-col max-[700px]:items-start"
-                data-testid="claude-overview-preview-footer"
-              >
-                <div className="claude-overview-preview-summary flex min-w-0 items-center gap-2 overflow-hidden truncate whitespace-nowrap text-xs leading-tight text-muted-foreground">
-                  <span>{formatBytes(activePreview.size)}</span>
-                  <span>
-                    {formatModifiedAt(activeEntry?.modifiedAt ?? activePreview.modifiedAt)}
-                  </span>
-                  <span>{formatPreviewEncoding(activePreview.encoding, t)}</span>
-                  {activePreview.truncated ? (
-                    <span>{t("claudeOverview.fileTruncated")}</span>
-                  ) : null}
-                </div>
-              </div>
-            </>
-          ) : selectedEntry?.kind === "directory" ? (
-            <div className="claude-overview-empty flex min-h-[180px] flex-1 items-center justify-center p-5 text-center leading-relaxed text-muted-foreground">
-              {t("claudeOverview.directorySelected")}
-            </div>
-          ) : (
-            <div className="claude-overview-empty flex min-h-[180px] flex-1 items-center justify-center p-5 text-center leading-relaxed text-muted-foreground">
-              {t("claudeOverview.selectHint")}
-            </div>
-          )}
+          <ClaudeFilePreviewPane
+            openPreviews={openPreviews}
+            activePreview={activePreview}
+            activePreviewPath={activePreviewPath}
+            activeEntry={activeEntry}
+            selectedEntry={selectedEntry}
+            loadingPreviewPath={loadingPreviewPath}
+            viewMode={viewMode}
+            previewThemeType={previewThemeType}
+            t={t}
+            onSelectPreviewTab={handleSelectPreviewTab}
+            onClosePreview={handleClosePreview}
+            onToggleViewMode={() =>
+              setViewMode((current) => (current === "preview" ? "source" : "preview"))
+            }
+            onCopyPath={handleCopyPath}
+            onOpenFileBrowser={handleOpenInFileBrowser}
+            onOpenEditor={handleOpenInEditor}
+          />
         </section>
 
         <div

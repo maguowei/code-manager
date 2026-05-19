@@ -1971,17 +1971,13 @@ pub fn get_project_claude_directory_overview(
             },
         )
     })();
-    crate::logging::log_command_result(
-        "project.claude_directory_overview",
-        &result,
-        |overview| {
-            format!(
-                "entry_count={} truncated={}",
-                overview.entries.len(),
-                overview.truncated
-            )
-        },
-    );
+    crate::logging::log_command_result("project.claude_directory_overview", &result, |overview| {
+        format!(
+            "entry_count={} truncated={}",
+            overview.entries.len(),
+            overview.truncated
+        )
+    });
     result
 }
 
@@ -2000,19 +1996,15 @@ pub fn get_project_claude_file_preview(
             PROJECT_CLAUDE_PREVIEW_MAX_BYTES,
         )
     })();
-    crate::logging::log_command_result(
-        "project.claude_directory_preview",
-        &result,
-        |preview| {
-            format!(
-                "path={} size={} binary={} truncated={}",
-                crate::utils::truncate(&preview.path, 160),
-                preview.size,
-                preview.is_binary,
-                preview.truncated
-            )
-        },
-    );
+    crate::logging::log_command_result("project.claude_directory_preview", &result, |preview| {
+        format!(
+            "path={} size={} binary={} truncated={}",
+            crate::utils::truncate(&preview.path, 160),
+            preview.size,
+            preview.is_binary,
+            preview.truncated
+        )
+    });
     result
 }
 
@@ -2057,8 +2049,7 @@ pub fn open_project_claude_file_in_editor(
     let result = (|| {
         let claude_root = project_claude_root(project)?;
         let target = resolve_project_claude_file(&claude_root, &relative_path)?;
-        let metadata =
-            fs::metadata(&target).map_err(|e| format!("读取文件元数据失败: {}", e))?;
+        let metadata = fs::metadata(&target).map_err(|e| format!("读取文件元数据失败: {}", e))?;
         if !metadata.is_file() {
             return Err("只能用默认编辑器打开项目 .claude/ 内的文件".to_string());
         }
@@ -2069,17 +2060,13 @@ pub fn open_project_claude_file_in_editor(
             .ok_or_else(|| "请先在设置中选择默认编辑器".to_string())?;
         crate::native_open::open_path_in_editor(&target, editor)
     })();
-    crate::logging::log_command_result(
-        "project.claude_directory_open_editor",
-        &result,
-        |_| {
-            format!(
-                "project={} rel={}",
-                crate::utils::truncate(project, 160),
-                crate::utils::truncate(&relative_path, 160)
-            )
-        },
-    );
+    crate::logging::log_command_result("project.claude_directory_open_editor", &result, |_| {
+        format!(
+            "project={} rel={}",
+            crate::utils::truncate(project, 160),
+            crate::utils::truncate(&relative_path, 160)
+        )
+    });
     result
 }
 
@@ -2828,11 +2815,9 @@ mod tests {
         std::fs::write(claude.join("settings.json"), "{}\n").unwrap();
 
         for bad in ["../etc/passwd", "/etc/passwd", "", "../settings.json"] {
-            let err = get_project_claude_file_preview(
-                project.path().to_str().unwrap(),
-                bad.to_string(),
-            )
-            .expect_err(&format!("路径 {bad} 应被拒"));
+            let err =
+                get_project_claude_file_preview(project.path().to_str().unwrap(), bad.to_string())
+                    .expect_err(&format!("路径 {bad} 应被拒"));
             assert!(
                 err.contains("项目 .claude/") || err.contains("项目路径"),
                 "非预期错误: {err}"

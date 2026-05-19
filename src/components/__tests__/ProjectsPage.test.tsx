@@ -3,11 +3,22 @@ import type { ComponentProps } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import type { ConfigWorkspace, HistoryEntry, ProjectDetail } from "../../types";
+import { ProjectClaudeExplorer } from "../ProjectClaudeExplorer";
 import ProjectsPage from "../ProjectsPage";
 
-const { invokeMock, listenMock, showToastMock } = vi.hoisted(() => ({
+const {
+  filePreviewMock,
+  fileTreeOptionsMock,
+  invokeMock,
+  listenMock,
+  revealItemInDirMock,
+  showToastMock,
+} = vi.hoisted(() => ({
+  filePreviewMock: vi.fn(),
+  fileTreeOptionsMock: vi.fn(),
   invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
   listenMock: vi.fn(async () => () => {}),
+  revealItemInDirMock: vi.fn(async () => undefined),
   showToastMock: vi.fn(),
 }));
 
@@ -21,7 +32,96 @@ vi.mock("@tauri-apps/api/event", () => ({
 
 vi.mock("@tauri-apps/plugin-opener", () => ({
   openUrl: vi.fn(async () => undefined),
+  revealItemInDir: revealItemInDirMock,
 }));
+
+vi.mock("@pierre/diffs/react", () => ({
+  File: (props: {
+    className?: string;
+    file: { cacheKey?: string; contents: string; name: string };
+    options?: { disableFileHeader?: boolean; overflow?: string; themeType?: string };
+    style?: { colorScheme?: string };
+  }) => {
+    filePreviewMock(props);
+    return (
+      <div
+        data-testid="pierre-file-preview"
+        className={props.className}
+        data-file-name={props.file.name}
+        data-file-contents={props.file.contents}
+        data-overflow={props.options?.overflow ?? ""}
+        data-theme-type={props.options?.themeType ?? ""}
+      />
+    );
+  },
+}));
+
+vi.mock("@pierre/trees", () => ({
+  createFileTreeIconResolver: () => ({
+    resolveIcon: (_name: string, path: string) => ({
+      height: 16,
+      name: "file-tree-icon-file",
+      token: path.endsWith(".json") ? "json" : path.endsWith(".md") ? "markdown" : "default",
+      viewBox: "0 0 16 16",
+      width: 16,
+    }),
+  }),
+  getBuiltInFileIconColor: () => "currentColor",
+  getBuiltInSpriteSheet: () => '<svg><symbol id="file-tree-icon-file" /></svg>',
+  prepareFileTreeInput: (paths: string[]) => ({ paths }),
+}));
+
+vi.mock("@pierre/trees/react", async () => {
+  const React = await vi.importActual<typeof import("react")>("react");
+  return {
+    useFileTree: (options: {
+      density?: string;
+      initialExpansion?: string | number;
+      onSelectionChange: (selectedPaths: string[]) => void;
+      preparedInput?: { paths?: string[] };
+      search?: boolean;
+    }) => {
+      fileTreeOptionsMock(options);
+      const paths = options.preparedInput?.paths ?? [];
+      const modelRef = React.useRef({
+        options: { ...options, paths },
+        resetPaths: vi.fn((nextPaths: string[]) => {
+          modelRef.current.options = { ...modelRef.current.options, paths: nextPaths };
+        }),
+      });
+      modelRef.current.options = { ...options, paths };
+      return { model: modelRef.current };
+    },
+    FileTree: (props: {
+      className?: string;
+      model: {
+        options: {
+          onSelectionChange: (selectedPaths: string[]) => void;
+          paths: string[];
+        };
+      };
+    }) => (
+      <div data-testid="pierre-file-tree" className={props.className}>
+        <input aria-label="Search files" />
+        {props.model.options.paths.map((path) => {
+          const normalizedPath = path.endsWith("/") ? path.slice(0, -1) : path;
+          const name = normalizedPath.split("/").pop() ?? normalizedPath;
+          return (
+            <button
+              key={path}
+              type="button"
+              data-type="item"
+              data-item-path={path}
+              onClick={() => props.model.options.onSelectionChange([path])}
+            >
+              {name}
+            </button>
+          );
+        })}
+      </div>
+    ),
+  };
+});
 
 vi.mock("../../hooks/useToast", () => ({
   useToast: () => ({
@@ -230,6 +330,201 @@ async function findProjectButton(project: string) {
   expect(button).not.toBeNull();
   return button as HTMLButtonElement;
 }
+
+const PROJECT_CLAUDE_OVERVIEW_FIXTURE = {
+  rootPath: `${PROJECT_ALPHA}/.claude`,
+  maxEntries: 100000,
+  maxDepth: 128,
+  entries: [
+    {
+      path: "rules",
+      name: "rules",
+      kind: "directory" as const,
+      size: 0,
+      modifiedAt: 1,
+    },
+    {
+      path: "rules/frontend-ui.md",
+      name: "frontend-ui.md",
+      kind: "file" as const,
+      size: 64,
+      modifiedAt: 2,
+    },
+    {
+      path: "settings.json",
+      name: "settings.json",
+      kind: "file" as const,
+      size: 18,
+      modifiedAt: 3,
+    },
+  ],
+  truncated: false,
+  reachedEntryLimit: false,
+  reachedDepthLimit: false,
+  skippedSymlinkCount: 0,
+  skippedNodeModulesCount: 0,
+};
+
+function mockProjectClaudeExplorerInvokes() {
+  invokeMock.mockImplementation(async (command, args) => {
+    if (command === "get_project_claude_directory_overview") {
+      return PROJECT_CLAUDE_OVERVIEW_FIXTURE;
+    }
+    if (command === "get_project_claude_file_preview") {
+      const relativePath = (args as { relativePath: string }).relativePath;
+      if (relativePath === "rules/frontend-ui.md") {
+        return {
+          path: relativePath,
+          name: "frontend-ui.md",
+          content: "# Frontend UI\n\nUse compact surfaces.",
+          isBinary: false,
+          truncated: true,
+          size: 64,
+          modifiedAt: 2,
+          encoding: "utf-8",
+        };
+      }
+      return {
+        path: relativePath,
+        name: "settings.json",
+        content: '{"model":"sonnet"}',
+        isBinary: false,
+        truncated: false,
+        size: 18,
+        modifiedAt: 3,
+        encoding: "utf-8",
+      };
+    }
+    if (command === "open_project_claude_file_in_editor") {
+      return null;
+    }
+    return null;
+  });
+}
+
+function renderProjectClaudeExplorer() {
+  render(
+    <I18nProvider>
+      <ProjectClaudeExplorer
+        open
+        onOpenChange={() => undefined}
+        project={PROJECT_ALPHA}
+        hasSettingsJson
+        hasSettingsLocalJson
+        t={(key) => key}
+      />
+    </I18nProvider>,
+  );
+}
+
+describe("ProjectClaudeExplorer overview parity", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    filePreviewMock.mockClear();
+    fileTreeOptionsMock.mockClear();
+    invokeMock.mockReset();
+    revealItemInDirMock.mockClear();
+    showToastMock.mockReset();
+    mockProjectClaudeExplorerInvokes();
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+      configurable: true,
+    });
+  });
+
+  it("uses the shared Pierre file tree with search and compact closed expansion", async () => {
+    renderProjectClaudeExplorer();
+
+    await waitFor(() => {
+      expect(fileTreeOptionsMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          density: "compact",
+          initialExpansion: "closed",
+          search: true,
+        }),
+      );
+    });
+    expect(screen.getByTestId("pierre-file-tree")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Search files" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "rules" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "frontend-ui.md" })).toBeInTheDocument();
+  });
+
+  it("opens project files in overview-style tabs with Pierre source preview and footer metadata", async () => {
+    renderProjectClaudeExplorer();
+
+    fireEvent.click(await screen.findByRole("button", { name: "settings.json" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("get_project_claude_file_preview", {
+        project: PROJECT_ALPHA,
+        relativePath: "settings.json",
+      });
+    });
+    const tab = await screen.findByRole("tab", { name: "settings.json" });
+    expect(tab).toHaveAttribute("aria-selected", "true");
+    expect(within(tab).getByTestId("claude-overview-tab-file-icon")).toHaveAttribute(
+      "data-icon-token",
+      "json",
+    );
+    expect(screen.getByTestId("pierre-file-preview")).toHaveAttribute(
+      "data-file-contents",
+      '{"model":"sonnet"}',
+    );
+    const footer = screen.getByTestId("claude-overview-preview-footer");
+    expect(footer).toHaveTextContent("18 B");
+    expect(footer).toHaveTextContent(new Date(3 * 1000).toLocaleString());
+    expect(footer).toHaveTextContent("claudeOverview.encodingUtf8");
+
+    fireEvent.click(screen.getByRole("button", { name: "claudeOverview.copyPath" }));
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+        `${PROJECT_ALPHA}/.claude/settings.json`,
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "claudeOverview.openFileBrowser" }));
+    await waitFor(() => {
+      expect(revealItemInDirMock).toHaveBeenCalledWith(`${PROJECT_ALPHA}/.claude/settings.json`);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "claudeOverview.openEditor" }));
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("open_project_claude_file_in_editor", {
+        project: PROJECT_ALPHA,
+        relativePath: "settings.json",
+      });
+    });
+  });
+
+  it("defaults markdown files to rendered preview, can switch to source, and keeps directories metadata-only", async () => {
+    renderProjectClaudeExplorer();
+
+    fireEvent.click(await screen.findByRole("button", { name: "rules" }));
+    expect(screen.getByText("claudeOverview.directorySelected")).toBeInTheDocument();
+    expect(invokeMock).not.toHaveBeenCalledWith(
+      "get_project_claude_file_preview",
+      expect.objectContaining({ relativePath: "rules" }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "frontend-ui.md" }));
+    await screen.findByRole("tab", { name: "frontend-ui.md" });
+    expect(screen.getByRole("button", { name: "claudeOverview.toggleToSource" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.queryByTestId("pierre-file-preview")).not.toBeInTheDocument();
+    expect(screen.getByTestId("claude-overview-preview-footer")).toHaveTextContent(
+      "claudeOverview.fileTruncated",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "claudeOverview.toggleToSource" }));
+    expect(await screen.findByTestId("pierre-file-preview")).toHaveAttribute(
+      "data-file-contents",
+      "# Frontend UI\n\nUse compact surfaces.",
+    );
+  });
+});
 
 describe("ProjectsPage purge context menu", () => {
   beforeEach(() => {

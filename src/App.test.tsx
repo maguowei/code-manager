@@ -148,13 +148,15 @@ vi.mock("@pierre/trees/react", async () => {
       initialExpandedPaths?: string[];
       initialExpansion?: string | number;
       onSelectionChange: (selectedPaths: string[]) => void;
-      paths: string[];
+      paths?: string[];
+      preparedInput?: { paths?: string[] };
       search?: boolean;
     }) => {
       fileTreeOptionsMock(options);
+      const paths = options.paths ?? options.preparedInput?.paths ?? [];
       const [modelOptions, setModelOptions] = React.useState({
         ...options,
-        paths: options.paths ?? [],
+        paths,
       });
       const modelRef = React.useRef<{
         options: typeof modelOptions;

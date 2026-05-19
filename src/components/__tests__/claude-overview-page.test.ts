@@ -6,6 +6,17 @@ function readText(relativePath: string): string {
   return readFileSync(join(process.cwd(), relativePath), "utf8");
 }
 
+function readOverviewSources(): string {
+  return [
+    "src/components/ClaudeOverviewPage.tsx",
+    "src/components/claude-overview/ClaudeDirectoryTree.tsx",
+    "src/components/claude-overview/ClaudeFilePreviewPane.tsx",
+    "src/components/claude-overview/file-viewer-utils.ts",
+  ]
+    .map(readText)
+    .join("\n");
+}
+
 describe("ClaudeOverviewPage styles", () => {
   it("surfaces operation failure reasons through the shared toast helper", () => {
     const source = readText("src/components/ClaudeOverviewPage.tsx");
@@ -16,7 +27,7 @@ describe("ClaudeOverviewPage styles", () => {
   });
 
   it("allows the file preview surface to scroll", () => {
-    const source = readText("src/components/ClaudeOverviewPage.tsx");
+    const source = readOverviewSources();
 
     expect(source).toContain("claude-overview-preview-content block min-h-0 flex-1 overflow-auto");
     expect(source).toContain(
@@ -70,7 +81,7 @@ describe("ClaudeOverviewPage styles", () => {
   });
 
   it("keeps the overview chrome compact", () => {
-    const source = readText("src/components/ClaudeOverviewPage.tsx");
+    const source = readOverviewSources();
 
     expect(source).toContain("claude-overview-header flex min-h-12");
     expect(source).toContain("bg-secondary");
@@ -90,14 +101,14 @@ describe("ClaudeOverviewPage styles", () => {
   });
 
   it("visually separates the preview metadata from file contents", () => {
-    const source = readText("src/components/ClaudeOverviewPage.tsx");
+    const source = readOverviewSources();
 
     expect(source).toContain("claude-overview-preview-footer flex min-h-[34px]");
     expect(source).toContain("border-t bg-card");
   });
 
   it("keeps preview actions and footer metadata in compact rows", () => {
-    const source = readText("src/components/ClaudeOverviewPage.tsx");
+    const source = readOverviewSources();
 
     expect(source).toContain("claude-overview-preview-toolbar flex min-h-[38px]");
     expect(source).toContain("justify-end");
@@ -106,7 +117,7 @@ describe("ClaudeOverviewPage styles", () => {
   });
 
   it("truncates long preview tab filenames within the tab shell", () => {
-    const source = readText("src/components/ClaudeOverviewPage.tsx");
+    const source = readOverviewSources();
 
     expect(source).toContain("claude-overview-tab-shell flex h-7 min-w-0 max-w-60");
     expect(source).toContain("items-center overflow-hidden rounded-t-md");
@@ -116,7 +127,7 @@ describe("ClaudeOverviewPage styles", () => {
   });
 
   it("bridges Pierre tree colors to the app theme", () => {
-    const source = readText("src/components/ClaudeOverviewPage.tsx");
+    const source = readOverviewSources();
 
     expect(source).toContain('"--trees-bg-override": "var(--card)"');
     expect(source).toContain('"--trees-fg-override": "var(--foreground)"');
@@ -134,7 +145,7 @@ describe("ClaudeOverviewPage styles", () => {
   });
 
   it("uses stable loading skeletons and reduced-motion friendly transitions for the tree", () => {
-    const source = readText("src/components/ClaudeOverviewPage.tsx");
+    const source = readOverviewSources();
 
     expect(source).toContain("TREE_LOADING_ROW_CLASS_NAMES");
     expect(source).toContain("claude-overview-tree-loading flex h-full min-h-0");
@@ -142,7 +153,7 @@ describe("ClaudeOverviewPage styles", () => {
   });
 
   it("places the file tree inside a card surface over the secondary canvas", () => {
-    const source = readText("src/components/ClaudeOverviewPage.tsx");
+    const source = readOverviewSources();
 
     expect(source).toContain("claude-overview-page relative flex h-full w-full");
     expect(source).toContain("claude-overview-body grid min-h-0 w-full flex-1 bg-secondary p-3");
@@ -169,7 +180,7 @@ describe("ClaudeOverviewPage styles", () => {
   });
 
   it("marks markdown previews with explicit light and dark theme classes", () => {
-    const source = readText("src/components/ClaudeOverviewPage.tsx");
+    const source = readOverviewSources();
     const markdownPreview = readText("src/components/claude-overview/MarkdownPreview.tsx");
 
     expect(source).toContain('previewThemeType === "dark" ? "markdown-dark" : "markdown-light"');
