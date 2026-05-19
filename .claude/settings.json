@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo check:*)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "npx vitest run *",
+      "npx biome check *",
+      "npx vite build *"
+    ]
+  }
+}
