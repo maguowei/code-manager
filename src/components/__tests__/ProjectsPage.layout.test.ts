@@ -37,6 +37,7 @@ const DETAIL: ProjectDetail = {
   hasProjectClaudeSkills: true,
   hasProjectClaudeSettings: false,
   hasProjectClaudeSettingsLocal: false,
+  projectClaudeRulesCount: 0,
   agentsSkillsStatus: "missing",
   memoryPairStatus: "onlyClaude",
   skillsPairStatus: "onlyClaude",

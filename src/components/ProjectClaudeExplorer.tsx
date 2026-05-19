@@ -37,6 +37,8 @@ type Props = {
   project: string;
   hasSettingsJson: boolean;
   hasSettingsLocalJson: boolean;
+  // 打开时自动定位到 .claude/ 内的相对路径：文件则选中预览，目录则展开
+  initialPath?: string | null;
   onAfterMutate?: () => void;
   t: TranslateFn;
 };
@@ -117,6 +119,7 @@ export function ProjectClaudeExplorer({
   project,
   hasSettingsJson,
   hasSettingsLocalJson,
+  initialPath,
   onAfterMutate,
   t,
 }: Props) {
@@ -137,6 +140,7 @@ export function ProjectClaudeExplorer({
           project={project}
           hasSettingsJson={hasSettingsJson}
           hasSettingsLocalJson={hasSettingsLocalJson}
+          initialPath={initialPath}
           onAfterMutate={onAfterMutate}
           t={t}
         />
@@ -149,6 +153,7 @@ type BodyProps = {
   project: string;
   hasSettingsJson: boolean;
   hasSettingsLocalJson: boolean;
+  initialPath?: string | null;
   onAfterMutate?: () => void;
   t: TranslateFn;
 };
@@ -157,6 +162,7 @@ function ProjectClaudeExplorerBody({
   project,
   hasSettingsJson,
   hasSettingsLocalJson,
+  initialPath,
   onAfterMutate,
   t,
 }: BodyProps) {
@@ -213,6 +219,34 @@ function ProjectClaudeExplorerBody({
     setExpanded(new Set());
     void loadOverview();
   }, [loadOverview]);
+
+  // overview 首次加载完成后，根据 initialPath 自动展开父目录链并选中文件预览
+  const [initialPathApplied, setInitialPathApplied] = useState(false);
+  useEffect(() => {
+    if (initialPathApplied) return;
+    if (!overview) return;
+    setInitialPathApplied(true);
+    if (!initialPath) return;
+    const trimmed = initialPath.replace(/^\/+|\/+$/g, "");
+    if (!trimmed) return;
+    const entry = (overview.entries ?? []).find((e) => e.path === trimmed);
+    const segments = trimmed.split("/");
+    setExpanded((previous) => {
+      const next = new Set(previous);
+      // 把所有父目录加入展开集合，确保目标节点在树中可见
+      for (let i = 1; i < segments.length; i++) {
+        next.add(segments.slice(0, i).join("/"));
+      }
+      // 目标自身若是目录或在 overview 中找不到（视为目录），也展开它
+      if (!entry || entry.kind === "directory") {
+        next.add(trimmed);
+      }
+      return next;
+    });
+    if (entry?.kind === "file") {
+      setSelectedPath(trimmed);
+    }
+  }, [overview, initialPath, initialPathApplied]);
 
   // 选中文件后拉取预览
   useEffect(() => {

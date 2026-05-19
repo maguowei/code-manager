@@ -236,6 +236,99 @@ function projectSkillsCountLabel(t: TranslateFn, count: number) {
   return t("projects.projectSkillsCount").replace("{count}", String(count));
 }
 
+function claudeOverviewCountLabel(t: TranslateFn, count: number) {
+  return t("projects.projectClaudeOverview.countLabel").replace("{count}", String(count));
+}
+
+type ClaudeOverviewRow = {
+  key: string;
+  label: string;
+  path: string;
+  // existence chip vs. count chip：两种展现形态
+  variant: "existence" | "count";
+  exists?: boolean;
+  count?: number;
+};
+
+function ClaudeOverviewList({
+  detail,
+  onOpen,
+  t,
+}: {
+  detail: ProjectDetail;
+  onOpen: (path: string) => void;
+  t: TranslateFn;
+}) {
+  const rows: ClaudeOverviewRow[] = [
+    {
+      key: "settings",
+      label: t("projects.projectClaudeOverview.settingsJson"),
+      path: "settings.json",
+      variant: "existence",
+      exists: detail.hasProjectClaudeSettings,
+    },
+    {
+      key: "settings-local",
+      label: t("projects.projectClaudeOverview.settingsLocalJson"),
+      path: "settings.local.json",
+      variant: "existence",
+      exists: detail.hasProjectClaudeSettingsLocal,
+    },
+    {
+      key: "skills",
+      label: t("projects.projectClaudeOverview.skills"),
+      path: "skills",
+      variant: "count",
+      count: detail.projectSkills.length,
+    },
+    {
+      key: "rules",
+      label: t("projects.projectClaudeOverview.rules"),
+      path: "rules",
+      variant: "count",
+      count: detail.projectClaudeRulesCount,
+    },
+  ];
+  const openHint = t("projects.projectClaudeOverview.openInExplorer");
+  return (
+    <div className="projects-claude-overview-list flex flex-col gap-1 border-t pt-3">
+      {rows.map((row) => (
+        <Button
+          key={row.key}
+          type="button"
+          variant="ghost"
+          className="projects-claude-overview-row h-auto justify-between gap-3 rounded-md border border-transparent px-2 py-1.5 text-sm hover:border-border hover:bg-accent"
+          onClick={() => onOpen(row.path)}
+          title={openHint}
+          aria-label={`${row.label} · ${openHint}`}
+        >
+          <span className="min-w-0 truncate font-mono text-sm leading-5 text-muted-foreground">
+            {row.label}
+          </span>
+          {row.variant === "existence" ? (
+            row.exists ? (
+              <StatusBadge tone="success">
+                {t("projects.projectClaudeOverview.fileExists")}
+              </StatusBadge>
+            ) : (
+              <StatusBadge tone="muted">
+                {t("projects.projectClaudeOverview.fileMissing")}
+              </StatusBadge>
+            )
+          ) : (
+            <Badge
+              variant="outline"
+              className={cn(PROJECT_TAG_CLASS, "font-mono tabular-nums", TONE_BADGE_CLASS.muted)}
+            >
+              {claudeOverviewCountLabel(t, row.count ?? 0)}
+            </Badge>
+          )}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
 function BranchesSection({ detail, isPreviewing, onPreviewCleanup, t }: BranchesSectionProps) {
   return (
     <Card className={cn("projects-structure-section gap-4 rounded-lg p-5", PANEL_SURFACE_CLASS)}>
@@ -594,7 +687,14 @@ function ProjectDetailPanel({
   isWorktreeCleanupPreviewing,
 }: ProjectDetailPanelProps) {
   const { showToast } = useToast();
-  const [explorerOpen, setExplorerOpen] = useState(false);
+  const [explorerInitialPath, setExplorerInitialPath] = useState<string | null>(null);
+  const openExplorer = useCallback((path?: string) => {
+    // 空字符串表示打开抽屉但不定位（用于右上角"浏览 .claude/"按钮）
+    setExplorerInitialPath(path ?? "");
+  }, []);
+  const closeExplorer = useCallback((next: boolean) => {
+    if (!next) setExplorerInitialPath(null);
+  }, []);
   const agentsTone: StatusTone = detail ? agentsStatusTone(detail.agentsStatus) : "muted";
   const agentsLabel = detail
     ? agentsStatusLabel(detail.agentsStatus, t)
@@ -858,7 +958,7 @@ function ProjectDetailPanel({
                 variant="outline"
                 size="sm"
                 className="projects-action-btn shrink-0"
-                onClick={() => setExplorerOpen(true)}
+                onClick={() => openExplorer()}
               >
                 <FolderTree className="size-4" />
                 {t("projects.claudeExplorer.openButton")}
@@ -875,35 +975,40 @@ function ProjectDetailPanel({
             </StatusRow>
           </dl>
           {detail?.hasProjectClaudeDir && (
-            <ProjectClaudeExplorer
-              open={explorerOpen}
-              onOpenChange={setExplorerOpen}
-              project={summary.project}
-              hasSettingsJson={detail.hasProjectClaudeSettings}
-              hasSettingsLocalJson={detail.hasProjectClaudeSettingsLocal}
-              onAfterMutate={onRefreshDetail}
-              t={t}
-            />
+            <>
+              <ClaudeOverviewList detail={detail} onOpen={openExplorer} t={t} />
+              <ProjectClaudeExplorer
+                open={explorerInitialPath !== null}
+                onOpenChange={closeExplorer}
+                project={summary.project}
+                hasSettingsJson={detail.hasProjectClaudeSettings}
+                hasSettingsLocalJson={detail.hasProjectClaudeSettingsLocal}
+                initialPath={explorerInitialPath ? explorerInitialPath : null}
+                onAfterMutate={onRefreshDetail}
+                t={t}
+              />
+            </>
           )}
-          {projectSkills.length > 0 ? (
-            <div className="projects-project-skills-list flex min-w-0 flex-wrap gap-2">
-              {projectSkills.map((skill) => (
-                <Badge
-                  key={skill.id}
-                  variant="outline"
-                  className={cn(PROJECT_TAG_CLASS, "font-normal text-muted-foreground")}
-                >
-                  {skill.id}
-                </Badge>
-              ))}
-            </div>
-          ) : (
-            detail?.hasProjectClaudeSkills && (
-              <p className="projects-note text-sm leading-6 text-muted-foreground">
-                {t("projects.projectSkillsEmpty")}
-              </p>
-            )
-          )}
+          {detail?.hasProjectClaudeDir &&
+            (projectSkills.length > 0 ? (
+              <div className="projects-project-skills-list flex min-w-0 flex-wrap gap-2">
+                {projectSkills.map((skill) => (
+                  <Badge
+                    key={skill.id}
+                    variant="outline"
+                    className={cn(PROJECT_TAG_CLASS, "font-normal text-muted-foreground")}
+                  >
+                    {skill.id}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              detail.hasProjectClaudeSkills && (
+                <p className="projects-note text-sm leading-6 text-muted-foreground">
+                  {t("projects.projectSkillsEmpty")}
+                </p>
+              )
+            ))}
         </div>
       </Card>
 

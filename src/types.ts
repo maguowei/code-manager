@@ -432,6 +432,7 @@ export interface ProjectDetail {
   hasProjectClaudeSkills: boolean;
   hasProjectClaudeSettings: boolean;
   hasProjectClaudeSettingsLocal: boolean;
+  projectClaudeRulesCount: number;
   agentsStatus: AgentsStatus;
   agentsSkillsStatus: AgentsStatus;
   memoryPairStatus: PairStatus;

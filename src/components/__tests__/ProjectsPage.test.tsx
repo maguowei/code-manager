@@ -101,6 +101,7 @@ function makeProjectDetail(project: string): ProjectDetail {
     hasProjectClaudeSkills: true,
     hasProjectClaudeSettings: false,
     hasProjectClaudeSettingsLocal: false,
+    projectClaudeRulesCount: 0,
     agentsStatus: "missing",
     agentsSkillsStatus: "missing",
     memoryPairStatus: "onlyClaude",

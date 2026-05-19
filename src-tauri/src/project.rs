@@ -79,6 +79,7 @@ pub struct ProjectDetail {
     pub has_project_claude_skills: bool,
     pub has_project_claude_settings: bool,
     pub has_project_claude_settings_local: bool,
+    pub project_claude_rules_count: usize,
     pub agents_status: AgentsStatus,
     pub agents_skills_status: AgentsStatus,
     pub memory_pair_status: PairStatus,
@@ -154,6 +155,7 @@ struct ProjectFileStatus {
     has_project_claude_skills: bool,
     has_project_claude_settings: bool,
     has_project_claude_settings_local: bool,
+    project_claude_rules_count: usize,
     agents_status: AgentsStatus,
     agents_skills_status: AgentsStatus,
     memory_pair_status: PairStatus,
@@ -216,6 +218,7 @@ pub fn get_project_detail(project: &str) -> Result<ProjectDetail, String> {
             has_project_claude_skills: false,
             has_project_claude_settings: false,
             has_project_claude_settings_local: false,
+            project_claude_rules_count: 0,
             agents_status: AgentsStatus::Missing,
             agents_skills_status: AgentsStatus::Missing,
             memory_pair_status: PairStatus::BothMissing,
@@ -265,6 +268,7 @@ pub fn get_project_detail(project: &str) -> Result<ProjectDetail, String> {
         has_project_claude_skills: file_status.has_project_claude_skills,
         has_project_claude_settings: file_status.has_project_claude_settings,
         has_project_claude_settings_local: file_status.has_project_claude_settings_local,
+        project_claude_rules_count: file_status.project_claude_rules_count,
         agents_status: file_status.agents_status,
         agents_skills_status: file_status.agents_skills_status,
         memory_pair_status: file_status.memory_pair_status,
@@ -1343,12 +1347,14 @@ fn inspect_project_files(project_dir: &Path) -> Result<ProjectFileStatus, String
     let agents_path = project_dir.join("AGENTS.md");
     let project_claude_dir = project_dir.join(".claude");
     let project_claude_skills_path = project_claude_dir.join("skills");
+    let project_claude_rules_path = project_claude_dir.join("rules");
     let has_claude_md = claude_path.is_file();
     let has_project_claude_dir = project_claude_dir.is_dir();
     let has_project_claude_skills = project_claude_skills_path.is_dir();
     let has_project_claude_settings = project_claude_dir.join("settings.json").is_file();
     let has_project_claude_settings_local =
         project_claude_dir.join("settings.local.json").is_file();
+    let project_claude_rules_count = count_project_claude_rules(&project_claude_rules_path);
     let project_skills = scan_project_skills(&project_claude_skills_path);
 
     let agents_status = match fs::symlink_metadata(&agents_path) {
@@ -1391,6 +1397,7 @@ fn inspect_project_files(project_dir: &Path) -> Result<ProjectFileStatus, String
         has_project_claude_skills,
         has_project_claude_settings,
         has_project_claude_settings_local,
+        project_claude_rules_count,
         agents_status,
         agents_skills_status,
         memory_pair_status,
@@ -1617,6 +1624,53 @@ fn scan_project_skills(skills_dir: &Path) -> Vec<ProjectSkillSummary> {
 
     skills.sort_by(|a, b| a.id.cmp(&b.id));
     skills
+}
+
+// 递归统计 `.claude/rules/` 下 `.md` 文件总数。
+// 遵循 Claude Code 官方约定：rules 支持嵌套目录，每个 .md 都是一条规则。
+// 跳过软链接以防止逃逸或环路；目录不存在 / 读取失败时返回 0，与 scan_project_skills 风格保持一致。
+fn count_project_claude_rules(rules_dir: &Path) -> usize {
+    if !rules_dir.is_dir() {
+        return 0;
+    }
+    let mut total = 0;
+    let mut stack: Vec<PathBuf> = vec![rules_dir.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let entries = match fs::read_dir(&dir) {
+            Ok(entries) => entries,
+            Err(_) => continue,
+        };
+        for entry in entries.flatten() {
+            let file_type = match entry.file_type() {
+                Ok(file_type) => file_type,
+                Err(_) => continue,
+            };
+            if file_type.is_symlink() {
+                continue;
+            }
+            if file_type.is_dir() {
+                stack.push(entry.path());
+                continue;
+            }
+            if !file_type.is_file() {
+                continue;
+            }
+            if is_markdown_file_name(entry.file_name().to_str()) {
+                total += 1;
+            }
+        }
+    }
+    total
+}
+
+fn is_markdown_file_name(name: Option<&str>) -> bool {
+    match name {
+        Some(name) => {
+            let lower = name.to_ascii_lowercase();
+            lower.ends_with(".md") || lower.ends_with(".markdown")
+        }
+        None => false,
+    }
 }
 
 fn create_agents_symlink(project_dir: &Path) -> Result<(), String> {
@@ -2395,6 +2449,7 @@ mod tests {
         assert_eq!(initial.agents_skills_status, AgentsStatus::Missing);
         assert_eq!(initial.project_skills.len(), 1);
         assert_eq!(initial.project_skills[0].id, "review-skill");
+        assert_eq!(initial.project_claude_rules_count, 0);
 
         create_project_agents_skills_symlink_for_dir(sandbox.path()).unwrap();
         let linked = inspect_project_files(sandbox.path()).unwrap();
@@ -2402,6 +2457,38 @@ mod tests {
 
         let link_target = fs::read_link(sandbox.path().join(".agents/skills")).unwrap();
         assert_eq!(link_target, Path::new("../.claude/skills"));
+    }
+
+    #[test]
+    fn inspect_project_files_counts_rules_recursively_and_ignores_non_markdown_and_symlinks() {
+        let sandbox = TestDir::new();
+        fs::create_dir_all(sandbox.path().join(".claude/rules/nested")).unwrap();
+        fs::write(sandbox.path().join(".claude/rules/a.md"), "rule a").unwrap();
+        fs::write(sandbox.path().join(".claude/rules/b.markdown"), "rule b").unwrap();
+        fs::write(sandbox.path().join(".claude/rules/note.txt"), "ignored").unwrap();
+        fs::write(
+            sandbox.path().join(".claude/rules/nested/c.md"),
+            "nested rule",
+        )
+        .unwrap();
+        // 软链应被跳过，不计入 rules 数量
+        let link_source = sandbox.path().join(".claude/rules/a.md");
+        let link_path = sandbox.path().join(".claude/rules/link.md");
+        create_test_symlink(&link_source, &link_path);
+
+        let status = inspect_project_files(sandbox.path()).unwrap();
+        assert_eq!(status.project_claude_rules_count, 3);
+    }
+
+    #[test]
+    fn inspect_project_files_reports_zero_rules_when_directory_missing() {
+        let sandbox = TestDir::new();
+        // 仅创建 .claude/ 但不创建 rules/
+        fs::create_dir_all(sandbox.path().join(".claude")).unwrap();
+
+        let status = inspect_project_files(sandbox.path()).unwrap();
+        assert!(status.has_project_claude_dir);
+        assert_eq!(status.project_claude_rules_count, 0);
     }
 
     #[test]
