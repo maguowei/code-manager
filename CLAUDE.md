@@ -101,9 +101,20 @@
 
 ## 关键数据目录
 
+macOS 上同时使用三个目录，互不混用：
+
+| 用途 | macOS | Linux | Windows |
+| --- | --- | --- | --- |
+| 应用数据（`config-registry.json`、`memories.json`、`model-pricing.json`、`skills-disabled/`） | `~/.config/ai-manager/` | `$XDG_CONFIG_HOME/ai-manager/` 或 `~/.config/ai-manager/` | `%APPDATA%\ai-manager\` |
+| 用量 SQLite（`usage.db`、`usage.db-wal`、`usage.db-shm`） | `~/Library/Application Support/com.gotobeta.app.ai-manager/` | `$XDG_CONFIG_HOME/com.gotobeta.app.ai-manager/` 或 `~/.config/com.gotobeta.app.ai-manager/` | `%APPDATA%\com.gotobeta.app.ai-manager\` |
+| 日志（`ai-manager.log` 等） | `~/Library/Logs/com.gotobeta.app.ai-manager/` | `$XDG_DATA_HOME/com.gotobeta.app.ai-manager/logs/` 或 `~/.local/share/com.gotobeta.app.ai-manager/logs/` | `%LOCALAPPDATA%\com.gotobeta.app.ai-manager\logs\` |
+
+macOS 上**应用数据**刻意复用 `~/.config/ai-manager/` 而不是 macOS 标准的 `~/Library/Application Support/...`，便于跨平台备份和脚本访问；解析逻辑见 `src-tauri/src/utils.rs::get_app_data_dir()`，不要把它当“非标准”去修。**SQLite 与日志**走 Tauri 插件默认路径（`tauri-plugin-sql` 用 `app_config_dir()`、`tauri-plugin-log` 用 `app_log_dir()`），不要把它们迁回应用数据目录。
+
+其它已知输入路径与覆盖：
+
 | 用途 | 路径 |
 | --- | --- |
-| 应用数据 | macOS: `~/.config/ai-manager/`；Linux: `$XDG_CONFIG_HOME/ai-manager/` 或 `~/.config/ai-manager/`；Windows: `%APPDATA%\ai-manager\` |
 | 配置注册 | `<应用数据目录>/config-registry.json` |
 | Claude Code 用户目录 | `~/.claude/` |
 | 可选 Codex Skills 同步 | `~/.codex/skills/` |
@@ -111,8 +122,6 @@
 | 用量输入 | `~/.claude/projects/` |
 | 统计输入 | `~/.claude.json` |
 | 测试目录覆盖 | `AI_MANAGER_HOME_OVERRIDE`、`AI_MANAGER_APP_DATA_DIR_OVERRIDE` |
-
-日志使用系统推荐日志目录，不放在应用数据目录。用量 SQLite 缓存使用 Tauri SQL 插件的应用配置目录，WAL 模式可能同时生成 `usage.db-wal` 与 `usage.db-shm`。
 
 ## 验证清单
 
