@@ -4,6 +4,10 @@ import { describe, expect, it } from "vitest";
 
 const uiRoot = join(process.cwd(), "src", "components", "ui");
 
+function readSources(files: string[]) {
+  return files.map((file) => readFileSync(file, "utf8")).join("\n");
+}
+
 describe("ui system contract", () => {
   it("includes the shadcn primitives used by the unified management UI", () => {
     for (const file of ["empty.tsx", "field.tsx", "input-group.tsx", "spinner.tsx"]) {
@@ -290,7 +294,11 @@ describe("ui system contract", () => {
     const historySource = readFileSync("src/components/HistoryPage.tsx", "utf8");
     const historyProjectsSource = readFileSync("src/components/HistoryProjectList.tsx", "utf8");
     const historySessionsSource = readFileSync("src/components/HistorySessionList.tsx", "utf8");
-    const overviewSource = readFileSync("src/components/ClaudeOverviewPage.tsx", "utf8");
+    const overviewSource = readSources([
+      "src/components/ClaudeOverviewPage.tsx",
+      "src/components/claude-overview/ClaudeDirectoryTree.tsx",
+      "src/components/claude-overview/ClaudeFilePreviewPane.tsx",
+    ]);
 
     expect(statsSource).toContain('surface="secondary"');
     expect(usageSource).toContain('surface="secondary"');
