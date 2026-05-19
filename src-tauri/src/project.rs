@@ -1372,8 +1372,7 @@ fn inspect_project_files(project_dir: &Path) -> Result<ProjectFileStatus, String
         has_project_claude_skills,
     )?;
 
-    let skills_pair_status =
-        inspect_skills_pair_status(project_dir, &project_claude_skills_path)?;
+    let skills_pair_status = inspect_skills_pair_status(project_dir, &project_claude_skills_path)?;
 
     Ok(ProjectFileStatus {
         has_claude_md,
@@ -1426,7 +1425,10 @@ fn classify_dir_endpoint(path: &Path) -> Result<EndpointKind, String> {
 }
 
 /// 比较 Claude / Agents 两端的 Memory 配对状态
-fn inspect_memory_pair_status(claude_path: &Path, agents_path: &Path) -> Result<PairStatus, String> {
+fn inspect_memory_pair_status(
+    claude_path: &Path,
+    agents_path: &Path,
+) -> Result<PairStatus, String> {
     let claude_kind = classify_file_endpoint(claude_path)?;
     let agents_kind = classify_file_endpoint(agents_path)?;
 
@@ -1683,9 +1685,7 @@ fn create_project_agents_skills_symlink_for_dir(project_dir: &Path) -> Result<()
             &project_claude_skills_path,
             &agents_skills_path,
         ),
-        PairStatus::OnlyAgents => {
-            create_skills_symlink_at_claude(project_dir, &agents_skills_path)
-        }
+        PairStatus::OnlyAgents => create_skills_symlink_at_claude(project_dir, &agents_skills_path),
         PairStatus::WrongSymlink => repair_skills_symlink(
             project_dir,
             &project_claude_skills_path,
@@ -1800,10 +1800,7 @@ fn repair_skills_symlink(
 fn ensure_real_directory(dir: &Path, create_err_label: &str) -> Result<(), String> {
     match fs::symlink_metadata(dir) {
         Ok(meta) if meta.is_dir() && !meta.file_type().is_symlink() => Ok(()),
-        Ok(_) => Err(format!(
-            "目标路径已存在且不是普通目录，无法继续: {:?}",
-            dir
-        )),
+        Ok(_) => Err(format!("目标路径已存在且不是普通目录，无法继续: {:?}", dir)),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             fs::create_dir_all(dir).map_err(|e| format!("{}: {}", create_err_label, e))
         }

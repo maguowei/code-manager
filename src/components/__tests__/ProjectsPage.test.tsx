@@ -392,7 +392,7 @@ describe("ProjectsPage purge context menu", () => {
     expect(await screen.findByText(PROJECT_ALPHA)).toBeInTheDocument();
 
     const memorySection = await screen.findByTestId("pair-section-memory");
-    const agentsButton = within(memorySection).getByRole("button", { name: "同步配对" });
+    const agentsButton = within(memorySection).getByRole("button", { name: "创建软链" });
     await waitFor(() => {
       expect(agentsButton).toBeEnabled();
     });
@@ -412,7 +412,7 @@ describe("ProjectsPage purge context menu", () => {
     expect(await screen.findByText(PROJECT_ALPHA)).toBeInTheDocument();
 
     const skillsSection = await screen.findByTestId("pair-section-skills");
-    const skillsButton = within(skillsSection).getByRole("button", { name: "同步配对" });
+    const skillsButton = within(skillsSection).getByRole("button", { name: "创建软链" });
     await waitFor(() => {
       expect(skillsButton).toBeEnabled();
     });

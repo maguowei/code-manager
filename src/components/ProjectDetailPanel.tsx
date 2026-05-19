@@ -152,12 +152,7 @@ function QuickActionLabel({ children }: { children: ReactNode }) {
 
 function StatusRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div
-      className={cn(
-        "projects-status-row border-b py-3 first:pt-0 last:border-b-0 last:pb-0",
-        PROJECT_TAG_PAIR_CLASS,
-      )}
-    >
+    <div className={cn("projects-status-row py-1.5 first:pt-0 last:pb-0", PROJECT_TAG_PAIR_CLASS)}>
       <dt className="projects-status-label shrink-0 text-sm leading-5 text-muted-foreground">
         {label}
       </dt>
@@ -192,7 +187,7 @@ function PairSection({
   const tone = pairStatusTone(pairStatus);
   return (
     <div
-      className="projects-pair-section flex flex-col gap-3 border-b pb-5 last:border-b-0 last:pb-0"
+      className="projects-pair-section flex flex-col gap-3 border-t pt-5 first:border-t-0 first:pt-0"
       data-testid={testId}
     >
       <div className="projects-pair-heading flex flex-wrap items-start justify-between gap-3">
@@ -847,7 +842,7 @@ function ProjectDetailPanel({
           </StatusRow>
         </PairSection>
 
-        <div className="projects-pair-section flex flex-col gap-3">
+        <div className="projects-pair-section flex flex-col gap-3 border-t pt-5 first:border-t-0 first:pt-0">
           <h4 className={cn("min-w-0 text-foreground", TYPOGRAPHY.cardTitle)}>
             {t("projects.projectDirGroupTitle")}
           </h4>

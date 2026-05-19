@@ -189,8 +189,7 @@ fn replace_file_with_temp(path: &Path, temp_path: &Path) -> Result<(), String> {
 
     #[cfg(not(windows))]
     {
-        fs::rename(temp_path, path)
-            .map_err(|e| format!("原子替换文件失败 {:?}: {}", path, e))
+        fs::rename(temp_path, path).map_err(|e| format!("原子替换文件失败 {:?}: {}", path, e))
     }
 }
 
@@ -425,7 +424,9 @@ mod tests {
 
     #[test]
     fn app_data_dir_uses_home_override_when_app_data_override_is_absent() {
-        let _guard = TEST_ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let _guard = TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
         let root = std::env::temp_dir().join(format!(
             "ai-manager-utils-home-override-{}-{}",
             std::process::id(),
@@ -436,10 +437,7 @@ mod tests {
         env::set_var("AI_MANAGER_HOME_OVERRIDE", &root);
         env::remove_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE");
 
-        assert_eq!(
-            get_app_data_dir(),
-            root.join(".config").join("ai-manager")
-        );
+        assert_eq!(get_app_data_dir(), root.join(".config").join("ai-manager"));
         assert_eq!(
             get_app_data_dir_strict().expect("严格路径应可读取 home override"),
             root.join(".config").join("ai-manager")
