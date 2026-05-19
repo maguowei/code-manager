@@ -38,7 +38,7 @@
 - 前端视觉默认采用“均衡管理台”风格：克制、紧凑、可扫描，不做营销式 hero、大字号展示或装饰性卡片堆叠。
 - Rust 新增文件读写、锁、时间、JSON 工具时，优先复用 `src-tauri/src/utils.rs`。
 - 数据库设计禁止使用外键。
-- `package.json` 的 `prepare` 脚本会自动安装 lefthook git hooks；提交前 staged 的 ts/tsx/json/css 会被 `biome check --write` 修改并 `stage_fixed`。
+- `package.json` 的 `prepare` 脚本会自动安装 lefthook git hooks；提交前 staged 的 ts/tsx/json/css 会被 `pnpm biome check --write --no-errors-on-unmatched {staged_files}` 修改并 `stage_fixed`。
 
 ## 规则索引
 

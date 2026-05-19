@@ -50,6 +50,9 @@ paths:
 - `UsagePage` 数据来源是 `~/.claude/projects/**/*.jsonl` 中 assistant 消息的 `message.usage`，包括主会话 jsonl 与 `<session>/subagents/*.jsonl`。
 - 不要把 `UsagePage` 和 `StatsPage` 的数据源、刷新机制或聚合逻辑混用。
 - `usage.rs` 会在 `lib.rs` setup 中通过 `usage::start_usage_runtime(app)` 启动：加载价格表、首次扫描、监听 `claude-directory-changed` 做增量扫描，并向前端发出 `usage-records-changed` / `usage-pricing-updated`。
+- 用量页通过单次 `get_usage_snapshot` command 一次性拉取所有维度（daily / project / session / model / time series + unknownModels），返回 `UsageSnapshot`；不要回退到拆成多次并发 invoke 的旧模式，后端在 `usage.rs::get_usage_snapshot` 中复用过滤后的记录集，避免重复扫描。
+- 项目下拉、项目聚合统一按 `project_path` 维度做 `GROUP BY`，`project_dir` 取 `MIN(project_dir)` 以保证每个项目只出一行；新增项目维度字段时不要改成按 `project_dir` 聚合，否则会触发 0e18048 修复过的重复项目回归。
+- 用量页首次加载使用骨架占位 `src/components/usage/UsagePageSkeleton.tsx`（默认导出 `UsagePageSkeleton`）而不是 loading spinner；切换筛选时复用骨架而不是清空表格。
 - 用量聚合维度包括 daily、project、session、model 和 time series；新增趋势图字段要同步 `UsageTimeSeriesPoint`、`UsageTimeGranularity`、`useUsage.ts` 和 `usage.rs`。
 - 默认筛选是今日；快捷筛选包括今日、最近 7 天、最近 30 天、本周、本月、今年和全部。单日默认小时粒度，多日默认天粒度，用户也可切到 5 分钟粒度。
 - 日期筛选使用 shadcn `Calendar` 浮层（`src/components/ui/calendar.tsx`），不要回退到原生 `<input type="date">`；筛选区控件继续使用 `surface-classes` 与 `TYPOGRAPHY` 常量。
