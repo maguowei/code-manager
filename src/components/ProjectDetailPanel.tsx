@@ -2,10 +2,15 @@ import {
   Code2,
   DollarSign,
   ExternalLink,
+  FileCog,
+  FileJson,
+  FolderCog,
   FolderTree,
   Link2,
   List,
+  type LucideIcon,
   MessageSquareText,
+  ScrollText,
   SearchCheck,
   Terminal,
 } from "lucide-react";
@@ -244,6 +249,8 @@ type ClaudeOverviewRow = {
   key: string;
   label: string;
   path: string;
+  icon: LucideIcon;
+  iconTestId: string;
   // existence chip vs. count chip：两种展现形态
   variant: "existence" | "count";
   exists?: boolean;
@@ -264,6 +271,8 @@ function ClaudeOverviewList({
       key: "settings",
       label: t("projects.projectClaudeOverview.settingsJson"),
       path: "settings.json",
+      icon: FileJson,
+      iconTestId: "project-claude-overview-icon-settings",
       variant: "existence",
       exists: detail.hasProjectClaudeSettings,
     },
@@ -271,6 +280,8 @@ function ClaudeOverviewList({
       key: "settings-local",
       label: t("projects.projectClaudeOverview.settingsLocalJson"),
       path: "settings.local.json",
+      icon: FileCog,
+      iconTestId: "project-claude-overview-icon-settings-local",
       variant: "existence",
       exists: detail.hasProjectClaudeSettingsLocal,
     },
@@ -278,6 +289,8 @@ function ClaudeOverviewList({
       key: "skills",
       label: t("projects.projectClaudeOverview.skills"),
       path: "skills",
+      icon: FolderCog,
+      iconTestId: "project-claude-overview-icon-skills",
       variant: "count",
       count: detail.projectSkills.length,
     },
@@ -285,6 +298,8 @@ function ClaudeOverviewList({
       key: "rules",
       label: t("projects.projectClaudeOverview.rules"),
       path: "rules",
+      icon: ScrollText,
+      iconTestId: "project-claude-overview-icon-rules",
       variant: "count",
       count: detail.projectClaudeRulesCount,
     },
@@ -292,39 +307,49 @@ function ClaudeOverviewList({
   const openHint = t("projects.projectClaudeOverview.openInExplorer");
   return (
     <div className="projects-claude-overview-list flex flex-col gap-1 border-t pt-3">
-      {rows.map((row) => (
-        <Button
-          key={row.key}
-          type="button"
-          variant="ghost"
-          className="projects-claude-overview-row h-auto justify-between gap-3 rounded-md border border-transparent px-2 py-1.5 text-sm hover:border-border hover:bg-accent"
-          onClick={() => onOpen(row.path)}
-          title={openHint}
-          aria-label={`${row.label} · ${openHint}`}
-        >
-          <span className="min-w-0 truncate font-mono text-sm leading-5 text-muted-foreground">
-            {row.label}
-          </span>
-          {row.variant === "existence" ? (
-            row.exists ? (
-              <StatusBadge tone="success">
-                {t("projects.projectClaudeOverview.fileExists")}
-              </StatusBadge>
+      {rows.map((row) => {
+        const RowIcon = row.icon;
+        return (
+          <Button
+            key={row.key}
+            type="button"
+            variant="ghost"
+            className="projects-claude-overview-row h-auto justify-between gap-3 rounded-md border border-transparent px-2 py-1.5 text-sm hover:border-border hover:bg-accent"
+            onClick={() => onOpen(row.path)}
+            title={openHint}
+            aria-label={`${row.label} · ${openHint}`}
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <RowIcon
+                className="size-4 shrink-0 text-muted-foreground"
+                aria-hidden="true"
+                data-testid={row.iconTestId}
+              />
+              <span className="min-w-0 truncate font-mono text-sm leading-5 text-muted-foreground">
+                {row.label}
+              </span>
+            </span>
+            {row.variant === "existence" ? (
+              row.exists ? (
+                <StatusBadge tone="success">
+                  {t("projects.projectClaudeOverview.fileExists")}
+                </StatusBadge>
+              ) : (
+                <StatusBadge tone="muted">
+                  {t("projects.projectClaudeOverview.fileMissing")}
+                </StatusBadge>
+              )
             ) : (
-              <StatusBadge tone="muted">
-                {t("projects.projectClaudeOverview.fileMissing")}
-              </StatusBadge>
-            )
-          ) : (
-            <Badge
-              variant="outline"
-              className={cn(PROJECT_TAG_CLASS, "font-mono tabular-nums", TONE_BADGE_CLASS.muted)}
-            >
-              {claudeOverviewCountLabel(t, row.count ?? 0)}
-            </Badge>
-          )}
-        </Button>
-      ))}
+              <Badge
+                variant="outline"
+                className={cn(PROJECT_TAG_CLASS, "font-mono tabular-nums", TONE_BADGE_CLASS.muted)}
+              >
+                {claudeOverviewCountLabel(t, row.count ?? 0)}
+              </Badge>
+            )}
+          </Button>
+        );
+      })}
     </div>
   );
 }
@@ -989,26 +1014,6 @@ function ProjectDetailPanel({
               />
             </>
           )}
-          {detail?.hasProjectClaudeDir &&
-            (projectSkills.length > 0 ? (
-              <div className="projects-project-skills-list flex min-w-0 flex-wrap gap-2">
-                {projectSkills.map((skill) => (
-                  <Badge
-                    key={skill.id}
-                    variant="outline"
-                    className={cn(PROJECT_TAG_CLASS, "font-normal text-muted-foreground")}
-                  >
-                    {skill.id}
-                  </Badge>
-                ))}
-              </div>
-            ) : (
-              detail.hasProjectClaudeSkills && (
-                <p className="projects-note text-sm leading-6 text-muted-foreground">
-                  {t("projects.projectSkillsEmpty")}
-                </p>
-              )
-            ))}
         </div>
       </Card>
 

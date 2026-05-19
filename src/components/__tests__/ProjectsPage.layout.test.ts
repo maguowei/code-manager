@@ -211,8 +211,17 @@ describe("ProjectsPage layout", () => {
     expect(screen.getByText("projects.projectClaudeDirectory")).toBeInTheDocument();
     expect(screen.getByText("projects.projectClaudeSkills")).toBeInTheDocument();
     expect(screen.getByText("projects.agentsSkills")).toBeInTheDocument();
-    expect(screen.getByText("review-skill")).toBeInTheDocument();
+    expect(screen.queryByText("review-skill")).not.toBeInTheDocument();
     expect(screen.getByText("projects.projectSkillsCount")).toBeInTheDocument();
+  });
+
+  it("uses type icons for project Claude directory overview entries", () => {
+    renderDetailPanel();
+
+    expect(screen.getByTestId("project-claude-overview-icon-settings")).toBeInTheDocument();
+    expect(screen.getByTestId("project-claude-overview-icon-settings-local")).toBeInTheDocument();
+    expect(screen.getByTestId("project-claude-overview-icon-skills")).toBeInTheDocument();
+    expect(screen.getByTestId("project-claude-overview-icon-rules")).toBeInTheDocument();
   });
 
   it("offers a separate action for linking project Skills into .agents/skills", () => {
