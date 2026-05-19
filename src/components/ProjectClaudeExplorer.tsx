@@ -29,8 +29,11 @@ import { TONE_BADGE_CLASS } from "./tone-classes";
 import { TYPOGRAPHY } from "./typography-classes";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
 
 type Props = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   project: string;
   hasSettingsJson: boolean;
   hasSettingsLocalJson: boolean;
@@ -109,12 +112,54 @@ function isJsonPath(path: string): boolean {
 }
 
 export function ProjectClaudeExplorer({
+  open,
+  onOpenChange,
   project,
   hasSettingsJson,
   hasSettingsLocalJson,
   onAfterMutate,
   t,
 }: Props) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="right"
+        className="flex w-full flex-col gap-0 p-0 sm:max-w-4xl"
+        data-testid="project-claude-explorer-sheet"
+      >
+        <SheetHeader className="flex h-12 shrink-0 flex-row items-center gap-3 border-b px-4 py-0">
+          <SheetTitle className="text-base">{t("projects.claudeExplorer.sheetTitle")}</SheetTitle>
+          <SheetDescription className="sr-only">
+            {t("projects.claudeExplorer.sheetDescription")}
+          </SheetDescription>
+        </SheetHeader>
+        <ProjectClaudeExplorerBody
+          project={project}
+          hasSettingsJson={hasSettingsJson}
+          hasSettingsLocalJson={hasSettingsLocalJson}
+          onAfterMutate={onAfterMutate}
+          t={t}
+        />
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+type BodyProps = {
+  project: string;
+  hasSettingsJson: boolean;
+  hasSettingsLocalJson: boolean;
+  onAfterMutate?: () => void;
+  t: TranslateFn;
+};
+
+function ProjectClaudeExplorerBody({
+  project,
+  hasSettingsJson,
+  hasSettingsLocalJson,
+  onAfterMutate,
+  t,
+}: BodyProps) {
   const { showToast } = useToast();
   const editorTheme = useCodeMirrorTheme();
   const isDark = useIsDark();
@@ -160,7 +205,7 @@ export function ProjectClaudeExplorer({
     }
   }, [project, showToast, t]);
 
-  // 项目切换时重置所有状态
+  // Body 仅在 Sheet 打开时挂载（Radix 默认 unmount on close）；切换项目时也重新挂载
   useEffect(() => {
     setOverview(null);
     setSelectedPath(null);
@@ -255,10 +300,10 @@ export function ProjectClaudeExplorer({
   const isEmptyTree = !isLoadingOverview && tree.length === 0;
 
   return (
-    <div className="projects-claude-explorer flex flex-col gap-3">
+    <div className="projects-claude-explorer flex min-h-0 flex-1 flex-col gap-3 p-4">
       <div
         className={cn(
-          "projects-claude-explorer-grid grid h-[420px] gap-3",
+          "projects-claude-explorer-grid grid min-h-0 flex-1 gap-3",
           "grid-cols-1 sm:grid-cols-[260px_minmax(0,1fr)]",
         )}
       >
@@ -308,7 +353,7 @@ export function ProjectClaudeExplorer({
       </div>
 
       {showCreateButtons && (
-        <div className="projects-claude-explorer-actions flex flex-wrap gap-2">
+        <div className="projects-claude-explorer-actions flex shrink-0 flex-wrap gap-2">
           {!hasSettingsJson && (
             <Button
               type="button"
