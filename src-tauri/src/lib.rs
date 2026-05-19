@@ -46,9 +46,7 @@ use skills::{
 use stats::{get_stats, open_claude_json_in_editor};
 use tauri::Manager;
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind, TimezoneStrategy};
-use usage::{
-    get_session_usage_detail, get_usage_snapshot, refresh_usage_pricing, rescan_usage,
-};
+use usage::{get_session_usage_detail, get_usage_snapshot, refresh_usage_pricing, rescan_usage};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

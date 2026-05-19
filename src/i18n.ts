@@ -781,7 +781,7 @@ const translations = {
     "projects.skillsGroupTitle": "项目级 Skills",
     "projects.skillsGroupSubtitle": ".claude/skills ↔ .agents/skills",
     "projects.projectDirGroupTitle": "项目目录",
-    "projects.syncPair": "同步配对",
+    "projects.syncPair": "创建软链",
     "projects.syncing": "处理中...",
     "projects.pairBothMissing": "两端都不存在",
     "projects.pairOnlyClaude": "仅 Claude 端",
@@ -790,10 +790,11 @@ const translations = {
     "projects.pairWrongSymlink": "可修复软链",
     "projects.pairConflict": "存在冲突",
     "projects.pairOrphanSymlink": "孤儿软链",
-    "projects.pairDisabledBothMissing": "两端都不存在，请先创建任一文件 / 目录后再同步。",
-    "projects.pairDisabledConflict": "两端都已存在为真文件 / 真目录，请手动保留其中一份后再同步。",
+    "projects.pairDisabledBothMissing": "两端都不存在，请先创建任一文件 / 目录后再创建软链。",
+    "projects.pairDisabledConflict":
+      "两端都已存在为真文件 / 真目录，请手动保留其中一份后再创建软链。",
     "projects.pairDisabledOrphanSymlink":
-      "两端都是软链或仅有孤儿软链，无可用源，请手动清理后再同步。",
+      "两端都是软链或仅有孤儿软链，无可用源，请手动清理后再创建软链。",
     "projects.branches": "本地分支",
     "projects.branchColumn": "分支",
     "projects.commitColumn": "最近提交",
@@ -2163,7 +2164,7 @@ const translations = {
     "projects.skillsGroupTitle": "Project-level Skills",
     "projects.skillsGroupSubtitle": ".claude/skills ↔ .agents/skills",
     "projects.projectDirGroupTitle": "Project directory",
-    "projects.syncPair": "Sync pair",
+    "projects.syncPair": "Create symlink",
     "projects.syncing": "Working...",
     "projects.pairBothMissing": "Both missing",
     "projects.pairOnlyClaude": "Only Claude side",
@@ -2173,11 +2174,11 @@ const translations = {
     "projects.pairConflict": "Conflict",
     "projects.pairOrphanSymlink": "Orphan symlink",
     "projects.pairDisabledBothMissing":
-      "Neither side exists yet. Create either file / directory before syncing.",
+      "Neither side exists yet. Create either file / directory before creating the symlink.",
     "projects.pairDisabledConflict":
-      "Both sides exist as real files / directories. Keep one of them manually before syncing.",
+      "Both sides exist as real files / directories. Keep one of them manually before creating the symlink.",
     "projects.pairDisabledOrphanSymlink":
-      "Both sides are symlinks (or only an orphan symlink remains). Clean it up manually before syncing.",
+      "Both sides are symlinks (or only an orphan symlink remains). Clean it up manually before creating the symlink.",
     "projects.branches": "Local Branches",
     "projects.branchColumn": "Branch",
     "projects.commitColumn": "Latest Commit",
