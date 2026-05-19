@@ -620,6 +620,8 @@ AI Manager 主要读写本机文件。配置合并、目录扫描、用量聚合
 | Linux | `$XDG_CONFIG_HOME/ai-manager/` 或 `~/.config/ai-manager/` |
 | Windows | `%APPDATA%\ai-manager\` |
 
+> 本应用刻意复用 `~/.config/ai-manager/` 而不是 macOS 标准的 `~/Library/Application Support/...`，便于跨平台同步备份与统一脚本访问。
+
 ```text
 <应用数据目录>/
   config-registry.json
@@ -650,13 +652,15 @@ AI Manager 主要读写本机文件。配置合并、目录扫描、用量聚合
 
 ### 用量 SQLite 缓存
 
-用量缓存由 Tauri SQL 插件维护，数据库名为 `usage.db`。SQLite 使用 WAL 模式时，同目录可能同时出现：
+用量缓存由 Tauri SQL 插件维护，数据库名为 `usage.db`，位于 Tauri 默认的应用配置目录（与“应用数据目录”不是同一个位置）：
 
-```text
-usage.db
-usage.db-wal
-usage.db-shm
-```
+| 平台 | 路径 |
+| --- | --- |
+| macOS | `~/Library/Application Support/com.gotobeta.app.ai-manager/usage.db` |
+| Linux | `$XDG_CONFIG_HOME/com.gotobeta.app.ai-manager/usage.db` 或 `~/.config/com.gotobeta.app.ai-manager/usage.db` |
+| Windows | `%APPDATA%\com.gotobeta.app.ai-manager\usage.db` |
+
+SQLite 使用 WAL 模式时，同目录可能同时出现 `usage.db-wal` 与 `usage.db-shm`。
 
 ### 日志目录
 
