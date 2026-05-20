@@ -3,9 +3,9 @@
     "allow": [
       "Bash(cargo check:*)",
       "WebFetch(domain:docs.anthropic.com)",
-      "npx vitest run *",
-      "npx biome check *",
-      "npx vite build *"
+      "Bash(npx vitest run *)",
+      "Bash(npx biome check *)",
+      "Bash(npx vite build *)"
     ]
   }
 }
