@@ -36,7 +36,7 @@ interface PresetsPageProps {
 }
 
 const PRESET_CARD_CLASS =
-  "preset-card flex flex-col gap-3 rounded-lg border border-border bg-card p-4 text-foreground shadow-panel transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-px hover:border-primary hover:bg-accent/40";
+  "preset-card flex flex-col gap-3 rounded-lg border border-border bg-card p-4 text-foreground shadow-panel transition-[transform,border-color,box-shadow,background-color] duration-300 hover:-translate-y-px hover:border-primary hover:bg-accent/40";
 
 const PRESET_BUILTIN_CARD_CLASS = "builtin";
 
