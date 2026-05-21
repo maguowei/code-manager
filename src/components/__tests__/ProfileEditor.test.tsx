@@ -2436,6 +2436,64 @@ describe("ProfileEditor", () => {
     expect(savedPermissions).not.toHaveProperty("deny");
   });
 
+  it("moves rules between allow and ask lists without duplicating existing target rules", async () => {
+    const onSave = vi.fn();
+    renderEditor({
+      onSave,
+      profile: {
+        ...PROFILE_FIXTURE,
+        settings: {
+          permissions: {
+            defaultMode: "dontAsk",
+            disableBypassPermissionsMode: "disable",
+            disableAutoMode: "disable",
+            allow: ["Bash(pwd)", "Bash(curl *)"],
+            ask: ["Bash(rm *)", "Bash(curl *)"],
+            deny: ["Bash(git reset --hard*)"],
+            additionalDirectories: ["~/projects/shared"],
+          },
+        },
+      },
+    });
+
+    const permissionsSection = getSection("权限");
+    toggleAccordionSection("权限");
+    fireEvent.click(within(permissionsSection).getByRole("button", { name: "展开 允许规则" }));
+    fireEvent.click(within(permissionsSection).getByRole("button", { name: "展开 询问规则" }));
+
+    fireEvent.click(
+      within(permissionsSection).getByRole("button", { name: "转为询问 允许规则 1" }),
+    );
+    fireEvent.click(
+      within(permissionsSection).getByRole("button", { name: "转为询问 允许规则 1" }),
+    );
+    fireEvent.click(
+      within(permissionsSection).getByRole("button", { name: "转为允许 询问规则 1" }),
+    );
+
+    expect(within(permissionsSection).getByLabelText("允许规则 1")).toHaveValue("Bash(rm *)");
+    expect(within(permissionsSection).getByLabelText("询问规则 1")).toHaveValue("Bash(curl *)");
+    expect(within(permissionsSection).getByLabelText("询问规则 2")).toHaveValue("Bash(pwd)");
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    });
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const savedPermissions = onSave.mock.calls[0]?.[0]?.settings.permissions as
+      | Record<string, unknown>
+      | undefined;
+    expect(savedPermissions).toMatchObject({
+      defaultMode: "dontAsk",
+      disableBypassPermissionsMode: "disable",
+      disableAutoMode: "disable",
+      additionalDirectories: ["~/projects/shared"],
+    });
+    expect(savedPermissions?.allow).toEqual(["Bash(rm *)"]);
+    expect(savedPermissions?.ask).toEqual(["Bash(curl *)", "Bash(pwd)"]);
+    expect(savedPermissions?.deny).toEqual(["Bash(git reset --hard*)"]);
+  });
+
   it("selects an additional directory from the add action and preserves cancel as no-op", async () => {
     const onSave = vi.fn();
     openDialogMock

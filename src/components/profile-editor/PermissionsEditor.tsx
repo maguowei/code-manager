@@ -1,5 +1,5 @@
 import { open } from "@tauri-apps/plugin-dialog";
-import { FolderOpen } from "lucide-react";
+import { ArrowRightLeft, FolderOpen } from "lucide-react";
 import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef, useState } from "react";
 import { showOperationError } from "@/lib/user-facing-error";
 import { useToast } from "../../hooks/useToast";
@@ -509,6 +509,30 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
     setRecommendedDialogOpen(false);
   }
 
+  function movePermissionRule(
+    row: StringRow,
+    setSourceRows: Dispatch<SetStateAction<StringRow[]>>,
+    setTargetRows: Dispatch<SetStateAction<StringRow[]>>,
+    setTargetExpanded: Dispatch<SetStateAction<boolean>>,
+  ) {
+    const normalizedValue = row.value.trim();
+    setTargetExpanded(true);
+    setSourceRows((current) => current.filter((candidate) => candidate.id !== row.id));
+    setTargetRows((current) => {
+      if (current.some((candidate) => candidate.value.trim() === normalizedValue)) {
+        return current;
+      }
+
+      return [
+        ...current,
+        {
+          id: createRowId("permission"),
+          value: row.value,
+        },
+      ];
+    });
+  }
+
   function handleConfirmClearRules() {
     if (clearRulesDialog === "allow") {
       setAllowRows([]);
@@ -572,6 +596,15 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
           itemLabelPrefix={t("profileEditor.permissions.allowRulePrefix")}
           placeholder={t("profileEditor.permissions.allowPlaceholder")}
           emptyHint={t("profileEditor.permissions.allowEmptyHint")}
+          rowActions={[
+            {
+              label: t("profileEditor.permissions.moveToAsk"),
+              icon: <ArrowRightLeft className="size-4" aria-hidden="true" />,
+              onClick: (row) => movePermissionRule(row, setAllowRows, setAskRows, setAskExpanded),
+              buildAriaLabel: (itemLabel) =>
+                `${t("profileEditor.permissions.moveToAsk")} ${itemLabel}`,
+            },
+          ]}
           collapsible
           expanded={allowExpanded}
           onToggleExpanded={() => setAllowExpanded((current) => !current)}
@@ -606,6 +639,15 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
           itemLabelPrefix={t("profileEditor.permissions.askRulePrefix")}
           placeholder={t("profileEditor.permissions.askPlaceholder")}
           emptyHint={t("profileEditor.permissions.askEmptyHint")}
+          rowActions={[
+            {
+              label: t("profileEditor.permissions.moveToAllow"),
+              icon: <ArrowRightLeft className="size-4" aria-hidden="true" />,
+              onClick: (row) => movePermissionRule(row, setAskRows, setAllowRows, setAllowExpanded),
+              buildAriaLabel: (itemLabel) =>
+                `${t("profileEditor.permissions.moveToAllow")} ${itemLabel}`,
+            },
+          ]}
           collapsible
           expanded={askExpanded}
           onToggleExpanded={() => setAskExpanded((current) => !current)}

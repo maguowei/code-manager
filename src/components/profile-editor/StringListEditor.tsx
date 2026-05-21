@@ -6,6 +6,13 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import type { StringRow } from "./editor-utils";
 
+interface StringListRowAction {
+  label: string;
+  icon?: ReactNode;
+  onClick: (row: StringRow, index: number) => void;
+  buildAriaLabel?: (itemLabel: string) => string;
+}
+
 interface StringListEditorProps {
   label: string;
   rows: StringRow[];
@@ -20,6 +27,7 @@ interface StringListEditorProps {
   rowActionIcon?: ReactNode;
   onRowAction?: (row: StringRow, index: number) => void;
   buildRowActionAriaLabel?: (itemLabel: string) => string;
+  rowActions?: StringListRowAction[];
   emptyHint?: string;
   collapsible?: boolean;
   expanded?: boolean;
@@ -42,6 +50,7 @@ function StringListEditor({
   rowActionIcon,
   onRowAction,
   buildRowActionAriaLabel,
+  rowActions,
   emptyHint,
   collapsible = false,
   expanded,
@@ -72,6 +81,19 @@ function StringListEditor({
   function buildRowActionLabel(itemLabel: string) {
     return buildRowActionAriaLabel?.(itemLabel) ?? `${rowActionLabel} ${itemLabel}`;
   }
+
+  const effectiveRowActions =
+    rowActions ??
+    (onRowAction && rowActionLabel
+      ? [
+          {
+            label: rowActionLabel,
+            icon: rowActionIcon,
+            onClick: onRowAction,
+            buildAriaLabel: buildRowActionLabel,
+          },
+        ]
+      : []);
 
   return (
     <div className="flex flex-col gap-3.5" data-slot="profile-subsection">
@@ -171,19 +193,22 @@ function StringListEditor({
                         }
                       />
                       <div className="flex flex-wrap justify-end gap-2">
-                        {onRowAction && rowActionLabel ? (
+                        {effectiveRowActions.map((action) => (
                           <Button
+                            key={action.label}
                             type="button"
                             variant="ghost"
                             size="icon-sm"
                             className="text-primary hover:bg-accent hover:text-primary"
-                            aria-label={buildRowActionLabel(itemLabel)}
-                            title={rowActionLabel}
-                            onClick={() => onRowAction(row, index)}
+                            aria-label={
+                              action.buildAriaLabel?.(itemLabel) ?? `${action.label} ${itemLabel}`
+                            }
+                            title={action.label}
+                            onClick={() => action.onClick(row, index)}
                           >
-                            {rowActionIcon ?? rowActionLabel}
+                            {action.icon ?? action.label}
                           </Button>
-                        ) : null}
+                        ))}
                         <Button
                           type="button"
                           variant="ghost"

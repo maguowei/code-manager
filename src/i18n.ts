@@ -472,6 +472,7 @@ const translations = {
     "profileEditor.permissions.allowRulesTitle": "允许规则",
     "profileEditor.permissions.addAllow": "新增允许规则",
     "profileEditor.permissions.clearAllow": "清空允许规则",
+    "profileEditor.permissions.moveToAsk": "转为询问",
     "profileEditor.permissions.clearRulesDialogMessage":
       "这会移除该列表中的所有规则。保存前仍可取消本次编辑。",
     "profileEditor.permissions.clearRulesDialogConfirm": "确认清空",
@@ -489,6 +490,7 @@ const translations = {
     "profileEditor.permissions.askRulesTitle": "询问规则",
     "profileEditor.permissions.addAsk": "新增询问规则",
     "profileEditor.permissions.clearAsk": "清空询问规则",
+    "profileEditor.permissions.moveToAllow": "转为允许",
     "profileEditor.permissions.askRulePrefix": "询问规则",
     "profileEditor.permissions.askPlaceholder": "例如：Bash(git commit:*)",
     "profileEditor.permissions.askEmptyHint": "这些规则每次都要求确认。",
@@ -1868,6 +1870,7 @@ const translations = {
     "profileEditor.permissions.allowRulesTitle": "Allow Rules",
     "profileEditor.permissions.addAllow": "Add allow rule",
     "profileEditor.permissions.clearAllow": "Clear allow rules",
+    "profileEditor.permissions.moveToAsk": "Move to ask",
     "profileEditor.permissions.clearRulesDialogMessage":
       "This removes every rule in this list. You can still cancel the editor changes before saving.",
     "profileEditor.permissions.clearRulesDialogConfirm": "Clear rules",
@@ -1885,6 +1888,7 @@ const translations = {
     "profileEditor.permissions.askRulesTitle": "Ask Rules",
     "profileEditor.permissions.addAsk": "Add ask rule",
     "profileEditor.permissions.clearAsk": "Clear ask rules",
+    "profileEditor.permissions.moveToAllow": "Move to allow",
     "profileEditor.permissions.askRulePrefix": "Ask Rule",
     "profileEditor.permissions.askPlaceholder": "e.g. Bash(git commit:*)",
     "profileEditor.permissions.askEmptyHint": "These rules always require confirmation.",

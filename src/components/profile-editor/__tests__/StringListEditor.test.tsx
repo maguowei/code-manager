@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../../i18n";
@@ -11,6 +12,12 @@ function renderEditor(
     rowActionLabel?: string;
     onRowAction?: (row: StringRow, index: number) => void;
     buildRowActionAriaLabel?: (itemLabel: string) => string;
+    rowActions?: Array<{
+      label: string;
+      icon?: ReactNode;
+      onClick: (row: StringRow, index: number) => void;
+      buildAriaLabel?: (itemLabel: string) => string;
+    }>;
     clearable?: boolean;
   },
 ) {
@@ -42,6 +49,7 @@ function renderEditor(
           rowActionLabel={options?.rowActionLabel}
           onRowAction={options?.onRowAction}
           buildRowActionAriaLabel={options?.buildRowActionAriaLabel}
+          rowActions={options?.rowActions}
           collapsible
           expanded={expanded}
           onToggleExpanded={() => setExpanded((current) => !current)}
@@ -186,5 +194,53 @@ describe("StringListEditor", () => {
     cleanup();
     renderEditor([{ id: "allow-2", value: "Read" }]);
     expect(screen.queryByRole("button", { name: "选择目录 允许规则 1" })).not.toBeInTheDocument();
+  });
+
+  it("renders multiple row actions in order before the delete action", () => {
+    const moveToAsk = vi.fn();
+    const moveToDeny = vi.fn();
+    renderEditor([{ id: "allow-1", value: "Bash" }], {
+      rowActions: [
+        {
+          label: "转为询问",
+          onClick: moveToAsk,
+          buildAriaLabel: (itemLabel) => `转为询问 ${itemLabel}`,
+        },
+        {
+          label: "转为拒绝",
+          onClick: moveToDeny,
+          buildAriaLabel: (itemLabel) => `转为拒绝 ${itemLabel}`,
+        },
+      ],
+    });
+
+    const subsection = screen
+      .getByRole("heading", { name: "允许规则" })
+      .closest('[data-slot="profile-subsection"]') as HTMLElement | null;
+    expect(subsection).not.toBeNull();
+    if (!subsection) {
+      return;
+    }
+
+    const moveToAskButton = within(subsection).getByRole("button", {
+      name: "转为询问 允许规则 1",
+    });
+    const moveToDenyButton = within(subsection).getByRole("button", {
+      name: "转为拒绝 允许规则 1",
+    });
+    const deleteButton = within(subsection).getByRole("button", { name: "删除 允许规则 1" });
+
+    expect(
+      moveToAskButton.compareDocumentPosition(moveToDenyButton) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(
+      moveToDenyButton.compareDocumentPosition(deleteButton) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+
+    fireEvent.click(moveToAskButton);
+    fireEvent.click(moveToDenyButton);
+
+    expect(moveToAsk).toHaveBeenCalledWith({ id: "allow-1", value: "Bash" }, 0);
+    expect(moveToDeny).toHaveBeenCalledWith({ id: "allow-1", value: "Bash" }, 0);
   });
 });
