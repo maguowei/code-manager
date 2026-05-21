@@ -2494,6 +2494,82 @@ describe("ProfileEditor", () => {
     expect(savedPermissions?.deny).toEqual(["Bash(git reset --hard*)"]);
   });
 
+  it("toggles loose mode by moving configured ask rules into allow and back", async () => {
+    const onSave = vi.fn();
+    renderEditor({
+      onSave,
+      profile: {
+        ...PROFILE_FIXTURE,
+        settings: {
+          permissions: {
+            defaultMode: "dontAsk",
+            disableBypassPermissionsMode: "disable",
+            allow: ["Bash(pwd)"],
+            ask: ["Bash(kill *)", "Bash(env)", "Bash(custom *)"],
+            additionalDirectories: ["~/projects/shared"],
+          },
+        },
+      },
+    });
+
+    const permissionsSection = getSection("权限");
+    await act(async () => {
+      toggleAccordionSection("权限");
+      await Promise.resolve();
+    });
+    const looseModeSwitch = within(permissionsSection).getByRole("switch", {
+      name: "宽松模式",
+    });
+    expect(
+      within(permissionsSection).getByRole("button", { name: "宽松模式说明" }),
+    ).toHaveAttribute(
+      "data-tooltip",
+      "启用后会把宽松规则从询问规则移动到允许规则；关闭后会把这些规则移回询问规则。只影响当前编辑草稿，保存后生效。",
+    );
+    expect(looseModeSwitch).toHaveAttribute("aria-checked", "false");
+
+    await act(async () => {
+      fireEvent.click(looseModeSwitch);
+      await Promise.resolve();
+    });
+    expect(looseModeSwitch).toHaveAttribute("aria-checked", "true");
+    expect(
+      within(permissionsSection).getByRole("button", { name: "收起 允许规则" }),
+    ).toBeInTheDocument();
+
+    expect(within(permissionsSection).getByLabelText("允许规则 1")).toHaveValue("Bash(pwd)");
+    expect(within(permissionsSection).getByLabelText("允许规则 2")).toHaveValue("Bash(kill *)");
+    expect(within(permissionsSection).getByLabelText("允许规则 3")).toHaveValue("Bash(env)");
+    expect(within(permissionsSection).getByLabelText("询问规则 1")).toHaveValue("Bash(custom *)");
+
+    await act(async () => {
+      fireEvent.click(looseModeSwitch);
+      await Promise.resolve();
+    });
+    expect(looseModeSwitch).toHaveAttribute("aria-checked", "false");
+
+    expect(within(permissionsSection).getByLabelText("允许规则 1")).toHaveValue("Bash(pwd)");
+    expect(within(permissionsSection).getByLabelText("询问规则 1")).toHaveValue("Bash(custom *)");
+    expect(within(permissionsSection).getByLabelText("询问规则 2")).toHaveValue("Bash(kill *)");
+    expect(within(permissionsSection).getByLabelText("询问规则 3")).toHaveValue("Bash(env)");
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    });
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const savedPermissions = onSave.mock.calls[0]?.[0]?.settings.permissions as
+      | Record<string, unknown>
+      | undefined;
+    expect(savedPermissions).toMatchObject({
+      defaultMode: "dontAsk",
+      disableBypassPermissionsMode: "disable",
+      additionalDirectories: ["~/projects/shared"],
+    });
+    expect(savedPermissions?.allow).toEqual(["Bash(pwd)"]);
+    expect(savedPermissions?.ask).toEqual(["Bash(custom *)", "Bash(kill *)", "Bash(env)"]);
+  });
+
   it("selects an additional directory from the add action and preserves cancel as no-op", async () => {
     const onSave = vi.fn();
     openDialogMock

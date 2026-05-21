@@ -1,5 +1,5 @@
 import { open } from "@tauri-apps/plugin-dialog";
-import { ArrowRightLeft, FolderOpen } from "lucide-react";
+import { ArrowRightLeft, FolderOpen, Info } from "lucide-react";
 import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef, useState } from "react";
 import { showOperationError } from "@/lib/user-facing-error";
 import { useToast } from "../../hooks/useToast";
@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import {
   buildStringListError,
   createRowId,
@@ -46,6 +47,52 @@ const MANAGED_PERMISSION_KEYS = [
   "additionalDirectories",
 ] as const;
 const PERMISSION_LIST_KEYS = ["allow", "deny", "ask", "additionalDirectories"] as const;
+const LOOSE_MODE_PERMISSION_RULES = [
+  "Bash(kill *)",
+  "Bash(env)",
+  "Bash(printenv *)",
+  "Bash(cp *)",
+  "Bash(mv *)",
+  "Bash(open *)",
+  "Bash(git commit *)",
+  "Bash(git pull *)",
+  "Bash(git checkout *)",
+  "Bash(git stash *)",
+  "Bash(sed -i*)",
+  "Bash(find * -exec*)",
+  "Bash(go run *)",
+  "Bash(go get *)",
+  "Bash(go install *)",
+  "Bash(go generate *)",
+  "Bash(go mod tidy *)",
+  "Bash(cargo run *)",
+  "Bash(cargo install *)",
+  "Bash(cargo update *)",
+  "Bash(rustup *)",
+  "Bash(npm *)",
+  "Bash(yarn *)",
+  "Bash(npx *)",
+  "Bash(curl *)",
+  "Bash(wget *)",
+  "Bash(pip *)",
+  "Bash(python -m pip *)",
+  "Bash(python *)",
+  "Bash(python3 *)",
+  "Bash(uv *)",
+  "Bash(pnpm install *)",
+  "Bash(pnpm add *)",
+  "Bash(pnpm remove *)",
+  "Bash(pnpm update *)",
+  "Bash(pnpm dlx *)",
+  "Bash(pnpm exec *)",
+  "Bash(pnpm approve-builds *)",
+  "Bash(bun install *)",
+  "Bash(bun add *)",
+  "Bash(bun remove *)",
+  "Bash(bunx *)",
+  "Bash(make install *)",
+] as const;
+const LOOSE_MODE_PERMISSION_RULE_SET = new Set<string>(LOOSE_MODE_PERMISSION_RULES);
 
 type PermissionListKey = (typeof PERMISSION_LIST_KEYS)[number];
 
@@ -165,6 +212,32 @@ function setPermissionListFromRows(
   if (values.length > 0) {
     target[key] = values;
   }
+}
+
+function hasLooseModeRule(rows: StringRow[]): boolean {
+  return rows.some((row) => LOOSE_MODE_PERMISSION_RULE_SET.has(row.value.trim()));
+}
+
+function isLooseModeEnabled(allowRows: StringRow[], askRows: StringRow[]): boolean {
+  return hasLooseModeRule(allowRows) && !hasLooseModeRule(askRows);
+}
+
+function appendMissingRows(targetRows: StringRow[], rowsToAppend: StringRow[]): StringRow[] {
+  const existingValues = new Set(targetRows.map((row) => row.value.trim()));
+  const nextRows = [...targetRows];
+
+  for (const row of rowsToAppend) {
+    const normalizedValue = row.value.trim();
+    if (!existingValues.has(normalizedValue)) {
+      existingValues.add(normalizedValue);
+      nextRows.push({
+        id: createRowId("permission"),
+        value: row.value,
+      });
+    }
+  }
+
+  return nextRows;
 }
 
 function buildPermissionsValue(
@@ -324,6 +397,7 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
   const [recommendedDialogOpen, setRecommendedDialogOpen] = useState(false);
   const [clearRulesDialog, setClearRulesDialog] = useState<PermissionRuleListKey | null>(null);
   const skipStructuredSyncRef = useRef(false);
+  const looseModeEnabled = isLooseModeEnabled(allowRows, askRows);
 
   useEffect(() => {
     skipStructuredSyncRef.current = true;
@@ -533,6 +607,32 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
     });
   }
 
+  function handleToggleLooseMode() {
+    const movingRows = looseModeEnabled
+      ? allowRows.filter((row) => LOOSE_MODE_PERMISSION_RULE_SET.has(row.value.trim()))
+      : askRows.filter((row) => LOOSE_MODE_PERMISSION_RULE_SET.has(row.value.trim()));
+
+    if (movingRows.length === 0) {
+      return;
+    }
+
+    setAllowExpanded(true);
+    setAskExpanded(true);
+
+    if (looseModeEnabled) {
+      setAllowRows((current) =>
+        current.filter((row) => !LOOSE_MODE_PERMISSION_RULE_SET.has(row.value.trim())),
+      );
+      setAskRows((current) => appendMissingRows(current, movingRows));
+      return;
+    }
+
+    setAskRows((current) =>
+      current.filter((row) => !LOOSE_MODE_PERMISSION_RULE_SET.has(row.value.trim())),
+    );
+    setAllowRows((current) => appendMissingRows(current, movingRows));
+  }
+
   function handleConfirmClearRules() {
     if (clearRulesDialog === "allow") {
       setAllowRows([]);
@@ -562,16 +662,45 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
   return (
     <div className="flex flex-col gap-4">
       <div className="mb-1.5 flex items-center justify-between gap-3.5 max-[900px]:flex-col max-[900px]:items-stretch">
-        <div className="flex w-full max-w-[420px] items-center justify-start gap-3.5 self-start max-[900px]:max-w-none max-[900px]:justify-between">
-          <span className="min-w-0 text-[15px] font-bold leading-snug text-foreground">
-            {t("profileEditor.permissions.disableBypass")}
-          </span>
+        <div className="flex min-w-0 flex-wrap items-center justify-start gap-3.5 self-start max-[900px]:justify-between">
+          <div className="flex min-w-0 items-center justify-start gap-3.5">
+            <span className="min-w-0 text-[15px] font-bold leading-snug text-foreground">
+              {t("profileEditor.permissions.disableBypass")}
+            </span>
+            <SandboxSwitchControl
+              enabled={disableBypass}
+              ariaLabel={t("profileEditor.permissions.disableBypass")}
+              variant="header"
+              onToggle={() => setDisableBypass(!disableBypass)}
+            />
+          </div>
           <SandboxSwitchControl
-            enabled={disableBypass}
-            ariaLabel={t("profileEditor.permissions.disableBypass")}
+            enabled={looseModeEnabled}
+            ariaLabel={t("profileEditor.permissions.looseMode")}
             variant="header"
-            onToggle={() => setDisableBypass(!disableBypass)}
+            visibleLabel={t("profileEditor.permissions.looseMode")}
+            onToggle={handleToggleLooseMode}
           />
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  className="inline-flex size-6 items-center justify-center rounded-full border border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  aria-label={t("profileEditor.permissions.looseModeHelpLabel")}
+                  data-tooltip={t("profileEditor.permissions.looseModeHelp")}
+                  title={t("profileEditor.permissions.looseModeHelp")}
+                >
+                  <Info className="size-3.5" aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" sideOffset={6} className="max-w-[300px] text-balance">
+                {t("profileEditor.permissions.looseModeHelp")}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
         <Button

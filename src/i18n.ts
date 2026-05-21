@@ -463,6 +463,10 @@ const translations = {
     "profileEditor.permissions.defaultModeLabel": "默认模式",
     "profileEditor.permissions.unset": "未设置",
     "profileEditor.permissions.disableBypass": "禁用 bypassPermissions 模式",
+    "profileEditor.permissions.looseMode": "宽松模式",
+    "profileEditor.permissions.looseModeHelpLabel": "宽松模式说明",
+    "profileEditor.permissions.looseModeHelp":
+      "启用后会把宽松规则从询问规则移动到允许规则；关闭后会把这些规则移回询问规则。只影响当前编辑草稿，保存后生效。",
     "profileEditor.permissions.loadRecommendedRules": "加载推荐规则预设",
     "profileEditor.permissions.loadRecommendedDialogTitle": "加载推荐权限规则",
     "profileEditor.permissions.loadRecommendedDialogMessage":
@@ -1861,6 +1865,10 @@ const translations = {
     "profileEditor.permissions.defaultModeLabel": "Default Mode",
     "profileEditor.permissions.unset": "Unset",
     "profileEditor.permissions.disableBypass": "Disable bypassPermissions mode",
+    "profileEditor.permissions.looseMode": "Loose mode",
+    "profileEditor.permissions.looseModeHelpLabel": "Loose mode help",
+    "profileEditor.permissions.looseModeHelp":
+      "When enabled, loose-mode rules move from ask rules to allow rules; when disabled, they move back to ask rules. This only affects the current draft until you save.",
     "profileEditor.permissions.loadRecommendedRules": "Load recommended rule preset",
     "profileEditor.permissions.loadRecommendedDialogTitle": "Load recommended permission rules",
     "profileEditor.permissions.loadRecommendedDialogMessage":
