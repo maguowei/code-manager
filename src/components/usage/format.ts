@@ -1,6 +1,9 @@
 // Token 用量页面专用格式化工具
 // 数字（带单位）、日期、时间长度
 
+import type { TranslationKey } from "../../i18n";
+import type { PricingSource } from "../../types";
+
 const NUM_FMT = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 });
 
 /** 大数字简化为 K / M / B 后缀 */
@@ -79,4 +82,19 @@ export function projectDisplayName(projectDir: string | undefined, projectPath: 
 /** 会话 ID 短显示（前 8 位） */
 export function shortSessionId(id: string): string {
   return id.length > 8 ? id.slice(0, 8) : id;
+}
+
+/** 价格表来源 → i18n 标签 */
+export function pricingSourceLabel(
+  source: PricingSource,
+  t: (key: TranslationKey) => string,
+): string {
+  switch (source) {
+    case "network":
+      return t("usage.pricing.network");
+    case "cache":
+      return t("usage.pricing.cache");
+    case "builtin":
+      return t("usage.pricing.builtin");
+  }
 }

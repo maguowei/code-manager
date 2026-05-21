@@ -663,9 +663,13 @@ fn mac_app_candidate_paths(app_name: &str) -> Vec<PathBuf> {
         PathBuf::from("/System/Applications").join(&bundle),
         PathBuf::from("/System/Applications/Utilities").join(&bundle),
     ];
-    if let Some(home) = env::var_os("HOME") {
-        paths.push(PathBuf::from(home).join("Applications").join(bundle));
-    }
+    // 走 utils 统一解析：尊重 AI_MANAGER_HOME_OVERRIDE，跨平台一致；
+    // 解析失败时 home_dir_or_fallback 返回 "."，加入 ./Applications 不会误命中
+    paths.push(
+        crate::utils::home_dir_or_fallback()
+            .join("Applications")
+            .join(bundle),
+    );
     paths
 }
 

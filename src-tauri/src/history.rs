@@ -345,18 +345,22 @@ fn parse_content_blocks(content: &serde_json::Value) -> Vec<MessageBlock> {
 /// 获取指定 session 的完整对话记录
 #[tauri::command]
 pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDetail, String> {
-    let session_file = session_file_path_unchecked(project, session_id);
+    // 必须走 validate 路径，防止 session_id 携带 `../` 等片段穿出 projects 目录
+    let session_file = session_file_path(project, session_id)?;
 
-    if !session_file.exists() {
-        return Ok(SessionDetail {
-            session_id: session_id.to_string(),
-            project: project.to_string(),
-            messages: Vec::new(),
-        });
-    }
-
+    // 文件不存在时返回空 messages（保留旧契约）；统一在 open() 中处理避免 TOCTOU
+    let file = match fs::File::open(&session_file) {
+        Ok(f) => f,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(SessionDetail {
+                session_id: session_id.to_string(),
+                project: project.to_string(),
+                messages: Vec::new(),
+            });
+        }
+        Err(e) => return Err(format!("打开会话文件失败: {}", e)),
+    };
     // 使用 BufReader 流式逐行读取，避免将大文件（含 base64 图片）全量加载到内存
-    let file = fs::File::open(&session_file).map_err(|e| format!("打开会话文件失败: {}", e))?;
     let reader = BufReader::new(file);
 
     let mut messages: Vec<SessionMessage> = Vec::new();
@@ -550,6 +554,20 @@ mod tests {
     fn session_file_path_rejects_unsafe_session_ids() {
         let err = session_file_path("/Users/demo/project", "../session").unwrap_err();
 
+        assert!(err.contains("会话 ID"));
+    }
+
+    #[test]
+    fn get_session_detail_rejects_path_escape_session_id() {
+        // 防止 session_id 含 `..` 或路径分隔符穿越 projects 目录
+        let err = get_session_detail("/Users/demo/project", "../session")
+            .err()
+            .expect("含 `..` 的 session_id 必须被拒绝");
+        assert!(err.contains("会话 ID"));
+
+        let err = get_session_detail("/Users/demo/project", "../../etc/passwd")
+            .err()
+            .expect("路径穿越的 session_id 必须被拒绝");
         assert!(err.contains("会话 ID"));
     }
 }

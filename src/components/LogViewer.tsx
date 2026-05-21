@@ -3,18 +3,17 @@ import { FolderOpen, RefreshCw, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
-import useEscapeKey from "../hooks/useEscapeKey";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
 import type { LogLevel, LogView } from "../types";
 import {
   CONTROL_SURFACE_CLASS,
-  FLOATING_SURFACE_CLASS,
   PANEL_SURFACE_CLASS,
   TOOLBAR_SURFACE_CLASS,
 } from "./surface-classes";
 import { TONE_TEXT_CLASS } from "./tone-classes";
 import { Button } from "./ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
 
@@ -94,8 +93,6 @@ function LogViewer({ onClose }: LogViewerProps) {
     void loadLogs();
   }, [loadLogs]);
 
-  useEscapeKey(onClose);
-
   async function handleOpenDirectory() {
     try {
       await invoke("open_logs_dir");
@@ -118,30 +115,20 @@ function LogViewer({ onClose }: LogViewerProps) {
   }
 
   return (
-    <div
-      className="log-viewer-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5 max-md:p-3"
-      onClick={onClose}
-    >
-      <section
-        className={cn(
-          "log-viewer flex h-[min(760px,calc(100vh-40px))] w-[min(980px,calc(100vw-40px))] flex-col overflow-hidden rounded-lg border text-foreground max-md:h-full max-md:w-full",
-          FLOATING_SURFACE_CLASS,
-        )}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="log-viewer-title"
-        onClick={(event) => event.stopPropagation()}
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        showCloseButton={false}
+        aria-describedby={undefined}
+        className="flex h-[min(760px,calc(100vh-2rem))] w-[min(980px,calc(100vw-2rem))] max-w-none flex-col overflow-hidden p-0 sm:max-w-none"
       >
-        <header
+        <DialogHeader
           className={cn(
-            "log-viewer-header flex min-h-16 items-center justify-between gap-4 border-b px-5 py-4",
+            "flex min-h-16 shrink-0 flex-row items-center justify-between gap-4 border-b px-5 py-4",
             TOOLBAR_SURFACE_CLASS,
           )}
         >
           <div className="log-viewer-title-group min-w-0">
-            <h2 id="log-viewer-title" className="text-base font-semibold">
-              {t("logs.title")}
-            </h2>
+            <DialogTitle>{t("logs.title")}</DialogTitle>
             <p className="mt-1 font-mono text-xs text-muted-foreground [overflow-wrap:anywhere]">
               {view?.logDir ?? t("logs.pathLoading")}
             </p>
@@ -156,9 +143,9 @@ function LogViewer({ onClose }: LogViewerProps) {
           >
             <X className="size-4" />
           </Button>
-        </header>
+        </DialogHeader>
 
-        <div className="log-viewer-toolbar grid grid-cols-[150px_minmax(220px,1fr)_auto] items-end gap-3 border-b border-border/80 bg-card/70 px-5 py-4 max-md:grid-cols-1">
+        <div className="log-viewer-toolbar grid shrink-0 grid-cols-[150px_minmax(240px,1fr)_max-content] items-end gap-3 border-b border-border/80 bg-card/70 px-5 py-4 max-[900px]:grid-cols-1">
           <label className="log-viewer-field flex flex-col gap-1.5">
             <span className="text-sm font-semibold text-muted-foreground">{t("logs.level")}</span>
             <select
@@ -186,7 +173,7 @@ function LogViewer({ onClose }: LogViewerProps) {
               onChange={(event) => setSearch(event.target.value)}
             />
           </label>
-          <div className="log-viewer-actions flex flex-wrap gap-2">
+          <div className="log-viewer-actions flex min-w-max flex-wrap justify-end gap-2 max-[900px]:min-w-0 max-[900px]:justify-start">
             <Button type="button" variant="outline" onClick={loadLogs}>
               <RefreshCw className="size-4" />
               {t("logs.refresh")}
@@ -207,7 +194,7 @@ function LogViewer({ onClose }: LogViewerProps) {
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 p-5">
+        <div className="log-viewer-content min-h-0 flex-1 overflow-hidden p-5">
           <ScrollArea
             className={cn("log-viewer-body h-full rounded-md border", PANEL_SURFACE_CLASS)}
           >
@@ -256,8 +243,8 @@ function LogViewer({ onClose }: LogViewerProps) {
             )}
           </ScrollArea>
         </div>
-      </section>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

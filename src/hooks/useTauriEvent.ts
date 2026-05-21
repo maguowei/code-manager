@@ -5,7 +5,7 @@ import { isTauri } from "../types";
 /**
  * 监听 Tauri 事件，组件卸载时自动取消订阅
  * 内部使用 handlerRef 存储最新回调，避免 stale closure 问题
- * cleanup 用 unlisten?.() 修复 Promise 未 resolve 时的泄漏窗口
+ * 使用 cancelled 标志处理 Promise 未 resolve 时卸载导致的监听器泄漏
  * @param event Tauri 事件名称
  * @param handler 事件触发时的回调函数
  */
@@ -17,11 +17,17 @@ function useTauriEvent<T>(event: string, handler: (payload: T) => void): void {
 
   useEffect(() => {
     if (!isTauri()) return;
+    let cancelled = false;
     let unlisten: (() => void) | undefined;
     listen<T>(event, (e) => handlerRef.current(e.payload)).then((fn) => {
+      if (cancelled) {
+        fn();
+        return;
+      }
       unlisten = fn;
     });
     return () => {
+      cancelled = true;
       unlisten?.();
     };
   }, [event]);

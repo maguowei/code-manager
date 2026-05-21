@@ -21,8 +21,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
-import type { ModelUsageStat, PricingSource, PricingTable } from "@/types";
-import { formatPricePerMillion, formatShortDateTime } from "./format";
+import type { ModelUsageStat, PricingTable } from "@/types";
+import { formatPricePerMillion, formatShortDateTime, pricingSourceLabel } from "./format";
 
 interface PricingTableDialogProps {
   open: boolean;
@@ -220,15 +220,4 @@ function PricingEmptyState({ title, description }: { title: string; description:
       </EmptyHeader>
     </Empty>
   );
-}
-
-function pricingSourceLabel(source: PricingSource, t: ReturnType<typeof useI18n>["t"]) {
-  switch (source) {
-    case "network":
-      return t("usage.pricing.network");
-    case "cache":
-      return t("usage.pricing.cache");
-    case "builtin":
-      return t("usage.pricing.builtin");
-  }
 }

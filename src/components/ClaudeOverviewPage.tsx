@@ -46,6 +46,7 @@ import { useTheme } from "./theme-provider";
 import { TYPOGRAPHY } from "./typography-classes";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Input } from "./ui/input";
 
 interface LoadOverviewOptions {
@@ -385,35 +386,29 @@ function ClaudeOverviewNameDialog({
   };
 
   return (
-    <div
-      className="claude-overview-name-dialog-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={onCancel}
-    >
-      <form
-        className="claude-overview-name-dialog flex w-[360px] max-w-[calc(100vw-32px)] flex-col gap-4 rounded-lg border bg-card p-5 shadow-xl"
-        aria-label={t(dialog.titleKey)}
-        onClick={(event) => event.stopPropagation()}
-        onSubmit={handleSubmit}
-      >
-        <div className="claude-overview-name-dialog-title text-lg font-semibold">
-          {t(dialog.titleKey)}
-        </div>
-        <label className="claude-overview-name-dialog-field flex flex-col gap-2 text-sm text-muted-foreground">
-          <span>{t("claudeOverview.nameLabel")}</span>
-          <Input
-            ref={inputRef}
-            value={name}
-            onChange={(event) => setName(event.currentTarget.value)}
-          />
-        </label>
-        <div className="claude-overview-name-dialog-actions flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            {t("confirm.cancel")}
-          </Button>
-          <Button type="submit">{t(dialog.confirmKey)}</Button>
-        </div>
-      </form>
-    </div>
+    <Dialog open onOpenChange={(open) => !open && onCancel()}>
+      <DialogContent className="sm:max-w-[400px]">
+        <DialogHeader>
+          <DialogTitle>{t(dialog.titleKey)}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit}>
+          <label className="flex flex-col gap-2 text-sm text-muted-foreground">
+            <span>{t("claudeOverview.nameLabel")}</span>
+            <Input
+              ref={inputRef}
+              value={name}
+              onChange={(event) => setName(event.currentTarget.value)}
+            />
+          </label>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onCancel}>
+              {t("confirm.cancel")}
+            </Button>
+            <Button type="submit">{t(dialog.confirmKey)}</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

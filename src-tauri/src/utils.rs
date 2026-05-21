@@ -127,26 +127,8 @@ fn civil_from_days(days: i64) -> (i32, u32, u32) {
     (year as i32, month as u32, day as u32)
 }
 
-/// 创建目录（如不存在）、写入文件内容，新建文件时在 Unix 系统上设置 0o600 权限
-pub fn ensure_dir_and_write(path: &Path, content: &str) -> Result<(), String> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("创建目录失败 {:?}: {}", parent, e))?;
-    }
-    #[cfg(unix)]
-    let is_new = !path.exists();
-    fs::write(path, content).map_err(|e| format!("写入文件失败 {:?}: {}", path, e))?;
-
-    // 仅新建文件时收紧权限；覆盖已有文件保留原有 mode（避免破坏 skill 脚本的可执行权限）
-    #[cfg(unix)]
-    if is_new {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = fs::set_permissions(path, fs::Permissions::from_mode(0o600));
-    }
-
-    Ok(())
-}
-
 /// 原子写入文本文件：先写临时文件，再替换目标文件。
+/// 替换已有文件时保留原文件权限；新建文件时在 Unix 上设置 0o600。
 pub fn ensure_dir_and_write_atomic(path: &Path, content: &str) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("创建目录失败 {:?}: {}", parent, e))?;
@@ -174,7 +156,13 @@ pub fn ensure_dir_and_write_atomic(path: &Path, content: &str) -> Result<(), Str
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        let _ = fs::set_permissions(&temp_path, fs::Permissions::from_mode(0o600));
+        // 已有文件：保留原 mode，避免把 SKILL.md / *.md 这类用户可能 chmod 过的内容写成 0o600
+        // 新文件：用 0o600 作为安全默认
+        let mode = fs::metadata(path)
+            .ok()
+            .map(|meta| meta.permissions().mode() & 0o777)
+            .unwrap_or(0o600);
+        let _ = fs::set_permissions(&temp_path, fs::Permissions::from_mode(mode));
     }
 
     replace_file_with_temp(path, &temp_path)?;
@@ -259,10 +247,10 @@ pub fn read_json_file_strict<T: DeserializeOwned>(path: &Path) -> Result<T, Stri
     serde_json::from_str(&content).map_err(|e| format!("解析 JSON 失败 {:?}: {}", path, e))
 }
 
-/// 将数据序列化为格式化 JSON 并写入文件
+/// 将数据序列化为格式化 JSON 并原子写入文件
 pub fn save_json_file<T: Serialize>(path: &Path, data: &T) -> Result<(), String> {
     let content = serde_json::to_string_pretty(data).map_err(|e| e.to_string())?;
-    ensure_dir_and_write(path, &content)
+    ensure_dir_and_write_atomic(path, &content)
 }
 
 /// 通用互斥锁获取函数

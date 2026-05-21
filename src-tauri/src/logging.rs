@@ -101,10 +101,14 @@ pub fn app_log_file_path(log_dir: &Path) -> PathBuf {
 
 pub fn local_log_timestamp_parts() -> (String, String) {
     let now = OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc());
-    (
-        now.format(LOG_DATE_FORMAT).expect("日志日期格式应有效"),
-        now.format(LOG_TIME_FORMAT).expect("日志时间格式应有效"),
-    )
+    // 格式化基本不会失败（常量格式描述符），失败时降级到固定串，避免日志钩子 panic
+    let date = now
+        .format(LOG_DATE_FORMAT)
+        .unwrap_or_else(|_| "0000-00-00".to_string());
+    let time = now
+        .format(LOG_TIME_FORMAT)
+        .unwrap_or_else(|_| "00:00:00+00:00".to_string());
+    (date, time)
 }
 
 pub fn format_log_record(

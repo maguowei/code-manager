@@ -521,7 +521,7 @@ pub fn add_skill(data: SkillData) -> Result<Skill, String> {
             &content,
         );
         let skill_md = skill_dir.join("SKILL.md");
-        crate::utils::ensure_dir_and_write(&skill_md, &raw)?;
+        crate::utils::ensure_dir_and_write_atomic(&skill_md, &raw)?;
 
         let (created_at, updated_at) = get_file_times(&skill_md);
 
@@ -572,7 +572,7 @@ pub fn update_skill(id: String, is_active: bool, data: SkillData) -> Result<Skil
             user_invocable,
             &content,
         );
-        crate::utils::ensure_dir_and_write(&skill_md, &raw)
+        crate::utils::ensure_dir_and_write_atomic(&skill_md, &raw)
             .map_err(|e| format!("Skill '{}' 不存在或写入失败: {}", id, e))?;
 
         let (created_at, updated_at) = get_file_times(&skill_md);
@@ -624,7 +624,8 @@ pub fn duplicate_skill(id: String, is_active: bool, name_suffix: String) -> Resu
             original.user_invocable,
             &original.content,
         );
-        if let Err(error) = crate::utils::ensure_dir_and_write(&target.join("SKILL.md"), &raw) {
+        if let Err(error) = crate::utils::ensure_dir_and_write_atomic(&target.join("SKILL.md"), &raw)
+        {
             let _ = fs::remove_dir_all(&target);
             return Err(format!("写入 Skill 副本失败: {}", error));
         }

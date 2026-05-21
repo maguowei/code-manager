@@ -259,7 +259,7 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
                     type="button"
                     variant="ghost"
                     size="icon-sm"
-                    className=" danger  text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                     aria-label={`${t("profileEditor.common.delete")} Hook ${summary.event}`}
                     onClick={() => setPendingDeleteEvent(summary.event)}
                   >

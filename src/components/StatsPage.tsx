@@ -18,10 +18,12 @@ import EmptyState from "./EmptyState";
 import PageHeader from "./PageHeader";
 import { formatDuration } from "./project-detail-utils";
 import { CONTROL_SURFACE_CLASS, PANEL_SURFACE_CLASS } from "./surface-classes";
+import { TYPOGRAPHY } from "./typography-classes";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "./ui/chart";
+import { formatTokens, shortPath } from "./usage/format";
 
 const TOOL_USAGE_CURSOR_STYLE = {
   fill: "color-mix(in oklch, var(--chart-1) 15%, transparent)",
@@ -35,12 +37,6 @@ const TOOL_USAGE_ACTIVE_BAR_STYLE = {
 
 function chartHeightStyle(height: number): CSSProperties {
   return { "--tool-chart-height": `${height}px` } as CSSProperties;
-}
-
-/** 项目路径截取最后一级 */
-function shortPath(fullPath: string): string {
-  const parts = fullPath.split(/[\\/]/).filter(Boolean);
-  return parts.length > 0 ? parts.at(-1) || fullPath : fullPath;
 }
 
 /** 格式化日期 */
@@ -60,13 +56,6 @@ function formatTimestamp(ms: number): string {
   } catch {
     return "-";
   }
-}
-
-/** 格式化 Token 数量 */
-function formatTokens(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
 }
 
 /** 截断文本 */
@@ -377,7 +366,7 @@ function StatCard({
     <Card className="stat-card rounded-lg py-5">
       <CardContent className="flex flex-col gap-2 px-5">
         <span className="stat-card-label text-sm font-medium text-muted-foreground">{label}</span>
-        <span className={cn("stat-card-value text-xl font-bold leading-tight", valueClassName)}>
+        <span className={cn("stat-card-value", TYPOGRAPHY.metricValue, valueClassName)}>
           {value}
         </span>
       </CardContent>

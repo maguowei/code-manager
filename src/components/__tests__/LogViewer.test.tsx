@@ -12,7 +12,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 
 function renderLogViewer(onClose = vi.fn()) {
-  render(
+  return render(
     <I18nProvider>
       <LogViewer onClose={onClose} />
     </I18nProvider>,
@@ -48,6 +48,84 @@ describe("LogViewer", () => {
       })),
       configurable: true,
     });
+  });
+
+  it("keeps a single close button in the dialog header", async () => {
+    invokeMock.mockResolvedValue({
+      logDir: "/tmp/logs",
+      truncated: false,
+      entries: [],
+    });
+
+    renderLogViewer();
+
+    await screen.findByText("/tmp/logs");
+
+    expect(screen.getAllByRole("button", { name: "关闭" })).toHaveLength(1);
+  });
+
+  it("uses a wide dialog and stable desktop toolbar action layout", async () => {
+    invokeMock.mockResolvedValue({
+      logDir: "/tmp/logs",
+      truncated: false,
+      entries: [],
+    });
+
+    renderLogViewer();
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveClass("h-[min(760px,calc(100vh-2rem))]");
+    expect(dialog).toHaveClass("w-[min(980px,calc(100vw-2rem))]");
+    expect(dialog).toHaveClass("max-w-none");
+    expect(dialog).toHaveClass("sm:max-w-none");
+
+    expect(screen.getByRole("button", { name: "刷新" }).parentElement).toHaveClass(
+      "justify-end",
+      "min-w-max",
+    );
+  });
+
+  it("keeps long log lists inside a dedicated scrollable body", async () => {
+    const entries = Array.from({ length: 40 }, (_, index) => ({
+      timestamp: `2026-04-29 12:${String(index).padStart(2, "0")}:00`,
+      level: "info",
+      target: "ai_manager_lib::logging",
+      message: `event=log.viewer.regression index=${index}`,
+      raw: `[2026-04-29][12:${String(index).padStart(2, "0")}:00][ai_manager_lib::logging][INFO] event=log.viewer.regression index=${index}`,
+    }));
+    invokeMock.mockResolvedValue({
+      logDir: "/tmp/logs",
+      truncated: false,
+      entries,
+    });
+
+    renderLogViewer();
+
+    expect(await screen.findByText("event=log.viewer.regression index=0")).toBeInTheDocument();
+    expect(screen.getByText("event=log.viewer.regression index=39")).toBeInTheDocument();
+
+    expect(document.body.querySelector("[data-slot='dialog-header']")).toHaveClass("shrink-0");
+    expect(document.body.querySelector(".log-viewer-toolbar")).toHaveClass("shrink-0");
+    expect(document.body.querySelector(".log-viewer-content")).toHaveClass(
+      "min-h-0",
+      "flex-1",
+      "overflow-hidden",
+    );
+    expect(document.body.querySelector(".log-viewer-body")).toHaveClass("h-full");
+
+    const list = document.body.querySelector(".log-entry-list");
+    const firstLogLine = screen
+      .getByText("event=log.viewer.regression index=0")
+      .closest(".log-line") as HTMLElement | null;
+    const lastLogLine = screen
+      .getByText("event=log.viewer.regression index=39")
+      .closest(".log-line") as HTMLElement | null;
+
+    expect(list).toContainElement(firstLogLine);
+    expect(list).toContainElement(lastLogLine);
+    expect(screen.getByRole("button", { name: "刷新" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "打开日志目录" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "清理日志" })).toBeInTheDocument();
   });
 
   it("loads and filters log entries", async () => {

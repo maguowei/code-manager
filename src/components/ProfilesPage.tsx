@@ -1118,15 +1118,19 @@ function ProfilesPage({
     ? (profiles.find((profile) => profile.id === activeModelTestDialog.profileId) ?? null)
     : null;
   const activeSettingsMismatch = workspace.activeUserSettingsMismatch ?? null;
-  const settingsMismatchDiffs = activeSettingsMismatch
-    ? collectSettingsDiffs(
-        activeSettingsMismatch.expectedSettings,
-        activeSettingsMismatch.actualSettings,
-      )
-    : [];
-  const visibleSettingsMismatchDiffs = settingsMismatchDiffs.slice(
-    0,
-    SETTINGS_MISMATCH_VISIBLE_DIFF_LIMIT,
+  const settingsMismatchDiffs = useMemo(
+    () =>
+      activeSettingsMismatch
+        ? collectSettingsDiffs(
+            activeSettingsMismatch.expectedSettings,
+            activeSettingsMismatch.actualSettings,
+          )
+        : [],
+    [activeSettingsMismatch],
+  );
+  const visibleSettingsMismatchDiffs = useMemo(
+    () => settingsMismatchDiffs.slice(0, SETTINGS_MISMATCH_VISIBLE_DIFF_LIMIT),
+    [settingsMismatchDiffs],
   );
   const settingsDiffThemeType: ThemeTypes = isDark ? "dark" : "light";
   const settingsDiffOptions = useMemo(
@@ -1152,15 +1156,23 @@ function ProfilesPage({
       }) as CSSProperties,
     [settingsDiffThemeType],
   );
-  const settingsDiffOldFile = activeSettingsMismatch
-    ? buildSettingsDiffFile("ai-manager-settings.json", activeSettingsMismatch.expectedSettings)
-    : null;
-  const settingsDiffNewFile = activeSettingsMismatch
-    ? buildSettingsDiffFile(
-        activeSettingsMismatch.sourcePath,
-        activeSettingsMismatch.actualSettings,
-      )
-    : null;
+  const settingsDiffOldFile = useMemo(
+    () =>
+      activeSettingsMismatch
+        ? buildSettingsDiffFile("ai-manager-settings.json", activeSettingsMismatch.expectedSettings)
+        : null,
+    [activeSettingsMismatch],
+  );
+  const settingsDiffNewFile = useMemo(
+    () =>
+      activeSettingsMismatch
+        ? buildSettingsDiffFile(
+            activeSettingsMismatch.sourcePath,
+            activeSettingsMismatch.actualSettings,
+          )
+        : null,
+    [activeSettingsMismatch],
+  );
 
   return (
     <>
@@ -1392,16 +1404,14 @@ function ProfilesPage({
                                 {permissionMode}
                               </span>
                             ) : (
-                              <span className="text-muted-foreground text-muted-foreground">
+                              <span className="text-muted-foreground">
                                 {t("profileEditor.permissions.unset")}
                               </span>
                             )}
                             <span
                               className={cn(
                                 "shrink-0 border-l border-border/70 pl-1.5 text-xs leading-none whitespace-nowrap",
-                                sandboxEnabled
-                                  ? "text-chart-2"
-                                  : "text-muted-foreground text-muted-foreground",
+                                sandboxEnabled ? "text-chart-2" : "text-muted-foreground",
                               )}
                             >
                               {t(

@@ -57,7 +57,7 @@ export function groupByProject(entries: HistoryEntry[]): HistoryProjectGroup[] {
     entries: projectEntries,
     messageCount: projectEntries.length,
     sessionCount: new Set(projectEntries.map((entry) => entry.sessionId)).size,
-    lastTimestamp: Math.max(...projectEntries.map((entry) => entry.timestamp)),
+    lastTimestamp: projectEntries.reduce((max, e) => Math.max(max, e.timestamp), -Infinity),
   }));
 }
 

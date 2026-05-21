@@ -7,8 +7,8 @@ describe("StatsPage collapsible sections", () => {
     const headerSource = readFileSync(`${process.cwd()}/src/components/PageHeader.tsx`, "utf8");
     const i18n = readFileSync(`${process.cwd()}/src/i18n.ts`, "utf8");
 
-    expect(source).toContain("const parts = fullPath.split(/[\\\\/]/).filter(Boolean);");
-    expect(source).toContain("return parts.length > 0 ? parts.at(-1) || fullPath : fullPath;");
+    expect(source).toContain("shortPath");
+    expect(source).toContain('import { formatTokens, shortPath } from "./usage/format"');
     expect(source).toContain('descriptionClassName="stats-staleness-note"');
     expect(headerSource).toContain("max-w-[min(52vw,560px)] truncate");
     expect(source).toContain('t("stats.stalenessNotice")');

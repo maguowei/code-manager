@@ -22,6 +22,9 @@ const SESSION_MENU_LABEL_MAX_CHARS: usize = 64;
 // Braille 等宽 spinner，10 帧覆盖一整圈；运行中 / 待处理时替代项目名与状态之间的分隔点。
 const SESSION_TRAY_ANIMATION_FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const SESSION_TRAY_ANIMATION_INTERVAL: Duration = Duration::from_millis(300);
+/// 没有 waiting/running 会话时 animator 进入怠速节拍；watcher 重建 sessions tray 后会立刻显示新状态，
+/// 怠速间隔取 2 秒做到既显著降低 fs/CPU 消耗，又不让新 spinner 启动出现明显延迟。
+const SESSION_TRAY_IDLE_INTERVAL: Duration = Duration::from_secs(2);
 /// 托盘 title 中项目名的最大字符数，超出追加省略号。
 /// macOS 菜单栏宽度有限，长项目名会挤占其它状态栏图标，需要主动截断。
 const SESSION_TRAY_TITLE_PROJECT_MAX_CHARS: usize = 16;
@@ -234,8 +237,7 @@ fn read_tray_session_file(path: &Path) -> Option<TraySession> {
         return None;
     }
 
-    let content = fs::read_to_string(path).ok()?;
-    let raw = serde_json::from_str::<RawTraySession>(&content).ok()?;
+    let raw = crate::utils::read_json_file_strict::<RawTraySession>(path).ok()?;
     let session = TraySession::from(raw);
     if session.cwd.is_empty() || session.status.is_empty() || session.session_id.is_empty() {
         None
@@ -711,24 +713,46 @@ fn apply_sessions_tray_title(
     true
 }
 
-fn refresh_sessions_tray_title(app_handle: &AppHandle) {
+fn refresh_sessions_tray_title_with_sessions(app_handle: &AppHandle, sessions: &[TraySession]) {
     let Some(tray) = app_handle.tray_by_id(SESSIONS_TRAY_ID) else {
         return;
     };
 
     let state = load_registry_or_default();
-    let sessions = load_tray_sessions();
-    let _ = apply_sessions_tray_title(&tray, &state, &sessions);
+    let _ = apply_sessions_tray_title(&tray, &state, sessions);
+}
+
+/// 仅刷新会话托盘（标题与菜单项），不重建主托盘。
+/// watcher 检测到 `~/.claude/sessions/` 变化时使用：sessions 变化对主托盘配置无影响，
+/// 不需要重新构造 Profile 子菜单和绑定状态。
+pub fn rebuild_sessions_tray_only(app_handle: &AppHandle) {
+    let state = load_registry_or_default();
+    rebuild_sessions_tray(app_handle, &state);
 }
 
 fn start_sessions_tray_title_animator(app_handle: AppHandle) {
-    let _ = thread::Builder::new()
+    // animator 用 thread::Builder 命名便于诊断；spawn 失败保留 warn 而非静默丢弃
+    if let Err(error) = thread::Builder::new()
         .name("sessions-tray-title-animator".to_string())
         .spawn(move || loop {
-            thread::sleep(SESSION_TRAY_ANIMATION_INTERVAL);
-            SESSION_TRAY_ANIMATION_FRAME.fetch_add(1, Ordering::Relaxed);
-            refresh_sessions_tray_title(&app_handle);
-        });
+            // 先做一次 sessions 读取并判断是否需要旋转 spinner：
+            // 没有 waiting/running 会话时，无谓的 set_title 与 read_dir 是纯浪费，
+            // 让 animator 进入 5 秒怠速；watcher 检测到 sessions 变化后会再次触发刷新
+            let sessions = load_tray_sessions();
+            let needs_spin = sessions
+                .iter()
+                .any(|session| is_waiting_session_status(&session.status) || is_running_session_status(&session.status));
+            if needs_spin {
+                SESSION_TRAY_ANIMATION_FRAME.fetch_add(1, Ordering::Relaxed);
+                refresh_sessions_tray_title_with_sessions(&app_handle, &sessions);
+                thread::sleep(SESSION_TRAY_ANIMATION_INTERVAL);
+            } else {
+                thread::sleep(SESSION_TRAY_IDLE_INTERVAL);
+            }
+        })
+    {
+        log::warn!("event=tray.animator status=err reason=spawn_failed error={error}");
+    }
 }
 
 /// 显示并聚焦主窗口

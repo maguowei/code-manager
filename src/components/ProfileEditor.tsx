@@ -70,6 +70,7 @@ import { useDocumentJsonEditor } from "./profile-editor/useDocumentJsonEditor";
 import type { MarketplaceSourceInput } from "./profile-editor/useMarketplaceCatalog";
 import { useObjectJsonEditor } from "./profile-editor/useObjectJsonEditor";
 import useStructuredSettingsSectionState from "./profile-editor/useStructuredSettingsSectionState";
+import { TYPOGRAPHY } from "./typography-classes";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -685,9 +686,7 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
         >
           <ArrowLeft className="size-4" aria-hidden="true" />
         </Button>
-        <h2 className="min-w-0 flex-1 truncate text-base font-semibold text-foreground">
-          {messages.title}
-        </h2>
+        <h2 className={cn("min-w-0 flex-1 truncate", TYPOGRAPHY.drawerTitle)}>{messages.title}</h2>
         <Button
           type="button"
           disabled={!canSaveProfile}

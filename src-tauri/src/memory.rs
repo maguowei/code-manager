@@ -189,7 +189,7 @@ pub fn apply_memories(previous: Option<&MemoryState>, state: &MemoryState) -> Re
             .as_deref()
             .ok_or("规则记忆必须填写规则文件路径")?;
         let path = get_rule_file_path(rule_path);
-        crate::utils::ensure_dir_and_write(&path, &serialize_rule_memory(memory))?;
+        crate::utils::ensure_dir_and_write_atomic(&path, &serialize_rule_memory(memory))?;
     }
 
     Ok(())
@@ -991,7 +991,7 @@ fn apply_claude_memory(previous: Option<&MemoryState>, state: &MemoryState) -> R
         if let Some(previous_memory) = previous_active {
             let path = get_claude_md_path();
             if path.exists() && claude_file_matches_memory(&path, previous_memory) {
-                crate::utils::ensure_dir_and_write(&path, "")?;
+                crate::utils::ensure_dir_and_write_atomic(&path, "")?;
             }
         }
         return Ok(());
@@ -999,7 +999,7 @@ fn apply_claude_memory(previous: Option<&MemoryState>, state: &MemoryState) -> R
 
     validate_claude_file_conflict(previous, state)?;
     let path = get_claude_md_path();
-    crate::utils::ensure_dir_and_write(&path, &serialize_claude_memory(active))
+    crate::utils::ensure_dir_and_write_atomic(&path, &serialize_claude_memory(active))
 }
 
 fn validate_claude_file_conflict(

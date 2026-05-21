@@ -38,6 +38,7 @@ import { TYPOGRAPHY } from "./typography-classes";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
+import { shortSessionId } from "./usage/format";
 
 type StatusTone = "success" | "warning" | "danger" | "muted";
 
@@ -117,10 +118,6 @@ function statusToneClass(tone: StatusTone) {
   }
 }
 
-function shortSessionId(sessionId: string) {
-  return sessionId.slice(0, 8);
-}
-
 function StatusBadge({ tone, children }: { tone: StatusTone; children: ReactNode }) {
   return (
     <Badge
@@ -140,7 +137,7 @@ function SectionHeading({ title, description, action }: SectionHeadingProps) {
   return (
     <div className="projects-section-heading flex flex-wrap items-start justify-between gap-3">
       <div className="projects-section-heading-copy min-w-0 flex-1">
-        <h3 className="text-base font-semibold text-foreground">{title}</h3>
+        <h3 className={TYPOGRAPHY.sectionTitle}>{title}</h3>
         {description && (
           <p className="mt-1.5 text-sm leading-6 text-muted-foreground">{description}</p>
         )}
@@ -663,7 +660,7 @@ function RecentSessionsSection({
             >
               <div className="flex min-w-0 items-center justify-between gap-3">
                 <span className="min-w-0 truncate font-mono text-sm font-semibold">
-                  {session.sessionId.slice(0, 8)}
+                  {shortSessionId(session.sessionId)}
                 </span>
                 <Badge variant="secondary" className={cn(PROJECT_TAG_CLASS, "font-normal")}>
                   {session.messageCount} {t("projects.inputsUnit")}

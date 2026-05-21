@@ -31,6 +31,7 @@ import {
   TOOLBAR_SURFACE_CLASS,
 } from "./surface-classes";
 import { useTheme } from "./theme-provider";
+import { TYPOGRAPHY } from "./typography-classes";
 import { Button } from "./ui/button";
 import {
   Form,
@@ -316,7 +317,7 @@ const MemoryEditor = forwardRef<MemoryEditorHandle, MemoryEditorProps>(function 
               </Button>
               <h2
                 id="memory-modal-title"
-                className="min-w-0 flex-1 truncate text-base font-semibold text-foreground"
+                className={cn("min-w-0 flex-1 truncate", TYPOGRAPHY.drawerTitle)}
               >
                 {memory ? t("memory.editTitle") : t("memory.addTitle")}
               </h2>

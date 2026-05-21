@@ -37,6 +37,7 @@ import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
+import { projectDisplayName, shortSessionId } from "./usage/format";
 
 /** 文件类工具集合（模块级常量，避免每次渲染重建 Set） */
 const FILE_TOOLS = new Set(["Read", "Write", "Edit", "NotebookRead", "NotebookEdit"]);
@@ -182,9 +183,7 @@ function formatMessageCount(count: number, unit: string): string {
 }
 
 function getProjectDisplayName(projectPath: string): string {
-  const cleanPath = stripAnsiForDisplay(projectPath).trim();
-  const parts = cleanPath.split(/[\\/]+/).filter(Boolean);
-  return parts.at(-1) ?? cleanPath;
+  return projectDisplayName(undefined, stripAnsiForDisplay(projectPath).trim());
 }
 
 function messageBlockToCopyText(block: MessageBlock, t: (key: TranslationKey) => string): string {
@@ -842,11 +841,21 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
       setLoading(false);
       return;
     }
+    let cancelled = false;
     setLoading(true);
     invoke<SessionDetail>("get_session_detail", { project, sessionId })
-      .then(setDetail)
-      .catch((error) => showOperationError(showToast, t("history.noData"), error))
-      .finally(() => setLoading(false));
+      .then((result) => {
+        if (!cancelled) setDetail(result);
+      })
+      .catch((error) => {
+        if (!cancelled) showOperationError(showToast, t("history.noData"), error);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [project, sessionId, showToast, t]);
 
   const messages = detail?.messages;
@@ -947,7 +956,7 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
                     <Hash className="size-3.5 shrink-0" aria-hidden="true" />
                     <span className="shrink-0 font-medium">{t("history.session")}</span>
                     <span className="min-w-0 truncate font-mono tabular-nums">
-                      {sessionId.slice(0, 8)}
+                      {shortSessionId(sessionId)}
                     </span>
                   </Button>
                   <Button
@@ -1009,9 +1018,9 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
         ) : (
           <div className="min-w-0 flex-1 overflow-y-auto bg-secondary">
             <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-5 py-5 max-sm:px-3">
-              {messages.map((msg) => {
+              {messages.map((msg, msgIndex) => {
                 const presentation = getMessagePresentation(msg);
-                const messageKey = `${msg.timestamp ?? "untimed"}-${messageToCopyText(msg, t)}`;
+                const messageKey = `${msg.timestamp ?? "untimed"}-${msgIndex}`;
                 return presentation.kind === "event" ? (
                   <EventMessage
                     key={messageKey}

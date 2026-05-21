@@ -28,6 +28,7 @@ import type {
   UsageTimeGranularity,
   UsageTimeSeriesPoint,
 } from "../types";
+import EmptyState from "./EmptyState";
 import PageHeader from "./PageHeader";
 import { formatUSD } from "./project-detail-utils";
 import {
@@ -44,7 +45,13 @@ import { Card, CardContent } from "./ui/card";
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "./ui/chart";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { SegmentedControl } from "./ui/segmented-control";
-import { formatCost, formatShortDateTime, formatTokens, projectDisplayName } from "./usage/format";
+import {
+  formatCost,
+  formatShortDateTime,
+  formatTokens,
+  pricingSourceLabel,
+  projectDisplayName,
+} from "./usage/format";
 import PricingTableDialog from "./usage/PricingTableDialog";
 import SessionUsageDrawer from "./usage/SessionUsageDrawer";
 import UsagePageSkeleton from "./usage/UsagePageSkeleton";
@@ -2017,15 +2024,6 @@ function EmptyTable({ t }: { t: ReturnType<typeof useI18n>["t"] }) {
   );
 }
 
-function EmptyState({ title, hint }: { title: string; hint?: string }) {
-  return (
-    <div className="usage-empty flex min-h-[320px] flex-1 flex-col items-center justify-center p-8 text-center">
-      <p className="empty-text text-base font-bold text-foreground">{title}</p>
-      {hint && <p className="empty-hint mt-2 max-w-md text-muted-foreground">{hint}</p>}
-    </div>
-  );
-}
-
 function NoData() {
   return <p className="usage-no-data py-6 text-center text-muted-foreground">-</p>;
 }
@@ -2079,20 +2077,6 @@ function formatDetailedTokens(n: number): string {
 
 function formatCount(n: number): string {
   return new Intl.NumberFormat("en-US").format(n);
-}
-
-function pricingSourceLabel(
-  source: "builtin" | "cache" | "network",
-  t: ReturnType<typeof useI18n>["t"],
-): string {
-  switch (source) {
-    case "network":
-      return t("usage.pricing.network");
-    case "cache":
-      return t("usage.pricing.cache");
-    default:
-      return t("usage.pricing.builtin");
-  }
 }
 
 export default UsagePage;

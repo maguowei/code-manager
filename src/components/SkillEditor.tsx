@@ -493,7 +493,7 @@ const SkillEditor = forwardRef<SkillEditorHandle, SkillEditorProps>(function Ski
               >
                 <ChevronLeft className="size-5" aria-hidden="true" />
               </Button>
-              <h2 className="min-w-0 flex-1 truncate text-base font-semibold text-foreground">
+              <h2 className={cn("min-w-0 flex-1 truncate", TYPOGRAPHY.drawerTitle)}>
                 {isEditing ? t("skills.editTitle") : t("skills.addTitle")}
               </h2>
               <div className="flex shrink-0 items-center gap-2">

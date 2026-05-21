@@ -136,7 +136,7 @@ function StatusLineEditor({ value, onChange, onError, showTitle = true }: Status
         </Button>
       </div>
 
-      <div className="grid gap-2 grid gap-2">
+      <div className="grid gap-2">
         <Label htmlFor="status-line-command">{t("profileEditor.statusLine.commandLabel")}</Label>
         <Input
           id="status-line-command"
@@ -154,8 +154,8 @@ function StatusLineEditor({ value, onChange, onError, showTitle = true }: Status
         />
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 grid gap-4 md:grid-cols-2">
-        <div className="grid gap-2 grid gap-2">
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-2">
           <Label htmlFor="status-line-padding">{t("profileEditor.statusLine.paddingLabel")}</Label>
           <Input
             id="status-line-padding"
@@ -174,7 +174,7 @@ function StatusLineEditor({ value, onChange, onError, showTitle = true }: Status
           />
         </div>
 
-        <div className="grid gap-2 grid gap-2">
+        <div className="grid gap-2">
           <Label htmlFor="status-line-refresh-interval">
             {t("profileEditor.statusLine.refreshIntervalLabel")}
           </Label>

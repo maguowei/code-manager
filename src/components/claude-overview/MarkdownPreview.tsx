@@ -11,6 +11,13 @@ import remarkGfm from "remark-gfm";
 // 模块级常量，所有实例共享，避免每次渲染重建
 const REMARK_PLUGINS = [remarkGfm];
 
+// 代码块自定义样式常量，避免 SyntaxHighlighter 因对象引用变化而 remount
+const CODE_BLOCK_CUSTOM_STYLE = {
+  margin: 0,
+  borderRadius: "calc(var(--radius) - 4px)",
+  fontSize: "0.75rem",
+};
+
 // github-markdown-css 默认入口的 light 选择器被 prefers-color-scheme 媒体查询包住，
 // 当应用内主题与系统偏好不一致时会失效。这里改用拆分的 light/dark 单独文件，
 // 通过单例 link 元素按当前 themeType 切换 disabled，强制跟随应用内主题。
@@ -79,11 +86,7 @@ function MarkdownPreviewBase({ content, themeType, className }: MarkdownPreviewP
             <SyntaxHighlighter
               language={match[1]}
               style={codeStyle}
-              customStyle={{
-                margin: 0,
-                borderRadius: "calc(var(--radius) - 4px)",
-                fontSize: "0.75rem",
-              }}
+              customStyle={CODE_BLOCK_CUSTOM_STYLE}
               wrapLongLines={false}
             >
               {code}

@@ -67,7 +67,14 @@ export function ClaudeFilePreviewPane({
       return null;
     }
     return fileContentsForPreview(activePreview);
-  }, [activePreview]);
+  }, [
+    activePreview?.path,
+    activePreview?.size,
+    activePreview?.modifiedAt,
+    activePreview?.content,
+    activePreview?.isBinary,
+    activePreview,
+  ]);
   const previewFileOptions = useMemo(
     () => ({
       ...PIERRE_FILE_OPTIONS,

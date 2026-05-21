@@ -164,7 +164,9 @@ fn run_watch_loop(app_handle: AppHandle, root: PathBuf, rx: Receiver<WatcherMess
             log::info!("event=claude_directory.watch.emit status=ok path_count={path_count}");
         }
         if sessions_changed {
-            crate::tray::rebuild_tray_menu(&app_handle, None);
+            // 只刷新会话托盘：sessions 变化与 Profile/Preset 配置无关，
+            // 不需要重建主托盘（避免高频 watcher 触发整托盘重建）
+            crate::tray::rebuild_sessions_tray_only(&app_handle);
         }
     }
 }

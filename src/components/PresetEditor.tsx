@@ -66,6 +66,7 @@ import { useDocumentJsonEditor } from "./profile-editor/useDocumentJsonEditor";
 import type { MarketplaceSourceInput } from "./profile-editor/useMarketplaceCatalog";
 import { useObjectJsonEditor } from "./profile-editor/useObjectJsonEditor";
 import useStructuredSettingsSectionState from "./profile-editor/useStructuredSettingsSectionState";
+import { TYPOGRAPHY } from "./typography-classes";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Form } from "./ui/form";
@@ -506,12 +507,22 @@ const PresetEditor = forwardRef<PresetEditorHandle, PresetEditorProps>(function 
     return result;
   }
 
-  const behaviorFields = PROFILE_SETTINGS_FORM_REGISTRY.filter(
-    (field) => field.section === "behavior",
+  const behaviorFields = useMemo(
+    () => PROFILE_SETTINGS_FORM_REGISTRY.filter((field) => field.section === "behavior"),
+    [],
   );
-  const commonFields = PROFILE_SETTINGS_FORM_REGISTRY.filter((field) => field.section === "common");
-  const scalarFields = behaviorFields.filter((field) => field.kind !== "checkbox");
-  const behaviorToggleFields = behaviorFields.filter((field) => field.kind === "checkbox");
+  const commonFields = useMemo(
+    () => PROFILE_SETTINGS_FORM_REGISTRY.filter((field) => field.section === "common"),
+    [],
+  );
+  const scalarFields = useMemo(
+    () => behaviorFields.filter((field) => field.kind !== "checkbox"),
+    [behaviorFields],
+  );
+  const behaviorToggleFields = useMemo(
+    () => behaviorFields.filter((field) => field.kind === "checkbox"),
+    [behaviorFields],
+  );
   const scalarFieldRows = useMemo(() => chunkItems(scalarFields, 2), [scalarFields]);
   const behaviorToggleFieldRows = useMemo(
     () => chunkItems(behaviorToggleFields, 2),
@@ -615,7 +626,7 @@ const PresetEditor = forwardRef<PresetEditorHandle, PresetEditorProps>(function 
           >
             <ArrowLeft className="size-4" aria-hidden="true" />
           </Button>
-          <h2 className="min-w-0 flex-1 truncate text-base font-semibold text-foreground">
+          <h2 className={cn("min-w-0 flex-1 truncate", TYPOGRAPHY.drawerTitle)}>
             {messages.title}
           </h2>
           <Button
@@ -714,11 +725,6 @@ const PresetEditor = forwardRef<PresetEditorHandle, PresetEditorProps>(function 
                 <SelectTrigger
                   id="preset-base-preset"
                   className={cn("w-full", EDITOR_CONTROL_SURFACE_CLASS)}
-                  value={basePresetId}
-                  data-value={basePresetId}
-                  onChange={(event) =>
-                    handleBasePresetChange((event.target as HTMLButtonElement).value)
-                  }
                 >
                   <SelectValue />
                 </SelectTrigger>
