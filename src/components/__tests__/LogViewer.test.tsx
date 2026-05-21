@@ -83,6 +83,7 @@ describe("LogViewer", () => {
       "justify-end",
       "min-w-max",
     );
+    expect(screen.getByLabelText("级别")).toHaveDisplayValue("全部级别");
   });
 
   it("keeps long log lists inside a dedicated scrollable body", async () => {
@@ -151,6 +152,11 @@ describe("LogViewer", () => {
     expect(
       screen.getByText("/Users/test-user/Library/Logs/com.gotobeta.app.ai-manager"),
     ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("get_app_logs", {
+        query: { limit: 500 },
+      });
+    });
 
     fireEvent.change(screen.getByLabelText("级别"), { target: { value: "error" } });
     fireEvent.change(screen.getByLabelText("搜索日志"), { target: { value: "profile" } });
@@ -160,6 +166,50 @@ describe("LogViewer", () => {
         query: { level: "error", search: "profile", limit: 500 },
       });
     });
+  });
+
+  it("reloads logs with the selected display limit", async () => {
+    invokeMock.mockResolvedValue({
+      logDir: "/tmp/logs",
+      truncated: false,
+      entries: [],
+    });
+
+    renderLogViewer();
+
+    await screen.findByText("/tmp/logs");
+    fireEvent.change(screen.getByLabelText("显示数量"), { target: { value: "5000" } });
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenLastCalledWith("get_app_logs", {
+        query: { limit: 5000 },
+      });
+    });
+    expect(screen.getByLabelText("显示数量")).toHaveDisplayValue("最近 5000 条");
+  });
+
+  it("explains truncation with the active display limit", async () => {
+    invokeMock.mockResolvedValue({
+      logDir: "/tmp/logs",
+      truncated: true,
+      entries: [
+        {
+          timestamp: "2026-04-29 12:00:00",
+          level: "info",
+          target: "ai_manager_lib::logging",
+          message: "event=logs.truncated status=ok",
+          raw: "[2026-04-29][12:00:00][ai_manager_lib::logging][INFO] event=logs.truncated status=ok",
+        },
+      ],
+    });
+
+    renderLogViewer();
+
+    expect(
+      await screen.findByText(
+        "仅显示最近 500 条日志。可调大显示数量，或打开日志目录查看原始文件。",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("renders warning log levels with the shared warning tone", async () => {

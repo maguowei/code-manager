@@ -18,12 +18,15 @@ import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
 
 type LevelFilter = "all" | Exclude<LogLevel, "unknown">;
+type LogLimit = 500 | 1000 | 2000 | 5000;
 
 interface LogViewerProps {
   onClose: () => void;
 }
 
 const LEVEL_OPTIONS: LevelFilter[] = ["all", "error", "warn", "info", "debug", "trace"];
+const DEFAULT_LOG_LIMIT: LogLimit = 500;
+const LOG_LIMIT_OPTIONS: LogLimit[] = [500, 1000, 2000, 5000];
 
 function levelLabel(level: LogLevel): string {
   return level.toUpperCase();
@@ -48,16 +51,24 @@ function levelTextClass(level: LogLevel): string {
   }
 }
 
+function parseLogLimit(value: string): LogLimit {
+  const parsed = Number(value);
+  return LOG_LIMIT_OPTIONS.includes(parsed as LogLimit) ? (parsed as LogLimit) : DEFAULT_LOG_LIMIT;
+}
+
 function LogViewer({ onClose }: LogViewerProps) {
   const { t } = useI18n();
   const { showToast } = useToast();
   const [view, setView] = useState<LogView | null>(null);
   const [level, setLevel] = useState<LevelFilter>("all");
+  const [limit, setLimit] = useState<LogLimit>(DEFAULT_LOG_LIMIT);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
   const query = useMemo(() => {
-    const next: { level?: LevelFilter; search?: string; limit: number } = { limit: 500 };
+    const next: { level?: Exclude<LogLevel, "unknown">; search?: string; limit: LogLimit } = {
+      limit,
+    };
     if (level !== "all") {
       next.level = level;
     }
@@ -66,7 +77,7 @@ function LogViewer({ onClose }: LogViewerProps) {
       next.search = trimmedSearch;
     }
     return next;
-  }, [level, search]);
+  }, [level, limit, search]);
   const visibleEntries = useMemo(() => {
     const counts = new Map<string, number>();
     return (view?.entries ?? []).map((entry) => {
@@ -145,7 +156,7 @@ function LogViewer({ onClose }: LogViewerProps) {
           </Button>
         </DialogHeader>
 
-        <div className="log-viewer-toolbar grid shrink-0 grid-cols-[150px_minmax(240px,1fr)_max-content] items-end gap-3 border-b border-border/80 bg-card/70 px-5 py-4 max-[900px]:grid-cols-1">
+        <div className="log-viewer-toolbar grid shrink-0 grid-cols-[150px_150px_minmax(220px,1fr)_max-content] items-end gap-3 border-b border-border/80 bg-card/70 px-5 py-4 max-[900px]:grid-cols-1">
           <label className="log-viewer-field flex flex-col gap-1.5">
             <span className="text-sm font-semibold text-muted-foreground">{t("logs.level")}</span>
             <select
@@ -159,6 +170,23 @@ function LogViewer({ onClose }: LogViewerProps) {
               {LEVEL_OPTIONS.map((option) => (
                 <option key={option} value={option}>
                   {option === "all" ? t("logs.levelAll") : option.toUpperCase()}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="log-viewer-limit flex flex-col gap-1.5">
+            <span className="text-sm font-semibold text-muted-foreground">{t("logs.limit")}</span>
+            <select
+              className={cn(
+                "h-9 rounded-md border border-input px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                CONTROL_SURFACE_CLASS,
+              )}
+              value={limit}
+              onChange={(event) => setLimit(parseLogLimit(event.target.value))}
+            >
+              {LOG_LIMIT_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {t("logs.limitOption").replace("{count}", String(option))}
                 </option>
               ))}
             </select>
@@ -206,7 +234,7 @@ function LogViewer({ onClose }: LogViewerProps) {
               <>
                 {view?.truncated ? (
                   <div className="log-viewer-hint border-b px-3 py-2 text-sm text-muted-foreground">
-                    {t("logs.truncated")}
+                    {t("logs.truncatedWithLimit").replace("{limit}", String(limit))}
                   </div>
                 ) : null}
                 <div className="log-entry-list">

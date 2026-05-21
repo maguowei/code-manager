@@ -11,7 +11,7 @@ use time::{macros::format_description, OffsetDateTime};
 const APP_LOG_FILE_NAME: &str = "ai-manager";
 const DEFAULT_LOG_LIMIT: usize = 500;
 const MAX_LOG_LIMIT: usize = 5_000;
-const MAX_LOG_READ_BYTES: u64 = 512 * 1024;
+const MAX_LOG_READ_BYTES: u64 = 2_000_000;
 const LOG_DATE_FORMAT: &[time::format_description::FormatItem<'_>] =
     format_description!("[year]-[month]-[day]");
 const LOG_TIME_FORMAT: &[time::format_description::FormatItem<'_>] =
@@ -518,6 +518,37 @@ mod tests {
         assert_eq!(view.entries.len(), 2);
         assert!(view.entries[0].message.contains("event=third"));
         assert!(view.entries[1].message.contains("event=second"));
+    }
+
+    #[test]
+    fn read_log_entries_reads_active_log_larger_than_512kb() {
+        let dir = temp_log_dir("large-active");
+        let payload = "x".repeat(900);
+        let lines = (0..700)
+            .map(|index| {
+                format!(
+                    "[2026-04-29][12:00:00][target][INFO] event=large.index_{index:04} payload={payload}"
+                )
+            })
+            .collect::<Vec<_>>();
+        let content = lines.join("\n");
+        assert!(content.len() as u64 > 512 * 1024);
+        assert!(content.len() < 2_000_000);
+        fs::write(app_log_file_path(&dir), content).unwrap();
+
+        let view = read_log_entries_from_dir(
+            &dir,
+            &LogQuery {
+                limit: Some(1_000),
+                ..LogQuery::default()
+            },
+        )
+        .unwrap();
+
+        assert!(!view.truncated);
+        assert_eq!(view.entries.len(), 700);
+        assert!(view.entries[0].message.contains("event=large.index_0699"));
+        assert!(view.entries[699].message.contains("event=large.index_0000"));
     }
 
     #[test]
