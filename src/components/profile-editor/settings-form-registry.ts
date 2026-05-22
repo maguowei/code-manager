@@ -20,6 +20,8 @@ export interface SettingsFieldDefinition {
   defaultEnabled?: boolean;
   enabledValue?: string;
   envOnlyOptions?: string[];
+  // 字段官方文档相对路径段，会拼接为 `${CLAUDE_CODE_DOCS_BASE_URL}/${docsLocale}/${docPath}`
+  docPath?: string;
   label: {
     zh: string;
     en: string;
@@ -511,6 +513,7 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     envKey: "CLAUDE_CODE_NO_FLICKER",
     defaultEnabled: true,
     enabledValue: "1",
+    docPath: "fullscreen",
     label: {
       zh: "启用无闪烁模式",
       en: "Enable no-flicker mode",

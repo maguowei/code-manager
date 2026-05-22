@@ -19,6 +19,7 @@ import BehaviorFieldHeader from "./BehaviorFieldHeader";
 import DocumentEditorSection from "./DocumentEditorSection";
 import EnabledPluginsEditor from "./EnabledPluginsEditor";
 import EnvEditor from "./EnvEditor";
+import FieldDocsLinkButton from "./FieldDocsLinkButton";
 import FieldHelpButton from "./FieldHelpButton";
 import HooksEditor from "./HooksEditor";
 import MarketplaceEditor from "./MarketplaceEditor";
@@ -486,6 +487,15 @@ function StructuredSettingsSections({
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-foreground">{label}</span>
                         <FieldHelpButton helperKey={helperKey} />
+                        {field.docPath ? (
+                          <FieldDocsLinkButton
+                            href={`${CLAUDE_CODE_DOCS_BASE_URL}/${docsLocale}/${field.docPath}`}
+                            ariaLabel={t("profileEditor.docs.openFieldAriaLabel").replace(
+                              "{label}",
+                              label,
+                            )}
+                          />
+                        ) : null}
                       </div>
                       {description ? (
                         <p className="mt-1 text-sm text-muted-foreground">{description}</p>
