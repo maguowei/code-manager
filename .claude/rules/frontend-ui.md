@@ -76,6 +76,7 @@ paths:
 - 前端静态检查：`pnpm biome:ci`
 - 前端构建：`pnpm build`
 - 前端测试：`pnpm test`
+- Makefile 全量入口：`make lint`、`make fmt`、`make test`
 - 注意：`pnpm check` 会执行 `biome check --write .` 并修改文件。
 
 ## 测试选择器优先级

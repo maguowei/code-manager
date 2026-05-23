@@ -1,4 +1,4 @@
-.PHONY: init dev build build-universal preview check test lint fmt clean coverage coverage-lcov coverage-frontend
+.PHONY: init dev build build-universal preview check test test-rust test-frontend lint lint-rust lint-frontend fmt fmt-rust fmt-frontend clean coverage coverage-lcov coverage-frontend
 
 # 初始化：安装前端依赖并确保 Rust 工具链就绪
 init:
@@ -34,17 +34,37 @@ preview:
 check:
 	cd src-tauri && cargo check
 
-# 运行 Rust 与前端单元测试
-test:
+# 运行 Rust 与前端测试
+test: test-rust test-frontend
+
+# 运行 Rust 测试
+test-rust:
 	cd src-tauri && cargo test
+
+# 运行前端测试
+test-frontend:
 	pnpm test
 
-# 代码检查：Rust lint
-lint:
+# 代码检查：前端 Biome + Rust clippy
+lint: lint-frontend lint-rust
+
+# 前端静态检查
+lint-frontend:
+	pnpm biome:ci
+
+# Rust lint
+lint-rust:
 	cd src-tauri && cargo clippy --all-targets -- -D warnings
 
+# 格式化前端与 Rust 代码
+fmt: fmt-frontend fmt-rust
+
+# 格式化前端代码
+fmt-frontend:
+	pnpm format
+
 # 格式化 Rust 代码
-fmt:
+fmt-rust:
 	cd src-tauri && cargo fmt
 
 # 清理构建产物

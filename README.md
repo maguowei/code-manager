@@ -216,8 +216,8 @@ pnpm tauri dev        # 启动 Tauri 桌面开发模式
 pnpm tauri build      # 构建 Tauri 安装包
 make check            # cd src-tauri && cargo check
 make test             # cargo test + pnpm test
-make lint             # cd src-tauri && cargo clippy --all-targets -- -D warnings
-make fmt              # cd src-tauri && cargo fmt
+make lint             # pnpm biome:ci + cargo clippy --all-targets -- -D warnings
+make fmt              # pnpm format + cargo fmt
 make build-universal  # 构建 macOS universal 包
 make preview          # 预览生产前端构建
 ```
@@ -233,7 +233,7 @@ make preview          # 预览生产前端构建
 | Rust | `cd src-tauri && cargo test`、`cd src-tauri && cargo clippy --all-targets -- -D warnings` |
 | 前后端契约 | `pnpm build`、`cd src-tauri && cargo test` |
 
-注意：`pnpm check` 会执行 `biome check --write .` 并可能改写文件；只想做 CI 检查时使用 `pnpm biome:ci`。
+注意：`make fmt` 与 `pnpm check` 都会改写文件；只想做 CI 检查时使用 `make lint` 或 `pnpm biome:ci`。
 
 ### CI 与 Release
 

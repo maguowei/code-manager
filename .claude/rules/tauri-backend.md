@@ -88,4 +88,5 @@ const result = await invoke("get_config_workspace");
 
 - Rust 测试：`cd src-tauri && cargo test`
 - Rust lint：`cd src-tauri && cargo clippy --all-targets -- -D warnings`
+- Makefile 全量入口：`make lint`、`make fmt`、`make test`
 - 前后端契约改动至少跑：`pnpm build` 与 `cd src-tauri && cargo test`
