@@ -76,6 +76,8 @@ AI Manager 主要读写本机文件。配置合并、目录扫描、用量聚合
 
 ## 本地开发
 
+技术栈概览：Tauri 2 + React 19 + TypeScript + Vite + Tailwind CSS v4 + Rust。完整 Agent 执行规则、验证说明和细粒度路径导航见 [CLAUDE.md](./CLAUDE.md)。
+
 ### 前置要求
 
 - Node.js LTS
@@ -102,31 +104,17 @@ make test-frontend    # 运行前端测试
 
 构建产物默认位于 `src-tauri/target/release/bundle/`。
 
-## 技术栈
+### 仓库速览
 
-- 桌面壳：Tauri 2
-- 前端：React 19、TypeScript、Vite、Tailwind CSS v4、shadcn/ui
-- 后端：Rust、Tauri commands
-- 表单与校验：react-hook-form、Zod、JSON Schema
-- 编辑与预览：CodeMirror、react-markdown、@pierre/diffs、@pierre/trees
-- 图表与列表：Recharts、@tanstack/react-virtual
-- 本地缓存与日志：tauri-plugin-sql + SQLite、tauri-plugin-log
-
-## 仓库结构
-
-| 路径 | 说明 |
+| 路径 | 用途 |
 | --- | --- |
-| `src/` | React 前端 |
-| `src/components/` | 页面与复用组件 |
-| `src/components/profile-editor/` | Profile / Preset 编辑器分区组件 |
-| `src/components/claude-overview/` | `~/.claude` 树与文件预览共享组件 |
-| `src/components/usage/` | Token 用量相关抽屉、骨架和格式化工具 |
-| `src/hooks/` | 公共 hooks |
-| `src/schemas/` | 前端表单 schema 与共享 JSON Schema |
-| `src-tauri/src/` | Rust 后端与 Tauri command |
-| `src-tauri/resources/` | 内置 provider、模型价格和状态行脚本 |
-| `src-tauri/capabilities/` | Tauri capability 配置 |
-| `docs/` | 使用说明、平台说明和扩展文档 |
+| `src/` | React 前端页面、组件、hooks、schema 与测试。 |
+| `src/components/` | 页面级组件和复用 UI；更细组件入口见 `CLAUDE.md`。 |
+| `src-tauri/src/` | Rust 后端、Tauri command、本地文件与数据能力。 |
+| `src-tauri/resources/` | 内置 provider、模型价格和状态行脚本等资源。 |
+| `src-tauri/capabilities/` | Tauri 权限声明。 |
+| `docs/` | 用户手册、平台差异和扩展文档。 |
+| `.claude/rules/` | 面向 AI Agent 的 path-scoped 维护规则。 |
 
 ## 贡献与反馈
 

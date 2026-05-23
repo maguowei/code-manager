@@ -15,6 +15,9 @@
 - 当前版本：`0.19.0`，同时维护在 `package.json`、`src-tauri/Cargo.toml` 与 `src-tauri/tauri.conf.json`。
 - 前端：React 19 + TypeScript + Vite + Tailwind CSS v4 + shadcn/ui。
 - 后端：Rust + Tauri commands。
+- 表单与校验：react-hook-form + Zod + JSON Schema。
+- 编辑、预览与可视化：CodeMirror、react-markdown、@pierre/diffs、@pierre/trees、Recharts、@tanstack/react-virtual。
+- 本地缓存与日志：tauri-plugin-sql + SQLite、tauri-plugin-log。
 - 包管理器：`pnpm`，项目声明 `pnpm@10.33.0`；不要改用 `npm`。
 - 应用标识符：`com.gotobeta.app.ai-manager`。
 
@@ -61,7 +64,9 @@
 - 类型契约：`src/types.ts`
 - 共享 schema 与表单定义：`src/schemas/`
 - 公共 hooks：`src/hooks/`
+- Profile / Preset 编辑器：`src/components/profile-editor/`
 - `~/.claude` 共享树预览组件：`src/components/claude-overview/`
+- Token 用量抽屉、骨架与格式化工具：`src/components/usage/`
 - 主题与 UI token：`src/components/theme-provider.tsx`、`src/components/typography-classes.ts`、`src/components/surface-classes.ts`
 - 编辑器退出保护：`src/components/editor-exit-guard.ts`、`src/components/UnsavedChangesAlertDialog.tsx`
 - Vitest setup：`src/test/setup.ts`（配套 `vitest.config.ts`）
@@ -76,6 +81,7 @@
 - 历史、统计、用量：`src-tauri/src/history.rs`、`src-tauri/src/stats.rs`、`src-tauri/src/usage.rs`
 - 项目、打开本机应用、托盘：`src-tauri/src/project.rs`、`src-tauri/src/native_open.rs`、`src-tauri/src/tray.rs`
 - 日志与诊断：`src-tauri/src/logging.rs`
+- 内置 provider、模型价格和状态行脚本：`src-tauri/resources/`
 - Tauri capability：`src-tauri/capabilities/default.json`
 
 ## 架构同步点
