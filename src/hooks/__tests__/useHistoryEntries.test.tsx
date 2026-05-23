@@ -32,10 +32,13 @@ function jsonlOf(entries: HistoryEntry[]): string {
   return entries.map((e) => JSON.stringify(e)).join("\n");
 }
 
-async function flushHookUpdates() {
-  await act(async () => {
-    await Promise.resolve();
-    await Promise.resolve();
+async function waitForHookExpectation(expectation: () => void) {
+  await vi.waitFor(async () => {
+    await act(async () => {
+      // 每次重试只提交已完成的异步更新；等待次数由 vi.waitFor 控制。
+      await Promise.resolve();
+    });
+    expectation();
   });
 }
 
@@ -152,7 +155,7 @@ describe("useHistoryEntries", () => {
     const { result } = renderHook(() => useHistoryEntries("加载失败"));
 
     // 等初次加载完成；fake timers 下 microtask 仍走，需要让 react state 更新
-    await flushHookUpdates();
+    await waitForHookExpectation(() => expect(result.current.loading).toBe(false));
     expect(result.current.loading).toBe(false);
     expect(result.current.entries).toHaveLength(1);
 
@@ -181,7 +184,7 @@ describe("useHistoryEntries", () => {
     });
 
     const { result } = renderHook(() => useHistoryEntries("加载失败"));
-    await flushHookUpdates();
+    await waitForHookExpectation(() => expect(result.current.loading).toBe(false));
     expect(result.current.loading).toBe(false);
     const before = result.current.entries;
 
@@ -203,7 +206,7 @@ describe("useHistoryEntries", () => {
     });
 
     renderHook(() => useHistoryEntries("加载失败"));
-    await flushHookUpdates();
+    await waitForHookExpectation(() => expect(invokeMock).toHaveBeenCalledWith("get_history"));
     expect(invokeMock).toHaveBeenCalledWith("get_history");
     showToastMock.mockClear();
 

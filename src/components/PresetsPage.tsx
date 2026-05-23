@@ -400,7 +400,7 @@ function PresetsPage({ workspace, onWorkspaceChange, onEditorExitGuardChange }: 
             )}
           >
             <SheetTitle className="sr-only">{t("presets.title")}</SheetTitle>
-            <SheetDescription className="sr-only">{t("presets.title")}</SheetDescription>
+            <SheetDescription className="sr-only">{t("presets.description")}</SheetDescription>
             <PresetEditor
               key={editingPreset?.id ?? "new-preset"}
               ref={presetEditorRef}

@@ -198,6 +198,7 @@ const translations = {
     "nav.usage": "用量",
     "nav.providers": "预设",
     "profiles.title": "配置",
+    "profiles.description": "管理 Claude Code 用户级 settings.json 配置",
     "profiles.add": "新建配置",
     "profiles.empty": "暂无配置",
     "profiles.emptyHint": "创建配置，并统一生成用户级 Claude settings 文件。",
@@ -354,6 +355,7 @@ const translations = {
     "profiles.editor.modelTest.hideRawResponse": "隐藏响应体",
     "profiles.editor.modelTest.rawResponse": "响应体",
     "presets.title": "预设",
+    "presets.description": "管理可复用的 Claude 配置预设",
     "presets.add": "新增预设",
     "presets.builtin.title": "内置预设",
     "presets.builtin.description": "来自应用资源，只读，用来复用常见 provider / model 映射。",
@@ -1075,6 +1077,7 @@ const translations = {
 
     // 设置页面
     "settings.title": "设置",
+    "settings.description": "管理界面语言、主题、通知和本地工具偏好",
     "settings.general": "通用",
     "settings.language": "界面语言",
     "settings.languageChinese": "中文",
@@ -1593,6 +1596,7 @@ const translations = {
     "nav.usage": "Usage",
     "nav.providers": "Presets",
     "profiles.title": "Profiles",
+    "profiles.description": "Manage Claude Code user-level settings.json profiles",
     "profiles.add": "Add Profile",
     "profiles.empty": "No profiles yet",
     "profiles.emptyHint": "Create profiles that always resolve to user-level Claude settings.",
@@ -1753,6 +1757,7 @@ const translations = {
     "profiles.editor.modelTest.hideRawResponse": "Hide Response Body",
     "profiles.editor.modelTest.rawResponse": "Response Body",
     "presets.title": "Presets",
+    "presets.description": "Manage reusable Claude configuration presets",
     "presets.add": "Add Preset",
     "presets.builtin.title": "Built-in Presets",
     "presets.builtin.description":
@@ -2505,6 +2510,7 @@ const translations = {
 
     // 设置页面
     "settings.title": "Settings",
+    "settings.description": "Manage language, theme, notifications, and local tool preferences",
     "settings.general": "General",
     "settings.language": "Language",
     "settings.languageChinese": "Chinese",

@@ -671,7 +671,7 @@ function SkillsPage({ onDrawerChange, onEditorExitGuardChange }: SkillsPageProps
             )}
           >
             <SheetTitle className="sr-only">{t("skills.title")}</SheetTitle>
-            <SheetDescription className="sr-only">{t("skills.title")}</SheetDescription>
+            <SheetDescription className="sr-only">{t("skills.description")}</SheetDescription>
             <SkillEditor
               key={editingSkill?.id ?? "new-skill"}
               ref={skillEditorRef}

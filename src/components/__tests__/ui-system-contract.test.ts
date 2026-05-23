@@ -45,6 +45,23 @@ describe("ui system contract", () => {
     }
   });
 
+  it("keeps Sheet descriptions distinct from their titles", () => {
+    const repeatedDescriptionPattern =
+      /<SheetTitle\b[^>]*>\s*\{t\("([^"]+)"\)\}\s*<\/SheetTitle>\s*<SheetDescription\b[^>]*>\s*\{t\("\1"\)\}\s*<\/SheetDescription>/g;
+
+    for (const file of [
+      "src/components/ProfilesPage.tsx",
+      "src/components/PresetsPage.tsx",
+      "src/components/MemoryPage.tsx",
+      "src/components/SkillsPage.tsx",
+      "src/components/SettingsDrawer.tsx",
+    ]) {
+      const source = readFileSync(file, "utf8");
+
+      expect(source.match(repeatedDescriptionPattern) ?? [], file).toEqual([]);
+    }
+  });
+
   it("keeps Sidebar on semantic shadcn button styling", () => {
     const source = readFileSync("src/components/Sidebar.tsx", "utf8");
     const buttonSource = readFileSync("src/components/ui/button.tsx", "utf8");

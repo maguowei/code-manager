@@ -739,7 +739,7 @@ function MemoryPage({ onDrawerChange, onEditorExitGuardChange }: MemoryPageProps
             )}
           >
             <SheetTitle className="sr-only">{t("memory.title")}</SheetTitle>
-            <SheetDescription className="sr-only">{t("memory.title")}</SheetDescription>
+            <SheetDescription className="sr-only">{t("memory.description")}</SheetDescription>
             <MemoryEditor
               key={editingMemory?.id ?? "new-memory"}
               ref={memoryEditorRef}

@@ -577,7 +577,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
             <ChevronLeft aria-hidden="true" />
           </Button>
           <SheetTitle className="text-base">{t("settings.title")}</SheetTitle>
-          <SheetDescription className="sr-only">{t("settings.title")}</SheetDescription>
+          <SheetDescription className="sr-only">{t("settings.description")}</SheetDescription>
         </SheetHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto bg-muted/30">

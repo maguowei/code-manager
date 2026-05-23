@@ -1522,7 +1522,7 @@ function ProfilesPage({
             )}
           >
             <SheetTitle className="sr-only">{t("profiles.title")}</SheetTitle>
-            <SheetDescription className="sr-only">{t("profiles.title")}</SheetDescription>
+            <SheetDescription className="sr-only">{t("profiles.description")}</SheetDescription>
             <ProfileEditor
               key={editingProfile?.id ?? "new-profile"}
               ref={profileEditorRef}
