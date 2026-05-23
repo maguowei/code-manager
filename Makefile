@@ -41,7 +41,7 @@ test:
 
 # 代码检查：Rust lint
 lint:
-	cd src-tauri && cargo clippy -- -D warnings
+	cd src-tauri && cargo clippy --all-targets -- -D warnings
 
 # 格式化 Rust 代码
 fmt:

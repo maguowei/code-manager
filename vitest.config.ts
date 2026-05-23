@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const isCoverageRun = process.argv.some((arg) => arg === "--coverage" || arg.startsWith("--coverage."));
 
 export default defineConfig({
   plugins: [react()],
@@ -15,8 +16,8 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     exclude: [...configDefaults.exclude, "**/.worktrees/**", "**/.pnpm-store/**"],
-    // 默认 5s 在覆盖率插桩 (v8) 下偏紧，部分 findBy* 异步用例会超时；放宽到 20s
-    testTimeout: 20_000,
+    // 覆盖率插桩 (v8) 下部分 findBy* 异步用例会更慢；普通测试保持默认 5s。
+    testTimeout: isCoverageRun ? 20_000 : 5_000,
     coverage: {
       // 使用 v8 引擎，与 Vitest 4 原生集成且性能优于 istanbul
       provider: "v8",

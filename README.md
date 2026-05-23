@@ -216,7 +216,7 @@ pnpm tauri dev        # 启动 Tauri 桌面开发模式
 pnpm tauri build      # 构建 Tauri 安装包
 make check            # cd src-tauri && cargo check
 make test             # cargo test + pnpm test
-make lint             # cd src-tauri && cargo clippy -- -D warnings
+make lint             # cd src-tauri && cargo clippy --all-targets -- -D warnings
 make fmt              # cd src-tauri && cargo fmt
 make build-universal  # 构建 macOS universal 包
 make preview          # 预览生产前端构建
@@ -230,14 +230,14 @@ make preview          # 预览生产前端构建
 | --- | --- |
 | 文档 | `git diff --check` |
 | 前端 | `pnpm biome:ci`、`pnpm build`、`pnpm test` |
-| Rust | `cd src-tauri && cargo test`、`cd src-tauri && cargo clippy -- -D warnings` |
+| Rust | `cd src-tauri && cargo test`、`cd src-tauri && cargo clippy --all-targets -- -D warnings` |
 | 前后端契约 | `pnpm build`、`cd src-tauri && cargo test` |
 
 注意：`pnpm check` 会执行 `biome check --write .` 并可能改写文件；只想做 CI 检查时使用 `pnpm biome:ci`。
 
 ### CI 与 Release
 
-- CI workflow（`.github/workflows/ci.yml`）在 `macos-26`、`ubuntu-24.04`、`windows-latest` 三平台并行运行 `pnpm biome:ci`、`pnpm build`、`cargo check`、`cargo clippy -- -D warnings`、`cargo test`。文档类改动（`**.md`）不会触发 CI。
+- CI workflow（`.github/workflows/ci.yml`）在 `macos-26`、`ubuntu-24.04`、`windows-latest` 三平台并行运行 `pnpm biome:ci`、`pnpm build`、前端测试、`cargo check`、`cargo clippy --all-targets -- -D warnings`、`cargo test`；其中覆盖率门禁只在 Ubuntu 跑 `pnpm test:coverage`。文档类改动（`**.md`）不会触发 CI。
 - Release workflow（`.github/workflows/release.yml`）由 `v*` 形式的 git tag 触发，macOS 构建 universal 包，Linux / Windows 构建各自平台包。
 
 ## 技术栈与仓库结构

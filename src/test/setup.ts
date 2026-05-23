@@ -17,22 +17,34 @@ Object.defineProperty(globalThis.navigator, "languages", {
   get: () => ["zh-CN", "zh"],
 });
 
-if (typeof globalThis.localStorage?.clear !== "function") {
+function createMemoryStorage(): Storage {
   const store = new Map<string, string>();
 
-  Object.defineProperty(globalThis, "localStorage", {
-    configurable: true,
-    value: {
-      getItem: (key: string) => store.get(key) ?? null,
-      setItem: (key: string, value: string) => {
-        store.set(key, value);
-      },
-      removeItem: (key: string) => {
-        store.delete(key);
-      },
-      clear: () => {
-        store.clear();
-      },
+  return {
+    get length() {
+      return store.size;
     },
-  });
+    clear: () => {
+      store.clear();
+    },
+    getItem: (key: string) => store.get(String(key)) ?? null,
+    key: (index: number) => Array.from(store.keys())[index] ?? null,
+    removeItem: (key: string) => {
+      store.delete(String(key));
+    },
+    setItem: (key: string, value: string) => {
+      store.set(String(key), String(value));
+    },
+  };
 }
+
+const memoryStorage = createMemoryStorage();
+
+Object.defineProperty(window, "localStorage", {
+  configurable: true,
+  value: memoryStorage,
+});
+Object.defineProperty(globalThis, "localStorage", {
+  configurable: true,
+  value: memoryStorage,
+});

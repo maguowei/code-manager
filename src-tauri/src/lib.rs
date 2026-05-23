@@ -184,9 +184,10 @@ pub fn run() {
         .expect("error while running tauri application");
 }
 
-/// 集成测试入口：让 `src-tauri/tests/` 下的集成测试能调用内部 command 实现与共享 helper。
+/// debug/test 专用集成测试入口：让 `src-tauri/tests/` 能调用内部 command 实现与共享 helper。
 ///
-/// 标记为 `#[doc(hidden)]` 表示这不是稳定对外契约，不要在生产代码中依赖。
+/// 标记为 `#[doc(hidden)]` 且仅在 debug 构建暴露，release 产物不要依赖这个测试契约。
+#[cfg(debug_assertions)]
 #[doc(hidden)]
 pub mod test_api {
     pub use crate::config::{apply_profile_inner, ConfigProfile, ConfigRegistry};
