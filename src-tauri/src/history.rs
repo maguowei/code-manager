@@ -9,7 +9,7 @@ use std::path::PathBuf;
 const PLAN_PREFIX: &str = "Implement the following plan:";
 
 /// 历史记录读取结果
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct HistoryResult {
     pub content: String,
     pub mtime: u64,
@@ -99,7 +99,7 @@ pub fn get_history_if_changed(last_mtime: u64) -> Result<Option<HistoryResult>, 
 }
 
 /// 对话消息内容块
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 #[serde(tag = "type")]
 pub enum MessageBlock {
     /// 文本内容
@@ -133,7 +133,7 @@ pub enum MessageBlock {
 }
 
 /// 一条对话消息
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct SessionMessage {
     pub role: String,
     pub blocks: Vec<MessageBlock>,
@@ -141,7 +141,7 @@ pub struct SessionMessage {
 }
 
 /// 会话详情返回结果
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct SessionDetail {
     pub session_id: String,
     pub project: String,
@@ -580,13 +580,11 @@ mod tests {
     fn get_session_detail_rejects_path_escape_session_id() {
         // 防止 session_id 含 `..` 或路径分隔符穿越 projects 目录
         let err = get_session_detail("/Users/demo/project", "../session")
-            .err()
-            .expect("含 `..` 的 session_id 必须被拒绝");
+            .expect_err("含 `..` 的 session_id 必须被拒绝");
         assert!(err.contains("会话 ID"));
 
         let err = get_session_detail("/Users/demo/project", "../../etc/passwd")
-            .err()
-            .expect("路径穿越的 session_id 必须被拒绝");
+            .expect_err("路径穿越的 session_id 必须被拒绝");
         assert!(err.contains("会话 ID"));
     }
 

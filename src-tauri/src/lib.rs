@@ -183,3 +183,21 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
+/// 集成测试入口：让 `src-tauri/tests/` 下的集成测试能调用内部 command 实现与共享 helper。
+///
+/// 标记为 `#[doc(hidden)]` 表示这不是稳定对外契约，不要在生产代码中依赖。
+#[doc(hidden)]
+pub mod test_api {
+    pub use crate::config::{apply_profile_inner, ConfigProfile, ConfigRegistry};
+    pub use crate::history::{
+        get_history, get_history_if_changed, get_session_detail, HistoryResult, MessageBlock,
+        SessionDetail, SessionMessage,
+    };
+    pub use crate::stats::{ClaudeStats, ProjectStats, get_stats};
+
+    /// 测试可访问的 utils 子集
+    pub mod utils {
+        pub use crate::utils::{get_app_data_dir, home_dir_or_fallback, lock_config};
+    }
+}

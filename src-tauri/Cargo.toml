@@ -45,3 +45,9 @@ tokio = { version = "1", features = ["sync"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 mac-notification-sys = "0.6.12"
+
+# 集成测试依赖（仅 tests/ 下使用）
+[dev-dependencies]
+tempfile = "3"
+# 互斥 AI_MANAGER_HOME_OVERRIDE / AI_MANAGER_APP_DATA_DIR_OVERRIDE 等 env override
+serial_test = "3"
