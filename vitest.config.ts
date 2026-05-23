@@ -39,8 +39,7 @@ export default defineConfig({
         "**/__tests__/**",
         "**/*.test.{ts,tsx}",
       ],
-      // W1 初始阈值；W8 提升至 lines 85 / branches 78
-      thresholds: { lines: 70, branches: 60, functions: 70, statements: 70 },
+      thresholds: { lines: 80, branches: 75, functions: 80, statements: 80 },
     },
   },
 });

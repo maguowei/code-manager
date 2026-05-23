@@ -676,7 +676,32 @@ fn mac_app_candidate_paths(app_name: &str) -> Vec<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::env;
+    use std::fs;
     use std::path::Path;
+
+    struct EnvVarGuard {
+        key: &'static str,
+        previous_value: Option<OsString>,
+    }
+
+    impl EnvVarGuard {
+        fn capture(key: &'static str) -> Self {
+            Self {
+                key,
+                previous_value: env::var_os(key),
+            }
+        }
+    }
+
+    impl Drop for EnvVarGuard {
+        fn drop(&mut self) {
+            match &self.previous_value {
+                Some(value) => env::set_var(self.key, value),
+                None => env::remove_var(self.key),
+            }
+        }
+    }
 
     #[test]
     fn editor_cli_mapping_covers_linux_and_windows_editors() {
@@ -687,6 +712,84 @@ mod tests {
 
         let err = editor_cli_command("unknown").unwrap_err();
         assert!(err.contains("默认编辑器配置无效"));
+    }
+
+    #[test]
+    fn open_path_in_editor_rejects_missing_path_before_launch() {
+        let root = tempfile::tempdir().expect("应可创建临时目录");
+        let missing_path = root.path().join("missing-project");
+
+        let err = open_path_in_editor(&missing_path, "vscode").expect_err("缺失路径应被拒绝");
+
+        assert_eq!(err, "路径不存在");
+    }
+
+    #[test]
+    fn open_path_in_editor_rejects_invalid_editor_slug_before_launch() {
+        let root = tempfile::tempdir().expect("应可创建临时目录");
+        let file_path = root.path().join("settings.json");
+        fs::write(&file_path, "{}").expect("应可写入测试文件");
+
+        let err = open_path_in_editor(&file_path, "unknown-editor")
+            .expect_err("非法编辑器 slug 应被拒绝");
+
+        if current_platform() == NativePlatform::Other {
+            assert!(err.contains("暂不支持"));
+        } else {
+            assert!(err.contains("默认编辑器配置无效"));
+        }
+    }
+
+    #[test]
+    fn open_dir_in_terminal_rejects_missing_and_file_paths_before_launch() {
+        let root = tempfile::tempdir().expect("应可创建临时目录");
+        let missing_dir = root.path().join("missing-dir");
+        let file_path = root.path().join("README.md");
+        fs::write(&file_path, "demo").expect("应可写入测试文件");
+
+        let missing_err =
+            open_dir_in_terminal(&missing_dir, "terminal").expect_err("缺失目录应被拒绝");
+        assert_eq!(missing_err, "目录不存在");
+
+        let file_err =
+            open_dir_in_terminal(&file_path, "terminal").expect_err("文件路径不能作为终端目录");
+        assert_eq!(file_err, "目录不存在");
+    }
+
+    #[test]
+    fn open_dir_in_terminal_rejects_invalid_terminal_slug_before_launch() {
+        let root = tempfile::tempdir().expect("应可创建临时目录");
+
+        let err = open_dir_in_terminal(root.path(), "unknown-terminal")
+            .expect_err("非法终端 slug 应被拒绝");
+
+        if current_platform() == NativePlatform::Other {
+            assert!(err.contains("暂不支持"));
+        } else {
+            assert!(err.contains("默认终端配置无效"));
+        }
+    }
+
+    #[test]
+    fn ensure_helpers_distinguish_existing_paths_and_directories() {
+        let root = tempfile::tempdir().expect("应可创建临时目录");
+        let file_path = root.path().join("config.json");
+        fs::write(&file_path, "{}").expect("应可写入测试文件");
+        let missing_path = root.path().join("missing");
+
+        assert_eq!(ensure_path_exists(root.path()), Ok(()));
+        assert_eq!(ensure_path_exists(&file_path), Ok(()));
+        assert_eq!(
+            ensure_path_exists(&missing_path),
+            Err("路径不存在".to_string())
+        );
+
+        assert_eq!(ensure_dir_exists(root.path()), Ok(()));
+        assert_eq!(ensure_dir_exists(&file_path), Err("目录不存在".to_string()));
+        assert_eq!(
+            ensure_dir_exists(&missing_path),
+            Err("目录不存在".to_string())
+        );
     }
 
     #[test]
@@ -713,6 +816,26 @@ mod tests {
                 "iTerm".to_string(),
                 "/tmp/project with space".to_string()
             ]
+        );
+    }
+
+    #[test]
+    fn app_display_name_reports_invalid_editor_and_terminal_slugs() {
+        assert_eq!(
+            app_display_name(EDITOR_APPS, "cursor", "bad").unwrap(),
+            "Cursor"
+        );
+        assert_eq!(
+            app_display_name(TERMINAL_APPS, "ghostty", "bad").unwrap(),
+            "Ghostty"
+        );
+        assert_eq!(
+            app_display_name(EDITOR_APPS, "missing", "编辑器错误").unwrap_err(),
+            "编辑器错误"
+        );
+        assert_eq!(
+            app_display_name(TERMINAL_APPS, "missing", "终端错误").unwrap_err(),
+            "终端错误"
         );
     }
 
@@ -749,6 +872,21 @@ mod tests {
 
         let err = linux_terminal_candidates("iterm", None).unwrap_err();
         assert!(err.contains("仅支持 macOS"));
+    }
+
+    #[test]
+    fn linux_terminal_candidates_trim_env_and_reject_unknown_slug() {
+        let candidates = linux_terminal_candidates("terminal", Some("  custom-terminal  "))
+            .expect("终端候选应接受去空白后的 TERMINAL");
+
+        assert_eq!(candidates[0].program, "custom-terminal");
+
+        let candidates = linux_terminal_candidates("terminal", Some("   "))
+            .expect("空白 TERMINAL 应退回标准候选");
+        assert_eq!(candidates[0].program, "xdg-terminal-exec");
+
+        let err = linux_terminal_candidates("unknown", None).expect_err("未知终端应被拒绝");
+        assert!(err.contains("默认终端配置无效"));
     }
 
     #[test]
@@ -813,6 +951,27 @@ mod tests {
         assert!(candidates
             .contains(&"C:\\Users\\demo\\AppData\\Local\\Programs\\Warp\\warp.exe".to_string()));
         assert!(candidates.contains(&"C:\\Program Files\\Warp\\warp.exe".to_string()));
+    }
+
+    #[test]
+    fn windows_terminal_candidates_reject_unknown_slug_and_add_configured_warp_paths() {
+        let err = windows_terminal_candidates("unknown", Path::new("C:\\Projects\\demo"))
+            .expect_err("未知 Windows 终端应被拒绝");
+        assert!(err.contains("默认终端配置无效"));
+
+        let candidates = windows_warp_program_candidates_from_env(
+            Some(OsString::from("C:\\Users\\demo\\AppData\\Local")),
+            None,
+        )
+        .into_iter()
+        .map(|candidate| candidate.replace('/', "\\"))
+        .collect::<Vec<_>>();
+        assert_eq!(candidates.len(), 2);
+        assert_eq!(candidates[0], "warp.exe");
+        assert_eq!(
+            candidates[1],
+            "C:\\Users\\demo\\AppData\\Local\\Programs\\Warp\\warp.exe"
+        );
     }
 
     #[test]
@@ -900,6 +1059,190 @@ mod tests {
             option_slugs(&options.terminals),
             vec!["terminal", "ghostty"]
         );
+    }
+
+    #[test]
+    fn native_open_options_include_cli_detected_macos_apps() {
+        let options = detect_native_open_app_options(
+            NativePlatform::Macos,
+            None,
+            |command| matches!(command, "cursor" | "warp-terminal"),
+            |_| false,
+        );
+
+        assert_eq!(option_slugs(&options.editors), vec!["cursor"]);
+        assert_eq!(option_slugs(&options.terminals), vec!["warp"]);
+    }
+
+    #[test]
+    fn native_open_options_exclude_unsupported_terminal_slugs_per_platform() {
+        assert!(!terminal_is_supported(NativePlatform::Linux, "iterm"));
+        assert!(!terminal_is_supported(NativePlatform::Windows, "ghostty"));
+        assert!(!terminal_is_supported(NativePlatform::Other, "terminal"));
+
+        let linux = supported_terminal_options(NativePlatform::Linux);
+        assert_eq!(option_slugs(&linux), vec!["terminal", "warp", "ghostty"]);
+
+        let windows = supported_terminal_options(NativePlatform::Windows);
+        assert_eq!(option_slugs(&windows), vec!["terminal", "warp"]);
+    }
+
+    #[test]
+    fn native_open_options_detect_windows_terminal_fallback_commands() {
+        let options = detect_native_open_app_options(
+            NativePlatform::Windows,
+            None,
+            |command| matches!(command, "powershell.exe"),
+            |_| false,
+        );
+
+        assert_eq!(option_slugs(&options.terminals), vec!["terminal"]);
+    }
+
+    #[test]
+    fn terminal_display_name_falls_back_for_unknown_slug() {
+        assert_eq!(terminal_display_name("terminal"), "Terminal");
+        assert_eq!(terminal_display_name("unknown"), "该");
+    }
+
+    #[test]
+    fn push_unique_program_keeps_first_occurrence_only() {
+        let mut programs = Vec::new();
+
+        push_unique_program(&mut programs, "warp.exe");
+        push_unique_program(&mut programs, "warp.exe");
+        push_unique_program(&mut programs, "wt.exe");
+
+        assert_eq!(programs, vec!["warp.exe".to_string(), "wt.exe".to_string()]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_command_status_reports_success_exit_failure_and_spawn_error() {
+        let success = NativeOpenCommand::new("true", Vec::new());
+        assert_eq!(run_command_status(&success, "测试命令"), Ok(()));
+
+        let failure = NativeOpenCommand::new("false", Vec::new());
+        let err = run_command_status(&failure, "测试命令").expect_err("非零退出码应失败");
+        assert!(err.contains("退出码"));
+
+        let missing = NativeOpenCommand::new(
+            "ai-manager-definitely-missing-native-open-command",
+            Vec::new(),
+        );
+        let err = run_command_status(&missing, "测试命令").expect_err("缺失命令应失败");
+        assert!(err.contains("启动测试命令"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn spawn_first_available_skips_missing_candidates_and_reports_all_missing() {
+        let missing = NativeOpenCommand::new(
+            "ai-manager-definitely-missing-native-open-command",
+            Vec::new(),
+        );
+        let success = NativeOpenCommand::new("true", Vec::new());
+
+        assert_eq!(
+            spawn_first_available(vec![missing.clone(), success], "测试命令"),
+            Ok(())
+        );
+
+        let err = spawn_first_available(vec![missing], "测试命令")
+            .expect_err("所有候选缺失时应返回聚合错误");
+        assert!(err.contains("未找到可用测试命令"));
+        assert!(err.contains("ai-manager-definitely-missing-native-open-command"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn build_command_preserves_program_args_and_current_dir() {
+        let root = tempfile::tempdir().expect("应可创建临时目录");
+        let request = NativeOpenCommand::new("true", vec!["--flag".to_string()])
+            .with_current_dir(root.path())
+            .with_hidden_window();
+
+        let command = build_command(&request);
+
+        assert_eq!(command.get_program(), "true");
+        assert_eq!(
+            command
+                .get_args()
+                .map(|arg| arg.to_string_lossy().to_string())
+                .collect::<Vec<_>>(),
+            vec!["--flag".to_string()]
+        );
+        assert_eq!(command.get_current_dir(), Some(root.path()));
+    }
+
+    #[test]
+    fn command_exists_supports_explicit_paths() {
+        let root = tempfile::tempdir().expect("应可创建临时目录");
+        let command_path = root.path().join("ai-manager-test-command");
+        fs::write(&command_path, "").expect("应可写入测试命令文件");
+
+        assert!(command_exists(&command_path.to_string_lossy()));
+        assert!(!command_exists(
+            &root.path().join("missing-command").to_string_lossy()
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn command_exists_searches_path_and_handles_missing_path_env() {
+        let _guard = crate::utils::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        let root = tempfile::tempdir().expect("应可创建临时目录");
+        let command_path = root.path().join("ai-manager-test-path-command");
+        fs::write(&command_path, "").expect("应可写入测试命令文件");
+        let _path_guard = EnvVarGuard::capture("PATH");
+
+        env::set_var("PATH", root.path());
+        assert!(command_exists("ai-manager-test-path-command"));
+        assert!(!command_exists("ai-manager-missing-path-command"));
+
+        env::remove_var("PATH");
+        assert!(!command_exists("ai-manager-test-path-command"));
+    }
+
+    #[test]
+    fn executable_candidates_keep_non_windows_command_shape() {
+        let candidates = executable_candidates("ai-manager-tool")
+            .map(|candidate| candidate.to_string_lossy().to_string())
+            .collect::<Vec<_>>();
+
+        if cfg!(windows) {
+            assert!(candidates.contains(&"ai-manager-tool".to_string()));
+            assert!(candidates
+                .iter()
+                .any(|candidate| candidate.ends_with(".EXE")));
+        } else {
+            assert_eq!(candidates, vec!["ai-manager-tool".to_string()]);
+        }
+    }
+
+    #[test]
+    fn mac_app_candidate_paths_include_standard_and_user_locations() {
+        let _guard = crate::utils::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        let root = tempfile::tempdir().expect("应可创建临时目录");
+        let _home_guard = EnvVarGuard::capture("AI_MANAGER_HOME_OVERRIDE");
+
+        env::set_var("AI_MANAGER_HOME_OVERRIDE", root.path());
+        let paths = mac_app_candidate_paths("AI Manager Test App");
+
+        assert!(paths.contains(&PathBuf::from("/Applications/AI Manager Test App.app")));
+        assert!(paths.contains(&PathBuf::from(
+            "/Applications/Utilities/AI Manager Test App.app"
+        )));
+        assert!(paths.contains(&root.path().join("Applications/AI Manager Test App.app")));
+        assert!(!mac_app_exists("AI Manager Test App"));
+
+        fs::create_dir_all(root.path().join("Applications/AI Manager Test App.app"))
+            .expect("应可创建测试 app bundle 目录");
+        assert!(mac_app_exists("AI Manager Test App"));
     }
 
     fn option_slugs(options: &[NativeOpenAppOption]) -> Vec<&str> {

@@ -1,5 +1,7 @@
 .PHONY: init dev build build-universal preview check test test-rust test-frontend lint lint-rust lint-frontend fmt fmt-rust fmt-frontend clean coverage coverage-rust coverage-rust-lcov coverage-frontend
 
+RUST_COVERAGE_THRESHOLDS := --fail-under-regions 80 --fail-under-functions 70 --fail-under-lines 80
+
 # 初始化：安装前端依赖并确保 Rust 工具链就绪
 init:
 	@echo ">>> 检查 Rust 工具链..."
@@ -78,12 +80,14 @@ coverage: coverage-rust coverage-frontend
 # Rust 覆盖率（HTML 报告输出到 src-tauri/target/llvm-cov/html/）
 coverage-rust:
 	cd src-tauri && cargo llvm-cov --lib --tests --html \
+		$(RUST_COVERAGE_THRESHOLDS) \
 		--ignore-filename-regex '(tests/|/target/)'
 
 # Rust 覆盖率（LCOV 报告输出到 src-tauri/lcov.info，供覆盖率服务上传）
 coverage-rust-lcov:
 	cd src-tauri && cargo llvm-cov --lib --tests --lcov \
 		--output-path lcov.info \
+		$(RUST_COVERAGE_THRESHOLDS) \
 		--ignore-filename-regex '(tests/|/target/)'
 
 # 前端覆盖率（text/html/lcov 报告输出到 ./coverage/）
