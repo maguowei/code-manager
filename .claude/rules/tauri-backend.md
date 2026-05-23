@@ -84,6 +84,13 @@ const result = await invoke("get_config_workspace");
 - 事件链：claude_directory_watcher 发出 `claude-directory-changed` -> usage runtime 增量扫描 -> 发出 `usage-records-changed`；价格刷新成功后发出 `usage-pricing-updated`。
 - WAL 模式可能在 SQLite 应用配置目录生成 `usage.db-wal` 与 `usage.db-shm`，不要把它们当数据文件备份。
 
+## 集成测试基础设施
+
+- 集成测试放在 `src-tauri/tests/`；共享夹具见 `tests/common/mod.rs` 中的 `IntegrationEnv`。
+- `IntegrationEnv` 通过 `AI_MANAGER_HOME_OVERRIDE` / `AI_MANAGER_APP_DATA_DIR_OVERRIDE` 隔离 `~/.claude` 与 `~/.config/ai-manager`，drop 时自动清理临时目录并还原 env；需要互斥隔离时配合 `serial_test::serial`。
+- 需要从集成测试访问内部函数时，通过 `lib.rs` 的 `pub mod test_api` 重导出；该模块必须标记 `#[cfg(debug_assertions)]`，不得在 release 产物中暴露。
+- 新增集成测试复用 `IntegrationEnv`，不要手动管理 tempdir 或直接写 `/tmp`。
+
 ## 验证
 
 - Rust 测试：`cd src-tauri && cargo test`

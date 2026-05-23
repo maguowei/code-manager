@@ -52,6 +52,13 @@ paths:
 - 复杂编辑器优先复用 `useObjectJsonEditor`、`useDocumentJsonEditor`、`useStructuredSettingsSectionState` 等现有 hook。
 - Profile、Preset、Memory、Skill 这类抽屉编辑器必须暴露 `EditorExitGuard`；关闭、切换条目或跳转页面前如有 dirty draft，统一走 `UnsavedChangesAlertDialog`，不要直接丢弃用户输入。
 
+## Sheet / Dialog 无障碍约束
+
+- 不要手动设置 `id` + `aria-labelledby` 配对，Radix/shadcn 通过 context 自动关联 `SheetTitle` / `DialogTitle`。
+- `SheetContent` / `DialogContent` 内必须存在 `SheetTitle` / `DialogTitle`；如无可见标题，用 `className="sr-only"` 隐藏而非省略。
+- 不提供 `SheetDescription` / `DialogDescription` 时，向 `SheetContent` / `DialogContent` 传 `aria-describedby={undefined}` 以消除 Radix 控制台警告。
+- `SheetDescription` 内容不得与 `SheetTitle` 完全相同，否则屏幕阅读器会重复朗读同一文本；描述应提供区别于标题的额外上下文。
+
 ## 当前设计风格
 
 - AI Manager 是本地桌面管理台，不是营销站点；第一屏应直接呈现可操作信息，不做 hero、宣传文案、装饰性大图或卡片堆叠。
@@ -86,3 +93,7 @@ paths:
 3. ✅ `getByText` / `getByLabelText`
 4. ✅ `[data-slot="..."]`（shadcn 标准）
 5. ✅ `data-testid`（按需）
+
+## 测试中触发 Tauri 事件
+
+在测试中触发 mock 的 Tauri 事件（`emitTauriEvent` 或等价函数）时，必须包裹在 `act(async () => { await emitTauriEvent(...); })` 中，确保 React 状态更新全部落定后再做断言。直接调用会产生未被 act 捕获的更新警告，并导致断言时序不确定。
