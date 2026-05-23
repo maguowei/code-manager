@@ -138,7 +138,11 @@ pub fn open_claude_json_in_editor() -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::ClaudeStats;
+    use super::*;
+    use std::env;
+    use std::fs;
+    use std::sync::MutexGuard;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn deserializes_project_last_session_id() {
@@ -208,5 +212,128 @@ mod tests {
             .expect("opus entry should exist");
         assert_eq!(opus.input_tokens, 1000);
         assert!((opus.cost_usd - 3.2).abs() < f64::EPSILON);
+    }
+
+    // ─── 隔离 ~/.claude.json 路径，覆盖 get_stats 与读取失败回退 ───
+
+    struct StatsTestEnv {
+        _guard: MutexGuard<'static, ()>,
+        _config_guard: MutexGuard<'static, ()>,
+        root: PathBuf,
+        previous_home: Option<String>,
+    }
+
+    impl StatsTestEnv {
+        fn new(name: &str) -> Self {
+            let guard = crate::utils::TEST_ENV_LOCK
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
+            // 同时获取 config 锁，避免与 config::tests 的 set_test_env 竞态
+            let config_guard = crate::utils::lock_config().expect("配置锁应可获取");
+            let suffix = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos();
+            let root = env::temp_dir().join(format!(
+                "ai-manager-stats-{name}-{}-{suffix}",
+                std::process::id()
+            ));
+            fs::create_dir_all(&root).expect("应可创建测试目录");
+
+            let previous_home = env::var("AI_MANAGER_HOME_OVERRIDE").ok();
+            env::set_var("AI_MANAGER_HOME_OVERRIDE", &root);
+
+            Self {
+                _guard: guard,
+                _config_guard: config_guard,
+                root,
+                previous_home,
+            }
+        }
+
+        fn write_claude_json(&self, content: &str) {
+            fs::write(self.root.join(".claude.json"), content)
+                .expect("写入 .claude.json 失败");
+        }
+    }
+
+    impl Drop for StatsTestEnv {
+        fn drop(&mut self) {
+            match &self.previous_home {
+                Some(value) => env::set_var("AI_MANAGER_HOME_OVERRIDE", value),
+                None => env::remove_var("AI_MANAGER_HOME_OVERRIDE"),
+            }
+            let _ = fs::remove_dir_all(&self.root);
+        }
+    }
+
+    #[test]
+    fn get_stats_returns_default_when_claude_json_missing() {
+        let _env = StatsTestEnv::new("missing");
+        let stats = get_stats().expect("缺文件时应返回 Default 而不是 Err");
+        assert_eq!(stats, ClaudeStats::default());
+    }
+
+    #[test]
+    fn get_stats_returns_default_when_claude_json_is_malformed() {
+        let env = StatsTestEnv::new("malformed");
+        env.write_claude_json("{not valid json");
+
+        let stats = get_stats().expect("read_json_file 应吞掉解析错误并返回 Default");
+        assert_eq!(stats, ClaudeStats::default(),
+            "损坏的 .claude.json 必须降级为默认值，避免阻塞前端");
+    }
+
+    #[test]
+    fn get_stats_reads_real_claude_json_payload() {
+        let env = StatsTestEnv::new("ok");
+        env.write_claude_json(
+            r#"{
+                "numStartups": 42,
+                "projects": {
+                    "/p1": {"lastCost": 1.0, "lastSessionId": "s-a"},
+                    "/p2": {"lastCost": 2.0, "lastSessionId": "s-b"}
+                },
+                "toolUsage": {
+                    "Read": {"usageCount": 3, "lastUsedAt": 1700000000}
+                }
+            }"#,
+        );
+
+        let stats = get_stats().expect("正常文件应能读取");
+        assert_eq!(stats.num_startups, 42);
+        assert_eq!(stats.projects.len(), 2);
+        assert_eq!(
+            stats.projects.get("/p1").and_then(|p| p.last_session_id.as_deref()),
+            Some("s-a")
+        );
+        let read_usage = stats
+            .tool_usage
+            .get("Read")
+            .expect("tool usage 应包含 Read");
+        assert_eq!(read_usage.usage_count, 3);
+    }
+
+    #[test]
+    fn get_stats_tolerates_unknown_top_level_fields() {
+        let env = StatsTestEnv::new("unknown-fields");
+        // 真实 ~/.claude.json 可能含未知顶层键；serde 默认忽略未知字段不应让我们崩溃
+        env.write_claude_json(
+            r#"{
+                "numStartups": 1,
+                "newFutureField": {"foo": "bar"},
+                "anotherUnknown": [1, 2, 3]
+            }"#,
+        );
+
+        let stats = get_stats().expect("未知字段不应导致 Err");
+        assert_eq!(stats.num_startups, 1);
+    }
+
+    #[test]
+    fn open_claude_json_in_editor_errors_when_file_missing() {
+        let _env = StatsTestEnv::new("editor-missing");
+        let err = open_claude_json_in_editor().expect_err("缺文件时应明确报错，不应静默成功");
+        assert!(err.contains(".claude.json"));
     }
 }

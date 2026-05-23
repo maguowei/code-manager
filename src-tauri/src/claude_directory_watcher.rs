@@ -207,7 +207,7 @@ fn normalize_changed_path(root: &Path, path: &Path) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::collect_changed_paths;
+    use super::{collect_changed_paths, normalize_changed_path, ClaudeDirectoryWatcherState};
     use std::path::PathBuf;
 
     #[test]
@@ -255,5 +255,61 @@ mod tests {
             paths,
             vec!["a.txt", "nested/a.txt", "nested/b.txt", "z.txt"]
         );
+    }
+
+    #[test]
+    fn normalize_returns_none_when_root_equals_path() {
+        // 路径恰好等于 root 时 strip_prefix 后没有任何 Normal 段，parts 为空
+        let root = PathBuf::from("/tmp/ai-manager/.claude");
+        assert!(normalize_changed_path(&root, &root).is_none());
+    }
+
+    #[test]
+    fn normalize_filters_node_modules_at_any_depth() {
+        // node_modules 在任意层级都应使整条路径被过滤
+        let root = PathBuf::from("/root");
+
+        assert!(normalize_changed_path(&root, &root.join("a/node_modules/lib.js")).is_none());
+        assert!(
+            normalize_changed_path(&root, &root.join("node_modules/foo")).is_none(),
+            "顶层 node_modules 必须被过滤"
+        );
+    }
+
+    #[test]
+    fn normalize_returns_none_when_path_is_not_under_root() {
+        // strip_prefix 失败时直接返回 None
+        let root = PathBuf::from("/tmp/ai-manager/.claude");
+        let unrelated = PathBuf::from("/tmp/elsewhere/file.txt");
+        assert!(normalize_changed_path(&root, &unrelated).is_none());
+    }
+
+    #[test]
+    fn normalize_joins_nested_components_with_unix_separator() {
+        // 即便在 Windows 下，结果也应该使用 `/` 拼接，便于前端统一处理
+        let root = PathBuf::from("/root");
+        let rel = normalize_changed_path(&root, &root.join("a").join("b").join("c.md"));
+        assert_eq!(rel.as_deref(), Some("a/b/c.md"));
+    }
+
+    #[test]
+    fn collect_changed_paths_returns_empty_when_inputs_outside_root() {
+        // 全部路径都在 root 外，结果应为空 Vec
+        let root = PathBuf::from("/root");
+        let paths = collect_changed_paths(
+            &root,
+            [
+                PathBuf::from("/elsewhere/a.txt"),
+                PathBuf::from("/other/b.txt"),
+            ],
+        );
+        assert!(paths.is_empty());
+    }
+
+    #[test]
+    fn inactive_state_drops_without_panic() {
+        // inactive state 无 worker / stop_tx，Drop 时不能 panic（保护 start_*_watcher 早返回路径）
+        let state = ClaudeDirectoryWatcherState::inactive();
+        drop(state);
     }
 }

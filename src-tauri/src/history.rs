@@ -533,7 +533,11 @@ pub fn open_session_file_in_editor(project: &str, session_id: &str) -> Result<()
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::env;
+    use std::fs;
     use std::path::Path;
+    use std::sync::MutexGuard;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn session_file_path_uses_claude_project_encoding() {
@@ -558,6 +562,21 @@ mod tests {
     }
 
     #[test]
+    fn session_file_path_rejects_empty_project_and_null_chars() {
+        // 空项目路径
+        let err = session_file_path("   ", "session-1").unwrap_err();
+        assert!(err.contains("项目路径"));
+
+        // 项目路径含 NUL 字符
+        let err = session_file_path("/Users/demo\0/project", "session-1").unwrap_err();
+        assert!(err.contains("项目路径"));
+
+        // 空 session id
+        let err = session_file_path("/Users/demo/project", "").unwrap_err();
+        assert!(err.contains("会话 ID"));
+    }
+
+    #[test]
     fn get_session_detail_rejects_path_escape_session_id() {
         // 防止 session_id 含 `..` 或路径分隔符穿越 projects 目录
         let err = get_session_detail("/Users/demo/project", "../session")
@@ -569,5 +588,357 @@ mod tests {
             .err()
             .expect("路径穿越的 session_id 必须被拒绝");
         assert!(err.contains("会话 ID"));
+    }
+
+    // ─── 隔离测试环境：覆盖 AI_MANAGER_HOME_OVERRIDE 让 get_history_path 指向临时目录 ───
+
+    struct TestEnv {
+        _guard: MutexGuard<'static, ()>,
+        _config_guard: MutexGuard<'static, ()>,
+        root: PathBuf,
+        previous_home: Option<String>,
+    }
+
+    impl TestEnv {
+        fn new(name: &str) -> Self {
+            let guard = crate::utils::TEST_ENV_LOCK
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
+            // 同时获取 config 锁，避免与 config::tests 的 set_test_env 竞态
+            let config_guard = crate::utils::lock_config().expect("配置锁应可获取");
+            let suffix = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos();
+            let root = env::temp_dir().join(format!(
+                "ai-manager-history-{name}-{}-{suffix}",
+                std::process::id()
+            ));
+            fs::create_dir_all(root.join(".claude")).expect("应可创建 .claude 目录");
+
+            let previous_home = env::var("AI_MANAGER_HOME_OVERRIDE").ok();
+            env::set_var("AI_MANAGER_HOME_OVERRIDE", &root);
+
+            Self {
+                _guard: guard,
+                _config_guard: config_guard,
+                root,
+                previous_home,
+            }
+        }
+
+        fn write_history(&self, content: &str) -> PathBuf {
+            let path = self.root.join(".claude").join("history.jsonl");
+            fs::write(&path, content).expect("写入 history.jsonl 失败");
+            path
+        }
+
+        fn write_session(&self, project: &str, session_id: &str, content: &str) -> PathBuf {
+            let dir = self
+                .root
+                .join(".claude")
+                .join("projects")
+                .join(encoded_project_path(project));
+            fs::create_dir_all(&dir).expect("应可创建 project 目录");
+            let path = dir.join(format!("{}.jsonl", session_id));
+            fs::write(&path, content).expect("写入 session jsonl 失败");
+            path
+        }
+    }
+
+    impl Drop for TestEnv {
+        fn drop(&mut self) {
+            match &self.previous_home {
+                Some(value) => env::set_var("AI_MANAGER_HOME_OVERRIDE", value),
+                None => env::remove_var("AI_MANAGER_HOME_OVERRIDE"),
+            }
+            let _ = fs::remove_dir_all(&self.root);
+        }
+    }
+
+    // ─── get_history / get_history_if_changed ───
+
+    #[test]
+    fn get_history_returns_empty_when_file_missing() {
+        let _env = TestEnv::new("get-history-missing");
+        let result = get_history().expect("文件不存在时应返回空结果而不是 Err");
+        assert_eq!(result.content, "");
+        assert_eq!(result.mtime, 0);
+    }
+
+    #[test]
+    fn get_history_reads_existing_file_content() {
+        let env = TestEnv::new("get-history-read");
+        env.write_history("line1\nline2\n");
+
+        let result = get_history().expect("get_history 应成功");
+
+        assert_eq!(result.content, "line1\nline2\n");
+        assert!(result.mtime > 0, "mtime 应来自真实文件元数据");
+    }
+
+    #[test]
+    fn get_history_if_changed_returns_none_when_missing() {
+        let _env = TestEnv::new("history-changed-missing");
+        let result = get_history_if_changed(0).expect("缺文件时应正常返回 None");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn get_history_if_changed_returns_none_when_mtime_matches() {
+        let env = TestEnv::new("history-changed-same");
+        let path = env.write_history("a\n");
+        let mtime = file_mtime(&path).unwrap();
+
+        let result = get_history_if_changed(mtime).expect("同 mtime 应返回 None");
+
+        assert!(result.is_none(), "mtime 未变时不应返回新内容");
+    }
+
+    #[test]
+    fn get_history_if_changed_returns_content_when_mtime_differs() {
+        let env = TestEnv::new("history-changed-diff");
+        env.write_history("new content\n");
+
+        let result = get_history_if_changed(0)
+            .expect("正常调用应成功")
+            .expect("mtime 差异应返回新内容");
+
+        assert_eq!(result.content, "new content\n");
+        assert!(result.mtime > 0);
+    }
+
+    // ─── get_session_detail：恶劣输入与基本路径 ───
+
+    #[test]
+    fn get_session_detail_returns_empty_when_session_file_missing() {
+        let _env = TestEnv::new("session-missing");
+        let detail = get_session_detail("/Users/demo/project", "ghost-session")
+            .expect("文件不存在时应返回空 messages 而不是 Err");
+        assert!(detail.messages.is_empty());
+        assert_eq!(detail.session_id, "ghost-session");
+        assert_eq!(detail.project, "/Users/demo/project");
+    }
+
+    #[test]
+    fn get_session_detail_skips_malformed_and_non_dialog_lines() {
+        let env = TestEnv::new("session-malformed");
+        // 一行无效 JSON、一行 system 消息、一行无 message 字段、一行 user 文本
+        let content = "not-a-json\n\
+            {\"type\":\"system\",\"message\":{\"role\":\"system\",\"content\":\"hi\"}}\n\
+            {\"type\":\"user\"}\n\
+            {\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":\"hello\"}}\n";
+        env.write_session("/p", "s1", content);
+
+        let detail = get_session_detail("/p", "s1").expect("解析不应整体失败");
+
+        assert_eq!(detail.messages.len(), 1, "只保留 1 条有效 user 消息");
+        assert_eq!(detail.messages[0].role, "user");
+        match &detail.messages[0].blocks[0] {
+            MessageBlock::Text { text } => assert_eq!(text, "hello"),
+            other => panic!("应为 Text block: {:?}", serde_json::to_string(other).ok()),
+        }
+    }
+
+    #[test]
+    fn get_session_detail_skips_sidechain_messages() {
+        let env = TestEnv::new("session-sidechain");
+        let content = "{\"type\":\"user\",\"isSidechain\":true,\
+            \"message\":{\"role\":\"user\",\"content\":\"skip me\"}}\n";
+        env.write_session("/p", "s1", content);
+
+        let detail = get_session_detail("/p", "s1").expect("解析不应失败");
+        assert!(detail.messages.is_empty(), "sidechain 消息必须被忽略");
+    }
+
+    #[test]
+    fn get_session_detail_handles_empty_file() {
+        let env = TestEnv::new("session-empty");
+        env.write_session("/p", "s1", "");
+        let detail = get_session_detail("/p", "s1").expect("空文件应正常处理");
+        assert!(detail.messages.is_empty());
+    }
+
+    #[test]
+    fn get_session_detail_merges_user_tool_result_into_previous_assistant() {
+        let env = TestEnv::new("session-tool-result-merge");
+        // assistant 调用 tool_use，下一条 user 全是 tool_result，应合并到 assistant
+        let content = "{\"type\":\"assistant\",\"message\":{\"role\":\"assistant\",\
+            \"content\":[{\"type\":\"tool_use\",\"name\":\"Read\",\"input\":{\"p\":1}}]}}\n\
+            {\"type\":\"user\",\"message\":{\"role\":\"user\",\
+            \"content\":[{\"type\":\"tool_result\",\"content\":\"file body\"}]}}\n";
+        env.write_session("/p", "s1", content);
+
+        let detail = get_session_detail("/p", "s1").expect("解析应成功");
+
+        assert_eq!(detail.messages.len(), 1, "tool_result 合并后应只剩 1 条消息");
+        assert_eq!(detail.messages[0].role, "assistant");
+        assert_eq!(detail.messages[0].blocks.len(), 2, "tool_use + tool_result 两个 block");
+    }
+
+    #[test]
+    fn get_session_detail_folds_is_meta_text_into_system() {
+        let env = TestEnv::new("session-meta");
+        let content = "{\"type\":\"user\",\"isMeta\":true,\"message\":{\"role\":\"user\",\
+            \"content\":\"some meta text\"}}\n";
+        env.write_session("/p", "s1", content);
+
+        let detail = get_session_detail("/p", "s1").expect("解析应成功");
+
+        assert_eq!(detail.messages.len(), 1);
+        match &detail.messages[0].blocks[0] {
+            MessageBlock::System { summary } => assert!(summary.contains("some meta text")),
+            other => panic!("isMeta 应折叠为 System: {:?}", serde_json::to_string(other).ok()),
+        }
+    }
+
+    #[test]
+    fn get_session_detail_separates_plan_content_from_text() {
+        let env = TestEnv::new("session-plan");
+        let content = format!(
+            "{{\"type\":\"user\",\"planContent\":\"步骤A\\n步骤B\",\"message\":{{\"role\":\"user\",\
+            \"content\":\"{} 步骤A\\n步骤B\"}}}}\n",
+            PLAN_PREFIX
+        );
+        env.write_session("/p", "s1", &content);
+
+        let detail = get_session_detail("/p", "s1").expect("解析应成功");
+
+        assert_eq!(detail.messages.len(), 1);
+        let blocks = &detail.messages[0].blocks;
+        // 应只剩 Plan block，原文本被识别为计划完整匹配并移除
+        assert_eq!(blocks.len(), 1, "完整匹配的计划文本应被移除，仅留 Plan: {:?}", serde_json::to_string(blocks).ok());
+        assert!(matches!(&blocks[0], MessageBlock::Plan { .. }));
+    }
+
+    // ─── parse_content_blocks 单独覆盖各种 block 类型 ───
+
+    #[test]
+    fn parse_content_blocks_handles_thinking_and_tool_use() {
+        let value: serde_json::Value = serde_json::from_str(
+            r#"[
+                {"type":"thinking","thinking":"思考过程"},
+                {"type":"tool_use","name":"Bash","input":{"command":"ls"}},
+                {"type":"unknown_type","payload":"ignored"}
+            ]"#,
+        )
+        .unwrap();
+
+        let blocks = parse_content_blocks(&value);
+
+        assert_eq!(blocks.len(), 2, "未知类型必须被跳过");
+        assert!(matches!(&blocks[0], MessageBlock::Thinking { thinking } if thinking == "思考过程"));
+        assert!(matches!(&blocks[1], MessageBlock::ToolUse { name, .. } if name == "Bash"));
+    }
+
+    #[test]
+    fn parse_content_blocks_handles_tool_result_string_and_array_shapes() {
+        // tool_result.content 既可能是字符串，也可能是 [{type:text,text:...}] 数组
+        let str_form: serde_json::Value = serde_json::from_str(
+            r#"[{"type":"tool_result","content":"plain text"}]"#,
+        )
+        .unwrap();
+        let arr_form: serde_json::Value = serde_json::from_str(
+            r#"[{"type":"tool_result","content":[
+                {"type":"text","text":"line1"},
+                {"type":"text","text":"line2"}
+            ]}]"#,
+        )
+        .unwrap();
+
+        let str_blocks = parse_content_blocks(&str_form);
+        assert!(matches!(&str_blocks[0], MessageBlock::ToolResult { content } if content == "plain text"));
+
+        let arr_blocks = parse_content_blocks(&arr_form);
+        assert!(
+            matches!(&arr_blocks[0], MessageBlock::ToolResult { content } if content == "line1\nline2"),
+        );
+    }
+
+    #[test]
+    fn parse_content_blocks_handles_image_payload() {
+        let value: serde_json::Value = serde_json::from_str(
+            r#"[{"type":"image","source":{"type":"base64","media_type":"image/png","data":"AAAA"}}]"#,
+        )
+        .unwrap();
+
+        let blocks = parse_content_blocks(&value);
+
+        match &blocks[0] {
+            MessageBlock::Image {
+                source_type,
+                media_type,
+                data,
+            } => {
+                assert_eq!(source_type, "base64");
+                assert_eq!(media_type, "image/png");
+                assert_eq!(data.as_deref(), Some("AAAA"));
+            }
+            other => panic!("应为 Image: {:?}", serde_json::to_string(other).ok()),
+        }
+    }
+
+    #[test]
+    fn parse_content_blocks_handles_plain_string() {
+        let value = serde_json::Value::String("hello world".into());
+        let blocks = parse_content_blocks(&value);
+        assert!(matches!(&blocks[0], MessageBlock::Text { text } if text == "hello world"));
+    }
+
+    #[test]
+    fn parse_content_blocks_returns_empty_for_empty_string_or_null() {
+        let empty_str = serde_json::Value::String(String::new());
+        assert!(parse_content_blocks(&empty_str).is_empty());
+
+        let null = serde_json::Value::Null;
+        assert!(parse_content_blocks(&null).is_empty());
+    }
+
+    // ─── parse_text_with_tags / strip_noise_tags ───
+
+    #[test]
+    fn parse_text_with_tags_extracts_command_and_drops_skill_expansion_text() {
+        let blocks = parse_text_with_tags(
+            "<command-name>/foo</command-name><command-args>arg1</command-args>展开后的 skill 内容",
+        );
+
+        assert_eq!(blocks.len(), 2, "应同时产出 Command 与折叠后的 System");
+        assert!(matches!(&blocks[0], MessageBlock::Command { name, args } if name == "/foo" && args.as_deref() == Some("arg1")));
+        // 命令后的内容应被折叠为 System，避免误显示为用户输入
+        assert!(matches!(&blocks[1], MessageBlock::System { .. }));
+    }
+
+    #[test]
+    fn parse_text_with_tags_extracts_system_reminders_with_truncation() {
+        // system-reminder 内容超过 80 字符时会被截断
+        let long_payload = "X".repeat(120);
+        let input = format!("<system-reminder>{}</system-reminder>", long_payload);
+
+        let blocks = parse_text_with_tags(&input);
+
+        assert_eq!(blocks.len(), 1);
+        match &blocks[0] {
+            MessageBlock::System { summary } => {
+                assert!(summary.len() <= 80 + 3, "应被 truncate 到 ≤80 字符（含省略号）"); // truncate 通常追加 "..."
+                assert!(summary.starts_with('X'));
+            }
+            _ => panic!("应为 System block"),
+        }
+    }
+
+    #[test]
+    fn parse_text_with_tags_keeps_plain_text_without_tags() {
+        let blocks = parse_text_with_tags("hello world");
+        assert_eq!(blocks.len(), 1);
+        assert!(matches!(&blocks[0], MessageBlock::Text { text } if text == "hello world"));
+    }
+
+    #[test]
+    fn parse_text_with_tags_drops_pure_noise_tags() {
+        // 只有 local-command-caveat 噪音标签，没有真实内容，应返回空 blocks
+        let blocks = parse_text_with_tags(
+            "<local-command-caveat>some caveat</local-command-caveat>",
+        );
+        assert!(blocks.is_empty(), "纯噪音标签应被剥离后留空");
     }
 }
