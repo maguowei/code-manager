@@ -592,6 +592,52 @@ describe("ProfilesPage", () => {
     });
   });
 
+  it("applies a profile successfully, reloads the workspace, and shows the success toast", async () => {
+    const unboundWorkspace: ConfigWorkspace = {
+      ...WORKSPACE_FIXTURE,
+      bindings: {
+        userProfileId: undefined,
+      },
+    } as ConfigWorkspace;
+    const onWorkspaceChange = vi.fn(async () => {});
+
+    invokeMock.mockImplementation(async (command, args) => {
+      if (command === "apply_profile") {
+        // 成功路径返回 void；同时记录调用以便断言传参正确
+        return null;
+      }
+      // 默认其他 command 走 null，避免误触发未 mock 的副作用
+      void args;
+      return null;
+    });
+
+    render(
+      <I18nProvider>
+        <ThemeProvider>
+          <ProfilesPage workspace={unboundWorkspace} onWorkspaceChange={onWorkspaceChange} />
+        </ThemeProvider>
+      </I18nProvider>,
+    );
+
+    fireEvent.click(
+      within(getProfileCard("OpenRouter User")).getByRole("button", { name: "启用" }),
+    );
+
+    await waitFor(() => {
+      // 用 id 调 apply_profile —— ProfilesPage 不应让前端自己计算合并设置
+      expect(invokeMock).toHaveBeenCalledWith(
+        "apply_profile",
+        expect.objectContaining({ id: expect.any(String) }),
+      );
+    });
+
+    // 成功后必须刷新 workspace 并发出成功 toast，避免 UI 与后端状态脱节
+    await waitFor(() => {
+      expect(onWorkspaceChange).toHaveBeenCalled();
+      expect(showToastMock).toHaveBeenCalledWith("配置已应用");
+    });
+  });
+
   it("disables the batch test action when there are no profiles", () => {
     localStorage.setItem(
       SETTINGS_STORAGE_KEY,
