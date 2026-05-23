@@ -89,15 +89,16 @@ AI Manager 主要读写本机文件。配置合并、目录扫描、用量聚合
 make init             # 安装依赖并检查 Rust 工具链
 make dev              # 启动 Tauri 桌面开发模式
 make build            # 构建当前平台安装包
+make build-frontend   # TypeScript 检查并构建前端
 make lint             # 前端 Biome + Rust clippy
 make test             # Rust 测试 + 前端测试
 make check            # Rust cargo check
-pnpm biome:ci         # 前端只读静态检查
-pnpm build            # TypeScript 检查并构建前端
-pnpm test             # 运行前端测试
+make verify           # 本地 CI-like 验证入口
+make lint-frontend    # 前端只读静态检查
+make test-frontend    # 运行前端测试
 ```
 
-`pnpm install` 会触发 `prepare` 脚本并安装 lefthook git hooks。`make fmt` 与 `pnpm check` 会改写文件；只想做只读检查时使用 `make lint` 或 `pnpm biome:ci`。
+`pnpm install` 会触发 `prepare` 脚本并安装 lefthook git hooks。`make fmt` 与 `pnpm check` 会改写文件；只想做只读检查时使用 `make lint` 或 `make lint-frontend`。
 
 构建产物默认位于 `src-tauri/target/release/bundle/`。
 

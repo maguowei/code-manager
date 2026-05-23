@@ -93,4 +93,4 @@ const result = await invoke("get_config_workspace");
 
 ## 验证
 
-通用命令见 `CLAUDE.md` 的「测试与验证」。前后端契约、Tauri command、capability 或 usage migration 变更至少需要 `pnpm build` 与 `cd src-tauri && cargo test`；Rust 行为变更再补 `cargo clippy --all-targets -- -D warnings`。
+通用命令见 `CLAUDE.md` 的「测试与验证」。前后端契约、Tauri command、capability 或 usage migration 变更至少需要 `make build-frontend` 与 `make test-rust`；Rust 行为变更再补 `make check` 和 `make lint-rust`。

@@ -1,4 +1,4 @@
-.PHONY: init dev build build-universal preview check test test-rust test-frontend lint lint-rust lint-frontend fmt fmt-rust fmt-frontend clean coverage coverage-rust coverage-rust-lcov coverage-frontend
+.PHONY: init dev build build-frontend build-universal preview check verify test test-rust test-frontend lint lint-rust lint-frontend fmt fmt-rust fmt-frontend clean coverage coverage-rust coverage-rust-lcov coverage-frontend
 
 RUST_COVERAGE_THRESHOLDS := --fail-under-regions 80 --fail-under-functions 70 --fail-under-lines 80
 
@@ -22,6 +22,10 @@ dev:
 build:
 	pnpm tauri build
 
+# 构建前端产物
+build-frontend:
+	pnpm build
+
 # 构建 macOS 通用包（同时包含 aarch64 和 x86_64）
 build-universal:
 	@echo ">>> 确保 macOS 双架构 Rust target 已安装..."
@@ -35,6 +39,9 @@ preview:
 # 快速检查 Rust 代码（不生成二进制，比 build 快）
 check:
 	cd src-tauri && cargo check
+
+# 本地 CI-like 验证入口
+verify: lint build-frontend test
 
 # 运行 Rust 与前端测试
 test: test-rust test-frontend
