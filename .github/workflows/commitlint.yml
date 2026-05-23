@@ -1,0 +1,42 @@
+name: Commitlint
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - edited
+
+permissions:
+  contents: read
+
+jobs:
+  commitlint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: 安装前端依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 检查 Push 提交信息
+        if: github.event_name == 'push'
+        run: pnpm exec commitlint --last --verbose
+
+      - name: 检查 Pull Request 提交信息
+        if: github.event_name == 'pull_request'
+        run: pnpm exec commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose

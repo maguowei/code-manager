@@ -77,7 +77,7 @@ rg --files
 按改动范围选最小充分集（完整清单见 `CLAUDE.md` 的「测试与验证」），并注意：
 
 - 标准验证优先走 `Makefile` target，例如 `make lint-frontend`、`make build-frontend`、`make test-rust`、`make verify`。
-- `pnpm check` 会写文件，只做只读前端检查时使用 `make lint-frontend`。
+- `pnpm check` 会写文件，只做只读前端检查时使用 `make lint-frontend`；只读格式检查用 `make fmt-check`。
 - `pnpm dev` 只启动 Vite；需要原生壳时使用 `pnpm tauri dev`。
 - Tauri capability 或插件改动除了契约命令，还要本地实际触发相关路径说明。
 - UI 视觉改动在前端命令之外补本地应用或浏览器截图核验。
@@ -93,7 +93,7 @@ rg --files
 - 如果没跑某个合理验证，说明原因。
 - 是否存在剩余风险或需要用户确认的后续项。
 
-提交信息使用 Conventional Commits，例如：
+提交信息使用 Conventional Commits，并由本地 `commit-msg` hook 与 GitHub Actions commitlint workflow 共同检查，例如：
 
 ```text
 docs: 添加 Claude Code 使用最佳实践
@@ -124,13 +124,13 @@ refactor(settings): 收敛设置抽屉表单结构
 
 ### Hooks
 
-官方文档把 hooks 定位为"必须每次发生且没有例外"的确定性动作。本项目可以考虑的 hooks：
+官方文档把 hooks 定位为"必须每次发生且没有例外"的确定性动作。本项目采用三层门禁：
 
-- 编辑 `src/**/*.{ts,tsx}` 后运行局部格式检查或提示运行 `make lint-frontend`。
-- 提交前阻止包含密钥样式字段的日志或文档片段。
-- 修改 `src-tauri/capabilities/default.json` 后提示同步 Tauri command 和前端调用说明。
+- `.claude/settings.json` 的 hooks 做会话级 guardrail：阻止绕过 lefthook 的 Bash 命令，并在 Stop 时按变更范围提示验证命令。
+- `lefthook.yml` 做本地 Git 门禁：pre-commit 负责 staged 格式化和轻量配置检查，commit-msg 负责 commitlint，pre-push 负责 `make verify`。
+- GitHub Actions 做远端权威门禁：commitlint workflow 检查提交信息，CI 和 release quality job 执行不可绕过的构建、lint、test。
 
-不建议把耗时全量命令无条件放进每次编辑后执行，例如 `make build-frontend`、`make test-rust`。这些更适合任务收尾或 pre-commit（本仓库 pre-commit 由 lefthook 配置，详见 `lefthook.yml`）。
+不建议把耗时全量命令无条件放进每次编辑后执行，例如 `make build-frontend`、`make test-rust`。这些更适合任务收尾、pre-push 或 CI。
 
 ### 权限模式
 

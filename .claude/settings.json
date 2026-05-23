@@ -1,11 +1,63 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
-      "Bash(cargo check:*)",
+      "Bash(make lint-frontend)",
+      "Bash(make build-frontend)",
+      "Bash(make test-frontend)",
+      "Bash(make check)",
+      "Bash(make lint-rust)",
+      "Bash(make test-rust)",
+      "Bash(make fmt-rust-check)",
+      "Bash(make fmt-check)",
+      "Bash(make verify)",
+      "Bash(pnpm exec lefthook *)",
+      "Bash(pnpm exec commitlint *)",
+      "Bash(pnpm commitlint *)",
+      "Bash(pnpm install --frozen-lockfile)",
       "WebFetch(domain:docs.anthropic.com)",
-      "Bash(npx vitest run *)",
-      "Bash(npx biome check *)",
-      "Bash(npx vite build *)"
+      "WebFetch(domain:code.claude.com)",
+      "WebFetch(domain:lefthook.dev)",
+      "WebFetch(domain:commitlint.js.org)",
+      "WebFetch(domain:docs.github.com)"
+    ],
+    "deny": [
+      "Read(./.env*)",
+      "Read(./**/.env*)",
+      "Read(./**/*secret*)",
+      "Read(./**/*secrets*)",
+      "Bash(git commit *--no-verify*)",
+      "Bash(git commit * -n *)",
+      "Bash(git push *--no-verify*)",
+      "Bash(*LEFTHOOK=0* git commit*)",
+      "Bash(*LEFTHOOK=0* git push*)",
+      "Bash(git config *core.hooksPath*)",
+      "Bash(git -c core.hooksPath*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/bash-policy.mjs",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/stop-quality-reminder.mjs",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }

@@ -1,6 +1,32 @@
+min_version: 2.1.5
+skip_lfs: true
+
 pre-commit:
+  parallel: false
   commands:
+    diff-check:
+      run: git diff --check --cached
     biome:
       glob: "*.{js,ts,tsx,json,css}"
       run: pnpm biome check --write --no-errors-on-unmatched {staged_files}
       stage_fixed: true
+    rustfmt:
+      glob: "src-tauri/**/*.rs"
+      run: cargo fmt --manifest-path src-tauri/Cargo.toml --all
+      stage_fixed: true
+    claude-settings-json:
+      glob: ".claude/settings.json"
+      run: node -e "JSON.parse(require('node:fs').readFileSync('.claude/settings.json', 'utf8'))"
+    lefthook-config:
+      glob: "lefthook.yml"
+      run: pnpm exec lefthook validate
+
+commit-msg:
+  commands:
+    commitlint:
+      run: pnpm exec commitlint --edit {1}
+
+pre-push:
+  commands:
+    verify:
+      run: make verify

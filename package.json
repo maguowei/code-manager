@@ -24,8 +24,11 @@
     "tauri": "tauri",
     "lint": "biome lint .",
     "format": "biome format --write .",
+    "fmt-check": "make fmt-check",
+    "fmt-rust-check": "make fmt-rust-check",
     "check": "biome check --write .",
     "biome:ci": "biome ci .",
+    "commitlint": "commitlint",
     "prepare": "node -e \"const { spawnSync } = require('node:child_process'); const git = spawnSync('git', ['rev-parse', '--git-dir'], { stdio: 'ignore' }); if (git.status === 0) { const hook = spawnSync('lefthook', ['install', '--reset-hooks-path'], { stdio: 'inherit' }); process.exit(hook.status ?? 1); }\""
   },
   "dependencies": {
@@ -73,6 +76,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.11",
+    "@commitlint/cli": "^21.0.1",
+    "@commitlint/config-conventional": "^21.0.1",
     "@tauri-apps/cli": "^2.10.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",

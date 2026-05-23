@@ -1,4 +1,4 @@
-.PHONY: init dev build build-frontend build-universal preview check verify test test-rust test-frontend lint lint-rust lint-frontend fmt fmt-rust fmt-frontend clean coverage coverage-rust coverage-rust-lcov coverage-frontend
+.PHONY: init dev build build-frontend build-universal preview check verify test test-rust test-frontend lint lint-rust lint-frontend fmt fmt-check fmt-rust fmt-rust-check fmt-frontend clean coverage coverage-rust coverage-rust-lcov coverage-frontend
 
 RUST_COVERAGE_THRESHOLDS := --fail-under-regions 80 --fail-under-functions 70 --fail-under-lines 80
 
@@ -41,7 +41,7 @@ check:
 	cd src-tauri && cargo check
 
 # 本地 CI-like 验证入口
-verify: lint build-frontend test
+verify: fmt-rust-check lint build-frontend test
 
 # 运行 Rust 与前端测试
 test: test-rust test-frontend
@@ -68,6 +68,9 @@ lint-rust:
 # 格式化前端与 Rust 代码
 fmt: fmt-frontend fmt-rust
 
+# 只读格式检查
+fmt-check: lint-frontend fmt-rust-check
+
 # 格式化前端代码
 fmt-frontend:
 	pnpm format
@@ -75,6 +78,10 @@ fmt-frontend:
 # 格式化 Rust 代码
 fmt-rust:
 	cd src-tauri && cargo fmt
+
+# 只读检查 Rust 格式
+fmt-rust-check:
+	cd src-tauri && cargo fmt --all -- --check
 
 # 清理构建产物
 clean:
