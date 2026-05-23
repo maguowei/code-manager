@@ -1029,14 +1029,18 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::{
-        build_pending_session_notification, load_tray_sessions_from_dir,
+        build_pending_session_notification, get_tray_title, is_idle_session_status,
+        is_running_session_status, is_waiting_session_status, load_tray_sessions_from_dir,
         parse_session_menu_item_id, pending_session_notification_interaction_for_platform,
         session_focus_failure_notification_enabled, session_menu_focus_enabled_for_platform,
-        session_menu_item_id, session_menu_item_label, session_status_label, sessions_tray_title,
+        session_menu_item_id, session_menu_item_label, session_project_name,
+        session_status_label, session_tray_separator, sessions_tray_title,
         sessions_tray_title_for_frame, tray_labels_for_language, PendingSessionFocusTarget,
-        PendingSessionNotificationInteraction, PendingSessionNotifier, TraySession,
+        PendingSessionNotificationInteraction, PendingSessionNotifier, RawTraySession,
+        TraySession, SESSION_TRAY_ANIMATION_FRAMES,
     };
-    use crate::config::AppPreferences;
+    use crate::config::{AppPreferences, BindingState, ConfigProfile, ConfigRegistry};
+    use serde_json::json;
     use std::fs;
     use std::path::Path;
 
@@ -1515,5 +1519,305 @@ mod tests {
         assert_eq!(parse_session_menu_item_id("session_1::abc"), None);
         // hex 含非法字符
         assert_eq!(parse_session_menu_item_id("session_1::zzzz"), None);
+    }
+
+    /// `get_tray_title` 仅在偏好开启且存在绑定且能在 profiles 中匹配到 active id 时
+    /// 才返回 profile 名；否则一律返回 None。覆盖 4 个判断分支，避免菜单栏意外显示陈旧 profile。
+    #[test]
+    fn get_tray_title_resolves_only_when_enabled_and_bound_to_existing_profile() {
+        let make_profile = |id: &str, name: &str| ConfigProfile {
+            id: id.to_string(),
+            name: name.to_string(),
+            description: String::new(),
+            preset_id: None,
+            settings: json!({}),
+            created_at: String::new(),
+            updated_at: String::new(),
+        };
+        let make_registry = |show: bool,
+                             active: Option<&str>,
+                             profiles: Vec<ConfigProfile>|
+         -> ConfigRegistry {
+            let mut registry = ConfigRegistry {
+                app: AppPreferences {
+                    show_tray_title: show,
+                    ..AppPreferences::default()
+                },
+                profiles,
+                bindings: BindingState {
+                    user_profile_id: active.map(str::to_string),
+                    user_last_applied_at: None,
+                },
+                ..ConfigRegistry::default()
+            };
+            registry.app.show_tray_title = show;
+            registry
+        };
+
+        // 1. show_tray_title=false：即便有绑定也不显示
+        assert_eq!(
+            get_tray_title(&make_registry(
+                false,
+                Some("p1"),
+                vec![make_profile("p1", "Profile One")],
+            )),
+            None
+        );
+
+        // 2. 无绑定：返回 None
+        assert_eq!(
+            get_tray_title(&make_registry(
+                true,
+                None,
+                vec![make_profile("p1", "Profile One")],
+            )),
+            None
+        );
+
+        // 3. 绑定的 id 不在 profiles 列表（被删除后未清理 bindings）
+        assert_eq!(
+            get_tray_title(&make_registry(
+                true,
+                Some("missing"),
+                vec![make_profile("p1", "Profile One")],
+            )),
+            None
+        );
+
+        // 4. 正常命中：返回 profile name
+        assert_eq!(
+            get_tray_title(&make_registry(
+                true,
+                Some("p2"),
+                vec![
+                    make_profile("p1", "Profile One"),
+                    make_profile("p2", "Profile Two"),
+                ],
+            )),
+            Some("Profile Two".to_string())
+        );
+    }
+
+    /// `session_project_name` 取 cwd 最后一段作为项目名；
+    /// 边界：空字符串、仅一个段、根路径、纯空白文件名全部回退到原始 cwd。
+    #[test]
+    fn session_project_name_handles_edge_paths() {
+        // 正常 macOS 路径：取最后一段
+        assert_eq!(
+            session_project_name("/Users/demo/work/ai-manager"),
+            "ai-manager"
+        );
+        // 仅一个段：当作项目名
+        assert_eq!(session_project_name("standalone"), "standalone");
+        // 空 cwd 回退到原值（虽然 read_tray_session_file 会过滤空 cwd，但函数本身需稳健）
+        assert_eq!(session_project_name(""), "");
+        // 根路径无 file_name，回退到原 cwd
+        assert_eq!(session_project_name("/"), "/");
+        // 中文目录名
+        assert_eq!(session_project_name("/Users/demo/中文项目"), "中文项目");
+    }
+
+    /// `From<RawTraySession>` 必须 trim 所有字符串字段，且把空白 / 空字符串的 `waiting_for`
+    /// 规约为 None；否则下游菜单项会显示 ` · ` 这样的空段。
+    #[test]
+    fn from_raw_tray_session_trims_whitespace_and_filters_empty_waiting_for() {
+        // 全 trim
+        let raw = RawTraySession {
+            pid: 42,
+            session_id: "  s1  ".to_string(),
+            cwd: "  /tmp/demo  ".to_string(),
+            status: "  waiting  ".to_string(),
+            updated_at: 100,
+            waiting_for: Some("   approve Bash   ".to_string()),
+        };
+        let session = TraySession::from(raw);
+        assert_eq!(session.session_id, "s1");
+        assert_eq!(session.cwd, "/tmp/demo");
+        assert_eq!(session.status, "waiting");
+        assert_eq!(session.waiting_for.as_deref(), Some("approve Bash"));
+
+        // 纯空白 waiting_for 视为缺省
+        let raw = RawTraySession {
+            pid: 42,
+            session_id: "s1".to_string(),
+            cwd: "/tmp".to_string(),
+            status: "idle".to_string(),
+            updated_at: 0,
+            waiting_for: Some("   ".to_string()),
+        };
+        assert_eq!(TraySession::from(raw).waiting_for, None);
+
+        // None waiting_for 直接保留为 None
+        let raw = RawTraySession {
+            pid: 42,
+            session_id: "s1".to_string(),
+            cwd: "/tmp".to_string(),
+            status: "idle".to_string(),
+            updated_at: 0,
+            waiting_for: None,
+        };
+        assert_eq!(TraySession::from(raw).waiting_for, None);
+    }
+
+    /// `session_tray_separator` 在 waiting/running 状态下旋转 Braille spinner，
+    /// 其它状态固定使用 `·`；spinner 索引必须按 frame 取模避免越界。
+    #[test]
+    fn session_tray_separator_picks_spinner_for_active_states_and_dot_for_others() {
+        // 静态状态：固定点
+        assert_eq!(session_tray_separator("idle", 0), "·");
+        assert_eq!(session_tray_separator("idle", 7), "·");
+        assert_eq!(session_tray_separator("exited", 3), "·");
+
+        // 动态状态：取 frame 帧
+        assert_eq!(
+            session_tray_separator("waiting", 0),
+            SESSION_TRAY_ANIMATION_FRAMES[0]
+        );
+        assert_eq!(
+            session_tray_separator("running", 1),
+            SESSION_TRAY_ANIMATION_FRAMES[1]
+        );
+        // frame 越界自动 mod
+        let len = SESSION_TRAY_ANIMATION_FRAMES.len();
+        assert_eq!(
+            session_tray_separator("running", len * 3 + 2),
+            SESSION_TRAY_ANIMATION_FRAMES[2]
+        );
+
+        // 大小写与前后空白都应识别
+        assert_eq!(
+            session_tray_separator("  WAITING  ", 0),
+            SESSION_TRAY_ANIMATION_FRAMES[0]
+        );
+    }
+
+    /// status 比对必须大小写不敏感、忽略前后空白；
+    /// running 同时接受 `running` / `busy` / `active` 三种历史别名。
+    #[test]
+    fn is_idle_running_waiting_session_status_match_case_insensitive_with_trim() {
+        // waiting
+        assert!(is_waiting_session_status("waiting"));
+        assert!(is_waiting_session_status("WAITING"));
+        assert!(is_waiting_session_status("  Waiting  "));
+        assert!(!is_waiting_session_status("idle"));
+        assert!(!is_waiting_session_status(""));
+
+        // idle
+        assert!(is_idle_session_status("idle"));
+        assert!(is_idle_session_status("IDLE"));
+        assert!(!is_idle_session_status("waiting"));
+
+        // running 三个别名
+        assert!(is_running_session_status("running"));
+        assert!(is_running_session_status("busy"));
+        assert!(is_running_session_status("active"));
+        assert!(is_running_session_status("  Active  "));
+        assert!(!is_running_session_status("idle"));
+        assert!(!is_running_session_status("starting"));
+    }
+
+    /// `session_menu_item_label`:
+    /// - 非 waiting 状态：始终省略 waiting_for（即便后端误设也不渲染）；
+    /// - waiting 状态 + waiting_for=None：仅渲染项目名与状态；
+    /// - 项目名超过 32 字符必须截断。
+    #[test]
+    fn session_menu_item_label_omits_waiting_for_outside_waiting_and_when_absent() {
+        // 非 waiting 状态 + 有 waiting_for：应忽略 waiting_for
+        let mut running = test_session("/Users/demo/work/ai-manager", "running", 1000);
+        running.waiting_for = Some("不应渲染".to_string());
+        assert_eq!(
+            session_menu_item_label(&running, "zh"),
+            "ai-manager · 运行中"
+        );
+
+        // waiting 状态但 waiting_for=None
+        let waiting = test_session("/Users/demo/work/ai-manager", "waiting", 2000);
+        assert_eq!(
+            session_menu_item_label(&waiting, "zh"),
+            "ai-manager · 待处理"
+        );
+
+        // 长项目名截断到 32 字符（truncate 在末尾追加 "..."）
+        let long = test_session(
+            "/Users/demo/work/this-is-a-really-really-long-project-name-that-exceeds-limit",
+            "idle",
+            0,
+        );
+        let label = session_menu_item_label(&long, "en");
+        // 截断后应仍带状态后缀
+        assert!(label.ends_with(" · Idle"));
+        // 项目名部分不超过 32 + "..." 的截断长度（truncate 的行为）
+        let project_part = label.trim_end_matches(" · Idle");
+        assert!(
+            project_part.chars().count() <= 35,
+            "label 项目段过长: {project_part}"
+        );
+    }
+
+    /// 加载 sessions 目录时：缺 sessionId / 缺 status 视作非法条目跳过，
+    /// 但有空白填充的字段经 trim 后非空仍应被接受。补充 `load_tray_sessions_reads_valid_json_...`
+    /// 没覆盖到的「空白字段被 trim 后为空」边界。
+    #[test]
+    fn load_tray_sessions_filters_entries_with_only_whitespace_required_fields() {
+        let root = std::env::temp_dir().join(format!(
+            "ai-manager-tray-whitespace-{}",
+            uuid::Uuid::new_v4()
+        ));
+        fs::create_dir_all(&root).expect("应可创建测试目录");
+
+        // status 仅空白：trim 后为空，应被跳过
+        fs::write(
+            root.join("ws_status.json"),
+            br#"{"pid":1,"sessionId":"s","cwd":"/tmp","status":"   ","updatedAt":1}"#,
+        )
+        .unwrap();
+        // sessionId 仅空白：同样跳过
+        fs::write(
+            root.join("ws_id.json"),
+            br#"{"pid":2,"sessionId":"  ","cwd":"/tmp","status":"idle","updatedAt":2}"#,
+        )
+        .unwrap();
+        // cwd 仅空白：跳过
+        fs::write(
+            root.join("ws_cwd.json"),
+            br#"{"pid":3,"sessionId":"x","cwd":"  ","status":"idle","updatedAt":3}"#,
+        )
+        .unwrap();
+        // 全部合法（带前后空白）
+        fs::write(
+            root.join("ok.json"),
+            br#"{"pid":4,"sessionId":"  ok  ","cwd":"  /tmp/ok  ","status":"  idle  ","updatedAt":4}"#,
+        )
+        .unwrap();
+
+        let sessions = load_tray_sessions_from_dir(&root);
+        assert_eq!(sessions.len(), 1, "仅留下 ok.json");
+        assert_eq!(sessions[0].session_id, "ok");
+        assert_eq!(sessions[0].cwd, "/tmp/ok");
+        assert_eq!(sessions[0].status, "idle");
+
+        fs::remove_dir_all(root).ok();
+    }
+
+    /// `sessions_tray_title_for_frame` 在多会话场景下 fallback 链：
+    /// 没有 waiting/running/idle 时回退到通用 `<sessions_title> N` 形式。
+    /// 之前的 idle/waiting/running 测试已覆盖 highlight 分支，补这个 fallback 边界。
+    #[test]
+    fn sessions_tray_title_falls_back_to_count_when_no_known_status() {
+        let zh = tray_labels_for_language("zh");
+        let en = tray_labels_for_language("en");
+        // 全部为 starting / exited：不属于 waiting/running/idle，应走 fallback
+        let sessions = vec![
+            test_session("/a", "starting", 100),
+            test_session("/b", "exited", 200),
+        ];
+        assert_eq!(
+            sessions_tray_title_for_frame(&sessions, &zh, 0).as_deref(),
+            Some("会话 2")
+        );
+        assert_eq!(
+            sessions_tray_title_for_frame(&sessions, &en, 0).as_deref(),
+            Some("Sessions 2")
+        );
     }
 }

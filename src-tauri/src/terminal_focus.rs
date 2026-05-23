@@ -364,4 +364,41 @@ mod tests {
         let (title_fallback, _) = FocusFailure::TabNotFound.user_message("fr");
         assert_eq!(title_fallback, "会话聚焦失败");
     }
+
+    /// 补足英文 body 覆盖：TtyNotFound / EmptyCwd / Unsupported / ScriptError
+    /// 之前只测了 TabNotFound 的英文，其它分支没有 assert。
+    #[test]
+    fn focus_failure_user_message_english_branches_cover_all_variants() {
+        let (_, body) = FocusFailure::TtyNotFound.user_message("en");
+        assert!(body.to_lowercase().contains("session process has exited"));
+
+        let (_, body) = FocusFailure::EmptyCwd.user_message("en");
+        assert!(body.to_lowercase().contains("working directory"));
+
+        let (_, body) = FocusFailure::Unsupported("warp".to_string()).user_message("en");
+        assert!(body.contains("'warp'"));
+        assert!(body.to_lowercase().contains("does not support"));
+
+        let (_, body) = FocusFailure::ScriptError.user_message("en");
+        assert!(body.to_lowercase().contains("failed to invoke the terminal"));
+    }
+
+    /// 之前的 applescript_templates 只验证了 Terminal.app 与 Ghostty 的模板,
+    /// 补足 iterm_script 的核心结构:必须遍历 windows -> tabs -> sessions 三层
+    /// 并按 tty 字段匹配,命中后调用 select 链与 activate。
+    #[test]
+    fn iterm_script_template_walks_sessions_and_matches_tty() {
+        let script = iterm_script("/dev/ttys012");
+        assert!(script.contains(r#"tell application "iTerm""#));
+        assert!(script.contains(r#"set targetTty to "/dev/ttys012""#));
+        assert!(script.contains("repeat with w in windows"));
+        assert!(script.contains("repeat with aTab in tabs of w"));
+        assert!(script.contains("repeat with aSession in sessions of aTab"));
+        assert!(script.contains("if tty of aSession is targetTty then"));
+        assert!(script.contains("tell w to select"));
+        assert!(script.contains("tell aTab to select"));
+        assert!(script.contains("activate"));
+        assert!(script.contains("return true"));
+        assert!(script.contains("return false"));
+    }
 }
