@@ -5,7 +5,7 @@
 
 mod common;
 
-use ai_manager_lib::test_api::{ConfigRegistry, apply_profile_inner};
+use ai_manager_lib::test_api::{apply_profile_inner, ConfigRegistry};
 use common::IntegrationEnv;
 use serde_json::Value;
 use serial_test::serial;
@@ -114,12 +114,8 @@ fn apply_profile_errors_when_profile_id_missing() {
     let env = IntegrationEnv::new("apply-missing");
     seed_registry(&env, "existing", serde_json::json!({}));
 
-    let err = apply_profile_inner("ghost".into())
-        .expect_err("不存在的 profile id 必须报错");
-    assert!(
-        !err.is_empty(),
-        "错误信息不应为空字符串：{err}"
-    );
+    let err = apply_profile_inner("ghost".into()).expect_err("不存在的 profile id 必须报错");
+    assert!(!err.is_empty(), "错误信息不应为空字符串：{err}");
 
     // 不应写入 settings.json
     let settings_path = env.claude_dir().join("settings.json");

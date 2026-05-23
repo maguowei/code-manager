@@ -6,7 +6,7 @@
 mod common;
 
 use ai_manager_lib::test_api::{
-    MessageBlock, SessionDetail, get_history, get_history_if_changed, get_session_detail,
+    get_history, get_history_if_changed, get_session_detail, MessageBlock, SessionDetail,
 };
 use common::IntegrationEnv;
 use serial_test::serial;
@@ -37,13 +37,13 @@ fn get_history_if_changed_round_trips_with_real_mtime() {
 
     let first = get_history().expect("初次读取应成功");
     // 同 mtime 应返回 None
-    let unchanged =
-        get_history_if_changed(first.mtime).expect("同 mtime 调用应正常返回");
+    let unchanged = get_history_if_changed(first.mtime).expect("同 mtime 调用应正常返回");
     assert!(unchanged.is_none(), "mtime 未变时应返回 None");
 
     // 用一个明显小于真实 mtime 的值，应返回 Some
-    let changed =
-        get_history_if_changed(0).expect("mtime=0 必触发重读").expect("应返回 Some");
+    let changed = get_history_if_changed(0)
+        .expect("mtime=0 必触发重读")
+        .expect("应返回 Some");
     assert_eq!(changed.content, first.content);
 }
 
@@ -55,10 +55,7 @@ fn get_session_detail_parses_real_session_file_layout() {
     let project = "/Users/demo/proj";
     let session_id = "abc-123";
     env.write_claude_file(
-        &format!(
-            "projects/-Users-demo-proj/{}.jsonl",
-            session_id
-        ),
+        &format!("projects/-Users-demo-proj/{}.jsonl", session_id),
         // 一行 assistant 调 tool_use，下一行 user 全是 tool_result（应合并到上一条 assistant）
         "{\"type\":\"assistant\",\"timestamp\":\"2026-05-20T10:00:00Z\",\
          \"message\":{\"role\":\"assistant\",\"content\":[\

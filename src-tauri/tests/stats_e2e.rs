@@ -5,7 +5,7 @@
 
 mod common;
 
-use ai_manager_lib::test_api::{ClaudeStats, get_stats};
+use ai_manager_lib::test_api::{get_stats, ClaudeStats};
 use common::IntegrationEnv;
 use serial_test::serial;
 
@@ -53,14 +53,12 @@ fn get_stats_reads_real_payload_with_projects_and_tool_usage() {
         .get("/Users/demo/proj-a")
         .expect("应包含 proj-a");
     assert_eq!(proj.last_session_id.as_deref(), Some("sess-a"));
-    assert_eq!(proj.last_session_first_prompt.as_deref(), Some("重构这个模块"));
-    let model_usage = proj
-        .last_model_usage
-        .as_ref()
-        .expect("model usage 应存在");
-    let opus = model_usage
-        .get("claude-opus-4-7")
-        .expect("opus 模型应存在");
+    assert_eq!(
+        proj.last_session_first_prompt.as_deref(),
+        Some("重构这个模块")
+    );
+    let model_usage = proj.last_model_usage.as_ref().expect("model usage 应存在");
+    let opus = model_usage.get("claude-opus-4-7").expect("opus 模型应存在");
     assert_eq!(opus.input_tokens, 1000);
 
     let read_usage = stats.tool_usage.get("Read").expect("Read 工具应存在");

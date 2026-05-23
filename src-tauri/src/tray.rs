@@ -739,9 +739,10 @@ fn start_sessions_tray_title_animator(app_handle: AppHandle) {
             // 没有 waiting/running 会话时，无谓的 set_title 与 read_dir 是纯浪费，
             // 让 animator 进入 5 秒怠速；watcher 检测到 sessions 变化后会再次触发刷新
             let sessions = load_tray_sessions();
-            let needs_spin = sessions
-                .iter()
-                .any(|session| is_waiting_session_status(&session.status) || is_running_session_status(&session.status));
+            let needs_spin = sessions.iter().any(|session| {
+                is_waiting_session_status(&session.status)
+                    || is_running_session_status(&session.status)
+            });
             if needs_spin {
                 SESSION_TRAY_ANIMATION_FRAME.fetch_add(1, Ordering::Relaxed);
                 refresh_sessions_tray_title_with_sessions(&app_handle, &sessions);
@@ -1033,11 +1034,10 @@ mod tests {
         is_running_session_status, is_waiting_session_status, load_tray_sessions_from_dir,
         parse_session_menu_item_id, pending_session_notification_interaction_for_platform,
         session_focus_failure_notification_enabled, session_menu_focus_enabled_for_platform,
-        session_menu_item_id, session_menu_item_label, session_project_name,
-        session_status_label, session_tray_separator, sessions_tray_title,
-        sessions_tray_title_for_frame, tray_labels_for_language, PendingSessionFocusTarget,
-        PendingSessionNotificationInteraction, PendingSessionNotifier, RawTraySession,
-        TraySession, SESSION_TRAY_ANIMATION_FRAMES,
+        session_menu_item_id, session_menu_item_label, session_project_name, session_status_label,
+        session_tray_separator, sessions_tray_title, sessions_tray_title_for_frame,
+        tray_labels_for_language, PendingSessionFocusTarget, PendingSessionNotificationInteraction,
+        PendingSessionNotifier, RawTraySession, TraySession, SESSION_TRAY_ANIMATION_FRAMES,
     };
     use crate::config::{AppPreferences, BindingState, ConfigProfile, ConfigRegistry};
     use serde_json::json;
@@ -1534,25 +1534,23 @@ mod tests {
             created_at: String::new(),
             updated_at: String::new(),
         };
-        let make_registry = |show: bool,
-                             active: Option<&str>,
-                             profiles: Vec<ConfigProfile>|
-         -> ConfigRegistry {
-            let mut registry = ConfigRegistry {
-                app: AppPreferences {
-                    show_tray_title: show,
-                    ..AppPreferences::default()
-                },
-                profiles,
-                bindings: BindingState {
-                    user_profile_id: active.map(str::to_string),
-                    user_last_applied_at: None,
-                },
-                ..ConfigRegistry::default()
+        let make_registry =
+            |show: bool, active: Option<&str>, profiles: Vec<ConfigProfile>| -> ConfigRegistry {
+                let mut registry = ConfigRegistry {
+                    app: AppPreferences {
+                        show_tray_title: show,
+                        ..AppPreferences::default()
+                    },
+                    profiles,
+                    bindings: BindingState {
+                        user_profile_id: active.map(str::to_string),
+                        user_last_applied_at: None,
+                    },
+                    ..ConfigRegistry::default()
+                };
+                registry.app.show_tray_title = show;
+                registry
             };
-            registry.app.show_tray_title = show;
-            registry
-        };
 
         // 1. show_tray_title=false：即便有绑定也不显示
         assert_eq!(

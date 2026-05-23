@@ -380,7 +380,9 @@ mod tests {
         assert!(body.to_lowercase().contains("does not support"));
 
         let (_, body) = FocusFailure::ScriptError.user_message("en");
-        assert!(body.to_lowercase().contains("failed to invoke the terminal"));
+        assert!(body
+            .to_lowercase()
+            .contains("failed to invoke the terminal"));
     }
 
     /// 之前的 applescript_templates 只验证了 Terminal.app 与 Ghostty 的模板,

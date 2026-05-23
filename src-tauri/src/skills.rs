@@ -624,7 +624,8 @@ pub fn duplicate_skill(id: String, is_active: bool, name_suffix: String) -> Resu
             original.user_invocable,
             &original.content,
         );
-        if let Err(error) = crate::utils::ensure_dir_and_write_atomic(&target.join("SKILL.md"), &raw)
+        if let Err(error) =
+            crate::utils::ensure_dir_and_write_atomic(&target.join("SKILL.md"), &raw)
         {
             let _ = fs::remove_dir_all(&target);
             return Err(format!("写入 Skill 副本失败: {}", error));

@@ -195,7 +195,7 @@ pub mod test_api {
         get_history, get_history_if_changed, get_session_detail, HistoryResult, MessageBlock,
         SessionDetail, SessionMessage,
     };
-    pub use crate::stats::{ClaudeStats, ProjectStats, get_stats};
+    pub use crate::stats::{get_stats, ClaudeStats, ProjectStats};
 
     /// 测试可访问的 utils 子集
     pub mod utils {

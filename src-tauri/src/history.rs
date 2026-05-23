@@ -769,9 +769,17 @@ mod tests {
 
         let detail = get_session_detail("/p", "s1").expect("解析应成功");
 
-        assert_eq!(detail.messages.len(), 1, "tool_result 合并后应只剩 1 条消息");
+        assert_eq!(
+            detail.messages.len(),
+            1,
+            "tool_result 合并后应只剩 1 条消息"
+        );
         assert_eq!(detail.messages[0].role, "assistant");
-        assert_eq!(detail.messages[0].blocks.len(), 2, "tool_use + tool_result 两个 block");
+        assert_eq!(
+            detail.messages[0].blocks.len(),
+            2,
+            "tool_use + tool_result 两个 block"
+        );
     }
 
     #[test]
@@ -786,7 +794,10 @@ mod tests {
         assert_eq!(detail.messages.len(), 1);
         match &detail.messages[0].blocks[0] {
             MessageBlock::System { summary } => assert!(summary.contains("some meta text")),
-            other => panic!("isMeta 应折叠为 System: {:?}", serde_json::to_string(other).ok()),
+            other => panic!(
+                "isMeta 应折叠为 System: {:?}",
+                serde_json::to_string(other).ok()
+            ),
         }
     }
 
@@ -805,7 +816,12 @@ mod tests {
         assert_eq!(detail.messages.len(), 1);
         let blocks = &detail.messages[0].blocks;
         // 应只剩 Plan block，原文本被识别为计划完整匹配并移除
-        assert_eq!(blocks.len(), 1, "完整匹配的计划文本应被移除，仅留 Plan: {:?}", serde_json::to_string(blocks).ok());
+        assert_eq!(
+            blocks.len(),
+            1,
+            "完整匹配的计划文本应被移除，仅留 Plan: {:?}",
+            serde_json::to_string(blocks).ok()
+        );
         assert!(matches!(&blocks[0], MessageBlock::Plan { .. }));
     }
 
@@ -825,17 +841,17 @@ mod tests {
         let blocks = parse_content_blocks(&value);
 
         assert_eq!(blocks.len(), 2, "未知类型必须被跳过");
-        assert!(matches!(&blocks[0], MessageBlock::Thinking { thinking } if thinking == "思考过程"));
+        assert!(
+            matches!(&blocks[0], MessageBlock::Thinking { thinking } if thinking == "思考过程")
+        );
         assert!(matches!(&blocks[1], MessageBlock::ToolUse { name, .. } if name == "Bash"));
     }
 
     #[test]
     fn parse_content_blocks_handles_tool_result_string_and_array_shapes() {
         // tool_result.content 既可能是字符串，也可能是 [{type:text,text:...}] 数组
-        let str_form: serde_json::Value = serde_json::from_str(
-            r#"[{"type":"tool_result","content":"plain text"}]"#,
-        )
-        .unwrap();
+        let str_form: serde_json::Value =
+            serde_json::from_str(r#"[{"type":"tool_result","content":"plain text"}]"#).unwrap();
         let arr_form: serde_json::Value = serde_json::from_str(
             r#"[{"type":"tool_result","content":[
                 {"type":"text","text":"line1"},
@@ -845,7 +861,9 @@ mod tests {
         .unwrap();
 
         let str_blocks = parse_content_blocks(&str_form);
-        assert!(matches!(&str_blocks[0], MessageBlock::ToolResult { content } if content == "plain text"));
+        assert!(
+            matches!(&str_blocks[0], MessageBlock::ToolResult { content } if content == "plain text")
+        );
 
         let arr_blocks = parse_content_blocks(&arr_form);
         assert!(
@@ -901,7 +919,9 @@ mod tests {
         );
 
         assert_eq!(blocks.len(), 2, "应同时产出 Command 与折叠后的 System");
-        assert!(matches!(&blocks[0], MessageBlock::Command { name, args } if name == "/foo" && args.as_deref() == Some("arg1")));
+        assert!(
+            matches!(&blocks[0], MessageBlock::Command { name, args } if name == "/foo" && args.as_deref() == Some("arg1"))
+        );
         // 命令后的内容应被折叠为 System，避免误显示为用户输入
         assert!(matches!(&blocks[1], MessageBlock::System { .. }));
     }
@@ -917,7 +937,10 @@ mod tests {
         assert_eq!(blocks.len(), 1);
         match &blocks[0] {
             MessageBlock::System { summary } => {
-                assert!(summary.len() <= 80 + 3, "应被 truncate 到 ≤80 字符（含省略号）"); // truncate 通常追加 "..."
+                assert!(
+                    summary.len() <= 80 + 3,
+                    "应被 truncate 到 ≤80 字符（含省略号）"
+                ); // truncate 通常追加 "..."
                 assert!(summary.starts_with('X'));
             }
             _ => panic!("应为 System block"),
@@ -934,9 +957,8 @@ mod tests {
     #[test]
     fn parse_text_with_tags_drops_pure_noise_tags() {
         // 只有 local-command-caveat 噪音标签，没有真实内容，应返回空 blocks
-        let blocks = parse_text_with_tags(
-            "<local-command-caveat>some caveat</local-command-caveat>",
-        );
+        let blocks =
+            parse_text_with_tags("<local-command-caveat>some caveat</local-command-caveat>");
         assert!(blocks.is_empty(), "纯噪音标签应被剥离后留空");
     }
 }

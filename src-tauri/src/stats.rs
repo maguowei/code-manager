@@ -252,8 +252,7 @@ mod tests {
         }
 
         fn write_claude_json(&self, content: &str) {
-            fs::write(self.root.join(".claude.json"), content)
-                .expect("写入 .claude.json 失败");
+            fs::write(self.root.join(".claude.json"), content).expect("写入 .claude.json 失败");
         }
     }
 
@@ -280,8 +279,11 @@ mod tests {
         env.write_claude_json("{not valid json");
 
         let stats = get_stats().expect("read_json_file 应吞掉解析错误并返回 Default");
-        assert_eq!(stats, ClaudeStats::default(),
-            "损坏的 .claude.json 必须降级为默认值，避免阻塞前端");
+        assert_eq!(
+            stats,
+            ClaudeStats::default(),
+            "损坏的 .claude.json 必须降级为默认值，避免阻塞前端"
+        );
     }
 
     #[test]
@@ -304,7 +306,10 @@ mod tests {
         assert_eq!(stats.num_startups, 42);
         assert_eq!(stats.projects.len(), 2);
         assert_eq!(
-            stats.projects.get("/p1").and_then(|p| p.last_session_id.as_deref()),
+            stats
+                .projects
+                .get("/p1")
+                .and_then(|p| p.last_session_id.as_deref()),
             Some("s-a")
         );
         let read_usage = stats
