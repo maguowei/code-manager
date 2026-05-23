@@ -1,4 +1,4 @@
-.PHONY: init dev build build-universal preview check test lint fmt clean
+.PHONY: init dev build build-universal preview check test lint fmt clean coverage coverage-lcov coverage-frontend
 
 # 初始化：安装前端依赖并确保 Rust 工具链就绪
 init:
@@ -51,3 +51,18 @@ fmt:
 clean:
 	cd src-tauri && cargo clean
 	rm -rf dist
+
+# Rust 覆盖率（html 报告输出到 src-tauri/target/llvm-cov/html/）
+coverage:
+	cd src-tauri && cargo llvm-cov --lib --tests --html \
+		--ignore-filename-regex '(tests/|/target/)'
+
+# Rust 覆盖率（生成 lcov.info 供 CI 上传 Codecov 等服务）
+coverage-lcov:
+	cd src-tauri && cargo llvm-cov --lib --tests --lcov \
+		--output-path lcov.info \
+		--ignore-filename-regex '(tests/|/target/)'
+
+# 前端覆盖率（html 报告输出到 ./coverage/）
+coverage-frontend:
+	pnpm test:coverage

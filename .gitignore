@@ -35,3 +35,8 @@ dist-ssr
 
 
 .superpowers/
+
+# 覆盖率报告（前端 vitest-v8 与 Rust cargo-llvm-cov）
+coverage/
+lcov.info
+src-tauri/lcov.info
