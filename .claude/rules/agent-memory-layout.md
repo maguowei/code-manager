@@ -12,6 +12,7 @@ paths:
 
 - `CLAUDE.md` 面向 AI Agent，是每次会话要加载的执行手册。
 - `AGENTS.md` 是 `CLAUDE.md` 的软链接，不单独维护。
+- `CLAUDE.local.md` 只放个人或机器特定偏好，必须保持未跟踪，不写入团队共享规则。
 - `README.md` 面向人类用户和项目访问者，说明产品定位、安装、快速使用、数据路径、本地开发命令、贡献反馈和延伸阅读。
 - `README.md` 可以保留一行技术栈概览和短仓库速览，方便人类快速判断项目类型和入口；详细技术栈、路径职责和 Agent 导航归 `CLAUDE.md` / path-scoped rules。
 - `docs/user-manual.md` 承载完整用户手册；`docs/platform-support.md` 承载平台矩阵；不要把这些长内容搬回根文档。
@@ -32,4 +33,5 @@ paths:
 
 - 修改 `CLAUDE.md` 后运行 `wc -l CLAUDE.md`，确认仍低于 200 行。
 - 修改 rules 后运行 `git grep -n "paths:" .claude/rules`，抽查 glob 是否仍指向真实文件。
+- 新增本地指令文件时确认 `CLAUDE.local.md` 未被提交。
 - 修改根文档或 rules 后运行 `git diff --check`，并检查是否出现旧版本号、旧文件名、乱码或断链。

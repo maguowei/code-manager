@@ -8,6 +8,7 @@
 - `CLAUDE.md` 只保留会话级事实、硬约束、规则索引和验证入口，目标控制在 200 行以内。
 - 细粒度规则放在 `.claude/rules/*.md`，通过 `paths` frontmatter 触发；不要用 `@.claude/rules/...` 把大规则 import 回主文件。
 - `AGENTS.md` 是指向本文件的软链接，不单独维护。
+- 个人或机器特定指令放 `CLAUDE.local.md`，保持未提交；不要把本地偏好写入共享根文档。
 
 ## 项目速览
 
