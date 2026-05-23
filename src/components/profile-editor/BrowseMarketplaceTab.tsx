@@ -86,7 +86,7 @@ export default function BrowseMarketplaceTab({
   const [expandedPluginIds, setExpandedPluginIds] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
-    if (!active) return;
+    if (!active || sources.length === 0) return;
     let cancelled = false;
     void loadPluginInstallCounts().then((counts) => {
       if (!cancelled) {
@@ -96,7 +96,7 @@ export default function BrowseMarketplaceTab({
     return () => {
       cancelled = true;
     };
-  }, [active]);
+  }, [active, sources.length]);
 
   const enabledMap = useMemo(() => {
     const map = new Map<string, boolean>();

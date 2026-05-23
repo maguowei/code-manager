@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import type { Memory } from "../../types";
@@ -55,6 +55,13 @@ function renderMemoryEditor(memory: Memory | null = null) {
   return { onSave };
 }
 
+async function clickAndFlush(element: Element) {
+  await act(async () => {
+    fireEvent.click(element);
+    await Promise.resolve();
+  });
+}
+
 describe("MemoryEditor", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -86,7 +93,7 @@ describe("MemoryEditor", () => {
     expect(screen.queryByRole("textbox", { name: /规则文件路径/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /路径匹配/ })).not.toBeInTheDocument();
 
-    fireEvent.click(rulesTarget);
+    await clickAndFlush(rulesTarget);
 
     expect(claudeTarget).not.toBeChecked();
     expect(rulesTarget).toBeChecked();
@@ -97,7 +104,7 @@ describe("MemoryEditor", () => {
     );
     expect(screen.queryByRole("textbox", { name: /路径匹配/ })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /高级规则/ }));
+    await clickAndFlush(screen.getByRole("button", { name: /高级规则/ }));
 
     expect(screen.getByRole("button", { name: /高级规则/ })).toHaveAttribute(
       "aria-expanded",

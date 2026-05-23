@@ -9,7 +9,7 @@ import { LIST_DETAIL_DRAWER_OFFSET_CLASS } from "../layout-size-classes";
 import { PANEL_SURFACE_CLASS, TOOLBAR_SURFACE_CLASS } from "../surface-classes";
 import { TYPOGRAPHY } from "../typography-classes";
 import { Button } from "../ui/button";
-import { Sheet, SheetContent } from "../ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "../ui/sheet";
 import {
   formatCost,
   formatShortDateTime,
@@ -59,7 +59,7 @@ function SessionUsageDrawer({ sessionId, onClose }: Props) {
       <SheetContent
         side="right"
         showCloseButton={false}
-        aria-labelledby="session-usage-detail-title"
+        aria-describedby={undefined}
         className={cn(
           "flex w-auto min-w-0 flex-col gap-0 border-l-0 bg-secondary p-0 sm:max-w-none",
           LIST_DETAIL_DRAWER_OFFSET_CLASS,
@@ -80,12 +80,11 @@ function SessionUsageDrawer({ sessionId, onClose }: Props) {
           >
             <X className="size-4" aria-hidden="true" />
           </Button>
-          <h2
-            id="session-usage-detail-title"
-            className={cn("min-w-0 truncate", TYPOGRAPHY.drawerTitle)}
-          >
-            {t("usage.detail.title")} - {shortSessionId(sessionId)}
-          </h2>
+          <SheetTitle asChild>
+            <h2 className={cn("min-w-0 truncate", TYPOGRAPHY.drawerTitle)}>
+              {t("usage.detail.title")} - {shortSessionId(sessionId)}
+            </h2>
+          </SheetTitle>
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto bg-secondary px-6 py-6">

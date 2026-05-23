@@ -32,6 +32,20 @@ function jsonlOf(entries: HistoryEntry[]): string {
   return entries.map((e) => JSON.stringify(e)).join("\n");
 }
 
+async function flushHookUpdates() {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
+async function advancePollingInterval() {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(5000);
+    await Promise.resolve();
+  });
+}
+
 describe("useHistoryEntries", () => {
   let restoreTauri: () => void;
 
@@ -104,10 +118,16 @@ describe("useHistoryEntries", () => {
     await waitFor(() => expect(showToastMock).toHaveBeenCalledTimes(1));
     showToastMock.mockClear();
 
-    await expect(result.current.reloadHistory({ suppressErrorToast: true })).rejects.toBeInstanceOf(
-      Error,
-    );
+    let reloadError: unknown;
+    await act(async () => {
+      try {
+        await result.current.reloadHistory({ suppressErrorToast: true });
+      } catch (error) {
+        reloadError = error;
+      }
+    });
 
+    expect(reloadError).toBeInstanceOf(Error);
     expect(showToastMock).not.toHaveBeenCalled();
   });
 
@@ -132,13 +152,12 @@ describe("useHistoryEntries", () => {
     const { result } = renderHook(() => useHistoryEntries("加载失败"));
 
     // 等初次加载完成；fake timers 下 microtask 仍走，需要让 react state 更新
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await flushHookUpdates();
+    expect(result.current.loading).toBe(false);
     expect(result.current.entries).toHaveLength(1);
 
     // 推进 5s 轮询一次
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(5000);
-    });
+    await advancePollingInterval();
 
     expect(result.current.entries).toHaveLength(2);
   });
@@ -162,12 +181,11 @@ describe("useHistoryEntries", () => {
     });
 
     const { result } = renderHook(() => useHistoryEntries("加载失败"));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await flushHookUpdates();
+    expect(result.current.loading).toBe(false);
     const before = result.current.entries;
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(5000);
-    });
+    await advancePollingInterval();
 
     // 引用相等说明没触发整页 rerender
     expect(result.current.entries).toBe(before);
@@ -185,12 +203,11 @@ describe("useHistoryEntries", () => {
     });
 
     renderHook(() => useHistoryEntries("加载失败"));
-    await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledWith("get_history"));
+    await flushHookUpdates();
+    expect(invokeMock).toHaveBeenCalledWith("get_history");
     showToastMock.mockClear();
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(5000);
-    });
+    await advancePollingInterval();
 
     expect(showToastMock).not.toHaveBeenCalled();
   });

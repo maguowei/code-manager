@@ -3,13 +3,21 @@ import { xcodeDark, xcodeLight } from "@uiw/codemirror-theme-xcode";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useCodeMirrorTheme } from "@/hooks/useCodeMirrorTheme";
 
+async function setHtmlDarkClass(enabled: boolean) {
+  await act(async () => {
+    document.documentElement.classList.toggle("dark", enabled);
+    // jsdom 的 MutationObserver 在微任务后触发。
+    await Promise.resolve();
+  });
+}
+
 describe("useCodeMirrorTheme", () => {
-  beforeEach(() => {
-    document.documentElement.classList.remove("dark");
+  beforeEach(async () => {
+    await setHtmlDarkClass(false);
   });
 
-  afterEach(() => {
-    document.documentElement.classList.remove("dark");
+  afterEach(async () => {
+    await setHtmlDarkClass(false);
   });
 
   it("html 无 dark class 时返回 xcodeLight", () => {
@@ -23,9 +31,7 @@ describe("useCodeMirrorTheme", () => {
 
     expect(result.current).toBe(xcodeLight);
 
-    act(() => {
-      document.documentElement.classList.add("dark");
-    });
+    await setHtmlDarkClass(true);
 
     await waitFor(() => {
       expect(result.current).toBe(xcodeDark);

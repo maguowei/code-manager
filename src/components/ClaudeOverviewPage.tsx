@@ -387,7 +387,7 @@ function ClaudeOverviewNameDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent className="sm:max-w-[400px]">
+      <DialogContent aria-describedby={undefined} className="sm:max-w-[400px]">
         <DialogHeader>
           <DialogTitle>{t(dialog.titleKey)}</DialogTitle>
         </DialogHeader>

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
@@ -17,11 +17,11 @@ const {
   openUrlMock,
   revealItemInDirMock,
 } = vi.hoisted(() => {
-  const eventListeners = new Map<string, Set<(payload: unknown) => void>>();
-  const emitTauriEvent = (event: string, payload: unknown) => {
-    for (const listener of eventListeners.get(event) ?? []) {
-      listener(payload);
-    }
+  const eventListeners = new Map<string, Set<(payload: unknown) => unknown>>();
+  const emitTauriEvent = async (event: string, payload: unknown) => {
+    await Promise.all(
+      Array.from(eventListeners.get(event) ?? []).map((listener) => listener(payload)),
+    );
   };
 
   return {
@@ -30,9 +30,9 @@ const {
     filePreviewMock: vi.fn(),
     fileTreeOptionsMock: vi.fn(),
     invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
-    listenMock: vi.fn(async (event: string, handler: (event: { payload: unknown }) => void) => {
+    listenMock: vi.fn(async (event: string, handler: (event: { payload: unknown }) => unknown) => {
       const listener = (payload: unknown) => handler({ payload });
-      const listeners = eventListeners.get(event) ?? new Set<(payload: unknown) => void>();
+      const listeners = eventListeners.get(event) ?? new Set<(payload: unknown) => unknown>();
       listeners.add(listener);
       eventListeners.set(event, listeners);
       return () => {
@@ -835,7 +835,9 @@ describe("App", () => {
       ([command]) => command === "get_config_workspace",
     ).length;
 
-    emitTauriEvent("claude-directory-changed", { paths: ["settings.json"] });
+    await act(async () => {
+      await emitTauriEvent("claude-directory-changed", { paths: ["settings.json"] });
+    });
 
     await waitFor(() => {
       expect(
@@ -903,7 +905,9 @@ describe("App", () => {
     expect(within(activeCard).getByText("使用中")).toBeInTheDocument();
 
     returnStaleWorkspace = true;
-    emitTauriEvent("claude-directory-changed", { paths: ["settings.json"] });
+    await act(async () => {
+      await emitTauriEvent("claude-directory-changed", { paths: ["settings.json"] });
+    });
 
     await waitFor(() => {
       const refreshedCard = screen.getByRole("button", { name: "OpenRouter User" });
@@ -1388,7 +1392,9 @@ describe("App", () => {
       );
     });
 
-    emitTauriEvent("claude-directory-changed", { paths: ["settings.json"] });
+    await act(async () => {
+      await emitTauriEvent("claude-directory-changed", { paths: ["settings.json"] });
+    });
 
     await waitFor(() => {
       expect(
@@ -1444,7 +1450,9 @@ describe("App", () => {
 
     expect(await screen.findByRole("tab", { name: "settings.json" })).toBeInTheDocument();
 
-    emitTauriEvent("claude-directory-changed", { paths: ["settings.json"] });
+    await act(async () => {
+      await emitTauriEvent("claude-directory-changed", { paths: ["settings.json"] });
+    });
 
     await waitFor(() => {
       expect(

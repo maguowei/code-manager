@@ -350,9 +350,11 @@ describe("ProfileEditor", () => {
     });
   });
 
-  afterEach(() => {
-    act(() => {
+  afterEach(async () => {
+    await act(async () => {
       vi.runOnlyPendingTimers();
+      await Promise.resolve();
+      await Promise.resolve();
     });
     vi.useRealTimers();
     Object.defineProperty(globalThis, "fetch", {

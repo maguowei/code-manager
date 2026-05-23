@@ -42,7 +42,7 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 import { ScrollArea } from "./ui/scroll-area";
-import { Sheet, SheetContent } from "./ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "./ui/sheet";
 
 const CLAUDE_CODE_DOCS_BASE_URL = "https://code.claude.com/docs";
 const CLAUDE_SKILLS_DOCS_PATH = "skills";
@@ -670,6 +670,8 @@ function SkillsPage({ onDrawerChange, onEditorExitGuardChange }: SkillsPageProps
               "w-auto border-l-0 bg-secondary p-0 shadow-floating sm:max-w-none",
             )}
           >
+            <SheetTitle className="sr-only">{t("skills.title")}</SheetTitle>
+            <SheetDescription className="sr-only">{t("skills.title")}</SheetDescription>
             <SkillEditor
               key={editingSkill?.id ?? "new-skill"}
               ref={skillEditorRef}

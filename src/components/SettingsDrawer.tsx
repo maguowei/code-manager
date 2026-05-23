@@ -53,7 +53,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
 import { Switch } from "./ui/switch";
 
 interface SettingsDrawerProps {
@@ -564,7 +564,6 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
       <SheetContent
         side="right"
         showCloseButton={false}
-        aria-labelledby="settings-drawer-title"
         className="flex w-full flex-col gap-0 p-0 sm:max-w-md"
       >
         <SheetHeader className="flex h-12 shrink-0 flex-row items-center gap-3 border-b px-4 py-0">
@@ -577,9 +576,8 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
           >
             <ChevronLeft aria-hidden="true" />
           </Button>
-          <SheetTitle id="settings-drawer-title" className="text-base">
-            {t("settings.title")}
-          </SheetTitle>
+          <SheetTitle className="text-base">{t("settings.title")}</SheetTitle>
+          <SheetDescription className="sr-only">{t("settings.title")}</SheetDescription>
         </SheetHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto bg-muted/30">

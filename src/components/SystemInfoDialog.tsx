@@ -5,7 +5,14 @@ import { showOperationError } from "@/lib/user-facing-error";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
 import { Button } from "./ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 
 interface SystemInfoDialogProps {
   onClose: () => void;
@@ -82,12 +89,10 @@ function SystemInfoDialog({ onClose }: SystemInfoDialogProps) {
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        aria-labelledby="system-info-dialog-title"
-        className="flex max-h-[85vh] w-[480px] max-w-[92vw] flex-col gap-4 bg-card p-6 sm:max-w-[480px]"
-      >
+      <DialogContent className="flex max-h-[85vh] w-[480px] max-w-[92vw] flex-col gap-4 bg-card p-6 sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle id="system-info-dialog-title">{t("settings.systemInfo")}</DialogTitle>
+          <DialogTitle>{t("settings.systemInfo")}</DialogTitle>
+          <DialogDescription>{t("settings.systemInfoDesc")}</DialogDescription>
         </DialogHeader>
         <div className="min-h-0 flex-1 overflow-y-auto">
           <table className="w-full border-collapse text-xs">

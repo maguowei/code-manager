@@ -2,17 +2,25 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useIsDark } from "../useIsDark";
 
+async function setHtmlDarkClass(enabled: boolean) {
+  await act(async () => {
+    document.documentElement.classList.toggle("dark", enabled);
+    // jsdom 的 MutationObserver 在微任务后触发。
+    await Promise.resolve();
+  });
+}
+
 describe("useIsDark", () => {
-  beforeEach(() => {
-    document.documentElement.classList.remove("dark");
+  beforeEach(async () => {
+    await setHtmlDarkClass(false);
   });
 
-  afterEach(() => {
-    document.documentElement.classList.remove("dark");
+  afterEach(async () => {
+    await setHtmlDarkClass(false);
   });
 
-  it("初始值取自 <html> 是否含有 dark class", () => {
-    document.documentElement.classList.add("dark");
+  it("初始值取自 <html> 是否含有 dark class", async () => {
+    await setHtmlDarkClass(true);
     const { result } = renderHook(() => useIsDark());
     expect(result.current).toBe(true);
   });
@@ -26,18 +34,11 @@ describe("useIsDark", () => {
     const { result } = renderHook(() => useIsDark());
     expect(result.current).toBe(false);
 
-    await act(async () => {
-      document.documentElement.classList.add("dark");
-      // jsdom 的 MutationObserver 在微任务后触发
-      await Promise.resolve();
-    });
+    await setHtmlDarkClass(true);
 
     expect(result.current).toBe(true);
 
-    await act(async () => {
-      document.documentElement.classList.remove("dark");
-      await Promise.resolve();
-    });
+    await setHtmlDarkClass(false);
 
     expect(result.current).toBe(false);
   });
@@ -46,10 +47,7 @@ describe("useIsDark", () => {
     const { result, unmount } = renderHook(() => useIsDark());
     unmount();
 
-    await act(async () => {
-      document.documentElement.classList.add("dark");
-      await Promise.resolve();
-    });
+    await setHtmlDarkClass(true);
 
     // 卸载后 hook 已脱离 React 树，result.current 保留卸载前的值
     expect(result.current).toBe(false);

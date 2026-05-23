@@ -115,7 +115,6 @@ function ModelTestResultDialog({
   const { t } = useI18n();
   const { isDark } = useTheme();
   const { showToast } = useToast();
-  const dialogTitleId = "model-test-dialog-title";
   const promptInputId = "model-test-prompt-input";
   const [promptDraft, setPromptDraft] = useState("");
   const [isPromptEditing, setIsPromptEditing] = useState(false);
@@ -284,7 +283,6 @@ function ModelTestResultDialog({
       <DialogContent
         showCloseButton={false}
         aria-describedby={undefined}
-        aria-labelledby={dialogTitleId}
         className="flex max-h-[80vh] w-[min(960px,calc(100vw-2rem))] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none"
       >
         <div className="flex flex-col gap-3 border-b border-border px-5 py-4">
@@ -292,7 +290,7 @@ function ModelTestResultDialog({
             <div className="min-w-0">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <DialogTitle asChild>
-                  <h3 id={dialogTitleId}>{t("profiles.editor.modelTest.dialogTitle")}</h3>
+                  <h3>{t("profiles.editor.modelTest.dialogTitle")}</h3>
                 </DialogTitle>
                 <span
                   className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold ${

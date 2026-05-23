@@ -46,7 +46,7 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 import { ScrollArea } from "./ui/scroll-area";
-import { Sheet, SheetContent } from "./ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "./ui/sheet";
 
 type MemoryPayload = {
   id?: string;
@@ -738,6 +738,8 @@ function MemoryPage({ onDrawerChange, onEditorExitGuardChange }: MemoryPageProps
               "w-auto border-l-0 bg-secondary p-0 shadow-floating sm:max-w-none",
             )}
           >
+            <SheetTitle className="sr-only">{t("memory.title")}</SheetTitle>
+            <SheetDescription className="sr-only">{t("memory.title")}</SheetDescription>
             <MemoryEditor
               key={editingMemory?.id ?? "new-memory"}
               ref={memoryEditorRef}
