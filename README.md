@@ -237,7 +237,7 @@ make preview          # 预览生产前端构建
 
 ### CI 与 Release
 
-- CI workflow（`.github/workflows/ci.yml`）在 `macos-26`、`ubuntu-24.04`、`windows-latest` 三平台并行运行 `pnpm biome:ci`、`pnpm build`、前端测试、`cargo check`、`cargo clippy --all-targets -- -D warnings`、`cargo test`；其中覆盖率门禁只在 Ubuntu 跑 `pnpm test:coverage`。文档类改动（`**.md`）不会触发 CI。
+- CI workflow（`.github/workflows/ci.yml`）在 `macos-26`、`ubuntu-24.04`、`windows-latest` 三平台并行运行 `pnpm biome:ci`、`pnpm build`、前端测试、`cargo check`、`cargo clippy --all-targets -- -D warnings`、`cargo test`；其中覆盖率门禁只在 Ubuntu 跑 `make coverage-frontend`。文档类改动（`**.md`）不会触发 CI。
 - Release workflow（`.github/workflows/release.yml`）由 `v*` 形式的 git tag 触发，macOS 构建 universal 包，Linux / Windows 构建各自平台包。
 
 ## 技术栈与仓库结构

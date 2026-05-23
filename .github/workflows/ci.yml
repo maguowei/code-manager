@@ -68,7 +68,7 @@ jobs:
 
       - name: 前端测试覆盖率
         if: matrix.platform == 'ubuntu-24.04'
-        run: pnpm test:coverage
+        run: make coverage-frontend
 
       - name: Rust 编译检查
         working-directory: src-tauri
