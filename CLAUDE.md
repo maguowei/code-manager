@@ -19,7 +19,7 @@
 - 表单与校验：react-hook-form + Zod + JSON Schema。
 - 编辑、预览与可视化：CodeMirror、react-markdown、@pierre/diffs、@pierre/trees、Recharts、@tanstack/react-virtual。
 - 本地缓存与日志：tauri-plugin-sql + SQLite、tauri-plugin-log。
-- 包管理器：`pnpm`，项目声明 `pnpm@10.33.0`；不要改用 `npm`。
+- 包管理器：`pnpm`，项目声明 `pnpm@11.2.2`；不要改用 `npm`。
 - 应用标识符：`com.gotobeta.app.ai-manager`。
 
 ## 会话工作流
