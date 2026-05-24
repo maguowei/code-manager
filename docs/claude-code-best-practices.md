@@ -127,7 +127,7 @@ refactor(settings): 收敛设置抽屉表单结构
 官方文档把 hooks 定位为"必须每次发生且没有例外"的确定性动作。本项目采用三层门禁：
 
 - `.claude/settings.json` 的 hooks 做会话级 guardrail：阻止绕过 lefthook 的 Bash 命令、Bash 侧敏感文件读取，并在 Stop 时按变更范围提示验证命令。
-- `lefthook.yml` 做本地 Git 门禁：pre-commit 负责 staged Biome 自动修复、Rust 格式检查和轻量配置检查，commit-msg 负责 commitlint，分支 pre-push 负责 `make verify`。
+- `lefthook.yml` 做本地 Git 门禁：pre-commit 负责 staged Biome 自动修复、Gitleaks 密钥扫描、Rust 格式检查和轻量配置检查，commit-msg 负责 commitlint，分支 pre-push 负责 `make verify`。
 - GitHub Actions 做远端权威门禁：commitlint workflow 检查提交信息，CI 和 release quality job 执行不可绕过的构建、lint、test。
 
 不建议把耗时全量命令无条件放进每次编辑后执行，例如 `make build-frontend`、`make test-rust`。这些更适合任务收尾、pre-push 或 CI。

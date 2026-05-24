@@ -10,6 +10,8 @@ pre-commit:
       glob: "*.{js,ts,tsx,json,css}"
       run: pnpm biome check --write --no-errors-on-unmatched {staged_files}
       stage_fixed: true
+    gitleaks:
+      run: gitleaks git --pre-commit --staged --redact --no-banner
     rustfmt:
       glob: "src-tauri/**/*.rs"
       run: rustfmt --edition 2021 --check {staged_files}

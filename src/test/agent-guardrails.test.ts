@@ -121,6 +121,7 @@ describe("pre-push verify hook", () => {
   it("configures lefthook to stream pre-push output and pass refs to the script", () => {
     const lefthookConfig = readFileSync(join(repoRoot, "lefthook.yml"), "utf8");
 
+    expect(lefthookConfig).toContain("gitleaks git --pre-commit --staged --redact --no-banner");
     expect(lefthookConfig).toContain("pre-push:\n  follow: true");
     expect(lefthookConfig).toContain("use_stdin: true");
   });
