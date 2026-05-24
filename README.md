@@ -97,6 +97,8 @@ make test             # Rust 测试 + 前端测试
 make check            # Rust cargo check
 make fmt-check        # 前端 + Rust 只读格式检查
 make verify           # 本地 CI-like 验证入口
+make gitleaks         # 扫描当前项目文件中的密钥
+make gitleaks-history # 扫描 Git 历史中的密钥
 make lint-frontend    # 前端只读静态检查
 make test-frontend    # 运行前端测试
 ```

@@ -1,4 +1,4 @@
-.PHONY: init dev build build-frontend build-universal preview check verify test test-rust test-frontend lint lint-rust lint-frontend fmt fmt-check fmt-rust fmt-rust-check fmt-frontend fmt-frontend-check clean coverage coverage-rust coverage-rust-lcov coverage-frontend
+.PHONY: init dev build build-frontend build-universal preview check verify test test-rust test-frontend lint lint-rust lint-frontend fmt fmt-check fmt-rust fmt-rust-check fmt-frontend fmt-frontend-check gitleaks gitleaks-history clean coverage coverage-rust coverage-rust-lcov coverage-frontend
 
 RUST_COVERAGE_THRESHOLDS := --fail-under-regions 80 --fail-under-functions 70 --fail-under-lines 80
 
@@ -86,6 +86,14 @@ fmt-rust:
 # 只读检查 Rust 格式
 fmt-rust-check:
 	cd src-tauri && cargo fmt --all -- --check
+
+# 扫描当前项目文件中的密钥
+gitleaks:
+	gitleaks dir . --redact --no-banner
+
+# 扫描 Git 历史中的密钥
+gitleaks-history:
+	gitleaks git . --redact --no-banner
 
 # 清理构建产物
 clean:
