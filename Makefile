@@ -1,4 +1,4 @@
-.PHONY: init dev build build-frontend build-universal preview check verify test test-rust test-frontend lint lint-rust lint-frontend fmt fmt-check fmt-rust fmt-rust-check fmt-frontend clean coverage coverage-rust coverage-rust-lcov coverage-frontend
+.PHONY: init dev build build-frontend build-universal preview check verify test test-rust test-frontend lint lint-rust lint-frontend fmt fmt-check fmt-rust fmt-rust-check fmt-frontend fmt-frontend-check clean coverage coverage-rust coverage-rust-lcov coverage-frontend
 
 RUST_COVERAGE_THRESHOLDS := --fail-under-regions 80 --fail-under-functions 70 --fail-under-lines 80
 
@@ -69,11 +69,15 @@ lint-rust:
 fmt: fmt-frontend fmt-rust
 
 # 只读格式检查
-fmt-check: lint-frontend fmt-rust-check
+fmt-check: fmt-frontend-check fmt-rust-check
 
 # 格式化前端代码
 fmt-frontend:
 	pnpm format
+
+# 只读检查前端格式
+fmt-frontend-check:
+	pnpm exec biome format .
 
 # 格式化 Rust 代码
 fmt-rust:

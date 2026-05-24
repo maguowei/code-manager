@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 
 const input = readHookInput();
 
-if (input?.hook_event_name !== "Stop") {
+if (input?.hook_event_name !== "Stop" || input?.stop_hook_active === true) {
   process.exit(0);
 }
 
@@ -35,7 +35,7 @@ console.error(
     "建议运行：",
     ...commands.map((command) => `- ${command}`),
     "",
-    "这是同一批变更的首次 Stop 提醒；确认后不会重复阻止同一 fingerprint。",
+    "这是同一批变更的首次 Stop 提醒；确认后不会重复阻止同一 fingerprint，但不代表验证已完成。",
   ].join("\n"),
 );
 
@@ -51,21 +51,34 @@ function readHookInput() {
 }
 
 function listChangedFiles() {
-  const output = runGit(["status", "--porcelain=v1"]);
+  const output = runGitRaw([
+    "-c",
+    "core.quotePath=false",
+    "status",
+    "--porcelain=v1",
+    "-z",
+    "--untracked-files=all",
+  ]);
   if (!output) {
     return [];
   }
 
-  return output
-    .split("\n")
-    .map((line) => line.trimEnd())
-    .filter(Boolean)
-    .map((line) => {
-      const status = line.slice(0, 2);
-      const rawPath = line.slice(3);
-      const path = rawPath.includes(" -> ") ? rawPath.split(" -> ").at(-1) : rawPath;
-      return { status, path };
-    });
+  const entries = output.split("\0").filter(Boolean);
+  const files = [];
+
+  for (let index = 0; index < entries.length; index += 1) {
+    const entry = entries[index];
+    const status = entry.slice(0, 2);
+    const path = entry.slice(3);
+
+    files.push({ status, path });
+
+    if (status[0] === "R" || status[0] === "C") {
+      index += 1;
+    }
+  }
+
+  return files;
 }
 
 function isQualityRelevant({ path }) {
@@ -142,7 +155,7 @@ function buildCommands(paths) {
 }
 
 function getMarkerPaths() {
-  const gitDir = runGit(["rev-parse", "--git-dir"]);
+  const gitDir = runGit(["rev-parse", "--absolute-git-dir"]);
   const root = runGit(["rev-parse", "--show-toplevel"]) || process.cwd();
   const markerName = `ai-manager-stop-quality-reminder-${hash(root)}`;
 
@@ -182,6 +195,17 @@ function runGit(args) {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     }).trim();
+  } catch {
+    return "";
+  }
+}
+
+function runGitRaw(args) {
+  try {
+    return execFileSync("git", args, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
   } catch {
     return "";
   }

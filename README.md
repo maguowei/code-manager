@@ -95,13 +95,13 @@ make build-frontend   # TypeScript 检查并构建前端
 make lint             # 前端 Biome + Rust clippy
 make test             # Rust 测试 + 前端测试
 make check            # Rust cargo check
-make fmt-check        # 前端只读检查 + Rust 格式检查
+make fmt-check        # 前端 + Rust 只读格式检查
 make verify           # 本地 CI-like 验证入口
 make lint-frontend    # 前端只读静态检查
 make test-frontend    # 运行前端测试
 ```
 
-`pnpm install` 会触发 `prepare` 脚本并安装 lefthook git hooks。提交前会运行 staged Biome / Rust format / commitlint，推送前会运行 `make verify`；CI 会再次执行 commitlint 与三平台质量门禁。`make fmt` 与 `pnpm check` 会改写文件；只想做只读检查时使用 `make lint`、`make lint-frontend` 或 `make fmt-check`。
+`pnpm install` 会触发 `prepare` 脚本并安装 lefthook git hooks。提交前会运行 staged Biome 自动修复、Rust 格式检查与 commitlint，分支推送前会运行 `make verify`；tag-only push 由 release workflow 的 quality job 执行远端门禁。`make fmt` 与 `pnpm check` 会改写文件；只想做只读检查时使用 `make lint`、`make lint-frontend` 或 `make fmt-check`。
 
 构建产物默认位于 `src-tauri/target/release/bundle/`。
 

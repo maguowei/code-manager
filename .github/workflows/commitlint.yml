@@ -9,7 +9,6 @@ on:
       - opened
       - synchronize
       - reopened
-      - edited
 
 permissions:
   contents: read
@@ -35,7 +34,15 @@ jobs:
 
       - name: 检查 Push 提交信息
         if: github.event_name == 'push'
-        run: pnpm exec commitlint --last --verbose
+        run: |
+          set -euo pipefail
+          from="${{ github.event.before }}"
+          to="${{ github.event.after }}"
+          if [ "$from" = "0000000000000000000000000000000000000000" ]; then
+            git fetch origin "${{ github.event.repository.default_branch }}"
+            from="$(git merge-base "origin/${{ github.event.repository.default_branch }}" "$to")"
+          fi
+          pnpm exec commitlint --from "$from" --to "$to" --verbose
 
       - name: 检查 Pull Request 提交信息
         if: github.event_name == 'pull_request'

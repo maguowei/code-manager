@@ -12,8 +12,7 @@ pre-commit:
       stage_fixed: true
     rustfmt:
       glob: "src-tauri/**/*.rs"
-      run: cargo fmt --manifest-path src-tauri/Cargo.toml --all
-      stage_fixed: true
+      run: rustfmt --edition 2021 --check {staged_files}
     claude-settings-json:
       glob: ".claude/settings.json"
       run: node -e "JSON.parse(require('node:fs').readFileSync('.claude/settings.json', 'utf8'))"
@@ -29,4 +28,4 @@ commit-msg:
 pre-push:
   commands:
     verify:
-      run: make verify
+      run: node .claude/hooks/pre-push-verify.mjs
