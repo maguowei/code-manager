@@ -171,9 +171,26 @@ function ChartTooltipContent({
           .filter((item) => item.type !== "none")
           .map((item, index) => {
             const key = `${nameKey ?? item.name ?? item.dataKey ?? "value"}`;
-            const payloadKey = `${key}-${item.dataKey ?? item.name ?? item.value ?? "value"}`;
-            const itemConfig = getPayloadConfigFromPayload(config, item, key);
+            const formatted =
+              formatter && item?.value !== undefined && item.name
+                ? formatter(item.value, item.name, item, index, item.payload)
+                : undefined;
+            const formattedTuple = Array.isArray(formatted) ? formatted : undefined;
+            const formattedName = formattedTuple?.[1];
+            const formattedNameKey =
+              typeof formattedName === "string" || typeof formattedName === "number"
+                ? `${formattedName}`
+                : key;
+            const payloadKey = `${formattedNameKey}-${item.dataKey ?? item.name ?? item.value ?? "value"}`;
+            const itemConfig = getPayloadConfigFromPayload(config, item, formattedNameKey);
             const indicatorColor = color ?? item.payload?.fill ?? item.color;
+            const displayName =
+              formattedName === undefined || formattedName === null
+                ? (itemConfig?.label ?? item.name)
+                : typeof formattedName === "string" || typeof formattedName === "number"
+                  ? (itemConfig?.label ?? formattedName)
+                  : formattedName;
+            const displayValue = formattedTuple ? formattedTuple[0] : (formatted ?? item.value);
 
             return (
               <div
@@ -183,8 +200,8 @@ function ChartTooltipContent({
                   indicator === "dot" && "items-center",
                 )}
               >
-                {formatter && item?.value !== undefined && item.name ? (
-                  formatter(item.value, item.name, item, index, item.payload)
+                {formatted && !formattedTuple && React.isValidElement(formatted) ? (
+                  formatted
                 ) : (
                   <>
                     {itemConfig?.icon ? (
@@ -219,15 +236,13 @@ function ChartTooltipContent({
                     >
                       <div className="grid gap-1.5">
                         {nestLabel ? tooltipLabel : null}
-                        <span className="text-muted-foreground">
-                          {itemConfig?.label ?? item.name}
-                        </span>
+                        <span className="text-muted-foreground">{displayName}</span>
                       </div>
-                      {item.value != null && (
+                      {displayValue != null && (
                         <span className="font-mono font-medium text-foreground tabular-nums">
-                          {typeof item.value === "number"
-                            ? item.value.toLocaleString()
-                            : String(item.value)}
+                          {typeof displayValue === "number"
+                            ? displayValue.toLocaleString()
+                            : displayValue}
                         </span>
                       )}
                     </div>
