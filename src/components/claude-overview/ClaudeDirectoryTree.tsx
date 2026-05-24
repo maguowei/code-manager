@@ -2,7 +2,6 @@ import {
   type ContextMenuItem,
   type ContextMenuOpenContext,
   createFileTreeIconResolver,
-  getBuiltInFileIconColor,
   getBuiltInSpriteSheet,
   prepareFileTreeInput,
 } from "@pierre/trees";
@@ -291,12 +290,6 @@ export function ClaudeOverviewFileIcon({ path }: { path: string }) {
   const iconToken = icon.token ?? "default";
   const iconWidth = icon.width ?? 16;
   const iconHeight = icon.height ?? 16;
-  const iconStyle = useMemo<CSSProperties>(
-    () => ({
-      color: getBuiltInFileIconColor(iconToken),
-    }),
-    [iconToken],
-  );
 
   return (
     <svg
@@ -306,7 +299,6 @@ export function ClaudeOverviewFileIcon({ path }: { path: string }) {
       data-icon-token={iconToken}
       data-testid="claude-overview-tab-file-icon"
       height={iconHeight}
-      style={iconStyle}
       viewBox={icon.viewBox ?? `0 0 ${iconWidth} ${iconHeight}`}
       width={iconWidth}
     >
