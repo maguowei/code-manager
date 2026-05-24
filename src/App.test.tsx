@@ -678,9 +678,13 @@ describe("App", () => {
     renderApp();
 
     fireEvent.click(await screen.findByRole("button", { name: "项目" }));
-    fireEvent.click(await screen.findByRole("button", { name: "查看Token用量" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "查看Token用量" }, { timeout: 5000 }),
+    );
 
-    expect(await screen.findByRole("heading", { name: "Token 用量统计" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Token 用量统计" }, { timeout: 5000 }),
+    ).toBeInTheDocument();
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("get_usage_snapshot", {
         filter: { projectPath: project },
@@ -688,7 +692,7 @@ describe("App", () => {
       });
     });
     expect(screen.getByRole("combobox", { name: "项目" })).toHaveValue(project);
-  });
+  }, 10_000);
 
   it("toggles the settings drawer from the sidebar settings button", async () => {
     renderApp();
@@ -1019,7 +1023,7 @@ describe("App", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "~/.claude 目录总览" }));
 
-    expect(screen.getByRole("heading", { name: "~/.claude 目录总览" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "~/.claude 目录总览" })).toBeInTheDocument();
     expect(screen.queryByRole("dialog", { name: "~/.claude 目录总览" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("link", { name: "查看 .claude 目录官方文档" }));
     expect(openUrlMock).toHaveBeenCalledWith("https://code.claude.com/docs/zh-CN/claude-directory");

@@ -1,11 +1,10 @@
 import { Copy, TestTube, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneLight, vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { showOperationError } from "@/lib/user-facing-error";
 import { useToast } from "../../hooks/useToast";
 import { useI18n } from "../../i18n";
 import type { ModelTestResult } from "../../types";
+import SyntaxHighlightedCode from "../SyntaxHighlightedCode";
 import { useTheme } from "../theme-provider";
 import { TONE_SOLID_CLASS } from "../tone-classes";
 import { Button } from "../ui/button";
@@ -53,10 +52,6 @@ function formatRawResponse(rawResponse: string): { content: string; language: st
       language: "text",
     };
   }
-}
-
-function resolveSyntaxTheme(isDark: boolean) {
-  return isDark ? vscDarkPlus : oneLight;
 }
 
 function formatHeaders(headers?: Record<string, string>): string {
@@ -128,7 +123,7 @@ function ModelTestResultDialog({
   const promptText = result?.promptText?.trim() ?? "";
   const rawResponse = result?.rawResponse?.trim() ? result.rawResponse : "";
   const formattedRawResponse = rawResponse ? formatRawResponse(rawResponse) : null;
-  const syntaxTheme = resolveSyntaxTheme(isDark);
+  const syntaxThemeType = isDark ? "dark" : "light";
   const requestBody = useMemo(
     () => requestBodyWithPrompt(result?.requestBody, promptDraft),
     [result?.requestBody, promptDraft],
@@ -255,9 +250,10 @@ function ModelTestResultDialog({
         {expanded ? (
           <div className="raw" data-testid={testId}>
             <div className="overflow-x-auto rounded-md bg-muted/50 p-3 font-mono text-[13px] leading-7">
-              <SyntaxHighlighter
+              <SyntaxHighlightedCode
+                code={content}
                 language={language}
-                style={syntaxTheme}
+                themeType={syntaxThemeType}
                 customStyle={{
                   margin: 0,
                   padding: 0,
@@ -268,9 +264,7 @@ function ModelTestResultDialog({
                 }}
                 codeTagProps={{ style: { fontFamily: MONOSPACE_FONT_FAMILY } }}
                 wrapLongLines
-              >
-                {content}
-              </SyntaxHighlighter>
+              />
             </div>
           </div>
         ) : null}
@@ -575,9 +569,10 @@ function ModelTestResultDialog({
                   {rawResponseExpanded ? (
                     <div className="raw" data-testid="model-test-raw-response-code">
                       <div className="overflow-x-auto rounded-md bg-muted/50 p-3 font-mono text-[13px] leading-7">
-                        <SyntaxHighlighter
+                        <SyntaxHighlightedCode
+                          code={formattedRawResponse?.content ?? rawResponse}
                           language={formattedRawResponse?.language ?? "text"}
-                          style={syntaxTheme}
+                          themeType={syntaxThemeType}
                           customStyle={{
                             margin: 0,
                             padding: 0,
@@ -588,9 +583,7 @@ function ModelTestResultDialog({
                           }}
                           codeTagProps={{ style: { fontFamily: MONOSPACE_FONT_FAMILY } }}
                           wrapLongLines
-                        >
-                          {formattedRawResponse?.content ?? rawResponse}
-                        </SyntaxHighlighter>
+                        />
                       </div>
                     </div>
                   ) : null}

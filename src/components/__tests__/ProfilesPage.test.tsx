@@ -356,7 +356,7 @@ describe("ProfilesPage", () => {
     expect(screen.getByRole("button", { name: "OpenRouter User" })).toBeInTheDocument();
   });
 
-  it("keeps the active profile in use and opens a settings mismatch comparison", () => {
+  it("keeps the active profile in use and opens a settings mismatch comparison", async () => {
     const workspace: ConfigWorkspace = {
       ...WORKSPACE_FIXTURE,
       activeUserSettingsMismatch: {
@@ -382,7 +382,7 @@ describe("ProfilesPage", () => {
 
     expect(screen.getByRole("dialog", { name: "配置差异" })).toBeInTheDocument();
     expect(screen.getByText("skipDangerousModePermissionPrompt")).toBeInTheDocument();
-    const diffViewer = screen.getByTestId("pierre-multi-file-diff");
+    const diffViewer = await screen.findByTestId("pierre-multi-file-diff");
     expect(diffViewer).toHaveAttribute("data-old-file-name", "ai-manager-settings.json");
     expect(diffViewer).toHaveAttribute("data-new-file-name", "settings.json");
     expect(diffViewer).toHaveAttribute("data-diff-style", "split");
@@ -759,12 +759,12 @@ describe("ProfilesPage", () => {
     fireEvent.click(
       within(alphaCard).getByRole("button", { name: "Alpha 测试结果：成功 · 52 ms" }),
     );
-    expect(screen.getByRole("dialog", { name: "模型测试结果" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "模型测试结果" })).toBeInTheDocument();
     expect(screen.getByText("Alpha 测试成功")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "关闭" }));
     fireEvent.click(within(betaCard).getByRole("button", { name: "Beta 测试结果：失败" }));
-    expect(screen.getByRole("dialog", { name: "模型测试结果" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "模型测试结果" })).toBeInTheDocument();
     expect(screen.getByText("Beta 认证失败")).toBeInTheDocument();
   });
 
@@ -894,7 +894,7 @@ describe("ProfilesPage", () => {
     const card = getProfileCard("OpenRouter User");
 
     fireEvent.click(within(card).getByRole("button", { name: "OpenRouter User 测试结果：失败" }));
-    expect(screen.getByRole("dialog", { name: "模型测试结果" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "模型测试结果" })).toBeInTheDocument();
     expect(screen.getByText("模型测试请求失败：network down")).toBeInTheDocument();
   });
 
@@ -936,7 +936,7 @@ describe("ProfilesPage", () => {
     const card = getProfileCard("OpenRouter User");
 
     fireEvent.click(within(card).getByRole("button", { name: "OpenRouter User 测试结果：失败" }));
-    const dialog = screen.getByRole("dialog", { name: "模型测试结果" });
+    const dialog = await screen.findByRole("dialog", { name: "模型测试结果" });
 
     await act(async () => {
       fireEvent.click(within(dialog).getByRole("button", { name: "重新测试" }));
@@ -1012,7 +1012,7 @@ describe("ProfilesPage", () => {
     const card = getProfileCard("OpenRouter User");
 
     fireEvent.click(within(card).getByRole("button", { name: "OpenRouter User 测试结果：失败" }));
-    const dialog = screen.getByRole("dialog", { name: "模型测试结果" });
+    const dialog = await screen.findByRole("dialog", { name: "模型测试结果" });
     expect(within(dialog).getByTestId("model-test-profile-name")).toHaveTextContent(
       "OpenRouter User",
     );

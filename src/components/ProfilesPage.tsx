@@ -1,5 +1,3 @@
-import type { FileContents, MultiFileDiffProps, ThemeTypes } from "@pierre/diffs/react";
-import { MultiFileDiff } from "@pierre/diffs/react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   CircleAlert,
@@ -14,6 +12,8 @@ import {
 import {
   type CSSProperties,
   type DragEvent,
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -49,8 +49,12 @@ import {
 import PageHeader from "./PageHeader";
 import ProfileEditor, { type ProfileEditorHandle } from "./ProfileEditor";
 import ProfileNameBadge from "./ProfileNameBadge";
-import ModelTestResultDialog from "./profile-editor/ModelTestResultDialog";
 import { readPermissionsDefaultMode } from "./profile-editor/PermissionsEditor";
+import type {
+  SettingsMismatchDiffFile,
+  SettingsMismatchDiffOptions,
+  SettingsMismatchDiffThemeType,
+} from "./profile-editor/SettingsMismatchDiffViewer";
 import { useTheme } from "./theme-provider";
 import { TYPOGRAPHY } from "./typography-classes";
 import UnsavedChangesAlertDialog from "./UnsavedChangesAlertDialog";
@@ -67,6 +71,11 @@ import {
 } from "./ui/dialog";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "./ui/sheet";
 import { Spinner } from "./ui/spinner";
+
+const ModelTestResultDialog = lazy(() => import("./profile-editor/ModelTestResultDialog"));
+const SettingsMismatchDiffViewer = lazy(
+  () => import("./profile-editor/SettingsMismatchDiffViewer"),
+);
 
 interface ProfilesPageProps {
   workspace: ConfigWorkspace;
@@ -89,8 +98,6 @@ interface SettingsDiffEntry {
   path: string;
   status: "added" | "removed" | "changed";
 }
-
-type SettingsMismatchDiffOptions = NonNullable<MultiFileDiffProps<undefined>["options"]>;
 
 const unmanagedUserSettingsStatusLabels: Record<
   UnmanagedUserSettingsImportStatus,
@@ -135,7 +142,10 @@ function formatSettingsJson(settings: Record<string, unknown>) {
   return JSON.stringify(settings, null, 2);
 }
 
-function buildSettingsDiffFile(name: string, settings: Record<string, unknown>): FileContents {
+function buildSettingsDiffFile(
+  name: string,
+  settings: Record<string, unknown>,
+): SettingsMismatchDiffFile {
   return {
     name,
     contents: `${formatSettingsJson(settings)}\n`,
@@ -1132,7 +1142,7 @@ function ProfilesPage({
     () => settingsMismatchDiffs.slice(0, SETTINGS_MISMATCH_VISIBLE_DIFF_LIMIT),
     [settingsMismatchDiffs],
   );
-  const settingsDiffThemeType: ThemeTypes = isDark ? "dark" : "light";
+  const settingsDiffThemeType: SettingsMismatchDiffThemeType = isDark ? "dark" : "light";
   const settingsDiffOptions = useMemo(
     () => ({
       ...SETTINGS_MISMATCH_DIFF_BASE_OPTIONS,
@@ -1562,19 +1572,21 @@ function ProfilesPage({
         />
       )}
 
-      <ModelTestResultDialog
-        isOpen={activeModelTestDialog !== null}
-        result={activeModelTestDialog?.result ?? null}
-        profileName={activeModelTestProfile?.name}
-        errorMessage={activeModelTestDialog?.errorMessage ?? ""}
-        rawResponseExpanded={isRawResponseExpanded}
-        onClose={closeModelTestDialog}
-        onToggleRawResponse={() => setIsRawResponseExpanded((value) => !value)}
-        onRetest={activeModelTestDialog ? handleRetestActiveProfile : undefined}
-        isRetesting={
-          !!activeModelTestDialog && retestingProfileId === activeModelTestDialog.profileId
-        }
-      />
+      {activeModelTestDialog ? (
+        <Suspense fallback={null}>
+          <ModelTestResultDialog
+            isOpen={activeModelTestDialog !== null}
+            result={activeModelTestDialog.result}
+            profileName={activeModelTestProfile?.name}
+            errorMessage={activeModelTestDialog.errorMessage}
+            rawResponseExpanded={isRawResponseExpanded}
+            onClose={closeModelTestDialog}
+            onToggleRawResponse={() => setIsRawResponseExpanded((value) => !value)}
+            onRetest={handleRetestActiveProfile}
+            isRetesting={retestingProfileId === activeModelTestDialog.profileId}
+          />
+        </Suspense>
+      ) : null}
 
       <Dialog
         open={isSettingsMismatchDialogOpen && !!activeSettingsMismatch}
@@ -1632,12 +1644,14 @@ function ProfilesPage({
                   data-slot="settings-mismatch-diff"
                   className="min-w-0 overflow-hidden rounded-lg border border-border bg-card"
                 >
-                  <MultiFileDiff
-                    oldFile={settingsDiffOldFile}
-                    newFile={settingsDiffNewFile}
-                    options={settingsDiffOptions}
-                    style={settingsDiffStyle}
-                  />
+                  <Suspense fallback={<div className="min-h-[220px]" aria-hidden="true" />}>
+                    <SettingsMismatchDiffViewer
+                      oldFile={settingsDiffOldFile}
+                      newFile={settingsDiffNewFile}
+                      options={settingsDiffOptions}
+                      style={settingsDiffStyle}
+                    />
+                  </Suspense>
                 </div>
               ) : null}
             </div>

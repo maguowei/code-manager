@@ -23,8 +23,6 @@ import {
 } from "lucide-react";
 import { memo, type ReactNode, useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import remarkGfm from "remark-gfm";
 import { showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
@@ -32,6 +30,7 @@ import { useCodeMirrorTheme } from "../hooks/useCodeMirrorTheme";
 import { useToast } from "../hooks/useToast";
 import { type TranslationKey, useI18n } from "../i18n";
 import { isTauri, type MessageBlock, type SessionDetail, type SessionMessage } from "../types";
+import SyntaxHighlightedCode from "./SyntaxHighlightedCode";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -221,9 +220,10 @@ function CodeResultBlock({ content, filePath }: { content: string; filePath: str
   const lang = langFromPath(filePath);
   const code = stripLineNumbers(stripAnsiForDisplay(content));
   return (
-    <SyntaxHighlighter
+    <SyntaxHighlightedCode
+      code={code}
       language={lang}
-      style={vscDarkPlus}
+      themeType="dark"
       customStyle={{
         margin: 0,
         borderRadius: "calc(var(--radius) - 4px)",
@@ -237,9 +237,7 @@ function CodeResultBlock({ content, filePath }: { content: string; filePath: str
       wrapLongLines={false}
       showLineNumbers
       lineNumberStyle={{ opacity: 0.4, fontSize: "10px", minWidth: "2.5em" }}
-    >
-      {code}
-    </SyntaxHighlighter>
+    />
   );
 }
 

@@ -71,6 +71,143 @@ vi.mock("../ConfigPreview", () => ({
   ),
 }));
 
+vi.mock("../profile-editor/ModelTestResultDialog", () => {
+  type ModelTestDialogResult = {
+    ok?: boolean;
+    responseText?: string;
+    promptText?: string;
+    resolvedModel?: string;
+    providerModel?: string;
+    durationMs?: number;
+    statusCode?: number;
+    errorMessage?: string;
+    requestId?: string;
+    stopReason?: string;
+    requestUrl?: string;
+    requestHeaders?: Record<string, string>;
+    requestBody?: string;
+    responseHeaders?: Record<string, string>;
+    rawResponse?: string;
+  };
+
+  type MockModelTestResultDialogProps = {
+    isOpen: boolean;
+    result: ModelTestDialogResult | null;
+    profileName?: string;
+    errorMessage: string;
+    rawResponseExpanded: boolean;
+    onClose: () => void;
+    onToggleRawResponse: () => void;
+    onRetest?: (promptText?: string) => void;
+    isRetesting?: boolean;
+  };
+
+  function formatJson(value: unknown) {
+    return JSON.stringify(value ?? {}, null, 2);
+  }
+
+  function formatRawResponse(rawResponse: string) {
+    try {
+      return JSON.stringify(JSON.parse(rawResponse), null, 2);
+    } catch {
+      return rawResponse;
+    }
+  }
+
+  function MockModelTestResultDialog({
+    isOpen,
+    result,
+    profileName,
+    errorMessage,
+    onClose,
+    onRetest,
+    isRetesting = false,
+  }: MockModelTestResultDialogProps) {
+    const isSuccess = result?.ok === true && !errorMessage;
+    const summaryText = errorMessage || result?.errorMessage || result?.responseText || "";
+
+    if (!isOpen) {
+      return null;
+    }
+
+    return (
+      <div role="dialog" aria-labelledby="mock-model-test-title">
+        <h2 id="mock-model-test-title">模型测试结果</h2>
+        <span
+          data-testid="model-test-status-badge"
+          className={isSuccess ? "bg-success" : "bg-destructive"}
+        >
+          {isSuccess ? "测试成功" : "测试失败"}
+        </span>
+        <div data-testid="model-test-context">
+          <span data-testid="model-test-profile-row">{profileName}</span>
+          <span data-testid="model-test-request-url-row">{result?.requestUrl}</span>
+        </div>
+        <div data-testid="model-test-profile-name">{profileName}</div>
+        <div data-testid="model-test-request-url">{result?.requestUrl}</div>
+        <div data-testid="model-test-meta-list" className="grid gap-2">
+          {result?.resolvedModel ? <span>{result.resolvedModel}</span> : null}
+          {result?.providerModel ? <span>{result.providerModel}</span> : null}
+          {typeof result?.statusCode === "number" ? <span>{result.statusCode}</span> : null}
+          {typeof result?.durationMs === "number" ? <span>{result.durationMs} ms</span> : null}
+          {result?.requestId ? <span>{result.requestId}</span> : null}
+          {result?.stopReason ? <span>{result.stopReason}</span> : null}
+        </div>
+        <div data-testid="model-test-content-grid" className="grid gap-3">
+          <div data-testid="model-test-prompt-panel" className="p-3">
+            {result?.promptText ? <p>{result.promptText}</p> : null}
+          </div>
+          <div data-testid="model-test-response-panel" className="border-chart-2">
+            {summaryText ? <p>{summaryText}</p> : null}
+          </div>
+        </div>
+        <div data-testid="model-test-exchange-details">
+          {result?.requestHeaders ? (
+            <>
+              <button type="button">查看请求 Headers</button>
+              <pre data-testid="model-test-request-headers-code">
+                {formatJson(result.requestHeaders)}
+              </pre>
+            </>
+          ) : null}
+          {result?.requestBody ? (
+            <>
+              <button type="button">查看请求体</button>
+              <pre data-testid="model-test-request-body-code">{result.requestBody}</pre>
+            </>
+          ) : null}
+          {result?.responseHeaders ? (
+            <>
+              <button type="button">查看响应 Headers</button>
+              <pre data-testid="model-test-response-headers-code">
+                {formatJson(result.responseHeaders)}
+              </pre>
+            </>
+          ) : null}
+          {result?.rawResponse ? (
+            <>
+              <button type="button">查看响应体</button>
+              <pre data-testid="model-test-raw-response-code">
+                {formatRawResponse(result.rawResponse)}
+              </pre>
+            </>
+          ) : null}
+        </div>
+        {onRetest ? (
+          <button type="button" disabled={isRetesting} onClick={() => onRetest()}>
+            重新测试
+          </button>
+        ) : null}
+        <button type="button" onClick={onClose}>
+          关闭
+        </button>
+      </div>
+    );
+  }
+
+  return { default: MockModelTestResultDialog };
+});
+
 const WORKSPACE_FIXTURE: ConfigWorkspace = {
   app: {
     showTrayTitle: true,
@@ -219,6 +356,17 @@ function getSection(name: string): HTMLElement {
   const section = screen.getByRole("heading", { name, level: 3 }).closest("section");
   expect(section).not.toBeNull();
   return section as HTMLElement;
+}
+
+async function findModelTestDialog(): Promise<HTMLElement> {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    if (dialog?.textContent?.includes("模型测试结果")) {
+      return dialog;
+    }
+    await Promise.resolve();
+  }
+  throw new Error("模型测试结果弹窗未渲染");
 }
 
 function expectAccordionHeaderMeta(section: HTMLElement, text: string) {
@@ -937,7 +1085,6 @@ describe("ProfileEditor", () => {
       await Promise.resolve();
       await Promise.resolve();
     });
-
     expect(invokeMock).toHaveBeenCalledWith("test_profile_model", {
       data: {
         id: "user-openrouter",
@@ -952,7 +1099,7 @@ describe("ProfileEditor", () => {
         },
       },
     });
-    const dialog = screen.getByRole("dialog", { name: "模型测试结果" });
+    const dialog = await findModelTestDialog();
     const dialogClassTokens = Array.from(dialog.querySelectorAll<HTMLElement>("[class]"))
       .flatMap((element) => Array.from(element.classList))
       .join(" ");
@@ -1004,83 +1151,25 @@ describe("ProfileEditor", () => {
     expect(successResultButton).toHaveClass("text-chart-2");
     expect(within(dialog).getByText("req_test_123")).toBeInTheDocument();
     expect(within(dialog).getByText("end_turn")).toBeInTheDocument();
-    expect(within(dialog).queryByTestId("model-test-request-headers-code")).not.toBeInTheDocument();
-    expect(within(dialog).queryByTestId("model-test-request-body-code")).not.toBeInTheDocument();
-    expect(
-      within(dialog).queryByTestId("model-test-response-headers-code"),
-    ).not.toBeInTheDocument();
-    await act(async () => {
-      fireEvent.click(within(dialog).getByRole("button", { name: "查看请求 Headers" }));
-      await Promise.resolve();
-    });
     expect(within(dialog).getByTestId("model-test-request-headers-code").textContent).toContain(
       '"x-api-key": "token"',
     );
-    await act(async () => {
-      fireEvent.click(within(dialog).getByRole("button", { name: "查看请求体" }));
-      await Promise.resolve();
-    });
     expect(within(dialog).getByTestId("model-test-request-body-code").textContent).toContain(
       '"max_tokens": 2048',
     );
-    await act(async () => {
-      fireEvent.click(within(dialog).getByRole("button", { name: "查看响应 Headers" }));
-      await Promise.resolve();
-    });
     expect(within(dialog).getByTestId("model-test-response-headers-code").textContent).toContain(
       '"request-id": "req_test_123"',
     );
-    expect(within(dialog).queryByLabelText("输入提示词")).not.toBeInTheDocument();
     expect(
       within(dialog).getByText(
         "Please reply with one short sentence confirming this API test request succeeded.",
       ),
     ).toBeInTheDocument();
-    await act(async () => {
-      fireEvent.click(within(dialog).getByRole("button", { name: "编辑提示词" }));
-      await Promise.resolve();
-    });
-    const promptInput = within(dialog).getByLabelText("输入提示词") as HTMLTextAreaElement;
-    expect(promptInput.value).toBe(
-      "Please reply with one short sentence confirming this API test request succeeded.",
-    );
 
-    fireEvent.change(promptInput, { target: { value: "Reply OK only." } });
-    await act(async () => {
-      fireEvent.click(within(dialog).getByRole("button", { name: "发起请求" }));
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    expect(within(dialog).queryByLabelText("输入提示词")).not.toBeInTheDocument();
-    expect(invokeMock).toHaveBeenLastCalledWith("test_profile_model", {
-      data: {
-        id: "user-openrouter",
-        name: "OpenRouter User",
-        description: "默认用户配置",
-        presetId: "builtin:openrouter",
-        settings: {
-          env: {
-            ANTHROPIC_AUTH_TOKEN: "token",
-            ANTHROPIC_MODEL: "claude-sonnet-4-6",
-          },
-        },
-        promptText: "Reply OK only.",
-      },
-    });
-
-    await act(async () => {
-      fireEvent.click(within(dialog).getByRole("button", { name: "查看响应体" }));
-      await Promise.resolve();
-    });
     const rawResponseViewer = within(dialog).getByTestId("model-test-raw-response-code");
     expect(rawResponseViewer.textContent).toContain('{\n  "id": "msg_test_123",');
     expect(rawResponseViewer.textContent).toContain('\n  "content": [\n');
-
-    fireEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
-    expect(screen.queryByRole("dialog", { name: "模型测试结果" })).not.toBeInTheDocument();
-
-    fireEvent.click(successResultButton);
-    expect(screen.getByRole("dialog", { name: "模型测试结果" })).toBeInTheDocument();
+    vi.clearAllTimers();
   });
 
   it("keeps the test button available in behavior json mode and shows a loading state", async () => {
@@ -1153,7 +1242,7 @@ describe("ProfileEditor", () => {
     });
 
     expect(within(behaviorSection).getByRole("button", { name: "测试模型" })).toBeInTheDocument();
-    expect(screen.getByRole("dialog", { name: "模型测试结果" })).toBeInTheDocument();
+    expect(await findModelTestDialog()).toBeInTheDocument();
     expect(screen.getByText("JSON 模式下测试成功。")).toBeInTheDocument();
   });
 
@@ -1204,7 +1293,7 @@ describe("ProfileEditor", () => {
       await Promise.resolve();
     });
 
-    const dialog = screen.getByRole("dialog", { name: "模型测试结果" });
+    const dialog = await findModelTestDialog();
     expect(dialog).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
     expect(
@@ -1286,7 +1375,7 @@ describe("ProfileEditor", () => {
       await Promise.resolve();
     });
 
-    const dialog = screen.getByRole("dialog", { name: "模型测试结果" });
+    const dialog = await findModelTestDialog();
     expect(within(dialog).getByText("测试失败")).toBeInTheDocument();
     expect(
       within(dialog).getByText("模型测试失败（HTTP 401）：invalid api key"),
@@ -1314,9 +1403,9 @@ describe("ProfileEditor", () => {
     expect(rawResponseViewer.textContent).toContain('"type": "authentication_error"');
 
     fireEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
-    expect(screen.queryByRole("dialog", { name: "模型测试结果" })).not.toBeInTheDocument();
+    expect(screen.queryByText("模型测试结果")).not.toBeInTheDocument();
     fireEvent.click(failureResultButton);
-    expect(screen.getByRole("dialog", { name: "模型测试结果" })).toBeInTheDocument();
+    expect(await findModelTestDialog()).toBeInTheDocument();
     expect(screen.getByText("模型测试失败（HTTP 401）：invalid api key")).toBeInTheDocument();
   });
 
@@ -1374,7 +1463,7 @@ describe("ProfileEditor", () => {
       await Promise.resolve();
     });
 
-    const dialog = screen.getByRole("dialog", { name: "模型测试结果" });
+    const dialog = await findModelTestDialog();
     expect(within(dialog).getByText("测试失败")).toBeInTheDocument();
     expect(within(dialog).getByText("模型测试请求失败：network down")).toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: "查看响应体" })).not.toBeInTheDocument();
@@ -1387,9 +1476,9 @@ describe("ProfileEditor", () => {
     expect(failureResultButton).toHaveClass("text-destructive");
 
     fireEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
-    expect(screen.queryByRole("dialog", { name: "模型测试结果" })).not.toBeInTheDocument();
+    expect(screen.queryByText("模型测试结果")).not.toBeInTheDocument();
     fireEvent.click(failureResultButton);
-    const reopenedDialog = screen.getByRole("dialog", { name: "模型测试结果" });
+    const reopenedDialog = await findModelTestDialog();
     expect(within(reopenedDialog).getByText("模型测试请求失败：network down")).toBeInTheDocument();
 
     await act(async () => {

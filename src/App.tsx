@@ -1,25 +1,16 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
+import { Spinner } from "@/components/ui/spinner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
-import ClaudeOverviewPage from "./components/ClaudeOverviewPage";
 import type { EditorExitGuard } from "./components/editor-exit-guard";
-import HistoryPage from "./components/HistoryPage";
 import {
   LIST_PANEL_COMPRESSED_WIDTH_CLASS,
   LIST_PANEL_WIDTH_CLASS,
 } from "./components/layout-size-classes";
-import MemoryPage from "./components/MemoryPage";
-import PresetsPage from "./components/PresetsPage";
-import ProfilesPage from "./components/ProfilesPage";
-import ProjectsPage from "./components/ProjectsPage";
-import SettingsDrawer from "./components/SettingsDrawer";
 import Sidebar from "./components/Sidebar";
-import SkillsPage from "./components/SkillsPage";
-import StatsPage from "./components/StatsPage";
-import UsagePage from "./components/UsagePage";
 import useTauriEvent from "./hooks/useTauriEvent";
 import { useToast } from "./hooks/useToast";
 import { useI18n } from "./i18n";
@@ -29,6 +20,17 @@ import {
   isTauri,
   type TabType,
 } from "./types";
+
+const ClaudeOverviewPage = lazy(() => import("./components/ClaudeOverviewPage"));
+const HistoryPage = lazy(() => import("./components/HistoryPage"));
+const MemoryPage = lazy(() => import("./components/MemoryPage"));
+const PresetsPage = lazy(() => import("./components/PresetsPage"));
+const ProfilesPage = lazy(() => import("./components/ProfilesPage"));
+const ProjectsPage = lazy(() => import("./components/ProjectsPage"));
+const SettingsDrawer = lazy(() => import("./components/SettingsDrawer"));
+const SkillsPage = lazy(() => import("./components/SkillsPage"));
+const StatsPage = lazy(() => import("./components/StatsPage"));
+const UsagePage = lazy(() => import("./components/UsagePage"));
 
 const EMPTY_WORKSPACE: ConfigWorkspace = {
   app: {
@@ -49,6 +51,17 @@ const EMPTY_WORKSPACE: ConfigWorkspace = {
 
 function isUserSettingsChangePath(path: string) {
   return path === "settings.json";
+}
+
+function PageLoadingFallback() {
+  const { t } = useI18n();
+
+  return (
+    <div className="flex h-full flex-1 items-center justify-center gap-2 text-sm text-muted-foreground">
+      <Spinner className="size-4" aria-hidden="true" />
+      <span>{t("loading")}</span>
+    </div>
+  );
 }
 
 function App() {
@@ -251,56 +264,64 @@ function App() {
               )}
               aria-hidden={activeTab !== "claudeOverview"}
             >
-              <ClaudeOverviewPage />
+              <Suspense fallback={<PageLoadingFallback />}>
+                <ClaudeOverviewPage />
+              </Suspense>
             </div>
           ) : null}
-          {activeTab === "claudeOverview" ? null : activeTab === "stats" ? (
-            <StatsPage />
-          ) : activeTab === "usage" ? (
-            <UsagePage projectRequest={usageProjectRequest} />
-          ) : activeTab === "projects" ? (
-            <ProjectsPage
-              onOpenProjectHistory={handleOpenProjectHistory}
-              onOpenProjectUsage={handleOpenProjectUsage}
-            />
-          ) : activeTab === "history" ? (
-            <HistoryPage projectRequest={historyProjectRequest} />
-          ) : activeTab === "providers" ? (
-            <PresetsPage
-              workspace={workspace}
-              onWorkspaceChange={loadWorkspace}
-              onEditorExitGuardChange={setEditorExitGuard}
-            />
-          ) : activeTab === "configs" ? (
-            <ProfilesPage
-              workspace={workspace}
-              onWorkspaceChange={loadWorkspace}
-              onEditorExitGuardChange={setEditorExitGuard}
-            />
-          ) : (
-            <div
-              className={cn(
-                "flex shrink-0 flex-col overflow-y-auto overflow-x-hidden bg-secondary transition-[width] duration-300 ease-out scrollbar-none max-[1000px]:fixed max-[1000px]:inset-y-0 max-[1000px]:right-0 max-[1000px]:left-[60px] max-[1000px]:z-50 max-[1000px]:w-auto max-[700px]:left-[48px]",
-                isDetailDrawerOpen ? LIST_PANEL_COMPRESSED_WIDTH_CLASS : LIST_PANEL_WIDTH_CLASS,
-              )}
-            >
-              {activeTab === "memory" && (
-                <MemoryPage
-                  onDrawerChange={setIsDetailDrawerOpen}
-                  onEditorExitGuardChange={setEditorExitGuard}
-                />
-              )}
-              {activeTab === "skills" && (
-                <SkillsPage
-                  onDrawerChange={setIsDetailDrawerOpen}
-                  onEditorExitGuardChange={setEditorExitGuard}
-                />
-              )}
-            </div>
-          )}
+          <Suspense fallback={<PageLoadingFallback />}>
+            {activeTab === "claudeOverview" ? null : activeTab === "stats" ? (
+              <StatsPage />
+            ) : activeTab === "usage" ? (
+              <UsagePage projectRequest={usageProjectRequest} />
+            ) : activeTab === "projects" ? (
+              <ProjectsPage
+                onOpenProjectHistory={handleOpenProjectHistory}
+                onOpenProjectUsage={handleOpenProjectUsage}
+              />
+            ) : activeTab === "history" ? (
+              <HistoryPage projectRequest={historyProjectRequest} />
+            ) : activeTab === "providers" ? (
+              <PresetsPage
+                workspace={workspace}
+                onWorkspaceChange={loadWorkspace}
+                onEditorExitGuardChange={setEditorExitGuard}
+              />
+            ) : activeTab === "configs" ? (
+              <ProfilesPage
+                workspace={workspace}
+                onWorkspaceChange={loadWorkspace}
+                onEditorExitGuardChange={setEditorExitGuard}
+              />
+            ) : (
+              <div
+                className={cn(
+                  "flex shrink-0 flex-col overflow-y-auto overflow-x-hidden bg-secondary transition-[width] duration-300 ease-out scrollbar-none max-[1000px]:fixed max-[1000px]:inset-y-0 max-[1000px]:right-0 max-[1000px]:left-[60px] max-[1000px]:z-50 max-[1000px]:w-auto max-[700px]:left-[48px]",
+                  isDetailDrawerOpen ? LIST_PANEL_COMPRESSED_WIDTH_CLASS : LIST_PANEL_WIDTH_CLASS,
+                )}
+              >
+                {activeTab === "memory" && (
+                  <MemoryPage
+                    onDrawerChange={setIsDetailDrawerOpen}
+                    onEditorExitGuardChange={setEditorExitGuard}
+                  />
+                )}
+                {activeTab === "skills" && (
+                  <SkillsPage
+                    onDrawerChange={setIsDetailDrawerOpen}
+                    onEditorExitGuardChange={setEditorExitGuard}
+                  />
+                )}
+              </div>
+            )}
+          </Suspense>
         </div>
 
-        {isSettingsOpen && <SettingsDrawer onClose={closeSettingsDrawer} />}
+        {isSettingsOpen && (
+          <Suspense fallback={null}>
+            <SettingsDrawer onClose={closeSettingsDrawer} />
+          </Suspense>
+        )}
       </div>
       <Toaster richColors closeButton position="top-right" />
     </TooltipProvider>

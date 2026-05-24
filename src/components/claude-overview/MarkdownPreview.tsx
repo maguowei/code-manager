@@ -4,9 +4,8 @@ import githubLightStyleUrl from "github-markdown-css/github-markdown-light.css?u
 import type { ReactNode } from "react";
 import { memo, useEffect, useMemo } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneLight, vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import remarkGfm from "remark-gfm";
+import SyntaxHighlightedCode from "../SyntaxHighlightedCode";
 
 // 模块级常量，所有实例共享，避免每次渲染重建
 const REMARK_PLUGINS = [remarkGfm];
@@ -74,8 +73,6 @@ function MarkdownPreviewBase({ content, themeType, className }: MarkdownPreviewP
   }, [themeType]);
 
   const components = useMemo<Components>(() => {
-    const codeStyle = themeType === "dark" ? vscDarkPlus : oneLight;
-
     return {
       // 代码块：带 language-* 类名走语法高亮，inline code 保持普通 <code>
       code({ className: codeClassName, children, ...rest }) {
@@ -83,14 +80,13 @@ function MarkdownPreviewBase({ content, themeType, className }: MarkdownPreviewP
         const code = String(children ?? "").replace(/\n$/, "");
         if (match) {
           return (
-            <SyntaxHighlighter
+            <SyntaxHighlightedCode
+              code={code}
               language={match[1]}
-              style={codeStyle}
+              themeType={themeType}
               customStyle={CODE_BLOCK_CUSTOM_STYLE}
               wrapLongLines={false}
-            >
-              {code}
-            </SyntaxHighlighter>
+            />
           );
         }
         return (

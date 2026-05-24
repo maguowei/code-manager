@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import ConfigPreview from "../ConfigPreview";
@@ -77,7 +77,7 @@ describe("ConfigPreview", () => {
     });
   });
 
-  it("defers read-only CodeMirror rendering until the preview enters the viewport", () => {
+  it("defers read-only CodeMirror rendering until the preview enters the viewport", async () => {
     renderPreview({ content: '{ "large": true }' });
 
     expect(screen.queryByTestId("codemirror")).not.toBeInTheDocument();
@@ -91,15 +91,15 @@ describe("ConfigPreview", () => {
       );
     });
 
-    expect(screen.getByTestId("codemirror")).toHaveTextContent('"large"');
+    expect(await screen.findByTestId("codemirror")).toHaveTextContent('"large"');
     expect(observerInstances[0]?.disconnect).toHaveBeenCalledTimes(1);
   });
 
-  it("renders editable CodeMirror immediately and keeps editor config references stable", () => {
+  it("renders editable CodeMirror immediately and keeps editor config references stable", async () => {
     const handleChange = vi.fn();
     const { rerender } = renderPreview({ content: '{ "first": true }', onChange: handleChange });
 
-    expect(screen.getByTestId("codemirror")).toHaveAttribute("data-editable", "true");
+    expect(await screen.findByTestId("codemirror")).toHaveAttribute("data-editable", "true");
     expect(observerInstances).toHaveLength(0);
     const firstProps = codeMirrorMock.mock.calls[0]?.[0] as {
       basicSetup: unknown;
@@ -114,6 +114,9 @@ describe("ConfigPreview", () => {
       </I18nProvider>,
     );
 
+    await waitFor(() => {
+      expect(codeMirrorMock).toHaveBeenCalledTimes(2);
+    });
     const secondProps = codeMirrorMock.mock.calls[1]?.[0] as {
       basicSetup: unknown;
       extensions: unknown;

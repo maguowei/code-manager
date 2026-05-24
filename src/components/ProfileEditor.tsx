@@ -44,7 +44,6 @@ import {
   setAttributionDisabled,
 } from "./profile-editor/editor-shared-constants";
 import { readObject, readString } from "./profile-editor/editor-utils";
-import ModelTestResultDialog from "./profile-editor/ModelTestResultDialog";
 import { readPermissionsDefaultMode } from "./profile-editor/PermissionsEditor";
 import RequiredBadge from "./profile-editor/RequiredBadge";
 import { getSandboxPresentation } from "./profile-editor/SandboxEditor";
@@ -84,6 +83,17 @@ import {
   SelectValue,
 } from "./ui/select";
 import { Spinner } from "./ui/spinner";
+
+type ModelTestResultDialogComponent =
+  typeof import("./profile-editor/ModelTestResultDialog").default;
+
+let modelTestResultDialogPromise: Promise<{ default: ModelTestResultDialogComponent }> | null =
+  null;
+
+function loadModelTestResultDialog() {
+  modelTestResultDialogPromise ??= import("./profile-editor/ModelTestResultDialog");
+  return modelTestResultDialogPromise;
+}
 
 interface ProfileEditorSaveData {
   id?: string;
@@ -164,6 +174,8 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
   const [latestModelTestResult, setLatestModelTestResult] = useState<ModelTestResult | null>(null);
   const [modelTestError, setModelTestError] = useState("");
   const [isModelTestDialogOpen, setIsModelTestDialogOpen] = useState(false);
+  const [ModelTestResultDialog, setModelTestResultDialog] =
+    useState<ModelTestResultDialogComponent | null>(null);
   const [isRawResponseExpanded, setIsRawResponseExpanded] = useState(false);
   const modelTestRunIdRef = useRef(0);
   const selectedPreset = useMemo(
@@ -568,6 +580,23 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
     };
   }, [description, name, presetId, profile?.id, settings, t]);
 
+  useEffect(() => {
+    if (!isModelTestDialogOpen || ModelTestResultDialog) {
+      return;
+    }
+
+    let cancelled = false;
+    void loadModelTestResultDialog().then(({ default: DialogComponent }) => {
+      if (!cancelled) {
+        setModelTestResultDialog(() => DialogComponent);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isModelTestDialogOpen, ModelTestResultDialog]);
+
   const behaviorFields = PROFILE_SETTINGS_FORM_REGISTRY.filter(
     (field) => field.section === "behavior",
   );
@@ -938,19 +967,21 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
           marketplaceSources={marketplaceSources}
         />
 
-        <ModelTestResultDialog
-          isOpen={isModelTestDialogOpen}
-          result={latestModelTestResult}
-          profileName={name}
-          errorMessage={modelTestError}
-          rawResponseExpanded={isRawResponseExpanded}
-          onClose={closeModelTestDialog}
-          onToggleRawResponse={() => setIsRawResponseExpanded((value) => !value)}
-          onRetest={(promptText) => {
-            void handleTestModelClick(promptText, true);
-          }}
-          isRetesting={isTestingModel}
-        />
+        {isModelTestDialogOpen && ModelTestResultDialog ? (
+          <ModelTestResultDialog
+            isOpen={isModelTestDialogOpen}
+            result={latestModelTestResult}
+            profileName={name}
+            errorMessage={modelTestError}
+            rawResponseExpanded={isRawResponseExpanded}
+            onClose={closeModelTestDialog}
+            onToggleRawResponse={() => setIsRawResponseExpanded((value) => !value)}
+            onRetest={(promptText) => {
+              void handleTestModelClick(promptText, true);
+            }}
+            isRetesting={isTestingModel}
+          />
+        ) : null}
       </div>
     </div>
   );

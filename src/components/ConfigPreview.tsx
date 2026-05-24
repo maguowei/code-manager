@@ -1,10 +1,6 @@
-import { json } from "@codemirror/lang-json";
-import { EditorView } from "@codemirror/view";
-import CodeMirror from "@uiw/react-codemirror";
 import { Check, Copy } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { useCodeMirrorTheme } from "../hooks/useCodeMirrorTheme";
 import { useI18n } from "../i18n";
 import { Button } from "./ui/button";
 
@@ -14,18 +10,13 @@ interface ConfigPreviewProps {
   jsonError?: string;
 }
 
-// 启用 lineWrapping：长 JWT、URL 等单行字符串自动换行，避免水平溢出父容器
-const JSON_EXTENSIONS = [json(), EditorView.lineWrapping];
-const CODEMIRROR_BASIC_SETUP = {
-  lineNumbers: true,
-  foldGutter: false,
-};
+const ConfigPreviewCodeEditor = lazy(() => import("./ConfigPreviewCodeEditor"));
 const READONLY_PREVIEW_ROOT_MARGIN = "240px 0px";
+const CODE_EDITOR_FALLBACK_CLASS = "min-h-[160px]";
 
 function ConfigPreview({ content, onChange, jsonError }: ConfigPreviewProps) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
-  const editorTheme = useCodeMirrorTheme();
   const previewRef = useRef<HTMLDivElement>(null);
   const editable = !!onChange;
   const [editorReady, setEditorReady] = useState(editable);
@@ -103,17 +94,12 @@ function ConfigPreview({ content, onChange, jsonError }: ConfigPreviewProps) {
       </div>
       {editorReady ? (
         <div className="min-w-0 overflow-hidden">
-          <CodeMirror
-            value={content}
-            extensions={JSON_EXTENSIONS}
-            theme={editorTheme}
-            editable={editable}
-            onChange={onChange}
-            basicSetup={CODEMIRROR_BASIC_SETUP}
-          />
+          <Suspense fallback={<div className={CODE_EDITOR_FALLBACK_CLASS} aria-hidden="true" />}>
+            <ConfigPreviewCodeEditor content={content} editable={editable} onChange={onChange} />
+          </Suspense>
         </div>
       ) : (
-        <div className="min-h-[160px]" aria-hidden="true" />
+        <div className={CODE_EDITOR_FALLBACK_CLASS} aria-hidden="true" />
       )}
       {jsonError ? <p className="m-0 px-3 pb-3 text-sm text-destructive">{jsonError}</p> : null}
     </div>
