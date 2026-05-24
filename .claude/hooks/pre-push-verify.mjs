@@ -18,6 +18,24 @@ if (refs.length > 0 && refs.every((ref) => ref?.startsWith("refs/tags/"))) {
   process.exit(0);
 }
 
-const command = process.env.AI_MANAGER_PRE_PUSH_VERIFY_COMMAND ?? "make verify";
-const result = spawnSync(command, { shell: true, stdio: "inherit" });
-process.exit(result.status ?? 1);
+const steps = [
+  ["Rust 格式检查", "fmt-rust-check"],
+  ["代码检查", "lint"],
+  ["前端构建", "build-frontend"],
+  ["测试", "test"],
+];
+
+console.log(`AI Manager pre-push: 开始本地质量门禁，共 ${steps.length} 步。`);
+
+for (const [index, [label, target]] of steps.entries()) {
+  console.log(`[${index + 1}/${steps.length}] ${label}: make ${target}`);
+  const result = spawnSync("make", [target], { stdio: "inherit" });
+  const status = result.status ?? 1;
+
+  if (status !== 0) {
+    console.error(`AI Manager pre-push: ${label} 失败（exit ${status}）。`);
+    process.exit(status);
+  }
+}
+
+console.log("AI Manager pre-push: 本地质量门禁通过。");

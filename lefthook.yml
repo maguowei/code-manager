@@ -26,6 +26,8 @@ commit-msg:
       run: pnpm exec commitlint --edit {1}
 
 pre-push:
+  follow: true
   commands:
     verify:
       run: node .claude/hooks/pre-push-verify.mjs
+      use_stdin: true

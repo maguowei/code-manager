@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -94,11 +94,35 @@ describe("pre-push verify hook", () => {
     expect(result.stdout).toContain("跳过");
   });
 
-  it("runs local verify for branch pushes and manual runs", () => {
-    expect(runPrePushVerify("refs/heads/codex-hook abc refs/heads/codex-hook def\n").status).toBe(
-      23,
+  it("prints progress while running branch push verification steps", () => {
+    const fakeBin = createFakeMakeBin();
+    const result = runPrePushVerify("refs/heads/codex-hook abc refs/heads/codex-hook def\n", {
+      PATH: `${fakeBin}:${processEnvPath()}`,
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("[1/4] Rust 格式检查: make fmt-rust-check");
+    expect(result.stdout).toContain("[4/4] 测试: make test");
+    expect(readFileSync(join(fakeBin, "make.log"), "utf8")).toBe(
+      "fmt-rust-check\nlint\nbuild-frontend\ntest\n",
     );
-    expect(runPrePushVerify("").status).toBe(23);
+  });
+
+  it("stops at the first failed verification step", () => {
+    const fakeBin = createFakeMakeBin("lint");
+    const result = runPrePushVerify("", { PATH: `${fakeBin}:${processEnvPath()}` });
+
+    expect(result.status).toBe(23);
+    expect(result.stdout).toContain("[2/4] 代码检查: make lint");
+    expect(result.stdout).not.toContain("[3/4] 前端构建");
+    expect(readFileSync(join(fakeBin, "make.log"), "utf8")).toBe("fmt-rust-check\nlint\n");
+  });
+
+  it("configures lefthook to stream pre-push output and pass refs to the script", () => {
+    const lefthookConfig = readFileSync(join(repoRoot, "lefthook.yml"), "utf8");
+
+    expect(lefthookConfig).toContain("pre-push:\n  follow: true");
+    expect(lefthookConfig).toContain("use_stdin: true");
   });
 });
 
@@ -122,13 +146,11 @@ function runStopReminder(input: Record<string, unknown>, cwd: string) {
   });
 }
 
-function runPrePushVerify(input: string) {
+function runPrePushVerify(input: string, env: Record<string, string> = {}) {
   return spawnSync(nodeExecPath, [prePushVerifyPath], {
     cwd: repoRoot,
     encoding: "utf8",
-    env: {
-      AI_MANAGER_PRE_PUSH_VERIFY_COMMAND: `${JSON.stringify(nodeExecPath)} -e "process.exit(23)"`,
-    },
+    env,
     input,
   });
 }
@@ -140,4 +162,25 @@ function createGitRepo() {
   execFileSync("git", ["config", "user.email", "agent-guardrails@example.com"], { cwd });
   execFileSync("git", ["config", "user.name", "Agent Guardrails"], { cwd });
   return cwd;
+}
+
+function createFakeMakeBin(failingTarget?: string) {
+  const cwd = mkdtempSync(join(tmpdir(), "ai-manager-fake-make-"));
+  tempDirs.push(cwd);
+  writeFileSync(
+    join(cwd, "make"),
+    [
+      "#!/bin/sh",
+      'echo "$1" >> "$(dirname "$0")/make.log"',
+      failingTarget ? `[ "$1" = "${failingTarget}" ] && exit 23` : "",
+      "exit 0",
+      "",
+    ].join("\n"),
+  );
+  chmodSync(join(cwd, "make"), 0o755);
+  return cwd;
+}
+
+function processEnvPath() {
+  return execFileSync("node", ["-p", "process.env.PATH ?? ''"], { encoding: "utf8" }).trim();
 }
