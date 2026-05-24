@@ -37,7 +37,7 @@ import MemoryEditor, { type MemoryEditorHandle } from "./MemoryEditor";
 import MemoryItem from "./MemoryItem";
 import MemoryPresetPanel, {
   KARPATHY_MEMORY_PRESET_ID,
-  KARPATHY_MEMORY_PRESET_SOURCE_URL,
+  KARPATHY_MEMORY_PRESET_REPOSITORY_URL,
 } from "./MemoryPresetPanel";
 import { getMemoryPresetLanguage } from "./memory-preset-utils";
 import PageHeader from "./PageHeader";
@@ -578,9 +578,9 @@ function MemoryPage({ onDrawerChange, onEditorExitGuardChange }: MemoryPageProps
 
   const handleOpenPresetSource = useCallback(async () => {
     try {
-      await openUrl(KARPATHY_MEMORY_PRESET_SOURCE_URL);
+      await openUrl(KARPATHY_MEMORY_PRESET_REPOSITORY_URL);
     } catch (err) {
-      showOperationError(showToast, t("memory.presets.sourceOpenError"), err);
+      showOperationError(showToast, t("memory.presets.repositoryOpenError"), err);
     }
   }, [showToast, t]);
 

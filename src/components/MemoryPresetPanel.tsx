@@ -3,12 +3,12 @@ import { useI18n } from "../i18n";
 import { cn } from "../lib/utils";
 import {
   KARPATHY_MEMORY_PRESET_ID,
-  KARPATHY_MEMORY_PRESET_SOURCE_URL,
+  KARPATHY_MEMORY_PRESET_REPOSITORY_URL,
 } from "./memory-preset-utils";
 import { PANEL_SURFACE_CLASS } from "./surface-classes";
 import { Button } from "./ui/button";
 
-export { KARPATHY_MEMORY_PRESET_ID, KARPATHY_MEMORY_PRESET_SOURCE_URL };
+export { KARPATHY_MEMORY_PRESET_ID, KARPATHY_MEMORY_PRESET_REPOSITORY_URL };
 
 interface MemoryPresetPanelProps {
   isApplying: boolean;
@@ -38,18 +38,6 @@ function MemoryPresetPanel({ isApplying, onApply, onOpenSource }: MemoryPresetPa
         <div className="flex shrink-0 items-center gap-2">
           <Button
             type="button"
-            variant="ghost"
-            size="sm"
-            className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
-            aria-label={t("memory.presets.sourceAriaLabel")}
-            title={t("memory.presets.sourceAriaLabel")}
-            onClick={onOpenSource}
-          >
-            <span>{t("memory.presets.source")}</span>
-            <ExternalLink className="size-3.5" aria-hidden="true" />
-          </Button>
-          <Button
-            type="button"
             size="sm"
             className="gap-1.5 px-2.5 text-xs"
             aria-busy={isApplying}
@@ -58,6 +46,18 @@ function MemoryPresetPanel({ isApplying, onApply, onOpenSource }: MemoryPresetPa
           >
             <FilePlus2 className="size-3.5" aria-hidden="true" />
             <span>{t("memory.presets.action.importClaude")}</span>
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+            aria-label={t("memory.presets.repositoryAriaLabel")}
+            title={t("memory.presets.repositoryAriaLabel")}
+            onClick={onOpenSource}
+          >
+            <span>{t("memory.presets.repository")}</span>
+            <ExternalLink className="size-3.5" aria-hidden="true" />
           </Button>
         </div>
       </div>

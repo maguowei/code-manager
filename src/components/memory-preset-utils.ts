@@ -2,6 +2,8 @@ import type { Language } from "../i18n";
 import type { MemoryPresetContentResult, MemoryPresetLanguage } from "../types";
 
 export const KARPATHY_MEMORY_PRESET_ID = "karpathy-behavior-guidelines";
+export const KARPATHY_MEMORY_PRESET_REPOSITORY_URL =
+  "https://github.com/multica-ai/andrej-karpathy-skills";
 export const KARPATHY_MEMORY_PRESET_SOURCE_URL =
   "https://raw.githubusercontent.com/multica-ai/andrej-karpathy-skills/refs/heads/main/CLAUDE.md";
 

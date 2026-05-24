@@ -5,6 +5,14 @@ import type { Memory, MemoryPresetContentResult, MemoryPresetLanguage } from "..
 import MemoryEditor from "../MemoryEditor";
 import { ThemeProvider } from "../theme-provider";
 
+const { openUrlMock } = vi.hoisted(() => ({
+  openUrlMock: vi.fn(async (_url: string) => undefined),
+}));
+
+vi.mock("@tauri-apps/plugin-opener", () => ({
+  openUrl: openUrlMock,
+}));
+
 vi.mock("@uiw/react-codemirror", () => ({
   default: ({
     value,
@@ -77,6 +85,7 @@ async function clickAndFlush(element: Element) {
 describe("MemoryEditor", () => {
   beforeEach(() => {
     localStorage.clear();
+    openUrlMock.mockReset();
     setSystemLanguages(["zh-CN"]);
     Object.defineProperty(window, "matchMedia", {
       value: vi.fn().mockImplementation(() => ({
@@ -238,6 +247,35 @@ describe("MemoryEditor", () => {
         rulePath: undefined,
       });
     });
+  });
+
+  it("shows the Karpathy repository link next to the editor import button", async () => {
+    const loadMemoryPresetContent = vi.fn(async () => ({
+      presetId: "karpathy-behavior-guidelines",
+      language: "zh" as const,
+      name: "Karpathy 行为指南",
+      content:
+        "<!-- ai-manager:memory-preset:karpathy-behavior-guidelines:zh:start -->\n编码前先思考\n<!-- /ai-manager:memory-preset:karpathy-behavior-guidelines:zh:end -->",
+      sourceUrl:
+        "https://raw.githubusercontent.com/multica-ai/andrej-karpathy-skills/refs/heads/main/CLAUDE.md",
+    }));
+    renderMemoryEditor(null, { loadMemoryPresetContent });
+
+    const repositoryLink = screen.getByRole("button", {
+      name: "打开 Karpathy 行为指南原仓库",
+    });
+    const importButton = screen.getByRole("button", { name: "导入 Karpathy 行为指南" });
+
+    expect(repositoryLink.parentElement).toContainElement(importButton);
+    expect(
+      importButton.compareDocumentPosition(repositoryLink) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+
+    fireEvent.click(repositoryLink);
+
+    expect(openUrlMock).toHaveBeenCalledWith(
+      "https://github.com/multica-ai/andrej-karpathy-skills",
+    );
   });
 
   it("imports the English Karpathy preset when the current UI language is English", async () => {

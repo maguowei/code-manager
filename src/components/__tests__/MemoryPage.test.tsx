@@ -228,10 +228,16 @@ describe("MemoryPage", () => {
     expect(screen.queryByText("中文")).not.toBeInTheDocument();
     expect(screen.queryByText("English")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "查看 Karpathy 行为指南来源" }));
+    const importButton = screen.getByRole("button", { name: "导入为 CLAUDE.md" });
+    const repositoryLink = screen.getByRole("button", { name: "打开 Karpathy 行为指南原仓库" });
+    expect(
+      importButton.compareDocumentPosition(repositoryLink) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+
+    fireEvent.click(repositoryLink);
 
     expect(openUrlMock).toHaveBeenCalledWith(
-      "https://raw.githubusercontent.com/multica-ai/andrej-karpathy-skills/refs/heads/main/CLAUDE.md",
+      "https://github.com/multica-ai/andrej-karpathy-skills",
     );
   });
 

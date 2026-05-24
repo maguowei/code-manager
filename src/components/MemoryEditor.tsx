@@ -1,8 +1,9 @@
 import { markdown } from "@codemirror/lang-markdown";
 import { EditorView } from "@codemirror/view";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
-import { ChevronLeft, CircleCheck, Code2, Eye, Sparkles } from "lucide-react";
+import { ChevronLeft, CircleCheck, Code2, ExternalLink, Eye, Sparkles } from "lucide-react";
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { type Resolver, useForm } from "react-hook-form";
 import { useCodeMirrorTheme } from "../hooks/useCodeMirrorTheme";
@@ -30,7 +31,11 @@ import type {
   MemoryTargetType,
 } from "../types";
 import MarkdownPreview from "./claude-overview/MarkdownPreview";
-import { appendMemoryPresetContent, getMemoryPresetLanguage } from "./memory-preset-utils";
+import {
+  appendMemoryPresetContent,
+  getMemoryPresetLanguage,
+  KARPATHY_MEMORY_PRESET_REPOSITORY_URL,
+} from "./memory-preset-utils";
 import ProfileNameBadge from "./ProfileNameBadge";
 import {
   CONTROL_SURFACE_CLASS,
@@ -277,6 +282,14 @@ const MemoryEditor = forwardRef<MemoryEditorHandle, MemoryEditorProps>(function 
       showOperationError(showToast, t("toast.memoryPresetContentError"), err);
     } finally {
       setIsImportingPreset(false);
+    }
+  }
+
+  async function handleOpenMemoryPresetRepository() {
+    try {
+      await openUrl(KARPATHY_MEMORY_PRESET_REPOSITORY_URL);
+    } catch (err) {
+      showOperationError(showToast, t("memory.presets.repositoryOpenError"), err);
     }
   }
 
@@ -611,18 +624,32 @@ const MemoryEditor = forwardRef<MemoryEditorHandle, MemoryEditorProps>(function 
                     {t("memory.content")}
                   </label>
                   {watchTargetType === "claude" && loadMemoryPresetContent ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5 px-2.5 text-xs"
-                      aria-busy={isImportingPreset}
-                      disabled={isImportingPreset}
-                      onClick={handleImportMemoryPreset}
-                    >
-                      <Sparkles className="size-3.5" aria-hidden="true" />
-                      <span>{t("memory.presets.action.insertCurrent")}</span>
-                    </Button>
+                    <div className="flex shrink-0 flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 px-2.5 text-xs"
+                        aria-busy={isImportingPreset}
+                        disabled={isImportingPreset}
+                        onClick={handleImportMemoryPreset}
+                      >
+                        <Sparkles className="size-3.5" aria-hidden="true" />
+                        <span>{t("memory.presets.action.insertCurrent")}</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+                        aria-label={t("memory.presets.repositoryAriaLabel")}
+                        title={t("memory.presets.repositoryAriaLabel")}
+                        onClick={handleOpenMemoryPresetRepository}
+                      >
+                        <span>{t("memory.presets.repository")}</span>
+                        <ExternalLink className="size-3.5" aria-hidden="true" />
+                      </Button>
+                    </div>
                   ) : null}
                 </div>
                 <FormField
