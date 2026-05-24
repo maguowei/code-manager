@@ -15,7 +15,9 @@ const {
   listenMock,
   multiFileDiffMock,
   openUrlMock,
+  projectsPageProject,
   revealItemInDirMock,
+  usagePageRenderMock,
 } = vi.hoisted(() => {
   const eventListeners = new Map<string, Set<(payload: unknown) => unknown>>();
   const emitTauriEvent = async (event: string, payload: unknown) => {
@@ -41,7 +43,9 @@ const {
     }),
     multiFileDiffMock: vi.fn(),
     openUrlMock: vi.fn(async () => undefined),
+    projectsPageProject: "/Users/test-user/work/alpha",
     revealItemInDirMock: vi.fn(async () => undefined),
+    usagePageRenderMock: vi.fn(),
   };
 });
 
@@ -344,6 +348,33 @@ vi.mock("@pierre/trees/react", async () => {
   };
 });
 
+vi.mock("./components/ProjectsPage", () => ({
+  default: (props: { onOpenProjectUsage?: (project: string) => void }) => (
+    <main>
+      <h1>项目</h1>
+      <button type="button" onClick={() => props.onOpenProjectUsage?.(projectsPageProject)}>
+        查看Token用量
+      </button>
+    </main>
+  ),
+}));
+
+vi.mock("./components/UsagePage", () => ({
+  default: (props: { projectRequest?: { project: string; requestId: number } | null }) => {
+    const project = props.projectRequest?.project ?? "";
+    usagePageRenderMock(props);
+    return (
+      <main>
+        <h1>Token 用量统计</h1>
+        <select aria-label="项目" value={project} onChange={() => undefined}>
+          <option value="">全部项目</option>
+          {project ? <option value={project}>{project}</option> : null}
+        </select>
+      </main>
+    );
+  },
+}));
+
 const WORKSPACE_FIXTURE: ConfigWorkspace = {
   app: {
     showTrayTitle: true,
@@ -483,6 +514,7 @@ describe("App", () => {
     fileTreeOptionsMock.mockClear();
     openUrlMock.mockClear();
     revealItemInDirMock.mockClear();
+    usagePageRenderMock.mockClear();
     invokeMock.mockResolvedValue(WORKSPACE_FIXTURE);
     Object.defineProperty(window, "__TAURI_INTERNALS__", {
       configurable: true,
@@ -599,16 +631,8 @@ describe("App", () => {
     });
   }
 
-  it("opens token usage for a project with the project selected and all dates", async () => {
+  it("passes the selected project to token usage navigation", async () => {
     enableTauriEvents();
-    const project = "/Users/test-user/work/alpha";
-    const historyContent = JSON.stringify({
-      display: "inspect token usage",
-      pastedContents: {},
-      project,
-      sessionId: "session-alpha",
-      timestamp: 1778932800000,
-    });
     const workspaceWithEditor: ConfigWorkspace = {
       ...WORKSPACE_FIXTURE,
       app: {
@@ -620,57 +644,6 @@ describe("App", () => {
     invokeMock.mockImplementation(async (command, _args) => {
       if (command === "get_config_workspace") {
         return workspaceWithEditor;
-      }
-      if (command === "get_history") {
-        return { content: historyContent, mtime: 1 };
-      }
-      if (command === "get_history_if_changed") {
-        return null;
-      }
-      if (command === "get_project_detail") {
-        return {
-          path: project,
-          shortName: "alpha",
-          exists: true,
-          isGitRepo: true,
-          repoRoot: project,
-          repositoryUrl: "https://github.example.com/team/alpha",
-          hasClaudeMd: true,
-          hasProjectClaudeDir: true,
-          hasProjectClaudeSkills: true,
-          hasProjectClaudeSettings: false,
-          hasProjectClaudeSettingsLocal: false,
-          agentsStatus: "missing",
-          agentsSkillsStatus: "missing",
-          projectSkills: [{ id: "review-skill", isSymlink: false }],
-          branches: [],
-          worktrees: [],
-        };
-      }
-      if (command === "get_usage_snapshot") {
-        return {
-          summary: {
-            totalMessages: 1,
-            totalSessions: 1,
-            totalProjects: 1,
-            totalInput: 100,
-            totalOutput: 50,
-            totalCacheCreation: 0,
-            totalCacheRead: 0,
-            totalCost: 0.01,
-            lastScanMs: null,
-            pricing: { source: "builtin", fetchedAtMs: null, models: {} },
-            thirdPartyProviderPricingEnabled: true,
-            unknownModels: [],
-            allProjects: [{ projectPath: project, projectDir: "-Users-test-user-work-alpha" }],
-            allModels: [],
-          },
-          daily: [],
-          timeSeries: [],
-          projects: [],
-          sessions: [],
-          models: [],
-        };
       }
       return null;
     });
@@ -686,12 +659,11 @@ describe("App", () => {
       await screen.findByRole("heading", { name: "Token 用量统计" }, { timeout: 5000 }),
     ).toBeInTheDocument();
     await waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith("get_usage_snapshot", {
-        filter: { projectPath: project },
-        granularity: "day",
+      expect(usagePageRenderMock).toHaveBeenLastCalledWith({
+        projectRequest: { project: projectsPageProject, requestId: expect.any(Number) },
       });
     });
-    expect(screen.getByRole("combobox", { name: "项目" })).toHaveValue(project);
+    expect(screen.getByRole("combobox", { name: "项目" })).toHaveValue(projectsPageProject);
   }, 10_000);
 
   it("toggles the settings drawer from the sidebar settings button", async () => {
