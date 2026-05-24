@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
-import type { Memory } from "../../types";
+import type { Memory, MemoryPresetContentResult, MemoryPresetLanguage } from "../../types";
 import MemoryEditor from "../MemoryEditor";
 import { ThemeProvider } from "../theme-provider";
 
@@ -43,12 +43,24 @@ function setSystemLanguages(languages: string[]) {
   });
 }
 
-function renderMemoryEditor(memory: Memory | null = null) {
+function renderMemoryEditor(
+  memory: Memory | null = null,
+  options: {
+    loadMemoryPresetContent?: (
+      language: MemoryPresetLanguage,
+    ) => Promise<MemoryPresetContentResult>;
+  } = {},
+) {
   const onSave = vi.fn();
   render(
     <I18nProvider>
       <ThemeProvider>
-        <MemoryEditor memory={memory} onSave={onSave} onClose={vi.fn()} />
+        <MemoryEditor
+          memory={memory}
+          onSave={onSave}
+          onClose={vi.fn()}
+          loadMemoryPresetContent={options.loadMemoryPresetContent}
+        />
       </ThemeProvider>
     </I18nProvider>,
   );
@@ -180,5 +192,112 @@ describe("MemoryEditor", () => {
       "# 团队规范\n\n## 核心原则\n\n保持简洁。",
     );
     expect(screen.queryByTestId("memory-markdown-preview")).not.toBeInTheDocument();
+  });
+
+  it("imports the current Chinese Karpathy preset at the bottom of a CLAUDE.md draft", async () => {
+    const loadMemoryPresetContent = vi.fn(async () => ({
+      presetId: "karpathy-behavior-guidelines",
+      language: "zh" as const,
+      name: "Karpathy 行为指南",
+      content:
+        "<!-- ai-manager:memory-preset:karpathy-behavior-guidelines:zh:start -->\n编码前先思考\n<!-- /ai-manager:memory-preset:karpathy-behavior-guidelines:zh:end -->",
+      sourceUrl:
+        "https://raw.githubusercontent.com/multica-ai/andrej-karpathy-skills/refs/heads/main/CLAUDE.md",
+    }));
+    const { onSave } = renderMemoryEditor(
+      {
+        id: "team-memory",
+        name: "团队规范",
+        content: "已有规则",
+        targetType: "claude",
+        isActive: true,
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
+      },
+      { loadMemoryPresetContent },
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "导入 Karpathy 行为指南" }));
+
+    await waitFor(() => {
+      expect(loadMemoryPresetContent).toHaveBeenCalledWith("zh");
+    });
+    expect(screen.getByLabelText("memory-content-editor")).toHaveValue(
+      "# 团队规范\n\n已有规则\n\n<!-- ai-manager:memory-preset:karpathy-behavior-guidelines:zh:start -->\n编码前先思考\n<!-- /ai-manager:memory-preset:karpathy-behavior-guidelines:zh:end -->",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith({
+        id: "team-memory",
+        name: "团队规范",
+        content:
+          "已有规则\n\n<!-- ai-manager:memory-preset:karpathy-behavior-guidelines:zh:start -->\n编码前先思考\n<!-- /ai-manager:memory-preset:karpathy-behavior-guidelines:zh:end -->",
+        targetType: "claude",
+        rulePath: undefined,
+      });
+    });
+  });
+
+  it("imports the English Karpathy preset when the current UI language is English", async () => {
+    setSystemLanguages(["en-US"]);
+    const loadMemoryPresetContent = vi.fn(async () => ({
+      presetId: "karpathy-behavior-guidelines",
+      language: "en" as const,
+      name: "Karpathy Behavioral Guidelines",
+      content:
+        "<!-- ai-manager:memory-preset:karpathy-behavior-guidelines:en:start -->\nThink Before Coding\n<!-- /ai-manager:memory-preset:karpathy-behavior-guidelines:en:end -->",
+      sourceUrl:
+        "https://raw.githubusercontent.com/multica-ai/andrej-karpathy-skills/refs/heads/main/CLAUDE.md",
+    }));
+    renderMemoryEditor(null, { loadMemoryPresetContent });
+
+    fireEvent.click(screen.getByRole("button", { name: "Import Karpathy Guidelines" }));
+
+    await waitFor(() => {
+      expect(loadMemoryPresetContent).toHaveBeenCalledWith("en");
+    });
+    expect(screen.getByRole("textbox", { name: /Memory Name/ })).toHaveValue(
+      "Karpathy Behavioral Guidelines",
+    );
+    expect(screen.getByLabelText("memory-content-editor")).toHaveValue(
+      "# Karpathy Behavioral Guidelines\n\n<!-- ai-manager:memory-preset:karpathy-behavior-guidelines:en:start -->\nThink Before Coding\n<!-- /ai-manager:memory-preset:karpathy-behavior-guidelines:en:end -->",
+    );
+  });
+
+  it("does not duplicate the Karpathy preset block when importing twice", async () => {
+    const presetBlock =
+      "<!-- ai-manager:memory-preset:karpathy-behavior-guidelines:zh:start -->\n编码前先思考\n<!-- /ai-manager:memory-preset:karpathy-behavior-guidelines:zh:end -->";
+    const loadMemoryPresetContent = vi.fn(async () => ({
+      presetId: "karpathy-behavior-guidelines",
+      language: "zh" as const,
+      name: "Karpathy 行为指南",
+      content: presetBlock,
+      sourceUrl:
+        "https://raw.githubusercontent.com/multica-ai/andrej-karpathy-skills/refs/heads/main/CLAUDE.md",
+    }));
+    renderMemoryEditor(
+      {
+        id: "team-memory",
+        name: "团队规范",
+        content: `已有规则\n\n${presetBlock}`,
+        targetType: "claude",
+        isActive: true,
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
+      },
+      { loadMemoryPresetContent },
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "导入 Karpathy 行为指南" }));
+
+    await waitFor(() => {
+      expect(loadMemoryPresetContent).toHaveBeenCalledWith("zh");
+    });
+    const contentEditor = screen.getByLabelText("memory-content-editor") as HTMLTextAreaElement;
+    expect(
+      contentEditor.value.match(/ai-manager:memory-preset:karpathy-behavior-guidelines:zh:start/g),
+    ).toHaveLength(1);
   });
 });

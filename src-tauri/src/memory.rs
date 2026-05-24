@@ -10,12 +10,167 @@ const UNMANAGED_IMPORT_PATH_CONFLICT: &str = "managedPathConflict";
 const UNMANAGED_IMPORT_UNSUPPORTED_SYMLINK: &str = "unsupportedSymlink";
 const SYMLINK_IMPORT_ERROR: &str = "软链接记忆文件不支持导入";
 const SYMLINK_WRITE_ERROR: &str = "软链接记忆路径不支持写入";
+const KARPATHY_MEMORY_PRESET_ID: &str = "karpathy-behavior-guidelines";
+const KARPATHY_MEMORY_PRESET_SOURCE_URL: &str =
+    "https://raw.githubusercontent.com/multica-ai/andrej-karpathy-skills/refs/heads/main/CLAUDE.md";
+const KARPATHY_MEMORY_PRESET_MARKER_BEGIN: &str =
+    "<!-- ai-manager:memory-preset:karpathy-behavior-guidelines:";
+const KARPATHY_MEMORY_PRESET_MARKER_END: &str =
+    "<!-- /ai-manager:memory-preset:karpathy-behavior-guidelines:";
+const KARPATHY_MEMORY_PRESET_EN_CONTENT: &str = r#"Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
+
+**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+
+## 1. Think Before Coding
+
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
+
+Before implementing:
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+## 2. Simplicity First
+
+**Minimum code that solves the problem. Nothing speculative.**
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+## 3. Surgical Changes
+
+**Touch only what you must. Clean up only your own mess.**
+
+When editing existing code:
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it - don't delete it.
+
+When your changes create orphans:
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+The test: Every changed line should trace directly to the user's request.
+
+## 4. Goal-Driven Execution
+
+**Define success criteria. Loop until verified.**
+
+Transform tasks into verifiable goals:
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
+
+For multi-step tasks, state a brief plan:
+
+```text
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
+```
+
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+---
+
+**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes."#;
+const KARPATHY_MEMORY_PRESET_ZH_CONTENT: &str = r#"用于减少 LLM 常见编码错误的行为指南。请按需与项目专属指令合并使用。
+
+**取舍：** 这些指南偏向谨慎而不是速度。面对琐碎任务时，请结合判断。
+
+## 1. 编码前先思考
+
+**不要假设。不要掩盖困惑。要说明取舍。**
+
+实现前：
+- 明确说出你的假设。如果不确定，就询问。
+- 如果存在多种理解，列出来，不要默默选择一种。
+- 如果有更简单的方案，要说出来。必要时提出异议。
+- 如果事情不清楚，先停下。说明哪里困惑，然后询问。
+
+## 2. 简单优先
+
+**用能解决问题的最少代码。不要做推测性扩展。**
+
+- 不添加请求之外的功能。
+- 不为单次使用的代码抽象。
+- 不添加未被要求的“灵活性”或“可配置性”。
+- 不为不可能发生的场景添加错误处理。
+- 如果写了 200 行但 50 行就能解决，重写得更简单。
+
+问自己：“资深工程师会不会觉得这过度复杂？” 如果会，就简化。
+
+## 3. 外科手术式修改
+
+**只触碰必须修改的部分。只清理自己造成的问题。**
+
+编辑现有代码时：
+- 不要顺手“改进”相邻代码、注释或格式。
+- 不要重构没有坏的东西。
+- 匹配现有风格，即使你会用不同写法。
+- 如果发现无关死代码，提出来，不要删除。
+
+当你的改动制造了孤儿代码：
+- 移除由你的改动造成的未使用 import、变量或函数。
+- 不要删除原本就存在的死代码，除非用户要求。
+
+检验标准：每一行改动都应该能直接追溯到用户请求。
+
+## 4. 目标驱动执行
+
+**定义成功标准。循环直到验证通过。**
+
+把任务转成可验证目标：
+- “添加校验” → “先写无效输入测试，再让它通过”
+- “修复 bug” → “先写能复现 bug 的测试，再让它通过”
+- “重构 X” → “确保重构前后测试都通过”
+
+对于多步骤任务，先写简短计划：
+
+```text
+1. [步骤] → 验证：[检查]
+2. [步骤] → 验证：[检查]
+3. [步骤] → 验证：[检查]
+```
+
+强成功标准能让你独立循环推进。弱标准（“让它能用”）需要不断澄清。
+
+---
+
+**这些指南生效的表现：** diff 中不必要的改动更少，因过度复杂导致的重写更少，澄清问题发生在实现前而不是出错后。"#;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum MemoryTargetType {
     Claude,
     Rule,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum MemoryPresetLanguage {
+    Zh,
+    En,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum MemoryPresetAction {
+    CreateClaude,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum MemoryPresetApplyOutcome {
+    CreatedClaude,
+    ActivatedExisting,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,6 +213,41 @@ impl Default for MemoryState {
 #[serde(rename_all = "camelCase")]
 pub struct MemoryDeletePreview {
     pub cleanup_dirs: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct MemoryPresetApplyInput {
+    pub preset_id: String,
+    pub language: MemoryPresetLanguage,
+    pub action: MemoryPresetAction,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MemoryPresetApplyResult {
+    pub state: MemoryState,
+    pub outcome: MemoryPresetApplyOutcome,
+    pub memory_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct MemoryPresetContentInput {
+    pub preset_id: String,
+    pub language: MemoryPresetLanguage,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MemoryPresetContentResult {
+    pub preset_id: String,
+    pub language: MemoryPresetLanguage,
+    pub name: String,
+    pub content: String,
+    pub source_url: String,
 }
 
 fn current_memory_state_version() -> u32 {
@@ -498,6 +688,133 @@ pub fn import_memories_from_directory(
         )
     });
     result
+}
+
+#[tauri::command]
+pub fn apply_memory_preset(
+    data: MemoryPresetApplyInput,
+) -> Result<MemoryPresetApplyResult, String> {
+    let result = (|| {
+        let preset = resolve_memory_preset(&data.preset_id, data.language)?;
+        let _lock = crate::utils::lock_memory()?;
+        let mut state = load_memory_state();
+        match data.action {
+            MemoryPresetAction::CreateClaude => apply_preset_as_claude(&mut state, &preset),
+        }
+    })();
+    crate::logging::log_command_result("memory.apply_preset", &result, |result| {
+        format!(
+            "preset_id={} outcome={:?} memory_id={}",
+            data.preset_id, result.outcome, result.memory_id
+        )
+    });
+    result
+}
+
+#[tauri::command]
+pub fn get_memory_preset_content(
+    data: MemoryPresetContentInput,
+) -> Result<MemoryPresetContentResult, String> {
+    let result = (|| {
+        let preset = resolve_memory_preset(&data.preset_id, data.language)?;
+        Ok(MemoryPresetContentResult {
+            preset_id: data.preset_id.clone(),
+            language: preset.language,
+            name: preset.name.to_string(),
+            content: append_preset_content("", &preset),
+            source_url: KARPATHY_MEMORY_PRESET_SOURCE_URL.to_string(),
+        })
+    })();
+    crate::logging::log_command_result("memory.get_preset_content", &result, |result| {
+        format!(
+            "preset_id={} language={:?} content_len={}",
+            result.preset_id,
+            result.language,
+            result.content.len()
+        )
+    });
+    result
+}
+
+#[derive(Debug, Clone, Copy)]
+struct MemoryPresetDefinition {
+    language: MemoryPresetLanguage,
+    name: &'static str,
+    content: &'static str,
+}
+
+fn resolve_memory_preset(
+    preset_id: &str,
+    language: MemoryPresetLanguage,
+) -> Result<MemoryPresetDefinition, String> {
+    if preset_id != KARPATHY_MEMORY_PRESET_ID {
+        return Err(format!("未知记忆预设 '{}'", preset_id));
+    }
+
+    Ok(match language {
+        MemoryPresetLanguage::Zh => MemoryPresetDefinition {
+            language: MemoryPresetLanguage::Zh,
+            name: "Karpathy 行为指南",
+            content: KARPATHY_MEMORY_PRESET_ZH_CONTENT,
+        },
+        MemoryPresetLanguage::En => MemoryPresetDefinition {
+            language: MemoryPresetLanguage::En,
+            name: "Karpathy Behavioral Guidelines",
+            content: KARPATHY_MEMORY_PRESET_EN_CONTENT,
+        },
+    })
+}
+
+fn apply_preset_as_claude(
+    state: &mut MemoryState,
+    preset: &MemoryPresetDefinition,
+) -> Result<MemoryPresetApplyResult, String> {
+    let previous = state.clone();
+    let now = crate::utils::current_timestamp();
+
+    let claude_md_path = get_claude_md_path();
+    if active_claude_memory(state).is_some() || fs::symlink_metadata(&claude_md_path).is_ok() {
+        return Err(
+            "已有主记忆，请在创建或编辑页面将 Karpathy 行为指南导入到当前文档底部".to_string(),
+        );
+    }
+
+    if let Some(index) = state.memories.iter().position(|memory| {
+        memory.target_type == MemoryTargetType::Claude
+            && normalize_memory_body(&memory.content) == normalize_memory_body(preset.content)
+    }) {
+        let memory_id = state.memories[index].id.clone();
+        state.memories[index].is_active = true;
+        state.memories[index].updated_at = now;
+        enforce_single_active_claude(state, &memory_id, now);
+        save_and_apply_memories(&previous, state)?;
+        return Ok(MemoryPresetApplyResult {
+            state: memory_state_view(state.clone())?,
+            outcome: MemoryPresetApplyOutcome::ActivatedExisting,
+            memory_id,
+        });
+    }
+
+    let memory_id = Uuid::new_v4().to_string();
+    state.memories.push(Memory {
+        id: memory_id.clone(),
+        name: preset.name.to_string(),
+        content: normalize_memory_body(preset.content),
+        target_type: MemoryTargetType::Claude,
+        rule_path: None,
+        path_patterns: Vec::new(),
+        is_active: true,
+        created_at: now,
+        updated_at: now,
+    });
+    enforce_single_active_claude(state, &memory_id, now);
+    save_and_apply_memories(&previous, state)?;
+
+    Ok(MemoryPresetApplyResult {
+        state: memory_state_view(state.clone())?,
+        outcome: MemoryPresetApplyOutcome::CreatedClaude,
+        memory_id,
+    })
 }
 
 fn validate_memory_import_source_dir(source_dir: &str) -> Result<PathBuf, String> {
@@ -1064,6 +1381,43 @@ fn compose_memory_markdown(name: &str, content: &str) -> String {
         return format!("# {title}");
     }
     format!("# {title}\n\n{body}")
+}
+
+fn append_preset_content(content: &str, preset: &MemoryPresetDefinition) -> String {
+    let body = normalize_memory_body(content);
+    let block = format!(
+        "{}\n{}\n{}",
+        preset_marker_begin(preset),
+        normalize_memory_body(preset.content),
+        preset_marker_end(preset)
+    );
+    if body.trim().is_empty() {
+        return block;
+    }
+    format!("{}\n\n{}", body.trim_end(), block)
+}
+
+fn preset_marker_begin(preset: &MemoryPresetDefinition) -> String {
+    format!(
+        "{}{}:start -->",
+        KARPATHY_MEMORY_PRESET_MARKER_BEGIN,
+        memory_preset_language_code(preset.language)
+    )
+}
+
+fn preset_marker_end(preset: &MemoryPresetDefinition) -> String {
+    format!(
+        "{}{}:end -->",
+        KARPATHY_MEMORY_PRESET_MARKER_END,
+        memory_preset_language_code(preset.language)
+    )
+}
+
+fn memory_preset_language_code(language: MemoryPresetLanguage) -> &'static str {
+    match language {
+        MemoryPresetLanguage::Zh => "zh",
+        MemoryPresetLanguage::En => "en",
+    }
 }
 
 fn normalize_memory_body(content: &str) -> String {
@@ -2814,5 +3168,138 @@ mod schema_tests {
             fs::read_to_string(env.claude_md()).expect("未托管 CLAUDE.md 应保留"),
             "手写全局记忆"
         );
+    }
+
+    #[test]
+    fn applying_preset_creates_and_activates_claude_memory() {
+        let env = TestEnv::new("preset-create-claude");
+
+        let result = apply_memory_preset(MemoryPresetApplyInput {
+            preset_id: KARPATHY_MEMORY_PRESET_ID.to_string(),
+            language: MemoryPresetLanguage::Zh,
+            action: MemoryPresetAction::CreateClaude,
+        })
+        .expect("应可应用中文主记忆预设");
+
+        assert_eq!(result.outcome, MemoryPresetApplyOutcome::CreatedClaude);
+        let memory = result
+            .state
+            .memories
+            .iter()
+            .find(|memory| memory.id == result.memory_id)
+            .expect("应返回创建的记忆");
+        assert!(memory.is_active);
+        assert_eq!(memory.target_type, MemoryTargetType::Claude);
+        assert!(memory.content.contains("编码前先思考"));
+        assert_eq!(
+            fs::read_to_string(env.claude_md()).expect("应写入 CLAUDE.md"),
+            serialize_claude_memory(memory)
+        );
+    }
+
+    #[test]
+    fn applying_preset_reuses_existing_claude_memory_and_enforces_single_active() {
+        let env = TestEnv::new("preset-reuse-claude");
+        let existing = add_memory(MemoryData {
+            name: "Karpathy Behavioral Guidelines".to_string(),
+            content: KARPATHY_MEMORY_PRESET_EN_CONTENT.to_string(),
+            ..memory_data(MemoryTargetType::Claude, None)
+        })
+        .expect("应可新增未启用英文预设记忆")
+        .memories
+        .into_iter()
+        .next()
+        .expect("应返回未启用记忆");
+
+        let result = apply_memory_preset(MemoryPresetApplyInput {
+            preset_id: KARPATHY_MEMORY_PRESET_ID.to_string(),
+            language: MemoryPresetLanguage::En,
+            action: MemoryPresetAction::CreateClaude,
+        })
+        .expect("无当前主记忆时应可启用已有英文预设记忆");
+
+        assert_eq!(result.outcome, MemoryPresetApplyOutcome::ActivatedExisting);
+        assert_eq!(result.memory_id, existing.id);
+        assert_eq!(
+            result
+                .state
+                .memories
+                .iter()
+                .filter(|memory| memory.target_type == MemoryTargetType::Claude)
+                .count(),
+            1
+        );
+        assert!(result.state.memories.iter().any(|memory| {
+            memory.id == existing.id
+                && memory.is_active
+                && memory.content.contains("Think Before Coding")
+        }));
+        assert!(fs::read_to_string(env.claude_md())
+            .expect("应写入 CLAUDE.md")
+            .contains("Think Before Coding"));
+    }
+
+    #[test]
+    fn applying_preset_rejects_when_active_claude_memory_exists() {
+        let _env = TestEnv::new("preset-active-claude-exists");
+        let base = add_memory(MemoryData {
+            name: "团队主记忆".to_string(),
+            content: "保留团队规则".to_string(),
+            ..memory_data(MemoryTargetType::Claude, None)
+        })
+        .expect("应可新增团队主记忆")
+        .memories
+        .into_iter()
+        .next()
+        .expect("应返回团队主记忆");
+        toggle_memory(base.id.clone()).expect("应可启用团队主记忆");
+
+        let error = apply_memory_preset(MemoryPresetApplyInput {
+            preset_id: KARPATHY_MEMORY_PRESET_ID.to_string(),
+            language: MemoryPresetLanguage::Zh,
+            action: MemoryPresetAction::CreateClaude,
+        })
+        .expect_err("已有主记忆时不应允许列表页一键导入");
+
+        assert!(error.contains("已有主记忆"));
+    }
+
+    #[test]
+    fn applying_preset_rejects_when_unmanaged_claude_exists() {
+        let env = TestEnv::new("preset-unmanaged-claude-exists");
+        fs::create_dir_all(env.claude_md().parent().unwrap()).expect("应可创建 .claude 目录");
+        fs::write(env.claude_md(), "# 手写主记忆\n\n已有规则").expect("应可写入未托管主记忆");
+
+        let error = apply_memory_preset(MemoryPresetApplyInput {
+            preset_id: KARPATHY_MEMORY_PRESET_ID.to_string(),
+            language: MemoryPresetLanguage::En,
+            action: MemoryPresetAction::CreateClaude,
+        })
+        .expect_err("未托管 CLAUDE.md 存在时不应允许列表页一键导入");
+
+        assert!(error.contains("已有主记忆"));
+    }
+
+    #[test]
+    fn applying_preset_content_returns_language_specific_marked_block() {
+        let _env = TestEnv::new("preset-content");
+
+        let zh = get_memory_preset_content(MemoryPresetContentInput {
+            preset_id: KARPATHY_MEMORY_PRESET_ID.to_string(),
+            language: MemoryPresetLanguage::Zh,
+        })
+        .expect("应可获取中文预设内容");
+        let en = get_memory_preset_content(MemoryPresetContentInput {
+            preset_id: KARPATHY_MEMORY_PRESET_ID.to_string(),
+            language: MemoryPresetLanguage::En,
+        })
+        .expect("应可获取英文预设内容");
+
+        assert_eq!(zh.name, "Karpathy 行为指南");
+        assert_eq!(en.name, "Karpathy Behavioral Guidelines");
+        assert!(zh.content.contains("karpathy-behavior-guidelines:zh:start"));
+        assert!(zh.content.contains("编码前先思考"));
+        assert!(en.content.contains("karpathy-behavior-guidelines:en:start"));
+        assert!(en.content.contains("Think Before Coding"));
     }
 }

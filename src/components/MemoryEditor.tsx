@@ -2,11 +2,13 @@ import { markdown } from "@codemirror/lang-markdown";
 import { EditorView } from "@codemirror/view";
 import { zodResolver } from "@hookform/resolvers/zod";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
-import { ChevronLeft, CircleCheck, Code2, Eye } from "lucide-react";
+import { ChevronLeft, CircleCheck, Code2, Eye, Sparkles } from "lucide-react";
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { type Resolver, useForm } from "react-hook-form";
 import { useCodeMirrorTheme } from "../hooks/useCodeMirrorTheme";
+import { useToast } from "../hooks/useToast";
 import { type TranslationKey, useI18n } from "../i18n";
+import { showOperationError } from "../lib/user-facing-error";
 import { cn } from "../lib/utils";
 import {
   buildMemoryDefaultValues,
@@ -21,8 +23,14 @@ import {
   suggestRulePathFromName,
   toMemoryPayload,
 } from "../schemas/memory-schema";
-import type { Memory, MemoryTargetType } from "../types";
+import type {
+  Memory,
+  MemoryPresetContentResult,
+  MemoryPresetLanguage,
+  MemoryTargetType,
+} from "../types";
 import MarkdownPreview from "./claude-overview/MarkdownPreview";
+import { appendMemoryPresetContent, getMemoryPresetLanguage } from "./memory-preset-utils";
 import ProfileNameBadge from "./ProfileNameBadge";
 import {
   CONTROL_SURFACE_CLASS,
@@ -59,6 +67,7 @@ interface MemoryEditorProps {
     pathPatterns?: string[];
   }) => unknown;
   onClose: () => void;
+  loadMemoryPresetContent?: (language: MemoryPresetLanguage) => Promise<MemoryPresetContentResult>;
 }
 
 export interface MemoryEditorHandle {
@@ -117,15 +126,17 @@ function memorySaveDataEquals(
 }
 
 const MemoryEditor = forwardRef<MemoryEditorHandle, MemoryEditorProps>(function MemoryEditor(
-  { memory, onSave, onClose },
+  { memory, onSave, onClose, loadMemoryPresetContent },
   ref,
 ) {
-  const { t } = useI18n();
+  const { language, t } = useI18n();
+  const { showToast } = useToast();
   const { isDark } = useTheme();
   const editorRef = useRef<ReactCodeMirrorRef>(null);
   const editorTheme = useCodeMirrorTheme();
   const previewThemeType: MarkdownPreviewThemeType = isDark ? "dark" : "light";
   const [editorMode, setEditorMode] = useState<MemoryEditorMode>("source");
+  const [isImportingPreset, setIsImportingPreset] = useState(false);
   const hasInitialPathPatterns = (memory?.pathPatterns ?? []).some(
     (pattern) => pattern.trim().length > 0,
   );
@@ -234,6 +245,39 @@ const MemoryEditor = forwardRef<MemoryEditorHandle, MemoryEditorProps>(function 
     }
 
     return saveMemoryForm(parsed.data);
+  }
+
+  async function handleImportMemoryPreset() {
+    if (!loadMemoryPresetContent || watchTargetType !== "claude") {
+      return;
+    }
+
+    setIsImportingPreset(true);
+    try {
+      const preset = await loadMemoryPresetContent(getMemoryPresetLanguage(language));
+      const result = appendMemoryPresetContent(getValues("content"), preset);
+      if (!result.inserted) {
+        showToast(t("toast.memoryPresetAlreadyApplied"));
+        return;
+      }
+
+      const nextName = getValues("name").trim() ? getValues("name") : preset.name;
+      if (!getValues("name").trim()) {
+        setValue("name", preset.name, {
+          shouldDirty: true,
+          shouldValidate: true,
+        });
+      }
+      setValue("content", composeMemoryEditorContent(nextName, result.content), {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      showToast(t("toast.memoryPresetInserted"));
+    } catch (err) {
+      showOperationError(showToast, t("toast.memoryPresetContentError"), err);
+    } finally {
+      setIsImportingPreset(false);
+    }
   }
 
   // 在光标位置插入文本（选中文字时替换）
@@ -562,7 +606,25 @@ const MemoryEditor = forwardRef<MemoryEditorHandle, MemoryEditorProps>(function 
                 data-slot="memory-editor-section"
                 className={cn("flex flex-col gap-3 rounded-lg border p-4", PANEL_SURFACE_CLASS)}
               >
-                <label className="text-sm font-medium text-foreground">{t("memory.content")}</label>
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                  <label className="text-sm font-medium text-foreground">
+                    {t("memory.content")}
+                  </label>
+                  {watchTargetType === "claude" && loadMemoryPresetContent ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 px-2.5 text-xs"
+                      aria-busy={isImportingPreset}
+                      disabled={isImportingPreset}
+                      onClick={handleImportMemoryPreset}
+                    >
+                      <Sparkles className="size-3.5" aria-hidden="true" />
+                      <span>{t("memory.presets.action.insertCurrent")}</span>
+                    </Button>
+                  ) : null}
+                </div>
                 <FormField
                   control={control}
                   name="content"

@@ -211,6 +211,37 @@ export interface MemoryDirectoryImportResult {
   skipped: MemoryDirectoryImportSkippedItem[];
 }
 
+export type MemoryPresetLanguage = "zh" | "en";
+
+export type MemoryPresetAction = "createClaude";
+
+export type MemoryPresetApplyOutcome = "createdClaude" | "activatedExisting";
+
+export interface MemoryPresetApplyInput {
+  presetId: string;
+  language: MemoryPresetLanguage;
+  action: MemoryPresetAction;
+}
+
+export interface MemoryPresetApplyResult {
+  state: MemoryState;
+  outcome: MemoryPresetApplyOutcome;
+  memoryId: string;
+}
+
+export interface MemoryPresetContentInput {
+  presetId: string;
+  language: MemoryPresetLanguage;
+}
+
+export interface MemoryPresetContentResult {
+  presetId: string;
+  language: MemoryPresetLanguage;
+  name: string;
+  content: string;
+  sourceUrl: string;
+}
+
 // ===== 统计页面类型 =====
 
 export interface SessionMetrics {

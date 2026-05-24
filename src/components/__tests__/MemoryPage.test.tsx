@@ -135,6 +135,21 @@ const initialState: MemoryState = {
   ],
 };
 
+const noCurrentMainMemoryState: MemoryState = {
+  memories: [
+    {
+      id: "rule-only",
+      name: "规则记忆",
+      content: "规则内容",
+      targetType: "rule",
+      rulePath: "workflow.md",
+      isActive: true,
+      createdAt: 1,
+      updatedAt: 1,
+    },
+  ],
+};
+
 const toggledState: MemoryState = {
   memories: [
     {
@@ -198,6 +213,187 @@ describe("MemoryPage", () => {
     fireEvent.click(docsButton);
 
     expect(openUrlMock).toHaveBeenCalledWith("https://code.claude.com/docs/en/memory");
+  });
+
+  it("shows one Karpathy import action only when there is no current main memory", async () => {
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_memories") return noCurrentMainMemoryState;
+      return null;
+    });
+
+    renderMemoryPage();
+
+    expect(await screen.findByText("Karpathy 行为指南")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "导入为 CLAUDE.md" })).toBeInTheDocument();
+    expect(screen.queryByText("中文")).not.toBeInTheDocument();
+    expect(screen.queryByText("English")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "查看 Karpathy 行为指南来源" }));
+
+    expect(openUrlMock).toHaveBeenCalledWith(
+      "https://raw.githubusercontent.com/multica-ai/andrej-karpathy-skills/refs/heads/main/CLAUDE.md",
+    );
+  });
+
+  it("hides the Karpathy list import when an active main memory exists", async () => {
+    renderMemoryPage();
+
+    expect(await screen.findByText("全局 B")).toBeInTheDocument();
+    expect(screen.queryByText("Karpathy 行为指南")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "导入为 CLAUDE.md" })).not.toBeInTheDocument();
+  });
+
+  it("hides the Karpathy list import when an unmanaged CLAUDE.md exists", async () => {
+    const stateWithUnmanagedClaude: MemoryState = {
+      memories: [],
+      unmanagedMemories: [
+        {
+          id: "unmanaged:claude",
+          name: "CLAUDE.md",
+          content: "手写主记忆",
+          targetType: "claude",
+          rulePath: undefined,
+          pathPatterns: [],
+          sourcePath: "CLAUDE.md",
+          size: 18,
+          modifiedAt: 5,
+          importStatus: "ready",
+        },
+      ],
+    };
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_memories") return stateWithUnmanagedClaude;
+      return null;
+    });
+
+    renderMemoryPage();
+
+    expect(await screen.findByText("手写主记忆")).toBeInTheDocument();
+    expect(screen.queryByText("Karpathy 行为指南")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "导入为 CLAUDE.md" })).not.toBeInTheDocument();
+  });
+
+  it("applies the current Chinese UI preset as an active CLAUDE.md memory", async () => {
+    const presetState: MemoryState = {
+      memories: [
+        ...noCurrentMainMemoryState.memories,
+        {
+          id: "karpathy-zh",
+          name: "Karpathy 行为指南",
+          content: "编码前先思考",
+          targetType: "claude",
+          rulePath: undefined,
+          pathPatterns: [],
+          isActive: true,
+          createdAt: 5,
+          updatedAt: 5,
+        },
+      ],
+    };
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_memories") return noCurrentMainMemoryState;
+      if (command === "apply_memory_preset") {
+        return {
+          state: presetState,
+          outcome: "createdClaude",
+          memoryId: "karpathy-zh",
+        };
+      }
+      return null;
+    });
+
+    renderMemoryPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "导入为 CLAUDE.md" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("apply_memory_preset", {
+        data: {
+          presetId: "karpathy-behavior-guidelines",
+          language: "zh",
+          action: "createClaude",
+        },
+      });
+    });
+    expect(await findMemoryCard("Karpathy 行为指南")).toBeInTheDocument();
+    expect(showToastMock).toHaveBeenCalledWith("已创建并启用 Karpathy 行为指南主记忆");
+  });
+
+  it("applies the current English UI preset without showing a language chooser", async () => {
+    localStorage.setItem("ai-manager-settings", JSON.stringify({ language: "en", theme: "dark" }));
+    setSystemLanguages(["en-US"]);
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_memories") return { memories: [] };
+      if (command === "apply_memory_preset") {
+        return {
+          state: {
+            memories: [
+              {
+                id: "karpathy-en",
+                name: "Karpathy Behavioral Guidelines",
+                content: "Think Before Coding",
+                targetType: "claude",
+                rulePath: undefined,
+                pathPatterns: [],
+                isActive: true,
+                createdAt: 5,
+                updatedAt: 5,
+              },
+            ],
+          },
+          outcome: "createdClaude",
+          memoryId: "karpathy-en",
+        };
+      }
+      return null;
+    });
+
+    renderMemoryPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Import as CLAUDE.md" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("apply_memory_preset", {
+        data: {
+          presetId: "karpathy-behavior-guidelines",
+          language: "en",
+          action: "createClaude",
+        },
+      });
+    });
+    expect(screen.queryByText("Chinese version")).not.toBeInTheDocument();
+    expect(screen.queryByText("English version")).not.toBeInTheDocument();
+  });
+
+  it("disables the clicked preset action while applying", async () => {
+    let resolvePreset: (value: unknown) => void = () => undefined;
+    const pendingPreset = new Promise((resolve) => {
+      resolvePreset = resolve;
+    });
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_memories") return noCurrentMainMemoryState;
+      if (command === "apply_memory_preset") return pendingPreset;
+      return null;
+    });
+
+    renderMemoryPage();
+
+    const button = await screen.findByRole("button", { name: "导入为 CLAUDE.md" });
+    fireEvent.click(button);
+
+    await waitFor(() => {
+      expect(button).toBeDisabled();
+    });
+
+    resolvePreset({
+      state: noCurrentMainMemoryState,
+      outcome: "createdClaude",
+      memoryId: "karpathy-zh",
+    });
+
+    await waitFor(() => {
+      expect(button).not.toBeDisabled();
+    });
   });
 
   it("refreshes memories from the page header button", async () => {

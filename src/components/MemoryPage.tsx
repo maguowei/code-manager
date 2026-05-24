@@ -22,6 +22,10 @@ import type {
   MemoryDeletePreview,
   MemoryDirectoryImportResult,
   MemoryDirectoryImportSkipReason,
+  MemoryPresetApplyOutcome,
+  MemoryPresetApplyResult,
+  MemoryPresetContentResult,
+  MemoryPresetLanguage,
   MemoryState,
   UnmanagedMemory,
 } from "../types";
@@ -31,6 +35,11 @@ import type { EditorExitGuard } from "./editor-exit-guard";
 import { LIST_DETAIL_DRAWER_OFFSET_CLASS } from "./layout-size-classes";
 import MemoryEditor, { type MemoryEditorHandle } from "./MemoryEditor";
 import MemoryItem from "./MemoryItem";
+import MemoryPresetPanel, {
+  KARPATHY_MEMORY_PRESET_ID,
+  KARPATHY_MEMORY_PRESET_SOURCE_URL,
+} from "./MemoryPresetPanel";
+import { getMemoryPresetLanguage } from "./memory-preset-utils";
 import PageHeader from "./PageHeader";
 import UnmanagedMemoryItem from "./UnmanagedMemoryItem";
 import UnsavedChangesAlertDialog from "./UnsavedChangesAlertDialog";
@@ -279,6 +288,11 @@ type RefreshMemoriesOptions = {
   successMessage?: TranslationKey;
 };
 
+const memoryPresetOutcomeToastKeys: Record<MemoryPresetApplyOutcome, TranslationKey> = {
+  createdClaude: "toast.memoryPresetCreatedClaude",
+  activatedExisting: "toast.memoryPresetActivatedExisting",
+};
+
 interface MemoryPageProps {
   onDrawerChange?: (isOpen: boolean) => void;
   onEditorExitGuardChange?: (guard: EditorExitGuard | null) => void;
@@ -296,6 +310,7 @@ function MemoryPage({ onDrawerChange, onEditorExitGuardChange }: MemoryPageProps
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const [pendingEditorExitAction, setPendingEditorExitAction] = useState<(() => void) | null>(null);
   const [isSavingEditorExit, setIsSavingEditorExit] = useState(false);
+  const [isApplyingPreset, setIsApplyingPreset] = useState(false);
   const [directoryImportResult, setDirectoryImportResult] =
     useState<MemoryDirectoryImportResult | null>(null);
   const memoryEditorRef = useRef<MemoryEditorHandle | null>(null);
@@ -443,6 +458,37 @@ function MemoryPage({ onDrawerChange, onEditorExitGuardChange }: MemoryPageProps
     }
   }
 
+  async function handleApplyMemoryPreset() {
+    const presetLanguage = getMemoryPresetLanguage(language);
+    setIsApplyingPreset(true);
+    try {
+      const result = await invoke<MemoryPresetApplyResult>("apply_memory_preset", {
+        data: {
+          presetId: KARPATHY_MEMORY_PRESET_ID,
+          language: presetLanguage,
+          action: "createClaude",
+        },
+      });
+      applyMemoryState(result.state);
+      showToast(t(memoryPresetOutcomeToastKeys[result.outcome]));
+    } catch (err) {
+      showOperationError(showToast, t("toast.memoryPresetApplyError"), err);
+    } finally {
+      setIsApplyingPreset(false);
+    }
+  }
+
+  const loadMemoryPresetContent = useCallback(
+    async (presetLanguage: MemoryPresetLanguage) =>
+      invoke<MemoryPresetContentResult>("get_memory_preset_content", {
+        data: {
+          presetId: KARPATHY_MEMORY_PRESET_ID,
+          language: presetLanguage,
+        },
+      }),
+    [],
+  );
+
   const requestEditorExit = useCallback((action: () => void) => {
     if (memoryEditorRef.current?.isDirty()) {
       setPendingEditorExitAction(() => action);
@@ -517,6 +563,9 @@ function MemoryPage({ onDrawerChange, onEditorExitGuardChange }: MemoryPageProps
   const claudeMemories = memories.filter((memory) => memory.targetType === "claude");
   const ruleMemories = memories.filter((memory) => memory.targetType === "rule");
   const hasAnyMemory = memories.length > 0 || unmanagedMemories.length > 0;
+  const hasCurrentMainMemory =
+    memories.some((memory) => memory.targetType === "claude" && memory.isActive) ||
+    unmanagedMemories.some((memory) => memory.targetType === "claude");
   const claudeMemoryDocsUrl = useMemo(() => getClaudeMemoryDocsUrl(language), [language]);
 
   const handleOpenDocs = useCallback(async () => {
@@ -526,6 +575,14 @@ function MemoryPage({ onDrawerChange, onEditorExitGuardChange }: MemoryPageProps
       showOperationError(showToast, t("memory.openDocsError"), err);
     }
   }, [claudeMemoryDocsUrl, showToast, t]);
+
+  const handleOpenPresetSource = useCallback(async () => {
+    try {
+      await openUrl(KARPATHY_MEMORY_PRESET_SOURCE_URL);
+    } catch (err) {
+      showOperationError(showToast, t("memory.presets.sourceOpenError"), err);
+    }
+  }, [showToast, t]);
 
   const handleRefreshMemories = useCallback(() => {
     refreshMemories({
@@ -662,6 +719,14 @@ function MemoryPage({ onDrawerChange, onEditorExitGuardChange }: MemoryPageProps
         <span>{t("memory.addMemory")}</span>
       </Button>
 
+      {!hasCurrentMainMemory ? (
+        <MemoryPresetPanel
+          isApplying={isApplyingPreset}
+          onApply={handleApplyMemoryPreset}
+          onOpenSource={handleOpenPresetSource}
+        />
+      ) : null}
+
       {/* 记忆列表 */}
       {!hasAnyMemory ? (
         <EmptyState title={t("memory.empty")} hint={t("memory.emptyHint")} icon={BookOpen} />
@@ -746,6 +811,7 @@ function MemoryPage({ onDrawerChange, onEditorExitGuardChange }: MemoryPageProps
               memory={editingMemory}
               onSave={editingMemory ? handleUpdate : handleAdd}
               onClose={() => requestEditorExit(closeModal)}
+              loadMemoryPresetContent={loadMemoryPresetContent}
             />
           </SheetContent>
         </Sheet>
