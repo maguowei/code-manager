@@ -1342,14 +1342,11 @@ mod schema_tests {
 
     #[test]
     fn skill_data_has_all_json_schema_fields() {
-        let rust_schema = schema_for!(SkillData);
-        let rust_props = rust_schema
-            .schema
-            .object
-            .as_ref()
-            .expect("SkillData 应为 object 类型")
-            .properties
-            .clone();
+        let rust_schema =
+            serde_json::to_value(schema_for!(SkillData)).expect("Rust SkillData schema 应可序列化");
+        let rust_props = rust_schema["properties"]
+            .as_object()
+            .expect("SkillData 应为 object 类型");
         let json_schema = load_skill_json_schema();
 
         if let Some(props) = json_schema["properties"].as_object() {
@@ -1365,21 +1362,20 @@ mod schema_tests {
 
     #[test]
     fn skill_json_schema_required_fields_match_rust_schema() {
-        let rust_schema = schema_for!(SkillData);
-        let rust_required = rust_schema
-            .schema
-            .object
-            .as_ref()
-            .expect("SkillData 应为 object 类型")
-            .required
-            .clone();
+        let rust_schema =
+            serde_json::to_value(schema_for!(SkillData)).expect("Rust SkillData schema 应可序列化");
+        let rust_required = rust_schema["required"]
+            .as_array()
+            .expect("SkillData required 应为数组");
         let json_schema = load_skill_json_schema();
 
         if let Some(required) = json_schema["required"].as_array() {
             for field_val in required {
                 let field_name = field_val.as_str().expect("required 数组元素应为字符串");
                 assert!(
-                    rust_required.contains(field_name),
+                    rust_required
+                        .iter()
+                        .any(|required_field| required_field.as_str() == Some(field_name)),
                     "Skill JSON Schema required 字段 '{}' 在 Rust SkillData 中未标记为必填",
                     field_name
                 );
@@ -1389,9 +1385,8 @@ mod schema_tests {
 
     #[test]
     fn skill_json_schema_matches_defaults_and_pattern() {
-        let rust_schema = schema_for!(SkillData);
         let rust_schema_value =
-            serde_json::to_value(&rust_schema.schema).expect("Rust SkillData schema 应可序列化");
+            serde_json::to_value(schema_for!(SkillData)).expect("Rust SkillData schema 应可序列化");
         let json_schema = load_skill_json_schema();
 
         assert_eq!(json_schema["properties"]["id"]["minLength"], json!(1));

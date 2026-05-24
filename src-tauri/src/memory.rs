@@ -1916,14 +1916,11 @@ mod schema_tests {
 
     #[test]
     fn memory_data_has_all_json_schema_fields() {
-        let rust_schema = schema_for!(MemoryData);
-        let rust_props = rust_schema
-            .schema
-            .object
-            .as_ref()
-            .expect("MemoryData 应为 object 类型")
-            .properties
-            .clone();
+        let rust_schema = serde_json::to_value(schema_for!(MemoryData))
+            .expect("Rust MemoryData schema 应可序列化");
+        let rust_props = rust_schema["properties"]
+            .as_object()
+            .expect("MemoryData 应为 object 类型");
         let json_schema = load_memory_json_schema();
 
         if let Some(props) = json_schema["properties"].as_object() {
@@ -1939,21 +1936,20 @@ mod schema_tests {
 
     #[test]
     fn memory_json_schema_required_fields_match_rust_schema() {
-        let rust_schema = schema_for!(MemoryData);
-        let rust_required = rust_schema
-            .schema
-            .object
-            .as_ref()
-            .expect("MemoryData 应为 object 类型")
-            .required
-            .clone();
+        let rust_schema = serde_json::to_value(schema_for!(MemoryData))
+            .expect("Rust MemoryData schema 应可序列化");
+        let rust_required = rust_schema["required"]
+            .as_array()
+            .expect("MemoryData required 应为数组");
         let json_schema = load_memory_json_schema();
 
         if let Some(required) = json_schema["required"].as_array() {
             for field_val in required {
                 let field_name = field_val.as_str().expect("required 数组元素应为字符串");
                 assert!(
-                    rust_required.contains(field_name),
+                    rust_required
+                        .iter()
+                        .any(|required_field| required_field.as_str() == Some(field_name)),
                     "Memory JSON Schema required 字段 '{}' 在 Rust MemoryData 中未标记为必填",
                     field_name
                 );
