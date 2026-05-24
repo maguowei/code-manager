@@ -8,6 +8,7 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+.pnpm-store/
 dist
 dist-ssr
 *.local
@@ -36,6 +37,10 @@ CLAUDE.local.md
 
 
 .superpowers/
+
+# Rust / Tauri generated artifacts
+src-tauri/target/
+src-tauri/gen/schemas/
 
 # 覆盖率报告（前端 vitest-v8 与 Rust cargo-llvm-cov）
 coverage/
