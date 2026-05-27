@@ -136,16 +136,16 @@ function MemoryImportResultDialog({ result, onConfirm }: MemoryImportResultDialo
     <Dialog open>
       <DialogContent
         showCloseButton={false}
-        className="memory-import-result-dialog sm:max-w-xl"
+        className="memory-import-result-dialog flex max-h-[min(720px,88vh)] flex-col overflow-hidden !flex sm:max-w-xl"
         onEscapeKeyDown={(event) => event.preventDefault()}
         onPointerDownOutside={(event) => event.preventDefault()}
       >
-        <DialogHeader>
+        <DialogHeader className="shrink-0">
           <DialogTitle>{t("memory.importResultTitle")}</DialogTitle>
           <DialogDescription>{t("memory.importResultDescription")}</DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4">
+        <div className="memory-import-result-body flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
           <Card className="gap-0 py-0 shadow-none">
             <CardHeader className="grid-cols-[auto_1fr_auto] grid-rows-1 items-center gap-x-3 px-4 py-4">
               <StatusIcon className={cn("size-5 shrink-0", summaryIconClass)} aria-hidden="true" />
@@ -264,7 +264,7 @@ function MemoryImportResultDialog({ result, onConfirm }: MemoryImportResultDialo
           ) : null}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0">
           <Button type="button" onClick={onConfirm}>
             {t("memory.importResultConfirm")}
           </Button>
