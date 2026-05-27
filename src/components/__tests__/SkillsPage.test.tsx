@@ -415,6 +415,51 @@ describe("SkillsPage", () => {
     });
   });
 
+  it("keeps the import result confirmation reachable when many skills are imported", async () => {
+    const imported = Array.from({ length: 6 }, (_, index) => `bulk-skill-${index + 1}`);
+    const importResult: SkillDirectoryImportResult = {
+      skills: [
+        ...imported.map((id, index) => ({
+          ...localSkill,
+          id,
+          name: `Bulk Skill ${index + 1}`,
+          createdAt: index + 10,
+          updatedAt: index + 10,
+        })),
+      ],
+      imported,
+      skipped: [],
+    };
+    openDialogMock.mockResolvedValue("/tmp/many-skill-source");
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_skills") return [];
+      if (command === "import_skills_from_directory") return importResult;
+      return null;
+    });
+
+    renderSkillsPage();
+    expect(await screen.findByText("暂无 Skills")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "导入 Skills" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "导入结果" });
+    expect(dialog).toHaveClass("max-h-[min(720px,88vh)]", "flex", "flex-col", "overflow-hidden");
+    const resultBody = dialog.querySelector(".skills-import-result-body");
+    expect(resultBody).toHaveClass("min-h-0", "flex-1", "overflow-y-auto");
+    const successScrollArea = within(dialog)
+      .getByText("bulk-skill-1")
+      .closest('[data-slot="scroll-area"]');
+    expect(successScrollArea).toHaveClass("overflow-hidden");
+    const successViewport = successScrollArea?.querySelector('[data-slot="scroll-area-viewport"]');
+    expect(successViewport).toHaveClass("max-h-[inherit]");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "确认" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "导入结果" })).not.toBeInTheDocument();
+    });
+  });
+
   it("shows a focused all-success import result without the failure section", async () => {
     const importResult: SkillDirectoryImportResult = {
       skills: [localSkill, symlinkSkill],

@@ -1,4 +1,4 @@
-.PHONY: init dev build build-frontend build-universal preview check verify test test-rust test-frontend lint lint-rust lint-frontend fmt fmt-check fmt-rust fmt-rust-check fmt-frontend fmt-frontend-check gitleaks gitleaks-history clean coverage coverage-rust coverage-rust-lcov coverage-frontend
+.PHONY: init dev build build-frontend build-universal preview check verify test test-rust test-frontend lint lint-rust lint-frontend fmt fmt-check fmt-rust fmt-rust-check fmt-frontend fmt-frontend-check gitleaks gitleaks-history clean coverage coverage-rust coverage-rust-lcov coverage-frontend ensure-llvm-cov ensure-llvm-cov
 
 RUST_COVERAGE_THRESHOLDS := --fail-under-regions 80 --fail-under-functions 70 --fail-under-lines 80
 
@@ -104,17 +104,27 @@ clean:
 coverage: coverage-rust coverage-frontend
 
 # Rust 覆盖率（HTML 报告输出到 src-tauri/target/llvm-cov/html/）
-coverage-rust:
+coverage-rust: ensure-llvm-cov
 	cd src-tauri && cargo llvm-cov --lib --tests --html \
 		$(RUST_COVERAGE_THRESHOLDS) \
 		--ignore-filename-regex '(tests/|/target/)'
 
 # Rust 覆盖率（LCOV 报告输出到 src-tauri/lcov.info，供覆盖率服务上传）
-coverage-rust-lcov:
+coverage-rust-lcov: ensure-llvm-cov
 	cd src-tauri && cargo llvm-cov --lib --tests --lcov \
 		--output-path lcov.info \
 		$(RUST_COVERAGE_THRESHOLDS) \
 		--ignore-filename-regex '(tests/|/target/)'
+
+# 确保 cargo-llvm-cov 已安装，缺失时自动通过 cargo install 拉取
+ensure-llvm-cov:
+	@if ! cargo llvm-cov --version >/dev/null 2>&1; then \
+		echo ">>> 未检测到 cargo-llvm-cov，正在安装..."; \
+		cargo install cargo-llvm-cov --locked || { \
+			echo "错误：cargo-llvm-cov 安装失败，请手动执行 'cargo install cargo-llvm-cov --locked'"; \
+			exit 1; \
+		}; \
+	fi
 
 # 前端覆盖率（text/html/lcov 报告输出到 ./coverage/）
 coverage-frontend:

@@ -559,6 +559,63 @@ describe("MemoryPage", () => {
     });
   });
 
+  it("keeps the import result confirmation reachable when many memories are imported", async () => {
+    const importedMemories = Array.from({ length: 6 }, (_, index) => {
+      const number = index + 1;
+      return {
+        id: `imported-rule-${number}`,
+        name: `规则 ${number}`,
+        content: `规则内容 ${number}`,
+        targetType: "rule" as const,
+        rulePath: `rule-${number}.md`,
+        pathPatterns: [],
+        isActive: false,
+        createdAt: number + 10,
+        updatedAt: number + 10,
+      };
+    });
+    const importResult: MemoryDirectoryImportResult = {
+      state: {
+        memories: [...initialState.memories, ...importedMemories],
+      },
+      imported: importedMemories.map((memory) => ({
+        sourcePath: `rules/${memory.rulePath}`,
+        name: memory.name,
+        targetType: memory.targetType,
+        rulePath: memory.rulePath,
+      })),
+      skipped: [],
+    };
+    openDialogMock.mockResolvedValue("/tmp/many-memory-source");
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_memories") return initialState;
+      if (command === "import_memories_from_directory") return importResult;
+      return null;
+    });
+
+    renderMemoryPage();
+    expect(await screen.findByText("全局 A")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "导入记忆" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "导入结果" });
+    expect(dialog).toHaveClass("max-h-[min(720px,88vh)]", "flex", "flex-col", "overflow-hidden");
+    const resultBody = dialog.querySelector(".memory-import-result-body");
+    expect(resultBody).toHaveClass("min-h-0", "flex-1", "overflow-y-auto");
+    const successScrollArea = within(dialog)
+      .getByText("rule-1.md")
+      .closest('[data-slot="scroll-area"]');
+    expect(successScrollArea).toHaveClass("overflow-hidden");
+    const successViewport = successScrollArea?.querySelector('[data-slot="scroll-area-viewport"]');
+    expect(successViewport).toHaveClass("max-h-[inherit]");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "确认" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "导入结果" })).not.toBeInTheDocument();
+    });
+  });
+
   it("does not import memories when directory selection is cancelled", async () => {
     openDialogMock.mockResolvedValue(null);
 
