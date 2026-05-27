@@ -1,8 +1,8 @@
-import { invoke } from "@tauri-apps/api/core";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getUserFacingErrorReason } from "@/lib/user-facing-error";
 import { useI18n } from "../../i18n";
+import { ipc } from "../../ipc";
 import { cn } from "../../lib/utils";
 import { isTauri, type SessionUsageDetail } from "../../types";
 import { LIST_DETAIL_DRAWER_OFFSET_CLASS } from "../layout-size-classes";
@@ -36,7 +36,8 @@ function SessionUsageDrawer({ sessionId, onClose }: Props) {
     }
     let cancelled = false;
     setLoading(true);
-    invoke<SessionUsageDetail>("get_session_usage_detail", { sessionId })
+    ipc
+      .getSessionUsageDetail(sessionId)
       .then((d) => {
         if (!cancelled) {
           setDetail(d);

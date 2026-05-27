@@ -4,7 +4,7 @@ use std::fs;
 use std::path::{Component, Path, PathBuf};
 
 /// Skill 元数据，对应 ~/.claude/skills/<id>/ 目录
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Skill {
     pub id: String,          // 目录名（唯一标识，也是 /slash-command 名称）
@@ -22,14 +22,14 @@ pub struct Skill {
 }
 
 /// 支持文件树条目（SKILL.md 以外的文件和目录）
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum SkillFileTreeEntryKind {
     File,
     Directory,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillFileTreeEntry {
     pub path: String, // 相对于 Skill 目录的路径，如 "examples.md"
@@ -39,7 +39,7 @@ pub struct SkillFileTreeEntry {
 }
 
 /// 新增/更新 Skill 的数据传输对象
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Deserialize, JsonSchema, specta::Type)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct SkillData {
@@ -52,7 +52,7 @@ pub struct SkillData {
     pub user_invocable: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "kebab-case")]
 pub enum SkillDirectoryImportSkipReason {
     InvalidId,
@@ -60,14 +60,14 @@ pub enum SkillDirectoryImportSkipReason {
     MissingSkillMd,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillDirectoryImportSkippedItem {
     pub id: String,
     pub reason: SkillDirectoryImportSkipReason,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillDirectoryImportResult {
     pub skills: Vec<Skill>,
@@ -394,6 +394,7 @@ fn scan_skills_dir(dir: &Path, is_active: bool) -> Vec<Skill> {
 
 /// 获取所有 Skills（启用 + 禁用）
 #[tauri::command]
+#[specta::specta]
 pub fn get_skills() -> Result<Vec<Skill>, String> {
     let mut skills = scan_skills_dir(&get_skills_dir(), true);
     let mut disabled = scan_skills_dir(&get_disabled_dir(), false);
@@ -403,6 +404,7 @@ pub fn get_skills() -> Result<Vec<Skill>, String> {
 
 /// 切换 Skill 的启用/禁用状态
 #[tauri::command]
+#[specta::specta]
 pub fn toggle_skill(id: String, is_active: bool) -> Result<Skill, String> {
     let result = (|| {
         validate_skill_id(&id)?;
@@ -488,6 +490,7 @@ fn ensure_local_skill_root(id: &str, is_active: bool) -> Result<PathBuf, String>
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn add_skill(data: SkillData) -> Result<Skill, String> {
     let result = (|| {
         let _lock = crate::utils::lock_skills()?;
@@ -547,6 +550,7 @@ pub fn add_skill(data: SkillData) -> Result<Skill, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn update_skill(id: String, is_active: bool, data: SkillData) -> Result<Skill, String> {
     let result = (|| {
         ensure_matching_skill_id(&id, &data)?;
@@ -600,6 +604,7 @@ pub fn update_skill(id: String, is_active: bool, data: SkillData) -> Result<Skil
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn duplicate_skill(id: String, is_active: bool, name_suffix: String) -> Result<Skill, String> {
     let result = (|| {
         validate_skill_id(&id)?;
@@ -640,6 +645,7 @@ pub fn duplicate_skill(id: String, is_active: bool, name_suffix: String) -> Resu
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn delete_skill(id: String, is_active: bool) -> Result<(), String> {
     let result = (|| {
         validate_skill_id(&id)?;
@@ -686,6 +692,7 @@ fn next_available_skill_copy_id(source_id: &str) -> Result<String, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_skill_file_tree(id: String, is_active: bool) -> Result<Vec<SkillFileTreeEntry>, String> {
     validate_skill_id(&id)?;
     let skill_dir = ensure_local_skill_root(&id, is_active)?;
@@ -815,6 +822,7 @@ fn resolve_existing_skill_root(id: &str, is_active: bool) -> Result<PathBuf, Str
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn open_skill_in_editor(id: String, is_active: bool) -> Result<(), String> {
     let result = (|| {
         validate_skill_id(&id)?;
@@ -833,6 +841,7 @@ pub fn open_skill_in_editor(id: String, is_active: bool) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn import_skills_from_directory(
     source_dir: String,
 ) -> Result<SkillDirectoryImportResult, String> {
@@ -1155,6 +1164,7 @@ fn copy_file_resolving_symlink(source: &Path, target: &Path) -> Result<(), Strin
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn sync_skill_to_codex(id: String, is_active: bool) -> Result<(), String> {
     let result = (|| {
         validate_skill_id(&id)?;

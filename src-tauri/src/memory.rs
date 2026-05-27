@@ -146,34 +146,34 @@ const KARPATHY_MEMORY_PRESET_ZH_CONTENT: &str = r#"用于减少 LLM 常见编码
 
 **这些指南生效的表现：** diff 中不必要的改动更少，因过度复杂导致的重写更少，澄清问题发生在实现前而不是出错后。"#;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum MemoryTargetType {
     Claude,
     Rule,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum MemoryPresetLanguage {
     Zh,
     En,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum MemoryPresetAction {
     CreateClaude,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum MemoryPresetApplyOutcome {
     CreatedClaude,
     ActivatedExisting,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Memory {
     pub id: String,
@@ -188,7 +188,7 @@ pub struct Memory {
     pub updated_at: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct MemoryState {
     #[serde(default = "current_memory_state_version")]
@@ -209,13 +209,13 @@ impl Default for MemoryState {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct MemoryDeletePreview {
     pub cleanup_dirs: Vec<String>,
 }
 
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Deserialize, JsonSchema, specta::Type)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct MemoryPresetApplyInput {
@@ -224,7 +224,7 @@ pub struct MemoryPresetApplyInput {
     pub action: MemoryPresetAction,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct MemoryPresetApplyResult {
     pub state: MemoryState,
@@ -232,7 +232,7 @@ pub struct MemoryPresetApplyResult {
     pub memory_id: String,
 }
 
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Deserialize, JsonSchema, specta::Type)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct MemoryPresetContentInput {
@@ -240,7 +240,7 @@ pub struct MemoryPresetContentInput {
     pub language: MemoryPresetLanguage,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct MemoryPresetContentResult {
     pub preset_id: String,
@@ -254,7 +254,7 @@ fn current_memory_state_version() -> u32 {
     CURRENT_MEMORY_STATE_VERSION
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct UnmanagedMemory {
     pub id: String,
@@ -269,7 +269,7 @@ pub struct UnmanagedMemory {
     pub import_status: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum MemoryDirectoryImportSkipReason {
     DuplicateClaude,
@@ -279,7 +279,7 @@ pub enum MemoryDirectoryImportSkipReason {
     ReadError,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct MemoryDirectoryImportItem {
     pub source_path: String,
@@ -289,7 +289,7 @@ pub struct MemoryDirectoryImportItem {
     pub rule_path: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct MemoryDirectoryImportSkippedItem {
     pub source_path: String,
@@ -298,7 +298,7 @@ pub struct MemoryDirectoryImportSkippedItem {
     pub detail: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct MemoryDirectoryImportResult {
     pub state: MemoryState,
@@ -307,7 +307,7 @@ pub struct MemoryDirectoryImportResult {
 }
 
 /// 新增/更新记忆的数据传输对象
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Deserialize, JsonSchema, specta::Type)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct MemoryData {
@@ -321,7 +321,7 @@ pub struct MemoryData {
     pub path_patterns: Vec<String>,
 }
 
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Deserialize, JsonSchema, specta::Type)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct UnmanagedMemorySource {
@@ -386,11 +386,13 @@ pub fn apply_memories(previous: Option<&MemoryState>, state: &MemoryState) -> Re
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_memories() -> Result<MemoryState, String> {
     memory_state_view(load_memory_state())
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn add_memory(data: MemoryData) -> Result<MemoryState, String> {
     let result = (|| {
         if data.id.as_deref().filter(|id| !id.is_empty()).is_some() {
@@ -430,6 +432,7 @@ pub fn add_memory(data: MemoryData) -> Result<MemoryState, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn update_memory(id: String, data: MemoryData) -> Result<MemoryState, String> {
     let result = (|| {
         ensure_matching_memory_id(&id, &data)?;
@@ -470,6 +473,7 @@ pub fn update_memory(id: String, data: MemoryData) -> Result<MemoryState, String
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn duplicate_memory(id: String, name_suffix: String) -> Result<MemoryState, String> {
     let result = (|| {
         // 加锁保护并发写入
@@ -522,6 +526,7 @@ pub fn duplicate_memory(id: String, name_suffix: String) -> Result<MemoryState, 
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn delete_memory(id: String) -> Result<MemoryState, String> {
     let result = (|| {
         // 加锁保护并发写入
@@ -542,6 +547,7 @@ pub fn delete_memory(id: String) -> Result<MemoryState, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn preview_delete_memory(id: String) -> Result<MemoryDeletePreview, String> {
     let result = (|| {
         let _lock = crate::utils::lock_memory()?;
@@ -571,6 +577,7 @@ pub fn preview_delete_memory(id: String) -> Result<MemoryDeletePreview, String> 
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn toggle_memory(id: String) -> Result<MemoryState, String> {
     let result = (|| {
         // 加锁保护并发写入
@@ -609,6 +616,7 @@ pub fn toggle_memory(id: String) -> Result<MemoryState, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn import_unmanaged_memory(source: UnmanagedMemorySource) -> Result<MemoryState, String> {
     let result = (|| {
         let imported = read_unmanaged_memory_source(&source)?;
@@ -655,6 +663,7 @@ pub fn import_unmanaged_memory(source: UnmanagedMemorySource) -> Result<MemorySt
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn import_memories_from_directory(
     source_dir: String,
 ) -> Result<MemoryDirectoryImportResult, String> {
@@ -691,6 +700,7 @@ pub fn import_memories_from_directory(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn apply_memory_preset(
     data: MemoryPresetApplyInput,
 ) -> Result<MemoryPresetApplyResult, String> {
@@ -712,6 +722,7 @@ pub fn apply_memory_preset(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_memory_preset_content(
     data: MemoryPresetContentInput,
 ) -> Result<MemoryPresetContentResult, String> {

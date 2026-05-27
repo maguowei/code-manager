@@ -9,7 +9,7 @@ use std::path::PathBuf;
 const PLAN_PREFIX: &str = "Implement the following plan:";
 
 /// 历史记录读取结果
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, specta::Type)]
 pub struct HistoryResult {
     pub content: String,
     pub mtime: u64,
@@ -68,6 +68,7 @@ fn file_mtime(path: &std::path::Path) -> Result<u64, String> {
 
 /// 读取历史记录文件，返回内容和 mtime；文件不存在时返回空内容
 #[tauri::command]
+#[specta::specta]
 pub fn get_history() -> Result<HistoryResult, String> {
     let path = get_history_path();
     if !path.exists() {
@@ -83,6 +84,7 @@ pub fn get_history() -> Result<HistoryResult, String> {
 
 /// 仅当文件有变化时返回新内容，否则返回 None
 #[tauri::command]
+#[specta::specta]
 pub fn get_history_if_changed(last_mtime: u64) -> Result<Option<HistoryResult>, String> {
     let path = get_history_path();
     if !path.exists() {
@@ -99,7 +101,7 @@ pub fn get_history_if_changed(last_mtime: u64) -> Result<Option<HistoryResult>, 
 }
 
 /// 对话消息内容块
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, specta::Type)]
 #[serde(tag = "type")]
 pub enum MessageBlock {
     /// 文本内容
@@ -133,7 +135,7 @@ pub enum MessageBlock {
 }
 
 /// 一条对话消息
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, specta::Type)]
 pub struct SessionMessage {
     pub role: String,
     pub blocks: Vec<MessageBlock>,
@@ -141,7 +143,7 @@ pub struct SessionMessage {
 }
 
 /// 会话详情返回结果
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, specta::Type)]
 pub struct SessionDetail {
     pub session_id: String,
     pub project: String,
@@ -344,6 +346,7 @@ fn parse_content_blocks(content: &serde_json::Value) -> Vec<MessageBlock> {
 
 /// 获取指定 session 的完整对话记录
 #[tauri::command]
+#[specta::specta]
 pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDetail, String> {
     // 必须走 validate 路径，防止 session_id 携带 `../` 等片段穿出 projects 目录
     let session_file = session_file_path(project, session_id)?;
@@ -507,6 +510,7 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn open_session_file_in_editor(project: &str, session_id: &str) -> Result<(), String> {
     let result = (|| {
         let session_file = session_file_path(project, session_id)?;

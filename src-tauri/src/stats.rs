@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 /// 会话性能指标
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, specta::Type)]
 #[serde(rename_all = "snake_case")]
 pub struct SessionMetrics {
     #[serde(default)]
@@ -23,7 +23,7 @@ pub struct SessionMetrics {
 }
 
 /// 使用条目（工具和 Skill 通用）
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageEntry {
     #[serde(default)]
@@ -33,7 +33,7 @@ pub struct UsageEntry {
 }
 
 /// 单个模型的使用明细
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelUsageEntry {
     #[serde(default)]
@@ -51,7 +51,7 @@ pub struct ModelUsageEntry {
 }
 
 /// 项目级统计
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectStats {
     #[serde(default)]
@@ -85,7 +85,7 @@ pub struct ProjectStats {
 }
 
 /// 从 ~/.claude.json 解析的完整统计数据
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ClaudeStats {
     #[serde(default)]
@@ -117,12 +117,14 @@ fn read_claude_stats() -> ClaudeStats {
 
 /// 获取当前统计数据
 #[tauri::command]
+#[specta::specta]
 pub fn get_stats() -> Result<ClaudeStats, String> {
     Ok(read_claude_stats())
 }
 
 /// 用默认编辑器打开 ~/.claude.json
 #[tauri::command]
+#[specta::specta]
 pub fn open_claude_json_in_editor() -> Result<(), String> {
     let path = get_claude_json_path();
     if !path.exists() {

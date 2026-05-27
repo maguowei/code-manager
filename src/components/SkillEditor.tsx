@@ -1,7 +1,6 @@
 import { markdown } from "@codemirror/lang-markdown";
 import { EditorView } from "@codemirror/view";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { invoke } from "@tauri-apps/api/core";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { ChevronLeft, Code2, Eye, FileText, Folder } from "lucide-react";
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
@@ -10,6 +9,7 @@ import { showOperationError } from "@/lib/user-facing-error";
 import { useCodeMirrorTheme } from "../hooks/useCodeMirrorTheme";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
+import { ipc } from "../ipc";
 import { cn } from "../lib/utils";
 import type { FieldConfig } from "../schemas/form-fields";
 import {
@@ -144,10 +144,7 @@ const SkillEditor = forwardRef<SkillEditorHandle, SkillEditorProps>(function Ski
   async function loadFiles() {
     if (!skill || filesLoaded) return;
     try {
-      const result = await invoke<SkillFileTreeEntry[]>("get_skill_file_tree", {
-        id: skill.id,
-        isActive: skill.isActive,
-      });
+      const result = await ipc.getSkillFileTree(skill.id, skill.isActive);
       setFileTree(result);
       setFilesLoaded(true);
     } catch (err) {
@@ -167,12 +164,8 @@ const SkillEditor = forwardRef<SkillEditorHandle, SkillEditorProps>(function Ski
       const payload = toSkillPayload(validated.data);
       const saved =
         isEditing && skill
-          ? await invoke<Skill>("update_skill", {
-              id: skill.id,
-              isActive: skill.isActive,
-              data: payload,
-            })
-          : await invoke<Skill>("add_skill", { data: payload });
+          ? await ipc.updateSkill(skill.id, skill.isActive, payload)
+          : await ipc.addSkill(payload);
       showToast(t(isEditing ? "toast.skillSaved" : "toast.skillAdded"));
       onSave(saved);
       return true;
@@ -209,7 +202,7 @@ const SkillEditor = forwardRef<SkillEditorHandle, SkillEditorProps>(function Ski
   async function handleOpenInEditor() {
     if (!skill) return;
     try {
-      await invoke("open_skill_in_editor", { id: skill.id, isActive: skill.isActive });
+      await ipc.openSkillInEditor(skill.id, skill.isActive);
       showToast(t("toast.skillOpenEditorRequested"));
     } catch (err) {
       showOperationError(showToast, t("toast.skillOpenEditorError"), err);

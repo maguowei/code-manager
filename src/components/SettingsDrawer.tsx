@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import {
   disable as disableAutostart,
   enable as enableAutostart,
@@ -21,10 +20,10 @@ import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { showOperationError } from "@/lib/user-facing-error";
 import { useToast } from "../hooks/useToast";
 import { type Language, type TranslationKey, useI18n } from "../i18n";
+import { ipc } from "../ipc";
 import { cn } from "../lib/utils";
 import type {
   AppPreferences,
-  ConfigWorkspace,
   DefaultEditorApp,
   DefaultTerminalApp,
   NativeOpenAppOptions,
@@ -374,7 +373,8 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   const [nativeOpenOptions, setNativeOpenOptions] = useState<NativeOpenAppOptions | null>(null);
 
   useEffect(() => {
-    invoke<ConfigWorkspace>("get_config_workspace")
+    ipc
+      .getConfigWorkspace()
       .then((workspace) => {
         setPreferences(workspace.app);
         if (workspace.app.uiLanguage !== language) {
@@ -397,7 +397,8 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
 
   useEffect(() => {
     let cancelled = false;
-    invoke<NativeOpenAppOptions>("get_native_open_app_options")
+    ipc
+      .getNativeOpenAppOptions()
       .then((options) => {
         if (!cancelled) {
           setNativeOpenOptions(options);
@@ -468,7 +469,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   async function persistPreferences(next: AppPreferences, rollback: AppPreferences) {
     setPreferences(next);
     try {
-      await invoke<AppPreferences>("set_app_preferences", { data: next });
+      await ipc.setAppPreferences(next);
     } catch (err) {
       setPreferences(rollback);
       if (rollback.uiLanguage !== language) {

@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import {
   CircleAlert,
   CircleCheck,
@@ -24,6 +23,7 @@ import { getUserFacingErrorReason, showOperationError } from "@/lib/user-facing-
 import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
+import { ipc } from "../ipc";
 import type {
   ActiveUserSettingsMismatch,
   ConfigProfile,
@@ -291,11 +291,9 @@ function ProfilesPage({
   }
 
   function invokeProfileModelTest(profile: ConfigProfile, promptText?: string) {
-    return invoke<ModelTestResult>("test_profile_model", {
-      data: {
-        ...profileToModelTestData(profile),
-        ...(promptText !== undefined ? { promptText } : {}),
-      },
+    return ipc.testProfileModel({
+      ...profileToModelTestData(profile),
+      ...(promptText !== undefined ? { promptText } : {}),
     });
   }
 
@@ -619,7 +617,7 @@ function ProfilesPage({
     settings: Record<string, unknown>;
   }) {
     try {
-      await invoke("upsert_profile", { data });
+      await ipc.upsertProfile(data);
       await onWorkspaceChange();
       closeDrawer();
       showToast(t("profiles.toast.saved"));
@@ -632,7 +630,7 @@ function ProfilesPage({
 
   async function handleApply(id: string) {
     try {
-      await invoke("apply_profile", { id });
+      await ipc.applyProfile(id);
       await onWorkspaceChange();
       showToast(t("profiles.toast.applied"));
     } catch (err) {
@@ -645,14 +643,12 @@ function ProfilesPage({
     const profile = profiles.find((p) => p.id === activeSettingsMismatch.profileId);
     if (!profile) return;
     try {
-      await invoke("upsert_profile", {
-        data: {
-          id: profile.id,
-          name: profile.name,
-          description: profile.description,
-          presetId: profile.presetId,
-          settings: activeSettingsMismatch.actualSettings,
-        },
+      await ipc.upsertProfile({
+        id: profile.id,
+        name: profile.name,
+        description: profile.description,
+        presetId: profile.presetId,
+        settings: activeSettingsMismatch.actualSettings,
       });
       await onWorkspaceChange();
       setIsSettingsMismatchDialogOpen(false);
@@ -665,7 +661,7 @@ function ProfilesPage({
   async function handleMismatchDiscardChanges() {
     if (!activeSettingsMismatch) return;
     try {
-      await invoke("apply_profile", { id: activeSettingsMismatch.profileId });
+      await ipc.applyProfile(activeSettingsMismatch.profileId);
       await onWorkspaceChange();
       setIsSettingsMismatchDialogOpen(false);
       showToast(t("profiles.mismatch.toast.discarded"));
@@ -677,11 +673,9 @@ function ProfilesPage({
   async function handleImportUserSettings() {
     setIsImportingUserSettings(true);
     try {
-      await invoke("import_user_settings_profile", {
-        data: {
-          name: t("profiles.unmanaged.importedName"),
-          description: t("profiles.unmanaged.importedDescription"),
-        },
+      await ipc.importUserSettingsProfile({
+        name: t("profiles.unmanaged.importedName"),
+        description: t("profiles.unmanaged.importedDescription"),
       });
       await onWorkspaceChange();
       showToast(t("profiles.toast.imported"));
@@ -694,7 +688,7 @@ function ProfilesPage({
 
   async function handleDelete(id: string) {
     try {
-      await invoke("delete_profile", { id });
+      await ipc.deleteProfile(id);
       await onWorkspaceChange();
       showToast(t("profiles.toast.deleted"));
     } catch (err) {
@@ -704,14 +698,12 @@ function ProfilesPage({
 
   async function handleCopyEnv(profile: ConfigProfile) {
     try {
-      const preview = await invoke<string>("preview_profile", {
-        data: {
-          id: profile.id,
-          name: profile.name,
-          description: profile.description,
-          presetId: profile.presetId,
-          settings: profile.settings,
-        },
+      const preview = await ipc.previewProfile({
+        id: profile.id,
+        name: profile.name,
+        description: profile.description,
+        presetId: profile.presetId,
+        settings: profile.settings,
       });
       const resolvedSettings = JSON.parse(preview) as Record<string, unknown>;
       const exportText = buildEnvExportText(resolvedSettings);
@@ -727,10 +719,7 @@ function ProfilesPage({
 
   async function handleDuplicate(profile: ConfigProfile) {
     try {
-      await invoke("duplicate_profile", {
-        id: profile.id,
-        nameSuffix: t("profiles.duplicateSuffix"),
-      });
+      await ipc.duplicateProfile(profile.id, t("profiles.duplicateSuffix"));
       await onWorkspaceChange();
       showToast(t("profiles.toast.duplicated"));
     } catch (err) {
@@ -741,7 +730,7 @@ function ProfilesPage({
   const handleReorder = useCallback(
     async (ids: string[]) => {
       try {
-        await invoke("reorder_profiles", { ids });
+        await ipc.reorderProfiles(ids);
         await onWorkspaceChange();
       } catch (err) {
         showOperationError(showToast, t("profiles.toast.reorderError"), err);

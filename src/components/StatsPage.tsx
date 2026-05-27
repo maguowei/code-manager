@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { BarChart3, ChevronRight, Pencil, RefreshCw } from "lucide-react";
 import {
   type CSSProperties,
@@ -13,6 +12,7 @@ import { showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
 import { type TranslationKey, useI18n } from "../i18n";
+import { ipc } from "../ipc";
 import { type ClaudeStats, isTauri, type ProjectStats } from "../types";
 import EmptyState from "./EmptyState";
 import PageHeader from "./PageHeader";
@@ -75,7 +75,7 @@ function StatsPage() {
       return;
     }
     try {
-      const s = await invoke<ClaudeStats>("get_stats");
+      const s = await ipc.getStats();
       setStats(s);
     } catch (error) {
       showOperationError(showToast, t("stats.loadError"), error);
@@ -101,7 +101,7 @@ function StatsPage() {
   async function handleOpenInEditor() {
     if (!isTauri()) return;
     try {
-      await invoke("open_claude_json_in_editor");
+      await ipc.openClaudeJsonInEditor();
     } catch (error) {
       showOperationError(showToast, t("stats.openEditorError"), error);
     }

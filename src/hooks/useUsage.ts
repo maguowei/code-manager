@@ -1,6 +1,6 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getUserFacingErrorReason } from "@/lib/user-facing-error";
+import { ipc } from "../ipc";
 import {
   type DailyUsage,
   isTauri,
@@ -8,7 +8,6 @@ import {
   type ProjectUsage,
   type SessionUsage,
   type UsageFilter,
-  type UsageSnapshot,
   type UsageSummary,
   type UsageTab,
   type UsageTimeGranularity,
@@ -94,10 +93,7 @@ export function useUsage(errorFallback = "加载用量数据失败"): UseUsageRe
       requestSeqRef.current = requestSeq;
       setLoading(true);
       try {
-        const snapshot = await invoke<UsageSnapshot>("get_usage_snapshot", {
-          filter: currentFilter,
-          granularity,
-        });
+        const snapshot = await ipc.getUsageSnapshot(currentFilter, granularity);
         if (requestSeq !== requestSeqRef.current) return;
         setSummary(snapshot.summary);
         setDaily(snapshot.daily);
@@ -150,7 +146,7 @@ export function useUsage(errorFallback = "加载用量数据失败"): UseUsageRe
     if (!isTauri()) return;
     setRefreshingPrice(true);
     try {
-      await invoke("refresh_usage_pricing");
+      await ipc.refreshUsagePricing();
       await reloadWith(filterRef.current, timeGranularityRef.current);
     } catch (e) {
       setError(getUserFacingErrorReason(e) ?? errorFallback);
@@ -164,7 +160,7 @@ export function useUsage(errorFallback = "加载用量数据失败"): UseUsageRe
     if (!isTauri()) return;
     setRescanning(true);
     try {
-      await invoke("rescan_usage");
+      await ipc.rescanUsage();
       await reloadWith(filterRef.current, timeGranularityRef.current);
     } catch (e) {
       setError(getUserFacingErrorReason(e) ?? errorFallback);

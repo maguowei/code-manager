@@ -1,7 +1,7 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { showOperationError } from "@/lib/user-facing-error";
-import { type HistoryResult, parseJsonl } from "../history-utils";
+import { parseJsonl } from "../history-utils";
+import { ipc } from "../ipc";
 import type { HistoryEntry } from "../types";
 import { isTauri } from "../types";
 import { useToast } from "./useToast";
@@ -23,7 +23,7 @@ export function useHistoryEntries(errorMessage: string) {
       }
 
       try {
-        const result = await invoke<HistoryResult>("get_history");
+        const result = await ipc.getHistory();
         mtimeRef.current = result.mtime;
         const next = parseJsonl(result.content);
         setEntries(next);
@@ -44,9 +44,7 @@ export function useHistoryEntries(errorMessage: string) {
     if (!isTauri()) return;
 
     try {
-      const result = await invoke<HistoryResult | null>("get_history_if_changed", {
-        lastMtime: mtimeRef.current,
-      });
+      const result = await ipc.getHistoryIfChanged(mtimeRef.current);
       if (!result) return;
       mtimeRef.current = result.mtime;
       const next = parseJsonl(result.content);

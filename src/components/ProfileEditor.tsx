@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ArrowLeft, CircleAlert, CircleCheck, ExternalLink, TestTube } from "lucide-react";
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
@@ -6,6 +5,7 @@ import { getUserFacingErrorReason, showOperationError } from "@/lib/user-facing-
 import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
+import { ipc } from "../ipc";
 import type { ConfigProfile, ModelTestResult, SettingsPreset } from "../types";
 import {
   applyEnvDefaults,
@@ -508,15 +508,13 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
     setIsRawResponseExpanded(false);
     setIsTestingModel(true);
     try {
-      const result = await invoke<ModelTestResult>("test_profile_model", {
-        data: {
-          id: profile?.id ?? null,
-          name,
-          description,
-          presetId: presetId || null,
-          settings,
-          ...(promptText !== undefined ? { promptText } : {}),
-        },
+      const result = await ipc.testProfileModel({
+        id: profile?.id ?? null,
+        name,
+        description,
+        presetId: presetId || null,
+        settings,
+        ...(promptText !== undefined ? { promptText } : {}),
       });
       if (modelTestRunIdRef.current === runId) {
         setLatestModelTestResult(result);
@@ -550,15 +548,14 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
   useEffect(() => {
     let cancelled = false;
     const timer = setTimeout(() => {
-      void invoke<string>("preview_profile", {
-        data: {
+      void ipc
+        .previewProfile({
           id: profile?.id ?? null,
           name,
           description,
           presetId: presetId || null,
           settings,
-        },
-      })
+        })
         .then((value) => {
           if (cancelled) {
             return;

@@ -1,10 +1,10 @@
-import { invoke } from "@tauri-apps/api/core";
 import { FolderOpen, RefreshCw, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
+import { ipc } from "../ipc";
 import type { LogLevel, LogView } from "../types";
 import {
   CONTROL_SURFACE_CLASS,
@@ -91,7 +91,7 @@ function LogViewer({ onClose }: LogViewerProps) {
   const loadLogs = useCallback(async () => {
     setLoading(true);
     try {
-      const nextView = await invoke<LogView>("get_app_logs", { query });
+      const nextView = await ipc.getAppLogs(query);
       setView(nextView);
     } catch (error) {
       showOperationError(showToast, t("logs.loadError"), error);
@@ -106,7 +106,7 @@ function LogViewer({ onClose }: LogViewerProps) {
 
   async function handleOpenDirectory() {
     try {
-      await invoke("open_logs_dir");
+      await ipc.openLogsDir();
     } catch (error) {
       showOperationError(showToast, t("logs.openDirError"), error);
     }
@@ -115,7 +115,7 @@ function LogViewer({ onClose }: LogViewerProps) {
   async function handleClearLogs() {
     setLoading(true);
     try {
-      const nextView = await invoke<LogView>("clear_app_logs");
+      const nextView = await ipc.clearAppLogs();
       setView(nextView);
       showToast(t("logs.clearSuccess"), "success");
     } catch (error) {

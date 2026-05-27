@@ -4,7 +4,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum AgentsStatus {
     Missing,
@@ -14,7 +14,7 @@ pub enum AgentsStatus {
 }
 
 /// 两端配对的整体状态，覆盖 CLAUDE.md ↔ AGENTS.md 与 `.claude/skills` ↔ `.agents/skills`
-#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum PairStatus {
     /// 两端都不存在
@@ -33,7 +33,7 @@ pub enum PairStatus {
     OrphanSymlink,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectBranch {
     pub name: String,
@@ -44,7 +44,7 @@ pub struct ProjectBranch {
     pub last_commit_subject: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectWorktree {
     pub path: String,
@@ -56,14 +56,14 @@ pub struct ProjectWorktree {
     pub is_detached: bool,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectSkillSummary {
     pub id: String,
     pub is_symlink: bool,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectDetail {
     pub path: String,
@@ -89,21 +89,21 @@ pub struct ProjectDetail {
     pub worktrees: Vec<ProjectWorktree>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectPurgeOutput {
     pub project: String,
     pub output: String,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum ProjectGitCleanupReason {
     Merged,
     UpstreamGone,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectBranchCleanupCandidate {
     pub name: String,
@@ -115,7 +115,7 @@ pub struct ProjectBranchCleanupCandidate {
     pub last_commit_subject: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectWorktreeCleanupCandidate {
     pub path: String,
@@ -127,7 +127,7 @@ pub struct ProjectWorktreeCleanupCandidate {
     pub is_detached: bool,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectGitCleanupPreview {
     pub project: String,
@@ -139,7 +139,7 @@ pub struct ProjectGitCleanupPreview {
     pub worktree_candidates: Vec<ProjectWorktreeCleanupCandidate>,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectGitCleanupResult {
     pub project: String,
@@ -200,6 +200,7 @@ impl ProjectPurgeMode {
 const PROTECTED_BRANCHES: &[&str] = &["main", "master", "dev", "develop", "trunk"];
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_project_detail(project: &str) -> Result<ProjectDetail, String> {
     let project_path = validate_project_path(project)?;
     let project_display = project_path.to_string_lossy().to_string();
@@ -280,6 +281,7 @@ pub fn get_project_detail(project: &str) -> Result<ProjectDetail, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn create_project_agents_symlink(project: &str) -> Result<(), String> {
     let result = (|| {
         let project_path = validate_project_path(project)?;
@@ -295,6 +297,7 @@ pub fn create_project_agents_symlink(project: &str) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn create_project_agents_skills_symlink(project: &str) -> Result<(), String> {
     let result = (|| {
         let project_path = validate_project_path(project)?;
@@ -310,6 +313,7 @@ pub fn create_project_agents_skills_symlink(project: &str) -> Result<(), String>
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn open_project_in_terminal(project: &str) -> Result<(), String> {
     let result = (|| {
         let project_path = validate_project_path(project)?;
@@ -323,6 +327,7 @@ pub fn open_project_in_terminal(project: &str) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn open_project_in_editor(project: &str) -> Result<(), String> {
     let result = (|| {
         let project_path = validate_project_path(project)?;
@@ -340,6 +345,7 @@ pub fn open_project_in_editor(project: &str) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn preview_project_local_data_purge(project: &str) -> Result<ProjectPurgeOutput, String> {
     let result = run_claude_project_purge(project, ProjectPurgeMode::DryRun);
     log_project_purge_result("project.local_data_purge.preview", project, &result);
@@ -347,6 +353,7 @@ pub fn preview_project_local_data_purge(project: &str) -> Result<ProjectPurgeOut
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn purge_project_local_data(project: &str) -> Result<ProjectPurgeOutput, String> {
     let result = run_claude_project_purge(project, ProjectPurgeMode::Execute);
     log_project_purge_result("project.local_data_purge.execute", project, &result);
@@ -354,6 +361,7 @@ pub fn purge_project_local_data(project: &str) -> Result<ProjectPurgeOutput, Str
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn preview_project_branch_cleanup(project: &str) -> Result<ProjectGitCleanupPreview, String> {
     let result = build_project_branch_cleanup_preview(project);
     log_project_git_cleanup_result("project.branch_cleanup.preview", project, result.is_ok());
@@ -361,6 +369,7 @@ pub fn preview_project_branch_cleanup(project: &str) -> Result<ProjectGitCleanup
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn cleanup_project_branches(
     project: &str,
     branches: Vec<String>,
@@ -371,6 +380,7 @@ pub fn cleanup_project_branches(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn preview_project_worktree_cleanup(project: &str) -> Result<ProjectGitCleanupPreview, String> {
     let result = build_project_worktree_cleanup_preview(project);
     log_project_git_cleanup_result("project.worktree_cleanup.preview", project, result.is_ok());
@@ -378,6 +388,7 @@ pub fn preview_project_worktree_cleanup(project: &str) -> Result<ProjectGitClean
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn cleanup_project_worktrees(
     project: &str,
     worktrees: Vec<String>,
@@ -1929,7 +1940,7 @@ fn paths_match(left: &Path, right: &Path) -> bool {
 // =========================================================================
 
 /// 项目级 settings 文件的归属（共享 vs 本地覆盖）
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum ProjectClaudeSettingsScope {
     Shared,
@@ -1958,6 +1969,7 @@ fn resolve_project_claude_file(claude_root: &Path, relative_path: &str) -> Resul
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_project_claude_directory_overview(
     project: &str,
 ) -> Result<crate::claude_directory::ClaudeDirectoryOverview, String> {
@@ -1982,6 +1994,7 @@ pub fn get_project_claude_directory_overview(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_project_claude_file_preview(
     project: &str,
     relative_path: String,
@@ -2009,6 +2022,7 @@ pub fn get_project_claude_file_preview(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn create_project_claude_settings_file(
     project: &str,
     scope: ProjectClaudeSettingsScope,
@@ -2042,6 +2056,7 @@ pub fn create_project_claude_settings_file(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn open_project_claude_file_in_editor(
     project: &str,
     relative_path: String,

@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { FolderOpen, RefreshCw } from "lucide-react";
 import {
@@ -18,16 +17,14 @@ import { useHistoryEntries } from "../hooks/useHistoryEntries";
 import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
 import { type TranslationKey, useI18n } from "../i18n";
+import { ipc } from "../ipc";
 import {
-  type ConfigWorkspace,
   type DefaultEditorApp,
   isTauri,
   type ProjectBranchCleanupCandidate,
   type ProjectDetail,
   type ProjectGitCleanupPreview,
   type ProjectGitCleanupReason,
-  type ProjectGitCleanupResult,
-  type ProjectPurgeOutput,
   type ProjectSummary,
   type ProjectWorktreeCleanupCandidate,
 } from "../types";
@@ -531,7 +528,7 @@ function ProjectsPage({ onOpenProjectHistory, onOpenProjectUsage }: ProjectsPage
       setDetailLoading(true);
 
       try {
-        const result = await invoke<ProjectDetail>("get_project_detail", { project });
+        const result = await ipc.getProjectDetail(project);
         setProjectDirectoryExistsByPath((current) =>
           current[project] === result.exists ? current : { ...current, [project]: result.exists },
         );
@@ -554,7 +551,7 @@ function ProjectsPage({ onOpenProjectHistory, onOpenProjectUsage }: ProjectsPage
       return;
     }
 
-    const workspace = await invoke<ConfigWorkspace>("get_config_workspace");
+    const workspace = await ipc.getConfigWorkspace();
     setDefaultEditorApp(workspace.app.defaultEditorApp ?? null);
   }, []);
 
@@ -730,7 +727,7 @@ function ProjectsPage({ onOpenProjectHistory, onOpenProjectUsage }: ProjectsPage
 
     setIsLinkingAgents(true);
     try {
-      await invoke("create_project_agents_symlink", { project: selectedProject });
+      await ipc.createProjectAgentsSymlink(selectedProject);
       await loadProjectDetail(selectedProject, { clearBeforeLoad: false });
       showToast(t("toast.projectAgentsLinked"));
     } catch (err) {
@@ -745,7 +742,7 @@ function ProjectsPage({ onOpenProjectHistory, onOpenProjectUsage }: ProjectsPage
 
     setIsLinkingAgentsSkills(true);
     try {
-      await invoke("create_project_agents_skills_symlink", { project: selectedProject });
+      await ipc.createProjectAgentsSkillsSymlink(selectedProject);
       await loadProjectDetail(selectedProject, { clearBeforeLoad: false });
       showToast(t("toast.projectAgentsSkillsLinked"));
     } catch (err) {
@@ -770,7 +767,7 @@ function ProjectsPage({ onOpenProjectHistory, onOpenProjectUsage }: ProjectsPage
     if (!projectPath || !isTauri()) return;
 
     try {
-      await invoke("open_project_in_terminal", { project: projectPath });
+      await ipc.openProjectInTerminal(projectPath);
     } catch (err) {
       showOperationError(showToast, t("toast.projectOpenTerminalError"), err);
     }
@@ -781,7 +778,7 @@ function ProjectsPage({ onOpenProjectHistory, onOpenProjectUsage }: ProjectsPage
     if (!projectPath || !defaultEditorApp || !isTauri()) return;
 
     try {
-      await invoke("open_project_in_editor", { project: projectPath });
+      await ipc.openProjectInEditor(projectPath);
     } catch (err) {
       showOperationError(showToast, t("toast.projectOpenEditorError"), err);
     }
@@ -792,7 +789,7 @@ function ProjectsPage({ onOpenProjectHistory, onOpenProjectUsage }: ProjectsPage
       if (!isTauri()) return;
 
       try {
-        await invoke("open_project_in_terminal", { project: worktreePath });
+        await ipc.openProjectInTerminal(worktreePath);
       } catch (err) {
         showOperationError(showToast, t("toast.projectOpenWorktreeTerminalError"), err);
       }
@@ -852,9 +849,7 @@ function ProjectsPage({ onOpenProjectHistory, onOpenProjectUsage }: ProjectsPage
       });
 
       try {
-        const result = await invoke<ProjectPurgeOutput>("preview_project_local_data_purge", {
-          project: context.project,
-        });
+        const result = await ipc.previewProjectLocalDataPurge(context.project);
         setPurgeDialog((current) =>
           current?.project === context.project
             ? {
@@ -928,9 +923,7 @@ function ProjectsPage({ onOpenProjectHistory, onOpenProjectUsage }: ProjectsPage
     );
 
     try {
-      await invoke<ProjectPurgeOutput>("purge_project_local_data", {
-        project: currentDialog.project,
-      });
+      await ipc.purgeProjectLocalData(currentDialog.project);
       await refreshProjectsAfterPurge();
       setPurgeDialog(null);
       showToast(t("toast.projectPurged"));
@@ -964,11 +957,10 @@ function ProjectsPage({ onOpenProjectHistory, onOpenProjectUsage }: ProjectsPage
       });
 
       try {
-        const command =
+        const preview =
           kind === "branches"
-            ? "preview_project_branch_cleanup"
-            : "preview_project_worktree_cleanup";
-        const preview = await invoke<ProjectGitCleanupPreview>(command, { project: projectPath });
+            ? await ipc.previewProjectBranchCleanup(projectPath)
+            : await ipc.previewProjectWorktreeCleanup(projectPath);
         const selectedItems =
           kind === "branches"
             ? preview.branchCandidates.map((candidate) => candidate.name)
@@ -1038,14 +1030,8 @@ function ProjectsPage({ onOpenProjectHistory, onOpenProjectUsage }: ProjectsPage
     try {
       const result =
         currentDialog.kind === "branches"
-          ? await invoke<ProjectGitCleanupResult>("cleanup_project_branches", {
-              project: currentDialog.project,
-              branches: currentDialog.selectedItems,
-            })
-          : await invoke<ProjectGitCleanupResult>("cleanup_project_worktrees", {
-              project: currentDialog.project,
-              worktrees: currentDialog.selectedItems,
-            });
+          ? await ipc.cleanupProjectBranches(currentDialog.project, currentDialog.selectedItems)
+          : await ipc.cleanupProjectWorktrees(currentDialog.project, currentDialog.selectedItems);
 
       await loadProjectDetail(currentDialog.project, { clearBeforeLoad: false });
       setGitCleanupDialog(null);

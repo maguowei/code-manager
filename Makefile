@@ -1,4 +1,4 @@
-.PHONY: init dev build build-frontend build-universal preview check verify test test-rust test-frontend lint lint-rust lint-frontend fmt fmt-check fmt-rust fmt-rust-check fmt-frontend fmt-frontend-check gitleaks gitleaks-history clean coverage coverage-rust coverage-rust-lcov coverage-frontend
+.PHONY: init dev build build-frontend build-universal preview check verify bindings bindings-check test test-rust test-frontend lint lint-rust lint-frontend fmt fmt-check fmt-rust fmt-rust-check fmt-frontend fmt-frontend-check gitleaks gitleaks-history clean coverage coverage-rust coverage-rust-lcov coverage-frontend
 
 RUST_COVERAGE_THRESHOLDS := --fail-under-regions 80 --fail-under-functions 70 --fail-under-lines 80
 
@@ -41,7 +41,17 @@ check:
 	cd src-tauri && cargo check
 
 # 本地 CI-like 验证入口
-verify: fmt-rust-check lint build-frontend test
+verify: fmt-rust-check bindings-check lint build-frontend test
+
+# 重新生成 Tauri IPC TypeScript bindings（生成后自动清理 trailing whitespace）
+bindings:
+	cd src-tauri && cargo run --bin generate_bindings
+	perl -pi -e 's/[ \t]+$$//' ../src/bindings.ts
+	perl -pi -e 'chomp if eof' ../src/bindings.ts
+
+# 检查 Tauri IPC bindings 是否与 Rust command 契约同步
+bindings-check:
+	cd src-tauri && cargo test specta_export_tests
 
 # 运行 Rust 与前端测试
 test: test-rust test-frontend

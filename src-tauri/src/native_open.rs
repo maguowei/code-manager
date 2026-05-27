@@ -5,14 +5,14 @@ use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct NativeOpenAppOption {
     pub slug: String,
     pub label: String,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct NativeOpenAppOptions {
     pub platform: NativePlatform,
@@ -22,7 +22,7 @@ pub struct NativeOpenAppOptions {
     pub terminals: Vec<NativeOpenAppOption>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum NativePlatform {
     Macos,
@@ -126,6 +126,7 @@ const TERMINAL_OPTION_DEFINITIONS: &[TerminalOptionDefinition] = &[
 ];
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_native_open_app_options() -> NativeOpenAppOptions {
     let terminal_env = env::var("TERMINAL").ok();
     detect_native_open_app_options(

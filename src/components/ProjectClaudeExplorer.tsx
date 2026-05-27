@@ -1,10 +1,10 @@
-import { invoke } from "@tauri-apps/api/core";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useIsDark } from "../hooks/useIsDark";
 import { useToast } from "../hooks/useToast";
+import { ipc } from "../ipc";
 import { showOperationError } from "../lib/user-facing-error";
 import type {
   ClaudeDirectoryEntry,
@@ -113,10 +113,7 @@ function ProjectClaudeExplorerBody({
   const loadOverview = useCallback(async () => {
     setIsLoadingOverview(true);
     try {
-      const next = await invoke<ClaudeDirectoryOverview | null | undefined>(
-        "get_project_claude_directory_overview",
-        { project },
-      );
+      const next = await ipc.getProjectClaudeDirectoryOverview(project);
       setOverview(next ?? null);
       return next ?? null;
     } catch (error) {
@@ -189,10 +186,7 @@ function ProjectClaudeExplorerBody({
       setActivePreviewPath(null);
       setLoadingPreviewPath(normalizedPath);
       try {
-        const nextPreview = await invoke<ClaudeFilePreview>("get_project_claude_file_preview", {
-          project,
-          relativePath: normalizedPath,
-        });
+        const nextPreview = await ipc.getProjectClaudeFilePreview(project, normalizedPath);
         setOpenPreviews((currentPreviews) => {
           if (currentPreviews.some((preview) => preview.path === nextPreview.path)) {
             return currentPreviews.map((preview) =>
@@ -302,10 +296,7 @@ function ProjectClaudeExplorerBody({
       return;
     }
     try {
-      await invoke("open_project_claude_file_in_editor", {
-        project,
-        relativePath: activePreview.path,
-      });
+      await ipc.openProjectClaudeFileInEditor(project, activePreview.path);
     } catch (error) {
       const message = typeof error === "string" ? error : String(error);
       const key = message.includes("默认编辑器")
@@ -319,7 +310,7 @@ function ProjectClaudeExplorerBody({
     async (scope: ProjectClaudeSettingsScope) => {
       setCreatingScope(scope);
       try {
-        await invoke("create_project_claude_settings_file", { project, scope });
+        await ipc.createProjectClaudeSettingsFile(project, scope);
         showToast(t("projects.claudeExplorer.settingsCreated"), "success");
         await loadOverview();
         onAfterMutate?.();

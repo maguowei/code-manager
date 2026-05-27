@@ -31,7 +31,7 @@ static AUTHORIZATION_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"(?i)\b(authorization)\s*:\s*(?:bearer\s+)?([^\s,;]+)").expect("日志脱敏正则应有效")
 });
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum LogLevel {
     Error,
@@ -55,7 +55,7 @@ impl LogLevel {
     }
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct LogEntry {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -67,7 +67,7 @@ pub struct LogEntry {
     pub raw: String,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct LogQuery {
     #[serde(default)]
@@ -78,7 +78,7 @@ pub struct LogQuery {
     pub limit: Option<usize>,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct LogView {
     pub log_dir: String,
@@ -157,6 +157,7 @@ fn app_log_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_app_logs(app_handle: AppHandle, query: Option<LogQuery>) -> Result<LogView, String> {
     let result = (|| {
         let log_dir = app_log_dir(&app_handle)?;
@@ -169,6 +170,7 @@ pub fn get_app_logs(app_handle: AppHandle, query: Option<LogQuery>) -> Result<Lo
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn open_logs_dir(app_handle: AppHandle) -> Result<(), String> {
     let result = (|| {
         let log_dir = app_log_dir(&app_handle)?;
@@ -183,6 +185,7 @@ pub fn open_logs_dir(app_handle: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn clear_app_logs(app_handle: AppHandle) -> Result<LogView, String> {
     let result = (|| {
         let log_dir = app_log_dir(&app_handle)?;

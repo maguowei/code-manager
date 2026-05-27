@@ -6,6 +6,7 @@ pre-commit:
   commands:
     diff-check:
       run: git diff --check --cached
+      exclude: "src/bindings\\.ts"
     biome:
       glob: "*.{js,ts,tsx,json,css}"
       run: pnpm biome check --write --no-errors-on-unmatched {staged_files}

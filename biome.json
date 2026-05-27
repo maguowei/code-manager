@@ -9,6 +9,13 @@
   "files": {
     "includes": ["src/**"]
   },
+  "overrides": [
+    {
+      "includes": ["src/bindings.ts"],
+      "formatter": { "enabled": false },
+      "linter": { "enabled": false }
+    }
+  ],
   "formatter": {
     "enabled": true,
     "indentStyle": "space",

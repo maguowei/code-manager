@@ -17,14 +17,14 @@ pub(crate) struct ScanOptions {
     pub max_depth: usize,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum ClaudeDirectoryEntryKind {
     File,
     Directory,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ClaudeDirectoryEntry {
     pub path: String,
@@ -34,7 +34,7 @@ pub struct ClaudeDirectoryEntry {
     pub modified_at: u64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ClaudeDirectoryOverview {
     pub root_path: String,
@@ -48,7 +48,7 @@ pub struct ClaudeDirectoryOverview {
     pub skipped_node_modules_count: usize,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ClaudeDirectoryListing {
     pub root_path: String,
@@ -60,7 +60,7 @@ pub struct ClaudeDirectoryListing {
     pub skipped_symlink_count: usize,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ClaudeFilePreview {
     pub path: String,
@@ -74,6 +74,7 @@ pub struct ClaudeFilePreview {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_claude_directory_overview() -> Result<ClaudeDirectoryOverview, String> {
     let root = claude_dir()?;
     let result = scan_claude_directory_with_options(
@@ -98,6 +99,7 @@ pub fn get_claude_directory_overview() -> Result<ClaudeDirectoryOverview, String
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_claude_directory_children(
     path: Option<String>,
 ) -> Result<ClaudeDirectoryListing, String> {
@@ -118,6 +120,7 @@ pub fn get_claude_directory_children(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn read_claude_file_preview(path: String) -> Result<ClaudeFilePreview, String> {
     let root = claude_dir()?;
     let result = read_claude_file_preview_from_root(&root, &path, DEFAULT_PREVIEW_BYTES);
@@ -135,6 +138,7 @@ pub fn read_claude_file_preview(path: String) -> Result<ClaudeFilePreview, Strin
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn open_claude_file_in_editor(path: String) -> Result<(), String> {
     let result = (|| {
         let root = claude_dir()?;
@@ -159,6 +163,7 @@ pub fn open_claude_file_in_editor(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn create_claude_directory_entry(
     parent_path: Option<String>,
     name: String,
@@ -183,6 +188,7 @@ pub fn create_claude_directory_entry(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn rename_claude_directory_entry(path: String, new_name: String) -> Result<(), String> {
     let result = (|| {
         let root = claude_dir()?;
@@ -199,6 +205,7 @@ pub fn rename_claude_directory_entry(path: String, new_name: String) -> Result<(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn delete_claude_directory_entry(path: String) -> Result<(), String> {
     let result = (|| {
         let root = claude_dir()?;

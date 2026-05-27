@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import {
   createContext,
   createElement,
@@ -9,7 +8,8 @@ import {
   useMemo,
   useState,
 } from "react";
-import { type ConfigWorkspace, isTauri } from "./types";
+import { ipc } from "./ipc";
+import { isTauri } from "./types";
 
 export type Language = "zh" | "en";
 
@@ -2974,7 +2974,8 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
     let cancelled = false;
 
-    void invoke<ConfigWorkspace>("get_config_workspace")
+    void ipc
+      .getConfigWorkspace()
       .then((workspace) => {
         if (cancelled) return;
 

@@ -13,6 +13,8 @@ mod tray;
 mod usage;
 mod utils;
 
+use std::path::Path;
+
 use claude_directory::{
     create_claude_directory_entry, delete_claude_directory_entry, get_claude_directory_children,
     get_claude_directory_overview, open_claude_file_in_editor, read_claude_file_preview,
@@ -51,67 +53,14 @@ use tauri::Manager;
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind, TimezoneStrategy};
 use usage::{get_session_usage_detail, get_usage_snapshot, refresh_usage_pricing, rescan_usage};
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
-    logging::install_panic_hook();
-
-    tauri::Builder::default()
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(
-            tauri_plugin_log::Builder::new()
-                .level(log::LevelFilter::Info)
-                .rotation_strategy(RotationStrategy::KeepSome(8))
-                .timezone_strategy(TimezoneStrategy::UseLocal)
-                .max_file_size(2_000_000)
-                .clear_targets()
-                .format(|out, message, record| {
-                    let line = logging::format_log_record(message, record.target(), record.level());
-                    out.finish(format_args!("{line}"));
-                })
-                .targets([
-                    Target::new(TargetKind::Stdout),
-                    Target::new(TargetKind::LogDir {
-                        file_name: Some("ai-manager".to_string()),
-                    }),
-                ])
-                .build(),
-        )
-        .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_autostart::init(
-            tauri_plugin_autostart::MacosLauncher::AppleScript,
-            None,
-        ))
-        .plugin(tauri_plugin_os::init())
-        .plugin(tauri_plugin_notification::init())
-        .plugin(
-            tauri_plugin_sql::Builder::default()
-                .add_migrations(usage::USAGE_DB_URL, usage::sql_migrations())
-                .build(),
-        )
-        .setup(|app| {
-            tray::setup_tray(app)?;
-            log::info!("event=app.setup status=ok");
-            let claude_directory_watcher =
-                claude_directory_watcher::start_claude_directory_watcher(app.handle().clone());
-            app.manage(claude_directory_watcher);
-            // 启动 token/cost 用量统计运行时（管理状态、首扫、价格刷新、watcher 增量）
-            usage::start_usage_runtime(app).map_err(std::io::Error::other)?;
-            Ok(())
-        })
-        .on_window_event(|window, event| {
-            // 点击关闭按钮时隐藏窗口而非退出，保留系统托盘
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                let _ = window.hide();
-                // macOS: 隐藏 Dock 图标
-                #[cfg(target_os = "macos")]
-                {
-                    let app = window.app_handle();
-                    let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
-                }
-                api.prevent_close();
-            }
-        })
-        .invoke_handler(tauri::generate_handler![
+/// 构造 tauri-specta Builder，收集所有 IPC command。
+///
+/// `dangerously_cast_bigints_to_number()`：把 `u64`/`i64` 等大整数导出为 TS `number`。
+/// AI Manager 当前 IPC 数值（token 计数、毫秒时间戳）远小于 Number.MAX_SAFE_INTEGER。
+/// 后续若新增可能超过该范围的整数 IPC 字段，必须单字段加 `#[specta(type = String)]` 走字符串传输。
+fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
+    tauri_specta::Builder::<tauri::Wry>::new()
+        .commands(tauri_specta::collect_commands![
             get_config_workspace,
             get_claude_directory_overview,
             get_claude_directory_children,
@@ -183,6 +132,87 @@ pub fn run() {
             refresh_usage_pricing,
             rescan_usage,
         ])
+        .dangerously_cast_bigints_to_number()
+}
+
+pub fn export_typescript_bindings(path: impl AsRef<Path>) -> Result<(), String> {
+    build_specta_builder()
+        .export(specta_typescript::Typescript::default(), path)
+        .map_err(|error| format!("specta: 导出 TypeScript bindings 失败: {error}"))
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    logging::install_panic_hook();
+
+    let specta_builder = build_specta_builder();
+
+    // 仅 debug 构建生成 src/bindings.ts，承载 specta 已标注 command 的强类型契约。
+    // release 不生成，避免污染包体；前端 import 自动生成的 commands / 类型。
+    #[cfg(debug_assertions)]
+    export_typescript_bindings("../src/bindings.ts")
+        .expect("specta: 导出 TypeScript bindings 失败");
+
+    tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .level(log::LevelFilter::Info)
+                .rotation_strategy(RotationStrategy::KeepSome(8))
+                .timezone_strategy(TimezoneStrategy::UseLocal)
+                .max_file_size(2_000_000)
+                .clear_targets()
+                .format(|out, message, record| {
+                    let line = logging::format_log_record(message, record.target(), record.level());
+                    out.finish(format_args!("{line}"));
+                })
+                .targets([
+                    Target::new(TargetKind::Stdout),
+                    Target::new(TargetKind::LogDir {
+                        file_name: Some("ai-manager".to_string()),
+                    }),
+                ])
+                .build(),
+        )
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::AppleScript,
+            None,
+        ))
+        .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_notification::init())
+        .plugin(
+            tauri_plugin_sql::Builder::default()
+                .add_migrations(usage::USAGE_DB_URL, usage::sql_migrations())
+                .build(),
+        )
+        .invoke_handler(specta_builder.invoke_handler())
+        .setup(move |app| {
+            // tauri-specta 要求在 setup 内 mount events（即使当前没有 specta event，
+            // 这一步也是必须的，以便未来引入事件时无需再改架构）。
+            specta_builder.mount_events(app);
+            tray::setup_tray(app)?;
+            log::info!("event=app.setup status=ok");
+            let claude_directory_watcher =
+                claude_directory_watcher::start_claude_directory_watcher(app.handle().clone());
+            app.manage(claude_directory_watcher);
+            // 启动 token/cost 用量统计运行时（管理状态、首扫、价格刷新、watcher 增量）
+            usage::start_usage_runtime(app).map_err(std::io::Error::other)?;
+            Ok(())
+        })
+        .on_window_event(|window, event| {
+            // 点击关闭按钮时隐藏窗口而非退出，保留系统托盘
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let _ = window.hide();
+                // macOS: 隐藏 Dock 图标
+                #[cfg(target_os = "macos")]
+                {
+                    let app = window.app_handle();
+                    let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+                }
+                api.prevent_close();
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -203,5 +233,28 @@ pub mod test_api {
     /// 测试可访问的 utils 子集
     pub mod utils {
         pub use crate::utils::{get_app_data_dir, home_dir_or_fallback, lock_config};
+    }
+}
+
+#[cfg(test)]
+mod specta_export_tests {
+    use super::export_typescript_bindings;
+    use std::fs;
+
+    /// 跑 cargo test 时生成临时 bindings 并与已提交产物比较，防止 Rust IPC 契约和前端产物漂移。
+    #[test]
+    fn exported_typescript_bindings_match_submitted_artifact() {
+        let temp_dir = tempfile::tempdir().expect("创建临时目录失败");
+        let generated_path = temp_dir.path().join("bindings.ts");
+
+        export_typescript_bindings(&generated_path).expect("specta: 导出 TypeScript bindings 失败");
+
+        let generated = fs::read_to_string(&generated_path).expect("读取临时 bindings 失败");
+        let submitted = fs::read_to_string("../src/bindings.ts").expect("读取已提交 bindings 失败");
+
+        assert_eq!(
+            generated, submitted,
+            "src/bindings.ts 已过期，请运行 `make bindings` 重新生成"
+        );
     }
 }

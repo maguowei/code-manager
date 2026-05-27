@@ -1,6 +1,5 @@
 import { json } from "@codemirror/lang-json";
 import { EditorView } from "@codemirror/view";
-import { invoke } from "@tauri-apps/api/core";
 import CodeMirror from "@uiw/react-codemirror";
 import {
   AlertTriangle,
@@ -29,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { useCodeMirrorTheme } from "../hooks/useCodeMirrorTheme";
 import { useToast } from "../hooks/useToast";
 import { type TranslationKey, useI18n } from "../i18n";
+import { ipc } from "../ipc";
 import { isTauri, type MessageBlock, type SessionDetail, type SessionMessage } from "../types";
 import SyntaxHighlightedCode from "./SyntaxHighlightedCode";
 import { Badge } from "./ui/badge";
@@ -841,7 +841,8 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
     }
     let cancelled = false;
     setLoading(true);
-    invoke<SessionDetail>("get_session_detail", { project, sessionId })
+    ipc
+      .getSessionDetail(project, sessionId)
       .then((result) => {
         if (!cancelled) setDetail(result);
       })
@@ -880,7 +881,7 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
     if (!isTauri()) return;
 
     try {
-      await invoke("open_session_file_in_editor", { project: headerProject, sessionId });
+      await ipc.openSessionFileInEditor(headerProject, sessionId);
       showToast(t("history.rawSessionFileOpenRequested"));
     } catch (error) {
       showOperationError(showToast, t("history.rawSessionFileOpenError"), error);

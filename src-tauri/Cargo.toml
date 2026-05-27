@@ -6,6 +6,7 @@ authors = ["maguowei"]
 license = "MIT"
 repository = "https://github.com/maguowei/ai-manager"
 edition = "2021"
+default-run = "ai-manager"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -42,6 +43,11 @@ notify = "8"
 tauri-plugin-sql = { version = "2.4.0", default-features = false, features = ["sqlite"] }
 sqlx = { version = "0.8.6", default-features = false, features = ["sqlite", "runtime-tokio-rustls"] }
 tokio = { version = "1", features = ["sync"] }
+# tauri-specta v2 仍在 RC 阶段(社区主流,Tauri 2 唯一可用端到端类型化方案);版本必须 exact match
+# specta 的 serde_json feature 让 `serde_json::Value` 字段能被 #[derive(Type)] 接受
+specta = { version = "=2.0.0-rc.25", features = ["serde_json"] }
+specta-typescript = "0.0.12"
+tauri-specta = { version = "=2.0.0-rc.25", features = ["derive", "typescript"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 mac-notification-sys = "0.6.12"

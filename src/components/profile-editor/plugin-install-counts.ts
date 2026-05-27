@@ -1,5 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
-import type { ClaudeFilePreview } from "../../types";
+import { ipc } from "../../ipc";
 import { isTauri } from "../../types";
 import { readObject } from "./editor-utils";
 
@@ -42,9 +41,7 @@ export async function loadPluginInstallCounts(): Promise<PluginInstallCounts> {
   }
 
   try {
-    const preview = await invoke<ClaudeFilePreview>("read_claude_file_preview", {
-      path: PLUGIN_INSTALL_COUNTS_CACHE_PATH,
-    });
+    const preview = await ipc.readClaudeFilePreview(PLUGIN_INSTALL_COUNTS_CACHE_PATH);
     if (preview.isBinary || preview.truncated || !preview.content.trim()) {
       return {};
     }

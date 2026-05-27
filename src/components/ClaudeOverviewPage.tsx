@@ -1,5 +1,4 @@
 import type { ContextMenuItem, ContextMenuOpenContext } from "@pierre/trees";
-import { invoke } from "@tauri-apps/api/core";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { ExternalLink } from "lucide-react";
 import {
@@ -19,6 +18,7 @@ import { showOperationError } from "@/lib/user-facing-error";
 import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
 import { type Language, type TranslationKey, useI18n } from "../i18n";
+import { ipc } from "../ipc";
 import { cn } from "../lib/utils";
 import type {
   ClaudeDirectoryChangedEvent,
@@ -613,7 +613,7 @@ function ClaudeOverviewPage() {
       }
 
       try {
-        const nextOverview = await invoke<ClaudeDirectoryOverview>("get_claude_directory_overview");
+        const nextOverview = await ipc.getClaudeDirectoryOverview();
         if (latestOverviewRequestIdRef.current !== requestId) {
           return null;
         }
@@ -668,7 +668,7 @@ function ClaudeOverviewPage() {
       setActivePreviewPath(null);
       setLoadingPreviewPath(path);
       try {
-        const nextPreview = await invoke<ClaudeFilePreview>("read_claude_file_preview", { path });
+        const nextPreview = await ipc.readClaudeFilePreview(path);
         setOpenPreviews((currentPreviews) => {
           if (currentPreviews.some((preview) => preview.path === nextPreview.path)) {
             return currentPreviews.map((preview) =>
@@ -693,7 +693,7 @@ function ClaudeOverviewPage() {
 
   const refreshOpenPreview = useCallback(async (path: string) => {
     try {
-      const nextPreview = await invoke<ClaudeFilePreview>("read_claude_file_preview", { path });
+      const nextPreview = await ipc.readClaudeFilePreview(path);
       setOpenPreviews((currentPreviews) =>
         currentPreviews.map((preview) => (preview.path === path ? nextPreview : preview)),
       );
@@ -837,19 +837,12 @@ function ClaudeOverviewPage() {
 
       try {
         if (nameDialog.mode === "create") {
-          await invoke("create_claude_directory_entry", {
-            parentPath: nameDialog.parentPath,
-            name: trimmedName,
-            kind: nameDialog.kind,
-          });
+          await ipc.createClaudeDirectoryEntry(nameDialog.parentPath, trimmedName, nameDialog.kind);
           showToast(t("claudeOverview.createSuccess"));
         } else if (nameDialog.path) {
           const sourcePath = nameDialog.path;
           const destinationPath = joinClaudeRelativePath(nameDialog.parentPath, trimmedName);
-          await invoke("rename_claude_directory_entry", {
-            path: sourcePath,
-            newName: trimmedName,
-          });
+          await ipc.renameClaudeDirectoryEntry(sourcePath, trimmedName);
           setOpenPreviews((currentPreviews) =>
             currentPreviews.map((preview) => {
               const nextPath = remapRenamedPath(preview.path, sourcePath, destinationPath);
@@ -892,7 +885,7 @@ function ClaudeOverviewPage() {
 
     const deletedPath = pendingDeleteEntry.path;
     try {
-      await invoke("delete_claude_directory_entry", { path: deletedPath });
+      await ipc.deleteClaudeDirectoryEntry(deletedPath);
       setOpenPreviews((currentPreviews) =>
         currentPreviews.filter((preview) => !isSameOrDescendantPath(preview.path, deletedPath)),
       );
@@ -985,7 +978,7 @@ function ClaudeOverviewPage() {
       return;
     }
     try {
-      await invoke("open_claude_file_in_editor", { path: activePreview.path });
+      await ipc.openClaudeFileInEditor(activePreview.path);
     } catch (error) {
       showOperationError(showToast, t("claudeOverview.openEditorError"), error);
     }

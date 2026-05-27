@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { Spinner } from "@/components/ui/spinner";
@@ -14,6 +13,7 @@ import Sidebar from "./components/Sidebar";
 import useTauriEvent from "./hooks/useTauriEvent";
 import { useToast } from "./hooks/useToast";
 import { useI18n } from "./i18n";
+import { ipc } from "./ipc";
 import {
   type ClaudeDirectoryChangedEvent,
   type ConfigWorkspace,
@@ -94,7 +94,7 @@ function App() {
     }
 
     try {
-      const nextWorkspace = await invoke<ConfigWorkspace>("get_config_workspace");
+      const nextWorkspace = await ipc.getConfigWorkspace();
       setWorkspace(nextWorkspace);
     } catch (error) {
       setWorkspace(EMPTY_WORKSPACE);

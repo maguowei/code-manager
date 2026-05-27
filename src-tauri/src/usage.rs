@@ -22,7 +22,7 @@ use tauri::{AppHandle, Emitter, Listener, Manager, State};
 // ============ 数据结构 ============
 
 /// 单模型价格（per million tokens）
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, specta::Type)]
 #[serde(rename_all = "snake_case")]
 pub struct ModelPrice {
     #[serde(default)]
@@ -36,7 +36,7 @@ pub struct ModelPrice {
 }
 
 /// 价格表来源
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "snake_case")]
 pub enum PricingSource {
     #[default]
@@ -46,7 +46,7 @@ pub enum PricingSource {
 }
 
 /// 完整价格表
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct PricingTable {
     pub source: PricingSource,
@@ -55,7 +55,7 @@ pub struct PricingTable {
 }
 
 /// 单条 usage 原始记录
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageRecord {
     pub message_id: String,
@@ -180,7 +180,7 @@ pub static USAGE_SCAN_LOCK: Lazy<tokio::sync::Mutex<()>> =
 
 // ============ Filter / 视图 ============
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageFilter {
     #[serde(default)]
@@ -197,7 +197,7 @@ pub struct UsageFilter {
     pub include_unknown_models: Option<bool>,
 }
 
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Clone, Default, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelUsageStat {
     pub model: String,
@@ -209,7 +209,7 @@ pub struct ModelUsageStat {
     pub cost: f64,
 }
 
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Clone, Default, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct DailyUsage {
     pub date: String,
@@ -223,7 +223,7 @@ pub struct DailyUsage {
     pub by_model: Vec<ModelUsageStat>,
 }
 
-#[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum UsageTimeGranularity {
     #[default]
@@ -232,7 +232,7 @@ pub enum UsageTimeGranularity {
     FiveMinute,
 }
 
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Clone, Default, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageTimeSeriesPoint {
     pub bucket: String,
@@ -251,7 +251,7 @@ pub struct UsageTimeSeriesPoint {
     pub by_model: Vec<ModelUsageStat>,
 }
 
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Clone, Default, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectUsage {
     pub project_path: String,
@@ -267,7 +267,7 @@ pub struct ProjectUsage {
     pub by_model: Vec<ModelUsageStat>,
 }
 
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Clone, Default, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionUsage {
     pub session_id: String,
@@ -284,14 +284,14 @@ pub struct SessionUsage {
     pub cost: f64,
 }
 
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Clone, Default, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectOption {
     pub project_path: String,
     pub project_dir: String,
 }
 
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Clone, Default, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageSummary {
     pub total_messages: u64,
@@ -310,14 +310,14 @@ pub struct UsageSummary {
     pub all_models: Vec<String>,
 }
 
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Clone, Default, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionUsageDetail {
     pub session: SessionUsage,
     pub messages: Vec<UsageRecord>,
 }
 
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Clone, Default, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ScanResult {
     pub files_scanned: u64,
@@ -327,7 +327,7 @@ pub struct ScanResult {
 
 /// 用量页一次刷新的全量聚合视图：把 summary/daily/timeSeries/projects/sessions/models
 /// 合并为单次 Tauri command 返回，避免前端 6 个 invoke 串行触发后端 7 次全表扫描。
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Clone, Default, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageSnapshot {
     pub summary: UsageSummary,
@@ -2209,6 +2209,7 @@ fn aggregate_sessions_from_filtered(filtered: &[&UsageRecord]) -> Vec<SessionUsa
 // ============ Tauri commands ============
 
 #[tauri::command]
+#[specta::specta]
 pub async fn get_usage_snapshot(
     filter: UsageFilter,
     granularity: UsageTimeGranularity,
@@ -2305,6 +2306,7 @@ async fn load_usage_lookup_db(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn get_session_usage_detail(
     session_id: String,
     state: State<'_, UsageState>,
@@ -2366,6 +2368,7 @@ pub async fn get_session_usage_detail(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn refresh_usage_pricing(app: AppHandle) -> Result<PricingTable, String> {
     let table = match fetch_pricing_from_network().await {
         Ok(t) => t,
@@ -2385,6 +2388,7 @@ pub async fn refresh_usage_pricing(app: AppHandle) -> Result<PricingTable, Strin
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn rescan_usage(state: State<'_, UsageState>) -> Result<ScanResult, String> {
     scan_all(&state, true).await
 }

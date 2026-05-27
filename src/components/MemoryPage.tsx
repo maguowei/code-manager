@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
@@ -16,15 +15,13 @@ import { cn } from "@/lib/utils";
 import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
 import { type Language, type TranslationKey, useI18n } from "../i18n";
+import { ipc } from "../ipc";
 import type {
   ClaudeDirectoryChangedEvent,
   Memory,
-  MemoryDeletePreview,
   MemoryDirectoryImportResult,
   MemoryDirectoryImportSkipReason,
   MemoryPresetApplyOutcome,
-  MemoryPresetApplyResult,
-  MemoryPresetContentResult,
   MemoryPresetLanguage,
   MemoryState,
   UnmanagedMemory,
@@ -326,7 +323,7 @@ function MemoryPage({ onDrawerChange, onEditorExitGuardChange }: MemoryPageProps
         setIsRefreshing(true);
       }
       try {
-        const state = await invoke<MemoryState>("get_memories");
+        const state = await ipc.getMemories();
         applyMemoryState(state);
         if (successMessage) {
           showToast(t(successMessage));
@@ -354,7 +351,7 @@ function MemoryPage({ onDrawerChange, onEditorExitGuardChange }: MemoryPageProps
 
   async function handleAdd(data: MemoryPayload) {
     try {
-      const state = await invoke<MemoryState>("add_memory", { data });
+      const state = await ipc.addMemory(data);
       setIsModalOpen(false);
       applyMemoryState(state);
       showToast(t("toast.memoryAdded"));
@@ -368,7 +365,7 @@ function MemoryPage({ onDrawerChange, onEditorExitGuardChange }: MemoryPageProps
   async function handleUpdate(data: MemoryPayload) {
     if (!editingMemory) return false;
     try {
-      const state = await invoke<MemoryState>("update_memory", { id: editingMemory.id, data });
+      const state = await ipc.updateMemory(editingMemory.id, data);
       setEditingMemory(null);
       setIsModalOpen(false);
       applyMemoryState(state);
@@ -382,7 +379,7 @@ function MemoryPage({ onDrawerChange, onEditorExitGuardChange }: MemoryPageProps
 
   async function handleDelete(id: string) {
     try {
-      const state = await invoke<MemoryState>("delete_memory", { id });
+      const state = await ipc.deleteMemory(id);
       applyMemoryState(state);
       showToast(t("toast.memoryDeleted"));
     } catch (err) {
@@ -392,7 +389,7 @@ function MemoryPage({ onDrawerChange, onEditorExitGuardChange }: MemoryPageProps
 
   async function handleRequestDelete(id: string) {
     try {
-      const preview = await invoke<MemoryDeletePreview>("preview_delete_memory", { id });
+      const preview = await ipc.previewDeleteMemory(id);
       setPendingDelete({ id, cleanupDirs: preview.cleanupDirs ?? [] });
     } catch (err) {
       showOperationError(showToast, t("toast.memoryDeletePreviewError"), err);
@@ -401,7 +398,7 @@ function MemoryPage({ onDrawerChange, onEditorExitGuardChange }: MemoryPageProps
 
   async function handleToggle(id: string) {
     try {
-      const state = await invoke<MemoryState>("toggle_memory", { id });
+      const state = await ipc.toggleMemory(id);
       applyMemoryState(state);
     } catch (err) {
       showOperationError(showToast, t("toast.memoryToggleError"), err);
@@ -410,10 +407,7 @@ function MemoryPage({ onDrawerChange, onEditorExitGuardChange }: MemoryPageProps
 
   async function handleDuplicate(id: string) {
     try {
-      const state = await invoke<MemoryState>("duplicate_memory", {
-        id,
-        nameSuffix: t("memory.duplicateSuffix"),
-      });
+      const state = await ipc.duplicateMemory(id, t("memory.duplicateSuffix"));
       applyMemoryState(state);
       showToast(t("toast.memoryDuplicated"));
     } catch (err) {
@@ -423,8 +417,9 @@ function MemoryPage({ onDrawerChange, onEditorExitGuardChange }: MemoryPageProps
 
   async function handleImport(memory: UnmanagedMemory) {
     try {
-      const state = await invoke<MemoryState>("import_unmanaged_memory", {
-        source: { targetType: memory.targetType, rulePath: memory.rulePath },
+      const state = await ipc.importUnmanagedMemory({
+        targetType: memory.targetType,
+        rulePath: memory.rulePath,
       });
       applyMemoryState(state);
       showToast(t("toast.memoryImported"));
@@ -446,9 +441,7 @@ function MemoryPage({ onDrawerChange, onEditorExitGuardChange }: MemoryPageProps
         return;
       }
 
-      const result = await invoke<MemoryDirectoryImportResult>("import_memories_from_directory", {
-        sourceDir,
-      });
+      const result = await ipc.importMemoriesFromDirectory(sourceDir);
       applyMemoryState(result.state);
       setDirectoryImportResult(result);
     } catch (err) {
@@ -462,12 +455,10 @@ function MemoryPage({ onDrawerChange, onEditorExitGuardChange }: MemoryPageProps
     const presetLanguage = getMemoryPresetLanguage(language);
     setIsApplyingPreset(true);
     try {
-      const result = await invoke<MemoryPresetApplyResult>("apply_memory_preset", {
-        data: {
-          presetId: KARPATHY_MEMORY_PRESET_ID,
-          language: presetLanguage,
-          action: "createClaude",
-        },
+      const result = await ipc.applyMemoryPreset({
+        presetId: KARPATHY_MEMORY_PRESET_ID,
+        language: presetLanguage,
+        action: "createClaude",
       });
       applyMemoryState(result.state);
       showToast(t(memoryPresetOutcomeToastKeys[result.outcome]));
@@ -480,11 +471,9 @@ function MemoryPage({ onDrawerChange, onEditorExitGuardChange }: MemoryPageProps
 
   const loadMemoryPresetContent = useCallback(
     async (presetLanguage: MemoryPresetLanguage) =>
-      invoke<MemoryPresetContentResult>("get_memory_preset_content", {
-        data: {
-          presetId: KARPATHY_MEMORY_PRESET_ID,
-          language: presetLanguage,
-        },
+      ipc.getMemoryPresetContent({
+        presetId: KARPATHY_MEMORY_PRESET_ID,
+        language: presetLanguage,
       }),
     [],
   );

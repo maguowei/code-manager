@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ExternalLink, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -6,6 +5,7 @@ import { showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
+import { ipc } from "../ipc";
 import type { ConfigWorkspace, SettingsPreset } from "../types";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import {
@@ -185,7 +185,7 @@ function PresetsPage({ workspace, onWorkspaceChange, onEditorExitGuardChange }: 
     settingsPatch: Record<string, unknown>;
   }) {
     try {
-      await invoke("upsert_preset", { data });
+      await ipc.upsertPreset(data);
       await onWorkspaceChange();
       closeDrawer();
       showToast(t("presets.toast.saved"));
@@ -198,7 +198,7 @@ function PresetsPage({ workspace, onWorkspaceChange, onEditorExitGuardChange }: 
 
   async function handleDelete(id: string) {
     try {
-      await invoke("delete_preset", { id });
+      await ipc.deletePreset(id);
       await onWorkspaceChange();
       showToast(t("presets.toast.deleted"));
     } catch (err) {

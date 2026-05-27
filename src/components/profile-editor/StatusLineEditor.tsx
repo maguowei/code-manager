@@ -1,8 +1,8 @@
-import { invoke } from "@tauri-apps/api/core";
 import { Download } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "../../hooks/useToast";
 import { type TranslationKey, useI18n } from "../../i18n";
+import { ipc } from "../../ipc";
 import ConfirmAlertDialog from "../ConfirmAlertDialog";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -20,14 +20,6 @@ interface StatusLineEditorProps {
   onChange: (next: Record<string, unknown>) => void;
   onError: (message: string) => void;
   showTitle?: boolean;
-}
-
-interface StatusLinePresetInstallResult {
-  presetId: string;
-  targetPath: string;
-  commandPath: string;
-  installed: boolean;
-  needsOverwrite: boolean;
 }
 
 const DEFAULT_STATUS_LINE_PRESET_ID = "default";
@@ -89,10 +81,7 @@ function StatusLineEditor({ value, onChange, onError, showTitle = true }: Status
   async function installDefaultPreset(overwrite: boolean) {
     setIsInstallingPreset(true);
     try {
-      const result = await invoke<StatusLinePresetInstallResult>("install_status_line_preset", {
-        presetId: DEFAULT_STATUS_LINE_PRESET_ID,
-        overwrite,
-      });
+      const result = await ipc.installStatusLinePreset(DEFAULT_STATUS_LINE_PRESET_ID, overwrite);
 
       if (result.needsOverwrite) {
         setOverwriteDialogOpen(true);

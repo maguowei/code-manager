@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
@@ -16,6 +15,7 @@ import { cn } from "@/lib/utils";
 import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
 import { type Language, type TranslationKey, useI18n } from "../i18n";
+import { ipc } from "../ipc";
 import type {
   ClaudeDirectoryChangedEvent,
   Skill,
@@ -278,7 +278,7 @@ function SkillsPage({ onDrawerChange, onEditorExitGuardChange }: SkillsPageProps
         setIsRefreshing(true);
       }
       try {
-        const list = await invoke<Skill[]>("get_skills");
+        const list = await ipc.getSkills();
         setSkills(list);
         if (successMessage) {
           showToast(t(successMessage));
@@ -307,10 +307,7 @@ function SkillsPage({ onDrawerChange, onEditorExitGuardChange }: SkillsPageProps
   // 切换 Skill 启用/禁用状态
   async function handleToggle(skill: Skill) {
     try {
-      const toggled = await invoke<Skill>("toggle_skill", {
-        id: skill.id,
-        isActive: skill.isActive,
-      });
+      const toggled = await ipc.toggleSkill(skill.id, skill.isActive);
       setSkills((prev) => prev.map((s) => (s.id === toggled.id ? toggled : s)));
     } catch (err) {
       showOperationError(showToast, t("toast.skillToggleError"), err);
@@ -322,7 +319,7 @@ function SkillsPage({ onDrawerChange, onEditorExitGuardChange }: SkillsPageProps
     const skill = skills.find((s) => s.id === id);
     if (!skill) return;
     try {
-      await invoke("delete_skill", { id, isActive: skill.isActive });
+      await ipc.deleteSkill(id, skill.isActive);
       setSkills((prev) => prev.filter((s) => s.id !== id));
       showToast(t("toast.skillDeleted"));
     } catch (err) {
@@ -333,7 +330,7 @@ function SkillsPage({ onDrawerChange, onEditorExitGuardChange }: SkillsPageProps
   // 同步 Skill 到 Codex
   async function handleSync(skill: Skill) {
     try {
-      await invoke("sync_skill_to_codex", { id: skill.id, isActive: skill.isActive });
+      await ipc.syncSkillToCodex(skill.id, skill.isActive);
       showToast(t("toast.skillSynced"));
     } catch (err) {
       showOperationError(showToast, t("toast.skillSyncError"), err);
@@ -343,11 +340,11 @@ function SkillsPage({ onDrawerChange, onEditorExitGuardChange }: SkillsPageProps
   // 复制 Skill 为未启用的本地模板副本
   async function handleDuplicate(skill: Skill) {
     try {
-      const duplicated = await invoke<Skill>("duplicate_skill", {
-        id: skill.id,
-        isActive: skill.isActive,
-        nameSuffix: t("skills.duplicateSuffix"),
-      });
+      const duplicated = await ipc.duplicateSkill(
+        skill.id,
+        skill.isActive,
+        t("skills.duplicateSuffix"),
+      );
       setSkills((prev) => {
         const next = prev.filter((item) => item.id !== duplicated.id);
         const sourceIndex = next.findIndex((item) => item.id === skill.id);
@@ -467,9 +464,7 @@ function SkillsPage({ onDrawerChange, onEditorExitGuardChange }: SkillsPageProps
         return;
       }
 
-      const result = await invoke<SkillDirectoryImportResult>("import_skills_from_directory", {
-        sourceDir,
-      });
+      const result = await ipc.importSkillsFromDirectory(sourceDir);
       setSkills(result.skills);
       setDirectoryImportResult(result);
     } catch (err) {
@@ -501,7 +496,7 @@ function SkillsPage({ onDrawerChange, onEditorExitGuardChange }: SkillsPageProps
 
   async function handleOpenInEditor(skill: Skill) {
     try {
-      await invoke("open_skill_in_editor", { id: skill.id, isActive: skill.isActive });
+      await ipc.openSkillInEditor(skill.id, skill.isActive);
       showToast(t("toast.skillOpenEditorRequested"));
     } catch (err) {
       showOperationError(showToast, t("toast.skillOpenEditorError"), err);

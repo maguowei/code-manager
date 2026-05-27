@@ -46,7 +46,7 @@ static CLAUDE_SETTINGS_SCHEMA: Lazy<Value> = Lazy::new(|| {
 static SCHEMA_REGEX_CACHE: Lazy<Mutex<HashMap<String, Arc<CompiledSchemaRegex>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AppPreferences {
     #[serde(default = "default_true")]
@@ -82,21 +82,21 @@ impl Default for AppPreferences {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum PresetSource {
     Builtin,
     Custom,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct LocalizedText {
     pub zh: String,
     pub en: String,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum PresetModelCategory {
     Opus,
@@ -105,14 +105,14 @@ pub enum PresetModelCategory {
     Other,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SettingsPresetModel {
     pub id: String,
     pub category: PresetModelCategory,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SettingsPreset {
     pub id: String,
@@ -128,11 +128,12 @@ pub struct SettingsPreset {
     pub models: Option<Vec<SettingsPresetModel>>,
     #[serde(default)]
     pub model_suggestions: Vec<String>,
+    #[specta(type = specta_typescript::Unknown)]
     pub settings_patch: Value,
     pub source: PresetSource,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfigProfile {
     pub id: String,
@@ -140,12 +141,13 @@ pub struct ConfigProfile {
     pub description: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preset_id: Option<String>,
+    #[specta(type = specta_typescript::Unknown)]
     pub settings: Value,
     pub created_at: String,
     pub updated_at: String,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct BindingState {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -154,7 +156,7 @@ pub struct BindingState {
     pub user_last_applied_at: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfigRegistry {
     #[serde(rename = "$schema")]
@@ -182,7 +184,7 @@ impl Default for ConfigRegistry {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfigWorkspace {
     pub app: AppPreferences,
@@ -196,10 +198,11 @@ pub struct ConfigWorkspace {
     pub active_user_settings_mismatch: Option<ActiveUserSettingsMismatch>,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct UnmanagedUserSettings {
     pub source_path: String,
+    #[specta(type = specta_typescript::Unknown)]
     pub settings: Value,
     pub size: u64,
     pub modified_at: u64,
@@ -210,16 +213,18 @@ pub struct UnmanagedUserSettings {
     pub matched_profile_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ActiveUserSettingsMismatch {
     pub profile_id: String,
     pub source_path: String,
+    #[specta(type = specta_typescript::Unknown)]
     pub expected_settings: Value,
+    #[specta(type = specta_typescript::Unknown)]
     pub actual_settings: Value,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct StatusLinePresetInstallResult {
     pub preset_id: String,
@@ -229,7 +234,7 @@ pub struct StatusLinePresetInstallResult {
     pub needs_overwrite: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelTestResult {
     pub ok: bool,
@@ -282,7 +287,7 @@ struct ModelTestResultContext {
     exchange: ModelTestHttpExchange,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct AppPreferencesInput {
@@ -299,7 +304,7 @@ pub struct AppPreferencesInput {
     pub default_editor_app: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct ProfileInput {
@@ -307,10 +312,11 @@ pub struct ProfileInput {
     pub name: String,
     pub description: String,
     pub preset_id: Option<String>,
+    #[specta(type = specta_typescript::Unknown)]
     pub settings: Value,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct ModelTestInput {
@@ -318,12 +324,13 @@ pub struct ModelTestInput {
     pub name: String,
     pub description: String,
     pub preset_id: Option<String>,
+    #[specta(type = specta_typescript::Unknown)]
     pub settings: Value,
     #[serde(default)]
     pub prompt_text: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct PresetInput {
@@ -338,10 +345,11 @@ pub struct PresetInput {
     pub models: Option<Vec<SettingsPresetModel>>,
     #[serde(default)]
     pub model_suggestions: Vec<String>,
+    #[specta(type = specta_typescript::Unknown)]
     pub settings_patch: Value,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct UserSettingsImportInput {
@@ -1828,12 +1836,14 @@ fn import_user_settings_profile_in_registry(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_config_workspace(_app_handle: AppHandle) -> Result<ConfigWorkspace, String> {
     let registry = load_registry()?;
     Ok(build_workspace(registry))
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn upsert_profile(app_handle: AppHandle, data: ProfileInput) -> Result<ConfigProfile, String> {
     let result = (|| {
         let _lock = crate::utils::lock_config()?;
@@ -1893,6 +1903,7 @@ pub fn upsert_profile(app_handle: AppHandle, data: ProfileInput) -> Result<Confi
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn duplicate_profile(
     app_handle: AppHandle,
     id: String,
@@ -1914,6 +1925,7 @@ pub fn duplicate_profile(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn reorder_profiles(app_handle: AppHandle, ids: Vec<String>) -> Result<(), String> {
     let result = (|| {
         let _lock = crate::utils::lock_config()?;
@@ -1931,6 +1943,7 @@ pub fn reorder_profiles(app_handle: AppHandle, ids: Vec<String>) -> Result<(), S
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn delete_profile(app_handle: AppHandle, id: String) -> Result<(), String> {
     let result = (|| {
         let _lock = crate::utils::lock_config()?;
@@ -1952,6 +1965,7 @@ pub fn delete_profile(app_handle: AppHandle, id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn apply_profile(app_handle: AppHandle, id: String) -> Result<(), String> {
     let result = (|| {
         let registry = apply_profile_inner(id.clone())?;
@@ -1964,6 +1978,7 @@ pub fn apply_profile(app_handle: AppHandle, id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn import_user_settings_profile(
     app_handle: AppHandle,
     data: UserSettingsImportInput,
@@ -1984,6 +1999,7 @@ pub fn import_user_settings_profile(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn install_status_line_preset(
     preset_id: String,
     overwrite: bool,
@@ -2002,6 +2018,7 @@ pub fn install_status_line_preset(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn preview_profile(data: ProfileInput) -> Result<String, String> {
     let input = normalize_profile_input(data)?;
     let mut registry = load_registry()?;
@@ -2030,6 +2047,7 @@ pub fn preview_profile(data: ProfileInput) -> Result<String, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn test_profile_model(data: ModelTestInput) -> Result<ModelTestResult, String> {
     let input = normalize_model_test_input(data)?;
     let mut registry = load_registry()?;
@@ -2179,6 +2197,7 @@ pub async fn test_profile_model(data: ModelTestInput) -> Result<ModelTestResult,
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn upsert_preset(app_handle: AppHandle, data: PresetInput) -> Result<SettingsPreset, String> {
     let result = (|| {
         let _lock = crate::utils::lock_config()?;
@@ -2235,6 +2254,7 @@ pub fn upsert_preset(app_handle: AppHandle, data: PresetInput) -> Result<Setting
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn delete_preset(app_handle: AppHandle, id: String) -> Result<(), String> {
     let result = (|| {
         let _lock = crate::utils::lock_config()?;
@@ -2264,6 +2284,7 @@ pub fn delete_preset(app_handle: AppHandle, id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn set_app_preferences(
     app_handle: AppHandle,
     data: AppPreferencesInput,
