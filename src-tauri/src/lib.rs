@@ -14,6 +14,7 @@ mod usage;
 mod utils;
 
 use std::path::Path;
+#[cfg(any(debug_assertions, test))]
 use std::path::PathBuf;
 
 use claude_directory::{
@@ -153,6 +154,7 @@ pub fn export_typescript_bindings(path: impl AsRef<Path>) -> Result<(), String> 
     Ok(())
 }
 
+#[cfg(any(debug_assertions, test))]
 fn default_typescript_bindings_path() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/bindings.ts")
 }
