@@ -140,7 +140,7 @@ function PresetsPage({
             void copyPresetId(preset.id);
           }}
         >
-          <Copy className="size-3.5" aria-hidden="true" />
+          <Copy aria-hidden="true" />
         </Button>
       </>
     );
