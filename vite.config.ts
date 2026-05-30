@@ -28,24 +28,12 @@ export default defineConfig(async () => ({
     rolldownOptions: {
       output: {
         codeSplitting: {
+          // CodeMirror / Markdown / Recharts 依赖图存在循环引用，强制拆 vendor chunk 会导致 Tauri 生产包初始化顺序错误。
           groups: [
             {
               name: "react-vendor",
               test: nodeModulePattern(["react", "react-dom", "scheduler"]),
               priority: 60,
-              maxSize: chunkMaxSize,
-            },
-            {
-              name: "codemirror-vendor",
-              test: nodeModulePattern([
-                "@codemirror",
-                "@lezer",
-                "@uiw",
-                "codemirror",
-                "style-mod",
-                "w3c-keyname",
-              ]),
-              priority: 50,
               maxSize: chunkMaxSize,
             },
             {
@@ -59,36 +47,6 @@ export default defineConfig(async () => ({
                 "shiki",
               ]),
               priority: 45,
-              maxSize: chunkMaxSize,
-            },
-            {
-              name: "markdown-vendor",
-              test: nodeModulePattern([
-                "comma-separated-tokens",
-                "hast-util-whitespace",
-                "mdast-util-gfm[^\\\\/]*",
-                "micromark[^\\\\/]*",
-                "property-information",
-                "react-markdown",
-                "react-syntax-highlighter",
-                "refractor",
-                "remark-gfm",
-                "space-separated-tokens",
-                "unified",
-                "unist-util-[^\\\\/]+",
-              ]),
-              priority: 40,
-              maxSize: chunkMaxSize,
-            },
-            {
-              name: "charts-vendor",
-              test: nodeModulePattern([
-                "d3-[^\\\\/]+",
-                "decimal\\.js-light",
-                "recharts",
-                "victory-vendor",
-              ]),
-              priority: 35,
               maxSize: chunkMaxSize,
             },
             {

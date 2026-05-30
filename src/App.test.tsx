@@ -754,6 +754,8 @@ describe("App", () => {
     renderApp();
 
     fireEvent.click(await screen.findByRole("button", { name: "记忆" }));
+    // 等 MemoryPage 通过 React.lazy 加载并渲染页头，避免模块未缓存时 findByRole 超时
+    await screen.findByRole("heading", { name: "记忆" });
     fireEvent.click(await screen.findByRole("button", { name: "团队记忆" }));
     fireEvent.change(await screen.findByDisplayValue("团队记忆"), {
       target: { value: "团队记忆草稿" },
@@ -775,6 +777,8 @@ describe("App", () => {
     renderApp();
 
     fireEvent.click(await screen.findByRole("button", { name: "Skills" }));
+    // 等 SkillsPage 通过 React.lazy 加载并渲染页头，避免模块未缓存时 findByRole 超时
+    await screen.findByRole("heading", { name: "Skills 管理" });
     fireEvent.click(await screen.findByRole("button", { name: "Local Skill" }));
     fireEvent.change(await screen.findByDisplayValue("Local Skill"), {
       target: { value: "Local Skill Draft" },
