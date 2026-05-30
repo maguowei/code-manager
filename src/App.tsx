@@ -231,6 +231,14 @@ function App() {
     [activateTab, runWithEditorExitGuard],
   );
 
+  const handleOpenPresets = useCallback(() => {
+    runWithEditorExitGuard(() => activateTab("providers"));
+  }, [activateTab, runWithEditorExitGuard]);
+
+  const handleOpenProfiles = useCallback(() => {
+    runWithEditorExitGuard(() => activateTab("configs"));
+  }, [activateTab, runWithEditorExitGuard]);
+
   if (loading) {
     return (
       <TooltipProvider delayDuration={200}>
@@ -246,7 +254,7 @@ function App() {
     <TooltipProvider delayDuration={200}>
       <div className="flex h-screen overflow-hidden bg-background text-foreground">
         <Sidebar
-          activeTab={activeTab}
+          activeTab={activeTab === "providers" ? "configs" : activeTab}
           collapseSidebarByDefault={workspace.app.collapseSidebarByDefault}
           onTabChange={(tab) => {
             runWithEditorExitGuard(() => activateTab(tab));
@@ -285,6 +293,7 @@ function App() {
               <PresetsPage
                 workspace={workspace}
                 onWorkspaceChange={loadWorkspace}
+                onOpenProfiles={handleOpenProfiles}
                 onEditorExitGuardChange={setEditorExitGuard}
               />
             ) : activeTab === "configs" ? (
@@ -292,6 +301,7 @@ function App() {
                 workspace={workspace}
                 onWorkspaceChange={loadWorkspace}
                 onEditorExitGuardChange={setEditorExitGuard}
+                onOpenPresets={handleOpenPresets}
               />
             ) : (
               <div

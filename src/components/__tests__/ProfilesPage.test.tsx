@@ -138,11 +138,16 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
 function renderPage(
   workspace: ConfigWorkspace = WORKSPACE_FIXTURE,
   onWorkspaceChange: () => Promise<void> = async () => {},
+  onOpenPresets: () => void = vi.fn(),
 ) {
   render(
     <I18nProvider>
       <ThemeProvider>
-        <ProfilesPage workspace={workspace} onWorkspaceChange={onWorkspaceChange} />
+        <ProfilesPage
+          workspace={workspace}
+          onWorkspaceChange={onWorkspaceChange}
+          onOpenPresets={onOpenPresets}
+        />
       </ThemeProvider>
     </I18nProvider>,
   );
@@ -253,6 +258,47 @@ describe("ProfilesPage", () => {
     expect(within(card).getByRole("button", { name: "删除" })).toBeInTheDocument();
     expect(within(card).queryByText("删除")).not.toBeInTheDocument();
     expect(within(card).queryByRole("button", { name: "编辑" })).not.toBeInTheDocument();
+  });
+
+  it("renders config section tabs above profile actions and opens presets", () => {
+    const onOpenPresets = vi.fn();
+    renderPage(
+      {
+        ...WORKSPACE_FIXTURE,
+        customPresets: [
+          {
+            id: "custom:team-plan",
+            name: "Team Plan",
+            localizedName: {
+              zh: "团队计划",
+              en: "Team Plan",
+            },
+            description: "团队预设",
+            modelSuggestions: [],
+            settingsPatch: {},
+            source: "custom",
+          },
+        ],
+      },
+      async () => {},
+      onOpenPresets,
+    );
+
+    const tabs = screen.getByRole("group", { name: "配置分区" });
+    const profilesTab = within(tabs).getByRole("button", { name: "配置" });
+    const presetsTab = within(tabs).getByRole("button", { name: "预设" });
+
+    expect(profilesTab).toHaveAttribute("aria-pressed", "true");
+    expect(presetsTab).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByRole("group", { name: "预设管理" })).not.toBeInTheDocument();
+    expect(
+      tabs.compareDocumentPosition(screen.getByRole("button", { name: "新建配置" })) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    fireEvent.click(presetsTab);
+
+    expect(onOpenPresets).toHaveBeenCalledTimes(1);
   });
 
   it("shows unmanaged user settings and imports them in place", async () => {

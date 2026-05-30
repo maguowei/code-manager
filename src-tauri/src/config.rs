@@ -920,7 +920,10 @@ fn normalize_model_test_input(input: ModelTestInput) -> Result<ModelTestInput, S
 
 fn normalize_preset_input(input: PresetInput) -> Result<PresetInput, String> {
     Ok(PresetInput {
-        id: input.id.filter(|id| !id.trim().is_empty()),
+        id: input
+            .id
+            .map(|id| id.trim().to_string())
+            .filter(|id| !id.is_empty()),
         name: input.name.trim().to_string(),
         localized_name: normalize_localized_text(input.localized_name, &input.name),
         description: input.description.trim().to_string(),
@@ -930,6 +933,60 @@ fn normalize_preset_input(input: PresetInput) -> Result<PresetInput, String> {
         model_suggestions: normalize_model_suggestions(input.model_suggestions),
         settings_patch: normalize_settings_document(input.settings_patch)?,
     })
+}
+
+fn slugify_custom_preset_seed(seed: &str) -> Option<String> {
+    let mut slug = String::new();
+    let mut previous_dash = false;
+
+    for character in seed.trim().chars() {
+        if character.is_ascii_alphanumeric() {
+            slug.push(character.to_ascii_lowercase());
+            previous_dash = false;
+            continue;
+        }
+
+        if !previous_dash && !slug.is_empty() {
+            slug.push('-');
+            previous_dash = true;
+        }
+    }
+
+    let slug = slug.trim_matches('-').to_string();
+    if slug.is_empty() {
+        None
+    } else {
+        Some(slug)
+    }
+}
+
+fn build_custom_preset_id(registry: &ConfigRegistry, input: &PresetInput) -> String {
+    if let Some(id) = input
+        .id
+        .as_deref()
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+    {
+        return id.to_string();
+    }
+
+    let seed = input
+        .localized_name
+        .as_ref()
+        .map(|localized_name| localized_name.en.trim())
+        .filter(|name| !name.is_empty())
+        .unwrap_or_else(|| input.name.trim());
+    let Some(base_slug) = slugify_custom_preset_seed(seed) else {
+        return format!("custom:{}", Uuid::new_v4());
+    };
+
+    let mut candidate = format!("custom:{base_slug}");
+    let mut suffix = 2;
+    while preset_exists(registry, &candidate) {
+        candidate = format!("custom:{base_slug}-{suffix}");
+        suffix += 1;
+    }
+    candidate
 }
 
 fn normalize_app_preferences(input: AppPreferencesInput) -> Result<AppPreferences, String> {
@@ -2211,10 +2268,7 @@ pub fn upsert_preset(app_handle: AppHandle, data: PresetInput) -> Result<Setting
             }
         }
 
-        let preset_id = input
-            .id
-            .clone()
-            .unwrap_or_else(|| format!("custom:{}", Uuid::new_v4()));
+        let preset_id = build_custom_preset_id(&registry, &input);
         let preset = SettingsPreset {
             id: preset_id.clone(),
             name: input.name,
@@ -2364,6 +2418,20 @@ mod tests {
         }
     }
 
+    fn sample_preset_input(name: &str, localized_name: Option<LocalizedText>) -> PresetInput {
+        PresetInput {
+            id: None,
+            name: name.to_string(),
+            localized_name,
+            description: String::new(),
+            base_preset_id: None,
+            doc_url: None,
+            models: None,
+            model_suggestions: vec![],
+            settings_patch: serde_json::json!({}),
+        }
+    }
+
     #[test]
     fn ui_language_from_system_locale_uses_chinese_for_zh_locales() {
         assert_eq!(ui_language_from_system_locale("zh-CN"), Some("zh"));
@@ -2499,6 +2567,61 @@ mod tests {
             Some(&Value::String("max".to_string()))
         );
         assert!(!env.contains_key("ANTHROPIC_AUTH_TOKEN"));
+    }
+
+    #[test]
+    fn new_custom_preset_id_uses_english_name_slug() {
+        let registry = ConfigRegistry::default();
+        let input = sample_preset_input(
+            "General Config",
+            Some(LocalizedText {
+                zh: "通用配置".to_string(),
+                en: "General Config".to_string(),
+            }),
+        );
+
+        assert_eq!(
+            build_custom_preset_id(&registry, &input),
+            "custom:general-config"
+        );
+    }
+
+    #[test]
+    fn new_custom_preset_id_appends_suffix_on_conflict() {
+        let mut registry = ConfigRegistry::default();
+        registry.custom_presets.push(sample_custom_preset(
+            "custom:general-config",
+            None,
+            serde_json::json!({}),
+        ));
+        let input = sample_preset_input("General Config", None);
+
+        assert_eq!(
+            build_custom_preset_id(&registry, &input),
+            "custom:general-config-2"
+        );
+    }
+
+    #[test]
+    fn new_custom_preset_id_falls_back_to_uuid_when_slug_is_empty() {
+        let registry = ConfigRegistry::default();
+        let input = sample_preset_input("通用配置", None);
+        let id = build_custom_preset_id(&registry, &input);
+
+        assert!(id.starts_with("custom:"));
+        assert!(Uuid::parse_str(id.trim_start_matches("custom:")).is_ok());
+    }
+
+    #[test]
+    fn custom_preset_id_keeps_existing_id_when_editing() {
+        let registry = ConfigRegistry::default();
+        let mut input = sample_preset_input("Renamed Config", None);
+        input.id = Some("custom:existing-id".to_string());
+
+        assert_eq!(
+            build_custom_preset_id(&registry, &input),
+            "custom:existing-id"
+        );
     }
 
     #[test]

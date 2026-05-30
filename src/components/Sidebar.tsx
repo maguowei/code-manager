@@ -5,7 +5,6 @@ import {
   DollarSign,
   FolderOpen,
   type LucideIcon,
-  Server,
   Settings,
   SlidersHorizontal,
   Zap,
@@ -35,7 +34,6 @@ const NAV_ITEMS: NavItem[] = [
   { key: "configs", label: "nav.configs", icon: SlidersHorizontal },
   { key: "memory", label: "nav.memory", icon: Brain },
   { key: "skills", label: "nav.skills", icon: Zap },
-  { key: "providers", label: "nav.providers", icon: Server },
   { key: "projects", label: "nav.projects", icon: FolderOpen },
   { key: "history", label: "nav.history", icon: Clock },
   { key: "stats", label: "nav.stats", icon: BarChart3 },
@@ -102,7 +100,10 @@ function Sidebar({
 
       <div className="flex w-full flex-col gap-2">
         {NAV_ITEMS.map(({ key, label, icon: Icon, testId }) => {
-          const active = activeTab === key;
+          const active =
+            key === "configs"
+              ? activeTab === "configs" || activeTab === "providers"
+              : activeTab === key;
           return (
             <Tooltip key={key}>
               <TooltipTrigger asChild>

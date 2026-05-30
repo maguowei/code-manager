@@ -32,6 +32,7 @@ import type {
   UnmanagedUserSettings,
   UnmanagedUserSettingsImportStatus,
 } from "../types";
+import ConfigSectionTabs from "./ConfigSectionTabs";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import {
   getEnabledPluginsSummary,
@@ -80,6 +81,7 @@ const SettingsMismatchDiffViewer = lazy(
 interface ProfilesPageProps {
   workspace: ConfigWorkspace;
   onWorkspaceChange: () => Promise<void>;
+  onOpenPresets?: () => void;
   onEditorExitGuardChange?: (guard: EditorExitGuard | null) => void;
 }
 
@@ -208,6 +210,7 @@ function collectSettingsDiffs(
 function ProfilesPage({
   workspace,
   onWorkspaceChange,
+  onOpenPresets,
   onEditorExitGuardChange,
 }: ProfilesPageProps) {
   const { language, t } = useI18n();
@@ -1216,6 +1219,14 @@ function ProfilesPage({
             </Button>
           }
         />
+        <ConfigSectionTabs
+          value="profiles"
+          onValueChange={(value) => {
+            if (value === "presets") {
+              onOpenPresets?.();
+            }
+          }}
+        />
         <Button
           type="button"
           className="mx-2 mt-4 mb-3 h-auto gap-2 rounded-lg p-3.5 text-base font-semibold"
@@ -1230,284 +1241,280 @@ function ProfilesPage({
           <span>{t("profiles.add")}</span>
         </Button>
 
-        {profiles.length === 0 && !workspace.unmanagedUserSettings ? (
-          <EmptyState title={t("profiles.empty")} hint={t("profiles.emptyHint")} />
-        ) : (
-          <div
-            className={cn(
-              "profiles-grid flex flex-col gap-3 p-4",
-              dragState.draggingIndex !== null &&
-                "is-dragging [&_[data-slot=profile-card]:not(.dragging)]:opacity-70",
-            )}
-            onDragOver={handleListDragOver}
-          >
-            {profiles.length === 0 && workspace.unmanagedUserSettings
-              ? renderUnmanagedUserSettingsCard(workspace.unmanagedUserSettings)
-              : null}
-            {profiles.map((profile, index) => {
-              const model = profilePrimaryModel(profile);
-              const effort = profileEffortLevel(profile);
-              const permissionMode = profilePermissionMode(profile);
-              const sandboxEnabled = profileSandboxEnabled(profile);
-              const plugins = profilePluginsSummary(profile);
-              const hasSummary =
-                model || permissionMode || sandboxEnabled || plugins.totalCount > 0;
-              const isEditingProfile = isDrawerOpen && editingProfile?.id === profile.id;
-              const isAppliedProfile = isAppliedToUserSettings(profile);
-              const settingsMismatch = profileSettingsMismatch(profile);
-              return (
-                <Card
-                  key={profile.id}
-                  className={cn(
-                    "group relative flex cursor-pointer flex-col gap-4 rounded-lg border border-border bg-card p-4 py-4 shadow-panel transition-[transform,border-color,box-shadow,opacity] duration-200 hover:-translate-y-px hover:border-primary hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                    isAppliedProfile && "active border-primary ring-1 ring-primary/30",
-                    isEditingProfile && "editing border-chart-3 ring-1 ring-chart-3/30",
-                    dragState.draggingIndex === index &&
-                      "dragging scale-[0.985] opacity-50 shadow-md",
-                    dragState.overIndex === index &&
-                      dragState.overPosition === "above" &&
-                      "drag-over-above before:absolute before:top-[-6px] before:right-[-12px] before:left-[-12px] before:h-1 before:rounded-full before:bg-chart-2 before:content-['']",
-                    dragState.overIndex === index &&
-                      dragState.overPosition === "below" &&
-                      "drag-over-below after:absolute after:right-[-12px] after:bottom-[-6px] after:left-[-12px] after:h-1 after:rounded-full after:bg-chart-2 after:content-['']",
-                  )}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={profile.name}
-                  data-slot="profile-card"
-                  data-drag-over={
-                    dragState.overIndex === index ? dragState.overPosition : undefined
-                  }
-                  draggable
-                  onClick={() => {
+        <div
+          className={cn(
+            "profiles-grid flex flex-col gap-3 p-4",
+            dragState.draggingIndex !== null &&
+              "is-dragging [&_[data-slot=profile-card]:not(.dragging)]:opacity-70",
+          )}
+          onDragOver={handleListDragOver}
+        >
+          {profiles.length === 0 && workspace.unmanagedUserSettings
+            ? renderUnmanagedUserSettingsCard(workspace.unmanagedUserSettings)
+            : null}
+          {profiles.length === 0 && !workspace.unmanagedUserSettings ? (
+            <EmptyState title={t("profiles.empty")} hint={t("profiles.emptyHint")} />
+          ) : null}
+          {profiles.map((profile, index) => {
+            const model = profilePrimaryModel(profile);
+            const effort = profileEffortLevel(profile);
+            const permissionMode = profilePermissionMode(profile);
+            const sandboxEnabled = profileSandboxEnabled(profile);
+            const plugins = profilePluginsSummary(profile);
+            const hasSummary = model || permissionMode || sandboxEnabled || plugins.totalCount > 0;
+            const isEditingProfile = isDrawerOpen && editingProfile?.id === profile.id;
+            const isAppliedProfile = isAppliedToUserSettings(profile);
+            const settingsMismatch = profileSettingsMismatch(profile);
+            return (
+              <Card
+                key={profile.id}
+                className={cn(
+                  "group relative flex cursor-pointer flex-col gap-4 rounded-lg border border-border bg-card p-4 py-4 shadow-panel transition-[transform,border-color,box-shadow,opacity] duration-200 hover:-translate-y-px hover:border-primary hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  isAppliedProfile && "active border-primary ring-1 ring-primary/30",
+                  isEditingProfile && "editing border-chart-3 ring-1 ring-chart-3/30",
+                  dragState.draggingIndex === index &&
+                    "dragging scale-[0.985] opacity-50 shadow-md",
+                  dragState.overIndex === index &&
+                    dragState.overPosition === "above" &&
+                    "drag-over-above before:absolute before:top-[-6px] before:right-[-12px] before:left-[-12px] before:h-1 before:rounded-full before:bg-chart-2 before:content-['']",
+                  dragState.overIndex === index &&
+                    dragState.overPosition === "below" &&
+                    "drag-over-below after:absolute after:right-[-12px] after:bottom-[-6px] after:left-[-12px] after:h-1 after:rounded-full after:bg-chart-2 after:content-['']",
+                )}
+                role="button"
+                tabIndex={0}
+                aria-label={profile.name}
+                data-slot="profile-card"
+                data-drag-over={dragState.overIndex === index ? dragState.overPosition : undefined}
+                draggable
+                onClick={() => {
+                  requestEditorExit(() => {
+                    setEditingProfile(profile);
+                    setIsDrawerOpen(true);
+                  });
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
                     requestEditorExit(() => {
                       setEditingProfile(profile);
                       setIsDrawerOpen(true);
                     });
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      requestEditorExit(() => {
-                        setEditingProfile(profile);
-                        setIsDrawerOpen(true);
-                      });
-                    }
-                  }}
-                  onDragStart={(event) => handleDragStart(event, index)}
-                  onDragEnd={handleDragEnd}
-                  onDragOver={(event) => handleDragOver(event, index)}
-                  onDragLeave={(event) => handleDragLeave(event, index)}
-                  onDrop={(event) => handleDrop(event, index)}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <ProfileNameBadge
-                      name={profile.name}
-                      colorSeedScope={presetSlugFromId(profile.presetId)}
-                      size="sm"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center">
-                        <h3 className="truncate text-base font-semibold">{profile.name}</h3>
-                      </div>
-                      <div className="mt-1.5 flex items-center">
-                        <Badge
-                          variant="secondary"
-                          className="rounded-full px-2 py-0.5 text-xs font-semibold text-primary"
-                        >
-                          {presetNameById(
-                            allPresets,
-                            profile.presetId,
-                            language,
-                            t("profileEditor.preset.noPreset"),
-                          )}
-                        </Badge>
-                      </div>
-                      {profile.description && (
-                        <p className="mt-1.5 line-clamp-2 text-sm leading-normal text-muted-foreground">
-                          {profile.description}
-                        </p>
-                      )}
+                  }
+                }}
+                onDragStart={(event) => handleDragStart(event, index)}
+                onDragEnd={handleDragEnd}
+                onDragOver={(event) => handleDragOver(event, index)}
+                onDragLeave={(event) => handleDragLeave(event, index)}
+                onDrop={(event) => handleDrop(event, index)}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <ProfileNameBadge
+                    name={profile.name}
+                    colorSeedScope={presetSlugFromId(profile.presetId)}
+                    size="sm"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center">
+                      <h3 className="truncate text-base font-semibold">{profile.name}</h3>
                     </div>
-
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      {isEditingProfile ? (
-                        <Badge
-                          className={cn(
-                            "editing rounded-md bg-chart-3/10 px-2.5 py-1.5 text-chart-3",
-                            TYPOGRAPHY.badge,
-                          )}
-                        >
-                          {t("profiles.badges.editing")}
-                        </Badge>
-                      ) : isAppliedProfile ? (
-                        <Badge
-                          variant="secondary"
-                          className={cn(
-                            "active rounded-md px-2.5 py-1.5 text-chart-2",
-                            TYPOGRAPHY.badge,
-                          )}
-                        >
-                          {t("profiles.badges.inUse")}
-                        </Badge>
-                      ) : (
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="font-semibold"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            void handleApply(profile.id);
-                          }}
-                        >
-                          {t("profiles.actions.apply")}
-                        </Button>
-                      )}
+                    <div className="mt-1.5 flex items-center">
+                      <Badge
+                        variant="secondary"
+                        className="rounded-full px-2 py-0.5 text-xs font-semibold text-primary"
+                      >
+                        {presetNameById(
+                          allPresets,
+                          profile.presetId,
+                          language,
+                          t("profileEditor.preset.noPreset"),
+                        )}
+                      </Badge>
                     </div>
+                    {profile.description && (
+                      <p className="mt-1.5 line-clamp-2 text-sm leading-normal text-muted-foreground">
+                        {profile.description}
+                      </p>
+                    )}
                   </div>
 
-                  {hasSummary && (
-                    <div className="flex flex-col gap-2">
-                      {model && (
-                        <div className="grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground">
-                          <span className="inline-flex shrink-0 items-center text-xs leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-border after:content-[':']">
-                            {t("profiles.summary.modelTitle")}
-                          </span>
-                          <div
-                            data-slot="profile-model-summary-value"
-                            className="flex min-w-0 flex-wrap items-center gap-1.5"
-                          >
-                            <span className="min-w-0 max-w-full truncate">{model}</span>
-                            {renderProfileModelTestState(profile)}
-                            {effort && (
-                              <span
-                                className={cn(
-                                  "shrink-0 whitespace-nowrap",
-                                  profileEffortLevelClass(effort),
-                                )}
-                              >
-                                {effort}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                      {(permissionMode || sandboxEnabled) && (
-                        <div className="grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground">
-                          <span className="inline-flex shrink-0 items-center text-xs leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-border after:content-[':']">
-                            {t("profiles.summary.permissionsTitle")}
-                          </span>
-                          <span className="inline-flex min-w-0 items-center gap-1.5">
-                            {permissionMode ? (
-                              <span className={cn(profilePermissionModeClass(permissionMode))}>
-                                {permissionMode}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground">
-                                {t("profileEditor.permissions.unset")}
-                              </span>
-                            )}
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {isEditingProfile ? (
+                      <Badge
+                        className={cn(
+                          "editing rounded-md bg-chart-3/10 px-2.5 py-1.5 text-chart-3",
+                          TYPOGRAPHY.badge,
+                        )}
+                      >
+                        {t("profiles.badges.editing")}
+                      </Badge>
+                    ) : isAppliedProfile ? (
+                      <Badge
+                        variant="secondary"
+                        className={cn(
+                          "active rounded-md px-2.5 py-1.5 text-chart-2",
+                          TYPOGRAPHY.badge,
+                        )}
+                      >
+                        {t("profiles.badges.inUse")}
+                      </Badge>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="font-semibold"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void handleApply(profile.id);
+                        }}
+                      >
+                        {t("profiles.actions.apply")}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {hasSummary && (
+                  <div className="flex flex-col gap-2">
+                    {model && (
+                      <div className="grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground">
+                        <span className="inline-flex shrink-0 items-center text-xs leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-border after:content-[':']">
+                          {t("profiles.summary.modelTitle")}
+                        </span>
+                        <div
+                          data-slot="profile-model-summary-value"
+                          className="flex min-w-0 flex-wrap items-center gap-1.5"
+                        >
+                          <span className="min-w-0 max-w-full truncate">{model}</span>
+                          {renderProfileModelTestState(profile)}
+                          {effort && (
                             <span
                               className={cn(
-                                "shrink-0 border-l border-border/70 pl-1.5 text-xs leading-none whitespace-nowrap",
-                                sandboxEnabled ? "text-chart-2" : "text-muted-foreground",
+                                "shrink-0 whitespace-nowrap",
+                                profileEffortLevelClass(effort),
                               )}
                             >
-                              {t(
-                                sandboxEnabled
-                                  ? "profiles.summary.sandboxEnabled"
-                                  : "profiles.summary.sandboxDisabled",
-                              )}
+                              {effort}
                             </span>
-                          </span>
+                          )}
                         </div>
-                      )}
-                      {plugins.totalCount > 0 && (
-                        <div className="grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground">
-                          <span className="inline-flex shrink-0 items-center text-xs leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-border after:content-[':']">
-                            {t("profiles.summary.pluginsTitle")}
+                      </div>
+                    )}
+                    {(permissionMode || sandboxEnabled) && (
+                      <div className="grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground">
+                        <span className="inline-flex shrink-0 items-center text-xs leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-border after:content-[':']">
+                          {t("profiles.summary.permissionsTitle")}
+                        </span>
+                        <span className="inline-flex min-w-0 items-center gap-1.5">
+                          {permissionMode ? (
+                            <span className={cn(profilePermissionModeClass(permissionMode))}>
+                              {permissionMode}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">
+                              {t("profileEditor.permissions.unset")}
+                            </span>
+                          )}
+                          <span
+                            className={cn(
+                              "shrink-0 border-l border-border/70 pl-1.5 text-xs leading-none whitespace-nowrap",
+                              sandboxEnabled ? "text-chart-2" : "text-muted-foreground",
+                            )}
+                          >
+                            {t(
+                              sandboxEnabled
+                                ? "profiles.summary.sandboxEnabled"
+                                : "profiles.summary.sandboxDisabled",
+                            )}
                           </span>
-                          <span className="min-w-0 truncate">
-                            {t("common.pluginsEnabledSummaryLabel")} {plugins.enabledCount}/
-                            {plugins.totalCount}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {settingsMismatch ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-auto w-full justify-start gap-2 border-chart-3/50 bg-chart-3/10 px-2.5 py-2 text-left font-semibold text-chart-3 hover:bg-chart-3/15 hover:text-chart-3"
-                      title={t("profiles.mismatch.tooltip")}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setIsSettingsMismatchDialogOpen(true);
-                      }}
-                    >
-                      <CircleAlert className="size-4 shrink-0" aria-hidden="true" />
-                      <span className="min-w-0 truncate">{t("profiles.mismatch.button")}</span>
-                      <span
-                        aria-hidden="true"
-                        className="min-w-0 flex-1 truncate text-xs font-normal text-muted-foreground"
-                      >
-                        {t("profiles.mismatch.inlineHint")}
-                      </span>
-                    </Button>
-                  ) : null}
-
-                  <div className="mt-[-1rem] flex max-h-0 flex-wrap justify-end gap-2 self-end overflow-hidden opacity-0 transition-[max-height,margin-top,opacity,transform] duration-200 group-hover:mt-0 group-hover:max-h-12 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:mt-0 group-focus-within:max-h-12 group-focus-within:translate-y-0 group-focus-within:opacity-100 pointer-events-none translate-y-2 group-hover:pointer-events-auto group-focus-within:pointer-events-auto">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      className="border-border bg-muted text-foreground hover:border-primary hover:text-primary"
-                      aria-label={t("profiles.actions.copyEnv")}
-                      title={t("profiles.actions.copyEnv")}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        void handleCopyEnv(profile);
-                      }}
-                    >
-                      <Variable aria-hidden="true" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      className="border-border bg-muted text-foreground hover:border-primary hover:text-primary"
-                      aria-label={t("profiles.actions.duplicate")}
-                      title={t("profiles.actions.duplicate")}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        void handleDuplicate(profile);
-                      }}
-                    >
-                      <Copy aria-hidden="true" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      className="border-border bg-muted text-foreground hover:border-destructive hover:text-destructive"
-                      aria-label={t("profiles.actions.delete")}
-                      title={t("profiles.actions.delete")}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setPendingDeleteId(profile.id);
-                      }}
-                    >
-                      <Trash2 aria-hidden="true" />
-                    </Button>
+                        </span>
+                      </div>
+                    )}
+                    {plugins.totalCount > 0 && (
+                      <div className="grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground">
+                        <span className="inline-flex shrink-0 items-center text-xs leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-border after:content-[':']">
+                          {t("profiles.summary.pluginsTitle")}
+                        </span>
+                        <span className="min-w-0 truncate">
+                          {t("common.pluginsEnabledSummaryLabel")} {plugins.enabledCount}/
+                          {plugins.totalCount}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                </Card>
-              );
-            })}
-          </div>
-        )}
+                )}
+
+                {settingsMismatch ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-auto w-full justify-start gap-2 border-chart-3/50 bg-chart-3/10 px-2.5 py-2 text-left font-semibold text-chart-3 hover:bg-chart-3/15 hover:text-chart-3"
+                    title={t("profiles.mismatch.tooltip")}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setIsSettingsMismatchDialogOpen(true);
+                    }}
+                  >
+                    <CircleAlert className="size-4 shrink-0" aria-hidden="true" />
+                    <span className="min-w-0 truncate">{t("profiles.mismatch.button")}</span>
+                    <span
+                      aria-hidden="true"
+                      className="min-w-0 flex-1 truncate text-xs font-normal text-muted-foreground"
+                    >
+                      {t("profiles.mismatch.inlineHint")}
+                    </span>
+                  </Button>
+                ) : null}
+
+                <div className="mt-[-1rem] flex max-h-0 flex-wrap justify-end gap-2 self-end overflow-hidden opacity-0 transition-[max-height,margin-top,opacity,transform] duration-200 group-hover:mt-0 group-hover:max-h-12 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:mt-0 group-focus-within:max-h-12 group-focus-within:translate-y-0 group-focus-within:opacity-100 pointer-events-none translate-y-2 group-hover:pointer-events-auto group-focus-within:pointer-events-auto">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    className="border-border bg-muted text-foreground hover:border-primary hover:text-primary"
+                    aria-label={t("profiles.actions.copyEnv")}
+                    title={t("profiles.actions.copyEnv")}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void handleCopyEnv(profile);
+                    }}
+                  >
+                    <Variable aria-hidden="true" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    className="border-border bg-muted text-foreground hover:border-primary hover:text-primary"
+                    aria-label={t("profiles.actions.duplicate")}
+                    title={t("profiles.actions.duplicate")}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void handleDuplicate(profile);
+                    }}
+                  >
+                    <Copy aria-hidden="true" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    className="border-border bg-muted text-foreground hover:border-destructive hover:text-destructive"
+                    aria-label={t("profiles.actions.delete")}
+                    title={t("profiles.actions.delete")}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setPendingDeleteId(profile.id);
+                    }}
+                  >
+                    <Trash2 aria-hidden="true" />
+                  </Button>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
       </div>
 
       {isDrawerOpen && (

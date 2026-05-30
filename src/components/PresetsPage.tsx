@@ -1,5 +1,5 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ExternalLink, Plus } from "lucide-react";
+import { Copy, ExternalLink, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
@@ -7,6 +7,7 @@ import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
 import { ipc } from "../ipc";
 import type { ConfigWorkspace, SettingsPreset } from "../types";
+import ConfigSectionTabs from "./ConfigSectionTabs";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import {
   getEnabledPluginsSummary,
@@ -32,6 +33,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "./ui/sheet";
 interface PresetsPageProps {
   workspace: ConfigWorkspace;
   onWorkspaceChange: () => Promise<void>;
+  onOpenProfiles?: () => void;
   onEditorExitGuardChange?: (guard: EditorExitGuard | null) => void;
 }
 
@@ -43,7 +45,25 @@ const PRESET_BUILTIN_CARD_CLASS = "builtin";
 const PRESET_CHIP_CLASS =
   "preset-chip inline-flex min-h-7 items-center rounded-full border border-border bg-secondary px-2.5 py-1 text-xs font-semibold text-foreground";
 
-function PresetsPage({ workspace, onWorkspaceChange, onEditorExitGuardChange }: PresetsPageProps) {
+const CUSTOM_UUID_PRESET_ID_PATTERN =
+  /^custom:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+
+function presetCardIdLabel(preset: SettingsPreset) {
+  const match = preset.id.match(CUSTOM_UUID_PRESET_ID_PATTERN);
+  if (!match) {
+    return preset.id;
+  }
+
+  const uuid = match[1];
+  return `custom:${uuid.slice(0, 4)}…${uuid.slice(-4)}`;
+}
+
+function PresetsPage({
+  workspace,
+  onWorkspaceChange,
+  onOpenProfiles,
+  onEditorExitGuardChange,
+}: PresetsPageProps) {
   const { language, t } = useI18n();
   const { showToast } = useToast();
   const [editingPreset, setEditingPreset] = useState<SettingsPreset | null>(null);
@@ -64,6 +84,15 @@ function PresetsPage({ workspace, onWorkspaceChange, onEditorExitGuardChange }: 
 
   function presetModelSuggestions(preset: SettingsPreset) {
     return preset.modelSuggestions.map((model) => model.trim()).filter(Boolean);
+  }
+
+  async function copyPresetId(id: string) {
+    try {
+      await navigator.clipboard.writeText(id);
+      showToast(t("presets.toast.idCopied"));
+    } catch (err) {
+      showOperationError(showToast, t("presets.toast.copyIdError"), err);
+    }
   }
 
   function openPresetDocs(docUrl?: string) {
@@ -88,6 +117,32 @@ function PresetsPage({ workspace, onWorkspaceChange, onEditorExitGuardChange }: 
         <span>{t("presets.actions.openDocs")}</span>
         <ExternalLink className="size-3.5" aria-hidden="true" />
       </Button>
+    );
+  }
+
+  function renderPresetIdMeta(preset: SettingsPreset) {
+    return (
+      <>
+        <div
+          className="preset-card-id inline-flex max-w-full items-center self-start rounded-full border border-border bg-muted px-[9px] py-1 font-mono text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]"
+          title={preset.id}
+        >
+          {presetCardIdLabel(preset)}
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          className="preset-card-copy-id text-muted-foreground hover:bg-muted hover:text-foreground"
+          aria-label={t("presets.actions.copyId")}
+          title={t("presets.actions.copyId")}
+          onClick={() => {
+            void copyPresetId(preset.id);
+          }}
+        >
+          <Copy className="size-3.5" aria-hidden="true" />
+        </Button>
+      </>
     );
   }
 
@@ -216,6 +271,14 @@ function PresetsPage({ workspace, onWorkspaceChange, onEditorExitGuardChange }: 
         )}
       >
         <PageHeader title={t("presets.title")} surface="secondary" variant="list" />
+        <ConfigSectionTabs
+          value="presets"
+          onValueChange={(value) => {
+            if (value === "profiles") {
+              requestEditorExit(() => onOpenProfiles?.());
+            }
+          }}
+        />
 
         <div className="preset-section-block flex flex-col gap-4 border-b border-border p-4">
           <div className="preset-section-header flex items-start justify-between gap-4">
@@ -253,9 +316,7 @@ function PresetsPage({ workspace, onWorkspaceChange, onEditorExitGuardChange }: 
 
                   <div className="preset-card-body flex flex-col gap-2.5">
                     <div className="preset-card-meta-row flex flex-wrap items-center gap-2.5">
-                      <div className="preset-card-id inline-flex max-w-full items-center self-start rounded-full border border-border bg-muted px-[9px] py-1 font-mono text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]">
-                        {preset.id}
-                      </div>
+                      {renderPresetIdMeta(preset)}
                       {renderDocLink(preset.docUrl)}
                     </div>
                     {renderModelSection(modelSuggestions)}
@@ -321,9 +382,7 @@ function PresetsPage({ workspace, onWorkspaceChange, onEditorExitGuardChange }: 
 
                     <div className="preset-card-body flex flex-col gap-2.5">
                       <div className="preset-card-meta-row flex flex-wrap items-center gap-2.5">
-                        <div className="preset-card-id inline-flex max-w-full items-center self-start rounded-full border border-border bg-muted px-[9px] py-1 font-mono text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]">
-                          {preset.id}
-                        </div>
+                        {renderPresetIdMeta(preset)}
                         {renderDocLink(preset.docUrl)}
                       </div>
 

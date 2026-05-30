@@ -3,14 +3,21 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { I18nProvider } from "@/i18n";
+import type { TabType } from "@/types";
 import Sidebar from "../Sidebar";
 
-function renderSidebar({ collapseSidebarByDefault = false } = {}) {
+function renderSidebar({
+  activeTab = "configs",
+  collapseSidebarByDefault = false,
+}: {
+  activeTab?: TabType;
+  collapseSidebarByDefault?: boolean;
+} = {}) {
   render(
     <I18nProvider>
       <TooltipProvider>
         <Sidebar
-          activeTab="configs"
+          activeTab={activeTab}
           collapseSidebarByDefault={collapseSidebarByDefault}
           onTabChange={vi.fn()}
           onClaudeOverviewClick={vi.fn()}
@@ -25,11 +32,21 @@ describe("Sidebar", () => {
   it("shows short menu labels next to icons on desktop", () => {
     renderSidebar();
 
-    for (const label of ["配置", "预设", "记忆", "Skills", "项目", "历史", "统计", "用量"]) {
+    for (const label of ["配置", "记忆", "Skills", "项目", "历史", "统计", "用量"]) {
       const button = screen.getByRole("button", { name: label });
 
       expect(within(button).getByText(label)).toBeInTheDocument();
     }
+    expect(screen.queryByRole("button", { name: "预设" })).not.toBeInTheDocument();
+  });
+
+  it("treats the internal presets tab as part of the config sidebar item", () => {
+    renderSidebar({ activeTab: "providers" });
+
+    const configsButton = screen.getByRole("button", { name: "配置" });
+
+    expect(configsButton).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByRole("button", { name: "预设" })).not.toBeInTheDocument();
   });
 
   it("keeps the sidebar labels collapsible at the existing narrow breakpoint", () => {

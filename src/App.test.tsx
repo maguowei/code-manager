@@ -681,7 +681,7 @@ describe("App", () => {
     });
   });
 
-  it("blocks sidebar navigation while the profile editor has unsaved changes", async () => {
+  it("blocks preset tab navigation while the profile editor has unsaved changes", async () => {
     mockConfigEditorWorkspace();
     renderApp();
 
@@ -689,7 +689,12 @@ describe("App", () => {
     fireEvent.change(await screen.findByDisplayValue("OpenRouter User"), {
       target: { value: "OpenRouter Draft" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "预设", hidden: true }));
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "配置分区", hidden: true })).getByRole("button", {
+        name: "预设",
+        hidden: true,
+      }),
+    );
 
     expect(screen.getByRole("heading", { name: "存在未保存的更改" })).toBeInTheDocument();
     expect(screen.getByDisplayValue("OpenRouter Draft")).toBeInTheDocument();
@@ -701,7 +706,7 @@ describe("App", () => {
     });
   });
 
-  it("saves profile changes before running a guarded sidebar navigation", async () => {
+  it("saves profile changes before running guarded preset tab navigation", async () => {
     mockConfigEditorWorkspace();
     renderApp();
 
@@ -709,7 +714,12 @@ describe("App", () => {
     fireEvent.change(await screen.findByDisplayValue("OpenRouter User"), {
       target: { value: "OpenRouter Saved Draft" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "预设", hidden: true }));
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "配置分区", hidden: true })).getByRole("button", {
+        name: "预设",
+        hidden: true,
+      }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "保存并退出" }));
 
     await waitFor(() => {
@@ -732,7 +742,11 @@ describe("App", () => {
     mockConfigEditorWorkspace();
     renderApp();
 
-    fireEvent.click(await screen.findByRole("button", { name: "预设" }));
+    fireEvent.click(
+      within(await screen.findByRole("group", { name: "配置分区" })).getByRole("button", {
+        name: "预设",
+      }),
+    );
     fireEvent.click(await screen.findByRole("button", { name: "编辑" }));
     fireEvent.change(await screen.findByDisplayValue("Team Plan"), {
       target: { value: "Team Plan Draft" },
@@ -749,6 +763,34 @@ describe("App", () => {
     });
   });
 
+  it("returns from presets to profiles through the config section tabs", async () => {
+    mockConfigEditorWorkspace();
+    renderApp();
+
+    fireEvent.click(
+      within(await screen.findByRole("group", { name: "配置分区" })).getByRole("button", {
+        name: "预设",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "预设" })).toBeInTheDocument();
+    });
+
+    const presetTabs = screen.getByRole("group", { name: "配置分区" });
+    expect(within(presetTabs).getByRole("button", { name: "预设" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    fireEvent.click(within(presetTabs).getByRole("button", { name: "配置" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "配置" })).toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: "OpenRouter User" })).toBeInTheDocument();
+  });
+
   it("blocks sidebar navigation while the memory editor has unsaved changes", async () => {
     mockMemoryAndSkillWorkspace();
     renderApp();
@@ -760,7 +802,7 @@ describe("App", () => {
     fireEvent.change(await screen.findByDisplayValue("团队记忆"), {
       target: { value: "团队记忆草稿" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "预设", hidden: true }));
+    fireEvent.click(screen.getByRole("button", { name: "配置", hidden: true }));
 
     expect(screen.getByRole("heading", { name: "存在未保存的更改" })).toBeInTheDocument();
     expect(screen.getByDisplayValue("团队记忆草稿")).toBeInTheDocument();
@@ -768,7 +810,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "不保存退出" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "预设" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "配置" })).toBeInTheDocument();
     });
   });
 

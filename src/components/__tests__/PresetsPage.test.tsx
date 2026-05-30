@@ -57,10 +57,17 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
   bindings: {},
 } as ConfigWorkspace;
 
-function renderPage(workspace: ConfigWorkspace = WORKSPACE_FIXTURE) {
+function renderPage(
+  workspace: ConfigWorkspace = WORKSPACE_FIXTURE,
+  onOpenProfiles: () => void = vi.fn(),
+) {
   render(
     <I18nProvider>
-      <PresetsPage workspace={workspace} onWorkspaceChange={async () => {}} />
+      <PresetsPage
+        workspace={workspace}
+        onWorkspaceChange={async () => {}}
+        onOpenProfiles={onOpenProfiles}
+      />
     </I18nProvider>,
   );
 }
@@ -94,6 +101,12 @@ describe("PresetsPage", () => {
     invokeMock.mockResolvedValue(null);
     openUrlMock.mockClear();
     showToastMock.mockClear();
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: vi.fn(async () => undefined),
+      },
+    });
   });
 
   it("switches page copy with the current UI language", () => {
@@ -111,6 +124,30 @@ describe("PresetsPage", () => {
     expect(screen.getByRole("heading", { name: "Built-in Presets" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Custom Presets" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Add Preset/ })).toBeInTheDocument();
+  });
+
+  it("renders config section tabs with presets selected and opens profiles", () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "en",
+        theme: "dark",
+      }),
+    );
+    const onOpenProfiles = vi.fn();
+
+    renderPage(WORKSPACE_FIXTURE, onOpenProfiles);
+
+    const tabs = screen.getByRole("group", { name: "Config sections" });
+    const profilesTab = within(tabs).getByRole("button", { name: "Profiles" });
+    const presetsTab = within(tabs).getByRole("button", { name: "Presets" });
+
+    expect(profilesTab).toHaveAttribute("aria-pressed", "false");
+    expect(presetsTab).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(profilesTab);
+
+    expect(onOpenProfiles).toHaveBeenCalledTimes(1);
   });
 
   it("renders builtin cards with docs as an inline helper link instead of a standalone action", () => {
@@ -212,6 +249,69 @@ describe("PresetsPage", () => {
     expect(within(builtinCard).queryByText("Enabled 1/2")).not.toBeInTheDocument();
   });
 
+  it("shortens uuid custom preset ids while preserving the full id for copy", async () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "en",
+        theme: "dark",
+      }),
+    );
+    const fullId = "custom:8b7db6e3-1aa9-424e-b70a-54646a89d866";
+
+    renderPage({
+      ...WORKSPACE_FIXTURE,
+      customPresets: [
+        {
+          id: fullId,
+          name: "General Config",
+          localizedName: {
+            zh: "通用配置",
+            en: "General Config",
+          },
+          description: "General preset",
+          modelSuggestions: [],
+          settingsPatch: {},
+          source: "custom",
+        },
+        {
+          id: "custom:team-plan",
+          name: "Team Plan",
+          localizedName: {
+            zh: "团队计划",
+            en: "Team Plan",
+          },
+          description: "Team preset",
+          modelSuggestions: [],
+          settingsPatch: {},
+          source: "custom",
+        },
+      ],
+    });
+
+    const uuidCard = screen
+      .getByRole("heading", { name: "General Config", level: 3 })
+      .closest('[data-slot="preset-card"]') as HTMLElement | null;
+    const readableCard = screen
+      .getByRole("heading", { name: "Team Plan", level: 3 })
+      .closest('[data-slot="preset-card"]') as HTMLElement | null;
+    expect(uuidCard).not.toBeNull();
+    expect(readableCard).not.toBeNull();
+    if (!uuidCard || !readableCard) {
+      return;
+    }
+
+    expect(within(uuidCard).queryByText(fullId)).not.toBeInTheDocument();
+    expect(within(uuidCard).getByText("custom:8b7d…d866")).toHaveAttribute("title", fullId);
+    expect(within(readableCard).getByText("custom:team-plan")).toBeInTheDocument();
+
+    fireEvent.click(within(uuidCard).getByRole("button", { name: "Copy ID" }));
+
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(fullId);
+    });
+  });
+
   it("asks before closing a dirty preset editor and can discard changes", async () => {
     localStorage.setItem(
       SETTINGS_STORAGE_KEY,
@@ -270,6 +370,40 @@ describe("PresetsPage", () => {
     });
     expect(screen.getByRole("heading", { name: "Edit Preset", hidden: true })).toBeInTheDocument();
     expect(screen.getByDisplayValue("Team Plan Draft")).toBeInTheDocument();
+  });
+
+  it("asks before switching to profiles while the preset editor has unsaved changes", () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "en",
+        theme: "dark",
+      }),
+    );
+    const onOpenProfiles = vi.fn();
+
+    renderPage(workspaceWithCustomPresets(), onOpenProfiles);
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByDisplayValue("Team Plan"), {
+      target: { value: "Team Plan Draft" },
+    });
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "Config sections", hidden: true })).getByRole(
+        "button",
+        {
+          name: "Profiles",
+          hidden: true,
+        },
+      ),
+    );
+
+    expect(screen.getByRole("heading", { name: "Unsaved changes" })).toBeInTheDocument();
+    expect(onOpenProfiles).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+
+    expect(onOpenProfiles).toHaveBeenCalledTimes(1);
   });
 
   it("disables save in the unsaved preset dialog when the draft is invalid", () => {

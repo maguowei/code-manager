@@ -41,7 +41,6 @@ struct TrayLabels<'a> {
     no_sessions: &'a str,
     nav_memory: &'a str,
     nav_skills: &'a str,
-    nav_providers: &'a str,
     nav_projects: &'a str,
     nav_history: &'a str,
     nav_stats: &'a str,
@@ -61,7 +60,6 @@ fn tray_labels_for_language(language: &str) -> TrayLabels<'static> {
             no_sessions: "No Sessions",
             nav_memory: "Memory",
             nav_skills: "Skills",
-            nav_providers: "Presets",
             nav_projects: "Projects",
             nav_history: "History",
             nav_stats: "Stats",
@@ -78,7 +76,6 @@ fn tray_labels_for_language(language: &str) -> TrayLabels<'static> {
             no_sessions: "无会话",
             nav_memory: "记忆",
             nav_skills: "Skills",
-            nav_providers: "预设",
             nav_projects: "项目",
             nav_history: "历史",
             nav_stats: "统计",
@@ -86,6 +83,17 @@ fn tray_labels_for_language(language: &str) -> TrayLabels<'static> {
             quit: "退出",
         },
     }
+}
+
+fn main_tray_navigation_items<'a>(labels: &'a TrayLabels<'a>) -> [(&'static str, &'a str); 6] {
+    [
+        ("nav_memory", labels.nav_memory),
+        ("nav_skills", labels.nav_skills),
+        ("nav_projects", labels.nav_projects),
+        ("nav_history", labels.nav_history),
+        ("nav_stats", labels.nav_stats),
+        ("nav_usage", labels.nav_usage),
+    ]
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -558,15 +566,7 @@ fn build_tray_menu(app: &AppHandle, state: &ConfigRegistry) -> tauri::Result<Men
     items.push(Box::new(PredefinedMenuItem::separator(app)?));
 
     // 页面导航项
-    for (id, label) in [
-        ("nav_memory", labels.nav_memory),
-        ("nav_skills", labels.nav_skills),
-        ("nav_providers", labels.nav_providers),
-        ("nav_projects", labels.nav_projects),
-        ("nav_history", labels.nav_history),
-        ("nav_stats", labels.nav_stats),
-        ("nav_usage", labels.nav_usage),
-    ] {
+    for (id, label) in main_tray_navigation_items(&labels) {
         let item = MenuItemBuilder::with_id(id, label).build(app)?;
         items.push(Box::new(item));
     }
@@ -1032,7 +1032,8 @@ mod tests {
     use super::{
         build_pending_session_notification, get_tray_title, is_idle_session_status,
         is_running_session_status, is_waiting_session_status, load_tray_sessions_from_dir,
-        parse_session_menu_item_id, pending_session_notification_interaction_for_platform,
+        main_tray_navigation_items, parse_session_menu_item_id,
+        pending_session_notification_interaction_for_platform,
         session_focus_failure_notification_enabled, session_menu_focus_enabled_for_platform,
         session_menu_item_id, session_menu_item_label, session_project_name, session_status_label,
         session_tray_separator, sessions_tray_title, sessions_tray_title_for_frame,
@@ -1095,7 +1096,6 @@ mod tests {
         assert_eq!(zh.no_sessions, "无会话");
         assert_eq!(zh.nav_memory, "记忆");
         assert_eq!(zh.nav_skills, "Skills");
-        assert_eq!(zh.nav_providers, "预设");
         assert_eq!(zh.nav_projects, "项目");
         assert_eq!(zh.nav_history, "历史");
         assert_eq!(zh.nav_stats, "统计");
@@ -1108,12 +1108,31 @@ mod tests {
         assert_eq!(en.no_sessions, "No Sessions");
         assert_eq!(en.nav_memory, "Memory");
         assert_eq!(en.nav_skills, "Skills");
-        assert_eq!(en.nav_providers, "Presets");
         assert_eq!(en.nav_projects, "Projects");
         assert_eq!(en.nav_history, "History");
         assert_eq!(en.nav_stats, "Stats");
         assert_eq!(en.nav_usage, "Usage");
         assert_eq!(en.quit, "Quit");
+    }
+
+    #[test]
+    fn main_tray_navigation_omits_presets() {
+        let zh = tray_labels_for_language("zh");
+        let items = main_tray_navigation_items(&zh);
+
+        assert!(items.iter().all(|(id, _)| *id != "nav_providers"));
+        assert!(items.iter().all(|(_, label)| *label != "预设"));
+        assert_eq!(
+            items.iter().map(|(id, _)| *id).collect::<Vec<_>>(),
+            vec![
+                "nav_memory",
+                "nav_skills",
+                "nav_projects",
+                "nav_history",
+                "nav_stats",
+                "nav_usage"
+            ],
+        );
     }
 
     #[test]
