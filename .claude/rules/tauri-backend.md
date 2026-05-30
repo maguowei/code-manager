@@ -12,7 +12,7 @@ paths:
 
 | 模块 | 职责 |
 | --- | --- |
-| `lib.rs` | Tauri Builder 编排：插件初始化、`generate_handler![]` 注册、托盘、目录 watcher、usage runtime |
+| `lib.rs` | Tauri Builder 编排：插件初始化、tauri-specta command 收集与 handler、托盘、目录 watcher、usage runtime |
 | `main.rs` | 二进制入口，仅调用 `ai_manager_lib::run()` |
 | `utils.rs` | 公共锁、JSON 读写、原子文件写入、应用数据目录解析 |
 | `config.rs` | Profile / Preset 合并落盘、`resolve_profile_settings()`、模型测试、`config-registry.json` |
@@ -40,19 +40,22 @@ paths:
 
 新增或修改 Tauri command 时：
 
-1. 在对应 Rust 模块中定义 `#[tauri::command]`。
-2. 在 `src-tauri/src/lib.rs` 的 `generate_handler![]` 中注册。
-3. 前端通过 `@tauri-apps/api/core` 的 `invoke()` 调用。
-4. 同步更新 `src/types.ts`、i18n 文案和相关测试。
-5. 如果涉及 Tauri 插件 API，同步检查 `src-tauri/capabilities/default.json`。
+1. 在对应 Rust 模块中定义 `#[tauri::command]` + `#[specta::specta]`，返回类型要能被 Specta 导出。
+2. 在 `src-tauri/src/lib.rs::build_specta_builder()` 的 `tauri_specta::collect_commands![]` 中注册。
+3. 运行 `make bindings` 重新生成 `src/bindings.ts`，再运行 `make bindings-check` 防止 Rust IPC 契约和提交产物漂移。
+4. 前端业务代码通过 `src/ipc.ts` 导出的 `ipc` 调用；如生成类型与现有业务类型不完全兼容，在 `src/ipc.ts` 增加窄包装，不在组件中直接 `invoke()`。
+5. 同步更新 `src/types.ts`、i18n 文案和相关测试。
+6. 如果涉及 Tauri 插件 API，同步检查 `src-tauri/capabilities/default.json`。
 
 前端调用示例：
 
 ```ts
-import { invoke } from "@tauri-apps/api/core";
+import { ipc } from "../ipc";
 
-const result = await invoke("get_config_workspace");
+const workspace = await ipc.getConfigWorkspace();
 ```
+
+`src/bindings.ts` 是自动生成文件，只有它允许直接导入 `@tauri-apps/api/core` 的 `invoke`。`src/ipc-usage-contract.test.ts` 会守护这个边界。
 
 ## Rust 公共工具
 
@@ -93,4 +96,4 @@ const result = await invoke("get_config_workspace");
 
 ## 验证
 
-通用命令见 `CLAUDE.md` 的「测试与验证」。前后端契约、Tauri command、capability 或 usage migration 变更至少需要 `make build-frontend` 与 `make test-rust`；Rust 行为变更再补 `make check` 和 `make lint-rust`。
+通用命令见 `CLAUDE.md` 的「测试与验证」。前后端契约、Tauri command、capability 或 usage migration 变更至少需要 `make bindings-check`、`make build-frontend` 与 `make test-rust`；Rust 行为变更再补 `make check` 和 `make lint-rust`。

@@ -40,6 +40,8 @@ paths:
 - 合并权威逻辑是 `src-tauri/src/config.rs::resolve_profile_settings()`：先展开 Preset 链，再叠加 Profile `settings`，最后写入 `$schema`。
 - 激活 Profile 最终会原子写入 `~/.claude/settings.json`，并更新应用数据目录中的 `config-registry.json` 绑定状态。
 - 已绑定的 Profile 被修改时，后端会重新应用到用户设置；不要绕开 `upsert_profile`。
+- `get_config_workspace` 会在没有 Profile 时扫描未托管的 `~/.claude/settings.json`；`import_user_settings_profile` 原地接管当前文件内容并绑定 Profile，不立即重写文件。
+- 已绑定 Profile 与真实 `settings.json` 不一致时，后端返回 `activeUserSettingsMismatch`；前端用 `SettingsMismatchDiffViewer` 展示 diff，接受实际配置走 `import_user_settings_profile`，重新应用走 `apply_profile`。
 
 ## 内置 Provider
 

@@ -46,6 +46,9 @@ paths:
 - 如果目标 rules 文件已存在且不是当前记忆生成的文件，后端会拒绝覆盖。
 - 删除活跃 rule 前通过 `preview_delete_memory` 展示将清理的空目录。
 - `MemoryEditor` 通过 `EditorExitGuard` 向 `MemoryPage` 暴露 dirty、save 和 save-disabled 状态；保存失败要保持编辑器打开并保留用户输入。
+- Karpathy 行为指南预设由 `memory.rs` 内置中英文内容，`MemoryPresetPanel` 在没有主记忆时可创建并启用为 `CLAUDE.md`。
+- `MemoryEditor` 只在 `claude` 类型下允许追加 Karpathy 预设；追加前用预设 marker 检测避免重复插入，并保留用户已有内容。
+- Karpathy 预设的来源 / 原仓库入口在 `memory-preset-utils.ts` 维护；打开失败走 Toast，不要硬编码到其它组件。
 
 ## Skills 管理先读
 

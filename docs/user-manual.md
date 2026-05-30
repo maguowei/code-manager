@@ -31,6 +31,8 @@ AI Manager 是面向 Claude Code 用户的本地桌面管理工具。它把 `~/.
 
 Profile 是最终可以应用到 `~/.claude/settings.json` 的用户配置,通常包含认证密钥、API 地址、默认模型、权限、Sandbox、Hooks、插件、状态行等字段。Profile 可以引用一个 Preset;应用 Profile 时,AI Manager 会把 Preset 链上的补丁和 Profile 自身配置合并,生成最终 JSON 并写入 `~/.claude/settings.json`。
 
+如果本机已有 `~/.claude/settings.json`,配置页可在未创建 Profile 时识别并导入为托管 Profile。已应用 Profile 后,如果真实 `settings.json` 被外部修改,页面会显示差异提示,可查看 diff 后选择接受实际配置或重新应用托管配置。
+
 ### Preset
 
 Preset 是可复用的配置补丁,适合沉淀 Provider、模型建议、默认环境变量、插件、权限规则等公共配置。内置 Preset 覆盖 Anthropic、DeepSeek、智谱 GLM Coding Plan、Kimi Code Plan、MiniMax Token Plan、小米 MiMo Token Plan、OpenRouter、火山方舟 Coding Plan、阿里云百炼 Coding Plan、ModelScope、万界方舟和 Ollama。自定义 Preset 可以继承另一个 Preset;Profile 引用 Preset 后,Profile 中的字段会覆盖 Preset 中的同名字段。
@@ -77,7 +79,7 @@ Skills 对应 `~/.claude/skills/<id>/SKILL.md`。启用的 Skill 保存在 `~/.c
 | 记忆 | 管理 `CLAUDE.md` 与 `rules/*.md` |
 | Skills | 管理 Claude Code Skills |
 | 预设 | 查看内置 Preset,维护自定义 Preset |
-| 项目 | 查看 Claude 项目路径、Git 状态、worktree 与 `AGENTS.md` 状态 |
+| 项目 | 查看 Claude 项目路径、Git 状态、worktree、项目级 `.claude/` 与 AGENTS / Skills 配对状态 |
 | 历史 | 查看 `~/.claude/history.jsonl` 中的历史输入与会话详情 |
 | 统计 | 查看 `~/.claude.json` 中的本地统计快照 |
 | 用量 | 查看 `~/.claude/projects/` 中的 Token 与费用聚合 |
@@ -100,6 +102,8 @@ Skills 对应 `~/.claude/skills/<id>/SKILL.md`。启用的 Skill 保存在 `~/.c
 ### Profile 列表
 
 卡片展示名称、描述、是否已应用、主要模型、努力级别、权限模式、Sandbox 状态、插件摘要和最近一次模型测试结果。可执行新建、启用(写入 `~/.claude/settings.json`)、复制环境变量(生成 `export KEY="value"` 文本)、复制副本、编辑、删除、一键测试所有 Profile、拖拽排序。
+
+当配置页发现未托管的 `~/.claude/settings.json` 且尚无 Profile 时,会显示导入卡片。导入会原地接管当前 settings 内容,不会立即改写文件。已绑定 Profile 与真实 settings 不一致时,卡片会显示差异入口:选择"接受实际配置"会把当前文件内容写回 Profile;选择"重新应用"会用 Profile 解析结果覆盖 `settings.json`。
 
 ### 新建或编辑 Profile
 
@@ -138,6 +142,8 @@ Skills 对应 `~/.claude/skills/<id>/SKILL.md`。启用的 Skill 保存在 `~/.c
 
 记忆页用于管理用户级 Claude Code 指令。
 
+页面顶部会在没有主记忆时显示 Karpathy 行为指南预设,可一键创建并启用为 `CLAUDE.md`。在编辑现有 `CLAUDE.md` 类型记忆时,也可把该预设追加到当前内容底部;AI Manager 会通过预设 marker 防止重复插入,并提供原仓库入口便于查看来源。
+
 **新增记忆**:点击添加记忆,填写名称,选择类型(`CLAUDE.md` 写入 `~/.claude/CLAUDE.md`,同时只能启用一个;Rules 写入 `~/.claude/rules/<path>.md`,可同时启用多个,支持 `paths` glob 匹配),编写 Markdown 内容并保存。在列表中启用后,真实文件才会写入 `~/.claude`。
 
 **编辑、复制和删除**:编辑会更新管理内容,启用状态下同步写真实文件;复制会创建未启用副本;删除会移除管理记录并清理不再需要的 rule 目录。
@@ -160,7 +166,7 @@ Skills 页管理 `~/.claude/skills/` 下的 Claude Code Skill。
 
 ## 项目管理
 
-项目页从 `~/.claude/history.jsonl` 中提取项目列表,按最近活跃排序。
+项目页从 `~/.claude/history.jsonl` 中提取项目列表,按最近活跃排序。项目详情同时读取项目真实目录,展示 Git、worktree、项目级 Claude 配置和本地清理入口。
 
 ### 项目列表与详情
 
@@ -187,11 +193,19 @@ Skills 页管理 `~/.claude/skills/` 下的 Claude Code Skill。
 
 ### 状态检查
 
-详情页展示:目录是否存在、是否 Git 仓库、`CLAUDE.md` 和 `AGENTS.md` 状态、本地分支与最近提交、Worktree 路径与状态、最近活跃时间、会话与输入数量、最近会话 ID、Git 根目录,以及最近 5 个会话(可点击查看详情)。
+详情页展示:目录是否存在、是否 Git 仓库、`CLAUDE.md` / `AGENTS.md` 配对状态、`.claude/skills` / `.agents/skills` 配对状态、项目级 `.claude/` 概览、本地分支与最近提交、Worktree 路径与状态、最近活跃时间、会话与输入数量、最近会话 ID、Git 根目录,以及最近 5 个会话(可点击查看详情)。快捷操作支持打开终端、打开编辑器、打开源码仓库、跳转该项目历史和跳转该项目 Token 用量。
 
-### 生成或修复 `AGENTS.md`
+### 项目级 Claude 配置
 
-如果项目根目录存在 `CLAUDE.md`,而 `AGENTS.md` 不存在或软链目标错误,可点击"生成 / 修复 `AGENTS.md`"创建相对软链 `AGENTS.md -> CLAUDE.md`。如果 `AGENTS.md` 已是普通文件,不会覆盖,需手动处理冲突。
+项目级 Claude 管理分三组:
+
+- Memory 文件:`CLAUDE.md ↔ AGENTS.md` 双向配对。任一端是真文件时,可创建另一端的相对软链接;两端都不存在、普通文件冲突或孤儿软链时不会自动处理。
+- 项目级 Skills:`.claude/skills ↔ .agents/skills` 双向配对。任一端是真目录时,可创建另一端相对软链接;两端都是真目录时需手动合并。
+- 项目 `.claude/` 目录:可打开右侧 Sheet 浏览、预览和用外部编辑器打开项目级 Claude 文件。`settings.json` 与 `settings.local.json` 支持一键创建;其它项目级文件可预览或外部打开,不在项目抽屉中创建、删除或重命名。
+
+### 分支与 Worktree 清理
+
+项目详情可检测已合并或远端已删除且可安全清理的本地分支与 worktree。清理始终分两步:先生成 preview 列表并由用户选择,确认后才执行删除;后端只会清理 preview 中列出的条目。
 
 ### 清除项目本地数据
 
@@ -243,7 +257,9 @@ Skills 页管理 `~/.claude/skills/` 下的 Claude Code Skill。
 
 ### 通用设置
 
-可配置:界面语言(中文 / 英文)、主题外观(浅色 / 深色 / 跟随系统)、菜单栏显示当前配置、菜单栏显示当前会话、开机自启动、第三方模型计价(控制 Kimi、MiMo、GLM、MiniMax、DeepSeek 是否按 models.dev 价格估算)、默认终端、默认编辑器。
+可配置:界面语言(中文 / 英文)、主题外观(浅色 / 深色 / 跟随系统)、默认收起侧边栏、菜单栏显示当前配置、菜单栏显示当前会话、系统通知、开机自启动、第三方模型计价(控制 Kimi、MiMo、GLM、MiniMax、DeepSeek 是否按 models.dev 价格估算)、默认终端、默认编辑器。
+
+系统通知用于 Claude 会话进入待处理状态,以及点击会话跳转但终端定位失败等场景。开启时会先请求系统通知权限;权限被拒绝时设置保持关闭。
 
 可用项来自内置支持清单和系统检测,不会自动列出电脑里所有应用,以保证每个选项都有明确的打开命令和项目路径参数。Linux 和 Windows 的编辑器需要对应 CLI 在 `PATH` 中可访问;Windows 的默认终端会优先使用 Windows Terminal,失败后回退 PowerShell 和 cmd。
 

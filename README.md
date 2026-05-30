@@ -24,15 +24,15 @@ AI Manager 不替代 Claude Code，而是提供一个本机配置、会话数据
 | 能力 | 说明 |
 | --- | --- |
 | `~/.claude` 总览 | 浏览、预览、编辑和定位 Claude Code 用户目录。 |
-| Profile / Preset | 管理最终写入 `~/.claude/settings.json` 的配置层，支持 Provider、模型、环境变量、权限、Sandbox、Hooks、插件、状态行、预览、复制、模型测试和一键应用。 |
-| 记忆管理 | 管理用户级 `CLAUDE.md` 与 `rules/*.md`，支持导入、启用、禁用、复制、预览和路径校验。 |
+| Profile / Preset | 管理最终写入 `~/.claude/settings.json` 的配置层，支持 Provider、模型、环境变量、权限、Sandbox、Hooks、插件、状态行、预览、复制、模型测试、一键应用、导入现有 settings 和差异对比。 |
+| 记忆管理 | 管理用户级 `CLAUDE.md` 与 `rules/*.md`，支持 Karpathy 行为指南预设、导入、启用、禁用、复制、预览和路径校验。 |
 | Skills 管理 | 新建、编辑、删除、启用、禁用 Claude Code Skills，并可同步为 `~/.codex/skills/<id>` 软链接。 |
 | 历史与会话 | 读取 `~/.claude/history.jsonl`，按项目和会话查看历史详情。 |
 | 统计与最近会话 | 从 `~/.claude.json` 读取本地统计快照。 |
 | Token 用量与费用 | 扫描 `~/.claude/projects/**/*.jsonl`，按日期、项目、会话和模型聚合 Token 与费用，并使用 SQLite 增量缓存。 |
-| 项目管理 | 展示项目路径、远程地址、分支、worktree 和 `AGENTS.md` / `CLAUDE.md` 状态，支持打开终端、编辑器和清理本地项目数据。 |
+| 项目管理 | 展示项目路径、远程地址、分支、worktree、项目级 `.claude/`、`AGENTS.md` / `CLAUDE.md` 与 `.agents/skills` 状态，支持打开终端/编辑器、跳转历史/用量、分支与 worktree 清理和清理本地项目数据。 |
 | 系统托盘与会话聚焦 | 菜单栏显示当前 Profile 和 Claude Code 活跃会话，并在支持的平台尝试聚焦已有终端会话。 |
-| 设置与诊断 | 支持语言、主题、登录启动、默认终端和编辑器、脱敏日志查看、系统信息复制和日志轮转。 |
+| 设置与诊断 | 支持语言、主题、默认收起侧边栏、系统通知、第三方模型计价、登录启动、默认终端和编辑器、脱敏日志查看、系统信息复制和日志轮转。 |
 
 ## 下载安装
 
@@ -55,7 +55,7 @@ xattr -rd com.apple.quarantine /Applications/ai-manager.app
 1. 启动应用后，AI Manager 会读取本机 `~/.claude`、`~/.claude.json` 和 `~/.claude/projects/`。
 2. 在设置中选择界面语言、主题、默认终端和默认编辑器。
 3. 在预设页查看是否已有合适 Provider 预设。
-4. 在配置页新建 Profile，填写认证密钥、API 地址和模型配置。
+4. 在配置页导入现有 `~/.claude/settings.json`，或新建 Profile 并填写认证密钥、API 地址和模型配置。
 5. 点击“测试模型”确认配置可用。
 6. 点击启用，将 Profile 应用到 `~/.claude/settings.json`。
 7. 到 `~/.claude` 总览确认最终配置符合预期。
@@ -92,6 +92,8 @@ make init             # 安装依赖并检查 Rust 工具链
 make dev              # 启动 Tauri 桌面开发模式
 make build            # 构建当前平台安装包
 make build-frontend   # TypeScript 检查并构建前端
+make bindings         # 重新生成 Tauri IPC TypeScript bindings
+make bindings-check   # 检查 Rust command 契约与 src/bindings.ts 是否同步
 make lint             # 前端 Biome + Rust clippy
 make test             # Rust 测试 + 前端测试
 make check            # Rust cargo check

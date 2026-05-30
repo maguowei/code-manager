@@ -40,7 +40,9 @@ paths:
 - 后端通过 `git` 获取 repo root、remote、branch、worktree 信息；错误消息不要泄露敏感 remote 凭据。
 - `ProjectDetailPanel.tsx` 是项目详情信息层级的主入口。
 - `ProjectClaudeExplorer.tsx` 负责项目级 `.claude/` 概览，必须复用 `src/components/claude-overview/` 的 tree/preview 组件，保持与 `ClaudeOverviewPage` 行为一致。
+- `ProjectClaudeExplorer` 只支持一键创建项目级 `settings.json` / `settings.local.json`；其它文件创建、删除、重命名不要在项目抽屉中另起一套逻辑。
 - `AGENTS.md` / `.agents/skills` 与 `CLAUDE.md` / `.claude/skills` 是双向配对：任一端为真文件 / 真目录都可派生另一端的相对软链；两端都不存在、内容冲突或孤儿软链时禁止自动操作并显式提示用户手动处理。
+- 项目详情跳转历史和用量分别通过 `App.tsx` 传入 `onOpenProjectHistory` / `onOpenProjectUsage`，不要让 `ProjectsPage` 直接重建全局导航状态。
 - 打开终端或编辑器使用设置中的默认应用，统一走 `src-tauri/src/native_open.rs`，不要在具体模块里重复平台分支。
 - 设置页展示的终端和编辑器来自内置支持清单 + 本机检测；不要把系统任意 App 直接列入可选项，除非同时补齐对应平台的打开命令和测试。
 - 编辑器当前支持 VS Code、Cursor、Windsurf、Zed；Linux 和 Windows 依赖对应 CLI 在 `PATH` 中。
