@@ -153,12 +153,18 @@ pub fn export_typescript_bindings(path: impl AsRef<Path>) -> Result<(), String> 
 }
 
 fn normalize_typescript_bindings(content: &str) -> String {
-    content
+    let normalized = content
         .trim_end_matches(['\n', '\r'])
         .lines()
         .map(|line| line.trim_end_matches([' ', '\t']))
         .collect::<Vec<_>>()
-        .join("\n")
+        .join("\n");
+
+    if normalized.is_empty() {
+        normalized
+    } else {
+        format!("{normalized}\n")
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -258,8 +264,19 @@ pub mod test_api {
 
 #[cfg(test)]
 mod specta_export_tests {
-    use super::export_typescript_bindings;
+    use super::{export_typescript_bindings, normalize_typescript_bindings};
     use std::fs;
+
+    #[test]
+    fn normalize_typescript_bindings_trims_trailing_whitespace_and_keeps_one_eof_newline() {
+        let input = "export type Foo = {\t\n  value: string;  \n}\n\n";
+
+        let normalized = normalize_typescript_bindings(input);
+
+        assert_eq!(normalized, "export type Foo = {\n  value: string;\n}\n");
+        assert_eq!(normalized.as_bytes().last(), Some(&b'\n'));
+        assert!(!normalized.ends_with("\n\n"));
+    }
 
     /// 跑 cargo test 时生成临时 bindings 并与已提交产物比较，防止 Rust IPC 契约和前端产物漂移。
     #[test]

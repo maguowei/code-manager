@@ -43,11 +43,9 @@ check:
 # 本地 CI-like 验证入口
 verify: fmt-rust-check bindings-check lint build-frontend test
 
-# 重新生成 Tauri IPC TypeScript bindings（生成后自动清理 trailing whitespace）
+# 重新生成 Tauri IPC TypeScript bindings
 bindings:
 	cd src-tauri && cargo run --bin generate_bindings
-	perl -pi -e 's/[ \t]+$$//' src/bindings.ts
-	perl -pi -e 'chomp if eof' src/bindings.ts
 
 # 检查 Tauri IPC bindings 是否与 Rust command 契约同步
 bindings-check:
