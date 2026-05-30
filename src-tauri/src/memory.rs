@@ -790,12 +790,18 @@ fn apply_preset_as_claude(
         );
     }
 
+    let preset_body = normalize_memory_body(preset.content);
+    let preset_marked_content = append_preset_content("", preset);
     if let Some(index) = state.memories.iter().position(|memory| {
-        memory.target_type == MemoryTargetType::Claude
-            && normalize_memory_body(&memory.content) == normalize_memory_body(preset.content)
+        if memory.target_type != MemoryTargetType::Claude {
+            return false;
+        }
+        let memory_body = normalize_memory_body(&memory.content);
+        memory_body == preset_body || memory_body == preset_marked_content
     }) {
         let memory_id = state.memories[index].id.clone();
         state.memories[index].is_active = true;
+        state.memories[index].content = preset_marked_content;
         state.memories[index].updated_at = now;
         enforce_single_active_claude(state, &memory_id, now);
         save_and_apply_memories(&previous, state)?;
@@ -810,7 +816,7 @@ fn apply_preset_as_claude(
     state.memories.push(Memory {
         id: memory_id.clone(),
         name: preset.name.to_string(),
-        content: normalize_memory_body(preset.content),
+        content: preset_marked_content,
         target_type: MemoryTargetType::Claude,
         rule_path: None,
         path_patterns: Vec::new(),
@@ -3202,6 +3208,9 @@ mod schema_tests {
         assert!(memory.is_active);
         assert_eq!(memory.target_type, MemoryTargetType::Claude);
         assert!(memory.content.contains("编码前先思考"));
+        assert!(memory
+            .content
+            .contains("karpathy-behavior-guidelines:zh:start"));
         assert_eq!(
             fs::read_to_string(env.claude_md()).expect("应写入 CLAUDE.md"),
             serialize_claude_memory(memory)

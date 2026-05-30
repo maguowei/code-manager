@@ -14,6 +14,7 @@ mod usage;
 mod utils;
 
 use std::path::Path;
+use std::path::PathBuf;
 
 use claude_directory::{
     create_claude_directory_entry, delete_claude_directory_entry, get_claude_directory_children,
@@ -152,6 +153,10 @@ pub fn export_typescript_bindings(path: impl AsRef<Path>) -> Result<(), String> 
     Ok(())
 }
 
+fn default_typescript_bindings_path() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/bindings.ts")
+}
+
 fn normalize_typescript_bindings(content: &str) -> String {
     let normalized = content
         .trim_end_matches(['\n', '\r'])
@@ -176,7 +181,7 @@ pub fn run() {
     // 仅 debug 构建生成 src/bindings.ts，承载 specta 已标注 command 的强类型契约。
     // release 不生成，避免污染包体；前端 import 自动生成的 commands / 类型。
     #[cfg(debug_assertions)]
-    export_typescript_bindings("../src/bindings.ts")
+    export_typescript_bindings(default_typescript_bindings_path())
         .expect("specta: 导出 TypeScript bindings 失败");
 
     tauri::Builder::default()
@@ -264,7 +269,9 @@ pub mod test_api {
 
 #[cfg(test)]
 mod specta_export_tests {
-    use super::{export_typescript_bindings, normalize_typescript_bindings};
+    use super::{
+        default_typescript_bindings_path, export_typescript_bindings, normalize_typescript_bindings,
+    };
     use std::fs;
 
     #[test]
@@ -293,5 +300,12 @@ mod specta_export_tests {
             generated, submitted,
             "src/bindings.ts 已过期，请运行 `make bindings` 重新生成"
         );
+    }
+
+    #[test]
+    fn default_typescript_bindings_path_is_resolved_from_manifest_dir() {
+        let expected = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/bindings.ts");
+
+        assert_eq!(default_typescript_bindings_path(), expected);
     }
 }
