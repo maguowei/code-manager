@@ -136,9 +136,29 @@ fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
 }
 
 pub fn export_typescript_bindings(path: impl AsRef<Path>) -> Result<(), String> {
+    let path = path.as_ref();
     build_specta_builder()
         .export(specta_typescript::Typescript::default(), path)
-        .map_err(|error| format!("specta: 导出 TypeScript bindings 失败: {error}"))
+        .map_err(|error| format!("specta: 导出 TypeScript bindings 失败: {error}"))?;
+
+    let generated = std::fs::read_to_string(path)
+        .map_err(|error| format!("specta: 读取 TypeScript bindings 失败: {error}"))?;
+    let normalized = normalize_typescript_bindings(&generated);
+    if normalized != generated {
+        utils::ensure_dir_and_write_atomic(path, &normalized)
+            .map_err(|error| format!("specta: 清理 TypeScript bindings 失败: {error}"))?;
+    }
+
+    Ok(())
+}
+
+fn normalize_typescript_bindings(content: &str) -> String {
+    content
+        .trim_end_matches(['\n', '\r'])
+        .lines()
+        .map(|line| line.trim_end_matches([' ', '\t']))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
