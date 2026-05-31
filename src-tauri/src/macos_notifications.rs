@@ -81,15 +81,29 @@ impl NotificationDelegate {
     }
 }
 
-/// 返回当前进程可用的通知中心；进程无合法 bundle 身份（如 tauri dev 直接运行的裸二进制）时返回 None。
+/// 返回当前进程可用的通知中心；进程无合法 .app bundle 身份（如 tauri dev 直接运行的裸二进制）时返回 None。
 ///
-/// `+[UNUserNotificationCenter currentNotificationCenter]` 内部断言要求进程已在 LaunchServices
-/// 注册并具备 bundle id，裸二进制调用会抛 ObjC 异常并 abort 整个进程。这里在系统边界做两层防御，
+/// `+[UNUserNotificationCenter currentNotificationCenter]` 内部断言要求进程具备合法 bundle proxy，
+/// 裸二进制调用会经 dispatch_once 抛 ObjC 异常，被 libdispatch 转成 abort 整个进程。这里在系统边界
+/// 做两层防御：先用 bundlePath 是否以 .app 结尾彻底短路，再对真实 bundle 做 catch 兜底，
 /// 让上层在任何运行上下文都能安全降级，而不是崩溃。
 fn notification_center() -> Option<Retained<UNUserNotificationCenter>> {
-    // 第一层：裸二进制 bundleIdentifier 为 nil，直接短路，连 UN API 都不触碰。
-    NSBundle::mainBundle().bundleIdentifier()?;
-    // 第二层：即便 bundle 存在，签名/entitlement 异常仍可能抛 ObjC 异常，用 catch 兜底。
+    // 第一层：必须是真正的 .app bundle，进程才具备 LaunchServices 身份。
+    // tauri dev 直接运行 target/debug 裸二进制时 bundlePath 指向该目录（非 .app），
+    // currentNotificationCenter 内部依赖的 bundleProxyForCurrentProcess 为 nil 会抛 ObjC 异常。
+    // 该异常经 dispatch_once 回调抛出，libdispatch 把跨越 callout 的异常直接转成 abort，
+    // 下方 catch 根本拦不住，所以必须在调用前彻底短路。
+    // 注意：不能改用 bundleIdentifier 判定——AppKit 完成进程注册后它可能由 nil 翻转为非 nil，
+    // 但裸二进制依旧没有合法 bundle proxy，仍会崩溃。
+    let bundle_path = NSBundle::mainBundle().bundlePath();
+    if !bundle_path
+        .to_string()
+        .trim_end_matches('/')
+        .ends_with(".app")
+    {
+        return None;
+    }
+    // 第二层：即便是 .app bundle，签名/entitlement 异常仍可能抛 ObjC 异常，用 catch 兜底。
     objc2::exception::catch(UNUserNotificationCenter::currentNotificationCenter).ok()
 }
 
