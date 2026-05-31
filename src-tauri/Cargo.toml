@@ -51,8 +51,8 @@ tauri-specta = { version = "=2.0.0-rc.25", features = ["derive", "typescript"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 block2 = "0.6.2"
-objc2 = "0.6.4"
-objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSDictionary", "NSError", "NSObject", "NSString"] }
+objc2 = { version = "0.6.4", features = ["exception"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSBundle", "NSDictionary", "NSError", "NSObject", "NSString"] }
 objc2-user-notifications = { version = "0.3.2", default-features = false, features = ["block2", "UNNotification", "UNNotificationContent", "UNNotificationRequest", "UNNotificationResponse", "UNNotificationTrigger", "UNUserNotificationCenter"] }
 
 # 集成测试依赖（仅 tests/ 下使用）

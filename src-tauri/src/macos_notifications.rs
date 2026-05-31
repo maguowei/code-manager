@@ -3,7 +3,7 @@ use block2::RcBlock;
 use objc2::rc::Retained;
 use objc2::runtime::{AnyObject, Bool, ProtocolObject};
 use objc2::{define_class, msg_send, AnyThread, ClassType, DefinedClass};
-use objc2_foundation::{NSDictionary, NSError, NSObject, NSObjectProtocol, NSString};
+use objc2_foundation::{NSBundle, NSDictionary, NSError, NSObject, NSObjectProtocol, NSString};
 use objc2_user_notifications::{
     UNAuthorizationOptions, UNMutableNotificationContent, UNNotification,
     UNNotificationDefaultActionIdentifier, UNNotificationPresentationOptions,
@@ -81,10 +81,25 @@ impl NotificationDelegate {
     }
 }
 
+/// 返回当前进程可用的通知中心；进程无合法 bundle 身份（如 tauri dev 直接运行的裸二进制）时返回 None。
+///
+/// `+[UNUserNotificationCenter currentNotificationCenter]` 内部断言要求进程已在 LaunchServices
+/// 注册并具备 bundle id，裸二进制调用会抛 ObjC 异常并 abort 整个进程。这里在系统边界做两层防御，
+/// 让上层在任何运行上下文都能安全降级，而不是崩溃。
+fn notification_center() -> Option<Retained<UNUserNotificationCenter>> {
+    // 第一层：裸二进制 bundleIdentifier 为 nil，直接短路，连 UN API 都不触碰。
+    NSBundle::mainBundle().bundleIdentifier()?;
+    // 第二层：即便 bundle 存在，签名/entitlement 异常仍可能抛 ObjC 异常，用 catch 兜底。
+    objc2::exception::catch(UNUserNotificationCenter::currentNotificationCenter).ok()
+}
+
 pub(crate) fn setup_notification_delegate(app: &tauri::App) {
     let app_handle = app.handle().clone();
     NOTIFICATION_DELEGATE_SETUP.call_once(move || {
-        let center = UNUserNotificationCenter::currentNotificationCenter();
+        let Some(center) = notification_center() else {
+            log::info!("event=macos_notification.delegate status=skip reason=no_bundle");
+            return;
+        };
         let delegate = NotificationDelegate::new(app_handle);
         center.setDelegate(Some(ProtocolObject::from_ref(&*delegate)));
         request_notification_authorization(&center);
@@ -101,7 +116,8 @@ pub(crate) fn show_pending_session_focus_notification(
     body: &str,
     target: &PendingSessionFocusTarget,
 ) -> Result<(), String> {
-    let center = UNUserNotificationCenter::currentNotificationCenter();
+    let center = notification_center()
+        .ok_or_else(|| "UNUserNotificationCenter unavailable for current process".to_string())?;
     let content = UNMutableNotificationContent::new();
     let title_string = NSString::from_str(title);
     let body_string = NSString::from_str(body);
@@ -297,6 +313,14 @@ mod tests {
             .iter()
             .map(|(key, value)| ((*key).to_string(), (*value).to_string()))
             .collect()
+    }
+
+    #[test]
+    fn notification_center_is_unavailable_without_bundle() {
+        // cargo test 运行于无合法 bundle id 的裸二进制，与 tauri dev 同样的上下文：
+        // 修复前 currentNotificationCenter() 的内部断言会抛 ObjC 异常并 abort 整个测试进程，
+        // 修复后必须经守卫安全返回 None，进程不崩。
+        assert!(notification_center().is_none());
     }
 
     #[test]
