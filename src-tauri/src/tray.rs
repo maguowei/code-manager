@@ -119,11 +119,11 @@ struct TraySession {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct PendingSessionFocusTarget {
-    pid: u32,
-    cwd: String,
-    session_id: String,
-    terminal_app: String,
+pub(crate) struct PendingSessionFocusTarget {
+    pub(crate) pid: u32,
+    pub(crate) cwd: String,
+    pub(crate) session_id: String,
+    pub(crate) terminal_app: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -770,7 +770,7 @@ fn show_main_window(app: &AppHandle) {
 /// 会话聚焦失败时向用户弹出系统通知。
 /// 选择系统通知而非主窗口 Toast，是因为托盘点击多发生在主窗口已隐藏 / 不在前台时，
 /// Toast 需要主窗口可见才有意义；弹出主窗口又会打断用户当前终端操作。
-fn notify_session_focus_failure(
+pub(crate) fn notify_session_focus_failure(
     app: &AppHandle,
     language: &str,
     notifications_enabled: bool,
@@ -843,44 +843,30 @@ fn show_clickable_pending_session_notification(
     notification: PendingSessionNotification,
     target: PendingSessionFocusTarget,
 ) {
-    let app_handle = app.clone();
-    let bundle_identifier = app.config().identifier.clone();
-    let _ = thread::Builder::new()
-        .name("pending-session-notification".to_string())
-        .spawn(move || {
-            match send_macos_clickable_notification(
-                &bundle_identifier,
+    deliver_clickable_pending_session_notification_with(
+        || {
+            crate::macos_notifications::show_pending_session_focus_notification(
+                app,
                 &notification.title,
                 &notification.body,
-            ) {
-                Ok(true) => {
-                    log::info!(
-                        "event=tray.pending_session_notify.click status=ok session_id={}",
-                        crate::utils::truncate(&target.session_id, 80)
-                    );
-                    if let Err(failure) = crate::terminal_focus::focus_session_in_terminal(
-                        target.pid,
-                        &target.cwd,
-                        &target.terminal_app,
-                    ) {
-                        let prefs = load_registry_or_default().app;
-                        notify_session_focus_failure(
-                            &app_handle,
-                            &prefs.ui_language,
-                            session_focus_failure_notification_enabled(&prefs),
-                            &failure,
-                        );
-                    }
-                }
-                Ok(false) => {}
-                Err(e) => {
-                    log::warn!(
-                        "event=tray.pending_session_notify status=err mode=clickable error={e}"
-                    );
-                    show_plain_pending_session_notification(&app_handle, &notification);
-                }
-            }
-        });
+                &target,
+            )
+        },
+        |e| {
+            log::warn!("event=tray.pending_session_notify status=err mode=clickable error={e}");
+            show_plain_pending_session_notification(app, &notification);
+        },
+    );
+}
+
+#[cfg(target_os = "macos")]
+fn deliver_clickable_pending_session_notification_with(
+    send_clickable: impl FnOnce() -> Result<(), String>,
+    fallback_plain: impl FnOnce(&str),
+) {
+    if let Err(e) = send_clickable() {
+        fallback_plain(&e);
+    }
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -890,23 +876,6 @@ fn show_clickable_pending_session_notification(
     _target: PendingSessionFocusTarget,
 ) {
     show_plain_pending_session_notification(app, &notification);
-}
-
-#[cfg(target_os = "macos")]
-fn send_macos_clickable_notification(
-    bundle_identifier: &str,
-    title: &str,
-    body: &str,
-) -> Result<bool, String> {
-    use mac_notification_sys::{Notification, NotificationResponse};
-
-    let _ = mac_notification_sys::set_application(bundle_identifier);
-    let mut notification = Notification::new();
-    notification.title(title).message(body).wait_for_click(true);
-    match notification.send().map_err(|e| e.to_string())? {
-        NotificationResponse::ActionButton(_) | NotificationResponse::Click => Ok(true),
-        _ => Ok(false),
-    }
 }
 
 /// 初始化系统托盘
@@ -1029,6 +998,8 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(target_os = "macos")]
+    use super::deliver_clickable_pending_session_notification_with;
     use super::{
         build_pending_session_notification, get_tray_title, is_idle_session_status,
         is_running_session_status, is_waiting_session_status, load_tray_sessions_from_dir,
@@ -1293,6 +1264,41 @@ mod tests {
     }
 
     #[test]
+    fn pending_session_notifier_ignores_repeated_waiting_snapshots() {
+        let mut notifier = PendingSessionNotifier::default();
+        let idle = test_session("/Users/demo/work/ai-manager", "idle", 1000);
+        let waiting = test_session("/Users/demo/work/ai-manager", "waiting", 2000);
+        notifier.observe(
+            &test_preferences(true, "terminal"),
+            std::slice::from_ref(&idle),
+            "zh",
+            PendingSessionNotificationInteraction::Plain,
+        );
+
+        let first_notifications = notifier.observe(
+            &test_preferences(true, "terminal"),
+            std::slice::from_ref(&waiting),
+            "zh",
+            PendingSessionNotificationInteraction::Plain,
+        );
+        let repeated_count = (0..10)
+            .map(|_| {
+                notifier
+                    .observe(
+                        &test_preferences(true, "terminal"),
+                        std::slice::from_ref(&waiting),
+                        "zh",
+                        PendingSessionNotificationInteraction::Plain,
+                    )
+                    .len()
+            })
+            .sum::<usize>();
+
+        assert_eq!(first_notifications.len(), 1);
+        assert_eq!(repeated_count, 0);
+    }
+
+    #[test]
     fn pending_session_notifier_reports_waiting_again_after_recovery() {
         let mut notifier = PendingSessionNotifier::default();
         let idle = test_session("/Users/demo/work/ai-manager", "idle", 1000);
@@ -1391,6 +1397,19 @@ mod tests {
         assert!(notifications[0].body.contains("ai-manager"));
         assert!(notifications[0].body.contains("docs"));
         assert!(notifications[0].focus_target.is_none());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn clickable_pending_session_notification_falls_back_when_bridge_errors() {
+        let mut fallback_error = None;
+
+        deliver_clickable_pending_session_notification_with(
+            || Err("bridge failed".to_string()),
+            |error| fallback_error = Some(error.to_string()),
+        );
+
+        assert_eq!(fallback_error.as_deref(), Some("bridge failed"));
     }
 
     #[test]

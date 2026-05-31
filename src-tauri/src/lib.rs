@@ -3,6 +3,8 @@ mod claude_directory_watcher;
 mod config;
 mod history;
 mod logging;
+#[cfg(target_os = "macos")]
+mod macos_notifications;
 mod memory;
 mod native_open;
 mod project;
@@ -224,6 +226,8 @@ pub fn run() {
             // tauri-specta 要求在 setup 内 mount events（即使当前没有 specta event，
             // 这一步也是必须的，以便未来引入事件时无需再改架构）。
             specta_builder.mount_events(app);
+            #[cfg(target_os = "macos")]
+            macos_notifications::setup_notification_delegate(app);
             tray::setup_tray(app)?;
             log::info!("event=app.setup status=ok");
             let claude_directory_watcher =
