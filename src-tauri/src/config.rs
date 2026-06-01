@@ -3675,7 +3675,7 @@ mod tests {
 
     #[test]
     fn test_profile_model_returns_request_exchange_when_sending_fails() {
-        let _guard = crate::utils::lock_config().unwrap();
+        let config_guard = crate::utils::lock_config().unwrap();
         let root = temp_root("model-test-send-error");
         set_test_env(&root);
 
@@ -3688,20 +3688,22 @@ mod tests {
                 "model": "claude-sonnet-4-6",
                 "env": {
                     "ANTHROPIC_AUTH_TOKEN": "token",
-                    "ANTHROPIC_BASE_URL": "http://127.0.0.1:1"
+                    "ANTHROPIC_BASE_URL": "http://[::1"
                 }
             }),
             prompt_text: Some("请确认测试成功。".to_string()),
-        }))
-        .expect("发送失败也应返回模型测试结果");
+        }));
 
         clear_test_env();
+        drop(config_guard);
+
+        let result = result.expect("发送失败也应返回模型测试结果");
 
         assert!(!result.ok);
         assert_eq!(result.resolved_model, "claude-sonnet-4-6");
         assert_eq!(result.prompt_text, "请确认测试成功。");
         assert_eq!(result.request_method, "POST");
-        assert_eq!(result.request_url, "http://127.0.0.1:1/v1/messages");
+        assert_eq!(result.request_url, "http://[::1/v1/messages");
         assert_eq!(result.request_headers["x-api-key"], "token");
         assert!(result
             .request_body
