@@ -5,6 +5,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::error::Error as StdError;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -1473,6 +1474,27 @@ fn serialize_model_test_request_body(payload: &Value) -> Result<String, String> 
         .map_err(|error| format!("序列化模型测试请求失败：{error}"))
 }
 
+fn format_model_test_error_with_details(prefix: &str, error: &dyn StdError) -> String {
+    let mut message = format!("{prefix}：{error}");
+    let mut details = Vec::new();
+    let mut current = error.source();
+
+    while let Some(source) = current {
+        let detail = source.to_string();
+        if !detail.trim().is_empty() && detail != error.to_string() && !details.contains(&detail) {
+            details.push(detail);
+        }
+        current = source.source();
+    }
+
+    if !details.is_empty() {
+        message.push_str("\n详细原因：");
+        message.push_str(&details.join("\n"));
+    }
+
+    message
+}
+
 fn headers_to_map(headers: &reqwest::header::HeaderMap) -> BTreeMap<String, String> {
     headers
         .iter()
@@ -1596,6 +1618,176 @@ fn build_model_test_failure_result(
         parse_model_test_error(status_code, body),
         raw_response_from_body(body),
     )
+}
+
+async fn execute_model_test_request(request: ModelTestRequest) -> Result<ModelTestResult, String> {
+    let endpoint = build_model_test_endpoint(&request.base_url);
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(MODEL_TEST_TIMEOUT_SECS))
+        .build()
+        .map_err(|error| format!("创建模型测试客户端失败：{error}"))?;
+    let payload = build_model_test_payload(&request);
+    let request_headers = build_model_test_request_headers(&request.auth_token);
+    let request_body = serialize_model_test_request_body(&payload)?;
+    let base_exchange = ModelTestHttpExchange {
+        request_method: "POST".to_string(),
+        request_url: endpoint.clone(),
+        request_headers: request_headers.clone(),
+        request_body,
+        response_headers: BTreeMap::new(),
+    };
+
+    let started_at = Instant::now();
+    let response = match client
+        .post(&endpoint)
+        .header("x-api-key", request_headers["x-api-key"].as_str())
+        .header(
+            "anthropic-version",
+            request_headers["anthropic-version"].as_str(),
+        )
+        .header(reqwest::header::CONTENT_TYPE, "application/json")
+        .json(&payload)
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(error) => {
+            let duration_ms = started_at.elapsed().as_millis().min(u128::from(u64::MAX)) as u64;
+            let result = build_model_test_error_result(
+                ModelTestResultContext {
+                    prompt_text: request.prompt_text,
+                    resolved_model: request.resolved_model,
+                    duration_ms,
+                    request_id: None,
+                    exchange: base_exchange,
+                },
+                None,
+                format_model_test_error_with_details("模型测试请求失败", &error),
+                None,
+            );
+            log::warn!(
+                "event=profile.model_test status=error model={} duration_ms={} error={}",
+                result.resolved_model,
+                result.duration_ms,
+                crate::logging::redact_sensitive_message(
+                    result.error_message.as_deref().unwrap_or_default()
+                )
+            );
+            return Ok(result);
+        }
+    };
+
+    let duration_ms = started_at.elapsed().as_millis().min(u128::from(u64::MAX)) as u64;
+    let request_id = response
+        .headers()
+        .get("request-id")
+        .or_else(|| response.headers().get("x-request-id"))
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
+    let status = response.status();
+    let response_headers = headers_to_map(response.headers());
+    let exchange = ModelTestHttpExchange {
+        response_headers,
+        ..base_exchange
+    };
+    let status_code = status.as_u16();
+    let context = ModelTestResultContext {
+        prompt_text: request.prompt_text.clone(),
+        resolved_model: request.resolved_model.clone(),
+        duration_ms,
+        request_id: request_id.clone(),
+        exchange: exchange.clone(),
+    };
+    let body = match response.text().await {
+        Ok(body) => body,
+        Err(error) => {
+            let result = build_model_test_error_result(
+                context,
+                Some(status_code),
+                format_model_test_error_with_details("读取模型测试响应失败", &error),
+                None,
+            );
+            log::error!(
+                "event=profile.model_test status=error model={} status_code={} duration_ms={} error={}",
+                result.resolved_model,
+                status_code,
+                result.duration_ms,
+                crate::logging::redact_sensitive_message(
+                    result.error_message.as_deref().unwrap_or_default()
+                )
+            );
+            return Ok(result);
+        }
+    };
+    let raw_response = raw_response_from_body(&body);
+
+    if !status.is_success() {
+        let result = build_model_test_failure_result(status_code, &body, context);
+        log::warn!(
+            "event=profile.model_test status=error model={} status_code={} duration_ms={}",
+            result.resolved_model,
+            status_code,
+            result.duration_ms
+        );
+        return Ok(result);
+    }
+
+    let parsed = match serde_json::from_str::<Value>(&body) {
+        Ok(parsed) => parsed,
+        Err(error) => {
+            let result = build_model_test_error_result(
+                context,
+                Some(status_code),
+                format!("解析模型测试响应失败：{error}"),
+                raw_response,
+            );
+            log::error!(
+                "event=profile.model_test status=error model={} status_code={} duration_ms={} error={}",
+                result.resolved_model,
+                status_code,
+                result.duration_ms,
+                crate::logging::redact_sensitive_message(
+                    result.error_message.as_deref().unwrap_or_default()
+                )
+            );
+            return Ok(result);
+        }
+    };
+    let result = match parse_model_test_response(
+        &parsed,
+        request.prompt_text,
+        request.resolved_model,
+        duration_ms,
+        request_id.clone(),
+        body.clone(),
+        exchange.clone(),
+    ) {
+        Ok(result) => result,
+        Err(error_message) => {
+            build_model_test_error_result(context, Some(status_code), error_message, raw_response)
+        }
+    };
+    if result.ok {
+        log::info!(
+            "event=profile.model_test status=ok model={} status_code={} duration_ms={}",
+            result.resolved_model,
+            status_code,
+            result.duration_ms
+        );
+    } else {
+        log::error!(
+            "event=profile.model_test status=error model={} status_code={} duration_ms={} error={}",
+            result.resolved_model,
+            status_code,
+            result.duration_ms,
+            crate::logging::redact_sensitive_message(
+                result.error_message.as_deref().unwrap_or_default()
+            )
+        );
+    }
+    Ok(result)
 }
 
 fn profile_settings_path() -> Result<PathBuf, String> {
@@ -2132,125 +2324,7 @@ pub async fn test_profile_model(data: ModelTestInput) -> Result<ModelTestResult,
 
     let resolved = resolve_profile_settings(&registry, &profile)?;
     let request = resolve_model_test_request(&resolved, prompt_text_override)?;
-    let endpoint = build_model_test_endpoint(&request.base_url);
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(MODEL_TEST_TIMEOUT_SECS))
-        .build()
-        .map_err(|error| format!("创建模型测试客户端失败：{error}"))?;
-    let payload = build_model_test_payload(&request);
-    let request_headers = build_model_test_request_headers(&request.auth_token);
-    let request_body = serialize_model_test_request_body(&payload)?;
-
-    let started_at = Instant::now();
-    let response = client
-        .post(&endpoint)
-        .header("x-api-key", request_headers["x-api-key"].as_str())
-        .header(
-            "anthropic-version",
-            request_headers["anthropic-version"].as_str(),
-        )
-        .header(reqwest::header::CONTENT_TYPE, "application/json")
-        .json(&payload)
-        .send()
-        .await
-        .map_err(|error| format!("模型测试请求失败：{error}"))?;
-    let duration_ms = started_at.elapsed().as_millis().min(u128::from(u64::MAX)) as u64;
-    let request_id = response
-        .headers()
-        .get("request-id")
-        .or_else(|| response.headers().get("x-request-id"))
-        .and_then(|value| value.to_str().ok())
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned);
-    let status = response.status();
-    let response_headers = headers_to_map(response.headers());
-    let body = response
-        .text()
-        .await
-        .map_err(|error| format!("读取模型测试响应失败：{error}"))?;
-    let status_code = status.as_u16();
-    let resolved_model = request.resolved_model.clone();
-    let prompt_text = request.prompt_text.clone();
-    let raw_response = raw_response_from_body(&body);
-    let exchange = ModelTestHttpExchange {
-        request_method: "POST".to_string(),
-        request_url: endpoint,
-        request_headers,
-        request_body,
-        response_headers,
-    };
-    let context = ModelTestResultContext {
-        prompt_text: prompt_text.clone(),
-        resolved_model: resolved_model.clone(),
-        duration_ms,
-        request_id: request_id.clone(),
-        exchange: exchange.clone(),
-    };
-
-    if !status.is_success() {
-        let result = build_model_test_failure_result(status_code, &body, context);
-        log::warn!(
-            "event=profile.model_test status=error model={} status_code={} duration_ms={}",
-            result.resolved_model,
-            status_code,
-            result.duration_ms
-        );
-        return Ok(result);
-    }
-
-    let parsed = match serde_json::from_str::<Value>(&body) {
-        Ok(parsed) => parsed,
-        Err(error) => {
-            let result = build_model_test_error_result(
-                context,
-                Some(status_code),
-                format!("解析模型测试响应失败：{error}"),
-                raw_response,
-            );
-            log::error!(
-                "event=profile.model_test status=error model={} status_code={} duration_ms={} error={}",
-                result.resolved_model,
-                status_code,
-                result.duration_ms,
-                crate::logging::redact_sensitive_message(result.error_message.as_deref().unwrap_or_default())
-            );
-            return Ok(result);
-        }
-    };
-    let result = match parse_model_test_response(
-        &parsed,
-        request.prompt_text,
-        request.resolved_model,
-        duration_ms,
-        request_id.clone(),
-        body.clone(),
-        exchange.clone(),
-    ) {
-        Ok(result) => result,
-        Err(error_message) => {
-            build_model_test_error_result(context, Some(status_code), error_message, raw_response)
-        }
-    };
-    if result.ok {
-        log::info!(
-            "event=profile.model_test status=ok model={} status_code={} duration_ms={}",
-            result.resolved_model,
-            status_code,
-            result.duration_ms
-        );
-    } else {
-        log::error!(
-            "event=profile.model_test status=error model={} status_code={} duration_ms={} error={}",
-            result.resolved_model,
-            status_code,
-            result.duration_ms,
-            crate::logging::redact_sensitive_message(
-                result.error_message.as_deref().unwrap_or_default()
-            )
-        );
-    }
-    Ok(result)
+    execute_model_test_request(request).await
 }
 
 #[tauri::command]
@@ -3597,5 +3671,49 @@ mod tests {
                 ),
             }
         );
+    }
+
+    #[test]
+    fn test_profile_model_returns_request_exchange_when_sending_fails() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("model-test-send-error");
+        set_test_env(&root);
+
+        let result = tauri::async_runtime::block_on(test_profile_model(ModelTestInput {
+            id: Some("profile-a".to_string()),
+            name: "Profile A".to_string(),
+            description: String::new(),
+            preset_id: None,
+            settings: serde_json::json!({
+                "model": "claude-sonnet-4-6",
+                "env": {
+                    "ANTHROPIC_AUTH_TOKEN": "token",
+                    "ANTHROPIC_BASE_URL": "http://127.0.0.1:1"
+                }
+            }),
+            prompt_text: Some("请确认测试成功。".to_string()),
+        }))
+        .expect("发送失败也应返回模型测试结果");
+
+        clear_test_env();
+
+        assert!(!result.ok);
+        assert_eq!(result.resolved_model, "claude-sonnet-4-6");
+        assert_eq!(result.prompt_text, "请确认测试成功。");
+        assert_eq!(result.request_method, "POST");
+        assert_eq!(result.request_url, "http://127.0.0.1:1/v1/messages");
+        assert_eq!(result.request_headers["x-api-key"], "token");
+        assert!(result
+            .request_body
+            .contains("\"model\": \"claude-sonnet-4-6\""));
+        assert!(result
+            .request_body
+            .contains("\"content\": \"请确认测试成功。\""));
+        assert_eq!(result.status_code, None);
+        assert!(result.response_headers.is_empty());
+        assert_eq!(result.raw_response, None);
+        let error_message = result.error_message.unwrap_or_default();
+        assert!(error_message.contains("模型测试请求失败："));
+        assert!(error_message.contains("详细原因："));
     }
 }
