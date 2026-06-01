@@ -837,6 +837,7 @@ function ProfilesPage({
           ...current,
           [profile.id]: nextState,
         }));
+        setIsRawResponseExpanded(Boolean(nextState.result?.rawResponse?.trim()));
         setActiveModelTestDialog((current) =>
           current?.profileId === profile.id
             ? {
@@ -850,6 +851,7 @@ function ProfilesPage({
     } catch (error) {
       if (retestModelRunIdRef.current === runId) {
         const errorMessage = getUserFacingErrorReason(error) ?? t("profiles.testAll.failed");
+        setIsRawResponseExpanded(false);
         setProfileModelTestStates((current) => ({
           ...current,
           [profile.id]: {
@@ -919,7 +921,7 @@ function ProfilesPage({
       result: state.result,
       errorMessage: state.status === "failed" ? state.errorMessage : "",
     });
-    setIsRawResponseExpanded(false);
+    setIsRawResponseExpanded(Boolean(state.result?.rawResponse?.trim()));
   }
 
   function modelTestResultAriaLabel(

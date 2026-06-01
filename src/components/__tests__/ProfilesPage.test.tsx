@@ -173,6 +173,15 @@ function getProfileCard(name: string): HTMLElement {
   return screen.getByRole("button", { name });
 }
 
+function selectTab(container: HTMLElement, name: string) {
+  const tab = within(container).getByRole("tab", { name });
+  fireEvent.mouseDown(tab, { button: 0, ctrlKey: false });
+  fireEvent.mouseUp(tab, { button: 0, ctrlKey: false });
+  fireEvent.pointerDown(tab, { button: 0, ctrlKey: false });
+  fireEvent.pointerUp(tab, { button: 0, ctrlKey: false });
+  fireEvent.click(tab);
+}
+
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (reason?: unknown) => void;
@@ -1059,6 +1068,20 @@ describe("ProfilesPage", () => {
 
     fireEvent.click(within(card).getByRole("button", { name: "OpenRouter User 测试结果：失败" }));
     const dialog = await screen.findByRole("dialog", { name: "模型测试结果" });
+    expect(dialog).toHaveClass("!flex");
+    expect(dialog).toHaveClass("h-[min(860px,calc(100dvh-2rem))]");
+    const resultScrollBody = within(dialog).getByTestId("model-test-result-scroll-body");
+    expect(resultScrollBody).toHaveClass(
+      "min-h-0",
+      "flex-1",
+      "overflow-y-auto",
+      "overscroll-contain",
+    );
+    expect(resultScrollBody).not.toHaveAttribute("data-slot", "scroll-area");
+    expect(within(dialog).getByRole("tab", { name: "概览" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
     expect(within(dialog).getByTestId("model-test-profile-name")).toHaveTextContent(
       "OpenRouter User",
     );
@@ -1073,27 +1096,47 @@ describe("ProfilesPage", () => {
     expect(within(dialog).getByTestId("model-test-response-panel")).toBeInTheDocument();
     expect(within(dialog).getByTestId("model-test-exchange-details")).toBeInTheDocument();
     expect(within(dialog).getByText(/No choices in OpenAI response/)).toBeInTheDocument();
+
+    selectTab(dialog, "请求");
+    await waitFor(() =>
+      expect(within(dialog).getByRole("tab", { name: "请求" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      ),
+    );
     expect(within(dialog).getByText("请求 Headers")).toBeInTheDocument();
-    expect(within(dialog).queryByTestId("model-test-request-headers-code")).not.toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole("button", { name: "查看请求 Headers" }));
     expect(within(dialog).getByTestId("model-test-request-headers-code").textContent).toContain(
       '"x-api-key": "token"',
     );
+    expect(within(dialog).getByTestId("model-test-request-headers-code")).toHaveClass(
+      "overflow-visible",
+    );
+    expect(within(dialog).getByTestId("model-test-request-headers-code")).not.toHaveClass(
+      "overflow-x-auto",
+    );
     expect(within(dialog).getByText("请求体")).toBeInTheDocument();
-    expect(within(dialog).queryByTestId("model-test-request-body-code")).not.toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole("button", { name: "查看请求体" }));
     expect(within(dialog).getByTestId("model-test-request-body-code").textContent).toContain(
       '"content": "请确认测试成功。"',
     );
+
+    selectTab(dialog, "响应");
+    await waitFor(() =>
+      expect(within(dialog).getByRole("tab", { name: "响应" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      ),
+    );
     expect(within(dialog).getByText("响应 Headers")).toBeInTheDocument();
-    expect(
-      within(dialog).queryByTestId("model-test-response-headers-code"),
-    ).not.toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole("button", { name: "查看响应 Headers" }));
     expect(within(dialog).getByTestId("model-test-response-headers-code").textContent).toContain(
       '"x-request-id": "req_500"',
     );
     expect(within(dialog).getByText("响应体")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "隐藏响应体" })).toBeInTheDocument();
+    expect(within(dialog).getByTestId("model-test-raw-response-code").textContent).toContain(
+      "No choices in OpenAI response",
+    );
+
+    selectTab(dialog, "概览");
     expect(within(dialog).getByRole("button", { name: "重新测试" })).toBeInTheDocument();
     expect(within(dialog).queryByLabelText("输入提示词")).not.toBeInTheDocument();
     expect(within(dialog).getByText("请确认测试成功。")).toBeInTheDocument();
@@ -1103,9 +1146,13 @@ describe("ProfilesPage", () => {
     expect(within(dialog).getByRole("button", { name: "发起请求" })).toBeDisabled();
     fireEvent.change(promptInput, { target: { value: "请只回复 OK" } });
     expect(within(dialog).getByRole("button", { name: "发起请求" })).toBeEnabled();
+
+    selectTab(dialog, "请求");
     expect(within(dialog).getByTestId("model-test-request-body-code").textContent).toContain(
       '"content": "请只回复 OK"',
     );
+
+    selectTab(dialog, "概览");
 
     await act(async () => {
       fireEvent.click(within(dialog).getByRole("button", { name: "复制请求 cURL" }));

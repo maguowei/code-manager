@@ -365,7 +365,7 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
     if (!latestModelTestResult && !modelTestError) {
       return;
     }
-    setIsRawResponseExpanded(false);
+    setIsRawResponseExpanded(Boolean(latestModelTestResult?.rawResponse?.trim()));
     setIsModelTestDialogOpen(true);
   }
 
@@ -519,6 +519,7 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
       if (modelTestRunIdRef.current === runId) {
         setLatestModelTestResult(result);
         setModelTestError("");
+        setIsRawResponseExpanded(Boolean(result.rawResponse?.trim()));
         setIsModelTestDialogOpen(true);
       }
     } catch (error) {

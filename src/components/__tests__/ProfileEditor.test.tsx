@@ -119,7 +119,9 @@ vi.mock("../profile-editor/ModelTestResultDialog", () => {
     result,
     profileName,
     errorMessage,
+    rawResponseExpanded,
     onClose,
+    onToggleRawResponse,
     onRetest,
     isRetesting = false,
   }: MockModelTestResultDialogProps) {
@@ -186,10 +188,14 @@ vi.mock("../profile-editor/ModelTestResultDialog", () => {
           ) : null}
           {result?.rawResponse ? (
             <>
-              <button type="button">查看响应体</button>
-              <pre data-testid="model-test-raw-response-code">
-                {formatRawResponse(result.rawResponse)}
-              </pre>
+              <button type="button" onClick={onToggleRawResponse}>
+                {rawResponseExpanded ? "隐藏响应体" : "查看响应体"}
+              </button>
+              {rawResponseExpanded ? (
+                <pre data-testid="model-test-raw-response-code">
+                  {formatRawResponse(result.rawResponse)}
+                </pre>
+              ) : null}
             </>
           ) : null}
         </div>
@@ -1394,10 +1400,7 @@ describe("ProfileEditor", () => {
     expect(failureResultButton).toHaveClass("bg-destructive/10");
     expect(failureResultButton).toHaveClass("text-destructive");
 
-    await act(async () => {
-      fireEvent.click(within(dialog).getByRole("button", { name: "查看响应体" }));
-      await Promise.resolve();
-    });
+    expect(within(dialog).getByRole("button", { name: "隐藏响应体" })).toBeInTheDocument();
     const rawResponseViewer = within(dialog).getByTestId("model-test-raw-response-code");
     expect(rawResponseViewer.textContent).toContain('{\n  "error": {\n');
     expect(rawResponseViewer.textContent).toContain('"type": "authentication_error"');
