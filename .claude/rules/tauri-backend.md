@@ -82,8 +82,8 @@ const workspace = await ipc.getConfigWorkspace();
 ## 用量 runtime 与 SQLite
 
 - 用量扫描、价格刷新、watcher 增量重扫由 `usage::start_usage_runtime(app)` 在 `lib.rs::setup` 中启动；启动顺序：托盘 -> claude 目录 watcher -> usage runtime。
-- SQLite 数据库路径常量 `usage::USAGE_DB_URL = "sqlite:usage.db"`，通过 `tauri-plugin-sql` 注册：`Builder::default().add_migrations(USAGE_DB_URL, usage::sql_migrations())`。
-- 新增用量字段必须同步：追加 `usage::sql_migrations()` 迁移、`UsageRecord` struct、相关聚合 command、前端 `useUsage.ts` 和 `src/types.ts`。不要直接改既有迁移。
+- SQLite 数据库文件名常量 `usage::USAGE_DB_FILENAME = "usage.db"`，由 `usage::start_usage_runtime(app)` 通过 `sqlx` 直接打开；实际文件位于 Tauri `app_config_dir()` 下的 `usage.db`。
+- 新增用量字段必须同步：`USAGE_DB_SCHEMA`、初始化/迁移逻辑、`UsageRecord` struct、相关聚合 command、前端 `useUsage.ts` 和 `src/types.ts`。不要只改其中一端。
 - 事件链：`claude-directory-changed` -> usage runtime 增量扫描 -> `usage-records-changed`；价格刷新成功后发出 `usage-pricing-updated`。
 - WAL 模式可能在 SQLite 应用配置目录生成 `usage.db-wal` 与 `usage.db-shm`，不要把它们当应用数据目录文件备份。
 

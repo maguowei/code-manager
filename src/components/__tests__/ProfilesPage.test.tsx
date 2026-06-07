@@ -1106,7 +1106,7 @@ describe("ProfilesPage", () => {
     );
     expect(within(dialog).getByText("请求 Headers")).toBeInTheDocument();
     expect(within(dialog).getByTestId("model-test-request-headers-code").textContent).toContain(
-      '"x-api-key": "token"',
+      '"x-api-key": "<redacted>"',
     );
     expect(within(dialog).getByTestId("model-test-request-headers-code")).toHaveClass(
       "overflow-visible",
@@ -1163,7 +1163,7 @@ describe("ProfilesPage", () => {
       expect.stringContaining("curl -X POST 'https://api-inference.modelscope.cn/v1/messages'"),
     );
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-      expect.stringContaining("-H 'x-api-key: token'"),
+      expect.stringContaining("-H 'x-api-key: <redacted>'"),
     );
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
       expect.stringContaining('"content": "请只回复 OK"'),

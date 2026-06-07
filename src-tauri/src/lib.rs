@@ -216,11 +216,6 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_notification::init())
-        .plugin(
-            tauri_plugin_sql::Builder::default()
-                .add_migrations(usage::USAGE_DB_URL, usage::sql_migrations())
-                .build(),
-        )
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app| {
             // tauri-specta 要求在 setup 内 mount events（即使当前没有 specta event，

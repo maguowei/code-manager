@@ -5,6 +5,7 @@ import { useToast } from "../../hooks/useToast";
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
 import type { ModelTestResult } from "../../types";
+import { redactSecretText } from "../../utils/logger";
 import SyntaxHighlightedCode from "../SyntaxHighlightedCode";
 import { useTheme } from "../theme-provider";
 import { TONE_SOLID_CLASS } from "../tone-classes";
@@ -39,6 +40,13 @@ type SyntaxThemeType = "light" | "dark";
 
 const MONOSPACE_FONT_FAMILY =
   '"SFMono-Regular", "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, Consolas, monospace';
+const REDACTED_SECRET_VALUE = "<redacted>";
+const SENSITIVE_REQUEST_HEADERS = new Set([
+  "authorization",
+  "proxy-authorization",
+  "x-api-key",
+  "api-key",
+]);
 
 interface CodeViewportProps {
   label: string;
@@ -93,19 +101,60 @@ function CodeViewport({ label, content, testId, language, syntaxThemeType }: Cod
 function formatRawResponse(rawResponse: string): { content: string; language: string } {
   try {
     return {
-      content: JSON.stringify(JSON.parse(rawResponse), null, 2),
+      content: JSON.stringify(redactJsonSecrets(JSON.parse(rawResponse)), null, 2),
       language: "json",
     };
   } catch {
     return {
-      content: rawResponse,
+      content: redactSecretText(rawResponse),
       language: "text",
     };
   }
 }
 
+function isSensitiveFieldName(key: string): boolean {
+  const normalized = key.toLowerCase();
+  return (
+    normalized === "authorization" ||
+    normalized === "token" ||
+    normalized.endsWith("_token") ||
+    normalized.endsWith("-token") ||
+    normalized.includes("secret") ||
+    normalized.includes("password") ||
+    normalized.includes("api_key") ||
+    normalized.includes("api-key") ||
+    normalized === "apikey"
+  );
+}
+
+function redactJsonSecrets(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(redactJsonSecrets);
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, child]) => [
+        key,
+        isSensitiveFieldName(key) ? REDACTED_SECRET_VALUE : redactJsonSecrets(child),
+      ]),
+    );
+  }
+
+  return value;
+}
+
+function redactRequestHeaders(headers?: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(headers ?? {}).map(([key, value]) => [
+      key,
+      SENSITIVE_REQUEST_HEADERS.has(key.toLowerCase()) ? REDACTED_SECRET_VALUE : value,
+    ]),
+  );
+}
+
 function formatHeaders(headers?: Record<string, string>): string {
-  return JSON.stringify(headers ?? {}, null, 2);
+  return JSON.stringify(redactRequestHeaders(headers), null, 2);
 }
 
 function requestBodyWithPrompt(requestBody: string | undefined, promptText: string): string {
@@ -136,7 +185,7 @@ function buildCurlCommand(result: ModelTestResult, requestBody: string): string 
     return "";
   }
 
-  const headerLines = Object.entries(result.requestHeaders).map(
+  const headerLines = Object.entries(redactRequestHeaders(result.requestHeaders)).map(
     ([key, value]) => `  -H ${shellQuote(`${key}: ${value}`)} \\`,
   );
   return [

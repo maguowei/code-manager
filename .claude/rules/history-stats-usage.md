@@ -69,5 +69,5 @@ paths:
 - models.dev 导入范围由 `is_supported_models_dev_provider()` 控制：Anthropic、Moonshot / MoonshotAI、Z.ai / Zhipu / BigModel、MiniMax、Xiaomi / MiMo、DeepSeek。
 - 缺失 cache 字段时只按 input 推导 `cache_write = input * 1.25`、`cache_read = input * 0.1`，不要凭空补 input / output。
 - `thirdPartyProviderPricingEnabled` 默认开启；关闭后 Kimi / MiMo / GLM / MiniMax / DeepSeek 费用按 0 计入，且不作为未知模型提示。
-- 用量 records、扫描索引和 last scan metadata 写入 `sqlite:usage.db`，索引表为 `usage_file_index`。新增列必须追加迁移条目，并同步 `UsageRecord` struct、相关 command 与前端类型。
+- 用量 records、扫描索引和 last scan metadata 写入 `usage.db`，实际文件位于 Tauri `app_config_dir()` 下，索引表为 `usage_file_index`。新增列必须同步 `USAGE_DB_SCHEMA`、初始化/迁移逻辑、`UsageRecord` struct、相关 command 与前端类型。
 - `message.id` 是 usage 记录去重锚点；处理增量扫描、重扫和未知模型时不要破坏 SQLite 中的 `usage_records`、`usage_file_index` 与内存中的 `unknown_models` 一致性。

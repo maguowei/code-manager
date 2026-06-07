@@ -72,7 +72,7 @@ AI Manager 主要读写本机文件。配置合并、目录扫描、用量聚合
 | 用量 SQLite | `~/Library/Application Support/com.gotobeta.app.ai-manager/usage.db` | `$XDG_CONFIG_HOME/com.gotobeta.app.ai-manager/usage.db` 或 `~/.config/com.gotobeta.app.ai-manager/usage.db` | `%APPDATA%\com.gotobeta.app.ai-manager\usage.db` |
 | 日志目录 | `~/Library/Logs/com.gotobeta.app.ai-manager/` | `$XDG_DATA_HOME/com.gotobeta.app.ai-manager/logs/` 或 `~/.local/share/com.gotobeta.app.ai-manager/logs/` | `%LOCALAPPDATA%\com.gotobeta.app.ai-manager\logs\` |
 
-应用数据目录包含 `config-registry.json`、`memories.json`、`model-pricing.json` 和 `skills-disabled/`。macOS 上应用数据刻意使用 `~/.config/ai-manager/`，便于跨平台备份和脚本访问；SQLite 与日志仍使用 Tauri 插件默认路径。
+应用数据目录包含 `config-registry.json`、`memories.json`、`model-pricing.json` 和 `skills-disabled/`。macOS 上应用数据刻意使用 `~/.config/ai-manager/`，便于跨平台备份和脚本访问；SQLite 使用 Tauri `app_config_dir()`，日志使用 Tauri 插件默认路径。
 
 ## 本地开发
 

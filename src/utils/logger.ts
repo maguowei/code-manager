@@ -13,7 +13,8 @@ const SECRET_PATTERNS: [RegExp, string][] = [
   [/\b(authorization)\s*:\s*(?:bearer\s+)?([^\s,;]+)/gi, "$1: <redacted>"],
 ];
 
-function redact(message: string): string {
+// 对任意文本做正则脱敏，供日志写入与模型测试展示等共享使用。
+export function redactSecretText(message: string): string {
   return SECRET_PATTERNS.reduce(
     (next, [pattern, replacement]) => next.replace(pattern, replacement),
     message,
@@ -36,7 +37,7 @@ function stringifyError(errorValue: unknown): string {
 
 function write(level: ClientLogLevel, message: string) {
   if (!isTauri()) return;
-  const safeMessage = redact(message);
+  const safeMessage = redactSecretText(message);
   const writer = { error, warn, info, debug, trace }[level];
   void writer(safeMessage).catch(() => {
     // 日志写入失败时不能打断用户操作。

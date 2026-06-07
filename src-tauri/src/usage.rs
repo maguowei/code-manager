@@ -10,7 +10,10 @@
 use crate::utils;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use sqlx::{QueryBuilder, Row, Sqlite, SqlitePool};
+use sqlx::{
+    sqlite::{SqliteConnectOptions, SqlitePoolOptions},
+    QueryBuilder, Row, Sqlite, SqlitePool,
+};
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
 use std::io::{Read, Seek, SeekFrom};
@@ -344,7 +347,7 @@ const BUILTIN_PRICING: &str = include_str!("../resources/model-pricing.json");
 const MODELS_DEV_URL: &str = "https://models.dev/api.json";
 const CLAUDE_MODEL_FILTER: &str = "claude-*";
 const CLAUDE_MODEL_PREFIX: &str = "claude-";
-pub const USAGE_DB_URL: &str = "sqlite:usage.db";
+pub const USAGE_DB_FILENAME: &str = "usage.db";
 
 const USAGE_DB_SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS usage_records (
@@ -380,15 +383,6 @@ CREATE TABLE IF NOT EXISTS usage_meta (
     value TEXT NOT NULL
 );
 "#;
-
-pub fn sql_migrations() -> Vec<tauri_plugin_sql::Migration> {
-    vec![tauri_plugin_sql::Migration {
-        version: 1,
-        description: "create_usage_cache",
-        sql: USAGE_DB_SCHEMA,
-        kind: tauri_plugin_sql::MigrationKind::Up,
-    }]
-}
 
 #[derive(Debug, Default, Deserialize)]
 struct PricingFile {
@@ -558,15 +552,32 @@ async fn initialize_usage_database(pool: &SqlitePool) -> Result<(), String> {
     Ok(())
 }
 
-async fn usage_db_pool_from_handle(app: &AppHandle) -> Result<SqlitePool, String> {
-    let instances = app.state::<tauri_plugin_sql::DbInstances>();
-    let pools = instances.0.read().await;
-    let pool = pools
-        .get(USAGE_DB_URL)
-        .ok_or_else(|| format!("未找到用量 SQLite 连接: {USAGE_DB_URL}"))?;
-    match pool {
-        tauri_plugin_sql::DbPool::Sqlite(pool) => Ok(pool.clone()),
-    }
+fn usage_db_path_for_config_dir(config_dir: &Path) -> PathBuf {
+    config_dir.join(USAGE_DB_FILENAME)
+}
+
+async fn open_usage_database_in_config_dir(config_dir: &Path) -> Result<SqlitePool, String> {
+    fs::create_dir_all(config_dir)
+        .map_err(|e| format!("创建用量 SQLite 目录失败: {}: {e}", config_dir.display()))?;
+    let db_path = usage_db_path_for_config_dir(config_dir);
+    // 直接用 filename 指定路径，避免路径 -> URL -> 解析的往返带来的跨平台转义问题
+    let options = SqliteConnectOptions::new()
+        .filename(&db_path)
+        .create_if_missing(true);
+    let pool = SqlitePoolOptions::new()
+        .connect_with(options)
+        .await
+        .map_err(|e| format!("打开用量 SQLite 数据库失败: {e}"))?;
+    initialize_usage_database(&pool).await?;
+    Ok(pool)
+}
+
+async fn open_usage_database(app: &AppHandle) -> Result<SqlitePool, String> {
+    let config_dir = app
+        .path()
+        .app_config_dir()
+        .map_err(|e| format!("解析用量 SQLite 目录失败: {e}"))?;
+    open_usage_database_in_config_dir(&config_dir).await
 }
 
 async fn load_file_index_db(pool: &SqlitePool) -> Result<HashMap<PathBuf, FileIndex>, String> {
@@ -2400,8 +2411,7 @@ pub fn start_usage_runtime(app: &tauri::App) -> Result<(), String> {
     let state = UsageState::new();
     let pricing = load_pricing();
     let app_handle = app.handle().clone();
-    let pool = tauri::async_runtime::block_on(usage_db_pool_from_handle(&app_handle))?;
-    tauri::async_runtime::block_on(initialize_usage_database(&pool))?;
+    let pool = tauri::async_runtime::block_on(open_usage_database(&app_handle))?;
     state.set_db_pool(pool.clone())?;
     if let Ok(mut inner) = state.inner.write() {
         inner.pricing = pricing;
@@ -3366,6 +3376,34 @@ mod tests {
             .unwrap();
         initialize_usage_database(&pool).await.unwrap();
         pool
+    }
+
+    #[test]
+    fn usage_db_path_joins_filename_into_config_dir() {
+        let config_dir = tempdir().join("config root");
+        let db_path = usage_db_path_for_config_dir(&config_dir);
+
+        assert_eq!(db_path, config_dir.join("usage.db"));
+    }
+
+    #[test]
+    fn open_usage_database_in_config_dir_creates_schema() {
+        tauri::async_runtime::block_on(async {
+            let config_dir = tempdir().join("nested config");
+            let pool = open_usage_database_in_config_dir(&config_dir)
+                .await
+                .unwrap();
+            let row = sqlx::query(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'usage_records'",
+            )
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+            let name: String = row.try_get("name").unwrap();
+
+            assert_eq!(name, "usage_records");
+            assert!(config_dir.join("usage.db").exists());
+        });
     }
 
     async fn test_usage_state() -> (UsageState, sqlx::SqlitePool) {

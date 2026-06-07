@@ -1045,7 +1045,7 @@ describe("ProfileEditor", () => {
           requestMethod: "POST",
           requestUrl: "https://openrouter.ai/api/v1/messages",
           requestHeaders: {
-            "x-api-key": "token",
+            "x-api-key": "<redacted>",
             "anthropic-version": "2023-06-01",
             "content-type": "application/json",
           },
@@ -1158,7 +1158,7 @@ describe("ProfileEditor", () => {
     expect(within(dialog).getByText("req_test_123")).toBeInTheDocument();
     expect(within(dialog).getByText("end_turn")).toBeInTheDocument();
     expect(within(dialog).getByTestId("model-test-request-headers-code").textContent).toContain(
-      '"x-api-key": "token"',
+      '"x-api-key": "<redacted>"',
     );
     expect(within(dialog).getByTestId("model-test-request-body-code").textContent).toContain(
       '"max_tokens": 2048',

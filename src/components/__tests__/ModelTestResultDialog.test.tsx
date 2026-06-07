@@ -56,9 +56,10 @@ const MODEL_TEST_RESULT: ModelTestResult = {
   requestMethod: "POST",
   requestUrl: "https://open.bigmodel.cn/api/anthropic/v1/messages",
   requestHeaders: {
-    authorization: "Bearer ********",
+    authorization: "Bearer real-token",
     "anthropic-version": "2023-06-01",
     "content-type": "application/json",
+    "x-api-key": "token",
     "x-request-source": "ai-manager-test",
   },
   requestBody: JSON.stringify(
@@ -90,6 +91,14 @@ const MODEL_TEST_RESULT: ModelTestResult = {
         index,
         text: "API 测试请求已成功接收并处理。这一行用于验证长响应体滚动。",
       })),
+      headers: {
+        authorization: "Bearer raw-secret",
+        "x-api-key": "token",
+      },
+      usage: {
+        input_tokens: 12,
+        output_tokens: 3,
+      },
       stop_reason: "end_turn",
     },
     null,
@@ -226,6 +235,11 @@ describe("ModelTestResultDialog", () => {
       ),
     );
     expectCodeViewport(dialog, "model-test-request-headers-code", "请求 Headers");
+    const requestHeaders = within(dialog).getByTestId("model-test-request-headers-code");
+    expect(requestHeaders.textContent).toContain('"authorization": "<redacted>"');
+    expect(requestHeaders.textContent).toContain('"x-api-key": "<redacted>"');
+    expect(requestHeaders.textContent).not.toContain("real-token");
+    expect(requestHeaders.textContent).not.toContain('"x-api-key": "token"');
     expectCodeViewport(dialog, "model-test-request-body-code", "请求体");
 
     selectTab(dialog, "响应");
@@ -242,6 +256,12 @@ describe("ModelTestResultDialog", () => {
       "响应体",
     );
     expect(rawResponseViewport.textContent).toContain('"id": "msg_scroll_check"');
+    expect(rawResponseViewport.textContent).toContain('"authorization": "<redacted>"');
+    expect(rawResponseViewport.textContent).toContain('"x-api-key": "<redacted>"');
+    expect(rawResponseViewport.textContent).toContain('"input_tokens": 12');
+    expect(rawResponseViewport.textContent).toContain('"output_tokens": 3');
+    expect(rawResponseViewport.textContent).not.toContain("raw-secret");
+    expect(rawResponseViewport.textContent).not.toContain('"x-api-key": "token"');
     expect(within(dialog).getByRole("button", { name: "隐藏响应体" })).toBeInTheDocument();
 
     fireEvent.click(within(dialog).getByRole("button", { name: "隐藏响应体" }));
@@ -320,6 +340,16 @@ describe("ModelTestResultDialog", () => {
 
     expect(clipboardWriteMock).toHaveBeenCalledWith(
       expect.stringContaining("curl -X POST 'https://open.bigmodel.cn/api/anthropic/v1/messages'"),
+    );
+    expect(clipboardWriteMock).toHaveBeenCalledWith(
+      expect.stringContaining("-H 'authorization: <redacted>'"),
+    );
+    expect(clipboardWriteMock).toHaveBeenCalledWith(
+      expect.stringContaining("-H 'x-api-key: <redacted>'"),
+    );
+    expect(clipboardWriteMock).not.toHaveBeenCalledWith(expect.stringContaining("real-token"));
+    expect(clipboardWriteMock).not.toHaveBeenCalledWith(
+      expect.stringContaining("x-api-key: token"),
     );
     expect(clipboardWriteMock).toHaveBeenCalledWith(expect.stringContaining("请只回复 OK"));
     expect(showToastMock).toHaveBeenCalledWith("已复制请求 cURL");

@@ -309,7 +309,7 @@ AI Manager 主要读写本机文件。配置合并、目录扫描、用量聚合
 
 ### 用量 SQLite 缓存
 
-由 Tauri SQL 插件维护,数据库名为 `usage.db`,位于 Tauri 默认应用配置目录(与"应用数据目录"不是同一位置)。SQLite 使用 WAL 模式时,同目录可能同时出现 `usage.db-wal` 与 `usage.db-shm`。
+由后端用量 runtime 通过 `sqlx` 维护,数据库名为 `usage.db`,位于 Tauri 默认应用配置目录(与"应用数据目录"不是同一位置)。SQLite 使用 WAL 模式时,同目录可能同时出现 `usage.db-wal` 与 `usage.db-shm`。
 
 | 平台 | 路径 |
 | --- | --- |

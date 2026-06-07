@@ -18,7 +18,7 @@
 - 后端：Rust + Tauri commands + tauri-specta 类型化 IPC。
 - 表单与校验：react-hook-form + Zod + JSON Schema。
 - 编辑、预览与可视化：CodeMirror、react-markdown、@pierre/diffs、@pierre/trees、Recharts、@tanstack/react-virtual。
-- 本地缓存与日志：tauri-plugin-sql + SQLite、tauri-plugin-log。
+- 本地缓存与日志：sqlx + SQLite、tauri-plugin-log。
 - 包管理器：`pnpm`，项目声明 `pnpm@11.2.2`；不要改用 `npm`。
 - 应用标识符：`com.gotobeta.app.ai-manager`。
 
@@ -95,7 +95,7 @@
 - JSON Schema 是配置系统的前后端共享契约锚点。
 - 配置预览、配置应用、模型测试、Provider/Preset、Skills、Memory 的真实持久化规则都在 Rust；前端负责调用与展示，不要复制后端业务逻辑。
 - `ProjectsPage` 读取 `~/.claude/history.jsonl`；`StatsPage` 读取 `~/.claude.json`；`UsagePage` 扫描 `~/.claude/projects/**/*.jsonl`。三者数据源不同，不要混用。
-- 用量 watcher 与 SQLite 迁移由 `usage::start_usage_runtime(app)` 在 `lib.rs::setup` 中启动；新增用量字段需要同步 `usage.rs` 的 `sql_migrations()`、`UsageRecord` struct、前端 `useUsage.ts` 与 `src/types.ts`。
+- 用量 watcher 与 SQLite 初始化由 `usage::start_usage_runtime(app)` 在 `lib.rs::setup` 中启动；新增用量字段需要同步 `usage.rs` 的 schema / 初始化逻辑、`UsageRecord` struct、前端 `useUsage.ts` 与 `src/types.ts`。
 
 ## 关键数据目录
 
@@ -107,7 +107,7 @@ macOS 上同时使用三个目录，互不混用：
 | 用量 SQLite（`usage.db`、`usage.db-wal`、`usage.db-shm`） | `~/Library/Application Support/com.gotobeta.app.ai-manager/` | `$XDG_CONFIG_HOME/com.gotobeta.app.ai-manager/` 或 `~/.config/com.gotobeta.app.ai-manager/` | `%APPDATA%\com.gotobeta.app.ai-manager\` |
 | 日志（`ai-manager.log` 等） | `~/Library/Logs/com.gotobeta.app.ai-manager/` | `$XDG_DATA_HOME/com.gotobeta.app.ai-manager/logs/` 或 `~/.local/share/com.gotobeta.app.ai-manager/logs/` | `%LOCALAPPDATA%\com.gotobeta.app.ai-manager\logs\` |
 
-macOS 上应用数据刻意复用 `~/.config/ai-manager/`，便于跨平台备份和脚本访问；解析逻辑见 `src-tauri/src/utils.rs::get_app_data_dir()`。SQLite 与日志走 Tauri 插件默认路径，不要迁回应用数据目录。
+macOS 上应用数据刻意复用 `~/.config/ai-manager/`，便于跨平台备份和脚本访问；解析逻辑见 `src-tauri/src/utils.rs::get_app_data_dir()`。SQLite 走 Tauri `app_config_dir()`，日志走 Tauri 插件默认路径，不要迁回应用数据目录。
 
 其它已知输入路径与覆盖：`~/.claude/`、`~/.codex/skills/`、`~/.claude/history.jsonl`、`~/.claude/projects/`、`~/.claude.json`、`AI_MANAGER_HOME_OVERRIDE`、`AI_MANAGER_APP_DATA_DIR_OVERRIDE`。
 

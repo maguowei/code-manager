@@ -40,7 +40,6 @@ fancy-regex = "0.18"
 schemars = { version = "1.2.1", features = ["preserve_order"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
 notify = "8"
-tauri-plugin-sql = { version = "2.4.0", default-features = false, features = ["sqlite"] }
 sqlx = { version = "0.8.6", default-features = false, features = ["sqlite", "runtime-tokio-rustls"] }
 tokio = { version = "1", features = ["sync"] }
 # tauri-specta v2 仍在 RC 阶段(社区主流,Tauri 2 唯一可用端到端类型化方案);版本必须 exact match

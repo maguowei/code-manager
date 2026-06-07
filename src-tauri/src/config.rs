@@ -23,6 +23,7 @@ const MODEL_TEST_MAX_TOKENS: u64 = 2048;
 const MODEL_TEST_PROMPT_EN: &str =
     "Please reply with one short sentence confirming this API test request succeeded.";
 const MODEL_TEST_PROMPT_ZH: &str = "请用一句简短的话确认这次 API 测试请求成功。";
+const REDACTED_SECRET_VALUE: &str = "<redacted>";
 const SYSTEM_LOCALE_ENV_KEYS: [&str; 4] = ["LC_ALL", "LC_MESSAGES", "LANGUAGE", "LANG"];
 const DEFAULT_STATUS_LINE_PRESET_ID: &str = "default";
 const DEFAULT_STATUS_LINE_COMMAND_PATH: &str = "~/.claude/statusline.sh";
@@ -1420,8 +1421,52 @@ fn raw_response_from_body(body: &str) -> Option<String> {
     if body.trim().is_empty() {
         None
     } else {
-        Some(body.to_string())
+        Some(redact_model_test_text_for_display(body))
     }
+}
+
+fn redact_model_test_text_for_display(text: &str) -> String {
+    match serde_json::from_str::<Value>(text) {
+        Ok(mut value) => {
+            redact_model_test_json_value(&mut value);
+            serde_json::to_string(&value)
+                .unwrap_or_else(|_| crate::logging::redact_sensitive_message(text))
+        }
+        Err(_) => crate::logging::redact_sensitive_message(text),
+    }
+}
+
+fn redact_model_test_json_value(value: &mut Value) {
+    match value {
+        Value::Object(object) => {
+            for (key, child) in object.iter_mut() {
+                if is_sensitive_model_test_json_key(key) {
+                    *child = Value::String(REDACTED_SECRET_VALUE.to_string());
+                } else {
+                    redact_model_test_json_value(child);
+                }
+            }
+        }
+        Value::Array(items) => {
+            for item in items {
+                redact_model_test_json_value(item);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn is_sensitive_model_test_json_key(key: &str) -> bool {
+    let normalized = key.to_ascii_lowercase();
+    normalized == "authorization"
+        || normalized == "token"
+        || normalized.ends_with("_token")
+        || normalized.ends_with("-token")
+        || normalized.contains("secret")
+        || normalized.contains("password")
+        || normalized.contains("api_key")
+        || normalized.contains("api-key")
+        || normalized == "apikey"
 }
 
 fn resolve_model_test_request(
@@ -1454,6 +1499,29 @@ fn build_model_test_request_headers(auth_token: &str) -> BTreeMap<String, String
     ]
     .into_iter()
     .collect()
+}
+
+fn is_sensitive_request_header(name: &str) -> bool {
+    matches!(
+        name.to_ascii_lowercase().as_str(),
+        "authorization" | "proxy-authorization" | "x-api-key" | "api-key"
+    )
+}
+
+fn redact_model_test_request_headers(
+    headers: &BTreeMap<String, String>,
+) -> BTreeMap<String, String> {
+    headers
+        .iter()
+        .map(|(key, value)| {
+            let safe_value = if is_sensitive_request_header(key) {
+                REDACTED_SECRET_VALUE
+            } else {
+                value
+            };
+            (key.clone(), safe_value.to_string())
+        })
+        .collect()
 }
 
 fn build_model_test_payload(request: &ModelTestRequest) -> Value {
@@ -1570,10 +1638,13 @@ fn extract_model_test_error_message(body: &str) -> Option<String> {
 
 fn parse_model_test_error(status_code: u16, body: &str) -> String {
     if let Some(message) = extract_model_test_error_message(body) {
-        return format!("模型测试失败（HTTP {status_code}）：{message}");
+        return format!(
+            "模型测试失败（HTTP {status_code}）：{}",
+            redact_model_test_text_for_display(&message)
+        );
     }
 
-    let fallback = crate::utils::truncate(body.trim(), 160);
+    let fallback = crate::utils::truncate(&redact_model_test_text_for_display(body.trim()), 160);
     if fallback.is_empty() {
         format!("模型测试失败（HTTP {status_code}）")
     } else {
@@ -1632,7 +1703,7 @@ async fn execute_model_test_request(request: ModelTestRequest) -> Result<ModelTe
     let base_exchange = ModelTestHttpExchange {
         request_method: "POST".to_string(),
         request_url: endpoint.clone(),
-        request_headers: request_headers.clone(),
+        request_headers: redact_model_test_request_headers(&request_headers),
         request_body,
         response_headers: BTreeMap::new(),
     };
@@ -3674,6 +3745,21 @@ mod tests {
     }
 
     #[test]
+    fn raw_model_test_response_redacts_secret_like_values() {
+        let raw = raw_response_from_body(
+            r#"{"headers":{"x-api-key":"token","authorization":"Bearer secret-token"},"usage":{"input_tokens":12,"output_tokens":3}}"#,
+        )
+        .expect("非空响应应返回原始内容");
+
+        assert!(raw.contains(r#""x-api-key":"<redacted>""#));
+        assert!(raw.contains(r#""authorization":"<redacted>""#));
+        assert!(raw.contains(r#""input_tokens":12"#));
+        assert!(raw.contains(r#""output_tokens":3"#));
+        assert!(!raw.contains("secret-token"));
+        assert!(!raw.contains(r#""x-api-key":"token""#));
+    }
+
+    #[test]
     fn test_profile_model_returns_request_exchange_when_sending_fails() {
         let config_guard = crate::utils::lock_config().unwrap();
         let root = temp_root("model-test-send-error");
@@ -3704,7 +3790,7 @@ mod tests {
         assert_eq!(result.prompt_text, "请确认测试成功。");
         assert_eq!(result.request_method, "POST");
         assert_eq!(result.request_url, "http://[::1/v1/messages");
-        assert_eq!(result.request_headers["x-api-key"], "token");
+        assert_eq!(result.request_headers["x-api-key"], "<redacted>");
         assert!(result
             .request_body
             .contains("\"model\": \"claude-sonnet-4-6\""));
