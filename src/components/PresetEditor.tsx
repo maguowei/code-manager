@@ -372,8 +372,8 @@ const PresetEditor = forwardRef<PresetEditorHandle, PresetEditorProps>(function 
     [settingsPatch],
   );
   const sandboxPresentation = useMemo(
-    () => getSandboxPresentation(settingsPatch.sandbox, language === "zh"),
-    [settingsPatch.sandbox, language],
+    () => getSandboxPresentation(settingsPatch.sandbox, t),
+    [settingsPatch.sandbox, t],
   );
   const marketplaceSources = useMemo<MarketplaceSourceInput[]>(() => {
     return Object.entries(readObject(settingsPatch.extraKnownMarketplaces)).map(

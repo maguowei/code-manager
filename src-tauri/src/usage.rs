@@ -11,7 +11,7 @@ use crate::utils;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use sqlx::{
-    sqlite::{SqliteConnectOptions, SqlitePoolOptions},
+    sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous},
     QueryBuilder, Row, Sqlite, SqlitePool,
 };
 use std::collections::{HashMap, HashSet};
@@ -19,7 +19,7 @@ use std::fs::{self, File};
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Component, Path, PathBuf};
 use std::sync::RwLock;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Listener, Manager, State};
 
 // ============ 数据结构 ============
@@ -516,29 +516,8 @@ fn third_party_provider_pricing_enabled() -> bool {
 }
 
 async fn initialize_usage_database(pool: &SqlitePool) -> Result<(), String> {
-    sqlx::query("PRAGMA journal_mode = WAL")
-        .execute(pool)
-        .await
-        .map_err(|e| e.to_string())?;
-    sqlx::query("PRAGMA synchronous = NORMAL")
-        .execute(pool)
-        .await
-        .map_err(|e| e.to_string())?;
-    // 64MB 页缓存：负数表示按 KB 计算 -65536 = 64MB
-    sqlx::query("PRAGMA cache_size = -65536")
-        .execute(pool)
-        .await
-        .map_err(|e| e.to_string())?;
-    // 临时表/排序走内存，避免落盘
-    sqlx::query("PRAGMA temp_store = MEMORY")
-        .execute(pool)
-        .await
-        .map_err(|e| e.to_string())?;
-    // 256MB mmap 读，减少全表扫描的 syscall 开销
-    sqlx::query("PRAGMA mmap_size = 268435456")
-        .execute(pool)
-        .await
-        .map_err(|e| e.to_string())?;
+    // PRAGMA（journal_mode / synchronous / cache_size / temp_store / mmap_size / busy_timeout）
+    // 已在 SqliteConnectOptions 中按连接声明，这里只负责建表 schema。
     for statement in USAGE_DB_SCHEMA
         .split(';')
         .map(str::trim)
@@ -560,10 +539,21 @@ async fn open_usage_database_in_config_dir(config_dir: &Path) -> Result<SqlitePo
     fs::create_dir_all(config_dir)
         .map_err(|e| format!("创建用量 SQLite 目录失败: {}: {e}", config_dir.display()))?;
     let db_path = usage_db_path_for_config_dir(config_dir);
-    // 直接用 filename 指定路径，避免路径 -> URL -> 解析的往返带来的跨平台转义问题
+    // 直接用 filename 指定路径，避免路径 -> URL -> 解析的往返带来的跨平台转义问题。
+    // PRAGMA 多为按连接生效，必须放进连接选项让池中每条连接都应用，而非只初始化一条。
     let options = SqliteConnectOptions::new()
         .filename(&db_path)
-        .create_if_missing(true);
+        .create_if_missing(true)
+        .journal_mode(SqliteJournalMode::Wal)
+        .synchronous(SqliteSynchronous::Normal)
+        // 并发写时最多等待 5 秒而非立即 SQLITE_BUSY 失败
+        .busy_timeout(Duration::from_secs(5))
+        // 64MB 页缓存：负数表示按 KB 计算 -65536 = 64MB
+        .pragma("cache_size", "-65536")
+        // 临时表/排序走内存，避免落盘
+        .pragma("temp_store", "MEMORY")
+        // 256MB mmap 读，减少全表扫描的 syscall 开销
+        .pragma("mmap_size", "268435456");
     let pool = SqlitePoolOptions::new()
         .connect_with(options)
         .await

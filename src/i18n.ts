@@ -18,6 +18,10 @@ const translations = {
   zh: {
     // 通用
     "app.title": "AI Manager",
+    "app.errorBoundary.title": "页面出现错误",
+    "app.errorBoundary.description":
+      "应用遇到意外错误。可尝试重新加载，若反复出现请到诊断页查看日志。",
+    "app.errorBoundary.reload": "重新加载",
     loading: "加载中...",
     "common.close": "关闭",
     "common.unsavedChanges.title": "存在未保存的更改",
@@ -538,6 +542,13 @@ const translations = {
     "profileEditor.sandbox.headerToggleAriaLabel": "Sandbox 头部开关",
     "profileEditor.sandbox.switchLabel": "沙盒开关",
     "profileEditor.sandbox.addRecommendedPreset": "添加沙盒预设配置",
+    "profileEditor.sandbox.headerNoExtra": "无附加配置",
+    "profileEditor.sandbox.headerExtraKeys": "{count} 个附加配置键",
+    "profileEditor.sandbox.detailEnabledNoExtra": "当前仅启用沙盒，没有附加配置。",
+    "profileEditor.sandbox.detailDisabledNoExtra": "当前未启用沙盒，也没有附加配置。",
+    "profileEditor.sandbox.detailExtraKeys": "当前有 {count} 个附加配置键。",
+    "profileEditor.sandbox.emptyKeys": "没有附加的 sandbox 配置键。",
+    "profileEditor.sandbox.currentStatus": "当前状态：{status}",
 
     // Hooks 编辑器
     "profileEditor.hooks.invalidAction": "invalid action",
@@ -1433,6 +1444,10 @@ const translations = {
   en: {
     // 通用
     "app.title": "AI Manager",
+    "app.errorBoundary.title": "Something went wrong",
+    "app.errorBoundary.description":
+      "The app hit an unexpected error. Try reloading; if it keeps happening, check the logs on the diagnostics page.",
+    "app.errorBoundary.reload": "Reload",
     loading: "Loading...",
     "common.close": "Close",
     "common.unsavedChanges.title": "Unsaved changes",
@@ -1972,6 +1987,14 @@ const translations = {
     "profileEditor.sandbox.headerToggleAriaLabel": "Sandbox header toggle",
     "profileEditor.sandbox.switchLabel": "Sandbox",
     "profileEditor.sandbox.addRecommendedPreset": "Add sandbox preset",
+    "profileEditor.sandbox.headerNoExtra": "No additional configuration",
+    "profileEditor.sandbox.headerExtraKeys": "{count} additional keys",
+    "profileEditor.sandbox.detailEnabledNoExtra": "Sandbox is enabled with no extra configuration.",
+    "profileEditor.sandbox.detailDisabledNoExtra":
+      "Sandbox is disabled and has no extra configuration.",
+    "profileEditor.sandbox.detailExtraKeys": "There are {count} additional configuration keys.",
+    "profileEditor.sandbox.emptyKeys": "There are no additional sandbox configuration keys.",
+    "profileEditor.sandbox.currentStatus": "Current status: {status}",
 
     // Hooks editor
     "profileEditor.hooks.invalidAction": "invalid action",

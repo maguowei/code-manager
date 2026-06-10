@@ -255,7 +255,9 @@ pub fn save_json_file<T: Serialize>(path: &Path, data: &T) -> Result<(), String>
 
 /// 通用互斥锁获取函数
 fn acquire_lock(lock: &'static Lazy<Mutex<()>>) -> Result<MutexGuard<'static, ()>, String> {
-    lock.lock().map_err(|e| format!("获取锁失败: {}", e))
+    // 锁保护的是 ()，没有需要维护的不变量；某线程持锁 panic 导致中毒时，
+    // 恢复 guard 继续服务，而不是让后续所有配置/记忆/Skills 写操作永久失败
+    Ok(lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner()))
 }
 
 /// 获取配置文件写锁，防止并发写入

@@ -328,8 +328,8 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
     [settings],
   );
   const sandboxPresentation = useMemo(
-    () => getSandboxPresentation(settings.sandbox, language === "zh"),
-    [settings.sandbox, language],
+    () => getSandboxPresentation(settings.sandbox, t),
+    [settings.sandbox, t],
   );
   const marketplaceSources = useMemo<MarketplaceSourceInput[]>(() => {
     return Object.entries(readObject(settings.extraKnownMarketplaces)).map(

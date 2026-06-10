@@ -649,7 +649,8 @@ fn run_project_branch_cleanup(
             continue;
         };
         let flag = if candidate.force_delete { "-D" } else { "-d" };
-        match run_git(&project_path, &["branch", flag, &candidate.name]) {
+        // 加 `--` 终止选项解析，避免以 `-` 开头的分支名被 git 当作选项
+        match run_git(&project_path, &["branch", flag, "--", &candidate.name]) {
             Ok(_) => deleted_branches.push(candidate.name.clone()),
             Err(error) => errors.push(format!("{}: {}", candidate.name, error)),
         }
@@ -734,7 +735,11 @@ fn run_project_worktree_cleanup(
         let Some(candidate) = candidates.get(&worktree) else {
             continue;
         };
-        match run_git(&project_path, &["worktree", "remove", &candidate.path]) {
+        // 加 `--` 终止选项解析，避免以 `-` 开头的路径被 git 当作选项
+        match run_git(
+            &project_path,
+            &["worktree", "remove", "--", &candidate.path],
+        ) {
             Ok(_) => deleted_worktrees.push(candidate.path.clone()),
             Err(error) => errors.push(format!("{}: {}", candidate.path, error)),
         }
@@ -1950,6 +1955,8 @@ pub enum ProjectClaudeSettingsScope {
 const PROJECT_CLAUDE_OVERVIEW_MAX_ENTRIES: usize = 10_000;
 const PROJECT_CLAUDE_OVERVIEW_MAX_DEPTH: usize = 16;
 const PROJECT_CLAUDE_PREVIEW_MAX_BYTES: usize = 512 * 1024;
+/// 未配置默认编辑器的稳定错误码，前端据此映射友好文案而非匹配中文 prose
+const EDITOR_NOT_CONFIGURED_ERROR: &str = "editor_not_configured";
 
 fn project_claude_root(project: &str) -> Result<PathBuf, String> {
     let project_path = validate_project_path(project)?;
@@ -2072,7 +2079,7 @@ pub fn open_project_claude_file_in_editor(
         let editor = preferences
             .default_editor_app
             .as_deref()
-            .ok_or_else(|| "请先在设置中选择默认编辑器".to_string())?;
+            .ok_or_else(|| EDITOR_NOT_CONFIGURED_ERROR.to_string())?;
         crate::native_open::open_path_in_editor(&target, editor)
     })();
     crate::logging::log_command_result("project.claude_directory_open_editor", &result, |_| {

@@ -1,7 +1,7 @@
 import { Plus } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { useI18n } from "../../i18n";
+import { type TranslationKey, useI18n } from "../../i18n";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
@@ -31,44 +31,32 @@ interface SandboxSwitchControlProps {
   visibleLabel?: string;
 }
 
-function buildHeaderSummary(extraKeysCount: number, enabled: boolean, isZh: boolean): string {
-  if (extraKeysCount === 0) {
-    return enabled
-      ? isZh
-        ? "已启用 · 无附加配置"
-        : "Enabled · No additional configuration"
-      : isZh
-        ? "已关闭 · 无附加配置"
-        : "Disabled · No additional configuration";
-  }
+// t 仅需要按 key 取文案，这里用最小签名避免与 i18n 上下文耦合
+type SandboxTranslate = (key: TranslationKey) => string;
 
-  return enabled
-    ? isZh
-      ? `已启用 · ${extraKeysCount} 个附加配置键`
-      : `Enabled · ${extraKeysCount} additional keys`
-    : isZh
-      ? `已关闭 · ${extraKeysCount} 个附加配置键`
-      : `Disabled · ${extraKeysCount} additional keys`;
+function buildHeaderSummary(extraKeysCount: number, enabled: boolean, t: SandboxTranslate): string {
+  const statusText = t(
+    enabled ? "profileEditor.sandbox.statusEnabled" : "profileEditor.sandbox.statusDisabled",
+  );
+  const extraText =
+    extraKeysCount === 0
+      ? t("profileEditor.sandbox.headerNoExtra")
+      : t("profileEditor.sandbox.headerExtraKeys").replace("{count}", String(extraKeysCount));
+  return `${statusText} · ${extraText}`;
 }
 
-function buildDetailSummary(extraKeysCount: number, enabled: boolean, isZh: boolean): string {
+function buildDetailSummary(extraKeysCount: number, enabled: boolean, t: SandboxTranslate): string {
   if (extraKeysCount === 0) {
-    if (enabled) {
-      return isZh
-        ? "当前仅启用沙盒，没有附加配置。"
-        : "Sandbox is enabled with no extra configuration.";
-    }
-    return isZh
-      ? "当前未启用沙盒，也没有附加配置。"
-      : "Sandbox is disabled and has no extra configuration.";
+    return t(
+      enabled
+        ? "profileEditor.sandbox.detailEnabledNoExtra"
+        : "profileEditor.sandbox.detailDisabledNoExtra",
+    );
   }
-
-  return isZh
-    ? `当前有 ${extraKeysCount} 个附加配置键。`
-    : `There are ${extraKeysCount} additional configuration keys.`;
+  return t("profileEditor.sandbox.detailExtraKeys").replace("{count}", String(extraKeysCount));
 }
 
-export function getSandboxPresentation(value: unknown, isZh: boolean): SandboxPresentation {
+export function getSandboxPresentation(value: unknown, t: SandboxTranslate): SandboxPresentation {
   const sandboxObject = readObject(value);
   const enabled = sandboxObject.enabled === true;
   const extraKeys = Object.keys(sandboxObject)
@@ -78,11 +66,9 @@ export function getSandboxPresentation(value: unknown, isZh: boolean): SandboxPr
   return {
     enabled,
     extraKeys,
-    headerSummary: buildHeaderSummary(extraKeys.length, enabled, isZh),
-    detailSummary: buildDetailSummary(extraKeys.length, enabled, isZh),
-    emptyState: isZh
-      ? "没有附加的 sandbox 配置键。"
-      : "There are no additional sandbox configuration keys.",
+    headerSummary: buildHeaderSummary(extraKeys.length, enabled, t),
+    detailSummary: buildDetailSummary(extraKeys.length, enabled, t),
+    emptyState: t("profileEditor.sandbox.emptyKeys"),
   };
 }
 
@@ -150,9 +136,8 @@ export function SandboxSwitchControl({
 }
 
 function SandboxEditor({ value, onChange, onError }: SandboxEditorProps) {
-  const { language, t } = useI18n();
-  const isZh = language === "zh";
-  const presentation = useMemo(() => getSandboxPresentation(value, isZh), [value, isZh]);
+  const { t } = useI18n();
+  const presentation = useMemo(() => getSandboxPresentation(value, t), [value, t]);
   const recommendedPresetApplied = useMemo(() => hasRecommendedSandboxPreset(value), [value]);
 
   useEffect(() => {
@@ -178,9 +163,12 @@ function SandboxEditor({ value, onChange, onError }: SandboxEditorProps) {
       <Card className="gap-3 rounded-lg border-border bg-card p-4 py-4 shadow-none">
         <div className="flex min-w-0 flex-col gap-1.5">
           <strong className="text-[15px] font-bold">
-            {isZh
-              ? `当前状态：${presentation.enabled ? t("profileEditor.sandbox.statusEnabled") : t("profileEditor.sandbox.statusDisabled")}`
-              : `Current status: ${presentation.enabled ? t("profileEditor.sandbox.statusEnabled") : t("profileEditor.sandbox.statusDisabled")}`}
+            {t("profileEditor.sandbox.currentStatus").replace(
+              "{status}",
+              presentation.enabled
+                ? t("profileEditor.sandbox.statusEnabled")
+                : t("profileEditor.sandbox.statusDisabled"),
+            )}
           </strong>
           <span className="text-sm leading-6 text-muted-foreground">
             {presentation.detailSummary}

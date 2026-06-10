@@ -16,6 +16,18 @@ permissions:
   contents: read
 
 jobs:
+  secrets:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks 密钥扫描
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   check:
     strategy:
       fail-fast: false
@@ -34,17 +46,19 @@ jobs:
           node-version: lts/*
 
       - name: 安装 pnpm
-        uses: pnpm/action-setup@v5
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
 
       - name: 安装 Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          toolchain: stable
 
       - name: 安装 GNU Make (Windows)
         if: matrix.platform == 'windows-latest'
         run: choco install make -y --no-progress
 
       - name: Rust 缓存
-        uses: swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         with:
           workspaces: ./src-tauri -> target
 

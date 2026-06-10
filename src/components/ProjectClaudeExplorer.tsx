@@ -30,6 +30,9 @@ import { PANEL_SURFACE_CLASS } from "./surface-classes";
 import { Button } from "./ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
 
+// 与后端 project.rs 的 EDITOR_NOT_CONFIGURED_ERROR 保持一致，用于识别“未配置默认编辑器”
+const EDITOR_NOT_CONFIGURED_ERROR = "editor_not_configured";
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -299,10 +302,12 @@ function ProjectClaudeExplorerBody({
       await ipc.openProjectClaudeFileInEditor(project, activePreview.path);
     } catch (error) {
       const message = typeof error === "string" ? error : String(error);
-      const key = message.includes("默认编辑器")
-        ? "projects.claudeExplorer.noDefaultEditor"
-        : "claudeOverview.openEditorError";
-      showOperationError(showToast, t(key), error);
+      // 后端用稳定错误码标识“未配置默认编辑器”，避免耦合后端中文文案
+      if (message.includes(EDITOR_NOT_CONFIGURED_ERROR)) {
+        showToast(t("projects.claudeExplorer.noDefaultEditor"), "error");
+        return;
+      }
+      showOperationError(showToast, t("claudeOverview.openEditorError"), error);
     }
   }, [activePreview, project, showToast, t]);
 
