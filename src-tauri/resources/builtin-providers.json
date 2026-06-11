@@ -60,7 +60,7 @@
     "localizedName": { "zh": "MiniMax Token Plan", "en": "MiniMax Token Plan" },
     "slug": "minimax",
     "baseUrl": "https://api.minimaxi.com/anthropic",
-    "docUrl": "https://platform.minimaxi.com/docs/guides/pricing-token-plan",
+    "docUrl": "https://platform.minimaxi.com/docs/token-plan/intro",
     "models": [
       { "id": "MiniMax-M3", "name": "MiniMax M3", "category": "sonnet" }
     ]
