@@ -112,7 +112,7 @@
     "baseUrl": "https://coding.dashscope.aliyuncs.com/apps/anthropic",
     "docUrl": "https://help.aliyun.com/zh/model-studio/coding-plan",
     "models": [
-      { "id": "qwen3.6-plus", "name": "Qwen 3.6 Plus", "category": "sonnet" },
+      { "id": "qwen3.7-plus", "name": "Qwen 3.7 Plus", "category": "sonnet" },
       { "id": "glm-5", "name": "GLM-5", "category": "sonnet" },
       { "id": "kimi-k2.5", "name": "Kimi K2.5", "category": "sonnet" },
       { "id": "MiniMax-M2.5", "name": "MiniMax M2.5", "category": "sonnet" }
