@@ -62,7 +62,7 @@
     "baseUrl": "https://api.minimaxi.com/anthropic",
     "docUrl": "https://platform.minimaxi.com/docs/guides/pricing-token-plan",
     "models": [
-      { "id": "MiniMax-M2.7", "name": "MiniMax M2.7", "category": "sonnet" }
+      { "id": "MiniMax-M3", "name": "MiniMax M3", "category": "sonnet" }
     ]
   },
   {
