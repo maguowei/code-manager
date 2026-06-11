@@ -84,10 +84,7 @@
     "slug": "openrouter",
     "baseUrl": "https://openrouter.ai/api",
     "docUrl": "https://openrouter.ai/docs/guides/coding-agents/claude-code-integration",
-    "models": [
-      { "id": "minimax/minimax-m2.5:free", "name": "MiniMax M2.5 (free)", "category": "sonnet" },
-      { "id": "google/gemma-4-31b-it:free", "name": "Gemma 4 31B (free)", "category": "haiku" }
-    ]
+    "models": []
   },
   {
     "id": "00000000-0000-0000-0000-000000000007",
