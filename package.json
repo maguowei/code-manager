@@ -29,7 +29,7 @@
     "check": "biome check --write .",
     "biome:ci": "biome ci .",
     "commitlint": "commitlint",
-    "prepare": "node -e \"const { spawnSync } = require('node:child_process'); const git = spawnSync('git', ['rev-parse', '--git-dir'], { stdio: 'ignore' }); if (git.status === 0) { const hook = spawnSync('lefthook', ['install', '--reset-hooks-path'], { stdio: 'inherit' }); process.exit(hook.status ?? 1); }\""
+    "prepare": "node -e \"const { spawnSync } = require('node:child_process'); const git = spawnSync('git', ['rev-parse', '--git-dir'], { stdio: 'ignore' }); if (git.status === 0) { const hook = spawnSync('lefthook', ['install', '--reset-hooks-path'], { stdio: 'inherit', shell: true }); process.exit(hook.status ?? 1); }\""
   },
   "dependencies": {
     "@codemirror/lang-json": "^6.0.2",
