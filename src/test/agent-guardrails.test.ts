@@ -94,19 +94,22 @@ describe("pre-push verify hook", () => {
     expect(result.stdout).toContain("跳过");
   });
 
-  it.skipIf(process.platform === "win32")("prints progress while running branch push verification steps", () => {
-    const fakeBin = createFakeMakeBin();
-    const result = runPrePushVerify("refs/heads/codex-hook abc refs/heads/codex-hook def\n", {
-      PATH: `${fakeBin}:${processEnvPath()}`,
-    });
+  it.skipIf(process.platform === "win32")(
+    "prints progress while running branch push verification steps",
+    () => {
+      const fakeBin = createFakeMakeBin();
+      const result = runPrePushVerify("refs/heads/codex-hook abc refs/heads/codex-hook def\n", {
+        PATH: `${fakeBin}:${processEnvPath()}`,
+      });
 
-    expect(result.status).toBe(0);
-    expect(result.stdout).toContain("[1/4] Rust 格式检查: make fmt-rust-check");
-    expect(result.stdout).toContain("[4/4] 测试: make test");
-    expect(readFileSync(join(fakeBin, "make.log"), "utf8")).toBe(
-      "fmt-rust-check\nlint\nbuild-frontend\ntest\n",
-    );
-  });
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain("[1/4] Rust 格式检查: make fmt-rust-check");
+      expect(result.stdout).toContain("[4/4] 测试: make test");
+      expect(readFileSync(join(fakeBin, "make.log"), "utf8")).toBe(
+        "fmt-rust-check\nlint\nbuild-frontend\ntest\n",
+      );
+    },
+  );
 
   it.skipIf(process.platform === "win32")("stops at the first failed verification step", () => {
     const fakeBin = createFakeMakeBin("lint");
