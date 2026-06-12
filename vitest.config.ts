@@ -6,6 +6,10 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isCoverageRun = process.argv.some((arg) => arg === "--coverage" || arg.startsWith("--coverage."));
 
+// 固定测试时区，避免本地（UTC+8）与 CI（UTC）因 toLocaleString / getHours 等本地时区
+// 格式化产生不一致：用例普遍以 UTC+8 为前提硬编码期望值（如 formatShortDateTime 渲染结果）。
+process.env.TZ = "Asia/Shanghai";
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
