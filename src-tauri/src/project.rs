@@ -1892,21 +1892,22 @@ fn ensure_real_directory(dir: &Path, create_err_label: &str) -> Result<(), Strin
 }
 
 fn files_are_same(left: &Path, right: &Path) -> bool {
-    let (Ok(left), Ok(right)) = (fs::metadata(left), fs::metadata(right)) else {
+    let (Ok(left_meta), Ok(right_meta)) = (fs::metadata(left), fs::metadata(right)) else {
         return false;
     };
 
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;
-        left.dev() == right.dev() && left.ino() == right.ino()
+        left_meta.dev() == right_meta.dev() && left_meta.ino() == right_meta.ino()
     }
 
     #[cfg(windows)]
     {
-        use std::os::windows::fs::MetadataExt;
-        left.volume_serial_number() == right.volume_serial_number()
-            && left.file_index() == right.file_index()
+        // volume_serial_number/file_index 需要 windows_by_handle feature gate（不稳定），
+        // 改用 canonicalize 比较解析后的路径；Windows 上 canonicalize 会解析 junction/symlink。
+        _ = (left_meta, right_meta);
+        fs::canonicalize(left).ok().as_deref() == fs::canonicalize(right).ok().as_deref()
     }
 
     #[cfg(not(any(unix, windows)))]
