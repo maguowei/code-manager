@@ -21,7 +21,7 @@ describe("IPC usage contract", () => {
   it("only lets generated bindings import Tauri invoke directly", () => {
     const offenders = Object.entries(SOURCE_FILES)
       .map(([path, content]) => ({
-        path: relative(process.cwd(), path.replace(/^\.\//, "src/")),
+        path: relative(process.cwd(), path.replace(/^\.\//, "src/")).replace(/\\/g, "/"),
         content,
       }))
       .filter(({ path }) => !TEST_FILE_PATTERN.test(path))

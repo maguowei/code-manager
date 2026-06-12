@@ -94,7 +94,7 @@ describe("pre-push verify hook", () => {
     expect(result.stdout).toContain("跳过");
   });
 
-  it("prints progress while running branch push verification steps", () => {
+  it.skipIf(process.platform === "win32")("prints progress while running branch push verification steps", () => {
     const fakeBin = createFakeMakeBin();
     const result = runPrePushVerify("refs/heads/codex-hook abc refs/heads/codex-hook def\n", {
       PATH: `${fakeBin}:${processEnvPath()}`,
@@ -108,7 +108,7 @@ describe("pre-push verify hook", () => {
     );
   });
 
-  it("stops at the first failed verification step", () => {
+  it.skipIf(process.platform === "win32")("stops at the first failed verification step", () => {
     const fakeBin = createFakeMakeBin("lint");
     const result = runPrePushVerify("", { PATH: `${fakeBin}:${processEnvPath()}` });
 
