@@ -377,11 +377,12 @@ mod tests {
         ));
         fs::create_dir_all(&root).expect("应可创建测试目录");
         let target = root.join("settings.json");
-        let bad_temp = root.join("bad-temp-dir");
+        // 不创建 temp：rename 源不存在 → 两个平台的替换都必然失败，借此验证回滚保留原文件
+        // (Windows 实现会先备份原文件再 rename，这里同时覆盖其备份恢复路径)
+        let missing_temp = root.join("missing-temp.json");
         fs::write(&target, "original").expect("应可写入原文件");
-        fs::create_dir_all(&bad_temp).expect("应可创建无效替换目录");
 
-        let result = replace_file_with_temp(&target, &bad_temp);
+        let result = replace_file_with_temp(&target, &missing_temp);
 
         assert!(result.is_err());
         assert_eq!(

@@ -1809,14 +1809,16 @@ fn create_skills_symlink_at_agents(
         }
     }
 
-    let relative_target = Path::new("../.claude/skills");
+    // Windows 的 CreateSymbolicLinkW 不接受正斜杠相对 target，会得到悬空目录软链，
+    // 导致 is_dir() 跟随失败；用 join 生成平台原生分隔符(Windows 反斜杠/Unix 正斜杠)。
+    let relative_target = Path::new("..").join(".claude").join("skills");
 
     #[cfg(unix)]
-    std::os::unix::fs::symlink(relative_target, agents_skills_path)
+    std::os::unix::fs::symlink(&relative_target, agents_skills_path)
         .map_err(|e| format!("创建 .agents/skills 软链接失败: {}", e))?;
 
     #[cfg(windows)]
-    std::os::windows::fs::symlink_dir(relative_target, agents_skills_path)
+    std::os::windows::fs::symlink_dir(&relative_target, agents_skills_path)
         .map_err(|e| format!("创建 .agents/skills 软链接失败: {}", e))?;
 
     let _ = project_claude_skills_path;
@@ -1844,14 +1846,16 @@ fn create_skills_symlink_at_claude(
         }
     }
 
-    let relative_target = Path::new("../.agents/skills");
+    // Windows 的 CreateSymbolicLinkW 不接受正斜杠相对 target，会得到悬空目录软链，
+    // 导致 is_dir() 跟随失败；用 join 生成平台原生分隔符(Windows 反斜杠/Unix 正斜杠)。
+    let relative_target = Path::new("..").join(".agents").join("skills");
 
     #[cfg(unix)]
-    std::os::unix::fs::symlink(relative_target, &project_claude_skills_path)
+    std::os::unix::fs::symlink(&relative_target, &project_claude_skills_path)
         .map_err(|e| format!("创建 .claude/skills 软链接失败: {}", e))?;
 
     #[cfg(windows)]
-    std::os::windows::fs::symlink_dir(relative_target, &project_claude_skills_path)
+    std::os::windows::fs::symlink_dir(&relative_target, &project_claude_skills_path)
         .map_err(|e| format!("创建 .claude/skills 软链接失败: {}", e))?;
 
     let _ = agents_skills_path;
@@ -1892,28 +1896,10 @@ fn ensure_real_directory(dir: &Path, create_err_label: &str) -> Result<(), Strin
 }
 
 fn files_are_same(left: &Path, right: &Path) -> bool {
-    let (Ok(left_meta), Ok(right_meta)) = (fs::metadata(left), fs::metadata(right)) else {
-        return false;
-    };
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::MetadataExt;
-        left_meta.dev() == right_meta.dev() && left_meta.ino() == right_meta.ino()
-    }
-
-    #[cfg(windows)]
-    {
-        // volume_serial_number/file_index 需要 windows_by_handle feature gate（不稳定），
-        // 改用 canonicalize 比较解析后的路径；Windows 上 canonicalize 会解析 junction/symlink。
-        _ = (left_meta, right_meta);
-        fs::canonicalize(left).ok().as_deref() == fs::canonicalize(right).ok().as_deref()
-    }
-
-    #[cfg(not(any(unix, windows)))]
-    {
-        false
-    }
+    // 跨平台判断两路径是否指向同一份文件数据(含 hard link)：Unix 比较 dev+ino，
+    // Windows 用 GetFileInformationByHandle 的卷序列号+文件索引。不能用 canonicalize：
+    // hard link 的两个目录项各自规范路径不同，无法识别别名(见 9aff524 回归)。
+    same_file::is_same_file(left, right).unwrap_or(false)
 }
 
 fn remove_symlink_node(path: &Path) -> std::io::Result<()> {
