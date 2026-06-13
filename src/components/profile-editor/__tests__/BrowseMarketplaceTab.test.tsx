@@ -335,16 +335,19 @@ describe("BrowseMarketplaceTab", () => {
         return { app: { uiLanguage: "zh" } };
       }
       if (command === "read_claude_file_preview") {
-        expect(args).toEqual({ path: "plugins/install-counts-cache.json" });
+        expect(args).toEqual({ path: "plugins/plugin-catalog-cache.json" });
         return {
-          path: "plugins/install-counts-cache.json",
-          name: "install-counts-cache.json",
+          path: "plugins/plugin-catalog-cache.json",
+          name: "plugin-catalog-cache.json",
           content: JSON.stringify({
             version: 1,
-            counts: [
-              { plugin: "alpha@claude-plugins-official", unique_installs: 1234 },
-              { plugin: "zoo@claude-plugins-official", unique_installs: 56 },
-            ],
+            fetchedAt: "2026-05-25T00:00:00.000Z",
+            catalog: {
+              plugins: {
+                "alpha@claude-plugins-official": { unique_installs: 1234 },
+                "zoo@claude-plugins-official": { unique_installs: 56 },
+              },
+            },
           }),
           isBinary: false,
           truncated: false,
@@ -377,14 +380,17 @@ describe("BrowseMarketplaceTab", () => {
       }
       if (command === "read_claude_file_preview") {
         return {
-          path: "plugins/install-counts-cache.json",
-          name: "install-counts-cache.json",
+          path: "plugins/plugin-catalog-cache.json",
+          name: "plugin-catalog-cache.json",
           content: JSON.stringify({
             version: 1,
-            counts: [
-              { plugin: "alpha@claude-plugins-official", unique_installs: 10 },
-              { plugin: "zoo@claude-plugins-official", unique_installs: 90 },
-            ],
+            fetchedAt: "2026-05-25T00:00:00.000Z",
+            catalog: {
+              plugins: {
+                "alpha@claude-plugins-official": { unique_installs: 10 },
+                "zoo@claude-plugins-official": { unique_installs: 90 },
+              },
+            },
           }),
           isBinary: false,
           truncated: false,
@@ -426,14 +432,17 @@ describe("BrowseMarketplaceTab", () => {
       }
       if (command === "read_claude_file_preview") {
         return {
-          path: "plugins/install-counts-cache.json",
-          name: "install-counts-cache.json",
+          path: "plugins/plugin-catalog-cache.json",
+          name: "plugin-catalog-cache.json",
           content: JSON.stringify({
             version: 1,
-            counts: [
-              { plugin: "alpha@claude-plugins-official", unique_installs: 10 },
-              { plugin: "zoo@claude-plugins-official", unique_installs: 90 },
-            ],
+            fetchedAt: "2026-05-25T00:00:00.000Z",
+            catalog: {
+              plugins: {
+                "alpha@claude-plugins-official": { unique_installs: 10 },
+                "zoo@claude-plugins-official": { unique_installs: 90 },
+              },
+            },
           }),
           isBinary: false,
           truncated: false,
