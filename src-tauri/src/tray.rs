@@ -31,6 +31,7 @@ struct TrayLabels<'a> {
     no_configs: &'a str,
     active_sessions: &'a str,
     no_sessions: &'a str,
+    focus_shortcut_hint: &'a str,
     nav_memory: &'a str,
     nav_skills: &'a str,
     nav_projects: &'a str,
@@ -49,6 +50,7 @@ fn tray_labels_for_language(language: &str) -> TrayLabels<'static> {
             no_configs: "No configs",
             active_sessions: "Active Sessions",
             no_sessions: "No Sessions",
+            focus_shortcut_hint: "Focus most urgent session",
             nav_memory: "Memory",
             nav_skills: "Skills",
             nav_projects: "Projects",
@@ -64,6 +66,7 @@ fn tray_labels_for_language(language: &str) -> TrayLabels<'static> {
             no_configs: "暂无配置",
             active_sessions: "当前会话",
             no_sessions: "无会话",
+            focus_shortcut_hint: "聚焦最该处理会话",
             nav_memory: "记忆",
             nav_skills: "Skills",
             nav_projects: "项目",
@@ -366,6 +369,21 @@ fn is_starting_session_status(status: &str) -> bool {
     status.trim().eq_ignore_ascii_case("starting")
 }
 
+/// 把 Tauri accelerator 字符串格式化为 macOS 符号形式,如 `Command+Control+J` → `⌘⌃J`。
+/// 与前端 `shortcut-utils.ts::formatAccelerator` 同语义,用于托盘菜单提示展示。
+fn format_shortcut_for_display(accelerator: &str) -> String {
+    accelerator
+        .split('+')
+        .map(|token| match token {
+            "Command" | "CommandOrControl" | "Cmd" | "Super" | "Meta" => "⌘",
+            "Control" | "Ctrl" => "⌃",
+            "Alt" | "Option" => "⌥",
+            "Shift" => "⇧",
+            other => other,
+        })
+        .collect()
+}
+
 /// 从会话列表中挑选"最该处理"的会话作为快捷键聚焦目标：
 /// 待处理 > 运行中/启动中 > 其它；同优先级取最近活跃（sessions 已按 updated_at 降序排序）。
 fn pick_focus_target_session(sessions: &[TraySession]) -> Option<&TraySession> {
@@ -634,6 +652,25 @@ fn build_sessions_tray_menu(
         .enabled(supports_focus)
         .build(app)?;
         items.push(Box::new(item));
+    }
+
+    // 底部提示行：当聚焦快捷键可用且有会话时，展示快捷键告知用户可一键聚焦。
+    // 禁用项不可点击；非 session_ 前缀 id 在 on_menu_event 中天然被忽略。
+    if supports_focus && !sessions.is_empty() {
+        if let Some(accelerator) = &state.app.focus_session_shortcut {
+            items.push(Box::new(PredefinedMenuItem::separator(app)?));
+            let hint = MenuItemBuilder::with_id(
+                "sessions_focus_hint",
+                format!(
+                    "{} · {}",
+                    format_shortcut_for_display(accelerator),
+                    labels.focus_shortcut_hint
+                ),
+            )
+            .enabled(false)
+            .build(app)?;
+            items.push(Box::new(hint));
+        }
     }
 
     let refs: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> = items
@@ -1048,9 +1085,9 @@ mod tests {
     #[cfg(target_os = "macos")]
     use super::deliver_clickable_pending_session_notification_with;
     use super::{
-        build_pending_session_notification, get_tray_title, is_running_session_status,
-        is_starting_session_status, is_waiting_session_status, load_tray_sessions_from_dir,
-        main_tray_navigation_items, parse_session_menu_item_id,
+        build_pending_session_notification, format_shortcut_for_display, get_tray_title,
+        is_running_session_status, is_starting_session_status, is_waiting_session_status,
+        load_tray_sessions_from_dir, main_tray_navigation_items, parse_session_menu_item_id,
         pending_session_notification_interaction_for_platform, pick_focus_target_session,
         session_focus_failure_notification_enabled, session_menu_focus_enabled_for_platform,
         session_menu_item_id, session_menu_item_label, session_project_name, session_status_emoji,
@@ -1279,6 +1316,14 @@ mod tests {
         assert_eq!(to_superscript(7), "⁷");
         assert_eq!(to_superscript(12), "¹²");
         assert_eq!(to_superscript(2030), "²⁰³⁰");
+    }
+
+    #[test]
+    fn format_shortcut_for_display_maps_modifiers_to_symbols() {
+        assert_eq!(format_shortcut_for_display("Command+Control+J"), "⌘⌃J");
+        assert_eq!(format_shortcut_for_display("Alt+Shift+1"), "⌥⇧1");
+        // 未知 token 原样透传
+        assert_eq!(format_shortcut_for_display("Command+Space"), "⌘Space");
     }
 
     #[test]
