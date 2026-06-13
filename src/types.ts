@@ -51,6 +51,7 @@ export interface AppPreferences {
   defaultEditorApp: DefaultEditorApp | null;
   trayTitleMaxChars: number | null;
   sessionTrayCountStyle: SessionTrayCountStyle;
+  focusSessionShortcut: string | null;
 }
 
 export type PresetSource = "builtin" | "custom";

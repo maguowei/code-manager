@@ -11,7 +11,8 @@
     "defaultTerminalApp": "terminal",
     "defaultEditorApp": "cursor",
     "trayTitleMaxChars": null,
-    "sessionTrayCountStyle": "superscriptCompact"
+    "sessionTrayCountStyle": "superscriptCompact",
+    "focusSessionShortcut": "Command+Control+J"
   },
   "customPresets": [
     {

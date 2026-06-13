@@ -111,6 +111,7 @@ export type AppPreferences = {
 	defaultEditorApp?: string | null,
 	trayTitleMaxChars?: number | null,
 	sessionTrayCountStyle?: SessionTrayCountStyle,
+	focusSessionShortcut?: string | null,
 };
 
 export type AppPreferencesInput = {
@@ -124,6 +125,7 @@ export type AppPreferencesInput = {
 	defaultEditorApp: string | null,
 	trayTitleMaxChars?: number | null,
 	sessionTrayCountStyle?: SessionTrayCountStyle,
+	focusSessionShortcut?: string | null,
 };
 
 export type BindingState = BindingState_Serialize | BindingState_Deserialize;

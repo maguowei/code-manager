@@ -32,6 +32,11 @@ import type {
 } from "../types";
 import LogViewer from "./LogViewer";
 import SystemInfoDialog from "./SystemInfoDialog";
+import {
+  DEFAULT_FOCUS_SESSION_SHORTCUT,
+  formatAccelerator,
+  keyEventToAccelerator,
+} from "./shortcut-utils";
 import { type Theme, useTheme } from "./theme-provider";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
@@ -236,6 +241,94 @@ function SettingsStateLabel({ enabled }: { enabled: boolean }) {
   );
 }
 
+// 会话聚焦快捷键设置项：开关启用/禁用 + 录制快捷键组合(仅 macOS 展示)。
+function FocusSessionShortcutField({
+  value,
+  onChange,
+}: {
+  value: string | null;
+  onChange: (next: string | null) => void;
+}) {
+  const { t } = useI18n();
+  const [recording, setRecording] = useState(false);
+  const enabled = value !== null;
+
+  useEffect(() => {
+    if (!recording) {
+      return;
+    }
+    // 录制期间捕获全局按键,转成 Tauri accelerator;Esc 取消,只按修饰键不结束
+    const handleKeyDown = (event: KeyboardEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.key === "Escape") {
+        setRecording(false);
+        return;
+      }
+      const accelerator = keyEventToAccelerator(event);
+      if (accelerator) {
+        onChange(accelerator);
+        setRecording(false);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown, true);
+    return () => document.removeEventListener("keydown", handleKeyDown, true);
+  }, [recording, onChange]);
+
+  return (
+    <Field className="gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <FieldTitle className="text-muted-foreground text-xs">
+          {t("settings.focusSessionShortcut")}
+        </FieldTitle>
+        <Switch
+          checked={enabled}
+          onCheckedChange={(checked) => {
+            setRecording(false);
+            onChange(checked ? DEFAULT_FOCUS_SESSION_SHORTCUT : null);
+          }}
+          aria-label={t("settings.focusSessionShortcut")}
+        />
+      </div>
+      {enabled && (
+        <>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="font-mono"
+              onClick={() => setRecording((prev) => !prev)}
+            >
+              {recording
+                ? t("settings.focusSessionShortcutRecording")
+                : value
+                  ? formatAccelerator(value)
+                  : t("settings.focusSessionShortcutRecord")}
+            </Button>
+            {value !== DEFAULT_FOCUS_SESSION_SHORTCUT && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setRecording(false);
+                  onChange(DEFAULT_FOCUS_SESSION_SHORTCUT);
+                }}
+              >
+                {t("settings.focusSessionShortcutReset")}
+              </Button>
+            )}
+          </div>
+          <span className="text-muted-foreground text-xs">
+            {t("settings.focusSessionShortcutHint")}
+          </span>
+        </>
+      )}
+    </Field>
+  );
+}
+
 function NativeOpenOptionContent({ kind, label }: { kind: "editor" | "terminal"; label: string }) {
   const Icon = kind === "editor" ? Code2 : TerminalIcon;
   return (
@@ -381,6 +474,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
     defaultEditorApp: null,
     trayTitleMaxChars: null,
     sessionTrayCountStyle: "superscriptCompact",
+    focusSessionShortcut: DEFAULT_FOCUS_SESSION_SHORTCUT,
   });
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
   const [isSystemInfoOpen, setIsSystemInfoOpen] = useState(false);
@@ -435,6 +529,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   const trayTitleSliderValue = showTrayTitle ? (trayTitleMaxChars ?? TRAY_TITLE_SLIDER_MAX) : 0;
   const showTraySessions = preferences.showTraySessions;
   const sessionTrayCountStyle = preferences.sessionTrayCountStyle;
+  const focusSessionShortcut = preferences.focusSessionShortcut;
   const systemNotificationsEnabled = preferences.systemNotificationsEnabled;
   const collapseSidebarByDefault = preferences.collapseSidebarByDefault;
   const thirdPartyProviderPricingEnabled = preferences.thirdPartyProviderPricingEnabled;
@@ -811,6 +906,17 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                     </SelectContent>
                   </Select>
                 </Field>
+                {platformName === "macos" && (
+                  <FocusSessionShortcutField
+                    value={focusSessionShortcut}
+                    onChange={(next) => {
+                      void persistPreferences(
+                        { ...nextPreferences, focusSessionShortcut: next },
+                        nextPreferences,
+                      );
+                    }}
+                  />
+                )}
               </FieldGroup>
             </SettingsSectionCard>
 

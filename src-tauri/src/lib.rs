@@ -216,6 +216,16 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, _shortcut, event| {
+                    // 按下时聚焦最该处理的会话终端；松开事件忽略，避免重复触发
+                    if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                        tray::focus_most_urgent_session(app);
+                    }
+                })
+                .build(),
+        )
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app| {
             // tauri-specta 要求在 setup 内 mount events（即使当前没有 specta event，
@@ -224,6 +234,8 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             macos_notifications::setup_notification_delegate(app);
             tray::setup_tray(app)?;
+            // 按当前偏好注册"聚焦会话终端"全局快捷键（仅 macOS 生效）
+            tray::apply_focus_session_shortcut(app.handle());
             log::info!("event=app.setup status=ok");
             let claude_directory_watcher =
                 claude_directory_watcher::start_claude_directory_watcher(app.handle().clone());

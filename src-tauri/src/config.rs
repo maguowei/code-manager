@@ -85,6 +85,8 @@ pub struct AppPreferences {
     pub tray_title_max_chars: Option<u32>,
     #[serde(default)]
     pub session_tray_count_style: SessionTrayCountStyle,
+    #[serde(default = "default_focus_session_shortcut")]
+    pub focus_session_shortcut: Option<String>,
 }
 
 impl Default for AppPreferences {
@@ -100,6 +102,7 @@ impl Default for AppPreferences {
             default_editor_app: None,
             tray_title_max_chars: None,
             session_tray_count_style: SessionTrayCountStyle::default(),
+            focus_session_shortcut: default_focus_session_shortcut(),
         }
     }
 }
@@ -328,6 +331,8 @@ pub struct AppPreferencesInput {
     pub tray_title_max_chars: Option<u32>,
     #[serde(default)]
     pub session_tray_count_style: SessionTrayCountStyle,
+    #[serde(default = "default_focus_session_shortcut")]
+    pub focus_session_shortcut: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, specta::Type)]
@@ -406,6 +411,12 @@ struct BuiltinPresetModel {
 
 fn default_true() -> bool {
     true
+}
+
+/// "聚焦会话终端"全局快捷键的默认组合。双修饰键降低与其它软件冲突的概率。
+/// `None` 表示用户禁用了该快捷键。
+fn default_focus_session_shortcut() -> Option<String> {
+    Some("Command+Control+J".to_string())
 }
 
 fn default_ui_language() -> String {
@@ -1039,6 +1050,11 @@ fn normalize_app_preferences(input: AppPreferencesInput) -> Result<AppPreference
         default_editor_app,
         tray_title_max_chars: input.tray_title_max_chars,
         session_tray_count_style: input.session_tray_count_style,
+        // 空字符串视为禁用（None），去除前后空白
+        focus_session_shortcut: input
+            .focus_session_shortcut
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty()),
     })
 }
 
@@ -2522,6 +2538,8 @@ pub fn set_app_preferences(
         registry.app = preferences.clone();
         save_registry(&registry)?;
         rebuild_tray_menu(&app_handle, Some(&registry));
+        // 偏好可能改了聚焦快捷键，按最新值重注册全局快捷键
+        crate::tray::apply_focus_session_shortcut(&app_handle);
         let _ = app_handle.emit("config-workspace-changed", ());
         let _ = app_handle.emit("project-launcher-settings-changed", ());
         if previous_third_party_pricing != preferences.third_party_provider_pricing_enabled {
@@ -3458,6 +3476,7 @@ mod tests {
                 default_editor_app: Some("cursor".to_string()),
                 tray_title_max_chars: None,
                 session_tray_count_style: SessionTrayCountStyle::SuperscriptCompact,
+                focus_session_shortcut: Some("Command+Control+J".to_string()),
             },
             custom_presets: vec![SettingsPreset {
                 id: "custom:team-plan".to_string(),

@@ -40,6 +40,7 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
     defaultEditorApp: null,
     trayTitleMaxChars: null,
     sessionTrayCountStyle: "superscriptCompact",
+    focusSessionShortcut: "Command+Control+J",
   },
   builtinPresets: [],
   customPresets: [],
@@ -160,6 +161,7 @@ describe("SettingsDrawer", () => {
         defaultEditorApp: null,
         trayTitleMaxChars: null,
         sessionTrayCountStyle: "superscriptCompact",
+        focusSessionShortcut: "Command+Control+J",
       },
     });
   });
@@ -183,6 +185,55 @@ describe("SettingsDrawer", () => {
         defaultEditorApp: null,
         trayTitleMaxChars: null,
         sessionTrayCountStyle: "superscript",
+        focusSessionShortcut: "Command+Control+J",
+      },
+    });
+  });
+
+  it("disables the focus session shortcut by toggling off", async () => {
+    renderSettingsDrawer();
+
+    expect(await screen.findByText("会话聚焦快捷键")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("switch", { name: "会话聚焦快捷键" }));
+
+    expect(invokeMock).toHaveBeenCalledWith("set_app_preferences", {
+      data: {
+        showTrayTitle: true,
+        showTraySessions: true,
+        systemNotificationsEnabled: false,
+        collapseSidebarByDefault: false,
+        thirdPartyProviderPricingEnabled: true,
+        uiLanguage: "zh",
+        defaultTerminalApp: "terminal",
+        defaultEditorApp: null,
+        trayTitleMaxChars: null,
+        sessionTrayCountStyle: "superscriptCompact",
+        focusSessionShortcut: null,
+      },
+    });
+  });
+
+  it("records a new focus session shortcut from a key combo", async () => {
+    renderSettingsDrawer();
+
+    expect(await screen.findByText("会话聚焦快捷键")).toBeInTheDocument();
+    // 默认组合按钮显示为 ⌘⌃J，点击进入录制态
+    fireEvent.click(screen.getByRole("button", { name: "⌘⌃J" }));
+    fireEvent.keyDown(document, { key: "k", metaKey: true, ctrlKey: true });
+
+    expect(invokeMock).toHaveBeenCalledWith("set_app_preferences", {
+      data: {
+        showTrayTitle: true,
+        showTraySessions: true,
+        systemNotificationsEnabled: false,
+        collapseSidebarByDefault: false,
+        thirdPartyProviderPricingEnabled: true,
+        uiLanguage: "zh",
+        defaultTerminalApp: "terminal",
+        defaultEditorApp: null,
+        trayTitleMaxChars: null,
+        sessionTrayCountStyle: "superscriptCompact",
+        focusSessionShortcut: "Command+Control+K",
       },
     });
   });
@@ -205,6 +256,7 @@ describe("SettingsDrawer", () => {
         defaultEditorApp: null,
         trayTitleMaxChars: null,
         sessionTrayCountStyle: "superscriptCompact",
+        focusSessionShortcut: "Command+Control+J",
       },
     });
   });
@@ -228,6 +280,7 @@ describe("SettingsDrawer", () => {
         defaultEditorApp: null,
         trayTitleMaxChars: null,
         sessionTrayCountStyle: "superscriptCompact",
+        focusSessionShortcut: "Command+Control+J",
       },
     });
   });
@@ -255,6 +308,7 @@ describe("SettingsDrawer", () => {
           defaultEditorApp: null,
           trayTitleMaxChars: null,
           sessionTrayCountStyle: "superscriptCompact",
+          focusSessionShortcut: "Command+Control+J",
         },
       });
     });

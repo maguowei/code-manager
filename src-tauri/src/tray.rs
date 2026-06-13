@@ -366,6 +366,21 @@ fn is_starting_session_status(status: &str) -> bool {
     status.trim().eq_ignore_ascii_case("starting")
 }
 
+/// 从会话列表中挑选"最该处理"的会话作为快捷键聚焦目标：
+/// 待处理 > 运行中/启动中 > 其它；同优先级取最近活跃（sessions 已按 updated_at 降序排序）。
+fn pick_focus_target_session(sessions: &[TraySession]) -> Option<&TraySession> {
+    sessions
+        .iter()
+        .find(|session| is_waiting_session_status(&session.status))
+        .or_else(|| {
+            sessions.iter().find(|session| {
+                is_running_session_status(&session.status)
+                    || is_starting_session_status(&session.status)
+            })
+        })
+        .or_else(|| sessions.first())
+}
+
 fn session_focus_failure_notification_enabled(preferences: &AppPreferences) -> bool {
     preferences.system_notifications_enabled
 }
@@ -737,6 +752,59 @@ pub fn rebuild_sessions_tray_only(app_handle: &AppHandle) {
     rebuild_sessions_tray(app_handle, &state);
 }
 
+/// 全局快捷键触发：聚焦"最该处理"的会话终端。
+/// 复用与会话托盘点击相同的链路（守卫、osascript 聚焦、失败通知）。
+pub fn focus_most_urgent_session(app: &AppHandle) {
+    let prefs = load_registry_or_default().app;
+    let slug = prefs.default_terminal_app.clone();
+    // 非 macOS 或当前终端不支持聚焦时直接返回
+    if !session_menu_focus_enabled(&slug) {
+        return;
+    }
+    let sessions = load_tray_sessions();
+    let Some(target) = pick_focus_target_session(&sessions) else {
+        // 无活跃会话：不弹通知，仅记日志
+        log::info!("event=tray.focus_shortcut status=skip reason=no_sessions");
+        return;
+    };
+    let pid = target.pid;
+    let cwd = target.cwd.clone();
+    let notifications_enabled = session_focus_failure_notification_enabled(&prefs);
+    let language = prefs.ui_language;
+    // osascript 可能耗数百毫秒，丢线程避免阻塞快捷键回调线程。
+    let app_handle = app.clone();
+    std::thread::spawn(move || {
+        if let Err(failure) = crate::terminal_focus::focus_session_in_terminal(pid, &cwd, &slug) {
+            notify_session_focus_failure(&app_handle, &language, notifications_enabled, &failure);
+        }
+    });
+}
+
+/// 按当前偏好注册"聚焦会话终端"全局快捷键。
+/// 先解除旧注册再注册新组合；`None`、空组合、非 macOS 或解析失败都只解除不注册。
+/// `set_app_preferences` 保存后与 `setup` 启动时各调用一次，做到改键即时生效。
+pub fn apply_focus_session_shortcut(app: &AppHandle) {
+    use tauri_plugin_global_shortcut::GlobalShortcutExt;
+
+    let shortcuts = app.global_shortcut();
+    // 我们只拥有这一个全局快捷键，全部解除最简单且安全。
+    let _ = shortcuts.unregister_all();
+
+    // 聚焦仅 macOS 支持，其它平台不注册
+    if !cfg!(target_os = "macos") {
+        return;
+    }
+    let Some(accelerator) = load_registry_or_default().app.focus_session_shortcut else {
+        return;
+    };
+    match shortcuts.register(accelerator.as_str()) {
+        Ok(()) => log::info!("event=tray.focus_shortcut.register status=ok"),
+        Err(e) => log::warn!(
+            "event=tray.focus_shortcut.register status=err accelerator={accelerator} error={e}"
+        ),
+    }
+}
+
 /// 显示并聚焦主窗口
 fn show_main_window(app: &AppHandle) {
     #[cfg(target_os = "macos")]
@@ -983,7 +1051,7 @@ mod tests {
         build_pending_session_notification, get_tray_title, is_running_session_status,
         is_starting_session_status, is_waiting_session_status, load_tray_sessions_from_dir,
         main_tray_navigation_items, parse_session_menu_item_id,
-        pending_session_notification_interaction_for_platform,
+        pending_session_notification_interaction_for_platform, pick_focus_target_session,
         session_focus_failure_notification_enabled, session_menu_focus_enabled_for_platform,
         session_menu_item_id, session_menu_item_label, session_project_name, session_status_emoji,
         session_status_label, sessions_tray_title, to_superscript, tray_labels_for_language,
@@ -1039,6 +1107,7 @@ mod tests {
             default_editor_app: None,
             tray_title_max_chars: None,
             session_tray_count_style: SessionTrayCountStyle::default(),
+            focus_session_shortcut: None,
         }
     }
 
@@ -1210,6 +1279,39 @@ mod tests {
         assert_eq!(to_superscript(7), "⁷");
         assert_eq!(to_superscript(12), "¹²");
         assert_eq!(to_superscript(2030), "²⁰³⁰");
+    }
+
+    #[test]
+    fn pick_focus_target_prefers_waiting_then_running_then_recent() {
+        // 入参假定已按 updated_at 降序（load_tray_sessions 的排序）
+        let waiting = test_session("/w", "waiting", 100);
+        let running = test_session("/r", "running", 200);
+        let idle_new = test_session("/i1", "idle", 300);
+        let idle_old = test_session("/i2", "idle", 50);
+
+        // 有 waiting：即便它不是最近活跃，也优先聚焦
+        let sessions = [idle_new.clone(), running.clone(), waiting.clone()];
+        assert_eq!(
+            pick_focus_target_session(&sessions).map(|s| s.cwd.as_str()),
+            Some("/w")
+        );
+
+        // 无 waiting，有 running：聚焦 running
+        let sessions = [idle_new.clone(), running, idle_old.clone()];
+        assert_eq!(
+            pick_focus_target_session(&sessions).map(|s| s.cwd.as_str()),
+            Some("/r")
+        );
+
+        // 全 idle：取列表第一个（最近活跃）
+        let sessions = [idle_new, idle_old];
+        assert_eq!(
+            pick_focus_target_session(&sessions).map(|s| s.cwd.as_str()),
+            Some("/i1")
+        );
+
+        // 空列表：None
+        assert_eq!(pick_focus_target_session(&[]).map(|s| s.cwd.as_str()), None);
     }
 
     #[test]
