@@ -5,10 +5,7 @@ use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, OnceLock};
-use std::thread;
-use std::time::Duration;
 use tauri::{
     menu::{Menu, MenuItemBuilder, PredefinedMenuItem},
     tray::TrayIconBuilder,
@@ -19,16 +16,11 @@ use tauri_plugin_notification::NotificationExt;
 const MAIN_TRAY_ID: &str = "main_tray";
 const SESSIONS_TRAY_ID: &str = "sessions_tray";
 const SESSION_MENU_LABEL_MAX_CHARS: usize = 64;
-// Braille 等宽 spinner，10 帧覆盖一整圈；运行中 / 待处理时替代项目名与状态之间的分隔点。
-const SESSION_TRAY_ANIMATION_FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-const SESSION_TRAY_ANIMATION_INTERVAL: Duration = Duration::from_millis(300);
-/// 没有 waiting/running 会话时 animator 进入怠速节拍；watcher 重建 sessions tray 后会立刻显示新状态，
-/// 怠速间隔取 2 秒做到既显著降低 fs/CPU 消耗，又不让新 spinner 启动出现明显延迟。
-const SESSION_TRAY_IDLE_INTERVAL: Duration = Duration::from_secs(2);
-/// 托盘 title 中项目名的最大字符数，超出追加省略号。
-/// macOS 菜单栏宽度有限，长项目名会挤占其它状态栏图标，需要主动截断。
-const SESSION_TRAY_TITLE_PROJECT_MAX_CHARS: usize = 16;
-static SESSION_TRAY_ANIMATION_FRAME: AtomicUsize = AtomicUsize::new(0);
+// 会话状态分类 emoji：托盘 title 与下拉菜单项共用，保持视觉一致。
+// 🔴 待处理（最需关注）、🟢 进行中、⚪ 其它（空闲等）；语义可按需调整。
+const SESSION_STATUS_WAITING_EMOJI: &str = "🔴";
+const SESSION_STATUS_RUNNING_EMOJI: &str = "🟢";
+const SESSION_STATUS_OTHER_EMOJI: &str = "⚪";
 static PENDING_SESSION_NOTIFIER: OnceLock<Mutex<PendingSessionNotifier>> = OnceLock::new();
 
 struct TrayLabels<'a> {
@@ -37,7 +29,6 @@ struct TrayLabels<'a> {
     nav_configs: &'a str,
     no_configs: &'a str,
     active_sessions: &'a str,
-    sessions_title: &'a str,
     no_sessions: &'a str,
     nav_memory: &'a str,
     nav_skills: &'a str,
@@ -56,7 +47,6 @@ fn tray_labels_for_language(language: &str) -> TrayLabels<'static> {
             nav_configs: "Profiles",
             no_configs: "No configs",
             active_sessions: "Active Sessions",
-            sessions_title: "Sessions",
             no_sessions: "No Sessions",
             nav_memory: "Memory",
             nav_skills: "Skills",
@@ -72,7 +62,6 @@ fn tray_labels_for_language(language: &str) -> TrayLabels<'static> {
             nav_configs: "配置",
             no_configs: "暂无配置",
             active_sessions: "当前会话",
-            sessions_title: "会话",
             no_sessions: "无会话",
             nav_memory: "记忆",
             nav_skills: "Skills",
@@ -281,67 +270,53 @@ fn session_status_label(status: &str, language: &str) -> String {
     label.to_string()
 }
 
+/// 会话托盘 title：状态分类计数总览，如 `🔴 1 🟢 1 ⚪ 2`。
+/// 只输出计数大于 0 的类别，让用户一眼看全各状态分布；无会话时返回 `no_sessions` 文案。
 fn sessions_tray_title(sessions: &[TraySession], labels: &TrayLabels<'_>) -> Option<String> {
-    sessions_tray_title_for_frame(
-        sessions,
-        labels,
-        SESSION_TRAY_ANIMATION_FRAME.load(Ordering::Relaxed),
-    )
-}
-
-fn sessions_tray_title_for_frame(
-    sessions: &[TraySession],
-    labels: &TrayLabels<'_>,
-    frame: usize,
-) -> Option<String> {
-    let highlighted = sessions
-        .iter()
-        .find(|session| is_waiting_session_status(&session.status))
-        .or_else(|| {
-            sessions
-                .iter()
-                .find(|session| is_running_session_status(&session.status))
-        });
-
-    match sessions {
-        [] => Some(labels.no_sessions.to_string()),
-        [session] => Some(session_tray_summary(session, labels.language, frame)),
-        _ => highlighted
-            .map(|session| session_tray_summary(session, labels.language, frame))
-            .or_else(|| {
-                sessions
-                    .iter()
-                    .any(|session| is_idle_session_status(&session.status))
-                    .then(|| match labels.language {
-                        "en" => format!("Idle Sessions x{}", sessions.len()),
-                        _ => format!("空闲会话x{}", sessions.len()),
-                    })
-            })
-            .or_else(|| Some(format!("{} {}", labels.sessions_title, sessions.len()))),
+    if sessions.is_empty() {
+        return Some(labels.no_sessions.to_string());
     }
+    let (waiting, running, other) = count_session_states(sessions);
+    let mut parts = Vec::new();
+    if waiting > 0 {
+        parts.push(format!("{SESSION_STATUS_WAITING_EMOJI} {waiting}"));
+    }
+    if running > 0 {
+        parts.push(format!("{SESSION_STATUS_RUNNING_EMOJI} {running}"));
+    }
+    if other > 0 {
+        parts.push(format!("{SESSION_STATUS_OTHER_EMOJI} {other}"));
+    }
+    // sessions 非空 ⇒ 至少一类计数 > 0，parts 必非空。
+    Some(parts.join(" "))
 }
 
-fn session_tray_summary(session: &TraySession, language: &str, frame: usize) -> String {
-    let status = session_status_label(&session.status, language);
-    let separator = session_tray_separator(&session.status, frame);
-    format!(
-        "{} {} {}",
-        crate::utils::truncate(
-            &session_project_name(&session.cwd),
-            SESSION_TRAY_TITLE_PROJECT_MAX_CHARS
-        ),
-        separator,
-        status
-    )
+/// 按状态把会话三分类计数：(待处理, 进行中, 其它)。
+/// starting 归入"进行中"；idle 及未知状态归入"其它"。
+fn count_session_states(sessions: &[TraySession]) -> (usize, usize, usize) {
+    let (mut waiting, mut running, mut other) = (0usize, 0usize, 0usize);
+    for session in sessions {
+        if is_waiting_session_status(&session.status) {
+            waiting += 1;
+        } else if is_running_session_status(&session.status)
+            || is_starting_session_status(&session.status)
+        {
+            running += 1;
+        } else {
+            other += 1;
+        }
+    }
+    (waiting, running, other)
 }
 
-/// 运行中 / 待处理：用 Braille spinner 替代静态分隔点，让"忙"状态本身带动画；
-/// 其它状态保留 `·` 分隔，避免无意义的视觉跳动。
-fn session_tray_separator(status: &str, frame: usize) -> &'static str {
-    if is_waiting_session_status(status) || is_running_session_status(status) {
-        SESSION_TRAY_ANIMATION_FRAMES[frame % SESSION_TRAY_ANIMATION_FRAMES.len()]
+/// 会话状态对应的分类 emoji，托盘 title 与下拉菜单项共用，保证三处归类一致。
+fn session_status_emoji(status: &str) -> &'static str {
+    if is_waiting_session_status(status) {
+        SESSION_STATUS_WAITING_EMOJI
+    } else if is_running_session_status(status) || is_starting_session_status(status) {
+        SESSION_STATUS_RUNNING_EMOJI
     } else {
-        "·"
+        SESSION_STATUS_OTHER_EMOJI
     }
 }
 
@@ -356,8 +331,8 @@ fn is_running_session_status(status: &str) -> bool {
     )
 }
 
-fn is_idle_session_status(status: &str) -> bool {
-    status.trim().eq_ignore_ascii_case("idle")
+fn is_starting_session_status(status: &str) -> bool {
+    status.trim().eq_ignore_ascii_case("starting")
 }
 
 fn session_focus_failure_notification_enabled(preferences: &AppPreferences) -> bool {
@@ -483,7 +458,12 @@ fn session_menu_item_label(session: &TraySession, language: &str) -> String {
             ));
         }
     }
-    parts.join(" · ")
+    // 前缀加状态 emoji，与托盘 title 风格统一，让下拉菜单状态更醒目。
+    format!(
+        "{} {}",
+        session_status_emoji(&session.status),
+        parts.join(" · ")
+    )
 }
 
 /// 编码会话菜单项 id，格式 `session_<pid>::<hex(cwd)>`。
@@ -718,47 +698,12 @@ fn apply_sessions_tray_title(
     true
 }
 
-fn refresh_sessions_tray_title_with_sessions(app_handle: &AppHandle, sessions: &[TraySession]) {
-    let Some(tray) = app_handle.tray_by_id(SESSIONS_TRAY_ID) else {
-        return;
-    };
-
-    let state = load_registry_or_default();
-    let _ = apply_sessions_tray_title(&tray, &state, sessions);
-}
-
 /// 仅刷新会话托盘（标题与菜单项），不重建主托盘。
 /// watcher 检测到 `~/.claude/sessions/` 变化时使用：sessions 变化对主托盘配置无影响，
 /// 不需要重新构造 Profile 子菜单和绑定状态。
 pub fn rebuild_sessions_tray_only(app_handle: &AppHandle) {
     let state = load_registry_or_default();
     rebuild_sessions_tray(app_handle, &state);
-}
-
-fn start_sessions_tray_title_animator(app_handle: AppHandle) {
-    // animator 用 thread::Builder 命名便于诊断；spawn 失败保留 warn 而非静默丢弃
-    if let Err(error) = thread::Builder::new()
-        .name("sessions-tray-title-animator".to_string())
-        .spawn(move || loop {
-            // 先做一次 sessions 读取并判断是否需要旋转 spinner：
-            // 没有 waiting/running 会话时，无谓的 set_title 与 read_dir 是纯浪费，
-            // 让 animator 进入 5 秒怠速；watcher 检测到 sessions 变化后会再次触发刷新
-            let sessions = load_tray_sessions();
-            let needs_spin = sessions.iter().any(|session| {
-                is_waiting_session_status(&session.status)
-                    || is_running_session_status(&session.status)
-            });
-            if needs_spin {
-                SESSION_TRAY_ANIMATION_FRAME.fetch_add(1, Ordering::Relaxed);
-                refresh_sessions_tray_title_with_sessions(&app_handle, &sessions);
-                thread::sleep(SESSION_TRAY_ANIMATION_INTERVAL);
-            } else {
-                thread::sleep(SESSION_TRAY_IDLE_INTERVAL);
-            }
-        })
-    {
-        log::warn!("event=tray.animator status=err reason=spawn_failed error={error}");
-    }
 }
 
 /// 显示并聚焦主窗口
@@ -996,8 +941,6 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
         })
         .build(app)?;
 
-    start_sessions_tray_title_animator(handle.clone());
-
     Ok(())
 }
 
@@ -1006,15 +949,15 @@ mod tests {
     #[cfg(target_os = "macos")]
     use super::deliver_clickable_pending_session_notification_with;
     use super::{
-        build_pending_session_notification, get_tray_title, is_idle_session_status,
-        is_running_session_status, is_waiting_session_status, load_tray_sessions_from_dir,
+        build_pending_session_notification, get_tray_title, is_running_session_status,
+        is_starting_session_status, is_waiting_session_status, load_tray_sessions_from_dir,
         main_tray_navigation_items, parse_session_menu_item_id,
         pending_session_notification_interaction_for_platform,
         session_focus_failure_notification_enabled, session_menu_focus_enabled_for_platform,
-        session_menu_item_id, session_menu_item_label, session_project_name, session_status_label,
-        session_tray_separator, sessions_tray_title, sessions_tray_title_for_frame,
-        tray_labels_for_language, PendingSessionFocusTarget, PendingSessionNotificationInteraction,
-        PendingSessionNotifier, RawTraySession, TraySession, SESSION_TRAY_ANIMATION_FRAMES,
+        session_menu_item_id, session_menu_item_label, session_project_name, session_status_emoji,
+        session_status_label, sessions_tray_title, tray_labels_for_language,
+        PendingSessionFocusTarget, PendingSessionNotificationInteraction, PendingSessionNotifier,
+        RawTraySession, TraySession,
     };
     use crate::config::{AppPreferences, BindingState, ConfigProfile, ConfigRegistry};
     use serde_json::json;
@@ -1161,48 +1104,51 @@ mod tests {
     }
 
     #[test]
-    fn sessions_tray_title_uses_animated_waiting_running_and_idle_labels() {
+    fn sessions_tray_title_shows_status_counts() {
         let zh = tray_labels_for_language("zh");
-        let en = tray_labels_for_language("en");
         let idle = test_session("/Users/demo/work/ai-manager", "idle", 1000);
         let another_idle = test_session("/Users/demo/work/docs", "idle", 900);
         let waiting = test_session("/Users/demo/work/waiting-repo", "waiting", 2000);
         let running = test_session("/Users/demo/work/running-repo", "running", 1500);
 
+        // 空：回退到"无会话"文案
+        assert_eq!(sessions_tray_title(&[], &zh).as_deref(), Some("无会话"));
+        // 单个空闲：只输出 ⚪ 类别
         assert_eq!(
-            sessions_tray_title_for_frame(&[], &zh, 0).as_deref(),
-            Some("无会话")
+            sessions_tray_title(std::slice::from_ref(&idle), &zh).as_deref(),
+            Some("⚪ 1")
         );
+        // 混合：按 待处理 → 进行中 → 其它 顺序输出，各类别独立计数
         assert_eq!(
-            sessions_tray_title_for_frame(std::slice::from_ref(&idle), &zh, 0).as_deref(),
-            Some("ai-manager · 空闲")
+            sessions_tray_title(&[idle.clone(), running.clone(), waiting], &zh).as_deref(),
+            Some("🔴 1 🟢 1 ⚪ 1")
         );
+        // 只输出计数 > 0 的类别：无待处理时不出现 🔴
         assert_eq!(
-            sessions_tray_title_for_frame(
-                &[idle.clone(), running.clone(), waiting.clone()],
-                &zh,
-                0
-            )
-            .as_deref(),
-            Some("waiting-repo ⠋ 待处理")
+            sessions_tray_title(&[idle.clone(), running], &zh).as_deref(),
+            Some("🟢 1 ⚪ 1")
         );
+        // 全空闲：聚合为 ⚪ N
         assert_eq!(
-            sessions_tray_title_for_frame(&[idle.clone(), running], &zh, 2).as_deref(),
-            Some("running-repo ⠹ 运行中")
+            sessions_tray_title(&[idle, another_idle], &zh).as_deref(),
+            Some("⚪ 2")
         );
+        // starting 归入"进行中"
         assert_eq!(
-            sessions_tray_title_for_frame(&[idle, another_idle], &zh, 1).as_deref(),
-            Some("空闲会话x2")
+            sessions_tray_title(&[test_session("/tmp/repo", "starting", 1000)], &zh).as_deref(),
+            Some("🟢 1")
         );
-        assert_eq!(
-            sessions_tray_title_for_frame(&[test_session("/tmp/repo", "running", 1000)], &en, 0)
-                .as_deref(),
-            Some("repo ⠋ Running")
-        );
-        assert_eq!(
-            sessions_tray_title(&[waiting], &zh).as_deref(),
-            Some("waiting-repo ⠋ 待处理")
-        );
+    }
+
+    #[test]
+    fn session_status_emoji_classifies_by_priority() {
+        assert_eq!(session_status_emoji("waiting"), "🔴");
+        assert_eq!(session_status_emoji("running"), "🟢");
+        assert_eq!(session_status_emoji("busy"), "🟢");
+        assert_eq!(session_status_emoji("starting"), "🟢");
+        assert_eq!(session_status_emoji("idle"), "⚪");
+        assert_eq!(session_status_emoji("exited"), "⚪");
+        assert_eq!(session_status_emoji("unknown"), "⚪");
     }
 
     #[test]
@@ -1213,11 +1159,11 @@ mod tests {
 
         assert_eq!(
             session_menu_item_label(&session, "zh"),
-            "ai-manager · 待处理 · approve Bash"
+            "🔴 ai-manager · 待处理 · approve Bash"
         );
         assert_eq!(
             session_menu_item_label(&session, "en"),
-            "ai-manager · Waiting · approve Bash"
+            "🔴 ai-manager · Waiting · approve Bash"
         );
     }
 
@@ -1499,26 +1445,6 @@ mod tests {
         );
     }
 
-    /// 回归测试：项目名超过 SESSION_TRAY_TITLE_PROJECT_MAX_CHARS 必须被截断并追加省略号，
-    /// 防止过长项目名挤占 macOS 菜单栏其它状态栏图标。
-    #[test]
-    fn sessions_tray_title_truncates_long_project_name() {
-        let zh = tray_labels_for_language("zh");
-        // 项目名 22 字符，超过 16 字符上限，前 16 字符为 "very-long-projec"。
-        let session = test_session("/Users/demo/work/very-long-project-name", "running", 1000);
-        assert_eq!(
-            sessions_tray_title_for_frame(std::slice::from_ref(&session), &zh, 0).as_deref(),
-            Some("very-long-projec... ⠋ 运行中")
-        );
-
-        // 中文项目名 8 字符未超出上限，不应被截断。
-        let cn_session = test_session("/Users/demo/work/中文短名", "idle", 1000);
-        assert_eq!(
-            sessions_tray_title_for_frame(std::slice::from_ref(&cn_session), &zh, 0).as_deref(),
-            Some("中文短名 · 空闲")
-        );
-    }
-
     /// 回归测试：菜单项 id 必须能 round-trip 出原始 pid 与 cwd，
     /// 否则点击 handler 无法恢复 cwd 去聚焦终端。覆盖中文、空格、引号、`::` 等易错字符。
     #[test]
@@ -1710,53 +1636,16 @@ mod tests {
         assert_eq!(TraySession::from(raw).waiting_for, None);
     }
 
-    /// `session_tray_separator` 在 waiting/running 状态下旋转 Braille spinner，
-    /// 其它状态固定使用 `·`；spinner 索引必须按 frame 取模避免越界。
-    #[test]
-    fn session_tray_separator_picks_spinner_for_active_states_and_dot_for_others() {
-        // 静态状态：固定点
-        assert_eq!(session_tray_separator("idle", 0), "·");
-        assert_eq!(session_tray_separator("idle", 7), "·");
-        assert_eq!(session_tray_separator("exited", 3), "·");
-
-        // 动态状态：取 frame 帧
-        assert_eq!(
-            session_tray_separator("waiting", 0),
-            SESSION_TRAY_ANIMATION_FRAMES[0]
-        );
-        assert_eq!(
-            session_tray_separator("running", 1),
-            SESSION_TRAY_ANIMATION_FRAMES[1]
-        );
-        // frame 越界自动 mod
-        let len = SESSION_TRAY_ANIMATION_FRAMES.len();
-        assert_eq!(
-            session_tray_separator("running", len * 3 + 2),
-            SESSION_TRAY_ANIMATION_FRAMES[2]
-        );
-
-        // 大小写与前后空白都应识别
-        assert_eq!(
-            session_tray_separator("  WAITING  ", 0),
-            SESSION_TRAY_ANIMATION_FRAMES[0]
-        );
-    }
-
     /// status 比对必须大小写不敏感、忽略前后空白；
-    /// running 同时接受 `running` / `busy` / `active` 三种历史别名。
+    /// running 同时接受 `running` / `busy` / `active` 三种历史别名；starting 单独识别。
     #[test]
-    fn is_idle_running_waiting_session_status_match_case_insensitive_with_trim() {
+    fn waiting_running_starting_session_status_match_case_insensitive_with_trim() {
         // waiting
         assert!(is_waiting_session_status("waiting"));
         assert!(is_waiting_session_status("WAITING"));
         assert!(is_waiting_session_status("  Waiting  "));
         assert!(!is_waiting_session_status("idle"));
         assert!(!is_waiting_session_status(""));
-
-        // idle
-        assert!(is_idle_session_status("idle"));
-        assert!(is_idle_session_status("IDLE"));
-        assert!(!is_idle_session_status("waiting"));
 
         // running 三个别名
         assert!(is_running_session_status("running"));
@@ -1765,6 +1654,11 @@ mod tests {
         assert!(is_running_session_status("  Active  "));
         assert!(!is_running_session_status("idle"));
         assert!(!is_running_session_status("starting"));
+
+        // starting
+        assert!(is_starting_session_status("starting"));
+        assert!(is_starting_session_status("  STARTING  "));
+        assert!(!is_starting_session_status("running"));
     }
 
     /// `session_menu_item_label`:
@@ -1778,14 +1672,14 @@ mod tests {
         running.waiting_for = Some("不应渲染".to_string());
         assert_eq!(
             session_menu_item_label(&running, "zh"),
-            "ai-manager · 运行中"
+            "🟢 ai-manager · 运行中"
         );
 
         // waiting 状态但 waiting_for=None
         let waiting = test_session("/Users/demo/work/ai-manager", "waiting", 2000);
         assert_eq!(
             session_menu_item_label(&waiting, "zh"),
-            "ai-manager · 待处理"
+            "🔴 ai-manager · 待处理"
         );
 
         // 长项目名截断到 32 字符（truncate 在末尾追加 "..."）
@@ -1797,8 +1691,8 @@ mod tests {
         let label = session_menu_item_label(&long, "en");
         // 截断后应仍带状态后缀
         assert!(label.ends_with(" · Idle"));
-        // 项目名部分不超过 32 + "..." 的截断长度（truncate 的行为）
-        let project_part = label.trim_end_matches(" · Idle");
+        // 去掉状态后缀和 "⚪ " emoji 前缀后，项目名不超过 32 + "..." 的截断长度
+        let project_part = label.trim_end_matches(" · Idle").trim_start_matches("⚪ ");
         assert!(
             project_part.chars().count() <= 35,
             "label 项目段过长: {project_part}"
@@ -1850,25 +1744,24 @@ mod tests {
         fs::remove_dir_all(root).ok();
     }
 
-    /// `sessions_tray_title_for_frame` 在多会话场景下 fallback 链：
-    /// 没有 waiting/running/idle 时回退到通用 `<sessions_title> N` 形式。
-    /// 之前的 idle/waiting/running 测试已覆盖 highlight 分支，补这个 fallback 边界。
+    /// 边界：starting 归入"进行中"(🟢)，exited 等未知状态归入"其它"(⚪)。
+    /// title 为纯 emoji+数字，跨语言一致，不再有语言相关 fallback 文案。
     #[test]
-    fn sessions_tray_title_falls_back_to_count_when_no_known_status() {
+    fn sessions_tray_title_classifies_starting_and_unknown_status() {
         let zh = tray_labels_for_language("zh");
         let en = tray_labels_for_language("en");
-        // 全部为 starting / exited：不属于 waiting/running/idle，应走 fallback
         let sessions = vec![
             test_session("/a", "starting", 100),
             test_session("/b", "exited", 200),
         ];
         assert_eq!(
-            sessions_tray_title_for_frame(&sessions, &zh, 0).as_deref(),
-            Some("会话 2")
+            sessions_tray_title(&sessions, &zh).as_deref(),
+            Some("🟢 1 ⚪ 1")
         );
+        // 同一份数据在英文环境下输出完全一致
         assert_eq!(
-            sessions_tray_title_for_frame(&sessions, &en, 0).as_deref(),
-            Some("Sessions 2")
+            sessions_tray_title(&sessions, &en).as_deref(),
+            Some("🟢 1 ⚪ 1")
         );
     }
 }
