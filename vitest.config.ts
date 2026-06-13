@@ -20,8 +20,9 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     exclude: [...configDefaults.exclude, "**/.worktrees/**", "**/.pnpm-store/**"],
-    // 覆盖率插桩 (v8) 下部分 findBy* 异步用例会更慢；普通测试保持默认 5s。
-    testTimeout: isCoverageRun ? 20_000 : 5_000,
+    // 覆盖率插桩 (v8) 下部分 findBy* 异步用例更慢用 20s；普通运行用 15s 给慢 CI runner
+    // (尤其 Windows，偶发整机 I/O 极慢) 足够余量，避免慢环境下整体执行超时的偶发 flake。
+    testTimeout: isCoverageRun ? 20_000 : 15_000,
     coverage: {
       // 使用 v8 引擎，与 Vitest 4 原生集成且性能优于 istanbul
       provider: "v8",

@@ -890,13 +890,24 @@ describe("PresetEditor", () => {
 
   it("preserves custom outputStyle values from behavior json", async () => {
     const onSave = vi.fn();
-    renderEditor({ onSave });
+    // 慢 CI runner 上挂载/切换的 setState 若不逐步 flush 会积压到保存时统一处理，
+    // 可能让该次保存点击被重复触发；每步包 await act 让状态彻底落定后再继续。
+    await act(async () => {
+      renderEditor({ onSave });
+      await Promise.resolve();
+    });
     const behaviorSection = switchSectionToJson("模型与行为");
 
-    fireEvent.change(within(behaviorSection).getByLabelText("config-preview-input"), {
-      target: { value: '{\n  "outputStyle": "MyTeamStyle"\n}' },
+    await act(async () => {
+      fireEvent.change(within(behaviorSection).getByLabelText("config-preview-input"), {
+        target: { value: '{\n  "outputStyle": "MyTeamStyle"\n}' },
+      });
+      await Promise.resolve();
     });
-    fireEvent.click(within(behaviorSection).getByRole("button", { name: "控件" }));
+    await act(async () => {
+      fireEvent.click(within(behaviorSection).getByRole("button", { name: "控件" }));
+      await Promise.resolve();
+    });
     expect(
       within(getSection("模型与行为")).getByRole("combobox", { name: "输出风格" }),
     ).toHaveValue("MyTeamStyle");

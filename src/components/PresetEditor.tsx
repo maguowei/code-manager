@@ -498,13 +498,21 @@ const PresetEditor = forwardRef<PresetEditorHandle, PresetEditorProps>(function 
     applyPatch(applyPresetAutofill(settingsPatch, presets, nextBasePresetId || undefined));
   }
 
+  // 保存进行中闸门：用 useRef(同步)杜绝单次保存窗口内 onSave 被重复触发
+  // (防用户双击重复 apply/upsert，也消除慢测试环境下点击被重复处理导致的多次 onSave)。
+  const savingRef = useRef(false);
+
   async function handleSaveClick() {
-    if (!canSavePreset || !currentSaveData) {
+    if (!canSavePreset || !currentSaveData || savingRef.current) {
       return false;
     }
 
-    const result = await onSave(currentSaveData);
-    return result;
+    savingRef.current = true;
+    try {
+      return await onSave(currentSaveData);
+    } finally {
+      savingRef.current = false;
+    }
   }
 
   const behaviorFields = useMemo(
