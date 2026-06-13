@@ -111,6 +111,7 @@ export type AppPreferences = {
 	defaultEditorApp?: string | null,
 	trayTitleMaxChars?: number | null,
 	sessionTrayCountStyle?: SessionTrayCountStyle,
+	trayPulseWaiting?: boolean,
 	focusSessionShortcut?: string | null,
 };
 
@@ -125,6 +126,7 @@ export type AppPreferencesInput = {
 	defaultEditorApp: string | null,
 	trayTitleMaxChars?: number | null,
 	sessionTrayCountStyle?: SessionTrayCountStyle,
+	trayPulseWaiting?: boolean,
 	focusSessionShortcut?: string | null,
 };
 

@@ -12,6 +12,7 @@
     "defaultEditorApp": "cursor",
     "trayTitleMaxChars": null,
     "sessionTrayCountStyle": "superscriptCompact",
+    "trayPulseWaiting": true,
     "focusSessionShortcut": "Command+Control+J"
   },
   "customPresets": [

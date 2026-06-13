@@ -85,6 +85,8 @@ pub struct AppPreferences {
     pub tray_title_max_chars: Option<u32>,
     #[serde(default)]
     pub session_tray_count_style: SessionTrayCountStyle,
+    #[serde(default = "default_true")]
+    pub tray_pulse_waiting: bool,
     #[serde(default = "default_focus_session_shortcut")]
     pub focus_session_shortcut: Option<String>,
 }
@@ -102,6 +104,7 @@ impl Default for AppPreferences {
             default_editor_app: None,
             tray_title_max_chars: None,
             session_tray_count_style: SessionTrayCountStyle::default(),
+            tray_pulse_waiting: default_true(),
             focus_session_shortcut: default_focus_session_shortcut(),
         }
     }
@@ -331,6 +334,8 @@ pub struct AppPreferencesInput {
     pub tray_title_max_chars: Option<u32>,
     #[serde(default)]
     pub session_tray_count_style: SessionTrayCountStyle,
+    #[serde(default = "default_true")]
+    pub tray_pulse_waiting: bool,
     #[serde(default = "default_focus_session_shortcut")]
     pub focus_session_shortcut: Option<String>,
 }
@@ -1050,6 +1055,7 @@ fn normalize_app_preferences(input: AppPreferencesInput) -> Result<AppPreference
         default_editor_app,
         tray_title_max_chars: input.tray_title_max_chars,
         session_tray_count_style: input.session_tray_count_style,
+        tray_pulse_waiting: input.tray_pulse_waiting,
         // 空字符串视为禁用（None），去除前后空白
         focus_session_shortcut: input
             .focus_session_shortcut
@@ -3476,6 +3482,7 @@ mod tests {
                 default_editor_app: Some("cursor".to_string()),
                 tray_title_max_chars: None,
                 session_tray_count_style: SessionTrayCountStyle::SuperscriptCompact,
+                tray_pulse_waiting: true,
                 focus_session_shortcut: Some("Command+Control+J".to_string()),
             },
             custom_presets: vec![SettingsPreset {

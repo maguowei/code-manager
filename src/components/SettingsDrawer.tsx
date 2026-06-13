@@ -474,6 +474,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
     defaultEditorApp: null,
     trayTitleMaxChars: null,
     sessionTrayCountStyle: "superscriptCompact",
+    trayPulseWaiting: true,
     focusSessionShortcut: DEFAULT_FOCUS_SESSION_SHORTCUT,
   });
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
@@ -529,6 +530,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   const trayTitleSliderValue = showTrayTitle ? (trayTitleMaxChars ?? TRAY_TITLE_SLIDER_MAX) : 0;
   const showTraySessions = preferences.showTraySessions;
   const sessionTrayCountStyle = preferences.sessionTrayCountStyle;
+  const trayPulseWaiting = preferences.trayPulseWaiting;
   const focusSessionShortcut = preferences.focusSessionShortcut;
   const systemNotificationsEnabled = preferences.systemNotificationsEnabled;
   const collapseSidebarByDefault = preferences.collapseSidebarByDefault;
@@ -907,15 +909,33 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                   </Select>
                 </Field>
                 {platformName === "macos" && (
-                  <FocusSessionShortcutField
-                    value={focusSessionShortcut}
-                    onChange={(next) => {
-                      void persistPreferences(
-                        { ...nextPreferences, focusSessionShortcut: next },
-                        nextPreferences,
-                      );
-                    }}
-                  />
+                  <>
+                    <Field orientation="horizontal" className="items-center justify-between gap-4">
+                      <FieldTitle className="text-muted-foreground text-xs">
+                        {t("settings.trayPulseWaiting")}
+                      </FieldTitle>
+                      <Switch
+                        id="settings-tray-pulse-waiting"
+                        checked={trayPulseWaiting}
+                        onCheckedChange={(checked) => {
+                          void persistPreferences(
+                            { ...nextPreferences, trayPulseWaiting: checked },
+                            nextPreferences,
+                          );
+                        }}
+                        aria-label={t("settings.trayPulseWaiting")}
+                      />
+                    </Field>
+                    <FocusSessionShortcutField
+                      value={focusSessionShortcut}
+                      onChange={(next) => {
+                        void persistPreferences(
+                          { ...nextPreferences, focusSessionShortcut: next },
+                          nextPreferences,
+                        );
+                      }}
+                    />
+                  </>
                 )}
               </FieldGroup>
             </SettingsSectionCard>

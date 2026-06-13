@@ -44,6 +44,7 @@ const EMPTY_WORKSPACE: ConfigWorkspace = {
     defaultEditorApp: null,
     trayTitleMaxChars: null,
     sessionTrayCountStyle: "superscriptCompact",
+    trayPulseWaiting: true,
     focusSessionShortcut: "Command+Control+J",
   },
   builtinPresets: [],

@@ -236,6 +236,8 @@ pub fn run() {
             tray::setup_tray(app)?;
             // 按当前偏好注册"聚焦会话终端"全局快捷键（仅 macOS 生效）
             tray::apply_focus_session_shortcut(app.handle());
+            // 启动菜单栏待处理会话呼吸灯脉动线程（仅 macOS 有视觉效果，其它平台空跑无害）
+            tray::start_pulse_task(app.handle().clone());
             log::info!("event=app.setup status=ok");
             let claude_directory_watcher =
                 claude_directory_watcher::start_claude_directory_watcher(app.handle().clone());

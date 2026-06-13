@@ -40,6 +40,7 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
     defaultEditorApp: null,
     trayTitleMaxChars: null,
     sessionTrayCountStyle: "superscriptCompact",
+    trayPulseWaiting: true,
     focusSessionShortcut: "Command+Control+J",
   },
   builtinPresets: [],
@@ -161,6 +162,7 @@ describe("SettingsDrawer", () => {
         defaultEditorApp: null,
         trayTitleMaxChars: null,
         sessionTrayCountStyle: "superscriptCompact",
+        trayPulseWaiting: true,
         focusSessionShortcut: "Command+Control+J",
       },
     });
@@ -185,6 +187,31 @@ describe("SettingsDrawer", () => {
         defaultEditorApp: null,
         trayTitleMaxChars: null,
         sessionTrayCountStyle: "superscript",
+        trayPulseWaiting: true,
+        focusSessionShortcut: "Command+Control+J",
+      },
+    });
+  });
+
+  it("persists the tray pulse waiting toggle", async () => {
+    renderSettingsDrawer();
+
+    expect(await screen.findByText("待处理会话呼吸灯")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("switch", { name: "待处理会话呼吸灯" }));
+
+    expect(invokeMock).toHaveBeenCalledWith("set_app_preferences", {
+      data: {
+        showTrayTitle: true,
+        showTraySessions: true,
+        systemNotificationsEnabled: false,
+        collapseSidebarByDefault: false,
+        thirdPartyProviderPricingEnabled: true,
+        uiLanguage: "zh",
+        defaultTerminalApp: "terminal",
+        defaultEditorApp: null,
+        trayTitleMaxChars: null,
+        sessionTrayCountStyle: "superscriptCompact",
+        trayPulseWaiting: false,
         focusSessionShortcut: "Command+Control+J",
       },
     });
@@ -208,6 +235,7 @@ describe("SettingsDrawer", () => {
         defaultEditorApp: null,
         trayTitleMaxChars: null,
         sessionTrayCountStyle: "superscriptCompact",
+        trayPulseWaiting: true,
         focusSessionShortcut: null,
       },
     });
@@ -233,6 +261,7 @@ describe("SettingsDrawer", () => {
         defaultEditorApp: null,
         trayTitleMaxChars: null,
         sessionTrayCountStyle: "superscriptCompact",
+        trayPulseWaiting: true,
         focusSessionShortcut: "Command+Control+K",
       },
     });
@@ -256,6 +285,7 @@ describe("SettingsDrawer", () => {
         defaultEditorApp: null,
         trayTitleMaxChars: null,
         sessionTrayCountStyle: "superscriptCompact",
+        trayPulseWaiting: true,
         focusSessionShortcut: "Command+Control+J",
       },
     });
@@ -280,6 +310,7 @@ describe("SettingsDrawer", () => {
         defaultEditorApp: null,
         trayTitleMaxChars: null,
         sessionTrayCountStyle: "superscriptCompact",
+        trayPulseWaiting: true,
         focusSessionShortcut: "Command+Control+J",
       },
     });
@@ -308,6 +339,7 @@ describe("SettingsDrawer", () => {
           defaultEditorApp: null,
           trayTitleMaxChars: null,
           sessionTrayCountStyle: "superscriptCompact",
+          trayPulseWaiting: true,
           focusSessionShortcut: "Command+Control+J",
         },
       });

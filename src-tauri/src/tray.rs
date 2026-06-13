@@ -22,6 +22,13 @@ const SESSION_MENU_LABEL_MAX_CHARS: usize = 64;
 const SESSION_STATUS_WAITING_EMOJI: &str = "🔴";
 const SESSION_STATUS_RUNNING_EMOJI: &str = "🟢";
 const SESSION_STATUS_OTHER_EMOJI: &str = "⚪";
+// 待处理会话呼吸灯的暗帧 emoji：⭕ U+2B55 空心圆，与 🔴 同为全角，宽度稳定。
+// 有待处理会话时，托盘 title 在 🔴 / ⭕ 间交替制造"呼吸"动画提示。
+const SESSION_STATUS_WAITING_DIM_EMOJI: &str = "⭕";
+// 呼吸灯半周期：🔴↔⭕ 每次切换的间隔；整周期约 1.2s，远低于 3Hz 光敏阈值。
+// 如需支持 macOS 系统 reduce-motion，可在此基础上读取系统设置覆盖，
+// 但当前优先走 app 内 `tray_pulse_waiting` 开关，避免引入额外 unsafe / objc 调用。
+const PULSE_HALF_PERIOD_MS: u64 = 600;
 static PENDING_SESSION_NOTIFIER: OnceLock<Mutex<PendingSessionNotifier>> = OnceLock::new();
 
 struct TrayLabels<'a> {
@@ -274,20 +281,101 @@ fn session_status_label(status: &str, language: &str) -> String {
     label.to_string()
 }
 
+/// 呼吸动画相位：Active=🔴 实心帧，Dim=⭕ 空心帧。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum PulsePhase {
+    #[default]
+    Active,
+    Dim,
+}
+
+impl PulsePhase {
+    /// 翻转相位，驱动 🔴 / ⭕ 交替。
+    fn toggle(self) -> Self {
+        match self {
+            PulsePhase::Active => PulsePhase::Dim,
+            PulsePhase::Dim => PulsePhase::Active,
+        }
+    }
+}
+
+/// 会话托盘呼吸灯的共享状态。
+/// rebuild 路径是数据所有者：计算两帧标题并写入；脉动线程只读取并按相位切换 set_title。
+#[derive(Debug, Default)]
+struct PulseState {
+    /// 是否正在脉动（waiting>0 且开关开启 且 show_tray_sessions=true）。
+    enabled: bool,
+    /// 当前相位；rebuild 更新 enabled 时保持相位不变，保证视觉连续。
+    phase: PulsePhase,
+    /// 🔴 实心帧完整标题。
+    title_active: String,
+    /// ⭕ 空心帧完整标题。
+    title_dim: String,
+}
+
+/// 全局呼吸灯状态，惰性初始化，生命周期与进程相同（参照 PENDING_SESSION_NOTIFIER）。
+static PULSE_STATE: OnceLock<Mutex<PulseState>> = OnceLock::new();
+
+fn pulse_state() -> &'static Mutex<PulseState> {
+    PULSE_STATE.get_or_init(|| Mutex::new(PulseState::default()))
+}
+
+/// 是否应启动呼吸灯：三个条件全真才脉动。抽成纯函数便于单测。
+fn should_pulse(waiting_count: usize, pulse_enabled: bool, show_sessions: bool) -> bool {
+    waiting_count > 0 && pulse_enabled && show_sessions
+}
+
+/// 把更新写入给定状态并返回"当前相位对应帧"——纯函数，便于单测。
+/// 保持 phase 不变以维持视觉连续。
+fn apply_pulse_update(
+    state: &mut PulseState,
+    enabled: bool,
+    title_active: String,
+    title_dim: String,
+) -> String {
+    state.enabled = enabled;
+    state.title_active = title_active;
+    state.title_dim = title_dim;
+    match state.phase {
+        PulsePhase::Active => state.title_active.clone(),
+        PulsePhase::Dim => state.title_dim.clone(),
+    }
+}
+
+/// 推进一拍：disabled 返回 None；enabled 翻转相位并返回对应帧——纯函数，便于单测。
+fn tick_pulse(state: &mut PulseState) -> Option<String> {
+    if !state.enabled {
+        return None;
+    }
+    state.phase = state.phase.toggle();
+    Some(match state.phase {
+        PulsePhase::Active => state.title_active.clone(),
+        PulsePhase::Dim => state.title_dim.clone(),
+    })
+}
+
+/// 更新全局共享状态，返回当前相位帧供 set_title。锁临界区只做内存操作，不在锁内做 I/O。
+fn update_pulse_state(enabled: bool, title_active: String, title_dim: String) -> String {
+    let mut state = pulse_state().lock().expect("PULSE_STATE 锁中毒");
+    apply_pulse_update(&mut state, enabled, title_active, title_dim)
+}
+
 /// 会话托盘 title：状态分类计数总览，如 `🔴 1 🟢 1 ⚪ 2`。
 /// 只输出计数大于 0 的类别，让用户一眼看全各状态分布；无会话时返回 `no_sessions` 文案。
 /// `style` 控制数字呈现：普通数字 / 上标角标 / 紧凑上标角标。
+/// `waiting_emoji` 控制待处理段的图标：通常传 🔴；呼吸灯暗帧传 ⭕。
 fn sessions_tray_title(
     sessions: &[TraySession],
     labels: &TrayLabels<'_>,
     style: SessionTrayCountStyle,
+    waiting_emoji: &str,
 ) -> Option<String> {
     if sessions.is_empty() {
         return Some(labels.no_sessions.to_string());
     }
     let (waiting, running, other) = count_session_states(sessions);
     let segments = [
-        (SESSION_STATUS_WAITING_EMOJI, waiting),
+        (waiting_emoji, waiting),
         (SESSION_STATUS_RUNNING_EMOJI, running),
         (SESSION_STATUS_OTHER_EMOJI, other),
     ];
@@ -765,6 +853,8 @@ fn apply_sessions_tray_title(
     // 避免状态栏项进入零宽后在部分机器上无法稳定恢复。Windows 不支持 title，
     // Linux title 依赖 icon，因此非 macOS 在创建时会补一个图标。
     if !state.app.show_tray_sessions {
+        // 关闭会话托盘时一并停掉呼吸灯，避免脉动线程继续写 title。
+        update_pulse_state(false, String::new(), String::new());
         if let Err(e) = tray.set_title(Some("")) {
             log::warn!("event=tray.sessions_title status=err action=clear error={e}");
         }
@@ -772,13 +862,58 @@ fn apply_sessions_tray_title(
     }
 
     let labels = tray_labels_for_language(&state.app.ui_language);
-    let title = sessions_tray_title(sessions, &labels, state.app.session_tray_count_style)
-        .unwrap_or_else(|| labels.no_sessions.to_string());
+    let style = state.app.session_tray_count_style;
+    let (waiting, _, _) = count_session_states(sessions);
+    let do_pulse = should_pulse(waiting, state.app.tray_pulse_waiting, true);
 
-    if let Err(e) = tray.set_title(Some(title.as_str())) {
+    // 🔴 实心帧，同时也是不脉动时的静态标题。
+    let title_active = sessions_tray_title(sessions, &labels, style, SESSION_STATUS_WAITING_EMOJI)
+        .unwrap_or_else(|| labels.no_sessions.to_string());
+    // ⭕ 空心帧：仅在需要脉动时生成，否则与实心帧一致（节省一次拼接）。
+    let title_dim = if do_pulse {
+        sessions_tray_title(sessions, &labels, style, SESSION_STATUS_WAITING_DIM_EMOJI)
+            .unwrap_or_else(|| labels.no_sessions.to_string())
+    } else {
+        title_active.clone()
+    };
+
+    // 更新共享状态并取回当前相位帧；脉动线程随后接管 🔴 / ⭕ 交替。
+    let current_title = update_pulse_state(do_pulse, title_active, title_dim);
+    if let Err(e) = tray.set_title(Some(current_title.as_str())) {
         log::warn!("event=tray.sessions_title status=err action=set error={e}");
     }
     true
+}
+
+/// 启动全局唯一的呼吸灯脉动线程。
+/// 在 setup 中托盘创建后调用一次；通过 PULSE_STATE 与 rebuild 路径通信。
+/// 单一半周期循环：每周期翻转一次相位；enabled=false 时本周期不写 title。
+/// 用 std::thread 而非 tokio 定时器：项目未启用 tokio `time` feature，
+/// 且与 watcher / osascript 的 std::thread 用法一致；跨线程 set_title 已被 watcher 链路验证安全。
+pub fn start_pulse_task(app_handle: AppHandle) {
+    let spawn_result = std::thread::Builder::new()
+        .name("tray-pulse".to_string())
+        .spawn(move || {
+            let half = std::time::Duration::from_millis(PULSE_HALF_PERIOD_MS);
+            loop {
+                std::thread::sleep(half);
+                // 锁内只做内存操作：disabled 返回 None；enabled 翻转相位并取出对应帧。
+                let next_title = {
+                    let mut state = pulse_state().lock().expect("PULSE_STATE 锁中毒");
+                    tick_pulse(&mut state)
+                };
+                // set_title 一律在锁外。
+                if let Some(title) = next_title {
+                    if let Some(tray) = app_handle.tray_by_id(SESSIONS_TRAY_ID) {
+                        let _ = tray.set_title(Some(title.as_str()));
+                    }
+                }
+            }
+        });
+    if let Err(e) = spawn_result {
+        // 呼吸灯是增强功能，线程创建失败不影响主流程，只记日志。
+        log::warn!("event=tray.pulse status=err reason=thread_failed error={e}");
+    }
 }
 
 /// 仅刷新会话托盘（标题与菜单项），不重建主托盘。
@@ -974,7 +1109,12 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     let sessions_menu = build_sessions_tray_menu(handle, &state, &sessions)?;
     let labels = tray_labels_for_language(&state.app.ui_language);
     let sessions_title = if state.app.show_tray_sessions {
-        sessions_tray_title(&sessions, &labels, state.app.session_tray_count_style)
+        sessions_tray_title(
+            &sessions,
+            &labels,
+            state.app.session_tray_count_style,
+            SESSION_STATUS_WAITING_EMOJI,
+        )
     } else {
         None
     };
@@ -1032,6 +1172,10 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     }
     let sessions_tray = sessions_builder.build(app)?;
     let _ = sessions_tray.set_visible(state.app.show_tray_sessions);
+    // 初始化呼吸灯状态：启动时若已有待处理会话且开关开启，让脉动线程立即接管。
+    // 通知 baseline 已在上方 handle_pending_session_notifications 建立，
+    // 这里复用 apply_sessions_tray_title（只管 title 与 PulseState，不触发通知）。
+    apply_sessions_tray_title(&sessions_tray, &state, &sessions);
 
     // 构建托盘图标，若设置开启且有激活配置则在图标旁显示配置名
     let mut builder = TrayIconBuilder::with_id(MAIN_TRAY_ID)
@@ -1085,15 +1229,17 @@ mod tests {
     #[cfg(target_os = "macos")]
     use super::deliver_clickable_pending_session_notification_with;
     use super::{
-        build_pending_session_notification, format_shortcut_for_display, get_tray_title,
-        is_running_session_status, is_starting_session_status, is_waiting_session_status,
-        load_tray_sessions_from_dir, main_tray_navigation_items, parse_session_menu_item_id,
-        pending_session_notification_interaction_for_platform, pick_focus_target_session,
-        session_focus_failure_notification_enabled, session_menu_focus_enabled_for_platform,
-        session_menu_item_id, session_menu_item_label, session_project_name, session_status_emoji,
-        session_status_label, sessions_tray_title, to_superscript, tray_labels_for_language,
+        apply_pulse_update, build_pending_session_notification, format_shortcut_for_display,
+        get_tray_title, is_running_session_status, is_starting_session_status,
+        is_waiting_session_status, load_tray_sessions_from_dir, main_tray_navigation_items,
+        parse_session_menu_item_id, pending_session_notification_interaction_for_platform,
+        pick_focus_target_session, session_focus_failure_notification_enabled,
+        session_menu_focus_enabled_for_platform, session_menu_item_id, session_menu_item_label,
+        session_project_name, session_status_emoji, session_status_label, sessions_tray_title,
+        should_pulse, tick_pulse, to_superscript, tray_labels_for_language,
         PendingSessionFocusTarget, PendingSessionNotificationInteraction, PendingSessionNotifier,
-        RawTraySession, TraySession,
+        PulsePhase, PulseState, RawTraySession, TraySession, SESSION_STATUS_WAITING_DIM_EMOJI,
+        SESSION_STATUS_WAITING_EMOJI,
     };
     use crate::config::{
         AppPreferences, BindingState, ConfigProfile, ConfigRegistry, SessionTrayCountStyle,
@@ -1144,6 +1290,7 @@ mod tests {
             default_editor_app: None,
             tray_title_max_chars: None,
             session_tray_count_style: SessionTrayCountStyle::default(),
+            tray_pulse_waiting: true,
             focus_session_shortcut: None,
         }
     }
@@ -1254,33 +1401,62 @@ mod tests {
 
         // 空：回退到"无会话"文案
         assert_eq!(
-            sessions_tray_title(&[], &zh, plain).as_deref(),
+            sessions_tray_title(&[], &zh, plain, SESSION_STATUS_WAITING_EMOJI).as_deref(),
             Some("无会话")
         );
         // 单个空闲：只输出 ⚪ 类别
         assert_eq!(
-            sessions_tray_title(std::slice::from_ref(&idle), &zh, plain).as_deref(),
+            sessions_tray_title(
+                std::slice::from_ref(&idle),
+                &zh,
+                plain,
+                SESSION_STATUS_WAITING_EMOJI
+            )
+            .as_deref(),
             Some("⚪ 1")
         );
         // 混合：按 待处理 → 进行中 → 其它 顺序输出，各类别独立计数
         assert_eq!(
-            sessions_tray_title(&[idle.clone(), running.clone(), waiting], &zh, plain).as_deref(),
+            sessions_tray_title(
+                &[idle.clone(), running.clone(), waiting],
+                &zh,
+                plain,
+                SESSION_STATUS_WAITING_EMOJI
+            )
+            .as_deref(),
             Some("🔴 1 🟢 1 ⚪ 1")
         );
         // 只输出计数 > 0 的类别：无待处理时不出现 🔴
         assert_eq!(
-            sessions_tray_title(&[idle.clone(), running], &zh, plain).as_deref(),
+            sessions_tray_title(
+                &[idle.clone(), running],
+                &zh,
+                plain,
+                SESSION_STATUS_WAITING_EMOJI
+            )
+            .as_deref(),
             Some("🟢 1 ⚪ 1")
         );
         // 全空闲：聚合为 ⚪ N
         assert_eq!(
-            sessions_tray_title(&[idle, another_idle], &zh, plain).as_deref(),
+            sessions_tray_title(
+                &[idle, another_idle],
+                &zh,
+                plain,
+                SESSION_STATUS_WAITING_EMOJI
+            )
+            .as_deref(),
             Some("⚪ 2")
         );
         // starting 归入"进行中"
         assert_eq!(
-            sessions_tray_title(&[test_session("/tmp/repo", "starting", 1000)], &zh, plain)
-                .as_deref(),
+            sessions_tray_title(
+                &[test_session("/tmp/repo", "starting", 1000)],
+                &zh,
+                plain,
+                SESSION_STATUS_WAITING_EMOJI,
+            )
+            .as_deref(),
             Some("🟢 1")
         );
     }
@@ -1296,16 +1472,33 @@ mod tests {
             test_session("/d", "idle", 1000),
         ];
         assert_eq!(
-            sessions_tray_title(&sessions, &zh, SessionTrayCountStyle::Plain).as_deref(),
+            sessions_tray_title(
+                &sessions,
+                &zh,
+                SessionTrayCountStyle::Plain,
+                SESSION_STATUS_WAITING_EMOJI
+            )
+            .as_deref(),
             Some("🔴 1 🟢 1 ⚪ 2")
         );
         assert_eq!(
-            sessions_tray_title(&sessions, &zh, SessionTrayCountStyle::Superscript).as_deref(),
+            sessions_tray_title(
+                &sessions,
+                &zh,
+                SessionTrayCountStyle::Superscript,
+                SESSION_STATUS_WAITING_EMOJI
+            )
+            .as_deref(),
             Some("🔴¹ 🟢¹ ⚪²")
         );
         assert_eq!(
-            sessions_tray_title(&sessions, &zh, SessionTrayCountStyle::SuperscriptCompact)
-                .as_deref(),
+            sessions_tray_title(
+                &sessions,
+                &zh,
+                SessionTrayCountStyle::SuperscriptCompact,
+                SESSION_STATUS_WAITING_EMOJI,
+            )
+            .as_deref(),
             Some("🔴¹🟢¹⚪²")
         );
     }
@@ -1316,6 +1509,131 @@ mod tests {
         assert_eq!(to_superscript(7), "⁷");
         assert_eq!(to_superscript(12), "¹²");
         assert_eq!(to_superscript(2030), "²⁰³⁰");
+    }
+
+    #[test]
+    fn should_pulse_requires_waiting_enabled_and_visible() {
+        // 三个条件必须全部满足才脉动
+        assert!(!should_pulse(0, true, true)); // 无待处理会话
+        assert!(!should_pulse(1, false, true)); // 开关关闭
+        assert!(!should_pulse(1, true, false)); // 会话托盘隐藏
+        assert!(should_pulse(1, true, true)); // 全满足
+        assert!(should_pulse(9, true, true)); // 多个待处理也脉动
+    }
+
+    #[test]
+    fn pulse_phase_toggle_alternates() {
+        assert_eq!(PulsePhase::Active.toggle(), PulsePhase::Dim);
+        assert_eq!(PulsePhase::Dim.toggle(), PulsePhase::Active);
+    }
+
+    #[test]
+    fn sessions_tray_title_dim_emoji_replaces_only_waiting_segment() {
+        let zh = tray_labels_for_language("zh");
+        let sessions = [
+            test_session("/w", "waiting", 3000),
+            test_session("/r", "running", 2000),
+            test_session("/i", "idle", 1000),
+        ];
+        // 暗帧：⭕ 替代 🔴，🟢 / ⚪ 段保持不变
+        assert_eq!(
+            sessions_tray_title(
+                &sessions,
+                &zh,
+                SessionTrayCountStyle::Plain,
+                SESSION_STATUS_WAITING_DIM_EMOJI,
+            )
+            .as_deref(),
+            Some("⭕ 1 🟢 1 ⚪ 1")
+        );
+        // 实心帧保持 🔴
+        assert_eq!(
+            sessions_tray_title(
+                &sessions,
+                &zh,
+                SessionTrayCountStyle::Plain,
+                SESSION_STATUS_WAITING_EMOJI,
+            )
+            .as_deref(),
+            Some("🔴 1 🟢 1 ⚪ 1")
+        );
+    }
+
+    #[test]
+    fn sessions_tray_title_dim_emoji_across_all_styles() {
+        let zh = tray_labels_for_language("zh");
+        // 1 待处理 + 1 进行中 + 2 空闲
+        let sessions = [
+            test_session("/a", "waiting", 4000),
+            test_session("/b", "running", 3000),
+            test_session("/c", "idle", 2000),
+            test_session("/d", "idle", 1000),
+        ];
+        assert_eq!(
+            sessions_tray_title(
+                &sessions,
+                &zh,
+                SessionTrayCountStyle::Plain,
+                SESSION_STATUS_WAITING_DIM_EMOJI,
+            )
+            .as_deref(),
+            Some("⭕ 1 🟢 1 ⚪ 2")
+        );
+        assert_eq!(
+            sessions_tray_title(
+                &sessions,
+                &zh,
+                SessionTrayCountStyle::Superscript,
+                SESSION_STATUS_WAITING_DIM_EMOJI,
+            )
+            .as_deref(),
+            Some("⭕¹ 🟢¹ ⚪²")
+        );
+        assert_eq!(
+            sessions_tray_title(
+                &sessions,
+                &zh,
+                SessionTrayCountStyle::SuperscriptCompact,
+                SESSION_STATUS_WAITING_DIM_EMOJI,
+            )
+            .as_deref(),
+            Some("⭕¹🟢¹⚪²")
+        );
+    }
+
+    #[test]
+    fn apply_pulse_update_returns_current_phase_frame_and_keeps_phase() {
+        let mut state = PulseState::default(); // 默认 phase=Active
+        let frame = apply_pulse_update(&mut state, true, "ACTIVE".to_string(), "DIM".to_string());
+        assert_eq!(frame, "ACTIVE"); // 当前 Active 相位返回实心帧
+        assert!(state.enabled);
+        assert_eq!(state.phase, PulsePhase::Active); // 相位不被重置
+
+        // 切到 Dim 相位后再更新，应返回暗帧
+        state.phase = PulsePhase::Dim;
+        let frame = apply_pulse_update(&mut state, true, "A2".to_string(), "D2".to_string());
+        assert_eq!(frame, "D2");
+        assert_eq!(state.phase, PulsePhase::Dim);
+    }
+
+    #[test]
+    fn tick_pulse_returns_none_when_disabled() {
+        let mut state = PulseState::default(); // enabled=false
+        assert_eq!(tick_pulse(&mut state), None);
+    }
+
+    #[test]
+    fn tick_pulse_alternates_frames_when_enabled() {
+        let mut state = PulseState {
+            enabled: true,
+            phase: PulsePhase::Active,
+            title_active: "ACTIVE".to_string(),
+            title_dim: "DIM".to_string(),
+        };
+        // Active→Dim，返回暗帧
+        assert_eq!(tick_pulse(&mut state).as_deref(), Some("DIM"));
+        // Dim→Active，返回实心帧
+        assert_eq!(tick_pulse(&mut state).as_deref(), Some("ACTIVE"));
     }
 
     #[test]
@@ -1658,12 +1976,12 @@ mod tests {
         let style = SessionTrayCountStyle::default();
         let zh = tray_labels_for_language("zh");
         assert_eq!(
-            sessions_tray_title(&[], &zh, style).as_deref(),
+            sessions_tray_title(&[], &zh, style, SESSION_STATUS_WAITING_EMOJI).as_deref(),
             Some("无会话")
         );
         let en = tray_labels_for_language("en");
         assert_eq!(
-            sessions_tray_title(&[], &en, style).as_deref(),
+            sessions_tray_title(&[], &en, style, SESSION_STATUS_WAITING_EMOJI).as_deref(),
             Some("No Sessions")
         );
     }
@@ -1979,12 +2297,12 @@ mod tests {
             test_session("/b", "exited", 200),
         ];
         assert_eq!(
-            sessions_tray_title(&sessions, &zh, style).as_deref(),
+            sessions_tray_title(&sessions, &zh, style, SESSION_STATUS_WAITING_EMOJI).as_deref(),
             Some("🟢 1 ⚪ 1")
         );
         // 同一份数据在英文环境下输出完全一致
         assert_eq!(
-            sessions_tray_title(&sessions, &en, style).as_deref(),
+            sessions_tray_title(&sessions, &en, style, SESSION_STATUS_WAITING_EMOJI).as_deref(),
             Some("🟢 1 ⚪ 1")
         );
     }

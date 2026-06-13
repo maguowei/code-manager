@@ -51,6 +51,7 @@ export interface AppPreferences {
   defaultEditorApp: DefaultEditorApp | null;
   trayTitleMaxChars: number | null;
   sessionTrayCountStyle: SessionTrayCountStyle;
+  trayPulseWaiting: boolean;
   focusSessionShortcut: string | null;
 }
 

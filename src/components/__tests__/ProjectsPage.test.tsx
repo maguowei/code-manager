@@ -144,6 +144,7 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
     defaultEditorApp: "vscode",
     trayTitleMaxChars: null,
     sessionTrayCountStyle: "superscriptCompact",
+    trayPulseWaiting: true,
     focusSessionShortcut: "Command+Control+J",
   },
   builtinPresets: [],

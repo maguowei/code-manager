@@ -1133,6 +1133,7 @@ const translations = {
     "settings.sessionTrayCountStylePlain": "数字 🔴 1 🟢 1",
     "settings.sessionTrayCountStyleSuperscript": "上标 🔴¹ 🟢¹",
     "settings.sessionTrayCountStyleSuperscriptCompact": "紧凑 🔴¹🟢¹",
+    "settings.trayPulseWaiting": "待处理会话呼吸灯",
     "settings.focusSessionShortcut": "会话聚焦快捷键",
     "settings.focusSessionShortcutDesc":
       "全局快捷键一键聚焦最该处理的会话终端(待处理>运行中>最近活跃，仅 macOS)",
@@ -2623,6 +2624,7 @@ const translations = {
     "settings.sessionTrayCountStylePlain": "Number 🔴 1 🟢 1",
     "settings.sessionTrayCountStyleSuperscript": "Superscript 🔴¹ 🟢¹",
     "settings.sessionTrayCountStyleSuperscriptCompact": "Compact 🔴¹🟢¹",
+    "settings.trayPulseWaiting": "Pulse waiting sessions",
     "settings.focusSessionShortcut": "Focus session shortcut",
     "settings.focusSessionShortcutDesc":
       "Global shortcut to jump to the most urgent session terminal (waiting > running > recent, macOS only)",
