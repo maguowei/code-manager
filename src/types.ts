@@ -18,6 +18,8 @@ export type DefaultTerminalApp = "terminal" | "iterm" | "warp" | "ghostty";
 
 export type DefaultEditorApp = "vscode" | "cursor" | "windsurf" | "zed";
 
+export type SessionTrayCountStyle = "plain" | "superscript" | "superscriptCompact";
+
 export type NativeOpenPlatform = "macos" | "linux" | "windows" | "other";
 
 export interface NativeEditorAppOption {
@@ -48,6 +50,7 @@ export interface AppPreferences {
   defaultTerminalApp: DefaultTerminalApp;
   defaultEditorApp: DefaultEditorApp | null;
   trayTitleMaxChars: number | null;
+  sessionTrayCountStyle: SessionTrayCountStyle;
 }
 
 export type PresetSource = "builtin" | "custom";

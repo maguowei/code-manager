@@ -39,6 +39,7 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
     defaultTerminalApp: "terminal",
     defaultEditorApp: null,
     trayTitleMaxChars: null,
+    sessionTrayCountStyle: "superscriptCompact",
   },
   builtinPresets: [],
   customPresets: [],
@@ -158,6 +159,30 @@ describe("SettingsDrawer", () => {
         defaultTerminalApp: "terminal",
         defaultEditorApp: null,
         trayTitleMaxChars: null,
+        sessionTrayCountStyle: "superscriptCompact",
+      },
+    });
+  });
+
+  it("persists the session tray count style selection", async () => {
+    renderSettingsDrawer();
+
+    expect(await screen.findByText("会话计数样式")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("combobox", { name: "会话计数样式" }));
+    fireEvent.click(await screen.findByRole("option", { name: "上标 🔴¹ 🟢¹" }));
+
+    expect(invokeMock).toHaveBeenCalledWith("set_app_preferences", {
+      data: {
+        showTrayTitle: true,
+        showTraySessions: true,
+        systemNotificationsEnabled: false,
+        collapseSidebarByDefault: false,
+        thirdPartyProviderPricingEnabled: true,
+        uiLanguage: "zh",
+        defaultTerminalApp: "terminal",
+        defaultEditorApp: null,
+        trayTitleMaxChars: null,
+        sessionTrayCountStyle: "superscript",
       },
     });
   });
@@ -179,6 +204,7 @@ describe("SettingsDrawer", () => {
         defaultTerminalApp: "terminal",
         defaultEditorApp: null,
         trayTitleMaxChars: null,
+        sessionTrayCountStyle: "superscriptCompact",
       },
     });
   });
@@ -201,6 +227,7 @@ describe("SettingsDrawer", () => {
         defaultTerminalApp: "terminal",
         defaultEditorApp: null,
         trayTitleMaxChars: null,
+        sessionTrayCountStyle: "superscriptCompact",
       },
     });
   });
@@ -227,6 +254,7 @@ describe("SettingsDrawer", () => {
           defaultTerminalApp: "terminal",
           defaultEditorApp: null,
           trayTitleMaxChars: null,
+          sessionTrayCountStyle: "superscriptCompact",
         },
       });
     });

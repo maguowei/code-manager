@@ -43,6 +43,7 @@ const EMPTY_WORKSPACE: ConfigWorkspace = {
     defaultTerminalApp: "terminal",
     defaultEditorApp: null,
     trayTitleMaxChars: null,
+    sessionTrayCountStyle: "superscriptCompact",
   },
   builtinPresets: [],
   customPresets: [],

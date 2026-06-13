@@ -225,6 +225,7 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
     defaultTerminalApp: "terminal",
     defaultEditorApp: null,
     trayTitleMaxChars: null,
+    sessionTrayCountStyle: "superscriptCompact",
   },
   builtinPresets: [],
   customPresets: [],

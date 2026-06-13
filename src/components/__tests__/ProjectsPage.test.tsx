@@ -143,6 +143,7 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
     defaultTerminalApp: "terminal",
     defaultEditorApp: "vscode",
     trayTitleMaxChars: null,
+    sessionTrayCountStyle: "superscriptCompact",
   },
   builtinPresets: [],
   customPresets: [],

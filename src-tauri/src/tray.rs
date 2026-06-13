@@ -1,5 +1,6 @@
 use crate::config::{
     apply_profile_inner, load_registry_or_default, AppPreferences, ConfigRegistry,
+    SessionTrayCountStyle,
 };
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
@@ -272,23 +273,53 @@ fn session_status_label(status: &str, language: &str) -> String {
 
 /// 会话托盘 title：状态分类计数总览，如 `🔴 1 🟢 1 ⚪ 2`。
 /// 只输出计数大于 0 的类别，让用户一眼看全各状态分布；无会话时返回 `no_sessions` 文案。
-fn sessions_tray_title(sessions: &[TraySession], labels: &TrayLabels<'_>) -> Option<String> {
+/// `style` 控制数字呈现：普通数字 / 上标角标 / 紧凑上标角标。
+fn sessions_tray_title(
+    sessions: &[TraySession],
+    labels: &TrayLabels<'_>,
+    style: SessionTrayCountStyle,
+) -> Option<String> {
     if sessions.is_empty() {
         return Some(labels.no_sessions.to_string());
     }
     let (waiting, running, other) = count_session_states(sessions);
-    let mut parts = Vec::new();
-    if waiting > 0 {
-        parts.push(format!("{SESSION_STATUS_WAITING_EMOJI} {waiting}"));
-    }
-    if running > 0 {
-        parts.push(format!("{SESSION_STATUS_RUNNING_EMOJI} {running}"));
-    }
-    if other > 0 {
-        parts.push(format!("{SESSION_STATUS_OTHER_EMOJI} {other}"));
-    }
+    let segments = [
+        (SESSION_STATUS_WAITING_EMOJI, waiting),
+        (SESSION_STATUS_RUNNING_EMOJI, running),
+        (SESSION_STATUS_OTHER_EMOJI, other),
+    ];
+    let parts = segments
+        .iter()
+        .filter(|(_, count)| *count > 0)
+        .map(|(emoji, count)| format_count_segment(emoji, *count, style))
+        .collect::<Vec<_>>();
+    // 紧凑模式段间不留空格，其余用空格分隔。
+    let joiner = if style == SessionTrayCountStyle::SuperscriptCompact {
+        ""
+    } else {
+        " "
+    };
     // sessions 非空 ⇒ 至少一类计数 > 0，parts 必非空。
-    Some(parts.join(" "))
+    Some(parts.join(joiner))
+}
+
+/// 单个状态段的文本：普通模式 `emoji 数字`，上标模式 `emoji上标数字`。
+fn format_count_segment(emoji: &str, count: usize, style: SessionTrayCountStyle) -> String {
+    match style {
+        SessionTrayCountStyle::Plain => format!("{emoji} {count}"),
+        SessionTrayCountStyle::Superscript | SessionTrayCountStyle::SuperscriptCompact => {
+            format!("{emoji}{}", to_superscript(count))
+        }
+    }
+}
+
+/// 把十进制数字逐位映射为 Unicode 上标字符（多位数如 12 → `¹²`）。
+fn to_superscript(n: usize) -> String {
+    const SUPERSCRIPT: [char; 10] = ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
+    n.to_string()
+        .bytes()
+        .map(|b| SUPERSCRIPT[(b - b'0') as usize])
+        .collect()
 }
 
 /// 按状态把会话三分类计数：(待处理, 进行中, 其它)。
@@ -689,8 +720,8 @@ fn apply_sessions_tray_title(
     }
 
     let labels = tray_labels_for_language(&state.app.ui_language);
-    let title =
-        sessions_tray_title(sessions, &labels).unwrap_or_else(|| labels.no_sessions.to_string());
+    let title = sessions_tray_title(sessions, &labels, state.app.session_tray_count_style)
+        .unwrap_or_else(|| labels.no_sessions.to_string());
 
     if let Err(e) = tray.set_title(Some(title.as_str())) {
         log::warn!("event=tray.sessions_title status=err action=set error={e}");
@@ -838,7 +869,7 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     let sessions_menu = build_sessions_tray_menu(handle, &state, &sessions)?;
     let labels = tray_labels_for_language(&state.app.ui_language);
     let sessions_title = if state.app.show_tray_sessions {
-        sessions_tray_title(&sessions, &labels)
+        sessions_tray_title(&sessions, &labels, state.app.session_tray_count_style)
     } else {
         None
     };
@@ -955,11 +986,13 @@ mod tests {
         pending_session_notification_interaction_for_platform,
         session_focus_failure_notification_enabled, session_menu_focus_enabled_for_platform,
         session_menu_item_id, session_menu_item_label, session_project_name, session_status_emoji,
-        session_status_label, sessions_tray_title, tray_labels_for_language,
+        session_status_label, sessions_tray_title, to_superscript, tray_labels_for_language,
         PendingSessionFocusTarget, PendingSessionNotificationInteraction, PendingSessionNotifier,
         RawTraySession, TraySession,
     };
-    use crate::config::{AppPreferences, BindingState, ConfigProfile, ConfigRegistry};
+    use crate::config::{
+        AppPreferences, BindingState, ConfigProfile, ConfigRegistry, SessionTrayCountStyle,
+    };
     use serde_json::json;
     use std::fs;
     use std::path::Path;
@@ -1005,6 +1038,7 @@ mod tests {
             default_terminal_app: default_terminal_app.to_string(),
             default_editor_app: None,
             tray_title_max_chars: None,
+            session_tray_count_style: SessionTrayCountStyle::default(),
         }
     }
 
@@ -1106,38 +1140,76 @@ mod tests {
     #[test]
     fn sessions_tray_title_shows_status_counts() {
         let zh = tray_labels_for_language("zh");
+        let plain = SessionTrayCountStyle::Plain;
         let idle = test_session("/Users/demo/work/ai-manager", "idle", 1000);
         let another_idle = test_session("/Users/demo/work/docs", "idle", 900);
         let waiting = test_session("/Users/demo/work/waiting-repo", "waiting", 2000);
         let running = test_session("/Users/demo/work/running-repo", "running", 1500);
 
         // 空：回退到"无会话"文案
-        assert_eq!(sessions_tray_title(&[], &zh).as_deref(), Some("无会话"));
+        assert_eq!(
+            sessions_tray_title(&[], &zh, plain).as_deref(),
+            Some("无会话")
+        );
         // 单个空闲：只输出 ⚪ 类别
         assert_eq!(
-            sessions_tray_title(std::slice::from_ref(&idle), &zh).as_deref(),
+            sessions_tray_title(std::slice::from_ref(&idle), &zh, plain).as_deref(),
             Some("⚪ 1")
         );
         // 混合：按 待处理 → 进行中 → 其它 顺序输出，各类别独立计数
         assert_eq!(
-            sessions_tray_title(&[idle.clone(), running.clone(), waiting], &zh).as_deref(),
+            sessions_tray_title(&[idle.clone(), running.clone(), waiting], &zh, plain).as_deref(),
             Some("🔴 1 🟢 1 ⚪ 1")
         );
         // 只输出计数 > 0 的类别：无待处理时不出现 🔴
         assert_eq!(
-            sessions_tray_title(&[idle.clone(), running], &zh).as_deref(),
+            sessions_tray_title(&[idle.clone(), running], &zh, plain).as_deref(),
             Some("🟢 1 ⚪ 1")
         );
         // 全空闲：聚合为 ⚪ N
         assert_eq!(
-            sessions_tray_title(&[idle, another_idle], &zh).as_deref(),
+            sessions_tray_title(&[idle, another_idle], &zh, plain).as_deref(),
             Some("⚪ 2")
         );
         // starting 归入"进行中"
         assert_eq!(
-            sessions_tray_title(&[test_session("/tmp/repo", "starting", 1000)], &zh).as_deref(),
+            sessions_tray_title(&[test_session("/tmp/repo", "starting", 1000)], &zh, plain)
+                .as_deref(),
             Some("🟢 1")
         );
+    }
+
+    #[test]
+    fn sessions_tray_title_renders_each_count_style() {
+        let zh = tray_labels_for_language("zh");
+        // 1 待处理 + 1 进行中 + 2 空闲
+        let sessions = [
+            test_session("/a", "waiting", 4000),
+            test_session("/b", "running", 3000),
+            test_session("/c", "idle", 2000),
+            test_session("/d", "idle", 1000),
+        ];
+        assert_eq!(
+            sessions_tray_title(&sessions, &zh, SessionTrayCountStyle::Plain).as_deref(),
+            Some("🔴 1 🟢 1 ⚪ 2")
+        );
+        assert_eq!(
+            sessions_tray_title(&sessions, &zh, SessionTrayCountStyle::Superscript).as_deref(),
+            Some("🔴¹ 🟢¹ ⚪²")
+        );
+        assert_eq!(
+            sessions_tray_title(&sessions, &zh, SessionTrayCountStyle::SuperscriptCompact)
+                .as_deref(),
+            Some("🔴¹🟢¹⚪²")
+        );
+    }
+
+    #[test]
+    fn to_superscript_maps_each_digit() {
+        assert_eq!(to_superscript(0), "⁰");
+        assert_eq!(to_superscript(7), "⁷");
+        assert_eq!(to_superscript(12), "¹²");
+        assert_eq!(to_superscript(2030), "²⁰³⁰");
     }
 
     #[test]
@@ -1436,11 +1508,15 @@ mod tests {
     /// 防止无 icon 的 sessions tray 进入零宽状态后无法稳定恢复。
     #[test]
     fn sessions_tray_title_returns_placeholder_for_empty_sessions() {
+        let style = SessionTrayCountStyle::default();
         let zh = tray_labels_for_language("zh");
-        assert_eq!(sessions_tray_title(&[], &zh).as_deref(), Some("无会话"));
+        assert_eq!(
+            sessions_tray_title(&[], &zh, style).as_deref(),
+            Some("无会话")
+        );
         let en = tray_labels_for_language("en");
         assert_eq!(
-            sessions_tray_title(&[], &en).as_deref(),
+            sessions_tray_title(&[], &en, style).as_deref(),
             Some("No Sessions")
         );
     }
@@ -1750,17 +1826,18 @@ mod tests {
     fn sessions_tray_title_classifies_starting_and_unknown_status() {
         let zh = tray_labels_for_language("zh");
         let en = tray_labels_for_language("en");
+        let style = SessionTrayCountStyle::Plain;
         let sessions = vec![
             test_session("/a", "starting", 100),
             test_session("/b", "exited", 200),
         ];
         assert_eq!(
-            sessions_tray_title(&sessions, &zh).as_deref(),
+            sessions_tray_title(&sessions, &zh, style).as_deref(),
             Some("🟢 1 ⚪ 1")
         );
         // 同一份数据在英文环境下输出完全一致
         assert_eq!(
-            sessions_tray_title(&sessions, &en).as_deref(),
+            sessions_tray_title(&sessions, &en, style).as_deref(),
             Some("🟢 1 ⚪ 1")
         );
     }

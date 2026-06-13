@@ -48,6 +48,20 @@ static CLAUDE_SETTINGS_SCHEMA: Lazy<Value> = Lazy::new(|| {
 static SCHEMA_REGEX_CACHE: Lazy<Mutex<HashMap<String, Arc<CompiledSchemaRegex>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
+/// 会话托盘计数数字的展示风格。
+/// 纯文本菜单栏无法做图层角标，用 Unicode 上标数字模拟"右上角角标"。
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum SessionTrayCountStyle {
+    /// 普通数字，空格分隔：`🔴 1 🟢 1 ⚪ 2`
+    Plain,
+    /// 上标数字紧贴 emoji，类别空格分隔：`🔴¹ 🟢¹ ⚪²`
+    Superscript,
+    /// 上标数字 + 无类别空格，最省宽度：`🔴¹🟢¹⚪²`
+    #[default]
+    SuperscriptCompact,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AppPreferences {
@@ -69,6 +83,8 @@ pub struct AppPreferences {
     pub default_editor_app: Option<String>,
     #[serde(default)]
     pub tray_title_max_chars: Option<u32>,
+    #[serde(default)]
+    pub session_tray_count_style: SessionTrayCountStyle,
 }
 
 impl Default for AppPreferences {
@@ -83,6 +99,7 @@ impl Default for AppPreferences {
             default_terminal_app: default_terminal_app(),
             default_editor_app: None,
             tray_title_max_chars: None,
+            session_tray_count_style: SessionTrayCountStyle::default(),
         }
     }
 }
@@ -309,6 +326,8 @@ pub struct AppPreferencesInput {
     pub default_editor_app: Option<String>,
     #[serde(default)]
     pub tray_title_max_chars: Option<u32>,
+    #[serde(default)]
+    pub session_tray_count_style: SessionTrayCountStyle,
 }
 
 #[derive(Debug, Clone, Deserialize, specta::Type)]
@@ -1019,6 +1038,7 @@ fn normalize_app_preferences(input: AppPreferencesInput) -> Result<AppPreference
         default_terminal_app,
         default_editor_app,
         tray_title_max_chars: input.tray_title_max_chars,
+        session_tray_count_style: input.session_tray_count_style,
     })
 }
 
@@ -3437,6 +3457,7 @@ mod tests {
                 default_terminal_app: "terminal".to_string(),
                 default_editor_app: Some("cursor".to_string()),
                 tray_title_max_chars: None,
+                session_tray_count_style: SessionTrayCountStyle::SuperscriptCompact,
             },
             custom_presets: vec![SettingsPreset {
                 id: "custom:team-plan".to_string(),

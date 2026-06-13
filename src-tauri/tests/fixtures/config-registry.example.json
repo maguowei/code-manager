@@ -10,7 +10,8 @@
     "uiLanguage": "zh",
     "defaultTerminalApp": "terminal",
     "defaultEditorApp": "cursor",
-    "trayTitleMaxChars": null
+    "trayTitleMaxChars": null,
+    "sessionTrayCountStyle": "superscriptCompact"
   },
   "customPresets": [
     {

@@ -110,6 +110,7 @@ export type AppPreferences = {
 	defaultTerminalApp?: string,
 	defaultEditorApp?: string | null,
 	trayTitleMaxChars?: number | null,
+	sessionTrayCountStyle?: SessionTrayCountStyle,
 };
 
 export type AppPreferencesInput = {
@@ -122,6 +123,7 @@ export type AppPreferencesInput = {
 	defaultTerminalApp: string,
 	defaultEditorApp: string | null,
 	trayTitleMaxChars?: number | null,
+	sessionTrayCountStyle?: SessionTrayCountStyle,
 };
 
 export type BindingState = BindingState_Serialize | BindingState_Deserialize;
@@ -823,6 +825,18 @@ export type SessionMetrics = {
 	pre_tool_hook_duration_ms_avg?: number | null,
 	pre_tool_hook_duration_ms_p95?: number | null,
 };
+
+/**
+ *  会话托盘计数数字的展示风格。
+ *  纯文本菜单栏无法做图层角标，用 Unicode 上标数字模拟"右上角角标"。
+ */
+export type SessionTrayCountStyle =
+/**  普通数字，空格分隔：`🔴 1 🟢 1 ⚪ 2` */
+"plain" |
+/**  上标数字紧贴 emoji，类别空格分隔：`🔴¹ 🟢¹ ⚪²` */
+"superscript" |
+/**  上标数字 + 无类别空格，最省宽度：`🔴¹🟢¹⚪²` */
+"superscriptCompact";
 
 export type SessionUsage = {
 	sessionId: string,

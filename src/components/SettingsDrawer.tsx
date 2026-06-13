@@ -28,6 +28,7 @@ import type {
   DefaultTerminalApp,
   NativeOpenAppOptions,
   NativeOpenPlatform,
+  SessionTrayCountStyle,
 } from "../types";
 import LogViewer from "./LogViewer";
 import SystemInfoDialog from "./SystemInfoDialog";
@@ -82,6 +83,15 @@ const languageOptions: {
 }[] = [
   { value: "zh", labelKey: "settings.languageChinese" },
   { value: "en", labelKey: "settings.languageEnglish" },
+];
+
+const sessionTrayCountStyleOptions: {
+  value: SessionTrayCountStyle;
+  labelKey: TranslationKey;
+}[] = [
+  { value: "superscriptCompact", labelKey: "settings.sessionTrayCountStyleSuperscriptCompact" },
+  { value: "superscript", labelKey: "settings.sessionTrayCountStyleSuperscript" },
+  { value: "plain", labelKey: "settings.sessionTrayCountStylePlain" },
 ];
 
 const themeOptions: {
@@ -370,6 +380,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
     defaultTerminalApp: "terminal",
     defaultEditorApp: null,
     trayTitleMaxChars: null,
+    sessionTrayCountStyle: "superscriptCompact",
   });
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
   const [isSystemInfoOpen, setIsSystemInfoOpen] = useState(false);
@@ -423,6 +434,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   // Slider 位置：未开启时为 0，有字数限制时取限制值，无限制时取最大值
   const trayTitleSliderValue = showTrayTitle ? (trayTitleMaxChars ?? TRAY_TITLE_SLIDER_MAX) : 0;
   const showTraySessions = preferences.showTraySessions;
+  const sessionTrayCountStyle = preferences.sessionTrayCountStyle;
   const systemNotificationsEnabled = preferences.systemNotificationsEnabled;
   const collapseSidebarByDefault = preferences.collapseSidebarByDefault;
   const thirdPartyProviderPricingEnabled = preferences.thirdPartyProviderPricingEnabled;
@@ -764,6 +776,40 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                     }}
                     aria-label={t("settings.showTraySessions")}
                   />
+                </Field>
+                <Field className="gap-2">
+                  <FieldTitle className="text-muted-foreground text-xs">
+                    {t("settings.sessionTrayCountStyle")}
+                  </FieldTitle>
+                  <Select
+                    value={sessionTrayCountStyle}
+                    onValueChange={(value) => {
+                      void persistPreferences(
+                        {
+                          ...nextPreferences,
+                          sessionTrayCountStyle: value as SessionTrayCountStyle,
+                        },
+                        nextPreferences,
+                      );
+                    }}
+                  >
+                    <SelectTrigger
+                      id="settings-session-tray-count-style"
+                      aria-label={t("settings.sessionTrayCountStyle")}
+                      className="w-full"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {sessionTrayCountStyleOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {t(option.labelKey)}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
                 </Field>
               </FieldGroup>
             </SettingsSectionCard>
