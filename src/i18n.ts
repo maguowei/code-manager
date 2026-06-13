@@ -1122,6 +1122,10 @@ const translations = {
     "settings.collapseSidebarByDefaultDesc": "启动后侧边栏仅显示菜单图标，窄屏仍会自动收起",
     "settings.showTrayTitle": "在菜单栏显示当前配置",
     "settings.showTrayTitleDesc": "在系统托盘图标旁显示当前激活的配置名称",
+    "settings.trayTitleCharLimit": "字符数限制",
+    "settings.trayTitleCharLimitUnlimited": "全展示",
+    "settings.trayTitleCharLimitOff": "关闭",
+    "settings.trayTitleCharLimitValue": "最多 {count} 字",
     "settings.showTraySessions": "在菜单栏显示当前会话",
     "settings.showTraySessionsDesc": "在独立菜单栏区域显示 Claude 当前会话及状态",
     "settings.systemNotifications": "系统通知",
@@ -2595,6 +2599,10 @@ const translations = {
     "settings.showTrayTitle": "Show active config in menu bar",
     "settings.showTrayTitleDesc":
       "Display the active configuration name next to the system tray icon",
+    "settings.trayTitleCharLimit": "Character limit",
+    "settings.trayTitleCharLimitUnlimited": "Full display",
+    "settings.trayTitleCharLimitOff": "Off",
+    "settings.trayTitleCharLimitValue": "Max {count} chars",
     "settings.showTraySessions": "Show active sessions in menu bar",
     "settings.showTraySessionsDesc":
       "Display current Claude sessions and statuses in a separate menu bar area",

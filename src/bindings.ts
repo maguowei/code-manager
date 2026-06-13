@@ -109,6 +109,7 @@ export type AppPreferences = {
 	uiLanguage?: string,
 	defaultTerminalApp?: string,
 	defaultEditorApp?: string | null,
+	trayTitleMaxChars?: number | null,
 };
 
 export type AppPreferencesInput = {
@@ -120,6 +121,7 @@ export type AppPreferencesInput = {
 	uiLanguage: string,
 	defaultTerminalApp: string,
 	defaultEditorApp: string | null,
+	trayTitleMaxChars?: number | null,
 };
 
 export type BindingState = BindingState_Serialize | BindingState_Deserialize;

@@ -9,7 +9,8 @@
     "thirdPartyProviderPricingEnabled": true,
     "uiLanguage": "zh",
     "defaultTerminalApp": "terminal",
-    "defaultEditorApp": "cursor"
+    "defaultEditorApp": "cursor",
+    "trayTitleMaxChars": null
   },
   "customPresets": [
     {

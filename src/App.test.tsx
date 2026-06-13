@@ -385,6 +385,7 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
     uiLanguage: "zh",
     defaultTerminalApp: "terminal",
     defaultEditorApp: null,
+    trayTitleMaxChars: null,
   },
   builtinPresets: [],
   customPresets: [],

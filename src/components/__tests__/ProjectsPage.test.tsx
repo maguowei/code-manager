@@ -142,6 +142,7 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
     uiLanguage: "zh",
     defaultTerminalApp: "terminal",
     defaultEditorApp: "vscode",
+    trayTitleMaxChars: null,
   },
   builtinPresets: [],
   customPresets: [],

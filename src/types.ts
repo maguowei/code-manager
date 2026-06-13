@@ -47,6 +47,7 @@ export interface AppPreferences {
   uiLanguage: "zh" | "en";
   defaultTerminalApp: DefaultTerminalApp;
   defaultEditorApp: DefaultEditorApp | null;
+  trayTitleMaxChars: number | null;
 }
 
 export type PresetSource = "builtin" | "custom";

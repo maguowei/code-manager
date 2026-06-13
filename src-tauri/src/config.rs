@@ -67,6 +67,8 @@ pub struct AppPreferences {
     pub default_terminal_app: String,
     #[serde(default)]
     pub default_editor_app: Option<String>,
+    #[serde(default)]
+    pub tray_title_max_chars: Option<u32>,
 }
 
 impl Default for AppPreferences {
@@ -80,6 +82,7 @@ impl Default for AppPreferences {
             ui_language: default_ui_language(),
             default_terminal_app: default_terminal_app(),
             default_editor_app: None,
+            tray_title_max_chars: None,
         }
     }
 }
@@ -304,6 +307,8 @@ pub struct AppPreferencesInput {
     pub ui_language: String,
     pub default_terminal_app: String,
     pub default_editor_app: Option<String>,
+    #[serde(default)]
+    pub tray_title_max_chars: Option<u32>,
 }
 
 #[derive(Debug, Clone, Deserialize, specta::Type)]
@@ -1013,6 +1018,7 @@ fn normalize_app_preferences(input: AppPreferencesInput) -> Result<AppPreference
         ui_language,
         default_terminal_app,
         default_editor_app,
+        tray_title_max_chars: input.tray_title_max_chars,
     })
 }
 
@@ -3430,6 +3436,7 @@ mod tests {
                 ui_language: "zh".to_string(),
                 default_terminal_app: "terminal".to_string(),
                 default_editor_app: Some("cursor".to_string()),
+                tray_title_max_chars: None,
             },
             custom_presets: vec![SettingsPreset {
                 id: "custom:team-plan".to_string(),

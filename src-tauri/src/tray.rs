@@ -617,17 +617,22 @@ fn build_sessions_tray_menu(
     Menu::with_items(app, &refs)
 }
 
-/// 获取托盘 title：当设置开启且有激活配置时返回配置名
+/// 获取托盘 title：当设置开启且有激活配置时返回配置名（可按字数限制截断）
 fn get_tray_title(state: &ConfigRegistry) -> Option<String> {
     if !state.app.show_tray_title {
         return None;
     }
     let active_id = state.bindings.user_profile_id.as_ref()?;
-    state
+    let name = state
         .profiles
         .iter()
         .find(|profile| &profile.id == active_id)
-        .map(|profile| profile.name.clone())
+        .map(|profile| profile.name.clone())?;
+    Some(match state.app.tray_title_max_chars {
+        // 菜单栏标题按字数限制截断，不追加省略号，直接取前 max 个字符
+        Some(max) if max > 0 => name.chars().take(max as usize).collect(),
+        _ => name,
+    })
 }
 
 /// 重建托盘菜单（配置变化后调用）
@@ -1056,6 +1061,7 @@ mod tests {
             ui_language: "zh".to_string(),
             default_terminal_app: default_terminal_app.to_string(),
             default_editor_app: None,
+            tray_title_max_chars: None,
         }
     }
 
@@ -1632,6 +1638,15 @@ mod tests {
             )),
             Some("Profile Two".to_string())
         );
+
+        // 5. 设置了字数限制：按字符数截断，且不追加省略号
+        let mut limited = make_registry(true, Some("p1"), vec![make_profile("p1", "团队默认配置")]);
+        limited.app.tray_title_max_chars = Some(4);
+        assert_eq!(get_tray_title(&limited), Some("团队默认".to_string()));
+
+        // 6. 字数限制大于名称长度：原样返回，不截断
+        limited.app.tray_title_max_chars = Some(100);
+        assert_eq!(get_tray_title(&limited), Some("团队默认配置".to_string()));
     }
 
     /// `session_project_name` 取 cwd 最后一段作为项目名；

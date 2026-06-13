@@ -53,6 +53,7 @@ import {
   SelectValue,
 } from "./ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
+import { Slider } from "./ui/slider";
 import { Switch } from "./ui/switch";
 
 interface SettingsDrawerProps {
@@ -72,6 +73,8 @@ interface NativeOpenSelectOption<T extends string> {
 }
 
 const EDITOR_UNSET_VALUE = "__unset";
+// Slider 最大值代表"全展示"（无字数限制），对应后端 trayTitleMaxChars = null
+const TRAY_TITLE_SLIDER_MAX = 8;
 
 const languageOptions: {
   value: Language;
@@ -366,6 +369,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
     uiLanguage: "zh",
     defaultTerminalApp: "terminal",
     defaultEditorApp: null,
+    trayTitleMaxChars: null,
   });
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
   const [isSystemInfoOpen, setIsSystemInfoOpen] = useState(false);
@@ -415,6 +419,9 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   }, []);
 
   const showTrayTitle = preferences.showTrayTitle;
+  const trayTitleMaxChars = preferences.trayTitleMaxChars;
+  // Slider 位置：未开启时为 0，有字数限制时取限制值，无限制时取最大值
+  const trayTitleSliderValue = showTrayTitle ? (trayTitleMaxChars ?? TRAY_TITLE_SLIDER_MAX) : 0;
   const showTraySessions = preferences.showTraySessions;
   const systemNotificationsEnabled = preferences.systemNotificationsEnabled;
   const collapseSidebarByDefault = preferences.collapseSidebarByDefault;
@@ -694,6 +701,41 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                       );
                     }}
                     aria-label={t("settings.showTrayTitle")}
+                  />
+                </Field>
+                <Field className="gap-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <FieldTitle className="text-muted-foreground text-xs">
+                      {t("settings.trayTitleCharLimit")}
+                    </FieldTitle>
+                    <span className="text-muted-foreground text-xs">
+                      {trayTitleSliderValue === 0
+                        ? t("settings.trayTitleCharLimitOff")
+                        : trayTitleSliderValue >= TRAY_TITLE_SLIDER_MAX
+                          ? t("settings.trayTitleCharLimitUnlimited")
+                          : t("settings.trayTitleCharLimitValue").replace(
+                              "{count}",
+                              String(trayTitleSliderValue),
+                            )}
+                    </span>
+                  </div>
+                  <Slider
+                    min={0}
+                    max={TRAY_TITLE_SLIDER_MAX}
+                    step={1}
+                    value={[trayTitleSliderValue]}
+                    onValueChange={([value]) => {
+                      // 0 档关闭托盘标题；MAX 档为全展示（null）；中间档限制为该字数
+                      const patch =
+                        value === 0
+                          ? { showTrayTitle: false }
+                          : {
+                              showTrayTitle: true,
+                              trayTitleMaxChars: value >= TRAY_TITLE_SLIDER_MAX ? null : value,
+                            };
+                      void persistPreferences({ ...nextPreferences, ...patch }, nextPreferences);
+                    }}
+                    aria-label={t("settings.trayTitleCharLimit")}
                   />
                 </Field>
               </FieldGroup>
