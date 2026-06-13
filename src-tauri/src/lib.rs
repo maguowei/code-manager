@@ -7,6 +7,7 @@ mod logging;
 mod macos_notifications;
 mod memory;
 mod native_open;
+mod plugins;
 mod project;
 mod skills;
 mod stats;
@@ -39,6 +40,7 @@ use memory::{
     preview_delete_memory, toggle_memory, update_memory,
 };
 use native_open::get_native_open_app_options;
+use plugins::refresh_plugin_install_counts;
 use project::{
     cleanup_project_branches, cleanup_project_worktrees, create_project_agents_skills_symlink,
     create_project_agents_symlink, create_project_claude_settings_file,
@@ -135,6 +137,7 @@ fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             get_session_usage_detail,
             refresh_usage_pricing,
             rescan_usage,
+            refresh_plugin_install_counts,
         ])
         .dangerously_cast_bigints_to_number()
 }

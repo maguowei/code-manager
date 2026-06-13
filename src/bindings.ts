@@ -88,6 +88,16 @@ export const commands = {
 	getSessionUsageDetail: (sessionId: string) => typedError<SessionUsageDetail, string>(__TAURI_INVOKE("get_session_usage_detail", { sessionId })),
 	refreshUsagePricing: () => typedError<PricingTable, string>(__TAURI_INVOKE("refresh_usage_pricing")),
 	rescanUsage: () => typedError<ScanResult, string>(__TAURI_INVOKE("rescan_usage")),
+	/**
+	 *  触发 claude 读取插件目录缓存，按其默认 24h TTL 策略刷新安装数。
+	 *
+	 *  不主动删缓存、不强制刷新：执行 `claude plugin list --available --json`，claude 内部若发现
+	 *  本地 `~/.claude/plugins/plugin-catalog-cache.json` 超过 24h TTL 会自动从远端重拉并重写，未过期
+	 *  则沿用缓存。安装数（`unique_installs`）即来自该缓存的 catalog。注意 `claude plugin marketplace
+	 *  update` 只更新 marketplace 克隆、不碰该缓存，刷不了安装数。返回 `Result<(), String>`：前端只需
+	 *  成功/失败，CLI 原始输出仅进后端日志。
+	 */
+	refreshPluginInstallCounts: () => typedError<null, string>(__TAURI_INVOKE("refresh_plugin_install_counts")),
 };
 
 /* Types */

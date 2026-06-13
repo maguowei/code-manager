@@ -284,6 +284,21 @@ pub fn truncate(s: &str, max_len: usize) -> String {
     }
 }
 
+/// 合并子进程的 stdout 与 stderr 为一段去除首尾空白的诊断文本。
+/// 两者都为空返回空串；只有一侧有内容返回该侧；两侧都有内容用换行拼接。
+/// 供 `claude` 等外部命令封装在失败时拼装错误详情复用。
+pub(crate) fn merge_process_output(stdout: &[u8], stderr: &[u8]) -> String {
+    let stdout = String::from_utf8_lossy(stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(stderr).trim().to_string();
+
+    match (stdout.is_empty(), stderr.is_empty()) {
+        (true, true) => String::new(),
+        (false, true) => stdout,
+        (true, false) => stderr,
+        (false, false) => format!("{stdout}\n{stderr}"),
+    }
+}
+
 /// 去掉 Windows 上 `std::fs::canonicalize` 返回的 `\\?\` 和 `\\?\UNC\` verbatim 前缀；
 /// 其它平台原样返回。用于把 verbatim 路径还原为人类与外部工具（git 等）期望的常规路径。
 #[allow(dead_code)]

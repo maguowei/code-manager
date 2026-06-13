@@ -254,6 +254,38 @@ describe("BrowseMarketplaceTab", () => {
     expect(description).toContain("team-market：2 个插件");
   });
 
+  it("安装数刷新失败时仍刷新列表并提示失败", async () => {
+    enableTauriRuntime();
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_config_workspace") {
+        return { app: { uiLanguage: "zh" } };
+      }
+      if (command === "refresh_plugin_install_counts") {
+        // 模拟 claude CLI 缺失等失败：invoke 以字符串错误 reject
+        throw "claude not found";
+      }
+      return null;
+    });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ plugins: [{ name: "alpha" }] }),
+    } as unknown as Response);
+    renderTab();
+    await screen.findByText("alpha");
+
+    fireEvent.click(screen.getByRole("button", { name: "刷新" }));
+
+    await waitFor(() => {
+      expect(showToastMock).toHaveBeenCalledWith(
+        "插件安装数刷新失败，可能不是最新",
+        "error",
+        expect.objectContaining({ description: "claude not found" }),
+      );
+    });
+    // GitHub 插件列表不受 catalog 重拉失败影响，仍正常展示
+    expect(screen.getByText("alpha")).toBeInTheDocument();
+  });
+
   it("插件市场筛选默认只显示全部", async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,

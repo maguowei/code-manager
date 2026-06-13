@@ -1309,7 +1309,7 @@ fn parse_claude_project_purge_output(
     stdout: &[u8],
     stderr: &[u8],
 ) -> Result<ProjectPurgeOutput, String> {
-    let output = merge_process_output(stdout, stderr);
+    let output = crate::utils::merge_process_output(stdout, stderr);
     if success {
         return Ok(ProjectPurgeOutput { project, output });
     }
@@ -1321,18 +1321,6 @@ fn parse_claude_project_purge_output(
             "claude project purge 执行失败，退出码: {:?}\n{}",
             code, output
         ))
-    }
-}
-
-fn merge_process_output(stdout: &[u8], stderr: &[u8]) -> String {
-    let stdout = String::from_utf8_lossy(stdout).trim().to_string();
-    let stderr = String::from_utf8_lossy(stderr).trim().to_string();
-
-    match (stdout.is_empty(), stderr.is_empty()) {
-        (true, true) => String::new(),
-        (false, true) => stdout,
-        (true, false) => stderr,
-        (false, false) => format!("{stdout}\n{stderr}"),
     }
 }
 

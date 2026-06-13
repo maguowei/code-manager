@@ -14,6 +14,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/hooks/useToast";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../../i18n";
+import { ipc } from "../../ipc";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Empty, EmptyDescription, EmptyTitle } from "../ui/empty";
@@ -272,8 +273,18 @@ export default function BrowseMarketplaceTab({
     const startedAt = Date.now();
     setRefreshingAll(true);
     let summaries: Awaited<ReturnType<typeof refreshAll>> = [];
+    let installCountsError: string | null = null;
     try {
-      summaries = await refreshAll();
+      // GitHub 插件列表刷新与 claude catalog 重拉并发；后者失败降级，不拖垮列表刷新
+      [summaries] = await Promise.all([
+        refreshAll(),
+        ipc.refreshPluginInstallCounts().catch((error) => {
+          installCountsError = error instanceof Error ? error.message : String(error);
+        }),
+      ]);
+      // catalog 缓存重拉后重读安装数（本地读取，廉价）
+      const counts = await loadPluginInstallCounts();
+      setInstallCounts(counts);
     } finally {
       const remainingMs = MIN_REFRESH_FEEDBACK_MS - (Date.now() - startedAt);
       if (remainingMs > 0) {
@@ -281,9 +292,15 @@ export default function BrowseMarketplaceTab({
       }
       setRefreshingAll(false);
     }
-    showToast(t("profileEditor.plugins.browse.refreshSuccess"), "success", {
-      description: formatRefreshSuccessDescription(summaries),
-    });
+    if (installCountsError) {
+      showToast(t("profileEditor.plugins.browse.installCountsRefreshFailed"), "error", {
+        description: installCountsError,
+      });
+    } else {
+      showToast(t("profileEditor.plugins.browse.refreshSuccess"), "success", {
+        description: formatRefreshSuccessDescription(summaries),
+      });
+    }
   }
 
   function toggleDetails(pluginId: string) {

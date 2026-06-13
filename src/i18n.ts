@@ -623,6 +623,7 @@ const translations = {
     "profileEditor.plugins.browse.failureSummary": "{count} 个来源加载失败 · 查看",
     "profileEditor.plugins.browse.failurePopoverTitle": "加载失败的来源",
     "profileEditor.plugins.browse.failureRetry": "重试",
+    "profileEditor.plugins.browse.installCountsRefreshFailed": "插件安装数刷新失败，可能不是最新",
     "profileEditor.plugins.browse.refreshAll": "刷新",
     "profileEditor.plugins.browse.refreshing": "刷新中...",
     "profileEditor.plugins.browse.refreshSuccess": "插件市场已刷新",
@@ -2090,6 +2091,8 @@ const translations = {
     "profileEditor.plugins.browse.failureSummary": "{count} source(s) failed to load · View",
     "profileEditor.plugins.browse.failurePopoverTitle": "Failed sources",
     "profileEditor.plugins.browse.failureRetry": "Retry",
+    "profileEditor.plugins.browse.installCountsRefreshFailed":
+      "Failed to refresh plugin install counts; they may be stale",
     "profileEditor.plugins.browse.refreshAll": "Refresh",
     "profileEditor.plugins.browse.refreshing": "Refreshing...",
     "profileEditor.plugins.browse.refreshSuccess": "Plugin marketplaces refreshed",

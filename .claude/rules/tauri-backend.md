@@ -28,6 +28,8 @@ paths:
 | `terminal_focus.rs` | macOS 上 `pid -> tty -> AppleScript` 聚焦 Terminal.app / iTerm / Ghostty |
 | `tray.rs` | 系统托盘：Profile 切换、会话视图、页面导航 |
 | `logging.rs` | tauri-plugin-log 配置、日志脱敏 helper、panic hook |
+| `plugins.rs` | 插件市场后端操作：触发 `claude plugin list --available --json`，让 claude 按 24h TTL 默认策略刷新插件安装数缓存（不主动删缓存、不强制刷新） |
+| `macos_notifications.rs` | macOS 原生通知（`UNUserNotificationCenter`）：发待处理会话通知，点击聚焦对应会话终端 |
 
 ## 先读文件
 
