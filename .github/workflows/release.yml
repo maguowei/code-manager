@@ -83,6 +83,22 @@ jobs:
       - name: 安装前端依赖
         run: pnpm install --frozen-lockfile
 
+      - name: 读取 tag 变更说明
+        id: notes
+        shell: bash
+        env:
+          # tag 名经 env 传入并在 run 中加引号,避免恶意 tag 名导致命令注入
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          # 由 annotated tag 触发,从 tag message 提取 release notes 作为 Release 正文。
+          # 显式 fetch tag 以确保浅克隆下也能读到 annotation 内容。
+          git fetch --force origin "refs/tags/${TAG_NAME}:refs/tags/${TAG_NAME}"
+          {
+            echo 'body<<RELEASE_NOTES_EOF'
+            git tag -l --format='%(contents)' "${TAG_NAME}"
+            echo 'RELEASE_NOTES_EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - name: 构建并发布
         uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # action-v0.6.2
         env:
@@ -90,7 +106,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "AI Manager ${{ github.ref_name }}"
-          releaseBody: "查看 Assets 下载并安装此版本。"
+          releaseBody: ${{ steps.notes.outputs.body }}
           releaseDraft: true
           prerelease: false
           tauriScript: pnpm tauri
