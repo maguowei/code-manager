@@ -13,7 +13,7 @@
 ## 项目速览
 
 - 项目：AI Manager，基于 Tauri 2 的 Claude Code 本地配置管理桌面应用。
-- 当前版本：`0.19.0`，同时维护在 `package.json`、`src-tauri/Cargo.toml` 与 `src-tauri/tauri.conf.json`。
+- 版本号同时维护在 `package.json`、`src-tauri/Cargo.toml` 与 `src-tauri/tauri.conf.json` 三处，需保持一致。
 - 前端：React 19 + TypeScript + Vite + Tailwind CSS v4 + shadcn/ui。
 - 后端：Rust + Tauri commands + tauri-specta 类型化 IPC。
 - 表单与校验：react-hook-form + Zod + JSON Schema。
