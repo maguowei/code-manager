@@ -3,17 +3,25 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  Bot,
+  Braces,
+  ChevronDown,
   CircleCheck,
   ExternalLink,
+  Info,
+  Plug,
   Plus,
   RefreshCw,
   Settings2,
+  Sparkles,
+  SquareTerminal,
+  Webhook,
 } from "lucide-react";
 import type { KeyboardEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/hooks/useToast";
 import { cn } from "@/lib/utils";
-import { useI18n } from "../../i18n";
+import { type TranslationKey, useI18n } from "../../i18n";
 import { ipc } from "../../ipc";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -29,8 +37,15 @@ import {
   SelectValue,
 } from "../ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import { formatShortDateTime } from "../usage/format";
 import type { MarketplacePluginEntry } from "./marketplace-catalog";
-import { loadPluginInstallCounts, type PluginInstallCounts } from "./plugin-install-counts";
+import {
+  emptyPluginCatalog,
+  loadPluginCatalog,
+  type PluginCatalog,
+  type PluginComponents,
+  type PluginInstallCounts,
+} from "./plugin-install-counts";
 import type { PluginEntry } from "./useEnabledPluginsState";
 import type { MarketplaceSourceInput } from "./useMarketplaceCatalog";
 import { useMarketplaceCatalog } from "./useMarketplaceCatalog";
@@ -56,6 +71,45 @@ const MIN_REFRESH_FEEDBACK_MS = 500;
 
 type MarketplaceSortMode = "pluginId" | "installCount";
 type SortDirection = "asc" | "desc";
+type ProviderFilter = "all" | "anthropic" | "partner";
+
+// catalog 缓存里 Anthropic 第一方插件的作者名
+const ANTHROPIC_AUTHOR = "Anthropic";
+// 官方 marketplace 仓库 commit 基址，用于 marketplace SHA 外链
+const OFFICIAL_MARKETPLACE_COMMIT_BASE =
+  "https://github.com/anthropics/claude-plugins-official/commit/";
+
+// 组成类别的展示顺序、图标与 i18n 文案 key
+const COMPONENT_KINDS = [
+  {
+    key: "commands",
+    icon: SquareTerminal,
+    labelKey: "profileEditor.plugins.browse.componentCommands",
+  },
+  { key: "agents", icon: Bot, labelKey: "profileEditor.plugins.browse.componentAgents" },
+  { key: "skills", icon: Sparkles, labelKey: "profileEditor.plugins.browse.componentSkills" },
+  { key: "hooks", icon: Webhook, labelKey: "profileEditor.plugins.browse.componentHooks" },
+  { key: "mcpServers", icon: Plug, labelKey: "profileEditor.plugins.browse.componentMcpServers" },
+  { key: "lspServers", icon: Braces, labelKey: "profileEditor.plugins.browse.componentLspServers" },
+] as const satisfies ReadonlyArray<{
+  key: keyof PluginComponents;
+  icon: typeof Bot;
+  labelKey: TranslationKey;
+}>;
+
+// 按作者归属把官方市场插件分为 Anthropic 第一方与合作伙伴；空作者视为合作伙伴
+function getProviderAffiliation(plugin: MarketplacePluginEntry): "anthropic" | "partner" {
+  return plugin.authorName === ANTHROPIC_AUTHOR ? "anthropic" : "partner";
+}
+
+// catalog 元信息的 ISO 时间 -> 本地短时间；空或非法返回占位符
+function formatCatalogTime(iso: string | null): string {
+  if (!iso) {
+    return "-";
+  }
+  const ms = new Date(iso).getTime();
+  return Number.isNaN(ms) ? "-" : formatShortDateTime(ms);
+}
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -80,18 +134,19 @@ export default function BrowseMarketplaceTab({
   const [statusFilter, setStatusFilter] = useState<"all" | "enabled" | "disabled">("all");
   const [categoryFilter, setCategoryFilter] = useState<"all" | string>("all");
   const [sourceTypeFilter, setSourceTypeFilter] = useState<"all" | string>("all");
+  const [providerFilter, setProviderFilter] = useState<ProviderFilter>("all");
   const [sortMode, setSortMode] = useState<MarketplaceSortMode>("installCount");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [installCounts, setInstallCounts] = useState<PluginInstallCounts>({});
+  const [catalog, setCatalog] = useState<PluginCatalog>(() => emptyPluginCatalog());
   const [refreshingAll, setRefreshingAll] = useState(false);
   const [expandedPluginIds, setExpandedPluginIds] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     if (!active || sources.length === 0) return;
     let cancelled = false;
-    void loadPluginInstallCounts().then((counts) => {
+    void loadPluginCatalog().then((next) => {
       if (!cancelled) {
-        setInstallCounts(counts);
+        setCatalog(next);
       }
     });
     return () => {
@@ -111,6 +166,17 @@ export default function BrowseMarketplaceTab({
     () => Object.values(byMarketplace).flatMap((entry) => entry.plugins),
     [byMarketplace],
   );
+
+  // 从 catalog 派生安装数映射，供排序与展示复用
+  const installCounts = useMemo<PluginInstallCounts>(() => {
+    const counts: PluginInstallCounts = {};
+    for (const [pluginId, entry] of Object.entries(catalog.entries)) {
+      if (typeof entry.installCount === "number") {
+        counts[pluginId] = entry.installCount;
+      }
+    }
+    return counts;
+  }, [catalog]);
 
   const failures = useMemo(
     () => Object.values(byMarketplace).filter((entry) => entry.status === "error"),
@@ -148,6 +214,8 @@ export default function BrowseMarketplaceTab({
         if (statusFilter === "disabled" && enabledMap.get(plugin.pluginId)) return false;
         if (categoryFilter !== "all" && plugin.category !== categoryFilter) return false;
         if (sourceTypeFilter !== "all" && plugin.sourceType !== sourceTypeFilter) return false;
+        if (providerFilter !== "all" && getProviderAffiliation(plugin) !== providerFilter)
+          return false;
         if (q.length === 0) return true;
         return [plugin.pluginId, plugin.description, plugin.authorName].some((field) =>
           field.toLowerCase().includes(q),
@@ -176,6 +244,7 @@ export default function BrowseMarketplaceTab({
     enabledMap,
     installCounts,
     marketplaceFilter,
+    providerFilter,
     searchQuery,
     sortDirection,
     sortMode,
@@ -282,9 +351,9 @@ export default function BrowseMarketplaceTab({
           installCountsError = error instanceof Error ? error.message : String(error);
         }),
       ]);
-      // catalog 缓存重拉后重读安装数（本地读取，廉价）
-      const counts = await loadPluginInstallCounts();
-      setInstallCounts(counts);
+      // catalog 缓存重拉后重读完整 catalog（本地读取，廉价）
+      const next = await loadPluginCatalog();
+      setCatalog(next);
     } finally {
       const remainingMs = MIN_REFRESH_FEEDBACK_MS - (Date.now() - startedAt);
       if (remainingMs > 0) {
@@ -483,6 +552,40 @@ export default function BrowseMarketplaceTab({
               </Select>
             </div>
           )}
+
+          {/* 提供方筛选（Anthropic 第一方 / 合作伙伴） */}
+          <div className={FILTER_CONTROL_CLASS}>
+            <span
+              className="shrink-0 whitespace-nowrap text-xs font-semibold text-muted-foreground"
+              aria-hidden="true"
+            >
+              {t("profileEditor.plugins.browse.providerFilterFieldLabel")}
+            </span>
+            <Select
+              value={providerFilter}
+              onValueChange={(value) => setProviderFilter(value as ProviderFilter)}
+            >
+              <SelectTrigger
+                aria-label={t("profileEditor.plugins.browse.providerFilterLabel")}
+                className={FILTER_TRIGGER_CLASS}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="all">
+                    {t("profileEditor.plugins.metadataFilterAll")}
+                  </SelectItem>
+                  <SelectItem value="anthropic">
+                    {t("profileEditor.plugins.browse.providerAnthropic")}
+                  </SelectItem>
+                  <SelectItem value="partner">
+                    {t("profileEditor.plugins.browse.providerPartner")}
+                  </SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
@@ -490,6 +593,67 @@ export default function BrowseMarketplaceTab({
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
         <span>{summary}</span>
         <div className="flex flex-wrap items-center gap-3">
+          {catalog.meta.generatedAt && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-auto cursor-pointer gap-1 p-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground"
+                  aria-label={t("profileEditor.plugins.browse.catalogMetaAriaLabel")}
+                >
+                  <Info className="size-3.5" aria-hidden="true" />
+                  {t("profileEditor.plugins.browse.catalogMetaTrigger")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80">
+                <div className="mb-2 text-sm font-semibold">
+                  {t("profileEditor.plugins.browse.catalogMetaTitle")}
+                </div>
+                <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
+                  <dt className="text-muted-foreground">
+                    {t("profileEditor.plugins.browse.catalogMetaGeneratedAt")}
+                  </dt>
+                  <dd className="text-right tabular-nums">
+                    {formatCatalogTime(catalog.meta.generatedAt)}
+                  </dd>
+                  <dt className="text-muted-foreground">
+                    {t("profileEditor.plugins.browse.catalogMetaFetchedAt")}
+                  </dt>
+                  <dd className="text-right tabular-nums">
+                    {formatCatalogTime(catalog.meta.fetchedAt)}
+                  </dd>
+                  <dt className="text-muted-foreground">
+                    {t("profileEditor.plugins.browse.catalogMetaInstallsGeneratedAt")}
+                  </dt>
+                  <dd className="text-right tabular-nums">
+                    {formatCatalogTime(catalog.meta.installsGeneratedAt)}
+                  </dd>
+                  {catalog.meta.marketplaceSha && (
+                    <>
+                      <dt className="text-muted-foreground">
+                        {t("profileEditor.plugins.browse.catalogMetaMarketplaceSha")}
+                      </dt>
+                      <dd className="text-right">
+                        <Button
+                          type="button"
+                          variant="link"
+                          className="h-auto p-0 font-mono text-xs"
+                          onClick={() =>
+                            void openUrl(
+                              `${OFFICIAL_MARKETPLACE_COMMIT_BASE}${catalog.meta.marketplaceSha}`,
+                            )
+                          }
+                        >
+                          {catalog.meta.marketplaceSha.slice(0, 7)}
+                        </Button>
+                      </dd>
+                    </>
+                  )}
+                </dl>
+              </PopoverContent>
+            </Popover>
+          )}
           {unsupportedCount > 0 && (
             <span>
               {formatTemplate(t("profileEditor.plugins.browse.unsupportedSourceHint"), {
@@ -619,6 +783,17 @@ export default function BrowseMarketplaceTab({
               : t("profileEditor.plugins.browse.expandDetailsTooltip");
             const rowLabel = plugin.pluginId;
             const displayName = plugin.pluginId.split("@")[0];
+            // 组成数据仅官方市场插件有（来自 catalog 缓存）
+            const components = catalog.entries[plugin.pluginId]?.components;
+            const componentBadges = components
+              ? COMPONENT_KINDS.map((kind) => ({
+                  ...kind,
+                  count: components[kind.key].length,
+                })).filter((badge) => badge.count > 0)
+              : [];
+            const hasComponents = componentBadges.length > 0;
+            // 提供方归属（仅对官方市场插件做行内徽章区分）
+            const affiliation = getProviderAffiliation(plugin);
 
             return (
               <div
@@ -653,15 +828,28 @@ export default function BrowseMarketplaceTab({
                     ) : (
                       <span className="min-w-0 break-words">{displayName}</span>
                     )}
-                    {plugin.isOfficial && (
-                      <span
-                        className="inline-flex shrink-0 items-center text-chart-2 opacity-80"
-                        role="img"
-                        aria-label={t("profileEditor.plugins.verifiedBadgeAriaLabel")}
-                      >
-                        <CircleCheck className="size-[13px]" aria-hidden="true" />
-                      </span>
-                    )}
+                    {plugin.isOfficial &&
+                      (affiliation === "anthropic" ? (
+                        <Badge variant="secondary" className="gap-1">
+                          <CircleCheck className="size-3" aria-hidden="true" />
+                          {t("profileEditor.plugins.browse.providerAnthropic")}
+                        </Badge>
+                      ) : plugin.authorName ? (
+                        <Badge
+                          variant="outline"
+                          className="max-w-full whitespace-normal break-words font-normal"
+                        >
+                          {plugin.authorName}
+                        </Badge>
+                      ) : (
+                        <span
+                          className="inline-flex shrink-0 items-center text-chart-2 opacity-80"
+                          role="img"
+                          aria-label={t("profileEditor.plugins.verifiedBadgeAriaLabel")}
+                        >
+                          <CircleCheck className="size-[13px]" aria-hidden="true" />
+                        </span>
+                      ))}
                     {plugin.category && (
                       <Badge variant="outline" className="max-w-full whitespace-normal break-words">
                         {plugin.category}
@@ -707,6 +895,56 @@ export default function BrowseMarketplaceTab({
                           data-testid={`marketplace-plugin-details-${plugin.pluginId}`}
                         >
                           {details}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {hasComponents && (
+                    <div className="mt-1.5 flex flex-col gap-1.5">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        {componentBadges.map(({ key, icon: Icon, labelKey, count }) => (
+                          <Tooltip key={key}>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground tabular-nums">
+                                <Icon className="size-3.5" aria-hidden="true" />
+                                {count}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" sideOffset={6}>
+                              {t(labelKey)}
+                            </TooltipContent>
+                          </Tooltip>
+                        ))}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="h-auto gap-1 p-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground"
+                          aria-expanded={expanded}
+                          aria-label={`${expanded ? t("profileEditor.plugins.browse.collapseComponentsAriaLabel") : t("profileEditor.plugins.browse.expandComponentsAriaLabel")} ${rowLabel}`}
+                          onClick={() => toggleDetails(plugin.pluginId)}
+                        >
+                          <ChevronDown
+                            className={cn(
+                              "size-3.5 transition-transform",
+                              expanded && "rotate-180",
+                            )}
+                            aria-hidden="true"
+                          />
+                        </Button>
+                      </div>
+                      {expanded && components && (
+                        <div
+                          className="flex flex-col gap-1 text-xs leading-relaxed text-muted-foreground"
+                          data-testid={`marketplace-plugin-components-${plugin.pluginId}`}
+                        >
+                          {COMPONENT_KINDS.map(({ key, labelKey }) =>
+                            components[key].length > 0 ? (
+                              <div key={key} className="min-w-0 break-words">
+                                <span className="font-medium text-foreground">{t(labelKey)}:</span>{" "}
+                                {components[key].join(", ")}
+                              </div>
+                            ) : null,
+                          )}
                         </div>
                       )}
                     </div>

@@ -404,6 +404,93 @@ describe("BrowseMarketplaceTab", () => {
     expect(screen.getByText("56")).toBeInTheDocument();
   });
 
+  it("官方插件展示组成徽标并可展开列出组件名", async () => {
+    enableTauriRuntime();
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_config_workspace") {
+        return { app: { uiLanguage: "zh" } };
+      }
+      if (command === "read_claude_file_preview") {
+        return {
+          path: "plugins/plugin-catalog-cache.json",
+          name: "plugin-catalog-cache.json",
+          content: JSON.stringify({
+            version: 1,
+            fetchedAt: "2026-06-14T02:00:00.000Z",
+            catalog: {
+              generated_at: "2026-06-13T08:00:00.000Z",
+              marketplace_sha: "abc1234deadbeef",
+              plugins: {
+                "alpha@claude-plugins-official": {
+                  unique_installs: 1234,
+                  components: {
+                    commands: [{ name: "cmd-a" }],
+                    skills: [{ name: "skill-x" }, { name: "skill-y" }],
+                    hooks: ["PreToolUse"],
+                  },
+                },
+              },
+            },
+          }),
+          isBinary: false,
+          truncated: false,
+          size: 100,
+          modifiedAt: 0,
+          encoding: "utf-8",
+        };
+      }
+      return null;
+    });
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ plugins: [{ name: "alpha" }] }),
+    } as unknown as Response);
+
+    renderTab();
+    await screen.findByText("alpha");
+
+    // 展开前不显示组件名，点击展开后列出 skill 名
+    const expandButton = await screen.findByRole("button", { name: /展开插件组成/ });
+    expect(screen.queryByText(/skill-x/)).not.toBeInTheDocument();
+    fireEvent.click(expandButton);
+    await waitFor(() => {
+      expect(screen.getByText(/skill-x, skill-y/)).toBeInTheDocument();
+    });
+
+    // catalog 元信息 Popover 展示市场版本（短 sha）
+    fireEvent.click(screen.getByRole("button", { name: "查看官方插件数据信息" }));
+    expect(await screen.findByText("官方插件数据")).toBeInTheDocument();
+    expect(screen.getByText("abc1234")).toBeInTheDocument();
+  });
+
+  it("按作者归属展示 Anthropic 与合作伙伴徽章", async () => {
+    enableTauriRuntime();
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_config_workspace") {
+        return { app: { uiLanguage: "zh" } };
+      }
+      return null;
+    });
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        plugins: [
+          { name: "alpha", author: { name: "Anthropic" } },
+          { name: "zoo", author: { name: "PostHog" } },
+        ],
+      }),
+    } as unknown as Response);
+
+    renderTab();
+    await screen.findByText("alpha");
+
+    // 提供方筛选存在
+    expect(screen.getByRole("combobox", { name: "按提供方筛选" })).toBeInTheDocument();
+    // Anthropic 第一方徽章与合作伙伴作者名徽章
+    expect(screen.getByText("Anthropic")).toBeInTheDocument();
+    expect(screen.getByText("PostHog")).toBeInTheDocument();
+  });
+
   it("默认移除排序下拉框并按安装数量降序排序", async () => {
     enableTauriRuntime();
     invokeMock.mockImplementation(async (command) => {
