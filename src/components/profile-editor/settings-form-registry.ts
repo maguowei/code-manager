@@ -178,8 +178,8 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
       en: "Subagent Model",
     },
     placeholder: {
-      zh: "例如：claude-sonnet-4-6",
-      en: "e.g. claude-sonnet-4-6",
+      zh: "留空保持默认行为,除非你了解修改的含义",
+      en: "Leave empty to keep default behavior unless you understand the change",
     },
   },
   {
