@@ -21,14 +21,14 @@ describe("getUserFacingErrorReason", () => {
 
   it("masks absolute paths and truncates long messages", () => {
     const reason = getUserFacingErrorReason(
-      '读取文件失败 "/Users/maguowei/.claude/CLAUDE.md": Permission denied',
+      '读取文件失败 "/Users/dev/.claude/CLAUDE.md": Permission denied',
     );
 
     expect(reason).toBe('读取文件失败 "~/.claude/CLAUDE.md": Permission denied');
-    expect(reason).not.toContain("/Users/maguowei");
+    expect(reason).not.toContain("/Users/dev");
     expect(
       getUserFacingErrorReason(
-        String.raw`读取文件失败 "C:\Users\maguowei\.claude\settings.json": Access denied`,
+        String.raw`读取文件失败 "C:\Users\dev\.claude\settings.json": Access denied`,
       ),
     ).toBe(String.raw`读取文件失败 "~\.claude\settings.json": Access denied`);
     expect(

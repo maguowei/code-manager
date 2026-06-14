@@ -30,6 +30,7 @@ import { useToast } from "../hooks/useToast";
 import { type TranslationKey, useI18n } from "../i18n";
 import { ipc } from "../ipc";
 import { isTauri, type MessageBlock, type SessionDetail, type SessionMessage } from "../types";
+import { SessionPlanDialog } from "./SessionPlanDialog";
 import SyntaxHighlightedCode from "./SyntaxHighlightedCode";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -833,6 +834,7 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
   const { showToast } = useToast();
   const [detail, setDetail] = useState<SessionDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [planDialogOpen, setPlanDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!isTauri()) {
@@ -970,6 +972,23 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
                     <FileJson className="size-3.5" aria-hidden="true" />
                     <span>{t("history.openRawSessionFileShort")}</span>
                   </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="xs"
+                    className="shrink-0 gap-1.5 text-muted-foreground"
+                    onClick={() => setPlanDialogOpen(true)}
+                    disabled={!detail?.plan_file_path}
+                    title={
+                      detail?.plan_file_path
+                        ? t("history.openSessionPlan")
+                        : t("history.noPlanForSession")
+                    }
+                    aria-label={t("history.openSessionPlan")}
+                  >
+                    <ClipboardList className="size-3.5" aria-hidden="true" />
+                    <span>{t("history.openSessionPlanShort")}</span>
+                  </Button>
                 </div>
                 {messageMeta && timeRange && (
                   <div
@@ -1039,6 +1058,14 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
               })}
             </div>
           </div>
+        )}
+        {planDialogOpen && (
+          <SessionPlanDialog
+            project={headerProject}
+            sessionId={sessionId}
+            open={planDialogOpen}
+            onOpenChange={setPlanDialogOpen}
+          />
         )}
       </SheetContent>
     </Sheet>

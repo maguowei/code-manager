@@ -159,6 +159,7 @@ type CompatibleIpcOverrides = {
   openProjectInEditor(project: string): Promise<null>;
   openProjectInTerminal(project: string): Promise<null>;
   openSessionFileInEditor(project: string, sessionId: string): Promise<null>;
+  openSessionPlanInEditor(project: string, sessionId: string): Promise<null>;
   openSkillInEditor(id: string, isActive: boolean): Promise<null>;
   previewDeleteMemory(id: string): Promise<AppTypes.MemoryDeletePreview>;
   previewProfile(data: ProfileInput): Promise<string>;
@@ -167,6 +168,7 @@ type CompatibleIpcOverrides = {
   previewProjectWorktreeCleanup(project: string): Promise<AppTypes.ProjectGitCleanupPreview>;
   purgeProjectLocalData(project: string): Promise<AppTypes.ProjectPurgeOutput>;
   readClaudeFilePreview(path: string): Promise<AppTypes.ClaudeFilePreview>;
+  readSessionPlan(project: string, sessionId: string): Promise<AppTypes.SessionPlan>;
   refreshUsagePricing(): Promise<AppTypes.PricingTable>;
   renameClaudeDirectoryEntry(path: string, newName: string): Promise<null>;
   reorderProfiles(ids: string[]): Promise<null>;

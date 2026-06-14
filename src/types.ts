@@ -540,6 +540,14 @@ export interface SessionDetail {
   session_id: string;
   project: string;
   messages: SessionMessage[];
+  // harness 注入且实际存在的关联 plan 文件绝对路径,无关联时为 null
+  plan_file_path: string | null;
+}
+
+// 会话关联 plan 文件内容
+export interface SessionPlan {
+  path: string;
+  content: string;
 }
 
 // =========== Token 用量统计（usage.rs 对应类型） ===========

@@ -33,6 +33,7 @@ use config::{
 };
 use history::{
     get_history, get_history_if_changed, get_session_detail, open_session_file_in_editor,
+    open_session_plan_in_editor, read_session_plan,
 };
 use logging::{clear_app_logs, get_app_logs, open_logs_dir};
 use memory::{
@@ -107,6 +108,8 @@ fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             get_history_if_changed,
             get_session_detail,
             open_session_file_in_editor,
+            read_session_plan,
+            open_session_plan_in_editor,
             get_app_logs,
             open_logs_dir,
             clear_app_logs,
@@ -276,8 +279,8 @@ pub fn run() {
 pub mod test_api {
     pub use crate::config::{apply_profile_inner, ConfigProfile, ConfigRegistry};
     pub use crate::history::{
-        get_history, get_history_if_changed, get_session_detail, HistoryResult, MessageBlock,
-        SessionDetail, SessionMessage,
+        get_history, get_history_if_changed, get_session_detail, read_session_plan, HistoryResult,
+        MessageBlock, SessionDetail, SessionMessage, SessionPlan,
     };
     pub use crate::stats::{get_stats, ClaudeStats, ProjectStats};
 

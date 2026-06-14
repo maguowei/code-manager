@@ -51,6 +51,10 @@ export const commands = {
 	/**  获取指定 session 的完整对话记录 */
 	getSessionDetail: (project: string, sessionId: string) => typedError<SessionDetail, string>(__TAURI_INVOKE("get_session_detail", { project, sessionId })),
 	openSessionFileInEditor: (project: string, sessionId: string) => typedError<null, string>(__TAURI_INVOKE("open_session_file_in_editor", { project, sessionId })),
+	/**  读取会话关联 plan 文件的实时内容,供应用内预览 */
+	readSessionPlan: (project: string, sessionId: string) => typedError<SessionPlan, string>(__TAURI_INVOKE("read_session_plan", { project, sessionId })),
+	/**  用默认编辑器打开会话关联的 plan 文件 */
+	openSessionPlanInEditor: (project: string, sessionId: string) => typedError<null, string>(__TAURI_INVOKE("open_session_plan_in_editor", { project, sessionId })),
 	getAppLogs: (query: {
 	level?: LogLevel | null,
 	search?: string | null,
@@ -821,6 +825,8 @@ export type SessionDetail = {
 	session_id: string,
 	project: string,
 	messages: SessionMessage[],
+	/**  harness 注入且实际存在的关联 plan 文件绝对路径,无关联时为 None */
+	plan_file_path: string | null,
 };
 
 /**  一条对话消息 */
@@ -839,6 +845,12 @@ export type SessionMetrics = {
 	hook_duration_ms_count?: number | null,
 	pre_tool_hook_duration_ms_avg?: number | null,
 	pre_tool_hook_duration_ms_p95?: number | null,
+};
+
+/**  会话关联 plan 内容 */
+export type SessionPlan = {
+	path: string,
+	content: string,
 };
 
 /**

@@ -3,7 +3,7 @@ use regex::Regex;
 use serde::Serialize;
 use std::fs;
 use std::io::{BufRead, BufReader};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// 用于匹配 "Implement the following plan:" 前缀的常量
 const PLAN_PREFIX: &str = "Implement the following plan:";
@@ -148,6 +148,8 @@ pub struct SessionDetail {
     pub session_id: String,
     pub project: String,
     pub messages: Vec<SessionMessage>,
+    /// harness 注入且实际存在的关联 plan 文件绝对路径,无关联时为 None
+    pub plan_file_path: Option<String>,
 }
 
 /// 预编译的 XML 标签正则
@@ -359,6 +361,7 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
                 session_id: session_id.to_string(),
                 project: project.to_string(),
                 messages: Vec::new(),
+                plan_file_path: None,
             });
         }
         Err(e) => return Err(format!("打开会话文件失败: {}", e)),
@@ -367,6 +370,8 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
     let reader = BufReader::new(file);
 
     let mut messages: Vec<SessionMessage> = Vec::new();
+    // harness 注入的关联 plan 文件路径(plan_mode attachment,会话级唯一)
+    let mut plan_path_raw: Option<PathBuf> = None;
     for line_result in reader.lines() {
         let line = match line_result {
             Ok(l) => l,
@@ -380,6 +385,13 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
             Ok(v) => v,
             Err(_) => continue,
         };
+
+        // 在按消息类型过滤前提取 plan_mode attachment 的 plan 路径(attachment 类型随后会被跳过)
+        if plan_path_raw.is_none() {
+            if let Some(path) = extract_plan_path_from_record(&record) {
+                plan_path_raw = Some(path);
+            }
+        }
 
         // 只处理 user 和 assistant 类型
         let msg_type = record.get("type").and_then(|t| t.as_str()).unwrap_or("");
@@ -502,10 +514,16 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
         });
     }
 
+    // 仅在 plan 文件实际存在且路径合法时返回,供前端决定按钮可用性
+    let plan_file_path = plan_path_raw
+        .and_then(|p| validate_plan_file(&p).ok())
+        .map(|p| p.to_string_lossy().into_owned());
+
     Ok(SessionDetail {
         session_id: session_id.to_string(),
         project: project.to_string(),
         messages,
+        plan_file_path,
     })
 }
 
@@ -525,6 +543,122 @@ pub fn open_session_file_in_editor(project: &str, session_id: &str) -> Result<()
         crate::native_open::open_path_in_editor(&session_file, editor)
     })();
     crate::logging::log_command_result("history.open_session_file_editor", &result, |_| {
+        format!(
+            "project={} session_id={}",
+            crate::utils::truncate(project, 120),
+            crate::utils::truncate(session_id, 80)
+        )
+    });
+    result
+}
+
+/// 从单条 record 中提取 plan_mode attachment 注入的 planFilePath(harness 注入,会话级唯一)
+fn extract_plan_path_from_record(record: &serde_json::Value) -> Option<PathBuf> {
+    let attachment = record.get("attachment")?;
+    if attachment.get("type").and_then(|v| v.as_str()) != Some("plan_mode") {
+        return None;
+    }
+    let path = attachment
+        .get("planFilePath")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())?;
+    Some(PathBuf::from(path))
+}
+
+/// 扫描会话 jsonl,返回 harness 注入的关联 plan 文件路径;命中首个即返回,会话文件不存在返回 Ok(None)
+fn read_session_plan_path(project: &str, session_id: &str) -> Result<Option<PathBuf>, String> {
+    let session_file = session_file_path(project, session_id)?;
+    let file = match fs::File::open(&session_file) {
+        Ok(f) => f,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(format!("打开会话文件失败: {}", e)),
+    };
+    let reader = BufReader::new(file);
+    for line_result in reader.lines() {
+        let line = match line_result {
+            Ok(l) => l,
+            Err(_) => continue,
+        };
+        // 仅对可能含 planFilePath 的行做 JSON 解析,避免逐行全量解析大文件
+        if !line.contains("\"planFilePath\"") {
+            continue;
+        }
+        let record: serde_json::Value = match serde_json::from_str(line.trim()) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        if let Some(path) = extract_plan_path_from_record(&record) {
+            return Ok(Some(path));
+        }
+    }
+    Ok(None)
+}
+
+/// 校验 plan 文件路径:规范化后必须落在 ~/.claude/plans 内且后缀为 .md;
+/// canonicalize 兼做存在性检查,防符号链接与路径逃逸
+fn validate_plan_file(path: &Path) -> Result<PathBuf, String> {
+    let plans_dir = crate::utils::home_dir_or_fallback()
+        .join(".claude")
+        .join("plans");
+    let canonical_dir = plans_dir
+        .canonicalize()
+        .map_err(|_| "plan 目录不存在".to_string())?;
+    let canonical = path
+        .canonicalize()
+        .map_err(|_| "plan 文件不存在".to_string())?;
+    if !canonical.starts_with(&canonical_dir) {
+        return Err("plan 文件路径非法".to_string());
+    }
+    if canonical.extension().and_then(|e| e.to_str()) != Some("md") {
+        return Err("plan 文件类型非法".to_string());
+    }
+    Ok(canonical)
+}
+
+/// 会话关联 plan 内容
+#[derive(Debug, Serialize, specta::Type)]
+pub struct SessionPlan {
+    pub path: String,
+    pub content: String,
+}
+
+/// 读取会话关联 plan 文件的实时内容,供应用内预览
+#[tauri::command]
+#[specta::specta]
+pub fn read_session_plan(project: &str, session_id: &str) -> Result<SessionPlan, String> {
+    let result = (|| {
+        let raw = read_session_plan_path(project, session_id)?
+            .ok_or_else(|| "该会话没有关联 plan".to_string())?;
+        let plan_file = validate_plan_file(&raw)?;
+        let content =
+            fs::read_to_string(&plan_file).map_err(|e| format!("读取 plan 文件失败: {}", e))?;
+        Ok(SessionPlan {
+            path: plan_file.to_string_lossy().into_owned(),
+            content,
+        })
+    })();
+    crate::logging::log_command_result("history.read_session_plan", &result, |plan| {
+        format!("path={}", crate::utils::truncate(&plan.path, 160))
+    });
+    result
+}
+
+/// 用默认编辑器打开会话关联的 plan 文件
+#[tauri::command]
+#[specta::specta]
+pub fn open_session_plan_in_editor(project: &str, session_id: &str) -> Result<(), String> {
+    let result = (|| {
+        let raw = read_session_plan_path(project, session_id)?
+            .ok_or_else(|| "该会话没有关联 plan".to_string())?;
+        let plan_file = validate_plan_file(&raw)?;
+        let preferences = crate::config::load_app_preferences();
+        let editor = preferences
+            .default_editor_app
+            .as_deref()
+            .ok_or_else(|| "请先在设置中选择默认编辑器".to_string())?;
+        crate::native_open::open_path_in_editor(&plan_file, editor)
+    })();
+    crate::logging::log_command_result("history.open_session_plan_editor", &result, |_| {
         format!(
             "project={} session_id={}",
             crate::utils::truncate(project, 120),

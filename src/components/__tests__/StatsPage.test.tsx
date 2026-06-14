@@ -71,7 +71,7 @@ const loadedStats: ClaudeStats = {
   lastPlanModeUse: Date.UTC(2026, 4, 22, 9, 15),
   numStartups: 12,
   projects: {
-    "/Users/maguowei/Work/AI/ai-manager": {
+    "/Users/dev/Work/AI/ai-manager": {
       lastCost: 1.23,
       lastDuration: 65_000,
       lastLinesAdded: 42,

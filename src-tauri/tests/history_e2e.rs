@@ -6,7 +6,8 @@
 mod common;
 
 use ai_manager_lib::test_api::{
-    get_history, get_history_if_changed, get_session_detail, MessageBlock, SessionDetail,
+    get_history, get_history_if_changed, get_session_detail, read_session_plan, MessageBlock,
+    SessionDetail,
 };
 use common::IntegrationEnv;
 use serial_test::serial;
@@ -99,4 +100,72 @@ fn get_session_detail_rejects_path_escape_with_real_filesystem_present() {
     let err = get_session_detail("/Users/demo/proj", "../legit")
         .expect_err("含 .. 的 session_id 必须被拒绝");
     assert!(err.contains("会话 ID"));
+}
+
+#[test]
+#[serial]
+fn get_session_detail_extracts_linked_plan_file() {
+    let env = IntegrationEnv::new("session-plan");
+    let project = "/Users/demo/proj";
+    let session_id = "plan-1";
+
+    // 真实 plan 文件落在隔离 ~/.claude/plans 下
+    let plan_path = env.write_claude_file("plans/demo-plan.md", "# Demo Plan\n\n步骤一");
+    let plan_path_json = plan_path.to_string_lossy().replace('\\', "\\\\");
+
+    // 会话 jsonl：plan_mode attachment 注入 planFilePath，外加一条普通用户消息
+    let jsonl = format!(
+        "{{\"type\":\"attachment\",\"isSidechain\":false,\"attachment\":{{\"type\":\"plan_mode\",\"reminderType\":\"full\",\"planFilePath\":\"{}\",\"planExists\":true}}}}\n\
+         {{\"type\":\"user\",\"timestamp\":\"2026-05-20T10:00:00Z\",\"message\":{{\"role\":\"user\",\"content\":[{{\"type\":\"text\",\"text\":\"hi\"}}]}}}}\n",
+        plan_path_json
+    );
+    env.write_claude_file(
+        &format!("projects/-Users-demo-proj/{}.jsonl", session_id),
+        &jsonl,
+    );
+
+    let detail = get_session_detail(project, session_id).expect("get_session_detail 应成功");
+    let resolved = detail.plan_file_path.expect("应提取到关联 plan 路径");
+    assert!(
+        resolved.ends_with("demo-plan.md"),
+        "plan_file_path 应指向 plan 文件: {resolved}"
+    );
+
+    let plan = read_session_plan(project, session_id).expect("read_session_plan 应成功");
+    assert!(
+        plan.content.contains("Demo Plan"),
+        "应返回 plan 文件实时内容"
+    );
+    assert!(plan.path.ends_with("demo-plan.md"));
+}
+
+#[test]
+#[serial]
+fn read_session_plan_rejects_path_outside_plans_dir() {
+    let env = IntegrationEnv::new("session-plan-escape");
+    let project = "/Users/demo/proj";
+    let session_id = "plan-escape";
+
+    // planFilePath 指向 plans 目录之外的真实文件，必须被路径校验拒绝
+    let outside = env.write_claude_file("evil.md", "# not a plan");
+    let outside_json = outside.to_string_lossy().replace('\\', "\\\\");
+    let jsonl = format!(
+        "{{\"type\":\"attachment\",\"isSidechain\":false,\"attachment\":{{\"type\":\"plan_mode\",\"planFilePath\":\"{}\",\"planExists\":true}}}}\n",
+        outside_json
+    );
+    env.write_claude_file(
+        &format!("projects/-Users-demo-proj/{}.jsonl", session_id),
+        &jsonl,
+    );
+
+    // get_session_detail 对非法路径应回落为 None
+    let detail = get_session_detail(project, session_id).expect("get_session_detail 应成功");
+    assert!(
+        detail.plan_file_path.is_none(),
+        "plans 目录外的路径不应作为关联 plan 返回"
+    );
+
+    // read_session_plan 应显式报错
+    let err = read_session_plan(project, session_id).expect_err("plans 目录外路径必须被拒绝");
+    assert!(err.contains("plan"), "错误信息应说明 plan 校验失败: {err}");
 }

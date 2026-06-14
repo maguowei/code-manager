@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import type { SessionDetail } from "../../types";
 import SessionDetailDrawer from "../SessionDetailDrawer";
+import { ThemeProvider } from "../theme-provider";
 
 const { invokeMock } = vi.hoisted(() => ({
   invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
@@ -23,17 +24,22 @@ function setSystemLanguages(languages: string[]) {
   });
 }
 
-function renderDrawer(detail: SessionDetail) {
-  invokeMock.mockResolvedValue(detail);
+function renderDrawer(
+  detail: Omit<SessionDetail, "plan_file_path"> & Partial<Pick<SessionDetail, "plan_file_path">>,
+) {
+  const fullDetail: SessionDetail = { plan_file_path: null, ...detail };
+  invokeMock.mockResolvedValue(fullDetail);
 
   render(
-    <I18nProvider>
-      <SessionDetailDrawer
-        project="/Users/maguowei/Work/AI/ai-manager"
-        sessionId={detail.session_id}
-        onClose={vi.fn()}
-      />
-    </I18nProvider>,
+    <ThemeProvider>
+      <I18nProvider>
+        <SessionDetailDrawer
+          project="/Users/dev/Work/AI/ai-manager"
+          sessionId={detail.session_id}
+          onClose={vi.fn()}
+        />
+      </I18nProvider>
+    </ThemeProvider>,
   );
 }
 
@@ -59,7 +65,7 @@ describe("SessionDetailDrawer", () => {
   it("shows session context in the drawer header", async () => {
     const detail: SessionDetail = {
       session_id: SESSION_ID,
-      project: "/Users/maguowei/Work/AI/ai-manager",
+      project: "/Users/dev/Work/AI/ai-manager",
       messages: [
         {
           role: "user",
@@ -72,6 +78,7 @@ describe("SessionDetailDrawer", () => {
           blocks: [{ type: "text", text: "最后一条消息" }],
         },
       ],
+      plan_file_path: null,
     };
 
     renderDrawer(detail);
@@ -79,8 +86,8 @@ describe("SessionDetailDrawer", () => {
     const heading = await screen.findByRole("heading", { name: "对话详情" });
     expect(heading).toBeInTheDocument();
     const projectName = screen.getByText("ai-manager");
-    expect(projectName).toHaveAttribute("title", "/Users/maguowei/Work/AI/ai-manager");
-    expect(screen.queryByText("/Users/maguowei/Work/AI/ai-manager")).not.toBeInTheDocument();
+    expect(projectName).toHaveAttribute("title", "/Users/dev/Work/AI/ai-manager");
+    expect(screen.queryByText("/Users/dev/Work/AI/ai-manager")).not.toBeInTheDocument();
     const sessionBadge = screen.getByText("ee6bf047");
     expect(sessionBadge.closest('[data-slot="session-id-badge"]')).toHaveAttribute(
       "title",
@@ -161,7 +168,7 @@ describe("SessionDetailDrawer", () => {
   it("copies full header identifiers and opens the raw session file", async () => {
     const detail: SessionDetail = {
       session_id: SESSION_ID,
-      project: "/Users/maguowei/Work/AI/ai-manager",
+      project: "/Users/dev/Work/AI/ai-manager",
       messages: [
         {
           role: "user",
@@ -169,6 +176,7 @@ describe("SessionDetailDrawer", () => {
           blocks: [{ type: "text", text: "第一条消息" }],
         },
       ],
+      plan_file_path: null,
     };
 
     renderDrawer(detail);
@@ -178,7 +186,7 @@ describe("SessionDetailDrawer", () => {
     const sessionButton = screen.getByRole("button", { name: "复制会话 ID" });
     const rawFileButton = screen.getByRole("button", { name: "在编辑器中打开原始记录" });
     expect(projectButton).toHaveTextContent("ai-manager");
-    expect(projectButton).toHaveAttribute("title", "/Users/maguowei/Work/AI/ai-manager");
+    expect(projectButton).toHaveAttribute("title", "/Users/dev/Work/AI/ai-manager");
     expect(sessionButton).toHaveTextContent("ee6bf047");
     expect(sessionButton).toHaveAttribute("title", SESSION_ID);
     const context = projectButton.closest('[data-slot="session-detail-context"]');
@@ -192,9 +200,7 @@ describe("SessionDetailDrawer", () => {
     fireEvent.click(sessionButton);
 
     await waitFor(() => {
-      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-        "/Users/maguowei/Work/AI/ai-manager",
-      );
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith("/Users/dev/Work/AI/ai-manager");
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(SESSION_ID);
     });
 
@@ -203,7 +209,7 @@ describe("SessionDetailDrawer", () => {
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("open_session_file_in_editor", {
-        project: "/Users/maguowei/Work/AI/ai-manager",
+        project: "/Users/dev/Work/AI/ai-manager",
         sessionId: SESSION_ID,
       });
     });
@@ -212,7 +218,7 @@ describe("SessionDetailDrawer", () => {
   it("renders user command-only messages as user input messages", async () => {
     renderDrawer({
       session_id: SESSION_ID,
-      project: "/Users/maguowei/Work/AI/ai-manager",
+      project: "/Users/dev/Work/AI/ai-manager",
       messages: [
         {
           role: "user",
@@ -248,7 +254,7 @@ describe("SessionDetailDrawer", () => {
   it("renders system-only messages as compact events", async () => {
     renderDrawer({
       session_id: SESSION_ID,
-      project: "/Users/maguowei/Work/AI/ai-manager",
+      project: "/Users/dev/Work/AI/ai-manager",
       messages: [
         {
           role: "user",
@@ -286,7 +292,7 @@ describe("SessionDetailDrawer", () => {
   it("strips ANSI control sequences before rendering text content", async () => {
     renderDrawer({
       session_id: SESSION_ID,
-      project: "/Users/maguowei/Work/AI/ai-manager",
+      project: "/Users/dev/Work/AI/ai-manager",
       messages: [
         {
           role: "user",
@@ -313,7 +319,7 @@ describe("SessionDetailDrawer", () => {
   it("marks assistant API errors with destructive semantics", async () => {
     renderDrawer({
       session_id: SESSION_ID,
-      project: "/Users/maguowei/Work/AI/ai-manager",
+      project: "/Users/dev/Work/AI/ai-manager",
       messages: [
         {
           role: "assistant",
@@ -332,7 +338,7 @@ describe("SessionDetailDrawer", () => {
   it("keeps tool call details collapsed until expanded", async () => {
     renderDrawer({
       session_id: SESSION_ID,
-      project: "/Users/maguowei/Work/AI/ai-manager",
+      project: "/Users/dev/Work/AI/ai-manager",
       messages: [
         {
           role: "assistant",
@@ -364,13 +370,77 @@ describe("SessionDetailDrawer", () => {
   it("loads the requested session detail command", async () => {
     renderDrawer({
       session_id: SESSION_ID,
-      project: "/Users/maguowei/Work/AI/ai-manager",
+      project: "/Users/dev/Work/AI/ai-manager",
       messages: [{ role: "user", blocks: [{ type: "text", text: "hello" }] }],
     });
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("get_session_detail", {
-        project: "/Users/maguowei/Work/AI/ai-manager",
+        project: "/Users/dev/Work/AI/ai-manager",
+        sessionId: SESSION_ID,
+      });
+    });
+  });
+
+  it("disables the plan button when the session has no linked plan", async () => {
+    renderDrawer({
+      session_id: SESSION_ID,
+      project: "/Users/dev/Work/AI/ai-manager",
+      messages: [{ role: "user", blocks: [{ type: "text", text: "hello" }] }],
+      plan_file_path: null,
+    });
+
+    await screen.findByRole("heading", { name: "对话详情" });
+    expect(screen.getByRole("button", { name: "查看本会话关联的 plan" })).toBeDisabled();
+  });
+
+  it("previews the linked plan and opens it in the external editor", async () => {
+    const planPath = "/Users/dev/.claude/plans/demo-plan.md";
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === "read_session_plan") {
+        return { path: planPath, content: "# 计划标题\n\n第一步" };
+      }
+      return {
+        session_id: SESSION_ID,
+        project: "/Users/dev/Work/AI/ai-manager",
+        messages: [{ role: "user", blocks: [{ type: "text", text: "hello" }] }],
+        plan_file_path: planPath,
+      };
+    });
+
+    render(
+      <ThemeProvider>
+        <I18nProvider>
+          <SessionDetailDrawer
+            project="/Users/dev/Work/AI/ai-manager"
+            sessionId={SESSION_ID}
+            onClose={vi.fn()}
+          />
+        </I18nProvider>
+      </ThemeProvider>,
+    );
+
+    await screen.findByRole("heading", { name: "对话详情" });
+    const planButton = screen.getByRole("button", { name: "查看本会话关联的 plan" });
+    expect(planButton).toBeEnabled();
+
+    fireEvent.click(planButton);
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("read_session_plan", {
+        project: "/Users/dev/Work/AI/ai-manager",
+        sessionId: SESSION_ID,
+      });
+    });
+
+    expect(await screen.findByText("计划标题")).toBeInTheDocument();
+
+    invokeMock.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "用外部编辑器打开" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("open_session_plan_in_editor", {
+        project: "/Users/dev/Work/AI/ai-manager",
         sessionId: SESSION_ID,
       });
     });
