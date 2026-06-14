@@ -15,9 +15,10 @@ import {
   Settings2,
   Sparkles,
   SquareTerminal,
+  Store,
   Webhook,
 } from "lucide-react";
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/hooks/useToast";
 import { cn } from "@/lib/utils";
@@ -25,7 +26,8 @@ import { type TranslationKey, useI18n } from "../../i18n";
 import { ipc } from "../../ipc";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { Empty, EmptyDescription, EmptyTitle } from "../ui/empty";
+import { Empty, EmptyContent, EmptyDescription, EmptyTitle } from "../ui/empty";
+import { Input } from "../ui/input";
 import { InputGroup, InputGroupInput } from "../ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import {
@@ -39,6 +41,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { formatShortDateTime } from "../usage/format";
 import type { MarketplacePluginEntry } from "./marketplace-catalog";
+import { OFFICIAL_MARKETPLACE_ID, OFFICIAL_MARKETPLACE_REPO } from "./marketplace-presets";
 import {
   emptyPluginCatalog,
   loadPluginCatalog,
@@ -50,12 +53,22 @@ import type { PluginEntry } from "./useEnabledPluginsState";
 import type { MarketplaceSourceInput } from "./useMarketplaceCatalog";
 import { useMarketplaceCatalog } from "./useMarketplaceCatalog";
 
+export interface AddMarketplaceInput {
+  marketplaceId: string;
+  repo: string;
+  ref: string;
+  path: string;
+}
+
 interface BrowseMarketplaceTabProps {
   sources: MarketplaceSourceInput[];
   plugins: PluginEntry[];
   active: boolean;
   onAddPlugin: (pluginId: string) => boolean;
   onManagePlugin: (pluginId: string) => void;
+  existingMarketplaceIds?: string[];
+  onAddMarketplace?: (input: AddMarketplaceInput) => void;
+  onOpenAdvancedConfig?: () => void;
 }
 
 function formatTemplate(template: string, vars: Record<string, string | number>): string {
@@ -119,12 +132,159 @@ function getAriaSort(direction: SortDirection): "ascending" | "descending" {
   return direction === "asc" ? "ascending" : "descending";
 }
 
+// owner/repo 格式校验
+const GITHUB_REPO_PATTERN = /^[^/\s]+\/[^/\s]+$/;
+
+// 浏览页快速添加 github 插件市场的轻量 Popover：一键官方 + 自定义仓库
+function AddMarketplacePopover({
+  existingMarketplaceIds,
+  onAddMarketplace,
+  onOpenAdvancedConfig,
+  trigger,
+}: {
+  existingMarketplaceIds: string[];
+  onAddMarketplace: (input: AddMarketplaceInput) => void;
+  onOpenAdvancedConfig?: () => void;
+  trigger: ReactNode;
+}) {
+  const { t } = useI18n();
+  const { showToast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [repo, setRepo] = useState("");
+  const [error, setError] = useState("");
+
+  const officialPresent = existingMarketplaceIds.includes(OFFICIAL_MARKETPLACE_ID);
+
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (!next) {
+      setRepo("");
+      setError("");
+    }
+  }
+
+  function handleAddOfficial() {
+    onAddMarketplace({
+      marketplaceId: OFFICIAL_MARKETPLACE_ID,
+      repo: OFFICIAL_MARKETPLACE_REPO,
+      ref: "",
+      path: "",
+    });
+    showToast(t("profileEditor.plugins.browse.addMarketplaceSuccess"), "success");
+    handleOpenChange(false);
+  }
+
+  function handleSubmit() {
+    const trimmedRepo = repo.trim();
+    if (!trimmedRepo) {
+      setError(t("profileEditor.plugins.browse.addMarketplaceErrorRepoEmpty"));
+      return;
+    }
+    if (!GITHUB_REPO_PATTERN.test(trimmedRepo)) {
+      setError(t("profileEditor.plugins.browse.addMarketplaceErrorRepoInvalid"));
+      return;
+    }
+    // 名称默认取仓库末段；冲突时引导用高级配置自定义
+    const marketplaceId = trimmedRepo.split("/")[1]?.trim() ?? "";
+    if (existingMarketplaceIds.includes(marketplaceId)) {
+      setError(t("profileEditor.plugins.browse.addMarketplaceErrorIdDuplicate"));
+      return;
+    }
+    onAddMarketplace({ marketplaceId, repo: trimmedRepo, ref: "", path: "" });
+    showToast(t("profileEditor.plugins.browse.addMarketplaceSuccess"), "success");
+    handleOpenChange(false);
+  }
+
+  function handleOpenAdvanced() {
+    handleOpenChange(false);
+    onOpenAdvancedConfig?.();
+  }
+
+  return (
+    <Popover open={open} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverContent align="end" className="w-80">
+        <div className="flex flex-col gap-3">
+          <div className="text-sm font-semibold">
+            {t("profileEditor.plugins.browse.addMarketplaceTitle")}
+          </div>
+          {!officialPresent && (
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                className="justify-start gap-1.5"
+                onClick={handleAddOfficial}
+              >
+                <CircleCheck className="size-3.5" aria-hidden="true" />
+                {t("profileEditor.plugins.browse.addMarketplaceOfficial")}
+              </Button>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="h-px flex-1 bg-border" />
+                {t("profileEditor.plugins.browse.addMarketplaceOr")}
+                <span className="h-px flex-1 bg-border" />
+              </div>
+            </>
+          )}
+          <label className="grid gap-1.5">
+            <span className="text-xs font-semibold text-muted-foreground">
+              {t("profileEditor.plugins.browse.addMarketplaceRepoLabel")}
+            </span>
+            <Input
+              value={repo}
+              placeholder="owner/repo"
+              aria-label={t("profileEditor.plugins.browse.addMarketplaceRepoLabel")}
+              onChange={(event) => {
+                setRepo(event.target.value);
+                setError("");
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  handleSubmit();
+                }
+              }}
+            />
+          </label>
+          {error ? <p className="m-0 text-xs font-medium text-destructive">{error}</p> : null}
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => handleOpenChange(false)}
+            >
+              {t("profileEditor.common.cancel")}
+            </Button>
+            <Button type="button" size="sm" onClick={handleSubmit}>
+              {t("profileEditor.plugins.browse.addMarketplaceSubmit")}
+            </Button>
+          </div>
+          {onOpenAdvancedConfig ? (
+            <Button
+              type="button"
+              variant="link"
+              className="h-auto justify-start p-0 text-xs font-normal text-muted-foreground hover:text-foreground"
+              onClick={handleOpenAdvanced}
+            >
+              {t("profileEditor.plugins.browse.addMarketplaceAdvanced")}
+            </Button>
+          ) : null}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export default function BrowseMarketplaceTab({
   sources,
   plugins,
   active,
   onAddPlugin,
   onManagePlugin,
+  existingMarketplaceIds = [],
+  onAddMarketplace,
+  onOpenAdvancedConfig,
 }: BrowseMarketplaceTabProps) {
   const { language, t } = useI18n();
   const { showToast } = useToast();
@@ -251,6 +411,21 @@ export default function BrowseMarketplaceTab({
         <EmptyDescription>
           {t("profileEditor.plugins.browse.emptyNoMarketplaceHint")}
         </EmptyDescription>
+        {onAddMarketplace ? (
+          <EmptyContent>
+            <AddMarketplacePopover
+              existingMarketplaceIds={existingMarketplaceIds}
+              onAddMarketplace={onAddMarketplace}
+              onOpenAdvancedConfig={onOpenAdvancedConfig}
+              trigger={
+                <Button type="button" className="gap-1.5">
+                  <Store className="size-3.5" aria-hidden="true" />
+                  {t("profileEditor.plugins.browse.addMarketplace")}
+                </Button>
+              }
+            />
+          </EmptyContent>
+        ) : null}
       </Empty>
     );
   }
@@ -412,6 +587,20 @@ export default function BrowseMarketplaceTab({
             />
             {refreshButtonLabel}
           </Button>
+
+          {onAddMarketplace ? (
+            <AddMarketplacePopover
+              existingMarketplaceIds={existingMarketplaceIds}
+              onAddMarketplace={onAddMarketplace}
+              onOpenAdvancedConfig={onOpenAdvancedConfig}
+              trigger={
+                <Button type="button" variant="outline" className="h-10 shrink-0 gap-1.5">
+                  <Store className="size-3.5" aria-hidden="true" />
+                  {t("profileEditor.plugins.browse.addMarketplace")}
+                </Button>
+              }
+            />
+          ) : null}
         </div>
 
         <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-2.5 max-[640px]:grid-cols-1">

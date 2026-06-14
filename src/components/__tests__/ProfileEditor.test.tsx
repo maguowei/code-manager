@@ -811,7 +811,7 @@ describe("ProfileEditor", () => {
       expect(within(pluginsSection).getByRole("button", { name: "控件" })).toBeInTheDocument();
       expect(within(pluginsSection).getByRole("button", { name: "JSON" })).toBeInTheDocument();
       expect(
-        within(pluginsSection).getByRole("button", { name: "手动输入 ID" }),
+        within(pluginsSection).getByRole("button", { name: "去浏览市场安装插件" }),
       ).toBeInTheDocument();
       expect(within(pluginsSection).queryByLabelText("新插件 ID")).not.toBeInTheDocument();
       expect(within(pluginsSection).queryByText("插件模式")).not.toBeInTheDocument();
@@ -3108,37 +3108,8 @@ describe("ProfileEditor", () => {
     expect(screen.queryByRole("button", { name: "Full Settings JSON" })).not.toBeInTheDocument();
   });
 
-  it("saves plugin, marketplace, and status line settings from structured controls", async () => {
+  it("saves marketplace and status line settings from structured controls", async () => {
     const { onSave } = renderEditor();
-
-    const pluginsSection = screen
-      .getByRole("heading", { name: "插件", level: 3 })
-      .closest("section") as HTMLElement | null;
-    expect(pluginsSection).not.toBeNull();
-    if (!pluginsSection) {
-      return;
-    }
-
-    toggleAccordionSection("插件");
-
-    fireEvent.click(within(pluginsSection).getByRole("button", { name: "手动输入 ID" }));
-    fireEvent.change(within(pluginsSection).getByLabelText("新插件 ID"), {
-      target: { value: "formatter@anthropic-tools" },
-    });
-    fireEvent.click(within(pluginsSection).getByRole("button", { name: "保存插件" }));
-    fireEvent.click(
-      within(pluginsSection).getByRole("switch", {
-        name: "插件状态 formatter@anthropic-tools",
-      }),
-    );
-
-    expect(within(pluginsSection).getByText("formatter@anthropic-tools")).toBeInTheDocument();
-    expect(
-      within(pluginsSection).getByRole("switch", {
-        name: "插件状态 formatter@anthropic-tools",
-      }),
-    ).toHaveAttribute("aria-checked", "false");
-    expect(screen.queryByLabelText("新插件 ID")).not.toBeInTheDocument();
 
     const marketplacesSection = screen
       .getByRole("heading", { name: "插件市场", level: 3 })
@@ -3208,9 +3179,6 @@ describe("ProfileEditor", () => {
       settings: expect.objectContaining({
         env: {
           ANTHROPIC_AUTH_TOKEN: "token",
-        },
-        enabledPlugins: {
-          "formatter@anthropic-tools": false,
         },
         extraKnownMarketplaces: {
           "team-market": {

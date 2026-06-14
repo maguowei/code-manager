@@ -1,12 +1,11 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { CircleCheck, ExternalLink, Plus, Trash2 } from "lucide-react";
+import { CircleCheck, ExternalLink, Store, Trash2 } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../../i18n";
 import ConfirmAlertDialog from "../ConfirmAlertDialog";
 import { Button } from "../ui/button";
 import { Empty, EmptyContent, EmptyTitle } from "../ui/empty";
-import { Input } from "../ui/input";
 import { InputGroup, InputGroupInput } from "../ui/input-group";
 import {
   Select,
@@ -16,10 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { createRowId, type PluginDraft } from "./editor-utils";
+import type { PluginDraft } from "./editor-utils";
 import type { MarketplacePluginEntry } from "./marketplace-catalog";
 import { OFFICIAL_MARKETPLACE_ID } from "./marketplace-presets";
-import RequiredBadge from "./RequiredBadge";
 import { SandboxSwitchControl } from "./SandboxEditor";
 import type { PluginEntry } from "./useEnabledPluginsState";
 
@@ -28,7 +26,6 @@ interface EnabledPluginsTabProps {
   metadataMap: Record<string, MarketplacePluginEntry>;
   onTogglePlugin: (pluginId: string) => void;
   onRemovePlugin: (pluginId: string) => void;
-  onAddPlugin: (pluginId: string) => boolean;
   onGoBrowse: () => void;
   onError: (message: string) => void;
   manageTarget?: { pluginId: string; requestId: number } | null;
@@ -42,7 +39,6 @@ type PluginMetaItem = {
 };
 
 interface PluginListItem extends PluginDraft {
-  isDraft?: boolean;
   metadata?: MarketplacePluginEntry;
 }
 
@@ -73,17 +69,12 @@ function EnabledPluginsTab({
   metadataMap,
   onTogglePlugin,
   onRemovePlugin,
-  onAddPlugin,
   onGoBrowse,
   onError,
   manageTarget,
 }: EnabledPluginsTabProps) {
   const { t } = useI18n();
-  const draftInputRef = useRef<HTMLInputElement | null>(null);
   const managedRowRef = useRef<HTMLDivElement | null>(null);
-  const [draftActive, setDraftActive] = useState(false);
-  const [draftPluginId, setDraftPluginId] = useState("");
-  const [draftError, setDraftError] = useState("");
   const [pendingDeletePlugin, setPendingDeletePlugin] = useState<PluginEntry | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<PluginStatusFilter>("all");
@@ -101,26 +92,14 @@ function EnabledPluginsTab({
   const deleteDialogTitle = t("profileEditor.plugins.deleteDialogTitle");
   const deleteDialogConfirmText = t("profileEditor.common.delete");
   const deleteDialogCancelText = t("profileEditor.common.cancel");
-  const saveDraftAriaLabel = t("profileEditor.plugins.saveAriaLabel");
-  const cancelEditAriaLabel = t("profileEditor.plugins.cancelEditAriaLabel");
-  const draftRowLabel = t("profileEditor.plugins.newItem");
-  const draftBadgeText = t("profileEditor.common.draft");
   const filteredEmptyHint = t("profileEditor.plugins.filteredEmptyHint");
   const managedPluginId = manageTarget?.pluginId;
   const manageRequestId = manageTarget?.requestId;
 
-  // --- 错误聚合 ---
+  // 去掉手动添加后插件区不再产生编辑错误，清空可能残留的分区错误
   useEffect(() => {
-    if (draftError) {
-      onError(draftError);
-      return;
-    }
-    if (draftActive) {
-      onError(t("profileEditor.plugins.errorPendingEdit"));
-      return;
-    }
     onError("");
-  }, [draftActive, draftError, onError, t]);
+  }, [onError]);
 
   // --- 筛选逻辑 ---
   const metadataEnabledPlugins = useMemo(
@@ -157,29 +136,19 @@ function EnabledPluginsTab({
     });
   }, [categoryFilter, hasMetadataFilters, metadataMap, plugins, searchQuery, statusFilter]);
 
-  const visiblePlugins = useMemo<PluginListItem[]>(() => {
-    const items: PluginListItem[] = filteredPlugins.map((plugin) => ({
-      ...plugin,
-      metadata: metadataMap[plugin.pluginId],
-    }));
-    if (draftActive) {
-      items.push({
-        id: createRowId("plugin-draft"),
-        pluginId: draftPluginId,
-        enabled: true,
-        isDraft: true,
-      });
-    }
-    return items;
-  }, [draftActive, draftPluginId, filteredPlugins, metadataMap]);
+  const visiblePlugins = useMemo<PluginListItem[]>(
+    () =>
+      filteredPlugins.map((plugin) => ({
+        ...plugin,
+        metadata: metadataMap[plugin.pluginId],
+      })),
+    [filteredPlugins, metadataMap],
+  );
 
   const managedTargetVisible = useMemo(
     () =>
       Boolean(
-        manageTarget &&
-          visiblePlugins.some(
-            (plugin) => !plugin.isDraft && plugin.pluginId === manageTarget.pluginId,
-          ),
+        manageTarget && visiblePlugins.some((plugin) => plugin.pluginId === manageTarget.pluginId),
       ),
     [manageTarget, visiblePlugins],
   );
@@ -199,138 +168,94 @@ function EnabledPluginsTab({
     targetRow.focus({ preventScroll: true });
   }, [manageTarget, managedTargetVisible]);
 
-  // --- 草稿操作 ---
-  useEffect(() => {
-    if (draftActive) {
-      draftInputRef.current?.focus();
-    }
-  }, [draftActive]);
-
-  function handleAddPlugin() {
-    if (draftActive) {
-      return;
-    }
-    setDraftActive(true);
-    setDraftPluginId("");
-    setDraftError("");
-  }
-
-  function handleSaveDraft() {
-    const pluginId = draftPluginId.trim();
-    if (!pluginId) {
-      setDraftError(t("profileEditor.plugins.errorIdEmpty"));
-      return;
-    }
-    const success = onAddPlugin(pluginId);
-    if (!success) {
-      setDraftError(t("profileEditor.plugins.errorIdDuplicate"));
-      return;
-    }
-    setDraftActive(false);
-    setDraftPluginId("");
-    setDraftError("");
-  }
-
-  function handleCancelDraft() {
-    setDraftActive(false);
-    setDraftPluginId("");
-    setDraftError("");
-  }
-
-  const showFilters = plugins.length > 0 || draftActive;
-  const showFilteredEmptyState = plugins.length > 0 && filteredPlugins.length === 0 && !draftActive;
+  const showFilteredEmptyState = plugins.length > 0 && filteredPlugins.length === 0;
 
   return (
     <div className="flex flex-col gap-3.5">
-      {plugins.length === 0 && !draftActive ? (
+      {plugins.length === 0 ? (
         <Empty>
           <EmptyTitle>{t("profileEditor.plugins.emptyEnabled")}</EmptyTitle>
-          <EmptyContent className="flex flex-row gap-2">
+          <EmptyContent>
             <Button type="button" onClick={onGoBrowse}>
               {t("profileEditor.plugins.emptyEnabledGoBrowse")}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => setDraftActive(true)}>
-              {t("profileEditor.plugins.emptyEnabledManualId")}
             </Button>
           </EmptyContent>
         </Empty>
       ) : (
         <div className="flex flex-col gap-4">
           <div className="flex min-w-0 flex-col gap-3">
-            {showFilters ? (
-              <div className="flex w-full flex-nowrap items-stretch gap-3 max-[1120px]:flex-wrap max-[520px]:flex-col">
-                <InputGroup className="h-[42px] min-w-0 flex-[2_1_0] bg-card px-2.5 hover:border-muted-foreground max-[520px]:flex-auto">
-                  <InputGroupInput
-                    type="text"
-                    className="h-full px-0 py-0"
-                    value={searchQuery}
-                    aria-label={searchLabel}
-                    placeholder={searchPlaceholder}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                  />
-                </InputGroup>
-                <div className="flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-primary focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
-                  <span
-                    className="shrink-0 whitespace-nowrap text-xs font-semibold text-muted-foreground"
-                    aria-hidden="true"
+            <div className="flex w-full flex-nowrap items-stretch gap-3 max-[1120px]:flex-wrap max-[520px]:flex-col">
+              <InputGroup className="h-[42px] min-w-0 flex-[2_1_0] bg-card px-2.5 hover:border-muted-foreground max-[520px]:flex-auto">
+                <InputGroupInput
+                  type="text"
+                  className="h-full px-0 py-0"
+                  value={searchQuery}
+                  aria-label={searchLabel}
+                  placeholder={searchPlaceholder}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                />
+              </InputGroup>
+              <div className="flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-primary focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
+                <span
+                  className="shrink-0 whitespace-nowrap text-xs font-semibold text-muted-foreground"
+                  aria-hidden="true"
+                >
+                  {statusFilterFieldLabel}
+                </span>
+                <Select
+                  value={statusFilter}
+                  onValueChange={(nextValue) => setStatusFilter(nextValue as PluginStatusFilter)}
+                >
+                  <SelectTrigger
+                    aria-label={statusFilterLabel}
+                    className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 shadow-none focus:ring-0"
                   >
-                    {statusFilterFieldLabel}
-                  </span>
-                  <Select
-                    value={statusFilter}
-                    onValueChange={(nextValue) => setStatusFilter(nextValue as PluginStatusFilter)}
-                  >
-                    <SelectTrigger
-                      aria-label={statusFilterLabel}
-                      className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 shadow-none focus:ring-0"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value="all">
-                          {t("profileEditor.plugins.statusFilterAll")}
-                        </SelectItem>
-                        <SelectItem value="enabled">
-                          {t("profileEditor.plugins.statusFilterEnabled")}
-                        </SelectItem>
-                        <SelectItem value="disabled">
-                          {t("profileEditor.plugins.statusFilterDisabled")}
-                        </SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-primary focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
-                  <span
-                    className="shrink-0 whitespace-nowrap text-xs font-semibold text-muted-foreground"
-                    aria-hidden="true"
-                  >
-                    {categoryFilterFieldLabel}
-                  </span>
-                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                    <SelectTrigger
-                      aria-label={categoryFilterLabel}
-                      className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 shadow-none focus:ring-0"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value="all">
-                          {t("profileEditor.plugins.metadataFilterAll")}
-                        </SelectItem>
-                        {categoryOptions.map((option) => (
-                          <SelectItem key={option} value={option}>
-                            {option}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </div>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="all">
+                        {t("profileEditor.plugins.statusFilterAll")}
+                      </SelectItem>
+                      <SelectItem value="enabled">
+                        {t("profileEditor.plugins.statusFilterEnabled")}
+                      </SelectItem>
+                      <SelectItem value="disabled">
+                        {t("profileEditor.plugins.statusFilterDisabled")}
+                      </SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
               </div>
-            ) : null}
+              <div className="flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-primary focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
+                <span
+                  className="shrink-0 whitespace-nowrap text-xs font-semibold text-muted-foreground"
+                  aria-hidden="true"
+                >
+                  {categoryFilterFieldLabel}
+                </span>
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger
+                    aria-label={categoryFilterLabel}
+                    className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 shadow-none focus:ring-0"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="all">
+                        {t("profileEditor.plugins.metadataFilterAll")}
+                      </SelectItem>
+                      {categoryOptions.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
 
             {showFilteredEmptyState ? (
               <div className="flex min-h-[120px] items-center justify-center rounded-lg border border-border px-4 text-center">
@@ -356,7 +281,6 @@ function EnabledPluginsTab({
                 </div>
 
                 {visiblePlugins.map((plugin, index) => {
-                  const isDraftRow = plugin.isDraft === true;
                   const officialPlugin = isOfficialPlugin(plugin.pluginId);
                   const pluginMetaItems = buildPluginMetaItems(plugin.metadata);
                   const verifiedBadgeIcon = officialPlugin ? (
@@ -368,16 +292,9 @@ function EnabledPluginsTab({
                       <CircleCheck className="size-[13px]" aria-hidden="true" />
                     </span>
                   ) : null;
-                  const rowLabel =
-                    isDraftRow && draftPluginId.trim()
-                      ? draftPluginId
-                      : isDraftRow
-                        ? draftRowLabel
-                        : plugin.pluginId;
+                  const rowLabel = plugin.pluginId;
                   const isManagedTarget =
-                    !isDraftRow &&
-                    managedPluginId === plugin.pluginId &&
-                    manageRequestId !== undefined;
+                    managedPluginId === plugin.pluginId && manageRequestId !== undefined;
 
                   return (
                     <div
@@ -420,11 +337,6 @@ function EnabledPluginsTab({
                                     <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap max-[520px]:whitespace-normal max-[520px]:break-words">
                                       {rowLabel}
                                     </span>
-                                    {isDraftRow ? (
-                                      <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-xs font-bold text-primary">
-                                        {draftBadgeText}
-                                      </span>
-                                    ) : null}
                                     {verifiedBadgeIcon}
                                     <ExternalLink className="size-3.5" aria-hidden="true" />
                                   </span>
@@ -438,11 +350,6 @@ function EnabledPluginsTab({
                                   <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap max-[520px]:whitespace-normal max-[520px]:break-words">
                                     {rowLabel}
                                   </span>
-                                  {isDraftRow ? (
-                                    <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-xs font-bold text-primary">
-                                      {draftBadgeText}
-                                    </span>
-                                  ) : null}
                                   {verifiedBadgeIcon}
                                 </span>
                               )}
@@ -468,11 +375,7 @@ function EnabledPluginsTab({
                             <SandboxSwitchControl
                               enabled={plugin.enabled}
                               ariaLabel={`${t("profileEditor.plugins.statusAriaLabel")} ${rowLabel}`}
-                              onToggle={() => {
-                                if (!isDraftRow) {
-                                  onTogglePlugin(plugin.pluginId);
-                                }
-                              }}
+                              onToggle={() => onTogglePlugin(plugin.pluginId)}
                               variant="header"
                             />
                             <span
@@ -491,10 +394,6 @@ function EnabledPluginsTab({
                             className="danger text-destructive hover:bg-destructive/10 hover:text-destructive"
                             aria-label={`${t("profileEditor.plugins.removeAriaLabel")} ${rowLabel}`}
                             onClick={() => {
-                              if (isDraftRow) {
-                                handleCancelDraft();
-                                return;
-                              }
                               setPendingDeletePlugin({
                                 id: plugin.id,
                                 pluginId: plugin.pluginId,
@@ -507,61 +406,21 @@ function EnabledPluginsTab({
                           </Button>
                         </div>
                       </div>
-                      {isDraftRow ? (
-                        <div className="mt-2 flex flex-col gap-3 rounded-lg border border-border bg-secondary p-3 pl-[calc(40px+0.875rem)] max-[520px]:mt-0 max-[520px]:pl-3">
-                          <div>
-                            <label className="grid gap-2 mb-0">
-                              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-                                <span>{t("profileEditor.plugins.newIdLabel")}</span>
-                                <RequiredBadge />
-                              </span>
-                              <Input
-                                ref={draftInputRef}
-                                aria-label={t("profileEditor.plugins.newIdLabel")}
-                                value={draftPluginId}
-                                placeholder="formatter@anthropic-tools"
-                                onChange={(event) => {
-                                  setDraftPluginId(event.target.value);
-                                  setDraftError("");
-                                }}
-                              />
-                            </label>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Button
-                              type="button"
-                              aria-label={saveDraftAriaLabel}
-                              onClick={handleSaveDraft}
-                            >
-                              {t("profileEditor.common.save")}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              aria-label={cancelEditAriaLabel}
-                              onClick={handleCancelDraft}
-                            >
-                              {t("profileEditor.common.cancel")}
-                            </Button>
-                          </div>
-                          {draftError ? (
-                            <p className="m-0 text-sm font-medium text-destructive">{draftError}</p>
-                          ) : null}
-                        </div>
-                      ) : null}
                     </div>
                   );
                 })}
               </div>
             )}
 
-            <div>
-              <div className="flex flex-wrap gap-3 max-[520px]:w-full">
-                <Button type="button" variant="outline" onClick={handleAddPlugin}>
-                  <Plus className="size-4" aria-hidden="true" />
-                  {t("profileEditor.plugins.addItem")}
-                </Button>
-              </div>
+            {/* 底部常驻：引导前往插件市场发现并启用更多插件 */}
+            <div className="flex flex-col items-center gap-2.5 rounded-lg border border-dashed border-border bg-card/40 px-4 py-5 text-center">
+              <span className="text-sm text-muted-foreground">
+                {t("profileEditor.plugins.browseMoreHint")}
+              </span>
+              <Button type="button" className="gap-1.5" onClick={onGoBrowse}>
+                <Store className="size-4" aria-hidden="true" />
+                {t("profileEditor.plugins.browseMoreAction")}
+              </Button>
             </div>
           </div>
         </div>

@@ -93,6 +93,9 @@ export function useMarketplaceCatalog({
   const sourcesRef = useRef(sources);
   sourcesRef.current = sources;
 
+  // 已发起拉取的 marketplaceId 集合，用于识别新增 source（避免重复拉取已知源）
+  const knownIdsRef = useRef<Set<string>>(new Set(Object.keys(byMarketplace)));
+
   const setEntry = useCallback(
     (marketplaceId: string, partial: Partial<MarketplaceCatalogState>) => {
       setByMarketplace((current) => ({
@@ -143,13 +146,44 @@ export function useMarketplaceCatalog({
     [setEntry],
   );
 
+  // active 切入时全量拉取并把当前 source 视为已知（重置基线）
   useEffect(() => {
     if (!active) return;
+    knownIdsRef.current = new Set(sourcesRef.current.map((s) => s.marketplaceId));
     const supported = sourcesRef.current.filter((s) => s.sourceType === "github");
     void runWithConcurrency(supported, CONCURRENCY, async (source) => {
       await fetchOne(source);
     });
   }, [active, fetchOne]);
+
+  // active 时增量拉取新增 source（如浏览页快速添加市场后），不重复拉已知源
+  useEffect(() => {
+    if (!active) return;
+    const fresh = sources.filter((source) => !knownIdsRef.current.has(source.marketplaceId));
+    if (fresh.length === 0) return;
+    for (const source of fresh) {
+      knownIdsRef.current.add(source.marketplaceId);
+    }
+    // 先为新源建占位条目，立即可见 loading / unsupported 状态
+    setByMarketplace((current) => {
+      const next = { ...current };
+      for (const source of fresh) {
+        if (!next[source.marketplaceId]) {
+          const supported = isSupportedSource(source.sourceType);
+          next[source.marketplaceId] = {
+            marketplaceId: source.marketplaceId,
+            status: supported ? "loading" : "ready",
+            plugins: [],
+            unsupported: !supported,
+          };
+        }
+      }
+      return next;
+    });
+    void runWithConcurrency(fresh, CONCURRENCY, async (source) => {
+      await fetchOne(source);
+    });
+  }, [active, sources, fetchOne]);
 
   const refreshAll = useCallback(async () => {
     const sources = sourcesRef.current;

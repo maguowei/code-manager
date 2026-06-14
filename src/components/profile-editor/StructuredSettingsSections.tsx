@@ -1,6 +1,6 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ExternalLink } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../../i18n";
 import { EDITOR_CONTROL_SURFACE_CLASS } from "../editor-layout";
@@ -171,6 +171,35 @@ function StructuredSettingsSections({
 }: StructuredSettingsSectionsProps) {
   const { language, t } = useI18n();
   const isProfileScope = scope === "profiles";
+
+  // 高级配置跳转：滚动到插件市场配置分区并短暂高亮，增强辨识度
+  const marketplaceSectionRef = useRef<HTMLDivElement | null>(null);
+  const [highlightMarketplace, setHighlightMarketplace] = useState(false);
+  const highlightTimerRef = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  function openMarketplaceConfig() {
+    if (sectionState.activeAccordionSection !== "marketplaces") {
+      sectionState.toggleAccordionSection("marketplaces");
+    }
+    requestAnimationFrame(() => {
+      marketplaceSectionRef.current?.scrollIntoView?.({ block: "start", behavior: "smooth" });
+    });
+    setHighlightMarketplace(true);
+    if (highlightTimerRef.current) {
+      clearTimeout(highlightTimerRef.current);
+    }
+    highlightTimerRef.current = window.setTimeout(() => setHighlightMarketplace(false), 2000);
+  }
+
   const enabledCommonToggleCount = commonToggleFields.filter((field) =>
     readToggleFieldEnabled(field),
   ).length;
@@ -636,27 +665,37 @@ function StructuredSettingsSections({
         modeRowAction={renderSectionModeRowAction("hooks", messages.hooks)}
       />
 
-      <SettingsSectionModePanel
-        title={messages.marketplaces}
-        variant="accordion"
-        headerMeta={marketplaceCount}
-        mode={sectionState.sectionModes.marketplaces}
-        onModeChange={(mode) => sectionState.handleSectionModeChange("marketplaces", mode)}
-        controls={
-          <MarketplaceEditor
-            value={settings.extraKnownMarketplaces}
-            onChange={(value) => onStructuredObjectChange("extraKnownMarketplaces", value)}
-            onError={(message) => sectionState.setSectionError("extraKnownMarketplaces", message)}
-            showTitle={false}
-          />
-        }
-        jsonEditor={marketplacesJsonEditor}
-        jsonHint={t("common.sectionJsonHint")}
-        error={sectionState.editorErrors.extraKnownMarketplaces || marketplacesJsonEditor.jsonError}
-        expanded={sectionState.activeAccordionSection === "marketplaces"}
-        onToggleExpanded={() => sectionState.toggleAccordionSection("marketplaces")}
-        modeRowAction={renderSectionModeRowAction("marketplaces", messages.marketplaces)}
-      />
+      <div
+        ref={marketplaceSectionRef}
+        className={cn(
+          "rounded-lg transition-shadow duration-500",
+          highlightMarketplace && "ring-[3px] ring-primary ring-offset-2 ring-offset-background",
+        )}
+      >
+        <SettingsSectionModePanel
+          title={messages.marketplaces}
+          variant="accordion"
+          headerMeta={marketplaceCount}
+          mode={sectionState.sectionModes.marketplaces}
+          onModeChange={(mode) => sectionState.handleSectionModeChange("marketplaces", mode)}
+          controls={
+            <MarketplaceEditor
+              value={settings.extraKnownMarketplaces}
+              onChange={(value) => onStructuredObjectChange("extraKnownMarketplaces", value)}
+              onError={(message) => sectionState.setSectionError("extraKnownMarketplaces", message)}
+              showTitle={false}
+            />
+          }
+          jsonEditor={marketplacesJsonEditor}
+          jsonHint={t("common.sectionJsonHint")}
+          error={
+            sectionState.editorErrors.extraKnownMarketplaces || marketplacesJsonEditor.jsonError
+          }
+          expanded={sectionState.activeAccordionSection === "marketplaces"}
+          onToggleExpanded={() => sectionState.toggleAccordionSection("marketplaces")}
+          modeRowAction={renderSectionModeRowAction("marketplaces", messages.marketplaces)}
+        />
+      </div>
 
       <SettingsSectionModePanel
         title={messages.plugins}
@@ -671,6 +710,11 @@ function StructuredSettingsSections({
             onError={(message) => sectionState.setSectionError("enabledPlugins", message)}
             showTitle={false}
             marketplaceSources={marketplaceSources}
+            marketplacesValue={settings.extraKnownMarketplaces}
+            onMarketplacesChange={(value) =>
+              onStructuredObjectChange("extraKnownMarketplaces", value)
+            }
+            onOpenMarketplaceConfig={openMarketplaceConfig}
           />
         }
         jsonEditor={pluginsJsonEditor}

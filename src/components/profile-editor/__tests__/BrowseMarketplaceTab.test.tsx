@@ -74,6 +74,14 @@ function renderTab(props?: {
   active?: boolean;
   onAddPlugin?: (pluginId: string) => boolean;
   onManagePlugin?: () => void;
+  existingMarketplaceIds?: string[];
+  onAddMarketplace?: (input: {
+    marketplaceId: string;
+    repo: string;
+    ref: string;
+    path: string;
+  }) => void;
+  onOpenAdvancedConfig?: () => void;
 }) {
   const onAddPlugin = props?.onAddPlugin ?? vi.fn(() => true);
   const onManagePlugin = props?.onManagePlugin ?? vi.fn();
@@ -86,6 +94,9 @@ function renderTab(props?: {
           active={props?.active ?? true}
           onAddPlugin={onAddPlugin}
           onManagePlugin={onManagePlugin}
+          existingMarketplaceIds={props?.existingMarketplaceIds}
+          onAddMarketplace={props?.onAddMarketplace}
+          onOpenAdvancedConfig={props?.onOpenAdvancedConfig}
         />
       </TooltipProvider>
     </I18nProvider>,
@@ -489,6 +500,97 @@ describe("BrowseMarketplaceTab", () => {
     // Anthropic 第一方徽章与合作伙伴作者名徽章
     expect(screen.getByText("Anthropic")).toBeInTheDocument();
     expect(screen.getByText("PostHog")).toBeInTheDocument();
+  });
+
+  it("快速添加市场：一键官方写回 anthropics 仓库", async () => {
+    const onAddMarketplace = vi.fn();
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ plugins: [{ name: "alpha" }] }),
+    } as unknown as Response);
+    renderTab({ existingMarketplaceIds: [], onAddMarketplace });
+    await screen.findByText("alpha");
+
+    fireEvent.click(screen.getByRole("button", { name: "添加市场" }));
+    fireEvent.click(await screen.findByRole("button", { name: "一键添加官方市场" }));
+
+    expect(onAddMarketplace).toHaveBeenCalledWith({
+      marketplaceId: "claude-plugins-official",
+      repo: "anthropics/claude-plugins-official",
+      ref: "",
+      path: "",
+    });
+  });
+
+  it("快速添加市场：自定义 github 仓库并自动预填名称", async () => {
+    const onAddMarketplace = vi.fn();
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ plugins: [{ name: "alpha" }] }),
+    } as unknown as Response);
+    renderTab({ existingMarketplaceIds: [], onAddMarketplace });
+    await screen.findByText("alpha");
+
+    fireEvent.click(screen.getByRole("button", { name: "添加市场" }));
+    fireEvent.change(await screen.findByLabelText("GitHub 仓库 (owner/repo)"), {
+      target: { value: "acme/plugins" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "添加" }));
+
+    expect(onAddMarketplace).toHaveBeenCalledWith({
+      marketplaceId: "plugins",
+      repo: "acme/plugins",
+      ref: "",
+      path: "",
+    });
+  });
+
+  it("快速添加市场：仓库格式非法时内联报错且不写回", async () => {
+    const onAddMarketplace = vi.fn();
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ plugins: [{ name: "alpha" }] }),
+    } as unknown as Response);
+    renderTab({ existingMarketplaceIds: [], onAddMarketplace });
+    await screen.findByText("alpha");
+
+    fireEvent.click(screen.getByRole("button", { name: "添加市场" }));
+    fireEvent.change(await screen.findByLabelText("GitHub 仓库 (owner/repo)"), {
+      target: { value: "not-a-repo" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "添加" }));
+
+    expect(screen.getByText("仓库格式应为 owner/repo")).toBeInTheDocument();
+    expect(onAddMarketplace).not.toHaveBeenCalled();
+  });
+
+  it("快速添加市场：表单只保留仓库输入，不含名称/分支字段", async () => {
+    const onAddMarketplace = vi.fn();
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ plugins: [{ name: "alpha" }] }),
+    } as unknown as Response);
+    renderTab({ existingMarketplaceIds: [], onAddMarketplace });
+    await screen.findByText("alpha");
+
+    fireEvent.click(screen.getByRole("button", { name: "添加市场" }));
+    expect(await screen.findByLabelText("GitHub 仓库 (owner/repo)")).toBeInTheDocument();
+    expect(screen.queryByLabelText("名称 / ID")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("分支（选填）")).not.toBeInTheDocument();
+  });
+
+  it("快速添加市场：高级配置链接触发 onOpenAdvancedConfig", async () => {
+    const onOpenAdvancedConfig = vi.fn();
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ plugins: [{ name: "alpha" }] }),
+    } as unknown as Response);
+    renderTab({ existingMarketplaceIds: [], onAddMarketplace: vi.fn(), onOpenAdvancedConfig });
+    await screen.findByText("alpha");
+
+    fireEvent.click(screen.getByRole("button", { name: "添加市场" }));
+    fireEvent.click(await screen.findByRole("button", { name: /需要自定义分支 \/ 来源/ }));
+    expect(onOpenAdvancedConfig).toHaveBeenCalledTimes(1);
   });
 
   it("默认移除排序下拉框并按安装数量降序排序", async () => {

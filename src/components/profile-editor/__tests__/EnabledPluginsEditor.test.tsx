@@ -197,16 +197,10 @@ describe("EnabledPluginsEditor", () => {
       });
     });
 
-    it("手动输入 ID 保存后出现在列表", () => {
+    it("空状态仅展示去浏览市场单一入口", () => {
       renderEditor({ value: {} });
-      // 先点「手动输入 ID」进入编辑模式
-      const manualBtn = screen.getByRole("button", { name: /手动输入 ID/ });
-      fireEvent.click(manualBtn);
-      const input = screen.getByLabelText(/新插件 ID/);
-      fireEvent.change(input, { target: { value: "manual@local" } });
-      const saveBtn = screen.getByRole("button", { name: /保存插件/ });
-      fireEvent.click(saveBtn);
-      expect(screen.getByText("manual@local")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "去浏览市场安装插件" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /手动输入 ID/ })).not.toBeInTheDocument();
     });
 
     it("已配置列表隐藏插件所属市场但保留作者和类别", () => {
@@ -269,10 +263,22 @@ describe("EnabledPluginsEditor", () => {
       expect(screen.queryByText("reviewer@tools")).not.toBeInTheDocument();
     });
 
-    it("新增插件按钮打开草稿行", () => {
+    it("已配置列表不再提供手动新增插件入口", () => {
       renderEditor({ value: { "a@x": true } });
-      fireEvent.click(screen.getByRole("button", { name: "新增插件" }));
-      expect(screen.getByLabelText("新插件 ID")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "新增插件" })).not.toBeInTheDocument();
+    });
+
+    it("已配置列表底部展示浏览市场入口，点击切到浏览 Tab", async () => {
+      renderEditor({ value: { "a@x": true }, marketplaceSources: SOURCES });
+      const browseMoreBtn = screen.getByRole("button", { name: "浏览插件市场" });
+      expect(browseMoreBtn).toBeInTheDocument();
+      fireEvent.click(browseMoreBtn);
+      await waitFor(() => {
+        expect(screen.getByRole("tab", { name: /浏览市场/ })).toHaveAttribute(
+          "data-state",
+          "active",
+        );
+      });
     });
   });
 });

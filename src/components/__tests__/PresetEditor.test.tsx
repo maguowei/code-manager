@@ -654,7 +654,7 @@ describe("PresetEditor", () => {
       expect(within(pluginsSection).getByRole("button", { name: "控件" })).toBeInTheDocument();
       expect(within(pluginsSection).getByRole("button", { name: "JSON" })).toBeInTheDocument();
       expect(
-        within(pluginsSection).getByRole("button", { name: "手动输入 ID" }),
+        within(pluginsSection).getByRole("button", { name: "去浏览市场安装插件" }),
       ).toBeInTheDocument();
       expect(within(pluginsSection).queryByLabelText("新插件 ID")).not.toBeInTheDocument();
       expect(within(pluginsSection).queryByText("插件模式")).not.toBeInTheDocument();
