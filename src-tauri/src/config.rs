@@ -2310,6 +2310,172 @@ pub fn reorder_profiles(app_handle: AppHandle, ids: Vec<String>) -> Result<(), S
     result
 }
 
+/// 把源 profile 的共享字段(常用选项 / 插件市场 / 插件)完全对齐到其余所有 profile。
+///
+/// `top_level_keys` 为顶层键(含 `enabledPlugins` / `extraKnownMarketplaces`),`env_keys` 为
+/// `settings.env` 内需对齐的部分键。完全对齐语义:源有值则写入目标,源无该键则从目标移除;
+/// env 只动 `env_keys` 列出的键,保留目标其它 env(如 API key)。返回实际发生变化的 profile id。
+fn sync_shared_profile_settings_in_registry(
+    registry: &mut ConfigRegistry,
+    source_id: &str,
+    top_level_keys: &[String],
+    env_keys: &[String],
+) -> Result<Vec<String>, String> {
+    // 取源 profile 的自身 settings 作为对齐基准
+    let source_settings = registry
+        .profiles
+        .iter()
+        .find(|profile| profile.id == source_id)
+        .map(|profile| profile.settings.clone())
+        .ok_or_else(|| format!("未找到 profile '{}'", source_id))?;
+
+    // 预提取源切片:顶层键与 env 部分键各自的目标值(None 表示源未设置)
+    let source_top: Vec<(&String, Option<Value>)> = top_level_keys
+        .iter()
+        .map(|key| (key, source_settings.get(key).cloned()))
+        .collect();
+    let source_env: Vec<(&String, Option<Value>)> = env_keys
+        .iter()
+        .map(|key| {
+            let value = source_settings
+                .get("env")
+                .and_then(Value::as_object)
+                .and_then(|env| env.get(key))
+                .cloned();
+            (key, value)
+        })
+        .collect();
+
+    let now = crate::utils::current_rfc3339_timestamp();
+    let mut changed_ids = Vec::new();
+
+    for profile in registry.profiles.iter_mut() {
+        if profile.id == source_id {
+            continue;
+        }
+
+        let (next_settings, changed) =
+            align_shared_settings(&profile.settings, &source_top, &source_env);
+        if !changed {
+            continue;
+        }
+
+        validate_settings_document(&next_settings)?;
+        profile.settings = next_settings;
+        profile.updated_at = now.clone();
+        changed_ids.push(profile.id.clone());
+    }
+
+    Ok(changed_ids)
+}
+
+/// 在 `target` 基础上对齐共享字段,返回新 settings 与是否发生实际变化;不修改入参。
+fn align_shared_settings(
+    target: &Value,
+    source_top: &[(&String, Option<Value>)],
+    source_env: &[(&String, Option<Value>)],
+) -> (Value, bool) {
+    let mut next = target.clone();
+    let obj = match next.as_object_mut() {
+        Some(obj) => obj,
+        None => {
+            // 异常数据:settings 非对象时重建为对象
+            next = Value::Object(Map::new());
+            next.as_object_mut().expect("just rebuilt as object")
+        }
+    };
+
+    let mut changed = !target.is_object();
+
+    // 顶层键完全对齐
+    for (key, value) in source_top {
+        match value {
+            Some(v) => {
+                if obj.get(*key) != Some(v) {
+                    obj.insert((*key).clone(), v.clone());
+                    changed = true;
+                }
+            }
+            None => {
+                if obj.remove(*key).is_some() {
+                    changed = true;
+                }
+            }
+        }
+    }
+
+    // env 部分键对齐:仅在源需写入或目标已有 env 时处理,避免凭空创建空 env
+    let needs_env_write = source_env.iter().any(|(_, v)| v.is_some());
+    let has_env_object = obj.get("env").map(Value::is_object).unwrap_or(false);
+    if needs_env_write || has_env_object {
+        let env_value = obj
+            .entry("env".to_string())
+            .or_insert_with(|| Value::Object(Map::new()));
+        if !env_value.is_object() {
+            *env_value = Value::Object(Map::new());
+            changed = true;
+        }
+        let env_map = env_value.as_object_mut().expect("env ensured as object");
+        for (key, value) in source_env {
+            match value {
+                Some(v) => {
+                    if env_map.get(*key) != Some(v) {
+                        env_map.insert((*key).clone(), v.clone());
+                        changed = true;
+                    }
+                }
+                None => {
+                    if env_map.remove(*key).is_some() {
+                        changed = true;
+                    }
+                }
+            }
+        }
+        // env 被清空则移除该键,避免留下空壳
+        if env_map.is_empty() {
+            obj.remove("env");
+        }
+    }
+
+    (next, changed)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn sync_shared_profile_settings(
+    app_handle: AppHandle,
+    source_id: String,
+    top_level_keys: Vec<String>,
+    env_keys: Vec<String>,
+) -> Result<u32, String> {
+    let result = (|| {
+        let _lock = crate::utils::lock_config()?;
+        let mut registry = load_registry()?;
+        let changed_ids = sync_shared_profile_settings_in_registry(
+            &mut registry,
+            &source_id,
+            &top_level_keys,
+            &env_keys,
+        )?;
+
+        // 若被修改的目标里包含当前已绑定 profile,重新应用以保持 ~/.claude/settings.json 一致
+        if let Some(bound_id) = registry.bindings.user_profile_id.clone() {
+            if changed_ids.iter().any(|id| id == &bound_id) {
+                apply_profile_to_registry(&mut registry, &bound_id)?;
+            }
+        }
+
+        save_registry(&registry)?;
+        rebuild_tray_menu(&app_handle, Some(&registry));
+        let _ = app_handle.emit("config-workspace-changed", ());
+        Ok(changed_ids.len() as u32)
+    })();
+    crate::logging::log_command_result("profile.sync_shared", &result, |count| {
+        format!("source_id={source_id} updated={count}")
+    });
+    result
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn delete_profile(app_handle: AppHandle, id: String) -> Result<(), String> {
@@ -3857,5 +4023,152 @@ mod tests {
         let error_message = result.error_message.unwrap_or_default();
         assert!(error_message.contains("模型测试请求失败："));
         assert!(error_message.contains("详细原因："));
+    }
+
+    fn shared_sync_keys() -> (Vec<String>, Vec<String>) {
+        let top = vec![
+            "alwaysThinkingEnabled".to_string(),
+            "showThinkingSummaries".to_string(),
+            "enabledPlugins".to_string(),
+            "extraKnownMarketplaces".to_string(),
+        ];
+        let env = vec![
+            "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC".to_string(),
+            "DISABLE_AUTOUPDATER".to_string(),
+        ];
+        (top, env)
+    }
+
+    #[test]
+    fn sync_shared_profile_settings_fully_aligns_targets_to_source() {
+        let mut registry = ConfigRegistry::default();
+        registry.profiles.push(sample_profile(
+            "src",
+            None,
+            serde_json::json!({
+                "alwaysThinkingEnabled": true,
+                "enabledPlugins": { "a@m": true },
+                "extraKnownMarketplaces": { "m": { "source": { "source": "github", "repo": "owner/repo" } } },
+                "env": {
+                    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+                    "ANTHROPIC_AUTH_TOKEN": "src-token"
+                }
+            }),
+        ));
+        registry.profiles.push(sample_profile(
+            "dst",
+            None,
+            serde_json::json!({
+                // 目标独有的常用选项 / 插件,完全对齐后应被移除或替换
+                "showThinkingSummaries": true,
+                "enabledPlugins": { "b@m": true },
+                "env": {
+                    "ANTHROPIC_AUTH_TOKEN": "dst-token",
+                    "DISABLE_AUTOUPDATER": "1"
+                }
+            }),
+        ));
+
+        let (top, env) = shared_sync_keys();
+        let changed =
+            sync_shared_profile_settings_in_registry(&mut registry, "src", &top, &env).unwrap();
+        assert_eq!(changed, vec!["dst".to_string()]);
+
+        let dst = &registry
+            .profiles
+            .iter()
+            .find(|profile| profile.id == "dst")
+            .unwrap()
+            .settings;
+
+        // 顶层完全对齐:源有的写入,源无的(showThinkingSummaries)移除
+        assert_eq!(dst["alwaysThinkingEnabled"], Value::Bool(true));
+        assert!(dst.get("showThinkingSummaries").is_none());
+        // 插件 / 市场以源整体替换
+        assert_eq!(dst["enabledPlugins"], serde_json::json!({ "a@m": true }));
+        assert_eq!(
+            dst["extraKnownMarketplaces"],
+            serde_json::json!({ "m": { "source": { "source": "github", "repo": "owner/repo" } } })
+        );
+        // env 部分键对齐:源有则写入,源无(DISABLE_AUTOUPDATER)则移除,保留目标其它 env
+        assert_eq!(
+            dst["env"]["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"],
+            Value::String("1".to_string())
+        );
+        assert!(dst["env"].get("DISABLE_AUTOUPDATER").is_none());
+        assert_eq!(
+            dst["env"]["ANTHROPIC_AUTH_TOKEN"],
+            Value::String("dst-token".to_string())
+        );
+
+        // 源自身不被修改
+        let src = &registry
+            .profiles
+            .iter()
+            .find(|profile| profile.id == "src")
+            .unwrap()
+            .settings;
+        assert_eq!(src["enabledPlugins"], serde_json::json!({ "a@m": true }));
+    }
+
+    #[test]
+    fn sync_shared_profile_settings_skips_unchanged_targets() {
+        let mut registry = ConfigRegistry::default();
+        let shared = serde_json::json!({
+            "alwaysThinkingEnabled": true,
+            "enabledPlugins": { "a@m": true }
+        });
+        registry
+            .profiles
+            .push(sample_profile("src", None, shared.clone()));
+        // 目标已与源一致(顶层共享字段相同),应被跳过
+        registry.profiles.push(sample_profile("dst", None, shared));
+
+        let (top, env) = shared_sync_keys();
+        let changed =
+            sync_shared_profile_settings_in_registry(&mut registry, "src", &top, &env).unwrap();
+        assert!(changed.is_empty());
+    }
+
+    #[test]
+    fn sync_shared_profile_settings_removes_emptied_env_object() {
+        let mut registry = ConfigRegistry::default();
+        // 源没有任何共享 env 键
+        registry
+            .profiles
+            .push(sample_profile("src", None, serde_json::json!({})));
+        // 目标 env 仅含一个共享键,对齐后被清空,应移除整个 env 键
+        registry.profiles.push(sample_profile(
+            "dst",
+            None,
+            serde_json::json!({
+                "env": { "DISABLE_AUTOUPDATER": "1" }
+            }),
+        ));
+
+        let (top, env) = shared_sync_keys();
+        let changed =
+            sync_shared_profile_settings_in_registry(&mut registry, "src", &top, &env).unwrap();
+        assert_eq!(changed, vec!["dst".to_string()]);
+
+        let dst = &registry
+            .profiles
+            .iter()
+            .find(|profile| profile.id == "dst")
+            .unwrap()
+            .settings;
+        assert!(dst.get("env").is_none());
+    }
+
+    #[test]
+    fn sync_shared_profile_settings_errors_when_source_missing() {
+        let mut registry = ConfigRegistry::default();
+        registry
+            .profiles
+            .push(sample_profile("dst", None, serde_json::json!({})));
+        let (top, env) = shared_sync_keys();
+        assert!(
+            sync_shared_profile_settings_in_registry(&mut registry, "missing", &top, &env).is_err()
+        );
     }
 }

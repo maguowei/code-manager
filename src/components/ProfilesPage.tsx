@@ -3,6 +3,7 @@ import {
   CircleCheck,
   Copy,
   FileInput,
+  FolderSync,
   Plus,
   TestTube,
   Trash2,
@@ -56,6 +57,10 @@ import type {
   SettingsMismatchDiffOptions,
   SettingsMismatchDiffThemeType,
 } from "./profile-editor/SettingsMismatchDiffViewer";
+import {
+  COMMON_ENV_SETTINGS_KEYS,
+  COMMON_TOP_LEVEL_SETTINGS_KEYS,
+} from "./profile-editor/settings-form-registry";
 import { useTheme } from "./theme-provider";
 import { TYPOGRAPHY } from "./typography-classes";
 import UnsavedChangesAlertDialog from "./UnsavedChangesAlertDialog";
@@ -207,6 +212,15 @@ function collectSettingsDiffs(
   return diffs;
 }
 
+// 一键同步的共享字段:常用选项顶层布尔 + 插件市场 + 插件,均完全对齐到其余配置
+const SHARED_SYNC_TOP_LEVEL_KEYS = [
+  ...COMMON_TOP_LEVEL_SETTINGS_KEYS,
+  "enabledPlugins",
+  "extraKnownMarketplaces",
+];
+// 常用选项中以 env 形式存储的部分键,只对齐这些键、保留目标其它 env
+const SHARED_SYNC_ENV_KEYS = COMMON_ENV_SETTINGS_KEYS;
+
 function ProfilesPage({
   workspace,
   onWorkspaceChange,
@@ -221,6 +235,8 @@ function ProfilesPage({
   const [pendingEditorExitAction, setPendingEditorExitAction] = useState<(() => void) | null>(null);
   const [isSavingEditorExit, setIsSavingEditorExit] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [pendingSyncSourceId, setPendingSyncSourceId] = useState<string | null>(null);
+  const [isSyncingShared, setIsSyncingShared] = useState(false);
   const [isTestingAllProfiles, setIsTestingAllProfiles] = useState(false);
   const [isImportingUserSettings, setIsImportingUserSettings] = useState(false);
   const [profileModelTestStates, setProfileModelTestStates] = useState<
@@ -727,6 +743,27 @@ function ProfilesPage({
       showToast(t("profiles.toast.duplicated"));
     } catch (err) {
       showOperationError(showToast, t("profiles.toast.duplicateError"), err);
+    }
+  }
+
+  async function handleSyncShared(sourceId: string) {
+    if (isSyncingShared) {
+      return;
+    }
+    setIsSyncingShared(true);
+    try {
+      const updated = await ipc.syncSharedProfileSettings(
+        sourceId,
+        SHARED_SYNC_TOP_LEVEL_KEYS,
+        SHARED_SYNC_ENV_KEYS,
+      );
+      await onWorkspaceChange();
+      showToast(t("profiles.toast.synced").replace("{count}", String(updated)));
+    } catch (err) {
+      showOperationError(showToast, t("profiles.toast.syncError"), err);
+    } finally {
+      setIsSyncingShared(false);
+      setPendingSyncSourceId(null);
     }
   }
 
@@ -1470,6 +1507,23 @@ function ProfilesPage({
                 ) : null}
 
                 <div className="mt-[-1rem] flex max-h-0 flex-wrap justify-end gap-2 self-end overflow-hidden opacity-0 transition-[max-height,margin-top,opacity,transform] duration-200 group-hover:mt-0 group-hover:max-h-12 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:mt-0 group-focus-within:max-h-12 group-focus-within:translate-y-0 group-focus-within:opacity-100 pointer-events-none translate-y-2 group-hover:pointer-events-auto group-focus-within:pointer-events-auto">
+                  {isAppliedProfile ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon-sm"
+                      className="border-border bg-muted text-foreground hover:border-primary hover:text-primary"
+                      aria-label={t("profiles.actions.syncShared")}
+                      title={t("profiles.actions.syncShared")}
+                      disabled={profiles.length <= 1}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setPendingSyncSourceId(profile.id);
+                      }}
+                    >
+                      <FolderSync aria-hidden="true" />
+                    </Button>
+                  ) : null}
                   <Button
                     type="button"
                     variant="outline"
@@ -1569,6 +1623,37 @@ function ProfilesPage({
           onCancel={() => setPendingDeleteId(null)}
         />
       )}
+
+      {pendingSyncSourceId &&
+        (() => {
+          const sourceProfile = profiles.find((profile) => profile.id === pendingSyncSourceId);
+          if (!sourceProfile) {
+            return null;
+          }
+          const targetCount = Math.max(profiles.length - 1, 0);
+          return (
+            <ConfirmAlertDialog
+              title={t("profiles.dialog.syncTitle")}
+              message={
+                <span className="flex flex-col gap-2">
+                  <span>
+                    {t("profiles.dialog.syncMessage")
+                      .replace("{name}", sourceProfile.name)
+                      .replace("{count}", String(targetCount))}
+                  </span>
+                  <span className="text-destructive">{t("profiles.dialog.syncWarning")}</span>
+                </span>
+              }
+              confirmText={t("profiles.actions.syncShared")}
+              cancelText={t("confirm.cancel")}
+              danger
+              onConfirm={() => {
+                void handleSyncShared(pendingSyncSourceId);
+              }}
+              onCancel={() => setPendingSyncSourceId(null)}
+            />
+          );
+        })()}
 
       {activeModelTestDialog ? (
         <Suspense fallback={null}>

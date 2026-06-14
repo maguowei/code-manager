@@ -15,6 +15,7 @@ export const commands = {
 	upsertProfile: (data: ProfileInput) => typedError<ConfigProfile_Serialize, string>(__TAURI_INVOKE("upsert_profile", { data })),
 	duplicateProfile: (id: string, nameSuffix: string) => typedError<ConfigProfile_Serialize, string>(__TAURI_INVOKE("duplicate_profile", { id, nameSuffix })),
 	reorderProfiles: (ids: string[]) => typedError<null, string>(__TAURI_INVOKE("reorder_profiles", { ids })),
+	syncSharedProfileSettings: (sourceId: string, topLevelKeys: string[], envKeys: string[]) => typedError<number, string>(__TAURI_INVOKE("sync_shared_profile_settings", { sourceId, topLevelKeys, envKeys })),
 	deleteProfile: (id: string) => typedError<null, string>(__TAURI_INVOKE("delete_profile", { id })),
 	applyProfile: (id: string) => typedError<null, string>(__TAURI_INVOKE("apply_profile", { id })),
 	importUserSettingsProfile: (data: UserSettingsImportInput) => typedError<ConfigProfile_Serialize, string>(__TAURI_INVOKE("import_user_settings_profile", { data })),

@@ -1962,4 +1962,79 @@ describe("ProfilesPage", () => {
     });
     expect(onWorkspaceChange).toHaveBeenCalledTimes(1);
   });
+
+  it("syncs shared settings from the applied profile after confirmation", async () => {
+    const onWorkspaceChange = vi.fn(async () => {});
+    const workspace: ConfigWorkspace = {
+      ...WORKSPACE_FIXTURE,
+      profiles: [WORKSPACE_FIXTURE.profiles[0], makeProfile("profile-b", "Beta")],
+      bindings: { userProfileId: "user-openrouter" },
+    } as ConfigWorkspace;
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === "sync_shared_profile_settings") {
+        return 1;
+      }
+      return null;
+    });
+
+    renderPage(workspace, onWorkspaceChange);
+
+    const card = getProfileCard("OpenRouter User");
+    fireEvent.click(within(card).getByRole("button", { name: "同步常用选项与插件到其他配置" }));
+
+    const dialog = screen.getByRole("alertdialog");
+    expect(within(dialog).getByText("同步常用选项与插件")).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "同步常用选项与插件到其他配置" }));
+      await Promise.resolve();
+    });
+
+    expect(invokeMock).toHaveBeenCalledWith(
+      "sync_shared_profile_settings",
+      expect.objectContaining({
+        sourceId: "user-openrouter",
+        topLevelKeys: expect.arrayContaining([
+          "enabledPlugins",
+          "extraKnownMarketplaces",
+          "alwaysThinkingEnabled",
+        ]),
+        envKeys: expect.arrayContaining(["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"]),
+      }),
+    );
+    await waitFor(() => {
+      expect(onWorkspaceChange).toHaveBeenCalled();
+      expect(showToastMock).toHaveBeenCalledWith("已同步到 1 个配置");
+    });
+  });
+
+  it("only shows the sync action on the applied profile card", () => {
+    const workspace: ConfigWorkspace = {
+      ...WORKSPACE_FIXTURE,
+      profiles: [WORKSPACE_FIXTURE.profiles[0], makeProfile("profile-b", "Beta")],
+      bindings: { userProfileId: "user-openrouter" },
+    } as ConfigWorkspace;
+
+    renderPage(workspace);
+
+    expect(
+      within(getProfileCard("OpenRouter User")).getByRole("button", {
+        name: "同步常用选项与插件到其他配置",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(getProfileCard("Beta")).queryByRole("button", {
+        name: "同步常用选项与插件到其他配置",
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("disables the sync action when there is no other profile to sync", () => {
+    renderPage();
+
+    const card = getProfileCard("OpenRouter User");
+    expect(
+      within(card).getByRole("button", { name: "同步常用选项与插件到其他配置" }),
+    ).toBeDisabled();
+  });
 });

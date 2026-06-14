@@ -172,6 +172,11 @@ type CompatibleIpcOverrides = {
   reorderProfiles(ids: string[]): Promise<null>;
   rescanUsage(): Promise<AppTypes.UsageScanResult>;
   setAppPreferences(data: AppTypes.AppPreferences): Promise<AppTypes.AppPreferences>;
+  syncSharedProfileSettings(
+    sourceId: string,
+    topLevelKeys: string[],
+    envKeys: string[],
+  ): Promise<number>;
   syncSkillToCodex(id: string, isActive: boolean): Promise<null>;
   testProfileModel(data: ModelTestInput): Promise<AppTypes.ModelTestResult>;
   toggleMemory(id: string): Promise<AppTypes.MemoryState>;

@@ -235,6 +235,7 @@ const translations = {
     "profiles.unmanaged.status.unsupportedSymlink": "软链接配置不支持导入",
     "profiles.unmanaged.status.readError": "读取配置失败",
     "profiles.actions.apply": "启用",
+    "profiles.actions.syncShared": "同步常用选项与插件到其他配置",
     "profiles.actions.copyEnv": "复制环境变量",
     "profiles.actions.duplicate": "复制",
     "profiles.actions.edit": "编辑",
@@ -276,6 +277,11 @@ const translations = {
     "profiles.duplicateSuffix": " 副本",
     "profiles.dialog.deleteTitle": "删除配置",
     "profiles.dialog.deleteMessage": "删除后会移除绑定，但不会自动清理已经写出的 settings 文件。",
+    "profiles.dialog.syncTitle": "同步常用选项与插件",
+    "profiles.dialog.syncMessage":
+      "将以「{name}」为准，把常用选项、插件市场与插件同步到其余 {count} 个配置。",
+    "profiles.dialog.syncWarning":
+      "完全对齐：目标配置中这些字段会与源保持一致，目标独有的插件、市场或选项将被移除。",
     "profiles.toast.saved": "配置已保存",
     "profiles.toast.saveError": "保存配置失败",
     "profiles.toast.applied": "配置已应用",
@@ -286,6 +292,8 @@ const translations = {
     "profiles.toast.deleteError": "删除配置失败",
     "profiles.toast.duplicated": "配置已复制",
     "profiles.toast.duplicateError": "复制配置失败",
+    "profiles.toast.synced": "已同步到 {count} 个配置",
+    "profiles.toast.syncError": "同步配置失败",
     "profiles.toast.reorderError": "重排配置失败",
     "profiles.toast.envCopied": "环境变量已复制",
     "profiles.toast.envCopyError": "复制环境变量失败",
@@ -1714,6 +1722,7 @@ const translations = {
     "profiles.unmanaged.status.unsupportedSymlink": "Symlink settings cannot be imported",
     "profiles.unmanaged.status.readError": "Failed to read settings",
     "profiles.actions.apply": "Apply",
+    "profiles.actions.syncShared": "Sync common options & plugins to other profiles",
     "profiles.actions.copyEnv": "Copy env vars",
     "profiles.actions.duplicate": "Duplicate",
     "profiles.actions.edit": "Edit",
@@ -1758,6 +1767,11 @@ const translations = {
     "profiles.dialog.deleteTitle": "Delete profile",
     "profiles.dialog.deleteMessage":
       "Deleting a profile removes its bindings but does not delete any settings files already written.",
+    "profiles.dialog.syncTitle": "Sync common options & plugins",
+    "profiles.dialog.syncMessage":
+      'Using "{name}" as the source, sync common options, plugin marketplaces, and plugins to the other {count} profile(s).',
+    "profiles.dialog.syncWarning":
+      "Full alignment: these fields in target profiles will match the source, and any plugins, marketplaces, or options unique to a target will be removed.",
     "profiles.toast.saved": "Profile saved",
     "profiles.toast.saveError": "Failed to save profile",
     "profiles.toast.applied": "Profile applied",
@@ -1768,6 +1782,8 @@ const translations = {
     "profiles.toast.deleteError": "Failed to delete profile",
     "profiles.toast.duplicated": "Profile duplicated",
     "profiles.toast.duplicateError": "Failed to duplicate profile",
+    "profiles.toast.synced": "Synced to {count} profile(s)",
+    "profiles.toast.syncError": "Failed to sync profiles",
     "profiles.toast.reorderError": "Failed to reorder profiles",
     "profiles.toast.envCopied": "Env vars copied",
     "profiles.toast.envCopyError": "Failed to copy env vars",
