@@ -133,7 +133,6 @@ export default function BrowseMarketplaceTab({
   const [marketplaceFilter, setMarketplaceFilter] = useState<"all" | string>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "enabled" | "disabled">("all");
   const [categoryFilter, setCategoryFilter] = useState<"all" | string>("all");
-  const [sourceTypeFilter, setSourceTypeFilter] = useState<"all" | string>("all");
   const [providerFilter, setProviderFilter] = useState<ProviderFilter>("all");
   const [sortMode, setSortMode] = useState<MarketplaceSortMode>("installCount");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -193,11 +192,6 @@ export default function BrowseMarketplaceTab({
     [allPlugins],
   );
 
-  const sourceTypeOptions = useMemo(
-    () => Array.from(new Set(allPlugins.map((p) => p.sourceType).filter(Boolean))).sort(),
-    [allPlugins],
-  );
-
   const numberFormatter = useMemo(
     () => new Intl.NumberFormat(language === "zh" ? "zh-CN" : "en-US"),
     [language],
@@ -213,7 +207,6 @@ export default function BrowseMarketplaceTab({
         if (statusFilter === "enabled" && !enabledMap.get(plugin.pluginId)) return false;
         if (statusFilter === "disabled" && enabledMap.get(plugin.pluginId)) return false;
         if (categoryFilter !== "all" && plugin.category !== categoryFilter) return false;
-        if (sourceTypeFilter !== "all" && plugin.sourceType !== sourceTypeFilter) return false;
         if (providerFilter !== "all" && getProviderAffiliation(plugin) !== providerFilter)
           return false;
         if (q.length === 0) return true;
@@ -248,7 +241,6 @@ export default function BrowseMarketplaceTab({
     searchQuery,
     sortDirection,
     sortMode,
-    sourceTypeFilter,
     statusFilter,
   ]);
 
@@ -517,43 +509,7 @@ export default function BrowseMarketplaceTab({
             </div>
           )}
 
-          {/* 来源类型筛选 */}
-          {sourceTypeOptions.length > 0 && (
-            <div className={FILTER_CONTROL_CLASS}>
-              <span
-                className="shrink-0 whitespace-nowrap text-xs font-semibold text-muted-foreground"
-                aria-hidden="true"
-              >
-                {t("profileEditor.plugins.sourceTypeFilterFieldLabel")}
-              </span>
-              <Select value={sourceTypeFilter} onValueChange={setSourceTypeFilter}>
-                <SelectTrigger
-                  aria-label={t("profileEditor.plugins.sourceTypeFilterLabel")}
-                  className={FILTER_TRIGGER_CLASS}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value="all">
-                      {t("profileEditor.plugins.metadataFilterAll")}
-                    </SelectItem>
-                    {sourceTypeOptions.map((opt) => (
-                      <SelectItem key={opt} value={opt}>
-                        {opt === "unknown"
-                          ? t("profileEditor.plugins.sourceTypeUnknown")
-                          : opt === "path"
-                            ? t("profileEditor.plugins.sourceTypePath")
-                            : opt}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* 提供方筛选（Anthropic 第一方 / 合作伙伴） */}
+          {/* 提供方筛选（Anthropic 第一方 / 其他） */}
           <div className={FILTER_CONTROL_CLASS}>
             <span
               className="shrink-0 whitespace-nowrap text-xs font-semibold text-muted-foreground"

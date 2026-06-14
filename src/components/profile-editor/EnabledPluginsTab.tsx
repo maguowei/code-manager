@@ -88,7 +88,6 @@ function EnabledPluginsTab({
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<PluginStatusFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState<PluginMetadataFilterValue>("all");
-  const [sourceTypeFilter, setSourceTypeFilter] = useState<PluginMetadataFilterValue>("all");
 
   const searchLabel = t("profileEditor.plugins.searchLabel");
   const searchPlaceholder = t("profileEditor.plugins.searchPlaceholder");
@@ -96,8 +95,6 @@ function EnabledPluginsTab({
   const statusFilterFieldLabel = t("profileEditor.plugins.statusFilterFieldLabel");
   const categoryFilterLabel = t("profileEditor.plugins.categoryFilterLabel");
   const categoryFilterFieldLabel = t("profileEditor.plugins.categoryFilterFieldLabel");
-  const sourceTypeFilterLabel = t("profileEditor.plugins.sourceTypeFilterLabel");
-  const sourceTypeFilterFieldLabel = t("profileEditor.plugins.sourceTypeFilterFieldLabel");
   const verifiedBadgeAriaLabel = t("profileEditor.plugins.verifiedBadgeAriaLabel");
   const rowStatusOnText = t("profileEditor.plugins.statusEnabled");
   const rowStatusOffText = t("profileEditor.plugins.statusNotEnabled");
@@ -142,15 +139,7 @@ function EnabledPluginsTab({
       ),
     [categoryFilter, metadataEnabledPlugins],
   );
-  const sourceTypeOptions = useMemo(
-    () =>
-      buildFilterOptions(
-        metadataEnabledPlugins.map((plugin) => plugin.sourceType),
-        sourceTypeFilter,
-      ),
-    [metadataEnabledPlugins, sourceTypeFilter],
-  );
-  const hasMetadataFilters = categoryFilter !== "all" || sourceTypeFilter !== "all";
+  const hasMetadataFilters = categoryFilter !== "all";
 
   const filteredPlugins = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -164,19 +153,9 @@ function EnabledPluginsTab({
         return false;
       }
       const matchesCategory = categoryFilter === "all" || metadata?.category === categoryFilter;
-      const matchesSourceType =
-        sourceTypeFilter === "all" || metadata?.sourceType === sourceTypeFilter;
-      return matchesQuery && matchesStatus && matchesCategory && matchesSourceType;
+      return matchesQuery && matchesStatus && matchesCategory;
     });
-  }, [
-    categoryFilter,
-    hasMetadataFilters,
-    metadataMap,
-    plugins,
-    searchQuery,
-    sourceTypeFilter,
-    statusFilter,
-  ]);
+  }, [categoryFilter, hasMetadataFilters, metadataMap, plugins, searchQuery, statusFilter]);
 
   const visiblePlugins = useMemo<PluginListItem[]>(() => {
     const items: PluginListItem[] = filteredPlugins.map((plugin) => ({
@@ -210,7 +189,6 @@ function EnabledPluginsTab({
     setSearchQuery("");
     setStatusFilter("all");
     setCategoryFilter("all");
-    setSourceTypeFilter("all");
   }, [manageTarget]);
 
   useEffect(() => {
@@ -345,38 +323,6 @@ function EnabledPluginsTab({
                         {categoryOptions.map((option) => (
                           <SelectItem key={option} value={option}>
                             {option}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex h-[42px] min-w-[150px] flex-[1_1_0] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-primary focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground max-[520px]:flex-auto">
-                  <span
-                    className="shrink-0 whitespace-nowrap text-xs font-semibold text-muted-foreground"
-                    aria-hidden="true"
-                  >
-                    {sourceTypeFilterFieldLabel}
-                  </span>
-                  <Select value={sourceTypeFilter} onValueChange={setSourceTypeFilter}>
-                    <SelectTrigger
-                      aria-label={sourceTypeFilterLabel}
-                      className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 shadow-none focus:ring-0"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value="all">
-                          {t("profileEditor.plugins.metadataFilterAll")}
-                        </SelectItem>
-                        {sourceTypeOptions.map((option) => (
-                          <SelectItem key={option} value={option}>
-                            {option === "unknown"
-                              ? t("profileEditor.plugins.sourceTypeUnknown")
-                              : option === "path"
-                                ? t("profileEditor.plugins.sourceTypePath")
-                                : option}
                           </SelectItem>
                         ))}
                       </SelectGroup>
