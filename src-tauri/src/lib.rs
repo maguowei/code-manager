@@ -2,6 +2,7 @@ mod claude_directory;
 mod claude_directory_watcher;
 mod config;
 mod history;
+mod led;
 mod logging;
 #[cfg(target_os = "macos")]
 mod macos_notifications;
@@ -35,6 +36,7 @@ use history::{
     get_history, get_history_if_changed, get_session_detail, open_session_file_in_editor,
     open_session_plan_in_editor, read_session_plan,
 };
+use led::{led_probe_status, led_test_mode};
 use logging::{clear_app_logs, get_app_logs, open_logs_dir};
 use memory::{
     add_memory, apply_memory_preset, delete_memory, duplicate_memory, get_memories,
@@ -143,6 +145,8 @@ fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             refresh_usage_pricing,
             rescan_usage,
             refresh_plugin_install_counts,
+            led_probe_status,
+            led_test_mode,
         ])
         .dangerously_cast_bigints_to_number()
 }
@@ -252,6 +256,8 @@ pub fn run() {
             app.manage(claude_directory_watcher);
             // 启动 token/cost 用量统计运行时（管理状态、首扫、价格刷新、watcher 增量）
             usage::start_usage_runtime(app).map_err(std::io::Error::other)?;
+            // 启动 LED 灯效运行时（独立 worker 线程驱动设备，按当前会话状态点亮一次）
+            led::start_led_runtime(app);
             Ok(())
         })
         .on_window_event(|window, event| {

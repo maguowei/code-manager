@@ -52,6 +52,8 @@ specta-typescript = "0.0.12"
 tauri-specta = { version = "=2.0.0-rc.25", features = ["derive", "typescript"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
+# USB HID 控制 ANTICATER LED;仅 macOS 接入真机,避免 Linux 引入 libudev 系统依赖
+hidapi = "2"
 block2 = "0.6.2"
 objc2 = { version = "0.6.4", features = ["exception"] }
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSBundle", "NSDictionary", "NSError", "NSObject", "NSString"] }

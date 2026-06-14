@@ -40,6 +40,14 @@ export interface NativeOpenAppOptions {
   terminals: NativeTerminalAppOption[];
 }
 
+/** 会话状态 → LED 灯效模式映射（mode 0-5：0 关 / 1 顺时针 / 2 逆时针 / 3 交替 / 4 跳跃 / 5 闪烁）。 */
+export interface LedControlPreferences {
+  enabled: boolean;
+  waitingMode: number;
+  runningMode: number;
+  idleMode: number;
+}
+
 export interface AppPreferences {
   showTrayTitle: boolean;
   showTraySessions: boolean;
@@ -53,6 +61,7 @@ export interface AppPreferences {
   sessionTrayCountStyle: SessionTrayCountStyle;
   trayPulseWaiting: boolean;
   focusSessionShortcut: string | null;
+  ledControl?: LedControlPreferences;
 }
 
 export type PresetSource = "builtin" | "custom";

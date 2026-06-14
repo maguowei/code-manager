@@ -13,7 +13,13 @@
     "trayTitleMaxChars": null,
     "sessionTrayCountStyle": "superscriptCompact",
     "trayPulseWaiting": true,
-    "focusSessionShortcut": "Command+Control+J"
+    "focusSessionShortcut": "Command+Control+J",
+    "ledControl": {
+      "enabled": false,
+      "waitingMode": 5,
+      "runningMode": 1,
+      "idleMode": 2
+    }
   },
   "customPresets": [
     {

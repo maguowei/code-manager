@@ -103,6 +103,10 @@ export const commands = {
 	 *  成功/失败，CLI 原始输出仅进后端日志。
 	 */
 	refreshPluginInstallCounts: () => typedError<null, string>(__TAURI_INVOKE("refresh_plugin_install_counts")),
+	/**  探测 ANTICATER 设备是否连接(设置页显式调用)。 */
+	ledProbeStatus: () => __TAURI_INVOKE<LedProbeStatus>("led_probe_status"),
+	/**  测试某个灯效(设置页「测试」按钮 / 真机验证门)。立即下发,不受 enabled 影响。 */
+	ledTestMode: (mode: number) => typedError<null, string>(__TAURI_INVOKE("led_test_mode", { mode })),
 };
 
 /* Types */
@@ -128,6 +132,7 @@ export type AppPreferences = {
 	sessionTrayCountStyle?: SessionTrayCountStyle,
 	trayPulseWaiting?: boolean,
 	focusSessionShortcut?: string | null,
+	ledControl?: LedControlPreferences,
 };
 
 export type AppPreferencesInput = {
@@ -143,6 +148,7 @@ export type AppPreferencesInput = {
 	sessionTrayCountStyle?: SessionTrayCountStyle,
 	trayPulseWaiting?: boolean,
 	focusSessionShortcut?: string | null,
+	ledControl?: LedControlPreferences,
 };
 
 export type BindingState = BindingState_Serialize | BindingState_Deserialize;
@@ -271,6 +277,23 @@ export type DailyUsage = {
 export type HistoryResult = {
 	content: string,
 	mtime: number,
+};
+
+/**  「会话状态 → 灯效」映射偏好,作为 `AppPreferences.led_control` 持久化。 */
+export type LedControlPreferences = {
+	/**  是否启用 LED 联动(默认关,opt-in)。关闭时不主动驱动设备。 */
+	enabled?: boolean,
+	/**  等待输入时的灯效模式(默认 5 闪烁)。 */
+	waitingMode?: number,
+	/**  工作中时的灯效模式(默认 1 顺时针)。 */
+	runningMode?: number,
+	/**  已完成/空闲时的灯效模式(默认 2 逆时针)。 */
+	idleMode?: number,
+};
+
+/**  设备连接探测结果,供设置页展示。 */
+export type LedProbeStatus = {
+	connected: boolean,
 };
 
 export type LocalizedText = {

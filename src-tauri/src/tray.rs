@@ -815,9 +815,23 @@ pub fn rebuild_tray_menu(app_handle: &AppHandle, state: Option<&ConfigRegistry>)
     rebuild_sessions_tray(app_handle, state);
 }
 
+/// 读取当前会话并聚合为 LED 状态，供 LED 运行时启动时初始同步。
+pub(crate) fn current_session_led_state() -> crate::led::SessionLedState {
+    let sessions = load_tray_sessions();
+    let (waiting, running, other) = count_session_states(&sessions);
+    crate::led::SessionLedState::from_counts(waiting, running, other)
+}
+
 fn rebuild_sessions_tray(app_handle: &AppHandle, state: &ConfigRegistry) {
     let sessions = load_tray_sessions();
     handle_pending_session_notifications(app_handle, state, &sessions);
+
+    // 把会话聚合状态镜像到 LED 设备（独立于会话托盘是否可见，故放在可见性早返回之前）。
+    let (waiting, running, other) = count_session_states(&sessions);
+    crate::led::on_session_state_changed(
+        app_handle,
+        crate::led::SessionLedState::from_counts(waiting, running, other),
+    );
 
     let Some(tray) = app_handle.tray_by_id(SESSIONS_TRAY_ID) else {
         return;
@@ -1292,6 +1306,7 @@ mod tests {
             session_tray_count_style: SessionTrayCountStyle::default(),
             tray_pulse_waiting: true,
             focus_session_shortcut: None,
+            led_control: crate::led::LedControlPreferences::default(),
         }
     }
 

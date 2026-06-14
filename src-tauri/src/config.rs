@@ -89,6 +89,8 @@ pub struct AppPreferences {
     pub tray_pulse_waiting: bool,
     #[serde(default = "default_focus_session_shortcut")]
     pub focus_session_shortcut: Option<String>,
+    #[serde(default)]
+    pub led_control: crate::led::LedControlPreferences,
 }
 
 impl Default for AppPreferences {
@@ -106,6 +108,7 @@ impl Default for AppPreferences {
             session_tray_count_style: SessionTrayCountStyle::default(),
             tray_pulse_waiting: default_true(),
             focus_session_shortcut: default_focus_session_shortcut(),
+            led_control: crate::led::LedControlPreferences::default(),
         }
     }
 }
@@ -338,6 +341,8 @@ pub struct AppPreferencesInput {
     pub tray_pulse_waiting: bool,
     #[serde(default = "default_focus_session_shortcut")]
     pub focus_session_shortcut: Option<String>,
+    #[serde(default)]
+    pub led_control: crate::led::LedControlPreferences,
 }
 
 #[derive(Debug, Clone, Deserialize, specta::Type)]
@@ -1061,6 +1066,13 @@ fn normalize_app_preferences(input: AppPreferencesInput) -> Result<AppPreference
             .focus_session_shortcut
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty()),
+        // LED 灯效映射：防御性把 mode 钳制到 0..=MAX_MODE，越界值退回合法上界
+        led_control: crate::led::LedControlPreferences {
+            enabled: input.led_control.enabled,
+            waiting_mode: input.led_control.waiting_mode.min(crate::led::MAX_MODE),
+            running_mode: input.led_control.running_mode.min(crate::led::MAX_MODE),
+            idle_mode: input.led_control.idle_mode.min(crate::led::MAX_MODE),
+        },
     })
 }
 
@@ -3650,6 +3662,7 @@ mod tests {
                 session_tray_count_style: SessionTrayCountStyle::SuperscriptCompact,
                 tray_pulse_waiting: true,
                 focus_session_shortcut: Some("Command+Control+J".to_string()),
+                led_control: crate::led::LedControlPreferences::default(),
             },
             custom_presets: vec![SettingsPreset {
                 id: "custom:team-plan".to_string(),

@@ -26,6 +26,7 @@ import type {
   AppPreferences,
   DefaultEditorApp,
   DefaultTerminalApp,
+  LedControlPreferences,
   NativeOpenAppOptions,
   NativeOpenPlatform,
   SessionTrayCountStyle,
@@ -81,6 +82,24 @@ interface NativeOpenSelectOption<T extends string> {
 const EDITOR_UNSET_VALUE = "__unset";
 // Slider 最大值代表"全展示"（无字数限制），对应后端 trayTitleMaxChars = null
 const TRAY_TITLE_SLIDER_MAX = 8;
+
+// LED 灯效模式选项（mode 0-5，与设备协议一致）
+const LED_MODE_OPTIONS: { value: number; labelKey: TranslationKey }[] = [
+  { value: 0, labelKey: "settings.ledModeOff" },
+  { value: 1, labelKey: "settings.ledModeClockwise" },
+  { value: 2, labelKey: "settings.ledModeCounterClockwise" },
+  { value: 3, labelKey: "settings.ledModeAlternate" },
+  { value: 4, labelKey: "settings.ledModeJump" },
+  { value: 5, labelKey: "settings.ledModeBlink" },
+];
+
+// 后端 led_control 缺省时的前端兜底（与 Rust LedControlPreferences::default 对齐）
+const DEFAULT_LED_CONTROL: LedControlPreferences = {
+  enabled: false,
+  waitingMode: 5,
+  runningMode: 1,
+  idleMode: 2,
+};
 
 const languageOptions: {
   value: Language;
@@ -329,6 +348,127 @@ function FocusSessionShortcutField({
   );
 }
 
+// LED 灯效联动设置项：启用开关 + 设备连接状态 + 三个会话状态→灯效映射 + 逐项测试（仅 macOS 展示）。
+function LedControlSection({
+  value,
+  onChange,
+}: {
+  value: LedControlPreferences;
+  onChange: (next: LedControlPreferences) => void;
+}) {
+  const { t } = useI18n();
+  const { showToast } = useToast();
+  const [connected, setConnected] = useState<boolean | null>(null);
+
+  // 打开抽屉时探测一次设备连接状态
+  useEffect(() => {
+    let cancelled = false;
+    ipc
+      .ledProbeStatus()
+      .then((status) => {
+        if (!cancelled) {
+          setConnected(status.connected);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setConnected(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function testMode(mode: number) {
+    try {
+      await ipc.ledTestMode(mode);
+    } catch (err) {
+      showOperationError(showToast, t("toast.ledTestError"), err);
+    }
+  }
+
+  const stateRows: { key: "waitingMode" | "runningMode" | "idleMode"; labelKey: TranslationKey }[] =
+    [
+      { key: "waitingMode", labelKey: "settings.ledControlWaiting" },
+      { key: "runningMode", labelKey: "settings.ledControlRunning" },
+      { key: "idleMode", labelKey: "settings.ledControlIdle" },
+    ];
+
+  return (
+    <SettingsSectionCard
+      title={t("settings.ledControl")}
+      description={t("settings.ledControlDesc")}
+    >
+      <FieldGroup className="gap-4">
+        <Field orientation="horizontal" className="items-center justify-between gap-4">
+          <FieldContent>
+            <SettingsStateLabel enabled={value.enabled} />
+          </FieldContent>
+          <Switch
+            id="settings-led-enabled"
+            checked={value.enabled}
+            onCheckedChange={(checked) => onChange({ ...value, enabled: checked })}
+            aria-label={t("settings.ledControl")}
+          />
+        </Field>
+
+        {value.enabled && (
+          <>
+            <Field orientation="horizontal" className="items-center justify-between gap-2">
+              <FieldTitle className="text-muted-foreground text-xs">
+                {t("settings.ledControlDeviceStatus")}
+              </FieldTitle>
+              <span
+                className={cn("text-xs", connected ? "text-foreground" : "text-muted-foreground")}
+              >
+                {connected === null
+                  ? t("settings.ledControlDeviceChecking")
+                  : connected
+                    ? t("settings.ledControlDeviceConnected")
+                    : t("settings.ledControlDeviceNotFound")}
+              </span>
+            </Field>
+
+            {stateRows.map((row) => (
+              <Field key={row.key} className="gap-2">
+                <FieldTitle className="text-muted-foreground text-xs">{t(row.labelKey)}</FieldTitle>
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={String(value[row.key])}
+                    onValueChange={(next) => onChange({ ...value, [row.key]: Number(next) })}
+                  >
+                    <SelectTrigger aria-label={t(row.labelKey)} className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {LED_MODE_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={String(option.value)}>
+                            {t(option.labelKey)}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void testMode(value[row.key])}
+                  >
+                    {t("settings.ledControlTest")}
+                  </Button>
+                </div>
+              </Field>
+            ))}
+          </>
+        )}
+      </FieldGroup>
+    </SettingsSectionCard>
+  );
+}
+
 function NativeOpenOptionContent({ kind, label }: { kind: "editor" | "terminal"; label: string }) {
   const Icon = kind === "editor" ? Code2 : TerminalIcon;
   return (
@@ -533,6 +673,7 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   const trayPulseWaiting = preferences.trayPulseWaiting;
   const focusSessionShortcut = preferences.focusSessionShortcut;
   const systemNotificationsEnabled = preferences.systemNotificationsEnabled;
+  const ledControl = preferences.ledControl ?? DEFAULT_LED_CONTROL;
   const collapseSidebarByDefault = preferences.collapseSidebarByDefault;
   const thirdPartyProviderPricingEnabled = preferences.thirdPartyProviderPricingEnabled;
   const defaultTerminalApp = preferences.defaultTerminalApp;
@@ -939,6 +1080,15 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                 )}
               </FieldGroup>
             </SettingsSectionCard>
+
+            {platformName === "macos" && (
+              <LedControlSection
+                value={ledControl}
+                onChange={(next) =>
+                  void persistPreferences({ ...nextPreferences, ledControl: next }, nextPreferences)
+                }
+              />
+            )}
 
             <SettingsSectionCard
               title={t("settings.systemNotifications")}
