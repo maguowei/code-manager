@@ -1,0 +1,179 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap');
+    text { font-family: 'JetBrains Mono', 'Noto Sans SC', 'PingFang SC', 'SF Mono', sans-serif; }
+    .title { font-size: 24px; font-weight: 700; fill: #f1f5f9; }
+    .subtitle { font-size: 13px; font-weight: 400; fill: #94a3b8; }
+    .lane { font-size: 12px; font-weight: 700; }
+    .name { font-size: 14px; font-weight: 600; fill: #f8fafc; }
+    .mono { font-size: 11px; font-weight: 500; fill: #e2e8f0; }
+    .desc { font-size: 10px; font-weight: 400; fill: #94a3b8; }
+    .edge { font-size: 10px; font-weight: 500; fill: #94a3b8; }
+    .th { font-size: 12px; font-weight: 700; fill: #f1f5f9; }
+    .td { font-size: 10px; font-weight: 500; fill: #e2e8f0; }
+    .tp { font-size: 9px; font-weight: 400; fill: #94a3b8; }
+  </style>
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+    </pattern>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect width="100%" height="100%" fill="#0f172a"/>
+  <rect width="100%" height="100%" fill="url(#grid)"/>
+
+  <text x="40" y="46" class="title">数据源与目录映射 · 三套数据源互不混用</text>
+  <text x="40" y="72" class="subtitle">每个页面绑定独立数据源；ProjectsPage / StatsPage / UsagePage 读取不同文件，不可混用</text>
+
+  <!-- ===== Lane 1: Projects (cyan) ===== -->
+  <rect x="40" y="92" width="1520" height="112" rx="10" fill="none" stroke="#22d3ee" stroke-width="1" stroke-dasharray="8,4"/>
+  <text x="54" y="110" class="lane" fill="#22d3ee">数据源族 A · 会话历史</text>
+  <line x1="296" y1="148" x2="416" y2="148" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="356" y="140" class="edge" text-anchor="middle">get_history 读取</text>
+
+  <rect x="86" y="118" width="210" height="60" rx="6" fill="#0f172a"/>
+  <rect x="86" y="118" width="210" height="60" rx="6" fill="rgba(8,51,68,0.55)" stroke="#22d3ee" stroke-width="1.5"/>
+  <text x="191" y="144" class="name" text-anchor="middle">ProjectsPage</text>
+  <text x="191" y="164" class="desc" text-anchor="middle">项目管理 · 历史会话</text>
+
+  <rect x="420" y="118" width="340" height="60" rx="6" fill="#0f172a"/>
+  <rect x="420" y="118" width="340" height="60" rx="6" fill="rgba(76,29,149,0.45)" stroke="#a78bfa" stroke-width="1.5"/>
+  <text x="590" y="144" class="mono" text-anchor="middle">~/.claude/history.jsonl</text>
+  <text x="590" y="164" class="desc" text-anchor="middle">追加式会话历史 · get_history_if_changed 增量</text>
+
+  <!-- ===== Lane 2: Stats (emerald) ===== -->
+  <rect x="40" y="214" width="1520" height="112" rx="10" fill="none" stroke="#34d399" stroke-width="1" stroke-dasharray="8,4"/>
+  <text x="54" y="232" class="lane" fill="#34d399">数据源族 B · 全局配置统计</text>
+  <line x1="296" y1="270" x2="416" y2="270" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="356" y="262" class="edge" text-anchor="middle">get_stats 读取</text>
+
+  <rect x="86" y="240" width="210" height="60" rx="6" fill="#0f172a"/>
+  <rect x="86" y="240" width="210" height="60" rx="6" fill="rgba(8,51,68,0.55)" stroke="#22d3ee" stroke-width="1.5"/>
+  <text x="191" y="266" class="name" text-anchor="middle">StatsPage</text>
+  <text x="191" y="286" class="desc" text-anchor="middle">统计概览</text>
+
+  <rect x="420" y="240" width="340" height="60" rx="6" fill="#0f172a"/>
+  <rect x="420" y="240" width="340" height="60" rx="6" fill="rgba(76,29,149,0.45)" stroke="#a78bfa" stroke-width="1.5"/>
+  <text x="590" y="266" class="mono" text-anchor="middle">~/.claude.json</text>
+  <text x="590" y="286" class="desc" text-anchor="middle">Claude Code 全局配置 · 与 history 不同源</text>
+
+  <!-- ===== Lane 3: Usage (violet, 链式) ===== -->
+  <rect x="40" y="336" width="1520" height="124" rx="10" fill="none" stroke="#a78bfa" stroke-width="1" stroke-dasharray="8,4"/>
+  <text x="54" y="354" class="lane" fill="#a78bfa">数据源族 C · Token 用量与费用（扫描 → watcher → SQLite 缓存）</text>
+
+  <rect x="86" y="372" width="180" height="70" rx="6" fill="#0f172a"/>
+  <rect x="86" y="372" width="180" height="70" rx="6" fill="rgba(8,51,68,0.55)" stroke="#22d3ee" stroke-width="1.5"/>
+  <text x="176" y="402" class="name" text-anchor="middle">UsagePage</text>
+  <text x="176" y="422" class="desc" text-anchor="middle">用量 · 费用</text>
+
+  <line x1="266" y1="407" x2="312" y2="407" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="316" y="372" width="300" height="70" rx="6" fill="#0f172a"/>
+  <rect x="316" y="372" width="300" height="70" rx="6" fill="rgba(76,29,149,0.45)" stroke="#a78bfa" stroke-width="1.5"/>
+  <text x="466" y="400" class="mono" text-anchor="middle">~/.claude/projects/**/*.jsonl</text>
+  <text x="466" y="420" class="desc" text-anchor="middle">逐条会话用量记录</text>
+
+  <line x1="616" y1="407" x2="662" y2="407" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="639" y="398" class="edge" text-anchor="middle">扫描</text>
+
+  <rect x="666" y="372" width="240" height="70" rx="6" fill="#0f172a"/>
+  <rect x="666" y="372" width="240" height="70" rx="6" fill="rgba(6,78,59,0.5)" stroke="#34d399" stroke-width="1.5"/>
+  <text x="786" y="400" class="name" text-anchor="middle">usage watcher</text>
+  <text x="786" y="420" class="desc" text-anchor="middle">start_usage_runtime</text>
+
+  <line x1="906" y1="407" x2="952" y2="407" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="929" y="398" class="edge" text-anchor="middle">写入</text>
+
+  <g transform="translate(956, 378)">
+    <rect x="0" y="10" width="260" height="42" fill="#0f172a"/>
+    <ellipse cx="130" cy="10" rx="130" ry="11" fill="#0f172a"/>
+    <ellipse cx="130" cy="52" rx="130" ry="11" fill="#0f172a"/>
+    <rect x="0" y="10" width="260" height="42" fill="rgba(76,29,149,0.5)"/>
+    <ellipse cx="130" cy="10" rx="130" ry="11" fill="rgba(76,29,149,0.55)" stroke="#a78bfa" stroke-width="1.5"/>
+    <ellipse cx="130" cy="52" rx="130" ry="11" fill="rgba(76,29,149,0.5)" stroke="#a78bfa" stroke-width="1.5"/>
+    <line x1="0" y1="10" x2="0" y2="52" stroke="#a78bfa" stroke-width="1.5"/>
+    <line x1="260" y1="10" x2="260" y2="52" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="130" y="36" class="mono" text-anchor="middle">usage.db · SQLite (sqlx)</text>
+  </g>
+  <text x="1290" y="402" class="desc">model-pricing.json 提供单价</text>
+  <text x="1290" y="420" class="desc">refresh_usage_pricing / rescan_usage</text>
+
+  <!-- ===== Lane 4: Configs / Memory / Skills / Overview (amber) ===== -->
+  <rect x="40" y="470" width="1520" height="118" rx="10" fill="none" stroke="#fbbf24" stroke-width="1" stroke-dasharray="8,4"/>
+  <text x="54" y="488" class="lane" fill="#fbbf24">数据源族 D · 配置 / 记忆 / Skills / 共享树（应用数据目录 + ~/.claude + ~/.codex）</text>
+
+  <rect x="86" y="502" width="180" height="74" rx="6" fill="#0f172a"/>
+  <rect x="86" y="502" width="180" height="74" rx="6" fill="rgba(8,51,68,0.55)" stroke="#22d3ee" stroke-width="1.5"/>
+  <text x="176" y="530" class="name" text-anchor="middle" font-size="12">Profiles · Memory</text>
+  <text x="176" y="550" class="name" text-anchor="middle" font-size="12">Skills · 总览</text>
+  <text x="176" y="568" class="desc" text-anchor="middle">配置工作台</text>
+
+  <line x1="266" y1="539" x2="312" y2="539" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="316" y="502" width="370" height="74" rx="6" fill="#0f172a"/>
+  <rect x="316" y="502" width="370" height="74" rx="6" fill="rgba(76,29,149,0.45)" stroke="#a78bfa" stroke-width="1.5"/>
+  <text x="501" y="530" class="mono" text-anchor="middle">~/.config/ai-manager/</text>
+  <text x="501" y="550" class="desc" text-anchor="middle">config-registry · memories · model-pricing</text>
+  <text x="501" y="566" class="desc" text-anchor="middle">skills-disabled/（应用数据目录）</text>
+
+  <rect x="706" y="502" width="340" height="74" rx="6" fill="#0f172a"/>
+  <rect x="706" y="502" width="340" height="74" rx="6" fill="rgba(76,29,149,0.45)" stroke="#a78bfa" stroke-width="1.5"/>
+  <text x="876" y="530" class="mono" text-anchor="middle">~/.claude/（共享树）</text>
+  <text x="876" y="550" class="desc" text-anchor="middle">settings · agents · skills · memory</text>
+  <text x="876" y="566" class="desc" text-anchor="middle">watcher 实时监听变更回流前端</text>
+
+  <rect x="1066" y="502" width="320" height="74" rx="6" fill="#0f172a"/>
+  <rect x="1066" y="502" width="320" height="74" rx="6" fill="rgba(76,29,149,0.45)" stroke="#a78bfa" stroke-width="1.5"/>
+  <text x="1226" y="530" class="mono" text-anchor="middle">~/.codex/skills/</text>
+  <text x="1226" y="550" class="desc" text-anchor="middle">sync_skill_to_codex</text>
+  <text x="1226" y="566" class="desc" text-anchor="middle">Skills 双向同步目标</text>
+
+  <text x="1406" y="535" class="desc">覆盖：</text>
+  <text x="1406" y="551" class="desc">AI_MANAGER_HOME_OVERRIDE</text>
+  <text x="1406" y="567" class="desc">..._APP_DATA_DIR_OVERRIDE</text>
+
+  <!-- ===== OS 目录定位表 ===== -->
+  <rect x="40" y="606" width="1520" height="250" rx="12" fill="none" stroke="#94a3b8" stroke-width="1" stroke-dasharray="8,4"/>
+  <text x="54" y="628" class="lane" fill="#cbd5e1">关键数据目录定位 · 三处互不混用（getAppDataDir / app_config_dir / app_log_dir）</text>
+
+  <!-- 表头 -->
+  <line x1="60" y1="644" x2="1540" y2="644" stroke="#334155" stroke-width="1"/>
+  <text x="74" y="666" class="th">用途</text>
+  <text x="384" y="666" class="th">macOS</text>
+  <text x="794" y="666" class="th">Linux</text>
+  <text x="1204" y="666" class="th">Windows</text>
+  <line x1="60" y1="678" x2="1540" y2="678" stroke="#334155" stroke-width="1"/>
+  <line x1="370" y1="644" x2="370" y2="846" stroke="#1e293b" stroke-width="1"/>
+  <line x1="780" y1="644" x2="780" y2="846" stroke="#1e293b" stroke-width="1"/>
+  <line x1="1190" y1="644" x2="1190" y2="846" stroke="#1e293b" stroke-width="1"/>
+
+  <!-- 行1 应用数据 -->
+  <text x="74" y="708" class="td">应用数据</text>
+  <text x="74" y="726" class="tp">registry · memories</text>
+  <text x="74" y="740" class="tp">pricing · skills-disabled</text>
+  <text x="384" y="712" class="tp">~/.config/ai-manager/</text>
+  <text x="794" y="712" class="tp">$XDG_CONFIG_HOME/ai-manager/</text>
+  <text x="794" y="728" class="tp">或 ~/.config/ai-manager/</text>
+  <text x="1204" y="712" class="tp">%APPDATA%\ai-manager\</text>
+  <line x1="60" y1="752" x2="1540" y2="752" stroke="#1e293b" stroke-width="1"/>
+
+  <!-- 行2 SQLite -->
+  <text x="74" y="782" class="td">用量 SQLite</text>
+  <text x="74" y="800" class="tp">usage.db · -wal · -shm</text>
+  <text x="384" y="786" class="tp">~/Library/Application Support/</text>
+  <text x="384" y="800" class="tp">com.gotobeta.app.ai-manager/</text>
+  <text x="794" y="786" class="tp">$XDG_CONFIG_HOME/</text>
+  <text x="794" y="800" class="tp">com.gotobeta.app.ai-manager/</text>
+  <text x="1204" y="786" class="tp">%APPDATA%\</text>
+  <text x="1204" y="800" class="tp">com.gotobeta.app.ai-manager\</text>
+  <line x1="60" y1="812" x2="1540" y2="812" stroke="#1e293b" stroke-width="1"/>
+
+  <!-- 行3 日志 -->
+  <text x="74" y="838" class="td">日志</text>
+  <text x="384" y="838" class="tp">~/Library/Logs/com.gotobeta…/</text>
+  <text x="794" y="838" class="tp">~/.local/share/com.gotobeta…/logs/</text>
+  <text x="1204" y="838" class="tp">%LOCALAPPDATA%\…\logs\</text>
+</svg>

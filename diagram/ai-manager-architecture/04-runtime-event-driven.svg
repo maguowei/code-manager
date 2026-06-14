@@ -1,0 +1,153 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap');
+    text { font-family: 'JetBrains Mono', 'Noto Sans SC', 'PingFang SC', 'SF Mono', sans-serif; }
+    .title { font-size: 24px; font-weight: 700; fill: #f1f5f9; }
+    .subtitle { font-size: 13px; font-weight: 400; fill: #94a3b8; }
+    .region { font-size: 14px; font-weight: 700; }
+    .name { font-size: 14px; font-weight: 600; fill: #f8fafc; }
+    .mono { font-size: 11px; font-weight: 500; fill: #e2e8f0; }
+    .desc { font-size: 10px; font-weight: 400; fill: #94a3b8; }
+  </style>
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+    </pattern>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"/>
+    </marker>
+    <marker id="arrow-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#60a5fa"/>
+    </marker>
+    <marker id="arrow-orange" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#fb923c"/>
+    </marker>
+  </defs>
+
+  <rect width="100%" height="100%" fill="#0f172a"/>
+  <rect width="100%" height="100%" fill="url(#grid)"/>
+
+  <text x="40" y="46" class="title">后台运行时与事件驱动</text>
+  <text x="40" y="72" class="subtitle">lib.rs setup() 启动常驻任务：文件 watcher 把变更以 Tauri 事件回流前端；托盘会话状态驱动系统集成</text>
+
+  <!-- setup hub -->
+  <rect x="560" y="94" width="480" height="62" rx="8" fill="#0f172a"/>
+  <rect x="560" y="94" width="480" height="62" rx="8" fill="rgba(59,130,246,0.32)" stroke="#60a5fa" stroke-width="1.8"/>
+  <text x="800" y="122" class="name" text-anchor="middle" font-size="15">应用启动 · lib.rs setup()</text>
+  <text x="800" y="142" class="desc" text-anchor="middle">Tauri Builder · invoke_handler · mount events</text>
+
+  <!-- fan arrows setup -> 5 tasks -->
+  <path d="M 800 156 L 175 196" fill="none" stroke="#60a5fa" stroke-width="1.4" stroke-opacity="0.6" marker-end="url(#arrow-blue)"/>
+  <path d="M 800 156 L 487 196" fill="none" stroke="#60a5fa" stroke-width="1.4" stroke-opacity="0.6" marker-end="url(#arrow-blue)"/>
+  <path d="M 800 156 L 799 196" fill="none" stroke="#60a5fa" stroke-width="1.4" stroke-opacity="0.6" marker-end="url(#arrow-blue)"/>
+  <path d="M 800 156 L 1111 196" fill="none" stroke="#60a5fa" stroke-width="1.4" stroke-opacity="0.6" marker-end="url(#arrow-blue)"/>
+  <path d="M 800 156 L 1423 196" fill="none" stroke="#60a5fa" stroke-width="1.4" stroke-opacity="0.6" marker-end="url(#arrow-blue)"/>
+
+  <!-- 5 runtime tasks -->
+  <rect x="40" y="200" width="270" height="92" rx="6" fill="#0f172a"/>
+  <rect x="40" y="200" width="270" height="92" rx="6" fill="rgba(6,78,59,0.5)" stroke="#34d399" stroke-width="1.5"/>
+  <text x="175" y="230" class="name" text-anchor="middle" font-size="13">claude_directory_watcher</text>
+  <text x="175" y="252" class="desc" text-anchor="middle">~/.claude 文件变更监听</text>
+  <text x="175" y="270" class="desc" text-anchor="middle">start_claude_directory_watcher</text>
+
+  <rect x="352" y="200" width="270" height="92" rx="6" fill="#0f172a"/>
+  <rect x="352" y="200" width="270" height="92" rx="6" fill="rgba(6,78,59,0.5)" stroke="#34d399" stroke-width="1.5"/>
+  <text x="487" y="230" class="name" text-anchor="middle" font-size="13">usage runtime</text>
+  <text x="487" y="252" class="desc" text-anchor="middle">用量 watcher + SQLite 初始化</text>
+  <text x="487" y="270" class="desc" text-anchor="middle">start_usage_runtime</text>
+
+  <rect x="664" y="200" width="270" height="92" rx="6" fill="#0f172a"/>
+  <rect x="664" y="200" width="270" height="92" rx="6" fill="rgba(120,53,15,0.4)" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="799" y="230" class="name" text-anchor="middle" font-size="13">tray · 系统托盘</text>
+  <text x="799" y="252" class="desc" text-anchor="middle">setup_tray + start_pulse_task</text>
+  <text x="799" y="270" class="desc" text-anchor="middle">会话红绿状态脉冲</text>
+
+  <rect x="976" y="200" width="270" height="92" rx="6" fill="#0f172a"/>
+  <rect x="976" y="200" width="270" height="92" rx="6" fill="rgba(120,53,15,0.4)" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="1111" y="230" class="name" text-anchor="middle" font-size="13">led runtime</text>
+  <text x="1111" y="252" class="desc" text-anchor="middle">ANTICATER USB 灯效</text>
+  <text x="1111" y="270" class="desc" text-anchor="middle">start_led_runtime</text>
+
+  <rect x="1288" y="200" width="270" height="92" rx="6" fill="#0f172a"/>
+  <rect x="1288" y="200" width="270" height="92" rx="6" fill="rgba(120,53,15,0.4)" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="1423" y="230" class="name" text-anchor="middle" font-size="13">notifications · focus</text>
+  <text x="1423" y="252" class="desc" text-anchor="middle">macOS 通知委托</text>
+  <text x="1423" y="270" class="desc" text-anchor="middle">+ terminal_focus 会话聚焦</text>
+
+  <!-- arrows tasks -> regions -->
+  <path d="M 175 292 L 250 354" fill="none" stroke="#34d399" stroke-width="1.4" stroke-opacity="0.7" marker-end="url(#arrow)"/>
+  <path d="M 487 292 L 480 354" fill="none" stroke="#34d399" stroke-width="1.4" stroke-opacity="0.7" marker-end="url(#arrow)"/>
+  <path d="M 799 292 L 980 354" fill="none" stroke="#fbbf24" stroke-width="1.4" stroke-opacity="0.7" marker-end="url(#arrow-orange)"/>
+  <path d="M 1111 292 L 1130 354" fill="none" stroke="#fbbf24" stroke-width="1.4" stroke-opacity="0.7" marker-end="url(#arrow-orange)"/>
+  <path d="M 1423 292 L 1280 354" fill="none" stroke="#fbbf24" stroke-width="1.4" stroke-opacity="0.7" marker-end="url(#arrow-orange)"/>
+
+  <!-- ===== 左区: 事件驱动回流前端 ===== -->
+  <rect x="40" y="358" width="740" height="478" rx="12" fill="none" stroke="#22d3ee" stroke-width="1" stroke-dasharray="8,4"/>
+  <text x="54" y="384" class="region" fill="#22d3ee">事件驱动 · 回流前端（useTauriEvent）</text>
+
+  <line x1="410" y1="468" x2="410" y2="494" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="410" y1="558" x2="410" y2="584" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="410" y1="648" x2="410" y2="674" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="130" y="406" width="560" height="62" rx="6" fill="#0f172a"/>
+  <rect x="130" y="406" width="560" height="62" rx="6" fill="rgba(76,29,149,0.45)" stroke="#a78bfa" stroke-width="1.5"/>
+  <text x="410" y="434" class="name" text-anchor="middle" font-size="13">文件系统变更</text>
+  <text x="410" y="455" class="desc" text-anchor="middle">~/.claude/** · projects/**/*.jsonl（usage 同时写入 SQLite）</text>
+
+  <rect x="130" y="496" width="560" height="62" rx="6" fill="#0f172a"/>
+  <rect x="130" y="496" width="560" height="62" rx="6" fill="rgba(120,53,15,0.35)" stroke="#fb923c" stroke-width="1.5"/>
+  <text x="410" y="524" class="name" text-anchor="middle" font-size="13">watcher 发射 Tauri 事件</text>
+  <text x="410" y="545" class="desc" text-anchor="middle">app.emit(...) · 去抖 / 增量</text>
+
+  <rect x="130" y="586" width="560" height="62" rx="6" fill="#0f172a"/>
+  <rect x="130" y="586" width="560" height="62" rx="6" fill="rgba(8,51,68,0.55)" stroke="#22d3ee" stroke-width="1.5"/>
+  <text x="410" y="614" class="name" text-anchor="middle" font-size="13">useTauriEvent hook</text>
+  <text x="410" y="635" class="desc" text-anchor="middle">监听事件 · 组件卸载时清理 listener</text>
+
+  <rect x="130" y="676" width="560" height="62" rx="6" fill="#0f172a"/>
+  <rect x="130" y="676" width="560" height="62" rx="6" fill="rgba(8,51,68,0.55)" stroke="#22d3ee" stroke-width="1.5"/>
+  <text x="410" y="704" class="name" text-anchor="middle" font-size="13">前端组件刷新 / useToast</text>
+  <text x="410" y="725" class="desc" text-anchor="middle">无需手动重查 · 配置变更实时反映到 UI</text>
+
+  <text x="410" y="780" class="desc" text-anchor="middle">原则：监听器必须在卸载时清理；用 useTauriEvent 而非直接 listen()</text>
+
+  <!-- ===== 右区: 系统集成 ===== -->
+  <rect x="820" y="358" width="740" height="478" rx="12" fill="none" stroke="#fbbf24" stroke-width="1" stroke-dasharray="8,4"/>
+  <text x="834" y="384" class="region" fill="#fbbf24">系统集成 · 由托盘会话红绿状态驱动</text>
+
+  <!-- driver -->
+  <rect x="1000" y="406" width="380" height="62" rx="8" fill="#0f172a"/>
+  <rect x="1000" y="406" width="380" height="62" rx="8" fill="rgba(136,19,55,0.42)" stroke="#fb7185" stroke-width="1.6"/>
+  <text x="1190" y="434" class="name" text-anchor="middle" font-size="13">托盘会话状态 · 红 / 绿</text>
+  <text x="1190" y="455" class="desc" text-anchor="middle">忙 / 闲 · focus_most_urgent_session</text>
+
+  <!-- fan to 4 outputs -->
+  <path d="M 1100 468 L 1010 538" fill="none" stroke="#fb7185" stroke-width="1.4" stroke-opacity="0.6" marker-end="url(#arrow)"/>
+  <path d="M 1280 468 L 1370 538" fill="none" stroke="#fb7185" stroke-width="1.4" stroke-opacity="0.6" marker-end="url(#arrow)"/>
+  <path d="M 1110 468 L 1010 678" fill="none" stroke="#fb7185" stroke-width="1.4" stroke-opacity="0.6" marker-end="url(#arrow)"/>
+  <path d="M 1270 468 L 1370 678" fill="none" stroke="#fb7185" stroke-width="1.4" stroke-opacity="0.6" marker-end="url(#arrow)"/>
+
+  <rect x="840" y="540" width="350" height="110" rx="6" fill="#0f172a"/>
+  <rect x="840" y="540" width="350" height="110" rx="6" fill="rgba(120,53,15,0.4)" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="1015" y="582" class="name" text-anchor="middle" font-size="13">托盘图标脉冲</text>
+  <text x="1015" y="606" class="desc" text-anchor="middle">start_pulse_task</text>
+  <text x="1015" y="624" class="desc" text-anchor="middle">动态指示忙碌会话</text>
+
+  <rect x="1210" y="540" width="330" height="110" rx="6" fill="#0f172a"/>
+  <rect x="1210" y="540" width="330" height="110" rx="6" fill="rgba(120,53,15,0.4)" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="1375" y="582" class="name" text-anchor="middle" font-size="13">ANTICATER USB LED</text>
+  <text x="1375" y="606" class="desc" text-anchor="middle">led_probe_status / led_test_mode</text>
+  <text x="1375" y="624" class="desc" text-anchor="middle">实体灯效跟随会话状态</text>
+
+  <rect x="840" y="680" width="350" height="110" rx="6" fill="#0f172a"/>
+  <rect x="840" y="680" width="350" height="110" rx="6" fill="rgba(120,53,15,0.4)" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="1015" y="722" class="name" text-anchor="middle" font-size="13">终端会话聚焦</text>
+  <text x="1015" y="746" class="desc" text-anchor="middle">全局快捷键 + terminal_focus</text>
+  <text x="1015" y="764" class="desc" text-anchor="middle">一键跳到最紧急会话</text>
+
+  <rect x="1210" y="680" width="330" height="110" rx="6" fill="#0f172a"/>
+  <rect x="1210" y="680" width="330" height="110" rx="6" fill="rgba(120,53,15,0.4)" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="1375" y="722" class="name" text-anchor="middle" font-size="13">macOS 系统通知</text>
+  <text x="1375" y="746" class="desc" text-anchor="middle">setup_notification_delegate</text>
+  <text x="1375" y="764" class="desc" text-anchor="middle">会话事件桌面提醒</text>
+</svg>
