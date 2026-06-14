@@ -703,7 +703,7 @@ describe("PresetEditor", () => {
     }
 
     expect(within(behaviorSection).getByLabelText("默认模型")).toBeInTheDocument();
-    expect(within(behaviorSection).getByRole("combobox", { name: "努力级别" })).toBeInTheDocument();
+    expect(within(behaviorSection).getByLabelText("努力级别")).toBeInTheDocument();
     expect(within(behaviorSection).getByRole("combobox", { name: "回复语言" })).toBeInTheDocument();
     expect(within(behaviorSection).getByRole("combobox", { name: "输出风格" })).toBeInTheDocument();
   });
@@ -730,8 +730,15 @@ describe("PresetEditor", () => {
       ]),
     );
 
-    const effortSelect = screen.getByLabelText("努力级别");
-    expect(comboboxOptionNames("努力级别")).toEqual([
+    // 努力级别现在是触发按钮 + 浮窗,点开后才有刻度条
+    const effortTrigger = screen.getByLabelText("努力级别");
+    expect(effortTrigger).toHaveTextContent("未设置");
+    act(() => {
+      fireEvent.click(effortTrigger);
+    });
+    const effortSlider = document.querySelector('[data-slot="effort-level-slider"]') as HTMLElement;
+    const stopButtons = within(effortSlider).getAllByRole("button");
+    expect(stopButtons.map((button) => button.textContent)).toEqual([
       "未设置",
       "auto",
       "low",
@@ -739,8 +746,15 @@ describe("PresetEditor", () => {
       "high",
       "xhigh",
       "max",
+      "ultracode",
     ]);
-    expect(effortSelect).toHaveValue("");
+    // 默认未设置:刻度条停在最左端
+    expect(within(effortSlider).getByRole("slider", { name: "努力级别" })).toHaveAttribute(
+      "aria-valuenow",
+      "0",
+    );
+    // 底部描述表覆盖 ultracode
+    expect(screen.getByText("何时使用")).toBeInTheDocument();
   });
 
   it("defaults reply language to chinese for new presets and persists it on save", async () => {
@@ -1000,8 +1014,15 @@ describe("PresetEditor", () => {
       await Promise.resolve();
     });
 
-    const effortSelect = screen.getByLabelText("努力级别");
-    expect(effortSelect).toHaveValue("");
+    // 点开努力级别浮窗后再操作刻度条
+    act(() => {
+      fireEvent.click(screen.getByLabelText("努力级别"));
+    });
+    const effortSlider = document.querySelector('[data-slot="effort-level-slider"]') as HTMLElement;
+    expect(within(effortSlider).getByRole("slider", { name: "努力级别" })).toHaveAttribute(
+      "aria-valuenow",
+      "0",
+    );
 
     await act(async () => {
       fireEvent.change(screen.getByLabelText("默认模型"), {
@@ -1009,7 +1030,9 @@ describe("PresetEditor", () => {
       });
       await Promise.resolve();
     });
-    chooseComboboxOption("努力级别", "auto");
+    act(() => {
+      fireEvent.click(within(effortSlider).getByRole("button", { name: "auto" }));
+    });
 
     expect(
       within(envSection).getByRole("button", {

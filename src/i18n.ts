@@ -326,6 +326,20 @@ const translations = {
     "profiles.editor.sections.basicInfo": "基础信息",
     "profiles.editor.sections.auth": "认证",
     "profiles.editor.sections.behavior": "模型与行为",
+    "profiles.editor.effort.default": "默认",
+    "profiles.editor.effort.faster": "更快",
+    "profiles.editor.effort.smarter": "更智能",
+    "profiles.editor.effort.tableLevel": "级别",
+    "profiles.editor.effort.tableWhen": "何时使用",
+    "profiles.editor.effort.desc.low": "保留用于短期、范围有限、延迟敏感且不需要高智能的任务",
+    "profiles.editor.effort.desc.medium": "减少成本敏感工作的令牌使用，可以权衡一些智能",
+    "profiles.editor.effort.desc.high":
+      "平衡令牌使用和智能。Opus 4.8、Opus 4.6 和 Sonnet 4.6 上的默认值",
+    "profiles.editor.effort.desc.xhigh": "更深入的推理，令牌支出更高。Opus 4.7 上的默认值",
+    "profiles.editor.effort.desc.max":
+      "可以改进困难任务的性能，但可能显示收益递减，容易过度思考。在广泛采用前进行测试",
+    "profiles.editor.effort.desc.ultracode":
+      "一个 Claude Code 设置，为每个实质性任务规划一个动态工作流，每条消息进行 xhigh 推理。仅限会话",
     "profiles.editor.sections.common": "常用选项",
     "profiles.editor.sections.environment": "环境变量",
     "profiles.editor.sections.permissions": "权限",
@@ -1816,6 +1830,23 @@ const translations = {
     "profiles.editor.sections.basicInfo": "Basics",
     "profiles.editor.sections.auth": "Authentication",
     "profiles.editor.sections.behavior": "Model & Behavior",
+    "profiles.editor.effort.default": "Default",
+    "profiles.editor.effort.faster": "Faster",
+    "profiles.editor.effort.smarter": "Smarter",
+    "profiles.editor.effort.tableLevel": "Level",
+    "profiles.editor.effort.tableWhen": "When to use",
+    "profiles.editor.effort.desc.low":
+      "Reserve for short, narrow, latency-sensitive tasks that don't need high intelligence",
+    "profiles.editor.effort.desc.medium":
+      "Reduce token usage for cost-sensitive work, trading off some intelligence",
+    "profiles.editor.effort.desc.high":
+      "Balances token usage and intelligence. Default on Opus 4.8, Opus 4.6, and Sonnet 4.6",
+    "profiles.editor.effort.desc.xhigh":
+      "Deeper reasoning with higher token spend. Default on Opus 4.7",
+    "profiles.editor.effort.desc.max":
+      "Can improve performance on hard tasks but may show diminishing returns and overthink. Test before adopting widely",
+    "profiles.editor.effort.desc.ultracode":
+      "A Claude Code setting that plans a dynamic workflow for each substantial task, with xhigh reasoning on every message. Session only",
     "profiles.editor.sections.common": "Common Options",
     "profiles.editor.sections.environment": "Environment Variables",
     "profiles.editor.sections.permissions": "Permissions",

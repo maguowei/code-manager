@@ -17,6 +17,7 @@ import {
 } from "../ui/select";
 import BehaviorFieldHeader from "./BehaviorFieldHeader";
 import DocumentEditorSection from "./DocumentEditorSection";
+import EffortLevelField from "./EffortLevelField";
 import EnabledPluginsEditor from "./EnabledPluginsEditor";
 import EnvEditor from "./EnvEditor";
 import FieldDocsLinkButton from "./FieldDocsLinkButton";
@@ -308,6 +309,27 @@ function StructuredSettingsSections({
                       fieldState.value,
                       fieldState.mappedToEnv,
                     );
+                    // 努力级别用触发按钮 + 浮窗刻度条展示
+                    if (field.key === "effortLevel") {
+                      return (
+                        <div key={field.key} className="grid gap-2" data-slot="settings-field">
+                          <BehaviorFieldHeader
+                            label={label}
+                            inputId={`${scope}-field-${field.key}`}
+                            helperKey={getFieldHelperKey(field)}
+                          />
+                          <EffortLevelField
+                            id={`${scope}-field-${field.key}`}
+                            ariaLabel={label}
+                            options={options}
+                            value={fieldState.value}
+                            onChange={(value) =>
+                              onMappedFieldChange(field, value, fieldState.mappedToEnv)
+                            }
+                          />
+                        </div>
+                      );
+                    }
                     return (
                       <div key={field.key} className="grid gap-2" data-slot="settings-field">
                         <BehaviorFieldHeader
