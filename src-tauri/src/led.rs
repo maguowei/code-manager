@@ -19,8 +19,10 @@ use hidapi::{HidApi, HidDevice};
 
 // ── 协议常量(逆向自 codepass OfficialLEDReports) ──
 /// 报文首字节固定为 report ID 0x03。
+#[allow(dead_code)] // 非 macOS 平台仅协议单测使用,运行时不下发
 pub const REPORT_ID: u8 = 0x03;
 /// 每包定长 65 字节(1 字节 report ID + 64 字节 payload)。
+#[allow(dead_code)] // 非 macOS 平台仅协议单测使用,运行时不下发
 pub const REPORT_LEN: usize = 65;
 /// 合法模式上界,mode ∈ 0..=5。
 pub const MAX_MODE: u8 = 5;
@@ -69,6 +71,7 @@ impl From<hidapi::HidError> for LedError {
 /// 设置包: `03 fe b0 01 08 00..00 01 00 <0x50+mode> 00..`
 /// 提交包: `03 fd fe ff 00..`
 /// 顺序:先发设置包,再发提交包。
+#[allow(dead_code)] // 非 macOS 平台仅协议单测使用,运行时由 macOS 设备层 apply_mode 调用
 pub fn mode_reports(mode: u8) -> Result<[[u8; REPORT_LEN]; 2], LedError> {
     if mode > MAX_MODE {
         return Err(LedError::InvalidMode(mode));
