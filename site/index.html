@@ -1,0 +1,661 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI Manager · Claude Code 本地配置管理桌面应用</title>
+    <meta
+      name="description"
+      content="AI Manager 是面向 Claude Code 用户的本地桌面管理应用：把 Profile/Preset、~/.claude 目录、记忆、Skills、历史、统计、Token 用量与费用、项目状态、系统托盘和诊断日志集中到一个 Tauri 2 应用，让本地配置可见、可预览、可验证。"
+    />
+    <meta name="theme-color" content="#2563eb" />
+    <link rel="icon" type="image/png" href="assets/img/favicon.png" />
+    <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png" />
+
+    <!-- Open Graph / 社交卡片 -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="AI Manager · Claude Code 本地配置管理桌面应用" />
+    <meta
+      property="og:description"
+      content="一站式管理 Claude Code 的配置、记忆、Skills、用量费用与会话状态。跨平台、完全本地、开源 (MIT)。"
+    />
+    <meta property="og:image" content="assets/img/logo.png" />
+    <meta name="twitter:card" content="summary" />
+
+    <!-- 防闪烁：在样式生效前确定主题与语言 -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("aim-theme");
+          if (!t)
+            t = matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
+          document.documentElement.setAttribute("data-theme", t);
+          var l = localStorage.getItem("aim-lang");
+          if (!l) l = (navigator.language || "zh").toLowerCase().indexOf("zh") === 0 ? "zh" : "en";
+          document.documentElement.setAttribute("lang", l);
+        } catch (e) {}
+      })();
+    </script>
+
+    <link rel="stylesheet" href="assets/css/styles.css" />
+    <script defer src="assets/js/app.js"></script>
+  </head>
+  <body>
+    <!-- ===================== 顶部导航 ===================== -->
+    <header class="site-header">
+      <nav class="nav" aria-label="primary">
+        <a class="brand" href="#top">
+          <img src="assets/img/logo.png" alt="AI Manager" width="28" height="28" />
+          <span>AI Manager</span>
+        </a>
+        <div class="nav-links">
+          <a href="#features"><span data-lang="zh">功能</span><span data-lang="en">Features</span></a>
+          <a href="#compare"><span data-lang="zh">对比 cc-switch</span><span data-lang="en">vs cc-switch</span></a>
+          <a href="#guide"><span data-lang="zh">使用</span><span data-lang="en">Guide</span></a>
+          <a href="#download"><span data-lang="zh">下载</span><span data-lang="en">Download</span></a>
+          <a href="#faq">FAQ</a>
+        </div>
+        <div class="nav-spacer"></div>
+        <div class="nav-actions">
+          <button class="icon-btn" id="lang-toggle" type="button" aria-label="Switch language" title="中文 / English">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <span id="lang-label">EN</span>
+          </button>
+          <button class="icon-btn" id="theme-toggle" type="button" aria-label="Toggle theme" title="Light / Dark">
+            <svg id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+            <svg id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+          </button>
+          <a class="icon-btn" href="https://github.com/maguowei/ai-manager" target="_blank" rel="noopener" aria-label="GitHub">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12 11.5 11.5 0 0 0 8.4 23c.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.4-3.9-1.4-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.7.2 2.9.1 3.2.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>
+          </a>
+        </div>
+      </nav>
+    </header>
+
+    <main id="top">
+      <!-- ===================== Hero ===================== -->
+      <section class="hero">
+        <div class="container">
+          <div class="hero-grid">
+            <div class="hero-copy">
+              <span class="badge-pill"><span class="dot"></span>
+                <span data-lang="zh">开源 · MIT · v0.20.1</span>
+                <span data-lang="en">Open Source · MIT · v0.20.1</span>
+              </span>
+              <h1>
+                <span data-lang="zh">把 Claude Code 的<span class="accent">本地配置</span>管起来</span>
+                <span data-lang="en">Take control of your <span class="accent">Claude Code</span> setup</span>
+              </h1>
+              <p class="hero-lead">
+                <span data-lang="zh">AI Manager 把 Profile/Preset、<code>~/.claude</code> 目录、记忆、Skills、历史、统计、Token 用量与费用、项目状态、系统托盘和诊断日志集中到一个 Tauri 2 桌面应用——让本地配置<strong>可见、可预览、可验证</strong>。</span>
+                <span data-lang="en">AI Manager brings profiles/presets, your <code>~/.claude</code> directory, memory, skills, history, stats, token usage &amp; cost, project status, the system tray and diagnostic logs into one Tauri 2 desktop app — so your local setup is <strong>visible, previewable and verifiable</strong>.</span>
+              </p>
+              <div class="hero-cta">
+                <a class="btn btn-primary" href="#download">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+                  <span data-lang="zh">下载应用</span><span data-lang="en">Download</span>
+                </a>
+                <a class="btn btn-ghost" href="https://github.com/maguowei/ai-manager" target="_blank" rel="noopener">
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12 11.5 11.5 0 0 0 8.4 23c.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.4-3.9-1.4-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.7.2 2.9.1 3.2.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>
+                  <span data-lang="zh">GitHub 仓库</span><span data-lang="en">View on GitHub</span>
+                </a>
+              </div>
+              <div class="hero-meta">
+                <span class="os">
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.7 1.3c.1 1-.3 2-1 2.8-.7.8-1.8 1.4-2.8 1.3-.1-1 .4-2 1-2.7.7-.8 1.9-1.4 2.8-1.4zM20 17.3c-.5 1.2-.8 1.7-1.5 2.8-1 1.5-2.3 3.3-4 3.3-1.4 0-1.8-.9-3.8-.9s-2.4.9-3.8.9c-1.6 0-2.8-1.6-3.8-3.1-2.8-4.1-3.1-9-1.4-11.6 1-1.5 2.7-2.4 4.2-2.4 1.6 0 2.6 1 3.9 1 1.3 0 2-1 3.9-1 1.4 0 2.8.7 3.8 2-3.3 1.8-2.8 6.5.3 9z"/></svg>
+                  macOS</span>
+                <span class="os">
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4.5 10.5 3.3v8.2H3zM11.5 3.1 21 1.8v9.7h-9.5zM3 12.5h7.5v8.2L3 19.5zM11.5 12.5H21v9.7l-9.5-1.3z"/></svg>
+                  Windows</span>
+                <span class="os">
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c-2 0-3 1.7-3 3.6 0 1.2.2 2 .2 3 0 1-1 1.8-1.8 3-1 1.4-2.4 3-2.4 5 0 1 .4 1.7 1 2.1.2 1 1 1.8 2.3 1.8.8 0 1.5.4 2.4.4h2.6c.9 0 1.6-.4 2.4-.4 1.3 0 2.1-.8 2.3-1.8.6-.4 1-1.1 1-2.1 0-2-1.4-3.6-2.4-5-.8-1.2-1.8-2-1.8-3 0-1 .2-1.8.2-3C15 3.7 14 2 12 2z"/></svg>
+                  Linux</span>
+                <span class="muted" data-lang="zh">· 完全本地 · 双语界面</span>
+                <span class="muted" data-lang="en">· 100% local · Bilingual UI</span>
+              </div>
+            </div>
+
+            <!-- 右侧：模拟应用窗口（纯 CSS，避免外链截图） -->
+            <div class="hero-visual">
+              <div class="window" aria-hidden="true">
+                <div class="window-bar">
+                  <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+                  <span class="title">AI Manager — Usage</span>
+                </div>
+                <div class="window-body">
+                  <aside class="window-side">
+                    <div class="item"><span class="ico"></span>Profiles</div>
+                    <div class="item"><span class="ico"></span>Memory</div>
+                    <div class="item"><span class="ico"></span>Skills</div>
+                    <div class="item active"><span class="ico"></span>Usage</div>
+                    <div class="item"><span class="ico"></span>Projects</div>
+                    <div class="item"><span class="ico"></span>History</div>
+                  </aside>
+                  <div class="window-main">
+                    <div class="kpi-row">
+                      <div class="kpi"><div class="label">Cost</div><div class="value accent">$42.18</div></div>
+                      <div class="kpi"><div class="label">Tokens</div><div class="value">18.6M</div></div>
+                      <div class="kpi"><div class="label">Saved</div><div class="value good">$96.3</div></div>
+                    </div>
+                    <div class="chart">
+                      <span class="bar" style="height:38%"></span>
+                      <span class="bar" style="height:62%"></span>
+                      <span class="bar" style="height:48%"></span>
+                      <span class="bar" style="height:81%"></span>
+                      <span class="bar" style="height:55%"></span>
+                      <span class="bar" style="height:72%"></span>
+                      <span class="bar" style="height:90%"></span>
+                      <span class="bar" style="height:64%"></span>
+                      <span class="bar" style="height:46%"></span>
+                      <span class="bar" style="height:77%"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== 解决的问题 ===================== -->
+      <section class="section section--alt" id="why">
+        <div class="container">
+          <div class="hero-grid" style="align-items:flex-start">
+            <div>
+              <div class="section-head" style="margin-bottom:24px">
+                <span class="eyebrow" data-lang="zh">解决的问题</span>
+                <span class="eyebrow" data-lang="en">The problem</span>
+                <h2 class="section-title">
+                  <span data-lang="zh">配置散落，越用越难管</span>
+                  <span data-lang="en">Config sprawl that gets worse over time</span>
+                </h2>
+                <p class="section-sub">
+                  <span data-lang="zh">长期使用 Claude Code 时，本地配置和会话数据容易散落在多个文件里。</span>
+                  <span data-lang="en">The longer you use Claude Code, the more your config and session data scatter across files.</span>
+                </p>
+              </div>
+              <ul class="pain-list">
+                <li><span class="x">!</span><span data-lang="zh">不同项目需要不同模型、API 地址、Token、权限、Hooks 和插件组合。</span><span data-lang="en">Different projects need different models, API endpoints, tokens, permissions, hooks and plugin sets.</span></li>
+                <li><span class="x">!</span><span data-lang="zh"><code>settings.json</code>、<code>CLAUDE.md</code>、<code>rules/*.md</code> 与 Skills 不容易整体检查。</span><span data-lang="en"><code>settings.json</code>, <code>CLAUDE.md</code>, <code>rules/*.md</code> and skills are hard to review as a whole.</span></li>
+                <li><span class="x">!</span><span data-lang="zh">Provider / 模型配置重复，切换时容易漏写环境变量或覆盖用户设置。</span><span data-lang="en">Provider/model config is repetitive; switching often drops env vars or clobbers your settings.</span></li>
+                <li><span class="x">!</span><span data-lang="zh">历史、统计、Token 花费、项目 Git 状态和 worktree 缺少统一入口。</span><span data-lang="en">History, stats, token spend, project git status and worktrees have no single entry point.</span></li>
+                <li><span class="x">!</span><span data-lang="zh">排障时想快速看脱敏后的日志，而不是到处找日志文件。</span><span data-lang="en">When debugging you want redacted logs at hand, not a file hunt.</span></li>
+              </ul>
+            </div>
+            <figure class="figure">
+              <img src="assets/img/why-ai-manager.svg" alt="Why AI Manager" loading="lazy" />
+              <figcaption>
+                <span data-lang="zh">AI Manager 不替代 Claude Code，而是提供一个本机配置、会话数据和诊断信息的管理层。</span>
+                <span data-lang="en">AI Manager doesn't replace Claude Code — it adds a management layer over local config, session data and diagnostics.</span>
+              </figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== 核心功能 ===================== -->
+      <section class="section" id="features">
+        <div class="container">
+          <div class="section-head center">
+            <span class="eyebrow" data-lang="zh">核心功能</span>
+            <span class="eyebrow" data-lang="en">Features</span>
+            <h2 class="section-title">
+              <span data-lang="zh">一个应用，覆盖整条本地工作流</span>
+              <span data-lang="en">One app for your whole local workflow</span>
+            </h2>
+            <p class="section-sub">
+              <span data-lang="zh">从配置切换到费用审计，从记忆到诊断，全部在本地完成。</span>
+              <span data-lang="en">From switching configs to auditing cost, from memory to diagnostics — all done locally.</span>
+            </p>
+          </div>
+
+          <div class="grid grid-3">
+            <article class="card">
+              <div class="card-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18M3 12h18M3 17h18"/></svg></div>
+              <h3><span data-lang="zh">~/.claude 总览</span><span data-lang="en">~/.claude overview</span></h3>
+              <p><span data-lang="zh">树形浏览、Markdown 预览、编辑、新建、重命名和定位整个 Claude Code 用户目录，边界安全。</span><span data-lang="en">Browse, preview, edit, create, rename and locate your whole Claude Code user directory — with safe boundaries.</span></p>
+            </article>
+            <article class="card">
+              <div class="card-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 7v5c0 5 3.5 7.5 8 9 4.5-1.5 8-4 8-9V7z"/><path d="m9 12 2 2 4-4"/></svg></div>
+              <h3><span data-lang="zh">Profile / Preset 配置管理</span><span data-lang="en">Profiles &amp; Presets</span></h3>
+              <p><span data-lang="zh">分层管理最终写入 <code>settings.json</code> 的配置：Provider、模型、环境变量、权限、Sandbox、Hooks、插件、状态行；支持预览、复制、模型测试、一键应用与差异对比。</span><span data-lang="en">Layered control over what lands in <code>settings.json</code>: providers, models, env, permissions, sandbox, hooks, plugins, statusline — with preview, copy, model test, one-click apply and diffing.</span></p>
+            </article>
+            <article class="card">
+              <div class="card-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 3-3 3 3 4-6"/></svg></div>
+              <h3><span data-lang="zh">Token 用量与费用</span><span data-lang="en">Token usage &amp; cost</span></h3>
+              <p><span data-lang="zh">扫描 <code>projects/**/*.jsonl</code>，按日期、项目、会话、模型聚合 Token 与费用，SQLite 增量缓存，支持消息级明细与缓存节省。</span><span data-lang="en">Scans <code>projects/**/*.jsonl</code> and aggregates tokens &amp; cost by date, project, session and model — SQLite-cached, down to per-message detail and cache savings.</span></p>
+            </article>
+            <article class="card">
+              <div class="card-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h9l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M14 3v6h6"/></svg></div>
+              <h3><span data-lang="zh">记忆管理</span><span data-lang="en">Memory management</span></h3>
+              <p><span data-lang="zh">管理用户级 <code>CLAUDE.md</code> 与 <code>rules/*.md</code>（glob 路径），内置 Karpathy 行为指南预设，支持导入、启停、复制、预览。</span><span data-lang="en">Manage user-level <code>CLAUDE.md</code> and <code>rules/*.md</code> (glob paths), with a built-in Karpathy preset, import, enable/disable, copy and preview.</span></p>
+            </article>
+            <article class="card">
+              <div class="card-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-3 7h5l-3 7"/><circle cx="12" cy="12" r="10"/></svg></div>
+              <h3><span data-lang="zh">Skills 管理</span><span data-lang="en">Skills management</span></h3>
+              <p><span data-lang="zh">新建、编辑、启停、删除 Claude Code Skills，支持软链接 Skill，并可一键同步为 <code>~/.codex/skills</code> 软链接。</span><span data-lang="en">Create, edit, enable/disable and delete Claude Code skills, support symlinked skills, and sync to <code>~/.codex/skills</code> in one click.</span></p>
+            </article>
+            <article class="card">
+              <div class="card-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="9" width="3" height="8"/><rect x="13" y="5" width="3" height="12"/></svg></div>
+              <h3><span data-lang="zh">历史与统计</span><span data-lang="en">History &amp; stats</span></h3>
+              <p><span data-lang="zh">读取 <code>history.jsonl</code> 按项目/会话查看历史详情与热力图；从 <code>~/.claude.json</code> 读取本地统计快照与最近会话。</span><span data-lang="en">Read <code>history.jsonl</code> for per-project/session detail and a heatmap; read local stats and recent sessions from <code>~/.claude.json</code>.</span></p>
+            </article>
+            <article class="card">
+              <div class="card-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
+              <h3><span data-lang="zh">项目管理</span><span data-lang="en">Project management</span></h3>
+              <p><span data-lang="zh">展示项目 Git 状态、分支、worktree、项目级 <code>.claude/</code>、<code>AGENTS.md</code>/<code>CLAUDE.md</code> 与 Skills 配对；可打开终端/编辑器、跳转历史/用量、清理分支与 worktree。</span><span data-lang="en">Shows git status, branches, worktrees, project <code>.claude/</code>, <code>AGENTS.md</code>/<code>CLAUDE.md</code> and skills pairing; open terminal/editor, jump to history/usage, prune branches and worktrees.</span></p>
+            </article>
+            <article class="card">
+              <div class="card-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></div>
+              <h3><span data-lang="zh">系统托盘与会话聚焦</span><span data-lang="en">Tray &amp; session focus</span></h3>
+              <p><span data-lang="zh">菜单栏显示当前 Profile 与活跃会话状态，支持计数样式与待处理呼吸灯；macOS 可聚焦原终端 tab 并把会话状态镜像到 ANTICATER LED 设备。</span><span data-lang="en">The tray shows your active profile and live session status with count styles and a pending pulse; on macOS it can refocus the original terminal tab and mirror session state to an ANTICATER LED device.</span></p>
+            </article>
+            <article class="card">
+              <div class="card-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 7 19.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.7 7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H10a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V10a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></div>
+              <h3><span data-lang="zh">设置与诊断</span><span data-lang="en">Settings &amp; diagnostics</span></h3>
+              <p><span data-lang="zh">语言、主题、默认终端/编辑器、登录启动、第三方模型计价开关、会话聚焦快捷键与 LED（macOS）；脱敏日志查看、系统信息一键复制。</span><span data-lang="en">Language, theme, default terminal/editor, launch-at-login, third-party pricing toggle, focus shortcut &amp; LED (macOS); redacted log viewer and one-click system info.</span></p>
+            </article>
+          </div>
+
+          <figure class="figure" style="margin-top:32px">
+            <img src="assets/img/feature-map.svg" alt="AI Manager feature map" loading="lazy" />
+            <figcaption>
+              <span data-lang="zh">功能全景：配置、记忆、Skills、历史、统计、用量、项目与系统集成。</span>
+              <span data-lang="en">Feature map: config, memory, skills, history, stats, usage, projects and system integration.</span>
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <!-- ===================== 架构 / 数据源 ===================== -->
+      <section class="section section--alt" id="how">
+        <div class="container">
+          <div class="hero-grid" style="align-items:center">
+            <figure class="figure">
+              <img src="assets/img/overall-architecture.svg" alt="AI Manager architecture" loading="lazy" />
+            </figure>
+            <div>
+              <span class="eyebrow" data-lang="zh">工作原理</span>
+              <span class="eyebrow" data-lang="en">How it works</span>
+              <h2 class="section-title">
+                <span data-lang="zh">本地优先，数据源分明</span>
+                <span data-lang="en">Local-first, with clear data sources</span>
+              </h2>
+              <p class="section-sub" style="margin-bottom:18px">
+                <span data-lang="zh">配置合并、目录扫描、用量聚合和日志查看都在本地完成；模型价格优先用本地缓存与内置兜底，仅在启动后尝试从 models.dev 刷新。</span>
+                <span data-lang="en">Config merge, directory scan, usage aggregation and log viewing all happen locally; model prices come from local cache and built-in fallbacks first, refreshed from models.dev only after launch.</span>
+              </p>
+              <ul class="pain-list">
+                <li><span class="x" style="color:var(--accent)">›</span><span data-lang="zh"><code>settings.json</code> — Profile 激活与最终配置</span><span data-lang="en"><code>settings.json</code> — profile activation &amp; final config</span></li>
+                <li><span class="x" style="color:var(--accent)">›</span><span data-lang="zh"><code>history.jsonl</code> — 项目与会话历史</span><span data-lang="en"><code>history.jsonl</code> — project &amp; session history</span></li>
+                <li><span class="x" style="color:var(--accent)">›</span><span data-lang="zh"><code>~/.claude.json</code> — 本地统计快照</span><span data-lang="en"><code>~/.claude.json</code> — local stats snapshot</span></li>
+                <li><span class="x" style="color:var(--accent)">›</span><span data-lang="zh"><code>projects/**/*.jsonl</code> — Token 用量原始数据 → SQLite</span><span data-lang="en"><code>projects/**/*.jsonl</code> — raw token usage → SQLite</span></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== 对比 cc-switch ===================== -->
+      <section class="section" id="compare">
+        <div class="container">
+          <div class="section-head center">
+            <span class="eyebrow" data-lang="zh">为什么不是 cc-switch</span>
+            <span class="eyebrow" data-lang="en">Why not just cc-switch</span>
+            <h2 class="section-title">
+              <span data-lang="zh">有了 cc-switch，为什么还需要 AI Manager？</span>
+              <span data-lang="en">Why AI Manager when cc-switch exists?</span>
+            </h2>
+            <p class="section-sub">
+              <span data-lang="zh">两者解决的是不同维度的问题，定位互补，甚至可以共存。</span>
+              <span data-lang="en">They solve different axes of the same space — complementary, and they can coexist.</span>
+            </p>
+          </div>
+
+          <div class="vs-intro">
+            <div class="vs-card ours">
+              <h3>AI Manager <span class="tag" data-lang="zh">纵向深耕</span><span class="tag" data-lang="en">Depth</span></h3>
+              <p>
+                <span data-lang="zh">深耕 Claude Code 单一生态的<strong>配置治理</strong>：Profile/Preset 分层 + JSON Schema 校验、Token 用量与费用分析、记忆 / Skills / 状态行、项目级文件配对。适合主力在 Claude Code、想把配置和成本彻底管清楚的人。</span>
+                <span data-lang="en">Deep <strong>config governance</strong> for the Claude Code ecosystem: layered profiles/presets with JSON-Schema validation, token/cost analytics, memory / skills / statusline, project-level file pairing. For people who live in Claude Code and want config &amp; cost fully under control.</span>
+              </p>
+            </div>
+            <div class="vs-card">
+              <h3>cc-switch <span class="tag neutral" data-lang="zh">横向广度</span><span class="tag neutral" data-lang="en">Breadth</span></h3>
+              <p>
+                <span data-lang="zh">横跨多个 CLI 工具的<strong>供应商切换中枢</strong>：50+ 内置供应商一键热切、内置本地代理与故障转移。适合需要在 Claude Code / Codex / Gemini 等工具间频繁切供应商、追求高可用的人。</span>
+                <span data-lang="en">A cross-tool <strong>provider-switching hub</strong>: 50+ presets for one-click hot switching, plus a built-in local proxy and failover. For people who switch providers across Claude Code / Codex / Gemini and want high availability.</span>
+              </p>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <div class="table-scroll">
+              <table class="cmp">
+                <thead>
+                  <tr>
+                    <th><span data-lang="zh">维度</span><span data-lang="en">Dimension</span></th>
+                    <th class="col-ours">AI Manager</th>
+                    <th>cc-switch</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="dim"><span data-lang="zh">定位</span><span data-lang="en">Focus</span></td>
+                    <td class="col-ours"><span data-lang="zh">深耕 Claude Code 的本地配置治理</span><span data-lang="en">Deep local config governance for Claude Code</span></td>
+                    <td><span data-lang="zh">横跨多 CLI 工具的供应商切换中枢</span><span data-lang="en">Provider-switching hub across many CLI tools</span></td>
+                  </tr>
+                  <tr>
+                    <td class="dim"><span data-lang="zh">配置抽象</span><span data-lang="en">Config model</span></td>
+                    <td class="col-ours"><span data-lang="zh">完整 Profile/Preset 分层 + JSON Schema 校验</span><span data-lang="en">Full Profile/Preset layering + JSON-Schema validation</span></td>
+                    <td><span data-lang="zh">「供应商卡片」为单位，50+ 内置预设一键热切</span><span data-lang="en">Provider cards, 50+ presets, one-click hot switch</span></td>
+                  </tr>
+                  <tr>
+                    <td class="dim"><span data-lang="zh">覆盖工具</span><span data-lang="en">Tool coverage</span></td>
+                    <td class="col-ours"><span data-lang="zh">聚焦 Claude Code（Skills 可同步 Codex）</span><span data-lang="en">Focused on Claude Code (skills sync to Codex)</span></td>
+                    <td><span data-lang="zh">Claude Code / Codex / Gemini / OpenCode 等多工具</span><span data-lang="en">Claude Code / Codex / Gemini / OpenCode and more</span></td>
+                  </tr>
+                  <tr>
+                    <td class="dim"><span data-lang="zh">Token 用量与费用</span><span data-lang="en">Usage &amp; cost</span></td>
+                    <td class="col-ours"><span data-lang="zh">按日期/项目/会话/模型聚合，SQLite 缓存，消息级明细</span><span data-lang="en">By date/project/session/model, SQLite-cached, per-message detail</span></td>
+                    <td><span data-lang="zh">Usage Dashboard，按供应商/模型统计</span><span data-lang="en">Usage dashboard by provider/model</span></td>
+                  </tr>
+                  <tr>
+                    <td class="dim"><span data-lang="zh">状态行 (statusline)</span><span data-lang="en">Statusline</span></td>
+                    <td class="col-ours"><span class="yes">✓ </span><span data-lang="zh">内置预设脚本一键安装（macOS/Linux）</span><span data-lang="en">Built-in preset, one-click install (macOS/Linux)</span></td>
+                    <td class="no"><span data-lang="zh">未见</span><span data-lang="en">Not found</span></td>
+                  </tr>
+                  <tr>
+                    <td class="dim"><span data-lang="zh">记忆体系</span><span data-lang="en">Memory</span></td>
+                    <td class="col-ours"><span data-lang="zh">通用 <code>CLAUDE.md</code> + <code>rules/*.md</code>（glob）全生命周期</span><span data-lang="en">Full lifecycle for <code>CLAUDE.md</code> + <code>rules/*.md</code> (glob)</span></td>
+                    <td><span data-lang="zh">workspace/memory 偏向其他 Agent 生态</span><span data-lang="en">workspace/memory geared to other agents</span></td>
+                  </tr>
+                  <tr>
+                    <td class="dim"><span data-lang="zh">项目级配对</span><span data-lang="en">Project-level pairing</span></td>
+                    <td class="col-ours"><span class="yes">✓ </span><span data-lang="zh">CLAUDE.md↔AGENTS.md、skills 配对、分支/worktree 清理</span><span data-lang="en">CLAUDE.md↔AGENTS.md, skills pairing, branch/worktree pruning</span></td>
+                    <td class="no">—</td>
+                  </tr>
+                  <tr>
+                    <td class="dim"><span data-lang="zh">供应商代理 / 故障转移</span><span data-lang="en">Provider proxy / failover</span></td>
+                    <td class="col-ours no"><span data-lang="zh">—（不接管流量）</span><span data-lang="en">— (no traffic takeover)</span></td>
+                    <td><span class="yes">✓ </span><span data-lang="zh">内置本地代理、自动 failover、熔断、健康监控</span><span data-lang="en">Built-in local proxy, failover, breaker, health monitor</span></td>
+                  </tr>
+                  <tr>
+                    <td class="dim"><span data-lang="zh">系统托盘与会话</span><span data-lang="en">Tray &amp; sessions</span></td>
+                    <td class="col-ours"><span data-lang="zh">切 Profile + 实时会话状态 + macOS 聚焦/LED</span><span data-lang="en">Switch profile + live session status + macOS focus/LED</span></td>
+                    <td><span data-lang="zh">切供应商 + 轻量模式</span><span data-lang="en">Switch provider + lightweight mode</span></td>
+                  </tr>
+                  <tr>
+                    <td class="dim"><span data-lang="zh">技术栈</span><span data-lang="en">Stack</span></td>
+                    <td class="col-ours">Tauri 2 · React 19 · Tailwind v4</td>
+                    <td>Tauri 2 · React 18 · Tailwind v3</td>
+                  </tr>
+                  <tr>
+                    <td class="dim"><span data-lang="zh">许可</span><span data-lang="en">License</span></td>
+                    <td class="col-ours"><span class="yes">✓ </span><span data-lang="zh">开源 (MIT)</span><span data-lang="en">Open source (MIT)</span></td>
+                    <td><span data-lang="zh">开源</span><span data-lang="en">Open source</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <p class="vs-note">
+            <span data-lang="zh"><strong>怎么选：</strong>主力在 Claude Code、想要深度配置治理 + 成本透明 → AI Manager 更顺手；需要在多个 CLI 工具间频繁切供应商、要代理高可用 → cc-switch 更全面。两者可以共存。cc-switch 信息基于其公开 README / Release（约 2026-06），标注「未见」表示在公开资料中未找到，并非官方否认；如有出入以官方为准。</span>
+            <span data-lang="en"><strong>How to choose:</strong> live in Claude Code and want deep config governance + cost transparency → AI Manager fits better; switch providers across many CLI tools and need proxy/high availability → cc-switch is broader. The two can coexist. cc-switch details come from its public README / releases (≈2026-06); "Not found" means not located in public docs, not an official denial — defer to upstream if it differs.</span>
+          </p>
+        </div>
+      </section>
+
+      <!-- ===================== 使用说明 ===================== -->
+      <section class="section section--alt" id="guide">
+        <div class="container">
+          <div class="section-head center">
+            <span class="eyebrow" data-lang="zh">使用说明</span>
+            <span class="eyebrow" data-lang="en">Getting started</span>
+            <h2 class="section-title">
+              <span data-lang="zh">几分钟跑通第一个配置</span>
+              <span data-lang="en">Your first profile in minutes</span>
+            </h2>
+          </div>
+
+          <ol class="steps">
+            <li>
+              <h4><span data-lang="zh">下载并安装</span><span data-lang="en">Download &amp; install</span></h4>
+              <p><span data-lang="zh">从 Releases 下载对应平台安装包并打开。应用会读取本机 <code>~/.claude</code>、<code>~/.claude.json</code> 和 <code>~/.claude/projects/</code>。</span><span data-lang="en">Grab the installer for your platform and open it. The app reads your local <code>~/.claude</code>, <code>~/.claude.json</code> and <code>~/.claude/projects/</code>.</span></p>
+            </li>
+            <li>
+              <h4><span data-lang="zh">设置基础项</span><span data-lang="en">Set the basics</span></h4>
+              <p><span data-lang="zh">在「设置」中选择界面语言、主题、默认终端和默认编辑器。</span><span data-lang="en">In Settings, pick language, theme, default terminal and default editor.</span></p>
+            </li>
+            <li>
+              <h4><span data-lang="zh">查看预设</span><span data-lang="en">Browse presets</span></h4>
+              <p><span data-lang="zh">在「预设」页查看是否已有合适的 Provider 预设（内置 Anthropic、DeepSeek、智谱 GLM、Kimi、火山方舟、阿里云百炼等十余个）。</span><span data-lang="en">Check the Presets page for a matching provider (Anthropic, DeepSeek, GLM, Kimi, Volcengine, Bailian and 10+ more are built in).</span></p>
+            </li>
+            <li>
+              <h4><span data-lang="zh">新建或导入 Profile</span><span data-lang="en">Create or import a profile</span></h4>
+              <p><span data-lang="zh">在「配置」页新建 Profile 并填写认证密钥、API 地址和模型，或一键导入现有 <code>~/.claude/settings.json</code>。</span><span data-lang="en">On the Profiles page, create one with your token, API endpoint and model — or import your existing <code>~/.claude/settings.json</code>.</span></p>
+            </li>
+            <li>
+              <h4><span data-lang="zh">测试模型</span><span data-lang="en">Test the model</span></h4>
+              <p><span data-lang="zh">点击「测试模型」确认请求地址、状态码、耗时和响应都正常。</span><span data-lang="en">Hit "Test model" to confirm the endpoint, status code, latency and response look right.</span></p>
+            </li>
+            <li>
+              <h4><span data-lang="zh">启用并核对</span><span data-lang="en">Enable &amp; verify</span></h4>
+              <p><span data-lang="zh">点击启用，将 Profile 应用到 <code>~/.claude/settings.json</code>，再到「~/.claude 总览」确认最终配置符合预期。</span><span data-lang="en">Enable to apply the profile to <code>~/.claude/settings.json</code>, then check the ~/.claude overview to verify the result.</span></p>
+            </li>
+          </ol>
+
+          <div class="codeblock" role="note">
+            <div class="c"><span data-lang="zh"># macOS：若首次打开被 Gatekeeper 拦截，移除隔离属性即可</span><span data-lang="en"># macOS: if Gatekeeper blocks the first launch, remove the quarantine attribute</span></div>
+            xattr -rd com.apple.quarantine /Applications/ai-manager.app
+          </div>
+
+          <div class="section-head center" style="margin-top:56px;margin-bottom:28px">
+            <h3 class="section-title" style="font-size:24px">
+              <span data-lang="zh">常见工作流</span><span data-lang="en">Common workflows</span>
+            </h3>
+          </div>
+          <div class="workflow-cols">
+            <div class="wf">
+              <h4><span data-lang="zh">切换 Provider</span><span data-lang="en">Switch provider</span></h4>
+              <ol>
+                <li><span data-lang="zh">新建配置并选择 Provider 预设</span><span data-lang="en">New profile, pick a provider preset</span></li>
+                <li><span data-lang="zh">填密钥、调模型与常用选项</span><span data-lang="en">Add the key, tune model &amp; options</span></li>
+                <li><span data-lang="zh">测试模型后启用</span><span data-lang="en">Test model, then enable</span></li>
+                <li><span data-lang="zh">在总览确认 settings.json</span><span data-lang="en">Verify settings.json in overview</span></li>
+              </ol>
+            </div>
+            <div class="wf">
+              <h4><span data-lang="zh">排查费用异常</span><span data-lang="en">Investigate cost</span></h4>
+              <ol>
+                <li><span data-lang="zh">用量页选日期/项目/模型</span><span data-lang="en">Filter usage by date/project/model</span></li>
+                <li><span data-lang="zh">查看总花费与构成</span><span data-lang="en">Inspect total spend &amp; breakdown</span></li>
+                <li><span data-lang="zh">按会话表点开消息级明细</span><span data-lang="en">Drill into per-message detail</span></li>
+                <li><span data-lang="zh">必要时刷新价格 / 查价目表</span><span data-lang="en">Refresh prices / check the price table</span></li>
+              </ol>
+            </div>
+            <div class="wf">
+              <h4><span data-lang="zh">新建 Skill 并同步 Codex</span><span data-lang="en">New skill → Codex</span></h4>
+              <ol>
+                <li><span data-lang="zh">填写合法 ID、名称与描述</span><span data-lang="en">Set a valid id, name and description</span></li>
+                <li><span data-lang="zh">编写 <code>SKILL.md</code></span><span data-lang="en">Write <code>SKILL.md</code></span></li>
+                <li><span data-lang="zh">保存并启用</span><span data-lang="en">Save and enable</span></li>
+                <li><span data-lang="zh">同步到 <code>~/.codex/skills</code></span><span data-lang="en">Sync to <code>~/.codex/skills</code></span></li>
+              </ol>
+            </div>
+          </div>
+
+          <p class="dl-sub" style="margin-top:28px">
+            <span data-lang="zh">更完整的页面说明、费用统计口径与 FAQ 见 </span>
+            <span data-lang="en">For full page docs, cost methodology and FAQ, see </span>
+            <a href="https://github.com/maguowei/ai-manager/blob/main/docs/user-manual.md" target="_blank" rel="noopener">docs/user-manual.md</a>
+            ·
+            <a href="https://github.com/maguowei/ai-manager/blob/main/docs/platform-support.md" target="_blank" rel="noopener"><span data-lang="zh">平台差异</span><span data-lang="en">platform support</span></a>
+          </p>
+        </div>
+      </section>
+
+      <!-- ===================== 下载 ===================== -->
+      <section class="section" id="download">
+        <div class="container">
+          <div class="section-head center">
+            <span class="eyebrow" data-lang="zh">下载</span>
+            <span class="eyebrow" data-lang="en">Download</span>
+            <h2 class="section-title">
+              <span data-lang="zh">选择你的平台</span>
+              <span data-lang="en">Pick your platform</span>
+            </h2>
+            <p class="section-sub">
+              <span data-lang="zh">跨平台支持 macOS、Windows 与 Linux，核心配置管理功能对等可用。</span>
+              <span data-lang="en">Cross-platform on macOS, Windows and Linux, with core config management at parity.</span>
+            </p>
+          </div>
+
+          <div class="dl-grid">
+            <div class="dl-card">
+              <div class="os-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.7 1.3c.1 1-.3 2-1 2.8-.7.8-1.8 1.4-2.8 1.3-.1-1 .4-2 1-2.7.7-.8 1.9-1.4 2.8-1.4zM20 17.3c-.5 1.2-.8 1.7-1.5 2.8-1 1.5-2.3 3.3-4 3.3-1.4 0-1.8-.9-3.8-.9s-2.4.9-3.8.9c-1.6 0-2.8-1.6-3.8-3.1-2.8-4.1-3.1-9-1.4-11.6 1-1.5 2.7-2.4 4.2-2.4 1.6 0 2.6 1 3.9 1 1.3 0 2-1 3.9-1 1.4 0 2.8.7 3.8 2-3.3 1.8-2.8 6.5.3 9z"/></svg></div>
+              <h3>macOS</h3>
+              <p class="pkgs"><span data-lang="zh">Apple Silicon / Intel · <code>.dmg</code></span><span data-lang="en">Apple Silicon / Intel · <code>.dmg</code></span></p>
+              <a class="btn btn-primary" href="https://github.com/maguowei/ai-manager/releases/latest" target="_blank" rel="noopener">
+                <span data-lang="zh">下载 .dmg</span><span data-lang="en">Download .dmg</span>
+              </a>
+            </div>
+            <div class="dl-card">
+              <div class="os-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4.5 10.5 3.3v8.2H3zM11.5 3.1 21 1.8v9.7h-9.5zM3 12.5h7.5v8.2L3 19.5zM11.5 12.5H21v9.7l-9.5-1.3z"/></svg></div>
+              <h3>Windows</h3>
+              <p class="pkgs"><code>.msi</code> / <code>.exe</code></p>
+              <a class="btn btn-primary" href="https://github.com/maguowei/ai-manager/releases/latest" target="_blank" rel="noopener">
+                <span data-lang="zh">下载安装包</span><span data-lang="en">Download installer</span>
+              </a>
+            </div>
+            <div class="dl-card">
+              <div class="os-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c-2 0-3 1.7-3 3.6 0 1.2.2 2 .2 3 0 1-1 1.8-1.8 3-1 1.4-2.4 3-2.4 5 0 1 .4 1.7 1 2.1.2 1 1 1.8 2.3 1.8.8 0 1.5.4 2.4.4h2.6c.9 0 1.6-.4 2.4-.4 1.3 0 2.1-.8 2.3-1.8.6-.4 1-1.1 1-2.1 0-2-1.4-3.6-2.4-5-.8-1.2-1.8-2-1.8-3 0-1 .2-1.8.2-3C15 3.7 14 2 12 2z"/></svg></div>
+              <h3>Linux</h3>
+              <p class="pkgs"><code>.deb</code> / <code>.rpm</code> / <code>.AppImage</code></p>
+              <a class="btn btn-primary" href="https://github.com/maguowei/ai-manager/releases/latest" target="_blank" rel="noopener">
+                <span data-lang="zh">下载安装包</span><span data-lang="en">Download package</span>
+              </a>
+            </div>
+          </div>
+
+          <div class="dl-note">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+            <span data-lang="zh">下载按钮指向 <strong>Releases / latest</strong>。当前安装包尚在准备中——公开正式发布后，链接会自动解析到最新版本的各平台资源。可先前往 <a href="https://github.com/maguowei/ai-manager/releases" target="_blank" rel="noopener">全部 Releases</a> 关注进度。macOS 当前发布包未经过 Apple 公证，首次打开被拦截时执行上文的 <code>xattr</code> 命令即可。</span>
+            <span data-lang="en">Download buttons point to <strong>Releases / latest</strong>. Installers are being prepared — once published, the links resolve to the newest per-platform assets automatically. Meanwhile, follow progress on <a href="https://github.com/maguowei/ai-manager/releases" target="_blank" rel="noopener">all releases</a>. macOS builds aren't Apple-notarized yet; if the first launch is blocked, run the <code>xattr</code> command above.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== FAQ ===================== -->
+      <section class="section section--alt" id="faq">
+        <div class="container">
+          <div class="section-head center">
+            <span class="eyebrow">FAQ</span>
+            <h2 class="section-title">
+              <span data-lang="zh">常见问题</span><span data-lang="en">Frequently asked</span>
+            </h2>
+          </div>
+          <div class="faq">
+            <details open>
+              <summary><span data-lang="zh">我的数据会上传吗？</span><span data-lang="en">Is my data uploaded anywhere?</span></summary>
+              <div class="answer"><span data-lang="zh">不会。AI Manager 主要读写本机文件，配置合并、目录扫描、用量聚合和日志查看都在本地完成。只有模型价格会在启动后尝试从 models.dev 官方 provider 刷新，且优先使用本地缓存与内置兜底。日志查看默认脱敏，隐藏密钥与 Token。</span><span data-lang="en">No. AI Manager mostly reads and writes local files; config merge, scanning, usage aggregation and log viewing all happen locally. Only model prices are refreshed from models.dev after launch, with local cache and built-in fallbacks first. The log viewer is redacted by default, hiding keys and tokens.</span></div>
+            </details>
+            <details>
+              <summary><span data-lang="zh">它和 cc-switch 能共存吗？</span><span data-lang="en">Can it coexist with cc-switch?</span></summary>
+              <div class="answer"><span data-lang="zh">可以。两者定位不同：AI Manager 偏深度配置治理与成本分析，cc-switch 偏多工具供应商切换与代理高可用。它们都作用于本地配置文件，按需各取所长即可。</span><span data-lang="en">Yes. They target different axes: AI Manager leans into deep config governance and cost analytics, while cc-switch leans into multi-tool provider switching and proxy availability. Both act on local config files; use whichever fits the task.</span></div>
+            </details>
+            <details>
+              <summary><span data-lang="zh">支持哪些 Provider？</span><span data-lang="en">Which providers are supported?</span></summary>
+              <div class="answer"><span data-lang="zh">内置十余个 Provider 预设，包括 Anthropic、DeepSeek、智谱 GLM、Kimi、MiniMax、小米 MiMo、OpenRouter、火山方舟、阿里云百炼、ModelScope、Ollama 等，也支持自定义 API 地址与自建 Preset。</span><span data-lang="en">A dozen+ built-in presets including Anthropic, DeepSeek, GLM, Kimi, MiniMax, Xiaomi MiMo, OpenRouter, Volcengine, Bailian, ModelScope, Ollama and more — plus custom endpoints and your own presets.</span></div>
+            </details>
+            <details>
+              <summary><span data-lang="zh">macOS 提示「已损坏 / 无法打开」怎么办？</span><span data-lang="en">macOS says the app is "damaged / can't be opened"?</span></summary>
+              <div class="answer"><span data-lang="zh">当前发布包未经过 Apple 公证。在终端执行 <code>xattr -rd com.apple.quarantine /Applications/ai-manager.app</code> 移除隔离属性后即可打开。</span><span data-lang="en">Builds aren't Apple-notarized yet. Run <code>xattr -rd com.apple.quarantine /Applications/ai-manager.app</code> in a terminal to remove the quarantine attribute, then open it.</span></div>
+            </details>
+            <details>
+              <summary><span data-lang="zh">各平台功能一致吗？</span><span data-lang="en">Is functionality the same on every platform?</span></summary>
+              <div class="answer"><span data-lang="zh">核心配置管理在三平台对等。差异集中在系统集成层：终端会话聚焦、可点击通知、LED 灯效目前仅 macOS；状态行预设支持 macOS/Linux，Windows 暂不支持。详见平台差异文档。</span><span data-lang="en">Core config management is at parity. Differences sit in system integration: terminal focus, clickable notifications and LED are macOS-only for now; statusline presets work on macOS/Linux but not Windows yet. See the platform-support doc.</span></div>
+            </details>
+            <details>
+              <summary><span data-lang="zh">是开源的吗？</span><span data-lang="en">Is it open source?</span></summary>
+              <div class="answer"><span data-lang="zh">是，采用 MIT 许可。技术栈为 Tauri 2 + React 19 + TypeScript + Vite + Tailwind CSS v4 + Rust。欢迎在 GitHub 提交 Issue 与反馈。</span><span data-lang="en">Yes, under the MIT license. Built with Tauri 2 + React 19 + TypeScript + Vite + Tailwind CSS v4 + Rust. Issues and feedback are welcome on GitHub.</span></div>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== CTA ===================== -->
+      <section class="section cta-band">
+        <div class="container">
+          <div class="panel">
+            <h2>
+              <span data-lang="zh">把 Claude Code 的配置交给一个地方管理</span>
+              <span data-lang="en">Manage your Claude Code setup from one place</span>
+            </h2>
+            <p>
+              <span data-lang="zh">可见、可预览、可验证——而且完全在本地。</span>
+              <span data-lang="en">Visible, previewable, verifiable — and fully local.</span>
+            </p>
+            <div class="hero-cta">
+              <a class="btn btn-primary" href="#download">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+                <span data-lang="zh">立即下载</span><span data-lang="en">Download now</span>
+              </a>
+              <a class="btn btn-ghost" href="https://github.com/maguowei/ai-manager" target="_blank" rel="noopener">
+                <span data-lang="zh">在 GitHub 上查看</span><span data-lang="en">Star on GitHub</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ===================== 页脚 ===================== -->
+    <footer class="site-footer">
+      <div class="container">
+        <div class="footer-grid">
+          <div>
+            <div class="footer-brand">
+              <img src="assets/img/logo.png" alt="AI Manager" width="26" height="26" />
+              <span>AI Manager</span>
+            </div>
+            <p class="muted" style="margin-top:12px;max-width:30em;font-size:14px">
+              <span data-lang="zh">面向 Claude Code 用户的本地桌面配置管理应用。</span>
+              <span data-lang="en">A local desktop config manager for Claude Code users.</span>
+            </p>
+          </div>
+          <div class="footer-cols">
+            <div class="footer-col">
+              <h4><span data-lang="zh">产品</span><span data-lang="en">Product</span></h4>
+              <a href="#features"><span data-lang="zh">功能</span><span data-lang="en">Features</span></a>
+              <a href="#compare"><span data-lang="zh">对比 cc-switch</span><span data-lang="en">vs cc-switch</span></a>
+              <a href="#download"><span data-lang="zh">下载</span><span data-lang="en">Download</span></a>
+            </div>
+            <div class="footer-col">
+              <h4><span data-lang="zh">文档</span><span data-lang="en">Docs</span></h4>
+              <a href="https://github.com/maguowei/ai-manager/blob/main/docs/user-manual.md" target="_blank" rel="noopener"><span data-lang="zh">用户手册</span><span data-lang="en">User manual</span></a>
+              <a href="https://github.com/maguowei/ai-manager/blob/main/docs/platform-support.md" target="_blank" rel="noopener"><span data-lang="zh">平台差异</span><span data-lang="en">Platform support</span></a>
+              <a href="#faq">FAQ</a>
+            </div>
+            <div class="footer-col">
+              <h4><span data-lang="zh">项目</span><span data-lang="en">Project</span></h4>
+              <a href="https://github.com/maguowei/ai-manager" target="_blank" rel="noopener">GitHub</a>
+              <a href="https://github.com/maguowei/ai-manager/releases" target="_blank" rel="noopener">Releases</a>
+              <a href="https://github.com/maguowei/ai-manager/blob/main/LICENSE" target="_blank" rel="noopener"><span data-lang="zh">许可 (MIT)</span><span data-lang="en">License (MIT)</span></a>
+            </div>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <span>© <span id="year">2026</span> maguowei · MIT License</span>
+          <span class="muted">
+            <span data-lang="zh">本页与应用均与 Anthropic 无官方关联。</span>
+            <span data-lang="en">Not officially affiliated with Anthropic.</span>
+          </span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

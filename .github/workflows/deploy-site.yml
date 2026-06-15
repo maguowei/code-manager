@@ -1,0 +1,44 @@
+name: Deploy site
+
+# 将 site/ 下的零构建静态主页发布到 GitHub Pages。
+# 仅当主页相关文件变更时触发，避免与应用 CI / Release 互相打扰。
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - ".github/workflows/deploy-site.yml"
+  workflow_dispatch:
+
+# GitHub Pages 部署所需的最小权限
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同一时间只跑一个部署；新提交进来时取消旧的在途部署
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v6.0.3
+
+      - name: 配置 Pages
+        uses: actions/configure-pages@v6.0.0
+
+      - name: 上传站点构件
+        uses: actions/upload-pages-artifact@v5.0.0
+        with:
+          path: site
+
+      - name: 部署到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5.0.0

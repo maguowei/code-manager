@@ -1,0 +1,168 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap');
+    text { font-family: 'JetBrains Mono', 'Noto Sans SC', 'PingFang SC', sans-serif; }
+    .title { font-size: 24px; font-weight: 700; fill: #f1f5f9; }
+    .subtitle { font-size: 13px; font-weight: 400; fill: #94a3b8; }
+    .root { font-size: 17px; font-weight: 700; fill: #f8fafc; }
+    .rootsub { font-size: 11px; font-weight: 400; fill: #cbd5e1; }
+    .domain { font-size: 15px; font-weight: 700; }
+    .cardname { font-size: 14px; font-weight: 700; fill: #f8fafc; }
+    .tag { font-size: 10px; font-weight: 500; fill: #94a3b8; }
+    .bullet { font-size: 11px; font-weight: 400; fill: #cbd5e1; }
+    .foot { font-size: 12px; font-weight: 500; fill: #94a3b8; }
+  </style>
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+    </pattern>
+  </defs>
+
+  <rect width="100%" height="100%" fill="#0f172a"/>
+  <rect width="100%" height="100%" fill="url(#grid)"/>
+
+  <!-- 标题 -->
+  <text x="40" y="46" class="title">AI Manager · 功能全景（结构图）</text>
+  <text x="40" y="72" class="subtitle">Claude Code 本地配置管理桌面应用 · 9 大功能模块 / ≈ 70 个类型化命令 · 全本地、隐私优先</text>
+
+  <!-- 连接线 root → 3 域 -->
+  <line x1="800" y1="144" x2="800" y2="163" stroke="#475569" stroke-width="1.5"/>
+  <line x1="275" y1="163" x2="1325" y2="163" stroke="#475569" stroke-width="1.5"/>
+  <line x1="275" y1="163" x2="275" y2="180" stroke="#475569" stroke-width="1.5"/>
+  <line x1="800" y1="163" x2="800" y2="180" stroke="#475569" stroke-width="1.5"/>
+  <line x1="1325" y1="163" x2="1325" y2="180" stroke="#475569" stroke-width="1.5"/>
+
+  <!-- root -->
+  <rect x="620" y="86" width="360" height="58" rx="10" fill="#0f172a"/>
+  <rect x="620" y="86" width="360" height="58" rx="10" fill="rgba(59,130,246,0.32)" stroke="#60a5fa" stroke-width="1.8"/>
+  <text x="800" y="113" class="root" text-anchor="middle">AI Manager</text>
+  <text x="800" y="132" class="rootsub" text-anchor="middle">桌面应用 · 统一管理 ~/.claude 配置与生态</text>
+
+  <!-- ===== 域 1 标题 ===== -->
+  <rect x="40" y="180" width="470" height="44" rx="8" fill="#0f172a"/>
+  <rect x="40" y="180" width="470" height="44" rx="8" fill="rgba(8,51,68,0.6)" stroke="#22d3ee" stroke-width="1.5"/>
+  <text x="275" y="208" class="domain" fill="#22d3ee" text-anchor="middle">① 配置与资产管理</text>
+
+  <!-- 域 2 标题 -->
+  <rect x="565" y="180" width="470" height="44" rx="8" fill="#0f172a"/>
+  <rect x="565" y="180" width="470" height="44" rx="8" fill="rgba(76,29,149,0.55)" stroke="#a78bfa" stroke-width="1.5"/>
+  <text x="800" y="208" class="domain" fill="#c4b5fd" text-anchor="middle">② 数据与用量洞察</text>
+
+  <!-- 域 3 标题 -->
+  <rect x="1090" y="180" width="470" height="44" rx="8" fill="#0f172a"/>
+  <rect x="1090" y="180" width="470" height="44" rx="8" fill="rgba(120,53,15,0.5)" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="1325" y="208" class="domain" fill="#fcd34d" text-anchor="middle">③ 项目 · 目录 · 系统</text>
+
+  <!-- ===================== 列 1 卡片 (cyan) ===================== -->
+  <!-- C1.1 配置管理 -->
+  <rect x="40" y="238" width="470" height="172" rx="8" fill="#0f172a"/>
+  <rect x="40" y="238" width="470" height="172" rx="8" fill="rgba(8,51,68,0.5)" stroke="#22d3ee" stroke-width="1.5"/>
+  <text x="60" y="268" class="cardname">配置管理</text>
+  <text x="490" y="268" class="tag" text-anchor="end">Configs · Profiles / Presets</text>
+  <line x1="40" y1="280" x2="510" y2="280" stroke="#22d3ee" stroke-width="0.6" stroke-opacity="0.4"/>
+  <text x="60" y="304" class="bullet">• Profile 编辑 / 应用 / 复制 / 排序 / 删除</text>
+  <text x="60" y="328" class="bullet">• 配置预览 + 模型连通性测试</text>
+  <text x="60" y="352" class="bullet">• 状态行预设 · Provider · 模型价格内置</text>
+  <text x="60" y="376" class="bullet">• 导入用户 settings · 共享设置同步</text>
+  <text x="60" y="400" class="bullet">• Preset 复用常用选项 / 市场 / 插件</text>
+
+  <!-- C1.2 记忆管理 -->
+  <rect x="40" y="430" width="470" height="172" rx="8" fill="#0f172a"/>
+  <rect x="40" y="430" width="470" height="172" rx="8" fill="rgba(8,51,68,0.5)" stroke="#22d3ee" stroke-width="1.5"/>
+  <text x="60" y="460" class="cardname">记忆管理</text>
+  <text x="490" y="460" class="tag" text-anchor="end">Memory</text>
+  <line x1="40" y1="472" x2="510" y2="472" stroke="#22d3ee" stroke-width="0.6" stroke-opacity="0.4"/>
+  <text x="60" y="496" class="bullet">• 记忆条目增删改 / 复制 / 启停</text>
+  <text x="60" y="520" class="bullet">• 记忆预设一键应用</text>
+  <text x="60" y="544" class="bullet">• 导入未托管记忆 · 从目录批量导入</text>
+  <text x="60" y="568" class="bullet">• 删除前影响预览</text>
+  <text x="60" y="592" class="bullet">• Markdown 编辑 + 校验 (Zod / Schema)</text>
+
+  <!-- C1.3 Skills 管理 -->
+  <rect x="40" y="622" width="470" height="172" rx="8" fill="#0f172a"/>
+  <rect x="40" y="622" width="470" height="172" rx="8" fill="rgba(8,51,68,0.5)" stroke="#22d3ee" stroke-width="1.5"/>
+  <text x="60" y="652" class="cardname">Skills 管理</text>
+  <text x="490" y="652" class="tag" text-anchor="end">Skills</text>
+  <line x1="40" y1="664" x2="510" y2="664" stroke="#22d3ee" stroke-width="0.6" stroke-opacity="0.4"/>
+  <text x="60" y="688" class="bullet">• Skill 增删改 / 复制 / 启停</text>
+  <text x="60" y="712" class="bullet">• 文件树浏览 · 外部编辑器打开</text>
+  <text x="60" y="736" class="bullet">• 从目录导入</text>
+  <text x="60" y="760" class="bullet">• 同步到 ~/.codex/skills（Codex 互通）</text>
+  <text x="60" y="784" class="bullet">• 禁用态隔离 skills-disabled/</text>
+
+  <!-- ===================== 列 2 卡片 (violet) ===================== -->
+  <!-- C2.1 历史 -->
+  <rect x="565" y="238" width="470" height="172" rx="8" fill="#0f172a"/>
+  <rect x="565" y="238" width="470" height="172" rx="8" fill="rgba(76,29,149,0.42)" stroke="#a78bfa" stroke-width="1.5"/>
+  <text x="585" y="268" class="cardname">会话历史</text>
+  <text x="1015" y="268" class="tag" text-anchor="end">History · ~/.claude/history.jsonl</text>
+  <line x1="565" y1="280" x2="1035" y2="280" stroke="#a78bfa" stroke-width="0.6" stroke-opacity="0.4"/>
+  <text x="585" y="304" class="bullet">• 项目 / 会话历史列表（增量刷新）</text>
+  <text x="585" y="328" class="bullet">• 会话详情查看</text>
+  <text x="585" y="352" class="bullet">• 关联 Plan 查看 / 编辑器打开</text>
+  <text x="585" y="376" class="bullet">• 会话文件外部编辑器打开</text>
+  <text x="585" y="400" class="bullet">• 活跃度热力图</text>
+
+  <!-- C2.2 统计 -->
+  <rect x="565" y="430" width="470" height="172" rx="8" fill="#0f172a"/>
+  <rect x="565" y="430" width="470" height="172" rx="8" fill="rgba(76,29,149,0.42)" stroke="#a78bfa" stroke-width="1.5"/>
+  <text x="585" y="460" class="cardname">统计概览</text>
+  <text x="1015" y="460" class="tag" text-anchor="end">Stats · ~/.claude.json</text>
+  <line x1="565" y1="472" x2="1035" y2="472" stroke="#a78bfa" stroke-width="0.6" stroke-opacity="0.4"/>
+  <text x="585" y="496" class="bullet">• 读取全局配置统计</text>
+  <text x="585" y="520" class="bullet">• 关键指标概览</text>
+  <text x="585" y="544" class="bullet">• 一键打开 ~/.claude.json</text>
+  <text x="585" y="568" class="bullet">• 与历史 / 用量数据源独立不混用</text>
+
+  <!-- C2.3 用量与费用 -->
+  <rect x="565" y="622" width="470" height="172" rx="8" fill="#0f172a"/>
+  <rect x="565" y="622" width="470" height="172" rx="8" fill="rgba(76,29,149,0.42)" stroke="#a78bfa" stroke-width="1.5"/>
+  <text x="585" y="652" class="cardname">用量与费用</text>
+  <text x="1015" y="652" class="tag" text-anchor="end">Usage · projects/**/*.jsonl + SQLite</text>
+  <line x1="565" y1="664" x2="1035" y2="664" stroke="#a78bfa" stroke-width="0.6" stroke-opacity="0.4"/>
+  <text x="585" y="688" class="bullet">• Token 用量快照 / 会话明细</text>
+  <text x="585" y="712" class="bullet">• 按模型定价计费</text>
+  <text x="585" y="736" class="bullet">• 价格刷新 · 重新扫描</text>
+  <text x="585" y="760" class="bullet">• SQLite (sqlx) 实时缓存 + watcher</text>
+  <text x="585" y="784" class="bullet">• 用量抽屉 · 图表可视化 (Recharts)</text>
+
+  <!-- ===================== 列 3 卡片 (amber) ===================== -->
+  <!-- C3.1 项目管理 -->
+  <rect x="1090" y="238" width="470" height="172" rx="8" fill="#0f172a"/>
+  <rect x="1090" y="238" width="470" height="172" rx="8" fill="rgba(120,53,15,0.4)" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="1110" y="268" class="cardname">项目管理</text>
+  <text x="1540" y="268" class="tag" text-anchor="end">Projects</text>
+  <line x1="1090" y1="280" x2="1560" y2="280" stroke="#fbbf24" stroke-width="0.6" stroke-opacity="0.4"/>
+  <text x="1110" y="304" class="bullet">• 项目详情 · 项目内 ~/.claude 浏览</text>
+  <text x="1110" y="328" class="bullet">• agents / skills 软链接接入</text>
+  <text x="1110" y="352" class="bullet">• 在终端 / 编辑器中打开</text>
+  <text x="1110" y="376" class="bullet">• 本地数据 / 分支 / worktree 清理</text>
+  <text x="1110" y="400" class="bullet">• 操作前一律提供影响预览</text>
+
+  <!-- C3.2 Claude 共享树总览 -->
+  <rect x="1090" y="430" width="470" height="172" rx="8" fill="#0f172a"/>
+  <rect x="1090" y="430" width="470" height="172" rx="8" fill="rgba(120,53,15,0.4)" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="1110" y="460" class="cardname">共享树总览</text>
+  <text x="1540" y="460" class="tag" text-anchor="end">Overview · ~/.claude</text>
+  <line x1="1090" y1="472" x2="1560" y2="472" stroke="#fbbf24" stroke-width="0.6" stroke-opacity="0.4"/>
+  <text x="1110" y="496" class="bullet">• ~/.claude 目录树预览</text>
+  <text x="1110" y="520" class="bullet">• 文件预览 · 增 / 删 / 改条目</text>
+  <text x="1110" y="544" class="bullet">• 外部编辑器打开</text>
+  <text x="1110" y="568" class="bullet">• 文件变更实时监听（watcher）</text>
+  <text x="1110" y="592" class="bullet">• 变更经 Tauri 事件回流前端</text>
+
+  <!-- C3.3 系统集成与设置 -->
+  <rect x="1090" y="622" width="470" height="172" rx="8" fill="#0f172a"/>
+  <rect x="1090" y="622" width="470" height="172" rx="8" fill="rgba(120,53,15,0.4)" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="1110" y="652" class="cardname">系统集成与设置</text>
+  <text x="1540" y="652" class="tag" text-anchor="end">Tray · LED · Settings</text>
+  <line x1="1090" y1="664" x2="1560" y2="664" stroke="#fbbf24" stroke-width="0.6" stroke-opacity="0.4"/>
+  <text x="1110" y="688" class="bullet">• 系统托盘 + 会话红绿状态脉冲</text>
+  <text x="1110" y="712" class="bullet">• ANTICATER USB LED 灯效</text>
+  <text x="1110" y="736" class="bullet">• 终端会话聚焦 · macOS 通知</text>
+  <text x="1110" y="760" class="bullet">• 官方插件市场接入</text>
+  <text x="1110" y="784" class="bullet">• 应用偏好 · 日志诊断 · 主题 / i18n</text>
+
+  <!-- 页脚 -->
+  <text x="800" y="838" class="foot" text-anchor="middle">前端 React 19 + Tailwind v4 + shadcn/ui · 后端 Rust + Tauri 2 · 类型化 IPC (tauri-specta) · 配色按功能域分组</text>
+</svg>
