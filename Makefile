@@ -45,7 +45,7 @@ verify: fmt-rust-check bindings-check lint build-frontend test
 
 # 重新生成 Tauri IPC TypeScript bindings
 bindings:
-	cd src-tauri && cargo run --bin generate_bindings
+	cd src-tauri && cargo run --example generate_bindings
 
 # 检查 Tauri IPC bindings 是否与 Rust command 契约同步
 bindings-check:

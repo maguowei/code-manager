@@ -42,7 +42,7 @@ describe("IPC usage contract", () => {
   it("keeps make bindings delegated to the Rust generator", () => {
     const makefile = readFileSync("Makefile", "utf8");
 
-    expect(makefile).toContain("cd src-tauri && cargo run --bin generate_bindings");
+    expect(makefile).toContain("cd src-tauri && cargo run --example generate_bindings");
     expect(makefile).not.toContain("perl -pi");
   });
 });
