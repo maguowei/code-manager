@@ -24,15 +24,15 @@ AI Manager 不替代 Claude Code，而是提供一个本机配置、会话数据
 | 能力 | 说明 |
 | --- | --- |
 | `~/.claude` 总览 | 浏览、预览、编辑和定位 Claude Code 用户目录。 |
-| Profile / Preset | 管理最终写入 `~/.claude/settings.json` 的配置层，支持 Provider、模型、环境变量、权限、Sandbox、Hooks、插件、状态行、预览、复制、模型测试、一键应用、导入现有 settings 和差异对比。 |
+| Profile / Preset | 管理最终写入 `~/.claude/settings.json` 的配置层，支持 Provider、模型、环境变量、权限、Sandbox、Hooks、插件、状态行、预览、复制、模型测试、一键应用、导入现有 settings、差异对比，以及一键把常用选项 / 市场 / 插件同步到其他配置。 |
 | 记忆管理 | 管理用户级 `CLAUDE.md` 与 `rules/*.md`，支持 Karpathy 行为指南预设、导入、启用、禁用、复制、预览和路径校验。 |
 | Skills 管理 | 新建、编辑、删除、启用、禁用 Claude Code Skills，并可同步为 `~/.codex/skills/<id>` 软链接。 |
 | 历史与会话 | 读取 `~/.claude/history.jsonl`，按项目和会话查看历史详情。 |
 | 统计与最近会话 | 从 `~/.claude.json` 读取本地统计快照。 |
 | Token 用量与费用 | 扫描 `~/.claude/projects/**/*.jsonl`，按日期、项目、会话和模型聚合 Token 与费用，并使用 SQLite 增量缓存。 |
 | 项目管理 | 展示项目路径、远程地址、分支、worktree、项目级 `.claude/`、`AGENTS.md` / `CLAUDE.md` 与 `.agents/skills` 状态，支持打开终端/编辑器、跳转历史/用量、分支与 worktree 清理和清理本地项目数据。 |
-| 系统托盘与会话聚焦 | 菜单栏显示当前 Profile 和 Claude Code 活跃会话，并在支持的平台尝试聚焦已有终端会话。 |
-| 设置与诊断 | 支持语言、主题、默认收起侧边栏、系统通知、第三方模型计价、登录启动、默认终端和编辑器、脱敏日志查看、系统信息复制和日志轮转。 |
+| 系统托盘与会话聚焦 | 菜单栏显示当前 Profile 和 Claude Code 活跃会话，支持会话计数样式与待处理呼吸灯，在支持的平台尝试聚焦已有终端会话，并可（仅 macOS）把会话状态镜像到 ANTICATER USB 设备灯效。 |
+| 设置与诊断 | 支持语言、主题、默认收起侧边栏、菜单栏会话显示、系统通知、第三方模型计价、登录启动、默认终端和编辑器、会话聚焦快捷键与 LED 灯效（仅 macOS）、脱敏日志查看、系统信息复制和日志轮转。 |
 
 ## 下载安装
 
