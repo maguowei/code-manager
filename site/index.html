@@ -162,35 +162,108 @@
       <!-- ===================== 解决的问题 ===================== -->
       <section class="section section--alt" id="why">
         <div class="container">
-          <div class="hero-grid" style="align-items:flex-start">
-            <div>
-              <div class="section-head" style="margin-bottom:24px">
-                <span class="eyebrow" data-lang="zh">解决的问题</span>
-                <span class="eyebrow" data-lang="en">The problem</span>
-                <h2 class="section-title">
-                  <span data-lang="zh">配置散落，越用越难管</span>
-                  <span data-lang="en">Config sprawl that gets worse over time</span>
-                </h2>
-                <p class="section-sub">
-                  <span data-lang="zh">长期使用 Claude Code 时，本地配置和会话数据容易散落在多个文件里。</span>
-                  <span data-lang="en">The longer you use Claude Code, the more your config and session data scatter across files.</span>
-                </p>
+          <div class="section-head center">
+            <span class="eyebrow" data-lang="zh">解决的问题</span>
+            <span class="eyebrow" data-lang="en">The problem</span>
+            <h2 class="section-title">
+              <span data-lang="zh">配置散落，越用越难管</span>
+              <span data-lang="en">Config sprawl that gets worse over time</span>
+            </h2>
+            <p class="section-sub">
+              <span data-lang="zh">从三个角度看：痛点 → AI Manager 能力 → 价值收益。它不替代 Claude Code，而是它的本机管理层——让配置可见、可预览、可验证。</span>
+              <span data-lang="en">Seen from three angles: pain → what AI Manager does → the payoff. It doesn't replace Claude Code — it's the local management layer that makes config visible, previewable and verifiable.</span>
+            </p>
+          </div>
+
+          <div class="matrix">
+            <!-- 角度①：团队配置复用 -->
+            <article class="matrix-col">
+              <header class="matrix-col-head"><span class="num">1</span><span data-lang="zh">团队配置复用</span><span data-lang="en">Team config reuse</span></header>
+              <div class="matrix-cell cell--pain">
+                <span class="cell-tag" data-lang="zh">现状痛点</span><span class="cell-tag" data-lang="en">Pain today</span>
+                <ul>
+                  <li><span data-lang="zh">每人手攒一套配置</span><span data-lang="en">Everyone keeps their own config</span></li>
+                  <li><span data-lang="zh">新人上手慢、标准不一</span><span data-lang="en">Slow onboarding, inconsistent standards</span></li>
+                  <li><span data-lang="zh">配置易漂移、难对齐</span><span data-lang="en">Config drifts and is hard to align</span></li>
+                </ul>
               </div>
-              <ul class="pain-list">
-                <li><span class="x">!</span><span data-lang="zh">不同项目需要不同模型、API 地址、Token、权限、Hooks 和插件组合。</span><span data-lang="en">Different projects need different models, API endpoints, tokens, permissions, hooks and plugin sets.</span></li>
-                <li><span class="x">!</span><span data-lang="zh"><code>settings.json</code>、<code>CLAUDE.md</code>、<code>rules/*.md</code> 与 Skills 不容易整体检查。</span><span data-lang="en"><code>settings.json</code>, <code>CLAUDE.md</code>, <code>rules/*.md</code> and skills are hard to review as a whole.</span></li>
-                <li><span class="x">!</span><span data-lang="zh">Provider / 模型配置重复，切换时容易漏写环境变量或覆盖用户设置。</span><span data-lang="en">Provider/model config is repetitive; switching often drops env vars or clobbers your settings.</span></li>
-                <li><span class="x">!</span><span data-lang="zh">历史、统计、Token 花费、项目 Git 状态和 worktree 缺少统一入口。</span><span data-lang="en">History, stats, token spend, project git status and worktrees have no single entry point.</span></li>
-                <li><span class="x">!</span><span data-lang="zh">排障时想快速看脱敏后的日志，而不是到处找日志文件。</span><span data-lang="en">When debugging you want redacted logs at hand, not a file hunt.</span></li>
-              </ul>
-            </div>
-            <figure class="figure">
-              <img src="assets/img/why-ai-manager.svg" alt="Why AI Manager" loading="lazy" />
-              <figcaption>
-                <span data-lang="zh">AI Manager 不替代 Claude Code，而是提供一个本机配置、会话数据和诊断信息的管理层。</span>
-                <span data-lang="en">AI Manager doesn't replace Claude Code — it adds a management layer over local config, session data and diagnostics.</span>
-              </figcaption>
-            </figure>
+              <div class="matrix-cell cell--cap">
+                <span class="cell-tag" data-lang="zh">AI Manager 能力</span><span class="cell-tag" data-lang="en">What AI Manager does</span>
+                <ul>
+                  <li><span data-lang="zh">Profile / Preset 可复用可继承</span><span data-lang="en">Reusable, inheritable Profiles / Presets</span></li>
+                  <li><span data-lang="zh">常用选项 / 市场 / 插件一键同步到其余配置</span><span data-lang="en">One-click sync of options, marketplaces &amp; plugins to other profiles</span></li>
+                  <li><span data-lang="zh">导入现有 settings 起步</span><span data-lang="en">Bootstrap by importing existing settings</span></li>
+                </ul>
+              </div>
+              <div class="matrix-cell cell--gain">
+                <span class="cell-tag" data-lang="zh">价值收益</span><span class="cell-tag" data-lang="en">The payoff</span>
+                <ul>
+                  <li><span data-lang="zh">团队共享同一套标准配置</span><span data-lang="en">One shared standard across the team</span></li>
+                  <li><span data-lang="zh">开箱即用、版本对齐</span><span data-lang="en">Works out of the box, versions aligned</span></li>
+                  <li><span data-lang="zh">不再各搞各的</span><span data-lang="en">No more siloed setups</span></li>
+                </ul>
+              </div>
+            </article>
+
+            <!-- 角度②：配置最佳实践 -->
+            <article class="matrix-col">
+              <header class="matrix-col-head"><span class="num">2</span><span data-lang="zh">配置最佳实践</span><span data-lang="en">Config best practices</span></header>
+              <div class="matrix-cell cell--pain">
+                <span class="cell-tag" data-lang="zh">现状痛点</span><span class="cell-tag" data-lang="en">Pain today</span>
+                <ul>
+                  <li><span data-lang="zh">手改 JSON 容易出错</span><span data-lang="en">Hand-editing JSON is error-prone</span></li>
+                  <li><span data-lang="zh">切换时漏写环境变量</span><span data-lang="en">Env vars dropped when switching</span></li>
+                  <li><span data-lang="zh">配置能否用全靠试</span><span data-lang="en">"Does it work?" is trial and error</span></li>
+                </ul>
+              </div>
+              <div class="matrix-cell cell--cap">
+                <span class="cell-tag" data-lang="zh">AI Manager 能力</span><span class="cell-tag" data-lang="en">What AI Manager does</span>
+                <ul>
+                  <li><span data-lang="zh">图形化编辑 + Schema 校验</span><span data-lang="en">Visual editing + schema validation</span></li>
+                  <li><span data-lang="zh">内置 Provider / 状态行预设</span><span data-lang="en">Built-in provider &amp; statusline presets</span></li>
+                  <li><span data-lang="zh">模型连通性测试</span><span data-lang="en">Model connectivity test</span></li>
+                  <li><span data-lang="zh">一键全量应用，不漏项</span><span data-lang="en">One-click full apply, nothing missed</span></li>
+                </ul>
+              </div>
+              <div class="matrix-cell cell--gain">
+                <span class="cell-tag" data-lang="zh">价值收益</span><span class="cell-tag" data-lang="en">The payoff</span>
+                <ul>
+                  <li><span data-lang="zh">配置可预览、可验证</span><span data-lang="en">Config is previewable &amp; verifiable</span></li>
+                  <li><span data-lang="zh">按最佳实践落地</span><span data-lang="en">Best practices by default</span></li>
+                  <li><span data-lang="zh">切换不丢项</span><span data-lang="en">Switch without losing anything</span></li>
+                </ul>
+              </div>
+            </article>
+
+            <!-- 角度③：问题排查 -->
+            <article class="matrix-col">
+              <header class="matrix-col-head"><span class="num">3</span><span data-lang="zh">问题排查</span><span data-lang="en">Troubleshooting</span></header>
+              <div class="matrix-cell cell--pain">
+                <span class="cell-tag" data-lang="zh">现状痛点</span><span class="cell-tag" data-lang="en">Pain today</span>
+                <ul>
+                  <li><span data-lang="zh">出问题时日志四处找</span><span data-lang="en">Hunting logs everywhere when things break</span></li>
+                  <li><span data-lang="zh">会话历史难追溯</span><span data-lang="en">Session history is hard to trace</span></li>
+                  <li><span data-lang="zh">Token 花费不透明</span><span data-lang="en">Token spend is opaque</span></li>
+                </ul>
+              </div>
+              <div class="matrix-cell cell--cap">
+                <span class="cell-tag" data-lang="zh">AI Manager 能力</span><span class="cell-tag" data-lang="en">What AI Manager does</span>
+                <ul>
+                  <li><span data-lang="zh">脱敏日志查看 + 轮转</span><span data-lang="en">Redacted log viewer + rotation</span></li>
+                  <li><span data-lang="zh">会话历史 / Plan 追溯</span><span data-lang="en">Session history &amp; plan trace</span></li>
+                  <li><span data-lang="zh">用量按项目 / 模型 / 日期聚合</span><span data-lang="en">Usage by project, model and date</span></li>
+                  <li><span data-lang="zh">系统信息一处可见</span><span data-lang="en">System info in one place</span></li>
+                </ul>
+              </div>
+              <div class="matrix-cell cell--gain">
+                <span class="cell-tag" data-lang="zh">价值收益</span><span class="cell-tag" data-lang="en">The payoff</span>
+                <ul>
+                  <li><span data-lang="zh">快速定位行为异常</span><span data-lang="en">Pinpoint anomalies fast</span></li>
+                  <li><span data-lang="zh">异常花费一目了然</span><span data-lang="en">Cost spikes at a glance</span></li>
+                  <li><span data-lang="zh">排障路径统一高效</span><span data-lang="en">One efficient debugging path</span></li>
+                </ul>
+              </div>
+            </article>
           </div>
         </div>
       </section>
@@ -259,40 +332,113 @@
             </article>
           </div>
 
-          <figure class="figure" style="margin-top:32px">
-            <img src="assets/img/feature-map.svg" alt="AI Manager feature map" loading="lazy" />
-            <figcaption>
-              <span data-lang="zh">功能全景：配置、记忆、Skills、历史、统计、用量、项目与系统集成。</span>
-              <span data-lang="en">Feature map: config, memory, skills, history, stats, usage, projects and system integration.</span>
-            </figcaption>
-          </figure>
+          <p class="domains-head">
+            <span data-lang="zh">按三大功能域组织</span>
+            <span data-lang="en">Organised into three domains</span>
+          </p>
+          <div class="domains">
+            <article class="domain">
+              <header><span class="num">1</span><span data-lang="zh">配置与资产管理</span><span data-lang="en">Config &amp; assets</span></header>
+              <div class="domain-mods">
+                <span class="mod"><span data-lang="zh">配置管理</span><span data-lang="en">Profiles</span></span>
+                <span class="mod"><span data-lang="zh">记忆管理</span><span data-lang="en">Memory</span></span>
+                <span class="mod"><span data-lang="zh">Skills 管理</span><span data-lang="en">Skills</span></span>
+              </div>
+            </article>
+            <article class="domain">
+              <header><span class="num">2</span><span data-lang="zh">数据与用量洞察</span><span data-lang="en">Data &amp; usage insight</span></header>
+              <div class="domain-mods">
+                <span class="mod"><span data-lang="zh">会话历史</span><span data-lang="en">History</span></span>
+                <span class="mod"><span data-lang="zh">统计概览</span><span data-lang="en">Stats</span></span>
+                <span class="mod"><span data-lang="zh">用量与费用</span><span data-lang="en">Usage &amp; cost</span></span>
+              </div>
+            </article>
+            <article class="domain">
+              <header><span class="num">3</span><span data-lang="zh">项目 · 目录 · 系统</span><span data-lang="en">Projects · dir · system</span></header>
+              <div class="domain-mods">
+                <span class="mod"><span data-lang="zh">项目管理</span><span data-lang="en">Projects</span></span>
+                <span class="mod"><span data-lang="zh">共享树总览</span><span data-lang="en">Overview</span></span>
+                <span class="mod"><span data-lang="zh">系统集成与设置</span><span data-lang="en">Tray &amp; settings</span></span>
+              </div>
+            </article>
+          </div>
         </div>
       </section>
 
       <!-- ===================== 架构 / 数据源 ===================== -->
       <section class="section section--alt" id="how">
         <div class="container">
-          <div class="hero-grid" style="align-items:center">
-            <figure class="figure">
-              <img src="assets/img/overall-architecture.svg" alt="AI Manager architecture" loading="lazy" />
-            </figure>
-            <div>
-              <span class="eyebrow" data-lang="zh">工作原理</span>
-              <span class="eyebrow" data-lang="en">How it works</span>
-              <h2 class="section-title">
-                <span data-lang="zh">本地优先，数据源分明</span>
-                <span data-lang="en">Local-first, with clear data sources</span>
-              </h2>
-              <p class="section-sub" style="margin-bottom:18px">
-                <span data-lang="zh">配置合并、目录扫描、用量聚合和日志查看都在本地完成；模型价格优先用本地缓存与内置兜底，仅在启动后尝试从 models.dev 刷新。</span>
-                <span data-lang="en">Config merge, directory scan, usage aggregation and log viewing all happen locally; model prices come from local cache and built-in fallbacks first, refreshed from models.dev only after launch.</span>
-              </p>
-              <ul class="pain-list">
-                <li><span class="x" style="color:var(--accent)">›</span><span data-lang="zh"><code>settings.json</code> — Profile 激活与最终配置</span><span data-lang="en"><code>settings.json</code> — profile activation &amp; final config</span></li>
-                <li><span class="x" style="color:var(--accent)">›</span><span data-lang="zh"><code>history.jsonl</code> — 项目与会话历史</span><span data-lang="en"><code>history.jsonl</code> — project &amp; session history</span></li>
-                <li><span class="x" style="color:var(--accent)">›</span><span data-lang="zh"><code>~/.claude.json</code> — 本地统计快照</span><span data-lang="en"><code>~/.claude.json</code> — local stats snapshot</span></li>
-                <li><span class="x" style="color:var(--accent)">›</span><span data-lang="zh"><code>projects/**/*.jsonl</code> — Token 用量原始数据 → SQLite</span><span data-lang="en"><code>projects/**/*.jsonl</code> — raw token usage → SQLite</span></li>
-              </ul>
+          <div class="section-head center">
+            <span class="eyebrow" data-lang="zh">工作原理</span>
+            <span class="eyebrow" data-lang="en">How it works</span>
+            <h2 class="section-title">
+              <span data-lang="zh">本地优先，数据源分明</span>
+              <span data-lang="en">Local-first, with clear data sources</span>
+            </h2>
+            <p class="section-sub">
+              <span data-lang="zh">React 19 前端经类型化 IPC 调用 Rust 后端，配置合并、目录扫描、用量聚合和日志查看都在本地完成；模型价格优先用本地缓存与内置兜底，仅在启动后尝试从 models.dev 刷新。</span>
+              <span data-lang="en">A React 19 frontend calls the Rust backend over typed IPC; config merge, directory scan, usage aggregation and log viewing all happen locally. Model prices use local cache and built-in fallbacks first, refreshed from models.dev only after launch.</span>
+            </p>
+          </div>
+
+          <div class="arch">
+            <!-- L1 前端 -->
+            <div class="arch-layer">
+              <div class="arch-label"><span data-lang="zh">前端</span><span data-lang="en">Frontend</span></div>
+              <div class="arch-body">
+                <div class="arch-chips">
+                  <span class="arch-chip"><span data-lang="zh">配置工作台</span><span data-lang="en">Config workbench</span></span>
+                  <span class="arch-chip"><span data-lang="zh">记忆 · Skills</span><span data-lang="en">Memory · Skills</span></span>
+                  <span class="arch-chip"><span data-lang="zh">项目 · 历史</span><span data-lang="en">Projects · History</span></span>
+                  <span class="arch-chip"><span data-lang="zh">统计 · 用量</span><span data-lang="en">Stats · Usage</span></span>
+                  <span class="arch-chip"><span data-lang="zh">~/.claude 总览</span><span data-lang="en">~/.claude overview</span></span>
+                </div>
+                <p class="arch-note">React 19 · Vite · Tailwind v4 · shadcn/ui · CodeMirror · Recharts</p>
+              </div>
+            </div>
+            <div class="arch-link">
+              <span data-lang="zh">类型化 IPC · tauri-specta（invoke ↓ / event ↑）</span>
+              <span data-lang="en">Typed IPC · tauri-specta (invoke ↓ / event ↑)</span>
+            </div>
+            <!-- L3 后端 -->
+            <div class="arch-layer">
+              <div class="arch-label"><span data-lang="zh">后端</span><span data-lang="en">Backend</span></div>
+              <div class="arch-body">
+                <div class="arch-chips">
+                  <span class="arch-chip mono">config.rs</span>
+                  <span class="arch-chip mono">memory · skills</span>
+                  <span class="arch-chip mono">history · stats · usage</span>
+                  <span class="arch-chip mono">project · native_open</span>
+                  <span class="arch-chip mono">claude_directory · watcher</span>
+                  <span class="arch-chip mono">tray · led</span>
+                </div>
+                <p class="arch-note">
+                  <span data-lang="zh">Rust · Tauri 2 · ≈ 70 个类型化命令 + 公共 utils.rs / logging.rs</span>
+                  <span data-lang="en">Rust · Tauri 2 · ≈70 typed commands + shared utils.rs / logging.rs</span>
+                </p>
+              </div>
+            </div>
+            <div class="arch-link">
+              <span data-lang="zh">读取 / 原子写入</span>
+              <span data-lang="en">read / atomic write</span>
+            </div>
+            <!-- L4 数据源 -->
+            <div class="arch-layer">
+              <div class="arch-label"><span data-lang="zh">数据源</span><span data-lang="en">Data</span></div>
+              <div class="arch-body">
+                <div class="arch-chips">
+                  <span class="arch-chip mono">~/.claude/</span>
+                  <span class="arch-chip mono">history.jsonl</span>
+                  <span class="arch-chip mono">~/.claude.json</span>
+                  <span class="arch-chip mono">projects/**/*.jsonl</span>
+                  <span class="arch-chip mono">usage.db · SQLite</span>
+                  <span class="arch-chip mono">~/.config/ai-manager/</span>
+                </div>
+                <p class="arch-note">
+                  <span data-lang="zh">本地文件 / SQLite · Projects / Stats / Usage 三套数据源互不混用</span>
+                  <span data-lang="en">Local files / SQLite · Projects / Stats / Usage stay three separate sources</span>
+                </p>
+              </div>
             </div>
           </div>
         </div>

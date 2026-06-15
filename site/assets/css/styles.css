@@ -337,17 +337,90 @@ html:not([lang="en"]) [data-lang="en"] { display: none !important; }
 }
 .pain-list li .x { color: var(--warn); flex: none; margin-top: 2px; font-weight: 800; }
 
-/* ---- figure：嵌入深色架构图 ---- */
-.figure {
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-strong);
-  background: #0c1320; /* 深色 SVG 始终配深底，明暗主题都协调 */
-  padding: 16px;
-  box-shadow: var(--shadow-md);
-  overflow: hidden;
+/* ---- 价值矩阵（#why）：3 列价值角度 × 痛点/能力/收益 三段 ---- */
+.matrix { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.matrix-col {
+  display: flex; flex-direction: column;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); overflow: hidden; box-shadow: var(--shadow-sm);
 }
-.figure img { width: 100%; height: auto; border-radius: 8px; }
-.figure figcaption { margin-top: 12px; text-align: center; color: #94a3b8; font-size: 13px; }
+.matrix-col-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 15px 18px; font-weight: 700; font-size: 15.5px;
+  background: var(--surface-2); border-bottom: 1px solid var(--border);
+}
+/* 通用编号 chip：矩阵列头与功能域共用 */
+.num {
+  flex: none; width: 24px; height: 24px; border-radius: 7px;
+  display: grid; place-items: center;
+  background: var(--accent); color: var(--accent-contrast);
+  font-size: 13px; font-weight: 800;
+}
+.matrix-cell { padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.matrix-col .matrix-cell:last-child { border-bottom: none; }
+.cell-tag {
+  display: inline-block; margin-bottom: 9px;
+  font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+}
+.matrix-cell ul { display: grid; gap: 7px; }
+.matrix-cell li {
+  position: relative; padding-left: 20px;
+  font-size: 14px; line-height: 1.5; color: var(--text-soft);
+}
+.matrix-cell li::before { position: absolute; left: 0; top: 0; font-weight: 800; }
+/* 痛点 ✗ → warn；能力 ● → accent；收益 ✓ → good，与页面克制配色一致 */
+.cell--pain { background: color-mix(in srgb, var(--warn) 5%, var(--surface)); }
+.cell--pain .cell-tag { color: var(--warn); }
+.cell--pain li::before { content: "✗"; color: var(--warn); }
+.cell--cap .cell-tag { color: var(--accent); }
+.cell--cap li::before { content: "●"; color: var(--accent); font-size: 9px; top: 4px; }
+.cell--gain { background: color-mix(in srgb, var(--good) 5%, var(--surface)); }
+.cell--gain .cell-tag { color: var(--good); }
+.cell--gain li::before { content: "✓"; color: var(--good); }
+
+/* ---- 三大功能域（#features）：去重的功能分组带 ---- */
+.domains-head {
+  text-align: center; margin: 40px 0 16px;
+  font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted);
+}
+.domains { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.domain {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); padding: 20px; box-shadow: var(--shadow-sm);
+}
+.domain header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; font-weight: 700; font-size: 15.5px; }
+.domain-mods { display: flex; flex-wrap: wrap; gap: 8px; }
+.domain-mods .mod {
+  display: inline-flex; align-items: center; padding: 6px 11px;
+  border: 1px solid var(--border); border-radius: 999px;
+  background: var(--surface-2); color: var(--text-soft); font-size: 13px; font-weight: 600;
+}
+
+/* ---- 4 层架构（#how）：前端 → IPC → 后端 → 数据源 ---- */
+.arch { display: grid; max-width: 960px; margin-inline: auto; }
+.arch-layer {
+  display: grid; grid-template-columns: 92px 1fr;
+  border: 1px solid var(--border); border-left: 3px solid var(--accent);
+  border-radius: var(--radius); background: var(--surface);
+  overflow: hidden; box-shadow: var(--shadow-sm);
+}
+.arch-label {
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  padding: 14px 10px; background: var(--surface-2); border-right: 1px solid var(--border);
+  font-weight: 700; font-size: 14px;
+}
+.arch-body { padding: 14px 16px; }
+.arch-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.arch-chip {
+  display: inline-flex; align-items: center; padding: 6px 11px;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface-2); color: var(--text-soft); font-size: 13px; font-weight: 600;
+}
+.arch-chip.mono { font-family: var(--mono); font-size: 12.5px; }
+.arch-note { margin-top: 10px; font-size: 12.5px; color: var(--muted); }
+.arch-link { text-align: center; padding: 9px 0; color: var(--muted); font-size: 12.5px; font-weight: 600; }
+.arch-link::before { content: "↓"; display: block; margin-bottom: 1px; color: var(--accent); font-size: 16px; line-height: 1; }
 
 /* ---- 对比 cc-switch ---- */
 .vs-intro { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 34px; }
@@ -471,6 +544,8 @@ table.cmp .no { color: var(--muted); }
   .workflow-cols { grid-template-columns: 1fr; }
   .dl-grid { grid-template-columns: 1fr; }
   .vs-intro { grid-template-columns: 1fr; }
+  .matrix, .domains { grid-template-columns: 1fr; }
+  .arch-layer { grid-template-columns: 72px 1fr; }
 }
 @media (max-width: 720px) {
   .nav-links { display: none; }
@@ -478,6 +553,9 @@ table.cmp .no { color: var(--muted); }
   .hero { padding-block: 64px 48px; }
   .grid-3, .grid-2 { grid-template-columns: 1fr; }
   .footer-cols { gap: 32px; }
+  /* 架构层在窄屏改为层名置顶、chip 在下 */
+  .arch-layer { grid-template-columns: 1fr; }
+  .arch-label { justify-content: flex-start; border-right: none; border-bottom: 1px solid var(--border); }
 }
 
 /* 降低动效偏好 */
