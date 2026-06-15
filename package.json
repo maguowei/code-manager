@@ -1,7 +1,7 @@
 {
   "name": "ai-manager",
   "private": true,
-  "version": "0.20.0",
+  "version": "0.20.1",
   "description": "AI Manager - Claude Code 桌面配置管理应用",
   "author": "maguowei",
   "license": "MIT",
