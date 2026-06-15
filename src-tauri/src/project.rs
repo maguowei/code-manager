@@ -428,10 +428,10 @@ fn git_repo_root(project: &Path) -> Result<String, String> {
 }
 
 fn run_git(project: &Path, args: &[&str]) -> Result<String, String> {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(project)
-        .args(args)
+    let mut command = Command::new("git");
+    command.arg("-C").arg(project).args(args);
+    crate::utils::hide_command_window(&mut command);
+    let output = command
         .output()
         .map_err(|e| format!("执行 git 命令失败: {}", e))?;
 
@@ -1126,10 +1126,10 @@ fn worktree_is_clean(worktree_path: &str) -> bool {
 }
 
 fn git_status_success(project: &Path, args: &[&str]) -> bool {
-    Command::new("git")
-        .arg("-C")
-        .arg(project)
-        .args(args)
+    let mut command = Command::new("git");
+    command.arg("-C").arg(project).args(args);
+    crate::utils::hide_command_window(&mut command);
+    command
         .status()
         .map(|status| status.success())
         .unwrap_or(false)

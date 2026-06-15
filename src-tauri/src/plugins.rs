@@ -20,16 +20,16 @@ pub fn refresh_plugin_install_counts() -> Result<(), String> {
 // 执行 `claude plugin list --available --json`：claude 读取 catalog 时按 TTL 决定是否重拉缓存。
 // 输出仅用于失败诊断，不回传 UI。
 fn trigger_claude_catalog_refresh() -> Result<(), String> {
-    let output = Command::new("claude")
-        .args(["plugin", "list", "--available", "--json"])
-        .output()
-        .map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                "未找到 claude CLI，请确认 Claude Code 已安装并可在 PATH 中访问".to_string()
-            } else {
-                format!("执行 claude plugin list 失败: {e}")
-            }
-        })?;
+    let mut command = Command::new("claude");
+    command.args(["plugin", "list", "--available", "--json"]);
+    crate::utils::hide_command_window(&mut command);
+    let output = command.output().map_err(|e| {
+        if e.kind() == std::io::ErrorKind::NotFound {
+            "未找到 claude CLI，请确认 Claude Code 已安装并可在 PATH 中访问".to_string()
+        } else {
+            format!("执行 claude plugin list 失败: {e}")
+        }
+    })?;
 
     if output.status.success() {
         Ok(())

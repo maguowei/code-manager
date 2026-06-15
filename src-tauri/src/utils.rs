@@ -3,6 +3,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::{Mutex, MutexGuard};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -31,6 +32,19 @@ pub fn get_home_dir() -> Result<PathBuf, String> {
 pub fn home_dir_or_fallback() -> PathBuf {
     get_home_dir().unwrap_or_else(|_| PathBuf::from("."))
 }
+
+/// 在 Windows 上为命令设置 CREATE_NO_WINDOW，避免控制台子进程闪现黑色终端窗口；
+/// 其它平台为空操作。所有需要静默启动的外部命令都应经过此函数。
+#[cfg(windows)]
+pub fn hide_command_window(command: &mut Command) {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+    command.creation_flags(CREATE_NO_WINDOW);
+}
+
+/// 非 Windows 平台无需隐藏窗口，保持空操作以统一调用方写法。
+#[cfg(not(windows))]
+pub fn hide_command_window(_command: &mut Command) {}
 
 fn app_config_dir_from_home(home_dir: &Path) -> PathBuf {
     home_dir.join(".config").join("ai-manager")

@@ -589,17 +589,12 @@ fn build_command(request: &NativeOpenCommand) -> Command {
     command
 }
 
-#[cfg(windows)]
 fn configure_command_window(command: &mut Command, hide_window: bool) {
-    use std::os::windows::process::CommandExt;
+    // 复用 utils 中的统一封装，保留 hide_window 语义：中转 cmd.exe 有时需要显示窗口。
     if hide_window {
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
-        command.creation_flags(CREATE_NO_WINDOW);
+        crate::utils::hide_command_window(command);
     }
 }
-
-#[cfg(not(windows))]
-fn configure_command_window(_command: &mut Command, _hide_window: bool) {}
 
 fn open_path_with_windows_editor(path: &Path, command: &str) -> Result<(), String> {
     #[cfg(windows)]
