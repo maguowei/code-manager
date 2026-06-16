@@ -662,7 +662,14 @@ function UsagePage({ projectRequest = null }: UsagePageProps = {}) {
                   >
                     {t("usage.thirdPartyProviderPricing.enabled")}
                   </Badge>
-                ) : null}
+                ) : (
+                  <Badge
+                    variant="outline"
+                    className="usage-badge rounded-md border-chart-3/60 bg-chart-3/10 px-2 text-xs font-bold text-chart-3"
+                  >
+                    {t("usage.thirdPartyProviderPricing.disabled")}
+                  </Badge>
+                )}
                 {u.summary.lastScanMs && (
                   <span className="usage-meta-text truncate max-[900px]:hidden">
                     {t("usage.lastScan")}: {formatShortDateTime(u.summary.lastScanMs)}
@@ -736,58 +743,43 @@ function UsagePage({ projectRequest = null }: UsagePageProps = {}) {
             <div className="usage-cockpit grid grid-cols-[minmax(0,1fr)_360px] gap-4 max-[1180px]:grid-cols-1">
               <main className="usage-main-column flex min-w-0 flex-col gap-4">
                 <section
-                  className="usage-summary-grid grid grid-cols-[minmax(280px,0.9fr)_minmax(0,1.6fr)] gap-4 max-[900px]:grid-cols-1"
+                  className="usage-summary-grid grid grid-cols-2 gap-3 sm:grid-cols-3 2xl:grid-cols-6"
                   aria-label={t("usage.summaryLabel")}
                 >
-                  <Card className="usage-cost-panel overflow-hidden rounded-lg border-chart-1/30 bg-card">
-                    <CardContent className="flex h-full min-h-[150px] flex-col justify-between gap-4 px-5">
-                      <span className="usage-panel-label text-xs font-extrabold tracking-wide text-muted-foreground uppercase">
-                        {t("usage.cards.totalCost")}
-                      </span>
-                      <strong
-                        className={cn(
-                          "usage-cost-value tracking-tight text-chart-1",
-                          TYPOGRAPHY.metricEmphasis,
-                        )}
-                      >
-                        {u.summary ? formatUSD(u.summary.totalCost) : "-"}
-                      </strong>
-                      <span className="usage-panel-subtle text-sm text-muted-foreground">
-                        {u.summary?.thirdPartyProviderPricingEnabled === false
-                          ? t("usage.thirdPartyProviderPricing.disabled")
-                          : t("usage.cards.totalCostHint")}
-                      </span>
-                    </CardContent>
-                  </Card>
-                  <div className="usage-kpi-grid grid grid-cols-2 gap-3 max-[640px]:grid-cols-1">
-                    <MetricCard
-                      label={t("usage.cards.totalTokens")}
-                      value={formatDetailedTokens(totalTokens)}
-                      tone="blue"
-                    />
-                    <MetricCard
-                      label={t("usage.cards.totalSessions")}
-                      value={u.summary ? String(u.summary.totalSessions) : "-"}
-                      tone="purple"
-                    />
-                    <MetricCard
-                      label={t("usage.cards.totalMessages")}
-                      value={u.summary ? formatCount(u.summary.totalMessages) : "-"}
-                      tone="orange"
-                    />
-                    <MetricCard
-                      label={t("usage.cards.cacheSavings")}
-                      value={formatUSD(cacheSavings)}
-                      tone="green"
-                      hint={t("usage.cards.cacheSavingsHint")}
-                    />
-                    <MetricCard
-                      label={t("usage.cards.cacheHitRate")}
-                      value={u.summary ? formatPercent(cacheHitRateOverall) : "-"}
-                      tone="purple"
-                      hint={t("usage.cards.cacheHitRateHint")}
-                    />
-                  </div>
+                  <MetricCard
+                    label={t("usage.cards.totalCost")}
+                    value={u.summary ? formatUSD(u.summary.totalCost) : "-"}
+                    tone="blue"
+                    emphasis
+                    hint={t("usage.cards.totalCostHint")}
+                  />
+                  <MetricCard
+                    label={t("usage.cards.totalTokens")}
+                    value={formatDetailedTokens(totalTokens)}
+                    tone="teal"
+                  />
+                  <MetricCard
+                    label={t("usage.cards.totalSessions")}
+                    value={u.summary ? String(u.summary.totalSessions) : "-"}
+                    tone="purple"
+                  />
+                  <MetricCard
+                    label={t("usage.cards.totalMessages")}
+                    value={u.summary ? formatCount(u.summary.totalMessages) : "-"}
+                    tone="orange"
+                  />
+                  <MetricCard
+                    label={t("usage.cards.cacheSavings")}
+                    value={formatUSD(cacheSavings)}
+                    tone="green"
+                    hint={t("usage.cards.cacheSavingsHint")}
+                  />
+                  <MetricCard
+                    label={t("usage.cards.cacheHitRate")}
+                    value={u.summary ? formatPercent(cacheHitRateOverall) : "-"}
+                    tone="purple"
+                    hint={t("usage.cards.cacheHitRateHint")}
+                  />
                 </section>
 
                 <section
@@ -1383,25 +1375,35 @@ function UsagePage({ projectRequest = null }: UsagePageProps = {}) {
 interface MetricCardProps {
   label: string;
   value: string;
-  tone: "blue" | "green" | "orange" | "purple";
+  tone: "blue" | "green" | "orange" | "purple" | "teal";
   hint?: string;
+  // 主要指标（总花费）：值用更大的 metricEmphasis 字号并加强调边框
+  emphasis?: boolean;
 }
 
-function MetricCard({ label, value, tone, hint }: MetricCardProps) {
+function MetricCard({ label, value, tone, hint, emphasis = false }: MetricCardProps) {
   return (
-    <Card className={cn("usage-metric rounded-lg py-4", `usage-metric-${tone}`)} title={hint}>
-      <CardContent className="flex flex-col gap-2 px-4">
+    <Card
+      className={cn(
+        "usage-metric rounded-lg py-3",
+        `usage-metric-${tone}`,
+        emphasis && "border-chart-1/30",
+      )}
+      title={hint}
+    >
+      <CardContent className="flex flex-col gap-1.5 px-4">
         <span className="usage-metric-label text-xs font-extrabold tracking-wide text-muted-foreground uppercase">
           {label}
         </span>
         <strong
           className={cn(
             "usage-metric-value font-mono",
-            TYPOGRAPHY.metricValue,
+            emphasis ? TYPOGRAPHY.metricEmphasis : TYPOGRAPHY.metricValue,
             tone === "blue" && "text-chart-1",
             tone === "green" && "text-chart-2",
             tone === "orange" && "text-chart-3",
             tone === "purple" && "text-chart-4",
+            tone === "teal" && "text-chart-5",
           )}
         >
           {value}
