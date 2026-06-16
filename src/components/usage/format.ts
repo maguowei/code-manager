@@ -23,6 +23,12 @@ export function formatCost(n: number): string {
   return `$${n.toFixed(2)}`;
 }
 
+/** 比率（0-100）-> 百分比字符串 */
+export function formatPercent(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return "0%";
+  return `${n.toFixed(1)}%`;
+}
+
 /** 每百万 Token 单价显示 */
 export function formatPricePerMillion(n: number): string {
   if (!Number.isFinite(n) || n <= 0) return "$0";

@@ -10,6 +10,7 @@ import {
   Cell,
   Pie,
   PieChart,
+  ReferenceLine,
   XAxis,
   YAxis,
 } from "recharts";
@@ -47,6 +48,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { SegmentedControl } from "./ui/segmented-control";
 import {
   formatCost,
+  formatPercent,
   formatShortDateTime,
   formatTokens,
   pricingSourceLabel,
@@ -136,6 +138,12 @@ interface TimeSeriesTokenTrendDatum extends Record<string, string | number> {
   output: number;
   cacheCreate: number;
   cacheRead: number;
+}
+
+interface CacheHitRateTrendDatum extends Record<string, string | number> {
+  bucket: string;
+  label: string;
+  hitRate: number; // 0-100，官方输入口径：cacheRead / (input + cacheCreate + cacheRead)
 }
 
 const sortTooltipItemsByValueDesc = (item: { value?: unknown }) => -Number(item.value ?? 0);
@@ -348,6 +356,20 @@ function UsagePage({ projectRequest = null }: UsagePageProps = {}) {
         cacheCreate: point.cacheCreationTokens,
         cacheRead: point.cacheReadTokens,
       })),
+    [u.timeSeries, u.timeGranularity, u.filter],
+  );
+
+  // 缓存命中率趋势：官方输入口径 cacheRead / (input + cacheCreate + cacheRead)，输出 token 不计入
+  const cacheHitRateTrendData = useMemo<CacheHitRateTrendDatum[]>(
+    () =>
+      u.timeSeries.map((point) => {
+        const inputTotal = point.inputTokens + point.cacheCreationTokens + point.cacheReadTokens;
+        return {
+          bucket: point.bucket,
+          label: formatTimeBucketLabel(point, u.timeGranularity, u.filter),
+          hitRate: inputTotal > 0 ? +((point.cacheReadTokens / inputTotal) * 100).toFixed(2) : 0,
+        };
+      }),
     [u.timeSeries, u.timeGranularity, u.filter],
   );
 
@@ -566,6 +588,12 @@ function UsagePage({ projectRequest = null }: UsagePageProps = {}) {
     return Math.max(saved, 0);
   }, [u.summary, u.models]);
 
+  // 整体缓存命中率：官方输入口径，与趋势图一致
+  const cacheHitRateOverall = useMemo(() => {
+    const inputTotal = tokenTotals.input + tokenTotals.cacheCreate + tokenTotals.cacheRead;
+    return inputTotal > 0 ? (tokenTotals.cacheRead / inputTotal) * 100 : 0;
+  }, [tokenTotals]);
+
   const tabCounts = useMemo(
     () => ({
       daily: u.daily.length,
@@ -752,6 +780,12 @@ function UsagePage({ projectRequest = null }: UsagePageProps = {}) {
                       value={formatUSD(cacheSavings)}
                       tone="green"
                       hint={t("usage.cards.cacheSavingsHint")}
+                    />
+                    <MetricCard
+                      label={t("usage.cards.cacheHitRate")}
+                      value={u.summary ? formatPercent(cacheHitRateOverall) : "-"}
+                      tone="purple"
+                      hint={t("usage.cards.cacheHitRateHint")}
                     />
                   </div>
                 </section>
@@ -1082,6 +1116,150 @@ function UsagePage({ projectRequest = null }: UsagePageProps = {}) {
                           ariaLabel={t("usage.charts.tokenTrend")}
                           t={t}
                         />
+                      </>
+                    ) : (
+                      <NoData />
+                    )}
+                  </ChartPanel>
+
+                  <ChartPanel
+                    title={t("usage.charts.cacheHitRate")}
+                    className="usage-chart-secondary"
+                  >
+                    {cacheHitRateTrendData.length > 0 ? (
+                      <>
+                        <p className={cn("mb-2", TYPOGRAPHY.auxiliary, "text-muted-foreground")}>
+                          {t("usage.charts.cacheHitRateHint")}
+                        </p>
+                        <ChartContainer
+                          config={USAGE_CHART_CONFIG}
+                          className="h-[240px] w-full aspect-auto"
+                        >
+                          {trendChartStyle === "curve" ? (
+                            <AreaChart
+                              data={cacheHitRateTrendData}
+                              margin={{ left: 8, right: 18, top: 10, bottom: 4 }}
+                            >
+                              <CartesianGrid
+                                strokeDasharray="3 3"
+                                stroke={CHART_GRID_STROKE}
+                                vertical={false}
+                              />
+                              <XAxis dataKey="label" tick={TICK_STYLE_SM} />
+                              <YAxis
+                                tick={TICK_STYLE}
+                                domain={[0, 100]}
+                                tickFormatter={(v) => formatPercent(v)}
+                                width={48}
+                              />
+                              <ChartTooltip
+                                cursor={{ stroke: CHART_CURSOR_STROKE, strokeOpacity: 0.34 }}
+                                content={
+                                  <ChartTooltipContent
+                                    formatter={(v) => formatPercent(tooltipNumber(v))}
+                                    labelFormatter={(_, payload) =>
+                                      payload?.[0]?.payload?.bucket ??
+                                      t("usage.charts.cacheHitRate")
+                                    }
+                                  />
+                                }
+                              />
+                              <ReferenceLine
+                                y={70}
+                                stroke={COLORS.green}
+                                strokeDasharray="4 4"
+                                label={{
+                                  value: t("usage.charts.cacheHitRateGood"),
+                                  position: "insideTopRight",
+                                  fill: COLORS.green,
+                                  fontSize: 10,
+                                }}
+                              />
+                              <ReferenceLine
+                                y={40}
+                                stroke={COLORS.orange}
+                                strokeDasharray="4 4"
+                                label={{
+                                  value: t("usage.charts.cacheHitRatePoor"),
+                                  position: "insideBottomRight",
+                                  fill: COLORS.orange,
+                                  fontSize: 10,
+                                }}
+                              />
+                              <Area
+                                type="monotone"
+                                dataKey="hitRate"
+                                stroke={COLORS.purple}
+                                fill={COLORS.purple}
+                                fillOpacity={0.12}
+                                strokeWidth={1.8}
+                                dot={{ r: 2.4, stroke: COLORS.purple, strokeWidth: 1.4 }}
+                                activeDot={{ r: 4.2, stroke: COLORS.purple, strokeWidth: 1.6 }}
+                                name={t("usage.charts.cacheHitRate")}
+                              />
+                            </AreaChart>
+                          ) : (
+                            <BarChart
+                              data={cacheHitRateTrendData}
+                              margin={{ left: 8, right: 18, top: 10, bottom: 4 }}
+                            >
+                              <CartesianGrid
+                                strokeDasharray="3 3"
+                                stroke={CHART_GRID_STROKE}
+                                vertical={false}
+                              />
+                              <XAxis dataKey="label" tick={TICK_STYLE_SM} />
+                              <YAxis
+                                tick={TICK_STYLE}
+                                domain={[0, 100]}
+                                tickFormatter={(v) => formatPercent(v)}
+                                width={48}
+                              />
+                              <ChartTooltip
+                                cursor={{ fill: CHART_CURSOR_FILL }}
+                                content={
+                                  <ChartTooltipContent
+                                    formatter={(v) => formatPercent(tooltipNumber(v))}
+                                    labelFormatter={(_, payload) =>
+                                      payload?.[0]?.payload?.bucket ??
+                                      t("usage.charts.cacheHitRate")
+                                    }
+                                  />
+                                }
+                              />
+                              <ReferenceLine
+                                y={70}
+                                stroke={COLORS.green}
+                                strokeDasharray="4 4"
+                                label={{
+                                  value: t("usage.charts.cacheHitRateGood"),
+                                  position: "insideTopRight",
+                                  fill: COLORS.green,
+                                  fontSize: 10,
+                                }}
+                              />
+                              <ReferenceLine
+                                y={40}
+                                stroke={COLORS.orange}
+                                strokeDasharray="4 4"
+                                label={{
+                                  value: t("usage.charts.cacheHitRatePoor"),
+                                  position: "insideBottomRight",
+                                  fill: COLORS.orange,
+                                  fontSize: 10,
+                                }}
+                              />
+                              <Bar
+                                dataKey="hitRate"
+                                fill={COLORS.purple}
+                                fillOpacity={0.78}
+                                radius={[3, 3, 0, 0]}
+                                activeBar={activeBarStyle(COLORS.purple)}
+                                name={t("usage.charts.cacheHitRate")}
+                              />
+                            </BarChart>
+                          )}
+                        </ChartContainer>
                       </>
                     ) : (
                       <NoData />

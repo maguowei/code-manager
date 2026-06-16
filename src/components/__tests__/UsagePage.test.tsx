@@ -114,6 +114,7 @@ vi.mock("recharts", () => {
     Legend: () => null,
     Pie: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
     PieChart: Chart,
+    ReferenceLine: () => null,
     ResponsiveContainer: ({ children }: { children?: ReactNode }) => (
       <div data-testid="responsive-chart">{children}</div>
     ),
@@ -706,7 +707,7 @@ describe("UsagePage cost cockpit", () => {
     renderUsage({ timeSeries: multiModelTimeSeries });
 
     expect(screen.getByRole("button", { name: "曲线" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getAllByTestId("area-chart")).toHaveLength(2);
+    expect(screen.getAllByTestId("area-chart")).toHaveLength(3);
     const chartAreas = screen.getAllByTestId("chart-area");
     expect(chartAreas.length).toBeGreaterThan(0);
     for (const area of chartAreas) {
@@ -722,6 +723,7 @@ describe("UsagePage cost cockpit", () => {
     expect(chartAreas.map((el) => el.getAttribute("data-key"))).toEqual([
       "__totalCost",
       "totalTokens",
+      "hitRate",
     ]);
 
     const costLegend = screen.getByRole("list", { name: "花费趋势" });
@@ -783,11 +785,12 @@ describe("UsagePage cost cockpit", () => {
 
     expect(screen.getByRole("button", { name: "柱状图" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryAllByTestId("area-chart")).toHaveLength(0);
-    expect(screen.getAllByTestId("bar-chart")).toHaveLength(2);
+    expect(screen.getAllByTestId("bar-chart")).toHaveLength(3);
     const chartBars = screen.getAllByTestId("chart-bar");
     expect(chartBars.map((el) => el.getAttribute("data-key"))).toEqual([
       "__totalCost",
       "totalTokens",
+      "hitRate",
     ]);
   });
 
