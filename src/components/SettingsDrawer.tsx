@@ -30,6 +30,7 @@ import type {
   NativeOpenAppOptions,
   NativeOpenPlatform,
   SessionTrayCountStyle,
+  WidgetMetric,
 } from "../types";
 import LogViewer from "./LogViewer";
 import SystemInfoDialog from "./SystemInfoDialog";
@@ -41,7 +42,15 @@ import {
 import { type Theme, useTheme } from "./theme-provider";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { Field, FieldContent, FieldGroup, FieldLabel, FieldTitle } from "./ui/field";
+import { Checkbox } from "./ui/checkbox";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldTitle,
+} from "./ui/field";
 import {
   Popover,
   PopoverContent,
@@ -117,6 +126,20 @@ const sessionTrayCountStyleOptions: {
   { value: "superscript", labelKey: "settings.sessionTrayCountStyleSuperscript" },
   { value: "plain", labelKey: "settings.sessionTrayCountStylePlain" },
 ];
+
+// 浮窗可选指标及其文案 key，顺序即设置面板与浮窗的默认展示顺序
+const floatingWidgetMetricOptions: { value: WidgetMetric; labelKey: TranslationKey }[] = [
+  { value: "cost", labelKey: "widget.metric.cost" },
+  { value: "totalTokens", labelKey: "widget.metric.totalTokens" },
+  { value: "cacheHitRate", labelKey: "widget.metric.cacheHitRate" },
+  { value: "messages", labelKey: "widget.metric.messages" },
+  { value: "sessions", labelKey: "widget.metric.sessions" },
+  { value: "topModel", labelKey: "widget.metric.topModel" },
+];
+
+// 浮窗不透明度档位（百分比），与后端 30-100 钳制范围一致
+const WIDGET_OPACITY_MIN = 30;
+const WIDGET_OPACITY_MAX = 100;
 
 const themeOptions: {
   value: Theme;
@@ -616,6 +639,9 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
     sessionTrayCountStyle: "superscriptCompact",
     trayPulseWaiting: true,
     focusSessionShortcut: DEFAULT_FOCUS_SESSION_SHORTCUT,
+    floatingWidgetEnabled: false,
+    floatingWidgetMetrics: ["cost", "totalTokens", "cacheHitRate"],
+    floatingWidgetOpacity: 92,
   });
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
   const [isSystemInfoOpen, setIsSystemInfoOpen] = useState(false);
@@ -674,6 +700,9 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   const focusSessionShortcut = preferences.focusSessionShortcut;
   const systemNotificationsEnabled = preferences.systemNotificationsEnabled;
   const ledControl = preferences.ledControl ?? DEFAULT_LED_CONTROL;
+  const floatingWidgetEnabled = preferences.floatingWidgetEnabled;
+  const floatingWidgetMetrics = preferences.floatingWidgetMetrics;
+  const floatingWidgetOpacity = preferences.floatingWidgetOpacity;
   const collapseSidebarByDefault = preferences.collapseSidebarByDefault;
   const thirdPartyProviderPricingEnabled = preferences.thirdPartyProviderPricingEnabled;
   const defaultTerminalApp = preferences.defaultTerminalApp;
@@ -815,6 +844,21 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
       },
       nextPreferences,
     );
+  }
+
+  // 勾选/取消浮窗指标：按选项顺序重建数组保持稳定展示顺序，并强制至少保留一项
+  function toggleFloatingWidgetMetric(metric: WidgetMetric, checked: boolean) {
+    const selected = new Set(floatingWidgetMetrics);
+    if (checked) {
+      selected.add(metric);
+    } else {
+      selected.delete(metric);
+    }
+    if (selected.size === 0) return;
+    const next = floatingWidgetMetricOptions
+      .filter((option) => selected.has(option.value))
+      .map((option) => option.value);
+    void persistPreferences({ ...nextPreferences, floatingWidgetMetrics: next }, nextPreferences);
   }
 
   return (
@@ -1076,6 +1120,91 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                         );
                       }}
                     />
+                  </>
+                )}
+              </FieldGroup>
+            </SettingsSectionCard>
+
+            <SettingsSectionCard
+              title={t("settings.floatingWidget")}
+              description={t("settings.floatingWidgetDesc")}
+            >
+              <FieldGroup className="gap-4">
+                <Field orientation="horizontal" className="items-center justify-between gap-4">
+                  <FieldContent>
+                    <SettingsStateLabel enabled={floatingWidgetEnabled} />
+                  </FieldContent>
+                  <Switch
+                    id="settings-floating-widget-enabled"
+                    checked={floatingWidgetEnabled}
+                    onCheckedChange={(checked) => {
+                      void persistPreferences(
+                        { ...nextPreferences, floatingWidgetEnabled: checked },
+                        nextPreferences,
+                      );
+                    }}
+                    aria-label={t("settings.floatingWidget")}
+                  />
+                </Field>
+                {floatingWidgetEnabled && (
+                  <>
+                    <Field className="gap-2">
+                      <FieldTitle className="text-muted-foreground text-xs">
+                        {t("settings.floatingWidgetMetrics")}
+                      </FieldTitle>
+                      <div className="flex flex-col gap-2">
+                        {floatingWidgetMetricOptions.map((option) => {
+                          const checked = floatingWidgetMetrics.includes(option.value);
+                          const isLastChecked = checked && floatingWidgetMetrics.length === 1;
+                          return (
+                            <FieldLabel
+                              key={option.value}
+                              htmlFor={`settings-widget-metric-${option.value}`}
+                              className="flex items-center gap-2 font-normal"
+                            >
+                              <Checkbox
+                                id={`settings-widget-metric-${option.value}`}
+                                checked={checked}
+                                disabled={isLastChecked}
+                                onCheckedChange={(value) =>
+                                  toggleFloatingWidgetMetric(option.value, value === true)
+                                }
+                              />
+                              <span className="text-sm">{t(option.labelKey)}</span>
+                            </FieldLabel>
+                          );
+                        })}
+                      </div>
+                      <FieldDescription>{t("settings.floatingWidgetMetricsHint")}</FieldDescription>
+                    </Field>
+                    <Field className="gap-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <FieldTitle className="text-muted-foreground text-xs">
+                          {t("settings.floatingWidgetOpacity")}
+                        </FieldTitle>
+                        <span className="text-muted-foreground text-xs tabular-nums">
+                          {floatingWidgetOpacity}%
+                        </span>
+                      </div>
+                      <Slider
+                        value={[floatingWidgetOpacity]}
+                        min={WIDGET_OPACITY_MIN}
+                        max={WIDGET_OPACITY_MAX}
+                        step={1}
+                        aria-label={t("settings.floatingWidgetOpacity")}
+                        onValueChange={(value) => {
+                          const next = value[0] ?? floatingWidgetOpacity;
+                          setPreferences((prev) => ({ ...prev, floatingWidgetOpacity: next }));
+                        }}
+                        onValueCommit={(value) => {
+                          const next = value[0] ?? floatingWidgetOpacity;
+                          void persistPreferences(
+                            { ...nextPreferences, floatingWidgetOpacity: next },
+                            nextPreferences,
+                          );
+                        }}
+                      />
+                    </Field>
                   </>
                 )}
               </FieldGroup>

@@ -91,6 +91,9 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
     sessionTrayCountStyle: "superscriptCompact",
     trayPulseWaiting: true,
     focusSessionShortcut: "Command+Control+J",
+    floatingWidgetEnabled: false,
+    floatingWidgetMetrics: ["cost", "totalTokens", "cacheHitRate"],
+    floatingWidgetOpacity: 92,
   },
   builtinPresets: [
     {

@@ -48,6 +48,15 @@ export interface LedControlPreferences {
   idleMode: number;
 }
 
+/** 浮窗可展示的指标 key（顺序即展示顺序）。 */
+export type WidgetMetric =
+  | "cost"
+  | "totalTokens"
+  | "cacheHitRate"
+  | "messages"
+  | "sessions"
+  | "topModel";
+
 export interface AppPreferences {
   showTrayTitle: boolean;
   showTraySessions: boolean;
@@ -62,6 +71,12 @@ export interface AppPreferences {
   trayPulseWaiting: boolean;
   focusSessionShortcut: string | null;
   ledControl?: LedControlPreferences;
+  /** 桌面用量浮窗是否启用。 */
+  floatingWidgetEnabled: boolean;
+  /** 浮窗展示的指标 key 列表，顺序即展示顺序。 */
+  floatingWidgetMetrics: string[];
+  /** 浮窗面板不透明度百分比（30-100）。 */
+  floatingWidgetOpacity: number;
 }
 
 export type PresetSource = "builtin" | "custom";

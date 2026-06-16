@@ -19,7 +19,14 @@
       "waitingMode": 5,
       "runningMode": 1,
       "idleMode": 2
-    }
+    },
+    "floatingWidgetEnabled": false,
+    "floatingWidgetMetrics": [
+      "cost",
+      "totalTokens",
+      "cacheHitRate"
+    ],
+    "floatingWidgetOpacity": 92
   },
   "customPresets": [
     {
