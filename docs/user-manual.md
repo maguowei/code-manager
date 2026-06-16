@@ -120,7 +120,7 @@ Skills 对应 `~/.claude/skills/<id>/SKILL.md`。启用的 Skill 保存在 `~/.c
 - **Hooks**:维护 Claude Code hooks,支持摘要展示,可添加内置乱码检查预设,复杂结构可切 JSON 模式。
 - **插件市场**:维护 `extraKnownMarketplaces`,支持官方市场预设;每个 Marketplace 需完整填写 ID、来源、仓库或 URL、路径、包名、安装位置。
 - **插件**:维护 `enabledPlugins`,分"已配置"和"浏览市场"两个 Tab。浏览市场目前仅支持 `github` 来源,可按 Marketplace / 启用状态 / 类别 / 来源筛选,点击启用会立即同步到已配置列表。
-- **状态行**:配置自定义状态行命令,可启用默认状态行预设(写入 `~/.claude/statusline.sh`);目标已存在且内容不同时会提示是否覆盖。
+- **状态行**:配置自定义状态行命令,可启用默认状态行预设(非 Windows 写入 `~/.claude/statusline.sh`,Windows 写入 `~/.claude/statusline.ps1` 并自动设置 PowerShell 调用命令);目标已存在且内容不同时会提示是否覆盖。
 - **最终配置**:预览 Preset 与 Profile 合并后的最终 JSON;源 JSON 模式可直接维护整个 settings 对象,预览自动加入 schema 地址。
 
 ### 模型测试

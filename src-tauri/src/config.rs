@@ -26,7 +26,13 @@ const MODEL_TEST_PROMPT_ZH: &str = "请用一句简短的话确认这次 API 测
 const REDACTED_SECRET_VALUE: &str = "<redacted>";
 const SYSTEM_LOCALE_ENV_KEYS: [&str; 4] = ["LC_ALL", "LC_MESSAGES", "LANGUAGE", "LANG"];
 const DEFAULT_STATUS_LINE_PRESET_ID: &str = "default";
+// 非 Windows 平台沿用 ~ 展开的相对路径；Windows 的 command 在运行时按 home 目录拼接绝对路径
+#[cfg(not(windows))]
 const DEFAULT_STATUS_LINE_COMMAND_PATH: &str = "~/.claude/statusline.sh";
+// 默认脚本按平台选择：Windows 用 PowerShell 版，其余用 Bash 版
+#[cfg(windows)]
+const DEFAULT_STATUS_LINE_SCRIPT: &str = include_str!("../resources/statusline/default.ps1");
+#[cfg(not(windows))]
 const DEFAULT_STATUS_LINE_SCRIPT: &str = include_str!("../resources/statusline/default.sh");
 const USER_SETTINGS_SOURCE_PATH: &str = "settings.json";
 const USER_SETTINGS_IMPORT_READY: &str = "ready";
@@ -34,7 +40,7 @@ const USER_SETTINGS_IMPORT_INVALID_JSON: &str = "invalidJson";
 const USER_SETTINGS_IMPORT_INVALID_SCHEMA: &str = "invalidSchema";
 const USER_SETTINGS_IMPORT_UNSUPPORTED_SYMLINK: &str = "unsupportedSymlink";
 const USER_SETTINGS_IMPORT_READ_ERROR: &str = "readError";
-#[cfg(not(unix))]
+#[cfg(not(any(unix, windows)))]
 const STATUS_LINE_PRESET_UNSUPPORTED_PLATFORM_ERROR: &str =
     "status_line_preset_unsupported_platform";
 
@@ -1926,9 +1932,27 @@ fn profile_settings_path() -> Result<PathBuf, String> {
 }
 
 fn status_line_preset_target_path() -> Result<PathBuf, String> {
-    Ok(crate::utils::get_home_dir()?
-        .join(".claude")
-        .join("statusline.sh"))
+    // Windows 安装 PowerShell 脚本，其余平台安装 Bash 脚本
+    let filename = if cfg!(windows) {
+        "statusline.ps1"
+    } else {
+        "statusline.sh"
+    };
+    Ok(crate::utils::get_home_dir()?.join(".claude").join(filename))
+}
+
+// 计算写入 settings.json 的 statusLine.command
+// Windows 用绝对正斜杠路径调用 PowerShell，规避 ~ 在 -File 参数中不展开的问题
+#[cfg(windows)]
+fn status_line_preset_command(target_path: &std::path::Path) -> String {
+    let normalized = target_path.display().to_string().replace('\\', "/");
+    format!("powershell -NoProfile -ExecutionPolicy Bypass -File {normalized}")
+}
+
+#[cfg(not(windows))]
+fn status_line_preset_command(target_path: &std::path::Path) -> String {
+    let _ = target_path;
+    DEFAULT_STATUS_LINE_COMMAND_PATH.to_string()
 }
 
 fn build_status_line_preset_result(
@@ -1940,19 +1964,19 @@ fn build_status_line_preset_result(
     StatusLinePresetInstallResult {
         preset_id: preset_id.to_string(),
         target_path: target_path.display().to_string(),
-        command_path: DEFAULT_STATUS_LINE_COMMAND_PATH.to_string(),
+        command_path: status_line_preset_command(target_path),
         installed,
         needs_overwrite,
     }
 }
 
 fn ensure_status_line_preset_supported() -> Result<(), String> {
-    #[cfg(unix)]
+    #[cfg(any(unix, windows))]
     {
         Ok(())
     }
 
-    #[cfg(not(unix))]
+    #[cfg(not(any(unix, windows)))]
     {
         Err(STATUS_LINE_PRESET_UNSUPPORTED_PLATFORM_ERROR.to_string())
     }
@@ -3427,18 +3451,54 @@ mod tests {
         clear_test_env();
     }
 
+    #[cfg(not(windows))]
     #[test]
     fn default_status_line_script_checks_jq_before_parsing_input() {
         assert!(DEFAULT_STATUS_LINE_SCRIPT.contains("command -v jq"));
     }
 
+    #[cfg(not(windows))]
     #[test]
     fn default_status_line_script_uses_tmpdir_for_git_cache() {
         assert!(DEFAULT_STATUS_LINE_SCRIPT.contains("${TMPDIR:-/tmp}"));
         assert!(!DEFAULT_STATUS_LINE_SCRIPT.contains("cache_file=\"/tmp/"));
     }
 
-    #[cfg(not(unix))]
+    #[cfg(windows)]
+    #[test]
+    fn default_status_line_script_uses_powershell_json_and_utf8() {
+        // Windows 版用 ConvertFrom-Json 解析 stdin，无需 jq
+        assert!(DEFAULT_STATUS_LINE_SCRIPT.contains("ConvertFrom-Json"));
+        // 强制 UTF-8 输出，避免 emoji 与中文乱码
+        assert!(DEFAULT_STATUS_LINE_SCRIPT.contains("[Console]::OutputEncoding"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn install_status_line_preset_writes_powershell_script_on_windows() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("status-line-install-windows");
+        set_test_env(&root);
+
+        let result = install_status_line_preset_inner("default", false).unwrap();
+        let target_path = root.join(".claude").join("statusline.ps1");
+
+        assert_eq!(PathBuf::from(&result.target_path), target_path);
+        assert!(result.command_path.starts_with("powershell"));
+        // 命令路径必须用正斜杠，避免被当作转义字符
+        assert!(result.command_path.contains(".claude/statusline.ps1"));
+        assert!(!result.command_path.contains('\\'));
+        assert!(result.installed);
+        assert!(!result.needs_overwrite);
+        assert_eq!(
+            fs::read_to_string(&target_path).unwrap(),
+            DEFAULT_STATUS_LINE_SCRIPT
+        );
+
+        clear_test_env();
+    }
+
+    #[cfg(not(any(unix, windows)))]
     #[test]
     fn install_status_line_preset_rejects_unsupported_platforms() {
         let result = install_status_line_preset_inner("default", false);

@@ -12,6 +12,7 @@ paths:
   - "src-tauri/src/config.rs"
   - "src-tauri/resources/builtin-providers.json"
   - "src-tauri/resources/statusline/default.sh"
+  - "src-tauri/resources/statusline/default.ps1"
   - "src/types.ts"
 ---
 
@@ -28,7 +29,7 @@ paths:
 - 表单注册与工具：`settings-form-registry.ts`、`config-workspace-utils.ts`、`status-line-utils.ts`
 - 共享 schema：`src/schemas/claude-settings.schema.json`
 - 后端权威逻辑：`src-tauri/src/config.rs`
-- 内置资源：`src-tauri/resources/builtin-providers.json`、`src-tauri/resources/statusline/default.sh`
+- 内置资源：`src-tauri/resources/builtin-providers.json`、`src-tauri/resources/statusline/default.sh`、`src-tauri/resources/statusline/default.ps1`
 - 类型契约：`src/types.ts`
 
 ## 关键约束
@@ -72,7 +73,7 @@ paths:
 
 - 权限编辑器只管理 `defaultMode`、`disableBypassPermissionsMode`、`allow`、`deny`、`ask`、`additionalDirectories`；写回时保留其它顶层字段，例如 `disableAutoMode`。
 - 修复权限 dirty 问题时优先做局部语义比较，不要扩大到全局 dirty 系统。
-- 状态行默认脚本来自 `src-tauri/resources/statusline/default.sh`；安装走后端 `install_status_line_preset`，Windows 会返回 `status_line_preset_unsupported_platform`。
+- 状态行默认脚本按平台分发：非 Windows 用 `src-tauri/resources/statusline/default.sh`（Bash，依赖 jq），Windows 用 `src-tauri/resources/statusline/default.ps1`（PowerShell，免 jq）。安装走后端 `install_status_line_preset`：Windows 写入 `~/.claude/statusline.ps1` 并把 `command` 设为绝对正斜杠路径的 `powershell -NoProfile -ExecutionPolicy Bypass -File ...`；两份脚本功能需保持对齐。
 
 ## 新增配置字段同步点
 

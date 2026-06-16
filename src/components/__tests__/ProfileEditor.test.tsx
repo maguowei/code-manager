@@ -3436,7 +3436,7 @@ describe("ProfileEditor", () => {
       await Promise.resolve();
     });
 
-    expect(showToastMock).toHaveBeenCalledWith("默认状态行预设当前仅支持 macOS/Linux", "error");
+    expect(showToastMock).toHaveBeenCalledWith("当前平台不支持默认状态行预设", "error");
   });
 
   it("validates status line controls and removes statusLine when cleared", async () => {
