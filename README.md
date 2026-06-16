@@ -21,6 +21,8 @@ AI Manager 不替代 Claude Code，而是提供一个本机配置、会话数据
 
 ## 核心能力
 
+![AI Manager 功能图](docs/assets/readme-feature-map.png)
+
 | 能力 | 说明 |
 | --- | --- |
 | `~/.claude` 总览 | 浏览、预览、编辑和定位 Claude Code 用户目录。 |
@@ -77,6 +79,8 @@ AI Manager 主要读写本机文件。配置合并、目录扫描、用量聚合
 ## 本地开发
 
 技术栈概览：Tauri 2 + React 19 + TypeScript + Vite + Tailwind CSS v4 + Rust。完整 Agent 执行规则、验证说明和细粒度路径导航见 [CLAUDE.md](./CLAUDE.md)。
+
+![AI Manager 架构图](docs/assets/readme-architecture.png)
 
 ### 前置要求
 
