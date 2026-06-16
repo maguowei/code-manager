@@ -1086,6 +1086,7 @@ const translations = {
     "usage.charts.tokenTrend": "Token 趋势",
     "usage.charts.cacheHitRate": "缓存命中率",
     "usage.charts.cacheHitRateHint": "缓存读取占全部输入 Token 的比例",
+    "usage.charts.cacheHitRateFormula": "命中率 = 缓存读取 / (输入 + 缓存创建 + 缓存读取)",
     "usage.charts.cacheHitRateGood": "优秀 70%",
     "usage.charts.cacheHitRatePoor": "需排查 40%",
     "usage.charts.totalCost": "总费用",
@@ -2654,6 +2655,8 @@ const translations = {
     "usage.charts.tokenTrend": "Token trend",
     "usage.charts.cacheHitRate": "Cache hit rate",
     "usage.charts.cacheHitRateHint": "Cache reads as a share of all input tokens",
+    "usage.charts.cacheHitRateFormula":
+      "Hit rate = cache read / (input + cache creation + cache read)",
     "usage.charts.cacheHitRateGood": "Good 70%",
     "usage.charts.cacheHitRatePoor": "Investigate 40%",
     "usage.charts.totalCost": "Total cost",

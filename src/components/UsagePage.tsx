@@ -778,7 +778,7 @@ function UsagePage({ projectRequest = null }: UsagePageProps = {}) {
                     label={t("usage.cards.cacheHitRate")}
                     value={u.summary ? formatPercent(cacheHitRateOverall) : "-"}
                     tone="purple"
-                    hint={t("usage.cards.cacheHitRateHint")}
+                    hint={`${t("usage.cards.cacheHitRateHint")}（${t("usage.charts.cacheHitRateFormula")}）`}
                   />
                 </section>
 
@@ -1122,6 +1122,9 @@ function UsagePage({ projectRequest = null }: UsagePageProps = {}) {
                       <>
                         <p className={cn("mb-2", TYPOGRAPHY.auxiliary, "text-muted-foreground")}>
                           {t("usage.charts.cacheHitRateHint")}
+                          <span className="ml-1 font-mono">
+                            {t("usage.charts.cacheHitRateFormula")}
+                          </span>
                         </p>
                         <ChartContainer
                           config={USAGE_CHART_CONFIG}
