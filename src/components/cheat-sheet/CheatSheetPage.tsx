@@ -1,6 +1,6 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ExternalLink } from "lucide-react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { showOperationError } from "@/lib/user-facing-error";
 import { useToast } from "../../hooks/useToast";
@@ -8,9 +8,11 @@ import { useI18n } from "../../i18n";
 import MarkdownPreview from "../claude-overview/MarkdownPreview";
 import PageHeader from "../PageHeader";
 import { useTheme } from "../theme-provider";
+import CheatSheetToc from "./CheatSheetToc";
 // 速查表内容由 scripts/sync-cheatsheet.mjs 从 cc.storyfox.cz 提取生成，以 ?raw 静态打包
 import enMarkdown from "./cheatsheet.en.md?raw";
 import zhMarkdown from "./cheatsheet.zh.md?raw";
+import { useCheatSheetToc } from "./use-cheatsheet-toc";
 
 // 源站语言对应入口：英文为根路径，中文为 /zh/
 const SOURCE_URL = {
@@ -25,6 +27,9 @@ function CheatSheetPage() {
 
   const content = language === "zh" ? zhMarkdown : enMarkdown;
   const sourceUrl = useMemo(() => SOURCE_URL[language], [language]);
+
+  const contentRef = useRef<HTMLDivElement>(null);
+  const { entries, activeId, scrollToHeading } = useCheatSheetToc(contentRef, content);
 
   const handleOpenLatest = useCallback(async () => {
     try {
@@ -61,11 +66,20 @@ function CheatSheetPage() {
           </Button>
         }
       />
-      <div className="flex-1 overflow-y-auto">
-        <MarkdownPreview
-          content={content}
-          themeType={isDark ? "dark" : "light"}
-          className="mx-auto max-w-4xl px-5 py-4"
+      <div className="flex flex-1 overflow-hidden">
+        <div ref={contentRef} className="flex-1 overflow-y-auto">
+          <MarkdownPreview
+            content={content}
+            themeType={isDark ? "dark" : "light"}
+            className="mx-auto max-w-4xl px-5 py-4"
+          />
+        </div>
+        <CheatSheetToc
+          entries={entries}
+          activeId={activeId}
+          onSelect={scrollToHeading}
+          title={t("cheatsheet.tableOfContents")}
+          className="max-[900px]:hidden"
         />
       </div>
     </div>

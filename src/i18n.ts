@@ -76,6 +76,7 @@ const translations = {
     "cheatsheet.description": "常用命令、快捷键与技巧速查（内容快照）",
     "cheatsheet.openLatest": "在浏览器中打开最新版",
     "cheatsheet.openLatestError": "打开速查表失败",
+    "cheatsheet.tableOfContents": "目录",
 
     // 记忆页面
     "memory.title": "记忆管理",
@@ -1621,6 +1622,7 @@ const translations = {
     "cheatsheet.description": "Quick reference for commands, shortcuts and tips (snapshot)",
     "cheatsheet.openLatest": "Open latest in browser",
     "cheatsheet.openLatestError": "Failed to open cheat sheet",
+    "cheatsheet.tableOfContents": "On this page",
 
     // 记忆页面
     "memory.title": "Memory",
