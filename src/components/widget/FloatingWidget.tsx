@@ -2,6 +2,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
+import { useAnimatedNumber } from "../../hooks/useAnimatedNumber";
 import useTauriEvent from "../../hooks/useTauriEvent";
 import { useWidgetUsageKpi, type WidgetUsageKpi } from "../../hooks/useWidgetUsageKpi";
 import { type TranslationKey, useI18n } from "../../i18n";
@@ -26,22 +27,65 @@ function isWidgetMetric(value: string): value is WidgetMetric {
   return value in METRIC_LABEL_KEY;
 }
 
-/** 把单个指标 KPI 格式化为展示字符串。 */
-function formatMetricValue(metric: WidgetMetric, kpi: WidgetUsageKpi): string {
+/** 取指标的原始数值；topModel 为文本指标，返回 null。 */
+function metricRawValue(metric: WidgetMetric, kpi: WidgetUsageKpi): number | null {
   switch (metric) {
     case "cost":
-      return formatCost(kpi.cost);
+      return kpi.cost;
     case "totalTokens":
-      return formatTokens(kpi.totalTokens);
+      return kpi.totalTokens;
     case "cacheHitRate":
-      return formatPercent(kpi.cacheHitRate);
+      return kpi.cacheHitRate;
     case "messages":
-      return kpi.messages.toLocaleString("en-US");
+      return kpi.messages;
     case "sessions":
-      return kpi.sessions.toLocaleString("en-US");
+      return kpi.sessions;
     case "topModel":
-      return kpi.topModel ?? "-";
+      return null;
   }
+}
+
+/** 把数值型指标格式化为展示字符串；整数型先取整避免动画中途出现小数。 */
+function formatMetricNumber(metric: WidgetMetric, value: number): string {
+  switch (metric) {
+    case "cost":
+      return formatCost(value);
+    case "totalTokens":
+      return formatTokens(value);
+    case "cacheHitRate":
+      return formatPercent(value);
+    case "messages":
+    case "sessions":
+      return Math.round(value).toLocaleString("en-US");
+    case "topModel":
+      return "-";
+  }
+}
+
+/**
+ * 单行指标：标题文字 + 数值。数值型指标用 useAnimatedNumber 做平滑缓动，
+ * topModel 为文本指标直接展示。hook 无条件调用，满足 Rules of Hooks。
+ */
+function MetricRow({ metric, kpi }: { metric: WidgetMetric; kpi: WidgetUsageKpi | null }) {
+  const { t } = useI18n();
+  const rawValue = kpi && metric !== "topModel" ? (metricRawValue(metric, kpi) ?? 0) : 0;
+  const animated = useAnimatedNumber(rawValue);
+
+  let display: string;
+  if (!kpi) {
+    display = "—";
+  } else if (metric === "topModel") {
+    display = kpi.topModel ?? "-";
+  } else {
+    display = formatMetricNumber(metric, animated);
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="truncate text-xs text-muted-foreground">{t(METRIC_LABEL_KEY[metric])}</span>
+      <span className="shrink-0 text-sm font-semibold tabular-nums">{display}</span>
+    </div>
+  );
 }
 
 /**
@@ -135,14 +179,7 @@ export default function FloatingWidget() {
           className="flex flex-1 cursor-pointer flex-col gap-1 px-2.5 py-1.5 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:bg-muted/40"
         >
           {metrics.map((metric) => (
-            <div key={metric} className="flex items-center justify-between gap-3">
-              <span className="truncate text-xs text-muted-foreground">
-                {t(METRIC_LABEL_KEY[metric])}
-              </span>
-              <span className="shrink-0 text-sm font-semibold tabular-nums">
-                {kpi ? formatMetricValue(metric, kpi) : "—"}
-              </span>
-            </div>
+            <MetricRow key={metric} metric={metric} kpi={kpi} />
           ))}
         </div>
       </div>
