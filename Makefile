@@ -1,4 +1,4 @@
-.PHONY: init dev build build-frontend build-universal preview check verify bindings bindings-check test test-rust test-frontend lint lint-rust lint-frontend fmt fmt-check fmt-rust fmt-rust-check fmt-frontend fmt-frontend-check gitleaks gitleaks-history clean coverage coverage-rust coverage-rust-lcov coverage-frontend ensure-llvm-cov
+.PHONY: init dev build build-frontend build-universal preview check verify bindings bindings-check test test-rust test-frontend lint lint-rust lint-frontend fmt fmt-check fmt-rust fmt-rust-check fmt-frontend fmt-frontend-check gitleaks gitleaks-history sync-cheatsheet clean coverage coverage-rust coverage-rust-lcov coverage-frontend ensure-llvm-cov
 
 RUST_COVERAGE_THRESHOLDS := --fail-under-regions 80 --fail-under-functions 70 --fail-under-lines 80
 
@@ -102,6 +102,10 @@ gitleaks:
 # 扫描 Git 历史中的密钥
 gitleaks-history:
 	gitleaks git . --redact --no-banner
+
+# 重新抓取并生成 Claude Code 速查表本地 markdown（源站更新后手动重跑）
+sync-cheatsheet:
+	node scripts/sync-cheatsheet.mjs
 
 # 清理构建产物
 clean:

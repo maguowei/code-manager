@@ -10,6 +10,7 @@ const PAGE_FILES = [
   "src/components/HistoryPage.tsx",
   "src/components/StatsPage.tsx",
   "src/components/UsagePage.tsx",
+  "src/components/cheat-sheet/CheatSheetPage.tsx",
 ] as const;
 
 describe("menu page headers", () => {

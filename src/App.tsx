@@ -21,6 +21,7 @@ import {
   type TabType,
 } from "./types";
 
+const CheatSheetPage = lazy(() => import("./components/cheat-sheet/CheatSheetPage"));
 const ClaudeOverviewPage = lazy(() => import("./components/ClaudeOverviewPage"));
 const HistoryPage = lazy(() => import("./components/HistoryPage"));
 const MemoryPage = lazy(() => import("./components/MemoryPage"));
@@ -285,7 +286,9 @@ function App() {
             </div>
           ) : null}
           <Suspense fallback={<PageLoadingFallback />}>
-            {activeTab === "claudeOverview" ? null : activeTab === "stats" ? (
+            {activeTab === "claudeOverview" ? null : activeTab === "cheatsheet" ? (
+              <CheatSheetPage />
+            ) : activeTab === "stats" ? (
               <StatsPage />
             ) : activeTab === "usage" ? (
               <UsagePage projectRequest={usageProjectRequest} />

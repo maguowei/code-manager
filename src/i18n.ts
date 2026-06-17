@@ -64,11 +64,18 @@ const translations = {
     "configModal.jsonCopied": "已复制",
 
     // 导航栏
+    "nav.cheatsheet": "速查表",
     "nav.claudeOverview": "~/.claude 目录总览",
     "nav.configs": "配置",
     "nav.memory": "记忆",
     "nav.skills": "Skills",
     "nav.projects": "项目",
+
+    // 速查表页面
+    "cheatsheet.title": "Claude Code 速查表",
+    "cheatsheet.description": "常用命令、快捷键与技巧速查（内容快照）",
+    "cheatsheet.openLatest": "在浏览器中打开最新版",
+    "cheatsheet.openLatestError": "打开速查表失败",
 
     // 记忆页面
     "memory.title": "记忆管理",
@@ -1602,11 +1609,18 @@ const translations = {
     "configModal.jsonCopied": "Copied",
 
     // 导航栏
+    "nav.cheatsheet": "Cheat Sheet",
     "nav.claudeOverview": "~/.claude Overview",
     "nav.configs": "Profiles",
     "nav.memory": "Memory",
     "nav.skills": "Skills",
     "nav.projects": "Projects",
+
+    // 速查表页面
+    "cheatsheet.title": "Claude Code Cheat Sheet",
+    "cheatsheet.description": "Quick reference for commands, shortcuts and tips (snapshot)",
+    "cheatsheet.openLatest": "Open latest in browser",
+    "cheatsheet.openLatestError": "Failed to open cheat sheet",
 
     // 记忆页面
     "memory.title": "Memory",

@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  BookOpen,
   Brain,
   Clock,
   DollarSign,
@@ -38,6 +39,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: "history", label: "nav.history", icon: Clock },
   { key: "stats", label: "nav.stats", icon: BarChart3 },
   { key: "usage", label: "nav.usage", icon: DollarSign, testId: "usage-dollar-icon" },
+  { key: "cheatsheet", label: "nav.cheatsheet", icon: BookOpen },
 ];
 
 function Sidebar({
