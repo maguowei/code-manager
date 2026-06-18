@@ -10,6 +10,7 @@ import { ipc } from "../../ipc";
 import { isTauri, type WidgetMetric } from "../../types";
 import { Button } from "../ui/button";
 import { formatCost, formatPercent, formatTokens } from "../usage/format";
+import { cacheHitRateColorClass, METRIC_COLOR } from "../usage/metric-colors";
 
 // 指标 key → i18n 标签 key 映射（同时充当合法 WidgetMetric 白名单）
 const METRIC_LABEL_KEY: Record<WidgetMetric, TranslationKey> = {
@@ -22,6 +23,21 @@ const METRIC_LABEL_KEY: Record<WidgetMetric, TranslationKey> = {
 };
 
 const DEFAULT_METRICS: WidgetMetric[] = ["cost", "totalTokens", "cacheHitRate"];
+
+// 数值指标的身份配色：与用量页共用 METRIC_COLOR，保证两处一致。
+// cacheHitRate 走高低语义色、topModel 为文本，均不入表。
+const METRIC_VALUE_COLOR: Partial<Record<WidgetMetric, string>> = {
+  cost: METRIC_COLOR.cost, // 金
+  totalTokens: METRIC_COLOR.tokens, // 蓝
+  messages: METRIC_COLOR.messages, // 红橙
+  sessions: METRIC_COLOR.sessions, // 紫
+};
+
+/** 指标数值配色：命中率按高低语义着色，其余取固定身份色，topModel 保持中性。 */
+function metricValueColorClass(metric: WidgetMetric, kpi: WidgetUsageKpi): string | undefined {
+  if (metric === "cacheHitRate") return cacheHitRateColorClass(kpi.cacheHitRate);
+  return METRIC_VALUE_COLOR[metric];
+}
 
 function isWidgetMetric(value: string): value is WidgetMetric {
   return value in METRIC_LABEL_KEY;
@@ -80,10 +96,16 @@ function MetricRow({ metric, kpi }: { metric: WidgetMetric; kpi: WidgetUsageKpi 
     display = formatMetricNumber(metric, animated);
   }
 
+  // 各指标按身份配色着色：命中率走高低语义色，其余取固定 chart 色。
+  // 颜色取真实 KPI 值，不随缓动跳变
+  const valueColorClass = kpi ? metricValueColorClass(metric, kpi) : undefined;
+
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="truncate text-xs text-muted-foreground">{t(METRIC_LABEL_KEY[metric])}</span>
-      <span className="shrink-0 text-sm font-semibold tabular-nums">{display}</span>
+      <span className={cn("shrink-0 text-sm font-semibold tabular-nums", valueColorClass)}>
+        {display}
+      </span>
     </div>
   );
 }
@@ -142,23 +164,22 @@ export default function FloatingWidget() {
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden p-1.5">
       <div
+        data-tauri-drag-region="deep"
         className={cn(
-          "flex h-full flex-col overflow-hidden rounded-lg border border-border/80 bg-background shadow-floating",
+          "group flex h-full flex-col overflow-hidden rounded-lg border border-border/80 bg-background shadow-floating",
         )}
         style={panelStyle}
       >
-        {/* 顶部拖拽条：可拖动窗口；右侧关闭按钮不参与拖拽 */}
-        <div
-          data-tauri-drag-region
-          className="flex shrink-0 cursor-default select-none items-center justify-between gap-2 border-b border-border/60 px-2.5 py-1"
-        >
+        {/* 顶部标题条：拖拽由外层卡片的 deep 拖拽区接管，无需单独标注 */}
+        <div className="flex shrink-0 cursor-default select-none items-center justify-between gap-2 border-b border-border/60 px-2.5 py-1">
           <span className="text-xs font-medium text-muted-foreground">{t("widget.today")}</span>
           <Button
             variant="ghost"
             size="icon-xs"
             onClick={handleClose}
             aria-label={t("widget.close")}
-            className="text-muted-foreground"
+            // 关闭按钮默认隐藏，hover 卡片或键盘聚焦时淡入，避免常驻干扰
+            className="text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
           >
             <X aria-hidden="true" />
           </Button>

@@ -54,6 +54,7 @@ import {
   pricingSourceLabel,
   projectDisplayName,
 } from "./usage/format";
+import { cacheHitRateColorClass, METRIC_COLOR } from "./usage/metric-colors";
 import PricingTableDialog from "./usage/PricingTableDialog";
 import SessionUsageDrawer from "./usage/SessionUsageDrawer";
 import UsagePageSkeleton from "./usage/UsagePageSkeleton";
@@ -749,35 +750,35 @@ function UsagePage({ projectRequest = null }: UsagePageProps = {}) {
                   <MetricCard
                     label={t("usage.cards.totalCost")}
                     value={u.summary ? formatUSD(u.summary.totalCost) : "-"}
-                    tone="blue"
+                    valueClassName={METRIC_COLOR.cost}
                     emphasis
                     hint={t("usage.cards.totalCostHint")}
                   />
                   <MetricCard
                     label={t("usage.cards.totalTokens")}
                     value={formatDetailedTokens(totalTokens)}
-                    tone="teal"
+                    valueClassName={METRIC_COLOR.tokens}
                   />
                   <MetricCard
                     label={t("usage.cards.totalSessions")}
                     value={u.summary ? String(u.summary.totalSessions) : "-"}
-                    tone="purple"
+                    valueClassName={METRIC_COLOR.sessions}
                   />
                   <MetricCard
                     label={t("usage.cards.totalMessages")}
                     value={u.summary ? formatCount(u.summary.totalMessages) : "-"}
-                    tone="orange"
+                    valueClassName={METRIC_COLOR.messages}
                   />
                   <MetricCard
                     label={t("usage.cards.cacheSavings")}
                     value={formatUSD(cacheSavings)}
-                    tone="green"
+                    valueClassName={METRIC_COLOR.cacheSavings}
                     hint={t("usage.cards.cacheSavingsHint")}
                   />
                   <MetricCard
                     label={t("usage.cards.cacheHitRate")}
                     value={u.summary ? formatPercent(cacheHitRateOverall) : "-"}
-                    tone="purple"
+                    valueClassName={cacheHitRateColorClass(cacheHitRateOverall)}
                     hint={`${t("usage.cards.cacheHitRateHint")}（${t("usage.charts.cacheHitRateFormula")}）`}
                   />
                 </section>
@@ -1378,22 +1379,16 @@ function UsagePage({ projectRequest = null }: UsagePageProps = {}) {
 interface MetricCardProps {
   label: string;
   value: string;
-  tone: "blue" | "green" | "orange" | "purple" | "teal";
+  // 数字文字色类（语义文字色方案）：取自 metric-colors 的 METRIC_COLOR 或命中率语义色
+  valueClassName: string;
   hint?: string;
-  // 主要指标（总花费）：值用更大的 metricEmphasis 字号并加强调边框
+  // 主要指标（总花费）：值用更大的 metricEmphasis 字号并加金色强调边框
   emphasis?: boolean;
 }
 
-function MetricCard({ label, value, tone, hint, emphasis = false }: MetricCardProps) {
+function MetricCard({ label, value, valueClassName, hint, emphasis = false }: MetricCardProps) {
   return (
-    <Card
-      className={cn(
-        "usage-metric rounded-lg py-3",
-        `usage-metric-${tone}`,
-        emphasis && "border-chart-1/30",
-      )}
-      title={hint}
-    >
+    <Card className={cn("usage-metric rounded-lg py-3", emphasis && "border-gold/30")} title={hint}>
       <CardContent className="flex flex-col gap-1.5 px-4">
         <span className="usage-metric-label text-xs font-extrabold tracking-wide text-muted-foreground uppercase">
           {label}
@@ -1402,11 +1397,7 @@ function MetricCard({ label, value, tone, hint, emphasis = false }: MetricCardPr
           className={cn(
             "usage-metric-value font-mono",
             emphasis ? TYPOGRAPHY.metricEmphasis : TYPOGRAPHY.metricValue,
-            tone === "blue" && "text-chart-1",
-            tone === "green" && "text-chart-2",
-            tone === "orange" && "text-chart-3",
-            tone === "purple" && "text-chart-4",
-            tone === "teal" && "text-chart-5",
+            valueClassName,
           )}
         >
           {value}
