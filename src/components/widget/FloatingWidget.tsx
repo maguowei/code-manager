@@ -166,12 +166,12 @@ export default function FloatingWidget() {
       <div
         data-tauri-drag-region="deep"
         className={cn(
-          "group flex h-full flex-col overflow-hidden rounded-lg border border-border/80 bg-background shadow-floating",
+          "group flex h-full cursor-grab flex-col overflow-hidden rounded-lg border border-border/80 bg-background shadow-floating active:cursor-grabbing",
         )}
         style={panelStyle}
       >
-        {/* 顶部标题条：拖拽由外层卡片的 deep 拖拽区接管，无需单独标注 */}
-        <div className="flex shrink-0 cursor-default select-none items-center justify-between gap-2 border-b border-border/60 px-2.5 py-1">
+        {/* 顶部标题条：拖拽由外层卡片的 deep 拖拽区接管，光标继承面板的抓手提示 */}
+        <div className="flex shrink-0 select-none items-center justify-between gap-2 border-b border-border/60 px-2.5 py-1">
           <span className="text-xs font-medium text-muted-foreground">{t("widget.today")}</span>
           <Button
             variant="ghost"
