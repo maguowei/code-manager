@@ -74,17 +74,16 @@ Provider {
   localizedName?
   description?
   docUrl?
-  baseUrl       // 一等字段（等价 env.ANTHROPIC_BASE_URL）
   models        // 该供应商可用模型 + 分类（opus/sonnet/haiku/other）
   modelSuggestions
-  env           // 模型映射 + 可选附加 env（连接相关），不含认证 key
+  env           // 唯一权威：含 ANTHROPIC_BASE_URL + 模型映射 + 可选附加 env（连接相关），不含认证 key
   source        // builtin | custom
 }
 ```
 
-**相对 `SettingsPreset` 删除**：`basePresetId`、`settingsPatch`（替换为聚焦的 `baseUrl` + `env`）。`settingsPatch` 中原有的 `permissions` / `sandbox` / `hooks` / `enabledPlugins` / `extraKnownMarketplaces` / `statusLine` / 行为 / 通用顶层字段全部不再属于 Provider。
+**相对 `SettingsPreset` 删除**：`basePresetId`、`settingsPatch`（替换为聚焦的 `env`）。`settingsPatch` 中原有的 `permissions` / `sandbox` / `hooks` / `enabledPlugins` / `extraKnownMarketplaces` / `statusLine` / 行为 / 通用顶层字段全部不再属于 Provider。
 
-> 实现细节（`baseUrl` 是独立一等字段还是仅作为 `env.ANTHROPIC_BASE_URL` 的便捷视图）留待实现计划阶段定，以保持 `env` 单一事实源、避免双写不一致。
+**单一事实源（已定，方案 X）**：供应商地址只存在 `env.ANTHROPIC_BASE_URL` 这一处，**不单列 `baseUrl` 一等字段**。理由：`env` 本就是供应商配置核心载体（地址 / 模型映射 / 附加变量统一归 `env`），与 Claude Code 真实格式、与写入 `settings.json` 的逻辑零阻抗，省掉"字段 ↔ env 键"映射层与"禁止 env 内出现该键"的约束逻辑，杜绝双写不一致。UI 在 ProviderEditor 中把 `ANTHROPIC_BASE_URL` 作为 `env` 的特殊字段重点展示/编辑即可，不影响交互。
 
 ### ConfigProfile
 
@@ -97,7 +96,7 @@ Provider {
 `resolve_profile_settings` 由"递归展开 Preset 链 + 多层合并"简化为干净两步：
 
 ```
-provider.env (+ baseUrl)
+provider.env              // 含 ANTHROPIC_BASE_URL
   → profile.settings        // 可覆盖 env、补充认证 key、叠加 permissions/hooks/…
   → 写入 $schema
   → validate_settings_document
@@ -113,7 +112,7 @@ provider.env (+ baseUrl)
 仅保留"连接 + 模型 + 元数据"：
 
 - name / localizedName、description、docUrl
-- baseUrl
+- `env.ANTHROPIC_BASE_URL`（作为 env 的特殊字段重点展示/编辑，非独立顶层字段）
 - models 列表（+ 分类）
 - modelSuggestions
 - 可选附加 env 的键值编辑
@@ -131,13 +130,13 @@ provider.env (+ baseUrl)
 - 组件/页面：`PresetEditor` → `ProviderEditor`；`PresetsPage` → `ProvidersPage`。
 - IPC command：`upsert_preset` → `upsert_provider`、`delete_preset` → `delete_provider`、list 等同步；`make bindings` 重新生成 `src/bindings.ts`。
 - 注册表存储：`config-registry.json` 的 `customPresets` → `customProviders`（clean break，无需读旧字段）。
-- 内置资源：`builtin-providers.json` 字段按新结构调整（拆出 `baseUrl` 一等字段、剔除任何非供应商字段）。
+- 内置资源：`builtin-providers.json` 字段按新结构调整（地址统一归 `env.ANTHROPIC_BASE_URL`、剔除任何非供应商字段）。
 - i18n：key 与文案中英全套替换为"供应商 / Provider"。
 - UI 文案、页面标题、导航项。
 
 ## 内置资源
 
-`builtin-providers.json` 当前基本为 env-only，按新结构调整：拆出 `baseUrl` 一等字段，剔除非供应商字段（如 effort 视情况保留为可选 env）。覆盖的 12 个 provider（Anthropic、DeepSeek、智谱 GLM、Kimi、MiniMax、小米 MiMo、OpenRouter、火山方舟、阿里云百炼、ModelScope、万界方舟、Ollama）保持不变。
+`builtin-providers.json` 当前基本为 env-only，按新结构调整：地址统一归 `env.ANTHROPIC_BASE_URL`，剔除非供应商字段（如 effort 视情况保留为可选 env）。覆盖的 12 个 provider（Anthropic、DeepSeek、智谱 GLM、Kimi、MiniMax、小米 MiMo、OpenRouter、火山方舟、阿里云百炼、ModelScope、万界方舟、Ollama）保持不变。
 
 ## 同步点（硬约束清单）
 
@@ -168,6 +167,5 @@ provider.env (+ baseUrl)
 
 ## 风险与开放问题
 
-- **`baseUrl` 与 `env.ANTHROPIC_BASE_URL` 的单一事实源**：避免双写不一致，实现阶段定其一为权威。
 - **改名波及面广**：全套重命名涉及前后端 + 生成 bindings + 测试，需逐文件核对无遗漏旧标识符。
 - **认证字段在 ProfileEditor 的展示位置**：需与现有结构化分区布局协调，遵循"均衡管理台"视觉风格，认证字段用合适的密钥输入态。
