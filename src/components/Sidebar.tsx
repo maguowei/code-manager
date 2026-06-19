@@ -39,8 +39,10 @@ const NAV_ITEMS: NavItem[] = [
   { key: "history", label: "nav.history", icon: Clock },
   { key: "stats", label: "nav.stats", icon: BarChart3 },
   { key: "usage", label: "nav.usage", icon: DollarSign, testId: "usage-dollar-icon" },
-  { key: "cheatsheet", label: "nav.cheatsheet", icon: BookOpen },
 ];
+
+// 速查表单独渲染，固定在主菜单底部、分割线上方
+const CHEATSHEET_ITEM: NavItem = { key: "cheatsheet", label: "nav.cheatsheet", icon: BookOpen };
 
 function Sidebar({
   activeTab,
@@ -66,6 +68,33 @@ function Sidebar({
       ? "before:left-[-8px]"
       : "before:left-[-12px] max-[1000px]:before:left-[-8px]",
   );
+
+  // 渲染单个导航项；configs 的高亮包含内部 providers 子页面
+  const renderNavItem = ({ key, label, icon: Icon, testId }: NavItem) => {
+    const active =
+      key === "configs" ? activeTab === "configs" || activeTab === "providers" : activeTab === key;
+    return (
+      <Tooltip key={key}>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-lg"
+            className={cn(itemButtonClassName, active && activeItemClassName)}
+            onClick={() => onTabChange(key)}
+            aria-label={t(label)}
+            aria-current={active ? "page" : undefined}
+          >
+            <Icon data-icon="inline-start" data-testid={testId} aria-hidden="true" />
+            <span className={labelClassName}>{t(label)}</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="right" sideOffset={8}>
+          {t(label)}
+        </TooltipContent>
+      </Tooltip>
+    );
+  };
 
   return (
     <nav
@@ -100,37 +129,11 @@ function Sidebar({
         </TooltipContent>
       </Tooltip>
 
-      <div className="flex w-full flex-col gap-2">
-        {NAV_ITEMS.map(({ key, label, icon: Icon, testId }) => {
-          const active =
-            key === "configs"
-              ? activeTab === "configs" || activeTab === "providers"
-              : activeTab === key;
-          return (
-            <Tooltip key={key}>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-lg"
-                  className={cn(itemButtonClassName, active && activeItemClassName)}
-                  onClick={() => onTabChange(key)}
-                  aria-label={t(label)}
-                  aria-current={active ? "page" : undefined}
-                >
-                  <Icon data-icon="inline-start" data-testid={testId} aria-hidden="true" />
-                  <span className={labelClassName}>{t(label)}</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right" sideOffset={8}>
-                {t(label)}
-              </TooltipContent>
-            </Tooltip>
-          );
-        })}
-      </div>
+      <div className="flex w-full flex-col gap-2">{NAV_ITEMS.map(renderNavItem)}</div>
 
       <div className="flex-1" />
+
+      <div className="w-full">{renderNavItem(CHEATSHEET_ITEM)}</div>
 
       <div className="mt-3 flex w-full justify-center border-t border-sidebar-border pt-3">
         <Tooltip>
