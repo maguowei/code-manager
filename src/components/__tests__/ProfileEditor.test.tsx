@@ -688,12 +688,12 @@ describe("ProfileEditor", () => {
         "aria-expanded",
         "false",
       );
-      expect(within(commonSection).getByText("已启用 0/16")).toBeInTheDocument();
+      expect(within(commonSection).getByText("已启用 0/15")).toBeInTheDocument();
       expect(within(commonSection).queryByRole("button", { name: "控件" })).not.toBeInTheDocument();
       expect(within(commonSection).queryByRole("button", { name: "JSON" })).not.toBeInTheDocument();
 
       const commonHeader = within(commonSection)
-        .getByText("已启用 0/16")
+        .getByText("已启用 0/15")
         .closest('[data-slot="settings-section-header"]');
       expect(commonHeader).toHaveClass("cursor-pointer");
       fireEvent.click(commonHeader as HTMLElement);
@@ -703,14 +703,13 @@ describe("ProfileEditor", () => {
       expect(
         within(commonSection).queryByRole("combobox", { name: "输出风格" }),
       ).not.toBeInTheDocument();
-      expect(within(commonSection).getAllByRole("switch")).toHaveLength(16);
+      expect(within(commonSection).getAllByRole("switch")).toHaveLength(15);
       expect(within(commonSection).getByText("默认启用深度思考")).toBeInTheDocument();
       expect(within(commonSection).getByText("显示 Thinking 摘要")).toBeInTheDocument();
       expect(within(commonSection).getByText("接受计划时显示清理上下文")).toBeInTheDocument();
       expect(within(commonSection).getByText("禁用所有 Hooks")).toBeInTheDocument();
       expect(within(commonSection).getByText("禁用 AI 署名")).toBeInTheDocument();
       expect(within(commonSection).getByText("已完成引导设置")).toBeInTheDocument();
-      expect(within(commonSection).getByText("启用 Fast Mode")).toBeInTheDocument();
       expect(within(commonSection).getByText("禁用自动更新")).toBeInTheDocument();
       expect(within(commonSection).getByText("尊重 .gitignore")).toBeInTheDocument();
       expect(within(commonSection).getByText("启用 LSP 工具")).toBeInTheDocument();
@@ -1852,10 +1851,6 @@ describe("ProfileEditor", () => {
     expect(
       within(commonSection).getByRole("button", { name: "skipWebFetchPreflight" }),
     ).toHaveAttribute("data-tooltip", "skipWebFetchPreflight");
-    expect(within(commonSection).getByRole("button", { name: "fastMode" })).toHaveAttribute(
-      "data-tooltip",
-      "fastMode",
-    );
     expect(
       within(commonSection).getByRole("button", { name: "DISABLE_AUTOUPDATER" }),
     ).toHaveAttribute("data-tooltip", "DISABLE_AUTOUPDATER");
@@ -1886,7 +1881,6 @@ describe("ProfileEditor", () => {
       "禁用所有 Hooks",
       "禁用 AI 署名",
       "已完成引导设置",
-      "启用 Fast Mode",
       "尊重 .gitignore",
       "跳过 WebFetch 预检",
       "禁用自动更新",
@@ -1925,7 +1919,6 @@ describe("ProfileEditor", () => {
         pr: "",
       },
       hasCompletedOnboarding: true,
-      fastMode: true,
       respectGitignore: true,
       skipWebFetchPreflight: true,
     });
@@ -3968,7 +3961,7 @@ describe("ProfileEditor", () => {
     renderEditor({ profile: null, onSave });
 
     const commonSection = getSection("常用选项");
-    expect(within(commonSection).getByText("已启用 7/16")).toBeInTheDocument();
+    expect(within(commonSection).getByText("已启用 7/15")).toBeInTheDocument();
     toggleAccordionSection("常用选项");
     for (const label of [
       "默认启用深度思考",
@@ -3991,7 +3984,6 @@ describe("ProfileEditor", () => {
       "接受计划时显示清理上下文",
       "禁用 AI 署名",
       "禁用所有 Hooks",
-      "启用 Fast Mode",
       "尊重 .gitignore",
       "禁用自动更新",
       "显式启用 Tool Search",
@@ -4025,7 +4017,6 @@ describe("ProfileEditor", () => {
       CLAUDE_CODE_NO_FLICKER: "1",
       ENABLE_LSP_TOOL: "1",
     });
-    expect(saved.settings).not.toHaveProperty("fastMode");
     expect(saved.settings).not.toHaveProperty("respectGitignore");
     expect(saved.settings).not.toHaveProperty("outputStyle");
     expect(saved.settings).not.toHaveProperty("attribution");
