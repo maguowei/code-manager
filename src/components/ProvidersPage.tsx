@@ -9,11 +9,7 @@ import { ipc } from "../ipc";
 import type { ConfigWorkspace, Provider } from "../types";
 import ConfigSectionTabs from "./ConfigSectionTabs";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
-import {
-  getEnabledPluginsSummary,
-  providerDisplayName,
-  providerNameById,
-} from "./config-workspace-utils";
+import { providerDisplayName } from "./config-workspace-utils";
 import EmptyState from "./EmptyState";
 import type { EditorExitGuard } from "./editor-exit-guard";
 import {
@@ -77,10 +73,6 @@ function ProvidersPage({
     () => [...workspace.builtinProviders, ...workspace.customProviders],
     [workspace.builtinProviders, workspace.customProviders],
   );
-
-  function providerPluginsSummary(provider: Provider) {
-    return getEnabledPluginsSummary(provider.settingsPatch.enabledPlugins);
-  }
 
   function providerModelSuggestions(provider: Provider) {
     return provider.modelSuggestions.map((model) => model.trim()).filter(Boolean);
@@ -233,11 +225,10 @@ function ProvidersPage({
       en: string;
     };
     description: string;
-    basePresetId?: string;
     docUrl?: string;
     models?: Provider["models"];
     modelSuggestions: string[];
-    settingsPatch: Record<string, unknown>;
+    env: Record<string, string>;
   }) {
     try {
       await ipc.upsertProvider(data);
@@ -358,14 +349,9 @@ function ProvidersPage({
           ) : (
             <div className="preset-list flex flex-col gap-3">
               {workspace.customProviders.map((provider) => {
-                const baseProviderName = providerNameById(
-                  allProviders,
-                  provider.basePresetId,
-                  language,
-                  t("profileEditor.provider.noProvider"),
-                );
                 const modelSuggestions = providerModelSuggestions(provider);
-                const pluginsSummary = providerPluginsSummary(provider);
+                // 展示 API 地址（来自 provider.env.ANTHROPIC_BASE_URL）
+                const baseUrl = provider.env?.ANTHROPIC_BASE_URL ?? "";
 
                 return (
                   <Card key={provider.id} className={PRESET_CARD_CLASS} data-slot="preset-card">
@@ -389,27 +375,18 @@ function ProvidersPage({
                         {renderDocLink(provider.docUrl)}
                       </div>
 
-                      <div className="preset-card-summary flex flex-col gap-2.5">
-                        <div className="preset-summary-block rounded-lg border border-border bg-muted/50 px-3 py-[11px]">
-                          <span className="preset-summary-label inline-flex items-center text-xs leading-normal font-semibold text-muted-foreground">
-                            {t("providers.editor.fields.basePreset")}
-                          </span>
-                          <div className="preset-summary-value mt-[7px] flex flex-wrap items-center gap-2 text-sm leading-normal text-foreground">
-                            {baseProviderName}
-                          </div>
-                        </div>
-
-                        {pluginsSummary.totalCount > 0 ? (
+                      {baseUrl && (
+                        <div className="preset-card-summary flex flex-col gap-2.5">
                           <div className="preset-summary-block rounded-lg border border-border bg-muted/50 px-3 py-[11px]">
                             <span className="preset-summary-label inline-flex items-center text-xs leading-normal font-semibold text-muted-foreground">
-                              {t("common.pluginsEnabledSummaryLabel")}
+                              {t("providers.editor.fields.baseUrl")}
                             </span>
-                            <div className="preset-summary-value mt-[7px] flex flex-wrap items-center gap-2 text-sm leading-normal text-foreground">
-                              {pluginsSummary.enabledCount}/{pluginsSummary.totalCount}
+                            <div className="preset-summary-value mt-[7px] flex flex-wrap items-center gap-2 font-mono text-xs leading-normal text-foreground">
+                              {baseUrl}
                             </div>
                           </div>
-                        ) : null}
-                      </div>
+                        </div>
+                      )}
 
                       {renderModelSection(modelSuggestions)}
                     </div>

@@ -238,6 +238,7 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
   bindings: {},
 } as ConfigWorkspace;
 
+// 段 B：Provider 不再有 settingsPatch/basePresetId，只有 env 扁平字典
 const BUILTIN_PRESETS: Provider[] = [
   {
     id: "builtin:openrouter",
@@ -254,10 +255,8 @@ const BUILTIN_PRESETS: Provider[] = [
     ],
     modelSuggestions: ["claude-sonnet-4-6", "claude-opus-4-1"],
     docUrl: "https://openrouter.ai/docs",
-    settingsPatch: {
-      env: {
-        ANTHROPIC_BASE_URL: "https://openrouter.ai/api",
-      },
+    env: {
+      ANTHROPIC_BASE_URL: "https://openrouter.ai/api",
     },
     source: "builtin",
   },
@@ -269,13 +268,8 @@ const BUILTIN_PRESETS: Provider[] = [
       en: "Team Plan",
     },
     description: "Team Plan 预设",
-    basePresetId: "builtin:openrouter",
     modelSuggestions: ["claude-haiku-fallback"],
-    settingsPatch: {
-      permissions: {
-        defaultMode: "plan",
-      },
-    },
+    env: {},
     source: "custom",
   },
   {
@@ -286,10 +280,9 @@ const BUILTIN_PRESETS: Provider[] = [
       en: "Explicit Model",
     },
     description: "显式模型预设",
-    basePresetId: "custom:team-plan",
     modelSuggestions: ["claude-sonnet-4-6"],
-    settingsPatch: {
-      model: "claude-opus-explicit",
+    env: {
+      ANTHROPIC_MODEL: "claude-opus-explicit",
     },
     source: "custom",
   },
@@ -301,13 +294,10 @@ const BUILTIN_PRESETS: Provider[] = [
       en: "Env Level Overrides",
     },
     description: "环境变量级别覆盖预设",
-    basePresetId: "custom:explicit-model",
     modelSuggestions: ["claude-sonnet-4-6"],
-    settingsPatch: {
-      env: {
-        ANTHROPIC_DEFAULT_HAIKU_MODEL: "haiku-env-override",
-        CLAUDE_CODE_SUBAGENT_MODEL: "subagent-env-override",
-      },
+    env: {
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: "haiku-env-override",
+      CLAUDE_CODE_SUBAGENT_MODEL: "subagent-env-override",
     },
     source: "custom",
   },
@@ -606,7 +596,10 @@ describe("ProfileEditor", () => {
       expect(within(authSection).getByLabelText("供应商")).toHaveClass("text-sm");
       expect(within(authSection).getByLabelText("供应商")).toBeInTheDocument();
       expect(within(authSection).getByLabelText("ANTHROPIC_AUTH_TOKEN")).toHaveValue("token");
-      expect(within(authSection).getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("");
+      // 地址只读：显示所选供应商（builtin:openrouter）的 env.ANTHROPIC_BASE_URL
+      expect(within(authSection).getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue(
+        "https://openrouter.ai/api",
+      );
     }
     if (basicSection) {
       expect(within(basicSection).getByRole("heading", { name: "基础信息", level: 3 })).toHaveClass(
@@ -3733,35 +3726,28 @@ describe("ProfileEditor", () => {
     expect(within(pluginsSection).getByRole("tab", { name: "浏览市场" })).toBeInTheDocument();
   });
 
-  it("does not show the official plugin load button when the marketplace only exists in an inherited preset", () => {
+  it("does not show the official plugin load button when the marketplace is not in the profile settings", () => {
+    // 段 B：Provider 不再有 settingsPatch/basePresetId，extraKnownMarketplaces 只能存在于 profile.settings
+    // 此测试验证 profile.settings 未配置 extraKnownMarketplaces 时不显示"加载官方插件"按钮
     renderEditor({
       providers: [
         ...BUILTIN_PRESETS,
         {
-          id: "custom:official-inherited",
-          name: "Inherited Official",
+          id: "custom:no-marketplace",
+          name: "No Marketplace",
           localizedName: {
-            zh: "继承官方市场",
-            en: "Inherited Official",
+            zh: "无市场配置",
+            en: "No Marketplace",
           },
-          description: "通过预设提供官方市场",
+          description: "未配置官方市场的供应商",
           modelSuggestions: [],
-          settingsPatch: {
-            extraKnownMarketplaces: {
-              [OFFICIAL_MARKETPLACE_ID]: {
-                source: {
-                  source: "github",
-                  repo: OFFICIAL_MARKETPLACE_REPO,
-                },
-              },
-            },
-          },
+          env: {},
           source: "custom",
         },
       ],
       profile: {
         ...PROFILE_FIXTURE,
-        providerId: "custom:official-inherited",
+        providerId: "custom:no-marketplace",
         settings: {
           ...PROFILE_FIXTURE.settings,
         },
@@ -3814,7 +3800,7 @@ describe("ProfileEditor", () => {
     }
   });
 
-  it("autofills base url and all model levels from the selected preset, then clears them when preset is removed", () => {
+  it("autofills model levels from the selected provider and shows provider base url read-only", () => {
     renderEditor({
       profile: {
         ...PROFILE_FIXTURE,
@@ -3822,7 +3808,6 @@ describe("ProfileEditor", () => {
         settings: {
           env: {
             ANTHROPIC_AUTH_TOKEN: "token",
-            ANTHROPIC_BASE_URL: "https://manual.example.com",
             ANTHROPIC_MODEL: "manual-model",
             ANTHROPIC_DEFAULT_OPUS_MODEL: "manual-opus",
             ANTHROPIC_DEFAULT_SONNET_MODEL: "manual-sonnet",
@@ -3833,36 +3818,43 @@ describe("ProfileEditor", () => {
       },
     });
 
+    // 选择开放路由（有 models 数组和 ANTHROPIC_BASE_URL）：地址只读，模型按类别自动填充
     chooseComboboxOption("供应商", "开放路由");
     expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("https://openrouter.ai/api");
+    expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toBeDisabled();
     expect(screen.getByLabelText("默认模型")).toHaveValue("claude-sonnet-4-6");
     expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("claude-opus-4-1");
     expect(screen.getByLabelText("Sonnet 默认模型")).toHaveValue("claude-sonnet-4-6");
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("claude-haiku-4-5");
     expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
 
+    // 切换到团队计划（无 ANTHROPIC_BASE_URL，无 models，仅有 modelSuggestions）：
+    // 地址显示空，模型字段重新按供应商推导（默认模型来自 modelSuggestions 第一项）
     chooseComboboxOption("供应商", "团队计划");
-    expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("https://openrouter.ai/api");
-    expect(screen.getByLabelText("默认模型")).toHaveValue("claude-sonnet-4-6");
-    expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("claude-opus-4-1");
-    expect(screen.getByLabelText("Sonnet 默认模型")).toHaveValue("claude-sonnet-4-6");
-    expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("claude-haiku-4-5");
+    expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("");
+    expect(screen.getByLabelText("默认模型")).toHaveValue("claude-haiku-fallback");
+    expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("");
+    expect(screen.getByLabelText("Sonnet 默认模型")).toHaveValue("claude-haiku-fallback");
+    expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("claude-haiku-fallback");
     expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
 
+    // 切换到显式模型（ANTHROPIC_MODEL 在 env 中直接指定）：模型字段按 env 填充
     chooseComboboxOption("供应商", "显式模型");
     expect(screen.getByLabelText("默认模型")).toHaveValue("claude-opus-explicit");
-    expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("claude-opus-4-1");
-    expect(screen.getByLabelText("Sonnet 默认模型")).toHaveValue("claude-sonnet-4-6");
-    expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("claude-haiku-4-5");
+    expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("");
+    expect(screen.getByLabelText("Sonnet 默认模型")).toHaveValue("claude-opus-explicit");
+    expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("claude-opus-explicit");
     expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
 
+    // 环境变量级别覆盖供应商：haiku 和 subagent 字段按供应商 env 填充
     chooseComboboxOption("供应商", "环境变量级别覆盖");
-    expect(screen.getByLabelText("默认模型")).toHaveValue("claude-opus-explicit");
+    expect(screen.getByLabelText("默认模型")).toHaveValue("claude-sonnet-4-6");
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("haiku-env-override");
     expect(screen.getByLabelText("Subagent 模型")).toHaveValue("subagent-env-override");
 
+    // 切换到无供应商：地址字段不渲染，模型字段全部清空，auth token 保持不变
     chooseComboboxOption("供应商", "无供应商");
-    expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("");
+    expect(screen.queryByLabelText("ANTHROPIC_BASE_URL")).not.toBeInTheDocument();
     expect(screen.getByLabelText("默认模型")).toHaveValue("");
     expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("");
     expect(screen.getByLabelText("Sonnet 默认模型")).toHaveValue("");
@@ -3889,12 +3881,16 @@ describe("ProfileEditor", () => {
     const authTokenInput = within(authSection).getByLabelText("ANTHROPIC_AUTH_TOKEN");
     expect(authTokenInput).toHaveValue("token");
     expect(authTokenInput).toHaveAttribute("type", "password");
-    expect(within(authSection).getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("");
-    expect(within(authSection).getByLabelText("ANTHROPIC_BASE_URL")).toBeInTheDocument();
+    // 地址只读：来自所选供应商（builtin:openrouter）的 env.ANTHROPIC_BASE_URL
+    const baseUrlInput = within(authSection).getByLabelText("ANTHROPIC_BASE_URL");
+    expect(baseUrlInput).toHaveValue("https://openrouter.ai/api");
+    expect(baseUrlInput).toBeDisabled();
     expect(within(authSection).getByLabelText("ANTHROPIC_AUTH_TOKEN")).toBeInTheDocument();
+    // 认证相关 key 不在环境变量分区中暴露
     expect(within(envSection).queryByDisplayValue("ANTHROPIC_AUTH_TOKEN")).not.toBeInTheDocument();
     expect(within(envSection).queryByDisplayValue("ANTHROPIC_BASE_URL")).not.toBeInTheDocument();
 
+    // auth token 的显示/隐藏切换
     await act(async () => {
       fireEvent.click(within(authSection).getByRole("button", { name: "显示密钥" }));
       await Promise.resolve();
@@ -3906,11 +3902,9 @@ describe("ProfileEditor", () => {
     });
     expect(authTokenInput).toHaveAttribute("type", "password");
 
+    // 修改 auth token（可编辑），验证写入 profile.settings
     fireEvent.change(authTokenInput, {
       target: { value: "auth-token" },
-    });
-    fireEvent.change(within(authSection).getByLabelText("ANTHROPIC_BASE_URL"), {
-      target: { value: "https://example.com" },
     });
 
     const statusLineSection = getSection("状态行");
@@ -3923,8 +3917,9 @@ describe("ProfileEditor", () => {
     });
 
     const rawJsonInput = switchDocumentSectionToEdit("最终配置", "编辑源 JSON");
+    // auth token 写入 profile.settings，ANTHROPIC_BASE_URL 来自 provider 不写入 profile
     expect(rawJsonInput.value).toContain('"ANTHROPIC_AUTH_TOKEN": "auth-token"');
-    expect(rawJsonInput.value).toContain('"ANTHROPIC_BASE_URL": "https://example.com"');
+    expect(rawJsonInput.value).not.toContain('"ANTHROPIC_BASE_URL"');
     expect(rawJsonInput.value).toContain('"statusLine"');
     expect(rawJsonInput.value).toContain('"~/.claude/statusline.sh"');
     fireEvent.click(within(getSection("最终配置")).getByRole("button", { name: "预览" }));
@@ -3934,7 +3929,7 @@ describe("ProfileEditor", () => {
     const previewOutputs = screen.getAllByTestId("config-preview-output");
     const latestPreview = previewOutputs[previewOutputs.length - 1];
     expect(latestPreview).toHaveTextContent('"ANTHROPIC_AUTH_TOKEN": "auth-token"');
-    expect(latestPreview).toHaveTextContent('"ANTHROPIC_BASE_URL": "https://example.com"');
+    expect(latestPreview).not.toHaveTextContent('"ANTHROPIC_BASE_URL"');
     expect(latestPreview).toHaveTextContent('"statusLine"');
     expect(latestPreview).toHaveTextContent('"~/.claude/statusline.sh"');
   });

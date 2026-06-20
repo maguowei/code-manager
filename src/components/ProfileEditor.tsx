@@ -821,22 +821,27 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
             <EditorDescription>{messages.providerHint}</EditorDescription>
           </EditorField>
 
-          <EditorField>
-            <EditorLabelRow>
-              <Label htmlFor="profile-base-url">{messages.baseUrl}</Label>
-              <EditorEnvHint>{messages.baseUrlEnv}</EditorEnvHint>
-            </EditorLabelRow>
-            <Input
-              id="profile-base-url"
-              aria-label={messages.baseUrlEnv}
-              className={EDITOR_CONTROL_SURFACE_CLASS}
-              value={readEnvString(settings, "ANTHROPIC_BASE_URL")}
-              placeholder="https://api.anthropic.com"
-              onChange={(event) =>
-                applySettings(setEnvString(settings, "ANTHROPIC_BASE_URL", event.target.value))
-              }
-            />
-          </EditorField>
+          {/* 地址只读：来自所选供应商的 env.ANTHROPIC_BASE_URL，不写入 profile.settings */}
+          {selectedProvider && (
+            <EditorField>
+              <EditorLabelRow>
+                <Label htmlFor="profile-base-url">{messages.baseUrl}</Label>
+                <EditorEnvHint>{messages.baseUrlEnv}</EditorEnvHint>
+              </EditorLabelRow>
+              <Input
+                id="profile-base-url"
+                aria-label={messages.baseUrlEnv}
+                className={EDITOR_CONTROL_SURFACE_CLASS}
+                value={selectedProvider.env?.ANTHROPIC_BASE_URL ?? ""}
+                placeholder="https://api.anthropic.com"
+                readOnly
+                disabled
+                title={
+                  selectedProvider.env?.ANTHROPIC_BASE_URL ? undefined : (messages.baseUrl ?? "")
+                }
+              />
+            </EditorField>
+          )}
 
           <EditorField>
             <EditorLabelRow>
