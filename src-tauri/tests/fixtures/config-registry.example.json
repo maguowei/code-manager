@@ -29,16 +29,14 @@
         "zh": "团队计划",
         "en": "Team Plan"
       },
-      "description": "团队默认权限",
-      "basePresetId": "builtin:openrouter",
-      "docUrl": "https://example.com/preset-docs",
+      "description": "团队 OpenRouter 供应商",
+      "docUrl": "https://example.com/provider-docs",
       "modelSuggestions": [
         "claude-sonnet-4-6"
       ],
-      "settingsPatch": {
-        "permissions": {
-          "defaultMode": "plan"
-        }
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://openrouter.ai/api",
+        "ANTHROPIC_MODEL": "claude-sonnet-4-6"
       },
       "source": "custom"
     }

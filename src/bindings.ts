@@ -223,10 +223,11 @@ export type ConfigProfile_Deserialize = {
 	id: string,
 	name: string,
 	description: string,
-	providerId: string | null,
 	settings: unknown,
 	createdAt: string,
 	updatedAt: string,
+} & {
+	providerId: string | null,
 };
 
 export type ConfigProfile_Serialize = {
@@ -828,11 +829,10 @@ export type ProviderInput = {
 	name: string,
 	localizedName?: LocalizedText | null,
 	description: string,
-	basePresetId: string | null,
 	docUrl: string | null,
 	models?: ProviderModel[] | null,
 	modelSuggestions?: string[],
-	settingsPatch: unknown,
+	env?: { [key in string]: string },
 };
 
 export type ProviderModel = {
@@ -849,11 +849,10 @@ export type Provider_Deserialize = {
 	name: string,
 	localizedName: LocalizedText | null,
 	description: string,
-	basePresetId: string | null,
 	docUrl: string | null,
 	models: ProviderModel[] | null,
 	modelSuggestions?: string[],
-	settingsPatch: unknown,
+	env?: { [key in string]: string },
 	source: ProviderSource,
 };
 
@@ -862,11 +861,10 @@ export type Provider_Serialize = {
 	name: string,
 	localizedName?: LocalizedText | null,
 	description: string,
-	basePresetId?: string | null,
 	docUrl?: string | null,
 	models?: ProviderModel[] | null,
 	modelSuggestions: string[],
-	settingsPatch: unknown,
+	env: { [key in string]: string },
 	source: ProviderSource,
 };
 

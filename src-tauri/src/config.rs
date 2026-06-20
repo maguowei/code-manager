@@ -152,15 +152,15 @@ pub struct Provider {
     pub localized_name: Option<LocalizedText>,
     pub description: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub base_preset_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub doc_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub models: Option<Vec<ProviderModel>>,
     #[serde(default)]
     pub model_suggestions: Vec<String>,
-    #[specta(type = specta_typescript::Unknown)]
-    pub settings_patch: Value,
+    // 供应商只承载连接相关环境变量（地址 / 模型映射 / 可选附加 env），不含认证密钥
+    #[serde(default)]
+    #[specta(type = std::collections::HashMap<String, String>)]
+    pub env: Map<String, Value>,
     pub source: ProviderSource,
 }
 
@@ -170,7 +170,12 @@ pub struct ConfigProfile {
     pub id: String,
     pub name: String,
     pub description: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    // COMPAT(presetId→providerId): 兼容 <=0.20.x 的旧字段，计划 0.23.0 移除
+    #[serde(
+        rename = "providerId",
+        alias = "presetId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub provider_id: Option<String>,
     #[specta(type = specta_typescript::Unknown)]
     pub settings: Value,
@@ -380,14 +385,14 @@ pub struct ProviderInput {
     #[serde(default)]
     pub localized_name: Option<LocalizedText>,
     pub description: String,
-    pub base_preset_id: Option<String>,
     pub doc_url: Option<String>,
     #[serde(default)]
     pub models: Option<Vec<ProviderModel>>,
     #[serde(default)]
     pub model_suggestions: Vec<String>,
-    #[specta(type = specta_typescript::Unknown)]
-    pub settings_patch: Value,
+    #[serde(default)]
+    #[specta(type = std::collections::HashMap<String, String>)]
+    pub env: Map<String, Value>,
 }
 
 #[derive(Debug, Clone, Deserialize, specta::Type)]
@@ -515,7 +520,7 @@ fn parse_builtin_providers() -> Vec<Provider> {
     seeds
         .into_iter()
         .map(|seed| {
-            let mut settings_patch = Map::new();
+            // 地址统一归 env.ANTHROPIC_BASE_URL（单一事实源），与 seed.env 一起折叠进 env
             let mut env = Map::new();
             for (key, value) in seed.env {
                 let key = key.trim();
@@ -531,16 +536,12 @@ fn parse_builtin_providers() -> Vec<Provider> {
                     Value::String(seed.base_url.trim().to_string()),
                 );
             }
-            if !env.is_empty() {
-                settings_patch.insert("env".to_string(), Value::Object(env));
-            }
 
             Provider {
                 id: format!("builtin:{}", seed.slug),
                 name: seed.name.clone(),
                 localized_name: normalize_localized_text(seed.localized_name, &seed.name),
                 description: format!("{} provider", seed.name),
-                base_preset_id: None,
                 doc_url: seed.doc_url,
                 models: normalize_provider_models(Some(
                     seed.models
@@ -554,7 +555,7 @@ fn parse_builtin_providers() -> Vec<Provider> {
                 model_suggestions: normalize_model_suggestions(
                     seed.models.into_iter().map(|model| model.id).collect(),
                 ),
-                settings_patch: Value::Object(settings_patch),
+                env,
                 source: ProviderSource::Builtin,
             }
         })
@@ -576,9 +577,6 @@ fn normalize_registry(registry: &mut ConfigRegistry) {
         provider.models = normalize_provider_models(provider.models.take());
         provider.model_suggestions =
             normalize_model_suggestions(std::mem::take(&mut provider.model_suggestions));
-        if !provider.settings_patch.is_object() {
-            provider.settings_patch = Value::Object(Map::new());
-        }
     });
     registry.profiles.iter_mut().for_each(|profile| {
         if !profile.settings.is_object() {
@@ -964,6 +962,16 @@ fn normalize_model_test_input(input: ModelTestInput) -> Result<ModelTestInput, S
 }
 
 fn normalize_provider_input(input: ProviderInput) -> Result<ProviderInput, String> {
+    // env-only：trim key/value，丢弃空键值；值统一规整为字符串
+    let mut env = Map::new();
+    for (key, value) in input.env {
+        let key = key.trim();
+        let trimmed_value = value.as_str().map(str::trim).unwrap_or_default();
+        if key.is_empty() || trimmed_value.is_empty() {
+            continue;
+        }
+        env.insert(key.to_string(), Value::String(trimmed_value.to_string()));
+    }
     Ok(ProviderInput {
         id: input
             .id
@@ -972,11 +980,10 @@ fn normalize_provider_input(input: ProviderInput) -> Result<ProviderInput, Strin
         name: input.name.trim().to_string(),
         localized_name: normalize_localized_text(input.localized_name, &input.name),
         description: input.description.trim().to_string(),
-        base_preset_id: input.base_preset_id.filter(|id| !id.trim().is_empty()),
         doc_url: input.doc_url.filter(|url| !url.trim().is_empty()),
         models: normalize_provider_models(input.models),
         model_suggestions: normalize_model_suggestions(input.model_suggestions),
-        settings_patch: normalize_settings_document(input.settings_patch)?,
+        env,
     })
 }
 
@@ -1086,26 +1093,6 @@ fn find_provider(registry: &ConfigRegistry, provider_id: &str) -> Option<Provide
                 .find(|provider| provider.id == provider_id)
                 .cloned()
         })
-}
-
-fn resolve_provider_chain(
-    registry: &ConfigRegistry,
-    provider_id: &str,
-    visited: &mut HashSet<String>,
-) -> Result<Vec<Provider>, String> {
-    if !visited.insert(provider_id.to_string()) {
-        return Err("检测到 provider 循环继承".to_string());
-    }
-
-    let provider = find_provider(registry, provider_id)
-        .ok_or_else(|| format!("未找到 provider '{}'", provider_id))?;
-    let mut chain = if let Some(base_preset_id) = provider.base_preset_id.clone() {
-        resolve_provider_chain(registry, &base_preset_id, visited)?
-    } else {
-        Vec::new()
-    };
-    chain.push(provider);
-    Ok(chain)
 }
 
 fn merge_json_values(base: Value, overlay: Value) -> Value {
@@ -1405,9 +1392,12 @@ fn resolve_profile_settings(
     let mut resolved = Value::Object(Map::new());
 
     if let Some(provider_id) = profile.provider_id.as_deref() {
-        let mut visited = HashSet::new();
-        for provider in resolve_provider_chain(registry, provider_id, &mut visited)? {
-            resolved = merge_json_values(resolved, provider.settings_patch);
+        // COMPAT(presetId→providerId): 兼容 <=0.20.x 的旧字段，计划 0.23.0 移除
+        // C2：providerId 解析不到（如引用了已丢弃的旧自定义预设）时容错跳过，仅用 profile.settings，不报错
+        if let Some(provider) = find_provider(registry, provider_id) {
+            let mut base = Map::new();
+            base.insert("env".to_string(), Value::Object(provider.env.clone()));
+            resolved = merge_json_values(resolved, Value::Object(base));
         }
     }
 
@@ -2061,22 +2051,12 @@ fn provider_exists(registry: &ConfigRegistry, provider_id: &str) -> bool {
 }
 
 fn profile_uses_provider(
-    registry: &ConfigRegistry,
+    _registry: &ConfigRegistry,
     profile: &ConfigProfile,
     provider_id: &str,
 ) -> bool {
-    let Some(profile_provider_id) = profile.provider_id.as_deref() else {
-        return false;
-    };
-
-    if profile_provider_id == provider_id {
-        return true;
-    }
-
-    let mut visited = HashSet::new();
-    resolve_provider_chain(registry, profile_provider_id, &mut visited)
-        .map(|chain| chain.iter().any(|provider| provider.id == provider_id))
-        .unwrap_or(false)
+    // 供应商已无继承链，直接比较 profile 绑定的 providerId
+    profile.provider_id.as_deref() == Some(provider_id)
 }
 
 fn bound_profile_ids_using_provider(registry: &ConfigRegistry, provider_id: &str) -> Vec<String> {
@@ -2628,14 +2608,8 @@ pub fn upsert_provider(app_handle: AppHandle, data: ProviderInput) -> Result<Pro
     let result = (|| {
         let _lock = crate::utils::lock_config()?;
         let input = normalize_provider_input(data)?;
-        validate_settings_document(&input.settings_patch)?;
 
         let mut registry = load_registry()?;
-        if let Some(base_preset_id) = input.base_preset_id.as_deref() {
-            if !provider_exists(&registry, base_preset_id) {
-                return Err(format!("未找到 base provider '{}'", base_preset_id));
-            }
-        }
 
         let provider_id = build_custom_provider_id(&registry, &input);
         let provider = Provider {
@@ -2643,11 +2617,10 @@ pub fn upsert_provider(app_handle: AppHandle, data: ProviderInput) -> Result<Pro
             name: input.name,
             localized_name: input.localized_name,
             description: input.description,
-            base_preset_id: input.base_preset_id,
             doc_url: input.doc_url,
             models: input.models,
             model_suggestions: input.model_suggestions,
-            settings_patch: input.settings_patch,
+            env: input.env,
             source: ProviderSource::Custom,
         };
 
@@ -2772,17 +2745,16 @@ mod tests {
         }
     }
 
-    fn sample_custom_provider(id: &str, base_preset_id: Option<&str>, patch: Value) -> Provider {
+    fn sample_custom_provider(id: &str, env: Value) -> Provider {
         Provider {
             id: id.to_string(),
             name: id.to_string(),
             localized_name: None,
             description: String::new(),
-            base_preset_id: base_preset_id.map(ToOwned::to_owned),
             doc_url: None,
             models: None,
             model_suggestions: vec![],
-            settings_patch: patch,
+            env: env.as_object().cloned().unwrap_or_default(),
             source: ProviderSource::Custom,
         }
     }
@@ -2793,11 +2765,10 @@ mod tests {
             name: name.to_string(),
             localized_name,
             description: String::new(),
-            base_preset_id: None,
             doc_url: None,
             models: None,
             model_suggestions: vec![],
-            settings_patch: serde_json::json!({}),
+            env: Map::new(),
         }
     }
 
@@ -2888,7 +2859,7 @@ mod tests {
             .iter()
             .find(|provider| provider.id == "builtin:deepseek")
             .unwrap();
-        let env = deepseek.settings_patch["env"].as_object().unwrap();
+        let env = &deepseek.env;
 
         assert_eq!(deepseek.name, "DeepSeek");
         assert_eq!(
@@ -2960,7 +2931,6 @@ mod tests {
         let mut registry = ConfigRegistry::default();
         registry.custom_providers.push(sample_custom_provider(
             "custom:general-config",
-            None,
             serde_json::json!({}),
         ));
         let input = sample_provider_input("General Config", None);
@@ -2994,15 +2964,14 @@ mod tests {
     }
 
     #[test]
-    fn resolve_profile_settings_merges_builtin_custom_and_profile_layers() {
+    fn resolve_profile_settings_merges_provider_env_then_profile_overrides() {
         let mut registry = ConfigRegistry::default();
+        // 供应商只提供 env（地址 + 模型映射），无继承
         registry.custom_providers.push(sample_custom_provider(
             "custom:team-openrouter",
-            Some("builtin:openrouter"),
             serde_json::json!({
-                "permissions": {
-                    "defaultMode": "plan"
-                }
+                "ANTHROPIC_BASE_URL": "https://openrouter.ai/api",
+                "ANTHROPIC_MODEL": "provider-model"
             }),
         ));
         let profile = sample_profile(
@@ -3011,23 +2980,27 @@ mod tests {
             serde_json::json!({
                 "model": "claude-sonnet-4-6",
                 "env": {
-                    "ANTHROPIC_AUTH_TOKEN": "token"
+                    "ANTHROPIC_AUTH_TOKEN": "token",
+                    "ANTHROPIC_MODEL": "claude-sonnet-4-6"
                 }
             }),
         );
 
         let resolved = resolve_profile_settings(&registry, &profile).unwrap();
+        // 来自供应商 env
         assert_eq!(
             resolved["env"]["ANTHROPIC_BASE_URL"],
             Value::String("https://openrouter.ai/api".to_string())
         );
+        // 来自 profile.settings.env
         assert_eq!(
             resolved["env"]["ANTHROPIC_AUTH_TOKEN"],
             Value::String("token".to_string())
         );
+        // profile 覆盖供应商
         assert_eq!(
-            resolved["permissions"]["defaultMode"],
-            Value::String("plan".to_string())
+            resolved["env"]["ANTHROPIC_MODEL"],
+            Value::String("claude-sonnet-4-6".to_string())
         );
         assert_eq!(
             resolved["model"],
@@ -3036,6 +3009,35 @@ mod tests {
         assert_eq!(
             resolved["$schema"],
             Value::String(CLAUDE_SETTINGS_SCHEMA_URL.to_string())
+        );
+    }
+
+    // COMPAT(presetId→providerId): 兼容回归测试，0.23.0 移除兼容逻辑时一并删除
+    #[test]
+    fn legacy_preset_id_field_deserializes_into_provider_id() {
+        let json = r#"{
+            "id": "p", "name": "p", "description": "",
+            "presetId": "builtin:deepseek",
+            "settings": {}, "createdAt": "t", "updatedAt": "t"
+        }"#;
+        let profile: ConfigProfile = serde_json::from_str(json).unwrap();
+        assert_eq!(profile.provider_id.as_deref(), Some("builtin:deepseek"));
+    }
+
+    // COMPAT(presetId→providerId): 兼容回归测试，0.23.0 移除兼容逻辑时一并删除
+    #[test]
+    fn resolve_skips_dangling_provider_id_without_error() {
+        let mut registry = ConfigRegistry::default();
+        let profile = sample_profile(
+            "p",
+            Some("custom:gone"),
+            serde_json::json!({ "env": { "ANTHROPIC_AUTH_TOKEN": "tok" } }),
+        );
+        registry.profiles.push(profile.clone());
+        let resolved = resolve_profile_settings(&registry, &profile).unwrap();
+        assert_eq!(
+            resolved["env"]["ANTHROPIC_AUTH_TOKEN"],
+            Value::String("tok".to_string())
         );
     }
 
@@ -3606,11 +3608,8 @@ mod tests {
         let mut registry = ConfigRegistry::default();
         registry.custom_providers.push(sample_custom_provider(
             "custom:base",
-            None,
             serde_json::json!({
-                "env": {
-                    "ANTHROPIC_BASE_URL": "https://old.example.com"
-                }
+                "ANTHROPIC_BASE_URL": "https://old.example.com"
             }),
         ));
         registry.profiles.push(sample_profile(
@@ -3625,11 +3624,12 @@ mod tests {
         registry.bindings.user_profile_id = Some("user-1".to_string());
         apply_profile_to_registry(&mut registry, "user-1").unwrap();
 
-        registry.custom_providers[0].settings_patch = serde_json::json!({
-            "env": {
-                "ANTHROPIC_BASE_URL": "https://new.example.com"
-            }
-        });
+        registry.custom_providers[0].env = serde_json::json!({
+            "ANTHROPIC_BASE_URL": "https://new.example.com"
+        })
+        .as_object()
+        .cloned()
+        .unwrap();
         for profile_id in bound_profile_ids_using_provider(&registry, "custom:base") {
             apply_profile_to_registry(&mut registry, &profile_id).unwrap();
         }
@@ -3667,16 +3667,17 @@ mod tests {
                     zh: "团队计划".to_string(),
                     en: "Team Plan".to_string(),
                 }),
-                description: "团队默认权限".to_string(),
-                base_preset_id: Some("builtin:openrouter".to_string()),
-                doc_url: Some("https://example.com/preset-docs".to_string()),
+                description: "团队 OpenRouter 供应商".to_string(),
+                doc_url: Some("https://example.com/provider-docs".to_string()),
                 models: None,
                 model_suggestions: vec!["claude-sonnet-4-6".to_string()],
-                settings_patch: stable_sort_json(serde_json::json!({
-                    "permissions": {
-                        "defaultMode": "plan"
-                    }
-                })),
+                env: serde_json::json!({
+                    "ANTHROPIC_BASE_URL": "https://openrouter.ai/api",
+                    "ANTHROPIC_MODEL": "claude-sonnet-4-6"
+                })
+                .as_object()
+                .cloned()
+                .unwrap(),
                 source: ProviderSource::Custom,
             }],
             profiles: vec![ConfigProfile {
