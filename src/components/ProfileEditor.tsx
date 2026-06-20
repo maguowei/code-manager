@@ -6,14 +6,14 @@ import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
 import { ipc } from "../ipc";
-import type { ConfigProfile, ModelTestResult, SettingsPreset } from "../types";
+import type { ConfigProfile, ModelTestResult, Provider } from "../types";
 import {
   applyEnvDefaults,
-  applyPresetAutofill,
+  applyProviderAutofill,
   cloneSettings,
   getEnabledPluginsSummary,
-  presetDisplayName,
-  presetSlugFromId,
+  providerDisplayName,
+  providerSlugFromId,
   readEnvString,
   readScopedSettingsWithEnv,
   readTopLevelObject,
@@ -99,7 +99,7 @@ interface ProfileEditorSaveData {
   id?: string;
   name: string;
   description: string;
-  presetId?: string;
+  providerId?: string;
   settings: Record<string, unknown>;
 }
 
@@ -111,12 +111,12 @@ export interface ProfileEditorHandle {
 
 interface ProfileEditorProps {
   profile: ConfigProfile | null;
-  presets: SettingsPreset[];
+  providers: Provider[];
   onSave: (data: ProfileEditorSaveData) => Promise<boolean> | boolean;
   onClose: () => void;
 }
 
-const NO_PRESET_VALUE = "__none__";
+const NO_PROVIDER_VALUE = "__none__";
 
 function buildInitialProfileSettings(
   profile: ConfigProfile | null,
@@ -130,14 +130,14 @@ function buildProfileSaveData(
   profileId: string | undefined,
   name: string,
   description: string,
-  presetId: string,
+  providerId: string,
   settings: Record<string, unknown>,
 ): ProfileEditorSaveData {
   return {
     id: profileId,
     name: name.trim(),
     description: description.trim(),
-    presetId: presetId || undefined,
+    providerId: providerId || undefined,
     settings,
   };
 }
@@ -147,7 +147,7 @@ function profileSaveDataEquals(left: ProfileEditorSaveData, right: ProfileEditor
 }
 
 const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(function ProfileEditor(
-  { profile, presets, onSave, onClose },
+  { profile, providers, onSave, onClose },
   ref,
 ) {
   const { language, t } = useI18n();
@@ -158,13 +158,13 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
       profile?.id,
       profile?.name ?? "",
       profile?.description ?? "",
-      profile?.presetId ?? "",
+      profile?.providerId ?? "",
       buildInitialProfileSettings(profile, language),
     );
   }
   const [name, setName] = useState(initialDraftRef.current.name);
   const [description, setDescription] = useState(initialDraftRef.current.description);
-  const [presetId, setPresetId] = useState(initialDraftRef.current.presetId ?? "");
+  const [providerId, setProviderId] = useState(initialDraftRef.current.providerId ?? "");
   const [settings, setSettings] = useState<Record<string, unknown>>(() =>
     cloneSettings(initialDraftRef.current?.settings),
   );
@@ -178,9 +178,9 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
     useState<ModelTestResultDialogComponent | null>(null);
   const [isRawResponseExpanded, setIsRawResponseExpanded] = useState(false);
   const modelTestRunIdRef = useRef(0);
-  const selectedPreset = useMemo(
-    () => presets.find((preset) => preset.id === presetId) ?? null,
-    [presetId, presets],
+  const selectedProvider = useMemo(
+    () => providers.find((provider) => provider.id === providerId) ?? null,
+    [providerId, providers],
   );
   const behaviorSettings = useMemo(
     () =>
@@ -468,14 +468,14 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
     applySettings(setTopLevelObject(settings, key, value));
   }
 
-  function handlePresetChange(nextPresetId: string) {
+  function handleProviderChange(nextProviderId: string) {
     clearModelTestState();
-    setPresetId(nextPresetId);
-    applySettings(applyPresetAutofill(settings, presets, nextPresetId || undefined));
+    setProviderId(nextProviderId);
+    applySettings(applyProviderAutofill(settings, providers, nextProviderId || undefined));
   }
 
-  function handleOpenSelectedPresetDocs() {
-    const docUrl = selectedPreset?.docUrl;
+  function handleOpenSelectedProviderDocs() {
+    const docUrl = selectedProvider?.docUrl;
     if (!docUrl) {
       return;
     }
@@ -488,7 +488,7 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
     }
 
     const result = await onSave(
-      buildProfileSaveData(profile?.id, name, description, presetId, settings),
+      buildProfileSaveData(profile?.id, name, description, providerId, settings),
     );
     return result;
   }
@@ -512,7 +512,7 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
         id: profile?.id ?? null,
         name,
         description,
-        presetId: presetId || null,
+        providerId: providerId || null,
         settings,
         ...(promptText !== undefined ? { promptText } : {}),
       });
@@ -554,7 +554,7 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
           id: profile?.id ?? null,
           name,
           description,
-          presetId: presetId || null,
+          providerId: providerId || null,
           settings,
         })
         .then((value) => {
@@ -576,7 +576,7 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [description, name, presetId, profile?.id, settings, t]);
+  }, [description, name, providerId, profile?.id, settings, t]);
 
   useEffect(() => {
     if (!isModelTestDialogOpen || ModelTestResultDialog) {
@@ -631,7 +631,13 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
     !!statusLineJsonEditor.jsonError ||
     sectionState.hasEditorErrors;
   const canSaveProfile = !!name.trim() && !hasValidationError;
-  const currentSaveData = buildProfileSaveData(profile?.id, name, description, presetId, settings);
+  const currentSaveData = buildProfileSaveData(
+    profile?.id,
+    name,
+    description,
+    providerId,
+    settings,
+  );
   const isDirty = !profileSaveDataEquals(initialDraftRef.current, currentSaveData);
   const canTestModel = !!name.trim() && !hasValidationError;
 
@@ -651,15 +657,15 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
     namePlaceholder: t("profiles.editor.placeholders.name"),
     description: t("profiles.editor.fields.description"),
     descriptionPlaceholder: t("profiles.editor.placeholders.description"),
-    preset: t("profiles.editor.fields.preset"),
-    openPresetDocs: t("presets.actions.openDocs"),
+    provider: t("profiles.editor.fields.provider"),
+    openProviderDocs: t("providers.actions.openDocs"),
     authToken: t("profiles.editor.fields.authToken"),
     authTokenEnv: t("profiles.editor.fields.authTokenEnv"),
     showAuthToken: t("common.showToken"),
     hideAuthToken: t("common.hideToken"),
     baseUrl: t("profiles.editor.fields.baseUrl"),
     baseUrlEnv: t("profiles.editor.fields.baseUrlEnv"),
-    presetHint: t("profiles.editor.hints.preset"),
+    providerHint: t("profiles.editor.hints.provider"),
     suggestedModels: t("profiles.editor.hints.suggestedModels"),
     basicInfo: t("profiles.editor.sections.basicInfo"),
     auth: t("profiles.editor.sections.auth"),
@@ -731,7 +737,7 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
       >
         <ProfileNameBadge
           name={name}
-          colorSeedScope={presetSlugFromId(presetId)}
+          colorSeedScope={providerSlugFromId(providerId)}
           size="lg"
           fallbackChar="P"
         />
@@ -766,53 +772,53 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
 
         <EditorSection title={messages.auth}>
           <EditorField>
-            <Label htmlFor="profile-preset">{messages.preset}</Label>
+            <Label htmlFor="profile-provider">{messages.provider}</Label>
             <div className="grid max-w-full grid-cols-[minmax(0,520px)_max-content] items-center gap-3 max-[700px]:grid-cols-[minmax(0,1fr)] max-[700px]:items-stretch">
               <div className="min-w-0">
                 <Select
-                  value={presetId || NO_PRESET_VALUE}
+                  value={providerId || NO_PROVIDER_VALUE}
                   onValueChange={(value) =>
-                    handlePresetChange(value === NO_PRESET_VALUE ? "" : value)
+                    handleProviderChange(value === NO_PROVIDER_VALUE ? "" : value)
                   }
                 >
                   <SelectTrigger
-                    id="profile-preset"
+                    id="profile-provider"
                     className={cn("w-full", EDITOR_CONTROL_SURFACE_CLASS)}
-                    value={presetId}
-                    data-value={presetId}
+                    value={providerId}
+                    data-value={providerId}
                     onChange={(event) =>
-                      handlePresetChange((event.target as HTMLButtonElement).value)
+                      handleProviderChange((event.target as HTMLButtonElement).value)
                     }
                   >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      <SelectItem value={NO_PRESET_VALUE}>
-                        {t("profiles.editor.options.noPreset")}
+                      <SelectItem value={NO_PROVIDER_VALUE}>
+                        {t("profiles.editor.options.noProvider")}
                       </SelectItem>
-                      {presets.map((preset) => (
-                        <SelectItem key={preset.id} value={preset.id}>
-                          {presetDisplayName(preset, language)}
+                      {providers.map((provider) => (
+                        <SelectItem key={provider.id} value={provider.id}>
+                          {providerDisplayName(provider, language)}
                         </SelectItem>
                       ))}
                     </SelectGroup>
                   </SelectContent>
                 </Select>
               </div>
-              {selectedPreset?.docUrl ? (
+              {selectedProvider?.docUrl ? (
                 <Button
                   type="button"
                   variant="outline"
                   className="min-h-9 whitespace-nowrap max-[700px]:justify-self-start"
-                  onClick={handleOpenSelectedPresetDocs}
+                  onClick={handleOpenSelectedProviderDocs}
                 >
-                  <span>{messages.openPresetDocs}</span>
+                  <span>{messages.openProviderDocs}</span>
                   <ExternalLink className="size-3.5" aria-hidden="true" />
                 </Button>
               ) : null}
             </div>
-            <EditorDescription>{messages.presetHint}</EditorDescription>
+            <EditorDescription>{messages.providerHint}</EditorDescription>
           </EditorField>
 
           <EditorField>
@@ -850,11 +856,11 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
             />
           </EditorField>
 
-          {selectedPreset && selectedPreset.modelSuggestions.length > 0 && (
+          {selectedProvider && selectedProvider.modelSuggestions.length > 0 && (
             <EditorField>
               <Label>{messages.suggestedModels}</Label>
               <div className="flex flex-wrap gap-2">
-                {selectedPreset.modelSuggestions.map((model) => (
+                {selectedProvider.modelSuggestions.map((model) => (
                   <Button
                     key={model}
                     type="button"

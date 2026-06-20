@@ -80,38 +80,38 @@ export interface AppPreferences {
   floatingWidgetOpacity: number;
 }
 
-export type PresetSource = "builtin" | "custom";
+export type ProviderSource = "builtin" | "custom";
 
 export interface LocalizedText {
   zh: string;
   en: string;
 }
 
-export type PresetModelCategory = "opus" | "sonnet" | "haiku" | "other";
+export type ProviderModelCategory = "opus" | "sonnet" | "haiku" | "other";
 
-export interface SettingsPresetModel {
+export interface ProviderModel {
   id: string;
-  category: PresetModelCategory;
+  category: ProviderModelCategory;
 }
 
-export interface SettingsPreset {
+export interface Provider {
   id: string;
   name: string;
   localizedName?: LocalizedText;
   description: string;
   basePresetId?: string;
   docUrl?: string;
-  models?: SettingsPresetModel[];
+  models?: ProviderModel[];
   modelSuggestions: string[];
   settingsPatch: Record<string, unknown>;
-  source: PresetSource;
+  source: ProviderSource;
 }
 
 export interface ConfigProfile {
   id: string;
   name: string;
   description: string;
-  presetId?: string;
+  providerId?: string;
   settings: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
@@ -148,8 +148,8 @@ export interface ActiveUserSettingsMismatch {
 
 export interface ConfigWorkspace {
   app: AppPreferences;
-  builtinPresets: SettingsPreset[];
-  customPresets: SettingsPreset[];
+  builtinProviders: Provider[];
+  customProviders: Provider[];
   profiles: ConfigProfile[];
   bindings: BindingState;
   unmanagedUserSettings?: UnmanagedUserSettings;

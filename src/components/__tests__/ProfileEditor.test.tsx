@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
-import type { ConfigProfile, ConfigWorkspace, SettingsPreset } from "../../types";
+import type { ConfigProfile, ConfigWorkspace, Provider } from "../../types";
 import ProfileEditor from "../ProfileEditor";
 import {
   MOJIBAKE_POST_TOOL_USE_COMMAND,
@@ -232,13 +232,13 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
     floatingWidgetMetrics: ["cost", "totalTokens", "cacheHitRate"],
     floatingWidgetOpacity: 92,
   },
-  builtinPresets: [],
-  customPresets: [],
+  builtinProviders: [],
+  customProviders: [],
   profiles: [],
   bindings: {},
 } as ConfigWorkspace;
 
-const BUILTIN_PRESETS: SettingsPreset[] = [
+const BUILTIN_PRESETS: Provider[] = [
   {
     id: "builtin:openrouter",
     name: "OpenRouter",
@@ -317,7 +317,7 @@ const PROFILE_FIXTURE: ConfigProfile = {
   id: "user-openrouter",
   name: "OpenRouter User",
   description: "默认用户配置",
-  presetId: "builtin:openrouter",
+  providerId: "builtin:openrouter",
   settings: {
     env: {
       ANTHROPIC_AUTH_TOKEN: "token",
@@ -329,12 +329,12 @@ const PROFILE_FIXTURE: ConfigProfile = {
 
 function renderEditor(options?: {
   profile?: ConfigProfile | null;
-  presets?: SettingsPreset[];
+  providers?: Provider[];
   onSave?: (data: {
     id?: string;
     name: string;
     description: string;
-    presetId?: string;
+    providerId?: string;
     settings: Record<string, unknown>;
   }) => boolean | Promise<boolean>;
 }) {
@@ -346,7 +346,7 @@ function renderEditor(options?: {
         id?: string;
         name: string;
         description: string;
-        presetId?: string;
+        providerId?: string;
         settings: Record<string, unknown>;
       }) => boolean | Promise<boolean>
     >(() => true);
@@ -355,7 +355,7 @@ function renderEditor(options?: {
       <ThemeProvider>
         <ProfileEditor
           profile={profile}
-          presets={options?.presets ?? BUILTIN_PRESETS}
+          providers={options?.providers ?? BUILTIN_PRESETS}
           onSave={onSave}
           onClose={() => {}}
         />
@@ -1102,7 +1102,7 @@ describe("ProfileEditor", () => {
         id: "user-openrouter",
         name: "OpenRouter User",
         description: "默认用户配置",
-        presetId: "builtin:openrouter",
+        providerId: "builtin:openrouter",
         settings: {
           env: {
             ANTHROPIC_AUTH_TOKEN: "token",
@@ -3194,7 +3194,7 @@ describe("ProfileEditor", () => {
       id: "user-openrouter",
       name: "OpenRouter User",
       description: "默认用户配置",
-      presetId: "builtin:openrouter",
+      providerId: "builtin:openrouter",
       settings: expect.objectContaining({
         env: {
           ANTHROPIC_AUTH_TOKEN: "token",
@@ -3735,7 +3735,7 @@ describe("ProfileEditor", () => {
 
   it("does not show the official plugin load button when the marketplace only exists in an inherited preset", () => {
     renderEditor({
-      presets: [
+      providers: [
         ...BUILTIN_PRESETS,
         {
           id: "custom:official-inherited",
@@ -3761,7 +3761,7 @@ describe("ProfileEditor", () => {
       ],
       profile: {
         ...PROFILE_FIXTURE,
-        presetId: "custom:official-inherited",
+        providerId: "custom:official-inherited",
         settings: {
           ...PROFILE_FIXTURE.settings,
         },
@@ -3780,7 +3780,7 @@ describe("ProfileEditor", () => {
     renderEditor({
       profile: {
         ...PROFILE_FIXTURE,
-        presetId: undefined,
+        providerId: undefined,
       },
     });
 
@@ -3818,7 +3818,7 @@ describe("ProfileEditor", () => {
     renderEditor({
       profile: {
         ...PROFILE_FIXTURE,
-        presetId: undefined,
+        providerId: undefined,
         settings: {
           env: {
             ANTHROPIC_AUTH_TOKEN: "token",

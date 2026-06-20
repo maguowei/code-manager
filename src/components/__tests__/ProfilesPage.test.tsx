@@ -95,7 +95,7 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
     floatingWidgetMetrics: ["cost", "totalTokens", "cacheHitRate"],
     floatingWidgetOpacity: 92,
   },
-  builtinPresets: [
+  builtinProviders: [
     {
       id: "builtin:openrouter",
       name: "OpenRouter",
@@ -109,13 +109,13 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
       source: "builtin",
     },
   ],
-  customPresets: [],
+  customProviders: [],
   profiles: [
     {
       id: "user-openrouter",
       name: "OpenRouter User",
       description: "默认用户配置",
-      presetId: "builtin:openrouter",
+      providerId: "builtin:openrouter",
       settings: {
         env: {
           ANTHROPIC_AUTH_TOKEN: "token",
@@ -160,12 +160,12 @@ function renderPage(
   );
 }
 
-function makeProfile(id: string, name: string, presetId = "builtin:openrouter") {
+function makeProfile(id: string, name: string, providerId = "builtin:openrouter") {
   return {
     id,
     name,
     description: `${name} 描述`,
-    presetId,
+    providerId,
     settings: {
       env: {
         ANTHROPIC_MODEL: `model-${id}`,
@@ -281,7 +281,7 @@ describe("ProfilesPage", () => {
     renderPage(
       {
         ...WORKSPACE_FIXTURE,
-        customPresets: [
+        customProviders: [
           {
             id: "custom:team-plan",
             name: "Team Plan",
@@ -559,8 +559,8 @@ describe("ProfilesPage", () => {
   it("uses the displayed first character in profile badges", () => {
     const workspace: ConfigWorkspace = {
       ...WORKSPACE_FIXTURE,
-      builtinPresets: [
-        ...WORKSPACE_FIXTURE.builtinPresets,
+      builtinProviders: [
+        ...WORKSPACE_FIXTURE.builtinProviders,
         {
           id: "builtin:anthropic",
           name: "Anthropic",

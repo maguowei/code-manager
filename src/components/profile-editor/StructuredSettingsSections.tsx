@@ -39,7 +39,7 @@ import {
 import type { MarketplaceSourceInput } from "./useMarketplaceCatalog";
 import type { StructuredSettingsSectionState } from "./useStructuredSettingsSectionState";
 
-type StructuredSettingsScope = "profiles" | "presets";
+type StructuredSettingsScope = "profiles" | "providers";
 type DocsLocale = "zh-CN" | "en";
 type StructuredSettingsDocsKey =
   | "behavior"
@@ -224,21 +224,21 @@ function StructuredSettingsSections({
         supportedKeysLabel: t("profiles.editor.hints.expertStructuredKeys"),
       }
     : {
-        behavior: t("presets.editor.sections.behavior"),
-        common: t("presets.editor.sections.common"),
-        environment: t("presets.editor.sections.environment"),
-        permissions: t("presets.editor.sections.permissions"),
-        sandbox: t("presets.editor.sections.sandbox"),
-        hooks: t("presets.editor.sections.hooks"),
-        marketplaces: t("presets.editor.sections.marketplaces"),
-        plugins: t("presets.editor.sections.plugins"),
-        statusLine: t("presets.editor.sections.statusLine"),
-        document: t("presets.editor.sections.preview"),
-        behaviorJsonHint: t("presets.editor.hints.behaviorJson"),
-        commonJsonHint: t("presets.editor.hints.commonJson"),
+        behavior: t("providers.editor.sections.behavior"),
+        common: t("providers.editor.sections.common"),
+        environment: t("providers.editor.sections.environment"),
+        permissions: t("providers.editor.sections.permissions"),
+        sandbox: t("providers.editor.sections.sandbox"),
+        hooks: t("providers.editor.sections.hooks"),
+        marketplaces: t("providers.editor.sections.marketplaces"),
+        plugins: t("providers.editor.sections.plugins"),
+        statusLine: t("providers.editor.sections.statusLine"),
+        document: t("providers.editor.sections.preview"),
+        behaviorJsonHint: t("providers.editor.hints.behaviorJson"),
+        commonJsonHint: t("providers.editor.hints.commonJson"),
         editModeLabel: t("common.editJsonMode"),
-        editHint: t("presets.editor.hints.expert"),
-        supportedKeysLabel: t("presets.editor.hints.expertStructuredKeys"),
+        editHint: t("providers.editor.hints.expert"),
+        supportedKeysLabel: t("providers.editor.hints.expertStructuredKeys"),
       };
 
   const documentError =

@@ -35,7 +35,7 @@ describe("ui system contract", () => {
 
     for (const file of [
       "src/components/ProfilesPage.tsx",
-      "src/components/PresetsPage.tsx",
+      "src/components/ProvidersPage.tsx",
       "src/components/MemoryPage.tsx",
       "src/components/SkillsPage.tsx",
       "src/components/StatsPage.tsx",
@@ -51,7 +51,7 @@ describe("ui system contract", () => {
 
     for (const file of [
       "src/components/ProfilesPage.tsx",
-      "src/components/PresetsPage.tsx",
+      "src/components/ProvidersPage.tsx",
       "src/components/MemoryPage.tsx",
       "src/components/SkillsPage.tsx",
       "src/components/SettingsDrawer.tsx",
@@ -81,7 +81,7 @@ describe("ui system contract", () => {
       "src/components/MemoryItem.tsx",
       "src/components/SkillItem.tsx",
       "src/components/UnmanagedMemoryItem.tsx",
-      "src/components/PresetsPage.tsx",
+      "src/components/ProvidersPage.tsx",
       "src/components/ProfileNameBadge.tsx",
     ]) {
       const source = readFileSync(file, "utf8");
@@ -95,7 +95,7 @@ describe("ui system contract", () => {
       expect(source, file).not.toMatch(/<(?:Copy|Trash2|RefreshCw|Plus)[^>]*className=/);
     }
 
-    const presetsSource = readFileSync("src/components/PresetsPage.tsx", "utf8");
+    const presetsSource = readFileSync("src/components/ProvidersPage.tsx", "utf8");
     expect(presetsSource).toContain("PRESET_CARD_CLASS");
     expect(presetsSource).toContain("bg-card");
     expect(presetsSource).not.toContain('PRESET_BUILTIN_CARD_CLASS = "builtin bg-muted');
@@ -279,7 +279,7 @@ describe("ui system contract", () => {
   it("keeps split editor drawers on semantic sheet surfaces", () => {
     for (const file of [
       "src/components/ProfilesPage.tsx",
-      "src/components/PresetsPage.tsx",
+      "src/components/ProvidersPage.tsx",
       "src/components/MemoryPage.tsx",
       "src/components/SkillsPage.tsx",
     ]) {
@@ -291,7 +291,7 @@ describe("ui system contract", () => {
   it("keeps global page and drawer canvases visually separated from content surfaces", () => {
     for (const file of [
       "src/components/ProfileEditor.tsx",
-      "src/components/PresetEditor.tsx",
+      "src/components/ProviderEditor.tsx",
       "src/components/MemoryEditor.tsx",
       "src/components/SkillEditor.tsx",
       "src/components/usage/SessionUsageDrawer.tsx",
@@ -488,7 +488,7 @@ describe("ui system contract", () => {
       ["src/components/ClaudeOverviewPage.tsx", ["TYPOGRAPHY.pageTitle"]],
       ["src/components/ProjectDetailPanel.tsx", ["TYPOGRAPHY.pageTitle"]],
       ["src/components/ProfilesPage.tsx", ["TYPOGRAPHY.badge"]],
-      ["src/components/PresetsPage.tsx", ["TYPOGRAPHY.mutedBody"]],
+      ["src/components/ProvidersPage.tsx", ["TYPOGRAPHY.mutedBody"]],
       [
         "src/components/UsagePage.tsx",
         ["TYPOGRAPHY.metricEmphasis", "TYPOGRAPHY.metricValue", "[&_.num]:tabular-nums"],

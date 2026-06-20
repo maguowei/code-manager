@@ -25,7 +25,7 @@ const CheatSheetPage = lazy(() => import("./components/cheat-sheet/CheatSheetPag
 const ClaudeOverviewPage = lazy(() => import("./components/ClaudeOverviewPage"));
 const HistoryPage = lazy(() => import("./components/HistoryPage"));
 const MemoryPage = lazy(() => import("./components/MemoryPage"));
-const PresetsPage = lazy(() => import("./components/PresetsPage"));
+const ProvidersPage = lazy(() => import("./components/ProvidersPage"));
 const ProfilesPage = lazy(() => import("./components/ProfilesPage"));
 const ProjectsPage = lazy(() => import("./components/ProjectsPage"));
 const SettingsDrawer = lazy(() => import("./components/SettingsDrawer"));
@@ -51,8 +51,8 @@ const EMPTY_WORKSPACE: ConfigWorkspace = {
     floatingWidgetMetrics: ["cost", "totalTokens", "cacheHitRate"],
     floatingWidgetOpacity: 92,
   },
-  builtinPresets: [],
-  customPresets: [],
+  builtinProviders: [],
+  customProviders: [],
   profiles: [],
   bindings: {},
 };
@@ -300,7 +300,7 @@ function App() {
             ) : activeTab === "history" ? (
               <HistoryPage projectRequest={historyProjectRequest} />
             ) : activeTab === "providers" ? (
-              <PresetsPage
+              <ProvidersPage
                 workspace={workspace}
                 onWorkspaceChange={loadWorkspace}
                 onOpenProfiles={handleOpenProfiles}

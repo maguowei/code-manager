@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import type { ConfigWorkspace } from "../../types";
-import PresetsPage from "../PresetsPage";
+import ProvidersPage from "../ProvidersPage";
 
 const { invokeMock, openUrlMock, showToastMock } = vi.hoisted(() => ({
   invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
@@ -44,7 +44,7 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
     floatingWidgetMetrics: ["cost", "totalTokens", "cacheHitRate"],
     floatingWidgetOpacity: 92,
   },
-  builtinPresets: [
+  builtinProviders: [
     {
       id: "builtin:openrouter",
       name: "OpenRouter",
@@ -59,7 +59,7 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
       source: "builtin",
     },
   ],
-  customPresets: [],
+  customProviders: [],
   profiles: [],
   bindings: {},
 } as ConfigWorkspace;
@@ -70,7 +70,7 @@ function renderPage(
 ) {
   render(
     <I18nProvider>
-      <PresetsPage
+      <ProvidersPage
         workspace={workspace}
         onWorkspaceChange={async () => {}}
         onOpenProfiles={onOpenProfiles}
@@ -82,7 +82,7 @@ function renderPage(
 function workspaceWithCustomPresets(): ConfigWorkspace {
   return {
     ...WORKSPACE_FIXTURE,
-    customPresets: [
+    customProviders: [
       {
         id: "custom:team-plan",
         name: "Team Plan",
@@ -101,7 +101,7 @@ function workspaceWithCustomPresets(): ConfigWorkspace {
   };
 }
 
-describe("PresetsPage", () => {
+describe("ProvidersPage", () => {
   beforeEach(() => {
     localStorage.clear();
     invokeMock.mockReset();
@@ -197,10 +197,10 @@ describe("PresetsPage", () => {
 
     render(
       <I18nProvider>
-        <PresetsPage
+        <ProvidersPage
           workspace={{
             ...WORKSPACE_FIXTURE,
-            customPresets: [
+            customProviders: [
               {
                 id: "custom:team-plan",
                 name: "Team Plan",
@@ -268,7 +268,7 @@ describe("PresetsPage", () => {
 
     renderPage({
       ...WORKSPACE_FIXTURE,
-      customPresets: [
+      customProviders: [
         {
           id: fullId,
           name: "General Config",
@@ -342,7 +342,7 @@ describe("PresetsPage", () => {
     await waitFor(() => {
       expect(screen.queryByRole("heading", { name: "Edit Preset" })).not.toBeInTheDocument();
     });
-    expect(invokeMock).not.toHaveBeenCalledWith("upsert_preset", expect.anything());
+    expect(invokeMock).not.toHaveBeenCalledWith("upsert_provider", expect.anything());
   });
 
   it("keeps a dirty preset open when saving from the unsaved dialog fails", async () => {
@@ -366,7 +366,7 @@ describe("PresetsPage", () => {
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith(
-        "upsert_preset",
+        "upsert_provider",
         expect.objectContaining({
           data: expect.objectContaining({
             id: "custom:team-plan",

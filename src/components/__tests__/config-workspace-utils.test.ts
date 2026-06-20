@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { SettingsPreset } from "../../types";
+import type { Provider } from "../../types";
 import {
-  applyPresetAutofill,
+  applyProviderAutofill,
   getEnabledPluginsSummary,
-  resolvePresetAutofillValues,
+  resolveProviderAutofillValues,
 } from "../config-workspace-utils";
 
-const PRESETS: SettingsPreset[] = [
+const PRESETS: Provider[] = [
   {
     id: "builtin:openrouter",
     name: "OpenRouter",
@@ -166,7 +166,7 @@ describe("config-workspace-utils preset autofill", () => {
   });
 
   it("resolves categorized models across the inheritance chain with explicit overrides", () => {
-    expect(resolvePresetAutofillValues(PRESETS, "builtin:openrouter")).toEqual({
+    expect(resolveProviderAutofillValues(PRESETS, "builtin:openrouter")).toEqual({
       resolvedBaseUrl: "https://openrouter.ai/api",
       resolvedModel: "claude-sonnet-4-6",
       resolvedOpusModel: "claude-opus-4-1",
@@ -176,7 +176,7 @@ describe("config-workspace-utils preset autofill", () => {
       resolvedEffortLevel: undefined,
     });
 
-    expect(resolvePresetAutofillValues(PRESETS, "custom:team-plan")).toEqual({
+    expect(resolveProviderAutofillValues(PRESETS, "custom:team-plan")).toEqual({
       resolvedBaseUrl: "https://openrouter.ai/api",
       resolvedModel: "claude-sonnet-4-6",
       resolvedOpusModel: "claude-opus-4-1",
@@ -186,7 +186,7 @@ describe("config-workspace-utils preset autofill", () => {
       resolvedEffortLevel: undefined,
     });
 
-    expect(resolvePresetAutofillValues(PRESETS, "custom:explicit-model")).toEqual({
+    expect(resolveProviderAutofillValues(PRESETS, "custom:explicit-model")).toEqual({
       resolvedBaseUrl: "https://openrouter.ai/api",
       resolvedModel: "claude-opus-explicit",
       resolvedOpusModel: "claude-opus-4-1",
@@ -196,7 +196,7 @@ describe("config-workspace-utils preset autofill", () => {
       resolvedEffortLevel: undefined,
     });
 
-    expect(resolvePresetAutofillValues(PRESETS, "custom:env-model")).toEqual({
+    expect(resolveProviderAutofillValues(PRESETS, "custom:env-model")).toEqual({
       resolvedBaseUrl: "https://openrouter.ai/api",
       resolvedModel: "claude-env-override",
       resolvedOpusModel: "claude-opus-4-1",
@@ -206,7 +206,7 @@ describe("config-workspace-utils preset autofill", () => {
       resolvedEffortLevel: undefined,
     });
 
-    expect(resolvePresetAutofillValues(PRESETS, "custom:sonnet-only")).toEqual({
+    expect(resolveProviderAutofillValues(PRESETS, "custom:sonnet-only")).toEqual({
       resolvedBaseUrl: undefined,
       resolvedModel: "claude-sonnet-only",
       resolvedOpusModel: "claude-sonnet-only",
@@ -218,7 +218,7 @@ describe("config-workspace-utils preset autofill", () => {
   });
 
   it("falls back to model suggestions only after explicit values and categorized models are exhausted", () => {
-    expect(resolvePresetAutofillValues(PRESETS, "custom:suggestions-only")).toEqual({
+    expect(resolveProviderAutofillValues(PRESETS, "custom:suggestions-only")).toEqual({
       resolvedBaseUrl: undefined,
       resolvedModel: "claude-suggestion-only",
       resolvedOpusModel: undefined,
@@ -230,7 +230,7 @@ describe("config-workspace-utils preset autofill", () => {
   });
 
   it("resolves DeepSeek official subagent and effort env overrides from the preset chain", () => {
-    expect(resolvePresetAutofillValues(PRESETS, "builtin:deepseek")).toEqual({
+    expect(resolveProviderAutofillValues(PRESETS, "builtin:deepseek")).toEqual({
       resolvedBaseUrl: "https://api.deepseek.com/anthropic",
       resolvedModel: "deepseek-v4-pro[1m]",
       resolvedOpusModel: "deepseek-v4-pro[1m]",
@@ -259,7 +259,7 @@ describe("config-workspace-utils preset autofill", () => {
       },
     };
 
-    expect(applyPresetAutofill(seededSettings, PRESETS, "custom:team-plan")).toEqual({
+    expect(applyProviderAutofill(seededSettings, PRESETS, "custom:team-plan")).toEqual({
       env: {
         ANTHROPIC_AUTH_TOKEN: "token",
         ANTHROPIC_BASE_URL: "https://openrouter.ai/api",
@@ -274,7 +274,7 @@ describe("config-workspace-utils preset autofill", () => {
       },
     });
 
-    expect(applyPresetAutofill(seededSettings, PRESETS, undefined)).toEqual({
+    expect(applyProviderAutofill(seededSettings, PRESETS, undefined)).toEqual({
       env: {
         ANTHROPIC_AUTH_TOKEN: "token",
         OTHER_ENV: "keep-me",
@@ -300,7 +300,7 @@ describe("config-workspace-utils preset autofill", () => {
       },
     };
 
-    expect(applyPresetAutofill(seededSettings, PRESETS, "builtin:deepseek")).toEqual({
+    expect(applyProviderAutofill(seededSettings, PRESETS, "builtin:deepseek")).toEqual({
       env: {
         ANTHROPIC_AUTH_TOKEN: "token",
         ANTHROPIC_BASE_URL: "https://api.deepseek.com/anthropic",

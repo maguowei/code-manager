@@ -1,3 +1,4 @@
+import { emit } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -156,7 +157,7 @@ export default function FloatingWidget() {
   }, []);
 
   const handleOpenUsage = useCallback(() => {
-    void ipc.openUsagePage();
+    void emit("navigate-to-tab", "usage");
   }, []);
 
   const panelStyle = useMemo(() => ({ opacity: opacity / 100 }), [opacity]);

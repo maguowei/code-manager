@@ -19,7 +19,7 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
-    exclude: [...configDefaults.exclude, "**/.worktrees/**", "**/.pnpm-store/**"],
+    exclude: [...configDefaults.exclude, "**/.worktrees/**", "**/.claude/worktrees/**", "**/.pnpm-store/**"],
     // 覆盖率插桩 (v8) 下部分 findBy* 异步用例更慢用 20s；普通运行用 15s 给慢 CI runner
     // (尤其 Windows，偶发整机 I/O 极慢) 足够余量，避免慢环境下整体执行超时的偶发 flake。
     testTimeout: isCoverageRun ? 20_000 : 15_000,

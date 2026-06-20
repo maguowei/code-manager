@@ -38,8 +38,8 @@ import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import {
   getEnabledPluginsSummary,
   isPlainObject,
-  presetNameById,
-  presetSlugFromId,
+  providerNameById,
+  providerSlugFromId,
 } from "./config-workspace-utils";
 import EmptyState from "./EmptyState";
 import type { EditorExitGuard } from "./editor-exit-guard";
@@ -265,9 +265,9 @@ function ProfilesPage({
     overPosition: "above" | "below" | null;
   }>({ draggingIndex: null, overIndex: null, overPosition: null });
 
-  const allPresets = useMemo(
-    () => [...workspace.builtinPresets, ...workspace.customPresets],
-    [workspace.builtinPresets, workspace.customPresets],
+  const allProviders = useMemo(
+    () => [...workspace.builtinProviders, ...workspace.customProviders],
+    [workspace.builtinProviders, workspace.customProviders],
   );
   const profiles = workspace.profiles;
 
@@ -285,14 +285,14 @@ function ProfilesPage({
       id: profile.id,
       name: profile.name,
       description: profile.description,
-      presetId: profile.presetId,
+      providerId: profile.providerId,
       settings: profile.settings,
     };
   }
 
   function profileModelTestQueueKey(profile: ConfigProfile) {
-    const presetId = profile.presetId?.trim();
-    return presetId ? `preset:${presetId}` : `profile:${profile.id}`;
+    const providerId = profile.providerId?.trim();
+    return providerId ? `provider:${providerId}` : `profile:${profile.id}`;
   }
 
   function modelTestStateFromResult(
@@ -632,7 +632,7 @@ function ProfilesPage({
     id?: string;
     name: string;
     description: string;
-    presetId?: string;
+    providerId?: string;
     settings: Record<string, unknown>;
   }) {
     try {
@@ -666,7 +666,7 @@ function ProfilesPage({
         id: profile.id,
         name: profile.name,
         description: profile.description,
-        presetId: profile.presetId,
+        providerId: profile.providerId,
         settings: activeSettingsMismatch.actualSettings,
       });
       await onWorkspaceChange();
@@ -721,7 +721,7 @@ function ProfilesPage({
         id: profile.id,
         name: profile.name,
         description: profile.description,
-        presetId: profile.presetId,
+        providerId: profile.providerId,
         settings: profile.settings,
       });
       const resolvedSettings = JSON.parse(preview) as Record<string, unknown>;
@@ -1261,7 +1261,7 @@ function ProfilesPage({
         <ConfigSectionTabs
           value="profiles"
           onValueChange={(value) => {
-            if (value === "presets") {
+            if (value === "providers") {
               onOpenPresets?.();
             }
           }}
@@ -1350,7 +1350,7 @@ function ProfilesPage({
                 <div className="flex items-start justify-between gap-3">
                   <ProfileNameBadge
                     name={profile.name}
-                    colorSeedScope={presetSlugFromId(profile.presetId)}
+                    colorSeedScope={providerSlugFromId(profile.providerId)}
                     size="sm"
                   />
                   <div className="min-w-0 flex-1">
@@ -1362,11 +1362,11 @@ function ProfilesPage({
                         variant="secondary"
                         className="rounded-full px-2 py-0.5 text-xs font-semibold text-primary"
                       >
-                        {presetNameById(
-                          allPresets,
-                          profile.presetId,
+                        {providerNameById(
+                          allProviders,
+                          profile.providerId,
                           language,
-                          t("profileEditor.preset.noPreset"),
+                          t("profileEditor.provider.noProvider"),
                         )}
                       </Badge>
                     </div>
@@ -1589,7 +1589,7 @@ function ProfilesPage({
               key={editingProfile?.id ?? "new-profile"}
               ref={profileEditorRef}
               profile={editingProfile}
-              presets={allPresets}
+              providers={allProviders}
               onSave={handleSave}
               onClose={() => requestEditorExit(closeDrawer)}
             />

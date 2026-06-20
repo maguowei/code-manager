@@ -1,8 +1,8 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
-import type { SettingsPreset } from "../../types";
-import PresetEditor from "../PresetEditor";
+import type { Provider } from "../../types";
+import ProviderEditor from "../ProviderEditor";
 import {
   MOJIBAKE_POST_TOOL_USE_COMMAND,
   MOJIBAKE_PRE_TOOL_USE_COMMAND,
@@ -70,7 +70,7 @@ vi.mock("../ConfigPreview", () => ({
   ),
 }));
 
-const PRESETS: SettingsPreset[] = [
+const PRESETS: Provider[] = [
   {
     id: "builtin:openrouter",
     name: "OpenRouter",
@@ -144,7 +144,7 @@ const PRESETS: SettingsPreset[] = [
   },
 ];
 
-const PRESET_FIXTURE: SettingsPreset = {
+const PRESET_FIXTURE: Provider = {
   id: "team-openrouter",
   name: "Team OpenRouter",
   localizedName: {
@@ -164,8 +164,8 @@ const PRESET_FIXTURE: SettingsPreset = {
 };
 
 function renderEditor(options?: {
-  preset?: SettingsPreset | null;
-  presets?: SettingsPreset[];
+  provider?: Provider | null;
+  providers?: Provider[];
   onSave?: (data: {
     id?: string;
     name: string;
@@ -176,12 +176,12 @@ function renderEditor(options?: {
     description: string;
     basePresetId?: string;
     docUrl?: string;
-    models?: SettingsPreset["models"];
+    models?: Provider["models"];
     modelSuggestions: string[];
     settingsPatch: Record<string, unknown>;
   }) => boolean | Promise<boolean>;
 }) {
-  const preset = options && "preset" in options ? (options.preset ?? null) : PRESET_FIXTURE;
+  const provider = options && "provider" in options ? (options.provider ?? null) : PRESET_FIXTURE;
   const onSave =
     options?.onSave ??
     vi.fn<
@@ -195,16 +195,16 @@ function renderEditor(options?: {
         description: string;
         basePresetId?: string;
         docUrl?: string;
-        models?: SettingsPreset["models"];
+        models?: Provider["models"];
         modelSuggestions: string[];
         settingsPatch: Record<string, unknown>;
       }) => boolean | Promise<boolean>
     >(() => true);
   render(
     <I18nProvider>
-      <PresetEditor
-        preset={preset}
-        presets={options?.presets ?? PRESETS}
+      <ProviderEditor
+        provider={provider}
+        providers={options?.providers ?? PRESETS}
         onSave={onSave}
         onClose={() => {}}
       />
@@ -276,7 +276,7 @@ function switchDocumentSectionToEdit(name: string, editButtonName: string): HTML
   return within(section).getByLabelText("config-preview-input") as HTMLTextAreaElement;
 }
 
-describe("PresetEditor", () => {
+describe("ProviderEditor", () => {
   beforeEach(() => {
     localStorage.clear();
     Object.defineProperty(globalThis.navigator, "languages", {
@@ -673,7 +673,7 @@ describe("PresetEditor", () => {
 
   it("shows enabled plugin summary in the collapsed plugins section", () => {
     renderEditor({
-      preset: {
+      provider: {
         ...PRESET_FIXTURE,
         settingsPatch: {
           ...PRESET_FIXTURE.settingsPatch,
@@ -758,7 +758,7 @@ describe("PresetEditor", () => {
 
   it("defaults reply language to chinese for new presets and persists it on save", async () => {
     const onSave = vi.fn();
-    renderEditor({ preset: null, onSave });
+    renderEditor({ provider: null, onSave });
 
     expect(screen.getByLabelText("回复语言")).toHaveValue("chinese");
 
@@ -789,7 +789,7 @@ describe("PresetEditor", () => {
       }),
     );
 
-    renderEditor({ preset: null, onSave });
+    renderEditor({ provider: null, onSave });
 
     expect(screen.getByLabelText("Language")).toHaveValue("english");
 
@@ -1342,7 +1342,7 @@ describe("PresetEditor", () => {
     const onSave = vi.fn();
     renderEditor({
       onSave,
-      preset: {
+      provider: {
         ...PRESET_FIXTURE,
         settingsPatch: {
           permissions: {
@@ -1467,7 +1467,7 @@ describe("PresetEditor", () => {
 
   it("shows sandbox state details without a second toggle in expanded preset view", () => {
     renderEditor({
-      preset: {
+      provider: {
         ...PRESET_FIXTURE,
         settingsPatch: {
           ...PRESET_FIXTURE.settingsPatch,
@@ -1497,7 +1497,7 @@ describe("PresetEditor", () => {
 
   it("renders marketplace summaries and opens inline marketplace editing in preset view", () => {
     renderEditor({
-      preset: {
+      provider: {
         ...PRESET_FIXTURE,
         settingsPatch: {
           ...PRESET_FIXTURE.settingsPatch,
@@ -1542,7 +1542,7 @@ describe("PresetEditor", () => {
 
   it("renders plugin rows with read-only ids and switch controls in preset view", () => {
     renderEditor({
-      preset: {
+      provider: {
         ...PRESET_FIXTURE,
         settingsPatch: {
           ...PRESET_FIXTURE.settingsPatch,
@@ -1623,7 +1623,7 @@ describe("PresetEditor", () => {
     });
     renderEditor({
       onSave,
-      preset: {
+      provider: {
         ...PRESET_FIXTURE,
         settingsPatch: {
           ...PRESET_FIXTURE.settingsPatch,
@@ -2020,7 +2020,7 @@ describe("PresetEditor", () => {
 
   it("keeps delegate visible for existing permissions default mode without exposing it as a normal option", () => {
     renderEditor({
-      preset: {
+      provider: {
         ...PRESET_FIXTURE,
         settingsPatch: {
           ...PRESET_FIXTURE.settingsPatch,
@@ -2103,7 +2103,7 @@ describe("PresetEditor", () => {
 
   it("autofills base url and all model levels from the selected base preset, then clears them when the base preset is removed", () => {
     renderEditor({
-      preset: {
+      provider: {
         ...PRESET_FIXTURE,
         basePresetId: undefined,
         settingsPatch: {
@@ -2160,7 +2160,7 @@ describe("PresetEditor", () => {
 
   it("seeds default-enabled common options for new presets", async () => {
     const onSave = vi.fn();
-    renderEditor({ preset: null, onSave });
+    renderEditor({ provider: null, onSave });
 
     const commonSection = getSection("常用选项");
     expect(within(commonSection).getByText("已启用 7/15")).toBeInTheDocument();

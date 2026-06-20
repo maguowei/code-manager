@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { useI18n } from "../i18n";
 import { SegmentedControl } from "./ui/segmented-control";
 
-type ConfigSectionTab = "profiles" | "presets";
+type ConfigSectionTab = "profiles" | "providers";
 
 interface ConfigSectionTabsProps {
   value: ConfigSectionTab;
@@ -20,7 +20,7 @@ function ConfigSectionTabs({ value, onValueChange, className }: ConfigSectionTab
         value={value}
         items={[
           { value: "profiles", label: t("configTabs.profiles") },
-          { value: "presets", label: t("configTabs.presets") },
+          { value: "providers", label: t("configTabs.providers") },
         ]}
         onValueChange={onValueChange}
       />

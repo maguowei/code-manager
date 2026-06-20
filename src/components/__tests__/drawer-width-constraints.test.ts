@@ -31,7 +31,7 @@ describe("drawer width constraints", () => {
 
   it("keeps the config editor scroll surface full width while constraining form content", () => {
     const profileEditorSource = readText("src/components/ProfileEditor.tsx");
-    const presetEditorSource = readText("src/components/PresetEditor.tsx");
+    const presetEditorSource = readText("src/components/ProviderEditor.tsx");
     const memoryEditorSource = readText("src/components/MemoryEditor.tsx");
     const skillEditorSource = readText("src/components/SkillEditor.tsx");
 
@@ -64,7 +64,7 @@ describe("drawer width constraints", () => {
   it("offsets list detail drawers after the sidebar and compressed list panel", () => {
     const layoutSizeSource = readText("src/components/layout-size-classes.ts");
     const profilesPageSource = readText("src/components/ProfilesPage.tsx");
-    const presetsPageSource = readText("src/components/PresetsPage.tsx");
+    const presetsPageSource = readText("src/components/ProvidersPage.tsx");
     const memoryPageSource = readText("src/components/MemoryPage.tsx");
     const skillsPageSource = readText("src/components/SkillsPage.tsx");
 

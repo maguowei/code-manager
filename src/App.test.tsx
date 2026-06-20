@@ -393,8 +393,8 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
     floatingWidgetMetrics: ["cost", "totalTokens", "cacheHitRate"],
     floatingWidgetOpacity: 92,
   },
-  builtinPresets: [],
-  customPresets: [],
+  builtinProviders: [],
+  customProviders: [],
   profiles: [],
   bindings: {},
 };
@@ -407,7 +407,7 @@ class ResizeObserverMock {
 
 const CONFIG_WORKSPACE_WITH_EDITORS: ConfigWorkspace = {
   ...WORKSPACE_FIXTURE,
-  builtinPresets: [
+  builtinProviders: [
     {
       id: "builtin:openrouter",
       name: "OpenRouter",
@@ -421,7 +421,7 @@ const CONFIG_WORKSPACE_WITH_EDITORS: ConfigWorkspace = {
       source: "builtin",
     },
   ],
-  customPresets: [
+  customProviders: [
     {
       id: "custom:team-plan",
       name: "Team Plan",
@@ -440,7 +440,7 @@ const CONFIG_WORKSPACE_WITH_EDITORS: ConfigWorkspace = {
       id: "user-openrouter",
       name: "OpenRouter User",
       description: "默认用户配置",
-      presetId: "builtin:openrouter",
+      providerId: "builtin:openrouter",
       settings: {},
       createdAt: "2026-05-13T00:00:00Z",
       updatedAt: "2026-05-13T00:00:00Z",
@@ -879,7 +879,7 @@ describe("App", () => {
     enableTauriEvents();
     const activeWorkspace: ConfigWorkspace = {
       ...WORKSPACE_FIXTURE,
-      builtinPresets: [
+      builtinProviders: [
         {
           id: "builtin:openrouter",
           name: "OpenRouter",
@@ -894,7 +894,7 @@ describe("App", () => {
           id: "user-openrouter",
           name: "OpenRouter User",
           description: "默认用户配置",
-          presetId: "builtin:openrouter",
+          providerId: "builtin:openrouter",
           settings: {
             model: "claude-sonnet-4-6",
           },

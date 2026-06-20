@@ -26,7 +26,7 @@ type ProfileInput = {
   id?: string | null;
   name: string;
   description: string;
-  presetId?: string | null;
+  providerId?: string | null;
   settings: Record<string, unknown>;
 };
 
@@ -34,14 +34,14 @@ type ModelTestInput = ProfileInput & {
   promptText?: string | null;
 };
 
-type PresetInput = {
+type ProviderInput = {
   id?: string | null;
   name: string;
   localizedName?: AppTypes.LocalizedText | null;
   description: string;
   basePresetId?: string | null;
   docUrl?: string | null;
-  models?: AppTypes.SettingsPresetModel[] | null;
+  models?: AppTypes.ProviderModel[] | null;
   modelSuggestions: string[];
   settingsPatch: Record<string, unknown>;
 };
@@ -107,7 +107,7 @@ type CompatibleIpcOverrides = {
   ): Promise<null>;
   deleteClaudeDirectoryEntry(path: string): Promise<null>;
   deleteMemory(id: string): Promise<AppTypes.MemoryState>;
-  deletePreset(id: string): Promise<null>;
+  deleteProvider(id: string): Promise<null>;
   deleteProfile(id: string): Promise<null>;
   deleteSkill(id: string, isActive: boolean): Promise<null>;
   duplicateMemory(id: string, nameSuffix: string): Promise<AppTypes.MemoryState>;
@@ -185,7 +185,7 @@ type CompatibleIpcOverrides = {
   toggleSkill(id: string, isActive: boolean): Promise<AppTypes.Skill>;
   updateMemory(id: string, data: MemoryData): Promise<AppTypes.MemoryState>;
   updateSkill(id: string, isActive: boolean, data: SkillData): Promise<AppTypes.Skill>;
-  upsertPreset(data: PresetInput): Promise<AppTypes.SettingsPreset>;
+  upsertProvider(data: ProviderInput): Promise<AppTypes.Provider>;
   upsertProfile(data: ProfileInput): Promise<AppTypes.ConfigProfile>;
 };
 

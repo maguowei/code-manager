@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const PAGE_FILES = [
   "src/components/ProfilesPage.tsx",
-  "src/components/PresetsPage.tsx",
+  "src/components/ProvidersPage.tsx",
   "src/components/MemoryPage.tsx",
   "src/components/SkillsPage.tsx",
   "src/components/ProjectsPage.tsx",

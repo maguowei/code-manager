@@ -46,8 +46,8 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
     floatingWidgetMetrics: ["cost", "totalTokens", "cacheHitRate"],
     floatingWidgetOpacity: 92,
   },
-  builtinPresets: [],
-  customPresets: [],
+  builtinProviders: [],
+  customProviders: [],
   profiles: [],
   bindings: {},
 };

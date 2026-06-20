@@ -1,4 +1,4 @@
-import type { LocalizedText, SettingsPreset } from "../types";
+import type { LocalizedText, Provider } from "../types";
 
 export function prettyJson(value: unknown): string {
   return JSON.stringify(value ?? {}, null, 2);
@@ -265,16 +265,16 @@ export function normalizeLocalizedText(
   return { zh, en };
 }
 
-export function presetDisplayName(
-  preset: Pick<SettingsPreset, "name" | "localizedName">,
+export function providerDisplayName(
+  provider: Pick<Provider, "name" | "localizedName">,
   language: "zh" | "en",
 ): string {
-  const localizedName = normalizeLocalizedText(preset.localizedName, preset.name);
+  const localizedName = normalizeLocalizedText(provider.localizedName, provider.name);
   return language === "zh" ? localizedName.zh : localizedName.en;
 }
 
-export function presetSlugFromId(presetId: string | undefined): string {
-  const trimmedId = presetId?.trim() ?? "";
+export function providerSlugFromId(providerId: string | undefined): string {
+  const trimmedId = providerId?.trim() ?? "";
   if (!trimmedId) {
     return "";
   }
@@ -283,17 +283,17 @@ export function presetSlugFromId(presetId: string | undefined): string {
   return separatorIndex >= 0 ? trimmedId.slice(separatorIndex + 1).trim() : trimmedId;
 }
 
-export function presetNameById(
-  presets: SettingsPreset[],
-  presetId: string | undefined,
+export function providerNameById(
+  providers: Provider[],
+  providerId: string | undefined,
   language: "zh" | "en",
-  noPresetLabel?: string,
+  noProviderLabel?: string,
 ): string {
-  if (!presetId) {
-    return noPresetLabel ?? (language === "zh" ? "无预设" : "No preset");
+  if (!providerId) {
+    return noProviderLabel ?? (language === "zh" ? "无供应商" : "No provider");
   }
-  const preset = presets.find((item) => item.id === presetId);
-  return preset ? presetDisplayName(preset, language) : presetId;
+  const provider = providers.find((item) => item.id === providerId);
+  return provider ? providerDisplayName(provider, language) : providerId;
 }
 
 export interface PresetAutofillValues {
@@ -306,11 +306,11 @@ export interface PresetAutofillValues {
   resolvedEffortLevel?: string;
 }
 
-export function resolvePresetAutofillValues(
-  presets: SettingsPreset[],
-  presetId: string | undefined,
+export function resolveProviderAutofillValues(
+  providers: Provider[],
+  providerId: string | undefined,
 ): PresetAutofillValues {
-  const chain = resolvePresetChain(presets, presetId, new Set<string>());
+  const chain = resolveProviderChain(providers, providerId, new Set<string>());
   const resolvedBaseUrl = resolveExplicitEnvValue(chain, "ANTHROPIC_BASE_URL");
   const explicitEnvModel = resolveExplicitEnvValue(chain, "ANTHROPIC_MODEL");
   const explicitTopLevelModel = resolveExplicitTopLevelModel(chain);
@@ -318,7 +318,7 @@ export function resolvePresetAutofillValues(
   const categorySonnetModel = resolveCategoryModel(chain, "sonnet");
   const categoryHaikuModel = resolveCategoryModel(chain, "haiku");
   const categoryOtherModel = resolveCategoryModel(chain, "other");
-  const firstPresetModel = resolveFirstPresetModel(chain);
+  const firstProviderModel = resolveFirstProviderModel(chain);
   const suggestedModel = resolveSuggestedModel(chain);
   const resolvedModel =
     explicitEnvModel ||
@@ -327,7 +327,7 @@ export function resolvePresetAutofillValues(
     categoryOpusModel ||
     categoryHaikuModel ||
     categoryOtherModel ||
-    firstPresetModel ||
+    firstProviderModel ||
     suggestedModel;
 
   return {
@@ -355,30 +355,30 @@ export function resolvePresetAutofillValues(
   };
 }
 
-function resolvePresetChain(
-  presets: SettingsPreset[],
-  presetId: string | undefined,
+function resolveProviderChain(
+  providers: Provider[],
+  providerId: string | undefined,
   visited: Set<string>,
-): SettingsPreset[] {
-  if (!presetId || visited.has(presetId)) {
+): Provider[] {
+  if (!providerId || visited.has(providerId)) {
     return [];
   }
 
-  visited.add(presetId);
-  const preset = presets.find((item) => item.id === presetId);
-  if (!preset) {
+  visited.add(providerId);
+  const provider = providers.find((item) => item.id === providerId);
+  if (!provider) {
     return [];
   }
 
   const inherited =
-    preset.basePresetId && !visited.has(preset.basePresetId)
-      ? resolvePresetChain(presets, preset.basePresetId, visited)
+    provider.basePresetId && !visited.has(provider.basePresetId)
+      ? resolveProviderChain(providers, provider.basePresetId, visited)
       : [];
 
-  return [...inherited, preset];
+  return [...inherited, provider];
 }
 
-function resolveExplicitEnvValue(chain: SettingsPreset[], envKey: string): string | undefined {
+function resolveExplicitEnvValue(chain: Provider[], envKey: string): string | undefined {
   for (let index = chain.length - 1; index >= 0; index -= 1) {
     const patch = isPlainObject(chain[index]?.settingsPatch) ? chain[index].settingsPatch : {};
     const env = readTopLevelObject(patch, "env");
@@ -390,7 +390,7 @@ function resolveExplicitEnvValue(chain: SettingsPreset[], envKey: string): strin
   return undefined;
 }
 
-function resolveExplicitTopLevelModel(chain: SettingsPreset[]): string | undefined {
+function resolveExplicitTopLevelModel(chain: Provider[]): string | undefined {
   for (let index = chain.length - 1; index >= 0; index -= 1) {
     const patch = isPlainObject(chain[index]?.settingsPatch) ? chain[index].settingsPatch : {};
     const explicitValue = normalizePresetValue(patch.model);
@@ -402,7 +402,7 @@ function resolveExplicitTopLevelModel(chain: SettingsPreset[]): string | undefin
 }
 
 function resolveCategoryModel(
-  chain: SettingsPreset[],
+  chain: Provider[],
   category: "opus" | "sonnet" | "haiku" | "other",
 ): string | undefined {
   for (let index = chain.length - 1; index >= 0; index -= 1) {
@@ -419,7 +419,7 @@ function resolveCategoryModel(
   return undefined;
 }
 
-function resolveFirstPresetModel(chain: SettingsPreset[]): string | undefined {
+function resolveFirstProviderModel(chain: Provider[]): string | undefined {
   for (let index = chain.length - 1; index >= 0; index -= 1) {
     for (const model of chain[index]?.models ?? []) {
       const modelId = normalizePresetValue(model.id);
@@ -431,7 +431,7 @@ function resolveFirstPresetModel(chain: SettingsPreset[]): string | undefined {
   return undefined;
 }
 
-function resolveSuggestedModel(chain: SettingsPreset[]): string | undefined {
+function resolveSuggestedModel(chain: Provider[]): string | undefined {
   for (let index = chain.length - 1; index >= 0; index -= 1) {
     const suggestedModel = normalizePresetValue(chain[index]?.modelSuggestions?.[0]);
     if (suggestedModel) {
@@ -449,12 +449,12 @@ function normalizePresetValue(value: unknown): string | undefined {
   return trimmed || undefined;
 }
 
-export function applyPresetAutofill(
+export function applyProviderAutofill(
   settings: Record<string, unknown>,
-  presets: SettingsPreset[],
-  presetId: string | undefined,
+  providers: Provider[],
+  providerId: string | undefined,
 ): Record<string, unknown> {
-  const resolved = resolvePresetAutofillValues(presets, presetId);
+  const resolved = resolveProviderAutofillValues(providers, providerId);
   const updates: Array<[string, string | undefined]> = [
     ["ANTHROPIC_BASE_URL", resolved.resolvedBaseUrl],
     ["ANTHROPIC_MODEL", resolved.resolvedModel],

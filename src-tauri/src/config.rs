@@ -2840,7 +2840,7 @@ mod tests {
     }
 
     #[test]
-    fn builtin_presets_expose_localized_names() {
+    fn builtin_providers_expose_localized_names() {
         let openrouter = builtin_providers()
             .iter()
             .find(|provider| provider.id == "builtin:openrouter")
@@ -2857,7 +2857,7 @@ mod tests {
     }
 
     #[test]
-    fn builtin_presets_preserve_categorized_models() {
+    fn builtin_providers_preserve_categorized_models() {
         let anthropic = builtin_providers()
             .iter()
             .find(|provider| provider.id == "builtin:anthropic")
@@ -2883,7 +2883,7 @@ mod tests {
     }
 
     #[test]
-    fn builtin_presets_include_deepseek_official_claude_code_env() {
+    fn builtin_providers_include_deepseek_official_claude_code_env() {
         let deepseek = builtin_providers()
             .iter()
             .find(|provider| provider.id == "builtin:deepseek")

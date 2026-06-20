@@ -6,13 +6,13 @@ import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
 import { ipc } from "../ipc";
-import type { ConfigWorkspace, SettingsPreset } from "../types";
+import type { ConfigWorkspace, Provider } from "../types";
 import ConfigSectionTabs from "./ConfigSectionTabs";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import {
   getEnabledPluginsSummary,
-  presetDisplayName,
-  presetNameById,
+  providerDisplayName,
+  providerNameById,
 } from "./config-workspace-utils";
 import EmptyState from "./EmptyState";
 import type { EditorExitGuard } from "./editor-exit-guard";
@@ -22,7 +22,7 @@ import {
   LIST_PANEL_WIDTH_CLASS,
 } from "./layout-size-classes";
 import PageHeader from "./PageHeader";
-import PresetEditor, { type PresetEditorHandle } from "./PresetEditor";
+import ProviderEditor, { type ProviderEditorHandle } from "./ProviderEditor";
 import { TYPOGRAPHY } from "./typography-classes";
 import UnsavedChangesAlertDialog from "./UnsavedChangesAlertDialog";
 import { Badge } from "./ui/badge";
@@ -30,7 +30,7 @@ import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "./ui/sheet";
 
-interface PresetsPageProps {
+interface ProvidersPageProps {
   workspace: ConfigWorkspace;
   onWorkspaceChange: () => Promise<void>;
   onOpenProfiles?: () => void;
@@ -48,54 +48,54 @@ const PRESET_CHIP_CLASS =
 const CUSTOM_UUID_PRESET_ID_PATTERN =
   /^custom:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 
-function presetCardIdLabel(preset: SettingsPreset) {
-  const match = preset.id.match(CUSTOM_UUID_PRESET_ID_PATTERN);
+function providerCardIdLabel(provider: Provider) {
+  const match = provider.id.match(CUSTOM_UUID_PRESET_ID_PATTERN);
   if (!match) {
-    return preset.id;
+    return provider.id;
   }
 
   const uuid = match[1];
   return `custom:${uuid.slice(0, 4)}…${uuid.slice(-4)}`;
 }
 
-function PresetsPage({
+function ProvidersPage({
   workspace,
   onWorkspaceChange,
   onOpenProfiles,
   onEditorExitGuardChange,
-}: PresetsPageProps) {
+}: ProvidersPageProps) {
   const { language, t } = useI18n();
   const { showToast } = useToast();
-  const [editingPreset, setEditingPreset] = useState<SettingsPreset | null>(null);
+  const [editingProvider, setEditingProvider] = useState<Provider | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [pendingEditorExitAction, setPendingEditorExitAction] = useState<(() => void) | null>(null);
   const [isSavingEditorExit, setIsSavingEditorExit] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const presetEditorRef = useRef<PresetEditorHandle | null>(null);
+  const providerEditorRef = useRef<ProviderEditorHandle | null>(null);
 
-  const allPresets = useMemo(
-    () => [...workspace.builtinPresets, ...workspace.customPresets],
-    [workspace.builtinPresets, workspace.customPresets],
+  const allProviders = useMemo(
+    () => [...workspace.builtinProviders, ...workspace.customProviders],
+    [workspace.builtinProviders, workspace.customProviders],
   );
 
-  function presetPluginsSummary(preset: SettingsPreset) {
-    return getEnabledPluginsSummary(preset.settingsPatch.enabledPlugins);
+  function providerPluginsSummary(provider: Provider) {
+    return getEnabledPluginsSummary(provider.settingsPatch.enabledPlugins);
   }
 
-  function presetModelSuggestions(preset: SettingsPreset) {
-    return preset.modelSuggestions.map((model) => model.trim()).filter(Boolean);
+  function providerModelSuggestions(provider: Provider) {
+    return provider.modelSuggestions.map((model) => model.trim()).filter(Boolean);
   }
 
-  async function copyPresetId(id: string) {
+  async function copyProviderId(id: string) {
     try {
       await navigator.clipboard.writeText(id);
-      showToast(t("presets.toast.idCopied"));
+      showToast(t("providers.toast.idCopied"));
     } catch (err) {
-      showOperationError(showToast, t("presets.toast.copyIdError"), err);
+      showOperationError(showToast, t("providers.toast.copyIdError"), err);
     }
   }
 
-  function openPresetDocs(docUrl?: string) {
+  function openProviderDocs(docUrl?: string) {
     if (!docUrl) {
       return;
     }
@@ -112,32 +112,32 @@ function PresetsPage({
         type="button"
         variant="link"
         className="preset-card-doc-link h-auto min-h-7 gap-1.5 p-0 text-xs font-semibold text-primary hover:text-primary"
-        onClick={() => openPresetDocs(docUrl)}
+        onClick={() => openProviderDocs(docUrl)}
       >
-        <span>{t("presets.actions.openDocs")}</span>
+        <span>{t("providers.actions.openDocs")}</span>
         <ExternalLink className="size-3.5" aria-hidden="true" />
       </Button>
     );
   }
 
-  function renderPresetIdMeta(preset: SettingsPreset) {
+  function renderProviderIdMeta(provider: Provider) {
     return (
       <>
         <div
           className="preset-card-id inline-flex max-w-full items-center self-start rounded-full border border-border bg-muted px-[9px] py-1 font-mono text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]"
-          title={preset.id}
+          title={provider.id}
         >
-          {presetCardIdLabel(preset)}
+          {providerCardIdLabel(provider)}
         </div>
         <Button
           type="button"
           variant="ghost"
           size="icon-xs"
           className="preset-card-copy-id text-muted-foreground hover:bg-muted hover:text-foreground"
-          aria-label={t("presets.actions.copyId")}
-          title={t("presets.actions.copyId")}
+          aria-label={t("providers.actions.copyId")}
+          title={t("providers.actions.copyId")}
           onClick={() => {
-            void copyPresetId(preset.id);
+            void copyProviderId(provider.id);
           }}
         >
           <Copy aria-hidden="true" />
@@ -150,7 +150,7 @@ function PresetsPage({
     return (
       <div className="preset-model-section flex flex-col gap-[7px]">
         <span className="preset-model-label inline-flex items-center text-xs leading-normal font-semibold text-muted-foreground">
-          {t("presets.editor.fields.modelSuggestions")}
+          {t("providers.editor.fields.modelSuggestions")}
         </span>
         <div className="preset-chip-list flex flex-wrap items-center gap-2 text-sm leading-normal text-foreground">
           {modelSuggestions.length > 0 ? (
@@ -173,12 +173,12 @@ function PresetsPage({
 
   function closeDrawer() {
     setIsDrawerOpen(false);
-    setEditingPreset(null);
+    setEditingProvider(null);
     setPendingEditorExitAction(null);
   }
 
   const requestEditorExit = useCallback((action: () => void) => {
-    if (presetEditorRef.current?.isDirty()) {
+    if (providerEditorRef.current?.isDirty()) {
       setPendingEditorExitAction(() => action);
       return;
     }
@@ -188,7 +188,7 @@ function PresetsPage({
 
   async function saveAndRunPendingEditorExit() {
     const action = pendingEditorExitAction;
-    const editor = presetEditorRef.current;
+    const editor = providerEditorRef.current;
     if (!action || !editor?.canSave()) {
       return;
     }
@@ -235,29 +235,29 @@ function PresetsPage({
     description: string;
     basePresetId?: string;
     docUrl?: string;
-    models?: SettingsPreset["models"];
+    models?: Provider["models"];
     modelSuggestions: string[];
     settingsPatch: Record<string, unknown>;
   }) {
     try {
-      await ipc.upsertPreset(data);
+      await ipc.upsertProvider(data);
       await onWorkspaceChange();
       closeDrawer();
-      showToast(t("presets.toast.saved"));
+      showToast(t("providers.toast.saved"));
       return true;
     } catch (err) {
-      showOperationError(showToast, t("presets.toast.saveError"), err);
+      showOperationError(showToast, t("providers.toast.saveError"), err);
       return false;
     }
   }
 
   async function handleDelete(id: string) {
     try {
-      await ipc.deletePreset(id);
+      await ipc.deleteProvider(id);
       await onWorkspaceChange();
-      showToast(t("presets.toast.deleted"));
+      showToast(t("providers.toast.deleted"));
     } catch (err) {
-      showOperationError(showToast, t("presets.toast.deleteError"), err);
+      showOperationError(showToast, t("providers.toast.deleteError"), err);
     }
   }
 
@@ -270,9 +270,9 @@ function PresetsPage({
           isDrawerOpen ? LIST_PANEL_COMPRESSED_WIDTH_CLASS : LIST_PANEL_WIDTH_CLASS,
         )}
       >
-        <PageHeader title={t("presets.title")} surface="secondary" variant="list" />
+        <PageHeader title={t("providers.title")} surface="secondary" variant="list" />
         <ConfigSectionTabs
-          value="presets"
+          value="providers"
           onValueChange={(value) => {
             if (value === "profiles") {
               requestEditorExit(() => onOpenProfiles?.());
@@ -283,41 +283,41 @@ function PresetsPage({
         <div className="preset-section-block flex flex-col gap-4 border-b border-border p-4">
           <div className="preset-section-header flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-base font-semibold">{t("presets.builtin.title")}</h2>
+              <h2 className="text-base font-semibold">{t("providers.builtin.title")}</h2>
               <p className={cn("mt-1.5", TYPOGRAPHY.mutedBody)}>
-                {t("presets.builtin.description")}
+                {t("providers.builtin.description")}
               </p>
             </div>
           </div>
 
           <div className="preset-list flex flex-col gap-3">
-            {workspace.builtinPresets.map((preset) => {
-              const modelSuggestions = presetModelSuggestions(preset);
+            {workspace.builtinProviders.map((provider) => {
+              const modelSuggestions = providerModelSuggestions(provider);
 
               return (
                 <Card
-                  key={preset.id}
+                  key={provider.id}
                   className={cn(PRESET_CARD_CLASS, PRESET_BUILTIN_CARD_CLASS)}
                   data-slot="preset-card"
                 >
                   <div className="preset-card-head flex items-start justify-between gap-3 max-[700px]:flex-wrap">
                     <div className="preset-card-title-block min-w-0 flex-1">
                       <h3 className="text-base leading-snug font-semibold">
-                        {presetDisplayName(preset, language)}
+                        {providerDisplayName(provider, language)}
                       </h3>
                     </div>
                     <Badge
                       variant="outline"
                       className="preset-source-badge shrink-0 bg-background px-2.5 py-1 text-xs font-semibold text-primary max-[700px]:order-[-1]"
                     >
-                      {t("presets.builtin.badge")}
+                      {t("providers.builtin.badge")}
                     </Badge>
                   </div>
 
                   <div className="preset-card-body flex flex-col gap-2.5">
                     <div className="preset-card-meta-row flex flex-wrap items-center gap-2.5">
-                      {renderPresetIdMeta(preset)}
-                      {renderDocLink(preset.docUrl)}
+                      {renderProviderIdMeta(provider)}
+                      {renderDocLink(provider.docUrl)}
                     </div>
                     {renderModelSection(modelSuggestions)}
                   </div>
@@ -330,9 +330,9 @@ function PresetsPage({
         <div className="preset-section-block flex flex-col gap-4 border-b border-border p-4">
           <div className="preset-section-header flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-base font-semibold">{t("presets.custom.title")}</h2>
+              <h2 className="text-base font-semibold">{t("providers.custom.title")}</h2>
               <p className={cn("mt-1.5", TYPOGRAPHY.mutedBody)}>
-                {t("presets.custom.description")}
+                {t("providers.custom.description")}
               </p>
             </div>
             <Button
@@ -340,59 +340,62 @@ function PresetsPage({
               className="gap-1.5 font-semibold"
               onClick={() => {
                 requestEditorExit(() => {
-                  setEditingPreset(null);
+                  setEditingProvider(null);
                   setIsDrawerOpen(true);
                 });
               }}
             >
               <Plus data-icon="inline-start" aria-hidden="true" />
-              <span>{t("presets.add")}</span>
+              <span>{t("providers.add")}</span>
             </Button>
           </div>
 
-          {workspace.customPresets.length === 0 ? (
-            <EmptyState title={t("presets.custom.empty")} hint={t("presets.custom.emptyHint")} />
+          {workspace.customProviders.length === 0 ? (
+            <EmptyState
+              title={t("providers.custom.empty")}
+              hint={t("providers.custom.emptyHint")}
+            />
           ) : (
             <div className="preset-list flex flex-col gap-3">
-              {workspace.customPresets.map((preset) => {
-                const basePresetName = presetNameById(
-                  allPresets,
-                  preset.basePresetId,
+              {workspace.customProviders.map((provider) => {
+                const baseProviderName = providerNameById(
+                  allProviders,
+                  provider.basePresetId,
                   language,
-                  t("profileEditor.preset.noPreset"),
+                  t("profileEditor.provider.noProvider"),
                 );
-                const modelSuggestions = presetModelSuggestions(preset);
-                const pluginsSummary = presetPluginsSummary(preset);
+                const modelSuggestions = providerModelSuggestions(provider);
+                const pluginsSummary = providerPluginsSummary(provider);
 
                 return (
-                  <Card key={preset.id} className={PRESET_CARD_CLASS} data-slot="preset-card">
+                  <Card key={provider.id} className={PRESET_CARD_CLASS} data-slot="preset-card">
                     <div className="preset-card-head flex items-start justify-between gap-3 max-[700px]:flex-wrap">
                       <div className="preset-card-title-block min-w-0 flex-1">
                         <h3 className="text-base leading-snug font-semibold">
-                          {presetDisplayName(preset, language)}
+                          {providerDisplayName(provider, language)}
                         </h3>
                       </div>
                       <Badge
                         variant="outline"
                         className="preset-source-badge custom shrink-0 bg-background px-2.5 py-1 text-xs font-semibold text-chart-2 max-[700px]:order-[-1]"
                       >
-                        {t("presets.custom.badge")}
+                        {t("providers.custom.badge")}
                       </Badge>
                     </div>
 
                     <div className="preset-card-body flex flex-col gap-2.5">
                       <div className="preset-card-meta-row flex flex-wrap items-center gap-2.5">
-                        {renderPresetIdMeta(preset)}
-                        {renderDocLink(preset.docUrl)}
+                        {renderProviderIdMeta(provider)}
+                        {renderDocLink(provider.docUrl)}
                       </div>
 
                       <div className="preset-card-summary flex flex-col gap-2.5">
                         <div className="preset-summary-block rounded-lg border border-border bg-muted/50 px-3 py-[11px]">
                           <span className="preset-summary-label inline-flex items-center text-xs leading-normal font-semibold text-muted-foreground">
-                            {t("presets.editor.fields.basePreset")}
+                            {t("providers.editor.fields.basePreset")}
                           </span>
                           <div className="preset-summary-value mt-[7px] flex flex-wrap items-center gap-2 text-sm leading-normal text-foreground">
-                            {basePresetName}
+                            {baseProviderName}
                           </div>
                         </div>
 
@@ -417,20 +420,20 @@ function PresetsPage({
                         className="preset-card-action font-semibold"
                         onClick={() => {
                           requestEditorExit(() => {
-                            setEditingPreset(preset);
+                            setEditingProvider(provider);
                             setIsDrawerOpen(true);
                           });
                         }}
                       >
-                        {t("presets.actions.edit")}
+                        {t("providers.actions.edit")}
                       </Button>
                       <Button
                         type="button"
                         variant="destructive-outline"
                         className="preset-card-action"
-                        onClick={() => setPendingDeleteId(preset.id)}
+                        onClick={() => setPendingDeleteId(provider.id)}
                       >
-                        {t("presets.actions.delete")}
+                        {t("providers.actions.delete")}
                       </Button>
                     </div>
                   </Card>
@@ -458,13 +461,13 @@ function PresetsPage({
               "w-auto border-l-0 bg-secondary p-0 shadow-floating sm:max-w-none",
             )}
           >
-            <SheetTitle className="sr-only">{t("presets.title")}</SheetTitle>
-            <SheetDescription className="sr-only">{t("presets.description")}</SheetDescription>
-            <PresetEditor
-              key={editingPreset?.id ?? "new-preset"}
-              ref={presetEditorRef}
-              preset={editingPreset}
-              presets={allPresets}
+            <SheetTitle className="sr-only">{t("providers.title")}</SheetTitle>
+            <SheetDescription className="sr-only">{t("providers.description")}</SheetDescription>
+            <ProviderEditor
+              key={editingProvider?.id ?? "new-provider"}
+              ref={providerEditorRef}
+              provider={editingProvider}
+              providers={allProviders}
               onSave={handleSave}
               onClose={() => requestEditorExit(closeDrawer)}
             />
@@ -474,7 +477,7 @@ function PresetsPage({
 
       {pendingEditorExitAction && (
         <UnsavedChangesAlertDialog
-          canSave={presetEditorRef.current?.canSave() ?? false}
+          canSave={providerEditorRef.current?.canSave() ?? false}
           isSaving={isSavingEditorExit}
           onCancel={() => setPendingEditorExitAction(null)}
           onDiscard={discardAndRunPendingEditorExit}
@@ -486,8 +489,8 @@ function PresetsPage({
 
       {pendingDeleteId && (
         <ConfirmAlertDialog
-          title={t("presets.dialog.deleteTitle")}
-          message={t("presets.dialog.deleteMessage")}
+          title={t("providers.dialog.deleteTitle")}
+          message={t("providers.dialog.deleteMessage")}
           confirmText={t("confirm.delete")}
           cancelText={t("confirm.cancel")}
           danger
@@ -502,4 +505,4 @@ function PresetsPage({
   );
 }
 
-export default PresetsPage;
+export default ProvidersPage;
