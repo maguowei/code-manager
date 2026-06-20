@@ -60,6 +60,23 @@
 
 ---
 
+## 兼容处理点（限期逻辑，0.23.0 移除）
+
+依据 spec 决策 5：**仅对引用内置预设的现有 profile 做最小读时兼容；自定义预设维持 clean break（丢弃）。** 内置 provider 每次从 `builtin-providers.json` 重生成、ID 不变（`builtin:<slug>`）且本就 env-only，故无需 `settingsPatch→env` 转换、无需迁移逻辑。共两处兼容点，均为限期逻辑：
+
+| # | 兼容点 | 位置 | 作用 |
+| --- | --- | --- | --- |
+| C1 | `provider_id` 加 serde `alias = "presetId"` | `config.rs` `ConfigProfile`（前端 `types.ts` 无需 alias，仅 Rust 反序列化用） | 旧 `config-registry.json` 的 `presetId` 读入 `provider_id`，下次 save 自动转写为 `providerId` |
+| C2 | `resolve_profile_settings` 对悬空 `provider_id` 容错跳过 | `config.rs` `resolve_profile_settings` | profile 引用已丢弃的自定义预设时，仅用 `profile.settings`，不报错 |
+
+**统一标记约定**：两处兼容代码必须各加一行标记注释，便于到期检索删除：
+
+```rust
+// COMPAT(presetId→providerId): 兼容 <=0.20.x 的旧字段，计划 0.23.0 移除
+```
+
+**发布/移除时点**：本次重构随 `0.21.0` 发布；C1 计划在 `0.23.0` 移除（删 alias）。C2 容错届时可按策略保留为健壮性行为或恢复严格报错——移除时再决定。移除工作不在本计划范围。
+
 ## File Structure
 
 **Rust（语义权威）**
@@ -565,11 +582,13 @@ git commit -m "refactor(config): i18n key 与文案由 preset 改为 provider"
 ### Task 9: 删除继承链（basePresetId）
 
 **Files:**
-- Modify: `src-tauri/src/config.rs`（`Provider` 字段、`resolve_preset_chain`、`upsert_provider`、`build_custom_provider_id`、`resolve_profile_settings`、测试）
+- Modify: `src-tauri/src/config.rs`（`Provider` 字段、`ConfigProfile.provider_id` 加兼容 alias、`resolve_preset_chain`、`upsert_provider`、`build_custom_provider_id`、`resolve_profile_settings`、测试）
 - Modify: `src/types.ts`、`src/ipc.ts`
 - Modify: `src/components/ProviderEditor.tsx`（basePreset 选择 UI，行 724-821 内）
 - Modify: `src/components/config-workspace-utils.ts`（`resolveProviderChain`/`resolveProviderAutofillValues`）
 - Modify: `src/i18n.ts`（删 `providers.editor.fields.basePreset`、`hints.baseSuggestions`）
+
+> **兼容点（见"兼容处理点"章节）**：本任务落地 C1（`provider_id` 加 `alias = "presetId"`）与 C2（`resolve_profile_settings` 悬空 providerId 容错跳过）。两处均加 `// COMPAT(presetId→providerId): ... 计划 0.23.0 移除` 标记。
 
 - [ ] **Step 1: 写失败测试——合并逻辑不再依赖链**
 
@@ -628,12 +647,14 @@ fn resolve_profile_settings(
     let mut resolved = Value::Object(Map::new());
 
     if let Some(provider_id) = profile.provider_id.as_deref() {
-        let provider = find_provider(registry, provider_id)
-            .ok_or_else(|| format!("未找到 provider '{}'", provider_id))?;
-        // 仅 provider.env 进入合并（Task 10 起 provider 只有 env）
-        let mut base = Map::new();
-        base.insert("env".to_string(), Value::Object(provider.env.clone()));
-        resolved = merge_json_values(resolved, Value::Object(base));
+        // COMPAT(presetId→providerId): 兼容 <=0.20.x 的旧字段，计划 0.23.0 移除
+        // C2：providerId 解析不到时（如引用了已丢弃的旧自定义预设）容错跳过，仅用 profile.settings，不报错
+        if let Some(provider) = find_provider(registry, provider_id) {
+            // 仅 provider.env 进入合并（Task 10 起 provider 只有 env）
+            let mut base = Map::new();
+            base.insert("env".to_string(), Value::Object(provider.env.clone()));
+            resolved = merge_json_values(resolved, Value::Object(base));
+        }
     }
 
     resolved = merge_json_values(resolved, profile.settings.clone());
@@ -657,6 +678,22 @@ fn resolve_profile_settings(
 - [ ] **Step 4: 清理继承相关代码**
 
 `config.rs`：`upsert_provider` 删除"校验 base preset 存在"分支；`build_custom_provider_id` 不变（不涉及继承）；删除 `Provider` 改名时暂留的 `base_preset_id` 所有引用。删除测试模块中针对继承链的用例（如 `resolve_profile_settings_merges_builtin_custom_and_profile_layers` 改写为两步版本）。
+
+- [ ] **Step 4b: 落地兼容点 C1（presetId 读时别名）**
+
+`config.rs` 的 `ConfigProfile.provider_id` 字段加兼容 alias（容器已 `rename_all = "camelCase"`，alias 仅追加一个可接受的反序列化别名）：
+
+```rust
+    // COMPAT(presetId→providerId): 兼容 <=0.20.x 的旧字段，计划 0.23.0 移除
+    #[serde(
+        rename = "providerId",
+        alias = "presetId",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub provider_id: Option<String>,
+```
+
+> 仅 Rust 反序列化需要 alias；前端 `types.ts` 无需 alias（前端只读后端返回的新字段 `providerId`）。
 
 - [ ] **Step 5: 前端删继承**
 
@@ -783,20 +820,54 @@ git commit -m "refactor(config): Provider 数据结构收窄为 env + 元数据"
 `config-registry.example.json`：`customProviders` 各条目把 `settingsPatch` 替换为 `env`（仅保留 env 内容，丢弃任何非 env 字段，体现 clean break）；删除任何 `basePresetId`。
 `profile_apply_e2e.rs`：同步断言到 env-only 合并结果。
 
-- [ ] **Step 3: 验证**
+- [ ] **Step 3: 写兼容回归测试（C1 + C2）**
+
+`config.rs` 测试模块新增两个测试，锁定兼容行为，防止 0.23.0 前被误删：
+
+```rust
+// COMPAT(presetId→providerId): 兼容回归测试，0.23.0 移除兼容逻辑时一并删除
+#[test]
+fn legacy_preset_id_field_deserializes_into_provider_id() {
+    // 旧 config-registry.json 里 profile 用的是 presetId
+    let json = r#"{
+        "id": "p", "name": "p", "description": "",
+        "presetId": "builtin:deepseek",
+        "settings": {}, "createdAt": "t", "updatedAt": "t"
+    }"#;
+    let profile: ConfigProfile = serde_json::from_str(json).unwrap();
+    assert_eq!(profile.provider_id.as_deref(), Some("builtin:deepseek"));
+}
+
+#[test]
+fn resolve_skips_dangling_provider_id_without_error() {
+    // 引用已丢弃的旧自定义预设，resolve 不应报错，仅用 profile.settings
+    let mut registry = empty_registry();
+    let profile = ConfigProfile {
+        id: "p".into(), name: "p".into(), description: "".into(),
+        provider_id: Some("custom:gone".into()),
+        settings: json!({ "env": { "ANTHROPIC_AUTH_TOKEN": "tok" } }),
+        created_at: "t".into(), updated_at: "t".into(),
+    };
+    registry.profiles.push(profile.clone());
+    let resolved = resolve_profile_settings(&registry, &profile).unwrap();
+    assert_eq!(resolved.get("env").unwrap().get("ANTHROPIC_AUTH_TOKEN").unwrap(), "tok");
+}
+```
+
+- [ ] **Step 4: 验证**
 
 Run:
 ```bash
 make test-rust
 cargo test --manifest-path src-tauri/Cargo.toml --test profile_apply_e2e
 ```
-Expected: 通过。
+Expected: 通过（含上面两个兼容回归测试）。
 
-- [ ] **Step 4: 提交**
+- [ ] **Step 5: 提交**
 
 ```bash
 git add -A
-git commit -m "refactor(config): 内置资源与夹具对齐 env-only Provider 结构"
+git commit -m "refactor(config): 内置资源与夹具对齐 env-only，补内置预设兼容回归测试"
 ```
 
 ---
@@ -996,9 +1067,10 @@ Expected: 全绿（fmt/lint/test/bindings/build 全过）。
 Run:
 ```bash
 grep -rni "preset" src src-tauri --include="*.rs" --include="*.ts" --include="*.tsx" --include="*.json" \
-  | grep -viE "memory|statusLine|status_line|hook-presets|sandbox-presets|UsagePage|usage"
+  | grep -viE "memory|statusLine|status_line|hook-presets|sandbox-presets|UsagePage|usage" \
+  | grep -viE "COMPAT|presetId→providerId|alias = \"presetId\"|legacy_preset_id"
 ```
-Expected: 无任何配置 Preset 残留（继承/settingsPatch 已删，应为空或仅剩确认无关项）。
+Expected: 无任何配置 Preset 残留。**唯一允许保留的命中**是兼容点 C1/C2 及其回归测试（均带 `COMPAT(presetId→providerId)` 标记，计划 0.23.0 移除）——上面第二个 `grep -v` 已将其排除，故输出应为空或仅剩确认无关项。
 
 - [ ] **Step 3: 本地应用人工核验**
 
@@ -1008,6 +1080,7 @@ Run: `make dev`
 - 新建/编辑/删除自定义 provider 正常。
 - Profile 编辑器：选中供应商后显示其 base url（只读），可填认证密钥；保存并应用后 `~/.claude/settings.json` 的 `env` 含供应商地址/模型 + profile 的认证。
 - 切换不同 profile（绑定不同 provider）应用正确。
+- **兼容核验**：用一份旧格式 `config-registry.json`（profile 用 `presetId: "builtin:deepseek"`）启动 app，确认该 profile 仍绑定到对应内置 provider、可正常 apply；下次保存后文件里该字段转为 `providerId`。
 
 - [ ] **Step 4: 截图归档（若环境支持）**
 
@@ -1022,7 +1095,8 @@ Run: `make dev`
 - 决策 2（认证归 Profile）→ Task 12（删 ProviderEditor authToken）+ Task 13（Profile 认证）✓
 - 决策 3（删继承链）→ Task 9 ✓
 - 决策 4（全面改名）→ Task 2-8 ✓
-- clean break 无迁移 → Task 11（夹具直接重写，不读旧字段）✓
+- 决策 5（内置预设限期兼容）→ 兼容处理点章节 + Task 9（C1 alias / C2 resolve 容错）+ Task 11（兼容回归测试）+ Task 15（兼容人工核验），均带 `COMPAT(presetId→providerId)` 标记、约定 0.23.0 移除 ✓
+- 自定义预设维持 clean break → Task 11（夹具丢弃非 env，不读旧 `customPresets`）✓
 - 单一事实源方案 X（地址只在 env.ANTHROPIC_BASE_URL）→ Task 10（折叠进 env）+ Task 13（Profile 不再双写地址）✓
 - 内置 12 provider 不变 → Task 11 ✓
 - 同步点（config.rs/lib.rs/bindings/types/ipc/i18n/测试/规则）→ Task 2-14 ✓
