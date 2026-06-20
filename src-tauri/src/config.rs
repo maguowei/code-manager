@@ -91,6 +91,15 @@ pub struct AppPreferences {
     pub focus_session_shortcut: Option<String>,
     #[serde(default)]
     pub led_control: crate::led::LedControlPreferences,
+    /// 桌面用量浮窗是否启用（置顶半透明小窗，实时展示今日用量）。
+    #[serde(default)]
+    pub floating_widget_enabled: bool,
+    /// 浮窗展示的指标 key 列表，顺序即展示顺序，取值见 WIDGET_METRIC_KEYS。
+    #[serde(default = "default_floating_widget_metrics")]
+    pub floating_widget_metrics: Vec<String>,
+    /// 浮窗面板不透明度百分比，范围 30-100（前端按 /100 映射到 CSS opacity）。
+    #[serde(default = "default_floating_widget_opacity")]
+    pub floating_widget_opacity: u8,
 }
 
 impl Default for AppPreferences {
@@ -109,6 +118,9 @@ impl Default for AppPreferences {
             tray_pulse_waiting: default_true(),
             focus_session_shortcut: default_focus_session_shortcut(),
             led_control: crate::led::LedControlPreferences::default(),
+            floating_widget_enabled: false,
+            floating_widget_metrics: default_floating_widget_metrics(),
+            floating_widget_opacity: default_floating_widget_opacity(),
         }
     }
 }
@@ -348,6 +360,12 @@ pub struct AppPreferencesInput {
     pub focus_session_shortcut: Option<String>,
     #[serde(default)]
     pub led_control: crate::led::LedControlPreferences,
+    #[serde(default)]
+    pub floating_widget_enabled: bool,
+    #[serde(default = "default_floating_widget_metrics")]
+    pub floating_widget_metrics: Vec<String>,
+    #[serde(default = "default_floating_widget_opacity")]
+    pub floating_widget_opacity: u8,
 }
 
 #[derive(Debug, Clone, Deserialize, specta::Type)]
@@ -426,6 +444,31 @@ struct BuiltinProviderModel {
 
 fn default_true() -> bool {
     true
+}
+
+/// 浮窗可展示的全部指标 key（顺序为设置面板默认呈现顺序）。
+/// 前三项为默认勾选的必备指标，后三项为可选指标。
+pub const WIDGET_METRIC_KEYS: &[&str] = &[
+    "cost",
+    "totalTokens",
+    "cacheHitRate",
+    "messages",
+    "sessions",
+    "topModel",
+];
+
+/// 浮窗默认展示的指标：今日花费、Token 总量、缓存命中率。
+fn default_floating_widget_metrics() -> Vec<String> {
+    vec![
+        "cost".to_string(),
+        "totalTokens".to_string(),
+        "cacheHitRate".to_string(),
+    ]
+}
+
+/// 浮窗默认不透明度百分比。
+fn default_floating_widget_opacity() -> u8 {
+    92
 }
 
 /// "聚焦会话终端"全局快捷键的默认组合。双修饰键降低与其它软件冲突的概率。
@@ -1078,7 +1121,27 @@ fn normalize_app_preferences(input: AppPreferencesInput) -> Result<AppPreference
             running_mode: input.led_control.running_mode.min(crate::led::MAX_MODE),
             idle_mode: input.led_control.idle_mode.min(crate::led::MAX_MODE),
         },
+        floating_widget_enabled: input.floating_widget_enabled,
+        // 过滤未知 key 并去重保序；为空时回落默认集，避免浮窗一片空白
+        floating_widget_metrics: normalize_floating_widget_metrics(input.floating_widget_metrics),
+        // 不透明度钳制到 30-100，越界退回合法边界
+        floating_widget_opacity: input.floating_widget_opacity.clamp(30, 100),
     })
+}
+
+/// 过滤掉未知指标 key，去重并保持用户选择的顺序；结果为空时回落默认指标集。
+fn normalize_floating_widget_metrics(metrics: Vec<String>) -> Vec<String> {
+    let mut seen = HashSet::new();
+    let filtered: Vec<String> = metrics
+        .into_iter()
+        .filter(|key| WIDGET_METRIC_KEYS.contains(&key.as_str()))
+        .filter(|key| seen.insert(key.clone()))
+        .collect();
+    if filtered.is_empty() {
+        default_floating_widget_metrics()
+    } else {
+        filtered
+    }
 }
 
 fn find_provider(registry: &ConfigRegistry, provider_id: &str) -> Option<Provider> {
@@ -2697,6 +2760,8 @@ pub fn set_app_preferences(
         rebuild_tray_menu(&app_handle, Some(&registry));
         // 偏好可能改了聚焦快捷键，按最新值重注册全局快捷键
         crate::tray::apply_focus_session_shortcut(&app_handle);
+        // 按最新偏好同步桌面用量浮窗的显隐（启用则创建/显示，关闭则隐藏）
+        crate::widget::sync_widget_visibility(&app_handle, preferences.floating_widget_enabled);
         let _ = app_handle.emit("config-workspace-changed", ());
         let _ = app_handle.emit("project-launcher-settings-changed", ());
         if previous_third_party_pricing != preferences.third_party_provider_pricing_enabled {
@@ -3436,6 +3501,15 @@ mod tests {
         assert!(!DEFAULT_STATUS_LINE_SCRIPT.contains("cache_file=\"/tmp/"));
     }
 
+    #[cfg(windows)]
+    #[test]
+    fn default_status_line_script_uses_powershell_json_and_utf8() {
+        // Windows 版用 ConvertFrom-Json 解析 stdin，无需 jq
+        assert!(DEFAULT_STATUS_LINE_SCRIPT.contains("ConvertFrom-Json"));
+        // 强制 UTF-8 输出，避免 emoji 与中文乱码
+        assert!(DEFAULT_STATUS_LINE_SCRIPT.contains("[Console]::OutputEncoding"));
+    }
+
     #[cfg(not(unix))]
     #[test]
     fn install_status_line_preset_rejects_unsupported_platforms() {
@@ -3659,6 +3733,9 @@ mod tests {
                 tray_pulse_waiting: true,
                 focus_session_shortcut: Some("Command+Control+J".to_string()),
                 led_control: crate::led::LedControlPreferences::default(),
+                floating_widget_enabled: false,
+                floating_widget_metrics: default_floating_widget_metrics(),
+                floating_widget_opacity: default_floating_widget_opacity(),
             },
             custom_providers: vec![Provider {
                 id: "custom:team-plan".to_string(),

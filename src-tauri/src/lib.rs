@@ -16,6 +16,7 @@ mod terminal_focus;
 mod tray;
 mod usage;
 mod utils;
+mod widget;
 
 use std::path::Path;
 #[cfg(any(debug_assertions, test))]
@@ -62,6 +63,7 @@ use stats::{get_stats, open_claude_json_in_editor};
 use tauri::Manager;
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind, TimezoneStrategy};
 use usage::{get_session_usage_detail, get_usage_snapshot, refresh_usage_pricing, rescan_usage};
+use widget::{open_usage_page, toggle_floating_widget};
 
 /// 构造 tauri-specta Builder，收集所有 IPC command。
 ///
@@ -92,6 +94,8 @@ fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             upsert_provider,
             delete_provider,
             set_app_preferences,
+            toggle_floating_widget,
+            open_usage_page,
             get_native_open_app_options,
             get_memories,
             add_memory,
@@ -258,6 +262,11 @@ pub fn run() {
             usage::start_usage_runtime(app).map_err(std::io::Error::other)?;
             // 启动 LED 灯效运行时（独立 worker 线程驱动设备，按当前会话状态点亮一次）
             led::start_led_runtime(app);
+            // 按当前偏好同步桌面用量浮窗显隐（启用则创建置顶小窗）
+            widget::sync_widget_visibility(
+                app.handle(),
+                config::load_app_preferences().floating_widget_enabled,
+            );
             Ok(())
         })
         .on_window_event(|window, event| {

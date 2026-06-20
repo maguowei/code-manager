@@ -25,6 +25,10 @@ export const commands = {
 	upsertProvider: (data: ProviderInput) => typedError<Provider_Serialize, string>(__TAURI_INVOKE("upsert_provider", { data })),
 	deleteProvider: (id: string) => typedError<null, string>(__TAURI_INVOKE("delete_provider", { id })),
 	setAppPreferences: (data: AppPreferencesInput) => typedError<AppPreferences, string>(__TAURI_INVOKE("set_app_preferences", { data })),
+	/**  切换浮窗显隐（幂等）：显示时不存在则创建，隐藏时隐藏而非关闭以保留位置与状态。 */
+	toggleFloatingWidget: (visible: boolean) => typedError<null, string>(__TAURI_INVOKE("toggle_floating_widget", { visible })),
+	/**  浮窗点击主体：唤起主窗口并跳转到用量页。复用托盘的窗口显示逻辑，避免重复实现。 */
+	openUsagePage: () => typedError<null, string>(__TAURI_INVOKE("open_usage_page")),
 	getNativeOpenAppOptions: () => __TAURI_INVOKE<NativeOpenAppOptions>("get_native_open_app_options"),
 	getMemories: () => typedError<MemoryState_Serialize, string>(__TAURI_INVOKE("get_memories")),
 	addMemory: (data: MemoryData) => typedError<MemoryState_Serialize, string>(__TAURI_INVOKE("add_memory", { data })),
@@ -133,6 +137,12 @@ export type AppPreferences = {
 	trayPulseWaiting?: boolean,
 	focusSessionShortcut?: string | null,
 	ledControl?: LedControlPreferences,
+	/**  桌面用量浮窗是否启用（置顶半透明小窗，实时展示今日用量）。 */
+	floatingWidgetEnabled?: boolean,
+	/**  浮窗展示的指标 key 列表，顺序即展示顺序，取值见 WIDGET_METRIC_KEYS。 */
+	floatingWidgetMetrics?: string[],
+	/**  浮窗面板不透明度百分比，范围 30-100（前端按 /100 映射到 CSS opacity）。 */
+	floatingWidgetOpacity?: number,
 };
 
 export type AppPreferencesInput = {
@@ -149,6 +159,9 @@ export type AppPreferencesInput = {
 	trayPulseWaiting?: boolean,
 	focusSessionShortcut?: string | null,
 	ledControl?: LedControlPreferences,
+	floatingWidgetEnabled?: boolean,
+	floatingWidgetMetrics?: string[],
+	floatingWidgetOpacity?: number,
 };
 
 export type BindingState = BindingState_Serialize | BindingState_Deserialize;
