@@ -99,11 +99,11 @@ export interface Provider {
   name: string;
   localizedName?: LocalizedText;
   description: string;
-  basePresetId?: string;
   docUrl?: string;
   models?: ProviderModel[];
   modelSuggestions: string[];
-  settingsPatch: Record<string, unknown>;
+  /** 供应商连接与模型映射环境变量（扁平键值对，不含认证密钥） */
+  env: Record<string, string>;
   source: ProviderSource;
 }
 

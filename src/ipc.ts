@@ -39,11 +39,11 @@ type ProviderInput = {
   name: string;
   localizedName?: AppTypes.LocalizedText | null;
   description: string;
-  basePresetId?: string | null;
   docUrl?: string | null;
   models?: AppTypes.ProviderModel[] | null;
   modelSuggestions: string[];
-  settingsPatch: Record<string, unknown>;
+  /** 供应商连接与模型映射环境变量（扁平键值对） */
+  env?: Record<string, string>;
 };
 
 type MemoryData = {

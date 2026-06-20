@@ -6,11 +6,12 @@ import {
   resolveProviderAutofillValues,
 } from "../config-workspace-utils";
 
+/** 段 B：Provider 不再有 settingsPatch/basePresetId，只有 env 扁平字典 */
 const PRESETS: Provider[] = [
   {
     id: "builtin:openrouter",
     name: "OpenRouter",
-    description: "OpenRouter 预设",
+    description: "OpenRouter 供应商",
     localizedName: {
       zh: "开放路由",
       en: "OpenRouter",
@@ -21,93 +22,57 @@ const PRESETS: Provider[] = [
       { id: "claude-haiku-4-5", category: "haiku" },
     ],
     modelSuggestions: ["claude-sonnet-4-6", "claude-opus-4-1"],
-    settingsPatch: {
-      env: {
-        ANTHROPIC_BASE_URL: "https://openrouter.ai/api",
-      },
+    env: {
+      ANTHROPIC_BASE_URL: "https://openrouter.ai/api",
     },
     source: "builtin",
   },
   {
-    id: "custom:team-plan",
-    name: "Team Plan",
-    description: "团队计划预设",
-    localizedName: {
-      zh: "团队计划",
-      en: "Team Plan",
-    },
-    basePresetId: "builtin:openrouter",
-    modelSuggestions: ["claude-haiku-fallback"],
-    settingsPatch: {
-      permissions: {
-        defaultMode: "plan",
-      },
-    },
-    source: "custom",
-  },
-  {
-    id: "custom:explicit-model",
-    name: "Explicit Model",
-    description: "显式模型预设",
-    localizedName: {
-      zh: "显式模型",
-      en: "Explicit Model",
-    },
-    basePresetId: "custom:team-plan",
-    modelSuggestions: ["claude-sonnet-4-6"],
-    settingsPatch: {
-      model: "claude-opus-explicit",
-    },
-    source: "custom",
-  },
-  {
     id: "custom:env-model",
     name: "Env Model",
-    description: "环境变量模型预设",
+    description: "环境变量模型供应商",
     localizedName: {
       zh: "环境变量模型",
       en: "Env Model",
     },
-    basePresetId: "custom:explicit-model",
     modelSuggestions: ["claude-sonnet-4-6"],
-    settingsPatch: {
-      env: {
-        ANTHROPIC_MODEL: "claude-env-override",
-        ANTHROPIC_DEFAULT_HAIKU_MODEL: "haiku-env-override",
-        CLAUDE_CODE_SUBAGENT_MODEL: "subagent-env-override",
-      },
+    env: {
+      ANTHROPIC_BASE_URL: "https://custom.api.com",
+      ANTHROPIC_MODEL: "claude-env-override",
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: "haiku-env-override",
+      CLAUDE_CODE_SUBAGENT_MODEL: "subagent-env-override",
     },
     source: "custom",
   },
   {
     id: "custom:suggestions-only",
     name: "Suggestions Only",
-    description: "仅建议模型预设",
+    description: "仅建议模型供应商",
     localizedName: {
       zh: "仅建议模型",
       en: "Suggestions Only",
     },
     modelSuggestions: ["claude-suggestion-only"],
-    settingsPatch: {},
+    env: {},
     source: "custom",
   },
   {
     id: "custom:sonnet-only",
     name: "Sonnet Only",
-    description: "仅 Sonnet 分类模型预设",
+    description: "仅 Sonnet 分类模型供应商",
     localizedName: {
       zh: "仅 Sonnet",
       en: "Sonnet Only",
     },
     models: [{ id: "claude-sonnet-only", category: "sonnet" }],
     modelSuggestions: [],
-    settingsPatch: {},
+    env: {},
     source: "custom",
   },
   {
     id: "builtin:deepseek",
     name: "DeepSeek",
-    description: "DeepSeek 预设",
+    description: "DeepSeek 供应商",
     localizedName: {
       zh: "DeepSeek",
       en: "DeepSeek",
@@ -117,16 +82,14 @@ const PRESETS: Provider[] = [
       { id: "deepseek-v4-flash", category: "haiku" },
     ],
     modelSuggestions: ["deepseek-v4-pro[1m]", "deepseek-v4-flash"],
-    settingsPatch: {
-      env: {
-        ANTHROPIC_BASE_URL: "https://api.deepseek.com/anthropic",
-        ANTHROPIC_MODEL: "deepseek-v4-pro[1m]",
-        ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-v4-pro[1m]",
-        ANTHROPIC_DEFAULT_SONNET_MODEL: "deepseek-v4-pro[1m]",
-        ANTHROPIC_DEFAULT_HAIKU_MODEL: "deepseek-v4-flash",
-        CLAUDE_CODE_SUBAGENT_MODEL: "deepseek-v4-flash",
-        CLAUDE_CODE_EFFORT_LEVEL: "max",
-      },
+    env: {
+      ANTHROPIC_BASE_URL: "https://api.deepseek.com/anthropic",
+      ANTHROPIC_MODEL: "deepseek-v4-pro[1m]",
+      ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-v4-pro[1m]",
+      ANTHROPIC_DEFAULT_SONNET_MODEL: "deepseek-v4-pro[1m]",
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: "deepseek-v4-flash",
+      CLAUDE_CODE_SUBAGENT_MODEL: "deepseek-v4-flash",
+      CLAUDE_CODE_EFFORT_LEVEL: "max",
     },
     source: "builtin",
   },
@@ -165,54 +128,27 @@ describe("config-workspace-utils preset autofill", () => {
     });
   });
 
-  it("resolves categorized models across the inheritance chain with explicit overrides", () => {
+  it("resolves categorized models from provider env and models array", () => {
+    // 段 B：不再有继承链，直接从单个 provider 读取
     expect(resolveProviderAutofillValues(PRESETS, "builtin:openrouter")).toEqual({
       resolvedBaseUrl: "https://openrouter.ai/api",
-      resolvedModel: "claude-sonnet-4-6",
+      resolvedModel: "claude-sonnet-4-6", // categorySonnet 优先于 suggestion
       resolvedOpusModel: "claude-opus-4-1",
       resolvedSonnetModel: "claude-sonnet-4-6",
       resolvedHaikuModel: "claude-haiku-4-5",
       resolvedSubagentModel: undefined,
       resolvedEffortLevel: undefined,
     });
+  });
 
-    expect(resolveProviderAutofillValues(PRESETS, "custom:team-plan")).toEqual({
-      resolvedBaseUrl: "https://openrouter.ai/api",
-      resolvedModel: "claude-sonnet-4-6",
-      resolvedOpusModel: "claude-opus-4-1",
-      resolvedSonnetModel: "claude-sonnet-4-6",
-      resolvedHaikuModel: "claude-haiku-4-5",
-      resolvedSubagentModel: undefined,
-      resolvedEffortLevel: undefined,
-    });
-
-    expect(resolveProviderAutofillValues(PRESETS, "custom:explicit-model")).toEqual({
-      resolvedBaseUrl: "https://openrouter.ai/api",
-      resolvedModel: "claude-opus-explicit",
-      resolvedOpusModel: "claude-opus-4-1",
-      resolvedSonnetModel: "claude-sonnet-4-6",
-      resolvedHaikuModel: "claude-haiku-4-5",
-      resolvedSubagentModel: undefined,
-      resolvedEffortLevel: undefined,
-    });
-
+  it("resolves env model overrides from provider env dict", () => {
     expect(resolveProviderAutofillValues(PRESETS, "custom:env-model")).toEqual({
-      resolvedBaseUrl: "https://openrouter.ai/api",
+      resolvedBaseUrl: "https://custom.api.com",
       resolvedModel: "claude-env-override",
-      resolvedOpusModel: "claude-opus-4-1",
-      resolvedSonnetModel: "claude-sonnet-4-6",
+      resolvedOpusModel: undefined,
+      resolvedSonnetModel: "claude-env-override", // falls back to resolvedModel
       resolvedHaikuModel: "haiku-env-override",
       resolvedSubagentModel: "subagent-env-override",
-      resolvedEffortLevel: undefined,
-    });
-
-    expect(resolveProviderAutofillValues(PRESETS, "custom:sonnet-only")).toEqual({
-      resolvedBaseUrl: undefined,
-      resolvedModel: "claude-sonnet-only",
-      resolvedOpusModel: "claude-sonnet-only",
-      resolvedSonnetModel: "claude-sonnet-only",
-      resolvedHaikuModel: "claude-sonnet-only",
-      resolvedSubagentModel: undefined,
       resolvedEffortLevel: undefined,
     });
   });
@@ -229,7 +165,19 @@ describe("config-workspace-utils preset autofill", () => {
     });
   });
 
-  it("resolves DeepSeek official subagent and effort env overrides from the preset chain", () => {
+  it("resolves sonnet-only provider with correct category fallbacks", () => {
+    expect(resolveProviderAutofillValues(PRESETS, "custom:sonnet-only")).toEqual({
+      resolvedBaseUrl: undefined,
+      resolvedModel: "claude-sonnet-only",
+      resolvedOpusModel: "claude-sonnet-only",
+      resolvedSonnetModel: "claude-sonnet-only",
+      resolvedHaikuModel: "claude-sonnet-only",
+      resolvedSubagentModel: undefined,
+      resolvedEffortLevel: undefined,
+    });
+  });
+
+  it("resolves DeepSeek official subagent and effort env overrides from provider env", () => {
     expect(resolveProviderAutofillValues(PRESETS, "builtin:deepseek")).toEqual({
       resolvedBaseUrl: "https://api.deepseek.com/anthropic",
       resolvedModel: "deepseek-v4-pro[1m]",
@@ -241,7 +189,11 @@ describe("config-workspace-utils preset autofill", () => {
     });
   });
 
-  it("applies and clears the full preset autofill env set without touching auth or unrelated values", () => {
+  it("returns empty autofill values when providerId is undefined", () => {
+    expect(resolveProviderAutofillValues(PRESETS, undefined)).toEqual({});
+  });
+
+  it("applies provider autofill model env without touching auth or ANTHROPIC_BASE_URL (段 B: 地址由 provider 合并层提供)", () => {
     const seededSettings = {
       env: {
         ANTHROPIC_AUTH_TOKEN: "token",
@@ -259,14 +211,17 @@ describe("config-workspace-utils preset autofill", () => {
       },
     };
 
-    expect(applyProviderAutofill(seededSettings, PRESETS, "custom:team-plan")).toEqual({
+    // 段 B：applyProviderAutofill 不再写 ANTHROPIC_BASE_URL 到 profile settings
+    expect(applyProviderAutofill(seededSettings, PRESETS, "builtin:openrouter")).toEqual({
       env: {
         ANTHROPIC_AUTH_TOKEN: "token",
-        ANTHROPIC_BASE_URL: "https://openrouter.ai/api",
+        // 地址保留原值（autofill 不覆盖 ANTHROPIC_BASE_URL）
+        ANTHROPIC_BASE_URL: "https://manual.example.com",
         ANTHROPIC_MODEL: "claude-sonnet-4-6",
         ANTHROPIC_DEFAULT_OPUS_MODEL: "claude-opus-4-1",
         ANTHROPIC_DEFAULT_SONNET_MODEL: "claude-sonnet-4-6",
         ANTHROPIC_DEFAULT_HAIKU_MODEL: "claude-haiku-4-5",
+        // CLAUDE_CODE_SUBAGENT_MODEL cleared (no override)
         OTHER_ENV: "keep-me",
       },
       permissions: {
@@ -274,9 +229,11 @@ describe("config-workspace-utils preset autofill", () => {
       },
     });
 
+    // 无 provider 时清空所有 autofill 项
     expect(applyProviderAutofill(seededSettings, PRESETS, undefined)).toEqual({
       env: {
         ANTHROPIC_AUTH_TOKEN: "token",
+        ANTHROPIC_BASE_URL: "https://manual.example.com",
         OTHER_ENV: "keep-me",
       },
       permissions: {
@@ -290,20 +247,15 @@ describe("config-workspace-utils preset autofill", () => {
       env: {
         ANTHROPIC_AUTH_TOKEN: "token",
         ANTHROPIC_BASE_URL: "https://manual.example.com",
-        ANTHROPIC_MODEL: "manual-model",
-        ANTHROPIC_DEFAULT_OPUS_MODEL: "manual-opus",
-        ANTHROPIC_DEFAULT_SONNET_MODEL: "manual-sonnet",
-        ANTHROPIC_DEFAULT_HAIKU_MODEL: "manual-haiku",
-        CLAUDE_CODE_SUBAGENT_MODEL: "manual-subagent",
-        CLAUDE_CODE_EFFORT_LEVEL: "manual-effort",
         OTHER_ENV: "keep-me",
       },
     };
 
+    // 段 B：applyProviderAutofill 不写 ANTHROPIC_BASE_URL
     expect(applyProviderAutofill(seededSettings, PRESETS, "builtin:deepseek")).toEqual({
       env: {
         ANTHROPIC_AUTH_TOKEN: "token",
-        ANTHROPIC_BASE_URL: "https://api.deepseek.com/anthropic",
+        ANTHROPIC_BASE_URL: "https://manual.example.com",
         ANTHROPIC_MODEL: "deepseek-v4-pro[1m]",
         ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-v4-pro[1m]",
         ANTHROPIC_DEFAULT_SONNET_MODEL: "deepseek-v4-pro[1m]",

@@ -310,19 +310,27 @@ export function resolveProviderAutofillValues(
   providers: Provider[],
   providerId: string | undefined,
 ): PresetAutofillValues {
-  const chain = resolveProviderChain(providers, providerId, new Set<string>());
-  const resolvedBaseUrl = resolveExplicitEnvValue(chain, "ANTHROPIC_BASE_URL");
-  const explicitEnvModel = resolveExplicitEnvValue(chain, "ANTHROPIC_MODEL");
-  const explicitTopLevelModel = resolveExplicitTopLevelModel(chain);
-  const categoryOpusModel = resolveCategoryModel(chain, "opus");
-  const categorySonnetModel = resolveCategoryModel(chain, "sonnet");
-  const categoryHaikuModel = resolveCategoryModel(chain, "haiku");
-  const categoryOtherModel = resolveCategoryModel(chain, "other");
-  const firstProviderModel = resolveFirstProviderModel(chain);
-  const suggestedModel = resolveSuggestedModel(chain);
+  // 段 B：Provider 不再有继承链，直接读取单个供应商的 env 扁平字典
+  if (!providerId) {
+    return {};
+  }
+  const provider = providers.find((item) => item.id === providerId);
+  if (!provider) {
+    return {};
+  }
+  const env = provider.env ?? {};
+
+  const readEnv = (key: string): string | undefined => normalizeProviderEnvValue(env[key]);
+
+  const categoryOpusModel = resolveCategoryModel(provider, "opus");
+  const categorySonnetModel = resolveCategoryModel(provider, "sonnet");
+  const categoryHaikuModel = resolveCategoryModel(provider, "haiku");
+  const categoryOtherModel = resolveCategoryModel(provider, "other");
+  const firstProviderModel = resolveFirstProviderModel(provider);
+  const suggestedModel = normalizeProviderEnvValue(provider.modelSuggestions?.[0]);
+  const explicitEnvModel = readEnv("ANTHROPIC_MODEL");
   const resolvedModel =
     explicitEnvModel ||
-    explicitTopLevelModel ||
     categorySonnetModel ||
     categoryOpusModel ||
     categoryHaikuModel ||
@@ -331,117 +339,55 @@ export function resolveProviderAutofillValues(
     suggestedModel;
 
   return {
-    resolvedBaseUrl,
+    resolvedBaseUrl: readEnv("ANTHROPIC_BASE_URL"),
     resolvedModel,
     resolvedOpusModel:
-      resolveExplicitEnvValue(chain, "ANTHROPIC_DEFAULT_OPUS_MODEL") ||
-      categoryOpusModel ||
-      categorySonnetModel,
+      readEnv("ANTHROPIC_DEFAULT_OPUS_MODEL") || categoryOpusModel || categorySonnetModel,
     resolvedSonnetModel:
-      resolveExplicitEnvValue(chain, "ANTHROPIC_DEFAULT_SONNET_MODEL") ||
+      readEnv("ANTHROPIC_DEFAULT_SONNET_MODEL") ||
       categorySonnetModel ||
       categoryOpusModel ||
       categoryOtherModel ||
       resolvedModel,
     resolvedHaikuModel:
-      resolveExplicitEnvValue(chain, "ANTHROPIC_DEFAULT_HAIKU_MODEL") ||
+      readEnv("ANTHROPIC_DEFAULT_HAIKU_MODEL") ||
       categoryHaikuModel ||
       categorySonnetModel ||
       categoryOpusModel ||
       categoryOtherModel ||
       resolvedModel,
-    resolvedSubagentModel: resolveExplicitEnvValue(chain, "CLAUDE_CODE_SUBAGENT_MODEL"),
-    resolvedEffortLevel: resolveExplicitEnvValue(chain, "CLAUDE_CODE_EFFORT_LEVEL"),
+    resolvedSubagentModel: readEnv("CLAUDE_CODE_SUBAGENT_MODEL"),
+    resolvedEffortLevel: readEnv("CLAUDE_CODE_EFFORT_LEVEL"),
   };
 }
 
-function resolveProviderChain(
-  providers: Provider[],
-  providerId: string | undefined,
-  visited: Set<string>,
-): Provider[] {
-  if (!providerId || visited.has(providerId)) {
-    return [];
-  }
-
-  visited.add(providerId);
-  const provider = providers.find((item) => item.id === providerId);
-  if (!provider) {
-    return [];
-  }
-
-  const inherited =
-    provider.basePresetId && !visited.has(provider.basePresetId)
-      ? resolveProviderChain(providers, provider.basePresetId, visited)
-      : [];
-
-  return [...inherited, provider];
-}
-
-function resolveExplicitEnvValue(chain: Provider[], envKey: string): string | undefined {
-  for (let index = chain.length - 1; index >= 0; index -= 1) {
-    const patch = isPlainObject(chain[index]?.settingsPatch) ? chain[index].settingsPatch : {};
-    const env = readTopLevelObject(patch, "env");
-    const explicitValue = normalizePresetValue(env[envKey]);
-    if (explicitValue) {
-      return explicitValue;
-    }
-  }
-  return undefined;
-}
-
-function resolveExplicitTopLevelModel(chain: Provider[]): string | undefined {
-  for (let index = chain.length - 1; index >= 0; index -= 1) {
-    const patch = isPlainObject(chain[index]?.settingsPatch) ? chain[index].settingsPatch : {};
-    const explicitValue = normalizePresetValue(patch.model);
-    if (explicitValue) {
-      return explicitValue;
-    }
-  }
-  return undefined;
-}
-
 function resolveCategoryModel(
-  chain: Provider[],
+  provider: Provider,
   category: "opus" | "sonnet" | "haiku" | "other",
 ): string | undefined {
-  for (let index = chain.length - 1; index >= 0; index -= 1) {
-    for (const model of chain[index]?.models ?? []) {
-      if (model.category !== category) {
-        continue;
-      }
-      const modelId = normalizePresetValue(model.id);
-      if (modelId) {
-        return modelId;
-      }
+  for (const model of provider.models ?? []) {
+    if (model.category !== category) {
+      continue;
+    }
+    const modelId = normalizeProviderEnvValue(model.id);
+    if (modelId) {
+      return modelId;
     }
   }
   return undefined;
 }
 
-function resolveFirstProviderModel(chain: Provider[]): string | undefined {
-  for (let index = chain.length - 1; index >= 0; index -= 1) {
-    for (const model of chain[index]?.models ?? []) {
-      const modelId = normalizePresetValue(model.id);
-      if (modelId) {
-        return modelId;
-      }
+function resolveFirstProviderModel(provider: Provider): string | undefined {
+  for (const model of provider.models ?? []) {
+    const modelId = normalizeProviderEnvValue(model.id);
+    if (modelId) {
+      return modelId;
     }
   }
   return undefined;
 }
 
-function resolveSuggestedModel(chain: Provider[]): string | undefined {
-  for (let index = chain.length - 1; index >= 0; index -= 1) {
-    const suggestedModel = normalizePresetValue(chain[index]?.modelSuggestions?.[0]);
-    if (suggestedModel) {
-      return suggestedModel;
-    }
-  }
-  return undefined;
-}
-
-function normalizePresetValue(value: unknown): string | undefined {
+function normalizeProviderEnvValue(value: unknown): string | undefined {
   if (typeof value !== "string") {
     return undefined;
   }
@@ -455,8 +401,8 @@ export function applyProviderAutofill(
   providerId: string | undefined,
 ): Record<string, unknown> {
   const resolved = resolveProviderAutofillValues(providers, providerId);
+  // 地址（ANTHROPIC_BASE_URL）由 Provider 合并层提供，不写入 Profile settings
   const updates: Array<[string, string | undefined]> = [
-    ["ANTHROPIC_BASE_URL", resolved.resolvedBaseUrl],
     ["ANTHROPIC_MODEL", resolved.resolvedModel],
     ["ANTHROPIC_DEFAULT_OPUS_MODEL", resolved.resolvedOpusModel],
     ["ANTHROPIC_DEFAULT_SONNET_MODEL", resolved.resolvedSonnetModel],

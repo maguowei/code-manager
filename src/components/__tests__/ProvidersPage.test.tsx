@@ -55,7 +55,7 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
       description: "OpenRouter preset",
       docUrl: "https://docs.example.com/openrouter",
       modelSuggestions: ["claude-sonnet-4-6"],
-      settingsPatch: {},
+      env: {},
       source: "builtin",
     },
   ],
@@ -91,10 +91,9 @@ function workspaceWithCustomPresets(): ConfigWorkspace {
           en: "Team Plan",
         },
         description: "Team default preset",
-        basePresetId: "builtin:openrouter",
         docUrl: "https://docs.example.com/team-plan",
         modelSuggestions: ["claude-sonnet-4-6"],
-        settingsPatch: {},
+        env: {},
         source: "custom",
       },
     ],
@@ -209,15 +208,9 @@ describe("ProvidersPage", () => {
                   en: "Team Plan",
                 },
                 description: "Team default preset",
-                basePresetId: "builtin:openrouter",
                 docUrl: "https://docs.example.com/team-plan",
                 modelSuggestions: ["claude-sonnet-4-6"],
-                settingsPatch: {
-                  enabledPlugins: {
-                    "formatter@anthropic-tools": true,
-                    "reviewer@anthropic-tools": false,
-                  },
-                },
+                env: {},
                 source: "custom",
               },
             ],
@@ -236,11 +229,7 @@ describe("ProvidersPage", () => {
     }
 
     expect(within(customCard).queryByText("Team default preset")).not.toBeInTheDocument();
-    expect(within(customCard).getByText("Base Preset")).toBeInTheDocument();
-    expect(within(customCard).getByText("OpenRouter")).toBeInTheDocument();
     expect(within(customCard).getByText("Suggested Models")).toBeInTheDocument();
-    expect(within(customCard).getByText("Enabled")).toBeInTheDocument();
-    expect(within(customCard).getByText("1/2")).toBeInTheDocument();
     expect(within(customCard).getByRole("button", { name: "Edit" })).toBeInTheDocument();
     expect(within(customCard).getByRole("button", { name: "Delete" })).toBeInTheDocument();
     expect(within(customCard).queryByRole("button", { name: "Open Docs" })).toBeInTheDocument();
@@ -278,7 +267,7 @@ describe("ProvidersPage", () => {
           },
           description: "General preset",
           modelSuggestions: [],
-          settingsPatch: {},
+          env: {},
           source: "custom",
         },
         {
@@ -290,7 +279,7 @@ describe("ProvidersPage", () => {
           },
           description: "Team preset",
           modelSuggestions: [],
-          settingsPatch: {},
+          env: {},
           source: "custom",
         },
       ],
