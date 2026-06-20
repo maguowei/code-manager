@@ -25,7 +25,7 @@
 
 **非目标 / 明确约束：**
 
-- **不做向后兼容**：项目尚未正式发布，采用 clean break，不编写任何迁移/兼容逻辑。
+- **有限向后兼容**：仅对"引用内置预设的现有 profile"做读时字段兼容（`presetId` → `providerId`），见决策 5；**自定义预设维持 clean break**（不迁移、丢弃）。
 - 不引入新的第三套配置编辑入口。
 - 不改变"最终原子写入 `~/.claude/settings.json`"的应用语义。
 
@@ -62,6 +62,25 @@
 ### 决策 4：全面改名 Preset → Provider
 
 代码标识符、类型名、文件名、IPC command、i18n key、UI 文案全套替换。一次到位，避免长期"preset 名不符实"。
+
+### 决策 5：兼容处理（仅内置预设，限期移除）
+
+只对"引用内置预设的现有 profile"做最小读时兼容。内置 provider 每次从 `builtin-providers.json` 重生成、ID 不变（`builtin:<slug>`）且本就 env-only，因此**无需** `settingsPatch → env` 转换、无需下沉、无需迁移自定义预设。唯一缺口是旧 `config-registry.json` 里 profile 的字段名是 `presetId`。
+
+**兼容点（两处，均为限期逻辑）：**
+
+1. **字段读时别名**：`ConfigProfile.provider_id` 加 serde `alias = "presetId"`，旧 JSON 的 `presetId` 可被读入 `provider_id`，下次 `save_registry` 写回即转为 `providerId`，一次性自然迁移。
+2. **resolve 容错**：`resolve_profile_settings` 在 `provider_id` 解析不到对应 provider 时**跳过供应商层、仅用 `profile.settings`**，而不是报错。用于兜住"引用已被丢弃的自定义预设"的悬空 profile，避免 apply 失败。该容错本身也是更健壮的行为。
+
+**自定义预设不兼容**：旧 `customPresets` 键被忽略、丢弃（clean break）。引用自定义预设的 profile 其 `providerId` 成为悬空引用，由兼容点 2 兜底（apply 时仅用 profile.settings，不报错）。
+
+**移除时点（硬性约定）**：本次重构随 `0.21.0` 发布，上述两处兼容逻辑计划在 **`0.23.0`** 移除。代码中必须以统一标记标注，便于到期检索删除：
+
+```rust
+// COMPAT(presetId→providerId): 兼容 <=0.20.x 的旧字段，计划 0.23.0 移除
+```
+
+到 `0.23.0` 时：删除 `alias = "presetId"`；resolve 容错可按届时策略决定保留（健壮性）或恢复严格报错。
 
 ## 数据模型
 
