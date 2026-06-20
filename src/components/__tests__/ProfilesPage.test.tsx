@@ -145,7 +145,7 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
 function renderPage(
   workspace: ConfigWorkspace = WORKSPACE_FIXTURE,
   onWorkspaceChange: () => Promise<void> = async () => {},
-  onOpenPresets: () => void = vi.fn(),
+  onOpenProviders: () => void = vi.fn(),
 ) {
   render(
     <I18nProvider>
@@ -153,7 +153,7 @@ function renderPage(
         <ProfilesPage
           workspace={workspace}
           onWorkspaceChange={onWorkspaceChange}
-          onOpenPresets={onOpenPresets}
+          onOpenProviders={onOpenProviders}
         />
       </ThemeProvider>
     </I18nProvider>,
@@ -276,8 +276,8 @@ describe("ProfilesPage", () => {
     expect(within(card).queryByRole("button", { name: "编辑" })).not.toBeInTheDocument();
   });
 
-  it("renders config section tabs above profile actions and opens presets", () => {
-    const onOpenPresets = vi.fn();
+  it("renders config section tabs above profile actions and opens providers", () => {
+    const onOpenProviders = vi.fn();
     renderPage(
       {
         ...WORKSPACE_FIXTURE,
@@ -297,24 +297,24 @@ describe("ProfilesPage", () => {
         ],
       },
       async () => {},
-      onOpenPresets,
+      onOpenProviders,
     );
 
     const tabs = screen.getByRole("group", { name: "配置分区" });
     const profilesTab = within(tabs).getByRole("button", { name: "配置" });
-    const presetsTab = within(tabs).getByRole("button", { name: "预设" });
+    const providersTab = within(tabs).getByRole("button", { name: "供应商" });
 
     expect(profilesTab).toHaveAttribute("aria-pressed", "true");
-    expect(presetsTab).toHaveAttribute("aria-pressed", "false");
+    expect(providersTab).toHaveAttribute("aria-pressed", "false");
     expect(screen.queryByRole("group", { name: "预设管理" })).not.toBeInTheDocument();
     expect(
       tabs.compareDocumentPosition(screen.getByRole("button", { name: "新建配置" })) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
 
-    fireEvent.click(presetsTab);
+    fireEvent.click(providersTab);
 
-    expect(onOpenPresets).toHaveBeenCalledTimes(1);
+    expect(onOpenProviders).toHaveBeenCalledTimes(1);
   });
 
   it("shows unmanaged user settings and imports them in place", async () => {

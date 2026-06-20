@@ -415,7 +415,7 @@ const CONFIG_WORKSPACE_WITH_EDITORS: ConfigWorkspace = {
         zh: "开放路由",
         en: "OpenRouter",
       },
-      description: "OpenRouter 预设",
+      description: "OpenRouter 供应商",
       modelSuggestions: [],
       settingsPatch: {},
       source: "builtin",
@@ -429,7 +429,7 @@ const CONFIG_WORKSPACE_WITH_EDITORS: ConfigWorkspace = {
         zh: "团队计划",
         en: "Team Plan",
       },
-      description: "团队预设",
+      description: "团队供应商",
       modelSuggestions: [],
       settingsPatch: {},
       source: "custom",
@@ -698,7 +698,7 @@ describe("App", () => {
     });
     fireEvent.click(
       within(screen.getByRole("group", { name: "配置分区", hidden: true })).getByRole("button", {
-        name: "预设",
+        name: "供应商",
         hidden: true,
       }),
     );
@@ -709,11 +709,11 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "不保存退出" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "预设" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "供应商" })).toBeInTheDocument();
     });
   });
 
-  it("saves profile changes before running guarded preset tab navigation", async () => {
+  it("saves profile changes before running guarded provider tab navigation", async () => {
     mockConfigEditorWorkspace();
     renderApp();
 
@@ -723,7 +723,7 @@ describe("App", () => {
     });
     fireEvent.click(
       within(screen.getByRole("group", { name: "配置分区", hidden: true })).getByRole("button", {
-        name: "预设",
+        name: "供应商",
         hidden: true,
       }),
     );
@@ -741,17 +741,17 @@ describe("App", () => {
       );
     });
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "预设" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "供应商" })).toBeInTheDocument();
     });
   });
 
-  it("blocks the settings drawer while the preset editor has unsaved changes", async () => {
+  it("blocks the settings drawer while the provider editor has unsaved changes", async () => {
     mockConfigEditorWorkspace();
     renderApp();
 
     fireEvent.click(
       within(await screen.findByRole("group", { name: "配置分区" })).getByRole("button", {
-        name: "预设",
+        name: "供应商",
       }),
     );
     fireEvent.click(await screen.findByRole("button", { name: "编辑" }));
@@ -770,27 +770,27 @@ describe("App", () => {
     });
   });
 
-  it("returns from presets to profiles through the config section tabs", async () => {
+  it("returns from providers to profiles through the config section tabs", async () => {
     mockConfigEditorWorkspace();
     renderApp();
 
     fireEvent.click(
       within(await screen.findByRole("group", { name: "配置分区" })).getByRole("button", {
-        name: "预设",
+        name: "供应商",
       }),
     );
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "预设" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "供应商" })).toBeInTheDocument();
     });
 
-    const presetTabs = screen.getByRole("group", { name: "配置分区" });
-    expect(within(presetTabs).getByRole("button", { name: "预设" })).toHaveAttribute(
+    const providerTabs = screen.getByRole("group", { name: "配置分区" });
+    expect(within(providerTabs).getByRole("button", { name: "供应商" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
 
-    fireEvent.click(within(presetTabs).getByRole("button", { name: "配置" }));
+    fireEvent.click(within(providerTabs).getByRole("button", { name: "配置" }));
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "配置" })).toBeInTheDocument();
@@ -883,7 +883,7 @@ describe("App", () => {
         {
           id: "builtin:openrouter",
           name: "OpenRouter",
-          description: "OpenRouter 预设",
+          description: "OpenRouter 供应商",
           modelSuggestions: [],
           settingsPatch: {},
           source: "builtin",

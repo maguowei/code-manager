@@ -127,10 +127,10 @@ describe("ProvidersPage", () => {
 
     renderPage();
 
-    expect(screen.getByRole("heading", { name: "Presets" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Built-in Presets" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Custom Presets" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Add Preset/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Providers" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Built-in Providers" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Custom Providers" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Add Provider/ })).toBeInTheDocument();
   });
 
   it("renders config section tabs with presets selected and opens profiles", () => {
@@ -147,7 +147,7 @@ describe("ProvidersPage", () => {
 
     const tabs = screen.getByRole("group", { name: "Config sections" });
     const profilesTab = within(tabs).getByRole("button", { name: "Profiles" });
-    const presetsTab = within(tabs).getByRole("button", { name: "Presets" });
+    const presetsTab = within(tabs).getByRole("button", { name: "Providers" });
 
     expect(profilesTab).toHaveAttribute("aria-pressed", "false");
     expect(presetsTab).toHaveAttribute("aria-pressed", "true");
@@ -340,7 +340,7 @@ describe("ProvidersPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
 
     await waitFor(() => {
-      expect(screen.queryByRole("heading", { name: "Edit Preset" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Edit Provider" })).not.toBeInTheDocument();
     });
     expect(invokeMock).not.toHaveBeenCalledWith("upsert_provider", expect.anything());
   });
@@ -375,7 +375,9 @@ describe("ProvidersPage", () => {
         }),
       );
     });
-    expect(screen.getByRole("heading", { name: "Edit Preset", hidden: true })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Edit Provider", hidden: true }),
+    ).toBeInTheDocument();
     expect(screen.getByDisplayValue("Team Plan Draft")).toBeInTheDocument();
   });
 
@@ -435,6 +437,6 @@ describe("ProvidersPage", () => {
 
     expect(screen.getByRole("button", { name: "Save and exit" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
-    expect(screen.queryByRole("heading", { name: "Edit Preset" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Edit Provider" })).not.toBeInTheDocument();
   });
 });

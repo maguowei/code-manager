@@ -239,7 +239,7 @@ function App() {
     [activateTab, runWithEditorExitGuard],
   );
 
-  const handleOpenPresets = useCallback(() => {
+  const handleOpenProviders = useCallback(() => {
     runWithEditorExitGuard(() => activateTab("providers"));
   }, [activateTab, runWithEditorExitGuard]);
 
@@ -311,7 +311,7 @@ function App() {
                 workspace={workspace}
                 onWorkspaceChange={loadWorkspace}
                 onEditorExitGuardChange={setEditorExitGuard}
-                onOpenPresets={handleOpenPresets}
+                onOpenProviders={handleOpenProviders}
               />
             ) : (
               <div

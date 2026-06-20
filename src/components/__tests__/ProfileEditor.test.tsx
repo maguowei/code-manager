@@ -603,8 +603,8 @@ describe("ProfileEditor", () => {
       expect(within(authSection).getByRole("heading", { name: "认证", level: 3 })).toHaveClass(
         "text-base",
       );
-      expect(within(authSection).getByLabelText("预设")).toHaveClass("text-sm");
-      expect(within(authSection).getByLabelText("预设")).toBeInTheDocument();
+      expect(within(authSection).getByLabelText("供应商")).toHaveClass("text-sm");
+      expect(within(authSection).getByLabelText("供应商")).toBeInTheDocument();
       expect(within(authSection).getByLabelText("ANTHROPIC_AUTH_TOKEN")).toHaveValue("token");
       expect(within(authSection).getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("");
     }
@@ -612,7 +612,7 @@ describe("ProfileEditor", () => {
       expect(within(basicSection).getByRole("heading", { name: "基础信息", level: 3 })).toHaveClass(
         "text-base",
       );
-      expect(within(basicSection).queryByLabelText("预设")).not.toBeInTheDocument();
+      expect(within(basicSection).queryByLabelText("供应商")).not.toBeInTheDocument();
       expect(within(basicSection).getByText("必填")).toBeInTheDocument();
     }
 
@@ -974,7 +974,7 @@ describe("ProfileEditor", () => {
   it("uses localized preset names in the preset selector", () => {
     renderEditor();
 
-    expect(comboboxOptionNames("预设")).toContain("开放路由");
+    expect(comboboxOptionNames("供应商")).toContain("开放路由");
     expect(screen.queryByRole("option", { name: "OpenRouter" })).not.toBeInTheDocument();
   });
 
@@ -982,7 +982,7 @@ describe("ProfileEditor", () => {
     renderEditor();
 
     const authSection = getSection("认证");
-    const presetSelector = within(authSection).getByLabelText("预设");
+    const presetSelector = within(authSection).getByLabelText("供应商");
     expect(presetSelector).toHaveAttribute("data-slot", "select-trigger");
 
     const docsButton = within(authSection).getByRole("button", { name: "查看文档" });
@@ -991,7 +991,7 @@ describe("ProfileEditor", () => {
     fireEvent.click(docsButton);
     expect(openUrlMock).toHaveBeenCalledWith("https://openrouter.ai/docs");
 
-    chooseComboboxOption("预设", "团队计划");
+    chooseComboboxOption("供应商", "团队计划");
     expect(within(authSection).queryByRole("button", { name: "查看文档" })).not.toBeInTheDocument();
   });
 
@@ -3787,7 +3787,7 @@ describe("ProfileEditor", () => {
     expect(screen.queryByLabelText("作用域")).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/项目路径/)).not.toBeInTheDocument();
 
-    chooseComboboxOption("预设", "开放路由");
+    chooseComboboxOption("供应商", "开放路由");
     await act(async () => {
       await Promise.resolve();
     });
@@ -3833,7 +3833,7 @@ describe("ProfileEditor", () => {
       },
     });
 
-    chooseComboboxOption("预设", "开放路由");
+    chooseComboboxOption("供应商", "开放路由");
     expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("https://openrouter.ai/api");
     expect(screen.getByLabelText("默认模型")).toHaveValue("claude-sonnet-4-6");
     expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("claude-opus-4-1");
@@ -3841,7 +3841,7 @@ describe("ProfileEditor", () => {
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("claude-haiku-4-5");
     expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
 
-    chooseComboboxOption("预设", "团队计划");
+    chooseComboboxOption("供应商", "团队计划");
     expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("https://openrouter.ai/api");
     expect(screen.getByLabelText("默认模型")).toHaveValue("claude-sonnet-4-6");
     expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("claude-opus-4-1");
@@ -3849,19 +3849,19 @@ describe("ProfileEditor", () => {
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("claude-haiku-4-5");
     expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
 
-    chooseComboboxOption("预设", "显式模型");
+    chooseComboboxOption("供应商", "显式模型");
     expect(screen.getByLabelText("默认模型")).toHaveValue("claude-opus-explicit");
     expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("claude-opus-4-1");
     expect(screen.getByLabelText("Sonnet 默认模型")).toHaveValue("claude-sonnet-4-6");
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("claude-haiku-4-5");
     expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
 
-    chooseComboboxOption("预设", "环境变量级别覆盖");
+    chooseComboboxOption("供应商", "环境变量级别覆盖");
     expect(screen.getByLabelText("默认模型")).toHaveValue("claude-opus-explicit");
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("haiku-env-override");
     expect(screen.getByLabelText("Subagent 模型")).toHaveValue("subagent-env-override");
 
-    chooseComboboxOption("预设", "无预设");
+    chooseComboboxOption("供应商", "无供应商");
     expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("");
     expect(screen.getByLabelText("默认模型")).toHaveValue("");
     expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("");
@@ -3885,7 +3885,7 @@ describe("ProfileEditor", () => {
       return;
     }
 
-    expect(within(authSection).getByLabelText("预设")).toBeInTheDocument();
+    expect(within(authSection).getByLabelText("供应商")).toBeInTheDocument();
     const authTokenInput = within(authSection).getByLabelText("ANTHROPIC_AUTH_TOKEN");
     expect(authTokenInput).toHaveValue("token");
     expect(authTokenInput).toHaveAttribute("type", "password");

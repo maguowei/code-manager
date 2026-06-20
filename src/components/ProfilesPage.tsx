@@ -86,7 +86,7 @@ const SettingsMismatchDiffViewer = lazy(
 interface ProfilesPageProps {
   workspace: ConfigWorkspace;
   onWorkspaceChange: () => Promise<void>;
-  onOpenPresets?: () => void;
+  onOpenProviders?: () => void;
   onEditorExitGuardChange?: (guard: EditorExitGuard | null) => void;
 }
 
@@ -224,7 +224,7 @@ const SHARED_SYNC_ENV_KEYS = COMMON_ENV_SETTINGS_KEYS;
 function ProfilesPage({
   workspace,
   onWorkspaceChange,
-  onOpenPresets,
+  onOpenProviders,
   onEditorExitGuardChange,
 }: ProfilesPageProps) {
   const { language, t } = useI18n();
@@ -1262,7 +1262,7 @@ function ProfilesPage({
           value="profiles"
           onValueChange={(value) => {
             if (value === "providers") {
-              onOpenPresets?.();
+              onOpenProviders?.();
             }
           }}
         />

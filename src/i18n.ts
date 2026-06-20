@@ -218,7 +218,7 @@ const translations = {
     // 统计页面
     "nav.stats": "统计",
     "nav.usage": "用量",
-    "nav.providers": "预设",
+    "nav.providers": "供应商",
     "profiles.title": "配置",
     "profiles.description": "管理 Claude Code 用户级 settings.json 配置",
     "profiles.add": "新建配置",
@@ -227,7 +227,7 @@ const translations = {
     "profiles.binding.user": "已应用到用户设置",
     "configTabs.ariaLabel": "配置分区",
     "configTabs.profiles": "配置",
-    "configTabs.providers": "预设",
+    "configTabs.providers": "供应商",
     "profiles.unmanaged.title": "发现未导入的用户设置",
     "profiles.unmanaged.badge": "未导入",
     "profiles.unmanaged.description":
@@ -314,7 +314,7 @@ const translations = {
     "profiles.editor.save": "保存",
     "profiles.editor.fields.name": "名称",
     "profiles.editor.fields.description": "描述",
-    "profiles.editor.fields.provider": "预设",
+    "profiles.editor.fields.provider": "供应商",
     "profiles.editor.fields.authToken": "认证密钥",
     "profiles.editor.fields.authTokenEnv": "ANTHROPIC_AUTH_TOKEN",
     "profiles.editor.fields.baseUrl": "API 地址",
@@ -322,8 +322,8 @@ const translations = {
     "profiles.editor.placeholders.name": "例如：OpenRouter User",
     "profiles.editor.placeholders.description": "例如：全局开发默认配置",
     "profiles.editor.hints.provider":
-      "预设只提供 settings patch；最终值由 preset 与 profile.settings 合成",
-    "profiles.editor.hints.suggestedModels": "预设推荐模型",
+      "供应商只提供连接与模型信息（env），最终值由供应商与 profile.settings 合成",
+    "profiles.editor.hints.suggestedModels": "供应商推荐模型",
     "profiles.editor.hints.behaviorJson":
       "这里直接编辑当前行为区块相关的顶层键，以及相关的 env 覆盖，不会创建新的 behavior 嵌套对象。",
     "profiles.editor.hints.commonJson":
@@ -362,7 +362,7 @@ const translations = {
     "profileEditor.docs.openButtonLabel": "官方文档",
     "profileEditor.docs.openFieldAriaLabel": "{label} 官方文档",
     "profiles.editor.modes.editSourceJson": "编辑源 JSON",
-    "profiles.editor.options.noProvider": "无预设",
+    "profiles.editor.options.noProvider": "无供应商",
     "profiles.editor.validation.settingsObject": "settings 必须是 JSON 对象",
     "profiles.editor.modelTest.status.success": "测试成功",
     "profiles.editor.modelTest.status.error": "测试失败",
@@ -404,33 +404,33 @@ const translations = {
     "profiles.editor.modelTest.viewRawResponse": "查看响应体",
     "profiles.editor.modelTest.hideRawResponse": "隐藏响应体",
     "profiles.editor.modelTest.rawResponse": "响应体",
-    "providers.title": "预设",
-    "providers.description": "管理可复用的 Claude 配置预设",
-    "providers.add": "新增预设",
-    "providers.builtin.title": "内置预设",
+    "providers.title": "供应商",
+    "providers.description": "管理可复用的 Claude 供应商配置",
+    "providers.add": "新增供应商",
+    "providers.builtin.title": "内置供应商",
     "providers.builtin.description": "来自应用资源，只读，用来复用常见 provider / model 映射。",
     "providers.builtin.badge": "内置",
-    "providers.custom.title": "自定义预设",
+    "providers.custom.title": "自定义供应商",
     "providers.custom.description":
       "用 settingsPatch 复用团队配置，再由 profile.settings 做最终覆盖。",
     "providers.custom.badge": "自定义",
-    "providers.custom.empty": "暂无自定义预设",
+    "providers.custom.empty": "暂无自定义供应商",
     "providers.custom.emptyHint":
-      "内置 preset 适合直接复用；如果团队还有额外 patch，可以在这里叠加。",
+      "内置供应商适合直接复用；如果团队还有额外 patch，可以在这里叠加。",
     "providers.actions.openDocs": "查看文档",
     "providers.actions.copyId": "复制 ID",
     "providers.actions.edit": "编辑",
     "providers.actions.delete": "删除",
-    "providers.dialog.deleteTitle": "删除预设",
+    "providers.dialog.deleteTitle": "删除供应商",
     "providers.dialog.deleteMessage": "删除前请确认没有 profile 还在引用它。",
-    "providers.toast.saved": "预设已保存",
-    "providers.toast.saveError": "保存预设失败",
-    "providers.toast.idCopied": "预设 ID 已复制",
-    "providers.toast.copyIdError": "复制预设 ID 失败",
-    "providers.toast.deleted": "预设已删除",
-    "providers.toast.deleteError": "删除预设失败",
-    "providers.editor.title.add": "新增预设",
-    "providers.editor.title.edit": "编辑预设",
+    "providers.toast.saved": "供应商已保存",
+    "providers.toast.saveError": "保存供应商失败",
+    "providers.toast.idCopied": "供应商 ID 已复制",
+    "providers.toast.copyIdError": "复制供应商 ID 失败",
+    "providers.toast.deleted": "供应商已删除",
+    "providers.toast.deleteError": "删除供应商失败",
+    "providers.editor.title.add": "新增供应商",
+    "providers.editor.title.edit": "编辑供应商",
     "providers.editor.save": "保存",
     "providers.editor.fields.nameZh": "中文名称",
     "providers.editor.fields.nameEn": "英文名称",
@@ -444,7 +444,7 @@ const translations = {
     "providers.editor.fields.modelSuggestions": "推荐模型",
     "providers.editor.placeholders.nameZh": "例如：团队 OpenRouter",
     "providers.editor.placeholders.nameEn": "例如：Team OpenRouter",
-    "providers.editor.placeholders.description": "说明 preset 的用途",
+    "providers.editor.placeholders.description": "说明 provider 的用途",
     "providers.editor.placeholders.modelSuggestions":
       "用逗号分隔，例如：claude-sonnet-4-6, claude-opus-4-1",
     "providers.editor.hints.modelSuggestions":
@@ -782,8 +782,8 @@ const translations = {
     "profileEditor.marketplace.emptyHint": "暂无额外 Marketplace，可按需添加。",
     "profileEditor.marketplace.deleteDialogMessage": "确定要从当前设置中移除 Marketplace {id} 吗？",
 
-    // 预设选择
-    "profileEditor.provider.noProvider": "无预设",
+    // 供应商选择
+    "profileEditor.provider.noProvider": "无供应商",
 
     // 项目页面
     "projects.title": "项目管理",
@@ -1771,7 +1771,7 @@ const translations = {
     // 统计页面
     "nav.stats": "Stats",
     "nav.usage": "Usage",
-    "nav.providers": "Presets",
+    "nav.providers": "Providers",
     "profiles.title": "Profiles",
     "profiles.description": "Manage Claude Code user-level settings.json profiles",
     "profiles.add": "Add Profile",
@@ -1780,7 +1780,7 @@ const translations = {
     "profiles.binding.user": "Applied to user settings",
     "configTabs.ariaLabel": "Config sections",
     "configTabs.profiles": "Profiles",
-    "configTabs.providers": "Presets",
+    "configTabs.providers": "Providers",
     "profiles.unmanaged.title": "Unimported user settings found",
     "profiles.unmanaged.badge": "Unimported",
     "profiles.unmanaged.description":
@@ -1871,7 +1871,7 @@ const translations = {
     "profiles.editor.save": "Save",
     "profiles.editor.fields.name": "Name",
     "profiles.editor.fields.description": "Description",
-    "profiles.editor.fields.provider": "Preset",
+    "profiles.editor.fields.provider": "Provider",
     "profiles.editor.fields.authToken": "Auth Token",
     "profiles.editor.fields.authTokenEnv": "ANTHROPIC_AUTH_TOKEN",
     "profiles.editor.fields.baseUrl": "API Base URL",
@@ -1879,8 +1879,8 @@ const translations = {
     "profiles.editor.placeholders.name": "e.g. OpenRouter User",
     "profiles.editor.placeholders.description": "e.g. Global default workspace profile",
     "profiles.editor.hints.provider":
-      "Presets only provide settings patches; the final document is resolved with profile.settings",
-    "profiles.editor.hints.suggestedModels": "Preset model suggestions",
+      "Providers only carry connection and model info (env); the final document is resolved with profile.settings",
+    "profiles.editor.hints.suggestedModels": "Provider model suggestions",
     "profiles.editor.hints.behaviorJson":
       "Edit the related top-level behavior keys and scoped env overrides directly without creating a nested behavior object.",
     "profiles.editor.hints.commonJson":
@@ -1922,7 +1922,7 @@ const translations = {
     "profileEditor.docs.openButtonLabel": "Docs",
     "profileEditor.docs.openFieldAriaLabel": "{label} official docs",
     "profiles.editor.modes.editSourceJson": "Edit Source JSON",
-    "profiles.editor.options.noProvider": "No preset",
+    "profiles.editor.options.noProvider": "No provider",
     "profiles.editor.validation.settingsObject": "settings must be a JSON object",
     "profiles.editor.modelTest.status.success": "Test Succeeded",
     "profiles.editor.modelTest.status.error": "Test Failed",
@@ -1964,35 +1964,35 @@ const translations = {
     "profiles.editor.modelTest.viewRawResponse": "View Response Body",
     "profiles.editor.modelTest.hideRawResponse": "Hide Response Body",
     "profiles.editor.modelTest.rawResponse": "Response Body",
-    "providers.title": "Presets",
-    "providers.description": "Manage reusable Claude configuration presets",
-    "providers.add": "Add Preset",
-    "providers.builtin.title": "Built-in Presets",
+    "providers.title": "Providers",
+    "providers.description": "Manage reusable Claude provider configurations",
+    "providers.add": "Add Provider",
+    "providers.builtin.title": "Built-in Providers",
     "providers.builtin.description":
-      "Read-only presets from application resources for common provider and model mappings.",
+      "Read-only providers from application resources for common provider and model mappings.",
     "providers.builtin.badge": "Built-in",
-    "providers.custom.title": "Custom Presets",
+    "providers.custom.title": "Custom Providers",
     "providers.custom.description":
       "Compose reusable settings patches, then override them in profile.settings.",
     "providers.custom.badge": "Custom",
-    "providers.custom.empty": "No custom presets yet",
+    "providers.custom.empty": "No custom providers yet",
     "providers.custom.emptyHint":
-      "Use a custom preset when your team needs reusable patches beyond the built-ins.",
+      "Use a custom provider when your team needs reusable patches beyond the built-ins.",
     "providers.actions.openDocs": "Open Docs",
     "providers.actions.copyId": "Copy ID",
     "providers.actions.edit": "Edit",
     "providers.actions.delete": "Delete",
-    "providers.dialog.deleteTitle": "Delete preset",
+    "providers.dialog.deleteTitle": "Delete provider",
     "providers.dialog.deleteMessage":
-      "Make sure no profile still references this preset before deleting it.",
-    "providers.toast.saved": "Preset saved",
-    "providers.toast.saveError": "Failed to save preset",
-    "providers.toast.idCopied": "Preset ID copied",
-    "providers.toast.copyIdError": "Failed to copy preset ID",
-    "providers.toast.deleted": "Preset deleted",
-    "providers.toast.deleteError": "Failed to delete preset",
-    "providers.editor.title.add": "Add Preset",
-    "providers.editor.title.edit": "Edit Preset",
+      "Make sure no profile still references this provider before deleting it.",
+    "providers.toast.saved": "Provider saved",
+    "providers.toast.saveError": "Failed to save provider",
+    "providers.toast.idCopied": "Provider ID copied",
+    "providers.toast.copyIdError": "Failed to copy provider ID",
+    "providers.toast.deleted": "Provider deleted",
+    "providers.toast.deleteError": "Failed to delete provider",
+    "providers.editor.title.add": "Add Provider",
+    "providers.editor.title.edit": "Edit Provider",
     "providers.editor.save": "Save",
     "providers.editor.fields.nameZh": "Chinese Name",
     "providers.editor.fields.nameEn": "English Name",
@@ -2006,7 +2006,7 @@ const translations = {
     "providers.editor.fields.modelSuggestions": "Suggested Models",
     "providers.editor.placeholders.nameZh": "e.g. Team OpenRouter (Chinese)",
     "providers.editor.placeholders.nameEn": "e.g. Team OpenRouter",
-    "providers.editor.placeholders.description": "Describe what this preset is for",
+    "providers.editor.placeholders.description": "Describe what this provider is for",
     "providers.editor.placeholders.modelSuggestions":
       "Comma-separated, e.g. claude-sonnet-4-6, claude-opus-4-1",
     "providers.editor.hints.modelSuggestions":
@@ -2361,8 +2361,8 @@ const translations = {
     "profileEditor.marketplace.deleteDialogMessage":
       "Remove marketplace {id} from the current settings?",
 
-    // Preset selection
-    "profileEditor.provider.noProvider": "No preset",
+    // Provider selection
+    "profileEditor.provider.noProvider": "No provider",
 
     // Projects page
     "projects.title": "Projects",
