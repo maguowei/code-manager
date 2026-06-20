@@ -273,9 +273,9 @@ pub fn run() {
             // 点击关闭按钮时隐藏窗口而非退出，保留系统托盘
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 let _ = window.hide();
-                // macOS: 隐藏 Dock 图标
+                // macOS: 仅主窗口关闭时隐藏 Dock 图标；浮窗关闭不应影响 Dock
                 #[cfg(target_os = "macos")]
-                {
+                if window.label() == "main" {
                     let app = window.app_handle();
                     let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
                 }
