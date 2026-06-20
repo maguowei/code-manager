@@ -51,7 +51,7 @@
 | `.claude/rules/agent-memory-layout.md` | `CLAUDE.md`、`README.md`、`AGENTS.md` 与 `.claude/rules/` |
 | `.claude/rules/frontend-ui.md` | React、CSS、i18n、Toast、共享 UI 约束 |
 | `.claude/rules/tauri-backend.md` | Rust、Tauri command、capability、公共工具 |
-| `.claude/rules/config-system.md` | Profile / Preset / settings schema / 状态行 / 官方插件 |
+| `.claude/rules/config-system.md` | Profile / Provider / settings schema / 状态行 / 官方插件 |
 | `.claude/rules/memory-and-skills.md` | 记忆管理、Rules、Skills、Codex 同步 |
 | `.claude/rules/history-stats-usage.md` | 历史、统计、Token 用量与费用 |
 | `.claude/rules/projects-tray-diagnostics.md` | 项目管理、系统托盘、会话聚焦、日志与诊断 |
@@ -67,7 +67,7 @@
 - IPC 包装与生成契约：`src/ipc.ts`、`src/bindings.ts`
 - 共享 schema 与表单定义：`src/schemas/`
 - 公共 hooks：`src/hooks/`
-- Profile / Preset 编辑器：`src/components/profile-editor/`
+- Profile / Provider 编辑器：`src/components/profile-editor/`
 - `~/.claude` 共享树预览组件：`src/components/claude-overview/`
 - Token 用量抽屉、骨架与格式化工具：`src/components/usage/`
 - 主题与 UI token：`src/components/theme-provider.tsx`、`src/components/typography-classes.ts`、`src/components/surface-classes.ts`
@@ -93,7 +93,7 @@
 - 前端业务代码统一通过 `src/ipc.ts` 的 `ipc` 包装调用生成 bindings；只有自动生成的 `src/bindings.ts` 直接导入 `@tauri-apps/api/core` 的 `invoke()`。
 - 新增或修改 Tauri command 时，同步 Rust command、Specta 注册、`make bindings` / `make bindings-check`、`src/ipc.ts` 兼容包装（如需）、`src/types.ts`、i18n、测试；涉及插件 API 时检查 `src-tauri/capabilities/default.json`。
 - JSON Schema 是配置系统的前后端共享契约锚点。
-- 配置预览、配置应用、模型测试、Provider/Preset、Skills、Memory 的真实持久化规则都在 Rust；前端负责调用与展示，不要复制后端业务逻辑。
+- 配置预览、配置应用、模型测试、Provider、Skills、Memory 的真实持久化规则都在 Rust；前端负责调用与展示，不要复制后端业务逻辑。
 - `ProjectsPage` 读取 `~/.claude/history.jsonl`；`StatsPage` 读取 `~/.claude.json`；`UsagePage` 扫描 `~/.claude/projects/**/*.jsonl`。三者数据源不同，不要混用。
 - 用量 watcher 与 SQLite 初始化由 `usage::start_usage_runtime(app)` 在 `lib.rs::setup` 中启动；新增用量字段需要同步 `usage.rs` 的 schema / 初始化逻辑、`UsageRecord` struct、前端 `useUsage.ts` 与 `src/types.ts`。
 

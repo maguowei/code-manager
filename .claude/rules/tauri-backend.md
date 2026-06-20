@@ -15,7 +15,7 @@ paths:
 | `lib.rs` | Tauri Builder 编排：插件初始化、tauri-specta command 收集与 handler、托盘、目录 watcher、usage runtime |
 | `main.rs` | 二进制入口，仅调用 `ai_manager_lib::run()` |
 | `utils.rs` | 公共锁、JSON 读写、原子文件写入、应用数据目录解析 |
-| `config.rs` | Profile / Preset 合并落盘、`resolve_profile_settings()`、模型测试、`config-registry.json` |
+| `config.rs` | Profile / Provider 合并落盘、`resolve_profile_settings()`、模型测试、`config-registry.json` |
 | `memory.rs` | 用户级 `CLAUDE.md` 与 `rules/*.md` 的托管、导入、启停 |
 | `skills.rs` | Skills 启停、`~/.codex/skills/<id>` 软链同步、`SKILL.md` 读写、文件树扫描 |
 | `history.rs` | `~/.claude/history.jsonl` 读取、会话详情解析、轮询变更 |
