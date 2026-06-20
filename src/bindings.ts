@@ -22,8 +22,8 @@ export const commands = {
 	installStatusLinePreset: (presetId: string, overwrite: boolean) => typedError<StatusLinePresetInstallResult, string>(__TAURI_INVOKE("install_status_line_preset", { presetId, overwrite })),
 	previewProfile: (data: ProfileInput) => typedError<string, string>(__TAURI_INVOKE("preview_profile", { data })),
 	testProfileModel: (data: ModelTestInput) => typedError<ModelTestResult_Serialize, string>(__TAURI_INVOKE("test_profile_model", { data })),
-	upsertPreset: (data: PresetInput) => typedError<SettingsPreset_Serialize, string>(__TAURI_INVOKE("upsert_preset", { data })),
-	deletePreset: (id: string) => typedError<null, string>(__TAURI_INVOKE("delete_preset", { id })),
+	upsertProvider: (data: ProviderInput) => typedError<Provider_Serialize, string>(__TAURI_INVOKE("upsert_provider", { data })),
+	deleteProvider: (id: string) => typedError<null, string>(__TAURI_INVOKE("delete_provider", { id })),
 	setAppPreferences: (data: AppPreferencesInput) => typedError<AppPreferences, string>(__TAURI_INVOKE("set_app_preferences", { data })),
 	getNativeOpenAppOptions: () => __TAURI_INVOKE<NativeOpenAppOptions>("get_native_open_app_options"),
 	getMemories: () => typedError<MemoryState_Serialize, string>(__TAURI_INVOKE("get_memories")),
@@ -107,10 +107,6 @@ export const commands = {
 	ledProbeStatus: () => __TAURI_INVOKE<LedProbeStatus>("led_probe_status"),
 	/**  测试某个灯效(设置页「测试」按钮 / 真机验证门)。立即下发,不受 enabled 影响。 */
 	ledTestMode: (mode: number) => typedError<null, string>(__TAURI_INVOKE("led_test_mode", { mode })),
-	/**  切换浮窗显隐（幂等）：显示时不存在则创建，隐藏时隐藏而非关闭以保留位置与状态。 */
-	toggleFloatingWidget: (visible: boolean) => typedError<null, string>(__TAURI_INVOKE("toggle_floating_widget", { visible })),
-	/**  浮窗点击主体：唤起主窗口并跳转到用量页。复用托盘的窗口显示逻辑，避免重复实现。 */
-	openUsagePage: () => typedError<null, string>(__TAURI_INVOKE("open_usage_page")),
 };
 
 /* Types */
@@ -137,12 +133,6 @@ export type AppPreferences = {
 	trayPulseWaiting?: boolean,
 	focusSessionShortcut?: string | null,
 	ledControl?: LedControlPreferences,
-	/**  桌面用量浮窗是否启用（置顶半透明小窗，实时展示今日用量）。 */
-	floatingWidgetEnabled?: boolean,
-	/**  浮窗展示的指标 key 列表，顺序即展示顺序，取值见 WIDGET_METRIC_KEYS。 */
-	floatingWidgetMetrics?: string[],
-	/**  浮窗面板不透明度百分比，范围 30-100（前端按 /100 映射到 CSS opacity）。 */
-	floatingWidgetOpacity?: number,
 };
 
 export type AppPreferencesInput = {
@@ -159,9 +149,6 @@ export type AppPreferencesInput = {
 	trayPulseWaiting?: boolean,
 	focusSessionShortcut?: string | null,
 	ledControl?: LedControlPreferences,
-	floatingWidgetEnabled?: boolean,
-	floatingWidgetMetrics?: string[],
-	floatingWidgetOpacity?: number,
 };
 
 export type BindingState = BindingState_Serialize | BindingState_Deserialize;
@@ -236,7 +223,7 @@ export type ConfigProfile_Deserialize = {
 	id: string,
 	name: string,
 	description: string,
-	presetId: string | null,
+	providerId: string | null,
 	settings: unknown,
 	createdAt: string,
 	updatedAt: string,
@@ -246,7 +233,7 @@ export type ConfigProfile_Serialize = {
 	id: string,
 	name: string,
 	description: string,
-	presetId?: string | null,
+	providerId?: string | null,
 	settings: unknown,
 	createdAt: string,
 	updatedAt: string,
@@ -256,8 +243,8 @@ export type ConfigWorkspace = ConfigWorkspace_Serialize | ConfigWorkspace_Deseri
 
 export type ConfigWorkspace_Deserialize = {
 	app: AppPreferences,
-	builtinPresets: SettingsPreset_Deserialize[],
-	customPresets: SettingsPreset_Deserialize[],
+	builtinProviders: Provider_Deserialize[],
+	customProviders: Provider_Deserialize[],
 	profiles: ConfigProfile_Deserialize[],
 	bindings: BindingState_Deserialize,
 	unmanagedUserSettings: UnmanagedUserSettings_Deserialize | null,
@@ -266,8 +253,8 @@ export type ConfigWorkspace_Deserialize = {
 
 export type ConfigWorkspace_Serialize = {
 	app: AppPreferences,
-	builtinPresets: SettingsPreset_Serialize[],
-	customPresets: SettingsPreset_Serialize[],
+	builtinProviders: Provider_Serialize[],
+	customProviders: Provider_Serialize[],
 	profiles: ConfigProfile_Serialize[],
 	bindings: BindingState_Serialize,
 	unmanagedUserSettings?: UnmanagedUserSettings_Serialize | null,
@@ -526,7 +513,7 @@ export type ModelTestInput = {
 	id: string | null,
 	name: string,
 	description: string,
-	presetId: string | null,
+	providerId: string | null,
 	settings: unknown,
 	promptText?: string | null,
 };
@@ -623,22 +610,6 @@ export type PairStatus =
 /**  两端都是软链，或仅有孤儿软链而无真源，无法修复 */
 "orphanSymlink";
 
-export type PresetInput = {
-	id: string | null,
-	name: string,
-	localizedName?: LocalizedText | null,
-	description: string,
-	basePresetId: string | null,
-	docUrl: string | null,
-	models?: SettingsPresetModel[] | null,
-	modelSuggestions?: string[],
-	settingsPatch: unknown,
-};
-
-export type PresetModelCategory = "opus" | "sonnet" | "haiku" | "other";
-
-export type PresetSource = "builtin" | "custom";
-
 /**  价格表来源 */
 export type PricingSource = "builtin" | "cache" | "network";
 
@@ -653,7 +624,7 @@ export type ProfileInput = {
 	id: string | null,
 	name: string,
 	description: string,
-	presetId: string | null,
+	providerId: string | null,
 	settings: unknown,
 };
 
@@ -850,6 +821,55 @@ export type ProjectWorktree_Serialize = {
 	isDetached: boolean,
 };
 
+export type Provider = Provider_Serialize | Provider_Deserialize;
+
+export type ProviderInput = {
+	id: string | null,
+	name: string,
+	localizedName?: LocalizedText | null,
+	description: string,
+	basePresetId: string | null,
+	docUrl: string | null,
+	models?: ProviderModel[] | null,
+	modelSuggestions?: string[],
+	settingsPatch: unknown,
+};
+
+export type ProviderModel = {
+	id: string,
+	category: ProviderModelCategory,
+};
+
+export type ProviderModelCategory = "opus" | "sonnet" | "haiku" | "other";
+
+export type ProviderSource = "builtin" | "custom";
+
+export type Provider_Deserialize = {
+	id: string,
+	name: string,
+	localizedName: LocalizedText | null,
+	description: string,
+	basePresetId: string | null,
+	docUrl: string | null,
+	models: ProviderModel[] | null,
+	modelSuggestions?: string[],
+	settingsPatch: unknown,
+	source: ProviderSource,
+};
+
+export type Provider_Serialize = {
+	id: string,
+	name: string,
+	localizedName?: LocalizedText | null,
+	description: string,
+	basePresetId?: string | null,
+	docUrl?: string | null,
+	models?: ProviderModel[] | null,
+	modelSuggestions: string[],
+	settingsPatch: unknown,
+	source: ProviderSource,
+};
+
 export type ScanResult = {
 	filesScanned: number,
 	newRecords: number,
@@ -919,39 +939,6 @@ export type SessionUsage = {
 export type SessionUsageDetail = {
 	session: SessionUsage,
 	messages: UsageRecord[],
-};
-
-export type SettingsPreset = SettingsPreset_Serialize | SettingsPreset_Deserialize;
-
-export type SettingsPresetModel = {
-	id: string,
-	category: PresetModelCategory,
-};
-
-export type SettingsPreset_Deserialize = {
-	id: string,
-	name: string,
-	localizedName: LocalizedText | null,
-	description: string,
-	basePresetId: string | null,
-	docUrl: string | null,
-	models: SettingsPresetModel[] | null,
-	modelSuggestions?: string[],
-	settingsPatch: unknown,
-	source: PresetSource,
-};
-
-export type SettingsPreset_Serialize = {
-	id: string,
-	name: string,
-	localizedName?: LocalizedText | null,
-	description: string,
-	basePresetId?: string | null,
-	docUrl?: string | null,
-	models?: SettingsPresetModel[] | null,
-	modelSuggestions: string[],
-	settingsPatch: unknown,
-	source: PresetSource,
 };
 
 /**  Skill 元数据，对应 ~/.claude/skills/<id>/ 目录 */

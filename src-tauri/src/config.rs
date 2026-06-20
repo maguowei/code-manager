@@ -26,13 +26,7 @@ const MODEL_TEST_PROMPT_ZH: &str = "请用一句简短的话确认这次 API 测
 const REDACTED_SECRET_VALUE: &str = "<redacted>";
 const SYSTEM_LOCALE_ENV_KEYS: [&str; 4] = ["LC_ALL", "LC_MESSAGES", "LANGUAGE", "LANG"];
 const DEFAULT_STATUS_LINE_PRESET_ID: &str = "default";
-// 非 Windows 平台沿用 ~ 展开的相对路径；Windows 的 command 在运行时按 home 目录拼接绝对路径
-#[cfg(not(windows))]
 const DEFAULT_STATUS_LINE_COMMAND_PATH: &str = "~/.claude/statusline.sh";
-// 默认脚本按平台选择：Windows 用 PowerShell 版，其余用 Bash 版
-#[cfg(windows)]
-const DEFAULT_STATUS_LINE_SCRIPT: &str = include_str!("../resources/statusline/default.ps1");
-#[cfg(not(windows))]
 const DEFAULT_STATUS_LINE_SCRIPT: &str = include_str!("../resources/statusline/default.sh");
 const USER_SETTINGS_SOURCE_PATH: &str = "settings.json";
 const USER_SETTINGS_IMPORT_READY: &str = "ready";
@@ -40,7 +34,7 @@ const USER_SETTINGS_IMPORT_INVALID_JSON: &str = "invalidJson";
 const USER_SETTINGS_IMPORT_INVALID_SCHEMA: &str = "invalidSchema";
 const USER_SETTINGS_IMPORT_UNSUPPORTED_SYMLINK: &str = "unsupportedSymlink";
 const USER_SETTINGS_IMPORT_READ_ERROR: &str = "readError";
-#[cfg(not(any(unix, windows)))]
+#[cfg(not(unix))]
 const STATUS_LINE_PRESET_UNSUPPORTED_PLATFORM_ERROR: &str =
     "status_line_preset_unsupported_platform";
 
@@ -97,15 +91,6 @@ pub struct AppPreferences {
     pub focus_session_shortcut: Option<String>,
     #[serde(default)]
     pub led_control: crate::led::LedControlPreferences,
-    /// 桌面用量浮窗是否启用（置顶半透明小窗，实时展示今日用量）。
-    #[serde(default)]
-    pub floating_widget_enabled: bool,
-    /// 浮窗展示的指标 key 列表，顺序即展示顺序，取值见 WIDGET_METRIC_KEYS。
-    #[serde(default = "default_floating_widget_metrics")]
-    pub floating_widget_metrics: Vec<String>,
-    /// 浮窗面板不透明度百分比，范围 30-100（前端按 /100 映射到 CSS opacity）。
-    #[serde(default = "default_floating_widget_opacity")]
-    pub floating_widget_opacity: u8,
 }
 
 impl Default for AppPreferences {
@@ -124,16 +109,13 @@ impl Default for AppPreferences {
             tray_pulse_waiting: default_true(),
             focus_session_shortcut: default_focus_session_shortcut(),
             led_control: crate::led::LedControlPreferences::default(),
-            floating_widget_enabled: false,
-            floating_widget_metrics: default_floating_widget_metrics(),
-            floating_widget_opacity: default_floating_widget_opacity(),
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "lowercase")]
-pub enum PresetSource {
+pub enum ProviderSource {
     Builtin,
     Custom,
 }
@@ -147,7 +129,7 @@ pub struct LocalizedText {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "lowercase")]
-pub enum PresetModelCategory {
+pub enum ProviderModelCategory {
     Opus,
     Sonnet,
     Haiku,
@@ -156,14 +138,14 @@ pub enum PresetModelCategory {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
-pub struct SettingsPresetModel {
+pub struct ProviderModel {
     pub id: String,
-    pub category: PresetModelCategory,
+    pub category: ProviderModelCategory,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, specta::Type)]
 #[serde(rename_all = "camelCase")]
-pub struct SettingsPreset {
+pub struct Provider {
     pub id: String,
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -174,12 +156,12 @@ pub struct SettingsPreset {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub doc_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub models: Option<Vec<SettingsPresetModel>>,
+    pub models: Option<Vec<ProviderModel>>,
     #[serde(default)]
     pub model_suggestions: Vec<String>,
     #[specta(type = specta_typescript::Unknown)]
     pub settings_patch: Value,
-    pub source: PresetSource,
+    pub source: ProviderSource,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, specta::Type)]
@@ -189,7 +171,7 @@ pub struct ConfigProfile {
     pub name: String,
     pub description: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub preset_id: Option<String>,
+    pub provider_id: Option<String>,
     #[specta(type = specta_typescript::Unknown)]
     pub settings: Value,
     pub created_at: String,
@@ -213,7 +195,7 @@ pub struct ConfigRegistry {
     pub version: u32,
     pub app: AppPreferences,
     #[serde(default)]
-    pub custom_presets: Vec<SettingsPreset>,
+    pub custom_providers: Vec<Provider>,
     #[serde(default)]
     pub profiles: Vec<ConfigProfile>,
     #[serde(default)]
@@ -226,7 +208,7 @@ impl Default for ConfigRegistry {
             schema: CONFIG_REGISTRY_SCHEMA_URL.to_string(),
             version: REGISTRY_VERSION,
             app: AppPreferences::default(),
-            custom_presets: Vec::new(),
+            custom_providers: Vec::new(),
             profiles: Vec::new(),
             bindings: BindingState::default(),
         }
@@ -237,8 +219,8 @@ impl Default for ConfigRegistry {
 #[serde(rename_all = "camelCase")]
 pub struct ConfigWorkspace {
     pub app: AppPreferences,
-    pub builtin_presets: Vec<SettingsPreset>,
-    pub custom_presets: Vec<SettingsPreset>,
+    pub builtin_providers: Vec<Provider>,
+    pub custom_providers: Vec<Provider>,
     pub profiles: Vec<ConfigProfile>,
     pub bindings: BindingState,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -361,12 +343,6 @@ pub struct AppPreferencesInput {
     pub focus_session_shortcut: Option<String>,
     #[serde(default)]
     pub led_control: crate::led::LedControlPreferences,
-    #[serde(default)]
-    pub floating_widget_enabled: bool,
-    #[serde(default = "default_floating_widget_metrics")]
-    pub floating_widget_metrics: Vec<String>,
-    #[serde(default = "default_floating_widget_opacity")]
-    pub floating_widget_opacity: u8,
 }
 
 #[derive(Debug, Clone, Deserialize, specta::Type)]
@@ -376,7 +352,7 @@ pub struct ProfileInput {
     pub id: Option<String>,
     pub name: String,
     pub description: String,
-    pub preset_id: Option<String>,
+    pub provider_id: Option<String>,
     #[specta(type = specta_typescript::Unknown)]
     pub settings: Value,
 }
@@ -388,7 +364,7 @@ pub struct ModelTestInput {
     pub id: Option<String>,
     pub name: String,
     pub description: String,
-    pub preset_id: Option<String>,
+    pub provider_id: Option<String>,
     #[specta(type = specta_typescript::Unknown)]
     pub settings: Value,
     #[serde(default)]
@@ -398,7 +374,7 @@ pub struct ModelTestInput {
 #[derive(Debug, Clone, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
-pub struct PresetInput {
+pub struct ProviderInput {
     pub id: Option<String>,
     pub name: String,
     #[serde(default)]
@@ -407,7 +383,7 @@ pub struct PresetInput {
     pub base_preset_id: Option<String>,
     pub doc_url: Option<String>,
     #[serde(default)]
-    pub models: Option<Vec<SettingsPresetModel>>,
+    pub models: Option<Vec<ProviderModel>>,
     #[serde(default)]
     pub model_suggestions: Vec<String>,
     #[specta(type = specta_typescript::Unknown)]
@@ -424,7 +400,7 @@ pub struct UserSettingsImportInput {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct BuiltinPresetSeed {
+struct BuiltinProviderSeed {
     name: String,
     #[serde(default)]
     localized_name: Option<LocalizedText>,
@@ -433,43 +409,18 @@ struct BuiltinPresetSeed {
     doc_url: Option<String>,
     #[serde(default)]
     env: BTreeMap<String, String>,
-    models: Vec<BuiltinPresetModel>,
+    models: Vec<BuiltinProviderModel>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct BuiltinPresetModel {
+struct BuiltinProviderModel {
     id: String,
-    category: PresetModelCategory,
+    category: ProviderModelCategory,
 }
 
 fn default_true() -> bool {
     true
-}
-
-/// 浮窗可展示的全部指标 key（顺序为设置面板默认呈现顺序）。
-/// 前三项为默认勾选的必备指标，后三项为可选指标。
-pub const WIDGET_METRIC_KEYS: &[&str] = &[
-    "cost",
-    "totalTokens",
-    "cacheHitRate",
-    "messages",
-    "sessions",
-    "topModel",
-];
-
-/// 浮窗默认展示的指标：今日花费、Token 总量、缓存命中率。
-fn default_floating_widget_metrics() -> Vec<String> {
-    vec![
-        "cost".to_string(),
-        "totalTokens".to_string(),
-        "cacheHitRate".to_string(),
-    ]
-}
-
-/// 浮窗默认不透明度百分比。
-fn default_floating_widget_opacity() -> u8 {
-    92
 }
 
 /// "聚焦会话终端"全局快捷键的默认组合。双修饰键降低与其它软件冲突的概率。
@@ -556,8 +507,8 @@ fn get_user_settings_path() -> Result<PathBuf, String> {
         .join("settings.json"))
 }
 
-fn parse_builtin_presets() -> Vec<SettingsPreset> {
-    let seeds: Vec<BuiltinPresetSeed> =
+fn parse_builtin_providers() -> Vec<Provider> {
+    let seeds: Vec<BuiltinProviderSeed> =
         serde_json::from_str(include_str!("../resources/builtin-providers.json"))
             .expect("builtin-providers.json 格式错误");
 
@@ -584,17 +535,17 @@ fn parse_builtin_presets() -> Vec<SettingsPreset> {
                 settings_patch.insert("env".to_string(), Value::Object(env));
             }
 
-            SettingsPreset {
+            Provider {
                 id: format!("builtin:{}", seed.slug),
                 name: seed.name.clone(),
                 localized_name: normalize_localized_text(seed.localized_name, &seed.name),
-                description: format!("{} 预设", seed.name),
+                description: format!("{} provider", seed.name),
                 base_preset_id: None,
                 doc_url: seed.doc_url,
-                models: normalize_preset_models(Some(
+                models: normalize_provider_models(Some(
                     seed.models
                         .iter()
-                        .map(|model| SettingsPresetModel {
+                        .map(|model| ProviderModel {
                             id: model.id.clone(),
                             category: model.category,
                         })
@@ -604,29 +555,29 @@ fn parse_builtin_presets() -> Vec<SettingsPreset> {
                     seed.models.into_iter().map(|model| model.id).collect(),
                 ),
                 settings_patch: Value::Object(settings_patch),
-                source: PresetSource::Builtin,
+                source: ProviderSource::Builtin,
             }
         })
         .collect()
 }
 
-pub fn builtin_presets() -> &'static [SettingsPreset] {
-    static BUILTIN_PRESETS: Lazy<Vec<SettingsPreset>> = Lazy::new(parse_builtin_presets);
-    &BUILTIN_PRESETS
+pub fn builtin_providers() -> &'static [Provider] {
+    static BUILTIN_PROVIDERS: Lazy<Vec<Provider>> = Lazy::new(parse_builtin_providers);
+    &BUILTIN_PROVIDERS
 }
 
 fn normalize_registry(registry: &mut ConfigRegistry) {
     registry.schema = CONFIG_REGISTRY_SCHEMA_URL.to_string();
     registry.version = REGISTRY_VERSION;
-    registry.custom_presets.iter_mut().for_each(|preset| {
-        preset.source = PresetSource::Custom;
-        preset.localized_name =
-            normalize_localized_text(preset.localized_name.take(), &preset.name);
-        preset.models = normalize_preset_models(preset.models.take());
-        preset.model_suggestions =
-            normalize_model_suggestions(std::mem::take(&mut preset.model_suggestions));
-        if !preset.settings_patch.is_object() {
-            preset.settings_patch = Value::Object(Map::new());
+    registry.custom_providers.iter_mut().for_each(|provider| {
+        provider.source = ProviderSource::Custom;
+        provider.localized_name =
+            normalize_localized_text(provider.localized_name.take(), &provider.name);
+        provider.models = normalize_provider_models(provider.models.take());
+        provider.model_suggestions =
+            normalize_model_suggestions(std::mem::take(&mut provider.model_suggestions));
+        if !provider.settings_patch.is_object() {
+            provider.settings_patch = Value::Object(Map::new());
         }
     });
     registry.profiles.iter_mut().for_each(|profile| {
@@ -670,8 +621,8 @@ fn build_workspace(registry: ConfigRegistry) -> ConfigWorkspace {
     let active_user_settings_mismatch = detect_active_user_settings_mismatch(&registry);
     ConfigWorkspace {
         app: registry.app.clone(),
-        builtin_presets: builtin_presets().to_vec(),
-        custom_presets: registry.custom_presets,
+        builtin_providers: builtin_providers().to_vec(),
+        custom_providers: registry.custom_providers,
         profiles: registry.profiles,
         bindings: registry.bindings,
         unmanaged_user_settings,
@@ -906,11 +857,9 @@ fn normalize_model_suggestions(models: Vec<String>) -> Vec<String> {
         .collect()
 }
 
-fn normalize_preset_models(
-    models: Option<Vec<SettingsPresetModel>>,
-) -> Option<Vec<SettingsPresetModel>> {
+fn normalize_provider_models(models: Option<Vec<ProviderModel>>) -> Option<Vec<ProviderModel>> {
     let mut seen = HashSet::new();
-    let normalized: Vec<SettingsPresetModel> = models
+    let normalized: Vec<ProviderModel> = models
         .unwrap_or_default()
         .into_iter()
         .filter_map(|model| {
@@ -918,7 +867,7 @@ fn normalize_preset_models(
             if id.is_empty() || !seen.insert(id.clone()) {
                 return None;
             }
-            Some(SettingsPresetModel {
+            Some(ProviderModel {
                 id,
                 category: model.category,
             })
@@ -979,7 +928,7 @@ fn normalize_profile_input(input: ProfileInput) -> Result<ProfileInput, String> 
         id: input.id.filter(|id| !id.trim().is_empty()),
         name: input.name.trim().to_string(),
         description: input.description.trim().to_string(),
-        preset_id: input.preset_id.filter(|id| !id.trim().is_empty()),
+        provider_id: input.provider_id.filter(|id| !id.trim().is_empty()),
         settings: normalize_settings_document(input.settings)?,
     })
 }
@@ -989,7 +938,7 @@ fn normalize_model_test_input(input: ModelTestInput) -> Result<ModelTestInput, S
         id: input.id,
         name: input.name,
         description: input.description,
-        preset_id: input.preset_id,
+        provider_id: input.provider_id,
         settings: input.settings,
     })?;
     let prompt_text = input
@@ -1008,14 +957,14 @@ fn normalize_model_test_input(input: ModelTestInput) -> Result<ModelTestInput, S
         id: profile_input.id,
         name: profile_input.name,
         description: profile_input.description,
-        preset_id: profile_input.preset_id,
+        provider_id: profile_input.provider_id,
         settings: profile_input.settings,
         prompt_text,
     })
 }
 
-fn normalize_preset_input(input: PresetInput) -> Result<PresetInput, String> {
-    Ok(PresetInput {
+fn normalize_provider_input(input: ProviderInput) -> Result<ProviderInput, String> {
+    Ok(ProviderInput {
         id: input
             .id
             .map(|id| id.trim().to_string())
@@ -1025,13 +974,13 @@ fn normalize_preset_input(input: PresetInput) -> Result<PresetInput, String> {
         description: input.description.trim().to_string(),
         base_preset_id: input.base_preset_id.filter(|id| !id.trim().is_empty()),
         doc_url: input.doc_url.filter(|url| !url.trim().is_empty()),
-        models: normalize_preset_models(input.models),
+        models: normalize_provider_models(input.models),
         model_suggestions: normalize_model_suggestions(input.model_suggestions),
         settings_patch: normalize_settings_document(input.settings_patch)?,
     })
 }
 
-fn slugify_custom_preset_seed(seed: &str) -> Option<String> {
+fn slugify_custom_provider_seed(seed: &str) -> Option<String> {
     let mut slug = String::new();
     let mut previous_dash = false;
 
@@ -1056,7 +1005,7 @@ fn slugify_custom_preset_seed(seed: &str) -> Option<String> {
     }
 }
 
-fn build_custom_preset_id(registry: &ConfigRegistry, input: &PresetInput) -> String {
+fn build_custom_provider_id(registry: &ConfigRegistry, input: &ProviderInput) -> String {
     if let Some(id) = input
         .id
         .as_deref()
@@ -1072,13 +1021,13 @@ fn build_custom_preset_id(registry: &ConfigRegistry, input: &PresetInput) -> Str
         .map(|localized_name| localized_name.en.trim())
         .filter(|name| !name.is_empty())
         .unwrap_or_else(|| input.name.trim());
-    let Some(base_slug) = slugify_custom_preset_seed(seed) else {
+    let Some(base_slug) = slugify_custom_provider_seed(seed) else {
         return format!("custom:{}", Uuid::new_v4());
     };
 
     let mut candidate = format!("custom:{base_slug}");
     let mut suffix = 2;
-    while preset_exists(registry, &candidate) {
+    while provider_exists(registry, &candidate) {
         candidate = format!("custom:{base_slug}-{suffix}");
         suffix += 1;
     }
@@ -1122,60 +1071,40 @@ fn normalize_app_preferences(input: AppPreferencesInput) -> Result<AppPreference
             running_mode: input.led_control.running_mode.min(crate::led::MAX_MODE),
             idle_mode: input.led_control.idle_mode.min(crate::led::MAX_MODE),
         },
-        floating_widget_enabled: input.floating_widget_enabled,
-        // 过滤未知 key 并去重保序；为空时回落默认集，避免浮窗一片空白
-        floating_widget_metrics: normalize_floating_widget_metrics(input.floating_widget_metrics),
-        // 不透明度钳制到 30-100，越界退回合法边界
-        floating_widget_opacity: input.floating_widget_opacity.clamp(30, 100),
     })
 }
 
-/// 过滤掉未知指标 key，去重并保持用户选择的顺序；结果为空时回落默认指标集。
-fn normalize_floating_widget_metrics(metrics: Vec<String>) -> Vec<String> {
-    let mut seen = HashSet::new();
-    let filtered: Vec<String> = metrics
-        .into_iter()
-        .filter(|key| WIDGET_METRIC_KEYS.contains(&key.as_str()))
-        .filter(|key| seen.insert(key.clone()))
-        .collect();
-    if filtered.is_empty() {
-        default_floating_widget_metrics()
-    } else {
-        filtered
-    }
-}
-
-fn find_preset(registry: &ConfigRegistry, preset_id: &str) -> Option<SettingsPreset> {
-    builtin_presets()
+fn find_provider(registry: &ConfigRegistry, provider_id: &str) -> Option<Provider> {
+    builtin_providers()
         .iter()
-        .find(|preset| preset.id == preset_id)
+        .find(|provider| provider.id == provider_id)
         .cloned()
         .or_else(|| {
             registry
-                .custom_presets
+                .custom_providers
                 .iter()
-                .find(|preset| preset.id == preset_id)
+                .find(|provider| provider.id == provider_id)
                 .cloned()
         })
 }
 
-fn resolve_preset_chain(
+fn resolve_provider_chain(
     registry: &ConfigRegistry,
-    preset_id: &str,
+    provider_id: &str,
     visited: &mut HashSet<String>,
-) -> Result<Vec<SettingsPreset>, String> {
-    if !visited.insert(preset_id.to_string()) {
-        return Err("检测到 preset 循环继承".to_string());
+) -> Result<Vec<Provider>, String> {
+    if !visited.insert(provider_id.to_string()) {
+        return Err("检测到 provider 循环继承".to_string());
     }
 
-    let preset =
-        find_preset(registry, preset_id).ok_or_else(|| format!("未找到 preset '{}'", preset_id))?;
-    let mut chain = if let Some(base_preset_id) = preset.base_preset_id.clone() {
-        resolve_preset_chain(registry, &base_preset_id, visited)?
+    let provider = find_provider(registry, provider_id)
+        .ok_or_else(|| format!("未找到 provider '{}'", provider_id))?;
+    let mut chain = if let Some(base_preset_id) = provider.base_preset_id.clone() {
+        resolve_provider_chain(registry, &base_preset_id, visited)?
     } else {
         Vec::new()
     };
-    chain.push(preset);
+    chain.push(provider);
     Ok(chain)
 }
 
@@ -1475,10 +1404,10 @@ fn resolve_profile_settings(
 ) -> Result<Value, String> {
     let mut resolved = Value::Object(Map::new());
 
-    if let Some(preset_id) = profile.preset_id.as_deref() {
+    if let Some(provider_id) = profile.provider_id.as_deref() {
         let mut visited = HashSet::new();
-        for preset in resolve_preset_chain(registry, preset_id, &mut visited)? {
-            resolved = merge_json_values(resolved, preset.settings_patch);
+        for provider in resolve_provider_chain(registry, provider_id, &mut visited)? {
+            resolved = merge_json_values(resolved, provider.settings_patch);
         }
     }
 
@@ -1995,27 +1924,9 @@ fn profile_settings_path() -> Result<PathBuf, String> {
 }
 
 fn status_line_preset_target_path() -> Result<PathBuf, String> {
-    // Windows 安装 PowerShell 脚本，其余平台安装 Bash 脚本
-    let filename = if cfg!(windows) {
-        "statusline.ps1"
-    } else {
-        "statusline.sh"
-    };
-    Ok(crate::utils::get_home_dir()?.join(".claude").join(filename))
-}
-
-// 计算写入 settings.json 的 statusLine.command
-// Windows 用绝对正斜杠路径调用 PowerShell，规避 ~ 在 -File 参数中不展开的问题
-#[cfg(windows)]
-fn status_line_preset_command(target_path: &std::path::Path) -> String {
-    let normalized = target_path.display().to_string().replace('\\', "/");
-    format!("powershell -NoProfile -ExecutionPolicy Bypass -File {normalized}")
-}
-
-#[cfg(not(windows))]
-fn status_line_preset_command(target_path: &std::path::Path) -> String {
-    let _ = target_path;
-    DEFAULT_STATUS_LINE_COMMAND_PATH.to_string()
+    Ok(crate::utils::get_home_dir()?
+        .join(".claude")
+        .join("statusline.sh"))
 }
 
 fn build_status_line_preset_result(
@@ -2027,19 +1938,19 @@ fn build_status_line_preset_result(
     StatusLinePresetInstallResult {
         preset_id: preset_id.to_string(),
         target_path: target_path.display().to_string(),
-        command_path: status_line_preset_command(target_path),
+        command_path: DEFAULT_STATUS_LINE_COMMAND_PATH.to_string(),
         installed,
         needs_overwrite,
     }
 }
 
 fn ensure_status_line_preset_supported() -> Result<(), String> {
-    #[cfg(any(unix, windows))]
+    #[cfg(unix)]
     {
         Ok(())
     }
 
-    #[cfg(not(any(unix, windows)))]
+    #[cfg(not(unix))]
     {
         Err(STATUS_LINE_PRESET_UNSUPPORTED_PLATFORM_ERROR.to_string())
     }
@@ -2145,30 +2056,30 @@ fn apply_profile_to_registry(
     Ok(target_path)
 }
 
-fn preset_exists(registry: &ConfigRegistry, preset_id: &str) -> bool {
-    find_preset(registry, preset_id).is_some()
+fn provider_exists(registry: &ConfigRegistry, provider_id: &str) -> bool {
+    find_provider(registry, provider_id).is_some()
 }
 
-fn profile_uses_preset(
+fn profile_uses_provider(
     registry: &ConfigRegistry,
     profile: &ConfigProfile,
-    preset_id: &str,
+    provider_id: &str,
 ) -> bool {
-    let Some(profile_preset_id) = profile.preset_id.as_deref() else {
+    let Some(profile_provider_id) = profile.provider_id.as_deref() else {
         return false;
     };
 
-    if profile_preset_id == preset_id {
+    if profile_provider_id == provider_id {
         return true;
     }
 
     let mut visited = HashSet::new();
-    resolve_preset_chain(registry, profile_preset_id, &mut visited)
-        .map(|chain| chain.iter().any(|preset| preset.id == preset_id))
+    resolve_provider_chain(registry, profile_provider_id, &mut visited)
+        .map(|chain| chain.iter().any(|provider| provider.id == provider_id))
         .unwrap_or(false)
 }
 
-fn bound_profile_ids_using_preset(registry: &ConfigRegistry, preset_id: &str) -> Vec<String> {
+fn bound_profile_ids_using_provider(registry: &ConfigRegistry, provider_id: &str) -> Vec<String> {
     let bound_profile_ids: HashSet<&str> = registry
         .bindings
         .user_profile_id
@@ -2181,7 +2092,7 @@ fn bound_profile_ids_using_preset(registry: &ConfigRegistry, preset_id: &str) ->
         .iter()
         .filter(|profile| {
             bound_profile_ids.contains(profile.id.as_str())
-                && profile_uses_preset(registry, profile, preset_id)
+                && profile_uses_provider(registry, profile, provider_id)
         })
         .map(|profile| profile.id.clone())
         .collect()
@@ -2234,7 +2145,7 @@ fn duplicate_profile_in_registry(
         id: Uuid::new_v4().to_string(),
         name: format!("{}{}", original.name, name_suffix),
         description: original.description,
-        preset_id: original.preset_id,
+        provider_id: original.provider_id,
         settings: original.settings,
         created_at: now.clone(),
         updated_at: now,
@@ -2290,7 +2201,7 @@ fn import_user_settings_profile_in_registry(
             name.to_string()
         },
         description: description.to_string(),
-        preset_id: None,
+        provider_id: None,
         settings,
         created_at: now.clone(),
         updated_at: now.clone(),
@@ -2318,9 +2229,9 @@ pub fn upsert_profile(app_handle: AppHandle, data: ProfileInput) -> Result<Confi
         validate_settings_document(&input.settings)?;
 
         let mut registry = load_registry()?;
-        if let Some(preset_id) = input.preset_id.as_deref() {
-            if !preset_exists(&registry, preset_id) {
-                return Err(format!("未找到 preset '{}'", preset_id));
+        if let Some(provider_id) = input.provider_id.as_deref() {
+            if !provider_exists(&registry, provider_id) {
+                return Err(format!("未找到 provider '{}'", provider_id));
             }
         }
 
@@ -2336,7 +2247,7 @@ pub fn upsert_profile(app_handle: AppHandle, data: ProfileInput) -> Result<Confi
         {
             existing.name = input.name;
             existing.description = input.description;
-            existing.preset_id = input.preset_id;
+            existing.provider_id = input.provider_id;
             existing.settings = input.settings;
             existing.updated_at = now.clone();
             existing.clone()
@@ -2345,7 +2256,7 @@ pub fn upsert_profile(app_handle: AppHandle, data: ProfileInput) -> Result<Confi
                 id: profile_id,
                 name: input.name,
                 description: input.description,
-                preset_id: input.preset_id,
+                provider_id: input.provider_id,
                 settings: input.settings,
                 created_at: now.clone(),
                 updated_at: now,
@@ -2655,9 +2566,9 @@ pub fn install_status_line_preset(
 pub fn preview_profile(data: ProfileInput) -> Result<String, String> {
     let input = normalize_profile_input(data)?;
     let mut registry = load_registry()?;
-    if let Some(preset_id) = input.preset_id.as_deref() {
-        if !preset_exists(&registry, preset_id) {
-            return Err(format!("未找到 preset '{}'", preset_id));
+    if let Some(provider_id) = input.provider_id.as_deref() {
+        if !provider_exists(&registry, provider_id) {
+            return Err(format!("未找到 provider '{}'", provider_id));
         }
     }
 
@@ -2665,7 +2576,7 @@ pub fn preview_profile(data: ProfileInput) -> Result<String, String> {
         id: input.id.unwrap_or_else(|| "__preview__".to_string()),
         name: input.name,
         description: input.description,
-        preset_id: input.preset_id,
+        provider_id: input.provider_id,
         settings: input.settings,
         created_at: crate::utils::current_rfc3339_timestamp(),
         updated_at: crate::utils::current_rfc3339_timestamp(),
@@ -2684,9 +2595,9 @@ pub fn preview_profile(data: ProfileInput) -> Result<String, String> {
 pub async fn test_profile_model(data: ModelTestInput) -> Result<ModelTestResult, String> {
     let input = normalize_model_test_input(data)?;
     let mut registry = load_registry()?;
-    if let Some(preset_id) = input.preset_id.as_deref() {
-        if !preset_exists(&registry, preset_id) {
-            return Err(format!("未找到 preset '{}'", preset_id));
+    if let Some(provider_id) = input.provider_id.as_deref() {
+        if !provider_exists(&registry, provider_id) {
+            return Err(format!("未找到 provider '{}'", provider_id));
         }
     }
 
@@ -2696,7 +2607,7 @@ pub async fn test_profile_model(data: ModelTestInput) -> Result<ModelTestResult,
         id: input.id.unwrap_or_else(|| "__test__".to_string()),
         name: input.name,
         description: input.description,
-        preset_id: input.preset_id,
+        provider_id: input.provider_id,
         settings: input.settings,
         created_at: now.clone(),
         updated_at: now,
@@ -2713,22 +2624,22 @@ pub async fn test_profile_model(data: ModelTestInput) -> Result<ModelTestResult,
 
 #[tauri::command]
 #[specta::specta]
-pub fn upsert_preset(app_handle: AppHandle, data: PresetInput) -> Result<SettingsPreset, String> {
+pub fn upsert_provider(app_handle: AppHandle, data: ProviderInput) -> Result<Provider, String> {
     let result = (|| {
         let _lock = crate::utils::lock_config()?;
-        let input = normalize_preset_input(data)?;
+        let input = normalize_provider_input(data)?;
         validate_settings_document(&input.settings_patch)?;
 
         let mut registry = load_registry()?;
         if let Some(base_preset_id) = input.base_preset_id.as_deref() {
-            if !preset_exists(&registry, base_preset_id) {
-                return Err(format!("未找到 base preset '{}'", base_preset_id));
+            if !provider_exists(&registry, base_preset_id) {
+                return Err(format!("未找到 base provider '{}'", base_preset_id));
             }
         }
 
-        let preset_id = build_custom_preset_id(&registry, &input);
-        let preset = SettingsPreset {
-            id: preset_id.clone(),
+        let provider_id = build_custom_provider_id(&registry, &input);
+        let provider = Provider {
+            id: provider_id.clone(),
             name: input.name,
             localized_name: input.localized_name,
             description: input.description,
@@ -2737,37 +2648,37 @@ pub fn upsert_preset(app_handle: AppHandle, data: PresetInput) -> Result<Setting
             models: input.models,
             model_suggestions: input.model_suggestions,
             settings_patch: input.settings_patch,
-            source: PresetSource::Custom,
+            source: ProviderSource::Custom,
         };
 
         if let Some(existing) = registry
-            .custom_presets
+            .custom_providers
             .iter_mut()
-            .find(|existing| existing.id == preset_id)
+            .find(|existing| existing.id == provider_id)
         {
-            *existing = preset.clone();
+            *existing = provider.clone();
         } else {
-            registry.custom_presets.push(preset.clone());
+            registry.custom_providers.push(provider.clone());
         }
 
-        for profile_id in bound_profile_ids_using_preset(&registry, &preset.id) {
+        for profile_id in bound_profile_ids_using_provider(&registry, &provider.id) {
             apply_profile_to_registry(&mut registry, &profile_id)?;
         }
 
         save_registry(&registry)?;
         rebuild_tray_menu(&app_handle, Some(&registry));
         let _ = app_handle.emit("config-workspace-changed", ());
-        Ok(preset)
+        Ok(provider)
     })();
-    crate::logging::log_command_result("preset.upsert", &result, |preset| {
-        format!("preset_id={}", preset.id)
+    crate::logging::log_command_result("provider.upsert", &result, |provider| {
+        format!("provider_id={}", provider.id)
     });
     result
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn delete_preset(app_handle: AppHandle, id: String) -> Result<(), String> {
+pub fn delete_provider(app_handle: AppHandle, id: String) -> Result<(), String> {
     let result = (|| {
         let _lock = crate::utils::lock_config()?;
         let mut registry = load_registry()?;
@@ -2775,15 +2686,17 @@ pub fn delete_preset(app_handle: AppHandle, id: String) -> Result<(), String> {
         if registry
             .profiles
             .iter()
-            .any(|profile| profile_uses_preset(&registry, profile, &id))
+            .any(|profile| profile_uses_provider(&registry, profile, &id))
         {
-            return Err("该 preset 仍被 profile 使用，请先解除引用".to_string());
+            return Err("该 provider 仍被 profile 使用，请先解除引用".to_string());
         }
 
-        let original_len = registry.custom_presets.len();
-        registry.custom_presets.retain(|preset| preset.id != id);
-        if registry.custom_presets.len() == original_len {
-            return Err("未找到要删除的 preset".to_string());
+        let original_len = registry.custom_providers.len();
+        registry
+            .custom_providers
+            .retain(|provider| provider.id != id);
+        if registry.custom_providers.len() == original_len {
+            return Err("未找到要删除的 provider".to_string());
         }
 
         save_registry(&registry)?;
@@ -2791,7 +2704,7 @@ pub fn delete_preset(app_handle: AppHandle, id: String) -> Result<(), String> {
         let _ = app_handle.emit("config-workspace-changed", ());
         Ok(())
     })();
-    crate::logging::log_command_result("preset.delete", &result, |_| format!("preset_id={id}"));
+    crate::logging::log_command_result("provider.delete", &result, |_| format!("provider_id={id}"));
     result
 }
 
@@ -2811,8 +2724,6 @@ pub fn set_app_preferences(
         rebuild_tray_menu(&app_handle, Some(&registry));
         // 偏好可能改了聚焦快捷键，按最新值重注册全局快捷键
         crate::tray::apply_focus_session_shortcut(&app_handle);
-        // 按最新偏好同步桌面用量浮窗的显隐（启用则创建/显示，关闭则隐藏）
-        crate::widget::sync_widget_visibility(&app_handle, preferences.floating_widget_enabled);
         let _ = app_handle.emit("config-workspace-changed", ());
         let _ = app_handle.emit("project-launcher-settings-changed", ());
         if previous_third_party_pricing != preferences.third_party_provider_pricing_enabled {
@@ -2849,24 +2760,20 @@ mod tests {
         std::env::remove_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE");
     }
 
-    fn sample_profile(id: &str, preset_id: Option<&str>, settings: Value) -> ConfigProfile {
+    fn sample_profile(id: &str, provider_id: Option<&str>, settings: Value) -> ConfigProfile {
         ConfigProfile {
             id: id.to_string(),
             name: id.to_string(),
             description: String::new(),
-            preset_id: preset_id.map(ToOwned::to_owned),
+            provider_id: provider_id.map(ToOwned::to_owned),
             settings,
             created_at: "2026-04-18T12:00:00Z".to_string(),
             updated_at: "2026-04-18T12:00:00Z".to_string(),
         }
     }
 
-    fn sample_custom_preset(
-        id: &str,
-        base_preset_id: Option<&str>,
-        patch: Value,
-    ) -> SettingsPreset {
-        SettingsPreset {
+    fn sample_custom_provider(id: &str, base_preset_id: Option<&str>, patch: Value) -> Provider {
+        Provider {
             id: id.to_string(),
             name: id.to_string(),
             localized_name: None,
@@ -2876,12 +2783,12 @@ mod tests {
             models: None,
             model_suggestions: vec![],
             settings_patch: patch,
-            source: PresetSource::Custom,
+            source: ProviderSource::Custom,
         }
     }
 
-    fn sample_preset_input(name: &str, localized_name: Option<LocalizedText>) -> PresetInput {
-        PresetInput {
+    fn sample_provider_input(name: &str, localized_name: Option<LocalizedText>) -> ProviderInput {
+        ProviderInput {
             id: None,
             name: name.to_string(),
             localized_name,
@@ -2934,9 +2841,9 @@ mod tests {
 
     #[test]
     fn builtin_presets_expose_localized_names() {
-        let openrouter = builtin_presets()
+        let openrouter = builtin_providers()
             .iter()
-            .find(|preset| preset.id == "builtin:openrouter")
+            .find(|provider| provider.id == "builtin:openrouter")
             .unwrap();
 
         assert_eq!(openrouter.name, "OpenRouter");
@@ -2951,25 +2858,25 @@ mod tests {
 
     #[test]
     fn builtin_presets_preserve_categorized_models() {
-        let anthropic = builtin_presets()
+        let anthropic = builtin_providers()
             .iter()
-            .find(|preset| preset.id == "builtin:anthropic")
+            .find(|provider| provider.id == "builtin:anthropic")
             .unwrap();
 
         assert_eq!(
             anthropic.models,
             Some(vec![
-                SettingsPresetModel {
+                ProviderModel {
                     id: "opus".to_string(),
-                    category: PresetModelCategory::Opus,
+                    category: ProviderModelCategory::Opus,
                 },
-                SettingsPresetModel {
+                ProviderModel {
                     id: "sonnet".to_string(),
-                    category: PresetModelCategory::Sonnet,
+                    category: ProviderModelCategory::Sonnet,
                 },
-                SettingsPresetModel {
+                ProviderModel {
                     id: "haiku".to_string(),
-                    category: PresetModelCategory::Haiku,
+                    category: ProviderModelCategory::Haiku,
                 },
             ])
         );
@@ -2977,9 +2884,9 @@ mod tests {
 
     #[test]
     fn builtin_presets_include_deepseek_official_claude_code_env() {
-        let deepseek = builtin_presets()
+        let deepseek = builtin_providers()
             .iter()
-            .find(|preset| preset.id == "builtin:deepseek")
+            .find(|provider| provider.id == "builtin:deepseek")
             .unwrap();
         let env = deepseek.settings_patch["env"].as_object().unwrap();
 
@@ -3032,9 +2939,9 @@ mod tests {
     }
 
     #[test]
-    fn new_custom_preset_id_uses_english_name_slug() {
+    fn new_custom_provider_id_uses_english_name_slug() {
         let registry = ConfigRegistry::default();
-        let input = sample_preset_input(
+        let input = sample_provider_input(
             "General Config",
             Some(LocalizedText {
                 zh: "通用配置".to_string(),
@@ -3043,45 +2950,45 @@ mod tests {
         );
 
         assert_eq!(
-            build_custom_preset_id(&registry, &input),
+            build_custom_provider_id(&registry, &input),
             "custom:general-config"
         );
     }
 
     #[test]
-    fn new_custom_preset_id_appends_suffix_on_conflict() {
+    fn new_custom_provider_id_appends_suffix_on_conflict() {
         let mut registry = ConfigRegistry::default();
-        registry.custom_presets.push(sample_custom_preset(
+        registry.custom_providers.push(sample_custom_provider(
             "custom:general-config",
             None,
             serde_json::json!({}),
         ));
-        let input = sample_preset_input("General Config", None);
+        let input = sample_provider_input("General Config", None);
 
         assert_eq!(
-            build_custom_preset_id(&registry, &input),
+            build_custom_provider_id(&registry, &input),
             "custom:general-config-2"
         );
     }
 
     #[test]
-    fn new_custom_preset_id_falls_back_to_uuid_when_slug_is_empty() {
+    fn new_custom_provider_id_falls_back_to_uuid_when_slug_is_empty() {
         let registry = ConfigRegistry::default();
-        let input = sample_preset_input("通用配置", None);
-        let id = build_custom_preset_id(&registry, &input);
+        let input = sample_provider_input("通用配置", None);
+        let id = build_custom_provider_id(&registry, &input);
 
         assert!(id.starts_with("custom:"));
         assert!(Uuid::parse_str(id.trim_start_matches("custom:")).is_ok());
     }
 
     #[test]
-    fn custom_preset_id_keeps_existing_id_when_editing() {
+    fn custom_provider_id_keeps_existing_id_when_editing() {
         let registry = ConfigRegistry::default();
-        let mut input = sample_preset_input("Renamed Config", None);
+        let mut input = sample_provider_input("Renamed Config", None);
         input.id = Some("custom:existing-id".to_string());
 
         assert_eq!(
-            build_custom_preset_id(&registry, &input),
+            build_custom_provider_id(&registry, &input),
             "custom:existing-id"
         );
     }
@@ -3089,7 +2996,7 @@ mod tests {
     #[test]
     fn resolve_profile_settings_merges_builtin_custom_and_profile_layers() {
         let mut registry = ConfigRegistry::default();
-        registry.custom_presets.push(sample_custom_preset(
+        registry.custom_providers.push(sample_custom_provider(
             "custom:team-openrouter",
             Some("builtin:openrouter"),
             serde_json::json!({
@@ -3363,7 +3270,7 @@ mod tests {
             Some(imported.id.as_str())
         );
         assert!(registry.bindings.user_last_applied_at.is_some());
-        assert_eq!(imported.preset_id, None);
+        assert_eq!(imported.provider_id, None);
         assert_eq!(imported.settings.get("$schema"), None);
         assert_eq!(imported.settings["model"], "claude-sonnet-4-6");
         assert_eq!(fs::read_to_string(&settings_path).unwrap(), original);
@@ -3516,54 +3423,18 @@ mod tests {
         clear_test_env();
     }
 
-    #[cfg(not(windows))]
     #[test]
     fn default_status_line_script_checks_jq_before_parsing_input() {
         assert!(DEFAULT_STATUS_LINE_SCRIPT.contains("command -v jq"));
     }
 
-    #[cfg(not(windows))]
     #[test]
     fn default_status_line_script_uses_tmpdir_for_git_cache() {
         assert!(DEFAULT_STATUS_LINE_SCRIPT.contains("${TMPDIR:-/tmp}"));
         assert!(!DEFAULT_STATUS_LINE_SCRIPT.contains("cache_file=\"/tmp/"));
     }
 
-    #[cfg(windows)]
-    #[test]
-    fn default_status_line_script_uses_powershell_json_and_utf8() {
-        // Windows 版用 ConvertFrom-Json 解析 stdin，无需 jq
-        assert!(DEFAULT_STATUS_LINE_SCRIPT.contains("ConvertFrom-Json"));
-        // 强制 UTF-8 输出，避免 emoji 与中文乱码
-        assert!(DEFAULT_STATUS_LINE_SCRIPT.contains("[Console]::OutputEncoding"));
-    }
-
-    #[cfg(windows)]
-    #[test]
-    fn install_status_line_preset_writes_powershell_script_on_windows() {
-        let _guard = crate::utils::lock_config().unwrap();
-        let root = temp_root("status-line-install-windows");
-        set_test_env(&root);
-
-        let result = install_status_line_preset_inner("default", false).unwrap();
-        let target_path = root.join(".claude").join("statusline.ps1");
-
-        assert_eq!(PathBuf::from(&result.target_path), target_path);
-        assert!(result.command_path.starts_with("powershell"));
-        // 命令路径必须用正斜杠，避免被当作转义字符
-        assert!(result.command_path.contains(".claude/statusline.ps1"));
-        assert!(!result.command_path.contains('\\'));
-        assert!(result.installed);
-        assert!(!result.needs_overwrite);
-        assert_eq!(
-            fs::read_to_string(&target_path).unwrap(),
-            DEFAULT_STATUS_LINE_SCRIPT
-        );
-
-        clear_test_env();
-    }
-
-    #[cfg(not(any(unix, windows)))]
+    #[cfg(not(unix))]
     #[test]
     fn install_status_line_preset_rejects_unsupported_platforms() {
         let result = install_status_line_preset_inner("default", false);
@@ -3727,13 +3598,13 @@ mod tests {
     }
 
     #[test]
-    fn updating_custom_preset_reapplies_bound_profiles() {
+    fn updating_custom_provider_reapplies_bound_profiles() {
         let _guard = crate::utils::lock_config().unwrap();
         let root = temp_root("preset-reapply");
         set_test_env(&root);
 
         let mut registry = ConfigRegistry::default();
-        registry.custom_presets.push(sample_custom_preset(
+        registry.custom_providers.push(sample_custom_provider(
             "custom:base",
             None,
             serde_json::json!({
@@ -3754,12 +3625,12 @@ mod tests {
         registry.bindings.user_profile_id = Some("user-1".to_string());
         apply_profile_to_registry(&mut registry, "user-1").unwrap();
 
-        registry.custom_presets[0].settings_patch = serde_json::json!({
+        registry.custom_providers[0].settings_patch = serde_json::json!({
             "env": {
                 "ANTHROPIC_BASE_URL": "https://new.example.com"
             }
         });
-        for profile_id in bound_profile_ids_using_preset(&registry, "custom:base") {
+        for profile_id in bound_profile_ids_using_provider(&registry, "custom:base") {
             apply_profile_to_registry(&mut registry, &profile_id).unwrap();
         }
 
@@ -3788,11 +3659,8 @@ mod tests {
                 tray_pulse_waiting: true,
                 focus_session_shortcut: Some("Command+Control+J".to_string()),
                 led_control: crate::led::LedControlPreferences::default(),
-                floating_widget_enabled: false,
-                floating_widget_metrics: default_floating_widget_metrics(),
-                floating_widget_opacity: default_floating_widget_opacity(),
             },
-            custom_presets: vec![SettingsPreset {
+            custom_providers: vec![Provider {
                 id: "custom:team-plan".to_string(),
                 name: "Team Plan".to_string(),
                 localized_name: Some(LocalizedText {
@@ -3809,13 +3677,13 @@ mod tests {
                         "defaultMode": "plan"
                     }
                 })),
-                source: PresetSource::Custom,
+                source: ProviderSource::Custom,
             }],
             profiles: vec![ConfigProfile {
                 id: "user-openrouter".to_string(),
                 name: "OpenRouter User".to_string(),
                 description: "全局开发默认配置".to_string(),
-                preset_id: Some("custom:team-plan".to_string()),
+                provider_id: Some("custom:team-plan".to_string()),
                 settings: stable_sort_json(serde_json::json!({
                     "env": {
                         "ANTHROPIC_AUTH_TOKEN": "token"
@@ -3924,7 +3792,7 @@ mod tests {
             id: Some("profile-a".to_string()),
             name: "Profile A".to_string(),
             description: String::new(),
-            preset_id: None,
+            provider_id: None,
             settings: serde_json::json!({}),
             prompt_text: Some("   ".to_string()),
         })
@@ -4130,7 +3998,7 @@ mod tests {
             id: Some("profile-a".to_string()),
             name: "Profile A".to_string(),
             description: String::new(),
-            preset_id: None,
+            provider_id: None,
             settings: serde_json::json!({
                 "model": "claude-sonnet-4-6",
                 "env": {

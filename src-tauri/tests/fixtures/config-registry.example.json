@@ -19,16 +19,9 @@
       "waitingMode": 5,
       "runningMode": 1,
       "idleMode": 2
-    },
-    "floatingWidgetEnabled": false,
-    "floatingWidgetMetrics": [
-      "cost",
-      "totalTokens",
-      "cacheHitRate"
-    ],
-    "floatingWidgetOpacity": 92
+    }
   },
-  "customPresets": [
+  "customProviders": [
     {
       "id": "custom:team-plan",
       "name": "Team Plan",
@@ -55,7 +48,7 @@
       "id": "user-openrouter",
       "name": "OpenRouter User",
       "description": "全局开发默认配置",
-      "presetId": "custom:team-plan",
+      "providerId": "custom:team-plan",
       "settings": {
         "env": {
           "ANTHROPIC_AUTH_TOKEN": "token"

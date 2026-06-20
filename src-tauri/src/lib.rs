@@ -16,7 +16,6 @@ mod terminal_focus;
 mod tray;
 mod usage;
 mod utils;
-mod widget;
 
 use std::path::Path;
 #[cfg(any(debug_assertions, test))]
@@ -28,10 +27,10 @@ use claude_directory::{
     rename_claude_directory_entry,
 };
 use config::{
-    apply_profile, delete_preset, delete_profile, duplicate_profile, get_config_workspace,
+    apply_profile, delete_profile, delete_provider, duplicate_profile, get_config_workspace,
     import_user_settings_profile, install_status_line_preset, preview_profile, reorder_profiles,
-    set_app_preferences, sync_shared_profile_settings, test_profile_model, upsert_preset,
-    upsert_profile,
+    set_app_preferences, sync_shared_profile_settings, test_profile_model, upsert_profile,
+    upsert_provider,
 };
 use history::{
     get_history, get_history_if_changed, get_session_detail, open_session_file_in_editor,
@@ -63,7 +62,6 @@ use stats::{get_stats, open_claude_json_in_editor};
 use tauri::Manager;
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind, TimezoneStrategy};
 use usage::{get_session_usage_detail, get_usage_snapshot, refresh_usage_pricing, rescan_usage};
-use widget::{open_usage_page, toggle_floating_widget};
 
 /// 构造 tauri-specta Builder，收集所有 IPC command。
 ///
@@ -91,8 +89,8 @@ fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             install_status_line_preset,
             preview_profile,
             test_profile_model,
-            upsert_preset,
-            delete_preset,
+            upsert_provider,
+            delete_provider,
             set_app_preferences,
             get_native_open_app_options,
             get_memories,
@@ -149,8 +147,6 @@ fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             refresh_plugin_install_counts,
             led_probe_status,
             led_test_mode,
-            toggle_floating_widget,
-            open_usage_page,
         ])
         .dangerously_cast_bigints_to_number()
 }
@@ -262,20 +258,15 @@ pub fn run() {
             usage::start_usage_runtime(app).map_err(std::io::Error::other)?;
             // 启动 LED 灯效运行时（独立 worker 线程驱动设备，按当前会话状态点亮一次）
             led::start_led_runtime(app);
-            // 按当前偏好同步桌面用量浮窗显隐（启用则创建置顶小窗）
-            widget::sync_widget_visibility(
-                app.handle(),
-                config::load_app_preferences().floating_widget_enabled,
-            );
             Ok(())
         })
         .on_window_event(|window, event| {
             // 点击关闭按钮时隐藏窗口而非退出，保留系统托盘
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 let _ = window.hide();
-                // macOS: 仅主窗口关闭时隐藏 Dock 图标；浮窗关闭不应影响 Dock
+                // macOS: 隐藏 Dock 图标
                 #[cfg(target_os = "macos")]
-                if window.label() == "main" {
+                {
                     let app = window.app_handle();
                     let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
                 }

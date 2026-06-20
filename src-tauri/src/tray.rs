@@ -34,7 +34,6 @@ static PENDING_SESSION_NOTIFIER: OnceLock<Mutex<PendingSessionNotifier>> = OnceL
 struct TrayLabels<'a> {
     language: &'a str,
     show_window: &'a str,
-    toggle_widget: &'a str,
     nav_configs: &'a str,
     no_configs: &'a str,
     active_sessions: &'a str,
@@ -54,7 +53,6 @@ fn tray_labels_for_language(language: &str) -> TrayLabels<'static> {
         "en" => TrayLabels {
             language: "en",
             show_window: "Open AI Manager",
-            toggle_widget: "Toggle Floating Widget",
             nav_configs: "Profiles",
             no_configs: "No configs",
             active_sessions: "Active Sessions",
@@ -71,7 +69,6 @@ fn tray_labels_for_language(language: &str) -> TrayLabels<'static> {
         _ => TrayLabels {
             language: "zh",
             show_window: "打开 AI Manager",
-            toggle_widget: "显示/隐藏浮窗",
             nav_configs: "配置",
             no_configs: "暂无配置",
             active_sessions: "当前会话",
@@ -672,10 +669,6 @@ fn build_tray_menu(app: &AppHandle, state: &ConfigRegistry) -> tauri::Result<Men
     // 顶部：点击打开主窗口
     let show = MenuItemBuilder::with_id("show_window", labels.show_window).build(app)?;
     items.push(Box::new(show));
-    // 显示/隐藏桌面用量浮窗（瞬时显隐，不写入偏好）
-    let toggle_widget =
-        MenuItemBuilder::with_id("toggle_widget", labels.toggle_widget).build(app)?;
-    items.push(Box::new(toggle_widget));
     items.push(Box::new(PredefinedMenuItem::separator(app)?));
 
     // 配置管理导航项（可点击，同时作为配置列表标题）
@@ -999,7 +992,7 @@ pub fn apply_focus_session_shortcut(app: &AppHandle) {
 }
 
 /// 显示并聚焦主窗口
-pub(crate) fn show_main_window(app: &AppHandle) {
+fn show_main_window(app: &AppHandle) {
     #[cfg(target_os = "macos")]
     let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
     if let Some(window) = app.get_webview_window("main") {
@@ -1233,14 +1226,6 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
                     "show_window" => {
                         show_main_window(app);
                     }
-                    "toggle_widget" => {
-                        // 读取浮窗当前可见性后取反，瞬时显隐（不持久化偏好）
-                        let visible = app
-                            .get_webview_window(crate::widget::WIDGET_WINDOW_LABEL)
-                            .and_then(|window| window.is_visible().ok())
-                            .unwrap_or(false);
-                        let _ = crate::widget::toggle_floating_widget(app.clone(), !visible);
-                    }
                     "quit" => {
                         app.exit(0);
                     }
@@ -1322,7 +1307,6 @@ mod tests {
             tray_pulse_waiting: true,
             focus_session_shortcut: None,
             led_control: crate::led::LedControlPreferences::default(),
-            ..AppPreferences::default()
         }
     }
 
@@ -1330,7 +1314,6 @@ mod tests {
     fn tray_labels_follow_selected_language() {
         let zh = tray_labels_for_language("zh");
         assert_eq!(zh.show_window, "打开 AI Manager");
-        assert_eq!(zh.toggle_widget, "显示/隐藏浮窗");
         assert_eq!(zh.nav_configs, "配置");
         assert_eq!(zh.no_sessions, "无会话");
         assert_eq!(zh.nav_memory, "记忆");
@@ -1343,7 +1326,6 @@ mod tests {
 
         let en = tray_labels_for_language("en");
         assert_eq!(en.show_window, "Open AI Manager");
-        assert_eq!(en.toggle_widget, "Toggle Floating Widget");
         assert_eq!(en.nav_configs, "Profiles");
         assert_eq!(en.no_sessions, "No Sessions");
         assert_eq!(en.nav_memory, "Memory");
@@ -2073,7 +2055,7 @@ mod tests {
             id: id.to_string(),
             name: name.to_string(),
             description: String::new(),
-            preset_id: None,
+            provider_id: None,
             settings: json!({}),
             created_at: String::new(),
             updated_at: String::new(),
