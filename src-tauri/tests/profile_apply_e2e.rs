@@ -11,13 +11,13 @@ use serde_json::Value;
 use serial_test::serial;
 use std::fs;
 
-/// 写入一个最小但合法的 config-registry.json，包含一个无 preset 的 profile。
+/// 写入一个最小但合法的 config-registry.json，包含一个无 provider 的 profile。
 fn seed_registry(env: &IntegrationEnv, profile_id: &str, settings: Value) {
     let registry = serde_json::json!({
         "$schema": "https://json.schemastore.org/ai-manager-config-registry.json",
         "version": 2,
         "app": {},
-        "customPresets": [],
+        "customProviders": [],
         "profiles": [{
             "id": profile_id,
             "name": profile_id,

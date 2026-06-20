@@ -61,67 +61,6 @@ vi.mock("../ConfigPreview", () => ({
   ),
 }));
 
-const PRESETS: Provider[] = [
-  {
-    id: "builtin:openrouter",
-    name: "OpenRouter",
-    localizedName: {
-      zh: "开放路由",
-      en: "OpenRouter",
-    },
-    description: "OpenRouter 预设",
-    models: [
-      { id: "claude-opus-4-1", category: "opus" },
-      { id: "claude-sonnet-4-6", category: "sonnet" },
-      { id: "claude-haiku-4-5", category: "haiku" },
-    ],
-    modelSuggestions: ["claude-sonnet-4-6"],
-    env: {
-      ANTHROPIC_BASE_URL: "https://openrouter.ai/api",
-    },
-    source: "builtin",
-  },
-  {
-    id: "custom:team-plan",
-    name: "Team Plan",
-    localizedName: {
-      zh: "团队计划",
-      en: "Team Plan",
-    },
-    description: "团队计划预设",
-    modelSuggestions: ["claude-haiku-fallback"],
-    env: {},
-    source: "custom",
-  },
-  {
-    id: "custom:explicit-model",
-    name: "Explicit Model",
-    localizedName: {
-      zh: "显式模型",
-      en: "Explicit Model",
-    },
-    description: "显式模型预设",
-    modelSuggestions: ["claude-sonnet-4-6"],
-    env: {},
-    source: "custom",
-  },
-  {
-    id: "custom:env-level-overrides",
-    name: "Env Level Overrides",
-    localizedName: {
-      zh: "环境变量级别覆盖",
-      en: "Env Level Overrides",
-    },
-    description: "环境变量级别覆盖预设",
-    modelSuggestions: ["claude-sonnet-4-6"],
-    env: {
-      ANTHROPIC_DEFAULT_HAIKU_MODEL: "haiku-env-override",
-      CLAUDE_CODE_SUBAGENT_MODEL: "subagent-env-override",
-    },
-    source: "custom",
-  },
-];
-
 const PRESET_FIXTURE: Provider = {
   id: "team-openrouter",
   name: "Team OpenRouter",
@@ -138,7 +77,6 @@ const PRESET_FIXTURE: Provider = {
 
 function renderEditor(options?: {
   provider?: Provider | null;
-  providers?: Provider[];
   onSave?: (data: {
     id?: string;
     name: string;
@@ -173,12 +111,7 @@ function renderEditor(options?: {
     >(() => true);
   render(
     <I18nProvider>
-      <ProviderEditor
-        provider={provider}
-        providers={options?.providers ?? PRESETS}
-        onSave={onSave}
-        onClose={() => {}}
-      />
+      <ProviderEditor provider={provider} onSave={onSave} onClose={() => {}} />
     </I18nProvider>,
   );
   return { onSave };

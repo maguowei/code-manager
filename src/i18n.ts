@@ -436,7 +436,6 @@ const translations = {
     "providers.editor.fields.nameEn": "英文名称",
     "providers.editor.fields.description": "描述",
     "providers.editor.fields.docUrl": "文档链接",
-    "providers.editor.fields.basePreset": "基础预设",
     "providers.editor.fields.authToken": "认证密钥",
     "providers.editor.fields.authTokenEnv": "ANTHROPIC_AUTH_TOKEN",
     "providers.editor.fields.baseUrl": "API 地址",
@@ -449,7 +448,6 @@ const translations = {
       "用逗号分隔，例如：claude-sonnet-4-6, claude-opus-4-1",
     "providers.editor.hints.modelSuggestions":
       "这里只保存建议项，最终采用哪个模型由 profile.settings 决定。",
-    "providers.editor.hints.baseSuggestions": "基础预设推荐模型",
     "providers.editor.hints.behaviorJson":
       "这里直接编辑当前行为区块相关的顶层键，以及相关的 env 覆盖，不会创建新的 behavior 嵌套对象。",
     "providers.editor.hints.commonJson":
@@ -1998,7 +1996,6 @@ const translations = {
     "providers.editor.fields.nameEn": "English Name",
     "providers.editor.fields.description": "Description",
     "providers.editor.fields.docUrl": "Documentation URL",
-    "providers.editor.fields.basePreset": "Base Preset",
     "providers.editor.fields.authToken": "Auth Token",
     "providers.editor.fields.authTokenEnv": "ANTHROPIC_AUTH_TOKEN",
     "providers.editor.fields.baseUrl": "API Base URL",
@@ -2011,7 +2008,6 @@ const translations = {
       "Comma-separated, e.g. claude-sonnet-4-6, claude-opus-4-1",
     "providers.editor.hints.modelSuggestions":
       "These are suggestions only; the final model is decided by profile.settings.",
-    "providers.editor.hints.baseSuggestions": "Base preset suggestions",
     "providers.editor.hints.behaviorJson":
       "Edit the related top-level behavior keys and scoped env overrides directly without creating a nested behavior object.",
     "providers.editor.hints.commonJson":

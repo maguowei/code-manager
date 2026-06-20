@@ -16,7 +16,6 @@ import {
 } from "./editor-layout";
 import RequiredBadge from "./profile-editor/RequiredBadge";
 import { TYPOGRAPHY } from "./typography-classes";
-import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Form } from "./ui/form";
 import { Input } from "./ui/input";
@@ -43,7 +42,6 @@ export interface ProviderEditorHandle {
 
 interface ProviderEditorProps {
   provider: Provider | null;
-  providers: Provider[];
   onSave: (data: ProviderEditorSaveData) => Promise<boolean> | boolean;
   onClose: () => void;
 }
@@ -130,7 +128,7 @@ const KNOWN_CONNECTION_ENV_KEYS = new Set([
 ]);
 
 const ProviderEditor = forwardRef<ProviderEditorHandle, ProviderEditorProps>(
-  function ProviderEditor({ provider, providers, onSave, onClose }, ref) {
+  function ProviderEditor({ provider, onSave, onClose }, ref) {
     const { t } = useI18n();
     const form = useForm();
     const initialDraftRef = useRef<{
@@ -166,12 +164,6 @@ const ProviderEditor = forwardRef<ProviderEditorHandle, ProviderEditorProps>(
     );
     const [env, setEnv] = useState<Record<string, string>>(
       () => initialDraftRef.current?.env ?? {},
-    );
-
-    // 当前供应商推荐模型（用于展示基础建议）
-    const selectableBaseProviders = useMemo(
-      () => providers.filter((candidate) => candidate.id !== provider?.id),
-      [provider?.id, providers],
     );
 
     // 保存进行中闸门：用 useRef(同步)杜绝单次保存窗口内 onSave 被重复触发
@@ -335,44 +327,6 @@ const ProviderEditor = forwardRef<ProviderEditorHandle, ProviderEditorProps>(
                   }
                 />
               </EditorField>
-
-              {/* 推荐模型区域：从其他供应商快速填充 modelSuggestions */}
-              {selectableBaseProviders.length > 0 && (
-                <EditorField>
-                  <Label>{t("providers.editor.hints.baseSuggestions")}</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {selectableBaseProviders
-                      .flatMap((candidate) => candidate.modelSuggestions)
-                      .filter(Boolean)
-                      .slice(0, 8)
-                      .map((model) => (
-                        <Button
-                          key={model}
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-auto rounded-full px-2.5 py-1 font-mono text-xs"
-                          onClick={() =>
-                            setModelSuggestions((current) => {
-                              const items = current
-                                .split(",")
-                                .map((item) => item.trim())
-                                .filter(Boolean);
-                              if (items.includes(model)) {
-                                return current;
-                              }
-                              return [...items, model].join(", ");
-                            })
-                          }
-                        >
-                          <Badge variant="secondary" className="rounded-full font-mono">
-                            {model}
-                          </Badge>
-                        </Button>
-                      ))}
-                  </div>
-                </EditorField>
-              )}
             </EditorSection>
 
             {/* 模型映射：各类别默认模型（标签直接用中文，对应 env key 在 EditorEnvHint 展示） */}

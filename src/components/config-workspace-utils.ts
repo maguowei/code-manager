@@ -296,7 +296,7 @@ export function providerNameById(
   return provider ? providerDisplayName(provider, language) : providerId;
 }
 
-export interface PresetAutofillValues {
+export interface ProviderAutofillValues {
   resolvedBaseUrl?: string;
   resolvedModel?: string;
   resolvedOpusModel?: string;
@@ -309,7 +309,7 @@ export interface PresetAutofillValues {
 export function resolveProviderAutofillValues(
   providers: Provider[],
   providerId: string | undefined,
-): PresetAutofillValues {
+): ProviderAutofillValues {
   // 段 B：Provider 不再有继承链，直接读取单个供应商的 env 扁平字典
   if (!providerId) {
     return {};

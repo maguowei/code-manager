@@ -1,6 +1,6 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Copy, ExternalLink, Plus } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
@@ -68,11 +68,6 @@ function ProvidersPage({
   const [isSavingEditorExit, setIsSavingEditorExit] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const providerEditorRef = useRef<ProviderEditorHandle | null>(null);
-
-  const allProviders = useMemo(
-    () => [...workspace.builtinProviders, ...workspace.customProviders],
-    [workspace.builtinProviders, workspace.customProviders],
-  );
 
   function providerModelSuggestions(provider: Provider) {
     return provider.modelSuggestions.map((model) => model.trim()).filter(Boolean);
@@ -444,7 +439,6 @@ function ProvidersPage({
               key={editingProvider?.id ?? "new-provider"}
               ref={providerEditorRef}
               provider={editingProvider}
-              providers={allProviders}
               onSave={handleSave}
               onClose={() => requestEditorExit(closeDrawer)}
             />
