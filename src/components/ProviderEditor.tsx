@@ -329,12 +329,14 @@ const ProviderEditor = forwardRef<ProviderEditorHandle, ProviderEditorProps>(
               </EditorField>
             </EditorSection>
 
-            {/* 模型映射：各类别默认模型（标签直接用中文，对应 env key 在 EditorEnvHint 展示） */}
+            {/* 模型映射：各类别默认模型（标签走 i18n，对应 env key 在 EditorEnvHint 展示） */}
             <EditorSection title={t("providers.editor.sections.behavior")}>
               <EditorFieldGrid>
                 <EditorField>
                   <EditorLabelRow>
-                    <Label htmlFor="preset-model">默认模型</Label>
+                    <Label htmlFor="preset-model">
+                      {t("providers.editor.fields.defaultModel")}
+                    </Label>
                     <EditorEnvHint>ANTHROPIC_MODEL</EditorEnvHint>
                   </EditorLabelRow>
                   <Input
@@ -350,7 +352,9 @@ const ProviderEditor = forwardRef<ProviderEditorHandle, ProviderEditorProps>(
                 </EditorField>
                 <EditorField>
                   <EditorLabelRow>
-                    <Label htmlFor="preset-opus-model">Opus 默认模型</Label>
+                    <Label htmlFor="preset-opus-model">
+                      {t("providers.editor.fields.opusModel")}
+                    </Label>
                     <EditorEnvHint>ANTHROPIC_DEFAULT_OPUS_MODEL</EditorEnvHint>
                   </EditorLabelRow>
                   <Input
@@ -368,7 +372,9 @@ const ProviderEditor = forwardRef<ProviderEditorHandle, ProviderEditorProps>(
                 </EditorField>
                 <EditorField>
                   <EditorLabelRow>
-                    <Label htmlFor="preset-sonnet-model">Sonnet 默认模型</Label>
+                    <Label htmlFor="preset-sonnet-model">
+                      {t("providers.editor.fields.sonnetModel")}
+                    </Label>
                     <EditorEnvHint>ANTHROPIC_DEFAULT_SONNET_MODEL</EditorEnvHint>
                   </EditorLabelRow>
                   <Input
@@ -386,7 +392,9 @@ const ProviderEditor = forwardRef<ProviderEditorHandle, ProviderEditorProps>(
                 </EditorField>
                 <EditorField>
                   <EditorLabelRow>
-                    <Label htmlFor="preset-haiku-model">Haiku 默认模型</Label>
+                    <Label htmlFor="preset-haiku-model">
+                      {t("providers.editor.fields.haikuModel")}
+                    </Label>
                     <EditorEnvHint>ANTHROPIC_DEFAULT_HAIKU_MODEL</EditorEnvHint>
                   </EditorLabelRow>
                   <Input
@@ -404,7 +412,9 @@ const ProviderEditor = forwardRef<ProviderEditorHandle, ProviderEditorProps>(
                 </EditorField>
                 <EditorField>
                   <EditorLabelRow>
-                    <Label htmlFor="preset-subagent-model">Subagent 模型</Label>
+                    <Label htmlFor="preset-subagent-model">
+                      {t("providers.editor.fields.subagentModel")}
+                    </Label>
                     <EditorEnvHint>CLAUDE_CODE_SUBAGENT_MODEL</EditorEnvHint>
                   </EditorLabelRow>
                   <Input
@@ -420,7 +430,9 @@ const ProviderEditor = forwardRef<ProviderEditorHandle, ProviderEditorProps>(
                 </EditorField>
                 <EditorField>
                   <EditorLabelRow>
-                    <Label htmlFor="preset-effort-level">努力级别</Label>
+                    <Label htmlFor="preset-effort-level">
+                      {t("providers.editor.fields.effortLevel")}
+                    </Label>
                     <EditorEnvHint>CLAUDE_CODE_EFFORT_LEVEL</EditorEnvHint>
                   </EditorLabelRow>
                   <Input
@@ -465,6 +477,7 @@ function ProviderExtraEnvEditor({
   onChange: (next: Record<string, string>) => void;
   sectionTitle: string;
 }) {
+  const { t } = useI18n();
   // 从 env 中过滤出"附加"键（未被专用字段覆盖的）
   const extraEntries = useMemo(
     () => Object.entries(env).filter(([key]) => !knownKeys.has(key)),
@@ -521,14 +534,14 @@ function ProviderExtraEnvEditor({
             <div key={key} className="flex items-center gap-2">
               <Input
                 className={cn(EDITOR_CONTROL_SURFACE_CLASS, "font-mono")}
-                aria-label="环境变量名称"
+                aria-label={t("providers.editor.fields.extraEnvName")}
                 value={key}
                 placeholder="ENV_KEY"
                 onChange={(event) => handleKeyChange(key, event.target.value)}
               />
               <Input
                 className={EDITOR_CONTROL_SURFACE_CLASS}
-                aria-label="环境变量值"
+                aria-label={t("providers.editor.fields.extraEnvValue")}
                 value={value}
                 placeholder=""
                 onChange={(event) => handleValueChange(key, event.target.value)}
@@ -537,7 +550,7 @@ function ProviderExtraEnvEditor({
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                aria-label="删除"
+                aria-label={t("providers.editor.actions.deleteEnv")}
                 onClick={() => handleRemoveEntry(key)}
               >
                 ×
@@ -551,9 +564,10 @@ function ProviderExtraEnvEditor({
         variant="outline"
         size="sm"
         className="self-start"
+        aria-label={t("providers.editor.actions.addEnv")}
         onClick={handleAddEntry}
       >
-        + 新增环境变量
+        + {t("providers.editor.actions.addEnv")}
       </Button>
     </EditorSection>
   );

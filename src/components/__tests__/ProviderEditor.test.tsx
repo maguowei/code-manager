@@ -193,4 +193,23 @@ describe("ProviderEditor", () => {
       }),
     );
   });
+
+  it("localizes provider-only env controls in english", () => {
+    localStorage.setItem(
+      "ai-manager-settings",
+      JSON.stringify({
+        language: "en",
+      }),
+    );
+
+    renderEditor();
+
+    expect(screen.getByText("Default Model")).toBeInTheDocument();
+    expect(screen.getByText("Opus Default Model")).toBeInTheDocument();
+    expect(screen.getByText("Sonnet Default Model")).toBeInTheDocument();
+    expect(screen.getByText("Haiku Default Model")).toBeInTheDocument();
+    expect(screen.getByText("Subagent Model")).toBeInTheDocument();
+    expect(screen.getByText("Effort Level")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add environment variable" })).toBeInTheDocument();
+  });
 });

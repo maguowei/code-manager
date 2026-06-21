@@ -129,6 +129,10 @@ describe("ProvidersPage", () => {
     expect(screen.getByRole("heading", { name: "Providers" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Built-in Providers" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Custom Providers" })).toBeInTheDocument();
+    expect(
+      screen.getByText("Share API endpoints and model mappings that profiles can reuse."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/settingsPatch|patches/i)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Add Provider/ })).toBeInTheDocument();
   });
 

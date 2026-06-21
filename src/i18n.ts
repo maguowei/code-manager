@@ -412,11 +412,11 @@ const translations = {
     "providers.builtin.badge": "内置",
     "providers.custom.title": "自定义供应商",
     "providers.custom.description":
-      "用 settingsPatch 复用团队配置，再由 profile.settings 做最终覆盖。",
+      "复用 API 地址、模型映射与附加环境变量，再由配置补充认证密钥和行为设置。",
     "providers.custom.badge": "自定义",
     "providers.custom.empty": "暂无自定义供应商",
     "providers.custom.emptyHint":
-      "内置供应商适合直接复用；如果团队还有额外 patch，可以在这里叠加。",
+      "内置供应商适合直接复用；如果团队有额外 API 地址或模型映射，可以在这里新增。",
     "providers.actions.openDocs": "查看文档",
     "providers.actions.copyId": "复制 ID",
     "providers.actions.edit": "编辑",
@@ -441,6 +441,16 @@ const translations = {
     "providers.editor.fields.baseUrl": "API 地址",
     "providers.editor.fields.baseUrlEnv": "ANTHROPIC_BASE_URL",
     "providers.editor.fields.modelSuggestions": "推荐模型",
+    "providers.editor.fields.defaultModel": "默认模型",
+    "providers.editor.fields.opusModel": "Opus 默认模型",
+    "providers.editor.fields.sonnetModel": "Sonnet 默认模型",
+    "providers.editor.fields.haikuModel": "Haiku 默认模型",
+    "providers.editor.fields.subagentModel": "Subagent 模型",
+    "providers.editor.fields.effortLevel": "努力级别",
+    "providers.editor.fields.extraEnvName": "环境变量名称",
+    "providers.editor.fields.extraEnvValue": "环境变量值",
+    "providers.editor.actions.addEnv": "新增环境变量",
+    "providers.editor.actions.deleteEnv": "删除环境变量",
     "providers.editor.placeholders.nameZh": "例如：团队 OpenRouter",
     "providers.editor.placeholders.nameEn": "例如：Team OpenRouter",
     "providers.editor.placeholders.description": "说明 provider 的用途",
@@ -453,7 +463,7 @@ const translations = {
     "providers.editor.hints.commonJson":
       "这里直接编辑当前常用选项区块相关的顶层键，以及相关的 env 开关。",
     "providers.editor.hints.expert":
-      "这里直接编辑完整 settingsPatch，预览与编辑都作用于同一份补丁文档。",
+      "供应商只保存连接地址、模型映射与附加环境变量；认证密钥和行为设置保存在配置中。",
     "providers.editor.hints.expertStructuredKeys": "当前已由控件覆盖的字段",
     "providers.editor.sections.metadata": "基础信息",
     "providers.editor.sections.auth": "认证",
@@ -467,9 +477,8 @@ const translations = {
     "providers.editor.sections.plugins": "插件",
     "providers.editor.sections.statusLine": "状态行",
     "providers.editor.sections.integrations": "集成",
-    "providers.editor.sections.preview": "配置补丁",
+    "providers.editor.sections.preview": "供应商环境变量",
     "providers.editor.options.none": "无",
-    "providers.editor.validation.settingsPatchObject": "settingsPatch 必须是 JSON 对象",
 
     // 编辑器子组件共享翻译
     "profileEditor.common.delete": "删除",
@@ -1971,11 +1980,11 @@ const translations = {
     "providers.builtin.badge": "Built-in",
     "providers.custom.title": "Custom Providers",
     "providers.custom.description":
-      "Compose reusable settings patches, then override them in profile.settings.",
+      "Share API endpoints and model mappings that profiles can reuse.",
     "providers.custom.badge": "Custom",
     "providers.custom.empty": "No custom providers yet",
     "providers.custom.emptyHint":
-      "Use a custom provider when your team needs reusable patches beyond the built-ins.",
+      "Use a custom provider when your team needs extra API endpoints or model mappings.",
     "providers.actions.openDocs": "Open Docs",
     "providers.actions.copyId": "Copy ID",
     "providers.actions.edit": "Edit",
@@ -2001,6 +2010,16 @@ const translations = {
     "providers.editor.fields.baseUrl": "API Base URL",
     "providers.editor.fields.baseUrlEnv": "ANTHROPIC_BASE_URL",
     "providers.editor.fields.modelSuggestions": "Suggested Models",
+    "providers.editor.fields.defaultModel": "Default Model",
+    "providers.editor.fields.opusModel": "Opus Default Model",
+    "providers.editor.fields.sonnetModel": "Sonnet Default Model",
+    "providers.editor.fields.haikuModel": "Haiku Default Model",
+    "providers.editor.fields.subagentModel": "Subagent Model",
+    "providers.editor.fields.effortLevel": "Effort Level",
+    "providers.editor.fields.extraEnvName": "Environment variable name",
+    "providers.editor.fields.extraEnvValue": "Environment variable value",
+    "providers.editor.actions.addEnv": "Add environment variable",
+    "providers.editor.actions.deleteEnv": "Delete environment variable",
     "providers.editor.placeholders.nameZh": "e.g. Team OpenRouter (Chinese)",
     "providers.editor.placeholders.nameEn": "e.g. Team OpenRouter",
     "providers.editor.placeholders.description": "Describe what this provider is for",
@@ -2013,7 +2032,7 @@ const translations = {
     "providers.editor.hints.commonJson":
       "Edit the related common-option top-level keys and env switches directly here.",
     "providers.editor.hints.expert":
-      "Edit the full settingsPatch document here; preview and edit mode both operate on the same patch document.",
+      "Providers only store API endpoints, model mappings, and extra environment variables; auth tokens and behavior settings stay in profiles.",
     "providers.editor.hints.expertStructuredKeys": "Structured keys currently covered",
     "providers.editor.sections.metadata": "Basics",
     "providers.editor.sections.auth": "Authentication",
@@ -2027,9 +2046,8 @@ const translations = {
     "providers.editor.sections.plugins": "Plugins",
     "providers.editor.sections.statusLine": "Status Line",
     "providers.editor.sections.integrations": "Integrations",
-    "providers.editor.sections.preview": "Settings Patch",
+    "providers.editor.sections.preview": "Provider Environment",
     "providers.editor.options.none": "None",
-    "providers.editor.validation.settingsPatchObject": "settingsPatch must be a JSON object",
 
     // Shared sub-editor translations
     "profileEditor.common.delete": "Delete",
