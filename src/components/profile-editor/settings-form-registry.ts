@@ -183,6 +183,21 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     },
   },
   {
+    key: "autoCompactWindow",
+    section: "behavior",
+    kind: "text",
+    storage: "env-only",
+    envKey: "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+    label: {
+      zh: "自动压缩窗口",
+      en: "Auto Compact Window",
+    },
+    placeholder: {
+      zh: "0–1000000，留空使用默认",
+      en: "0–1000000, empty for default",
+    },
+  },
+  {
     key: "language",
     section: "behavior",
     kind: "select",

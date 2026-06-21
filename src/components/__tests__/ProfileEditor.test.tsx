@@ -2010,6 +2010,112 @@ describe("ProfileEditor", () => {
     expect(onSave.mock.calls[0][0].settings.outputStyle).toBe("default");
   });
 
+  function openAutoCompactWindowPopover(): HTMLElement {
+    const trigger = within(getSection("模型与行为")).getByRole("button", { name: "自动压缩窗口" });
+    act(() => {
+      fireEvent.click(trigger);
+    });
+    return document.querySelector('[data-slot="auto-compact-window-control"]') as HTMLElement;
+  }
+
+  it("shows unset auto compact window trigger and reveals slider with empty input", () => {
+    renderEditor({
+      profile: { ...PROFILE_FIXTURE, settings: { env: { ANTHROPIC_AUTH_TOKEN: "token" } } },
+    });
+
+    const trigger = within(getSection("模型与行为")).getByRole("button", { name: "自动压缩窗口" });
+    expect(trigger).toHaveTextContent("未设置");
+
+    const control = openAutoCompactWindowPopover();
+    expect(within(control).getByRole("slider")).toBeInTheDocument();
+    expect(within(control).getByRole("spinbutton")).toHaveValue(null);
+  });
+
+  it("shows the current auto compact window value in trigger and input", () => {
+    renderEditor({
+      profile: {
+        ...PROFILE_FIXTURE,
+        settings: {
+          env: { ANTHROPIC_AUTH_TOKEN: "token", CLAUDE_CODE_AUTO_COMPACT_WINDOW: "512000" },
+        },
+      },
+    });
+
+    const trigger = within(getSection("模型与行为")).getByRole("button", { name: "自动压缩窗口" });
+    expect(trigger).toHaveTextContent("512,000");
+
+    const control = openAutoCompactWindowPopover();
+    expect(within(control).getByRole("spinbutton")).toHaveValue(512000);
+  });
+
+  it("writes auto compact window env value on save", async () => {
+    const onSave = vi.fn();
+    renderEditor({
+      onSave,
+      profile: { ...PROFILE_FIXTURE, settings: { env: { ANTHROPIC_AUTH_TOKEN: "token" } } },
+    });
+
+    const control = openAutoCompactWindowPopover();
+    fireEvent.change(within(control).getByRole("spinbutton"), {
+      target: { value: "300000" },
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+      await Promise.resolve();
+    });
+
+    expect(onSave.mock.calls[0][0].settings.env).toMatchObject({
+      CLAUDE_CODE_AUTO_COMPACT_WINDOW: "300000",
+    });
+  });
+
+  it("clears auto compact window env value when the numeric input is emptied", async () => {
+    const onSave = vi.fn();
+    renderEditor({
+      onSave,
+      profile: {
+        ...PROFILE_FIXTURE,
+        settings: {
+          env: { ANTHROPIC_AUTH_TOKEN: "token", CLAUDE_CODE_AUTO_COMPACT_WINDOW: "512000" },
+        },
+      },
+    });
+
+    const control = openAutoCompactWindowPopover();
+    fireEvent.change(within(control).getByRole("spinbutton"), {
+      target: { value: "" },
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+      await Promise.resolve();
+    });
+
+    const env = (onSave.mock.calls[0][0].settings.env ?? {}) as Record<string, unknown>;
+    expect(env.CLAUDE_CODE_AUTO_COMPACT_WINDOW).toBeUndefined();
+  });
+
+  it("sets auto compact window from a quick anchor button", async () => {
+    const onSave = vi.fn();
+    renderEditor({
+      onSave,
+      profile: { ...PROFILE_FIXTURE, settings: { env: { ANTHROPIC_AUTH_TOKEN: "token" } } },
+    });
+
+    const control = openAutoCompactWindowPopover();
+    fireEvent.click(within(control).getByRole("button", { name: "400K" }));
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+      await Promise.resolve();
+    });
+
+    expect(onSave.mock.calls[0][0].settings.env).toMatchObject({
+      CLAUDE_CODE_AUTO_COMPACT_WINDOW: "400000",
+    });
+  });
+
   it("syncs structured env, permissions, sandbox, and hooks json editor into source json", async () => {
     renderEditor();
 

@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import AutoCompactWindowField from "./AutoCompactWindowField";
 import BehaviorFieldHeader from "./BehaviorFieldHeader";
 import DocumentEditorSection from "./DocumentEditorSection";
 import EffortLevelField from "./EffortLevelField";
@@ -303,6 +304,27 @@ function StructuredSettingsSections({
                 {row.map((field) => {
                   const label = field.label[language];
                   const fieldState = readBehaviorFieldState(field);
+                  // 自动压缩窗口用滑块 + 数字输入双控件,独占整行
+                  if (field.key === "autoCompactWindow") {
+                    return (
+                      <div key={field.key} className="grid gap-2" data-slot="settings-field">
+                        <BehaviorFieldHeader
+                          label={label}
+                          inputId={`${scope}-field-${field.key}`}
+                          helperKey={getFieldHelperKey(field)}
+                        />
+                        <AutoCompactWindowField
+                          id={`${scope}-field-${field.key}`}
+                          ariaLabel={label}
+                          placeholder={field.placeholder ? field.placeholder[language] : ""}
+                          value={fieldState.value}
+                          onChange={(value) =>
+                            onMappedFieldChange(field, value, fieldState.mappedToEnv)
+                          }
+                        />
+                      </div>
+                    );
+                  }
                   if (field.kind === "select") {
                     const options = resolveSelectOptions(
                       field,
