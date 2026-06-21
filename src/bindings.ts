@@ -835,10 +835,7 @@ export type Provider = Provider_Serialize | Provider_Deserialize;
 
 export type ProviderModel = {
 	id: string,
-	category: ProviderModelCategory,
 };
-
-export type ProviderModelCategory = "opus" | "sonnet" | "haiku" | "other";
 
 export type Provider_Deserialize = {
 	id: string,

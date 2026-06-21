@@ -247,15 +247,15 @@ const BUILTIN_PRESETS: Provider[] = [
       en: "OpenRouter",
     },
     description: "OpenRouter 预设",
-    models: [
-      { id: "claude-opus-4-1", category: "opus" },
-      { id: "claude-sonnet-4-6", category: "sonnet" },
-      { id: "claude-haiku-4-5", category: "haiku" },
-    ],
+    models: [{ id: "claude-opus-4-1" }, { id: "claude-sonnet-4-6" }, { id: "claude-haiku-4-5" }],
     modelSuggestions: ["claude-sonnet-4-6", "claude-opus-4-1"],
     docUrl: "https://openrouter.ai/docs",
     env: {
       ANTHROPIC_BASE_URL: "https://openrouter.ai/api",
+      ANTHROPIC_MODEL: "claude-sonnet-4-6",
+      ANTHROPIC_DEFAULT_OPUS_MODEL: "claude-opus-4-1",
+      ANTHROPIC_DEFAULT_SONNET_MODEL: "claude-sonnet-4-6",
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: "claude-haiku-4-5",
     },
   },
   {
@@ -3849,7 +3849,7 @@ describe("ProfileEditor", () => {
       },
     });
 
-    // 选择开放路由（有 models 数组和 ANTHROPIC_BASE_URL）：地址只读，模型按类别自动填充
+    // 选择开放路由（env 显式声明默认模型与 ANTHROPIC_BASE_URL）：地址只读，模型按 env 填充
     chooseComboboxOption("供应商", "开放路由");
     expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("https://openrouter.ai/api");
     expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toBeDisabled();
@@ -3859,27 +3859,26 @@ describe("ProfileEditor", () => {
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("claude-haiku-4-5");
     expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
 
-    // 切换到团队计划（无 ANTHROPIC_BASE_URL，无 models，仅有 modelSuggestions）：
-    // 地址显示空，模型字段重新按供应商推导（默认模型来自 modelSuggestions 第一项）
+    // 切换到团队计划（env 为空，无模型默认）：不再隐式回退 modelSuggestions，模型字段全部清空
     chooseComboboxOption("供应商", "团队计划");
     expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("");
-    expect(screen.getByLabelText("默认模型")).toHaveValue("claude-haiku-fallback");
+    expect(screen.getByLabelText("默认模型")).toHaveValue("");
     expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("");
-    expect(screen.getByLabelText("Sonnet 默认模型")).toHaveValue("claude-haiku-fallback");
-    expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("claude-haiku-fallback");
+    expect(screen.getByLabelText("Sonnet 默认模型")).toHaveValue("");
+    expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("");
     expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
 
-    // 切换到显式模型（ANTHROPIC_MODEL 在 env 中直接指定）：模型字段按 env 填充
+    // 切换到显式模型（仅 env.ANTHROPIC_MODEL）：默认模型按 env 填充，未声明的层级不再回退
     chooseComboboxOption("供应商", "显式模型");
     expect(screen.getByLabelText("默认模型")).toHaveValue("claude-opus-explicit");
     expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("");
-    expect(screen.getByLabelText("Sonnet 默认模型")).toHaveValue("claude-opus-explicit");
-    expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("claude-opus-explicit");
+    expect(screen.getByLabelText("Sonnet 默认模型")).toHaveValue("");
+    expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("");
     expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
 
-    // 环境变量级别覆盖供应商：haiku 和 subagent 字段按供应商 env 填充
+    // 环境变量级别覆盖供应商：仅 env 声明的 haiku 和 subagent 字段填充，默认模型留空
     chooseComboboxOption("供应商", "环境变量级别覆盖");
-    expect(screen.getByLabelText("默认模型")).toHaveValue("claude-sonnet-4-6");
+    expect(screen.getByLabelText("默认模型")).toHaveValue("");
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("haiku-env-override");
     expect(screen.getByLabelText("Subagent 模型")).toHaveValue("subagent-env-override");
 

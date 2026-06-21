@@ -6,7 +6,7 @@ import {
   resolveProviderAutofillValues,
 } from "../config-workspace-utils";
 
-/** 段 B：Provider 不再有 settingsPatch/basePresetId，只有 env 扁平字典 */
+/** 段 B：Provider 默认模型完全来自 env 显式声明，不再按模型 category 隐式推断 */
 const PRESETS: Provider[] = [
   {
     id: "builtin:openrouter",
@@ -16,11 +16,7 @@ const PRESETS: Provider[] = [
       zh: "开放路由",
       en: "OpenRouter",
     },
-    models: [
-      { id: "claude-opus-4-1", category: "opus" },
-      { id: "claude-sonnet-4-6", category: "sonnet" },
-      { id: "claude-haiku-4-5", category: "haiku" },
-    ],
+    models: [{ id: "claude-opus-4-1" }, { id: "claude-sonnet-4-6" }, { id: "claude-haiku-4-5" }],
     modelSuggestions: ["claude-sonnet-4-6", "claude-opus-4-1"],
     env: {
       ANTHROPIC_BASE_URL: "https://openrouter.ai/api",
@@ -54,14 +50,14 @@ const PRESETS: Provider[] = [
     env: {},
   },
   {
-    id: "custom:sonnet-only",
-    name: "Sonnet Only",
-    description: "仅 Sonnet 分类模型供应商",
+    id: "custom:models-no-env",
+    name: "Models Without Env",
+    description: "仅有 models 但无 env 默认的供应商",
     localizedName: {
-      zh: "仅 Sonnet",
-      en: "Sonnet Only",
+      zh: "无 env 模型",
+      en: "Models Without Env",
     },
-    models: [{ id: "claude-sonnet-only", category: "sonnet" }],
+    models: [{ id: "claude-sonnet-only" }],
     modelSuggestions: [],
     env: {},
   },
@@ -73,10 +69,7 @@ const PRESETS: Provider[] = [
       zh: "DeepSeek",
       en: "DeepSeek",
     },
-    models: [
-      { id: "deepseek-v4-pro[1m]", category: "sonnet" },
-      { id: "deepseek-v4-flash", category: "haiku" },
-    ],
+    models: [{ id: "deepseek-v4-pro[1m]" }, { id: "deepseek-v4-flash" }],
     modelSuggestions: ["deepseek-v4-pro[1m]", "deepseek-v4-flash"],
     env: {
       ANTHROPIC_BASE_URL: "https://api.deepseek.com/anthropic",
@@ -123,56 +116,56 @@ describe("config-workspace-utils preset autofill", () => {
     });
   });
 
-  it("resolves categorized models from provider env and models array", () => {
-    // 段 B：不再有继承链，直接从单个 provider 读取
+  it("ignores provider models without explicit env (no implicit category matching)", () => {
+    // openrouter 有 models 列表但 env 未声明默认模型：模型字段一律为空，不再隐式推断
     expect(resolveProviderAutofillValues(PRESETS, "builtin:openrouter")).toEqual({
       resolvedBaseUrl: "https://openrouter.ai/api",
-      resolvedModel: "claude-sonnet-4-6", // categorySonnet 优先于 suggestion
-      resolvedOpusModel: "claude-opus-4-1",
-      resolvedSonnetModel: "claude-sonnet-4-6",
-      resolvedHaikuModel: "claude-haiku-4-5",
+      resolvedModel: undefined,
+      resolvedOpusModel: undefined,
+      resolvedSonnetModel: undefined,
+      resolvedHaikuModel: undefined,
       resolvedSubagentModel: undefined,
       resolvedEffortLevel: undefined,
     });
   });
 
-  it("resolves env model overrides from provider env dict", () => {
+  it("reads explicit env model overrides without falling back across levels", () => {
     expect(resolveProviderAutofillValues(PRESETS, "custom:env-model")).toEqual({
       resolvedBaseUrl: "https://custom.api.com",
       resolvedModel: "claude-env-override",
       resolvedOpusModel: undefined,
-      resolvedSonnetModel: "claude-env-override", // falls back to resolvedModel
+      resolvedSonnetModel: undefined, // 不再回退到 resolvedModel
       resolvedHaikuModel: "haiku-env-override",
       resolvedSubagentModel: "subagent-env-override",
       resolvedEffortLevel: undefined,
     });
   });
 
-  it("falls back to model suggestions only after explicit values and categorized models are exhausted", () => {
+  it("does not fall back to model suggestions when env is empty", () => {
     expect(resolveProviderAutofillValues(PRESETS, "custom:suggestions-only")).toEqual({
       resolvedBaseUrl: undefined,
-      resolvedModel: "claude-suggestion-only",
+      resolvedModel: undefined,
       resolvedOpusModel: undefined,
-      resolvedSonnetModel: "claude-suggestion-only",
-      resolvedHaikuModel: "claude-suggestion-only",
+      resolvedSonnetModel: undefined,
+      resolvedHaikuModel: undefined,
       resolvedSubagentModel: undefined,
       resolvedEffortLevel: undefined,
     });
   });
 
-  it("resolves sonnet-only provider with correct category fallbacks", () => {
-    expect(resolveProviderAutofillValues(PRESETS, "custom:sonnet-only")).toEqual({
+  it("ignores models catalog when env declares no defaults", () => {
+    expect(resolveProviderAutofillValues(PRESETS, "custom:models-no-env")).toEqual({
       resolvedBaseUrl: undefined,
-      resolvedModel: "claude-sonnet-only",
-      resolvedOpusModel: "claude-sonnet-only",
-      resolvedSonnetModel: "claude-sonnet-only",
-      resolvedHaikuModel: "claude-sonnet-only",
+      resolvedModel: undefined,
+      resolvedOpusModel: undefined,
+      resolvedSonnetModel: undefined,
+      resolvedHaikuModel: undefined,
       resolvedSubagentModel: undefined,
       resolvedEffortLevel: undefined,
     });
   });
 
-  it("resolves DeepSeek official subagent and effort env overrides from provider env", () => {
+  it("resolves DeepSeek official model/subagent/effort env defaults from provider env", () => {
     expect(resolveProviderAutofillValues(PRESETS, "builtin:deepseek")).toEqual({
       resolvedBaseUrl: "https://api.deepseek.com/anthropic",
       resolvedModel: "deepseek-v4-pro[1m]",
@@ -188,7 +181,7 @@ describe("config-workspace-utils preset autofill", () => {
     expect(resolveProviderAutofillValues(PRESETS, undefined)).toEqual({});
   });
 
-  it("applies provider autofill model env and removes profile base url when provider is selected", () => {
+  it("clears model env and removes profile base url when a provider without model defaults is selected", () => {
     const seededSettings = {
       env: {
         ANTHROPIC_AUTH_TOKEN: "token",
@@ -206,15 +199,10 @@ describe("config-workspace-utils preset autofill", () => {
       },
     };
 
-    // Provider 是地址单一事实源：选中可解析供应商时清理 profile.settings 中的旧地址
+    // openrouter env 未声明模型默认：所有模型相关 env 被清空，地址也清理（Provider 是地址单一事实源）
     expect(applyProviderAutofill(seededSettings, PRESETS, "builtin:openrouter")).toEqual({
       env: {
         ANTHROPIC_AUTH_TOKEN: "token",
-        ANTHROPIC_MODEL: "claude-sonnet-4-6",
-        ANTHROPIC_DEFAULT_OPUS_MODEL: "claude-opus-4-1",
-        ANTHROPIC_DEFAULT_SONNET_MODEL: "claude-sonnet-4-6",
-        ANTHROPIC_DEFAULT_HAIKU_MODEL: "claude-haiku-4-5",
-        // CLAUDE_CODE_SUBAGENT_MODEL cleared (no override)
         OTHER_ENV: "keep-me",
       },
       permissions: {

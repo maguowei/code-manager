@@ -84,11 +84,8 @@ export interface LocalizedText {
   en: string;
 }
 
-export type ProviderModelCategory = "opus" | "sonnet" | "haiku" | "other";
-
 export interface ProviderModel {
   id: string;
-  category: ProviderModelCategory;
 }
 
 export interface Provider {

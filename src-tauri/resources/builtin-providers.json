@@ -6,10 +6,16 @@
     "slug": "anthropic",
     "baseUrl": "",
     "docUrl": "https://code.claude.com/docs/",
+    "env": {
+      "ANTHROPIC_MODEL": "opus",
+      "ANTHROPIC_DEFAULT_OPUS_MODEL": "opus",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL": "sonnet",
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "haiku"
+    },
     "models": [
-      { "id": "opus", "name": "Claude Opus", "category": "opus" },
-      { "id": "sonnet", "name": "Claude Sonnet", "category": "sonnet" },
-      { "id": "haiku", "name": "Claude Haiku", "category": "haiku" }
+      { "id": "opus", "name": "Claude Opus" },
+      { "id": "sonnet", "name": "Claude Sonnet" },
+      { "id": "haiku", "name": "Claude Haiku" }
     ]
   },
   {
@@ -28,8 +34,8 @@
       "CLAUDE_CODE_EFFORT_LEVEL": "max"
     },
     "models": [
-      { "id": "deepseek-v4-pro[1m]", "name": "DeepSeek V4 Pro", "category": "sonnet" },
-      { "id": "deepseek-v4-flash", "name": "DeepSeek V4 Flash", "category": "haiku" }
+      { "id": "deepseek-v4-pro[1m]", "name": "DeepSeek V4 Pro" },
+      { "id": "deepseek-v4-flash", "name": "DeepSeek V4 Flash" }
     ]
   },
   {
@@ -40,6 +46,7 @@
     "baseUrl": "https://open.bigmodel.cn/api/anthropic",
     "docUrl": "https://docs.bigmodel.cn/cn/coding-plan/overview",
     "env": {
+      "ANTHROPIC_MODEL": "glm-5.2[1m]",
       "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.2[1m]",
       "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.2[1m]",
       "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-4.7",
@@ -47,8 +54,8 @@
       "CLAUDE_CODE_EFFORT_LEVEL": "max"
     },
     "models": [
-      { "id": "glm-5.2[1m]", "name": "GLM-5.2", "category": "sonnet" },
-      { "id": "glm-4.7", "name": "GLM-4.7", "category": "haiku" }
+      { "id": "glm-5.2[1m]", "name": "GLM-5.2" },
+      { "id": "glm-4.7", "name": "GLM-4.7" }
     ]
   },
   {
@@ -58,10 +65,16 @@
     "slug": "kimi",
     "baseUrl": "https://api.kimi.com/coding/",
     "docUrl": "https://www.kimi.com/code/docs/",
+    "env": {
+      "ANTHROPIC_MODEL": "kimi-k2.7-code",
+      "ANTHROPIC_DEFAULT_OPUS_MODEL": "kimi-k2.7-code",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL": "kimi-k2.7-code",
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "kimi-k2.7-code"
+    },
     "models": [
-      { "id": "kimi-k2.7-code", "name": "Kimi K2.7 Code", "category": "sonnet" },
-      { "id": "kimi-k2.7-code-highspeed", "name": "Kimi K2.7 Code 高速版", "category": "sonnet" },
-      { "id": "kimi-k2.6", "name": "Kimi K2.6", "category": "sonnet" }
+      { "id": "kimi-k2.7-code", "name": "Kimi K2.7 Code" },
+      { "id": "kimi-k2.7-code-highspeed", "name": "Kimi K2.7 Code 高速版" },
+      { "id": "kimi-k2.6", "name": "Kimi K2.6" }
     ]
   },
   {
@@ -71,8 +84,14 @@
     "slug": "minimax",
     "baseUrl": "https://api.minimaxi.com/anthropic",
     "docUrl": "https://platform.minimaxi.com/docs/token-plan/intro",
+    "env": {
+      "ANTHROPIC_MODEL": "MiniMax-M3",
+      "ANTHROPIC_DEFAULT_OPUS_MODEL": "MiniMax-M3",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL": "MiniMax-M3",
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "MiniMax-M3"
+    },
     "models": [
-      { "id": "MiniMax-M3", "name": "MiniMax M3", "category": "sonnet" }
+      { "id": "MiniMax-M3", "name": "MiniMax M3" }
     ]
   },
   {
@@ -82,9 +101,15 @@
     "slug": "xiaomi-mimo",
     "baseUrl": "https://token-plan-cn.xiaomimimo.com/anthropic",
     "docUrl": "https://platform.xiaomimimo.com/#/docs/welcome",
+    "env": {
+      "ANTHROPIC_MODEL": "mimo-v2.5-pro[1m]",
+      "ANTHROPIC_DEFAULT_OPUS_MODEL": "mimo-v2.5-pro[1m]",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL": "mimo-v2.5-pro[1m]",
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "mimo-v2.5"
+    },
     "models": [
-      { "id": "mimo-v2.5-pro", "name": "MiMo-V2.5-Pro", "category": "sonnet" },
-      { "id": "mimo-v2.5", "name": "MiMo-V2.5", "category": "haiku" }
+      { "id": "mimo-v2.5-pro[1m]", "name": "MiMo-V2.5-Pro" },
+      { "id": "mimo-v2.5", "name": "MiMo-V2.5" }
     ]
   },
   {
@@ -103,14 +128,20 @@
     "slug": "volcengine",
     "baseUrl": "https://ark.cn-beijing.volces.com/api/coding",
     "docUrl": "https://www.volcengine.com/docs/82379/1925114",
+    "env": {
+      "ANTHROPIC_MODEL": "glm-5.2",
+      "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.2",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.2",
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-flash"
+    },
     "models": [
-      { "id": "doubao-seed-2.0-code", "name": "豆包 Seed 2.0 Code", "category": "sonnet" },
-      { "id": "doubao-seed-2.0-pro", "name": "豆包 Seed 2.0 Pro", "category": "sonnet" },
-      { "id": "kimi-k2.7-code", "name": "Kimi K2.7 Code", "category": "sonnet" },
-      { "id": "glm-5.2", "name": "GLM-5.2", "category": "sonnet" },
-      { "id": "minimax-m3", "name": "MiniMax M3", "category": "sonnet" },
-      { "id": "deepseek-v4-pro", "name": "DeepSeek V4 Pro", "category": "sonnet" },
-      { "id": "deepseek-v4-flash", "name": "DeepSeek V4 Flash", "category": "haiku" }
+      { "id": "doubao-seed-2.0-code", "name": "豆包 Seed 2.0 Code" },
+      { "id": "doubao-seed-2.0-pro", "name": "豆包 Seed 2.0 Pro" },
+      { "id": "kimi-k2.7-code", "name": "Kimi K2.7 Code" },
+      { "id": "glm-5.2", "name": "GLM-5.2" },
+      { "id": "minimax-m3", "name": "MiniMax M3" },
+      { "id": "deepseek-v4-pro", "name": "DeepSeek V4 Pro" },
+      { "id": "deepseek-v4-flash", "name": "DeepSeek V4 Flash" }
     ]
   },
   {
@@ -120,11 +151,17 @@
     "slug": "dashscope",
     "baseUrl": "https://coding.dashscope.aliyuncs.com/apps/anthropic",
     "docUrl": "https://help.aliyun.com/zh/model-studio/coding-plan",
+    "env": {
+      "ANTHROPIC_MODEL": "qwen3.7-plus",
+      "ANTHROPIC_DEFAULT_OPUS_MODEL": "qwen3.7-plus",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL": "qwen3.7-plus",
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "qwen3.7-plus"
+    },
     "models": [
-      { "id": "qwen3.7-plus", "name": "Qwen 3.7 Plus", "category": "sonnet" },
-      { "id": "glm-5", "name": "GLM-5", "category": "sonnet" },
-      { "id": "kimi-k2.5", "name": "Kimi K2.5", "category": "sonnet" },
-      { "id": "MiniMax-M2.5", "name": "MiniMax M2.5", "category": "sonnet" }
+      { "id": "qwen3.7-plus", "name": "Qwen 3.7 Plus" },
+      { "id": "glm-5", "name": "GLM-5" },
+      { "id": "kimi-k2.5", "name": "Kimi K2.5" },
+      { "id": "MiniMax-M2.5", "name": "MiniMax M2.5" }
     ]
   },
   {
@@ -134,10 +171,16 @@
     "slug": "wanjie",
     "baseUrl": "https://maas-openapi.wanjiedata.com/api/anthropic",
     "docUrl": "https://docs.wjark.com/maas/scenarios/Development/Claudecode.html",
+    "env": {
+      "ANTHROPIC_MODEL": "claude-opus-4-8",
+      "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-8",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-4-6",
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-4-5-20251001"
+    },
     "models": [
-      { "id": "claude-opus-4-8", "name": "Claude Opus 4.8", "category": "opus" },
-      { "id": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6", "category": "sonnet" },
-      { "id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5", "category": "haiku" }
+      { "id": "claude-opus-4-8", "name": "Claude Opus 4.8" },
+      { "id": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6" },
+      { "id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5" }
     ]
   },
   {
@@ -147,12 +190,18 @@
     "slug": "ollama",
     "baseUrl": "http://localhost:11434",
     "docUrl": "https://docs.ollama.com/integrations/claude-code",
+    "env": {
+      "ANTHROPIC_MODEL": "glm-5.2:cloud",
+      "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.2:cloud",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.2:cloud",
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-flash:cloud"
+    },
     "models": [
-      { "id": "glm-5.2:cloud", "name": "GLM-5.2", "category": "sonnet" },
-      { "id": "kimi-k2.7-code:cloud", "name": "Kimi K2.7 Code", "category": "sonnet" },
-      { "id": "minimax-m3:cloud", "name": "MiniMax M3", "category": "sonnet" },
-      { "id": "deepseek-v4-pro:cloud", "name": "DeepSeek V4 Pro", "category": "sonnet" },
-      { "id": "deepseek-v4-flash:cloud", "name": "DeepSeek V4 Flash", "category": "haiku" }
+      { "id": "glm-5.2:cloud", "name": "GLM-5.2" },
+      { "id": "kimi-k2.7-code:cloud", "name": "Kimi K2.7 Code" },
+      { "id": "minimax-m3:cloud", "name": "MiniMax M3" },
+      { "id": "deepseek-v4-pro:cloud", "name": "DeepSeek V4 Pro" },
+      { "id": "deepseek-v4-flash:cloud", "name": "DeepSeek V4 Flash" }
     ]
   }
 ]

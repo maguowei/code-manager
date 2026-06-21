@@ -138,20 +138,10 @@ pub struct LocalizedText {
     pub en: String,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
-#[serde(rename_all = "lowercase")]
-pub enum ProviderModelCategory {
-    Opus,
-    Sonnet,
-    Haiku,
-    Other,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderModel {
     pub id: String,
-    pub category: ProviderModelCategory,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, specta::Type)]
@@ -414,7 +404,6 @@ struct BuiltinProviderSeed {
 #[serde(rename_all = "camelCase")]
 struct BuiltinProviderModel {
     id: String,
-    category: ProviderModelCategory,
 }
 
 fn default_true() -> bool {
@@ -566,7 +555,6 @@ fn parse_builtin_providers() -> Vec<Provider> {
                         .iter()
                         .map(|model| ProviderModel {
                             id: model.id.clone(),
-                            category: model.category,
                         })
                         .collect(),
                 )),
@@ -873,10 +861,7 @@ fn normalize_provider_models(models: Option<Vec<ProviderModel>>) -> Option<Vec<P
             if id.is_empty() || !seen.insert(id.clone()) {
                 return None;
             }
-            Some(ProviderModel {
-                id,
-                category: model.category,
-            })
+            Some(ProviderModel { id })
         })
         .collect();
 
@@ -2676,7 +2661,7 @@ mod tests {
     }
 
     #[test]
-    fn builtin_providers_preserve_categorized_models() {
+    fn builtin_providers_expose_models_and_default_env() {
         let anthropic = builtin_providers()
             .iter()
             .find(|provider| provider.id == "builtin:anthropic")
@@ -2687,17 +2672,24 @@ mod tests {
             Some(vec![
                 ProviderModel {
                     id: "opus".to_string(),
-                    category: ProviderModelCategory::Opus,
                 },
                 ProviderModel {
                     id: "sonnet".to_string(),
-                    category: ProviderModelCategory::Sonnet,
                 },
                 ProviderModel {
                     id: "haiku".to_string(),
-                    category: ProviderModelCategory::Haiku,
                 },
             ])
+        );
+
+        // 默认模型由显式 env 提供，不再依赖模型 category 推断
+        assert_eq!(
+            anthropic.env.get("ANTHROPIC_DEFAULT_OPUS_MODEL"),
+            Some(&Value::String("opus".to_string()))
+        );
+        assert_eq!(
+            anthropic.env.get("ANTHROPIC_MODEL"),
+            Some(&Value::String("opus".to_string()))
         );
     }
 

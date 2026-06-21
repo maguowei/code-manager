@@ -322,69 +322,16 @@ export function resolveProviderAutofillValues(
 
   const readEnv = (key: string): string | undefined => normalizeProviderEnvValue(env[key]);
 
-  const categoryOpusModel = resolveCategoryModel(provider, "opus");
-  const categorySonnetModel = resolveCategoryModel(provider, "sonnet");
-  const categoryHaikuModel = resolveCategoryModel(provider, "haiku");
-  const categoryOtherModel = resolveCategoryModel(provider, "other");
-  const firstProviderModel = resolveFirstProviderModel(provider);
-  const suggestedModel = normalizeProviderEnvValue(provider.modelSuggestions?.[0]);
-  const explicitEnvModel = readEnv("ANTHROPIC_MODEL");
-  const resolvedModel =
-    explicitEnvModel ||
-    categorySonnetModel ||
-    categoryOpusModel ||
-    categoryHaikuModel ||
-    categoryOtherModel ||
-    firstProviderModel ||
-    suggestedModel;
-
+  // 段 B：默认模型完全来自 provider.env 的显式声明，不再按模型 category 隐式推断
   return {
     resolvedBaseUrl: readEnv("ANTHROPIC_BASE_URL"),
-    resolvedModel,
-    resolvedOpusModel:
-      readEnv("ANTHROPIC_DEFAULT_OPUS_MODEL") || categoryOpusModel || categorySonnetModel,
-    resolvedSonnetModel:
-      readEnv("ANTHROPIC_DEFAULT_SONNET_MODEL") ||
-      categorySonnetModel ||
-      categoryOpusModel ||
-      categoryOtherModel ||
-      resolvedModel,
-    resolvedHaikuModel:
-      readEnv("ANTHROPIC_DEFAULT_HAIKU_MODEL") ||
-      categoryHaikuModel ||
-      categorySonnetModel ||
-      categoryOpusModel ||
-      categoryOtherModel ||
-      resolvedModel,
+    resolvedModel: readEnv("ANTHROPIC_MODEL"),
+    resolvedOpusModel: readEnv("ANTHROPIC_DEFAULT_OPUS_MODEL"),
+    resolvedSonnetModel: readEnv("ANTHROPIC_DEFAULT_SONNET_MODEL"),
+    resolvedHaikuModel: readEnv("ANTHROPIC_DEFAULT_HAIKU_MODEL"),
     resolvedSubagentModel: readEnv("CLAUDE_CODE_SUBAGENT_MODEL"),
     resolvedEffortLevel: readEnv("CLAUDE_CODE_EFFORT_LEVEL"),
   };
-}
-
-function resolveCategoryModel(
-  provider: Provider,
-  category: "opus" | "sonnet" | "haiku" | "other",
-): string | undefined {
-  for (const model of provider.models ?? []) {
-    if (model.category !== category) {
-      continue;
-    }
-    const modelId = normalizeProviderEnvValue(model.id);
-    if (modelId) {
-      return modelId;
-    }
-  }
-  return undefined;
-}
-
-function resolveFirstProviderModel(provider: Provider): string | undefined {
-  for (const model of provider.models ?? []) {
-    const modelId = normalizeProviderEnvValue(model.id);
-    if (modelId) {
-      return modelId;
-    }
-  }
-  return undefined;
 }
 
 function normalizeProviderEnvValue(value: unknown): string | undefined {
