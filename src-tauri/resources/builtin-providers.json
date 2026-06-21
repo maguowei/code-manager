@@ -40,7 +40,7 @@
     "baseUrl": "https://open.bigmodel.cn/api/anthropic",
     "docUrl": "https://docs.bigmodel.cn/cn/coding-plan/overview",
     "models": [
-      { "id": "glm-5.1", "name": "GLM-5.1", "category": "sonnet" }
+      { "id": "glm-5.2", "name": "GLM-5.2", "category": "sonnet" }
     ]
   },
   {
