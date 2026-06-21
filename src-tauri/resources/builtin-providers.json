@@ -5,17 +5,7 @@
     "slug": "anthropic",
     "baseUrl": "",
     "docUrl": "https://code.claude.com/docs/",
-    "env": {
-      "ANTHROPIC_MODEL": "opus",
-      "ANTHROPIC_DEFAULT_OPUS_MODEL": "opus",
-      "ANTHROPIC_DEFAULT_SONNET_MODEL": "sonnet",
-      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "haiku"
-    },
-    "models": [
-      { "id": "opus", "name": "Claude Opus" },
-      { "id": "sonnet", "name": "Claude Sonnet" },
-      { "id": "haiku", "name": "Claude Haiku" }
-    ]
+    "models": []
   },
   {
     "name": "DeepSeek",
@@ -192,14 +182,14 @@
     "baseUrl": "https://maas-openapi.wanjiedata.com/api/anthropic",
     "docUrl": "https://docs.wjark.com/maas/scenarios/Development/Claudecode.html",
     "env": {
-      "ANTHROPIC_MODEL": "claude-opus-4-8",
-      "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-8",
-      "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-4-6",
+      "ANTHROPIC_MODEL": "claude-opus-4-8[1m]",
+      "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-8[1m]",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-4-6[1m]",
       "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-4-5-20251001"
     },
     "models": [
-      { "id": "claude-opus-4-8", "name": "Claude Opus 4.8" },
-      { "id": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6" },
+      { "id": "claude-opus-4-8[1m]", "name": "Claude Opus 4.8" },
+      { "id": "claude-sonnet-4-6[1m]", "name": "Claude Sonnet 4.6" },
       { "id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5" }
     ]
   }
