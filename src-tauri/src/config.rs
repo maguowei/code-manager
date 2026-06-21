@@ -1181,6 +1181,23 @@ fn merge_json_values(base: Value, overlay: Value) -> Value {
     }
 }
 
+fn remove_env_key(settings: &mut Value, env_key: &str) {
+    let Some(settings_object) = settings.as_object_mut() else {
+        return;
+    };
+    let Some(env_object) = settings_object
+        .get_mut("env")
+        .and_then(Value::as_object_mut)
+    else {
+        return;
+    };
+
+    env_object.remove(env_key);
+    if env_object.is_empty() {
+        settings_object.remove("env");
+    }
+}
+
 fn stable_sort_json(value: Value) -> Value {
     match value {
         Value::Object(map) => {
@@ -1459,18 +1476,25 @@ fn resolve_profile_settings(
     profile: &ConfigProfile,
 ) -> Result<Value, String> {
     let mut resolved = Value::Object(Map::new());
+    let mut provider_resolved = false;
 
     if let Some(provider_id) = profile.provider_id.as_deref() {
         // COMPAT(presetId→providerId): 兼容 <=0.20.x 的旧字段，计划 0.23.0 移除
         // C2：providerId 解析不到（如引用了已丢弃的旧自定义预设）时容错跳过，仅用 profile.settings，不报错
         if let Some(provider) = find_provider(registry, provider_id) {
+            provider_resolved = true;
             let mut base = Map::new();
             base.insert("env".to_string(), Value::Object(provider.env.clone()));
             resolved = merge_json_values(resolved, Value::Object(base));
         }
     }
 
-    resolved = merge_json_values(resolved, profile.settings.clone());
+    let mut profile_settings = profile.settings.clone();
+    if provider_resolved {
+        // Provider 是连接身份单一事实源；旧 Profile 地址不再隐式覆盖供应商地址
+        remove_env_key(&mut profile_settings, "ANTHROPIC_BASE_URL");
+    }
+    resolved = merge_json_values(resolved, profile_settings);
 
     let mut object = resolved
         .as_object()
@@ -3070,13 +3094,14 @@ mod tests {
                 "model": "claude-sonnet-4-6",
                 "env": {
                     "ANTHROPIC_AUTH_TOKEN": "token",
+                    "ANTHROPIC_BASE_URL": "https://manual.example.com",
                     "ANTHROPIC_MODEL": "claude-sonnet-4-6"
                 }
             }),
         );
 
         let resolved = resolve_profile_settings(&registry, &profile).unwrap();
-        // 来自供应商 env
+        // 地址来自供应商 env，旧 profile.settings.env 中的地址不能隐式覆盖供应商身份
         assert_eq!(
             resolved["env"]["ANTHROPIC_BASE_URL"],
             Value::String("https://openrouter.ai/api".to_string())
@@ -3120,13 +3145,22 @@ mod tests {
         let profile = sample_profile(
             "p",
             Some("custom:gone"),
-            serde_json::json!({ "env": { "ANTHROPIC_AUTH_TOKEN": "tok" } }),
+            serde_json::json!({
+                "env": {
+                    "ANTHROPIC_AUTH_TOKEN": "tok",
+                    "ANTHROPIC_BASE_URL": "https://legacy.example.com"
+                }
+            }),
         );
         registry.profiles.push(profile.clone());
         let resolved = resolve_profile_settings(&registry, &profile).unwrap();
         assert_eq!(
             resolved["env"]["ANTHROPIC_AUTH_TOKEN"],
             Value::String("tok".to_string())
+        );
+        assert_eq!(
+            resolved["env"]["ANTHROPIC_BASE_URL"],
+            Value::String("https://legacy.example.com".to_string())
         );
     }
 

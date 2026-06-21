@@ -401,6 +401,7 @@ export function applyProviderAutofill(
   providerId: string | undefined,
 ): Record<string, unknown> {
   const resolved = resolveProviderAutofillValues(providers, providerId);
+  const providerResolved = !!providerId && providers.some((provider) => provider.id === providerId);
   // 地址（ANTHROPIC_BASE_URL）由 Provider 合并层提供，不写入 Profile settings
   const updates: Array<[string, string | undefined]> = [
     ["ANTHROPIC_MODEL", resolved.resolvedModel],
@@ -413,6 +414,6 @@ export function applyProviderAutofill(
 
   return updates.reduce(
     (current, [envKey, value]) => setEnvString(current, envKey, value ?? ""),
-    settings,
+    providerResolved ? setEnvString(settings, "ANTHROPIC_BASE_URL", "") : settings,
   );
 }

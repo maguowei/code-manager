@@ -41,6 +41,7 @@ paths:
 - `validate_settings_document()` 允许未知顶层键，但会校验 schema 已知字段的嵌套结构。
 - `preview_profile`、`apply_profile` 和 `test_profile_model` 都依赖后端解析后的最终配置，前端不要复制合并逻辑。
 - 合并权威逻辑是 `src-tauri/src/config.rs::resolve_profile_settings()`：两步合并——先取所选 Provider 的 `env`（解析不到则容错跳过），再叠加 Profile `settings`，最后写入 `$schema`。已无 Preset 继承链。
+- 地址例外（单一事实源）：当 `providerId` 可解析时，叠加前会清理 Profile `settings.env` 内的 `ANTHROPIC_BASE_URL`，使供应商地址不被旧 Profile 隐式覆盖；provider 解析不到时保留 Profile 内的旧地址作兼容。前端 `applyProviderAutofill` 同步此行为（选中可解析 provider 时清空 profile 内地址）。
 - 激活 Profile 最终会原子写入 `~/.claude/settings.json`，并更新应用数据目录中的 `config-registry.json` 绑定状态。
 - 已绑定的 Profile 被修改时，后端会重新应用到用户设置；不要绕开 `upsert_profile`。
 - `get_config_workspace` 会在没有 Profile 时扫描未托管的 `~/.claude/settings.json`；`import_user_settings_profile` 原地接管当前文件内容并绑定 Profile，不立即重写文件。

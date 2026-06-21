@@ -193,7 +193,7 @@ describe("config-workspace-utils preset autofill", () => {
     expect(resolveProviderAutofillValues(PRESETS, undefined)).toEqual({});
   });
 
-  it("applies provider autofill model env without touching auth or ANTHROPIC_BASE_URL (段 B: 地址由 provider 合并层提供)", () => {
+  it("applies provider autofill model env and removes profile base url when provider is selected", () => {
     const seededSettings = {
       env: {
         ANTHROPIC_AUTH_TOKEN: "token",
@@ -211,12 +211,10 @@ describe("config-workspace-utils preset autofill", () => {
       },
     };
 
-    // 段 B：applyProviderAutofill 不再写 ANTHROPIC_BASE_URL 到 profile settings
+    // Provider 是地址单一事实源：选中可解析供应商时清理 profile.settings 中的旧地址
     expect(applyProviderAutofill(seededSettings, PRESETS, "builtin:openrouter")).toEqual({
       env: {
         ANTHROPIC_AUTH_TOKEN: "token",
-        // 地址保留原值（autofill 不覆盖 ANTHROPIC_BASE_URL）
-        ANTHROPIC_BASE_URL: "https://manual.example.com",
         ANTHROPIC_MODEL: "claude-sonnet-4-6",
         ANTHROPIC_DEFAULT_OPUS_MODEL: "claude-opus-4-1",
         ANTHROPIC_DEFAULT_SONNET_MODEL: "claude-sonnet-4-6",
@@ -251,11 +249,10 @@ describe("config-workspace-utils preset autofill", () => {
       },
     };
 
-    // 段 B：applyProviderAutofill 不写 ANTHROPIC_BASE_URL
+    // Provider 是地址单一事实源：选中 DeepSeek 时清理 profile.settings 中的旧地址
     expect(applyProviderAutofill(seededSettings, PRESETS, "builtin:deepseek")).toEqual({
       env: {
         ANTHROPIC_AUTH_TOKEN: "token",
-        ANTHROPIC_BASE_URL: "https://manual.example.com",
         ANTHROPIC_MODEL: "deepseek-v4-pro[1m]",
         ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-v4-pro[1m]",
         ANTHROPIC_DEFAULT_SONNET_MODEL: "deepseek-v4-pro[1m]",

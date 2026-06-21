@@ -3800,6 +3800,43 @@ describe("ProfileEditor", () => {
     }
   });
 
+  it("removes legacy profile base url from save payload after selecting a provider", async () => {
+    const onSave = vi.fn().mockReturnValue(true);
+    renderEditor({
+      onSave,
+      profile: {
+        ...PROFILE_FIXTURE,
+        providerId: undefined,
+        settings: {
+          env: {
+            ANTHROPIC_AUTH_TOKEN: "token",
+            ANTHROPIC_BASE_URL: "https://manual.example.com",
+            OTHER_ENV: "keep-me",
+          },
+        },
+      },
+    });
+
+    chooseComboboxOption("供应商", "开放路由");
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+      await Promise.resolve();
+    });
+
+    const saved = onSave.mock.calls[0]?.[0];
+    expect(saved).toMatchObject({
+      providerId: "builtin:openrouter",
+      settings: {
+        env: {
+          ANTHROPIC_AUTH_TOKEN: "token",
+          OTHER_ENV: "keep-me",
+        },
+      },
+    });
+    expect(saved?.settings.env).not.toHaveProperty("ANTHROPIC_BASE_URL");
+  });
+
   it("autofills model levels from the selected provider and shows provider base url read-only", () => {
     renderEditor({
       profile: {
