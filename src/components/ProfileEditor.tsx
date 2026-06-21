@@ -83,6 +83,7 @@ import {
   SelectValue,
 } from "./ui/select";
 import { Spinner } from "./ui/spinner";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 
 type ModelTestResultDialogComponent =
   typeof import("./profile-editor/ModelTestResultDialog").default;
@@ -540,6 +541,36 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
     }
   }
 
+  function renderTestModelButton() {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        className={cn(
+          "min-h-[34px] gap-1.5 px-3 text-xs font-semibold transition-transform active:scale-95",
+          isTestingModel && "is-testing bg-primary/10 text-primary ring-1 ring-primary/20",
+        )}
+        aria-label={isTestingModel ? messages.testingModel : messages.testModel}
+        title={isTestingModel ? messages.testingModel : messages.testModel}
+        disabled={!canTestModel || isTestingModel}
+        onClick={() => {
+          void handleTestModelClick();
+        }}
+      >
+        {isTestingModel ? (
+          <Spinner
+            data-testid="profile-editor-model-test-spinner"
+            className="size-3.5"
+            aria-hidden="true"
+          />
+        ) : (
+          <TestTube className="size-3.5" aria-hidden="true" />
+        )}
+        <span>{isTestingModel ? messages.testingModel : messages.testModel}</span>
+      </Button>
+    );
+  }
+
   async function handleCopySuggestedModel(model: string) {
     try {
       await navigator.clipboard.writeText(model);
@@ -642,7 +673,19 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
     settings,
   );
   const isDirty = !profileSaveDataEquals(initialDraftRef.current, currentSaveData);
-  const canTestModel = !!name.trim() && !hasValidationError;
+  // 认证密钥只可能来自 profile.settings.env（provider 不携带密钥），与后端 resolve_model_test_request 判断等价。
+  const hasAuthKey =
+    !!readEnvString(settings, "ANTHROPIC_AUTH_TOKEN").trim() ||
+    !!readEnvString(settings, "ANTHROPIC_API_KEY").trim();
+  const isOfficialProvider = providerSlugFromId(providerId) === "anthropic";
+  const canTestModel = !!name.trim() && !hasValidationError && hasAuthKey;
+  // 仅当缺认证密钥是唯一阻塞原因时给出提示，避免与名称/校验态混淆。
+  const testModelDisabledHint =
+    !hasAuthKey && name.trim().length > 0 && !hasValidationError
+      ? isOfficialProvider
+        ? t("profiles.editor.modelTest.officialNoKeyHint")
+        : t("profiles.editor.modelTest.missingAuthHint")
+      : undefined;
 
   useImperativeHandle(ref, () => ({
     isDirty: () => isDirty,
@@ -934,31 +977,19 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
           commonToggleFields={commonToggleFields}
           behaviorHeaderControl={
             <div className="inline-flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                className={cn(
-                  "min-h-[34px] gap-1.5 px-3 text-xs font-semibold transition-transform active:scale-95",
-                  isTestingModel && "is-testing bg-primary/10 text-primary ring-1 ring-primary/20",
-                )}
-                aria-label={isTestingModel ? messages.testingModel : messages.testModel}
-                title={isTestingModel ? messages.testingModel : messages.testModel}
-                disabled={!canTestModel || isTestingModel}
-                onClick={() => {
-                  void handleTestModelClick();
-                }}
-              >
-                {isTestingModel ? (
-                  <Spinner
-                    data-testid="profile-editor-model-test-spinner"
-                    className="size-3.5"
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <TestTube className="size-3.5" aria-hidden="true" />
-                )}
-                <span>{isTestingModel ? messages.testingModel : messages.testModel}</span>
-              </Button>
+              {testModelDisabledHint ? (
+                <TooltipProvider delayDuration={150}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      {/* 禁用按钮自身不触发 hover，外层 span 承接提示 */}
+                      <span className="inline-flex">{renderTestModelButton()}</span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">{testModelDisabledHint}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : (
+                renderTestModelButton()
+              )}
               {latestModelTestStatus ? (
                 <Button
                   type="button"

@@ -363,6 +363,9 @@ const translations = {
     "profiles.editor.validation.settingsObject": "settings 必须是 JSON 对象",
     "profiles.editor.modelTest.status.success": "测试成功",
     "profiles.editor.modelTest.status.error": "测试失败",
+    "profiles.editor.modelTest.missingAuthHint": "请先在认证区填写认证密钥后再测试模型。",
+    "profiles.editor.modelTest.officialNoKeyHint":
+      "Anthropic 官方通过 Claude Code 登录鉴权，无需在此填写密钥；如需直连测试模型，请先填写认证密钥。",
     "profiles.editor.modelTest.dialogTitle": "模型测试结果",
     "profiles.editor.modelTest.reopenResult": "查看最近一次测试结果",
     "profiles.editor.modelTest.reopenResultAriaLabel": "{action}：{result}",
@@ -1885,6 +1888,10 @@ const translations = {
     "profiles.editor.validation.settingsObject": "settings must be a JSON object",
     "profiles.editor.modelTest.status.success": "Test Succeeded",
     "profiles.editor.modelTest.status.error": "Test Failed",
+    "profiles.editor.modelTest.missingAuthHint":
+      "Fill in an authentication key first to test the model.",
+    "profiles.editor.modelTest.officialNoKeyHint":
+      "Anthropic authenticates through your Claude Code login, so no key is needed here. Add an authentication key to run a direct model test.",
     "profiles.editor.modelTest.dialogTitle": "Model Test Result",
     "profiles.editor.modelTest.reopenResult": "View latest test result",
     "profiles.editor.modelTest.reopenResultAriaLabel": "{action}: {result}",

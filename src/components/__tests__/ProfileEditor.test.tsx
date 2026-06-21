@@ -1246,6 +1246,57 @@ describe("ProfileEditor", () => {
     expect(screen.getByText("JSON 模式下测试成功。")).toBeInTheDocument();
   });
 
+  it("disables model test for official Anthropic provider when no auth key is filled", () => {
+    renderEditor({
+      profile: {
+        id: "user-anthropic",
+        name: "Anthropic 官方",
+        description: "",
+        providerId: "builtin:anthropic",
+        settings: { env: {} },
+        createdAt: "2026-04-18T12:00:00Z",
+        updatedAt: "2026-04-18T12:00:00Z",
+      },
+    });
+
+    const behaviorSection = getSection("模型与行为");
+    expect(within(behaviorSection).getByRole("button", { name: "测试模型" })).toBeDisabled();
+  });
+
+  it("enables model test for official Anthropic provider once an auth key is present", () => {
+    renderEditor({
+      profile: {
+        id: "user-anthropic",
+        name: "Anthropic 官方",
+        description: "",
+        providerId: "builtin:anthropic",
+        settings: { env: { ANTHROPIC_AUTH_TOKEN: "token" } },
+        createdAt: "2026-04-18T12:00:00Z",
+        updatedAt: "2026-04-18T12:00:00Z",
+      },
+    });
+
+    const behaviorSection = getSection("模型与行为");
+    expect(within(behaviorSection).getByRole("button", { name: "测试模型" })).toBeEnabled();
+  });
+
+  it("disables model test for non-official provider when no auth key is filled", () => {
+    renderEditor({
+      profile: {
+        id: "user-openrouter",
+        name: "OpenRouter User",
+        description: "",
+        providerId: "builtin:openrouter",
+        settings: { env: {} },
+        createdAt: "2026-04-18T12:00:00Z",
+        updatedAt: "2026-04-18T12:00:00Z",
+      },
+    });
+
+    const behaviorSection = getSection("模型与行为");
+    expect(within(behaviorSection).getByRole("button", { name: "测试模型" })).toBeDisabled();
+  });
+
   it("clears stale success badge after behavior settings change and blocks testing when invalid", async () => {
     invokeMock.mockImplementation(async (command: string, payload?: unknown) => {
       if (command === "get_config_workspace") {
