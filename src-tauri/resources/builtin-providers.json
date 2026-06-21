@@ -117,21 +117,6 @@
     ]
   },
   {
-    "id": "00000000-0000-0000-0000-000000000009",
-    "name": "ModelScope",
-    "localizedName": { "zh": "魔搭 ModelScope", "en": "ModelScope" },
-    "slug": "modelscope",
-    "baseUrl": "https://api-inference.modelscope.cn",
-    "docUrl": "https://modelscope.cn/docs/model-service/API-Inference/intro",
-    "models": [
-      { "id": "deepseek-ai/DeepSeek-V4-Pro", "name": "deepseek-ai/DeepSeek-V4-Pro", "category": "sonnet" },
-      { "id": "deepseek-ai/DeepSeek-V4-Flash", "name": "deepseek-ai/DeepSeek-V4-Flash", "category": "haiku" },
-      { "id": "moonshotai/Kimi-K2.5", "name": "moonshotai/Kimi-K2.5", "category": "sonnet" },
-      { "id": "MiniMax/MiniMax-M2.5", "name": "MiniMax/MiniMax-M2.5", "category": "sonnet" },
-      { "id": "ZhipuAI/GLM-5.1", "name": "ZhipuAI/GLM-5.1", "category": "sonnet" }
-    ]
-  },
-  {
     "id": "00000000-0000-0000-0000-000000000010",
     "name": "万界方舟",
     "localizedName": { "zh": "万界方舟", "en": "万界方舟" },

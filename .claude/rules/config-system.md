@@ -48,7 +48,7 @@ paths:
 
 ## 内置 Provider
 
-- 内置 Provider 维护在 `src-tauri/resources/builtin-providers.json`，是唯一供应商来源（不支持自定义），当前覆盖 Anthropic、DeepSeek、智谱 GLM、Kimi、MiniMax、小米 MiMo、OpenRouter、火山方舟、阿里云百炼、ModelScope、万界方舟和 Ollama。
+- 内置 Provider 维护在 `src-tauri/resources/builtin-providers.json`，是唯一供应商来源（不支持自定义），当前覆盖 Anthropic、DeepSeek、智谱 GLM、Kimi、MiniMax、小米 MiMo、OpenRouter、火山方舟、阿里云百炼、万界方舟和 Ollama。
 - 新增 provider 时同步 `localizedName`、`slug`、`baseUrl`、`docUrl` 和模型 `category`。
 - 配置编辑器的环境变量自动填充逻辑要覆盖默认 model 字段：`ANTHROPIC_MODEL`、`ANTHROPIC_DEFAULT_OPUS_MODEL`、`ANTHROPIC_DEFAULT_SONNET_MODEL`、`ANTHROPIC_DEFAULT_HAIKU_MODEL`、`CLAUDE_CODE_SUBAGENT_MODEL`。
 
