@@ -3,7 +3,7 @@ import { Copy, ExternalLink } from "lucide-react";
 import { showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
-import { useI18n } from "../i18n";
+import { type TranslationKey, useI18n } from "../i18n";
 import type { Provider } from "../types";
 import { providerDisplayName } from "./config-workspace-utils";
 import PageHeader from "./PageHeader";
@@ -19,6 +19,16 @@ const PROVIDER_CARD_CLASS =
 
 const PROVIDER_CHIP_CLASS =
   "preset-chip inline-flex min-h-7 items-center rounded-full border border-border bg-secondary px-2.5 py-1 text-xs font-semibold text-foreground";
+
+// 默认模型分级映射：按此顺序展示 provider.env 中存在的默认模型键，标签用紧凑文案
+const DEFAULT_MODEL_FIELDS: { envKey: string; labelKey: TranslationKey }[] = [
+  { envKey: "ANTHROPIC_MODEL", labelKey: "providers.fields.model.primary" },
+  { envKey: "ANTHROPIC_DEFAULT_OPUS_MODEL", labelKey: "providers.fields.model.opus" },
+  { envKey: "ANTHROPIC_DEFAULT_SONNET_MODEL", labelKey: "providers.fields.model.sonnet" },
+  { envKey: "ANTHROPIC_DEFAULT_HAIKU_MODEL", labelKey: "providers.fields.model.haiku" },
+  { envKey: "CLAUDE_CODE_SUBAGENT_MODEL", labelKey: "providers.fields.model.subagent" },
+  { envKey: "CLAUDE_CODE_EFFORT_LEVEL", labelKey: "providers.fields.effortLevel" },
+];
 
 // 内置供应商只读一览：从 Profile 编辑器的供应商选项处打开，仅供查看，不支持新增/编辑/删除。
 function ProvidersPage({ providers }: ProvidersPageProps) {
@@ -49,6 +59,36 @@ function ProvidersPage({ providers }: ProvidersPageProps) {
         <span>{t("providers.actions.openDocs")}</span>
         <ExternalLink className="size-3.5" aria-hidden="true" />
       </Button>
+    );
+  }
+
+  function renderDefaultModels(env: Provider["env"]) {
+    // 仅展示 env 中显式声明且非空的默认模型项；全空（如 OpenRouter）则整块不渲染
+    const rows = DEFAULT_MODEL_FIELDS.map((field) => ({
+      labelKey: field.labelKey,
+      value: env?.[field.envKey]?.trim() ?? "",
+    })).filter((row) => row.value);
+
+    if (rows.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className="preset-summary-block rounded-lg border border-border bg-muted/50 px-3 py-[11px]">
+        <span className="preset-summary-label inline-flex items-center text-xs leading-normal font-semibold text-muted-foreground">
+          {t("providers.fields.defaultModels")}
+        </span>
+        <dl className="preset-default-models mt-[7px] grid grid-cols-[auto_1fr] items-baseline gap-x-4 gap-y-1.5">
+          {rows.map((row) => (
+            <div key={row.labelKey} className="contents">
+              <dt className="text-xs leading-normal text-muted-foreground">{t(row.labelKey)}</dt>
+              <dd className="font-mono text-xs leading-normal text-foreground [overflow-wrap:anywhere]">
+                {row.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </div>
     );
   }
 
@@ -140,6 +180,8 @@ function ProvidersPage({ providers }: ProvidersPageProps) {
                     </div>
                   </div>
                 )}
+
+                {renderDefaultModels(provider.env)}
 
                 {renderModelSection(modelSuggestions)}
               </div>

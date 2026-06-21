@@ -320,7 +320,7 @@ const translations = {
     "profiles.editor.placeholders.description": "例如：全局开发默认配置",
     "profiles.editor.hints.provider":
       "供应商提供连接地址与模型映射；选择「自定义」可手动填写 API 地址。",
-    "profiles.editor.hints.suggestedModels": "供应商推荐模型",
+    "profiles.editor.hints.suggestedModels": "供应商模型",
     "profiles.editor.hints.behaviorJson":
       "这里直接编辑当前行为区块相关的顶层键，以及相关的 env 覆盖，不会创建新的 behavior 嵌套对象。",
     "profiles.editor.hints.commonJson":
@@ -408,7 +408,14 @@ const translations = {
     "providers.toast.idCopied": "供应商 ID 已复制",
     "providers.toast.copyIdError": "复制供应商 ID 失败",
     "providers.fields.baseUrl": "API 地址",
-    "providers.fields.modelSuggestions": "推荐模型",
+    "providers.fields.defaultModels": "默认模型",
+    "providers.fields.model.primary": "主模型",
+    "providers.fields.model.opus": "Opus",
+    "providers.fields.model.sonnet": "Sonnet",
+    "providers.fields.model.haiku": "Haiku",
+    "providers.fields.model.subagent": "Subagent",
+    "providers.fields.effortLevel": "努力级别",
+    "providers.fields.modelSuggestions": "模型列表",
     "providers.editor.hints.behaviorJson":
       "这里直接编辑当前行为区块相关的顶层键，以及相关的 env 覆盖，不会创建新的 behavior 嵌套对象。",
     "providers.editor.hints.commonJson":
@@ -1831,7 +1838,7 @@ const translations = {
     "profiles.editor.placeholders.description": "e.g. Global default workspace profile",
     "profiles.editor.hints.provider":
       'Providers supply the connection address and model mappings; pick "Custom" to enter your own API base URL.',
-    "profiles.editor.hints.suggestedModels": "Provider model suggestions",
+    "profiles.editor.hints.suggestedModels": "Provider models",
     "profiles.editor.hints.behaviorJson":
       "Edit the related top-level behavior keys and scoped env overrides directly without creating a nested behavior object.",
     "profiles.editor.hints.commonJson":
@@ -1924,7 +1931,14 @@ const translations = {
     "providers.toast.idCopied": "Provider ID copied",
     "providers.toast.copyIdError": "Failed to copy provider ID",
     "providers.fields.baseUrl": "API Base URL",
-    "providers.fields.modelSuggestions": "Suggested Models",
+    "providers.fields.defaultModels": "Default Models",
+    "providers.fields.model.primary": "Primary",
+    "providers.fields.model.opus": "Opus",
+    "providers.fields.model.sonnet": "Sonnet",
+    "providers.fields.model.haiku": "Haiku",
+    "providers.fields.model.subagent": "Subagent",
+    "providers.fields.effortLevel": "Effort Level",
+    "providers.fields.modelSuggestions": "Model List",
     "providers.editor.hints.behaviorJson":
       "Edit the related top-level behavior keys and scoped env overrides directly without creating a nested behavior object.",
     "providers.editor.hints.commonJson":

@@ -1077,7 +1077,7 @@ describe("ProfileEditor", () => {
 
     const behaviorSection = getSection("模型与行为");
     const testButton = within(behaviorSection).getByRole("button", { name: "测试模型" });
-    expect(testButton).not.toHaveTextContent("测试模型");
+    expect(testButton).toHaveTextContent("测试模型");
     expect(testButton).toHaveClass("active:scale-95");
 
     await act(async () => {
@@ -1214,7 +1214,7 @@ describe("ProfileEditor", () => {
 
     const testButton = within(behaviorSection).getByRole("button", { name: "测试模型" });
     expect(testButton).toBeInTheDocument();
-    expect(testButton).not.toHaveTextContent("测试模型");
+    expect(testButton).toHaveTextContent("测试模型");
 
     await act(async () => {
       fireEvent.click(testButton);

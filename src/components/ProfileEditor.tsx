@@ -936,10 +936,9 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
             <div className="inline-flex items-center gap-2">
               <Button
                 type="button"
-                variant="ghost"
-                size="icon-sm"
+                variant="outline"
                 className={cn(
-                  "transition-transform active:scale-95",
+                  "min-h-[34px] gap-1.5 px-3 text-xs font-semibold transition-transform active:scale-95",
                   isTestingModel && "is-testing bg-primary/10 text-primary ring-1 ring-primary/20",
                 )}
                 aria-label={isTestingModel ? messages.testingModel : messages.testModel}
@@ -952,12 +951,13 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
                 {isTestingModel ? (
                   <Spinner
                     data-testid="profile-editor-model-test-spinner"
-                    className="size-4"
+                    className="size-3.5"
                     aria-hidden="true"
                   />
                 ) : (
-                  <TestTube className="size-4" aria-hidden="true" />
+                  <TestTube className="size-3.5" aria-hidden="true" />
                 )}
+                <span>{isTestingModel ? messages.testingModel : messages.testModel}</span>
               </Button>
               {latestModelTestStatus ? (
                 <Button
