@@ -293,10 +293,20 @@ pub struct ModelTestResult {
     pub raw_response: Option<String>,
 }
 
+/// 模型测试请求的认证方式，与 Claude Code 实际行为对齐。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ModelTestAuthScheme {
+    /// `Authorization: Bearer <token>`，对应 `ANTHROPIC_AUTH_TOKEN`。
+    Bearer,
+    /// `x-api-key: <token>`，对应 `ANTHROPIC_API_KEY`。
+    ApiKey,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ModelTestRequest {
     base_url: String,
     auth_token: String,
+    auth_scheme: ModelTestAuthScheme,
     resolved_model: String,
     prompt_text: String,
 }
@@ -1464,31 +1474,56 @@ fn is_sensitive_model_test_json_key(key: &str) -> bool {
         || normalized == "apikey"
 }
 
+/// 剥离模型名结尾的 `[1m]` 上下文标记后缀。Claude Code 自身会在请求前剥离该后缀，
+/// 测试请求需与之对齐，避免把 `glm-5.2[1m]` 这类带后缀的模型名原样发给端点导致模型不存在。
+fn strip_model_context_suffix(model: &str) -> &str {
+    model.strip_suffix("[1m]").map_or(model, str::trim_end)
+}
+
 fn resolve_model_test_request(
     resolved_settings: &Value,
     prompt_text_override: Option<String>,
 ) -> Result<ModelTestRequest, String> {
-    let auth_token = trimmed_env_value(resolved_settings, "ANTHROPIC_AUTH_TOKEN")
-        .ok_or_else(|| "缺少 ANTHROPIC_AUTH_TOKEN，请先在认证区填写认证密钥".to_string())?;
+    // 认证方式对齐 Claude Code：优先 ANTHROPIC_AUTH_TOKEN(Bearer)，回退 ANTHROPIC_API_KEY(x-api-key)。
+    let (auth_token, auth_scheme) = trimmed_env_value(resolved_settings, "ANTHROPIC_AUTH_TOKEN")
+        .map(|token| (token, ModelTestAuthScheme::Bearer))
+        .or_else(|| {
+            trimmed_env_value(resolved_settings, "ANTHROPIC_API_KEY")
+                .map(|token| (token, ModelTestAuthScheme::ApiKey))
+        })
+        .ok_or_else(|| {
+            "缺少 ANTHROPIC_AUTH_TOKEN 或 ANTHROPIC_API_KEY，请先在认证区填写认证密钥".to_string()
+        })?;
     let base_url = trimmed_env_value(resolved_settings, "ANTHROPIC_BASE_URL")
         .map(|value| normalize_model_test_base_url(&value))
         .unwrap_or_else(|| DEFAULT_ANTHROPIC_BASE_URL.to_string());
     let resolved_model = trimmed_env_value(resolved_settings, "ANTHROPIC_MODEL")
         .or_else(|| trimmed_json_string(resolved_settings.get("model")))
+        .map(|model| strip_model_context_suffix(&model).to_string())
         .ok_or_else(|| "缺少默认模型，请先在模型与行为中填写默认模型".to_string())?;
 
     Ok(ModelTestRequest {
         base_url,
         auth_token,
+        auth_scheme,
         resolved_model,
         prompt_text: prompt_text_override
             .unwrap_or_else(|| resolve_model_test_prompt(resolved_settings)),
     })
 }
 
-fn build_model_test_request_headers(auth_token: &str) -> BTreeMap<String, String> {
+fn build_model_test_request_headers(
+    auth_token: &str,
+    auth_scheme: ModelTestAuthScheme,
+) -> BTreeMap<String, String> {
+    let auth_header = match auth_scheme {
+        ModelTestAuthScheme::Bearer => {
+            ("authorization".to_string(), format!("Bearer {auth_token}"))
+        }
+        ModelTestAuthScheme::ApiKey => ("x-api-key".to_string(), auth_token.to_string()),
+    };
     [
-        ("x-api-key".to_string(), auth_token.to_string()),
+        auth_header,
         ("anthropic-version".to_string(), "2023-06-01".to_string()),
         ("content-type".to_string(), "application/json".to_string()),
     ]
@@ -1693,7 +1728,8 @@ async fn execute_model_test_request(request: ModelTestRequest) -> Result<ModelTe
         .build()
         .map_err(|error| format!("创建模型测试客户端失败：{error}"))?;
     let payload = build_model_test_payload(&request);
-    let request_headers = build_model_test_request_headers(&request.auth_token);
+    let request_headers =
+        build_model_test_request_headers(&request.auth_token, request.auth_scheme);
     let request_body = serialize_model_test_request_body(&payload)?;
     let base_exchange = ModelTestHttpExchange {
         request_method: "POST".to_string(),
@@ -1704,9 +1740,16 @@ async fn execute_model_test_request(request: ModelTestRequest) -> Result<ModelTe
     };
 
     let started_at = Instant::now();
-    let response = match client
-        .post(&endpoint)
-        .header("x-api-key", request_headers["x-api-key"].as_str())
+    let auth_builder = match request.auth_scheme {
+        ModelTestAuthScheme::Bearer => client.post(&endpoint).header(
+            reqwest::header::AUTHORIZATION,
+            request_headers["authorization"].as_str(),
+        ),
+        ModelTestAuthScheme::ApiKey => client
+            .post(&endpoint)
+            .header("x-api-key", request_headers["x-api-key"].as_str()),
+    };
+    let response = match auth_builder
         .header(
             "anthropic-version",
             request_headers["anthropic-version"].as_str(),
@@ -2661,36 +2704,17 @@ mod tests {
     }
 
     #[test]
-    fn builtin_providers_expose_models_and_default_env() {
+    fn builtin_anthropic_provider_has_no_model_mapping() {
+        // Anthropic 官方无需模型映射，默认模型交由 Claude Code 自身决定，因此 models 与模型 env 均为空。
+        // 显式 models + 默认模型 env 的正面覆盖见 builtin_providers_include_deepseek_official_claude_code_env。
         let anthropic = builtin_providers()
             .iter()
             .find(|provider| provider.id == "builtin:anthropic")
             .unwrap();
 
-        assert_eq!(
-            anthropic.models,
-            Some(vec![
-                ProviderModel {
-                    id: "opus".to_string(),
-                },
-                ProviderModel {
-                    id: "sonnet".to_string(),
-                },
-                ProviderModel {
-                    id: "haiku".to_string(),
-                },
-            ])
-        );
-
-        // 默认模型由显式 env 提供，不再依赖模型 category 推断
-        assert_eq!(
-            anthropic.env.get("ANTHROPIC_DEFAULT_OPUS_MODEL"),
-            Some(&Value::String("opus".to_string()))
-        );
-        assert_eq!(
-            anthropic.env.get("ANTHROPIC_MODEL"),
-            Some(&Value::String("opus".to_string()))
-        );
+        assert_eq!(anthropic.models, None);
+        assert!(!anthropic.env.contains_key("ANTHROPIC_MODEL"));
+        assert!(!anthropic.env.contains_key("ANTHROPIC_DEFAULT_OPUS_MODEL"));
     }
 
     #[test]
@@ -3576,7 +3600,10 @@ mod tests {
         )
         .unwrap_err();
 
-        assert_eq!(error, "缺少 ANTHROPIC_AUTH_TOKEN，请先在认证区填写认证密钥");
+        assert_eq!(
+            error,
+            "缺少 ANTHROPIC_AUTH_TOKEN 或 ANTHROPIC_API_KEY，请先在认证区填写认证密钥"
+        );
     }
 
     #[test]
@@ -3592,6 +3619,87 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(error, "缺少默认模型，请先在模型与行为中填写默认模型");
+    }
+
+    #[test]
+    fn strip_model_context_suffix_removes_one_million_marker() {
+        assert_eq!(strip_model_context_suffix("glm-5.2[1m]"), "glm-5.2");
+        assert_eq!(strip_model_context_suffix("glm-5.2 [1m]"), "glm-5.2");
+        assert_eq!(
+            strip_model_context_suffix("claude-opus-4-8"),
+            "claude-opus-4-8"
+        );
+    }
+
+    #[test]
+    fn resolve_model_test_request_strips_context_suffix_from_model() {
+        let request = resolve_model_test_request(
+            &serde_json::json!({
+                "env": {
+                    "ANTHROPIC_AUTH_TOKEN": "token",
+                    "ANTHROPIC_MODEL": "glm-5.2[1m]"
+                }
+            }),
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(request.resolved_model, "glm-5.2");
+    }
+
+    #[test]
+    fn resolve_model_test_request_prefers_auth_token_with_bearer_scheme() {
+        let request = resolve_model_test_request(
+            &serde_json::json!({
+                "model": "claude-sonnet-4-6",
+                "env": {
+                    "ANTHROPIC_AUTH_TOKEN": "auth",
+                    "ANTHROPIC_API_KEY": "key"
+                }
+            }),
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(request.auth_token, "auth");
+        assert_eq!(request.auth_scheme, ModelTestAuthScheme::Bearer);
+    }
+
+    #[test]
+    fn resolve_model_test_request_falls_back_to_api_key_scheme() {
+        let request = resolve_model_test_request(
+            &serde_json::json!({
+                "model": "claude-sonnet-4-6",
+                "env": {
+                    "ANTHROPIC_API_KEY": "key"
+                }
+            }),
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(request.auth_token, "key");
+        assert_eq!(request.auth_scheme, ModelTestAuthScheme::ApiKey);
+    }
+
+    #[test]
+    fn build_model_test_request_headers_uses_bearer_for_auth_token() {
+        let headers = build_model_test_request_headers("token", ModelTestAuthScheme::Bearer);
+
+        assert_eq!(headers["authorization"], "Bearer token");
+        assert!(!headers.contains_key("x-api-key"));
+        assert_eq!(headers["anthropic-version"], "2023-06-01");
+        assert_eq!(headers["content-type"], "application/json");
+    }
+
+    #[test]
+    fn build_model_test_request_headers_uses_x_api_key_for_api_key() {
+        let headers = build_model_test_request_headers("token", ModelTestAuthScheme::ApiKey);
+
+        assert_eq!(headers["x-api-key"], "token");
+        assert!(!headers.contains_key("authorization"));
+        assert_eq!(headers["anthropic-version"], "2023-06-01");
+        assert_eq!(headers["content-type"], "application/json");
     }
 
     #[test]
@@ -3784,7 +3892,7 @@ mod tests {
         assert_eq!(result.prompt_text, "请确认测试成功。");
         assert_eq!(result.request_method, "POST");
         assert_eq!(result.request_url, "http://[::1/v1/messages");
-        assert_eq!(result.request_headers["x-api-key"], "<redacted>");
+        assert_eq!(result.request_headers["authorization"], "<redacted>");
         assert!(result
             .request_body
             .contains("\"model\": \"claude-sonnet-4-6\""));
