@@ -39,8 +39,16 @@
     "slug": "zhipu",
     "baseUrl": "https://open.bigmodel.cn/api/anthropic",
     "docUrl": "https://docs.bigmodel.cn/cn/coding-plan/overview",
+    "env": {
+      "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.2[1m]",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.2[1m]",
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-4.7",
+      "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "1000000",
+      "CLAUDE_CODE_EFFORT_LEVEL": "max"
+    },
     "models": [
-      { "id": "glm-5.2", "name": "GLM-5.2", "category": "sonnet" }
+      { "id": "glm-5.2[1m]", "name": "GLM-5.2", "category": "sonnet" },
+      { "id": "glm-4.7", "name": "GLM-4.7", "category": "haiku" }
     ]
   },
   {
