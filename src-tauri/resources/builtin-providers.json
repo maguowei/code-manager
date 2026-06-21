@@ -137,9 +137,11 @@
     "baseUrl": "http://localhost:11434",
     "docUrl": "https://docs.ollama.com/integrations/claude-code",
     "models": [
-      { "id": "kimi-k2.6:cloud", "name": "Kimi K2.6", "category": "sonnet" },
-      { "id": "glm-5.1:cloud", "name": "GLM-5.1", "category": "sonnet" },
-      { "id": "minimax-m2.7:cloud", "name": "MiniMax M2.7", "category": "sonnet" }
+      { "id": "kimi-k2.7-code:cloud", "name": "Kimi K2.7 Code", "category": "sonnet" },
+      { "id": "glm-5.2:cloud", "name": "GLM-5.2", "category": "sonnet" },
+      { "id": "minimax-m3:cloud", "name": "MiniMax M3", "category": "sonnet" },
+      { "id": "deepseek-v4-pro:cloud", "name": "DeepSeek V4 Pro", "category": "sonnet" },
+      { "id": "deepseek-v4-flash:cloud", "name": "DeepSeek V4 Flash", "category": "haiku" }
     ]
   }
 ]
