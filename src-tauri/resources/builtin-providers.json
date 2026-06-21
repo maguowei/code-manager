@@ -51,6 +51,8 @@
     "baseUrl": "https://api.kimi.com/coding/",
     "docUrl": "https://www.kimi.com/code/docs/",
     "models": [
+      { "id": "kimi-k2.7-code", "name": "Kimi K2.7 Code", "category": "sonnet" },
+      { "id": "kimi-k2.7-code-highspeed", "name": "Kimi K2.7 Code 高速版", "category": "sonnet" },
       { "id": "kimi-k2.6", "name": "Kimi K2.6", "category": "sonnet" }
     ]
   },
@@ -94,9 +96,10 @@
     "baseUrl": "https://ark.cn-beijing.volces.com/api/coding",
     "docUrl": "https://www.volcengine.com/docs/82379/1925114",
     "models": [
+      { "id": "doubao-seed-2.0-code", "name": "豆包 Seed 2.0 Code", "category": "sonnet" },
       { "id": "doubao-seed-2.0-pro", "name": "豆包 Seed 2.0 Pro", "category": "sonnet" },
-      { "id": "kimi-k2.6", "name": "Kimi K2.6", "category": "sonnet" },
-      { "id": "glm-5.1", "name": "GLM-5.1", "category": "sonnet" },
+      { "id": "kimi-k2.7-code", "name": "Kimi K2.7 Code", "category": "sonnet" },
+      { "id": "glm-5.2", "name": "GLM-5.2", "category": "sonnet" },
       { "id": "minimax-m3", "name": "MiniMax M3", "category": "sonnet" },
       { "id": "deepseek-v4-pro", "name": "DeepSeek V4 Pro", "category": "sonnet" },
       { "id": "deepseek-v4-flash", "name": "DeepSeek V4 Flash", "category": "haiku" }
@@ -137,8 +140,8 @@
     "baseUrl": "http://localhost:11434",
     "docUrl": "https://docs.ollama.com/integrations/claude-code",
     "models": [
-      { "id": "kimi-k2.7-code:cloud", "name": "Kimi K2.7 Code", "category": "sonnet" },
       { "id": "glm-5.2:cloud", "name": "GLM-5.2", "category": "sonnet" },
+      { "id": "kimi-k2.7-code:cloud", "name": "Kimi K2.7 Code", "category": "sonnet" },
       { "id": "minimax-m3:cloud", "name": "MiniMax M3", "category": "sonnet" },
       { "id": "deepseek-v4-pro:cloud", "name": "DeepSeek V4 Pro", "category": "sonnet" },
       { "id": "deepseek-v4-flash:cloud", "name": "DeepSeek V4 Flash", "category": "haiku" }
