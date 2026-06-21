@@ -4,6 +4,8 @@
   "fetched_at_ms": null,
   "note": "价格单位：USD per million tokens。内置兜底只保存 Anthropic/Claude 价格；Kimi、MiMo、GLM、MiniMax、DeepSeek 等第三方模型只在运行时从 models.dev 官方 provider 导入，不写手工兜底价。缺失的 cache 字段按 input 推导：cache_write = input × 1.25、cache_read = input × 0.1。运行时会被 models.dev 联网刷新覆盖。",
   "models": {
+    "claude-fable-5": { "input": 10, "output": 50, "cache_read": 1, "cache_write": 12.5 },
+    "claude-opus-4-8": { "input": 5, "output": 25, "cache_read": 0.5, "cache_write": 6.25 },
     "claude-opus-4-7": { "input": 5, "output": 25, "cache_read": 0.5, "cache_write": 6.25 },
     "claude-opus-4-6": { "input": 5, "output": 25, "cache_read": 0.5, "cache_write": 6.25 },
     "claude-opus-4-5": { "input": 5, "output": 25, "cache_read": 0.5, "cache_write": 6.25 },
