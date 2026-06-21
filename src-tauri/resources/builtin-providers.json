@@ -76,7 +76,8 @@
       "ANTHROPIC_MODEL": "MiniMax-M3",
       "ANTHROPIC_DEFAULT_OPUS_MODEL": "MiniMax-M3",
       "ANTHROPIC_DEFAULT_SONNET_MODEL": "MiniMax-M3",
-      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "MiniMax-M3"
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "MiniMax-M3",
+      "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "512000"
     },
     "models": [{ "id": "MiniMax-M3", "name": "MiniMax M3" }]
   },
