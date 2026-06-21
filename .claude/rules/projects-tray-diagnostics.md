@@ -67,7 +67,7 @@ paths:
 
 约束：
 
-- 主托盘负责 Profile 切换和页面导航；会话托盘负责 `~/.claude/sessions/*.json` 的状态摘要。
+- 主托盘负责配置切换和页面导航；会话托盘负责 `~/.claude/sessions/*.json` 的状态摘要。
 - 设置抽屉负责 UI 语言、主题、本机自启动、默认终端、默认编辑器、托盘展示和诊断入口；主题仍由前端 localStorage 偏好控制，不属于后端 `AppPreferences`。
 - 会话文件只读取普通 `.json` 文件，缺少 `pid`、`sessionId`、`cwd`、`status` 或字段为空时应跳过。
 - 会话菜单项 id 需要能安全携带 `pid` 和 `cwd`；`cwd` 可能包含中文、空格、引号和 `::`。

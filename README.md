@@ -3,7 +3,7 @@
 [![CI](https://github.com/maguowei/ai-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/maguowei/ai-manager/actions/workflows/ci.yml)
 [![Release](https://github.com/maguowei/ai-manager/actions/workflows/release.yml/badge.svg)](https://github.com/maguowei/ai-manager/actions/workflows/release.yml)
 
-AI Manager 是面向 Claude Code 用户的本地桌面管理应用。它把 Profile / Preset、`~/.claude` 目录、记忆、Skills、历史、统计、Token 用量、项目状态、系统托盘和诊断日志集中到一个 Tauri 2 应用里，让本地配置更可见、可预览、可验证。
+AI Manager 是面向 Claude Code 用户的本地桌面管理应用。它把配置 / 预设、`~/.claude` 目录、记忆、Skills、历史、统计、Token 用量、项目状态、系统托盘和诊断日志集中到一个 Tauri 2 应用里，让本地配置更可见、可预览、可验证。
 
 本文件面向人类用户和项目访问者。AI Agent 的执行规则见 [CLAUDE.md](./CLAUDE.md)，完整使用说明见 [docs/user-manual.md](./docs/user-manual.md)，平台差异见 [docs/platform-support.md](./docs/platform-support.md)。
 
@@ -26,14 +26,14 @@ AI Manager 不替代 Claude Code，而是提供一个本机配置、会话数据
 | 能力 | 说明 |
 | --- | --- |
 | `~/.claude` 总览 | 浏览、预览、编辑和定位 Claude Code 用户目录。 |
-| Profile / Preset | 管理最终写入 `~/.claude/settings.json` 的配置层，支持 Provider、模型、环境变量、权限、Sandbox、Hooks、插件、状态行、预览、复制、模型测试、一键应用、导入现有 settings、差异对比，以及一键把常用选项 / 市场 / 插件同步到其他配置。 |
+| 配置 / 内置供应商 | 管理最终写入 `~/.claude/settings.json` 的配置层，从内置供应商(只读)选择连接地址与模型映射，支持模型、环境变量、权限、Sandbox、Hooks、插件、状态行、预览、复制、模型测试、一键应用、导入现有 settings、差异对比，以及一键把常用选项 / 市场 / 插件同步到其他配置。 |
 | 记忆管理 | 管理用户级 `CLAUDE.md` 与 `rules/*.md`，支持 Karpathy 行为指南预设、导入、启用、禁用、复制、预览和路径校验。 |
 | Skills 管理 | 新建、编辑、删除、启用、禁用 Claude Code Skills，并可同步为 `~/.codex/skills/<id>` 软链接。 |
 | 历史与会话 | 读取 `~/.claude/history.jsonl`，按项目和会话查看历史详情。 |
 | 统计与最近会话 | 从 `~/.claude.json` 读取本地统计快照。 |
 | Token 用量与费用 | 扫描 `~/.claude/projects/**/*.jsonl`，按日期、项目、会话和模型聚合 Token 与费用，并使用 SQLite 增量缓存。 |
 | 项目管理 | 展示项目路径、远程地址、分支、worktree、项目级 `.claude/`、`AGENTS.md` / `CLAUDE.md` 与 `.agents/skills` 状态，支持打开终端/编辑器、跳转历史/用量、分支与 worktree 清理和清理本地项目数据。 |
-| 系统托盘与会话聚焦 | 菜单栏显示当前 Profile 和 Claude Code 活跃会话，支持会话计数样式与待处理呼吸灯，在支持的平台尝试聚焦已有终端会话，并可（仅 macOS）把会话状态镜像到 ANTICATER USB 设备灯效。 |
+| 系统托盘与会话聚焦 | 菜单栏显示当前配置和 Claude Code 活跃会话，支持会话计数样式与待处理呼吸灯，在支持的平台尝试聚焦已有终端会话，并可（仅 macOS）把会话状态镜像到 ANTICATER USB 设备灯效。 |
 | 设置与诊断 | 支持语言、主题、默认收起侧边栏、菜单栏会话显示、系统通知、第三方模型计价、登录启动、默认终端和编辑器、会话聚焦快捷键与 LED 灯效（仅 macOS）、脱敏日志查看、系统信息复制和日志轮转。 |
 
 ## 下载安装
@@ -56,11 +56,10 @@ xattr -rd com.apple.quarantine /Applications/ai-manager.app
 
 1. 启动应用后，AI Manager 会读取本机 `~/.claude`、`~/.claude.json` 和 `~/.claude/projects/`。
 2. 在设置中选择界面语言、主题、默认终端和默认编辑器。
-3. 在预设页查看是否已有合适 Provider 预设。
-4. 在配置页导入现有 `~/.claude/settings.json`，或新建 Profile 并填写认证密钥、API 地址和模型配置。
-5. 点击“测试模型”确认配置可用。
-6. 点击启用，将 Profile 应用到 `~/.claude/settings.json`。
-7. 到 `~/.claude` 总览确认最终配置符合预期。
+3. 在配置页导入现有 `~/.claude/settings.json`，或新建配置，在「供应商」选项处选择内置供应商并填写认证密钥与模型配置。
+4. 点击“测试模型”确认配置可用。
+5. 点击启用，将配置应用到 `~/.claude/settings.json`。
+6. 到 `~/.claude` 总览确认最终配置符合预期。
 
 更完整的页面说明、费用统计口径、常见工作流和 FAQ 见 [docs/user-manual.md](./docs/user-manual.md)。
 

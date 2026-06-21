@@ -40,15 +40,6 @@ describe("Sidebar", () => {
     expect(screen.queryByRole("button", { name: "供应商" })).not.toBeInTheDocument();
   });
 
-  it("treats the internal providers tab as part of the config sidebar item", () => {
-    renderSidebar({ activeTab: "providers" });
-
-    const configsButton = screen.getByRole("button", { name: "配置" });
-
-    expect(configsButton).toHaveAttribute("aria-current", "page");
-    expect(screen.queryByRole("button", { name: "供应商" })).not.toBeInTheDocument();
-  });
-
   it("keeps the sidebar labels collapsible at the existing narrow breakpoint", () => {
     const source = readFileSync("src/components/Sidebar.tsx", "utf8");
 

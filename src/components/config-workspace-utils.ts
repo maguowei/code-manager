@@ -290,7 +290,7 @@ export function providerNameById(
   noProviderLabel?: string,
 ): string {
   if (!providerId) {
-    return noProviderLabel ?? (language === "zh" ? "无供应商" : "No provider");
+    return noProviderLabel ?? (language === "zh" ? "自定义" : "Custom");
   }
   const provider = providers.find((item) => item.id === providerId);
   return provider ? providerDisplayName(provider, language) : providerId;

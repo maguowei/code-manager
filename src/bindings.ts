@@ -22,8 +22,6 @@ export const commands = {
 	installStatusLinePreset: (presetId: string, overwrite: boolean) => typedError<StatusLinePresetInstallResult, string>(__TAURI_INVOKE("install_status_line_preset", { presetId, overwrite })),
 	previewProfile: (data: ProfileInput) => typedError<string, string>(__TAURI_INVOKE("preview_profile", { data })),
 	testProfileModel: (data: ModelTestInput) => typedError<ModelTestResult_Serialize, string>(__TAURI_INVOKE("test_profile_model", { data })),
-	upsertProvider: (data: ProviderInput) => typedError<Provider_Serialize, string>(__TAURI_INVOKE("upsert_provider", { data })),
-	deleteProvider: (id: string) => typedError<null, string>(__TAURI_INVOKE("delete_provider", { id })),
 	setAppPreferences: (data: AppPreferencesInput) => typedError<AppPreferences, string>(__TAURI_INVOKE("set_app_preferences", { data })),
 	/**  切换浮窗显隐（幂等）：显示时不存在则创建，隐藏时隐藏而非关闭以保留位置与状态。 */
 	toggleFloatingWidget: (visible: boolean) => typedError<null, string>(__TAURI_INVOKE("toggle_floating_widget", { visible })),
@@ -258,7 +256,6 @@ export type ConfigWorkspace = ConfigWorkspace_Serialize | ConfigWorkspace_Deseri
 export type ConfigWorkspace_Deserialize = {
 	app: AppPreferences,
 	builtinProviders: Provider_Deserialize[],
-	customProviders: Provider_Deserialize[],
 	profiles: ConfigProfile_Deserialize[],
 	bindings: BindingState_Deserialize,
 	unmanagedUserSettings: UnmanagedUserSettings_Deserialize | null,
@@ -268,7 +265,6 @@ export type ConfigWorkspace_Deserialize = {
 export type ConfigWorkspace_Serialize = {
 	app: AppPreferences,
 	builtinProviders: Provider_Serialize[],
-	customProviders: Provider_Serialize[],
 	profiles: ConfigProfile_Serialize[],
 	bindings: BindingState_Serialize,
 	unmanagedUserSettings?: UnmanagedUserSettings_Serialize | null,
@@ -837,25 +833,12 @@ export type ProjectWorktree_Serialize = {
 
 export type Provider = Provider_Serialize | Provider_Deserialize;
 
-export type ProviderInput = {
-	id: string | null,
-	name: string,
-	localizedName?: LocalizedText | null,
-	description: string,
-	docUrl: string | null,
-	models?: ProviderModel[] | null,
-	modelSuggestions?: string[],
-	env?: { [key in string]: string },
-};
-
 export type ProviderModel = {
 	id: string,
 	category: ProviderModelCategory,
 };
 
 export type ProviderModelCategory = "opus" | "sonnet" | "haiku" | "other";
-
-export type ProviderSource = "builtin" | "custom";
 
 export type Provider_Deserialize = {
 	id: string,
@@ -866,7 +849,6 @@ export type Provider_Deserialize = {
 	models: ProviderModel[] | null,
 	modelSuggestions?: string[],
 	env?: { [key in string]: string },
-	source: ProviderSource,
 };
 
 export type Provider_Serialize = {
@@ -878,7 +860,6 @@ export type Provider_Serialize = {
 	models?: ProviderModel[] | null,
 	modelSuggestions: string[],
 	env: { [key in string]: string },
-	source: ProviderSource,
 };
 
 export type ScanResult = {

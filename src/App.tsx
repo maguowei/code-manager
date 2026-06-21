@@ -25,7 +25,6 @@ const CheatSheetPage = lazy(() => import("./components/cheat-sheet/CheatSheetPag
 const ClaudeOverviewPage = lazy(() => import("./components/ClaudeOverviewPage"));
 const HistoryPage = lazy(() => import("./components/HistoryPage"));
 const MemoryPage = lazy(() => import("./components/MemoryPage"));
-const ProvidersPage = lazy(() => import("./components/ProvidersPage"));
 const ProfilesPage = lazy(() => import("./components/ProfilesPage"));
 const ProjectsPage = lazy(() => import("./components/ProjectsPage"));
 const SettingsDrawer = lazy(() => import("./components/SettingsDrawer"));
@@ -52,7 +51,6 @@ const EMPTY_WORKSPACE: ConfigWorkspace = {
     floatingWidgetOpacity: 92,
   },
   builtinProviders: [],
-  customProviders: [],
   profiles: [],
   bindings: {},
 };
@@ -239,14 +237,6 @@ function App() {
     [activateTab, runWithEditorExitGuard],
   );
 
-  const handleOpenProviders = useCallback(() => {
-    runWithEditorExitGuard(() => activateTab("providers"));
-  }, [activateTab, runWithEditorExitGuard]);
-
-  const handleOpenProfiles = useCallback(() => {
-    runWithEditorExitGuard(() => activateTab("configs"));
-  }, [activateTab, runWithEditorExitGuard]);
-
   if (loading) {
     return (
       <TooltipProvider delayDuration={200}>
@@ -262,7 +252,7 @@ function App() {
     <TooltipProvider delayDuration={200}>
       <div className="flex h-screen overflow-hidden bg-background text-foreground">
         <Sidebar
-          activeTab={activeTab === "providers" ? "configs" : activeTab}
+          activeTab={activeTab}
           collapseSidebarByDefault={workspace.app.collapseSidebarByDefault}
           onTabChange={(tab) => {
             runWithEditorExitGuard(() => activateTab(tab));
@@ -299,19 +289,11 @@ function App() {
               />
             ) : activeTab === "history" ? (
               <HistoryPage projectRequest={historyProjectRequest} />
-            ) : activeTab === "providers" ? (
-              <ProvidersPage
-                workspace={workspace}
-                onWorkspaceChange={loadWorkspace}
-                onOpenProfiles={handleOpenProfiles}
-                onEditorExitGuardChange={setEditorExitGuard}
-              />
             ) : activeTab === "configs" ? (
               <ProfilesPage
                 workspace={workspace}
                 onWorkspaceChange={loadWorkspace}
                 onEditorExitGuardChange={setEditorExitGuard}
-                onOpenProviders={handleOpenProviders}
               />
             ) : (
               <div

@@ -132,13 +132,6 @@ impl Default for AppPreferences {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
-#[serde(rename_all = "lowercase")]
-pub enum ProviderSource {
-    Builtin,
-    Custom,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct LocalizedText {
     pub zh: String,
@@ -179,7 +172,6 @@ pub struct Provider {
     #[serde(default)]
     #[specta(type = std::collections::HashMap<String, String>)]
     pub env: Map<String, Value>,
-    pub source: ProviderSource,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, specta::Type)]
@@ -218,8 +210,6 @@ pub struct ConfigRegistry {
     pub version: u32,
     pub app: AppPreferences,
     #[serde(default)]
-    pub custom_providers: Vec<Provider>,
-    #[serde(default)]
     pub profiles: Vec<ConfigProfile>,
     #[serde(default)]
     pub bindings: BindingState,
@@ -231,7 +221,6 @@ impl Default for ConfigRegistry {
             schema: CONFIG_REGISTRY_SCHEMA_URL.to_string(),
             version: REGISTRY_VERSION,
             app: AppPreferences::default(),
-            custom_providers: Vec::new(),
             profiles: Vec::new(),
             bindings: BindingState::default(),
         }
@@ -243,7 +232,6 @@ impl Default for ConfigRegistry {
 pub struct ConfigWorkspace {
     pub app: AppPreferences,
     pub builtin_providers: Vec<Provider>,
-    pub custom_providers: Vec<Provider>,
     pub profiles: Vec<ConfigProfile>,
     pub bindings: BindingState,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -398,25 +386,6 @@ pub struct ModelTestInput {
     pub settings: Value,
     #[serde(default)]
     pub prompt_text: Option<String>,
-}
-
-#[derive(Debug, Clone, Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-#[serde(deny_unknown_fields)]
-pub struct ProviderInput {
-    pub id: Option<String>,
-    pub name: String,
-    #[serde(default)]
-    pub localized_name: Option<LocalizedText>,
-    pub description: String,
-    pub doc_url: Option<String>,
-    #[serde(default)]
-    pub models: Option<Vec<ProviderModel>>,
-    #[serde(default)]
-    pub model_suggestions: Vec<String>,
-    #[serde(default)]
-    #[specta(type = std::collections::HashMap<String, String>)]
-    pub env: Map<String, Value>,
 }
 
 #[derive(Debug, Clone, Deserialize, specta::Type)]
@@ -605,7 +574,6 @@ fn parse_builtin_providers() -> Vec<Provider> {
                     seed.models.into_iter().map(|model| model.id).collect(),
                 ),
                 env,
-                source: ProviderSource::Builtin,
             }
         })
         .collect()
@@ -619,14 +587,6 @@ pub fn builtin_providers() -> &'static [Provider] {
 fn normalize_registry(registry: &mut ConfigRegistry) {
     registry.schema = CONFIG_REGISTRY_SCHEMA_URL.to_string();
     registry.version = REGISTRY_VERSION;
-    registry.custom_providers.iter_mut().for_each(|provider| {
-        provider.source = ProviderSource::Custom;
-        provider.localized_name =
-            normalize_localized_text(provider.localized_name.take(), &provider.name);
-        provider.models = normalize_provider_models(provider.models.take());
-        provider.model_suggestions =
-            normalize_model_suggestions(std::mem::take(&mut provider.model_suggestions));
-    });
     registry.profiles.iter_mut().for_each(|profile| {
         if !profile.settings.is_object() {
             profile.settings = Value::Object(Map::new());
@@ -669,7 +629,6 @@ fn build_workspace(registry: ConfigRegistry) -> ConfigWorkspace {
     ConfigWorkspace {
         app: registry.app.clone(),
         builtin_providers: builtin_providers().to_vec(),
-        custom_providers: registry.custom_providers,
         profiles: registry.profiles,
         bindings: registry.bindings,
         unmanaged_user_settings,
@@ -723,7 +682,7 @@ fn settings_equivalent(left: &Value, right: &Value) -> bool {
 
 fn find_profile_matching_settings(registry: &ConfigRegistry, settings: &Value) -> Option<String> {
     registry.profiles.iter().find_map(|profile| {
-        resolve_profile_settings(registry, profile)
+        resolve_profile_settings(profile)
             .ok()
             .filter(|resolved| settings_equivalent(resolved, settings))
             .map(|_| profile.id.clone())
@@ -742,7 +701,7 @@ fn bound_profile_matches_user_settings(registry: &ConfigRegistry, settings: &Val
         return false;
     };
 
-    resolve_profile_settings(registry, profile)
+    resolve_profile_settings(profile)
         .map(|resolved| settings_equivalent(&resolved, settings))
         .unwrap_or(false)
 }
@@ -758,7 +717,7 @@ fn detect_active_user_settings_mismatch(
     let Ok((settings, _, _)) = read_user_settings_document() else {
         return None;
     };
-    let Ok(resolved) = resolve_profile_settings(registry, profile) else {
+    let Ok(resolved) = resolve_profile_settings(profile) else {
         return None;
     };
     if settings_equivalent(&resolved, &settings) {
@@ -1010,86 +969,6 @@ fn normalize_model_test_input(input: ModelTestInput) -> Result<ModelTestInput, S
     })
 }
 
-fn normalize_provider_input(input: ProviderInput) -> Result<ProviderInput, String> {
-    // env-only：trim key/value，丢弃空键值；值统一规整为字符串
-    let mut env = Map::new();
-    for (key, value) in input.env {
-        let key = key.trim();
-        let trimmed_value = value.as_str().map(str::trim).unwrap_or_default();
-        if key.is_empty() || trimmed_value.is_empty() {
-            continue;
-        }
-        env.insert(key.to_string(), Value::String(trimmed_value.to_string()));
-    }
-    Ok(ProviderInput {
-        id: input
-            .id
-            .map(|id| id.trim().to_string())
-            .filter(|id| !id.is_empty()),
-        name: input.name.trim().to_string(),
-        localized_name: normalize_localized_text(input.localized_name, &input.name),
-        description: input.description.trim().to_string(),
-        doc_url: input.doc_url.filter(|url| !url.trim().is_empty()),
-        models: normalize_provider_models(input.models),
-        model_suggestions: normalize_model_suggestions(input.model_suggestions),
-        env,
-    })
-}
-
-fn slugify_custom_provider_seed(seed: &str) -> Option<String> {
-    let mut slug = String::new();
-    let mut previous_dash = false;
-
-    for character in seed.trim().chars() {
-        if character.is_ascii_alphanumeric() {
-            slug.push(character.to_ascii_lowercase());
-            previous_dash = false;
-            continue;
-        }
-
-        if !previous_dash && !slug.is_empty() {
-            slug.push('-');
-            previous_dash = true;
-        }
-    }
-
-    let slug = slug.trim_matches('-').to_string();
-    if slug.is_empty() {
-        None
-    } else {
-        Some(slug)
-    }
-}
-
-fn build_custom_provider_id(registry: &ConfigRegistry, input: &ProviderInput) -> String {
-    if let Some(id) = input
-        .id
-        .as_deref()
-        .map(str::trim)
-        .filter(|id| !id.is_empty())
-    {
-        return id.to_string();
-    }
-
-    let seed = input
-        .localized_name
-        .as_ref()
-        .map(|localized_name| localized_name.en.trim())
-        .filter(|name| !name.is_empty())
-        .unwrap_or_else(|| input.name.trim());
-    let Some(base_slug) = slugify_custom_provider_seed(seed) else {
-        return format!("custom:{}", Uuid::new_v4());
-    };
-
-    let mut candidate = format!("custom:{base_slug}");
-    let mut suffix = 2;
-    while provider_exists(registry, &candidate) {
-        candidate = format!("custom:{base_slug}-{suffix}");
-        suffix += 1;
-    }
-    candidate
-}
-
 fn normalize_app_preferences(input: AppPreferencesInput) -> Result<AppPreferences, String> {
     let ui_language = normalize_ui_language(input.ui_language.trim())?.to_string();
     let default_terminal_app =
@@ -1150,18 +1029,11 @@ fn normalize_floating_widget_metrics(metrics: Vec<String>) -> Vec<String> {
     }
 }
 
-fn find_provider(registry: &ConfigRegistry, provider_id: &str) -> Option<Provider> {
+fn find_provider(provider_id: &str) -> Option<Provider> {
     builtin_providers()
         .iter()
         .find(|provider| provider.id == provider_id)
         .cloned()
-        .or_else(|| {
-            registry
-                .custom_providers
-                .iter()
-                .find(|provider| provider.id == provider_id)
-                .cloned()
-        })
 }
 
 fn merge_json_values(base: Value, overlay: Value) -> Value {
@@ -1471,17 +1343,14 @@ fn validate_settings_document(settings: &Value) -> Result<(), String> {
     Ok(())
 }
 
-fn resolve_profile_settings(
-    registry: &ConfigRegistry,
-    profile: &ConfigProfile,
-) -> Result<Value, String> {
+fn resolve_profile_settings(profile: &ConfigProfile) -> Result<Value, String> {
     let mut resolved = Value::Object(Map::new());
     let mut provider_resolved = false;
 
     if let Some(provider_id) = profile.provider_id.as_deref() {
         // COMPAT(presetId→providerId): 兼容 <=0.20.x 的旧字段，计划 0.23.0 移除
-        // C2：providerId 解析不到（如引用了已丢弃的旧自定义预设）时容错跳过，仅用 profile.settings，不报错
-        if let Some(provider) = find_provider(registry, provider_id) {
+        // C2：providerId 解析不到（如引用了已丢弃的旧供应商）时容错跳过，仅用 profile.settings，不报错
+        if let Some(provider) = find_provider(provider_id) {
             provider_resolved = true;
             let mut base = Map::new();
             base.insert("env".to_string(), Value::Object(provider.env.clone()));
@@ -2144,7 +2013,7 @@ fn apply_profile_to_registry(
         .cloned()
         .ok_or_else(|| format!("未找到 profile '{}'", profile_id))?;
 
-    let resolved_settings = resolve_profile_settings(registry, &profile)?;
+    let resolved_settings = resolve_profile_settings(&profile)?;
     let target_path = profile_settings_path()?;
 
     let content = serde_json::to_string_pretty(&resolved_settings).map_err(|e| e.to_string())?;
@@ -2157,36 +2026,8 @@ fn apply_profile_to_registry(
     Ok(target_path)
 }
 
-fn provider_exists(registry: &ConfigRegistry, provider_id: &str) -> bool {
-    find_provider(registry, provider_id).is_some()
-}
-
-fn profile_uses_provider(
-    _registry: &ConfigRegistry,
-    profile: &ConfigProfile,
-    provider_id: &str,
-) -> bool {
-    // 供应商已无继承链，直接比较 profile 绑定的 providerId
-    profile.provider_id.as_deref() == Some(provider_id)
-}
-
-fn bound_profile_ids_using_provider(registry: &ConfigRegistry, provider_id: &str) -> Vec<String> {
-    let bound_profile_ids: HashSet<&str> = registry
-        .bindings
-        .user_profile_id
-        .iter()
-        .map(String::as_str)
-        .collect();
-
-    registry
-        .profiles
-        .iter()
-        .filter(|profile| {
-            bound_profile_ids.contains(profile.id.as_str())
-                && profile_uses_provider(registry, profile, provider_id)
-        })
-        .map(|profile| profile.id.clone())
-        .collect()
+fn provider_exists(provider_id: &str) -> bool {
+    find_provider(provider_id).is_some()
 }
 
 pub fn apply_profile_inner(profile_id: String) -> Result<ConfigRegistry, String> {
@@ -2321,7 +2162,7 @@ pub fn upsert_profile(app_handle: AppHandle, data: ProfileInput) -> Result<Confi
 
         let mut registry = load_registry()?;
         if let Some(provider_id) = input.provider_id.as_deref() {
-            if !provider_exists(&registry, provider_id) {
+            if !provider_exists(provider_id) {
                 return Err(format!("未找到 provider '{}'", provider_id));
             }
         }
@@ -2658,7 +2499,7 @@ pub fn preview_profile(data: ProfileInput) -> Result<String, String> {
     let input = normalize_profile_input(data)?;
     let mut registry = load_registry()?;
     if let Some(provider_id) = input.provider_id.as_deref() {
-        if !provider_exists(&registry, provider_id) {
+        if !provider_exists(provider_id) {
             return Err(format!("未找到 provider '{}'", provider_id));
         }
     }
@@ -2677,7 +2518,7 @@ pub fn preview_profile(data: ProfileInput) -> Result<String, String> {
         .retain(|existing| existing.id != profile.id);
     registry.profiles.push(profile.clone());
 
-    let resolved = resolve_profile_settings(&registry, &profile)?;
+    let resolved = resolve_profile_settings(&profile)?;
     serde_json::to_string_pretty(&resolved).map_err(|e| e.to_string())
 }
 
@@ -2687,7 +2528,7 @@ pub async fn test_profile_model(data: ModelTestInput) -> Result<ModelTestResult,
     let input = normalize_model_test_input(data)?;
     let mut registry = load_registry()?;
     if let Some(provider_id) = input.provider_id.as_deref() {
-        if !provider_exists(&registry, provider_id) {
+        if !provider_exists(provider_id) {
             return Err(format!("未找到 provider '{}'", provider_id));
         }
     }
@@ -2708,88 +2549,9 @@ pub async fn test_profile_model(data: ModelTestInput) -> Result<ModelTestResult,
         .retain(|existing| existing.id != profile.id);
     registry.profiles.push(profile.clone());
 
-    let resolved = resolve_profile_settings(&registry, &profile)?;
+    let resolved = resolve_profile_settings(&profile)?;
     let request = resolve_model_test_request(&resolved, prompt_text_override)?;
     execute_model_test_request(request).await
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn upsert_provider(app_handle: AppHandle, data: ProviderInput) -> Result<Provider, String> {
-    let result = (|| {
-        let _lock = crate::utils::lock_config()?;
-        let input = normalize_provider_input(data)?;
-
-        let mut registry = load_registry()?;
-
-        let provider_id = build_custom_provider_id(&registry, &input);
-        let provider = Provider {
-            id: provider_id.clone(),
-            name: input.name,
-            localized_name: input.localized_name,
-            description: input.description,
-            doc_url: input.doc_url,
-            models: input.models,
-            model_suggestions: input.model_suggestions,
-            env: input.env,
-            source: ProviderSource::Custom,
-        };
-
-        if let Some(existing) = registry
-            .custom_providers
-            .iter_mut()
-            .find(|existing| existing.id == provider_id)
-        {
-            *existing = provider.clone();
-        } else {
-            registry.custom_providers.push(provider.clone());
-        }
-
-        for profile_id in bound_profile_ids_using_provider(&registry, &provider.id) {
-            apply_profile_to_registry(&mut registry, &profile_id)?;
-        }
-
-        save_registry(&registry)?;
-        rebuild_tray_menu(&app_handle, Some(&registry));
-        let _ = app_handle.emit("config-workspace-changed", ());
-        Ok(provider)
-    })();
-    crate::logging::log_command_result("provider.upsert", &result, |provider| {
-        format!("provider_id={}", provider.id)
-    });
-    result
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn delete_provider(app_handle: AppHandle, id: String) -> Result<(), String> {
-    let result = (|| {
-        let _lock = crate::utils::lock_config()?;
-        let mut registry = load_registry()?;
-
-        if registry
-            .profiles
-            .iter()
-            .any(|profile| profile_uses_provider(&registry, profile, &id))
-        {
-            return Err("该 provider 仍被 profile 使用，请先解除引用".to_string());
-        }
-
-        let original_len = registry.custom_providers.len();
-        registry
-            .custom_providers
-            .retain(|provider| provider.id != id);
-        if registry.custom_providers.len() == original_len {
-            return Err("未找到要删除的 provider".to_string());
-        }
-
-        save_registry(&registry)?;
-        rebuild_tray_menu(&app_handle, Some(&registry));
-        let _ = app_handle.emit("config-workspace-changed", ());
-        Ok(())
-    })();
-    crate::logging::log_command_result("provider.delete", &result, |_| format!("provider_id={id}"));
-    result
 }
 
 #[tauri::command]
@@ -2855,33 +2617,6 @@ mod tests {
             settings,
             created_at: "2026-04-18T12:00:00Z".to_string(),
             updated_at: "2026-04-18T12:00:00Z".to_string(),
-        }
-    }
-
-    fn sample_custom_provider(id: &str, env: Value) -> Provider {
-        Provider {
-            id: id.to_string(),
-            name: id.to_string(),
-            localized_name: None,
-            description: String::new(),
-            doc_url: None,
-            models: None,
-            model_suggestions: vec![],
-            env: env.as_object().cloned().unwrap_or_default(),
-            source: ProviderSource::Custom,
-        }
-    }
-
-    fn sample_provider_input(name: &str, localized_name: Option<LocalizedText>) -> ProviderInput {
-        ProviderInput {
-            id: None,
-            name: name.to_string(),
-            localized_name,
-            description: String::new(),
-            doc_url: None,
-            models: None,
-            model_suggestions: vec![],
-            env: Map::new(),
         }
     }
 
@@ -3023,73 +2758,11 @@ mod tests {
     }
 
     #[test]
-    fn new_custom_provider_id_uses_english_name_slug() {
-        let registry = ConfigRegistry::default();
-        let input = sample_provider_input(
-            "General Config",
-            Some(LocalizedText {
-                zh: "通用配置".to_string(),
-                en: "General Config".to_string(),
-            }),
-        );
-
-        assert_eq!(
-            build_custom_provider_id(&registry, &input),
-            "custom:general-config"
-        );
-    }
-
-    #[test]
-    fn new_custom_provider_id_appends_suffix_on_conflict() {
-        let mut registry = ConfigRegistry::default();
-        registry.custom_providers.push(sample_custom_provider(
-            "custom:general-config",
-            serde_json::json!({}),
-        ));
-        let input = sample_provider_input("General Config", None);
-
-        assert_eq!(
-            build_custom_provider_id(&registry, &input),
-            "custom:general-config-2"
-        );
-    }
-
-    #[test]
-    fn new_custom_provider_id_falls_back_to_uuid_when_slug_is_empty() {
-        let registry = ConfigRegistry::default();
-        let input = sample_provider_input("通用配置", None);
-        let id = build_custom_provider_id(&registry, &input);
-
-        assert!(id.starts_with("custom:"));
-        assert!(Uuid::parse_str(id.trim_start_matches("custom:")).is_ok());
-    }
-
-    #[test]
-    fn custom_provider_id_keeps_existing_id_when_editing() {
-        let registry = ConfigRegistry::default();
-        let mut input = sample_provider_input("Renamed Config", None);
-        input.id = Some("custom:existing-id".to_string());
-
-        assert_eq!(
-            build_custom_provider_id(&registry, &input),
-            "custom:existing-id"
-        );
-    }
-
-    #[test]
     fn resolve_profile_settings_merges_provider_env_then_profile_overrides() {
-        let mut registry = ConfigRegistry::default();
-        // 供应商只提供 env（地址 + 模型映射），无继承
-        registry.custom_providers.push(sample_custom_provider(
-            "custom:team-openrouter",
-            serde_json::json!({
-                "ANTHROPIC_BASE_URL": "https://openrouter.ai/api",
-                "ANTHROPIC_MODEL": "provider-model"
-            }),
-        ));
+        // 供应商只提供 env（地址 + 模型映射），无继承；这里用内置 DeepSeek 供应商
         let profile = sample_profile(
-            "user-openrouter",
-            Some("custom:team-openrouter"),
+            "user-deepseek",
+            Some("builtin:deepseek"),
             serde_json::json!({
                 "model": "claude-sonnet-4-6",
                 "env": {
@@ -3100,11 +2773,11 @@ mod tests {
             }),
         );
 
-        let resolved = resolve_profile_settings(&registry, &profile).unwrap();
+        let resolved = resolve_profile_settings(&profile).unwrap();
         // 地址来自供应商 env，旧 profile.settings.env 中的地址不能隐式覆盖供应商身份
         assert_eq!(
             resolved["env"]["ANTHROPIC_BASE_URL"],
-            Value::String("https://openrouter.ai/api".to_string())
+            Value::String("https://api.deepseek.com/anthropic".to_string())
         );
         // 来自 profile.settings.env
         assert_eq!(
@@ -3141,7 +2814,6 @@ mod tests {
     // COMPAT(presetId→providerId): 兼容回归测试，0.23.0 移除兼容逻辑时一并删除
     #[test]
     fn resolve_skips_dangling_provider_id_without_error() {
-        let mut registry = ConfigRegistry::default();
         let profile = sample_profile(
             "p",
             Some("custom:gone"),
@@ -3152,8 +2824,7 @@ mod tests {
                 }
             }),
         );
-        registry.profiles.push(profile.clone());
-        let resolved = resolve_profile_settings(&registry, &profile).unwrap();
+        let resolved = resolve_profile_settings(&profile).unwrap();
         assert_eq!(
             resolved["env"]["ANTHROPIC_AUTH_TOKEN"],
             Value::String("tok".to_string())
@@ -3759,47 +3430,6 @@ mod tests {
     }
 
     #[test]
-    fn updating_custom_provider_reapplies_bound_profiles() {
-        let _guard = crate::utils::lock_config().unwrap();
-        let root = temp_root("preset-reapply");
-        set_test_env(&root);
-
-        let mut registry = ConfigRegistry::default();
-        registry.custom_providers.push(sample_custom_provider(
-            "custom:base",
-            serde_json::json!({
-                "ANTHROPIC_BASE_URL": "https://old.example.com"
-            }),
-        ));
-        registry.profiles.push(sample_profile(
-            "user-1",
-            Some("custom:base"),
-            serde_json::json!({
-                "env": {
-                    "ANTHROPIC_AUTH_TOKEN": "token"
-                }
-            }),
-        ));
-        registry.bindings.user_profile_id = Some("user-1".to_string());
-        apply_profile_to_registry(&mut registry, "user-1").unwrap();
-
-        registry.custom_providers[0].env = serde_json::json!({
-            "ANTHROPIC_BASE_URL": "https://new.example.com"
-        })
-        .as_object()
-        .cloned()
-        .unwrap();
-        for profile_id in bound_profile_ids_using_provider(&registry, "custom:base") {
-            apply_profile_to_registry(&mut registry, &profile_id).unwrap();
-        }
-
-        let written = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
-        assert!(written.contains("https://new.example.com"));
-
-        clear_test_env();
-    }
-
-    #[test]
     fn example_snapshots_match_registry_and_settings_output() {
         let registry = ConfigRegistry {
             schema: CONFIG_REGISTRY_SCHEMA_URL.to_string(),
@@ -3822,31 +3452,11 @@ mod tests {
                 floating_widget_metrics: default_floating_widget_metrics(),
                 floating_widget_opacity: default_floating_widget_opacity(),
             },
-            custom_providers: vec![Provider {
-                id: "custom:team-plan".to_string(),
-                name: "Team Plan".to_string(),
-                localized_name: Some(LocalizedText {
-                    zh: "团队计划".to_string(),
-                    en: "Team Plan".to_string(),
-                }),
-                description: "团队 OpenRouter 供应商".to_string(),
-                doc_url: Some("https://example.com/provider-docs".to_string()),
-                models: None,
-                model_suggestions: vec!["claude-sonnet-4-6".to_string()],
-                env: serde_json::json!({
-                    "ANTHROPIC_BASE_URL": "https://openrouter.ai/api",
-                    "ANTHROPIC_MODEL": "claude-sonnet-4-6"
-                })
-                .as_object()
-                .cloned()
-                .unwrap(),
-                source: ProviderSource::Custom,
-            }],
             profiles: vec![ConfigProfile {
-                id: "user-openrouter".to_string(),
-                name: "OpenRouter User".to_string(),
+                id: "user-deepseek".to_string(),
+                name: "DeepSeek User".to_string(),
                 description: "全局开发默认配置".to_string(),
-                provider_id: Some("custom:team-plan".to_string()),
+                provider_id: Some("builtin:deepseek".to_string()),
                 settings: stable_sort_json(serde_json::json!({
                     "env": {
                         "ANTHROPIC_AUTH_TOKEN": "token"
@@ -3857,7 +3467,7 @@ mod tests {
                 updated_at: "2026-04-18T12:00:00+08:00".to_string(),
             }],
             bindings: BindingState {
-                user_profile_id: Some("user-openrouter".to_string()),
+                user_profile_id: Some("user-deepseek".to_string()),
                 user_last_applied_at: Some("2026-04-18T12:00:00+08:00".to_string()),
             },
         };
@@ -3868,7 +3478,7 @@ mod tests {
             registry_json
         );
 
-        let resolved = resolve_profile_settings(&registry, &registry.profiles[0]).unwrap();
+        let resolved = resolve_profile_settings(&registry.profiles[0]).unwrap();
         let settings_json = serde_json::to_string_pretty(&resolved).unwrap();
         assert_eq!(
             include_str!("../tests/fixtures/claude-settings.example.json").trim(),

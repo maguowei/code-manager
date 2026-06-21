@@ -35,7 +35,6 @@ describe("ui system contract", () => {
 
     for (const file of [
       "src/components/ProfilesPage.tsx",
-      "src/components/ProvidersPage.tsx",
       "src/components/MemoryPage.tsx",
       "src/components/SkillsPage.tsx",
       "src/components/StatsPage.tsx",
@@ -96,9 +95,8 @@ describe("ui system contract", () => {
     }
 
     const presetsSource = readFileSync("src/components/ProvidersPage.tsx", "utf8");
-    expect(presetsSource).toContain("PRESET_CARD_CLASS");
+    expect(presetsSource).toContain("PROVIDER_CARD_CLASS");
     expect(presetsSource).toContain("bg-card");
-    expect(presetsSource).not.toContain('PRESET_BUILTIN_CARD_CLASS = "builtin bg-muted');
   });
 
   it("keeps the app shell background on semantic tokens", () => {
@@ -291,7 +289,6 @@ describe("ui system contract", () => {
   it("keeps global page and drawer canvases visually separated from content surfaces", () => {
     for (const file of [
       "src/components/ProfileEditor.tsx",
-      "src/components/ProviderEditor.tsx",
       "src/components/MemoryEditor.tsx",
       "src/components/SkillEditor.tsx",
       "src/components/usage/SessionUsageDrawer.tsx",
@@ -488,7 +485,6 @@ describe("ui system contract", () => {
       ["src/components/ClaudeOverviewPage.tsx", ["TYPOGRAPHY.pageTitle"]],
       ["src/components/ProjectDetailPanel.tsx", ["TYPOGRAPHY.pageTitle"]],
       ["src/components/ProfilesPage.tsx", ["TYPOGRAPHY.badge"]],
-      ["src/components/ProvidersPage.tsx", ["TYPOGRAPHY.mutedBody"]],
       [
         "src/components/UsagePage.tsx",
         ["TYPOGRAPHY.metricEmphasis", "TYPOGRAPHY.metricValue", "[&_.num]:tabular-nums"],

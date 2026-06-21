@@ -34,18 +34,6 @@ type ModelTestInput = ProfileInput & {
   promptText?: string | null;
 };
 
-type ProviderInput = {
-  id?: string | null;
-  name: string;
-  localizedName?: AppTypes.LocalizedText | null;
-  description: string;
-  docUrl?: string | null;
-  models?: AppTypes.ProviderModel[] | null;
-  modelSuggestions: string[];
-  /** 供应商连接与模型映射环境变量（扁平键值对） */
-  env?: Record<string, string>;
-};
-
 type MemoryData = {
   id?: string | null;
   name: string;
@@ -107,7 +95,6 @@ type CompatibleIpcOverrides = {
   ): Promise<null>;
   deleteClaudeDirectoryEntry(path: string): Promise<null>;
   deleteMemory(id: string): Promise<AppTypes.MemoryState>;
-  deleteProvider(id: string): Promise<null>;
   deleteProfile(id: string): Promise<null>;
   deleteSkill(id: string, isActive: boolean): Promise<null>;
   duplicateMemory(id: string, nameSuffix: string): Promise<AppTypes.MemoryState>;
@@ -185,7 +172,6 @@ type CompatibleIpcOverrides = {
   toggleSkill(id: string, isActive: boolean): Promise<AppTypes.Skill>;
   updateMemory(id: string, data: MemoryData): Promise<AppTypes.MemoryState>;
   updateSkill(id: string, isActive: boolean, data: SkillData): Promise<AppTypes.Skill>;
-  upsertProvider(data: ProviderInput): Promise<AppTypes.Provider>;
   upsertProfile(data: ProfileInput): Promise<AppTypes.ConfigProfile>;
 };
 

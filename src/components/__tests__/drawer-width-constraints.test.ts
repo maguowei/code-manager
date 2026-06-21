@@ -31,7 +31,6 @@ describe("drawer width constraints", () => {
 
   it("keeps the config editor scroll surface full width while constraining form content", () => {
     const profileEditorSource = readText("src/components/ProfileEditor.tsx");
-    const presetEditorSource = readText("src/components/ProviderEditor.tsx");
     const memoryEditorSource = readText("src/components/MemoryEditor.tsx");
     const skillEditorSource = readText("src/components/SkillEditor.tsx");
 
@@ -39,14 +38,6 @@ describe("drawer width constraints", () => {
     expect(profileEditorSource).toContain("items-center");
     expect(profileEditorSource).toContain("bg-secondary");
     expect(profileEditorSource).toContain(
-      "[&>:not([data-slot=profile-name-badge])]:w-[min(100%,880px)]",
-    );
-    expect(presetEditorSource).toContain('data-slot="preset-editor-panel"');
-    expect(presetEditorSource).toContain("min-w-[560px]");
-    expect(presetEditorSource).toContain('data-slot="preset-editor-body"');
-    expect(presetEditorSource).toContain("items-center");
-    expect(presetEditorSource).toContain("bg-secondary");
-    expect(presetEditorSource).toContain(
       "[&>:not([data-slot=profile-name-badge])]:w-[min(100%,880px)]",
     );
     expect(memoryEditorSource).toContain("min-w-[560px]");
@@ -64,7 +55,6 @@ describe("drawer width constraints", () => {
   it("offsets list detail drawers after the sidebar and compressed list panel", () => {
     const layoutSizeSource = readText("src/components/layout-size-classes.ts");
     const profilesPageSource = readText("src/components/ProfilesPage.tsx");
-    const presetsPageSource = readText("src/components/ProvidersPage.tsx");
     const memoryPageSource = readText("src/components/MemoryPage.tsx");
     const skillsPageSource = readText("src/components/SkillsPage.tsx");
 
@@ -72,12 +62,7 @@ describe("drawer width constraints", () => {
     expect(layoutSizeSource).toContain("LIST_DETAIL_DRAWER_OFFSET_CLASS");
     expect(layoutSizeSource).toContain("left-[calc(var(--app-sidebar-width)+300px)]");
 
-    for (const source of [
-      profilesPageSource,
-      presetsPageSource,
-      memoryPageSource,
-      skillsPageSource,
-    ]) {
+    for (const source of [profilesPageSource, memoryPageSource, skillsPageSource]) {
       expect(source).toContain("LIST_DETAIL_DRAWER_OFFSET_CLASS");
       expect(source).not.toContain("left-[340px]");
     }

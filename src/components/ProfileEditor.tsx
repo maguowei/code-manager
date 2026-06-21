@@ -1,5 +1,5 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ArrowLeft, CircleAlert, CircleCheck, ExternalLink, TestTube } from "lucide-react";
+import { ArrowLeft, CircleAlert, CircleCheck, ExternalLink, Eye, TestTube } from "lucide-react";
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { getUserFacingErrorReason, showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
@@ -25,7 +25,6 @@ import {
 } from "./config-workspace-utils";
 import {
   EDITOR_CONTROL_SURFACE_CLASS,
-  EditorDescription,
   EditorEnvHint,
   EditorField,
   EditorFieldGrid,
@@ -44,6 +43,7 @@ import {
   setAttributionDisabled,
 } from "./profile-editor/editor-shared-constants";
 import { readObject, readString } from "./profile-editor/editor-utils";
+import FieldHelpButton from "./profile-editor/FieldHelpButton";
 import { readPermissionsDefaultMode } from "./profile-editor/PermissionsEditor";
 import RequiredBadge from "./profile-editor/RequiredBadge";
 import { getSandboxPresentation } from "./profile-editor/SandboxEditor";
@@ -114,9 +114,12 @@ interface ProfileEditorProps {
   providers: Provider[];
   onSave: (data: ProfileEditorSaveData) => Promise<boolean> | boolean;
   onClose: () => void;
+  /** 打开内置供应商只读一览（供应商选项区入口）。 */
+  onViewBuiltinProviders?: () => void;
 }
 
-const NO_PROVIDER_VALUE = "__none__";
+// 哨兵值：下拉里的「自定义」项（无内置 providerId，地址由用户手填）；保存前映射为 ""
+const CUSTOM_PROVIDER_VALUE = "__none__";
 
 function buildInitialProfileSettings(
   profile: ConfigProfile | null,
@@ -147,7 +150,7 @@ function profileSaveDataEquals(left: ProfileEditorSaveData, right: ProfileEditor
 }
 
 const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(function ProfileEditor(
-  { profile, providers, onSave, onClose },
+  { profile, providers, onSave, onClose, onViewBuiltinProviders },
   ref,
 ) {
   const { language, t } = useI18n();
@@ -772,13 +775,29 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
 
         <EditorSection title={messages.auth}>
           <EditorField>
-            <Label htmlFor="profile-provider">{messages.provider}</Label>
+            <EditorLabelRow className="justify-between">
+              <div className="flex items-center gap-1.5">
+                <Label htmlFor="profile-provider">{messages.provider}</Label>
+                <FieldHelpButton helperKey={messages.providerHint} />
+              </div>
+              {onViewBuiltinProviders ? (
+                <Button
+                  type="button"
+                  variant="link"
+                  className="h-auto gap-1.5 p-0 text-xs font-semibold text-primary hover:text-primary"
+                  onClick={onViewBuiltinProviders}
+                >
+                  <Eye className="size-3.5" aria-hidden="true" />
+                  <span>{t("profiles.editor.actions.viewBuiltinProviders")}</span>
+                </Button>
+              ) : null}
+            </EditorLabelRow>
             <div className="grid max-w-full grid-cols-[minmax(0,520px)_max-content] items-center gap-3 max-[700px]:grid-cols-[minmax(0,1fr)] max-[700px]:items-stretch">
               <div className="min-w-0">
                 <Select
-                  value={providerId || NO_PROVIDER_VALUE}
+                  value={providerId || CUSTOM_PROVIDER_VALUE}
                   onValueChange={(value) =>
-                    handleProviderChange(value === NO_PROVIDER_VALUE ? "" : value)
+                    handleProviderChange(value === CUSTOM_PROVIDER_VALUE ? "" : value)
                   }
                 >
                   <SelectTrigger
@@ -794,8 +813,8 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      <SelectItem value={NO_PROVIDER_VALUE}>
-                        {t("profiles.editor.options.noProvider")}
+                      <SelectItem value={CUSTOM_PROVIDER_VALUE}>
+                        {t("profiles.editor.options.customProvider")}
                       </SelectItem>
                       {providers.map((provider) => (
                         <SelectItem key={provider.id} value={provider.id}>
@@ -818,16 +837,15 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
                 </Button>
               ) : null}
             </div>
-            <EditorDescription>{messages.providerHint}</EditorDescription>
           </EditorField>
 
-          {/* 地址只读：来自所选供应商的 env.ANTHROPIC_BASE_URL，不写入 profile.settings */}
-          {selectedProvider && (
-            <EditorField>
-              <EditorLabelRow>
-                <Label htmlFor="profile-base-url">{messages.baseUrl}</Label>
-                <EditorEnvHint>{messages.baseUrlEnv}</EditorEnvHint>
-              </EditorLabelRow>
+          {/* 选中内置供应商时地址只读（来自供应商 env）；自定义模式下可编辑，写入 profile.settings.env */}
+          <EditorField>
+            <EditorLabelRow>
+              <Label htmlFor="profile-base-url">{messages.baseUrl}</Label>
+              <EditorEnvHint>{messages.baseUrlEnv}</EditorEnvHint>
+            </EditorLabelRow>
+            {selectedProvider ? (
               <Input
                 id="profile-base-url"
                 aria-label={messages.baseUrlEnv}
@@ -840,8 +858,19 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
                   selectedProvider.env?.ANTHROPIC_BASE_URL ? undefined : (messages.baseUrl ?? "")
                 }
               />
-            </EditorField>
-          )}
+            ) : (
+              <Input
+                id="profile-base-url"
+                aria-label={messages.baseUrlEnv}
+                className={EDITOR_CONTROL_SURFACE_CLASS}
+                value={readEnvString(settings, "ANTHROPIC_BASE_URL")}
+                placeholder="https://api.anthropic.com"
+                onChange={(event) =>
+                  applySettings(setEnvString(settings, "ANTHROPIC_BASE_URL", event.target.value))
+                }
+              />
+            )}
+          </EditorField>
 
           <EditorField>
             <EditorLabelRow>

@@ -4,7 +4,7 @@
 
 > 本文档面向终端用户。面向 Claude Code / Codex 等编程代理的执行手册见仓库根目录的 `CLAUDE.md`。
 
-AI Manager 是面向 Claude Code 用户的本地桌面管理工具。它把 `~/.claude` 目录、Profile、Preset、记忆、Skills、历史、统计、Token 用量、项目状态、系统托盘和诊断日志集中到一个 Tauri 应用中,帮助你用更可见、可预览、可验证的方式维护 Claude Code 本地配置。
+AI Manager 是面向 Claude Code 用户的本地桌面管理工具。它把 `~/.claude` 目录、配置、供应商、记忆、Skills、历史、统计、Token 用量、项目状态、系统托盘和诊断日志集中到一个 Tauri 应用中,帮助你用更可见、可预览、可验证的方式维护 Claude Code 本地配置。
 
 ## 目录
 
@@ -12,8 +12,8 @@ AI Manager 是面向 Claude Code 用户的本地桌面管理工具。它把 `~/.
 - [快速开始](#快速开始)
 - [主界面导航](#主界面导航)
 - [`~/.claude` 目录总览](#claude-目录总览)
-- [配置 Profile](#配置-profile)
-- [预设 Preset](#预设-preset)
+- [配置](#配置)
+- [供应商 Provider](#供应商-provider)
 - [记忆管理](#记忆管理)
 - [Skills 管理](#skills-管理)
 - [项目管理](#项目管理)
@@ -28,15 +28,15 @@ AI Manager 是面向 Claude Code 用户的本地桌面管理工具。它把 `~/.
 
 ## 核心概念
 
-### Profile
+### 配置
 
-Profile 是最终可以应用到 `~/.claude/settings.json` 的用户配置,通常包含认证密钥、API 地址、默认模型、权限、Sandbox、Hooks、插件、状态行等字段。Profile 可以引用一个 Preset;应用 Profile 时,AI Manager 会把 Preset 链上的补丁和 Profile 自身配置合并,生成最终 JSON 并写入 `~/.claude/settings.json`。
+配置是最终可以应用到 `~/.claude/settings.json` 的用户配置,通常包含认证密钥、API 地址、默认模型、权限、Sandbox、Hooks、插件、状态行等字段。配置可以引用一个内置供应商;应用配置时,AI Manager 会把供应商的 `env`(地址与模型映射)和配置自身配置合并,生成最终 JSON 并写入 `~/.claude/settings.json`。
 
-如果本机已有 `~/.claude/settings.json`,配置页可在未创建 Profile 时识别并导入为托管 Profile。已应用 Profile 后,如果真实 `settings.json` 被外部修改,页面会显示差异提示,可查看 diff 后选择接受实际配置或重新应用托管配置。
+如果本机已有 `~/.claude/settings.json`,配置页可在未创建配置时识别并导入为托管配置。已应用配置后,如果真实 `settings.json` 被外部修改,页面会显示差异提示,可查看 diff 后选择接受实际配置或重新应用托管配置。
 
-### Preset
+### Provider(供应商)
 
-Preset 是可复用的配置补丁,适合沉淀 Provider、模型建议、默认环境变量、插件、权限规则等公共配置。内置 Preset 覆盖 Anthropic、DeepSeek、智谱 GLM Coding Plan、Kimi Code Plan、MiniMax Token Plan、小米 MiMo Token Plan、OpenRouter、火山方舟 Coding Plan、阿里云百炼 Coding Plan、ModelScope、万界方舟和 Ollama。自定义 Preset 可以继承另一个 Preset;Profile 引用 Preset 后,Profile 中的字段会覆盖 Preset 中的同名字段。
+供应商只承载供应商客观信息(连接地址、模型映射与可选附加环境变量),不含认证密钥,且均为内置只读、不可自定义。内置供应商覆盖 Anthropic、DeepSeek、智谱 GLM Coding Plan、Kimi Code Plan、MiniMax Token Plan、小米 MiMo Token Plan、OpenRouter、火山方舟 Coding Plan、阿里云百炼 Coding Plan、ModelScope、万界方舟和 Ollama。配置引用供应商后,配置中的同名字段会覆盖供应商的 `env`(地址除外:地址以供应商为单一事实源)。
 
 ### 记忆
 
@@ -65,10 +65,10 @@ Skills 对应 `~/.claude/skills/<id>/SKILL.md`。启用的 Skill 保存在 `~/.c
 建议首次配置顺序:
 
 1. 打开左下角设置,选择界面语言、主题、默认终端和默认编辑器。
-2. 进入预设页查看是否已有合适 Provider 预设。
-3. 进入配置页新建 Profile,填写认证密钥和模型配置。
+2. 进入配置页新建配置,在「供应商」选项处选择合适的内置供应商。
+3. 填写认证密钥和模型配置。
 4. 点击测试模型确认 API 地址、Token 和模型可用。
-5. 点击启用将 Profile 应用到 `~/.claude/settings.json`。
+5. 点击启用将配置应用到 `~/.claude/settings.json`。
 6. 进入目录总览确认 `settings.json` 写入符合预期。
 
 ## 主界面导航
@@ -76,17 +76,16 @@ Skills 对应 `~/.claude/skills/<id>/SKILL.md`。启用的 Skill 保存在 `~/.c
 | 入口 | 用途 |
 | --- | --- |
 | `AI` | 打开或收起 `~/.claude` 目录总览 |
-| 配置 | 管理 Profile,生成并应用 Claude Code 用户设置 |
+| 配置 | 管理配置,生成并应用 Claude Code 用户设置 |
 | 记忆 | 管理 `CLAUDE.md` 与 `rules/*.md` |
 | Skills | 管理 Claude Code Skills |
-| 预设 | 查看内置 Preset,维护自定义 Preset |
 | 项目 | 查看 Claude 项目路径、Git 状态、worktree、项目级 `.claude/` 与 AGENTS / Skills 配对状态 |
 | 历史 | 查看 `~/.claude/history.jsonl` 中的历史输入与会话详情 |
 | 统计 | 查看 `~/.claude.json` 中的本地统计快照 |
 | 用量 | 查看 `~/.claude/projects/` 中的 Token 与费用聚合 |
 | 设置 | 调整语言、主题、托盘、默认终端、默认编辑器和诊断入口 |
 
-多数页面的新增或编辑操作会打开右侧抽屉,支持控件模式、JSON 模式或预览。Profile、Preset、记忆和 Skill 编辑器存在未保存更改时,关闭或切换会提示保存、丢弃或继续编辑。
+多数页面的新增或编辑操作会打开右侧抽屉,支持控件模式、JSON 模式或预览。配置、记忆和 Skill 编辑器存在未保存更改时,关闭或切换会提示保存、丢弃或继续编辑。
 
 ## `~/.claude` 目录总览
 
@@ -96,21 +95,21 @@ Skills 对应 `~/.claude/skills/<id>/SKILL.md`。启用的 Skill 保存在 `~/.c
 
 目录总览只允许操作 `~/.claude` 内部路径;扫描会跳过软链接和 `node_modules`,达到条目数或深度上限时显示提示。
 
-## 配置 Profile
+## 配置
 
 配置页是管理 Claude Code settings 的主入口。
 
-### Profile 列表
+### 配置列表
 
-卡片展示名称、描述、是否已应用、主要模型、努力级别、权限模式、Sandbox 状态、插件摘要和最近一次模型测试结果。可执行新建、启用(写入 `~/.claude/settings.json`)、复制环境变量(生成 `export KEY="value"` 文本)、复制副本、编辑、删除、一键测试所有 Profile、拖拽排序。已启用的 Profile 还可一键"同步常用选项与插件到其他配置",把当前配置的常用选项、插件市场和已启用插件复制到其余 Profile,便于团队统一基线。
+卡片展示名称、描述、是否已应用、主要模型、努力级别、权限模式、Sandbox 状态、插件摘要和最近一次模型测试结果。可执行新建、启用(写入 `~/.claude/settings.json`)、复制环境变量(生成 `export KEY="value"` 文本)、复制副本、编辑、删除、一键测试所有配置、拖拽排序。已启用的配置还可一键"同步常用选项与插件到其他配置",把当前配置的常用选项、插件市场和已启用插件复制到其余配置,便于团队统一基线。
 
-当配置页发现未托管的 `~/.claude/settings.json` 且尚无 Profile 时,会显示导入卡片。导入会原地接管当前 settings 内容,不会立即改写文件。已绑定 Profile 与真实 settings 不一致时,卡片会显示差异入口:选择"接受实际配置"会把当前文件内容写回 Profile;选择"重新应用"会用 Profile 解析结果覆盖 `settings.json`。
+当配置页发现未托管的 `~/.claude/settings.json` 且尚无配置时,会显示导入卡片。导入会原地接管当前 settings 内容,不会立即改写文件。已绑定配置与真实 settings 不一致时,卡片会显示差异入口:选择"接受实际配置"会把当前文件内容写回配置;选择"重新应用"会用配置解析结果覆盖 `settings.json`。
 
-### 新建或编辑 Profile
+### 新建或编辑配置
 
-右侧 Profile 编辑器分多块。
+右侧配置编辑器分多块。
 
-- **基础信息**:名称(必填)、描述、可选 Preset(选择后自动带入模型建议和补丁)。
+- **基础信息**:名称(必填)、描述、可选供应商(选择后自动带入连接地址与模型映射)。
 - **认证**:认证密钥写入 `env.ANTHROPIC_AUTH_TOKEN`;API 地址写入 `env.ANTHROPIC_BASE_URL`,未设置时模型测试使用 Anthropic 官方地址。
 - **模型与行为**:默认模型、努力级别(`auto`/`low`/`medium`/`high`/`xhigh`/`max`)、Opus / Sonnet / Haiku 默认模型、Subagent 模型、回复语言、输出风格。
 - **常用选项**:覆盖深度思考、Thinking 摘要、Fast Mode、禁用 Hooks、禁用 AI 署名、LSP 工具、Tool Search、新版 Init、无闪烁、Agent Teams 等 Claude Code 常用开关。具体可在编辑器内查看。
@@ -121,7 +120,7 @@ Skills 对应 `~/.claude/skills/<id>/SKILL.md`。启用的 Skill 保存在 `~/.c
 - **插件市场**:维护 `extraKnownMarketplaces`,支持官方市场预设;每个 Marketplace 需完整填写 ID、来源、仓库或 URL、路径、包名、安装位置。
 - **插件**:维护 `enabledPlugins`,分"已配置"和"浏览市场"两个 Tab。浏览市场目前仅支持 `github` 来源,可按 Marketplace / 启用状态 / 类别 / 来源筛选,点击启用会立即同步到已配置列表。
 - **状态行**:配置自定义状态行命令,可启用默认状态行预设(非 Windows 写入 `~/.claude/statusline.sh`,Windows 写入 `~/.claude/statusline.ps1` 并自动设置 PowerShell 调用命令);目标已存在且内容不同时会提示是否覆盖。
-- **最终配置**:预览 Preset 与 Profile 合并后的最终 JSON;源 JSON 模式可直接维护整个 settings 对象,预览自动加入 schema 地址。
+- **最终配置**:预览供应商与配置合并后的最终 JSON;源 JSON 模式可直接维护整个 settings 对象,预览自动加入 schema 地址。
 
 ### 模型测试
 
@@ -129,15 +128,11 @@ Skills 对应 `~/.claude/skills/<id>/SKILL.md`。启用的 Skill 保存在 `~/.c
 
 模型测试需要有效的 `ANTHROPIC_AUTH_TOKEN` 和可访问的模型 API。
 
-## 预设 Preset
+## 供应商 Provider
 
-预设页分内置预设和自定义预设。
+供应商均为内置且只读,只承载供应商客观信息(连接地址 `ANTHROPIC_BASE_URL`、模型映射与可选附加环境变量),不含认证密钥。当前覆盖 Anthropic、DeepSeek、智谱 GLM Coding Plan、Kimi Code Plan、MiniMax Token Plan、小米 MiMo Token Plan、OpenRouter、火山方舟 Coding Plan、阿里云百炼 Coding Plan、ModelScope、万界方舟和 Ollama。
 
-内置预设只读,展示 Provider 名称、Preset ID、官方文档链接和推荐模型,用于快速给 Profile 提供基础配置。
-
-自定义预设可新增、编辑和删除,适合团队沉淀公共 Provider 配置。编辑时可配置:中英文名称、描述、文档链接、基础预设、推荐模型列表(英文逗号分隔),以及与 Profile 编辑器相同的认证、模型与行为、常用选项、环境变量、权限、Sandbox、Hooks、插件市场、插件、状态行和补丁预览。
-
-删除自定义 Preset 不会自动删除引用它的 Profile,但保存或预览相关 Profile 可能因找不到 Preset 失败。删除前建议先检查引用。
+不支持自定义供应商。在配置编辑器的「供应商」选项处选择一个内置供应商后,其连接地址与模型映射会自动带入;你只需补充认证密钥与行为设置。点击该选项下方的「查看内置供应商」可打开只读一览,查看每个供应商的名称、ID、API 地址、官方文档链接和推荐模型。
 
 ## 记忆管理
 
@@ -256,7 +251,7 @@ Skills 页管理 `~/.claude/skills/` 下的 Claude Code Skill。
 
 AI Manager 常驻系统托盘(菜单栏),菜单分两部分:
 
-- 主托盘:切换当前 Profile、快速跳转到各页面、退出应用。切换 Profile 等价于在配置页启用对应 Profile。
+- 主托盘:切换当前配置、快速跳转到各页面、退出应用。切换配置等价于在配置页启用对应配置。
 - 会话托盘:读取 `~/.claude/sessions/*.json`,按状态汇总当前 Claude 会话(等待输入 / 工作中 / 空闲)。是否显示、字符限制、会话计数样式和待处理呼吸灯都在设置中调整(见下文)。
 
 **会话聚焦**:在支持的平台点击会话条目,或使用会话聚焦快捷键,可回到对应终端 tab。该能力**仅 macOS** 可用,通过 `pid → tty → AppleScript` 精确聚焦 Terminal.app 与 iTerm2,Ghostty 按工作目录近似匹配,Warp 因缺少官方 AppleScript 暂不支持。Linux 与 Windows 不支持自动聚焦,点击会话不会切换终端。详见 [平台支持差异](./platform-support.md)。
@@ -275,7 +270,7 @@ AI Manager 常驻系统托盘(菜单栏),菜单分两部分:
 
 ### 菜单栏与会话状态
 
-- 在菜单栏显示当前配置:在托盘图标旁显示当前激活的 Profile 名称;字符数限制可设为关闭、最多 N 字或全展示。
+- 在菜单栏显示当前配置:在托盘图标旁显示当前激活的配置名称;字符数限制可设为关闭、最多 N 字或全展示。
 - 在菜单栏显示当前会话:在独立菜单栏区域显示 Claude 当前会话及状态。
 - 会话计数样式:数字(`🔴 1 🟢 1`)、上标(`🔴¹ 🟢¹`)或紧凑(`🔴¹🟢¹`)。
 - 待处理会话呼吸灯:有等待输入的会话时,菜单栏状态做呼吸灯式脉动提示。
@@ -365,18 +360,12 @@ AI Manager 主要读写本机文件。配置合并、目录扫描、用量聚合
 
 ## 常见工作流
 
-### 创建并启用一个 Provider Profile
+### 创建并启用一个供应商配置
 
-1. 进入配置页新建配置,选择对应 Preset,填写认证密钥。
+1. 进入配置页新建配置,在「供应商」选项处选择一个内置供应商,填写认证密钥。
 2. 按需调整默认模型、努力级别和常用选项,打开最终配置预览确认 `env` 与权限。
 3. 点击测试模型,成功后保存。
 4. 回到列表点击启用,进入目录总览检查 `settings.json`。
-
-### 给团队沉淀公共配置
-
-1. 进入预设页新增预设,填写中英文名称、描述、文档链接,选择基础预设。
-2. 填写推荐模型,设置权限、Sandbox、Hooks、插件市场和插件。
-3. 保存后让团队 Profile 引用该 Preset。
 
 ### 接管已有 `CLAUDE.md` 和 Rules
 
@@ -391,7 +380,7 @@ AI Manager 主要读写本机文件。配置合并、目录扫描、用量聚合
 
 ### 排查模型无法调用
 
-1. 编辑目标 Profile,确认认证密钥、API 地址和模型。
+1. 编辑目标配置,确认认证密钥、API 地址和模型。
 2. 点击测试模型,在结果中查看状态码、请求地址、请求体和原始响应。
 3. 必要时复制 cURL 到终端复现;如是应用自身保存或调用失败,进入设置查看日志。
 
@@ -403,17 +392,17 @@ AI Manager 主要读写本机文件。配置合并、目录扫描、用量聚合
 
 ## 常见问题
 
-### 启用 Profile 后写到哪里?
+### 启用配置后写到哪里?
 
-写入 `~/.claude/settings.json`,内容是 Preset 链与 Profile 自身 settings 合并后的最终 JSON,并带 Claude Code settings schema。
+写入 `~/.claude/settings.json`,内容是供应商 `env` 与配置自身 settings 合并后的最终 JSON,并带 Claude Code settings schema。
 
-### 删除 Profile 会删除 `settings.json` 吗?
+### 删除配置会删除 `settings.json` 吗?
 
-不会。删除 Profile 只移除管理记录和绑定状态,不会清理已经写出的 `~/.claude/settings.json`。
+不会。删除配置只移除管理记录和绑定状态,不会清理已经写出的 `~/.claude/settings.json`。
 
 ### 为什么模型测试提示缺少 `ANTHROPIC_AUTH_TOKEN`?
 
-当前 Profile 最终配置中没有可用的认证密钥。请在认证区填写,或确认 Preset / JSON 中的 `env.ANTHROPIC_AUTH_TOKEN` 是否被覆盖为空。
+当前配置最终配置中没有可用的认证密钥。请在认证区填写,或确认 JSON 中的 `env.ANTHROPIC_AUTH_TOKEN` 是否被覆盖为空。
 
 ### 为什么项目页没有项目?
 

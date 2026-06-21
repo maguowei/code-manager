@@ -25,7 +25,6 @@ const PRESETS: Provider[] = [
     env: {
       ANTHROPIC_BASE_URL: "https://openrouter.ai/api",
     },
-    source: "builtin",
   },
   {
     id: "custom:env-model",
@@ -42,7 +41,6 @@ const PRESETS: Provider[] = [
       ANTHROPIC_DEFAULT_HAIKU_MODEL: "haiku-env-override",
       CLAUDE_CODE_SUBAGENT_MODEL: "subagent-env-override",
     },
-    source: "custom",
   },
   {
     id: "custom:suggestions-only",
@@ -54,7 +52,6 @@ const PRESETS: Provider[] = [
     },
     modelSuggestions: ["claude-suggestion-only"],
     env: {},
-    source: "custom",
   },
   {
     id: "custom:sonnet-only",
@@ -67,7 +64,6 @@ const PRESETS: Provider[] = [
     models: [{ id: "claude-sonnet-only", category: "sonnet" }],
     modelSuggestions: [],
     env: {},
-    source: "custom",
   },
   {
     id: "builtin:deepseek",
@@ -91,7 +87,6 @@ const PRESETS: Provider[] = [
       CLAUDE_CODE_SUBAGENT_MODEL: "deepseek-v4-flash",
       CLAUDE_CODE_EFFORT_LEVEL: "max",
     },
-    source: "builtin",
   },
 ];
 

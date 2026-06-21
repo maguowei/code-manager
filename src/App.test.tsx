@@ -394,7 +394,6 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
     floatingWidgetOpacity: 92,
   },
   builtinProviders: [],
-  customProviders: [],
   profiles: [],
   bindings: {},
 };
@@ -404,49 +403,6 @@ class ResizeObserverMock {
   unobserve() {}
   disconnect() {}
 }
-
-const CONFIG_WORKSPACE_WITH_EDITORS: ConfigWorkspace = {
-  ...WORKSPACE_FIXTURE,
-  builtinProviders: [
-    {
-      id: "builtin:openrouter",
-      name: "OpenRouter",
-      localizedName: {
-        zh: "开放路由",
-        en: "OpenRouter",
-      },
-      description: "OpenRouter 供应商",
-      modelSuggestions: [],
-      env: {},
-      source: "builtin",
-    },
-  ],
-  customProviders: [
-    {
-      id: "custom:team-plan",
-      name: "Team Plan",
-      localizedName: {
-        zh: "团队计划",
-        en: "Team Plan",
-      },
-      description: "团队供应商",
-      modelSuggestions: [],
-      env: {},
-      source: "custom",
-    },
-  ],
-  profiles: [
-    {
-      id: "user-openrouter",
-      name: "OpenRouter User",
-      description: "默认用户配置",
-      providerId: "builtin:openrouter",
-      settings: {},
-      createdAt: "2026-05-13T00:00:00Z",
-      updatedAt: "2026-05-13T00:00:00Z",
-    },
-  ],
-};
 
 const CLAUDE_OVERVIEW_FIXTURE = {
   rootPath: "/Users/test/.claude",
@@ -581,16 +537,6 @@ describe("App", () => {
     });
   }
 
-  function mockConfigEditorWorkspace() {
-    enableTauriEvents();
-    invokeMock.mockImplementation(async (command) => {
-      if (command === "get_config_workspace") {
-        return CONFIG_WORKSPACE_WITH_EDITORS;
-      }
-      return null;
-    });
-  }
-
   function mockMemoryAndSkillWorkspace() {
     enableTauriEvents();
     invokeMock.mockImplementation(async (command) => {
@@ -688,116 +634,6 @@ describe("App", () => {
     });
   });
 
-  it("blocks preset tab navigation while the profile editor has unsaved changes", async () => {
-    mockConfigEditorWorkspace();
-    renderApp();
-
-    fireEvent.click(await screen.findByRole("button", { name: "OpenRouter User" }));
-    fireEvent.change(await screen.findByDisplayValue("OpenRouter User"), {
-      target: { value: "OpenRouter Draft" },
-    });
-    fireEvent.click(
-      within(screen.getByRole("group", { name: "配置分区", hidden: true })).getByRole("button", {
-        name: "供应商",
-        hidden: true,
-      }),
-    );
-
-    expect(screen.getByRole("heading", { name: "存在未保存的更改" })).toBeInTheDocument();
-    expect(screen.getByDisplayValue("OpenRouter Draft")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "不保存退出" }));
-
-    await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "供应商" })).toBeInTheDocument();
-    });
-  });
-
-  it("saves profile changes before running guarded provider tab navigation", async () => {
-    mockConfigEditorWorkspace();
-    renderApp();
-
-    fireEvent.click(await screen.findByRole("button", { name: "OpenRouter User" }));
-    fireEvent.change(await screen.findByDisplayValue("OpenRouter User"), {
-      target: { value: "OpenRouter Saved Draft" },
-    });
-    fireEvent.click(
-      within(screen.getByRole("group", { name: "配置分区", hidden: true })).getByRole("button", {
-        name: "供应商",
-        hidden: true,
-      }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "保存并退出" }));
-
-    await waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith(
-        "upsert_profile",
-        expect.objectContaining({
-          data: expect.objectContaining({
-            id: "user-openrouter",
-            name: "OpenRouter Saved Draft",
-          }),
-        }),
-      );
-    });
-    await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "供应商" })).toBeInTheDocument();
-    });
-  });
-
-  it("blocks the settings drawer while the provider editor has unsaved changes", async () => {
-    mockConfigEditorWorkspace();
-    renderApp();
-
-    fireEvent.click(
-      within(await screen.findByRole("group", { name: "配置分区" })).getByRole("button", {
-        name: "供应商",
-      }),
-    );
-    fireEvent.click(await screen.findByRole("button", { name: "编辑" }));
-    fireEvent.change(await screen.findByDisplayValue("Team Plan"), {
-      target: { value: "Team Plan Draft" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "设置", hidden: true }));
-
-    expect(screen.getByRole("heading", { name: "存在未保存的更改" })).toBeInTheDocument();
-    expect(screen.getByDisplayValue("Team Plan Draft")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "不保存退出" }));
-
-    await waitFor(() => {
-      expect(screen.getByRole("dialog", { name: "设置" })).toBeInTheDocument();
-    });
-  });
-
-  it("returns from providers to profiles through the config section tabs", async () => {
-    mockConfigEditorWorkspace();
-    renderApp();
-
-    fireEvent.click(
-      within(await screen.findByRole("group", { name: "配置分区" })).getByRole("button", {
-        name: "供应商",
-      }),
-    );
-
-    await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "供应商" })).toBeInTheDocument();
-    });
-
-    const providerTabs = screen.getByRole("group", { name: "配置分区" });
-    expect(within(providerTabs).getByRole("button", { name: "供应商" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-
-    fireEvent.click(within(providerTabs).getByRole("button", { name: "配置" }));
-
-    await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "配置" })).toBeInTheDocument();
-    });
-    expect(screen.getByRole("button", { name: "OpenRouter User" })).toBeInTheDocument();
-  });
-
   it("blocks sidebar navigation while the memory editor has unsaved changes", async () => {
     mockMemoryAndSkillWorkspace();
     renderApp();
@@ -886,7 +722,6 @@ describe("App", () => {
           description: "OpenRouter 供应商",
           modelSuggestions: [],
           env: {},
-          source: "builtin",
         },
       ],
       profiles: [

@@ -4,7 +4,6 @@ paths:
   - "src/components/ProfileEditor.tsx"
   - "src/components/profile-editor/**/*"
   - "src/components/ProvidersPage.tsx"
-  - "src/components/ProviderEditor.tsx"
   - "src/components/config-workspace-utils.ts"
   - "src/components/ProfileNameBadge.tsx"
   - "src/schemas/claude-settings.schema.json"
@@ -20,13 +19,13 @@ paths:
 
 ## 模型
 
-项目采用 **Provider -> Profile** 两层模型：Provider（供应商）只承载供应商客观信息——`env`（连接地址 `ANTHROPIC_BASE_URL` + 模型映射 + 可选附加环境变量）与元数据（`models`/`modelSuggestions`/`docUrl`），**不含认证密钥、不含 permissions/hooks 等其它 Claude Code 配置、无继承**。Profile 引用一个 `providerId`，在 Provider 的 `env` 之上叠加自身 `settings`（认证密钥、permissions/hooks、行为等都在 Profile）。地址单一事实源是 `env.ANTHROPIC_BASE_URL`（不单列 baseUrl 字段）。
+项目采用 **Provider -> 配置** 两层模型：Provider（供应商）只承载供应商客观信息——`env`（连接地址 `ANTHROPIC_BASE_URL` + 模型映射 + 可选附加环境变量）与元数据（`models`/`modelSuggestions`/`docUrl`），**不含认证密钥、不含 permissions/hooks 等其它 Claude Code 配置、无继承**。Provider **全部内置只读、不支持自定义**：定义在 `src-tauri/resources/builtin-providers.json`，无 `customProviders`、无 `ProviderInput` / `upsert_provider` / `delete_provider`，也无 `ProviderSource`。配置引用一个 `providerId`，在 Provider 的 `env` 之上叠加自身 `settings`（认证密钥、permissions/hooks、行为等都在配置）。地址单一事实源是 `env.ANTHROPIC_BASE_URL`（不单列 baseUrl 字段）。
 
 > 限期兼容（COMPAT，0.23.0 移除）：`ConfigProfile.provider_id` 带 serde `alias = "presetId"` 读旧字段；`resolve_profile_settings` 对悬空 `providerId` 容错跳过。详见 `config.rs` 中 `COMPAT(presetId→providerId)` 标记。
 
 ## 先读文件
 
-- 页面与编辑器：`ProfilesPage.tsx`、`ProfileEditor.tsx`、`ProvidersPage.tsx`、`ProviderEditor.tsx`
+- 页面与编辑器：`ProfilesPage.tsx`、`ProfileEditor.tsx`、`ProvidersPage.tsx`（内置供应商只读一览）
 - 结构化分区：`src/components/profile-editor/`
 - 表单注册与工具：`settings-form-registry.ts`、`config-workspace-utils.ts`、`status-line-utils.ts`
 - 共享 schema：`src/schemas/claude-settings.schema.json`
@@ -36,22 +35,22 @@ paths:
 
 ## 关键约束
 
-- `ProfileEditor.tsx` 承载完整 Claude settings 编辑（共享 `settings-form-registry.ts` 和 profile-editor 子组件）；`ProviderEditor.tsx` 只编辑供应商 `env` + 元数据，不再渲染 permissions/hooks/sandbox/plugins/marketplace/statusLine/behavior/common 分区，也不要把这些加回去。不要重新拆出第三套配置编辑入口。
+- `ProfileEditor.tsx` 承载完整 Claude settings 编辑（共享 `settings-form-registry.ts` 和 profile-editor 子组件）；`ProvidersPage.tsx` 只读展示内置供应商，从 `ProfileEditor` 供应商选项处以 `Sheet` 打开（`onViewBuiltinProviders` 回调），不提供新增/编辑/删除。不要重新引入供应商编辑器或第三套配置编辑入口。
 - `src/schemas/claude-settings.schema.json` 是 Claude settings 的共享 schema 锚点；Rust 通过 `include_str!` 加载并校验已知字段。
 - `validate_settings_document()` 允许未知顶层键，但会校验 schema 已知字段的嵌套结构。
 - `preview_profile`、`apply_profile` 和 `test_profile_model` 都依赖后端解析后的最终配置，前端不要复制合并逻辑。
-- 合并权威逻辑是 `src-tauri/src/config.rs::resolve_profile_settings()`：两步合并——先取所选 Provider 的 `env`（解析不到则容错跳过），再叠加 Profile `settings`，最后写入 `$schema`。已无 Preset 继承链。
-- 地址例外（单一事实源）：当 `providerId` 可解析时，叠加前会清理 Profile `settings.env` 内的 `ANTHROPIC_BASE_URL`，使供应商地址不被旧 Profile 隐式覆盖；provider 解析不到时保留 Profile 内的旧地址作兼容。前端 `applyProviderAutofill` 同步此行为（选中可解析 provider 时清空 profile 内地址）。
-- 激活 Profile 最终会原子写入 `~/.claude/settings.json`，并更新应用数据目录中的 `config-registry.json` 绑定状态。
-- 已绑定的 Profile 被修改时，后端会重新应用到用户设置；不要绕开 `upsert_profile`。
-- `get_config_workspace` 会在没有 Profile 时扫描未托管的 `~/.claude/settings.json`；`import_user_settings_profile` 原地接管当前文件内容并绑定 Profile，不立即重写文件。
-- 已绑定 Profile 与真实 `settings.json` 不一致时，后端返回 `activeUserSettingsMismatch`；前端用 `SettingsMismatchDiffViewer` 展示 diff，接受实际配置走 `import_user_settings_profile`，重新应用走 `apply_profile`。
+- 合并权威逻辑是 `src-tauri/src/config.rs::resolve_profile_settings()`：两步合并——先取所选 Provider 的 `env`（解析不到则容错跳过），再叠加配置 `settings`，最后写入 `$schema`。已无 Preset 继承链。
+- 地址例外（单一事实源）：当 `providerId` 可解析时，叠加前会清理配置 `settings.env` 内的 `ANTHROPIC_BASE_URL`，使供应商地址不被旧配置隐式覆盖；provider 解析不到时保留配置内的旧地址作兼容。前端 `applyProviderAutofill` 同步此行为（选中可解析 provider 时清空配置内地址）。
+- 激活配置最终会原子写入 `~/.claude/settings.json`，并更新应用数据目录中的 `config-registry.json` 绑定状态。
+- 已绑定的配置被修改时，后端会重新应用到用户设置；不要绕开 `upsert_profile`。
+- `get_config_workspace` 会在没有配置时扫描未托管的 `~/.claude/settings.json`；`import_user_settings_profile` 原地接管当前文件内容并绑定配置，不立即重写文件。
+- 已绑定配置与真实 `settings.json` 不一致时，后端返回 `activeUserSettingsMismatch`；前端用 `SettingsMismatchDiffViewer` 展示 diff，接受实际配置走 `import_user_settings_profile`，重新应用走 `apply_profile`。
 
 ## 内置 Provider
 
-- 内置 Provider 维护在 `src-tauri/resources/builtin-providers.json`，当前覆盖 Anthropic、DeepSeek、智谱 GLM、Kimi、MiniMax、小米 MiMo、OpenRouter、火山方舟、阿里云百炼、ModelScope、万界方舟和 Ollama。
+- 内置 Provider 维护在 `src-tauri/resources/builtin-providers.json`，是唯一供应商来源（不支持自定义），当前覆盖 Anthropic、DeepSeek、智谱 GLM、Kimi、MiniMax、小米 MiMo、OpenRouter、火山方舟、阿里云百炼、ModelScope、万界方舟和 Ollama。
 - 新增 provider 时同步 `localizedName`、`slug`、`baseUrl`、`docUrl` 和模型 `category`。
-- Profile 编辑器的环境变量自动填充逻辑要覆盖默认 model 字段：`ANTHROPIC_MODEL`、`ANTHROPIC_DEFAULT_OPUS_MODEL`、`ANTHROPIC_DEFAULT_SONNET_MODEL`、`ANTHROPIC_DEFAULT_HAIKU_MODEL`、`CLAUDE_CODE_SUBAGENT_MODEL`。
+- 配置编辑器的环境变量自动填充逻辑要覆盖默认 model 字段：`ANTHROPIC_MODEL`、`ANTHROPIC_DEFAULT_OPUS_MODEL`、`ANTHROPIC_DEFAULT_SONNET_MODEL`、`ANTHROPIC_DEFAULT_HAIKU_MODEL`、`CLAUDE_CODE_SUBAGENT_MODEL`。
 
 ## 结构化编辑器
 
@@ -59,7 +58,7 @@ paths:
 - 专项复杂字段由 profile-editor 子组件维护，例如 Permissions、Sandbox、Hooks、Marketplace、Enabled Plugins、Status Line。
 - 结构化设置分区的官方文档入口在 `StructuredSettingsSections.tsx`，新增分区时同步文档路径、i18n 和错误聚合。
 - 复杂编辑器必须避免首次挂载 no-op writeback。尤其是 accordion 内懒挂载组件，语义等价时不要调用 `onChange`。
-- `ProfileEditor` / `ProviderEditor` 的 dirty 判断仍依赖 JSON 结构比较；局部编辑器写回时要保留未管理字段和 key 语义，避免只重建自己认识的字段。
+- `ProfileEditor` 的 dirty 判断仍依赖 JSON 结构比较；局部编辑器写回时要保留未管理字段和 key 语义，避免只重建自己认识的字段。
 
 ## 插件与 Marketplace
 

@@ -28,32 +28,12 @@
     ],
     "floatingWidgetOpacity": 92
   },
-  "customProviders": [
-    {
-      "id": "custom:team-plan",
-      "name": "Team Plan",
-      "localizedName": {
-        "zh": "团队计划",
-        "en": "Team Plan"
-      },
-      "description": "团队 OpenRouter 供应商",
-      "docUrl": "https://example.com/provider-docs",
-      "modelSuggestions": [
-        "claude-sonnet-4-6"
-      ],
-      "env": {
-        "ANTHROPIC_BASE_URL": "https://openrouter.ai/api",
-        "ANTHROPIC_MODEL": "claude-sonnet-4-6"
-      },
-      "source": "custom"
-    }
-  ],
   "profiles": [
     {
-      "id": "user-openrouter",
-      "name": "OpenRouter User",
+      "id": "user-deepseek",
+      "name": "DeepSeek User",
       "description": "全局开发默认配置",
-      "providerId": "custom:team-plan",
+      "providerId": "builtin:deepseek",
       "settings": {
         "env": {
           "ANTHROPIC_AUTH_TOKEN": "token"
@@ -65,7 +45,7 @@
     }
   ],
   "bindings": {
-    "userProfileId": "user-openrouter",
+    "userProfileId": "user-deepseek",
     "userLastAppliedAt": "2026-04-18T12:00:00+08:00"
   }
 }

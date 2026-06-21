@@ -6,7 +6,7 @@
     <title>AI Manager · Claude Code 本地配置管理桌面应用</title>
     <meta
       name="description"
-      content="AI Manager 是面向 Claude Code 用户的本地桌面管理应用：把 Profile/Preset、~/.claude 目录、记忆、Skills、历史、统计、Token 用量与费用、项目状态、系统托盘和诊断日志集中到一个 Tauri 2 应用，让本地配置可见、可预览、可验证。"
+      content="AI Manager 是面向 Claude Code 用户的本地桌面管理应用：把配置/预设、~/.claude 目录、记忆、Skills、历史、统计、Token 用量与费用、项目状态、系统托盘和诊断日志集中到一个 Tauri 2 应用，让本地配置可见、可预览、可验证。"
     />
     <meta name="theme-color" content="#2563eb" />
     <link rel="icon" type="image/png" href="assets/img/favicon.png" />
@@ -89,7 +89,7 @@
                 <span data-lang="en">Take control of your <span class="accent">Claude Code</span> setup</span>
               </h1>
               <p class="hero-lead">
-                <span data-lang="zh">AI Manager 把 Profile/Preset、<code>~/.claude</code> 目录、记忆、Skills、历史、统计、Token 用量与费用、项目状态、系统托盘和诊断日志集中到一个 Tauri 2 桌面应用——让本地配置<strong>可见、可预览、可验证</strong>。</span>
+                <span data-lang="zh">AI Manager 把配置/预设、<code>~/.claude</code> 目录、记忆、Skills、历史、统计、Token 用量与费用、项目状态、系统托盘和诊断日志集中到一个 Tauri 2 桌面应用——让本地配置<strong>可见、可预览、可验证</strong>。</span>
                 <span data-lang="en">AI Manager brings profiles/presets, your <code>~/.claude</code> directory, memory, skills, history, stats, token usage &amp; cost, project status, the system tray and diagnostic logs into one Tauri 2 desktop app — so your local setup is <strong>visible, previewable and verifiable</strong>.</span>
               </p>
               <div class="hero-cta">
@@ -126,7 +126,7 @@
                 </div>
                 <div class="window-body">
                   <aside class="window-side">
-                    <div class="item"><span class="ico"></span>Profiles</div>
+                    <div class="item"><span class="ico"></span>配置</div>
                     <div class="item"><span class="ico"></span>Memory</div>
                     <div class="item"><span class="ico"></span>Skills</div>
                     <div class="item active"><span class="ico"></span>Usage</div>
@@ -190,7 +190,7 @@
               <div class="matrix-cell cell--cap">
                 <span class="cell-tag" data-lang="zh">AI Manager 能力</span><span class="cell-tag" data-lang="en">What AI Manager does</span>
                 <ul>
-                  <li><span data-lang="zh">Profile / Preset 可复用可继承</span><span data-lang="en">Reusable, inheritable Profiles / Presets</span></li>
+                  <li><span data-lang="zh">配置可复用，内置供应商只读可选</span><span data-lang="en">Reusable profiles, read-only built-in providers</span></li>
                   <li><span data-lang="zh">常用选项 / 市场 / 插件一键同步到其余配置</span><span data-lang="en">One-click sync of options, marketplaces &amp; plugins to other profiles</span></li>
                   <li><span data-lang="zh">导入现有 settings 起步</span><span data-lang="en">Bootstrap by importing existing settings</span></li>
                 </ul>
@@ -292,7 +292,7 @@
             </article>
             <article class="card">
               <div class="card-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 7v5c0 5 3.5 7.5 8 9 4.5-1.5 8-4 8-9V7z"/><path d="m9 12 2 2 4-4"/></svg></div>
-              <h3><span data-lang="zh">Profile / Preset 配置管理</span><span data-lang="en">Profiles &amp; Presets</span></h3>
+              <h3><span data-lang="zh">配置 / 预设管理</span><span data-lang="en">Profiles &amp; Presets</span></h3>
               <p><span data-lang="zh">分层管理最终写入 <code>settings.json</code> 的配置：Provider、模型、环境变量、权限、Sandbox、Hooks、插件、状态行；支持预览、复制、模型测试、一键应用与差异对比。</span><span data-lang="en">Layered control over what lands in <code>settings.json</code>: providers, models, env, permissions, sandbox, hooks, plugins, statusline — with preview, copy, model test, one-click apply and diffing.</span></p>
             </article>
             <article class="card">
@@ -323,7 +323,7 @@
             <article class="card">
               <div class="card-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></div>
               <h3><span data-lang="zh">系统托盘与会话聚焦</span><span data-lang="en">Tray &amp; session focus</span></h3>
-              <p><span data-lang="zh">菜单栏显示当前 Profile 与活跃会话状态，支持计数样式与待处理呼吸灯；macOS 可聚焦原终端 tab 并把会话状态镜像到 ANTICATER LED 设备。</span><span data-lang="en">The tray shows your active profile and live session status with count styles and a pending pulse; on macOS it can refocus the original terminal tab and mirror session state to an ANTICATER LED device.</span></p>
+              <p><span data-lang="zh">菜单栏显示当前配置与活跃会话状态，支持计数样式与待处理呼吸灯；macOS 可聚焦原终端 tab 并把会话状态镜像到 ANTICATER LED 设备。</span><span data-lang="en">The tray shows your active profile and live session status with count styles and a pending pulse; on macOS it can refocus the original terminal tab and mirror session state to an ANTICATER LED device.</span></p>
             </article>
             <article class="card">
               <div class="card-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 7 19.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.7 7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H10a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V10a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></div>
@@ -464,7 +464,7 @@
             <div class="vs-card ours">
               <h3>AI Manager <span class="tag" data-lang="zh">纵向深耕</span><span class="tag" data-lang="en">Depth</span></h3>
               <p>
-                <span data-lang="zh">深耕 Claude Code 单一生态的<strong>配置治理</strong>：Profile/Preset 分层 + JSON Schema 校验、Token 用量与费用分析、记忆 / Skills / 状态行、项目级文件配对。适合主力在 Claude Code、想把配置和成本彻底管清楚的人。</span>
+                <span data-lang="zh">深耕 Claude Code 单一生态的<strong>配置治理</strong>：配置/预设分层 + JSON Schema 校验、Token 用量与费用分析、记忆 / Skills / 状态行、项目级文件配对。适合主力在 Claude Code、想把配置和成本彻底管清楚的人。</span>
                 <span data-lang="en">Deep <strong>config governance</strong> for the Claude Code ecosystem: layered profiles/presets with JSON-Schema validation, token/cost analytics, memory / skills / statusline, project-level file pairing. For people who live in Claude Code and want config &amp; cost fully under control.</span>
               </p>
             </div>
@@ -495,7 +495,7 @@
                   </tr>
                   <tr>
                     <td class="dim"><span data-lang="zh">配置抽象</span><span data-lang="en">Config model</span></td>
-                    <td class="col-ours"><span data-lang="zh">完整 Profile/Preset 分层 + JSON Schema 校验</span><span data-lang="en">Full Profile/Preset layering + JSON-Schema validation</span></td>
+                    <td class="col-ours"><span data-lang="zh">完整配置/预设分层 + JSON Schema 校验</span><span data-lang="en">Full Profile/Preset layering + JSON-Schema validation</span></td>
                     <td><span data-lang="zh">「供应商卡片」为单位，50+ 内置预设一键热切</span><span data-lang="en">Provider cards, 50+ presets, one-click hot switch</span></td>
                   </tr>
                   <tr>
@@ -530,7 +530,7 @@
                   </tr>
                   <tr>
                     <td class="dim"><span data-lang="zh">系统托盘与会话</span><span data-lang="en">Tray &amp; sessions</span></td>
-                    <td class="col-ours"><span data-lang="zh">切 Profile + 实时会话状态 + macOS 聚焦/LED</span><span data-lang="en">Switch profile + live session status + macOS focus/LED</span></td>
+                    <td class="col-ours"><span data-lang="zh">切配置 + 实时会话状态 + macOS 聚焦/LED</span><span data-lang="en">Switch profile + live session status + macOS focus/LED</span></td>
                     <td><span data-lang="zh">切供应商 + 轻量模式</span><span data-lang="en">Switch provider + lightweight mode</span></td>
                   </tr>
                   <tr>
@@ -577,12 +577,12 @@
               <p><span data-lang="zh">在「设置」中选择界面语言、主题、默认终端和默认编辑器。</span><span data-lang="en">In Settings, pick language, theme, default terminal and default editor.</span></p>
             </li>
             <li>
-              <h4><span data-lang="zh">查看预设</span><span data-lang="en">Browse presets</span></h4>
-              <p><span data-lang="zh">在「预设」页查看是否已有合适的 Provider 预设（内置 Anthropic、DeepSeek、智谱 GLM、Kimi、火山方舟、阿里云百炼等十余个）。</span><span data-lang="en">Check the Presets page for a matching provider (Anthropic, DeepSeek, GLM, Kimi, Volcengine, Bailian and 10+ more are built in).</span></p>
+              <h4><span data-lang="zh">查看供应商</span><span data-lang="en">Browse providers</span></h4>
+              <p><span data-lang="zh">在配置编辑器的「供应商」选项处选择内置供应商（内置 Anthropic、DeepSeek、智谱 GLM、Kimi、火山方舟、阿里云百炼等十余个），点「查看内置供应商」可打开只读一览。</span><span data-lang="en">Pick a built-in provider from the provider option in the profile editor (Anthropic, DeepSeek, GLM, Kimi, Volcengine, Bailian and 10+ more); the "view built-in providers" link opens a read-only list.</span></p>
             </li>
             <li>
-              <h4><span data-lang="zh">新建或导入 Profile</span><span data-lang="en">Create or import a profile</span></h4>
-              <p><span data-lang="zh">在「配置」页新建 Profile 并填写认证密钥、API 地址和模型，或一键导入现有 <code>~/.claude/settings.json</code>。</span><span data-lang="en">On the Profiles page, create one with your token, API endpoint and model — or import your existing <code>~/.claude/settings.json</code>.</span></p>
+              <h4><span data-lang="zh">新建或导入配置</span><span data-lang="en">Create or import a profile</span></h4>
+              <p><span data-lang="zh">在「配置」页新建配置并填写认证密钥、API 地址和模型，或一键导入现有 <code>~/.claude/settings.json</code>。</span><span data-lang="en">On the Profiles page, create one with your token, API endpoint and model — or import your existing <code>~/.claude/settings.json</code>.</span></p>
             </li>
             <li>
               <h4><span data-lang="zh">测试模型</span><span data-lang="en">Test the model</span></h4>
@@ -590,7 +590,7 @@
             </li>
             <li>
               <h4><span data-lang="zh">启用并核对</span><span data-lang="en">Enable &amp; verify</span></h4>
-              <p><span data-lang="zh">点击启用，将 Profile 应用到 <code>~/.claude/settings.json</code>，再到「~/.claude 总览」确认最终配置符合预期。</span><span data-lang="en">Enable to apply the profile to <code>~/.claude/settings.json</code>, then check the ~/.claude overview to verify the result.</span></p>
+              <p><span data-lang="zh">点击启用，将配置应用到 <code>~/.claude/settings.json</code>，再到「~/.claude 总览」确认最终配置符合预期。</span><span data-lang="en">Enable to apply the profile to <code>~/.claude/settings.json</code>, then check the ~/.claude overview to verify the result.</span></p>
             </li>
           </ol>
 
@@ -608,7 +608,7 @@
             <div class="wf">
               <h4><span data-lang="zh">切换 Provider</span><span data-lang="en">Switch provider</span></h4>
               <ol>
-                <li><span data-lang="zh">新建配置并选择 Provider 预设</span><span data-lang="en">New profile, pick a provider preset</span></li>
+                <li><span data-lang="zh">新建配置并选择内置供应商</span><span data-lang="en">New profile, pick a built-in provider</span></li>
                 <li><span data-lang="zh">填密钥、调模型与常用选项</span><span data-lang="en">Add the key, tune model &amp; options</span></li>
                 <li><span data-lang="zh">测试模型后启用</span><span data-lang="en">Test model, then enable</span></li>
                 <li><span data-lang="zh">在总览确认 settings.json</span><span data-lang="en">Verify settings.json in overview</span></li>
@@ -715,7 +715,7 @@
             </details>
             <details>
               <summary><span data-lang="zh">支持哪些 Provider？</span><span data-lang="en">Which providers are supported?</span></summary>
-              <div class="answer"><span data-lang="zh">内置十余个 Provider 预设，包括 Anthropic、DeepSeek、智谱 GLM、Kimi、MiniMax、小米 MiMo、OpenRouter、火山方舟、阿里云百炼、ModelScope、Ollama 等，也支持自定义 API 地址与自建 Preset。</span><span data-lang="en">A dozen+ built-in presets including Anthropic, DeepSeek, GLM, Kimi, MiniMax, Xiaomi MiMo, OpenRouter, Volcengine, Bailian, ModelScope, Ollama and more — plus custom endpoints and your own presets.</span></div>
+              <div class="answer"><span data-lang="zh">内置十余个供应商(只读、不可自定义)，包括 Anthropic、DeepSeek、智谱 GLM、Kimi、MiniMax、小米 MiMo、OpenRouter、火山方舟、阿里云百炼、ModelScope、万界方舟、Ollama；在配置编辑器的供应商选项处选择即用。</span><span data-lang="en">A dozen+ built-in, read-only providers (no custom providers): Anthropic, DeepSeek, GLM, Kimi, MiniMax, Xiaomi MiMo, OpenRouter, Volcengine, Bailian, ModelScope, Wanjie, Ollama — pick one from the provider option in the profile editor.</span></div>
             </details>
             <details>
               <summary><span data-lang="zh">macOS 提示「已损坏 / 无法打开」怎么办？</span><span data-lang="en">macOS says the app is "damaged / can't be opened"?</span></summary>

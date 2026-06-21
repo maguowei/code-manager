@@ -15,7 +15,7 @@ paths:
 | `lib.rs` | Tauri Builder 编排：插件初始化、tauri-specta command 收集与 handler、托盘、目录 watcher、usage runtime |
 | `main.rs` | 二进制入口，仅调用 `ai_manager_lib::run()` |
 | `utils.rs` | 公共锁、JSON 读写、原子文件写入、应用数据目录解析 |
-| `config.rs` | Profile / Provider 合并落盘、`resolve_profile_settings()`、模型测试、`config-registry.json` |
+| `config.rs` | 配置 / Provider 合并落盘、`resolve_profile_settings()`、模型测试、`config-registry.json` |
 | `memory.rs` | 用户级 `CLAUDE.md` 与 `rules/*.md` 的托管、导入、启停 |
 | `skills.rs` | Skills 启停、`~/.codex/skills/<id>` 软链同步、`SKILL.md` 读写、文件树扫描 |
 | `history.rs` | `~/.claude/history.jsonl` 读取、会话详情解析、轮询变更 |
@@ -26,7 +26,7 @@ paths:
 | `claude_directory_watcher.rs` | `~/.claude` 变更监听并广播 `claude-directory-changed` |
 | `native_open.rs` | 默认终端 / 编辑器跨平台启动、本机检测受支持工具清单 |
 | `terminal_focus.rs` | macOS 上 `pid -> tty -> AppleScript` 聚焦 Terminal.app / iTerm / Ghostty |
-| `tray.rs` | 系统托盘：Profile 切换、会话视图、页面导航 |
+| `tray.rs` | 系统托盘：配置切换、会话视图、页面导航 |
 | `logging.rs` | tauri-plugin-log 配置、日志脱敏 helper、panic hook |
 | `plugins.rs` | 插件市场后端操作：触发 `claude plugin list --available --json`，让 claude 按 24h TTL 默认策略刷新插件安装数缓存（不主动删缓存、不强制刷新） |
 | `macos_notifications.rs` | macOS 原生通知（`UNUserNotificationCenter`）：发待处理会话通知，点击聚焦对应会话终端 |

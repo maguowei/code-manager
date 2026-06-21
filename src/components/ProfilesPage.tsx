@@ -33,7 +33,6 @@ import type {
   UnmanagedUserSettings,
   UnmanagedUserSettingsImportStatus,
 } from "../types";
-import ConfigSectionTabs from "./ConfigSectionTabs";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import {
   getEnabledPluginsSummary,
@@ -79,6 +78,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "./ui/sheet";
 import { Spinner } from "./ui/spinner";
 
 const ModelTestResultDialog = lazy(() => import("./profile-editor/ModelTestResultDialog"));
+const ProvidersPage = lazy(() => import("./ProvidersPage"));
 const SettingsMismatchDiffViewer = lazy(
   () => import("./profile-editor/SettingsMismatchDiffViewer"),
 );
@@ -86,7 +86,6 @@ const SettingsMismatchDiffViewer = lazy(
 interface ProfilesPageProps {
   workspace: ConfigWorkspace;
   onWorkspaceChange: () => Promise<void>;
-  onOpenProviders?: () => void;
   onEditorExitGuardChange?: (guard: EditorExitGuard | null) => void;
 }
 
@@ -224,7 +223,6 @@ const SHARED_SYNC_ENV_KEYS = COMMON_ENV_SETTINGS_KEYS;
 function ProfilesPage({
   workspace,
   onWorkspaceChange,
-  onOpenProviders,
   onEditorExitGuardChange,
 }: ProfilesPageProps) {
   const { language, t } = useI18n();
@@ -235,6 +233,7 @@ function ProfilesPage({
   const [pendingEditorExitAction, setPendingEditorExitAction] = useState<(() => void) | null>(null);
   const [isSavingEditorExit, setIsSavingEditorExit] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [isBuiltinProvidersOpen, setIsBuiltinProvidersOpen] = useState(false);
   const [pendingSyncSourceId, setPendingSyncSourceId] = useState<string | null>(null);
   const [isSyncingShared, setIsSyncingShared] = useState(false);
   const [isTestingAllProfiles, setIsTestingAllProfiles] = useState(false);
@@ -265,10 +264,7 @@ function ProfilesPage({
     overPosition: "above" | "below" | null;
   }>({ draggingIndex: null, overIndex: null, overPosition: null });
 
-  const allProviders = useMemo(
-    () => [...workspace.builtinProviders, ...workspace.customProviders],
-    [workspace.builtinProviders, workspace.customProviders],
-  );
+  const allProviders = workspace.builtinProviders;
   const profiles = workspace.profiles;
 
   function isAppliedToUserSettings(profile: ConfigProfile) {
@@ -1258,14 +1254,6 @@ function ProfilesPage({
             </Button>
           }
         />
-        <ConfigSectionTabs
-          value="profiles"
-          onValueChange={(value) => {
-            if (value === "providers") {
-              onOpenProviders?.();
-            }
-          }}
-        />
         <Button
           type="button"
           className="mx-2 mt-4 mb-3 h-auto gap-2 rounded-lg p-3.5 text-base font-semibold"
@@ -1592,7 +1580,26 @@ function ProfilesPage({
               providers={allProviders}
               onSave={handleSave}
               onClose={() => requestEditorExit(closeDrawer)}
+              onViewBuiltinProviders={() => setIsBuiltinProvidersOpen(true)}
             />
+          </SheetContent>
+        </Sheet>
+      )}
+
+      {isBuiltinProvidersOpen && (
+        <Sheet open onOpenChange={(open) => setIsBuiltinProvidersOpen(open)}>
+          <SheetContent
+            side="right"
+            className={cn(
+              LIST_DETAIL_DRAWER_OFFSET_CLASS,
+              "w-auto border-l-0 bg-secondary p-0 shadow-floating sm:max-w-none",
+            )}
+          >
+            <SheetTitle className="sr-only">{t("providers.title")}</SheetTitle>
+            <SheetDescription className="sr-only">{t("providers.description")}</SheetDescription>
+            <Suspense fallback={null}>
+              <ProvidersPage providers={workspace.builtinProviders} />
+            </Suspense>
           </SheetContent>
         </Sheet>
       )}

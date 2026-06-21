@@ -51,7 +51,7 @@
 | `.claude/rules/agent-memory-layout.md` | `CLAUDE.md`、`README.md`、`AGENTS.md` 与 `.claude/rules/` |
 | `.claude/rules/frontend-ui.md` | React、CSS、i18n、Toast、共享 UI 约束 |
 | `.claude/rules/tauri-backend.md` | Rust、Tauri command、capability、公共工具 |
-| `.claude/rules/config-system.md` | Profile / Provider / settings schema / 状态行 / 官方插件 |
+| `.claude/rules/config-system.md` | 配置 / Provider / settings schema / 状态行 / 官方插件 |
 | `.claude/rules/memory-and-skills.md` | 记忆管理、Rules、Skills、Codex 同步 |
 | `.claude/rules/history-stats-usage.md` | 历史、统计、Token 用量与费用 |
 | `.claude/rules/projects-tray-diagnostics.md` | 项目管理、系统托盘、会话聚焦、日志与诊断 |
@@ -67,7 +67,7 @@
 - IPC 包装与生成契约：`src/ipc.ts`、`src/bindings.ts`
 - 共享 schema 与表单定义：`src/schemas/`
 - 公共 hooks：`src/hooks/`
-- Profile / Provider 编辑器：`src/components/profile-editor/`
+- 配置编辑器与结构化分区：`src/components/profile-editor/`（供应商均为内置只读，无供应商编辑器）
 - `~/.claude` 共享树预览组件：`src/components/claude-overview/`
 - Token 用量抽屉、骨架与格式化工具：`src/components/usage/`
 - 主题与 UI token：`src/components/theme-provider.tsx`、`src/components/typography-classes.ts`、`src/components/surface-classes.ts`

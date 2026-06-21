@@ -106,10 +106,8 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
       description: "OpenRouter 预设",
       modelSuggestions: ["claude-sonnet-4-6"],
       env: {},
-      source: "builtin",
     },
   ],
-  customProviders: [],
   profiles: [
     {
       id: "user-openrouter",
@@ -145,16 +143,11 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
 function renderPage(
   workspace: ConfigWorkspace = WORKSPACE_FIXTURE,
   onWorkspaceChange: () => Promise<void> = async () => {},
-  onOpenProviders: () => void = vi.fn(),
 ) {
   render(
     <I18nProvider>
       <ThemeProvider>
-        <ProfilesPage
-          workspace={workspace}
-          onWorkspaceChange={onWorkspaceChange}
-          onOpenProviders={onOpenProviders}
-        />
+        <ProfilesPage workspace={workspace} onWorkspaceChange={onWorkspaceChange} />
       </ThemeProvider>
     </I18nProvider>,
   );
@@ -274,47 +267,6 @@ describe("ProfilesPage", () => {
     expect(within(card).getByRole("button", { name: "删除" })).toBeInTheDocument();
     expect(within(card).queryByText("删除")).not.toBeInTheDocument();
     expect(within(card).queryByRole("button", { name: "编辑" })).not.toBeInTheDocument();
-  });
-
-  it("renders config section tabs above profile actions and opens providers", () => {
-    const onOpenProviders = vi.fn();
-    renderPage(
-      {
-        ...WORKSPACE_FIXTURE,
-        customProviders: [
-          {
-            id: "custom:team-plan",
-            name: "Team Plan",
-            localizedName: {
-              zh: "团队计划",
-              en: "Team Plan",
-            },
-            description: "团队预设",
-            modelSuggestions: [],
-            env: {},
-            source: "custom",
-          },
-        ],
-      },
-      async () => {},
-      onOpenProviders,
-    );
-
-    const tabs = screen.getByRole("group", { name: "配置分区" });
-    const profilesTab = within(tabs).getByRole("button", { name: "配置" });
-    const providersTab = within(tabs).getByRole("button", { name: "供应商" });
-
-    expect(profilesTab).toHaveAttribute("aria-pressed", "true");
-    expect(providersTab).toHaveAttribute("aria-pressed", "false");
-    expect(screen.queryByRole("group", { name: "预设管理" })).not.toBeInTheDocument();
-    expect(
-      tabs.compareDocumentPosition(screen.getByRole("button", { name: "新建配置" })) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-
-    fireEvent.click(providersTab);
-
-    expect(onOpenProviders).toHaveBeenCalledTimes(1);
   });
 
   it("shows unmanaged user settings and imports them in place", async () => {
@@ -571,7 +523,6 @@ describe("ProfilesPage", () => {
           description: "Anthropic 预设",
           modelSuggestions: ["claude-sonnet-4-6"],
           env: {},
-          source: "builtin",
         },
       ],
       profiles: [

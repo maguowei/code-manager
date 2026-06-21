@@ -233,7 +233,6 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
     floatingWidgetOpacity: 92,
   },
   builtinProviders: [],
-  customProviders: [],
   profiles: [],
   bindings: {},
 } as ConfigWorkspace;
@@ -258,7 +257,6 @@ const BUILTIN_PRESETS: Provider[] = [
     env: {
       ANTHROPIC_BASE_URL: "https://openrouter.ai/api",
     },
-    source: "builtin",
   },
   {
     id: "custom:team-plan",
@@ -270,7 +268,6 @@ const BUILTIN_PRESETS: Provider[] = [
     description: "Team Plan 预设",
     modelSuggestions: ["claude-haiku-fallback"],
     env: {},
-    source: "custom",
   },
   {
     id: "custom:explicit-model",
@@ -284,7 +281,6 @@ const BUILTIN_PRESETS: Provider[] = [
     env: {
       ANTHROPIC_MODEL: "claude-opus-explicit",
     },
-    source: "custom",
   },
   {
     id: "custom:env-level-overrides",
@@ -299,7 +295,6 @@ const BUILTIN_PRESETS: Provider[] = [
       ANTHROPIC_DEFAULT_HAIKU_MODEL: "haiku-env-override",
       CLAUDE_CODE_SUBAGENT_MODEL: "subagent-env-override",
     },
-    source: "custom",
   },
 ];
 
@@ -3742,7 +3737,6 @@ describe("ProfileEditor", () => {
           description: "未配置官方市场的供应商",
           modelSuggestions: [],
           env: {},
-          source: "custom",
         },
       ],
       profile: {
@@ -3889,9 +3883,12 @@ describe("ProfileEditor", () => {
     expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("haiku-env-override");
     expect(screen.getByLabelText("Subagent 模型")).toHaveValue("subagent-env-override");
 
-    // 切换到无供应商：地址字段不渲染，模型字段全部清空，auth token 保持不变
-    chooseComboboxOption("供应商", "无供应商");
-    expect(screen.queryByLabelText("ANTHROPIC_BASE_URL")).not.toBeInTheDocument();
+    // 切换到自定义：地址字段可编辑且初值为空，模型字段全部清空，auth token 保持不变
+    chooseComboboxOption("供应商", "自定义");
+    const baseUrlInput = screen.getByLabelText("ANTHROPIC_BASE_URL");
+    expect(baseUrlInput).toBeInTheDocument();
+    expect(baseUrlInput).not.toBeDisabled();
+    expect(baseUrlInput).toHaveValue("");
     expect(screen.getByLabelText("默认模型")).toHaveValue("");
     expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("");
     expect(screen.getByLabelText("Sonnet 默认模型")).toHaveValue("");
@@ -3899,6 +3896,12 @@ describe("ProfileEditor", () => {
     expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
     expect(screen.getByLabelText("ANTHROPIC_AUTH_TOKEN")).toHaveValue("token");
     expect(screen.getByLabelText("ANTHROPIC_AUTH_TOKEN")).toHaveAttribute("type", "password");
+
+    // 自定义模式下手填地址：值更新（写入 settings.env.ANTHROPIC_BASE_URL）
+    fireEvent.change(baseUrlInput, { target: { value: "https://custom.example.com/api" } });
+    expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue(
+      "https://custom.example.com/api",
+    );
   });
 
   it("renders authentication controls in a dedicated section and keeps hidden env keys in preview", async () => {

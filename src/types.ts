@@ -6,7 +6,6 @@ export const isTauri = () =>
 export type TabType =
   | "claudeOverview"
   | "configs"
-  | "providers"
   | "memory"
   | "skills"
   | "projects"
@@ -80,8 +79,6 @@ export interface AppPreferences {
   floatingWidgetOpacity: number;
 }
 
-export type ProviderSource = "builtin" | "custom";
-
 export interface LocalizedText {
   zh: string;
   en: string;
@@ -104,7 +101,6 @@ export interface Provider {
   modelSuggestions: string[];
   /** 供应商连接与模型映射环境变量（扁平键值对，不含认证密钥） */
   env: Record<string, string>;
-  source: ProviderSource;
 }
 
 export interface ConfigProfile {
@@ -149,7 +145,6 @@ export interface ActiveUserSettingsMismatch {
 export interface ConfigWorkspace {
   app: AppPreferences;
   builtinProviders: Provider[];
-  customProviders: Provider[];
   profiles: ConfigProfile[];
   bindings: BindingState;
   unmanagedUserSettings?: UnmanagedUserSettings;

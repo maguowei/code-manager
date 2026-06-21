@@ -17,7 +17,6 @@ fn seed_registry(env: &IntegrationEnv, profile_id: &str, settings: Value) {
         "$schema": "https://json.schemastore.org/ai-manager-config-registry.json",
         "version": 2,
         "app": {},
-        "customProviders": [],
         "profiles": [{
             "id": profile_id,
             "name": profile_id,

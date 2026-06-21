@@ -151,7 +151,6 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
     floatingWidgetOpacity: 92,
   },
   builtinProviders: [],
-  customProviders: [],
   profiles: [],
   bindings: {},
 };

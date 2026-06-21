@@ -28,10 +28,9 @@ use claude_directory::{
     rename_claude_directory_entry,
 };
 use config::{
-    apply_profile, delete_profile, delete_provider, duplicate_profile, get_config_workspace,
+    apply_profile, delete_profile, duplicate_profile, get_config_workspace,
     import_user_settings_profile, install_status_line_preset, preview_profile, reorder_profiles,
     set_app_preferences, sync_shared_profile_settings, test_profile_model, upsert_profile,
-    upsert_provider,
 };
 use history::{
     get_history, get_history_if_changed, get_session_detail, open_session_file_in_editor,
@@ -91,8 +90,6 @@ fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             install_status_line_preset,
             preview_profile,
             test_profile_model,
-            upsert_provider,
-            delete_provider,
             set_app_preferences,
             toggle_floating_widget,
             open_usage_page,

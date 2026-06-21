@@ -69,10 +69,9 @@ function Sidebar({
       : "before:left-[-12px] max-[1000px]:before:left-[-8px]",
   );
 
-  // 渲染单个导航项；configs 的高亮包含内部 providers 子页面
+  // 渲染单个导航项
   const renderNavItem = ({ key, label, icon: Icon, testId }: NavItem) => {
-    const active =
-      key === "configs" ? activeTab === "configs" || activeTab === "providers" : activeTab === key;
+    const active = activeTab === key;
     return (
       <Tooltip key={key}>
         <TooltipTrigger asChild>
