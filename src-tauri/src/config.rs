@@ -2543,6 +2543,83 @@ pub fn install_status_line_preset(
     result
 }
 
+/// 多配置启动命令的返回载荷：配置文件绝对路径 + 仅含 env 的紧凑 JSON。
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileLaunchPayload {
+    /// 写入磁盘的完整 settings 文件绝对路径，供 `claude --settings "<path>"` 使用。
+    pub settings_path: String,
+    /// 仅含 env 块的紧凑单行 JSON，供 `claude --settings '<json>'` 内联使用。
+    pub env_only_json: String,
+}
+
+/// 多配置启动用的 settings 文件目录：应用数据目录下的 launch 子目录。
+fn launch_settings_dir() -> Result<PathBuf, String> {
+    Ok(crate::utils::get_app_data_dir_strict()?.join("launch"))
+}
+
+/// 单个配置的 launch settings 文件路径。id 来自 registry 中已存在的配置（后端生成的 UUID），无路径逃逸风险。
+fn launch_settings_path(id: &str) -> Result<PathBuf, String> {
+    Ok(launch_settings_dir()?.join(format!("{id}.settings.json")))
+}
+
+/// 从完整 resolve 后 settings 中抽取仅含 env 块的紧凑 JSON，
+/// 只保留非空字符串值，丢弃 $schema/model/permissions 等其它字段。
+fn build_env_only_json(resolved: &Value) -> Result<String, String> {
+    let mut env_map = Map::new();
+    if let Some(env) = resolved.get("env").and_then(Value::as_object) {
+        for (key, value) in env {
+            if let Some(text) = value.as_str() {
+                if !text.trim().is_empty() {
+                    env_map.insert(key.clone(), Value::String(text.to_string()));
+                }
+            }
+        }
+    }
+    let mut root = Map::new();
+    root.insert("env".to_string(), Value::Object(env_map));
+    serde_json::to_string(&Value::Object(root)).map_err(|e| e.to_string())
+}
+
+/// 不加锁的内部实现：在已加载 registry 中按 id 解析配置，落盘完整 settings 并返回启动载荷。
+/// 调用方负责持有 `lock_config()`，以复用既有「持锁调用内部 helper」的测试与并发约定。
+fn prepare_profile_launch_in_registry(
+    registry: &ConfigRegistry,
+    id: &str,
+) -> Result<ProfileLaunchPayload, String> {
+    let profile = registry
+        .profiles
+        .iter()
+        .find(|profile| profile.id == id)
+        .ok_or_else(|| format!("未找到 profile '{}'", id))?;
+
+    let resolved = resolve_profile_settings(profile)?;
+    let env_only_json = build_env_only_json(&resolved)?;
+    let target_path = launch_settings_path(&profile.id)?;
+    let content = serde_json::to_string_pretty(&resolved).map_err(|e| e.to_string())?;
+    crate::utils::ensure_dir_and_write_atomic(&target_path, &content)?;
+
+    Ok(ProfileLaunchPayload {
+        settings_path: target_path.to_string_lossy().to_string(),
+        env_only_json,
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn prepare_profile_launch(id: String) -> Result<ProfileLaunchPayload, String> {
+    let result = (|| {
+        let _lock = crate::utils::lock_config()?;
+        let registry = load_registry()?;
+        prepare_profile_launch_in_registry(&registry, &id)
+    })();
+    // 注意：payload 含密钥，只记录 profile_id，不记录内容
+    crate::logging::log_command_result("profile.prepare_launch", &result, |_| {
+        format!("profile_id={id}")
+    });
+    result
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn preview_profile(data: ProfileInput) -> Result<String, String> {
@@ -3105,6 +3182,80 @@ mod tests {
 
         let user_path = profile_settings_path().unwrap();
         assert_eq!(user_path, root.join(".claude").join("settings.json"));
+
+        clear_test_env();
+    }
+
+    #[test]
+    fn prepare_profile_launch_writes_file_and_env_only_json() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("prepare-launch");
+        set_test_env(&root);
+
+        // 写入一个带 env 的配置到 registry
+        let mut registry = ConfigRegistry::default();
+        registry.profiles.push(sample_profile(
+            "p1",
+            None,
+            serde_json::json!({
+                "model": "claude-opus-4-1",
+                "env": {
+                    "ANTHROPIC_AUTH_TOKEN": "tok-123",
+                    "ANTHROPIC_BASE_URL": "https://api.example.com",
+                    "EMPTY_VALUE": ""
+                }
+            }),
+        ));
+        save_registry(&registry).unwrap();
+
+        // 命令在持锁后会重新 load_registry，这里直接调用不加锁的内部 helper，
+        // 避免 std Mutex 非可重入导致的自死锁（与 apply_profile / install_status_line_preset 测试约定一致）。
+        let loaded = load_registry().unwrap();
+        let payload = prepare_profile_launch_in_registry(&loaded, "p1").unwrap();
+
+        // 1) 文件已落盘，内容是完整 resolve 后 settings（含 model 与 env）
+        let written = std::fs::read_to_string(&payload.settings_path).unwrap();
+        let parsed: Value = serde_json::from_str(&written).unwrap();
+        assert_eq!(
+            parsed["model"],
+            Value::String("claude-opus-4-1".to_string())
+        );
+        assert_eq!(
+            parsed["env"]["ANTHROPIC_AUTH_TOKEN"],
+            Value::String("tok-123".to_string())
+        );
+
+        // 2) 路径在应用数据目录的 launch 子目录下
+        assert!(payload
+            .settings_path
+            .replace('\\', "/")
+            .contains("/code-manager/launch/p1.settings.json"));
+
+        // 3) env_only_json 只含 env 块，丢弃空字符串值，不含 model
+        let inline: Value = serde_json::from_str(&payload.env_only_json).unwrap();
+        assert_eq!(
+            inline["env"]["ANTHROPIC_AUTH_TOKEN"],
+            Value::String("tok-123".to_string())
+        );
+        assert_eq!(
+            inline["env"]["ANTHROPIC_BASE_URL"],
+            Value::String("https://api.example.com".to_string())
+        );
+        assert!(inline["env"].get("EMPTY_VALUE").is_none());
+        assert!(inline.get("model").is_none());
+
+        clear_test_env();
+    }
+
+    #[test]
+    fn prepare_profile_launch_errors_for_missing_profile() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("prepare-launch-missing");
+        set_test_env(&root);
+
+        let loaded = load_registry().unwrap();
+        let result = prepare_profile_launch_in_registry(&loaded, "does-not-exist");
+        assert!(result.is_err());
 
         clear_test_env();
     }
