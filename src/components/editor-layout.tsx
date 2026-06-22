@@ -27,7 +27,7 @@ function EditorSection({ title, children, className }: EditorSectionProps) {
       data-slot="editor-section"
       className={cn("flex flex-col gap-3 rounded-lg border p-4", PANEL_SURFACE_CLASS, className)}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="-mx-4 flex flex-wrap items-center justify-between gap-3 border-b border-border/80 px-4 pb-3">
         <h3 className={TYPOGRAPHY.sectionTitle}>{title}</h3>
       </div>
       {children}
