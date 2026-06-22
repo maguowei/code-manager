@@ -186,11 +186,18 @@ function StructuredSettingsSections({
   const marketplaceSectionRef = useRef<HTMLDivElement | null>(null);
   const [highlightMarketplace, setHighlightMarketplace] = useState(false);
   const highlightTimerRef = useRef<number | null>(null);
+  // 引导查看合并后的完整配置：滚动到底部「配置预览」并短暂高亮
+  const documentSectionRef = useRef<HTMLDivElement | null>(null);
+  const [highlightDocument, setHighlightDocument] = useState(false);
+  const documentHighlightTimerRef = useRef<number | null>(null);
 
   useEffect(
     () => () => {
       if (highlightTimerRef.current) {
         clearTimeout(highlightTimerRef.current);
+      }
+      if (documentHighlightTimerRef.current) {
+        clearTimeout(documentHighlightTimerRef.current);
       }
     },
     [],
@@ -208,6 +215,17 @@ function StructuredSettingsSections({
       clearTimeout(highlightTimerRef.current);
     }
     highlightTimerRef.current = window.setTimeout(() => setHighlightMarketplace(false), 2000);
+  }
+
+  function openMergedPreview() {
+    requestAnimationFrame(() => {
+      documentSectionRef.current?.scrollIntoView?.({ block: "start", behavior: "smooth" });
+    });
+    setHighlightDocument(true);
+    if (documentHighlightTimerRef.current) {
+      clearTimeout(documentHighlightTimerRef.current);
+    }
+    documentHighlightTimerRef.current = window.setTimeout(() => setHighlightDocument(false), 2000);
   }
 
   // 字段值来源标注:继承自供应商显示徽标,已覆盖且有供应商默认时给出重置入口
@@ -652,13 +670,29 @@ function StructuredSettingsSections({
         mode={sectionState.sectionModes.env}
         onModeChange={(mode) => sectionState.handleSectionModeChange("env", mode)}
         controls={
-          <EnvEditor
-            value={settings.env}
-            onChange={(value) => onStructuredObjectChange("env", value)}
-            onError={(message) => sectionState.setSectionError("env", message)}
-            showTitle={false}
-            hiddenKeys={[...hiddenEnvKeys]}
-          />
+          <div className="grid gap-2">
+            {isProfileScope ? (
+              <p className={cn("text-muted-foreground", TYPOGRAPHY.auxiliary)}>
+                {t("profiles.editor.hints.envOverridesOnly")}{" "}
+                <Button
+                  type="button"
+                  variant="link"
+                  size="xs"
+                  className="h-auto p-0 align-baseline font-normal"
+                  onClick={openMergedPreview}
+                >
+                  {t("profiles.editor.hints.viewMergedConfig")}
+                </Button>
+              </p>
+            ) : null}
+            <EnvEditor
+              value={settings.env}
+              onChange={(value) => onStructuredObjectChange("env", value)}
+              onError={(message) => sectionState.setSectionError("env", message)}
+              showTitle={false}
+              hiddenKeys={[...hiddenEnvKeys]}
+            />
+          </div>
         }
         jsonEditor={envJsonEditor}
         jsonHint={t("common.sectionJsonHint")}
@@ -839,22 +873,30 @@ function StructuredSettingsSections({
         modeRowAction={renderSectionModeRowAction("statusLine", messages.statusLine)}
       />
 
-      <DocumentEditorSection
-        title={messages.document}
-        previewContent={previewContent}
-        previewError={previewError}
-        getEditContent={() => documentJsonEditor.rawJson}
-        editError={documentJsonEditor.jsonError || documentError}
-        hasAppliedDraft={documentJsonEditor.hasAppliedDraft}
-        onEditChange={documentJsonEditor.handleJsonChange}
-        onFormat={documentJsonEditor.formatJson}
-        onClear={documentJsonEditor.clearJson}
-        previewModeLabel={t("common.previewMode")}
-        editModeLabel={messages.editModeLabel}
-        editHint={messages.editHint}
-        supportedKeys={supportedKeys}
-        supportedKeysLabel={messages.supportedKeysLabel}
-      />
+      <div
+        ref={documentSectionRef}
+        className={cn(
+          "rounded-lg transition-shadow duration-500",
+          highlightDocument && "ring-[3px] ring-primary ring-offset-2 ring-offset-background",
+        )}
+      >
+        <DocumentEditorSection
+          title={messages.document}
+          previewContent={previewContent}
+          previewError={previewError}
+          getEditContent={() => documentJsonEditor.rawJson}
+          editError={documentJsonEditor.jsonError || documentError}
+          hasAppliedDraft={documentJsonEditor.hasAppliedDraft}
+          onEditChange={documentJsonEditor.handleJsonChange}
+          onFormat={documentJsonEditor.formatJson}
+          onClear={documentJsonEditor.clearJson}
+          previewModeLabel={t("common.previewMode")}
+          editModeLabel={messages.editModeLabel}
+          editHint={messages.editHint}
+          supportedKeys={supportedKeys}
+          supportedKeysLabel={messages.supportedKeysLabel}
+        />
+      </div>
     </>
   );
 }

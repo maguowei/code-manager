@@ -323,6 +323,9 @@ const translations = {
     "profiles.editor.hints.suggestedModels": "供应商模型",
     "profiles.editor.hints.behaviorJson":
       "这里直接编辑当前行为区块相关的顶层键，以及相关的 env 覆盖，不会创建新的 behavior 嵌套对象。",
+    "profiles.editor.hints.envOverridesOnly":
+      "环境变量仅展示当前配置的覆盖项；供应商注入与合并后的完整环境变量见配置预览。",
+    "profiles.editor.hints.viewMergedConfig": "查看合并后的完整配置",
     "profiles.editor.hints.commonJson":
       "这里直接编辑当前常用选项区块相关的顶层键，以及相关的 env 开关。",
     "profiles.editor.hints.expert": "预览展示最终合成结果，编辑模式直接修改配置的源 JSON。",
@@ -1847,6 +1850,9 @@ const translations = {
     "profiles.editor.hints.suggestedModels": "Provider models",
     "profiles.editor.hints.behaviorJson":
       "Edit the related top-level behavior keys and scoped env overrides directly without creating a nested behavior object.",
+    "profiles.editor.hints.envOverridesOnly":
+      "Only this profile's environment variable overrides are shown here. The full set merged with the provider is in the config preview.",
+    "profiles.editor.hints.viewMergedConfig": "View merged config",
     "profiles.editor.hints.commonJson":
       "Edit the related common-option top-level keys and env switches directly here.",
     "profiles.editor.hints.expert":

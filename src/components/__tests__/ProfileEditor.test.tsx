@@ -4089,6 +4089,24 @@ describe("ProfileEditor", () => {
     expect(within(behaviorSection).getAllByText("来自供应商").length).toBeGreaterThan(0);
   });
 
+  it("guides users to the merged config preview from the env section", () => {
+    renderEditor();
+
+    const envSection = getSection("环境变量");
+    toggleAccordionSection("环境变量");
+
+    const viewMergedButton = within(envSection).getByRole("button", {
+      name: "查看合并后的完整配置",
+    });
+    expect(viewMergedButton).toBeInTheDocument();
+    // 点击应跳转到配置预览且不抛错(jsdom 下 scrollIntoView 可能未定义,已用可选链规避)
+    expect(() => {
+      act(() => {
+        fireEvent.click(viewMergedButton);
+      });
+    }).not.toThrow();
+  });
+
   it("renders authentication controls in a dedicated section and keeps hidden env keys in preview", async () => {
     renderEditor();
 
