@@ -4231,10 +4231,11 @@ describe("ProfileEditor", () => {
     renderEditor({ profile: null, onSave });
 
     const commonSection = getSection("常用选项");
-    expect(within(commonSection).getByText("已启用 7/15")).toBeInTheDocument();
+    expect(within(commonSection).getByText("已启用 8/15")).toBeInTheDocument();
     toggleAccordionSection("常用选项");
     for (const label of [
       "默认启用深度思考",
+      "显示 Thinking 摘要",
       "已完成引导设置",
       "跳过 WebFetch 预检",
       "禁用非必要网络请求",
@@ -4250,7 +4251,6 @@ describe("ProfileEditor", () => {
     }
     expect(screen.getByLabelText("输出风格")).toHaveValue("");
     for (const label of [
-      "显示 Thinking 摘要",
       "接受计划时显示清理上下文",
       "禁用 AI 署名",
       "禁用所有 Hooks",
@@ -4278,6 +4278,7 @@ describe("ProfileEditor", () => {
     const saved = onSave.mock.calls[0][0];
     expect(saved.settings).toMatchObject({
       alwaysThinkingEnabled: true,
+      showThinkingSummaries: true,
       hasCompletedOnboarding: true,
       skipWebFetchPreflight: true,
     });

@@ -342,6 +342,7 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     key: "showThinkingSummaries",
     section: "common",
     kind: "checkbox",
+    defaultEnabled: true,
     label: {
       zh: "显示 Thinking 摘要",
       en: "Show thinking summaries",
