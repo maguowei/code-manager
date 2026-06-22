@@ -2129,6 +2129,8 @@ function ProfilesPage({
             setLaunchProfile(null);
             setLaunchCommands(null);
             setLaunchLoadError(false);
+            // 关闭时同步清除加载状态
+            setIsLaunchLoading(false);
           }
         }}
       >
