@@ -2481,6 +2481,7 @@ pub fn delete_profile(app_handle: AppHandle, id: String) -> Result<(), String> {
         }
 
         remove_profile_bindings(&mut registry.bindings, &id);
+        remove_launch_settings_file(&id);
         save_registry(&registry)?;
         rebuild_tray_menu(&app_handle, Some(&registry));
         let _ = app_handle.emit("config-workspace-changed", ());
@@ -2561,6 +2562,13 @@ fn launch_settings_dir() -> Result<PathBuf, String> {
 /// 单个配置的 launch settings 文件路径。id 来自 registry 中已存在的配置（后端生成的 UUID），无路径逃逸风险。
 fn launch_settings_path(id: &str) -> Result<PathBuf, String> {
     Ok(launch_settings_dir()?.join(format!("{id}.settings.json")))
+}
+
+/// 删除单个配置的 launch settings 文件，best-effort（文件不存在不报错）。
+fn remove_launch_settings_file(id: &str) {
+    if let Ok(path) = launch_settings_path(id) {
+        let _ = std::fs::remove_file(path);
+    }
 }
 
 /// 从完整 resolve 后 settings 中抽取仅含 env 块的紧凑 JSON，
@@ -3256,6 +3264,32 @@ mod tests {
         let loaded = load_registry().unwrap();
         let result = prepare_profile_launch_in_registry(&loaded, "does-not-exist");
         assert!(result.is_err());
+
+        clear_test_env();
+    }
+
+    #[test]
+    fn delete_profile_removes_launch_settings_file() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("delete-launch");
+        set_test_env(&root);
+
+        let mut registry = ConfigRegistry::default();
+        registry.profiles.push(sample_profile(
+            "p1",
+            None,
+            serde_json::json!({ "env": { "K": "v" } }),
+        ));
+        save_registry(&registry).unwrap();
+
+        // 先生成 launch 文件（用非加锁的内部 helper，避免与已持有的 lock_config 死锁）
+        let loaded = load_registry().unwrap();
+        let payload = prepare_profile_launch_in_registry(&loaded, "p1").unwrap();
+        assert!(std::path::Path::new(&payload.settings_path).exists());
+
+        // 直接调用清理辅助函数（command 需要 AppHandle，单测里只验证文件清理逻辑）
+        remove_launch_settings_file("p1");
+        assert!(!std::path::Path::new(&payload.settings_path).exists());
 
         clear_test_env();
     }
