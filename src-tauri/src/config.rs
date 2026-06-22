@@ -2481,8 +2481,9 @@ pub fn delete_profile(app_handle: AppHandle, id: String) -> Result<(), String> {
         }
 
         remove_profile_bindings(&mut registry.bindings, &id);
-        remove_launch_settings_file(&id);
         save_registry(&registry)?;
+        // 注册表删除成功提交后再清理 launch 文件，避免保存失败时留下不一致状态
+        remove_launch_settings_file(&id);
         rebuild_tray_menu(&app_handle, Some(&registry));
         let _ = app_handle.emit("config-workspace-changed", ());
         Ok(())
@@ -2567,7 +2568,7 @@ fn launch_settings_path(id: &str) -> Result<PathBuf, String> {
 /// 删除单个配置的 launch settings 文件，best-effort（文件不存在不报错）。
 fn remove_launch_settings_file(id: &str) {
     if let Ok(path) = launch_settings_path(id) {
-        let _ = std::fs::remove_file(path);
+        let _ = fs::remove_file(path);
     }
 }
 
