@@ -316,7 +316,7 @@ const translations = {
     "profiles.editor.fields.authTokenEnv": "ANTHROPIC_AUTH_TOKEN",
     "profiles.editor.fields.baseUrl": "API 地址",
     "profiles.editor.fields.baseUrlEnv": "ANTHROPIC_BASE_URL",
-    "profiles.editor.placeholders.name": "例如：OpenRouter User",
+    "profiles.editor.placeholders.name": "例如：OpenRouter-日常开发",
     "profiles.editor.placeholders.description": "例如：全局开发默认配置",
     "profiles.editor.hints.provider":
       "供应商提供连接地址与模型映射；选择「自定义」可手动填写 API 地址。",
@@ -1846,7 +1846,7 @@ const translations = {
     "profiles.editor.fields.authTokenEnv": "ANTHROPIC_AUTH_TOKEN",
     "profiles.editor.fields.baseUrl": "API Base URL",
     "profiles.editor.fields.baseUrlEnv": "ANTHROPIC_BASE_URL",
-    "profiles.editor.placeholders.name": "e.g. OpenRouter User",
+    "profiles.editor.placeholders.name": "e.g. OpenRouter-Daily dev",
     "profiles.editor.placeholders.description": "e.g. Global default workspace profile",
     "profiles.editor.hints.provider":
       'Providers supply the connection address and model mappings; pick "Custom" to enter your own API base URL.',
