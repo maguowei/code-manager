@@ -1401,60 +1401,61 @@ function ProfilesPage({
           surface="secondary"
           variant="list"
           actions={
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className={cn(
-                "border-border bg-muted font-semibold text-foreground hover:border-primary hover:text-primary",
-                isTestingAllProfiles && "is-testing",
-              )}
-              disabled={profiles.length === 0 || isTestingAllProfiles}
-              onClick={() => {
-                void handleTestAllProfiles();
-              }}
-            >
-              <TestTube
-                data-icon="inline-start"
-                className={cn(isTestingAllProfiles && "animate-spin")}
-                aria-hidden="true"
-              />
-              <span>
-                {isTestingAllProfiles
-                  ? t("profiles.actions.testingAll")
-                  : t("profiles.actions.testAll")}
-              </span>
-            </Button>
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "border-border bg-muted font-semibold text-foreground hover:border-primary hover:text-primary",
+                  isTestingAllProfiles && "is-testing",
+                )}
+                disabled={profiles.length === 0 || isTestingAllProfiles}
+                onClick={() => {
+                  void handleTestAllProfiles();
+                }}
+              >
+                <TestTube
+                  data-icon="inline-start"
+                  className={cn(isTestingAllProfiles && "animate-spin")}
+                  aria-hidden="true"
+                />
+                <span>
+                  {isTestingAllProfiles
+                    ? t("profiles.actions.testingAll")
+                    : t("profiles.actions.testAll")}
+                </span>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-border bg-muted font-semibold text-foreground hover:border-primary hover:text-primary"
+                aria-label={t("profiles.import.action")}
+                title={t("profiles.import.action")}
+                onClick={() => {
+                  void handleImportProfile();
+                }}
+              >
+                <Upload data-icon="inline-start" aria-hidden="true" />
+                <span>{t("profiles.import.action")}</span>
+              </Button>
+            </>
           }
         />
-        <div className="mx-2 mt-4 mb-3 flex items-stretch gap-2">
-          <Button
-            type="button"
-            className="h-auto flex-1 gap-2 rounded-lg p-3.5 text-base font-semibold"
-            onClick={() => {
-              requestEditorExit(() => {
-                setEditingProfile(null);
-                setIsDrawerOpen(true);
-              });
-            }}
-          >
-            <Plus data-icon="inline-start" aria-hidden="true" />
-            <span>{t("profiles.add")}</span>
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="h-auto gap-2 rounded-lg border-border bg-muted p-3.5 text-base font-semibold text-foreground hover:border-primary hover:text-primary"
-            aria-label={t("profiles.import.action")}
-            title={t("profiles.import.action")}
-            onClick={() => {
-              void handleImportProfile();
-            }}
-          >
-            <Upload data-icon="inline-start" aria-hidden="true" />
-            <span>{t("profiles.import.action")}</span>
-          </Button>
-        </div>
+        <Button
+          type="button"
+          className="mx-2 mt-4 mb-3 h-auto gap-2 rounded-lg p-3.5 text-base font-semibold"
+          onClick={() => {
+            requestEditorExit(() => {
+              setEditingProfile(null);
+              setIsDrawerOpen(true);
+            });
+          }}
+        >
+          <Plus data-icon="inline-start" aria-hidden="true" />
+          <span>{t("profiles.add")}</span>
+        </Button>
 
         <div
           className={cn(
