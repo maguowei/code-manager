@@ -35,4 +35,31 @@ describe("buildLaunchCommands", () => {
     });
     expect(inlineJsonCommand).toBe(`claude --settings '{"env":{"X":"a'\\''b"}}'`);
   });
+
+  it("打码版：密钥类 key 的值被掩码，地址与 model 保持可见", () => {
+    const { inlineJsonCommandMasked } = buildLaunchCommands({
+      settingsPath: "/tmp/p1.json",
+      envOnlyJson:
+        '{"env":{"ANTHROPIC_AUTH_TOKEN":"sk-secret","ANTHROPIC_API_KEY":"key-secret","ANTHROPIC_BASE_URL":"https://api.example.com","ANTHROPIC_MODEL":"claude-opus"}}',
+    });
+    expect(inlineJsonCommandMasked).toBe(
+      `claude --settings '{"env":{"ANTHROPIC_AUTH_TOKEN":"••••••","ANTHROPIC_API_KEY":"••••••","ANTHROPIC_BASE_URL":"https://api.example.com","ANTHROPIC_MODEL":"claude-opus"}}'`,
+    );
+  });
+
+  it("打码版：无密钥时与原命令一致", () => {
+    const { inlineJsonCommand, inlineJsonCommandMasked } = buildLaunchCommands({
+      settingsPath: "/tmp/p1.json",
+      envOnlyJson: '{"env":{"ANTHROPIC_BASE_URL":"https://api.example.com"}}',
+    });
+    expect(inlineJsonCommandMasked).toBe(inlineJsonCommand);
+  });
+
+  it("打码版：JSON 解析失败时回退为不打码命令", () => {
+    const { inlineJsonCommand, inlineJsonCommandMasked } = buildLaunchCommands({
+      settingsPath: "/tmp/p1.json",
+      envOnlyJson: "not-json",
+    });
+    expect(inlineJsonCommandMasked).toBe(inlineJsonCommand);
+  });
 });

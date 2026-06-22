@@ -47,6 +47,7 @@ import {
 } from "./config-workspace-utils";
 import EmptyState from "./EmptyState";
 import type { EditorExitGuard } from "./editor-exit-guard";
+import LaunchCommandBlock from "./LaunchCommandBlock";
 import {
   LIST_DETAIL_DRAWER_OFFSET_CLASS,
   LIST_PANEL_COMPRESSED_WIDTH_CLASS,
@@ -66,6 +67,7 @@ import {
   COMMON_TOP_LEVEL_SETTINGS_KEYS,
 } from "./profile-editor/settings-form-registry";
 import { buildLaunchCommands, type LaunchCommands } from "./profile-launch-utils";
+import { SUBTLE_SURFACE_CLASS } from "./surface-classes";
 import { useTheme } from "./theme-provider";
 import { TYPOGRAPHY } from "./typography-classes";
 import UnsavedChangesAlertDialog from "./UnsavedChangesAlertDialog";
@@ -2134,7 +2136,7 @@ function ProfilesPage({
           }
         }}
       >
-        <DialogContent>
+        <DialogContent className="flex max-h-[85vh] flex-col gap-4 sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{t("profiles.launchDialog.title")}</DialogTitle>
             <DialogDescription>{t("profiles.launchDialog.description")}</DialogDescription>
@@ -2148,43 +2150,34 @@ function ProfilesPage({
               {t("profiles.launchDialog.loadError")}
             </p>
           ) : launchCommands ? (
-            <div className="flex flex-col gap-4">
-              {[
-                {
-                  key: "filePath",
-                  label: t("profiles.launchDialog.filePathLabel"),
-                  hint: t("profiles.launchDialog.filePathHint"),
-                  command: launchCommands.filePathCommand,
-                },
-                {
-                  key: "inlineJson",
-                  label: t("profiles.launchDialog.inlineJsonLabel"),
-                  hint: t("profiles.launchDialog.inlineJsonHint"),
-                  command: launchCommands.inlineJsonCommand,
-                },
-              ].map((item) => (
-                <div key={item.key} className="flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className={cn(TYPOGRAPHY.body, "font-medium")}>{item.label}</span>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void handleCopyLaunchCommand(item.command)}
-                    >
-                      <Copy aria-hidden="true" />
-                      {t("profiles.launchDialog.copy")}
-                    </Button>
-                  </div>
-                  <pre className="overflow-x-auto rounded-md border border-border bg-muted px-3 py-2 font-mono text-sm whitespace-pre-wrap break-all">
-                    {item.command}
-                  </pre>
-                  <span className={cn(TYPOGRAPHY.auxiliary, "text-muted-foreground")}>
-                    {item.hint}
-                  </span>
-                </div>
-              ))}
-              <div className="flex flex-col gap-1">
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto pr-1">
+              <LaunchCommandBlock
+                label={t("profiles.launchDialog.filePathLabel")}
+                badge={t("profiles.launchDialog.recommendedBadge")}
+                command={launchCommands.filePathCommand}
+                hint={t("profiles.launchDialog.filePathHint")}
+                hintTone="info"
+                onCopy={handleCopyLaunchCommand}
+                copyLabel={t("profiles.launchDialog.copy")}
+                copiedLabel={t("profiles.launchDialog.copied")}
+                revealLabel={t("profiles.launchDialog.reveal")}
+                hideLabel={t("profiles.launchDialog.hide")}
+              />
+              <LaunchCommandBlock
+                label={t("profiles.launchDialog.inlineJsonLabel")}
+                command={launchCommands.inlineJsonCommand}
+                maskedCommand={launchCommands.inlineJsonCommandMasked}
+                hint={t("profiles.launchDialog.inlineJsonHint")}
+                hintTone="warning"
+                onCopy={handleCopyLaunchCommand}
+                copyLabel={t("profiles.launchDialog.copy")}
+                copiedLabel={t("profiles.launchDialog.copied")}
+                revealLabel={t("profiles.launchDialog.reveal")}
+                hideLabel={t("profiles.launchDialog.hide")}
+              />
+              <div
+                className={cn(SUBTLE_SURFACE_CLASS, "flex flex-col gap-1 rounded-md border p-3")}
+              >
                 <span className={cn(TYPOGRAPHY.badge, "text-muted-foreground")}>
                   {t("profiles.launchDialog.usageTitle")}
                 </span>

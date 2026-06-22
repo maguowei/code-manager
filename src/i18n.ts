@@ -267,13 +267,17 @@ const translations = {
     "profiles.launchDialog.title": "复制 Claude 启动命令",
     "profiles.launchDialog.description":
       "用 claude --settings 启动一个独立配置，不改动全局 ~/.claude/settings.json，可在不同终端并行运行多套配置。",
-    "profiles.launchDialog.filePathLabel": "配置文件路径式（推荐）",
+    "profiles.launchDialog.filePathLabel": "配置文件路径式",
     "profiles.launchDialog.filePathHint":
       "命令简洁、不会把密钥写入 shell 历史，且保留完整配置（model、权限、插件等）。",
     "profiles.launchDialog.inlineJsonLabel": "内联 JSON 式",
     "profiles.launchDialog.inlineJsonHint":
       "自包含、不落额外文件，仅含 env；注意密钥会进入 shell 历史。",
+    "profiles.launchDialog.recommendedBadge": "推荐",
     "profiles.launchDialog.copy": "复制",
+    "profiles.launchDialog.copied": "已复制",
+    "profiles.launchDialog.reveal": "显示密钥",
+    "profiles.launchDialog.hide": "隐藏密钥",
     "profiles.launchDialog.usageTitle": "如何使用",
     "profiles.launchDialog.usageStep1": "打开一个新终端窗口或标签页。",
     "profiles.launchDialog.usageStep2": "粘贴上面任意一条命令并回车。",
@@ -1850,13 +1854,17 @@ const translations = {
     "profiles.launchDialog.title": "Copy Claude launch command",
     "profiles.launchDialog.description":
       "Launch a standalone config with claude --settings without touching the global ~/.claude/settings.json, so you can run multiple configs in parallel across terminals.",
-    "profiles.launchDialog.filePathLabel": "Settings file path (recommended)",
+    "profiles.launchDialog.filePathLabel": "Settings file path",
     "profiles.launchDialog.filePathHint":
       "Clean command, keeps secrets out of shell history, and preserves the full config (model, permissions, plugins).",
     "profiles.launchDialog.inlineJsonLabel": "Inline JSON",
     "profiles.launchDialog.inlineJsonHint":
       "Self-contained with no extra file, env only; note the secrets land in shell history.",
+    "profiles.launchDialog.recommendedBadge": "Recommended",
     "profiles.launchDialog.copy": "Copy",
+    "profiles.launchDialog.copied": "Copied",
+    "profiles.launchDialog.reveal": "Show secrets",
+    "profiles.launchDialog.hide": "Hide secrets",
     "profiles.launchDialog.usageTitle": "How to use",
     "profiles.launchDialog.usageStep1": "Open a new terminal window or tab.",
     "profiles.launchDialog.usageStep2": "Paste either command above and press Enter.",
