@@ -8,6 +8,7 @@
   "permissions": [
     "core:default",
     "dialog:allow-open",
+    "dialog:allow-save",
     "log:default",
     "opener:default",
     "opener:allow-reveal-item-in-dir",

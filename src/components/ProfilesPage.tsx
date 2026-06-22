@@ -1,12 +1,15 @@
+import { open, save } from "@tauri-apps/plugin-dialog";
 import {
   CircleAlert,
   CircleCheck,
   Copy,
+  Download,
   FileInput,
   FolderSync,
   Plus,
   TestTube,
   Trash2,
+  Upload,
   Variable,
 } from "lucide-react";
 import {
@@ -33,6 +36,7 @@ import type {
   UnmanagedUserSettings,
   UnmanagedUserSettingsImportStatus,
 } from "../types";
+import ConfigPreview from "./ConfigPreview";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import {
   getEnabledPluginsSummary,
@@ -74,8 +78,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "./ui/sheet";
 import { Spinner } from "./ui/spinner";
+import { Switch } from "./ui/switch";
 
 const ModelTestResultDialog = lazy(() => import("./profile-editor/ModelTestResultDialog"));
 const ProvidersPage = lazy(() => import("./ProvidersPage"));
@@ -146,6 +153,22 @@ const SETTINGS_MISMATCH_DIFF_BASE_OPTIONS = {
 
 function formatSettingsJson(settings: Record<string, unknown>) {
   return JSON.stringify(settings, null, 2);
+}
+
+// 配置名转安全的导出文件名:替换路径非法字符与空白,空名回退默认值
+function sanitizeExportFileName(name: string) {
+  const cleaned = name
+    .trim()
+    .replace(/[/\\:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `${cleaned || "profile"}.json`;
+}
+
+// 从导入文件路径提取去扩展名的文件名,作为导入命名默认值
+function fileStemFromPath(path: string) {
+  const base = path.split(/[/\\]/).pop() ?? "";
+  return base.replace(/\.json$/i, "") || base;
 }
 
 function buildSettingsDiffFile(
@@ -238,6 +261,21 @@ function ProfilesPage({
   const [isSyncingShared, setIsSyncingShared] = useState(false);
   const [isTestingAllProfiles, setIsTestingAllProfiles] = useState(false);
   const [isImportingUserSettings, setIsImportingUserSettings] = useState(false);
+  // 导出预览对话框:目标配置、是否含密钥、预览内容/错误、加载与导出中状态
+  const [exportTargetProfile, setExportTargetProfile] = useState<ConfigProfile | null>(null);
+  const [exportIncludeSecrets, setExportIncludeSecrets] = useState(false);
+  const [exportPreview, setExportPreview] = useState("");
+  const [exportPreviewError, setExportPreviewError] = useState<string | null>(null);
+  const [isExportPreviewLoading, setIsExportPreviewLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  // 导入预览对话框:源文件路径、预览内容/错误、名称与描述、加载与导入中状态
+  const [importSourcePath, setImportSourcePath] = useState<string | null>(null);
+  const [importPreview, setImportPreview] = useState("");
+  const [importPreviewError, setImportPreviewError] = useState<string | null>(null);
+  const [isImportPreviewLoading, setIsImportPreviewLoading] = useState(false);
+  const [importName, setImportName] = useState("");
+  const [importDescription, setImportDescription] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
   const [profileModelTestStates, setProfileModelTestStates] = useState<
     Record<string, ProfileModelTestState>
   >({});
@@ -710,6 +748,141 @@ function ProfilesPage({
       showOperationError(showToast, t("profiles.toast.deleteError"), err);
     }
   }
+
+  // 打开导出预览对话框(默认不含密钥)
+  function openExportDialog(profile: ConfigProfile) {
+    setExportTargetProfile(profile);
+    setExportIncludeSecrets(false);
+    setExportPreview("");
+    setExportPreviewError(null);
+  }
+
+  function closeExportDialog() {
+    setExportTargetProfile(null);
+    setExportPreview("");
+    setExportPreviewError(null);
+    setIsExporting(false);
+  }
+
+  // 确认导出:弹保存对话框选路径,落盘含/不含密钥的完整配置
+  async function handleConfirmExport() {
+    if (!exportTargetProfile || exportPreviewError) return;
+    setIsExporting(true);
+    try {
+      const targetPath = await save({
+        defaultPath: sanitizeExportFileName(exportTargetProfile.name),
+        filters: [{ name: "JSON", extensions: ["json"] }],
+      });
+      if (!targetPath) {
+        setIsExporting(false);
+        return;
+      }
+      await ipc.exportProfile(exportTargetProfile.id, targetPath, exportIncludeSecrets);
+      showToast(
+        exportIncludeSecrets
+          ? t("profiles.export.toast.exportedWithSecrets")
+          : t("profiles.export.toast.exported"),
+      );
+      closeExportDialog();
+    } catch (err) {
+      showOperationError(showToast, t("profiles.export.toast.exportError"), err);
+      setIsExporting(false);
+    }
+  }
+
+  // 顶部导入入口:选择 .json 文件后打开导入预览对话框
+  async function handleImportProfile() {
+    let selected: string | string[] | null;
+    try {
+      selected = await open({
+        multiple: false,
+        filters: [{ name: "JSON", extensions: ["json"] }],
+        title: t("profiles.import.dialogTitle"),
+      });
+    } catch (err) {
+      showOperationError(showToast, t("profiles.import.toast.importError"), err);
+      return;
+    }
+    const sourcePath = Array.isArray(selected) ? selected[0] : selected;
+    if (!sourcePath) return;
+    setImportSourcePath(sourcePath);
+    setImportName(fileStemFromPath(sourcePath));
+    setImportDescription("");
+    setImportPreview("");
+    setImportPreviewError(null);
+  }
+
+  function closeImportDialog() {
+    setImportSourcePath(null);
+    setImportPreview("");
+    setImportPreviewError(null);
+    setImportName("");
+    setImportDescription("");
+    setIsImporting(false);
+  }
+
+  // 确认导入:校验通过后创建新配置(不自动绑定/激活)
+  async function handleConfirmImport() {
+    if (!importSourcePath || importPreviewError) return;
+    setIsImporting(true);
+    try {
+      await ipc.importProfileFromFile(importSourcePath, importName, importDescription);
+      await onWorkspaceChange();
+      showToast(t("profiles.import.toast.imported"));
+      closeImportDialog();
+    } catch (err) {
+      showOperationError(showToast, t("profiles.import.toast.importError"), err);
+      setIsImporting(false);
+    }
+  }
+
+  // 拉取导出预览:目标配置或「包含密钥」开关变化时重新加载,保证预览所见即所得
+  useEffect(() => {
+    if (!exportTargetProfile) return;
+    let cancelled = false;
+    setIsExportPreviewLoading(true);
+    setExportPreviewError(null);
+    ipc
+      .previewProfileExport(exportTargetProfile.id, exportIncludeSecrets)
+      .then((content) => {
+        if (!cancelled) setExportPreview(content);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setExportPreview("");
+        setExportPreviewError(getUserFacingErrorReason(err));
+      })
+      .finally(() => {
+        if (!cancelled) setIsExportPreviewLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [exportTargetProfile, exportIncludeSecrets]);
+
+  // 拉取导入预览:选定文件后加载,提前暴露解析/校验错误
+  useEffect(() => {
+    if (!importSourcePath) return;
+    let cancelled = false;
+    setIsImportPreviewLoading(true);
+    setImportPreviewError(null);
+    ipc
+      .previewProfileImport(importSourcePath)
+      .then((content) => {
+        if (!cancelled) setImportPreview(content);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setImportPreview("");
+        setImportPreviewError(getUserFacingErrorReason(err));
+      })
+      .finally(() => {
+        if (!cancelled) setIsImportPreviewLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [importSourcePath]);
 
   async function handleCopyEnv(profile: ConfigProfile) {
     try {
@@ -1254,19 +1427,34 @@ function ProfilesPage({
             </Button>
           }
         />
-        <Button
-          type="button"
-          className="mx-2 mt-4 mb-3 h-auto gap-2 rounded-lg p-3.5 text-base font-semibold"
-          onClick={() => {
-            requestEditorExit(() => {
-              setEditingProfile(null);
-              setIsDrawerOpen(true);
-            });
-          }}
-        >
-          <Plus data-icon="inline-start" aria-hidden="true" />
-          <span>{t("profiles.add")}</span>
-        </Button>
+        <div className="mx-2 mt-4 mb-3 flex items-stretch gap-2">
+          <Button
+            type="button"
+            className="h-auto flex-1 gap-2 rounded-lg p-3.5 text-base font-semibold"
+            onClick={() => {
+              requestEditorExit(() => {
+                setEditingProfile(null);
+                setIsDrawerOpen(true);
+              });
+            }}
+          >
+            <Plus data-icon="inline-start" aria-hidden="true" />
+            <span>{t("profiles.add")}</span>
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-auto gap-2 rounded-lg border-border bg-muted p-3.5 text-base font-semibold text-foreground hover:border-primary hover:text-primary"
+            aria-label={t("profiles.import.action")}
+            title={t("profiles.import.action")}
+            onClick={() => {
+              void handleImportProfile();
+            }}
+          >
+            <Upload data-icon="inline-start" aria-hidden="true" />
+            <span>{t("profiles.import.action")}</span>
+          </Button>
+        </div>
 
         <div
           className={cn(
@@ -1531,6 +1719,20 @@ function ProfilesPage({
                     variant="outline"
                     size="icon-sm"
                     className="border-border bg-muted text-foreground hover:border-primary hover:text-primary"
+                    aria-label={t("profiles.actions.export")}
+                    title={t("profiles.actions.export")}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      openExportDialog(profile);
+                    }}
+                  >
+                    <Download aria-hidden="true" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    className="border-border bg-muted text-foreground hover:border-primary hover:text-primary"
                     aria-label={t("profiles.actions.duplicate")}
                     title={t("profiles.actions.duplicate")}
                     onClick={(event) => {
@@ -1752,6 +1954,99 @@ function ProfilesPage({
             </Button>
             <Button onClick={() => void handleMismatchAcceptActual()}>
               {t("profiles.mismatch.acceptActual")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!exportTargetProfile}
+        onOpenChange={(open) => {
+          if (!open) closeExportDialog();
+        }}
+      >
+        <DialogContent className="flex max-h-[85vh] flex-col gap-4 sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{t("profiles.export.dialogTitle")}</DialogTitle>
+            <DialogDescription>{t("profiles.export.dialogDescription")}</DialogDescription>
+          </DialogHeader>
+          <div className="flex items-start justify-between gap-4 rounded-md border border-border bg-muted/40 p-3">
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="export-include-secrets" className="font-semibold">
+                {t("profiles.export.includeSecrets")}
+              </Label>
+              <span className={cn(TYPOGRAPHY.auxiliary, "text-muted-foreground")}>
+                {exportIncludeSecrets
+                  ? t("profiles.export.includeSecretsOnHint")
+                  : t("profiles.export.includeSecretsOffHint")}
+              </span>
+            </div>
+            <Switch
+              id="export-include-secrets"
+              checked={exportIncludeSecrets}
+              onCheckedChange={setExportIncludeSecrets}
+            />
+          </div>
+          <div className="min-h-0 flex-1 overflow-auto">
+            <ConfigPreview content={exportPreview} jsonError={exportPreviewError ?? undefined} />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeExportDialog}>
+              {t("common.close")}
+            </Button>
+            <Button
+              disabled={isExporting || !!exportPreviewError || isExportPreviewLoading}
+              onClick={() => void handleConfirmExport()}
+            >
+              {t("profiles.export.confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!importSourcePath}
+        onOpenChange={(open) => {
+          if (!open) closeImportDialog();
+        }}
+      >
+        <DialogContent className="flex max-h-[85vh] flex-col gap-4 sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{t("profiles.import.dialogTitle")}</DialogTitle>
+            <DialogDescription>{t("profiles.import.dialogDescription")}</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="import-name">{t("profiles.import.nameLabel")}</Label>
+              <Input
+                id="import-name"
+                value={importName}
+                onChange={(event) => setImportName(event.target.value)}
+                placeholder={t("profiles.import.namePlaceholder")}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="import-description">{t("profiles.import.descriptionLabel")}</Label>
+              <Input
+                id="import-description"
+                value={importDescription}
+                onChange={(event) => setImportDescription(event.target.value)}
+                placeholder={t("profiles.import.descriptionPlaceholder")}
+              />
+            </div>
+          </div>
+          <div className="min-h-0 flex-1 overflow-auto">
+            <ConfigPreview content={importPreview} jsonError={importPreviewError ?? undefined} />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeImportDialog}>
+              {t("common.close")}
+            </Button>
+            <Button
+              disabled={isImporting || !!importPreviewError || isImportPreviewLoading}
+              onClick={() => void handleConfirmImport()}
+            >
+              {t("profiles.import.confirm")}
             </Button>
           </DialogFooter>
         </DialogContent>

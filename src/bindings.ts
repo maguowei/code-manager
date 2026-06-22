@@ -21,6 +21,10 @@ export const commands = {
 	importUserSettingsProfile: (data: UserSettingsImportInput) => typedError<ConfigProfile_Serialize, string>(__TAURI_INVOKE("import_user_settings_profile", { data })),
 	installStatusLinePreset: (presetId: string, overwrite: boolean) => typedError<StatusLinePresetInstallResult, string>(__TAURI_INVOKE("install_status_line_preset", { presetId, overwrite })),
 	previewProfile: (data: ProfileInput) => typedError<string, string>(__TAURI_INVOKE("preview_profile", { data })),
+	previewProfileExport: (id: string, includeSecrets: boolean) => typedError<string, string>(__TAURI_INVOKE("preview_profile_export", { id, includeSecrets })),
+	exportProfile: (id: string, targetPath: string, includeSecrets: boolean) => typedError<null, string>(__TAURI_INVOKE("export_profile", { id, targetPath, includeSecrets })),
+	previewProfileImport: (sourcePath: string) => typedError<string, string>(__TAURI_INVOKE("preview_profile_import", { sourcePath })),
+	importProfileFromFile: (sourcePath: string, name: string, description: string) => typedError<ConfigProfile_Serialize, string>(__TAURI_INVOKE("import_profile_from_file", { sourcePath, name, description })),
 	testProfileModel: (data: ModelTestInput) => typedError<ModelTestResult_Serialize, string>(__TAURI_INVOKE("test_profile_model", { data })),
 	setAppPreferences: (data: AppPreferencesInput) => typedError<AppPreferences, string>(__TAURI_INVOKE("set_app_preferences", { data })),
 	/**  切换浮窗显隐（幂等）：显示时不存在则创建，隐藏时隐藏而非关闭以保留位置与状态。 */

@@ -126,6 +126,11 @@ type CompatibleIpcOverrides = {
     granularity: AppTypes.UsageTimeGranularity,
   ): Promise<AppTypes.UsageSnapshot>;
   importMemoriesFromDirectory(sourceDir: string): Promise<AppTypes.MemoryDirectoryImportResult>;
+  importProfileFromFile(
+    sourcePath: string,
+    name: string,
+    description: string,
+  ): Promise<AppTypes.ConfigProfile>;
   importSkillsFromDirectory(sourceDir: string): Promise<AppTypes.SkillDirectoryImportResult>;
   importUnmanagedMemory(source: {
     targetType: AppTypes.MemoryTargetType;

@@ -13,14 +13,23 @@ import type { ConfigWorkspace } from "../../types";
 import ProfilesPage from "../ProfilesPage";
 import { ThemeProvider } from "../theme-provider";
 
-const { invokeMock, multiFileDiffMock, showToastMock } = vi.hoisted(() => ({
-  invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
-  multiFileDiffMock: vi.fn(),
-  showToastMock: vi.fn(),
-}));
+const { invokeMock, multiFileDiffMock, showToastMock, openDialogMock, saveDialogMock } = vi.hoisted(
+  () => ({
+    invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
+    multiFileDiffMock: vi.fn(),
+    showToastMock: vi.fn(),
+    openDialogMock: vi.fn<() => Promise<string | string[] | null>>(async () => null),
+    saveDialogMock: vi.fn<() => Promise<string | null>>(async () => null),
+  }),
+);
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: invokeMock,
+}));
+
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  open: openDialogMock,
+  save: saveDialogMock,
 }));
 
 vi.mock("../../hooks/useToast", () => ({
@@ -206,6 +215,10 @@ describe("ProfilesPage", () => {
     localStorage.clear();
     invokeMock.mockReset();
     showToastMock.mockReset();
+    openDialogMock.mockReset();
+    saveDialogMock.mockReset();
+    openDialogMock.mockResolvedValue(null);
+    saveDialogMock.mockResolvedValue(null);
     invokeMock.mockResolvedValue(null);
     Object.defineProperty(navigator, "clipboard", {
       value: {
@@ -1990,5 +2003,153 @@ describe("ProfilesPage", () => {
     expect(
       within(card).getByRole("button", { name: "同步常用选项与插件到其他配置" }),
     ).toBeDisabled();
+  });
+
+  it("exposes the top import entry and a per-card export action", () => {
+    renderPage();
+
+    expect(screen.getByRole("button", { name: "导入配置" })).toBeInTheDocument();
+    expect(
+      within(getProfileCard("OpenRouter User")).getByRole("button", { name: "导出配置" }),
+    ).toBeInTheDocument();
+  });
+
+  it("previews an export, toggles secret inclusion, then writes the chosen path", async () => {
+    invokeMock.mockImplementation(async (command: string, args?: unknown) => {
+      if (command === "preview_profile_export") {
+        const includeSecrets = (args as { includeSecrets?: boolean } | undefined)?.includeSecrets;
+        return includeSecrets
+          ? '{\n  "env": {\n    "ANTHROPIC_AUTH_TOKEN": "token"\n  }\n}'
+          : '{\n  "env": {\n    "ANTHROPIC_AUTH_TOKEN": ""\n  }\n}';
+      }
+      return null;
+    });
+    saveDialogMock.mockResolvedValue("/tmp/openrouter-user.json");
+
+    renderPage();
+
+    await act(async () => {
+      fireEvent.click(
+        within(getProfileCard("OpenRouter User")).getByRole("button", { name: "导出配置" }),
+      );
+      await Promise.resolve();
+    });
+
+    const dialog = await screen.findByRole("dialog", { name: "导出配置" });
+    // 默认拉取不含密钥的预览
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("preview_profile_export", {
+        id: "user-openrouter",
+        includeSecrets: false,
+      });
+    });
+    expect(within(dialog).getByTestId("config-preview-output").textContent).toContain(
+      '"ANTHROPIC_AUTH_TOKEN": ""',
+    );
+
+    // 打开「包含认证密钥」开关后重新拉取预览
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("switch"));
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("preview_profile_export", {
+        id: "user-openrouter",
+        includeSecrets: true,
+      });
+    });
+
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "选择路径并导出" }));
+      await Promise.resolve();
+    });
+
+    expect(saveDialogMock).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("export_profile", {
+        id: "user-openrouter",
+        targetPath: "/tmp/openrouter-user.json",
+        includeSecrets: true,
+      });
+    });
+    expect(showToastMock).toHaveBeenCalledWith("配置已导出,已包含认证密钥,请妥善保管");
+  });
+
+  it("imports a selected file after previewing and naming it", async () => {
+    const onWorkspaceChange = vi.fn(async () => {});
+    openDialogMock.mockResolvedValue("/tmp/shared-config.json");
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === "preview_profile_import") {
+        return '{\n  "model": "claude-sonnet-4-6"\n}';
+      }
+      if (command === "import_profile_from_file") {
+        return {
+          id: "imported-1",
+          name: "shared-config",
+          description: "",
+          settings: {},
+          createdAt: "2026-06-22T00:00:00Z",
+          updatedAt: "2026-06-22T00:00:00Z",
+        };
+      }
+      return null;
+    });
+
+    renderPage(WORKSPACE_FIXTURE, onWorkspaceChange);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "导入配置" }));
+      await Promise.resolve();
+    });
+
+    expect(openDialogMock).toHaveBeenCalled();
+    const dialog = await screen.findByRole("dialog", { name: "导入配置" });
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("preview_profile_import", {
+        sourcePath: "/tmp/shared-config.json",
+      });
+    });
+    // 默认名取自文件名
+    const nameInput = within(dialog).getByLabelText("名称") as HTMLInputElement;
+    expect(nameInput.value).toBe("shared-config");
+    fireEvent.change(nameInput, { target: { value: "团队配置" } });
+
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "导入" }));
+      await Promise.resolve();
+    });
+
+    expect(invokeMock).toHaveBeenCalledWith("import_profile_from_file", {
+      sourcePath: "/tmp/shared-config.json",
+      name: "团队配置",
+      description: "",
+    });
+    await waitFor(() => {
+      expect(onWorkspaceChange).toHaveBeenCalled();
+      expect(showToastMock).toHaveBeenCalledWith("配置已导入");
+    });
+  });
+
+  it("blocks import confirmation when the file fails validation", async () => {
+    openDialogMock.mockResolvedValue("/tmp/broken.json");
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === "preview_profile_import") {
+        throw "解析 JSON 失败";
+      }
+      return null;
+    });
+
+    renderPage();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "导入配置" }));
+      await Promise.resolve();
+    });
+
+    const dialog = await screen.findByRole("dialog", { name: "导入配置" });
+    await waitFor(() => {
+      expect(within(dialog).getByText("解析 JSON 失败")).toBeInTheDocument();
+    });
+    expect(within(dialog).getByRole("button", { name: "导入" })).toBeDisabled();
   });
 });

@@ -1474,6 +1474,28 @@ fn is_sensitive_model_test_json_key(key: &str) -> bool {
         || normalized == "apikey"
 }
 
+/// 导出脱敏：递归把命中敏感规则的字段值置空（保留字段结构，提示用户在目标设备补填）。
+/// 复用 `is_sensitive_model_test_json_key` 的判定，避免两处维护敏感键清单。
+fn blank_auth_secrets(value: &mut Value) {
+    match value {
+        Value::Object(object) => {
+            for (key, child) in object.iter_mut() {
+                if is_sensitive_model_test_json_key(key) {
+                    *child = Value::String(String::new());
+                } else {
+                    blank_auth_secrets(child);
+                }
+            }
+        }
+        Value::Array(items) => {
+            for item in items {
+                blank_auth_secrets(item);
+            }
+        }
+        _ => {}
+    }
+}
+
 /// 剥离模型名结尾的 `[1m]` 上下文标记后缀。Claude Code 自身会在请求前剥离该后缀，
 /// 测试请求需与之对齐，避免把 `glm-5.2[1m]` 这类带后缀的模型名原样发给端点导致模型不存在。
 fn strip_model_context_suffix(model: &str) -> &str {
@@ -2550,6 +2572,115 @@ pub fn preview_profile(data: ProfileInput) -> Result<String, String> {
     serde_json::to_string_pretty(&resolved).map_err(|e| e.to_string())
 }
 
+/// 构造单个配置的导出内容：合并 Provider env 与配置 settings 后的完整 Claude settings 字符串。
+/// `include_secrets` 为 false 时清空全部认证密钥。预览与导出共用，保证「所见即所得」。
+fn build_profile_export(
+    registry: &ConfigRegistry,
+    id: &str,
+    include_secrets: bool,
+) -> Result<String, String> {
+    let profile = registry
+        .profiles
+        .iter()
+        .find(|profile| profile.id == id)
+        .ok_or_else(|| format!("未找到 profile '{}'", id))?;
+    let mut resolved = resolve_profile_settings(profile)?;
+    if !include_secrets {
+        blank_auth_secrets(&mut resolved);
+    }
+    serde_json::to_string_pretty(&resolved).map_err(|e| e.to_string())
+}
+
+/// 读取并校验待导入的配置文件，返回去掉 `$schema` 的 settings。预览与导入共用。
+fn read_and_validate_import(source_path: &str) -> Result<Value, String> {
+    let path = PathBuf::from(source_path);
+    let metadata = fs::symlink_metadata(&path)
+        .map_err(|error| format!("读取文件失败 {:?}: {}", path, error))?;
+    if !metadata.is_file() {
+        return Err("导入路径必须是普通文件".to_string());
+    }
+    let content =
+        fs::read_to_string(&path).map_err(|error| format!("读取文件失败 {:?}: {}", path, error))?;
+    let parsed: Value =
+        serde_json::from_str(&content).map_err(|error| format!("解析 JSON 失败: {}", error))?;
+    let settings = normalize_settings_document(parsed)?;
+    validate_settings_document(&settings)?;
+    Ok(settings_without_schema(&settings))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn preview_profile_export(id: String, include_secrets: bool) -> Result<String, String> {
+    let registry = load_registry()?;
+    build_profile_export(&registry, &id, include_secrets)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn export_profile(
+    id: String,
+    target_path: String,
+    include_secrets: bool,
+) -> Result<(), String> {
+    let result = (|| {
+        let _lock = crate::utils::lock_config()?;
+        let registry = load_registry()?;
+        let content = build_profile_export(&registry, &id, include_secrets)?;
+        crate::utils::ensure_dir_and_write_atomic(&PathBuf::from(&target_path), &content)
+    })();
+    crate::logging::log_command_result("profile.export", &result, |_| {
+        format!("profile_id={id} include_secrets={include_secrets}")
+    });
+    result
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn preview_profile_import(source_path: String) -> Result<String, String> {
+    let settings = read_and_validate_import(&source_path)?;
+    serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn import_profile_from_file(
+    app_handle: AppHandle,
+    source_path: String,
+    name: String,
+    description: String,
+) -> Result<ConfigProfile, String> {
+    let result = (|| {
+        let _lock = crate::utils::lock_config()?;
+        let settings = read_and_validate_import(&source_path)?;
+        let mut registry = load_registry()?;
+        let now = crate::utils::current_rfc3339_timestamp();
+        let trimmed_name = name.trim();
+        let profile = ConfigProfile {
+            id: Uuid::new_v4().to_string(),
+            name: if trimmed_name.is_empty() {
+                "Imported Profile".to_string()
+            } else {
+                trimmed_name.to_string()
+            },
+            description: description.trim().to_string(),
+            // 导入的是裸 settings，不关联 Provider；也不自动绑定 / 激活外来配置
+            provider_id: None,
+            settings,
+            created_at: now.clone(),
+            updated_at: now,
+        };
+        registry.profiles.insert(0, profile.clone());
+        save_registry(&registry)?;
+        rebuild_tray_menu(&app_handle, Some(&registry));
+        let _ = app_handle.emit("config-workspace-changed", ());
+        Ok(profile)
+    })();
+    crate::logging::log_command_result("profile.import_from_file", &result, |profile| {
+        format!("profile_id={}", profile.id)
+    });
+    result
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn test_profile_model(data: ModelTestInput) -> Result<ModelTestResult, String> {
@@ -2813,6 +2944,121 @@ mod tests {
             resolved["$schema"],
             Value::String(CLAUDE_SETTINGS_SCHEMA_URL.to_string())
         );
+    }
+
+    #[test]
+    fn build_profile_export_blanks_all_secrets_by_default() {
+        let registry = ConfigRegistry {
+            profiles: vec![sample_profile(
+                "user-deepseek",
+                Some("builtin:deepseek"),
+                serde_json::json!({
+                    "model": "claude-sonnet-4-6",
+                    "env": {
+                        "ANTHROPIC_AUTH_TOKEN": "auth-secret",
+                        "ANTHROPIC_API_KEY": "key-secret",
+                        "CUSTOM_PASSWORD": "pw"
+                    }
+                }),
+            )],
+            ..Default::default()
+        };
+
+        let exported = build_profile_export(&registry, "user-deepseek", false).unwrap();
+        let value: Value = serde_json::from_str(&exported).unwrap();
+        // 全部认证密钥置空（保留字段结构）
+        assert_eq!(
+            value["env"]["ANTHROPIC_AUTH_TOKEN"],
+            Value::String(String::new())
+        );
+        assert_eq!(
+            value["env"]["ANTHROPIC_API_KEY"],
+            Value::String(String::new())
+        );
+        assert_eq!(
+            value["env"]["CUSTOM_PASSWORD"],
+            Value::String(String::new())
+        );
+        // 非敏感字段与合并地址保留
+        assert_eq!(
+            value["model"],
+            Value::String("claude-sonnet-4-6".to_string())
+        );
+        assert_eq!(
+            value["env"]["ANTHROPIC_BASE_URL"],
+            Value::String("https://api.deepseek.com/anthropic".to_string())
+        );
+        assert_eq!(
+            value["$schema"],
+            Value::String(CLAUDE_SETTINGS_SCHEMA_URL.to_string())
+        );
+    }
+
+    #[test]
+    fn build_profile_export_keeps_secrets_when_included() {
+        let registry = ConfigRegistry {
+            profiles: vec![sample_profile(
+                "p",
+                None,
+                serde_json::json!({
+                    "env": { "ANTHROPIC_AUTH_TOKEN": "auth-secret" }
+                }),
+            )],
+            ..Default::default()
+        };
+
+        let exported = build_profile_export(&registry, "p", true).unwrap();
+        let value: Value = serde_json::from_str(&exported).unwrap();
+        assert_eq!(
+            value["env"]["ANTHROPIC_AUTH_TOKEN"],
+            Value::String("auth-secret".to_string())
+        );
+    }
+
+    #[test]
+    fn build_profile_export_errors_for_missing_profile() {
+        let registry = ConfigRegistry::default();
+        assert!(build_profile_export(&registry, "missing", false).is_err());
+    }
+
+    #[test]
+    fn read_and_validate_import_parses_and_strips_schema() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.json");
+        std::fs::write(
+            &path,
+            serde_json::to_string_pretty(&serde_json::json!({
+                "$schema": "https://json.schemastore.org/claude-code-settings.json",
+                "model": "claude-sonnet-4-6",
+                "env": { "ANTHROPIC_AUTH_TOKEN": "" }
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+
+        let settings = read_and_validate_import(path.to_str().unwrap()).unwrap();
+        // $schema 被剥离，业务字段保留
+        assert!(settings.get("$schema").is_none());
+        assert_eq!(
+            settings["model"],
+            Value::String("claude-sonnet-4-6".to_string())
+        );
+    }
+
+    #[test]
+    fn read_and_validate_import_rejects_invalid_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("broken.json");
+        std::fs::write(&path, "{ not json").unwrap();
+        assert!(read_and_validate_import(path.to_str().unwrap()).is_err());
+    }
+
+    #[test]
+    fn read_and_validate_import_rejects_non_object_root() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("array.json");
+        std::fs::write(&path, "[]").unwrap();
+        assert!(read_and_validate_import(path.to_str().unwrap()).is_err());
     }
 
     // COMPAT(presetId→providerId): 兼容回归测试，0.23.0 移除兼容逻辑时一并删除
