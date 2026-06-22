@@ -1949,8 +1949,12 @@ function ProfilesPage({
               ) : null}
             </div>
           ) : null}
+          <p className="m-0 text-sm text-muted-foreground">{t("profiles.mismatch.footerHint")}</p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => void handleMismatchDiscardChanges()}>
+            <Button
+              variant="destructive-outline"
+              onClick={() => void handleMismatchDiscardChanges()}
+            >
               {t("profiles.mismatch.discardChanges")}
             </Button>
             <Button onClick={() => void handleMismatchAcceptActual()}>
