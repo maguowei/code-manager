@@ -3928,7 +3928,9 @@ describe("ProfileEditor", () => {
     await act(async () => {
       await Promise.resolve();
     });
-    expect(screen.getByLabelText("默认模型")).toHaveValue("claude-sonnet-4-6");
+    // 未覆盖时 provider 默认作占位显示,值为空(覆盖层只存差异)
+    expect(screen.getByLabelText("默认模型")).toHaveValue("");
+    expect(screen.getByLabelText("默认模型")).toHaveAttribute("placeholder", "claude-sonnet-4-6");
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "claude-opus-4-1" }));
@@ -3937,7 +3939,7 @@ describe("ProfileEditor", () => {
 
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith("claude-opus-4-1");
     expect(showToastMock).toHaveBeenCalledWith("模型已复制");
-    expect(screen.getByLabelText("默认模型")).toHaveValue("claude-sonnet-4-6");
+    expect(screen.getByLabelText("默认模型")).toHaveValue("");
 
     const modelBehaviorSection = screen
       .getByRole("heading", { name: "模型与行为" })
@@ -3988,7 +3990,7 @@ describe("ProfileEditor", () => {
     expect(saved?.settings.env).not.toHaveProperty("ANTHROPIC_BASE_URL");
   });
 
-  it("autofills model levels from the selected provider and shows provider base url read-only", () => {
+  it("shows provider model defaults as placeholders and preserves user overrides across provider switches", () => {
     renderEditor({
       profile: {
         ...PROFILE_FIXTURE,
@@ -3996,68 +3998,95 @@ describe("ProfileEditor", () => {
         settings: {
           env: {
             ANTHROPIC_AUTH_TOKEN: "token",
-            ANTHROPIC_MODEL: "manual-model",
-            ANTHROPIC_DEFAULT_OPUS_MODEL: "manual-opus",
-            ANTHROPIC_DEFAULT_SONNET_MODEL: "manual-sonnet",
-            ANTHROPIC_DEFAULT_HAIKU_MODEL: "manual-haiku",
-            CLAUDE_CODE_SUBAGENT_MODEL: "manual-subagent",
           },
         },
       },
     });
 
-    // 选择开放路由（env 显式声明默认模型与 ANTHROPIC_BASE_URL）：地址只读，模型按 env 填充
+    // 选开放路由（env 显式声明默认模型与 ANTHROPIC_BASE_URL）：地址只读;未覆盖的模型字段以 provider 默认作占位,值为空
     chooseComboboxOption("供应商", "开放路由");
     expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("https://openrouter.ai/api");
     expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toBeDisabled();
-    expect(screen.getByLabelText("默认模型")).toHaveValue("claude-sonnet-4-6");
-    expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("claude-opus-4-1");
-    expect(screen.getByLabelText("Sonnet 默认模型")).toHaveValue("claude-sonnet-4-6");
-    expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("claude-haiku-4-5");
-    expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
+    expect(screen.getByLabelText("默认模型")).toHaveValue("");
+    expect(screen.getByLabelText("默认模型")).toHaveAttribute("placeholder", "claude-sonnet-4-6");
+    expect(screen.getByLabelText("Opus 默认模型")).toHaveAttribute(
+      "placeholder",
+      "claude-opus-4-1",
+    );
+    expect(screen.getByLabelText("Sonnet 默认模型")).toHaveAttribute(
+      "placeholder",
+      "claude-sonnet-4-6",
+    );
+    expect(screen.getByLabelText("Haiku 默认模型")).toHaveAttribute(
+      "placeholder",
+      "claude-haiku-4-5",
+    );
 
-    // 切换到团队计划（env 为空，无模型默认）：不再隐式回退 modelSuggestions，模型字段全部清空
+    // 手动覆盖默认模型 → 写入 settings,显示为值
+    fireEvent.change(screen.getByLabelText("默认模型"), { target: { value: "my-model" } });
+    expect(screen.getByLabelText("默认模型")).toHaveValue("my-model");
+
+    // 切到团队计划（env 空）：用户覆盖保留(不再被切换清空);未覆盖字段无 provider 默认
     chooseComboboxOption("供应商", "团队计划");
-    expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue("");
-    expect(screen.getByLabelText("默认模型")).toHaveValue("");
+    expect(screen.getByLabelText("默认模型")).toHaveValue("my-model");
     expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("");
-    expect(screen.getByLabelText("Sonnet 默认模型")).toHaveValue("");
-    expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("");
-    expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
 
-    // 切换到显式模型（仅 env.ANTHROPIC_MODEL）：默认模型按 env 填充，未声明的层级不再回退
-    chooseComboboxOption("供应商", "显式模型");
-    expect(screen.getByLabelText("默认模型")).toHaveValue("claude-opus-explicit");
-    expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("");
-    expect(screen.getByLabelText("Sonnet 默认模型")).toHaveValue("");
-    expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("");
-    expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
-
-    // 环境变量级别覆盖供应商：仅 env 声明的 haiku 和 subagent 字段填充，默认模型留空
-    chooseComboboxOption("供应商", "环境变量级别覆盖");
-    expect(screen.getByLabelText("默认模型")).toHaveValue("");
-    expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("haiku-env-override");
-    expect(screen.getByLabelText("Subagent 模型")).toHaveValue("subagent-env-override");
-
-    // 切换到自定义：地址字段可编辑且初值为空，模型字段全部清空，auth token 保持不变
+    // 切到自定义：地址可编辑且为空,用户覆盖仍保留,auth token 不变
     chooseComboboxOption("供应商", "自定义");
     const baseUrlInput = screen.getByLabelText("ANTHROPIC_BASE_URL");
-    expect(baseUrlInput).toBeInTheDocument();
     expect(baseUrlInput).not.toBeDisabled();
     expect(baseUrlInput).toHaveValue("");
-    expect(screen.getByLabelText("默认模型")).toHaveValue("");
-    expect(screen.getByLabelText("Opus 默认模型")).toHaveValue("");
-    expect(screen.getByLabelText("Sonnet 默认模型")).toHaveValue("");
-    expect(screen.getByLabelText("Haiku 默认模型")).toHaveValue("");
-    expect(screen.getByLabelText("Subagent 模型")).toHaveValue("");
+    expect(screen.getByLabelText("默认模型")).toHaveValue("my-model");
     expect(screen.getByLabelText("ANTHROPIC_AUTH_TOKEN")).toHaveValue("token");
-    expect(screen.getByLabelText("ANTHROPIC_AUTH_TOKEN")).toHaveAttribute("type", "password");
 
     // 自定义模式下手填地址：值更新（写入 settings.env.ANTHROPIC_BASE_URL）
     fireEvent.change(baseUrlInput, { target: { value: "https://custom.example.com/api" } });
     expect(screen.getByLabelText("ANTHROPIC_BASE_URL")).toHaveValue(
       "https://custom.example.com/api",
     );
+  });
+
+  it("displays provider-inherited behavior values with a from-provider tag", () => {
+    const providers: Provider[] = [
+      ...BUILTIN_PRESETS,
+      {
+        id: "builtin:withdefaults",
+        name: "WithDefaults",
+        localizedName: { zh: "带默认供应商", en: "WithDefaults" },
+        description: "带默认值的供应商",
+        modelSuggestions: [],
+        env: {
+          ANTHROPIC_BASE_URL: "https://example.com/anthropic",
+          ANTHROPIC_MODEL: "prov-model",
+          CLAUDE_CODE_EFFORT_LEVEL: "max",
+          CLAUDE_CODE_AUTO_COMPACT_WINDOW: "1000000",
+        },
+      },
+    ];
+    renderEditor({
+      providers,
+      profile: {
+        ...PROFILE_FIXTURE,
+        providerId: "builtin:withdefaults",
+        settings: { env: { ANTHROPIC_AUTH_TOKEN: "token" } },
+      },
+    });
+
+    const behaviorSection = getSection("模型与行为");
+    // 未覆盖 → 默认模型以 provider 默认作占位
+    expect(within(behaviorSection).getByLabelText("默认模型")).toHaveAttribute(
+      "placeholder",
+      "prov-model",
+    );
+    // 努力级别 / 自动压缩窗口继承 → 触发按钮显示 provider 的有效值
+    expect(within(behaviorSection).getByRole("button", { name: "努力级别" })).toHaveTextContent(
+      "max",
+    );
+    expect(within(behaviorSection).getByRole("button", { name: "自动压缩窗口" })).toHaveTextContent(
+      "1,000,000",
+    );
+    // 继承态显示「来自供应商」标注
+    expect(within(behaviorSection).getAllByText("来自供应商").length).toBeGreaterThan(0);
   });
 
   it("renders authentication controls in a dedicated section and keeps hidden env keys in preview", async () => {

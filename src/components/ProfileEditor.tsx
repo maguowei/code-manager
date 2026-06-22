@@ -400,16 +400,39 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
     applySettings(next);
   }
 
+  // 读取所选 provider 为某个 env 键提供的默认值（覆盖层之下的继承默认）
+  function readProviderEnvDefault(envKey: string): string {
+    const raw = selectedProvider?.env?.[envKey];
+    return typeof raw === "string" ? raw.trim() : "";
+  }
+
   function readBehaviorFieldState(field: SettingsFieldDefinition) {
     if (field.envKey) {
+      // 覆盖层只存差异:value 是用户的显式覆盖(可能为空),
+      // providerDefault 是 provider 提供的继承默认,effectiveValue 是最终生效值。
+      const override = readEnvString(settings, field.envKey);
+      const providerDefault = readProviderEnvDefault(field.envKey) || field.defaultValue || "";
+      const source: "override" | "inherited" | "unset" = override
+        ? "override"
+        : providerDefault
+          ? "inherited"
+          : "unset";
       return {
         mappedToEnv: true,
-        value: readEnvString(settings, field.envKey) || field.defaultValue || "",
+        value: override,
+        providerDefault,
+        effectiveValue: override || providerDefault,
+        source,
       };
     }
+    const raw = readString(settings[field.key]);
+    const source: "override" | "inherited" | "unset" = raw ? "override" : "unset";
     return {
       mappedToEnv: false,
-      value: readString(settings[field.key]),
+      value: raw,
+      providerDefault: "",
+      effectiveValue: raw,
+      source,
     };
   }
 

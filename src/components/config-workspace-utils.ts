@@ -347,20 +347,9 @@ export function applyProviderAutofill(
   providers: Provider[],
   providerId: string | undefined,
 ): Record<string, unknown> {
-  const resolved = resolveProviderAutofillValues(providers, providerId);
   const providerResolved = !!providerId && providers.some((provider) => provider.id === providerId);
-  // 地址（ANTHROPIC_BASE_URL）由 Provider 合并层提供，不写入 Profile settings
-  const updates: Array<[string, string | undefined]> = [
-    ["ANTHROPIC_MODEL", resolved.resolvedModel],
-    ["ANTHROPIC_DEFAULT_OPUS_MODEL", resolved.resolvedOpusModel],
-    ["ANTHROPIC_DEFAULT_SONNET_MODEL", resolved.resolvedSonnetModel],
-    ["ANTHROPIC_DEFAULT_HAIKU_MODEL", resolved.resolvedHaikuModel],
-    ["CLAUDE_CODE_SUBAGENT_MODEL", resolved.resolvedSubagentModel],
-    ["CLAUDE_CODE_EFFORT_LEVEL", resolved.resolvedEffortLevel],
-  ];
-
-  return updates.reduce(
-    (current, [envKey, value]) => setEnvString(current, envKey, value ?? ""),
-    providerResolved ? setEnvString(settings, "ANTHROPIC_BASE_URL", "") : settings,
-  );
+  // 覆盖层只存差异:不再把 provider 的默认模型/effort 复制进 Profile settings
+  // （编辑器按"有效值"显示这些默认,详见 readBehaviorFieldState）。
+  // 仅在切到可解析供应商时清掉残留的地址覆盖——地址由 Provider 合并层提供(单一事实源),与后端一致。
+  return providerResolved ? setEnvString(settings, "ANTHROPIC_BASE_URL", "") : settings;
 }

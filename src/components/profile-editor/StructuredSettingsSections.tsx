@@ -4,6 +4,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../../i18n";
 import { EDITOR_CONTROL_SURFACE_CLASS } from "../editor-layout";
+import { TYPOGRAPHY } from "../typography-classes";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { Input } from "../ui/input";
@@ -63,7 +64,14 @@ const EMPTY_SELECT_VALUE = "__empty__";
 
 interface BehaviorFieldState {
   mappedToEnv: boolean;
+  /** 用户的显式覆盖值（可能为空） */
   value: string;
+  /** provider 提供的继承默认值 */
+  providerDefault: string;
+  /** 最终生效值 = value || providerDefault */
+  effectiveValue: string;
+  /** 值来源：用户覆盖 / 继承自供应商 / 未设置 */
+  source: "override" | "inherited" | "unset";
 }
 
 const CLAUDE_CODE_DOCS_BASE_URL = "https://code.claude.com/docs";
@@ -202,6 +210,40 @@ function StructuredSettingsSections({
     highlightTimerRef.current = window.setTimeout(() => setHighlightMarketplace(false), 2000);
   }
 
+  // 字段值来源标注:继承自供应商显示徽标,已覆盖且有供应商默认时给出重置入口
+  function renderFieldProvenance(
+    field: SettingsFieldDefinition,
+    fieldState: BehaviorFieldState,
+  ): ReactNode {
+    if (!fieldState.mappedToEnv) {
+      return null;
+    }
+    if (fieldState.source === "inherited") {
+      return (
+        <span className={cn("text-muted-foreground", TYPOGRAPHY.auxiliary)}>
+          {t("profiles.editor.fieldSource.inherited")}
+        </span>
+      );
+    }
+    if (fieldState.source === "override" && fieldState.providerDefault) {
+      return (
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          className={cn(
+            "h-auto px-1 py-0 font-normal text-muted-foreground hover:text-foreground",
+            TYPOGRAPHY.auxiliary,
+          )}
+          onClick={() => onMappedFieldChange(field, "", fieldState.mappedToEnv)}
+        >
+          {t("profiles.editor.fieldSource.reset")}
+        </Button>
+      );
+    }
+    return null;
+  }
+
   const enabledCommonToggleCount = commonToggleFields.filter((field) =>
     readToggleFieldEnabled(field),
   ).length;
@@ -312,12 +354,13 @@ function StructuredSettingsSections({
                           label={label}
                           inputId={`${scope}-field-${field.key}`}
                           helperKey={getFieldHelperKey(field)}
+                          provenance={renderFieldProvenance(field, fieldState)}
                         />
                         <AutoCompactWindowField
                           id={`${scope}-field-${field.key}`}
                           ariaLabel={label}
                           placeholder={field.placeholder ? field.placeholder[language] : ""}
-                          value={fieldState.value}
+                          value={fieldState.effectiveValue}
                           onChange={(value) =>
                             onMappedFieldChange(field, value, fieldState.mappedToEnv)
                           }
@@ -328,7 +371,7 @@ function StructuredSettingsSections({
                   if (field.kind === "select") {
                     const options = resolveSelectOptions(
                       field,
-                      fieldState.value,
+                      fieldState.effectiveValue,
                       fieldState.mappedToEnv,
                     );
                     // 努力级别用触发按钮 + 浮窗刻度条展示
@@ -339,12 +382,13 @@ function StructuredSettingsSections({
                             label={label}
                             inputId={`${scope}-field-${field.key}`}
                             helperKey={getFieldHelperKey(field)}
+                            provenance={renderFieldProvenance(field, fieldState)}
                           />
                           <EffortLevelField
                             id={`${scope}-field-${field.key}`}
                             ariaLabel={label}
                             options={options}
-                            value={fieldState.value}
+                            value={fieldState.effectiveValue}
                             onChange={(value) =>
                               onMappedFieldChange(field, value, fieldState.mappedToEnv)
                             }
@@ -358,9 +402,10 @@ function StructuredSettingsSections({
                           label={label}
                           inputId={`${scope}-field-${field.key}`}
                           helperKey={getFieldHelperKey(field)}
+                          provenance={renderFieldProvenance(field, fieldState)}
                         />
                         <Select
-                          value={fieldState.value || EMPTY_SELECT_VALUE}
+                          value={fieldState.effectiveValue || EMPTY_SELECT_VALUE}
                           onValueChange={(value) =>
                             onMappedFieldChange(
                               field,
@@ -372,8 +417,8 @@ function StructuredSettingsSections({
                           <SelectTrigger
                             id={`${scope}-field-${field.key}`}
                             className={cn("w-full", EDITOR_CONTROL_SURFACE_CLASS)}
-                            value={fieldState.value}
-                            data-value={fieldState.value}
+                            value={fieldState.effectiveValue}
+                            data-value={fieldState.effectiveValue}
                             onChange={(event) =>
                               onMappedFieldChange(
                                 field,
@@ -407,12 +452,16 @@ function StructuredSettingsSections({
                         label={label}
                         inputId={`${scope}-field-${field.key}`}
                         helperKey={getFieldHelperKey(field)}
+                        provenance={renderFieldProvenance(field, fieldState)}
                       />
                       <Input
                         id={`${scope}-field-${field.key}`}
                         className={EDITOR_CONTROL_SURFACE_CLASS}
                         value={fieldState.value}
-                        placeholder={field.placeholder ? field.placeholder[language] : ""}
+                        placeholder={
+                          fieldState.providerDefault ||
+                          (field.placeholder ? field.placeholder[language] : "")
+                        }
                         onChange={(event) =>
                           onMappedFieldChange(field, event.target.value, fieldState.mappedToEnv)
                         }

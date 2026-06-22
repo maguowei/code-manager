@@ -181,7 +181,7 @@ describe("config-workspace-utils preset autofill", () => {
     expect(resolveProviderAutofillValues(PRESETS, undefined)).toEqual({});
   });
 
-  it("clears model env and removes profile base url when a provider without model defaults is selected", () => {
+  it("keeps user model overrides untouched and only clears base url when switching to a resolvable provider", () => {
     const seededSettings = {
       env: {
         ANTHROPIC_AUTH_TOKEN: "token",
@@ -199,51 +199,24 @@ describe("config-workspace-utils preset autofill", () => {
       },
     };
 
-    // openrouter env 未声明模型默认：所有模型相关 env 被清空，地址也清理（Provider 是地址单一事实源）
-    expect(applyProviderAutofill(seededSettings, PRESETS, "builtin:openrouter")).toEqual({
-      env: {
-        ANTHROPIC_AUTH_TOKEN: "token",
-        OTHER_ENV: "keep-me",
-      },
-      permissions: {
-        defaultMode: "plan",
-      },
-    });
-
-    // 无 provider 时清空所有 autofill 项
-    expect(applyProviderAutofill(seededSettings, PRESETS, undefined)).toEqual({
-      env: {
-        ANTHROPIC_AUTH_TOKEN: "token",
-        ANTHROPIC_BASE_URL: "https://manual.example.com",
-        OTHER_ENV: "keep-me",
-      },
-      permissions: {
-        defaultMode: "plan",
-      },
-    });
-  });
-
-  it("applies DeepSeek official env defaults without touching auth or unrelated values", () => {
-    const seededSettings = {
-      env: {
-        ANTHROPIC_AUTH_TOKEN: "token",
-        ANTHROPIC_BASE_URL: "https://manual.example.com",
-        OTHER_ENV: "keep-me",
-      },
-    };
-
-    // Provider 是地址单一事实源：选中 DeepSeek 时清理 profile.settings 中的旧地址
+    // 覆盖层只存差异:不再覆盖用户已填的模型/effort,仅清掉残留地址(Provider 是地址单一事实源)
     expect(applyProviderAutofill(seededSettings, PRESETS, "builtin:deepseek")).toEqual({
       env: {
         ANTHROPIC_AUTH_TOKEN: "token",
-        ANTHROPIC_MODEL: "deepseek-v4-pro[1m]",
-        ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-v4-pro[1m]",
-        ANTHROPIC_DEFAULT_SONNET_MODEL: "deepseek-v4-pro[1m]",
-        ANTHROPIC_DEFAULT_HAIKU_MODEL: "deepseek-v4-flash",
-        CLAUDE_CODE_SUBAGENT_MODEL: "deepseek-v4-flash",
-        CLAUDE_CODE_EFFORT_LEVEL: "max",
+        ANTHROPIC_MODEL: "manual-model",
+        ANTHROPIC_DEFAULT_OPUS_MODEL: "manual-opus",
+        ANTHROPIC_DEFAULT_SONNET_MODEL: "manual-sonnet",
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: "manual-haiku",
+        CLAUDE_CODE_SUBAGENT_MODEL: "manual-subagent",
+        CLAUDE_CODE_EFFORT_LEVEL: "manual-effort",
         OTHER_ENV: "keep-me",
       },
+      permissions: {
+        defaultMode: "plan",
+      },
     });
+
+    // 无可解析 provider 时不动任何字段(含地址)
+    expect(applyProviderAutofill(seededSettings, PRESETS, undefined)).toEqual(seededSettings);
   });
 });
