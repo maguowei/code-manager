@@ -7,6 +7,7 @@ import {
   FileInput,
   FolderSync,
   Plus,
+  SquareTerminal,
   TestTube,
   Trash2,
   Upload,
@@ -64,6 +65,7 @@ import {
   COMMON_ENV_SETTINGS_KEYS,
   COMMON_TOP_LEVEL_SETTINGS_KEYS,
 } from "./profile-editor/settings-form-registry";
+import { buildLaunchCommands, type LaunchCommands } from "./profile-launch-utils";
 import { useTheme } from "./theme-provider";
 import { TYPOGRAPHY } from "./typography-classes";
 import UnsavedChangesAlertDialog from "./UnsavedChangesAlertDialog";
@@ -261,6 +263,11 @@ function ProfilesPage({
   const [isSyncingShared, setIsSyncingShared] = useState(false);
   const [isTestingAllProfiles, setIsTestingAllProfiles] = useState(false);
   const [isImportingUserSettings, setIsImportingUserSettings] = useState(false);
+  // 启动命令对话框:目标配置、生成的命令、加载与错误状态
+  const [launchProfile, setLaunchProfile] = useState<ConfigProfile | null>(null);
+  const [launchCommands, setLaunchCommands] = useState<LaunchCommands | null>(null);
+  const [isLaunchLoading, setIsLaunchLoading] = useState(false);
+  const [launchLoadError, setLaunchLoadError] = useState(false);
   // 导出预览对话框:目标配置、是否含密钥、预览内容/错误、加载与导出中状态
   const [exportTargetProfile, setExportTargetProfile] = useState<ConfigProfile | null>(null);
   const [exportIncludeSecrets, setExportIncludeSecrets] = useState(false);
@@ -884,6 +891,37 @@ function ProfilesPage({
     };
   }, [importSourcePath]);
 
+  // 选定配置后准备启动命令:生成文件路径式与内联 JSON 式两条命令
+  useEffect(() => {
+    if (!launchProfile) return;
+    let cancelled = false;
+    setIsLaunchLoading(true);
+    setLaunchLoadError(false);
+    setLaunchCommands(null);
+    ipc
+      .prepareProfileLaunch(launchProfile.id)
+      .then((payload) => {
+        if (cancelled) return;
+        setLaunchCommands(
+          buildLaunchCommands({
+            settingsPath: payload.settingsPath,
+            envOnlyJson: payload.envOnlyJson,
+          }),
+        );
+      })
+      .catch(() => {
+        // 失败时仅置错误标志,由 Dialog 内联展示 loadError 文案,避免与 toast 重复并保持 effect 依赖稳定
+        if (cancelled) return;
+        setLaunchLoadError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLaunchLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [launchProfile]);
+
   async function handleCopyEnv(profile: ConfigProfile) {
     try {
       const preview = await ipc.previewProfile({
@@ -902,6 +940,16 @@ function ProfilesPage({
       showToast(t("profiles.toast.envCopied"));
     } catch (err) {
       showOperationError(showToast, t("profiles.toast.envCopyError"), err);
+    }
+  }
+
+  // 复制指定的启动命令到剪贴板
+  async function handleCopyLaunchCommand(command: string) {
+    try {
+      await navigator.clipboard.writeText(command);
+      showToast(t("profiles.toast.launchCommandCopied"));
+    } catch (err) {
+      showOperationError(showToast, t("profiles.toast.launchCommandError"), err);
     }
   }
 
@@ -1723,6 +1771,20 @@ function ProfilesPage({
                     variant="outline"
                     size="icon-sm"
                     className="border-border bg-muted text-foreground hover:border-primary hover:text-primary"
+                    aria-label={t("profiles.actions.copyLaunchCommand")}
+                    title={t("profiles.actions.copyLaunchCommand")}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setLaunchProfile(profile);
+                    }}
+                  >
+                    <SquareTerminal aria-hidden="true" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    className="border-border bg-muted text-foreground hover:border-primary hover:text-primary"
                     aria-label={t("profiles.actions.export")}
                     title={t("profiles.actions.export")}
                     onClick={(event) => {
@@ -2057,6 +2119,81 @@ function ProfilesPage({
               {t("profiles.import.confirm")}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={launchProfile !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setLaunchProfile(null);
+            setLaunchCommands(null);
+            setLaunchLoadError(false);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("profiles.launchDialog.title")}</DialogTitle>
+            <DialogDescription>{t("profiles.launchDialog.description")}</DialogDescription>
+          </DialogHeader>
+          {isLaunchLoading ? (
+            <div className="flex justify-center py-6">
+              <Spinner aria-hidden="true" />
+            </div>
+          ) : launchLoadError ? (
+            <p className={cn(TYPOGRAPHY.body, "text-destructive")}>
+              {t("profiles.launchDialog.loadError")}
+            </p>
+          ) : launchCommands ? (
+            <div className="flex flex-col gap-4">
+              {[
+                {
+                  key: "filePath",
+                  label: t("profiles.launchDialog.filePathLabel"),
+                  hint: t("profiles.launchDialog.filePathHint"),
+                  command: launchCommands.filePathCommand,
+                },
+                {
+                  key: "inlineJson",
+                  label: t("profiles.launchDialog.inlineJsonLabel"),
+                  hint: t("profiles.launchDialog.inlineJsonHint"),
+                  command: launchCommands.inlineJsonCommand,
+                },
+              ].map((item) => (
+                <div key={item.key} className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={cn(TYPOGRAPHY.body, "font-medium")}>{item.label}</span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void handleCopyLaunchCommand(item.command)}
+                    >
+                      <Copy aria-hidden="true" />
+                      {t("profiles.launchDialog.copy")}
+                    </Button>
+                  </div>
+                  <pre className="overflow-x-auto rounded-md border border-border bg-muted px-3 py-2 font-mono text-sm whitespace-pre-wrap break-all">
+                    {item.command}
+                  </pre>
+                  <span className={cn(TYPOGRAPHY.auxiliary, "text-muted-foreground")}>
+                    {item.hint}
+                  </span>
+                </div>
+              ))}
+              <div className="flex flex-col gap-1">
+                <span className={cn(TYPOGRAPHY.badge, "text-muted-foreground")}>
+                  {t("profiles.launchDialog.usageTitle")}
+                </span>
+                <ol className={cn(TYPOGRAPHY.auxiliary, "list-decimal pl-5 text-muted-foreground")}>
+                  <li>{t("profiles.launchDialog.usageStep1")}</li>
+                  <li>{t("profiles.launchDialog.usageStep2")}</li>
+                  <li>{t("profiles.launchDialog.usageStep3")}</li>
+                </ol>
+              </div>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
     </>
