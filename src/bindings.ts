@@ -21,6 +21,7 @@ export const commands = {
 	importUserSettingsProfile: (data: UserSettingsImportInput) => typedError<ConfigProfile_Serialize, string>(__TAURI_INVOKE("import_user_settings_profile", { data })),
 	installStatusLinePreset: (presetId: string, overwrite: boolean) => typedError<StatusLinePresetInstallResult, string>(__TAURI_INVOKE("install_status_line_preset", { presetId, overwrite })),
 	previewProfile: (data: ProfileInput) => typedError<string, string>(__TAURI_INVOKE("preview_profile", { data })),
+	prepareProfileLaunch: (id: string) => typedError<ProfileLaunchPayload, string>(__TAURI_INVOKE("prepare_profile_launch", { id })),
 	previewProfileExport: (id: string, includeSecrets: boolean) => typedError<string, string>(__TAURI_INVOKE("preview_profile_export", { id, includeSecrets })),
 	exportProfile: (id: string, targetPath: string, includeSecrets: boolean) => typedError<null, string>(__TAURI_INVOKE("export_profile", { id, targetPath, includeSecrets })),
 	previewProfileImport: (sourcePath: string) => typedError<string, string>(__TAURI_INVOKE("preview_profile_import", { sourcePath })),
@@ -640,6 +641,14 @@ export type ProfileInput = {
 	description: string,
 	providerId: string | null,
 	settings: unknown,
+};
+
+/**  多配置启动命令的返回载荷：配置文件绝对路径 + 仅含 env 的紧凑 JSON。 */
+export type ProfileLaunchPayload = {
+	/**  写入磁盘的完整 settings 文件绝对路径，供 `claude --settings "<path>"` 使用。 */
+	settingsPath: string,
+	/**  仅含 env 块的紧凑单行 JSON，供 `claude --settings '<json>'` 内联使用。 */
+	envOnlyJson: string,
 };
 
 export type ProjectBranch = ProjectBranch_Serialize | ProjectBranch_Deserialize;
