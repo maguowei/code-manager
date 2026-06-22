@@ -180,13 +180,14 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     storage: "env-only",
     envKey: "CLAUDE_CODE_SUBAGENT_MODEL",
     modelCombobox: true,
+    docPath: "sub-agents#choose-a-model",
     label: {
       zh: "Subagent 模型",
       en: "Subagent Model",
     },
     placeholder: {
-      zh: "留空保持默认行为,除非你了解修改的含义",
-      en: "Leave empty to keep default behavior unless you understand the change",
+      zh: "留空跟随主会话模型",
+      en: "Leave empty to follow the main session model",
     },
   },
   {

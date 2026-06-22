@@ -479,6 +479,15 @@ function StructuredSettingsSections({
                           label={label}
                           inputId={`${scope}-field-${field.key}`}
                           helperKey={getFieldHelperKey(field)}
+                          docsHref={
+                            field.docPath
+                              ? `${CLAUDE_CODE_DOCS_BASE_URL}/${docsLocale}/${field.docPath}`
+                              : undefined
+                          }
+                          docsAriaLabel={t("profileEditor.docs.openFieldAriaLabel").replace(
+                            "{label}",
+                            label,
+                          )}
                           provenance={renderFieldProvenance(field, fieldState)}
                         />
                         <ModelComboboxField
