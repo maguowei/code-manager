@@ -1,9 +1,8 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ArrowLeft, CircleAlert, CircleCheck, ExternalLink, Eye, TestTube } from "lucide-react";
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
-import { getUserFacingErrorReason, showOperationError } from "@/lib/user-facing-error";
+import { getUserFacingErrorReason } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
-import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
 import { ipc } from "../ipc";
 import type { ConfigProfile, ModelTestResult, Provider } from "../types";
@@ -70,7 +69,6 @@ import type { MarketplaceSourceInput } from "./profile-editor/useMarketplaceCata
 import { useObjectJsonEditor } from "./profile-editor/useObjectJsonEditor";
 import useStructuredSettingsSectionState from "./profile-editor/useStructuredSettingsSectionState";
 import { TYPOGRAPHY } from "./typography-classes";
-import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -155,7 +153,6 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
   ref,
 ) {
   const { language, t } = useI18n();
-  const { showToast } = useToast();
   const initialDraftRef = useRef<ProfileEditorSaveData | null>(null);
   if (initialDraftRef.current === null) {
     initialDraftRef.current = buildProfileSaveData(
@@ -587,15 +584,6 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
     );
   }
 
-  async function handleCopySuggestedModel(model: string) {
-    try {
-      await navigator.clipboard.writeText(model);
-      showToast(t("profiles.toast.modelCopied"));
-    } catch (err) {
-      showOperationError(showToast, t("profiles.toast.modelCopyError"), err);
-    }
-  }
-
   useEffect(() => {
     let cancelled = false;
     const timer = setTimeout(() => {
@@ -760,7 +748,6 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
     baseUrl: t("profiles.editor.fields.baseUrl"),
     baseUrlEnv: t("profiles.editor.fields.baseUrlEnv"),
     providerHint: t("profiles.editor.hints.provider"),
-    suggestedModels: t("profiles.editor.hints.suggestedModels"),
     basicInfo: t("profiles.editor.sections.basicInfo"),
     auth: t("profiles.editor.sections.auth"),
     behavior: t("profiles.editor.sections.behavior"),
@@ -980,30 +967,6 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
               }
             />
           </EditorField>
-
-          {selectedProvider && selectedProvider.modelSuggestions.length > 0 && (
-            <EditorField>
-              <Label>{messages.suggestedModels}</Label>
-              <div className="flex flex-wrap gap-2">
-                {selectedProvider.modelSuggestions.map((model) => (
-                  <Button
-                    key={model}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-auto rounded-full px-2.5 py-1 font-mono text-xs"
-                    onClick={() => {
-                      void handleCopySuggestedModel(model);
-                    }}
-                  >
-                    <Badge variant="secondary" className="rounded-full font-mono">
-                      {model}
-                    </Badge>
-                  </Button>
-                ))}
-              </div>
-            </EditorField>
-          )}
         </EditorSection>
 
         <StructuredSettingsSections
@@ -1019,6 +982,7 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
           sandboxPresentation={sandboxPresentation}
           enabledPluginsSummary={enabledPluginsSummary}
           scalarFieldRows={scalarFieldRows}
+          modelSuggestions={selectedProvider?.modelSuggestions ?? []}
           behaviorToggleFieldRows={behaviorToggleFieldRows}
           commonScalarFieldRows={commonScalarFieldRows}
           commonToggleFields={commonToggleFields}

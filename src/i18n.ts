@@ -326,8 +326,6 @@ const translations = {
     "profiles.toast.reorderError": "重排配置失败",
     "profiles.toast.envCopied": "环境变量已复制",
     "profiles.toast.envCopyError": "复制环境变量失败",
-    "profiles.toast.modelCopied": "模型已复制",
-    "profiles.toast.modelCopyError": "复制模型失败",
     "profiles.editor.actions.testModel": "测试模型",
     "profiles.editor.actions.testingModel": "测试中...",
     "profiles.editor.title.add": "新建配置",
@@ -344,7 +342,8 @@ const translations = {
     "profiles.editor.placeholders.description": "例如：全局开发默认配置",
     "profiles.editor.hints.provider":
       "供应商提供连接地址与模型映射；选择「自定义」可手动填写 API 地址。",
-    "profiles.editor.hints.suggestedModels": "供应商模型",
+    "profiles.editor.modelCombobox.trigger": "选择模型",
+    "profiles.editor.modelCombobox.empty": "无匹配模型，可直接输入",
     "profiles.editor.hints.behaviorJson":
       "这里直接编辑当前行为区块相关的顶层键，以及相关的 env 覆盖，不会创建新的 behavior 嵌套对象。",
     "profiles.editor.hints.envOverridesOnly":
@@ -1895,8 +1894,6 @@ const translations = {
     "profiles.toast.reorderError": "Failed to reorder profiles",
     "profiles.toast.envCopied": "Env vars copied",
     "profiles.toast.envCopyError": "Failed to copy env vars",
-    "profiles.toast.modelCopied": "Model copied",
-    "profiles.toast.modelCopyError": "Failed to copy model",
     "profiles.editor.actions.testModel": "Test Model",
     "profiles.editor.actions.testingModel": "Testing...",
     "profiles.editor.title.add": "Add Profile",
@@ -1913,7 +1910,8 @@ const translations = {
     "profiles.editor.placeholders.description": "e.g. Global default workspace profile",
     "profiles.editor.hints.provider":
       'Providers supply the connection address and model mappings; pick "Custom" to enter your own API base URL.',
-    "profiles.editor.hints.suggestedModels": "Provider models",
+    "profiles.editor.modelCombobox.trigger": "Select model",
+    "profiles.editor.modelCombobox.empty": "No matching model; type freely",
     "profiles.editor.hints.behaviorJson":
       "Edit the related top-level behavior keys and scoped env overrides directly without creating a nested behavior object.",
     "profiles.editor.hints.envOverridesOnly":

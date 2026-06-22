@@ -26,6 +26,7 @@ import FieldDocsLinkButton from "./FieldDocsLinkButton";
 import FieldHelpButton from "./FieldHelpButton";
 import HooksEditor from "./HooksEditor";
 import MarketplaceEditor from "./MarketplaceEditor";
+import ModelComboboxField from "./ModelComboboxField";
 import PermissionsEditor, {
   PermissionDefaultModeSelect,
   setPermissionsDefaultMode,
@@ -107,6 +108,8 @@ interface StructuredSettingsSectionsProps {
     totalCount: number;
   };
   scalarFieldRows: SettingsFieldDefinition[][];
+  /** 当前供应商的候选模型 ID 列表,供模型字段下拉选择 */
+  modelSuggestions: readonly string[];
   behaviorToggleFieldRows: SettingsFieldDefinition[][];
   commonScalarFieldRows: SettingsFieldDefinition[][];
   commonToggleFields: SettingsFieldDefinition[];
@@ -155,6 +158,7 @@ function StructuredSettingsSections({
   sandboxPresentation,
   enabledPluginsSummary,
   scalarFieldRows,
+  modelSuggestions,
   behaviorToggleFieldRows,
   commonScalarFieldRows,
   commonToggleFields,
@@ -463,6 +467,33 @@ function StructuredSettingsSections({
                             </SelectGroup>
                           </SelectContent>
                         </Select>
+                      </div>
+                    );
+                  }
+
+                  // 模型字段渲染为可输入下拉框,候选来自当前供应商模型列表
+                  if (field.modelCombobox) {
+                    return (
+                      <div key={field.key} className="grid gap-2" data-slot="settings-field">
+                        <BehaviorFieldHeader
+                          label={label}
+                          inputId={`${scope}-field-${field.key}`}
+                          helperKey={getFieldHelperKey(field)}
+                          provenance={renderFieldProvenance(field, fieldState)}
+                        />
+                        <ModelComboboxField
+                          id={`${scope}-field-${field.key}`}
+                          ariaLabel={label}
+                          value={fieldState.value}
+                          placeholder={
+                            fieldState.providerDefault ||
+                            (field.placeholder ? field.placeholder[language] : "")
+                          }
+                          suggestions={modelSuggestions}
+                          onChange={(value) =>
+                            onMappedFieldChange(field, value, fieldState.mappedToEnv)
+                          }
+                        />
                       </div>
                     );
                   }

@@ -3917,7 +3917,7 @@ describe("ProfileEditor", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("copies preset suggested model to clipboard without exposing removed legacy scope fields", async () => {
+  it("selects a provider model via the model dropdown without exposing removed legacy scope fields", async () => {
     renderEditor({
       profile: {
         ...PROFILE_FIXTURE,
@@ -3936,14 +3936,19 @@ describe("ProfileEditor", () => {
     expect(screen.getByLabelText("默认模型")).toHaveValue("");
     expect(screen.getByLabelText("默认模型")).toHaveAttribute("placeholder", "claude-sonnet-4-6");
 
+    // 模型字段为可输入下拉框:展开后从供应商候选中选择即回填到字段
+    const modelField = screen.getByLabelText("默认模型").closest('[data-slot="settings-field"]');
+    expect(modelField).not.toBeNull();
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "claude-opus-4-1" }));
+      fireEvent.click(within(modelField as HTMLElement).getByRole("button", { name: "选择模型" }));
+      await Promise.resolve();
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("option", { name: "claude-opus-4-1" }));
       await Promise.resolve();
     });
 
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith("claude-opus-4-1");
-    expect(showToastMock).toHaveBeenCalledWith("模型已复制");
-    expect(screen.getByLabelText("默认模型")).toHaveValue("");
+    expect(screen.getByLabelText("默认模型")).toHaveValue("claude-opus-4-1");
 
     const modelBehaviorSection = screen
       .getByRole("heading", { name: "模型与行为" })

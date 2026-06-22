@@ -20,6 +20,8 @@ export interface SettingsFieldDefinition {
   defaultEnabled?: boolean;
   enabledValue?: string;
   envOnlyOptions?: string[];
+  // 标记为模型字段:渲染为可输入下拉框,候选来自当前供应商的模型列表
+  modelCombobox?: boolean;
   // 字段官方文档相对路径段，会拼接为 `${CLAUDE_CODE_DOCS_BASE_URL}/${docsLocale}/${docPath}`
   docPath?: string;
   label: {
@@ -44,6 +46,7 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     kind: "text",
     storage: "env-only",
     envKey: "ANTHROPIC_MODEL",
+    modelCombobox: true,
     label: {
       zh: "默认模型",
       en: "Default Model",
@@ -128,6 +131,7 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     kind: "text",
     storage: "env-only",
     envKey: "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    modelCombobox: true,
     label: {
       zh: "Opus 默认模型",
       en: "Opus Default Model",
@@ -143,6 +147,7 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     kind: "text",
     storage: "env-only",
     envKey: "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    modelCombobox: true,
     label: {
       zh: "Sonnet 默认模型",
       en: "Sonnet Default Model",
@@ -158,6 +163,7 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     kind: "text",
     storage: "env-only",
     envKey: "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    modelCombobox: true,
     label: {
       zh: "Haiku 默认模型",
       en: "Haiku Default Model",
@@ -173,6 +179,7 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     kind: "text",
     storage: "env-only",
     envKey: "CLAUDE_CODE_SUBAGENT_MODEL",
+    modelCombobox: true,
     label: {
       zh: "Subagent 模型",
       en: "Subagent Model",
