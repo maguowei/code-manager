@@ -45,6 +45,7 @@ import {
 import { readObject, readString } from "./profile-editor/editor-utils";
 import FieldHelpButton from "./profile-editor/FieldHelpButton";
 import { readPermissionsDefaultMode } from "./profile-editor/PermissionsEditor";
+import ProviderDefaultsActions from "./profile-editor/ProviderDefaultsActions";
 import RequiredBadge from "./profile-editor/RequiredBadge";
 import { getSandboxPresentation } from "./profile-editor/SandboxEditor";
 import SensitiveTextInput from "./profile-editor/SensitiveTextInput";
@@ -650,6 +651,38 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
   const commonFields = PROFILE_SETTINGS_FORM_REGISTRY.filter((field) => field.section === "common");
   const scalarFields = behaviorFields.filter((field) => field.kind !== "checkbox");
   const behaviorToggleFields = behaviorFields.filter((field) => field.kind === "checkbox");
+  // 「模型与行为」分区中映射到 env 的字段（默认模型、Opus/Sonnet/Haiku、Subagent、努力级别、自动压缩窗口）
+  const behaviorEnvFields = behaviorFields.filter((field) => !!field.envKey);
+
+  // 批量恢复供应商默认：清空有覆盖且供应商有默认的字段，使其重新跟随供应商
+  function handleRestoreProviderDefaults() {
+    const next = behaviorEnvFields.reduce((acc, field) => {
+      if (!field.envKey) {
+        return acc;
+      }
+      const state = readBehaviorFieldState(field);
+      if (state.source === "override" && state.providerDefault) {
+        return setEnvString(acc, field.envKey, "");
+      }
+      return acc;
+    }, settings);
+    applySettings(next);
+  }
+
+  // 批量固化供应商默认：把当前继承自供应商的字段写成显式值，今后不再随供应商变化
+  function handleFreezeProviderDefaults() {
+    const next = behaviorEnvFields.reduce((acc, field) => {
+      if (!field.envKey) {
+        return acc;
+      }
+      const state = readBehaviorFieldState(field);
+      if (state.source === "inherited" && state.providerDefault) {
+        return setEnvString(acc, field.envKey, state.providerDefault);
+      }
+      return acc;
+    }, settings);
+    applySettings(next);
+  }
   const scalarFieldRows = useMemo(() => chunkItems(scalarFields, 2), [scalarFields]);
   const behaviorToggleFieldRows = useMemo(
     () => chunkItems(behaviorToggleFields, 2),
@@ -1028,6 +1061,16 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
                 </Button>
               ) : null}
             </div>
+          }
+          behaviorTopAction={
+            selectedProvider ? (
+              <ProviderDefaultsActions
+                fields={behaviorEnvFields}
+                readFieldState={readBehaviorFieldState}
+                onRestoreDefaults={handleRestoreProviderDefaults}
+                onFreezeDefaults={handleFreezeProviderDefaults}
+              />
+            ) : undefined
           }
           readBehaviorFieldState={readBehaviorFieldState}
           readSimpleFieldValue={readSimpleFieldValue}

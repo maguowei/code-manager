@@ -262,16 +262,29 @@ function SettingsSectionModePanel({
 
   return (
     <section className="flex flex-col gap-4 rounded-lg border border-border/80 bg-card p-5 shadow-panel">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <h3 className={TYPOGRAPHY.sectionTitle}>{title}</h3>
-        </div>
+      <div className="-mx-5 flex flex-wrap items-center justify-between gap-3 border-b border-border/80 px-5 pb-4">
+        <h3 className={cn("min-w-0 flex-1", TYPOGRAPHY.sectionTitle)}>{title}</h3>
+        {hasHeaderMeta || headerControl ? (
+          <div className="inline-flex items-center gap-2">
+            {hasHeaderMeta ? (
+              <span
+                data-slot="settings-section-header-meta"
+                className="min-w-0 whitespace-nowrap text-right text-sm font-medium text-muted-foreground"
+              >
+                {headerMeta}
+              </span>
+            ) : null}
+            {headerControl}
+          </div>
+        ) : null}
+      </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {headerControl}
-          {modeRowAction}
-          {renderModeSwitch()}
-        </div>
+      <div
+        data-slot="settings-section-mode-row"
+        className="flex flex-wrap items-center justify-between gap-3"
+      >
+        {modeRowAction ? <div className="min-w-0 flex-1">{modeRowAction}</div> : null}
+        {renderModeSwitch()}
       </div>
 
       {renderSectionContent()}

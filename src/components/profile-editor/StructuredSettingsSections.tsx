@@ -45,6 +45,7 @@ type StructuredSettingsScope = "profiles" | "providers";
 type DocsLocale = "zh-CN" | "en";
 type StructuredSettingsDocsKey =
   | "behavior"
+  | "common"
   | "env"
   | "permissions"
   | "sandbox"
@@ -77,6 +78,7 @@ interface BehaviorFieldState {
 const CLAUDE_CODE_DOCS_BASE_URL = "https://code.claude.com/docs";
 const STRUCTURED_SETTINGS_DOCS_PATHS: Record<StructuredSettingsDocsKey, string> = {
   behavior: "model-config",
+  common: "settings",
   env: "env-vars",
   permissions: "permissions",
   sandbox: "sandboxing",
@@ -135,6 +137,7 @@ interface StructuredSettingsSectionsProps {
   pluginsJsonEditor: SectionJsonEditorState;
   statusLineJsonEditor: SectionJsonEditorState;
   behaviorHeaderControl?: ReactNode;
+  behaviorTopAction?: ReactNode;
   behaviorFooter?: ReactNode;
   marketplaceSources?: MarketplaceSourceInput[];
 }
@@ -174,6 +177,7 @@ function StructuredSettingsSections({
   pluginsJsonEditor,
   statusLineJsonEditor,
   behaviorHeaderControl,
+  behaviorTopAction,
   behaviorFooter,
   marketplaceSources,
 }: StructuredSettingsSectionsProps) {
@@ -513,8 +517,13 @@ function StructuredSettingsSections({
         jsonEditor={behaviorJsonEditor}
         jsonHint={messages.behaviorJsonHint}
         error={behaviorJsonEditor.jsonError}
-        headerControl={behaviorHeaderControl}
-        modeRowAction={renderSectionDocsButton("behavior", messages.behavior)}
+        headerControl={renderSectionDocsButton("behavior", messages.behavior)}
+        modeRowAction={
+          <div className="inline-flex flex-wrap items-center gap-2">
+            {behaviorHeaderControl}
+            {behaviorTopAction}
+          </div>
+        }
         footer={behaviorFooter}
       />
 
@@ -661,6 +670,7 @@ function StructuredSettingsSections({
         expanded={sectionState.commonExpanded}
         onToggleExpanded={sectionState.toggleCommonExpanded}
         headerMeta={`${t("common.pluginsEnabledSummaryLabel")} ${enabledCommonToggleCount}/${commonToggleFields.length}`}
+        modeRowAction={renderSectionModeRowAction("common", messages.common)}
       />
 
       <SettingsSectionModePanel
