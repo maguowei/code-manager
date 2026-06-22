@@ -14,10 +14,10 @@ describe("buildLaunchCommands", () => {
 
   it("文件路径含空格与特殊字符时转义", () => {
     const { filePathCommand } = buildLaunchCommands({
-      settingsPath: "/Users/My Name/launch/$p1.json",
+      settingsPath: "/Users/dev/My Folder/launch/$p1.json",
       envOnlyJson: "{}",
     });
-    expect(filePathCommand).toBe('claude --settings "/Users/My Name/launch/\\$p1.json"');
+    expect(filePathCommand).toBe('claude --settings "/Users/dev/My Folder/launch/\\$p1.json"');
   });
 
   it("内联式：用单引号包裹紧凑 JSON", () => {
