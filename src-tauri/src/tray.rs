@@ -53,7 +53,7 @@ fn tray_labels_for_language(language: &str) -> TrayLabels<'static> {
     match language {
         "en" => TrayLabels {
             language: "en",
-            show_window: "Open AI Manager",
+            show_window: "Open Code Manager",
             toggle_widget: "Toggle Floating Widget",
             nav_configs: "Profiles",
             no_configs: "No configs",
@@ -70,7 +70,7 @@ fn tray_labels_for_language(language: &str) -> TrayLabels<'static> {
         },
         _ => TrayLabels {
             language: "zh",
-            show_window: "打开 AI Manager",
+            show_window: "打开 Code Manager",
             toggle_widget: "显示/隐藏浮窗",
             nav_configs: "配置",
             no_configs: "暂无配置",
@@ -1154,7 +1154,7 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     // 第二个托盘项只承载会话摘要，形成独立点击区域。
     // 注：macOS 状态栏图标按添加顺序从右往左排列，先创建会话托盘可让其显示在主托盘（配置名）右侧。
     let mut sessions_builder = TrayIconBuilder::with_id(SESSIONS_TRAY_ID)
-        .tooltip("AI Manager Sessions")
+        .tooltip("Code Manager Sessions")
         .menu(&sessions_menu)
         .show_menu_on_left_click(true)
         .on_menu_event(|app, event| {
@@ -1201,7 +1201,7 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     // 构建托盘图标，若设置开启且有激活配置则在图标旁显示配置名
     let mut builder = TrayIconBuilder::with_id(MAIN_TRAY_ID)
         .icon(icon)
-        .tooltip("AI Manager")
+        .tooltip("Code Manager")
         .menu(&menu)
         .show_menu_on_left_click(true);
     if let Some(title) = get_tray_title(&state) {
@@ -1331,7 +1331,7 @@ mod tests {
     #[test]
     fn tray_labels_follow_selected_language() {
         let zh = tray_labels_for_language("zh");
-        assert_eq!(zh.show_window, "打开 AI Manager");
+        assert_eq!(zh.show_window, "打开 Code Manager");
         assert_eq!(zh.toggle_widget, "显示/隐藏浮窗");
         assert_eq!(zh.nav_configs, "配置");
         assert_eq!(zh.no_sessions, "无会话");
@@ -1344,7 +1344,7 @@ mod tests {
         assert_eq!(zh.quit, "退出");
 
         let en = tray_labels_for_language("en");
-        assert_eq!(en.show_window, "Open AI Manager");
+        assert_eq!(en.show_window, "Open Code Manager");
         assert_eq!(en.toggle_widget, "Toggle Floating Widget");
         assert_eq!(en.nav_configs, "Profiles");
         assert_eq!(en.no_sessions, "No Sessions");
@@ -1379,8 +1379,10 @@ mod tests {
 
     #[test]
     fn load_tray_sessions_reads_valid_json_and_skips_invalid_entries() {
-        let root =
-            std::env::temp_dir().join(format!("ai-manager-tray-sessions-{}", uuid::Uuid::new_v4()));
+        let root = std::env::temp_dir().join(format!(
+            "code-manager-tray-sessions-{}",
+            uuid::Uuid::new_v4()
+        ));
         fs::create_dir_all(&root).expect("应可创建测试目录");
         let sessions_dir = root.join("sessions");
         fs::create_dir_all(&sessions_dir).expect("应可创建 sessions 目录");
@@ -1429,7 +1431,7 @@ mod tests {
     fn sessions_tray_title_shows_status_counts() {
         let zh = tray_labels_for_language("zh");
         let plain = SessionTrayCountStyle::Plain;
-        let idle = test_session("/Users/demo/work/ai-manager", "idle", 1000);
+        let idle = test_session("/Users/demo/work/code-manager", "idle", 1000);
         let another_idle = test_session("/Users/demo/work/docs", "idle", 900);
         let waiting = test_session("/Users/demo/work/waiting-repo", "waiting", 2000);
         let running = test_session("/Users/demo/work/running-repo", "running", 1500);
@@ -1725,24 +1727,24 @@ mod tests {
 
     #[test]
     fn session_menu_item_label_includes_status_project_and_waiting_reason() {
-        let mut session = test_session("/Users/demo/work/ai-manager", "waiting", 2000);
+        let mut session = test_session("/Users/demo/work/code-manager", "waiting", 2000);
         session.pid = 2491;
         session.waiting_for = Some("approve Bash".to_string());
 
         assert_eq!(
             session_menu_item_label(&session, "zh"),
-            "🔴 ai-manager · 待处理 · approve Bash"
+            "🔴 code-manager · 待处理 · approve Bash"
         );
         assert_eq!(
             session_menu_item_label(&session, "en"),
-            "🔴 ai-manager · Waiting · approve Bash"
+            "🔴 code-manager · Waiting · approve Bash"
         );
     }
 
     #[test]
     fn pending_session_notifier_uses_first_snapshot_as_baseline() {
         let mut notifier = PendingSessionNotifier::default();
-        let waiting = test_session("/Users/demo/work/ai-manager", "waiting", 2000);
+        let waiting = test_session("/Users/demo/work/code-manager", "waiting", 2000);
 
         let notifications = notifier.observe(
             &test_preferences(true, "terminal"),
@@ -1757,8 +1759,8 @@ mod tests {
     #[test]
     fn pending_session_notifier_reports_new_waiting_session_once() {
         let mut notifier = PendingSessionNotifier::default();
-        let idle = test_session("/Users/demo/work/ai-manager", "idle", 1000);
-        let mut waiting = test_session("/Users/demo/work/ai-manager", "waiting", 2000);
+        let idle = test_session("/Users/demo/work/code-manager", "idle", 1000);
+        let mut waiting = test_session("/Users/demo/work/code-manager", "waiting", 2000);
         waiting.waiting_for = Some("approve Bash".to_string());
         notifier.observe(
             &test_preferences(true, "terminal"),
@@ -1782,7 +1784,7 @@ mod tests {
 
         assert_eq!(first_notifications.len(), 1);
         assert_eq!(first_notifications[0].title, "Claude 会话待处理");
-        assert_eq!(first_notifications[0].body, "ai-manager · approve Bash");
+        assert_eq!(first_notifications[0].body, "code-manager · approve Bash");
         assert!(first_notifications[0].focus_target.is_none());
         assert!(repeated_notifications.is_empty());
     }
@@ -1790,8 +1792,8 @@ mod tests {
     #[test]
     fn pending_session_notifier_ignores_repeated_waiting_snapshots() {
         let mut notifier = PendingSessionNotifier::default();
-        let idle = test_session("/Users/demo/work/ai-manager", "idle", 1000);
-        let waiting = test_session("/Users/demo/work/ai-manager", "waiting", 2000);
+        let idle = test_session("/Users/demo/work/code-manager", "idle", 1000);
+        let waiting = test_session("/Users/demo/work/code-manager", "waiting", 2000);
         notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&idle),
@@ -1825,8 +1827,8 @@ mod tests {
     #[test]
     fn pending_session_notifier_reports_waiting_again_after_recovery() {
         let mut notifier = PendingSessionNotifier::default();
-        let idle = test_session("/Users/demo/work/ai-manager", "idle", 1000);
-        let waiting = test_session("/Users/demo/work/ai-manager", "waiting", 2000);
+        let idle = test_session("/Users/demo/work/code-manager", "idle", 1000);
+        let waiting = test_session("/Users/demo/work/code-manager", "waiting", 2000);
         notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&idle),
@@ -1859,8 +1861,8 @@ mod tests {
     #[test]
     fn pending_session_notifier_updates_baseline_when_system_notifications_disabled() {
         let mut notifier = PendingSessionNotifier::default();
-        let idle = test_session("/Users/demo/work/ai-manager", "idle", 1000);
-        let waiting = test_session("/Users/demo/work/ai-manager", "waiting", 2000);
+        let idle = test_session("/Users/demo/work/code-manager", "idle", 1000);
+        let waiting = test_session("/Users/demo/work/code-manager", "waiting", 2000);
         notifier.observe(
             &test_preferences(false, "terminal"),
             std::slice::from_ref(&idle),
@@ -1904,8 +1906,12 @@ mod tests {
             "zh",
             PendingSessionNotificationInteraction::FocusTerminal,
         );
-        let first =
-            test_session_with_id("session-1", "/Users/demo/work/ai-manager", "waiting", 2000);
+        let first = test_session_with_id(
+            "session-1",
+            "/Users/demo/work/code-manager",
+            "waiting",
+            2000,
+        );
         let second = test_session_with_id("session-2", "/Users/demo/work/docs", "waiting", 1900);
 
         let notifications = notifier.observe(
@@ -1918,7 +1924,7 @@ mod tests {
         assert_eq!(notifications.len(), 1);
         assert_eq!(notifications[0].title, "多个 Claude 会话待处理");
         assert!(notifications[0].body.contains("2 个会话需要处理"));
-        assert!(notifications[0].body.contains("ai-manager"));
+        assert!(notifications[0].body.contains("code-manager"));
         assert!(notifications[0].body.contains("docs"));
         assert!(notifications[0].focus_target.is_none());
     }
@@ -1941,7 +1947,7 @@ mod tests {
         let session = TraySession {
             pid: 4242,
             session_id: "session-focus".to_string(),
-            cwd: "/Users/demo/work/ai-manager".to_string(),
+            cwd: "/Users/demo/work/code-manager".to_string(),
             status: "waiting".to_string(),
             updated_at: 2000,
             waiting_for: None,
@@ -1958,7 +1964,7 @@ mod tests {
             notification.focus_target,
             Some(PendingSessionFocusTarget {
                 pid: 4242,
-                cwd: "/Users/demo/work/ai-manager".to_string(),
+                cwd: "/Users/demo/work/code-manager".to_string(),
                 session_id: "session-focus".to_string(),
                 terminal_app: "terminal".to_string(),
             })
@@ -1967,7 +1973,7 @@ mod tests {
 
     #[test]
     fn pending_session_notification_omits_focus_target_when_terminal_cannot_focus() {
-        let session = test_session("/Users/demo/work/ai-manager", "waiting", 2000);
+        let session = test_session("/Users/demo/work/code-manager", "waiting", 2000);
 
         let notification = build_pending_session_notification(
             &session,
@@ -2026,7 +2032,7 @@ mod tests {
     #[test]
     fn session_menu_item_id_round_trip() {
         let cases = [
-            "/Users/demo/work/ai-manager",
+            "/Users/demo/work/code-manager",
             "/Users/demo/work/中文 项目",
             r#"/path/with"quote"#,
             "/path/with::double-colon",
@@ -2157,8 +2163,8 @@ mod tests {
     fn session_project_name_handles_edge_paths() {
         // 正常 macOS 路径：取最后一段
         assert_eq!(
-            session_project_name("/Users/demo/work/ai-manager"),
-            "ai-manager"
+            session_project_name("/Users/demo/work/code-manager"),
+            "code-manager"
         );
         // 仅一个段：当作项目名
         assert_eq!(session_project_name("standalone"), "standalone");
@@ -2244,18 +2250,18 @@ mod tests {
     #[test]
     fn session_menu_item_label_omits_waiting_for_outside_waiting_and_when_absent() {
         // 非 waiting 状态 + 有 waiting_for：应忽略 waiting_for
-        let mut running = test_session("/Users/demo/work/ai-manager", "running", 1000);
+        let mut running = test_session("/Users/demo/work/code-manager", "running", 1000);
         running.waiting_for = Some("不应渲染".to_string());
         assert_eq!(
             session_menu_item_label(&running, "zh"),
-            "🟢 ai-manager · 运行中"
+            "🟢 code-manager · 运行中"
         );
 
         // waiting 状态但 waiting_for=None
-        let waiting = test_session("/Users/demo/work/ai-manager", "waiting", 2000);
+        let waiting = test_session("/Users/demo/work/code-manager", "waiting", 2000);
         assert_eq!(
             session_menu_item_label(&waiting, "zh"),
-            "🔴 ai-manager · 待处理"
+            "🔴 code-manager · 待处理"
         );
 
         // 长项目名截断到 32 字符（truncate 在末尾追加 "..."）
@@ -2281,7 +2287,7 @@ mod tests {
     #[test]
     fn load_tray_sessions_filters_entries_with_only_whitespace_required_fields() {
         let root = std::env::temp_dir().join(format!(
-            "ai-manager-tray-whitespace-{}",
+            "code-manager-tray-whitespace-{}",
             uuid::Uuid::new_v4()
         ));
         fs::create_dir_all(&root).expect("应可创建测试目录");

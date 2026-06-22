@@ -1,6 +1,6 @@
-# AI Manager 项目主页
+# Code Manager 项目主页
 
-`site/` 是 AI Manager 的**零构建静态主页**：纯 HTML + 手写 CSS + 少量原生 JS，没有任何构建步骤或 Node 依赖。直接把这个目录当作静态站点根目录托管即可。
+`site/` 是 Code Manager 的**零构建静态主页**：纯 HTML + 手写 CSS + 少量原生 JS，没有任何构建步骤或 Node 依赖。直接把这个目录当作静态站点根目录托管即可。
 
 ## 目录结构
 
@@ -56,7 +56,7 @@ npx serve site
 也可以用 Wrangler 直接上传，无需连 Git：
 
 ```bash
-npx wrangler pages deploy site --project-name ai-manager
+npx wrangler pages deploy site --project-name code-manager
 ```
 
 ## 更新内容
@@ -64,4 +64,4 @@ npx wrangler pages deploy site --project-name ai-manager
 - 文案：直接改 `index.html`，中英文成对出现（`data-lang="zh"` / `data-lang="en"`），改动时记得两种语言同步。
 - 版本号：`index.html` 内 hero 徽标处的 `v0.20.1` 需与 `package.json` 等三处版本保持一致。
 - 下载链接：当前指向 `releases/latest`，仓库公开并正式发布 Release 后即自动生效。
-- 架构图：来源于仓库根目录 `diagram/ai-manager-architecture/`，更新后重新复制到 `assets/img/`。
+- 架构图：来源于仓库根目录 `diagram/code-manager-architecture/`，更新后重新复制到 `assets/img/`。

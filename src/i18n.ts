@@ -17,7 +17,7 @@ export type Language = "zh" | "en";
 const translations = {
   zh: {
     // 通用
-    "app.title": "AI Manager",
+    "app.title": "Code Manager",
     "app.errorBoundary.title": "页面出现错误",
     "app.errorBoundary.description":
       "应用遇到意外错误。可尝试重新加载，若反复出现请到诊断页查看日志。",
@@ -139,7 +139,7 @@ const translations = {
     "memory.group.rulesDescription": "用户全局规则，可同时启用多个 rules/*.md 文件。",
     "memory.group.unmanaged": "发现未导入的本地记忆",
     "memory.group.unmanagedDescription":
-      "这些文件已经存在于 ~/.claude/ 中，但还不受 AI Manager 管理。导入后可在这里统一编辑、启用和删除。",
+      "这些文件已经存在于 ~/.claude/ 中，但还不受 Code Manager 管理。导入后可在这里统一编辑、启用和删除。",
     "memory.enabled": "已启用",
     "memory.disabled": "未启用",
     "memory.unmanaged": "未导入",
@@ -228,7 +228,7 @@ const translations = {
     "profiles.unmanaged.title": "发现未导入的用户设置",
     "profiles.unmanaged.badge": "未导入",
     "profiles.unmanaged.description":
-      "此文件已经存在于 ~/.claude/settings.json，导入后可由 AI Manager 继续管理。",
+      "此文件已经存在于 ~/.claude/settings.json，导入后可由 Code Manager 继续管理。",
     "profiles.unmanaged.import": "导入管理",
     "profiles.unmanaged.importing": "导入中...",
     "profiles.unmanaged.importHint": "导入后会原地接管当前 settings.json，不立即改写内容。",
@@ -287,7 +287,7 @@ const translations = {
     "profiles.mismatch.diffStatus.removed": "缺失",
     "profiles.mismatch.diffStatus.changed": "变更",
     "profiles.mismatch.noDiffSummary": "未能生成字段摘要，请查看下方完整 JSON 对比。",
-    "profiles.mismatch.expectedTitle": "AI Manager 预期配置",
+    "profiles.mismatch.expectedTitle": "Code Manager 预期配置",
     "profiles.mismatch.actualTitle": "settings.json 实际配置",
     "profiles.mismatch.acceptActual": "采用 settings.json",
     "profiles.mismatch.discardChanges": "用本配置覆盖",
@@ -1242,7 +1242,7 @@ const translations = {
     "settings.focusSessionShortcutHint": "需包含至少一个修饰键(⌘/⌃/⌥/⇧)",
     "settings.focusSessionShortcutReset": "恢复默认",
     "settings.systemNotifications": "系统通知",
-    "settings.systemNotificationsDesc": "允许 AI Manager 发送系统通知",
+    "settings.systemNotificationsDesc": "允许 Code Manager 发送系统通知",
     "settings.systemNotificationsHelp": "查看系统通知触发场景",
     "settings.systemNotificationsHelpTitle": "系统通知触发场景",
     "settings.systemNotificationsHelpDesc": "当前开启后可能触发的系统通知：",
@@ -1252,7 +1252,7 @@ const translations = {
     "settings.thirdPartyProviderPricingDesc":
       "使用 models.dev 为 Kimi、MiMo、GLM、MiniMax、DeepSeek 系列模型估算费用，关闭后这些模型按 $0 计入。",
     "settings.launchAtLogin": "开机自启动",
-    "settings.launchAtLoginDesc": "登录系统后自动启动 AI Manager，配合托盘常驻更方便",
+    "settings.launchAtLoginDesc": "登录系统后自动启动 Code Manager，配合托盘常驻更方便",
     "settings.defaultTerminal": "默认终端",
     "settings.defaultTerminalDesc": "项目页“一键用终端打开”会使用这里选择的终端应用",
     "settings.defaultTerminalHelp": "查看默认终端支持列表",
@@ -1264,8 +1264,8 @@ const translations = {
     "settings.noDetectedTerminal": "未检测到可用终端。",
     "settings.noDetectedEditor": "未检测到可用编辑器。",
     "settings.currentNativeOpenUnavailable": "当前选择未检测到，可能无法启动。",
-    "settings.nativeOpenTerminalHelpDesc": "AI Manager 会按当前系统支持范围检测可启动的终端。",
-    "settings.nativeOpenEditorHelpDesc": "AI Manager 会按当前系统支持范围检测可启动的编辑器。",
+    "settings.nativeOpenTerminalHelpDesc": "Code Manager 会按当前系统支持范围检测可启动的终端。",
+    "settings.nativeOpenEditorHelpDesc": "Code Manager 会按当前系统支持范围检测可启动的编辑器。",
     "settings.nativeOpenCurrentPlatform": "当前系统",
     "settings.nativeOpenDetected": "已检测到",
     "settings.nativeOpenNotDetected": "未检测到",
@@ -1569,7 +1569,7 @@ const translations = {
   },
   en: {
     // 通用
-    "app.title": "AI Manager",
+    "app.title": "Code Manager",
     "app.errorBoundary.title": "Something went wrong",
     "app.errorBoundary.description":
       "The app hit an unexpected error. Try reloading; if it keeps happening, check the logs on the diagnostics page.",
@@ -1696,7 +1696,7 @@ const translations = {
     "memory.group.rulesDescription": "User-level rules. Multiple rules/*.md files can be enabled.",
     "memory.group.unmanaged": "Unimported Local Memories",
     "memory.group.unmanagedDescription":
-      "These files already exist in ~/.claude/ but are not managed by AI Manager yet. Import them to edit, enable, and delete them here.",
+      "These files already exist in ~/.claude/ but are not managed by Code Manager yet. Import them to edit, enable, and delete them here.",
     "memory.enabled": "Enabled",
     "memory.disabled": "Disabled",
     "memory.unmanaged": "Unimported",
@@ -1789,7 +1789,7 @@ const translations = {
     "profiles.unmanaged.title": "Unimported user settings found",
     "profiles.unmanaged.badge": "Unimported",
     "profiles.unmanaged.description":
-      "This file already exists at ~/.claude/settings.json. Import it to continue managing it in AI Manager.",
+      "This file already exists at ~/.claude/settings.json. Import it to continue managing it in Code Manager.",
     "profiles.unmanaged.import": "Import",
     "profiles.unmanaged.importing": "Importing...",
     "profiles.unmanaged.importHint":
@@ -1854,7 +1854,7 @@ const translations = {
     "profiles.mismatch.diffStatus.changed": "Changed",
     "profiles.mismatch.noDiffSummary":
       "No field summary could be generated. Review the full JSON comparison below.",
-    "profiles.mismatch.expectedTitle": "AI Manager Expected Settings",
+    "profiles.mismatch.expectedTitle": "Code Manager Expected Settings",
     "profiles.mismatch.actualTitle": "Actual settings.json",
     "profiles.mismatch.acceptActual": "Use settings.json",
     "profiles.mismatch.discardChanges": "Overwrite with profile",
@@ -2521,7 +2521,7 @@ const translations = {
     "projects.branchCleanupDialogTitle": "Clean Local Branches",
     "projects.worktreeCleanupDialogTitle": "Clean Worktrees",
     "projects.gitCleanupDialogDescription":
-      "AI Manager will clean only the entries that still pass the safety check. It verifies them again before executing.",
+      "Code Manager will clean only the entries that still pass the safety check. It verifies them again before executing.",
     "projects.cleanupBaseBranch": "Base Branch",
     "projects.cleanupDetecting": "Detecting...",
     "projects.noBranchCleanupCandidates": "No cleanable local branches",
@@ -2537,7 +2537,7 @@ const translations = {
     "projects.clearLocalData": "Clear Local Data",
     "projects.purgeDialogTitle": "Clear Local Data",
     "projects.purgeDialogDescription":
-      "AI Manager will run Claude CLI to clear saved local state for this project. Review the dry-run deletion plan first.",
+      "Code Manager will run Claude CLI to clear saved local state for this project. Review the dry-run deletion plan first.",
     "projects.purgeTarget": "Project",
     "projects.purgePlan": "Deletion Plan",
     "projects.purgePreviewing": "Generating deletion plan...",
@@ -2853,7 +2853,7 @@ const translations = {
     "settings.focusSessionShortcutHint": "Must include at least one modifier (⌘/⌃/⌥/⇧)",
     "settings.focusSessionShortcutReset": "Reset to default",
     "settings.systemNotifications": "System notifications",
-    "settings.systemNotificationsDesc": "Allow AI Manager to send system notifications",
+    "settings.systemNotificationsDesc": "Allow Code Manager to send system notifications",
     "settings.systemNotificationsHelp": "View system notification triggers",
     "settings.systemNotificationsHelpTitle": "System notification triggers",
     "settings.systemNotificationsHelpDesc":
@@ -2866,7 +2866,7 @@ const translations = {
     "settings.thirdPartyProviderPricingDesc":
       "Use models.dev to estimate costs for Kimi, MiMo, GLM, MiniMax, and DeepSeek models. When disabled, these models count as $0.",
     "settings.launchAtLogin": "Launch at Login",
-    "settings.launchAtLoginDesc": "Automatically start AI Manager when you log in to your system",
+    "settings.launchAtLoginDesc": "Automatically start Code Manager when you log in to your system",
     "settings.defaultTerminal": "Default Terminal",
     "settings.defaultTerminalDesc":
       "The Projects page uses this terminal for the one-click open action.",
@@ -2882,9 +2882,9 @@ const translations = {
     "settings.currentNativeOpenUnavailable":
       "The current selection was not detected and may fail to launch.",
     "settings.nativeOpenTerminalHelpDesc":
-      "AI Manager detects launchable terminals within the current platform support range.",
+      "Code Manager detects launchable terminals within the current platform support range.",
     "settings.nativeOpenEditorHelpDesc":
-      "AI Manager detects launchable editors within the current platform support range.",
+      "Code Manager detects launchable editors within the current platform support range.",
     "settings.nativeOpenCurrentPlatform": "Current system",
     "settings.nativeOpenDetected": "Detected",
     "settings.nativeOpenNotDetected": "Not detected",
@@ -3198,7 +3198,7 @@ const translations = {
 export type TranslationKey = keyof typeof translations.zh;
 
 // 设置持久化
-const STORAGE_KEY = "ai-manager-settings";
+const STORAGE_KEY = "code-manager-settings";
 
 interface AppSettings {
   language: Language;

@@ -63,7 +63,7 @@ paths:
 ## 价格与 SQLite
 
 - 费用公式是 input、output、cache write、cache read 各自乘价格后统一除以 1_000_000；价格单位是 USD / 1M tokens。
-- 价格表加载顺序是本地缓存 `~/.config/ai-manager/model-pricing.json` -> 内置 `src-tauri/resources/model-pricing.json` -> 启动后尝试从 models.dev 刷新。
+- 价格表加载顺序是本地缓存 `~/.config/code-manager/model-pricing.json` -> 内置 `src-tauri/resources/model-pricing.json` -> 启动后尝试从 models.dev 刷新。
 - 网络刷新成功后要保存缓存、重算所有 `usage_records.cost_usd` 并发出 `usage-pricing-updated`。
 - 内置价格表只做 Anthropic/Claude 兜底；Kimi、MiMo、GLM、MiniMax、DeepSeek 的价格只来自 models.dev 官方 provider。
 - models.dev 导入范围由 `is_supported_models_dev_provider()` 控制：Anthropic、Moonshot / MoonshotAI、Z.ai / Zhipu / BigModel、MiniMax、Xiaomi / MiMo、DeepSeek。

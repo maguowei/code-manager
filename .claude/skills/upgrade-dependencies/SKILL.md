@@ -1,11 +1,11 @@
 ---
 name: upgrade-dependencies
-description: AI Manager 仓库 pnpm/Cargo 依赖升级技能。无论是依赖巡检、单包升级、Tauri 栈对齐、安全补丁修复，还是评估 Vite/TypeScript/Rust 主版本 breaking change，只要涉及 package.json、Cargo.toml、lock 文件或要跑 pnpm audit/cargo update，都使用本技能：按"安全→Tauri→前端→breaking"分批推进，每批跑对应验证。
+description: Code Manager 仓库 pnpm/Cargo 依赖升级技能。无论是依赖巡检、单包升级、Tauri 栈对齐、安全补丁修复，还是评估 Vite/TypeScript/Rust 主版本 breaking change，只要涉及 package.json、Cargo.toml、lock 文件或要跑 pnpm audit/cargo update，都使用本技能：按"安全→Tauri→前端→breaking"分批推进，每批跑对应验证。
 ---
 
 # Upgrade Dependencies
 
-为 AI Manager 仓库执行依赖检查、升级规划、分批实施和复盘。**事实源永远是当前命令输出**——本文档列出的历史版本号会过时，不能当作未来升级的依据。
+为 Code Manager 仓库执行依赖检查、升级规划、分批实施和复盘。**事实源永远是当前命令输出**——本文档列出的历史版本号会过时，不能当作未来升级的依据。
 
 ## 触发场景
 

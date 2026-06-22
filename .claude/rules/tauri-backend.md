@@ -13,7 +13,7 @@ paths:
 | 模块 | 职责 |
 | --- | --- |
 | `lib.rs` | Tauri Builder 编排：插件初始化、tauri-specta command 收集与 handler、托盘、目录 watcher、usage runtime |
-| `main.rs` | 二进制入口，仅调用 `ai_manager_lib::run()` |
+| `main.rs` | 二进制入口，仅调用 `code_manager_lib::run()` |
 | `utils.rs` | 公共锁、JSON 读写、原子文件写入、应用数据目录解析 |
 | `config.rs` | 配置 / Provider 合并落盘、`resolve_profile_settings()`、模型测试、`config-registry.json` |
 | `memory.rs` | 用户级 `CLAUDE.md` 与 `rules/*.md` 的托管、导入、启停 |
@@ -95,7 +95,7 @@ const workspace = await ipc.getConfigWorkspace();
 ## 集成测试基础设施
 
 - 集成测试放在 `src-tauri/tests/`；共享夹具见 `tests/common/mod.rs` 中的 `IntegrationEnv`。
-- `IntegrationEnv` 通过 `AI_MANAGER_HOME_OVERRIDE` / `AI_MANAGER_APP_DATA_DIR_OVERRIDE` 隔离 `~/.claude` 与应用数据目录，drop 时自动清理临时目录并还原 env。
+- `IntegrationEnv` 通过 `CODE_MANAGER_HOME_OVERRIDE` / `CODE_MANAGER_APP_DATA_DIR_OVERRIDE` 隔离 `~/.claude` 与应用数据目录，drop 时自动清理临时目录并还原 env。
 - 需要从集成测试访问内部函数时，通过 `lib.rs` 的 `pub mod test_api` 重导出；该模块必须标记 `#[cfg(debug_assertions)]`，不得在 release 产物中暴露。
 - 新增集成测试复用 `IntegrationEnv`，不要手动管理 tempdir 或直接写用户目录。
 

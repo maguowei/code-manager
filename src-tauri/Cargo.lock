@@ -35,46 +35,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ai-manager"
-version = "0.20.1"
-dependencies = [
- "block2",
- "dirs 6.0.0",
- "fancy-regex",
- "hidapi",
- "log",
- "notify",
- "objc2",
- "objc2-foundation",
- "objc2-user-notifications",
- "once_cell",
- "regex",
- "reqwest",
- "same-file",
- "schemars 1.2.1",
- "serde",
- "serde_json",
- "serial_test",
- "specta",
- "specta-typescript",
- "sqlx",
- "tauri",
- "tauri-build",
- "tauri-plugin-autostart",
- "tauri-plugin-dialog",
- "tauri-plugin-global-shortcut",
- "tauri-plugin-log",
- "tauri-plugin-notification",
- "tauri-plugin-opener",
- "tauri-plugin-os",
- "tauri-specta",
- "tempfile",
- "time",
- "tokio",
- "uuid",
-]
-
-[[package]]
 name = "alloc-no-stdlib"
 version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -645,6 +605,46 @@ dependencies = [
  "num-traits",
  "serde",
  "windows-link 0.2.1",
+]
+
+[[package]]
+name = "code-manager"
+version = "0.20.1"
+dependencies = [
+ "block2",
+ "dirs 6.0.0",
+ "fancy-regex",
+ "hidapi",
+ "log",
+ "notify",
+ "objc2",
+ "objc2-foundation",
+ "objc2-user-notifications",
+ "once_cell",
+ "regex",
+ "reqwest",
+ "same-file",
+ "schemars 1.2.1",
+ "serde",
+ "serde_json",
+ "serial_test",
+ "specta",
+ "specta-typescript",
+ "sqlx",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-autostart",
+ "tauri-plugin-dialog",
+ "tauri-plugin-global-shortcut",
+ "tauri-plugin-log",
+ "tauri-plugin-notification",
+ "tauri-plugin-opener",
+ "tauri-plugin-os",
+ "tauri-specta",
+ "tempfile",
+ "time",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]

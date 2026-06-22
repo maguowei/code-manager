@@ -8,7 +8,7 @@ use tauri::{AppHandle, Manager};
 use tauri_plugin_opener::OpenerExt;
 use time::{macros::format_description, OffsetDateTime};
 
-const APP_LOG_FILE_NAME: &str = "ai-manager";
+const APP_LOG_FILE_NAME: &str = "code-manager";
 const DEFAULT_LOG_LIMIT: usize = 500;
 const MAX_LOG_LIMIT: usize = 5_000;
 const MAX_LOG_READ_BYTES: u64 = 2_000_000;
@@ -397,7 +397,7 @@ mod tests {
 
     fn temp_log_dir(name: &str) -> std::path::PathBuf {
         let root = std::env::temp_dir().join(format!(
-            "ai-manager-log-test-{name}-{}",
+            "code-manager-log-test-{name}-{}",
             crate::utils::current_timestamp()
         ));
         fs::create_dir_all(&root).unwrap();
@@ -406,9 +406,9 @@ mod tests {
 
     #[test]
     fn app_log_file_path_uses_expected_file_name() {
-        let dir = Path::new("/tmp/ai-manager-logs");
+        let dir = Path::new("/tmp/code-manager-logs");
 
-        assert_eq!(app_log_file_path(dir), dir.join("ai-manager.log"));
+        assert_eq!(app_log_file_path(dir), dir.join("code-manager.log"));
     }
 
     #[test]
@@ -423,12 +423,12 @@ mod tests {
 
     #[test]
     fn parse_log_line_extracts_timestamp_target_level_and_message() {
-        let line = "[2026-04-29][12:34:56][ai_manager_lib::config][INFO] event=profile.upsert status=ok profile_id=profile-1";
+        let line = "[2026-04-29][12:34:56][code_manager_lib::config][INFO] event=profile.upsert status=ok profile_id=profile-1";
 
         let entry = parse_log_line(line);
 
         assert_eq!(entry.timestamp.as_deref(), Some("2026-04-29 12:34:56"));
-        assert_eq!(entry.target.as_deref(), Some("ai_manager_lib::config"));
+        assert_eq!(entry.target.as_deref(), Some("code_manager_lib::config"));
         assert_eq!(entry.level, LogLevel::Info);
         assert_eq!(
             entry.message,
@@ -569,7 +569,7 @@ mod tests {
     fn clear_log_files_truncates_active_file_and_removes_rotated_files() {
         let dir = temp_log_dir("clear");
         let active_log = app_log_file_path(&dir);
-        let rotated_log = dir.join("ai-manager_2026-04-29_12-00-00.log");
+        let rotated_log = dir.join("code-manager_2026-04-29_12-00-00.log");
         let unrelated_log = dir.join("other.log");
         fs::write(&active_log, "active log").unwrap();
         fs::write(&rotated_log, "rotated log").unwrap();

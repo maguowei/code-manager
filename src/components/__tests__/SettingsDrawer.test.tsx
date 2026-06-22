@@ -660,14 +660,14 @@ describe("SettingsDrawer", () => {
     fireEvent.click(darkRadio);
 
     await waitFor(() => {
-      expect(localStorage.getItem("ai-manager.theme")).toBe("dark");
+      expect(localStorage.getItem("code-manager.theme")).toBe("dark");
     });
 
     const systemRadio = screen.getByRole("radio", { name: "跟随系统" });
     fireEvent.click(systemRadio);
 
     await waitFor(() => {
-      expect(localStorage.getItem("ai-manager.theme")).toBe("system");
+      expect(localStorage.getItem("code-manager.theme")).toBe("system");
     });
   });
 });

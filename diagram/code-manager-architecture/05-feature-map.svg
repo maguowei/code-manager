@@ -22,7 +22,7 @@
   <rect width="100%" height="100%" fill="url(#grid)"/>
 
   <!-- 标题 -->
-  <text x="40" y="46" class="title">AI Manager · 功能全景（结构图）</text>
+  <text x="40" y="46" class="title">Code Manager · 功能全景（结构图）</text>
   <text x="40" y="72" class="subtitle">Claude Code 本地配置管理桌面应用 · 9 大功能模块 / ≈ 70 个类型化命令 · 全本地、隐私优先</text>
 
   <!-- 连接线 root → 3 域 -->
@@ -35,7 +35,7 @@
   <!-- root -->
   <rect x="620" y="86" width="360" height="58" rx="10" fill="#0f172a"/>
   <rect x="620" y="86" width="360" height="58" rx="10" fill="rgba(59,130,246,0.32)" stroke="#60a5fa" stroke-width="1.8"/>
-  <text x="800" y="113" class="root" text-anchor="middle">AI Manager</text>
+  <text x="800" y="113" class="root" text-anchor="middle">Code Manager</text>
   <text x="800" y="132" class="rootsub" text-anchor="middle">桌面应用 · 统一管理 ~/.claude 配置与生态</text>
 
   <!-- ===== 域 1 标题 ===== -->

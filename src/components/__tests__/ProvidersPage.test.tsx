@@ -19,7 +19,7 @@ vi.mock("../../hooks/useToast", () => ({
   }),
 }));
 
-const SETTINGS_STORAGE_KEY = "ai-manager-settings";
+const SETTINGS_STORAGE_KEY = "code-manager-settings";
 
 const BUILTIN_PROVIDERS: Provider[] = [
   {

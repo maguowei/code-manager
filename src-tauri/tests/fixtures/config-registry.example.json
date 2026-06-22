@@ -1,5 +1,5 @@
 {
-  "$schema": "https://ai-manager.app/schemas/config-registry.schema.json",
+  "$schema": "https://code-manager.app/schemas/config-registry.schema.json",
   "version": 1,
   "app": {
     "showTrayTitle": true,

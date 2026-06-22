@@ -167,7 +167,10 @@ describe("SkillsPage", () => {
   });
 
   it("uses the English Claude skills docs when the UI language is English", async () => {
-    localStorage.setItem("ai-manager-settings", JSON.stringify({ language: "en", theme: "dark" }));
+    localStorage.setItem(
+      "code-manager-settings",
+      JSON.stringify({ language: "en", theme: "dark" }),
+    );
     setSystemLanguages(["en-US"]);
 
     renderSkillsPage();

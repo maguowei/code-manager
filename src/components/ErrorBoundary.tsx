@@ -16,7 +16,7 @@ interface ErrorBoundaryState {
 // 自动恢复时间窗：窗口内重复抛错视为持续性错误，停止自动刷新改走手动兜底，防止刷新循环
 const AUTO_RECOVER_WINDOW_MS = 10_000;
 // 上次自动恢复时间戳的 sessionStorage 键
-const AUTO_RECOVER_KEY = "ai-manager:error-boundary:last-recover";
+const AUTO_RECOVER_KEY = "code-manager:error-boundary:last-recover";
 
 // 渲染期错误的兜底界面；作为函数组件以便复用 useI18n 文案
 function ErrorFallback({ onReload }: { onReload: () => void }) {

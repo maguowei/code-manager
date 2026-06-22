@@ -12,7 +12,7 @@
 
 ## 项目速览
 
-- 项目：AI Manager，基于 Tauri 2 的 Claude Code 本地配置管理桌面应用。
+- 项目：Code Manager，基于 Tauri 2 的 Claude Code 本地配置管理桌面应用。
 - 版本号同时维护在 `package.json`、`src-tauri/Cargo.toml` 与 `src-tauri/tauri.conf.json` 三处，需保持一致。
 - 前端：React 19 + TypeScript + Vite + Tailwind CSS v4 + shadcn/ui。
 - 后端：Rust + Tauri commands + tauri-specta 类型化 IPC。
@@ -20,7 +20,7 @@
 - 编辑、预览与可视化：CodeMirror、react-markdown、@pierre/diffs、@pierre/trees、Recharts、@tanstack/react-virtual。
 - 本地缓存与日志：sqlx + SQLite、tauri-plugin-log。
 - 包管理器：`pnpm`，项目声明 `pnpm@11.2.2`；不要改用 `npm`。
-- 应用标识符：`com.gotobeta.app.ai-manager`。
+- 应用标识符：`com.gotobeta.app.code-manager`。
 
 ## 会话工作流
 
@@ -103,13 +103,13 @@ macOS 上同时使用三个目录，互不混用：
 
 | 用途 | macOS | Linux | Windows |
 | --- | --- | --- | --- |
-| 应用数据（`config-registry.json`、`memories.json`、`model-pricing.json`、`skills-disabled/`） | `~/.config/ai-manager/` | `$XDG_CONFIG_HOME/ai-manager/` 或 `~/.config/ai-manager/` | `%APPDATA%\ai-manager\` |
-| 用量 SQLite（`usage.db`、`usage.db-wal`、`usage.db-shm`） | `~/Library/Application Support/com.gotobeta.app.ai-manager/` | `$XDG_CONFIG_HOME/com.gotobeta.app.ai-manager/` 或 `~/.config/com.gotobeta.app.ai-manager/` | `%APPDATA%\com.gotobeta.app.ai-manager\` |
-| 日志（`ai-manager.log` 等） | `~/Library/Logs/com.gotobeta.app.ai-manager/` | `$XDG_DATA_HOME/com.gotobeta.app.ai-manager/logs/` 或 `~/.local/share/com.gotobeta.app.ai-manager/logs/` | `%LOCALAPPDATA%\com.gotobeta.app.ai-manager\logs\` |
+| 应用数据（`config-registry.json`、`memories.json`、`model-pricing.json`、`skills-disabled/`） | `~/.config/code-manager/` | `$XDG_CONFIG_HOME/code-manager/` 或 `~/.config/code-manager/` | `%APPDATA%\code-manager\` |
+| 用量 SQLite（`usage.db`、`usage.db-wal`、`usage.db-shm`） | `~/Library/Application Support/com.gotobeta.app.code-manager/` | `$XDG_CONFIG_HOME/com.gotobeta.app.code-manager/` 或 `~/.config/com.gotobeta.app.code-manager/` | `%APPDATA%\com.gotobeta.app.code-manager\` |
+| 日志（`code-manager.log` 等） | `~/Library/Logs/com.gotobeta.app.code-manager/` | `$XDG_DATA_HOME/com.gotobeta.app.code-manager/logs/` 或 `~/.local/share/com.gotobeta.app.code-manager/logs/` | `%LOCALAPPDATA%\com.gotobeta.app.code-manager\logs\` |
 
-macOS 上应用数据刻意复用 `~/.config/ai-manager/`，便于跨平台备份和脚本访问；解析逻辑见 `src-tauri/src/utils.rs::get_app_data_dir()`。SQLite 走 Tauri `app_config_dir()`，日志走 Tauri 插件默认路径，不要迁回应用数据目录。
+macOS 上应用数据刻意复用 `~/.config/code-manager/`，便于跨平台备份和脚本访问；解析逻辑见 `src-tauri/src/utils.rs::get_app_data_dir()`。SQLite 走 Tauri `app_config_dir()`，日志走 Tauri 插件默认路径，不要迁回应用数据目录。
 
-其它已知输入路径与覆盖：`~/.claude/`、`~/.codex/skills/`、`~/.claude/history.jsonl`、`~/.claude/projects/`、`~/.claude.json`、`AI_MANAGER_HOME_OVERRIDE`、`AI_MANAGER_APP_DATA_DIR_OVERRIDE`。
+其它已知输入路径与覆盖：`~/.claude/`、`~/.codex/skills/`、`~/.claude/history.jsonl`、`~/.claude/projects/`、`~/.claude.json`、`CODE_MANAGER_HOME_OVERRIDE`、`CODE_MANAGER_APP_DATA_DIR_OVERRIDE`。
 
 ## 测试与验证
 

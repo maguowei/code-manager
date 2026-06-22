@@ -178,7 +178,7 @@ function htmlToMarkdown(html, locale) {
 async function main() {
   await mkdir(OUT_DIR, { recursive: true });
   for (const locale of LOCALES) {
-    const res = await fetch(locale.url, { headers: { "user-agent": "ai-manager-cheatsheet-sync" } });
+    const res = await fetch(locale.url, { headers: { "user-agent": "code-manager-cheatsheet-sync" } });
     if (!res.ok) {
       throw new Error(`抓取失败 ${locale.url}: HTTP ${res.status}`);
     }

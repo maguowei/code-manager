@@ -9,7 +9,7 @@ import {
 
 const originalFetch = globalThis.fetch;
 const fetchMock = vi.fn();
-const CACHE_KEY = "ai-manager-marketplace-plugin-cache:v1";
+const CACHE_KEY = "code-manager-marketplace-plugin-cache:v1";
 
 beforeEach(() => {
   fetchMock.mockReset();

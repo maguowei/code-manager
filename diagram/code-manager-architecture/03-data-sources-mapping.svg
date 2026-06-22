@@ -115,7 +115,7 @@
 
   <rect x="316" y="502" width="370" height="74" rx="6" fill="#0f172a"/>
   <rect x="316" y="502" width="370" height="74" rx="6" fill="rgba(76,29,149,0.45)" stroke="#a78bfa" stroke-width="1.5"/>
-  <text x="501" y="530" class="mono" text-anchor="middle">~/.config/ai-manager/</text>
+  <text x="501" y="530" class="mono" text-anchor="middle">~/.config/code-manager/</text>
   <text x="501" y="550" class="desc" text-anchor="middle">config-registry · memories · model-pricing</text>
   <text x="501" y="566" class="desc" text-anchor="middle">skills-disabled/（应用数据目录）</text>
 
@@ -132,7 +132,7 @@
   <text x="1226" y="566" class="desc" text-anchor="middle">Skills 双向同步目标</text>
 
   <text x="1406" y="535" class="desc">覆盖：</text>
-  <text x="1406" y="551" class="desc">AI_MANAGER_HOME_OVERRIDE</text>
+  <text x="1406" y="551" class="desc">CODE_MANAGER_HOME_OVERRIDE</text>
   <text x="1406" y="567" class="desc">..._APP_DATA_DIR_OVERRIDE</text>
 
   <!-- ===== OS 目录定位表 ===== -->
@@ -154,21 +154,21 @@
   <text x="74" y="708" class="td">应用数据</text>
   <text x="74" y="726" class="tp">registry · memories</text>
   <text x="74" y="740" class="tp">pricing · skills-disabled</text>
-  <text x="384" y="712" class="tp">~/.config/ai-manager/</text>
-  <text x="794" y="712" class="tp">$XDG_CONFIG_HOME/ai-manager/</text>
-  <text x="794" y="728" class="tp">或 ~/.config/ai-manager/</text>
-  <text x="1204" y="712" class="tp">%APPDATA%\ai-manager\</text>
+  <text x="384" y="712" class="tp">~/.config/code-manager/</text>
+  <text x="794" y="712" class="tp">$XDG_CONFIG_HOME/code-manager/</text>
+  <text x="794" y="728" class="tp">或 ~/.config/code-manager/</text>
+  <text x="1204" y="712" class="tp">%APPDATA%\code-manager\</text>
   <line x1="60" y1="752" x2="1540" y2="752" stroke="#1e293b" stroke-width="1"/>
 
   <!-- 行2 SQLite -->
   <text x="74" y="782" class="td">用量 SQLite</text>
   <text x="74" y="800" class="tp">usage.db · -wal · -shm</text>
   <text x="384" y="786" class="tp">~/Library/Application Support/</text>
-  <text x="384" y="800" class="tp">com.gotobeta.app.ai-manager/</text>
+  <text x="384" y="800" class="tp">com.gotobeta.app.code-manager/</text>
   <text x="794" y="786" class="tp">$XDG_CONFIG_HOME/</text>
-  <text x="794" y="800" class="tp">com.gotobeta.app.ai-manager/</text>
+  <text x="794" y="800" class="tp">com.gotobeta.app.code-manager/</text>
   <text x="1204" y="786" class="tp">%APPDATA%\</text>
-  <text x="1204" y="800" class="tp">com.gotobeta.app.ai-manager\</text>
+  <text x="1204" y="800" class="tp">com.gotobeta.app.code-manager\</text>
   <line x1="60" y1="812" x2="1540" y2="812" stroke="#1e293b" stroke-width="1"/>
 
   <!-- 行3 日志 -->

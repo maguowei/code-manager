@@ -11,19 +11,13 @@ export function getMemoryPresetLanguage(language: Language): MemoryPresetLanguag
   return language === "zh" ? "zh" : "en";
 }
 
-function getPresetStartMarker(preset: MemoryPresetContentResult) {
-  const marker = preset.content
-    .split(/\r?\n/)
-    .find((line) => line.includes(`${preset.presetId}:${preset.language}:start`));
-  return marker?.trim();
-}
-
 export function appendMemoryPresetContent(
   currentContent: string,
   preset: MemoryPresetContentResult,
 ) {
-  const marker = getPresetStartMarker(preset);
-  if (marker && currentContent.includes(marker)) {
+  // 用不含品牌前缀的稳定标识检测是否已插入，兼容历史上以 ai-manager 前缀写入的旧文档。
+  const markerKey = `${preset.presetId}:${preset.language}:start`;
+  if (currentContent.includes(markerKey)) {
     return { content: currentContent, inserted: false };
   }
 

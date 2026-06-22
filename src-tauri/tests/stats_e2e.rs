@@ -5,7 +5,7 @@
 
 mod common;
 
-use ai_manager_lib::test_api::{get_stats, ClaudeStats};
+use code_manager_lib::test_api::{get_stats, ClaudeStats};
 use common::IntegrationEnv;
 use serial_test::serial;
 

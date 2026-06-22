@@ -4,7 +4,7 @@ import { I18nProvider } from "../../i18n";
 import { ErrorBoundary } from "../ErrorBoundary";
 
 // 与实现保持一致的 sessionStorage 守卫键
-const AUTO_RECOVER_KEY = "ai-manager:error-boundary:last-recover";
+const AUTO_RECOVER_KEY = "code-manager:error-boundary:last-recover";
 
 // 渲染期必定抛错的子组件，用于触发 ErrorBoundary
 function Boom(): never {

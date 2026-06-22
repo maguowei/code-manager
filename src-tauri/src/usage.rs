@@ -3407,7 +3407,7 @@ mod tests {
     fn tempdir() -> std::path::PathBuf {
         let counter = TEST_DIR_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let base = std::env::temp_dir().join(format!(
-            "ai-manager-usage-test-{}-{}-{}",
+            "code-manager-usage-test-{}-{}-{}",
             std::process::id(),
             now_ms(),
             counter

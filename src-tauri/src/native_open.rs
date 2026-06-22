@@ -659,7 +659,7 @@ fn mac_app_candidate_paths(app_name: &str) -> Vec<PathBuf> {
         PathBuf::from("/System/Applications").join(&bundle),
         PathBuf::from("/System/Applications/Utilities").join(&bundle),
     ];
-    // 走 utils 统一解析：尊重 AI_MANAGER_HOME_OVERRIDE，跨平台一致；
+    // 走 utils 统一解析：尊重 CODE_MANAGER_HOME_OVERRIDE，跨平台一致；
     // 解析失败时 home_dir_or_fallback 返回 "."，加入 ./Applications 不会误命中
     paths.push(
         crate::utils::home_dir_or_fallback()
@@ -1123,7 +1123,7 @@ mod tests {
         assert!(err.contains("退出码"));
 
         let missing = NativeOpenCommand::new(
-            "ai-manager-definitely-missing-native-open-command",
+            "code-manager-definitely-missing-native-open-command",
             Vec::new(),
         );
         let err = run_command_status(&missing, "测试命令").expect_err("缺失命令应失败");
@@ -1134,7 +1134,7 @@ mod tests {
     #[test]
     fn spawn_first_available_skips_missing_candidates_and_reports_all_missing() {
         let missing = NativeOpenCommand::new(
-            "ai-manager-definitely-missing-native-open-command",
+            "code-manager-definitely-missing-native-open-command",
             Vec::new(),
         );
         let success = NativeOpenCommand::new("true", Vec::new());
@@ -1147,7 +1147,7 @@ mod tests {
         let err = spawn_first_available(vec![missing], "测试命令")
             .expect_err("所有候选缺失时应返回聚合错误");
         assert!(err.contains("未找到可用测试命令"));
-        assert!(err.contains("ai-manager-definitely-missing-native-open-command"));
+        assert!(err.contains("code-manager-definitely-missing-native-open-command"));
     }
 
     #[cfg(unix)]
@@ -1174,7 +1174,7 @@ mod tests {
     #[test]
     fn command_exists_supports_explicit_paths() {
         let root = tempfile::tempdir().expect("应可创建临时目录");
-        let command_path = root.path().join("ai-manager-test-command");
+        let command_path = root.path().join("code-manager-test-command");
         fs::write(&command_path, "").expect("应可写入测试命令文件");
 
         assert!(command_exists(&command_path.to_string_lossy()));
@@ -1190,31 +1190,31 @@ mod tests {
             .lock()
             .unwrap_or_else(|error| error.into_inner());
         let root = tempfile::tempdir().expect("应可创建临时目录");
-        let command_path = root.path().join("ai-manager-test-path-command");
+        let command_path = root.path().join("code-manager-test-path-command");
         fs::write(&command_path, "").expect("应可写入测试命令文件");
         let _path_guard = EnvVarGuard::capture("PATH");
 
         env::set_var("PATH", root.path());
-        assert!(command_exists("ai-manager-test-path-command"));
-        assert!(!command_exists("ai-manager-missing-path-command"));
+        assert!(command_exists("code-manager-test-path-command"));
+        assert!(!command_exists("code-manager-missing-path-command"));
 
         env::remove_var("PATH");
-        assert!(!command_exists("ai-manager-test-path-command"));
+        assert!(!command_exists("code-manager-test-path-command"));
     }
 
     #[test]
     fn executable_candidates_keep_non_windows_command_shape() {
-        let candidates = executable_candidates("ai-manager-tool")
+        let candidates = executable_candidates("code-manager-tool")
             .map(|candidate| candidate.to_string_lossy().to_string())
             .collect::<Vec<_>>();
 
         if cfg!(windows) {
-            assert!(candidates.contains(&"ai-manager-tool".to_string()));
+            assert!(candidates.contains(&"code-manager-tool".to_string()));
             assert!(candidates
                 .iter()
                 .any(|candidate| candidate.ends_with(".EXE")));
         } else {
-            assert_eq!(candidates, vec!["ai-manager-tool".to_string()]);
+            assert_eq!(candidates, vec!["code-manager-tool".to_string()]);
         }
     }
 
@@ -1224,21 +1224,21 @@ mod tests {
             .lock()
             .unwrap_or_else(|error| error.into_inner());
         let root = tempfile::tempdir().expect("应可创建临时目录");
-        let _home_guard = EnvVarGuard::capture("AI_MANAGER_HOME_OVERRIDE");
+        let _home_guard = EnvVarGuard::capture("CODE_MANAGER_HOME_OVERRIDE");
 
-        env::set_var("AI_MANAGER_HOME_OVERRIDE", root.path());
-        let paths = mac_app_candidate_paths("AI Manager Test App");
+        env::set_var("CODE_MANAGER_HOME_OVERRIDE", root.path());
+        let paths = mac_app_candidate_paths("Code Manager Test App");
 
-        assert!(paths.contains(&PathBuf::from("/Applications/AI Manager Test App.app")));
+        assert!(paths.contains(&PathBuf::from("/Applications/Code Manager Test App.app")));
         assert!(paths.contains(&PathBuf::from(
-            "/Applications/Utilities/AI Manager Test App.app"
+            "/Applications/Utilities/Code Manager Test App.app"
         )));
-        assert!(paths.contains(&root.path().join("Applications/AI Manager Test App.app")));
-        assert!(!mac_app_exists("AI Manager Test App"));
+        assert!(paths.contains(&root.path().join("Applications/Code Manager Test App.app")));
+        assert!(!mac_app_exists("Code Manager Test App"));
 
-        fs::create_dir_all(root.path().join("Applications/AI Manager Test App.app"))
+        fs::create_dir_all(root.path().join("Applications/Code Manager Test App.app"))
             .expect("应可创建测试 app bundle 目录");
-        assert!(mac_app_exists("AI Manager Test App"));
+        assert!(mac_app_exists("Code Manager Test App"));
     }
 
     fn option_slugs(options: &[NativeOpenAppOption]) -> Vec<&str> {

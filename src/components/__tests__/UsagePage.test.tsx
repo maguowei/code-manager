@@ -169,7 +169,7 @@ const summary: UsageSummary = {
   thirdPartyProviderPricingEnabled: true,
   unknownModels: ["claude-future-1"],
   allProjects: [
-    { projectPath: "/Users/me/work/AI/ai-manager", projectDir: "-Users-me-work-AI-ai-manager" },
+    { projectPath: "/Users/me/work/AI/code-manager", projectDir: "-Users-me-work-AI-code-manager" },
     { projectPath: "/Users/me/work/web-studio", projectDir: "-Users-me-work-web-studio" },
   ],
   allModels: ["mimo-v2-pro", "claude-3-opus", "claude-3-7-sonnet"],
@@ -230,8 +230,8 @@ const timeSeries: UsageTimeSeriesPoint[] = [
 
 const projects: ProjectUsage[] = [
   {
-    projectPath: "/Users/me/work/AI/ai-manager",
-    projectDir: "-Users-me-work-AI-ai-manager",
+    projectPath: "/Users/me/work/AI/code-manager",
+    projectDir: "-Users-me-work-AI-code-manager",
     sessions: 96,
     messages: 1200,
     lastActiveMs: Date.UTC(2026, 4, 24, 8, 11),
@@ -260,8 +260,8 @@ const projects: ProjectUsage[] = [
 const sessions: SessionUsage[] = [
   {
     sessionId: "session-20260524-0932",
-    projectPath: "/Users/me/work/AI/ai-manager",
-    projectDir: "-Users-me-work-AI-ai-manager",
+    projectPath: "/Users/me/work/AI/code-manager",
+    projectDir: "-Users-me-work-AI-code-manager",
     startedAtMs: Date.UTC(2026, 4, 24, 8, 20),
     lastActiveMs: Date.UTC(2026, 4, 24, 9, 32),
     messages: 14,
@@ -444,10 +444,10 @@ describe("UsagePage cost cockpit", () => {
     expect(screen.getByRole("button", { name: "小时" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("Token 构成")).toBeInTheDocument();
     expect(screen.getByText("claude-future-1")).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "ai-manager" })).toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: "work/ai-manager" })).not.toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "code-manager" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "work/code-manager" })).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("option", { name: "-Users-me-work-AI-ai-manager" }),
+      screen.queryByRole("option", { name: "-Users-me-work-AI-code-manager" }),
     ).not.toBeInTheDocument();
   });
 
@@ -600,9 +600,9 @@ describe("UsagePage cost cockpit", () => {
     renderUsage({ tab: "project" });
 
     const table = screen.getByRole("table");
-    expect(within(table).getByText("ai-manager")).toBeInTheDocument();
-    expect(within(table).queryByText("work/ai-manager")).not.toBeInTheDocument();
-    expect(within(table).queryByText("-Users-me-work-AI-ai-manager")).not.toBeInTheDocument();
+    expect(within(table).getByText("code-manager")).toBeInTheDocument();
+    expect(within(table).queryByText("work/code-manager")).not.toBeInTheDocument();
+    expect(within(table).queryByText("-Users-me-work-AI-code-manager")).not.toBeInTheDocument();
   });
 
   it("renders date filters with shadcn picker triggers instead of native date inputs", () => {
@@ -938,7 +938,7 @@ describe("UsagePage cost cockpit", () => {
       filter: {
         startDate: "2026-04-01",
         endDate: "2026-04-30",
-        projectPath: "/Users/me/work/ai-manager",
+        projectPath: "/Users/me/work/code-manager",
       },
     });
 

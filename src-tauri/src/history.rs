@@ -726,7 +726,7 @@ mod tests {
         assert!(err.contains("会话 ID"));
     }
 
-    // ─── 隔离测试环境：覆盖 AI_MANAGER_HOME_OVERRIDE 让 get_history_path 指向临时目录 ───
+    // ─── 隔离测试环境：覆盖 CODE_MANAGER_HOME_OVERRIDE 让 get_history_path 指向临时目录 ───
 
     struct TestEnv {
         _guard: MutexGuard<'static, ()>,
@@ -747,13 +747,13 @@ mod tests {
                 .unwrap_or_default()
                 .as_nanos();
             let root = env::temp_dir().join(format!(
-                "ai-manager-history-{name}-{}-{suffix}",
+                "code-manager-history-{name}-{}-{suffix}",
                 std::process::id()
             ));
             fs::create_dir_all(root.join(".claude")).expect("应可创建 .claude 目录");
 
-            let previous_home = env::var("AI_MANAGER_HOME_OVERRIDE").ok();
-            env::set_var("AI_MANAGER_HOME_OVERRIDE", &root);
+            let previous_home = env::var("CODE_MANAGER_HOME_OVERRIDE").ok();
+            env::set_var("CODE_MANAGER_HOME_OVERRIDE", &root);
 
             Self {
                 _guard: guard,
@@ -785,8 +785,8 @@ mod tests {
     impl Drop for TestEnv {
         fn drop(&mut self) {
             match &self.previous_home {
-                Some(value) => env::set_var("AI_MANAGER_HOME_OVERRIDE", value),
-                None => env::remove_var("AI_MANAGER_HOME_OVERRIDE"),
+                Some(value) => env::set_var("CODE_MANAGER_HOME_OVERRIDE", value),
+                None => env::remove_var("CODE_MANAGER_HOME_OVERRIDE"),
             }
             let _ = fs::remove_dir_all(&self.root);
         }

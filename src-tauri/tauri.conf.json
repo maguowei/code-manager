@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "ai-manager",
+  "productName": "code-manager",
   "version": "0.20.1",
-  "identifier": "com.gotobeta.app.ai-manager",
+  "identifier": "com.gotobeta.app.code-manager",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",

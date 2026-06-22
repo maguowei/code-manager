@@ -212,7 +212,7 @@ mod tests {
 
     #[test]
     fn changed_paths_normalize_absolute_paths_to_relative_paths() {
-        let root = PathBuf::from("/tmp/ai-manager/.claude");
+        let root = PathBuf::from("/tmp/code-manager/.claude");
 
         let paths = collect_changed_paths(&root, [root.join("settings.json")]);
 
@@ -221,7 +221,7 @@ mod tests {
 
     #[test]
     fn changed_paths_filter_node_modules_root_and_outside_paths() {
-        let root = PathBuf::from("/tmp/ai-manager/.claude");
+        let root = PathBuf::from("/tmp/code-manager/.claude");
 
         let paths = collect_changed_paths(
             &root,
@@ -229,7 +229,7 @@ mod tests {
                 root.clone(),
                 root.join("plugins/demo/node_modules/lodash/index.js"),
                 root.join("skills/demo/SKILL.md"),
-                PathBuf::from("/tmp/ai-manager/outside.txt"),
+                PathBuf::from("/tmp/code-manager/outside.txt"),
             ],
         );
 
@@ -238,7 +238,7 @@ mod tests {
 
     #[test]
     fn changed_paths_dedupe_and_sort_relative_paths() {
-        let root = PathBuf::from("/tmp/ai-manager/.claude");
+        let root = PathBuf::from("/tmp/code-manager/.claude");
 
         let paths = collect_changed_paths(
             &root,
@@ -260,7 +260,7 @@ mod tests {
     #[test]
     fn normalize_returns_none_when_root_equals_path() {
         // 路径恰好等于 root 时 strip_prefix 后没有任何 Normal 段，parts 为空
-        let root = PathBuf::from("/tmp/ai-manager/.claude");
+        let root = PathBuf::from("/tmp/code-manager/.claude");
         assert!(normalize_changed_path(&root, &root).is_none());
     }
 
@@ -279,7 +279,7 @@ mod tests {
     #[test]
     fn normalize_returns_none_when_path_is_not_under_root() {
         // strip_prefix 失败时直接返回 None
-        let root = PathBuf::from("/tmp/ai-manager/.claude");
+        let root = PathBuf::from("/tmp/code-manager/.claude");
         let unrelated = PathBuf::from("/tmp/elsewhere/file.txt");
         assert!(normalize_changed_path(&root, &unrelated).is_none());
     }

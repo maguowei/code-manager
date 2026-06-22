@@ -21,7 +21,7 @@ const { invokeMock, showToastMock, fetchMock, openDialogMock, openUrlMock } = vi
   openDialogMock: vi.fn(),
   openUrlMock: vi.fn(async (_url: string) => null),
 }));
-const SETTINGS_STORAGE_KEY = "ai-manager-settings";
+const SETTINGS_STORAGE_KEY = "code-manager-settings";
 const originalFetch = globalThis.fetch;
 const originalIntersectionObserver = globalThis.IntersectionObserver;
 

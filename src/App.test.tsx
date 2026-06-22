@@ -501,7 +501,10 @@ describe("App", () => {
   });
 
   async function renderClaudeOverviewWithContextMenu() {
-    localStorage.setItem("ai-manager-settings", JSON.stringify({ language: "zh", theme: "light" }));
+    localStorage.setItem(
+      "code-manager-settings",
+      JSON.stringify({ language: "zh", theme: "light" }),
+    );
     invokeMock.mockImplementation(async (command, args) => {
       if (command === "get_config_workspace") {
         return WORKSPACE_FIXTURE;
@@ -785,7 +788,10 @@ describe("App", () => {
   });
 
   it("shows the Claude directory overview as a main page from the AI menu button", async () => {
-    localStorage.setItem("ai-manager-settings", JSON.stringify({ language: "zh", theme: "light" }));
+    localStorage.setItem(
+      "code-manager-settings",
+      JSON.stringify({ language: "zh", theme: "light" }),
+    );
     let resolveOverview: ((overview: unknown) => void) | undefined;
     const overviewPromise = new Promise((resolve) => {
       resolveOverview = resolve;
@@ -1033,7 +1039,10 @@ describe("App", () => {
   });
 
   it("keeps Claude overview open previews when switching away and back", async () => {
-    localStorage.setItem("ai-manager-settings", JSON.stringify({ language: "zh", theme: "light" }));
+    localStorage.setItem(
+      "code-manager-settings",
+      JSON.stringify({ language: "zh", theme: "light" }),
+    );
     invokeMock.mockImplementation(async (command, args) => {
       if (command === "get_config_workspace") {
         return WORKSPACE_FIXTURE;
@@ -1087,7 +1096,10 @@ describe("App", () => {
   });
 
   it("opens the English Claude directory docs from the overview when language is English", async () => {
-    localStorage.setItem("ai-manager-settings", JSON.stringify({ language: "en", theme: "light" }));
+    localStorage.setItem(
+      "code-manager-settings",
+      JSON.stringify({ language: "en", theme: "light" }),
+    );
     invokeMock.mockImplementation(async (command) => {
       if (command === "get_config_workspace") {
         return {
@@ -1211,7 +1223,10 @@ describe("App", () => {
 
   it("refreshes the Claude overview and touched open preview after a directory change event", async () => {
     enableTauriEvents();
-    localStorage.setItem("ai-manager-settings", JSON.stringify({ language: "zh", theme: "light" }));
+    localStorage.setItem(
+      "code-manager-settings",
+      JSON.stringify({ language: "zh", theme: "light" }),
+    );
     let overviewCallCount = 0;
     let previewCallCount = 0;
     const refreshedOverview = {
@@ -1278,7 +1293,10 @@ describe("App", () => {
 
   it("closes an open Claude preview when a touched file disappears after refresh", async () => {
     enableTauriEvents();
-    localStorage.setItem("ai-manager-settings", JSON.stringify({ language: "zh", theme: "light" }));
+    localStorage.setItem(
+      "code-manager-settings",
+      JSON.stringify({ language: "zh", theme: "light" }),
+    );
     let overviewCallCount = 0;
     const overviewWithoutSettings = {
       ...CLAUDE_OVERVIEW_FIXTURE,

@@ -1369,7 +1369,10 @@ function ProfilesPage({
   const settingsDiffOldFile = useMemo(
     () =>
       activeSettingsMismatch
-        ? buildSettingsDiffFile("ai-manager-settings.json", activeSettingsMismatch.expectedSettings)
+        ? buildSettingsDiffFile(
+            "code-manager-settings.json",
+            activeSettingsMismatch.expectedSettings,
+          )
         : null,
     [activeSettingsMismatch],
   );

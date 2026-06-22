@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AI Manager · Claude Code 本地配置管理桌面应用</title>
+    <title>Code Manager · Claude Code 本地配置管理桌面应用</title>
     <meta
       name="description"
-      content="AI Manager 是面向 Claude Code 用户的本地桌面管理应用：把配置、供应商、~/.claude 目录、记忆、Skills、历史、统计、Token 用量与费用、项目状态、系统托盘和诊断日志集中到一个 Tauri 2 应用，让本地配置可见、可预览、可验证。"
+      content="Code Manager 是面向 Claude Code 用户的本地桌面管理应用：把配置、供应商、~/.claude 目录、记忆、Skills、历史、统计、Token 用量与费用、项目状态、系统托盘和诊断日志集中到一个 Tauri 2 应用，让本地配置可见、可预览、可验证。"
     />
     <meta name="theme-color" content="#2563eb" />
     <link rel="icon" type="image/png" href="assets/img/favicon.png" />
@@ -14,7 +14,7 @@
 
     <!-- Open Graph / 社交卡片 -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="AI Manager · Claude Code 本地配置管理桌面应用" />
+    <meta property="og:title" content="Code Manager · Claude Code 本地配置管理桌面应用" />
     <meta
       property="og:description"
       content="一站式管理 Claude Code 的配置、记忆、Skills、用量费用与会话状态。跨平台、完全本地、开源 (MIT)。"
@@ -47,8 +47,8 @@
     <header class="site-header">
       <nav class="nav" aria-label="primary">
         <a class="brand" href="#top">
-          <img src="assets/img/logo.png" alt="AI Manager" width="28" height="28" />
-          <span>AI Manager</span>
+          <img src="assets/img/logo.png" alt="Code Manager" width="28" height="28" />
+          <span>Code Manager</span>
         </a>
         <div class="nav-links">
           <a href="#features"><span data-lang="zh">功能</span><span data-lang="en">Features</span></a>
@@ -67,7 +67,7 @@
             <svg id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
             <svg id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
           </button>
-          <a class="icon-btn" href="https://github.com/maguowei/ai-manager" target="_blank" rel="noopener" aria-label="GitHub">
+          <a class="icon-btn" href="https://github.com/maguowei/code-manager" target="_blank" rel="noopener" aria-label="GitHub">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12 11.5 11.5 0 0 0 8.4 23c.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.4-3.9-1.4-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.7.2 2.9.1 3.2.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>
           </a>
         </div>
@@ -89,15 +89,15 @@
                 <span data-lang="en">Take control of your <span class="accent">Claude Code</span> setup</span>
               </h1>
               <p class="hero-lead">
-                <span data-lang="zh">AI Manager 把配置、供应商、<code>~/.claude</code> 目录、记忆、Skills、历史、统计、Token 用量与费用、项目状态、系统托盘和诊断日志集中到一个 Tauri 2 桌面应用——让本地配置<strong>可见、可预览、可验证</strong>。</span>
-                <span data-lang="en">AI Manager brings profiles, providers, your <code>~/.claude</code> directory, memory, skills, history, stats, token usage &amp; cost, project status, the system tray and diagnostic logs into one Tauri 2 desktop app — so your local setup is <strong>visible, previewable and verifiable</strong>.</span>
+                <span data-lang="zh">Code Manager 把配置、供应商、<code>~/.claude</code> 目录、记忆、Skills、历史、统计、Token 用量与费用、项目状态、系统托盘和诊断日志集中到一个 Tauri 2 桌面应用——让本地配置<strong>可见、可预览、可验证</strong>。</span>
+                <span data-lang="en">Code Manager brings profiles, providers, your <code>~/.claude</code> directory, memory, skills, history, stats, token usage &amp; cost, project status, the system tray and diagnostic logs into one Tauri 2 desktop app — so your local setup is <strong>visible, previewable and verifiable</strong>.</span>
               </p>
               <div class="hero-cta">
                 <a class="btn btn-primary" href="#download">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
                   <span data-lang="zh">下载应用</span><span data-lang="en">Download</span>
                 </a>
-                <a class="btn btn-ghost" href="https://github.com/maguowei/ai-manager" target="_blank" rel="noopener">
+                <a class="btn btn-ghost" href="https://github.com/maguowei/code-manager" target="_blank" rel="noopener">
                   <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12 11.5 11.5 0 0 0 8.4 23c.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.4-3.9-1.4-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.7.2 2.9.1 3.2.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>
                   <span data-lang="zh">GitHub 仓库</span><span data-lang="en">View on GitHub</span>
                 </a>
@@ -122,7 +122,7 @@
               <div class="window" aria-hidden="true">
                 <div class="window-bar">
                   <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
-                  <span class="title">AI Manager — Usage</span>
+                  <span class="title">Code Manager — Usage</span>
                 </div>
                 <div class="window-body">
                   <aside class="window-side">
@@ -170,8 +170,8 @@
               <span data-lang="en">Config sprawl that gets worse over time</span>
             </h2>
             <p class="section-sub">
-              <span data-lang="zh">从三个角度看：痛点 → AI Manager 能力 → 价值收益。它不替代 Claude Code，而是它的本机管理层——让配置可见、可预览、可验证。</span>
-              <span data-lang="en">Seen from three angles: pain → what AI Manager does → the payoff. It doesn't replace Claude Code — it's the local management layer that makes config visible, previewable and verifiable.</span>
+              <span data-lang="zh">从三个角度看：痛点 → Code Manager 能力 → 价值收益。它不替代 Claude Code，而是它的本机管理层——让配置可见、可预览、可验证。</span>
+              <span data-lang="en">Seen from three angles: pain → what Code Manager does → the payoff. It doesn't replace Claude Code — it's the local management layer that makes config visible, previewable and verifiable.</span>
             </p>
           </div>
 
@@ -188,7 +188,7 @@
                 </ul>
               </div>
               <div class="matrix-cell cell--cap">
-                <span class="cell-tag" data-lang="zh">AI Manager 能力</span><span class="cell-tag" data-lang="en">What AI Manager does</span>
+                <span class="cell-tag" data-lang="zh">Code Manager 能力</span><span class="cell-tag" data-lang="en">What Code Manager does</span>
                 <ul>
                   <li><span data-lang="zh">配置可复用，内置供应商只读可选</span><span data-lang="en">Reusable profiles, read-only built-in providers</span></li>
                   <li><span data-lang="zh">常用选项 / 市场 / 插件一键同步到其余配置</span><span data-lang="en">One-click sync of options, marketplaces &amp; plugins to other profiles</span></li>
@@ -217,7 +217,7 @@
                 </ul>
               </div>
               <div class="matrix-cell cell--cap">
-                <span class="cell-tag" data-lang="zh">AI Manager 能力</span><span class="cell-tag" data-lang="en">What AI Manager does</span>
+                <span class="cell-tag" data-lang="zh">Code Manager 能力</span><span class="cell-tag" data-lang="en">What Code Manager does</span>
                 <ul>
                   <li><span data-lang="zh">图形化编辑 + Schema 校验</span><span data-lang="en">Visual editing + schema validation</span></li>
                   <li><span data-lang="zh">内置 Provider / 状态行预设</span><span data-lang="en">Built-in provider &amp; statusline presets</span></li>
@@ -247,7 +247,7 @@
                 </ul>
               </div>
               <div class="matrix-cell cell--cap">
-                <span class="cell-tag" data-lang="zh">AI Manager 能力</span><span class="cell-tag" data-lang="en">What AI Manager does</span>
+                <span class="cell-tag" data-lang="zh">Code Manager 能力</span><span class="cell-tag" data-lang="en">What Code Manager does</span>
                 <ul>
                   <li><span data-lang="zh">脱敏日志查看 + 轮转</span><span data-lang="en">Redacted log viewer + rotation</span></li>
                   <li><span data-lang="zh">会话历史 / Plan 追溯</span><span data-lang="en">Session history &amp; plan trace</span></li>
@@ -432,7 +432,7 @@
                   <span class="arch-chip mono">~/.claude.json</span>
                   <span class="arch-chip mono">projects/**/*.jsonl</span>
                   <span class="arch-chip mono">usage.db · SQLite</span>
-                  <span class="arch-chip mono">~/.config/ai-manager/</span>
+                  <span class="arch-chip mono">~/.config/code-manager/</span>
                 </div>
                 <p class="arch-note">
                   <span data-lang="zh">本地文件 / SQLite · Projects / Stats / Usage 三套数据源互不混用</span>
@@ -451,8 +451,8 @@
             <span class="eyebrow" data-lang="zh">为什么不是 cc-switch</span>
             <span class="eyebrow" data-lang="en">Why not just cc-switch</span>
             <h2 class="section-title">
-              <span data-lang="zh">有了 cc-switch，为什么还需要 AI Manager？</span>
-              <span data-lang="en">Why AI Manager when cc-switch exists?</span>
+              <span data-lang="zh">有了 cc-switch，为什么还需要 Code Manager？</span>
+              <span data-lang="en">Why Code Manager when cc-switch exists?</span>
             </h2>
             <p class="section-sub">
               <span data-lang="zh">两者解决的是不同维度的问题，定位互补，甚至可以共存。</span>
@@ -462,7 +462,7 @@
 
           <div class="vs-intro">
             <div class="vs-card ours">
-              <h3>AI Manager <span class="tag" data-lang="zh">纵向深耕</span><span class="tag" data-lang="en">Depth</span></h3>
+              <h3>Code Manager <span class="tag" data-lang="zh">纵向深耕</span><span class="tag" data-lang="en">Depth</span></h3>
               <p>
                 <span data-lang="zh">深耕 Claude Code 单一生态的<strong>配置治理</strong>：配置/供应商分层 + JSON Schema 校验、Token 用量与费用分析、记忆 / Skills / 状态行、项目级文件配对。适合主力在 Claude Code、想把配置和成本彻底管清楚的人。</span>
                 <span data-lang="en">Deep <strong>config governance</strong> for the Claude Code ecosystem: layered profiles &amp; providers with JSON-Schema validation, token/cost analytics, memory / skills / statusline, project-level file pairing. For people who live in Claude Code and want config &amp; cost fully under control.</span>
@@ -483,7 +483,7 @@
                 <thead>
                   <tr>
                     <th><span data-lang="zh">维度</span><span data-lang="en">Dimension</span></th>
-                    <th class="col-ours">AI Manager</th>
+                    <th class="col-ours">Code Manager</th>
                     <th>cc-switch</th>
                   </tr>
                 </thead>
@@ -549,8 +549,8 @@
           </div>
 
           <p class="vs-note">
-            <span data-lang="zh"><strong>怎么选：</strong>主力在 Claude Code、想要深度配置治理 + 成本透明 → AI Manager 更顺手；需要在多个 CLI 工具间频繁切供应商、要代理高可用 → cc-switch 更全面。两者可以共存。cc-switch 信息基于其公开 README / Release（约 2026-06），标注「未见」表示在公开资料中未找到，并非官方否认；如有出入以官方为准。</span>
-            <span data-lang="en"><strong>How to choose:</strong> live in Claude Code and want deep config governance + cost transparency → AI Manager fits better; switch providers across many CLI tools and need proxy/high availability → cc-switch is broader. The two can coexist. cc-switch details come from its public README / releases (≈2026-06); "Not found" means not located in public docs, not an official denial — defer to upstream if it differs.</span>
+            <span data-lang="zh"><strong>怎么选：</strong>主力在 Claude Code、想要深度配置治理 + 成本透明 → Code Manager 更顺手；需要在多个 CLI 工具间频繁切供应商、要代理高可用 → cc-switch 更全面。两者可以共存。cc-switch 信息基于其公开 README / Release（约 2026-06），标注「未见」表示在公开资料中未找到，并非官方否认；如有出入以官方为准。</span>
+            <span data-lang="en"><strong>How to choose:</strong> live in Claude Code and want deep config governance + cost transparency → Code Manager fits better; switch providers across many CLI tools and need proxy/high availability → cc-switch is broader. The two can coexist. cc-switch details come from its public README / releases (≈2026-06); "Not found" means not located in public docs, not an official denial — defer to upstream if it differs.</span>
           </p>
         </div>
       </section>
@@ -596,7 +596,7 @@
 
           <div class="codeblock" role="note">
             <div class="c"><span data-lang="zh"># macOS：若首次打开被 Gatekeeper 拦截，移除隔离属性即可</span><span data-lang="en"># macOS: if Gatekeeper blocks the first launch, remove the quarantine attribute</span></div>
-            xattr -rd com.apple.quarantine /Applications/ai-manager.app
+            xattr -rd com.apple.quarantine /Applications/code-manager.app
           </div>
 
           <div class="section-head center" style="margin-top:56px;margin-bottom:28px">
@@ -637,9 +637,9 @@
           <p class="dl-sub" style="margin-top:28px">
             <span data-lang="zh">更完整的页面说明、费用统计口径与 FAQ 见 </span>
             <span data-lang="en">For full page docs, cost methodology and FAQ, see </span>
-            <a href="https://github.com/maguowei/ai-manager/blob/main/docs/user-manual.md" target="_blank" rel="noopener">docs/user-manual.md</a>
+            <a href="https://github.com/maguowei/code-manager/blob/main/docs/user-manual.md" target="_blank" rel="noopener">docs/user-manual.md</a>
             ·
-            <a href="https://github.com/maguowei/ai-manager/blob/main/docs/platform-support.md" target="_blank" rel="noopener"><span data-lang="zh">平台差异</span><span data-lang="en">platform support</span></a>
+            <a href="https://github.com/maguowei/code-manager/blob/main/docs/platform-support.md" target="_blank" rel="noopener"><span data-lang="zh">平台差异</span><span data-lang="en">platform support</span></a>
           </p>
         </div>
       </section>
@@ -665,7 +665,7 @@
               <div class="os-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.7 1.3c.1 1-.3 2-1 2.8-.7.8-1.8 1.4-2.8 1.3-.1-1 .4-2 1-2.7.7-.8 1.9-1.4 2.8-1.4zM20 17.3c-.5 1.2-.8 1.7-1.5 2.8-1 1.5-2.3 3.3-4 3.3-1.4 0-1.8-.9-3.8-.9s-2.4.9-3.8.9c-1.6 0-2.8-1.6-3.8-3.1-2.8-4.1-3.1-9-1.4-11.6 1-1.5 2.7-2.4 4.2-2.4 1.6 0 2.6 1 3.9 1 1.3 0 2-1 3.9-1 1.4 0 2.8.7 3.8 2-3.3 1.8-2.8 6.5.3 9z"/></svg></div>
               <h3>macOS</h3>
               <p class="pkgs"><span data-lang="zh">Apple Silicon / Intel · <code>.dmg</code></span><span data-lang="en">Apple Silicon / Intel · <code>.dmg</code></span></p>
-              <a class="btn btn-primary" href="https://github.com/maguowei/ai-manager/releases/latest" target="_blank" rel="noopener">
+              <a class="btn btn-primary" href="https://github.com/maguowei/code-manager/releases/latest" target="_blank" rel="noopener">
                 <span data-lang="zh">下载 .dmg</span><span data-lang="en">Download .dmg</span>
               </a>
             </div>
@@ -673,7 +673,7 @@
               <div class="os-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4.5 10.5 3.3v8.2H3zM11.5 3.1 21 1.8v9.7h-9.5zM3 12.5h7.5v8.2L3 19.5zM11.5 12.5H21v9.7l-9.5-1.3z"/></svg></div>
               <h3>Windows</h3>
               <p class="pkgs"><code>.msi</code> / <code>.exe</code></p>
-              <a class="btn btn-primary" href="https://github.com/maguowei/ai-manager/releases/latest" target="_blank" rel="noopener">
+              <a class="btn btn-primary" href="https://github.com/maguowei/code-manager/releases/latest" target="_blank" rel="noopener">
                 <span data-lang="zh">下载安装包</span><span data-lang="en">Download installer</span>
               </a>
             </div>
@@ -681,7 +681,7 @@
               <div class="os-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c-2 0-3 1.7-3 3.6 0 1.2.2 2 .2 3 0 1-1 1.8-1.8 3-1 1.4-2.4 3-2.4 5 0 1 .4 1.7 1 2.1.2 1 1 1.8 2.3 1.8.8 0 1.5.4 2.4.4h2.6c.9 0 1.6-.4 2.4-.4 1.3 0 2.1-.8 2.3-1.8.6-.4 1-1.1 1-2.1 0-2-1.4-3.6-2.4-5-.8-1.2-1.8-2-1.8-3 0-1 .2-1.8.2-3C15 3.7 14 2 12 2z"/></svg></div>
               <h3>Linux</h3>
               <p class="pkgs"><code>.deb</code> / <code>.rpm</code> / <code>.AppImage</code></p>
-              <a class="btn btn-primary" href="https://github.com/maguowei/ai-manager/releases/latest" target="_blank" rel="noopener">
+              <a class="btn btn-primary" href="https://github.com/maguowei/code-manager/releases/latest" target="_blank" rel="noopener">
                 <span data-lang="zh">下载安装包</span><span data-lang="en">Download package</span>
               </a>
             </div>
@@ -689,8 +689,8 @@
 
           <div class="dl-note">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
-            <span data-lang="zh">下载按钮指向 <strong>Releases / latest</strong>。当前安装包尚在准备中——公开正式发布后，链接会自动解析到最新版本的各平台资源。可先前往 <a href="https://github.com/maguowei/ai-manager/releases" target="_blank" rel="noopener">全部 Releases</a> 关注进度。macOS 当前发布包未经过 Apple 公证，首次打开被拦截时执行上文的 <code>xattr</code> 命令即可。</span>
-            <span data-lang="en">Download buttons point to <strong>Releases / latest</strong>. Installers are being prepared — once published, the links resolve to the newest per-platform assets automatically. Meanwhile, follow progress on <a href="https://github.com/maguowei/ai-manager/releases" target="_blank" rel="noopener">all releases</a>. macOS builds aren't Apple-notarized yet; if the first launch is blocked, run the <code>xattr</code> command above.</span>
+            <span data-lang="zh">下载按钮指向 <strong>Releases / latest</strong>。当前安装包尚在准备中——公开正式发布后，链接会自动解析到最新版本的各平台资源。可先前往 <a href="https://github.com/maguowei/code-manager/releases" target="_blank" rel="noopener">全部 Releases</a> 关注进度。macOS 当前发布包未经过 Apple 公证，首次打开被拦截时执行上文的 <code>xattr</code> 命令即可。</span>
+            <span data-lang="en">Download buttons point to <strong>Releases / latest</strong>. Installers are being prepared — once published, the links resolve to the newest per-platform assets automatically. Meanwhile, follow progress on <a href="https://github.com/maguowei/code-manager/releases" target="_blank" rel="noopener">all releases</a>. macOS builds aren't Apple-notarized yet; if the first launch is blocked, run the <code>xattr</code> command above.</span>
           </div>
         </div>
       </section>
@@ -707,11 +707,11 @@
           <div class="faq">
             <details open>
               <summary><span data-lang="zh">我的数据会上传吗？</span><span data-lang="en">Is my data uploaded anywhere?</span></summary>
-              <div class="answer"><span data-lang="zh">不会。AI Manager 主要读写本机文件，配置合并、目录扫描、用量聚合和日志查看都在本地完成。只有模型价格会在启动后尝试从 models.dev 官方 provider 刷新，且优先使用本地缓存与内置兜底。日志查看默认脱敏，隐藏密钥与 Token。</span><span data-lang="en">No. AI Manager mostly reads and writes local files; config merge, scanning, usage aggregation and log viewing all happen locally. Only model prices are refreshed from models.dev after launch, with local cache and built-in fallbacks first. The log viewer is redacted by default, hiding keys and tokens.</span></div>
+              <div class="answer"><span data-lang="zh">不会。Code Manager 主要读写本机文件，配置合并、目录扫描、用量聚合和日志查看都在本地完成。只有模型价格会在启动后尝试从 models.dev 官方 provider 刷新，且优先使用本地缓存与内置兜底。日志查看默认脱敏，隐藏密钥与 Token。</span><span data-lang="en">No. Code Manager mostly reads and writes local files; config merge, scanning, usage aggregation and log viewing all happen locally. Only model prices are refreshed from models.dev after launch, with local cache and built-in fallbacks first. The log viewer is redacted by default, hiding keys and tokens.</span></div>
             </details>
             <details>
               <summary><span data-lang="zh">它和 cc-switch 能共存吗？</span><span data-lang="en">Can it coexist with cc-switch?</span></summary>
-              <div class="answer"><span data-lang="zh">可以。两者定位不同：AI Manager 偏深度配置治理与成本分析，cc-switch 偏多工具供应商切换与代理高可用。它们都作用于本地配置文件，按需各取所长即可。</span><span data-lang="en">Yes. They target different axes: AI Manager leans into deep config governance and cost analytics, while cc-switch leans into multi-tool provider switching and proxy availability. Both act on local config files; use whichever fits the task.</span></div>
+              <div class="answer"><span data-lang="zh">可以。两者定位不同：Code Manager 偏深度配置治理与成本分析，cc-switch 偏多工具供应商切换与代理高可用。它们都作用于本地配置文件，按需各取所长即可。</span><span data-lang="en">Yes. They target different axes: Code Manager leans into deep config governance and cost analytics, while cc-switch leans into multi-tool provider switching and proxy availability. Both act on local config files; use whichever fits the task.</span></div>
             </details>
             <details>
               <summary><span data-lang="zh">支持哪些 Provider？</span><span data-lang="en">Which providers are supported?</span></summary>
@@ -719,7 +719,7 @@
             </details>
             <details>
               <summary><span data-lang="zh">macOS 提示「已损坏 / 无法打开」怎么办？</span><span data-lang="en">macOS says the app is "damaged / can't be opened"?</span></summary>
-              <div class="answer"><span data-lang="zh">当前发布包未经过 Apple 公证。在终端执行 <code>xattr -rd com.apple.quarantine /Applications/ai-manager.app</code> 移除隔离属性后即可打开。</span><span data-lang="en">Builds aren't Apple-notarized yet. Run <code>xattr -rd com.apple.quarantine /Applications/ai-manager.app</code> in a terminal to remove the quarantine attribute, then open it.</span></div>
+              <div class="answer"><span data-lang="zh">当前发布包未经过 Apple 公证。在终端执行 <code>xattr -rd com.apple.quarantine /Applications/code-manager.app</code> 移除隔离属性后即可打开。</span><span data-lang="en">Builds aren't Apple-notarized yet. Run <code>xattr -rd com.apple.quarantine /Applications/code-manager.app</code> in a terminal to remove the quarantine attribute, then open it.</span></div>
             </details>
             <details>
               <summary><span data-lang="zh">各平台功能一致吗？</span><span data-lang="en">Is functionality the same on every platform?</span></summary>
@@ -750,7 +750,7 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
                 <span data-lang="zh">立即下载</span><span data-lang="en">Download now</span>
               </a>
-              <a class="btn btn-ghost" href="https://github.com/maguowei/ai-manager" target="_blank" rel="noopener">
+              <a class="btn btn-ghost" href="https://github.com/maguowei/code-manager" target="_blank" rel="noopener">
                 <span data-lang="zh">在 GitHub 上查看</span><span data-lang="en">Star on GitHub</span>
               </a>
             </div>
@@ -765,8 +765,8 @@
         <div class="footer-grid">
           <div>
             <div class="footer-brand">
-              <img src="assets/img/logo.png" alt="AI Manager" width="26" height="26" />
-              <span>AI Manager</span>
+              <img src="assets/img/logo.png" alt="Code Manager" width="26" height="26" />
+              <span>Code Manager</span>
             </div>
             <p class="muted" style="margin-top:12px;max-width:30em;font-size:14px">
               <span data-lang="zh">面向 Claude Code 用户的本地桌面配置管理应用。</span>
@@ -782,15 +782,15 @@
             </div>
             <div class="footer-col">
               <h4><span data-lang="zh">文档</span><span data-lang="en">Docs</span></h4>
-              <a href="https://github.com/maguowei/ai-manager/blob/main/docs/user-manual.md" target="_blank" rel="noopener"><span data-lang="zh">用户手册</span><span data-lang="en">User manual</span></a>
-              <a href="https://github.com/maguowei/ai-manager/blob/main/docs/platform-support.md" target="_blank" rel="noopener"><span data-lang="zh">平台差异</span><span data-lang="en">Platform support</span></a>
+              <a href="https://github.com/maguowei/code-manager/blob/main/docs/user-manual.md" target="_blank" rel="noopener"><span data-lang="zh">用户手册</span><span data-lang="en">User manual</span></a>
+              <a href="https://github.com/maguowei/code-manager/blob/main/docs/platform-support.md" target="_blank" rel="noopener"><span data-lang="zh">平台差异</span><span data-lang="en">Platform support</span></a>
               <a href="#faq">FAQ</a>
             </div>
             <div class="footer-col">
               <h4><span data-lang="zh">项目</span><span data-lang="en">Project</span></h4>
-              <a href="https://github.com/maguowei/ai-manager" target="_blank" rel="noopener">GitHub</a>
-              <a href="https://github.com/maguowei/ai-manager/releases" target="_blank" rel="noopener">Releases</a>
-              <a href="https://github.com/maguowei/ai-manager/blob/main/LICENSE" target="_blank" rel="noopener"><span data-lang="zh">许可 (MIT)</span><span data-lang="en">License (MIT)</span></a>
+              <a href="https://github.com/maguowei/code-manager" target="_blank" rel="noopener">GitHub</a>
+              <a href="https://github.com/maguowei/code-manager/releases" target="_blank" rel="noopener">Releases</a>
+              <a href="https://github.com/maguowei/code-manager/blob/main/LICENSE" target="_blank" rel="noopener"><span data-lang="zh">许可 (MIT)</span><span data-lang="en">License (MIT)</span></a>
             </div>
           </div>
         </div>

@@ -38,7 +38,7 @@ const checks = [
 const violation = checks.find((check) => check.matches(command));
 
 if (violation) {
-  console.error(`AI Manager hook policy: ${violation.message}`);
+  console.error(`Code Manager hook policy: ${violation.message}`);
   process.exit(2);
 }
 

@@ -29,7 +29,7 @@ paths:
 
 ## 术语边界
 
-- AI Manager 的 Memory 页管理的是 Claude Code 指令文件：用户级 `~/.claude/CLAUDE.md` 与 `~/.claude/rules/*.md`。
+- Code Manager 的 Memory 页管理的是 Claude Code 指令文件：用户级 `~/.claude/CLAUDE.md` 与 `~/.claude/rules/*.md`。
 - Claude Code auto memory 是独立机制；当前 Memory 页不扫描、不导入、不写入其目录。
 
 ## 记忆落盘模型

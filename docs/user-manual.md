@@ -1,10 +1,10 @@
-# AI Manager 使用说明书
+# Code Manager 使用说明书
 
 适用版本：`0.20.1`
 
 > 本文档面向终端用户。面向 Claude Code / Codex 等编程代理的执行手册见仓库根目录的 `CLAUDE.md`。
 
-AI Manager 是面向 Claude Code 用户的本地桌面管理工具。它把 `~/.claude` 目录、配置、供应商、记忆、Skills、历史、统计、Token 用量、项目状态、系统托盘和诊断日志集中到一个 Tauri 应用中,帮助你用更可见、可预览、可验证的方式维护 Claude Code 本地配置。
+Code Manager 是面向 Claude Code 用户的本地桌面管理工具。它把 `~/.claude` 目录、配置、供应商、记忆、Skills、历史、统计、Token 用量、项目状态、系统托盘和诊断日志集中到一个 Tauri 应用中,帮助你用更可见、可预览、可验证的方式维护 Claude Code 本地配置。
 
 ## 目录
 
@@ -31,7 +31,7 @@ AI Manager 是面向 Claude Code 用户的本地桌面管理工具。它把 `~/.
 
 ### 配置
 
-配置是最终可以应用到 `~/.claude/settings.json` 的用户配置,通常包含认证密钥、API 地址、默认模型、权限、Sandbox、Hooks、插件、状态行等字段。配置可以引用一个内置供应商;应用配置时,AI Manager 会把供应商的 `env`(地址与模型映射)和配置自身配置合并,生成最终 JSON 并写入 `~/.claude/settings.json`。
+配置是最终可以应用到 `~/.claude/settings.json` 的用户配置,通常包含认证密钥、API 地址、默认模型、权限、Sandbox、Hooks、插件、状态行等字段。配置可以引用一个内置供应商;应用配置时,Code Manager 会把供应商的 `env`(地址与模型映射)和配置自身配置合并,生成最终 JSON 并写入 `~/.claude/settings.json`。
 
 如果本机已有 `~/.claude/settings.json`,配置页可在未创建配置时识别并导入为托管配置。已应用配置后,如果真实 `settings.json` 被外部修改,页面会显示差异提示,可查看 diff 后选择接受实际配置或重新应用托管配置。
 
@@ -48,7 +48,7 @@ AI Manager 是面向 Claude Code 用户的本地桌面管理工具。它把 `~/.
 
 ### Skills
 
-Skills 对应 `~/.claude/skills/<id>/SKILL.md`。启用的 Skill 保存在 `~/.claude/skills/`;禁用的 Skill 移到 AI Manager 的 `skills-disabled/` 目录。软链接 Skill 可以导入和启停,但内容只读,需要在源目录维护。
+Skills 对应 `~/.claude/skills/<id>/SKILL.md`。启用的 Skill 保存在 `~/.claude/skills/`;禁用的 Skill 移到 Code Manager 的 `skills-disabled/` 目录。软链接 Skill 可以导入和启停,但内容只读,需要在源目录维护。
 
 ### Stats 与 Usage 的区别
 
@@ -61,7 +61,7 @@ Skills 对应 `~/.claude/skills/<id>/SKILL.md`。启用的 Skill 保存在 `~/.c
 
 1. 从项目 Release 页面下载当前平台安装包,安装并启动。
 2. 首次启动后,应用会读取本机 `~/.claude`、`~/.claude.json` 和 `~/.claude/projects/`。
-3. macOS 首次打开如果被系统拦截,可执行 `xattr -rd com.apple.quarantine /Applications/ai-manager.app` 移除隔离属性。
+3. macOS 首次打开如果被系统拦截,可执行 `xattr -rd com.apple.quarantine /Applications/code-manager.app` 移除隔离属性。
 
 建议首次配置顺序:
 
@@ -139,13 +139,13 @@ Skills 对应 `~/.claude/skills/<id>/SKILL.md`。启用的 Skill 保存在 `~/.c
 
 记忆页用于管理用户级 Claude Code 指令。
 
-页面顶部会在没有主记忆时显示 Karpathy 行为指南预设,可一键创建并启用为 `CLAUDE.md`。在编辑现有 `CLAUDE.md` 类型记忆时,也可把该预设追加到当前内容底部;AI Manager 会通过预设 marker 防止重复插入,并提供原仓库入口便于查看来源。
+页面顶部会在没有主记忆时显示 Karpathy 行为指南预设,可一键创建并启用为 `CLAUDE.md`。在编辑现有 `CLAUDE.md` 类型记忆时,也可把该预设追加到当前内容底部;Code Manager 会通过预设 marker 防止重复插入,并提供原仓库入口便于查看来源。
 
 **新增记忆**:点击添加记忆,填写名称,选择类型(`CLAUDE.md` 写入 `~/.claude/CLAUDE.md`,同时只能启用一个;Rules 写入 `~/.claude/rules/<path>.md`,可同时启用多个,支持 `paths` glob 匹配),编写 Markdown 内容并保存。在列表中启用后,真实文件才会写入 `~/.claude`。
 
 **编辑、复制和删除**:编辑会更新管理内容,启用状态下同步写真实文件;复制会创建未启用副本;删除会移除管理记录并清理不再需要的 rule 目录。
 
-**导入本地记忆**:AI Manager 会识别 `~/.claude/CLAUDE.md` 和 `~/.claude/rules/*.md` 中尚未导入的文件,点击"导入管理"原地接管,不立即改写内容。软链接记忆不支持导入,路径已被占用需要先处理冲突。
+**导入本地记忆**:Code Manager 会识别 `~/.claude/CLAUDE.md` 和 `~/.claude/rules/*.md` 中尚未导入的文件,点击"导入管理"原地接管,不立即改写内容。软链接记忆不支持导入,路径已被占用需要先处理冲突。
 
 **从目录导入**:点击导入记忆后选择包含 `CLAUDE.md` 或 `rules/` 的目录,导入后默认未启用。常见跳过原因:重复 `CLAUDE.md`、同路径 Rule 已存在、路径无效、读取失败、软链接不支持。
 
@@ -259,7 +259,7 @@ Skills 页管理 `~/.claude/skills/` 下的 Claude Code Skill。
 
 ## 系统托盘与会话聚焦
 
-AI Manager 常驻系统托盘(菜单栏),菜单分两部分:
+Code Manager 常驻系统托盘(菜单栏),菜单分两部分:
 
 - 主托盘:切换当前配置、快速跳转到各页面、退出应用。切换配置等价于在配置页启用对应配置。
 - 会话托盘:读取 `~/.claude/sessions/*.json`,按状态汇总当前 Claude 会话(等待输入 / 工作中 / 空闲)。是否显示、字符限制、会话计数样式和待处理呼吸灯都在设置中调整(见下文)。
@@ -305,7 +305,7 @@ AI Manager 常驻系统托盘(菜单栏),菜单分两部分:
 
 ### 系统集成
 
-- 开机自启动:登录系统后自动启动 AI Manager。
+- 开机自启动:登录系统后自动启动 Code Manager。
 - 默认终端、默认编辑器:供项目页和目录总览的"用终端 / 编辑器打开"使用。
 
 可用项来自内置支持清单和系统检测,不会自动列出电脑里所有应用,以保证每个选项都有明确的打开命令和项目路径参数。Linux 和 Windows 的编辑器需要对应 CLI 在 `PATH` 中可访问;Windows 的默认终端会优先使用 Windows Terminal,失败后回退 PowerShell 和 cmd。
@@ -316,21 +316,21 @@ AI Manager 常驻系统托盘(菜单栏),菜单分两部分:
 
 ### 系统信息
 
-系统信息窗口展示 AI Manager 版本、操作系统类型 / 平台 / 版本 / 家族、CPU 架构、Hostname、Locale。点击复制会把信息复制为 Markdown 表格,便于提交 issue 或排障。
+系统信息窗口展示 Code Manager 版本、操作系统类型 / 平台 / 版本 / 家族、CPU 架构、Hostname、Locale。点击复制会把信息复制为 Markdown 表格,便于提交 issue 或排障。
 
 ## 本地数据与隐私
 
-AI Manager 主要读写本机文件。配置合并、目录扫描、用量聚合和日志查看都在本地完成。
+Code Manager 主要读写本机文件。配置合并、目录扫描、用量聚合和日志查看都在本地完成。
 
 ### 应用管理数据
 
 | 平台 | 路径 |
 | --- | --- |
-| macOS | `~/.config/ai-manager/` |
-| Linux | `$XDG_CONFIG_HOME/ai-manager/` 或 `~/.config/ai-manager/` |
-| Windows | `%APPDATA%\ai-manager\` |
+| macOS | `~/.config/code-manager/` |
+| Linux | `$XDG_CONFIG_HOME/code-manager/` 或 `~/.config/code-manager/` |
+| Windows | `%APPDATA%\code-manager\` |
 
-> 本应用刻意复用 `~/.config/ai-manager/` 而不是 macOS 标准的 `~/Library/Application Support/...`,便于跨平台同步备份与统一脚本访问。
+> 本应用刻意复用 `~/.config/code-manager/` 而不是 macOS 标准的 `~/Library/Application Support/...`,便于跨平台同步备份与统一脚本访问。
 
 ```text
 <应用数据目录>/
@@ -360,19 +360,19 @@ AI Manager 主要读写本机文件。配置合并、目录扫描、用量聚合
 
 | 平台 | 路径 |
 | --- | --- |
-| macOS | `~/Library/Application Support/com.gotobeta.app.ai-manager/usage.db` |
-| Linux | `$XDG_CONFIG_HOME/com.gotobeta.app.ai-manager/usage.db` 或 `~/.config/com.gotobeta.app.ai-manager/usage.db` |
-| Windows | `%APPDATA%\com.gotobeta.app.ai-manager\usage.db` |
+| macOS | `~/Library/Application Support/com.gotobeta.app.code-manager/usage.db` |
+| Linux | `$XDG_CONFIG_HOME/com.gotobeta.app.code-manager/usage.db` 或 `~/.config/com.gotobeta.app.code-manager/usage.db` |
+| Windows | `%APPDATA%\com.gotobeta.app.code-manager\usage.db` |
 
 ### 日志目录
 
-文件名通常是 `ai-manager.log`,轮转文件形如 `ai-manager_2026-04-29_09-13-00.log`。
+文件名通常是 `code-manager.log`,轮转文件形如 `code-manager_2026-04-29_09-13-00.log`。
 
 | 平台 | 路径 |
 | --- | --- |
-| macOS | `~/Library/Logs/com.gotobeta.app.ai-manager/` |
-| Linux | `$XDG_DATA_HOME/com.gotobeta.app.ai-manager/logs/` 或 `~/.local/share/com.gotobeta.app.ai-manager/logs/` |
-| Windows | `%LOCALAPPDATA%\com.gotobeta.app.ai-manager\logs\` |
+| macOS | `~/Library/Logs/com.gotobeta.app.code-manager/` |
+| Linux | `$XDG_DATA_HOME/com.gotobeta.app.code-manager/logs/` 或 `~/.local/share/com.gotobeta.app.code-manager/logs/` |
+| Windows | `%LOCALAPPDATA%\com.gotobeta.app.code-manager\logs\` |
 
 ## 常见工作流
 
@@ -422,7 +422,7 @@ AI Manager 主要读写本机文件。配置合并、目录扫描、用量聚合
 
 ### 为什么项目页没有项目?
 
-项目页来自 `~/.claude/history.jsonl`。使用 Claude Code 产生历史记录后,项目会显示在 AI Manager 中。
+项目页来自 `~/.claude/history.jsonl`。使用 Claude Code 产生历史记录后,项目会显示在 Code Manager 中。
 
 ### 为什么统计页和用量页费用不一致?
 
@@ -434,7 +434,7 @@ AI Manager 主要读写本机文件。配置合并、目录扫描、用量聚合
 
 ### 为什么不能编辑软链接 Skill?
 
-软链接 Skill 的源目录不属于 AI Manager 直接管理范围。应用只允许启停、导入和打开目录,内容需要在源目录维护。
+软链接 Skill 的源目录不属于 Code Manager 直接管理范围。应用只允许启停、导入和打开目录,内容需要在源目录维护。
 
 ### 清除项目本地数据安全吗?
 

@@ -19,7 +19,7 @@ fn create_widget_window(app: &AppHandle) -> tauri::Result<()> {
         WIDGET_WINDOW_LABEL,
         WebviewUrl::App("index.html?window=widget".into()),
     )
-    .title("AI Manager")
+    .title("Code Manager")
     .inner_size(WIDGET_WIDTH, WIDGET_HEIGHT)
     .min_inner_size(196.0, 96.0)
     .decorations(false)

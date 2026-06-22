@@ -2514,7 +2514,7 @@ mod tests {
         let repo = TestDir::new();
         init_git_repo(
             repo.path(),
-            &[("origin", "git@gitlab.example.com:team/ai-manager.git")],
+            &[("origin", "git@gitlab.example.com:team/code-manager.git")],
         );
 
         let detail = get_project_detail(repo.path().to_str().unwrap()).unwrap();
@@ -2522,7 +2522,7 @@ mod tests {
 
         assert_eq!(
             value.get("repositoryUrl").and_then(|item| item.as_str()),
-            Some("https://gitlab.example.com/team/ai-manager")
+            Some("https://gitlab.example.com/team/code-manager")
         );
     }
 
@@ -2645,7 +2645,7 @@ mod tests {
     impl TestDir {
         fn new() -> Self {
             let path =
-                std::env::temp_dir().join(format!("ai-manager-project-{}", uuid::Uuid::new_v4()));
+                std::env::temp_dir().join(format!("code-manager-project-{}", uuid::Uuid::new_v4()));
             std::fs::create_dir_all(&path).unwrap();
             Self { path }
         }
@@ -2671,7 +2671,7 @@ mod tests {
     fn init_git_repo_with_commit(path: &Path) {
         run_git_command(path, &["init"]);
         run_git_command(path, &["config", "user.email", "test@example.com"]);
-        run_git_command(path, &["config", "user.name", "AI Manager Test"]);
+        run_git_command(path, &["config", "user.name", "Code Manager Test"]);
         std::fs::write(path.join("README.md"), "initial\n").unwrap();
         run_git_command(path, &["add", "README.md"]);
         run_git_command(path, &["commit", "-m", "initial"]);

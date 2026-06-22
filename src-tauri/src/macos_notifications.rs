@@ -34,7 +34,7 @@ define_class!(
     // - NSObject 没有额外子类化约束。
     // - delegate 被应用生命周期级保留，不实现 Drop。
     #[unsafe(super(NSObject))]
-    #[name = "AiManagerNotificationDelegate"]
+    #[name = "CodeManagerNotificationDelegate"]
     #[thread_kind = AnyThread]
     #[ivars = NotificationDelegateIvars]
     struct NotificationDelegate;
@@ -343,7 +343,7 @@ mod tests {
             (PAYLOAD_KIND, PENDING_SESSION_FOCUS_KIND),
             (PAYLOAD_SESSION_ID, "session-123"),
             (PAYLOAD_PID, "4242"),
-            (PAYLOAD_CWD, "/Users/demo/work/ai-manager"),
+            (PAYLOAD_CWD, "/Users/demo/work/code-manager"),
             (PAYLOAD_TERMINAL_APP, "ghostty"),
         ]);
 
@@ -353,7 +353,7 @@ mod tests {
             target,
             PendingSessionFocusTarget {
                 pid: 4242,
-                cwd: "/Users/demo/work/ai-manager".to_string(),
+                cwd: "/Users/demo/work/code-manager".to_string(),
                 session_id: "session-123".to_string(),
                 terminal_app: "ghostty".to_string(),
             }
@@ -366,7 +366,7 @@ mod tests {
             (PAYLOAD_KIND, "other"),
             (PAYLOAD_SESSION_ID, "session-123"),
             (PAYLOAD_PID, "4242"),
-            (PAYLOAD_CWD, "/Users/demo/work/ai-manager"),
+            (PAYLOAD_CWD, "/Users/demo/work/code-manager"),
             (PAYLOAD_TERMINAL_APP, "ghostty"),
         ]);
 
@@ -379,7 +379,7 @@ mod tests {
             (PAYLOAD_KIND, PENDING_SESSION_FOCUS_KIND),
             (PAYLOAD_SESSION_ID, "session-123"),
             (PAYLOAD_PID, "not-a-pid"),
-            (PAYLOAD_CWD, "/Users/demo/work/ai-manager"),
+            (PAYLOAD_CWD, "/Users/demo/work/code-manager"),
             (PAYLOAD_TERMINAL_APP, "ghostty"),
         ]);
 

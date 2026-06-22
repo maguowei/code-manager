@@ -68,7 +68,7 @@ paths:
 - 已配置列表只反映 `settings.enabledPlugins` 的真实条目，不要把浏览项混进配置列表。
 - 浏览 Tab 只在切到浏览时按已配置 marketplace 拉取清单，支持搜索、marketplace / 状态 / 类别 / 来源筛选、插件 ID 或安装数排序、主页外链。
 - 插件编辑必须保留已有 enabled/disabled 状态和非布尔 legacy entries；跨 Tab 启用、禁用和删除要通过 `useEnabledPluginsState` 写回 `enabledPlugins`。
-- 安装数（`unique_installs`）来源是本地 `~/.claude/plugins/plugin-catalog-cache.json`（由 Claude Code 维护、24h TTL、AI Manager 只读）；前端读取走 `plugin-install-counts.ts`。浏览 Tab 的“刷新”除拉 GitHub 清单外，还调后端 `plugins::refresh_plugin_install_counts` 执行 `claude plugin list --available --json` 按默认 TTL 策略触发刷新：缓存超 24h 时 claude 自动重拉重写、未过期则沿用旧值（不主动删缓存、不强制刷新）。注意 `claude plugin marketplace update` 只更新 marketplace 克隆，刷不了安装数。
+- 安装数（`unique_installs`）来源是本地 `~/.claude/plugins/plugin-catalog-cache.json`（由 Claude Code 维护、24h TTL、Code Manager 只读）；前端读取走 `plugin-install-counts.ts`。浏览 Tab 的“刷新”除拉 GitHub 清单外，还调后端 `plugins::refresh_plugin_install_counts` 执行 `claude plugin list --available --json` 按默认 TTL 策略触发刷新：缓存超 24h 时 claude 自动重拉重写、未过期则沿用旧值（不主动删缓存、不强制刷新）。注意 `claude plugin marketplace update` 只更新 marketplace 克隆，刷不了安装数。
 - 该缓存的安装数**只覆盖官方市场 `claude-plugins-official` 的插件**（数据源是 Anthropic 为官方市场预生成的 `plugin-stats/plugin-details.json`）；第三方 marketplace（如 `openai-codex`、`baoyu-skills`）的插件没有安装数，浏览 Tab 对应列留空属预期，不是刷新 bug。
 
 ## 权限与状态行

@@ -20,7 +20,7 @@ export interface MarketplaceFetchInput {
   path: string;
 }
 
-export const MARKETPLACE_CATALOG_CACHE_KEY = "ai-manager-marketplace-plugin-cache:v1";
+export const MARKETPLACE_CATALOG_CACHE_KEY = "code-manager-marketplace-plugin-cache:v1";
 const CACHE_VERSION = 1;
 
 interface CacheV1 {

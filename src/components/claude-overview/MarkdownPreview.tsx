@@ -20,8 +20,8 @@ const CODE_BLOCK_CUSTOM_STYLE = {
 // github-markdown-css 默认入口的 light 选择器被 prefers-color-scheme 媒体查询包住，
 // 当应用内主题与系统偏好不一致时会失效。这里改用拆分的 light/dark 单独文件，
 // 通过单例 link 元素按当前 themeType 切换 disabled，强制跟随应用内主题。
-const LIGHT_LINK_ID = "ai-manager-markdown-light-style";
-const DARK_LINK_ID = "ai-manager-markdown-dark-style";
+const LIGHT_LINK_ID = "code-manager-markdown-light-style";
+const DARK_LINK_ID = "code-manager-markdown-dark-style";
 
 function ensureGithubMarkdownLinks() {
   if (typeof document === "undefined") {

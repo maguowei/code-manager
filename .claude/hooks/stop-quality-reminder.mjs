@@ -30,7 +30,7 @@ const commands = buildCommands(relevantFiles.map(({ path }) => path));
 
 console.error(
   [
-    "AI Manager quality reminder: 当前变更命中质量门禁文件，请在结束前完成匹配验证。",
+    "Code Manager quality reminder: 当前变更命中质量门禁文件，请在结束前完成匹配验证。",
     "",
     "建议运行：",
     ...commands.map((command) => `- ${command}`),
@@ -157,10 +157,10 @@ function buildCommands(paths) {
 function getMarkerPaths() {
   const gitDir = runGit(["rev-parse", "--absolute-git-dir"]);
   const root = runGit(["rev-parse", "--show-toplevel"]) || process.cwd();
-  const markerName = `ai-manager-stop-quality-reminder-${hash(root)}`;
+  const markerName = `code-manager-stop-quality-reminder-${hash(root)}`;
 
   return [
-    gitDir ? join(gitDir, "ai-manager-stop-quality-reminder") : null,
+    gitDir ? join(gitDir, "code-manager-stop-quality-reminder") : null,
     join(tmpdir(), markerName),
   ].filter(Boolean);
 }

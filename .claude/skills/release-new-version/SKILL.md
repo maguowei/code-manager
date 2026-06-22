@@ -52,7 +52,7 @@ LATEST=$(git tag --sort=-v:refname | head -1)
 执行以下命令更新锁文件：
 
 ```bash
-cargo update --manifest-path src-tauri/Cargo.toml --package ai-manager
+cargo update --manifest-path src-tauri/Cargo.toml --package code-manager
 ```
 
 如命令失败（包名不匹配等），跳过并记录。

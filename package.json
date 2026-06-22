@@ -1,17 +1,17 @@
 {
-  "name": "ai-manager",
+  "name": "code-manager",
   "private": true,
   "version": "0.20.1",
-  "description": "AI Manager - Claude Code 桌面配置管理应用",
+  "description": "Code Manager - Claude Code 桌面配置管理应用",
   "author": "maguowei",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/maguowei/ai-manager.git"
+    "url": "https://github.com/maguowei/code-manager.git"
   },
-  "homepage": "https://github.com/maguowei/ai-manager",
+  "homepage": "https://github.com/maguowei/code-manager",
   "bugs": {
-    "url": "https://github.com/maguowei/ai-manager/issues"
+    "url": "https://github.com/maguowei/code-manager/issues"
   },
   "packageManager": "pnpm@11.2.2",
   "type": "module",

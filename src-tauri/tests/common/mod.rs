@@ -1,4 +1,4 @@
-//! 集成测试共享 helper：管理临时的 AI_MANAGER_HOME_OVERRIDE / AI_MANAGER_APP_DATA_DIR_OVERRIDE。
+//! 集成测试共享 helper：管理临时的 CODE_MANAGER_HOME_OVERRIDE / CODE_MANAGER_APP_DATA_DIR_OVERRIDE。
 //!
 //! 设计取舍：
 //! - 不复用 lib 内部的 `TEST_ENV_LOCK`（它被 `#[cfg(test)]` gate，对集成测试不可见）。
@@ -21,26 +21,26 @@ pub struct IntegrationEnv {
 }
 
 impl IntegrationEnv {
-    /// 准备一个隔离的 ~/.claude 与 ~/.config/ai-manager 临时根目录。
+    /// 准备一个隔离的 ~/.claude 与 ~/.config/code-manager 临时根目录。
     pub fn new(name: &str) -> Self {
         let suffix = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_nanos();
         let root = env::temp_dir().join(format!(
-            "ai-manager-it-{name}-{}-{suffix}",
+            "code-manager-it-{name}-{}-{suffix}",
             std::process::id()
         ));
         fs::create_dir_all(root.join(".claude")).expect("应可创建 .claude 目录");
-        fs::create_dir_all(root.join(".config").join("ai-manager"))
+        fs::create_dir_all(root.join(".config").join("code-manager"))
             .expect("应可创建 app-data 目录");
 
-        let previous_home = env::var("AI_MANAGER_HOME_OVERRIDE").ok();
-        let previous_app_data = env::var("AI_MANAGER_APP_DATA_DIR_OVERRIDE").ok();
-        env::set_var("AI_MANAGER_HOME_OVERRIDE", &root);
+        let previous_home = env::var("CODE_MANAGER_HOME_OVERRIDE").ok();
+        let previous_app_data = env::var("CODE_MANAGER_APP_DATA_DIR_OVERRIDE").ok();
+        env::set_var("CODE_MANAGER_HOME_OVERRIDE", &root);
         env::set_var(
-            "AI_MANAGER_APP_DATA_DIR_OVERRIDE",
-            root.join(".config").join("ai-manager"),
+            "CODE_MANAGER_APP_DATA_DIR_OVERRIDE",
+            root.join(".config").join("code-manager"),
         );
 
         Self {
@@ -56,10 +56,10 @@ impl IntegrationEnv {
         self.root.join(".claude")
     }
 
-    /// 返回隔离根下的 ~/.config/ai-manager 目录。
+    /// 返回隔离根下的 ~/.config/code-manager 目录。
     #[allow(dead_code)]
     pub fn app_data_dir(&self) -> PathBuf {
-        self.root.join(".config").join("ai-manager")
+        self.root.join(".config").join("code-manager")
     }
 
     /// 写入 ~/.claude/<relative> 文件，自动创建父目录。
@@ -73,7 +73,7 @@ impl IntegrationEnv {
         path
     }
 
-    /// 写入 ~/.config/ai-manager/<relative> 文件，自动创建父目录。
+    /// 写入 ~/.config/code-manager/<relative> 文件，自动创建父目录。
     #[allow(dead_code)]
     pub fn write_app_data_file(&self, relative: &str, content: &str) -> PathBuf {
         let path = self.app_data_dir().join(relative);
@@ -88,12 +88,12 @@ impl IntegrationEnv {
 impl Drop for IntegrationEnv {
     fn drop(&mut self) {
         match &self.previous_home {
-            Some(value) => env::set_var("AI_MANAGER_HOME_OVERRIDE", value),
-            None => env::remove_var("AI_MANAGER_HOME_OVERRIDE"),
+            Some(value) => env::set_var("CODE_MANAGER_HOME_OVERRIDE", value),
+            None => env::remove_var("CODE_MANAGER_HOME_OVERRIDE"),
         }
         match &self.previous_app_data {
-            Some(value) => env::set_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE", value),
-            None => env::remove_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE"),
+            Some(value) => env::set_var("CODE_MANAGER_APP_DATA_DIR_OVERRIDE", value),
+            None => env::remove_var("CODE_MANAGER_APP_DATA_DIR_OVERRIDE"),
         }
         let _ = fs::remove_dir_all(&self.root);
     }

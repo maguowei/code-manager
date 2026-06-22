@@ -89,11 +89,11 @@ paths:
 
 约束：
 
-- 日志由 `tauri-plugin-log` 写入系统日志目录，当前文件名为 `ai-manager.log`，不要改回应用数据目录。
+- 日志由 `tauri-plugin-log` 写入系统日志目录，当前文件名为 `code-manager.log`，不要改回应用数据目录。
 - 日志默认 `Info` 级别；重要操作记 `info`，可恢复异常记 `warn`，错误记 `error`。
 - 日志时间使用系统本地时间，格式包含时区偏移；日志查看器按最新在上倒序显示。
-- 轮转策略是单文件约 2 MB，保留 8 个轮转文件，轮转文件名形如 `ai-manager_YYYY-MM-DD_HH-MM-SS.log`。
-- 一键清理调用 `clear_app_logs`：清空当前 `ai-manager.log`，删除 `ai-manager_*.log`，不要删除日志目录中的其它文件。
+- 轮转策略是单文件约 2 MB，保留 8 个轮转文件，轮转文件名形如 `code-manager_YYYY-MM-DD_HH-MM-SS.log`。
+- 一键清理调用 `clear_app_logs`：清空当前 `code-manager.log`，删除 `code-manager_*.log`，不要删除日志目录中的其它文件。
 - 内置查看器通过 `get_app_logs` 读取日志，通过 `open_logs_dir` 打开日志目录。
 - 不要记录密钥、Token、完整 settings、Memory 内容、Skill 文件内容、模型测试请求体或响应体。
 - 新增日志字段时优先记录稳定标识符和状态，例如 `event=profile.apply status=ok profile_id=...`，不要记录大块业务数据。

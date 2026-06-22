@@ -209,7 +209,7 @@ describe("MemoryEditor", () => {
       language: "zh" as const,
       name: "Karpathy 行为指南",
       content:
-        "<!-- ai-manager:memory-preset:karpathy-behavior-guidelines:zh:start -->\n编码前先思考\n<!-- /ai-manager:memory-preset:karpathy-behavior-guidelines:zh:end -->",
+        "<!-- code-manager:memory-preset:karpathy-behavior-guidelines:zh:start -->\n编码前先思考\n<!-- /code-manager:memory-preset:karpathy-behavior-guidelines:zh:end -->",
       sourceUrl:
         "https://raw.githubusercontent.com/multica-ai/andrej-karpathy-skills/refs/heads/main/CLAUDE.md",
     }));
@@ -232,7 +232,7 @@ describe("MemoryEditor", () => {
       expect(loadMemoryPresetContent).toHaveBeenCalledWith("zh");
     });
     expect(screen.getByLabelText("memory-content-editor")).toHaveValue(
-      "# 团队规范\n\n已有规则\n\n<!-- ai-manager:memory-preset:karpathy-behavior-guidelines:zh:start -->\n编码前先思考\n<!-- /ai-manager:memory-preset:karpathy-behavior-guidelines:zh:end -->",
+      "# 团队规范\n\n已有规则\n\n<!-- code-manager:memory-preset:karpathy-behavior-guidelines:zh:start -->\n编码前先思考\n<!-- /code-manager:memory-preset:karpathy-behavior-guidelines:zh:end -->",
     );
 
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
@@ -242,7 +242,7 @@ describe("MemoryEditor", () => {
         id: "team-memory",
         name: "团队规范",
         content:
-          "已有规则\n\n<!-- ai-manager:memory-preset:karpathy-behavior-guidelines:zh:start -->\n编码前先思考\n<!-- /ai-manager:memory-preset:karpathy-behavior-guidelines:zh:end -->",
+          "已有规则\n\n<!-- code-manager:memory-preset:karpathy-behavior-guidelines:zh:start -->\n编码前先思考\n<!-- /code-manager:memory-preset:karpathy-behavior-guidelines:zh:end -->",
         targetType: "claude",
         rulePath: undefined,
       });
@@ -255,7 +255,7 @@ describe("MemoryEditor", () => {
       language: "zh" as const,
       name: "Karpathy 行为指南",
       content:
-        "<!-- ai-manager:memory-preset:karpathy-behavior-guidelines:zh:start -->\n编码前先思考\n<!-- /ai-manager:memory-preset:karpathy-behavior-guidelines:zh:end -->",
+        "<!-- code-manager:memory-preset:karpathy-behavior-guidelines:zh:start -->\n编码前先思考\n<!-- /code-manager:memory-preset:karpathy-behavior-guidelines:zh:end -->",
       sourceUrl:
         "https://raw.githubusercontent.com/multica-ai/andrej-karpathy-skills/refs/heads/main/CLAUDE.md",
     }));
@@ -285,7 +285,7 @@ describe("MemoryEditor", () => {
       language: "en" as const,
       name: "Karpathy Behavioral Guidelines",
       content:
-        "<!-- ai-manager:memory-preset:karpathy-behavior-guidelines:en:start -->\nThink Before Coding\n<!-- /ai-manager:memory-preset:karpathy-behavior-guidelines:en:end -->",
+        "<!-- code-manager:memory-preset:karpathy-behavior-guidelines:en:start -->\nThink Before Coding\n<!-- /code-manager:memory-preset:karpathy-behavior-guidelines:en:end -->",
       sourceUrl:
         "https://raw.githubusercontent.com/multica-ai/andrej-karpathy-skills/refs/heads/main/CLAUDE.md",
     }));
@@ -300,13 +300,13 @@ describe("MemoryEditor", () => {
       "Karpathy Behavioral Guidelines",
     );
     expect(screen.getByLabelText("memory-content-editor")).toHaveValue(
-      "# Karpathy Behavioral Guidelines\n\n<!-- ai-manager:memory-preset:karpathy-behavior-guidelines:en:start -->\nThink Before Coding\n<!-- /ai-manager:memory-preset:karpathy-behavior-guidelines:en:end -->",
+      "# Karpathy Behavioral Guidelines\n\n<!-- code-manager:memory-preset:karpathy-behavior-guidelines:en:start -->\nThink Before Coding\n<!-- /code-manager:memory-preset:karpathy-behavior-guidelines:en:end -->",
     );
   });
 
   it("does not duplicate the Karpathy preset block when importing twice", async () => {
     const presetBlock =
-      "<!-- ai-manager:memory-preset:karpathy-behavior-guidelines:zh:start -->\n编码前先思考\n<!-- /ai-manager:memory-preset:karpathy-behavior-guidelines:zh:end -->";
+      "<!-- code-manager:memory-preset:karpathy-behavior-guidelines:zh:start -->\n编码前先思考\n<!-- /code-manager:memory-preset:karpathy-behavior-guidelines:zh:end -->";
     const loadMemoryPresetContent = vi.fn(async () => ({
       presetId: "karpathy-behavior-guidelines",
       language: "zh" as const,
@@ -335,7 +335,9 @@ describe("MemoryEditor", () => {
     });
     const contentEditor = screen.getByLabelText("memory-content-editor") as HTMLTextAreaElement;
     expect(
-      contentEditor.value.match(/ai-manager:memory-preset:karpathy-behavior-guidelines:zh:start/g),
+      contentEditor.value.match(
+        /code-manager:memory-preset:karpathy-behavior-guidelines:zh:start/g,
+      ),
     ).toHaveLength(1);
   });
 });

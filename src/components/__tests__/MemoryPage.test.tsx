@@ -200,7 +200,10 @@ describe("MemoryPage", () => {
   });
 
   it("uses the English Claude memory docs when the UI language is English", async () => {
-    localStorage.setItem("ai-manager-settings", JSON.stringify({ language: "en", theme: "dark" }));
+    localStorage.setItem(
+      "code-manager-settings",
+      JSON.stringify({ language: "en", theme: "dark" }),
+    );
     setSystemLanguages(["en-US"]);
 
     renderMemoryPage();
@@ -326,7 +329,10 @@ describe("MemoryPage", () => {
   });
 
   it("applies the current English UI preset without showing a language chooser", async () => {
-    localStorage.setItem("ai-manager-settings", JSON.stringify({ language: "en", theme: "dark" }));
+    localStorage.setItem(
+      "code-manager-settings",
+      JSON.stringify({ language: "en", theme: "dark" }),
+    );
     setSystemLanguages(["en-US"]);
     invokeMock.mockImplementation(async (command) => {
       if (command === "get_memories") return { memories: [] };

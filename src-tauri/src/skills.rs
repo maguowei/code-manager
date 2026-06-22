@@ -82,7 +82,7 @@ fn get_skills_dir() -> PathBuf {
         .join("skills")
 }
 
-/// 获取禁用 Skills 的根目录：~/.config/ai-manager/skills-disabled/
+/// 获取禁用 Skills 的根目录：~/.config/code-manager/skills-disabled/
 fn get_disabled_dir() -> PathBuf {
     crate::utils::get_app_data_dir().join("skills-disabled")
 }
@@ -1257,18 +1257,18 @@ mod schema_tests {
                 .expect("系统时间应晚于 Unix epoch")
                 .as_nanos();
             let root = env::temp_dir().join(format!(
-                "ai-manager-skills-test-{}-{}-{}",
+                "code-manager-skills-test-{}-{}-{}",
                 name,
                 std::process::id(),
                 suffix
             ));
             let _ = fs::remove_dir_all(&root);
             fs::create_dir_all(&root).expect("应可创建测试根目录");
-            let app_data = root.join(".config").join("ai-manager");
-            let previous_home = env::var("AI_MANAGER_HOME_OVERRIDE").ok();
-            let previous_app_data = env::var("AI_MANAGER_APP_DATA_DIR_OVERRIDE").ok();
-            env::set_var("AI_MANAGER_HOME_OVERRIDE", &root);
-            env::set_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE", &app_data);
+            let app_data = root.join(".config").join("code-manager");
+            let previous_home = env::var("CODE_MANAGER_HOME_OVERRIDE").ok();
+            let previous_app_data = env::var("CODE_MANAGER_APP_DATA_DIR_OVERRIDE").ok();
+            env::set_var("CODE_MANAGER_HOME_OVERRIDE", &root);
+            env::set_var("CODE_MANAGER_APP_DATA_DIR_OVERRIDE", &app_data);
 
             Self {
                 root,
@@ -1285,7 +1285,7 @@ mod schema_tests {
         fn disabled_skill_dir(&self, id: &str) -> PathBuf {
             self.root
                 .join(".config")
-                .join("ai-manager")
+                .join("code-manager")
                 .join("skills-disabled")
                 .join(id)
         }
@@ -1298,12 +1298,12 @@ mod schema_tests {
     impl Drop for TestEnv {
         fn drop(&mut self) {
             match &self.previous_home {
-                Some(value) => env::set_var("AI_MANAGER_HOME_OVERRIDE", value),
-                None => env::remove_var("AI_MANAGER_HOME_OVERRIDE"),
+                Some(value) => env::set_var("CODE_MANAGER_HOME_OVERRIDE", value),
+                None => env::remove_var("CODE_MANAGER_HOME_OVERRIDE"),
             }
             match &self.previous_app_data {
-                Some(value) => env::set_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE", value),
-                None => env::remove_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE"),
+                Some(value) => env::set_var("CODE_MANAGER_APP_DATA_DIR_OVERRIDE", value),
+                None => env::remove_var("CODE_MANAGER_APP_DATA_DIR_OVERRIDE"),
             }
             let _ = fs::remove_dir_all(&self.root);
         }

@@ -90,9 +90,9 @@ describe("LogViewer", () => {
     const entries = Array.from({ length: 40 }, (_, index) => ({
       timestamp: `2026-04-29 12:${String(index).padStart(2, "0")}:00`,
       level: "info",
-      target: "ai_manager_lib::logging",
+      target: "code_manager_lib::logging",
       message: `event=log.viewer.regression index=${index}`,
-      raw: `[2026-04-29][12:${String(index).padStart(2, "0")}:00][ai_manager_lib::logging][INFO] event=log.viewer.regression index=${index}`,
+      raw: `[2026-04-29][12:${String(index).padStart(2, "0")}:00][code_manager_lib::logging][INFO] event=log.viewer.regression index=${index}`,
     }));
     invokeMock.mockResolvedValue({
       logDir: "/tmp/logs",
@@ -131,15 +131,15 @@ describe("LogViewer", () => {
 
   it("loads and filters log entries", async () => {
     invokeMock.mockResolvedValue({
-      logDir: "/Users/test-user/Library/Logs/com.gotobeta.app.ai-manager",
+      logDir: "/Users/test-user/Library/Logs/com.gotobeta.app.code-manager",
       truncated: false,
       entries: [
         {
           timestamp: "2026-04-29 12:00:00",
           level: "info",
-          target: "ai_manager_lib::config",
+          target: "code_manager_lib::config",
           message: "event=profile.upsert status=ok profile_id=profile-1",
-          raw: "[2026-04-29][12:00:00][ai_manager_lib::config][INFO] event=profile.upsert status=ok profile_id=profile-1",
+          raw: "[2026-04-29][12:00:00][code_manager_lib::config][INFO] event=profile.upsert status=ok profile_id=profile-1",
         },
       ],
     });
@@ -150,7 +150,7 @@ describe("LogViewer", () => {
       await screen.findByText("event=profile.upsert status=ok profile_id=profile-1"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("/Users/test-user/Library/Logs/com.gotobeta.app.ai-manager"),
+      screen.getByText("/Users/test-user/Library/Logs/com.gotobeta.app.code-manager"),
     ).toBeInTheDocument();
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("get_app_logs", {
@@ -196,9 +196,9 @@ describe("LogViewer", () => {
         {
           timestamp: "2026-04-29 12:00:00",
           level: "info",
-          target: "ai_manager_lib::logging",
+          target: "code_manager_lib::logging",
           message: "event=logs.truncated status=ok",
-          raw: "[2026-04-29][12:00:00][ai_manager_lib::logging][INFO] event=logs.truncated status=ok",
+          raw: "[2026-04-29][12:00:00][code_manager_lib::logging][INFO] event=logs.truncated status=ok",
         },
       ],
     });
@@ -220,9 +220,9 @@ describe("LogViewer", () => {
         {
           timestamp: "2026-04-29 12:00:00",
           level: "warn",
-          target: "ai_manager_lib::config",
+          target: "code_manager_lib::config",
           message: "event=profile.apply status=warn",
-          raw: "[2026-04-29][12:00:00][ai_manager_lib::config][WARN] event=profile.apply status=warn",
+          raw: "[2026-04-29][12:00:00][code_manager_lib::config][WARN] event=profile.apply status=warn",
         },
       ],
     });
@@ -266,9 +266,9 @@ describe("LogViewer", () => {
           {
             timestamp: "2026-04-29 12:00:00+08:00",
             level: "error",
-            target: "ai_manager_lib::config",
+            target: "code_manager_lib::config",
             message: "event=profile.apply status=error",
-            raw: "[2026-04-29][12:00:00+08:00][ai_manager_lib::config][ERROR] event=profile.apply status=error",
+            raw: "[2026-04-29][12:00:00+08:00][code_manager_lib::config][ERROR] event=profile.apply status=error",
           },
         ],
       };

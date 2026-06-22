@@ -113,10 +113,10 @@ describe("MarkdownPreview", () => {
   it("themeType 切换时启用对应的 github-markdown 主题 link，禁用另一个", () => {
     const { rerender } = render(<MarkdownPreview content="x" themeType="light" />);
     const lightLink = document.getElementById(
-      "ai-manager-markdown-light-style",
+      "code-manager-markdown-light-style",
     ) as HTMLLinkElement | null;
     const darkLink = document.getElementById(
-      "ai-manager-markdown-dark-style",
+      "code-manager-markdown-dark-style",
     ) as HTMLLinkElement | null;
     expect(lightLink).not.toBeNull();
     expect(darkLink).not.toBeNull();

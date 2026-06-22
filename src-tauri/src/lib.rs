@@ -7,6 +7,7 @@ mod logging;
 #[cfg(target_os = "macos")]
 mod macos_notifications;
 mod memory;
+mod migration;
 mod native_open;
 mod plugins;
 mod project;
@@ -68,7 +69,7 @@ use widget::{open_usage_page, toggle_floating_widget};
 /// 构造 tauri-specta Builder，收集所有 IPC command。
 ///
 /// `dangerously_cast_bigints_to_number()`：把 `u64`/`i64` 等大整数导出为 TS `number`。
-/// AI Manager 当前 IPC 数值（token 计数、毫秒时间戳）远小于 Number.MAX_SAFE_INTEGER。
+/// Code Manager 当前 IPC 数值（token 计数、毫秒时间戳）远小于 Number.MAX_SAFE_INTEGER。
 /// 后续若新增可能超过该范围的整数 IPC 字段，必须单字段加 `#[specta(type = String)]` 走字符串传输。
 fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
     tauri_specta::Builder::<tauri::Wry>::new()
@@ -222,7 +223,7 @@ pub fn run() {
                 .targets([
                     Target::new(TargetKind::Stdout),
                     Target::new(TargetKind::LogDir {
-                        file_name: Some("ai-manager".to_string()),
+                        file_name: Some("code-manager".to_string()),
                     }),
                 ])
                 .build(),
@@ -249,6 +250,9 @@ pub fn run() {
             // tauri-specta 要求在 setup 内 mount events（即使当前没有 specta event，
             // 这一步也是必须的，以便未来引入事件时无需再改架构）。
             specta_builder.mount_events(app);
+            // 一次性把 ai-manager 旧目录的配置/记忆/skills 迁移到 code-manager 新目录；
+            // usage.db 与日志可重建，不在迁移范围内
+            migration::migrate_legacy_data_dirs();
             #[cfg(target_os = "macos")]
             macos_notifications::setup_notification_delegate(app);
             tray::setup_tray(app)?;

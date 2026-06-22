@@ -16,7 +16,7 @@ interface ThemeContextValue {
   isDark: boolean;
 }
 
-const STORAGE_KEY = "ai-manager.theme";
+const STORAGE_KEY = "code-manager.theme";
 const THEME_VALUES: Theme[] = ["system", "light", "dark"];
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);

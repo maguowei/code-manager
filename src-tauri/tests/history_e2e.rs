@@ -5,7 +5,7 @@
 
 mod common;
 
-use ai_manager_lib::test_api::{
+use code_manager_lib::test_api::{
     get_history, get_history_if_changed, get_session_detail, read_session_plan, MessageBlock,
     SessionDetail,
 };

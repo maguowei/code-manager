@@ -22,7 +22,7 @@ pub static TEST_ENV_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
 /// 安全获取用户主目录
 pub fn get_home_dir() -> Result<PathBuf, String> {
-    if let Some(path) = env::var_os("AI_MANAGER_HOME_OVERRIDE") {
+    if let Some(path) = env::var_os("CODE_MANAGER_HOME_OVERRIDE") {
         return Ok(PathBuf::from(path));
     }
     dirs::home_dir().ok_or_else(|| "无法获取用户主目录".to_string())
@@ -47,7 +47,7 @@ pub fn hide_command_window(command: &mut Command) {
 pub fn hide_command_window(_command: &mut Command) {}
 
 fn app_config_dir_from_home(home_dir: &Path) -> PathBuf {
-    home_dir.join(".config").join("ai-manager")
+    home_dir.join(".config").join("code-manager")
 }
 
 fn platform_app_data_dir_from_home(home_dir: &Path) -> PathBuf {
@@ -59,17 +59,17 @@ fn platform_app_data_dir_from_home(home_dir: &Path) -> PathBuf {
     #[cfg(not(target_os = "macos"))]
     {
         dirs::config_dir()
-            .map(|dir| dir.join("ai-manager"))
+            .map(|dir| dir.join("code-manager"))
             .unwrap_or_else(|| app_config_dir_from_home(home_dir))
     }
 }
 
-/// 获取应用数据目录：macOS 默认保留 `~/.config/ai-manager`，其它平台使用系统配置目录。
+/// 获取应用数据目录：macOS 默认保留 `~/.config/code-manager`，其它平台使用系统配置目录。
 pub fn get_app_data_dir() -> PathBuf {
-    if let Some(path) = env::var_os("AI_MANAGER_APP_DATA_DIR_OVERRIDE") {
+    if let Some(path) = env::var_os("CODE_MANAGER_APP_DATA_DIR_OVERRIDE") {
         return PathBuf::from(path);
     }
-    if let Some(path) = env::var_os("AI_MANAGER_HOME_OVERRIDE") {
+    if let Some(path) = env::var_os("CODE_MANAGER_HOME_OVERRIDE") {
         return app_config_dir_from_home(&PathBuf::from(path));
     }
     platform_app_data_dir_from_home(&home_dir_or_fallback())
@@ -77,10 +77,10 @@ pub fn get_app_data_dir() -> PathBuf {
 
 /// 严格获取应用数据目录，失败时返回错误，不做降级。
 pub fn get_app_data_dir_strict() -> Result<PathBuf, String> {
-    if let Some(path) = env::var_os("AI_MANAGER_APP_DATA_DIR_OVERRIDE") {
+    if let Some(path) = env::var_os("CODE_MANAGER_APP_DATA_DIR_OVERRIDE") {
         return Ok(PathBuf::from(path));
     }
-    if let Some(path) = env::var_os("AI_MANAGER_HOME_OVERRIDE") {
+    if let Some(path) = env::var_os("CODE_MANAGER_HOME_OVERRIDE") {
         return Ok(app_config_dir_from_home(&PathBuf::from(path)));
     }
     Ok(platform_app_data_dir_from_home(&get_home_dir()?))
@@ -400,7 +400,7 @@ mod tests {
     #[test]
     fn replace_file_with_temp_keeps_original_when_replacement_fails() {
         let root = std::env::temp_dir().join(format!(
-            "ai-manager-utils-replace-{}-{}",
+            "code-manager-utils-replace-{}-{}",
             std::process::id(),
             current_timestamp()
         ));
@@ -425,7 +425,7 @@ mod tests {
     #[test]
     fn app_data_dir_uses_expected_platform_default() {
         let root = std::env::temp_dir().join(format!(
-            "ai-manager-utils-app-data-{}-{}",
+            "code-manager-utils-app-data-{}-{}",
             std::process::id(),
             current_timestamp()
         ));
@@ -433,11 +433,11 @@ mod tests {
         #[cfg(target_os = "macos")]
         assert_eq!(
             platform_app_data_dir_from_home(&root),
-            root.join(".config").join("ai-manager")
+            root.join(".config").join("code-manager")
         );
 
         #[cfg(not(target_os = "macos"))]
-        assert!(platform_app_data_dir_from_home(&root).ends_with("ai-manager"));
+        assert!(platform_app_data_dir_from_home(&root).ends_with("code-manager"));
 
         let _ = fs::remove_dir_all(root);
     }
@@ -448,28 +448,31 @@ mod tests {
             .lock()
             .unwrap_or_else(|error| error.into_inner());
         let root = std::env::temp_dir().join(format!(
-            "ai-manager-utils-home-override-{}-{}",
+            "code-manager-utils-home-override-{}-{}",
             std::process::id(),
             current_timestamp()
         ));
-        let previous_home = env::var_os("AI_MANAGER_HOME_OVERRIDE");
-        let previous_app_data = env::var_os("AI_MANAGER_APP_DATA_DIR_OVERRIDE");
-        env::set_var("AI_MANAGER_HOME_OVERRIDE", &root);
-        env::remove_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE");
+        let previous_home = env::var_os("CODE_MANAGER_HOME_OVERRIDE");
+        let previous_app_data = env::var_os("CODE_MANAGER_APP_DATA_DIR_OVERRIDE");
+        env::set_var("CODE_MANAGER_HOME_OVERRIDE", &root);
+        env::remove_var("CODE_MANAGER_APP_DATA_DIR_OVERRIDE");
 
-        assert_eq!(get_app_data_dir(), root.join(".config").join("ai-manager"));
+        assert_eq!(
+            get_app_data_dir(),
+            root.join(".config").join("code-manager")
+        );
         assert_eq!(
             get_app_data_dir_strict().expect("严格路径应可读取 home override"),
-            root.join(".config").join("ai-manager")
+            root.join(".config").join("code-manager")
         );
 
         match previous_home {
-            Some(value) => env::set_var("AI_MANAGER_HOME_OVERRIDE", value),
-            None => env::remove_var("AI_MANAGER_HOME_OVERRIDE"),
+            Some(value) => env::set_var("CODE_MANAGER_HOME_OVERRIDE", value),
+            None => env::remove_var("CODE_MANAGER_HOME_OVERRIDE"),
         }
         match previous_app_data {
-            Some(value) => env::set_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE", value),
-            None => env::remove_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE"),
+            Some(value) => env::set_var("CODE_MANAGER_APP_DATA_DIR_OVERRIDE", value),
+            None => env::remove_var("CODE_MANAGER_APP_DATA_DIR_OVERRIDE"),
         }
         let _ = fs::remove_dir_all(root);
     }

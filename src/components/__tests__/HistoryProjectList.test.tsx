@@ -17,8 +17,8 @@ function setSystemLanguages(languages: string[]) {
 
 const groups: HistoryProjectGroup[] = [
   {
-    project: "/work/ai-manager",
-    shortName: "ai-manager",
+    project: "/work/code-manager",
+    shortName: "code-manager",
     messageCount: 12,
     sessionCount: 2,
     lastTimestamp: 3,
@@ -55,7 +55,7 @@ describe("HistoryProjectList", () => {
 
     fireEvent.keyDown(screen.getByRole("listbox", { name: "使用历史" }), { key: "ArrowRight" });
 
-    expect(onSelect).toHaveBeenCalledWith("/work/ai-manager");
+    expect(onSelect).toHaveBeenCalledWith("/work/code-manager");
   });
 
   it("moves selection backward with ArrowLeft for horizontal narrow layouts", () => {
@@ -63,11 +63,11 @@ describe("HistoryProjectList", () => {
 
     fireEvent.keyDown(screen.getByRole("listbox", { name: "使用历史" }), { key: "ArrowLeft" });
 
-    expect(onSelect).toHaveBeenCalledWith("/work/ai-manager");
+    expect(onSelect).toHaveBeenCalledWith("/work/code-manager");
   });
 
   it("keeps vertical keyboard navigation for the sidebar layout", () => {
-    const onSelect = renderProjectList("/work/ai-manager");
+    const onSelect = renderProjectList("/work/code-manager");
 
     fireEvent.keyDown(screen.getByRole("listbox", { name: "使用历史" }), { key: "ArrowDown" });
     fireEvent.keyDown(screen.getByRole("listbox", { name: "使用历史" }), { key: "ArrowUp" });

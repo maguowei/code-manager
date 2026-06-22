@@ -160,7 +160,7 @@ function runPrePushVerify(input: string, env: Record<string, string> = {}) {
 }
 
 function createGitRepo() {
-  const cwd = mkdtempSync(join(tmpdir(), "ai-manager-agent-guardrails-"));
+  const cwd = mkdtempSync(join(tmpdir(), "code-manager-agent-guardrails-"));
   tempDirs.push(cwd);
   execFileSync("git", ["init", "-q"], { cwd });
   execFileSync("git", ["config", "user.email", "agent-guardrails@example.com"], { cwd });
@@ -169,7 +169,7 @@ function createGitRepo() {
 }
 
 function createFakeMakeBin(failingTarget?: string) {
-  const cwd = mkdtempSync(join(tmpdir(), "ai-manager-fake-make-"));
+  const cwd = mkdtempSync(join(tmpdir(), "code-manager-fake-make-"));
   tempDirs.push(cwd);
   writeFileSync(
     join(cwd, "make"),

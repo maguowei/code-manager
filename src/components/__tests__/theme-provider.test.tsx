@@ -58,13 +58,13 @@ describe("ThemeProvider", () => {
     expect(screen.getByTestId("theme")).toHaveTextContent("dark");
     expect(screen.getByTestId("isDark")).toHaveTextContent("true");
     expect(document.documentElement.classList.contains("dark")).toBe(true);
-    expect(localStorage.getItem("ai-manager.theme")).toBe("dark");
+    expect(localStorage.getItem("code-manager.theme")).toBe("dark");
   });
 
   it("setTheme('light') 移除 .dark class", async () => {
     const user = userEvent.setup();
     document.documentElement.classList.add("dark");
-    localStorage.setItem("ai-manager.theme", "dark");
+    localStorage.setItem("code-manager.theme", "dark");
     renderProbe();
 
     await user.click(screen.getByRole("button", { name: "to-light" }));
@@ -72,11 +72,14 @@ describe("ThemeProvider", () => {
     expect(screen.getByTestId("theme")).toHaveTextContent("light");
     expect(screen.getByTestId("isDark")).toHaveTextContent("false");
     expect(document.documentElement.classList.contains("dark")).toBe(false);
-    expect(localStorage.getItem("ai-manager.theme")).toBe("light");
+    expect(localStorage.getItem("code-manager.theme")).toBe("light");
   });
 
-  it("忽略 ai-manager-settings 中的旧 theme 字段", async () => {
-    localStorage.setItem("ai-manager-settings", JSON.stringify({ language: "zh", theme: "dark" }));
+  it("忽略 code-manager-settings 中的旧 theme 字段", async () => {
+    localStorage.setItem(
+      "code-manager-settings",
+      JSON.stringify({ language: "zh", theme: "dark" }),
+    );
 
     renderProbe();
 
@@ -84,7 +87,7 @@ describe("ThemeProvider", () => {
     expect(screen.getByTestId("isDark")).toHaveTextContent("false");
     expect(document.documentElement.classList.contains("dark")).toBe(false);
     await waitFor(() => {
-      expect(localStorage.getItem("ai-manager.theme")).toBe("system");
+      expect(localStorage.getItem("code-manager.theme")).toBe("system");
     });
   });
 });

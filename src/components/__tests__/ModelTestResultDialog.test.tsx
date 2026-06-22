@@ -60,7 +60,7 @@ const MODEL_TEST_RESULT: ModelTestResult = {
     "anthropic-version": "2023-06-01",
     "content-type": "application/json",
     "x-api-key": "token",
-    "x-request-source": "ai-manager-test",
+    "x-request-source": "code-manager-test",
   },
   requestBody: JSON.stringify(
     {

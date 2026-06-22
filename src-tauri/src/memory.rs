@@ -14,9 +14,9 @@ const KARPATHY_MEMORY_PRESET_ID: &str = "karpathy-behavior-guidelines";
 const KARPATHY_MEMORY_PRESET_SOURCE_URL: &str =
     "https://raw.githubusercontent.com/multica-ai/andrej-karpathy-skills/refs/heads/main/CLAUDE.md";
 const KARPATHY_MEMORY_PRESET_MARKER_BEGIN: &str =
-    "<!-- ai-manager:memory-preset:karpathy-behavior-guidelines:";
+    "<!-- code-manager:memory-preset:karpathy-behavior-guidelines:";
 const KARPATHY_MEMORY_PRESET_MARKER_END: &str =
-    "<!-- /ai-manager:memory-preset:karpathy-behavior-guidelines:";
+    "<!-- /code-manager:memory-preset:karpathy-behavior-guidelines:";
 const KARPATHY_MEMORY_PRESET_EN_CONTENT: &str = r#"Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
@@ -2203,15 +2203,15 @@ mod schema_tests {
                 .unwrap_or_default()
                 .as_nanos();
             let root = env::temp_dir().join(format!(
-                "ai-manager-memory-{name}-{}-{suffix}",
+                "code-manager-memory-{name}-{}-{suffix}",
                 std::process::id()
             ));
             fs::create_dir_all(&root).expect("应可创建测试目录");
 
-            let previous_home = env::var("AI_MANAGER_HOME_OVERRIDE").ok();
-            let previous_app_data = env::var("AI_MANAGER_APP_DATA_DIR_OVERRIDE").ok();
-            env::set_var("AI_MANAGER_HOME_OVERRIDE", &root);
-            env::set_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE", root.join("app-data"));
+            let previous_home = env::var("CODE_MANAGER_HOME_OVERRIDE").ok();
+            let previous_app_data = env::var("CODE_MANAGER_APP_DATA_DIR_OVERRIDE").ok();
+            env::set_var("CODE_MANAGER_HOME_OVERRIDE", &root);
+            env::set_var("CODE_MANAGER_APP_DATA_DIR_OVERRIDE", root.join("app-data"));
 
             Self {
                 _guard: guard,
@@ -2234,12 +2234,12 @@ mod schema_tests {
     impl Drop for TestEnv {
         fn drop(&mut self) {
             match &self.previous_home {
-                Some(value) => env::set_var("AI_MANAGER_HOME_OVERRIDE", value),
-                None => env::remove_var("AI_MANAGER_HOME_OVERRIDE"),
+                Some(value) => env::set_var("CODE_MANAGER_HOME_OVERRIDE", value),
+                None => env::remove_var("CODE_MANAGER_HOME_OVERRIDE"),
             }
             match &self.previous_app_data {
-                Some(value) => env::set_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE", value),
-                None => env::remove_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE"),
+                Some(value) => env::set_var("CODE_MANAGER_APP_DATA_DIR_OVERRIDE", value),
+                None => env::remove_var("CODE_MANAGER_APP_DATA_DIR_OVERRIDE"),
             }
             let _ = fs::remove_dir_all(&self.root);
         }

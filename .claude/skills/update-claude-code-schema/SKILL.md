@@ -1,11 +1,11 @@
 ---
 name: update-claude-code-schema
-description: AI Manager 仓库的 Claude Code settings schema 同步技能。涉及 src/schemas/claude-settings.schema.json 升级、SchemaStore 最新定义同步、Claude Code 新增 settings 字段（hooks/env/worktree/permissionRule 等）、或后端 Rust 配置校验兼容性检查时使用：以官方 SchemaStore 为唯一事实源，按"下载 → 整体替换 → 语义比对 → Rust 校验"四步走。
+description: Code Manager 仓库的 Claude Code settings schema 同步技能。涉及 src/schemas/claude-settings.schema.json 升级、SchemaStore 最新定义同步、Claude Code 新增 settings 字段（hooks/env/worktree/permissionRule 等）、或后端 Rust 配置校验兼容性检查时使用：以官方 SchemaStore 为唯一事实源，按"下载 → 整体替换 → 语义比对 → Rust 校验"四步走。
 ---
 
 # Update Claude Code Schema
 
-为 AI Manager 同步 Claude Code settings 的 SchemaStore 最新定义。**事实源永远是当前下载的 `https://www.schemastore.org/claude-code-settings.json`**——不要凭记忆、不要从网页片段拼补、不要只 diff 局部字段。
+为 Code Manager 同步 Claude Code settings 的 SchemaStore 最新定义。**事实源永远是当前下载的 `https://www.schemastore.org/claude-code-settings.json`**——不要凭记忆、不要从网页片段拼补、不要只 diff 局部字段。
 
 ## 触发场景
 

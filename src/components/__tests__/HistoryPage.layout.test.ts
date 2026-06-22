@@ -13,8 +13,8 @@ const sessionDetailSource = readFileSync("src/components/SessionDetailDrawer.tsx
 
 const PROJECT_GROUPS: HistoryProjectGroup[] = [
   {
-    project: "/work/ai-manager",
-    shortName: "ai-manager",
+    project: "/work/code-manager",
+    shortName: "code-manager",
     messageCount: 12,
     sessionCount: 2,
     lastTimestamp: 3,
@@ -46,7 +46,7 @@ describe("HistoryPage responsive layout CSS", () => {
     );
 
     expect(screen.getByRole("listbox", { name: "使用历史" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: /ai-manager/ })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /code-manager/ })).toBeInTheDocument();
   });
 
   it("compresses low-priority session row columns on very narrow pages", () => {

@@ -13,7 +13,7 @@ const refs = input
 
 if (refs.length > 0 && refs.every((ref) => ref?.startsWith("refs/tags/"))) {
   console.log(
-    "AI Manager pre-push: tag-only push，跳过本地 make verify；release workflow 会运行远端质量门禁。",
+    "Code Manager pre-push: tag-only push，跳过本地 make verify；release workflow 会运行远端质量门禁。",
   );
   process.exit(0);
 }
@@ -25,7 +25,7 @@ const steps = [
   ["测试", "test"],
 ];
 
-console.log(`AI Manager pre-push: 开始本地质量门禁，共 ${steps.length} 步。`);
+console.log(`Code Manager pre-push: 开始本地质量门禁，共 ${steps.length} 步。`);
 
 for (const [index, [label, target]] of steps.entries()) {
   console.log(`[${index + 1}/${steps.length}] ${label}: make ${target}`);
@@ -33,9 +33,9 @@ for (const [index, [label, target]] of steps.entries()) {
   const status = result.status ?? 1;
 
   if (status !== 0) {
-    console.error(`AI Manager pre-push: ${label} 失败（exit ${status}）。`);
+    console.error(`Code Manager pre-push: ${label} 失败（exit ${status}）。`);
     process.exit(status);
   }
 }
 
-console.log("AI Manager pre-push: 本地质量门禁通过。");
+console.log("Code Manager pre-push: 本地质量门禁通过。");

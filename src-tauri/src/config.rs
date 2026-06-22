@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 const CLAUDE_SETTINGS_SCHEMA_URL: &str = "https://json.schemastore.org/claude-code-settings.json";
 const CONFIG_REGISTRY_SCHEMA_URL: &str =
-    "https://ai-manager.app/schemas/config-registry.schema.json";
+    "https://code-manager.app/schemas/config-registry.schema.json";
 const REGISTRY_VERSION: u32 = 1;
 const DEFAULT_ANTHROPIC_BASE_URL: &str = "https://api.anthropic.com";
 const MODEL_TEST_TIMEOUT_SECS: u64 = 30;
@@ -2749,22 +2749,22 @@ mod tests {
     use std::path::Path;
 
     fn temp_root(name: &str) -> PathBuf {
-        let root = std::env::temp_dir().join(format!("ai-manager-{name}-{}", Uuid::new_v4()));
+        let root = std::env::temp_dir().join(format!("code-manager-{name}-{}", Uuid::new_v4()));
         fs::create_dir_all(&root).unwrap();
         root
     }
 
     fn set_test_env(root: &Path) {
-        std::env::set_var("AI_MANAGER_HOME_OVERRIDE", root);
+        std::env::set_var("CODE_MANAGER_HOME_OVERRIDE", root);
         std::env::set_var(
-            "AI_MANAGER_APP_DATA_DIR_OVERRIDE",
-            root.join(".config").join("ai-manager"),
+            "CODE_MANAGER_APP_DATA_DIR_OVERRIDE",
+            root.join(".config").join("code-manager"),
         );
     }
 
     fn clear_test_env() {
-        std::env::remove_var("AI_MANAGER_HOME_OVERRIDE");
-        std::env::remove_var("AI_MANAGER_APP_DATA_DIR_OVERRIDE");
+        std::env::remove_var("CODE_MANAGER_HOME_OVERRIDE");
+        std::env::remove_var("CODE_MANAGER_APP_DATA_DIR_OVERRIDE");
     }
 
     fn sample_profile(id: &str, provider_id: Option<&str>, settings: Value) -> ConfigProfile {

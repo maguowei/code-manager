@@ -84,7 +84,7 @@ vi.mock("../ConfigPreview", () => ({
   ),
 }));
 
-const SETTINGS_STORAGE_KEY = "ai-manager-settings";
+const SETTINGS_STORAGE_KEY = "code-manager-settings";
 
 const WORKSPACE_FIXTURE: ConfigWorkspace = {
   app: {
@@ -410,7 +410,7 @@ describe("ProfilesPage", () => {
     expect(screen.getByRole("dialog", { name: "配置差异" })).toBeInTheDocument();
     expect(screen.getByText("skipDangerousModePermissionPrompt")).toBeInTheDocument();
     const diffViewer = await screen.findByTestId("pierre-multi-file-diff");
-    expect(diffViewer).toHaveAttribute("data-old-file-name", "ai-manager-settings.json");
+    expect(diffViewer).toHaveAttribute("data-old-file-name", "code-manager-settings.json");
     expect(diffViewer).toHaveAttribute("data-new-file-name", "settings.json");
     expect(diffViewer).toHaveAttribute("data-diff-style", "split");
     expect(diffViewer).toHaveAttribute("data-overflow", "wrap");
