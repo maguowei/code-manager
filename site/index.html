@@ -6,7 +6,7 @@
     <title>AI Manager · Claude Code 本地配置管理桌面应用</title>
     <meta
       name="description"
-      content="AI Manager 是面向 Claude Code 用户的本地桌面管理应用：把配置/预设、~/.claude 目录、记忆、Skills、历史、统计、Token 用量与费用、项目状态、系统托盘和诊断日志集中到一个 Tauri 2 应用，让本地配置可见、可预览、可验证。"
+      content="AI Manager 是面向 Claude Code 用户的本地桌面管理应用：把配置、供应商、~/.claude 目录、记忆、Skills、历史、统计、Token 用量与费用、项目状态、系统托盘和诊断日志集中到一个 Tauri 2 应用，让本地配置可见、可预览、可验证。"
     />
     <meta name="theme-color" content="#2563eb" />
     <link rel="icon" type="image/png" href="assets/img/favicon.png" />
@@ -89,8 +89,8 @@
                 <span data-lang="en">Take control of your <span class="accent">Claude Code</span> setup</span>
               </h1>
               <p class="hero-lead">
-                <span data-lang="zh">AI Manager 把配置/预设、<code>~/.claude</code> 目录、记忆、Skills、历史、统计、Token 用量与费用、项目状态、系统托盘和诊断日志集中到一个 Tauri 2 桌面应用——让本地配置<strong>可见、可预览、可验证</strong>。</span>
-                <span data-lang="en">AI Manager brings profiles/presets, your <code>~/.claude</code> directory, memory, skills, history, stats, token usage &amp; cost, project status, the system tray and diagnostic logs into one Tauri 2 desktop app — so your local setup is <strong>visible, previewable and verifiable</strong>.</span>
+                <span data-lang="zh">AI Manager 把配置、供应商、<code>~/.claude</code> 目录、记忆、Skills、历史、统计、Token 用量与费用、项目状态、系统托盘和诊断日志集中到一个 Tauri 2 桌面应用——让本地配置<strong>可见、可预览、可验证</strong>。</span>
+                <span data-lang="en">AI Manager brings profiles, providers, your <code>~/.claude</code> directory, memory, skills, history, stats, token usage &amp; cost, project status, the system tray and diagnostic logs into one Tauri 2 desktop app — so your local setup is <strong>visible, previewable and verifiable</strong>.</span>
               </p>
               <div class="hero-cta">
                 <a class="btn btn-primary" href="#download">
@@ -292,13 +292,13 @@
             </article>
             <article class="card">
               <div class="card-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 7v5c0 5 3.5 7.5 8 9 4.5-1.5 8-4 8-9V7z"/><path d="m9 12 2 2 4-4"/></svg></div>
-              <h3><span data-lang="zh">配置 / 预设管理</span><span data-lang="en">Profiles &amp; Presets</span></h3>
+              <h3><span data-lang="zh">配置 / 供应商管理</span><span data-lang="en">Profiles &amp; Providers</span></h3>
               <p><span data-lang="zh">分层管理最终写入 <code>settings.json</code> 的配置：Provider、模型、环境变量、权限、Sandbox、Hooks、插件、状态行；支持预览、复制、模型测试、一键应用与差异对比。</span><span data-lang="en">Layered control over what lands in <code>settings.json</code>: providers, models, env, permissions, sandbox, hooks, plugins, statusline — with preview, copy, model test, one-click apply and diffing.</span></p>
             </article>
             <article class="card">
               <div class="card-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 3-3 3 3 4-6"/></svg></div>
               <h3><span data-lang="zh">Token 用量与费用</span><span data-lang="en">Token usage &amp; cost</span></h3>
-              <p><span data-lang="zh">扫描 <code>projects/**/*.jsonl</code>，按日期、项目、会话、模型聚合 Token 与费用，SQLite 增量缓存，支持消息级明细与缓存节省。</span><span data-lang="en">Scans <code>projects/**/*.jsonl</code> and aggregates tokens &amp; cost by date, project, session and model — SQLite-cached, down to per-message detail and cache savings.</span></p>
+              <p><span data-lang="zh">扫描 <code>projects/**/*.jsonl</code>，按日期、项目、会话、模型聚合 Token 与费用，SQLite 增量缓存，支持消息级明细与缓存节省；还可开启置顶桌面浮窗，随时盯今日花费与 Token。</span><span data-lang="en">Scans <code>projects/**/*.jsonl</code> and aggregates tokens &amp; cost by date, project, session and model — SQLite-cached, down to per-message detail and cache savings; an optional always-on-top desktop widget keeps today's spend in view.</span></p>
             </article>
             <article class="card">
               <div class="card-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h9l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M14 3v6h6"/></svg></div>
@@ -328,7 +328,7 @@
             <article class="card">
               <div class="card-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 7 19.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.7 7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H10a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V10a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></div>
               <h3><span data-lang="zh">设置与诊断</span><span data-lang="en">Settings &amp; diagnostics</span></h3>
-              <p><span data-lang="zh">语言、主题、默认终端/编辑器、登录启动、第三方模型计价开关、会话聚焦快捷键与 LED（macOS）；脱敏日志查看、系统信息一键复制。</span><span data-lang="en">Language, theme, default terminal/editor, launch-at-login, third-party pricing toggle, focus shortcut &amp; LED (macOS); redacted log viewer and one-click system info.</span></p>
+              <p><span data-lang="zh">语言、主题、默认终端/编辑器、登录启动、第三方模型计价开关、会话聚焦快捷键与 LED（macOS）、桌面用量浮窗；脱敏日志查看、系统信息一键复制。</span><span data-lang="en">Language, theme, default terminal/editor, launch-at-login, third-party pricing toggle, focus shortcut &amp; LED (macOS), desktop usage widget; redacted log viewer and one-click system info.</span></p>
             </article>
           </div>
 
@@ -410,7 +410,7 @@
                   <span class="arch-chip mono">history · stats · usage</span>
                   <span class="arch-chip mono">project · native_open</span>
                   <span class="arch-chip mono">claude_directory · watcher</span>
-                  <span class="arch-chip mono">tray · led</span>
+                  <span class="arch-chip mono">tray · led · widget</span>
                 </div>
                 <p class="arch-note">
                   <span data-lang="zh">Rust · Tauri 2 · ≈ 70 个类型化命令 + 公共 utils.rs / logging.rs</span>
@@ -464,8 +464,8 @@
             <div class="vs-card ours">
               <h3>AI Manager <span class="tag" data-lang="zh">纵向深耕</span><span class="tag" data-lang="en">Depth</span></h3>
               <p>
-                <span data-lang="zh">深耕 Claude Code 单一生态的<strong>配置治理</strong>：配置/预设分层 + JSON Schema 校验、Token 用量与费用分析、记忆 / Skills / 状态行、项目级文件配对。适合主力在 Claude Code、想把配置和成本彻底管清楚的人。</span>
-                <span data-lang="en">Deep <strong>config governance</strong> for the Claude Code ecosystem: layered profiles/presets with JSON-Schema validation, token/cost analytics, memory / skills / statusline, project-level file pairing. For people who live in Claude Code and want config &amp; cost fully under control.</span>
+                <span data-lang="zh">深耕 Claude Code 单一生态的<strong>配置治理</strong>：配置/供应商分层 + JSON Schema 校验、Token 用量与费用分析、记忆 / Skills / 状态行、项目级文件配对。适合主力在 Claude Code、想把配置和成本彻底管清楚的人。</span>
+                <span data-lang="en">Deep <strong>config governance</strong> for the Claude Code ecosystem: layered profiles &amp; providers with JSON-Schema validation, token/cost analytics, memory / skills / statusline, project-level file pairing. For people who live in Claude Code and want config &amp; cost fully under control.</span>
               </p>
             </div>
             <div class="vs-card">
@@ -495,7 +495,7 @@
                   </tr>
                   <tr>
                     <td class="dim"><span data-lang="zh">配置抽象</span><span data-lang="en">Config model</span></td>
-                    <td class="col-ours"><span data-lang="zh">完整配置/预设分层 + JSON Schema 校验</span><span data-lang="en">Full Profile/Preset layering + JSON-Schema validation</span></td>
+                    <td class="col-ours"><span data-lang="zh">完整配置/供应商分层 + JSON Schema 校验</span><span data-lang="en">Full Profile/Provider layering + JSON-Schema validation</span></td>
                     <td><span data-lang="zh">「供应商卡片」为单位，50+ 内置预设一键热切</span><span data-lang="en">Provider cards, 50+ presets, one-click hot switch</span></td>
                   </tr>
                   <tr>
