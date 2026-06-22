@@ -98,16 +98,16 @@ mod tests {
 
     #[test]
     fn legacy_sibling_resolves_parent_join() {
-        let new = Path::new("/home/u/.config/code-manager");
+        let new = Path::new("/home/dev/.config/code-manager");
         assert_eq!(
             legacy_sibling(new, "ai-manager"),
-            Some(PathBuf::from("/home/u/.config/ai-manager"))
+            Some(PathBuf::from("/home/dev/.config/ai-manager"))
         );
     }
 
     #[test]
     fn legacy_sibling_guards_against_same_name() {
-        let new = Path::new("/home/u/.config/ai-manager");
+        let new = Path::new("/home/dev/.config/ai-manager");
         assert_eq!(legacy_sibling(new, "ai-manager"), None);
     }
 
