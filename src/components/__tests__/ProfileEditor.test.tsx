@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import type { ConfigProfile, ConfigWorkspace, Provider } from "../../types";
@@ -51,12 +52,15 @@ vi.mock("../ConfigPreview", () => ({
     content,
     onChange,
     jsonError,
+    actions,
   }: {
     content: string;
     onChange?: (value: string) => void;
     jsonError?: string;
+    actions?: ReactNode;
   }) => (
     <div>
+      {actions}
       {onChange ? (
         <textarea
           aria-label="config-preview-input"
@@ -4105,6 +4109,34 @@ describe("ProfileEditor", () => {
         fireEvent.click(viewMergedButton);
       });
     }).not.toThrow();
+  });
+
+  it("describes the merged preview composition in the preview tab", () => {
+    renderEditor();
+
+    const documentSection = getSection("最终配置");
+    // 预览为默认模式:应有组成说明
+    expect(within(documentSection).getByRole("button", { name: "预览" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(
+      within(documentSection).getByText(/预览是应用后写入/, { selector: "p" }),
+    ).toBeInTheDocument();
+  });
+
+  it("clarifies edit mode scope and shows clear/format actions on the editor toolbar", () => {
+    renderEditor();
+
+    const documentSection = getSection("最终配置");
+    fireEvent.click(within(documentSection).getByRole("button", { name: "编辑源 JSON" }));
+
+    expect(within(documentSection).getByText(/这里只编辑当前配置自身的设置/)).toBeInTheDocument();
+    // 清空 / 格式化按钮落到编辑框工具条
+    expect(within(documentSection).getByRole("button", { name: "清空 JSON" })).toBeInTheDocument();
+    expect(
+      within(documentSection).getByRole("button", { name: "格式化 JSON" }),
+    ).toBeInTheDocument();
   });
 
   it("renders authentication controls in a dedicated section and keeps hidden env keys in preview", async () => {

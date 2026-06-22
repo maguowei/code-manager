@@ -89,7 +89,6 @@ const STRUCTURED_SETTINGS_DOCS_PATHS: Record<StructuredSettingsDocsKey, string> 
 interface StructuredSettingsSectionsProps {
   scope: StructuredSettingsScope;
   settings: Record<string, unknown>;
-  supportedKeys: string[];
   previewContent: string;
   previewError?: string;
   hiddenEnvKeys: readonly string[];
@@ -143,7 +142,6 @@ interface StructuredSettingsSectionsProps {
 function StructuredSettingsSections({
   scope,
   settings,
-  supportedKeys,
   previewContent,
   previewError,
   hiddenEnvKeys,
@@ -282,7 +280,7 @@ function StructuredSettingsSections({
         commonJsonHint: t("profiles.editor.hints.commonJson"),
         editModeLabel: t("profiles.editor.modes.editSourceJson"),
         editHint: t("profiles.editor.hints.expert"),
-        supportedKeysLabel: t("profiles.editor.hints.expertStructuredKeys"),
+        previewHint: t("profiles.editor.hints.previewComposition"),
       }
     : {
         behavior: t("providers.editor.sections.behavior"),
@@ -299,7 +297,8 @@ function StructuredSettingsSections({
         commonJsonHint: t("providers.editor.hints.commonJson"),
         editModeLabel: t("common.editJsonMode"),
         editHint: t("providers.editor.hints.expert"),
-        supportedKeysLabel: t("providers.editor.hints.expertStructuredKeys"),
+        // 供应商只读场景无两层合并,预览即供应商自身 env,无组成说明
+        previewHint: undefined,
       };
 
   const documentError =
@@ -893,8 +892,7 @@ function StructuredSettingsSections({
           previewModeLabel={t("common.previewMode")}
           editModeLabel={messages.editModeLabel}
           editHint={messages.editHint}
-          supportedKeys={supportedKeys}
-          supportedKeysLabel={messages.supportedKeysLabel}
+          previewHint={messages.previewHint}
         />
       </div>
     </>

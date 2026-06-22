@@ -328,8 +328,11 @@ const translations = {
     "profiles.editor.hints.viewMergedConfig": "查看合并后的完整配置",
     "profiles.editor.hints.commonJson":
       "这里直接编辑当前常用选项区块相关的顶层键，以及相关的 env 开关。",
-    "profiles.editor.hints.expert": "预览展示最终合成结果，编辑模式直接修改配置的源 JSON。",
+    "profiles.editor.hints.expert":
+      "这里只编辑当前配置自身的设置（覆盖项）；供应商注入的环境变量不在此处，会在应用时自动合并，完整结果见预览。",
     "profiles.editor.hints.expertStructuredKeys": "当前已由控件覆盖的字段",
+    "profiles.editor.hints.previewComposition":
+      "预览是应用后写入 ~/.claude/settings.json 的最终配置：以供应商注入的环境变量为基础，叠加当前配置的认证、权限、行为等覆盖项。",
     "profiles.editor.sections.basicInfo": "基础信息",
     "profiles.editor.sections.auth": "认证",
     "profiles.editor.sections.behavior": "模型与行为",
@@ -1856,8 +1859,10 @@ const translations = {
     "profiles.editor.hints.commonJson":
       "Edit the related common-option top-level keys and env switches directly here.",
     "profiles.editor.hints.expert":
-      "Preview shows the resolved document, while edit mode updates the source profile.settings document directly.",
+      "Here you edit only this profile's own settings (overrides); provider-injected environment variables aren't here — they're merged in automatically on apply. See the preview for the full result.",
     "profiles.editor.hints.expertStructuredKeys": "Structured keys currently covered",
+    "profiles.editor.hints.previewComposition":
+      "Preview is the final config written to ~/.claude/settings.json on apply: the provider's injected environment variables as the base, overlaid with this profile's auth, permissions, and behavior overrides.",
     "profiles.editor.sections.basicInfo": "Basics",
     "profiles.editor.sections.auth": "Authentication",
     "profiles.editor.sections.behavior": "Model & Behavior",

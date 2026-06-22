@@ -22,8 +22,8 @@ interface DocumentEditorSectionProps {
   previewModeLabel: string;
   editModeLabel: string;
   editHint: string;
-  supportedKeys: string[];
-  supportedKeysLabel: string;
+  /** 预览模式顶部的组成说明文案 */
+  previewHint?: string;
 }
 
 function DocumentEditorSection({
@@ -39,8 +39,7 @@ function DocumentEditorSection({
   previewModeLabel,
   editModeLabel,
   editHint,
-  supportedKeys,
-  supportedKeysLabel,
+  previewHint,
 }: DocumentEditorSectionProps) {
   const { t } = useI18n();
   const [mode, setMode] = useState<DocumentEditorMode>("preview");
@@ -91,42 +90,14 @@ function DocumentEditorSection({
 
       {mode === "preview" ? (
         <div className="grid gap-2">
+          {previewHint ? (
+            <p className={cn("m-0 text-muted-foreground", TYPOGRAPHY.auxiliary)}>{previewHint}</p>
+          ) : null}
           <ConfigPreview content={previewContent} jsonError={previewError} />
         </div>
       ) : (
         <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border/80 bg-muted/50 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="m-0 min-w-[220px] flex-1 text-sm text-muted-foreground">{editHint}</p>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                variant="destructive-outline"
-                onClick={() => setClearJsonDialogOpen(true)}
-              >
-                <Trash2 className="size-4" aria-hidden="true" />
-                {t("common.clearJson")}
-              </Button>
-              <Button type="button" variant="outline" onClick={onFormat}>
-                {t("common.formatJson")}
-              </Button>
-            </div>
-          </div>
-
-          {supportedKeys.length > 0 ? (
-            <div className="flex flex-col gap-2 text-sm text-muted-foreground">
-              <span>{supportedKeysLabel}</span>
-              <div className="flex flex-wrap gap-1.5">
-                {supportedKeys.map((key) => (
-                  <span
-                    key={key}
-                    className="rounded-md border border-border bg-secondary px-2 py-1 font-mono text-xs text-foreground"
-                  >
-                    {key}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ) : null}
+          <p className="m-0 text-sm text-muted-foreground">{editHint}</p>
 
           {!hasAppliedDraft ? (
             <p className="m-0 text-sm text-muted-foreground">
@@ -134,7 +105,34 @@ function DocumentEditorSection({
             </p>
           ) : null}
 
-          <ConfigPreview content={getEditContent()} onChange={onEditChange} jsonError={editError} />
+          <ConfigPreview
+            content={getEditContent()}
+            onChange={onEditChange}
+            jsonError={editError}
+            actions={
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1.5 px-2 text-xs text-destructive hover:text-destructive"
+                  onClick={() => setClearJsonDialogOpen(true)}
+                >
+                  <Trash2 className="size-3.5" aria-hidden="true" />
+                  {t("common.clearJson")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={onFormat}
+                >
+                  {t("common.formatJson")}
+                </Button>
+              </>
+            }
+          />
         </div>
       )}
 

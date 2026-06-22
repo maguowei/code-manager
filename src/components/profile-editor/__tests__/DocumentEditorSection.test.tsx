@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../../i18n";
 import DocumentEditorSection from "../DocumentEditorSection";
@@ -8,12 +9,15 @@ vi.mock("../../ConfigPreview", () => ({
     content,
     onChange,
     jsonError,
+    actions,
   }: {
     content: string;
     onChange?: (value: string) => void;
     jsonError?: string;
+    actions?: ReactNode;
   }) => (
     <div>
+      {actions}
       {onChange ? (
         <textarea
           aria-label="config-preview-input"
@@ -49,8 +53,6 @@ describe("DocumentEditorSection", () => {
           previewModeLabel="预览"
           editModeLabel="编辑源 JSON"
           editHint="预览展示合成结果，编辑作用于源配置。"
-          supportedKeys={["env", "permissions"]}
-          supportedKeysLabel="当前已由控件覆盖的字段"
         />
       </I18nProvider>,
     );
@@ -63,9 +65,6 @@ describe("DocumentEditorSection", () => {
 
     expect(getEditContent).toHaveBeenCalledTimes(1);
     expect(screen.getByText("预览展示合成结果，编辑作用于源配置。")).toBeInTheDocument();
-    expect(screen.getByText("当前已由控件覆盖的字段")).toBeInTheDocument();
-    expect(screen.getByText("env")).toBeInTheDocument();
-    expect(screen.getByText("permissions")).toBeInTheDocument();
     expect(screen.getByText("当前草稿未生效，仍使用上一次合法 JSON。")).toBeInTheDocument();
     expect(screen.getByText("settings 必须是 JSON 对象")).toBeInTheDocument();
 

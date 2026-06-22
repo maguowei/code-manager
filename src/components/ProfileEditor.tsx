@@ -58,7 +58,6 @@ import {
   COMMON_TOP_LEVEL_SETTINGS_KEYS,
   PROFILE_SETTINGS_FORM_REGISTRY,
   type SettingsFieldDefinition,
-  STRUCTURED_SETTINGS_KEYS,
 } from "./profile-editor/settings-form-registry";
 import {
   getStatusLineErrorKey,
@@ -298,13 +297,6 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
     statusLine: statusLineJsonEditor.jsonError,
   });
 
-  const supportedKeysInSettings = useMemo(
-    () =>
-      Object.keys(settings)
-        .filter((key) => STRUCTURED_SETTINGS_KEYS.has(key))
-        .sort(),
-    [settings],
-  );
   const documentJsonEditor = useDocumentJsonEditor({
     value: settings,
     onApply: applySettings,
@@ -984,7 +976,6 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
         <StructuredSettingsSections
           scope="profiles"
           settings={settings}
-          supportedKeys={supportedKeysInSettings}
           previewContent={previewJson}
           previewError={previewError}
           hiddenEnvKeys={hiddenEnvKeys}

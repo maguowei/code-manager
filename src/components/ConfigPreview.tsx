@@ -1,5 +1,5 @@
 import { Check, Copy } from "lucide-react";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, type ReactNode, Suspense, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../i18n";
 import { Button } from "./ui/button";
@@ -8,13 +8,15 @@ interface ConfigPreviewProps {
   content: string;
   onChange?: (value: string) => void;
   jsonError?: string;
+  /** 顶部工具条左侧的自定义操作(如清空 / 格式化);复制按钮始终在右侧 */
+  actions?: ReactNode;
 }
 
 const ConfigPreviewCodeEditor = lazy(() => import("./ConfigPreviewCodeEditor"));
 const READONLY_PREVIEW_ROOT_MARGIN = "240px 0px";
 const CODE_EDITOR_FALLBACK_CLASS = "min-h-[160px]";
 
-function ConfigPreview({ content, onChange, jsonError }: ConfigPreviewProps) {
+function ConfigPreview({ content, onChange, jsonError, actions }: ConfigPreviewProps) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -70,7 +72,8 @@ function ConfigPreview({ content, onChange, jsonError }: ConfigPreviewProps) {
         jsonError && "border-destructive",
       )}
     >
-      <div className="flex items-center justify-end px-2 pt-2">
+      <div className="flex items-center justify-between gap-2 px-2 pt-2">
+        <div className="flex items-center gap-2">{actions}</div>
         <Button
           type="button"
           variant="ghost"
