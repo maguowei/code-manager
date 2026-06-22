@@ -96,11 +96,11 @@ function DocumentEditorSection({
           <ConfigPreview content={previewContent} jsonError={previewError} />
         </div>
       ) : (
-        <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border/80 bg-muted/50 p-4">
-          <p className="m-0 text-sm text-muted-foreground">{editHint}</p>
+        <div className="grid gap-2">
+          <p className={cn("m-0 text-muted-foreground", TYPOGRAPHY.auxiliary)}>{editHint}</p>
 
           {!hasAppliedDraft ? (
-            <p className="m-0 text-sm text-muted-foreground">
+            <p className={cn("m-0 text-muted-foreground", TYPOGRAPHY.auxiliary)}>
               {t("common.sectionJsonDraftPending")}
             </p>
           ) : null}
