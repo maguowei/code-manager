@@ -2046,7 +2046,7 @@ describe("ProfileEditor", () => {
     });
 
     const trigger = within(getSection("模型与行为")).getByRole("button", { name: "自动压缩窗口" });
-    expect(trigger).toHaveTextContent("512,000");
+    expect(trigger).toHaveTextContent("512K");
 
     const control = openAutoCompactWindowPopover();
     expect(within(control).getByRole("spinbutton")).toHaveValue(512000);
@@ -4087,7 +4087,7 @@ describe("ProfileEditor", () => {
       "max",
     );
     expect(within(behaviorSection).getByRole("button", { name: "自动压缩窗口" })).toHaveTextContent(
-      "1,000,000",
+      "1M",
     );
     // 继承态显示「来自供应商」标注
     expect(within(behaviorSection).getAllByText("来自供应商").length).toBeGreaterThan(0);

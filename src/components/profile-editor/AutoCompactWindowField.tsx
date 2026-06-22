@@ -52,7 +52,7 @@ function AutoCompactWindowField({
   const { t } = useI18n();
   const numeric = parseValue(value);
   const unsetLabel = t("profiles.editor.autoCompactWindow.unset");
-  const triggerLabel = numeric === null ? unsetLabel : numeric.toLocaleString("en-US");
+  const triggerLabel = numeric === null ? unsetLabel : formatTokens(numeric);
 
   // 数字输入:空或非正值清除该 env 键,否则透传原始字符串
   const handleInputChange = (raw: string) => {
