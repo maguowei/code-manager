@@ -28,6 +28,7 @@ paths:
 - 共享 `~/.claude` tree/preview：`src/components/claude-overview/`
 - 页面头部：`src/components/PageHeader.tsx`
 - 主题、字号、表面和布局 token：`theme-provider.tsx`、`typography-classes.ts`、`surface-classes.ts`、`layout-size-classes.ts`
+- 桌面用量浮窗：`src/components/widget/FloatingWidget.tsx`、`src/hooks/useWidgetUsageKpi.ts`（浮窗复用主入口、通过 `?window=widget` 只渲染浮窗组件）
 - Vitest 全局 setup：`src/test/setup.ts`
 
 ## 通用约束

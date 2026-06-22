@@ -30,6 +30,8 @@ paths:
 | `logging.rs` | tauri-plugin-log 配置、日志脱敏 helper、panic hook |
 | `plugins.rs` | 插件市场后端操作：触发 `claude plugin list --available --json`，让 claude 按 24h TTL 默认策略刷新插件安装数缓存（不主动删缓存、不强制刷新） |
 | `macos_notifications.rs` | macOS 原生通知（`UNUserNotificationCenter`）：发待处理会话通知，点击聚焦对应会话终端 |
+| `led.rs` | USB LED 灯效：把托盘会话红绿状态镜像到外接 ANTICATER 设备；macOS 走 hidapi 独立 worker 线程独占设备，非 macOS 仅保留协议层单测 |
+| `widget.rs` | 桌面用量浮窗：按偏好动态创建无边框/透明/置顶的第二个 webview 窗口，加载 `index.html?window=widget`，前端据此只渲染浮窗组件 |
 
 ## 先读文件
 
@@ -48,6 +50,7 @@ paths:
 4. 前端业务代码通过 `src/ipc.ts` 导出的 `ipc` 调用；如生成类型与现有业务类型不完全兼容，在 `src/ipc.ts` 增加窄包装，不在组件中直接 `invoke()`。
 5. 同步更新 `src/types.ts`、i18n 文案和相关测试。
 6. 如果涉及 Tauri 插件 API，同步检查 `src-tauri/capabilities/default.json`。
+7. 浮窗窗口有独立 capability 文件 `src-tauri/capabilities/widget.json`（按 `widget` 窗口 label 授权）；给浮窗相关命令授权时写这里，不要混进 `default.json`。
 
 前端调用示例：
 
