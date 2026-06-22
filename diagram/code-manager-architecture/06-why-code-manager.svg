@@ -100,7 +100,7 @@
   <!-- ===== 能力行 ===== -->
   <rect x="190" y="392" width="430" height="188" rx="8" fill="#0f172a"/>
   <rect x="190" y="392" width="430" height="188" rx="8" fill="rgba(59,130,246,0.28)" stroke="#60a5fa" stroke-width="1.4"/>
-  <text x="210" y="436" class="cap">● Profile / Preset 可复用可继承</text>
+  <text x="210" y="436" class="cap">● 内置 Provider 共享 · 配置可复用</text>
   <text x="210" y="470" class="cap">● 常用选项 / 市场 / 插件</text>
   <text x="228" y="504" class="cap">一键同步到其余配置</text>
   <text x="210" y="538" class="cap">● 导入现有 settings 起步</text>

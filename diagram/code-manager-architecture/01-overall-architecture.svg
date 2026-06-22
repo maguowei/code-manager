@@ -64,7 +64,7 @@
     <rect x="60" y="128" width="272" height="68" rx="6" fill="#0f172a"/>
     <rect x="60" y="128" width="272" height="68" rx="6" fill="rgba(8,51,68,0.5)" stroke="#22d3ee" stroke-width="1.5"/>
     <text x="196" y="158" class="name" text-anchor="middle">配置工作台</text>
-    <text x="196" y="178" class="desc" text-anchor="middle">Profiles · Presets 编辑器</text>
+    <text x="196" y="178" class="desc" text-anchor="middle">Provider · 配置编辑器</text>
 
     <rect x="362" y="128" width="272" height="68" rx="6" fill="#0f172a"/>
     <rect x="362" y="128" width="272" height="68" rx="6" fill="rgba(8,51,68,0.5)" stroke="#22d3ee" stroke-width="1.5"/>
@@ -96,13 +96,13 @@
 
   <!-- ===== L3 后端层 ===== -->
   <rect x="40" y="400" width="1520" height="190" rx="12" fill="none" stroke="#34d399" stroke-width="1" stroke-dasharray="8,4"/>
-  <text x="54" y="420" class="region" fill="#34d399">Rust 后端 · Tauri 2 Commands（≈ 70 个类型化命令） + tauri-plugin</text>
+  <text x="54" y="420" class="region" fill="#34d399">Rust 后端 · Tauri 2 Commands（约 80 个类型化命令） + tauri-plugin</text>
 
   <g>
     <rect x="60" y="434" width="220" height="80" rx="6" fill="#0f172a"/>
     <rect x="60" y="434" width="220" height="80" rx="6" fill="rgba(6,78,59,0.5)" stroke="#34d399" stroke-width="1.5"/>
     <text x="170" y="466" class="name" text-anchor="middle">config.rs</text>
-    <text x="170" y="486" class="desc" text-anchor="middle">Profile · Preset</text>
+    <text x="170" y="486" class="desc" text-anchor="middle">Provider → 配置</text>
     <text x="170" y="500" class="desc" text-anchor="middle">settings 应用 / 预览</text>
 
     <rect x="312" y="434" width="220" height="80" rx="6" fill="#0f172a"/>
@@ -135,7 +135,7 @@
     <text x="1430" y="486" class="desc" text-anchor="middle">notifications</text>
     <text x="1430" y="500" class="desc" text-anchor="middle">托盘 · 灯效 · 通知</text>
   </g>
-  <text x="800" y="568" class="note" text-anchor="middle">公共基础设施：utils.rs（文件读写 / 锁 / 时间 / JSON）· logging.rs · plugins.rs · terminal_focus.rs · macos_notifications.rs</text>
+  <text x="800" y="568" class="note" text-anchor="middle">公共基础设施：utils.rs（文件读写 / 锁 / 时间 / JSON）· logging.rs · plugins.rs · terminal_focus.rs · macos_notifications.rs · widget.rs（用量浮窗）· migration.rs（目录迁移）</text>
 
   <!-- ===== L4 数据源层 ===== -->
   <rect x="40" y="640" width="1520" height="205" rx="12" fill="none" stroke="#a78bfa" stroke-width="1" stroke-dasharray="8,4"/>

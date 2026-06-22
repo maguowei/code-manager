@@ -23,7 +23,7 @@
 
   <!-- 标题 -->
   <text x="40" y="46" class="title">Code Manager · 功能全景（结构图）</text>
-  <text x="40" y="72" class="subtitle">Claude Code 本地配置管理桌面应用 · 9 大功能模块 / ≈ 70 个类型化命令 · 全本地、隐私优先</text>
+  <text x="40" y="72" class="subtitle">Claude Code 本地配置管理桌面应用 · 9 大功能模块 / 约 80 个类型化命令 · 全本地、隐私优先</text>
 
   <!-- 连接线 root → 3 域 -->
   <line x1="800" y1="144" x2="800" y2="163" stroke="#475569" stroke-width="1.5"/>
@@ -58,13 +58,13 @@
   <rect x="40" y="238" width="470" height="172" rx="8" fill="#0f172a"/>
   <rect x="40" y="238" width="470" height="172" rx="8" fill="rgba(8,51,68,0.5)" stroke="#22d3ee" stroke-width="1.5"/>
   <text x="60" y="268" class="cardname">配置管理</text>
-  <text x="490" y="268" class="tag" text-anchor="end">Configs · Profiles / Presets</text>
+  <text x="490" y="268" class="tag" text-anchor="end">Configs · Providers / Profiles</text>
   <line x1="40" y1="280" x2="510" y2="280" stroke="#22d3ee" stroke-width="0.6" stroke-opacity="0.4"/>
   <text x="60" y="304" class="bullet">• Profile 编辑 / 应用 / 复制 / 排序 / 删除</text>
   <text x="60" y="328" class="bullet">• 配置预览 + 模型连通性测试</text>
   <text x="60" y="352" class="bullet">• 状态行预设 · Provider · 模型价格内置</text>
   <text x="60" y="376" class="bullet">• 导入用户 settings · 共享设置同步</text>
-  <text x="60" y="400" class="bullet">• Preset 复用常用选项 / 市场 / 插件</text>
+  <text x="60" y="400" class="bullet">• 配置可复用 · 官方市场 / 插件接入</text>
 
   <!-- C1.2 记忆管理 -->
   <rect x="40" y="430" width="470" height="172" rx="8" fill="#0f172a"/>
@@ -155,12 +155,12 @@
   <rect x="1090" y="622" width="470" height="172" rx="8" fill="#0f172a"/>
   <rect x="1090" y="622" width="470" height="172" rx="8" fill="rgba(120,53,15,0.4)" stroke="#fbbf24" stroke-width="1.5"/>
   <text x="1110" y="652" class="cardname">系统集成与设置</text>
-  <text x="1540" y="652" class="tag" text-anchor="end">Tray · LED · Settings</text>
+  <text x="1540" y="652" class="tag" text-anchor="end">Tray · LED · 浮窗 · Settings</text>
   <line x1="1090" y1="664" x2="1560" y2="664" stroke="#fbbf24" stroke-width="0.6" stroke-opacity="0.4"/>
-  <text x="1110" y="688" class="bullet">• 系统托盘 + 会话红绿状态脉冲</text>
+  <text x="1110" y="688" class="bullet">• 系统托盘 · 会话红绿脉冲 · macOS 通知</text>
   <text x="1110" y="712" class="bullet">• ANTICATER USB LED 灯效</text>
-  <text x="1110" y="736" class="bullet">• 终端会话聚焦 · macOS 通知</text>
-  <text x="1110" y="760" class="bullet">• 官方插件市场接入</text>
+  <text x="1110" y="736" class="bullet">• 桌面用量浮窗（透明置顶 webview）</text>
+  <text x="1110" y="760" class="bullet">• 终端会话聚焦 · 官方插件市场接入</text>
   <text x="1110" y="784" class="bullet">• 应用偏好 · 日志诊断 · 主题 / i18n</text>
 
   <!-- 页脚 -->

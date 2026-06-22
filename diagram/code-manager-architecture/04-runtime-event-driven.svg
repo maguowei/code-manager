@@ -34,52 +34,60 @@
   <rect x="560" y="94" width="480" height="62" rx="8" fill="#0f172a"/>
   <rect x="560" y="94" width="480" height="62" rx="8" fill="rgba(59,130,246,0.32)" stroke="#60a5fa" stroke-width="1.8"/>
   <text x="800" y="122" class="name" text-anchor="middle" font-size="15">应用启动 · lib.rs setup()</text>
-  <text x="800" y="142" class="desc" text-anchor="middle">Tauri Builder · invoke_handler · mount events</text>
+  <text x="800" y="142" class="desc" text-anchor="middle">Tauri Builder · invoke_handler · mount events · 一次性 migrate ai-manager→code-manager 目录</text>
 
-  <!-- fan arrows setup -> 5 tasks -->
-  <path d="M 800 156 L 175 196" fill="none" stroke="#60a5fa" stroke-width="1.4" stroke-opacity="0.6" marker-end="url(#arrow-blue)"/>
-  <path d="M 800 156 L 487 196" fill="none" stroke="#60a5fa" stroke-width="1.4" stroke-opacity="0.6" marker-end="url(#arrow-blue)"/>
-  <path d="M 800 156 L 799 196" fill="none" stroke="#60a5fa" stroke-width="1.4" stroke-opacity="0.6" marker-end="url(#arrow-blue)"/>
-  <path d="M 800 156 L 1111 196" fill="none" stroke="#60a5fa" stroke-width="1.4" stroke-opacity="0.6" marker-end="url(#arrow-blue)"/>
-  <path d="M 800 156 L 1423 196" fill="none" stroke="#60a5fa" stroke-width="1.4" stroke-opacity="0.6" marker-end="url(#arrow-blue)"/>
+  <!-- fan arrows setup -> 6 tasks -->
+  <path d="M 800 156 L 154 196" fill="none" stroke="#60a5fa" stroke-width="1.4" stroke-opacity="0.6" marker-end="url(#arrow-blue)"/>
+  <path d="M 800 156 L 412 196" fill="none" stroke="#60a5fa" stroke-width="1.4" stroke-opacity="0.6" marker-end="url(#arrow-blue)"/>
+  <path d="M 800 156 L 670 196" fill="none" stroke="#60a5fa" stroke-width="1.4" stroke-opacity="0.6" marker-end="url(#arrow-blue)"/>
+  <path d="M 800 156 L 928 196" fill="none" stroke="#60a5fa" stroke-width="1.4" stroke-opacity="0.6" marker-end="url(#arrow-blue)"/>
+  <path d="M 800 156 L 1186 196" fill="none" stroke="#60a5fa" stroke-width="1.4" stroke-opacity="0.6" marker-end="url(#arrow-blue)"/>
+  <path d="M 800 156 L 1444 196" fill="none" stroke="#60a5fa" stroke-width="1.4" stroke-opacity="0.6" marker-end="url(#arrow-blue)"/>
 
-  <!-- 5 runtime tasks -->
-  <rect x="40" y="200" width="270" height="92" rx="6" fill="#0f172a"/>
-  <rect x="40" y="200" width="270" height="92" rx="6" fill="rgba(6,78,59,0.5)" stroke="#34d399" stroke-width="1.5"/>
-  <text x="175" y="230" class="name" text-anchor="middle" font-size="13">claude_directory_watcher</text>
-  <text x="175" y="252" class="desc" text-anchor="middle">~/.claude 文件变更监听</text>
-  <text x="175" y="270" class="desc" text-anchor="middle">start_claude_directory_watcher</text>
+  <!-- 6 runtime tasks -->
+  <rect x="40" y="200" width="228" height="92" rx="6" fill="#0f172a"/>
+  <rect x="40" y="200" width="228" height="92" rx="6" fill="rgba(6,78,59,0.5)" stroke="#34d399" stroke-width="1.5"/>
+  <text x="154" y="230" class="name" text-anchor="middle" font-size="12">directory_watcher</text>
+  <text x="154" y="252" class="desc" text-anchor="middle">~/.claude 文件变更监听</text>
+  <text x="154" y="270" class="desc" text-anchor="middle" font-size="9">start_claude_directory_watcher</text>
 
-  <rect x="352" y="200" width="270" height="92" rx="6" fill="#0f172a"/>
-  <rect x="352" y="200" width="270" height="92" rx="6" fill="rgba(6,78,59,0.5)" stroke="#34d399" stroke-width="1.5"/>
-  <text x="487" y="230" class="name" text-anchor="middle" font-size="13">usage runtime</text>
-  <text x="487" y="252" class="desc" text-anchor="middle">用量 watcher + SQLite 初始化</text>
-  <text x="487" y="270" class="desc" text-anchor="middle">start_usage_runtime</text>
+  <rect x="298" y="200" width="228" height="92" rx="6" fill="#0f172a"/>
+  <rect x="298" y="200" width="228" height="92" rx="6" fill="rgba(6,78,59,0.5)" stroke="#34d399" stroke-width="1.5"/>
+  <text x="412" y="230" class="name" text-anchor="middle" font-size="12">usage runtime</text>
+  <text x="412" y="252" class="desc" text-anchor="middle">用量 watcher + SQLite</text>
+  <text x="412" y="270" class="desc" text-anchor="middle" font-size="9">start_usage_runtime</text>
 
-  <rect x="664" y="200" width="270" height="92" rx="6" fill="#0f172a"/>
-  <rect x="664" y="200" width="270" height="92" rx="6" fill="rgba(120,53,15,0.4)" stroke="#fbbf24" stroke-width="1.5"/>
-  <text x="799" y="230" class="name" text-anchor="middle" font-size="13">tray · 系统托盘</text>
-  <text x="799" y="252" class="desc" text-anchor="middle">setup_tray + start_pulse_task</text>
-  <text x="799" y="270" class="desc" text-anchor="middle">会话红绿状态脉冲</text>
+  <rect x="556" y="200" width="228" height="92" rx="6" fill="#0f172a"/>
+  <rect x="556" y="200" width="228" height="92" rx="6" fill="rgba(8,51,68,0.55)" stroke="#22d3ee" stroke-width="1.5"/>
+  <text x="670" y="230" class="name" text-anchor="middle" font-size="12">用量浮窗 widget</text>
+  <text x="670" y="252" class="desc" text-anchor="middle">透明置顶 webview 窗口</text>
+  <text x="670" y="270" class="desc" text-anchor="middle" font-size="9">sync_widget_visibility</text>
 
-  <rect x="976" y="200" width="270" height="92" rx="6" fill="#0f172a"/>
-  <rect x="976" y="200" width="270" height="92" rx="6" fill="rgba(120,53,15,0.4)" stroke="#fbbf24" stroke-width="1.5"/>
-  <text x="1111" y="230" class="name" text-anchor="middle" font-size="13">led runtime</text>
-  <text x="1111" y="252" class="desc" text-anchor="middle">ANTICATER USB 灯效</text>
-  <text x="1111" y="270" class="desc" text-anchor="middle">start_led_runtime</text>
+  <rect x="814" y="200" width="228" height="92" rx="6" fill="#0f172a"/>
+  <rect x="814" y="200" width="228" height="92" rx="6" fill="rgba(120,53,15,0.4)" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="928" y="230" class="name" text-anchor="middle" font-size="12">tray · 系统托盘</text>
+  <text x="928" y="252" class="desc" text-anchor="middle">setup_tray + pulse</text>
+  <text x="928" y="270" class="desc" text-anchor="middle">会话红绿状态脉冲</text>
 
-  <rect x="1288" y="200" width="270" height="92" rx="6" fill="#0f172a"/>
-  <rect x="1288" y="200" width="270" height="92" rx="6" fill="rgba(120,53,15,0.4)" stroke="#fbbf24" stroke-width="1.5"/>
-  <text x="1423" y="230" class="name" text-anchor="middle" font-size="13">notifications · focus</text>
-  <text x="1423" y="252" class="desc" text-anchor="middle">macOS 通知委托</text>
-  <text x="1423" y="270" class="desc" text-anchor="middle">+ terminal_focus 会话聚焦</text>
+  <rect x="1072" y="200" width="228" height="92" rx="6" fill="#0f172a"/>
+  <rect x="1072" y="200" width="228" height="92" rx="6" fill="rgba(120,53,15,0.4)" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="1186" y="230" class="name" text-anchor="middle" font-size="12">led runtime</text>
+  <text x="1186" y="252" class="desc" text-anchor="middle">ANTICATER USB 灯效</text>
+  <text x="1186" y="270" class="desc" text-anchor="middle" font-size="9">start_led_runtime</text>
+
+  <rect x="1330" y="200" width="228" height="92" rx="6" fill="#0f172a"/>
+  <rect x="1330" y="200" width="228" height="92" rx="6" fill="rgba(120,53,15,0.4)" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="1444" y="230" class="name" text-anchor="middle" font-size="12">notifications · focus</text>
+  <text x="1444" y="252" class="desc" text-anchor="middle">macOS 通知委托</text>
+  <text x="1444" y="270" class="desc" text-anchor="middle" font-size="9">+ terminal_focus 会话聚焦</text>
 
   <!-- arrows tasks -> regions -->
-  <path d="M 175 292 L 250 354" fill="none" stroke="#34d399" stroke-width="1.4" stroke-opacity="0.7" marker-end="url(#arrow)"/>
-  <path d="M 487 292 L 480 354" fill="none" stroke="#34d399" stroke-width="1.4" stroke-opacity="0.7" marker-end="url(#arrow)"/>
-  <path d="M 799 292 L 980 354" fill="none" stroke="#fbbf24" stroke-width="1.4" stroke-opacity="0.7" marker-end="url(#arrow-orange)"/>
-  <path d="M 1111 292 L 1130 354" fill="none" stroke="#fbbf24" stroke-width="1.4" stroke-opacity="0.7" marker-end="url(#arrow-orange)"/>
-  <path d="M 1423 292 L 1280 354" fill="none" stroke="#fbbf24" stroke-width="1.4" stroke-opacity="0.7" marker-end="url(#arrow-orange)"/>
+  <path d="M 154 292 L 240 354" fill="none" stroke="#34d399" stroke-width="1.4" stroke-opacity="0.7" marker-end="url(#arrow)"/>
+  <path d="M 412 292 L 470 354" fill="none" stroke="#34d399" stroke-width="1.4" stroke-opacity="0.7" marker-end="url(#arrow)"/>
+  <path d="M 670 292 L 700 354" fill="none" stroke="#22d3ee" stroke-width="1.4" stroke-opacity="0.7" marker-end="url(#arrow)"/>
+  <path d="M 928 292 L 980 354" fill="none" stroke="#fbbf24" stroke-width="1.4" stroke-opacity="0.7" marker-end="url(#arrow-orange)"/>
+  <path d="M 1186 292 L 1130 354" fill="none" stroke="#fbbf24" stroke-width="1.4" stroke-opacity="0.7" marker-end="url(#arrow-orange)"/>
+  <path d="M 1444 292 L 1280 354" fill="none" stroke="#fbbf24" stroke-width="1.4" stroke-opacity="0.7" marker-end="url(#arrow-orange)"/>
 
   <!-- ===== 左区: 事件驱动回流前端 ===== -->
   <rect x="40" y="358" width="740" height="478" rx="12" fill="none" stroke="#22d3ee" stroke-width="1" stroke-dasharray="8,4"/>
