@@ -7,6 +7,7 @@ import ProfileNameBadge from "./ProfileNameBadge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Switch } from "./ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 interface MemoryItemProps {
   memory: Memory;
@@ -27,12 +28,13 @@ function MemoryItem({
 }: MemoryItemProps) {
   const { t } = useI18n();
 
-  // 截取第一行作为预览
-  const preview = memory.content.split("\n")[0] || "";
   const targetLabel =
     memory.targetType === "rule" ? t("memory.targetType.rule") : t("memory.targetType.claude");
   const targetPath = memory.targetType === "rule" ? memory.rulePath : undefined;
   const colorSeedScope = targetPath ?? targetLabel;
+  // meta 行展示：路径模式数量、内容行数
+  const pathPatterns = memory.targetType === "rule" ? (memory.pathPatterns ?? []) : [];
+  const lineCount = memory.content ? memory.content.split("\n").length : 0;
 
   function handleActionClick(e: MouseEvent<HTMLElement>, action: () => void) {
     e.stopPropagation();
@@ -90,14 +92,29 @@ function MemoryItem({
               </span>
             ) : null}
           </div>
-          {memory.targetType === "rule" && memory.pathPatterns?.length ? (
-            <p className="memory-path-patterns m-0 text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]">
-              {t("memory.pathPatternsShort")}: {memory.pathPatterns.join(", ")}
-            </p>
-          ) : null}
-          <p className="memory-preview m-0 line-clamp-2 text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]">
-            {preview}
-          </p>
+          <div className="memory-meta flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            {pathPatterns.length > 0 ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="memory-meta-paths inline-flex h-[20px] shrink-0 cursor-default items-center rounded-md bg-muted px-1.5 leading-none font-medium">
+                    {t("memory.pathPatternsShort")} · {pathPatterns.length}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[320px] [overflow-wrap:anywhere]">
+                  <ul className="m-0 flex flex-col gap-0.5 p-0">
+                    {pathPatterns.map((pattern) => (
+                      <li key={pattern} className="font-mono">
+                        {pattern}
+                      </li>
+                    ))}
+                  </ul>
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
+            <span className="memory-meta-lines shrink-0">
+              {t("memory.contentLines").replace("{count}", String(lineCount))}
+            </span>
+          </div>
         </div>
 
         <div className="memory-header-actions flex shrink-0 flex-wrap items-center justify-end gap-1.5 pt-0.5 group-[.compressed]/list:col-span-full group-[.compressed]/list:w-full group-[.compressed]/list:justify-start group-[.compressed]/list:pt-0">

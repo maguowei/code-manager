@@ -126,6 +126,7 @@ const translations = {
     "memory.pathPatternsHint":
       "可选。保存为 rule 文件 frontmatter 的 paths，用于按项目文件路径匹配加载。",
     "memory.pathPatternsShort": "paths",
+    "memory.contentLines": "{count} 行",
     "memory.advancedRules": "高级规则",
     "memory.content": "内容",
     "memory.contentPlaceholder": "输入 Markdown 内容...",
@@ -1705,6 +1706,7 @@ const translations = {
     "memory.pathPatternsHint":
       "Optional. Saved as paths frontmatter in the rule file to match project file paths.",
     "memory.pathPatternsShort": "paths",
+    "memory.contentLines": "{count} lines",
     "memory.advancedRules": "Advanced Rules",
     "memory.content": "Content",
     "memory.contentPlaceholder": "Enter Markdown content...",

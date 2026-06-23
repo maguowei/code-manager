@@ -4,6 +4,7 @@ import { I18nProvider } from "../../i18n";
 import type { MemoryDirectoryImportResult, MemoryState } from "../../types";
 import MemoryPage from "../MemoryPage";
 import { ThemeProvider } from "../theme-provider";
+import { TooltipProvider } from "../ui/tooltip";
 
 type ClaudeDirectoryTestPayload = { paths: string[] };
 
@@ -93,7 +94,9 @@ function renderMemoryPage() {
   render(
     <I18nProvider>
       <ThemeProvider>
-        <MemoryPage />
+        <TooltipProvider>
+          <MemoryPage />
+        </TooltipProvider>
       </ThemeProvider>
     </I18nProvider>,
   );
@@ -277,7 +280,7 @@ describe("MemoryPage", () => {
 
     renderMemoryPage();
 
-    expect(await screen.findByText("手写主记忆")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "导入管理" })).toBeInTheDocument();
     expect(screen.queryByText("Karpathy 行为指南")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "导入为 CLAUDE.md" })).not.toBeInTheDocument();
   });
@@ -753,7 +756,7 @@ describe("MemoryPage", () => {
 
     emitTauriEvent("claude-directory-changed", { paths: ["CLAUDE.md"] });
 
-    expect(await screen.findByText("外部全局记忆")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "导入管理" })).toBeInTheDocument();
     expect(invokeMock.mock.calls.filter(([command]) => command === "get_memories")).toHaveLength(2);
   });
 
@@ -965,7 +968,7 @@ describe("MemoryPage", () => {
 
     renderMemoryPage();
 
-    const card = await findMemoryCard("手写全局记忆");
+    const card = await findMemoryCard("CLAUDE.md");
 
     expect(within(card).getByText("未导入")).toBeInTheDocument();
     fireEvent.click(within(card).getByRole("button", { name: "导入管理" }));

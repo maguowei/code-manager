@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import type { Memory } from "../../types";
 import MemoryItem from "../MemoryItem";
+import { TooltipProvider } from "../ui/tooltip";
 
 const baseMemory: Memory = {
   id: "memory-1",
@@ -21,14 +22,16 @@ function renderMemoryItem(memory: Memory = baseMemory) {
   const onDelete = vi.fn();
   const view = render(
     <I18nProvider>
-      <MemoryItem
-        memory={memory}
-        isEditing={false}
-        onToggle={onToggle}
-        onEdit={onEdit}
-        onDuplicate={onDuplicate}
-        onDelete={onDelete}
-      />
+      <TooltipProvider>
+        <MemoryItem
+          memory={memory}
+          isEditing={false}
+          onToggle={onToggle}
+          onEdit={onEdit}
+          onDuplicate={onDuplicate}
+          onDelete={onDelete}
+        />
+      </TooltipProvider>
     </I18nProvider>,
   );
 
@@ -52,15 +55,13 @@ describe("MemoryItem", () => {
     setSystemLanguages(["zh-CN"]);
   });
 
-  it("renders preview text together with the target metadata", () => {
+  it("renders the target metadata", () => {
     renderMemoryItem();
 
     const card = screen.getByRole("button", { name: /强制约束规范/ });
-    const preview = screen.getByText("## 核心原则");
     const metadata = screen.getByText("CLAUDE.md");
 
     expect(card).toContainElement(metadata);
-    expect(card).toContainElement(preview);
   });
 
   it("opens the memory editor from the keyboard", () => {

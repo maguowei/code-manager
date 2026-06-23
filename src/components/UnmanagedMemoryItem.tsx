@@ -2,10 +2,12 @@ import { memo } from "react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../i18n";
 import type { UnmanagedMemory } from "../types";
+import { formatMemorySize } from "./memory-card-utils";
 import ProfileNameBadge from "./ProfileNameBadge";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 interface UnmanagedMemoryItemProps {
   memory: UnmanagedMemory;
@@ -14,7 +16,6 @@ interface UnmanagedMemoryItemProps {
 
 function UnmanagedMemoryItem({ memory, onImport }: UnmanagedMemoryItemProps) {
   const { t } = useI18n();
-  const preview = memory.content.split("\n")[0] || "";
   const targetLabel =
     memory.targetType === "rule" ? t("memory.targetType.rule") : t("memory.targetType.claude");
   const canImport = memory.importStatus === "ready";
@@ -55,14 +56,27 @@ function UnmanagedMemoryItem({ memory, onImport }: UnmanagedMemoryItemProps) {
               {memory.sourcePath}
             </span>
           </div>
-          {memory.pathPatterns.length > 0 ? (
-            <p className="memory-path-patterns m-0 text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]">
-              {t("memory.pathPatternsShort")}: {memory.pathPatterns.join(", ")}
-            </p>
-          ) : null}
-          <p className="memory-preview m-0 line-clamp-2 text-xs leading-normal text-muted-foreground [overflow-wrap:anywhere]">
-            {preview}
-          </p>
+          <div className="memory-meta flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            {memory.pathPatterns.length > 0 ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="memory-meta-paths inline-flex h-[20px] shrink-0 cursor-default items-center rounded-md bg-muted px-1.5 leading-none font-medium">
+                    {t("memory.pathPatternsShort")} · {memory.pathPatterns.length}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[320px] [overflow-wrap:anywhere]">
+                  <ul className="m-0 flex flex-col gap-0.5 p-0">
+                    {memory.pathPatterns.map((pattern) => (
+                      <li key={pattern} className="font-mono">
+                        {pattern}
+                      </li>
+                    ))}
+                  </ul>
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
+            <span className="memory-meta-size shrink-0">{formatMemorySize(memory.size)}</span>
+          </div>
         </div>
 
         <div className="memory-header-actions flex shrink-0 flex-wrap items-center justify-end gap-1.5 pt-0.5 group-[.compressed]/list:col-span-full group-[.compressed]/list:w-full group-[.compressed]/list:justify-start group-[.compressed]/list:pt-0">
