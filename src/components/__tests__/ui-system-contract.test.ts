@@ -339,21 +339,16 @@ describe("ui system contract", () => {
     expect(overviewSource).toContain("claude-overview-header flex min-h-12 shrink-0 flex-wrap");
     expect(overviewSource).toContain("supports-[backdrop-filter]:bg-secondary/90");
     expect(overviewSource).not.toContain("bg-card/95 px-4 py-2 shadow-toolbar");
+    expect(overviewSource).toContain("claude-overview-body min-h-0 w-full flex-1 bg-secondary p-3");
+    expect(overviewSource).toContain("ResizablePanelGroup");
     expect(overviewSource).toContain(
-      "claude-overview-body grid min-h-0 w-full flex-1 bg-secondary p-3",
+      "claude-overview-preview-pane flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border",
     );
     expect(overviewSource).toContain(
-      "grid-cols-[minmax(0,var(--claude-overview-preview-width))_8px_minmax(0,var(--claude-overview-tree-width))]",
-    );
-    expect(overviewSource).toContain(
-      "claude-overview-preview-pane flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border",
-    );
-    expect(overviewSource).toContain(
-      "claude-overview-tree-pane flex min-h-0 min-w-0 w-full overflow-hidden",
+      "claude-overview-tree-pane flex min-h-0 min-w-0 w-full flex-1 overflow-hidden",
     );
     expect(overviewSource).toContain("claude-overview-tree-ready h-full min-h-0 w-full flex-1");
     expect(overviewSource).toContain("PANEL_SURFACE_CLASS");
-    expect(overviewSource).toContain("TREE_PANE_RATIO_STORAGE_KEY");
     expect(overviewSource).toContain('"--trees-font-size-override": "0.8125rem"');
     expect(overviewSource).toContain('"--diffs-light-bg": "var(--card)"');
     expect(overviewSource).not.toContain(

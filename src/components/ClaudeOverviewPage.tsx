@@ -4,8 +4,6 @@ import { ExternalLink } from "lucide-react";
 import {
   type CSSProperties,
   type FormEvent,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type PointerEvent as ReactPointerEvent,
   startTransition,
   useCallback,
   useDeferredValue,
@@ -15,6 +13,7 @@ import {
   useState,
 } from "react";
 import { showOperationError } from "@/lib/user-facing-error";
+import { useIsNarrowViewport } from "../hooks/useIsNarrowViewport";
 import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
 import { type Language, type TranslationKey, useI18n } from "../i18n";
@@ -48,6 +47,12 @@ import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Input } from "./ui/input";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+  useDefaultLayout,
+} from "./ui/resizable";
 
 interface LoadOverviewOptions {
   preserveCurrent?: boolean;
@@ -65,14 +70,16 @@ const EMPTY_OVERVIEW_STATE: ClaudeDirectoryOverview = {
   skippedNodeModulesCount: 0,
 };
 
-const DEFAULT_TREE_PANE_RATIO = 0.28;
 // 刷新按钮"刷新中..."状态的最小展示时长,避免本地 IPC 极快返回时按钮抖动看不清反馈
 const MIN_REFRESH_FEEDBACK_MS = 500;
-const MIN_TREE_PANE_RATIO = 0.2;
-const MAX_TREE_PANE_RATIO = 0.52;
-const TREE_PANE_RATIO_STEP = 0.02;
-const RESIZER_WIDTH = 8;
-const TREE_PANE_RATIO_STORAGE_KEY = "code-manager:claude-overview-tree-pane-ratio";
+// 目录树面板默认占 28%,可在 20%~52% 间拖拽调整;布局比例持久化到 localStorage。
+// react-resizable-panels v4 把数字 size 当像素,必须用百分比字符串
+const TREE_PANE_DEFAULT_SIZE = "28%";
+const TREE_PANE_MIN_SIZE = "20%";
+const TREE_PANE_MAX_SIZE = "52%";
+const PREVIEW_PANE_DEFAULT_SIZE = "72%";
+const PREVIEW_PANE_MIN_SIZE = "48%";
+const OVERVIEW_PANES_LAYOUT_ID = "code-manager:claude-overview-panes";
 const CONTEXT_MENU_WIDTH = 176;
 const CONTEXT_MENU_ESTIMATED_HEIGHT = 152;
 const CONTEXT_MENU_EDGE_GAP = 8;
@@ -98,21 +105,6 @@ interface ClaudeOverviewDeleteState {
 }
 
 let cachedClaudeOverviewState: ClaudeDirectoryOverview | null = null;
-
-type ClaudeOverviewBodyStyle = CSSProperties & {
-  "--claude-overview-preview-width": string;
-  "--claude-overview-tree-width": string;
-};
-
-type ClaudeResizePreviewOverlayStyle = CSSProperties & {
-  "--claude-overview-resize-preview-width": string;
-  "--claude-overview-resize-tree-width": string;
-  pointerEvents: "none";
-};
-
-function clampTreePaneRatio(ratio: number) {
-  return Math.min(MAX_TREE_PANE_RATIO, Math.max(MIN_TREE_PANE_RATIO, ratio));
-}
 
 function clampNumber(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -146,87 +138,6 @@ function contextMenuStyleForAnchor(
     top: clampNumber(anchorRect.top, CONTEXT_MENU_EDGE_GAP, maxTop),
     width: CONTEXT_MENU_WIDTH,
   };
-}
-
-function readInitialTreePaneRatio() {
-  if (typeof localStorage === "undefined") {
-    return DEFAULT_TREE_PANE_RATIO;
-  }
-
-  const storedValue = localStorage.getItem(TREE_PANE_RATIO_STORAGE_KEY);
-  if (storedValue === null) {
-    return DEFAULT_TREE_PANE_RATIO;
-  }
-
-  const storedRatio = Number(storedValue);
-  return Number.isFinite(storedRatio) ? clampTreePaneRatio(storedRatio) : DEFAULT_TREE_PANE_RATIO;
-}
-
-function saveTreePaneRatio(ratio: number) {
-  if (typeof localStorage === "undefined") {
-    return;
-  }
-
-  try {
-    localStorage.setItem(TREE_PANE_RATIO_STORAGE_KEY, String(clampTreePaneRatio(ratio)));
-  } catch {
-    // 本地布局偏好写入失败不影响目录浏览。
-  }
-}
-
-function getPaneWidthsForRatio(bodyWidth: number, treePaneRatio: number) {
-  const availableWidth = Math.max(0, bodyWidth - RESIZER_WIDTH);
-  const treeWidth = Math.round(availableWidth * clampTreePaneRatio(treePaneRatio));
-  return {
-    previewWidth: Math.max(0, availableWidth - treeWidth),
-    treeWidth,
-  };
-}
-
-function writeOverviewPaneWidthVars(
-  overviewBody: HTMLElement | null,
-  bodyWidth: number,
-  treePaneRatio: number,
-) {
-  if (!overviewBody || bodyWidth <= 0) {
-    return;
-  }
-
-  const { previewWidth, treeWidth } = getPaneWidthsForRatio(bodyWidth, treePaneRatio);
-  overviewBody.style.setProperty("--claude-overview-preview-width", `${previewWidth}px`);
-  overviewBody.style.setProperty("--claude-overview-tree-width", `${treeWidth}px`);
-}
-
-function writeOverviewResizePreviewVars(
-  resizePreviewOverlay: HTMLElement | null,
-  bodyWidth: number,
-  treePaneRatio: number,
-) {
-  if (!resizePreviewOverlay || bodyWidth <= 0) {
-    return;
-  }
-
-  const { previewWidth, treeWidth } = getPaneWidthsForRatio(bodyWidth, treePaneRatio);
-  resizePreviewOverlay.style.setProperty(
-    "--claude-overview-resize-preview-width",
-    `${previewWidth}px`,
-  );
-  resizePreviewOverlay.style.setProperty("--claude-overview-resize-tree-width", `${treeWidth}px`);
-}
-
-function setResizeDragChromeVisibility(
-  resizePreviewOverlay: HTMLElement | null,
-  resizeShield: HTMLElement | null,
-  visible: boolean,
-) {
-  if (resizePreviewOverlay) {
-    resizePreviewOverlay.style.opacity = visible ? "1" : "0";
-    resizePreviewOverlay.style.pointerEvents = visible ? "auto" : "none";
-  }
-  if (resizeShield) {
-    resizeShield.style.opacity = visible ? "1" : "0";
-    resizeShield.style.pointerEvents = visible ? "auto" : "none";
-  }
 }
 
 function getParentPath(path: string) {
@@ -433,30 +344,23 @@ function ClaudeOverviewPage() {
   // 刷新按钮专用显示态,与 loadingOverview 解耦,带最小持续时间,避免 IPC 极快返回时按钮抖动
   const [isRefreshButtonBusy, setIsRefreshButtonBusy] = useState(false);
   const [loadingPreviewPath, setLoadingPreviewPath] = useState<string | null>(null);
-  const [treePaneRatio, setTreePaneRatio] = useState(readInitialTreePaneRatio);
-  const [overviewBodyWidth, setOverviewBodyWidth] = useState(0);
   // Markdown 文件默认进入渲染预览，其它文件维持源码视图；切换 tab/打开新文件时按文件类型重置
   const [viewMode, setViewMode] = useState<PreviewViewMode>("source");
   const [nameDialog, setNameDialog] = useState<ClaudeOverviewNameDialogState | null>(null);
   const [pendingDeleteEntry, setPendingDeleteEntry] = useState<ClaudeOverviewDeleteState | null>(
     null,
   );
+  // 拖拽状态：拖拽期间冻结预览内容宽度避免持续重排；由分隔条 pointerdown 启动、onLayoutChanged（拖拽结束）解冻
+  const [isResizing, setIsResizing] = useState(false);
   const latestOverviewRequestIdRef = useRef(0);
   const latestPreviewRequestPathRef = useRef<string | null>(null);
   const activePreviewPathRef = useRef<string | null>(null);
-  const overviewBodyRef = useRef<HTMLDivElement | null>(null);
-  const resizePreviewOverlayRef = useRef<HTMLDivElement | null>(null);
-  const resizeShieldRef = useRef<HTMLDivElement | null>(null);
-  const latestTreePaneRatioRef = useRef(treePaneRatio);
-  const latestOverviewBodyWidthRef = useRef(overviewBodyWidth);
   const openPreviewsRef = useRef<ClaudeFilePreview[]>([]);
-  const resizeFrameRef = useRef<number | null>(null);
-  const resizeStateRef = useRef<{
-    availableWidth: number;
-    startRatio: number;
-    startX: number;
-  } | null>(null);
   const refreshBusyTimerRef = useRef<number | null>(null);
+
+  // 概览面板布局：横向（左右）/ 纵向（上下）随视口宽度切换，比例持久化到 localStorage
+  const isNarrow = useIsNarrowViewport(900);
+  const { defaultLayout, onLayoutChanged } = useDefaultLayout({ id: OVERVIEW_PANES_LAYOUT_ID });
 
   const entryByPath = useMemo(() => {
     const map = new Map<string, ClaudeDirectoryEntry>();
@@ -471,33 +375,6 @@ function ClaudeOverviewPage() {
   const treePaths = useMemo(
     () => deferredOverviewEntries.map(treePathForEntry),
     [deferredOverviewEntries],
-  );
-  const paneWidths = useMemo(
-    () => getPaneWidthsForRatio(overviewBodyWidth, treePaneRatio),
-    [overviewBodyWidth, treePaneRatio],
-  );
-  const overviewBodyStyle = useMemo<ClaudeOverviewBodyStyle>(
-    () =>
-      overviewBodyWidth > 0
-        ? {
-            "--claude-overview-preview-width": `${paneWidths.previewWidth}px`,
-            "--claude-overview-tree-width": `${paneWidths.treeWidth}px`,
-          }
-        : {
-            "--claude-overview-preview-width": `calc((100% - ${RESIZER_WIDTH}px) * ${
-              1 - treePaneRatio
-            })`,
-            "--claude-overview-tree-width": `calc((100% - ${RESIZER_WIDTH}px) * ${treePaneRatio})`,
-          },
-    [overviewBodyWidth, paneWidths.previewWidth, paneWidths.treeWidth, treePaneRatio],
-  );
-  const resizePreviewOverlayStyle = useMemo<ClaudeResizePreviewOverlayStyle>(
-    () => ({
-      "--claude-overview-resize-preview-width": `${paneWidths.previewWidth}px`,
-      "--claude-overview-resize-tree-width": `${paneWidths.treeWidth}px`,
-      pointerEvents: "none",
-    }),
-    [paneWidths.previewWidth, paneWidths.treeWidth],
   );
   const activePreview = useMemo(
     () => openPreviews.find((preview) => preview.path === activePreviewPath) ?? null,
@@ -519,81 +396,13 @@ function ClaudeOverviewPage() {
     activePreviewPathRef.current = activePreviewPath;
   }, [activePreviewPath]);
 
-  useEffect(() => {
-    latestTreePaneRatioRef.current = treePaneRatio;
-  }, [treePaneRatio]);
-
-  useEffect(() => {
-    latestOverviewBodyWidthRef.current = overviewBodyWidth;
-  }, [overviewBodyWidth]);
-
-  useEffect(() => {
-    const overviewBody = overviewBodyRef.current;
-    if (!overviewBody) {
-      return;
-    }
-
-    const updateBodyWidth = () => {
-      setOverviewBodyWidth(Math.max(0, overviewBody.getBoundingClientRect().width));
-    };
-
-    updateBodyWidth();
-    if (typeof ResizeObserver === "undefined") {
-      return;
-    }
-
-    const observer = new ResizeObserver((entries) => {
-      const [entry] = entries;
-      setOverviewBodyWidth(Math.max(0, entry?.contentRect.width ?? 0));
-    });
-    observer.observe(overviewBody);
-    return () => observer.disconnect();
-  }, []);
-
-  const setResizeDragChromeVisible = useCallback((visible: boolean) => {
-    setResizeDragChromeVisibility(
-      resizePreviewOverlayRef.current,
-      resizeShieldRef.current,
-      visible,
-    );
-  }, []);
-
   useEffect(
     () => () => {
       latestOverviewRequestIdRef.current += 1;
-      if (resizeFrameRef.current !== null) {
-        window.cancelAnimationFrame(resizeFrameRef.current);
-      }
       if (refreshBusyTimerRef.current !== null) {
         window.clearTimeout(refreshBusyTimerRef.current);
         refreshBusyTimerRef.current = null;
       }
-      setResizeDragChromeVisibility(
-        resizePreviewOverlayRef.current,
-        resizeShieldRef.current,
-        false,
-      );
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-    },
-    [],
-  );
-
-  const applyTreePaneRatio = useCallback(
-    (nextRatio: number, options: { commit?: boolean } = {}) => {
-      const clampedRatio = clampTreePaneRatio(nextRatio);
-      latestTreePaneRatioRef.current = clampedRatio;
-      writeOverviewPaneWidthVars(
-        overviewBodyRef.current,
-        latestOverviewBodyWidthRef.current,
-        clampedRatio,
-      );
-
-      if (options.commit === false) {
-        return;
-      }
-
-      setTreePaneRatio(clampedRatio);
     },
     [],
   );
@@ -992,118 +801,6 @@ function ClaudeOverviewPage() {
     }
   }, [claudeDirectoryDocsUrl, showToast, t]);
 
-  const handleResizePointerDown = useCallback(
-    (event: ReactPointerEvent<HTMLElement>) => {
-      if (event.button !== 0) {
-        return;
-      }
-
-      event.preventDefault();
-      const resizeHandle = event.currentTarget;
-      resizeHandle.setPointerCapture(event.pointerId);
-      const availableWidth = Math.max(1, latestOverviewBodyWidthRef.current - RESIZER_WIDTH);
-      resizeStateRef.current = {
-        availableWidth,
-        startRatio: latestTreePaneRatioRef.current,
-        startX: event.clientX,
-      };
-      writeOverviewResizePreviewVars(
-        resizePreviewOverlayRef.current,
-        latestOverviewBodyWidthRef.current,
-        latestTreePaneRatioRef.current,
-      );
-      setResizeDragChromeVisible(true);
-      document.body.style.cursor = "col-resize";
-      document.body.style.userSelect = "none";
-
-      const calculatePointerRatio = (clientX: number) => {
-        const resizeState = resizeStateRef.current;
-        if (!resizeState) {
-          return null;
-        }
-        return clampTreePaneRatio(
-          resizeState.startRatio - (clientX - resizeState.startX) / resizeState.availableWidth,
-        );
-      };
-
-      const applyResizeGuideRatio = (clientX: number) => {
-        const nextRatio = calculatePointerRatio(clientX);
-        if (nextRatio === null) {
-          return;
-        }
-        latestTreePaneRatioRef.current = nextRatio;
-        writeOverviewResizePreviewVars(
-          resizePreviewOverlayRef.current,
-          latestOverviewBodyWidthRef.current,
-          nextRatio,
-        );
-      };
-
-      const handlePointerMove = (moveEvent: PointerEvent) => {
-        if (resizeFrameRef.current !== null) {
-          window.cancelAnimationFrame(resizeFrameRef.current);
-        }
-        resizeFrameRef.current = window.requestAnimationFrame(() => {
-          resizeFrameRef.current = null;
-          applyResizeGuideRatio(moveEvent.clientX);
-        });
-      };
-
-      const finishResize = (endEvent: PointerEvent) => {
-        if (resizeFrameRef.current !== null) {
-          window.cancelAnimationFrame(resizeFrameRef.current);
-          resizeFrameRef.current = null;
-        }
-        applyResizeGuideRatio(endEvent.clientX);
-        const finalRatio = latestTreePaneRatioRef.current;
-        applyTreePaneRatio(finalRatio, { commit: false });
-        setTreePaneRatio(finalRatio);
-        resizeStateRef.current = null;
-        saveTreePaneRatio(finalRatio);
-        if (resizeHandle.hasPointerCapture(endEvent.pointerId)) {
-          resizeHandle.releasePointerCapture(endEvent.pointerId);
-        }
-        setResizeDragChromeVisible(false);
-        document.body.style.cursor = "";
-        document.body.style.userSelect = "";
-        window.removeEventListener("pointermove", handlePointerMove);
-        window.removeEventListener("pointerup", finishResize);
-        window.removeEventListener("pointercancel", finishResize);
-      };
-
-      window.addEventListener("pointermove", handlePointerMove);
-      window.addEventListener("pointerup", finishResize, { once: true });
-      window.addEventListener("pointercancel", finishResize, { once: true });
-    },
-    [applyTreePaneRatio, setResizeDragChromeVisible],
-  );
-
-  const handleResizeKeyDown = useCallback(
-    (event: ReactKeyboardEvent<HTMLElement>) => {
-      const currentRatio = latestTreePaneRatioRef.current;
-      let nextRatio: number | null = null;
-
-      if (event.key === "ArrowLeft") {
-        nextRatio = currentRatio + TREE_PANE_RATIO_STEP;
-      } else if (event.key === "ArrowRight") {
-        nextRatio = currentRatio - TREE_PANE_RATIO_STEP;
-      } else if (event.key === "Home") {
-        nextRatio = MIN_TREE_PANE_RATIO;
-      } else if (event.key === "End") {
-        nextRatio = MAX_TREE_PANE_RATIO;
-      }
-
-      if (nextRatio === null) {
-        return;
-      }
-
-      event.preventDefault();
-      applyTreePaneRatio(nextRatio);
-      saveTreePaneRatio(nextRatio);
-    },
-    [applyTreePaneRatio],
-  );
-
   const handleRefreshClick = useCallback(() => {
     if (refreshBusyTimerRef.current !== null) {
       window.clearTimeout(refreshBusyTimerRef.current);
@@ -1124,6 +821,22 @@ function ClaudeOverviewPage() {
       }, remaining);
     });
   }, [loadOverview]);
+
+  // 拖拽起始（pointerdown）立即冻结预览内容宽度：v4 的 onResize 由 ResizeObserver 异步回调驱动，
+  // 滞后于真正改变宽度的 flexGrow 写入约 2~3 帧，等它触发冻结会漏掉起步帧导致大文件 reflow 卡顿。
+  // 库的拖拽靠 document capture 监听，不占用 separator 的合成 onPointerDown，可安全共存。
+  const handleResizeStart = useCallback(() => {
+    setIsResizing(true);
+  }, []);
+
+  // 拖拽结束（pointerup 后库触发 onLayoutChanged）：持久化布局并解冻预览宽度，松手后重排一次到最终尺寸
+  const handleLayoutChanged = useCallback(
+    (layout: Parameters<typeof onLayoutChanged>[0]) => {
+      onLayoutChanged(layout);
+      setIsResizing(false);
+    },
+    [onLayoutChanged],
+  );
 
   // 首帧未 paint 骨架屏前,或没有任何已知数据且仍在加载时,展示骨架屏;一旦树有数据,刷新走 resetPaths 平滑替换
   const showTreeLoading =
@@ -1218,105 +931,103 @@ function ClaudeOverviewPage() {
         </div>
       </header>
 
-      <div
-        ref={overviewBodyRef}
-        className="claude-overview-body grid min-h-0 w-full flex-1 bg-secondary p-3 relative grid-cols-[minmax(0,var(--claude-overview-preview-width))_8px_minmax(0,var(--claude-overview-tree-width))] max-[900px]:grid-cols-1 max-[900px]:grid-rows-[minmax(220px,42%)_minmax(0,1fr)] max-[900px]:gap-3"
-        style={overviewBodyStyle}
-      >
-        <section
-          className={cn(
-            "claude-overview-preview-pane flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border",
-            PANEL_SURFACE_CLASS,
-          )}
-          aria-label={t("claudeOverview.preview")}
+      <div className="claude-overview-body min-h-0 w-full flex-1 bg-secondary p-3">
+        <ResizablePanelGroup
+          orientation={isNarrow ? "vertical" : "horizontal"}
+          defaultLayout={defaultLayout}
+          onLayoutChanged={handleLayoutChanged}
         >
-          <ClaudeFilePreviewPane
-            openPreviews={openPreviews}
-            activePreview={activePreview}
-            activePreviewPath={activePreviewPath}
-            activeEntry={activeEntry}
-            selectedEntry={selectedEntry}
-            loadingPreviewPath={loadingPreviewPath}
-            viewMode={viewMode}
-            previewThemeType={previewThemeType}
-            t={t}
-            onSelectPreviewTab={handleSelectPreviewTab}
-            onClosePreview={handleClosePreview}
-            onToggleViewMode={() =>
-              setViewMode((current) => (current === "preview" ? "source" : "preview"))
-            }
-            onCopyPath={handleCopyPath}
-            onOpenFileBrowser={handleOpenInFileBrowser}
-            onOpenEditor={handleOpenInEditor}
-          />
-        </section>
-
-        <div
-          className="claude-overview-resizer relative min-w-2 cursor-col-resize border-0 bg-transparent outline-none after:absolute after:top-0 after:bottom-0 after:left-[3px] after:w-px after:bg-border hover:after:left-0.5 hover:after:w-[3px] hover:after:rounded-full hover:after:bg-primary focus-visible:after:left-0.5 focus-visible:after:w-[3px] focus-visible:after:rounded-full focus-visible:after:bg-primary max-[900px]:hidden"
-          role="separator"
-          aria-label={t("claudeOverview.resizePanes")}
-          aria-orientation="vertical"
-          aria-valuemin={Math.round(MIN_TREE_PANE_RATIO * 100)}
-          aria-valuemax={Math.round(MAX_TREE_PANE_RATIO * 100)}
-          aria-valuenow={Math.round(treePaneRatio * 100)}
-          tabIndex={0}
-          onKeyDown={handleResizeKeyDown}
-          onPointerDown={handleResizePointerDown}
-        />
-
-        <section
-          className="claude-overview-tree-pane flex min-h-0 min-w-0 w-full overflow-hidden"
-          aria-label={t("claudeOverview.tree")}
-        >
-          {showTreeLoading ? (
-            <div
+          <ResizablePanel
+            id="preview"
+            defaultSize={PREVIEW_PANE_DEFAULT_SIZE}
+            minSize={PREVIEW_PANE_MIN_SIZE}
+            className="flex min-h-0 min-w-0 flex-col"
+          >
+            <section
               className={cn(
-                "claude-overview-tree-loading-panel h-full min-h-0 w-full flex-1 overflow-hidden rounded-lg border",
+                "claude-overview-preview-pane flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border",
+                "[contain:layout_style]",
                 PANEL_SURFACE_CLASS,
               )}
+              aria-label={t("claudeOverview.preview")}
             >
-              <ClaudeOverviewTreeLoading label={treeLoadingLabel} />
-            </div>
-          ) : treePaths.length > 0 ? (
-            <div
-              className={cn(
-                "claude-overview-tree-ready h-full min-h-0 w-full flex-1 overflow-hidden rounded-lg border",
-                PANEL_SURFACE_CLASS,
-              )}
-            >
-              <ClaudeDirectoryTree
-                paths={treePaths}
-                onSelectPath={handleSelectPath}
-                renderContextMenu={renderTreeContextMenu}
+              <ClaudeFilePreviewPane
+                openPreviews={openPreviews}
+                activePreview={activePreview}
+                activePreviewPath={activePreviewPath}
+                activeEntry={activeEntry}
+                selectedEntry={selectedEntry}
+                loadingPreviewPath={loadingPreviewPath}
+                viewMode={viewMode}
+                previewThemeType={previewThemeType}
+                isResizing={isResizing}
+                t={t}
+                onSelectPreviewTab={handleSelectPreviewTab}
+                onClosePreview={handleClosePreview}
+                onToggleViewMode={() =>
+                  setViewMode((current) => (current === "preview" ? "source" : "preview"))
+                }
+                onCopyPath={handleCopyPath}
+                onOpenFileBrowser={handleOpenInFileBrowser}
+                onOpenEditor={handleOpenInEditor}
               />
-            </div>
-          ) : (
-            <div
+            </section>
+          </ResizablePanel>
+
+          <ResizableHandle
+            aria-label={t("claudeOverview.resizePanes")}
+            onPointerDown={handleResizeStart}
+          />
+
+          <ResizablePanel
+            id="tree"
+            defaultSize={TREE_PANE_DEFAULT_SIZE}
+            minSize={TREE_PANE_MIN_SIZE}
+            maxSize={TREE_PANE_MAX_SIZE}
+            className="flex min-h-0 min-w-0 flex-col"
+          >
+            <section
               className={cn(
-                "claude-overview-empty flex min-h-[180px] w-full flex-1 items-center justify-center rounded-lg border p-5 text-center leading-relaxed text-muted-foreground",
-                PANEL_SURFACE_CLASS,
+                "claude-overview-tree-pane flex min-h-0 min-w-0 w-full flex-1 overflow-hidden",
+                "[contain:content]",
               )}
+              aria-label={t("claudeOverview.tree")}
             >
-              {t("claudeOverview.empty")}
-            </div>
-          )}
-        </section>
-        <div
-          ref={resizeShieldRef}
-          className="claude-overview-resize-shield pointer-events-none absolute inset-3 z-10 cursor-col-resize opacity-0 max-[900px]:hidden"
-          style={{ pointerEvents: "none" }}
-          aria-hidden="true"
-        />
-        <div
-          ref={resizePreviewOverlayRef}
-          className="claude-overview-resize-preview-overlay pointer-events-none absolute inset-3 z-20 grid grid-cols-[minmax(0,var(--claude-overview-resize-preview-width))_8px_minmax(0,var(--claude-overview-resize-tree-width))] opacity-0 max-[900px]:hidden"
-          style={resizePreviewOverlayStyle}
-          aria-hidden="true"
-        >
-          <div className="claude-overview-resize-preview-pane min-h-0 rounded-lg border border-primary/50 bg-card/90 shadow-toolbar ring-1 ring-primary/20" />
-          <div className="claude-overview-resize-preview-divider mx-auto h-full w-[3px] rounded-full bg-primary shadow-toolbar" />
-          <div className="claude-overview-resize-tree-preview-pane min-h-0 rounded-lg border border-primary/50 bg-card/90 shadow-toolbar ring-1 ring-primary/20" />
-        </div>
+              {showTreeLoading ? (
+                <div
+                  className={cn(
+                    "claude-overview-tree-loading-panel h-full min-h-0 w-full flex-1 overflow-hidden rounded-lg border",
+                    PANEL_SURFACE_CLASS,
+                  )}
+                >
+                  <ClaudeOverviewTreeLoading label={treeLoadingLabel} />
+                </div>
+              ) : treePaths.length > 0 ? (
+                <div
+                  className={cn(
+                    "claude-overview-tree-ready h-full min-h-0 w-full flex-1 overflow-hidden rounded-lg border",
+                    PANEL_SURFACE_CLASS,
+                  )}
+                >
+                  <ClaudeDirectoryTree
+                    paths={treePaths}
+                    onSelectPath={handleSelectPath}
+                    renderContextMenu={renderTreeContextMenu}
+                  />
+                </div>
+              ) : (
+                <div
+                  className={cn(
+                    "claude-overview-empty flex min-h-[180px] w-full flex-1 items-center justify-center rounded-lg border p-5 text-center leading-relaxed text-muted-foreground",
+                    PANEL_SURFACE_CLASS,
+                  )}
+                >
+                  {t("claudeOverview.empty")}
+                </div>
+              )}
+            </section>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </div>
       {nameDialog ? (
         <ClaudeOverviewNameDialog

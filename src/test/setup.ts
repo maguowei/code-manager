@@ -12,6 +12,20 @@ globalThis.ResizeObserver ??= class ResizeObserver {
   disconnect() {}
 };
 
+// jsdom 不实现 matchMedia，react-resizable-panels（isCoarsePointer）与 useIsNarrowViewport 依赖它
+globalThis.matchMedia ??= ((query: string) => ({
+  matches: false,
+  media: query,
+  onchange: null,
+  addEventListener() {},
+  removeEventListener() {},
+  addListener() {},
+  removeListener() {},
+  dispatchEvent() {
+    return false;
+  },
+})) as typeof globalThis.matchMedia;
+
 // jsdom 默认 navigator.language 为 "en-US"，会让 i18n 默认走 en；
 // 而项目大量历史测试在 a7f3e2a 之前依赖默认 zh 行为。统一覆盖为 zh-CN，
 // 让"未显式设语言"的测试与历史一致；显式 setItem 切换语言的测试不受影响。

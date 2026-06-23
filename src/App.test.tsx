@@ -920,8 +920,14 @@ describe("App", () => {
     expect(treeOptions).not.toHaveProperty("onSearchChange");
     const treePane = screen.getByLabelText("目录树");
     const previewPane = screen.getByLabelText("文件预览");
-    expect(previewPane.parentElement?.children[0]).toBe(previewPane);
-    expect(previewPane.parentElement?.children[2]).toBe(treePane);
+    const resizer = screen.getByRole("separator", { name: "调整目录树宽度" });
+    // 顺序：预览面板 → 分隔条 → 目录树
+    expect(previewPane.compareDocumentPosition(resizer) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(resizer.compareDocumentPosition(treePane) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
     expect(invokeMock).toHaveBeenCalledWith("get_claude_directory_overview");
     expect(invokeMock).not.toHaveBeenCalledWith("get_claude_directory_children", {
       path: null,
@@ -929,14 +935,6 @@ describe("App", () => {
     expect(screen.getByText("已加载 6 个条目")).toBeInTheDocument();
     expect(screen.getByText("已跳过 2 个 node_modules 目录")).toBeInTheDocument();
     expect(screen.queryByText("已达到 100000 个条目上限")).not.toBeInTheDocument();
-    const resizer = screen.getByRole("separator", { name: "调整目录树宽度" });
-    expect(resizer.parentElement).toHaveStyle({
-      "--claude-overview-tree-width": "calc((100% - 8px) * 0.28)",
-    });
-    fireEvent.keyDown(resizer, { key: "ArrowLeft" });
-    expect(resizer.parentElement).toHaveStyle({
-      "--claude-overview-tree-width": "calc((100% - 8px) * 0.30000000000000004)",
-    });
     fireEvent.click(screen.getByRole("button", { name: "scripts" }));
     expect(screen.getByText("选择目录中的文件查看内容")).toBeInTheDocument();
     expect(invokeMock).not.toHaveBeenCalledWith("get_claude_directory_children", {

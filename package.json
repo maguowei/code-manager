@@ -65,6 +65,7 @@
     "react-dom": "^19.2.6",
     "react-hook-form": "^7.76.0",
     "react-markdown": "^10.1.0",
+    "react-resizable-panels": "^4.11.2",
     "react-syntax-highlighter": "^16.1.1",
     "recharts": "3.8.1",
     "remark-gfm": "^4.0.1",
@@ -90,7 +91,7 @@
     "jsdom": "^29.1.1",
     "lefthook": "^2.1.8",
     "typescript": "~6.0.3",
-    "vite": "^8.0.14",
+    "vite": "^8.1.0",
     "vitest": "^4.1.7"
   }
 }

@@ -136,7 +136,7 @@ export function ClaudeDirectoryTree({
           },
         }
       : undefined,
-    overscan: 8,
+    overscan: 16,
     onSelectionChange: (selectedPaths) => {
       const selectedPath = selectedPaths[selectedPaths.length - 1];
       if (selectedPath) {

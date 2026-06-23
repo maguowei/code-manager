@@ -35,49 +35,51 @@ describe("ClaudeOverviewPage styles", () => {
     );
   });
 
-  it("places the preview and tree around a resizable separator", () => {
+  it("places the preview and tree around a shadcn resizable separator", () => {
     const source = readText("src/components/ClaudeOverviewPage.tsx");
 
-    expect(source).toContain(
-      "grid-cols-[minmax(0,var(--claude-overview-preview-width))_8px_minmax(0,var(--claude-overview-tree-width))]",
-    );
-    expect(source).toContain("TREE_PANE_RATIO_STORAGE_KEY");
-    expect(source).toContain("DEFAULT_TREE_PANE_RATIO = 0.28");
-    expect(source).toContain("MIN_TREE_PANE_RATIO = 0.2");
-    expect(source).toContain("MAX_TREE_PANE_RATIO = 0.52");
-    expect(source).toContain("TREE_PANE_RATIO_STEP = 0.02");
-    expect(source).toContain("clampTreePaneRatio");
-    expect(source).toContain("ResizeObserver");
-    expect(source).toContain("overviewBodyRef");
-    expect(source).toContain("--claude-overview-preview-width");
-    expect(source).toContain("writeOverviewPaneWidthVars");
-    expect(source).toContain('style.setProperty("--claude-overview-preview-width"');
-    expect(source).toContain("resizePreviewOverlayRef");
-    expect(source).toContain("resizeShieldRef");
-    expect(source).toContain("writeOverviewResizePreviewVars");
-    expect(source).toContain('"--claude-overview-resize-preview-width"');
-    expect(source).toContain('"--claude-overview-resize-tree-width"');
-    expect(source).toContain("resizePreviewOverlay.style.setProperty");
-    expect(source).toContain("setResizeDragChromeVisible(true)");
-    expect(source).toContain("setPointerCapture");
-    expect(source).toContain("applyResizeGuideRatio(moveEvent.clientX)");
-    expect(source).toContain("applyTreePaneRatio(finalRatio, { commit: false })");
-    expect(source).toContain("setTreePaneRatio(finalRatio)");
-    expect(source).toContain("claude-overview-resizer relative min-w-2 cursor-col-resize");
-    expect(source).toContain("claude-overview-resize-shield pointer-events-none absolute");
-    expect(source).toContain("claude-overview-resize-preview-overlay pointer-events-none absolute");
-    expect(source).toContain(
-      "grid-cols-[minmax(0,var(--claude-overview-resize-preview-width))_8px_minmax(0,var(--claude-overview-resize-tree-width))]",
-    );
-    expect(source).toContain("claude-overview-resize-preview-pane");
-    expect(source).toContain("claude-overview-resize-tree-preview-pane");
-    expect(source).toContain("claude-overview-resize-preview-divider");
-    expect(source).toContain("max-[900px]:hidden");
-    expect(source).not.toContain("--claude-overview-resize-guide-x");
-    expect(source).not.toContain("resizeGuide.style.transform");
-    expect(source).not.toContain("claude-overview-resize-guide");
-    expect(source).not.toContain("isResizingPanes");
-    expect(source).not.toContain("applyTreePaneWidth");
+    // 使用 shadcn Resizable（react-resizable-panels）替换自定义分隔条
+    expect(source).toContain("ResizablePanelGroup");
+    expect(source).toContain("ResizablePanel");
+    expect(source).toContain("ResizableHandle");
+    expect(source).toContain("useDefaultLayout");
+    // 布局方向随视口宽度切换：宽屏左右、窄屏上下堆叠
+    expect(source).toContain('orientation={isNarrow ? "vertical" : "horizontal"}');
+    expect(source).toContain("useIsNarrowViewport(900)");
+    // 比例边界：树默认 28%、20%~52%，预览默认 72%、最小 48%
+    // v4 数字 size 会被当像素，必须用百分比字符串
+    expect(source).toContain('TREE_PANE_DEFAULT_SIZE = "28%"');
+    expect(source).toContain('TREE_PANE_MIN_SIZE = "20%"');
+    expect(source).toContain('TREE_PANE_MAX_SIZE = "52%"');
+    expect(source).toContain('PREVIEW_PANE_DEFAULT_SIZE = "72%"');
+    expect(source).toContain('PREVIEW_PANE_MIN_SIZE = "48%"');
+    expect(source).toContain("defaultSize={TREE_PANE_DEFAULT_SIZE}");
+    expect(source).toContain("defaultSize={PREVIEW_PANE_DEFAULT_SIZE}");
+    // 布局持久化走 useDefaultLayout + handleLayoutChanged（合并持久化与拖拽状态清理），不再使用旧的 CSS 变量方案
+    expect(source).toContain("defaultLayout={defaultLayout}");
+    expect(source).toContain("onLayoutChanged={handleLayoutChanged}");
+    expect(source).toContain('OVERVIEW_PANES_LAYOUT_ID = "code-manager:claude-overview-panes"');
+    expect(source).toContain('aria-label={t("claudeOverview.resizePanes")}');
+    // 拖拽性能优化：pointerdown 立即标记 isResizing 冻结预览宽度，避免 v4 onResize(ResizeObserver 回调) 滞后漏帧
+    expect(source).toContain("onPointerDown={handleResizeStart}");
+    expect(source).toContain("isResizing");
+    expect(source).not.toContain("onResize={handleTreeResize}");
+    expect(source).not.toContain("resizeTimeoutRef");
+
+    // 旧的自定义拖拽实现已完全移除
+    expect(source).not.toContain("--claude-overview-preview-width");
+    expect(source).not.toContain("--claude-overview-tree-width");
+    expect(source).not.toContain("TREE_PANE_RATIO_STORAGE_KEY");
+    expect(source).not.toContain("clampTreePaneRatio");
+    expect(source).not.toContain("getPaneWidthsForRatio");
+    expect(source).not.toContain("writeOverviewPaneWidthVars");
+    expect(source).not.toContain("resizePreviewOverlayRef");
+    expect(source).not.toContain("resizeShieldRef");
+    expect(source).not.toContain("handleResizePointerDown");
+    expect(source).not.toContain("handleResizeKeyDown");
+    expect(source).not.toContain("claude-overview-resizer");
+    expect(source).not.toContain("claude-overview-resize-shield");
+    expect(source).not.toContain("claude-overview-resize-preview-overlay");
   });
 
   it("keeps the overview chrome compact", () => {
@@ -156,22 +158,22 @@ describe("ClaudeOverviewPage styles", () => {
     const source = readOverviewSources();
 
     expect(source).toContain("claude-overview-page relative flex h-full w-full");
-    expect(source).toContain("claude-overview-body grid min-h-0 w-full flex-1 bg-secondary p-3");
+    expect(source).toContain("claude-overview-body min-h-0 w-full flex-1 bg-secondary p-3");
     expect(source).toContain(
-      "claude-overview-preview-pane flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border",
+      "claude-overview-preview-pane flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border",
     );
     expect(source).toContain("claude-overview-file-tree h-full w-full bg-card text-foreground");
     expect(source).toContain(
-      "claude-overview-tree-pane flex min-h-0 min-w-0 w-full overflow-hidden",
+      "claude-overview-tree-pane flex min-h-0 min-w-0 w-full flex-1 overflow-hidden",
     );
+    // 性能优化：CSS contain 隔离布局重算
+    expect(source).toContain("[contain:layout_style]");
+    expect(source).toContain("[contain:content]");
     expect(source).toContain(
       "claude-overview-tree-ready h-full min-h-0 w-full flex-1 overflow-hidden rounded-lg border",
     );
     expect(source).toContain(
       "claude-overview-tree-loading-panel h-full min-h-0 w-full flex-1 overflow-hidden rounded-lg border",
-    );
-    expect(source).toContain(
-      "claude-overview-resizer relative min-w-2 cursor-col-resize border-0 bg-transparent",
     );
     expect(source).toContain("PANEL_SURFACE_CLASS");
     expect(source).not.toContain(
