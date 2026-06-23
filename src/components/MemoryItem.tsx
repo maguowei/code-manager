@@ -3,6 +3,7 @@ import { type KeyboardEvent, type MouseEvent, memo } from "react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../i18n";
 import type { Memory } from "../types";
+import { countMemoryDocumentLines } from "./memory-card-utils";
 import ProfileNameBadge from "./ProfileNameBadge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -34,7 +35,7 @@ function MemoryItem({
   const colorSeedScope = targetPath ?? targetLabel;
   // meta 行展示：路径模式数量、内容行数
   const pathPatterns = memory.targetType === "rule" ? (memory.pathPatterns ?? []) : [];
-  const lineCount = memory.content ? memory.content.split("\n").length : 0;
+  const lineCount = countMemoryDocumentLines(memory.name, memory.content);
 
   function handleActionClick(e: MouseEvent<HTMLElement>, action: () => void) {
     e.stopPropagation();
