@@ -125,7 +125,7 @@ const translations = {
     "memory.pathPatternsPlaceholder": "例如：src/**/*.tsx（每行一个 glob）",
     "memory.pathPatternsHint":
       "可选。保存为 rule 文件 frontmatter 的 paths，用于按项目文件路径匹配加载。",
-    "memory.pathPatternsShort": "paths",
+    "memory.pathPatternsCount": "{count} 路径",
     "memory.contentLines": "{count} 行",
     "memory.advancedRules": "高级规则",
     "memory.content": "内容",
@@ -1705,7 +1705,7 @@ const translations = {
     "memory.pathPatternsPlaceholder": "e.g. src/**/*.tsx (one glob per line)",
     "memory.pathPatternsHint":
       "Optional. Saved as paths frontmatter in the rule file to match project file paths.",
-    "memory.pathPatternsShort": "paths",
+    "memory.pathPatternsCount": "{count} paths",
     "memory.contentLines": "{count} lines",
     "memory.advancedRules": "Advanced Rules",
     "memory.content": "Content",

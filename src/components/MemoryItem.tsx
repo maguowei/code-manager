@@ -1,4 +1,4 @@
-import { Copy, Trash2 } from "lucide-react";
+import { AlignLeft, Copy, FolderTree, Trash2 } from "lucide-react";
 import { type KeyboardEvent, type MouseEvent, memo } from "react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../i18n";
@@ -63,7 +63,7 @@ function MemoryItem({
       onClick={onEdit}
       onKeyDown={handleCardKeyDown}
     >
-      <div className="memory-header flex items-start justify-between gap-3 group-[.compressed]/list:grid group-[.compressed]/list:grid-cols-[auto_minmax(0,1fr)] group-[.compressed]/list:justify-stretch">
+      <div className="memory-header flex gap-3">
         <ProfileNameBadge
           name={memory.name}
           colorSeedScope={colorSeedScope}
@@ -72,9 +72,52 @@ function MemoryItem({
         />
 
         <div className="memory-info flex min-w-0 flex-1 flex-col gap-1.5 pt-px">
-          <h3 className="memory-name truncate text-base leading-snug font-semibold text-foreground">
-            {memory.name}
-          </h3>
+          <div className="memory-title-row flex items-start justify-between gap-3 group-[.compressed]/list:flex-col group-[.compressed]/list:gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <h3 className="memory-name truncate text-base leading-snug font-semibold text-foreground">
+                  {memory.name}
+                </h3>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[320px] [overflow-wrap:anywhere]">
+                {memory.name}
+              </TooltipContent>
+            </Tooltip>
+
+            <div className="memory-header-actions flex shrink-0 flex-wrap items-center justify-end gap-1.5 group-[.compressed]/list:w-full group-[.compressed]/list:justify-start">
+              {isEditing && (
+                <span className="memory-status editing inline-flex items-center gap-1 rounded-md bg-chart-3/10 px-2.5 py-1.5 text-xs font-semibold text-chart-3">
+                  {t("memory.editing")}
+                </span>
+              )}
+              <div
+                className="memory-toggle-control inline-flex cursor-pointer select-none items-center gap-2 rounded-full border border-transparent bg-transparent px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-border/80 hover:bg-card/80 hover:text-foreground focus-within:border-border/80 focus-within:bg-card/80"
+                data-slot="switch-hit-area"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggle();
+                }}
+              >
+                <Switch
+                  size="sm"
+                  checked={memory.isActive}
+                  onCheckedChange={onToggle}
+                  onClick={(event) => event.stopPropagation()}
+                  aria-label={memory.isActive ? t("memory.enabled") : t("memory.activate")}
+                  className="memory-toggle-switch data-[state=checked]:bg-chart-2"
+                />
+                <span
+                  className={cn(
+                    "toggle-label whitespace-nowrap",
+                    memory.isActive && "text-chart-2",
+                  )}
+                >
+                  {memory.isActive ? t("memory.enabled") : t("memory.activate")}
+                </span>
+              </div>
+            </div>
+          </div>
+
           <div className="memory-target-row flex min-w-0 items-center gap-2 leading-none">
             <span
               className={cn(
@@ -87,17 +130,26 @@ function MemoryItem({
               {targetLabel}
             </span>
             {targetPath ? (
-              <span className="memory-target-path min-w-0 flex-1 truncate text-xs leading-[22px] text-muted-foreground">
-                {targetPath}
-              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="memory-target-path min-w-0 flex-1 truncate text-xs leading-[22px] text-muted-foreground">
+                    {targetPath}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[420px] [overflow-wrap:anywhere]">
+                  {targetPath}
+                </TooltipContent>
+              </Tooltip>
             ) : null}
           </div>
-          <div className="memory-meta flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+
+          <div className="memory-meta flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             {pathPatterns.length > 0 ? (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="memory-meta-paths inline-flex h-[20px] shrink-0 cursor-default items-center rounded-md bg-muted px-1.5 leading-none font-medium">
-                    {t("memory.pathPatternsShort")} · {pathPatterns.length}
+                  <span className="memory-meta-paths inline-flex shrink-0 cursor-default items-center gap-1">
+                    <FolderTree className="size-3.5" aria-hidden="true" />
+                    {t("memory.pathPatternsCount").replace("{count}", String(pathPatterns.length))}
                   </span>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-[320px] [overflow-wrap:anywhere]">
@@ -111,38 +163,9 @@ function MemoryItem({
                 </TooltipContent>
               </Tooltip>
             ) : null}
-            <span className="memory-meta-lines shrink-0">
+            <span className="memory-meta-lines inline-flex shrink-0 items-center gap-1">
+              <AlignLeft className="size-3.5" aria-hidden="true" />
               {t("memory.contentLines").replace("{count}", String(lineCount))}
-            </span>
-          </div>
-        </div>
-
-        <div className="memory-header-actions flex shrink-0 flex-wrap items-center justify-end gap-1.5 pt-0.5 group-[.compressed]/list:col-span-full group-[.compressed]/list:w-full group-[.compressed]/list:justify-start group-[.compressed]/list:pt-0">
-          {isEditing && (
-            <span className="memory-status editing inline-flex items-center gap-1 rounded-md bg-chart-3/10 px-2.5 py-1.5 text-xs font-semibold text-chart-3">
-              {t("memory.editing")}
-            </span>
-          )}
-          <div
-            className="memory-toggle-control inline-flex cursor-pointer select-none items-center gap-2 rounded-full border border-transparent bg-transparent px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-border/80 hover:bg-card/80 hover:text-foreground focus-within:border-border/80 focus-within:bg-card/80"
-            data-slot="switch-hit-area"
-            onClick={(event) => {
-              event.stopPropagation();
-              onToggle();
-            }}
-          >
-            <Switch
-              size="sm"
-              checked={memory.isActive}
-              onCheckedChange={onToggle}
-              onClick={(event) => event.stopPropagation()}
-              aria-label={memory.isActive ? t("memory.enabled") : t("memory.activate")}
-              className="memory-toggle-switch data-[state=checked]:bg-chart-2"
-            />
-            <span
-              className={cn("toggle-label whitespace-nowrap", memory.isActive && "text-chart-2")}
-            >
-              {memory.isActive ? t("memory.enabled") : t("memory.activate")}
             </span>
           </div>
         </div>

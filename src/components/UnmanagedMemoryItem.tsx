@@ -1,3 +1,4 @@
+import { FolderTree, HardDrive } from "lucide-react";
 import { memo } from "react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../i18n";
@@ -29,7 +30,7 @@ function UnmanagedMemoryItem({ memory, onImport }: UnmanagedMemoryItemProps) {
       className="memory-item memory-item-unmanaged relative flex cursor-default flex-col gap-4 rounded-lg border border-dashed border-border bg-card p-4 text-foreground shadow-panel transition-[transform,border-color,box-shadow,background-color,opacity] duration-300 hover:-translate-y-px hover:border-chart-3 hover:bg-accent/40"
       data-slot="memory-item"
     >
-      <div className="memory-header flex items-start justify-between gap-3 group-[.compressed]/list:grid group-[.compressed]/list:grid-cols-[auto_minmax(0,1fr)] group-[.compressed]/list:justify-stretch">
+      <div className="memory-header flex gap-3">
         <ProfileNameBadge
           name={memory.name}
           colorSeedScope={`unmanaged:${memory.sourcePath}`}
@@ -38,9 +39,36 @@ function UnmanagedMemoryItem({ memory, onImport }: UnmanagedMemoryItemProps) {
         />
 
         <div className="memory-info flex min-w-0 flex-1 flex-col gap-1.5 pt-px">
-          <h3 className="memory-name truncate text-base leading-snug font-semibold text-foreground">
-            {memory.name}
-          </h3>
+          <div className="memory-title-row flex items-start justify-between gap-3 group-[.compressed]/list:flex-col group-[.compressed]/list:gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <h3 className="memory-name truncate text-base leading-snug font-semibold text-foreground">
+                  {memory.name}
+                </h3>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[320px] [overflow-wrap:anywhere]">
+                {memory.name}
+              </TooltipContent>
+            </Tooltip>
+
+            <div className="memory-header-actions flex shrink-0 flex-wrap items-center justify-end gap-1.5 group-[.compressed]/list:w-full group-[.compressed]/list:justify-start">
+              <Badge className="memory-status unmanaged rounded-md bg-chart-3/10 px-2.5 py-1.5 text-xs font-semibold text-chart-3">
+                {t("memory.unmanaged")}
+              </Badge>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="memory-import-btn border-chart-3 bg-chart-3/10 text-chart-3 hover:bg-chart-3/20 hover:text-chart-3"
+                disabled={!canImport}
+                title={canImport ? t("memory.import") : disabledImportHint}
+                onClick={onImport}
+              >
+                {t("memory.import")}
+              </Button>
+            </div>
+          </div>
+
           <div className="memory-target-row flex min-w-0 items-center gap-2 leading-none">
             <Badge
               className={cn(
@@ -52,16 +80,28 @@ function UnmanagedMemoryItem({ memory, onImport }: UnmanagedMemoryItemProps) {
             >
               {targetLabel}
             </Badge>
-            <span className="memory-target-path min-w-0 flex-1 truncate text-xs leading-[22px] text-muted-foreground">
-              {memory.sourcePath}
-            </span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="memory-target-path min-w-0 flex-1 truncate text-xs leading-[22px] text-muted-foreground">
+                  {memory.sourcePath}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[420px] [overflow-wrap:anywhere]">
+                {memory.sourcePath}
+              </TooltipContent>
+            </Tooltip>
           </div>
-          <div className="memory-meta flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+
+          <div className="memory-meta flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             {memory.pathPatterns.length > 0 ? (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="memory-meta-paths inline-flex h-[20px] shrink-0 cursor-default items-center rounded-md bg-muted px-1.5 leading-none font-medium">
-                    {t("memory.pathPatternsShort")} · {memory.pathPatterns.length}
+                  <span className="memory-meta-paths inline-flex shrink-0 cursor-default items-center gap-1">
+                    <FolderTree className="size-3.5" aria-hidden="true" />
+                    {t("memory.pathPatternsCount").replace(
+                      "{count}",
+                      String(memory.pathPatterns.length),
+                    )}
                   </span>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-[320px] [overflow-wrap:anywhere]">
@@ -75,25 +115,11 @@ function UnmanagedMemoryItem({ memory, onImport }: UnmanagedMemoryItemProps) {
                 </TooltipContent>
               </Tooltip>
             ) : null}
-            <span className="memory-meta-size shrink-0">{formatMemorySize(memory.size)}</span>
+            <span className="memory-meta-size inline-flex shrink-0 items-center gap-1">
+              <HardDrive className="size-3.5" aria-hidden="true" />
+              {formatMemorySize(memory.size)}
+            </span>
           </div>
-        </div>
-
-        <div className="memory-header-actions flex shrink-0 flex-wrap items-center justify-end gap-1.5 pt-0.5 group-[.compressed]/list:col-span-full group-[.compressed]/list:w-full group-[.compressed]/list:justify-start group-[.compressed]/list:pt-0">
-          <Badge className="memory-status unmanaged rounded-md bg-chart-3/10 px-2.5 py-1.5 text-xs font-semibold text-chart-3">
-            {t("memory.unmanaged")}
-          </Badge>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="memory-import-btn border-chart-3 bg-chart-3/10 text-chart-3 hover:bg-chart-3/20 hover:text-chart-3"
-            disabled={!canImport}
-            title={canImport ? t("memory.import") : disabledImportHint}
-            onClick={onImport}
-          >
-            {t("memory.import")}
-          </Button>
         </div>
       </div>
 
