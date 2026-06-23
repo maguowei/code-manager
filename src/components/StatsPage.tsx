@@ -207,7 +207,7 @@ function StatsPage() {
       />
 
       <div className="stats-scroll min-h-0 flex-1 overflow-y-auto bg-secondary p-5">
-        <div className="stats-overview mb-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="stats-overview mb-5 grid grid-cols-1 gap-3 min-[601px]:grid-cols-2 min-[901px]:grid-cols-3">
           <StatCard
             label={t("stats.startups")}
             value={stats.numStartups}
@@ -363,8 +363,8 @@ function StatCard({
   valueClassName?: string;
 }) {
   return (
-    <Card className="stat-card rounded-lg py-5">
-      <CardContent className="flex flex-col gap-2 px-5">
+    <Card className="stat-card rounded-lg py-3">
+      <CardContent className="flex flex-col gap-1 px-4">
         <span className="stat-card-label text-sm font-medium text-muted-foreground">{label}</span>
         <span className={cn("stat-card-value", TYPOGRAPHY.metricValue, valueClassName)}>
           {value}
