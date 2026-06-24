@@ -2,6 +2,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::path::Path;
+use std::process::Command;
 
 /// 单条提交的结构化信息（body 在 v1 不采集，subject 已足够表达意图）。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -559,6 +560,190 @@ fn gather_day_changesets(date: &str) -> Result<Vec<ProjectChangeset>, String> {
     }
     result.sort_by(|a, b| a.short_name.cmp(&b.short_name));
     Ok(result)
+}
+
+/// 调用本机 claude CLI headless 生成总结。
+fn run_claude_summary(prompt: &str) -> Result<String, String> {
+    let mut command = Command::new("claude");
+    command.args(["-p", prompt, "--output-format", "json"]);
+    crate::utils::hide_command_window(&mut command);
+    let output = command.output().map_err(|e| {
+        if e.kind() == std::io::ErrorKind::NotFound {
+            "未找到 claude CLI，请确认 Claude Code 已安装并在 PATH 中".to_string()
+        } else {
+            format!("执行 claude 失败: {e}")
+        }
+    })?;
+    if output.status.success() {
+        Ok(parse_claude_json_output(&String::from_utf8_lossy(
+            &output.stdout,
+        )))
+    } else {
+        let detail = crate::utils::merge_process_output(&output.stdout, &output.stderr);
+        Err(if detail.is_empty() {
+            format!("claude 执行失败，退出码: {:?}", output.status.code())
+        } else {
+            format!("claude 执行失败: {detail}")
+        })
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn check_claude_cli() -> Result<ClaudeCliStatus, String> {
+    let mut command = Command::new("claude");
+    command.arg("--version");
+    crate::utils::hide_command_window(&mut command);
+    match command.output() {
+        Ok(output) if output.status.success() => Ok(ClaudeCliStatus {
+            available: true,
+            version: Some(String::from_utf8_lossy(&output.stdout).trim().to_string()),
+        }),
+        _ => Ok(ClaudeCliStatus {
+            available: false,
+            version: None,
+        }),
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn scan_day_changes(date: String) -> Result<Vec<ProjectChangeset>, String> {
+    validate_summary_key(&date)?;
+    gather_day_changesets(&date)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn summarize_day(date: String, language: String) -> Result<SummaryDocument, String> {
+    validate_summary_key(&date)?;
+    let changesets = gather_day_changesets(&date)?;
+    if changesets.is_empty() {
+        return Err("没有检测到该日的变更项目".to_string());
+    }
+
+    let mut sections: Vec<(ProjectChangeset, String)> = Vec::new();
+    for cs in changesets {
+        let body = if let Some(err) = &cs.scan_error {
+            format!("> 扫描失败：{err}")
+        } else {
+            match run_claude_summary(&build_project_prompt(&cs, &language)) {
+                Ok(text) => text,
+                Err(err) => format!("> 总结失败：{err}"),
+            }
+        };
+        sections.push((cs, body));
+    }
+
+    let generated_at = crate::utils::current_rfc3339_timestamp();
+    let content = assemble_daily_markdown(&date, &generated_at, &sections);
+    let path = daily_path(&date);
+    crate::utils::ensure_dir_and_write_atomic(&path, &content)?;
+
+    let result = SummaryDocument {
+        kind: "daily".into(),
+        key: date.clone(),
+        path: path.to_string_lossy().to_string(),
+        content,
+    };
+    crate::logging::log_command_result("work_summary.summarize_day", &Ok::<(), String>(()), |_| {
+        format!("date={date} projects={}", sections.len())
+    });
+    Ok(result)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn generate_weekly_summary(date: String, language: String) -> Result<SummaryDocument, String> {
+    validate_summary_key(&date)?;
+    let week_key = iso_week_key(&date)?;
+    let dates = week_dates(&date)?;
+
+    let mut materials: Vec<String> = Vec::new();
+    for day in &dates {
+        let p = daily_path(day);
+        if p.exists() {
+            if let Ok(text) = std::fs::read_to_string(&p) {
+                materials.push(format!("## {day} 日总结\n{text}"));
+                continue;
+            }
+        }
+        // 缺日总结 → 补扫当天 git
+        let changesets = gather_day_changesets(day).unwrap_or_default();
+        if changesets.is_empty() {
+            continue;
+        }
+        let mut brief = format!("## {day} 补扫\n");
+        for cs in &changesets {
+            brief.push_str(&build_changeset_brief(cs));
+        }
+        materials.push(brief);
+    }
+
+    if materials.is_empty() {
+        return Err("本周没有可用的工作素材".to_string());
+    }
+
+    let text = run_claude_summary(&build_weekly_prompt(&week_key, &materials, &language))?;
+    let generated_at = crate::utils::current_rfc3339_timestamp();
+    let content = assemble_weekly_markdown(&week_key, &generated_at, &text);
+    let path = weekly_path(&week_key);
+    crate::utils::ensure_dir_and_write_atomic(&path, &content)?;
+
+    Ok(SummaryDocument {
+        kind: "weekly".into(),
+        key: week_key,
+        path: path.to_string_lossy().to_string(),
+        content,
+    })
+}
+
+fn list_dir_keys(dir: &std::path::Path, kind: &str) -> Vec<SummaryListItem> {
+    let mut items: Vec<SummaryListItem> = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) == Some("md") {
+                if let Some(key) = path.file_stem().and_then(|s| s.to_str()) {
+                    items.push(SummaryListItem {
+                        kind: kind.to_string(),
+                        key: key.to_string(),
+                        path: path.to_string_lossy().to_string(),
+                    });
+                }
+            }
+        }
+    }
+    // 倒序：新日期在前
+    items.sort_by(|a, b| b.key.cmp(&a.key));
+    items
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn list_summaries() -> Result<Vec<SummaryListItem>, String> {
+    let mut items = list_dir_keys(&summaries_dir().join("daily"), "daily");
+    items.extend(list_dir_keys(&summaries_dir().join("weekly"), "weekly"));
+    Ok(items)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn read_summary(kind: String, key: String) -> Result<SummaryDocument, String> {
+    validate_summary_key(&key)?;
+    let path = match kind.as_str() {
+        "daily" => daily_path(&key),
+        "weekly" => weekly_path(&key),
+        _ => return Err(format!("未知的总结类型: {kind}")),
+    };
+    let content =
+        std::fs::read_to_string(&path).map_err(|e| format!("读取总结失败 {:?}: {e}", path))?;
+    Ok(SummaryDocument {
+        kind,
+        key,
+        path: path.to_string_lossy().to_string(),
+        content,
+    })
 }
 
 #[cfg(test)]
