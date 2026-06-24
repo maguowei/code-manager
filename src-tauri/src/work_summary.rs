@@ -1,5 +1,6 @@
 //! 工作总结：扫描昨日有变更的 git 项目，调用本机 claude CLI 生成分项目总结并落盘。
 use serde::{Deserialize, Serialize};
+use serde_json;
 
 /// 单条提交的结构化信息（body 在 v1 不采集，subject 已足够表达意图）。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -294,6 +295,79 @@ fn parse_commits(log_output: &str) -> Vec<ProjectCommit> {
     commits
 }
 
+fn language_label(language: &str) -> &str {
+    if language == "en" {
+        "English"
+    } else {
+        "中文"
+    }
+}
+
+/// 单个项目的总结 prompt。conventional 项目不传 diff（仅 commit 列表）；
+/// 未提交素材始终附带（已在采集阶段截断）。
+fn build_project_prompt(cs: &ProjectChangeset, language: &str) -> String {
+    let mut p = String::new();
+    p.push_str(&format!(
+        "你是工作总结助手。请用{}为项目「{}」写一段简洁的工作总结，说明做了什么、为什么。直接输出 Markdown 段落正文，不要加标题。\n\n",
+        language_label(language),
+        cs.short_name
+    ));
+    if let Some(branch) = &cs.branch {
+        p.push_str(&format!("分支: {branch}\n"));
+    }
+    if !cs.commits.is_empty() {
+        p.push_str("\n## 已提交\n");
+        for c in &cs.commits {
+            p.push_str(&format!(
+                "- {} (+{} -{}, {} 文件)\n",
+                c.subject, c.insertions, c.deletions, c.files_changed
+            ));
+        }
+    }
+    if cs.has_uncommitted {
+        p.push_str("\n## 未提交变更（请在总结中明确标注存在未提交变更）\n");
+        p.push_str("```diff\n");
+        p.push_str(&cs.uncommitted_material);
+        p.push_str("\n```\n");
+    }
+    p
+}
+
+/// 周总结里某天缺日总结时的紧凑素材
+fn build_changeset_brief(cs: &ProjectChangeset) -> String {
+    let mut b = format!("### {}\n", cs.short_name);
+    for c in &cs.commits {
+        b.push_str(&format!("- {}\n", c.subject));
+    }
+    if cs.has_uncommitted {
+        b.push_str("- ⚠️ 有未提交变更\n");
+    }
+    b
+}
+
+fn build_weekly_prompt(week_key: &str, materials: &[String], language: &str) -> String {
+    let mut p = format!(
+        "你是工作总结助手。下面是本周（{}）每天的工作素材（已有日总结或当天提交清单）。请用{}汇总成一份分项目、有重点的周总结，直接输出 Markdown 正文。\n\n",
+        week_key,
+        language_label(language)
+    );
+    for m in materials {
+        p.push_str(m);
+        p.push_str("\n\n");
+    }
+    p
+}
+
+/// 解析 `claude -p --output-format json` 输出，取 `.result`；非 JSON 时回退原文
+fn parse_claude_json_output(stdout: &str) -> String {
+    if let Ok(value) = serde_json::from_str::<serde_json::Value>(stdout) {
+        if let Some(result) = value.get("result").and_then(|v| v.as_str()) {
+            return result.trim().to_string();
+        }
+    }
+    stdout.trim().to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -431,5 +505,42 @@ mod tests {
         assert!(!material.contains("should-not-appear.txt"));
         // 验证整个未跟踪清单标题也不出现
         assert!(!material.contains("未跟踪文件"));
+    }
+
+    #[test]
+    fn build_project_prompt_marks_uncommitted_and_language() {
+        let cs = ProjectChangeset {
+            project: "/x/proj".into(),
+            short_name: "proj".into(),
+            branch: Some("main".into()),
+            is_conventional: true,
+            commits: vec![ProjectCommit {
+                hash: "h".into(),
+                subject: "feat: add login".into(),
+                author: "Alice".into(),
+                timestamp: 1,
+                files_changed: 2,
+                insertions: 10,
+                deletions: 1,
+            }],
+            has_uncommitted: true,
+            uncommitted_material: "diff --git a/x b/x".into(),
+            scan_error: None,
+        };
+        let prompt = build_project_prompt(&cs, "zh");
+        assert!(prompt.contains("feat: add login"));
+        assert!(prompt.contains("未提交"));
+        assert!(prompt.contains("中文"));
+    }
+
+    #[test]
+    fn parse_claude_json_output_extracts_result() {
+        let stdout = r#"{"type":"result","subtype":"success","result":"完成了登录功能"}"#;
+        assert_eq!(parse_claude_json_output(stdout), "完成了登录功能");
+    }
+
+    #[test]
+    fn parse_claude_json_output_falls_back_to_raw() {
+        assert_eq!(parse_claude_json_output("纯文本输出"), "纯文本输出");
     }
 }
