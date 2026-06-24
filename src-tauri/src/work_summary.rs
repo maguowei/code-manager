@@ -367,6 +367,62 @@ fn parse_claude_json_output(stdout: &str) -> String {
     stdout.trim().to_string()
 }
 
+fn assemble_daily_markdown(
+    date: &str,
+    generated_at: &str,
+    sections: &[(ProjectChangeset, String)],
+) -> String {
+    let mut md = format!("# 昨日工作总结 · {date}\n");
+    md.push_str(&format!(
+        "生成于 {generated_at} · {} 个项目有变更\n",
+        sections.len()
+    ));
+    for (cs, body) in sections {
+        md.push_str(&format!("\n## {}  `{}`\n", cs.short_name, cs.project));
+        let mut meta: Vec<String> = Vec::new();
+        if let Some(branch) = &cs.branch {
+            meta.push(format!("分支 {branch}"));
+        }
+        meta.push(format!("{} commits", cs.commits.len()));
+        if cs.has_uncommitted {
+            meta.push("⚠️ 有未提交变更".to_string());
+        }
+        md.push_str(&format!("{}\n\n", meta.join(" · ")));
+        md.push_str(body.trim());
+        md.push('\n');
+    }
+    md
+}
+
+fn assemble_weekly_markdown(week_key: &str, generated_at: &str, body: &str) -> String {
+    format!(
+        "# 周工作总结 · {week_key}\n生成于 {generated_at}\n\n{}\n",
+        body.trim()
+    )
+}
+
+fn summaries_dir() -> std::path::PathBuf {
+    crate::utils::get_app_data_dir().join("summaries")
+}
+
+fn daily_path(date: &str) -> std::path::PathBuf {
+    summaries_dir().join("daily").join(format!("{date}.md"))
+}
+
+fn weekly_path(week_key: &str) -> std::path::PathBuf {
+    summaries_dir()
+        .join("weekly")
+        .join(format!("{week_key}.md"))
+}
+
+/// 总结 key 安全校验：仅允许日期/周 key 用到的字符，杜绝路径逃逸
+fn validate_summary_key(key: &str) -> Result<(), String> {
+    if key.is_empty() || !key.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+        return Err(format!("非法的总结 key: {key}"));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -541,5 +597,37 @@ mod tests {
     #[test]
     fn parse_claude_json_output_falls_back_to_raw() {
         assert_eq!(parse_claude_json_output("纯文本输出"), "纯文本输出");
+    }
+
+    #[test]
+    fn assemble_daily_markdown_has_header_and_sections() {
+        let cs = ProjectChangeset {
+            project: "/x/proj".into(),
+            short_name: "proj".into(),
+            branch: Some("main".into()),
+            is_conventional: true,
+            commits: vec![],
+            has_uncommitted: true,
+            uncommitted_material: "x".into(),
+            scan_error: None,
+        };
+        let md = assemble_daily_markdown(
+            "2026-06-23",
+            "2026-06-24T10:00:00Z",
+            &[(cs, "做了登录。".into())],
+        );
+        assert!(md.contains("# 昨日工作总结 · 2026-06-23"));
+        assert!(md.contains("## proj"));
+        assert!(md.contains("`/x/proj`"));
+        assert!(md.contains("⚠️ 有未提交变更"));
+        assert!(md.contains("做了登录。"));
+    }
+
+    #[test]
+    fn validate_summary_key_rejects_traversal() {
+        assert!(validate_summary_key("2026-06-23").is_ok());
+        assert!(validate_summary_key("2026-W26").is_ok());
+        assert!(validate_summary_key("../etc/passwd").is_err());
+        assert!(validate_summary_key("a/b").is_err());
     }
 }
