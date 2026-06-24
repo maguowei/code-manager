@@ -1,5 +1,7 @@
 //! 工作总结：扫描昨日有变更的 git 项目，调用本机 claude CLI 生成分项目总结并落盘。
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
+use std::path::Path;
 
 /// 单条提交的结构化信息（body 在 v1 不采集，subject 已足够表达意图）。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -423,6 +425,142 @@ fn validate_summary_key(key: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// 从 history.jsonl 内容提取去重项目绝对路径
+fn parse_history_projects(content: &str) -> Vec<String> {
+    let mut set: BTreeSet<String> = BTreeSet::new();
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        if let Ok(value) = serde_json::from_str::<serde_json::Value>(line) {
+            if let Some(project) = value.get("project").and_then(|v| v.as_str()) {
+                if !project.is_empty() {
+                    set.insert(project.to_string());
+                }
+            }
+        }
+    }
+    set.into_iter().collect()
+}
+
+fn short_name_of(project: &str) -> String {
+    Path::new(project)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(project)
+        .to_string()
+}
+
+/// 采集单个项目某日变更。非 git 仓库 / 无变更 → None。
+fn gather_changeset(project: &str, date: &str) -> Option<ProjectChangeset> {
+    let path = Path::new(project);
+    if crate::project::git_repo_root(path).is_err() {
+        return None;
+    }
+
+    let branch = crate::project::run_git(path, &["rev-parse", "--abbrev-ref", "HEAD"])
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty() && s != "HEAD");
+
+    let (since, until) = match day_range_args(date) {
+        Ok(v) => v,
+        Err(e) => {
+            return Some(ProjectChangeset {
+                project: project.to_string(),
+                short_name: short_name_of(project),
+                branch,
+                is_conventional: false,
+                commits: Vec::new(),
+                has_uncommitted: false,
+                uncommitted_material: String::new(),
+                scan_error: Some(e),
+            });
+        }
+    };
+
+    // 当前用户邮箱过滤「我的工作」；无邮箱则不加 --author
+    let email = crate::project::run_git(path, &["config", "user.email"])
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+
+    let mut log_args: Vec<String> = vec![
+        "log".into(),
+        format!("--since={since}"),
+        format!("--until={until}"),
+        "--numstat".into(),
+        format!("--pretty=format:{GIT_LOG_FORMAT}"),
+    ];
+    if let Some(email) = &email {
+        log_args.push(format!("--author={email}"));
+    }
+    let log_refs: Vec<&str> = log_args.iter().map(|s| s.as_str()).collect();
+
+    let mut scan_error: Option<String> = None;
+    let commits = match crate::project::run_git(path, &log_refs) {
+        Ok(out) => parse_commits(&out),
+        Err(e) => {
+            scan_error = Some(e);
+            Vec::new()
+        }
+    };
+
+    let status = crate::project::run_git(path, &["status", "--porcelain"]).unwrap_or_default();
+    let has_uncommitted = !status.trim().is_empty();
+    let uncommitted_material = if has_uncommitted {
+        // diff HEAD 失败（如仓库无任何 commit）时不静默吞错，记入 scan_error 供上层展示
+        let diff = crate::project::run_git(path, &["diff", "HEAD"]).unwrap_or_else(|e| {
+            scan_error.get_or_insert(e);
+            String::new()
+        });
+        let untracked: Vec<String> = status
+            .lines()
+            .filter_map(|l| l.strip_prefix("?? ").map(|p| p.trim().to_string()))
+            .collect();
+        build_uncommitted_material(&diff, &untracked)
+    } else {
+        String::new()
+    };
+
+    if commits.is_empty() && !has_uncommitted && scan_error.is_none() {
+        return None;
+    }
+
+    let is_conventional = detect_conventional_repo(
+        &commits
+            .iter()
+            .map(|c| c.subject.clone())
+            .collect::<Vec<_>>(),
+    );
+
+    Some(ProjectChangeset {
+        project: project.to_string(),
+        short_name: short_name_of(project),
+        branch,
+        is_conventional,
+        commits,
+        has_uncommitted,
+        uncommitted_material,
+        scan_error,
+    })
+}
+
+/// 扫描所有候选项目，返回当日有变更的项目集合
+fn gather_day_changesets(date: &str) -> Result<Vec<ProjectChangeset>, String> {
+    let history = crate::history::get_history()?;
+    let projects = parse_history_projects(&history.content);
+    let mut result: Vec<ProjectChangeset> = Vec::new();
+    for project in projects {
+        if let Some(cs) = gather_changeset(&project, date) {
+            result.push(cs);
+        }
+    }
+    result.sort_by(|a, b| a.short_name.cmp(&b.short_name));
+    Ok(result)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -621,6 +759,17 @@ mod tests {
         assert!(md.contains("`/x/proj`"));
         assert!(md.contains("⚠️ 有未提交变更"));
         assert!(md.contains("做了登录。"));
+    }
+
+    #[test]
+    fn parse_history_projects_dedupes() {
+        let content = "{\"project\":\"/a\",\"sessionId\":\"1\"}\n\
+{\"project\":\"/b\",\"sessionId\":\"2\"}\n\
+{\"project\":\"/a\",\"sessionId\":\"3\"}\n\
+not-json\n";
+        let mut projects = parse_history_projects(content);
+        projects.sort();
+        assert_eq!(projects, vec!["/a".to_string(), "/b".to_string()]);
     }
 
     #[test]

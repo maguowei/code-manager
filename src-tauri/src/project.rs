@@ -423,11 +423,11 @@ fn short_project_name(path: &Path) -> String {
         .unwrap_or_else(|| path.to_string_lossy().to_string())
 }
 
-fn git_repo_root(project: &Path) -> Result<String, String> {
+pub(crate) fn git_repo_root(project: &Path) -> Result<String, String> {
     run_git(project, &["rev-parse", "--show-toplevel"]).map(|output| output.trim().to_string())
 }
 
-fn run_git(project: &Path, args: &[&str]) -> Result<String, String> {
+pub(crate) fn run_git(project: &Path, args: &[&str]) -> Result<String, String> {
     let mut command = Command::new("git");
     command.arg("-C").arg(project).args(args);
     crate::utils::hide_command_window(&mut command);
