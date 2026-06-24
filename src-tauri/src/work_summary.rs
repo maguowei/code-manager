@@ -690,6 +690,13 @@ pub fn generate_weekly_summary(date: String, language: String) -> Result<Summary
     let path = weekly_path(&week_key);
     crate::utils::ensure_dir_and_write_atomic(&path, &content)?;
 
+    let day_count = materials.len();
+    crate::logging::log_command_result(
+        "work_summary.generate_weekly_summary",
+        &Ok::<(), String>(()),
+        |_| format!("week={week_key} days={day_count}"),
+    );
+
     Ok(SummaryDocument {
         kind: "weekly".into(),
         key: week_key,
