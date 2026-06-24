@@ -696,10 +696,8 @@ mod tests {
     use std::env;
     use std::fs;
     use std::path::PathBuf;
-    use std::sync::{Mutex, MutexGuard};
+    use std::sync::MutexGuard;
     use std::time::{SystemTime, UNIX_EPOCH};
-
-    static TEST_ENV_LOCK: Mutex<()> = Mutex::new(());
 
     struct TestEnv {
         _guard: MutexGuard<'static, ()>,
@@ -710,7 +708,11 @@ mod tests {
 
     impl TestEnv {
         fn new(name: &str) -> Self {
-            let guard = TEST_ENV_LOCK.lock().expect("测试环境锁应可获取");
+            // 复用全局 TEST_ENV_LOCK，与其它模块共用同一把锁，避免跨模块并发改写
+            // CODE_MANAGER_HOME_OVERRIDE 互相污染
+            let guard = crate::utils::TEST_ENV_LOCK
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
             let config_guard = crate::utils::lock_config().expect("配置锁应可获取");
             let suffix = SystemTime::now()
                 .duration_since(UNIX_EPOCH)

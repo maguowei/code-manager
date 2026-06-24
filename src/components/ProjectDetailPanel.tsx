@@ -14,12 +14,20 @@ import {
   SearchCheck,
   Terminal,
 } from "lucide-react";
-import { type ReactNode, useCallback, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
 import type { TranslationKey } from "../i18n";
+import { ipc } from "../ipc";
 import { showOperationError } from "../lib/user-facing-error";
-import type { DefaultEditorApp, PairStatus, ProjectDetail, ProjectSummary } from "../types";
+import type {
+  DefaultEditorApp,
+  PairStatus,
+  ProjectAutoMemoryStatus,
+  ProjectDetail,
+  ProjectSummary,
+} from "../types";
+import { ProjectAutoMemoryExplorer } from "./ProjectAutoMemoryExplorer";
 import { ProjectClaudeExplorer } from "./ProjectClaudeExplorer";
 import {
   agentsSkillsStatusLabel,
@@ -681,6 +689,123 @@ function RecentSessionsSection({
   );
 }
 
+type AutoMemorySectionProps = {
+  status: ProjectAutoMemoryStatus | null;
+  project: string;
+  repoRoot: string | null;
+  isExplorerOpen: boolean;
+  onOpenExplorer: () => void;
+  onExplorerOpenChange: (open: boolean) => void;
+  onAfterMutate: () => void;
+  t: TranslateFn;
+};
+
+function AutoMemorySection({
+  status,
+  project,
+  repoRoot,
+  isExplorerOpen,
+  onOpenExplorer,
+  onExplorerOpenChange,
+  onAfterMutate,
+  t,
+}: AutoMemorySectionProps) {
+  const canBrowse = Boolean(status?.exists && status.isInsideClaudeDir);
+  const fileCountLabel = status
+    ? t("projects.autoMemory.fileCount").replace("{count}", String(status.memoryFileCount))
+    : "";
+
+  return (
+    <div
+      className="projects-pair-section flex flex-col gap-3 border-t pt-5 first:border-t-0 first:pt-0"
+      data-testid="project-auto-memory-section"
+    >
+      <div className="projects-pair-heading flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h4 className={cn("min-w-0 text-foreground", TYPOGRAPHY.cardTitle)}>
+            {t("projects.autoMemory.groupTitle")}
+          </h4>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            {t("projects.autoMemory.help")}
+          </p>
+        </div>
+        {canBrowse && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="projects-action-btn shrink-0"
+            onClick={onOpenExplorer}
+          >
+            <FolderTree className="size-4" />
+            {t("projects.autoMemory.browse")}
+          </Button>
+        )}
+      </div>
+
+      {status && (
+        <dl className="projects-agents-state-list flex flex-col">
+          <StatusRow label={t("projects.autoMemory.statusLabel")}>
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <StatusBadge tone={status.enabled ? "success" : "muted"}>
+                {status.enabled
+                  ? t("projects.autoMemory.enabled")
+                  : t("projects.autoMemory.disabled")}
+              </StatusBadge>
+              {status.exists ? (
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    PROJECT_TAG_CLASS,
+                    "font-mono tabular-nums",
+                    TONE_BADGE_CLASS.muted,
+                  )}
+                >
+                  {fileCountLabel}
+                </Badge>
+              ) : (
+                <span className="text-sm text-muted-foreground">
+                  {t("projects.autoMemory.empty")}
+                </span>
+              )}
+            </div>
+          </StatusRow>
+          {status.directoryOverride && (
+            <StatusRow label={t("projects.autoMemory.customDirLabel")}>
+              <span className="block min-w-0 truncate font-mono text-sm text-muted-foreground">
+                {status.resolvedDirLabel}
+              </span>
+            </StatusRow>
+          )}
+        </dl>
+      )}
+
+      {status?.exists && !status.isInsideClaudeDir && (
+        <p
+          className={cn(
+            "projects-inline-alert rounded-md border-l-4 px-3 py-2 text-sm leading-6",
+            TONE_ALERT_CLASS.warning,
+          )}
+        >
+          {t("projects.autoMemory.outsideHint")}
+        </p>
+      )}
+
+      {canBrowse && (
+        <ProjectAutoMemoryExplorer
+          open={isExplorerOpen}
+          onOpenChange={onExplorerOpenChange}
+          project={project}
+          repoRoot={repoRoot}
+          fileCount={status?.memoryFileCount ?? 0}
+          onAfterMutate={onAfterMutate}
+          t={t}
+        />
+      )}
+    </div>
+  );
+}
+
 function ProjectDetailPanel({
   t,
   summary,
@@ -717,6 +842,23 @@ function ProjectDetailPanel({
   const closeExplorer = useCallback((next: boolean) => {
     if (!next) setExplorerInitialPath(null);
   }, []);
+  const [autoMemoryStatus, setAutoMemoryStatus] = useState<ProjectAutoMemoryStatus | null>(null);
+  const [isAutoMemoryOpen, setIsAutoMemoryOpen] = useState(false);
+  const project = summary.project;
+  const repoRoot = detail?.repoRoot ?? null;
+  const loadAutoMemoryStatus = useCallback(async () => {
+    try {
+      const next = await ipc.getProjectAutoMemoryStatus(project, repoRoot);
+      setAutoMemoryStatus(next);
+    } catch {
+      // 状态为辅助信息，加载失败时静默置空，不打断主流程
+      setAutoMemoryStatus(null);
+    }
+  }, [project, repoRoot]);
+  useEffect(() => {
+    setAutoMemoryStatus(null);
+    void loadAutoMemoryStatus();
+  }, [loadAutoMemoryStatus]);
   const agentsTone: StatusTone = detail ? agentsStatusTone(detail.agentsStatus) : "muted";
   const agentsLabel = detail
     ? agentsStatusLabel(detail.agentsStatus, t)
@@ -1012,6 +1154,17 @@ function ProjectDetailPanel({
             </>
           )}
         </div>
+
+        <AutoMemorySection
+          status={autoMemoryStatus}
+          project={project}
+          repoRoot={repoRoot}
+          isExplorerOpen={isAutoMemoryOpen}
+          onOpenExplorer={() => setIsAutoMemoryOpen(true)}
+          onExplorerOpenChange={setIsAutoMemoryOpen}
+          onAfterMutate={loadAutoMemoryStatus}
+          t={t}
+        />
       </Card>
 
       <div className="projects-detail-grid grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(260px,0.85fr)]">

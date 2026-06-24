@@ -496,6 +496,22 @@ export interface ProjectDetail {
   worktrees: ProjectWorktree[];
 }
 
+/** 项目自动记忆（auto-memory）状态：~/.claude/projects/<编码>/memory/ 的可见性与设置摘要 */
+export interface ProjectAutoMemoryStatus {
+  /** autoMemoryEnabled，缺省视为启用 */
+  enabled: boolean;
+  /** autoMemoryDirectory 自定义目录原始值；未自定义为 null */
+  directoryOverride: string | null;
+  /** 解析后的 memory 目录是否位于 ~/.claude 内；false 时不提供应用内浏览 */
+  isInsideClaudeDir: boolean;
+  /** memory 目录是否存在 */
+  exists: boolean;
+  /** memory 目录内的文件数（递归，不含目录条目） */
+  memoryFileCount: number;
+  /** 解析后的 memory 目录展示路径 */
+  resolvedDirLabel: string;
+}
+
 export interface ProjectPurgeOutput {
   project: string;
   output: string;

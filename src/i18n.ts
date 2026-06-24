@@ -989,6 +989,32 @@ const translations = {
     "projects.claudeExplorer.noDefaultEditor": "未配置默认编辑器，请先在设置中选择",
     "projects.claudeExplorer.fileAlreadyExists": "文件已存在",
 
+    "projects.autoMemory.groupTitle": "自动记忆",
+    "projects.autoMemory.help":
+      "Claude 在会话中自己记录的项目笔记，存放在 ~/.claude/projects/<项目>/memory/。",
+    "projects.autoMemory.enabled": "已启用",
+    "projects.autoMemory.disabled": "已禁用",
+    "projects.autoMemory.statusLabel": "状态",
+    "projects.autoMemory.fileCount": "{count} 个记忆文件",
+    "projects.autoMemory.empty": "该项目暂无自动记忆",
+    "projects.autoMemory.browse": "浏览自动记忆",
+    "projects.autoMemory.customDirLabel": "自定义目录",
+    "projects.autoMemory.outsideHint": "记忆目录在 ~/.claude 之外，请用文件管理器或编辑器查看。",
+    "projects.autoMemory.statusError": "加载自动记忆状态失败",
+    "projects.autoMemory.sheetTitle": "项目自动记忆",
+    "projects.autoMemory.sheetDescription": "浏览并查看 Claude 自动记录的项目笔记",
+    "projects.autoMemory.emptyTree": "暂无自动记忆文件",
+    "projects.autoMemory.loadError": "加载自动记忆失败",
+    "projects.autoMemory.previewError": "读取记忆文件失败",
+    "projects.autoMemory.deleteFileTitle": "删除记忆文件",
+    "projects.autoMemory.deleteFileConfirm": "确定删除记忆文件「{name}」吗？此操作不可撤销。",
+    "projects.autoMemory.deleteAll": "清空全部记忆",
+    "projects.autoMemory.deleteAllTitle": "清空项目自动记忆",
+    "projects.autoMemory.deleteAllConfirm":
+      "确定删除该项目的整个 memory 目录（{count} 个文件）吗？此操作不可撤销。",
+    "projects.autoMemory.deleteSuccess": "已删除",
+    "projects.autoMemory.deleteError": "删除失败",
+
     "toast.projectListError": "加载项目列表失败",
     "toast.projectDetailError": "加载项目详情失败",
     "toast.projectRefreshed": "项目数据已刷新",
@@ -2610,6 +2636,34 @@ const translations = {
     "projects.claudeExplorer.noDefaultEditor":
       "No default editor configured. Set it in Preferences first",
     "projects.claudeExplorer.fileAlreadyExists": "File already exists",
+
+    "projects.autoMemory.groupTitle": "Auto memory",
+    "projects.autoMemory.help":
+      "Notes Claude writes itself during sessions, stored in ~/.claude/projects/<project>/memory/.",
+    "projects.autoMemory.enabled": "Enabled",
+    "projects.autoMemory.disabled": "Disabled",
+    "projects.autoMemory.statusLabel": "Status",
+    "projects.autoMemory.fileCount": "{count} memory files",
+    "projects.autoMemory.empty": "No auto memory for this project yet",
+    "projects.autoMemory.browse": "Browse auto memory",
+    "projects.autoMemory.customDirLabel": "Custom directory",
+    "projects.autoMemory.outsideHint":
+      "The memory directory is outside ~/.claude; open it with a file manager or editor.",
+    "projects.autoMemory.statusError": "Failed to load auto memory status",
+    "projects.autoMemory.sheetTitle": "Project auto memory",
+    "projects.autoMemory.sheetDescription": "Browse the notes Claude recorded for this project",
+    "projects.autoMemory.emptyTree": "No auto memory files",
+    "projects.autoMemory.loadError": "Failed to load auto memory",
+    "projects.autoMemory.previewError": "Failed to read memory file",
+    "projects.autoMemory.deleteFileTitle": "Delete memory file",
+    "projects.autoMemory.deleteFileConfirm":
+      "Delete the memory file “{name}”? This cannot be undone.",
+    "projects.autoMemory.deleteAll": "Clear all memory",
+    "projects.autoMemory.deleteAllTitle": "Clear project auto memory",
+    "projects.autoMemory.deleteAllConfirm":
+      "Delete the entire memory directory for this project ({count} files)? This cannot be undone.",
+    "projects.autoMemory.deleteSuccess": "Deleted",
+    "projects.autoMemory.deleteError": "Failed to delete",
 
     "toast.projectListError": "Failed to load project list",
     "toast.projectDetailError": "Failed to load project details",

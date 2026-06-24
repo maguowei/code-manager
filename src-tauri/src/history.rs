@@ -22,7 +22,9 @@ fn get_history_path() -> std::path::PathBuf {
         .join("history.jsonl")
 }
 
-fn encoded_project_path(project: &str) -> String {
+/// 将项目绝对路径编码为 `~/.claude/projects/<编码>` 目录名：把路径分隔符、盘符冒号和点统一替换成 `-`。
+/// 与 Claude Code 自动记忆目录命名规则一致，供 history 与 auto_memory 复用。
+pub(crate) fn encoded_project_path(project: &str) -> String {
     project.replace(['/', '\\', '.', ':'], "-")
 }
 

@@ -84,6 +84,11 @@ export const commands = {
 	cleanupProjectBranches: (project: string, branches: string[]) => typedError<ProjectGitCleanupResult, string>(__TAURI_INVOKE("cleanup_project_branches", { project, branches })),
 	previewProjectWorktreeCleanup: (project: string) => typedError<ProjectGitCleanupPreview_Serialize, string>(__TAURI_INVOKE("preview_project_worktree_cleanup", { project })),
 	cleanupProjectWorktrees: (project: string, worktrees: string[]) => typedError<ProjectGitCleanupResult, string>(__TAURI_INVOKE("cleanup_project_worktrees", { project, worktrees })),
+	getProjectAutoMemoryStatus: (project: string, repoRoot: string | null) => typedError<ProjectAutoMemoryStatus, string>(__TAURI_INVOKE("get_project_auto_memory_status", { project, repoRoot })),
+	getProjectAutoMemoryOverview: (project: string, repoRoot: string | null) => typedError<ClaudeDirectoryOverview, string>(__TAURI_INVOKE("get_project_auto_memory_overview", { project, repoRoot })),
+	readProjectAutoMemoryFile: (project: string, repoRoot: string | null, relativePath: string) => typedError<ClaudeFilePreview, string>(__TAURI_INVOKE("read_project_auto_memory_file", { project, repoRoot, relativePath })),
+	deleteProjectAutoMemoryEntry: (project: string, repoRoot: string | null, relativePath: string) => typedError<null, string>(__TAURI_INVOKE("delete_project_auto_memory_entry", { project, repoRoot, relativePath })),
+	openProjectAutoMemoryFileInEditor: (project: string, repoRoot: string | null, relativePath: string) => typedError<null, string>(__TAURI_INVOKE("open_project_auto_memory_file_in_editor", { project, repoRoot, relativePath })),
 	/**  获取所有 Skills（启用 + 禁用） */
 	getSkills: () => typedError<Skill[], string>(__TAURI_INVOKE("get_skills")),
 	addSkill: (data: SkillData) => typedError<Skill, string>(__TAURI_INVOKE("add_skill", { data })),
@@ -649,6 +654,21 @@ export type ProfileLaunchPayload = {
 	settingsPath: string,
 	/**  仅含 env 块的紧凑单行 JSON，供 `claude --settings '<json>'` 内联使用。 */
 	envOnlyJson: string,
+};
+
+export type ProjectAutoMemoryStatus = {
+	/**  `autoMemoryEnabled`（默认开启）；缺省即视为启用。 */
+	enabled: boolean,
+	/**  设置里的 `autoMemoryDirectory` 原始值（绝对或 `~/` 开头）；未自定义为 None。 */
+	directoryOverride: string | null,
+	/**  解析后的 memory 目录是否位于 ~/.claude 内；为 false 时不提供应用内浏览。 */
+	isInsideClaudeDir: boolean,
+	/**  memory 目录是否存在。 */
+	exists: boolean,
+	/**  memory 目录内的文件数（递归，不含目录条目）。 */
+	memoryFileCount: number,
+	/**  解析后的 memory 目录展示路径。 */
+	resolvedDirLabel: string,
 };
 
 export type ProjectBranch = ProjectBranch_Serialize | ProjectBranch_Deserialize;

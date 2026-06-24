@@ -1,3 +1,4 @@
+mod auto_memory;
 mod claude_directory;
 mod claude_directory_watcher;
 mod config;
@@ -23,6 +24,11 @@ use std::path::Path;
 #[cfg(any(debug_assertions, test))]
 use std::path::PathBuf;
 
+use auto_memory::{
+    delete_project_auto_memory_entry, get_project_auto_memory_overview,
+    get_project_auto_memory_status, open_project_auto_memory_file_in_editor,
+    read_project_auto_memory_file,
+};
 use claude_directory::{
     create_claude_directory_entry, delete_claude_directory_entry, get_claude_directory_children,
     get_claude_directory_overview, open_claude_file_in_editor, read_claude_file_preview,
@@ -139,6 +145,11 @@ fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             cleanup_project_branches,
             preview_project_worktree_cleanup,
             cleanup_project_worktrees,
+            get_project_auto_memory_status,
+            get_project_auto_memory_overview,
+            read_project_auto_memory_file,
+            delete_project_auto_memory_entry,
+            open_project_auto_memory_file_in_editor,
             get_skills,
             add_skill,
             update_skill,
