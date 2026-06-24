@@ -19,6 +19,7 @@ mod tray;
 mod usage;
 mod utils;
 mod widget;
+mod work_summary;
 
 use std::path::Path;
 #[cfg(any(debug_assertions, test))]
