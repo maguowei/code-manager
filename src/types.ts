@@ -12,6 +12,7 @@ export type TabType =
   | "stats"
   | "usage"
   | "history"
+  | "worklog"
   | "cheatsheet";
 
 export type DefaultTerminalApp = "terminal" | "iterm" | "warp" | "ghostty";

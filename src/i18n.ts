@@ -70,6 +70,7 @@ const translations = {
     "nav.memory": "记忆",
     "nav.skills": "Skills",
     "nav.projects": "项目",
+    "nav.worklog": "工作总结",
 
     // 速查表页面
     "cheatsheet.title": "Claude Code 速查表",
@@ -77,6 +78,20 @@ const translations = {
     "cheatsheet.openLatest": "在浏览器中打开最新版",
     "cheatsheet.openLatestError": "打开速查表失败",
     "cheatsheet.tableOfContents": "目录",
+
+    // 工作总结页面
+    "worklog.title": "工作总结",
+    "worklog.summarizeYesterday": "总结昨日",
+    "worklog.generateWeek": "生成本周",
+    "worklog.empty": "还没有任何总结，点击「总结昨日」开始。",
+    "worklog.cliMissing": "未检测到 claude CLI，请确认 Claude Code 已安装并在 PATH 中。",
+    "worklog.noChanges": "昨日没有检测到有变更的项目。",
+    "worklog.generating": "正在生成总结…",
+    "worklog.daily": "日总结",
+    "worklog.weekly": "周总结",
+    "worklog.loadError": "加载总结列表失败",
+    "worklog.generateError": "生成总结失败",
+    "worklog.generated": "总结已生成",
 
     // 记忆页面
     "memory.title": "记忆管理",
@@ -1674,6 +1689,7 @@ const translations = {
     "nav.memory": "Memory",
     "nav.skills": "Skills",
     "nav.projects": "Projects",
+    "nav.worklog": "Work Summary",
 
     // 速查表页面
     "cheatsheet.title": "Claude Code Cheat Sheet",
@@ -1681,6 +1697,20 @@ const translations = {
     "cheatsheet.openLatest": "Open latest in browser",
     "cheatsheet.openLatestError": "Failed to open cheat sheet",
     "cheatsheet.tableOfContents": "On this page",
+
+    // 工作总结页面
+    "worklog.title": "Work Summary",
+    "worklog.summarizeYesterday": "Summarize Yesterday",
+    "worklog.generateWeek": "Generate This Week",
+    "worklog.empty": 'No summaries yet. Click "Summarize Yesterday" to start.',
+    "worklog.cliMissing": "claude CLI not found. Make sure Claude Code is installed and on PATH.",
+    "worklog.noChanges": "No changed projects detected for yesterday.",
+    "worklog.generating": "Generating summary…",
+    "worklog.daily": "Daily",
+    "worklog.weekly": "Weekly",
+    "worklog.loadError": "Failed to load summaries",
+    "worklog.generateError": "Failed to generate summary",
+    "worklog.generated": "Summary generated",
 
     // 记忆页面
     "memory.title": "Memory",
