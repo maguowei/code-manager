@@ -10,6 +10,7 @@ const {
   emitTauriEvent,
   eventListeners,
   filePreviewMock,
+  fileTreeResetPathsMock,
   fileTreeOptionsMock,
   invokeMock,
   listenMock,
@@ -30,6 +31,7 @@ const {
     emitTauriEvent,
     eventListeners,
     filePreviewMock: vi.fn(),
+    fileTreeResetPathsMock: vi.fn(),
     fileTreeOptionsMock: vi.fn(),
     invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
     listenMock: vi.fn(async (event: string, handler: (event: { payload: unknown }) => unknown) => {
@@ -162,19 +164,61 @@ vi.mock("@pierre/trees/react", async () => {
         ...options,
         paths,
       });
+      const expandedPathsRef = React.useRef(new Set<string>(options.initialExpandedPaths ?? []));
+      const [, forceTreeRender] = React.useState(0);
+      const resolvePath = (path: string) => {
+        if (modelRef.current?.options.paths.includes(path)) {
+          return path;
+        }
+        const directoryPath = path.endsWith("/") ? path : `${path}/`;
+        return modelRef.current?.options.paths.includes(directoryPath) ? directoryPath : null;
+      };
+      const updateExpandedPath = (path: string, expanded: boolean) => {
+        if (expanded) {
+          expandedPathsRef.current.add(path);
+        } else {
+          expandedPathsRef.current.delete(path);
+        }
+        forceTreeRender((version) => version + 1);
+      };
       const modelRef = React.useRef<{
         options: typeof modelOptions;
+        getItem: ReturnType<typeof vi.fn>;
         resetPaths: ReturnType<typeof vi.fn>;
         onMutation: ReturnType<typeof vi.fn>;
       } | null>(null);
       if (modelRef.current === null) {
         modelRef.current = {
           options: modelOptions,
+          getItem: vi.fn((path: string) => {
+            const resolvedPath = resolvePath(path);
+            if (!resolvedPath) {
+              return null;
+            }
+            const isDirectory = resolvedPath.endsWith("/");
+            return {
+              collapse: () => updateExpandedPath(resolvedPath, false),
+              expand: () => updateExpandedPath(resolvedPath, true),
+              isDirectory: () => isDirectory,
+              isExpanded: () => expandedPathsRef.current.has(resolvedPath),
+              toggle: () =>
+                updateExpandedPath(resolvedPath, !expandedPathsRef.current.has(resolvedPath)),
+            };
+          }),
           resetPaths: vi.fn(
-            (paths: string[], resetOptions?: { initialExpandedPaths?: string[] }) => {
+            (
+              paths: string[],
+              resetOptions?: {
+                initialExpandedPaths?: string[];
+                preparedInput?: { paths?: string[] };
+              },
+            ) => {
+              fileTreeResetPathsMock(paths, resetOptions);
+              expandedPathsRef.current = new Set(resetOptions?.initialExpandedPaths ?? []);
               setModelOptions((currentOptions) => ({
                 ...currentOptions,
                 paths,
+                preparedInput: resetOptions?.preparedInput ?? currentOptions.preparedInput,
                 initialExpandedPaths: resetOptions?.initialExpandedPaths ?? [],
               }));
             },
@@ -199,6 +243,10 @@ vi.mock("@pierre/trees/react", async () => {
           onSelectionChange: (selectedPaths: string[]) => void;
           paths: string[];
         };
+        getItem?: (path: string) => {
+          isExpanded: () => boolean;
+          toggle: () => void;
+        } | null;
       };
       renderContextMenu?: (
         item: { kind: "directory" | "file"; name: string; path: string },
@@ -272,6 +320,7 @@ vi.mock("@pierre/trees/react", async () => {
             const normalizedPath = path.endsWith("/") ? path.slice(0, -1) : path;
             const name = normalizedPath.split("/").pop() ?? normalizedPath;
             const itemType = path.endsWith("/") ? "folder" : "file";
+            const expanded = props.model.getItem?.(path)?.isExpanded() ?? false;
             const item = {
               kind: itemType === "folder" ? ("directory" as const) : ("file" as const),
               name,
@@ -295,6 +344,12 @@ vi.mock("@pierre/trees/react", async () => {
                   data-type="item"
                   data-item-path={path}
                   data-item-type={itemType}
+                  aria-expanded={itemType === "folder" ? expanded : undefined}
+                  onClick={() => {
+                    if (itemType === "folder") {
+                      props.model.getItem?.(path)?.toggle();
+                    }
+                  }}
                   onContextMenu={(event) => {
                     event.preventDefault();
                     openMenu(item, {
@@ -474,6 +529,7 @@ describe("App", () => {
     listenMock.mockClear();
     eventListeners.clear();
     filePreviewMock.mockClear();
+    fileTreeResetPathsMock.mockClear();
     fileTreeOptionsMock.mockClear();
     openUrlMock.mockClear();
     revealItemInDirMock.mockClear();
@@ -1252,6 +1308,151 @@ describe("App", () => {
         path: "settings.json",
       });
     });
+  });
+
+  it("keeps expanded Claude overview directories after a directory change refresh", async () => {
+    enableTauriEvents();
+    localStorage.setItem(
+      "code-manager-settings",
+      JSON.stringify({ language: "zh", theme: "light" }),
+    );
+    let overviewCallCount = 0;
+    const refreshedOverview = {
+      ...CLAUDE_OVERVIEW_FIXTURE,
+      entries: [
+        ...CLAUDE_OVERVIEW_FIXTURE.entries,
+        {
+          path: "scripts/new-command.js",
+          name: "new-command.js",
+          kind: "file",
+          size: 12,
+          modifiedAt: 3,
+        },
+      ],
+    };
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_config_workspace") {
+        return WORKSPACE_FIXTURE;
+      }
+      if (command === "get_claude_directory_overview") {
+        overviewCallCount += 1;
+        return overviewCallCount === 1 ? CLAUDE_OVERVIEW_FIXTURE : refreshedOverview;
+      }
+      return null;
+    });
+
+    renderApp();
+    fireEvent.click(await screen.findByRole("button", { name: "~/.claude 目录总览" }));
+    await waitFor(() => {
+      expect(fileTreeResetPathsMock).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: "scripts" }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "scripts" })).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+    });
+
+    await act(async () => {
+      await emitTauriEvent("claude-directory-changed", { paths: ["settings.json"] });
+    });
+
+    await waitFor(() => {
+      expect(
+        invokeMock.mock.calls.filter(([command]) => command === "get_claude_directory_overview"),
+      ).toHaveLength(2);
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "scripts" })).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+    });
+    const lastResetCall =
+      fileTreeResetPathsMock.mock.calls[fileTreeResetPathsMock.mock.calls.length - 1];
+    expect(lastResetCall?.[1]?.initialExpandedPaths).toContain("scripts/");
+  });
+
+  it("drops deleted Claude overview directories from preserved expansion state", async () => {
+    enableTauriEvents();
+    localStorage.setItem(
+      "code-manager-settings",
+      JSON.stringify({ language: "zh", theme: "light" }),
+    );
+    let overviewCallCount = 0;
+    const overviewWithRules = {
+      ...CLAUDE_OVERVIEW_FIXTURE,
+      entries: [
+        ...CLAUDE_OVERVIEW_FIXTURE.entries,
+        {
+          path: "rules",
+          name: "rules",
+          kind: "directory",
+          size: 0,
+          modifiedAt: 1,
+        },
+        {
+          path: "rules/team.md",
+          name: "team.md",
+          kind: "file",
+          size: 24,
+          modifiedAt: 1,
+        },
+      ],
+    };
+    const overviewWithoutScripts = {
+      ...overviewWithRules,
+      entries: overviewWithRules.entries.filter((entry) => !entry.path.startsWith("scripts")),
+    };
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_config_workspace") {
+        return WORKSPACE_FIXTURE;
+      }
+      if (command === "get_claude_directory_overview") {
+        overviewCallCount += 1;
+        return overviewCallCount === 1 ? overviewWithRules : overviewWithoutScripts;
+      }
+      return null;
+    });
+
+    renderApp();
+    fireEvent.click(await screen.findByRole("button", { name: "~/.claude 目录总览" }));
+    await waitFor(() => {
+      expect(fileTreeResetPathsMock).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: "scripts" }));
+    fireEvent.click(await screen.findByRole("button", { name: "rules" }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "scripts" })).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+      expect(screen.getByRole("button", { name: "rules" })).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+    });
+
+    await act(async () => {
+      await emitTauriEvent("claude-directory-changed", { paths: ["scripts"] });
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "scripts" })).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "rules" })).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+    });
+    const lastResetCall =
+      fileTreeResetPathsMock.mock.calls[fileTreeResetPathsMock.mock.calls.length - 1];
+    expect(lastResetCall?.[1]?.initialExpandedPaths).toContain("rules/");
+    expect(lastResetCall?.[1]?.initialExpandedPaths).not.toContain("scripts/");
   });
 
   it("refreshes the Claude overview and touched open preview after a directory change event", async () => {

@@ -2,6 +2,8 @@ import {
   type ContextMenuItem,
   type ContextMenuOpenContext,
   createFileTreeIconResolver,
+  type FileTreeDirectoryHandle,
+  type FileTreeItemHandle,
   getBuiltInSpriteSheet,
   prepareFileTreeInput,
 } from "@pierre/trees";
@@ -98,6 +100,12 @@ function getMonotonicTime() {
   return typeof performance !== "undefined" ? performance.now() : Date.now();
 }
 
+function isFileTreeDirectoryHandle(
+  item: FileTreeItemHandle | null,
+): item is FileTreeDirectoryHandle {
+  return item?.isDirectory() === true && "isExpanded" in item;
+}
+
 export function ClaudeDirectoryTree({
   paths,
   onSelectPath,
@@ -105,6 +113,7 @@ export function ClaudeDirectoryTree({
 }: ClaudeDirectoryTreeProps) {
   const onSelectPathRef = useRef(onSelectPath);
   const lastHandledPathRef = useRef<{ path: string; timestamp: number } | null>(null);
+  const previousPathsRef = useRef(paths);
   onSelectPathRef.current = onSelectPath;
 
   const handlePath = useCallback((path: string) => {
@@ -215,8 +224,17 @@ export function ClaudeDirectoryTree({
   });
 
   useEffect(() => {
-    model.resetPaths(paths, { initialExpandedPaths: [] });
-  }, [model, paths]);
+    const nextPathSet = new Set(paths);
+    const initialExpandedPaths = previousPathsRef.current.filter((path) => {
+      if (!path.endsWith("/") || !nextPathSet.has(path)) {
+        return false;
+      }
+      const item = model.getItem(path);
+      return isFileTreeDirectoryHandle(item) && item.isExpanded();
+    });
+    model.resetPaths(paths, { preparedInput, initialExpandedPaths });
+    previousPathsRef.current = paths;
+  }, [model, paths, preparedInput]);
 
   const handleTreeClickCapture = useCallback(
     (event: ReactMouseEvent<HTMLElement>) => {
