@@ -181,7 +181,7 @@ fn is_conventional_subject(subject: &str) -> bool {
                 rest
             };
             let rest = rest.strip_prefix('!').unwrap_or(rest);
-            if rest.starts_with(": ") || rest == ":" || rest.starts_with(':') {
+            if rest.starts_with(": ") || rest == ":" {
                 return true;
             }
         }
@@ -245,6 +245,7 @@ mod tests {
         assert!(is_conventional_subject("chore(deps): bump"));
         assert!(!is_conventional_subject("update readme"));
         assert!(!is_conventional_subject("WIP"));
+        assert!(!is_conventional_subject("feat:nospace"));
     }
 
     #[test]
