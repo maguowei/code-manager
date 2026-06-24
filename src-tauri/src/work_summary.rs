@@ -161,6 +161,46 @@ fn week_dates(date: &str) -> Result<Vec<String>, String> {
         .collect())
 }
 
+const CONVENTIONAL_TYPES: [&str; 11] = [
+    "feat", "fix", "docs", "style", "refactor", "perf", "test", "build", "ci", "chore", "revert",
+];
+
+/// 判断单条 subject 是否符合 `type(scope)!?: ` 形态
+fn is_conventional_subject(subject: &str) -> bool {
+    let subject = subject.trim_start();
+    for ty in CONVENTIONAL_TYPES {
+        if let Some(rest) = subject.strip_prefix(ty) {
+            let rest = rest.strip_prefix('!').unwrap_or(rest);
+            // 可选 scope：(....)
+            let rest = if let Some(after) = rest.strip_prefix('(') {
+                match after.find(')') {
+                    Some(idx) => &after[idx + 1..],
+                    None => continue,
+                }
+            } else {
+                rest
+            };
+            let rest = rest.strip_prefix('!').unwrap_or(rest);
+            if rest.starts_with(": ") || rest == ":" || rest.starts_with(':') {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// 命中比例 ≥ 0.6 视为 conventional 仓库
+fn detect_conventional_repo(subjects: &[String]) -> bool {
+    if subjects.is_empty() {
+        return false;
+    }
+    let hits = subjects
+        .iter()
+        .filter(|s| is_conventional_subject(s))
+        .count();
+    hits as f64 / subjects.len() as f64 >= 0.6
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -195,5 +235,33 @@ mod tests {
         assert_eq!(dates.len(), 7);
         assert_eq!(dates[0], "2026-06-22"); // Monday
         assert_eq!(dates[6], "2026-06-28"); // Sunday
+    }
+
+    #[test]
+    fn detects_conventional_subjects() {
+        assert!(is_conventional_subject("feat: add x"));
+        assert!(is_conventional_subject("fix(scope): y"));
+        assert!(is_conventional_subject("refactor!: z"));
+        assert!(is_conventional_subject("chore(deps): bump"));
+        assert!(!is_conventional_subject("update readme"));
+        assert!(!is_conventional_subject("WIP"));
+    }
+
+    #[test]
+    fn detect_conventional_repo_uses_ratio() {
+        let mostly = vec![
+            "feat: a".to_string(),
+            "fix: b".to_string(),
+            "docs: c".to_string(),
+            "随手改一下".to_string(),
+        ];
+        assert!(detect_conventional_repo(&mostly)); // 3/4 = 0.75
+        let few = vec![
+            "feat: a".to_string(),
+            "改了点东西".to_string(),
+            "WIP".to_string(),
+        ];
+        assert!(!detect_conventional_repo(&few)); // 1/3 ≈ 0.33
+        assert!(!detect_conventional_repo(&[]));
     }
 }
