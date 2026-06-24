@@ -201,6 +201,8 @@ const MAX_TOTAL_DIFF_CHARS: usize = 12_000;
 /// 把 `git diff HEAD` 输出按文件分段、逐段限行截断，再整体限长；末尾追加 untracked 文件名清单。
 fn build_uncommitted_material(diff: &str, untracked: &[String]) -> String {
     let mut out = String::new();
+    // 标记是否因总量超限而截断，防止在「总量超限」标记后继续追加未跟踪清单
+    let mut total_truncated = false;
 
     // 按 "diff --git" 切分文件段（保留分隔行）
     let mut sections: Vec<String> = Vec::new();
@@ -228,11 +230,13 @@ fn build_uncommitted_material(diff: &str, untracked: &[String]) -> String {
         if out.chars().count() >= MAX_TOTAL_DIFF_CHARS {
             out = crate::utils::truncate(&out, MAX_TOTAL_DIFF_CHARS);
             out.push_str("\n... (总量超限，已截断)\n");
+            total_truncated = true;
             break;
         }
     }
 
-    if !untracked.is_empty() {
+    // 只有在未因总量超限截断时才追加未跟踪文件清单，保证「总量超限」标记是输出末尾
+    if !total_truncated && !untracked.is_empty() {
         out.push_str("\n未跟踪文件:\n");
         for path in untracked {
             out.push_str(&format!("- {path}\n"));
@@ -408,5 +412,24 @@ mod tests {
     #[test]
     fn build_uncommitted_material_empty_when_nothing() {
         assert_eq!(build_uncommitted_material("", &[]), "");
+    }
+
+    #[test]
+    fn build_uncommitted_material_skips_untracked_when_total_truncated() {
+        // 构造超过总量上限的 diff（多个大文件段）
+        let mut diff = String::new();
+        for f in 0..50 {
+            diff.push_str(&format!("diff --git a/f{f}.rs b/f{f}.rs\n"));
+            for i in 0..300 {
+                diff.push_str(&format!("+line {i} in file {f}\n"));
+            }
+        }
+        let material = build_uncommitted_material(&diff, &["should-not-appear.txt".to_string()]);
+        // 验证总量超限标记存在
+        assert!(material.contains("总量超限"));
+        // 验证未跟踪文件名不出现（因为发生了总量截断）
+        assert!(!material.contains("should-not-appear.txt"));
+        // 验证整个未跟踪清单标题也不出现
+        assert!(!material.contains("未跟踪文件"));
     }
 }
