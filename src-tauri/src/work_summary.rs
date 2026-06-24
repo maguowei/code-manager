@@ -195,6 +195,53 @@ fn is_conventional_subject(subject: &str) -> bool {
     false
 }
 
+const MAX_FILE_DIFF_LINES: usize = 400;
+const MAX_TOTAL_DIFF_CHARS: usize = 12_000;
+
+/// 把 `git diff HEAD` 输出按文件分段、逐段限行截断，再整体限长；末尾追加 untracked 文件名清单。
+fn build_uncommitted_material(diff: &str, untracked: &[String]) -> String {
+    let mut out = String::new();
+
+    // 按 "diff --git" 切分文件段（保留分隔行）
+    let mut sections: Vec<String> = Vec::new();
+    for line in diff.lines() {
+        if line.starts_with("diff --git") {
+            sections.push(String::new());
+        }
+        if let Some(last) = sections.last_mut() {
+            last.push_str(line);
+            last.push('\n');
+        }
+    }
+
+    for section in sections {
+        let lines: Vec<&str> = section.lines().collect();
+        if lines.len() > MAX_FILE_DIFF_LINES {
+            for line in lines.iter().take(MAX_FILE_DIFF_LINES) {
+                out.push_str(line);
+                out.push('\n');
+            }
+            out.push_str(&format!("... (已截断，共 {} 行)\n", lines.len()));
+        } else {
+            out.push_str(&section);
+        }
+        if out.chars().count() >= MAX_TOTAL_DIFF_CHARS {
+            out = crate::utils::truncate(&out, MAX_TOTAL_DIFF_CHARS);
+            out.push_str("\n... (总量超限，已截断)\n");
+            break;
+        }
+    }
+
+    if !untracked.is_empty() {
+        out.push_str("\n未跟踪文件:\n");
+        for path in untracked {
+            out.push_str(&format!("- {path}\n"));
+        }
+    }
+
+    out.trim().to_string()
+}
+
 /// 命中比例 ≥ 0.6 视为 conventional 仓库
 fn detect_conventional_repo(subjects: &[String]) -> bool {
     if subjects.is_empty() {
@@ -335,5 +382,31 @@ mod tests {
     #[test]
     fn parse_commits_handles_empty() {
         assert!(parse_commits("").is_empty());
+    }
+
+    #[test]
+    fn build_uncommitted_material_truncates_long_file() {
+        let mut diff = String::from("diff --git a/big.rs b/big.rs\n");
+        for i in 0..1000 {
+            diff.push_str(&format!("+line {i}\n"));
+        }
+        let material = build_uncommitted_material(&diff, &[]);
+        assert!(material.contains("diff --git a/big.rs"));
+        assert!(material.contains("(已截断")); // 文件级截断标记
+        assert!(material.lines().count() < 1000);
+    }
+
+    #[test]
+    fn build_uncommitted_material_lists_untracked() {
+        let material =
+            build_uncommitted_material("", &["new.txt".to_string(), "x/y.rs".to_string()]);
+        assert!(material.contains("未跟踪文件"));
+        assert!(material.contains("new.txt"));
+        assert!(material.contains("x/y.rs"));
+    }
+
+    #[test]
+    fn build_uncommitted_material_empty_when_nothing() {
+        assert_eq!(build_uncommitted_material("", &[]), "");
     }
 }
