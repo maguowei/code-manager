@@ -55,11 +55,12 @@ function WorkSummaryPage() {
             <ul className="flex flex-col gap-1">
               {items.map((item) => (
                 <li key={`${item.kind}-${item.key}`}>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
                     onClick={() => void select(item)}
                     className={cn(
-                      "w-full rounded-md px-3 py-2 text-left text-sm hover:bg-accent",
+                      "h-auto w-full flex-col items-start rounded-md px-3 py-2 text-left text-sm",
                       selected?.kind === item.kind && selected?.key === item.key && "bg-accent",
                     )}
                   >
@@ -67,7 +68,7 @@ function WorkSummaryPage() {
                     <span className="text-xs text-muted-foreground">
                       {item.kind === "weekly" ? t("worklog.weekly") : t("worklog.daily")}
                     </span>
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>

@@ -31,6 +31,7 @@ const SettingsDrawer = lazy(() => import("./components/SettingsDrawer"));
 const SkillsPage = lazy(() => import("./components/SkillsPage"));
 const StatsPage = lazy(() => import("./components/StatsPage"));
 const UsagePage = lazy(() => import("./components/UsagePage"));
+const WorkSummaryPage = lazy(() => import("./components/WorkSummaryPage"));
 
 const EMPTY_WORKSPACE: ConfigWorkspace = {
   app: {
@@ -287,6 +288,8 @@ function App() {
                 onOpenProjectHistory={handleOpenProjectHistory}
                 onOpenProjectUsage={handleOpenProjectUsage}
               />
+            ) : activeTab === "worklog" ? (
+              <WorkSummaryPage />
             ) : activeTab === "history" ? (
               <HistoryPage projectRequest={historyProjectRequest} />
             ) : activeTab === "configs" ? (
