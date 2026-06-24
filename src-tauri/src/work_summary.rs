@@ -161,6 +161,12 @@ fn week_dates(date: &str) -> Result<Vec<String>, String> {
         .collect())
 }
 
+/// 提交行前缀哨兵 + 字段分隔符（\x1f 不会出现在正常 subject 中）
+const COMMIT_MARKER: &str = "@@C@@\u{1f}";
+
+/// git log 格式：单行元数据，subject 用 %s（单行）
+pub(crate) const GIT_LOG_FORMAT: &str = "@@C@@%x1f%H%x1f%at%x1f%an%x1f%s";
+
 const CONVENTIONAL_TYPES: [&str; 11] = [
     "feat", "fix", "docs", "style", "refactor", "perf", "test", "build", "ci", "chore", "revert",
 ];
@@ -199,6 +205,42 @@ fn detect_conventional_repo(subjects: &[String]) -> bool {
         .filter(|s| is_conventional_subject(s))
         .count();
     hits as f64 / subjects.len() as f64 >= 0.6
+}
+
+/// 解析 `git log <GIT_LOG_FORMAT> --numstat` 输出
+fn parse_commits(log_output: &str) -> Vec<ProjectCommit> {
+    let mut commits: Vec<ProjectCommit> = Vec::new();
+    for line in log_output.lines() {
+        if let Some(rest) = line.strip_prefix(COMMIT_MARKER) {
+            let mut parts = rest.splitn(4, '\u{1f}');
+            let hash = parts.next().unwrap_or("").to_string();
+            let timestamp = parts.next().unwrap_or("").parse::<u64>().unwrap_or(0);
+            let author = parts.next().unwrap_or("").to_string();
+            let subject = parts.next().unwrap_or("").to_string();
+            commits.push(ProjectCommit {
+                hash,
+                subject,
+                author,
+                timestamp,
+                files_changed: 0,
+                insertions: 0,
+                deletions: 0,
+            });
+        } else if let Some(current) = commits.last_mut() {
+            // numstat 行：<add>\t<del>\t<path>
+            let mut cols = line.splitn(3, '\t');
+            let add = cols.next().unwrap_or("");
+            let del = cols.next().unwrap_or("");
+            let path = cols.next().unwrap_or("");
+            if path.is_empty() {
+                continue;
+            }
+            current.files_changed += 1;
+            current.insertions += add.parse::<u32>().unwrap_or(0);
+            current.deletions += del.parse::<u32>().unwrap_or(0);
+        }
+    }
+    commits
 }
 
 #[cfg(test)]
@@ -264,5 +306,34 @@ mod tests {
         ];
         assert!(!detect_conventional_repo(&few)); // 1/3 ≈ 0.33
         assert!(!detect_conventional_repo(&[]));
+    }
+
+    #[test]
+    fn parse_commits_reads_meta_and_numstat() {
+        // 每个 commit：一行 "@@C@@\x1f<hash>\x1f<ts>\x1f<author>\x1f<subject>"，
+        // 随后若干 numstat 行 "<add>\t<del>\t<path>"，二进制为 "-\t-\t<path>"
+        let raw = "@@C@@\u{1f}abc123\u{1f}1700000000\u{1f}Alice\u{1f}feat: add\n\
+10\t2\tsrc/a.rs\n\
+5\t0\tsrc/b.rs\n\
+@@C@@\u{1f}def456\u{1f}1700001000\u{1f}Bob\u{1f}fix: bug\n\
+-\t-\tassets/logo.png\n";
+        let commits = parse_commits(raw);
+        assert_eq!(commits.len(), 2);
+        assert_eq!(commits[0].hash, "abc123");
+        assert_eq!(commits[0].subject, "feat: add");
+        assert_eq!(commits[0].author, "Alice");
+        assert_eq!(commits[0].timestamp, 1_700_000_000);
+        assert_eq!(commits[0].files_changed, 2);
+        assert_eq!(commits[0].insertions, 15);
+        assert_eq!(commits[0].deletions, 2);
+        // 二进制文件计入 files_changed，但 add/del 不累加
+        assert_eq!(commits[1].files_changed, 1);
+        assert_eq!(commits[1].insertions, 0);
+        assert_eq!(commits[1].deletions, 0);
+    }
+
+    #[test]
+    fn parse_commits_handles_empty() {
+        assert!(parse_commits("").is_empty());
     }
 }
