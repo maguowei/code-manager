@@ -961,6 +961,41 @@ describe("App", () => {
     const previewElement = await screen.findByTestId("pierre-file-preview");
     expect(previewElement).toBeInTheDocument();
     expect(previewElement).toHaveAttribute("data-overflow", "scroll");
+    const previewBody = document.querySelector<HTMLElement>(".claude-overview-preview-body");
+    expect(previewBody).not.toBeNull();
+    Object.defineProperty(previewBody, "getBoundingClientRect", {
+      configurable: true,
+      value: () => ({
+        bottom: 320,
+        height: 320,
+        left: 0,
+        right: 640,
+        top: 0,
+        width: 640,
+        x: 0,
+        y: 0,
+        toJSON: () => undefined,
+      }),
+    });
+    fireEvent.pointerDown(resizer, {
+      button: 0,
+      clientX: 100,
+      clientY: 100,
+      pointerType: "mouse",
+    });
+    await waitFor(() => {
+      expect(previewBody).toHaveStyle({ width: "640px" });
+    });
+    fireEvent.pointerUp(resizer, {
+      button: 0,
+      clientX: 100,
+      clientY: 100,
+      pointerType: "mouse",
+    });
+    await waitFor(() => {
+      expect(previewBody?.style.flex).toBe("");
+      expect(previewBody?.style.width).toBe("");
+    });
     const javascriptTab = screen.getByRole("tab", { name: "check-license-rule.js" });
     expect(javascriptTab).toHaveAttribute("aria-selected", "true");
     expect(within(javascriptTab).getByTestId("claude-overview-tab-file-icon")).toHaveAttribute(

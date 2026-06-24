@@ -4,6 +4,7 @@ import { ExternalLink } from "lucide-react";
 import {
   type CSSProperties,
   type FormEvent,
+  type PointerEvent as ReactPointerEvent,
   startTransition,
   useCallback,
   useDeferredValue,
@@ -357,6 +358,7 @@ function ClaudeOverviewPage() {
   const activePreviewPathRef = useRef<string | null>(null);
   const openPreviewsRef = useRef<ClaudeFilePreview[]>([]);
   const refreshBusyTimerRef = useRef<number | null>(null);
+  const resizeEndCleanupRef = useRef<(() => void) | null>(null);
 
   // 概览面板布局：横向（左右）/ 纵向（上下）随视口宽度切换，比例持久化到 localStorage
   const isNarrow = useIsNarrowViewport(900);
@@ -399,6 +401,8 @@ function ClaudeOverviewPage() {
   useEffect(
     () => () => {
       latestOverviewRequestIdRef.current += 1;
+      resizeEndCleanupRef.current?.();
+      resizeEndCleanupRef.current = null;
       if (refreshBusyTimerRef.current !== null) {
         window.clearTimeout(refreshBusyTimerRef.current);
         refreshBusyTimerRef.current = null;
@@ -406,6 +410,28 @@ function ClaudeOverviewPage() {
     },
     [],
   );
+
+  const clearResizeEndListeners = useCallback(() => {
+    resizeEndCleanupRef.current?.();
+    resizeEndCleanupRef.current = null;
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    clearResizeEndListeners();
+    setIsResizing(false);
+  }, [clearResizeEndListeners]);
+
+  const registerResizeEndListeners = useCallback(() => {
+    clearResizeEndListeners();
+    document.addEventListener("pointerup", stopResizing);
+    document.addEventListener("pointercancel", stopResizing);
+    window.addEventListener("blur", stopResizing);
+    resizeEndCleanupRef.current = () => {
+      document.removeEventListener("pointerup", stopResizing);
+      document.removeEventListener("pointercancel", stopResizing);
+      window.removeEventListener("blur", stopResizing);
+    };
+  }, [clearResizeEndListeners, stopResizing]);
 
   const loadOverview = useCallback(
     async (options: LoadOverviewOptions = {}) => {
@@ -825,17 +851,24 @@ function ClaudeOverviewPage() {
   // 拖拽起始（pointerdown）立即冻结预览内容宽度：v4 的 onResize 由 ResizeObserver 异步回调驱动，
   // 滞后于真正改变宽度的 flexGrow 写入约 2~3 帧，等它触发冻结会漏掉起步帧导致大文件 reflow 卡顿。
   // 库的拖拽靠 document capture 监听，不占用 separator 的合成 onPointerDown，可安全共存。
-  const handleResizeStart = useCallback(() => {
-    setIsResizing(true);
-  }, []);
+  const handleResizeStart = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      if (event.button !== 0) {
+        return;
+      }
+      registerResizeEndListeners();
+      setIsResizing(true);
+    },
+    [registerResizeEndListeners],
+  );
 
-  // 拖拽结束（pointerup 后库触发 onLayoutChanged）：持久化布局并解冻预览宽度，松手后重排一次到最终尺寸
+  // 拖拽结束（pointerup 后库触发 onLayoutChanged）：持久化布局；宽度冻结另由全局 pointer 兜底复位
   const handleLayoutChanged = useCallback(
     (layout: Parameters<typeof onLayoutChanged>[0]) => {
       onLayoutChanged(layout);
-      setIsResizing(false);
+      stopResizing();
     },
-    [onLayoutChanged],
+    [onLayoutChanged, stopResizing],
   );
 
   // 首帧未 paint 骨架屏前,或没有任何已知数据且仍在加载时,展示骨架屏;一旦树有数据,刷新走 resetPaths 平滑替换
@@ -976,7 +1009,9 @@ function ClaudeOverviewPage() {
 
           <ResizableHandle
             aria-label={t("claudeOverview.resizePanes")}
+            onPointerCancel={stopResizing}
             onPointerDown={handleResizeStart}
+            onPointerUp={stopResizing}
           />
 
           <ResizablePanel
