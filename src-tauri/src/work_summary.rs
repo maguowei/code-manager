@@ -1,6 +1,5 @@
 //! 工作总结：扫描昨日有变更的 git 项目，调用本机 claude CLI 生成分项目总结并落盘。
 use serde::{Deserialize, Serialize};
-use serde_json;
 
 /// 单条提交的结构化信息（body 在 v1 不采集，subject 已足够表达意图）。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
