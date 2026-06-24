@@ -119,6 +119,12 @@ export const commands = {
 	ledProbeStatus: () => __TAURI_INVOKE<LedProbeStatus>("led_probe_status"),
 	/**  测试某个灯效(设置页「测试」按钮 / 真机验证门)。立即下发,不受 enabled 影响。 */
 	ledTestMode: (mode: number) => typedError<null, string>(__TAURI_INVOKE("led_test_mode", { mode })),
+	checkClaudeCli: () => typedError<ClaudeCliStatus, string>(__TAURI_INVOKE("check_claude_cli")),
+	scanDayChanges: (date: string) => typedError<ProjectChangeset[], string>(__TAURI_INVOKE("scan_day_changes", { date })),
+	summarizeDay: (date: string, language: string) => typedError<SummaryDocument, string>(__TAURI_INVOKE("summarize_day", { date, language })),
+	generateWeeklySummary: (date: string, language: string) => typedError<SummaryDocument, string>(__TAURI_INVOKE("generate_weekly_summary", { date, language })),
+	listSummaries: () => typedError<SummaryListItem[], string>(__TAURI_INVOKE("list_summaries")),
+	readSummary: (kind: string, key: string) => typedError<SummaryDocument, string>(__TAURI_INVOKE("read_summary", { kind, key })),
 };
 
 /* Types */
@@ -182,6 +188,12 @@ export type BindingState_Deserialize = {
 export type BindingState_Serialize = {
 	userProfileId?: string | null,
 	userLastAppliedAt?: string | null,
+};
+
+/**  本机 claude CLI 探测结果 */
+export type ClaudeCliStatus = {
+	available: boolean,
+	version: string | null,
 };
 
 export type ClaudeDirectoryEntry = {
@@ -705,8 +717,36 @@ export type ProjectBranch_Serialize = {
 	lastCommitSubject?: string | null,
 };
 
+/**  单个项目某日的变更集合：提交 + 未提交素材。 */
+export type ProjectChangeset = {
+	/**  项目绝对路径 */
+	project: string,
+	/**  路径最后一级，用于展示 */
+	shortName: string,
+	branch: string | null,
+	/**  是否遵循 conventional commits */
+	isConventional: boolean,
+	commits: ProjectCommit[],
+	hasUncommitted: boolean,
+	/**  截断后的未提交 diff 素材；无未提交时为空串 */
+	uncommittedMaterial: string,
+	/**  扫描该项目时的错误（git 失败等）；正常为 None */
+	scanError: string | null,
+};
+
 /**  项目级 settings 文件的归属（共享 vs 本地覆盖） */
 export type ProjectClaudeSettingsScope = "shared" | "local";
+
+/**  单条提交的结构化信息（body 在 v1 不采集，subject 已足够表达意图）。 */
+export type ProjectCommit = {
+	hash: string,
+	subject: string,
+	author: string,
+	timestamp: number,
+	filesChanged: number,
+	insertions: number,
+	deletions: number,
+};
 
 export type ProjectDetail = ProjectDetail_Serialize | ProjectDetail_Deserialize;
 
@@ -1018,6 +1058,23 @@ export type StatusLinePresetInstallResult = {
 	commandPath: string,
 	installed: boolean,
 	needsOverwrite: boolean,
+};
+
+/**  一份已落盘的总结文档 */
+export type SummaryDocument = {
+	/**  "daily" | "weekly" */
+	kind: string,
+	/**  daily 为 "2026-06-23"，weekly 为 "2026-W26" */
+	key: string,
+	path: string,
+	content: string,
+};
+
+/**  总结列表项（不含正文） */
+export type SummaryListItem = {
+	kind: string,
+	key: string,
+	path: string,
 };
 
 export type UnmanagedMemory = {

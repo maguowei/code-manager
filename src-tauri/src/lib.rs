@@ -73,6 +73,10 @@ use tauri::Manager;
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind, TimezoneStrategy};
 use usage::{get_session_usage_detail, get_usage_snapshot, refresh_usage_pricing, rescan_usage};
 use widget::{open_usage_page, toggle_floating_widget};
+use work_summary::{
+    check_claude_cli, generate_weekly_summary, list_summaries, read_summary, scan_day_changes,
+    summarize_day,
+};
 
 /// 构造 tauri-specta Builder，收集所有 IPC command。
 ///
@@ -168,6 +172,12 @@ fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             refresh_plugin_install_counts,
             led_probe_status,
             led_test_mode,
+            check_claude_cli,
+            scan_day_changes,
+            summarize_day,
+            generate_weekly_summary,
+            list_summaries,
+            read_summary,
         ])
         .dangerously_cast_bigints_to_number()
 }
