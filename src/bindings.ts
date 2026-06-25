@@ -190,6 +190,17 @@ export type BindingState_Serialize = {
 	userLastAppliedAt?: string | null,
 };
 
+/**  单个分支某日的变更：当天提交 + 该分支当前工作树的未提交素材。 */
+export type BranchChangeset = {
+	branch: string,
+	/**  是否为主分支（main 段为 main 当天提交；非主分支段为未并入 main 的提交） */
+	isMain: boolean,
+	commits: ProjectCommit[],
+	hasUncommitted: boolean,
+	/**  截断后的未提交 diff 素材；无未提交时为空串 */
+	uncommittedMaterial: string,
+};
+
 /**  本机 claude CLI 探测结果 */
 export type ClaudeCliStatus = {
 	available: boolean,
@@ -717,19 +728,18 @@ export type ProjectBranch_Serialize = {
 	lastCommitSubject?: string | null,
 };
 
-/**  单个项目某日的变更集合：提交 + 未提交素材。 */
+/**  单个项目（repo）某日的变更集合：按分支区分 + 项目级意图。 */
 export type ProjectChangeset = {
 	/**  项目绝对路径 */
 	project: string,
 	/**  路径最后一级，用于展示 */
 	shortName: string,
-	branch: string | null,
-	/**  是否遵循 conventional commits */
+	/**  是否遵循 conventional commits（所有分支提交汇总判定） */
 	isConventional: boolean,
-	commits: ProjectCommit[],
-	hasUncommitted: boolean,
-	/**  截断后的未提交 diff 素材；无未提交时为空串 */
-	uncommittedMaterial: string,
+	/**  当天对话意图（history.jsonl 的脱敏 display），项目级 */
+	intents: string[],
+	/**  按分支区分的变更段 */
+	branches: BranchChangeset[],
 	/**  扫描该项目时的错误（git 失败等）；正常为 None */
 	scanError: string | null,
 };
@@ -737,10 +747,12 @@ export type ProjectChangeset = {
 /**  项目级 settings 文件的归属（共享 vs 本地覆盖） */
 export type ProjectClaudeSettingsScope = "shared" | "local";
 
-/**  单条提交的结构化信息（body 在 v1 不采集，subject 已足够表达意图）。 */
+/**  单条提交的结构化信息。 */
 export type ProjectCommit = {
 	hash: string,
 	subject: string,
+	/**  commit body（`%b`，可多行，无 body 时为空串） */
+	body: string,
 	author: string,
 	timestamp: number,
 	filesChanged: number,

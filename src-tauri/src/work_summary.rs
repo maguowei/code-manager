@@ -1,17 +1,19 @@
 //! 工作总结：扫描昨日有变更的 git 项目，调用本机 claude CLI 生成分项目总结并落盘。
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::Path;
 use std::process::Command;
 use tauri::{AppHandle, Emitter};
 
-/// 单条提交的结构化信息（body 在 v1 不采集，subject 已足够表达意图）。
+/// 单条提交的结构化信息。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectCommit {
     pub hash: String,
     pub subject: String,
+    /// commit body（`%b`，可多行，无 body 时为空串）
+    pub body: String,
     pub author: String,
     pub timestamp: u64,
     pub files_changed: u32,
@@ -19,7 +21,20 @@ pub struct ProjectCommit {
     pub deletions: u32,
 }
 
-/// 单个项目某日的变更集合：提交 + 未提交素材。
+/// 单个分支某日的变更：当天提交 + 该分支当前工作树的未提交素材。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct BranchChangeset {
+    pub branch: String,
+    /// 是否为主分支（main 段为 main 当天提交；非主分支段为未并入 main 的提交）
+    pub is_main: bool,
+    pub commits: Vec<ProjectCommit>,
+    pub has_uncommitted: bool,
+    /// 截断后的未提交 diff 素材；无未提交时为空串
+    pub uncommitted_material: String,
+}
+
+/// 单个项目（repo）某日的变更集合：按分支区分 + 项目级意图。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectChangeset {
@@ -27,13 +42,12 @@ pub struct ProjectChangeset {
     pub project: String,
     /// 路径最后一级，用于展示
     pub short_name: String,
-    pub branch: Option<String>,
-    /// 是否遵循 conventional commits
+    /// 是否遵循 conventional commits（所有分支提交汇总判定）
     pub is_conventional: bool,
-    pub commits: Vec<ProjectCommit>,
-    pub has_uncommitted: bool,
-    /// 截断后的未提交 diff 素材；无未提交时为空串
-    pub uncommitted_material: String,
+    /// 当天对话意图（history.jsonl 的脱敏 display），项目级
+    pub intents: Vec<String>,
+    /// 按分支区分的变更段
+    pub branches: Vec<BranchChangeset>,
     /// 扫描该项目时的错误（git 失败等）；正常为 None
     pub scan_error: Option<String>,
 }
@@ -276,6 +290,7 @@ fn parse_commits(log_output: &str) -> Vec<ProjectCommit> {
             commits.push(ProjectCommit {
                 hash,
                 subject,
+                body: String::new(),
                 author,
                 timestamp,
                 files_changed: 0,
@@ -299,6 +314,25 @@ fn parse_commits(log_output: &str) -> Vec<ProjectCommit> {
     commits
 }
 
+/// 解析 `git log <range> --pretty=format:%H%x1f%b%x1e` 输出为 (hash, body) 列表。
+/// 每条记录以 RS(\x1e) 结尾；记录内按第一个 US(\x1f) 切成 hash 与 body（body 可多行）。
+fn parse_commit_bodies(out: &str) -> Vec<(String, String)> {
+    let mut result = Vec::new();
+    for record in out.split('\u{1e}') {
+        let record = record.trim_matches('\n');
+        if record.trim().is_empty() {
+            continue;
+        }
+        let mut parts = record.splitn(2, '\u{1f}');
+        let hash = parts.next().unwrap_or("").trim().to_string();
+        let body = parts.next().unwrap_or("").trim().to_string();
+        if !hash.is_empty() {
+            result.push((hash, body));
+        }
+    }
+    result
+}
+
 fn language_label(language: &str) -> &str {
     if language == "en" {
         "English"
@@ -308,46 +342,66 @@ fn language_label(language: &str) -> &str {
 }
 
 /// 单次调用的当日总结 prompt：把所有项目素材一次交给 claude，要求输出分项目、可读的 Markdown 正文。
-/// conventional 项目仅给 commit 列表；非 conventional 且有未提交时附截断后的 diff。
+/// 含当天对话意图（为什么）与分支区分；conventional 项目可借 type/scope 归纳。
 fn build_daily_prompt(date: &str, changesets: &[ProjectChangeset], language: &str) -> String {
     let mut p = format!(
-        "你是工作总结助手。下面是 {date} 这一天我在多个项目里的 git 变更素材。\
+        "你是工作总结助手。下面是 {date} 这一天我在多个项目里的 git 变更素材，以及我当天向 Claude Code 提的需求（意图）。\
 请用{}写一份分项目的工作总结，直接输出 Markdown 正文，并严格遵守以下规则：\n\
 - 不要输出顶层一级标题（# 开头），也不要复述本说明。\n\
 - 每个项目用二级标题 `## 项目名` 开头。\n\
-- 每个项目段内：先一段概述（做了什么、为什么），再用 `**主要变更**` 列出 3-6 条要点。\n\
+- 每个项目段内：先一段概述（做了什么、为什么——「为什么」请结合「当天对话意图」与 commit body），再用 `**主要变更**` 列出 3-6 条要点。\n\
+- 若某项目含多个分支段，请在该项目下用三级标题 `### 分支名` 分别小结；只有一个主分支段时无需分支标题。\n\
 - 用自然语言归纳，不要原样粘贴 diff 代码。\n\
-- 若某项目存在未提交变更，在该项目段末尾用一行引用块明确标注：`> ⚠️ 有未提交变更：<简述>`。\n\n",
+- 若某分支存在未提交变更，在对应位置用一行引用块标注：`> ⚠️ 有未提交变更：<简述>`。\n\n",
         language_label(language)
     );
     for cs in changesets {
         p.push_str(&format!("\n=== 项目：{} ===\n", cs.short_name));
-        if let Some(branch) = &cs.branch {
-            p.push_str(&format!("分支：{branch}\n"));
-        }
         if cs.is_conventional {
             p.push_str("（该项目遵循 Conventional Commits，可借助 type/scope 归纳）\n");
+        }
+        if !cs.intents.is_empty() {
+            p.push_str("当天对话意图（我向 Claude Code 提的需求，已脱敏）：\n");
+            for it in &cs.intents {
+                p.push_str(&format!("- {it}\n"));
+            }
         }
         if let Some(err) = &cs.scan_error {
             p.push_str(&format!("扫描存在错误：{err}\n"));
         }
-        if !cs.commits.is_empty() {
-            p.push_str("已提交：\n");
-            for c in &cs.commits {
-                p.push_str(&format!(
-                    "- {} (+{} -{}, {} 文件)\n",
-                    c.subject, c.insertions, c.deletions, c.files_changed
-                ));
+        let single_main = cs.branches.len() == 1 && cs.branches[0].is_main;
+        for seg in &cs.branches {
+            if !single_main {
+                let tag = if seg.is_main {
+                    "主分支"
+                } else {
+                    "特性分支(未并入主分支)"
+                };
+                p.push_str(&format!("\n【分支 {} · {tag}】\n", seg.branch));
             }
-        }
-        if cs.has_uncommitted {
-            p.push_str("未提交变更（请在该项目段标注存在未提交变更）：\n");
-            if cs.uncommitted_material.is_empty() {
-                p.push_str("（有未提交变更，但无可展示的 diff 内容）\n");
-            } else {
-                p.push_str("```diff\n");
-                p.push_str(&cs.uncommitted_material);
-                p.push_str("\n```\n");
+            if !seg.commits.is_empty() {
+                p.push_str("已提交：\n");
+                for c in &seg.commits {
+                    p.push_str(&format!(
+                        "- {} (+{} -{}, {} 文件)\n",
+                        c.subject, c.insertions, c.deletions, c.files_changed
+                    ));
+                    if !c.body.trim().is_empty() {
+                        for bl in c.body.trim().lines() {
+                            p.push_str(&format!("    {bl}\n"));
+                        }
+                    }
+                }
+            }
+            if seg.has_uncommitted {
+                p.push_str("未提交变更（请标注存在未提交变更）：\n");
+                if seg.uncommitted_material.is_empty() {
+                    p.push_str("（有未提交变更，但无可展示的 diff 内容）\n");
+                } else {
+                    p.push_str("```diff\n");
+                    p.push_str(&seg.uncommitted_material);
+                    p.push_str("\n```\n");
+                }
             }
         }
     }
@@ -357,11 +411,20 @@ fn build_daily_prompt(date: &str, changesets: &[ProjectChangeset], language: &st
 /// 周总结里某天缺日总结时的紧凑素材
 fn build_changeset_brief(cs: &ProjectChangeset) -> String {
     let mut b = format!("### {}\n", cs.short_name);
-    for c in &cs.commits {
-        b.push_str(&format!("- {}\n", c.subject));
+    for it in cs.intents.iter().take(2) {
+        b.push_str(&format!("- 意图：{it}\n"));
     }
-    if cs.has_uncommitted {
-        b.push_str("- ⚠️ 有未提交变更\n");
+    for seg in &cs.branches {
+        for c in &seg.commits {
+            if seg.is_main {
+                b.push_str(&format!("- {}\n", c.subject));
+            } else {
+                b.push_str(&format!("- [{}] {}\n", seg.branch, c.subject));
+            }
+        }
+        if seg.has_uncommitted {
+            b.push_str(&format!("- ⚠️ {} 有未提交变更\n", seg.branch));
+        }
     }
     b
 }
@@ -488,22 +551,29 @@ fn assemble_daily_fallback(
     ));
     for cs in changesets {
         md.push_str(&format!("\n## {}  `{}`\n", cs.short_name, cs.project));
-        let mut meta: Vec<String> = Vec::new();
-        if let Some(branch) = &cs.branch {
-            meta.push(format!("分支 {branch}"));
+        if !cs.intents.is_empty() {
+            md.push_str("当天意图：\n");
+            for it in &cs.intents {
+                md.push_str(&format!("- {it}\n"));
+            }
         }
-        meta.push(format!("{} commits", cs.commits.len()));
-        if cs.has_uncommitted {
-            meta.push("⚠️ 有未提交变更".to_string());
-        }
-        md.push_str(&format!("{}\n\n", meta.join(" · ")));
         if let Some(err) = &cs.scan_error {
             md.push_str(&format!("> 扫描错误：{err}\n"));
         }
-        if cs.commits.is_empty() {
-            md.push_str("- （无提交记录）\n");
-        } else {
-            for c in &cs.commits {
+        if cs.branches.is_empty() {
+            md.push_str("- （无变更记录）\n");
+        }
+        for seg in &cs.branches {
+            let mut meta: Vec<String> = vec![format!("分支 {}", seg.branch)];
+            if seg.is_main {
+                meta.push("主分支".to_string());
+            }
+            meta.push(format!("{} commits", seg.commits.len()));
+            if seg.has_uncommitted {
+                meta.push("⚠️ 有未提交变更".to_string());
+            }
+            md.push_str(&format!("\n**{}**\n", meta.join(" · ")));
+            for c in &seg.commits {
                 md.push_str(&format!("- {}\n", c.subject));
             }
         }
@@ -556,23 +626,96 @@ fn validate_summary_key(key: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// 从 history.jsonl 内容提取去重项目绝对路径
-fn parse_history_projects(content: &str) -> Vec<String> {
-    let mut set: BTreeSet<String> = BTreeSet::new();
+/// history.jsonl 单行的结构化视图（仅内部使用，不进绑定）。
+struct HistoryEntry {
+    project: String,
+    timestamp_ms: i64,
+    display: String,
+}
+
+/// 解析 history.jsonl 内容为条目列表（保留 timestamp 与 display）。
+fn parse_history_entries(content: &str) -> Vec<HistoryEntry> {
+    let mut entries = Vec::new();
     for line in content.lines() {
         let line = line.trim();
         if line.is_empty() {
             continue;
         }
-        if let Ok(value) = serde_json::from_str::<serde_json::Value>(line) {
-            if let Some(project) = value.get("project").and_then(|v| v.as_str()) {
-                if !project.is_empty() {
-                    set.insert(project.to_string());
-                }
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
+        };
+        let project = value
+            .get("project")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        if project.is_empty() {
+            continue;
+        }
+        let timestamp_ms = value.get("timestamp").and_then(|v| v.as_i64()).unwrap_or(0);
+        let display = value
+            .get("display")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        entries.push(HistoryEntry {
+            project,
+            timestamp_ms,
+            display,
+        });
+    }
+    entries
+}
+
+/// 候选项目集：history 中出现过的 distinct 项目路径（保证 commit 不漏项）。
+fn distinct_projects(entries: &[HistoryEntry]) -> Vec<String> {
+    let set: BTreeSet<String> = entries.iter().map(|e| e.project.clone()).collect();
+    set.into_iter().collect()
+}
+
+const MAX_INTENTS: usize = 12;
+const MAX_INTENT_CHARS: usize = 200;
+
+/// 窗口 [start_ms, end_ms) 内、匹配 project 的脱敏 display：去重 + 时间序 + 截断 + 限条数。
+fn intents_for_day(
+    entries: &[HistoryEntry],
+    project: &str,
+    start_ms: i64,
+    end_ms: i64,
+) -> Vec<String> {
+    let mut picked: Vec<&HistoryEntry> = entries
+        .iter()
+        .filter(|e| e.project == project && e.timestamp_ms >= start_ms && e.timestamp_ms < end_ms)
+        .filter(|e| !e.display.trim().is_empty())
+        .collect();
+    picked.sort_by_key(|e| e.timestamp_ms);
+    let mut seen: BTreeSet<String> = BTreeSet::new();
+    let mut out: Vec<String> = Vec::new();
+    for e in picked {
+        let text = crate::utils::truncate(e.display.trim(), MAX_INTENT_CHARS);
+        if seen.insert(text.clone()) {
+            out.push(text);
+            if out.len() >= MAX_INTENTS {
+                break;
             }
         }
     }
-    set.into_iter().collect()
+    out
+}
+
+/// 窗口内该 project 是否有任何 history 记录（未提交门控用）。
+fn history_active(entries: &[HistoryEntry], project: &str, start_ms: i64, end_ms: i64) -> bool {
+    entries
+        .iter()
+        .any(|e| e.project == project && e.timestamp_ms >= start_ms && e.timestamp_ms < end_ms)
+}
+
+/// 当天本地时区毫秒窗口 [当天00:00, 次日00:00)
+fn day_window_ms(date: &str) -> Option<(i64, i64)> {
+    let start = crate::usage::parse_local_date_to_ms(date, false)?;
+    let next = next_date(date).ok()?;
+    let end = crate::usage::parse_local_date_to_ms(&next, false)?;
+    Some((start, end))
 }
 
 fn short_name_of(project: &str) -> String {
@@ -583,17 +726,129 @@ fn short_name_of(project: &str) -> String {
         .to_string()
 }
 
-/// 采集单个项目某日变更。非 git 仓库 / 无变更 → None。
-fn gather_changeset(project: &str, date: &str) -> Option<ProjectChangeset> {
+/// 检测仓库主分支：origin/HEAD → main/master → 当前 HEAD 分支。
+fn detect_main_branch(path: &Path) -> Option<String> {
+    if let Ok(out) = crate::project::run_git(
+        path,
+        &["symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"],
+    ) {
+        if let Some(name) = out.trim().rsplit('/').next() {
+            if !name.is_empty() {
+                return Some(name.to_string());
+            }
+        }
+    }
+    for cand in ["main", "master"] {
+        let exists = crate::project::run_git(
+            path,
+            &[
+                "rev-parse",
+                "--verify",
+                "--quiet",
+                &format!("refs/heads/{cand}"),
+            ],
+        )
+        .map(|s| !s.trim().is_empty())
+        .unwrap_or(false);
+        if exists {
+            return Some(cand.to_string());
+        }
+    }
+    crate::project::run_git(path, &["rev-parse", "--abbrev-ref", "HEAD"])
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty() && s != "HEAD")
+}
+
+const MAX_BRANCHES: usize = 30;
+
+/// 列本地分支，按提交时间倒序，限 MAX_BRANCHES 个。
+fn list_local_branches(path: &Path) -> Vec<String> {
+    crate::project::run_git(
+        path,
+        &[
+            "for-each-ref",
+            "--sort=-committerdate",
+            "--format=%(refname:short)",
+            "refs/heads",
+        ],
+    )
+    .map(|out| {
+        out.lines()
+            .map(|l| l.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .take(MAX_BRANCHES)
+            .collect()
+    })
+    .unwrap_or_default()
+}
+
+/// 采集某 rev（分支名或 `main..B` 区间）当天提交，并回填 commit body。
+fn collect_commits(
+    path: &Path,
+    rev: &str,
+    since: &str,
+    until: &str,
+    email: Option<&str>,
+    scan_error: &mut Option<String>,
+) -> Vec<ProjectCommit> {
+    let mut args: Vec<String> = vec![
+        "log".into(),
+        rev.into(),
+        format!("--since={since}"),
+        format!("--until={until}"),
+        "--numstat".into(),
+        format!("--pretty=format:{GIT_LOG_FORMAT}"),
+    ];
+    if let Some(email) = email {
+        args.push(format!("--author={email}"));
+    }
+    let refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+    let mut commits = match crate::project::run_git(path, &refs) {
+        Ok(out) => parse_commits(&out),
+        Err(e) => {
+            scan_error.get_or_insert(e);
+            Vec::new()
+        }
+    };
+    if commits.is_empty() {
+        return commits;
+    }
+    // body 单独取（不与 numstat 混，避免多行 body 破坏 marker/numstat 行解析）
+    let mut bargs: Vec<String> = vec![
+        "log".into(),
+        rev.into(),
+        format!("--since={since}"),
+        format!("--until={until}"),
+        "--pretty=format:%H%x1f%b%x1e".into(),
+    ];
+    if let Some(email) = email {
+        bargs.push(format!("--author={email}"));
+    }
+    let brefs: Vec<&str> = bargs.iter().map(|s| s.as_str()).collect();
+    if let Ok(out) = crate::project::run_git(path, &brefs) {
+        let bodies: HashMap<String, String> = parse_commit_bodies(&out).into_iter().collect();
+        for c in commits.iter_mut() {
+            if let Some(b) = bodies.get(&c.hash) {
+                c.body = b.clone();
+            }
+        }
+    }
+    commits
+}
+
+/// 采集单个项目某日变更（多分支区分 + 未提交门控）。非 git 仓库 / 无变更 → None。
+/// `intents`/`active` 由上层基于 history 时间戳计算后传入。
+fn gather_changeset(
+    project: &str,
+    date: &str,
+    intents: Vec<String>,
+    active: bool,
+) -> Option<ProjectChangeset> {
     let path = Path::new(project);
     if crate::project::git_repo_root(path).is_err() {
         return None;
     }
-
-    let branch = crate::project::run_git(path, &["rev-parse", "--abbrev-ref", "HEAD"])
-        .ok()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty() && s != "HEAD");
 
     let (since, until) = match day_range_args(date) {
         Ok(v) => v,
@@ -601,94 +856,187 @@ fn gather_changeset(project: &str, date: &str) -> Option<ProjectChangeset> {
             return Some(ProjectChangeset {
                 project: project.to_string(),
                 short_name: short_name_of(project),
-                branch,
                 is_conventional: false,
-                commits: Vec::new(),
-                has_uncommitted: false,
-                uncommitted_material: String::new(),
+                intents,
+                branches: Vec::new(),
                 scan_error: Some(e),
             });
         }
     };
+
+    let mut scan_error: Option<String> = None;
 
     // 当前用户邮箱过滤「我的工作」；无邮箱则不加 --author
     let email = crate::project::run_git(path, &["config", "user.email"])
         .ok()
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty());
+    let current = crate::project::run_git(path, &["rev-parse", "--abbrev-ref", "HEAD"])
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty() && s != "HEAD");
+    let main_branch = detect_main_branch(path);
 
-    let mut log_args: Vec<String> = vec![
-        "log".into(),
-        format!("--since={since}"),
-        format!("--until={until}"),
-        "--numstat".into(),
-        format!("--pretty=format:{GIT_LOG_FORMAT}"),
-    ];
-    if let Some(email) = &email {
-        log_args.push(format!("--author={email}"));
-    }
-    let log_refs: Vec<&str> = log_args.iter().map(|s| s.as_str()).collect();
+    let mut branches: Vec<BranchChangeset> = Vec::new();
+    let mut seen: HashSet<String> = HashSet::new();
 
-    let mut scan_error: Option<String> = None;
-    let commits = match crate::project::run_git(path, &log_refs) {
-        Ok(out) => parse_commits(&out),
-        Err(e) => {
-            scan_error = Some(e);
-            Vec::new()
+    match &main_branch {
+        Some(main) => {
+            // 主分支段：main 当天提交
+            let commits = collect_commits(
+                path,
+                main,
+                &since,
+                &until,
+                email.as_deref(),
+                &mut scan_error,
+            );
+            for c in &commits {
+                seen.insert(c.hash.clone());
+            }
+            if !commits.is_empty() {
+                branches.push(BranchChangeset {
+                    branch: main.clone(),
+                    is_main: true,
+                    commits,
+                    has_uncommitted: false,
+                    uncommitted_material: String::new(),
+                });
+            }
+            // 非主分支段：main..B 为空=已并入→跳过；非空=独立进度→单列
+            for b in list_local_branches(path) {
+                if &b == main {
+                    continue;
+                }
+                let range = format!("{main}..{b}");
+                let mut commits = collect_commits(
+                    path,
+                    &range,
+                    &since,
+                    &until,
+                    email.as_deref(),
+                    &mut scan_error,
+                );
+                commits.retain(|c| !seen.contains(&c.hash));
+                for c in &commits {
+                    seen.insert(c.hash.clone());
+                }
+                if !commits.is_empty() {
+                    branches.push(BranchChangeset {
+                        branch: b,
+                        is_main: false,
+                        commits,
+                        has_uncommitted: false,
+                        uncommitted_material: String::new(),
+                    });
+                }
+            }
         }
-    };
+        None => {
+            // 无主分支（detached / 空仓库）：退化为当前 rev 当天提交
+            let rev = current.clone().unwrap_or_else(|| "HEAD".into());
+            let commits = collect_commits(
+                path,
+                &rev,
+                &since,
+                &until,
+                email.as_deref(),
+                &mut scan_error,
+            );
+            if !commits.is_empty() {
+                branches.push(BranchChangeset {
+                    branch: rev,
+                    is_main: true,
+                    commits,
+                    has_uncommitted: false,
+                    uncommitted_material: String::new(),
+                });
+            }
+        }
+    }
 
-    // git status 失败不静默吞错，记入 scan_error 并视为无未提交（避免误标）
-    let status = crate::project::run_git(path, &["status", "--porcelain"]).unwrap_or_else(|e| {
-        scan_error.get_or_insert(e);
-        String::new()
-    });
-    let has_uncommitted = !status.trim().is_empty();
-    let uncommitted_material = if has_uncommitted {
-        // diff HEAD 失败（如仓库无任何 commit）时不静默吞错，记入 scan_error 供上层展示
-        let diff = crate::project::run_git(path, &["diff", "HEAD"]).unwrap_or_else(|e| {
-            scan_error.get_or_insert(e);
-            String::new()
-        });
-        let untracked: Vec<String> = status
-            .lines()
-            .filter_map(|l| l.strip_prefix("?? ").map(|p| p.trim().to_string()))
-            .collect();
-        build_uncommitted_material(&diff, &untracked)
-    } else {
-        String::new()
-    };
+    // 未提交：仅当 history 当天 active（避免他日 WIP 误归类）。挂到当前分支段。
+    if active {
+        let status =
+            crate::project::run_git(path, &["status", "--porcelain"]).unwrap_or_else(|e| {
+                scan_error.get_or_insert(e);
+                String::new()
+            });
+        if !status.trim().is_empty() {
+            let diff = crate::project::run_git(path, &["diff", "HEAD"]).unwrap_or_else(|e| {
+                scan_error.get_or_insert(e);
+                String::new()
+            });
+            let untracked: Vec<String> = status
+                .lines()
+                .filter_map(|l| l.strip_prefix("?? ").map(|p| p.trim().to_string()))
+                .collect();
+            let material = build_uncommitted_material(&diff, &untracked);
+            let cur = current.clone().unwrap_or_else(|| "(当前工作树)".into());
+            if let Some(seg) = branches.iter_mut().find(|s| s.branch == cur) {
+                seg.has_uncommitted = true;
+                seg.uncommitted_material = material;
+            } else {
+                let is_main = main_branch.as_deref() == Some(cur.as_str());
+                branches.push(BranchChangeset {
+                    branch: cur,
+                    is_main,
+                    commits: Vec::new(),
+                    has_uncommitted: true,
+                    uncommitted_material: material,
+                });
+            }
+        }
+    }
 
-    if commits.is_empty() && !has_uncommitted && scan_error.is_none() {
+    if branches.is_empty() && scan_error.is_none() {
         return None;
     }
 
-    let is_conventional = detect_conventional_repo(
-        &commits
-            .iter()
-            .map(|c| c.subject.clone())
-            .collect::<Vec<_>>(),
-    );
+    // 主分支段在前，其余按分支名稳定排序
+    branches.sort_by(|a, b| b.is_main.cmp(&a.is_main).then(a.branch.cmp(&b.branch)));
+
+    let all_subjects: Vec<String> = branches
+        .iter()
+        .flat_map(|s| s.commits.iter().map(|c| c.subject.clone()))
+        .collect();
+    let is_conventional = detect_conventional_repo(&all_subjects);
 
     Some(ProjectChangeset {
         project: project.to_string(),
         short_name: short_name_of(project),
-        branch,
         is_conventional,
-        commits,
-        has_uncommitted,
-        uncommitted_material,
+        intents,
+        branches,
         scan_error,
     })
 }
 
-/// 扫描所有候选项目，返回当日有变更的项目集合
+/// 扫描所有候选项目（按 repo root 去重），返回当日有变更的项目集合。
 fn gather_day_changesets(date: &str) -> Result<Vec<ProjectChangeset>, String> {
     let history = crate::history::get_history()?;
-    let projects = parse_history_projects(&history.content);
+    let entries = parse_history_entries(&history.content);
+    let window = day_window_ms(date);
+
+    let mut seen_roots: BTreeSet<String> = BTreeSet::new();
     let mut result: Vec<ProjectChangeset> = Vec::new();
-    for project in projects {
-        if let Some(cs) = gather_changeset(&project, date) {
+    for project in distinct_projects(&entries) {
+        // repo 去重：同一 repo（toplevel）只处理一次，避免分支提交被重复汇总
+        let root = match crate::project::git_repo_root(Path::new(&project)) {
+            Ok(r) => r,
+            Err(_) => continue,
+        };
+        if !seen_roots.insert(root) {
+            continue;
+        }
+        let (intents, active) = match window {
+            Some((s, e)) => (
+                intents_for_day(&entries, &project, s, e),
+                history_active(&entries, &project, s, e),
+            ),
+            None => (Vec::new(), false),
+        };
+        if let Some(cs) = gather_changeset(&project, date, intents, active) {
             result.push(cs);
         }
     }
@@ -1116,31 +1464,66 @@ mod tests {
         ProjectChangeset {
             project: "/x/proj".into(),
             short_name: "proj".into(),
-            branch: Some("main".into()),
             is_conventional: true,
-            commits: vec![ProjectCommit {
-                hash: "h".into(),
-                subject: "feat: add login".into(),
-                author: "Alice".into(),
-                timestamp: 1,
-                files_changed: 2,
-                insertions: 10,
-                deletions: 1,
+            intents: vec!["实现登录功能".into()],
+            branches: vec![BranchChangeset {
+                branch: "main".into(),
+                is_main: true,
+                commits: vec![ProjectCommit {
+                    hash: "h".into(),
+                    subject: "feat: add login".into(),
+                    body: "为什么：用户需要登录".into(),
+                    author: "Alice".into(),
+                    timestamp: 1,
+                    files_changed: 2,
+                    insertions: 10,
+                    deletions: 1,
+                }],
+                has_uncommitted: true,
+                uncommitted_material: "diff --git a/x b/x".into(),
             }],
-            has_uncommitted: true,
-            uncommitted_material: "diff --git a/x b/x".into(),
             scan_error: None,
         }
     }
 
     #[test]
-    fn build_daily_prompt_includes_projects_uncommitted_and_language() {
+    fn build_daily_prompt_includes_intent_body_and_language() {
         let prompt = build_daily_prompt("2026-06-23", &[sample_changeset()], "zh");
         assert!(prompt.contains("feat: add login"));
         assert!(prompt.contains("未提交"));
         assert!(prompt.contains("中文"));
         assert!(prompt.contains("## 项目名")); // 模板要求每项目用二级标题
         assert!(prompt.contains("=== 项目：proj ==="));
+        assert!(prompt.contains("当天对话意图"));
+        assert!(prompt.contains("实现登录功能"));
+        assert!(prompt.contains("用户需要登录")); // commit body
+                                                  // 单一主分支段不加分支标题
+        assert!(!prompt.contains("【分支"));
+    }
+
+    #[test]
+    fn build_daily_prompt_marks_feature_branch_section() {
+        let mut cs = sample_changeset();
+        cs.branches.push(BranchChangeset {
+            branch: "feature-x".into(),
+            is_main: false,
+            commits: vec![ProjectCommit {
+                hash: "h2".into(),
+                subject: "wip: x".into(),
+                body: String::new(),
+                author: "A".into(),
+                timestamp: 2,
+                files_changed: 1,
+                insertions: 1,
+                deletions: 0,
+            }],
+            has_uncommitted: false,
+            uncommitted_material: String::new(),
+        });
+        let prompt = build_daily_prompt("2026-06-23", &[cs], "zh");
+        assert!(prompt.contains("【分支 main · 主分支】"));
+        assert!(prompt.contains("【分支 feature-x · 特性分支(未并入主分支)】"));
+        assert!(prompt.contains("wip: x"));
     }
 
     #[test]
@@ -1208,6 +1591,9 @@ mod tests {
         assert!(md.contains("`/x/proj`"));
         assert!(md.contains("⚠️ 有未提交变更"));
         assert!(md.contains("- feat: add login"));
+        assert!(md.contains("分支 main"));
+        assert!(md.contains("主分支"));
+        assert!(md.contains("实现登录功能")); // 意图
     }
 
     #[test]
@@ -1228,14 +1614,74 @@ mod tests {
     }
 
     #[test]
-    fn parse_history_projects_dedupes() {
-        let content = "{\"project\":\"/a\",\"sessionId\":\"1\"}\n\
-{\"project\":\"/b\",\"sessionId\":\"2\"}\n\
-{\"project\":\"/a\",\"sessionId\":\"3\"}\n\
+    fn parse_history_entries_extracts_and_distinct_dedupes() {
+        let content =
+            "{\"project\":\"/a\",\"timestamp\":1000,\"display\":\"做A\",\"sessionId\":\"1\"}\n\
+{\"project\":\"/b\",\"timestamp\":2000,\"display\":\"做B\"}\n\
+{\"project\":\"/a\",\"timestamp\":3000,\"display\":\"再做A\"}\n\
 not-json\n";
-        let mut projects = parse_history_projects(content);
+        let entries = parse_history_entries(content);
+        assert_eq!(entries.len(), 3);
+        assert_eq!(entries[0].timestamp_ms, 1000);
+        assert_eq!(entries[0].display, "做A");
+        let mut projects = distinct_projects(&entries);
         projects.sort();
         assert_eq!(projects, vec!["/a".to_string(), "/b".to_string()]);
+    }
+
+    #[test]
+    fn intents_for_day_filters_window_dedupes_and_skips_empty() {
+        let entries = vec![
+            HistoryEntry {
+                project: "/a".into(),
+                timestamp_ms: 1000,
+                display: "做A".into(),
+            },
+            HistoryEntry {
+                project: "/a".into(),
+                timestamp_ms: 1500,
+                display: "做A".into(),
+            }, // 重复
+            HistoryEntry {
+                project: "/a".into(),
+                timestamp_ms: 5000,
+                display: "做B".into(),
+            }, // 窗口外
+            HistoryEntry {
+                project: "/b".into(),
+                timestamp_ms: 1200,
+                display: "别的".into(),
+            }, // 别的项目
+            HistoryEntry {
+                project: "/a".into(),
+                timestamp_ms: 1200,
+                display: "  ".into(),
+            }, // 空
+        ];
+        let out = intents_for_day(&entries, "/a", 1000, 2000);
+        assert_eq!(out, vec!["做A".to_string()]);
+    }
+
+    #[test]
+    fn history_active_respects_window_and_project() {
+        let entries = vec![HistoryEntry {
+            project: "/a".into(),
+            timestamp_ms: 1500,
+            display: "x".into(),
+        }];
+        assert!(history_active(&entries, "/a", 1000, 2000));
+        assert!(!history_active(&entries, "/a", 2000, 3000)); // 窗口外
+        assert!(!history_active(&entries, "/b", 1000, 2000)); // 别的项目
+    }
+
+    #[test]
+    fn parse_commit_bodies_splits_records() {
+        let out = "h1\u{1f}body line1\nbody line2\u{1e}h2\u{1f}\u{1e}h3\u{1f}third\u{1e}";
+        let bodies = parse_commit_bodies(out);
+        assert_eq!(bodies.len(), 3);
+        assert_eq!(bodies[0], ("h1".into(), "body line1\nbody line2".into()));
+        assert_eq!(bodies[1], ("h2".into(), String::new()));
+        assert_eq!(bodies[2], ("h3".into(), "third".into()));
     }
 
     #[test]
@@ -1244,5 +1690,120 @@ not-json\n";
         assert!(validate_summary_key("2026-W26").is_ok());
         assert!(validate_summary_key("../etc/passwd").is_err());
         assert!(validate_summary_key("a/b").is_err());
+    }
+
+    // ===== 多分支 git 集成测试（临时 repo，shell 调用 git，hermetic）=====
+
+    /// 在临时 repo 内跑 git；忽略用户/系统 config 保证 hermetic；可注入提交日期。
+    fn tg(dir: &Path, args: &[&str], date: Option<&str>) {
+        let mut c = Command::new("git");
+        c.current_dir(dir)
+            .args(args)
+            .env("GIT_CONFIG_GLOBAL", "/dev/null")
+            .env("GIT_CONFIG_SYSTEM", "/dev/null");
+        if let Some(d) = date {
+            c.env("GIT_AUTHOR_DATE", d).env("GIT_COMMITTER_DATE", d);
+        }
+        let out = c.output().expect("运行 git 失败");
+        assert!(
+            out.status.success(),
+            "git {args:?} 失败: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+
+    fn init_repo(p: &Path) {
+        tg(p, &["init"], None);
+        tg(p, &["config", "user.email", "test@example.com"], None);
+        tg(p, &["config", "user.name", "T"], None);
+        tg(p, &["config", "commit.gpgsign", "false"], None);
+    }
+
+    #[test]
+    fn gather_changeset_folds_merged_branch_and_separates_diverged() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        let date = "2026-06-23";
+        let d = "2026-06-23 12:00:00";
+
+        init_repo(p);
+        // main: M1
+        std::fs::write(p.join("a.txt"), "a").unwrap();
+        tg(p, &["add", "."], None);
+        tg(p, &["commit", "-m", "feat: m1"], Some(d));
+        tg(p, &["branch", "-M", "main"], None);
+
+        // feature-merged: F1 → fast-forward 并入 main
+        tg(p, &["checkout", "-b", "feature-merged"], None);
+        std::fs::write(p.join("b.txt"), "b").unwrap();
+        tg(p, &["add", "."], None);
+        tg(p, &["commit", "-m", "feat: f1 merged"], Some(d));
+        tg(p, &["checkout", "main"], None);
+        tg(p, &["merge", "--no-edit", "feature-merged"], Some(d));
+
+        // feature-diverged: F2 → 不并入
+        tg(p, &["checkout", "-b", "feature-diverged"], None);
+        std::fs::write(p.join("c.txt"), "c").unwrap();
+        tg(p, &["add", "."], None);
+        tg(p, &["commit", "-m", "feat: f2 diverged"], Some(d));
+        tg(p, &["checkout", "main"], None);
+
+        // 当前在 main，制造未提交（未跟踪）
+        std::fs::write(p.join("d.txt"), "d").unwrap();
+
+        let proj = p.to_str().unwrap();
+        let cs = gather_changeset(proj, date, vec!["写测试".into()], true).expect("changeset");
+
+        assert_eq!(cs.intents, vec!["写测试".to_string()]);
+
+        let main_seg = cs
+            .branches
+            .iter()
+            .find(|s| s.branch == "main")
+            .expect("main 段");
+        assert!(main_seg.is_main);
+        assert!(main_seg.commits.iter().any(|c| c.subject == "feat: m1"));
+        assert!(main_seg
+            .commits
+            .iter()
+            .any(|c| c.subject == "feat: f1 merged"));
+        assert!(main_seg.has_uncommitted, "当前分支 main 应挂未提交");
+
+        let div = cs
+            .branches
+            .iter()
+            .find(|s| s.branch == "feature-diverged")
+            .expect("diverged 段");
+        assert!(!div.is_main);
+        assert!(div.commits.iter().any(|c| c.subject == "feat: f2 diverged"));
+
+        // 已并入主分支的 feature-merged 不单列
+        assert!(cs.branches.iter().all(|s| s.branch != "feature-merged"));
+    }
+
+    #[test]
+    fn gather_changeset_gates_uncommitted_by_history_active() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        let date = "2026-06-23";
+        let d = "2026-06-23 12:00:00";
+        init_repo(p);
+        std::fs::write(p.join("a.txt"), "a").unwrap();
+        tg(p, &["add", "."], None);
+        tg(p, &["commit", "-m", "feat: m1"], Some(d));
+        tg(p, &["branch", "-M", "main"], None);
+        // 未提交（模拟他日 WIP）
+        std::fs::write(p.join("wip.txt"), "wip").unwrap();
+
+        let proj = p.to_str().unwrap();
+        // active=false：未提交不计入（避免他日 WIP 误归类）
+        let cs = gather_changeset(proj, date, vec![], false).expect("changeset");
+        let seg = cs.branches.iter().find(|s| s.branch == "main").unwrap();
+        assert!(!seg.has_uncommitted, "active=false 时不应计入未提交");
+
+        // active=true：计入
+        let cs2 = gather_changeset(proj, date, vec![], true).expect("changeset");
+        let seg2 = cs2.branches.iter().find(|s| s.branch == "main").unwrap();
+        assert!(seg2.has_uncommitted, "active=true 时应计入未提交");
     }
 }

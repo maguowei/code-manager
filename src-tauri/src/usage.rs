@@ -1203,7 +1203,7 @@ fn local_bucket_for_ms(ms: i64, granularity: UsageTimeGranularity) -> Option<(St
     Some((bucket, bucket_start_ms))
 }
 
-fn parse_local_date_to_ms(s: &str, end_of_day: bool) -> Option<i64> {
+pub(crate) fn parse_local_date_to_ms(s: &str, end_of_day: bool) -> Option<i64> {
     use time::macros::format_description;
     use time::{Date, OffsetDateTime, Time};
     let fmt = format_description!("[year]-[month]-[day]");
