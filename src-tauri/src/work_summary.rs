@@ -508,7 +508,11 @@ fn gather_changeset(project: &str, date: &str) -> Option<ProjectChangeset> {
         }
     };
 
-    let status = crate::project::run_git(path, &["status", "--porcelain"]).unwrap_or_default();
+    // git status 失败不静默吞错，记入 scan_error 并视为无未提交（避免误标）
+    let status = crate::project::run_git(path, &["status", "--porcelain"]).unwrap_or_else(|e| {
+        scan_error.get_or_insert(e);
+        String::new()
+    });
     let has_uncommitted = !status.trim().is_empty();
     let uncommitted_material = if has_uncommitted {
         // diff HEAD 失败（如仓库无任何 commit）时不静默吞错，记入 scan_error 供上层展示

@@ -8,6 +8,7 @@ export function localDateKey(date: Date): string {
 
 // 昨天的本地日期 key
 export function yesterdayKey(now: Date = new Date()): string {
-  const d = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const d = new Date(now);
+  d.setDate(d.getDate() - 1);
   return localDateKey(d);
 }

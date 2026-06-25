@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { useWorkSummaries } from "../hooks/useWorkSummaries";
 import { useI18n } from "../i18n";
 import MarkdownPreview from "./claude-overview/MarkdownPreview";
+import EmptyState from "./EmptyState";
 import PageHeader from "./PageHeader";
 import { useTheme } from "./theme-provider";
 import { Button } from "./ui/button";
@@ -50,7 +51,7 @@ function WorkSummaryPage() {
         {/* 左栏：总结列表 */}
         <aside className="w-56 shrink-0 overflow-y-auto border-r border-border p-2">
           {items.length === 0 ? (
-            <p className="p-3 text-sm text-muted-foreground">{t("worklog.empty")}</p>
+            <EmptyState title={t("worklog.empty")} className="min-h-0 px-3 py-6" />
           ) : (
             <ul className="flex flex-col gap-1">
               {items.map((item) => (
@@ -78,11 +79,11 @@ function WorkSummaryPage() {
         {/* 主区：Markdown 预览 */}
         <main className="min-w-0 flex-1 overflow-y-auto p-4">
           {generating ? (
-            <p className="text-sm text-muted-foreground">{t("worklog.generating")}</p>
+            <EmptyState title={t("worklog.generating")} loading />
           ) : selected ? (
             <MarkdownPreview content={selected.content} themeType={isDark ? "dark" : "light"} />
           ) : (
-            <p className="text-sm text-muted-foreground">{t("worklog.empty")}</p>
+            <EmptyState title={t("worklog.empty")} />
           )}
         </main>
       </div>
