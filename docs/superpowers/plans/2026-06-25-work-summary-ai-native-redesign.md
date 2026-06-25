@@ -4,9 +4,9 @@
 
 **Goal:** 把「工作总结」页从「左列表+右文档+两按钮」重做成 AI-native 对话式工作台：自然语言输入 → 意图解析 → 扫描 → 真 token 流式生成 → 可追问，对话线程持久化，日/周规范 `.md` 照旧落盘。
 
-**Architecture:** 后端在 `work_summary.rs` 内新增「流式 claude 读取 + 意图解析 + range 聚合 + 对话线程 jsonl 存储」四组能力（复用现有 `gather_*`/`build_*_prompt`/`assemble_*` 私有 helper，不外提可见性）；通过两个事件 `work-summary-progress`（加 `messageId`）与 `work-summary-token`（新）驱动前端流式渲染。前端用单栏对话 UI（`ConversationFeed` + `SummaryComposer` + 消息组件）替换页面，hook 由 `useWorkSummaries` 演进为 `useSummaryConversation`。
+**Architecture:** 后端在 `work_summary.rs` 内新增「流式 claude 读取 + 意图解析 + range 聚合 + 对话线程 jsonl 存储」四组能力（复用现有 `gather_*`/`build_*_prompt`/`assemble_*` 私有 helper，不外提可见性）；通过两个事件 `work-summary-progress`（加 `messageId`）与 `work-summary-token`（新）驱动前端流式渲染。前端不自研对话栈：用 **assistant-ui** 的 `ExternalStoreRuntime` 把「自有 messages + isRunning + Tauri 事件 token 源」桥接到脚手架 `<Thread/>`，正文用 **streamdown**（`StreamdownTextPrimitive`，自动补全未闭合 Markdown、无闪烁、CJK + Shiki）渲染；hook 由 `useWorkSummaries` 演进为 `useSummaryConversation`，返回 `useExternalStoreRuntime` 适配器。
 
-**Tech Stack:** Rust + Tauri 2 + tauri-specta；React 19 + TypeScript + Tailwind v4 + shadcn/ui；claude headless CLI（`--output-format stream-json --include-partial-messages`）；Vitest + cargo test。
+**Tech Stack:** Rust + Tauri 2 + tauri-specta；React 19 + TypeScript + Tailwind v4 + shadcn/ui；**`@assistant-ui/react`（ExternalStoreRuntime）+ `@assistant-ui/react-streamdown` + `streamdown`**；claude headless CLI（`--output-format stream-json --include-partial-messages`）；Vitest + cargo test。
 
 ## Global Constraints
 
@@ -35,14 +35,18 @@
 - 新增类型：`SummaryIntent`、`ConversationMessage`（`Serialize + Deserialize + specta::Type`）。
 - 复用：`gather_day_changesets`、`gather_changeset`、`build_daily_prompt`、`build_weekly_prompt`、`assemble_daily_markdown`、`assemble_weekly_markdown`、`assemble_daily_fallback`、`day_window_ms`、`week_dates`、`daily_path`、`weekly_path`、`SummaryDocument`、`ProjectChangeset`、`emit_progress`/`emit_prompt`（扩展加 `messageId`）。
 
-**前端（新目录 `src/components/work-summary/`）**
-- `src/hooks/useSummaryConversation.ts`（新，演进自 `useWorkSummaries.ts`）
-- `src/components/work-summary/ConversationFeed.tsx`、`UserMessage.tsx`、`AssistantMessage.tsx`、`SummaryComposer.tsx`、`SummaryHistorySheet.tsx`
-- `src/components/WorkSummaryPage.tsx`（重写）
-- 删除（迁移完成后）：`src/hooks/useWorkSummaries.ts`、`src/components/WorkSummaryProcessView.tsx`（其过程展示折叠进 `AssistantMessage`）
-- 复用：`src/components/claude-overview/MarkdownPreview.tsx` + 现有 `SUMMARY_MARKDOWN_CLASS`（迁入 `AssistantMessage`）、`surface-classes.ts`、`typography-classes.ts`、shadcn `ui/*`。
+**前端（OSS 对话栈 + 新目录 `src/components/work-summary/`）**
+- 依赖：`@assistant-ui/react`、`@assistant-ui/react-streamdown`、`streamdown`（Task 9 装入）。
+- `src/components/assistant-ui/thread.tsx`（assistant-ui CLI 脚手架，定制 assistant message 区：意图 chip + 过程 Collapsible + `StreamdownTextPrimitive`）。
+- `src/hooks/useSummaryConversation.ts`（新，演进自 `useWorkSummaries.ts`；返回 `useExternalStoreRuntime` 适配器 + 纯函数 `toThreadMessage`/`appendToken`）。
+- `src/components/work-summary/QuickActionChips.tsx`、`AssistantMessageExtras.tsx`、`SummaryHistorySheet.tsx`。
+- `src/components/WorkSummaryPage.tsx`（重写为壳：`AssistantRuntimeProvider` + `<Thread/>` + chips + 历史 Sheet）。
+- 删除（迁移完成后）：`src/hooks/useWorkSummaries.ts`、`src/components/WorkSummaryProcessView.tsx`（过程展示折叠进 `AssistantMessageExtras`）。
+- 复用：现有 `SUMMARY_MARKDOWN_CLASS` 同款样式（迁为 streamdown 正文 className）、`surface-classes.ts`、`typography-classes.ts`、shadcn `ui/*`。streamdown 自带 Markdown 渲染，work-summary 页不再走 `MarkdownPreview.tsx`（其余调用方不变）。
 
-> 说明：后端新增逻辑刻意留在 `work_summary.rs` 以复用大量私有 helper，避免把 `gather_*`/`build_*`/`assemble_*` 批量改 `pub(crate)`。文件会增长但保持领域内聚；如评审要求拆分，迁移后再单独处理。
+> 说明 1：后端新增逻辑刻意留在 `work_summary.rs` 以复用大量私有 helper，避免把 `gather_*`/`build_*`/`assemble_*` 批量改 `pub(crate)`。文件会增长但保持领域内聚；如评审要求拆分，迁移后再单独处理。
+>
+> 说明 2：前端改用 OSS 对话栈（assistant-ui ExternalStoreRuntime + streamdown），不再自研 `ConversationFeed`/`SummaryComposer`/`UserMessage`/`AssistantMessage`——消息列表、输入框、滚动、流式补全交给库，自有代码只剩「状态 + 事件桥接 + 业务装饰（意图/过程/历史）」。理由与方案对比见设计稿「技术选型」一节。
 
 ---
 
@@ -932,60 +936,107 @@ git commit -m "feat(work-summary): 注册 AI-native 命令并生成 IPC 绑定"
 
 ---
 
-## Task 9: useSummaryConversation hook
+## Task 9: 安装 assistant-ui + streamdown 依赖与脚手架
+
+**Files:**
+- Modify: `package.json`、`pnpm-lock.yaml`（新增依赖）
+- Create: `src/components/assistant-ui/thread.tsx`（assistant-ui 脚手架，shadcn 风格）
+- Modify: `src/index.css`（streamdown `@source` 指令）
+
+**Interfaces:**
+- Produces: `@assistant-ui/react`（`useExternalStoreRuntime` / `AssistantRuntimeProvider` / `Thread` / `MessagePrimitive` / `ThreadMessageLike`）、`@assistant-ui/react-streamdown`（`StreamdownTextPrimitive`）、`streamdown` 可用；`src/components/assistant-ui/thread.tsx` 可渲染空 `<Thread/>`。
+
+> 本任务为脚手架，无失败测试；交付标准 = `make build-frontend` 通过。
+
+- [ ] **Step 1: 装依赖**
+
+```bash
+pnpm add @assistant-ui/react @assistant-ui/react-streamdown streamdown
+```
+
+- [ ] **Step 2: 脚手架 Thread 组件**
+
+```bash
+pnpm dlx assistant-ui@latest add thread
+```
+
+Expected: 生成 `src/components/assistant-ui/thread.tsx` 及其依赖的 shadcn 组件（已存在的复用）。若 CLI 与本项目结构不符，手动从 assistant-ui 文档把 `thread.tsx` 拷到 `src/components/assistant-ui/`，并把内部颜色/圆角改成项目 shadcn 语义 token（禁止硬编码 hex）。
+
+- [ ] **Step 3: Tailwind `@source` 接线**
+
+在 `src/index.css` 的 `@import "tailwindcss";` 之后加一行，让 Tailwind 扫描 streamdown 的类名（否则流式样式被 purge）：
+
+```css
+@source "../node_modules/streamdown/dist/index.js";
+```
+
+- [ ] **Step 4: 编译校验**
+
+Run: `make build-frontend`
+Expected: 构建成功，无未解析模块、无 TS 报错。
+
+- [ ] **Step 5: 提交**
+
+```bash
+git add package.json pnpm-lock.yaml src/components/assistant-ui/ src/index.css
+git commit -m "build(work-summary): 引入 assistant-ui 与 streamdown 依赖及脚手架"
+```
+
+---
+
+## Task 10: useSummaryConversation 对接 ExternalStoreRuntime
 
 **Files:**
 - Create: `src/hooks/useSummaryConversation.ts`
 - Test: `src/hooks/__tests__/useSummaryConversation.test.ts`
 
 **Interfaces:**
-- Consumes: `ipc.parseSummaryIntent`、`ipc.generateSummaryStream`、`ipc.loadConversation`、`ipc.saveConversation`、`ipc.checkClaudeCli`、`useTauriEvent`、`yesterdayKey`/`localDateKey`（`src/lib/work-summary-date.ts`）。
-- Produces:
+- Consumes: `ipc.parseSummaryIntent`/`generateSummaryStream`/`loadConversation`/`saveConversation`/`checkClaudeCli`（Task 3/6/7/现有）、`useExternalStoreRuntime`/`AssistantRuntime`（Task 9）、`useTauriEvent`、`yesterdayKey`（`src/lib/work-summary-date.ts`）、`SummaryIntent`（bindings）。
+- Produces：
 ```ts
-type ChatMessage = {
-  id: string; role: "user" | "assistant"; ts: string;
-  content: string;             // 助手消息流式累积
-  intent?: SummaryIntent;
-  docPath?: string;
-  streaming?: boolean;         // 在飞标记
-  process?: { phase: "scanning"|"summarizing"|"done"; prompt?: string };
+export type ChatProcess = { phase: "scanning" | "summarizing" | "done"; prompt?: string };
+export type ChatMessage = {
+  id: string; role: "user" | "assistant"; ts: string; content: string;
+  intent?: SummaryIntent; docPath?: string; process?: ChatProcess; streaming?: boolean;
 };
-function useSummaryConversation(language: "zh"|"en"): {
-  messages: ChatMessage[]; busy: boolean; cliAvailable: boolean;
-  send: (text: string) => Promise<void>;
-  runQuickAction: (kind: "day"|"week") => Promise<void>;
+export function toThreadMessage(m: ChatMessage): ThreadMessageLike; // 纯函数
+export function appendToken(messages: ChatMessage[], evt: { messageId: string; delta: string }): ChatMessage[]; // 纯函数
+export function useSummaryConversation(language: "zh" | "en"): {
+  runtime: AssistantRuntime; cliAvailable: boolean; runQuickAction: (kind: "day" | "week") => void;
 };
 ```
 
-- [ ] **Step 1: 写失败测试**
+- [ ] **Step 1: 写失败测试（两个纯函数）**
+
+`src/hooks/__tests__/useSummaryConversation.test.ts`：
 
 ```ts
-import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+import { appendToken, toThreadMessage, type ChatMessage } from "../useSummaryConversation";
 
-vi.mock("../../ipc", () => ({
-  ipc: {
-    loadConversation: vi.fn().mockResolvedValue([]),
-    checkClaudeCli: vi.fn().mockResolvedValue({ available: true, version: "x" }),
-    parseSummaryIntent: vi.fn().mockResolvedValue({ kind: "day", start: "2026-06-24", end: "2026-06-24", projectFilter: [], style: "default", title: "2026-06-24 工作总结" }),
-    generateSummaryStream: vi.fn().mockResolvedValue({ kind: "daily", key: "2026-06-24", path: "/p.md", content: "# done" }),
-    saveConversation: vi.fn().mockResolvedValue(undefined),
-  },
-}));
-vi.mock("../useTauriEvent", () => ({ default: vi.fn() }));
-vi.mock("../../types", () => ({ isTauri: () => true }));
+describe("toThreadMessage", () => {
+  it("把 ChatMessage 映射为 ThreadMessageLike 并带 metadata", () => {
+    const msg: ChatMessage = {
+      id: "a1", role: "assistant", ts: "t", content: "## proj",
+      intent: { kind: "day", start: "2026-06-24", end: "2026-06-24", projectFilter: [], style: "default", title: "X" },
+      docPath: "/p.md", process: { phase: "done" },
+    };
+    const tm = toThreadMessage(msg);
+    expect(tm.role).toBe("assistant");
+    expect(tm.content).toBe("## proj");
+    expect((tm.metadata as { custom: { docPath: string } }).custom.docPath).toBe("/p.md");
+  });
+});
 
-import { useSummaryConversation } from "../useSummaryConversation";
-
-describe("useSummaryConversation", () => {
-  it("send 压入用户消息并生成助手消息", async () => {
-    const { result } = renderHook(() => useSummaryConversation("zh"));
-    await act(async () => { await result.current.send("总结昨天"); });
-    await waitFor(() => {
-      const roles = result.current.messages.map((m) => m.role);
-      expect(roles).toEqual(["user", "assistant"]);
-    });
-    expect(result.current.messages[1].content).toContain("done");
+describe("appendToken", () => {
+  it("按 messageId 追加增量", () => {
+    const base: ChatMessage[] = [{ id: "a1", role: "assistant", ts: "t", content: "## ", streaming: true }];
+    const next = appendToken(base, { messageId: "a1", delta: "proj" });
+    expect(next[0].content).toBe("## proj");
+  });
+  it("非匹配 id 不动", () => {
+    const base: ChatMessage[] = [{ id: "a1", role: "assistant", ts: "t", content: "x" }];
+    expect(appendToken(base, { messageId: "zzz", delta: "y" })[0].content).toBe("x");
   });
 });
 ```
@@ -998,7 +1049,12 @@ Expected: FAIL（模块不存在）。
 - [ ] **Step 3: 实现**
 
 ```ts
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type AppendMessage,
+  type ThreadMessageLike,
+  useExternalStoreRuntime,
+} from "@assistant-ui/react";
 import { showOperationError } from "@/lib/user-facing-error";
 import type { SummaryIntent } from "../bindings";
 import { useI18n } from "../i18n";
@@ -1008,6 +1064,7 @@ import { isTauri } from "../types";
 import useTauriEvent from "./useTauriEvent";
 import { useToast } from "./useToast";
 
+export type ChatProcess = { phase: "scanning" | "summarizing" | "done"; prompt?: string };
 export type ChatMessage = {
   id: string;
   role: "user" | "assistant";
@@ -1015,30 +1072,42 @@ export type ChatMessage = {
   content: string;
   intent?: SummaryIntent;
   docPath?: string;
+  process?: ChatProcess;
   streaming?: boolean;
-  process?: { phase: "scanning" | "summarizing" | "done"; prompt?: string };
 };
-
-type ProgressEvent = { messageId?: string; phase: string; prompt?: string };
-type TokenEvent = { messageId: string; delta: string };
 
 const newId = () => crypto.randomUUID();
 const nowIso = () => new Date().toISOString();
+const todayKey = () => new Date().toISOString().slice(0, 10);
+
+/** ChatMessage → assistant-ui ThreadMessageLike；intent/process/docPath 放 metadata.custom */
+export function toThreadMessage(m: ChatMessage): ThreadMessageLike {
+  return {
+    role: m.role,
+    content: [{ type: "text", text: m.content }],
+    id: m.id,
+    metadata: { custom: { intent: m.intent, process: m.process, docPath: m.docPath, streaming: m.streaming } },
+  };
+}
+
+/** 流式增量：按 messageId 追加到对应消息 content */
+export function appendToken(messages: ChatMessage[], evt: { messageId: string; delta: string }): ChatMessage[] {
+  return messages.map((m) => (m.id === evt.messageId ? { ...m, content: m.content + evt.delta } : m));
+}
+
+type ProgressEvent = { messageId?: string; phase: string; prompt?: string };
+type TokenEvent = { messageId: string; delta: string };
 
 export function useSummaryConversation(language: "zh" | "en") {
   const { t } = useI18n();
   const { showToast } = useToast();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [busy, setBusy] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
   const [cliAvailable, setCliAvailable] = useState(true);
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
 
-  // 流式 token 追加到对应在飞助手消息
-  useTauriEvent<TokenEvent>("work-summary-token", (e) => {
-    setMessages((prev) =>
-      prev.map((m) => (m.id === e.messageId ? { ...m, content: m.content + e.delta } : m)),
-    );
-  });
-  // 进度（扫描/提示词/完成）
+  useTauriEvent<TokenEvent>("work-summary-token", (e) => setMessages((prev) => appendToken(prev, e)));
   useTauriEvent<ProgressEvent>("work-summary-progress", (e) => {
     if (!e.messageId) return;
     setMessages((prev) =>
@@ -1047,7 +1116,7 @@ export function useSummaryConversation(language: "zh" | "en") {
           ? {
               ...m,
               process: {
-                phase: (e.phase === "scanning" ? "scanning" : e.phase === "done" ? "done" : "summarizing"),
+                phase: e.phase === "scanning" ? "scanning" : e.phase === "done" ? "done" : "summarizing",
                 prompt: e.prompt ?? m.process?.prompt,
               },
             }
@@ -1061,7 +1130,12 @@ export function useSummaryConversation(language: "zh" | "en") {
     void (async () => {
       try {
         const [conv, cli] = await Promise.all([ipc.loadConversation(), ipc.checkClaudeCli()]);
-        setMessages(conv.map((m) => ({ ...m, role: m.role as "user" | "assistant" })));
+        setMessages(
+          conv.map((m) => ({
+            id: m.id, role: m.role as "user" | "assistant", ts: m.ts, content: m.content,
+            intent: m.intent ?? undefined, docPath: m.docPath ?? undefined,
+          })),
+        );
         setCliAvailable(cli.available);
       } catch (error) {
         showOperationError(showToast, t("worklog.loadError"), error);
@@ -1071,40 +1145,43 @@ export function useSummaryConversation(language: "zh" | "en") {
 
   const runIntent = useCallback(
     async (userText: string, intent: SummaryIntent) => {
-      setBusy(true);
-      const userMsg: ChatMessage = { id: newId(), role: "user", ts: nowIso(), content: userText };
+      setIsRunning(true);
       const assistantId = newId();
-      const assistantMsg: ChatMessage = {
-        id: assistantId, role: "assistant", ts: nowIso(), content: "", intent, streaming: true,
-        process: { phase: "scanning" },
-      };
-      setMessages((prev) => [...prev, userMsg, assistantMsg]);
+      setMessages((prev) => [
+        ...prev,
+        { id: newId(), role: "user", ts: nowIso(), content: userText },
+        { id: assistantId, role: "assistant", ts: nowIso(), content: "", intent, streaming: true, process: { phase: "scanning" } },
+      ]);
       try {
         const doc = await ipc.generateSummaryStream(intent, language, assistantId);
         setMessages((prev) => {
           const next = prev.map((m) =>
             m.id === assistantId ? { ...m, content: doc.content, docPath: doc.path || undefined, streaming: false } : m,
           );
-          void ipc.saveConversation(next).catch(() => showToast(t("worklog.saveError")));
+          void ipc
+            .saveConversation(
+              next.map((m) => ({ id: m.id, role: m.role, ts: m.ts, content: m.content, intent: m.intent ?? null, docPath: m.docPath ?? null, style: m.intent?.style ?? null })),
+            )
+            .catch(() => showToast(t("worklog.saveError")));
           return next;
         });
       } catch (error) {
         setMessages((prev) => prev.filter((m) => m.id !== assistantId));
         showOperationError(showToast, t("worklog.generateError"), error);
       } finally {
-        setBusy(false);
+        setIsRunning(false);
       }
     },
     [language, showToast, t],
   );
 
-  const send = useCallback(
-    async (text: string) => {
-      const trimmed = text.trim();
-      if (!trimmed) return;
+  const onNew = useCallback(
+    async (msg: AppendMessage) => {
+      const text = msg.content.map((p) => (p.type === "text" ? p.text : "")).join("").trim();
+      if (!text) return;
       try {
-        const intent = await ipc.parseSummaryIntent(trimmed, new Date().toISOString().slice(0, 10));
-        await runIntent(trimmed, intent);
+        const intent = await ipc.parseSummaryIntent(text, todayKey());
+        await runIntent(text, intent);
       } catch (error) {
         showOperationError(showToast, t("worklog.intentError"), error);
       }
@@ -1112,300 +1189,86 @@ export function useSummaryConversation(language: "zh" | "en") {
     [runIntent, showToast, t],
   );
 
+  const runtime = useExternalStoreRuntime({
+    messages,
+    isRunning,
+    convertMessage: toThreadMessage,
+    onNew,
+  });
+
   const runQuickAction = useCallback(
-    async (kind: "day" | "week") => {
-      const today = new Date().toISOString().slice(0, 10);
+    (kind: "day" | "week") => {
       const intent: SummaryIntent =
         kind === "day"
           ? { kind: "day", start: yesterdayKey(), end: yesterdayKey(), projectFilter: [], style: "default", title: `${yesterdayKey()} 工作总结` }
-          : { kind: "week", start: today, end: today, projectFilter: [], style: "default", title: "本周工作总结" };
-      await runIntent(kind === "day" ? t("worklog.summarizeYesterday") : t("worklog.generateWeek"), intent);
+          : { kind: "week", start: todayKey(), end: todayKey(), projectFilter: [], style: "default", title: "本周工作总结" };
+      void runIntent(kind === "day" ? t("worklog.summarizeYesterday") : t("worklog.generateWeek"), intent);
     },
     [runIntent, t],
   );
 
-  return { messages, busy, cliAvailable, send, runQuickAction };
+  return useMemo(() => ({ runtime, cliAvailable, runQuickAction }), [runtime, cliAvailable, runQuickAction]);
 }
 ```
 
-> week 的精确范围（周一~周日 + ISO key）由后端按 `start`（今天）计算落盘，前端 intent 的 start/end 仅作占位，后端 `generate_summary_stream` 用 `iso_week_key`/`week_dates` 重新解析（见 Task 6 实现注）。
+> 注：`save_conversation`（Task 7）接收 `ConversationMessage[]`，字段 `intent/docPath/style` 为 `Option`，故传 `null` 而非 `undefined`（serde `Option` 兼容 null）。week 的精确范围由后端按 `start`（今天）用 `iso_week_key`/`week_dates` 重算（Task 6）。
 
 - [ ] **Step 4: 跑测试确认通过**
 
 Run: `pnpm exec vitest run src/hooks/__tests__/useSummaryConversation.test.ts`
-Expected: PASS。
+Expected: `Tests 3 passed`。
 
 - [ ] **Step 5: 提交**
 
 ```bash
 git add src/hooks/useSummaryConversation.ts src/hooks/__tests__/useSummaryConversation.test.ts
-git commit -m "feat(work-summary): useSummaryConversation 对话编排 hook"
+git commit -m "feat(work-summary): useSummaryConversation 对接 ExternalStoreRuntime"
 ```
 
 ---
 
-## Task 10: Composer + Feed + 消息组件
+## Task 11: 定制 thread.tsx + 快捷 chips + 历史 Sheet + 页面壳 + i18n
 
 **Files:**
-- Create: `src/components/work-summary/SummaryComposer.tsx`、`ConversationFeed.tsx`、`UserMessage.tsx`、`AssistantMessage.tsx`
-- Test: `src/components/work-summary/__tests__/SummaryComposer.test.tsx`、`AssistantMessage.test.tsx`
+- Modify: `src/components/assistant-ui/thread.tsx`（assistant message 渲 metadata + streamdown）
+- Create: `src/components/work-summary/QuickActionChips.tsx`、`src/components/work-summary/SummaryHistorySheet.tsx`、`src/components/work-summary/AssistantMessageExtras.tsx`
+- Rewrite: `src/components/WorkSummaryPage.tsx`
+- Modify: `src/i18n.ts`
+- Delete: `src/components/WorkSummaryProcessView.tsx`、`src/hooks/useWorkSummaries.ts`、旧 `src/components/__tests__/WorkSummaryPage.test.tsx`
+- Test: 新 `src/components/__tests__/WorkSummaryPage.test.tsx`、`src/components/work-summary/__tests__/QuickActionChips.test.tsx`
 
 **Interfaces:**
-- `SummaryComposer`: props `{ disabled: boolean; onSend: (text: string) => void; onQuick: (kind: "day"|"week") => void }`。
-- `ConversationFeed`: props `{ messages: ChatMessage[]; themeType: "light"|"dark" }`。
-- `UserMessage`: props `{ message: ChatMessage }`；`AssistantMessage`: props `{ message: ChatMessage; themeType }`。
+- Consumes: `useSummaryConversation`（Task 10）、`AssistantRuntimeProvider`/`Thread`/`MessagePrimitive`（Task 9）、`StreamdownTextPrimitive`（Task 9）、`ipc.listSummaries`/`readSummary`。
 
-- [ ] **Step 1: 写失败测试（Composer）**
+- [ ] **Step 1: 写失败测试（QuickActionChips + 页面）**
+
+`src/components/work-summary/__tests__/QuickActionChips.test.tsx`：
 
 ```tsx
-import { render, screen, fireEvent } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../../i18n";
-import SummaryComposer from "../SummaryComposer";
+import QuickActionChips from "../QuickActionChips";
 
-function renderC(props: Partial<React.ComponentProps<typeof SummaryComposer>> = {}) {
-  render(<I18nProvider><SummaryComposer disabled={false} onSend={vi.fn()} onQuick={vi.fn()} {...props} /></I18nProvider>);
+function renderC(props: Partial<React.ComponentProps<typeof QuickActionChips>> = {}) {
+  render(<I18nProvider><QuickActionChips disabled={false} onQuick={vi.fn()} {...props} /></I18nProvider>);
 }
 
-describe("SummaryComposer", () => {
-  it("回车发送非空文本并清空", () => {
-    const onSend = vi.fn();
-    renderC({ onSend });
-    const box = screen.getByRole("textbox");
-    fireEvent.change(box, { target: { value: "总结昨天" } });
-    fireEvent.keyDown(box, { key: "Enter", code: "Enter" });
-    expect(onSend).toHaveBeenCalledWith("总结昨天");
+describe("QuickActionChips", () => {
+  it("点击触发对应 kind", () => {
+    const onQuick = vi.fn();
+    renderC({ onQuick });
+    fireEvent.click(screen.getByRole("button", { name: "总结昨日" }));
+    expect(onQuick).toHaveBeenCalledWith("day");
   });
-  it("disabled 时输入框与快捷按钮禁用", () => {
+  it("disabled 时按钮禁用", () => {
     renderC({ disabled: true });
-    expect(screen.getByRole("textbox")).toBeDisabled();
     expect(screen.getByRole("button", { name: "总结昨日" })).toBeDisabled();
   });
 });
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
-
-Run: `pnpm exec vitest run src/components/work-summary/__tests__/SummaryComposer.test.tsx`
-Expected: FAIL（组件不存在）。
-
-- [ ] **Step 3: 实现四个组件**
-
-`SummaryComposer.tsx`（NL `Textarea` + 发送 + 快捷 chips；Enter 发送、Shift+Enter 换行；走 `t()`、`cn`、shadcn `Button`/`Textarea`、`lucide-react`）：
-
-```tsx
-import { CalendarRange, NotebookPen, SendHorizonal } from "lucide-react";
-import { useState } from "react";
-import { cn } from "@/lib/utils";
-import { useI18n } from "../../i18n";
-import { TOOLBAR_SURFACE_CLASS } from "../surface-classes";
-import { Button } from "../ui/button";
-import { Textarea } from "../ui/textarea";
-
-type Props = { disabled: boolean; onSend: (text: string) => void; onQuick: (kind: "day" | "week") => void };
-
-function SummaryComposer({ disabled, onSend, onQuick }: Props) {
-  const { t } = useI18n();
-  const [text, setText] = useState("");
-  const submit = () => {
-    const v = text.trim();
-    if (!v || disabled) return;
-    onSend(v);
-    setText("");
-  };
-  return (
-    <div className={cn("flex flex-col gap-2 rounded-lg border p-2", TOOLBAR_SURFACE_CLASS)}>
-      <div className="flex items-center gap-1.5">
-        <Button type="button" size="sm" variant="secondary" disabled={disabled} onClick={() => onQuick("day")}>
-          <NotebookPen aria-hidden="true" /> {t("worklog.summarizeYesterday")}
-        </Button>
-        <Button type="button" size="sm" variant="secondary" disabled={disabled} onClick={() => onQuick("week")}>
-          <CalendarRange aria-hidden="true" /> {t("worklog.generateWeek")}
-        </Button>
-      </div>
-      <div className="flex items-end gap-2">
-        <Textarea
-          value={text}
-          disabled={disabled}
-          rows={1}
-          placeholder={t("worklog.composerPlaceholder")}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              submit();
-            }
-          }}
-          className="min-h-9 resize-none"
-        />
-        <Button type="button" size="icon" disabled={disabled || !text.trim()} onClick={submit} aria-label={t("worklog.send")}>
-          <SendHorizonal aria-hidden="true" />
-        </Button>
-      </div>
-    </div>
-  );
-}
-export default SummaryComposer;
-```
-
-`UserMessage.tsx`（右对齐气泡，`TYPOGRAPHY.body`、`SUBTLE_SURFACE_CLASS`）：
-
-```tsx
-import { cn } from "@/lib/utils";
-import type { ChatMessage } from "../../hooks/useSummaryConversation";
-import { SUBTLE_SURFACE_CLASS } from "../surface-classes";
-import { TYPOGRAPHY } from "../typography-classes";
-
-function UserMessage({ message }: { message: ChatMessage }) {
-  return (
-    <div className="flex justify-end">
-      <div className={cn("max-w-[80%] rounded-lg px-3 py-2", SUBTLE_SURFACE_CLASS, TYPOGRAPHY.body)}>
-        {message.content}
-      </div>
-    </div>
-  );
-}
-export default UserMessage;
-```
-
-`AssistantMessage.tsx`（意图 chip + 过程条 + 流式 `MarkdownPreview` + 操作；迁入 `SUMMARY_MARKDOWN_CLASS`；流式中尾部光标）：
-
-```tsx
-import { Check, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import type { ChatMessage } from "../../hooks/useSummaryConversation";
-import { useI18n } from "../../i18n";
-import MarkdownPreview from "../claude-overview/MarkdownPreview";
-import { PANEL_SURFACE_CLASS } from "../surface-classes";
-import { TYPOGRAPHY } from "../typography-classes";
-import { Badge } from "../ui/badge";
-
-// 与文档预览一致的排版定制（从 WorkSummaryPage 迁入复用）
-const SUMMARY_MARKDOWN_CLASS = cn(
-  "!bg-transparent",
-  "[&_ul]:!list-disc [&_ol]:!list-decimal [&_ul]:!my-3 [&_ol]:!my-3",
-  "[&_li]:!my-1 [&_li]:!leading-relaxed [&_li]:marker:text-muted-foreground",
-  "[&_h1]:!border-0",
-  "[&_h2]:!mt-8 [&_h2]:!border-b [&_h2]:!border-border/40 [&_h2]:!pb-2",
-  "[&_p]:!my-3 [&_strong]:!text-foreground",
-  "[&_blockquote]:!border-l-2 [&_blockquote]:!border-border [&_blockquote]:!text-muted-foreground",
-);
-
-function AssistantMessage({ message, themeType }: { message: ChatMessage; themeType: "light" | "dark" }) {
-  const { t } = useI18n();
-  const i = message.intent;
-  return (
-    <article className={cn("flex flex-col gap-2 rounded-lg px-5 py-4", PANEL_SURFACE_CLASS)}>
-      {i && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Badge variant="outline">{i.title}</Badge>
-          {i.projectFilter.length > 0 && <Badge variant="ghost">{i.projectFilter.join(" / ")}</Badge>}
-          {i.style !== "default" && <Badge variant="ghost">{i.style === "concise" ? t("worklog.styleConcise") : t("worklog.styleDetailed")}</Badge>}
-        </div>
-      )}
-      {message.streaming && (
-        <div className="flex items-center gap-2">
-          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-          <span className={TYPOGRAPHY.auxiliary}>{t("worklog.generating")}</span>
-        </div>
-      )}
-      {message.content && (
-        <MarkdownPreview content={message.content} themeType={themeType} className={SUMMARY_MARKDOWN_CLASS} />
-      )}
-      {!message.streaming && message.docPath && (
-        <div className="flex items-center gap-1.5">
-          <Check className="size-4 text-primary" aria-hidden="true" />
-          <span className={cn(TYPOGRAPHY.auxiliary, "break-all")}>{message.docPath}</span>
-        </div>
-      )}
-    </article>
-  );
-}
-export default AssistantMessage;
-```
-
-`ConversationFeed.tsx`（滚动容器，按 role 分发，新内容滚到底）：
-
-```tsx
-import { useEffect, useRef } from "react";
-import type { ChatMessage } from "../../hooks/useSummaryConversation";
-import AssistantMessage from "./AssistantMessage";
-import UserMessage from "./UserMessage";
-
-function ConversationFeed({ messages, themeType }: { messages: ChatMessage[]; themeType: "light" | "dark" }) {
-  const endRef = useRef<HTMLDivElement>(null);
-  // 依赖最后一条消息内容长度，流式追加时滚到底
-  const tail = messages.length > 0 ? messages[messages.length - 1].content.length : 0;
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ block: "end" });
-  }, [messages.length, tail]);
-  return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
-      {messages.map((m) =>
-        m.role === "user" ? (
-          <UserMessage key={m.id} message={m} />
-        ) : (
-          <AssistantMessage key={m.id} message={m} themeType={themeType} />
-        ),
-      )}
-      <div ref={endRef} />
-    </div>
-  );
-}
-export default ConversationFeed;
-```
-
-`AssistantMessage.test.tsx`：
-
-```tsx
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
-import { I18nProvider } from "../../../i18n";
-import AssistantMessage from "../AssistantMessage";
-
-it("渲染意图标题与流式正文", () => {
-  render(
-    <I18nProvider>
-      <AssistantMessage
-        themeType="light"
-        message={{ id: "a1", role: "assistant", ts: "t", content: "## proj\n做了登录", streaming: false,
-          intent: { kind: "day", start: "2026-06-24", end: "2026-06-24", projectFilter: [], style: "default", title: "2026-06-24 工作总结" } }}
-      />
-    </I18nProvider>,
-  );
-  expect(screen.getByText("2026-06-24 工作总结")).toBeInTheDocument();
-  expect(screen.getByText(/做了登录/)).toBeInTheDocument();
-});
-```
-
-- [ ] **Step 4: 跑测试确认通过**
-
-Run: `pnpm exec vitest run src/components/work-summary/__tests__/`
-Expected: 全部 PASS。
-
-- [ ] **Step 5: 提交**
-
-```bash
-git add src/components/work-summary/
-git commit -m "feat(work-summary): 对话 Composer / Feed / 消息组件"
-```
-
----
-
-## Task 11: 历史 Sheet + 页面重写 + i18n
-
-**Files:**
-- Create: `src/components/work-summary/SummaryHistorySheet.tsx`
-- Rewrite: `src/components/WorkSummaryPage.tsx`
-- Modify: `src/i18n.ts`（新增 key）
-- Delete: `src/components/WorkSummaryProcessView.tsx`、`src/hooks/useWorkSummaries.ts`、`src/components/__tests__/WorkSummaryPage.test.tsx`（旧）
-- Test: `src/components/__tests__/WorkSummaryPage.test.tsx`（新）
-
-**Interfaces:**
-- Consumes: `useSummaryConversation`（Task 9）、`ConversationFeed`/`SummaryComposer`（Task 10）、`ipc.listSummaries`/`ipc.readSummary`。
-- `SummaryHistorySheet`: props `{ }`（自取数据，内部用 `Sheet`，点条目用 `MarkdownPreview` 预览）。
-
-- [ ] **Step 1: 写失败测试（页面）**
+`src/components/__tests__/WorkSummaryPage.test.tsx`（mock hook + 把 assistant-ui 的 `Thread`/`AssistantRuntimeProvider` mock 成 passthrough，避免 runtime 复杂度）：
 
 ```tsx
 import { render, screen } from "@testing-library/react";
@@ -1413,29 +1276,32 @@ import { describe, expect, it, vi } from "vitest";
 
 const mockHook = vi.fn();
 vi.mock("../../hooks/useSummaryConversation", () => ({ useSummaryConversation: (...a: unknown[]) => mockHook(...a) }));
-vi.mock("../theme-provider", () => ({ useTheme: () => ({ isDark: false }) }));
+vi.mock("@assistant-ui/react", () => ({
+  AssistantRuntimeProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Thread: () => <div data-testid="thread" />,
+}));
 
 import { I18nProvider } from "../../i18n";
 import WorkSummaryPage from "../WorkSummaryPage";
 
 function base() {
-  return { messages: [], busy: false, cliAvailable: true, send: vi.fn(), runQuickAction: vi.fn() };
+  return { runtime: {}, cliAvailable: true, runQuickAction: vi.fn() };
 }
 function renderPage() {
   render(<I18nProvider><WorkSummaryPage /></I18nProvider>);
 }
 
 describe("WorkSummaryPage", () => {
-  it("空对话时渲染 composer 与快捷按钮", () => {
+  it("渲染快捷按钮与 Thread", () => {
     mockHook.mockReturnValue(base());
     renderPage();
     expect(screen.getByRole("button", { name: "总结昨日" })).toBeInTheDocument();
-    expect(screen.getByRole("textbox")).toBeInTheDocument();
+    expect(screen.getByTestId("thread")).toBeInTheDocument();
   });
-  it("cliAvailable=false 时禁用并提示", () => {
+  it("cliAvailable=false 时禁用快捷按钮并提示", () => {
     mockHook.mockReturnValue({ ...base(), cliAvailable: false });
     renderPage();
-    expect(screen.getByRole("textbox")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "总结昨日" })).toBeDisabled();
     expect(screen.getByText("未检测到 claude CLI，请确认 Claude Code 已安装并在 PATH 中。")).toBeInTheDocument();
   });
 });
@@ -1443,34 +1309,138 @@ describe("WorkSummaryPage", () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm exec vitest run src/components/__tests__/WorkSummaryPage.test.tsx`
-Expected: FAIL（旧实现/缺组件）。
+Run: `pnpm exec vitest run src/components/work-summary/__tests__/QuickActionChips.test.tsx src/components/__tests__/WorkSummaryPage.test.tsx`
+Expected: FAIL（组件不存在）。
 
-- [ ] **Step 3: 实现页面 + 历史 Sheet + i18n**
+- [ ] **Step 3: 实现**
 
-`SummaryHistorySheet.tsx`（shadcn `Sheet`，列 `listSummaries`，点条目读取并 `MarkdownPreview` 预览）：
+`QuickActionChips.tsx`：
+
+```tsx
+import { CalendarRange, NotebookPen } from "lucide-react";
+import { useI18n } from "../../i18n";
+import { Button } from "../ui/button";
+
+type Props = { disabled: boolean; onQuick: (kind: "day" | "week") => void };
+
+function QuickActionChips({ disabled, onQuick }: Props) {
+  const { t } = useI18n();
+  return (
+    <div className="flex items-center gap-1.5">
+      <Button type="button" size="sm" variant="secondary" disabled={disabled} onClick={() => onQuick("day")}>
+        <NotebookPen aria-hidden="true" /> {t("worklog.summarizeYesterday")}
+      </Button>
+      <Button type="button" size="sm" variant="secondary" disabled={disabled} onClick={() => onQuick("week")}>
+        <CalendarRange aria-hidden="true" /> {t("worklog.generateWeek")}
+      </Button>
+    </div>
+  );
+}
+export default QuickActionChips;
+```
+
+`AssistantMessageExtras.tsx`（渲染 metadata.custom 的意图 chip + 过程条 + 已保存链接；供 `thread.tsx` 在 assistant message 里调用）：
+
+```tsx
+import { Check, ChevronRight, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useI18n } from "../../i18n";
+import { SUBTLE_SURFACE_CLASS } from "../surface-classes";
+import { TYPOGRAPHY } from "../typography-classes";
+import { Badge } from "../ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../ui/collapsible";
+import type { SummaryIntent } from "../../bindings";
+
+type Custom = {
+  intent?: SummaryIntent;
+  process?: { phase: "scanning" | "summarizing" | "done"; prompt?: string };
+  docPath?: string;
+  streaming?: boolean;
+};
+
+/** 渲染助手消息的意图 chip / 过程条 / 已保存链接（正文由 streamdown 渲染） */
+function AssistantMessageExtras({ custom }: { custom: Custom }) {
+  const { t } = useI18n();
+  const { intent, process, docPath, streaming } = custom;
+  return (
+    <div className="flex flex-col gap-2">
+      {intent && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge variant="outline">{intent.title}</Badge>
+          {intent.projectFilter.length > 0 && <Badge variant="ghost">{intent.projectFilter.join(" / ")}</Badge>}
+          {intent.style !== "default" && (
+            <Badge variant="ghost">{intent.style === "concise" ? t("worklog.styleConcise") : t("worklog.styleDetailed")}</Badge>
+          )}
+        </div>
+      )}
+      {process?.prompt && (
+        <Collapsible className={cn("rounded-md p-2", SUBTLE_SURFACE_CLASS)}>
+          <CollapsibleTrigger className="group flex w-full items-center gap-1.5 text-left">
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
+            <span className={TYPOGRAPHY.auxiliary}>{t("worklog.promptSection")}</span>
+          </CollapsibleTrigger>
+          <CollapsibleContent className={cn("mt-1 whitespace-pre-wrap", TYPOGRAPHY.auxiliary)}>{process.prompt}</CollapsibleContent>
+        </Collapsible>
+      )}
+      {streaming && (
+        <div className="flex items-center gap-1.5">
+          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+          <span className={TYPOGRAPHY.auxiliary}>{t("worklog.generating")}</span>
+        </div>
+      )}
+      {!streaming && docPath && (
+        <div className="flex items-center gap-1.5">
+          <Check className="size-4 text-primary" aria-hidden="true" />
+          <span className={cn(TYPOGRAPHY.auxiliary, "break-all")}>{docPath}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+export default AssistantMessageExtras;
+```
+
+`thread.tsx` 定制（在脚手架生成的 assistant message 区，正文用 `StreamdownTextPrimitive`，其上插 `AssistantMessageExtras`）——把 assistant message 的渲染改成：
+
+```tsx
+// src/components/assistant-ui/thread.tsx（assistant message 片段）
+import { MessagePrimitive, useMessage } from "@assistant-ui/react";
+import { StreamdownTextPrimitive } from "@assistant-ui/react-streamdown";
+import AssistantMessageExtras from "../work-summary/AssistantMessageExtras";
+
+const SUMMARY_STREAMDOWN_CLASS = "..."; // 复用 SUMMARY_MARKDOWN_CLASS 同款（圆点/轻分隔/留白），见既有 WorkSummaryPage 实现
+
+const AssistantMessage = () => {
+  const custom = useMessage((m) => (m.metadata?.custom ?? {}) as Record<string, unknown>);
+  return (
+    <MessagePrimitive.Root>
+      <AssistantMessageExtras custom={custom as never} />
+      <MessagePrimitive.Parts components={{ Text: () => <StreamdownTextPrimitive className={SUMMARY_STREAMDOWN_CLASS} /> }} />
+    </MessagePrimitive.Root>
+  );
+};
+```
+
+> 以脚手架实际生成的 `thread.tsx` 结构为准做最小改动：仅把 assistant message 的文本渲染换成 `StreamdownTextPrimitive`，并在其上插 `AssistantMessageExtras`。样式走语义 token，禁止 hex。
+
+`SummaryHistorySheet.tsx`（shadcn `Sheet` 列已落盘日/周，点开用 streamdown 预览）：
 
 ```tsx
 import { History } from "lucide-react";
 import { useState } from "react";
+import { Streamdown } from "streamdown";
 import type { SummaryDocument, SummaryListItem } from "../../bindings";
 import { useI18n } from "../../i18n";
 import { ipc } from "../../ipc";
-import { useTheme } from "../theme-provider";
-import MarkdownPreview from "../claude-overview/MarkdownPreview";
 import { Button } from "../ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "../ui/sheet";
 
 function SummaryHistorySheet() {
   const { t } = useI18n();
-  const { isDark } = useTheme();
   const [items, setItems] = useState<SummaryListItem[]>([]);
   const [doc, setDoc] = useState<SummaryDocument | null>(null);
-  const open = async () => {
-    try { setItems(await ipc.listSummaries()); } catch { /* toast 由调用方略，简化 */ }
-  };
   return (
-    <Sheet onOpenChange={(o) => o && void open()}>
+    <Sheet onOpenChange={(o) => o && void ipc.listSummaries().then(setItems).catch(() => undefined)}>
       <SheetTrigger asChild>
         <Button type="button" size="sm" variant="ghost"><History aria-hidden="true" /> {t("worklog.history")}</Button>
       </SheetTrigger>
@@ -1480,7 +1450,7 @@ function SummaryHistorySheet() {
           {doc ? (
             <>
               <Button type="button" size="sm" variant="ghost" className="self-start" onClick={() => setDoc(null)}>← {t("common.back")}</Button>
-              <MarkdownPreview content={doc.content} themeType={isDark ? "dark" : "light"} />
+              <Streamdown>{doc.content}</Streamdown>
             </>
           ) : (
             items.map((it) => (
@@ -1498,36 +1468,30 @@ function SummaryHistorySheet() {
 export default SummaryHistorySheet;
 ```
 
-`WorkSummaryPage.tsx`（重写为壳）：
+`WorkSummaryPage.tsx`（壳：runtime provider + Thread + chips + 历史）：
 
 ```tsx
-import { useI18n } from "../i18n";
+import { AssistantRuntimeProvider, Thread } from "@assistant-ui/react";
 import { useSummaryConversation } from "../hooks/useSummaryConversation";
+import { useI18n } from "../i18n";
 import PageHeader from "./PageHeader";
-import { useTheme } from "./theme-provider";
-import ConversationFeed from "./work-summary/ConversationFeed";
-import SummaryComposer from "./work-summary/SummaryComposer";
+import QuickActionChips from "./work-summary/QuickActionChips";
 import SummaryHistorySheet from "./work-summary/SummaryHistorySheet";
-import EmptyState from "./EmptyState";
 
 function WorkSummaryPage() {
   const { t, language } = useI18n();
-  const { isDark } = useTheme();
-  const { messages, busy, cliAvailable, send, runQuickAction } = useSummaryConversation(language);
-  const disabled = !cliAvailable || busy;
+  const { runtime, cliAvailable, runQuickAction } = useSummaryConversation(language);
   return (
     <div className="flex h-full min-h-0 flex-col">
       <PageHeader title={t("worklog.title")} actions={<SummaryHistorySheet />} />
       {!cliAvailable && <p className="px-4 py-2 text-sm text-muted-foreground">{t("worklog.cliMissing")}</p>}
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        {messages.length === 0 ? (
-          <EmptyState title={t("worklog.welcome")} description={t("worklog.welcomeHint")} />
-        ) : (
-          <ConversationFeed messages={messages} themeType={isDark ? "dark" : "light"} />
-        )}
+      <div className="border-b border-border px-4 py-2">
+        <QuickActionChips disabled={!cliAvailable} onQuick={runQuickAction} />
       </div>
-      <div className="border-t border-border p-3">
-        <SummaryComposer disabled={disabled} onSend={(v) => void send(v)} onQuick={(k) => void runQuickAction(k)} />
+      <div className="min-h-0 flex-1">
+        <AssistantRuntimeProvider runtime={runtime}>
+          <Thread />
+        </AssistantRuntimeProvider>
       </div>
     </div>
   );
@@ -1535,23 +1499,22 @@ function WorkSummaryPage() {
 export default WorkSummaryPage;
 ```
 
-`i18n.ts` 在 `worklog.*` 段新增中英成对 key（保留现有 `summarizeYesterday`/`generateWeek`/`cliMissing`/`daily`/`weekly`/`loadError`/`generateError`/`noChanges` 等）：
-`worklog.composerPlaceholder`、`worklog.send`、`worklog.history`、`worklog.welcome`、`worklog.welcomeHint`、`worklog.generating`、`worklog.styleConcise`、`worklog.styleDetailed`、`worklog.intentError`、`worklog.saveError`，以及（若缺）`common.back`。中文示例：`composerPlaceholder: "用自然语言描述要总结的范围，如「总结上周五」「近三天只看 code-manager 简短点」"`；英文对应翻译。
+`i18n.ts`：在 `worklog.*` 段新增中英成对 key（保留现有 `summarizeYesterday`/`generateWeek`/`cliMissing`/`daily`/`weekly`/`loadError`/`generateError`/`noChanges`/`promptSection`）：`worklog.history`、`worklog.generating`、`worklog.styleConcise`、`worklog.styleDetailed`、`worklog.intentError`、`worklog.saveError`、`worklog.welcome`、`worklog.welcomeHint`，及（若缺）`common.back`。assistant-ui Thread 自带的英文占位（如 composer placeholder）可通过其组件 props 传入 `t(...)` 覆盖（在 `thread.tsx` 脚手架里替换硬编码英文为 `t()`）。
 
-- [ ] **Step 4: 跑测试 + 删除旧文件 + 全量前端检查**
+- [ ] **Step 4: 跑测试 + 删旧文件 + 前端全量**
 
 ```bash
 git rm src/components/WorkSummaryProcessView.tsx src/hooks/useWorkSummaries.ts
 ```
 
-Run: `pnpm exec vitest run src/components/__tests__/WorkSummaryPage.test.tsx && make lint-frontend && make build-frontend`
-Expected: 测试 PASS；biome 无报错；build 成功（修正所有未用 import / 类型）。
+Run: `pnpm exec vitest run src/components/work-summary/__tests__/QuickActionChips.test.tsx src/components/__tests__/WorkSummaryPage.test.tsx && make lint-frontend && make build-frontend`
+Expected: 测试 PASS；biome 无报错；build 成功（修正未用 import / 类型）。
 
 - [ ] **Step 5: 提交**
 
 ```bash
 git add -A
-git commit -m "feat(work-summary): 对话式工作台页面重写 + 历史 Sheet + i18n"
+git commit -m "feat(work-summary): assistant-ui 对话壳 + streamdown 流式正文 + 历史 Sheet"
 ```
 
 ---
@@ -1577,7 +1540,7 @@ Expected: 无 diff；build 成功；前端测试全绿。
 - 点「总结昨日」→ 落 `worklog/<昨日>.md` 且对话出现一条助手消息含路径。
 - 重开页面 → 对话线程完整重放（`load_conversation`）。
 - 「历史总结」Sheet → 打开旧日/周文档预览。
-- 退出 claude / PATH 无 claude → composer 禁用 + 提示。
+- 退出 claude / PATH 无 claude → 快捷按钮（QuickActionChips）禁用 + cliMissing 提示。
 - 列表/正文样式：圆点、轻分隔、无「框中框」、留白舒适。
 
 - [ ] **Step 4: 全量门禁 + 提交（如有修复）**
@@ -1595,16 +1558,18 @@ git commit -m "fix(work-summary): AI-native 工作台端到端联调修复"
 ## Self-Review
 
 **Spec coverage（逐条对照设计稿）**
-- 对话式工作台布局 → Task 10/11 ✓；意图解读 chip → Task 6（intent 入消息）+ Task 10（AssistantMessage 渲染）✓；过程条 → Task 9 process state + Task 10 ✓；流式 Markdown → Task 1/2/6/9/10 ✓；底部操作（复制/提示词/已保存链接/refine）→ 已保存链接 Task 10 ✓；复制/查看提示词/refine chips **为增量 UI**，Task 10 的 AssistantMessage 已具备 prompt 数据（`process.prompt`）与 content，可在该任务内补「复制」「查看提示词」「refine chip→onSend(预设语)」——已在组件结构中预留，落地时补按钮（不另开任务，属同一可测交付）。
-- 空状态建议 chips → Task 11 EmptyState（welcome/welcomeHint）✓。
+- 对话式工作台布局 → Task 9（assistant-ui `<Thread/>` 脚手架）+ Task 11（页面壳）✓；意图解读 chip → Task 6（intent 入消息 metadata）+ Task 11（`AssistantMessageExtras` 渲染）✓；过程条 → Task 10 `ChatProcess` 状态（progress 事件写入）+ Task 11 Collapsible ✓；流式 Markdown → Task 1/2/6（后端 token）+ Task 9（streamdown）+ Task 10（`appendToken`）+ Task 11（`StreamdownTextPrimitive`）✓；底部操作（已保存链接）→ Task 11 `AssistantMessageExtras` docPath ✓。
+- 空状态建议 chips → Task 11 `QuickActionChips`（assistant-ui Thread 自带 welcome 区，chips 常驻工具条）✓。
 - 真 token 流式（CLI stream-json）→ Task 1/2/6 ✓。
-- 全自然语言意图（范围/过滤/风格）→ Task 3/4/5/6 ✓。
-- 双存储（规范 .md + 对话线程）→ Task 6 `persist_canonical`/`should_persist_canonical` + Task 7 ✓。
-- 历史回归 Sheet → Task 11 ✓。
-- 错误处理（CLI 缺失/解析失败/进程失败降级/空扫描/持久化失败）→ Task 6 fallback + Task 9 catch + Task 11 cliMissing ✓。
-- 测试（NDJSON 抽取/range/filter/style/intent/jsonl 往返/前端）→ Task 1-7,9-11 ✓。
+- 全自然语言意图（范围/过滤/风格）→ Task 3/4/5/6（后端）+ Task 10（`onNew`→`parseSummaryIntent`）✓。
+- 双存储（规范 .md + 对话线程）→ Task 6 `persist_canonical`/`should_persist_canonical` + Task 7（`ConversationMessage` jsonl）+ Task 10（`saveConversation`）✓。
+- 历史回归 Sheet → Task 11 `SummaryHistorySheet` ✓。
+- 错误处理（CLI 缺失/解析失败/进程失败降级/空扫描/持久化失败）→ Task 6 fallback + Task 10 catch（intent/generate/save 三处 `showOperationError`）+ Task 11 cliMissing ✓。
+- 测试（NDJSON 抽取/range/filter/style/intent/jsonl 往返/前端纯函数+组件）→ Task 1-7,10-11 ✓。
 - bindings → Task 8 ✓。
 
-**Placeholder scan**：无 TBD/TODO；每个 code step 给出完整代码。唯一「落地时补」项（复制/提示词/refine 按钮）已明确归入 Task 10 同一交付且数据已就绪，非占位空话。
+**OSS 替换说明**：自研 `ConversationFeed`/`SummaryComposer`/`UserMessage`/`AssistantMessage` 被 assistant-ui `ExternalStoreRuntime` + `<Thread/>` + streamdown 取代；自有前端代码收敛为 Task 10（状态/事件桥接 hook + 两个纯函数）与 Task 11（业务装饰组件 + 页面壳）。消息列表/输入/滚动/Markdown 流式补全由库承担。
 
-**Type consistency**：`SummaryIntent`（kind/start/end/projectFilter/style/title，camelCase）在 Task 3 定义，Task 6/9/10 一致引用；`ChatMessage`（Task 9）字段与 Task 10 组件 props 一致；`generate_summary_stream(intent, language, messageId)` 签名在 Task 6 定义、Task 9 调用一致；事件名 `work-summary-token`/`work-summary-progress` 在 Task 6/9 一致；`weekly_path`/落盘用 ISO `key`（非 title）已在 Task 6 实现注明确，Task 9 占位 start/end 由后端重算，闭环一致。
+**Placeholder scan**：无 TBD/TODO；每个 code step 给出完整代码。Task 9 为脚手架任务（无测试，交付=编译通过），Task 11 的 `thread.tsx` 定制以脚手架实际产物为准做最小改动，已明确改动点（换 `StreamdownTextPrimitive` + 插 `AssistantMessageExtras`），非占位。
+
+**Type consistency**：`SummaryIntent`（kind/start/end/projectFilter/style/title，camelCase）在 Task 3 定义，Task 6/10/11 一致引用；`ChatMessage`（Task 10）字段与 `toThreadMessage`/`AssistantMessageExtras` 的 `metadata.custom` 一致；`generate_summary_stream(intent, language, messageId)` 签名在 Task 6 定义、Task 10 调用一致；`ConversationMessage`（Task 7：id/role/ts/content/intent?/docPath?/style?）与 Task 10 `loadConversation`/`saveConversation` 映射一致（`Option` 字段传 `null`）；事件名 `work-summary-token`（`{messageId, delta}`）/`work-summary-progress`（`{messageId, phase, prompt?}`）在 Task 6/10 一致；落盘用 ISO `key`（非 title）已在 Task 6 注明，Task 10 quick-action 占位 start/end 由后端按 `iso_week_key`/`week_dates` 重算，闭环一致。

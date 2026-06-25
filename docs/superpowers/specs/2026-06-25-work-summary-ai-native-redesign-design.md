@@ -1,6 +1,6 @@
 # 工作总结 AI-native 重设计 · 设计稿
 
-> 状态：设计已与用户确认（交互骨架 / 流式 / 意图 / 持久化四项决策 + 三节设计逐节通过）。下一步进入 writing-plans 生成实施计划。
+> 状态：设计已与用户确认（交互骨架 / 流式 / 意图 / 持久化四项决策 + 三节设计逐节通过）。**技术选型经 2026-06 联网调研后定为方案 A（后端 CLI 流式自研 + 前端 assistant-ui + streamdown），见「技术选型」节。** 实施计划已据此更新。
 
 ## Context（为什么改）
 
@@ -18,26 +18,42 @@
 ## 非目标（YAGNI / 边界）
 
 - 不引入 Agent SDK / 不改 IPC 之外的统一错误处理边界。
+- 后端不换 Anthropic Rust SDK / 不引入 API key 计费（保留 CLI 订阅鉴权，见技术选型）。
 - 不把日/周规范文件并入对话线程（保留「按日期回归一份正式文档」契约）。
 - 自由范围 / 过滤 / 追问的结果**不**写规范 `.md`（仅存对话线程）。
 - 不做多会话/多线程管理（单一对话线程即可，YAGNI）。
+
+## 技术选型（OSS，2026-06 联网调研确认）
+
+采用**方案 A（混合）**：后端自研流式留在 Rust，前端换成熟 OSS。理由：精准用 OSS 替掉最该用库的两块（对话壳、流式 Markdown），同时不动已验证可行、复用 Claude Code 订阅鉴权的后端 CLI 流式路径，改动面与回归风险最小。
+
+| 环节 | 选型 | 说明 |
+| --- | --- | --- |
+| Claude 调用 | **保留 Rust CLI 流式**（`claude -p --output-format stream-json --include-partial-messages`） | 复用订阅鉴权、官方 binary；NDJSON 解析 ~20 行且有单测。不换 Rust SDK（避免 API key 计费 + 非官方 crate + 重写后端）。 |
+| 对话 UI 壳 | **assistant-ui** `ExternalStoreRuntime`（`@assistant-ui/react`） | 我们持有 messages + isRunning，runtime 渲染；非 HTTP（Tauri 事件）token 源的推荐运行时；shadcn 风格、内置滚动/编辑/重生成/a11y。替掉手搓 Feed/气泡/Composer。 |
+| 流式 Markdown | **streamdown**（`@assistant-ui/react-streamdown` + `streamdown`，`StreamdownTextPrimitive`） | 专为流式造：自动补全半截 `**bold`/未闭合代码块，消除闪烁；含 CJK 标点、Shiki 高亮、安全加固；基于 shadcn CSS 变量（本项目已具备）。替掉 react-markdown（手搓 `MarkdownPreview` 不处理半截语法）。 |
+| 意图解析 / 持久化 | 自研（Rust） | 无合适 OSS；意图 prompt→JSON、对话 jsonl 维持自研。 |
+
+**调研来源**：[assistant-ui ExternalStoreRuntime](https://www.assistant-ui.com/docs/runtimes/custom/external-store)、[assistant-ui × streamdown](https://www.assistant-ui.com/docs/ui/streamdown)、[streamdown](https://github.com/vercel/streamdown)、[Claude Agent SDK 计费(2026-06)](https://code.claude.com/docs/en/agent-sdk/overview)、[adk-anthropic(Rust)](https://crates.io/crates/adk-anthropic)。
+
+> 已评估但未采纳：方案 B（Rust Anthropic SDK，API key + 非官方 crate + 重写后端，收益主要在后端而后端非痛点）；方案 C（Node sidecar 跑 Agent SDK，给桌面应用引入 Node 运行时，过重）。
 
 ---
 
 ## 一、交互与信息架构
 
-**布局（单栏对话）**
+**布局（单栏对话，基于 assistant-ui）**
 - 顶部 `PageHeader`：标题 +「历史总结」按钮 → 打开 `Sheet`，复用 `listSummaries` / `readSummary` 浏览已落盘的日/周 `.md`，保住「按日期回归」能力。
-- 中部：**对话消息流**（持久化线程，可滚动，新 token 自动滚到底）。
-- 底部：**Composer**——自然语言输入框 + 发送；上方一排**快捷 chips**：`总结昨日`、`生成本周` + 上下文建议 chip。
+- 中部：assistant-ui **`<Thread/>`**（持久化线程，内置滚动/自动滚到底/编辑/重生成/a11y）。
+- 底部：assistant-ui **Composer**（自然语言输入 + 发送）；其上一排**快捷 chips**：`总结昨日`、`生成本周`（我们自渲，触发确定性 intent）。
 
-**消息类型**
-- **用户气泡**：自然语言诉求（或 chip 文案）。
-- **助手气泡（富卡片）**：
-  1. **意图解读 chip**：「理解为：2026-W26 周总结 · 仅 code-manager · 简短」——把 NL 解析结果摆出来，透明可纠错；
-  2. **过程条**（扫描 N · 变更 M → 生成中），完成后折叠成一行（演进现有 `WorkSummaryProcessView`，扫描详情 / 提示词收进 `Collapsible`）；
-  3. **流式 Markdown 正文**（token 逐字进入，套用现有 `SUMMARY_MARKDOWN_CLASS`）；
-  4. **底部操作**：复制、查看提示词、(日/周规范路径) 已保存为 `worklog/…` 链接、refine 快捷 chip（`简短点` / `更详细` / `换个角度`）。
+**消息呈现**（`ThreadMessageLike`，intent/process 放 `metadata`，正文走 streamdown）
+- **用户消息**：自然语言诉求（或 chip 文案）。
+- **助手消息**（定制 `thread.tsx` 的 assistant message 渲染）：
+  1. **意图解读 chip**（读 `metadata.intent`）：「理解为：2026-W26 周总结 · 仅 code-manager · 简短」，透明可纠错；
+  2. **过程条**（读 `metadata.process`：扫描 N · 变更 M → 生成中），扫描详情 / 提示词收进 `Collapsible`；
+  3. **流式 Markdown 正文**：`StreamdownTextPrimitive` 渲染（自动补全半截语法、无闪烁）；
+  4. **底部操作**：复制、查看提示词、(日/周规范路径) 已保存为 `worklog/…` 链接、refine 快捷 chip（`简短点` / `更详细` / `换个角度`，点按 = 以预设语 `onNew`）。
 
 **空状态**：生成式欢迎语 + 建议 prompt chips（`总结昨天`、`总结本周`、`上周五我做了什么`、`近三天只看 code-manager`）。
 
@@ -102,20 +118,28 @@ struct SummaryIntent {
 
 ## 三、组件分解、错误处理、测试
 
+### 前端依赖（新增）
+
+- `@assistant-ui/react`（ExternalStoreRuntime + Thread/Composer primitives）
+- `@assistant-ui/react-streamdown` + `streamdown`（流式 Markdown，`StreamdownTextPrimitive`）
+- 用 assistant-ui CLI 把 `Thread`/`Composer` 等 shadcn 风格组件脚手架进 `src/components/assistant-ui/`（项目已具 shadcn，可融入现有 token）。Tailwind 入口加 streamdown 的 `@source` 指令。
+
 ### 前端组件（替换 `WorkSummaryPage` 内部）
 
-- `WorkSummaryPage.tsx` — 壳：`PageHeader`（标题 +「历史总结」）+ `ConversationFeed` + `SummaryComposer`。去掉左列表+右文档。
-- `ConversationFeed.tsx` — 可滚动消息列表，新 token 自动滚到底。
-- `UserMessage.tsx` / `AssistantMessage.tsx` — 用户气泡 / 助手富卡片（意图 chip + 过程条 `Collapsible` + 流式 `MarkdownPreview` + 底部操作）。
-- `SummaryComposer.tsx` — NL 输入（`Textarea`）+ 发送 + 快捷 chips + 上下文建议；CLI 不可用时禁用 + hint。
+- `WorkSummaryPage.tsx` — 壳：`PageHeader`（标题 +「历史总结」）+ `<AssistantRuntimeProvider>` 包 `<Thread/>` + 自渲快捷 chips 行。去掉左列表+右文档。
+- `src/components/assistant-ui/thread.tsx`（CLI 脚手架后**定制**）：assistant message 渲染加 `metadata.intent`（意图 chip）+ `metadata.process`（过程条 `Collapsible`）+ `StreamdownTextPrimitive`（正文）+ 底部操作。
+- `QuickActionChips.tsx` — `总结昨日`/`生成本周` 两个 chip（触发确定性 intent）；CLI 不可用时禁用 + hint。
 - `SummaryHistorySheet.tsx` — shadcn `Sheet` 列已落盘日/周（`listSummaries`），点开预览，保住回归。
-- **复用**：现有 `WorkSummaryProcessView` 演进为气泡内过程条；`MarkdownPreview` + `SUMMARY_MARKDOWN_CLASS` 渲流式正文；surface/typography classes；shadcn `Sheet`/`Textarea`/`Badge`/`ScrollArea`/`Collapsible`/`Button`；`lucide-react` 图标。
+- **复用**：streamdown 取代 `MarkdownPreview` 渲流式正文（仅本页）；surface/typography classes；shadcn `Sheet`/`Badge`/`Collapsible`/`Button`；`lucide-react`。**移除**：`WorkSummaryProcessView.tsx`、手搓 Feed/气泡/Composer 不再需要。
 
-### Hook `useSummaryConversation`（演进自 `useWorkSummaries`）
+### Hook `useSummaryConversation`（演进自 `useWorkSummaries`，对接 ExternalStoreRuntime）
 
-- state：`messages`、`streaming`、`cliAvailable`；挂载 `load_conversation`。
-- `send(text)` / `runQuickAction(kind)`：压用户消息 → 解析意图（或 chip 直构）→ 压占位助手消息（前端 `crypto.randomUUID` 的 `messageId`）→ `generate_summary_stream` → `work-summary-token` 按 id 追加 → done 定稿 + `save_conversation`。
-- 监听 `work-summary-token`（按 id 追加）+ `work-summary-progress`（过程 / 提示词），统一走 `useTauriEvent`，卸载清理。
+- state：`messages: ChatMessage[]`（含 `metadata.intent`/`metadata.process`）、`isRunning`、`cliAvailable`；挂载 `load_conversation`。
+- 返回 `useExternalStoreRuntime({ messages, isRunning, convertMessage, onNew, onReload? })` 所需的适配：
+  - `convertMessage(m) -> ThreadMessageLike`：role/content/id + `metadata`（intent/process/docPath）。
+  - `onNew(appendMessage)`：取 `appendMessage.content` 文本 → `parse_summary_intent` → 压用户消息 + 占位助手消息（`crypto.randomUUID` 的 `messageId`）→ `generate_summary_stream(intent, language, messageId)`。
+  - 快捷 chip 走 `runQuickAction(kind)`：直构 intent 后同 `onNew` 流程。
+- 监听 `work-summary-token`（按 `messageId` 追加 content）+ `work-summary-progress`（更新 `metadata.process` / 提示词），统一 `useTauriEvent`，卸载清理；done 定稿 + `save_conversation`。
 
 ### 错误处理
 
@@ -129,7 +153,7 @@ struct SummaryIntent {
 
 - **Rust 单测**：`parse_summary_intent` JSON 解析（mock 输出）、range 窗口计算、prompt 注入 `project_filter`/`style`、**流式 NDJSON delta 抽取 helper**（给定样例 stream-json 行抽 delta）、conversation jsonl 往返。
 - **Rust 集成**：沿用 `IntegrationEnv`；规范文件写、range 不写。
-- **前端 vitest**：composer 发送/禁用、feed 渲染用户+助手消息、token 事件 `act + emitTauriEvent` 追加、历史 Sheet、空状态建议 chips。
+- **前端 vitest**：`useSummaryConversation` 适配（`onNew` 触发意图+生成、token 事件 `act + emitTauriEvent` 追加、`convertMessage` 映射 metadata）、`QuickActionChips` 禁用、历史 Sheet、`<Thread/>` 渲染助手消息（mock runtime）。
 - **契约**：`make bindings-check`。
 - **视觉**：`make dev` 双主题核验流式打字 + 对话布局。
 
@@ -138,8 +162,9 @@ struct SummaryIntent {
 1. 后端流式 helper `run_claude_summary_streaming` + `generate_summary_stream`（先不动 UI，单测覆盖 NDJSON 解析）。
 2. 意图解析命令 + `SummaryIntent` 类型 + bindings。
 3. 对话存储读写 + `ConversationMessage` 类型。
-4. 前端对话 UI（composer / feed / messages）替换页面，接 token/progress 事件。
-5. 历史 Sheet 保留回归。
+4. 装 assistant-ui + streamdown 依赖、CLI 脚手架 `thread.tsx`、Tailwind `@source` 接线（空 Thread 可跑）。
+5. `useSummaryConversation` 适配 `ExternalStoreRuntime`，接 token/progress 事件；定制 `thread.tsx` 渲 metadata + streamdown。
+6. `QuickActionChips` + 历史 Sheet + 页面壳重写，删旧文件。
 
 ---
 
