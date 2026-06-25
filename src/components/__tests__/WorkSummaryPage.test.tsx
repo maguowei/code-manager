@@ -121,6 +121,22 @@ describe("WorkSummaryPage", () => {
     expect(screen.getByText("查看最终提示词")).toBeInTheDocument();
   });
 
+  it("renders the selected summary document when no process is running", () => {
+    mockUseWorkSummaries.mockReturnValue({
+      ...defaultHookReturn(),
+      process: null,
+      selected: {
+        kind: "daily",
+        key: "2026-06-23",
+        path: "/p/2026-06-23.md",
+        content: "# 昨日工作总结 · 2026-06-23\n\n## proj\n重构生成流程，新增透明过程视图\n",
+      },
+    });
+    renderPage();
+    expect(screen.getByText(/重构生成流程/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "proj" })).toBeInTheDocument();
+  });
+
   it("shows the view-summary link on done and wires onView", () => {
     const viewSummary = vi.fn();
     const doc = { kind: "daily", key: "2026-06-23", path: "/p/2026-06-23.md", content: "# 总结" };

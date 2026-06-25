@@ -348,12 +348,14 @@ fn language_label(language: &str) -> &str {
 fn build_daily_prompt(date: &str, changesets: &[ProjectChangeset], language: &str) -> String {
     let mut p = format!(
         "你是工作总结助手。下面是 {date} 这一天我在多个项目里的已提交 git 变更，以及我当天向 Claude Code 提的需求（意图）。\
-请用{}写一份分项目的工作总结，直接输出 Markdown 正文，并严格遵守以下规则：\n\
+请用{}写一份分项目、可扫描的工作总结，直接输出 Markdown 正文，并严格遵守以下规则：\n\
 - 不要输出顶层一级标题（# 开头），也不要复述本说明。\n\
-- 每个项目用二级标题 `## 项目名` 开头。\n\
-- 每个项目段内：先一段概述（做了什么、为什么——「为什么」请结合「当天对话意图」与 commit body），再用 `**主要变更**` 列出 3-6 条要点。\n\
+- 每个项目用二级标题 `## 项目名` 开头；标题下紧跟一段概述（普通段落、一两句话，说清做了什么、为什么——「为什么」结合「当天对话意图」与 commit body），不要加任何加粗标签前缀。\n\
+- 概述之后，把变更按类型分组：每组一行加粗组标题（如 `**新功能**`、`**修复**`、`**重构**`、`**性能**`、`**文档**`、`**测试**`、`**构建/杂项**`），其下用 `-` 列要点；同类合并、按重要性排序，不要逐条复述 commit。\n\
+- 组标题按变更内容选取并翻译为{}；没有变更的类型不要出现。\n\
 - 若某项目含多个分支段，请在该项目下用三级标题 `### 分支名` 分别小结；只有一个主分支段时无需分支标题。\n\
 - 用自然语言归纳，不要原样粘贴 diff 代码。\n\n",
+        language_label(language),
         language_label(language)
     );
     for cs in changesets {
@@ -414,6 +416,15 @@ fn summarized_project_count(changesets: &[ProjectChangeset]) -> u32 {
         .count() as u32
 }
 
+/// 所有项目「有提交分支」的 commit 总数（用于文档头部「N 次提交」）。
+fn summarized_commit_count(changesets: &[ProjectChangeset]) -> usize {
+    changesets
+        .iter()
+        .flat_map(|cs| cs.branches.iter())
+        .map(|s| s.commits.len())
+        .sum()
+}
+
 /// 周总结里某天缺日总结时的紧凑素材
 fn build_changeset_brief(cs: &ProjectChangeset) -> String {
     let mut b = format!("### {}\n", cs.short_name);
@@ -434,7 +445,8 @@ fn build_changeset_brief(cs: &ProjectChangeset) -> String {
 
 fn build_weekly_prompt(week_key: &str, materials: &[String], language: &str) -> String {
     let mut p = format!(
-        "你是工作总结助手。下面是本周（{}）每天的工作素材（已有日总结或当天提交清单）。请用{}汇总成一份分项目、有重点的周总结，直接输出 Markdown 正文。\n\n",
+        "你是工作总结助手。下面是本周（{}）每天的工作素材（已有日总结或当天提交清单）。请用{}汇总成一份分项目、有重点、可扫描的周总结，直接输出 Markdown 正文：\n\
+- 每个项目用二级标题 `## 项目名` 开头；标题下先一段概述（普通段落，概括本周该项目的核心进展，不要加任何加粗标签前缀），再按变更类型分组（如 `**新功能**`、`**修复**`、`**重构**` 等）列要点；同类合并、去重，不要逐日罗列。\n\n",
         week_key,
         language_label(language)
     );
@@ -529,10 +541,11 @@ fn assemble_daily_markdown(
     date: &str,
     generated_at: &str,
     project_count: usize,
+    commit_count: usize,
     body: &str,
 ) -> String {
     format!(
-        "# 昨日工作总结 · {date}\n生成于 {generated_at} · {project_count} 个项目有变更\n\n{}\n",
+        "# 昨日工作总结 · {date}\n> {project_count} 个项目 · {commit_count} 次提交 · 生成于 {generated_at}\n\n{}\n",
         body.trim()
     )
 }
@@ -546,8 +559,9 @@ fn assemble_daily_fallback(
 ) -> String {
     let mut md = format!("# 昨日工作总结 · {date}\n");
     md.push_str(&format!(
-        "生成于 {generated_at} · {} 个项目有提交\n\n",
-        summarized_project_count(changesets)
+        "> {} 个项目 · {} 次提交 · 生成于 {generated_at}\n\n",
+        summarized_project_count(changesets),
+        summarized_commit_count(changesets)
     ));
     md.push_str(&format!(
         "> AI 总结不可用（{reason}），以下为基于 git 提交的变更清单。\n"
@@ -1204,6 +1218,7 @@ pub async fn summarize_day(
         return Err("没有检测到该日的变更项目".to_string());
     }
     let summarized = summarized_project_count(&changesets);
+    let commit_count = summarized_commit_count(&changesets);
 
     // 2. 构造提示词并下发（过程视图展示）；未提交不进 prompt
     let prompt = build_daily_prompt(&date, &changesets, &language);
@@ -1217,6 +1232,7 @@ pub async fn summarize_day(
             &gen_date,
             &generated_at,
             0,
+            0,
             "昨日没有已提交的工作（检测到未提交变更，按设置不纳入总结）。",
         )
     } else {
@@ -1225,9 +1241,13 @@ pub async fn summarize_day(
         let job = tokio::task::spawn_blocking(move || {
             let generated_at = crate::utils::current_rfc3339_timestamp();
             match run_claude_summary(&prompt) {
-                Ok(body) => {
-                    assemble_daily_markdown(&gen_date, &generated_at, summarized as usize, &body)
-                }
+                Ok(body) => assemble_daily_markdown(
+                    &gen_date,
+                    &generated_at,
+                    summarized as usize,
+                    commit_count,
+                    &body,
+                ),
                 Err(e) => assemble_daily_fallback(&gen_date, &generated_at, &changesets, &e),
             }
         });
@@ -1556,7 +1576,10 @@ mod tests {
         assert!(prompt.contains("当天对话意图"));
         assert!(prompt.contains("实现登录功能"));
         assert!(prompt.contains("用户需要登录")); // commit body
-                                                  // 单一主分支段不加分支标题
+        assert!(prompt.contains("一段概述")); // 要求每项目标题下先一段普通概述
+        assert!(prompt.contains("**修复**")); // 规则列出按类型分组的样例组标题
+        assert!(!prompt.contains("**重点**")); // R4：已去掉「重点」加粗标签，守住不回退
+                                               // 单一主分支段不加分支标题
         assert!(!prompt.contains("【分支"));
         // 未提交不再写入 prompt（diff 与未提交标题都不应出现）
         assert!(!prompt.contains("未提交"));
@@ -1652,12 +1675,50 @@ mod tests {
             "2026-06-23",
             "2026-06-24T10:00:00Z",
             2,
+            5,
             "## proj\n做了登录。",
         );
         assert!(md.contains("# 昨日工作总结 · 2026-06-23"));
-        assert!(md.contains("2 个项目有变更"));
+        assert!(md.contains("> 2 个项目 · 5 次提交 · 生成于 2026-06-24T10:00:00Z"));
         assert!(md.contains("## proj"));
         assert!(md.contains("做了登录。"));
+    }
+
+    #[test]
+    fn summarized_commit_count_counts_committed_commits() {
+        // 主分支 1 commit + 特性分支 1 commit = 2；仅未提交的项目不计入
+        let mut cs = sample_changeset();
+        cs.branches.push(BranchChangeset {
+            branch: "feature-x".into(),
+            is_main: false,
+            commits: vec![ProjectCommit {
+                hash: "h2".into(),
+                subject: "fix: y".into(),
+                body: String::new(),
+                author: "A".into(),
+                timestamp: 2,
+                files_changed: 1,
+                insertions: 1,
+                deletions: 0,
+            }],
+            has_uncommitted: false,
+            uncommitted_material: String::new(),
+        });
+        let wip = ProjectChangeset {
+            project: "/x/wip".into(),
+            short_name: "wip".into(),
+            is_conventional: false,
+            intents: vec![],
+            branches: vec![BranchChangeset {
+                branch: "main".into(),
+                is_main: true,
+                commits: vec![],
+                has_uncommitted: true,
+                uncommitted_material: String::new(),
+            }],
+            scan_error: None,
+        };
+        assert_eq!(summarized_commit_count(&[cs, wip]), 2);
     }
 
     #[test]
