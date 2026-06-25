@@ -1932,10 +1932,23 @@ const PROJECT_CLAUDE_OVERVIEW_MAX_DEPTH: usize = 16;
 const PROJECT_CLAUDE_PREVIEW_MAX_BYTES: usize = 512 * 1024;
 /// 未配置默认编辑器的稳定错误码，前端据此映射友好文案而非匹配中文 prose
 const EDITOR_NOT_CONFIGURED_ERROR: &str = "editor_not_configured";
+const PROJECT_CLAUDE_ROOT_SYMLINK_ERROR: &str = "项目 .claude/ 目录不能是软链";
+
+fn reject_project_claude_root_symlink(claude_root: &Path) -> Result<(), String> {
+    match fs::symlink_metadata(claude_root) {
+        Ok(metadata) if metadata.file_type().is_symlink() => {
+            Err(PROJECT_CLAUDE_ROOT_SYMLINK_ERROR.to_string())
+        }
+        Ok(_) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(_) => Err("读取项目 .claude/ 目录失败".to_string()),
+    }
+}
 
 fn project_claude_root(project: &str) -> Result<PathBuf, String> {
     let project_path = validate_project_path(project)?;
     let claude_root = project_path.join(".claude");
+    reject_project_claude_root_symlink(&claude_root)?;
     if !claude_root.is_dir() {
         return Err("项目 .claude/ 目录不存在".to_string());
     }
@@ -2015,6 +2028,7 @@ pub fn create_project_claude_settings_file(
             return Err("项目目录不存在".to_string());
         }
         let claude_root = project_path.join(".claude");
+        reject_project_claude_root_symlink(&claude_root)?;
         let filename = match scope {
             ProjectClaudeSettingsScope::Shared => "settings.json",
             ProjectClaudeSettingsScope::Local => "settings.local.json",
@@ -2804,6 +2818,20 @@ mod tests {
         assert!(names.contains(&"commands/run.md"));
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn get_project_claude_directory_overview_rejects_root_symlink() {
+        let project = TestDir::new();
+        let outside = TestDir::new();
+        std::fs::write(outside.path().join("outside.md"), "secret\n").unwrap();
+        create_test_symlink(outside.path(), &project.path().join(".claude"));
+
+        let err = get_project_claude_directory_overview(project.path().to_str().unwrap())
+            .expect_err("项目 .claude/ 是软链时应拒绝浏览");
+
+        assert!(err.contains(".claude/"), "非预期错误: {err}");
+    }
+
     #[test]
     fn get_project_claude_file_preview_rejects_path_escape() {
         let project = TestDir::new();
@@ -2897,6 +2925,23 @@ mod tests {
         // 原文件内容保留不被覆盖
         let content = std::fs::read_to_string(claude.join("settings.json")).unwrap();
         assert_eq!(content, "{\"existing\":true}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn create_project_claude_settings_file_rejects_root_symlink() {
+        let project = TestDir::new();
+        let outside = TestDir::new();
+        create_test_symlink(outside.path(), &project.path().join(".claude"));
+
+        let err = create_project_claude_settings_file(
+            project.path().to_str().unwrap(),
+            ProjectClaudeSettingsScope::Shared,
+        )
+        .expect_err("项目 .claude/ 是软链时应拒绝创建设置");
+
+        assert!(err.contains(".claude/"), "非预期错误: {err}");
+        assert!(!outside.path().join("settings.json").exists());
     }
 
     #[test]

@@ -752,7 +752,14 @@ function AutoMemorySection({
                   ? t("projects.autoMemory.enabled")
                   : t("projects.autoMemory.disabled")}
               </StatusBadge>
-              {status.exists ? (
+              {status.exists && !status.isInsideClaudeDir ? (
+                <Badge
+                  variant="outline"
+                  className={cn(PROJECT_TAG_CLASS, TONE_BADGE_CLASS.warning)}
+                >
+                  {t("projects.autoMemory.externalDirectory")}
+                </Badge>
+              ) : status.exists ? (
                 <Badge
                   variant="outline"
                   className={cn(

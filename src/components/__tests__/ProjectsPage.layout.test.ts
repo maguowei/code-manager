@@ -1,9 +1,17 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import type { ProjectDetail, ProjectSummary } from "../../types";
 import ProjectDetailPanel from "../ProjectDetailPanel";
+
+const { invokeMock } = vi.hoisted(() => ({
+  invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
+}));
+
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: invokeMock,
+}));
 
 const SUMMARY: ProjectSummary = {
   project: "/Users/test-user/work/alpha",
@@ -74,6 +82,11 @@ function renderDetailPanel() {
 }
 
 describe("ProjectsPage layout", () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+    invokeMock.mockResolvedValue(null);
+  });
+
   it("shows the project path only as the title hover text and copies it from the project name", () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
@@ -294,6 +307,66 @@ describe("ProjectsPage layout", () => {
 
     expect(heading).toHaveClass("flex-wrap");
     expect(heading).toHaveClass("items-start");
+  });
+
+  it("labels external auto memory directories without showing a zero file count", async () => {
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_project_auto_memory_status") {
+        return {
+          enabled: true,
+          directoryOverride: "/tmp/external-memory",
+          isInsideClaudeDir: false,
+          exists: true,
+          memoryFileCount: 0,
+          resolvedDirLabel: "/tmp/external-memory",
+        };
+      }
+      return null;
+    });
+    const t = (key: string) =>
+      (
+        ({
+          "projects.autoMemory.browse": "浏览自动记忆",
+          "projects.autoMemory.enabled": "已启用",
+          "projects.autoMemory.externalDirectory": "外部目录",
+          "projects.autoMemory.fileCount": "{count} 个记忆文件",
+          "projects.autoMemory.outsideHint":
+            "记忆目录在 ~/.claude 之外，请用文件管理器或编辑器查看。",
+        }) as Record<string, string>
+      )[key] ?? key;
+
+    render(
+      createElement(
+        I18nProvider,
+        null,
+        createElement(ProjectDetailPanel, {
+          t,
+          summary: SUMMARY,
+          detail: DETAIL,
+          defaultEditorApp: "vscode",
+          canCreateAgentsLink: true,
+          canOpenRepository: true,
+          canOpenProjectDirectory: true,
+          canOpenInEditor: true,
+          isLinkingAgents: false,
+          onOpenInTerminal: () => undefined,
+          onOpenInEditor: () => undefined,
+          onOpenRepository: () => undefined,
+          onCreateAgentsLink: () => undefined,
+          onOpenSession: () => undefined,
+          onOpenProjectHistory: () => undefined,
+          onOpenProjectUsage: () => undefined,
+        }),
+      ),
+    );
+
+    await waitFor(() => expect(screen.getByText("外部目录")).toBeInTheDocument());
+
+    expect(screen.queryByText("0 个记忆文件")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("记忆目录在 ~/.claude 之外，请用文件管理器或编辑器查看。"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "浏览自动记忆" })).not.toBeInTheDocument();
   });
 
   it("renders recent sessions instead of cost and duration in the detail panel", () => {

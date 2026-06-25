@@ -997,6 +997,7 @@ const translations = {
     "projects.autoMemory.statusLabel": "状态",
     "projects.autoMemory.fileCount": "{count} 个记忆文件",
     "projects.autoMemory.empty": "该项目暂无自动记忆",
+    "projects.autoMemory.externalDirectory": "外部目录",
     "projects.autoMemory.browse": "浏览自动记忆",
     "projects.autoMemory.customDirLabel": "自定义目录",
     "projects.autoMemory.outsideHint": "记忆目录在 ~/.claude 之外，请用文件管理器或编辑器查看。",
@@ -2645,6 +2646,7 @@ const translations = {
     "projects.autoMemory.statusLabel": "Status",
     "projects.autoMemory.fileCount": "{count} memory files",
     "projects.autoMemory.empty": "No auto memory for this project yet",
+    "projects.autoMemory.externalDirectory": "External directory",
     "projects.autoMemory.browse": "Browse auto memory",
     "projects.autoMemory.customDirLabel": "Custom directory",
     "projects.autoMemory.outsideHint":

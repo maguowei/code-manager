@@ -8,7 +8,7 @@
 //! `claude_directory` 的 root-based helper（已内置软链、`..`、绝对路径越界防护）。
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use serde::Serialize;
 
@@ -185,13 +185,102 @@ fn count_memory_files(dir: &Path) -> usize {
     .unwrap_or(0)
 }
 
+fn strip_memory_dir_prefix(memory_dir: &Path, claude_dir: &Path) -> Option<PathBuf> {
+    if let Ok(rel_path) = memory_dir.strip_prefix(claude_dir) {
+        return Some(rel_path.to_path_buf());
+    }
+
+    #[cfg(any(target_os = "macos", windows))]
+    {
+        let mut memory_components = memory_dir.components();
+        for claude_component in claude_dir.components() {
+            let memory_component = memory_components.next()?;
+            if !memory_component
+                .as_os_str()
+                .to_string_lossy()
+                .eq_ignore_ascii_case(&claude_component.as_os_str().to_string_lossy())
+            {
+                return None;
+            }
+        }
+
+        let mut rel_path = PathBuf::new();
+        for component in memory_components {
+            rel_path.push(component.as_os_str());
+        }
+        Some(rel_path)
+    }
+
+    #[cfg(not(any(target_os = "macos", windows)))]
+    None
+}
+
+/// 判断 memory 目录是否安全地位于 ~/.claude 树内。
+///
+/// 这里不能只做字符串/组件前缀判断：memory 目录本身或其中某个已存在父目录
+/// 可能是软链，后续 root-based helper 会把这个软链目标当作新的根目录。
+fn is_safe_memory_dir_inside_claude_dir(memory_dir: &Path, claude_dir: &Path) -> bool {
+    let rel_path = match strip_memory_dir_prefix(memory_dir, claude_dir) {
+        Some(path) => path,
+        None => return false,
+    };
+    if rel_path
+        .components()
+        .any(|component| !matches!(component, Component::Normal(_)))
+    {
+        return false;
+    }
+
+    let mut current = claude_dir.to_path_buf();
+    for component in rel_path.components() {
+        current.push(component.as_os_str());
+        match fs::symlink_metadata(&current) {
+            Ok(metadata) if metadata.file_type().is_symlink() => return false,
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => break,
+            Err(_) => return false,
+        }
+    }
+
+    let claude_dir_canonical = match fs::canonicalize(claude_dir) {
+        Ok(path) => path,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return true,
+        Err(_) => return false,
+    };
+    match fs::canonicalize(memory_dir) {
+        Ok(path) => path.starts_with(claude_dir_canonical),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => true,
+        Err(_) => false,
+    }
+}
+
+fn is_existing_memory_dir_inside_claude_dir(memory_dir: &Path, claude_dir: &Path) -> bool {
+    match fs::symlink_metadata(memory_dir) {
+        Ok(metadata) if metadata.file_type().is_symlink() => return false,
+        Ok(_) => {}
+        Err(_) => return false,
+    }
+    match fs::metadata(memory_dir) {
+        Ok(metadata) if metadata.is_dir() => {}
+        Ok(_) | Err(_) => return false,
+    }
+    let claude_dir_canonical = match fs::canonicalize(claude_dir) {
+        Ok(path) => path,
+        Err(_) => return false,
+    };
+    match fs::canonicalize(memory_dir) {
+        Ok(path) => path.starts_with(claude_dir_canonical),
+        Err(_) => false,
+    }
+}
+
 /// 解析出可浏览的 memory 目录：必须在 ~/.claude 内，否则拒绝（仅状态展示）。
 fn resolve_browsable_memory_dir(project: &str, repo_root: Option<&str>) -> Result<PathBuf, String> {
     validate_project_input(project)?;
     let claude_dir = claude_dir()?;
     let (_, dir_override) = read_auto_memory_settings(&claude_dir, project.trim());
     let resolution = resolve_memory_dir(project, repo_root, dir_override.as_deref())?;
-    if !resolution.dir.starts_with(&claude_dir) {
+    if !is_safe_memory_dir_inside_claude_dir(&resolution.dir, &claude_dir) {
         return Err(MEMORY_DIR_OUTSIDE_ERROR.to_string());
     }
     Ok(resolution.dir)
@@ -209,9 +298,14 @@ pub fn get_project_auto_memory_status(
         let (enabled, dir_override) = read_auto_memory_settings(&claude_dir, project.trim());
         let resolution =
             resolve_memory_dir(project, repo_root.as_deref(), dir_override.as_deref())?;
-        let is_inside_claude_dir = resolution.dir.starts_with(&claude_dir);
+        let is_inside_claude_dir =
+            is_safe_memory_dir_inside_claude_dir(&resolution.dir, &claude_dir);
         let exists = resolution.dir.is_dir();
-        let memory_file_count = count_memory_files(&resolution.dir);
+        let memory_file_count = if is_inside_claude_dir {
+            count_memory_files(&resolution.dir)
+        } else {
+            0
+        };
         Ok(ProjectAutoMemoryStatus {
             enabled,
             directory_override: if resolution.is_override {
@@ -299,6 +393,10 @@ pub fn delete_project_auto_memory_entry(
         // 空相对路径表示清空整个 memory 目录；否则删除目录内的单个条目。
         if relative_path.trim().is_empty() {
             if memory_dir.is_dir() {
+                let claude_dir = claude_dir()?;
+                if !is_existing_memory_dir_inside_claude_dir(&memory_dir, &claude_dir) {
+                    return Err(MEMORY_DIR_OUTSIDE_ERROR.to_string());
+                }
                 fs::remove_dir_all(&memory_dir).map_err(|_| "删除记忆目录失败".to_string())?;
             }
             return Ok(());
@@ -487,6 +585,124 @@ mod tests {
 
         let err = get_project_auto_memory_overview(&project_str, None)
             .expect_err("~/.claude 外的目录浏览应被拒绝");
+        assert_eq!(err, MEMORY_DIR_OUTSIDE_ERROR);
+    }
+
+    #[test]
+    fn status_rejects_parent_dir_escape_for_missing_override() {
+        let env = TestEnv::new("status-parent-escape");
+        let project = env.root.join("workspace");
+        let project_str = project.to_string_lossy().to_string();
+        fs::create_dir_all(project.join(".claude")).expect("应可创建项目 .claude 目录");
+        fs::write(
+            project.join(".claude/settings.json"),
+            "{\"autoMemoryDirectory\": \"~/.claude/projects/../../outside-missing\"}",
+        )
+        .expect("应可写入项目设置");
+
+        let status = get_project_auto_memory_status(&project_str, None).expect("状态应可读取");
+        assert!(
+            !status.is_inside_claude_dir,
+            "包含 .. 的不存在树外路径不可应用内浏览"
+        );
+
+        let err = get_project_auto_memory_overview(&project_str, None)
+            .expect_err(".. 逃逸路径浏览应被拒绝");
+        assert_eq!(err, MEMORY_DIR_OUTSIDE_ERROR);
+    }
+
+    #[cfg(any(target_os = "macos", windows))]
+    #[test]
+    fn status_accepts_existing_case_variant_inside_claude_dir() {
+        let env = TestEnv::new("status-case-variant");
+        let project = env.root.join("workspace");
+        let project_str = project.to_string_lossy().to_string();
+        let memory_dir = env.claude_dir().join("case-memory");
+        fs::create_dir_all(&memory_dir).expect("应可创建 memory 目录");
+        fs::write(memory_dir.join("MEMORY.md"), "# index").expect("应可写入索引");
+        fs::create_dir_all(project.join(".claude")).expect("应可创建项目 .claude 目录");
+        fs::write(
+            project.join(".claude/settings.json"),
+            "{\"autoMemoryDirectory\": \"~/.Claude/case-memory\"}",
+        )
+        .expect("应可写入项目设置");
+
+        let status = get_project_auto_memory_status(&project_str, None).expect("状态应可读取");
+
+        assert!(status.is_inside_claude_dir);
+        assert!(status.exists);
+        assert_eq!(status.memory_file_count, 1);
+    }
+
+    #[test]
+    fn delete_whole_dir_rejects_missing_parent_dir_escape() {
+        let env = TestEnv::new("delete-parent-escape");
+        let project = env.root.join("workspace");
+        let project_str = project.to_string_lossy().to_string();
+        fs::create_dir_all(project.join(".claude")).expect("应可创建项目 .claude 目录");
+        fs::write(
+            project.join(".claude/settings.json"),
+            "{\"autoMemoryDirectory\": \"~/.claude/projects/../../outside-missing\"}",
+        )
+        .expect("应可写入项目设置");
+
+        let err = delete_project_auto_memory_entry(&project_str, None, String::new())
+            .expect_err(".. 逃逸路径清空目录应被拒绝");
+        assert_eq!(err, MEMORY_DIR_OUTSIDE_ERROR);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn status_marks_symlink_override_as_not_browsable() {
+        let env = TestEnv::new("status-symlink-override");
+        let project = env.root.join("workspace");
+        let project_str = project.to_string_lossy().to_string();
+        let outside_dir = env.root.join("outside-memory");
+        fs::create_dir_all(&outside_dir).expect("应可创建外部目录");
+        fs::write(outside_dir.join("MEMORY.md"), "# outside").expect("应可写入外部 memory");
+        let linked_dir = env.claude_dir().join("linked-memory");
+        std::os::unix::fs::symlink(&outside_dir, &linked_dir).expect("应可创建软链");
+        fs::create_dir_all(project.join(".claude")).expect("应可创建项目 .claude 目录");
+        fs::write(
+            project.join(".claude/settings.json"),
+            "{\"autoMemoryDirectory\": \"~/.claude/linked-memory\"}",
+        )
+        .expect("应可写入项目设置");
+
+        let status = get_project_auto_memory_status(&project_str, None).expect("状态应可读取");
+        assert!(
+            !status.is_inside_claude_dir,
+            "memory 根目录是软链时不可应用内浏览"
+        );
+        assert_eq!(status.memory_file_count, 0);
+
+        let err = get_project_auto_memory_overview(&project_str, None)
+            .expect_err("软链 memory 根目录浏览应被拒绝");
+        assert_eq!(err, MEMORY_DIR_OUTSIDE_ERROR);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn status_marks_default_symlink_memory_dir_as_not_browsable() {
+        let env = TestEnv::new("status-symlink-default");
+        let project = "/Users/test/Work/demo";
+        let outside_dir = env.root.join("outside-default-memory");
+        fs::create_dir_all(&outside_dir).expect("应可创建外部目录");
+        fs::write(outside_dir.join("MEMORY.md"), "# outside").expect("应可写入外部 memory");
+        let memory_dir = env.memory_dir_for(project);
+        fs::create_dir_all(memory_dir.parent().expect("memory 目录应有父目录"))
+            .expect("应可创建 memory 父目录");
+        std::os::unix::fs::symlink(&outside_dir, &memory_dir).expect("应可创建 memory 软链");
+
+        let status = get_project_auto_memory_status(project, None).expect("状态应可读取");
+        assert!(
+            !status.is_inside_claude_dir,
+            "默认 memory 根目录是软链时不可应用内浏览"
+        );
+        assert_eq!(status.memory_file_count, 0);
+
+        let err = get_project_auto_memory_overview(project, None)
+            .expect_err("默认 memory 软链浏览应被拒绝");
         assert_eq!(err, MEMORY_DIR_OUTSIDE_ERROR);
     }
 
