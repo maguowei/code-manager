@@ -12,7 +12,7 @@ function WorkSummaryPage() {
   const { t, language } = useI18n();
   const { isDark } = useTheme();
   const { items, selected, generating, cliAvailable, select, summarizeYesterday, generateWeek } =
-    useWorkSummaries(language === "en" ? "en" : "zh");
+    useWorkSummaries(language);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
