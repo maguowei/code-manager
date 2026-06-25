@@ -5,7 +5,14 @@ import { useI18n } from "../i18n";
 import { ipc } from "../ipc";
 import { localDateKey, yesterdayKey } from "../lib/work-summary-date";
 import { isTauri } from "../types";
+import useTauriEvent from "./useTauriEvent";
 import { useToast } from "./useToast";
+
+/** 后端 work-summary-progress 事件负载 */
+export type WorkSummaryProgress = {
+  phase: "scanning" | "summarizing" | "writing" | "done";
+  projectCount: number;
+};
 
 export function useWorkSummaries(language: "zh" | "en") {
   const { t } = useI18n();
@@ -14,7 +21,10 @@ export function useWorkSummaries(language: "zh" | "en") {
   const [selected, setSelected] = useState<SummaryDocument | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [progress, setProgress] = useState<WorkSummaryProgress | null>(null);
   const [cliAvailable, setCliAvailable] = useState(true);
+
+  useTauriEvent<WorkSummaryProgress>("work-summary-progress", setProgress);
 
   const reload = useCallback(async () => {
     if (!isTauri()) {
@@ -46,6 +56,7 @@ export function useWorkSummaries(language: "zh" | "en") {
 
   const summarizeYesterday = useCallback(async () => {
     setGenerating(true);
+    setProgress(null);
     try {
       const date = yesterdayKey();
       const changes = await ipc.scanDayChanges(date);
@@ -61,11 +72,13 @@ export function useWorkSummaries(language: "zh" | "en") {
       showOperationError(showToast, t("worklog.generateError"), error);
     } finally {
       setGenerating(false);
+      setProgress(null);
     }
   }, [language, reload, showToast, t]);
 
   const generateWeek = useCallback(async () => {
     setGenerating(true);
+    setProgress(null);
     try {
       const doc = await ipc.generateWeeklySummary(localDateKey(new Date()), language);
       setSelected(doc);
@@ -75,6 +88,7 @@ export function useWorkSummaries(language: "zh" | "en") {
       showOperationError(showToast, t("worklog.generateError"), error);
     } finally {
       setGenerating(false);
+      setProgress(null);
     }
   }, [language, reload, showToast, t]);
 
@@ -87,6 +101,7 @@ export function useWorkSummaries(language: "zh" | "en") {
     selected,
     loading,
     generating,
+    progress,
     cliAvailable,
     reload,
     select,

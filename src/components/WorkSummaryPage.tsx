@@ -11,8 +11,24 @@ import { Button } from "./ui/button";
 function WorkSummaryPage() {
   const { t, language } = useI18n();
   const { isDark } = useTheme();
-  const { items, selected, generating, cliAvailable, select, summarizeYesterday, generateWeek } =
-    useWorkSummaries(language);
+  const {
+    items,
+    selected,
+    generating,
+    progress,
+    cliAvailable,
+    select,
+    summarizeYesterday,
+    generateWeek,
+  } = useWorkSummaries(language);
+
+  // 进度阶段映射为可读文案；缺省回退到通用「正在生成」
+  const generatingTitle =
+    progress?.phase === "scanning"
+      ? t("worklog.scanning")
+      : progress?.phase === "summarizing"
+        ? t("worklog.summarizing")
+        : t("worklog.generating");
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -79,7 +95,7 @@ function WorkSummaryPage() {
         {/* 主区：Markdown 预览 */}
         <main className="min-w-0 flex-1 overflow-y-auto p-4">
           {generating ? (
-            <EmptyState title={t("worklog.generating")} loading />
+            <EmptyState title={generatingTitle} loading />
           ) : selected ? (
             <MarkdownPreview content={selected.content} themeType={isDark ? "dark" : "light"} />
           ) : (

@@ -21,6 +21,7 @@ function defaultHookReturn() {
     selected: null,
     loading: false,
     generating: false,
+    progress: null,
     cliAvailable: true,
     reload: vi.fn(),
     select: vi.fn(),
@@ -68,5 +69,19 @@ describe("WorkSummaryPage", () => {
     // generating 时按钮也应 disabled
     expect(screen.getByRole("button", { name: "总结昨日" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "生成本周" })).toBeDisabled();
+  });
+
+  it("maps progress phase to readable text while generating", () => {
+    mockUseWorkSummaries.mockReturnValue({
+      ...defaultHookReturn(),
+      generating: true,
+      progress: { phase: "summarizing", projectCount: 3 },
+    });
+    render(
+      <I18nProvider>
+        <WorkSummaryPage />
+      </I18nProvider>,
+    );
+    expect(screen.getByText("正在生成总结，可能需要 1-2 分钟…")).toBeInTheDocument();
   });
 });
