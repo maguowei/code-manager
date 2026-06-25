@@ -343,19 +343,29 @@ fn language_label(language: &str) -> &str {
 
 /// 单次调用的当日总结 prompt：把所有项目素材一次交给 claude，要求输出分项目、可读的 Markdown 正文。
 /// 含当天对话意图（为什么）与分支区分；conventional 项目可借 type/scope 归纳。
+/// 仅总结**已提交**工作；未提交变更不写入 prompt（只在过程视图作提示）。
+/// 整个项目无任何 commit（仅未提交）则整段省略。
 fn build_daily_prompt(date: &str, changesets: &[ProjectChangeset], language: &str) -> String {
     let mut p = format!(
-        "你是工作总结助手。下面是 {date} 这一天我在多个项目里的 git 变更素材，以及我当天向 Claude Code 提的需求（意图）。\
+        "你是工作总结助手。下面是 {date} 这一天我在多个项目里的已提交 git 变更，以及我当天向 Claude Code 提的需求（意图）。\
 请用{}写一份分项目的工作总结，直接输出 Markdown 正文，并严格遵守以下规则：\n\
 - 不要输出顶层一级标题（# 开头），也不要复述本说明。\n\
 - 每个项目用二级标题 `## 项目名` 开头。\n\
 - 每个项目段内：先一段概述（做了什么、为什么——「为什么」请结合「当天对话意图」与 commit body），再用 `**主要变更**` 列出 3-6 条要点。\n\
 - 若某项目含多个分支段，请在该项目下用三级标题 `### 分支名` 分别小结；只有一个主分支段时无需分支标题。\n\
-- 用自然语言归纳，不要原样粘贴 diff 代码。\n\
-- 若某分支存在未提交变更，在对应位置用一行引用块标注：`> ⚠️ 有未提交变更：<简述>`。\n\n",
+- 用自然语言归纳，不要原样粘贴 diff 代码。\n\n",
         language_label(language)
     );
     for cs in changesets {
+        // 只取有提交的分支段；整个项目无提交则跳过（未提交不纳入总结）
+        let committed: Vec<&BranchChangeset> = cs
+            .branches
+            .iter()
+            .filter(|s| !s.commits.is_empty())
+            .collect();
+        if committed.is_empty() {
+            continue;
+        }
         p.push_str(&format!("\n=== 项目：{} ===\n", cs.short_name));
         if cs.is_conventional {
             p.push_str("（该项目遵循 Conventional Commits，可借助 type/scope 归纳）\n");
@@ -369,8 +379,8 @@ fn build_daily_prompt(date: &str, changesets: &[ProjectChangeset], language: &st
         if let Some(err) = &cs.scan_error {
             p.push_str(&format!("扫描存在错误：{err}\n"));
         }
-        let single_main = cs.branches.len() == 1 && cs.branches[0].is_main;
-        for seg in &cs.branches {
+        let single_main = committed.len() == 1 && committed[0].is_main;
+        for seg in committed {
             if !single_main {
                 let tag = if seg.is_main {
                     "主分支"
@@ -379,33 +389,29 @@ fn build_daily_prompt(date: &str, changesets: &[ProjectChangeset], language: &st
                 };
                 p.push_str(&format!("\n【分支 {} · {tag}】\n", seg.branch));
             }
-            if !seg.commits.is_empty() {
-                p.push_str("已提交：\n");
-                for c in &seg.commits {
-                    p.push_str(&format!(
-                        "- {} (+{} -{}, {} 文件)\n",
-                        c.subject, c.insertions, c.deletions, c.files_changed
-                    ));
-                    if !c.body.trim().is_empty() {
-                        for bl in c.body.trim().lines() {
-                            p.push_str(&format!("    {bl}\n"));
-                        }
+            p.push_str("已提交：\n");
+            for c in &seg.commits {
+                p.push_str(&format!(
+                    "- {} (+{} -{}, {} 文件)\n",
+                    c.subject, c.insertions, c.deletions, c.files_changed
+                ));
+                if !c.body.trim().is_empty() {
+                    for bl in c.body.trim().lines() {
+                        p.push_str(&format!("    {bl}\n"));
                     }
-                }
-            }
-            if seg.has_uncommitted {
-                p.push_str("未提交变更（请标注存在未提交变更）：\n");
-                if seg.uncommitted_material.is_empty() {
-                    p.push_str("（有未提交变更，但无可展示的 diff 内容）\n");
-                } else {
-                    p.push_str("```diff\n");
-                    p.push_str(&seg.uncommitted_material);
-                    p.push_str("\n```\n");
                 }
             }
         }
     }
     p
+}
+
+/// 含 ≥1 commit 的项目数（用于过程展示「实际纳入总结」的项目数）。
+fn summarized_project_count(changesets: &[ProjectChangeset]) -> u32 {
+    changesets
+        .iter()
+        .filter(|cs| cs.branches.iter().any(|s| !s.commits.is_empty()))
+        .count() as u32
 }
 
 /// 周总结里某天缺日总结时的紧凑素材
@@ -421,9 +427,6 @@ fn build_changeset_brief(cs: &ProjectChangeset) -> String {
             } else {
                 b.push_str(&format!("- [{}] {}\n", seg.branch, c.subject));
             }
-        }
-        if seg.has_uncommitted {
-            b.push_str(&format!("- ⚠️ {} 有未提交变更\n", seg.branch));
         }
     }
     b
@@ -543,13 +546,22 @@ fn assemble_daily_fallback(
 ) -> String {
     let mut md = format!("# 昨日工作总结 · {date}\n");
     md.push_str(&format!(
-        "生成于 {generated_at} · {} 个项目有变更\n\n",
-        changesets.len()
+        "生成于 {generated_at} · {} 个项目有提交\n\n",
+        summarized_project_count(changesets)
     ));
     md.push_str(&format!(
-        "> AI 总结不可用（{reason}），以下为基于 git 的变更清单。\n"
+        "> AI 总结不可用（{reason}），以下为基于 git 提交的变更清单。\n"
     ));
     for cs in changesets {
+        // 只列有提交的分支段；未提交不纳入文档（只在过程视图提示）
+        let committed: Vec<&BranchChangeset> = cs
+            .branches
+            .iter()
+            .filter(|s| !s.commits.is_empty())
+            .collect();
+        if committed.is_empty() {
+            continue;
+        }
         md.push_str(&format!("\n## {}  `{}`\n", cs.short_name, cs.project));
         if !cs.intents.is_empty() {
             md.push_str("当天意图：\n");
@@ -560,18 +572,12 @@ fn assemble_daily_fallback(
         if let Some(err) = &cs.scan_error {
             md.push_str(&format!("> 扫描错误：{err}\n"));
         }
-        if cs.branches.is_empty() {
-            md.push_str("- （无变更记录）\n");
-        }
-        for seg in &cs.branches {
+        for seg in committed {
             let mut meta: Vec<String> = vec![format!("分支 {}", seg.branch)];
             if seg.is_main {
                 meta.push("主分支".to_string());
             }
             meta.push(format!("{} commits", seg.commits.len()));
-            if seg.has_uncommitted {
-                meta.push("⚠️ 有未提交变更".to_string());
-            }
             md.push_str(&format!("\n**{}**\n", meta.join(" · ")));
             for c in &seg.commits {
                 md.push_str(&format!("- {}\n", c.subject));
@@ -1013,12 +1019,14 @@ fn gather_changeset(
 }
 
 /// 扫描所有候选项目（按 repo root 去重），返回当日有变更的项目集合。
-fn gather_day_changesets(date: &str) -> Result<Vec<ProjectChangeset>, String> {
+/// 返回 (扫描的候选 repo 数, 当日有变更的项目集合)
+fn gather_day_changesets(date: &str) -> Result<(u32, Vec<ProjectChangeset>), String> {
     let history = crate::history::get_history()?;
     let entries = parse_history_entries(&history.content);
     let window = day_window_ms(date);
 
     let mut seen_roots: BTreeSet<String> = BTreeSet::new();
+    let mut scanned: u32 = 0;
     let mut result: Vec<ProjectChangeset> = Vec::new();
     for project in distinct_projects(&entries) {
         // repo 去重：同一 repo（toplevel）只处理一次，避免分支提交被重复汇总
@@ -1029,6 +1037,7 @@ fn gather_day_changesets(date: &str) -> Result<Vec<ProjectChangeset>, String> {
         if !seen_roots.insert(root) {
             continue;
         }
+        scanned += 1;
         let (intents, active) = match window {
             Some((s, e)) => (
                 intents_for_day(&entries, &project, s, e),
@@ -1041,7 +1050,7 @@ fn gather_day_changesets(date: &str) -> Result<Vec<ProjectChangeset>, String> {
         }
     }
     result.sort_by(|a, b| a.short_name.cmp(&b.short_name));
-    Ok(result)
+    Ok((scanned, result))
 }
 
 /// 总结用的快速模型别名（纯文本任务，不需要 opus）。
@@ -1051,12 +1060,18 @@ const SUMMARY_MODEL: &str = "sonnet";
 const WORK_SUMMARY_EVENT: &str = "work-summary-progress";
 
 /// 生成进度负载（仅用于 emit，不进 specta 绑定）。
-/// phase: "scanning" | "summarizing" | "writing" | "done"
+/// phase: "scanning" | "prompt" | "summarizing" | "writing" | "done"
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct WorkSummaryProgress {
     phase: &'static str,
     project_count: u32,
+    /// phase=="prompt" 时携带最终提示词
+    #[serde(skip_serializing_if = "Option::is_none")]
+    prompt: Option<String>,
+    /// 实际纳入总结（含 ≥1 commit）的项目数
+    #[serde(skip_serializing_if = "Option::is_none")]
+    summarized_count: Option<u32>,
 }
 
 /// 防止并发生成（双击重入）。
@@ -1071,6 +1086,21 @@ fn emit_progress(app: &AppHandle, phase: &'static str, project_count: u32) {
         WorkSummaryProgress {
             phase,
             project_count,
+            prompt: None,
+            summarized_count: None,
+        },
+    );
+}
+
+/// 下发最终提示词（过程视图展示用）。
+fn emit_prompt(app: &AppHandle, prompt: String, summarized_count: u32) {
+    let _ = app.emit(
+        WORK_SUMMARY_EVENT,
+        WorkSummaryProgress {
+            phase: "prompt",
+            project_count: summarized_count,
+            prompt: Some(prompt),
+            summarized_count: Some(summarized_count),
         },
     );
 }
@@ -1129,13 +1159,28 @@ pub fn check_claude_cli() -> Result<ClaudeCliStatus, String> {
     }
 }
 
+/// 当日扫描结果：扫描的候选 repo 数 + 有变更的项目详情。
+#[derive(Debug, Clone, PartialEq, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct DayScanResult {
+    /// 扫描的候选 git 项目数
+    pub candidate_count: u32,
+    /// 当日有变更（提交或当天未提交）的项目
+    pub projects: Vec<ProjectChangeset>,
+}
+
 #[tauri::command]
 #[specta::specta]
-pub async fn scan_day_changes(date: String) -> Result<Vec<ProjectChangeset>, String> {
+pub async fn scan_day_changes(date: String) -> Result<DayScanResult, String> {
     validate_summary_key(&date)?;
-    tokio::task::spawn_blocking(move || gather_day_changesets(&date))
-        .await
-        .map_err(|e| format!("扫描任务失败: {e}"))?
+    let (candidate_count, projects) =
+        tokio::task::spawn_blocking(move || gather_day_changesets(&date))
+            .await
+            .map_err(|e| format!("扫描任务失败: {e}"))??;
+    Ok(DayScanResult {
+        candidate_count,
+        projects,
+    })
 }
 
 #[tauri::command]
@@ -1151,42 +1196,55 @@ pub async fn summarize_day(
     // 1. 扫描当日变更（git 阻塞操作放到 blocking 线程）
     emit_progress(&app, "scanning", 0);
     let scan_date = date.clone();
-    let changesets = tokio::task::spawn_blocking(move || gather_day_changesets(&scan_date))
-        .await
-        .map_err(|e| format!("扫描任务失败: {e}"))??;
+    let (_candidates, changesets) =
+        tokio::task::spawn_blocking(move || gather_day_changesets(&scan_date))
+            .await
+            .map_err(|e| format!("扫描任务失败: {e}"))??;
     if changesets.is_empty() {
         return Err("没有检测到该日的变更项目".to_string());
     }
-    let project_count = changesets.len() as u32;
+    let summarized = summarized_project_count(&changesets);
 
-    // 2. 单次 claude 调用生成分项目正文；失败则降级为基于 git 的可读清单
-    emit_progress(&app, "summarizing", project_count);
+    // 2. 构造提示词并下发（过程视图展示）；未提交不进 prompt
+    let prompt = build_daily_prompt(&date, &changesets, &language);
+    emit_prompt(&app, prompt.clone(), summarized);
+
+    // 3. 仅未提交、无任何已提交工作时，直接出一份说明文档，不调用 claude
     let gen_date = date.clone();
-    let job = tokio::task::spawn_blocking(move || {
+    let content = if summarized == 0 {
         let generated_at = crate::utils::current_rfc3339_timestamp();
-        match run_claude_summary(&build_daily_prompt(&gen_date, &changesets, &language)) {
-            Ok(body) => assemble_daily_markdown(&gen_date, &generated_at, changesets.len(), &body),
-            Err(e) => assemble_daily_fallback(&gen_date, &generated_at, &changesets, &e),
+        assemble_daily_markdown(
+            &gen_date,
+            &generated_at,
+            0,
+            "昨日没有已提交的工作（检测到未提交变更，按设置不纳入总结）。",
+        )
+    } else {
+        // 单次 claude 调用生成分项目正文；失败则降级为基于 git 提交的可读清单
+        emit_progress(&app, "summarizing", summarized);
+        let job = tokio::task::spawn_blocking(move || {
+            let generated_at = crate::utils::current_rfc3339_timestamp();
+            match run_claude_summary(&prompt) {
+                Ok(body) => {
+                    assemble_daily_markdown(&gen_date, &generated_at, summarized as usize, &body)
+                }
+                Err(e) => assemble_daily_fallback(&gen_date, &generated_at, &changesets, &e),
+            }
+        });
+        match tokio::time::timeout(std::time::Duration::from_secs(CLAUDE_TIMEOUT_SECS), job).await {
+            Ok(joined) => joined.map_err(|e| format!("总结任务失败: {e}"))?,
+            Err(_) => return Err("总结超时，请重试".to_string()),
         }
-    });
-    let content = match tokio::time::timeout(
-        std::time::Duration::from_secs(CLAUDE_TIMEOUT_SECS),
-        job,
-    )
-    .await
-    {
-        Ok(joined) => joined.map_err(|e| format!("总结任务失败: {e}"))?,
-        Err(_) => return Err("总结超时，请重试".to_string()),
     };
 
-    // 3. 落盘
-    emit_progress(&app, "writing", project_count);
+    // 4. 落盘
+    emit_progress(&app, "writing", summarized);
     let path = daily_path(&date);
     crate::utils::ensure_dir_and_write_atomic(&path, &content)?;
-    emit_progress(&app, "done", project_count);
+    emit_progress(&app, "done", summarized);
 
     crate::logging::log_command_result("work_summary.summarize_day", &Ok::<(), String>(()), |_| {
-        format!("date={date} projects={project_count}")
+        format!("date={date} projects={summarized}")
     });
     Ok(SummaryDocument {
         kind: "daily".into(),
@@ -1210,6 +1268,7 @@ pub async fn generate_weekly_summary(
     // 收集素材（读日总结 / 补扫 git）+ 单次 claude 调用，全部放到 blocking 线程
     emit_progress(&app, "scanning", 0);
     let week_key_job = week_key.clone();
+    let app_job = app.clone();
     let job = tokio::task::spawn_blocking(move || -> Result<String, String> {
         let dates = week_dates(&date)?;
         let mut materials: Vec<String> = Vec::new();
@@ -1222,7 +1281,7 @@ pub async fn generate_weekly_summary(
                 }
             }
             // 缺日总结 → 补扫当天 git
-            let changesets = gather_day_changesets(day).unwrap_or_default();
+            let changesets = gather_day_changesets(day).map(|r| r.1).unwrap_or_default();
             if changesets.is_empty() {
                 continue;
             }
@@ -1235,12 +1294,13 @@ pub async fn generate_weekly_summary(
         if materials.is_empty() {
             return Err("本周没有可用的工作素材".to_string());
         }
+        let prompt = build_weekly_prompt(&week_key_job, &materials, &language);
+        emit_prompt(&app_job, prompt.clone(), materials.len() as u32);
         let generated_at = crate::utils::current_rfc3339_timestamp();
-        let content =
-            match run_claude_summary(&build_weekly_prompt(&week_key_job, &materials, &language)) {
-                Ok(body) => assemble_weekly_markdown(&week_key_job, &generated_at, &body),
-                Err(e) => assemble_weekly_fallback(&week_key_job, &generated_at, &materials, &e),
-            };
+        let content = match run_claude_summary(&prompt) {
+            Ok(body) => assemble_weekly_markdown(&week_key_job, &generated_at, &body),
+            Err(e) => assemble_weekly_fallback(&week_key_job, &generated_at, &materials, &e),
+        };
         Ok(content)
     });
 
@@ -1487,10 +1547,9 @@ mod tests {
     }
 
     #[test]
-    fn build_daily_prompt_includes_intent_body_and_language() {
+    fn build_daily_prompt_includes_intent_body_excludes_uncommitted() {
         let prompt = build_daily_prompt("2026-06-23", &[sample_changeset()], "zh");
         assert!(prompt.contains("feat: add login"));
-        assert!(prompt.contains("未提交"));
         assert!(prompt.contains("中文"));
         assert!(prompt.contains("## 项目名")); // 模板要求每项目用二级标题
         assert!(prompt.contains("=== 项目：proj ==="));
@@ -1499,6 +1558,31 @@ mod tests {
         assert!(prompt.contains("用户需要登录")); // commit body
                                                   // 单一主分支段不加分支标题
         assert!(!prompt.contains("【分支"));
+        // 未提交不再写入 prompt（diff 与未提交标题都不应出现）
+        assert!(!prompt.contains("未提交"));
+        assert!(!prompt.contains("diff --git a/x b/x"));
+    }
+
+    #[test]
+    fn build_daily_prompt_omits_uncommitted_only_project() {
+        // 一个项目只有未提交、没有任何 commit → 不应进入 prompt
+        let cs = ProjectChangeset {
+            project: "/x/wip".into(),
+            short_name: "wip".into(),
+            is_conventional: false,
+            intents: vec!["调试".into()],
+            branches: vec![BranchChangeset {
+                branch: "main".into(),
+                is_main: true,
+                commits: vec![],
+                has_uncommitted: true,
+                uncommitted_material: "diff --git a/y b/y".into(),
+            }],
+            scan_error: None,
+        };
+        let prompt = build_daily_prompt("2026-06-23", &[cs], "zh");
+        assert!(!prompt.contains("=== 项目：wip ==="));
+        assert_eq!(summarized_project_count(&[sample_changeset()]), 1);
     }
 
     #[test]
@@ -1589,11 +1673,12 @@ mod tests {
         assert!(md.contains("claude 执行失败"));
         assert!(md.contains("## proj"));
         assert!(md.contains("`/x/proj`"));
-        assert!(md.contains("⚠️ 有未提交变更"));
         assert!(md.contains("- feat: add login"));
         assert!(md.contains("分支 main"));
         assert!(md.contains("主分支"));
         assert!(md.contains("实现登录功能")); // 意图
+                                              // 未提交不再写入文档
+        assert!(!md.contains("有未提交变更"));
     }
 
     #[test]

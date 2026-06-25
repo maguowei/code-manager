@@ -120,7 +120,7 @@ export const commands = {
 	/**  测试某个灯效(设置页「测试」按钮 / 真机验证门)。立即下发,不受 enabled 影响。 */
 	ledTestMode: (mode: number) => typedError<null, string>(__TAURI_INVOKE("led_test_mode", { mode })),
 	checkClaudeCli: () => typedError<ClaudeCliStatus, string>(__TAURI_INVOKE("check_claude_cli")),
-	scanDayChanges: (date: string) => typedError<ProjectChangeset[], string>(__TAURI_INVOKE("scan_day_changes", { date })),
+	scanDayChanges: (date: string) => typedError<DayScanResult, string>(__TAURI_INVOKE("scan_day_changes", { date })),
 	summarizeDay: (date: string, language: string) => typedError<SummaryDocument, string>(__TAURI_INVOKE("summarize_day", { date, language })),
 	generateWeeklySummary: (date: string, language: string) => typedError<SummaryDocument, string>(__TAURI_INVOKE("generate_weekly_summary", { date, language })),
 	listSummaries: () => typedError<SummaryListItem[], string>(__TAURI_INVOKE("list_summaries")),
@@ -314,6 +314,14 @@ export type DailyUsage = {
 	cacheReadTokens: number,
 	cost: number | null,
 	byModel: ModelUsageStat[],
+};
+
+/**  当日扫描结果：扫描的候选 repo 数 + 有变更的项目详情。 */
+export type DayScanResult = {
+	/**  扫描的候选 git 项目数 */
+	candidateCount: number,
+	/**  当日有变更（提交或当天未提交）的项目 */
+	projects: ProjectChangeset[],
 };
 
 /**  历史记录读取结果 */

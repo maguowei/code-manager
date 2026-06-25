@@ -21,36 +21,36 @@ function defaultHookReturn() {
     selected: null,
     loading: false,
     generating: false,
-    progress: null,
+    process: null,
     cliAvailable: true,
     reload: vi.fn(),
     select: vi.fn(),
+    viewSummary: vi.fn(),
     summarizeYesterday: vi.fn(),
     generateWeek: vi.fn(),
   };
 }
 
+function renderPage() {
+  render(
+    <I18nProvider>
+      <WorkSummaryPage />
+    </I18nProvider>,
+  );
+}
+
 describe("WorkSummaryPage", () => {
   it("renders action buttons and empty state", () => {
     mockUseWorkSummaries.mockReturnValue(defaultHookReturn());
-    render(
-      <I18nProvider>
-        <WorkSummaryPage />
-      </I18nProvider>,
-    );
+    renderPage();
     expect(screen.getByRole("button", { name: "总结昨日" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "生成本周" })).toBeInTheDocument();
-    // items 为空且无 selected 时，左栏与主区都渲染 empty 文案，用 getAllByText 处理多匹配
     expect(screen.getAllByText("还没有任何总结，点击「总结昨日」开始。").length).toBeGreaterThan(0);
   });
 
   it("disables buttons when cliAvailable is false and shows cliMissing hint", () => {
     mockUseWorkSummaries.mockReturnValue({ ...defaultHookReturn(), cliAvailable: false });
-    render(
-      <I18nProvider>
-        <WorkSummaryPage />
-      </I18nProvider>,
-    );
+    renderPage();
     expect(screen.getByRole("button", { name: "总结昨日" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "生成本周" })).toBeDisabled();
     expect(
@@ -58,30 +58,82 @@ describe("WorkSummaryPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows generating message when generating is true", () => {
-    mockUseWorkSummaries.mockReturnValue({ ...defaultHookReturn(), generating: true });
-    render(
-      <I18nProvider>
-        <WorkSummaryPage />
-      </I18nProvider>,
-    );
-    expect(screen.getByText("正在生成总结…")).toBeInTheDocument();
-    // generating 时按钮也应 disabled
+  it("disables buttons while a process is running", () => {
+    mockUseWorkSummaries.mockReturnValue({
+      ...defaultHookReturn(),
+      process: { kind: "daily", phase: "scanning" },
+    });
+    renderPage();
+    expect(screen.getByText("扫描项目变更中…")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "总结昨日" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "生成本周" })).toBeDisabled();
   });
 
-  it("maps progress phase to readable text while generating", () => {
+  it("renders scan detail, branch commits and uncommitted hint in the process view", () => {
     mockUseWorkSummaries.mockReturnValue({
       ...defaultHookReturn(),
-      generating: true,
-      progress: { phase: "summarizing", projectCount: 3 },
+      process: {
+        kind: "daily",
+        phase: "summarizing",
+        candidateCount: 5,
+        prompt: "## 项目\n素材",
+        projects: [
+          {
+            project: "/x/proj",
+            shortName: "proj",
+            isConventional: true,
+            intents: ["实现登录"],
+            scanError: null,
+            branches: [
+              {
+                branch: "main",
+                isMain: true,
+                hasUncommitted: true,
+                uncommittedMaterial: "",
+                commits: [
+                  {
+                    hash: "h1",
+                    subject: "feat: add login",
+                    body: "",
+                    author: "A",
+                    timestamp: 1,
+                    filesChanged: 1,
+                    insertions: 1,
+                    deletions: 0,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
     });
-    render(
-      <I18nProvider>
-        <WorkSummaryPage />
-      </I18nProvider>,
-    );
-    expect(screen.getByText("正在生成总结，可能需要 1-2 分钟…")).toBeInTheDocument();
+    renderPage();
+    // 扫描计数
+    expect(screen.getByText("扫描 5 个项目 · 1 个有变更")).toBeInTheDocument();
+    // 分支提交列表
+    expect(screen.getByText("feat: add login")).toBeInTheDocument();
+    // 未提交提示（不纳入总结）
+    expect(screen.getByText(/有未提交变更（不纳入总结）/)).toBeInTheDocument();
+    // 调用 Claude 中
+    expect(screen.getByText("调用 Claude 生成中（可能需要 1-2 分钟）…")).toBeInTheDocument();
+    // 提示词折叠入口
+    expect(screen.getByText("查看最终提示词")).toBeInTheDocument();
+  });
+
+  it("shows the view-summary link on done and wires onView", () => {
+    const viewSummary = vi.fn();
+    const doc = { kind: "daily", key: "2026-06-23", path: "/p/2026-06-23.md", content: "# 总结" };
+    mockUseWorkSummaries.mockReturnValue({
+      ...defaultHookReturn(),
+      viewSummary,
+      process: { kind: "daily", phase: "done", candidateCount: 1, projects: [], doc },
+    });
+    renderPage();
+    const link = screen.getByRole("button", { name: "查看总结 →" });
+    expect(link).toBeInTheDocument();
+    expect(screen.getByText("总结已生成并保存")).toBeInTheDocument();
+    link.click();
+    expect(viewSummary).toHaveBeenCalledWith(doc);
   });
 });

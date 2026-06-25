@@ -7,6 +7,7 @@ import EmptyState from "./EmptyState";
 import PageHeader from "./PageHeader";
 import { useTheme } from "./theme-provider";
 import { Button } from "./ui/button";
+import WorkSummaryProcessView from "./WorkSummaryProcessView";
 
 function WorkSummaryPage() {
   const { t, language } = useI18n();
@@ -14,21 +15,16 @@ function WorkSummaryPage() {
   const {
     items,
     selected,
-    generating,
-    progress,
+    process,
     cliAvailable,
     select,
+    viewSummary,
     summarizeYesterday,
     generateWeek,
   } = useWorkSummaries(language);
 
-  // 进度阶段映射为可读文案；缺省回退到通用「正在生成」
-  const generatingTitle =
-    progress?.phase === "scanning"
-      ? t("worklog.scanning")
-      : progress?.phase === "summarizing"
-        ? t("worklog.summarizing")
-        : t("worklog.generating");
+  // 生成中或刚完成（保留过程视图与查看链接）时禁用按钮
+  const busy = process != null && process.phase !== "done";
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -39,7 +35,7 @@ function WorkSummaryPage() {
             <Button
               type="button"
               size="sm"
-              disabled={!cliAvailable || generating}
+              disabled={!cliAvailable || busy}
               onClick={() => void summarizeYesterday()}
             >
               <NotebookPen aria-hidden="true" />
@@ -49,7 +45,7 @@ function WorkSummaryPage() {
               type="button"
               size="sm"
               variant="secondary"
-              disabled={!cliAvailable || generating}
+              disabled={!cliAvailable || busy}
               onClick={() => void generateWeek()}
             >
               <CalendarRange aria-hidden="true" />
@@ -92,10 +88,14 @@ function WorkSummaryPage() {
           )}
         </aside>
 
-        {/* 主区：Markdown 预览 */}
+        {/* 主区：过程视图 → 文档预览 → 空状态 */}
         <main className="min-w-0 flex-1 overflow-y-auto p-4">
-          {generating ? (
-            <EmptyState title={generatingTitle} loading />
+          {process ? (
+            <WorkSummaryProcessView
+              process={process}
+              themeType={isDark ? "dark" : "light"}
+              onView={viewSummary}
+            />
           ) : selected ? (
             <MarkdownPreview content={selected.content} themeType={isDark ? "dark" : "light"} />
           ) : (
