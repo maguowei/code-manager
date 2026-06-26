@@ -1585,25 +1585,24 @@ pub fn read_summary(kind: String, key: String) -> Result<SummaryDocument, String
 
 const MAX_RANGE_DAYS: usize = 31;
 
-/// 展开 [start, end]（含端点）为日期序列；start>end 返回空；超 31 天取最后 31 天。
+/// 展开 [start, end]（含端点）为日期序列；start>end 返回空；超 31 天取最后 31 天（锚定到 end）。
 fn dates_in_range(start: &str, end: &str) -> Result<Vec<String>, String> {
-    // 校验格式
-    parse_ymd(start)?;
-    parse_ymd(end)?;
-    if start > end {
+    let (sy, sm, sd) = parse_ymd(start)?;
+    let (ey, em, ed) = parse_ymd(end)?;
+    let start_days = days_from_civil(sy, sm, sd);
+    let end_days = days_from_civil(ey, em, ed);
+    if start_days > end_days {
         return Ok(Vec::new());
     }
-    let mut out = Vec::new();
-    let mut cur = start.to_string();
-    while cur.as_str() <= end {
-        out.push(cur.clone());
-        if out.len() > MAX_RANGE_DAYS * 2 {
-            break; // 防御性硬上限
-        }
-        cur = next_date(&cur)?;
-    }
-    if out.len() > MAX_RANGE_DAYS {
-        out = out.split_off(out.len() - MAX_RANGE_DAYS);
+    // 超 MAX_RANGE_DAYS 时把起点前移到 end-30，始终取最后 MAX_RANGE_DAYS 天；
+    // 用公历天数迭代，循环次数天然有界（≤MAX_RANGE_DAYS），无需防御性硬上限。
+    let begin = start_days.max(end_days - (MAX_RANGE_DAYS as i64 - 1));
+    let mut out = Vec::with_capacity((end_days - begin + 1) as usize);
+    let mut cur = begin;
+    while cur <= end_days {
+        let (y, m, d) = civil_from_days(cur);
+        out.push(format_ymd(y, m, d));
+        cur += 1;
     }
     Ok(out)
 }
@@ -1644,6 +1643,10 @@ fn gather_range_changesets(start: &str, end: &str) -> Result<(u32, Vec<ProjectCh
                 } else {
                     entry.branches.push(seg);
                 }
+            }
+            // scan_error OR 合并：任一天扫描失败都要让调用方可见，不被首日的成功结果吞掉。
+            if entry.scan_error.is_none() {
+                entry.scan_error = cs.scan_error;
             }
         }
     }
@@ -2295,5 +2298,14 @@ not-json\n";
         assert!(dates_in_range("2026-06-24", "2026-06-20")
             .unwrap()
             .is_empty());
+    }
+
+    #[test]
+    fn dates_in_range_caps_at_last_31_days_anchored_to_end() {
+        // 40 天区间（01-01..02-09）→ 只取最后 31 天，末端锚定到 end，不是从 start 截前 31 天。
+        let out = dates_in_range("2026-01-01", "2026-02-09").unwrap();
+        assert_eq!(out.len(), MAX_RANGE_DAYS);
+        assert_eq!(out.first().unwrap(), "2026-01-10");
+        assert_eq!(out.last().unwrap(), "2026-02-09");
     }
 }
