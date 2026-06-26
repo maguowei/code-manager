@@ -1,5 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "tw-shimmer";
+
+/* Tailwind v4 默认不扫描 node_modules；显式 @source 让 streamdown 的控件与流式 caret 类名不被 purge。 */
+@source "../node_modules/streamdown/dist/*.js";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
