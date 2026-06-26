@@ -1086,6 +1086,9 @@ struct WorkSummaryProgress {
     /// 实际纳入总结（含 ≥1 commit）的项目数
     #[serde(skip_serializing_if = "Option::is_none")]
     summarized_count: Option<u32>,
+    /// 流式会话标识（generate_summary_stream 携带；旧命令为空时省略）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    message_id: Option<String>,
 }
 
 /// 防止并发生成（双击重入）。
@@ -1094,7 +1097,16 @@ static WORK_SUMMARY_LOCK: Lazy<tokio::sync::Mutex<()>> = Lazy::new(|| tokio::syn
 /// 单次 claude 调用的硬超时，避免极端情况下命令永不返回、前端一直 loading。
 const CLAUDE_TIMEOUT_SECS: u64 = 180;
 
-fn emit_progress(app: &AppHandle, phase: &'static str, project_count: u32) {
+/// 把空串归一为 None，避免给旧命令的事件加上多余的 messageId 字段。
+fn message_id_field(message_id: &str) -> Option<String> {
+    if message_id.is_empty() {
+        None
+    } else {
+        Some(message_id.to_string())
+    }
+}
+
+fn emit_progress(app: &AppHandle, phase: &'static str, project_count: u32, message_id: &str) {
     let _ = app.emit(
         WORK_SUMMARY_EVENT,
         WorkSummaryProgress {
@@ -1102,12 +1114,13 @@ fn emit_progress(app: &AppHandle, phase: &'static str, project_count: u32) {
             project_count,
             prompt: None,
             summarized_count: None,
+            message_id: message_id_field(message_id),
         },
     );
 }
 
 /// 下发最终提示词（过程视图展示用）。
-fn emit_prompt(app: &AppHandle, prompt: String, summarized_count: u32) {
+fn emit_prompt(app: &AppHandle, prompt: String, summarized_count: u32, message_id: &str) {
     let _ = app.emit(
         WORK_SUMMARY_EVENT,
         WorkSummaryProgress {
@@ -1115,6 +1128,29 @@ fn emit_prompt(app: &AppHandle, prompt: String, summarized_count: u32) {
             project_count: summarized_count,
             prompt: Some(prompt),
             summarized_count: Some(summarized_count),
+            message_id: message_id_field(message_id),
+        },
+    );
+}
+
+/// 流式 token 事件名
+const WORK_SUMMARY_TOKEN_EVENT: &str = "work-summary-token";
+
+/// 流式 token 增量负载（仅用于 emit，不进 specta 绑定）。
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkSummaryToken {
+    message_id: String,
+    delta: String,
+}
+
+/// 下发单个流式文本增量。
+fn emit_token(app: &AppHandle, message_id: &str, delta: &str) {
+    let _ = app.emit(
+        WORK_SUMMARY_TOKEN_EVENT,
+        WorkSummaryToken {
+            message_id: message_id.to_string(),
+            delta: delta.to_string(),
         },
     );
 }
@@ -1139,8 +1175,6 @@ fn parse_stream_json_delta(line: &str) -> Option<String> {
 }
 
 /// 逐行消费 stream-json，回调每个文本增量并累积全文。空输出返回 Err（交由上层降级）。
-/// 调用方见 Task 6。
-#[allow(dead_code)]
 fn read_claude_stream<R: std::io::BufRead>(
     reader: R,
     on_delta: &mut dyn FnMut(&str),
@@ -1160,8 +1194,7 @@ fn read_claude_stream<R: std::io::BufRead>(
 }
 
 /// spawn claude 流式进程，逐行读 stdout 喂给 read_claude_stream。
-/// 阻塞调用，由命令在 spawn_blocking 中执行。调用方见 Task 6。
-#[allow(dead_code)]
+/// 阻塞调用，由命令在 spawn_blocking 中执行。
 fn run_claude_summary_streaming(
     prompt: &str,
     on_delta: &mut dyn FnMut(&str),
@@ -1390,7 +1423,7 @@ pub async fn summarize_day(
     let _guard = WORK_SUMMARY_LOCK.lock().await;
 
     // 1. 扫描当日变更（git 阻塞操作放到 blocking 线程）
-    emit_progress(&app, "scanning", 0);
+    emit_progress(&app, "scanning", 0, "");
     let scan_date = date.clone();
     let (_candidates, changesets) =
         tokio::task::spawn_blocking(move || gather_day_changesets(&scan_date))
@@ -1404,7 +1437,7 @@ pub async fn summarize_day(
 
     // 2. 构造提示词并下发（过程视图展示）；未提交不进 prompt
     let prompt = build_daily_prompt(&date, &changesets, &language);
-    emit_prompt(&app, prompt.clone(), summarized);
+    emit_prompt(&app, prompt.clone(), summarized, "");
 
     // 3. 仅未提交、无任何已提交工作时，直接出一份说明文档，不调用 claude
     let gen_date = date.clone();
@@ -1419,7 +1452,7 @@ pub async fn summarize_day(
         )
     } else {
         // 单次 claude 调用生成分项目正文；失败则降级为基于 git 提交的可读清单
-        emit_progress(&app, "summarizing", summarized);
+        emit_progress(&app, "summarizing", summarized, "");
         let job = tokio::task::spawn_blocking(move || {
             let generated_at = crate::utils::current_rfc3339_timestamp();
             match run_claude_summary(&prompt) {
@@ -1440,10 +1473,10 @@ pub async fn summarize_day(
     };
 
     // 4. 落盘
-    emit_progress(&app, "writing", summarized);
+    emit_progress(&app, "writing", summarized, "");
     let path = daily_path(&date);
     crate::utils::ensure_dir_and_write_atomic(&path, &content)?;
-    emit_progress(&app, "done", summarized);
+    emit_progress(&app, "done", summarized, "");
 
     crate::logging::log_command_result("work_summary.summarize_day", &Ok::<(), String>(()), |_| {
         format!("date={date} projects={summarized}")
@@ -1468,7 +1501,7 @@ pub async fn generate_weekly_summary(
     let _guard = WORK_SUMMARY_LOCK.lock().await;
 
     // 收集素材（读日总结 / 补扫 git）+ 单次 claude 调用，全部放到 blocking 线程
-    emit_progress(&app, "scanning", 0);
+    emit_progress(&app, "scanning", 0, "");
     let week_key_job = week_key.clone();
     let app_job = app.clone();
     let job = tokio::task::spawn_blocking(move || -> Result<String, String> {
@@ -1497,7 +1530,7 @@ pub async fn generate_weekly_summary(
             return Err("本周没有可用的工作素材".to_string());
         }
         let prompt = build_weekly_prompt(&week_key_job, &materials, &language);
-        emit_prompt(&app_job, prompt.clone(), materials.len() as u32);
+        emit_prompt(&app_job, prompt.clone(), materials.len() as u32, "");
         let generated_at = crate::utils::current_rfc3339_timestamp();
         let content = match run_claude_summary(&prompt) {
             Ok(body) => assemble_weekly_markdown(&week_key_job, &generated_at, &body),
@@ -1506,7 +1539,7 @@ pub async fn generate_weekly_summary(
         Ok(content)
     });
 
-    emit_progress(&app, "summarizing", 0);
+    emit_progress(&app, "summarizing", 0, "");
     let content = match tokio::time::timeout(
         std::time::Duration::from_secs(CLAUDE_TIMEOUT_SECS),
         job,
@@ -1517,10 +1550,10 @@ pub async fn generate_weekly_summary(
         Err(_) => return Err("总结超时，请重试".to_string()),
     };
 
-    emit_progress(&app, "writing", 0);
+    emit_progress(&app, "writing", 0, "");
     let path = weekly_path(&week_key);
     crate::utils::ensure_dir_and_write_atomic(&path, &content)?;
-    emit_progress(&app, "done", 0);
+    emit_progress(&app, "done", 0, "");
 
     crate::logging::log_command_result(
         "work_summary.generate_weekly_summary",
@@ -1608,8 +1641,6 @@ fn dates_in_range(start: &str, end: &str) -> Result<Vec<String>, String> {
 }
 
 /// 逐日聚合 range 内的 changeset，按 project 合并、按 commit hash 去重。
-/// 调用方见 Task 6。
-#[allow(dead_code)]
 fn gather_range_changesets(start: &str, end: &str) -> Result<(u32, Vec<ProjectChangeset>), String> {
     use std::collections::BTreeMap;
     let mut scanned_max = 0u32;
@@ -1656,8 +1687,6 @@ fn gather_range_changesets(start: &str, end: &str) -> Result<(u32, Vec<ProjectCh
 }
 
 /// 按 short_name 子串匹配过滤 changeset；filter 为空返回全部克隆。
-/// 调用方见 Task 6（generate_summary_stream）。
-#[allow(dead_code)]
 fn filter_changesets(changesets: &[ProjectChangeset], filter: &[String]) -> Vec<ProjectChangeset> {
     if filter.is_empty() {
         return changesets.to_vec();
@@ -1675,13 +1704,210 @@ fn filter_changesets(changesets: &[ProjectChangeset], filter: &[String]) -> Vec<
 
 /// 风格 → 给 claude 的附加一句指令。
 /// 调用方见 Task 6（generate_summary_stream 把返回值追加到 prompt 末尾）。
-#[allow(dead_code)]
 fn style_suffix(style: &str) -> &'static str {
     match style {
         "concise" => "\n额外要求：尽量简短，每个项目只保留最关键的 2-4 条要点。",
         "detailed" => "\n额外要求：更详细，必要时展开背景与影响。",
         _ => "",
     }
+}
+
+/// 仅日（day）与周（week）写规范文件；range 为临时查询，不落盘。
+fn should_persist_canonical(kind: &str) -> bool {
+    matches!(kind, "day" | "week")
+}
+
+/// intent.kind（day/week/range）→ SummaryDocument.kind（daily/weekly/range）。
+/// 与既有 daily/weekly 文档保持一致，保证 list_summaries / read_summary 能复用。
+fn doc_kind(kind: &str) -> &'static str {
+    match kind {
+        "day" => "daily",
+        "week" => "weekly",
+        _ => "range",
+    }
+}
+
+/// range（不落盘）文档头部：与 daily 同风格，但标题取 intent.title。
+fn assemble_range_markdown(
+    title: &str,
+    generated_at: &str,
+    project_count: usize,
+    commit_count: usize,
+    body: &str,
+) -> String {
+    format!(
+        "# {title}\n> {project_count} 个项目 · {commit_count} 次提交 · 生成于 {generated_at}\n\n{}\n",
+        body.trim()
+    )
+}
+
+/// 写规范文件（day→daily，week→weekly），返回 (最终 markdown, 写入路径)。
+/// 仅在 should_persist_canonical 为真时调用。
+fn persist_canonical(
+    kind: &str,
+    intent: &SummaryIntent,
+    key: &str,
+    generated_at: &str,
+    project_count: usize,
+    commit_count: usize,
+    body: &str,
+) -> Result<(String, String), String> {
+    let (content, path) = if kind == "week" {
+        (
+            assemble_weekly_markdown(key, generated_at, body),
+            weekly_path(key),
+        )
+    } else {
+        (
+            assemble_daily_markdown(
+                &intent.start,
+                generated_at,
+                project_count,
+                commit_count,
+                body,
+            ),
+            daily_path(&intent.start),
+        )
+    };
+    crate::utils::ensure_dir_and_write_atomic(&path, &content)?;
+    Ok((content, path.to_string_lossy().to_string()))
+}
+
+/// 构造返回前端的 SummaryDocument。
+/// `key` 为后端计算的规范 key（day=start，week=ISO 周 key，range=start）；
+/// `path` 落盘时为真实写入路径，range 不落盘时为空串。
+fn make_doc(kind: &str, key: &str, path: String, content: String) -> SummaryDocument {
+    SummaryDocument {
+        kind: doc_kind(kind).to_string(),
+        key: key.to_string(),
+        path,
+        content,
+    }
+}
+
+/// 流式生成总结：扫描 → 构 prompt → 逐 token 流式生成 → 落盘（仅 day/week）→ 返回文档。
+/// 注册见 Task 8（collect_commands! + make bindings）。
+#[allow(dead_code)] // Task 8 注册后即有生产调用方
+#[tauri::command]
+#[specta::specta]
+pub async fn generate_summary_stream(
+    app: AppHandle,
+    intent: SummaryIntent,
+    language: String,
+    message_id: String,
+) -> Result<SummaryDocument, String> {
+    let _guard = WORK_SUMMARY_LOCK.lock().await;
+
+    // 后端计算规范 key：day=start，week=ISO 周 key（不依赖前端 title）
+    let key = if intent.kind == "week" {
+        iso_week_key(&intent.start)?
+    } else {
+        intent.start.clone()
+    };
+
+    // 1. 扫描（git 阻塞操作放 spawn_blocking）
+    emit_progress(&app, "scanning", 0, &message_id);
+    let scan_kind = intent.kind.clone();
+    let scan_start = intent.start.clone();
+    let scan_end = intent.end.clone();
+    let (_scanned, changesets) = tokio::task::spawn_blocking(move || {
+        if scan_kind == "day" {
+            gather_day_changesets(&scan_start)
+        } else {
+            gather_range_changesets(&scan_start, &scan_end)
+        }
+    })
+    .await
+    .map_err(|e| format!("扫描任务失败: {e}"))??;
+
+    let filtered = filter_changesets(&changesets, &intent.project_filter);
+    let summarized = summarized_project_count(&filtered);
+    let commit_count = summarized_commit_count(&filtered);
+    let generated_at = crate::utils::current_rfc3339_timestamp();
+
+    // 无已提交工作：出一份说明文档，不调用 claude
+    if summarized == 0 {
+        let body = format!("> {} 这个范围没有检测到已提交的变更。", intent.title);
+        let (content, path) = if should_persist_canonical(&intent.kind) {
+            persist_canonical(&intent.kind, &intent, &key, &generated_at, 0, 0, &body)?
+        } else {
+            (
+                assemble_range_markdown(&intent.title, &generated_at, 0, 0, &body),
+                String::new(),
+            )
+        };
+        emit_progress(&app, "done", 0, &message_id);
+        return Ok(make_doc(&intent.kind, &key, path, content));
+    }
+
+    // 2. 构 prompt（按 kind 选模板 + style 后缀）
+    let mut prompt = if intent.kind == "week" {
+        // 周模板吃 &[String] 素材：把每个 changeset 转为紧凑 brief（与既有 weekly 路径一致）
+        let materials: Vec<String> = filtered.iter().map(build_changeset_brief).collect();
+        build_weekly_prompt(&key, &materials, &language)
+    } else {
+        build_daily_prompt(&intent.start, &filtered, &language)
+    };
+    prompt.push_str(style_suffix(&intent.style));
+    emit_prompt(&app, prompt.clone(), summarized, &message_id);
+
+    // 3. 流式生成（claude 子进程阻塞 + 逐行回调 emit_token，放 spawn_blocking）
+    emit_progress(&app, "summarizing", summarized, &message_id);
+    let app_job = app.clone();
+    let mid = message_id.clone();
+    let kind_job = intent.kind.clone();
+    let key_job = key.clone();
+    let intent_job = intent.clone();
+    let job = tokio::task::spawn_blocking(move || -> Result<SummaryDocument, String> {
+        let mut on_delta = |d: &str| emit_token(&app_job, &mid, d);
+        let gen_at = crate::utils::current_rfc3339_timestamp();
+        match run_claude_summary_streaming(&prompt, &mut on_delta) {
+            // 流式累积的全文已是正文；parse_claude_result 仅在恰为 JSON 包裹时容错抽取
+            Ok(body) => {
+                let parsed = parse_claude_result(&body).unwrap_or(body);
+                if should_persist_canonical(&kind_job) {
+                    let (content, path) = persist_canonical(
+                        &kind_job,
+                        &intent_job,
+                        &key_job,
+                        &gen_at,
+                        summarized as usize,
+                        commit_count,
+                        &parsed,
+                    )?;
+                    Ok(make_doc(&kind_job, &key_job, path, content))
+                } else {
+                    let content = assemble_range_markdown(
+                        &intent_job.title,
+                        &gen_at,
+                        summarized as usize,
+                        commit_count,
+                        &parsed,
+                    );
+                    Ok(make_doc(&kind_job, &key_job, String::new(), content))
+                }
+            }
+            // claude 不可用 → 降级为基于 git 提交的可读清单（range 也复用 daily fallback 结构）
+            Err(e) => {
+                let fb = assemble_daily_fallback(&intent_job.title, &gen_at, &filtered, &e);
+                Ok(make_doc(&kind_job, &key_job, String::new(), fb))
+            }
+        }
+    });
+    let doc = match tokio::time::timeout(std::time::Duration::from_secs(CLAUDE_TIMEOUT_SECS), job)
+        .await
+    {
+        Ok(joined) => joined.map_err(|e| format!("生成任务失败: {e}"))??,
+        Err(_) => return Err("生成超时，请重试".to_string()),
+    };
+
+    emit_progress(&app, "done", summarized, &message_id);
+    crate::logging::log_command_result(
+        "work_summary.generate_summary_stream",
+        &Ok::<(), String>(()),
+        |_| format!("kind={} key={key} projects={summarized}", intent.kind),
+    );
+    Ok(doc)
 }
 
 #[cfg(test)]
@@ -2355,5 +2581,13 @@ not-json\n";
         assert!(style_suffix("concise").contains("简短"));
         assert!(style_suffix("detailed").contains("详细"));
         assert_eq!(style_suffix("default"), "");
+    }
+
+    #[test]
+    fn should_persist_canonical_only_day_and_week() {
+        assert!(should_persist_canonical("day"));
+        assert!(should_persist_canonical("week"));
+        assert!(!should_persist_canonical("range"));
+        assert!(!should_persist_canonical("unknown"));
     }
 }
