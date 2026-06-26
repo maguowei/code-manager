@@ -1655,6 +1655,35 @@ fn gather_range_changesets(start: &str, end: &str) -> Result<(u32, Vec<ProjectCh
     Ok((scanned_max, result))
 }
 
+/// 按 short_name 子串匹配过滤 changeset；filter 为空返回全部克隆。
+/// 调用方见 Task 6（generate_summary_stream）。
+#[allow(dead_code)]
+fn filter_changesets(changesets: &[ProjectChangeset], filter: &[String]) -> Vec<ProjectChangeset> {
+    if filter.is_empty() {
+        return changesets.to_vec();
+    }
+    changesets
+        .iter()
+        .filter(|cs| {
+            filter
+                .iter()
+                .any(|f| cs.short_name.to_lowercase().contains(&f.to_lowercase()))
+        })
+        .cloned()
+        .collect()
+}
+
+/// 风格 → 给 claude 的附加一句指令。
+/// 调用方见 Task 6（generate_summary_stream 把返回值追加到 prompt 末尾）。
+#[allow(dead_code)]
+fn style_suffix(style: &str) -> &'static str {
+    match style {
+        "concise" => "\n额外要求：尽量简短，每个项目只保留最关键的 2-4 条要点。",
+        "detailed" => "\n额外要求：更详细，必要时展开背景与影响。",
+        _ => "",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2307,5 +2336,24 @@ not-json\n";
         assert_eq!(out.len(), MAX_RANGE_DAYS);
         assert_eq!(out.first().unwrap(), "2026-01-10");
         assert_eq!(out.last().unwrap(), "2026-02-09");
+    }
+
+    #[test]
+    fn filter_changesets_by_name() {
+        let a = sample_changeset(); // short_name = "proj"
+        let mut b = sample_changeset();
+        b.short_name = "other".into();
+        let all = vec![a, b];
+        assert_eq!(filter_changesets(&all, &[]).len(), 2);
+        let only = filter_changesets(&all, &["proj".to_string()]);
+        assert_eq!(only.len(), 1);
+        assert_eq!(only[0].short_name, "proj");
+    }
+
+    #[test]
+    fn style_suffix_maps_known_styles() {
+        assert!(style_suffix("concise").contains("简短"));
+        assert!(style_suffix("detailed").contains("详细"));
+        assert_eq!(style_suffix("default"), "");
     }
 }
