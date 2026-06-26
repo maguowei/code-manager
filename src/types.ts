@@ -77,6 +77,10 @@ export interface AppPreferences {
   floatingWidgetMetrics: string[];
   /** 浮窗面板不透明度百分比（30-100）。 */
   floatingWidgetOpacity: number;
+  /** 会话等待输入时是否播放提示音效。 */
+  waitingSoundEnabled: boolean;
+  /** 提示音效选择，对应 macOS 系统音效文件名。 */
+  waitingSound: "glass" | "submarine" | "hero" | "ping" | "sosumi" | "tink";
 }
 
 export interface LocalizedText {

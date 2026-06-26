@@ -165,6 +165,7 @@ type CompatibleIpcOverrides = {
   renameClaudeDirectoryEntry(path: string, newName: string): Promise<null>;
   reorderProfiles(ids: string[]): Promise<null>;
   rescanUsage(): Promise<AppTypes.UsageScanResult>;
+  previewWaitingSound(sound: AppTypes.AppPreferences["waitingSound"]): Promise<null>;
   setAppPreferences(data: AppTypes.AppPreferences): Promise<AppTypes.AppPreferences>;
   syncSharedProfileSettings(
     sourceId: string,

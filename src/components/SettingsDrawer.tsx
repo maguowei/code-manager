@@ -127,6 +127,19 @@ const sessionTrayCountStyleOptions: {
   { value: "plain", labelKey: "settings.sessionTrayCountStylePlain" },
 ];
 
+// 会话等待提示音效选项（对应 macOS 系统 .aiff 音效文件名）
+const waitingSoundOptions: {
+  value: AppPreferences["waitingSound"];
+  labelKey: TranslationKey;
+}[] = [
+  { value: "glass", labelKey: "settings.waitingSoundGlass" },
+  { value: "submarine", labelKey: "settings.waitingSoundSubmarine" },
+  { value: "hero", labelKey: "settings.waitingSoundHero" },
+  { value: "ping", labelKey: "settings.waitingSoundPing" },
+  { value: "sosumi", labelKey: "settings.waitingSoundSosumi" },
+  { value: "tink", labelKey: "settings.waitingSoundTink" },
+];
+
 // 浮窗可选指标及其文案 key，顺序即设置面板与浮窗的默认展示顺序
 const floatingWidgetMetricOptions: { value: WidgetMetric; labelKey: TranslationKey }[] = [
   { value: "cost", labelKey: "widget.metric.cost" },
@@ -642,6 +655,8 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
     floatingWidgetEnabled: false,
     floatingWidgetMetrics: ["cost", "totalTokens", "cacheHitRate"],
     floatingWidgetOpacity: 92,
+    waitingSoundEnabled: false,
+    waitingSound: "glass",
   });
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
   const [isSystemInfoOpen, setIsSystemInfoOpen] = useState(false);
@@ -1238,6 +1253,85 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                     aria-label={t("settings.systemNotifications")}
                   />
                 </Field>
+              </FieldGroup>
+            </SettingsSectionCard>
+
+            <SettingsSectionCard
+              title={t("settings.waitingSound")}
+              description={t("settings.waitingSoundDesc")}
+            >
+              <FieldGroup className="gap-4">
+                <Field orientation="horizontal" className="items-center justify-between gap-4">
+                  <FieldContent>
+                    <SettingsStateLabel enabled={preferences.waitingSoundEnabled} />
+                  </FieldContent>
+                  <Switch
+                    id="settings-waiting-sound-enabled"
+                    checked={preferences.waitingSoundEnabled}
+                    onCheckedChange={(checked) =>
+                      void persistPreferences(
+                        { ...preferences, waitingSoundEnabled: checked },
+                        preferences,
+                      )
+                    }
+                    aria-label={t("settings.waitingSound")}
+                  />
+                </Field>
+
+                {preferences.waitingSoundEnabled && (
+                  <Field className="gap-2">
+                    <FieldTitle className="text-muted-foreground text-xs">
+                      {t("settings.waitingSoundChoice")}
+                    </FieldTitle>
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={preferences.waitingSound}
+                        onValueChange={(next) =>
+                          void persistPreferences(
+                            {
+                              ...preferences,
+                              waitingSound: next as AppPreferences["waitingSound"],
+                            },
+                            preferences,
+                          )
+                        }
+                      >
+                        <SelectTrigger
+                          aria-label={t("settings.waitingSoundChoice")}
+                          className="w-full"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            {waitingSoundOptions.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {t(option.labelKey)}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          void ipc
+                            .previewWaitingSound(preferences.waitingSound)
+                            .catch((err) =>
+                              showOperationError(
+                                showToast,
+                                t("toast.waitingSoundPreviewError"),
+                                err,
+                              ),
+                            );
+                        }}
+                      >
+                        {t("settings.waitingSoundPreview")}
+                      </Button>
+                    </div>
+                  </Field>
+                )}
               </FieldGroup>
             </SettingsSectionCard>
 

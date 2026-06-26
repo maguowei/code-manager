@@ -180,6 +180,8 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
     floatingWidgetEnabled: false,
     floatingWidgetMetrics: ["cost", "totalTokens", "cacheHitRate"],
     floatingWidgetOpacity: 92,
+    waitingSoundEnabled: false,
+    waitingSound: "glass",
   },
   builtinProviders: [],
   profiles: [],
