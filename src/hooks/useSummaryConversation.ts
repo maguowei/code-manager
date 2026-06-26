@@ -3,7 +3,7 @@ import {
   type ThreadMessageLike,
   useExternalStoreRuntime,
 } from "@assistant-ui/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { showOperationError } from "@/lib/user-facing-error";
 import type { SummaryIntent } from "../bindings";
 import { useI18n } from "../i18n";
@@ -60,6 +60,10 @@ export function useSummaryConversation(language: "zh" | "en") {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [cliAvailable, setCliAvailable] = useState(true);
+  // 镜像最新 messages，供异步流程（generateSummaryStream 完成后）读取流式期间累积的最新状态，
+  // 避免 runIntent 闭包里的 messages 快照过期。
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
 
   useTauriEvent<TokenEvent>("work-summary-token", (e) =>
     setMessages((prev) => appendToken(prev, e)),
@@ -123,27 +127,27 @@ export function useSummaryConversation(language: "zh" | "en") {
       ]);
       try {
         const doc = await ipc.generateSummaryStream(intent, language, assistantId);
-        setMessages((prev) => {
-          const next = prev.map((m) =>
-            m.id === assistantId
-              ? { ...m, content: doc.content, docPath: doc.path || undefined, streaming: false }
-              : m,
-          );
-          void ipc
-            .saveConversation(
-              next.map((m) => ({
-                id: m.id,
-                role: m.role,
-                ts: m.ts,
-                content: m.content,
-                intent: m.intent ?? null,
-                docPath: m.docPath ?? null,
-                style: m.intent?.style ?? null,
-              })),
-            )
-            .catch(() => showToast(t("worklog.saveError"), "error"));
-          return next;
-        });
+        // doc.content 是后端权威全文；用 ref 取流式期间累积的最新消息列表，
+        // 仅替换目标 assistant 消息。save 放在 setMessages 外，保持 updater 纯函数。
+        const next = messagesRef.current.map((m) =>
+          m.id === assistantId
+            ? { ...m, content: doc.content, docPath: doc.path || undefined, streaming: false }
+            : m,
+        );
+        setMessages(next);
+        void ipc
+          .saveConversation(
+            next.map((m) => ({
+              id: m.id,
+              role: m.role,
+              ts: m.ts,
+              content: m.content,
+              intent: m.intent ?? null,
+              docPath: m.docPath ?? null,
+              style: m.intent?.style ?? null,
+            })),
+          )
+          .catch(() => showToast(t("worklog.saveError"), "error"));
       } catch (error) {
         setMessages((prev) => prev.filter((m) => m.id !== assistantId));
         showOperationError(showToast, t("worklog.generateError"), error);
