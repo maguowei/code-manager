@@ -147,6 +147,9 @@ enum PendingSessionNotificationInteraction {
 struct PendingSessionNotifier {
     seen_snapshot: bool,
     waiting_session_ids: BTreeSet<String>,
+    /// 最近一次 observe 是否出现真正的新等待会话（已排除启动首帧）。
+    /// 供音效门控读取，独立于 system_notifications_enabled。
+    last_had_new_waiting: bool,
 }
 
 impl PendingSessionNotifier {
@@ -169,7 +172,9 @@ impl PendingSessionNotifier {
             .map(|(_, session)| (*session).clone())
             .collect::<Vec<_>>();
 
+        let has_new_waiting = self.seen_snapshot && !new_waiting_sessions.is_empty();
         let can_notify = self.seen_snapshot && preferences.system_notifications_enabled;
+        self.last_had_new_waiting = has_new_waiting;
         self.seen_snapshot = true;
         self.waiting_session_ids = waiting_session_ids;
 
@@ -1043,13 +1048,22 @@ fn handle_pending_session_notifications(
 ) {
     let labels = tray_labels_for_language(&state.app.ui_language);
     let interaction = pending_session_notification_interaction(&state.app.default_terminal_app);
-    let notifications = match pending_session_notifier().lock() {
-        Ok(mut notifier) => notifier.observe(&state.app, sessions, labels.language, interaction),
+    let (notifications, has_new_waiting) = match pending_session_notifier().lock() {
+        Ok(mut notifier) => {
+            let notifications =
+                notifier.observe(&state.app, sessions, labels.language, interaction);
+            (notifications, notifier.last_had_new_waiting)
+        }
         Err(e) => {
             log::warn!("event=tray.pending_session_notify status=err reason=lock error={e}");
             return;
         }
     };
+
+    // 音效独立门控：仅看自身开关 + 是否出现新等待会话，每轮最多播一次
+    if state.app.waiting_sound_enabled && has_new_waiting {
+        crate::sound::play_waiting_sound(state.app.waiting_sound);
+    }
 
     for notification in notifications {
         show_pending_session_notification(app, notification);
@@ -1789,6 +1803,41 @@ mod tests {
         assert_eq!(first_notifications[0].body, "code-manager · approve Bash");
         assert!(first_notifications[0].focus_target.is_none());
         assert!(repeated_notifications.is_empty());
+    }
+
+    #[test]
+    fn pending_session_notifier_flags_new_waiting_independent_of_system_notifications() {
+        let mut notifier = PendingSessionNotifier::default();
+        let idle = test_session("/Users/demo/work/code-manager", "idle", 1000);
+        let waiting = test_session("/Users/demo/work/code-manager", "waiting", 2000);
+
+        // 首帧基线：即便有 waiting 也不算"新出现"
+        notifier.observe(
+            &test_preferences(false, "terminal"),
+            std::slice::from_ref(&idle),
+            "zh",
+            PendingSessionNotificationInteraction::Plain,
+        );
+        assert!(!notifier.last_had_new_waiting, "首帧不应触发音效信号");
+
+        // 出现新 waiting：系统通知关闭（false）时仍应置位音效信号，且不产生通知
+        let notifications = notifier.observe(
+            &test_preferences(false, "terminal"),
+            std::slice::from_ref(&waiting),
+            "zh",
+            PendingSessionNotificationInteraction::Plain,
+        );
+        assert!(notifier.last_had_new_waiting, "新等待会话应置位音效信号");
+        assert!(notifications.is_empty(), "系统通知关闭时不产生通知");
+
+        // 同一 waiting 重复：不再是"新"
+        notifier.observe(
+            &test_preferences(false, "terminal"),
+            std::slice::from_ref(&waiting),
+            "zh",
+            PendingSessionNotificationInteraction::Plain,
+        );
+        assert!(!notifier.last_had_new_waiting, "重复 waiting 不应再置位");
     }
 
     #[test]
