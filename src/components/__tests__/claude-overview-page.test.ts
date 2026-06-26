@@ -29,10 +29,30 @@ describe("ClaudeOverviewPage styles", () => {
   it("allows the file preview surface to scroll", () => {
     const source = readOverviewSources();
 
-    expect(source).toContain("claude-overview-preview-content block min-h-0 flex-1 overflow-auto");
+    // 源码预览滚动容器带 scrollbar-stable：避免 WKWebView overlay 滚动条在大文件下看不到、抓不住
+    expect(source).toContain(
+      "claude-overview-preview-content scrollbar-stable block min-h-0 flex-1 overflow-auto",
+    );
     expect(source).toContain(
       "claude-overview-preview-content claude-overview-markdown flex-1 overflow-auto",
     );
+  });
+
+  it("defines an always-visible scrollbar with a minimum thumb size", () => {
+    const css = readText("src/index.css");
+
+    expect(css).toContain(".scrollbar-stable::-webkit-scrollbar");
+    // 行数极多时 thumb 比例极小，min-height 保证仍可见、可拖拽
+    expect(css).toMatch(/\.scrollbar-stable::-webkit-scrollbar-thumb\s*\{[^}]*min-height/);
+  });
+
+  it("aligns Pierre virtualization metrics with the real preview line height", () => {
+    const source = readText("src/components/claude-overview/ClaudeFilePreviewPane.tsx");
+
+    // metrics.lineHeight 必须与 --diffs-line-height 精确一致，否则虚拟化估算偏差会导致大文件滚动卡顿
+    expect(source).toContain("metrics={PIERRE_FILE_METRICS}");
+    expect(source).toContain("lineHeight: 22");
+    expect(source).toContain('"--diffs-line-height": "22px"');
   });
 
   it("places the preview and tree around a shadcn resizable separator", () => {

@@ -1,6 +1,7 @@
 import type {
   FileOptions,
   ThemeTypes,
+  VirtualFileMetrics,
   WorkerInitializationRenderOptions,
   WorkerPoolOptions,
 } from "@pierre/diffs/react";
@@ -80,6 +81,16 @@ const PIERRE_WORKER_HIGHLIGHTER_OPTIONS = {
   tokenizeMaxLineLength: PIERRE_TOKENIZE_MAX_LINE_LENGTH,
 } satisfies WorkerInitializationRenderOptions;
 
+// 虚拟化估算用的行尺寸：overflow:"scroll" 模式下 Pierre 不测量真实行高，完全靠 metrics 估算。
+// lineHeight / spacing 必须与下方 previewContentStyle 的 --diffs-line-height(22px) / --diffs-gap-block(1rem=16px)
+// 精确一致，否则估算与真实 DOM 累积偏差会让 Virtualizer 每帧 scrollFix 反复修正滚动位置、导致大文件滚动卡顿。
+const PIERRE_FILE_METRICS = {
+  hunkLineCount: 50,
+  lineHeight: 22,
+  diffHeaderHeight: 0,
+  spacing: 16,
+} satisfies VirtualFileMetrics;
+
 interface PierreSourcePreviewProps {
   file: ReturnType<typeof fileContentsForPreview>;
   options: FileOptions<undefined>;
@@ -132,13 +143,14 @@ function PierreSourcePreview({
         poolOptions={PIERRE_WORKER_POOL_OPTIONS}
       >
         <Virtualizer
-          className="claude-overview-preview-content block min-h-0 flex-1 overflow-auto"
+          className="claude-overview-preview-content scrollbar-stable block min-h-0 flex-1 overflow-auto"
           contentClassName="min-w-full"
         >
           <PierreFile
             key={fileKey}
             className="block min-w-full"
             file={file}
+            metrics={PIERRE_FILE_METRICS}
             options={optionsWithPostRender}
             style={style}
           />
@@ -203,7 +215,7 @@ export function ClaudeFilePreviewPane({
         "--diffs-gap-inline": "1.25rem",
         "--diffs-light": "var(--foreground)",
         "--diffs-light-bg": "var(--card)",
-        "--diffs-line-height": "1.55",
+        "--diffs-line-height": "22px",
       }) as CSSProperties,
     [previewThemeType],
   );
