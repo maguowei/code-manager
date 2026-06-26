@@ -121,6 +121,16 @@ export function ClaudeDirectoryTree({
   const onSelectPathRef = useRef(onSelectPath);
   const lastHandledPathRef = useRef<{ path: string; timestamp: number } | null>(null);
   const previousPathsRef = useRef(paths);
+  // 搜索激活期间暂存最新目录数据，延迟到搜索清空后再 resetPaths。
+  const pendingResetRef = useRef<{
+    paths: string[];
+    preparedInput: ReturnType<typeof prepareFileTreeInput>;
+  } | null>(null);
+  // 持有最新 applyResetPaths，供 useFileTree（仅初始化一次）的 onSearchChange 闭包调用。
+  const applyResetPathsRef = useRef<
+    | ((nextPaths: string[], nextPreparedInput: ReturnType<typeof prepareFileTreeInput>) => void)
+    | null
+  >(null);
   onSelectPathRef.current = onSelectPath;
 
   const handlePath = useCallback((path: string) => {
@@ -163,6 +173,18 @@ export function ClaudeDirectoryTree({
     search: true,
     // 当前库默认即 hide-non-matches（官方推荐），显式声明以防御未来 beta 默认变更。
     fileTreeSearchMode: "hide-non-matches",
+    // 搜索清空（value 为空）时 flush 搜索期间暂存的目录刷新：库 resetPaths 不会重建搜索态，
+    // 故搜索激活期间暂停 resetPaths、改在此处补做，避免后台 watcher 刷新打断 hide-non-matches。
+    onSearchChange: (value) => {
+      if (value != null && value.length > 0) {
+        return;
+      }
+      const pending = pendingResetRef.current;
+      if (pending) {
+        pendingResetRef.current = null;
+        applyResetPathsRef.current?.(pending.paths, pending.preparedInput);
+      }
+    },
     density: "compact",
     // 借「行装饰」渲染主文件名 + 下方 unsafeCSS 隐藏库默认 content 段，是为了实现单行省略号：
     // @pierre/trees(beta) 默认主标签不支持 truncate/ellipsis。库支持主标签 truncate 后，
@@ -237,18 +259,33 @@ export function ClaudeDirectoryTree({
     `,
   });
 
+  const applyResetPaths = useCallback(
+    (nextPaths: string[], nextPreparedInput: ReturnType<typeof prepareFileTreeInput>) => {
+      const nextPathSet = new Set(nextPaths);
+      const initialExpandedPaths = previousPathsRef.current.filter((path) => {
+        if (!path.endsWith("/") || !nextPathSet.has(path)) {
+          return false;
+        }
+        const item = model.getItem(path);
+        return isFileTreeDirectoryHandle(item) && item.isExpanded();
+      });
+      model.resetPaths(nextPaths, { preparedInput: nextPreparedInput, initialExpandedPaths });
+      previousPathsRef.current = nextPaths;
+    },
+    [model],
+  );
+  applyResetPathsRef.current = applyResetPaths;
+
   useEffect(() => {
-    const nextPathSet = new Set(paths);
-    const initialExpandedPaths = previousPathsRef.current.filter((path) => {
-      if (!path.endsWith("/") || !nextPathSet.has(path)) {
-        return false;
-      }
-      const item = model.getItem(path);
-      return isFileTreeDirectoryHandle(item) && item.isExpanded();
-    });
-    model.resetPaths(paths, { preparedInput, initialExpandedPaths });
-    previousPathsRef.current = paths;
-  }, [model, paths, preparedInput]);
+    // 搜索过滤生效中（有有效查询）不 resetPaths：库 resetPaths 会用 initialExpandedPaths 覆盖
+    // hide-non-matches 的收起、打断搜索过滤。暂存最新数据，搜索清空后由 onSearchChange flush。
+    if (model.getSearchValue().length > 0) {
+      pendingResetRef.current = { paths, preparedInput };
+      return;
+    }
+    pendingResetRef.current = null;
+    applyResetPaths(paths, preparedInput);
+  }, [model, paths, preparedInput, applyResetPaths]);
 
   const handleTreeClickCapture = useCallback(
     (event: ReactMouseEvent<HTMLElement>) => {

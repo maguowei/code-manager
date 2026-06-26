@@ -211,6 +211,7 @@ vi.mock("@pierre/trees/react", async () => {
       const modelRef = React.useRef<{
         options: typeof modelOptions;
         getItem: ReturnType<typeof vi.fn>;
+        getSearchValue: ReturnType<typeof vi.fn>;
         resetPaths: ReturnType<typeof vi.fn>;
         onMutation: ReturnType<typeof vi.fn>;
       } | null>(null);
@@ -232,6 +233,8 @@ vi.mock("@pierre/trees/react", async () => {
                 updateExpandedPath(resolvedPath, !expandedPathsRef.current.has(resolvedPath)),
             };
           }),
+          // 刷新 effect 会读 getSearchValue 判断是否处于搜索过滤态；非搜索默认返回空串
+          getSearchValue: vi.fn(() => ""),
           resetPaths: vi.fn(
             (
               paths: string[],
@@ -1000,7 +1003,8 @@ describe("App", () => {
     );
     const treeOptions =
       fileTreeOptionsMock.mock.calls[fileTreeOptionsMock.mock.calls.length - 1]?.[0];
-    expect(treeOptions).not.toHaveProperty("onSearchChange");
+    // 搜索清空后需 flush 暂存的目录刷新（搜索期间暂停 resetPaths 以免打断 hide-non-matches）
+    expect(treeOptions).toHaveProperty("onSearchChange");
     const treePane = screen.getByLabelText("目录树");
     const previewPane = screen.getByLabelText("文件预览");
     const resizer = screen.getByRole("separator", { name: "调整目录树宽度" });

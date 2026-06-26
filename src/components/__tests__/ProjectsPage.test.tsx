@@ -114,6 +114,8 @@ vi.mock("@pierre/trees/react", async () => {
         options: { ...options, paths },
         // 真实 model 暴露 getItem 用于读取展开状态；测试不验证展开保留，返回 null 即可让刷新 effect 安全跳过
         getItem: vi.fn(() => null),
+        // 刷新 effect 会读 getSearchValue 判断是否处于搜索过滤态；非搜索默认返回空串
+        getSearchValue: vi.fn(() => ""),
         resetPaths: vi.fn((nextPaths: string[]) => {
           modelRef.current.options = { ...modelRef.current.options, paths: nextPaths };
         }),
