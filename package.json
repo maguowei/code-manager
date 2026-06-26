@@ -38,7 +38,7 @@
     "@codemirror/view": "^6.43.0",
     "@hookform/resolvers": "^5.4.0",
     "@lezer/highlight": "^1.2.3",
-    "@pierre/diffs": "1.2.2",
+    "@pierre/diffs": "1.2.11",
     "@pierre/trees": "1.0.0-beta.4",
     "@tailwindcss/vite": "^4.3.0",
     "@tanstack/react-virtual": "^3.13.24",
