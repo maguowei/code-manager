@@ -105,40 +105,67 @@ vi.mock("@/components/ui/tooltip", () => ({
   TooltipContent: () => null,
 }));
 
-vi.mock("@pierre/diffs/react", () => ({
-  File: (props: {
-    className?: string;
-    file: { name: string; contents: string };
-    options?: { disableFileHeader?: boolean; overflow?: string; themeType?: string };
-    style?: { colorScheme?: string };
-  }) => {
-    filePreviewMock(props);
-    return (
-      <div
-        data-testid="pierre-file-preview"
-        className={props.className}
-        data-file-name={props.file.name}
-        data-file-contents={props.file.contents}
-        data-overflow={props.options?.overflow ?? ""}
-      />
-    );
-  },
-  MultiFileDiff: (props: {
-    oldFile: { name: string; contents: string };
-    newFile: { name: string; contents: string };
-    options?: { diffStyle?: string; overflow?: string };
-  }) => {
-    multiFileDiffMock(props);
-    return (
-      <div
-        data-testid="pierre-multi-file-diff"
-        data-old-file-name={props.oldFile.name}
-        data-new-file-name={props.newFile.name}
-        data-diff-style={props.options?.diffStyle ?? ""}
-      />
-    );
-  },
-}));
+vi.mock("@pierre/diffs/react", async () => {
+  const React = await vi.importActual<typeof import("react")>("react");
+  return {
+    File: (props: {
+      className?: string;
+      disableWorkerPool?: boolean;
+      file: { name: string; contents: string };
+      options?: {
+        disableFileHeader?: boolean;
+        onPostRender?: (node: HTMLElement, instance: unknown) => unknown;
+        overflow?: string;
+        themeType?: string;
+      };
+      style?: { colorScheme?: string };
+    }) => {
+      filePreviewMock(props);
+      React.useEffect(() => {
+        props.options?.onPostRender?.(document.createElement("div"), {});
+      }, [props.options]);
+      return (
+        <div
+          data-testid="pierre-file-preview"
+          className={props.className}
+          data-file-name={props.file.name}
+          data-file-contents={props.file.contents}
+          data-disable-worker-pool={String(props.disableWorkerPool ?? false)}
+          data-overflow={props.options?.overflow ?? ""}
+        />
+      );
+    },
+    MultiFileDiff: (props: {
+      oldFile: { name: string; contents: string };
+      newFile: { name: string; contents: string };
+      options?: { diffStyle?: string; overflow?: string };
+    }) => {
+      multiFileDiffMock(props);
+      return (
+        <div
+          data-testid="pierre-multi-file-diff"
+          data-old-file-name={props.oldFile.name}
+          data-new-file-name={props.newFile.name}
+          data-diff-style={props.options?.diffStyle ?? ""}
+        />
+      );
+    },
+    Virtualizer: ({
+      children,
+      className,
+      contentClassName,
+    }: {
+      children: ReactNode;
+      className?: string;
+      contentClassName?: string;
+    }) => (
+      <div data-testid="pierre-virtualizer" className={className}>
+        <div className={contentClassName}>{children}</div>
+      </div>
+    ),
+    WorkerPoolContextProvider: ({ children }: { children: ReactNode }) => children,
+  };
+});
 
 vi.mock("@pierre/trees/react", async () => {
   const React = await vi.importActual<typeof import("react")>("react");

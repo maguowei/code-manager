@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import type { ConfigWorkspace, HistoryEntry, ProjectDetail } from "../../types";
@@ -35,26 +35,53 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
   revealItemInDir: revealItemInDirMock,
 }));
 
-vi.mock("@pierre/diffs/react", () => ({
-  File: (props: {
-    className?: string;
-    file: { cacheKey?: string; contents: string; name: string };
-    options?: { disableFileHeader?: boolean; overflow?: string; themeType?: string };
-    style?: { colorScheme?: string };
-  }) => {
-    filePreviewMock(props);
-    return (
-      <div
-        data-testid="pierre-file-preview"
-        className={props.className}
-        data-file-name={props.file.name}
-        data-file-contents={props.file.contents}
-        data-overflow={props.options?.overflow ?? ""}
-        data-theme-type={props.options?.themeType ?? ""}
-      />
-    );
-  },
-}));
+vi.mock("@pierre/diffs/react", async () => {
+  const React = await vi.importActual<typeof import("react")>("react");
+  return {
+    File: (props: {
+      className?: string;
+      disableWorkerPool?: boolean;
+      file: { cacheKey?: string; contents: string; name: string };
+      options?: {
+        disableFileHeader?: boolean;
+        onPostRender?: (node: HTMLElement, instance: unknown) => unknown;
+        overflow?: string;
+        themeType?: string;
+      };
+      style?: { colorScheme?: string };
+    }) => {
+      filePreviewMock(props);
+      React.useEffect(() => {
+        props.options?.onPostRender?.(document.createElement("div"), {});
+      }, [props.options]);
+      return (
+        <div
+          data-testid="pierre-file-preview"
+          className={props.className}
+          data-file-name={props.file.name}
+          data-file-contents={props.file.contents}
+          data-disable-worker-pool={String(props.disableWorkerPool ?? false)}
+          data-overflow={props.options?.overflow ?? ""}
+          data-theme-type={props.options?.themeType ?? ""}
+        />
+      );
+    },
+    Virtualizer: ({
+      children,
+      className,
+      contentClassName,
+    }: {
+      children: ReactNode;
+      className?: string;
+      contentClassName?: string;
+    }) => (
+      <div data-testid="pierre-virtualizer" className={className}>
+        <div className={contentClassName}>{children}</div>
+      </div>
+    ),
+    WorkerPoolContextProvider: ({ children }: { children: ReactNode }) => children,
+  };
+});
 
 vi.mock("@pierre/trees", () => ({
   createFileTreeIconResolver: () => ({

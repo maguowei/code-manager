@@ -979,7 +979,6 @@ function ClaudeOverviewPage() {
             <section
               className={cn(
                 "claude-overview-preview-pane flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border",
-                "[contain:layout_style]",
                 PANEL_SURFACE_CLASS,
               )}
               aria-label={t("claudeOverview.preview")}

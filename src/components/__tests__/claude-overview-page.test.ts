@@ -166,8 +166,8 @@ describe("ClaudeOverviewPage styles", () => {
     expect(source).toContain(
       "claude-overview-tree-pane flex min-h-0 min-w-0 w-full flex-1 overflow-hidden",
     );
-    // 性能优化：CSS contain 隔离布局重算
-    expect(source).toContain("[contain:layout_style]");
+    // 预览面板需要给 Pierre 的 ResizeObserver / Virtualizer 正常测量尺寸，不能使用 layout containment
+    expect(source).not.toContain("[contain:layout_style]");
     expect(source).toContain("[contain:content]");
     expect(source).toContain(
       "claude-overview-tree-ready h-full min-h-0 w-full flex-1 overflow-hidden rounded-lg border",
@@ -189,5 +189,17 @@ describe("ClaudeOverviewPage styles", () => {
     expect(source).toContain('"--diffs-dark-bg": "var(--card)"');
     expect(source).toContain('"--diffs-light-bg": "var(--card)"');
     expect(markdownPreview).toContain("markdown-preview-image-fallback inline-block");
+  });
+
+  it("renders source previews through Pierre worker pool and virtualizer", () => {
+    const source = readText("src/components/claude-overview/ClaudeFilePreviewPane.tsx");
+
+    expect(source).toContain("WorkerPoolContextProvider");
+    expect(source).toContain("Virtualizer");
+    expect(source).toContain('"@pierre/diffs/worker/worker-portable.js"');
+    expect(source).toContain("claudeOverview.renderingPreview");
+    expect(source).not.toContain("disableWorkerPool");
+    // PierreFile 必须带 key，否则切换文件时 Pierre VirtualizedFile 会复用实例显示上一个文件内容
+    expect(source).toContain("key={fileKey}");
   });
 });

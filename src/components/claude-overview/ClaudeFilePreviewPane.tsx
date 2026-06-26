@@ -1,7 +1,20 @@
-import type { FileOptions, ThemeTypes } from "@pierre/diffs/react";
-import { File as PierreFile } from "@pierre/diffs/react";
+import type {
+  FileOptions,
+  ThemeTypes,
+  WorkerInitializationRenderOptions,
+  WorkerPoolOptions,
+} from "@pierre/diffs/react";
+import { File as PierreFile, Virtualizer, WorkerPoolContextProvider } from "@pierre/diffs/react";
 import { Code2, Copy, ExternalLink, Eye, SquarePen, X } from "lucide-react";
-import { type CSSProperties, useLayoutEffect, useMemo, useRef } from "react";
+import {
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { TranslationKey } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { ClaudeDirectoryEntry, ClaudeFilePreview } from "@/types";
@@ -36,15 +49,109 @@ interface ClaudeFilePreviewPaneProps {
   onOpenEditor: () => void;
 }
 
+const PIERRE_FILE_THEME = {
+  dark: "pierre-dark",
+  light: "pierre-light",
+} as const;
+const PIERRE_TOKENIZE_MAX_LINE_LENGTH = 2000;
+// 渲染遮罩的兜底超时：Pierre 仅在成功渲染时回调 onPostRender，worker 高亮失败
+// （tokenize 出错 / worker 加载被拦截 / worker 崩溃）时不会触发，超时后强制清除遮罩，
+// 避免文件永久卡在“正在渲染预览”而无法查看。
+const PIERRE_RENDER_TIMEOUT_MS = 8000;
+
 const PIERRE_FILE_OPTIONS = {
   disableFileHeader: true,
   overflow: "scroll",
-  theme: {
-    dark: "pierre-dark",
-    light: "pierre-light",
-  },
-  tokenizeMaxLineLength: 2000,
+  theme: PIERRE_FILE_THEME,
+  tokenizeMaxLineLength: PIERRE_TOKENIZE_MAX_LINE_LENGTH,
 } satisfies FileOptions<undefined>;
+
+const PIERRE_WORKER_POOL_OPTIONS = {
+  poolSize: 2,
+  workerFactory: () =>
+    new Worker(new URL("@pierre/diffs/worker/worker-portable.js", import.meta.url), {
+      type: "module",
+    }),
+} satisfies WorkerPoolOptions;
+
+const PIERRE_WORKER_HIGHLIGHTER_OPTIONS = {
+  langs: ["json", "jsonl", "markdown", "zsh", "toml", "yaml"],
+  theme: PIERRE_FILE_THEME,
+  tokenizeMaxLineLength: PIERRE_TOKENIZE_MAX_LINE_LENGTH,
+} satisfies WorkerInitializationRenderOptions;
+
+interface PierreSourcePreviewProps {
+  file: ReturnType<typeof fileContentsForPreview>;
+  options: FileOptions<undefined>;
+  style: CSSProperties;
+  previewThemeType: ThemeTypes;
+  t: (key: TranslationKey) => string;
+}
+
+function PierreSourcePreview({
+  file,
+  options,
+  style,
+  previewThemeType,
+  t,
+}: PierreSourcePreviewProps) {
+  // Pierre 在 Virtualizer 上下文中创建的 VirtualizedFile 会复用实例，其 render 用 `this.file ??= file`
+  // 只认首个文件，切换文件不会更新内容。用 fileKey 作为 PierreFile 的 key 强制重建实例，避免 stale。
+  const fileKey = file.cacheKey ?? `${file.name}:${file.contents.length}`;
+  const renderKey = `${fileKey}:${previewThemeType}`;
+  const [renderedKey, setRenderedKey] = useState<string | null>(null);
+  const handlePostRender = useCallback<NonNullable<FileOptions<undefined>["onPostRender"]>>(() => {
+    setRenderedKey(renderKey);
+  }, [renderKey]);
+  const optionsWithPostRender = useMemo(
+    () => ({
+      ...options,
+      onPostRender: handlePostRender,
+    }),
+    [handlePostRender, options],
+  );
+  const isRendering = renderedKey !== renderKey;
+
+  // 兜底：onPostRender 在 worker 高亮失败时不会触发，超时后强制清除遮罩，避免文件永久不可见。
+  useEffect(() => {
+    if (!isRendering) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      setRenderedKey(renderKey);
+    }, PIERRE_RENDER_TIMEOUT_MS);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [isRendering, renderKey]);
+
+  return (
+    <div className="claude-overview-source-preview relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
+      <WorkerPoolContextProvider
+        highlighterOptions={PIERRE_WORKER_HIGHLIGHTER_OPTIONS}
+        poolOptions={PIERRE_WORKER_POOL_OPTIONS}
+      >
+        <Virtualizer
+          className="claude-overview-preview-content block min-h-0 flex-1 overflow-auto"
+          contentClassName="min-w-full"
+        >
+          <PierreFile
+            key={fileKey}
+            className="block min-w-full"
+            file={file}
+            options={optionsWithPostRender}
+            style={style}
+          />
+        </Virtualizer>
+      </WorkerPoolContextProvider>
+      {isRendering ? (
+        <div className="claude-overview-rendering-preview pointer-events-none absolute inset-0 flex items-center justify-center bg-card/95 p-5 text-center text-sm leading-relaxed text-muted-foreground">
+          {t("claudeOverview.renderingPreview")}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export function ClaudeFilePreviewPane({
   openPreviews,
@@ -245,7 +352,7 @@ export function ClaudeFilePreviewPane({
           </div>
           <div
             ref={contentFreezeRef}
-            className="claude-overview-preview-body flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden [contain:layout_style]"
+            className="claude-overview-preview-body flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
           >
             {activePreview.isBinary ? (
               <div className="claude-overview-empty flex min-h-[180px] flex-1 items-center justify-center p-5 text-center leading-relaxed text-muted-foreground">
@@ -261,12 +368,12 @@ export function ClaudeFilePreviewPane({
                 themeType={previewThemeType === "dark" ? "dark" : "light"}
               />
             ) : previewFile ? (
-              <PierreFile
-                className="claude-overview-preview-content block min-h-0 flex-1 overflow-auto"
+              <PierreSourcePreview
                 file={previewFile}
                 options={previewFileOptions}
+                previewThemeType={previewThemeType}
                 style={previewContentStyle}
-                disableWorkerPool
+                t={t}
               />
             ) : null}
           </div>
