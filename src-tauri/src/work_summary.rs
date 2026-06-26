@@ -1119,6 +1119,27 @@ fn emit_prompt(app: &AppHandle, prompt: String, summarized_count: u32) {
     );
 }
 
+/// 从一行 stream-json NDJSON 中抽取 assistant 文本增量（partial message）。
+/// 仅认 content_block_delta / text_delta，其它事件（system/result/block_start 等）返回 None。
+/// Task 2 流式读取会调用此函数；此处暂无调用方，允许 dead_code。
+#[allow(dead_code)]
+fn parse_stream_json_delta(line: &str) -> Option<String> {
+    let line = line.trim();
+    if line.is_empty() {
+        return None;
+    }
+    let value: serde_json::Value = serde_json::from_str(line).ok()?;
+    let event = value.get("event")?;
+    if event.get("type")?.as_str()? != "content_block_delta" {
+        return None;
+    }
+    let delta = event.get("delta")?;
+    if delta.get("type")?.as_str()? != "text_delta" {
+        return None;
+    }
+    delta.get("text")?.as_str().map(|s| s.to_string())
+}
+
 /// 调用本机 claude CLI headless 生成总结（快速模型 + 精简环境）。
 /// 阻塞调用，由命令在 `spawn_blocking` 中执行。
 fn run_claude_summary(prompt: &str) -> Result<String, String> {
@@ -1951,5 +1972,31 @@ not-json\n";
         let cs2 = gather_changeset(proj, date, vec![], true).expect("changeset");
         let seg2 = cs2.branches.iter().find(|s| s.branch == "main").unwrap();
         assert!(seg2.has_uncommitted, "active=true 时应计入未提交");
+    }
+
+    #[test]
+    fn parse_stream_json_delta_extracts_text_delta() {
+        let line = r#"{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"你好"}}}"#;
+        assert_eq!(parse_stream_json_delta(line), Some("你好".to_string()));
+    }
+
+    #[test]
+    fn parse_stream_json_delta_ignores_non_text_lines() {
+        assert_eq!(
+            parse_stream_json_delta(r#"{"type":"system","subtype":"init"}"#),
+            None
+        );
+        assert_eq!(
+            parse_stream_json_delta(
+                r#"{"type":"stream_event","event":{"type":"content_block_start"}}"#
+            ),
+            None
+        );
+        assert_eq!(
+            parse_stream_json_delta(r#"{"type":"result","result":"完整文本"}"#),
+            None
+        );
+        assert_eq!(parse_stream_json_delta(""), None);
+        assert_eq!(parse_stream_json_delta("非 json"), None);
     }
 }
