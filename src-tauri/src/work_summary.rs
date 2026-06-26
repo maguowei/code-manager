@@ -1370,6 +1370,69 @@ pub async fn parse_summary_intent(input: String, today: String) -> Result<Summar
     parse_intent_json(&stdout)
 }
 
+/// 一条对话消息（用户诉求或助手总结）。
+/// 注册见 Task 8（collect_commands! + make bindings）。
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ConversationMessage {
+    pub id: String,
+    /// "user" | "assistant"
+    pub role: String,
+    pub ts: String,
+    pub content: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub intent: Option<SummaryIntent>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub doc_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style: Option<String>,
+}
+
+/// 对话线程 jsonl 文件路径（存放在 summaries/ 目录下）。
+fn conversation_path() -> std::path::PathBuf {
+    summaries_dir().join("conversation.jsonl")
+}
+
+/// 读取对话线程：文件不存在返回空数组；空行/坏行容错跳过。
+/// 注册见 Task 8（collect_commands! + make bindings）。
+#[allow(dead_code)]
+#[tauri::command]
+#[specta::specta]
+pub fn load_conversation() -> Result<Vec<ConversationMessage>, String> {
+    let path = conversation_path();
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let content = std::fs::read_to_string(&path).map_err(|e| format!("读取对话失败: {e}"))?;
+    let mut out = Vec::new();
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        if let Ok(msg) = serde_json::from_str::<ConversationMessage>(line) {
+            out.push(msg);
+        }
+    }
+    Ok(out)
+}
+
+/// 将对话线程持久化为 jsonl（每行一条消息）。
+/// 注册见 Task 8（collect_commands! + make bindings）。
+#[allow(dead_code)]
+#[tauri::command]
+#[specta::specta]
+pub fn save_conversation(messages: Vec<ConversationMessage>) -> Result<(), String> {
+    let mut buf = String::new();
+    for m in &messages {
+        let line = serde_json::to_string(m).map_err(|e| format!("序列化对话失败: {e}"))?;
+        buf.push_str(&line);
+        buf.push('\n');
+    }
+    crate::utils::ensure_dir_and_write_atomic(&conversation_path(), &buf)
+        .map_err(|e| format!("写入对话失败: {e}"))
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn check_claude_cli() -> Result<ClaudeCliStatus, String> {

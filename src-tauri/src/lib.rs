@@ -328,6 +328,20 @@ pub mod test_api {
         MessageBlock, SessionDetail, SessionMessage, SessionPlan,
     };
     pub use crate::stats::{get_stats, ClaudeStats, ProjectStats};
+    pub use crate::work_summary::{load_conversation, save_conversation, ConversationMessage};
+
+    /// 构造用于测试的对话消息样本。
+    pub fn sample_conversation_message(id: &str, role: &str, content: &str) -> ConversationMessage {
+        ConversationMessage {
+            id: id.into(),
+            role: role.into(),
+            ts: "2026-06-25T00:00:00Z".into(),
+            content: content.into(),
+            intent: None,
+            doc_path: None,
+            style: None,
+        }
+    }
 
     /// 测试可访问的 utils 子集
     pub mod utils {
