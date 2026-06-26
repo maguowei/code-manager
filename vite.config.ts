@@ -72,14 +72,14 @@ export default defineConfig(async () => ({
   // 避免 Vite 清屏遮挡 Rust 错误
   clearScreen: false,
   server: {
-    port: 1420,
+    port: 17420,
     strictPort: true,
     host: host || false,
     hmr: host
       ? {
           protocol: "ws",
           host,
-          port: 1421,
+          port: 17421,
         }
       : undefined,
     watch: {
