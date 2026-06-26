@@ -2197,4 +2197,15 @@ not-json\n";
     fn parse_intent_json_errors_on_garbage() {
         assert!(parse_intent_json("纯文本").is_err());
     }
+
+    // 命令主路径：run_claude_summary 已内部抽取，parse_intent_json 收到的是裸 JSON 对象，
+    // 走回退的直接 serde 解析路径（无 result 包裹）。
+    #[test]
+    fn parse_intent_json_reads_bare_json() {
+        let stdout = r#"{"kind":"day","start":"2026-06-25","end":"2026-06-25","projectFilter":[],"style":"default","title":"2026-06-25 工作总结"}"#;
+        let intent = parse_intent_json(stdout).unwrap();
+        assert_eq!(intent.kind, "day");
+        assert_eq!(intent.start, "2026-06-25");
+        assert!(intent.project_filter.is_empty());
+    }
 }
