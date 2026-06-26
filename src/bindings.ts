@@ -119,6 +119,8 @@ export const commands = {
 	ledProbeStatus: () => __TAURI_INVOKE<LedProbeStatus>("led_probe_status"),
 	/**  测试某个灯效(设置页「测试」按钮 / 真机验证门)。立即下发,不受 enabled 影响。 */
 	ledTestMode: (mode: number) => typedError<null, string>(__TAURI_INVOKE("led_test_mode", { mode })),
+	/**  设置页"试听"入口：立即播放一次选中音效。 */
+	previewWaitingSound: (sound: WaitingSound) => typedError<null, string>(__TAURI_INVOKE("preview_waiting_sound", { sound })),
 };
 
 /* Types */
@@ -151,6 +153,10 @@ export type AppPreferences = {
 	floatingWidgetMetrics?: string[],
 	/**  浮窗面板不透明度百分比，范围 30-100（前端按 /100 映射到 CSS opacity）。 */
 	floatingWidgetOpacity?: number,
+	/**  会话等待输入时是否播放提示音效（独立于 system_notifications_enabled）。 */
+	waitingSoundEnabled?: boolean,
+	/**  等待提示音效，默认 Glass。 */
+	waitingSound?: WaitingSound,
 };
 
 export type AppPreferencesInput = {
@@ -170,6 +176,8 @@ export type AppPreferencesInput = {
 	floatingWidgetEnabled?: boolean,
 	floatingWidgetMetrics?: string[],
 	floatingWidgetOpacity?: number,
+	waitingSoundEnabled?: boolean,
+	waitingSound?: WaitingSound,
 };
 
 export type BindingState = BindingState_Serialize | BindingState_Deserialize;
@@ -1146,6 +1154,12 @@ export type UserSettingsImportInput = {
 	name: string,
 	description: string,
 };
+
+/**
+ *  会话等待输入时播放的提示音效。
+ *  变体映射到 macOS `/System/Library/Sounds/` 下的系统音效（映射见 `sound.rs`）。
+ */
+export type WaitingSound = "glass" | "submarine" | "hero" | "ping" | "sosumi" | "tink";
 
 /* Tauri Specta runtime */
 async function typedError<T, E>(result: Promise<T>): Promise<{ status: "ok"; data: T } | { status: "error"; error: E }> {

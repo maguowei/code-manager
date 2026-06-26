@@ -13,6 +13,7 @@ mod native_open;
 mod plugins;
 mod project;
 mod skills;
+mod sound;
 mod stats;
 mod terminal_focus;
 mod tray;
@@ -67,6 +68,7 @@ use skills::{
     import_skills_from_directory, open_skill_in_editor, sync_skill_to_codex, toggle_skill,
     update_skill,
 };
+use sound::preview_waiting_sound;
 use stats::{get_stats, open_claude_json_in_editor};
 use tauri::Manager;
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind, TimezoneStrategy};
@@ -167,6 +169,7 @@ fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             refresh_plugin_install_counts,
             led_probe_status,
             led_test_mode,
+            preview_waiting_sound,
         ])
         .dangerously_cast_bigints_to_number()
 }
