@@ -22,7 +22,7 @@ import { I18nProvider } from "../../i18n";
 import WorkSummaryPage from "../WorkSummaryPage";
 
 function base() {
-  return { runtime: {}, cliAvailable: true, runQuickAction: vi.fn() };
+  return { runtime: {}, cliAvailable: true, isRunning: false, runQuickAction: vi.fn() };
 }
 
 function renderPage() {
@@ -49,5 +49,12 @@ describe("WorkSummaryPage", () => {
     expect(
       screen.getByText("未检测到 claude CLI，请确认 Claude Code 已安装并在 PATH 中。"),
     ).toBeInTheDocument();
+  });
+
+  it("isRunning=true 时禁用快捷按钮，避免生成中重复触发", () => {
+    mockHook.mockReturnValue({ ...base(), isRunning: true });
+    renderPage();
+    expect(screen.getByRole("button", { name: "总结昨日" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "生成本周" })).toBeDisabled();
   });
 });

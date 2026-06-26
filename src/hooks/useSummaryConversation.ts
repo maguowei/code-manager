@@ -211,7 +211,7 @@ export function useSummaryConversation(language: "zh" | "en") {
   );
 
   return useMemo(
-    () => ({ runtime, cliAvailable, runQuickAction }),
-    [runtime, cliAvailable, runQuickAction],
+    () => ({ runtime, cliAvailable, isRunning, runQuickAction }),
+    [runtime, cliAvailable, isRunning, runQuickAction],
   );
 }

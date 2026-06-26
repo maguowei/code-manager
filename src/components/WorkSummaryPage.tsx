@@ -8,7 +8,7 @@ import SummaryHistorySheet from "./work-summary/SummaryHistorySheet";
 
 function WorkSummaryPage() {
   const { t, language } = useI18n();
-  const { runtime, cliAvailable, runQuickAction } = useSummaryConversation(language);
+  const { runtime, cliAvailable, isRunning, runQuickAction } = useSummaryConversation(language);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -19,7 +19,7 @@ function WorkSummaryPage() {
       )}
 
       <div className="border-b border-border px-4 py-2">
-        <QuickActionChips disabled={!cliAvailable} onQuick={runQuickAction} />
+        <QuickActionChips disabled={!cliAvailable || isRunning} onQuick={runQuickAction} />
       </div>
 
       <div className="min-h-0 flex-1">
