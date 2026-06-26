@@ -1583,6 +1583,75 @@ pub fn read_summary(kind: String, key: String) -> Result<SummaryDocument, String
     })
 }
 
+const MAX_RANGE_DAYS: usize = 31;
+
+/// 展开 [start, end]（含端点）为日期序列；start>end 返回空；超 31 天取最后 31 天。
+fn dates_in_range(start: &str, end: &str) -> Result<Vec<String>, String> {
+    // 校验格式
+    parse_ymd(start)?;
+    parse_ymd(end)?;
+    if start > end {
+        return Ok(Vec::new());
+    }
+    let mut out = Vec::new();
+    let mut cur = start.to_string();
+    while cur.as_str() <= end {
+        out.push(cur.clone());
+        if out.len() > MAX_RANGE_DAYS * 2 {
+            break; // 防御性硬上限
+        }
+        cur = next_date(&cur)?;
+    }
+    if out.len() > MAX_RANGE_DAYS {
+        out = out.split_off(out.len() - MAX_RANGE_DAYS);
+    }
+    Ok(out)
+}
+
+/// 逐日聚合 range 内的 changeset，按 project 合并、按 commit hash 去重。
+/// 调用方见 Task 6。
+#[allow(dead_code)]
+fn gather_range_changesets(start: &str, end: &str) -> Result<(u32, Vec<ProjectChangeset>), String> {
+    use std::collections::BTreeMap;
+    let mut scanned_max = 0u32;
+    let mut by_project: BTreeMap<String, ProjectChangeset> = BTreeMap::new();
+    for date in dates_in_range(start, end)? {
+        let (scanned, daily) = gather_day_changesets(&date)?;
+        scanned_max = scanned_max.max(scanned);
+        for cs in daily {
+            let entry = by_project
+                .entry(cs.project.clone())
+                .or_insert_with(|| ProjectChangeset {
+                    branches: Vec::new(),
+                    intents: Vec::new(),
+                    ..cs.clone()
+                });
+            // 合并 intents，按内容去重
+            for it in cs.intents {
+                if !entry.intents.contains(&it) {
+                    entry.intents.push(it);
+                }
+            }
+            // 合并分支与 commits，按 branch 名合并、按 hash 去重
+            for seg in cs.branches {
+                if let Some(existing) = entry.branches.iter_mut().find(|b| b.branch == seg.branch) {
+                    for c in seg.commits {
+                        if !existing.commits.iter().any(|e| e.hash == c.hash) {
+                            existing.commits.push(c);
+                        }
+                    }
+                    existing.has_uncommitted |= seg.has_uncommitted;
+                } else {
+                    entry.branches.push(seg);
+                }
+            }
+        }
+    }
+    let mut result: Vec<ProjectChangeset> = by_project.into_values().collect();
+    result.sort_by(|a, b| a.short_name.cmp(&b.short_name));
+    Ok((scanned_max, result))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2207,5 +2276,24 @@ not-json\n";
         assert_eq!(intent.kind, "day");
         assert_eq!(intent.start, "2026-06-25");
         assert!(intent.project_filter.is_empty());
+    }
+
+    #[test]
+    fn dates_in_range_inclusive() {
+        assert_eq!(
+            dates_in_range("2026-06-22", "2026-06-24").unwrap(),
+            vec![
+                "2026-06-22".to_string(),
+                "2026-06-23".to_string(),
+                "2026-06-24".to_string()
+            ]
+        );
+        assert_eq!(
+            dates_in_range("2026-06-24", "2026-06-24").unwrap(),
+            vec!["2026-06-24".to_string()]
+        );
+        assert!(dates_in_range("2026-06-24", "2026-06-20")
+            .unwrap()
+            .is_empty());
     }
 }
