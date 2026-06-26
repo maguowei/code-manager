@@ -12,6 +12,7 @@ import type { Components } from "streamdown";
 
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import { cn } from "@/lib/utils";
+import { useI18n } from "../../i18n";
 
 const MarkdownTextImpl = () => {
   return <StreamdownTextPrimitive className="aui-md" components={components} />;
@@ -20,6 +21,7 @@ const MarkdownTextImpl = () => {
 export const MarkdownText = memo(MarkdownTextImpl);
 
 const CodeHeader: FC<CodeHeaderProps> = ({ language, code }) => {
+  const { t } = useI18n();
   const { isCopied, copyToClipboard } = useCopyToClipboard();
   const onCopy = () => {
     if (!code || isCopied) return;
@@ -31,7 +33,7 @@ const CodeHeader: FC<CodeHeaderProps> = ({ language, code }) => {
       <span className="aui-code-header-language text-muted-foreground font-medium lowercase">
         {language}
       </span>
-      <TooltipIconButton tooltip="Copy" onClick={onCopy}>
+      <TooltipIconButton tooltip={t("worklog.copy")} onClick={onCopy}>
         {!isCopied && <CopyIcon className="animate-in zoom-in-75 fade-in duration-150" />}
         {isCopied && <CheckIcon className="animate-in zoom-in-50 fade-in duration-200 ease-out" />}
       </TooltipIconButton>
