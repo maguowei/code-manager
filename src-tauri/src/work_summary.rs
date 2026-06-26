@@ -1262,6 +1262,81 @@ fn run_claude_summary(prompt: &str) -> Result<String, String> {
     }
 }
 
+/// 自然语言意图：解析后的时间范围 + 项目过滤 + 摘要风格。
+/// 注册见 Task 8（collect_commands! + make bindings）。
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SummaryIntent {
+    /// "day" | "week" | "range"
+    pub kind: String,
+    /// 起始日期 YYYY-MM-DD
+    pub start: String,
+    /// 截止日期 YYYY-MM-DD（含；单日则与 start 相等）
+    pub end: String,
+    /// 用户提到的项目名；未提及则空数组
+    #[serde(default)]
+    pub project_filter: Vec<String>,
+    /// "concise" | "detailed" | "default"
+    pub style: String,
+    /// 一句中文标题，如「2026-W26 周总结」
+    pub title: String,
+}
+
+/// 从 claude 输出里抽取内层意图 JSON 并解析为 SummaryIntent。
+/// 先尝试 parse_claude_result 从 result wrapper 中提取，再 serde 解析；
+/// 若 parse_claude_result 失败（input 本身已是提取后的 JSON），直接尝试 serde 解析。
+#[allow(dead_code)]
+fn parse_intent_json(stdout: &str) -> Result<SummaryIntent, String> {
+    // 尝试通过 parse_claude_result 提取内层文本；若失败则把原始 input 当作 JSON 文本直接解析
+    let inner = match parse_claude_result(stdout) {
+        Ok(text) => text,
+        Err(_) => stdout.to_string(),
+    };
+    let inner = inner.trim();
+    // claude 可能用 ```json 围栏包裹，去掉
+    let inner = inner
+        .trim_start_matches("```json")
+        .trim_start_matches("```")
+        .trim_end_matches("```")
+        .trim();
+    serde_json::from_str::<SummaryIntent>(inner).map_err(|e| format!("意图解析失败: {e}"))
+}
+
+/// 构造意图解析 prompt：要求 claude 严格输出一个 JSON 对象。
+#[allow(dead_code)]
+fn build_intent_prompt(input: &str, today: &str) -> String {
+    format!(
+        "今天是 {today}。把下面这句话解析成工作总结的查询意图，只输出一个 JSON 对象（不要任何解释、不要 markdown 围栏），字段：\n\
+- kind: \"day\"|\"week\"|\"range\"\n\
+- start, end: \"YYYY-MM-DD\"（含，单日则相等；week 为本周一到周日；相对词如「昨天」「上周五」「近三天」据今天换算）\n\
+- projectFilter: 字符串数组（提到的项目名，没提到则空数组）\n\
+- style: \"concise\"|\"detailed\"|\"default\"（「简短」→concise，「详细」→detailed，否则 default）\n\
+- title: 一句中文标题，如「2026-W26 周总结」或「2026-06-24 工作总结」\n\
+这句话是：{input}"
+    )
+}
+
+/// 解析自然语言查询意图，返回结构化 SummaryIntent。
+/// 注册见 Task 8（collect_commands! + make bindings）。
+#[allow(dead_code)]
+#[tauri::command]
+#[specta::specta]
+pub async fn parse_summary_intent(input: String, today: String) -> Result<SummaryIntent, String> {
+    let prompt = build_intent_prompt(&input, &today);
+    let job = tokio::task::spawn_blocking(move || run_claude_summary(&prompt));
+    let stdout = match tokio::time::timeout(
+        std::time::Duration::from_secs(CLAUDE_TIMEOUT_SECS),
+        job,
+    )
+    .await
+    {
+        Ok(joined) => joined.map_err(|e| format!("意图任务失败: {e}"))??,
+        Err(_) => return Err("意图解析超时".into()),
+    };
+    parse_intent_json(&stdout)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn check_claude_cli() -> Result<ClaudeCliStatus, String> {
@@ -2106,5 +2181,20 @@ not-json\n";
         let ndjson = "{\"type\":\"system\",\"subtype\":\"init\"}\n";
         let mut on_delta = |_: &str| {};
         assert!(read_claude_stream(std::io::Cursor::new(ndjson), &mut on_delta).is_err());
+    }
+
+    #[test]
+    fn parse_intent_json_reads_fields() {
+        let stdout = r#"{"type":"result","result":"{\"kind\":\"week\",\"start\":\"2026-06-22\",\"end\":\"2026-06-28\",\"projectFilter\":[\"code-manager\"],\"style\":\"concise\",\"title\":\"2026-W26 周总结\"}"}"#;
+        let intent = parse_intent_json(stdout).unwrap();
+        assert_eq!(intent.kind, "week");
+        assert_eq!(intent.start, "2026-06-22");
+        assert_eq!(intent.project_filter, vec!["code-manager".to_string()]);
+        assert_eq!(intent.style, "concise");
+    }
+
+    #[test]
+    fn parse_intent_json_errors_on_garbage() {
+        assert!(parse_intent_json("纯文本").is_err());
     }
 }
