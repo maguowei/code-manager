@@ -26,7 +26,9 @@
       "totalTokens",
       "cacheHitRate"
     ],
-    "floatingWidgetOpacity": 92
+    "floatingWidgetOpacity": 92,
+    "waitingSoundEnabled": false,
+    "waitingSound": "glass"
   },
   "profiles": [
     {

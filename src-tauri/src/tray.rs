@@ -1325,6 +1325,8 @@ mod tests {
             floating_widget_enabled: false,
             floating_widget_metrics: Vec::new(),
             floating_widget_opacity: 92,
+            waiting_sound_enabled: false,
+            waiting_sound: crate::config::WaitingSound::default(),
         }
     }
 

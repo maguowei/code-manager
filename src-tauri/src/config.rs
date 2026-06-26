@@ -68,6 +68,20 @@ pub enum SessionTrayCountStyle {
     SuperscriptCompact,
 }
 
+/// 会话等待输入时播放的提示音效。
+/// 变体映射到 macOS `/System/Library/Sounds/` 下的系统音效（映射见 `sound.rs`）。
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum WaitingSound {
+    #[default]
+    Glass,
+    Submarine,
+    Hero,
+    Ping,
+    Sosumi,
+    Tink,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AppPreferences {
@@ -106,6 +120,12 @@ pub struct AppPreferences {
     /// 浮窗面板不透明度百分比，范围 30-100（前端按 /100 映射到 CSS opacity）。
     #[serde(default = "default_floating_widget_opacity")]
     pub floating_widget_opacity: u8,
+    /// 会话等待输入时是否播放提示音效（独立于 system_notifications_enabled）。
+    #[serde(default)]
+    pub waiting_sound_enabled: bool,
+    /// 等待提示音效，默认 Glass。
+    #[serde(default)]
+    pub waiting_sound: WaitingSound,
 }
 
 impl Default for AppPreferences {
@@ -127,6 +147,8 @@ impl Default for AppPreferences {
             floating_widget_enabled: false,
             floating_widget_metrics: default_floating_widget_metrics(),
             floating_widget_opacity: default_floating_widget_opacity(),
+            waiting_sound_enabled: false,
+            waiting_sound: WaitingSound::default(),
         }
     }
 }
@@ -360,6 +382,10 @@ pub struct AppPreferencesInput {
     pub floating_widget_metrics: Vec<String>,
     #[serde(default = "default_floating_widget_opacity")]
     pub floating_widget_opacity: u8,
+    #[serde(default)]
+    pub waiting_sound_enabled: bool,
+    #[serde(default)]
+    pub waiting_sound: WaitingSound,
 }
 
 #[derive(Debug, Clone, Deserialize, specta::Type)]
@@ -1006,6 +1032,8 @@ fn normalize_app_preferences(input: AppPreferencesInput) -> Result<AppPreference
         floating_widget_metrics: normalize_floating_widget_metrics(input.floating_widget_metrics),
         // 不透明度钳制到 30-100，越界退回合法边界
         floating_widget_opacity: input.floating_widget_opacity.clamp(30, 100),
+        waiting_sound_enabled: input.waiting_sound_enabled,
+        waiting_sound: input.waiting_sound,
     })
 }
 
@@ -2896,6 +2924,42 @@ mod tests {
     }
 
     #[test]
+    fn app_preferences_default_waiting_sound_disabled_glass() {
+        let prefs = AppPreferences::default();
+        assert!(!prefs.waiting_sound_enabled, "等待音效默认必须关闭");
+        assert_eq!(prefs.waiting_sound, WaitingSound::Glass);
+    }
+
+    #[test]
+    fn normalize_app_preferences_passes_waiting_sound_through() {
+        // 没有现成的 sample_app_preferences_input helper，内联构造完整 input
+        let input = AppPreferencesInput {
+            show_tray_title: true,
+            show_tray_sessions: true,
+            system_notifications_enabled: false,
+            collapse_sidebar_by_default: false,
+            third_party_provider_pricing_enabled: true,
+            ui_language: "zh".to_string(),
+            default_terminal_app: "terminal".to_string(),
+            default_editor_app: None,
+            tray_title_max_chars: None,
+            session_tray_count_style: SessionTrayCountStyle::default(),
+            tray_pulse_waiting: true,
+            focus_session_shortcut: None,
+            led_control: crate::led::LedControlPreferences::default(),
+            floating_widget_enabled: false,
+            floating_widget_metrics: default_floating_widget_metrics(),
+            floating_widget_opacity: default_floating_widget_opacity(),
+            waiting_sound_enabled: true,
+            waiting_sound: WaitingSound::Submarine,
+        };
+
+        let normalized = normalize_app_preferences(input).expect("normalize 应成功");
+        assert!(normalized.waiting_sound_enabled);
+        assert_eq!(normalized.waiting_sound, WaitingSound::Submarine);
+    }
+
+    #[test]
     fn compile_schema_regex_reuses_cached_patterns() {
         let first = compile_schema_regex("^Bash\\(.+\\)$").unwrap();
         let second = compile_schema_regex("^Bash\\(.+\\)$").unwrap();
@@ -3899,6 +3963,8 @@ mod tests {
                 floating_widget_enabled: false,
                 floating_widget_metrics: default_floating_widget_metrics(),
                 floating_widget_opacity: default_floating_widget_opacity(),
+                waiting_sound_enabled: false,
+                waiting_sound: WaitingSound::default(),
             },
             profiles: vec![ConfigProfile {
                 id: "user-deepseek".to_string(),
