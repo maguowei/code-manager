@@ -1195,23 +1195,35 @@ fn run_claude_summary_streaming(
         .stdout
         .take()
         .ok_or_else(|| "无法读取 claude stdout".to_string())?;
+    let stderr = child.stderr.take();
+    // 并发排空 stderr：--verbose 在冷启动 MCP 时可能向 stderr 写 >64KB，
+    // 若不排空会填满管道导致子进程阻塞在 stderr write、主线程阻塞在 stdout read → 死锁。
+    let stderr_handle = std::thread::spawn(move || {
+        let mut buf = String::new();
+        if let Some(mut e) = stderr {
+            use std::io::Read;
+            let _ = e.read_to_string(&mut buf);
+        }
+        buf
+    });
     let full = read_claude_stream(std::io::BufReader::new(stdout), on_delta);
     let status = child
         .wait()
         .map_err(|e| format!("等待 claude 退出失败: {e}"))?;
-    if !status.success() {
-        let mut stderr = String::new();
-        if let Some(mut e) = child.stderr.take() {
-            use std::io::Read;
-            let _ = e.read_to_string(&mut stderr);
+    let stderr_text = stderr_handle.join().unwrap_or_default();
+    match full {
+        // 有内容即返回——用户已逐字看到流式 token，非零退出多为 MCP 收尾告警，不应丢弃
+        Ok(text) => Ok(text),
+        Err(read_err) => {
+            if status.success() {
+                Err(read_err) // 退出 0 但无内容（"claude 未返回任何内容"）
+            } else if stderr_text.trim().is_empty() {
+                Err(format!("claude 执行失败，退出码: {:?}", status.code()))
+            } else {
+                Err(format!("claude 执行失败: {}", stderr_text.trim()))
+            }
         }
-        return Err(if stderr.trim().is_empty() {
-            format!("claude 执行失败，退出码: {:?}", status.code())
-        } else {
-            format!("claude 执行失败: {}", stderr.trim())
-        });
     }
-    full
 }
 
 /// 调用本机 claude CLI headless 生成总结（快速模型 + 精简环境）。
