@@ -66,6 +66,13 @@ const FILE_TREE_THEME_STYLE = {
   "--trees-selected-fg-override": "var(--foreground)",
 } as CSSProperties;
 
+// 选择去重窗口（毫秒）：onSelectionChange 与 click 兜底两条通道可能对同一次点击各触发一次，
+// 在此窗口内对同一路径只处理一次，避免重复打开/聚焦预览。
+const TREE_SELECT_DEDUPE_MS = 80;
+
+// @pierre/trees(beta) 暂无 row-click / item-activate 回调，onSelectionChange 仅在选择「变化」时触发，
+// 无法捕获「重复点击已选中项以重开/聚焦预览」。故用事件委托从被点击元素读 data-itemPath 兜底，
+// 与 onSelectionChange 通过 TREE_SELECT_DEDUPE_MS 去重。库补齐 activate 回调后可移除本通道。
 function getEventTreeItemPath(event: ReactMouseEvent<HTMLElement>) {
   const nativeEvent = event.nativeEvent as MouseEvent & {
     composedPath?: () => EventTarget[];
@@ -119,7 +126,7 @@ export function ClaudeDirectoryTree({
   const handlePath = useCallback((path: string) => {
     const now = getMonotonicTime();
     const lastHandledPath = lastHandledPathRef.current;
-    if (lastHandledPath?.path === path && now - lastHandledPath.timestamp < 80) {
+    if (lastHandledPath?.path === path && now - lastHandledPath.timestamp < TREE_SELECT_DEDUPE_MS) {
       return;
     }
     lastHandledPathRef.current = { path, timestamp: now };
@@ -154,7 +161,12 @@ export function ClaudeDirectoryTree({
     },
     renaming: false,
     search: true,
+    // 当前库默认即 hide-non-matches（官方推荐），显式声明以防御未来 beta 默认变更。
+    fileTreeSearchMode: "hide-non-matches",
     density: "compact",
+    // 借「行装饰」渲染主文件名 + 下方 unsafeCSS 隐藏库默认 content 段，是为了实现单行省略号：
+    // @pierre/trees(beta) 默认主标签不支持 truncate/ellipsis。库支持主标签 truncate 后，
+    // 可回归默认渲染并删除该段 unsafeCSS。
     renderRowDecoration: ({ item }) => ({
       text: item.name,
       title: item.name,
@@ -197,6 +209,8 @@ export function ClaudeDirectoryTree({
         box-shadow: 0 0 0 1px color-mix(in oklch, var(--primary) 42%, transparent);
       }
 
+      /* 省略号 workaround（见上方 renderRowDecoration 注释）：隐藏库默认主标签 content 段，
+         改由 decoration 段渲染并 truncate。库支持主标签 truncate 后可整段删除。 */
       button[data-type='item']:not(:has([data-item-rename-input])) > [data-item-section='content'] {
         flex: 0 0 0;
         min-width: 0;

@@ -166,6 +166,13 @@ describe("ClaudeOverviewPage styles", () => {
     expect(source).not.toContain("--trees-muted-fg-override");
   });
 
+  it("pins the Pierre tree search mode to the documented hide-non-matches default", () => {
+    const source = readText("src/components/claude-overview/ClaudeDirectoryTree.tsx");
+
+    // 显式声明 search mode，防御未来 @pierre/trees beta 默认变更
+    expect(source).toContain('fileTreeSearchMode: "hide-non-matches"');
+  });
+
   it("uses stable loading skeletons and reduced-motion friendly transitions for the tree", () => {
     const source = readOverviewSources();
 
