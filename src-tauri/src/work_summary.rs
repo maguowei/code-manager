@@ -1121,8 +1121,6 @@ fn emit_prompt(app: &AppHandle, prompt: String, summarized_count: u32) {
 
 /// 从一行 stream-json NDJSON 中抽取 assistant 文本增量（partial message）。
 /// 仅认 content_block_delta / text_delta，其它事件（system/result/block_start 等）返回 None。
-/// Task 2 流式读取会调用此函数；此处暂无调用方，允许 dead_code。
-#[allow(dead_code)]
 fn parse_stream_json_delta(line: &str) -> Option<String> {
     let line = line.trim();
     if line.is_empty() {
@@ -1138,6 +1136,82 @@ fn parse_stream_json_delta(line: &str) -> Option<String> {
         return None;
     }
     delta.get("text")?.as_str().map(|s| s.to_string())
+}
+
+/// 逐行消费 stream-json，回调每个文本增量并累积全文。空输出返回 Err（交由上层降级）。
+/// 调用方见 Task 6。
+#[allow(dead_code)]
+fn read_claude_stream<R: std::io::BufRead>(
+    reader: R,
+    on_delta: &mut dyn FnMut(&str),
+) -> Result<String, String> {
+    let mut full = String::new();
+    for line in reader.lines() {
+        let line = line.map_err(|e| format!("读取 claude 流失败: {e}"))?;
+        if let Some(delta) = parse_stream_json_delta(&line) {
+            full.push_str(&delta);
+            on_delta(&delta);
+        }
+    }
+    if full.trim().is_empty() {
+        return Err("claude 未返回任何内容".into());
+    }
+    Ok(full)
+}
+
+/// spawn claude 流式进程，逐行读 stdout 喂给 read_claude_stream。
+/// 阻塞调用，由命令在 spawn_blocking 中执行。调用方见 Task 6。
+#[allow(dead_code)]
+fn run_claude_summary_streaming(
+    prompt: &str,
+    on_delta: &mut dyn FnMut(&str),
+) -> Result<String, String> {
+    use std::process::Stdio;
+    let mut command = Command::new("claude");
+    command.args([
+        "-p",
+        prompt,
+        "--output-format",
+        "stream-json",
+        "--include-partial-messages",
+        "--verbose",
+        "--model",
+        SUMMARY_MODEL,
+        "--strict-mcp-config",
+        "--mcp-config",
+        "{\"mcpServers\":{}}",
+    ]);
+    command.stdout(Stdio::piped());
+    command.stderr(Stdio::piped());
+    crate::utils::hide_command_window(&mut command);
+    let mut child = command.spawn().map_err(|e| {
+        if e.kind() == std::io::ErrorKind::NotFound {
+            "未找到 claude CLI，请确认 Claude Code 已安装并在 PATH 中".to_string()
+        } else {
+            format!("执行 claude 失败: {e}")
+        }
+    })?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "无法读取 claude stdout".to_string())?;
+    let full = read_claude_stream(std::io::BufReader::new(stdout), on_delta);
+    let status = child
+        .wait()
+        .map_err(|e| format!("等待 claude 退出失败: {e}"))?;
+    if !status.success() {
+        let mut stderr = String::new();
+        if let Some(mut e) = child.stderr.take() {
+            use std::io::Read;
+            let _ = e.read_to_string(&mut stderr);
+        }
+        return Err(if stderr.trim().is_empty() {
+            format!("claude 执行失败，退出码: {:?}", status.code())
+        } else {
+            format!("claude 执行失败: {}", stderr.trim())
+        });
+    }
+    full
 }
 
 /// 调用本机 claude CLI headless 生成总结（快速模型 + 精简环境）。
@@ -1998,5 +2072,27 @@ not-json\n";
         );
         assert_eq!(parse_stream_json_delta(""), None);
         assert_eq!(parse_stream_json_delta("非 json"), None);
+    }
+
+    #[test]
+    fn read_claude_stream_accumulates_deltas() {
+        let ndjson = concat!(
+            "{\"type\":\"system\",\"subtype\":\"init\"}\n",
+            "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"## proj\\n\"}}}\n",
+            "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"做了登录\"}}}\n",
+            "{\"type\":\"result\",\"result\":\"忽略\"}\n",
+        );
+        let mut seen: Vec<String> = Vec::new();
+        let mut on_delta = |d: &str| seen.push(d.to_string());
+        let full = read_claude_stream(std::io::Cursor::new(ndjson), &mut on_delta).unwrap();
+        assert_eq!(seen, vec!["## proj\n".to_string(), "做了登录".to_string()]);
+        assert_eq!(full, "## proj\n做了登录");
+    }
+
+    #[test]
+    fn read_claude_stream_errors_when_no_text() {
+        let ndjson = "{\"type\":\"system\",\"subtype\":\"init\"}\n";
+        let mut on_delta = |_: &str| {};
+        assert!(read_claude_stream(std::io::Cursor::new(ndjson), &mut on_delta).is_err());
     }
 }
