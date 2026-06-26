@@ -1296,8 +1296,6 @@ fn run_claude_summary(prompt: &str) -> Result<String, String> {
 }
 
 /// 自然语言意图：解析后的时间范围 + 项目过滤 + 摘要风格。
-/// 注册见 Task 8（collect_commands! + make bindings）。
-#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SummaryIntent {
@@ -1319,7 +1317,6 @@ pub struct SummaryIntent {
 /// 从 claude 输出里抽取内层意图 JSON 并解析为 SummaryIntent。
 /// 先尝试 parse_claude_result 从 result wrapper 中提取，再 serde 解析；
 /// 若 parse_claude_result 失败（input 本身已是提取后的 JSON），直接尝试 serde 解析。
-#[allow(dead_code)]
 fn parse_intent_json(stdout: &str) -> Result<SummaryIntent, String> {
     // 尝试通过 parse_claude_result 提取内层文本；若失败则把原始 input 当作 JSON 文本直接解析
     let inner = match parse_claude_result(stdout) {
@@ -1337,7 +1334,6 @@ fn parse_intent_json(stdout: &str) -> Result<SummaryIntent, String> {
 }
 
 /// 构造意图解析 prompt：要求 claude 严格输出一个 JSON 对象。
-#[allow(dead_code)]
 fn build_intent_prompt(input: &str, today: &str) -> String {
     format!(
         "今天是 {today}。把下面这句话解析成工作总结的查询意图，只输出一个 JSON 对象（不要任何解释、不要 markdown 围栏），字段：\n\
@@ -1351,8 +1347,6 @@ fn build_intent_prompt(input: &str, today: &str) -> String {
 }
 
 /// 解析自然语言查询意图，返回结构化 SummaryIntent。
-/// 注册见 Task 8（collect_commands! + make bindings）。
-#[allow(dead_code)]
 #[tauri::command]
 #[specta::specta]
 pub async fn parse_summary_intent(input: String, today: String) -> Result<SummaryIntent, String> {
@@ -1371,7 +1365,6 @@ pub async fn parse_summary_intent(input: String, today: String) -> Result<Summar
 }
 
 /// 一条对话消息（用户诉求或助手总结）。
-/// 注册见 Task 8（collect_commands! + make bindings）。
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ConversationMessage {
@@ -1394,8 +1387,6 @@ fn conversation_path() -> std::path::PathBuf {
 }
 
 /// 读取对话线程：文件不存在返回空数组；空行/坏行容错跳过。
-/// 注册见 Task 8（collect_commands! + make bindings）。
-#[allow(dead_code)]
 #[tauri::command]
 #[specta::specta]
 pub fn load_conversation() -> Result<Vec<ConversationMessage>, String> {
@@ -1418,8 +1409,6 @@ pub fn load_conversation() -> Result<Vec<ConversationMessage>, String> {
 }
 
 /// 将对话线程持久化为 jsonl（每行一条消息）。
-/// 注册见 Task 8（collect_commands! + make bindings）。
-#[allow(dead_code)]
 #[tauri::command]
 #[specta::specta]
 pub fn save_conversation(messages: Vec<ConversationMessage>) -> Result<(), String> {
@@ -1849,8 +1838,6 @@ fn make_doc(kind: &str, key: &str, path: String, content: String) -> SummaryDocu
 }
 
 /// 流式生成总结：扫描 → 构 prompt → 逐 token 流式生成 → 落盘（仅 day/week）→ 返回文档。
-/// 注册见 Task 8（collect_commands! + make bindings）。
-#[allow(dead_code)] // Task 8 注册后即有生产调用方
 #[tauri::command]
 #[specta::specta]
 pub async fn generate_summary_stream(

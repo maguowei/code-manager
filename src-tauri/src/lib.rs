@@ -74,7 +74,8 @@ use tauri_plugin_log::{RotationStrategy, Target, TargetKind, TimezoneStrategy};
 use usage::{get_session_usage_detail, get_usage_snapshot, refresh_usage_pricing, rescan_usage};
 use widget::{open_usage_page, toggle_floating_widget};
 use work_summary::{
-    check_claude_cli, generate_weekly_summary, list_summaries, read_summary, scan_day_changes,
+    check_claude_cli, generate_summary_stream, generate_weekly_summary, list_summaries,
+    load_conversation, parse_summary_intent, read_summary, save_conversation, scan_day_changes,
     summarize_day,
 };
 
@@ -178,6 +179,10 @@ fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             generate_weekly_summary,
             list_summaries,
             read_summary,
+            parse_summary_intent,
+            generate_summary_stream,
+            load_conversation,
+            save_conversation,
         ])
         .dangerously_cast_bigints_to_number()
 }

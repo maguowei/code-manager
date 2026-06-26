@@ -125,6 +125,14 @@ export const commands = {
 	generateWeeklySummary: (date: string, language: string) => typedError<SummaryDocument, string>(__TAURI_INVOKE("generate_weekly_summary", { date, language })),
 	listSummaries: () => typedError<SummaryListItem[], string>(__TAURI_INVOKE("list_summaries")),
 	readSummary: (kind: string, key: string) => typedError<SummaryDocument, string>(__TAURI_INVOKE("read_summary", { kind, key })),
+	/**  解析自然语言查询意图，返回结构化 SummaryIntent。 */
+	parseSummaryIntent: (input: string, today: string) => typedError<SummaryIntent, string>(__TAURI_INVOKE("parse_summary_intent", { input, today })),
+	/**  流式生成总结：扫描 → 构 prompt → 逐 token 流式生成 → 落盘（仅 day/week）→ 返回文档。 */
+	generateSummaryStream: (intent: SummaryIntent, language: string, messageId: string) => typedError<SummaryDocument, string>(__TAURI_INVOKE("generate_summary_stream", { intent, language, messageId })),
+	/**  读取对话线程：文件不存在返回空数组；空行/坏行容错跳过。 */
+	loadConversation: () => typedError<ConversationMessage_Serialize[], string>(__TAURI_INVOKE("load_conversation")),
+	/**  将对话线程持久化为 jsonl（每行一条消息）。 */
+	saveConversation: (messages: ConversationMessage_Deserialize[]) => typedError<null, string>(__TAURI_INVOKE("save_conversation", { messages })),
 };
 
 /* Types */
@@ -302,6 +310,33 @@ export type ConfigWorkspace_Serialize = {
 	bindings: BindingState_Serialize,
 	unmanagedUserSettings?: UnmanagedUserSettings_Serialize | null,
 	activeUserSettingsMismatch?: ActiveUserSettingsMismatch | null,
+};
+
+/**  一条对话消息（用户诉求或助手总结）。 */
+export type ConversationMessage = ConversationMessage_Serialize | ConversationMessage_Deserialize;
+
+/**  一条对话消息（用户诉求或助手总结）。 */
+export type ConversationMessage_Deserialize = {
+	id: string,
+	/**  "user" | "assistant" */
+	role: string,
+	ts: string,
+	content: string,
+	intent?: SummaryIntent | null,
+	docPath?: string | null,
+	style?: string | null,
+};
+
+/**  一条对话消息（用户诉求或助手总结）。 */
+export type ConversationMessage_Serialize = {
+	id: string,
+	/**  "user" | "assistant" */
+	role: string,
+	ts: string,
+	content: string,
+	intent?: SummaryIntent | null,
+	docPath?: string | null,
+	style?: string | null,
 };
 
 export type DailyUsage = {
@@ -1088,6 +1123,22 @@ export type SummaryDocument = {
 	key: string,
 	path: string,
 	content: string,
+};
+
+/**  自然语言意图：解析后的时间范围 + 项目过滤 + 摘要风格。 */
+export type SummaryIntent = {
+	/**  "day" | "week" | "range" */
+	kind: string,
+	/**  起始日期 YYYY-MM-DD */
+	start: string,
+	/**  截止日期 YYYY-MM-DD（含；单日则与 start 相等） */
+	end: string,
+	/**  用户提到的项目名；未提及则空数组 */
+	projectFilter?: string[],
+	/**  "concise" | "detailed" | "default" */
+	style: string,
+	/**  一句中文标题，如「2026-W26 周总结」 */
+	title: string,
 };
 
 /**  总结列表项（不含正文） */
