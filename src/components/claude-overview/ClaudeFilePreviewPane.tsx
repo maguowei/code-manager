@@ -41,6 +41,8 @@ interface ClaudeFilePreviewPaneProps {
   viewMode: PreviewViewMode;
   previewThemeType: ThemeTypes;
   isResizing?: boolean;
+  // 仅在所在页面从隐藏(display:none)恢复可见时递增：用作 Virtualizer 的 key 强制重挂、重新测量尺寸。
+  remountToken?: number;
   t: (key: TranslationKey) => string;
   onSelectPreviewTab: (path: string) => void;
   onClosePreview: (path: string) => void;
@@ -96,6 +98,7 @@ interface PierreSourcePreviewProps {
   options: FileOptions<undefined>;
   style: CSSProperties;
   previewThemeType: ThemeTypes;
+  remountToken?: number;
   t: (key: TranslationKey) => string;
 }
 
@@ -104,6 +107,7 @@ function PierreSourcePreview({
   options,
   style,
   previewThemeType,
+  remountToken,
   t,
 }: PierreSourcePreviewProps) {
   // Pierre 在 Virtualizer 上下文中创建的 VirtualizedFile 会复用实例，其 render 用 `this.file ??= file`
@@ -143,6 +147,10 @@ function PierreSourcePreview({
         poolOptions={PIERRE_WORKER_POOL_OPTIONS}
       >
         <Virtualizer
+          // remountToken 在所在页面从隐藏恢复可见时递增：借 key 重挂 Virtualizer，重跑 setup 重新测量
+          // 容器高度。display:none 期间容器高度塌为 0、虚拟化窗口清空，切回后 ResizeObserver 在 WKWebView
+          // 中不一定触发恢复，会导致预览空白；重挂可确定性恢复。
+          key={`pierre-virtualizer-${remountToken ?? 0}`}
           className="claude-overview-preview-content scrollbar-stable block min-h-0 flex-1 overflow-auto"
           contentClassName="min-w-full"
         >
@@ -175,6 +183,7 @@ export function ClaudeFilePreviewPane({
   viewMode,
   previewThemeType,
   isResizing,
+  remountToken,
   t,
   onSelectPreviewTab,
   onClosePreview,
@@ -384,6 +393,7 @@ export function ClaudeFilePreviewPane({
                 file={previewFile}
                 options={previewFileOptions}
                 previewThemeType={previewThemeType}
+                remountToken={remountToken}
                 style={previewContentStyle}
                 t={t}
               />

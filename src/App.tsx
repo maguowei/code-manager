@@ -271,7 +271,7 @@ function App() {
               aria-hidden={activeTab !== "claudeOverview"}
             >
               <Suspense fallback={<PageLoadingFallback />}>
-                <ClaudeOverviewPage />
+                <ClaudeOverviewPage active={activeTab === "claudeOverview"} />
               </Suspense>
             </div>
           ) : null}

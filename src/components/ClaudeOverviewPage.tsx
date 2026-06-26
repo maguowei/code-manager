@@ -324,7 +324,7 @@ function ClaudeOverviewNameDialog({
   );
 }
 
-function ClaudeOverviewPage() {
+function ClaudeOverviewPage({ active = false }: { active?: boolean }) {
   const { language, t } = useI18n();
   const { isDark } = useTheme();
   const { showToast } = useToast();
@@ -347,6 +347,11 @@ function ClaudeOverviewPage() {
   const [loadingPreviewPath, setLoadingPreviewPath] = useState<string | null>(null);
   // Markdown 文件默认进入渲染预览，其它文件维持源码视图；切换 tab/打开新文件时按文件类型重置
   const [viewMode, setViewMode] = useState<PreviewViewMode>("source");
+  // 本页用 display:none keepalive（见 App.tsx）。从隐藏恢复可见时递增此 token 强制源码预览的
+  // Pierre Virtualizer 重挂、重新测量容器高度——display:none 期间高度塌为 0，切回后 ResizeObserver
+  // 在 WKWebView 中不一定触发恢复，会导致预览空白。
+  const [previewRemountToken, setPreviewRemountToken] = useState(0);
+  const wasActiveRef = useRef(active);
   const [nameDialog, setNameDialog] = useState<ClaudeOverviewNameDialogState | null>(null);
   const [pendingDeleteEntry, setPendingDeleteEntry] = useState<ClaudeOverviewDeleteState | null>(
     null,
@@ -487,6 +492,14 @@ function ClaudeOverviewPage() {
     });
     return () => window.cancelAnimationFrame(frameId);
   }, []);
+
+  useEffect(() => {
+    // 从隐藏(display:none)恢复可见时 bump token，强制源码预览的 Virtualizer 重挂、重新测量尺寸。
+    if (active && !wasActiveRef.current) {
+      setPreviewRemountToken((token) => token + 1);
+    }
+    wasActiveRef.current = active;
+  }, [active]);
 
   const loadPreview = useCallback(
     async (path: string) => {
@@ -993,6 +1006,7 @@ function ClaudeOverviewPage() {
                 viewMode={viewMode}
                 previewThemeType={previewThemeType}
                 isResizing={isResizing}
+                remountToken={previewRemountToken}
                 t={t}
                 onSelectPreviewTab={handleSelectPreviewTab}
                 onClosePreview={handleClosePreview}

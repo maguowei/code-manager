@@ -1,11 +1,20 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import type { ComponentProps, ReactNode } from "react";
+import { useEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ClaudeFilePreviewPane } from "../claude-overview/ClaudeFilePreviewPane";
 
-const { filePreviewMock, virtualizerMock, workerPoolProviderMock } = vi.hoisted(() => ({
+const {
+  filePreviewMock,
+  virtualizerMock,
+  virtualizerMountMock,
+  virtualizerUnmountMock,
+  workerPoolProviderMock,
+} = vi.hoisted(() => ({
   filePreviewMock: vi.fn(),
   virtualizerMock: vi.fn(),
+  virtualizerMountMock: vi.fn(),
+  virtualizerUnmountMock: vi.fn(),
   workerPoolProviderMock: vi.fn(),
 }));
 
@@ -46,6 +55,11 @@ vi.mock("@pierre/diffs/react", () => {
       contentClassName?: string;
     }) => {
       virtualizerMock({ className, contentClassName });
+      // 计数挂载/卸载：remountToken 改变会换 Virtualizer 的 key，触发卸载旧实例 + 挂载新实例
+      useEffect(() => {
+        virtualizerMountMock();
+        return () => virtualizerUnmountMock();
+      }, []);
       return (
         <div data-testid="pierre-virtualizer" className={className}>
           <div data-testid="pierre-virtualizer-content" className={contentClassName}>
@@ -80,8 +94,8 @@ const preview = {
   encoding: "utf-8",
 } as const;
 
-function renderPane(props: Partial<ComponentProps<typeof ClaudeFilePreviewPane>> = {}) {
-  return render(
+function buildPane(props: Partial<ComponentProps<typeof ClaudeFilePreviewPane>> = {}) {
+  return (
     <ClaudeFilePreviewPane
       openPreviews={[preview]}
       activePreview={preview}
@@ -97,14 +111,24 @@ function renderPane(props: Partial<ComponentProps<typeof ClaudeFilePreviewPane>>
       onOpenFileBrowser={vi.fn()}
       onOpenEditor={vi.fn()}
       {...props}
-    />,
+    />
   );
+}
+
+function renderPane(props: Partial<ComponentProps<typeof ClaudeFilePreviewPane>> = {}) {
+  const result = render(buildPane(props));
+  return Object.assign(result, {
+    rerenderPane: (next: Partial<ComponentProps<typeof ClaudeFilePreviewPane>> = {}) =>
+      result.rerender(buildPane(next)),
+  });
 }
 
 describe("ClaudeFilePreviewPane", () => {
   beforeEach(() => {
     filePreviewMock.mockClear();
     virtualizerMock.mockClear();
+    virtualizerMountMock.mockClear();
+    virtualizerUnmountMock.mockClear();
     workerPoolProviderMock.mockClear();
   });
 
@@ -170,5 +194,28 @@ describe("ClaudeFilePreviewPane", () => {
     expect(filePreviewMock).toHaveBeenCalledWith(
       expect.not.objectContaining({ disableWorkerPool: true }),
     );
+  });
+
+  it("remounts the virtualizer when remountToken changes to recover from display:none", () => {
+    const { rerenderPane } = renderPane({ remountToken: 0 });
+    expect(virtualizerMountMock).toHaveBeenCalledTimes(1);
+    expect(virtualizerUnmountMock).not.toHaveBeenCalled();
+
+    // remountToken 变化模拟页面从隐藏恢复可见：key 改变 → 卸载旧 Virtualizer + 挂载新实例重新测量
+    rerenderPane({ remountToken: 1 });
+
+    expect(virtualizerUnmountMock).toHaveBeenCalledTimes(1);
+    expect(virtualizerMountMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the virtualizer mounted when remountToken is unchanged", () => {
+    const { rerenderPane } = renderPane({ remountToken: 3 });
+    expect(virtualizerMountMock).toHaveBeenCalledTimes(1);
+
+    // 仅其它 prop 变化、remountToken 不变时不得重挂，避免无谓重渲染
+    rerenderPane({ remountToken: 3, previewThemeType: "light" });
+
+    expect(virtualizerUnmountMock).not.toHaveBeenCalled();
+    expect(virtualizerMountMock).toHaveBeenCalledTimes(1);
   });
 });

@@ -229,4 +229,17 @@ describe("ClaudeOverviewPage styles", () => {
     // PierreFile 必须带 key，否则切换文件时 Pierre VirtualizedFile 会复用实例显示上一个文件内容
     expect(source).toContain("key={fileKey}");
   });
+
+  it("remounts the source preview virtualizer when the overview becomes visible again", () => {
+    const previewPane = readText("src/components/claude-overview/ClaudeFilePreviewPane.tsx");
+    const overviewPage = readText("src/components/ClaudeOverviewPage.tsx");
+
+    // display:none keepalive 切回可见时，借 remountToken 改变 Virtualizer 的 key 强制重挂、重新测量
+    expect(previewPane).toContain("key={`pierre-virtualizer-");
+    expect(previewPane).toContain("remountToken ?? 0}`}");
+    expect(overviewPage).toContain("setPreviewRemountToken");
+    expect(overviewPage).toContain("remountToken={previewRemountToken}");
+    // App 把激活态传入，用于检测「隐藏→可见」转换
+    expect(readText("src/App.tsx")).toContain('active={activeTab === "claudeOverview"}');
+  });
 });
