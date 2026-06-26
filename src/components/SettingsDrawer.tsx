@@ -1270,8 +1270,8 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                     checked={preferences.waitingSoundEnabled}
                     onCheckedChange={(checked) =>
                       void persistPreferences(
-                        { ...preferences, waitingSoundEnabled: checked },
-                        preferences,
+                        { ...nextPreferences, waitingSoundEnabled: checked },
+                        nextPreferences,
                       )
                     }
                     aria-label={t("settings.waitingSound")}
@@ -1289,10 +1289,10 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                         onValueChange={(next) =>
                           void persistPreferences(
                             {
-                              ...preferences,
+                              ...nextPreferences,
                               waitingSound: next as AppPreferences["waitingSound"],
                             },
-                            preferences,
+                            nextPreferences,
                           )
                         }
                       >

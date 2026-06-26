@@ -23,6 +23,7 @@ pub(crate) fn play_waiting_sound(sound: WaitingSound) {
 
     let file = waiting_sound_file_name(sound);
     let path = format!("/System/Library/Sounds/{file}");
+    // 故意不 wait：afplay 约 1 秒后自退出（fire-and-forget），不要在此加 .wait() 以免阻塞调用方。
     match Command::new("afplay").arg(&path).spawn() {
         Ok(_) => log::info!("event=sound.waiting status=ok file={file}"),
         Err(e) => log::warn!("event=sound.waiting status=err file={file} error={e}"),
