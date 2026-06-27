@@ -30,8 +30,12 @@ export function HookBlock({
         )}
       </div>
       <ul className="space-y-0.5">
-        {block.hooks.map((h) => (
-          <li key={h.command} className="flex items-center justify-between gap-2">
+        {block.hooks.map((h, i) => (
+          <li
+            // biome-ignore lint/suspicious/noArrayIndexKey: command 可重复，复合 key 用 index 消歧
+            key={`${h.command}-${i}`}
+            className="flex items-center justify-between gap-2"
+          >
             <span className="font-mono text-xs">{h.command}</span>
             {h.duration_ms != null && (
               <span className="shrink-0 text-xs text-muted-foreground">{h.duration_ms} ms</span>
@@ -39,8 +43,12 @@ export function HookBlock({
           </li>
         ))}
       </ul>
-      {block.errors.map((e) => (
-        <div key={e} className="mt-1 flex items-center gap-1.5 text-xs text-destructive">
+      {block.errors.map((e, i) => (
+        <div
+          // biome-ignore lint/suspicious/noArrayIndexKey: error 字符串可重复，复合 key 用 index 消歧
+          key={`${e}-${i}`}
+          className="mt-1 flex items-center gap-1.5 text-xs text-destructive"
+        >
           <AlertTriangle className="size-3.5 shrink-0" />
           <span>{e}</span>
         </div>
