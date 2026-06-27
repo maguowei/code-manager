@@ -563,13 +563,28 @@ export type MessageBlock =
   | { type: "command"; name: string; args?: string }
   | { type: "system"; summary: string }
   | { type: "image"; source_type: string; media_type: string; data?: string }
-  | { type: "plan"; summary: string; content: string };
+  | { type: "plan"; summary: string; content: string }
+  | {
+      type: "hook";
+      hooks: { command: string; duration_ms: number | null }[];
+      errors: string[];
+      prevented_continuation: boolean;
+      stop_reason: string | null;
+    }
+  | { type: "mode_change"; mode: string };
 
 // 一条对话消息
 export interface SessionMessage {
   role: "user" | "assistant";
   blocks: MessageBlock[];
   timestamp?: string;
+}
+
+// 一个 subagent 侧链子时间线
+export interface SubagentChain {
+  agent_id: string;
+  slug: string | null;
+  messages: SessionMessage[];
 }
 
 // 会话详情
@@ -579,6 +594,8 @@ export interface SessionDetail {
   messages: SessionMessage[];
   // harness 注入且实际存在的关联 plan 文件绝对路径,无关联时为 null
   plan_file_path: string | null;
+  // 按 agentId 聚合的 subagent 侧链
+  subagents: SubagentChain[];
 }
 
 // 会话关联 plan 文件内容

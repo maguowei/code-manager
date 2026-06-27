@@ -206,6 +206,11 @@ function messageBlockToCopyText(block: MessageBlock, t: (key: TranslationKey) =>
       return `${t("history.image")} · ${stripAnsiForDisplay(block.media_type)}`;
     case "plan":
       return `${stripAnsiForDisplay(block.summary)}\n\n${stripAnsiForDisplay(block.content)}`;
+    case "hook":
+      // hook 触发记录：列出命令列表
+      return block.hooks.map((h) => stripAnsiForDisplay(h.command)).join("\n");
+    case "mode_change":
+      return stripAnsiForDisplay(block.mode);
   }
 }
 

@@ -25,9 +25,11 @@ function setSystemLanguages(languages: string[]) {
 }
 
 function renderDrawer(
-  detail: Omit<SessionDetail, "plan_file_path"> & Partial<Pick<SessionDetail, "plan_file_path">>,
+  detail: Omit<SessionDetail, "plan_file_path" | "subagents"> &
+    Partial<Pick<SessionDetail, "plan_file_path" | "subagents">>,
 ) {
-  const fullDetail: SessionDetail = { plan_file_path: null, ...detail };
+  const defaults = { plan_file_path: null as null, subagents: [] as SessionDetail["subagents"] };
+  const fullDetail: SessionDetail = { ...defaults, ...detail };
   invokeMock.mockResolvedValue(fullDetail);
 
   render(
@@ -79,6 +81,7 @@ describe("SessionDetailDrawer", () => {
         },
       ],
       plan_file_path: null,
+      subagents: [],
     };
 
     renderDrawer(detail);
@@ -177,6 +180,7 @@ describe("SessionDetailDrawer", () => {
         },
       ],
       plan_file_path: null,
+      subagents: [],
     };
 
     renderDrawer(detail);
