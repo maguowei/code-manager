@@ -149,6 +149,9 @@ pub enum MessageBlock {
         prevented_continuation: bool,
         stop_reason: Option<String>,
     },
+    /// 模式切换（plan / default 等）
+    #[serde(rename = "mode_change")]
+    ModeChange { mode: String },
 }
 
 /// 一条对话消息
@@ -424,8 +427,26 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
             continue;
         }
 
-        // 只处理 user 和 assistant 类型
+        // mode 切换记录独立成 message
         let msg_type = record.get("type").and_then(|t| t.as_str()).unwrap_or("");
+        if msg_type == "mode" {
+            if let Some(mode) = record.get("mode").and_then(|m| m.as_str()) {
+                let timestamp = record
+                    .get("timestamp")
+                    .and_then(|t| t.as_str())
+                    .map(|s| s.to_string());
+                messages.push(SessionMessage {
+                    role: "system".to_string(),
+                    blocks: vec![MessageBlock::ModeChange {
+                        mode: mode.to_string(),
+                    }],
+                    timestamp,
+                });
+            }
+            continue;
+        }
+
+        // 只处理 user 和 assistant 类型
         if msg_type != "user" && msg_type != "assistant" {
             continue;
         }
@@ -1236,5 +1257,21 @@ mod tests {
             detail.messages[0].blocks[0],
             MessageBlock::Hook { .. }
         ));
+    }
+
+    #[test]
+    fn get_session_detail_surfaces_mode_changes() {
+        let env = TestEnv::new("session-mode");
+        let content = "{\"type\":\"mode\",\"mode\":\"plan\",\"sessionId\":\"s1\"}\n\
+            {\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":\"go\"}}\n";
+        env.write_session("/p", "s1", content);
+
+        let detail = get_session_detail("/p", "s1").expect("解析应成功");
+
+        assert_eq!(detail.messages.len(), 2);
+        match &detail.messages[0].blocks[0] {
+            MessageBlock::ModeChange { mode } => assert_eq!(mode, "plan"),
+            other => panic!("应为 ModeChange: {:?}", serde_json::to_string(other).ok()),
+        }
     }
 }
