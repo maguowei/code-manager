@@ -36,7 +36,12 @@ import {
   type SessionMessage,
   type SessionUsageDetail,
 } from "../types";
-import { HookBlock, ModeChangeBlock } from "./SessionEventBlocks";
+import {
+  HookBlock,
+  ModeChangeBlock,
+  PlanModeEnteredBlock,
+  PlanModeExitedBlock,
+} from "./SessionEventBlocks";
 import { SessionKpiBar } from "./SessionKpiBar";
 import { SessionPlanDialog } from "./SessionPlanDialog";
 import { SessionSubagents } from "./SessionSubagents";
@@ -67,7 +72,15 @@ const ANSI_SEQUENCE_RE = new RegExp(
   `(?:${ESC_PATTERN}\\][^${BEL_PATTERN}]*(?:${BEL_PATTERN}|${ESC_PATTERN}\\\\)|${ESC_PATTERN}\\[[0-?]*[ -/]*[@-~]|${C1_CSI_PATTERN}[0-?]*[ -/]*[@-~])`,
   "g",
 );
-const EVENT_BLOCK_TYPES = new Set<MessageBlock["type"]>(["command", "system", "plan"]);
+const EVENT_BLOCK_TYPES = new Set<MessageBlock["type"]>([
+  "command",
+  "system",
+  "plan",
+  "hook",
+  "mode_change",
+  "plan_mode_entered",
+  "plan_mode_exited",
+]);
 
 /** 扩展名到 Prism 语言标识的映射（模块级常量） */
 const EXT_LANG_MAP: Record<string, string> = {
@@ -220,6 +233,14 @@ function messageBlockToCopyText(block: MessageBlock, t: (key: TranslationKey) =>
       return block.hooks.map((h) => stripAnsiForDisplay(h.command)).join("\n");
     case "mode_change":
       return stripAnsiForDisplay(block.mode);
+    case "plan_mode_entered":
+      return block.plan_file_path
+        ? `${t("history.planModeEntered")} ${stripAnsiForDisplay(block.plan_file_path)}`
+        : t("history.planModeEntered");
+    case "plan_mode_exited":
+      return block.plan_file_path
+        ? `${t("history.planModeExited")} ${stripAnsiForDisplay(block.plan_file_path)}`
+        : t("history.planModeExited");
   }
 }
 
@@ -701,6 +722,12 @@ const MessageBlocks = memo(function MessageBlocks({
         break;
       case "mode_change":
         elements.push(<ModeChangeBlock key={i} block={block} t={t} />);
+        break;
+      case "plan_mode_entered":
+        elements.push(<PlanModeEnteredBlock key={i} block={block} t={t} />);
+        break;
+      case "plan_mode_exited":
+        elements.push(<PlanModeExitedBlock key={i} block={block} t={t} />);
         break;
     }
     i++;

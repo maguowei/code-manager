@@ -571,11 +571,13 @@ export type MessageBlock =
       prevented_continuation: boolean;
       stop_reason: string | null;
     }
-  | { type: "mode_change"; mode: string };
+  | { type: "mode_change"; mode: string }
+  | { type: "plan_mode_entered"; plan_file_path: string | null }
+  | { type: "plan_mode_exited"; plan_file_path: string | null };
 
 // 一条对话消息
 export interface SessionMessage {
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "system";
   blocks: MessageBlock[];
   timestamp?: string;
 }

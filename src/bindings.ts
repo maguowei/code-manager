@@ -537,7 +537,11 @@ export type MessageBlock =
 /**  hook 触发记录（hookInfos / hookErrors / preventedContinuation / stopReason） */
 { type: "hook"; hooks: HookCall[]; errors: string[]; prevented_continuation: boolean; stop_reason: string | null } |
 /**  模式切换（plan / default 等） */
-{ type: "mode_change"; mode: string };
+{ type: "mode_change"; mode: string } |
+/**  进入 plan 模式（来自 plan_mode attachment） */
+{ type: "plan_mode_entered"; plan_file_path: string | null } |
+/**  退出 plan 模式 / 提交计划（来自 ExitPlanMode tool_use） */
+{ type: "plan_mode_exited"; plan_file_path: string | null };
 
 /**  单模型价格（per million tokens） */
 export type ModelPrice = {

@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import type { SessionDetail } from "../../types";
-import SessionDetailDrawer from "../SessionDetailDrawer";
+import SessionDetailDrawer, { getMessagePresentation } from "../SessionDetailDrawer";
 import { ThemeProvider } from "../theme-provider";
 
 const { invokeMock } = vi.hoisted(() => ({
@@ -479,5 +479,58 @@ describe("SessionDetailDrawer", () => {
 
     // 侧链 slug 触发器应可见（SessionSubagents 默认折叠，但触发按钮可见）
     expect(screen.getByText(/explore-subagent/)).toBeInTheDocument();
+  });
+});
+
+describe("getMessagePresentation", () => {
+  // 回归：role:"system" + 事件块必须路由到 event（走 EventMessage 左对齐头像），
+  // 否则会落入 ConversationMessage 的「非 assistant 当作用户」分支，导致头像左右不一致。
+  it("role:system 的 plan_mode_entered 路由为 event", () => {
+    const presentation = getMessagePresentation({
+      role: "system",
+      blocks: [{ type: "plan_mode_entered", plan_file_path: "/Users/demo/.claude/plans/foo.md" }],
+    });
+    expect(presentation.kind).toBe("event");
+  });
+
+  it("role:system 的 hook 与 mode_change 路由为 event", () => {
+    expect(
+      getMessagePresentation({
+        role: "system",
+        blocks: [{ type: "mode_change", mode: "plan" }],
+      }).kind,
+    ).toBe("event");
+    expect(
+      getMessagePresentation({
+        role: "system",
+        blocks: [
+          {
+            type: "hook",
+            hooks: [{ command: "fmt", duration_ms: 5 }],
+            errors: [],
+            prevented_continuation: false,
+            stop_reason: null,
+          },
+        ],
+      }).kind,
+    ).toBe("event");
+  });
+
+  it("纯 ExitPlanMode 的 assistant 消息路由为 event", () => {
+    expect(
+      getMessagePresentation({
+        role: "assistant",
+        blocks: [{ type: "plan_mode_exited", plan_file_path: null }],
+      }).kind,
+    ).toBe("event");
+  });
+
+  it("普通用户文本消息仍路由为 message", () => {
+    expect(
+      getMessagePresentation({
+        role: "user",
+        blocks: [{ type: "text", text: "hello" }],
+      }).kind,
+    ).toBe("message");
   });
 });

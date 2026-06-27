@@ -152,6 +152,12 @@ pub enum MessageBlock {
     /// 模式切换（plan / default 等）
     #[serde(rename = "mode_change")]
     ModeChange { mode: String },
+    /// 进入 plan 模式（来自 plan_mode attachment）
+    #[serde(rename = "plan_mode_entered")]
+    PlanModeEntered { plan_file_path: Option<String> },
+    /// 退出 plan 模式 / 提交计划（来自 ExitPlanMode tool_use）
+    #[serde(rename = "plan_mode_exited")]
+    PlanModeExited { plan_file_path: Option<String> },
 }
 
 /// 一条对话消息
@@ -302,16 +308,29 @@ fn parse_content_blocks(content: &serde_json::Value) -> Vec<MessageBlock> {
                             .and_then(|n| n.as_str())
                             .unwrap_or("unknown")
                             .to_string();
-                        let input_preview = item
-                            .get("input")
-                            .map(|v| {
-                                serde_json::to_string_pretty(v).unwrap_or_else(|_| v.to_string())
-                            })
-                            .unwrap_or_default();
-                        blocks.push(MessageBlock::ToolUse {
-                            name,
-                            input_preview,
-                        });
+                        // ExitPlanMode 是退出 plan 模式 / 提交计划的信号，语义化为专属事件块
+                        // 而非原始 JSON 工具卡片；计划正文仍可经会话级 plan_file_path 查看
+                        if name == "ExitPlanMode" {
+                            let plan_file_path = item
+                                .get("input")
+                                .and_then(|i| i.get("planFilePath"))
+                                .and_then(|v| v.as_str())
+                                .filter(|s| !s.is_empty())
+                                .map(|s| s.to_string());
+                            blocks.push(MessageBlock::PlanModeExited { plan_file_path });
+                        } else {
+                            let input_preview = item
+                                .get("input")
+                                .map(|v| {
+                                    serde_json::to_string_pretty(v)
+                                        .unwrap_or_else(|_| v.to_string())
+                                })
+                                .unwrap_or_default();
+                            blocks.push(MessageBlock::ToolUse {
+                                name,
+                                input_preview,
+                            });
+                        }
                     }
                     "tool_result" => {
                         let content = item
@@ -422,10 +441,23 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
         };
 
         // 在按消息类型过滤前提取 plan_mode attachment 的 plan 路径(attachment 类型随后会被跳过)
-        if plan_path_raw.is_none() {
-            if let Some(path) = extract_plan_path_from_record(&record) {
-                plan_path_raw = Some(path);
+        // 会话级 plan_file_path 只取首个,而进入事件按每次出现各发一条(可能多次进入 plan 模式)
+        if let Some(path) = extract_plan_path_from_record(&record) {
+            if plan_path_raw.is_none() {
+                plan_path_raw = Some(path.clone());
             }
+            let timestamp = record
+                .get("timestamp")
+                .and_then(|t| t.as_str())
+                .map(|s| s.to_string());
+            messages.push(SessionMessage {
+                role: "system".to_string(),
+                blocks: vec![MessageBlock::PlanModeEntered {
+                    plan_file_path: Some(path.to_string_lossy().into_owned()),
+                }],
+                timestamp,
+            });
+            continue;
         }
 
         // hook 记录独立成 message，按时间线插入（不属于 user/assistant 对话体）
@@ -445,7 +477,13 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
         // mode 切换记录独立成 message
         let msg_type = record.get("type").and_then(|t| t.as_str()).unwrap_or("");
         if msg_type == "mode" {
-            if let Some(mode) = record.get("mode").and_then(|m| m.as_str()) {
+            // normal 是 harness 每轮写入的状态心跳(全量数据 100% 是 normal),不是真实切换,清除噪音
+            // 仅保留 acceptEdits / bypassPermissions / plan 等非默认模式
+            if let Some(mode) = record
+                .get("mode")
+                .and_then(|m| m.as_str())
+                .filter(|m| *m != "normal")
+            {
                 let timestamp = record
                     .get("timestamp")
                     .and_then(|t| t.as_str())
@@ -1363,6 +1401,79 @@ mod tests {
         match &detail.messages[0].blocks[0] {
             MessageBlock::ModeChange { mode } => assert_eq!(mode, "plan"),
             other => panic!("应为 ModeChange: {:?}", serde_json::to_string(other).ok()),
+        }
+    }
+
+    #[test]
+    fn get_session_detail_drops_normal_mode_heartbeat() {
+        let env = TestEnv::new("session-mode-normal");
+        // normal 是每轮状态心跳，不应生成时间线消息
+        let content = "{\"type\":\"mode\",\"mode\":\"normal\",\"sessionId\":\"s1\"}\n\
+            {\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":\"go\"}}\n";
+        env.write_session("/p", "s1", content);
+
+        let detail = get_session_detail("/p", "s1").expect("解析应成功");
+
+        assert_eq!(
+            detail.messages.len(),
+            1,
+            "normal 心跳不进入时间线，仅剩 1 条 user"
+        );
+        assert!(matches!(
+            detail.messages[0].blocks[0],
+            MessageBlock::Text { .. }
+        ));
+    }
+
+    #[test]
+    fn get_session_detail_surfaces_plan_mode_entered() {
+        let env = TestEnv::new("session-plan-entered");
+        let content = "{\"type\":\"attachment\",\"attachment\":{\"type\":\"plan_mode\",\
+            \"planFilePath\":\"/Users/demo/.claude/plans/foo.md\"},\
+            \"timestamp\":\"2026-06-27T00:00:00Z\"}\n\
+            {\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":\"go\"}}\n";
+        env.write_session("/p", "s1", content);
+
+        let detail = get_session_detail("/p", "s1").expect("解析应成功");
+
+        assert_eq!(detail.messages.len(), 2, "进入事件 + user 共两条");
+        match &detail.messages[0].blocks[0] {
+            MessageBlock::PlanModeEntered { plan_file_path } => {
+                assert_eq!(
+                    plan_file_path.as_deref(),
+                    Some("/Users/demo/.claude/plans/foo.md")
+                );
+            }
+            other => panic!(
+                "应为 PlanModeEntered: {:?}",
+                serde_json::to_string(other).ok()
+            ),
+        }
+    }
+
+    #[test]
+    fn get_session_detail_maps_exit_plan_mode_tool_use() {
+        let env = TestEnv::new("session-plan-exited");
+        // assistant 内 ExitPlanMode tool_use 应语义化为 PlanModeExited，而非通用 ToolUse
+        let content = "{\"type\":\"assistant\",\"message\":{\"role\":\"assistant\",\"content\":\
+            [{\"type\":\"tool_use\",\"name\":\"ExitPlanMode\",\
+            \"input\":{\"plan\":\"do it\",\"planFilePath\":\"/Users/demo/.claude/plans/bar.md\"}}]}}\n";
+        env.write_session("/p", "s1", content);
+
+        let detail = get_session_detail("/p", "s1").expect("解析应成功");
+
+        assert_eq!(detail.messages.len(), 1);
+        match &detail.messages[0].blocks[0] {
+            MessageBlock::PlanModeExited { plan_file_path } => {
+                assert_eq!(
+                    plan_file_path.as_deref(),
+                    Some("/Users/demo/.claude/plans/bar.md")
+                );
+            }
+            other => panic!(
+                "应为 PlanModeExited: {:?}",
+                serde_json::to_string(other).ok()
+            ),
         }
     }
 }

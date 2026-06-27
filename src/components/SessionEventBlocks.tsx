@@ -1,8 +1,15 @@
-import { AlertTriangle, GitBranch, Webhook } from "lucide-react";
+import { AlertTriangle, ClipboardCheck, ClipboardList, GitBranch, Webhook } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TranslationKey } from "../i18n";
 import type { MessageBlock } from "../types";
 import { Badge } from "./ui/badge";
+
+/** 取路径最后一级文件名，用于在事件块旁展示计划文件 */
+function planFileName(path: string | null): string | null {
+  if (!path) return null;
+  const name = path.split(/[/\\]/).pop()?.trim();
+  return name && name.length > 0 ? name : null;
+}
 
 /** 渲染 hook 触发块：命令列表 + 错误高亮 + 拦截标记 */
 export function HookBlock({
@@ -71,6 +78,42 @@ export function ModeChangeBlock({
       <span>
         {t("history.modeChange")}: <span className="font-medium">{block.mode}</span>
       </span>
+    </div>
+  );
+}
+
+/** 渲染进入 plan 模式块（来自 plan_mode attachment） */
+export function PlanModeEnteredBlock({
+  block,
+  t,
+}: {
+  block: Extract<MessageBlock, { type: "plan_mode_entered" }>;
+  t: (k: TranslationKey) => string;
+}) {
+  const fileName = planFileName(block.plan_file_path);
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <ClipboardList className="size-3.5" />
+      <span>{t("history.planModeEntered")}</span>
+      {fileName && <span className="font-mono text-foreground">{fileName}</span>}
+    </div>
+  );
+}
+
+/** 渲染退出 plan 模式 / 提交计划块（来自 ExitPlanMode tool_use） */
+export function PlanModeExitedBlock({
+  block,
+  t,
+}: {
+  block: Extract<MessageBlock, { type: "plan_mode_exited" }>;
+  t: (k: TranslationKey) => string;
+}) {
+  const fileName = planFileName(block.plan_file_path);
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <ClipboardCheck className="size-3.5" />
+      <span>{t("history.planModeExited")}</span>
+      {fileName && <span className="font-mono text-foreground">{fileName}</span>}
     </div>
   );
 }
