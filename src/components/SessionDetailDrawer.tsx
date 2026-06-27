@@ -30,6 +30,7 @@ import { useToast } from "../hooks/useToast";
 import { type TranslationKey, useI18n } from "../i18n";
 import { ipc } from "../ipc";
 import { isTauri, type MessageBlock, type SessionDetail, type SessionMessage } from "../types";
+import { HookBlock, ModeChangeBlock } from "./SessionEventBlocks";
 import { SessionPlanDialog } from "./SessionPlanDialog";
 import SyntaxHighlightedCode from "./SyntaxHighlightedCode";
 import { Badge } from "./ui/badge";
@@ -686,6 +687,12 @@ const MessageBlocks = memo(function MessageBlocks({
             sourceLabel={t("history.planSourceClaude")}
           />,
         );
+        break;
+      case "hook":
+        elements.push(<HookBlock key={i} block={block} t={t} />);
+        break;
+      case "mode_change":
+        elements.push(<ModeChangeBlock key={i} block={block} t={t} />);
         break;
     }
     i++;
