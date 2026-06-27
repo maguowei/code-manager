@@ -48,4 +48,30 @@ describe("SessionSubagents", () => {
     );
     expect(container).toBeEmptyDOMElement();
   });
+
+  it("forceExpand 为 true 时无需点击即渲染子消息（供查找命中）", () => {
+    render(
+      <SessionSubagents
+        subagents={chains}
+        forceExpand
+        renderBlocks={(blocks) => (
+          <>
+            {blocks.map((b, i) =>
+              b.type === "text" ? (
+                <span
+                  // biome-ignore lint/suspicious/noArrayIndexKey: 测试用渲染，索引语义稳定
+                  key={i}
+                >
+                  {b.text}
+                </span>
+              ) : null,
+            )}
+          </>
+        )}
+        t={t}
+      />,
+    );
+    // 未点击触发器，子消息内容也应在 DOM 中
+    expect(screen.getByText(/sub answer/)).toBeInTheDocument();
+  });
 });

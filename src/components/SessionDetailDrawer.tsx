@@ -20,7 +20,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { memo, type ReactNode, useEffect, useMemo, useState } from "react";
+import { memo, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { showOperationError } from "@/lib/user-facing-error";
@@ -36,6 +36,7 @@ import {
   type SessionMessage,
   type SessionUsageDetail,
 } from "../types";
+import { ConversationSearchBar } from "./ConversationSearchBar";
 import {
   HookBlock,
   ModeChangeBlock,
@@ -52,6 +53,7 @@ import { Card } from "./ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
 import { projectDisplayName, shortSessionId } from "./usage/format";
+import { useConversationSearch } from "./useConversationSearch";
 
 /** 文件类工具集合（模块级常量，避免每次渲染重建 Set） */
 const FILE_TOOLS = new Set(["Read", "Write", "Edit", "NotebookRead", "NotebookEdit"]);
@@ -784,7 +786,7 @@ function EventMessage({
   return (
     <div
       data-slot="session-event"
-      className="group grid min-w-0 grid-cols-[2rem_minmax(0,1fr)_2rem] gap-3"
+      className="session-msg-cv group grid min-w-0 grid-cols-[2rem_minmax(0,1fr)_2rem] gap-3"
     >
       <div className="col-start-1 row-start-1 flex flex-col items-center gap-1 pt-1 text-xs text-muted-foreground">
         <span className="flex size-7 items-center justify-center rounded-full border bg-card text-muted-foreground shadow-xs">
@@ -828,7 +830,7 @@ function ConversationMessage({
       data-slot="session-message"
       data-role={msg.role}
       data-variant={isError ? "error" : undefined}
-      className="group grid min-w-0 grid-cols-[2rem_minmax(0,1fr)_2rem] gap-3"
+      className="session-msg-cv group grid min-w-0 grid-cols-[2rem_minmax(0,1fr)_2rem] gap-3"
     >
       <div
         className={cn(
@@ -884,6 +886,9 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
   const [planDialogOpen, setPlanDialogOpen] = useState(false);
   // usage detail 拉取失败时静默降级为 null，不阻断对话展示
   const [usageDetail, setUsageDetail] = useState<SessionUsageDetail | null>(null);
+  // 应用内查找：containerRef 指向消息滚动容器（查找栏在容器外，不被计入匹配）
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const search = useConversationSearch(messagesContainerRef);
 
   useEffect(() => {
     if (!isTauri()) {
@@ -1098,6 +1103,20 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
           </div>
         </SheetHeader>
 
+        {search.open && (
+          <ConversationSearchBar
+            query={search.query}
+            onQueryChange={search.setQuery}
+            matchCount={search.matchCount}
+            currentIndex={search.currentIndex}
+            onNext={search.next}
+            onPrev={search.prev}
+            onClose={search.close}
+            inputRef={search.inputRef}
+            t={t}
+          />
+        )}
+
         {loading ? (
           <div className="flex flex-1 items-center justify-center text-muted-foreground">
             {t("loading")}
@@ -1109,7 +1128,7 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
           </div>
         ) : (
           // 有主线消息或有 subagents 侧链时都渲染内容区
-          <div className="min-w-0 flex-1 overflow-y-auto bg-secondary">
+          <div ref={messagesContainerRef} className="min-w-0 flex-1 overflow-y-auto bg-secondary">
             <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-5 py-5 max-sm:px-3">
               {messages &&
                 messages.length > 0 &&
@@ -1136,6 +1155,7 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
               <SessionSubagents
                 subagents={detail?.subagents ?? []}
                 renderBlocks={(blocks) => <MessageBlocks blocks={blocks} t={t} />}
+                forceExpand={search.searchActive}
                 t={t}
               />
             </div>

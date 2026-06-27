@@ -8,17 +8,25 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collap
 function SubagentChainRow({
   chain,
   renderBlocks,
+  forceExpand = false,
   t,
 }: {
   chain: SubagentChain;
   renderBlocks: (blocks: MessageBlock[]) => ReactNode;
+  forceExpand?: boolean;
   t: (k: TranslationKey) => string;
 }) {
   const [open, setOpen] = useState(false);
+  // 查找激活时强制展开，使侧链内容挂载进 DOM 以便被搜索命中；保留用户手动态，关闭查找后恢复
+  const isOpen = forceExpand ? true : open;
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="rounded-md border bg-muted/30">
+    <Collapsible
+      open={isOpen}
+      onOpenChange={setOpen}
+      className="session-msg-cv rounded-md border bg-muted/30"
+    >
       <CollapsibleTrigger className="flex w-full items-center gap-1.5 px-3 py-2 text-sm">
-        {open ? (
+        {isOpen ? (
           <ChevronDown className="size-3.5 text-muted-foreground" />
         ) : (
           <ChevronRight className="size-3.5 text-muted-foreground" />
@@ -48,10 +56,12 @@ function SubagentChainRow({
 export function SessionSubagents({
   subagents,
   renderBlocks,
+  forceExpand = false,
   t,
 }: {
   subagents: SubagentChain[];
   renderBlocks: (blocks: MessageBlock[]) => ReactNode;
+  forceExpand?: boolean;
   t: (k: TranslationKey) => string;
 }) {
   if (subagents.length === 0) return null;
@@ -61,7 +71,13 @@ export function SessionSubagents({
         {t("history.subagents")} ({subagents.length})
       </div>
       {subagents.map((chain) => (
-        <SubagentChainRow key={chain.agent_id} chain={chain} renderBlocks={renderBlocks} t={t} />
+        <SubagentChainRow
+          key={chain.agent_id}
+          chain={chain}
+          renderBlocks={renderBlocks}
+          forceExpand={forceExpand}
+          t={t}
+        />
       ))}
     </div>
   );
