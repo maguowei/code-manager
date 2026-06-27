@@ -39,6 +39,7 @@ import {
 import { HookBlock, ModeChangeBlock } from "./SessionEventBlocks";
 import { SessionKpiBar } from "./SessionKpiBar";
 import { SessionPlanDialog } from "./SessionPlanDialog";
+import { SessionSubagents } from "./SessionSubagents";
 import SyntaxHighlightedCode from "./SyntaxHighlightedCode";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -1101,6 +1102,11 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
                   />
                 );
               })}
+              <SessionSubagents
+                subagents={detail?.subagents ?? []}
+                renderBlocks={(blocks) => <MessageBlocks blocks={blocks} t={t} />}
+                t={t}
+              />
             </div>
           </div>
         )}

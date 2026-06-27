@@ -1635,6 +1635,9 @@ const translations = {
     "history.kpiTokens": "Token",
     "history.kpiDuration": "时长",
     "history.kpiHookErrors": "Hook 错误",
+    "history.subagents": "Subagent 侧链",
+    "history.subagentUnnamed": "未命名 subagent",
+    "history.subagentMessages": "条消息",
   },
   en: {
     // 通用
@@ -3334,6 +3337,9 @@ const translations = {
     "history.kpiTokens": "Tokens",
     "history.kpiDuration": "Duration",
     "history.kpiHookErrors": "Hook errors",
+    "history.subagents": "Subagent chains",
+    "history.subagentUnnamed": "Unnamed subagent",
+    "history.subagentMessages": "messages",
   },
 } as const;
 
