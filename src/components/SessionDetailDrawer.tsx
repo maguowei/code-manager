@@ -36,7 +36,7 @@ import {
   type SessionMessage,
   type SessionUsageDetail,
 } from "../types";
-import { ConversationSearchBar } from "./ConversationSearchBar";
+import { ConversationSearch } from "./ConversationSearch";
 import {
   HookBlock,
   ModeChangeBlock,
@@ -53,7 +53,7 @@ import { Card } from "./ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
 import { projectDisplayName, shortSessionId } from "./usage/format";
-import { useConversationSearch } from "./useConversationSearch";
+import { useConversationSearchController } from "./useConversationSearch";
 
 /** 文件类工具集合（模块级常量，避免每次渲染重建 Set） */
 const FILE_TOOLS = new Set(["Read", "Write", "Edit", "NotebookRead", "NotebookEdit"]);
@@ -887,8 +887,9 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
   // usage detail 拉取失败时静默降级为 null，不阻断对话展示
   const [usageDetail, setUsageDetail] = useState<SessionUsageDetail | null>(null);
   // 应用内查找：containerRef 指向消息滚动容器（查找栏在容器外，不被计入匹配）
+  // 控制器只持有 open，使输入时的重渲染局限在查找栏组件内，不触及数百条消息
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const search = useConversationSearch(messagesContainerRef);
+  const search = useConversationSearchController();
 
   useEffect(() => {
     if (!isTauri()) {
@@ -1104,17 +1105,7 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
         </SheetHeader>
 
         {search.open && (
-          <ConversationSearchBar
-            query={search.query}
-            onQueryChange={search.setQuery}
-            matchCount={search.matchCount}
-            currentIndex={search.currentIndex}
-            onNext={search.next}
-            onPrev={search.prev}
-            onClose={search.close}
-            inputRef={search.inputRef}
-            t={t}
-          />
+          <ConversationSearch containerRef={messagesContainerRef} onClose={search.close} t={t} />
         )}
 
         {loading ? (
@@ -1155,7 +1146,7 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
               <SessionSubagents
                 subagents={detail?.subagents ?? []}
                 renderBlocks={(blocks) => <MessageBlocks blocks={blocks} t={t} />}
-                forceExpand={search.searchActive}
+                forceExpand={search.open}
                 t={t}
               />
             </div>
