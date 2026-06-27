@@ -33,8 +33,9 @@ paths:
 - 历史页用 `project`、`q`、`session` 三个 URL 查询参数同步状态；不要引入路由级重构来做同一件事。
 - 历史热力图按本地日期聚合，响应式显示 53 / 39 / 26 / 13 周，星期标签列宽要能容纳中文。
 - 会话列表使用 `@tanstack/react-virtual` 的扁平列表结构，展开/折叠时保持日期分组与会话条目的顺序稳定。
-- 会话详情解析在后端，保留对 command、system、thinking、tool_use、tool_result、image、plan 等块类型的兼容。
+- 会话详情解析在后端，保留对 command、system、thinking、tool_use、tool_result、image、plan、hook、mode_change 等块类型的兼容。
 - `SessionDetailDrawer` 负责会话详情展示、复制路径/会话 ID、跳转原始 jsonl 和消息块渲染；不要把解析逻辑复制到前端。
+- 会话详情头部 KPI 复用 `get_session_usage_detail`（不在 `history.rs` 重复成本逻辑）；subagent 侧链按 `agentId` 聚合进 `SessionDetail.subagents`，前端在 `SessionDetailDrawer` 以可折叠子时间线展示，复用 `MessageBlocks` 渲染。
 
 ## 统计页
 
