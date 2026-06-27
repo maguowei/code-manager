@@ -13,6 +13,7 @@ import { useI18n } from "../i18n";
 import HistoryHeatmap from "./HistoryHeatmap";
 import HistoryProjectList from "./HistoryProjectList";
 import HistorySessionList from "./HistorySessionList";
+import { resolveRequestedSession } from "./history-utils";
 import PageHeader from "./PageHeader";
 import SessionDetailDrawer from "./SessionDetailDrawer";
 import { CONTROL_SURFACE_CLASS, PANEL_SURFACE_CLASS } from "./surface-classes";
@@ -20,6 +21,7 @@ import { Input } from "./ui/input";
 
 type HistoryProjectRequest = {
   project: string;
+  sessionId?: string;
   requestId: number;
 };
 
@@ -45,9 +47,15 @@ function HistoryPage({ projectRequest = null }: HistoryPageProps) {
     }
 
     handledProjectRequestIdRef.current = projectRequest.requestId;
-    setProjectParam(projectRequest.project);
+    const { project, sessionId } = resolveRequestedSession(projectRequest);
+    setProjectParam(project);
     if (searchQuery !== "") setSearchQuery("");
-    if (sessionParam !== "") setSessionParam("");
+    // 携带 sessionId 时直接打开会话详情，否则清空已选会话
+    if (sessionId) {
+      setSessionParam(sessionId);
+    } else if (sessionParam !== "") {
+      setSessionParam("");
+    }
   }, [projectRequest, searchQuery, sessionParam, setProjectParam, setSearchQuery, setSessionParam]);
 
   const sessionProjectMap = useMemo(() => {

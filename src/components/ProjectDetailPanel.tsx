@@ -73,6 +73,7 @@ type ProjectDetailPanelProps = {
   onOpenSession: (sessionId: string) => void;
   onOpenProjectHistory: () => void;
   onOpenProjectUsage: () => void;
+  onOpenSessionInHistory?: (project: string, sessionId: string) => void;
   onRefreshDetail?: () => void;
   isBranchCleanupPreviewing?: boolean;
   isWorktreeCleanupPreviewing?: boolean;
@@ -111,6 +112,7 @@ type RecentSessionsSectionProps = {
   t: TranslateFn;
   onOpenSession: (sessionId: string) => void;
   onOpenProjectHistory: () => void;
+  onOpenSessionInHistory?: (project: string, sessionId: string) => void;
 };
 
 function statusToneClass(tone: StatusTone) {
@@ -629,6 +631,7 @@ function RecentSessionsSection({
   t,
   onOpenSession,
   onOpenProjectHistory,
+  onOpenSessionInHistory,
 }: RecentSessionsSectionProps) {
   return (
     <Card className={cn("projects-recent-sessions gap-4 rounded-lg p-5", PANEL_SURFACE_CLASS)}>
@@ -657,31 +660,43 @@ function RecentSessionsSection({
       ) : (
         <div className="projects-recent-session-list flex flex-col gap-2 border-t pt-3">
           {summary.recentSessions.map((session) => (
-            <Button
-              key={session.sessionId}
-              type="button"
-              variant="ghost"
-              className="projects-recent-session-item h-auto min-w-0 flex-col items-stretch justify-start gap-2 rounded-md border bg-card p-3 text-left whitespace-normal hover:bg-muted/60"
-              onClick={() => onOpenSession(session.sessionId)}
-              aria-label={session.sessionId}
-              title={session.sessionId}
-            >
-              <div className="flex min-w-0 items-center justify-between gap-3">
-                <span className="min-w-0 truncate font-mono text-sm font-semibold">
-                  {shortSessionId(session.sessionId)}
+            <div key={session.sessionId} className="projects-recent-session-wrap flex flex-col">
+              <Button
+                type="button"
+                variant="ghost"
+                className="projects-recent-session-item h-auto min-w-0 flex-col items-stretch justify-start gap-2 rounded-md border bg-card p-3 text-left whitespace-normal hover:bg-muted/60"
+                onClick={() => onOpenSession(session.sessionId)}
+                aria-label={session.sessionId}
+                title={session.sessionId}
+              >
+                <div className="flex min-w-0 items-center justify-between gap-3">
+                  <span className="min-w-0 truncate font-mono text-sm font-semibold">
+                    {shortSessionId(session.sessionId)}
+                  </span>
+                  <Badge variant="secondary" className={cn(PROJECT_TAG_CLASS, "font-normal")}>
+                    {session.messageCount} {t("projects.inputsUnit")}
+                  </Badge>
+                </div>
+                <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                  <MessageSquareText className="size-3.5 shrink-0" aria-hidden="true" />
+                  <span className="min-w-0 truncate">{session.firstPrompt || "—"}</span>
+                </div>
+                <span className="projects-recent-session-time w-full text-right text-xs text-muted-foreground">
+                  {formatHistoryTimestamp(session.lastTimestamp)}
                 </span>
-                <Badge variant="secondary" className={cn(PROJECT_TAG_CLASS, "font-normal")}>
-                  {session.messageCount} {t("projects.inputsUnit")}
-                </Badge>
-              </div>
-              <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-                <MessageSquareText className="size-3.5 shrink-0" aria-hidden="true" />
-                <span className="min-w-0 truncate">{session.firstPrompt || "—"}</span>
-              </div>
-              <span className="projects-recent-session-time w-full text-right text-xs text-muted-foreground">
-                {formatHistoryTimestamp(session.lastTimestamp)}
-              </span>
-            </Button>
+              </Button>
+              {onOpenSessionInHistory && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  className="projects-open-history-btn mt-1 h-auto self-end px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => onOpenSessionInHistory(summary.project, session.sessionId)}
+                >
+                  {t("history.openSession")}
+                </Button>
+              )}
+            </div>
           ))}
         </div>
       )}
@@ -836,6 +851,7 @@ function ProjectDetailPanel({
   onOpenSession,
   onOpenProjectHistory,
   onOpenProjectUsage,
+  onOpenSessionInHistory,
   onRefreshDetail,
   isBranchCleanupPreviewing,
   isWorktreeCleanupPreviewing,
@@ -1199,6 +1215,7 @@ function ProjectDetailPanel({
             t={t}
             onOpenSession={onOpenSession}
             onOpenProjectHistory={onOpenProjectHistory}
+            onOpenSessionInHistory={onOpenSessionInHistory}
           />
         </aside>
       </div>

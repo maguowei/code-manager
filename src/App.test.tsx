@@ -705,6 +705,7 @@ describe("App", () => {
     await waitFor(() => {
       expect(usagePageRenderMock).toHaveBeenLastCalledWith({
         projectRequest: { project: projectsPageProject, requestId: expect.any(Number) },
+        onOpenSessionInHistory: expect.any(Function),
       });
     });
     expect(screen.getByRole("combobox", { name: "项目" })).toHaveValue(projectsPageProject);

@@ -83,6 +83,7 @@ function App() {
   const [hasVisitedClaudeOverview, setHasVisitedClaudeOverview] = useState(false);
   const [historyProjectRequest, setHistoryProjectRequest] = useState<{
     project: string;
+    sessionId?: string;
     requestId: number;
   } | null>(null);
   const [usageProjectRequest, setUsageProjectRequest] = useState<{
@@ -225,6 +226,21 @@ function App() {
     [activateTab, runWithEditorExitGuard],
   );
 
+  const handleOpenSessionInHistory = useCallback(
+    (project: string, sessionId: string) => {
+      runWithEditorExitGuard(() => {
+        historyProjectRequestIdRef.current += 1;
+        setHistoryProjectRequest({
+          project,
+          sessionId,
+          requestId: historyProjectRequestIdRef.current,
+        });
+        activateTab("history");
+      });
+    },
+    [activateTab, runWithEditorExitGuard],
+  );
+
   const handleOpenProjectUsage = useCallback(
     (project: string) => {
       runWithEditorExitGuard(() => {
@@ -283,11 +299,15 @@ function App() {
             ) : activeTab === "stats" ? (
               <StatsPage />
             ) : activeTab === "usage" ? (
-              <UsagePage projectRequest={usageProjectRequest} />
+              <UsagePage
+                projectRequest={usageProjectRequest}
+                onOpenSessionInHistory={handleOpenSessionInHistory}
+              />
             ) : activeTab === "projects" ? (
               <ProjectsPage
                 onOpenProjectHistory={handleOpenProjectHistory}
                 onOpenProjectUsage={handleOpenProjectUsage}
+                onOpenSessionInHistory={handleOpenSessionInHistory}
               />
             ) : activeTab === "history" ? (
               <HistoryPage projectRequest={historyProjectRequest} />

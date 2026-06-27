@@ -1557,6 +1557,7 @@ const translations = {
     // 历史页面
     "nav.history": "历史",
     "history.title": "使用历史",
+    "history.openSession": "在历史中打开",
     "history.allProjects": "全部项目",
     "history.messages": "条",
     "history.userInputs": "条用户输入",
@@ -3259,6 +3260,7 @@ const translations = {
     // 历史页面
     "nav.history": "History",
     "history.title": "Usage History",
+    "history.openSession": "Open in history",
     "history.allProjects": "All Projects",
     "history.messages": "msgs",
     "history.userInputs": "user inputs",

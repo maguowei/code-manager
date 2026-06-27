@@ -87,6 +87,7 @@ type ProjectGitCleanupDialogState = {
 type ProjectsPageProps = {
   onOpenProjectHistory?: (project: string) => void;
   onOpenProjectUsage?: (project: string) => void;
+  onOpenSessionInHistory?: (project: string, sessionId: string) => void;
 };
 
 function clampNumber(value: number, min: number, max: number) {
@@ -475,7 +476,11 @@ function ProjectEmptyState({ children }: { children: string }) {
   );
 }
 
-function ProjectsPage({ onOpenProjectHistory, onOpenProjectUsage }: ProjectsPageProps = {}) {
+function ProjectsPage({
+  onOpenProjectHistory,
+  onOpenProjectUsage,
+  onOpenSessionInHistory,
+}: ProjectsPageProps = {}) {
   const { t } = useI18n();
   const { showToast } = useToast();
   const {
@@ -1216,6 +1221,7 @@ function ProjectsPage({ onOpenProjectHistory, onOpenProjectUsage }: ProjectsPage
               onOpenSession={handleOpenSession}
               onOpenProjectHistory={handleOpenProjectHistory}
               onOpenProjectUsage={handleOpenProjectUsage}
+              onOpenSessionInHistory={onOpenSessionInHistory}
               onRefreshDetail={() => {
                 if (selectedSummary) {
                   void loadProjectDetail(selectedSummary.project, { clearBeforeLoad: false });
