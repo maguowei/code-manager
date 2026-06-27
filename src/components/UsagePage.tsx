@@ -196,9 +196,10 @@ type UsageProjectRequest = {
 
 type UsagePageProps = {
   projectRequest?: UsageProjectRequest | null;
+  onOpenSessionInHistory?: (project: string, sessionId: string) => void;
 };
 
-function UsagePage({ projectRequest = null }: UsagePageProps = {}) {
+function UsagePage({ projectRequest = null, onOpenSessionInHistory }: UsagePageProps = {}) {
   const { language, t } = useI18n();
   const { showToast } = useToast();
   const u = useUsage(t("usage.loadError"));
@@ -1360,7 +1361,12 @@ function UsagePage({ projectRequest = null }: UsagePageProps = {}) {
                 {u.tab === "daily" && <DailyTable rows={u.daily} t={t} />}
                 {u.tab === "project" && <ProjectTable rows={u.projects} t={t} />}
                 {u.tab === "session" && (
-                  <SessionTable rows={u.sessions} t={t} onOpen={(id) => setOpenSessionId(id)} />
+                  <SessionTable
+                    rows={u.sessions}
+                    t={t}
+                    onOpen={(id) => setOpenSessionId(id)}
+                    onOpenInHistory={onOpenSessionInHistory}
+                  />
                 )}
                 {u.tab === "model" && <ModelTable rows={u.models} t={t} />}
               </div>
@@ -2027,10 +2033,12 @@ function SessionTable({
   rows,
   t,
   onOpen,
+  onOpenInHistory,
 }: {
   rows: SessionUsage[];
   t: ReturnType<typeof useI18n>["t"];
   onOpen: (id: string) => void;
+  onOpenInHistory?: (project: string, sessionId: string) => void;
 }) {
   if (rows.length === 0) return <EmptyTable t={t} />;
   return (
@@ -2045,6 +2053,7 @@ function SessionTable({
             <th className="num">{t("usage.table.messages")}</th>
             <th className="num">{t("usage.table.totalTokens")}</th>
             <th className="num">{t("usage.table.cost")}</th>
+            {onOpenInHistory && <th />}
           </tr>
         </thead>
         <tbody>
@@ -2078,6 +2087,28 @@ function SessionTable({
                 <td className="num">{s.messages}</td>
                 <td className="num">{formatTokens(total)}</td>
                 <td className="num accent-green">{formatCost(s.cost)}</td>
+                {onOpenInHistory && (
+                  <td
+                    onClick={(e) => {
+                      // 阻止行级点击触发用量抽屉
+                      e.stopPropagation();
+                    }}
+                  >
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      className="usage-open-history-btn h-auto whitespace-nowrap px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+                      title={t("history.openSession")}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenInHistory(s.projectPath, s.sessionId);
+                      }}
+                    >
+                      {t("history.openSession")}
+                    </Button>
+                  </td>
+                )}
               </tr>
             );
           })}
