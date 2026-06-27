@@ -307,6 +307,12 @@ export type HistoryResult = {
 	mtime: number,
 };
 
+/**  单个 hook 调用：命令与耗时（耗时可能缺省） */
+export type HookCall = {
+	command: string,
+	duration_ms: number | null,
+};
+
 /**  「会话状态 → 灯效」映射偏好,作为 `AppPreferences.led_control` 持久化。 */
 export type LedControlPreferences = {
 	/**  是否启用 LED 联动(默认关,opt-in)。关闭时不主动驱动设备。 */
@@ -527,7 +533,11 @@ export type MessageBlock =
 /**  图片内容 */
 { type: "image"; source_type: string; media_type: string; data: string | null } |
 /**  计划内容（用户审批的 plan） */
-{ type: "plan"; summary: string; content: string };
+{ type: "plan"; summary: string; content: string } |
+/**  hook 触发记录（hookInfos / hookErrors / preventedContinuation / stopReason） */
+{ type: "hook"; hooks: HookCall[]; errors: string[]; prevented_continuation: boolean; stop_reason: string | null } |
+/**  模式切换（plan / default 等） */
+{ type: "mode_change"; mode: string };
 
 /**  单模型价格（per million tokens） */
 export type ModelPrice = {
@@ -913,6 +923,8 @@ export type SessionDetail = {
 	messages: SessionMessage[],
 	/**  harness 注入且实际存在的关联 plan 文件绝对路径,无关联时为 None */
 	plan_file_path: string | null,
+	/**  按 agentId 聚合的 subagent 侧链子时间线 */
+	subagents: SubagentChain[],
 };
 
 /**  一条对话消息 */
@@ -1026,6 +1038,13 @@ export type StatusLinePresetInstallResult = {
 	commandPath: string,
 	installed: boolean,
 	needsOverwrite: boolean,
+};
+
+/**  一个 subagent 侧链（按 agentId 聚合的子时间线） */
+export type SubagentChain = {
+	agent_id: string,
+	slug: string | null,
+	messages: SessionMessage[],
 };
 
 export type UnmanagedMemory = {

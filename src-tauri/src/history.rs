@@ -461,12 +461,8 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
             continue;
         }
 
-        // 只处理 user 和 assistant 类型
-        if msg_type != "user" && msg_type != "assistant" {
-            continue;
-        }
-
         // sidechain 消息按 agentId 聚合进 subagents，不进入主线
+        // 必须在类型守卫之前处理，以兼容非 user/assistant 类型的侧链记录
         if record
             .get("isSidechain")
             .and_then(|v| v.as_bool())
@@ -518,6 +514,11 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
                 blocks,
                 timestamp,
             });
+            continue;
+        }
+
+        // 只处理 user 和 assistant 类型
+        if msg_type != "user" && msg_type != "assistant" {
             continue;
         }
 
