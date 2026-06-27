@@ -162,6 +162,14 @@ pub struct SessionMessage {
     pub timestamp: Option<String>,
 }
 
+/// 一个 subagent 侧链（按 agentId 聚合的子时间线）
+#[derive(Debug, Serialize, specta::Type)]
+pub struct SubagentChain {
+    pub agent_id: String,
+    pub slug: Option<String>,
+    pub messages: Vec<SessionMessage>,
+}
+
 /// 会话详情返回结果
 #[derive(Debug, Serialize, specta::Type)]
 pub struct SessionDetail {
@@ -170,6 +178,8 @@ pub struct SessionDetail {
     pub messages: Vec<SessionMessage>,
     /// harness 注入且实际存在的关联 plan 文件绝对路径,无关联时为 None
     pub plan_file_path: Option<String>,
+    /// 按 agentId 聚合的 subagent 侧链子时间线
+    pub subagents: Vec<SubagentChain>,
 }
 
 /// 预编译的 XML 标签正则
@@ -382,6 +392,7 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
                 project: project.to_string(),
                 messages: Vec::new(),
                 plan_file_path: None,
+                subagents: Vec::new(),
             });
         }
         Err(e) => return Err(format!("打开会话文件失败: {}", e)),
@@ -390,6 +401,10 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
     let reader = BufReader::new(file);
 
     let mut messages: Vec<SessionMessage> = Vec::new();
+    // 侧链按 agentId 聚合（保持首次出现顺序）
+    let mut subagent_order: Vec<String> = Vec::new();
+    let mut subagent_map: std::collections::HashMap<String, SubagentChain> =
+        std::collections::HashMap::new();
     // harness 注入的关联 plan 文件路径(plan_mode attachment,会话级唯一)
     let mut plan_path_raw: Option<PathBuf> = None;
     for line_result in reader.lines() {
@@ -451,12 +466,58 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
             continue;
         }
 
-        // 跳过 sidechain 消息
+        // sidechain 消息按 agentId 聚合进 subagents，不进入主线
         if record
             .get("isSidechain")
             .and_then(|v| v.as_bool())
             .unwrap_or(false)
         {
+            let agent_id = record
+                .get("agentId")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string();
+            let slug = record
+                .get("slug")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            let message = match record.get("message") {
+                Some(m) => m,
+                None => continue,
+            };
+            let role = message
+                .get("role")
+                .and_then(|r| r.as_str())
+                .unwrap_or("user")
+                .to_string();
+            let content_val = message
+                .get("content")
+                .cloned()
+                .unwrap_or(serde_json::Value::Null);
+            let blocks = parse_content_blocks(&content_val);
+            if blocks.is_empty() {
+                continue;
+            }
+            let timestamp = record
+                .get("timestamp")
+                .and_then(|t| t.as_str())
+                .map(|s| s.to_string());
+            let chain = subagent_map.entry(agent_id.clone()).or_insert_with(|| {
+                subagent_order.push(agent_id.clone());
+                SubagentChain {
+                    agent_id: agent_id.clone(),
+                    slug: slug.clone(),
+                    messages: Vec::new(),
+                }
+            });
+            if chain.slug.is_none() {
+                chain.slug = slug;
+            }
+            chain.messages.push(SessionMessage {
+                role,
+                blocks,
+                timestamp,
+            });
             continue;
         }
 
@@ -571,11 +632,17 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
         .and_then(|p| validate_plan_file(&p).ok())
         .map(|p| p.to_string_lossy().into_owned());
 
+    let subagents: Vec<SubagentChain> = subagent_order
+        .into_iter()
+        .filter_map(|id| subagent_map.remove(&id))
+        .collect();
+
     Ok(SessionDetail {
         session_id: session_id.to_string(),
         project: project.to_string(),
         messages,
         plan_file_path,
+        subagents,
     })
 }
 
@@ -1257,6 +1324,29 @@ mod tests {
             detail.messages[0].blocks[0],
             MessageBlock::Hook { .. }
         ));
+    }
+
+    #[test]
+    fn get_session_detail_groups_sidechains_by_agent_id() {
+        let env = TestEnv::new("session-subagent");
+        let content = "{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":\"main\"}}\n\
+            {\"type\":\"user\",\"isSidechain\":true,\"agentId\":\"a1\",\"slug\":\"explore\",\
+            \"message\":{\"role\":\"user\",\"content\":\"sub task\"}}\n\
+            {\"type\":\"assistant\",\"isSidechain\":true,\"agentId\":\"a1\",\"slug\":\"explore\",\
+            \"message\":{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"sub answer\"}]}}\n";
+        env.write_session("/p", "s1", content);
+
+        let detail = get_session_detail("/p", "s1").expect("解析应成功");
+
+        assert_eq!(detail.messages.len(), 1, "主线只剩 1 条 user");
+        assert_eq!(
+            detail.subagents.len(),
+            1,
+            "侧链按 agentId 聚合为 1 个 chain"
+        );
+        assert_eq!(detail.subagents[0].agent_id, "a1");
+        assert_eq!(detail.subagents[0].slug.as_deref(), Some("explore"));
+        assert_eq!(detail.subagents[0].messages.len(), 2, "子时间线 2 条消息");
     }
 
     #[test]
