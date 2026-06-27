@@ -102,6 +102,13 @@ pub fn get_history_if_changed(last_mtime: u64) -> Result<Option<HistoryResult>, 
     Ok(Some(HistoryResult { content, mtime }))
 }
 
+/// 单个 hook 调用：命令与耗时（耗时可能缺省）
+#[derive(Debug, Serialize, specta::Type)]
+pub struct HookCall {
+    pub command: String,
+    pub duration_ms: Option<u64>,
+}
+
 /// 对话消息内容块
 #[derive(Debug, Serialize, specta::Type)]
 #[serde(tag = "type")]
@@ -134,6 +141,14 @@ pub enum MessageBlock {
     /// 计划内容（用户审批的 plan）
     #[serde(rename = "plan")]
     Plan { summary: String, content: String },
+    /// hook 触发记录（hookInfos / hookErrors / preventedContinuation / stopReason）
+    #[serde(rename = "hook")]
+    Hook {
+        hooks: Vec<HookCall>,
+        errors: Vec<String>,
+        prevented_continuation: bool,
+        stop_reason: Option<String>,
+    },
 }
 
 /// 一条对话消息
@@ -395,6 +410,20 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
             }
         }
 
+        // hook 记录独立成 message，按时间线插入（不属于 user/assistant 对话体）
+        if let Some(hook_block) = parse_hook_record(&record) {
+            let timestamp = record
+                .get("timestamp")
+                .and_then(|t| t.as_str())
+                .map(|s| s.to_string());
+            messages.push(SessionMessage {
+                role: "system".to_string(),
+                blocks: vec![hook_block],
+                timestamp,
+            });
+            continue;
+        }
+
         // 只处理 user 和 assistant 类型
         let msg_type = record.get("type").and_then(|t| t.as_str()).unwrap_or("");
         if msg_type != "user" && msg_type != "assistant" {
@@ -552,6 +581,46 @@ pub fn open_session_file_in_editor(project: &str, session_id: &str) -> Result<()
         )
     });
     result
+}
+
+/// 把含 hookInfos 的记录解析为 Hook block；无 hookInfos 返回 None
+fn parse_hook_record(record: &serde_json::Value) -> Option<MessageBlock> {
+    let infos = record.get("hookInfos")?.as_array()?;
+    let hooks = infos
+        .iter()
+        .filter_map(|i| {
+            let command = i.get("command").and_then(|c| c.as_str())?.to_string();
+            let duration_ms = i.get("durationMs").and_then(|d| d.as_u64());
+            Some(HookCall {
+                command,
+                duration_ms,
+            })
+        })
+        .collect();
+    let errors = record
+        .get("hookErrors")
+        .and_then(|e| e.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect()
+        })
+        .unwrap_or_default();
+    let prevented_continuation = record
+        .get("preventedContinuation")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let stop_reason = record
+        .get("stopReason")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
+    Some(MessageBlock::Hook {
+        hooks,
+        errors,
+        prevented_continuation,
+        stop_reason,
+    })
 }
 
 /// 从单条 record 中提取 plan_mode attachment 注入的 planFilePath(harness 注入,会话级唯一)
@@ -1100,5 +1169,72 @@ mod tests {
         let blocks =
             parse_text_with_tags("<local-command-caveat>some caveat</local-command-caveat>");
         assert!(blocks.is_empty(), "纯噪音标签应被剥离后留空");
+    }
+
+    // ─── hook 记录解析 ───
+
+    #[test]
+    fn parse_hook_record_extracts_hooks_errors_and_flags() {
+        let value: serde_json::Value = serde_json::from_str(
+            r#"{
+                "type":"system",
+                "hookCount":2,
+                "hookInfos":[
+                    {"command":"lefthook pre-commit","durationMs":120},
+                    {"command":"format","durationMs":null}
+                ],
+                "hookErrors":["gitleaks failed"],
+                "preventedContinuation":true,
+                "stopReason":"hook blocked"
+            }"#,
+        )
+        .unwrap();
+
+        let block = parse_hook_record(&value).expect("含 hookInfos 应解析为 Hook block");
+        match block {
+            MessageBlock::Hook {
+                hooks,
+                errors,
+                prevented_continuation,
+                stop_reason,
+            } => {
+                assert_eq!(hooks.len(), 2);
+                assert_eq!(hooks[0].command, "lefthook pre-commit");
+                assert_eq!(hooks[0].duration_ms, Some(120));
+                assert_eq!(hooks[1].duration_ms, None);
+                assert_eq!(errors, vec!["gitleaks failed".to_string()]);
+                assert!(prevented_continuation);
+                assert_eq!(stop_reason.as_deref(), Some("hook blocked"));
+            }
+            other => panic!("应为 Hook: {:?}", serde_json::to_string(&other).ok()),
+        }
+    }
+
+    #[test]
+    fn parse_hook_record_returns_none_without_hook_infos() {
+        let value: serde_json::Value =
+            serde_json::from_str(r#"{"type":"user","message":{"role":"user"}}"#).unwrap();
+        assert!(
+            parse_hook_record(&value).is_none(),
+            "无 hookInfos 不应产出 Hook"
+        );
+    }
+
+    #[test]
+    fn get_session_detail_surfaces_hook_records() {
+        let env = TestEnv::new("session-hook");
+        let content =
+            "{\"type\":\"system\",\"hookInfos\":[{\"command\":\"fmt\",\"durationMs\":5}],\
+            \"hookErrors\":[],\"preventedContinuation\":false}\n\
+            {\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":\"hi\"}}\n";
+        env.write_session("/p", "s1", content);
+
+        let detail = get_session_detail("/p", "s1").expect("解析应成功");
+
+        assert_eq!(detail.messages.len(), 2, "hook + user 共两条");
+        assert!(matches!(
+            detail.messages[0].blocks[0],
+            MessageBlock::Hook { .. }
+        ));
     }
 }
