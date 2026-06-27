@@ -1631,6 +1631,10 @@ const translations = {
     "history.messageCopied": "消息已复制",
     "history.messageCopyError": "复制消息失败",
     "history.copyMessageEmpty": "消息内容为空",
+    "history.kpiCost": "成本",
+    "history.kpiTokens": "Token",
+    "history.kpiDuration": "时长",
+    "history.kpiHookErrors": "Hook 错误",
   },
   en: {
     // 通用
@@ -3326,6 +3330,10 @@ const translations = {
     "history.messageCopied": "Message copied",
     "history.messageCopyError": "Failed to copy message",
     "history.copyMessageEmpty": "Message content is empty",
+    "history.kpiCost": "Cost",
+    "history.kpiTokens": "Tokens",
+    "history.kpiDuration": "Duration",
+    "history.kpiHookErrors": "Hook errors",
   },
 } as const;
 

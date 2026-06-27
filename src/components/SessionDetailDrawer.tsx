@@ -29,8 +29,15 @@ import { useCodeMirrorTheme } from "../hooks/useCodeMirrorTheme";
 import { useToast } from "../hooks/useToast";
 import { type TranslationKey, useI18n } from "../i18n";
 import { ipc } from "../ipc";
-import { isTauri, type MessageBlock, type SessionDetail, type SessionMessage } from "../types";
+import {
+  isTauri,
+  type MessageBlock,
+  type SessionDetail,
+  type SessionMessage,
+  type SessionUsageDetail,
+} from "../types";
 import { HookBlock, ModeChangeBlock } from "./SessionEventBlocks";
+import { SessionKpiBar } from "./SessionKpiBar";
 import { SessionPlanDialog } from "./SessionPlanDialog";
 import SyntaxHighlightedCode from "./SyntaxHighlightedCode";
 import { Badge } from "./ui/badge";
@@ -847,6 +854,8 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
   const [detail, setDetail] = useState<SessionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [planDialogOpen, setPlanDialogOpen] = useState(false);
+  // usage detail 拉取失败时静默降级为 null，不阻断对话展示
+  const [usageDetail, setUsageDetail] = useState<SessionUsageDetail | null>(null);
 
   useEffect(() => {
     if (!isTauri()) {
@@ -866,12 +875,34 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+    // 并发拉取用量详情；失败静默降级，不影响对话展示
+    ipc
+      .getSessionUsageDetail(sessionId)
+      .then((result) => {
+        if (!cancelled) setUsageDetail(result);
+      })
+      .catch(() => {
+        if (!cancelled) setUsageDetail(null);
+      });
     return () => {
       cancelled = true;
     };
   }, [project, sessionId, showToast, t]);
 
   const messages = detail?.messages;
+  // 统计 hook 块中包含错误或阻断了续行的条目数
+  const hookErrorCount = useMemo(
+    () =>
+      (messages ?? []).reduce(
+        (acc, m) =>
+          acc +
+          m.blocks.filter(
+            (b) => b.type === "hook" && (b.errors.length > 0 || b.prevented_continuation),
+          ).length,
+        0,
+      ),
+    [messages],
+  );
   const headerProject = detail?.project ?? project;
   const headerProjectName = getProjectDisplayName(headerProject);
   const messageMeta = messages
@@ -1018,6 +1049,8 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
                   </div>
                 )}
               </div>
+              {/* KPI 条：成本 / Token / 时长 / hook 错误数 */}
+              <SessionKpiBar usage={usageDetail} hookErrorCount={hookErrorCount} t={t} />
             </div>
             <div
               data-slot="session-detail-actions"
