@@ -1075,33 +1075,37 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
           <div className="flex flex-1 items-center justify-center text-muted-foreground">
             {t("loading")}
           </div>
-        ) : !messages || messages.length === 0 ? (
+        ) : (!messages || messages.length === 0) && (detail?.subagents?.length ?? 0) === 0 ? (
+          // 既无主线消息也无侧链 subagents 时才显示空状态
           <div className="flex flex-1 items-center justify-center text-muted-foreground">
             {t("history.noData")}
           </div>
         ) : (
+          // 有主线消息或有 subagents 侧链时都渲染内容区
           <div className="min-w-0 flex-1 overflow-y-auto bg-secondary">
             <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-5 py-5 max-sm:px-3">
-              {messages.map((msg, msgIndex) => {
-                const presentation = getMessagePresentation(msg);
-                const messageKey = `${msg.timestamp ?? "untimed"}-${msgIndex}`;
-                return presentation.kind === "event" ? (
-                  <EventMessage
-                    key={messageKey}
-                    msg={msg}
-                    t={t}
-                    onCopy={() => void handleCopyMessage(msg)}
-                  />
-                ) : (
-                  <ConversationMessage
-                    key={messageKey}
-                    msg={msg}
-                    presentation={presentation}
-                    t={t}
-                    onCopy={() => void handleCopyMessage(msg)}
-                  />
-                );
-              })}
+              {messages &&
+                messages.length > 0 &&
+                messages.map((msg, msgIndex) => {
+                  const presentation = getMessagePresentation(msg);
+                  const messageKey = `${msg.timestamp ?? "untimed"}-${msgIndex}`;
+                  return presentation.kind === "event" ? (
+                    <EventMessage
+                      key={messageKey}
+                      msg={msg}
+                      t={t}
+                      onCopy={() => void handleCopyMessage(msg)}
+                    />
+                  ) : (
+                    <ConversationMessage
+                      key={messageKey}
+                      msg={msg}
+                      presentation={presentation}
+                      t={t}
+                      onCopy={() => void handleCopyMessage(msg)}
+                    />
+                  );
+                })}
               <SessionSubagents
                 subagents={detail?.subagents ?? []}
                 renderBlocks={(blocks) => <MessageBlocks blocks={blocks} t={t} />}

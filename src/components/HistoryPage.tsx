@@ -13,17 +13,11 @@ import { useI18n } from "../i18n";
 import HistoryHeatmap from "./HistoryHeatmap";
 import HistoryProjectList from "./HistoryProjectList";
 import HistorySessionList from "./HistorySessionList";
-import { resolveRequestedSession } from "./history-utils";
+import { type HistoryProjectRequest, resolveRequestedSession } from "./history-utils";
 import PageHeader from "./PageHeader";
 import SessionDetailDrawer from "./SessionDetailDrawer";
 import { CONTROL_SURFACE_CLASS, PANEL_SURFACE_CLASS } from "./surface-classes";
 import { Input } from "./ui/input";
-
-type HistoryProjectRequest = {
-  project: string;
-  sessionId?: string;
-  requestId: number;
-};
 
 type HistoryPageProps = {
   projectRequest?: HistoryProjectRequest | null;

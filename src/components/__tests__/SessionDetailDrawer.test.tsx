@@ -449,4 +449,35 @@ describe("SessionDetailDrawer", () => {
       });
     });
   });
+
+  it("仅侧链无主线消息时渲染 subagent 侧链且不显示空状态", async () => {
+    // 回归测试：会话仅含侧链记录（messages 为空），subagents 有数据时，
+    // 不应落入「暂无历史记录」空状态，而应渲染 SessionSubagents 侧链入口。
+    renderDrawer({
+      session_id: SESSION_ID,
+      project: "/Users/dev/Work/AI/code-manager",
+      messages: [],
+      subagents: [
+        {
+          agent_id: "agent-001",
+          slug: "explore-subagent",
+          messages: [
+            {
+              role: "assistant",
+              blocks: [{ type: "text", text: "侧链消息内容" }],
+            },
+          ],
+        },
+      ],
+    });
+
+    // 等待异步加载完成（heading 出现即表示 detail 已返回）
+    await screen.findByRole("heading", { name: "对话详情" });
+
+    // 空状态文字不应出现
+    expect(screen.queryByText("暂无历史记录")).not.toBeInTheDocument();
+
+    // 侧链 slug 触发器应可见（SessionSubagents 默认折叠，但触发按钮可见）
+    expect(screen.getByText(/explore-subagent/)).toBeInTheDocument();
+  });
 });

@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import type { EditorExitGuard } from "./components/editor-exit-guard";
+import type { HistoryProjectRequest } from "./components/history-utils";
 import {
   LIST_PANEL_COMPRESSED_WIDTH_CLASS,
   LIST_PANEL_WIDTH_CLASS,
@@ -81,11 +82,9 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
   const [hasVisitedClaudeOverview, setHasVisitedClaudeOverview] = useState(false);
-  const [historyProjectRequest, setHistoryProjectRequest] = useState<{
-    project: string;
-    sessionId?: string;
-    requestId: number;
-  } | null>(null);
+  const [historyProjectRequest, setHistoryProjectRequest] = useState<HistoryProjectRequest | null>(
+    null,
+  );
   const [usageProjectRequest, setUsageProjectRequest] = useState<{
     project: string;
     requestId: number;
