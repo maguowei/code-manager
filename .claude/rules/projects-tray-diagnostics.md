@@ -3,6 +3,7 @@ paths:
   - "src/components/ProjectsPage.tsx"
   - "src/components/ProjectDetailPanel.tsx"
   - "src/components/ProjectClaudeExplorer.tsx"
+  - "src/components/ProjectAutoMemoryExplorer.tsx"
   - "src/components/project-detail-utils.ts"
   - "src/components/SettingsDrawer.tsx"
   - "src/components/LogViewer.tsx"
@@ -28,6 +29,7 @@ paths:
 - `src/components/ProjectsPage.tsx`
 - `src/components/ProjectDetailPanel.tsx`
 - `src/components/ProjectClaudeExplorer.tsx`
+- `src/components/ProjectAutoMemoryExplorer.tsx`
 - `src/components/project-detail-utils.ts`
 - `src/components/claude-overview/`
 - `src-tauri/src/project.rs`
@@ -41,6 +43,7 @@ paths:
 - `ProjectDetailPanel.tsx` 是项目详情信息层级的主入口。
 - `ProjectClaudeExplorer.tsx` 负责项目级 `.claude/` 概览，必须复用 `src/components/claude-overview/` 的 tree/preview 组件，保持与 `ClaudeOverviewPage` 行为一致。
 - `ProjectClaudeExplorer` 只支持一键创建项目级 `settings.json` / `settings.local.json`；其它文件创建、删除、重命名不要在项目抽屉中另起一套逻辑。
+- `ProjectAutoMemoryExplorer.tsx` 展示项目级自动记忆（`~/.claude/projects/<编码>/memory/`），数据由后端 `auto_memory.rs` 提供，只读视图，不在前端复制目录解析逻辑。
 - `AGENTS.md` / `.agents/skills` 与 `CLAUDE.md` / `.claude/skills` 是双向配对：任一端为真文件 / 真目录都可派生另一端的相对软链；两端都不存在、内容冲突或孤儿软链时禁止自动操作并显式提示用户手动处理。
 - 项目详情跳转历史和用量分别通过 `App.tsx` 传入 `onOpenProjectHistory` / `onOpenProjectUsage`，不要让 `ProjectsPage` 直接重建全局导航状态。
 - 打开终端或编辑器使用设置中的默认应用，统一走 `src-tauri/src/native_open.rs`，不要在具体模块里重复平台分支。
