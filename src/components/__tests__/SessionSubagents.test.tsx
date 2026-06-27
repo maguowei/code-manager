@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { TranslationKey } from "../../i18n";
 import type { SubagentChain } from "../../types";
@@ -36,6 +36,8 @@ describe("SessionSubagents", () => {
         t={t}
       />,
     );
+    // 侧链默认折叠，先点击触发器展开
+    fireEvent.click(screen.getByText(/explore/));
     expect(screen.getByText(/explore/)).toBeInTheDocument();
     expect(screen.getByText(/sub answer/)).toBeInTheDocument();
   });
