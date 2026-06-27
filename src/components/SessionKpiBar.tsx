@@ -36,7 +36,8 @@ export function SessionKpiBar({
 }) {
   // SessionUsage 字段为 camelCase
   const s = usage?.session;
-  const tokens = s ? s.inputTokens + s.outputTokens : 0;
+  // 与成本口径对齐：含 cache_creation 与 cache_read，而非仅 input+output
+  const tokens = s ? s.inputTokens + s.outputTokens + s.cacheCreationTokens + s.cacheReadTokens : 0;
   const elapsed = s ? formatElapsed(s.lastActiveMs - s.startedAtMs) : "—";
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
