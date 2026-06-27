@@ -5,23 +5,59 @@ const HIGHLIGHT_ALL = "conversation-search";
 const HIGHLIGHT_CURRENT = "conversation-search-current";
 // 极端长会话的匹配上限，超出截断防卡顿
 const MAX_MATCHES = 2000;
-// 输入防抖，避免每次按键都全量遍历文本节点
-const DEBOUNCE_MS = 150;
+// 输入防抖，避免每次按键都重算匹配
+const DEBOUNCE_MS = 200;
+
+/** 在已小写化的 haystack 中找 needle 的全部起点（非重叠）；假设两参均已小写，供热路径复用避免重复 toLowerCase */
+function indicesOfLower(haystack: string, needle: string): number[] {
+  if (!needle) return [];
+  const indices: number[] = [];
+  let from = 0;
+  for (;;) {
+    const idx = haystack.indexOf(needle, from);
+    if (idx === -1) break;
+    indices.push(idx);
+    from = idx + needle.length;
+  }
+  return indices;
+}
 
 /** 返回 haystack 中 needle 全部出现的起始下标（不区分大小写，非重叠）；needle 为空返回 [] */
 export function findMatchIndices(haystack: string, needle: string): number[] {
-  if (!needle) return [];
-  const indices: number[] = [];
-  const lowerHaystack = haystack.toLowerCase();
-  const lowerNeedle = needle.toLowerCase();
-  let from = 0;
-  for (;;) {
-    const idx = lowerHaystack.indexOf(lowerNeedle, from);
-    if (idx === -1) break;
-    indices.push(idx);
-    from = idx + lowerNeedle.length;
+  return indicesOfLower(haystack.toLowerCase(), needle.toLowerCase());
+}
+
+/** 文本节点索引项：节点引用 + 预先小写化的文本，避免每次查询重复 toLowerCase 整棵树 */
+type TextEntry = { node: Text; lower: string };
+
+/** 一次性遍历容器，建立文本节点索引（含预小写）；建一次复用，热路径不再走 TreeWalker */
+function buildTextIndex(container: HTMLElement): TextEntry[] {
+  const entries: TextEntry[] = [];
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  let node = walker.nextNode();
+  while (node) {
+    const text = node.nodeValue ?? "";
+    if (text) entries.push({ node: node as Text, lower: text.toLowerCase() });
+    node = walker.nextNode();
   }
-  return indices;
+  return entries;
+}
+
+/** 用预建索引为 query 收集匹配 Range（DOM 顺序＝主线在前、侧链在后），超上限截断 */
+function rangesFromIndex(entries: TextEntry[], query: string): Range[] {
+  const ranges: Range[] = [];
+  const lowerNeedle = query.toLowerCase();
+  if (!lowerNeedle) return ranges;
+  for (const { node, lower } of entries) {
+    for (const idx of indicesOfLower(lower, lowerNeedle)) {
+      const range = document.createRange();
+      range.setStart(node, idx);
+      range.setEnd(node, idx + lowerNeedle.length);
+      ranges.push(range);
+      if (ranges.length >= MAX_MATCHES) return ranges;
+    }
+  }
+  return ranges;
 }
 
 // CSS Custom Highlight API 的类型在部分 TS lib 中缺失，用结构化访问做特性检测，避免 any
@@ -40,27 +76,6 @@ function getHighlightRegistry(): HighlightRegistryLike | null {
 function getHighlightCtor(): HighlightCtor | null {
   const ctor = (globalThis as unknown as { Highlight?: HighlightCtor }).Highlight;
   return ctor ?? null;
-}
-
-/** 在 container 内顺序遍历文本节点，收集 query 的全部匹配 Range（DOM 顺序＝主线在前、侧链在后） */
-function collectRanges(container: HTMLElement, query: string): Range[] {
-  const ranges: Range[] = [];
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
-  let node = walker.nextNode();
-  while (node) {
-    const text = node.nodeValue ?? "";
-    if (text) {
-      for (const idx of findMatchIndices(text, query)) {
-        const range = document.createRange();
-        range.setStart(node, idx);
-        range.setEnd(node, idx + query.length);
-        ranges.push(range);
-        if (ranges.length >= MAX_MATCHES) return ranges;
-      }
-    }
-    node = walker.nextNode();
-  }
-  return ranges;
 }
 
 /**
@@ -101,6 +116,8 @@ export function useConversationSearch(
   const [currentIndex, setCurrentIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const rangesRef = useRef<Range[]>([]);
+  // 文本节点索引：本次查找会话内建一次复用，避免每次按键重走 TreeWalker + 重新 toLowerCase 整棵树
+  const indexRef = useRef<TextEntry[] | null>(null);
 
   const clearHighlights = useCallback(() => {
     const reg = getHighlightRegistry();
@@ -109,8 +126,8 @@ export function useConversationSearch(
     rangesRef.current = [];
   }, []);
 
-  // 设置 current 高亮并把当前匹配滚动到视图中央
-  const applyCurrent = useCallback((index: number) => {
+  // 设置 current 高亮并把当前匹配滚动到视图中央；自动跳转用瞬时滚动，显式导航用平滑滚动
+  const applyCurrent = useCallback((index: number, smooth: boolean) => {
     const ranges = rangesRef.current;
     if (ranges.length === 0) return;
     const clamped = ((index % ranges.length) + ranges.length) % ranges.length;
@@ -123,14 +140,14 @@ export function useConversationSearch(
       range.startContainer.nodeType === Node.ELEMENT_NODE
         ? (range.startContainer as Element)
         : range.startContainer.parentElement;
-    el?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+    el?.scrollIntoView?.({ block: "center", behavior: smooth ? "smooth" : "auto" });
   }, []);
 
   const next = useCallback(() => {
     setCurrentIndex((i) => {
       const len = rangesRef.current.length;
       const ni = len ? (i + 1) % len : 0;
-      applyCurrent(ni);
+      applyCurrent(ni, true);
       return ni;
     });
   }, [applyCurrent]);
@@ -139,7 +156,7 @@ export function useConversationSearch(
     setCurrentIndex((i) => {
       const len = rangesRef.current.length;
       const ni = len ? (i - 1 + len) % len : 0;
-      applyCurrent(ni);
+      applyCurrent(ni, true);
       return ni;
     });
   }, [applyCurrent]);
@@ -171,7 +188,9 @@ export function useConversationSearch(
         setCurrentIndex(0);
         return;
       }
-      const ranges = collectRanges(container, query);
+      // 首次查询时建一次索引（含预小写），后续按键复用，避免重走 TreeWalker
+      if (indexRef.current === null) indexRef.current = buildTextIndex(container);
+      const ranges = rangesFromIndex(indexRef.current, query);
       rangesRef.current = ranges;
       setMatchCount(ranges.length);
       setCurrentIndex(0);
@@ -184,13 +203,19 @@ export function useConversationSearch(
           reg.delete(HIGHLIGHT_CURRENT);
         }
       }
-      if (ranges.length > 0) applyCurrent(0);
+      if (ranges.length > 0) applyCurrent(0, false);
     }, DEBOUNCE_MS);
     return () => clearTimeout(handle);
   }, [query, containerRef, clearHighlights, applyCurrent]);
 
-  // 卸载（关闭查找栏）时清理高亮，避免残留在全局 CSS.highlights 注册表
-  useEffect(() => () => clearHighlights(), [clearHighlights]);
+  // 卸载（关闭查找栏）时清理高亮与索引，避免残留在全局 CSS.highlights 注册表
+  useEffect(
+    () => () => {
+      clearHighlights();
+      indexRef.current = null;
+    },
+    [clearHighlights],
+  );
 
   return { query, setQuery, matchCount, currentIndex, next, prev, inputRef };
 }
