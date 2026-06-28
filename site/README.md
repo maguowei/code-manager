@@ -40,7 +40,7 @@ npx serve site
 3. 推送一次 `site/` 改动（或在 Actions 页手动 `Run workflow`）即可。
 
 发布地址通常为 `https://<user>.github.io/<repo>/`。
-> 注意：私有仓库使用 GitHub Pages 需要 GitHub Pro/Team/Enterprise；公开仓库免费。
+> 本仓库已公开，GitHub Pages 免费可用。
 
 ## 部署到 Cloudflare Pages
 
@@ -63,5 +63,5 @@ npx wrangler pages deploy site --project-name code-manager
 
 - 文案：直接改 `index.html`，中英文成对出现（`data-lang="zh"` / `data-lang="en"`），改动时记得两种语言同步。
 - 版本号：`index.html` 内 hero 徽标处的 `v0.20.1` 需与 `package.json` 等三处版本保持一致。
-- 下载链接：当前指向 `releases/latest`，仓库公开并正式发布 Release 后即自动生效。
+- 下载链接：指向 `releases/latest`；仓库已公开，正式发布 Release 后链接即自动解析到对应平台安装包。
 - 架构图：来源于仓库根目录 `diagram/code-manager-architecture/`，更新后重新复制到 `assets/img/`。
