@@ -664,10 +664,11 @@
             <div class="dl-card">
               <div class="os-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.7 1.3c.1 1-.3 2-1 2.8-.7.8-1.8 1.4-2.8 1.3-.1-1 .4-2 1-2.7.7-.8 1.9-1.4 2.8-1.4zM20 17.3c-.5 1.2-.8 1.7-1.5 2.8-1 1.5-2.3 3.3-4 3.3-1.4 0-1.8-.9-3.8-.9s-2.4.9-3.8.9c-1.6 0-2.8-1.6-3.8-3.1-2.8-4.1-3.1-9-1.4-11.6 1-1.5 2.7-2.4 4.2-2.4 1.6 0 2.6 1 3.9 1 1.3 0 2-1 3.9-1 1.4 0 2.8.7 3.8 2-3.3 1.8-2.8 6.5.3 9z"/></svg></div>
               <h3>macOS</h3>
-              <p class="pkgs"><span data-lang="zh">Apple Silicon / Intel · <code>.dmg</code></span><span data-lang="en">Apple Silicon / Intel · <code>.dmg</code></span></p>
+              <p class="pkgs"><span data-lang="zh">Apple Silicon / Intel · <code>.dmg</code> / Homebrew</span><span data-lang="en">Apple Silicon / Intel · <code>.dmg</code> / Homebrew</span></p>
               <a class="btn btn-primary" href="https://github.com/maguowei/code-manager/releases/latest" target="_blank" rel="noopener">
                 <span data-lang="zh">下载 .dmg</span><span data-lang="en">Download .dmg</span>
               </a>
+              <p class="pkgs" style="margin-top:10px"><code>brew install --cask maguowei/tap/code-manager</code></p>
             </div>
             <div class="dl-card">
               <div class="os-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4.5 10.5 3.3v8.2H3zM11.5 3.1 21 1.8v9.7h-9.5zM3 12.5h7.5v8.2L3 19.5zM11.5 12.5H21v9.7l-9.5-1.3z"/></svg></div>
@@ -689,8 +690,8 @@
 
           <div class="dl-note">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
-            <span data-lang="zh">下载按钮指向 <strong>Releases / latest</strong>，会自动解析到最新版本的各平台安装包；需要历史版本时可前往 <a href="https://github.com/maguowei/code-manager/releases" target="_blank" rel="noopener">全部 Releases</a>。macOS 发布包未经过 Apple 公证，首次打开被拦截时执行上文的 <code>xattr</code> 命令即可。</span>
-            <span data-lang="en">Download buttons point to <strong>Releases / latest</strong> and resolve to the newest per-platform installers automatically; for older versions, see <a href="https://github.com/maguowei/code-manager/releases" target="_blank" rel="noopener">all releases</a>. macOS builds aren't Apple-notarized; if the first launch is blocked, run the <code>xattr</code> command above.</span>
+            <span data-lang="zh">下载按钮指向 <strong>Releases / latest</strong>，会自动解析到最新版本的各平台安装包；需要历史版本时可前往 <a href="https://github.com/maguowei/code-manager/releases" target="_blank" rel="noopener">全部 Releases</a>。macOS 发布包未经过 Apple 公证：用 Homebrew 安装会自动移除隔离属性，手动下载 <code>.dmg</code> 首次打开被拦截时执行上文的 <code>xattr</code> 命令即可。</span>
+            <span data-lang="en">Download buttons point to <strong>Releases / latest</strong> and resolve to the newest per-platform installers automatically; for older versions, see <a href="https://github.com/maguowei/code-manager/releases" target="_blank" rel="noopener">all releases</a>. macOS builds aren't Apple-notarized: installing via Homebrew removes the quarantine attribute automatically; for a manual <code>.dmg</code>, run the <code>xattr</code> command above if the first launch is blocked.</span>
           </div>
         </div>
       </section>

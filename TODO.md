@@ -16,4 +16,4 @@
 - [ ] [用量监控支持使用遥测实现](https://code.claude.com/docs/zh-CN/monitoring-usage)
 - [ ] 支持配置故障转移切换
 - [ ] 支持自动更新
-- [ ] 支持homebrew 安装
+- [x] 支持homebrew 安装

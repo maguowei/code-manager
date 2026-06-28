@@ -1,0 +1,96 @@
+name: Update Homebrew Cask
+
+# 正式发布（Release publish）后，自动把 maguowei/homebrew-tap 里的
+# code-manager cask 的 version 与 sha256 更新为最新版本。
+# 也支持 workflow_dispatch 手动补跑（传入版本号）。
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "版本号（不带 v 前缀，如 1.0.0）"
+        required: true
+        type: string
+
+# 顶层默认无权限；本 workflow 不写主仓，推送 tap 仓靠 PAT。
+permissions: {}
+
+jobs:
+  update-cask:
+    # 跳过预发布；手动触发时无 release 上下文，照常执行。
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.release.prerelease == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: 解析版本号
+        id: ver
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            raw="$INPUT_VERSION"
+          else
+            raw="$TAG_NAME"
+          fi
+          # 去掉前缀 v
+          version="${raw#v}"
+          if [ -z "$version" ]; then
+            echo "::error::无法解析版本号 (raw=$raw)"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "解析版本: $version"
+
+      - name: 下载 dmg 并计算 sha256
+        id: sha
+        shell: bash
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          url="https://github.com/maguowei/code-manager/releases/download/v${VERSION}/code-manager_${VERSION}_universal.dmg"
+          echo "下载: $url"
+          curl -fL --retry 3 --retry-delay 5 -o cm.dmg "$url"
+          sha256="$(shasum -a 256 cm.dmg | awk '{print $1}')"
+          echo "sha256=$sha256" >> "$GITHUB_OUTPUT"
+          echo "sha256: $sha256"
+
+      - name: 检出 homebrew-tap 仓库
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: maguowei/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: 更新 cask 并提交
+        shell: bash
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          SHA256: ${{ steps.sha.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          cask="homebrew-tap/Casks/code-manager.rb"
+          if [ ! -f "$cask" ]; then
+            echo "::error::未找到 $cask"
+            exit 1
+          fi
+          # 仅替换 version 与 sha256 两行（url 用 #{version} 插值，无需改）
+          sed -i -E "s|^  version \".*\"|  version \"${VERSION}\"|" "$cask"
+          sed -i -E "s|^  sha256 \".*\"|  sha256 \"${SHA256}\"|" "$cask"
+
+          cd homebrew-tap
+          if git diff --quiet; then
+            echo "cask 无变更，跳过提交。"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/code-manager.rb
+          git commit -m "chore: bump code-manager to ${VERSION}"
+          git push
