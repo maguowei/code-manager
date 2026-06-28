@@ -456,6 +456,17 @@ mod tests {
     use std::sync::MutexGuard;
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    /// 构造一个用于路径编码的绝对项目路径(无需真实存在)。
+    /// Windows 绝对路径需盘符前缀,Unix 用 `/` 前缀;两端编码一致即可。
+    fn fake_project_path(segments: &str) -> String {
+        let trimmed = segments.trim_start_matches('/');
+        if cfg!(windows) {
+            format!("C:\\{}", trimmed.replace('/', "\\"))
+        } else {
+            format!("/{trimmed}")
+        }
+    }
+
     struct TestEnv {
         _guard: MutexGuard<'static, ()>,
         root: PathBuf,
@@ -510,13 +521,13 @@ mod tests {
     #[test]
     fn status_reports_default_dir_enabled_and_file_count() {
         let env = TestEnv::new("status-default");
-        let project = "/Users/test/Work/demo-app";
-        let memory_dir = env.memory_dir_for(project);
+        let project = fake_project_path("Users/test/Work/demo-app");
+        let memory_dir = env.memory_dir_for(&project);
         fs::create_dir_all(&memory_dir).expect("应可创建 memory 目录");
         fs::write(memory_dir.join("MEMORY.md"), "# index").expect("应可写入索引");
         fs::write(memory_dir.join("debugging.md"), "notes").expect("应可写入主题文件");
 
-        let status = get_project_auto_memory_status(project, None).expect("状态应可读取");
+        let status = get_project_auto_memory_status(&project, None).expect("状态应可读取");
 
         assert!(status.enabled, "缺省 autoMemoryEnabled 应视为启用");
         assert!(status.is_inside_claude_dir);
@@ -528,15 +539,15 @@ mod tests {
     #[test]
     fn status_prefers_repo_root_but_falls_back_to_project_dir() {
         let env = TestEnv::new("status-fallback");
-        let repo_root = "/Users/test/Work/monorepo";
-        let project = "/Users/test/Work/monorepo/packages/app";
+        let repo_root = fake_project_path("Users/test/Work/monorepo");
+        let project = fake_project_path("Users/test/Work/monorepo/packages/app");
         // 只有 project（cwd）编码目录存在，repo_root 的不存在 → 应回退到 project
-        let project_memory = env.memory_dir_for(project);
+        let project_memory = env.memory_dir_for(&project);
         fs::create_dir_all(&project_memory).expect("应可创建 project memory 目录");
         fs::write(project_memory.join("MEMORY.md"), "# index").expect("应可写入索引");
 
-        let status = get_project_auto_memory_status(project, Some(repo_root.to_string()))
-            .expect("状态应可读取");
+        let status =
+            get_project_auto_memory_status(&project, Some(repo_root)).expect("状态应可读取");
         assert!(status.exists, "应回退到存在的 project 编码目录");
         assert_eq!(status.memory_file_count, 1);
     }
@@ -568,10 +579,10 @@ mod tests {
         fs::create_dir_all(project.join(".claude")).expect("应可创建项目 .claude 目录");
         fs::write(
             project.join(".claude/settings.json"),
-            format!(
-                "{{\"autoMemoryDirectory\": \"{}\"}}",
-                outside_dir.to_string_lossy()
-            ),
+            serde_json::json!({
+                "autoMemoryDirectory": outside_dir.to_string_lossy()
+            })
+            .to_string(),
         )
         .expect("应可写入项目设置");
 
@@ -709,16 +720,16 @@ mod tests {
     #[test]
     fn overview_and_preview_read_memory_files() {
         let env = TestEnv::new("overview");
-        let project = "/Users/test/Work/demo";
-        let memory_dir = env.memory_dir_for(project);
+        let project = fake_project_path("Users/test/Work/demo");
+        let memory_dir = env.memory_dir_for(&project);
         fs::create_dir_all(&memory_dir).expect("应可创建 memory 目录");
         fs::write(memory_dir.join("MEMORY.md"), "# index\n- topic").expect("应可写入索引");
 
-        let overview = get_project_auto_memory_overview(project, None).expect("总览应可读取");
+        let overview = get_project_auto_memory_overview(&project, None).expect("总览应可读取");
         let paths: Vec<_> = overview.entries.iter().map(|e| e.path.as_str()).collect();
         assert_eq!(paths, vec!["MEMORY.md"]);
 
-        let preview = read_project_auto_memory_file(project, None, "MEMORY.md".to_string())
+        let preview = read_project_auto_memory_file(&project, None, "MEMORY.md".to_string())
             .expect("预览应成功");
         assert_eq!(preview.content, "# index\n- topic");
     }
@@ -726,18 +737,18 @@ mod tests {
     #[test]
     fn delete_entry_and_whole_dir() {
         let env = TestEnv::new("delete");
-        let project = "/Users/test/Work/demo";
-        let memory_dir = env.memory_dir_for(project);
+        let project = fake_project_path("Users/test/Work/demo");
+        let memory_dir = env.memory_dir_for(&project);
         fs::create_dir_all(&memory_dir).expect("应可创建 memory 目录");
         fs::write(memory_dir.join("MEMORY.md"), "# index").expect("应可写入索引");
         fs::write(memory_dir.join("api.md"), "api notes").expect("应可写入主题");
 
-        delete_project_auto_memory_entry(project, None, "api.md".to_string())
+        delete_project_auto_memory_entry(&project, None, "api.md".to_string())
             .expect("应可删除单个文件");
         assert!(!memory_dir.join("api.md").exists());
         assert!(memory_dir.join("MEMORY.md").exists());
 
-        delete_project_auto_memory_entry(project, None, String::new())
+        delete_project_auto_memory_entry(&project, None, String::new())
             .expect("空路径应清空整个 memory 目录");
         assert!(!memory_dir.exists());
     }
