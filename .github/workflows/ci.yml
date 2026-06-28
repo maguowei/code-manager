@@ -15,11 +15,32 @@ on:
 permissions:
   contents: read
 
+# 同一 ref 只保留一组在途运行；PR 上新 push 取消旧运行，main 上不取消以免漏跑分支保护所需状态
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  actionlint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      checks: write
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: actionlint workflow 校验
+        uses: reviewdog/action-actionlint@6fb7acc99f4a1008869fa8a0f09cfca740837d9d # v1.72.0
+        with:
+          reporter: github-check
+          fail_level: error
+
   secrets:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           fetch-depth: 0
 
@@ -35,18 +56,20 @@ jobs:
         include:
           - platform: macos-26
           - platform: ubuntu-24.04
-          - platform: windows-latest
+          - platform: windows-2025
     runs-on: ${{ matrix.platform }}
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v6
-
-      - name: 安装 Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: lts/*
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: 安装 pnpm
         uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "24"
+          cache: pnpm
 
       - name: 安装 Rust stable
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
@@ -54,7 +77,7 @@ jobs:
           toolchain: stable
 
       - name: 安装 GNU Make (Windows)
-        if: matrix.platform == 'windows-latest'
+        if: matrix.platform == 'windows-2025'
         run: choco install make -y --no-progress
 
       - name: Rust 缓存
@@ -76,6 +99,10 @@ jobs:
 
       - name: 前端类型检查与构建
         run: make build-frontend
+
+      - name: IPC 绑定契约检查
+        if: matrix.platform == 'ubuntu-24.04'
+        run: make bindings-check
 
       - name: 前端测试
         if: matrix.platform != 'ubuntu-24.04'

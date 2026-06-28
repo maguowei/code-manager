@@ -22,6 +22,9 @@ pre-commit:
     lefthook-config:
       glob: "lefthook.yml"
       run: pnpm exec lefthook validate
+    actionlint:
+      glob: ".github/workflows/*.{yml,yaml}"
+      run: command -v actionlint >/dev/null 2>&1 && actionlint {staged_files} || echo "actionlint 未安装,跳过 workflow 校验(权威门禁见 CI;可 brew install actionlint)"
 
 commit-msg:
   commands:

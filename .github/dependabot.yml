@@ -1,0 +1,13 @@
+version: 2
+updates:
+  # 每周自动 PR 升级被 SHA pin 的 GitHub Actions,避免 pin 后无人维护
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns:
+          - "*"
