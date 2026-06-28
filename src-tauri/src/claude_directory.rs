@@ -218,7 +218,7 @@ pub fn delete_claude_directory_entry(path: String) -> Result<(), String> {
 }
 
 fn claude_dir() -> Result<PathBuf, String> {
-    Ok(crate::utils::get_home_dir()?.join(".claude"))
+    crate::utils::get_claude_dir()
 }
 
 // 脱敏地包装 io::Error：仅保留动作描述与按 ErrorKind 归类的原因，

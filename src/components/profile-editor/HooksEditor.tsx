@@ -171,9 +171,8 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
   const [interactionError, setInteractionError] = useState("");
   const [pendingDeleteEvent, setPendingDeleteEvent] = useState<string | null>(null);
   const [expandedActionKeys, setExpandedActionKeys] = useState<Set<string>>(() => new Set());
-  const hooksObject = useMemo(() => hooksValue, [hooksValue]);
-  const summaries = useMemo(() => buildHookSummaries(hooksObject, t), [hooksObject, t]);
-  const mojibakePresetApplied = useMemo(() => hasMojibakeHookPreset(hooksObject), [hooksObject]);
+  const summaries = useMemo(() => buildHookSummaries(hooksValue, t), [hooksValue, t]);
+  const mojibakePresetApplied = useMemo(() => hasMojibakeHookPreset(hooksValue), [hooksValue]);
 
   useEffect(() => {
     setHooksValue(readObject(value));
@@ -187,7 +186,7 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
   }, [interactionError, onError]);
 
   function handleAddMojibakePreset() {
-    const result = mergeMojibakeHookPreset(hooksObject);
+    const result = mergeMojibakeHookPreset(hooksValue);
     if (!result.supported) {
       setInteractionError(t("profileEditor.hooks.quickAddUnsupported"));
       return;
@@ -207,7 +206,7 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
       return;
     }
 
-    const nextValue = { ...hooksObject };
+    const nextValue = { ...hooksValue };
     delete nextValue[pendingDeleteEvent];
     setInteractionError("");
     setHooksValue(nextValue);

@@ -44,24 +44,19 @@ function EnvEditor({
     () => (typeof value === "object" && value ? (value as Record<string, unknown>) : {}),
     [value],
   );
-  const visibleValue = useMemo(
-    () =>
-      Object.fromEntries(
-        Object.entries(fullValue).filter(
-          ([key, entry]) => !hiddenKeySet.has(key) && typeof entry === "string",
-        ),
-      ) as Record<string, string>,
-    [fullValue, hiddenKeySet],
-  );
-  const preservedEntries = useMemo(
-    () =>
-      Object.fromEntries(
-        Object.entries(fullValue).filter(
-          ([key, entry]) => hiddenKeySet.has(key) || typeof entry !== "string",
-        ),
-      ) as Record<string, unknown>,
-    [fullValue, hiddenKeySet],
-  );
+  // 单次遍历同时拆分出可见的字符串项与需要保留的隐藏/非字符串项
+  const { visibleValue, preservedEntries } = useMemo(() => {
+    const visible: Record<string, string> = {};
+    const preserved: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(fullValue)) {
+      if (!hiddenKeySet.has(key) && typeof entry === "string") {
+        visible[key] = entry;
+      } else {
+        preserved[key] = entry;
+      }
+    }
+    return { visibleValue: visible, preservedEntries: preserved };
+  }, [fullValue, hiddenKeySet]);
   const visibleEntries = useMemo(
     () =>
       Object.entries(visibleValue).map(

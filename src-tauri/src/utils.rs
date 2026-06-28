@@ -33,6 +33,11 @@ pub fn home_dir_or_fallback() -> PathBuf {
     get_home_dir().unwrap_or_else(|_| PathBuf::from("."))
 }
 
+/// 获取用户级 `~/.claude` 目录
+pub fn get_claude_dir() -> Result<PathBuf, String> {
+    Ok(get_home_dir()?.join(".claude"))
+}
+
 /// 在 Windows 上为命令设置 CREATE_NO_WINDOW，避免控制台子进程闪现黑色终端窗口；
 /// 其它平台为空操作。所有需要静默启动的外部命令都应经过此函数。
 #[cfg(windows)]

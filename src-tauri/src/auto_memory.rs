@@ -51,7 +51,7 @@ struct MemoryDirResolution {
 }
 
 fn claude_dir() -> Result<PathBuf, String> {
-    Ok(crate::utils::get_home_dir()?.join(".claude"))
+    crate::utils::get_claude_dir()
 }
 
 /// 把 `~/` 或 `~` 开头的路径展开为绝对路径；其它原样返回。
