@@ -24,6 +24,15 @@ dist-ssr
 *.sln
 *.sw?
 
+# 环境变量与密钥（纵深防御，防止误提交真实凭据）
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id_rsa
+id_rsa.*
+
 # Claude
 .claude/settings.local.json
 CLAUDE.local.md
