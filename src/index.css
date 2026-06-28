@@ -236,15 +236,8 @@
   }
 }
 
-/* 对话详情应用内查找：CSS Custom Highlight API 高亮（仅支持 color/background-color 等少数属性） */
-::highlight(conversation-search) {
-  background-color: color-mix(in oklab, var(--primary) 28%, transparent);
-}
-
-::highlight(conversation-search-current) {
-  background-color: var(--primary);
-  color: var(--primary-foreground);
-}
+/* 对话详情应用内查找的 ::highlight() 高亮样式已移至运行时注入（src/components/useConversationSearch.ts），
+   避免 lightningcss(Tailwind/Vite) 因不识别该伪元素而在构建时报警告。 */
 
 /* 长会话性能：视口外消息跳过 layout/paint，保留 DOM（不影响查找/滚动）；旧 WebView 自动 no-op */
 .session-msg-cv {

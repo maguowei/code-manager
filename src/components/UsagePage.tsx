@@ -7,7 +7,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   Pie,
   PieChart,
   ReferenceLine,
@@ -1594,8 +1593,9 @@ function ModelCostShare({
       <div className="usage-model-donut relative">
         <ChartContainer config={USAGE_CHART_CONFIG} className="h-[150px] w-full aspect-auto">
           <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
+            {/* Pie 直接读数据项 fill 着色，替代已弃用的 Cell；color 字段仍供下方图例使用 */}
             <Pie
-              data={data}
+              data={data.map((d) => ({ ...d, fill: d.color }))}
               dataKey="value"
               nameKey="name"
               cx="50%"
@@ -1605,11 +1605,7 @@ function ModelCostShare({
               paddingAngle={2}
               stroke="var(--background)"
               strokeWidth={2}
-            >
-              {data.map((entry) => (
-                <Cell key={entry.name} fill={entry.color} />
-              ))}
-            </Pie>
+            />
             <ChartTooltip
               content={<ChartTooltipContent formatter={(v) => formatUSD(tooltipNumber(v))} />}
             />

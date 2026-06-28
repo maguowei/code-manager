@@ -8,6 +8,30 @@ const MAX_MATCHES = 2000;
 // 输入防抖，避免每次按键都重算匹配
 const DEBOUNCE_MS = 200;
 
+// 已注入高亮样式的 <style> 标记，用于幂等检查
+const HIGHLIGHT_STYLE_MARKER = "data-conversation-search-highlight";
+// ::highlight() 高亮样式。运行时注入而非放进 index.css：lightningcss（Tailwind/Vite）尚不识别该伪元素会报警告，
+// 但功能正常;仅支持 color/background-color 等少数属性。var(--primary) 等在运行时从主题根节点级联解析。
+const HIGHLIGHT_STYLE_CSS = `
+::highlight(${HIGHLIGHT_ALL}) {
+  background-color: color-mix(in oklab, var(--primary) 28%, transparent);
+}
+::highlight(${HIGHLIGHT_CURRENT}) {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+}
+`;
+
+// 幂等注入高亮样式：首次调用时向 <head> 插入带标记的 <style>，后续调用直接跳过
+function ensureHighlightStyleInjected(): void {
+  if (typeof document === "undefined") return;
+  if (document.head.querySelector(`style[${HIGHLIGHT_STYLE_MARKER}]`)) return;
+  const style = document.createElement("style");
+  style.setAttribute(HIGHLIGHT_STYLE_MARKER, "");
+  style.textContent = HIGHLIGHT_STYLE_CSS;
+  document.head.appendChild(style);
+}
+
 /** 在已小写化的 haystack 中找 needle 的全部起点（非重叠）；假设两参均已小写，供热路径复用避免重复 toLowerCase */
 function indicesOfLower(haystack: string, needle: string): number[] {
   if (!needle) return [];
@@ -161,8 +185,9 @@ export function useConversationSearch(
     });
   }, [applyCurrent]);
 
-  // 挂载即聚焦输入框
+  // 挂载即聚焦输入框，并确保 ::highlight() 样式已注入（运行时注入，避开 lightningcss 警告）
   useEffect(() => {
+    ensureHighlightStyleInjected();
     inputRef.current?.focus();
   }, []);
 
