@@ -318,7 +318,7 @@
             <article class="card">
               <div class="card-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
               <h3><span data-lang="zh">项目管理</span><span data-lang="en">Project management</span></h3>
-              <p><span data-lang="zh">展示项目 Git 状态、分支、worktree、项目级 <code>.claude/</code>、<code>AGENTS.md</code>/<code>CLAUDE.md</code> 与 Skills 配对；可打开终端/编辑器、跳转历史/用量、清理分支与 worktree。</span><span data-lang="en">Shows git status, branches, worktrees, project <code>.claude/</code>, <code>AGENTS.md</code>/<code>CLAUDE.md</code> and skills pairing; open terminal/editor, jump to history/usage, prune branches and worktrees.</span></p>
+              <p><span data-lang="zh">展示项目 Git 状态、分支、worktree、项目级 <code>.claude/</code>、<code>AGENTS.md</code>/<code>CLAUDE.md</code>、Skills 配对与项目自动记忆；可打开终端/编辑器、跳转历史/用量、清理分支与 worktree。</span><span data-lang="en">Shows git status, branches, worktrees, project <code>.claude/</code>, <code>AGENTS.md</code>/<code>CLAUDE.md</code>, skills pairing and project auto-memory; open terminal/editor, jump to history/usage, prune branches and worktrees.</span></p>
             </article>
             <article class="card">
               <div class="card-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></div>
@@ -328,7 +328,7 @@
             <article class="card">
               <div class="card-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 7 19.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.7 7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H10a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V10a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></div>
               <h3><span data-lang="zh">设置与诊断</span><span data-lang="en">Settings &amp; diagnostics</span></h3>
-              <p><span data-lang="zh">语言、主题、默认终端/编辑器、登录启动、第三方模型计价开关、会话聚焦快捷键与 LED（macOS）、桌面用量浮窗；脱敏日志查看、系统信息一键复制。</span><span data-lang="en">Language, theme, default terminal/editor, launch-at-login, third-party pricing toggle, focus shortcut &amp; LED (macOS), desktop usage widget; redacted log viewer and one-click system info.</span></p>
+              <p><span data-lang="zh">语言、主题、默认终端/编辑器、登录启动、第三方模型计价开关、会话聚焦快捷键与 LED（macOS）、会话等待提示音、桌面用量浮窗；脱敏日志查看、系统信息一键复制。</span><span data-lang="en">Language, theme, default terminal/editor, launch-at-login, third-party pricing toggle, focus shortcut &amp; LED (macOS), session waiting sound, desktop usage widget; redacted log viewer and one-click system info.</span></p>
             </article>
           </div>
 
@@ -413,8 +413,8 @@
                   <span class="arch-chip mono">tray · led · widget</span>
                 </div>
                 <p class="arch-note">
-                  <span data-lang="zh">Rust · Tauri 2 · ≈ 70 个类型化命令 + 公共 utils.rs / logging.rs</span>
-                  <span data-lang="en">Rust · Tauri 2 · ≈70 typed commands + shared utils.rs / logging.rs</span>
+                  <span data-lang="zh">Rust · Tauri 2 · ≈ 90 个类型化命令 + 公共 utils.rs / logging.rs</span>
+                  <span data-lang="en">Rust · Tauri 2 · ≈90 typed commands + shared utils.rs / logging.rs</span>
                 </p>
               </div>
             </div>
@@ -510,7 +510,7 @@
                   </tr>
                   <tr>
                     <td class="dim"><span data-lang="zh">状态行 (statusline)</span><span data-lang="en">Statusline</span></td>
-                    <td class="col-ours"><span class="yes">✓ </span><span data-lang="zh">内置预设脚本一键安装（macOS/Linux）</span><span data-lang="en">Built-in preset, one-click install (macOS/Linux)</span></td>
+                    <td class="col-ours"><span class="yes">✓ </span><span data-lang="zh">内置预设脚本一键安装（三平台，Windows 走 PowerShell 版免 jq）</span><span data-lang="en">Built-in preset, one-click install (all 3 platforms; PowerShell on Windows, no jq)</span></td>
                     <td class="no"><span data-lang="zh">未见</span><span data-lang="en">Not found</span></td>
                   </tr>
                   <tr>
@@ -723,7 +723,7 @@
             </details>
             <details>
               <summary><span data-lang="zh">各平台功能一致吗？</span><span data-lang="en">Is functionality the same on every platform?</span></summary>
-              <div class="answer"><span data-lang="zh">核心配置管理在三平台对等。差异集中在系统集成层：终端会话聚焦、可点击通知、LED 灯效目前仅 macOS；状态行预设支持 macOS/Linux，Windows 暂不支持。详见平台差异文档。</span><span data-lang="en">Core config management is at parity. Differences sit in system integration: terminal focus, clickable notifications and LED are macOS-only for now; statusline presets work on macOS/Linux but not Windows yet. See the platform-support doc.</span></div>
+              <div class="answer"><span data-lang="zh">核心配置管理在三平台对等，状态行预设也三平台都支持（Windows 用 PowerShell 版，免 jq）。差异集中在系统集成层：终端会话聚焦、可点击通知、LED 灯效目前仅 macOS。详见平台差异文档。</span><span data-lang="en">Core config management is at parity, and statusline presets work on all three platforms (PowerShell on Windows, no jq). Differences sit in system integration: terminal focus, clickable notifications and LED are macOS-only for now. See the platform-support doc.</span></div>
             </details>
             <details>
               <summary><span data-lang="zh">是开源的吗？</span><span data-lang="en">Is it open source?</span></summary>
