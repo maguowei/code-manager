@@ -197,6 +197,67 @@ describe("useUsage", () => {
       granularity: "hour",
     });
   });
+
+  it("refreshes pricing then reloads the snapshot, and surfaces refresh failures", async () => {
+    invokeMock.mockImplementation((command) => {
+      if (command === "get_usage_snapshot") return Promise.resolve(makeSnapshot("2026-05-04", 0));
+      if (command === "refresh_usage_pricing") return Promise.resolve({});
+      return Promise.reject(new Error(`unexpected command: ${command}`));
+    });
+
+    render(<UsageProbe />);
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(1));
+
+    // 成功路径：刷新价格后再次拉取快照
+    act(() => {
+      screen.getByRole("button", { name: "refresh-pricing" }).click();
+    });
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("refresh_usage_pricing"));
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(3));
+    expect(screen.getByTestId("error")).toHaveTextContent("");
+
+    // 失败路径：刷新抛错时落到 catch 分支并写入 error
+    invokeMock.mockImplementation((command) => {
+      if (command === "refresh_usage_pricing")
+        return Promise.reject(new Error("pricing source offline"));
+      return Promise.resolve(makeSnapshot("2026-05-04", 0));
+    });
+    act(() => {
+      screen.getByRole("button", { name: "refresh-pricing" }).click();
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId("error")).toHaveTextContent("pricing source offline"),
+    );
+  });
+
+  it("rescans usage then reloads, and surfaces rescan failures", async () => {
+    invokeMock.mockImplementation((command) => {
+      if (command === "get_usage_snapshot") return Promise.resolve(makeSnapshot("2026-05-04", 0));
+      if (command === "rescan_usage") return Promise.resolve({});
+      return Promise.reject(new Error(`unexpected command: ${command}`));
+    });
+
+    render(<UsageProbe />);
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(1));
+
+    // 成功路径：重扫后再次拉取快照
+    act(() => {
+      screen.getByRole("button", { name: "rescan" }).click();
+    });
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("rescan_usage"));
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(3));
+    expect(screen.getByTestId("error")).toHaveTextContent("");
+
+    // 失败路径：重扫抛错时落到 catch 分支并写入 error
+    invokeMock.mockImplementation((command) => {
+      if (command === "rescan_usage") return Promise.reject(new Error("rescan crashed"));
+      return Promise.resolve(makeSnapshot("2026-05-04", 0));
+    });
+    act(() => {
+      screen.getByRole("button", { name: "rescan" }).click();
+    });
+    await waitFor(() => expect(screen.getByTestId("error")).toHaveTextContent("rescan crashed"));
+  });
 });
 
 function UsageProbe() {
@@ -218,9 +279,16 @@ function UsageProbe() {
       <button type="button" onClick={() => usage.setTimeGranularity("fiveMinute")}>
         five-minute
       </button>
+      <button type="button" onClick={() => void usage.refreshPricing().catch(() => {})}>
+        refresh-pricing
+      </button>
+      <button type="button" onClick={() => void usage.rescan().catch(() => {})}>
+        rescan
+      </button>
       <span data-testid="daily-date">{usage.daily.map((d) => d.date).join(",")}</span>
       <span data-testid="total-cost">{usage.summary?.totalCost ?? 0}</span>
       <span data-testid="granularity">{usage.timeGranularity}</span>
+      <span data-testid="error">{usage.error ?? ""}</span>
     </div>
   );
 }

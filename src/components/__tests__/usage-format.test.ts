@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   formatCost,
+  formatCount,
   formatDateTime,
+  formatPercent,
   formatPricePerMillion,
   formatShortDateTime,
   formatTokens,
@@ -47,7 +49,15 @@ describe("usage format helpers", () => {
     expect(todayIso()).toBe("2026-05-23");
     vi.useRealTimers();
 
+    expect(formatCount(0)).toBe("0");
+    expect(formatCount(12_345)).toBe("12,345");
+    expect(formatPercent(Number.NaN)).toBe("0%");
+    expect(formatPercent(0)).toBe("0%");
+    expect(formatPercent(88)).toBe("88.0%");
+
     expect(shortPath("")).toBe("-");
+    // 仅含分隔符：split 后无有效段，回退原字符串
+    expect(shortPath("///")).toBe("///");
     expect(shortPath("/Users/me/project")).toBe("project");
     expect(shortPath("C:\\Users\\me\\project")).toBe("project");
     expect(projectDisplayName("/encoded-project", "")).toBe("/encoded-project");

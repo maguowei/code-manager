@@ -54,6 +54,17 @@ describe("getUserFacingErrorReason", () => {
     expect(getUserFacingErrorReason("<html><body>Internal Server Error</body></html>")).toBeNull();
     expect(getUserFacingErrorReason(JSON.stringify({ error: "x".repeat(160) }))).toBeNull();
   });
+
+  it("reads a message from plain objects and falls back to String for others", () => {
+    // 非 Error 对象但带 string message
+    expect(getUserFacingErrorReason({ message: "后端返回错误" })).toBe("后端返回错误");
+    // message 非字符串 → 走 String(error) 兜底成占位符 → null
+    expect(getUserFacingErrorReason({ message: 500 })).toBeNull();
+    // 无 message 的对象 → String(error) 得 "[object Object]" 占位符 → null
+    expect(getUserFacingErrorReason({ code: "E_FAIL" })).toBeNull();
+    // 非对象原始值 → String(error)
+    expect(getUserFacingErrorReason(42)).toBe("42");
+  });
 });
 
 describe("showOperationError", () => {

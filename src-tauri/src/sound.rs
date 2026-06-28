@@ -4,6 +4,8 @@ use crate::config::WaitingSound;
 
 /// 音效枚举 → `/System/Library/Sounds/` 下的文件名（不含目录）。
 /// 这是白名单的唯一来源：只允许内置系统音效，杜绝任意路径注入。
+// 非 macOS 的普通 lib 构建里仅被测试引用，标记 allow 避免 dead_code 报错。
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub(crate) fn waiting_sound_file_name(sound: WaitingSound) -> &'static str {
     match sound {
         WaitingSound::Glass => "Glass.aiff",

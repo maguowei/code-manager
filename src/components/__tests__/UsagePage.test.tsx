@@ -385,6 +385,7 @@ function makeUsage(
     summary: UsageSummary | null;
     timeGranularity: UsageTimeGranularity;
     timeSeries: UsageTimeSeriesPoint[];
+    error: string | null;
   }> = {},
 ) {
   return {
@@ -406,7 +407,7 @@ function makeUsage(
     reload: vi.fn(async () => undefined),
     refreshPricing: vi.fn(async () => undefined),
     rescan: vi.fn(async () => undefined),
-    error: null,
+    error: overrides.error ?? null,
   };
 }
 
@@ -420,13 +421,18 @@ function renderUsage(
     summary: UsageSummary | null;
     timeGranularity: UsageTimeGranularity;
     timeSeries: UsageTimeSeriesPoint[];
+    error: string | null;
+    onOpenSessionInHistory: (project: string, sessionId: string) => void;
   }>,
 ) {
   const usage = makeUsage(overrides);
   useUsageMock.mockReturnValue(usage);
   render(
     <I18nProvider>
-      <UsagePage projectRequest={overrides?.projectRequest ?? null} />
+      <UsagePage
+        projectRequest={overrides?.projectRequest ?? null}
+        onOpenSessionInHistory={overrides?.onOpenSessionInHistory}
+      />
     </I18nProvider>,
   );
   return usage;
@@ -1035,6 +1041,17 @@ describe("UsagePage cost cockpit", () => {
     expect(screen.queryByText("正在扫描 ~/.claude/projects ...")).not.toBeNull();
   });
 
+  it("renders dash placeholders in the cockpit when the scan finished with no records", () => {
+    renderUsage({ summary: null, loading: false });
+
+    // 扫描完成但无 summary：不再展示骨架，cockpit 内 KPI 卡片全部回退到占位符
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    const summaryGrid = screen.getByRole("region", { name: "用量概览" });
+    expect(within(summaryGrid).getAllByText("-").length).toBeGreaterThanOrEqual(6);
+    // 无 summary 时不渲染价目表入口与第三方计价徽标
+    expect(screen.queryByRole("button", { name: /查看模型价目表/ })).not.toBeInTheDocument();
+  });
+
   it("opens session usage detail from the keyboard", async () => {
     invokeMock.mockResolvedValue({
       session: sessions[0],
@@ -1066,6 +1083,63 @@ describe("UsagePage cost cockpit", () => {
         sessionId: "session-20260524-0932",
       });
     });
+  });
+
+  it("shows the empty state in the session detail drawer when there are no messages", async () => {
+    invokeMock.mockResolvedValue({ session: sessions[0], messages: [] });
+    renderUsage({ tab: "session" });
+
+    fireEvent.keyDown(screen.getByRole("button", { name: /session-20260524-0932/ }), {
+      key: "Enter",
+    });
+
+    expect(await screen.findByText("该会话暂无消息")).toBeInTheDocument();
+  });
+
+  it("surfaces load failures in the session detail drawer", async () => {
+    invokeMock.mockRejectedValue(new Error("detail backend offline"));
+    renderUsage({ tab: "session" });
+
+    fireEvent.keyDown(screen.getByRole("button", { name: /session-20260524-0932/ }), {
+      key: "Enter",
+    });
+
+    expect(await screen.findByText("detail backend offline")).toBeInTheDocument();
+  });
+
+  it("renders the empty state when the scan finished with no messages and no active filters", () => {
+    renderUsage({ summary: { ...summary, totalMessages: 0 }, filter: {} });
+
+    expect(screen.getByText("暂无用量数据")).toBeInTheDocument();
+    expect(
+      screen.getByText("使用 Claude Code 后会自动扫描 ~/.claude/projects/"),
+    ).toBeInTheDocument();
+    // 空状态下不渲染概览卡片区
+    expect(screen.queryByRole("region", { name: "用量概览" })).not.toBeInTheDocument();
+  });
+
+  it("surfaces a usage error banner above the cockpit", () => {
+    renderUsage({ error: "扫描用量数据失败" });
+
+    expect(screen.getByText("扫描用量数据失败")).toBeInTheDocument();
+  });
+
+  it("renders the model breakdown table with shortened model names", () => {
+    renderUsage({ tab: "model" });
+
+    const table = screen.getByRole("table");
+    expect(within(table).getByText("claude-3-7-sonnet")).toBeInTheDocument();
+    expect(within(table).getByText("claude-3-opus")).toBeInTheDocument();
+  });
+
+  it("forwards open-in-history clicks from the session table", () => {
+    const onOpen = vi.fn();
+    renderUsage({ tab: "session", onOpenSessionInHistory: onOpen });
+
+    const buttons = screen.getAllByRole("button", { name: "在历史中打开" });
+    fireEvent.click(buttons[0]);
+
+    expect(onOpen).toHaveBeenCalledWith(sessions[0].projectPath, sessions[0].sessionId);
   });
 
   it("uses a dollar symbol for the usage sidebar menu icon", () => {

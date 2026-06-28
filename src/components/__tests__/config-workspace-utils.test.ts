@@ -1,9 +1,23 @@
 import { describe, expect, it } from "vitest";
 import type { Provider } from "../../types";
 import {
+  applyEnvDefaults,
   applyProviderAutofill,
   getEnabledPluginsSummary,
+  prettyJson,
+  providerDisplayName,
+  providerNameById,
+  providerSlugFromId,
+  readEnvString,
+  readMappedString,
+  readScopedSettingsWithEnv,
+  replaceScopedSettingsWithEnv,
   resolveProviderAutofillValues,
+  setEnvString,
+  setMappedString,
+  setTopLevelBoolean,
+  setTopLevelObject,
+  setTopLevelString,
 } from "../config-workspace-utils";
 
 /** 段 B：Provider 默认模型完全来自 env 显式声明，不再按模型 category 隐式推断 */
@@ -218,5 +232,163 @@ describe("config-workspace-utils preset autofill", () => {
 
     // 无可解析 provider 时不动任何字段(含地址)
     expect(applyProviderAutofill(seededSettings, PRESETS, undefined)).toEqual(seededSettings);
+  });
+});
+
+describe("config-workspace-utils settings mutators", () => {
+  it("serializes nullish values to an empty object literal", () => {
+    expect(prettyJson(undefined)).toBe("{}");
+    expect(prettyJson({ a: 1 })).toBe('{\n  "a": 1\n}');
+  });
+
+  it("sets or deletes a top-level string based on trimmed value", () => {
+    expect(setTopLevelString({}, "name", "  hi  ")).toEqual({ name: "hi" });
+    expect(setTopLevelString({ name: "old" }, "name", "   ")).toEqual({});
+  });
+
+  it("sets a top-level boolean only when enabled, deleting otherwise", () => {
+    expect(setTopLevelBoolean({}, "flag", true)).toEqual({ flag: true });
+    expect(setTopLevelBoolean({ flag: true }, "flag", false)).toEqual({});
+  });
+
+  it("stores a top-level object only when it has keys", () => {
+    expect(setTopLevelObject({}, "env", { A: "1" })).toEqual({ env: { A: "1" } });
+    expect(setTopLevelObject({ env: { A: "1" } }, "env", {})).toEqual({});
+  });
+
+  it("reads a string mapped to env first, then top-level, then empty", () => {
+    expect(readMappedString({ env: { TOKEN: "from-env" } }, "token", "TOKEN")).toEqual({
+      mappedToEnv: true,
+      value: "from-env",
+    });
+    expect(readMappedString({ token: "from-top" }, "token", "TOKEN")).toEqual({
+      mappedToEnv: false,
+      value: "from-top",
+    });
+    expect(readMappedString({}, "token", "TOKEN")).toEqual({ mappedToEnv: false, value: "" });
+    expect(readEnvString({ env: { TOKEN: "x" } }, "TOKEN")).toBe("x");
+    expect(readEnvString({}, "TOKEN")).toBe("");
+  });
+
+  it("moves a mapped string between env and top-level and prunes empty env", () => {
+    // 映射到 env：删除顶层键，写入 env
+    expect(setMappedString({ token: "old" }, "token", "TOKEN", "v", true)).toEqual({
+      env: { TOKEN: "v" },
+    });
+    // 映射到 env 但值为空：env 被清空后整体删除
+    expect(setMappedString({ env: { TOKEN: "x" } }, "token", "TOKEN", "  ", true)).toEqual({});
+    // 不映射：写入顶层键并删除 env 内残留
+    expect(setMappedString({ env: { TOKEN: "x" } }, "token", "TOKEN", "v", false)).toEqual({
+      token: "v",
+    });
+    // 不映射且值为空：删除顶层键
+    expect(setMappedString({ token: "old" }, "token", "TOKEN", "", false)).toEqual({});
+  });
+
+  it("sets or removes an env string and prunes empty env", () => {
+    expect(setEnvString({}, "TOKEN", "v")).toEqual({ env: { TOKEN: "v" } });
+    expect(setEnvString({ env: { TOKEN: "x" } }, "TOKEN", "  ")).toEqual({});
+  });
+
+  it("applies env defaults only for missing keys", () => {
+    expect(
+      applyEnvDefaults({ env: { A: "kept" } }, [
+        { envKey: "A", defaultValue: "ignored" },
+        { envKey: "B", defaultValue: "added" },
+      ]),
+    ).toEqual({ env: { A: "kept", B: "added" } });
+  });
+
+  it("reads and replaces scoped settings together with their env keys", () => {
+    const source = {
+      permissions: { defaultMode: "plan" },
+      hooks: { PreToolUse: [] },
+      env: { SCOPED: "1", OTHER: "2" },
+    };
+    expect(readScopedSettingsWithEnv(source, ["permissions"], ["SCOPED"])).toEqual({
+      permissions: { defaultMode: "plan" },
+      env: { SCOPED: "1" },
+    });
+
+    // 替换：清掉旧 scoped/env 键，写入新值，env 清空后整体删除
+    expect(
+      replaceScopedSettingsWithEnv(
+        { permissions: { defaultMode: "plan" }, env: { SCOPED: "1", KEEP: "2" } },
+        ["permissions"],
+        ["SCOPED"],
+        { permissions: { defaultMode: "default" } },
+      ),
+    ).toEqual({ permissions: { defaultMode: "default" }, env: { KEEP: "2" } });
+
+    expect(replaceScopedSettingsWithEnv({ env: { SCOPED: "1" } }, [], ["SCOPED"], {})).toEqual({});
+  });
+
+  it("derives a provider slug from the id segment after the colon", () => {
+    expect(providerSlugFromId(undefined)).toBe("");
+    expect(providerSlugFromId("  ")).toBe("");
+    expect(providerSlugFromId("builtin:deepseek")).toBe("deepseek");
+    expect(providerSlugFromId("plain")).toBe("plain");
+  });
+
+  it("resolves a provider display name by id with localized fallbacks", () => {
+    expect(providerNameById(PRESETS, "builtin:deepseek", "zh")).toBe("DeepSeek");
+    expect(providerNameById(PRESETS, "missing-id", "en")).toBe("missing-id");
+    expect(providerNameById(PRESETS, undefined, "zh")).toBe("自定义");
+    expect(providerNameById(PRESETS, undefined, "en")).toBe("Custom");
+    expect(providerNameById(PRESETS, undefined, "zh", "未指定")).toBe("未指定");
+  });
+
+  it("picks the localized provider name per language", () => {
+    const provider = PRESETS[0];
+    expect(providerDisplayName(provider, "zh")).toBe("开放路由");
+    expect(providerDisplayName(provider, "en")).toBe("OpenRouter");
+  });
+
+  it("ignores non-string and whitespace-only env values when resolving autofill", () => {
+    const providers: Provider[] = [
+      {
+        id: "custom:dirty-env",
+        name: "Dirty Env",
+        description: "",
+        localizedName: { zh: "脏 env", en: "Dirty Env" },
+        modelSuggestions: [],
+        env: {
+          ANTHROPIC_MODEL: "   ",
+          ANTHROPIC_BASE_URL: "https://ok.example.com",
+        } as unknown as Record<string, string>,
+      },
+    ];
+    expect(resolveProviderAutofillValues(providers, "custom:dirty-env")).toEqual({
+      resolvedBaseUrl: "https://ok.example.com",
+      resolvedModel: undefined,
+      resolvedOpusModel: undefined,
+      resolvedSonnetModel: undefined,
+      resolvedHaikuModel: undefined,
+      resolvedSubagentModel: undefined,
+      resolvedEffortLevel: undefined,
+    });
+    // provider 不存在时返回空对象
+    expect(resolveProviderAutofillValues(providers, "missing")).toEqual({});
+  });
+
+  it("treats a provider without an env field as having no autofill values", () => {
+    const providers = [
+      {
+        id: "custom:no-env",
+        name: "No Env",
+        description: "",
+        localizedName: { zh: "无 env", en: "No Env" },
+        modelSuggestions: [],
+      },
+    ] as unknown as Provider[];
+    expect(resolveProviderAutofillValues(providers, "custom:no-env")).toEqual({
+      resolvedBaseUrl: undefined,
+      resolvedModel: undefined,
+      resolvedOpusModel: undefined,
+      resolvedSonnetModel: undefined,
+      resolvedHaikuModel: undefined,
+      resolvedSubagentModel: undefined,
+      resolvedEffortLevel: undefined,
+    });
   });
 });
