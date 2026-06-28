@@ -47,6 +47,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { SegmentedControl } from "./ui/segmented-control";
 import {
   formatCost,
+  formatCount,
   formatPercent,
   formatShortDateTime,
   formatTokens,
@@ -744,7 +745,7 @@ function UsagePage({ projectRequest = null, onOpenSessionInHistory }: UsagePageP
             <div className="usage-cockpit grid grid-cols-[minmax(0,1fr)_360px] gap-4 max-[1180px]:grid-cols-1">
               <main className="usage-main-column flex min-w-0 flex-col gap-4">
                 <section
-                  className="usage-summary-grid grid grid-cols-2 gap-3 sm:grid-cols-3 2xl:grid-cols-6"
+                  className="usage-summary-grid grid grid-cols-2 gap-3 sm:grid-cols-3 2xl:grid-cols-8"
                   aria-label={t("usage.summaryLabel")}
                 >
                   <MetricCard
@@ -768,6 +769,18 @@ function UsagePage({ projectRequest = null, onOpenSessionInHistory }: UsagePageP
                     label={t("usage.cards.totalMessages")}
                     value={u.summary ? formatCount(u.summary.totalMessages) : "-"}
                     valueClassName={METRIC_COLOR.messages}
+                  />
+                  <MetricCard
+                    label={t("usage.cards.webSearchCount")}
+                    value={u.summary ? formatCount(u.summary.totalWebSearchRequests) : "-"}
+                    valueClassName={METRIC_COLOR.webSearch}
+                    hint={t("usage.cards.webSearchCountHint")}
+                  />
+                  <MetricCard
+                    label={t("usage.cards.webFetchCount")}
+                    value={u.summary ? formatCount(u.summary.totalWebFetchRequests) : "-"}
+                    valueClassName={METRIC_COLOR.webFetch}
+                    hint={t("usage.cards.webFetchCountHint")}
                   />
                   <MetricCard
                     label={t("usage.cards.cacheSavings")}
@@ -1953,7 +1966,7 @@ function DailyTable({ rows, t }: { rows: DailyUsage[]; t: ReturnType<typeof useI
   if (rows.length === 0) return <EmptyTable t={t} />;
   return (
     <div className="usage-table-wrap overflow-x-auto rounded-lg border">
-      <table className="usage-table w-full min-w-[860px] border-collapse text-sm [&_.accent-green]:text-chart-2 [&_.ellipsis]:max-w-[260px] [&_.ellipsis]:truncate [&_.mono]:font-mono [&_.num]:text-right [&_.num]:tabular-nums [&_.strong-cell]:font-medium [&_tbody_tr:last-child_td]:border-b-0 [&_td]:border-b [&_td]:px-3 [&_td]:py-2 [&_th]:border-b [&_th]:bg-muted/50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted-foreground">
+      <table className="usage-table w-full min-w-[940px] border-collapse text-sm [&_.accent-green]:text-chart-2 [&_.ellipsis]:max-w-[260px] [&_.ellipsis]:truncate [&_.mono]:font-mono [&_.num]:text-right [&_.num]:tabular-nums [&_.strong-cell]:font-medium [&_tbody_tr:last-child_td]:border-b-0 [&_td]:border-b [&_td]:px-3 [&_td]:py-2 [&_th]:border-b [&_th]:bg-muted/50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted-foreground">
         <thead>
           <tr>
             <th>{t("usage.table.date")}</th>
@@ -1963,6 +1976,8 @@ function DailyTable({ rows, t }: { rows: DailyUsage[]; t: ReturnType<typeof useI
             <th className="num">{t("usage.table.output")}</th>
             <th className="num">{t("usage.table.cacheCreate")}</th>
             <th className="num">{t("usage.table.cacheRead")}</th>
+            <th className="num">{t("usage.table.webSearch")}</th>
+            <th className="num">{t("usage.table.webFetch")}</th>
             <th className="num">{t("usage.table.cost")}</th>
           </tr>
         </thead>
@@ -1976,6 +1991,8 @@ function DailyTable({ rows, t }: { rows: DailyUsage[]; t: ReturnType<typeof useI
               <td className="num">{formatTokens(d.outputTokens)}</td>
               <td className="num">{formatTokens(d.cacheCreationTokens)}</td>
               <td className="num">{formatTokens(d.cacheReadTokens)}</td>
+              <td className="num">{formatCount(d.webSearchRequests)}</td>
+              <td className="num">{formatCount(d.webFetchRequests)}</td>
               <td className="num accent-green">{formatCost(d.cost)}</td>
             </tr>
           ))}
@@ -1989,7 +2006,7 @@ function ProjectTable({ rows, t }: { rows: ProjectUsage[]; t: ReturnType<typeof 
   if (rows.length === 0) return <EmptyTable t={t} />;
   return (
     <div className="usage-table-wrap overflow-x-auto rounded-lg border">
-      <table className="usage-table w-full min-w-[920px] border-collapse text-sm [&_.accent-green]:text-chart-2 [&_.ellipsis]:max-w-[260px] [&_.ellipsis]:truncate [&_.mono]:font-mono [&_.num]:text-right [&_.num]:tabular-nums [&_.strong-cell]:font-medium [&_tbody_tr:last-child_td]:border-b-0 [&_td]:border-b [&_td]:px-3 [&_td]:py-2 [&_th]:border-b [&_th]:bg-muted/50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted-foreground">
+      <table className="usage-table w-full min-w-[1000px] border-collapse text-sm [&_.accent-green]:text-chart-2 [&_.ellipsis]:max-w-[260px] [&_.ellipsis]:truncate [&_.mono]:font-mono [&_.num]:text-right [&_.num]:tabular-nums [&_.strong-cell]:font-medium [&_tbody_tr:last-child_td]:border-b-0 [&_td]:border-b [&_td]:px-3 [&_td]:py-2 [&_th]:border-b [&_th]:bg-muted/50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted-foreground">
         <thead>
           <tr>
             <th>{t("usage.table.project")}</th>
@@ -2000,6 +2017,8 @@ function ProjectTable({ rows, t }: { rows: ProjectUsage[]; t: ReturnType<typeof 
             <th className="num">{t("usage.table.output")}</th>
             <th className="num">{t("usage.table.cacheCreate")}</th>
             <th className="num">{t("usage.table.cacheRead")}</th>
+            <th className="num">{t("usage.table.webSearch")}</th>
+            <th className="num">{t("usage.table.webFetch")}</th>
             <th className="num">{t("usage.table.cost")}</th>
           </tr>
         </thead>
@@ -2016,6 +2035,8 @@ function ProjectTable({ rows, t }: { rows: ProjectUsage[]; t: ReturnType<typeof 
               <td className="num">{formatTokens(p.outputTokens)}</td>
               <td className="num">{formatTokens(p.cacheCreationTokens)}</td>
               <td className="num">{formatTokens(p.cacheReadTokens)}</td>
+              <td className="num">{formatCount(p.webSearchRequests)}</td>
+              <td className="num">{formatCount(p.webFetchRequests)}</td>
               <td className="num accent-green">{formatCost(p.cost)}</td>
             </tr>
           ))}
@@ -2039,7 +2060,7 @@ function SessionTable({
   if (rows.length === 0) return <EmptyTable t={t} />;
   return (
     <div className="usage-table-wrap overflow-x-auto rounded-lg border">
-      <table className="usage-table w-full min-w-[920px] border-collapse text-sm [&_.accent-green]:text-chart-2 [&_.ellipsis]:max-w-[260px] [&_.ellipsis]:truncate [&_.model-cell]:max-w-[220px] [&_.model-cell]:truncate [&_.mono]:font-mono [&_.num]:text-right [&_.num]:tabular-nums [&_.strong-cell]:font-medium [&_tbody_tr:last-child_td]:border-b-0 [&_td]:border-b [&_td]:px-3 [&_td]:py-2 [&_th]:border-b [&_th]:bg-muted/50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted-foreground">
+      <table className="usage-table w-full min-w-[1000px] border-collapse text-sm [&_.accent-green]:text-chart-2 [&_.ellipsis]:max-w-[260px] [&_.ellipsis]:truncate [&_.model-cell]:max-w-[220px] [&_.model-cell]:truncate [&_.mono]:font-mono [&_.num]:text-right [&_.num]:tabular-nums [&_.strong-cell]:font-medium [&_tbody_tr:last-child_td]:border-b-0 [&_td]:border-b [&_td]:px-3 [&_td]:py-2 [&_th]:border-b [&_th]:bg-muted/50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted-foreground">
         <thead>
           <tr>
             <th>{t("usage.table.session")}</th>
@@ -2048,6 +2069,8 @@ function SessionTable({
             <th>{t("usage.table.models")}</th>
             <th className="num">{t("usage.table.messages")}</th>
             <th className="num">{t("usage.table.totalTokens")}</th>
+            <th className="num">{t("usage.table.webSearch")}</th>
+            <th className="num">{t("usage.table.webFetch")}</th>
             <th className="num">{t("usage.table.cost")}</th>
             {onOpenInHistory && <th />}
           </tr>
@@ -2082,6 +2105,8 @@ function SessionTable({
                 <td className="model-cell">{s.models.map(shortModelName).join(", ")}</td>
                 <td className="num">{s.messages}</td>
                 <td className="num">{formatTokens(total)}</td>
+                <td className="num">{formatCount(s.webSearchRequests)}</td>
+                <td className="num">{formatCount(s.webFetchRequests)}</td>
                 <td className="num accent-green">{formatCost(s.cost)}</td>
                 {onOpenInHistory && (
                   <td
@@ -2118,7 +2143,7 @@ function ModelTable({ rows, t }: { rows: ModelUsageStat[]; t: ReturnType<typeof 
   if (rows.length === 0) return <EmptyTable t={t} />;
   return (
     <div className="usage-table-wrap overflow-x-auto rounded-lg border">
-      <table className="usage-table w-full min-w-[760px] border-collapse text-sm [&_.accent-green]:text-chart-2 [&_.mono]:font-mono [&_.num]:text-right [&_.num]:tabular-nums [&_.strong-cell]:font-medium [&_tbody_tr:last-child_td]:border-b-0 [&_td]:border-b [&_td]:px-3 [&_td]:py-2 [&_th]:border-b [&_th]:bg-muted/50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted-foreground">
+      <table className="usage-table w-full min-w-[840px] border-collapse text-sm [&_.accent-green]:text-chart-2 [&_.mono]:font-mono [&_.num]:text-right [&_.num]:tabular-nums [&_.strong-cell]:font-medium [&_tbody_tr:last-child_td]:border-b-0 [&_td]:border-b [&_td]:px-3 [&_td]:py-2 [&_th]:border-b [&_th]:bg-muted/50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted-foreground">
         <thead>
           <tr>
             <th>{t("usage.table.model")}</th>
@@ -2127,6 +2152,8 @@ function ModelTable({ rows, t }: { rows: ModelUsageStat[]; t: ReturnType<typeof 
             <th className="num">{t("usage.table.output")}</th>
             <th className="num">{t("usage.table.cacheCreate")}</th>
             <th className="num">{t("usage.table.cacheRead")}</th>
+            <th className="num">{t("usage.table.webSearch")}</th>
+            <th className="num">{t("usage.table.webFetch")}</th>
             <th className="num">{t("usage.table.cost")}</th>
           </tr>
         </thead>
@@ -2139,6 +2166,8 @@ function ModelTable({ rows, t }: { rows: ModelUsageStat[]; t: ReturnType<typeof 
               <td className="num">{formatTokens(m.outputTokens)}</td>
               <td className="num">{formatTokens(m.cacheCreationTokens)}</td>
               <td className="num">{formatTokens(m.cacheReadTokens)}</td>
+              <td className="num">{formatCount(m.webSearchRequests)}</td>
+              <td className="num">{formatCount(m.webFetchRequests)}</td>
               <td className="num accent-green">{formatCost(m.cost)}</td>
             </tr>
           ))}
@@ -2274,10 +2303,6 @@ function formatDetailedTokens(n: number): string {
   if (n >= 1_000_000) return `${formatter.format(n / 1_000_000)}M`;
   if (n >= 1_000) return `${formatter.format(n / 1_000)}K`;
   return n.toLocaleString("en-US");
-}
-
-function formatCount(n: number): string {
-  return new Intl.NumberFormat("en-US").format(n);
 }
 
 export default UsagePage;

@@ -15,6 +15,11 @@ export function formatTokens(n: number): string {
   return n.toLocaleString("en-US");
 }
 
+/** 整数千分位（用于计数类指标，如 web search 次数、消息数） */
+export function formatCount(n: number): string {
+  return new Intl.NumberFormat("en-US").format(n);
+}
+
 /** 紧凑成本显示（用于表格） */
 export function formatCost(n: number): string {
   if (!Number.isFinite(n) || n <= 0) return "$0.00";

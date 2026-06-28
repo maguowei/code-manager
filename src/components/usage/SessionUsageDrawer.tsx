@@ -12,6 +12,7 @@ import { Button } from "../ui/button";
 import { Sheet, SheetContent, SheetTitle } from "../ui/sheet";
 import {
   formatCost,
+  formatCount,
   formatShortDateTime,
   formatTokens,
   projectDisplayName,
@@ -165,7 +166,7 @@ function SessionUsageDrawer({ sessionId, onClose }: Props) {
                 </div>
               ) : (
                 <div className={cn("overflow-x-auto rounded-lg border", PANEL_SURFACE_CLASS)}>
-                  <table className="w-full min-w-[760px] border-collapse text-sm">
+                  <table className="w-full min-w-[840px] border-collapse text-sm">
                     <thead>
                       <tr className="border-b border-border/80 bg-muted/50 text-left text-xs font-semibold text-muted-foreground">
                         <th className="px-3 py-2">{t("usage.detail.timestamp")}</th>
@@ -174,6 +175,8 @@ function SessionUsageDrawer({ sessionId, onClose }: Props) {
                         <th className="px-3 py-2 text-right">{t("usage.table.output")}</th>
                         <th className="px-3 py-2 text-right">{t("usage.table.cacheCreate")}</th>
                         <th className="px-3 py-2 text-right">{t("usage.table.cacheRead")}</th>
+                        <th className="px-3 py-2 text-right">{t("usage.table.webSearch")}</th>
+                        <th className="px-3 py-2 text-right">{t("usage.table.webFetch")}</th>
                         <th className="px-3 py-2 text-right">{t("usage.detail.cost")}</th>
                       </tr>
                     </thead>
@@ -200,6 +203,12 @@ function SessionUsageDrawer({ sessionId, onClose }: Props) {
                           </td>
                           <td className="px-3 py-2 text-right tabular-nums">
                             {formatTokens(m.cacheRead)}
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums">
+                            {formatCount(m.webSearchRequests)}
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums">
+                            {formatCount(m.webFetchRequests)}
                           </td>
                           <td className="px-3 py-2 text-right font-semibold tabular-nums">
                             {formatCost(m.costUsd)}

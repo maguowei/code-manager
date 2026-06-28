@@ -297,6 +297,8 @@ export type DailyUsage = {
 	outputTokens: number,
 	cacheCreationTokens: number,
 	cacheReadTokens: number,
+	webSearchRequests: number,
+	webFetchRequests: number,
 	cost: number | null,
 	byModel: ModelUsageStat[],
 };
@@ -617,6 +619,8 @@ export type ModelUsageStat = {
 	outputTokens: number,
 	cacheCreationTokens: number,
 	cacheReadTokens: number,
+	webSearchRequests: number,
+	webFetchRequests: number,
 	cost: number | null,
 };
 
@@ -846,6 +850,8 @@ export type ProjectUsage = {
 	outputTokens: number,
 	cacheCreationTokens: number,
 	cacheReadTokens: number,
+	webSearchRequests: number,
+	webFetchRequests: number,
 	cost: number | null,
 	byModel: ModelUsageStat[],
 };
@@ -979,6 +985,8 @@ export type SessionUsage = {
 	outputTokens: number,
 	cacheCreationTokens: number,
 	cacheReadTokens: number,
+	webSearchRequests: number,
+	webFetchRequests: number,
 	cost: number | null,
 };
 
@@ -1119,6 +1127,10 @@ export type UsageRecord = {
 	cacheCreation5m: number,
 	cacheCreation1h: number,
 	cacheRead: number,
+	/**  WebSearch 工具调用次数（message.content 里 name=="WebSearch" 的 tool_use 块数）；非 token、不单列计费 */
+	webSearchRequests: number,
+	/**  WebFetch 工具调用次数（name=="WebFetch" 的 tool_use 块数）；非 token、不单列计费 */
+	webFetchRequests: number,
 	costUsd: number | null,
 	gitBranch: string | null,
 	ccVersion: string | null,
@@ -1145,6 +1157,8 @@ export type UsageSummary = {
 	totalOutput: number,
 	totalCacheCreation: number,
 	totalCacheRead: number,
+	totalWebSearchRequests: number,
+	totalWebFetchRequests: number,
 	totalCost: number | null,
 	lastScanMs: number | null,
 	pricing: PricingTable,
@@ -1165,6 +1179,8 @@ export type UsageTimeSeriesPoint = {
 	outputTokens: number,
 	cacheCreationTokens: number,
 	cacheReadTokens: number,
+	webSearchRequests: number,
+	webFetchRequests: number,
 	cost: number | null,
 	inputCost: number | null,
 	outputCost: number | null,

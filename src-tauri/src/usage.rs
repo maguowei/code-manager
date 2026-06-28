@@ -1,6 +1,7 @@
 //! Token 用量与花费统计模块
 //!
-//! 数据源：~/.claude/projects/<project_dir>/<sessionId>.jsonl 及其 subagents/*.jsonl
+//! 数据源：~/.claude/projects/<project_dir>/<sessionId>.jsonl 及其 subagents 目录下
+//! 任意深度的 agent jsonl（含 Workflow 工具的 subagents/workflows/wf_*/agent-*.jsonl）
 //!
 //! 提取每条 assistant 记录的 message.usage，按价格表计算 cost，提供按
 //! 日期 / 项目 / 会话 / 模型四个维度的聚合查询。message.id 全局合并，保留最大用量快照。
@@ -72,6 +73,10 @@ pub struct UsageRecord {
     pub cache_creation_5m: u64,
     pub cache_creation_1h: u64,
     pub cache_read: u64,
+    /// WebSearch 工具调用次数（message.content 里 name=="WebSearch" 的 tool_use 块数）；非 token、不单列计费
+    pub web_search_requests: u64,
+    /// WebFetch 工具调用次数（name=="WebFetch" 的 tool_use 块数）；非 token、不单列计费
+    pub web_fetch_requests: u64,
     pub cost_usd: f64,
     pub git_branch: Option<String>,
     pub cc_version: Option<String>,
@@ -209,6 +214,8 @@ pub struct ModelUsageStat {
     pub output_tokens: u64,
     pub cache_creation_tokens: u64,
     pub cache_read_tokens: u64,
+    pub web_search_requests: u64,
+    pub web_fetch_requests: u64,
     pub cost: f64,
 }
 
@@ -222,6 +229,8 @@ pub struct DailyUsage {
     pub output_tokens: u64,
     pub cache_creation_tokens: u64,
     pub cache_read_tokens: u64,
+    pub web_search_requests: u64,
+    pub web_fetch_requests: u64,
     pub cost: f64,
     pub by_model: Vec<ModelUsageStat>,
 }
@@ -246,6 +255,8 @@ pub struct UsageTimeSeriesPoint {
     pub output_tokens: u64,
     pub cache_creation_tokens: u64,
     pub cache_read_tokens: u64,
+    pub web_search_requests: u64,
+    pub web_fetch_requests: u64,
     pub cost: f64,
     pub input_cost: f64,
     pub output_cost: f64,
@@ -266,6 +277,8 @@ pub struct ProjectUsage {
     pub output_tokens: u64,
     pub cache_creation_tokens: u64,
     pub cache_read_tokens: u64,
+    pub web_search_requests: u64,
+    pub web_fetch_requests: u64,
     pub cost: f64,
     pub by_model: Vec<ModelUsageStat>,
 }
@@ -284,6 +297,8 @@ pub struct SessionUsage {
     pub output_tokens: u64,
     pub cache_creation_tokens: u64,
     pub cache_read_tokens: u64,
+    pub web_search_requests: u64,
+    pub web_fetch_requests: u64,
     pub cost: f64,
 }
 
@@ -304,6 +319,8 @@ pub struct UsageSummary {
     pub total_output: u64,
     pub total_cache_creation: u64,
     pub total_cache_read: u64,
+    pub total_web_search_requests: u64,
+    pub total_web_fetch_requests: u64,
     pub total_cost: f64,
     pub last_scan_ms: Option<i64>,
     pub pricing: PricingTable,
@@ -349,6 +366,17 @@ const CLAUDE_MODEL_FILTER: &str = "claude-*";
 const CLAUDE_MODEL_PREFIX: &str = "claude-";
 pub const USAGE_DB_FILENAME: &str = "usage.db";
 
+/// 1 小时 cache write 价格 = 基础 input 价 × 2（官方固定倍率，5m 为 ×1.25）。
+/// 价格表（含 models.dev）不携带独立 1h 字段，按此倍率从 input 推导。
+const CACHE_CREATION_1H_INPUT_MULTIPLIER: f64 = 2.0;
+/// 数据格式版本：解析/计费口径变化时递增，启动时版本不符则对历史记录做一次全量重扫
+/// （清空+从头解析），以回填新提取的字段（如 WebSearch/WebFetch 计数）并按新公式重算成本。
+const USAGE_DATA_FORMAT_VERSION: i64 = 3;
+/// Claude Code 客户端 web 工具名（记在 message.content 的 tool_use 块里，
+/// 非 API 服务端 usage.server_tool_use；后者在 Claude Code transcript 中恒为 0）。
+const WEB_SEARCH_TOOL_NAME: &str = "WebSearch";
+const WEB_FETCH_TOOL_NAME: &str = "WebFetch";
+
 const USAGE_DB_SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS usage_records (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -363,6 +391,8 @@ CREATE TABLE IF NOT EXISTS usage_records (
     cache_creation_5m INTEGER NOT NULL DEFAULT 0,
     cache_creation_1h INTEGER NOT NULL DEFAULT 0,
     cache_read INTEGER NOT NULL DEFAULT 0,
+    web_search_requests INTEGER NOT NULL DEFAULT 0,
+    web_fetch_requests INTEGER NOT NULL DEFAULT 0,
     cost_usd REAL NOT NULL DEFAULT 0,
     git_branch TEXT,
     cc_version TEXT
@@ -431,7 +461,10 @@ fn identify_usage_file(projects_dir: &Path, path: &Path) -> Option<UsageFile> {
 
     let project_dir_name = match parts.as_slice() {
         [project_dir, _session_file] => project_dir.clone(),
-        [project_dir, _session_dir, subagents_dir, _agent_file] if subagents_dir == "subagents" => {
+        // subagents 目录下任意深度的 agent jsonl 都归属父项目：
+        // 既有 <session>/subagents/agent-*.jsonl，也有 Workflow 工具的嵌套
+        // <session>/subagents/workflows/wf_*/agent-*.jsonl。
+        [project_dir, _session_dir, subagents_dir, ..] if subagents_dir == "subagents" => {
             project_dir.clone()
         }
         _ => return None,
@@ -528,6 +561,41 @@ async fn initialize_usage_database(pool: &SqlitePool) -> Result<(), String> {
             .await
             .map_err(|e| e.to_string())?;
     }
+    migrate_usage_schema(pool).await?;
+    Ok(())
+}
+
+/// 幂等列迁移：旧 usage.db 的 usage_records 表已存在，CREATE TABLE IF NOT EXISTS 不会补列，
+/// 这里用 PRAGMA table_info 检测缺失列并 ALTER TABLE 增列。
+async fn migrate_usage_schema(pool: &SqlitePool) -> Result<(), String> {
+    ensure_usage_records_column(pool, "web_search_requests", "INTEGER NOT NULL DEFAULT 0").await?;
+    ensure_usage_records_column(pool, "web_fetch_requests", "INTEGER NOT NULL DEFAULT 0").await
+}
+
+async fn ensure_usage_records_column(
+    pool: &SqlitePool,
+    column: &str,
+    definition: &str,
+) -> Result<(), String> {
+    let rows = sqlx::query("PRAGMA table_info(usage_records)")
+        .fetch_all(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    let exists = rows.iter().any(|row| {
+        row.try_get::<String, _>("name")
+            .map(|name| name == column)
+            .unwrap_or(false)
+    });
+    if exists {
+        return Ok(());
+    }
+    // column/definition 是代码内常量、非用户输入，AssertSqlSafe 显式断言无注入风险
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "ALTER TABLE usage_records ADD COLUMN {column} {definition}"
+    )))
+    .execute(pool)
+    .await
+    .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -711,8 +779,8 @@ async fn insert_usage_record_db(
         "INSERT INTO usage_records (
             message_id, session_id, project_path, project_dir, timestamp_ms, model,
             input_tokens, output_tokens, cache_creation_5m, cache_creation_1h,
-            cache_read, cost_usd, git_branch, cc_version
-         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+            cache_read, web_search_requests, web_fetch_requests, cost_usd, git_branch, cc_version
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
     )
     .bind(&record.message_id)
     .bind(&record.session_id)
@@ -725,6 +793,8 @@ async fn insert_usage_record_db(
     .bind(u64_to_i64(record.cache_creation_5m)?)
     .bind(u64_to_i64(record.cache_creation_1h)?)
     .bind(u64_to_i64(record.cache_read)?)
+    .bind(u64_to_i64(record.web_search_requests)?)
+    .bind(u64_to_i64(record.web_fetch_requests)?)
     .bind(record.cost_usd)
     .bind(&record.git_branch)
     .bind(&record.cc_version)
@@ -752,10 +822,12 @@ async fn update_usage_record_db(
             cache_creation_5m = ?9,
             cache_creation_1h = ?10,
             cache_read = ?11,
-            cost_usd = ?12,
-            git_branch = ?13,
-            cc_version = ?14
-         WHERE id = ?15",
+            web_search_requests = ?12,
+            web_fetch_requests = ?13,
+            cost_usd = ?14,
+            git_branch = ?15,
+            cc_version = ?16
+         WHERE id = ?17",
     )
     .bind(&record.message_id)
     .bind(&record.session_id)
@@ -768,6 +840,8 @@ async fn update_usage_record_db(
     .bind(u64_to_i64(record.cache_creation_5m)?)
     .bind(u64_to_i64(record.cache_creation_1h)?)
     .bind(u64_to_i64(record.cache_read)?)
+    .bind(u64_to_i64(record.web_search_requests)?)
+    .bind(u64_to_i64(record.web_fetch_requests)?)
     .bind(record.cost_usd)
     .bind(&record.git_branch)
     .bind(&record.cc_version)
@@ -785,7 +859,7 @@ async fn load_usage_records_db(
     let mut builder = QueryBuilder::<Sqlite>::new(
         "SELECT message_id, session_id, project_path, project_dir, timestamp_ms, model,
             input_tokens, output_tokens, cache_creation_5m, cache_creation_1h,
-            cache_read, cost_usd, git_branch, cc_version
+            cache_read, web_search_requests, web_fetch_requests, cost_usd, git_branch, cc_version
          FROM usage_records WHERE 1 = 1",
     );
     push_usage_filter_sql(&mut builder, filter);
@@ -805,7 +879,7 @@ async fn load_usage_record_rows_db(pool: &SqlitePool) -> Result<Vec<(i64, UsageR
     let rows = sqlx::query(
         "SELECT id, message_id, session_id, project_path, project_dir, timestamp_ms, model,
             input_tokens, output_tokens, cache_creation_5m, cache_creation_1h,
-            cache_read, cost_usd, git_branch, cc_version
+            cache_read, web_search_requests, web_fetch_requests, cost_usd, git_branch, cc_version
          FROM usage_records ORDER BY timestamp_ms ASC, id ASC",
     )
     .fetch_all(pool)
@@ -868,6 +942,30 @@ async fn load_last_scan_ms_db(pool: &SqlitePool) -> Result<Option<i64>, String> 
     .transpose()
 }
 
+async fn load_data_format_version_db(pool: &SqlitePool) -> Result<Option<i64>, String> {
+    let row = sqlx::query("SELECT value FROM usage_meta WHERE key = 'data_format_version'")
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    row.map(|row| {
+        let value: String = row.try_get("value").map_err(|e| e.to_string())?;
+        value.parse::<i64>().map_err(|e| e.to_string())
+    })
+    .transpose()
+}
+
+async fn save_data_format_version_db(pool: &SqlitePool, value: i64) -> Result<(), String> {
+    sqlx::query(
+        "INSERT INTO usage_meta (key, value) VALUES ('data_format_version', ?1)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    )
+    .bind(value.to_string())
+    .execute(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 fn push_usage_filter_sql(builder: &mut QueryBuilder<Sqlite>, filter: &UsageFilter) {
     if let Some(start_ms) = filter
         .start_date
@@ -924,6 +1022,8 @@ fn row_to_usage_record(row: &sqlx::sqlite::SqliteRow) -> Result<UsageRecord, Str
         cache_creation_5m: row_i64_to_u64(row, "cache_creation_5m")?,
         cache_creation_1h: row_i64_to_u64(row, "cache_creation_1h")?,
         cache_read: row_i64_to_u64(row, "cache_read")?,
+        web_search_requests: row_i64_to_u64(row, "web_search_requests")?,
+        web_fetch_requests: row_i64_to_u64(row, "web_fetch_requests")?,
         cost_usd: row.try_get("cost_usd").map_err(|e| e.to_string())?,
         git_branch: row.try_get("git_branch").map_err(|e| e.to_string())?,
         cc_version: row.try_get("cc_version").map_err(|e| e.to_string())?,
@@ -1041,7 +1141,8 @@ pub fn compute_cost_with_third_party_pricing(
         table,
         usage.input_tokens,
         usage.output_tokens,
-        usage.cache_creation_5m + usage.cache_creation_1h,
+        usage.cache_creation_5m,
+        usage.cache_creation_1h,
         usage.cache_read,
         third_party_provider_pricing_enabled,
     )
@@ -1059,12 +1160,14 @@ pub fn is_unknown_model(
     match_model_price(model, table).is_none()
 }
 
+#[allow(clippy::too_many_arguments)]
 fn compute_cost_parts_with_third_party_pricing(
     model: &str,
     table: &PricingTable,
     input_tokens: u64,
     output_tokens: u64,
-    cache_creation_tokens: u64,
+    cache_creation_5m: u64,
+    cache_creation_1h: u64,
     cache_read_tokens: u64,
     third_party_provider_pricing_enabled: bool,
 ) -> UsageCostParts {
@@ -1076,7 +1179,8 @@ fn compute_cost_parts_with_third_party_pricing(
         table,
         input_tokens,
         output_tokens,
-        cache_creation_tokens,
+        cache_creation_5m,
+        cache_creation_1h,
         cache_read_tokens,
     )
 }
@@ -1100,16 +1204,21 @@ fn compute_cost_parts(
     table: &PricingTable,
     input_tokens: u64,
     output_tokens: u64,
-    cache_creation_tokens: u64,
+    cache_creation_5m: u64,
+    cache_creation_1h: u64,
     cache_read_tokens: u64,
 ) -> UsageCostParts {
     let Some(price) = match_model_price(model, table) else {
         return UsageCostParts::default();
     };
+    // 5m cache write 用价格表的 cache_write（≈ input × 1.25）；
+    // 1h cache write 官方固定为 base input × 2，价格表无独立字段，按倍率从 input 推导。
+    let cache_creation = cache_creation_5m as f64 * price.cache_write / 1_000_000.0
+        + cache_creation_1h as f64 * price.input * CACHE_CREATION_1H_INPUT_MULTIPLIER / 1_000_000.0;
     UsageCostParts {
         input: input_tokens as f64 * price.input / 1_000_000.0,
         output: output_tokens as f64 * price.output / 1_000_000.0,
-        cache_creation: cache_creation_tokens as f64 * price.cache_write / 1_000_000.0,
+        cache_creation,
         cache_read: cache_read_tokens as f64 * price.cache_read / 1_000_000.0,
     }
 }
@@ -1303,6 +1412,10 @@ fn parse_jsonl_line_with_third_party_pricing(
         (cache_creation_input_tokens, 0)
     };
 
+    // web 工具计数：Claude Code 把 WebSearch/WebFetch 记成 message.content 里的 tool_use 块，
+    // 而非 API 服务端 usage.server_tool_use（后者在 Claude Code transcript 中恒为 0）。
+    let (web_search_requests, web_fetch_requests) = count_web_tool_uses(msg);
+
     let raw = RawUsage {
         input_tokens: usage_v
             .get("input_tokens")
@@ -1352,10 +1465,32 @@ fn parse_jsonl_line_with_third_party_pricing(
         cache_creation_5m: raw.cache_creation_5m,
         cache_creation_1h: raw.cache_creation_1h,
         cache_read: raw.cache_read,
+        web_search_requests,
+        web_fetch_requests,
         cost_usd,
         git_branch,
         cc_version,
     })
+}
+
+/// 数 message.content 里 name=="WebSearch"/"WebFetch" 的 tool_use 块，返回 (search, fetch) 次数。
+fn count_web_tool_uses(msg: &serde_json::Value) -> (u64, u64) {
+    let Some(content) = msg.get("content").and_then(|x| x.as_array()) else {
+        return (0, 0);
+    };
+    let mut search = 0u64;
+    let mut fetch = 0u64;
+    for block in content {
+        if block.get("type").and_then(|x| x.as_str()) != Some("tool_use") {
+            continue;
+        }
+        match block.get("name").and_then(|x| x.as_str()) {
+            Some(WEB_SEARCH_TOOL_NAME) => search += 1,
+            Some(WEB_FETCH_TOOL_NAME) => fetch += 1,
+            _ => {}
+        }
+    }
+    (search, fetch)
 }
 
 // ============ 扫描 ============
@@ -1954,6 +2089,8 @@ fn aggregate_model_stats(records: &[&UsageRecord]) -> Vec<ModelUsageStat> {
         entry.output_tokens += r.output_tokens;
         entry.cache_creation_tokens += r.cache_creation_total();
         entry.cache_read_tokens += r.cache_read;
+        entry.web_search_requests += r.web_search_requests;
+        entry.web_fetch_requests += r.web_fetch_requests;
         entry.cost += r.cost_usd;
     }
     let mut list: Vec<_> = by_model.into_values().collect();
@@ -2032,13 +2169,16 @@ fn aggregate_time_series_from_filtered(
                 point.output_tokens += r.output_tokens;
                 point.cache_creation_tokens += r.cache_creation_total();
                 point.cache_read_tokens += r.cache_read;
+                point.web_search_requests += r.web_search_requests;
+                point.web_fetch_requests += r.web_fetch_requests;
                 point.cost += r.cost_usd;
                 let cost_parts = compute_cost_parts_with_third_party_pricing(
                     &r.model,
                     pricing,
                     r.input_tokens,
                     r.output_tokens,
-                    r.cache_creation_total(),
+                    r.cache_creation_5m,
+                    r.cache_creation_1h,
                     r.cache_read,
                     third_party_provider_pricing_enabled,
                 );
@@ -2069,6 +2209,8 @@ fn aggregate_summary_totals(filtered: &[&UsageRecord]) -> UsageSummary {
         total.total_output += r.output_tokens;
         total.total_cache_creation += r.cache_creation_total();
         total.total_cache_read += r.cache_read;
+        total.total_web_search_requests += r.web_search_requests;
+        total.total_web_fetch_requests += r.web_fetch_requests;
         total.total_cost += r.cost_usd;
         sessions.insert(r.session_id.as_str());
         projects.insert(r.project_path.as_str());
@@ -2101,6 +2243,8 @@ fn aggregate_daily_from_filtered(filtered: &[&UsageRecord]) -> Vec<DailyUsage> {
                 s.output_tokens += r.output_tokens;
                 s.cache_creation_tokens += r.cache_creation_total();
                 s.cache_read_tokens += r.cache_read;
+                s.web_search_requests += r.web_search_requests;
+                s.web_fetch_requests += r.web_fetch_requests;
                 s.cost += r.cost_usd;
                 sessions.insert(r.session_id.as_str());
             }
@@ -2137,6 +2281,8 @@ fn aggregate_projects_from_filtered(filtered: &[&UsageRecord]) -> Vec<ProjectUsa
                 s.output_tokens += r.output_tokens;
                 s.cache_creation_tokens += r.cache_creation_total();
                 s.cache_read_tokens += r.cache_read;
+                s.web_search_requests += r.web_search_requests;
+                s.web_fetch_requests += r.web_fetch_requests;
                 s.cost += r.cost_usd;
                 if r.timestamp_ms > s.last_active_ms {
                     s.last_active_ms = r.timestamp_ms;
@@ -2185,6 +2331,8 @@ fn aggregate_sessions_from_filtered(filtered: &[&UsageRecord]) -> Vec<SessionUsa
                 s.output_tokens += r.output_tokens;
                 s.cache_creation_tokens += r.cache_creation_total();
                 s.cache_read_tokens += r.cache_read;
+                s.web_search_requests += r.web_search_requests;
+                s.web_fetch_requests += r.web_fetch_requests;
                 s.cost += r.cost_usd;
                 if r.timestamp_ms > s.last_active_ms {
                     s.last_active_ms = r.timestamp_ms;
@@ -2343,6 +2491,8 @@ pub async fn get_session_usage_detail(
         session_view.output_tokens += r.output_tokens;
         session_view.cache_creation_tokens += r.cache_creation_total();
         session_view.cache_read_tokens += r.cache_read;
+        session_view.web_search_requests += r.web_search_requests;
+        session_view.web_fetch_requests += r.web_fetch_requests;
         session_view.cost += r.cost_usd;
         if r.timestamp_ms > session_view.last_active_ms {
             session_view.last_active_ms = r.timestamp_ms;
@@ -2412,13 +2562,30 @@ pub fn start_usage_runtime(app: &tauri::App) -> Result<(), String> {
 
     let app_handle = app.handle().clone();
     tauri::async_runtime::spawn(async move {
-        // 1. 启动全量扫描
+        // 1. 启动扫描：数据格式版本不符时做一次全量重扫（清空+从头解析），以回填新提取的字段
+        //    （WebSearch/WebFetch 计数）并按新公式重算历史成本；否则只做增量扫描。
         {
             let state = app_handle.state::<UsageState>();
-            if let Err(e) = scan_all(&state, false).await {
-                log::warn!("event=usage.scan status=warn err={e}");
-            } else {
-                let _ = app_handle.emit("usage-records-changed", ());
+            let pool = state.db_pool();
+            let stored_version = match &pool {
+                Ok(pool) => load_data_format_version_db(pool).await.unwrap_or(None),
+                Err(_) => None,
+            };
+            let needs_full_rescan = stored_version != Some(USAGE_DATA_FORMAT_VERSION);
+            match scan_all(&state, needs_full_rescan).await {
+                Ok(_) => {
+                    if needs_full_rescan {
+                        if let Ok(pool) = &pool {
+                            let _ =
+                                save_data_format_version_db(pool, USAGE_DATA_FORMAT_VERSION).await;
+                        }
+                        log::info!(
+                            "event=usage.data.format_migrate status=ok version={USAGE_DATA_FORMAT_VERSION}"
+                        );
+                    }
+                    let _ = app_handle.emit("usage-records-changed", ());
+                }
+                Err(e) => log::warn!("event=usage.scan status=warn err={e}"),
             }
         }
         // 2. 联网刷新价格
@@ -2568,8 +2735,28 @@ mod tests {
             cache_read: 1_000_000,
         };
         let cost = compute_cost("claude-opus-4-7", &table, &usage);
-        // 2M cache_write * 6.25 + 1M cache_read * 0.5 = 12.5 + 0.5 = 13.0
-        assert!((cost - 13.0).abs() < 1e-9, "cost was {cost}");
+        // 5m: 1M * cache_write 6.25 = 6.25
+        // 1h: 1M * input 5.0 * 2 = 10.0（官方 1h 倍率，区别于 5m 的 1.25x）
+        // read: 1M * cache_read 0.5 = 0.5
+        // 合计 6.25 + 10.0 + 0.5 = 16.75
+        assert!((cost - 16.75).abs() < 1e-9, "cost was {cost}");
+    }
+
+    #[test]
+    fn compute_cost_parts_sum_equals_total() {
+        let table = sample_pricing();
+        let parts = compute_cost_parts(
+            "claude-opus-4-7",
+            &table,
+            1_000_000,
+            1_000_000,
+            1_000_000,
+            1_000_000,
+            1_000_000,
+        );
+        let sum = parts.input + parts.output + parts.cache_creation + parts.cache_read;
+        assert!((sum - parts.total()).abs() < 1e-12);
+        assert!(parts.cache_creation > 0.0);
     }
 
     #[test]
@@ -2760,6 +2947,12 @@ mod tests {
             "timestamp":"2026-04-19T15:48:44.149Z","cwd":"/tmp/demo",
             "gitBranch":"main","version":"2.1.114",
             "message":{"id":"msg_bdrk_1","role":"assistant","model":"claude-opus-4-7",
+                "content":[
+                    {"type":"text","text":"searching"},
+                    {"type":"tool_use","id":"t1","name":"WebSearch","input":{"query":"a"}},
+                    {"type":"tool_use","id":"t2","name":"WebSearch","input":{"query":"b"}},
+                    {"type":"tool_use","id":"t3","name":"WebFetch","input":{"url":"u"}}
+                ],
                 "usage":{"input_tokens":10,"output_tokens":20,
                     "cache_creation_input_tokens":1000,
                     "cache_read_input_tokens":2000,
@@ -2775,9 +2968,26 @@ mod tests {
         assert_eq!(r.cache_creation_5m, 600);
         assert_eq!(r.cache_creation_1h, 400);
         assert_eq!(r.cache_read, 2000);
+        // 从 content 的 tool_use 块计数：2 次 WebSearch + 1 次 WebFetch
+        assert_eq!(r.web_search_requests, 2);
+        assert_eq!(r.web_fetch_requests, 1);
         assert_eq!(r.git_branch.as_deref(), Some("main"));
         assert_eq!(r.cc_version.as_deref(), Some("2.1.114"));
         assert!(r.cost_usd > 0.0);
+    }
+
+    #[test]
+    fn parse_jsonl_ignores_server_tool_use_counter() {
+        let table = sample_pricing();
+        let mut unknown = HashSet::new();
+        // Claude Code 的 server_tool_use 恒为 0；web 计数只看 content 的 tool_use 块，
+        // 没有 WebSearch tool_use 时 web_search_requests 应为 0（即便 server_tool_use 出现）。
+        let line = r#"{"type":"assistant","sessionId":"s","timestamp":"2026-04-19T00:00:00Z","cwd":"/x",
+            "message":{"id":"m-ws","model":"claude-opus-4-7","content":[{"type":"text","text":"hi"}],
+                "usage":{"input_tokens":10,"output_tokens":5,"server_tool_use":{"web_search_requests":0,"web_fetch_requests":0}}}}"#;
+        let r = parse_jsonl_line(line, "-x", &table, &mut unknown).unwrap();
+        assert_eq!(r.web_search_requests, 0);
+        assert_eq!(r.web_fetch_requests, 0);
     }
 
     #[test]
@@ -2932,6 +3142,18 @@ mod tests {
         let subagent = identify_usage_file(&root, &subagent_file).unwrap();
         assert_eq!(subagent.project_dir_name, "-tmp-demo");
         assert_eq!(subagent.path, subagent_file);
+
+        // Workflow 工具的嵌套 subagent：subagents/workflows/wf_*/agent-*.jsonl
+        let workflow_agent_file = root
+            .join("-tmp-demo")
+            .join("session-1")
+            .join("subagents")
+            .join("workflows")
+            .join("wf_84f672cf-3dc")
+            .join("agent-a06c7d16.jsonl");
+        let workflow_agent = identify_usage_file(&root, &workflow_agent_file).unwrap();
+        assert_eq!(workflow_agent.project_dir_name, "-tmp-demo");
+        assert_eq!(workflow_agent.path, workflow_agent_file);
 
         assert!(identify_usage_file(&root, &meta_file).is_none());
     }
@@ -3181,6 +3403,8 @@ mod tests {
             r.project_dir = project.trim_start_matches('/').replace('/', "-");
             r.model = model.into();
             r.timestamp_ms = parse_iso8601_ms(ts).unwrap();
+            r.web_search_requests = 1;
+            r.web_fetch_requests = 1;
             r
         };
         let records = vec![
@@ -3245,6 +3469,32 @@ mod tests {
         assert_eq!(project_input, summary.total_input);
         assert_eq!(session_input, summary.total_input);
         assert_eq!(model_input, summary.total_input);
+
+        // web_search_requests 在各聚合维度上与 summary 一致
+        assert_eq!(summary.total_web_search_requests, records.len() as u64);
+        let daily_ws: u64 = daily.iter().map(|d| d.web_search_requests).sum();
+        let project_ws: u64 = projects.iter().map(|p| p.web_search_requests).sum();
+        let session_ws: u64 = sessions.iter().map(|s| s.web_search_requests).sum();
+        let model_ws: u64 = models.iter().map(|m| m.web_search_requests).sum();
+        let ts_ws: u64 = time_series.iter().map(|t| t.web_search_requests).sum();
+        assert_eq!(daily_ws, summary.total_web_search_requests);
+        assert_eq!(project_ws, summary.total_web_search_requests);
+        assert_eq!(session_ws, summary.total_web_search_requests);
+        assert_eq!(model_ws, summary.total_web_search_requests);
+        assert_eq!(ts_ws, summary.total_web_search_requests);
+
+        // web_fetch_requests 在各聚合维度上与 summary 一致
+        assert_eq!(summary.total_web_fetch_requests, records.len() as u64);
+        let daily_wf: u64 = daily.iter().map(|d| d.web_fetch_requests).sum();
+        let project_wf: u64 = projects.iter().map(|p| p.web_fetch_requests).sum();
+        let session_wf: u64 = sessions.iter().map(|s| s.web_fetch_requests).sum();
+        let model_wf: u64 = models.iter().map(|m| m.web_fetch_requests).sum();
+        let ts_wf: u64 = time_series.iter().map(|t| t.web_fetch_requests).sum();
+        assert_eq!(daily_wf, summary.total_web_fetch_requests);
+        assert_eq!(project_wf, summary.total_web_fetch_requests);
+        assert_eq!(session_wf, summary.total_web_fetch_requests);
+        assert_eq!(model_wf, summary.total_web_fetch_requests);
+        assert_eq!(ts_wf, summary.total_web_fetch_requests);
 
         // daily/time_series 在 Day 粒度下应有 2 个桶（4/19 与 4/20）
         assert_eq!(daily.len(), 2);
@@ -3352,6 +3602,8 @@ mod tests {
             cache_creation_5m: 0,
             cache_creation_1h: 0,
             cache_read: 0,
+            web_search_requests: 0,
+            web_fetch_requests: 0,
             cost_usd: compute_cost("claude-opus-4-7", &pricing, &raw),
             git_branch: Some("main".into()),
             cc_version: Some("2.1.114".into()),
@@ -3393,6 +3645,80 @@ mod tests {
 
             assert_eq!(name, "usage_records");
             assert!(config_dir.join("usage.db").exists());
+        });
+    }
+
+    #[test]
+    fn migrate_usage_schema_adds_web_search_column_to_old_db() {
+        tauri::async_runtime::block_on(async {
+            let pool = sqlx::sqlite::SqlitePoolOptions::new()
+                .max_connections(1)
+                .connect("sqlite::memory:")
+                .await
+                .unwrap();
+            // 模拟旧库：建一个不含 web_search_requests 列的 usage_records 表
+            sqlx::query(
+                "CREATE TABLE usage_records (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    message_id TEXT NOT NULL DEFAULT '',
+                    session_id TEXT NOT NULL DEFAULT '',
+                    project_path TEXT NOT NULL DEFAULT '',
+                    project_dir TEXT NOT NULL DEFAULT '',
+                    timestamp_ms INTEGER NOT NULL DEFAULT 0,
+                    model TEXT NOT NULL DEFAULT 'unknown',
+                    input_tokens INTEGER NOT NULL DEFAULT 0,
+                    output_tokens INTEGER NOT NULL DEFAULT 0,
+                    cache_creation_5m INTEGER NOT NULL DEFAULT 0,
+                    cache_creation_1h INTEGER NOT NULL DEFAULT 0,
+                    cache_read INTEGER NOT NULL DEFAULT 0,
+                    cost_usd REAL NOT NULL DEFAULT 0,
+                    git_branch TEXT,
+                    cc_version TEXT
+                 )",
+            )
+            .execute(&pool)
+            .await
+            .unwrap();
+
+            // 迁移幂等：连跑两次都不报错
+            migrate_usage_schema(&pool).await.unwrap();
+            migrate_usage_schema(&pool).await.unwrap();
+
+            let cols = sqlx::query("PRAGMA table_info(usage_records)")
+                .fetch_all(&pool)
+                .await
+                .unwrap();
+            let has_column = cols.iter().any(|row| {
+                row.try_get::<String, _>("name")
+                    .map(|name| name == "web_search_requests")
+                    .unwrap_or(false)
+            });
+            assert!(has_column, "web_search_requests 列应被迁移补上");
+
+            // 补列后插入/读取带 web search 的记录可正常往返
+            let mut record = make_usage_record("m-mig", "s-mig", 1, 1);
+            record.web_search_requests = 4;
+            assert_eq!(merge_usage_records_db(&pool, &[record]).await.unwrap(), 1);
+            let loaded = load_usage_records_db(&pool, &UsageFilter::default())
+                .await
+                .unwrap();
+            assert_eq!(loaded.len(), 1);
+            assert_eq!(loaded[0].web_search_requests, 4);
+        });
+    }
+
+    #[test]
+    fn data_format_version_round_trips() {
+        tauri::async_runtime::block_on(async {
+            let pool = test_usage_pool().await;
+            assert_eq!(load_data_format_version_db(&pool).await.unwrap(), None);
+            save_data_format_version_db(&pool, USAGE_DATA_FORMAT_VERSION)
+                .await
+                .unwrap();
+            assert_eq!(
+                load_data_format_version_db(&pool).await.unwrap(),
+                Some(USAGE_DATA_FORMAT_VERSION)
+            );
         });
     }
 
@@ -3445,6 +3771,8 @@ mod tests {
             cache_creation_5m: 0,
             cache_creation_1h: 0,
             cache_read: 0,
+            web_search_requests: 0,
+            web_fetch_requests: 0,
             cost_usd: 0.0,
             git_branch: None,
             cc_version: None,
@@ -3482,6 +3810,8 @@ mod tests {
             cache_creation_5m: 3,
             cache_creation_1h: 4,
             cache_read: 5,
+            web_search_requests: 0,
+            web_fetch_requests: 0,
             cost_usd: cost,
             git_branch: None,
             cc_version: None,
@@ -3525,8 +3855,10 @@ mod tests {
         assert!((hourly[0].cost - 3.25).abs() < f64::EPSILON);
         assert!((hourly[0].input_cost - 0.0001).abs() < f64::EPSILON);
         assert!((hourly[0].output_cost - 0.001).abs() < f64::EPSILON);
-        assert!((hourly[0].cache_creation_cost - 0.0000875).abs() < f64::EPSILON);
+        // 每条 cache 成本：5m 3×6.25 + 1h 4×(input 5.0×2) = 18.75e-6 + 40e-6 = 58.75e-6；两条共 117.5e-6
+        assert!((hourly[0].cache_creation_cost - 0.0001175).abs() < f64::EPSILON);
         assert!((hourly[0].cache_read_cost - 0.000005).abs() < f64::EPSILON);
+        assert_eq!(hourly[0].web_search_requests, 0);
         assert_eq!(hourly[1].bucket, "2026-04-19 11:00");
         assert_eq!(hourly[1].sessions, 1);
 
@@ -3557,6 +3889,8 @@ mod tests {
             cache_creation_5m: 0,
             cache_creation_1h: 0,
             cache_read: 0,
+            web_search_requests: 0,
+            web_fetch_requests: 0,
             cost_usd: 0.0,
             git_branch: None,
             cc_version: None,
@@ -3591,6 +3925,8 @@ mod tests {
             cache_creation_5m: 0,
             cache_creation_1h: 0,
             cache_read: 0,
+            web_search_requests: 0,
+            web_fetch_requests: 0,
             cost_usd: 0.0,
             git_branch: None,
             cc_version: None,

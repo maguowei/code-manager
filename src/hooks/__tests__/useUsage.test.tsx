@@ -40,6 +40,8 @@ function makeSummary(totalCost: number): UsageSummary {
     totalOutput: 1,
     totalCacheCreation: 0,
     totalCacheRead: 0,
+    totalWebSearchRequests: 0,
+    totalWebFetchRequests: 0,
     totalCost,
     lastScanMs: Date.UTC(2026, 4, 4, 10, 0),
     pricing: {
@@ -63,6 +65,8 @@ function makeDaily(date: string, cost: number): DailyUsage {
     outputTokens: 1,
     cacheCreationTokens: 0,
     cacheReadTokens: 0,
+    webSearchRequests: 0,
+    webFetchRequests: 0,
     cost,
     byModel: [],
   };
@@ -82,6 +86,8 @@ function makeSnapshot(date: string, cost: number): UsageSnapshot {
         outputTokens: 1,
         cacheCreationTokens: 0,
         cacheReadTokens: 0,
+        webSearchRequests: 0,
+        webFetchRequests: 0,
         cost,
         inputCost: cost / 2,
         outputCost: cost / 2,

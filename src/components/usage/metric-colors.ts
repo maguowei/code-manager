@@ -22,4 +22,6 @@ export const METRIC_COLOR = {
   sessions: "text-chart-4", // 紫：计数身份
   messages: "text-chart-5", // 红橙：计数身份
   cacheSavings: "text-chart-2", // 绿：省钱=正向
+  webSearch: "text-chart-3", // 橙：Web 搜索工具计数身份
+  webFetch: "text-chart-4", // 紫：Web 抓取工具计数身份
 } as const;

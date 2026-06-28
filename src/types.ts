@@ -635,6 +635,8 @@ export interface UsageRecord {
   cacheCreation5m: number;
   cacheCreation1h: number;
   cacheRead: number;
+  webSearchRequests: number;
+  webFetchRequests: number;
   costUsd: number;
   gitBranch?: string | null;
   ccVersion?: string | null;
@@ -647,6 +649,8 @@ export interface ModelUsageStat {
   outputTokens: number;
   cacheCreationTokens: number;
   cacheReadTokens: number;
+  webSearchRequests: number;
+  webFetchRequests: number;
   cost: number;
 }
 
@@ -658,6 +662,8 @@ export interface DailyUsage {
   outputTokens: number;
   cacheCreationTokens: number;
   cacheReadTokens: number;
+  webSearchRequests: number;
+  webFetchRequests: number;
   cost: number;
   byModel: ModelUsageStat[];
 }
@@ -673,6 +679,8 @@ export interface UsageTimeSeriesPoint {
   outputTokens: number;
   cacheCreationTokens: number;
   cacheReadTokens: number;
+  webSearchRequests: number;
+  webFetchRequests: number;
   cost: number;
   inputCost: number;
   outputCost: number;
@@ -691,6 +699,8 @@ export interface ProjectUsage {
   outputTokens: number;
   cacheCreationTokens: number;
   cacheReadTokens: number;
+  webSearchRequests: number;
+  webFetchRequests: number;
   cost: number;
   byModel: ModelUsageStat[];
 }
@@ -707,6 +717,8 @@ export interface SessionUsage {
   outputTokens: number;
   cacheCreationTokens: number;
   cacheReadTokens: number;
+  webSearchRequests: number;
+  webFetchRequests: number;
   cost: number;
 }
 
@@ -723,6 +735,8 @@ export interface UsageSummary {
   totalOutput: number;
   totalCacheCreation: number;
   totalCacheRead: number;
+  totalWebSearchRequests: number;
+  totalWebFetchRequests: number;
   totalCost: number;
   lastScanMs: number | null;
   pricing: PricingTable;
