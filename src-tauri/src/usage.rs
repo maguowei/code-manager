@@ -868,7 +868,7 @@ async fn load_last_scan_ms_db(pool: &SqlitePool) -> Result<Option<i64>, String> 
     .transpose()
 }
 
-fn push_usage_filter_sql<'a>(builder: &mut QueryBuilder<'a, Sqlite>, filter: &'a UsageFilter) {
+fn push_usage_filter_sql(builder: &mut QueryBuilder<Sqlite>, filter: &UsageFilter) {
     if let Some(start_ms) = filter
         .start_date
         .as_deref()

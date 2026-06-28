@@ -44,7 +44,7 @@ fancy-regex = "0.18"
 schemars = { version = "1.2.1", features = ["preserve_order"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "native-tls"] }
 notify = "8"
-sqlx = { version = "0.8.6", default-features = false, features = ["sqlite", "runtime-tokio-rustls"] }
+sqlx = { version = "0.9.0", default-features = false, features = ["sqlite", "runtime-tokio", "tls-rustls"] }
 tokio = { version = "1", features = ["sync"] }
 # tauri-specta v2 仍在 RC 阶段(社区主流,Tauri 2 唯一可用端到端类型化方案);版本必须 exact match
 # specta 的 serde_json feature 让 `serde_json::Value` 字段能被 #[derive(Type)] 接受
