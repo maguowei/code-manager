@@ -3,6 +3,8 @@
 [![CI](https://github.com/maguowei/code-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/maguowei/code-manager/actions/workflows/ci.yml)
 [![Release](https://github.com/maguowei/code-manager/actions/workflows/release.yml/badge.svg)](https://github.com/maguowei/code-manager/actions/workflows/release.yml)
 
+![Code Manager 配置编辑界面](docs/assets/readme-hero.png)
+
 Code Manager 是面向 Claude Code 用户的本地桌面管理应用。它把配置、供应商、`~/.claude` 目录、记忆、Skills、历史、统计、Token 用量、项目状态、系统托盘和诊断日志集中到一个 Tauri 2 应用里，让本地配置更可见、可预览、可验证。
 
 本文件面向人类用户和项目访问者。AI Agent 的执行规则见 [CLAUDE.md](./CLAUDE.md)，完整使用说明见 [docs/user-manual.md](./docs/user-manual.md)，平台差异见 [docs/platform-support.md](./docs/platform-support.md)。
