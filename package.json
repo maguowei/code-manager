@@ -60,9 +60,9 @@
     "github-markdown-css": "^5.9.0",
     "lucide-react": "^1.16.0",
     "radix-ui": "^1.4.3",
-    "react": "^19.2.6",
+    "react": "^19.2.7",
     "react-day-picker": "^10.0.1",
-    "react-dom": "^19.2.6",
+    "react-dom": "^19.2.7",
     "react-hook-form": "^7.76.0",
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "^4.11.2",
@@ -76,22 +76,22 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.15",
-    "@commitlint/cli": "^21.0.1",
-    "@commitlint/config-conventional": "^21.0.1",
+    "@biomejs/biome": "^2.5.1",
+    "@commitlint/cli": "^21.1.0",
+    "@commitlint/config-conventional": "^21.1.0",
     "@tauri-apps/cli": "^2.11.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
     "@types/node": "^25.9.1",
-    "@types/react": "^19.2.15",
+    "@types/react": "^19.2.17",
     "@types/react-dom": "^19.1.6",
-    "@vitejs/plugin-react": "^6.0.2",
-    "@vitest/coverage-v8": "^4.1.7",
+    "@vitejs/plugin-react": "^6.0.3",
+    "@vitest/coverage-v8": "^4.1.9",
     "jsdom": "^29.1.1",
-    "lefthook": "^2.1.8",
+    "lefthook": "^2.1.9",
     "typescript": "~6.0.3",
     "vite": "^8.1.0",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.9"
   }
 }
