@@ -208,6 +208,7 @@ const translations = {
     "skills.importResultReason.invalidId": "名称不符合 Skill id 规则",
     "skills.importResultReason.exists": "同名 Skill 已存在",
     "skills.importResultReason.missingSkillMd": "缺少有效的 SKILL.md 或软链接目标无效",
+    "skills.importResultReason.importFailed": "导入时复制或创建软链接失败",
     "skills.refresh": "刷新",
     "skills.refreshing": "刷新中...",
     "skills.list": "Skills 列表",
@@ -1869,6 +1870,7 @@ const translations = {
     "skills.importResultReason.exists": "A Skill with the same id already exists",
     "skills.importResultReason.missingSkillMd":
       "Missing a valid SKILL.md or the symlink target is invalid",
+    "skills.importResultReason.importFailed": "Failed to copy or create the symlink during import",
     "skills.refresh": "Refresh",
     "skills.refreshing": "Refreshing...",
     "skills.list": "Skills",

@@ -436,7 +436,8 @@ fn run_git(project: &Path, args: &[&str]) -> Result<String, String> {
         .map_err(|e| format!("执行 git 命令失败: {}", e))?;
 
     if output.status.success() {
-        return String::from_utf8(output.stdout).map_err(|e| format!("解析 git 输出失败: {}", e));
+        // 用 lossy 解码，避免非 UTF-8 的提交说明 / worktree 路径导致整个 repo 操作失败
+        return Ok(String::from_utf8_lossy(&output.stdout).into_owned());
     }
 
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
@@ -1273,9 +1274,7 @@ fn run_claude_project_purge(
     project: &str,
     mode: ProjectPurgeMode,
 ) -> Result<ProjectPurgeOutput, String> {
-    let project_path = validate_project_path(project)?;
-    let project_display = project_path.to_string_lossy().to_string();
-    let args = build_claude_project_purge_args(&project_display, mode);
+    let (project_display, args) = prepare_claude_project_purge(project, mode)?;
     let output = Command::new("claude").args(&args).output().map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
             "未找到 claude CLI，请确认 Claude Code 已安装并可在 PATH 中访问".to_string()
@@ -1291,6 +1290,17 @@ fn run_claude_project_purge(
         &output.stdout,
         &output.stderr,
     )
+}
+
+fn prepare_claude_project_purge(
+    project: &str,
+    mode: ProjectPurgeMode,
+) -> Result<(String, Vec<String>), String> {
+    // purge 清理的是 Claude Code 保存的项目状态，项目目录本身可以已经被删除。
+    let project_path = validate_project_path(project)?;
+    let project_display = project_path.to_string_lossy().to_string();
+    let args = build_claude_project_purge_args(&project_display, mode);
+    Ok((project_display, args))
 }
 
 fn build_claude_project_purge_args(project: &str, mode: ProjectPurgeMode) -> Vec<String> {
@@ -2612,6 +2622,40 @@ mod tests {
                 "--yes".to_string()
             ]
         );
+    }
+
+    #[test]
+    fn prepare_claude_project_purge_accepts_missing_absolute_path() {
+        let root = TestDir::new();
+        let missing_project = root.path().join("deleted-project");
+        assert!(!missing_project.exists());
+
+        let (project, args) = prepare_claude_project_purge(
+            missing_project.to_str().unwrap(),
+            ProjectPurgeMode::DryRun,
+        )
+        .unwrap();
+
+        assert_eq!(project, missing_project.to_string_lossy());
+        assert_eq!(
+            args,
+            vec![
+                "project".to_string(),
+                "purge".to_string(),
+                missing_project.to_string_lossy().into_owned(),
+                "--dry-run".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn prepare_claude_project_purge_rejects_invalid_paths() {
+        let root = TestDir::new();
+        let nul_path = format!("{}\0", root.path().display());
+
+        for invalid in ["", "relative/project", nul_path.as_str()] {
+            assert!(prepare_claude_project_purge(invalid, ProjectPurgeMode::DryRun).is_err());
+        }
     }
 
     #[test]

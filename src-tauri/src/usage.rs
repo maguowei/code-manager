@@ -138,6 +138,74 @@ pub struct FileIndex {
     pub last_offset: u64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum UsageFileScanPlan {
+    Skip,
+    ScanFrom(u64),
+    FullRebuild,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct UsageChangeOutcome {
+    changed: bool,
+    new_records: u64,
+}
+
+enum UsageFileMetadata {
+    Missing,
+    Unsupported,
+    Regular { mtime_ms: i64, size: u64 },
+}
+
+fn plan_usage_file_scan(
+    previous: Option<&FileIndex>,
+    current_mtime_ms: i64,
+    current_size: u64,
+) -> UsageFileScanPlan {
+    let Some(previous) = previous else {
+        return UsageFileScanPlan::ScanFrom(0);
+    };
+
+    if previous.last_offset > previous.size || previous.last_offset > current_size {
+        return UsageFileScanPlan::FullRebuild;
+    }
+    if previous.mtime_ms == current_mtime_ms && previous.size == current_size {
+        return UsageFileScanPlan::Skip;
+    }
+    if previous.size < current_size && previous.mtime_ms <= current_mtime_ms {
+        return UsageFileScanPlan::ScanFrom(previous.last_offset);
+    }
+    UsageFileScanPlan::FullRebuild
+}
+
+fn read_usage_file_metadata(path: &Path) -> Result<UsageFileMetadata, String> {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(UsageFileMetadata::Missing);
+        }
+        Err(error) => {
+            return Err(format!(
+                "读取用量文件元数据失败 {}: {error}",
+                path.display()
+            ));
+        }
+    };
+    if !metadata.is_file() || metadata.file_type().is_symlink() {
+        return Ok(UsageFileMetadata::Unsupported);
+    }
+    let mtime_ms = metadata
+        .modified()
+        .ok()
+        .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+        .map(|duration| duration.as_millis() as i64)
+        .unwrap_or(0);
+    Ok(UsageFileMetadata::Regular {
+        mtime_ms,
+        size: metadata.len(),
+    })
+}
+
 /// 内存状态
 #[derive(Debug, Default)]
 pub struct UsageStateInner {
@@ -705,18 +773,6 @@ async fn upsert_file_index_db(
     .await
     .map_err(|e| e.to_string())?;
     Ok(())
-}
-
-async fn remove_file_index_entries_db(pool: &SqlitePool, paths: &[PathBuf]) -> Result<(), String> {
-    let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
-    for path in paths {
-        sqlx::query("DELETE FROM usage_file_index WHERE path = ?1")
-            .bind(path.to_string_lossy().to_string())
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| e.to_string())?;
-    }
-    tx.commit().await.map_err(|e| e.to_string())
 }
 
 async fn clear_usage_records_db(pool: &SqlitePool) -> Result<(), String> {
@@ -1506,18 +1562,47 @@ async fn scan_all_in_projects_dir(
     projects_dir: PathBuf,
 ) -> Result<ScanResult, String> {
     let _lock = USAGE_SCAN_LOCK.lock().await;
+    scan_all_in_projects_dir_locked(state, full_rescan, projects_dir).await
+}
+
+/// 调用方必须持有 USAGE_SCAN_LOCK；供 watcher 发现非追加变化时复用，避免重复加锁。
+async fn scan_all_in_projects_dir_locked(
+    state: &UsageState,
+    full_rescan: bool,
+    projects_dir: PathBuf,
+) -> Result<ScanResult, String> {
     let started = Instant::now();
     let pool = state.db_pool()?;
+    let persisted_index = load_file_index_db(&pool).await?;
 
-    if !projects_dir.exists() {
-        log::info!("event=usage.scan status=skip reason=projects_dir_missing");
+    let projects_dir_missing = match fs::metadata(&projects_dir) {
+        Ok(metadata) => !metadata.is_dir(),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => true,
+        Err(error) => return Err(format!("读取用量目录元数据失败: {error}")),
+    };
+    if projects_dir_missing {
+        let cleared = full_rescan || !persisted_index.is_empty();
+        if cleared {
+            clear_usage_records_db(&pool).await?;
+        }
         let last_scan_ms = now_ms();
-        let _ = save_last_scan_ms_db(&pool, last_scan_ms).await;
-        if let Ok(mut inner) = state.inner.write() {
+        save_last_scan_ms_db(&pool, last_scan_ms).await?;
+        {
+            let mut inner = state.inner.write().map_err(|e| e.to_string())?;
+            if cleared {
+                inner.records.clear();
+                inner.seen_message_ids.clear();
+                inner.unknown_models.clear();
+                inner.file_index.clear();
+            }
             inner.last_scan_ms = Some(last_scan_ms);
         }
+        log::info!("event=usage.scan status=skip reason=projects_dir_missing cleared={cleared}");
         return Ok(ScanResult::default());
     }
+
+    fs::read_dir(&projects_dir)
+        .map_err(|error| format!("读取用量目录失败 {}: {error}", projects_dir.display()))?;
 
     let pricing = state
         .inner
@@ -1527,12 +1612,49 @@ async fn scan_all_in_projects_dir(
         .clone();
     let third_party_pricing_enabled = third_party_provider_pricing_enabled();
 
-    let persisted_index = if full_rescan {
+    let mut usage_files = Vec::new();
+    for usage_file in collect_usage_files(&projects_dir) {
+        match read_usage_file_metadata(&usage_file.path)? {
+            UsageFileMetadata::Regular { mtime_ms, size } => {
+                usage_files.push((usage_file, mtime_ms, size));
+            }
+            UsageFileMetadata::Missing | UsageFileMetadata::Unsupported => {}
+        }
+    }
+
+    let current_paths = usage_files
+        .iter()
+        .map(|(usage_file, _, _)| usage_file.path.clone())
+        .collect::<HashSet<_>>();
+    let mut effective_full_rescan = full_rescan;
+    if !effective_full_rescan {
+        effective_full_rescan = usage_files.iter().any(|(usage_file, mtime_ms, size)| {
+            plan_usage_file_scan(persisted_index.get(&usage_file.path), *mtime_ms, *size)
+                == UsageFileScanPlan::FullRebuild
+        });
+    }
+    if !effective_full_rescan {
+        for indexed_path in persisted_index.keys() {
+            if current_paths.contains(indexed_path) {
+                continue;
+            }
+            match read_usage_file_metadata(indexed_path)? {
+                UsageFileMetadata::Missing | UsageFileMetadata::Unsupported => {
+                    effective_full_rescan = true;
+                    break;
+                }
+                UsageFileMetadata::Regular { .. } => {
+                    return Err(format!(
+                        "已索引用量文件未被扫描目录枚举: {}",
+                        indexed_path.display()
+                    ));
+                }
+            }
+        }
+    }
+    if effective_full_rescan {
         clear_usage_records_db(&pool).await?;
-        HashMap::new()
-    } else {
-        load_file_index_db(&pool).await?
-    };
+    }
 
     let mut new_records: Vec<UsageRecord> = Vec::new();
     let mut new_index: HashMap<PathBuf, FileIndex> = HashMap::new();
@@ -1540,39 +1662,26 @@ async fn scan_all_in_projects_dir(
     let mut local_seen: HashSet<String> = HashSet::new();
     let mut files_count: u64 = 0;
 
-    if let Err(err) = fs::read_dir(&projects_dir) {
-        log::warn!("event=usage.scan status=warn reason=read_projects_failed err={err}");
-        return Ok(ScanResult::default());
-    }
-
-    for usage_file in collect_usage_files(&projects_dir) {
+    for (usage_file, mtime, size) in usage_files {
         let p = usage_file.path;
-        let im = match fs::symlink_metadata(&p) {
-            Ok(m) => m,
-            Err(_) => continue,
-        };
-        if !im.is_file() || im.file_type().is_symlink() {
-            continue;
-        }
-
         files_count += 1;
 
-        let mtime = im
-            .modified()
-            .ok()
-            .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
-            .map(|d| d.as_millis() as i64)
-            .unwrap_or(0);
-        let size = im.len();
-        let prev = persisted_index.get(&p).cloned();
-
-        let start_offset = match &prev {
-            Some(idx) if idx.mtime_ms == mtime && idx.size == size => {
-                new_index.insert(p.clone(), idx.clone());
+        let scan_plan = if effective_full_rescan {
+            UsageFileScanPlan::ScanFrom(0)
+        } else {
+            plan_usage_file_scan(persisted_index.get(&p), mtime, size)
+        };
+        let start_offset = match scan_plan {
+            UsageFileScanPlan::Skip => {
+                if let Some(index) = persisted_index.get(&p) {
+                    new_index.insert(p.clone(), index.clone());
+                }
                 continue;
             }
-            Some(idx) if idx.size <= size && idx.mtime_ms <= mtime => idx.last_offset,
-            _ => 0,
+            UsageFileScanPlan::ScanFrom(offset) => offset,
+            UsageFileScanPlan::FullRebuild => {
+                return Err("用量文件变化计划在预检后发生漂移".to_string());
+            }
         };
 
         let mut scan_context = ScanFileContext {
@@ -1612,7 +1721,7 @@ async fn scan_all_in_projects_dir(
 
     {
         let mut inner = state.inner.write().map_err(|e| e.to_string())?;
-        if full_rescan {
+        if effective_full_rescan {
             inner.records.clear();
             inner.seen_message_ids.clear();
             inner.unknown_models.clear();
@@ -1627,7 +1736,8 @@ async fn scan_all_in_projects_dir(
     let elapsed_ms = started.elapsed().as_millis() as u64;
     let total_records = count_usage_records_db(&pool).await.unwrap_or_default();
     log::info!(
-        "event=usage.scan status=ok files={files_count} new_records={new_records_count} \
+        "event=usage.scan status=ok full_rescan={effective_full_rescan} \
+         files={files_count} new_records={new_records_count} \
          total_records={total_records} elapsed_ms={elapsed_ms}"
     );
 
@@ -1717,7 +1827,10 @@ fn scan_file_from_offset_with_third_party_pricing(
 }
 
 /// 处理 watcher 触发的增量扫描
-pub async fn handle_files_changed(state: &UsageState, files: Vec<PathBuf>) -> Result<u64, String> {
+async fn handle_files_changed(
+    state: &UsageState,
+    files: Vec<PathBuf>,
+) -> Result<UsageChangeOutcome, String> {
     handle_files_changed_in_projects_dir(state, files, projects_root()).await
 }
 
@@ -1725,9 +1838,48 @@ async fn handle_files_changed_in_projects_dir(
     state: &UsageState,
     files: Vec<PathBuf>,
     projects_dir: PathBuf,
-) -> Result<u64, String> {
+) -> Result<UsageChangeOutcome, String> {
     let _lock = USAGE_SCAN_LOCK.lock().await;
     let pool = state.db_pool()?;
+    let persisted_index = load_file_index_db(&pool).await?;
+    let mut pending_files = Vec::new();
+    let mut requires_full_rebuild = false;
+
+    for path in files {
+        let Some(usage_file) = identify_usage_file(&projects_dir, &path) else {
+            continue;
+        };
+        let previous = persisted_index.get(&path);
+        let (mtime_ms, size) = match read_usage_file_metadata(&path)? {
+            UsageFileMetadata::Missing | UsageFileMetadata::Unsupported => {
+                if previous.is_some() {
+                    requires_full_rebuild = true;
+                    break;
+                }
+                continue;
+            }
+            UsageFileMetadata::Regular { mtime_ms, size } => (mtime_ms, size),
+        };
+        match plan_usage_file_scan(previous, mtime_ms, size) {
+            UsageFileScanPlan::Skip => {}
+            UsageFileScanPlan::ScanFrom(offset) => {
+                pending_files.push((usage_file, mtime_ms, size, offset));
+            }
+            UsageFileScanPlan::FullRebuild => {
+                requires_full_rebuild = true;
+                break;
+            }
+        }
+    }
+
+    if requires_full_rebuild {
+        let result = scan_all_in_projects_dir_locked(state, true, projects_dir).await?;
+        return Ok(UsageChangeOutcome {
+            changed: true,
+            new_records: result.new_records,
+        });
+    }
+
     let pricing = state
         .inner
         .read()
@@ -1738,38 +1890,11 @@ async fn handle_files_changed_in_projects_dir(
 
     let mut new_records: Vec<UsageRecord> = Vec::new();
     let mut updated_index: HashMap<PathBuf, FileIndex> = HashMap::new();
-    let mut removed: Vec<PathBuf> = Vec::new();
     let mut unknown_local: HashSet<String> = HashSet::new();
     let mut local_seen: HashSet<String> = HashSet::new();
-    let persisted_index = load_file_index_db(&pool).await?;
 
-    for path in files {
-        let Some(usage_file) = identify_usage_file(&projects_dir, &path) else {
-            continue;
-        };
-        let metadata = match fs::symlink_metadata(&path) {
-            Ok(m) => m,
-            Err(_) => {
-                removed.push(path);
-                continue;
-            }
-        };
-        if !metadata.is_file() || metadata.file_type().is_symlink() {
-            continue;
-        }
-        let mtime = metadata
-            .modified()
-            .ok()
-            .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
-            .map(|d| d.as_millis() as i64)
-            .unwrap_or(0);
-        let size = metadata.len();
-
-        let start_offset = match persisted_index.get(&path) {
-            Some(idx) if idx.size <= size && idx.mtime_ms <= mtime => idx.last_offset,
-            _ => 0,
-        };
-
+    for (usage_file, mtime, size, start_offset) in pending_files {
+        let path = usage_file.path;
         let mut scan_context = ScanFileContext {
             project_dir_name: &usage_file.project_dir_name,
             pricing: &pricing,
@@ -1799,17 +1924,11 @@ async fn handle_files_changed_in_projects_dir(
 
     let new_count = merge_usage_records_db(&pool, &new_records).await?;
     upsert_file_index_entries_db(&pool, &updated_index).await?;
-    if !removed.is_empty() {
-        remove_file_index_entries_db(&pool, &removed).await?;
-    }
 
     {
         let mut inner = state.inner.write().map_err(|e| e.to_string())?;
         for (k, v) in &updated_index {
             inner.file_index.insert(k.clone(), v.clone());
-        }
-        for k in &removed {
-            inner.file_index.remove(k);
         }
         for m in unknown_local {
             inner.unknown_models.insert(m);
@@ -1819,7 +1938,10 @@ async fn handle_files_changed_in_projects_dir(
     if new_count > 0 {
         log::info!("event=usage.incremental status=ok new_records={new_count}");
     }
-    Ok(new_count)
+    Ok(UsageChangeOutcome {
+        changed: new_count > 0,
+        new_records: new_count,
+    })
 }
 
 // ============ 价格刷新 ============
@@ -2085,12 +2207,18 @@ fn aggregate_model_stats(records: &[&UsageRecord]) -> Vec<ModelUsageStat> {
             ..Default::default()
         });
         entry.messages += 1;
-        entry.input_tokens += r.input_tokens;
-        entry.output_tokens += r.output_tokens;
-        entry.cache_creation_tokens += r.cache_creation_total();
-        entry.cache_read_tokens += r.cache_read;
-        entry.web_search_requests += r.web_search_requests;
-        entry.web_fetch_requests += r.web_fetch_requests;
+        entry.input_tokens = entry.input_tokens.saturating_add(r.input_tokens);
+        entry.output_tokens = entry.output_tokens.saturating_add(r.output_tokens);
+        entry.cache_creation_tokens = entry
+            .cache_creation_tokens
+            .saturating_add(r.cache_creation_total());
+        entry.cache_read_tokens = entry.cache_read_tokens.saturating_add(r.cache_read);
+        entry.web_search_requests = entry
+            .web_search_requests
+            .saturating_add(r.web_search_requests);
+        entry.web_fetch_requests = entry
+            .web_fetch_requests
+            .saturating_add(r.web_fetch_requests);
         entry.cost += r.cost_usd;
     }
     let mut list: Vec<_> = by_model.into_values().collect();
@@ -2165,12 +2293,18 @@ fn aggregate_time_series_from_filtered(
             let mut sessions: HashSet<&str> = HashSet::new();
             for r in &items {
                 point.messages += 1;
-                point.input_tokens += r.input_tokens;
-                point.output_tokens += r.output_tokens;
-                point.cache_creation_tokens += r.cache_creation_total();
-                point.cache_read_tokens += r.cache_read;
-                point.web_search_requests += r.web_search_requests;
-                point.web_fetch_requests += r.web_fetch_requests;
+                point.input_tokens = point.input_tokens.saturating_add(r.input_tokens);
+                point.output_tokens = point.output_tokens.saturating_add(r.output_tokens);
+                point.cache_creation_tokens = point
+                    .cache_creation_tokens
+                    .saturating_add(r.cache_creation_total());
+                point.cache_read_tokens = point.cache_read_tokens.saturating_add(r.cache_read);
+                point.web_search_requests = point
+                    .web_search_requests
+                    .saturating_add(r.web_search_requests);
+                point.web_fetch_requests = point
+                    .web_fetch_requests
+                    .saturating_add(r.web_fetch_requests);
                 point.cost += r.cost_usd;
                 let cost_parts = compute_cost_parts_with_third_party_pricing(
                     &r.model,
@@ -2205,12 +2339,18 @@ fn aggregate_summary_totals(filtered: &[&UsageRecord]) -> UsageSummary {
     let mut total = UsageSummary::default();
     for r in filtered {
         total.total_messages += 1;
-        total.total_input += r.input_tokens;
-        total.total_output += r.output_tokens;
-        total.total_cache_creation += r.cache_creation_total();
-        total.total_cache_read += r.cache_read;
-        total.total_web_search_requests += r.web_search_requests;
-        total.total_web_fetch_requests += r.web_fetch_requests;
+        total.total_input = total.total_input.saturating_add(r.input_tokens);
+        total.total_output = total.total_output.saturating_add(r.output_tokens);
+        total.total_cache_creation = total
+            .total_cache_creation
+            .saturating_add(r.cache_creation_total());
+        total.total_cache_read = total.total_cache_read.saturating_add(r.cache_read);
+        total.total_web_search_requests = total
+            .total_web_search_requests
+            .saturating_add(r.web_search_requests);
+        total.total_web_fetch_requests = total
+            .total_web_fetch_requests
+            .saturating_add(r.web_fetch_requests);
         total.total_cost += r.cost_usd;
         sessions.insert(r.session_id.as_str());
         projects.insert(r.project_path.as_str());
@@ -2239,12 +2379,14 @@ fn aggregate_daily_from_filtered(filtered: &[&UsageRecord]) -> Vec<DailyUsage> {
             let mut sessions: HashSet<&str> = HashSet::new();
             for r in &items {
                 s.messages += 1;
-                s.input_tokens += r.input_tokens;
-                s.output_tokens += r.output_tokens;
-                s.cache_creation_tokens += r.cache_creation_total();
-                s.cache_read_tokens += r.cache_read;
-                s.web_search_requests += r.web_search_requests;
-                s.web_fetch_requests += r.web_fetch_requests;
+                s.input_tokens = s.input_tokens.saturating_add(r.input_tokens);
+                s.output_tokens = s.output_tokens.saturating_add(r.output_tokens);
+                s.cache_creation_tokens = s
+                    .cache_creation_tokens
+                    .saturating_add(r.cache_creation_total());
+                s.cache_read_tokens = s.cache_read_tokens.saturating_add(r.cache_read);
+                s.web_search_requests = s.web_search_requests.saturating_add(r.web_search_requests);
+                s.web_fetch_requests = s.web_fetch_requests.saturating_add(r.web_fetch_requests);
                 s.cost += r.cost_usd;
                 sessions.insert(r.session_id.as_str());
             }
@@ -2277,12 +2419,14 @@ fn aggregate_projects_from_filtered(filtered: &[&UsageRecord]) -> Vec<ProjectUsa
             let mut sessions: HashSet<&str> = HashSet::new();
             for r in &items {
                 s.messages += 1;
-                s.input_tokens += r.input_tokens;
-                s.output_tokens += r.output_tokens;
-                s.cache_creation_tokens += r.cache_creation_total();
-                s.cache_read_tokens += r.cache_read;
-                s.web_search_requests += r.web_search_requests;
-                s.web_fetch_requests += r.web_fetch_requests;
+                s.input_tokens = s.input_tokens.saturating_add(r.input_tokens);
+                s.output_tokens = s.output_tokens.saturating_add(r.output_tokens);
+                s.cache_creation_tokens = s
+                    .cache_creation_tokens
+                    .saturating_add(r.cache_creation_total());
+                s.cache_read_tokens = s.cache_read_tokens.saturating_add(r.cache_read);
+                s.web_search_requests = s.web_search_requests.saturating_add(r.web_search_requests);
+                s.web_fetch_requests = s.web_fetch_requests.saturating_add(r.web_fetch_requests);
                 s.cost += r.cost_usd;
                 if r.timestamp_ms > s.last_active_ms {
                     s.last_active_ms = r.timestamp_ms;
@@ -2327,12 +2471,14 @@ fn aggregate_sessions_from_filtered(filtered: &[&UsageRecord]) -> Vec<SessionUsa
             let mut models: HashSet<String> = HashSet::new();
             for r in &items {
                 s.messages += 1;
-                s.input_tokens += r.input_tokens;
-                s.output_tokens += r.output_tokens;
-                s.cache_creation_tokens += r.cache_creation_total();
-                s.cache_read_tokens += r.cache_read;
-                s.web_search_requests += r.web_search_requests;
-                s.web_fetch_requests += r.web_fetch_requests;
+                s.input_tokens = s.input_tokens.saturating_add(r.input_tokens);
+                s.output_tokens = s.output_tokens.saturating_add(r.output_tokens);
+                s.cache_creation_tokens = s
+                    .cache_creation_tokens
+                    .saturating_add(r.cache_creation_total());
+                s.cache_read_tokens = s.cache_read_tokens.saturating_add(r.cache_read);
+                s.web_search_requests = s.web_search_requests.saturating_add(r.web_search_requests);
+                s.web_fetch_requests = s.web_fetch_requests.saturating_add(r.web_fetch_requests);
                 s.cost += r.cost_usd;
                 if r.timestamp_ms > s.last_active_ms {
                     s.last_active_ms = r.timestamp_ms;
@@ -2487,12 +2633,19 @@ pub async fn get_session_usage_detail(
     let mut models: HashSet<String> = HashSet::new();
     for r in &session_records {
         session_view.messages += 1;
-        session_view.input_tokens += r.input_tokens;
-        session_view.output_tokens += r.output_tokens;
-        session_view.cache_creation_tokens += r.cache_creation_total();
-        session_view.cache_read_tokens += r.cache_read;
-        session_view.web_search_requests += r.web_search_requests;
-        session_view.web_fetch_requests += r.web_fetch_requests;
+        session_view.input_tokens = session_view.input_tokens.saturating_add(r.input_tokens);
+        session_view.output_tokens = session_view.output_tokens.saturating_add(r.output_tokens);
+        session_view.cache_creation_tokens = session_view
+            .cache_creation_tokens
+            .saturating_add(r.cache_creation_total());
+        session_view.cache_read_tokens =
+            session_view.cache_read_tokens.saturating_add(r.cache_read);
+        session_view.web_search_requests = session_view
+            .web_search_requests
+            .saturating_add(r.web_search_requests);
+        session_view.web_fetch_requests = session_view
+            .web_fetch_requests
+            .saturating_add(r.web_fetch_requests);
         session_view.cost += r.cost_usd;
         if r.timestamp_ms > session_view.last_active_ms {
             session_view.last_active_ms = r.timestamp_ms;
@@ -2611,7 +2764,10 @@ pub fn start_usage_runtime(app: &tauri::App) -> Result<(), String> {
         }
     });
 
-    // 监听 ~/.claude 目录变更事件做增量
+    // 监听 ~/.claude 目录变更事件做增量。
+    // 进程级单次注册：start_usage_runtime 仅在 lib.rs setup 调用一次，监听器生命周期等于应用，
+    // 退出时随进程释放，无组件卸载场景，故刻意不持有/注销返回的 EventId。
+    // （CLAUDE.md「监听器必须清理」约束针对前端组件卸载，不适用于此后端全局监听。）
     let app_handle = app.handle().clone();
     app.handle()
         .listen("claude-directory-changed", move |event| {
@@ -2637,7 +2793,7 @@ pub fn start_usage_runtime(app: &tauri::App) -> Result<(), String> {
             tauri::async_runtime::spawn(async move {
                 let state = app_handle.state::<UsageState>();
                 match handle_files_changed(&state, files).await {
-                    Ok(n) if n > 0 => {
+                    Ok(outcome) if outcome.changed => {
                         let _ = app_handle.emit("usage-records-changed", ());
                     }
                     Ok(_) => {}
@@ -2688,6 +2844,49 @@ mod tests {
             fetched_at_ms: None,
             models,
         }
+    }
+
+    #[test]
+    fn usage_file_scan_plan_distinguishes_append_from_rebuild_cases() {
+        let previous = FileIndex {
+            mtime_ms: 10,
+            size: 100,
+            last_offset: 90,
+        };
+
+        assert_eq!(
+            plan_usage_file_scan(None, 10, 100),
+            UsageFileScanPlan::ScanFrom(0)
+        );
+        assert_eq!(
+            plan_usage_file_scan(Some(&previous), 10, 100),
+            UsageFileScanPlan::Skip
+        );
+        assert_eq!(
+            plan_usage_file_scan(Some(&previous), 10, 120),
+            UsageFileScanPlan::ScanFrom(90)
+        );
+        assert_eq!(
+            plan_usage_file_scan(Some(&previous), 11, 100),
+            UsageFileScanPlan::FullRebuild
+        );
+        assert_eq!(
+            plan_usage_file_scan(Some(&previous), 11, 80),
+            UsageFileScanPlan::FullRebuild
+        );
+        assert_eq!(
+            plan_usage_file_scan(Some(&previous), 9, 120),
+            UsageFileScanPlan::FullRebuild
+        );
+
+        let invalid_offset = FileIndex {
+            last_offset: 101,
+            ..previous
+        };
+        assert_eq!(
+            plan_usage_file_scan(Some(&invalid_offset), 11, 120),
+            UsageFileScanPlan::FullRebuild
+        );
     }
 
     #[test]
@@ -3261,7 +3460,7 @@ mod tests {
 
             let (state, pool) = test_usage_state().await;
 
-            let new_records =
+            let outcome =
                 handle_files_changed_in_projects_dir(&state, vec![subagent_file], projects_root)
                     .await
                     .unwrap();
@@ -3269,10 +3468,217 @@ mod tests {
                 .await
                 .unwrap();
 
-            assert_eq!(new_records, 1);
+            assert!(outcome.changed);
+            assert_eq!(outcome.new_records, 1);
             assert_eq!(records.len(), 1);
             assert_eq!(records[0].project_dir, "-tmp-demo");
             assert_eq!(records[0].session_id, "sess-1");
+        });
+    }
+
+    #[test]
+    fn incremental_scan_rebuilds_after_same_size_rewrite() {
+        tauri::async_runtime::block_on(async {
+            let home = tempdir();
+            let projects_root = home.join(".claude").join("projects");
+            let project_dir = projects_root.join("-tmp-demo");
+            let usage_file = project_dir.join("sess-1.jsonl");
+            std::fs::create_dir_all(&project_dir).unwrap();
+
+            let old_line = make_assistant_line("msg-old", "sess-1", "claude-opus-4-7", 10, 20);
+            let new_line = make_assistant_line("msg-new", "sess-1", "claude-opus-4-7", 10, 20);
+            assert_eq!(old_line.len(), new_line.len());
+            std::fs::write(&usage_file, format!("{old_line}\n")).unwrap();
+
+            let (state, pool) = test_usage_state().await;
+            scan_all_in_projects_dir(&state, true, projects_root.clone())
+                .await
+                .unwrap();
+
+            // 避免依赖测试文件系统的 mtime 精度，显式制造“size 相同但 mtime 变化”的索引状态。
+            let mut index = load_file_index_db(&pool).await.unwrap();
+            index.get_mut(&usage_file).unwrap().mtime_ms -= 1;
+            replace_file_index_db(&pool, &index).await.unwrap();
+            std::fs::write(&usage_file, format!("{new_line}\n")).unwrap();
+
+            let outcome =
+                handle_files_changed_in_projects_dir(&state, vec![usage_file], projects_root)
+                    .await
+                    .unwrap();
+            let records = load_usage_records_db(&pool, &UsageFilter::default())
+                .await
+                .unwrap();
+
+            assert!(outcome.changed);
+            assert_eq!(outcome.new_records, 1);
+            assert_eq!(records.len(), 1);
+            assert_eq!(records[0].message_id, "msg-new");
+        });
+    }
+
+    #[test]
+    fn incremental_scan_rebuilds_after_truncation() {
+        tauri::async_runtime::block_on(async {
+            let home = tempdir();
+            let projects_root = home.join(".claude").join("projects");
+            let project_dir = projects_root.join("-tmp-demo");
+            let usage_file = project_dir.join("sess-1.jsonl");
+            std::fs::create_dir_all(&project_dir).unwrap();
+            std::fs::write(
+                &usage_file,
+                format!(
+                    "{}\n",
+                    make_assistant_line("msg-old", "sess-1", "claude-opus-4-7", 10, 20)
+                ),
+            )
+            .unwrap();
+
+            let (state, pool) = test_usage_state().await;
+            scan_all_in_projects_dir(&state, true, projects_root.clone())
+                .await
+                .unwrap();
+            std::fs::write(&usage_file, "").unwrap();
+
+            let outcome = handle_files_changed_in_projects_dir(
+                &state,
+                vec![usage_file.clone()],
+                projects_root,
+            )
+            .await
+            .unwrap();
+            let records = load_usage_records_db(&pool, &UsageFilter::default())
+                .await
+                .unwrap();
+            let index = load_file_index_db(&pool).await.unwrap();
+
+            assert!(outcome.changed);
+            assert_eq!(outcome.new_records, 0);
+            assert!(records.is_empty());
+            assert_eq!(index.get(&usage_file).unwrap().size, 0);
+        });
+    }
+
+    #[test]
+    fn incremental_scan_rebuilds_after_indexed_file_is_deleted() {
+        tauri::async_runtime::block_on(async {
+            let home = tempdir();
+            let projects_root = home.join(".claude").join("projects");
+            let project_dir = projects_root.join("-tmp-demo");
+            let usage_file = project_dir.join("sess-1.jsonl");
+            std::fs::create_dir_all(&project_dir).unwrap();
+            std::fs::write(
+                &usage_file,
+                format!(
+                    "{}\n",
+                    make_assistant_line("msg-old", "sess-1", "claude-opus-4-7", 10, 20)
+                ),
+            )
+            .unwrap();
+
+            let (state, pool) = test_usage_state().await;
+            scan_all_in_projects_dir(&state, true, projects_root.clone())
+                .await
+                .unwrap();
+            std::fs::remove_file(&usage_file).unwrap();
+
+            let outcome =
+                handle_files_changed_in_projects_dir(&state, vec![usage_file], projects_root)
+                    .await
+                    .unwrap();
+            let records = load_usage_records_db(&pool, &UsageFilter::default())
+                .await
+                .unwrap();
+            let index = load_file_index_db(&pool).await.unwrap();
+
+            assert!(outcome.changed);
+            assert_eq!(outcome.new_records, 0);
+            assert!(records.is_empty());
+            assert!(index.is_empty());
+        });
+    }
+
+    #[test]
+    fn incremental_scan_keeps_append_only_fast_path() {
+        tauri::async_runtime::block_on(async {
+            use std::io::Write as _;
+
+            let home = tempdir();
+            let projects_root = home.join(".claude").join("projects");
+            let project_dir = projects_root.join("-tmp-demo");
+            let usage_file = project_dir.join("sess-1.jsonl");
+            std::fs::create_dir_all(&project_dir).unwrap();
+            std::fs::write(
+                &usage_file,
+                format!(
+                    "{}\n",
+                    make_assistant_line("msg-one", "sess-1", "claude-opus-4-7", 10, 20)
+                ),
+            )
+            .unwrap();
+
+            let (state, pool) = test_usage_state().await;
+            scan_all_in_projects_dir(&state, true, projects_root.clone())
+                .await
+                .unwrap();
+            let mut file = std::fs::OpenOptions::new()
+                .append(true)
+                .open(&usage_file)
+                .unwrap();
+            writeln!(
+                file,
+                "{}",
+                make_assistant_line("msg-two", "sess-1", "claude-opus-4-7", 30, 40)
+            )
+            .unwrap();
+
+            let outcome =
+                handle_files_changed_in_projects_dir(&state, vec![usage_file], projects_root)
+                    .await
+                    .unwrap();
+            let records = load_usage_records_db(&pool, &UsageFilter::default())
+                .await
+                .unwrap();
+
+            assert!(outcome.changed);
+            assert_eq!(outcome.new_records, 1);
+            assert_eq!(records.len(), 2);
+        });
+    }
+
+    #[test]
+    fn startup_scan_rebuilds_after_indexed_file_is_deleted() {
+        tauri::async_runtime::block_on(async {
+            let home = tempdir();
+            let projects_root = home.join(".claude").join("projects");
+            let project_dir = projects_root.join("-tmp-demo");
+            let usage_file = project_dir.join("sess-1.jsonl");
+            std::fs::create_dir_all(&project_dir).unwrap();
+            std::fs::write(
+                &usage_file,
+                format!(
+                    "{}\n",
+                    make_assistant_line("msg-old", "sess-1", "claude-opus-4-7", 10, 20)
+                ),
+            )
+            .unwrap();
+
+            let (state, pool) = test_usage_state().await;
+            scan_all_in_projects_dir(&state, true, projects_root.clone())
+                .await
+                .unwrap();
+            std::fs::remove_file(&usage_file).unwrap();
+
+            let result = scan_all_in_projects_dir(&state, false, projects_root)
+                .await
+                .unwrap();
+            let records = load_usage_records_db(&pool, &UsageFilter::default())
+                .await
+                .unwrap();
+            let index = load_file_index_db(&pool).await.unwrap();
+
+            assert_eq!(result.new_records, 0);
+            assert!(records.is_empty());
+            assert!(index.is_empty());
         });
     }
 
@@ -3291,24 +3697,23 @@ mod tests {
 
             let (state, pool) = test_usage_state().await;
 
-            assert_eq!(
-                handle_files_changed_in_projects_dir(
-                    &state,
-                    vec![usage_file.clone()],
-                    projects_root.clone(),
-                )
-                .await
-                .unwrap(),
-                1
-            );
+            let first = handle_files_changed_in_projects_dir(
+                &state,
+                vec![usage_file.clone()],
+                projects_root.clone(),
+            )
+            .await
+            .unwrap();
+            assert!(first.changed);
+            assert_eq!(first.new_records, 1);
             std::fs::write(&usage_file, format!("{low}\n{high}\n")).unwrap();
 
-            assert_eq!(
+            let second =
                 handle_files_changed_in_projects_dir(&state, vec![usage_file], projects_root)
                     .await
-                    .unwrap(),
-                1
-            );
+                    .unwrap();
+            assert!(second.changed);
+            assert_eq!(second.new_records, 1);
             let records = load_usage_records_db(&pool, &UsageFilter::default())
                 .await
                 .unwrap();

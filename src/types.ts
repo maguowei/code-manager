@@ -380,7 +380,11 @@ export interface ClaudeDirectoryChangedEvent {
   paths: string[];
 }
 
-export type SkillDirectoryImportSkipReason = "invalid-id" | "exists" | "missing-skill-md";
+export type SkillDirectoryImportSkipReason =
+  | "invalid-id"
+  | "exists"
+  | "missing-skill-md"
+  | "import-failed";
 
 // Skill 条目
 export interface Skill {
