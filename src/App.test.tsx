@@ -64,6 +64,11 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
   openUrl: openUrlMock,
 }));
 
+// 启动静默更新检查依赖此插件；mock 为「无更新」，避免每次挂载触发真实 IPC 引入不确定性
+vi.mock("@tauri-apps/plugin-updater", () => ({
+  check: vi.fn(async () => null),
+}));
+
 vi.mock("@uiw/react-codemirror", () => ({
   default: ({
     readOnly,
