@@ -1,3 +1,4 @@
+import { getVersion } from "@tauri-apps/api/app";
 import {
   disable as disableAutostart,
   enable as enableAutostart,
@@ -8,16 +9,19 @@ import { platform } from "@tauri-apps/plugin-os";
 import {
   ChevronLeft,
   Code2,
+  Download,
   FileText,
   Info,
   type LucideIcon,
   Monitor,
   Moon,
+  RefreshCw,
   Sun,
   Terminal as TerminalIcon,
 } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { showOperationError } from "@/lib/user-facing-error";
+import { useAppUpdater } from "../hooks/useAppUpdater";
 import { useToast } from "../hooks/useToast";
 import { type Language, type TranslationKey, useI18n } from "../i18n";
 import { ipc } from "../ipc";
@@ -284,6 +288,86 @@ function SettingsSectionCard({
       </CardHeader>
       <CardContent className="px-4 pb-4">{children}</CardContent>
     </Card>
+  );
+}
+
+// 应用更新设置卡片：展示当前版本，手动检查更新并下载安装（状态机见 useAppUpdater）
+function UpdateSettingsCard() {
+  const { t } = useI18n();
+  const { status, availableVersion, progress, checkForUpdate, downloadAndRestart } =
+    useAppUpdater();
+  const [currentVersion, setCurrentVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getVersion()
+      .then((v) => {
+        if (!cancelled) setCurrentVersion(v);
+      })
+      .catch(() => {
+        // 取版本失败时仅不展示版本行，不影响检查更新
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const isChecking = status === "checking";
+  const isBusy = status === "downloading" || status === "ready";
+  // available/downloading/ready 走「下载并安装」主按钮，其余状态走「检查更新」按钮
+  const showInstallButton = status === "available" || isBusy;
+
+  let installLabel = t("update.downloadAndInstall");
+  if (status === "downloading") {
+    installLabel = t("update.downloading").replace("{percent}", String(progress));
+  } else if (status === "ready") {
+    installLabel = t("update.restartNow");
+  }
+
+  return (
+    <SettingsSectionCard title={t("update.title")} description={t("update.description")}>
+      <div className="flex flex-col gap-3">
+        {currentVersion ? (
+          <p className="text-sm text-muted-foreground">
+            {t("update.currentVersion").replace("{version}", currentVersion)}
+          </p>
+        ) : null}
+        <div className="flex flex-wrap items-center gap-3">
+          {showInstallButton ? (
+            <Button
+              type="button"
+              disabled={isBusy}
+              onClick={() => {
+                void downloadAndRestart();
+              }}
+            >
+              <Download data-icon="inline-start" aria-hidden="true" />
+              {installLabel}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isChecking}
+              onClick={() => {
+                void checkForUpdate();
+              }}
+            >
+              <RefreshCw data-icon="inline-start" aria-hidden="true" />
+              {isChecking ? t("update.checking") : t("update.checkNow")}
+            </Button>
+          )}
+          {status === "upToDate" ? (
+            <span className="text-sm text-muted-foreground">{t("update.upToDate")}</span>
+          ) : null}
+          {status === "available" && availableVersion ? (
+            <span className="text-sm text-foreground">
+              {t("update.available").replace("{version}", availableVersion)}
+            </span>
+          ) : null}
+        </div>
+      </div>
+    </SettingsSectionCard>
   );
 }
 
@@ -1509,6 +1593,8 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                 {t("settings.viewSystemInfo")}
               </Button>
             </SettingsSectionCard>
+
+            <UpdateSettingsCard />
           </div>
         </div>
         {isLogViewerOpen ? <LogViewer onClose={() => setIsLogViewerOpen(false)} /> : null}

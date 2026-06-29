@@ -35,5 +35,16 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhGOEM0QTkwQTNEMjdCRTkKUldUcGU5S2prRXFNanhkK0RJUXJjSDNVUTJiTFpVZk9pOUdpMzRaUDNYd05nWjlPdlg3ampreU0K",
+      "endpoints": [
+        "https://github.com/maguowei/code-manager/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

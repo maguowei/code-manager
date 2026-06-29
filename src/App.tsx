@@ -11,6 +11,7 @@ import {
   LIST_PANEL_WIDTH_CLASS,
 } from "./components/layout-size-classes";
 import Sidebar from "./components/Sidebar";
+import { silentCheckForUpdate } from "./hooks/useAppUpdater";
 import useTauriEvent from "./hooks/useTauriEvent";
 import { useToast } from "./hooks/useToast";
 import { useI18n } from "./i18n";
@@ -91,6 +92,7 @@ function App() {
   } | null>(null);
   const previousContentTabRef = useRef<TabType>("configs");
   const editorExitGuardRef = useRef<EditorExitGuard | null>(null);
+  const updateCheckedRef = useRef(false);
   const historyProjectRequestIdRef = useRef(0);
   const usageProjectRequestIdRef = useRef(0);
 
@@ -115,6 +117,19 @@ function App() {
   useEffect(() => {
     void loadWorkspace();
   }, [loadWorkspace]);
+
+  // 启动时静默检查更新：发现新版仅 Toast 提示，由用户在设置中决定是否安装；失败静默
+  useEffect(() => {
+    if (updateCheckedRef.current) return;
+    updateCheckedRef.current = true;
+    void silentCheckForUpdate().then((version) => {
+      if (version) {
+        showToast(t("update.available").replace("{version}", version), "success", {
+          description: t("update.availableHint"),
+        });
+      }
+    });
+  }, [showToast, t]);
 
   useEffect(() => {
     document.documentElement.style.setProperty(

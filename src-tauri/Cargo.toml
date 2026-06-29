@@ -30,6 +30,9 @@ tauri-plugin-autostart = "2"
 tauri-plugin-os = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-global-shortcut = "2"
+# 应用自更新：updater 拉取并校验 minisign 签名的更新包，process 提供安装后 relaunch
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 log = "0.4"
 time = { version = "0.3", features = ["formatting", "local-offset", "macros"] }
 serde = { version = "1", features = ["derive"] }
