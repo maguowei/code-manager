@@ -1,4 +1,10 @@
 import "@testing-library/jest-dom/vitest";
+import { configure } from "@testing-library/react";
+
+// 覆盖率插桩与慢 CI runner 下，事件驱动的 waitFor 断言可能超过 testing-library 默认 1000ms，
+// 与 vitest.config 放宽 testTimeout 同一思路，把异步等待上限调高。仅延长等待上限、不引入固定延迟，
+// 通过用例仍即时结算，消除负载相关的 waitFor flake。
+configure({ asyncUtilTimeout: 5000 });
 
 Element.prototype.hasPointerCapture ??= () => false;
 Element.prototype.setPointerCapture ??= () => undefined;
