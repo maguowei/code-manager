@@ -110,6 +110,9 @@ jobs:
         uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # action-v0.6.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # updater minisign 私钥与口令；缺省时不生成 .sig / latest.json，自更新不可用
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "Code Manager ${{ github.ref_name }}"
@@ -117,4 +120,6 @@ jobs:
           releaseDraft: true
           prerelease: false
           tauriScript: pnpm tauri
-          args: ${{ matrix.args }}
+          # 仅发布构建启用 updater 产物（.sig + latest.json）；本地 make build 不需私钥。
+          # --config 路径相对 tauri 命令的工作目录（仓库根，pnpm tauri 从此运行）解析。
+          args: ${{ matrix.args }} --config src-tauri/tauri.release.conf.json

@@ -188,3 +188,5 @@ rm -f "$NOTES_FILE"
 - 当 `{BASE_TAG}..HEAD` 区间无 commit 时（少见，如重打 tag），release notes 为空，需提示用户确认是否继续。
 - 执行前检查工作区是否有未提交的无关变更，若有则先提示用户。
 - 不手动修改 `pnpm-lock.yaml`，不手动编辑 `Cargo.lock`。
+- **应用自更新依赖签名与发布**：release workflow 需配置 `TAURI_SIGNING_PRIVATE_KEY` 与 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` 两个 GitHub secret，否则不会生成 `.sig` 与 `latest.json`，自更新不可用；`src-tauri/tauri.conf.json` 的 `plugins.updater.pubkey` 必须是对应公钥，不能留占位符。
+- **草稿 Release 必须手动发布**：workflow 以 `releaseDraft: true` 创建草稿，updater 的 endpoint（`releases/latest/download/latest.json`）只解析到已发布的正式 Release；发布草稿后自更新与 Homebrew Cask 更新才会触发。

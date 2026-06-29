@@ -1,0 +1,18 @@
+# gitleaks 配置：在默认规则基础上，放行 Tauri updater 的 minisign 公钥。
+# 该 pubkey 是公开内容（编译进应用用于校验更新包签名），并非密钥；
+# gitleaks 会对其高熵 base64 解码后误判为 generic-api-key，这里按行精准放行。
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Tauri updater minisign 公钥（公开内容，非密钥）"
+# 仅作用于内嵌 pubkey 的配置文件，避免过度放行
+paths = [
+  '''src-tauri/tauri\.conf\.json''',
+]
+# gitleaks 会把 base64 公钥解码后命中其内的 minisign key ID（generic-api-key 误报），
+# 这里放行该解码值；它是公钥的一部分，并非密钥。
+regexes = [
+  '''8F8C4A90A3D27BE9''',
+]
+condition = "AND"
