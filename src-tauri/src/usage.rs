@@ -1638,18 +1638,11 @@ async fn scan_all_in_projects_dir_locked(
             if current_paths.contains(indexed_path) {
                 continue;
             }
-            match read_usage_file_metadata(indexed_path)? {
-                UsageFileMetadata::Missing | UsageFileMetadata::Unsupported => {
-                    effective_full_rescan = true;
-                    break;
-                }
-                UsageFileMetadata::Regular { .. } => {
-                    return Err(format!(
-                        "已索引用量文件未被扫描目录枚举: {}",
-                        indexed_path.display()
-                    ));
-                }
-            }
+            // 已索引文件不在当前扫描目录（文件缺失、类型变化或 HOME 迁移导致路径漂移），
+            // 一律视为索引过期并触发全量重扫；read_usage_file_metadata 仍负责传播真实 I/O 错误。
+            read_usage_file_metadata(indexed_path)?;
+            effective_full_rescan = true;
+            break;
         }
     }
     if effective_full_rescan {
