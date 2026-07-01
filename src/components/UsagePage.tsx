@@ -17,7 +17,7 @@ import { showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
 import useUsage, { createTodayUsageFilter } from "../hooks/useUsage";
-import { useI18n } from "../i18n";
+import { type TranslationKey, useI18n } from "../i18n";
 import type {
   DailyUsage,
   ModelUsageStat,
@@ -81,6 +81,13 @@ const SERIES_COLORS = [
   COLORS.yellow,
   COLORS.red,
 ];
+
+// 缓存命中率三条阈值参考线：从高到低，颜色与 metric-colors 判定档呼应
+const CACHE_HIT_RATE_THRESHOLDS = [
+  { y: 90, color: COLORS.green, labelKey: "usage.charts.cacheHitRateExcellent" },
+  { y: 70, color: COLORS.yellow, labelKey: "usage.charts.cacheHitRateGood" },
+  { y: 50, color: COLORS.red, labelKey: "usage.charts.cacheHitRatePass" },
+] as const satisfies ReadonlyArray<{ y: number; color: string; labelKey: TranslationKey }>;
 
 const TICK_STYLE = { fill: "var(--muted-foreground)", fontSize: 11 };
 const TICK_STYLE_SM = { fill: "var(--muted-foreground)", fontSize: 10 };
@@ -1173,28 +1180,20 @@ function UsagePage({ projectRequest = null, onOpenSessionInHistory }: UsagePageP
                                   />
                                 }
                               />
-                              <ReferenceLine
-                                y={70}
-                                stroke={COLORS.green}
-                                strokeDasharray="4 4"
-                                label={{
-                                  value: t("usage.charts.cacheHitRateGood"),
-                                  position: "insideTopRight",
-                                  fill: COLORS.green,
-                                  fontSize: 10,
-                                }}
-                              />
-                              <ReferenceLine
-                                y={40}
-                                stroke={COLORS.orange}
-                                strokeDasharray="4 4"
-                                label={{
-                                  value: t("usage.charts.cacheHitRatePoor"),
-                                  position: "insideBottomRight",
-                                  fill: COLORS.orange,
-                                  fontSize: 10,
-                                }}
-                              />
+                              {CACHE_HIT_RATE_THRESHOLDS.map((th) => (
+                                <ReferenceLine
+                                  key={th.y}
+                                  y={th.y}
+                                  stroke={th.color}
+                                  strokeDasharray="4 4"
+                                  label={{
+                                    value: t(th.labelKey),
+                                    position: "insideBottomRight",
+                                    fill: th.color,
+                                    fontSize: 10,
+                                  }}
+                                />
+                              ))}
                               <Area
                                 type="monotone"
                                 dataKey="hitRate"
@@ -1236,28 +1235,20 @@ function UsagePage({ projectRequest = null, onOpenSessionInHistory }: UsagePageP
                                   />
                                 }
                               />
-                              <ReferenceLine
-                                y={70}
-                                stroke={COLORS.green}
-                                strokeDasharray="4 4"
-                                label={{
-                                  value: t("usage.charts.cacheHitRateGood"),
-                                  position: "insideTopRight",
-                                  fill: COLORS.green,
-                                  fontSize: 10,
-                                }}
-                              />
-                              <ReferenceLine
-                                y={40}
-                                stroke={COLORS.orange}
-                                strokeDasharray="4 4"
-                                label={{
-                                  value: t("usage.charts.cacheHitRatePoor"),
-                                  position: "insideBottomRight",
-                                  fill: COLORS.orange,
-                                  fontSize: 10,
-                                }}
-                              />
+                              {CACHE_HIT_RATE_THRESHOLDS.map((th) => (
+                                <ReferenceLine
+                                  key={th.y}
+                                  y={th.y}
+                                  stroke={th.color}
+                                  strokeDasharray="4 4"
+                                  label={{
+                                    value: t(th.labelKey),
+                                    position: "insideBottomRight",
+                                    fill: th.color,
+                                    fontSize: 10,
+                                  }}
+                                />
+                              ))}
                               <Bar
                                 dataKey="hitRate"
                                 fill={COLORS.purple}
