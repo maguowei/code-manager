@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# OSC8 超链接大量使用 \033\\（ST 终结符），shellcheck 会误报为单引号转义，禁用 SC1003
+# 下方所有字段经单次 jq @sh + eval 赋值，shellcheck 看不到赋值，禁用 SC2154 误报
+# shellcheck disable=SC1003,SC2154
+
 # 缺少 jq 时输出明确提示，避免后续解析静默失败
 if ! command -v jq >/dev/null 2>&1; then
     printf 'statusline requires jq'
@@ -9,44 +13,53 @@ fi
 # 读取 JSON 输入
 input=$(cat)
 
-# 提取当前目录，取 basename（仿 robbyrussell 主题 %c）
-cwd=$(echo "$input" | jq -r '.workspace.current_dir')
+# 一次性提取所有 JSON 标量字段（@sh 保证 shell 安全，eval 导入；缺失字段回退空串）
+# cache_pct / ctx_current 的占比与判空也在此 jq 内算好，避免额外进程
+eval "$(echo "$input" | jq -r '
+  @sh "cwd=\(.workspace.current_dir // "")",
+  @sh "project_dir=\(.workspace.project_dir // "")",
+  @sh "model=\(.model.display_name // "")",
+  @sh "effort_level=\(.effort.level // "")",
+  @sh "thinking_enabled=\(.thinking.enabled // false | tostring)",
+  @sh "git_worktree=\(.workspace.git_worktree // "")",
+  @sh "agent_name=\(.agent.name // "")",
+  @sh "session_name=\(.session_name // "")",
+  @sh "rl_5h_pct=\(.rate_limits.five_hour.used_percentage // "")",
+  @sh "rl_5h_reset=\(.rate_limits.five_hour.resets_at // "")",
+  @sh "rl_7d_pct=\(.rate_limits.seven_day.used_percentage // "")",
+  @sh "rl_7d_reset=\(.rate_limits.seven_day.resets_at // "")",
+  @sh "repo_host=\(.workspace.repo.host // "")",
+  @sh "repo_owner=\(.workspace.repo.owner // "")",
+  @sh "repo_name=\(.workspace.repo.name // "")",
+  @sh "used_pct=\(.context_window.used_percentage // "")",
+  @sh "ctx_total=\(.context_window.context_window_size // "")",
+  @sh "ctx_current=\((.context_window.total_input_tokens // 0) | if . == 0 then "" else . end)",
+  @sh "cache_pct=\((.context_window.total_input_tokens // 0) as $t | if $t > 0 then ((.context_window.current_usage.cache_read_input_tokens // 0) * 100 / $t | round) else "" end)",
+  @sh "total_duration_ms=\(.cost.total_duration_ms // "")",
+  @sh "total_api_duration_ms=\(.cost.total_api_duration_ms // "")",
+  @sh "total_cost=\(.cost.total_cost_usd // "")",
+  @sh "lines_added=\(.cost.total_lines_added // "")",
+  @sh "lines_removed=\(.cost.total_lines_removed // "")",
+  @sh "session_id=\(.session_id // "")",
+  @sh "transcript_path=\(.transcript_path // "")",
+  @sh "version=\(.version // "")",
+  @sh "output_style=\(.output_style.name // "")"
+')"
+
+# 当前目录取 basename（仿 robbyrussell 主题 %c）
 dir_name=$(basename "$cwd")
 
-# 提取项目根目录（basename）
-project_dir=$(echo "$input" | jq -r '.workspace.project_dir // empty')
+# 项目根目录 basename（与当前目录不同时才显示）
 project_name=""
 if [ -n "$project_dir" ] && [ "$project_dir" != "$cwd" ]; then
     project_name=$(basename "$project_dir")
 fi
 
-# 提取模型名称
-model=$(echo "$input" | jq -r '.model.display_name')
-
-# 提取推理强度等级（仅在模型支持时存在）
-effort_level=$(echo "$input" | jq -r '.effort.level // empty')
-
-# 提取 thinking 状态（extended thinking 是否启用）
-thinking_enabled=$(echo "$input" | jq -r '.thinking.enabled // false')
-
-# 提取 exceeds_200k_tokens 警告标志
-exceeds_200k=$(echo "$input" | jq -r '.exceeds_200k_tokens // false')
-
-# 提取新增字段：git_worktree、agent 名称、session_name
-git_worktree=$(echo "$input" | jq -r '.workspace.git_worktree // empty')
-agent_name=$(echo "$input" | jq -r '.agent.name // empty')
-session_name=$(echo "$input" | jq -r '.session_name // empty')
-
-# 提取 rate_limits（Pro/Max 订阅用户专属限额信息）
-rl_5h_pct=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
-rl_5h_reset=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
-rl_7d_pct=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
-rl_7d_reset=$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')
-
 # ── 工具函数：unix epoch 秒 → 相对时间字符串（如 2h30m、5d、45m）──
 fmt_relative_time() {
     local target=$1
-    local now=$(date +%s)
+    local now
+    now=$(date +%s)
     local diff=$(( target - now ))
     [ "$diff" -le 0 ] && { printf 'now'; return; }
     local d=$(( diff / 86400 ))
@@ -64,7 +77,8 @@ fmt_relative_time() {
 # ── 工具函数：rate limit 百分比 → 带 ANSI 颜色字符串（<70 绿,70-89 黄,≥90 红）──
 fmt_rate_pct() {
     local pct_raw=$1
-    local pct_int=$(printf '%.0f' "$pct_raw")
+    local pct_int
+    pct_int=$(printf '%.0f' "$pct_raw")
     if [ "$pct_int" -ge 90 ]; then
         printf '\033[31m%d%%\033[0m' "$pct_int"
     elif [ "$pct_int" -ge 70 ]; then
@@ -121,23 +135,12 @@ EOF
     # 从缓存读取 git 信息
     IFS='|' read -r git_branch dirty diff_added diff_removed < "$cache_file"
 
-    # 尝试获取远程仓库 URL 并转换为可点击的 HTTPS 链接
+    # 由 workspace.repo（Claude Code 从 origin 解析，已在顶部统一提取）构建可点击的 HTTPS 链接
     repo_url=""
-    remote_url=$(GIT_OPTIONAL_LOCKS=0 git -C "$cwd" remote get-url origin 2>/dev/null || true)
-    if [ -n "$remote_url" ]; then
-        # 将 SSH 格式（git@github.com:user/repo.git）转换为 HTTPS 格式
-        if echo "$remote_url" | grep -q '^git@'; then
-            repo_url=$(echo "$remote_url" | sed 's|git@\([^:]*\):\(.*\)\.git$|https://\1/\2|' | sed 's|git@\([^:]*\):\(.*\)$|https://\1/\2|')
-        elif echo "$remote_url" | grep -q '^ssh://'; then
-            # 将 ssh://git@hostname:port/path/repo.git 转换为 https://hostname/path/repo
-            # 去掉 ssh:// 前缀、用户名（git@）、端口号，替换为 https://，并去掉 .git 后缀
-            repo_url=$(echo "$remote_url" | sed 's|^ssh://[^@]*@\([^:/]*\):[0-9]*/\(.*\)\.git$|https://\1/\2|' | sed 's|^ssh://[^@]*@\([^:/]*\):[0-9]*/\(.*\)$|https://\1/\2|')
-        elif echo "$remote_url" | grep -q '^https\?://'; then
-            # 去掉末尾 .git 后缀
-            repo_url=$(echo "$remote_url" | sed 's|\.git$||')
-        fi
+    if [ -n "$repo_host" ] && [ -n "$repo_owner" ] && [ -n "$repo_name" ]; then
+        repo_url="https://${repo_host}/${repo_owner}/${repo_name}"
         # 若有分支则拼接分支路径（GitHub/GitLab 风格）
-        if [ -n "$repo_url" ] && [ -n "$git_branch" ] && [ "$git_branch" != "detached" ]; then
+        if [ -n "$git_branch" ] && [ "$git_branch" != "detached" ]; then
             repo_url="${repo_url}/tree/${git_branch}"
         fi
     fi
@@ -162,70 +165,45 @@ EOF
     fi
 fi
 
-# 提取会话累计 token 计数（总输入 / 总输出）
-total_tokens_info=""
-total_input_tokens=$(echo "$input" | jq -r '.context_window.total_input_tokens // empty')
-total_output_tokens=$(echo "$input" | jq -r '.context_window.total_output_tokens // empty')
-if [ -n "$total_input_tokens" ] && [ "$total_input_tokens" != "0" ]; then
-    in_fmt=$(awk "BEGIN {printf \"%.0fk\", $total_input_tokens/1000}")
-    out_fmt=""
-    if [ -n "$total_output_tokens" ] && [ "$total_output_tokens" != "0" ]; then
-        out_fmt=$(awk "BEGIN {printf \"%.0fk\", $total_output_tokens/1000}")
-    fi
-    if [ -n "$out_fmt" ]; then
-        total_tokens_info=$(printf '\033[90min:%s out:%s\033[0m' "$in_fmt" "$out_fmt")
+# 当前上下文缓存命中占比（cache_pct 已在顶部 jq 内算好：cache_read / total_input_tokens，越高越省）
+cache_info=""
+if [ -n "$cache_pct" ]; then
+    # 命中率越高越好：≥90 绿、70-89 黄、<70 红（与上下文用量配色相反）
+    if [ "$cache_pct" -ge 90 ]; then
+        cache_info=$(printf 'cache \033[32m%d%%\033[0m' "$cache_pct")
+    elif [ "$cache_pct" -ge 70 ]; then
+        cache_info=$(printf 'cache \033[33m%d%%\033[0m' "$cache_pct")
     else
-        total_tokens_info=$(printf '\033[90min:%s\033[0m' "$in_fmt")
+        cache_info=$(printf 'cache \033[31m%d%%\033[0m' "$cache_pct")
     fi
 fi
 
-# 计算上下文窗口使用百分比及 token 统计
+# 计算上下文窗口使用百分比及 token 统计（used_pct/ctx_current/ctx_total 已在顶部提取）
 context_info=""
-used_pct=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
 if [ -n "$used_pct" ]; then
     # 根据使用比例选择颜色：低于 70% 绿色，70%-90% 黄色，超过 90% 红色
     used_int=$(printf '%.0f' "$used_pct")
-    # 提取当前用量（input_tokens + cache_creation_input_tokens + cache_read_input_tokens）和窗口总大小
-    # 与 used_percentage 的计算公式保持一致，不包含 output_tokens
-    ctx_current=$(echo "$input" | jq -r '
-        (.context_window.current_usage.input_tokens // 0) +
-        (.context_window.current_usage.cache_creation_input_tokens // 0) +
-        (.context_window.current_usage.cache_read_input_tokens // 0)
-        | if . == 0 then empty else . end
-    ')
-    ctx_total=$(echo "$input" | jq -r '.context_window.context_window_size // empty')
-    # 将数值格式化为 k 单位
+    # 将 token 数（整数）格式化为 k 单位，四舍五入整数除法
     ctx_current_fmt=""
     ctx_total_fmt=""
-    if [ -n "$ctx_current" ]; then
-        ctx_current_fmt=$(awk "BEGIN {printf \"%.0fk\", $ctx_current/1000}")
-    fi
-    if [ -n "$ctx_total" ]; then
-        ctx_total_fmt=$(awk "BEGIN {printf \"%.0fk\", $ctx_total/1000}")
-    fi
+    [ -n "$ctx_current" ] && ctx_current_fmt="$(( (ctx_current + 500) / 1000 ))k"
+    [ -n "$ctx_total" ] && ctx_total_fmt="$(( (ctx_total + 500) / 1000 ))k"
     # 构建窗口用量附加信息（如 90k/200k）
     ctx_usage_suffix=""
     if [ -n "$ctx_current_fmt" ] && [ -n "$ctx_total_fmt" ]; then
         ctx_usage_suffix=" (${ctx_current_fmt}/${ctx_total_fmt})"
     fi
-    # exceeds_200k_tokens 为 true 时在 ctx 前加红色警告前缀
-    ctx_warn_prefix=""
-    if [ "$exceeds_200k" = "true" ]; then
-        ctx_warn_prefix=$(printf '\033[31m⚠ \033[0m')
-    fi
     if [ "$used_int" -ge 90 ]; then
-        context_info=$(printf '%sctx \033[31m%d%%\033[0m\033[90m%s\033[0m' "$ctx_warn_prefix" "$used_int" "$ctx_usage_suffix")
+        context_info=$(printf 'ctx \033[31m%d%%\033[0m\033[90m%s\033[0m' "$used_int" "$ctx_usage_suffix")
     elif [ "$used_int" -ge 70 ]; then
-        context_info=$(printf '%sctx \033[33m%d%%\033[0m\033[90m%s\033[0m' "$ctx_warn_prefix" "$used_int" "$ctx_usage_suffix")
+        context_info=$(printf 'ctx \033[33m%d%%\033[0m\033[90m%s\033[0m' "$used_int" "$ctx_usage_suffix")
     else
-        context_info=$(printf '%sctx \033[32m%d%%\033[0m\033[90m%s\033[0m' "$ctx_warn_prefix" "$used_int" "$ctx_usage_suffix")
+        context_info=$(printf 'ctx \033[32m%d%%\033[0m\033[90m%s\033[0m' "$used_int" "$ctx_usage_suffix")
     fi
 fi
 
-# 提取会话耗时：total_duration_ms（总挂钟时间）和 total_api_duration_ms（API 等待时间）
+# 会话耗时（total_duration_ms 挂钟、total_api_duration_ms API 等待，已在顶部提取）
 duration_info=""
-total_duration_ms=$(echo "$input" | jq -r '.cost.total_duration_ms // empty')
-total_api_duration_ms=$(echo "$input" | jq -r '.cost.total_api_duration_ms // empty')
 
 # ── 工具函数：毫秒 → 可读时间字符串（如 1m30s、45s、2h3m）──
 fmt_duration_ms() {
@@ -253,17 +231,14 @@ if [ -n "$total_duration_ms" ] && [ "$total_duration_ms" != "0" ]; then
     fi
 fi
 
-# 提取会话总成本（USD）
+# 会话总成本（USD，total_cost 已在顶部提取）
 cost_info=""
-total_cost=$(echo "$input" | jq -r '.cost.total_cost_usd // empty')
 if [ -n "$total_cost" ]; then
-    cost_info=$(printf '\033[90m$%.4f\033[0m' "$total_cost")
+    cost_info=$(printf '\033[90m$%.2f\033[0m' "$total_cost")
 fi
 
-# 提取累计代码行变更数（新增/删除），两者均为 0 时不显示
+# 累计代码行变更数（已在顶部提取），两者均为 0 时不显示
 lines_info=""
-lines_added=$(echo "$input" | jq -r '.cost.total_lines_added // empty')
-lines_removed=$(echo "$input" | jq -r '.cost.total_lines_removed // empty')
 if [ -n "$lines_added" ] || [ -n "$lines_removed" ]; then
     added=${lines_added:-0}
     removed=${lines_removed:-0}
@@ -297,15 +272,15 @@ model_segment=$(printf '\033[34m%s\033[0m' "$model")
 if [ -n "$effort_level" ]; then
     model_segment+=$(printf ' \033[90m[%s]\033[0m' "$effort_level")
 fi
-# thinking.enabled=true 时追加 [💭] 暗色指示器
+# thinking.enabled=true 时追加 [thinking] 暗色指示器
 if [ "$thinking_enabled" = "true" ]; then
-    model_segment+=$(printf ' \033[90m[💭]\033[0m')
+    model_segment+=$(printf ' \033[90m[thinking]\033[0m')
 fi
 line1+=$(printf ' \033[90m|\033[0m %s' "$model_segment")
-# 上下文使用百分比（含用量/总量；exceeds_200k 时含红色 ⚠ 前缀）
+# 上下文使用百分比（含用量/总量）
 [ -n "$context_info" ] && line1+=$(printf ' \033[90m|\033[0m %s' "$context_info")
-# 会话累计 token 计数（in:Xk out:Yk）
-[ -n "$total_tokens_info" ] && line1+=$(printf ' \033[90m|\033[0m %s' "$total_tokens_info")
+# 当前上下文缓存命中占比（cache N%）
+[ -n "$cache_info" ] && line1+=$(printf ' \033[90m|\033[0m %s' "$cache_info")
 # 会话总成本
 [ -n "$cost_info" ] && line1+=$(printf ' \033[90m|\033[0m %s' "$cost_info")
 
@@ -336,8 +311,6 @@ if [ -n "$rl_7d_pct" ]; then
 fi
 
 # 3. #xxxxxxxx：session_id 前 8 位作为会话锚点（暗灰；若有 transcript_path 则带 OSC 8 链向其父目录）
-session_id=$(echo "$input" | jq -r '.session_id // empty')
-transcript_path=$(echo "$input" | jq -r '.transcript_path // empty')
 if [ -n "$session_id" ]; then
     short_id="${session_id:0:8}"
     if [ -n "$transcript_path" ]; then
@@ -370,15 +343,13 @@ if [ -n "$agent_name" ]; then
     line2_parts+=("$(printf '\033[90magent:%s\033[0m' "$agent_name")")
 fi
 
-# 9. vX.Y.Z：版本号（暗灰；带 OSC 8 链到 CHANGELOG）
-version=$(echo "$input" | jq -r '.version // empty')
+# 9. vX.Y.Z：版本号（已在顶部提取；暗灰；带 OSC 8 链到 CHANGELOG）
 if [ -n "$version" ]; then
     version_link=$(printf '\033]8;;https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md\033\\v%s\033]8;;\033\\' "$version")
     line2_parts+=("$(printf '\033[90m%s\033[0m' "$version_link")")
 fi
 
-# 10. [STYLE]：output_style.name（暗灰；仅当非 "default" 时显示）
-output_style=$(echo "$input" | jq -r '.output_style.name // empty')
+# 10. [STYLE]：output_style.name（已在顶部提取；暗灰；仅当非 "default" 时显示）
 if [ -n "$output_style" ] && [ "$output_style" != "default" ]; then
     line2_parts+=("$(printf '\033[90m[%s]\033[0m' "$output_style")")
 fi
