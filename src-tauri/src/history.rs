@@ -903,13 +903,13 @@ mod tests {
     fn session_file_path_encodes_underscores_like_claude_code() {
         // 含下划线的项目路径，Claude Code 会把 '_' 也编码成 '-'
         let path = session_file_path(
-            "/Users/test_user/my_work/demo_app_template",
+            "/Users/demo/my_work/demo_app_template",
             "2902e1a9-6d55-4b8e-8b68-e491ac878943",
         )
         .unwrap();
 
         assert!(path.ends_with(Path::new(
-            ".claude/projects/-Users-test-user-my-work-demo-app-template/2902e1a9-6d55-4b8e-8b68-e491ac878943.jsonl"
+            ".claude/projects/-Users-demo-my-work-demo-app-template/2902e1a9-6d55-4b8e-8b68-e491ac878943.jsonl"
         )));
     }
 
