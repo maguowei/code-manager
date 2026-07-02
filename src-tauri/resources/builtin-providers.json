@@ -185,12 +185,12 @@
     "env": {
       "ANTHROPIC_MODEL": "claude-opus-4-8[1m]",
       "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-8[1m]",
-      "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-4-6[1m]",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5[1m]",
       "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-4-5-20251001"
     },
     "models": [
       { "id": "claude-opus-4-8[1m]", "name": "Claude Opus 4.8" },
-      { "id": "claude-sonnet-4-6[1m]", "name": "Claude Sonnet 4.6" },
+      { "id": "claude-sonnet-5[1m]", "name": "Claude Sonnet 5" },
       { "id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5" }
     ]
   }
