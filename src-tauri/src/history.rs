@@ -691,7 +691,12 @@ pub fn open_session_file_in_editor(project: &str, session_id: &str) -> Result<()
     let result = (|| {
         let session_file = session_file_path(project, session_id)?;
         if !session_file.is_file() {
-            return Err("原始对话记录文件不存在".to_string());
+            // 附上尝试打开的路径便于排查；以 home 相对形式在后端脱敏，toast 与日志都不泄露用户名
+            let display = session_file
+                .strip_prefix(crate::utils::home_dir_or_fallback())
+                .map(|rel| format!("~/{}", crate::utils::normalize_path_for_display(rel)))
+                .unwrap_or_else(|_| crate::utils::normalize_path_for_display(&session_file));
+            return Err(format!("原始对话记录文件不存在：{display}"));
         }
         let preferences = crate::config::load_app_preferences();
         let editor = preferences
