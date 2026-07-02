@@ -12,6 +12,26 @@ disable-model-invocation: true
 
 接收版本号（如 `0.17.0` 或 `v0.17.0`），可选接收对比基准版本（如 `from v0.15.0`、`base=v0.15.0`、`对比 v0.15.0`）。若未提供基准，自动取前一个 SemVer tag。按顺序执行以下步骤：
 
+### 步骤 0：前置条件——切换到 main 分支
+
+发布必须在 `main` 分支上执行（版本 bump 提交与 tag 都落在 main），不要在 `dev` 或功能分支上发版。
+
+```bash
+git fetch origin --tags
+git rev-parse --abbrev-ref HEAD          # 当前分支
+git status --short                        # 工作区是否干净
+git rev-list --count main..origin/main    # 本地 main 是否落后远端
+```
+
+处理规则：
+
+- **工作区必须干净**（`git status --short` 为空）；有无关改动先提示用户处理，不要裹挟进发布提交。
+- 切到 main 并与远端对齐：`git checkout main && git merge --ff-only origin/main`。
+- **确认 main 已包含本次要发布的内容**：发布内容通常通过 PR 合入 main。若内容仍在 `dev`/功能分支未合入（`git rev-list --count main..<分支>` > 0），先提示用户走 PR 或 fast-forward 合并，**不要在 main 上直接拉取未评审代码**。
+- 若已在 `dev`/功能分支误建了 bump 提交、且其父提交正是 main 当前位置，可 `git checkout main && git merge --ff-only <分支>` 把 bump 并入 main，保持两分支一致（避免分叉）。
+
+**⏸️ 用户确认点**（当前不在 main、main 落后远端、或发布内容尚未合入 main 时）：展示上述分支状态，说明将如何对齐，用户确认后再切换/合并。
+
 ### 步骤 1：确定并规范化版本号
 
 **1a. 解析用户输入**
@@ -167,10 +187,13 @@ Release v{VERSION} ({YYYY-MM-DD})
 
 **⏸️ 用户确认点**：提示用户即将执行不可逆操作（打 tag + push），展示即将执行的命令摘要，请求最终确认。用户确认后才执行 push。
 
+在 main 上（见步骤 0）执行：
+
 ```bash
 git tag -a v{VERSION} -F "$NOTES_FILE"
-git push origin HEAD
+git push origin main
 git push origin v{VERSION}
+# 如需保持 dev 与 main 一致（bump 已并入 main），一并推送：git push origin dev
 rm -f "$NOTES_FILE"
 ```
 
@@ -183,6 +206,7 @@ rm -f "$NOTES_FILE"
 
 ## 注意事项
 
+- **发布分支固定为 `main`**：版本 bump 提交与 tag 都落在 main（见步骤 0）；发布内容先经 PR 合入 main，不在 dev/功能分支上直接发版。
 - 版本文件中始终使用纯 semver（如 `0.17.0`），只有 git tag 才加 `v` 前缀（`v0.17.0`）。
 - **tag 必须用 annotated（`-a`）**，lightweight tag 不会保存 message，`git show v{VERSION}` 将看不到变更内容。
 - 对比基准 tag 必须真实存在（通过 `git rev-parse` 校验），不存在则中止并询问用户确认。
