@@ -153,6 +153,7 @@ make test-frontend    # 运行前端测试
 - [docs/user-manual.zh-CN.md](./docs/user-manual.zh-CN.md)：完整用户说明书
 - [docs/platform-support.zh-CN.md](./docs/platform-support.zh-CN.md)：平台支持差异
 - [docs/claude-code-best-practices.md](./docs/claude-code-best-practices.md)：Claude Code / Codex 在本仓库的扩展最佳实践
+- [docs/claude-code/plugin-update.md](./docs/claude-code/plugin-update.md)：Claude Code 插件更新方式
 - [CLAUDE.md](./CLAUDE.md)：面向 AI Agent 的仓库执行手册
 - [LICENSE](./LICENSE)：许可证
 
