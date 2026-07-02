@@ -167,6 +167,7 @@ type CompatibleIpcOverrides = {
   rescanUsage(): Promise<AppTypes.UsageScanResult>;
   previewWaitingSound(sound: AppTypes.AppPreferences["waitingSound"]): Promise<null>;
   setAppPreferences(data: AppTypes.AppPreferences): Promise<AppTypes.AppPreferences>;
+  setUiLanguage(language: AppTypes.AppPreferences["uiLanguage"]): Promise<"zh" | "en">;
   syncSharedProfileSettings(
     sourceId: string,
     topLevelKeys: string[],

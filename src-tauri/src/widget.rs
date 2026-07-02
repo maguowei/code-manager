@@ -62,7 +62,10 @@ fn default_widget_position(app: &AppHandle) -> Option<(f64, f64)> {
 /// 切换浮窗显隐（幂等）：显示时不存在则创建，隐藏时隐藏而非关闭以保留位置与状态。
 #[tauri::command]
 #[specta::specta]
-pub fn toggle_floating_widget(app: AppHandle, visible: bool) -> Result<(), String> {
+pub fn toggle_floating_widget(
+    app: AppHandle,
+    visible: bool,
+) -> Result<(), crate::error::CommandError> {
     if visible {
         match app.get_webview_window(WIDGET_WINDOW_LABEL) {
             Some(window) => {
@@ -89,7 +92,7 @@ pub fn sync_widget_visibility(app: &AppHandle, enabled: bool) {
 /// 浮窗点击主体：唤起主窗口并跳转到用量页。复用托盘的窗口显示逻辑，避免重复实现。
 #[tauri::command]
 #[specta::specta]
-pub fn open_usage_page(app: AppHandle) -> Result<(), String> {
+pub fn open_usage_page(app: AppHandle) -> Result<(), crate::error::CommandError> {
     crate::tray::show_main_window(&app);
     let _ = app.emit("navigate-to-tab", "usage".to_string());
     Ok(())

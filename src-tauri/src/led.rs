@@ -188,9 +188,12 @@ pub fn led_probe_status() -> LedProbeStatus {
 /// 测试某个灯效(设置页「测试」按钮 / 真机验证门)。立即下发,不受 enabled 影响。
 #[tauri::command]
 #[specta::specta]
-pub fn led_test_mode(state: tauri::State<'_, LedState>, mode: u8) -> Result<(), String> {
+pub fn led_test_mode(
+    state: tauri::State<'_, LedState>,
+    mode: u8,
+) -> Result<(), crate::error::CommandError> {
     if mode > MAX_MODE {
-        return Err(LedError::InvalidMode(mode).to_string());
+        return Err(LedError::InvalidMode(mode).to_string().into());
     }
     // 测试只是临时预览:清空去重状态,下次会话状态评估会重新下发会话灯效。
     if let Ok(mut last) = state.last.lock() {

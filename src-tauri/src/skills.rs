@@ -397,7 +397,7 @@ fn scan_skills_dir(dir: &Path, is_active: bool) -> Vec<Skill> {
 /// 获取所有 Skills（启用 + 禁用）
 #[tauri::command]
 #[specta::specta]
-pub fn get_skills() -> Result<Vec<Skill>, String> {
+pub fn get_skills() -> Result<Vec<Skill>, crate::error::CommandError> {
     let mut skills = scan_skills_dir(&get_skills_dir(), true);
     let mut disabled = scan_skills_dir(&get_disabled_dir(), false);
     skills.append(&mut disabled);
@@ -407,7 +407,7 @@ pub fn get_skills() -> Result<Vec<Skill>, String> {
 /// 切换 Skill 的启用/禁用状态
 #[tauri::command]
 #[specta::specta]
-pub fn toggle_skill(id: String, is_active: bool) -> Result<Skill, String> {
+pub fn toggle_skill(id: String, is_active: bool) -> Result<Skill, crate::error::CommandError> {
     let result = (|| {
         validate_skill_id(&id)?;
         let _lock = crate::utils::lock_skills()?;
@@ -466,7 +466,7 @@ pub fn toggle_skill(id: String, is_active: bool) -> Result<Skill, String> {
     crate::logging::log_command_result("skill.toggle", &result, |skill| {
         format!("skill_id={} active={}", skill.id, skill.is_active)
     });
-    result
+    Ok(result?)
 }
 
 /// 验证 Skill id（目录名）：仅允许小写字母、数字、连字符
@@ -498,7 +498,7 @@ fn ensure_local_skill_root(id: &str, is_active: bool) -> Result<PathBuf, String>
 
 #[tauri::command]
 #[specta::specta]
-pub fn add_skill(data: SkillData) -> Result<Skill, String> {
+pub fn add_skill(data: SkillData) -> Result<Skill, crate::error::CommandError> {
     let result = (|| {
         let _lock = crate::utils::lock_skills()?;
         let SkillData {
@@ -553,12 +553,16 @@ pub fn add_skill(data: SkillData) -> Result<Skill, String> {
     crate::logging::log_command_result("skill.add", &result, |skill| {
         format!("skill_id={}", skill.id)
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn update_skill(id: String, is_active: bool, data: SkillData) -> Result<Skill, String> {
+pub fn update_skill(
+    id: String,
+    is_active: bool,
+    data: SkillData,
+) -> Result<Skill, crate::error::CommandError> {
     let result = (|| {
         ensure_matching_skill_id(&id, &data)?;
         validate_skill_id(&id)?;
@@ -607,12 +611,16 @@ pub fn update_skill(id: String, is_active: bool, data: SkillData) -> Result<Skil
     crate::logging::log_command_result("skill.update", &result, |skill| {
         format!("skill_id={} active={}", skill.id, skill.is_active)
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn duplicate_skill(id: String, is_active: bool, name_suffix: String) -> Result<Skill, String> {
+pub fn duplicate_skill(
+    id: String,
+    is_active: bool,
+    name_suffix: String,
+) -> Result<Skill, crate::error::CommandError> {
     let result = (|| {
         validate_skill_id(&id)?;
         let _lock = crate::utils::lock_skills()?;
@@ -648,12 +656,12 @@ pub fn duplicate_skill(id: String, is_active: bool, name_suffix: String) -> Resu
     crate::logging::log_command_result("skill.duplicate", &result, |skill| {
         format!("source_skill_id={id} skill_id={}", skill.id)
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn delete_skill(id: String, is_active: bool) -> Result<(), String> {
+pub fn delete_skill(id: String, is_active: bool) -> Result<(), crate::error::CommandError> {
     let result = (|| {
         validate_skill_id(&id)?;
         let _lock = crate::utils::lock_skills()?;
@@ -674,7 +682,7 @@ pub fn delete_skill(id: String, is_active: bool) -> Result<(), String> {
     crate::logging::log_command_result("skill.delete", &result, |_| {
         format!("skill_id={id} active={is_active}")
     });
-    result
+    Ok(result?)
 }
 
 fn skill_id_exists(id: &str) -> bool {
@@ -700,7 +708,10 @@ fn next_available_skill_copy_id(source_id: &str) -> Result<String, String> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn get_skill_file_tree(id: String, is_active: bool) -> Result<Vec<SkillFileTreeEntry>, String> {
+pub fn get_skill_file_tree(
+    id: String,
+    is_active: bool,
+) -> Result<Vec<SkillFileTreeEntry>, crate::error::CommandError> {
     validate_skill_id(&id)?;
     let skill_dir = ensure_local_skill_root(&id, is_active)?;
 
@@ -830,7 +841,7 @@ fn resolve_existing_skill_root(id: &str, is_active: bool) -> Result<PathBuf, Str
 
 #[tauri::command]
 #[specta::specta]
-pub fn open_skill_in_editor(id: String, is_active: bool) -> Result<(), String> {
+pub fn open_skill_in_editor(id: String, is_active: bool) -> Result<(), crate::error::CommandError> {
     let result = (|| {
         validate_skill_id(&id)?;
         let preferences = crate::config::load_app_preferences();
@@ -844,14 +855,14 @@ pub fn open_skill_in_editor(id: String, is_active: bool) -> Result<(), String> {
     crate::logging::log_command_result("skill.open_editor", &result, |_| {
         format!("skill_id={id} active={is_active}")
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
 pub fn import_skills_from_directory(
     source_dir: String,
-) -> Result<SkillDirectoryImportResult, String> {
+) -> Result<SkillDirectoryImportResult, crate::error::CommandError> {
     let result = (|| {
         let source_dir = validate_skill_import_source_dir(&source_dir)?;
         let _lock = crate::utils::lock_skills()?;
@@ -906,7 +917,7 @@ pub fn import_skills_from_directory(
             result.skipped.len()
         )
     });
-    result
+    Ok(result?)
 }
 
 fn validate_skill_import_source_dir(source_dir: &str) -> Result<PathBuf, String> {
@@ -1192,7 +1203,7 @@ fn copy_file_resolving_symlink(source: &Path, target: &Path) -> Result<(), Strin
 
 #[tauri::command]
 #[specta::specta]
-pub fn sync_skill_to_codex(id: String, is_active: bool) -> Result<(), String> {
+pub fn sync_skill_to_codex(id: String, is_active: bool) -> Result<(), crate::error::CommandError> {
     let result = (|| {
         validate_skill_id(&id)?;
         let _lock = crate::utils::lock_skills()?;
@@ -1247,7 +1258,7 @@ pub fn sync_skill_to_codex(id: String, is_active: bool) -> Result<(), String> {
     crate::logging::log_command_result("skill.sync_codex", &result, |_| {
         format!("skill_id={id} active={is_active}")
     });
-    result
+    Ok(result?)
 }
 
 fn ensure_matching_skill_id(expected_id: &str, data: &SkillData) -> Result<(), String> {

@@ -1,6 +1,10 @@
 use crate::config::{
     apply_profile_inner, load_registry_or_default, AppPreferences, ConfigRegistry,
-    SessionTrayCountStyle,
+    SessionTrayCountStyle, UiLanguage,
+};
+use crate::native_i18n::{
+    pending_session_message, pending_sessions_summary_message, session_status_label, tray_labels,
+    TrayLabels,
 };
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
@@ -31,64 +35,7 @@ const SESSION_STATUS_WAITING_DIM_EMOJI: &str = "⭕";
 const PULSE_HALF_PERIOD_MS: u64 = 600;
 static PENDING_SESSION_NOTIFIER: OnceLock<Mutex<PendingSessionNotifier>> = OnceLock::new();
 
-struct TrayLabels<'a> {
-    language: &'a str,
-    show_window: &'a str,
-    toggle_widget: &'a str,
-    nav_configs: &'a str,
-    no_configs: &'a str,
-    active_sessions: &'a str,
-    no_sessions: &'a str,
-    focus_shortcut_hint: &'a str,
-    nav_memory: &'a str,
-    nav_skills: &'a str,
-    nav_projects: &'a str,
-    nav_history: &'a str,
-    nav_stats: &'a str,
-    nav_usage: &'a str,
-    quit: &'a str,
-}
-
-fn tray_labels_for_language(language: &str) -> TrayLabels<'static> {
-    match language {
-        "en" => TrayLabels {
-            language: "en",
-            show_window: "Open Code Manager",
-            toggle_widget: "Toggle Floating Widget",
-            nav_configs: "Profiles",
-            no_configs: "No configs",
-            active_sessions: "Active Sessions",
-            no_sessions: "No Sessions",
-            focus_shortcut_hint: "Focus most urgent session",
-            nav_memory: "Memory",
-            nav_skills: "Skills",
-            nav_projects: "Projects",
-            nav_history: "History",
-            nav_stats: "Stats",
-            nav_usage: "Usage",
-            quit: "Quit",
-        },
-        _ => TrayLabels {
-            language: "zh",
-            show_window: "打开 Code Manager",
-            toggle_widget: "显示/隐藏浮窗",
-            nav_configs: "配置",
-            no_configs: "暂无配置",
-            active_sessions: "当前会话",
-            no_sessions: "无会话",
-            focus_shortcut_hint: "聚焦最该处理会话",
-            nav_memory: "记忆",
-            nav_skills: "Skills",
-            nav_projects: "项目",
-            nav_history: "历史",
-            nav_stats: "统计",
-            nav_usage: "用量",
-            quit: "退出",
-        },
-    }
-}
-
-fn main_tray_navigation_items<'a>(labels: &'a TrayLabels<'a>) -> [(&'static str, &'a str); 6] {
+fn main_tray_navigation_items(labels: &TrayLabels) -> [(&'static str, &'static str); 6] {
     [
         ("nav_memory", labels.nav_memory),
         ("nav_skills", labels.nav_skills),
@@ -157,7 +104,7 @@ impl PendingSessionNotifier {
         &mut self,
         preferences: &AppPreferences,
         sessions: &[TraySession],
-        language: &str,
+        language: UiLanguage,
         interaction: PendingSessionNotificationInteraction,
     ) -> Vec<PendingSessionNotification> {
         let waiting_sessions = sessions
@@ -271,24 +218,6 @@ fn session_project_name(cwd: &str) -> String {
         .unwrap_or_else(|| cwd.to_string())
 }
 
-fn session_status_label(status: &str, language: &str) -> String {
-    let normalized = status.trim().to_ascii_lowercase();
-    let label = match (language, normalized.as_str()) {
-        ("en", "idle") => "Idle",
-        ("en", "waiting") => "Waiting",
-        ("en", "running" | "busy" | "active") => "Running",
-        ("en", "starting") => "Starting",
-        ("en", "exited" | "ended") => "Ended",
-        (_, "idle") => "空闲",
-        (_, "waiting") => "待处理",
-        (_, "running" | "busy" | "active") => "运行中",
-        (_, "starting") => "启动中",
-        (_, "exited" | "ended") => "已结束",
-        _ => status.trim(),
-    };
-    label.to_string()
-}
-
 /// 呼吸动画相位：Active=🔴 实心帧，Dim=⭕ 空心帧。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 enum PulsePhase {
@@ -377,7 +306,7 @@ fn update_pulse_state(enabled: bool, title_active: String, title_dim: String) ->
 /// `waiting_emoji` 控制待处理段的图标：通常传 🔴；呼吸灯暗帧传 ⭕。
 fn sessions_tray_title(
     sessions: &[TraySession],
-    labels: &TrayLabels<'_>,
+    labels: &TrayLabels,
     style: SessionTrayCountStyle,
     waiting_emoji: &str,
 ) -> Option<String> {
@@ -532,30 +461,21 @@ fn session_menu_focus_enabled_for_platform(default_terminal_app: &str, is_macos:
 
 fn build_pending_session_notification(
     session: &TraySession,
-    language: &str,
+    language: UiLanguage,
     default_terminal_app: &str,
     interaction: PendingSessionNotificationInteraction,
 ) -> PendingSessionNotification {
-    let is_en = language == "en";
     let project_name = session_project_name(&session.cwd);
-    let title = if is_en {
-        "Claude session needs attention"
-    } else {
-        "Claude 会话待处理"
-    }
-    .to_string();
-    let body = match (is_en, session.waiting_for.as_deref()) {
-        (_, Some(waiting_for)) => format!(
-            "{} · {}",
-            crate::utils::truncate(&project_name, 48),
-            crate::utils::truncate(waiting_for, SESSION_MENU_LABEL_MAX_CHARS)
-        ),
-        (true, None) => format!(
-            "{} needs attention",
-            crate::utils::truncate(&project_name, 48)
-        ),
-        (false, None) => format!("{} 需要处理", crate::utils::truncate(&project_name, 48)),
-    };
+    let truncated_project_name = crate::utils::truncate(&project_name, 48);
+    let truncated_waiting_for = session
+        .waiting_for
+        .as_deref()
+        .map(|waiting_for| crate::utils::truncate(waiting_for, SESSION_MENU_LABEL_MAX_CHARS));
+    let (title, body) = pending_session_message(
+        language,
+        &truncated_project_name,
+        truncated_waiting_for.as_deref(),
+    );
     let focus_target =
         (interaction == PendingSessionNotificationInteraction::FocusTerminal).then(|| {
             PendingSessionFocusTarget {
@@ -569,49 +489,34 @@ fn build_pending_session_notification(
     PendingSessionNotification {
         title,
         body,
-        language: language.to_string(),
+        language: language.as_str().to_string(),
         focus_target,
     }
 }
 
 fn build_pending_sessions_summary_notification(
     sessions: &[TraySession],
-    language: &str,
+    language: UiLanguage,
 ) -> PendingSessionNotification {
-    let is_en = language == "en";
-    let title = if is_en {
-        "Multiple Claude sessions need attention"
-    } else {
-        "多个 Claude 会话待处理"
-    }
-    .to_string();
     let project_names = sessions
         .iter()
         .map(|session| crate::utils::truncate(&session_project_name(&session.cwd), 32))
         .collect::<Vec<_>>()
         .join(", ");
-    let body = if is_en {
-        format!(
-            "{} sessions need attention: {}",
-            sessions.len(),
-            project_names
-        )
-    } else {
-        format!("{} 个会话需要处理：{}", sessions.len(), project_names)
-    };
+    let (title, body) = pending_sessions_summary_message(language, sessions.len(), &project_names);
 
     PendingSessionNotification {
         title,
         body,
-        language: language.to_string(),
+        language: language.as_str().to_string(),
         focus_target: None,
     }
 }
 
-fn session_menu_item_label(session: &TraySession, language: &str) -> String {
+fn session_menu_item_label(session: &TraySession, language: UiLanguage) -> String {
     let mut parts = vec![
         crate::utils::truncate(&session_project_name(&session.cwd), 32),
-        session_status_label(&session.status, language),
+        session_status_label(language, &session.status),
     ];
     if is_waiting_session_status(&session.status) {
         if let Some(waiting_for) = &session.waiting_for {
@@ -675,7 +580,7 @@ fn hex_decode(s: &str) -> Option<Vec<u8>> {
 /// 构建托盘菜单
 fn build_tray_menu(app: &AppHandle, state: &ConfigRegistry) -> tauri::Result<Menu<tauri::Wry>> {
     let mut items: Vec<Box<dyn tauri::menu::IsMenuItem<tauri::Wry>>> = Vec::new();
-    let labels = tray_labels_for_language(&state.app.ui_language);
+    let labels = tray_labels(state.app.ui_language);
 
     // 顶部：点击打开主窗口
     let show = MenuItemBuilder::with_id("show_window", labels.show_window).build(app)?;
@@ -738,7 +643,7 @@ fn build_sessions_tray_menu(
     sessions: &[TraySession],
 ) -> tauri::Result<Menu<tauri::Wry>> {
     let mut items: Vec<Box<dyn tauri::menu::IsMenuItem<tauri::Wry>>> = Vec::new();
-    let labels = tray_labels_for_language(&state.app.ui_language);
+    let labels = tray_labels(state.app.ui_language);
 
     let header = MenuItemBuilder::with_id("sessions_header", labels.active_sessions)
         .enabled(false)
@@ -890,7 +795,7 @@ fn apply_sessions_tray_title(
         return false;
     }
 
-    let labels = tray_labels_for_language(&state.app.ui_language);
+    let labels = tray_labels(state.app.ui_language);
     let style = state.app.session_tray_count_style;
     let (waiting, _, _) = count_session_states(sessions);
     let do_pulse = should_pulse(waiting, state.app.tray_pulse_waiting, true);
@@ -979,7 +884,7 @@ pub fn focus_most_urgent_session(app: &AppHandle) {
     let app_handle = app.clone();
     std::thread::spawn(move || {
         if let Err(failure) = crate::terminal_focus::focus_session_in_terminal(pid, &cwd, &slug) {
-            notify_session_focus_failure(&app_handle, &language, notifications_enabled, &failure);
+            notify_session_focus_failure(&app_handle, language, notifications_enabled, &failure);
         }
     });
 }
@@ -1025,7 +930,7 @@ pub(crate) fn show_main_window(app: &AppHandle) {
 /// Toast 需要主窗口可见才有意义；弹出主窗口又会打断用户当前终端操作。
 pub(crate) fn notify_session_focus_failure(
     app: &AppHandle,
-    language: &str,
+    language: UiLanguage,
     notifications_enabled: bool,
     failure: &crate::terminal_focus::FocusFailure,
 ) {
@@ -1052,7 +957,7 @@ fn handle_pending_session_notifications(
     state: &ConfigRegistry,
     sessions: &[TraySession],
 ) {
-    let labels = tray_labels_for_language(&state.app.ui_language);
+    let labels = tray_labels(state.app.ui_language);
     let interaction = pending_session_notification_interaction(&state.app.default_terminal_app);
     let (notifications, has_new_waiting) = match pending_session_notifier().lock() {
         Ok(mut notifier) => {
@@ -1148,7 +1053,7 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     let sessions = load_tray_sessions();
     handle_pending_session_notifications(handle, &state, &sessions);
     let sessions_menu = build_sessions_tray_menu(handle, &state, &sessions)?;
-    let labels = tray_labels_for_language(&state.app.ui_language);
+    let labels = tray_labels(state.app.ui_language);
     let sessions_title = if state.app.show_tray_sessions {
         sessions_tray_title(
             &sessions,
@@ -1174,7 +1079,7 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     // 第二个托盘项只承载会话摘要，形成独立点击区域。
     // 注：macOS 状态栏图标按添加顺序从右往左排列，先创建会话托盘可让其显示在主托盘（配置名）右侧。
     let mut sessions_builder = TrayIconBuilder::with_id(SESSIONS_TRAY_ID)
-        .tooltip("Code Manager Sessions")
+        .tooltip(labels.sessions_tooltip)
         .menu(&sessions_menu)
         .show_menu_on_left_click(true)
         .on_menu_event(|app, event| {
@@ -1197,7 +1102,7 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
                 {
                     notify_session_focus_failure(
                         &app_handle,
-                        &language,
+                        language,
                         notifications_enabled,
                         &failure,
                     );
@@ -1285,13 +1190,14 @@ mod tests {
         pick_focus_target_session, session_focus_failure_notification_enabled,
         session_menu_focus_enabled_for_platform, session_menu_item_id, session_menu_item_label,
         session_project_name, session_status_emoji, session_status_label, sessions_tray_title,
-        should_pulse, tick_pulse, to_superscript, tray_labels_for_language,
-        PendingSessionFocusTarget, PendingSessionNotificationInteraction, PendingSessionNotifier,
-        PulsePhase, PulseState, RawTraySession, TraySession, SESSION_STATUS_WAITING_DIM_EMOJI,
+        should_pulse, tick_pulse, to_superscript, tray_labels, PendingSessionFocusTarget,
+        PendingSessionNotificationInteraction, PendingSessionNotifier, PulsePhase, PulseState,
+        RawTraySession, TraySession, SESSION_STATUS_WAITING_DIM_EMOJI,
         SESSION_STATUS_WAITING_EMOJI,
     };
     use crate::config::{
         AppPreferences, BindingState, ConfigProfile, ConfigRegistry, SessionTrayCountStyle,
+        UiLanguage,
     };
     use serde_json::json;
     use std::fs;
@@ -1334,7 +1240,7 @@ mod tests {
             system_notifications_enabled,
             collapse_sidebar_by_default: false,
             third_party_provider_pricing_enabled: true,
-            ui_language: "zh".to_string(),
+            ui_language: crate::config::UiLanguage::Zh,
             default_terminal_app: default_terminal_app.to_string(),
             default_editor_app: None,
             tray_title_max_chars: None,
@@ -1352,7 +1258,7 @@ mod tests {
 
     #[test]
     fn tray_labels_follow_selected_language() {
-        let zh = tray_labels_for_language("zh");
+        let zh = tray_labels(UiLanguage::Zh);
         assert_eq!(zh.show_window, "打开 Code Manager");
         assert_eq!(zh.toggle_widget, "显示/隐藏浮窗");
         assert_eq!(zh.nav_configs, "配置");
@@ -1365,7 +1271,7 @@ mod tests {
         assert_eq!(zh.nav_usage, "用量");
         assert_eq!(zh.quit, "退出");
 
-        let en = tray_labels_for_language("en");
+        let en = tray_labels(UiLanguage::En);
         assert_eq!(en.show_window, "Open Code Manager");
         assert_eq!(en.toggle_widget, "Toggle Floating Widget");
         assert_eq!(en.nav_configs, "Profiles");
@@ -1381,7 +1287,7 @@ mod tests {
 
     #[test]
     fn main_tray_navigation_omits_presets() {
-        let zh = tray_labels_for_language("zh");
+        let zh = tray_labels(UiLanguage::Zh);
         let items = main_tray_navigation_items(&zh);
 
         assert!(items.iter().all(|(id, _)| *id != "nav_providers"));
@@ -1443,15 +1349,15 @@ mod tests {
 
     #[test]
     fn session_status_labels_follow_language() {
-        assert_eq!(session_status_label("waiting", "zh"), "待处理");
-        assert_eq!(session_status_label("idle", "zh"), "空闲");
-        assert_eq!(session_status_label("running", "en"), "Running");
-        assert_eq!(session_status_label("custom", "en"), "custom");
+        assert_eq!(session_status_label(UiLanguage::Zh, "waiting"), "待处理");
+        assert_eq!(session_status_label(UiLanguage::Zh, "idle"), "空闲");
+        assert_eq!(session_status_label(UiLanguage::En, "running"), "Running");
+        assert_eq!(session_status_label(UiLanguage::En, "custom"), "custom");
     }
 
     #[test]
     fn sessions_tray_title_shows_status_counts() {
-        let zh = tray_labels_for_language("zh");
+        let zh = tray_labels(UiLanguage::Zh);
         let plain = SessionTrayCountStyle::Plain;
         let idle = test_session("/Users/demo/work/code-manager", "idle", 1000);
         let another_idle = test_session("/Users/demo/work/docs", "idle", 900);
@@ -1522,7 +1428,7 @@ mod tests {
 
     #[test]
     fn sessions_tray_title_renders_each_count_style() {
-        let zh = tray_labels_for_language("zh");
+        let zh = tray_labels(UiLanguage::Zh);
         // 1 待处理 + 1 进行中 + 2 空闲
         let sessions = [
             test_session("/a", "waiting", 4000),
@@ -1588,7 +1494,7 @@ mod tests {
 
     #[test]
     fn sessions_tray_title_dim_emoji_replaces_only_waiting_segment() {
-        let zh = tray_labels_for_language("zh");
+        let zh = tray_labels(UiLanguage::Zh);
         let sessions = [
             test_session("/w", "waiting", 3000),
             test_session("/r", "running", 2000),
@@ -1620,7 +1526,7 @@ mod tests {
 
     #[test]
     fn sessions_tray_title_dim_emoji_across_all_styles() {
-        let zh = tray_labels_for_language("zh");
+        let zh = tray_labels(UiLanguage::Zh);
         // 1 待处理 + 1 进行中 + 2 空闲
         let sessions = [
             test_session("/a", "waiting", 4000),
@@ -1754,11 +1660,11 @@ mod tests {
         session.waiting_for = Some("approve Bash".to_string());
 
         assert_eq!(
-            session_menu_item_label(&session, "zh"),
+            session_menu_item_label(&session, UiLanguage::Zh),
             "🔴 code-manager · 待处理 · approve Bash"
         );
         assert_eq!(
-            session_menu_item_label(&session, "en"),
+            session_menu_item_label(&session, UiLanguage::En),
             "🔴 code-manager · Waiting · approve Bash"
         );
     }
@@ -1771,7 +1677,7 @@ mod tests {
         let notifications = notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&waiting),
-            "zh",
+            UiLanguage::Zh,
             PendingSessionNotificationInteraction::Plain,
         );
 
@@ -1787,20 +1693,20 @@ mod tests {
         notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&idle),
-            "zh",
+            UiLanguage::Zh,
             PendingSessionNotificationInteraction::Plain,
         );
 
         let first_notifications = notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&waiting),
-            "zh",
+            UiLanguage::Zh,
             PendingSessionNotificationInteraction::Plain,
         );
         let repeated_notifications = notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&waiting),
-            "zh",
+            UiLanguage::Zh,
             PendingSessionNotificationInteraction::Plain,
         );
 
@@ -1821,7 +1727,7 @@ mod tests {
         notifier.observe(
             &test_preferences(false, "terminal"),
             std::slice::from_ref(&idle),
-            "zh",
+            UiLanguage::Zh,
             PendingSessionNotificationInteraction::Plain,
         );
         assert!(!notifier.last_had_new_waiting, "首帧不应触发音效信号");
@@ -1830,7 +1736,7 @@ mod tests {
         let notifications = notifier.observe(
             &test_preferences(false, "terminal"),
             std::slice::from_ref(&waiting),
-            "zh",
+            UiLanguage::Zh,
             PendingSessionNotificationInteraction::Plain,
         );
         assert!(notifier.last_had_new_waiting, "新等待会话应置位音效信号");
@@ -1840,7 +1746,7 @@ mod tests {
         notifier.observe(
             &test_preferences(false, "terminal"),
             std::slice::from_ref(&waiting),
-            "zh",
+            UiLanguage::Zh,
             PendingSessionNotificationInteraction::Plain,
         );
         assert!(!notifier.last_had_new_waiting, "重复 waiting 不应再置位");
@@ -1854,14 +1760,14 @@ mod tests {
         notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&idle),
-            "zh",
+            UiLanguage::Zh,
             PendingSessionNotificationInteraction::Plain,
         );
 
         let first_notifications = notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&waiting),
-            "zh",
+            UiLanguage::Zh,
             PendingSessionNotificationInteraction::Plain,
         );
         let repeated_count = (0..10)
@@ -1870,7 +1776,7 @@ mod tests {
                     .observe(
                         &test_preferences(true, "terminal"),
                         std::slice::from_ref(&waiting),
-                        "zh",
+                        UiLanguage::Zh,
                         PendingSessionNotificationInteraction::Plain,
                     )
                     .len()
@@ -1889,26 +1795,26 @@ mod tests {
         notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&idle),
-            "zh",
+            UiLanguage::Zh,
             PendingSessionNotificationInteraction::Plain,
         );
         let _ = notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&waiting),
-            "zh",
+            UiLanguage::Zh,
             PendingSessionNotificationInteraction::Plain,
         );
         let _ = notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&idle),
-            "zh",
+            UiLanguage::Zh,
             PendingSessionNotificationInteraction::Plain,
         );
 
         let notifications = notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&waiting),
-            "zh",
+            UiLanguage::Zh,
             PendingSessionNotificationInteraction::Plain,
         );
 
@@ -1923,20 +1829,20 @@ mod tests {
         notifier.observe(
             &test_preferences(false, "terminal"),
             std::slice::from_ref(&idle),
-            "zh",
+            UiLanguage::Zh,
             PendingSessionNotificationInteraction::Plain,
         );
         let disabled_notifications = notifier.observe(
             &test_preferences(false, "terminal"),
             std::slice::from_ref(&waiting),
-            "zh",
+            UiLanguage::Zh,
             PendingSessionNotificationInteraction::Plain,
         );
 
         let enabled_notifications = notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&waiting),
-            "zh",
+            UiLanguage::Zh,
             PendingSessionNotificationInteraction::Plain,
         );
 
@@ -1960,7 +1866,7 @@ mod tests {
         notifier.observe(
             &test_preferences(true, "terminal"),
             &[],
-            "zh",
+            UiLanguage::Zh,
             PendingSessionNotificationInteraction::FocusTerminal,
         );
         let first = test_session_with_id(
@@ -1974,7 +1880,7 @@ mod tests {
         let notifications = notifier.observe(
             &test_preferences(true, "terminal"),
             &[first, second],
-            "zh",
+            UiLanguage::Zh,
             PendingSessionNotificationInteraction::FocusTerminal,
         );
 
@@ -2012,7 +1918,7 @@ mod tests {
 
         let notification = build_pending_session_notification(
             &session,
-            "zh",
+            UiLanguage::Zh,
             "terminal",
             PendingSessionNotificationInteraction::FocusTerminal,
         );
@@ -2034,7 +1940,7 @@ mod tests {
 
         let notification = build_pending_session_notification(
             &session,
-            "zh",
+            UiLanguage::Zh,
             "warp",
             PendingSessionNotificationInteraction::Plain,
         );
@@ -2072,12 +1978,12 @@ mod tests {
     #[test]
     fn sessions_tray_title_returns_placeholder_for_empty_sessions() {
         let style = SessionTrayCountStyle::default();
-        let zh = tray_labels_for_language("zh");
+        let zh = tray_labels(UiLanguage::Zh);
         assert_eq!(
             sessions_tray_title(&[], &zh, style, SESSION_STATUS_WAITING_EMOJI).as_deref(),
             Some("无会话")
         );
-        let en = tray_labels_for_language("en");
+        let en = tray_labels(UiLanguage::En);
         assert_eq!(
             sessions_tray_title(&[], &en, style, SESSION_STATUS_WAITING_EMOJI).as_deref(),
             Some("No Sessions")
@@ -2310,14 +2216,14 @@ mod tests {
         let mut running = test_session("/Users/demo/work/code-manager", "running", 1000);
         running.waiting_for = Some("不应渲染".to_string());
         assert_eq!(
-            session_menu_item_label(&running, "zh"),
+            session_menu_item_label(&running, UiLanguage::Zh),
             "🟢 code-manager · 运行中"
         );
 
         // waiting 状态但 waiting_for=None
         let waiting = test_session("/Users/demo/work/code-manager", "waiting", 2000);
         assert_eq!(
-            session_menu_item_label(&waiting, "zh"),
+            session_menu_item_label(&waiting, UiLanguage::Zh),
             "🔴 code-manager · 待处理"
         );
 
@@ -2327,7 +2233,7 @@ mod tests {
             "idle",
             0,
         );
-        let label = session_menu_item_label(&long, "en");
+        let label = session_menu_item_label(&long, UiLanguage::En);
         // 截断后应仍带状态后缀
         assert!(label.ends_with(" · Idle"));
         // 去掉状态后缀和 "⚪ " emoji 前缀后，项目名不超过 32 + "..." 的截断长度
@@ -2387,8 +2293,8 @@ mod tests {
     /// title 为纯 emoji+数字，跨语言一致，不再有语言相关 fallback 文案。
     #[test]
     fn sessions_tray_title_classifies_starting_and_unknown_status() {
-        let zh = tray_labels_for_language("zh");
-        let en = tray_labels_for_language("en");
+        let zh = tray_labels(UiLanguage::Zh);
+        let en = tray_labels(UiLanguage::En);
         let style = SessionTrayCountStyle::Plain;
         let sessions = vec![
             test_session("/a", "starting", 100),

@@ -40,7 +40,7 @@ pub(crate) fn play_waiting_sound(_sound: WaitingSound) {
 /// 设置页"试听"入口：立即播放一次选中音效。
 #[tauri::command]
 #[specta::specta]
-pub fn preview_waiting_sound(sound: WaitingSound) -> Result<(), String> {
+pub fn preview_waiting_sound(sound: WaitingSound) -> Result<(), crate::error::CommandError> {
     play_waiting_sound(sound);
     Ok(())
 }

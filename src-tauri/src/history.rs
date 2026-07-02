@@ -71,7 +71,7 @@ fn file_mtime(path: &std::path::Path) -> Result<u64, String> {
 /// 读取历史记录文件，返回内容和 mtime；文件不存在时返回空内容
 #[tauri::command]
 #[specta::specta]
-pub fn get_history() -> Result<HistoryResult, String> {
+pub fn get_history() -> Result<HistoryResult, crate::error::CommandError> {
     let path = get_history_path();
     if !path.exists() {
         return Ok(HistoryResult {
@@ -87,7 +87,9 @@ pub fn get_history() -> Result<HistoryResult, String> {
 /// 仅当文件有变化时返回新内容，否则返回 None
 #[tauri::command]
 #[specta::specta]
-pub fn get_history_if_changed(last_mtime: u64) -> Result<Option<HistoryResult>, String> {
+pub fn get_history_if_changed(
+    last_mtime: u64,
+) -> Result<Option<HistoryResult>, crate::error::CommandError> {
     let path = get_history_path();
     if !path.exists() {
         return Ok(None);
@@ -398,7 +400,10 @@ fn parse_content_blocks(content: &serde_json::Value) -> Vec<MessageBlock> {
 /// 获取指定 session 的完整对话记录
 #[tauri::command]
 #[specta::specta]
-pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDetail, String> {
+pub fn get_session_detail(
+    project: &str,
+    session_id: &str,
+) -> Result<SessionDetail, crate::error::CommandError> {
     // 必须走 validate 路径，防止 session_id 携带 `../` 等片段穿出 projects 目录
     let session_file = session_file_path(project, session_id)?;
 
@@ -414,7 +419,7 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
                 subagents: Vec::new(),
             });
         }
-        Err(e) => return Err(format!("打开会话文件失败: {}", e)),
+        Err(e) => return Err(format!("打开会话文件失败: {}", e).into()),
     };
     // 使用 BufReader 流式逐行读取，避免将大文件（含 base64 图片）全量加载到内存
     let reader = BufReader::new(file);
@@ -687,7 +692,10 @@ pub fn get_session_detail(project: &str, session_id: &str) -> Result<SessionDeta
 
 #[tauri::command]
 #[specta::specta]
-pub fn open_session_file_in_editor(project: &str, session_id: &str) -> Result<(), String> {
+pub fn open_session_file_in_editor(
+    project: &str,
+    session_id: &str,
+) -> Result<(), crate::error::CommandError> {
     let result = (|| {
         let session_file = session_file_path(project, session_id)?;
         if !session_file.is_file() {
@@ -707,7 +715,7 @@ pub fn open_session_file_in_editor(project: &str, session_id: &str) -> Result<()
             crate::utils::truncate(session_id, 80)
         )
     });
-    result
+    Ok(result?)
 }
 
 /// 把含 hookInfos 的记录解析为 Hook block；无 hookInfos 返回 None
@@ -823,7 +831,10 @@ pub struct SessionPlan {
 /// 读取会话关联 plan 文件的实时内容,供应用内预览
 #[tauri::command]
 #[specta::specta]
-pub fn read_session_plan(project: &str, session_id: &str) -> Result<SessionPlan, String> {
+pub fn read_session_plan(
+    project: &str,
+    session_id: &str,
+) -> Result<SessionPlan, crate::error::CommandError> {
     let result = (|| {
         let raw = read_session_plan_path(project, session_id)?
             .ok_or_else(|| "该会话没有关联 plan".to_string())?;
@@ -838,13 +849,16 @@ pub fn read_session_plan(project: &str, session_id: &str) -> Result<SessionPlan,
     crate::logging::log_command_result("history.read_session_plan", &result, |plan| {
         format!("path={}", crate::utils::truncate(&plan.path, 160))
     });
-    result
+    Ok(result?)
 }
 
 /// 用默认编辑器打开会话关联的 plan 文件
 #[tauri::command]
 #[specta::specta]
-pub fn open_session_plan_in_editor(project: &str, session_id: &str) -> Result<(), String> {
+pub fn open_session_plan_in_editor(
+    project: &str,
+    session_id: &str,
+) -> Result<(), crate::error::CommandError> {
     let result = (|| {
         let raw = read_session_plan_path(project, session_id)?
             .ok_or_else(|| "该会话没有关联 plan".to_string())?;
@@ -863,7 +877,7 @@ pub fn open_session_plan_in_editor(project: &str, session_id: &str) -> Result<()
             crate::utils::truncate(session_id, 80)
         )
     });
-    result
+    Ok(result?)
 }
 
 #[cfg(test)]

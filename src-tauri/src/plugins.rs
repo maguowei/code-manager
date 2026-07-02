@@ -9,12 +9,12 @@ use std::process::Command;
 /// 成功/失败，CLI 原始输出仅进后端日志。
 #[tauri::command]
 #[specta::specta]
-pub fn refresh_plugin_install_counts() -> Result<(), String> {
+pub fn refresh_plugin_install_counts() -> Result<(), crate::error::CommandError> {
     let result = trigger_claude_catalog_refresh();
     crate::logging::log_command_result("plugins.refresh_install_counts", &result, |_| {
         String::new()
     });
-    result
+    Ok(result?)
 }
 
 // 执行 `claude plugin list --available --json`：claude 读取 catalog 时按 TTL 决定是否重拉缓存。

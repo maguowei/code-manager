@@ -387,13 +387,13 @@ pub fn apply_memories(previous: Option<&MemoryState>, state: &MemoryState) -> Re
 
 #[tauri::command]
 #[specta::specta]
-pub fn get_memories() -> Result<MemoryState, String> {
-    memory_state_view(load_memory_state())
+pub fn get_memories() -> Result<MemoryState, crate::error::CommandError> {
+    Ok(memory_state_view(load_memory_state())?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn add_memory(data: MemoryData) -> Result<MemoryState, String> {
+pub fn add_memory(data: MemoryData) -> Result<MemoryState, crate::error::CommandError> {
     let result = (|| {
         if data.id.as_deref().filter(|id| !id.is_empty()).is_some() {
             return Err("新增记忆不允许指定 id".to_string());
@@ -428,12 +428,15 @@ pub fn add_memory(data: MemoryData) -> Result<MemoryState, String> {
     crate::logging::log_command_result("memory.add", &result, |state| {
         format!("memory_count={}", state.memories.len())
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn update_memory(id: String, data: MemoryData) -> Result<MemoryState, String> {
+pub fn update_memory(
+    id: String,
+    data: MemoryData,
+) -> Result<MemoryState, crate::error::CommandError> {
     let result = (|| {
         ensure_matching_memory_id(&id, &data)?;
         let memory_input = normalize_memory_data(data)?;
@@ -469,12 +472,15 @@ pub fn update_memory(id: String, data: MemoryData) -> Result<MemoryState, String
     crate::logging::log_command_result("memory.update", &result, |state| {
         format!("memory_id={id} memory_count={}", state.memories.len())
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn duplicate_memory(id: String, name_suffix: String) -> Result<MemoryState, String> {
+pub fn duplicate_memory(
+    id: String,
+    name_suffix: String,
+) -> Result<MemoryState, crate::error::CommandError> {
     let result = (|| {
         // 加锁保护并发写入
         let _lock = crate::utils::lock_memory()?;
@@ -522,12 +528,12 @@ pub fn duplicate_memory(id: String, name_suffix: String) -> Result<MemoryState, 
             state.memories.len()
         )
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn delete_memory(id: String) -> Result<MemoryState, String> {
+pub fn delete_memory(id: String) -> Result<MemoryState, crate::error::CommandError> {
     let result = (|| {
         // 加锁保护并发写入
         let _lock = crate::utils::lock_memory()?;
@@ -543,12 +549,14 @@ pub fn delete_memory(id: String) -> Result<MemoryState, String> {
     crate::logging::log_command_result("memory.delete", &result, |state| {
         format!("memory_id={id} memory_count={}", state.memories.len())
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn preview_delete_memory(id: String) -> Result<MemoryDeletePreview, String> {
+pub fn preview_delete_memory(
+    id: String,
+) -> Result<MemoryDeletePreview, crate::error::CommandError> {
     let result = (|| {
         let _lock = crate::utils::lock_memory()?;
 
@@ -573,12 +581,12 @@ pub fn preview_delete_memory(id: String) -> Result<MemoryDeletePreview, String> 
             preview.cleanup_dirs.len()
         )
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn toggle_memory(id: String) -> Result<MemoryState, String> {
+pub fn toggle_memory(id: String) -> Result<MemoryState, crate::error::CommandError> {
     let result = (|| {
         // 加锁保护并发写入
         let _lock = crate::utils::lock_memory()?;
@@ -612,12 +620,14 @@ pub fn toggle_memory(id: String) -> Result<MemoryState, String> {
             .unwrap_or(false);
         format!("memory_id={id} active={active}")
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn import_unmanaged_memory(source: UnmanagedMemorySource) -> Result<MemoryState, String> {
+pub fn import_unmanaged_memory(
+    source: UnmanagedMemorySource,
+) -> Result<MemoryState, crate::error::CommandError> {
     let result = (|| {
         let imported = read_unmanaged_memory_source(&source)?;
 
@@ -659,14 +669,14 @@ pub fn import_unmanaged_memory(source: UnmanagedMemorySource) -> Result<MemorySt
     crate::logging::log_command_result("memory.import", &result, |state| {
         format!("memory_count={}", state.memories.len())
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
 pub fn import_memories_from_directory(
     source_dir: String,
-) -> Result<MemoryDirectoryImportResult, String> {
+) -> Result<MemoryDirectoryImportResult, crate::error::CommandError> {
     let result = (|| {
         let source_dir = validate_memory_import_source_dir(&source_dir)?;
 
@@ -696,14 +706,14 @@ pub fn import_memories_from_directory(
             result.skipped.len()
         )
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
 pub fn apply_memory_preset(
     data: MemoryPresetApplyInput,
-) -> Result<MemoryPresetApplyResult, String> {
+) -> Result<MemoryPresetApplyResult, crate::error::CommandError> {
     let result = (|| {
         let preset = resolve_memory_preset(&data.preset_id, data.language)?;
         let _lock = crate::utils::lock_memory()?;
@@ -718,14 +728,14 @@ pub fn apply_memory_preset(
             data.preset_id, result.outcome, result.memory_id
         )
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
 pub fn get_memory_preset_content(
     data: MemoryPresetContentInput,
-) -> Result<MemoryPresetContentResult, String> {
+) -> Result<MemoryPresetContentResult, crate::error::CommandError> {
     let result = (|| {
         let preset = resolve_memory_preset(&data.preset_id, data.language)?;
         Ok(MemoryPresetContentResult {
@@ -744,7 +754,7 @@ pub fn get_memory_preset_content(
             result.content.len()
         )
     });
-    result
+    Ok(result?)
 }
 
 #[derive(Debug, Clone, Copy)]

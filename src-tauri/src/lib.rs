@@ -2,6 +2,7 @@ mod auto_memory;
 mod claude_directory;
 mod claude_directory_watcher;
 mod config;
+mod error;
 mod history;
 mod led;
 mod logging;
@@ -9,6 +10,7 @@ mod logging;
 mod macos_notifications;
 mod memory;
 mod migration;
+mod native_i18n;
 mod native_open;
 mod plugins;
 mod project;
@@ -39,8 +41,8 @@ use config::{
     apply_profile, delete_profile, duplicate_profile, export_profile, get_config_workspace,
     import_profile_from_file, import_user_settings_profile, install_status_line_preset,
     prepare_profile_launch, preview_profile, preview_profile_export, preview_profile_import,
-    reorder_profiles, set_app_preferences, sync_shared_profile_settings, test_profile_model,
-    upsert_profile,
+    reorder_profiles, set_app_preferences, set_ui_language, sync_shared_profile_settings,
+    test_profile_model, upsert_profile,
 };
 use history::{
     get_history, get_history_if_changed, get_session_detail, open_session_file_in_editor,
@@ -106,6 +108,7 @@ fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             preview_profile_import,
             import_profile_from_file,
             test_profile_model,
+            set_ui_language,
             set_app_preferences,
             toggle_floating_widget,
             open_usage_page,

@@ -2,7 +2,7 @@ use crate::tray::rebuild_tray_menu;
 use fancy_regex::Regex as FancyRegex;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::error::Error as StdError;
@@ -24,7 +24,6 @@ const MODEL_TEST_PROMPT_EN: &str =
     "Please reply with one short sentence confirming this API test request succeeded.";
 const MODEL_TEST_PROMPT_ZH: &str = "请用一句简短的话确认这次 API 测试请求成功。";
 const REDACTED_SECRET_VALUE: &str = "<redacted>";
-const SYSTEM_LOCALE_ENV_KEYS: [&str; 4] = ["LC_ALL", "LC_MESSAGES", "LANGUAGE", "LANG"];
 const DEFAULT_STATUS_LINE_PRESET_ID: &str = "default";
 // 非 Windows 平台沿用 ~ 展开的相对路径；Windows 的 command 在运行时按 home 目录拼接绝对路径
 #[cfg(not(windows))]
@@ -82,6 +81,29 @@ pub enum WaitingSound {
     Tink,
 }
 
+/// 应用界面语言。持久化和 IPC 都只接受稳定的语言代码。
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum UiLanguage {
+    Zh,
+    En,
+}
+
+impl UiLanguage {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Zh => "zh",
+            Self::En => "en",
+        }
+    }
+}
+
+impl Default for UiLanguage {
+    fn default() -> Self {
+        default_ui_language()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AppPreferences {
@@ -95,8 +117,12 @@ pub struct AppPreferences {
     pub collapse_sidebar_by_default: bool,
     #[serde(default = "default_true")]
     pub third_party_provider_pricing_enabled: bool,
-    #[serde(default = "default_ui_language")]
-    pub ui_language: String,
+    #[serde(
+        default = "default_ui_language",
+        deserialize_with = "deserialize_stored_ui_language"
+    )]
+    #[specta(type = UiLanguage)]
+    pub ui_language: UiLanguage,
     #[serde(default = "default_terminal_app")]
     pub default_terminal_app: String,
     #[serde(default)]
@@ -363,7 +389,7 @@ pub struct AppPreferencesInput {
     pub collapse_sidebar_by_default: bool,
     #[serde(default = "default_true")]
     pub third_party_provider_pricing_enabled: bool,
-    pub ui_language: String,
+    pub ui_language: UiLanguage,
     pub default_terminal_app: String,
     pub default_editor_app: Option<String>,
     #[serde(default)]
@@ -477,42 +503,48 @@ fn default_focus_session_shortcut() -> Option<String> {
     Some("Command+Control+J".to_string())
 }
 
-fn default_ui_language() -> String {
-    system_ui_language().to_string()
+fn default_ui_language() -> UiLanguage {
+    system_ui_language()
 }
 
-fn system_ui_language() -> &'static str {
-    SYSTEM_LOCALE_ENV_KEYS
-        .iter()
-        .filter_map(|key| std::env::var(key).ok())
-        .filter_map(|locale| ui_language_from_system_locale(&locale))
-        .next()
-        .unwrap_or("en")
+fn system_ui_language() -> UiLanguage {
+    tauri_plugin_os::locale()
+        .as_deref()
+        .and_then(ui_language_from_system_locale)
+        .unwrap_or(UiLanguage::En)
 }
 
-fn ui_language_from_system_locale(locale: &str) -> Option<&'static str> {
+fn ui_language_from_system_locale(locale: &str) -> Option<UiLanguage> {
     let primary_locale = locale
         .split(':')
         .map(str::trim)
         .find(|candidate| !candidate.is_empty())?;
     let normalized = primary_locale.replace('_', "-").to_ascii_lowercase();
     if normalized.starts_with("zh") {
-        Some("zh")
+        Some(UiLanguage::Zh)
     } else {
-        Some("en")
+        Some(UiLanguage::En)
     }
+}
+
+fn stored_ui_language(value: &str, fallback: UiLanguage) -> UiLanguage {
+    match value {
+        "zh" => UiLanguage::Zh,
+        "en" => UiLanguage::En,
+        _ => fallback,
+    }
+}
+
+fn deserialize_stored_ui_language<'de, D>(deserializer: D) -> Result<UiLanguage, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = String::deserialize(deserializer)?;
+    Ok(stored_ui_language(&value, default_ui_language()))
 }
 
 fn default_terminal_app() -> String {
     "terminal".to_string()
-}
-
-fn normalize_ui_language(language: &str) -> Result<&'static str, String> {
-    match language {
-        "zh" => Ok("zh"),
-        "en" => Ok("en"),
-        _ => Err("仅支持 zh / en 两种界面语言".to_string()),
-    }
 }
 
 pub(crate) const TERMINAL_APPS: &[(&str, &str)] = &[
@@ -991,7 +1023,7 @@ fn normalize_model_test_input(input: ModelTestInput) -> Result<ModelTestInput, S
 }
 
 fn normalize_app_preferences(input: AppPreferencesInput) -> Result<AppPreferences, String> {
-    let ui_language = normalize_ui_language(input.ui_language.trim())?.to_string();
+    let ui_language = input.ui_language;
     let default_terminal_app =
         normalize_default_terminal_app(input.default_terminal_app.trim())?.to_string();
     let default_editor_app = input
@@ -2225,14 +2257,19 @@ fn import_user_settings_profile_in_registry(
 
 #[tauri::command]
 #[specta::specta]
-pub fn get_config_workspace(_app_handle: AppHandle) -> Result<ConfigWorkspace, String> {
+pub fn get_config_workspace(
+    _app_handle: AppHandle,
+) -> Result<ConfigWorkspace, crate::error::CommandError> {
     let registry = load_registry()?;
     Ok(build_workspace(registry))
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn upsert_profile(app_handle: AppHandle, data: ProfileInput) -> Result<ConfigProfile, String> {
+pub fn upsert_profile(
+    app_handle: AppHandle,
+    data: ProfileInput,
+) -> Result<ConfigProfile, crate::error::CommandError> {
     let result = (|| {
         let _lock = crate::utils::lock_config()?;
         let input = normalize_profile_input(data)?;
@@ -2287,7 +2324,7 @@ pub fn upsert_profile(app_handle: AppHandle, data: ProfileInput) -> Result<Confi
     crate::logging::log_command_result("profile.upsert", &result, |profile| {
         format!("profile_id={}", profile.id)
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
@@ -2296,7 +2333,7 @@ pub fn duplicate_profile(
     app_handle: AppHandle,
     id: String,
     name_suffix: String,
-) -> Result<ConfigProfile, String> {
+) -> Result<ConfigProfile, crate::error::CommandError> {
     let result = (|| {
         let _lock = crate::utils::lock_config()?;
         let mut registry = load_registry()?;
@@ -2309,12 +2346,15 @@ pub fn duplicate_profile(
     crate::logging::log_command_result("profile.duplicate", &result, |profile| {
         format!("source_profile_id={id} profile_id={}", profile.id)
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn reorder_profiles(app_handle: AppHandle, ids: Vec<String>) -> Result<(), String> {
+pub fn reorder_profiles(
+    app_handle: AppHandle,
+    ids: Vec<String>,
+) -> Result<(), crate::error::CommandError> {
     let result = (|| {
         let _lock = crate::utils::lock_config()?;
         let mut registry = load_registry()?;
@@ -2327,7 +2367,7 @@ pub fn reorder_profiles(app_handle: AppHandle, ids: Vec<String>) -> Result<(), S
     crate::logging::log_command_result("profile.reorder", &result, |_| {
         format!("count={}", ids.len())
     });
-    result
+    Ok(result?)
 }
 
 /// 把源 profile 的共享字段(常用选项 / 插件市场 / 插件)完全对齐到其余所有 profile。
@@ -2467,7 +2507,7 @@ pub fn sync_shared_profile_settings(
     source_id: String,
     top_level_keys: Vec<String>,
     env_keys: Vec<String>,
-) -> Result<u32, String> {
+) -> Result<u32, crate::error::CommandError> {
     let result = (|| {
         let _lock = crate::utils::lock_config()?;
         let mut registry = load_registry()?;
@@ -2493,12 +2533,12 @@ pub fn sync_shared_profile_settings(
     crate::logging::log_command_result("profile.sync_shared", &result, |count| {
         format!("source_id={source_id} updated={count}")
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn delete_profile(app_handle: AppHandle, id: String) -> Result<(), String> {
+pub fn delete_profile(app_handle: AppHandle, id: String) -> Result<(), crate::error::CommandError> {
     let result = (|| {
         let _lock = crate::utils::lock_config()?;
         let mut registry = load_registry()?;
@@ -2517,12 +2557,12 @@ pub fn delete_profile(app_handle: AppHandle, id: String) -> Result<(), String> {
         Ok(())
     })();
     crate::logging::log_command_result("profile.delete", &result, |_| format!("profile_id={id}"));
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn apply_profile(app_handle: AppHandle, id: String) -> Result<(), String> {
+pub fn apply_profile(app_handle: AppHandle, id: String) -> Result<(), crate::error::CommandError> {
     let result = (|| {
         let registry = apply_profile_inner(id.clone())?;
         rebuild_tray_menu(&app_handle, Some(&registry));
@@ -2530,7 +2570,7 @@ pub fn apply_profile(app_handle: AppHandle, id: String) -> Result<(), String> {
         Ok(())
     })();
     crate::logging::log_command_result("profile.apply", &result, |_| format!("profile_id={id}"));
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
@@ -2538,7 +2578,7 @@ pub fn apply_profile(app_handle: AppHandle, id: String) -> Result<(), String> {
 pub fn import_user_settings_profile(
     app_handle: AppHandle,
     data: UserSettingsImportInput,
-) -> Result<ConfigProfile, String> {
+) -> Result<ConfigProfile, crate::error::CommandError> {
     let result = (|| {
         let _lock = crate::utils::lock_config()?;
         let mut registry = load_registry()?;
@@ -2551,7 +2591,7 @@ pub fn import_user_settings_profile(
     crate::logging::log_command_result("profile.import_user_settings", &result, |profile| {
         format!("profile_id={}", profile.id)
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
@@ -2559,7 +2599,7 @@ pub fn import_user_settings_profile(
 pub fn install_status_line_preset(
     preset_id: String,
     overwrite: bool,
-) -> Result<StatusLinePresetInstallResult, String> {
+) -> Result<StatusLinePresetInstallResult, crate::error::CommandError> {
     let result = install_status_line_preset_inner(&preset_id, overwrite);
     crate::logging::log_command_result("status_line_preset.install", &result, |value| {
         format!(
@@ -2570,7 +2610,7 @@ pub fn install_status_line_preset(
             overwrite && value.installed
         )
     });
-    result
+    Ok(result?)
 }
 
 /// 多配置启动命令的返回载荷：配置文件绝对路径 + 仅含 env 的紧凑 JSON。
@@ -2644,7 +2684,9 @@ fn prepare_profile_launch_in_registry(
 
 #[tauri::command]
 #[specta::specta]
-pub fn prepare_profile_launch(id: String) -> Result<ProfileLaunchPayload, String> {
+pub fn prepare_profile_launch(
+    id: String,
+) -> Result<ProfileLaunchPayload, crate::error::CommandError> {
     let result = (|| {
         let _lock = crate::utils::lock_config()?;
         let registry = load_registry()?;
@@ -2654,17 +2696,17 @@ pub fn prepare_profile_launch(id: String) -> Result<ProfileLaunchPayload, String
     crate::logging::log_command_result("profile.prepare_launch", &result, |_| {
         format!("profile_id={id}")
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn preview_profile(data: ProfileInput) -> Result<String, String> {
+pub fn preview_profile(data: ProfileInput) -> Result<String, crate::error::CommandError> {
     let input = normalize_profile_input(data)?;
     let mut registry = load_registry()?;
     if let Some(provider_id) = input.provider_id.as_deref() {
         if !provider_exists(provider_id) {
-            return Err(format!("未找到 provider '{}'", provider_id));
+            return Err(format!("未找到 provider '{}'", provider_id).into());
         }
     }
 
@@ -2683,7 +2725,7 @@ pub fn preview_profile(data: ProfileInput) -> Result<String, String> {
     registry.profiles.push(profile.clone());
 
     let resolved = resolve_profile_settings(&profile)?;
-    serde_json::to_string_pretty(&resolved).map_err(|e| e.to_string())
+    Ok(serde_json::to_string_pretty(&resolved).map_err(|e| e.to_string())?)
 }
 
 /// 构造单个配置的导出内容：合并 Provider env 与配置 settings 后的完整 Claude settings 字符串。
@@ -2724,9 +2766,12 @@ fn read_and_validate_import(source_path: &str) -> Result<Value, String> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn preview_profile_export(id: String, include_secrets: bool) -> Result<String, String> {
+pub fn preview_profile_export(
+    id: String,
+    include_secrets: bool,
+) -> Result<String, crate::error::CommandError> {
     let registry = load_registry()?;
-    build_profile_export(&registry, &id, include_secrets)
+    Ok(build_profile_export(&registry, &id, include_secrets)?)
 }
 
 #[tauri::command]
@@ -2735,7 +2780,7 @@ pub fn export_profile(
     id: String,
     target_path: String,
     include_secrets: bool,
-) -> Result<(), String> {
+) -> Result<(), crate::error::CommandError> {
     let result = (|| {
         let _lock = crate::utils::lock_config()?;
         let registry = load_registry()?;
@@ -2745,14 +2790,14 @@ pub fn export_profile(
     crate::logging::log_command_result("profile.export", &result, |_| {
         format!("profile_id={id} include_secrets={include_secrets}")
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn preview_profile_import(source_path: String) -> Result<String, String> {
+pub fn preview_profile_import(source_path: String) -> Result<String, crate::error::CommandError> {
     let settings = read_and_validate_import(&source_path)?;
-    serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())
+    Ok(serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?)
 }
 
 #[tauri::command]
@@ -2762,7 +2807,7 @@ pub fn import_profile_from_file(
     source_path: String,
     name: String,
     description: String,
-) -> Result<ConfigProfile, String> {
+) -> Result<ConfigProfile, crate::error::CommandError> {
     let result = (|| {
         let _lock = crate::utils::lock_config()?;
         let settings = read_and_validate_import(&source_path)?;
@@ -2792,17 +2837,19 @@ pub fn import_profile_from_file(
     crate::logging::log_command_result("profile.import_from_file", &result, |profile| {
         format!("profile_id={}", profile.id)
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn test_profile_model(data: ModelTestInput) -> Result<ModelTestResult, String> {
+pub async fn test_profile_model(
+    data: ModelTestInput,
+) -> Result<ModelTestResult, crate::error::CommandError> {
     let input = normalize_model_test_input(data)?;
     let mut registry = load_registry()?;
     if let Some(provider_id) = input.provider_id.as_deref() {
         if !provider_exists(provider_id) {
-            return Err(format!("未找到 provider '{}'", provider_id));
+            return Err(format!("未找到 provider '{}'", provider_id).into());
         }
     }
 
@@ -2824,7 +2871,35 @@ pub async fn test_profile_model(data: ModelTestInput) -> Result<ModelTestResult,
 
     let resolved = resolve_profile_settings(&profile)?;
     let request = resolve_model_test_request(&resolved, prompt_text_override)?;
-    execute_model_test_request(request).await
+    execute_model_test_request(request)
+        .await
+        .map_err(Into::into)
+}
+
+fn set_ui_language_in_registry(registry: &mut ConfigRegistry, language: UiLanguage) -> UiLanguage {
+    registry.app.ui_language = language;
+    language
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn set_ui_language(
+    app_handle: AppHandle,
+    language: UiLanguage,
+) -> Result<UiLanguage, crate::error::CommandError> {
+    let result = (|| {
+        let _lock = crate::utils::lock_config()?;
+        let mut registry = load_registry()?;
+        let language = set_ui_language_in_registry(&mut registry, language);
+        save_registry(&registry)?;
+        rebuild_tray_menu(&app_handle, Some(&registry));
+        let _ = app_handle.emit("config-workspace-changed", ());
+        Ok(language)
+    })();
+    crate::logging::log_command_result("settings.set_ui_language", &result, |language| {
+        format!("language={}", language.as_str())
+    });
+    Ok(result?)
 }
 
 #[tauri::command]
@@ -2832,7 +2907,7 @@ pub async fn test_profile_model(data: ModelTestInput) -> Result<ModelTestResult,
 pub fn set_app_preferences(
     app_handle: AppHandle,
     data: AppPreferencesInput,
-) -> Result<AppPreferences, String> {
+) -> Result<AppPreferences, crate::error::CommandError> {
     let result = (|| {
         let _lock = crate::utils::lock_config()?;
         let preferences = normalize_app_preferences(data)?;
@@ -2853,7 +2928,7 @@ pub fn set_app_preferences(
         Ok(preferences)
     })();
     crate::logging::log_command_result("settings.update", &result, |_| String::new());
-    result
+    Ok(result?)
 }
 
 #[cfg(test)]
@@ -2895,16 +2970,51 @@ mod tests {
 
     #[test]
     fn ui_language_from_system_locale_uses_chinese_for_zh_locales() {
-        assert_eq!(ui_language_from_system_locale("zh-CN"), Some("zh"));
-        assert_eq!(ui_language_from_system_locale("zh_CN.UTF-8"), Some("zh"));
-        assert_eq!(ui_language_from_system_locale("zh-Hant-TW"), Some("zh"));
+        assert_eq!(
+            ui_language_from_system_locale("zh-CN"),
+            Some(UiLanguage::Zh)
+        );
+        assert_eq!(
+            ui_language_from_system_locale("zh_CN.UTF-8"),
+            Some(UiLanguage::Zh)
+        );
+        assert_eq!(
+            ui_language_from_system_locale("zh-Hant-TW"),
+            Some(UiLanguage::Zh)
+        );
     }
 
     #[test]
     fn ui_language_from_system_locale_uses_english_for_non_zh_locales() {
-        assert_eq!(ui_language_from_system_locale("en-US"), Some("en"));
-        assert_eq!(ui_language_from_system_locale("ja-JP"), Some("en"));
-        assert_eq!(ui_language_from_system_locale("C"), Some("en"));
+        assert_eq!(
+            ui_language_from_system_locale("en-US"),
+            Some(UiLanguage::En)
+        );
+        assert_eq!(
+            ui_language_from_system_locale("ja-JP"),
+            Some(UiLanguage::En)
+        );
+        assert_eq!(ui_language_from_system_locale("C"), Some(UiLanguage::En));
+    }
+
+    #[test]
+    fn stored_ui_language_falls_back_for_unknown_values() {
+        assert_eq!(stored_ui_language("zh", UiLanguage::En), UiLanguage::Zh);
+        assert_eq!(stored_ui_language("en", UiLanguage::Zh), UiLanguage::En);
+        assert_eq!(stored_ui_language("fr", UiLanguage::En), UiLanguage::En);
+    }
+
+    #[test]
+    fn set_ui_language_in_registry_preserves_other_preferences() {
+        let mut registry = ConfigRegistry::default();
+        registry.app.show_tray_title = false;
+        registry.app.ui_language = UiLanguage::Zh;
+
+        let updated = set_ui_language_in_registry(&mut registry, UiLanguage::En);
+
+        assert_eq!(updated, UiLanguage::En);
+        assert_eq!(registry.app.ui_language, UiLanguage::En);
+        assert!(!registry.app.show_tray_title);
     }
 
     #[test]
@@ -2939,7 +3049,7 @@ mod tests {
             system_notifications_enabled: false,
             collapse_sidebar_by_default: false,
             third_party_provider_pricing_enabled: true,
-            ui_language: "zh".to_string(),
+            ui_language: UiLanguage::Zh,
             default_terminal_app: "terminal".to_string(),
             default_editor_app: None,
             tray_title_max_chars: None,
@@ -3952,7 +4062,7 @@ mod tests {
                 system_notifications_enabled: false,
                 collapse_sidebar_by_default: false,
                 third_party_provider_pricing_enabled: true,
-                ui_language: "zh".to_string(),
+                ui_language: UiLanguage::Zh,
                 default_terminal_app: "terminal".to_string(),
                 default_editor_app: Some("cursor".to_string()),
                 tray_title_max_chars: None,

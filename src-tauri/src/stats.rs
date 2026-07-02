@@ -118,24 +118,24 @@ fn read_claude_stats() -> ClaudeStats {
 /// 获取当前统计数据
 #[tauri::command]
 #[specta::specta]
-pub fn get_stats() -> Result<ClaudeStats, String> {
+pub fn get_stats() -> Result<ClaudeStats, crate::error::CommandError> {
     Ok(read_claude_stats())
 }
 
 /// 用默认编辑器打开 ~/.claude.json
 #[tauri::command]
 #[specta::specta]
-pub fn open_claude_json_in_editor() -> Result<(), String> {
+pub fn open_claude_json_in_editor() -> Result<(), crate::error::CommandError> {
     let path = get_claude_json_path();
     if !path.exists() {
-        return Err("~/.claude.json 不存在".to_string());
+        return Err("~/.claude.json 不存在".to_string().into());
     }
     let preferences = crate::config::load_app_preferences();
     let editor = preferences
         .default_editor_app
         .as_deref()
         .ok_or_else(|| "请先在设置中选择默认编辑器".to_string())?;
-    crate::native_open::open_path_in_editor(&path, editor)
+    Ok(crate::native_open::open_path_in_editor(&path, editor)?)
 }
 
 #[cfg(test)]

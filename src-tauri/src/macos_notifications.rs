@@ -310,7 +310,7 @@ fn focus_pending_session_from_notification(
                 let prefs = crate::config::load_registry_or_default().app;
                 crate::tray::notify_session_focus_failure(
                     &app_handle,
-                    &prefs.ui_language,
+                    prefs.ui_language,
                     prefs.system_notifications_enabled,
                     &failure,
                 );

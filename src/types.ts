@@ -781,3 +781,4 @@ export interface UsageScanResult {
 }
 
 export type UsageTab = "daily" | "project" | "session" | "model";
+export type { CommandError, CommandErrorCode, UiLanguage } from "./bindings";

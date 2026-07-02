@@ -4,107 +4,108 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 
 /** Commands */
 export const commands = {
-	getConfigWorkspace: () => typedError<ConfigWorkspace_Serialize, string>(__TAURI_INVOKE("get_config_workspace")),
-	getClaudeDirectoryOverview: () => typedError<ClaudeDirectoryOverview, string>(__TAURI_INVOKE("get_claude_directory_overview")),
-	getClaudeDirectoryChildren: (path: string | null) => typedError<ClaudeDirectoryListing, string>(__TAURI_INVOKE("get_claude_directory_children", { path })),
-	readClaudeFilePreview: (path: string) => typedError<ClaudeFilePreview, string>(__TAURI_INVOKE("read_claude_file_preview", { path })),
-	openClaudeFileInEditor: (path: string) => typedError<null, string>(__TAURI_INVOKE("open_claude_file_in_editor", { path })),
-	createClaudeDirectoryEntry: (parentPath: string | null, name: string, kind: ClaudeDirectoryEntryKind) => typedError<null, string>(__TAURI_INVOKE("create_claude_directory_entry", { parentPath, name, kind })),
-	renameClaudeDirectoryEntry: (path: string, newName: string) => typedError<null, string>(__TAURI_INVOKE("rename_claude_directory_entry", { path, newName })),
-	deleteClaudeDirectoryEntry: (path: string) => typedError<null, string>(__TAURI_INVOKE("delete_claude_directory_entry", { path })),
-	upsertProfile: (data: ProfileInput) => typedError<ConfigProfile_Serialize, string>(__TAURI_INVOKE("upsert_profile", { data })),
-	duplicateProfile: (id: string, nameSuffix: string) => typedError<ConfigProfile_Serialize, string>(__TAURI_INVOKE("duplicate_profile", { id, nameSuffix })),
-	reorderProfiles: (ids: string[]) => typedError<null, string>(__TAURI_INVOKE("reorder_profiles", { ids })),
-	syncSharedProfileSettings: (sourceId: string, topLevelKeys: string[], envKeys: string[]) => typedError<number, string>(__TAURI_INVOKE("sync_shared_profile_settings", { sourceId, topLevelKeys, envKeys })),
-	deleteProfile: (id: string) => typedError<null, string>(__TAURI_INVOKE("delete_profile", { id })),
-	applyProfile: (id: string) => typedError<null, string>(__TAURI_INVOKE("apply_profile", { id })),
-	importUserSettingsProfile: (data: UserSettingsImportInput) => typedError<ConfigProfile_Serialize, string>(__TAURI_INVOKE("import_user_settings_profile", { data })),
-	installStatusLinePreset: (presetId: string, overwrite: boolean) => typedError<StatusLinePresetInstallResult, string>(__TAURI_INVOKE("install_status_line_preset", { presetId, overwrite })),
-	previewProfile: (data: ProfileInput) => typedError<string, string>(__TAURI_INVOKE("preview_profile", { data })),
-	prepareProfileLaunch: (id: string) => typedError<ProfileLaunchPayload, string>(__TAURI_INVOKE("prepare_profile_launch", { id })),
-	previewProfileExport: (id: string, includeSecrets: boolean) => typedError<string, string>(__TAURI_INVOKE("preview_profile_export", { id, includeSecrets })),
-	exportProfile: (id: string, targetPath: string, includeSecrets: boolean) => typedError<null, string>(__TAURI_INVOKE("export_profile", { id, targetPath, includeSecrets })),
-	previewProfileImport: (sourcePath: string) => typedError<string, string>(__TAURI_INVOKE("preview_profile_import", { sourcePath })),
-	importProfileFromFile: (sourcePath: string, name: string, description: string) => typedError<ConfigProfile_Serialize, string>(__TAURI_INVOKE("import_profile_from_file", { sourcePath, name, description })),
-	testProfileModel: (data: ModelTestInput) => typedError<ModelTestResult_Serialize, string>(__TAURI_INVOKE("test_profile_model", { data })),
-	setAppPreferences: (data: AppPreferencesInput) => typedError<AppPreferences, string>(__TAURI_INVOKE("set_app_preferences", { data })),
+	getConfigWorkspace: () => typedError<ConfigWorkspace_Serialize, CommandError>(__TAURI_INVOKE("get_config_workspace")),
+	getClaudeDirectoryOverview: () => typedError<ClaudeDirectoryOverview, CommandError>(__TAURI_INVOKE("get_claude_directory_overview")),
+	getClaudeDirectoryChildren: (path: string | null) => typedError<ClaudeDirectoryListing, CommandError>(__TAURI_INVOKE("get_claude_directory_children", { path })),
+	readClaudeFilePreview: (path: string) => typedError<ClaudeFilePreview, CommandError>(__TAURI_INVOKE("read_claude_file_preview", { path })),
+	openClaudeFileInEditor: (path: string) => typedError<null, CommandError>(__TAURI_INVOKE("open_claude_file_in_editor", { path })),
+	createClaudeDirectoryEntry: (parentPath: string | null, name: string, kind: ClaudeDirectoryEntryKind) => typedError<null, CommandError>(__TAURI_INVOKE("create_claude_directory_entry", { parentPath, name, kind })),
+	renameClaudeDirectoryEntry: (path: string, newName: string) => typedError<null, CommandError>(__TAURI_INVOKE("rename_claude_directory_entry", { path, newName })),
+	deleteClaudeDirectoryEntry: (path: string) => typedError<null, CommandError>(__TAURI_INVOKE("delete_claude_directory_entry", { path })),
+	upsertProfile: (data: ProfileInput) => typedError<ConfigProfile_Serialize, CommandError>(__TAURI_INVOKE("upsert_profile", { data })),
+	duplicateProfile: (id: string, nameSuffix: string) => typedError<ConfigProfile_Serialize, CommandError>(__TAURI_INVOKE("duplicate_profile", { id, nameSuffix })),
+	reorderProfiles: (ids: string[]) => typedError<null, CommandError>(__TAURI_INVOKE("reorder_profiles", { ids })),
+	syncSharedProfileSettings: (sourceId: string, topLevelKeys: string[], envKeys: string[]) => typedError<number, CommandError>(__TAURI_INVOKE("sync_shared_profile_settings", { sourceId, topLevelKeys, envKeys })),
+	deleteProfile: (id: string) => typedError<null, CommandError>(__TAURI_INVOKE("delete_profile", { id })),
+	applyProfile: (id: string) => typedError<null, CommandError>(__TAURI_INVOKE("apply_profile", { id })),
+	importUserSettingsProfile: (data: UserSettingsImportInput) => typedError<ConfigProfile_Serialize, CommandError>(__TAURI_INVOKE("import_user_settings_profile", { data })),
+	installStatusLinePreset: (presetId: string, overwrite: boolean) => typedError<StatusLinePresetInstallResult, CommandError>(__TAURI_INVOKE("install_status_line_preset", { presetId, overwrite })),
+	previewProfile: (data: ProfileInput) => typedError<string, CommandError>(__TAURI_INVOKE("preview_profile", { data })),
+	prepareProfileLaunch: (id: string) => typedError<ProfileLaunchPayload, CommandError>(__TAURI_INVOKE("prepare_profile_launch", { id })),
+	previewProfileExport: (id: string, includeSecrets: boolean) => typedError<string, CommandError>(__TAURI_INVOKE("preview_profile_export", { id, includeSecrets })),
+	exportProfile: (id: string, targetPath: string, includeSecrets: boolean) => typedError<null, CommandError>(__TAURI_INVOKE("export_profile", { id, targetPath, includeSecrets })),
+	previewProfileImport: (sourcePath: string) => typedError<string, CommandError>(__TAURI_INVOKE("preview_profile_import", { sourcePath })),
+	importProfileFromFile: (sourcePath: string, name: string, description: string) => typedError<ConfigProfile_Serialize, CommandError>(__TAURI_INVOKE("import_profile_from_file", { sourcePath, name, description })),
+	testProfileModel: (data: ModelTestInput) => typedError<ModelTestResult_Serialize, CommandError>(__TAURI_INVOKE("test_profile_model", { data })),
+	setUiLanguage: (language: UiLanguage) => typedError<UiLanguage, CommandError>(__TAURI_INVOKE("set_ui_language", { language })),
+	setAppPreferences: (data: AppPreferencesInput) => typedError<AppPreferences_Serialize, CommandError>(__TAURI_INVOKE("set_app_preferences", { data })),
 	/**  切换浮窗显隐（幂等）：显示时不存在则创建，隐藏时隐藏而非关闭以保留位置与状态。 */
-	toggleFloatingWidget: (visible: boolean) => typedError<null, string>(__TAURI_INVOKE("toggle_floating_widget", { visible })),
+	toggleFloatingWidget: (visible: boolean) => typedError<null, CommandError>(__TAURI_INVOKE("toggle_floating_widget", { visible })),
 	/**  浮窗点击主体：唤起主窗口并跳转到用量页。复用托盘的窗口显示逻辑，避免重复实现。 */
-	openUsagePage: () => typedError<null, string>(__TAURI_INVOKE("open_usage_page")),
+	openUsagePage: () => typedError<null, CommandError>(__TAURI_INVOKE("open_usage_page")),
 	getNativeOpenAppOptions: () => __TAURI_INVOKE<NativeOpenAppOptions>("get_native_open_app_options"),
-	getMemories: () => typedError<MemoryState_Serialize, string>(__TAURI_INVOKE("get_memories")),
-	addMemory: (data: MemoryData) => typedError<MemoryState_Serialize, string>(__TAURI_INVOKE("add_memory", { data })),
-	applyMemoryPreset: (data: MemoryPresetApplyInput) => typedError<MemoryPresetApplyResult_Serialize, string>(__TAURI_INVOKE("apply_memory_preset", { data })),
-	getMemoryPresetContent: (data: MemoryPresetContentInput) => typedError<MemoryPresetContentResult, string>(__TAURI_INVOKE("get_memory_preset_content", { data })),
-	updateMemory: (id: string, data: MemoryData) => typedError<MemoryState_Serialize, string>(__TAURI_INVOKE("update_memory", { id, data })),
-	duplicateMemory: (id: string, nameSuffix: string) => typedError<MemoryState_Serialize, string>(__TAURI_INVOKE("duplicate_memory", { id, nameSuffix })),
-	previewDeleteMemory: (id: string) => typedError<MemoryDeletePreview, string>(__TAURI_INVOKE("preview_delete_memory", { id })),
-	deleteMemory: (id: string) => typedError<MemoryState_Serialize, string>(__TAURI_INVOKE("delete_memory", { id })),
-	toggleMemory: (id: string) => typedError<MemoryState_Serialize, string>(__TAURI_INVOKE("toggle_memory", { id })),
-	importUnmanagedMemory: (source: UnmanagedMemorySource) => typedError<MemoryState_Serialize, string>(__TAURI_INVOKE("import_unmanaged_memory", { source })),
-	importMemoriesFromDirectory: (sourceDir: string) => typedError<MemoryDirectoryImportResult_Serialize, string>(__TAURI_INVOKE("import_memories_from_directory", { sourceDir })),
+	getMemories: () => typedError<MemoryState_Serialize, CommandError>(__TAURI_INVOKE("get_memories")),
+	addMemory: (data: MemoryData) => typedError<MemoryState_Serialize, CommandError>(__TAURI_INVOKE("add_memory", { data })),
+	applyMemoryPreset: (data: MemoryPresetApplyInput) => typedError<MemoryPresetApplyResult_Serialize, CommandError>(__TAURI_INVOKE("apply_memory_preset", { data })),
+	getMemoryPresetContent: (data: MemoryPresetContentInput) => typedError<MemoryPresetContentResult, CommandError>(__TAURI_INVOKE("get_memory_preset_content", { data })),
+	updateMemory: (id: string, data: MemoryData) => typedError<MemoryState_Serialize, CommandError>(__TAURI_INVOKE("update_memory", { id, data })),
+	duplicateMemory: (id: string, nameSuffix: string) => typedError<MemoryState_Serialize, CommandError>(__TAURI_INVOKE("duplicate_memory", { id, nameSuffix })),
+	previewDeleteMemory: (id: string) => typedError<MemoryDeletePreview, CommandError>(__TAURI_INVOKE("preview_delete_memory", { id })),
+	deleteMemory: (id: string) => typedError<MemoryState_Serialize, CommandError>(__TAURI_INVOKE("delete_memory", { id })),
+	toggleMemory: (id: string) => typedError<MemoryState_Serialize, CommandError>(__TAURI_INVOKE("toggle_memory", { id })),
+	importUnmanagedMemory: (source: UnmanagedMemorySource) => typedError<MemoryState_Serialize, CommandError>(__TAURI_INVOKE("import_unmanaged_memory", { source })),
+	importMemoriesFromDirectory: (sourceDir: string) => typedError<MemoryDirectoryImportResult_Serialize, CommandError>(__TAURI_INVOKE("import_memories_from_directory", { sourceDir })),
 	/**  获取当前统计数据 */
-	getStats: () => typedError<ClaudeStats, string>(__TAURI_INVOKE("get_stats")),
+	getStats: () => typedError<ClaudeStats, CommandError>(__TAURI_INVOKE("get_stats")),
 	/**  用默认编辑器打开 ~/.claude.json */
-	openClaudeJsonInEditor: () => typedError<null, string>(__TAURI_INVOKE("open_claude_json_in_editor")),
+	openClaudeJsonInEditor: () => typedError<null, CommandError>(__TAURI_INVOKE("open_claude_json_in_editor")),
 	/**  读取历史记录文件，返回内容和 mtime；文件不存在时返回空内容 */
-	getHistory: () => typedError<HistoryResult, string>(__TAURI_INVOKE("get_history")),
+	getHistory: () => typedError<HistoryResult, CommandError>(__TAURI_INVOKE("get_history")),
 	/**  仅当文件有变化时返回新内容，否则返回 None */
 	getHistoryIfChanged: (lastMtime: number) => typedError<{
 	content: string,
 	mtime: number,
-} | null, string>(__TAURI_INVOKE("get_history_if_changed", { lastMtime })),
+} | null, CommandError>(__TAURI_INVOKE("get_history_if_changed", { lastMtime })),
 	/**  获取指定 session 的完整对话记录 */
-	getSessionDetail: (project: string, sessionId: string) => typedError<SessionDetail, string>(__TAURI_INVOKE("get_session_detail", { project, sessionId })),
-	openSessionFileInEditor: (project: string, sessionId: string) => typedError<null, string>(__TAURI_INVOKE("open_session_file_in_editor", { project, sessionId })),
+	getSessionDetail: (project: string, sessionId: string) => typedError<SessionDetail, CommandError>(__TAURI_INVOKE("get_session_detail", { project, sessionId })),
+	openSessionFileInEditor: (project: string, sessionId: string) => typedError<null, CommandError>(__TAURI_INVOKE("open_session_file_in_editor", { project, sessionId })),
 	/**  读取会话关联 plan 文件的实时内容,供应用内预览 */
-	readSessionPlan: (project: string, sessionId: string) => typedError<SessionPlan, string>(__TAURI_INVOKE("read_session_plan", { project, sessionId })),
+	readSessionPlan: (project: string, sessionId: string) => typedError<SessionPlan, CommandError>(__TAURI_INVOKE("read_session_plan", { project, sessionId })),
 	/**  用默认编辑器打开会话关联的 plan 文件 */
-	openSessionPlanInEditor: (project: string, sessionId: string) => typedError<null, string>(__TAURI_INVOKE("open_session_plan_in_editor", { project, sessionId })),
+	openSessionPlanInEditor: (project: string, sessionId: string) => typedError<null, CommandError>(__TAURI_INVOKE("open_session_plan_in_editor", { project, sessionId })),
 	getAppLogs: (query: {
 	level?: LogLevel | null,
 	search?: string | null,
 	limit?: number | null,
-} | null) => typedError<LogView_Serialize, string>(__TAURI_INVOKE("get_app_logs", { query })),
-	openLogsDir: () => typedError<null, string>(__TAURI_INVOKE("open_logs_dir")),
-	clearAppLogs: () => typedError<LogView_Serialize, string>(__TAURI_INVOKE("clear_app_logs")),
-	getProjectDetail: (project: string) => typedError<ProjectDetail_Serialize, string>(__TAURI_INVOKE("get_project_detail", { project })),
-	getProjectClaudeDirectoryOverview: (project: string) => typedError<ClaudeDirectoryOverview, string>(__TAURI_INVOKE("get_project_claude_directory_overview", { project })),
-	getProjectClaudeFilePreview: (project: string, relativePath: string) => typedError<ClaudeFilePreview, string>(__TAURI_INVOKE("get_project_claude_file_preview", { project, relativePath })),
-	createProjectClaudeSettingsFile: (project: string, scope: ProjectClaudeSettingsScope) => typedError<null, string>(__TAURI_INVOKE("create_project_claude_settings_file", { project, scope })),
-	openProjectClaudeFileInEditor: (project: string, relativePath: string) => typedError<null, string>(__TAURI_INVOKE("open_project_claude_file_in_editor", { project, relativePath })),
-	createProjectAgentsSkillsSymlink: (project: string) => typedError<null, string>(__TAURI_INVOKE("create_project_agents_skills_symlink", { project })),
-	createProjectAgentsSymlink: (project: string) => typedError<null, string>(__TAURI_INVOKE("create_project_agents_symlink", { project })),
-	openProjectInTerminal: (project: string) => typedError<null, string>(__TAURI_INVOKE("open_project_in_terminal", { project })),
-	openProjectInEditor: (project: string) => typedError<null, string>(__TAURI_INVOKE("open_project_in_editor", { project })),
-	previewProjectLocalDataPurge: (project: string) => typedError<ProjectPurgeOutput, string>(__TAURI_INVOKE("preview_project_local_data_purge", { project })),
-	purgeProjectLocalData: (project: string) => typedError<ProjectPurgeOutput, string>(__TAURI_INVOKE("purge_project_local_data", { project })),
-	previewProjectBranchCleanup: (project: string) => typedError<ProjectGitCleanupPreview_Serialize, string>(__TAURI_INVOKE("preview_project_branch_cleanup", { project })),
-	cleanupProjectBranches: (project: string, branches: string[]) => typedError<ProjectGitCleanupResult, string>(__TAURI_INVOKE("cleanup_project_branches", { project, branches })),
-	previewProjectWorktreeCleanup: (project: string) => typedError<ProjectGitCleanupPreview_Serialize, string>(__TAURI_INVOKE("preview_project_worktree_cleanup", { project })),
-	cleanupProjectWorktrees: (project: string, worktrees: string[]) => typedError<ProjectGitCleanupResult, string>(__TAURI_INVOKE("cleanup_project_worktrees", { project, worktrees })),
-	getProjectAutoMemoryStatus: (project: string, repoRoot: string | null) => typedError<ProjectAutoMemoryStatus, string>(__TAURI_INVOKE("get_project_auto_memory_status", { project, repoRoot })),
-	getProjectAutoMemoryOverview: (project: string, repoRoot: string | null) => typedError<ClaudeDirectoryOverview, string>(__TAURI_INVOKE("get_project_auto_memory_overview", { project, repoRoot })),
-	readProjectAutoMemoryFile: (project: string, repoRoot: string | null, relativePath: string) => typedError<ClaudeFilePreview, string>(__TAURI_INVOKE("read_project_auto_memory_file", { project, repoRoot, relativePath })),
-	deleteProjectAutoMemoryEntry: (project: string, repoRoot: string | null, relativePath: string) => typedError<null, string>(__TAURI_INVOKE("delete_project_auto_memory_entry", { project, repoRoot, relativePath })),
-	openProjectAutoMemoryFileInEditor: (project: string, repoRoot: string | null, relativePath: string) => typedError<null, string>(__TAURI_INVOKE("open_project_auto_memory_file_in_editor", { project, repoRoot, relativePath })),
+} | null) => typedError<LogView_Serialize, CommandError>(__TAURI_INVOKE("get_app_logs", { query })),
+	openLogsDir: () => typedError<null, CommandError>(__TAURI_INVOKE("open_logs_dir")),
+	clearAppLogs: () => typedError<LogView_Serialize, CommandError>(__TAURI_INVOKE("clear_app_logs")),
+	getProjectDetail: (project: string) => typedError<ProjectDetail_Serialize, CommandError>(__TAURI_INVOKE("get_project_detail", { project })),
+	getProjectClaudeDirectoryOverview: (project: string) => typedError<ClaudeDirectoryOverview, CommandError>(__TAURI_INVOKE("get_project_claude_directory_overview", { project })),
+	getProjectClaudeFilePreview: (project: string, relativePath: string) => typedError<ClaudeFilePreview, CommandError>(__TAURI_INVOKE("get_project_claude_file_preview", { project, relativePath })),
+	createProjectClaudeSettingsFile: (project: string, scope: ProjectClaudeSettingsScope) => typedError<null, CommandError>(__TAURI_INVOKE("create_project_claude_settings_file", { project, scope })),
+	openProjectClaudeFileInEditor: (project: string, relativePath: string) => typedError<null, CommandError>(__TAURI_INVOKE("open_project_claude_file_in_editor", { project, relativePath })),
+	createProjectAgentsSkillsSymlink: (project: string) => typedError<null, CommandError>(__TAURI_INVOKE("create_project_agents_skills_symlink", { project })),
+	createProjectAgentsSymlink: (project: string) => typedError<null, CommandError>(__TAURI_INVOKE("create_project_agents_symlink", { project })),
+	openProjectInTerminal: (project: string) => typedError<null, CommandError>(__TAURI_INVOKE("open_project_in_terminal", { project })),
+	openProjectInEditor: (project: string) => typedError<null, CommandError>(__TAURI_INVOKE("open_project_in_editor", { project })),
+	previewProjectLocalDataPurge: (project: string) => typedError<ProjectPurgeOutput, CommandError>(__TAURI_INVOKE("preview_project_local_data_purge", { project })),
+	purgeProjectLocalData: (project: string) => typedError<ProjectPurgeOutput, CommandError>(__TAURI_INVOKE("purge_project_local_data", { project })),
+	previewProjectBranchCleanup: (project: string) => typedError<ProjectGitCleanupPreview_Serialize, CommandError>(__TAURI_INVOKE("preview_project_branch_cleanup", { project })),
+	cleanupProjectBranches: (project: string, branches: string[]) => typedError<ProjectGitCleanupResult, CommandError>(__TAURI_INVOKE("cleanup_project_branches", { project, branches })),
+	previewProjectWorktreeCleanup: (project: string) => typedError<ProjectGitCleanupPreview_Serialize, CommandError>(__TAURI_INVOKE("preview_project_worktree_cleanup", { project })),
+	cleanupProjectWorktrees: (project: string, worktrees: string[]) => typedError<ProjectGitCleanupResult, CommandError>(__TAURI_INVOKE("cleanup_project_worktrees", { project, worktrees })),
+	getProjectAutoMemoryStatus: (project: string, repoRoot: string | null) => typedError<ProjectAutoMemoryStatus, CommandError>(__TAURI_INVOKE("get_project_auto_memory_status", { project, repoRoot })),
+	getProjectAutoMemoryOverview: (project: string, repoRoot: string | null) => typedError<ClaudeDirectoryOverview, CommandError>(__TAURI_INVOKE("get_project_auto_memory_overview", { project, repoRoot })),
+	readProjectAutoMemoryFile: (project: string, repoRoot: string | null, relativePath: string) => typedError<ClaudeFilePreview, CommandError>(__TAURI_INVOKE("read_project_auto_memory_file", { project, repoRoot, relativePath })),
+	deleteProjectAutoMemoryEntry: (project: string, repoRoot: string | null, relativePath: string) => typedError<null, CommandError>(__TAURI_INVOKE("delete_project_auto_memory_entry", { project, repoRoot, relativePath })),
+	openProjectAutoMemoryFileInEditor: (project: string, repoRoot: string | null, relativePath: string) => typedError<null, CommandError>(__TAURI_INVOKE("open_project_auto_memory_file_in_editor", { project, repoRoot, relativePath })),
 	/**  获取所有 Skills（启用 + 禁用） */
-	getSkills: () => typedError<Skill[], string>(__TAURI_INVOKE("get_skills")),
-	addSkill: (data: SkillData) => typedError<Skill, string>(__TAURI_INVOKE("add_skill", { data })),
-	updateSkill: (id: string, isActive: boolean, data: SkillData) => typedError<Skill, string>(__TAURI_INVOKE("update_skill", { id, isActive, data })),
-	duplicateSkill: (id: string, isActive: boolean, nameSuffix: string) => typedError<Skill, string>(__TAURI_INVOKE("duplicate_skill", { id, isActive, nameSuffix })),
-	deleteSkill: (id: string, isActive: boolean) => typedError<null, string>(__TAURI_INVOKE("delete_skill", { id, isActive })),
+	getSkills: () => typedError<Skill[], CommandError>(__TAURI_INVOKE("get_skills")),
+	addSkill: (data: SkillData) => typedError<Skill, CommandError>(__TAURI_INVOKE("add_skill", { data })),
+	updateSkill: (id: string, isActive: boolean, data: SkillData) => typedError<Skill, CommandError>(__TAURI_INVOKE("update_skill", { id, isActive, data })),
+	duplicateSkill: (id: string, isActive: boolean, nameSuffix: string) => typedError<Skill, CommandError>(__TAURI_INVOKE("duplicate_skill", { id, isActive, nameSuffix })),
+	deleteSkill: (id: string, isActive: boolean) => typedError<null, CommandError>(__TAURI_INVOKE("delete_skill", { id, isActive })),
 	/**  切换 Skill 的启用/禁用状态 */
-	toggleSkill: (id: string, isActive: boolean) => typedError<Skill, string>(__TAURI_INVOKE("toggle_skill", { id, isActive })),
-	getSkillFileTree: (id: string, isActive: boolean) => typedError<SkillFileTreeEntry[], string>(__TAURI_INVOKE("get_skill_file_tree", { id, isActive })),
-	openSkillInEditor: (id: string, isActive: boolean) => typedError<null, string>(__TAURI_INVOKE("open_skill_in_editor", { id, isActive })),
-	importSkillsFromDirectory: (sourceDir: string) => typedError<SkillDirectoryImportResult, string>(__TAURI_INVOKE("import_skills_from_directory", { sourceDir })),
-	syncSkillToCodex: (id: string, isActive: boolean) => typedError<null, string>(__TAURI_INVOKE("sync_skill_to_codex", { id, isActive })),
-	getUsageSnapshot: (filter: UsageFilter, granularity: UsageTimeGranularity) => typedError<UsageSnapshot, string>(__TAURI_INVOKE("get_usage_snapshot", { filter, granularity })),
-	getSessionUsageDetail: (sessionId: string) => typedError<SessionUsageDetail, string>(__TAURI_INVOKE("get_session_usage_detail", { sessionId })),
-	refreshUsagePricing: () => typedError<PricingTable, string>(__TAURI_INVOKE("refresh_usage_pricing")),
-	rescanUsage: () => typedError<ScanResult, string>(__TAURI_INVOKE("rescan_usage")),
+	toggleSkill: (id: string, isActive: boolean) => typedError<Skill, CommandError>(__TAURI_INVOKE("toggle_skill", { id, isActive })),
+	getSkillFileTree: (id: string, isActive: boolean) => typedError<SkillFileTreeEntry[], CommandError>(__TAURI_INVOKE("get_skill_file_tree", { id, isActive })),
+	openSkillInEditor: (id: string, isActive: boolean) => typedError<null, CommandError>(__TAURI_INVOKE("open_skill_in_editor", { id, isActive })),
+	importSkillsFromDirectory: (sourceDir: string) => typedError<SkillDirectoryImportResult, CommandError>(__TAURI_INVOKE("import_skills_from_directory", { sourceDir })),
+	syncSkillToCodex: (id: string, isActive: boolean) => typedError<null, CommandError>(__TAURI_INVOKE("sync_skill_to_codex", { id, isActive })),
+	getUsageSnapshot: (filter: UsageFilter, granularity: UsageTimeGranularity) => typedError<UsageSnapshot, CommandError>(__TAURI_INVOKE("get_usage_snapshot", { filter, granularity })),
+	getSessionUsageDetail: (sessionId: string) => typedError<SessionUsageDetail, CommandError>(__TAURI_INVOKE("get_session_usage_detail", { sessionId })),
+	refreshUsagePricing: () => typedError<PricingTable, CommandError>(__TAURI_INVOKE("refresh_usage_pricing")),
+	rescanUsage: () => typedError<ScanResult, CommandError>(__TAURI_INVOKE("rescan_usage")),
 	/**
 	 *  触发 claude 读取插件目录缓存，按其默认 24h TTL 策略刷新安装数。
 	 *
@@ -114,13 +115,13 @@ export const commands = {
 	 *  update` 只更新 marketplace 克隆、不碰该缓存，刷不了安装数。返回 `Result<(), String>`：前端只需
 	 *  成功/失败，CLI 原始输出仅进后端日志。
 	 */
-	refreshPluginInstallCounts: () => typedError<null, string>(__TAURI_INVOKE("refresh_plugin_install_counts")),
+	refreshPluginInstallCounts: () => typedError<null, CommandError>(__TAURI_INVOKE("refresh_plugin_install_counts")),
 	/**  探测 ANTICATER 设备是否连接(设置页显式调用)。 */
 	ledProbeStatus: () => __TAURI_INVOKE<LedProbeStatus>("led_probe_status"),
 	/**  测试某个灯效(设置页「测试」按钮 / 真机验证门)。立即下发,不受 enabled 影响。 */
-	ledTestMode: (mode: number) => typedError<null, string>(__TAURI_INVOKE("led_test_mode", { mode })),
+	ledTestMode: (mode: number) => typedError<null, CommandError>(__TAURI_INVOKE("led_test_mode", { mode })),
 	/**  设置页"试听"入口：立即播放一次选中音效。 */
-	previewWaitingSound: (sound: WaitingSound) => typedError<null, string>(__TAURI_INVOKE("preview_waiting_sound", { sound })),
+	previewWaitingSound: (sound: WaitingSound) => typedError<null, CommandError>(__TAURI_INVOKE("preview_waiting_sound", { sound })),
 };
 
 /* Types */
@@ -133,13 +134,36 @@ export type ActiveUserSettingsMismatch = {
 
 export type AgentsStatus = "missing" | "correctSymlink" | "wrongSymlink" | "plainFileConflict";
 
-export type AppPreferences = {
+export type AppPreferences = AppPreferences_Serialize | AppPreferences_Deserialize;
+
+export type AppPreferencesInput = {
+	showTrayTitle: boolean,
+	showTraySessions: boolean,
+	systemNotificationsEnabled?: boolean,
+	collapseSidebarByDefault?: boolean,
+	thirdPartyProviderPricingEnabled?: boolean,
+	uiLanguage: UiLanguage,
+	defaultTerminalApp: string,
+	defaultEditorApp: string | null,
+	trayTitleMaxChars?: number | null,
+	sessionTrayCountStyle?: SessionTrayCountStyle,
+	trayPulseWaiting?: boolean,
+	focusSessionShortcut?: string | null,
+	ledControl?: LedControlPreferences,
+	floatingWidgetEnabled?: boolean,
+	floatingWidgetMetrics?: string[],
+	floatingWidgetOpacity?: number,
+	waitingSoundEnabled?: boolean,
+	waitingSound?: WaitingSound,
+};
+
+export type AppPreferences_Deserialize = {
 	showTrayTitle?: boolean,
 	showTraySessions?: boolean,
 	systemNotificationsEnabled?: boolean,
 	collapseSidebarByDefault?: boolean,
 	thirdPartyProviderPricingEnabled?: boolean,
-	uiLanguage?: string,
+	uiLanguage?: UiLanguage,
 	defaultTerminalApp?: string,
 	defaultEditorApp?: string | null,
 	trayTitleMaxChars?: number | null,
@@ -159,25 +183,30 @@ export type AppPreferences = {
 	waitingSound?: WaitingSound,
 };
 
-export type AppPreferencesInput = {
+export type AppPreferences_Serialize = {
 	showTrayTitle: boolean,
 	showTraySessions: boolean,
-	systemNotificationsEnabled?: boolean,
-	collapseSidebarByDefault?: boolean,
-	thirdPartyProviderPricingEnabled?: boolean,
-	uiLanguage: string,
+	systemNotificationsEnabled: boolean,
+	collapseSidebarByDefault: boolean,
+	thirdPartyProviderPricingEnabled: boolean,
+	uiLanguage: UiLanguage,
 	defaultTerminalApp: string,
 	defaultEditorApp: string | null,
-	trayTitleMaxChars?: number | null,
-	sessionTrayCountStyle?: SessionTrayCountStyle,
-	trayPulseWaiting?: boolean,
-	focusSessionShortcut?: string | null,
-	ledControl?: LedControlPreferences,
-	floatingWidgetEnabled?: boolean,
-	floatingWidgetMetrics?: string[],
-	floatingWidgetOpacity?: number,
-	waitingSoundEnabled?: boolean,
-	waitingSound?: WaitingSound,
+	trayTitleMaxChars: number | null,
+	sessionTrayCountStyle: SessionTrayCountStyle,
+	trayPulseWaiting: boolean,
+	focusSessionShortcut: string | null,
+	ledControl: LedControlPreferences,
+	/**  桌面用量浮窗是否启用（置顶半透明小窗，实时展示今日用量）。 */
+	floatingWidgetEnabled: boolean,
+	/**  浮窗展示的指标 key 列表，顺序即展示顺序，取值见 WIDGET_METRIC_KEYS。 */
+	floatingWidgetMetrics: string[],
+	/**  浮窗面板不透明度百分比，范围 30-100（前端按 /100 映射到 CSS opacity）。 */
+	floatingWidgetOpacity: number,
+	/**  会话等待输入时是否播放提示音效（独立于 system_notifications_enabled）。 */
+	waitingSoundEnabled: boolean,
+	/**  等待提示音效，默认 Glass。 */
+	waitingSound: WaitingSound,
 };
 
 export type BindingState = BindingState_Serialize | BindingState_Deserialize;
@@ -246,6 +275,13 @@ export type ClaudeStats = {
 	btwUseCount?: number | null,
 };
 
+export type CommandError = {
+	code: CommandErrorCode,
+	args: { [key in string]: string },
+};
+
+export type CommandErrorCode = "invalidInput" | "notFound" | "alreadyExists" | "conflict" | "unsupported" | "permissionDenied" | "authenticationFailed" | "networkFailed" | "timeout" | "externalCommandFailed" | "ioFailed" | "invalidData" | "internal";
+
 export type ConfigProfile = ConfigProfile_Serialize | ConfigProfile_Deserialize;
 
 export type ConfigProfile_Deserialize = {
@@ -272,7 +308,7 @@ export type ConfigProfile_Serialize = {
 export type ConfigWorkspace = ConfigWorkspace_Serialize | ConfigWorkspace_Deserialize;
 
 export type ConfigWorkspace_Deserialize = {
-	app: AppPreferences,
+	app: AppPreferences_Deserialize,
 	builtinProviders: Provider_Deserialize[],
 	profiles: ConfigProfile_Deserialize[],
 	bindings: BindingState_Deserialize,
@@ -281,7 +317,7 @@ export type ConfigWorkspace_Deserialize = {
 };
 
 export type ConfigWorkspace_Serialize = {
-	app: AppPreferences,
+	app: AppPreferences_Serialize,
 	builtinProviders: Provider_Serialize[],
 	profiles: ConfigProfile_Serialize[],
 	bindings: BindingState_Serialize,
@@ -1060,6 +1096,9 @@ export type SubagentChain = {
 	slug: string | null,
 	messages: SessionMessage[],
 };
+
+/**  应用界面语言。持久化和 IPC 都只接受稳定的语言代码。 */
+export type UiLanguage = "zh" | "en";
 
 export type UnmanagedMemory = {
 	id: string,

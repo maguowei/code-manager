@@ -158,7 +158,10 @@ fn app_log_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn get_app_logs(app_handle: AppHandle, query: Option<LogQuery>) -> Result<LogView, String> {
+pub fn get_app_logs(
+    app_handle: AppHandle,
+    query: Option<LogQuery>,
+) -> Result<LogView, crate::error::CommandError> {
     let result = (|| {
         let log_dir = app_log_dir(&app_handle)?;
         read_log_entries_from_dir(&log_dir, &query.unwrap_or_default())
@@ -166,12 +169,12 @@ pub fn get_app_logs(app_handle: AppHandle, query: Option<LogQuery>) -> Result<Lo
     if let Err(error) = &result {
         log_command_error("logs.read", error);
     }
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn open_logs_dir(app_handle: AppHandle) -> Result<(), String> {
+pub fn open_logs_dir(app_handle: AppHandle) -> Result<(), crate::error::CommandError> {
     let result = (|| {
         let log_dir = app_log_dir(&app_handle)?;
         fs::create_dir_all(&log_dir).map_err(|e| format!("创建日志目录失败: {e}"))?;
@@ -181,12 +184,12 @@ pub fn open_logs_dir(app_handle: AppHandle) -> Result<(), String> {
             .map_err(|e| format!("打开日志目录失败: {e}"))
     })();
     log_command_result("logs.open_dir", &result, |_| String::new());
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn clear_app_logs(app_handle: AppHandle) -> Result<LogView, String> {
+pub fn clear_app_logs(app_handle: AppHandle) -> Result<LogView, crate::error::CommandError> {
     let result = (|| {
         let log_dir = app_log_dir(&app_handle)?;
         clear_log_files_in_dir(&log_dir)?;
@@ -195,7 +198,7 @@ pub fn clear_app_logs(app_handle: AppHandle) -> Result<LogView, String> {
     if let Err(error) = &result {
         log_command_error("logs.clear", error);
     }
-    result
+    Ok(result?)
 }
 
 pub fn parse_log_line(line: &str) -> LogEntry {

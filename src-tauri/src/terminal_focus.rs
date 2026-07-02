@@ -9,6 +9,9 @@
 
 use std::process::Command;
 
+use crate::config::UiLanguage;
+use crate::native_i18n::{focus_failure_message, FocusFailureMessage};
+
 /// 聚焦终端失败的可枚举原因，用于生成面向用户的提示文案。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FocusFailure {
@@ -26,34 +29,15 @@ pub enum FocusFailure {
 
 impl FocusFailure {
     /// 生成本地化的 (title, body)，供系统通知或 UI Toast 使用。
-    pub fn user_message(&self, language: &str) -> (String, String) {
-        let is_en = language == "en";
-        let title = if is_en {
-            "Session focus failed"
-        } else {
-            "会话聚焦失败"
+    pub fn user_message(&self, language: UiLanguage) -> (String, String) {
+        let message = match self {
+            Self::TtyNotFound => FocusFailureMessage::TtyNotFound,
+            Self::TabNotFound => FocusFailureMessage::TabNotFound,
+            Self::EmptyCwd => FocusFailureMessage::EmptyCwd,
+            Self::Unsupported(slug) => FocusFailureMessage::Unsupported(slug),
+            Self::ScriptError => FocusFailureMessage::ScriptError,
         };
-        let body = match (is_en, self) {
-            (true, Self::TtyNotFound) => {
-                "The session process has exited; cannot locate the terminal tab.".to_string()
-            }
-            (true, Self::TabNotFound) => {
-                "No matching terminal tab was found. It may have been closed.".to_string()
-            }
-            (true, Self::EmptyCwd) => "Session has no working directory to focus.".to_string(),
-            (true, Self::Unsupported(slug)) => {
-                format!("Terminal '{slug}' does not support external focus.")
-            }
-            (true, Self::ScriptError) => {
-                "Failed to invoke the terminal. See logs for details.".to_string()
-            }
-            (false, Self::TtyNotFound) => "会话进程已退出，无法定位终端 tab。".to_string(),
-            (false, Self::TabNotFound) => "未找到对应的终端 tab，可能已被关闭。".to_string(),
-            (false, Self::EmptyCwd) => "会话缺少工作目录，无法聚焦。".to_string(),
-            (false, Self::Unsupported(slug)) => format!("终端 {slug} 不支持外部聚焦。"),
-            (false, Self::ScriptError) => "调用终端失败，详情可查看日志。".to_string(),
-        };
-        (title.to_string(), body)
+        focus_failure_message(language, message)
     }
 }
 
@@ -337,49 +321,45 @@ mod tests {
     #[test]
     fn focus_failure_user_message_localizes_by_language() {
         // 中文（默认）
-        let (title_zh, body_zh) = FocusFailure::TabNotFound.user_message("zh");
+        let (title_zh, body_zh) = FocusFailure::TabNotFound.user_message(UiLanguage::Zh);
         assert_eq!(title_zh, "会话聚焦失败");
         assert!(body_zh.contains("未找到对应的终端 tab"));
 
-        let (_, body_zh_tty) = FocusFailure::TtyNotFound.user_message("zh");
+        let (_, body_zh_tty) = FocusFailure::TtyNotFound.user_message(UiLanguage::Zh);
         assert!(body_zh_tty.contains("会话进程已退出"));
 
-        let (_, body_zh_empty) = FocusFailure::EmptyCwd.user_message("zh");
+        let (_, body_zh_empty) = FocusFailure::EmptyCwd.user_message(UiLanguage::Zh);
         assert!(body_zh_empty.contains("缺少工作目录"));
 
         let (_, body_zh_unsupported) =
-            FocusFailure::Unsupported("warp".to_string()).user_message("zh");
+            FocusFailure::Unsupported("warp".to_string()).user_message(UiLanguage::Zh);
         assert!(body_zh_unsupported.contains("warp"));
         assert!(body_zh_unsupported.contains("不支持"));
 
-        let (_, body_zh_script) = FocusFailure::ScriptError.user_message("zh");
+        let (_, body_zh_script) = FocusFailure::ScriptError.user_message(UiLanguage::Zh);
         assert!(body_zh_script.contains("调用终端失败"));
 
         // 英文
-        let (title_en, body_en) = FocusFailure::TabNotFound.user_message("en");
+        let (title_en, body_en) = FocusFailure::TabNotFound.user_message(UiLanguage::En);
         assert_eq!(title_en, "Session focus failed");
         assert!(body_en.to_lowercase().contains("terminal tab"));
-
-        // 未知语言回退中文
-        let (title_fallback, _) = FocusFailure::TabNotFound.user_message("fr");
-        assert_eq!(title_fallback, "会话聚焦失败");
     }
 
     /// 补足英文 body 覆盖：TtyNotFound / EmptyCwd / Unsupported / ScriptError
     /// 之前只测了 TabNotFound 的英文，其它分支没有 assert。
     #[test]
     fn focus_failure_user_message_english_branches_cover_all_variants() {
-        let (_, body) = FocusFailure::TtyNotFound.user_message("en");
+        let (_, body) = FocusFailure::TtyNotFound.user_message(UiLanguage::En);
         assert!(body.to_lowercase().contains("session process has exited"));
 
-        let (_, body) = FocusFailure::EmptyCwd.user_message("en");
+        let (_, body) = FocusFailure::EmptyCwd.user_message(UiLanguage::En);
         assert!(body.to_lowercase().contains("working directory"));
 
-        let (_, body) = FocusFailure::Unsupported("warp".to_string()).user_message("en");
+        let (_, body) = FocusFailure::Unsupported("warp".to_string()).user_message(UiLanguage::En);
         assert!(body.contains("'warp'"));
         assert!(body.to_lowercase().contains("does not support"));
 
-        let (_, body) = FocusFailure::ScriptError.user_message("en");
+        let (_, body) = FocusFailure::ScriptError.user_message(UiLanguage::En);
         assert!(body
             .to_lowercase()
             .contains("failed to invoke the terminal"));

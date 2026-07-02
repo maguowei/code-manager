@@ -75,7 +75,8 @@ pub struct ClaudeFilePreview {
 
 #[tauri::command]
 #[specta::specta]
-pub fn get_claude_directory_overview() -> Result<ClaudeDirectoryOverview, String> {
+pub fn get_claude_directory_overview() -> Result<ClaudeDirectoryOverview, crate::error::CommandError>
+{
     let root = claude_dir()?;
     let result = scan_claude_directory_with_options(
         &root,
@@ -95,14 +96,14 @@ pub fn get_claude_directory_overview() -> Result<ClaudeDirectoryOverview, String
             overview.skipped_node_modules_count
         )
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
 pub fn get_claude_directory_children(
     path: Option<String>,
-) -> Result<ClaudeDirectoryListing, String> {
+) -> Result<ClaudeDirectoryListing, crate::error::CommandError> {
     let root = claude_dir()?;
     let result =
         list_claude_directory_children_from_root(&root, path.as_deref(), DEFAULT_MAX_ENTRIES);
@@ -116,12 +117,14 @@ pub fn get_claude_directory_children(
             listing.skipped_symlink_count
         )
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn read_claude_file_preview(path: String) -> Result<ClaudeFilePreview, String> {
+pub fn read_claude_file_preview(
+    path: String,
+) -> Result<ClaudeFilePreview, crate::error::CommandError> {
     let root = claude_dir()?;
     let result = read_claude_file_preview_from_root(&root, &path, DEFAULT_PREVIEW_BYTES);
     crate::logging::log_command_result("claude_directory.preview", &result, |preview| {
@@ -134,12 +137,12 @@ pub fn read_claude_file_preview(path: String) -> Result<ClaudeFilePreview, Strin
             preview.encoding
         )
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn open_claude_file_in_editor(path: String) -> Result<(), String> {
+pub fn open_claude_file_in_editor(path: String) -> Result<(), crate::error::CommandError> {
     let result = (|| {
         let root = claude_dir()?;
         let rel_path = validate_relative_claude_path(&path)?;
@@ -159,7 +162,7 @@ pub fn open_claude_file_in_editor(path: String) -> Result<(), String> {
     crate::logging::log_command_result("claude_directory.open_editor", &result, |_| {
         format!("path={}", crate::utils::truncate(&path, 160))
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
@@ -168,7 +171,7 @@ pub fn create_claude_directory_entry(
     parent_path: Option<String>,
     name: String,
     kind: ClaudeDirectoryEntryKind,
-) -> Result<(), String> {
+) -> Result<(), crate::error::CommandError> {
     let result = (|| {
         let root = claude_dir()?;
         create_claude_directory_entry_in_root(&root, parent_path.as_deref(), &name, kind)
@@ -184,12 +187,15 @@ pub fn create_claude_directory_entry(
             kind
         )
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn rename_claude_directory_entry(path: String, new_name: String) -> Result<(), String> {
+pub fn rename_claude_directory_entry(
+    path: String,
+    new_name: String,
+) -> Result<(), crate::error::CommandError> {
     let result = (|| {
         let root = claude_dir()?;
         rename_claude_directory_entry_in_root(&root, &path, &new_name)
@@ -201,12 +207,12 @@ pub fn rename_claude_directory_entry(path: String, new_name: String) -> Result<(
             crate::utils::truncate(&new_name, 160)
         )
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn delete_claude_directory_entry(path: String) -> Result<(), String> {
+pub fn delete_claude_directory_entry(path: String) -> Result<(), crate::error::CommandError> {
     let result = (|| {
         let root = claude_dir()?;
         delete_claude_directory_entry_in_root(&root, &path)
@@ -214,7 +220,7 @@ pub fn delete_claude_directory_entry(path: String) -> Result<(), String> {
     crate::logging::log_command_result("claude_directory.entry.delete", &result, |_| {
         format!("path={}", crate::utils::truncate(&path, 160))
     });
-    result
+    Ok(result?)
 }
 
 fn claude_dir() -> Result<PathBuf, String> {

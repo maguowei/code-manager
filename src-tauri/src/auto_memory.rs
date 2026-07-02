@@ -291,7 +291,7 @@ fn resolve_browsable_memory_dir(project: &str, repo_root: Option<&str>) -> Resul
 pub fn get_project_auto_memory_status(
     project: &str,
     repo_root: Option<String>,
-) -> Result<ProjectAutoMemoryStatus, String> {
+) -> Result<ProjectAutoMemoryStatus, crate::error::CommandError> {
     let result = (|| {
         validate_project_input(project)?;
         let claude_dir = claude_dir()?;
@@ -325,7 +325,7 @@ pub fn get_project_auto_memory_status(
             status.enabled, status.is_inside_claude_dir, status.exists, status.memory_file_count
         )
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
@@ -333,7 +333,7 @@ pub fn get_project_auto_memory_status(
 pub fn get_project_auto_memory_overview(
     project: &str,
     repo_root: Option<String>,
-) -> Result<ClaudeDirectoryOverview, String> {
+) -> Result<ClaudeDirectoryOverview, crate::error::CommandError> {
     let result = (|| {
         let memory_dir = resolve_browsable_memory_dir(project, repo_root.as_deref())?;
         scan_claude_directory_with_options(
@@ -351,7 +351,7 @@ pub fn get_project_auto_memory_overview(
             overview.truncated
         )
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
@@ -360,7 +360,7 @@ pub fn read_project_auto_memory_file(
     project: &str,
     repo_root: Option<String>,
     relative_path: String,
-) -> Result<ClaudeFilePreview, String> {
+) -> Result<ClaudeFilePreview, crate::error::CommandError> {
     let result = (|| {
         let memory_dir = resolve_browsable_memory_dir(project, repo_root.as_deref())?;
         read_claude_file_preview_from_root(
@@ -378,7 +378,7 @@ pub fn read_project_auto_memory_file(
             preview.truncated
         )
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
@@ -387,7 +387,7 @@ pub fn delete_project_auto_memory_entry(
     project: &str,
     repo_root: Option<String>,
     relative_path: String,
-) -> Result<(), String> {
+) -> Result<(), crate::error::CommandError> {
     let result = (|| {
         let memory_dir = resolve_browsable_memory_dir(project, repo_root.as_deref())?;
         // 空相对路径表示清空整个 memory 目录；否则删除目录内的单个条目。
@@ -410,7 +410,7 @@ pub fn delete_project_auto_memory_entry(
             crate::utils::truncate(&relative_path, 160)
         )
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
@@ -419,7 +419,7 @@ pub fn open_project_auto_memory_file_in_editor(
     project: &str,
     repo_root: Option<String>,
     relative_path: String,
-) -> Result<(), String> {
+) -> Result<(), crate::error::CommandError> {
     let result = (|| {
         let memory_dir = resolve_browsable_memory_dir(project, repo_root.as_deref())?;
         let rel_path = validate_relative_claude_path(&relative_path)
@@ -444,7 +444,7 @@ pub fn open_project_auto_memory_file_in_editor(
             crate::utils::truncate(&relative_path, 160)
         )
     });
-    result
+    Ok(result?)
 }
 
 #[cfg(test)]

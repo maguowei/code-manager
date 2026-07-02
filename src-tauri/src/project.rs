@@ -201,7 +201,7 @@ const PROTECTED_BRANCHES: &[&str] = &["main", "master", "dev", "develop", "trunk
 
 #[tauri::command]
 #[specta::specta]
-pub fn get_project_detail(project: &str) -> Result<ProjectDetail, String> {
+pub fn get_project_detail(project: &str) -> Result<ProjectDetail, crate::error::CommandError> {
     let project_path = validate_project_path(project)?;
     let project_display = project_path.to_string_lossy().to_string();
     let short_name = short_project_name(&project_path);
@@ -282,7 +282,7 @@ pub fn get_project_detail(project: &str) -> Result<ProjectDetail, String> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn create_project_agents_symlink(project: &str) -> Result<(), String> {
+pub fn create_project_agents_symlink(project: &str) -> Result<(), crate::error::CommandError> {
     let result = (|| {
         let project_path = validate_project_path(project)?;
         if !project_path.is_dir() {
@@ -293,12 +293,14 @@ pub fn create_project_agents_symlink(project: &str) -> Result<(), String> {
     crate::logging::log_command_result("project.agents_symlink", &result, |_| {
         format!("project={}", crate::utils::truncate(project, 160))
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn create_project_agents_skills_symlink(project: &str) -> Result<(), String> {
+pub fn create_project_agents_skills_symlink(
+    project: &str,
+) -> Result<(), crate::error::CommandError> {
     let result = (|| {
         let project_path = validate_project_path(project)?;
         if !project_path.is_dir() {
@@ -309,12 +311,12 @@ pub fn create_project_agents_skills_symlink(project: &str) -> Result<(), String>
     crate::logging::log_command_result("project.agents_skills_symlink", &result, |_| {
         format!("project={}", crate::utils::truncate(project, 160))
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn open_project_in_terminal(project: &str) -> Result<(), String> {
+pub fn open_project_in_terminal(project: &str) -> Result<(), crate::error::CommandError> {
     let result = (|| {
         let project_path = validate_project_path(project)?;
         let preferences = crate::config::load_app_preferences();
@@ -323,12 +325,12 @@ pub fn open_project_in_terminal(project: &str) -> Result<(), String> {
     crate::logging::log_command_result("project.open_terminal", &result, |_| {
         format!("project={}", crate::utils::truncate(project, 160))
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn open_project_in_editor(project: &str) -> Result<(), String> {
+pub fn open_project_in_editor(project: &str) -> Result<(), crate::error::CommandError> {
     let result = (|| {
         let project_path = validate_project_path(project)?;
         let preferences = crate::config::load_app_preferences();
@@ -341,31 +343,37 @@ pub fn open_project_in_editor(project: &str) -> Result<(), String> {
     crate::logging::log_command_result("project.open_editor", &result, |_| {
         format!("project={}", crate::utils::truncate(project, 160))
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn preview_project_local_data_purge(project: &str) -> Result<ProjectPurgeOutput, String> {
+pub fn preview_project_local_data_purge(
+    project: &str,
+) -> Result<ProjectPurgeOutput, crate::error::CommandError> {
     let result = run_claude_project_purge(project, ProjectPurgeMode::DryRun);
     log_project_purge_result("project.local_data_purge.preview", project, &result);
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn purge_project_local_data(project: &str) -> Result<ProjectPurgeOutput, String> {
+pub fn purge_project_local_data(
+    project: &str,
+) -> Result<ProjectPurgeOutput, crate::error::CommandError> {
     let result = run_claude_project_purge(project, ProjectPurgeMode::Execute);
     log_project_purge_result("project.local_data_purge.execute", project, &result);
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn preview_project_branch_cleanup(project: &str) -> Result<ProjectGitCleanupPreview, String> {
+pub fn preview_project_branch_cleanup(
+    project: &str,
+) -> Result<ProjectGitCleanupPreview, crate::error::CommandError> {
     let result = build_project_branch_cleanup_preview(project);
     log_project_git_cleanup_result("project.branch_cleanup.preview", project, result.is_ok());
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
@@ -373,18 +381,20 @@ pub fn preview_project_branch_cleanup(project: &str) -> Result<ProjectGitCleanup
 pub fn cleanup_project_branches(
     project: &str,
     branches: Vec<String>,
-) -> Result<ProjectGitCleanupResult, String> {
+) -> Result<ProjectGitCleanupResult, crate::error::CommandError> {
     let result = run_project_branch_cleanup(project, branches);
     log_project_git_cleanup_result("project.branch_cleanup.execute", project, result.is_ok());
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn preview_project_worktree_cleanup(project: &str) -> Result<ProjectGitCleanupPreview, String> {
+pub fn preview_project_worktree_cleanup(
+    project: &str,
+) -> Result<ProjectGitCleanupPreview, crate::error::CommandError> {
     let result = build_project_worktree_cleanup_preview(project);
     log_project_git_cleanup_result("project.worktree_cleanup.preview", project, result.is_ok());
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
@@ -392,10 +402,10 @@ pub fn preview_project_worktree_cleanup(project: &str) -> Result<ProjectGitClean
 pub fn cleanup_project_worktrees(
     project: &str,
     worktrees: Vec<String>,
-) -> Result<ProjectGitCleanupResult, String> {
+) -> Result<ProjectGitCleanupResult, crate::error::CommandError> {
     let result = run_project_worktree_cleanup(project, worktrees);
     log_project_git_cleanup_result("project.worktree_cleanup.execute", project, result.is_ok());
-    result
+    Ok(result?)
 }
 
 fn validate_project_path(project: &str) -> Result<PathBuf, String> {
@@ -1977,7 +1987,7 @@ fn resolve_project_claude_file(claude_root: &Path, relative_path: &str) -> Resul
 #[specta::specta]
 pub fn get_project_claude_directory_overview(
     project: &str,
-) -> Result<crate::claude_directory::ClaudeDirectoryOverview, String> {
+) -> Result<crate::claude_directory::ClaudeDirectoryOverview, crate::error::CommandError> {
     let result = (|| {
         let claude_root = project_claude_root(project)?;
         crate::claude_directory::scan_claude_directory_with_options(
@@ -1995,7 +2005,7 @@ pub fn get_project_claude_directory_overview(
             overview.truncated
         )
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
@@ -2003,7 +2013,7 @@ pub fn get_project_claude_directory_overview(
 pub fn get_project_claude_file_preview(
     project: &str,
     relative_path: String,
-) -> Result<crate::claude_directory::ClaudeFilePreview, String> {
+) -> Result<crate::claude_directory::ClaudeFilePreview, crate::error::CommandError> {
     let result = (|| {
         let claude_root = project_claude_root(project)?;
         // 先用项目侧错误文案过一次路径校验；通过后再调全局预览实现
@@ -2023,7 +2033,7 @@ pub fn get_project_claude_file_preview(
             preview.truncated
         )
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
@@ -2031,7 +2041,7 @@ pub fn get_project_claude_file_preview(
 pub fn create_project_claude_settings_file(
     project: &str,
     scope: ProjectClaudeSettingsScope,
-) -> Result<(), String> {
+) -> Result<(), crate::error::CommandError> {
     let result = (|| {
         let project_path = validate_project_path(project)?;
         if !project_path.is_dir() {
@@ -2058,7 +2068,7 @@ pub fn create_project_claude_settings_file(
             scope
         )
     });
-    result
+    Ok(result?)
 }
 
 #[tauri::command]
@@ -2066,7 +2076,7 @@ pub fn create_project_claude_settings_file(
 pub fn open_project_claude_file_in_editor(
     project: &str,
     relative_path: String,
-) -> Result<(), String> {
+) -> Result<(), crate::error::CommandError> {
     let result = (|| {
         let claude_root = project_claude_root(project)?;
         let target = resolve_project_claude_file(&claude_root, &relative_path)?;
@@ -2088,7 +2098,7 @@ pub fn open_project_claude_file_in_editor(
             crate::utils::truncate(&relative_path, 160)
         )
     });
-    result
+    Ok(result?)
 }
 
 #[cfg(test)]

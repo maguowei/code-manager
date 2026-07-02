@@ -2502,7 +2502,7 @@ pub async fn get_usage_snapshot(
     filter: UsageFilter,
     granularity: UsageTimeGranularity,
     state: State<'_, UsageState>,
-) -> Result<UsageSnapshot, String> {
+) -> Result<UsageSnapshot, crate::error::CommandError> {
     let pool = state.db_pool()?;
     let (pricing, state_last_scan_ms) = {
         let inner = state.inner.read().map_err(|e| e.to_string())?;
@@ -2598,7 +2598,7 @@ async fn load_usage_lookup_db(
 pub async fn get_session_usage_detail(
     session_id: String,
     state: State<'_, UsageState>,
-) -> Result<SessionUsageDetail, String> {
+) -> Result<SessionUsageDetail, crate::error::CommandError> {
     let pool = state.db_pool()?;
     let records = load_usage_records_db(
         &pool,
@@ -2613,7 +2613,7 @@ pub async fn get_session_usage_detail(
         .filter(|r| r.session_id == session_id)
         .collect();
     if session_records.is_empty() {
-        return Err(format!("session {session_id} 不存在或无 usage 数据"));
+        return Err(format!("session {session_id} 不存在或无 usage 数据").into());
     }
     let mut session_view = SessionUsage {
         session_id: session_id.clone(),
@@ -2666,12 +2666,14 @@ pub async fn get_session_usage_detail(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn refresh_usage_pricing(app: AppHandle) -> Result<PricingTable, String> {
+pub async fn refresh_usage_pricing(
+    app: AppHandle,
+) -> Result<PricingTable, crate::error::CommandError> {
     let table = match fetch_pricing_from_network().await {
         Ok(t) => t,
         Err(e) => {
             log::warn!("event=usage.pricing.refresh status=warn reason=network_failed err={e}");
-            return Err(e);
+            return Err(e.into());
         }
     };
     let state = app.state::<UsageState>();
@@ -2686,8 +2688,10 @@ pub async fn refresh_usage_pricing(app: AppHandle) -> Result<PricingTable, Strin
 
 #[tauri::command]
 #[specta::specta]
-pub async fn rescan_usage(state: State<'_, UsageState>) -> Result<ScanResult, String> {
-    scan_all(&state, true).await
+pub async fn rescan_usage(
+    state: State<'_, UsageState>,
+) -> Result<ScanResult, crate::error::CommandError> {
+    scan_all(&state, true).await.map_err(Into::into)
 }
 
 // ============ 启动入口 ============
