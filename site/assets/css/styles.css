@@ -466,6 +466,7 @@ table.cmp .no { color: var(--muted); }
 .steps li code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; }
 
 .codeblock {
+  position: relative; text-align: left;
   margin-top: 16px;
   background: #0c1320; color: #d6e2f0;
   border: 1px solid var(--border-strong); border-radius: 11px;
@@ -473,6 +474,24 @@ table.cmp .no { color: var(--muted); }
   overflow-x: auto; line-height: 1.7;
 }
 .codeblock .c { color: #6f8197; } /* 注释 */
+
+/* 代码块右上角一键复制按钮（JS 注入，仅在启用时加 has-copy 留白） */
+.codeblock.has-copy { padding-right: 46px; }
+.copy-btn {
+  position: absolute; top: 8px; right: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06); color: #9fb2c8;
+  cursor: pointer; transition: color .15s, background .15s, border-color .15s;
+}
+.copy-btn:hover { color: #eaf1f8; background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.28); }
+.copy-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.copy-btn svg { width: 15px; height: 15px; pointer-events: none; }
+.copy-btn .icon-check { display: none; }
+.copy-btn.copied { color: #6ee7a8; border-color: rgba(110, 231, 168, 0.4); }
+.copy-btn.copied .icon-copy { display: none; }
+.copy-btn.copied .icon-check { display: inline-flex; }
 
 .workflow-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
 .wf { border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; background: var(--surface); }

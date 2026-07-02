@@ -594,11 +594,6 @@
             </li>
           </ol>
 
-          <div class="codeblock" role="note">
-            <div class="c"><span data-lang="zh"># macOS：若首次打开被 Gatekeeper 拦截，移除隔离属性即可</span><span data-lang="en"># macOS: if Gatekeeper blocks the first launch, remove the quarantine attribute</span></div>
-            xattr -rd com.apple.quarantine /Applications/code-manager.app
-          </div>
-
           <div class="section-head center" style="margin-top:56px;margin-bottom:28px">
             <h3 class="section-title" style="font-size:24px">
               <span data-lang="zh">常见工作流</span><span data-lang="en">Common workflows</span>
@@ -668,7 +663,7 @@
               <a class="btn btn-primary" href="https://github.com/maguowei/code-manager/releases/latest" target="_blank" rel="noopener">
                 <span data-lang="zh">下载 .dmg</span><span data-lang="en">Download .dmg</span>
               </a>
-              <p class="pkgs" style="margin-top:10px"><code>brew install --cask maguowei/tap/code-manager</code></p>
+              <div class="codeblock">brew install --cask maguowei/tap/code-manager</div>
             </div>
             <div class="dl-card">
               <div class="os-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4.5 10.5 3.3v8.2H3zM11.5 3.1 21 1.8v9.7h-9.5zM3 12.5h7.5v8.2L3 19.5zM11.5 12.5H21v9.7l-9.5-1.3z"/></svg></div>
@@ -690,8 +685,13 @@
 
           <div class="dl-note">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
-            <span data-lang="zh">下载按钮指向 <strong>Releases / latest</strong>，会自动解析到最新版本的各平台安装包；需要历史版本时可前往 <a href="https://github.com/maguowei/code-manager/releases" target="_blank" rel="noopener">全部 Releases</a>。macOS 发布包未经过 Apple 公证：用 Homebrew 安装会自动移除隔离属性，手动下载 <code>.dmg</code> 首次打开被拦截时执行上文的 <code>xattr</code> 命令即可。</span>
-            <span data-lang="en">Download buttons point to <strong>Releases / latest</strong> and resolve to the newest per-platform installers automatically; for older versions, see <a href="https://github.com/maguowei/code-manager/releases" target="_blank" rel="noopener">all releases</a>. macOS builds aren't Apple-notarized: installing via Homebrew removes the quarantine attribute automatically; for a manual <code>.dmg</code>, run the <code>xattr</code> command above if the first launch is blocked.</span>
+            <span data-lang="zh">下载按钮指向 <strong>Releases / latest</strong>，会自动解析到最新版本的各平台安装包；需要历史版本时可前往 <a href="https://github.com/maguowei/code-manager/releases" target="_blank" rel="noopener">全部 Releases</a>。macOS 发布包未经过 Apple 公证：用 Homebrew 安装会自动移除隔离属性，手动下载 <code>.dmg</code> 首次打开被拦截时执行下方的 <code>xattr</code> 命令即可。</span>
+            <span data-lang="en">Download buttons point to <strong>Releases / latest</strong> and resolve to the newest per-platform installers automatically; for older versions, see <a href="https://github.com/maguowei/code-manager/releases" target="_blank" rel="noopener">all releases</a>. macOS builds aren't Apple-notarized: installing via Homebrew removes the quarantine attribute automatically; for a manual <code>.dmg</code>, run the <code>xattr</code> command below if the first launch is blocked.</span>
+          </div>
+
+          <div class="codeblock" role="note">
+            <div class="c"><span data-lang="zh"># macOS：若首次打开被 Gatekeeper 拦截，移除隔离属性即可</span><span data-lang="en"># macOS: if Gatekeeper blocks the first launch, remove the quarantine attribute</span></div>
+            xattr -rd com.apple.quarantine /Applications/code-manager.app
           </div>
         </div>
       </section>
