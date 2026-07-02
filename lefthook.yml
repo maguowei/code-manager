@@ -11,6 +11,9 @@ pre-commit:
       glob: "*.{js,ts,tsx,json,css}"
       run: pnpm biome check --write --no-errors-on-unmatched {staged_files}
       stage_fixed: true
+    i18n:
+      glob: "{src/**/*.{ts,tsx},src-tauri/**/*.rs,scripts/check-i18n.mjs}"
+      run: pnpm i18n:check
     gitleaks:
       run: gitleaks git --pre-commit --staged --redact --no-banner
     rustfmt:

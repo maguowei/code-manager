@@ -33,7 +33,7 @@
 ## 硬约束
 
 - 代码注释使用中文。
-- 所有用户可见文本必须走 `useI18n()` 的 `t()` 函数，不要硬编码中英文字符串。
+- 所有用户可见文本必须走 `useI18n()` 的 `t()` 函数；词条按 namespace 维护在 `src/i18n/catalogs/`，不要硬编码中英文字符串。
 - 所有前端通知优先走 `useToast()`，不要把 `console.error` 当作用户反馈。
 - `pnpm check` 会执行 `biome check --write .` 并修改文件；只想做只读前端检查时用 `make lint-frontend`，只读格式检查用 `make fmt-check`。
 - 新增有层叠关系或浮层的样式时，使用 shadcn 语义变量和 shadcn 原子组件内置层级，不要硬编码十六进制色值或 z-index 数字。
@@ -63,6 +63,7 @@
 - 应用壳与页面编排：`src/App.tsx`
 - React 入口、全局 Provider 与错误日志：`src/main.tsx`
 - 国际化：`src/i18n.ts`
+- 国际化资源与格式化：`src/i18n/catalogs/`、`src/i18n/format.ts`
 - 类型契约：`src/types.ts`
 - IPC 包装与生成契约：`src/ipc.ts`、`src/bindings.ts`
 - 共享 schema 与表单定义：`src/schemas/`
@@ -119,7 +120,7 @@ macOS 上应用数据刻意复用 `~/.config/code-manager/`，便于跨平台备
 | --- | --- |
 | 文档 / rules | `git diff --check`；修改 `CLAUDE.md` 时加跑 `wc -l CLAUDE.md` |
 | 前端局部 | `pnpm exec vitest run <test-file...>` |
-| 前端完整 | `make lint-frontend`、`make build-frontend`、`make test-frontend` |
+| 前端完整 | `make i18n-check`、`make lint-frontend`、`make build-frontend`、`make test-frontend` |
 | Rust | `make fmt-rust-check`、`make check`、`make lint-rust`、`make test-rust` |
 | 前后端契约 / IPC | `make bindings-check`、`make build-frontend`、`make test-rust`；必要时补范围内前端测试 |
 | UI 视觉 | 前端命令 + 本地应用或浏览器截图核验；无法截图时说明限制 |

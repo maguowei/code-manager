@@ -17,7 +17,8 @@ paths:
 
 - 应用壳与页面编排：`src/App.tsx`
 - React 入口、全局 Provider 与错误日志：`src/main.tsx`
-- 国际化：`src/i18n.ts`
+- 国际化门面：`src/i18n.ts`
+- 国际化资源与 locale 格式化：`src/i18n/catalogs/`、`src/i18n/format.ts`
 - 类型契约：`src/types.ts`
 - 共享 schema 与表单定义：`src/schemas/`
 - 公共 hooks：`src/hooks/`
@@ -33,7 +34,10 @@ paths:
 
 ## 通用约束
 
-- 所有用户可见文本必须走 `useI18n()` 的 `t()` 函数。新增 key 时同步检查 `src/i18n.ts` 的中英文文案。
+- 所有用户可见文本必须走 `useI18n()` 的 `t()` 函数。新增 key 时按 key 前缀放入 `src/i18n/catalogs/{zh,en}/` 的同名 namespace，并运行 `make i18n-check`。
+- 带参数消息使用 `t(key, { name })`，数量消息使用 i18next `_one` / `_other` 词条；禁止翻译结果再 `.replace()` 或拼接英文复数。
+- 用户显示的数字、百分比、货币、日期和排序统一复用 `src/i18n/format.ts`；HTML 日期输入、JSON、日志和持久化值继续使用稳定 ISO 格式。
+- 只允许在 `scripts/check-i18n.mjs` 的集中白名单登记产品名、协议名和代码标识，每项必须说明理由。
 - 所有用户反馈优先走 `useToast()`（底层 sonner），不要把 `console.error` 当作用户反馈。
 - 样式使用 Tailwind v4 工具类；颜色走 shadcn 语义变量，禁止硬编码十六进制色值。
 - 类名拼接走 `cn(...)`；不要手写字符串拼接。

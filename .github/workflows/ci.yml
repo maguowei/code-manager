@@ -97,6 +97,9 @@ jobs:
       - name: 前端代码检查 (Biome)
         run: make lint-frontend
 
+      - name: 国际化质量门禁
+        run: make i18n-check
+
       - name: 前端类型检查与构建
         run: make build-frontend
 

@@ -55,6 +55,8 @@ paths:
 6. 如果涉及 Tauri 插件 API，同步检查 `src-tauri/capabilities/default.json`。
 7. 浮窗窗口有独立 capability 文件 `src-tauri/capabilities/widget.json`（按 `widget` 窗口 label 授权）；给浮窗相关命令授权时写这里，不要混进 `default.json`。
 
+所有 fallible command 对外返回 `crate::error::CommandError`，内部错误链继续写脱敏日志。IPC 只传稳定 `code` 与安全 `args`，不得返回中文句子、绝对路径或底层错误；前端统一通过 `errors.<code>` 本地化。
+
 前端调用示例：
 
 ```ts

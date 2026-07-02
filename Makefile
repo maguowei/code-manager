@@ -1,4 +1,4 @@
-.PHONY: init dev build build-frontend build-universal preview check verify bindings bindings-check test test-rust test-frontend lint lint-rust lint-frontend fmt fmt-check fmt-rust fmt-rust-check fmt-frontend fmt-frontend-check gitleaks gitleaks-history sync-cheatsheet clean coverage coverage-rust coverage-rust-lcov coverage-frontend ensure-llvm-cov
+.PHONY: init dev build build-frontend build-universal preview check verify bindings bindings-check test test-rust test-frontend lint lint-rust lint-frontend i18n-audit i18n-check fmt fmt-check fmt-rust fmt-rust-check fmt-frontend fmt-frontend-check gitleaks gitleaks-history sync-cheatsheet clean coverage coverage-rust coverage-rust-lcov coverage-frontend ensure-llvm-cov
 
 RUST_COVERAGE_THRESHOLDS := --fail-under-regions 80 --fail-under-functions 70 --fail-under-lines 80
 
@@ -41,7 +41,7 @@ check:
 	cd src-tauri && cargo check
 
 # 本地 CI-like 验证入口
-verify: fmt-rust-check bindings-check lint build-frontend test
+verify: fmt-rust-check bindings-check i18n-check lint build-frontend test
 
 # 重新生成 Tauri IPC TypeScript bindings
 bindings:
@@ -68,6 +68,13 @@ lint: lint-frontend lint-rust
 # 前端静态检查
 lint-frontend:
 	pnpm biome:ci
+
+# 国际化审计报告与严格门禁
+i18n-audit:
+	pnpm i18n:audit
+
+i18n-check:
+	pnpm i18n:check
 
 # Rust lint
 lint-rust:
