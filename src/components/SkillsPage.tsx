@@ -66,6 +66,7 @@ const importSkipReasonLabels: Record<SkillDirectoryImportSkipReason, Translation
   "invalid-id": "skills.importResultReason.invalidId",
   exists: "skills.importResultReason.exists",
   "missing-skill-md": "skills.importResultReason.missingSkillMd",
+  "import-failed": "skills.importResultReason.importFailed",
 };
 
 function formatImportCount(template: string, count: number) {

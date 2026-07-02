@@ -6,3 +6,8 @@ minimumReleaseAgeExclude:
 overrides:
   js-yaml: 4.2.0
   undici: 7.28.0
+  # CodeMirror 要求 @codemirror/state 全局单例，多版本会导致 EditorView 构造崩溃（配置预览白屏/报错）
+  '@codemirror/state': 6.7.0
+  '@codemirror/view': 6.43.3
+  # @codemirror/language 也须单实例：多版本会让主题的高亮插件读不到语言语法树，语法高亮静默失效
+  '@codemirror/language': 6.12.4

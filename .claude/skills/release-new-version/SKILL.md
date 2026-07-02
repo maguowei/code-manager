@@ -179,6 +179,7 @@ rm -f "$NOTES_FILE"
 - 汇报已完成的步骤，展示生成的 release notes 内容（供用户确认）。
 - 提示用户：tag 推送后 GitHub Actions 的 release 工作流将自动触发，构建产物文件名将使用正确的版本号。
 - 提示：GitHub Release 页面的默认 body 仍是 `release.yml` 中的占位文案「查看 Assets 下载并安装此版本」。若希望 Release 页直接展示此 notes，可后续修改 `release.yml` 的 `releaseBody` 改为从 tag message 读取。
+- **提醒用户手动发布草稿 Release**：workflow 以 `releaseDraft: true` 创建的是草稿，不会发出 `published` 事件。构建完成后需用户在 GitHub Releases 页面 review 产物，点击 **Publish release** 发布为正式版。只有发布后才会触发：① 应用自更新（`latest.json` 对用户可见）；② `update-homebrew-cask.yml`（监听 `release: published`）自动 bump cask。停在草稿态则二者都不触发（cask 仅能靠 `workflow_dispatch` 手动补跑）。
 
 ## 注意事项
 

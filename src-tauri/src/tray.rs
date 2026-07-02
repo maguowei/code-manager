@@ -364,7 +364,10 @@ fn tick_pulse(state: &mut PulseState) -> Option<String> {
 
 /// 更新全局共享状态，返回当前相位帧供 set_title。锁临界区只做内存操作，不在锁内做 I/O。
 fn update_pulse_state(enabled: bool, title_active: String, title_dim: String) -> String {
-    let mut state = pulse_state().lock().expect("PULSE_STATE 锁中毒");
+    // 锁中毒时恢复 guard 继续工作（临界区只做内存操作），不因 panic 影响后续托盘刷新
+    let mut state = pulse_state()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     apply_pulse_update(&mut state, enabled, title_active, title_dim)
 }
 
@@ -925,7 +928,10 @@ pub fn start_pulse_task(app_handle: AppHandle) {
                 std::thread::sleep(half);
                 // 锁内只做内存操作：disabled 返回 None；enabled 翻转相位并取出对应帧。
                 let next_title = {
-                    let mut state = pulse_state().lock().expect("PULSE_STATE 锁中毒");
+                    // 锁中毒时恢复 guard 继续工作，不让呼吸灯线程因 panic 永久失效
+                    let mut state = pulse_state()
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner());
                     tick_pulse(&mut state)
                 };
                 // set_title 一律在锁外。

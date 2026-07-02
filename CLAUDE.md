@@ -129,7 +129,7 @@ macOS 上应用数据刻意复用 `~/.config/code-manager/`，便于跨平台备
 
 ## 已知陷阱
 
-- CodeMirror 多版本冲突会导致空白页。排查：`grep "'@codemirror/state@" pnpm-lock.yaml`，预期只有一个版本；如出现多个版本，在 `package.json` 里用 `pnpm.overrides` 统一。
+- CodeMirror 多版本冲突会导致空白页或配置预览渲染崩溃（`@codemirror/state` 必须全局单例）。排查：`grep "'@codemirror/state@" pnpm-lock.yaml`，预期只有一个版本；如出现多个版本，在 `pnpm-workspace.yaml` 的 `overrides` 段统一（pnpm 11 已不再读取 `package.json` 的 `pnpm.overrides`）。
 - 业务代码不要直接调用 `invoke`；新增 IPC 先更新 Specta command 集合并走 `src/ipc.ts`。`src/bindings.ts` 是生成文件，不手改。
 - 不要自实现浮层：抽屉、设置面板、模态框、下拉菜单和 Toast 都用 shadcn `Sheet` / `Dialog` / `DropdownMenu` / `Popover` / sonner。
 - 不要混淆 Projects、Stats 与 Usage 的数据源。

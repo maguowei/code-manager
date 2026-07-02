@@ -290,7 +290,10 @@ fn worker_loop(rx: mpsc::Receiver<u8>) {
                 }
             }
         }
-        let api_ref = api.as_mut().expect("hidapi 已在上方初始化");
+        // 上方已确保初始化；防御性兜底：意外为 None 时跳过本周期而非 panic 让 worker 永久失效
+        let Some(api_ref) = api.as_mut() else {
+            continue;
+        };
 
         // 设备未打开时(首次或拔出后)刷新枚举并重连。
         if device.is_none() {

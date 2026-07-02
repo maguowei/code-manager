@@ -1,158 +1,160 @@
 # Code Manager
 
+[English](./README.md) | [中文](./README.zh-CN.md)
+
 [![CI](https://github.com/maguowei/code-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/maguowei/code-manager/actions/workflows/ci.yml)
 [![Release](https://github.com/maguowei/code-manager/actions/workflows/release.yml/badge.svg)](https://github.com/maguowei/code-manager/actions/workflows/release.yml)
 
-![Code Manager 配置编辑界面](docs/assets/readme-hero.png)
+![Code Manager profile editor](docs/assets/readme-hero.png)
 
-Code Manager 是面向 Claude Code 用户的本地桌面管理应用。它把配置、供应商、`~/.claude` 目录、记忆、Skills、历史、统计、Token 用量、项目状态、系统托盘和诊断日志集中到一个 Tauri 2 应用里，让本地配置更可见、可预览、可验证。
+Code Manager is a local desktop management app for Claude Code users. It brings profiles, providers, the `~/.claude` directory, memories, Skills, history, stats, token usage, project status, the system tray, and diagnostic logs together in a single Tauri 2 app, making your local configuration more visible, previewable, and verifiable.
 
-本文件面向人类用户和项目访问者。AI Agent 的执行规则见 [CLAUDE.md](./CLAUDE.md)，完整使用说明见 [docs/user-manual.md](./docs/user-manual.md)，平台差异见 [docs/platform-support.md](./docs/platform-support.md)。
+This document is for human users and project visitors. Execution rules for AI agents are in [CLAUDE.md](./CLAUDE.md), the full usage guide is in [docs/user-manual.md](./docs/user-manual.md), and platform differences are in [docs/platform-support.md](./docs/platform-support.md).
 
-## 解决的问题
+## The Problem It Solves
 
-长期使用 Claude Code 时，本地配置和会话数据容易散落在多个文件里：
+Over long-term use of Claude Code, local configuration and session data tend to scatter across many files:
 
-- 不同项目需要不同模型、API 地址、Token、权限、Hooks 和插件组合。
-- `~/.claude/settings.json`、`CLAUDE.md`、`rules/*.md` 与 Skills 不容易整体检查。
-- Provider / model 配置重复，切换配置时容易漏写环境变量或覆盖用户设置。
-- 历史记录、统计、Token 花费、项目 Git 状态和 worktree 信息缺少统一入口。
-- 排障时需要快速查看脱敏后的应用日志，而不是到处找日志文件。
+- Different projects need different models, API endpoints, tokens, permissions, hooks, and plugin combinations.
+- `~/.claude/settings.json`, `CLAUDE.md`, `rules/*.md`, and Skills are hard to review as a whole.
+- Provider / model configuration is repetitive, and switching profiles easily misses environment variables or overrides user settings.
+- History, stats, token spend, project Git status, and worktree information lack a single entry point.
+- Troubleshooting requires quickly viewing redacted application logs instead of hunting for log files everywhere.
 
-Code Manager 不替代 Claude Code，而是提供一个本机配置、会话数据和诊断信息的管理层。
+Code Manager does not replace Claude Code; it provides a management layer for local configuration, session data, and diagnostic information.
 
-## 核心能力
+## Core Capabilities
 
-![Code Manager 功能图](docs/assets/readme-feature-map.png)
+![Code Manager feature map](docs/assets/readme-feature-map.png)
 
-| 能力 | 说明 |
+| Capability | Description |
 | --- | --- |
-| `~/.claude` 总览 | 浏览、预览、编辑和定位 Claude Code 用户目录。 |
-| 配置 / 内置供应商 | 管理最终写入 `~/.claude/settings.json` 的配置层，从内置供应商(只读)选择连接地址与模型映射，支持模型、环境变量、权限、Sandbox、Hooks、插件、状态行、预览、复制、模型测试、一键应用、导入现有 settings、导出(可选含密钥、落盘前预览)、差异对比，以及一键把常用选项 / 市场 / 插件同步到其他配置。 |
-| 记忆管理 | 管理用户级 `CLAUDE.md` 与 `rules/*.md`，支持 Karpathy 行为指南预设、导入、启用、禁用、复制、预览和路径校验。 |
-| Skills 管理 | 新建、编辑、删除、启用、禁用 Claude Code Skills，并可同步为 `~/.codex/skills/<id>` 软链接。 |
-| 历史与会话 | 读取 `~/.claude/history.jsonl`，按项目和会话查看历史详情。 |
-| 统计与最近会话 | 从 `~/.claude.json` 读取本地统计快照。 |
-| Token 用量与费用 | 扫描 `~/.claude/projects/**/*.jsonl`，按日期、项目、会话和模型聚合 Token 与费用，并使用 SQLite 增量缓存。 |
-| 项目管理 | 展示项目路径、远程地址、分支、worktree、项目级 `.claude/`、`AGENTS.md` / `CLAUDE.md` 与 `.agents/skills` 状态，支持打开终端/编辑器、跳转历史/用量、分支与 worktree 清理和清理本地项目数据。 |
-| 系统托盘与会话聚焦 | 菜单栏显示当前配置和 Claude Code 活跃会话，支持会话计数样式与待处理呼吸灯，在支持的平台尝试聚焦已有终端会话，并可（仅 macOS）把会话状态镜像到 ANTICATER USB 设备灯效。 |
-| 桌面用量浮窗 | 置顶半透明小窗，实时展示今日 Token 花费、用量与缓存命中等指标，支持拖拽、自定义展示指标与不透明度，可在设置中开关。 |
-| 设置与诊断 | 支持语言、主题、默认收起侧边栏、菜单栏会话显示、系统通知、第三方模型计价、登录启动、默认终端和编辑器、会话聚焦快捷键与 LED 灯效（仅 macOS）、桌面用量浮窗开关与指标自定义、脱敏日志查看、系统信息复制和日志轮转。 |
+| `~/.claude` Overview | Browse, preview, edit, and locate the Claude Code user directory. |
+| Profiles / Built-in Providers | Manage the profile layer that is ultimately written to `~/.claude/settings.json`, pick connection endpoints and model mappings from built-in (read-only) providers, with support for models, environment variables, permissions, Sandbox, hooks, plugins, status line, preview, copy, model testing, one-click apply, import an existing settings file, export (optionally with secrets, with a pre-save preview), diff comparison, and one-click sync of common options / marketplaces / plugins to other profiles. |
+| Memory Management | Manage user-level `CLAUDE.md` and `rules/*.md`, with support for the Karpathy behavior guide preset, import, enable, disable, copy, preview, and path validation. |
+| Skills Management | Create, edit, delete, enable, and disable Claude Code Skills, and sync them as `~/.codex/skills/<id>` symlinks. |
+| History & Sessions | Read `~/.claude/history.jsonl` and view history details by project and session. |
+| Stats & Recent Sessions | Read a local stats snapshot from `~/.claude.json`. |
+| Token Usage & Cost | Scan `~/.claude/projects/**/*.jsonl`, aggregate tokens and cost by date, project, session, and model, with incremental SQLite caching. |
+| Project Management | Show project paths, remotes, branches, worktrees, project-level `.claude/`, `AGENTS.md` / `CLAUDE.md`, and `.agents/skills` status, with support for opening a terminal/editor, jumping to history/usage, branch and worktree cleanup, and clearing local project data. |
+| System Tray & Session Focus | Show the current profile and active Claude Code sessions in the menu bar, with session-count styles and a pending-session breathing indicator, attempt to focus existing terminal sessions on supported platforms, and (macOS only) mirror session state to ANTICATER USB device LED effects. |
+| Desktop Usage Widget | An always-on-top, translucent mini-window that shows today's token spend, usage, and cache-hit metrics in real time, with drag support, customizable metrics, and adjustable opacity, toggleable in settings. |
+| Settings & Diagnostics | Support language, theme, default-collapsed sidebar, menu-bar session display, system notifications, third-party model pricing, launch at login, default terminal and editor, session-focus shortcut and LED effects (macOS only), desktop usage widget toggle and metric customization, redacted log viewing, system info copy, and log rotation. |
 
-## 下载安装
+## Download and Install
 
-macOS 推荐用 Homebrew 安装（自有 tap）：
+On macOS, installing via Homebrew (own tap) is recommended:
 
 ```bash
 brew install --cask maguowei/tap/code-manager
 ```
 
-或前往 [Releases](https://github.com/maguowei/code-manager/releases) 下载对应平台的安装包。
+Or go to [Releases](https://github.com/maguowei/code-manager/releases) to download the installer for your platform.
 
-| 平台 | 安装包 |
+| Platform | Installer |
 | --- | --- |
-| macOS (Apple Silicon / Intel) | `.dmg`（或 `brew install --cask maguowei/tap/code-manager`） |
+| macOS (Apple Silicon / Intel) | `.dmg` (or `brew install --cask maguowei/tap/code-manager`) |
 | Windows | `.msi` / `.exe` |
 | Linux | `.deb` / `.rpm` / `.AppImage` |
 
-macOS 当前发布包未经过 Apple 公证。Homebrew 安装会自动移除隔离属性；若手动下载 `.dmg` 后首次打开被系统拦截，可在终端执行：
+The current macOS release packages are not notarized by Apple. Homebrew installs automatically remove the quarantine attribute; if you manually download the `.dmg` and the first launch is blocked by the system, run the following in a terminal:
 
 ```bash
 xattr -rd com.apple.quarantine /Applications/code-manager.app
 ```
 
-### 自动更新
+### Automatic Updates
 
-应用内置自动更新：启动时会静默检查新版本，发现后在「设置 - 应用更新」中可一键下载并安装，安装完成后自动重启。通过 Homebrew 安装的用户也可继续用 `brew upgrade` 升级；两种方式都可用，应用内更新后 Homebrew 记录的版本号会在下次 `brew upgrade` 时自动对齐。
+The app has built-in automatic updates: it silently checks for new versions on startup, and once one is found you can download and install it with one click in "Settings - App Update", after which it restarts automatically. Users who installed via Homebrew can also keep upgrading with `brew upgrade`; both paths work, and after an in-app update the version Homebrew records will automatically align on the next `brew upgrade`.
 
-## 快速使用
+## Quick Start
 
-1. 启动应用后，Code Manager 会读取本机 `~/.claude`、`~/.claude.json` 和 `~/.claude/projects/`。
-2. 在设置中选择界面语言、主题、默认终端和默认编辑器。
-3. 在配置页导入现有 `~/.claude/settings.json`，或新建配置，在「供应商」选项处选择内置供应商并填写认证密钥与模型配置。
-4. 点击“测试模型”确认配置可用。
-5. 点击启用，将配置应用到 `~/.claude/settings.json`。
-6. 到 `~/.claude` 总览确认最终配置符合预期。
+1. After launch, Code Manager reads your local `~/.claude`, `~/.claude.json`, and `~/.claude/projects/`.
+2. In settings, choose the interface language, theme, default terminal, and default editor.
+3. On the profiles page, import an existing `~/.claude/settings.json`, or create a new profile, pick a built-in provider in the "Provider" option, and fill in the auth secret and model configuration.
+4. Click "Test Model" to confirm the configuration works.
+5. Click enable to apply the profile to `~/.claude/settings.json`.
+6. Go to the `~/.claude` overview to confirm the final configuration is as expected.
 
-更完整的页面说明、费用统计口径、常见工作流和 FAQ 见 [docs/user-manual.md](./docs/user-manual.md)。
+For more detailed page descriptions, cost accounting rules, common workflows, and FAQ, see [docs/user-manual.md](./docs/user-manual.md).
 
-## 本地数据与隐私
+## Local Data and Privacy
 
-Code Manager 主要读写本机文件。配置合并、目录扫描、用量聚合和日志查看都在本地完成；模型价格会优先使用本地缓存和内置兜底数据，并在启动后尝试从 models.dev 官方 provider 刷新。
+Code Manager mainly reads and writes local files. Profile merging, directory scanning, usage aggregation, and log viewing all happen locally; model pricing prefers the local cache and built-in fallback data, and attempts to refresh from official models.dev providers after startup.
 
-| 用途 | macOS | Linux | Windows |
+| Purpose | macOS | Linux | Windows |
 | --- | --- | --- | --- |
-| 应用数据 | `~/.config/code-manager/` | `$XDG_CONFIG_HOME/code-manager/` 或 `~/.config/code-manager/` | `%APPDATA%\code-manager\` |
-| 用量 SQLite | `~/Library/Application Support/com.gotobeta.app.code-manager/usage.db` | `$XDG_CONFIG_HOME/com.gotobeta.app.code-manager/usage.db` 或 `~/.config/com.gotobeta.app.code-manager/usage.db` | `%APPDATA%\com.gotobeta.app.code-manager\usage.db` |
-| 日志目录 | `~/Library/Logs/com.gotobeta.app.code-manager/` | `$XDG_DATA_HOME/com.gotobeta.app.code-manager/logs/` 或 `~/.local/share/com.gotobeta.app.code-manager/logs/` | `%LOCALAPPDATA%\com.gotobeta.app.code-manager\logs\` |
+| Application data | `~/.config/code-manager/` | `$XDG_CONFIG_HOME/code-manager/` or `~/.config/code-manager/` | `%APPDATA%\code-manager\` |
+| Usage SQLite | `~/Library/Application Support/com.gotobeta.app.code-manager/usage.db` | `$XDG_CONFIG_HOME/com.gotobeta.app.code-manager/usage.db` or `~/.config/com.gotobeta.app.code-manager/usage.db` | `%APPDATA%\com.gotobeta.app.code-manager\usage.db` |
+| Log directory | `~/Library/Logs/com.gotobeta.app.code-manager/` | `$XDG_DATA_HOME/com.gotobeta.app.code-manager/logs/` or `~/.local/share/com.gotobeta.app.code-manager/logs/` | `%LOCALAPPDATA%\com.gotobeta.app.code-manager\logs\` |
 
-应用数据目录包含 `config-registry.json`、`memories.json`、`model-pricing.json` 和 `skills-disabled/`。macOS 上应用数据刻意使用 `~/.config/code-manager/`，便于跨平台备份和脚本访问；SQLite 使用 Tauri `app_config_dir()`，日志使用 Tauri 插件默认路径。
+The application data directory contains `config-registry.json`, `memories.json`, `model-pricing.json`, and `skills-disabled/`. On macOS, application data deliberately uses `~/.config/code-manager/` for easier cross-platform backup and script access; SQLite uses Tauri's `app_config_dir()`, and logs use the Tauri plugin's default path.
 
-## 本地开发
+## Local Development
 
-技术栈概览：Tauri 2 + React 19 + TypeScript + Vite + Tailwind CSS v4 + Rust。完整 Agent 执行规则、验证说明和细粒度路径导航见 [CLAUDE.md](./CLAUDE.md)。
+Stack overview: Tauri 2 + React 19 + TypeScript + Vite + Tailwind CSS v4 + Rust. For full agent execution rules, verification notes, and fine-grained path navigation, see [CLAUDE.md](./CLAUDE.md).
 
-![Code Manager 架构图](docs/assets/readme-architecture.png)
+![Code Manager architecture](docs/assets/readme-architecture.png)
 
-### 前置要求
+### Prerequisites
 
 - Node.js LTS
-- `pnpm`，项目当前声明 `pnpm@11.2.2`
+- `pnpm`, the project currently declares `pnpm@11.2.2`
 - Rust stable
-- 满足 Tauri 2 运行所需的系统依赖
+- The system dependencies required to run Tauri 2
 
-### 常用命令
+### Common Commands
 
 ```bash
-make init             # 安装依赖并检查 Rust 工具链
-make dev              # 启动 Tauri 桌面开发模式
-make build            # 构建当前平台安装包
-make build-frontend   # TypeScript 检查并构建前端
-make bindings         # 重新生成 Tauri IPC TypeScript bindings
-make bindings-check   # 检查 Rust command 契约与 src/bindings.ts 是否同步
-make lint             # 前端 Biome + Rust clippy
-make test             # Rust 测试 + 前端测试
+make init             # Install dependencies and check the Rust toolchain
+make dev              # Start Tauri desktop dev mode
+make build            # Build the installer for the current platform
+make build-frontend   # TypeScript check and build the frontend
+make bindings         # Regenerate Tauri IPC TypeScript bindings
+make bindings-check   # Check that Rust command contracts and src/bindings.ts are in sync
+make lint             # Frontend Biome + Rust clippy
+make test             # Rust tests + frontend tests
 make check            # Rust cargo check
-make fmt-check        # 前端 + Rust 只读格式检查
-make verify           # 本地 CI-like 验证入口
-make gitleaks         # 扫描当前项目文件中的密钥
-make gitleaks-history # 扫描 Git 历史中的密钥
-make lint-frontend    # 前端只读静态检查
-make test-frontend    # 运行前端测试
+make fmt-check        # Read-only format check for frontend + Rust
+make verify           # Local CI-like verification entry point
+make gitleaks         # Scan current project files for secrets
+make gitleaks-history # Scan Git history for secrets
+make lint-frontend    # Read-only static check for the frontend
+make test-frontend    # Run frontend tests
 ```
 
-`pnpm install` 会触发 `prepare` 脚本并安装 lefthook git hooks。提交前会运行 staged Biome 自动修复、Gitleaks 密钥扫描、Rust 格式检查与 commitlint，分支推送前会运行 `make verify`；tag-only push 由 release workflow 的 quality job 执行远端门禁。`make fmt` 与 `pnpm check` 会改写文件；只想做只读检查时使用 `make lint`、`make lint-frontend` 或 `make fmt-check`。
+`pnpm install` triggers the `prepare` script and installs lefthook git hooks. Before a commit it runs staged Biome auto-fix, Gitleaks secret scanning, Rust format check, and commitlint; before a branch push it runs `make verify`; tag-only pushes are gated remotely by the release workflow's quality job. `make fmt` and `pnpm check` rewrite files; for read-only checks use `make lint`, `make lint-frontend`, or `make fmt-check`.
 
-构建产物默认位于 `src-tauri/target/release/bundle/`。
+Build artifacts are located by default in `src-tauri/target/release/bundle/`.
 
-### 仓库速览
+### Repository at a Glance
 
-| 路径 | 用途 |
+| Path | Purpose |
 | --- | --- |
-| `src/` | React 前端页面、组件、hooks、schema 与测试。 |
-| `src/components/` | 页面级组件和复用 UI；更细组件入口见 `CLAUDE.md`。 |
-| `src-tauri/src/` | Rust 后端、Tauri command、本地文件与数据能力。 |
-| `src-tauri/resources/` | 内置 provider、模型价格和状态行脚本等资源。 |
-| `src-tauri/capabilities/` | Tauri 权限声明。 |
-| `docs/` | 用户手册、平台差异和扩展文档。 |
-| `.claude/rules/` | 面向 AI Agent 的 path-scoped 维护规则。 |
+| `src/` | React frontend pages, components, hooks, schemas, and tests. |
+| `src/components/` | Page-level components and reusable UI; finer component entry points are in `CLAUDE.md`. |
+| `src-tauri/src/` | Rust backend, Tauri commands, and local file and data capabilities. |
+| `src-tauri/resources/` | Built-in providers, model pricing, status line scripts, and other resources. |
+| `src-tauri/capabilities/` | Tauri permission declarations. |
+| `docs/` | User manual, platform differences, and extended documentation. |
+| `.claude/rules/` | Path-scoped maintenance rules for AI agents. |
 
-## 贡献与反馈
+## Contributing and Feedback
 
-提交问题时，请尽量附上：
+When filing an issue, please include as much as possible:
 
-- 操作系统、Code Manager 版本和 Claude Code 使用场景
-- 复现步骤、期望结果和实际结果
-- “设置 -> 诊断 -> 查看日志”中相关的脱敏日志片段
-- 如果是开发改动，请说明已运行的验证命令
+- Operating system, Code Manager version, and Claude Code use case
+- Reproduction steps, expected result, and actual result
+- Relevant redacted log snippets from "Settings -> Diagnostics -> View Logs"
+- For development changes, the verification commands you have run
 
-## 进一步阅读
+## Further Reading
 
-- [docs/user-manual.md](./docs/user-manual.md)：完整用户说明书
-- [docs/platform-support.md](./docs/platform-support.md)：平台支持差异
-- [docs/claude-code-best-practices.md](./docs/claude-code-best-practices.md)：Claude Code / Codex 在本仓库的扩展最佳实践
-- [CLAUDE.md](./CLAUDE.md)：面向 AI Agent 的仓库执行手册
-- [LICENSE](./LICENSE)：许可证
+- [docs/user-manual.md](./docs/user-manual.md): the complete user manual
+- [docs/platform-support.md](./docs/platform-support.md): platform support differences
+- [docs/claude-code-best-practices.md](./docs/claude-code-best-practices.md): extended best practices for Claude Code / Codex in this repo
+- [CLAUDE.md](./CLAUDE.md): the repository execution manual for AI agents
+- [LICENSE](./LICENSE): license
 
 ## License
 

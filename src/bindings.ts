@@ -1027,7 +1027,9 @@ export type SkillDirectoryImportResult = {
 	skipped: SkillDirectoryImportSkippedItem[],
 };
 
-export type SkillDirectoryImportSkipReason = "invalid-id" | "exists" | "missing-skill-md";
+export type SkillDirectoryImportSkipReason = "invalid-id" | "exists" | "missing-skill-md" |
+/**  复制 / 创建软链接等真实落盘操作失败；用于让批量导入跳过单条而不中止整批 */
+"import-failed";
 
 export type SkillDirectoryImportSkippedItem = {
 	id: string,

@@ -95,6 +95,11 @@ function App() {
   const updateCheckedRef = useRef(false);
   const historyProjectRequestIdRef = useRef(0);
   const usageProjectRequestIdRef = useRef(0);
+  // 持有最新的 t / showToast，供异步回调读取，避免 promise resolve 前切换语言导致文案陈旧
+  const tRef = useRef(t);
+  tRef.current = t;
+  const showToastRef = useRef(showToast);
+  showToastRef.current = showToast;
 
   const loadWorkspace = useCallback(async () => {
     if (!isTauri()) {
@@ -118,18 +123,23 @@ function App() {
     void loadWorkspace();
   }, [loadWorkspace]);
 
-  // 启动时静默检查更新：发现新版仅 Toast 提示，由用户在设置中决定是否安装；失败静默
+  // 启动时静默检查更新：发现新版仅 Toast 提示，由用户在设置中决定是否安装；失败静默。
+  // 只在挂载时执行一次；通过 tRef/showToastRef 读取最新值，规避语言切换后 Toast 文案陈旧。
   useEffect(() => {
     if (updateCheckedRef.current) return;
     updateCheckedRef.current = true;
     void silentCheckForUpdate().then((version) => {
       if (version) {
-        showToast(t("update.available").replace("{version}", version), "success", {
-          description: t("update.availableHint"),
-        });
+        showToastRef.current(
+          tRef.current("update.available").replace("{version}", version),
+          "success",
+          {
+            description: tRef.current("update.availableHint"),
+          },
+        );
       }
     });
-  }, [showToast, t]);
+  }, []);
 
   useEffect(() => {
     document.documentElement.style.setProperty(

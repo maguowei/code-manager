@@ -1,15 +1,17 @@
 // 数字指标配色：用量页顶部 KPI 卡与桌面浮窗共用，保证两处视觉一致。
 // 仅给数字文字着色（语义文字色方案）；花费=金色，命中率按高低走语义色，其余取固定身份色。
 
-// 缓存命中率高低阈值，与用量页趋势图的 70/40 参考线保持一致
-export const CACHE_HIT_RATE_GOOD = 70;
-export const CACHE_HIT_RATE_POOR = 40;
+// 缓存命中率参考线阈值，与用量页趋势图的 90/70/50 三条参考线保持一致
+// 依据业界标准：70% 是健康门槛，90%+ 是 Claude Code 典型优化区
+export const CACHE_HIT_RATE_EXCELLENT = 90; // 优秀线（绿）
+export const CACHE_HIT_RATE_GOOD = 70; // 良好线（黄）
+export const CACHE_HIT_RATE_PASS = 50; // 及格线（红），也是需排查上界
 
-/** 按命中率高低返回数值配色：≥70% 优秀(success)、<40% 偏低(warning)、其间中性。 */
+/** 按命中率返回数值配色：≥90% 优秀(success)、50%~89% 及格以上(warning)、<50% 需排查(destructive)。 */
 export function cacheHitRateColorClass(rate: number): string {
-  if (rate >= CACHE_HIT_RATE_GOOD) return "text-success";
-  if (rate < CACHE_HIT_RATE_POOR) return "text-warning";
-  return "text-foreground";
+  if (rate >= CACHE_HIT_RATE_EXCELLENT) return "text-success";
+  if (rate >= CACHE_HIT_RATE_PASS) return "text-warning";
+  return "text-destructive";
 }
 
 /**

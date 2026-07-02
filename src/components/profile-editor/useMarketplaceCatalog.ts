@@ -96,8 +96,18 @@ export function useMarketplaceCatalog({
   // 已发起拉取的 marketplaceId 集合，用于识别新增 source（避免重复拉取已知源）
   const knownIdsRef = useRef<Set<string>>(new Set(Object.keys(byMarketplace)));
 
+  // 组件卸载后阻止 setState，避免 in-flight fetch resolve 时写入已卸载组件状态
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const setEntry = useCallback(
     (marketplaceId: string, partial: Partial<MarketplaceCatalogState>) => {
+      if (!mountedRef.current) return;
       setByMarketplace((current) => ({
         ...current,
         [marketplaceId]: { ...current[marketplaceId], marketplaceId, ...partial },

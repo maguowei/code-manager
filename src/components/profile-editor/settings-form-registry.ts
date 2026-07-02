@@ -52,8 +52,8 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
       en: "Default Model",
     },
     placeholder: {
-      zh: "例如：claude-sonnet-4-6",
-      en: "e.g. claude-sonnet-4-6",
+      zh: "例如：claude-sonnet-5",
+      en: "e.g. claude-sonnet-5",
     },
   },
   {
@@ -137,8 +137,8 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
       en: "Opus Default Model",
     },
     placeholder: {
-      zh: "例如：claude-opus-4-1",
-      en: "e.g. claude-opus-4-1",
+      zh: "例如：claude-opus-4-8",
+      en: "e.g. claude-opus-4-8",
     },
   },
   {
@@ -153,8 +153,8 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
       en: "Sonnet Default Model",
     },
     placeholder: {
-      zh: "例如：claude-sonnet-4-6",
-      en: "e.g. claude-sonnet-4-6",
+      zh: "例如：claude-sonnet-5",
+      en: "e.g. claude-sonnet-5",
     },
   },
   {

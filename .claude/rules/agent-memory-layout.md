@@ -3,6 +3,7 @@ paths:
   - "CLAUDE.md"
   - "AGENTS.md"
   - "README.md"
+  - "README.zh-CN.md"
   - ".claude/rules/**/*.md"
 ---
 
@@ -17,6 +18,14 @@ paths:
 - `README.md` 可以保留一行技术栈概览和短仓库速览，方便人类快速判断项目类型和入口；详细技术栈、路径职责和 Agent 导航归 `CLAUDE.md` / path-scoped rules。
 - `docs/user-manual.md` 承载完整用户手册；`docs/platform-support.md` 承载平台矩阵；不要把这些长内容搬回根文档。
 - `.claude/rules/*.md` 承载 path-scoped 细规则，只在修改命中路径时读取。
+
+### 双语文档约定
+
+- 面向人类的 `README.md` 与 `docs/*.md` 采用分离文件双语：**英文为默认入口**（`README.md`、`docs/user-manual.md`、`docs/platform-support.md`），中文为对应的 `*.zh-CN.md`（`README.zh-CN.md`、`docs/user-manual.zh-CN.md`、`docs/platform-support.zh-CN.md`）。
+- 每个文档在一级标题下方带一行语言切换链接，如 `[English](./README.md) | [中文](./README.zh-CN.md)`。
+- 跨文档链接同语言闭环：英文版只链英文版，中文版只链中文版；不要跨语言互链。
+- 改动任一语言版本时成对维护另一语言；新增此类人类文档时同时建立中英两份。
+- `CLAUDE.md` / `AGENTS.md` 等 Agent 文档不做双语，保持单一中文事实源。
 
 ## 拆分规则
 

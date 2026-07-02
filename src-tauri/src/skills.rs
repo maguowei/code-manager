@@ -58,6 +58,8 @@ pub enum SkillDirectoryImportSkipReason {
     InvalidId,
     Exists,
     MissingSkillMd,
+    /// 复制 / 创建软链接等真实落盘操作失败；用于让批量导入跳过单条而不中止整批
+    ImportFailed,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
@@ -448,6 +450,11 @@ pub fn toggle_skill(id: String, is_active: bool) -> Result<Skill, String> {
 
         if !src_metadata.is_dir() {
             return Err(format!("Skill '{}' 不是有效目录", id));
+        }
+
+        // 目标已存在时拒绝覆盖，避免 fs::rename 在部分平台替换/丢弃目标目录内容
+        if path_exists_including_symlink(&dst) {
+            return Err(format!("Skill '{}' 已存在", id));
         }
 
         // 移动目录
@@ -991,7 +998,18 @@ fn import_skill_candidate(
     let skill_md = source.join("SKILL.md");
     if let Some(target) = symlink_target {
         let dest = get_disabled_dir().join(&id);
-        create_skill_dir_symlink(&target, &dest)?;
+        if let Err(error) = create_skill_dir_symlink(&target, &dest) {
+            log::warn!(
+                "event=skill.import_candidate status=failed id={} error={}",
+                id,
+                error
+            );
+            skipped.push(SkillDirectoryImportSkippedItem {
+                id,
+                reason: SkillDirectoryImportSkipReason::ImportFailed,
+            });
+            return Ok(());
+        }
         imported.push(id);
         return Ok(());
     }
@@ -1017,7 +1035,16 @@ fn import_skill_candidate(
     let target = get_disabled_dir().join(&id);
     if let Err(error) = copy_skill_dir_without_symlinks(source, &target) {
         let _ = fs::remove_dir_all(&target);
-        return Err(error);
+        log::warn!(
+            "event=skill.import_candidate status=failed id={} error={}",
+            id,
+            error
+        );
+        skipped.push(SkillDirectoryImportSkippedItem {
+            id,
+            reason: SkillDirectoryImportSkipReason::ImportFailed,
+        });
+        return Ok(());
     }
     imported.push(id);
     Ok(())

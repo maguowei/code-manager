@@ -22,10 +22,14 @@ fn get_history_path() -> std::path::PathBuf {
         .join("history.jsonl")
 }
 
-/// 将项目绝对路径编码为 `~/.claude/projects/<编码>` 目录名：把路径分隔符、盘符冒号和点统一替换成 `-`。
-/// 与 Claude Code 自动记忆目录命名规则一致，供 history 与 auto_memory 复用。
+/// 将项目绝对路径编码为 `~/.claude/projects/<编码>` 目录名。
+/// 与 Claude Code 规则一致：把所有非字母数字字符（含 `_`、`.`、`/`、`\`、`:`、空格、非 ASCII 等）
+/// 逐字符替换成 `-`，不合并连续 `-`。供 history 与 auto_memory 复用。
 pub(crate) fn encoded_project_path(project: &str) -> String {
-    project.replace(['/', '\\', '.', ':'], "-")
+    project
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect()
 }
 
 fn validate_session_file_inputs(
@@ -691,7 +695,12 @@ pub fn open_session_file_in_editor(project: &str, session_id: &str) -> Result<()
     let result = (|| {
         let session_file = session_file_path(project, session_id)?;
         if !session_file.is_file() {
-            return Err("原始对话记录文件不存在".to_string());
+            // 附上尝试打开的路径便于排查；以 home 相对形式在后端脱敏，toast 与日志都不泄露用户名
+            let display = session_file
+                .strip_prefix(crate::utils::home_dir_or_fallback())
+                .map(|rel| format!("~/{}", crate::utils::normalize_path_for_display(rel)))
+                .unwrap_or_else(|_| crate::utils::normalize_path_for_display(&session_file));
+            return Err(format!("原始对话记录文件不存在：{display}"));
         }
         let preferences = crate::config::load_app_preferences();
         let editor = preferences
@@ -887,6 +896,20 @@ mod tests {
 
         assert!(windows_path.ends_with(Path::new(
             ".claude/projects/C--Users-demo-project-name/session-123.jsonl"
+        )));
+    }
+
+    #[test]
+    fn session_file_path_encodes_underscores_like_claude_code() {
+        // 含下划线的项目路径，Claude Code 会把 '_' 也编码成 '-'
+        let path = session_file_path(
+            "/Users/demo/my_work/demo_app_template",
+            "2902e1a9-6d55-4b8e-8b68-e491ac878943",
+        )
+        .unwrap();
+
+        assert!(path.ends_with(Path::new(
+            ".claude/projects/-Users-demo-my-work-demo-app-template/2902e1a9-6d55-4b8e-8b68-e491ac878943.jsonl"
         )));
     }
 

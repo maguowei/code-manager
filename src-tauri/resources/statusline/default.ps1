@@ -6,7 +6,7 @@
 
 # 状态行追求健壮而非严格：单个字段异常不应导致整行无输出
 $ErrorActionPreference = 'SilentlyContinue'
-# 强制 UTF-8 输出，避免 ->、⚠、💭 等字符被系统代码页破坏
+# 强制 UTF-8 输出，避免 -> 等字符被系统代码页破坏
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # ── ANSI 颜色常量（用拼接构造，避免字符串插值把 $var[ 当作索引）──
@@ -119,7 +119,6 @@ if ($projectDir -and $projectDir -ne $cwd) {
 $model = Get-Field $data @('model', 'display_name')
 $effortLevel = Get-Field $data @('effort', 'level')
 $thinkingEnabled = Get-Field $data @('thinking', 'enabled')
-$exceeds200k = Get-Field $data @('exceeds_200k_tokens')
 $gitWorktree = Get-Field $data @('workspace', 'git_worktree')
 $agentName = Get-Field $data @('agent', 'name')
 $sessionName = Get-Field $data @('session_name')
@@ -128,6 +127,11 @@ $rl5hPct = Get-Field $data @('rate_limits', 'five_hour', 'used_percentage')
 $rl5hReset = Get-Field $data @('rate_limits', 'five_hour', 'resets_at')
 $rl7dPct = Get-Field $data @('rate_limits', 'seven_day', 'used_percentage')
 $rl7dReset = Get-Field $data @('rate_limits', 'seven_day', 'resets_at')
+
+# workspace.repo（Claude Code 从 origin 解析）用于构建可点击的仓库链接
+$repoHost = Get-Field $data @('workspace', 'repo', 'host')
+$repoOwner = Get-Field $data @('workspace', 'repo', 'owner')
+$repoName = Get-Field $data @('workspace', 'repo', 'name')
 
 # ── git 分支、脏状态及变更行数（带缓存，避免频繁执行 git diff）──
 $gitInfo = ''
@@ -185,21 +189,12 @@ if ($cwd -and $gitAvailable) {
         $diffAdded = if ($parts.Count -ge 3) { ToInt $parts[2] } else { 0 }
         $diffRemoved = if ($parts.Count -ge 4) { ToInt $parts[3] } else { 0 }
 
-        # 远程仓库 URL → 可点击的 HTTPS 链接
+        # 由 workspace.repo（Claude Code 从 origin 解析，已在顶部统一提取）构建可点击的 HTTPS 链接
         $repoUrl = ''
-        $remoteUrl = git -C $cwd remote get-url origin 2>$null
-        if ($remoteUrl) {
-            $remoteUrl = "$remoteUrl".Trim()
-            if ($remoteUrl -match '^git@') {
-                # git@host:user/repo(.git) → https://host/user/repo
-                $repoUrl = $remoteUrl -replace '^git@([^:]+):(.*?)(\.git)?$', 'https://$1/$2'
-            } elseif ($remoteUrl -match '^ssh://') {
-                # ssh://git@host:port/path/repo(.git) → https://host/path/repo
-                $repoUrl = $remoteUrl -replace '^ssh://[^@]*@([^:/]+):?[0-9]*/(.*?)(\.git)?$', 'https://$1/$2'
-            } elseif ($remoteUrl -match '^https?://') {
-                $repoUrl = $remoteUrl -replace '\.git$', ''
-            }
-            if ($repoUrl -and $gitBranch -and $gitBranch -ne 'detached') {
+        if ($repoHost -and $repoOwner -and $repoName) {
+            $repoUrl = 'https://' + $repoHost + '/' + $repoOwner + '/' + $repoName
+            # 若有分支则拼接分支路径（GitHub/GitLab 风格）
+            if ($gitBranch -and $gitBranch -ne 'detached') {
                 $repoUrl = "$repoUrl/tree/$gitBranch"
             }
         }
@@ -224,18 +219,17 @@ if ($cwd -and $gitAvailable) {
     }
 }
 
-# ── 会话累计 token 计数（in:Xk out:Yk）──
-$totalTokensInfo = ''
+# ── 当前上下文缓存命中占比（cache_read / total_input_tokens，越高越省）──
+$cacheInfo = ''
 $totalInput = Get-Field $data @('context_window', 'total_input_tokens')
-$totalOutput = Get-Field $data @('context_window', 'total_output_tokens')
-if ($totalInput -and (AsNum $totalInput) -ne 0) {
-    $inFmt = Format-K $totalInput
-    if ($totalOutput -and (AsNum $totalOutput) -ne 0) {
-        $outFmt = Format-K $totalOutput
-        $totalTokensInfo = $C_90 + 'in:' + $inFmt + ' out:' + $outFmt + $C_RESET
-    } else {
-        $totalTokensInfo = $C_90 + 'in:' + $inFmt + $C_RESET
-    }
+$ti = AsNum $totalInput
+if ($ti -gt 0) {
+    $cacheRead = Get-Field $data @('context_window', 'current_usage', 'cache_read_input_tokens')
+    $cachePct = [int][math]::Round((AsNum $cacheRead) * 100 / $ti)
+    # 命中率越高越好：≥90 绿、70-89 黄、<70 红（与上下文用量配色相反）
+    if ($cachePct -ge 90) { $cacheInfo = 'cache ' + $C_32 + $cachePct + '%' + $C_RESET }
+    elseif ($cachePct -ge 70) { $cacheInfo = 'cache ' + $C_33 + $cachePct + '%' + $C_RESET }
+    else { $cacheInfo = 'cache ' + $C_31 + $cachePct + '%' + $C_RESET }
 }
 
 # ── 上下文窗口使用百分比及用量 ──
@@ -243,10 +237,8 @@ $contextInfo = ''
 $usedPct = Get-Field $data @('context_window', 'used_percentage')
 if ($null -ne $usedPct -and "$usedPct" -ne '') {
     $usedInt = [int][math]::Round([double]$usedPct)
-    # 当前用量 = input + cache_creation + cache_read（与 used_percentage 公式一致，不含 output）
-    $ctxCurrent = (AsNum (Get-Field $data @('context_window', 'current_usage', 'input_tokens'))) +
-                  (AsNum (Get-Field $data @('context_window', 'current_usage', 'cache_creation_input_tokens'))) +
-                  (AsNum (Get-Field $data @('context_window', 'current_usage', 'cache_read_input_tokens')))
+    # 当前用量优先用预计算字段 total_input_tokens（与 .sh ctx_current 口径一致）
+    $ctxCurrent = AsNum (Get-Field $data @('context_window', 'total_input_tokens'))
     $ctxTotal = Get-Field $data @('context_window', 'context_window_size')
     $ctxCurrentFmt = ''
     $ctxTotalFmt = ''
@@ -254,15 +246,12 @@ if ($null -ne $usedPct -and "$usedPct" -ne '') {
     if ($ctxTotal -and (AsNum $ctxTotal) -ne 0) { $ctxTotalFmt = Format-K $ctxTotal }
     $ctxUsageSuffix = ''
     if ($ctxCurrentFmt -and $ctxTotalFmt) { $ctxUsageSuffix = ' (' + $ctxCurrentFmt + '/' + $ctxTotalFmt + ')' }
-    # exceeds_200k_tokens 时加红色 ⚠ 前缀
-    $ctxWarnPrefix = ''
-    if ($exceeds200k) { $ctxWarnPrefix = $C_31 + ([char]0x26A0) + ' ' + $C_RESET }
     if ($usedInt -ge 90) {
-        $contextInfo = $ctxWarnPrefix + 'ctx ' + $C_31 + $usedInt + '%' + $C_RESET + $C_90 + $ctxUsageSuffix + $C_RESET
+        $contextInfo = 'ctx ' + $C_31 + $usedInt + '%' + $C_RESET + $C_90 + $ctxUsageSuffix + $C_RESET
     } elseif ($usedInt -ge 70) {
-        $contextInfo = $ctxWarnPrefix + 'ctx ' + $C_33 + $usedInt + '%' + $C_RESET + $C_90 + $ctxUsageSuffix + $C_RESET
+        $contextInfo = 'ctx ' + $C_33 + $usedInt + '%' + $C_RESET + $C_90 + $ctxUsageSuffix + $C_RESET
     } else {
-        $contextInfo = $ctxWarnPrefix + 'ctx ' + $C_32 + $usedInt + '%' + $C_RESET + $C_90 + $ctxUsageSuffix + $C_RESET
+        $contextInfo = 'ctx ' + $C_32 + $usedInt + '%' + $C_RESET + $C_90 + $ctxUsageSuffix + $C_RESET
     }
 }
 
@@ -284,7 +273,7 @@ if ($totalDurationMs -and (AsNum $totalDurationMs) -ne 0) {
 $costInfo = ''
 $totalCost = Get-Field $data @('cost', 'total_cost_usd')
 if ($null -ne $totalCost -and "$totalCost" -ne '') {
-    $amount = '{0:0.0000}' -f [double]$totalCost
+    $amount = '{0:0.00}' -f [double]$totalCost
     $costInfo = $C_90 + '$' + $amount + $C_RESET
 }
 
@@ -317,10 +306,10 @@ if ($gitDiffInfo) { $line1 += ' ' + $gitDiffInfo }
 # 模型名 + 可选 effort.level + 可选 thinking 指示器
 $modelSegment = $C_34 + $model + $C_RESET
 if ($effortLevel) { $modelSegment += ' ' + $C_90 + '[' + $effortLevel + ']' + $C_RESET }
-if ($thinkingEnabled) { $modelSegment += ' ' + $C_90 + '[' + ([char]::ConvertFromUtf32(0x1F4AD)) + ']' + $C_RESET }
+if ($thinkingEnabled) { $modelSegment += ' ' + $C_90 + '[thinking]' + $C_RESET }
 $line1 += ' ' + $C_90 + '|' + $C_RESET + ' ' + $modelSegment
 if ($contextInfo) { $line1 += ' ' + $C_90 + '|' + $C_RESET + ' ' + $contextInfo }
-if ($totalTokensInfo) { $line1 += ' ' + $C_90 + '|' + $C_RESET + ' ' + $totalTokensInfo }
+if ($cacheInfo) { $line1 += ' ' + $C_90 + '|' + $C_RESET + ' ' + $cacheInfo }
 if ($costInfo) { $line1 += ' ' + $C_90 + '|' + $C_RESET + ' ' + $costInfo }
 
 # ── 第二行：rate_limits + 会话锚点 & 产出 + 资源 & 元信息 ──
