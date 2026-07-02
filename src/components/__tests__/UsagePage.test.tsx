@@ -17,6 +17,7 @@ import type {
 } from "../../types";
 import Sidebar from "../Sidebar";
 import UsagePage from "../UsagePage";
+import { formatPricePerMillion, formatShortDateTime } from "../usage/format";
 
 const { invokeMock, useUsageMock } = vi.hoisted(() => ({
   invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
@@ -507,14 +508,16 @@ describe("UsagePage cost cockpit", () => {
 
     const dialog = screen.getByRole("dialog", { name: "模型价目表" });
     expect(within(dialog).getByText("models.dev 实时")).toBeInTheDocument();
-    expect(within(dialog).getByText("价格更新于 2026-05-23 17:15")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(`价格更新于 ${formatShortDateTime(Date.UTC(2026, 4, 23, 9, 15))}`),
+    ).toBeInTheDocument();
     expect(within(dialog).getByText("USD / 1M tokens")).toBeInTheDocument();
     expect(within(dialog).getByText("claude-3-7-sonnet")).toBeInTheDocument();
     expect(within(dialog).getByText("mimo-v2-pro")).toBeInTheDocument();
-    expect(within(dialog).getByText("$3.00")).toBeInTheDocument();
-    expect(within(dialog).getAllByText("$15.00").length).toBeGreaterThanOrEqual(1);
-    expect(within(dialog).getByText("$3.75")).toBeInTheDocument();
-    expect(within(dialog).getByText("$0.30")).toBeInTheDocument();
+    expect(within(dialog).getByText(formatPricePerMillion(3))).toBeInTheDocument();
+    expect(within(dialog).getAllByText(formatPricePerMillion(15)).length).toBeGreaterThanOrEqual(1);
+    expect(within(dialog).getByText(formatPricePerMillion(3.75))).toBeInTheDocument();
+    expect(within(dialog).getByText(formatPricePerMillion(0.3))).toBeInTheDocument();
     expect(within(dialog).getAllByText("当前用量")).toHaveLength(2);
   });
 

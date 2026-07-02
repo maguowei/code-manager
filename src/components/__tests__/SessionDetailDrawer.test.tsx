@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
+import { formatDateTime } from "../../i18n/format";
 import type { SessionDetail } from "../../types";
 import SessionDetailDrawer, { getMessagePresentation } from "../SessionDetailDrawer";
 import { ThemeProvider } from "../theme-provider";
@@ -100,9 +101,13 @@ describe("SessionDetailDrawer", () => {
     expect(messageCount).toBeInTheDocument();
     expect(
       screen.getByText(
-        `${new Date("2026-05-08T14:21:27").toLocaleString()} - ${new Date(
-          "2026-05-08T14:21:45",
-        ).toLocaleString()}`,
+        `${formatDateTime(new Date("2026-05-08T14:21:27"), "zh", {
+          dateStyle: "short",
+          timeStyle: "medium",
+        })} - ${formatDateTime(new Date("2026-05-08T14:21:45"), "zh", {
+          dateStyle: "short",
+          timeStyle: "medium",
+        })}`,
       ),
     ).toBeInTheDocument();
     expect(messageCount.closest('[data-slot="session-detail-meta"]')).toHaveClass(
@@ -136,7 +141,12 @@ describe("SessionDetailDrawer", () => {
     );
     expect(
       within(userArticle as HTMLElement)
-        .getByText(new Date("2026-05-08T14:21:27").toLocaleString())
+        .getByText(
+          formatDateTime(new Date("2026-05-08T14:21:27"), "zh", {
+            dateStyle: "short",
+            timeStyle: "medium",
+          }),
+        )
         .closest('[data-slot="session-message-actions"]'),
     ).toHaveClass("absolute", "bottom-2", "opacity-0", "group-hover:opacity-100");
     expect(
@@ -160,7 +170,12 @@ describe("SessionDetailDrawer", () => {
     );
     expect(
       within(assistantArticle as HTMLElement)
-        .getByText(new Date("2026-05-08T14:21:45").toLocaleString())
+        .getByText(
+          formatDateTime(new Date("2026-05-08T14:21:45"), "zh", {
+            dateStyle: "short",
+            timeStyle: "medium",
+          }),
+        )
         .closest('[data-slot="session-message-actions"]'),
     ).toHaveClass("absolute", "bottom-2", "opacity-0", "group-hover:opacity-100");
     expect(
@@ -243,7 +258,12 @@ describe("SessionDetailDrawer", () => {
     expect(screen.getByText("/model").closest("div")).not.toHaveClass("bg-background");
     expect(
       within(messageArticle as HTMLElement)
-        .getByText(new Date("2026-05-08T14:21:30").toLocaleString())
+        .getByText(
+          formatDateTime(new Date("2026-05-08T14:21:30"), "zh", {
+            dateStyle: "short",
+            timeStyle: "medium",
+          }),
+        )
         .closest('[data-slot="session-message-actions"]'),
     ).toHaveClass("absolute", "bottom-2", "opacity-0", "group-hover:opacity-100");
     fireEvent.click(
@@ -283,7 +303,12 @@ describe("SessionDetailDrawer", () => {
     expect(eventArticle?.querySelector(".col-start-2")).not.toHaveClass("group-hover:ring-ring");
     expect(
       within(eventArticle as HTMLElement)
-        .getByText(new Date("2026-05-08T14:21:30").toLocaleString())
+        .getByText(
+          formatDateTime(new Date("2026-05-08T14:21:30"), "zh", {
+            dateStyle: "short",
+            timeStyle: "medium",
+          }),
+        )
         .closest('[data-slot="session-message-actions"]'),
     ).toHaveClass("absolute", "bottom-2", "opacity-0", "group-hover:opacity-100");
     fireEvent.click(within(eventArticle as HTMLElement).getByRole("button", { name: "复制消息" }));

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { setActiveFormatLanguage } from "../../i18n/format";
 import { getUserFacingErrorReason, showOperationError } from "../user-facing-error";
 
 describe("getUserFacingErrorReason", () => {
@@ -64,6 +65,21 @@ describe("getUserFacingErrorReason", () => {
     expect(getUserFacingErrorReason({ code: "E_FAIL" })).toBeNull();
     // 非对象原始值 → String(error)
     expect(getUserFacingErrorReason(42)).toBe("42");
+  });
+
+  it("localizes structured command errors without exposing backend messages", () => {
+    setActiveFormatLanguage("en");
+    expect(getUserFacingErrorReason({ code: "notFound", args: {} })).toBe(
+      "The requested item was not found.",
+    );
+    expect(getUserFacingErrorReason({ code: "unknownCode", args: {} })).toBe(
+      "An internal error occurred. Check the logs for details.",
+    );
+
+    setActiveFormatLanguage("zh");
+    expect(getUserFacingErrorReason({ code: "permissionDenied", args: {} })).toBe(
+      "权限不足，无法完成此操作。",
+    );
   });
 });
 

@@ -2,54 +2,62 @@
 // 数字（带单位）、日期、时间长度
 
 import type { TranslationKey } from "../../i18n";
+import {
+  formatCompactNumber,
+  formatDateTime as formatLocaleDateTime,
+  formatPercent as formatLocalePercent,
+  formatNumber,
+  formatUsd,
+} from "../../i18n/format";
 import type { PricingSource } from "../../types";
-
-const NUM_FMT = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 });
 
 /** 大数字简化为 K / M / B 后缀 */
 export function formatTokens(n: number): string {
   if (!Number.isFinite(n) || n <= 0) return "0";
-  if (n >= 1_000_000_000) return `${NUM_FMT.format(n / 1_000_000_000)}B`;
-  if (n >= 1_000_000) return `${NUM_FMT.format(n / 1_000_000)}M`;
-  if (n >= 1_000) return `${NUM_FMT.format(n / 1_000)}K`;
-  return n.toLocaleString("en-US");
+  if (n >= 1_000) return formatCompactNumber(n);
+  return formatNumber(n);
 }
 
 /** 整数千分位（用于计数类指标，如 web search 次数、消息数） */
 export function formatCount(n: number): string {
-  return new Intl.NumberFormat("en-US").format(n);
+  return formatNumber(n);
 }
 
 /** 紧凑成本显示（用于表格） */
 export function formatCost(n: number): string {
-  if (!Number.isFinite(n) || n <= 0) return "$0.00";
-  if (n < 0.01) return "<$0.01";
-  if (n >= 1000) return `$${n.toFixed(0)}`;
-  return `$${n.toFixed(2)}`;
+  if (!Number.isFinite(n) || n <= 0) {
+    return formatUsd(0, undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  if (n < 0.01) {
+    return `<${formatUsd(0.01, undefined, { minimumFractionDigits: 2 })}`;
+  }
+  return formatUsd(n, undefined, {
+    minimumFractionDigits: n >= 1000 ? 0 : 2,
+    maximumFractionDigits: n >= 1000 ? 0 : 2,
+  });
 }
 
 /** 比率（0-100）-> 百分比字符串 */
 export function formatPercent(n: number): string {
   if (!Number.isFinite(n) || n <= 0) return "0%";
-  return `${n.toFixed(1)}%`;
+  return formatLocalePercent(n);
 }
 
 /** 每百万 Token 单价显示 */
 export function formatPricePerMillion(n: number): string {
-  if (!Number.isFinite(n) || n <= 0) return "$0";
-  if (n >= 0.01) return `$${n.toFixed(2)}`;
-  if (n >= 0.0001) {
-    const value = n.toFixed(4).replace(/0+$/, "").replace(/\.$/, "");
-    return `$${value}`;
+  if (!Number.isFinite(n) || n <= 0) return formatUsd(0, undefined, { maximumFractionDigits: 0 });
+  if (n >= 0.01) {
+    return formatUsd(n, undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
-  return "<$0.0001";
+  if (n >= 0.0001) return formatUsd(n, undefined, { maximumFractionDigits: 4 });
+  return `<${formatUsd(0.0001, undefined, { maximumFractionDigits: 4 })}`;
 }
 
 /** ms 时间戳 -> 本地短日期字符串 */
 export function formatDateTime(ms: number): string {
   if (!ms) return "-";
   try {
-    return new Date(ms).toLocaleString();
+    return formatLocaleDateTime(ms, undefined, { dateStyle: "short", timeStyle: "medium" });
   } catch {
     return "-";
   }
@@ -59,10 +67,7 @@ export function formatDateTime(ms: number): string {
 export function formatShortDateTime(ms: number): string {
   if (!ms) return "-";
   try {
-    const d = new Date(ms);
-    const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-    return `${date} ${time}`;
+    return formatLocaleDateTime(ms);
   } catch {
     return "-";
   }

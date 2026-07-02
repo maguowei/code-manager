@@ -5,7 +5,7 @@ describe("StatsPage collapsible sections", () => {
   it("documents snapshot freshness and recent-session project context", () => {
     const source = readFileSync(`${process.cwd()}/src/components/StatsPage.tsx`, "utf8");
     const headerSource = readFileSync(`${process.cwd()}/src/components/PageHeader.tsx`, "utf8");
-    const i18n = readFileSync(`${process.cwd()}/src/i18n.ts`, "utf8");
+    const i18n = readFileSync(`${process.cwd()}/src/i18n/catalogs/zh/stats.ts`, "utf8");
 
     expect(source).toContain("shortPath");
     expect(source).toContain('import { formatTokens, shortPath } from "./usage/format"');

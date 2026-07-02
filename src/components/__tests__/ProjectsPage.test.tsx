@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import type { ComponentProps, ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
+import { formatDateTime } from "../../i18n/format";
 import type { ConfigWorkspace, HistoryEntry, ProjectDetail } from "../../types";
 import { ProjectClaudeExplorer } from "../ProjectClaudeExplorer";
 import ProjectsPage from "../ProjectsPage";
@@ -512,7 +513,7 @@ describe("ProjectClaudeExplorer overview parity", () => {
     );
     const footer = screen.getByTestId("claude-overview-preview-footer");
     expect(footer).toHaveTextContent("18 B");
-    expect(footer).toHaveTextContent(new Date(3 * 1000).toLocaleString());
+    expect(footer).toHaveTextContent(formatDateTime(3 * 1000, "zh"));
     expect(footer).toHaveTextContent("claudeOverview.encodingUtf8");
 
     fireEvent.click(screen.getByRole("button", { name: "claudeOverview.copyPath" }));

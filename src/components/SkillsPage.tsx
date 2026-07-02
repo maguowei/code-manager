@@ -56,22 +56,12 @@ function isSkillsFileChangePath(path: string) {
   return path === "skills" || path.startsWith("skills/");
 }
 
-function formatImportResultSummary(template: string, importedCount: number, skippedCount: number) {
-  return template
-    .replace("{imported}", String(importedCount))
-    .replace("{skipped}", String(skippedCount));
-}
-
 const importSkipReasonLabels: Record<SkillDirectoryImportSkipReason, TranslationKey> = {
   "invalid-id": "skills.importResultReason.invalidId",
   exists: "skills.importResultReason.exists",
   "missing-skill-md": "skills.importResultReason.missingSkillMd",
   "import-failed": "skills.importResultReason.importFailed",
 };
-
-function formatImportCount(template: string, count: number) {
-  return template.replace("{count}", String(count));
-}
 
 interface SkillImportResultDialogProps {
   result: SkillDirectoryImportResult;
@@ -93,17 +83,12 @@ function SkillImportResultDialog({ result, onConfirm }: SkillImportResultDialogP
         ? t("skills.importResultPartialTitle")
         : t("skills.importResultEmptyTitle");
   const statusDescription = isAllSuccess
-    ? formatImportResultSummary(
-        t("skills.importResultImportedCount"),
-        result.imported.length,
-        result.skipped.length,
-      )
+    ? t("skills.importResultImportedCount", { imported: result.imported.length })
     : hasSkipped
-      ? formatImportResultSummary(
-          t("skills.importResultSummary"),
-          result.imported.length,
-          result.skipped.length,
-        )
+      ? t("skills.importResultSummary", {
+          imported: result.imported.length,
+          skipped: result.skipped.length,
+        })
       : t("skills.importResultEmptyDescription");
   const StatusIcon = hasSkipped || isEmpty ? CircleAlert : CheckCircle2;
   const summaryIconClass = hasSkipped
@@ -136,15 +121,12 @@ function SkillImportResultDialog({ result, onConfirm }: SkillImportResultDialogP
               <CardAction className="col-start-3 row-span-1 row-start-1 flex flex-wrap justify-end gap-2">
                 {hasImported ? (
                   <Badge variant="secondary">
-                    {formatImportCount(
-                      t("skills.importResultSuccessCount"),
-                      result.imported.length,
-                    )}
+                    {t("skills.importResultSuccessCount", { count: result.imported.length })}
                   </Badge>
                 ) : null}
                 {hasSkipped ? (
                   <Badge variant="destructive">
-                    {formatImportCount(t("skills.importResultFailureCount"), result.skipped.length)}
+                    {t("skills.importResultFailureCount", { count: result.skipped.length })}
                   </Badge>
                 ) : null}
               </CardAction>
@@ -160,7 +142,7 @@ function SkillImportResultDialog({ result, onConfirm }: SkillImportResultDialogP
                 </CardTitle>
                 <CardAction>
                   <Badge variant="outline">
-                    {formatImportCount(t("skills.importResultItemCount"), result.imported.length)}
+                    {t("skills.importResultItemCount", { count: result.imported.length })}
                   </Badge>
                 </CardAction>
               </CardHeader>
@@ -194,7 +176,7 @@ function SkillImportResultDialog({ result, onConfirm }: SkillImportResultDialogP
                 </CardTitle>
                 <CardAction>
                   <Badge variant="destructive">
-                    {formatImportCount(t("skills.importResultItemCount"), result.skipped.length)}
+                    {t("skills.importResultItemCount", { count: result.skipped.length })}
                   </Badge>
                 </CardAction>
               </CardHeader>

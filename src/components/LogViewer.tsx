@@ -186,7 +186,7 @@ function LogViewer({ onClose }: LogViewerProps) {
             >
               {LOG_LIMIT_OPTIONS.map((option) => (
                 <option key={option} value={option}>
-                  {t("logs.limitOption").replace("{count}", String(option))}
+                  {t("logs.limitOption", { count: option })}
                 </option>
               ))}
             </select>
@@ -234,7 +234,7 @@ function LogViewer({ onClose }: LogViewerProps) {
               <>
                 {view?.truncated ? (
                   <div className="log-viewer-hint border-b px-3 py-2 text-sm text-muted-foreground">
-                    {t("logs.truncatedWithLimit").replace("{limit}", String(limit))}
+                    {t("logs.truncatedWithLimit", { limit })}
                   </div>
                 ) : null}
                 <div className="log-entry-list">

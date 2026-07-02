@@ -780,9 +780,10 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
         ? t("profiles.editor.modelTest.status.error")
         : "";
   const latestModelTestAriaLabel = latestModelTestLabel
-    ? t("profiles.editor.modelTest.reopenResultAriaLabel")
-        .replace("{action}", messages.reopenModelTest)
-        .replace("{result}", latestModelTestLabel)
+    ? t("profiles.editor.modelTest.reopenResultAriaLabel", {
+        action: messages.reopenModelTest,
+        result: latestModelTestLabel,
+      })
     : messages.reopenModelTest;
 
   return (

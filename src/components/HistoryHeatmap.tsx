@@ -94,10 +94,8 @@ function HistoryHeatmap({ entries }: Props) {
   );
   const totalLabel =
     visibleWeeks === FULL_YEAR_WEEKS
-      ? t("history.heatmapTotal").replace("{count}", String(totalCount))
-      : t("history.heatmapRecentTotal")
-          .replace("{weeks}", String(visibleWeeks))
-          .replace("{count}", String(totalCount));
+      ? t("history.heatmapTotal", { count: totalCount })
+      : t("history.heatmapRecentTotal", { weeks: visibleWeeks, count: totalCount });
 
   return (
     <div
@@ -173,9 +171,7 @@ function HistoryHeatmap({ entries }: Props) {
                     <title>
                       {day.placeholder
                         ? day.dateKey
-                        : t("history.heatmapTooltip")
-                            .replace("{day}", day.dateKey)
-                            .replace("{count}", String(day.count))}
+                        : t("history.heatmapTooltip", { day: day.dateKey, count: day.count })}
                     </title>
                   </rect>
                 ))}

@@ -6,6 +6,7 @@ import { useAnimatedNumber } from "../../hooks/useAnimatedNumber";
 import useTauriEvent from "../../hooks/useTauriEvent";
 import { useWidgetUsageKpi, type WidgetUsageKpi } from "../../hooks/useWidgetUsageKpi";
 import { type TranslationKey, useI18n } from "../../i18n";
+import { formatNumber } from "../../i18n/format";
 import { ipc } from "../../ipc";
 import { isTauri, type WidgetMetric } from "../../types";
 import { Button } from "../ui/button";
@@ -72,7 +73,7 @@ function formatMetricNumber(metric: WidgetMetric, value: number): string {
       return formatPercent(value);
     case "messages":
     case "sessions":
-      return Math.round(value).toLocaleString("en-US");
+      return formatNumber(Math.round(value));
     case "topModel":
       return "-";
   }

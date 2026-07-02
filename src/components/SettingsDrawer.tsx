@@ -319,7 +319,7 @@ function UpdateSettingsCard() {
 
   let installLabel = t("update.downloadAndInstall");
   if (status === "downloading") {
-    installLabel = t("update.downloading").replace("{percent}", String(progress));
+    installLabel = t("update.downloading", { percent: progress });
   } else if (status === "ready") {
     installLabel = t("update.restartNow");
   }
@@ -329,7 +329,7 @@ function UpdateSettingsCard() {
       <div className="flex flex-col gap-3">
         {currentVersion ? (
           <p className="text-sm text-muted-foreground">
-            {t("update.currentVersion").replace("{version}", currentVersion)}
+            {t("update.currentVersion", { version: currentVersion })}
           </p>
         ) : null}
         <div className="flex flex-wrap items-center gap-3">
@@ -362,7 +362,7 @@ function UpdateSettingsCard() {
           ) : null}
           {status === "available" && availableVersion ? (
             <span className="text-sm text-foreground">
-              {t("update.available").replace("{version}", availableVersion)}
+              {t("update.available", { version: availableVersion })}
             </span>
           ) : null}
         </div>
@@ -752,14 +752,11 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
       .getConfigWorkspace()
       .then((workspace) => {
         setPreferences(workspace.app);
-        if (workspace.app.uiLanguage !== language) {
-          setLanguage(workspace.app.uiLanguage as Language);
-        }
       })
       .catch((err) => {
         showOperationError(showToast, t("toast.configLoadError"), err);
       });
-  }, [language, setLanguage, showToast, t]);
+  }, [showToast, t]);
 
   // 自启动真实状态由系统持久化（LaunchAgent / 注册表 / .desktop），打开抽屉时主动同步
   useEffect(() => {
@@ -857,9 +854,6 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
       await ipc.setAppPreferences(next);
     } catch (err) {
       setPreferences(rollback);
-      if (rollback.uiLanguage !== language) {
-        setLanguage(rollback.uiLanguage as Language);
-      }
       showOperationError(showToast, t("toast.configSaveError"), err);
     }
   }
@@ -913,15 +907,9 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
 
   function handleLanguageChange(nextLanguage: string) {
     const resolvedLanguage = nextLanguage as Language;
-    const rollback = nextPreferences;
-    setLanguage(resolvedLanguage);
-    void persistPreferences(
-      {
-        ...nextPreferences,
-        uiLanguage: resolvedLanguage,
-      },
-      rollback,
-    );
+    void setLanguage(resolvedLanguage).catch((err) => {
+      showOperationError(showToast, t("toast.configSaveError"), err);
+    });
   }
 
   function handleTerminalChange(nextTerminal: string) {
@@ -1106,10 +1094,9 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                         ? t("settings.trayTitleCharLimitOff")
                         : trayTitleSliderValue >= TRAY_TITLE_SLIDER_MAX
                           ? t("settings.trayTitleCharLimitUnlimited")
-                          : t("settings.trayTitleCharLimitValue").replace(
-                              "{count}",
-                              String(trayTitleSliderValue),
-                            )}
+                          : t("settings.trayTitleCharLimitValue", {
+                              count: trayTitleSliderValue,
+                            })}
                     </span>
                   </div>
                   <Slider

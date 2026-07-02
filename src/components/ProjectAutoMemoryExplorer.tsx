@@ -322,15 +322,12 @@ function ProjectAutoMemoryExplorerBody({
     pendingDelete?.kind === "file"
       ? {
           title: t("projects.autoMemory.deleteFileTitle"),
-          message: t("projects.autoMemory.deleteFileConfirm").replace("{name}", pendingDelete.name),
+          message: t("projects.autoMemory.deleteFileConfirm", { name: pendingDelete.name }),
         }
       : pendingDelete?.kind === "all"
         ? {
             title: t("projects.autoMemory.deleteAllTitle"),
-            message: t("projects.autoMemory.deleteAllConfirm").replace(
-              "{count}",
-              String(fileCount),
-            ),
+            message: t("projects.autoMemory.deleteAllConfirm", { count: fileCount }),
           }
         : null;
 

@@ -323,7 +323,7 @@ function StructuredSettingsSections({
   }
 
   function renderSectionDocsButton(docsKey: StructuredSettingsDocsKey, sectionTitle: string) {
-    const label = t("profileEditor.docs.openAriaLabel").replace("{section}", sectionTitle);
+    const label = t("profileEditor.docs.openAriaLabel", { section: sectionTitle });
 
     return (
       <Button
@@ -484,10 +484,7 @@ function StructuredSettingsSections({
                               ? `${CLAUDE_CODE_DOCS_BASE_URL}/${docsLocale}/${field.docPath}`
                               : undefined
                           }
-                          docsAriaLabel={t("profileEditor.docs.openFieldAriaLabel").replace(
-                            "{label}",
-                            label,
-                          )}
+                          docsAriaLabel={t("profileEditor.docs.openFieldAriaLabel", { label })}
                           provenance={renderFieldProvenance(field, fieldState)}
                         />
                         <ModelComboboxField
@@ -678,10 +675,7 @@ function StructuredSettingsSections({
                         {field.docPath ? (
                           <FieldDocsLinkButton
                             href={`${CLAUDE_CODE_DOCS_BASE_URL}/${docsLocale}/${field.docPath}`}
-                            ariaLabel={t("profileEditor.docs.openFieldAriaLabel").replace(
-                              "{label}",
-                              label,
-                            )}
+                            ariaLabel={t("profileEditor.docs.openFieldAriaLabel", { label })}
                           />
                         ) : null}
                       </div>
@@ -691,10 +685,7 @@ function StructuredSettingsSections({
                     </div>
                     <SandboxSwitchControl
                       enabled={enabled}
-                      ariaLabel={t("profileEditor.commonOptions.switchAriaLabel").replace(
-                        "{label}",
-                        label,
-                      )}
+                      ariaLabel={t("profileEditor.commonOptions.switchAriaLabel", { label })}
                       onToggle={() => onSimpleFieldChange(field, !enabled)}
                       variant="header"
                     />

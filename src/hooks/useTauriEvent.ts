@@ -19,13 +19,18 @@ function useTauriEvent<T>(event: string, handler: (payload: T) => void): void {
     if (!isTauri()) return;
     let cancelled = false;
     let unlisten: (() => void) | undefined;
-    listen<T>(event, (e) => handlerRef.current(e.payload)).then((fn) => {
-      if (cancelled) {
-        fn();
-        return;
-      }
-      unlisten = fn;
-    });
+    Promise.resolve()
+      .then(() => listen<T>(event, (e) => handlerRef.current(e.payload)))
+      .then((fn) => {
+        if (cancelled) {
+          fn();
+          return;
+        }
+        unlisten = fn;
+      })
+      .catch(() => {
+        // 测试桩或应用退出阶段可能没有完整事件桥；保留当前状态并等待下次挂载
+      });
     return () => {
       cancelled = true;
       unlisten?.();

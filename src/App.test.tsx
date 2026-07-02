@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { ThemeProvider } from "./components/theme-provider";
 import { I18nProvider } from "./i18n";
+import { formatDateTime } from "./i18n/format";
 import type { ConfigWorkspace } from "./types";
 
 const {
@@ -1110,7 +1111,7 @@ describe("App", () => {
     const previewFooter = screen.getByTestId("claude-overview-preview-footer");
     expect(previewFooter).toHaveTextContent("19 B");
     expect(previewFooter).toHaveTextContent("UTF-8");
-    expect(previewFooter).toHaveTextContent(new Date(2 * 1000).toLocaleString());
+    expect(previewFooter).toHaveTextContent(formatDateTime(2 * 1000, "zh"));
     expect(screen.getByTestId("claude-overview-preview-toolbar")).not.toHaveTextContent("19 B");
     expect(screen.getByRole("tab", { name: "check-license-rule.js" })).toHaveAttribute(
       "aria-selected",

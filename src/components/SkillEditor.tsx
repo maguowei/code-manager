@@ -447,7 +447,7 @@ const SkillEditor = forwardRef<SkillEditorHandle, SkillEditorProps>(function Ski
               </Badge>
             ) : null}
             <span className="font-mono text-xs text-muted-foreground">
-              {t("skills.fileSizeBytes").replace("{size}", String(entry.size))}
+              {t("skills.fileSizeBytes", { size: entry.size })}
             </span>
           </div>
         ) : null}

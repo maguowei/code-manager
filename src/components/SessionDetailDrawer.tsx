@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { useCodeMirrorTheme } from "../hooks/useCodeMirrorTheme";
 import { useToast } from "../hooks/useToast";
 import { type TranslationKey, useI18n } from "../i18n";
+import { formatDateTime } from "../i18n/format";
 import { ipc } from "../ipc";
 import {
   isTauri,
@@ -189,7 +190,7 @@ function formatTimestamp(timestamp?: string): string | null {
   if (!timestamp) return null;
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return stripAnsiForDisplay(timestamp);
-  return date.toLocaleString();
+  return formatDateTime(date, undefined, { dateStyle: "short", timeStyle: "medium" });
 }
 
 function formatDateRange(messages: SessionMessage[], fallback: string): string {

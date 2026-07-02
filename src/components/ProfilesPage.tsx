@@ -977,7 +977,7 @@ function ProfilesPage({
         SHARED_SYNC_ENV_KEYS,
       );
       await onWorkspaceChange();
-      showToast(t("profiles.toast.synced").replace("{count}", String(updated)));
+      showToast(t("profiles.toast.synced", { count: updated }));
     } catch (err) {
       showOperationError(showToast, t("profiles.toast.syncError"), err);
     } finally {
@@ -1164,7 +1164,7 @@ function ProfilesPage({
 
   function modelTestResultLabel(state: Exclude<ProfileModelTestState, { status: "running" }>) {
     return state.status === "success"
-      ? t("profiles.testAll.successResult").replace("{durationMs}", String(state.result.durationMs))
+      ? t("profiles.testAll.successResult", { durationMs: state.result.durationMs })
       : t("profiles.testAll.failed");
   }
 
@@ -1184,9 +1184,10 @@ function ProfilesPage({
     profile: ConfigProfile,
     state: Exclude<ProfileModelTestState, { status: "running" }>,
   ) {
-    return t("profiles.testAll.resultAriaLabel")
-      .replace("{name}", profile.name)
-      .replace("{result}", modelTestResultLabel(state));
+    return t("profiles.testAll.resultAriaLabel", {
+      name: profile.name,
+      result: modelTestResultLabel(state),
+    });
   }
 
   function renderProfileModelTestState(profile: ConfigProfile) {
@@ -1914,9 +1915,10 @@ function ProfilesPage({
               message={
                 <span className="flex flex-col gap-2">
                   <span>
-                    {t("profiles.dialog.syncMessage")
-                      .replace("{name}", sourceProfile.name)
-                      .replace("{count}", String(targetCount))}
+                    {t("profiles.dialog.syncMessage", {
+                      name: sourceProfile.name,
+                      count: targetCount,
+                    })}
                   </span>
                   <span className="text-destructive">{t("profiles.dialog.syncWarning")}</span>
                 </span>
@@ -1956,10 +1958,9 @@ function ProfilesPage({
           <DialogHeader>
             <DialogTitle>{t("profiles.mismatch.dialogTitle")}</DialogTitle>
             <DialogDescription>
-              {t("profiles.mismatch.dialogDescription").replace(
-                "{sourcePath}",
-                activeSettingsMismatch?.sourcePath ?? "settings.json",
-              )}
+              {t("profiles.mismatch.dialogDescription", {
+                sourcePath: activeSettingsMismatch?.sourcePath ?? "settings.json",
+              })}
             </DialogDescription>
           </DialogHeader>
 
@@ -1971,10 +1972,9 @@ function ProfilesPage({
                     {t("profiles.mismatch.diffSummaryTitle")}
                   </span>
                   <Badge variant="secondary" className="rounded-full">
-                    {t("profiles.mismatch.diffCount").replace(
-                      "{count}",
-                      String(settingsMismatchDiffs.length),
-                    )}
+                    {t("profiles.mismatch.diffCount", {
+                      count: settingsMismatchDiffs.length,
+                    })}
                   </Badge>
                 </div>
                 {visibleSettingsMismatchDiffs.length > 0 ? (

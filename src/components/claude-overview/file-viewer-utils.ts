@@ -1,5 +1,6 @@
 import type { FileContents } from "@pierre/diffs/react";
 import type { TranslationKey } from "@/i18n";
+import { formatDateTime, formatNumber } from "@/i18n/format";
 import type { ClaudeDirectoryEntry, ClaudeFilePreview } from "@/types";
 
 const MARKDOWN_EXTENSIONS = new Set(["md", "markdown"]);
@@ -27,19 +28,19 @@ export function normalizeTreePath(path: string) {
 
 export function formatBytes(bytes: number) {
   if (bytes < 1024) {
-    return `${bytes} B`;
+    return `${formatNumber(bytes)} B`;
   }
   if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${formatNumber(bytes / 1024, undefined, { maximumFractionDigits: 1 })} KB`;
   }
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  return `${formatNumber(bytes / 1024 / 1024, undefined, { maximumFractionDigits: 1 })} MB`;
 }
 
 export function formatModifiedAt(timestamp: number) {
   if (!timestamp) {
     return "-";
   }
-  return new Date(timestamp * 1000).toLocaleString();
+  return formatDateTime(timestamp * 1000);
 }
 
 export function formatPreviewEncoding(

@@ -250,9 +250,10 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
                 <strong>{summary.event}</strong>
                 <div className="inline-flex items-center gap-2.5">
                   <span className="text-sm text-muted-foreground">
-                    {t("profileEditor.hooks.matcherActionSummary")
-                      .replace("{matcherCount}", String(summary.matcherCount))
-                      .replace("{actionCount}", String(summary.actionCount))}
+                    {t("profileEditor.hooks.matcherActionSummary", {
+                      matcherCount: summary.matcherCount,
+                      actionCount: summary.actionCount,
+                    })}
                   </span>
                   <Button
                     type="button"

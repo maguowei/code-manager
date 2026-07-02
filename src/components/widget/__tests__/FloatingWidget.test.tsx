@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { enableTauriEnv } from "@/test/tauri-mock";
 import { I18nProvider } from "../../../i18n";
+import { formatUsd } from "../../../i18n/format";
 import type { WidgetMetric } from "../../../types";
 import FloatingWidget from "../FloatingWidget";
 
@@ -95,7 +96,11 @@ describe("FloatingWidget", () => {
     // 文本指标 topModel 直接展示模型名
     expect(screen.getByText("claude-opus-4")).toBeInTheDocument();
     // 数值指标格式化展示
-    expect(screen.getByText("$12.34")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        formatUsd(12.34, "zh", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("88.0%")).toBeInTheDocument();
   });
 

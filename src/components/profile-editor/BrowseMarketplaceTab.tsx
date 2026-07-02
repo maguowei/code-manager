@@ -21,6 +21,7 @@ import {
 import type { KeyboardEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/hooks/useToast";
+import { localeForLanguage } from "@/i18n/format";
 import { cn } from "@/lib/utils";
 import { type TranslationKey, useI18n } from "../../i18n";
 import { ipc } from "../../ipc";
@@ -69,10 +70,6 @@ interface BrowseMarketplaceTabProps {
   existingMarketplaceIds?: string[];
   onAddMarketplace?: (input: AddMarketplaceInput) => void;
   onOpenAdvancedConfig?: () => void;
-}
-
-function formatTemplate(template: string, vars: Record<string, string | number>): string {
-  return template.replace(/\{(\w+)\}/g, (_, key) => String(vars[key] ?? ""));
 }
 
 const FILTER_CONTROL_CLASS =
@@ -353,7 +350,7 @@ export default function BrowseMarketplaceTab({
   );
 
   const numberFormatter = useMemo(
-    () => new Intl.NumberFormat(language === "zh" ? "zh-CN" : "en-US"),
+    () => new Intl.NumberFormat(localeForLanguage(language)),
     [language],
   );
 
@@ -431,12 +428,12 @@ export default function BrowseMarketplaceTab({
   }
 
   const enabledCount = plugins.filter((p) => p.enabled).length;
-  const summary = formatTemplate(t("profileEditor.plugins.browse.statusBarSummary"), {
+  const summary = t("profileEditor.plugins.browse.statusBarSummary", {
     total: allPlugins.length,
     enabled: enabledCount,
     sources: sources.length,
   });
-  const failureSummary = formatTemplate(t("profileEditor.plugins.browse.failureSummary"), {
+  const failureSummary = t("profileEditor.plugins.browse.failureSummary", {
     count: failures.length,
   });
   const refreshButtonLabel = refreshingAll
@@ -496,7 +493,7 @@ export default function BrowseMarketplaceTab({
   ): string {
     return summaries
       .map((summary) =>
-        formatTemplate(t("profileEditor.plugins.browse.refreshSuccessItem"), {
+        t("profileEditor.plugins.browse.refreshSuccessItem", {
           marketplace: summary.marketplaceId,
           count: summary.pluginCount,
         }),
@@ -801,7 +798,7 @@ export default function BrowseMarketplaceTab({
           )}
           {unsupportedCount > 0 && (
             <span>
-              {formatTemplate(t("profileEditor.plugins.browse.unsupportedSourceHint"), {
+              {t("profileEditor.plugins.browse.unsupportedSourceHint", {
                 count: unsupportedCount,
               })}
             </span>
@@ -864,7 +861,7 @@ export default function BrowseMarketplaceTab({
           data-slot="browse-list"
         >
           <p className="m-0 hidden border-b border-border px-3.5 py-2 text-xs text-muted-foreground max-[640px]:block">
-            {formatTemplate(t("profileEditor.plugins.browse.currentSortHint"), {
+            {t("profileEditor.plugins.browse.currentSortHint", {
               sort: sortHintLabel,
             })}
           </p>
@@ -1138,7 +1135,7 @@ export default function BrowseMarketplaceTab({
 
       {filtered.length > 0 && (
         <p className="m-0 text-center text-xs text-muted-foreground">
-          {formatTemplate(t("profileEditor.plugins.browse.sortHint"), {
+          {t("profileEditor.plugins.browse.sortHint", {
             start: 1,
             end: filtered.length,
             total: allPlugins.length,

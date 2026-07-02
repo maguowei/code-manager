@@ -150,7 +150,7 @@ function MemoryItem({
                 <TooltipTrigger asChild>
                   <span className="memory-meta-paths inline-flex shrink-0 cursor-default items-center gap-1">
                     <FolderTree className="size-3.5" aria-hidden="true" />
-                    {t("memory.pathPatternsCount").replace("{count}", String(pathPatterns.length))}
+                    {t("memory.pathPatternsCount", { count: pathPatterns.length })}
                   </span>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-[320px] [overflow-wrap:anywhere]">
@@ -166,7 +166,7 @@ function MemoryItem({
             ) : null}
             <span className="memory-meta-lines inline-flex shrink-0 items-center gap-1">
               <AlignLeft className="size-3.5" aria-hidden="true" />
-              {t("memory.contentLines").replace("{count}", String(lineCount))}
+              {t("memory.contentLines", { count: lineCount })}
             </span>
           </div>
         </div>

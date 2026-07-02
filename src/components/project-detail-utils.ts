@@ -1,10 +1,13 @@
 import type { useI18n } from "../i18n";
+import { formatDateTime, formatUsd } from "../i18n/format";
 import type { AgentsStatus, PairStatus } from "../types";
 
 export type TranslateFn = ReturnType<typeof useI18n>["t"];
 
 export function formatUSD(val: number) {
-  return val < 0.01 && val > 0 ? "< $0.01" : `$${val.toFixed(2)}`;
+  return val < 0.01 && val > 0
+    ? `< ${formatUsd(0.01, undefined, { minimumFractionDigits: 2 })}`
+    : formatUsd(val, undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export function formatDuration(ms: number) {
@@ -18,12 +21,12 @@ export function formatDuration(ms: number) {
 
 export function formatCommitTime(timestamp?: number) {
   if (!timestamp) return null;
-  return new Date(timestamp * 1000).toLocaleString();
+  return formatDateTime(timestamp * 1000);
 }
 
 export function formatHistoryTimestamp(timestamp?: number) {
   if (!timestamp) return "—";
-  return new Date(timestamp).toLocaleString();
+  return formatDateTime(timestamp);
 }
 
 export function agentsStatusLabel(status: AgentsStatus, t: TranslateFn) {

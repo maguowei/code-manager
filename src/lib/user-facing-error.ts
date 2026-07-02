@@ -1,4 +1,6 @@
+import type { CommandErrorCode } from "../bindings";
 import type { ShowToast } from "../hooks/useToast";
+import { type TranslationKey, type TranslationValues, translate } from "../i18n";
 
 const MAX_REASON_LENGTH = 180;
 const ELLIPSIS = "…";
@@ -10,6 +12,39 @@ const LOW_LEVEL_ERROR_NAMES = new Set([
   "SyntaxError",
   "TypeError",
 ]);
+
+const COMMAND_ERROR_KEYS: Record<CommandErrorCode, TranslationKey> = {
+  invalidInput: "errors.invalidInput",
+  notFound: "errors.notFound",
+  alreadyExists: "errors.alreadyExists",
+  conflict: "errors.conflict",
+  unsupported: "errors.unsupported",
+  permissionDenied: "errors.permissionDenied",
+  authenticationFailed: "errors.authenticationFailed",
+  networkFailed: "errors.networkFailed",
+  timeout: "errors.timeout",
+  externalCommandFailed: "errors.externalCommandFailed",
+  ioFailed: "errors.ioFailed",
+  invalidData: "errors.invalidData",
+  internal: "errors.internal",
+};
+
+function structuredCommandErrorReason(error: unknown): string | null {
+  if (typeof error !== "object" || error === null || !("code" in error) || !("args" in error)) {
+    return null;
+  }
+  if (typeof error.code !== "string" || typeof error.args !== "object" || error.args === null) {
+    return null;
+  }
+
+  const key = COMMAND_ERROR_KEYS[error.code as CommandErrorCode] ?? "errors.internal";
+  const values = Object.fromEntries(
+    Object.entries(error.args).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string",
+    ),
+  ) as TranslationValues;
+  return translate(key, values);
+}
 
 function isBlankOrPlaceholder(value: string) {
   return value === "" || /^(undefined|null|\[object Object\])$/i.test(value);
@@ -98,6 +133,11 @@ function errorMessageFromUnknown(error: unknown): string | null {
 }
 
 export function getUserFacingErrorReason(error: unknown): string | null {
+  const structuredReason = structuredCommandErrorReason(error);
+  if (structuredReason) {
+    return structuredReason;
+  }
+
   const rawMessage = errorMessageFromUnknown(error);
   if (rawMessage === null) {
     return null;

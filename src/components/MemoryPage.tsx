@@ -75,12 +75,6 @@ function isMemoryFileChangePath(path: string) {
   return path === "CLAUDE.md" || path === "rules" || path.startsWith("rules/");
 }
 
-function formatImportResultSummary(template: string, importedCount: number, skippedCount: number) {
-  return template
-    .replace("{imported}", String(importedCount))
-    .replace("{skipped}", String(skippedCount));
-}
-
 const memoryImportSkipReasonLabels: Record<MemoryDirectoryImportSkipReason, TranslationKey> = {
   duplicateClaude: "memory.importResultReason.duplicateClaude",
   duplicateRulePath: "memory.importResultReason.duplicateRulePath",
@@ -88,10 +82,6 @@ const memoryImportSkipReasonLabels: Record<MemoryDirectoryImportSkipReason, Tran
   invalidRulePath: "memory.importResultReason.invalidRulePath",
   readError: "memory.importResultReason.readError",
 };
-
-function formatImportCount(template: string, count: number) {
-  return template.replace("{count}", String(count));
-}
 
 interface MemoryImportResultDialogProps {
   result: MemoryDirectoryImportResult;
@@ -113,17 +103,12 @@ function MemoryImportResultDialog({ result, onConfirm }: MemoryImportResultDialo
         ? t("memory.importResultPartialTitle")
         : t("memory.importResultEmptyTitle");
   const statusDescription = isAllSuccess
-    ? formatImportResultSummary(
-        t("memory.importResultImportedCount"),
-        result.imported.length,
-        result.skipped.length,
-      )
+    ? t("memory.importResultImportedCount", { imported: result.imported.length })
     : hasSkipped
-      ? formatImportResultSummary(
-          t("memory.importResultSummary"),
-          result.imported.length,
-          result.skipped.length,
-        )
+      ? t("memory.importResultSummary", {
+          imported: result.imported.length,
+          skipped: result.skipped.length,
+        })
       : t("memory.importResultEmptyDescription");
   const StatusIcon = hasSkipped || isEmpty ? CircleAlert : CheckCircle2;
   const summaryIconClass = hasSkipped
@@ -156,15 +141,12 @@ function MemoryImportResultDialog({ result, onConfirm }: MemoryImportResultDialo
               <CardAction className="col-start-3 row-span-1 row-start-1 flex flex-wrap justify-end gap-2">
                 {hasImported ? (
                   <Badge variant="secondary">
-                    {formatImportCount(
-                      t("memory.importResultSuccessCount"),
-                      result.imported.length,
-                    )}
+                    {t("memory.importResultSuccessCount", { count: result.imported.length })}
                   </Badge>
                 ) : null}
                 {hasSkipped ? (
                   <Badge variant="destructive">
-                    {formatImportCount(t("memory.importResultFailureCount"), result.skipped.length)}
+                    {t("memory.importResultFailureCount", { count: result.skipped.length })}
                   </Badge>
                 ) : null}
               </CardAction>
@@ -180,7 +162,7 @@ function MemoryImportResultDialog({ result, onConfirm }: MemoryImportResultDialo
                 </CardTitle>
                 <CardAction>
                   <Badge variant="outline">
-                    {formatImportCount(t("memory.importResultItemCount"), result.imported.length)}
+                    {t("memory.importResultItemCount", { count: result.imported.length })}
                   </Badge>
                 </CardAction>
               </CardHeader>
@@ -225,7 +207,7 @@ function MemoryImportResultDialog({ result, onConfirm }: MemoryImportResultDialo
                 </CardTitle>
                 <CardAction>
                   <Badge variant="destructive">
-                    {formatImportCount(t("memory.importResultItemCount"), result.skipped.length)}
+                    {t("memory.importResultItemCount", { count: result.skipped.length })}
                   </Badge>
                 </CardAction>
               </CardHeader>

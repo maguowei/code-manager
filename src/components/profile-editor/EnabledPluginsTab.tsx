@@ -429,10 +429,9 @@ function EnabledPluginsTab({
       {pendingDeletePlugin ? (
         <ConfirmAlertDialog
           title={deleteDialogTitle}
-          message={t("profileEditor.plugins.deleteDialogMessage").replace(
-            "{id}",
-            pendingDeletePlugin.pluginId,
-          )}
+          message={t("profileEditor.plugins.deleteDialogMessage", {
+            id: pendingDeletePlugin.pluginId,
+          })}
           confirmText={deleteDialogConfirmText}
           cancelText={deleteDialogCancelText}
           danger

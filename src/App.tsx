@@ -130,13 +130,9 @@ function App() {
     updateCheckedRef.current = true;
     void silentCheckForUpdate().then((version) => {
       if (version) {
-        showToastRef.current(
-          tRef.current("update.available").replace("{version}", version),
-          "success",
-          {
-            description: tRef.current("update.availableHint"),
-          },
-        );
+        showToastRef.current(tRef.current("update.available", { version }), "success", {
+          description: tRef.current("update.availableHint"),
+        });
       }
     });
   }, []);

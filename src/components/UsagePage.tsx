@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
 import useUsage, { createTodayUsageFilter } from "../hooks/useUsage";
 import { useI18n } from "../i18n";
+import { formatNumber } from "../i18n/format";
 import type {
   DailyUsage,
   ModelUsageStat,
@@ -2295,14 +2296,12 @@ function formatTimeBucketLabel(
 
 function formatDetailedTokens(n: number): string {
   if (!Number.isFinite(n) || n <= 0) return "0";
-  const formatter = new Intl.NumberFormat("en-US", {
+  return formatNumber(n, undefined, {
+    notation: "compact",
+    compactDisplay: "short",
     maximumFractionDigits: 2,
     minimumFractionDigits: 0,
   });
-  if (n >= 1_000_000_000) return `${formatter.format(n / 1_000_000_000)}B`;
-  if (n >= 1_000_000) return `${formatter.format(n / 1_000_000)}M`;
-  if (n >= 1_000) return `${formatter.format(n / 1_000)}K`;
-  return n.toLocaleString("en-US");
 }
 
 export default UsagePage;

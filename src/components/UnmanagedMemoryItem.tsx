@@ -98,10 +98,7 @@ function UnmanagedMemoryItem({ memory, onImport }: UnmanagedMemoryItemProps) {
                 <TooltipTrigger asChild>
                   <span className="memory-meta-paths inline-flex shrink-0 cursor-default items-center gap-1">
                     <FolderTree className="size-3.5" aria-hidden="true" />
-                    {t("memory.pathPatternsCount").replace(
-                      "{count}",
-                      String(memory.pathPatterns.length),
-                    )}
+                    {t("memory.pathPatternsCount", { count: memory.pathPatterns.length })}
                   </span>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-[320px] [overflow-wrap:anywhere]">

@@ -843,10 +843,9 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
       {pendingDeleteMarketplace ? (
         <ConfirmAlertDialog
           title={deleteDialogTitle}
-          message={t("profileEditor.marketplace.deleteDialogMessage").replace(
-            "{id}",
-            pendingDeleteMarketplace.marketplaceId,
-          )}
+          message={t("profileEditor.marketplace.deleteDialogMessage", {
+            id: pendingDeleteMarketplace.marketplaceId,
+          })}
           confirmText={deleteDialogConfirmText}
           cancelText={deleteDialogCancelText}
           danger

@@ -16,7 +16,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { TranslationKey } from "@/i18n";
+import type { TranslationKey, TranslationValues } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { ClaudeDirectoryEntry, ClaudeFilePreview } from "@/types";
 import { Button } from "../ui/button";
@@ -43,7 +43,7 @@ interface ClaudeFilePreviewPaneProps {
   isResizing?: boolean;
   // 仅在所在页面从隐藏(display:none)恢复可见时递增：用作 Virtualizer 的 key 强制重挂、重新测量尺寸。
   remountToken?: number;
-  t: (key: TranslationKey) => string;
+  t: (key: TranslationKey, values?: TranslationValues) => string;
   onSelectPreviewTab: (path: string) => void;
   onClosePreview: (path: string) => void;
   onToggleViewMode: () => void;
@@ -99,7 +99,7 @@ interface PierreSourcePreviewProps {
   style: CSSProperties;
   previewThemeType: ThemeTypes;
   remountToken?: number;
-  t: (key: TranslationKey) => string;
+  t: (key: TranslationKey, values?: TranslationValues) => string;
 }
 
 function PierreSourcePreview({
@@ -287,10 +287,9 @@ export function ClaudeFilePreviewPane({
                   variant="ghost"
                   size="icon-xs"
                   className="claude-overview-tab-close mr-0.5 size-6 shrink-0 rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                  aria-label={t("claudeOverview.closePreview").replace(
-                    "{name}",
-                    openedPreview.name || openedPreview.path,
-                  )}
+                  aria-label={t("claudeOverview.closePreview", {
+                    name: openedPreview.name || openedPreview.path,
+                  })}
                   onClick={() => onClosePreview(openedPreview.path)}
                 >
                   <X className="size-3.5" aria-hidden="true" />

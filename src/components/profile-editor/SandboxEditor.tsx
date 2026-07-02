@@ -1,7 +1,7 @@
 import { Plus } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { type TranslationKey, useI18n } from "../../i18n";
+import { useI18n } from "../../i18n";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
@@ -31,8 +31,8 @@ interface SandboxSwitchControlProps {
   visibleLabel?: string;
 }
 
-// t 仅需要按 key 取文案，这里用最小签名避免与 i18n 上下文耦合
-type SandboxTranslate = (key: TranslationKey) => string;
+// 复用统一翻译函数签名，确保参数化文案不会退回手工字符串替换。
+type SandboxTranslate = ReturnType<typeof useI18n>["t"];
 
 function buildHeaderSummary(extraKeysCount: number, enabled: boolean, t: SandboxTranslate): string {
   const statusText = t(
@@ -41,7 +41,7 @@ function buildHeaderSummary(extraKeysCount: number, enabled: boolean, t: Sandbox
   const extraText =
     extraKeysCount === 0
       ? t("profileEditor.sandbox.headerNoExtra")
-      : t("profileEditor.sandbox.headerExtraKeys").replace("{count}", String(extraKeysCount));
+      : t("profileEditor.sandbox.headerExtraKeys", { count: extraKeysCount });
   return `${statusText} · ${extraText}`;
 }
 
@@ -53,7 +53,7 @@ function buildDetailSummary(extraKeysCount: number, enabled: boolean, t: Sandbox
         : "profileEditor.sandbox.detailDisabledNoExtra",
     );
   }
-  return t("profileEditor.sandbox.detailExtraKeys").replace("{count}", String(extraKeysCount));
+  return t("profileEditor.sandbox.detailExtraKeys", { count: extraKeysCount });
 }
 
 export function getSandboxPresentation(value: unknown, t: SandboxTranslate): SandboxPresentation {
@@ -163,12 +163,11 @@ function SandboxEditor({ value, onChange, onError }: SandboxEditorProps) {
       <Card className="gap-3 rounded-lg border-border bg-card p-4 py-4 shadow-none">
         <div className="flex min-w-0 flex-col gap-1.5">
           <strong className="text-[15px] font-bold">
-            {t("profileEditor.sandbox.currentStatus").replace(
-              "{status}",
-              presentation.enabled
+            {t("profileEditor.sandbox.currentStatus", {
+              status: presentation.enabled
                 ? t("profileEditor.sandbox.statusEnabled")
                 : t("profileEditor.sandbox.statusDisabled"),
-            )}
+            })}
           </strong>
           <span className="text-sm leading-6 text-muted-foreground">
             {presentation.detailSummary}

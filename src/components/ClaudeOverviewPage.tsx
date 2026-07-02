@@ -908,30 +908,23 @@ function ClaudeOverviewPage({ active = false }: { active?: boolean }) {
         </div>
         <div className="claude-overview-status flex min-h-0 shrink-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <Badge variant="outline">
-            {t("claudeOverview.loadedEntryCount").replace(
-              "{count}",
-              String(overview.entries.length),
-            )}
+            {t("claudeOverview.loadedEntryCount", { count: overview.entries.length })}
           </Badge>
           {overview.reachedEntryLimit ? (
             <Badge variant="outline">
-              {t("claudeOverview.truncatedEntries").replace("{count}", String(overview.maxEntries))}
+              {t("claudeOverview.truncatedEntries", { count: overview.maxEntries })}
             </Badge>
           ) : null}
           {overview.skippedSymlinkCount > 0 ? (
             <Badge variant="outline">
-              {t("claudeOverview.skippedSymlinks").replace(
-                "{count}",
-                String(overview.skippedSymlinkCount),
-              )}
+              {t("claudeOverview.skippedSymlinks", { count: overview.skippedSymlinkCount })}
             </Badge>
           ) : null}
           {overview.skippedNodeModulesCount > 0 ? (
             <Badge variant="outline">
-              {t("claudeOverview.skippedNodeModules").replace(
-                "{count}",
-                String(overview.skippedNodeModulesCount),
-              )}
+              {t("claudeOverview.skippedNodeModules", {
+                count: overview.skippedNodeModulesCount,
+              })}
             </Badge>
           ) : null}
         </div>
@@ -1087,7 +1080,7 @@ function ClaudeOverviewPage({ active = false }: { active?: boolean }) {
       ) : null}
       {pendingDeleteEntry ? (
         <ConfirmAlertDialog
-          title={t("claudeOverview.deleteTitle").replace("{name}", pendingDeleteEntry.name)}
+          title={t("claudeOverview.deleteTitle", { name: pendingDeleteEntry.name })}
           message={t("claudeOverview.deleteMessage")}
           confirmText={t("confirm.delete")}
           cancelText={t("confirm.cancel")}

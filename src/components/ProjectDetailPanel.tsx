@@ -245,11 +245,11 @@ function pairDisabledHint(t: TranslateFn, pairStatus: PairStatus | undefined): s
 }
 
 function projectSkillsCountLabel(t: TranslateFn, count: number) {
-  return t("projects.projectSkillsCount").replace("{count}", String(count));
+  return t("projects.projectSkillsCount", { count });
 }
 
 function claudeOverviewCountLabel(t: TranslateFn, count: number) {
-  return t("projects.projectClaudeOverview.countLabel").replace("{count}", String(count));
+  return t("projects.projectClaudeOverview.countLabel", { count });
 }
 
 type ClaudeOverviewRow = {
@@ -727,7 +727,7 @@ function AutoMemorySection({
 }: AutoMemorySectionProps) {
   const canBrowse = Boolean(status?.exists && status.isInsideClaudeDir);
   const fileCountLabel = status
-    ? t("projects.autoMemory.fileCount").replace("{count}", String(status.memoryFileCount))
+    ? t("projects.autoMemory.fileCount", { count: status.memoryFileCount })
     : "";
 
   return (
