@@ -21,7 +21,6 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { showOperationError } from "@/lib/user-facing-error";
-import { useAppUpdater } from "../hooks/useAppUpdater";
 import { useToast } from "../hooks/useToast";
 import { type Language, type TranslationKey, useI18n } from "../i18n";
 import { ipc } from "../ipc";
@@ -44,6 +43,7 @@ import {
   keyEventToAccelerator,
 } from "./shortcut-utils";
 import { type Theme, useTheme } from "./theme-provider";
+import { useUpdater } from "./UpdaterProvider";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Checkbox } from "./ui/checkbox";
@@ -294,8 +294,7 @@ function SettingsSectionCard({
 // 应用更新设置卡片：展示当前版本，手动检查更新并下载安装（状态机见 useAppUpdater）
 function UpdateSettingsCard() {
   const { t } = useI18n();
-  const { status, availableVersion, progress, checkForUpdate, downloadAndRestart } =
-    useAppUpdater();
+  const { status, availableVersion, progress, checkForUpdate, downloadAndRestart } = useUpdater();
   const [currentVersion, setCurrentVersion] = useState<string | null>(null);
 
   useEffect(() => {
