@@ -1324,6 +1324,8 @@ const translations = {
     "settings.sleepPreventionOff": "关闭",
     "settings.sleepPreventionWhileActive": "仅活动时",
     "settings.sleepPreventionAlways": "始终",
+    "settings.sleepPreventionActive": "正在保持唤醒",
+    "settings.sleepPreventionIdle": "空闲，可休眠",
     "settings.sleepPreventionHint":
       "仅活动时：有会话正在运行才保持唤醒。仅阻止系统空闲休眠，不影响屏幕熄灭；合盖仍会休眠。",
     "settings.thirdPartyProviderPricing": "第三方模型计价",
@@ -1464,6 +1466,7 @@ const translations = {
     // 操作通知（Toast）
     "toast.configLoadError": "加载配置失败",
     "toast.configSaveError": "保存配置失败",
+    "toast.sleepPreventionSwitched": "已切换防止休眠",
     "toast.autostartQueryError": "读取自启动状态失败",
     "toast.autostartSaveError": "保存自启动设置失败",
     "toast.ledTestError": "测试 LED 灯效失败",
@@ -3057,6 +3060,8 @@ const translations = {
     "settings.sleepPreventionOff": "Off",
     "settings.sleepPreventionWhileActive": "While active",
     "settings.sleepPreventionAlways": "Always",
+    "settings.sleepPreventionActive": "Keeping awake",
+    "settings.sleepPreventionIdle": "Idle, can sleep",
     "settings.sleepPreventionHint":
       "While active: stays awake only when a session is running. Prevents system idle sleep only — the display can still sleep, and closing the lid still sleeps.",
     "settings.thirdPartyProviderPricing": "Third-party model pricing",
@@ -3203,6 +3208,7 @@ const translations = {
     // 操作通知（Toast）
     "toast.configLoadError": "Failed to load configs",
     "toast.configSaveError": "Failed to save config",
+    "toast.sleepPreventionSwitched": "Prevent sleep switched",
     "toast.autostartQueryError": "Failed to read auto-start status",
     "toast.autostartSaveError": "Failed to save auto-start setting",
     "toast.ledTestError": "Failed to test LED light",

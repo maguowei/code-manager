@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { showOperationError } from "@/lib/user-facing-error";
+import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
 import { type Language, type TranslationKey, useI18n } from "../i18n";
 import { ipc } from "../ipc";
@@ -33,6 +34,7 @@ import type {
   NativeOpenAppOptions,
   NativeOpenPlatform,
   SessionTrayCountStyle,
+  SleepPreventionStatus,
   WidgetMetric,
 } from "../types";
 import LogViewer from "./LogViewer";
@@ -756,6 +758,8 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   const [isSystemInfoOpen, setIsSystemInfoOpen] = useState(false);
   const [launchAtLogin, setLaunchAtLogin] = useState(false);
   const [nativeOpenOptions, setNativeOpenOptions] = useState<NativeOpenAppOptions | null>(null);
+  // 防止休眠运行时状态：此刻是否正持有断言（正在保持唤醒），挂载拉一次 + 事件增量刷新
+  const [sleepStatus, setSleepStatus] = useState<SleepPreventionStatus | null>(null);
 
   useEffect(() => {
     ipc
@@ -798,6 +802,31 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
       cancelled = true;
     };
   }, []);
+
+  // 挂载时拉一次防止休眠运行时状态（模式 + 是否正在保持唤醒）
+  useEffect(() => {
+    let cancelled = false;
+    ipc
+      .getSleepPreventionStatus()
+      .then((status) => {
+        if (!cancelled) {
+          setSleepStatus(status);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSleepStatus(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 会话开始/结束或模式切换导致 active 翻转时，后端广播事件，实时刷新徽标
+  useTauriEvent<SleepPreventionStatus>("sleep-prevention-changed", (status) => {
+    setSleepStatus(status);
+  });
 
   const showTrayTitle = preferences.showTrayTitle;
   const trayTitleMaxChars = preferences.trayTitleMaxChars;
@@ -861,16 +890,21 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
     [language, preferences],
   );
 
-  async function persistPreferences(next: AppPreferences, rollback: AppPreferences) {
+  async function persistPreferences(
+    next: AppPreferences,
+    rollback: AppPreferences,
+  ): Promise<boolean> {
     setPreferences(next);
     try {
       await ipc.setAppPreferences(next);
+      return true;
     } catch (err) {
       setPreferences(rollback);
       if (rollback.uiLanguage !== language) {
         setLanguage(rollback.uiLanguage as Language);
       }
       showOperationError(showToast, t("toast.configSaveError"), err);
+      return false;
     }
   }
 
@@ -1332,6 +1366,30 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
               <SettingsSectionCard
                 title={t("settings.sleepPrevention")}
                 description={t("settings.sleepPreventionDesc")}
+                headerAction={
+                  (preferences.sleepPrevention ?? "off") === "off" ? undefined : (
+                    <span className="flex shrink-0 items-center gap-1.5 text-xs">
+                      <span
+                        className="size-2 rounded-full"
+                        style={{
+                          backgroundColor: sleepStatus?.active
+                            ? "var(--chart-2)"
+                            : "var(--muted-foreground)",
+                        }}
+                        aria-hidden
+                      />
+                      <span
+                        className={cn(
+                          sleepStatus?.active ? "text-foreground" : "text-muted-foreground",
+                        )}
+                      >
+                        {sleepStatus?.active
+                          ? t("settings.sleepPreventionActive")
+                          : t("settings.sleepPreventionIdle")}
+                      </span>
+                    </span>
+                  )
+                }
               >
                 <FieldGroup className="gap-3">
                   <Field className="gap-2">
@@ -1343,10 +1401,19 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                         label: t(option.labelKey),
                       }))}
                       onValueChange={(next) => {
-                        void persistPreferences(
-                          { ...nextPreferences, sleepPrevention: next },
-                          nextPreferences,
-                        );
+                        void (async () => {
+                          const ok = await persistPreferences(
+                            { ...nextPreferences, sleepPrevention: next },
+                            nextPreferences,
+                          );
+                          if (ok) {
+                            const label = t(
+                              sleepPreventionOptions.find((option) => option.value === next)
+                                ?.labelKey ?? "settings.sleepPreventionOff",
+                            );
+                            showToast(`${t("toast.sleepPreventionSwitched")}: ${label}`, "success");
+                          }
+                        })();
                       }}
                     />
                     <FieldDescription>{t("settings.sleepPreventionHint")}</FieldDescription>

@@ -13,7 +13,10 @@
 use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
+
+/// 防止休眠状态变化事件名：`active` 翻转（开始/停止保持唤醒）时广播，供设置页实时刷新徽标。
+const SLEEP_PREVENTION_CHANGED_EVENT: &str = "sleep-prevention-changed";
 
 /// 防止休眠模式，作为 `AppPreferences.sleep_prevention` 持久化。三态互斥。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, specta::Type)]
@@ -33,6 +36,40 @@ pub enum SleepPreventionMode {
 #[derive(Default)]
 pub struct SleepState {
     assertion: Mutex<Option<u32>>,
+}
+
+/// 防止休眠对外状态快照：当前模式 + 此刻是否正持有断言（正在保持唤醒）。供设置页展示。
+#[derive(Debug, Clone, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SleepPreventionStatus {
+    /// 当前防止休眠模式。
+    pub mode: SleepPreventionMode,
+    /// 此刻是否正持有电源断言（true=正在保持唤醒，false=空闲可休眠）。
+    pub active: bool,
+}
+
+/// 读取当前防止休眠状态（模式 + 是否正在保持唤醒）。设置页挂载时拉一次，之后靠事件增量刷新。
+#[tauri::command]
+#[specta::specta]
+pub fn get_sleep_prevention_status(app: AppHandle) -> SleepPreventionStatus {
+    current_status(&app)
+}
+
+/// 组装当前状态快照：模式取自偏好，active 取自是否持有断言。
+fn current_status(app: &AppHandle) -> SleepPreventionStatus {
+    let mode = crate::config::load_app_preferences().sleep_prevention;
+    let active = app
+        .try_state::<SleepState>()
+        .and_then(|state| {
+            state
+                .inner()
+                .assertion
+                .lock()
+                .ok()
+                .map(|held| held.is_some())
+        })
+        .unwrap_or(false);
+    SleepPreventionStatus { mode, active }
 }
 
 /// 判定给定模式 + running 会话数下是否应保持唤醒。纯函数，单测锚点。
@@ -91,6 +128,7 @@ fn reconcile(app: &AppHandle, running_count: usize) {
             Some(id) => {
                 *held = Some(id);
                 log::info!("event=sleep.assert status=ok mode={mode:?} running={running_count}");
+                emit_status(app, mode, true);
             }
             None => log::warn!("event=sleep.assert status=err mode={mode:?}"),
         },
@@ -98,10 +136,19 @@ fn reconcile(app: &AppHandle, running_count: usize) {
             if let Some(id) = held.take() {
                 release_assertion(id);
                 log::info!("event=sleep.release status=ok");
+                emit_status(app, mode, false);
             }
         }
         _ => {}
     }
+}
+
+/// 广播状态变化事件，供设置页实时刷新徽标（active 翻转时调用）。
+fn emit_status(app: &AppHandle, mode: SleepPreventionMode, active: bool) {
+    let _ = app.emit(
+        SLEEP_PREVENTION_CHANGED_EVENT,
+        SleepPreventionStatus { mode, active },
+    );
 }
 
 // ── 设备层：macOS 走 IOKit 电源断言，其它平台 no-op ──

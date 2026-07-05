@@ -88,6 +88,12 @@ export interface AppPreferences {
 /** 防止休眠三态：off 关闭 / whileActive 仅活动会话运行时 / always 始终。 */
 export type SleepPreventionMode = "off" | "whileActive" | "always";
 
+/** 防止休眠运行时状态：当前模式 + 此刻是否正持有断言（正在保持唤醒）。 */
+export interface SleepPreventionStatus {
+  mode: SleepPreventionMode;
+  active: boolean;
+}
+
 export interface LocalizedText {
   zh: string;
   en: string;

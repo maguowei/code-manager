@@ -119,6 +119,8 @@ export const commands = {
 	ledProbeStatus: () => __TAURI_INVOKE<LedProbeStatus>("led_probe_status"),
 	/**  测试某个灯效(设置页「测试」按钮 / 真机验证门)。立即下发,不受 enabled 影响。 */
 	ledTestMode: (mode: number) => typedError<null, string>(__TAURI_INVOKE("led_test_mode", { mode })),
+	/**  读取当前防止休眠状态（模式 + 是否正在保持唤醒）。设置页挂载时拉一次，之后靠事件增量刷新。 */
+	getSleepPreventionStatus: () => __TAURI_INVOKE<SleepPreventionStatus>("get_sleep_prevention_status"),
 	/**  设置页"试听"入口：立即播放一次选中音效。 */
 	previewWaitingSound: (sound: WaitingSound) => typedError<null, string>(__TAURI_INVOKE("preview_waiting_sound", { sound })),
 };
@@ -1057,6 +1059,14 @@ export type SleepPreventionMode =
 "whileActive" |
 /**  无条件保持唤醒。 */
 "always";
+
+/**  防止休眠对外状态快照：当前模式 + 此刻是否正持有断言（正在保持唤醒）。供设置页展示。 */
+export type SleepPreventionStatus = {
+	/**  当前防止休眠模式。 */
+	mode: SleepPreventionMode,
+	/**  此刻是否正持有电源断言（true=正在保持唤醒，false=空闲可休眠）。 */
+	active: boolean,
+};
 
 export type StatusLinePresetInstallResult = {
 	presetId: string,

@@ -69,6 +69,7 @@ use skills::{
     import_skills_from_directory, open_skill_in_editor, sync_skill_to_codex, toggle_skill,
     update_skill,
 };
+use sleep::get_sleep_prevention_status;
 use sound::preview_waiting_sound;
 use stats::{get_stats, open_claude_json_in_editor};
 use tauri::Manager;
@@ -170,6 +171,7 @@ fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             refresh_plugin_install_counts,
             led_probe_status,
             led_test_mode,
+            get_sleep_prevention_status,
             preview_waiting_sound,
         ])
         .dangerously_cast_bigints_to_number()

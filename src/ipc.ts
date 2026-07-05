@@ -166,6 +166,7 @@ type CompatibleIpcOverrides = {
   reorderProfiles(ids: string[]): Promise<null>;
   rescanUsage(): Promise<AppTypes.UsageScanResult>;
   previewWaitingSound(sound: AppTypes.AppPreferences["waitingSound"]): Promise<null>;
+  getSleepPreventionStatus(): Promise<AppTypes.SleepPreventionStatus>;
   setAppPreferences(data: AppTypes.AppPreferences): Promise<AppTypes.AppPreferences>;
   syncSharedProfileSettings(
     sourceId: string,
