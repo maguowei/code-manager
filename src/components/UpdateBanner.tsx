@@ -22,7 +22,8 @@ export function UpdateBanner() {
   let actionLabel: string;
   if (status === "downloading") {
     message = t("update.downloading").replace("{percent}", String(progress));
-    actionLabel = t("update.downloading").replace("{percent}", String(progress));
+    // 下载中横幅文案与按钮文案一致，复用同一份已算好的字符串，避免热路径重复计算
+    actionLabel = message;
   } else if (status === "ready") {
     message = t("update.readyBanner");
     actionLabel = t("update.restartNow");

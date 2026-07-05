@@ -34,7 +34,7 @@ export function UpdaterProvider({ children }: { children: ReactNode }) {
     ) {
       return;
     }
-    lastCheckRef.current = nowMs();
+    lastCheckRef.current = Date.now();
     void checkRef.current({ silent: true });
   }, []);
 
@@ -57,7 +57,7 @@ export function UpdaterProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isTauri()) return;
     const onFocus = () => {
-      if (nowMs() - lastCheckRef.current < FOCUS_THROTTLE_MS) return;
+      if (Date.now() - lastCheckRef.current < FOCUS_THROTTLE_MS) return;
       autoCheck();
     };
     window.addEventListener("focus", onFocus);
@@ -74,9 +74,4 @@ export function useUpdater(): AppUpdaterState {
     throw new Error("useUpdater 必须在 UpdaterProvider 内使用");
   }
   return ctx;
-}
-
-// 抽出取时函数，便于测试；生产环境即 Date.now
-function nowMs(): number {
-  return Date.now();
 }
