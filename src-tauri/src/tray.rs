@@ -1262,6 +1262,11 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
                         let _ = crate::widget::toggle_floating_widget(app.clone(), !visible);
                     }
                     "quit" => {
+                        // macOS 上菜单栏（status item）应用若以非正常路径退出，FrontBoard 会把它标记为
+                        // after-life.interrupted 并通过 MenuBarAgent 复活以恢复状态栏图标，表现为“退出后自动重开”。
+                        // 退出前先销毁两个托盘状态栏图标，让系统没有可复活的菜单栏进程。
+                        let _ = app.remove_tray_by_id(MAIN_TRAY_ID);
+                        let _ = app.remove_tray_by_id(SESSIONS_TRAY_ID);
                         app.exit(0);
                     }
                     _ => {}
