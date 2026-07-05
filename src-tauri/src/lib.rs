@@ -211,6 +211,12 @@ fn normalize_typescript_bindings(content: &str) -> String {
     }
 }
 
+/// RunEvent::Exit 是 Cmd+Q 路径下唯一能拿到的收尾时机，且此后 tao 不会再有任何事件
+/// 循环轮次、立刻硬退出，NSStatusBar 又没有暴露"状态栏图标已确认移除"的回调，
+/// 只能用短暂延迟换取跨进程注销落地的经验窗口；数值来自实测，不是文档承诺。
+#[cfg(target_os = "macos")]
+const TRAY_EXIT_GRACE_MS: u64 = 150;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     logging::install_panic_hook();
@@ -310,10 +316,22 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
         .run(|app_handle, event| {
-            // 所有退出路径（托盘 Quit / macOS Cmd+Q / 自更新 relaunch）最终都汇聚到
-            // RunEvent::Exit，在此统一移除托盘图标，规避 macOS 菜单栏进程被系统复活。
-            if let tauri::RunEvent::Exit = event {
-                tray::remove_trays(app_handle);
+            match event {
+                // ExitRequested 覆盖托盘 Quit（app.exit）与自更新 relaunch（request_restart）
+                // 两条路径：此刻事件循环仍会至少再跑一轮，足够让状态栏图标的跨进程注销
+                // 真正生效。Cmd+Q 不会触发这个事件，不能只依赖这里。
+                tauri::RunEvent::ExitRequested { .. } => {
+                    tray::remove_trays(app_handle);
+                }
+                // 所有退出路径最终都汇聚到这里，是 Cmd+Q（原生 [NSApp terminate:]，AppKit
+                // 自己的终止流程，不会触发 ExitRequested）唯一能拿到的收尾时机。对已在
+                // ExitRequested 移除过的托盘再次调用是无副作用的空操作，兜底覆盖 Cmd+Q。
+                tauri::RunEvent::Exit => {
+                    tray::remove_trays(app_handle);
+                    #[cfg(target_os = "macos")]
+                    std::thread::sleep(std::time::Duration::from_millis(TRAY_EXIT_GRACE_MS));
+                }
+                _ => {}
             }
         });
 }
