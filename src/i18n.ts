@@ -751,6 +751,9 @@ const translations = {
     "profileEditor.statusLine.installDefaultPreset": "启用默认状态行预设",
     "profileEditor.statusLine.installPresetError": "启用状态行预设失败",
     "profileEditor.statusLine.installPresetUnsupportedPlatform": "当前平台不支持默认状态行预设",
+    "profileEditor.statusLine.installPresetSuccess": "默认状态行脚本已安装；配置更改需保存后生效",
+    "profileEditor.statusLine.installPresetAlreadyUpToDate":
+      "默认状态行脚本已是最新；配置更改需保存后生效",
     "profileEditor.statusLine.overwriteDialogTitle": "覆盖状态行脚本",
     "profileEditor.statusLine.overwriteDialogMessage":
       "~/.claude/statusline.sh 已存在且内容不同。确认后会覆盖该脚本并设为可执行。",
@@ -1363,7 +1366,8 @@ const translations = {
     "update.checking": "正在检查…",
     "update.upToDate": "已是最新版本",
     "update.available": "发现新版本 {version}",
-    "update.availableHint": "可在「设置 - 应用更新」中下载并安装。",
+    "update.updateNow": "立即更新",
+    "update.readyBanner": "新版本已下载，重启即可完成更新",
     "update.downloadAndInstall": "下载并安装",
     "update.downloading": "正在下载… {percent}%",
     "update.installing": "正在安装…",
@@ -2439,6 +2443,10 @@ const translations = {
     "profileEditor.statusLine.installPresetError": "Failed to enable status line preset",
     "profileEditor.statusLine.installPresetUnsupportedPlatform":
       "The default status line preset is not supported on the current platform",
+    "profileEditor.statusLine.installPresetSuccess":
+      "Default status line script installed; configuration changes take effect after saving",
+    "profileEditor.statusLine.installPresetAlreadyUpToDate":
+      "Default status line script is already up to date; configuration changes take effect after saving",
     "profileEditor.statusLine.overwriteDialogTitle": "Overwrite Status Line Script",
     "profileEditor.statusLine.overwriteDialogMessage":
       "~/.claude/statusline.sh already exists with different content. Confirm to overwrite it and make it executable.",
@@ -3089,7 +3097,8 @@ const translations = {
     "update.checking": "Checking…",
     "update.upToDate": "You're on the latest version",
     "update.available": "New version {version} available",
-    "update.availableHint": "Open Settings → App Update to download and install.",
+    "update.updateNow": "Update Now",
+    "update.readyBanner": "New version downloaded, restart to finish updating",
     "update.downloadAndInstall": "Download & Install",
     "update.downloading": "Downloading… {percent}%",
     "update.installing": "Installing…",

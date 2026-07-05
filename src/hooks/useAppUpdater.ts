@@ -26,17 +26,25 @@ export type AppUpdaterStatus =
   | "ready"
   | "error";
 
+export interface CheckForUpdateOptions {
+  /**
+   * 静默检查：用于启动 / 聚焦 / 定时等自动触发。
+   * 失败仅记日志、不弹 Toast、不翻转为 error；也不把状态过渡到 checking，避免打扰用户。
+   */
+  silent?: boolean;
+}
+
 export interface AppUpdaterState {
   status: AppUpdaterStatus;
   /** 发现的新版本号，仅在 available/downloading/ready 时有意义 */
   availableVersion: string | null;
   /** 下载进度百分比 0-100；总长未知时回退为 0 */
   progress: number;
-  checkForUpdate: () => Promise<void>;
+  checkForUpdate: (options?: CheckForUpdateOptions) => Promise<void>;
   downloadAndRestart: () => Promise<void>;
 }
 
-/** 封装 @tauri-apps/plugin-updater 的检查 / 下载 / 安装 / 重启流程，供设置页手动更新使用 */
+/** 封装 @tauri-apps/plugin-updater 的检查 / 下载 / 安装 / 重启流程，供 UpdaterProvider 统一驱动 */
 export function useAppUpdater(): AppUpdaterState {
   const { t } = useI18n();
   const { showToast } = useToast();
@@ -45,27 +53,48 @@ export function useAppUpdater(): AppUpdaterState {
   const [progress, setProgress] = useState(0);
   // 暂存 check() 返回的 Update 句柄，供随后的 downloadAndInstall 复用
   const pendingUpdateRef = useRef<Update | null>(null);
+  // 复用进行中的检查，避免自动检查与手动检查并发写入同一份更新状态
+  const checkRequestRef = useRef<Promise<Update | null> | null>(null);
 
-  const checkForUpdate = useCallback(async () => {
-    if (!isTauri()) return;
-    setStatus("checking");
-    try {
-      const update = await check();
-      if (update) {
-        pendingUpdateRef.current = update;
-        setAvailableVersion(update.version);
-        setProgress(0);
-        setStatus("available");
-      } else {
-        pendingUpdateRef.current = null;
-        setAvailableVersion(null);
-        setStatus("upToDate");
+  const checkForUpdate = useCallback(
+    async (options?: CheckForUpdateOptions) => {
+      if (!isTauri()) return;
+      // 静默检查不进入 checking，避免顶部横幅 / 设置按钮出现无意义的加载态闪烁
+      if (!options?.silent) setStatus("checking");
+      let request = checkRequestRef.current;
+      const ownsRequest = request === null;
+      if (!request) {
+        request = check();
+        checkRequestRef.current = request;
       }
-    } catch (error) {
-      setStatus("error");
-      showOperationError(showToast, t("update.checkFailed"), error);
-    }
-  }, [showToast, t]);
+      try {
+        const update = await request;
+        if (update) {
+          pendingUpdateRef.current = update;
+          setAvailableVersion(update.version);
+          setProgress(0);
+          setStatus("available");
+        } else if (!options?.silent) {
+          // 静默检查无更新时保持既有状态，不覆盖为 upToDate（否则会清掉横幅已发现的版本）
+          pendingUpdateRef.current = null;
+          setAvailableVersion(null);
+          setStatus("upToDate");
+        }
+      } catch (error) {
+        if (options?.silent) {
+          logger.warn(`updater: 自动检查更新失败 ${String(error)}`);
+          return;
+        }
+        setStatus("error");
+        showOperationError(showToast, t("update.checkFailed"), error);
+      } finally {
+        if (ownsRequest && checkRequestRef.current === request) {
+          checkRequestRef.current = null;
+        }
+      }
+    },
+    [showToast, t],
+  );
 
   // 安装完成后重启进入新版本；重启失败不应回退为下载失败，保留 ready 让用户重试
   const restartApp = useCallback(async () => {
@@ -118,19 +147,4 @@ export function useAppUpdater(): AppUpdaterState {
   }, [status, restartApp, showToast, t]);
 
   return { status, availableVersion, progress, checkForUpdate, downloadAndRestart };
-}
-
-/**
- * 启动时静默检查更新：发现新版仅返回版本号，失败仅记日志、不打扰用户。
- * 与设置页的 useAppUpdater 相互独立，避免在 App 壳层挂载完整状态机。
- */
-export async function silentCheckForUpdate(): Promise<string | null> {
-  if (!isTauri()) return null;
-  try {
-    const update = await check();
-    return update?.version ?? null;
-  } catch (error) {
-    logger.warn(`updater: 启动静默检查失败 ${String(error)}`);
-    return null;
-  }
 }

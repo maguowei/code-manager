@@ -3416,6 +3416,7 @@ describe("ProfileEditor", () => {
     expect(within(statusLineSection).getByLabelText("状态行命令")).toHaveValue(
       "~/.claude/statusline.sh",
     );
+    expect(showToastMock).toHaveBeenCalledWith("默认状态行脚本已安装；配置更改需保存后生效");
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "保存" }));
@@ -3431,6 +3432,51 @@ describe("ProfileEditor", () => {
         }),
       }),
     );
+  });
+
+  it("reports when the default status line script is already up to date", async () => {
+    renderEditor();
+    invokeMock.mockImplementation(async (command: string, payload?: unknown) => {
+      if (command === "install_status_line_preset") {
+        expect(payload).toEqual({
+          presetId: "default",
+          overwrite: false,
+        });
+        return {
+          presetId: "default",
+          targetPath: "/Users/test/.claude/statusline.sh",
+          commandPath: "~/.claude/statusline.sh",
+          installed: false,
+          needsOverwrite: false,
+        };
+      }
+      if (command === "preview_profile") {
+        const settings =
+          (payload as { data?: { settings?: Record<string, unknown> } } | undefined)?.data
+            ?.settings ?? {};
+        return JSON.stringify(
+          {
+            $schema: "https://json.schemastore.org/claude-code-settings.json",
+            ...settings,
+          },
+          null,
+          2,
+        );
+      }
+      return null;
+    });
+
+    const statusLineSection = getSection("状态行");
+    toggleAccordionSection("状态行");
+
+    await act(async () => {
+      fireEvent.click(
+        within(statusLineSection).getByRole("button", { name: "启用默认状态行预设" }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(showToastMock).toHaveBeenCalledWith("默认状态行脚本已是最新；配置更改需保存后生效");
   });
 
   it("confirms before overwriting a different status line script", async () => {

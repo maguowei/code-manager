@@ -307,8 +307,15 @@ pub fn run() {
                 api.prevent_close();
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while running tauri application")
+        .run(|app_handle, event| {
+            // 所有退出路径（托盘 Quit / macOS Cmd+Q / 自更新 relaunch）最终都汇聚到
+            // RunEvent::Exit，在此统一移除托盘图标，规避 macOS 菜单栏进程被系统复活。
+            if let tauri::RunEvent::Exit = event {
+                tray::remove_trays(app_handle);
+            }
+        });
 }
 
 /// debug/test 专用集成测试入口：让 `src-tauri/tests/` 能调用内部 command 实现与共享 helper。

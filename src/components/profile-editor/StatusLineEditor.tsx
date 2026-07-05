@@ -90,6 +90,14 @@ function StatusLineEditor({ value, onChange, onError, showTitle = true }: Status
 
       setOverwriteDialogOpen(false);
       applyInstalledPreset(result.commandPath);
+      // 成功分支补一条 Toast：区分「新安装」与「已是最新」，避免重复点击时无反馈
+      showToast(
+        t(
+          result.installed
+            ? "profileEditor.statusLine.installPresetSuccess"
+            : "profileEditor.statusLine.installPresetAlreadyUpToDate",
+        ),
+      );
     } catch (error) {
       showToast(t(getInstallPresetErrorKey(error)), "error");
     } finally {

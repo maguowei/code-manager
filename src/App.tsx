@@ -11,7 +11,8 @@ import {
   LIST_PANEL_WIDTH_CLASS,
 } from "./components/layout-size-classes";
 import Sidebar from "./components/Sidebar";
-import { silentCheckForUpdate } from "./hooks/useAppUpdater";
+import { UpdateBanner } from "./components/UpdateBanner";
+import { UpdaterProvider } from "./components/UpdaterProvider";
 import useTauriEvent from "./hooks/useTauriEvent";
 import { useToast } from "./hooks/useToast";
 import { useI18n } from "./i18n";
@@ -92,14 +93,8 @@ function App() {
   } | null>(null);
   const previousContentTabRef = useRef<TabType>("configs");
   const editorExitGuardRef = useRef<EditorExitGuard | null>(null);
-  const updateCheckedRef = useRef(false);
   const historyProjectRequestIdRef = useRef(0);
   const usageProjectRequestIdRef = useRef(0);
-  // 持有最新的 t / showToast，供异步回调读取，避免 promise resolve 前切换语言导致文案陈旧
-  const tRef = useRef(t);
-  tRef.current = t;
-  const showToastRef = useRef(showToast);
-  showToastRef.current = showToast;
 
   const loadWorkspace = useCallback(async () => {
     if (!isTauri()) {
@@ -122,24 +117,6 @@ function App() {
   useEffect(() => {
     void loadWorkspace();
   }, [loadWorkspace]);
-
-  // 启动时静默检查更新：发现新版仅 Toast 提示，由用户在设置中决定是否安装；失败静默。
-  // 只在挂载时执行一次；通过 tRef/showToastRef 读取最新值，规避语言切换后 Toast 文案陈旧。
-  useEffect(() => {
-    if (updateCheckedRef.current) return;
-    updateCheckedRef.current = true;
-    void silentCheckForUpdate().then((version) => {
-      if (version) {
-        showToastRef.current(
-          tRef.current("update.available").replace("{version}", version),
-          "success",
-          {
-            description: tRef.current("update.availableHint"),
-          },
-        );
-      }
-    });
-  }, []);
 
   useEffect(() => {
     document.documentElement.style.setProperty(
@@ -291,88 +268,95 @@ function App() {
   }
 
   return (
-    <TooltipProvider delayDuration={200}>
-      <div className="flex h-screen overflow-hidden bg-background text-foreground">
-        <Sidebar
-          activeTab={activeTab}
-          collapseSidebarByDefault={workspace.app.collapseSidebarByDefault}
-          onTabChange={(tab) => {
-            runWithEditorExitGuard(() => activateTab(tab));
-          }}
-          onClaudeOverviewClick={handleClaudeOverviewClick}
-          onSettingsClick={handleSettingsClick}
-        />
+    <UpdaterProvider>
+      <TooltipProvider delayDuration={200}>
+        <div className="flex h-screen overflow-hidden bg-background text-foreground">
+          <Sidebar
+            activeTab={activeTab}
+            collapseSidebarByDefault={workspace.app.collapseSidebarByDefault}
+            onTabChange={(tab) => {
+              runWithEditorExitGuard(() => activateTab(tab));
+            }}
+            onClaudeOverviewClick={handleClaudeOverviewClick}
+            onSettingsClick={handleSettingsClick}
+          />
 
-        <div className="relative flex flex-1 overflow-hidden">
-          {activeTab === "claudeOverview" || hasVisitedClaudeOverview ? (
-            <div
-              className={cn(
-                "absolute inset-0 min-w-0",
-                activeTab === "claudeOverview" ? "block" : "hidden",
-              )}
-              aria-hidden={activeTab !== "claudeOverview"}
-            >
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <UpdateBanner />
+            <div className="relative flex flex-1 overflow-hidden">
+              {activeTab === "claudeOverview" || hasVisitedClaudeOverview ? (
+                <div
+                  className={cn(
+                    "absolute inset-0 min-w-0",
+                    activeTab === "claudeOverview" ? "block" : "hidden",
+                  )}
+                  aria-hidden={activeTab !== "claudeOverview"}
+                >
+                  <Suspense fallback={<PageLoadingFallback />}>
+                    <ClaudeOverviewPage active={activeTab === "claudeOverview"} />
+                  </Suspense>
+                </div>
+              ) : null}
               <Suspense fallback={<PageLoadingFallback />}>
-                <ClaudeOverviewPage active={activeTab === "claudeOverview"} />
+                {activeTab === "claudeOverview" ? null : activeTab === "cheatsheet" ? (
+                  <CheatSheetPage />
+                ) : activeTab === "stats" ? (
+                  <StatsPage />
+                ) : activeTab === "usage" ? (
+                  <UsagePage
+                    projectRequest={usageProjectRequest}
+                    onOpenSessionInHistory={handleOpenSessionInHistory}
+                  />
+                ) : activeTab === "projects" ? (
+                  <ProjectsPage
+                    onOpenProjectHistory={handleOpenProjectHistory}
+                    onOpenProjectUsage={handleOpenProjectUsage}
+                    onOpenSessionInHistory={handleOpenSessionInHistory}
+                  />
+                ) : activeTab === "history" ? (
+                  <HistoryPage projectRequest={historyProjectRequest} />
+                ) : activeTab === "configs" ? (
+                  <ProfilesPage
+                    workspace={workspace}
+                    onWorkspaceChange={loadWorkspace}
+                    onEditorExitGuardChange={setEditorExitGuard}
+                  />
+                ) : (
+                  <div
+                    className={cn(
+                      "flex shrink-0 flex-col overflow-y-auto overflow-x-hidden bg-secondary transition-[width] duration-300 ease-out scrollbar-none max-[1000px]:fixed max-[1000px]:inset-y-0 max-[1000px]:right-0 max-[1000px]:left-[60px] max-[1000px]:z-50 max-[1000px]:w-auto max-[700px]:left-[48px]",
+                      isDetailDrawerOpen
+                        ? LIST_PANEL_COMPRESSED_WIDTH_CLASS
+                        : LIST_PANEL_WIDTH_CLASS,
+                    )}
+                  >
+                    {activeTab === "memory" && (
+                      <MemoryPage
+                        onDrawerChange={setIsDetailDrawerOpen}
+                        onEditorExitGuardChange={setEditorExitGuard}
+                      />
+                    )}
+                    {activeTab === "skills" && (
+                      <SkillsPage
+                        onDrawerChange={setIsDetailDrawerOpen}
+                        onEditorExitGuardChange={setEditorExitGuard}
+                      />
+                    )}
+                  </div>
+                )}
               </Suspense>
             </div>
-          ) : null}
-          <Suspense fallback={<PageLoadingFallback />}>
-            {activeTab === "claudeOverview" ? null : activeTab === "cheatsheet" ? (
-              <CheatSheetPage />
-            ) : activeTab === "stats" ? (
-              <StatsPage />
-            ) : activeTab === "usage" ? (
-              <UsagePage
-                projectRequest={usageProjectRequest}
-                onOpenSessionInHistory={handleOpenSessionInHistory}
-              />
-            ) : activeTab === "projects" ? (
-              <ProjectsPage
-                onOpenProjectHistory={handleOpenProjectHistory}
-                onOpenProjectUsage={handleOpenProjectUsage}
-                onOpenSessionInHistory={handleOpenSessionInHistory}
-              />
-            ) : activeTab === "history" ? (
-              <HistoryPage projectRequest={historyProjectRequest} />
-            ) : activeTab === "configs" ? (
-              <ProfilesPage
-                workspace={workspace}
-                onWorkspaceChange={loadWorkspace}
-                onEditorExitGuardChange={setEditorExitGuard}
-              />
-            ) : (
-              <div
-                className={cn(
-                  "flex shrink-0 flex-col overflow-y-auto overflow-x-hidden bg-secondary transition-[width] duration-300 ease-out scrollbar-none max-[1000px]:fixed max-[1000px]:inset-y-0 max-[1000px]:right-0 max-[1000px]:left-[60px] max-[1000px]:z-50 max-[1000px]:w-auto max-[700px]:left-[48px]",
-                  isDetailDrawerOpen ? LIST_PANEL_COMPRESSED_WIDTH_CLASS : LIST_PANEL_WIDTH_CLASS,
-                )}
-              >
-                {activeTab === "memory" && (
-                  <MemoryPage
-                    onDrawerChange={setIsDetailDrawerOpen}
-                    onEditorExitGuardChange={setEditorExitGuard}
-                  />
-                )}
-                {activeTab === "skills" && (
-                  <SkillsPage
-                    onDrawerChange={setIsDetailDrawerOpen}
-                    onEditorExitGuardChange={setEditorExitGuard}
-                  />
-                )}
-              </div>
-            )}
-          </Suspense>
-        </div>
+          </div>
 
-        {isSettingsOpen && (
-          <Suspense fallback={null}>
-            <SettingsDrawer onClose={closeSettingsDrawer} />
-          </Suspense>
-        )}
-      </div>
-      <Toaster richColors closeButton position="top-right" />
-    </TooltipProvider>
+          {isSettingsOpen && (
+            <Suspense fallback={null}>
+              <SettingsDrawer onClose={closeSettingsDrawer} />
+            </Suspense>
+          )}
+        </div>
+        <Toaster richColors closeButton position="top-right" />
+      </TooltipProvider>
+    </UpdaterProvider>
   );
 }
 

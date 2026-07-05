@@ -4,6 +4,7 @@ import { I18nProvider } from "../../i18n";
 import type { ConfigWorkspace } from "../../types";
 import SettingsDrawer from "../SettingsDrawer";
 import { ThemeProvider } from "../theme-provider";
+import { UpdaterProvider } from "../UpdaterProvider";
 import { Toaster } from "../ui/sonner";
 
 const { invokeMock, isPermissionGrantedMock, platformMock, requestPermissionMock } = vi.hoisted(
@@ -57,8 +58,10 @@ function renderSettingsDrawer() {
   render(
     <I18nProvider>
       <ThemeProvider>
-        <SettingsDrawer onClose={vi.fn()} />
-        <Toaster richColors closeButton position="top-right" />
+        <UpdaterProvider>
+          <SettingsDrawer onClose={vi.fn()} />
+          <Toaster richColors closeButton position="top-right" />
+        </UpdaterProvider>
       </ThemeProvider>
     </I18nProvider>,
   );

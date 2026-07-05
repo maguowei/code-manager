@@ -22,7 +22,7 @@ vi.mock("../../utils/logger", () => ({
   logger: { warn: warnMock, info: vi.fn(), error: vi.fn(), debug: vi.fn(), trace: vi.fn() },
 }));
 
-import { silentCheckForUpdate, useAppUpdater } from "../useAppUpdater";
+import { useAppUpdater } from "../useAppUpdater";
 
 /** 构造一个模拟 Update 句柄，downloadAndInstall 回放 Started/Progress/Finished 事件 */
 function makeUpdate(version = "1.0.1", contentLength: number | null = 100) {
@@ -176,26 +176,60 @@ describe("useAppUpdater.downloadAndRestart", () => {
   });
 });
 
-describe("silentCheckForUpdate", () => {
-  it("发现新版返回版本号", async () => {
-    checkMock.mockResolvedValue({ version: "2.0.0" });
-    await expect(silentCheckForUpdate()).resolves.toBe("2.0.0");
+describe("useAppUpdater.checkForUpdate silent 模式", () => {
+  it("复用进行中的静默检查，避免与手动检查并发", async () => {
+    let resolveCheck: ((update: ReturnType<typeof makeUpdate>) => void) | undefined;
+    checkMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolveCheck = resolve;
+      }),
+    );
+    const { result } = renderHook(() => useAppUpdater());
+
+    let silentCheck: Promise<void> | undefined;
+    let manualCheck: Promise<void> | undefined;
+    act(() => {
+      silentCheck = result.current.checkForUpdate({ silent: true });
+      manualCheck = result.current.checkForUpdate();
+    });
+
+    expect(checkMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveCheck?.(makeUpdate("3.0.0"));
+      await Promise.all([silentCheck, manualCheck]);
+    });
+    expect(result.current.status).toBe("available");
+    expect(result.current.availableVersion).toBe("3.0.0");
   });
 
-  it("无更新返回 null", async () => {
+  it("静默检查发现新版本时进入 available", async () => {
+    checkMock.mockResolvedValue(makeUpdate("3.1.0"));
+    const { result } = renderHook(() => useAppUpdater());
+    await act(async () => {
+      await result.current.checkForUpdate({ silent: true });
+    });
+    expect(result.current.status).toBe("available");
+    expect(result.current.availableVersion).toBe("3.1.0");
+  });
+
+  it("静默检查无更新时保持 idle，不覆盖为 upToDate", async () => {
     checkMock.mockResolvedValue(null);
-    await expect(silentCheckForUpdate()).resolves.toBeNull();
+    const { result } = renderHook(() => useAppUpdater());
+    await act(async () => {
+      await result.current.checkForUpdate({ silent: true });
+    });
+    expect(result.current.status).toBe("idle");
   });
 
-  it("检查抛错时返回 null 并记 warn", async () => {
+  it("静默检查失败时保持原状态并只记 warn，不弹 Toast", async () => {
     checkMock.mockRejectedValue(new Error("offline"));
-    await expect(silentCheckForUpdate()).resolves.toBeNull();
+    const { result } = renderHook(() => useAppUpdater());
+    await act(async () => {
+      await result.current.checkForUpdate({ silent: true });
+    });
+    expect(result.current.status).toBe("idle");
     expect(warnMock).toHaveBeenCalled();
-  });
-
-  it("非 Tauri 环境返回 null，不触发 check", async () => {
-    isTauriMock.mockReturnValue(false);
-    await expect(silentCheckForUpdate()).resolves.toBeNull();
-    expect(checkMock).not.toHaveBeenCalled();
+    expect(showOperationErrorMock).not.toHaveBeenCalled();
   });
 });

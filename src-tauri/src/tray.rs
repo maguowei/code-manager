@@ -1273,6 +1273,15 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     Ok(())
 }
 
+/// 移除两个状态栏托盘图标。macOS 上应用退出前必须调用：否则 FrontBoard 会把菜单栏
+/// 应用标记为 after-life.interrupted 并通过 MenuBarAgent 复活以恢复状态栏图标，
+/// 表现为“退出后自动重开”。挂在 RunEvent::Exit 上覆盖托盘 Quit / Cmd+Q / 自更新
+/// relaunch 等所有退出路径；非 macOS 平台调用无副作用（进程本就在退出）。
+pub(crate) fn remove_trays(app: &tauri::AppHandle) {
+    let _ = app.remove_tray_by_id(MAIN_TRAY_ID);
+    let _ = app.remove_tray_by_id(SESSIONS_TRAY_ID);
+}
+
 #[cfg(test)]
 mod tests {
     #[cfg(target_os = "macos")]
