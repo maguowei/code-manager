@@ -126,6 +126,9 @@ pub struct AppPreferences {
     /// 等待提示音效，默认 Glass。
     #[serde(default)]
     pub waiting_sound: WaitingSound,
+    /// 防止休眠模式：off 不干预 / whileActive 仅 running 类会话运行时 / always 无条件（默认 off，仅 macOS 生效）。
+    #[serde(default)]
+    pub sleep_prevention: crate::sleep::SleepPreventionMode,
 }
 
 impl Default for AppPreferences {
@@ -149,6 +152,7 @@ impl Default for AppPreferences {
             floating_widget_opacity: default_floating_widget_opacity(),
             waiting_sound_enabled: false,
             waiting_sound: WaitingSound::default(),
+            sleep_prevention: crate::sleep::SleepPreventionMode::default(),
         }
     }
 }
@@ -386,6 +390,8 @@ pub struct AppPreferencesInput {
     pub waiting_sound_enabled: bool,
     #[serde(default)]
     pub waiting_sound: WaitingSound,
+    #[serde(default)]
+    pub sleep_prevention: crate::sleep::SleepPreventionMode,
 }
 
 #[derive(Debug, Clone, Deserialize, specta::Type)]
@@ -1034,6 +1040,7 @@ fn normalize_app_preferences(input: AppPreferencesInput) -> Result<AppPreference
         floating_widget_opacity: input.floating_widget_opacity.clamp(30, 100),
         waiting_sound_enabled: input.waiting_sound_enabled,
         waiting_sound: input.waiting_sound,
+        sleep_prevention: input.sleep_prevention,
     })
 }
 
@@ -2827,6 +2834,18 @@ pub async fn test_profile_model(data: ModelTestInput) -> Result<ModelTestResult,
     execute_model_test_request(request).await
 }
 
+/// 仅更新防止休眠模式并落盘，返回最新 registry。供托盘子菜单快捷切换使用；
+/// 前端设置走完整的 `set_app_preferences`，这里只碰一个字段，避免托盘构造整份 input。
+pub fn set_sleep_prevention_mode(
+    mode: crate::sleep::SleepPreventionMode,
+) -> Result<ConfigRegistry, String> {
+    let _lock = crate::utils::lock_config()?;
+    let mut registry = load_registry()?;
+    registry.app.sleep_prevention = mode;
+    save_registry(&registry)?;
+    Ok(registry)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn set_app_preferences(
@@ -2845,6 +2864,8 @@ pub fn set_app_preferences(
         crate::tray::apply_focus_session_shortcut(&app_handle);
         // 按最新偏好同步桌面用量浮窗的显隐（启用则创建/显示，关闭则隐藏）
         crate::widget::sync_widget_visibility(&app_handle, preferences.floating_widget_enabled);
+        // 按最新防止休眠偏好重新评估（切到 off 立即释放，切到 always/whileActive 按会话状态处理）
+        crate::sleep::apply_sleep_preference(&app_handle);
         let _ = app_handle.emit("config-workspace-changed", ());
         let _ = app_handle.emit("project-launcher-settings-changed", ());
         if previous_third_party_pricing != preferences.third_party_provider_pricing_enabled {
@@ -2952,6 +2973,7 @@ mod tests {
             floating_widget_opacity: default_floating_widget_opacity(),
             waiting_sound_enabled: true,
             waiting_sound: WaitingSound::Submarine,
+            sleep_prevention: crate::sleep::SleepPreventionMode::default(),
         };
 
         let normalized = normalize_app_preferences(input).expect("normalize 应成功");
@@ -3965,6 +3987,7 @@ mod tests {
                 floating_widget_opacity: default_floating_widget_opacity(),
                 waiting_sound_enabled: false,
                 waiting_sound: WaitingSound::default(),
+                sleep_prevention: crate::sleep::SleepPreventionMode::default(),
             },
             profiles: vec![ConfigProfile {
                 id: "user-deepseek".to_string(),

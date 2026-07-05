@@ -157,6 +157,8 @@ export type AppPreferences = {
 	waitingSoundEnabled?: boolean,
 	/**  等待提示音效，默认 Glass。 */
 	waitingSound?: WaitingSound,
+	/**  防止休眠模式：off 不干预 / whileActive 仅 running 类会话运行时 / always 无条件（默认 off，仅 macOS 生效）。 */
+	sleepPrevention?: SleepPreventionMode,
 };
 
 export type AppPreferencesInput = {
@@ -178,6 +180,7 @@ export type AppPreferencesInput = {
 	floatingWidgetOpacity?: number,
 	waitingSoundEnabled?: boolean,
 	waitingSound?: WaitingSound,
+	sleepPrevention?: SleepPreventionMode,
 };
 
 export type BindingState = BindingState_Serialize | BindingState_Deserialize;
@@ -1045,6 +1048,15 @@ export type SkillFileTreeEntry = {
 
 /**  支持文件树条目（SKILL.md 以外的文件和目录） */
 export type SkillFileTreeEntryKind = "file" | "directory";
+
+/**  防止休眠模式，作为 `AppPreferences.sleep_prevention` 持久化。三态互斥。 */
+export type SleepPreventionMode =
+/**  不干预，系统正常休眠（默认）。 */
+"off" |
+/**  仅存在 running 类会话（running/busy/active/starting，waiting 不计入）时保持唤醒。 */
+"whileActive" |
+/**  无条件保持唤醒。 */
+"always";
 
 export type StatusLinePresetInstallResult = {
 	presetId: string,

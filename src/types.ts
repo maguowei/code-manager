@@ -81,7 +81,12 @@ export interface AppPreferences {
   waitingSoundEnabled: boolean;
   /** 提示音效选择，对应 macOS 系统音效文件名。 */
   waitingSound: "glass" | "submarine" | "hero" | "ping" | "sosumi" | "tink";
+  /** 防止休眠模式（off 不干预 / whileActive 仅活动会话运行时 / always 无条件，仅 macOS 生效）。 */
+  sleepPrevention?: SleepPreventionMode;
 }
+
+/** 防止休眠三态：off 关闭 / whileActive 仅活动会话运行时 / always 始终。 */
+export type SleepPreventionMode = "off" | "whileActive" | "always";
 
 export interface LocalizedText {
   zh: string;

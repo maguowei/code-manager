@@ -1319,6 +1319,13 @@ const translations = {
     "settings.waitingSoundPing": "短促 Ping",
     "settings.waitingSoundSosumi": "经典 Sosumi",
     "settings.waitingSoundTink": "轻响 Tink",
+    "settings.sleepPrevention": "防止休眠",
+    "settings.sleepPreventionDesc": "Claude Code 会话运行时阻止电脑进入空闲休眠（仅 macOS）",
+    "settings.sleepPreventionOff": "关闭",
+    "settings.sleepPreventionWhileActive": "仅活动时",
+    "settings.sleepPreventionAlways": "始终",
+    "settings.sleepPreventionHint":
+      "仅活动时：有会话正在运行才保持唤醒。仅阻止系统空闲休眠，不影响屏幕熄灭；合盖仍会休眠。",
     "settings.thirdPartyProviderPricing": "第三方模型计价",
     "settings.thirdPartyProviderPricingDesc":
       "使用 models.dev 为 Kimi、MiMo、GLM、MiniMax、DeepSeek 系列模型估算费用，关闭后这些模型按 $0 计入。",
@@ -3044,6 +3051,14 @@ const translations = {
     "settings.waitingSoundPing": "Short Ping",
     "settings.waitingSoundSosumi": "Classic Sosumi",
     "settings.waitingSoundTink": "Light Tink",
+    "settings.sleepPrevention": "Prevent sleep",
+    "settings.sleepPreventionDesc":
+      "Keep the computer awake while Claude Code sessions are running (macOS only)",
+    "settings.sleepPreventionOff": "Off",
+    "settings.sleepPreventionWhileActive": "While active",
+    "settings.sleepPreventionAlways": "Always",
+    "settings.sleepPreventionHint":
+      "While active: stays awake only when a session is running. Prevents system idle sleep only — the display can still sleep, and closing the lid still sleeps.",
     "settings.thirdPartyProviderPricing": "Third-party model pricing",
     "settings.thirdPartyProviderPricingDesc":
       "Use models.dev to estimate costs for Kimi, MiMo, GLM, MiniMax, and DeepSeek models. When disabled, these models count as $0.",

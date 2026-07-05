@@ -13,6 +13,7 @@ mod native_open;
 mod plugins;
 mod project;
 mod skills;
+mod sleep;
 mod sound;
 mod stats;
 mod terminal_focus;
@@ -293,6 +294,8 @@ pub fn run() {
             usage::start_usage_runtime(app).map_err(std::io::Error::other)?;
             // 启动 LED 灯效运行时（独立 worker 线程驱动设备，按当前会话状态点亮一次）
             led::start_led_runtime(app);
+            // 启动防止休眠运行时（按当前偏好 + 会话状态决定是否阻止系统空闲休眠，仅 macOS 生效）
+            sleep::start_sleep_runtime(app);
             // 按当前偏好同步桌面用量浮窗显隐（启用则创建置顶小窗）
             widget::sync_widget_visibility(
                 app.handle(),
@@ -322,12 +325,15 @@ pub fn run() {
                 // 真正生效。Cmd+Q 不会触发这个事件，不能只依赖这里。
                 tauri::RunEvent::ExitRequested { .. } => {
                     tray::remove_trays(app_handle);
+                    // 释放防止休眠断言，避免退出后系统仍被我们的断言挡着不休眠
+                    sleep::release_on_exit(app_handle);
                 }
                 // 所有退出路径最终都汇聚到这里，是 Cmd+Q（原生 [NSApp terminate:]，AppKit
                 // 自己的终止流程，不会触发 ExitRequested）唯一能拿到的收尾时机。对已在
                 // ExitRequested 移除过的托盘再次调用是无副作用的空操作，兜底覆盖 Cmd+Q。
                 tauri::RunEvent::Exit => {
                     tray::remove_trays(app_handle);
+                    sleep::release_on_exit(app_handle);
                     #[cfg(target_os = "macos")]
                     std::thread::sleep(std::time::Duration::from_millis(TRAY_EXIT_GRACE_MS));
                 }

@@ -64,6 +64,7 @@ import {
   PopoverTrigger,
 } from "./ui/popover";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
+import { SegmentedControl } from "./ui/segmented-control";
 import {
   Select,
   SelectContent,
@@ -142,6 +143,16 @@ const waitingSoundOptions: {
   { value: "ping", labelKey: "settings.waitingSoundPing" },
   { value: "sosumi", labelKey: "settings.waitingSoundSosumi" },
   { value: "tink", labelKey: "settings.waitingSoundTink" },
+];
+
+// 防止休眠三态选项（分段控件顺序）
+const sleepPreventionOptions: {
+  value: NonNullable<AppPreferences["sleepPrevention"]>;
+  labelKey: TranslationKey;
+}[] = [
+  { value: "off", labelKey: "settings.sleepPreventionOff" },
+  { value: "whileActive", labelKey: "settings.sleepPreventionWhileActive" },
+  { value: "always", labelKey: "settings.sleepPreventionAlways" },
 ];
 
 // 浮窗可选指标及其文案 key，顺序即设置面板与浮窗的默认展示顺序
@@ -1315,6 +1326,33 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                   void persistPreferences({ ...nextPreferences, ledControl: next }, nextPreferences)
                 }
               />
+            )}
+
+            {platformName === "macos" && (
+              <SettingsSectionCard
+                title={t("settings.sleepPrevention")}
+                description={t("settings.sleepPreventionDesc")}
+              >
+                <FieldGroup className="gap-3">
+                  <Field className="gap-2">
+                    <SegmentedControl
+                      ariaLabel={t("settings.sleepPrevention")}
+                      value={preferences.sleepPrevention ?? "off"}
+                      items={sleepPreventionOptions.map((option) => ({
+                        value: option.value,
+                        label: t(option.labelKey),
+                      }))}
+                      onValueChange={(next) => {
+                        void persistPreferences(
+                          { ...nextPreferences, sleepPrevention: next },
+                          nextPreferences,
+                        );
+                      }}
+                    />
+                    <FieldDescription>{t("settings.sleepPreventionHint")}</FieldDescription>
+                  </Field>
+                </FieldGroup>
+              </SettingsSectionCard>
             )}
 
             <SettingsSectionCard
