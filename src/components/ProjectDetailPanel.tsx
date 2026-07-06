@@ -969,12 +969,12 @@ function ProjectDetailPanel({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="projects-identity-value h-auto max-w-full min-w-0 shrink justify-start whitespace-normal rounded-md border border-transparent px-1 py-0 text-left text-sm leading-6 break-all text-foreground hover:border-border hover:bg-accent hover:text-accent-foreground focus-visible:border-primary/70 focus-visible:bg-accent focus-visible:ring-0"
+                  className="projects-identity-value h-auto max-w-full min-w-0 shrink justify-start truncate rounded-md border border-transparent px-1 py-0 text-left text-sm leading-6 text-foreground hover:border-border hover:bg-accent hover:text-accent-foreground focus-visible:border-primary/70 focus-visible:bg-accent focus-visible:ring-0"
                   title={repositoryUrl}
                   aria-label={`${t("projects.copyRepositoryUrl")} ${repositoryUrl}`}
                   onClick={() => void handleCopyRepositoryUrl(repositoryUrl)}
                 >
-                  {repositoryUrl}
+                  <span className="min-w-0 truncate">{repositoryUrl}</span>
                 </Button>
               ) : (
                 <span className="projects-identity-value break-all text-sm leading-6 text-foreground">
