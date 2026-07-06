@@ -95,6 +95,7 @@ function App() {
   const editorExitGuardRef = useRef<EditorExitGuard | null>(null);
   const historyProjectRequestIdRef = useRef(0);
   const usageProjectRequestIdRef = useRef(0);
+  const workspaceRequestIdRef = useRef(0);
 
   const loadWorkspace = useCallback(async () => {
     if (!isTauri()) {
@@ -103,14 +104,23 @@ function App() {
       return;
     }
 
+    // 请求序号守卫：并发/乱序重拉时只应用最新一次结果，避免过期响应覆盖乐观更新
+    workspaceRequestIdRef.current += 1;
+    const requestId = workspaceRequestIdRef.current;
     try {
       const nextWorkspace = await ipc.getConfigWorkspace();
-      setWorkspace(nextWorkspace);
+      if (requestId === workspaceRequestIdRef.current) {
+        setWorkspace(nextWorkspace);
+      }
     } catch (error) {
-      setWorkspace(EMPTY_WORKSPACE);
-      showOperationError(showToast, t("toast.configWorkspaceLoadError"), error);
+      if (requestId === workspaceRequestIdRef.current) {
+        setWorkspace(EMPTY_WORKSPACE);
+        showOperationError(showToast, t("toast.configWorkspaceLoadError"), error);
+      }
     } finally {
-      setLoading(false);
+      if (requestId === workspaceRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [showToast, t]);
 
