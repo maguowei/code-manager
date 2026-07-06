@@ -1468,7 +1468,6 @@ const translations = {
     "claudeOverview.operationError": "目录操作失败",
 
     // 操作通知（Toast）
-    "toast.configLoadError": "加载配置失败",
     "toast.configSaveError": "保存配置失败",
     "toast.sleepPreventionSwitched": "已切换防止休眠",
     "toast.keepDisplayAwakeOn": "已开启屏幕常亮",
@@ -3216,7 +3215,6 @@ const translations = {
     "claudeOverview.operationError": "Directory operation failed",
 
     // 操作通知（Toast）
-    "toast.configLoadError": "Failed to load configs",
     "toast.configSaveError": "Failed to save config",
     "toast.sleepPreventionSwitched": "Prevent sleep switched",
     "toast.keepDisplayAwakeOn": "Display will stay awake",
@@ -3517,6 +3515,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const setLanguage = useCallback((language: Language) => {
     setSettings((prev) => {
+      // 同值幂等：允许调用方无条件同步，不触发多余的持久化与重渲染
+      if (prev.language === language) {
+        return prev;
+      }
       const next = { ...prev, language };
       saveSettings(next);
       return next;

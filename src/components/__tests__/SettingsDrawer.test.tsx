@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
-import type { ConfigWorkspace } from "../../types";
+import type { AppPreferences, ConfigWorkspace } from "../../types";
 import SettingsDrawer from "../SettingsDrawer";
 import { ThemeProvider } from "../theme-provider";
 import { UpdaterProvider } from "../UpdaterProvider";
@@ -54,12 +54,13 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
   bindings: {},
 };
 
-function renderSettingsDrawer() {
+// 权威偏好由 App 下发 prop，测试直接注入，不再依赖抽屉自行拉取工作区
+function renderSettingsDrawer(preferences: AppPreferences = WORKSPACE_FIXTURE.app) {
   render(
     <I18nProvider>
       <ThemeProvider>
         <UpdaterProvider>
-          <SettingsDrawer onClose={vi.fn()} />
+          <SettingsDrawer onClose={vi.fn()} preferences={preferences} />
           <Toaster richColors closeButton position="top-right" />
         </UpdaterProvider>
       </ThemeProvider>
@@ -559,16 +560,13 @@ describe("SettingsDrawer", () => {
           entries: [],
         };
       }
-      return {
-        ...WORKSPACE_FIXTURE,
-        app: {
-          ...WORKSPACE_FIXTURE.app,
-          defaultTerminalApp: "ghostty",
-          defaultEditorApp: "vscode",
-        },
-      };
+      return WORKSPACE_FIXTURE;
     });
-    renderSettingsDrawer();
+    renderSettingsDrawer({
+      ...WORKSPACE_FIXTURE.app,
+      defaultTerminalApp: "ghostty",
+      defaultEditorApp: "vscode",
+    });
 
     const editorSelect = await screen.findByRole("combobox", { name: "默认编辑器" });
     fireEvent.click(editorSelect);
@@ -653,16 +651,13 @@ describe("SettingsDrawer", () => {
           entries: [],
         };
       }
-      return {
-        ...WORKSPACE_FIXTURE,
-        app: {
-          ...WORKSPACE_FIXTURE.app,
-          defaultTerminalApp: "warp",
-          defaultEditorApp: "cursor",
-        },
-      };
+      return WORKSPACE_FIXTURE;
     });
-    renderSettingsDrawer();
+    renderSettingsDrawer({
+      ...WORKSPACE_FIXTURE.app,
+      defaultTerminalApp: "warp",
+      defaultEditorApp: "cursor",
+    });
 
     expect(await screen.findByText("未检测到可用终端。")).toBeInTheDocument();
     expect(screen.getByText("未检测到可用编辑器。")).toBeInTheDocument();

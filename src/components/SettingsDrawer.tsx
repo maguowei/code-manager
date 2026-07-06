@@ -19,7 +19,7 @@ import {
   Sun,
   Terminal as TerminalIcon,
 } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { showOperationError } from "@/lib/user-facing-error";
 import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
@@ -28,7 +28,6 @@ import { ipc } from "../ipc";
 import { cn } from "../lib/utils";
 import type {
   AppPreferences,
-  ConfigWorkspace,
   DefaultEditorApp,
   DefaultTerminalApp,
   LedControlPreferences,
@@ -82,6 +81,8 @@ import { Switch } from "./ui/switch";
 
 interface SettingsDrawerProps {
   onClose: () => void;
+  /** App 下发的权威偏好快照（workspace.app）；托盘等外部入口改动后随 App 刷新流入 */
+  preferences: AppPreferences;
 }
 
 interface SettingsSectionCardProps {
@@ -732,29 +733,12 @@ function SystemNotificationsHelpButton() {
   );
 }
 
-function SettingsDrawer({ onClose }: SettingsDrawerProps) {
+function SettingsDrawer({ onClose, preferences: appPreferences }: SettingsDrawerProps) {
   const { t, language, setLanguage } = useI18n();
   const { theme, setTheme } = useTheme();
   const { showToast } = useToast();
-  const [preferences, setPreferences] = useState<AppPreferences>({
-    showTrayTitle: true,
-    showTraySessions: true,
-    systemNotificationsEnabled: false,
-    collapseSidebarByDefault: false,
-    thirdPartyProviderPricingEnabled: true,
-    uiLanguage: "zh",
-    defaultTerminalApp: "terminal",
-    defaultEditorApp: null,
-    trayTitleMaxChars: null,
-    sessionTrayCountStyle: "superscriptCompact",
-    trayPulseWaiting: true,
-    focusSessionShortcut: DEFAULT_FOCUS_SESSION_SHORTCUT,
-    floatingWidgetEnabled: false,
-    floatingWidgetMetrics: ["cost", "totalTokens", "cacheHitRate"],
-    floatingWidgetOpacity: 92,
-    waitingSoundEnabled: false,
-    waitingSound: "glass",
-  });
+  // 本地可编辑草稿：承担乐观更新与保存失败回滚；权威值变化时由下方 effect 覆盖
+  const [preferences, setPreferences] = useState<AppPreferences>(appPreferences);
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
   const [isSystemInfoOpen, setIsSystemInfoOpen] = useState(false);
   const [launchAtLogin, setLaunchAtLogin] = useState(false);
@@ -762,25 +746,10 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   // 防止休眠运行时状态：此刻是否正持有断言（正在保持唤醒），挂载拉一次 + 事件增量刷新
   const [sleepStatus, setSleepStatus] = useState<SleepPreventionStatus | null>(null);
 
-  // 应用后端工作区快照到本地偏好态，并同步 UI 语言。挂载加载与事件刷新共用，避免逻辑漂移。
-  const applyWorkspace = useCallback(
-    (workspace: ConfigWorkspace) => {
-      setPreferences(workspace.app);
-      if (workspace.app.uiLanguage !== language) {
-        setLanguage(workspace.app.uiLanguage as Language);
-      }
-    },
-    [language, setLanguage],
-  );
-
+  // 权威值随 App 的工作区刷新流入（托盘等外部入口改动 → 后端广播 → App 重拉 → prop 更新），覆盖本地草稿
   useEffect(() => {
-    ipc
-      .getConfigWorkspace()
-      .then(applyWorkspace)
-      .catch((err) => {
-        showOperationError(showToast, t("toast.configLoadError"), err);
-      });
-  }, [applyWorkspace, showToast, t]);
+    setPreferences(appPreferences);
+  }, [appPreferences]);
 
   // 自启动真实状态由系统持久化（LaunchAgent / 注册表 / .desktop），打开抽屉时主动同步
   useEffect(() => {
@@ -833,16 +802,6 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   // 会话开始/结束或模式切换导致 active 翻转时，后端广播事件，实时刷新徽标
   useTauriEvent<SleepPreventionStatus>("sleep-prevention-changed", (status) => {
     setSleepStatus(status);
-  });
-
-  // 托盘等其它入口改动偏好后广播 config-workspace-changed，重新拉取让设置面板实时同步
-  useTauriEvent("config-workspace-changed", () => {
-    ipc
-      .getConfigWorkspace()
-      .then(applyWorkspace)
-      .catch(() => {
-        // 静默失败：偏好已由触发方落盘，仅面板未即时刷新，不打扰用户
-      });
   });
 
   const showTrayTitle = preferences.showTrayTitle;

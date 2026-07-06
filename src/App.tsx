@@ -76,7 +76,7 @@ function PageLoadingFallback() {
 }
 
 function App() {
-  const { t } = useI18n();
+  const { t, setLanguage } = useI18n();
   const { showToast } = useToast();
   const [workspace, setWorkspace] = useState<ConfigWorkspace>(EMPTY_WORKSPACE);
   const [activeTab, setActiveTab] = useState<TabType>("configs");
@@ -129,6 +129,15 @@ function App() {
     };
   }, [workspace.app.collapseSidebarByDefault]);
 
+  // 后端偏好是 UI 语言的权威值：工作区刷新后同步 i18n（setLanguage 同值幂等）。
+  // 首屏加载完成前不动本地缓存语言，避免 EMPTY_WORKSPACE 的 zh 兜底闪切。
+  useEffect(() => {
+    if (!isTauri() || loading) {
+      return;
+    }
+    setLanguage(workspace.app.uiLanguage === "en" ? "en" : "zh");
+  }, [loading, workspace.app.uiLanguage, setLanguage]);
+
   useTauriEvent<void>("config-workspace-changed", () => {
     void loadWorkspace();
   });
@@ -177,10 +186,11 @@ function App() {
     runWithEditorExitGuard(() => activateTab(nextTab));
   });
 
+  // 抽屉内所有落盘操作都经 set_app_preferences 广播 config-workspace-changed，
+  // App 已订阅并即时刷新，关闭时无需再兜底重拉。
   const closeSettingsDrawer = useCallback(() => {
     setIsSettingsOpen(false);
-    void loadWorkspace();
-  }, [loadWorkspace]);
+  }, []);
 
   const handleSettingsClick = useCallback(() => {
     const toggleSettingsDrawer = () => {
@@ -350,7 +360,7 @@ function App() {
 
           {isSettingsOpen && (
             <Suspense fallback={null}>
-              <SettingsDrawer onClose={closeSettingsDrawer} />
+              <SettingsDrawer onClose={closeSettingsDrawer} preferences={workspace.app} />
             </Suspense>
           )}
         </div>
