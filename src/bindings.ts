@@ -161,6 +161,8 @@ export type AppPreferences = {
 	waitingSound?: WaitingSound,
 	/**  防止休眠模式：off 不干预 / whileActive 仅 running 类会话运行时 / always 无条件（默认 off，仅 macOS 生效）。 */
 	sleepPrevention?: SleepPreventionMode,
+	/**  保持唤醒时是否连显示器一起不熄（默认 false=仅系统；true 时改用 PreventUserIdleDisplaySleep）。仅 macOS 生效。 */
+	keepDisplayAwake?: boolean,
 };
 
 export type AppPreferencesInput = {
@@ -183,6 +185,7 @@ export type AppPreferencesInput = {
 	waitingSoundEnabled?: boolean,
 	waitingSound?: WaitingSound,
 	sleepPrevention?: SleepPreventionMode,
+	keepDisplayAwake?: boolean,
 };
 
 export type BindingState = BindingState_Serialize | BindingState_Deserialize;

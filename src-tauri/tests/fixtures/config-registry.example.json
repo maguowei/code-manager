@@ -29,7 +29,8 @@
     "floatingWidgetOpacity": 92,
     "waitingSoundEnabled": false,
     "waitingSound": "glass",
-    "sleepPrevention": "off"
+    "sleepPrevention": "off",
+    "keepDisplayAwake": false
   },
   "profiles": [
     {

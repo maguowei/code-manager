@@ -11,8 +11,12 @@ Code Manager 的领域术语表(glossary),只记录本项目语境下需要统�
 _Avoid_: 保持唤醒(keep awake)、caffeine、防睡眠
 
 **防止休眠模式(Sleep Prevention Mode)**:
-一个三态互斥的用户偏好,决定防止休眠何时生效。取值:关闭(Off)、始终(Always)、仅活动时(While Active)。
+一个三态互斥的用户偏好,决定防止休眠**何时**生效。取值:关闭(Off)、始终(Always)、仅活动时(While Active)。与[屏幕常亮](#屏幕常亮keep-display-awake)正交:模式管"何时",屏幕常亮管"保持什么"。
 _Avoid_: 防止休眠开关(它不是布尔开关,是三态)
+
+**屏幕常亮(Keep Display Awake)**:
+一个与[防止休眠模式](#防止休眠模式sleep-prevention-mode)正交的布尔偏好,决定保持唤醒时**连显示器一起不熄**(阻止显示器空闲休眠,连带系统)还是**只挡系统空闲休眠、放任屏幕熄灭**。仅在模式非关闭时有意义;关闭时无效。默认关(只挡系统)。
+_Avoid_: 防止黑屏、屏幕常显、display sleep
 
 **始终(Always)**:
 防止休眠模式的一种取值。无条件保持电脑唤醒,与会话状态无关,直到用户切换到其它模式。

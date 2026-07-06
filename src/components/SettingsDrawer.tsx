@@ -19,7 +19,7 @@ import {
   Sun,
   Terminal as TerminalIcon,
 } from "lucide-react";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { showOperationError } from "@/lib/user-facing-error";
 import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
@@ -28,6 +28,7 @@ import { ipc } from "../ipc";
 import { cn } from "../lib/utils";
 import type {
   AppPreferences,
+  ConfigWorkspace,
   DefaultEditorApp,
   DefaultTerminalApp,
   LedControlPreferences,
@@ -761,19 +762,25 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   // 防止休眠运行时状态：此刻是否正持有断言（正在保持唤醒），挂载拉一次 + 事件增量刷新
   const [sleepStatus, setSleepStatus] = useState<SleepPreventionStatus | null>(null);
 
+  // 应用后端工作区快照到本地偏好态，并同步 UI 语言。挂载加载与事件刷新共用，避免逻辑漂移。
+  const applyWorkspace = useCallback(
+    (workspace: ConfigWorkspace) => {
+      setPreferences(workspace.app);
+      if (workspace.app.uiLanguage !== language) {
+        setLanguage(workspace.app.uiLanguage as Language);
+      }
+    },
+    [language, setLanguage],
+  );
+
   useEffect(() => {
     ipc
       .getConfigWorkspace()
-      .then((workspace) => {
-        setPreferences(workspace.app);
-        if (workspace.app.uiLanguage !== language) {
-          setLanguage(workspace.app.uiLanguage as Language);
-        }
-      })
+      .then(applyWorkspace)
       .catch((err) => {
         showOperationError(showToast, t("toast.configLoadError"), err);
       });
-  }, [language, setLanguage, showToast, t]);
+  }, [applyWorkspace, showToast, t]);
 
   // 自启动真实状态由系统持久化（LaunchAgent / 注册表 / .desktop），打开抽屉时主动同步
   useEffect(() => {
@@ -826,6 +833,16 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
   // 会话开始/结束或模式切换导致 active 翻转时，后端广播事件，实时刷新徽标
   useTauriEvent<SleepPreventionStatus>("sleep-prevention-changed", (status) => {
     setSleepStatus(status);
+  });
+
+  // 托盘等其它入口改动偏好后广播 config-workspace-changed，重新拉取让设置面板实时同步
+  useTauriEvent("config-workspace-changed", () => {
+    ipc
+      .getConfigWorkspace()
+      .then(applyWorkspace)
+      .catch(() => {
+        // 静默失败：偏好已由触发方落盘，仅面板未即时刷新，不打扰用户
+      });
   });
 
   const showTrayTitle = preferences.showTrayTitle;
@@ -1383,9 +1400,13 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                           sleepStatus?.active ? "text-foreground" : "text-muted-foreground",
                         )}
                       >
-                        {sleepStatus?.active
-                          ? t("settings.sleepPreventionActive")
-                          : t("settings.sleepPreventionIdle")}
+                        {t(
+                          !sleepStatus?.active
+                            ? "settings.sleepPreventionIdle"
+                            : preferences.keepDisplayAwake
+                              ? "settings.sleepPreventionActiveWithDisplay"
+                              : "settings.sleepPreventionActive",
+                        )}
                       </span>
                     </span>
                   )
@@ -1417,6 +1438,35 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                       }}
                     />
                     <FieldDescription>{t("settings.sleepPreventionHint")}</FieldDescription>
+                  </Field>
+
+                  <Field orientation="horizontal" className="items-center justify-between gap-4">
+                    <FieldContent>
+                      <FieldTitle className="text-muted-foreground text-xs">
+                        {t("settings.keepDisplayAwake")}
+                      </FieldTitle>
+                      <FieldDescription>{t("settings.keepDisplayAwakeHint")}</FieldDescription>
+                    </FieldContent>
+                    <Switch
+                      id="settings-keep-display-awake"
+                      checked={preferences.keepDisplayAwake ?? false}
+                      disabled={(preferences.sleepPrevention ?? "off") === "off"}
+                      onCheckedChange={(checked) => {
+                        void (async () => {
+                          const ok = await persistPreferences(
+                            { ...nextPreferences, keepDisplayAwake: checked },
+                            nextPreferences,
+                          );
+                          if (ok) {
+                            showToast(
+                              t(checked ? "toast.keepDisplayAwakeOn" : "toast.keepDisplayAwakeOff"),
+                              "success",
+                            );
+                          }
+                        })();
+                      }}
+                      aria-label={t("settings.keepDisplayAwake")}
+                    />
                   </Field>
                 </FieldGroup>
               </SettingsSectionCard>

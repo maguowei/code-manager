@@ -1325,9 +1325,13 @@ const translations = {
     "settings.sleepPreventionWhileActive": "仅活动时",
     "settings.sleepPreventionAlways": "始终",
     "settings.sleepPreventionActive": "正在保持唤醒",
+    "settings.sleepPreventionActiveWithDisplay": "正在保持唤醒（含屏幕）",
     "settings.sleepPreventionIdle": "空闲，可休眠",
     "settings.sleepPreventionHint":
-      "仅活动时：有会话正在运行才保持唤醒。仅阻止系统空闲休眠，不影响屏幕熄灭；合盖仍会休眠。",
+      "仅活动时：有会话正在运行才保持唤醒。默认只阻止系统空闲休眠、放任屏幕熄灭；合盖仍会休眠。",
+    "settings.keepDisplayAwake": "同时保持屏幕常亮",
+    "settings.keepDisplayAwakeHint":
+      "开启后连显示器一起不熄，否则只挡系统、放任屏幕熄灭。更耗电、有烧屏风险，按需开启；防止休眠关闭时不可用。",
     "settings.thirdPartyProviderPricing": "第三方模型计价",
     "settings.thirdPartyProviderPricingDesc":
       "使用 models.dev 为 Kimi、MiMo、GLM、MiniMax、DeepSeek 系列模型估算费用，关闭后这些模型按 $0 计入。",
@@ -1467,6 +1471,8 @@ const translations = {
     "toast.configLoadError": "加载配置失败",
     "toast.configSaveError": "保存配置失败",
     "toast.sleepPreventionSwitched": "已切换防止休眠",
+    "toast.keepDisplayAwakeOn": "已开启屏幕常亮",
+    "toast.keepDisplayAwakeOff": "已关闭屏幕常亮，屏幕可正常熄灭",
     "toast.autostartQueryError": "读取自启动状态失败",
     "toast.autostartSaveError": "保存自启动设置失败",
     "toast.ledTestError": "测试 LED 灯效失败",
@@ -3061,9 +3067,13 @@ const translations = {
     "settings.sleepPreventionWhileActive": "While active",
     "settings.sleepPreventionAlways": "Always",
     "settings.sleepPreventionActive": "Keeping awake",
+    "settings.sleepPreventionActiveWithDisplay": "Keeping awake (incl. display)",
     "settings.sleepPreventionIdle": "Idle, can sleep",
     "settings.sleepPreventionHint":
-      "While active: stays awake only when a session is running. Prevents system idle sleep only — the display can still sleep, and closing the lid still sleeps.",
+      "While active: stays awake only when a session is running. By default prevents system idle sleep only — the display can still sleep, and closing the lid still sleeps.",
+    "settings.keepDisplayAwake": "Also keep the display awake",
+    "settings.keepDisplayAwakeHint":
+      "When on, the display stays on too; otherwise only the system is kept awake and the screen may sleep. Uses more power with burn-in risk — enable as needed; unavailable when Prevent Sleep is off.",
     "settings.thirdPartyProviderPricing": "Third-party model pricing",
     "settings.thirdPartyProviderPricingDesc":
       "Use models.dev to estimate costs for Kimi, MiMo, GLM, MiniMax, and DeepSeek models. When disabled, these models count as $0.",
@@ -3209,6 +3219,8 @@ const translations = {
     "toast.configLoadError": "Failed to load configs",
     "toast.configSaveError": "Failed to save config",
     "toast.sleepPreventionSwitched": "Prevent sleep switched",
+    "toast.keepDisplayAwakeOn": "Display will stay awake",
+    "toast.keepDisplayAwakeOff": "Display no longer forced on; screen can sleep",
     "toast.autostartQueryError": "Failed to read auto-start status",
     "toast.autostartSaveError": "Failed to save auto-start setting",
     "toast.ledTestError": "Failed to test LED light",

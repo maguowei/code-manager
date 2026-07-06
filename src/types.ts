@@ -83,6 +83,8 @@ export interface AppPreferences {
   waitingSound: "glass" | "submarine" | "hero" | "ping" | "sosumi" | "tink";
   /** 防止休眠模式（off 不干预 / whileActive 仅活动会话运行时 / always 无条件，仅 macOS 生效）。 */
   sleepPrevention?: SleepPreventionMode;
+  /** 屏幕常亮：与模式正交，开启后连显示器一起不熄；默认关（只挡系统空闲休眠）。仅 macOS 生效。 */
+  keepDisplayAwake?: boolean;
 }
 
 /** 防止休眠三态：off 关闭 / whileActive 仅活动会话运行时 / always 始终。 */

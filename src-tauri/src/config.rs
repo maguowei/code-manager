@@ -129,6 +129,9 @@ pub struct AppPreferences {
     /// 防止休眠模式：off 不干预 / whileActive 仅 running 类会话运行时 / always 无条件（默认 off，仅 macOS 生效）。
     #[serde(default)]
     pub sleep_prevention: crate::sleep::SleepPreventionMode,
+    /// 保持唤醒时是否连显示器一起不熄（默认 false=仅系统；true 时改用 PreventUserIdleDisplaySleep）。仅 macOS 生效。
+    #[serde(default)]
+    pub keep_display_awake: bool,
 }
 
 impl Default for AppPreferences {
@@ -153,6 +156,7 @@ impl Default for AppPreferences {
             waiting_sound_enabled: false,
             waiting_sound: WaitingSound::default(),
             sleep_prevention: crate::sleep::SleepPreventionMode::default(),
+            keep_display_awake: false,
         }
     }
 }
@@ -392,6 +396,8 @@ pub struct AppPreferencesInput {
     pub waiting_sound: WaitingSound,
     #[serde(default)]
     pub sleep_prevention: crate::sleep::SleepPreventionMode,
+    #[serde(default)]
+    pub keep_display_awake: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, specta::Type)]
@@ -1041,6 +1047,7 @@ fn normalize_app_preferences(input: AppPreferencesInput) -> Result<AppPreference
         waiting_sound_enabled: input.waiting_sound_enabled,
         waiting_sound: input.waiting_sound,
         sleep_prevention: input.sleep_prevention,
+        keep_display_awake: input.keep_display_awake,
     })
 }
 
@@ -2846,6 +2853,15 @@ pub fn set_sleep_prevention_mode(
     Ok(registry)
 }
 
+/// 取反「屏幕常亮」偏好并落盘，返回最新 registry。锁内单次读改写，供托盘勾选项快捷切换使用。
+pub fn toggle_keep_display_awake() -> Result<ConfigRegistry, String> {
+    let _lock = crate::utils::lock_config()?;
+    let mut registry = load_registry()?;
+    registry.app.keep_display_awake = !registry.app.keep_display_awake;
+    save_registry(&registry)?;
+    Ok(registry)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn set_app_preferences(
@@ -2974,6 +2990,7 @@ mod tests {
             waiting_sound_enabled: true,
             waiting_sound: WaitingSound::Submarine,
             sleep_prevention: crate::sleep::SleepPreventionMode::default(),
+            keep_display_awake: false,
         };
 
         let normalized = normalize_app_preferences(input).expect("normalize 应成功");
@@ -3988,6 +4005,7 @@ mod tests {
                 waiting_sound_enabled: false,
                 waiting_sound: WaitingSound::default(),
                 sleep_prevention: crate::sleep::SleepPreventionMode::default(),
+                keep_display_awake: false,
             },
             profiles: vec![ConfigProfile {
                 id: "user-deepseek".to_string(),

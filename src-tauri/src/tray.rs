@@ -795,6 +795,27 @@ fn build_sleep_submenu(
         let marker = if mode == current { "✓ " } else { "   " };
         builder = builder.text(id, format!("{marker}{}", sleep_mode_label(mode, language)));
     }
+
+    // 屏幕常亮是与模式正交的可勾选项：勾上则连显示器一起不熄。关闭模式时无意义，置灰。
+    builder = builder.separator();
+    let display_label = if language == "en" {
+        "Keep Display Awake"
+    } else {
+        "含屏幕（显示器同时常亮）"
+    };
+    let display_marker = if state.app.keep_display_awake {
+        "✓ "
+    } else {
+        "   "
+    };
+    let display_item = MenuItemBuilder::with_id(
+        "sleep_display_toggle",
+        format!("{display_marker}{display_label}"),
+    )
+    .enabled(current != M::Off)
+    .build(app)?;
+    builder = builder.item(&display_item);
+
     builder.build()
 }
 
@@ -1322,6 +1343,22 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
                 // 页面导航
                 show_main_window(app);
                 let _ = app.emit("navigate-to-tab", tab.to_string());
+            } else if id == "sleep_display_toggle" {
+                // 屏幕常亮勾选切换：锁内取反落盘，重建菜单刷新 ✓、重新评估断言类型、通知前端
+                match crate::config::toggle_keep_display_awake() {
+                    Ok(state) => {
+                        log::info!(
+                            "event=tray.keep_display_awake status=ok value={}",
+                            state.app.keep_display_awake
+                        );
+                        rebuild_tray_menu(app, Some(&state));
+                        crate::sleep::apply_sleep_preference(app);
+                        let _ = app.emit("config-workspace-changed", ());
+                    }
+                    Err(e) => {
+                        crate::logging::log_command_error("tray.keep_display_awake", &e);
+                    }
+                }
             } else if let Some(mode_key) = id.strip_prefix("sleep_") {
                 // 防止休眠三态快捷切换：落盘后重建菜单（刷新 ✓ 与父项标题）、按新模式重新评估断言、通知前端
                 if let Some(mode) = parse_sleep_prevention_key(mode_key) {
@@ -1447,6 +1484,7 @@ mod tests {
             waiting_sound_enabled: false,
             waiting_sound: crate::config::WaitingSound::default(),
             sleep_prevention: crate::sleep::SleepPreventionMode::default(),
+            keep_display_awake: false,
         }
     }
 
