@@ -137,3 +137,17 @@ macOS 上应用数据刻意复用 `~/.config/code-manager/`，便于跨平台备
 4. `src/App.tsx`、`src/main.tsx`、`src-tauri/src/lib.rs`、`src-tauri/src/utils.rs`
 5. 需要人类产品背景时再读 `README.md` 或 `docs/user-manual.md`
 6. 涉及发版流程时阅读 `.claude/skills/release-new-version/SKILL.md`（手动触发，模型不得自动调用）
+
+## Agent skills
+
+### Issue tracker
+
+Issues 追踪在仓库的 GitHub Issues，通过 `gh` CLI 操作；外部 PR 不作为 triage 队列来源。详见 `docs/agents/issue-tracker.md`。
+
+### Triage labels
+
+采用默认标签词汇：`needs-triage` / `needs-info` / `ready-for-agent` / `ready-for-human` / `wontfix`。详见 `docs/agents/triage-labels.md`。
+
+### Domain docs
+
+单上下文布局：根目录 `CONTEXT.md` + `docs/adr/`。详见 `docs/agents/domain.md`。
