@@ -2243,6 +2243,68 @@ describe("ProfilesPage", () => {
     expect(within(dialog).getByRole("button", { name: "导入" })).toBeDisabled();
   });
 
+  it("does not re-queue the same deepLinkImportRequest when the page re-renders", async () => {
+    const onWorkspaceChange = vi.fn(async () => {});
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === "resolve_profile_import_deep_link") {
+        return {
+          name: "FromLink",
+          description: "",
+          settingsJson: '{\n  "model": "claude-sonnet-4-6"\n}',
+          containsSecrets: false,
+          source: "payload",
+        };
+      }
+      return null;
+    });
+
+    const request = {
+      urls: ["code-manager://profiles/import?payload=abc"],
+      requestId: 42,
+    };
+
+    const { rerender } = render(
+      <ThemeProvider>
+        <I18nProvider>
+          <ProfilesPage
+            workspace={WORKSPACE_FIXTURE}
+            onWorkspaceChange={onWorkspaceChange}
+            deepLinkImportRequest={request}
+          />
+        </I18nProvider>
+      </ThemeProvider>,
+    );
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("resolve_profile_import_deep_link", {
+        url: "code-manager://profiles/import?payload=abc",
+      });
+    });
+    expect(
+      invokeMock.mock.calls.filter(([command]) => command === "resolve_profile_import_deep_link"),
+    ).toHaveLength(1);
+
+    // 同一 requestId 再渲染（模拟父组件/语言切换导致的 props 引用变化）不得再次 resolve
+    rerender(
+      <ThemeProvider>
+        <I18nProvider>
+          <ProfilesPage
+            workspace={WORKSPACE_FIXTURE}
+            onWorkspaceChange={onWorkspaceChange}
+            deepLinkImportRequest={{ ...request }}
+          />
+        </I18nProvider>
+      </ThemeProvider>,
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(
+      invokeMock.mock.calls.filter(([command]) => command === "resolve_profile_import_deep_link"),
+    ).toHaveLength(1);
+  });
+
   it("imports a deep link payload after secrets acknowledgement", async () => {
     const onWorkspaceChange = vi.fn(async () => {});
     invokeMock.mockImplementation(async (command: string) => {

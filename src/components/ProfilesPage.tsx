@@ -309,6 +309,12 @@ function ProfilesPage({
   const deepLinkQueueRef = useRef<string[]>([]);
   const importDialogOpenRef = useRef(false);
   const deepLinkResolveBusyRef = useRef(false);
+  // 只按 requestId 入队一次，避免语言切换导致 t/pump 引用变化时重复 push
+  const lastDeepLinkRequestIdRef = useRef<number | null>(null);
+  const showToastRef = useRef(showToast);
+  const tRef = useRef(t);
+  showToastRef.current = showToast;
+  tRef.current = t;
   const [profileModelTestStates, setProfileModelTestStates] = useState<
     Record<string, ProfileModelTestState>
   >({});
@@ -935,7 +941,8 @@ function ProfilesPage({
     }
   }
 
-  // 解析并弹出下一条 deep link；失败则 Toast 后自动继续
+  // 解析并弹出下一条 deep link；失败则 Toast 后自动继续。
+  // 回调保持稳定：Toast/i18n 走 ref，避免语言切换重建导致入队 effect 重跑。
   const pumpDeepLinkQueue = useCallback(async () => {
     if (importDialogOpenRef.current || deepLinkResolveBusyRef.current) return;
     const nextUrl = deepLinkQueueRef.current.shift();
@@ -957,10 +964,14 @@ function ProfilesPage({
       setImportPreview(resolved.settingsJson);
       setImportSecretsAcknowledged(false);
       if (deepLinkQueueRef.current.length > 0) {
-        showToast(t("profiles.import.deepLink.toast.queueHint"));
+        showToastRef.current(tRef.current("profiles.import.deepLink.toast.queueHint"));
       }
     } catch (err) {
-      showOperationError(showToast, t("profiles.import.deepLink.toast.resolveError"), err);
+      showOperationError(
+        showToastRef.current,
+        tRef.current("profiles.import.deepLink.toast.resolveError"),
+        err,
+      );
       deepLinkResolveBusyRef.current = false;
       setIsImportPreviewLoading(false);
       void pumpDeepLinkQueue();
@@ -968,11 +979,13 @@ function ProfilesPage({
     }
     deepLinkResolveBusyRef.current = false;
     setIsImportPreviewLoading(false);
-  }, [showToast, t]);
+  }, []);
 
-  // App drain 下发的 deep link 入队并泵出
+  // 仅在新的 requestId 时入队；同一 request 被语言切换/父组件重渲染时不得再 push
   useEffect(() => {
     if (!deepLinkImportRequest) return;
+    if (lastDeepLinkRequestIdRef.current === deepLinkImportRequest.requestId) return;
+    lastDeepLinkRequestIdRef.current = deepLinkImportRequest.requestId;
     deepLinkQueueRef.current.push(...deepLinkImportRequest.urls);
     void pumpDeepLinkQueue();
   }, [deepLinkImportRequest, pumpDeepLinkQueue]);

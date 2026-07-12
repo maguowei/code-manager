@@ -320,15 +320,12 @@ fn settings_contain_secrets(value: &Value) -> bool {
 
 async fn fetch_remote_settings_json(remote: &str) -> Result<String, String> {
     let mut current = validate_https_url_for_fetch(remote)?;
-    let client = reqwest::Client::builder()
-        .timeout(REMOTE_FETCH_TIMEOUT)
-        .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .map_err(|error| format!("创建 HTTP 客户端失败: {error}"))?;
 
     for redirect_count in 0..=MAX_REMOTE_REDIRECTS {
-        // 每次请求前解析并拦截私网/环回，降低 DNS rebinding 窗口
-        ensure_host_not_blocked(&current)?;
+        // 先解析并过滤到公网地址，再用 resolve_to_addrs 钉死连接目标，
+        // 避免 reqwest 连接阶段二次 DNS 解析导致 rebinding 打穿 SSRF。
+        let safe_addrs = resolve_public_socket_addrs(&current)?;
+        let client = build_pinned_http_client(&current, &safe_addrs)?;
 
         let response = client
             .get(current.clone())
@@ -354,18 +351,61 @@ async fn fetch_remote_settings_json(remote: &str) -> Result<String, String> {
             return Err(format!("拉取远端配置失败: HTTP {status}"));
         }
 
-        let bytes = response
-            .bytes()
-            .await
-            .map_err(|error| format!("读取远端配置失败: {error}"))?;
-        if bytes.len() > MAX_REMOTE_BODY_BYTES {
-            return Err(format!("远端配置超过 {} 字节上限", MAX_REMOTE_BODY_BYTES));
-        }
-        return String::from_utf8(bytes.to_vec())
-            .map_err(|error| format!("远端配置不是合法 UTF-8: {error}"));
+        return read_body_limited(response).await;
     }
 
     Err(format!("远端配置跳转超过 {MAX_REMOTE_REDIRECTS} 次上限"))
+}
+
+/// 构造仅连接已校验公网地址的客户端；域名请求用 resolve_to_addrs 固定解析结果。
+fn build_pinned_http_client(
+    url: &Url,
+    safe_addrs: &[SocketAddr],
+) -> Result<reqwest::Client, String> {
+    let mut builder = reqwest::Client::builder()
+        .timeout(REMOTE_FETCH_TIMEOUT)
+        .redirect(reqwest::redirect::Policy::none());
+
+    let host = url
+        .host_str()
+        .ok_or_else(|| "远端 URL 缺少主机名".to_string())?;
+    // 字面量 IP 无需钉 DNS；域名必须钉到已过滤的公网地址集合
+    if host.parse::<IpAddr>().is_err() {
+        builder = builder.resolve_to_addrs(host, safe_addrs);
+    }
+
+    builder
+        .build()
+        .map_err(|error| format!("创建 HTTP 客户端失败: {error}"))
+}
+
+/// 流式读取响应体，累计超过上限立即中止，避免先全量缓冲再校验。
+async fn read_body_limited(mut response: reqwest::Response) -> Result<String, String> {
+    if let Some(content_length) = response.content_length() {
+        if content_length as usize > MAX_REMOTE_BODY_BYTES {
+            return Err(format!(
+                "远端配置 Content-Length 超过 {} 字节上限",
+                MAX_REMOTE_BODY_BYTES
+            ));
+        }
+    }
+
+    let mut body = Vec::new();
+    loop {
+        let chunk = response
+            .chunk()
+            .await
+            .map_err(|error| format!("读取远端配置失败: {error}"))?;
+        let Some(chunk) = chunk else {
+            break;
+        };
+        if body.len().saturating_add(chunk.len()) > MAX_REMOTE_BODY_BYTES {
+            return Err(format!("远端配置超过 {} 字节上限", MAX_REMOTE_BODY_BYTES));
+        }
+        body.extend_from_slice(&chunk);
+    }
+
+    String::from_utf8(body).map_err(|error| format!("远端配置不是合法 UTF-8: {error}"))
 }
 
 fn validate_https_url_for_fetch(raw: &str) -> Result<Url, String> {
@@ -392,35 +432,37 @@ fn resolve_redirect_url(base: &Url, location: &str) -> Result<Url, String> {
     validate_https_url_for_fetch(next.as_str())
 }
 
-fn ensure_host_not_blocked(url: &Url) -> Result<(), String> {
+/// 解析主机并只保留公网地址。调用方必须把结果钉进 HTTP 客户端，禁止再走系统 DNS。
+fn resolve_public_socket_addrs(url: &Url) -> Result<Vec<SocketAddr>, String> {
     let host = url
         .host_str()
         .ok_or_else(|| "远端 URL 缺少主机名".to_string())?;
-    // 字面量 IP
+    let port = url.port_or_known_default().unwrap_or(443);
+
+    // 字面量 IP：直接判定，无 DNS 二次解析问题
     if let Ok(ip) = host.parse::<IpAddr>() {
         if is_blocked_ip(ip) {
             return Err("远端导入禁止访问内网或本机地址".to_string());
         }
-        return Ok(());
+        return Ok(vec![SocketAddr::new(ip, port)]);
     }
 
-    let port = url.port_or_known_default().unwrap_or(443);
-    let addrs = (host, port)
+    let resolved: Vec<SocketAddr> = (host, port)
         .to_socket_addrs()
-        .map_err(|error| format!("解析远端主机失败: {error}"))?;
-    let mut saw_any = false;
-    for addr in addrs {
-        saw_any = true;
-        if is_blocked_ip(addr.ip()) {
-            return Err("远端导入禁止访问内网或本机地址".to_string());
-        }
-        // 仅检查 IP，不实际连接
-        let _: SocketAddr = addr;
-    }
-    if !saw_any {
+        .map_err(|error| format!("解析远端主机失败: {error}"))?
+        .collect();
+    if resolved.is_empty() {
         return Err("远端主机未能解析到任何地址".to_string());
     }
-    Ok(())
+
+    let public: Vec<SocketAddr> = resolved
+        .into_iter()
+        .filter(|addr| !is_blocked_ip(addr.ip()))
+        .collect();
+    if public.is_empty() {
+        return Err("远端导入禁止访问内网或本机地址".to_string());
+    }
+    Ok(public)
 }
 
 fn is_blocked_ip(ip: IpAddr) -> bool {
@@ -536,6 +578,29 @@ mod tests {
         assert!(is_blocked_ip("169.254.169.254".parse().unwrap()));
         assert!(is_blocked_ip("::1".parse().unwrap()));
         assert!(!is_blocked_ip("1.1.1.1".parse().unwrap()));
+    }
+
+    #[test]
+    fn resolve_public_socket_addrs_rejects_private_literal_ip() {
+        let url = Url::parse("https://169.254.169.254/latest/meta-data").unwrap();
+        let err = resolve_public_socket_addrs(&url).unwrap_err();
+        assert!(err.contains("禁止访问"));
+    }
+
+    #[test]
+    fn resolve_public_socket_addrs_accepts_public_literal_ip() {
+        let url = Url::parse("https://1.1.1.1/path").unwrap();
+        let addrs = resolve_public_socket_addrs(&url).unwrap();
+        assert_eq!(addrs.len(), 1);
+        assert_eq!(addrs[0].ip(), "1.1.1.1".parse::<IpAddr>().unwrap());
+        assert_eq!(addrs[0].port(), 443);
+    }
+
+    #[test]
+    fn resolve_public_socket_addrs_respects_explicit_port() {
+        let url = Url::parse("https://8.8.8.8:8443/x").unwrap();
+        let addrs = resolve_public_socket_addrs(&url).unwrap();
+        assert_eq!(addrs[0].port(), 8443);
     }
 
     #[test]

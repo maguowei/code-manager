@@ -281,6 +281,12 @@ function App() {
     [activateTab, runWithEditorExitGuard],
   );
 
+  // Toast/i18n 走 ref，避免语言切换重建 drain 回调并误触发冷启动 effect
+  const showToastRef = useRef(showToast);
+  const tRef = useRef(t);
+  showToastRef.current = showToast;
+  tRef.current = t;
+
   // 配置导入 deep link：drain 后端 pending 队列，切到配置页交给 ProfilesPage 排队预览
   const drainProfileImportDeepLinks = useCallback(async () => {
     if (!isTauri()) return;
@@ -296,9 +302,13 @@ function App() {
         activateTab("configs");
       });
     } catch (error) {
-      showOperationError(showToast, t("profiles.import.deepLink.toast.resolveError"), error);
+      showOperationError(
+        showToastRef.current,
+        tRef.current("profiles.import.deepLink.toast.resolveError"),
+        error,
+      );
     }
-  }, [activateTab, runWithEditorExitGuard, showToast, t]);
+  }, [activateTab, runWithEditorExitGuard]);
 
   useEffect(() => {
     if (loading) return;
