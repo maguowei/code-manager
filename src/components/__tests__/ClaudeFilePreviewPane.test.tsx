@@ -92,6 +92,11 @@ const preview = {
   size: 640_000,
   modifiedAt: 10,
   encoding: "utf-8",
+  isSymlink: false,
+  viaSymlinkPath: null,
+  linkTarget: null,
+  linkTargetAbsolute: null,
+  isBroken: false,
 } as const;
 
 function buildPane(props: Partial<ComponentProps<typeof ClaudeFilePreviewPane>> = {}) {

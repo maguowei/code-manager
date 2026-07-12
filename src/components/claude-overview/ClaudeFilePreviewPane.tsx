@@ -26,6 +26,7 @@ import {
   formatBytes,
   formatModifiedAt,
   formatPreviewEncoding,
+  formatPreviewSymlinkFooter,
   isMarkdownPath,
   type PreviewViewMode,
 } from "./file-viewer-utils";
@@ -193,7 +194,7 @@ export function ClaudeFilePreviewPane({
   onOpenEditor,
 }: ClaudeFilePreviewPaneProps) {
   const previewFile = useMemo(() => {
-    if (!activePreview || activePreview.isBinary) {
+    if (!activePreview || activePreview.isBinary || activePreview.isBroken) {
       return null;
     }
     return fileContentsForPreview(activePreview);
@@ -203,8 +204,13 @@ export function ClaudeFilePreviewPane({
     activePreview?.modifiedAt,
     activePreview?.content,
     activePreview?.isBinary,
+    activePreview?.isBroken,
     activePreview,
   ]);
+  const symlinkFooter = useMemo(
+    () => (activePreview ? formatPreviewSymlinkFooter(activePreview, t) : null),
+    [activePreview, t],
+  );
   const previewFileOptions = useMemo(
     () => ({
       ...PIERRE_FILE_OPTIONS,
@@ -375,7 +381,11 @@ export function ClaudeFilePreviewPane({
             ref={contentFreezeRef}
             className="claude-overview-preview-body flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
           >
-            {activePreview.isBinary ? (
+            {activePreview.isBroken ? (
+              <div className="claude-overview-empty flex min-h-[180px] flex-1 items-center justify-center p-5 text-center leading-relaxed text-muted-foreground">
+                {t("claudeOverview.brokenSymlinkPreview")}
+              </div>
+            ) : activePreview.isBinary ? (
               <div className="claude-overview-empty flex min-h-[180px] flex-1 items-center justify-center p-5 text-center leading-relaxed text-muted-foreground">
                 {t("claudeOverview.binaryFile")}
               </div>
@@ -403,11 +413,24 @@ export function ClaudeFilePreviewPane({
             className="claude-overview-preview-footer flex min-h-[34px] shrink-0 items-center border-t bg-card/95 px-4 py-1 max-[700px]:flex-col max-[700px]:items-start"
             data-testid="claude-overview-preview-footer"
           >
-            <div className="claude-overview-preview-summary flex min-w-0 items-center gap-2 overflow-hidden truncate whitespace-nowrap text-xs leading-tight text-muted-foreground">
-              <span>{formatBytes(activePreview.size)}</span>
-              <span>{formatModifiedAt(activeEntry?.modifiedAt ?? activePreview.modifiedAt)}</span>
-              <span>{formatPreviewEncoding(activePreview.encoding, t)}</span>
-              {activePreview.truncated ? <span>{t("claudeOverview.fileTruncated")}</span> : null}
+            <div className="claude-overview-preview-summary flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-tight text-muted-foreground">
+              <span className="shrink-0">{formatBytes(activePreview.size)}</span>
+              <span className="shrink-0">
+                {formatModifiedAt(activeEntry?.modifiedAt ?? activePreview.modifiedAt)}
+              </span>
+              <span className="shrink-0">{formatPreviewEncoding(activePreview.encoding, t)}</span>
+              {activePreview.truncated ? (
+                <span className="shrink-0">{t("claudeOverview.fileTruncated")}</span>
+              ) : null}
+              {symlinkFooter ? (
+                <span
+                  className="min-w-0 truncate font-mono"
+                  title={symlinkFooter}
+                  data-testid="claude-overview-preview-symlink"
+                >
+                  {symlinkFooter}
+                </span>
+              ) : null}
             </div>
           </div>
         </>

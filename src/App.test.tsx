@@ -496,6 +496,14 @@ class ResizeObserverMock {
   disconnect() {}
 }
 
+const DIRECTORY_ENTRY_DEFAULTS = {
+  isSymlink: false,
+  linkTarget: null,
+  linkTargetAbsolute: null,
+  isBroken: false,
+  isCycle: false,
+} as const;
+
 const CLAUDE_OVERVIEW_FIXTURE = {
   rootPath: "/Users/test/.claude",
   maxEntries: 100000,
@@ -507,6 +515,7 @@ const CLAUDE_OVERVIEW_FIXTURE = {
       kind: "directory",
       size: 0,
       modifiedAt: 1,
+      ...DIRECTORY_ENTRY_DEFAULTS,
     },
     {
       path: "scripts/check-license-rule.js",
@@ -514,6 +523,7 @@ const CLAUDE_OVERVIEW_FIXTURE = {
       kind: "file",
       size: 48,
       modifiedAt: 1,
+      ...DIRECTORY_ENTRY_DEFAULTS,
     },
     {
       path: "settings.json",
@@ -521,12 +531,13 @@ const CLAUDE_OVERVIEW_FIXTURE = {
       kind: "file",
       size: 19,
       modifiedAt: 2,
+      ...DIRECTORY_ENTRY_DEFAULTS,
     },
   ],
   truncated: false,
   reachedEntryLimit: false,
   reachedDepthLimit: false,
-  skippedSymlinkCount: 0,
+  symlinkCount: 0,
   skippedNodeModulesCount: 0,
 };
 
@@ -616,6 +627,11 @@ describe("App", () => {
           size: 7,
           modifiedAt: 2,
           encoding: "utf-8",
+          isSymlink: false,
+          viaSymlinkPath: null,
+          linkTarget: null,
+          linkTargetAbsolute: null,
+          isBroken: false,
         };
       }
       return null;
@@ -941,7 +957,7 @@ describe("App", () => {
       truncated: false,
       reachedEntryLimit: false,
       reachedDepthLimit: false,
-      skippedSymlinkCount: 0,
+      symlinkCount: 0,
       skippedNodeModulesCount: 2,
     };
     invokeMock.mockImplementation(async (command, args) => {
@@ -963,6 +979,11 @@ describe("App", () => {
             size: 19,
             modifiedAt: 2,
             encoding: "utf-8",
+            isSymlink: false,
+            viaSymlinkPath: null,
+            linkTarget: null,
+            linkTargetAbsolute: null,
+            isBroken: false,
           };
         }
         return {
@@ -974,6 +995,11 @@ describe("App", () => {
           size: 48,
           modifiedAt: 1,
           encoding: "utf-8",
+          isSymlink: false,
+          viaSymlinkPath: null,
+          linkTarget: null,
+          linkTargetAbsolute: null,
+          isBroken: false,
         };
       }
       return null;
@@ -1189,6 +1215,11 @@ describe("App", () => {
           size: 18,
           modifiedAt: 2,
           encoding: "utf-8",
+          isSymlink: false,
+          viaSymlinkPath: null,
+          linkTarget: null,
+          linkTargetAbsolute: null,
+          isBroken: false,
         };
       }
       return null;
@@ -1528,6 +1559,11 @@ describe("App", () => {
           size: previewCallCount === 1 ? 18 : 16,
           modifiedAt: previewCallCount === 1 ? 2 : 8,
           encoding: "utf-8",
+          isSymlink: false,
+          viaSymlinkPath: null,
+          linkTarget: null,
+          linkTargetAbsolute: null,
+          isBroken: false,
         };
       }
       return null;
@@ -1594,6 +1630,11 @@ describe("App", () => {
           size: 18,
           modifiedAt: 2,
           encoding: "utf-8",
+          isSymlink: false,
+          viaSymlinkPath: null,
+          linkTarget: null,
+          linkTargetAbsolute: null,
+          isBroken: false,
         };
       }
       return null;

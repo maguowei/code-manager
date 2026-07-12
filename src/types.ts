@@ -361,6 +361,16 @@ export interface ClaudeDirectoryEntry {
   kind: ClaudeDirectoryEntryKind;
   size: number;
   modifiedAt: number;
+  /** 该项自身是否为软链（后代经软链可达时仍为 false） */
+  isSymlink: boolean;
+  /** read_link 原始目标 */
+  linkTarget?: string | null;
+  /** 解析后的绝对目标；损坏时为空 */
+  linkTargetAbsolute?: string | null;
+  /** 目标不存在或不可解析 */
+  isBroken: boolean;
+  /** 真实路径已扫描过（环/菱形），不再递归 */
+  isCycle: boolean;
 }
 
 export interface ClaudeDirectoryOverview {
@@ -371,7 +381,8 @@ export interface ClaudeDirectoryOverview {
   truncated: boolean;
   reachedEntryLimit: boolean;
   reachedDepthLimit: boolean;
-  skippedSymlinkCount: number;
+  /** 扫描到的软链条目数（已收录） */
+  symlinkCount: number;
   skippedNodeModulesCount: number;
 }
 
@@ -384,6 +395,13 @@ export interface ClaudeFilePreview {
   size: number;
   modifiedAt: number;
   encoding: string;
+  /** 叶子节点自身是否为软链 */
+  isSymlink: boolean;
+  /** 路径上第一个软链的逻辑相对路径 */
+  viaSymlinkPath?: string | null;
+  linkTarget?: string | null;
+  linkTargetAbsolute?: string | null;
+  isBroken: boolean;
 }
 
 /** 项目级 settings 文件的归属（共享 vs 本地覆盖） */

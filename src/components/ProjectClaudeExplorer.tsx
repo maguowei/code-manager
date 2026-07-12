@@ -21,6 +21,7 @@ import { ClaudeFilePreviewPane } from "./claude-overview/ClaudeFilePreviewPane";
 import {
   absolutePreviewPath,
   defaultViewModeForPath,
+  formatSymlinkTargetLabel,
   normalizeTreePath,
   type PreviewViewMode,
   treePathForEntry,
@@ -160,6 +161,30 @@ function ProjectClaudeExplorerBody({
     () => (overview?.entries ?? []).map(treePathForEntry),
     [overview?.entries],
   );
+  const symlinkMetaByPath = useMemo(() => {
+    const map = new Map<
+      string,
+      { isSymlink: boolean; isBroken: boolean; isCycle: boolean; tooltip: string }
+    >();
+    for (const entry of overview?.entries ?? []) {
+      if (!entry.isSymlink) {
+        continue;
+      }
+      map.set(entry.path, {
+        isSymlink: true,
+        isBroken: entry.isBroken,
+        isCycle: entry.isCycle,
+        tooltip: formatSymlinkTargetLabel({
+          linkTarget: entry.linkTarget,
+          linkTargetAbsolute: entry.linkTargetAbsolute,
+          isBroken: entry.isBroken,
+          isCycle: entry.isCycle,
+          t,
+        }),
+      });
+    }
+    return map;
+  }, [overview?.entries, t]);
   const activePreview = useMemo(
     () => openPreviews.find((preview) => preview.path === activePreviewPath) ?? null,
     [activePreviewPath, openPreviews],
@@ -389,7 +414,11 @@ function ProjectClaudeExplorerBody({
                 PANEL_SURFACE_CLASS,
               )}
             >
-              <ClaudeDirectoryTree paths={treePaths} onSelectPath={handleSelectPath} />
+              <ClaudeDirectoryTree
+                paths={treePaths}
+                symlinkMetaByPath={symlinkMetaByPath}
+                onSelectPath={handleSelectPath}
+              />
             </div>
           ) : (
             <div

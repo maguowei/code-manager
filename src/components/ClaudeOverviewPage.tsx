@@ -13,6 +13,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { showOperationError } from "@/lib/user-facing-error";
 import { useIsNarrowViewport } from "../hooks/useIsNarrowViewport";
 import useTauriEvent from "../hooks/useTauriEvent";
@@ -37,8 +38,10 @@ import { ClaudeFilePreviewPane } from "./claude-overview/ClaudeFilePreviewPane";
 import {
   absolutePreviewPath,
   defaultViewModeForPath,
+  formatSymlinkTargetLabel,
   normalizeTreePath,
   type PreviewViewMode,
+  pathCrossesSymlink,
   treePathForEntry,
 } from "./claude-overview/file-viewer-utils";
 import { PANEL_SURFACE_CLASS } from "./surface-classes";
@@ -67,7 +70,7 @@ const EMPTY_OVERVIEW_STATE: ClaudeDirectoryOverview = {
   truncated: false,
   reachedEntryLimit: false,
   reachedDepthLimit: false,
-  skippedSymlinkCount: 0,
+  symlinkCount: 0,
   skippedNodeModulesCount: 0,
 };
 
@@ -156,8 +159,22 @@ function contextMenuItemKind(item: ContextMenuItem): ClaudeDirectoryEntryOperati
 }
 
 function contextMenuParentPath(item: ContextMenuItem) {
-  const path = normalizeTreePath(item.path);
+  const path = normalizeTreePath(item.path ?? "");
+  if (!path) {
+    return null;
+  }
   return item.kind === "directory" ? path : getParentPath(path);
+}
+
+// pierre 三点触发器的 aria-label 固定为 "Options"，不能当文件名用；右键菜单才带真实 basename。
+function contextMenuEntryName(item: ContextMenuItem) {
+  const rawName = item.name?.trim() ?? "";
+  if (rawName && rawName !== "Options" && !rawName.startsWith("Options ")) {
+    return rawName;
+  }
+  const path = normalizeTreePath(item.path);
+  const base = path.split("/").pop();
+  return base && base.length > 0 ? base : path;
 }
 
 function isSameOrDescendantPath(path: string, targetPath: string) {
@@ -198,6 +215,7 @@ function getClaudeDirectoryDocsUrl(language: Language) {
 interface ClaudeOverviewContextMenuProps {
   context: ContextMenuOpenContext;
   item: ContextMenuItem;
+  readOnly: boolean;
   onCreate: (item: ContextMenuItem, kind: ClaudeDirectoryEntryOperationKind) => void;
   onDelete: (item: ContextMenuItem) => void;
   onRename: (item: ContextMenuItem) => void;
@@ -207,6 +225,7 @@ interface ClaudeOverviewContextMenuProps {
 function ClaudeOverviewContextMenu({
   context,
   item,
+  readOnly,
   onCreate,
   onDelete,
   onRename,
@@ -218,11 +237,26 @@ function ClaudeOverviewContextMenu({
     action();
   };
 
-  return (
+  // 必须 portal 到 body：树面板有 overflow-hidden + contain:content，
+  // 菜单若留在 slot 内会被裁切，表现为三点/右键「完全没反应」。
+  // data-file-tree-context-menu-root 让 pierre 把 portal 内点击识别为菜单内部点击。
+  const menu = readOnly ? (
     <div
       className="claude-overview-context-menu z-50 flex min-w-39 flex-col gap-0.5 rounded-md border bg-popover p-1 text-popover-foreground shadow-lg"
       role="menu"
       style={menuStyle}
+      data-file-tree-context-menu-root="true"
+    >
+      <div className="px-2 py-1.5 text-xs text-muted-foreground" role="note">
+        {t("claudeOverview.symlinkReadOnly")}
+      </div>
+    </div>
+  ) : (
+    <div
+      className="claude-overview-context-menu z-50 flex min-w-39 flex-col gap-0.5 rounded-md border bg-popover p-1 text-popover-foreground shadow-lg"
+      role="menu"
+      style={menuStyle}
+      data-file-tree-context-menu-root="true"
     >
       <Button
         type="button"
@@ -266,6 +300,11 @@ function ClaudeOverviewContextMenu({
       </Button>
     </div>
   );
+
+  if (typeof document === "undefined") {
+    return menu;
+  }
+  return createPortal(menu, document.body);
 }
 
 interface ClaudeOverviewNameDialogProps {
@@ -657,7 +696,7 @@ function ClaudeOverviewPage({ active = false }: { active?: boolean }) {
       kind: contextMenuItemKind(item),
       path: normalizeTreePath(item.path),
       parentPath: getParentPath(item.path),
-      initialName: item.name,
+      initialName: contextMenuEntryName(item),
       titleKey: "claudeOverview.renameTitle",
       confirmKey: "claudeOverview.contextMenu.rename",
     });
@@ -666,7 +705,7 @@ function ClaudeOverviewPage({ active = false }: { active?: boolean }) {
   const handleDeleteFromContextMenu = useCallback((item: ContextMenuItem) => {
     setPendingDeleteEntry({
       kind: contextMenuItemKind(item),
-      name: item.name,
+      name: contextMenuEntryName(item),
       path: normalizeTreePath(item.path),
     });
   }, []);
@@ -757,19 +796,63 @@ function ClaudeOverviewPage({ active = false }: { active?: boolean }) {
     }
   }, [loadOverview, pendingDeleteEntry, showToast, t]);
 
+  // 用 ref 读 entryByPath，避免 Map 换引用导致 renderContextMenu 身份抖动
+  const entryByPathRef = useRef(entryByPath);
+  entryByPathRef.current = entryByPath;
+
   const renderTreeContextMenu = useCallback(
-    (item: ContextMenuItem, context: ContextMenuOpenContext) => (
-      <ClaudeOverviewContextMenu
-        context={context}
-        item={item}
-        onCreate={handleCreateFromContextMenu}
-        onDelete={handleDeleteFromContextMenu}
-        onRename={handleRenameFromContextMenu}
-        t={t}
-      />
-    ),
+    (item: ContextMenuItem, context: ContextMenuOpenContext) => {
+      const itemPath = normalizeTreePath(item.path ?? "");
+      const parentPath = contextMenuParentPath(item);
+      // 软链节点自身、经软链路径、以及在软链目录内新建，一律只读
+      const entries = entryByPathRef.current;
+      const readOnly =
+        pathCrossesSymlink(itemPath, entries) ||
+        (parentPath != null && pathCrossesSymlink(parentPath, entries));
+      return (
+        <ClaudeOverviewContextMenu
+          context={context}
+          item={item}
+          readOnly={readOnly}
+          onCreate={handleCreateFromContextMenu}
+          onDelete={handleDeleteFromContextMenu}
+          onRename={handleRenameFromContextMenu}
+          t={t}
+        />
+      );
+    },
     [handleCreateFromContextMenu, handleDeleteFromContextMenu, handleRenameFromContextMenu, t],
   );
+
+  const symlinkMetaByPath = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        isSymlink: boolean;
+        isBroken: boolean;
+        isCycle: boolean;
+        tooltip: string;
+      }
+    >();
+    for (const entry of deferredOverviewEntries) {
+      if (!entry.isSymlink) {
+        continue;
+      }
+      map.set(entry.path, {
+        isSymlink: true,
+        isBroken: entry.isBroken,
+        isCycle: entry.isCycle,
+        tooltip: formatSymlinkTargetLabel({
+          linkTarget: entry.linkTarget,
+          linkTargetAbsolute: entry.linkTargetAbsolute,
+          isBroken: entry.isBroken,
+          isCycle: entry.isCycle,
+          t,
+        }),
+      });
+    }
+    return map;
+  }, [deferredOverviewEntries, t]);
 
   const handleSelectPreviewTab = useCallback((path: string) => {
     latestPreviewRequestPathRef.current = path;
@@ -918,12 +1001,9 @@ function ClaudeOverviewPage({ active = false }: { active?: boolean }) {
               {t("claudeOverview.truncatedEntries").replace("{count}", String(overview.maxEntries))}
             </Badge>
           ) : null}
-          {overview.skippedSymlinkCount > 0 ? (
+          {overview.symlinkCount > 0 ? (
             <Badge variant="outline">
-              {t("claudeOverview.skippedSymlinks").replace(
-                "{count}",
-                String(overview.skippedSymlinkCount),
-              )}
+              {t("claudeOverview.symlinkCount").replace("{count}", String(overview.symlinkCount))}
             </Badge>
           ) : null}
           {overview.skippedNodeModulesCount > 0 ? (
@@ -1059,6 +1139,7 @@ function ClaudeOverviewPage({ active = false }: { active?: boolean }) {
                 >
                   <ClaudeDirectoryTree
                     paths={treePaths}
+                    symlinkMetaByPath={symlinkMetaByPath}
                     onSelectPath={handleSelectPath}
                     renderContextMenu={renderTreeContextMenu}
                   />

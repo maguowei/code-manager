@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::fs;
 use std::io::Read;
 use std::path::{Component, Path, PathBuf};
@@ -10,6 +11,8 @@ const NODE_MODULES_DIR_NAME: &str = "node_modules";
 const PREVIEW_ENCODING_UTF8: &str = "utf-8";
 const PREVIEW_ENCODING_UTF8_LOSSY: &str = "utf-8-lossy";
 const PREVIEW_ENCODING_BINARY: &str = "binary";
+const SYMLINK_READ_ONLY_ERROR: &str = "软链接路径只读，无法修改";
+const SYMLINK_TARGET_UNAVAILABLE_ERROR: &str = "软链接目标不可用";
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct ScanOptions {
@@ -32,6 +35,16 @@ pub struct ClaudeDirectoryEntry {
     pub kind: ClaudeDirectoryEntryKind,
     pub size: u64,
     pub modified_at: u64,
+    /// 该项自身是否为软链（后代经软链可达时仍为 false）
+    pub is_symlink: bool,
+    /// `read_link` 原始目标（相对或绝对，按磁盘存储）
+    pub link_target: Option<String>,
+    /// 解析后的绝对目标路径；损坏时为 None
+    pub link_target_absolute: Option<String>,
+    /// 目标不存在或不可解析
+    pub is_broken: bool,
+    /// 目标真实路径已在本次扫描中访问过（环或菱形汇合），不再递归
+    pub is_cycle: bool,
 }
 
 #[derive(Debug, Clone, Serialize, specta::Type)]
@@ -44,7 +57,8 @@ pub struct ClaudeDirectoryOverview {
     pub truncated: bool,
     pub reached_entry_limit: bool,
     pub reached_depth_limit: bool,
-    pub skipped_symlink_count: usize,
+    /// 扫描到的软链条目数（已收录，非跳过）
+    pub symlink_count: usize,
     pub skipped_node_modules_count: usize,
 }
 
@@ -57,7 +71,7 @@ pub struct ClaudeDirectoryListing {
     pub entries: Vec<ClaudeDirectoryEntry>,
     pub truncated: bool,
     pub reached_entry_limit: bool,
-    pub skipped_symlink_count: usize,
+    pub symlink_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize, specta::Type)]
@@ -71,6 +85,24 @@ pub struct ClaudeFilePreview {
     pub size: u64,
     pub modified_at: u64,
     pub encoding: &'static str,
+    /// 叶子节点自身是否为软链
+    pub is_symlink: bool,
+    /// 路径上第一个软链的逻辑相对路径
+    pub via_symlink_path: Option<String>,
+    pub link_target: Option<String>,
+    pub link_target_absolute: Option<String>,
+    pub is_broken: bool,
+}
+
+/// 只读解析结果：允许跟随软链（可出界）
+struct ResolvedReadPath {
+    /// root 下的逻辑路径（仍可经软链由 OS 跟随打开）
+    logical_path: PathBuf,
+    is_symlink: bool,
+    via_symlink_path: Option<String>,
+    link_target: Option<String>,
+    link_target_absolute: Option<String>,
+    is_broken: bool,
 }
 
 #[tauri::command]
@@ -86,12 +118,12 @@ pub fn get_claude_directory_overview() -> Result<ClaudeDirectoryOverview, String
     );
     crate::logging::log_command_result("claude_directory.overview", &result, |overview| {
         format!(
-            "entry_count={} truncated={} entry_limit={} depth_limit={} skipped_symlinks={} skipped_node_modules={}",
+            "entry_count={} truncated={} entry_limit={} depth_limit={} symlinks={} skipped_node_modules={}",
             overview.entries.len(),
             overview.truncated,
             overview.reached_entry_limit,
             overview.reached_depth_limit,
-            overview.skipped_symlink_count,
+            overview.symlink_count,
             overview.skipped_node_modules_count
         )
     });
@@ -108,12 +140,12 @@ pub fn get_claude_directory_children(
         list_claude_directory_children_from_root(&root, path.as_deref(), DEFAULT_MAX_ENTRIES);
     crate::logging::log_command_result("claude_directory.children", &result, |listing| {
         format!(
-            "parent={} entry_count={} truncated={} entry_limit={} skipped_symlinks={}",
+            "parent={} entry_count={} truncated={} entry_limit={} symlinks={}",
             listing.parent_path.as_deref().unwrap_or(""),
             listing.entries.len(),
             listing.truncated,
             listing.reached_entry_limit,
-            listing.skipped_symlink_count
+            listing.symlink_count
         )
     });
     result
@@ -126,12 +158,14 @@ pub fn read_claude_file_preview(path: String) -> Result<ClaudeFilePreview, Strin
     let result = read_claude_file_preview_from_root(&root, &path, DEFAULT_PREVIEW_BYTES);
     crate::logging::log_command_result("claude_directory.preview", &result, |preview| {
         format!(
-            "path={} size={} binary={} truncated={} encoding={}",
+            "path={} size={} binary={} truncated={} encoding={} symlink={} broken={}",
             crate::utils::truncate(&preview.path, 160),
             preview.size,
             preview.is_binary,
             preview.truncated,
-            preview.encoding
+            preview.encoding,
+            preview.is_symlink,
+            preview.is_broken
         )
     });
     result
@@ -143,9 +177,12 @@ pub fn open_claude_file_in_editor(path: String) -> Result<(), String> {
     let result = (|| {
         let root = claude_dir()?;
         let rel_path = validate_relative_claude_path(&path)?;
-        let target_path = resolve_existing_path_inside_root(&root, &rel_path)?;
-        let metadata =
-            fs::metadata(&target_path).map_err(|e| mask_io_error("读取文件元数据", &e))?;
+        let resolved = resolve_path_for_read(&root, &rel_path)?;
+        if resolved.is_broken {
+            return Err(SYMLINK_TARGET_UNAVAILABLE_ERROR.to_string());
+        }
+        let metadata = fs::metadata(&resolved.logical_path)
+            .map_err(|e| mask_io_error("读取文件元数据", &e))?;
         if !metadata.is_file() {
             return Err("只能用默认编辑器打开 ~/.claude 内的文件".to_string());
         }
@@ -154,7 +191,7 @@ pub fn open_claude_file_in_editor(path: String) -> Result<(), String> {
             .default_editor_app
             .as_deref()
             .ok_or_else(|| "请先在设置中选择默认编辑器".to_string())?;
-        crate::native_open::open_path_in_editor(&target_path, editor)
+        crate::native_open::open_path_in_editor(&resolved.logical_path, editor)
     })();
     crate::logging::log_command_result("claude_directory.open_editor", &result, |_| {
         format!("path={}", crate::utils::truncate(&path, 160))
@@ -245,7 +282,7 @@ pub(crate) fn scan_claude_directory_with_options(
         truncated: false,
         reached_entry_limit: false,
         reached_depth_limit: false,
-        skipped_symlink_count: 0,
+        symlink_count: 0,
         skipped_node_modules_count: 0,
     };
 
@@ -258,7 +295,11 @@ pub(crate) fn scan_claude_directory_with_options(
         Err(_) => return Ok(overview),
     }
 
-    collect_entries(root, root, 0, options, &mut overview)?;
+    let mut visited = HashSet::new();
+    if let Ok(root_canonical) = fs::canonicalize(root) {
+        visited.insert(root_canonical);
+    }
+    collect_entries(root, root, 0, options, &mut overview, &mut visited)?;
     Ok(overview)
 }
 
@@ -272,7 +313,13 @@ pub(crate) fn list_claude_directory_children_from_root(
         None => None,
     };
     let parent_path = match &parent_rel_path {
-        Some(rel_path) => resolve_existing_path_inside_root(root, rel_path)?,
+        Some(rel_path) => {
+            let resolved = resolve_path_for_read(root, rel_path)?;
+            if resolved.is_broken {
+                return Err(SYMLINK_TARGET_UNAVAILABLE_ERROR.to_string());
+            }
+            resolved.logical_path
+        }
         None => root.to_path_buf(),
     };
     let parent_path_label = parent_rel_path.as_deref().map(normalize_relative_path);
@@ -283,7 +330,7 @@ pub(crate) fn list_claude_directory_children_from_root(
         entries: Vec::new(),
         truncated: false,
         reached_entry_limit: false,
-        skipped_symlink_count: 0,
+        symlink_count: 0,
     };
 
     match fs::metadata(root) {
@@ -294,11 +341,14 @@ pub(crate) fn list_claude_directory_children_from_root(
         }
         Err(_) => return Ok(listing),
     }
-    if !parent_path.is_dir() {
+    let parent_meta =
+        fs::metadata(&parent_path).map_err(|e| mask_io_error("读取目录元数据", &e))?;
+    if !parent_meta.is_dir() {
         return Err("只能读取 ~/.claude 内的目录".to_string());
     }
 
-    collect_direct_entries(root, &parent_path, max_entries, &mut listing)?;
+    // 子列表不做全局环去重展开（无递归）；仅标注本层软链是否损坏
+    collect_direct_entries(root, &parent_path, max_entries, &mut listing, None)?;
     Ok(listing)
 }
 
@@ -307,6 +357,7 @@ fn collect_direct_entries(
     current: &Path,
     max_entries: usize,
     listing: &mut ClaudeDirectoryListing,
+    visited: Option<&HashSet<PathBuf>>,
 ) -> Result<(), String> {
     let mut entries = fs::read_dir(current)
         .map_err(|e| mask_io_error("读取目录", &e))?
@@ -321,22 +372,20 @@ fn collect_direct_entries(
             return Ok(());
         }
 
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().to_string();
         let file_type = entry
             .file_type()
             .map_err(|e| mask_io_error("获取文件类型", &e))?;
-        if file_type.is_symlink() {
-            listing.skipped_symlink_count += 1;
+        let Some(directory_entry) =
+            build_directory_entry(root, &path, name, file_type.is_symlink(), visited)?
+        else {
             continue;
+        };
+        if directory_entry.is_symlink {
+            listing.symlink_count += 1;
         }
-
-        let path = entry.path();
-        let metadata = entry
-            .metadata()
-            .map_err(|e| mask_io_error("读取文件元数据", &e))?;
-        let name = entry.file_name().to_string_lossy().to_string();
-        if let Some(directory_entry) = claude_directory_entry(root, &path, name, &metadata)? {
-            listing.entries.push(directory_entry);
-        }
+        listing.entries.push(directory_entry);
     }
 
     Ok(())
@@ -348,6 +397,7 @@ fn collect_entries(
     depth: usize,
     options: ScanOptions,
     overview: &mut ClaudeDirectoryOverview,
+    visited: &mut HashSet<PathBuf>,
 ) -> Result<(), String> {
     if depth >= options.max_depth {
         overview.truncated = true;
@@ -368,65 +418,139 @@ fn collect_entries(
             return Ok(());
         }
 
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().to_string();
         let file_type = entry
             .file_type()
             .map_err(|e| mask_io_error("获取文件类型", &e))?;
-        if file_type.is_symlink() {
-            overview.skipped_symlink_count += 1;
+        let is_symlink = file_type.is_symlink();
+
+        let Some(directory_entry) =
+            build_directory_entry(root, &path, name.clone(), is_symlink, Some(visited))?
+        else {
+            continue;
+        };
+
+        if directory_entry.is_symlink {
+            overview.symlink_count += 1;
+        }
+
+        // node_modules：真目录与指向目录的软链都跳过展开（仍不收录其内部）
+        if directory_entry.kind == ClaudeDirectoryEntryKind::Directory
+            && name == NODE_MODULES_DIR_NAME
+            && !directory_entry.is_broken
+        {
+            overview.skipped_node_modules_count += 1;
             continue;
         }
 
-        let path = entry.path();
-        let metadata = entry
-            .metadata()
-            .map_err(|e| mask_io_error("读取文件元数据", &e))?;
-        let rel_path = relative_path(root, &path)?;
-        let name = entry.file_name().to_string_lossy().to_string();
+        let should_recurse = directory_entry.kind == ClaudeDirectoryEntryKind::Directory
+            && !directory_entry.is_broken
+            && !directory_entry.is_cycle;
 
-        if metadata.is_dir() {
-            if name == NODE_MODULES_DIR_NAME {
-                overview.skipped_node_modules_count += 1;
-                continue;
+        overview.entries.push(directory_entry);
+
+        if should_recurse {
+            // 递归前登记真实路径，防止环与菱形重复展开
+            if let Ok(canonical) = fs::canonicalize(&path) {
+                visited.insert(canonical);
             }
-            overview.entries.push(ClaudeDirectoryEntry {
-                path: rel_path,
-                name,
-                kind: ClaudeDirectoryEntryKind::Directory,
-                size: 0,
-                modified_at: crate::utils::metadata_modified_secs(&metadata),
-            });
-            collect_entries(root, &path, depth + 1, options, overview)?;
+            collect_entries(root, &path, depth + 1, options, overview, visited)?;
             if overview.reached_entry_limit {
                 return Ok(());
             }
-        } else if metadata.is_file() {
-            overview.entries.push(ClaudeDirectoryEntry {
-                path: rel_path,
-                name,
-                kind: ClaudeDirectoryEntryKind::File,
-                size: metadata.len(),
-                modified_at: crate::utils::metadata_modified_secs(&metadata),
-            });
         }
     }
 
     Ok(())
 }
 
-fn claude_directory_entry(
+fn build_directory_entry(
     root: &Path,
     path: &Path,
     name: String,
-    metadata: &fs::Metadata,
+    is_symlink: bool,
+    visited: Option<&HashSet<PathBuf>>,
 ) -> Result<Option<ClaudeDirectoryEntry>, String> {
     let rel_path = relative_path(root, path)?;
+
+    if is_symlink {
+        let link_target = fs::read_link(path)
+            .ok()
+            .map(|target| target.to_string_lossy().into_owned());
+        let link_target_absolute = fs::canonicalize(path)
+            .ok()
+            .map(|target| target.to_string_lossy().into_owned());
+        let symlink_meta = fs::symlink_metadata(path).ok();
+        let modified_at = symlink_meta
+            .as_ref()
+            .map(crate::utils::metadata_modified_secs)
+            .unwrap_or(0);
+
+        match fs::metadata(path) {
+            Ok(target_meta) if target_meta.is_dir() => {
+                let is_cycle = link_target_absolute
+                    .as_ref()
+                    .and_then(|absolute| visited.map(|set| set.contains(&PathBuf::from(absolute))))
+                    .unwrap_or(false);
+                return Ok(Some(ClaudeDirectoryEntry {
+                    path: rel_path,
+                    name,
+                    kind: ClaudeDirectoryEntryKind::Directory,
+                    size: 0,
+                    modified_at,
+                    is_symlink: true,
+                    link_target,
+                    link_target_absolute,
+                    is_broken: false,
+                    is_cycle,
+                }));
+            }
+            Ok(target_meta) if target_meta.is_file() => {
+                return Ok(Some(ClaudeDirectoryEntry {
+                    path: rel_path,
+                    name,
+                    kind: ClaudeDirectoryEntryKind::File,
+                    size: target_meta.len(),
+                    modified_at: crate::utils::metadata_modified_secs(&target_meta),
+                    is_symlink: true,
+                    link_target,
+                    link_target_absolute,
+                    is_broken: false,
+                    is_cycle: false,
+                }));
+            }
+            _ => {
+                // 损坏或非常规目标：以文件叶子展示，避免空展开
+                return Ok(Some(ClaudeDirectoryEntry {
+                    path: rel_path,
+                    name,
+                    kind: ClaudeDirectoryEntryKind::File,
+                    size: 0,
+                    modified_at,
+                    is_symlink: true,
+                    link_target,
+                    link_target_absolute: None,
+                    is_broken: true,
+                    is_cycle: false,
+                }));
+            }
+        }
+    }
+
+    let metadata = fs::metadata(path).map_err(|e| mask_io_error("读取文件元数据", &e))?;
     if metadata.is_dir() {
         return Ok(Some(ClaudeDirectoryEntry {
             path: rel_path,
             name,
             kind: ClaudeDirectoryEntryKind::Directory,
             size: 0,
-            modified_at: crate::utils::metadata_modified_secs(metadata),
+            modified_at: crate::utils::metadata_modified_secs(&metadata),
+            is_symlink: false,
+            link_target: None,
+            link_target_absolute: None,
+            is_broken: false,
+            is_cycle: false,
         }));
     }
     if metadata.is_file() {
@@ -435,7 +559,12 @@ fn claude_directory_entry(
             name,
             kind: ClaudeDirectoryEntryKind::File,
             size: metadata.len(),
-            modified_at: crate::utils::metadata_modified_secs(metadata),
+            modified_at: crate::utils::metadata_modified_secs(&metadata),
+            is_symlink: false,
+            link_target: None,
+            link_target_absolute: None,
+            is_broken: false,
+            is_cycle: false,
         }));
     }
     Ok(None)
@@ -447,13 +576,65 @@ pub(crate) fn read_claude_file_preview_from_root(
     max_bytes: usize,
 ) -> Result<ClaudeFilePreview, String> {
     let rel_path = validate_relative_claude_path(path)?;
-    let file_path = resolve_existing_path_inside_root(root, &rel_path)?;
-    let metadata = fs::metadata(&file_path).map_err(|e| mask_io_error("读取文件元数据", &e))?;
+    let resolved = resolve_path_for_read(root, &rel_path)?;
+    let normalized_path = normalize_relative_path(&rel_path);
+    let name = rel_path
+        .file_name()
+        .map(|name| name.to_string_lossy().to_string())
+        .unwrap_or_else(|| normalized_path.clone());
+
+    if resolved.is_broken {
+        let modified_at = fs::symlink_metadata(&resolved.logical_path)
+            .ok()
+            .map(|meta| crate::utils::metadata_modified_secs(&meta))
+            .unwrap_or(0);
+        return Ok(ClaudeFilePreview {
+            path: normalized_path,
+            name,
+            content: String::new(),
+            is_binary: false,
+            truncated: false,
+            size: 0,
+            modified_at,
+            encoding: PREVIEW_ENCODING_UTF8,
+            is_symlink: resolved.is_symlink,
+            via_symlink_path: resolved.via_symlink_path,
+            link_target: resolved.link_target,
+            link_target_absolute: resolved.link_target_absolute,
+            is_broken: true,
+        });
+    }
+
+    let metadata =
+        fs::metadata(&resolved.logical_path).map_err(|e| mask_io_error("读取文件元数据", &e))?;
     if !metadata.is_file() {
         return Err("只能读取 ~/.claude 内的文件".to_string());
     }
 
-    let mut file = fs::File::open(&file_path).map_err(|e| mask_io_error("打开文件", &e))?;
+    let size = metadata.len();
+    let modified_at = crate::utils::metadata_modified_secs(&metadata);
+
+    // 已知二进制：只返回元信息，不把内容灌进预览器
+    if is_known_binary_path(&resolved.logical_path) || is_known_binary_path(Path::new(&name)) {
+        return Ok(ClaudeFilePreview {
+            path: normalized_path,
+            name,
+            content: String::new(),
+            is_binary: true,
+            truncated: false,
+            size,
+            modified_at,
+            encoding: PREVIEW_ENCODING_BINARY,
+            is_symlink: resolved.is_symlink,
+            via_symlink_path: resolved.via_symlink_path,
+            link_target: resolved.link_target,
+            link_target_absolute: resolved.link_target_absolute,
+            is_broken: false,
+        });
+    }
+
+    let mut file =
+        fs::File::open(&resolved.logical_path).map_err(|e| mask_io_error("打开文件", &e))?;
     let read_limit = max_bytes.saturating_add(1) as u64;
     let mut bytes = Vec::new();
     file.by_ref()
@@ -466,36 +647,29 @@ pub(crate) fn read_claude_file_preview_from_root(
         bytes.truncate(max_bytes);
     }
 
-    let (content, is_binary, encoding) = match String::from_utf8(bytes) {
-        Ok(content) => (content, false, PREVIEW_ENCODING_UTF8),
-        Err(error) => {
-            let bytes = error.into_bytes();
-            if bytes.contains(&0) {
-                (String::new(), true, PREVIEW_ENCODING_BINARY)
-            } else {
-                (
-                    String::from_utf8_lossy(&bytes).into_owned(),
-                    false,
-                    PREVIEW_ENCODING_UTF8_LOSSY,
-                )
-            }
-        }
+    // 非黑名单一律可预览：合法 UTF-8 或 lossy，不再因 NUL 清空
+    let (content, encoding) = match String::from_utf8(bytes) {
+        Ok(content) => (content, PREVIEW_ENCODING_UTF8),
+        Err(error) => (
+            String::from_utf8_lossy(&error.into_bytes()).into_owned(),
+            PREVIEW_ENCODING_UTF8_LOSSY,
+        ),
     };
-    let normalized_path = normalize_relative_path(&rel_path);
-    let name = rel_path
-        .file_name()
-        .map(|name| name.to_string_lossy().to_string())
-        .unwrap_or_else(|| normalized_path.clone());
 
     Ok(ClaudeFilePreview {
         path: normalized_path,
         name,
         content,
-        is_binary,
+        is_binary: false,
         truncated,
-        size: metadata.len(),
-        modified_at: crate::utils::metadata_modified_secs(&metadata),
+        size,
+        modified_at,
         encoding,
+        is_symlink: resolved.is_symlink,
+        via_symlink_path: resolved.via_symlink_path,
+        link_target: resolved.link_target,
+        link_target_absolute: resolved.link_target_absolute,
+        is_broken: false,
     })
 }
 
@@ -607,9 +781,27 @@ fn validate_relative_claude_operation_path(path: &str) -> Result<PathBuf, String
     validate_relative_claude_path(path).map_err(|_| "只能操作 ~/.claude 内的文件".to_string())
 }
 
+/// 写操作路径：拒绝任何软链组件，且最终必须在 root 内
 fn resolve_operation_path_inside_root(root: &Path, rel_path: &Path) -> Result<PathBuf, String> {
-    resolve_existing_path_inside_root(root, rel_path)
-        .map_err(|_| "只能操作 ~/.claude 内的文件".to_string())
+    let root_canonical =
+        fs::canonicalize(root).map_err(|_| "只能操作 ~/.claude 内的文件".to_string())?;
+    let mut current = root.to_path_buf();
+    for component in rel_path.components() {
+        current.push(component.as_os_str());
+        let metadata = fs::symlink_metadata(&current)
+            .map_err(|_| "只能操作 ~/.claude 内的文件".to_string())?;
+        if metadata.file_type().is_symlink() {
+            return Err(SYMLINK_READ_ONLY_ERROR.to_string());
+        }
+    }
+
+    let current_canonical =
+        fs::canonicalize(&current).map_err(|_| "只能操作 ~/.claude 内的文件".to_string())?;
+    if !current_canonical.starts_with(&root_canonical) {
+        return Err("只能操作 ~/.claude 内的文件".to_string());
+    }
+
+    Ok(current)
 }
 
 pub(crate) fn validate_relative_claude_path(path: &str) -> Result<PathBuf, String> {
@@ -647,30 +839,157 @@ pub(crate) fn validate_relative_claude_path(path: &str) -> Result<PathBuf, Strin
     Ok(rel_path)
 }
 
-pub(crate) fn resolve_existing_path_inside_root(
-    root: &Path,
-    rel_path: &Path,
-) -> Result<PathBuf, String> {
-    // 所有 IO 错误统一为越界文案，防止攻击者通过错误差异判断"路径是否存在但不在白名单"。
-    let root_canonical =
-        fs::canonicalize(root).map_err(|_| "只能读取 ~/.claude 内的文件".to_string())?;
-    let mut current = root.to_path_buf();
-    for component in rel_path.components() {
-        current.push(component.as_os_str());
-        let metadata = fs::symlink_metadata(&current)
+/// 只读解析：允许跟随软链（目标可在 root 外）；相对路径仍禁止 `..`
+fn resolve_path_for_read(root: &Path, rel_path: &Path) -> Result<ResolvedReadPath, String> {
+    let mut logical = root.to_path_buf();
+    let mut via_symlink_path: Option<String> = None;
+    let mut link_target: Option<String> = None;
+    let mut link_target_absolute: Option<String> = None;
+    let mut crossed_symlink = false;
+    let mut leaf_is_symlink = false;
+    let mut is_broken = false;
+
+    let components: Vec<_> = rel_path.components().collect();
+    for (index, component) in components.iter().enumerate() {
+        logical.push(component.as_os_str());
+        let metadata = fs::symlink_metadata(&logical)
             .map_err(|_| "只能读取 ~/.claude 内的文件".to_string())?;
-        if metadata.file_type().is_symlink() {
+        if !metadata.file_type().is_symlink() {
+            continue;
+        }
+
+        crossed_symlink = true;
+        let raw = fs::read_link(&logical)
+            .ok()
+            .map(|target| target.to_string_lossy().into_owned());
+        let absolute = fs::canonicalize(&logical)
+            .ok()
+            .map(|target| target.to_string_lossy().into_owned());
+        let is_leaf = index + 1 == components.len();
+
+        if via_symlink_path.is_none() {
+            let mut via_rel = PathBuf::new();
+            for via_component in components.iter().take(index + 1) {
+                via_rel.push(via_component.as_os_str());
+            }
+            via_symlink_path = Some(normalize_relative_path(&via_rel));
+            link_target = raw.clone();
+            link_target_absolute = absolute.clone();
+        }
+
+        if is_leaf {
+            leaf_is_symlink = true;
+            link_target = raw;
+            link_target_absolute = absolute.clone();
+            if absolute.is_none() {
+                is_broken = true;
+            }
+        } else if absolute.is_none() {
+            return Err(SYMLINK_TARGET_UNAVAILABLE_ERROR.to_string());
+        }
+    }
+
+    // 未经过软链时，最终路径必须仍在 root 内（防意外挂载/越界）
+    if !crossed_symlink {
+        let root_canonical =
+            fs::canonicalize(root).map_err(|_| "只能读取 ~/.claude 内的文件".to_string())?;
+        let current_canonical =
+            fs::canonicalize(&logical).map_err(|_| "只能读取 ~/.claude 内的文件".to_string())?;
+        if !current_canonical.starts_with(&root_canonical) {
             return Err("只能读取 ~/.claude 内的文件".to_string());
         }
     }
 
-    let current_canonical =
-        fs::canonicalize(&current).map_err(|_| "只能读取 ~/.claude 内的文件".to_string())?;
-    if !current_canonical.starts_with(root_canonical) {
-        return Err("只能读取 ~/.claude 内的文件".to_string());
+    Ok(ResolvedReadPath {
+        logical_path: logical,
+        is_symlink: leaf_is_symlink,
+        via_symlink_path,
+        link_target,
+        link_target_absolute,
+        is_broken,
+    })
+}
+
+/// 旧名保留给调用方：仅用于写路径语义的「禁止软链」解析
+pub(crate) fn resolve_existing_path_inside_root(
+    root: &Path,
+    rel_path: &Path,
+) -> Result<PathBuf, String> {
+    resolve_operation_path_inside_root(root, rel_path).map_err(|err| {
+        if err == SYMLINK_READ_ONLY_ERROR {
+            // 历史调用方（删除等）期望统一操作文案；读路径已改走 resolve_path_for_read
+            "只能操作 ~/.claude 内的文件".to_string()
+        } else {
+            err
+        }
+    })
+}
+
+/// 与 Skills 支持文件一致的扩展名黑名单，并加入常见 macOS 垃圾文件名
+fn is_known_binary_path(path: &Path) -> bool {
+    if let Some(name) = path.file_name().and_then(|name| name.to_str()) {
+        if name.eq_ignore_ascii_case(".DS_Store")
+            || name.eq_ignore_ascii_case("Thumbs.db")
+            || name.eq_ignore_ascii_case("Desktop.ini")
+        {
+            return true;
+        }
     }
 
-    Ok(current)
+    let Some(extension) = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| extension.to_ascii_lowercase())
+    else {
+        return false;
+    };
+
+    matches!(
+        extension.as_str(),
+        "7z" | "a"
+            | "ai"
+            | "apk"
+            | "app"
+            | "avi"
+            | "bin"
+            | "bmp"
+            | "class"
+            | "dmg"
+            | "doc"
+            | "docx"
+            | "dll"
+            | "dylib"
+            | "eot"
+            | "exe"
+            | "gif"
+            | "gz"
+            | "ico"
+            | "jar"
+            | "jpeg"
+            | "jpg"
+            | "mov"
+            | "mp3"
+            | "mp4"
+            | "o"
+            | "otf"
+            | "pdf"
+            | "png"
+            | "ppt"
+            | "pptx"
+            | "psd"
+            | "rar"
+            | "so"
+            | "sqlite"
+            | "tar"
+            | "ttf"
+            | "wasm"
+            | "webp"
+            | "woff"
+            | "woff2"
+            | "xls"
+            | "xlsx"
+            | "zip"
+    )
 }
 
 fn relative_path(root: &Path, path: &Path) -> Result<String, String> {
@@ -756,7 +1075,7 @@ mod tests {
     }
 
     #[test]
-    fn overview_returns_sorted_entries_and_skips_symlinks() {
+    fn overview_returns_sorted_entries_and_includes_symlinks() {
         let env = TestEnv::new("overview");
         fs::create_dir_all(env.claude_dir().join("plugins/demo/node_modules/lodash"))
             .expect("应可创建 node_modules 嵌套目录");
@@ -771,7 +1090,11 @@ mod tests {
         .expect("应可写入依赖文件");
         fs::write(env.claude_dir().join("settings.json"), "{}").expect("应可写入配置文件");
         fs::write(env.claude_dir().join("skills/demo/SKILL.md"), "hello").expect("应可写入文件");
-        create_test_symlink(&env.root, &env.claude_dir().join("escape"));
+        // 出界目录软链：应展开并收录子文件
+        let outside_skill = env.root.join("outside-skill");
+        fs::create_dir_all(&outside_skill).expect("应可创建外部 skill 目录");
+        fs::write(outside_skill.join("SKILL.md"), "# outside").expect("应可写入外部 SKILL.md");
+        create_test_symlink(&outside_skill, &env.claude_dir().join("skills/linked"));
 
         let overview = scan_claude_directory_with_options(
             &env.claude_dir(),
@@ -787,28 +1110,35 @@ mod tests {
             .iter()
             .map(|entry| entry.path.as_str())
             .collect();
-        assert_eq!(
-            paths,
-            vec![
-                "plugins",
-                "plugins/demo",
-                "plugins/demo/index.js",
-                "settings.json",
-                "skills",
-                "skills/demo",
-                "skills/demo/SKILL.md"
-            ]
-        );
-        assert_eq!(overview.skipped_symlink_count, 1);
+        assert!(paths.contains(&"plugins"));
+        assert!(paths.contains(&"plugins/demo"));
+        assert!(paths.contains(&"plugins/demo/index.js"));
+        assert!(paths.contains(&"settings.json"));
+        assert!(paths.contains(&"skills"));
+        assert!(paths.contains(&"skills/demo"));
+        assert!(paths.contains(&"skills/demo/SKILL.md"));
+        assert!(paths.contains(&"skills/linked"));
+        assert!(paths.contains(&"skills/linked/SKILL.md"));
+        assert!(!paths.iter().any(|path| path.contains("node_modules")));
+        assert!(overview.symlink_count >= 1);
         assert_eq!(overview.skipped_node_modules_count, 1);
         assert!(!overview.truncated);
-        assert!(!overview.reached_entry_limit);
-        assert!(!overview.reached_depth_limit);
-        assert_eq!(
-            overview.entries[0].kind,
-            ClaudeDirectoryEntryKind::Directory
-        );
-        assert_eq!(overview.entries[3].kind, ClaudeDirectoryEntryKind::File);
+
+        let linked = overview
+            .entries
+            .iter()
+            .find(|entry| entry.path == "skills/linked")
+            .expect("应包含目录软链");
+        assert!(linked.is_symlink);
+        assert!(!linked.is_broken);
+        assert_eq!(linked.kind, ClaudeDirectoryEntryKind::Directory);
+
+        let nested = overview
+            .entries
+            .iter()
+            .find(|entry| entry.path == "skills/linked/SKILL.md")
+            .expect("应展开软链内文件");
+        assert!(!nested.is_symlink);
     }
 
     #[test]
@@ -920,6 +1250,35 @@ mod tests {
     }
 
     #[test]
+    fn preview_follows_out_of_root_symlink_and_rejects_write() {
+        let env = TestEnv::new("symlink-follow");
+        let outside = env.root.join("outside-skill");
+        fs::create_dir_all(&outside).expect("应可创建外部目录");
+        fs::write(outside.join("SKILL.md"), "hello-from-outside").expect("应可写入");
+        fs::create_dir_all(env.claude_dir().join("skills")).expect("应可创建 skills");
+        create_test_symlink(&outside, &env.claude_dir().join("skills/linked"));
+
+        let preview =
+            read_claude_file_preview_from_root(&env.claude_dir(), "skills/linked/SKILL.md", 512)
+                .expect("应可读出界软链内文件");
+        assert_eq!(preview.content, "hello-from-outside");
+        assert!(!preview.is_binary);
+        assert!(!preview.is_symlink);
+        assert_eq!(preview.via_symlink_path.as_deref(), Some("skills/linked"));
+        assert!(preview.link_target.is_some());
+        assert!(preview.link_target_absolute.is_some());
+
+        let write_err = create_claude_directory_entry_in_root(
+            &env.claude_dir(),
+            Some("skills/linked"),
+            "new.md",
+            ClaudeDirectoryEntryKind::File,
+        )
+        .expect_err("经软链路径禁止写入");
+        assert!(write_err.contains("软链接路径只读") || write_err.contains("只能操作"));
+    }
+
+    #[test]
     fn preview_reads_text_binary_and_truncated_files() {
         let env = TestEnv::new("preview");
         fs::write(
@@ -932,6 +1291,10 @@ mod tests {
         fs::write(env.claude_dir().join("long.txt"), "abcdef").expect("应可写入长文本");
         fs::write(env.claude_dir().join("lossy.txt"), [b'a', 0x80, b'b'])
             .expect("应可写入非 UTF-8 文本");
+        // 无扩展名但含 NUL：非黑名单，应 lossy 可预览而非清空
+        fs::write(env.claude_dir().join("with-null"), [b'a', 0, b'b'])
+            .expect("应可写入含 NUL 文件");
+        fs::write(env.claude_dir().join(".gitignore"), "*.log\n").expect("应可写入 gitignore");
 
         let text = read_claude_file_preview_from_root(&env.claude_dir(), "settings.json", 512)
             .expect("文本预览应成功");
@@ -955,12 +1318,83 @@ mod tests {
         let lossy_json = serde_json::to_value(&lossy).expect("预览结果应可序列化");
         assert_eq!(lossy_json["encoding"], "utf-8-lossy");
 
+        let with_null = read_claude_file_preview_from_root(&env.claude_dir(), "with-null", 512)
+            .expect("含 NUL 非黑名单文件应可预览");
+        assert!(!with_null.is_binary);
+        assert!(!with_null.content.is_empty());
+
+        let gitignore = read_claude_file_preview_from_root(&env.claude_dir(), ".gitignore", 512)
+            .expect(".gitignore 应可预览");
+        assert_eq!(gitignore.content, "*.log\n");
+        assert!(!gitignore.is_binary);
+
         let truncated = read_claude_file_preview_from_root(&env.claude_dir(), "long.txt", 3)
             .expect("截断预览应成功");
         assert_eq!(truncated.content, "abc");
         assert!(truncated.truncated);
         let truncated_json = serde_json::to_value(&truncated).expect("预览结果应可序列化");
         assert_eq!(truncated_json["encoding"], "utf-8");
+    }
+
+    #[test]
+    fn overview_marks_broken_and_cycle_symlinks() {
+        let env = TestEnv::new("symlink-edge");
+        // 损坏软链
+        create_test_symlink(
+            Path::new("missing-target-xyz"),
+            &env.claude_dir().join("broken-link"),
+        );
+
+        // 环：a -> b, b -> a
+        let a = env.claude_dir().join("cycle-a");
+        let b = env.claude_dir().join("cycle-b");
+        create_test_symlink(Path::new("cycle-b"), &a);
+        create_test_symlink(Path::new("cycle-a"), &b);
+
+        // 两个软链指向同一真实目录：第二次应标 cycle 且不重复展开
+        let shared = env.root.join("shared-dir");
+        fs::create_dir_all(&shared).expect("应可创建共享目录");
+        fs::write(shared.join("note.txt"), "shared").expect("应可写入");
+        create_test_symlink(&shared, &env.claude_dir().join("link-one"));
+        create_test_symlink(&shared, &env.claude_dir().join("link-two"));
+
+        let overview = scan_claude_directory_with_options(
+            &env.claude_dir(),
+            ScanOptions {
+                max_entries: 100,
+                max_depth: 8,
+            },
+        )
+        .expect("扫描应成功");
+
+        let broken = overview
+            .entries
+            .iter()
+            .find(|entry| entry.path == "broken-link")
+            .expect("应显示损坏软链");
+        assert!(broken.is_symlink);
+        assert!(broken.is_broken);
+
+        let link_one = overview
+            .entries
+            .iter()
+            .find(|entry| entry.path == "link-one")
+            .expect("应有 link-one");
+        let link_two = overview
+            .entries
+            .iter()
+            .find(|entry| entry.path == "link-two")
+            .expect("应有 link-two");
+        // 其中一个展开，另一个因真实路径去重标 cycle
+        assert!(
+            (link_one.is_cycle && !link_two.is_cycle) || (!link_one.is_cycle && link_two.is_cycle)
+        );
+        let nested_count = overview
+            .entries
+            .iter()
+            .filter(|entry| entry.path.ends_with("note.txt"))
+            .count();
+        assert_eq!(nested_count, 1);
     }
 
     #[test]
@@ -1152,7 +1586,9 @@ mod tests {
         assert!(colon_name.contains("名称不能包含路径分隔符"));
         assert!(overwrite.contains("目标已存在"));
         assert!(escape.contains("只能操作 ~/.claude 内的文件"));
-        assert!(symlink.contains("只能操作 ~/.claude 内的文件"));
+        assert!(
+            symlink.contains("只能操作 ~/.claude 内的文件") || symlink.contains("软链接路径只读")
+        );
     }
 
     #[cfg(unix)]
@@ -1162,6 +1598,13 @@ mod tests {
 
     #[cfg(windows)]
     fn create_test_symlink(src: &std::path::Path, dest: &std::path::Path) {
-        std::os::windows::fs::symlink_dir(src, dest).expect("应可创建软链接");
+        if src.is_dir() {
+            std::os::windows::fs::symlink_dir(src, dest).expect("应可创建目录软链接");
+        } else {
+            // 目标可能不存在（损坏软链测试）；按目录尝试，失败再按文件
+            std::os::windows::fs::symlink_dir(src, dest)
+                .or_else(|_| std::os::windows::fs::symlink_file(src, dest))
+                .expect("应可创建软链接");
+        }
     }
 }

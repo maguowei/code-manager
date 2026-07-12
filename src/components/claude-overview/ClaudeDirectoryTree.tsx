@@ -25,9 +25,19 @@ export type ClaudeOverviewTreeContextMenuRenderer = (
   context: ContextMenuOpenContext,
 ) => ReactNode;
 
+export interface ClaudeDirectoryTreeSymlinkMeta {
+  isSymlink: boolean;
+  isBroken: boolean;
+  isCycle: boolean;
+  /** 用于 title tooltip 的完整说明 */
+  tooltip: string;
+}
+
 interface ClaudeDirectoryTreeProps {
   paths: string[];
   onSelectPath: (path: string) => void;
+  /** 逻辑路径 → 软链元信息；仅软链节点自身需要 */
+  symlinkMetaByPath?: Map<string, ClaudeDirectoryTreeSymlinkMeta>;
   renderContextMenu?: ClaudeOverviewTreeContextMenuRenderer;
 }
 
@@ -116,11 +126,14 @@ function isFileTreeDirectoryHandle(
 export function ClaudeDirectoryTree({
   paths,
   onSelectPath,
+  symlinkMetaByPath,
   renderContextMenu,
 }: ClaudeDirectoryTreeProps) {
   const onSelectPathRef = useRef(onSelectPath);
+  const symlinkMetaByPathRef = useRef(symlinkMetaByPath);
   const lastHandledPathRef = useRef<{ path: string; timestamp: number } | null>(null);
   const previousPathsRef = useRef(paths);
+  symlinkMetaByPathRef.current = symlinkMetaByPath;
   // 搜索激活期间暂存最新目录数据，延迟到搜索清空后再 resetPaths。
   const pendingResetRef = useRef<{
     paths: string[];
@@ -189,10 +202,28 @@ export function ClaudeDirectoryTree({
     // 借「行装饰」渲染主文件名 + 下方 unsafeCSS 隐藏库默认 content 段，是为了实现单行省略号：
     // @pierre/trees(beta) 默认主标签不支持 truncate/ellipsis。库支持主标签 truncate 后，
     // 可回归默认渲染并删除该段 unsafeCSS。
-    renderRowDecoration: ({ item }) => ({
-      text: item.name,
-      title: item.name,
-    }),
+    // 软链节点在名称后追加标记，完整目标放 title tooltip。
+    renderRowDecoration: ({ item }) => {
+      const itemPath =
+        typeof item.path === "string" && item.path.length > 0 ? normalizeTreePath(item.path) : "";
+      const meta = itemPath ? symlinkMetaByPathRef.current?.get(itemPath) : undefined;
+      if (!meta?.isSymlink) {
+        return {
+          text: item.name,
+          title: item.name,
+        };
+      }
+      let suffix = " ↗";
+      if (meta.isBroken) {
+        suffix = " ⚠";
+      } else if (meta.isCycle) {
+        suffix = " ⟳";
+      }
+      return {
+        text: `${item.name}${suffix}`,
+        title: meta.tooltip || item.name,
+      };
+    },
     unsafeCSS: `
       button[data-type='item'] {
         border-radius: 6px;

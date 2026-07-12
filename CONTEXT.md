@@ -31,3 +31,21 @@ _Avoid_: 自动模式
 **活动会话(Active Session)**:
 一个处于 running 类状态(`running / busy / active / starting`)的 Claude Code 会话。**waiting(等待用户操作)不计入**——那时 Claude 卡在等人,机器休眠也不会杀死会话。"仅活动时"模式据此判断是否保持唤醒。
 _Avoid_: 运行中会话(running session,只是其中一个具体状态)
+
+### 目录总览(Directory Overview)
+
+**目录总览(Directory Overview)**:
+对 Claude Code 本地目录树(`~/.claude` 或项目级 `.claude/`)的只读浏览视图,用于查看布局、预览文件内容与诊断异常条目。
+_Avoid_: 文件管理器、资源管理器、通用编辑器
+
+**软链条目(Symlink Entry)**:
+目录总览中**自身**为符号链接的树节点。可只读查看(目录可展开、文件可预览),不可经总览写入。
+_Avoid_: 快捷方式、别名、映射(单独指代软链时)
+
+**经软链路径(Path Via Symlink)**:
+解析时经过至少一个[软链条目](#软链条目symlink-entry)的逻辑路径。只读可预览;新建、重命名、删除一律拒绝。
+_Avoid_: 外部路径、越界路径(经软链可读但写仍拒绝,与恶意路径逃逸不同)
+
+**可预览文本(Previewable Text)**:
+目录总览中非已知二进制类型的文件内容,以 UTF-8 或有损 UTF-8 形式展示供阅读。
+_Avoid_: 源码、纯文本白名单(判定是「非已知二进制」,不是穷举文本扩展名)

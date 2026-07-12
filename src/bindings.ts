@@ -206,6 +206,16 @@ export type ClaudeDirectoryEntry = {
 	kind: ClaudeDirectoryEntryKind,
 	size: number,
 	modifiedAt: number,
+	/**  该项自身是否为软链（后代经软链可达时仍为 false） */
+	isSymlink: boolean,
+	/**  `read_link` 原始目标（相对或绝对，按磁盘存储） */
+	linkTarget: string | null,
+	/**  解析后的绝对目标路径；损坏时为 None */
+	linkTargetAbsolute: string | null,
+	/**  目标不存在或不可解析 */
+	isBroken: boolean,
+	/**  目标真实路径已在本次扫描中访问过（环或菱形汇合），不再递归 */
+	isCycle: boolean,
 };
 
 export type ClaudeDirectoryEntryKind = "file" | "directory";
@@ -217,7 +227,7 @@ export type ClaudeDirectoryListing = {
 	entries: ClaudeDirectoryEntry[],
 	truncated: boolean,
 	reachedEntryLimit: boolean,
-	skippedSymlinkCount: number,
+	symlinkCount: number,
 };
 
 export type ClaudeDirectoryOverview = {
@@ -228,7 +238,8 @@ export type ClaudeDirectoryOverview = {
 	truncated: boolean,
 	reachedEntryLimit: boolean,
 	reachedDepthLimit: boolean,
-	skippedSymlinkCount: number,
+	/**  扫描到的软链条目数（已收录，非跳过） */
+	symlinkCount: number,
 	skippedNodeModulesCount: number,
 };
 
@@ -241,6 +252,13 @@ export type ClaudeFilePreview = {
 	size: number,
 	modifiedAt: number,
 	encoding: string,
+	/**  叶子节点自身是否为软链 */
+	isSymlink: boolean,
+	/**  路径上第一个软链的逻辑相对路径 */
+	viaSymlinkPath: string | null,
+	linkTarget: string | null,
+	linkTargetAbsolute: string | null,
+	isBroken: boolean,
 };
 
 /**  从 ~/.claude.json 解析的完整统计数据 */
