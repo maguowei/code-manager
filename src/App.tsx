@@ -91,10 +91,15 @@ function App() {
     project: string;
     requestId: number;
   } | null>(null);
+  const [deepLinkImportRequest, setDeepLinkImportRequest] = useState<{
+    urls: string[];
+    requestId: number;
+  } | null>(null);
   const previousContentTabRef = useRef<TabType>("configs");
   const editorExitGuardRef = useRef<EditorExitGuard | null>(null);
   const historyProjectRequestIdRef = useRef(0);
   const usageProjectRequestIdRef = useRef(0);
+  const deepLinkImportRequestIdRef = useRef(0);
   const workspaceRequestIdRef = useRef(0);
 
   const loadWorkspace = useCallback(async () => {
@@ -276,6 +281,34 @@ function App() {
     [activateTab, runWithEditorExitGuard],
   );
 
+  // 配置导入 deep link：drain 后端 pending 队列，切到配置页交给 ProfilesPage 排队预览
+  const drainProfileImportDeepLinks = useCallback(async () => {
+    if (!isTauri()) return;
+    try {
+      const urls = await ipc.drainPendingProfileImportDeepLinks();
+      if (!urls?.length) return;
+      runWithEditorExitGuard(() => {
+        deepLinkImportRequestIdRef.current += 1;
+        setDeepLinkImportRequest({
+          urls,
+          requestId: deepLinkImportRequestIdRef.current,
+        });
+        activateTab("configs");
+      });
+    } catch (error) {
+      showOperationError(showToast, t("profiles.import.deepLink.toast.resolveError"), error);
+    }
+  }, [activateTab, runWithEditorExitGuard, showToast, t]);
+
+  useEffect(() => {
+    if (loading) return;
+    void drainProfileImportDeepLinks();
+  }, [loading, drainProfileImportDeepLinks]);
+
+  useTauriEvent<void>("profile-import-deep-link", () => {
+    void drainProfileImportDeepLinks();
+  });
+
   if (loading) {
     return (
       <TooltipProvider delayDuration={200}>
@@ -340,6 +373,7 @@ function App() {
                     workspace={workspace}
                     onWorkspaceChange={loadWorkspace}
                     onEditorExitGuardChange={setEditorExitGuard}
+                    deepLinkImportRequest={deepLinkImportRequest}
                   />
                 ) : (
                   <div

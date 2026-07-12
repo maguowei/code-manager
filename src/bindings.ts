@@ -26,6 +26,14 @@ export const commands = {
 	exportProfile: (id: string, targetPath: string, includeSecrets: boolean) => typedError<null, string>(__TAURI_INVOKE("export_profile", { id, targetPath, includeSecrets })),
 	previewProfileImport: (sourcePath: string) => typedError<string, string>(__TAURI_INVOKE("preview_profile_import", { sourcePath })),
 	importProfileFromFile: (sourcePath: string, name: string, description: string) => typedError<ConfigProfile_Serialize, string>(__TAURI_INVOKE("import_profile_from_file", { sourcePath, name, description })),
+	/**  从已解析的 settings JSON 文本导入为新配置（deep link 预览确认后入库）。 */
+	importProfileFromSettingsJson: (settingsJson: string, name: string, description: string) => typedError<ConfigProfile_Serialize, string>(__TAURI_INVOKE("import_profile_from_settings_json", { settingsJson, name, description })),
+	/**  解析配置导入 deep link（含远端拉取 / payload 解码与 schema 校验）。 */
+	resolveProfileImportDeepLink: (url: string) => typedError<ResolvedProfileImportDeepLink, string>(__TAURI_INVOKE("resolve_profile_import_deep_link", { url })),
+	/**  从配置导出内容生成内嵌载荷 deep link（默认路径 A）。 */
+	buildProfileImportDeepLink: (id: string, includeSecrets: boolean) => typedError<string, string>(__TAURI_INVOKE("build_profile_import_deep_link", { id, includeSecrets })),
+	/**  取出冷启动积压的配置导入 deep link（取出后清空）。 */
+	drainPendingProfileImportDeepLinks: () => typedError<string[], string>(__TAURI_INVOKE("drain_pending_profile_import_deep_links")),
 	testProfileModel: (data: ModelTestInput) => typedError<ModelTestResult_Serialize, string>(__TAURI_INVOKE("test_profile_model", { data })),
 	setAppPreferences: (data: AppPreferencesInput) => typedError<AppPreferences, string>(__TAURI_INVOKE("set_app_preferences", { data })),
 	/**  切换浮窗显隐（幂等）：显示时不存在则创建，隐藏时隐藏而非关闭以保留位置与状态。 */
@@ -944,6 +952,19 @@ export type Provider_Serialize = {
 	models?: ProviderModel[] | null,
 	modelSuggestions: string[],
 	env: { [key in string]: string },
+};
+
+export type ResolvedProfileImportDeepLink = {
+	/**  预填名称（query 或默认值）。 */
+	name: string,
+	/**  预填描述。 */
+	description: string,
+	/**  校验后的 settings 美化 JSON，供预览与入库。 */
+	settingsJson: string,
+	/**  是否含非空认证类敏感字段。 */
+	containsSecrets: boolean,
+	/**  `payload` 或 `url`。 */
+	source: string,
 };
 
 export type ScanResult = {

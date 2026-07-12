@@ -49,3 +49,21 @@ _Avoid_: 外部路径、越界路径(经软链可读但写仍拒绝,与恶意路
 **可预览文本(Previewable Text)**:
 目录总览中非已知二进制类型的文件内容,以 UTF-8 或有损 UTF-8 形式展示供阅读。
 _Avoid_: 源码、纯文本白名单(判定是「非已知二进制」,不是穷举文本扩展名)
+
+### 深度链接(Deep Link)
+
+**深度链接(Deep Link)**:
+由操作系统协议处理器打开 Code Manager 并触发既定业务动作的自定义 URL。当前注册 scheme 为 `code-manager://`。
+_Avoid_: 万能链接(Universal Link / App Link,指 https 关联应用)、自定义协议(泛称实现手段时)
+
+**配置导入链接(Profile Import Link)**:
+一种[深度链接](#深度链接deep-link),动作为将外部 Claude settings 导入为**新配置(Profile)**。打开后须经预览确认才入库,且**不自动应用/绑定**到 `~/.claude/settings.json`。
+_Avoid_: 一键应用链接、配置同步链接、远程配置下发
+
+**内嵌载荷导入(Embedded Payload Import)**:
+[配置导入链接](#配置导入链接profile-import-link)的一种来源:settings JSON 经 base64url 编码后放在 query `payload` 中随链接携带。
+_Avoid_: 附件导入、剪贴板导入(那是别的入口)
+
+**远端 URL 导入(Remote URL Import)**:
+[配置导入链接](#配置导入链接profile-import-link)的一种来源:query `url` 指向一份 HTTPS 上的 settings JSON,由应用拉取后再走同一套预览导入。
+_Avoid_: 在线配置中心、配置订阅、远程同步

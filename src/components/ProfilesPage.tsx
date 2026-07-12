@@ -78,6 +78,7 @@ import UnsavedChangesAlertDialog from "./UnsavedChangesAlertDialog";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
+import { Checkbox } from "./ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -102,7 +103,19 @@ interface ProfilesPageProps {
   workspace: ConfigWorkspace;
   onWorkspaceChange: () => Promise<void>;
   onEditorExitGuardChange?: (guard: EditorExitGuard | null) => void;
+  /** App 从 deep link pending 队列 drain 后下发的导入请求 */
+  deepLinkImportRequest?: { urls: string[]; requestId: number } | null;
 }
+
+/** 导入对话框来源：本地文件或已解析的 deep link */
+type ImportDialogSource =
+  | { kind: "file"; sourcePath: string }
+  | {
+      kind: "deepLink";
+      settingsJson: string;
+      containsSecrets: boolean;
+      source: string;
+    };
 
 type ProfileModelTestState =
   | { status: "running" }
@@ -255,6 +268,7 @@ function ProfilesPage({
   workspace,
   onWorkspaceChange,
   onEditorExitGuardChange,
+  deepLinkImportRequest = null,
 }: ProfilesPageProps) {
   const { language, t } = useI18n();
   const { showToast } = useToast();
@@ -281,14 +295,20 @@ function ProfilesPage({
   const [exportPreviewError, setExportPreviewError] = useState<string | null>(null);
   const [isExportPreviewLoading, setIsExportPreviewLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  // 导入预览对话框:源文件路径、预览内容/错误、名称与描述、加载与导入中状态
-  const [importSourcePath, setImportSourcePath] = useState<string | null>(null);
+  const [exportSecretsAcknowledged, setExportSecretsAcknowledged] = useState(false);
+  const [isCopyingDeepLink, setIsCopyingDeepLink] = useState(false);
+  // 导入预览对话框:文件或 deep link、预览内容/错误、名称与描述、加载与导入中状态
+  const [importDialogSource, setImportDialogSource] = useState<ImportDialogSource | null>(null);
   const [importPreview, setImportPreview] = useState("");
   const [importPreviewError, setImportPreviewError] = useState<string | null>(null);
   const [isImportPreviewLoading, setIsImportPreviewLoading] = useState(false);
   const [importName, setImportName] = useState("");
   const [importDescription, setImportDescription] = useState("");
   const [isImporting, setIsImporting] = useState(false);
+  const [importSecretsAcknowledged, setImportSecretsAcknowledged] = useState(false);
+  const deepLinkQueueRef = useRef<string[]>([]);
+  const importDialogOpenRef = useRef(false);
+  const deepLinkResolveBusyRef = useRef(false);
   const [profileModelTestStates, setProfileModelTestStates] = useState<
     Record<string, ProfileModelTestState>
   >({});
@@ -785,6 +805,7 @@ function ProfilesPage({
   function openExportDialog(profile: ConfigProfile) {
     setExportTargetProfile(profile);
     setExportIncludeSecrets(false);
+    setExportSecretsAcknowledged(false);
     setExportPreview("");
     setExportPreviewError(null);
   }
@@ -794,6 +815,8 @@ function ProfilesPage({
     setExportPreview("");
     setExportPreviewError(null);
     setIsExporting(false);
+    setExportSecretsAcknowledged(false);
+    setIsCopyingDeepLink(false);
   }
 
   // 确认导出:弹保存对话框选路径,落盘含/不含密钥的完整配置
@@ -822,6 +845,25 @@ function ProfilesPage({
     }
   }
 
+  // 复制配置导入 Deep Link（默认不含密钥；含密钥需勾选确认）
+  async function handleCopyDeepLink() {
+    if (!exportTargetProfile || exportPreviewError) return;
+    if (exportIncludeSecrets && !exportSecretsAcknowledged) return;
+    setIsCopyingDeepLink(true);
+    try {
+      const link = await ipc.buildProfileImportDeepLink(
+        exportTargetProfile.id,
+        exportIncludeSecrets,
+      );
+      await navigator.clipboard.writeText(link);
+      showToast(t("profiles.export.toast.deepLinkCopied"));
+    } catch (err) {
+      showOperationError(showToast, t("profiles.export.toast.deepLinkCopyError"), err);
+    } finally {
+      setIsCopyingDeepLink(false);
+    }
+  }
+
   // 顶部导入入口:选择 .json 文件后打开导入预览对话框
   async function handleImportProfile() {
     let selected: string | string[] | null;
@@ -837,28 +879,53 @@ function ProfilesPage({
     }
     const sourcePath = Array.isArray(selected) ? selected[0] : selected;
     if (!sourcePath) return;
-    setImportSourcePath(sourcePath);
+    importDialogOpenRef.current = true;
+    setImportDialogSource({ kind: "file", sourcePath });
     setImportName(fileStemFromPath(sourcePath));
     setImportDescription("");
     setImportPreview("");
     setImportPreviewError(null);
+    setImportSecretsAcknowledged(false);
   }
 
   function closeImportDialog() {
-    setImportSourcePath(null);
+    importDialogOpenRef.current = false;
+    setImportDialogSource(null);
     setImportPreview("");
     setImportPreviewError(null);
     setImportName("");
     setImportDescription("");
     setIsImporting(false);
+    setImportSecretsAcknowledged(false);
+    // 关闭当前预览后继续处理排队中的 deep link
+    void pumpDeepLinkQueue();
   }
 
   // 确认导入:校验通过后创建新配置(不自动绑定/激活)
   async function handleConfirmImport() {
-    if (!importSourcePath || importPreviewError) return;
+    if (!importDialogSource || importPreviewError) return;
+    if (
+      importDialogSource.kind === "deepLink" &&
+      importDialogSource.containsSecrets &&
+      !importSecretsAcknowledged
+    ) {
+      return;
+    }
     setIsImporting(true);
     try {
-      await ipc.importProfileFromFile(importSourcePath, importName, importDescription);
+      if (importDialogSource.kind === "file") {
+        await ipc.importProfileFromFile(
+          importDialogSource.sourcePath,
+          importName,
+          importDescription,
+        );
+      } else {
+        await ipc.importProfileFromSettingsJson(
+          importDialogSource.settingsJson,
+          importName,
+          importDescription,
+        );
+      }
       await onWorkspaceChange();
       showToast(t("profiles.import.toast.imported"));
       closeImportDialog();
@@ -868,12 +935,56 @@ function ProfilesPage({
     }
   }
 
+  // 解析并弹出下一条 deep link；失败则 Toast 后自动继续
+  const pumpDeepLinkQueue = useCallback(async () => {
+    if (importDialogOpenRef.current || deepLinkResolveBusyRef.current) return;
+    const nextUrl = deepLinkQueueRef.current.shift();
+    if (!nextUrl) return;
+    deepLinkResolveBusyRef.current = true;
+    setIsImportPreviewLoading(true);
+    setImportPreviewError(null);
+    try {
+      const resolved = await ipc.resolveProfileImportDeepLink(nextUrl);
+      importDialogOpenRef.current = true;
+      setImportDialogSource({
+        kind: "deepLink",
+        settingsJson: resolved.settingsJson,
+        containsSecrets: resolved.containsSecrets,
+        source: resolved.source,
+      });
+      setImportName(resolved.name);
+      setImportDescription(resolved.description);
+      setImportPreview(resolved.settingsJson);
+      setImportSecretsAcknowledged(false);
+      if (deepLinkQueueRef.current.length > 0) {
+        showToast(t("profiles.import.deepLink.toast.queueHint"));
+      }
+    } catch (err) {
+      showOperationError(showToast, t("profiles.import.deepLink.toast.resolveError"), err);
+      deepLinkResolveBusyRef.current = false;
+      setIsImportPreviewLoading(false);
+      void pumpDeepLinkQueue();
+      return;
+    }
+    deepLinkResolveBusyRef.current = false;
+    setIsImportPreviewLoading(false);
+  }, [showToast, t]);
+
+  // App drain 下发的 deep link 入队并泵出
+  useEffect(() => {
+    if (!deepLinkImportRequest) return;
+    deepLinkQueueRef.current.push(...deepLinkImportRequest.urls);
+    void pumpDeepLinkQueue();
+  }, [deepLinkImportRequest, pumpDeepLinkQueue]);
+
   // 拉取导出预览:目标配置或「包含密钥」开关变化时重新加载,保证预览所见即所得
   useEffect(() => {
     if (!exportTargetProfile) return;
     let cancelled = false;
     setIsExportPreviewLoading(true);
     setExportPreviewError(null);
+    // 切换含密钥时重置确认勾选
+    setExportSecretsAcknowledged(false);
     ipc
       .previewProfileExport(exportTargetProfile.id, exportIncludeSecrets)
       .then((content) => {
@@ -894,12 +1005,13 @@ function ProfilesPage({
 
   // 拉取导入预览:选定文件后加载,提前暴露解析/校验错误
   useEffect(() => {
-    if (!importSourcePath) return;
+    if (importDialogSource?.kind !== "file") return;
+    const sourcePath = importDialogSource.sourcePath;
     let cancelled = false;
     setIsImportPreviewLoading(true);
     setImportPreviewError(null);
     ipc
-      .previewProfileImport(importSourcePath)
+      .previewProfileImport(sourcePath)
       .then((content) => {
         if (!cancelled) setImportPreview(content);
       })
@@ -914,7 +1026,7 @@ function ProfilesPage({
     return () => {
       cancelled = true;
     };
-  }, [importSourcePath]);
+  }, [importDialogSource]);
 
   // 选定配置后准备启动命令:生成文件路径式与内联 JSON 式两条命令
   useEffect(() => {
@@ -2132,12 +2244,36 @@ function ProfilesPage({
               onCheckedChange={setExportIncludeSecrets}
             />
           </div>
+          {exportIncludeSecrets ? (
+            <label className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3">
+              <Checkbox
+                checked={exportSecretsAcknowledged}
+                onCheckedChange={(checked) => setExportSecretsAcknowledged(checked === true)}
+                className="mt-0.5"
+              />
+              <span className={cn(TYPOGRAPHY.body, "text-destructive")}>
+                {t("profiles.export.copyDeepLinkSecretsAck")}
+              </span>
+            </label>
+          ) : null}
           <div className="min-h-0 flex-1 overflow-auto">
             <ConfigPreview content={exportPreview} jsonError={exportPreviewError ?? undefined} />
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
             <Button variant="outline" onClick={closeExportDialog}>
               {t("common.close")}
+            </Button>
+            <Button
+              variant="outline"
+              disabled={
+                isCopyingDeepLink ||
+                !!exportPreviewError ||
+                isExportPreviewLoading ||
+                (exportIncludeSecrets && !exportSecretsAcknowledged)
+              }
+              onClick={() => void handleCopyDeepLink()}
+            >
+              {t("profiles.export.copyDeepLink")}
             </Button>
             <Button
               disabled={isExporting || !!exportPreviewError || isExportPreviewLoading}
@@ -2150,7 +2286,7 @@ function ProfilesPage({
       </Dialog>
 
       <Dialog
-        open={!!importSourcePath}
+        open={!!importDialogSource}
         onOpenChange={(open) => {
           if (!open) closeImportDialog();
         }}
@@ -2158,8 +2294,29 @@ function ProfilesPage({
         <DialogContent className="flex max-h-[85vh] flex-col gap-4 sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>{t("profiles.import.dialogTitle")}</DialogTitle>
-            <DialogDescription>{t("profiles.import.dialogDescription")}</DialogDescription>
+            <DialogDescription>
+              {importDialogSource?.kind === "deepLink"
+                ? t("profiles.import.deepLink.dialogDescription")
+                : t("profiles.import.dialogDescription")}
+            </DialogDescription>
           </DialogHeader>
+          {importDialogSource?.kind === "deepLink" && importDialogSource.containsSecrets ? (
+            <div className="flex flex-col gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3">
+              <p className={cn(TYPOGRAPHY.body, "m-0 text-destructive")}>
+                {t("profiles.import.deepLink.secretsWarning")}
+              </p>
+              <label className="flex items-start gap-2">
+                <Checkbox
+                  checked={importSecretsAcknowledged}
+                  onCheckedChange={(checked) => setImportSecretsAcknowledged(checked === true)}
+                  className="mt-0.5"
+                />
+                <span className={cn(TYPOGRAPHY.body)}>
+                  {t("profiles.import.deepLink.secretsAck")}
+                </span>
+              </label>
+            </div>
+          ) : null}
           <div className="grid gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="import-name">{t("profiles.import.nameLabel")}</Label>
@@ -2188,7 +2345,14 @@ function ProfilesPage({
               {t("common.close")}
             </Button>
             <Button
-              disabled={isImporting || !!importPreviewError || isImportPreviewLoading}
+              disabled={
+                isImporting ||
+                !!importPreviewError ||
+                isImportPreviewLoading ||
+                (importDialogSource?.kind === "deepLink" &&
+                  importDialogSource.containsSecrets &&
+                  !importSecretsAcknowledged)
+              }
               onClick={() => void handleConfirmImport()}
             >
               {t("profiles.import.confirm")}

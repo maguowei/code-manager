@@ -1504,6 +1504,11 @@ fn redact_model_test_json_value(value: &mut Value) {
 }
 
 fn is_sensitive_model_test_json_key(key: &str) -> bool {
+    is_sensitive_settings_key(key)
+}
+
+/// 判定 settings JSON 键是否为认证/密钥类敏感字段（导出脱敏、deep link 风险检测共用）。
+pub(crate) fn is_sensitive_settings_key(key: &str) -> bool {
     let normalized = key.to_ascii_lowercase();
     normalized == "authorization"
         || normalized == "token"
@@ -2719,6 +2724,24 @@ fn build_profile_export(
     serde_json::to_string_pretty(&resolved).map_err(|e| e.to_string())
 }
 
+/// deep link 生成等跨模块复用入口。
+pub(crate) fn build_profile_export_public(
+    registry: &ConfigRegistry,
+    id: &str,
+    include_secrets: bool,
+) -> Result<String, String> {
+    build_profile_export(registry, id, include_secrets)
+}
+
+/// 解析并校验导入用 JSON 文本，返回去掉 `$schema` 的 settings。
+pub(crate) fn parse_and_validate_import_content(content: &str) -> Result<Value, String> {
+    let parsed: Value =
+        serde_json::from_str(content).map_err(|error| format!("解析 JSON 失败: {}", error))?;
+    let settings = normalize_settings_document(parsed)?;
+    validate_settings_document(&settings)?;
+    Ok(settings_without_schema(&settings))
+}
+
 /// 读取并校验待导入的配置文件，返回去掉 `$schema` 的 settings。预览与导入共用。
 fn read_and_validate_import(source_path: &str) -> Result<Value, String> {
     let path = PathBuf::from(source_path);
@@ -2729,11 +2752,38 @@ fn read_and_validate_import(source_path: &str) -> Result<Value, String> {
     }
     let content =
         fs::read_to_string(&path).map_err(|error| format!("读取文件失败 {:?}: {}", path, error))?;
-    let parsed: Value =
-        serde_json::from_str(&content).map_err(|error| format!("解析 JSON 失败: {}", error))?;
-    let settings = normalize_settings_document(parsed)?;
-    validate_settings_document(&settings)?;
-    Ok(settings_without_schema(&settings))
+    parse_and_validate_import_content(&content)
+}
+
+/// 将已校验的 settings 写入 registry 为新配置（不自动绑定 / 激活）。
+fn insert_imported_profile(
+    app_handle: &AppHandle,
+    settings: Value,
+    name: String,
+    description: String,
+) -> Result<ConfigProfile, String> {
+    let mut registry = load_registry()?;
+    let now = crate::utils::current_rfc3339_timestamp();
+    let trimmed_name = name.trim();
+    let profile = ConfigProfile {
+        id: Uuid::new_v4().to_string(),
+        name: if trimmed_name.is_empty() {
+            "Imported Profile".to_string()
+        } else {
+            trimmed_name.to_string()
+        },
+        description: description.trim().to_string(),
+        // 导入的是裸 settings，不关联 Provider；也不自动绑定 / 激活外来配置
+        provider_id: None,
+        settings,
+        created_at: now.clone(),
+        updated_at: now,
+    };
+    registry.profiles.insert(0, profile.clone());
+    save_registry(&registry)?;
+    rebuild_tray_menu(app_handle, Some(&registry));
+    let _ = app_handle.emit("config-workspace-changed", ());
+    Ok(profile)
 }
 
 #[tauri::command]
@@ -2780,30 +2830,29 @@ pub fn import_profile_from_file(
     let result = (|| {
         let _lock = crate::utils::lock_config()?;
         let settings = read_and_validate_import(&source_path)?;
-        let mut registry = load_registry()?;
-        let now = crate::utils::current_rfc3339_timestamp();
-        let trimmed_name = name.trim();
-        let profile = ConfigProfile {
-            id: Uuid::new_v4().to_string(),
-            name: if trimmed_name.is_empty() {
-                "Imported Profile".to_string()
-            } else {
-                trimmed_name.to_string()
-            },
-            description: description.trim().to_string(),
-            // 导入的是裸 settings，不关联 Provider；也不自动绑定 / 激活外来配置
-            provider_id: None,
-            settings,
-            created_at: now.clone(),
-            updated_at: now,
-        };
-        registry.profiles.insert(0, profile.clone());
-        save_registry(&registry)?;
-        rebuild_tray_menu(&app_handle, Some(&registry));
-        let _ = app_handle.emit("config-workspace-changed", ());
-        Ok(profile)
+        insert_imported_profile(&app_handle, settings, name, description)
     })();
     crate::logging::log_command_result("profile.import_from_file", &result, |profile| {
+        format!("profile_id={}", profile.id)
+    });
+    result
+}
+
+/// 从已解析的 settings JSON 文本导入为新配置（deep link 预览确认后入库）。
+#[tauri::command]
+#[specta::specta]
+pub fn import_profile_from_settings_json(
+    app_handle: AppHandle,
+    settings_json: String,
+    name: String,
+    description: String,
+) -> Result<ConfigProfile, String> {
+    let result = (|| {
+        let _lock = crate::utils::lock_config()?;
+        let settings = parse_and_validate_import_content(&settings_json)?;
+        insert_imported_profile(&app_handle, settings, name, description)
+    })();
+    crate::logging::log_command_result("profile.import_from_settings_json", &result, |profile| {
         format!("profile_id={}", profile.id)
     });
     result

@@ -117,6 +117,15 @@ export interface Provider {
   env: Record<string, string>;
 }
 
+/** 配置导入 deep link 解析结果（与后端 ResolvedProfileImportDeepLink 对齐）。 */
+export interface ResolvedProfileImportDeepLink {
+  name: string;
+  description: string;
+  settingsJson: string;
+  containsSecrets: boolean;
+  source: string;
+}
+
 export interface ConfigProfile {
   id: string;
   name: string;

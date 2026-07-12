@@ -54,6 +54,9 @@ tokio = { version = "1", features = ["sync"] }
 specta = { version = "=2.0.0-rc.25", features = ["serde_json"] }
 specta-typescript = "0.0.12"
 tauri-specta = { version = "=2.0.0-rc.25", features = ["derive", "typescript"] }
+tauri-plugin-deep-link = "2"
+base64 = "0.22"
+url = "2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # USB HID 控制 ANTICATER LED;仅 macOS 接入真机,避免 Linux 引入 libudev 系统依赖
@@ -62,6 +65,9 @@ block2 = "0.6.2"
 objc2 = { version = "0.6.4", features = ["exception"] }
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSBundle", "NSDictionary", "NSError", "NSObject", "NSString"] }
 objc2-user-notifications = { version = "0.3.2", default-features = false, features = ["block2", "UNNotification", "UNNotificationContent", "UNNotificationRequest", "UNNotificationResponse", "UNNotificationTrigger", "UNUserNotificationCenter"] }
+
+[target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 
 # 集成测试依赖（仅 tests/ 下使用）
 [dev-dependencies]

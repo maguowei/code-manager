@@ -247,6 +247,13 @@ const translations = {
     "profiles.import.confirm": "导入",
     "profiles.import.toast.imported": "配置已导入",
     "profiles.import.toast.importError": "导入配置失败",
+    "profiles.import.deepLink.dialogDescription":
+      "通过深度链接导入配置。导入后不会自动启用，请确认内容后再入库。",
+    "profiles.import.deepLink.secretsWarning":
+      "此配置包含认证密钥，导入后将写入本地配置仓库。请确认来源可信。",
+    "profiles.import.deepLink.secretsAck": "我了解密钥将写入本地配置",
+    "profiles.import.deepLink.toast.resolveError": "解析配置导入链接失败",
+    "profiles.import.deepLink.toast.queueHint": "还有待处理的导入链接",
     "profiles.export.dialogTitle": "导出配置",
     "profiles.export.dialogDescription":
       "导出合并后的完整配置文件,可直接用作 ~/.claude/settings.json。",
@@ -254,9 +261,13 @@ const translations = {
     "profiles.export.includeSecretsOffHint": "默认清空全部认证密钥,请在目标设备重新填写。",
     "profiles.export.includeSecretsOnHint": "将导出真实认证密钥,请妥善保管导出文件。",
     "profiles.export.confirm": "选择路径并导出",
+    "profiles.export.copyDeepLink": "复制 Deep Link",
+    "profiles.export.copyDeepLinkSecretsAck": "我了解密钥将写入可分享的链接",
     "profiles.export.toast.exported": "配置已导出,认证密钥已清空",
     "profiles.export.toast.exportedWithSecrets": "配置已导出,已包含认证密钥,请妥善保管",
     "profiles.export.toast.exportError": "导出配置失败",
+    "profiles.export.toast.deepLinkCopied": "Deep Link 已复制",
+    "profiles.export.toast.deepLinkCopyError": "复制 Deep Link 失败",
     "profiles.unmanaged.status.ready": "可导入",
     "profiles.unmanaged.status.invalidJson": "JSON 格式无效",
     "profiles.unmanaged.status.invalidSchema": "配置结构无效",
@@ -1940,6 +1951,13 @@ const translations = {
     "profiles.import.confirm": "Import",
     "profiles.import.toast.imported": "Profile imported",
     "profiles.import.toast.importError": "Failed to import profile",
+    "profiles.import.deepLink.dialogDescription":
+      "Import a profile from a deep link. It won't be applied automatically — review the content before saving.",
+    "profiles.import.deepLink.secretsWarning":
+      "This profile contains auth tokens. Importing will write them into the local config registry. Only continue if you trust the source.",
+    "profiles.import.deepLink.secretsAck": "I understand tokens will be stored locally",
+    "profiles.import.deepLink.toast.resolveError": "Failed to resolve profile import link",
+    "profiles.import.deepLink.toast.queueHint": "More import links are waiting",
     "profiles.export.dialogTitle": "Export Profile",
     "profiles.export.dialogDescription":
       "Export the merged complete settings file, ready to use as ~/.claude/settings.json.",
@@ -1949,10 +1967,15 @@ const translations = {
     "profiles.export.includeSecretsOnHint":
       "Real auth tokens will be exported — keep the exported file safe.",
     "profiles.export.confirm": "Choose path & export",
+    "profiles.export.copyDeepLink": "Copy Deep Link",
+    "profiles.export.copyDeepLinkSecretsAck":
+      "I understand tokens will be embedded in a shareable link",
     "profiles.export.toast.exported": "Profile exported with auth tokens cleared",
     "profiles.export.toast.exportedWithSecrets":
       "Profile exported with auth tokens included — keep it safe",
     "profiles.export.toast.exportError": "Failed to export profile",
+    "profiles.export.toast.deepLinkCopied": "Deep Link copied",
+    "profiles.export.toast.deepLinkCopyError": "Failed to copy Deep Link",
     "profiles.unmanaged.status.ready": "Ready to import",
     "profiles.unmanaged.status.invalidJson": "Invalid JSON",
     "profiles.unmanaged.status.invalidSchema": "Invalid settings shape",

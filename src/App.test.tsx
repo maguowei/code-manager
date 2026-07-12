@@ -582,7 +582,16 @@ describe("App", () => {
     openUrlMock.mockClear();
     revealItemInDirMock.mockClear();
     usagePageRenderMock.mockClear();
-    invokeMock.mockResolvedValue(WORKSPACE_FIXTURE);
+    // 默认 workspace；deep link drain 必须返回数组，避免 null.length 干扰其它用例
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "drain_pending_profile_import_deep_links") {
+        return [];
+      }
+      if (command === "get_config_workspace") {
+        return WORKSPACE_FIXTURE;
+      }
+      return null;
+    });
     Object.defineProperty(window, "__TAURI_INTERNALS__", {
       configurable: true,
       value: undefined,

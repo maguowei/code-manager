@@ -16,6 +16,7 @@ paths:
 | `main.rs` | 二进制入口，仅调用 `code_manager_lib::run()` |
 | `utils.rs` | 公共锁、JSON 读写、原子文件写入、应用数据目录解析 |
 | `config.rs` | 配置 / Provider 合并落盘、`resolve_profile_settings()`、模型测试、`config-registry.json` |
+| `deep_link.rs` | 深度链接：`code-manager://profiles/import` 解析、内嵌 payload / 远端 HTTPS 拉取（SSRF 防护）、pending 队列与导入链接生成 |
 | `memory.rs` | 用户级 `CLAUDE.md` 与 `rules/*.md` 的托管、导入、启停 |
 | `skills.rs` | Skills 启停、`~/.codex/skills/<id>` 软链同步、`SKILL.md` 读写、文件树扫描 |
 | `history.rs` | `~/.claude/history.jsonl` 读取、会话详情解析、轮询变更 |

@@ -2,6 +2,7 @@ mod auto_memory;
 mod claude_directory;
 mod claude_directory_watcher;
 mod config;
+mod deep_link;
 mod history;
 mod led;
 mod logging;
@@ -38,10 +39,14 @@ use claude_directory::{
 };
 use config::{
     apply_profile, delete_profile, duplicate_profile, export_profile, get_config_workspace,
-    import_profile_from_file, import_user_settings_profile, install_status_line_preset,
-    prepare_profile_launch, preview_profile, preview_profile_export, preview_profile_import,
-    reorder_profiles, set_app_preferences, sync_shared_profile_settings, test_profile_model,
-    upsert_profile,
+    import_profile_from_file, import_profile_from_settings_json, import_user_settings_profile,
+    install_status_line_preset, prepare_profile_launch, preview_profile, preview_profile_export,
+    preview_profile_import, reorder_profiles, set_app_preferences, sync_shared_profile_settings,
+    test_profile_model, upsert_profile,
+};
+use deep_link::{
+    build_profile_import_deep_link, drain_pending_profile_import_deep_links,
+    resolve_profile_import_deep_link,
 };
 use history::{
     get_history, get_history_if_changed, get_session_detail, open_session_file_in_editor,
@@ -107,6 +112,10 @@ fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             export_profile,
             preview_profile_import,
             import_profile_from_file,
+            import_profile_from_settings_json,
+            resolve_profile_import_deep_link,
+            build_profile_import_deep_link,
+            drain_pending_profile_import_deep_links,
             test_profile_model,
             set_app_preferences,
             toggle_floating_widget,
@@ -232,7 +241,18 @@ pub fn run() {
     export_typescript_bindings(default_typescript_bindings_path())
         .expect("specta: 导出 TypeScript bindings 失败");
 
-    tauri::Builder::default()
+    // single-instance 必须最先注册，才能与 deep-link 协作把二次启动的 URL 交给首实例
+    let mut builder = tauri::Builder::default();
+    #[cfg(any(target_os = "macos", windows, target_os = "linux"))]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            // 二次启动时聚焦主窗口；deep-link feature 会另行触发 on_open_url
+            tray::show_main_window(app);
+        }));
+    }
+
+    builder
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(
             tauri_plugin_log::Builder::new()
@@ -288,6 +308,8 @@ pub fn run() {
             tray::apply_focus_session_shortcut(app.handle());
             // 启动菜单栏待处理会话呼吸灯脉动线程（仅 macOS 有视觉效果，其它平台空跑无害）
             tray::start_pulse_task(app.handle().clone());
+            // 深度链接：注册监听、冷启动积压、Linux/Windows 运行时 register
+            deep_link::setup_deep_link_handlers(app.handle()).map_err(std::io::Error::other)?;
             log::info!("event=app.setup status=ok");
             let claude_directory_watcher =
                 claude_directory_watcher::start_claude_directory_watcher(app.handle().clone());

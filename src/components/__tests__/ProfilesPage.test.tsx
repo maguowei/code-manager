@@ -2242,4 +2242,111 @@ describe("ProfilesPage", () => {
     });
     expect(within(dialog).getByRole("button", { name: "导入" })).toBeDisabled();
   });
+
+  it("imports a deep link payload after secrets acknowledgement", async () => {
+    const onWorkspaceChange = vi.fn(async () => {});
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === "resolve_profile_import_deep_link") {
+        return {
+          name: "FromLink",
+          description: "via deeplink",
+          settingsJson: '{\n  "env": {\n    "ANTHROPIC_AUTH_TOKEN": "secret"\n  }\n}',
+          containsSecrets: true,
+          source: "payload",
+        };
+      }
+      if (command === "import_profile_from_settings_json") {
+        return {
+          id: "imported-deeplink",
+          name: "FromLink",
+          description: "via deeplink",
+          settings: { env: { ANTHROPIC_AUTH_TOKEN: "secret" } },
+          createdAt: "2026-06-22T00:00:00Z",
+          updatedAt: "2026-06-22T00:00:00Z",
+        };
+      }
+      return null;
+    });
+
+    render(
+      <ThemeProvider>
+        <I18nProvider>
+          <ProfilesPage
+            workspace={WORKSPACE_FIXTURE}
+            onWorkspaceChange={onWorkspaceChange}
+            deepLinkImportRequest={{
+              urls: ["code-manager://profiles/import?payload=abc"],
+              requestId: 1,
+            }}
+          />
+        </I18nProvider>
+      </ThemeProvider>,
+    );
+
+    const dialog = await screen.findByRole("dialog", { name: "导入配置" });
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("resolve_profile_import_deep_link", {
+        url: "code-manager://profiles/import?payload=abc",
+      });
+    });
+    expect(within(dialog).getByText(/包含认证密钥/)).toBeInTheDocument();
+    const importButton = within(dialog).getByRole("button", { name: "导入" });
+    expect(importButton).toBeDisabled();
+
+    fireEvent.click(within(dialog).getByRole("checkbox"));
+    expect(importButton).not.toBeDisabled();
+
+    await act(async () => {
+      fireEvent.click(importButton);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("import_profile_from_settings_json", {
+        settingsJson: '{\n  "env": {\n    "ANTHROPIC_AUTH_TOKEN": "secret"\n  }\n}',
+        name: "FromLink",
+        description: "via deeplink",
+      });
+      expect(onWorkspaceChange).toHaveBeenCalled();
+      expect(showToastMock).toHaveBeenCalledWith("配置已导入");
+    });
+  });
+
+  it("copies a deep link from the export dialog without secrets by default", async () => {
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === "preview_profile_export") {
+        return '{\n  "model": "claude-sonnet-4-6"\n}';
+      }
+      if (command === "build_profile_import_deep_link") {
+        return "code-manager://profiles/import?payload=e30&name=OpenRouter";
+      }
+      return null;
+    });
+
+    renderPage();
+
+    await act(async () => {
+      fireEvent.click(
+        within(getProfileCard("OpenRouter User")).getByRole("button", { name: "导出配置" }),
+      );
+      await Promise.resolve();
+    });
+
+    const dialog = await screen.findByRole("dialog", { name: "导出配置" });
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "复制 Deep Link" }));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("build_profile_import_deep_link", {
+        id: "user-openrouter",
+        includeSecrets: false,
+      });
+    });
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      "code-manager://profiles/import?payload=e30&name=OpenRouter",
+    );
+    expect(showToastMock).toHaveBeenCalledWith("Deep Link 已复制");
+  });
 });
