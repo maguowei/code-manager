@@ -90,12 +90,14 @@ vi.mock("recharts", () => {
       fill,
       fillOpacity,
       name,
+      stackId,
     }: {
       activeBar?: { fill?: string; fillOpacity?: number; stroke?: string };
       dataKey?: string;
       fill?: string;
       fillOpacity?: number;
       name?: string;
+      stackId?: string;
     }) => (
       <div
         data-testid="chart-bar"
@@ -106,6 +108,7 @@ vi.mock("recharts", () => {
         data-fill-opacity={String(fillOpacity ?? "")}
         data-key={String(dataKey ?? "")}
         data-name={String(name ?? "")}
+        data-stack-id={String(stackId ?? "")}
       />
     ),
     BarChart,
@@ -779,6 +782,53 @@ describe("UsagePage cost cockpit", () => {
       "aria-pressed",
       "false",
     );
+
+    const cacheHitLegend = screen.getByRole("list", { name: "缓存命中率" });
+    expect(within(cacheHitLegend).getByRole("button", { name: /总体命中率/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(within(cacheHitLegend).getByRole("button", { name: /claude-3-opus/ })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    expect(
+      within(cacheHitLegend).getByRole("button", { name: /claude-3-7-sonnet/ }),
+    ).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("toggles cache hit model series from the legend without stacking rates", () => {
+    renderUsage({ timeSeries: multiModelTimeSeries });
+
+    const cacheHitLegend = screen.getByRole("list", { name: "缓存命中率" });
+    fireEvent.click(within(cacheHitLegend).getByRole("button", { name: /claude-3-opus/ }));
+
+    const cacheHitAreas = screen.getAllByTestId("chart-area").filter((el) => {
+      const key = el.getAttribute("data-key") ?? "";
+      return key === "hitRate" || key.startsWith("cacheHit:");
+    });
+    expect(cacheHitAreas.map((el) => el.getAttribute("data-key")).sort()).toEqual(
+      ["cacheHit:claude-3-opus", "hitRate"].sort(),
+    );
+    for (const area of cacheHitAreas) {
+      expect(area).toHaveAttribute("data-stack-id", "");
+    }
+
+    // 全区间加权 meta：opus cacheRead 100k / (200k+5k+100k) ≈ 32.8%
+    expect(
+      within(cacheHitLegend).getByRole("button", { name: /claude-3-opus/ }).textContent,
+    ).toMatch(/32\.8%/);
+
+    fireEvent.click(screen.getByRole("button", { name: "柱状图" }));
+    const cacheHitBars = screen.getAllByTestId("chart-bar").filter((el) => {
+      const key = el.getAttribute("data-key") ?? "";
+      return key === "hitRate" || key.startsWith("cacheHit:");
+    });
+    expect(cacheHitBars).toHaveLength(2);
+    for (const bar of cacheHitBars) {
+      // 命中率分组柱，不设 stackId
+      expect(bar).toHaveAttribute("data-stack-id", "");
+    }
   });
 
   it("uses a distinct non-white total series color and subtle bar focus styling", () => {
@@ -786,7 +836,9 @@ describe("UsagePage cost cockpit", () => {
 
     const totalAreas = screen
       .getAllByTestId("chart-area")
-      .filter((el) => ["__totalCost", "totalTokens"].includes(el.getAttribute("data-key") ?? ""));
+      .filter((el) =>
+        ["__totalCost", "totalTokens", "hitRate"].includes(el.getAttribute("data-key") ?? ""),
+      );
     for (const area of totalAreas) {
       expect(area.getAttribute("data-stroke")).toContain("var(--chart-");
       expect(area.getAttribute("data-fill")).toContain("var(--chart-");
@@ -796,7 +848,9 @@ describe("UsagePage cost cockpit", () => {
 
     const totalBars = screen
       .getAllByTestId("chart-bar")
-      .filter((el) => ["__totalCost", "totalTokens"].includes(el.getAttribute("data-key") ?? ""));
+      .filter((el) =>
+        ["__totalCost", "totalTokens", "hitRate"].includes(el.getAttribute("data-key") ?? ""),
+      );
     for (const bar of totalBars) {
       expect(bar.getAttribute("data-fill")).toContain("var(--chart-");
       expect(bar).toHaveAttribute("data-active-fill", bar.getAttribute("data-fill") ?? "");

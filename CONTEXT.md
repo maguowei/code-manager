@@ -67,3 +67,17 @@ _Avoid_: 附件导入、剪贴板导入(那是别的入口)
 **远端 URL 导入(Remote URL Import)**:
 [配置导入链接](#配置导入链接profile-import-link)的一种来源:query `url` 指向一份 HTTPS 上的 settings JSON,由应用拉取后再走同一套预览导入。
 _Avoid_: 在线配置中心、配置订阅、远程同步
+
+### Token 用量(Token Usage)
+
+**缓存命中率(Cache Hit Rate)**:
+在筛选范围内,缓存读取占全部输入侧 Token 的比例。口径固定为 `cacheRead / (input + cacheCreate + cacheRead)`;输出 Token 不计入分母。无输入时记为 0%。
+_Avoid_: 缓存率、命中比、把 output 算进分母、对各时间点命中率做算术平均
+
+**总体缓存命中率(Overall Cache Hit Rate)**:
+按全部模型 token **加权**汇总后的[缓存命中率](#缓存命中率cache-hit-rate),不是各模型命中率的简单平均。KPI 卡片与命中率趋势图中的「总体」系列共用此口径。
+_Avoid_: 平均命中率、模型命中率均值
+
+**模型缓存命中率(Model Cache Hit Rate)**:
+单个模型在同一筛选与时间桶内、仅用该模型 token 算出的[缓存命中率](#缓存命中率cache-hit-rate)。与[总体缓存命中率](#总体缓存命中率overall-cache-hit-rate)并列展示,便于对比模型缓存表现。
+_Avoid_: 模型缓存率(省略「命中」)、用总体分母去除模型分子

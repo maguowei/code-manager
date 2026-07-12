@@ -114,6 +114,7 @@ const TREND_BREAKDOWN_MODE_ORDER: TrendBreakdownMode[] = ["model", "type"];
 const CLAUDE_MODEL_FILTER = "claude-*";
 const TOTAL_COST_KEY = "__totalCost";
 const TOTAL_TOKEN_KEY = "totalTokens";
+const TOTAL_CACHE_HIT_KEY = "hitRate";
 const COST_TYPE_KEYS = {
   input: "inputCost",
   output: "outputCost",
@@ -148,14 +149,19 @@ interface TimeSeriesTokenTrendDatum extends Record<string, string | number> {
   cacheRead: number;
 }
 
-interface CacheHitRateTrendDatum extends Record<string, string | number> {
-  bucket: string;
-  label: string;
-  hitRate: number; // 0-100，官方输入口径：cacheRead / (input + cacheCreate + cacheRead)
-}
-
 const sortTooltipItemsByValueDesc = (item: { value?: unknown }) => -Number(item.value ?? 0);
 const tokenModelDataKey = (model: string) => `model:${encodeURIComponent(model)}`;
+const cacheHitModelDataKey = (model: string) => `cacheHit:${encodeURIComponent(model)}`;
+
+/** 官方输入口径缓存命中率（0–100）：cacheRead / (input + cacheCreate + cacheRead)，无输入为 0 */
+function computeCacheHitRatePercent(
+  inputTokens: number,
+  cacheCreationTokens: number,
+  cacheReadTokens: number,
+): number {
+  const inputTotal = inputTokens + cacheCreationTokens + cacheReadTokens;
+  return inputTotal > 0 ? +((cacheReadTokens / inputTotal) * 100).toFixed(2) : 0;
+}
 
 function tooltipNumber(value: unknown): number {
   const rawValue = Array.isArray(value) ? value[0] : value;
@@ -215,6 +221,7 @@ function UsagePage({ projectRequest = null, onOpenSessionInHistory }: UsagePageP
   // 图表层级的模型可见性切换；与顶部 Filters.model 单选互不影响、不触发后端
   const [costVisibility, setCostVisibility] = useState<SeriesVisibility>(() => ({}));
   const [tokenVisibility, setTokenVisibility] = useState<SeriesVisibility>(() => ({}));
+  const [cacheHitVisibility, setCacheHitVisibility] = useState<SeriesVisibility>(() => ({}));
   const [trendChartStyle, setTrendChartStyle] = useState<TrendChartStyle>("curve");
   const [trendBreakdownMode, setTrendBreakdownMode] = useState<TrendBreakdownMode>("model");
   const { setFilter, setTab } = u;
@@ -368,19 +375,90 @@ function UsagePage({ projectRequest = null, onOpenSessionInHistory }: UsagePageP
     [u.timeSeries, u.timeGranularity, u.filter],
   );
 
-  // 缓存命中率趋势：官方输入口径 cacheRead / (input + cacheCreate + cacheRead)，输出 token 不计入
-  const cacheHitRateTrendData = useMemo<CacheHitRateTrendDatum[]>(
-    () =>
-      u.timeSeries.map((point) => {
-        const inputTotal = point.inputTokens + point.cacheCreationTokens + point.cacheReadTokens;
+  // 缓存命中率趋势：总体 + 各模型；官方输入口径，输出 token 不计入
+  const cacheHitRateTrend = useMemo(() => {
+    const allModels = new Set<string>();
+    for (const point of u.timeSeries) {
+      for (const m of point.byModel) allModels.add(m.model);
+    }
+    // 按字母序固定颜色映射，与花费/Token 趋势共用同一套模型→色
+    const sortedModels = Array.from(allModels).sort();
+    const colorMap = new Map<string, string>();
+    sortedModels.forEach((model, idx) => {
+      colorMap.set(model, SERIES_COLORS[idx % SERIES_COLORS.length]);
+    });
+
+    let periodInput = 0;
+    let periodCreate = 0;
+    let periodRead = 0;
+    const periodByModel = new Map<string, { input: number; create: number; read: number }>();
+    for (const model of sortedModels) {
+      periodByModel.set(model, { input: 0, create: 0, read: 0 });
+    }
+
+    const rows = u.timeSeries.map((point) => {
+      periodInput += point.inputTokens;
+      periodCreate += point.cacheCreationTokens;
+      periodRead += point.cacheReadTokens;
+      const row: Record<string, string | number> = {
+        bucket: point.bucket,
+        label: formatTimeBucketLabel(point, u.timeGranularity, u.filter),
+        [TOTAL_CACHE_HIT_KEY]: computeCacheHitRatePercent(
+          point.inputTokens,
+          point.cacheCreationTokens,
+          point.cacheReadTokens,
+        ),
+      };
+      for (const model of sortedModels) {
+        const found = point.byModel.find((x) => x.model === model);
+        const input = found?.inputTokens ?? 0;
+        const create = found?.cacheCreationTokens ?? 0;
+        const read = found?.cacheReadTokens ?? 0;
+        const agg = periodByModel.get(model);
+        if (agg) {
+          agg.input += input;
+          agg.create += create;
+          agg.read += read;
+        }
+        row[cacheHitModelDataKey(model)] = computeCacheHitRatePercent(input, create, read);
+      }
+      return row;
+    });
+
+    const overallRate = computeCacheHitRatePercent(periodInput, periodCreate, periodRead);
+    // 图例按输入侧 token 体量降序，主力模型靠前；meta 仍是加权命中率
+    const modelSeries: TrendSeriesItem[] = sortedModels
+      .map((model) => {
+        const agg = periodByModel.get(model) ?? { input: 0, create: 0, read: 0 };
         return {
-          bucket: point.bucket,
-          label: formatTimeBucketLabel(point, u.timeGranularity, u.filter),
-          hitRate: inputTotal > 0 ? +((point.cacheReadTokens / inputTotal) * 100).toFixed(2) : 0,
+          dataKey: cacheHitModelDataKey(model),
+          name: model,
+          originalName: model,
+          color: colorMap.get(model) ?? SERIES_COLORS[0],
+          total: computeCacheHitRatePercent(agg.input, agg.create, agg.read),
+          volume: agg.input + agg.create + agg.read,
         };
-      }),
-    [u.timeSeries, u.timeGranularity, u.filter],
-  );
+      })
+      .sort((a, b) => b.volume - a.volume || a.name.localeCompare(b.name))
+      .map(({ dataKey, name, originalName, color, total }) => ({
+        dataKey,
+        name,
+        originalName,
+        color,
+        total,
+      }));
+
+    const series: TrendSeriesItem[] = [
+      {
+        dataKey: TOTAL_CACHE_HIT_KEY,
+        name: t("usage.charts.totalCacheHitRate"),
+        color: COLORS.total,
+        total: overallRate,
+      },
+      ...modelSeries,
+    ];
+    return { rows, series, overallRate };
+  }, [u.timeSeries, u.timeGranularity, u.filter, t]);
 
   const tokenTrendSeries = useMemo(
     (): TrendSeriesItem[] => [
@@ -545,6 +623,11 @@ function UsagePage({ projectRequest = null, onOpenSessionInHistory }: UsagePageP
     [activeTokenTrendSeries],
   );
 
+  const cacheHitSeriesKeys = useMemo(
+    () => cacheHitRateTrend.series.map((series) => series.dataKey),
+    [cacheHitRateTrend.series],
+  );
+
   const hiddenCostModels = useMemo(
     () => hiddenSeriesSet(costSeriesKeys, costVisibility, TOTAL_COST_KEY),
     [costSeriesKeys, costVisibility],
@@ -553,6 +636,11 @@ function UsagePage({ projectRequest = null, onOpenSessionInHistory }: UsagePageP
   const hiddenTokenSeries = useMemo(
     () => hiddenSeriesSet(tokenSeriesKeys, tokenVisibility, TOTAL_TOKEN_KEY),
     [tokenSeriesKeys, tokenVisibility],
+  );
+
+  const hiddenCacheHitSeries = useMemo(
+    () => hiddenSeriesSet(cacheHitSeriesKeys, cacheHitVisibility, TOTAL_CACHE_HIT_KEY),
+    [cacheHitSeriesKeys, cacheHitVisibility],
   );
 
   const toggleCostModel = useCallback((key: string) => {
@@ -566,6 +654,13 @@ function UsagePage({ projectRequest = null, onOpenSessionInHistory }: UsagePageP
     setTokenVisibility((prev) => ({
       ...prev,
       [key]: !isSeriesVisible(prev, key, TOTAL_TOKEN_KEY),
+    }));
+  }, []);
+
+  const toggleCacheHitSeries = useCallback((key: string) => {
+    setCacheHitVisibility((prev) => ({
+      ...prev,
+      [key]: !isSeriesVisible(prev, key, TOTAL_CACHE_HIT_KEY),
     }));
   }, []);
 
@@ -583,6 +678,15 @@ function UsagePage({ projectRequest = null, onOpenSessionInHistory }: UsagePageP
       );
     },
     [tokenSeriesKeys],
+  );
+
+  const soloCacheHitSeries = useCallback(
+    (key: string) => {
+      setCacheHitVisibility((prev) =>
+        soloSeriesVisibility(cacheHitSeriesKeys, prev, key, TOTAL_CACHE_HIT_KEY),
+      );
+    },
+    [cacheHitSeriesKeys],
   );
 
   const cacheSavings = useMemo(() => {
@@ -1139,7 +1243,7 @@ function UsagePage({ projectRequest = null, onOpenSessionInHistory }: UsagePageP
                     title={t("usage.charts.cacheHitRate")}
                     className="usage-chart-secondary"
                   >
-                    {cacheHitRateTrendData.length > 0 ? (
+                    {cacheHitRateTrend.rows.length > 0 ? (
                       <>
                         <p className={cn("mb-2", TYPOGRAPHY.auxiliary, "text-muted-foreground")}>
                           {t("usage.charts.cacheHitRateHint")}
@@ -1153,7 +1257,7 @@ function UsagePage({ projectRequest = null, onOpenSessionInHistory }: UsagePageP
                         >
                           {trendChartStyle === "curve" ? (
                             <AreaChart
-                              data={cacheHitRateTrendData}
+                              data={cacheHitRateTrend.rows}
                               margin={{ left: 8, right: 18, top: 10, bottom: 4 }}
                             >
                               <CartesianGrid
@@ -1169,6 +1273,7 @@ function UsagePage({ projectRequest = null, onOpenSessionInHistory }: UsagePageP
                                 width={48}
                               />
                               <ChartTooltip
+                                itemSorter={sortTooltipItemsByValueDesc}
                                 cursor={{ stroke: CHART_CURSOR_STROKE, strokeOpacity: 0.34 }}
                                 content={
                                   <ChartTooltipContent
@@ -1194,21 +1299,44 @@ function UsagePage({ projectRequest = null, onOpenSessionInHistory }: UsagePageP
                                   }}
                                 />
                               ))}
-                              <Area
-                                type="monotone"
-                                dataKey="hitRate"
-                                stroke={COLORS.purple}
-                                fill={COLORS.purple}
-                                fillOpacity={0.12}
-                                strokeWidth={1.8}
-                                dot={{ r: 2.4, stroke: COLORS.purple, strokeWidth: 1.4 }}
-                                activeDot={{ r: 4.2, stroke: COLORS.purple, strokeWidth: 1.6 }}
-                                name={t("usage.charts.cacheHitRate")}
-                              />
+                              {cacheHitRateTrend.series
+                                .filter(
+                                  (series) =>
+                                    series.dataKey !== TOTAL_CACHE_HIT_KEY &&
+                                    !hiddenCacheHitSeries.has(series.dataKey),
+                                )
+                                .map((series) => (
+                                  <Area
+                                    key={series.dataKey}
+                                    type="monotone"
+                                    dataKey={series.dataKey}
+                                    stroke={series.color}
+                                    fill={series.color}
+                                    fillOpacity={0.12}
+                                    strokeWidth={1.8}
+                                    dot={{ r: 2.4, stroke: series.color, strokeWidth: 1.4 }}
+                                    activeDot={{ r: 4.2, stroke: series.color, strokeWidth: 1.6 }}
+                                    name={series.name}
+                                  />
+                                ))}
+                              {!hiddenCacheHitSeries.has(TOTAL_CACHE_HIT_KEY) && (
+                                <Area
+                                  key={TOTAL_CACHE_HIT_KEY}
+                                  type="monotone"
+                                  dataKey={TOTAL_CACHE_HIT_KEY}
+                                  stroke={COLORS.total}
+                                  fill={COLORS.total}
+                                  fillOpacity={0.04}
+                                  strokeWidth={2.2}
+                                  dot={{ r: 2.6, stroke: COLORS.total, strokeWidth: 1.4 }}
+                                  activeDot={{ r: 4.4, stroke: COLORS.total, strokeWidth: 1.6 }}
+                                  name={t("usage.charts.totalCacheHitRate")}
+                                />
+                              )}
                             </AreaChart>
                           ) : (
                             <BarChart
-                              data={cacheHitRateTrendData}
+                              data={cacheHitRateTrend.rows}
                               margin={{ left: 8, right: 18, top: 10, bottom: 4 }}
                             >
                               <CartesianGrid
@@ -1224,6 +1352,7 @@ function UsagePage({ projectRequest = null, onOpenSessionInHistory }: UsagePageP
                                 width={48}
                               />
                               <ChartTooltip
+                                itemSorter={sortTooltipItemsByValueDesc}
                                 cursor={{ fill: CHART_CURSOR_FILL }}
                                 content={
                                   <ChartTooltipContent
@@ -1249,17 +1378,40 @@ function UsagePage({ projectRequest = null, onOpenSessionInHistory }: UsagePageP
                                   }}
                                 />
                               ))}
-                              <Bar
-                                dataKey="hitRate"
-                                fill={COLORS.purple}
-                                fillOpacity={0.78}
-                                radius={[3, 3, 0, 0]}
-                                activeBar={activeBarStyle(COLORS.purple)}
-                                name={t("usage.charts.cacheHitRate")}
-                              />
+                              {/* 命中率为比例，不堆叠；多系列时用分组柱 */}
+                              {cacheHitRateTrend.series
+                                .filter((series) => !hiddenCacheHitSeries.has(series.dataKey))
+                                .map((series) => (
+                                  <Bar
+                                    key={series.dataKey}
+                                    dataKey={series.dataKey}
+                                    fill={series.color}
+                                    fillOpacity={
+                                      series.dataKey === TOTAL_CACHE_HIT_KEY ? 0.72 : 0.78
+                                    }
+                                    radius={[3, 3, 0, 0]}
+                                    activeBar={activeBarStyle(series.color)}
+                                    name={series.name}
+                                  />
+                                ))}
                             </BarChart>
                           )}
                         </ChartContainer>
+                        <TrendLegend
+                          items={cacheHitRateTrend.series.map((series) => ({
+                            key: series.dataKey,
+                            color: series.color,
+                            displayName: series.name,
+                            originalName: series.originalName ?? series.name,
+                            meta:
+                              series.total !== undefined ? formatPercent(series.total) : undefined,
+                          }))}
+                          hidden={hiddenCacheHitSeries}
+                          onToggle={toggleCacheHitSeries}
+                          onSolo={soloCacheHitSeries}
+                          ariaLabel={t("usage.charts.cacheHitRate")}
+                          t={t}
+                        />
                       </>
                     ) : (
                       <NoData />
