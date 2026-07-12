@@ -502,6 +502,67 @@ function ModelTestResultDialog({
             <div className="min-w-0">
               <TabsContent value="overview" className="m-0 flex-none">
                 <div className="flex flex-col gap-4">
+                  {!isSuccess && summaryText ? (
+                    <div
+                      className="flex flex-col gap-2 rounded-md border border-destructive bg-destructive/10 p-3"
+                      data-testid="model-test-error-reason-card"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="shrink-0 text-xs font-bold uppercase tracking-wide text-destructive">
+                          {t("profiles.editor.modelTest.errorReasonTitle")}
+                        </span>
+                        {rawResponse ? (
+                          <Button
+                            type="button"
+                            variant="link"
+                            size="xs"
+                            className="h-auto shrink-0 p-0 text-xs font-medium"
+                            onClick={handleShowRawResponse}
+                          >
+                            {t("profiles.editor.modelTest.viewRawResponse")}
+                          </Button>
+                        ) : null}
+                      </div>
+                      <p
+                        className="whitespace-pre-wrap text-sm leading-6 text-foreground [overflow-wrap:anywhere]"
+                        data-testid="model-test-error-reason-message"
+                      >
+                        {summaryText}
+                      </p>
+                      <dl className="grid gap-1.5 border-t border-destructive/20 pt-2">
+                        <div
+                          className="flex min-w-0 items-center gap-2"
+                          data-testid="model-test-error-reason-model-row"
+                        >
+                          <dt className="shrink-0 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                            {t("profiles.editor.modelTest.resolvedModel")}
+                          </dt>
+                          <dd
+                            className="min-w-0 flex-1 truncate font-mono text-xs text-foreground"
+                            data-testid="model-test-error-reason-model"
+                          >
+                            {result?.resolvedModel?.trim()
+                              ? result.resolvedModel.trim()
+                              : t("profiles.editor.modelTest.modelUnset")}
+                          </dd>
+                        </div>
+                        {requestUrl ? (
+                          <div
+                            className="flex min-w-0 items-center gap-2"
+                            data-testid="model-test-error-reason-url-row"
+                          >
+                            <dt className="shrink-0 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                              {t("profiles.editor.modelTest.requestUrl")}
+                            </dt>
+                            <dd className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">
+                              {requestUrl}
+                            </dd>
+                          </div>
+                        ) : null}
+                      </dl>
+                    </div>
+                  ) : null}
+
                   {trimmedProfileName || requestUrl ? (
                     <div
                       className="grid gap-2 rounded-md border border-border bg-card p-3"
@@ -658,35 +719,33 @@ function ModelTestResultDialog({
                       </div>
                     ) : null}
 
-                    <div
-                      className={cn(
-                        "flex flex-col gap-2 rounded-md border bg-card p-3",
-                        isSuccess ? "border-chart-2" : "border-destructive bg-destructive/10",
-                      )}
-                      data-testid="model-test-response-panel"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="shrink-0 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                          {isSuccess
-                            ? t("profiles.editor.modelTest.response")
-                            : t("profiles.editor.modelTest.errorMessage")}
-                        </span>
-                        {rawResponse ? (
-                          <Button
-                            type="button"
-                            variant="link"
-                            size="xs"
-                            className="h-auto shrink-0 p-0 text-xs font-medium"
-                            onClick={handleShowRawResponse}
-                          >
-                            {t("profiles.editor.modelTest.viewRawResponse")}
-                          </Button>
-                        ) : null}
+                    {/* 失败文案已在顶部原因卡展示，避免概览区重复 */}
+                    {isSuccess ? (
+                      <div
+                        className="flex flex-col gap-2 rounded-md border border-chart-2 bg-card p-3"
+                        data-testid="model-test-response-panel"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="shrink-0 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                            {t("profiles.editor.modelTest.response")}
+                          </span>
+                          {rawResponse ? (
+                            <Button
+                              type="button"
+                              variant="link"
+                              size="xs"
+                              className="h-auto shrink-0 p-0 text-xs font-medium"
+                              onClick={handleShowRawResponse}
+                            >
+                              {t("profiles.editor.modelTest.viewRawResponse")}
+                            </Button>
+                          ) : null}
+                        </div>
+                        <p className="whitespace-pre-wrap text-sm leading-6 text-foreground [overflow-wrap:anywhere]">
+                          {summaryText}
+                        </p>
                       </div>
-                      <p className="whitespace-pre-wrap text-sm leading-6 text-foreground [overflow-wrap:anywhere]">
-                        {summaryText}
-                      </p>
-                    </div>
+                    ) : null}
                   </div>
                 </div>
               </TabsContent>

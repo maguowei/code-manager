@@ -40,10 +40,14 @@ import type {
 import ConfigPreview from "./ConfigPreview";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import {
+  formatModelTestDurationMs,
   getEnabledPluginsSummary,
   isPlainObject,
   providerNameById,
   providerSlugFromId,
+  resolveProfileEffectiveEffort,
+  resolveProfileEffectiveModel,
+  truncateModelTestErrorMessage,
 } from "./config-workspace-utils";
 import EmptyState from "./EmptyState";
 import type { EditorExitGuard } from "./editor-exit-guard";
@@ -556,7 +560,8 @@ function ProfilesPage({
   }
 
   function profilePrimaryModel(profile: ConfigProfile) {
-    return settingsPrimaryModel(profile.settings);
+    // 列表展示有效模型：配置覆盖 ⊕ 供应商默认，与一键测试 resolve 语义一致
+    return resolveProfileEffectiveModel(profile, allProviders);
   }
 
   function settingsEffortLevel(settings: Record<string, unknown>) {
@@ -571,7 +576,7 @@ function ProfilesPage({
   }
 
   function profileEffortLevel(profile: ConfigProfile) {
-    return settingsEffortLevel(profile.settings);
+    return resolveProfileEffectiveEffort(profile, allProviders);
   }
 
   function profileEffortLevelClass(effort: string) {
@@ -671,6 +676,18 @@ function ProfilesPage({
       .join("\n");
   }
 
+  function clearProfileModelTestState(profileId: string) {
+    setProfileModelTestStates((current) => {
+      if (!(profileId in current)) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[profileId];
+      return next;
+    });
+    setActiveModelTestDialog((current) => (current?.profileId === profileId ? null : current));
+  }
+
   async function handleSave(data: {
     id?: string;
     name: string;
@@ -681,6 +698,10 @@ function ProfilesPage({
     try {
       await ipc.upsertProfile(data);
       await onWorkspaceChange();
+      // 配置已变，旧连通性快照作废
+      if (data.id) {
+        clearProfileModelTestState(data.id);
+      }
       closeDrawer();
       showToast(t("profiles.toast.saved"));
       return true;
@@ -713,6 +734,7 @@ function ProfilesPage({
         settings: activeSettingsMismatch.actualSettings,
       });
       await onWorkspaceChange();
+      clearProfileModelTestState(profile.id);
       setIsSettingsMismatchDialogOpen(false);
       showToast(t("profiles.mismatch.toast.accepted"));
     } catch (err) {
@@ -752,6 +774,7 @@ function ProfilesPage({
     try {
       await ipc.deleteProfile(id);
       await onWorkspaceChange();
+      clearProfileModelTestState(id);
       showToast(t("profiles.toast.deleted"));
     } catch (err) {
       showOperationError(showToast, t("profiles.toast.deleteError"), err);
@@ -1014,18 +1037,28 @@ function ProfilesPage({
     setActiveModelTestDialog(null);
     setIsRawResponseExpanded(false);
 
+    let successCount = 0;
+    let failedCount = 0;
+
     async function testProfile(profile: ConfigProfile) {
       try {
         const result = await invokeProfileModelTest(profile);
         if (modelTestRunIdRef.current === runId) {
+          const nextState = modelTestStateFromResult(result);
+          if (nextState.status === "success") {
+            successCount += 1;
+          } else {
+            failedCount += 1;
+          }
           setProfileModelTestStates((current) => ({
             ...current,
-            [profile.id]: modelTestStateFromResult(result),
+            [profile.id]: nextState,
           }));
         }
         return result;
       } catch (error) {
         if (modelTestRunIdRef.current === runId) {
+          failedCount += 1;
           setProfileModelTestStates((current) => ({
             ...current,
             [profile.id]: {
@@ -1062,6 +1095,11 @@ function ProfilesPage({
 
     if (modelTestRunIdRef.current === runId) {
       setIsTestingAllProfiles(false);
+      showToast(
+        t("profiles.testAll.summary")
+          .replace("{successCount}", String(successCount))
+          .replace("{failedCount}", String(failedCount)),
+      );
     }
   }
 
@@ -1164,7 +1202,10 @@ function ProfilesPage({
 
   function modelTestResultLabel(state: Exclude<ProfileModelTestState, { status: "running" }>) {
     return state.status === "success"
-      ? t("profiles.testAll.successResult").replace("{durationMs}", String(state.result.durationMs))
+      ? t("profiles.testAll.successResult").replace(
+          "{duration}",
+          formatModelTestDurationMs(state.result.durationMs),
+        )
       : t("profiles.testAll.failed");
   }
 
@@ -1211,6 +1252,11 @@ function ProfilesPage({
     const ariaLabel = modelTestResultAriaLabel(profile, state);
     const isSuccess = state.status === "success";
     const ResultIcon = isSuccess ? CircleCheck : CircleAlert;
+    const failureTip =
+      state.status === "failed" && state.errorMessage
+        ? truncateModelTestErrorMessage(state.errorMessage)
+        : "";
+    const titleText = failureTip || ariaLabel;
 
     return (
       <Button
@@ -1225,15 +1271,36 @@ function ProfilesPage({
             : "border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/15 hover:text-destructive",
         )}
         aria-label={ariaLabel}
-        title={ariaLabel}
+        title={titleText}
         onClick={(event) => {
           event.stopPropagation();
           openProfileModelTestResult(profile, state);
         }}
       >
-        <ResultIcon className="size-3" aria-hidden="true" />
+        <ResultIcon className="size-3 shrink-0" aria-hidden="true" />
         <span className="min-w-0 truncate">{label}</span>
       </Button>
+    );
+  }
+
+  function renderProfileTestSummaryRow(profile: ConfigProfile) {
+    const state = profileModelTestStates[profile.id];
+    if (!state) {
+      return null;
+    }
+
+    return (
+      <div
+        data-slot="profile-test-summary-row"
+        className="grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground"
+      >
+        <span className="inline-flex shrink-0 items-center text-xs leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-border after:content-[':']">
+          {t("profiles.summary.testTitle")}
+        </span>
+        <div data-slot="profile-test-summary-value" className="flex min-w-0 items-center gap-1.5">
+          {renderProfileModelTestState(profile)}
+        </div>
+      </div>
     );
   }
 
@@ -1530,7 +1597,13 @@ function ProfilesPage({
             const permissionMode = profilePermissionMode(profile);
             const sandboxEnabled = profileSandboxEnabled(profile);
             const plugins = profilePluginsSummary(profile);
-            const hasSummary = model || permissionMode || sandboxEnabled || plugins.totalCount > 0;
+            const hasTestState = Boolean(profileModelTestStates[profile.id]);
+            const hasSummary =
+              Boolean(model) ||
+              Boolean(permissionMode) ||
+              sandboxEnabled ||
+              plugins.totalCount > 0 ||
+              hasTestState;
             const isEditingProfile = isDrawerOpen && editingProfile?.id === profile.id;
             const isAppliedProfile = isAppliedToUserSettings(profile);
             const settingsMismatch = profileSettingsMismatch(profile);
@@ -1645,7 +1718,7 @@ function ProfilesPage({
 
                 {hasSummary && (
                   <div className="flex flex-col gap-2">
-                    {model && (
+                    {model ? (
                       <div className="grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground">
                         <span className="inline-flex shrink-0 items-center text-xs leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-border after:content-[':']">
                           {t("profiles.summary.modelTitle")}
@@ -1655,8 +1728,7 @@ function ProfilesPage({
                           className="flex min-w-0 flex-wrap items-center gap-1.5"
                         >
                           <span className="min-w-0 max-w-full truncate">{model}</span>
-                          {renderProfileModelTestState(profile)}
-                          {effort && (
+                          {effort ? (
                             <span
                               className={cn(
                                 "shrink-0 whitespace-nowrap",
@@ -1665,10 +1737,11 @@ function ProfilesPage({
                             >
                               {effort}
                             </span>
-                          )}
+                          ) : null}
                         </div>
                       </div>
-                    )}
+                    ) : null}
+                    {renderProfileTestSummaryRow(profile)}
                     {(permissionMode || sandboxEnabled) && (
                       <div className="grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground">
                         <span className="inline-flex shrink-0 items-center text-xs leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-border after:content-[':']">

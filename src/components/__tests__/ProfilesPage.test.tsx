@@ -779,20 +779,27 @@ describe("ProfilesPage", () => {
     const alphaCard = getProfileCard("Alpha");
     const betaCard = getProfileCard("Beta");
 
-    expect(within(alphaCard).getByText("成功 · 52 ms")).toBeInTheDocument();
+    expect(within(alphaCard).getByText("成功 52ms")).toBeInTheDocument();
     expect(within(betaCard).getByText("失败")).toBeInTheDocument();
     expect(within(alphaCard).getByText("model-profile-a")).toBeInTheDocument();
     expect(within(betaCard).getByText("model-profile-b")).toBeInTheDocument();
+    // 测试结果在独立「测试:」行，不再挂在模型行
+    expect(within(alphaCard).getByText("测试")).toBeInTheDocument();
+    expect(
+      within(alphaCard).getByText("成功 52ms").closest('[data-slot="profile-test-summary-value"]'),
+    ).not.toBeNull();
+    expect(showToastMock).toHaveBeenCalledWith("测试完成：1 成功，1 失败");
 
-    fireEvent.click(
-      within(alphaCard).getByRole("button", { name: "Alpha 测试结果：成功 · 52 ms" }),
-    );
+    fireEvent.click(within(alphaCard).getByRole("button", { name: "Alpha 测试结果：成功 52ms" }));
     expect(await screen.findByRole("dialog", { name: "模型测试结果" })).toBeInTheDocument();
     expect(screen.getByText("Alpha 测试成功")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "关闭" }));
-    fireEvent.click(within(betaCard).getByRole("button", { name: "Beta 测试结果：失败" }));
+    const failedButton = within(betaCard).getByRole("button", { name: "Beta 测试结果：失败" });
+    expect(failedButton).toHaveAttribute("title", "Beta 认证失败");
+    fireEvent.click(failedButton);
     expect(await screen.findByRole("dialog", { name: "模型测试结果" })).toBeInTheDocument();
+    expect(screen.getByTestId("model-test-error-reason-card")).toBeInTheDocument();
     expect(screen.getByText("Beta 认证失败")).toBeInTheDocument();
   });
 
@@ -1066,9 +1073,12 @@ describe("ProfilesPage", () => {
     expect(within(dialog).getByTestId("model-test-request-url-row")).toBeInTheDocument();
     expect(within(dialog).getByTestId("model-test-content-grid")).toBeInTheDocument();
     expect(within(dialog).getByTestId("model-test-prompt-panel")).toBeInTheDocument();
-    expect(within(dialog).getByTestId("model-test-response-panel")).toBeInTheDocument();
+    expect(within(dialog).getByTestId("model-test-error-reason-card")).toBeInTheDocument();
+    expect(within(dialog).queryByTestId("model-test-response-panel")).not.toBeInTheDocument();
     expect(within(dialog).getByTestId("model-test-exchange-details")).toBeInTheDocument();
-    expect(within(dialog).getByText(/No choices in OpenAI response/)).toBeInTheDocument();
+    expect(within(dialog).getByTestId("model-test-error-reason-message")).toHaveTextContent(
+      /No choices in OpenAI response/,
+    );
 
     selectTab(dialog, "请求");
     await waitFor(() =>
@@ -1204,7 +1214,7 @@ describe("ProfilesPage", () => {
     expect(within(dialog).getByText("重新测试成功")).toBeInTheDocument();
     expect(within(dialog).getByText("88 ms")).toBeInTheDocument();
     expect(
-      within(card).getByRole("button", { name: "OpenRouter User 测试结果：成功 · 88 ms" }),
+      within(card).getByRole("button", { name: "OpenRouter User 测试结果：成功 88ms" }),
     ).toBeInTheDocument();
   });
 
@@ -1469,7 +1479,7 @@ describe("ProfilesPage", () => {
     expect(screen.getByText("Model")).toBeInTheDocument();
   });
 
-  it("keeps long english model test result pills inside the model summary", async () => {
+  it("renders batch test results on an independent test summary row", async () => {
     localStorage.setItem(
       SETTINGS_STORAGE_KEY,
       JSON.stringify({
@@ -1517,16 +1527,94 @@ describe("ProfilesPage", () => {
 
     const card = getProfileCard("OpenRouter User");
     const resultButton = within(card).getByRole("button", {
-      name: "OpenRouter User test result: Success · 3652 ms",
+      name: "OpenRouter User test result: Success 3.7s",
     });
-    const modelSummaryValue = resultButton.closest('[data-slot="profile-model-summary-value"]');
+    const testSummaryValue = resultButton.closest('[data-slot="profile-test-summary-value"]');
+    const modelSummaryValue = within(card)
+      .getByText("claude-opus-4-7")
+      .closest('[data-slot="profile-model-summary-value"]');
 
     expect(resultButton).toHaveClass("max-w-full");
     expect(resultButton).toHaveClass("overflow-hidden");
-    expect(within(resultButton).getByText("Success · 3652 ms")).toHaveClass("truncate");
+    expect(within(resultButton).getByText("Success 3.7s")).toHaveClass("truncate");
+    expect(testSummaryValue).not.toBeNull();
     expect(modelSummaryValue).not.toBeNull();
-    expect(modelSummaryValue).toHaveClass("flex-wrap");
     expect(within(modelSummaryValue as HTMLElement).getByText("xhigh")).toBeInTheDocument();
+    expect(within(modelSummaryValue as HTMLElement).queryByText("Success 3.7s")).toBeNull();
+    expect(showToastMock).toHaveBeenCalledWith("Tests finished: 1 succeeded, 0 failed");
+  });
+
+  it("shows provider-default model and test results when profile does not override model", async () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "zh",
+        theme: "dark",
+      }),
+    );
+    invokeMock.mockImplementation((command: string) => {
+      if (command === "test_profile_model") {
+        return Promise.resolve({
+          ok: true,
+          responseText: "ok",
+          promptText: "请确认测试成功。",
+          resolvedModel: "deepseek-v4-pro[1m]",
+          durationMs: 119,
+          rawResponse: JSON.stringify({ content: [{ type: "text", text: "ok" }] }),
+        });
+      }
+      return Promise.resolve(null);
+    });
+
+    const workspace: ConfigWorkspace = {
+      ...WORKSPACE_FIXTURE,
+      builtinProviders: [
+        {
+          id: "builtin:deepseek",
+          name: "DeepSeek",
+          localizedName: { zh: "DeepSeek", en: "DeepSeek" },
+          description: "DeepSeek",
+          modelSuggestions: ["deepseek-v4-pro[1m]"],
+          env: {
+            ANTHROPIC_MODEL: "deepseek-v4-pro[1m]",
+            CLAUDE_CODE_EFFORT_LEVEL: "max",
+          },
+        },
+      ],
+      profiles: [
+        {
+          id: "user-deepseek",
+          name: "DeepSeek User",
+          description: "无模型覆盖",
+          providerId: "builtin:deepseek",
+          settings: {
+            env: {
+              ANTHROPIC_AUTH_TOKEN: "token",
+            },
+          },
+          createdAt: "2026-04-18T12:00:00Z",
+          updatedAt: "2026-04-18T12:00:00Z",
+        },
+      ],
+      bindings: { userProfileId: undefined },
+    } as ConfigWorkspace;
+
+    renderPage(workspace);
+
+    const card = getProfileCard("DeepSeek User");
+    expect(within(card).getByText("deepseek-v4-pro[1m]")).toBeInTheDocument();
+    expect(within(card).getByText("max")).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "一键测试" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(within(card).getByText("成功 119ms")).toBeInTheDocument();
+    expect(
+      within(card).getByText("成功 119ms").closest('[data-slot="profile-test-summary-value"]'),
+    ).not.toBeNull();
   });
 
   it("colors profile permission and effort summary values by risk and intensity", () => {
