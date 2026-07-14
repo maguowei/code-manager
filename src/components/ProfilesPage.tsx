@@ -105,6 +105,11 @@ interface ProfilesPageProps {
   onEditorExitGuardChange?: (guard: EditorExitGuard | null) => void;
   /** App 从 deep link pending 队列 drain 后下发的导入请求 */
   deepLinkImportRequest?: { urls: string[]; requestId: number } | null;
+  /**
+   * ProfilesPage 接管 urls 入队后通知 App 清空对应 request。
+   * 必须带 requestId，App 侧仅在仍匹配时清空，避免冲掉并发 drain 的新请求。
+   */
+  onDeepLinkImportConsumed?: (requestId: number) => void;
 }
 
 /** 导入对话框来源：本地文件或已解析的 deep link */
@@ -269,6 +274,7 @@ function ProfilesPage({
   onWorkspaceChange,
   onEditorExitGuardChange,
   deepLinkImportRequest = null,
+  onDeepLinkImportConsumed,
 }: ProfilesPageProps) {
   const { language, t } = useI18n();
   const { showToast } = useToast();
@@ -311,6 +317,9 @@ function ProfilesPage({
   const deepLinkResolveBusyRef = useRef(false);
   // 只按 requestId 入队一次，避免语言切换导致 t/pump 引用变化时重复 push
   const lastDeepLinkRequestIdRef = useRef<number | null>(null);
+  // 入队后回调 App 清空 request；走 ref 避免 effect 因回调引用变化重跑
+  const onDeepLinkImportConsumedRef = useRef(onDeepLinkImportConsumed);
+  onDeepLinkImportConsumedRef.current = onDeepLinkImportConsumed;
   const showToastRef = useRef(showToast);
   const tRef = useRef(t);
   showToastRef.current = showToast;
@@ -981,12 +990,16 @@ function ProfilesPage({
     setIsImportPreviewLoading(false);
   }, []);
 
-  // 仅在新的 requestId 时入队；同一 request 被语言切换/父组件重渲染时不得再 push
+  // 仅在新的 requestId 时入队；同一 request 被语言切换/父组件重渲染时不得再 push。
+  // 入队后立即按 requestId 通知 App 清空：urls 已转入本地 queue，App 若残留该 state，
+  // 会在 ProfilesPage 条件渲染 remount 时被重新投递，导致用户放弃后切回 configs 又弹一次。
   useEffect(() => {
     if (!deepLinkImportRequest) return;
     if (lastDeepLinkRequestIdRef.current === deepLinkImportRequest.requestId) return;
-    lastDeepLinkRequestIdRef.current = deepLinkImportRequest.requestId;
-    deepLinkQueueRef.current.push(...deepLinkImportRequest.urls);
+    const { requestId, urls } = deepLinkImportRequest;
+    lastDeepLinkRequestIdRef.current = requestId;
+    deepLinkQueueRef.current.push(...urls);
+    onDeepLinkImportConsumedRef.current?.(requestId);
     void pumpDeepLinkQueue();
   }, [deepLinkImportRequest, pumpDeepLinkQueue]);
 

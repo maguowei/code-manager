@@ -194,6 +194,11 @@ function App() {
     if (activeTab !== "usage") {
       setUsageProjectRequest(null);
     }
+    // 与 history/usage 一致：离开 configs 时丢弃未消费的 deep link request，
+    // 防止 lazy ProfilesPage 在 effect 入队前卸载后残留 state 再次投递
+    if (activeTab !== "configs") {
+      setDeepLinkImportRequest(null);
+    }
   }, [activeTab]);
 
   useTauriEvent<string>("navigate-to-tab", (tab) => {
@@ -310,6 +315,12 @@ function App() {
     }
   }, [activateTab, runWithEditorExitGuard]);
 
+  // ProfilesPage 接管 urls 入队后按 requestId 清空，避免残留 state 在 remount 时重放；
+  // 仅匹配当前 id 时清空，防止旧请求的 clear 冲掉并发 drain 的新 request
+  const handleDeepLinkImportConsumed = useCallback((requestId: number) => {
+    setDeepLinkImportRequest((current) => (current?.requestId === requestId ? null : current));
+  }, []);
+
   useEffect(() => {
     if (loading) return;
     void drainProfileImportDeepLinks();
@@ -384,6 +395,7 @@ function App() {
                     onWorkspaceChange={loadWorkspace}
                     onEditorExitGuardChange={setEditorExitGuard}
                     deepLinkImportRequest={deepLinkImportRequest}
+                    onDeepLinkImportConsumed={handleDeepLinkImportConsumed}
                   />
                 ) : (
                   <div

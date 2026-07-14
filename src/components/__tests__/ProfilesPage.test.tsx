@@ -2305,6 +2305,181 @@ describe("ProfilesPage", () => {
     ).toHaveLength(1);
   });
 
+  it("calls onDeepLinkImportConsumed with requestId after queuing deep link urls", async () => {
+    const onWorkspaceChange = vi.fn(async () => {});
+    const onDeepLinkImportConsumed = vi.fn();
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === "resolve_profile_import_deep_link") {
+        return {
+          name: "FromLink",
+          description: "",
+          settingsJson: '{\n  "model": "claude-sonnet-4-6"\n}',
+          containsSecrets: false,
+          source: "payload",
+        };
+      }
+      return null;
+    });
+
+    render(
+      <ThemeProvider>
+        <I18nProvider>
+          <ProfilesPage
+            workspace={WORKSPACE_FIXTURE}
+            onWorkspaceChange={onWorkspaceChange}
+            deepLinkImportRequest={{
+              urls: ["code-manager://profiles/import?payload=abc"],
+              requestId: 7,
+            }}
+            onDeepLinkImportConsumed={onDeepLinkImportConsumed}
+          />
+        </I18nProvider>
+      </ThemeProvider>,
+    );
+
+    // 入队后立即带 requestId 通知 App 清空，避免残留 state 跨 remount 重放
+    await waitFor(() => {
+      expect(onDeepLinkImportConsumed).toHaveBeenCalledTimes(1);
+    });
+    expect(onDeepLinkImportConsumed).toHaveBeenCalledWith(7);
+    expect(
+      invokeMock.mock.calls.filter(([command]) => command === "resolve_profile_import_deep_link"),
+    ).toHaveLength(1);
+  });
+
+  it("does not re-queue deep link urls after App clears the request on remount", async () => {
+    const onWorkspaceChange = vi.fn(async () => {});
+    // 模拟 App 侧按 requestId 条件清空
+    let parentRequest: { urls: string[]; requestId: number } | null = {
+      urls: ["code-manager://profiles/import?payload=abc"],
+      requestId: 42,
+    };
+    const onDeepLinkImportConsumed = vi.fn((requestId: number) => {
+      if (parentRequest?.requestId === requestId) {
+        parentRequest = null;
+      }
+    });
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === "resolve_profile_import_deep_link") {
+        return {
+          name: "FromLink",
+          description: "",
+          settingsJson: '{\n  "model": "claude-sonnet-4-6"\n}',
+          containsSecrets: false,
+          source: "payload",
+        };
+      }
+      return null;
+    });
+
+    // 首次挂载：入队后回调 App 按 requestId 清空
+    const { unmount } = render(
+      <ThemeProvider>
+        <I18nProvider>
+          <ProfilesPage
+            workspace={WORKSPACE_FIXTURE}
+            onWorkspaceChange={onWorkspaceChange}
+            deepLinkImportRequest={parentRequest}
+            onDeepLinkImportConsumed={onDeepLinkImportConsumed}
+          />
+        </I18nProvider>
+      </ThemeProvider>,
+    );
+
+    await waitFor(() => {
+      expect(onDeepLinkImportConsumed).toHaveBeenCalledWith(42);
+    });
+    expect(parentRequest).toBeNull();
+
+    // 模拟用户切走 configs tab：ProfilesPage 卸载
+    unmount();
+
+    // 修复后 parentRequest 已清空，切回 configs 重新挂载不再下发旧 request
+    render(
+      <ThemeProvider>
+        <I18nProvider>
+          <ProfilesPage
+            workspace={WORKSPACE_FIXTURE}
+            onWorkspaceChange={onWorkspaceChange}
+            deepLinkImportRequest={parentRequest}
+            onDeepLinkImportConsumed={onDeepLinkImportConsumed}
+          />
+        </I18nProvider>
+      </ThemeProvider>,
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // remount 不得再次 resolve（原 bug 会重放已放弃的导入）
+    expect(
+      invokeMock.mock.calls.filter(([command]) => command === "resolve_profile_import_deep_link"),
+    ).toHaveLength(1);
+    expect(onDeepLinkImportConsumed).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-queues residual non-null deepLinkImportRequest on remount when App did not clear", async () => {
+    const onWorkspaceChange = vi.fn(async () => {});
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === "resolve_profile_import_deep_link") {
+        return {
+          name: "FromLink",
+          description: "",
+          settingsJson: '{\n  "model": "claude-sonnet-4-6"\n}',
+          containsSecrets: false,
+          source: "payload",
+        };
+      }
+      return null;
+    });
+
+    const residualRequest = {
+      urls: ["code-manager://profiles/import?payload=abc"],
+      requestId: 42,
+    };
+
+    // 无 onDeepLinkImportConsumed：模拟 App 残留非 null request
+    const { unmount } = render(
+      <ThemeProvider>
+        <I18nProvider>
+          <ProfilesPage
+            workspace={WORKSPACE_FIXTURE}
+            onWorkspaceChange={onWorkspaceChange}
+            deepLinkImportRequest={residualRequest}
+          />
+        </I18nProvider>
+      </ThemeProvider>,
+    );
+
+    await waitFor(() => {
+      expect(
+        invokeMock.mock.calls.filter(([command]) => command === "resolve_profile_import_deep_link"),
+      ).toHaveLength(1);
+    });
+
+    unmount();
+
+    // remount 时 lastDeepLinkRequestIdRef 重置，残留同一 request 会再次入队（说明为何必须清空）
+    render(
+      <ThemeProvider>
+        <I18nProvider>
+          <ProfilesPage
+            workspace={WORKSPACE_FIXTURE}
+            onWorkspaceChange={onWorkspaceChange}
+            deepLinkImportRequest={residualRequest}
+          />
+        </I18nProvider>
+      </ThemeProvider>,
+    );
+
+    await waitFor(() => {
+      expect(
+        invokeMock.mock.calls.filter(([command]) => command === "resolve_profile_import_deep_link"),
+      ).toHaveLength(2);
+    });
+  });
+
   it("imports a deep link payload after secrets acknowledgement", async () => {
     const onWorkspaceChange = vi.fn(async () => {});
     invokeMock.mockImplementation(async (command: string) => {
