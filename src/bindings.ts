@@ -26,6 +26,14 @@ export const commands = {
 	exportProfile: (id: string, targetPath: string, includeSecrets: boolean) => typedError<null, string>(__TAURI_INVOKE("export_profile", { id, targetPath, includeSecrets })),
 	previewProfileImport: (sourcePath: string) => typedError<string, string>(__TAURI_INVOKE("preview_profile_import", { sourcePath })),
 	importProfileFromFile: (sourcePath: string, name: string, description: string) => typedError<ConfigProfile_Serialize, string>(__TAURI_INVOKE("import_profile_from_file", { sourcePath, name, description })),
+	/**  从已解析的 settings JSON 文本导入为新配置（deep link 预览确认后入库）。 */
+	importProfileFromSettingsJson: (settingsJson: string, name: string, description: string) => typedError<ConfigProfile_Serialize, string>(__TAURI_INVOKE("import_profile_from_settings_json", { settingsJson, name, description })),
+	/**  解析配置导入 deep link（含远端拉取 / payload 解码与 schema 校验）。 */
+	resolveProfileImportDeepLink: (url: string) => typedError<ResolvedProfileImportDeepLink, string>(__TAURI_INVOKE("resolve_profile_import_deep_link", { url })),
+	/**  从配置导出内容生成内嵌载荷 deep link（默认路径 A）。 */
+	buildProfileImportDeepLink: (id: string, includeSecrets: boolean) => typedError<string, string>(__TAURI_INVOKE("build_profile_import_deep_link", { id, includeSecrets })),
+	/**  取出冷启动积压的配置导入 deep link（取出后清空）。 */
+	drainPendingProfileImportDeepLinks: () => typedError<string[], string>(__TAURI_INVOKE("drain_pending_profile_import_deep_links")),
 	testProfileModel: (data: ModelTestInput) => typedError<ModelTestResult_Serialize, string>(__TAURI_INVOKE("test_profile_model", { data })),
 	setAppPreferences: (data: AppPreferencesInput) => typedError<AppPreferences, string>(__TAURI_INVOKE("set_app_preferences", { data })),
 	/**  切换浮窗显隐（幂等）：显示时不存在则创建，隐藏时隐藏而非关闭以保留位置与状态。 */
@@ -119,6 +127,8 @@ export const commands = {
 	ledProbeStatus: () => __TAURI_INVOKE<LedProbeStatus>("led_probe_status"),
 	/**  测试某个灯效(设置页「测试」按钮 / 真机验证门)。立即下发,不受 enabled 影响。 */
 	ledTestMode: (mode: number) => typedError<null, string>(__TAURI_INVOKE("led_test_mode", { mode })),
+	/**  读取当前防止休眠状态（模式 + 是否正在保持唤醒）。设置页挂载时拉一次，之后靠事件增量刷新。 */
+	getSleepPreventionStatus: () => __TAURI_INVOKE<SleepPreventionStatus>("get_sleep_prevention_status"),
 	/**  设置页"试听"入口：立即播放一次选中音效。 */
 	previewWaitingSound: (sound: WaitingSound) => typedError<null, string>(__TAURI_INVOKE("preview_waiting_sound", { sound })),
 };
@@ -157,6 +167,10 @@ export type AppPreferences = {
 	waitingSoundEnabled?: boolean,
 	/**  等待提示音效，默认 Glass。 */
 	waitingSound?: WaitingSound,
+	/**  防止休眠模式：off 不干预 / whileActive 仅 running 类会话运行时 / always 无条件（默认 off，仅 macOS 生效）。 */
+	sleepPrevention?: SleepPreventionMode,
+	/**  保持唤醒时是否连显示器一起不熄（默认 false=仅系统；true 时改用 PreventUserIdleDisplaySleep）。仅 macOS 生效。 */
+	keepDisplayAwake?: boolean,
 };
 
 export type AppPreferencesInput = {
@@ -178,6 +192,8 @@ export type AppPreferencesInput = {
 	floatingWidgetOpacity?: number,
 	waitingSoundEnabled?: boolean,
 	waitingSound?: WaitingSound,
+	sleepPrevention?: SleepPreventionMode,
+	keepDisplayAwake?: boolean,
 };
 
 export type BindingState = BindingState_Serialize | BindingState_Deserialize;
@@ -198,6 +214,16 @@ export type ClaudeDirectoryEntry = {
 	kind: ClaudeDirectoryEntryKind,
 	size: number,
 	modifiedAt: number,
+	/**  该项自身是否为软链（后代经软链可达时仍为 false） */
+	isSymlink: boolean,
+	/**  `read_link` 原始目标（相对或绝对，按磁盘存储） */
+	linkTarget: string | null,
+	/**  解析后的绝对目标路径；损坏时为 None */
+	linkTargetAbsolute: string | null,
+	/**  目标不存在或不可解析 */
+	isBroken: boolean,
+	/**  目标真实路径已在本次扫描中访问过（环或菱形汇合），不再递归 */
+	isCycle: boolean,
 };
 
 export type ClaudeDirectoryEntryKind = "file" | "directory";
@@ -209,7 +235,7 @@ export type ClaudeDirectoryListing = {
 	entries: ClaudeDirectoryEntry[],
 	truncated: boolean,
 	reachedEntryLimit: boolean,
-	skippedSymlinkCount: number,
+	symlinkCount: number,
 };
 
 export type ClaudeDirectoryOverview = {
@@ -220,7 +246,8 @@ export type ClaudeDirectoryOverview = {
 	truncated: boolean,
 	reachedEntryLimit: boolean,
 	reachedDepthLimit: boolean,
-	skippedSymlinkCount: number,
+	/**  扫描到的软链条目数（已收录，非跳过） */
+	symlinkCount: number,
 	skippedNodeModulesCount: number,
 };
 
@@ -233,6 +260,13 @@ export type ClaudeFilePreview = {
 	size: number,
 	modifiedAt: number,
 	encoding: string,
+	/**  叶子节点自身是否为软链 */
+	isSymlink: boolean,
+	/**  路径上第一个软链的逻辑相对路径 */
+	viaSymlinkPath: string | null,
+	linkTarget: string | null,
+	linkTargetAbsolute: string | null,
+	isBroken: boolean,
 };
 
 /**  从 ~/.claude.json 解析的完整统计数据 */
@@ -920,6 +954,19 @@ export type Provider_Serialize = {
 	env: { [key in string]: string },
 };
 
+export type ResolvedProfileImportDeepLink = {
+	/**  预填名称（query 或默认值）。 */
+	name: string,
+	/**  预填描述。 */
+	description: string,
+	/**  校验后的 settings 美化 JSON，供预览与入库。 */
+	settingsJson: string,
+	/**  是否含非空认证类敏感字段。 */
+	containsSecrets: boolean,
+	/**  `payload` 或 `url`。 */
+	source: string,
+};
+
 export type ScanResult = {
 	filesScanned: number,
 	newRecords: number,
@@ -1045,6 +1092,23 @@ export type SkillFileTreeEntry = {
 
 /**  支持文件树条目（SKILL.md 以外的文件和目录） */
 export type SkillFileTreeEntryKind = "file" | "directory";
+
+/**  防止休眠模式，作为 `AppPreferences.sleep_prevention` 持久化。三态互斥。 */
+export type SleepPreventionMode =
+/**  不干预，系统正常休眠（默认）。 */
+"off" |
+/**  仅存在 running 类会话（running/busy/active/starting，waiting 不计入）时保持唤醒。 */
+"whileActive" |
+/**  无条件保持唤醒。 */
+"always";
+
+/**  防止休眠对外状态快照：当前模式 + 此刻是否正持有断言（正在保持唤醒）。供设置页展示。 */
+export type SleepPreventionStatus = {
+	/**  当前防止休眠模式。 */
+	mode: SleepPreventionMode,
+	/**  此刻是否正持有电源断言（true=正在保持唤醒，false=空闲可休眠）。 */
+	active: boolean,
+};
 
 export type StatusLinePresetInstallResult = {
 	presetId: string,

@@ -41,8 +41,10 @@ function SegmentedControl<TValue extends string>({
             variant="ghost"
             size="xs"
             className={cn(
-              "h-auto rounded-sm px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-transparent hover:text-foreground",
-              selected && "bg-background text-foreground shadow-sm",
+              "h-auto rounded-sm px-2.5 py-1 text-xs font-medium",
+              selected
+                ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary hover:text-primary-foreground dark:hover:bg-primary"
+                : "text-muted-foreground hover:bg-transparent hover:text-foreground",
               itemClassName,
             )}
             aria-pressed={selected}

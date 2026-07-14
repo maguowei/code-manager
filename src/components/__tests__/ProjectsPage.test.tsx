@@ -370,6 +370,14 @@ async function findProjectButton(project: string) {
   return button as HTMLButtonElement;
 }
 
+const PROJECT_CLAUDE_ENTRY_DEFAULTS = {
+  isSymlink: false,
+  linkTarget: null,
+  linkTargetAbsolute: null,
+  isBroken: false,
+  isCycle: false,
+} as const;
+
 const PROJECT_CLAUDE_OVERVIEW_FIXTURE = {
   rootPath: `${PROJECT_ALPHA}/.claude`,
   maxEntries: 100000,
@@ -381,6 +389,7 @@ const PROJECT_CLAUDE_OVERVIEW_FIXTURE = {
       kind: "directory" as const,
       size: 0,
       modifiedAt: 1,
+      ...PROJECT_CLAUDE_ENTRY_DEFAULTS,
     },
     {
       path: "rules/frontend-ui.md",
@@ -388,6 +397,7 @@ const PROJECT_CLAUDE_OVERVIEW_FIXTURE = {
       kind: "file" as const,
       size: 64,
       modifiedAt: 2,
+      ...PROJECT_CLAUDE_ENTRY_DEFAULTS,
     },
     {
       path: "settings.json",
@@ -395,12 +405,13 @@ const PROJECT_CLAUDE_OVERVIEW_FIXTURE = {
       kind: "file" as const,
       size: 18,
       modifiedAt: 3,
+      ...PROJECT_CLAUDE_ENTRY_DEFAULTS,
     },
   ],
   truncated: false,
   reachedEntryLimit: false,
   reachedDepthLimit: false,
-  skippedSymlinkCount: 0,
+  symlinkCount: 0,
   skippedNodeModulesCount: 0,
 };
 
@@ -421,6 +432,11 @@ function mockProjectClaudeExplorerInvokes() {
           size: 64,
           modifiedAt: 2,
           encoding: "utf-8",
+          isSymlink: false,
+          viaSymlinkPath: null,
+          linkTarget: null,
+          linkTargetAbsolute: null,
+          isBroken: false,
         };
       }
       return {
@@ -432,6 +448,11 @@ function mockProjectClaudeExplorerInvokes() {
         size: 18,
         modifiedAt: 3,
         encoding: "utf-8",
+        isSymlink: false,
+        viaSymlinkPath: null,
+        linkTarget: null,
+        linkTargetAbsolute: null,
+        isBroken: false,
       };
     }
     if (command === "open_project_claude_file_in_editor") {

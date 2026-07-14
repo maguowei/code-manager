@@ -779,20 +779,27 @@ describe("ProfilesPage", () => {
     const alphaCard = getProfileCard("Alpha");
     const betaCard = getProfileCard("Beta");
 
-    expect(within(alphaCard).getByText("成功 · 52 ms")).toBeInTheDocument();
+    expect(within(alphaCard).getByText("成功 52ms")).toBeInTheDocument();
     expect(within(betaCard).getByText("失败")).toBeInTheDocument();
     expect(within(alphaCard).getByText("model-profile-a")).toBeInTheDocument();
     expect(within(betaCard).getByText("model-profile-b")).toBeInTheDocument();
+    // 测试结果在独立「测试:」行，不再挂在模型行
+    expect(within(alphaCard).getByText("测试")).toBeInTheDocument();
+    expect(
+      within(alphaCard).getByText("成功 52ms").closest('[data-slot="profile-test-summary-value"]'),
+    ).not.toBeNull();
+    expect(showToastMock).toHaveBeenCalledWith("测试完成：1 成功，1 失败");
 
-    fireEvent.click(
-      within(alphaCard).getByRole("button", { name: "Alpha 测试结果：成功 · 52 ms" }),
-    );
+    fireEvent.click(within(alphaCard).getByRole("button", { name: "Alpha 测试结果：成功 52ms" }));
     expect(await screen.findByRole("dialog", { name: "模型测试结果" })).toBeInTheDocument();
     expect(screen.getByText("Alpha 测试成功")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "关闭" }));
-    fireEvent.click(within(betaCard).getByRole("button", { name: "Beta 测试结果：失败" }));
+    const failedButton = within(betaCard).getByRole("button", { name: "Beta 测试结果：失败" });
+    expect(failedButton).toHaveAttribute("title", "Beta 认证失败");
+    fireEvent.click(failedButton);
     expect(await screen.findByRole("dialog", { name: "模型测试结果" })).toBeInTheDocument();
+    expect(screen.getByTestId("model-test-error-reason-card")).toBeInTheDocument();
     expect(screen.getByText("Beta 认证失败")).toBeInTheDocument();
   });
 
@@ -1066,9 +1073,12 @@ describe("ProfilesPage", () => {
     expect(within(dialog).getByTestId("model-test-request-url-row")).toBeInTheDocument();
     expect(within(dialog).getByTestId("model-test-content-grid")).toBeInTheDocument();
     expect(within(dialog).getByTestId("model-test-prompt-panel")).toBeInTheDocument();
-    expect(within(dialog).getByTestId("model-test-response-panel")).toBeInTheDocument();
+    expect(within(dialog).getByTestId("model-test-error-reason-card")).toBeInTheDocument();
+    expect(within(dialog).queryByTestId("model-test-response-panel")).not.toBeInTheDocument();
     expect(within(dialog).getByTestId("model-test-exchange-details")).toBeInTheDocument();
-    expect(within(dialog).getByText(/No choices in OpenAI response/)).toBeInTheDocument();
+    expect(within(dialog).getByTestId("model-test-error-reason-message")).toHaveTextContent(
+      /No choices in OpenAI response/,
+    );
 
     selectTab(dialog, "请求");
     await waitFor(() =>
@@ -1204,7 +1214,7 @@ describe("ProfilesPage", () => {
     expect(within(dialog).getByText("重新测试成功")).toBeInTheDocument();
     expect(within(dialog).getByText("88 ms")).toBeInTheDocument();
     expect(
-      within(card).getByRole("button", { name: "OpenRouter User 测试结果：成功 · 88 ms" }),
+      within(card).getByRole("button", { name: "OpenRouter User 测试结果：成功 88ms" }),
     ).toBeInTheDocument();
   });
 
@@ -1469,7 +1479,7 @@ describe("ProfilesPage", () => {
     expect(screen.getByText("Model")).toBeInTheDocument();
   });
 
-  it("keeps long english model test result pills inside the model summary", async () => {
+  it("renders batch test results on an independent test summary row", async () => {
     localStorage.setItem(
       SETTINGS_STORAGE_KEY,
       JSON.stringify({
@@ -1517,16 +1527,94 @@ describe("ProfilesPage", () => {
 
     const card = getProfileCard("OpenRouter User");
     const resultButton = within(card).getByRole("button", {
-      name: "OpenRouter User test result: Success · 3652 ms",
+      name: "OpenRouter User test result: Success 3.7s",
     });
-    const modelSummaryValue = resultButton.closest('[data-slot="profile-model-summary-value"]');
+    const testSummaryValue = resultButton.closest('[data-slot="profile-test-summary-value"]');
+    const modelSummaryValue = within(card)
+      .getByText("claude-opus-4-7")
+      .closest('[data-slot="profile-model-summary-value"]');
 
     expect(resultButton).toHaveClass("max-w-full");
     expect(resultButton).toHaveClass("overflow-hidden");
-    expect(within(resultButton).getByText("Success · 3652 ms")).toHaveClass("truncate");
+    expect(within(resultButton).getByText("Success 3.7s")).toHaveClass("truncate");
+    expect(testSummaryValue).not.toBeNull();
     expect(modelSummaryValue).not.toBeNull();
-    expect(modelSummaryValue).toHaveClass("flex-wrap");
     expect(within(modelSummaryValue as HTMLElement).getByText("xhigh")).toBeInTheDocument();
+    expect(within(modelSummaryValue as HTMLElement).queryByText("Success 3.7s")).toBeNull();
+    expect(showToastMock).toHaveBeenCalledWith("Tests finished: 1 succeeded, 0 failed");
+  });
+
+  it("shows provider-default model and test results when profile does not override model", async () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        language: "zh",
+        theme: "dark",
+      }),
+    );
+    invokeMock.mockImplementation((command: string) => {
+      if (command === "test_profile_model") {
+        return Promise.resolve({
+          ok: true,
+          responseText: "ok",
+          promptText: "请确认测试成功。",
+          resolvedModel: "deepseek-v4-pro[1m]",
+          durationMs: 119,
+          rawResponse: JSON.stringify({ content: [{ type: "text", text: "ok" }] }),
+        });
+      }
+      return Promise.resolve(null);
+    });
+
+    const workspace: ConfigWorkspace = {
+      ...WORKSPACE_FIXTURE,
+      builtinProviders: [
+        {
+          id: "builtin:deepseek",
+          name: "DeepSeek",
+          localizedName: { zh: "DeepSeek", en: "DeepSeek" },
+          description: "DeepSeek",
+          modelSuggestions: ["deepseek-v4-pro[1m]"],
+          env: {
+            ANTHROPIC_MODEL: "deepseek-v4-pro[1m]",
+            CLAUDE_CODE_EFFORT_LEVEL: "max",
+          },
+        },
+      ],
+      profiles: [
+        {
+          id: "user-deepseek",
+          name: "DeepSeek User",
+          description: "无模型覆盖",
+          providerId: "builtin:deepseek",
+          settings: {
+            env: {
+              ANTHROPIC_AUTH_TOKEN: "token",
+            },
+          },
+          createdAt: "2026-04-18T12:00:00Z",
+          updatedAt: "2026-04-18T12:00:00Z",
+        },
+      ],
+      bindings: { userProfileId: undefined },
+    } as ConfigWorkspace;
+
+    renderPage(workspace);
+
+    const card = getProfileCard("DeepSeek User");
+    expect(within(card).getByText("deepseek-v4-pro[1m]")).toBeInTheDocument();
+    expect(within(card).getByText("max")).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "一键测试" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(within(card).getByText("成功 119ms")).toBeInTheDocument();
+    expect(
+      within(card).getByText("成功 119ms").closest('[data-slot="profile-test-summary-value"]'),
+    ).not.toBeNull();
   });
 
   it("colors profile permission and effort summary values by risk and intensity", () => {
@@ -2153,5 +2241,174 @@ describe("ProfilesPage", () => {
       expect(within(dialog).getByText("解析 JSON 失败")).toBeInTheDocument();
     });
     expect(within(dialog).getByRole("button", { name: "导入" })).toBeDisabled();
+  });
+
+  it("does not re-queue the same deepLinkImportRequest when the page re-renders", async () => {
+    const onWorkspaceChange = vi.fn(async () => {});
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === "resolve_profile_import_deep_link") {
+        return {
+          name: "FromLink",
+          description: "",
+          settingsJson: '{\n  "model": "claude-sonnet-4-6"\n}',
+          containsSecrets: false,
+          source: "payload",
+        };
+      }
+      return null;
+    });
+
+    const request = {
+      urls: ["code-manager://profiles/import?payload=abc"],
+      requestId: 42,
+    };
+
+    const { rerender } = render(
+      <ThemeProvider>
+        <I18nProvider>
+          <ProfilesPage
+            workspace={WORKSPACE_FIXTURE}
+            onWorkspaceChange={onWorkspaceChange}
+            deepLinkImportRequest={request}
+          />
+        </I18nProvider>
+      </ThemeProvider>,
+    );
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("resolve_profile_import_deep_link", {
+        url: "code-manager://profiles/import?payload=abc",
+      });
+    });
+    expect(
+      invokeMock.mock.calls.filter(([command]) => command === "resolve_profile_import_deep_link"),
+    ).toHaveLength(1);
+
+    // 同一 requestId 再渲染（模拟父组件/语言切换导致的 props 引用变化）不得再次 resolve
+    rerender(
+      <ThemeProvider>
+        <I18nProvider>
+          <ProfilesPage
+            workspace={WORKSPACE_FIXTURE}
+            onWorkspaceChange={onWorkspaceChange}
+            deepLinkImportRequest={{ ...request }}
+          />
+        </I18nProvider>
+      </ThemeProvider>,
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(
+      invokeMock.mock.calls.filter(([command]) => command === "resolve_profile_import_deep_link"),
+    ).toHaveLength(1);
+  });
+
+  it("imports a deep link payload after secrets acknowledgement", async () => {
+    const onWorkspaceChange = vi.fn(async () => {});
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === "resolve_profile_import_deep_link") {
+        return {
+          name: "FromLink",
+          description: "via deeplink",
+          settingsJson: '{\n  "env": {\n    "ANTHROPIC_AUTH_TOKEN": "secret"\n  }\n}',
+          containsSecrets: true,
+          source: "payload",
+        };
+      }
+      if (command === "import_profile_from_settings_json") {
+        return {
+          id: "imported-deeplink",
+          name: "FromLink",
+          description: "via deeplink",
+          settings: { env: { ANTHROPIC_AUTH_TOKEN: "secret" } },
+          createdAt: "2026-06-22T00:00:00Z",
+          updatedAt: "2026-06-22T00:00:00Z",
+        };
+      }
+      return null;
+    });
+
+    render(
+      <ThemeProvider>
+        <I18nProvider>
+          <ProfilesPage
+            workspace={WORKSPACE_FIXTURE}
+            onWorkspaceChange={onWorkspaceChange}
+            deepLinkImportRequest={{
+              urls: ["code-manager://profiles/import?payload=abc"],
+              requestId: 1,
+            }}
+          />
+        </I18nProvider>
+      </ThemeProvider>,
+    );
+
+    const dialog = await screen.findByRole("dialog", { name: "导入配置" });
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("resolve_profile_import_deep_link", {
+        url: "code-manager://profiles/import?payload=abc",
+      });
+    });
+    expect(within(dialog).getByText(/包含认证密钥/)).toBeInTheDocument();
+    const importButton = within(dialog).getByRole("button", { name: "导入" });
+    expect(importButton).toBeDisabled();
+
+    fireEvent.click(within(dialog).getByRole("checkbox"));
+    expect(importButton).not.toBeDisabled();
+
+    await act(async () => {
+      fireEvent.click(importButton);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("import_profile_from_settings_json", {
+        settingsJson: '{\n  "env": {\n    "ANTHROPIC_AUTH_TOKEN": "secret"\n  }\n}',
+        name: "FromLink",
+        description: "via deeplink",
+      });
+      expect(onWorkspaceChange).toHaveBeenCalled();
+      expect(showToastMock).toHaveBeenCalledWith("配置已导入");
+    });
+  });
+
+  it("copies a deep link from the export dialog without secrets by default", async () => {
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === "preview_profile_export") {
+        return '{\n  "model": "claude-sonnet-4-6"\n}';
+      }
+      if (command === "build_profile_import_deep_link") {
+        return "code-manager://profiles/import?payload=e30&name=OpenRouter";
+      }
+      return null;
+    });
+
+    renderPage();
+
+    await act(async () => {
+      fireEvent.click(
+        within(getProfileCard("OpenRouter User")).getByRole("button", { name: "导出配置" }),
+      );
+      await Promise.resolve();
+    });
+
+    const dialog = await screen.findByRole("dialog", { name: "导出配置" });
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "复制 Deep Link" }));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("build_profile_import_deep_link", {
+        id: "user-openrouter",
+        includeSecrets: false,
+      });
+    });
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      "code-manager://profiles/import?payload=e30&name=OpenRouter",
+    );
+    expect(showToastMock).toHaveBeenCalledWith("Deep Link 已复制");
   });
 });

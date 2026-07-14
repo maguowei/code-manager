@@ -22,7 +22,80 @@ export function treePathForEntry(entry: ClaudeDirectoryEntry) {
 }
 
 export function normalizeTreePath(path: string) {
+  if (!path) {
+    return "";
+  }
   return path.endsWith("/") ? path.slice(0, -1) : path;
+}
+
+/** 路径自身或其任一祖先是软链时，总览写操作只读 */
+export function pathCrossesSymlink(
+  path: string,
+  entryByPath: Map<string, ClaudeDirectoryEntry>,
+): boolean {
+  const parts = path.split("/").filter(Boolean);
+  let current = "";
+  for (const part of parts) {
+    current = current ? `${current}/${part}` : part;
+    if (entryByPath.get(current)?.isSymlink) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function formatSymlinkTargetLabel(options: {
+  linkTarget?: string | null;
+  linkTargetAbsolute?: string | null;
+  isBroken?: boolean;
+  isCycle?: boolean;
+  t: (key: TranslationKey) => string;
+}): string {
+  const { linkTarget, linkTargetAbsolute, isBroken, isCycle, t } = options;
+  if (isBroken) {
+    const raw = linkTarget?.trim();
+    return raw ? `${t("claudeOverview.symlinkBroken")}: ${raw}` : t("claudeOverview.symlinkBroken");
+  }
+  if (isCycle) {
+    const absolute = linkTargetAbsolute?.trim() || linkTarget?.trim() || "";
+    return absolute
+      ? `${t("claudeOverview.symlinkCycle")}: ${absolute}`
+      : t("claudeOverview.symlinkCycle");
+  }
+  const absolute = linkTargetAbsolute?.trim();
+  const raw = linkTarget?.trim();
+  if (absolute && raw && absolute !== raw) {
+    return `${absolute} ← ${raw}`;
+  }
+  return absolute || raw || t("claudeOverview.symlinkBadge");
+}
+
+export function formatPreviewSymlinkFooter(
+  preview: ClaudeFilePreview,
+  t: (key: TranslationKey) => string,
+): string | null {
+  if (preview.isBroken) {
+    return formatSymlinkTargetLabel({
+      linkTarget: preview.linkTarget,
+      linkTargetAbsolute: preview.linkTargetAbsolute,
+      isBroken: true,
+      t,
+    });
+  }
+  if (!preview.viaSymlinkPath && !preview.isSymlink) {
+    return null;
+  }
+  const target = formatSymlinkTargetLabel({
+    linkTarget: preview.linkTarget,
+    linkTargetAbsolute: preview.linkTargetAbsolute,
+    t,
+  });
+  if (preview.isSymlink) {
+    return `${t("claudeOverview.symlinkBadge")} → ${target}`;
+  }
+  return t("claudeOverview.viaSymlink")
+    .replace("{path}", preview.viaSymlinkPath ?? "")
+    .replace("{target}", target);
 }
 
 export function formatBytes(bytes: number) {

@@ -720,6 +720,14 @@ fn build_tray_menu(app: &AppHandle, state: &ConfigRegistry) -> tauri::Result<Men
 
     items.push(Box::new(PredefinedMenuItem::separator(app)?));
 
+    // 防止休眠三态子菜单（仅 macOS 有实际效果，故只在 macOS 渲染）
+    #[cfg(target_os = "macos")]
+    {
+        let sleep_submenu = build_sleep_submenu(app, state)?;
+        items.push(Box::new(sleep_submenu));
+        items.push(Box::new(PredefinedMenuItem::separator(app)?));
+    }
+
     // 退出
     let quit = MenuItemBuilder::with_id("quit", labels.quit).build(app)?;
     items.push(Box::new(quit));
@@ -730,6 +738,85 @@ fn build_tray_menu(app: &AppHandle, state: &ConfigRegistry) -> tauri::Result<Men
         .map(|b| b.as_ref() as &dyn tauri::menu::IsMenuItem<tauri::Wry>)
         .collect();
     Menu::with_items(app, &refs)
+}
+
+/// 把托盘菜单项 id 的 `sleep_` 后缀解析为模式（`off` / `while_active` / `always`）。未知值返回 None。
+fn parse_sleep_prevention_key(key: &str) -> Option<crate::sleep::SleepPreventionMode> {
+    use crate::sleep::SleepPreventionMode as M;
+    match key {
+        "off" => Some(M::Off),
+        "while_active" => Some(M::WhileActive),
+        "always" => Some(M::Always),
+        _ => None,
+    }
+}
+
+/// 防止休眠三态在托盘菜单中的显示标签（按语言）。
+#[cfg(target_os = "macos")]
+fn sleep_mode_label(mode: crate::sleep::SleepPreventionMode, language: &str) -> &'static str {
+    use crate::sleep::SleepPreventionMode as M;
+    match (language, mode) {
+        ("en", M::Off) => "Off",
+        ("en", M::WhileActive) => "While Active",
+        ("en", M::Always) => "Always",
+        (_, M::Off) => "关闭",
+        (_, M::WhileActive) => "仅活动时",
+        (_, M::Always) => "始终",
+    }
+}
+
+/// 构建「防止休眠」子菜单：父项标题带当前模式，hover 展开三选一，当前项以 `✓` 标记（沿用配置列表约定）。
+/// 仅 macOS 有实际效果，故整个子菜单只在 macOS 渲染。
+#[cfg(target_os = "macos")]
+fn build_sleep_submenu(
+    app: &AppHandle,
+    state: &ConfigRegistry,
+) -> tauri::Result<tauri::menu::Submenu<tauri::Wry>> {
+    use crate::sleep::SleepPreventionMode as M;
+    use tauri::menu::SubmenuBuilder;
+
+    let language = state.app.ui_language.as_str();
+    let current = state.app.sleep_prevention;
+    let title_prefix = if language == "en" {
+        "Prevent Sleep"
+    } else {
+        "防止休眠"
+    };
+    let title = format!("{title_prefix}: {}", sleep_mode_label(current, language));
+
+    let mut builder = SubmenuBuilder::new(app, title);
+    for mode in [M::Off, M::WhileActive, M::Always] {
+        let id = match mode {
+            M::Off => "sleep_off",
+            M::WhileActive => "sleep_while_active",
+            M::Always => "sleep_always",
+        };
+        // 与配置列表一致：激活项 "✓ " 前缀，未激活项等宽留白对齐
+        let marker = if mode == current { "✓ " } else { "   " };
+        builder = builder.text(id, format!("{marker}{}", sleep_mode_label(mode, language)));
+    }
+
+    // 屏幕常亮是与模式正交的可勾选项：勾上则连显示器一起不熄。关闭模式时无意义，置灰。
+    builder = builder.separator();
+    let display_label = if language == "en" {
+        "Keep Display Awake"
+    } else {
+        "含屏幕（显示器同时常亮）"
+    };
+    let display_marker = if state.app.keep_display_awake {
+        "✓ "
+    } else {
+        "   "
+    };
+    let display_item = MenuItemBuilder::with_id(
+        "sleep_display_toggle",
+        format!("{display_marker}{display_label}"),
+    )
+    .enabled(current != M::Off)
+    .build(app)?;
+    builder = builder.item(&display_item);
+
+    builder.build()
 }
 
 fn build_sessions_tray_menu(
@@ -837,6 +924,12 @@ pub(crate) fn current_session_led_state() -> crate::led::SessionLedState {
     crate::led::SessionLedState::from_counts(waiting, running, other)
 }
 
+/// 读取当前会话并返回 running 类（running/busy/active/starting）会话数，供防止休眠运行时启动/评估时使用。
+pub(crate) fn current_running_session_count() -> usize {
+    let sessions = load_tray_sessions();
+    count_session_states(&sessions).1
+}
+
 fn rebuild_sessions_tray(app_handle: &AppHandle, state: &ConfigRegistry) {
     let sessions = load_tray_sessions();
     handle_pending_session_notifications(app_handle, state, &sessions);
@@ -847,6 +940,8 @@ fn rebuild_sessions_tray(app_handle: &AppHandle, state: &ConfigRegistry) {
         app_handle,
         crate::led::SessionLedState::from_counts(waiting, running, other),
     );
+    // 防止休眠：running 类会话数决定「仅活动时」模式是否保持唤醒（同 LED，独立于会话托盘可见性）。
+    crate::sleep::on_session_state_changed(app_handle, running);
 
     let Some(tray) = app_handle.tray_by_id(SESSIONS_TRAY_ID) else {
         return;
@@ -1248,6 +1343,37 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
                 // 页面导航
                 show_main_window(app);
                 let _ = app.emit("navigate-to-tab", tab.to_string());
+            } else if id == "sleep_display_toggle" {
+                // 屏幕常亮勾选切换：锁内取反落盘，重建菜单刷新 ✓、重新评估断言类型、通知前端
+                match crate::config::toggle_keep_display_awake() {
+                    Ok(state) => {
+                        log::info!(
+                            "event=tray.keep_display_awake status=ok value={}",
+                            state.app.keep_display_awake
+                        );
+                        rebuild_tray_menu(app, Some(&state));
+                        crate::sleep::apply_sleep_preference(app);
+                        let _ = app.emit("config-workspace-changed", ());
+                    }
+                    Err(e) => {
+                        crate::logging::log_command_error("tray.keep_display_awake", &e);
+                    }
+                }
+            } else if let Some(mode_key) = id.strip_prefix("sleep_") {
+                // 防止休眠三态快捷切换：落盘后重建菜单（刷新 ✓ 与父项标题）、按新模式重新评估断言、通知前端
+                if let Some(mode) = parse_sleep_prevention_key(mode_key) {
+                    match crate::config::set_sleep_prevention_mode(mode) {
+                        Ok(state) => {
+                            log::info!("event=tray.sleep_prevention status=ok mode={mode_key}");
+                            rebuild_tray_menu(app, Some(&state));
+                            crate::sleep::apply_sleep_preference(app);
+                            let _ = app.emit("config-workspace-changed", ());
+                        }
+                        Err(e) => {
+                            crate::logging::log_command_error("tray.sleep_prevention", &e);
+                        }
+                    }
+                }
             } else {
                 match id {
                     "show_window" => {
@@ -1357,6 +1483,8 @@ mod tests {
             floating_widget_opacity: 92,
             waiting_sound_enabled: false,
             waiting_sound: crate::config::WaitingSound::default(),
+            sleep_prevention: crate::sleep::SleepPreventionMode::default(),
+            keep_display_awake: false,
         }
     }
 

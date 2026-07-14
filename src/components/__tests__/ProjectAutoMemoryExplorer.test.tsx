@@ -67,7 +67,16 @@ vi.mock("../claude-overview/ClaudeFilePreviewPane", () => ({
 const PROJECT = "/Users/test/Work/demo";
 
 function makeEntry(path: string): ClaudeDirectoryEntry {
-  return { path, name: path, kind: "file", size: 12, modifiedAt: 0 };
+  return {
+    path,
+    name: path,
+    kind: "file",
+    size: 12,
+    modifiedAt: 0,
+    isSymlink: false,
+    isBroken: false,
+    isCycle: false,
+  };
 }
 
 function makeOverview(paths: string[]): ClaudeDirectoryOverview {
@@ -79,7 +88,7 @@ function makeOverview(paths: string[]): ClaudeDirectoryOverview {
     truncated: false,
     reachedEntryLimit: false,
     reachedDepthLimit: false,
-    skippedSymlinkCount: 0,
+    symlinkCount: 0,
     skippedNodeModulesCount: 0,
   };
 }
@@ -94,6 +103,11 @@ function makePreview(path: string): ClaudeFilePreview {
     size: 12,
     modifiedAt: 0,
     encoding: "utf-8",
+    isSymlink: false,
+    viaSymlinkPath: null,
+    linkTarget: null,
+    linkTargetAbsolute: null,
+    isBroken: false,
   };
 }
 

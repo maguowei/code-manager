@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { showOperationError } from "@/lib/user-facing-error";
+import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
 import { type Language, type TranslationKey, useI18n } from "../i18n";
 import { ipc } from "../ipc";
@@ -33,6 +34,7 @@ import type {
   NativeOpenAppOptions,
   NativeOpenPlatform,
   SessionTrayCountStyle,
+  SleepPreventionStatus,
   WidgetMetric,
 } from "../types";
 import LogViewer from "./LogViewer";
@@ -64,6 +66,7 @@ import {
   PopoverTrigger,
 } from "./ui/popover";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
+import { SegmentedControl } from "./ui/segmented-control";
 import {
   Select,
   SelectContent,
@@ -78,6 +81,8 @@ import { Switch } from "./ui/switch";
 
 interface SettingsDrawerProps {
   onClose: () => void;
+  /** App 下发的权威偏好快照（workspace.app）；托盘等外部入口改动后随 App 刷新流入 */
+  preferences: AppPreferences;
 }
 
 interface SettingsSectionCardProps {
@@ -142,6 +147,16 @@ const waitingSoundOptions: {
   { value: "ping", labelKey: "settings.waitingSoundPing" },
   { value: "sosumi", labelKey: "settings.waitingSoundSosumi" },
   { value: "tink", labelKey: "settings.waitingSoundTink" },
+];
+
+// 防止休眠三态选项（分段控件顺序）
+const sleepPreventionOptions: {
+  value: NonNullable<AppPreferences["sleepPrevention"]>;
+  labelKey: TranslationKey;
+}[] = [
+  { value: "off", labelKey: "settings.sleepPreventionOff" },
+  { value: "whileActive", labelKey: "settings.sleepPreventionWhileActive" },
+  { value: "always", labelKey: "settings.sleepPreventionAlways" },
 ];
 
 // 浮窗可选指标及其文案 key，顺序即设置面板与浮窗的默认展示顺序
@@ -718,47 +733,23 @@ function SystemNotificationsHelpButton() {
   );
 }
 
-function SettingsDrawer({ onClose }: SettingsDrawerProps) {
+function SettingsDrawer({ onClose, preferences: appPreferences }: SettingsDrawerProps) {
   const { t, language, setLanguage } = useI18n();
   const { theme, setTheme } = useTheme();
   const { showToast } = useToast();
-  const [preferences, setPreferences] = useState<AppPreferences>({
-    showTrayTitle: true,
-    showTraySessions: true,
-    systemNotificationsEnabled: false,
-    collapseSidebarByDefault: false,
-    thirdPartyProviderPricingEnabled: true,
-    uiLanguage: "zh",
-    defaultTerminalApp: "terminal",
-    defaultEditorApp: null,
-    trayTitleMaxChars: null,
-    sessionTrayCountStyle: "superscriptCompact",
-    trayPulseWaiting: true,
-    focusSessionShortcut: DEFAULT_FOCUS_SESSION_SHORTCUT,
-    floatingWidgetEnabled: false,
-    floatingWidgetMetrics: ["cost", "totalTokens", "cacheHitRate"],
-    floatingWidgetOpacity: 92,
-    waitingSoundEnabled: false,
-    waitingSound: "glass",
-  });
+  // 本地可编辑草稿：承担乐观更新与保存失败回滚；权威值变化时由下方 effect 覆盖
+  const [preferences, setPreferences] = useState<AppPreferences>(appPreferences);
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
   const [isSystemInfoOpen, setIsSystemInfoOpen] = useState(false);
   const [launchAtLogin, setLaunchAtLogin] = useState(false);
   const [nativeOpenOptions, setNativeOpenOptions] = useState<NativeOpenAppOptions | null>(null);
+  // 防止休眠运行时状态：此刻是否正持有断言（正在保持唤醒），挂载拉一次 + 事件增量刷新
+  const [sleepStatus, setSleepStatus] = useState<SleepPreventionStatus | null>(null);
 
+  // 权威值随 App 的工作区刷新流入（托盘等外部入口改动 → 后端广播 → App 重拉 → prop 更新），覆盖本地草稿
   useEffect(() => {
-    ipc
-      .getConfigWorkspace()
-      .then((workspace) => {
-        setPreferences(workspace.app);
-        if (workspace.app.uiLanguage !== language) {
-          setLanguage(workspace.app.uiLanguage as Language);
-        }
-      })
-      .catch((err) => {
-        showOperationError(showToast, t("toast.configLoadError"), err);
-      });
-  }, [language, setLanguage, showToast, t]);
+    setPreferences(appPreferences);
+  }, [appPreferences]);
 
   // 自启动真实状态由系统持久化（LaunchAgent / 注册表 / .desktop），打开抽屉时主动同步
   useEffect(() => {
@@ -787,6 +778,31 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
       cancelled = true;
     };
   }, []);
+
+  // 挂载时拉一次防止休眠运行时状态（模式 + 是否正在保持唤醒）
+  useEffect(() => {
+    let cancelled = false;
+    ipc
+      .getSleepPreventionStatus()
+      .then((status) => {
+        if (!cancelled) {
+          setSleepStatus(status);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSleepStatus(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 会话开始/结束或模式切换导致 active 翻转时，后端广播事件，实时刷新徽标
+  useTauriEvent<SleepPreventionStatus>("sleep-prevention-changed", (status) => {
+    setSleepStatus(status);
+  });
 
   const showTrayTitle = preferences.showTrayTitle;
   const trayTitleMaxChars = preferences.trayTitleMaxChars;
@@ -850,16 +866,21 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
     [language, preferences],
   );
 
-  async function persistPreferences(next: AppPreferences, rollback: AppPreferences) {
+  async function persistPreferences(
+    next: AppPreferences,
+    rollback: AppPreferences,
+  ): Promise<boolean> {
     setPreferences(next);
     try {
       await ipc.setAppPreferences(next);
+      return true;
     } catch (err) {
       setPreferences(rollback);
       if (rollback.uiLanguage !== language) {
         setLanguage(rollback.uiLanguage as Language);
       }
       showOperationError(showToast, t("toast.configSaveError"), err);
+      return false;
     }
   }
 
@@ -1315,6 +1336,99 @@ function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                   void persistPreferences({ ...nextPreferences, ledControl: next }, nextPreferences)
                 }
               />
+            )}
+
+            {platformName === "macos" && (
+              <SettingsSectionCard
+                title={t("settings.sleepPrevention")}
+                description={t("settings.sleepPreventionDesc")}
+                headerAction={
+                  (preferences.sleepPrevention ?? "off") === "off" ? undefined : (
+                    <span className="flex shrink-0 items-center gap-1.5 text-xs">
+                      <span
+                        className="size-2 rounded-full"
+                        style={{
+                          backgroundColor: sleepStatus?.active
+                            ? "var(--chart-2)"
+                            : "var(--muted-foreground)",
+                        }}
+                        aria-hidden
+                      />
+                      <span
+                        className={cn(
+                          sleepStatus?.active ? "text-foreground" : "text-muted-foreground",
+                        )}
+                      >
+                        {t(
+                          !sleepStatus?.active
+                            ? "settings.sleepPreventionIdle"
+                            : preferences.keepDisplayAwake
+                              ? "settings.sleepPreventionActiveWithDisplay"
+                              : "settings.sleepPreventionActive",
+                        )}
+                      </span>
+                    </span>
+                  )
+                }
+              >
+                <FieldGroup className="gap-3">
+                  <Field className="gap-2">
+                    <SegmentedControl
+                      ariaLabel={t("settings.sleepPrevention")}
+                      value={preferences.sleepPrevention ?? "off"}
+                      items={sleepPreventionOptions.map((option) => ({
+                        value: option.value,
+                        label: t(option.labelKey),
+                      }))}
+                      onValueChange={(next) => {
+                        void (async () => {
+                          const ok = await persistPreferences(
+                            { ...nextPreferences, sleepPrevention: next },
+                            nextPreferences,
+                          );
+                          if (ok) {
+                            const label = t(
+                              sleepPreventionOptions.find((option) => option.value === next)
+                                ?.labelKey ?? "settings.sleepPreventionOff",
+                            );
+                            showToast(`${t("toast.sleepPreventionSwitched")}: ${label}`, "success");
+                          }
+                        })();
+                      }}
+                    />
+                    <FieldDescription>{t("settings.sleepPreventionHint")}</FieldDescription>
+                  </Field>
+
+                  <Field orientation="horizontal" className="items-center justify-between gap-4">
+                    <FieldContent>
+                      <FieldTitle className="text-muted-foreground text-xs">
+                        {t("settings.keepDisplayAwake")}
+                      </FieldTitle>
+                      <FieldDescription>{t("settings.keepDisplayAwakeHint")}</FieldDescription>
+                    </FieldContent>
+                    <Switch
+                      id="settings-keep-display-awake"
+                      checked={preferences.keepDisplayAwake ?? false}
+                      disabled={(preferences.sleepPrevention ?? "off") === "off"}
+                      onCheckedChange={(checked) => {
+                        void (async () => {
+                          const ok = await persistPreferences(
+                            { ...nextPreferences, keepDisplayAwake: checked },
+                            nextPreferences,
+                          );
+                          if (ok) {
+                            showToast(
+                              t(checked ? "toast.keepDisplayAwakeOn" : "toast.keepDisplayAwakeOff"),
+                              "success",
+                            );
+                          }
+                        })();
+                      }}
+                      aria-label={t("settings.keepDisplayAwake")}
+                    />
+                  </Field>
+                </FieldGroup>
+              </SettingsSectionCard>
             )}
 
             <SettingsSectionCard

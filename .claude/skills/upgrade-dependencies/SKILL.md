@@ -1,17 +1,11 @@
 ---
 name: upgrade-dependencies
-description: Code Manager 仓库 pnpm/Cargo 依赖升级技能。无论是依赖巡检、单包升级、Tauri 栈对齐、安全补丁修复，还是评估 Vite/TypeScript/Rust 主版本 breaking change，只要涉及 package.json、Cargo.toml、lock 文件或要跑 pnpm audit/cargo update，都使用本技能：按"安全→Tauri→前端→breaking"分批推进，每批跑对应验证。
+description: Code Manager 仓库 pnpm/Cargo 依赖升级技能。依赖巡检、单包升级、Tauri 栈对齐、安全补丁修复、评估 Vite/TypeScript/Rust 主版本 breaking change，或复盘升级失败（构建/测试挂、锁文件漂移、版本回滚），只要涉及 package.json、Cargo.toml、lock 文件或要跑 pnpm audit/cargo update，都使用本技能。
 ---
 
 # Upgrade Dependencies
 
 为 Code Manager 仓库执行依赖检查、升级规划、分批实施和复盘。**事实源永远是当前命令输出**——本文档列出的历史版本号会过时，不能当作未来升级的依据。
-
-## 触发场景
-
-- 检查当前可升级依赖、漏洞或 `cargo update --dry-run` 结果。
-- 规划或实施升级（含 patch/minor、Tauri 栈、breaking 主版本）。
-- 复盘升级失败：构建挂、测试挂、锁文件漂移、版本回滚。
 
 ## 工作流速览
 
@@ -122,7 +116,7 @@ Vite、TypeScript、pnpm、Rust 主版本依赖逐项独立评估。
 
 下列是过往升级踩过的具体事实。**版本号会过时，再次升级前必须用"事实源"小节的命令重新查询。** 若历史与当前输出冲突，信任当前输出并就地更新或删除条目。
 
-- `pnpm@11.x` 在本仓库可用；安装走 `CI=true pnpm install` 或 `CI=true pnpm install --no-frozen-lockfile`。
+- `pnpm@11.x` 在本仓库可用（安装命令见"执行约束"）。
 - Vite 8 + `@vitejs/plugin-react` 6 + TypeScript 6 可通过本仓库门禁；TS6 下需显式 Node types，并移除已弃用的 `baseUrl`，仅保留 `paths` alias。
 - `schemars 1.x` 弃用了 `RootSchema.schema.object` 访问路径；schema 契约测试改为 `serde_json::to_value(schema_for!(...))` 后读取 `properties` / `required`。
 - `reqwest 0.13` 使用 `default-features = false` 时，Rustls feature 是 `rustls`，不是旧的 `rustls-tls`。

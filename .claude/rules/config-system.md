@@ -62,7 +62,7 @@ paths:
 
 ## 插件与 Marketplace
 
-- 官方插件市场常量在 `marketplace-presets.ts`；通用 marketplace 拉取和 localStorage 缓存在 `marketplace-catalog.ts` / `useMarketplaceCatalog.ts`；官方插件兼容层在 `official-plugin-catalog.ts`。
+- 官方插件市场常量在 `marketplace-presets.ts`；通用 marketplace 拉取和 localStorage 缓存在 `marketplace-catalog.ts` / `useMarketplaceCatalog.ts`。
 - `extraKnownMarketplaces` 存储层支持多种 `source` 形态；浏览市场当前只支持 `source: github`，其他来源显示 unsupported 状态，不伪造插件数据。
 - `EnabledPluginsEditor.tsx` 是插件分区容器，表单模式分为“已配置”和“浏览市场”两个 Tab。
 - 已配置列表只反映 `settings.enabledPlugins` 的真实条目，不要把浏览项混进配置列表。

@@ -354,4 +354,32 @@ describe("ModelTestResultDialog", () => {
     expect(clipboardWriteMock).toHaveBeenCalledWith(expect.stringContaining("请只回复 OK"));
     expect(showToastMock).toHaveBeenCalledWith("已复制请求 cURL");
   });
+
+  it("shows a failure reason card with model unset when request never resolved a model", () => {
+    render(
+      <I18nProvider>
+        <ThemeProvider>
+          <ModelTestResultDialog
+            isOpen
+            result={null}
+            profileName="未覆盖模型"
+            errorMessage="缺少默认模型，请先在模型与行为中填写默认模型"
+            rawResponseExpanded={false}
+            onClose={() => {}}
+            onToggleRawResponse={() => {}}
+          />
+        </ThemeProvider>
+      </I18nProvider>,
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "模型测试结果" });
+    const reasonCard = within(dialog).getByTestId("model-test-error-reason-card");
+    expect(within(reasonCard).getByText("失败原因")).toBeInTheDocument();
+    expect(
+      within(reasonCard).getByText("缺少默认模型，请先在模型与行为中填写默认模型"),
+    ).toBeInTheDocument();
+    expect(within(reasonCard).getByTestId("model-test-error-reason-model")).toHaveTextContent(
+      "未设置",
+    );
+  });
 });

@@ -76,7 +76,7 @@ function PageLoadingFallback() {
 }
 
 function App() {
-  const { t } = useI18n();
+  const { t, setLanguage } = useI18n();
   const { showToast } = useToast();
   const [workspace, setWorkspace] = useState<ConfigWorkspace>(EMPTY_WORKSPACE);
   const [activeTab, setActiveTab] = useState<TabType>("configs");
@@ -91,10 +91,16 @@ function App() {
     project: string;
     requestId: number;
   } | null>(null);
+  const [deepLinkImportRequest, setDeepLinkImportRequest] = useState<{
+    urls: string[];
+    requestId: number;
+  } | null>(null);
   const previousContentTabRef = useRef<TabType>("configs");
   const editorExitGuardRef = useRef<EditorExitGuard | null>(null);
   const historyProjectRequestIdRef = useRef(0);
   const usageProjectRequestIdRef = useRef(0);
+  const deepLinkImportRequestIdRef = useRef(0);
+  const workspaceRequestIdRef = useRef(0);
 
   const loadWorkspace = useCallback(async () => {
     if (!isTauri()) {
@@ -103,14 +109,23 @@ function App() {
       return;
     }
 
+    // 请求序号守卫：并发/乱序重拉时只应用最新一次结果，避免过期响应覆盖乐观更新
+    workspaceRequestIdRef.current += 1;
+    const requestId = workspaceRequestIdRef.current;
     try {
       const nextWorkspace = await ipc.getConfigWorkspace();
-      setWorkspace(nextWorkspace);
+      if (requestId === workspaceRequestIdRef.current) {
+        setWorkspace(nextWorkspace);
+      }
     } catch (error) {
-      setWorkspace(EMPTY_WORKSPACE);
-      showOperationError(showToast, t("toast.configWorkspaceLoadError"), error);
+      if (requestId === workspaceRequestIdRef.current) {
+        setWorkspace(EMPTY_WORKSPACE);
+        showOperationError(showToast, t("toast.configWorkspaceLoadError"), error);
+      }
     } finally {
-      setLoading(false);
+      if (requestId === workspaceRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [showToast, t]);
 
@@ -128,6 +143,15 @@ function App() {
       document.documentElement.style.removeProperty("--app-sidebar-width");
     };
   }, [workspace.app.collapseSidebarByDefault]);
+
+  // 后端偏好是 UI 语言的权威值：工作区刷新后同步 i18n（setLanguage 同值幂等）。
+  // 首屏加载完成前不动本地缓存语言，避免 EMPTY_WORKSPACE 的 zh 兜底闪切。
+  useEffect(() => {
+    if (!isTauri() || loading) {
+      return;
+    }
+    setLanguage(workspace.app.uiLanguage === "en" ? "en" : "zh");
+  }, [loading, workspace.app.uiLanguage, setLanguage]);
 
   useTauriEvent<void>("config-workspace-changed", () => {
     void loadWorkspace();
@@ -177,10 +201,11 @@ function App() {
     runWithEditorExitGuard(() => activateTab(nextTab));
   });
 
+  // 抽屉内所有落盘操作都经 set_app_preferences 广播 config-workspace-changed，
+  // App 已订阅并即时刷新，关闭时无需再兜底重拉。
   const closeSettingsDrawer = useCallback(() => {
     setIsSettingsOpen(false);
-    void loadWorkspace();
-  }, [loadWorkspace]);
+  }, []);
 
   const handleSettingsClick = useCallback(() => {
     const toggleSettingsDrawer = () => {
@@ -256,6 +281,44 @@ function App() {
     [activateTab, runWithEditorExitGuard],
   );
 
+  // Toast/i18n 走 ref，避免语言切换重建 drain 回调并误触发冷启动 effect
+  const showToastRef = useRef(showToast);
+  const tRef = useRef(t);
+  showToastRef.current = showToast;
+  tRef.current = t;
+
+  // 配置导入 deep link：drain 后端 pending 队列，切到配置页交给 ProfilesPage 排队预览
+  const drainProfileImportDeepLinks = useCallback(async () => {
+    if (!isTauri()) return;
+    try {
+      const urls = await ipc.drainPendingProfileImportDeepLinks();
+      if (!urls?.length) return;
+      runWithEditorExitGuard(() => {
+        deepLinkImportRequestIdRef.current += 1;
+        setDeepLinkImportRequest({
+          urls,
+          requestId: deepLinkImportRequestIdRef.current,
+        });
+        activateTab("configs");
+      });
+    } catch (error) {
+      showOperationError(
+        showToastRef.current,
+        tRef.current("profiles.import.deepLink.toast.resolveError"),
+        error,
+      );
+    }
+  }, [activateTab, runWithEditorExitGuard]);
+
+  useEffect(() => {
+    if (loading) return;
+    void drainProfileImportDeepLinks();
+  }, [loading, drainProfileImportDeepLinks]);
+
+  useTauriEvent<void>("profile-import-deep-link", () => {
+    void drainProfileImportDeepLinks();
+  });
+
   if (loading) {
     return (
       <TooltipProvider delayDuration={200}>
@@ -320,6 +383,7 @@ function App() {
                     workspace={workspace}
                     onWorkspaceChange={loadWorkspace}
                     onEditorExitGuardChange={setEditorExitGuard}
+                    deepLinkImportRequest={deepLinkImportRequest}
                   />
                 ) : (
                   <div
@@ -350,7 +414,7 @@ function App() {
 
           {isSettingsOpen && (
             <Suspense fallback={null}>
-              <SettingsDrawer onClose={closeSettingsDrawer} />
+              <SettingsDrawer onClose={closeSettingsDrawer} preferences={workspace.app} />
             </Suspense>
           )}
         </div>

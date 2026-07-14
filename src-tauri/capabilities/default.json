@@ -26,6 +26,7 @@
     "global-shortcut:allow-unregister-all",
     "global-shortcut:allow-is-registered",
     "updater:default",
-    "process:default"
+    "process:default",
+    "deep-link:default"
   ]
 }

@@ -2918,12 +2918,12 @@ mod tests {
         let project = TestDir::new();
         let claude = project.path().join(".claude");
         std::fs::create_dir_all(&claude).unwrap();
-        // 包含 NUL 字节的内容会被识别为二进制
-        std::fs::write(claude.join("bin.dat"), [0u8, 1, 2, 3, 0xff]).unwrap();
+        // 已知二进制扩展名走黑名单，不依赖内容 NUL 嗅探
+        std::fs::write(claude.join("asset.bin"), [0u8, 1, 2, 3, 0xff]).unwrap();
 
         let preview = get_project_claude_file_preview(
             project.path().to_str().unwrap(),
-            "bin.dat".to_string(),
+            "asset.bin".to_string(),
         )
         .expect("应可读取");
         assert!(preview.is_binary);

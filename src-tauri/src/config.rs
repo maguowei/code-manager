@@ -126,6 +126,12 @@ pub struct AppPreferences {
     /// 等待提示音效，默认 Glass。
     #[serde(default)]
     pub waiting_sound: WaitingSound,
+    /// 防止休眠模式：off 不干预 / whileActive 仅 running 类会话运行时 / always 无条件（默认 off，仅 macOS 生效）。
+    #[serde(default)]
+    pub sleep_prevention: crate::sleep::SleepPreventionMode,
+    /// 保持唤醒时是否连显示器一起不熄（默认 false=仅系统；true 时改用 PreventUserIdleDisplaySleep）。仅 macOS 生效。
+    #[serde(default)]
+    pub keep_display_awake: bool,
 }
 
 impl Default for AppPreferences {
@@ -149,6 +155,8 @@ impl Default for AppPreferences {
             floating_widget_opacity: default_floating_widget_opacity(),
             waiting_sound_enabled: false,
             waiting_sound: WaitingSound::default(),
+            sleep_prevention: crate::sleep::SleepPreventionMode::default(),
+            keep_display_awake: false,
         }
     }
 }
@@ -386,6 +394,10 @@ pub struct AppPreferencesInput {
     pub waiting_sound_enabled: bool,
     #[serde(default)]
     pub waiting_sound: WaitingSound,
+    #[serde(default)]
+    pub sleep_prevention: crate::sleep::SleepPreventionMode,
+    #[serde(default)]
+    pub keep_display_awake: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, specta::Type)]
@@ -1034,6 +1046,8 @@ fn normalize_app_preferences(input: AppPreferencesInput) -> Result<AppPreference
         floating_widget_opacity: input.floating_widget_opacity.clamp(30, 100),
         waiting_sound_enabled: input.waiting_sound_enabled,
         waiting_sound: input.waiting_sound,
+        sleep_prevention: input.sleep_prevention,
+        keep_display_awake: input.keep_display_awake,
     })
 }
 
@@ -1490,6 +1504,11 @@ fn redact_model_test_json_value(value: &mut Value) {
 }
 
 fn is_sensitive_model_test_json_key(key: &str) -> bool {
+    is_sensitive_settings_key(key)
+}
+
+/// 判定 settings JSON 键是否为认证/密钥类敏感字段（导出脱敏、deep link 风险检测共用）。
+pub(crate) fn is_sensitive_settings_key(key: &str) -> bool {
     let normalized = key.to_ascii_lowercase();
     normalized == "authorization"
         || normalized == "token"
@@ -2705,6 +2724,24 @@ fn build_profile_export(
     serde_json::to_string_pretty(&resolved).map_err(|e| e.to_string())
 }
 
+/// deep link 生成等跨模块复用入口。
+pub(crate) fn build_profile_export_public(
+    registry: &ConfigRegistry,
+    id: &str,
+    include_secrets: bool,
+) -> Result<String, String> {
+    build_profile_export(registry, id, include_secrets)
+}
+
+/// 解析并校验导入用 JSON 文本，返回去掉 `$schema` 的 settings。
+pub(crate) fn parse_and_validate_import_content(content: &str) -> Result<Value, String> {
+    let parsed: Value =
+        serde_json::from_str(content).map_err(|error| format!("解析 JSON 失败: {}", error))?;
+    let settings = normalize_settings_document(parsed)?;
+    validate_settings_document(&settings)?;
+    Ok(settings_without_schema(&settings))
+}
+
 /// 读取并校验待导入的配置文件，返回去掉 `$schema` 的 settings。预览与导入共用。
 fn read_and_validate_import(source_path: &str) -> Result<Value, String> {
     let path = PathBuf::from(source_path);
@@ -2715,11 +2752,38 @@ fn read_and_validate_import(source_path: &str) -> Result<Value, String> {
     }
     let content =
         fs::read_to_string(&path).map_err(|error| format!("读取文件失败 {:?}: {}", path, error))?;
-    let parsed: Value =
-        serde_json::from_str(&content).map_err(|error| format!("解析 JSON 失败: {}", error))?;
-    let settings = normalize_settings_document(parsed)?;
-    validate_settings_document(&settings)?;
-    Ok(settings_without_schema(&settings))
+    parse_and_validate_import_content(&content)
+}
+
+/// 将已校验的 settings 写入 registry 为新配置（不自动绑定 / 激活）。
+fn insert_imported_profile(
+    app_handle: &AppHandle,
+    settings: Value,
+    name: String,
+    description: String,
+) -> Result<ConfigProfile, String> {
+    let mut registry = load_registry()?;
+    let now = crate::utils::current_rfc3339_timestamp();
+    let trimmed_name = name.trim();
+    let profile = ConfigProfile {
+        id: Uuid::new_v4().to_string(),
+        name: if trimmed_name.is_empty() {
+            "Imported Profile".to_string()
+        } else {
+            trimmed_name.to_string()
+        },
+        description: description.trim().to_string(),
+        // 导入的是裸 settings，不关联 Provider；也不自动绑定 / 激活外来配置
+        provider_id: None,
+        settings,
+        created_at: now.clone(),
+        updated_at: now,
+    };
+    registry.profiles.insert(0, profile.clone());
+    save_registry(&registry)?;
+    rebuild_tray_menu(app_handle, Some(&registry));
+    let _ = app_handle.emit("config-workspace-changed", ());
+    Ok(profile)
 }
 
 #[tauri::command]
@@ -2766,30 +2830,29 @@ pub fn import_profile_from_file(
     let result = (|| {
         let _lock = crate::utils::lock_config()?;
         let settings = read_and_validate_import(&source_path)?;
-        let mut registry = load_registry()?;
-        let now = crate::utils::current_rfc3339_timestamp();
-        let trimmed_name = name.trim();
-        let profile = ConfigProfile {
-            id: Uuid::new_v4().to_string(),
-            name: if trimmed_name.is_empty() {
-                "Imported Profile".to_string()
-            } else {
-                trimmed_name.to_string()
-            },
-            description: description.trim().to_string(),
-            // 导入的是裸 settings，不关联 Provider；也不自动绑定 / 激活外来配置
-            provider_id: None,
-            settings,
-            created_at: now.clone(),
-            updated_at: now,
-        };
-        registry.profiles.insert(0, profile.clone());
-        save_registry(&registry)?;
-        rebuild_tray_menu(&app_handle, Some(&registry));
-        let _ = app_handle.emit("config-workspace-changed", ());
-        Ok(profile)
+        insert_imported_profile(&app_handle, settings, name, description)
     })();
     crate::logging::log_command_result("profile.import_from_file", &result, |profile| {
+        format!("profile_id={}", profile.id)
+    });
+    result
+}
+
+/// 从已解析的 settings JSON 文本导入为新配置（deep link 预览确认后入库）。
+#[tauri::command]
+#[specta::specta]
+pub fn import_profile_from_settings_json(
+    app_handle: AppHandle,
+    settings_json: String,
+    name: String,
+    description: String,
+) -> Result<ConfigProfile, String> {
+    let result = (|| {
+        let _lock = crate::utils::lock_config()?;
+        let settings = parse_and_validate_import_content(&settings_json)?;
+        insert_imported_profile(&app_handle, settings, name, description)
+    })();
+    crate::logging::log_command_result("profile.import_from_settings_json", &result, |profile| {
         format!("profile_id={}", profile.id)
     });
     result
@@ -2827,6 +2890,27 @@ pub async fn test_profile_model(data: ModelTestInput) -> Result<ModelTestResult,
     execute_model_test_request(request).await
 }
 
+/// 仅更新防止休眠模式并落盘，返回最新 registry。供托盘子菜单快捷切换使用；
+/// 前端设置走完整的 `set_app_preferences`，这里只碰一个字段，避免托盘构造整份 input。
+pub fn set_sleep_prevention_mode(
+    mode: crate::sleep::SleepPreventionMode,
+) -> Result<ConfigRegistry, String> {
+    let _lock = crate::utils::lock_config()?;
+    let mut registry = load_registry()?;
+    registry.app.sleep_prevention = mode;
+    save_registry(&registry)?;
+    Ok(registry)
+}
+
+/// 取反「屏幕常亮」偏好并落盘，返回最新 registry。锁内单次读改写，供托盘勾选项快捷切换使用。
+pub fn toggle_keep_display_awake() -> Result<ConfigRegistry, String> {
+    let _lock = crate::utils::lock_config()?;
+    let mut registry = load_registry()?;
+    registry.app.keep_display_awake = !registry.app.keep_display_awake;
+    save_registry(&registry)?;
+    Ok(registry)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn set_app_preferences(
@@ -2845,6 +2929,8 @@ pub fn set_app_preferences(
         crate::tray::apply_focus_session_shortcut(&app_handle);
         // 按最新偏好同步桌面用量浮窗的显隐（启用则创建/显示，关闭则隐藏）
         crate::widget::sync_widget_visibility(&app_handle, preferences.floating_widget_enabled);
+        // 按最新防止休眠偏好重新评估（切到 off 立即释放，切到 always/whileActive 按会话状态处理）
+        crate::sleep::apply_sleep_preference(&app_handle);
         let _ = app_handle.emit("config-workspace-changed", ());
         let _ = app_handle.emit("project-launcher-settings-changed", ());
         if previous_third_party_pricing != preferences.third_party_provider_pricing_enabled {
@@ -2952,6 +3038,8 @@ mod tests {
             floating_widget_opacity: default_floating_widget_opacity(),
             waiting_sound_enabled: true,
             waiting_sound: WaitingSound::Submarine,
+            sleep_prevention: crate::sleep::SleepPreventionMode::default(),
+            keep_display_awake: false,
         };
 
         let normalized = normalize_app_preferences(input).expect("normalize 应成功");
@@ -3965,6 +4053,8 @@ mod tests {
                 floating_widget_opacity: default_floating_widget_opacity(),
                 waiting_sound_enabled: false,
                 waiting_sound: WaitingSound::default(),
+                sleep_prevention: crate::sleep::SleepPreventionMode::default(),
+                keep_display_awake: false,
             },
             profiles: vec![ConfigProfile {
                 id: "user-deepseek".to_string(),

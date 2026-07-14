@@ -247,6 +247,13 @@ const translations = {
     "profiles.import.confirm": "导入",
     "profiles.import.toast.imported": "配置已导入",
     "profiles.import.toast.importError": "导入配置失败",
+    "profiles.import.deepLink.dialogDescription":
+      "通过深度链接导入配置。导入后不会自动启用，请确认内容后再入库。",
+    "profiles.import.deepLink.secretsWarning":
+      "此配置包含认证密钥，导入后将写入本地配置仓库。请确认来源可信。",
+    "profiles.import.deepLink.secretsAck": "我了解密钥将写入本地配置",
+    "profiles.import.deepLink.toast.resolveError": "解析配置导入链接失败",
+    "profiles.import.deepLink.toast.queueHint": "还有待处理的导入链接",
     "profiles.export.dialogTitle": "导出配置",
     "profiles.export.dialogDescription":
       "导出合并后的完整配置文件,可直接用作 ~/.claude/settings.json。",
@@ -254,9 +261,13 @@ const translations = {
     "profiles.export.includeSecretsOffHint": "默认清空全部认证密钥,请在目标设备重新填写。",
     "profiles.export.includeSecretsOnHint": "将导出真实认证密钥,请妥善保管导出文件。",
     "profiles.export.confirm": "选择路径并导出",
+    "profiles.export.copyDeepLink": "复制 Deep Link",
+    "profiles.export.copyDeepLinkSecretsAck": "我了解密钥将写入可分享的链接",
     "profiles.export.toast.exported": "配置已导出,认证密钥已清空",
     "profiles.export.toast.exportedWithSecrets": "配置已导出,已包含认证密钥,请妥善保管",
     "profiles.export.toast.exportError": "导出配置失败",
+    "profiles.export.toast.deepLinkCopied": "Deep Link 已复制",
+    "profiles.export.toast.deepLinkCopyError": "复制 Deep Link 失败",
     "profiles.unmanaged.status.ready": "可导入",
     "profiles.unmanaged.status.invalidJson": "JSON 格式无效",
     "profiles.unmanaged.status.invalidSchema": "配置结构无效",
@@ -293,9 +304,11 @@ const translations = {
     "profiles.actions.testingAll": "测试中...",
     "profiles.testAll.running": "测试中...",
     "profiles.testAll.runningBadge": "测试中",
-    "profiles.testAll.successResult": "成功 · {durationMs} ms",
+    "profiles.testAll.successResult": "成功 {duration}",
     "profiles.testAll.failed": "失败",
     "profiles.testAll.resultAriaLabel": "{name} 测试结果：{result}",
+    "profiles.testAll.summary": "测试完成：{successCount} 成功，{failedCount} 失败",
+    "profiles.summary.testTitle": "测试",
     "profiles.badges.inUse": "使用中",
     "profiles.badges.editing": "编辑中",
     "profiles.mismatch.button": "配置被手动修改",
@@ -450,6 +463,8 @@ const translations = {
     "profiles.editor.modelTest.editPrompt": "编辑提示词",
     "profiles.editor.modelTest.sendPromptRequest": "发起请求",
     "profiles.editor.modelTest.errorMessage": "错误信息",
+    "profiles.editor.modelTest.errorReasonTitle": "失败原因",
+    "profiles.editor.modelTest.modelUnset": "未设置",
     "profiles.editor.modelTest.resolvedModel": "使用模型",
     "profiles.editor.modelTest.providerModel": "返回模型",
     "profiles.editor.modelTest.statusCode": "状态码",
@@ -1165,6 +1180,7 @@ const translations = {
     "usage.charts.cacheHitRatePass": "及格 ≥50%",
     "usage.charts.totalCost": "总费用",
     "usage.charts.totalTokens": "总 Token",
+    "usage.charts.totalCacheHitRate": "总体命中率",
     "usage.charts.trends": "趋势分析",
     "usage.charts.legendToggle": "点击切换显示",
     "usage.charts.legendSolo": "双击仅显示此项",
@@ -1319,6 +1335,19 @@ const translations = {
     "settings.waitingSoundPing": "短促 Ping",
     "settings.waitingSoundSosumi": "经典 Sosumi",
     "settings.waitingSoundTink": "轻响 Tink",
+    "settings.sleepPrevention": "防止休眠",
+    "settings.sleepPreventionDesc": "Claude Code 会话运行时阻止电脑进入空闲休眠（仅 macOS）",
+    "settings.sleepPreventionOff": "关闭",
+    "settings.sleepPreventionWhileActive": "仅活动时",
+    "settings.sleepPreventionAlways": "始终",
+    "settings.sleepPreventionActive": "正在保持唤醒",
+    "settings.sleepPreventionActiveWithDisplay": "正在保持唤醒（含屏幕）",
+    "settings.sleepPreventionIdle": "空闲，可休眠",
+    "settings.sleepPreventionHint":
+      "仅活动时：有会话正在运行才保持唤醒。默认只阻止系统空闲休眠、放任屏幕熄灭；合盖仍会休眠。",
+    "settings.keepDisplayAwake": "同时保持屏幕常亮",
+    "settings.keepDisplayAwakeHint":
+      "开启后连显示器一起不熄，否则只挡系统、放任屏幕熄灭。更耗电、有烧屏风险，按需开启；防止休眠关闭时不可用。",
     "settings.thirdPartyProviderPricing": "第三方模型计价",
     "settings.thirdPartyProviderPricingDesc":
       "使用 models.dev 为 Kimi、MiMo、GLM、MiniMax、DeepSeek 系列模型估算费用，关闭后这些模型按 $0 计入。",
@@ -1407,7 +1436,13 @@ const translations = {
     "claudeOverview.loadedEntryCount": "已加载 {count} 个条目",
     "claudeOverview.truncatedEntries": "已达到 {count} 个条目上限",
     "claudeOverview.truncatedDepth": "已达到 {count} 层目录深度上限",
-    "claudeOverview.skippedSymlinks": "已跳过 {count} 个软链接",
+    "claudeOverview.symlinkCount": "含 {count} 个软链接",
+    "claudeOverview.symlinkBadge": "软链接",
+    "claudeOverview.symlinkBroken": "损坏的软链接",
+    "claudeOverview.symlinkCycle": "循环软链接",
+    "claudeOverview.viaSymlink": "经软链 {path} → {target}",
+    "claudeOverview.symlinkReadOnly": "软链接路径只读，无法新建、重命名或删除",
+    "claudeOverview.brokenSymlinkPreview": "软链接目标不可用，无法预览内容",
     "claudeOverview.skippedNodeModules": "已跳过 {count} 个 node_modules 目录",
     "claudeOverview.empty": "~/.claude 目录为空或不存在",
     "claudeOverview.scanning": "正在扫描 ~/.claude...",
@@ -1455,8 +1490,10 @@ const translations = {
     "claudeOverview.operationError": "目录操作失败",
 
     // 操作通知（Toast）
-    "toast.configLoadError": "加载配置失败",
     "toast.configSaveError": "保存配置失败",
+    "toast.sleepPreventionSwitched": "已切换防止休眠",
+    "toast.keepDisplayAwakeOn": "已开启屏幕常亮",
+    "toast.keepDisplayAwakeOff": "已关闭屏幕常亮，屏幕可正常熄灭",
     "toast.autostartQueryError": "读取自启动状态失败",
     "toast.autostartSaveError": "保存自启动设置失败",
     "toast.ledTestError": "测试 LED 灯效失败",
@@ -1915,6 +1952,13 @@ const translations = {
     "profiles.import.confirm": "Import",
     "profiles.import.toast.imported": "Profile imported",
     "profiles.import.toast.importError": "Failed to import profile",
+    "profiles.import.deepLink.dialogDescription":
+      "Import a profile from a deep link. It won't be applied automatically — review the content before saving.",
+    "profiles.import.deepLink.secretsWarning":
+      "This profile contains auth tokens. Importing will write them into the local config registry. Only continue if you trust the source.",
+    "profiles.import.deepLink.secretsAck": "I understand tokens will be stored locally",
+    "profiles.import.deepLink.toast.resolveError": "Failed to resolve profile import link",
+    "profiles.import.deepLink.toast.queueHint": "More import links are waiting",
     "profiles.export.dialogTitle": "Export Profile",
     "profiles.export.dialogDescription":
       "Export the merged complete settings file, ready to use as ~/.claude/settings.json.",
@@ -1924,10 +1968,15 @@ const translations = {
     "profiles.export.includeSecretsOnHint":
       "Real auth tokens will be exported — keep the exported file safe.",
     "profiles.export.confirm": "Choose path & export",
+    "profiles.export.copyDeepLink": "Copy Deep Link",
+    "profiles.export.copyDeepLinkSecretsAck":
+      "I understand tokens will be embedded in a shareable link",
     "profiles.export.toast.exported": "Profile exported with auth tokens cleared",
     "profiles.export.toast.exportedWithSecrets":
       "Profile exported with auth tokens included — keep it safe",
     "profiles.export.toast.exportError": "Failed to export profile",
+    "profiles.export.toast.deepLinkCopied": "Deep Link copied",
+    "profiles.export.toast.deepLinkCopyError": "Failed to copy Deep Link",
     "profiles.unmanaged.status.ready": "Ready to import",
     "profiles.unmanaged.status.invalidJson": "Invalid JSON",
     "profiles.unmanaged.status.invalidSchema": "Invalid settings shape",
@@ -1965,9 +2014,11 @@ const translations = {
     "profiles.actions.testingAll": "Testing...",
     "profiles.testAll.running": "Testing...",
     "profiles.testAll.runningBadge": "Testing",
-    "profiles.testAll.successResult": "Success · {durationMs} ms",
+    "profiles.testAll.successResult": "Success {duration}",
     "profiles.testAll.failed": "Failed",
     "profiles.testAll.resultAriaLabel": "{name} test result: {result}",
+    "profiles.testAll.summary": "Tests finished: {successCount} succeeded, {failedCount} failed",
+    "profiles.summary.testTitle": "Test",
     "profiles.badges.inUse": "In Use",
     "profiles.badges.editing": "Editing",
     "profiles.mismatch.button": "Settings changed manually",
@@ -2129,6 +2180,8 @@ const translations = {
     "profiles.editor.modelTest.editPrompt": "Edit Prompt",
     "profiles.editor.modelTest.sendPromptRequest": "Send Request",
     "profiles.editor.modelTest.errorMessage": "Error Message",
+    "profiles.editor.modelTest.errorReasonTitle": "Failure Reason",
+    "profiles.editor.modelTest.modelUnset": "Not set",
     "profiles.editor.modelTest.resolvedModel": "Resolved Model",
     "profiles.editor.modelTest.providerModel": "Provider Model",
     "profiles.editor.modelTest.statusCode": "Status Code",
@@ -2878,6 +2931,7 @@ const translations = {
     "usage.charts.cacheHitRatePass": "Fair ≥50%",
     "usage.charts.totalCost": "Total cost",
     "usage.charts.totalTokens": "Total tokens",
+    "usage.charts.totalCacheHitRate": "Overall hit rate",
     "usage.charts.trends": "Trend analysis",
     "usage.charts.legendToggle": "Click to toggle",
     "usage.charts.legendSolo": "Double-click to solo",
@@ -3044,6 +3098,20 @@ const translations = {
     "settings.waitingSoundPing": "Short Ping",
     "settings.waitingSoundSosumi": "Classic Sosumi",
     "settings.waitingSoundTink": "Light Tink",
+    "settings.sleepPrevention": "Prevent sleep",
+    "settings.sleepPreventionDesc":
+      "Keep the computer awake while Claude Code sessions are running (macOS only)",
+    "settings.sleepPreventionOff": "Off",
+    "settings.sleepPreventionWhileActive": "While active",
+    "settings.sleepPreventionAlways": "Always",
+    "settings.sleepPreventionActive": "Keeping awake",
+    "settings.sleepPreventionActiveWithDisplay": "Keeping awake (incl. display)",
+    "settings.sleepPreventionIdle": "Idle, can sleep",
+    "settings.sleepPreventionHint":
+      "While active: stays awake only when a session is running. By default prevents system idle sleep only — the display can still sleep, and closing the lid still sleeps.",
+    "settings.keepDisplayAwake": "Also keep the display awake",
+    "settings.keepDisplayAwakeHint":
+      "When on, the display stays on too; otherwise only the system is kept awake and the screen may sleep. Uses more power with burn-in risk — enable as needed; unavailable when Prevent Sleep is off.",
     "settings.thirdPartyProviderPricing": "Third-party model pricing",
     "settings.thirdPartyProviderPricingDesc":
       "Use models.dev to estimate costs for Kimi, MiMo, GLM, MiniMax, and DeepSeek models. When disabled, these models count as $0.",
@@ -3138,7 +3206,15 @@ const translations = {
     "claudeOverview.loadedEntryCount": "{count} entries loaded",
     "claudeOverview.truncatedEntries": "Reached the {count} entry limit",
     "claudeOverview.truncatedDepth": "Reached the {count}-level directory depth limit",
-    "claudeOverview.skippedSymlinks": "Skipped {count} symlinks",
+    "claudeOverview.symlinkCount": "{count} symlinks",
+    "claudeOverview.symlinkBadge": "Symlink",
+    "claudeOverview.symlinkBroken": "Broken symlink",
+    "claudeOverview.symlinkCycle": "Cyclic symlink",
+    "claudeOverview.viaSymlink": "Via symlink {path} → {target}",
+    "claudeOverview.symlinkReadOnly":
+      "Symlink paths are read-only; create, rename, and delete are disabled",
+    "claudeOverview.brokenSymlinkPreview":
+      "Symlink target is unavailable; content cannot be previewed",
     "claudeOverview.skippedNodeModules": "Skipped {count} node_modules directories",
     "claudeOverview.empty": "~/.claude is empty or missing",
     "claudeOverview.scanning": "Scanning ~/.claude...",
@@ -3186,8 +3262,10 @@ const translations = {
     "claudeOverview.operationError": "Directory operation failed",
 
     // 操作通知（Toast）
-    "toast.configLoadError": "Failed to load configs",
     "toast.configSaveError": "Failed to save config",
+    "toast.sleepPreventionSwitched": "Prevent sleep switched",
+    "toast.keepDisplayAwakeOn": "Display will stay awake",
+    "toast.keepDisplayAwakeOff": "Display no longer forced on; screen can sleep",
     "toast.autostartQueryError": "Failed to read auto-start status",
     "toast.autostartSaveError": "Failed to save auto-start setting",
     "toast.ledTestError": "Failed to test LED light",
@@ -3484,6 +3562,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const setLanguage = useCallback((language: Language) => {
     setSettings((prev) => {
+      // 同值幂等：允许调用方无条件同步，不触发多余的持久化与重渲染
+      if (prev.language === language) {
+        return prev;
+      }
       const next = { ...prev, language };
       saveSettings(next);
       return next;

@@ -30,7 +30,7 @@ Code Manager does not replace Claude Code; it provides a management layer for lo
 | Capability | Description |
 | --- | --- |
 | `~/.claude` Overview | Browse, preview, edit, and locate the Claude Code user directory. |
-| Profiles / Built-in Providers | Manage the profile layer that is ultimately written to `~/.claude/settings.json`, pick connection endpoints and model mappings from built-in (read-only) providers, with support for models, environment variables, permissions, Sandbox, hooks, plugins, status line, preview, copy, model testing, one-click apply, import an existing settings file, export (optionally with secrets, with a pre-save preview), diff comparison, and one-click sync of common options / marketplaces / plugins to other profiles. |
+| Profiles / Built-in Providers | Manage the profile layer ultimately written to `~/.claude/settings.json`, picking connection endpoints and model mappings from built-in (read-only) providers. Edit models, environment variables, permissions, Sandbox, hooks, plugins, and the status line. Preview, copy, test models, apply in one click, import an existing settings file, export (optionally with secrets, with a pre-save preview), compare diffs, and sync common options / marketplaces / plugins to other profiles. |
 | Memory Management | Manage user-level `CLAUDE.md` and `rules/*.md`, with support for the Karpathy behavior guide preset, import, enable, disable, copy, preview, and path validation. |
 | Skills Management | Create, edit, delete, enable, and disable Claude Code Skills, and sync them as `~/.codex/skills/<id>` symlinks. |
 | History & Sessions | Read `~/.claude/history.jsonl` and view history details by project and session. |

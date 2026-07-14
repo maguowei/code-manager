@@ -1,6 +1,6 @@
 ---
 name: release-new-version
-description: 手动触发的发版技能。仅在用户主动输入 `/release-new-version` 命令时调用，模型不得自动调用此技能。
+description: 手动触发的发版流程：更新版本文件 → 提交 → 生成 release notes → 打 annotated tag → push。
 disable-model-invocation: true
 ---
 
@@ -115,6 +115,8 @@ git log --pretty=format:'%h %s' {BASE_TAG}..HEAD
 
 若基准为 `INITIAL`，改用 `git log --pretty=format:'%h %s'`（取全部历史）。
 
+若 `{BASE_TAG}..HEAD` 区间无 commit（少见，如重打 tag），release notes 为空，需提示用户确认是否继续。
+
 #### 6.2 过滤噪音 commit
 
 移除匹配 `chore(release): bump version to` 的行（版本升级 commit 本身）。
@@ -197,6 +199,8 @@ git push origin v{VERSION}
 rm -f "$NOTES_FILE"
 ```
 
+tag 必须用 annotated（`-a`）：lightweight tag 不保存 message，`git show v{VERSION}` 将看不到变更内容。
+
 ### 步骤 8：完成确认
 
 - 汇报已完成的步骤，展示生成的 release notes 内容（供用户确认）。
@@ -206,12 +210,8 @@ rm -f "$NOTES_FILE"
 
 ## 注意事项
 
-- **发布分支固定为 `main`**：版本 bump 提交与 tag 都落在 main（见步骤 0）；发布内容先经 PR 合入 main，不在 dev/功能分支上直接发版。
+跨步骤的约定与环境依赖（单步内的规则已就近写在对应步骤里）：
+
 - 版本文件中始终使用纯 semver（如 `0.17.0`），只有 git tag 才加 `v` 前缀（`v0.17.0`）。
-- **tag 必须用 annotated（`-a`）**，lightweight tag 不会保存 message，`git show v{VERSION}` 将看不到变更内容。
-- 对比基准 tag 必须真实存在（通过 `git rev-parse` 校验），不存在则中止并询问用户确认。
-- 当 `{BASE_TAG}..HEAD` 区间无 commit 时（少见，如重打 tag），release notes 为空，需提示用户确认是否继续。
-- 执行前检查工作区是否有未提交的无关变更，若有则先提示用户。
-- 不手动修改 `pnpm-lock.yaml`，不手动编辑 `Cargo.lock`。
+- 不手动修改 `pnpm-lock.yaml`，不手动编辑 `Cargo.lock`（步骤 3 用 `cargo update` 同步）。
 - **应用自更新依赖签名与发布**：release workflow 需配置 `TAURI_SIGNING_PRIVATE_KEY` 与 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` 两个 GitHub secret，否则不会生成 `.sig` 与 `latest.json`，自更新不可用；`src-tauri/tauri.conf.json` 的 `plugins.updater.pubkey` 必须是对应公钥，不能留占位符。
-- **草稿 Release 必须手动发布**：workflow 以 `releaseDraft: true` 创建草稿，updater 的 endpoint（`releases/latest/download/latest.json`）只解析到已发布的正式 Release；发布草稿后自更新与 Homebrew Cask 更新才会触发。

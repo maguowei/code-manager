@@ -2,14 +2,6 @@
 
 本文件面向在本仓库中工作的 AI Agent，例如 Claude Code、Codex 以及读取 `AGENTS.md` / `CLAUDE.md` 的同类代理。它是执行手册，不是产品介绍页；人类用户入口在 `README.md`，完整使用说明在 `docs/user-manual.md`。
 
-## 使用方式
-
-- 每次会话先读本文件，再按“规则索引”读取命中路径的 `.claude/rules/*.md`。
-- `CLAUDE.md` 只保留会话级事实、硬约束、规则索引和验证入口，目标控制在 200 行以内。
-- 细粒度规则放在 `.claude/rules/*.md`，通过 `paths` frontmatter 触发；不要用 `@.claude/rules/...` 把大规则 import 回主文件。
-- `AGENTS.md` 是指向本文件的软链接，不单独维护。
-- 个人或机器特定指令放 `CLAUDE.local.md`，保持未提交；不要把本地偏好写入共享根文档。
-
 ## 项目速览
 
 - 项目：Code Manager，基于 Tauri 2 的 Claude Code 本地配置管理桌面应用。
@@ -35,7 +27,7 @@
 - 代码注释使用中文。
 - 所有用户可见文本必须走 `useI18n()` 的 `t()` 函数，不要硬编码中英文字符串。
 - 所有前端通知优先走 `useToast()`，不要把 `console.error` 当作用户反馈。
-- `pnpm check` 会执行 `biome check --write .` 并修改文件；只想做只读前端检查时用 `make lint-frontend`，只读格式检查用 `make fmt-check`。
+- `pnpm check` 会执行 `biome check --write .` 并修改文件，`make fmt` 同样改写，都别当只读验证；只读前端检查用 `make lint-frontend`，只读格式检查用 `make fmt-check`。
 - 新增有层叠关系或浮层的样式时，使用 shadcn 语义变量和 shadcn 原子组件内置层级，不要硬编码十六进制色值或 z-index 数字。
 - 前端视觉默认采用“均衡管理台”风格：克制、紧凑、可扫描，不做营销式 hero、大字号展示或装饰性卡片堆叠。
 - Rust 新增文件读写、锁、时间、JSON 工具时，优先复用 `src-tauri/src/utils.rs`。
@@ -125,7 +117,7 @@ macOS 上应用数据刻意复用 `~/.config/code-manager/`，便于跨平台备
 | UI 视觉 | 前端命令 + 本地应用或浏览器截图核验；无法截图时说明限制 |
 | 全量本地门禁 | `make verify` |
 
-本地启动桌面应用优先用 `make dev`（底层是 `pnpm tauri dev`）；`pnpm dev` 只启动 Vite。生产包优先用 `make build`。`make fmt` 与 `pnpm check` 会改写文件，避免把它们当只读验证；纯格式检查用 `make fmt-check`。
+本地启动桌面应用优先用 `make dev`（底层是 `pnpm tauri dev`）；`pnpm dev` 只启动 Vite。生产包优先用 `make build`。
 
 ## 已知陷阱
 
@@ -145,3 +137,17 @@ macOS 上应用数据刻意复用 `~/.config/code-manager/`，便于跨平台备
 4. `src/App.tsx`、`src/main.tsx`、`src-tauri/src/lib.rs`、`src-tauri/src/utils.rs`
 5. 需要人类产品背景时再读 `README.md` 或 `docs/user-manual.md`
 6. 涉及发版流程时阅读 `.claude/skills/release-new-version/SKILL.md`（手动触发，模型不得自动调用）
+
+## Agent skills
+
+### Issue tracker
+
+Issues 追踪在仓库的 GitHub Issues，通过 `gh` CLI 操作；外部 PR 不作为 triage 队列来源。详见 `docs/agents/issue-tracker.md`。
+
+### Triage labels
+
+采用默认标签词汇：`needs-triage` / `needs-info` / `ready-for-agent` / `ready-for-human` / `wontfix`。详见 `docs/agents/triage-labels.md`。
+
+### Domain docs
+
+单上下文布局：根目录 `CONTEXT.md` + `docs/adr/`。详见 `docs/agents/domain.md`。

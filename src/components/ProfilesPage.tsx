@@ -40,10 +40,14 @@ import type {
 import ConfigPreview from "./ConfigPreview";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import {
+  formatModelTestDurationMs,
   getEnabledPluginsSummary,
   isPlainObject,
   providerNameById,
   providerSlugFromId,
+  resolveProfileEffectiveEffort,
+  resolveProfileEffectiveModel,
+  truncateModelTestErrorMessage,
 } from "./config-workspace-utils";
 import EmptyState from "./EmptyState";
 import type { EditorExitGuard } from "./editor-exit-guard";
@@ -74,6 +78,7 @@ import UnsavedChangesAlertDialog from "./UnsavedChangesAlertDialog";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
+import { Checkbox } from "./ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -98,7 +103,19 @@ interface ProfilesPageProps {
   workspace: ConfigWorkspace;
   onWorkspaceChange: () => Promise<void>;
   onEditorExitGuardChange?: (guard: EditorExitGuard | null) => void;
+  /** App 从 deep link pending 队列 drain 后下发的导入请求 */
+  deepLinkImportRequest?: { urls: string[]; requestId: number } | null;
 }
+
+/** 导入对话框来源：本地文件或已解析的 deep link */
+type ImportDialogSource =
+  | { kind: "file"; sourcePath: string }
+  | {
+      kind: "deepLink";
+      settingsJson: string;
+      containsSecrets: boolean;
+      source: string;
+    };
 
 type ProfileModelTestState =
   | { status: "running" }
@@ -251,6 +268,7 @@ function ProfilesPage({
   workspace,
   onWorkspaceChange,
   onEditorExitGuardChange,
+  deepLinkImportRequest = null,
 }: ProfilesPageProps) {
   const { language, t } = useI18n();
   const { showToast } = useToast();
@@ -277,14 +295,26 @@ function ProfilesPage({
   const [exportPreviewError, setExportPreviewError] = useState<string | null>(null);
   const [isExportPreviewLoading, setIsExportPreviewLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  // 导入预览对话框:源文件路径、预览内容/错误、名称与描述、加载与导入中状态
-  const [importSourcePath, setImportSourcePath] = useState<string | null>(null);
+  const [exportSecretsAcknowledged, setExportSecretsAcknowledged] = useState(false);
+  const [isCopyingDeepLink, setIsCopyingDeepLink] = useState(false);
+  // 导入预览对话框:文件或 deep link、预览内容/错误、名称与描述、加载与导入中状态
+  const [importDialogSource, setImportDialogSource] = useState<ImportDialogSource | null>(null);
   const [importPreview, setImportPreview] = useState("");
   const [importPreviewError, setImportPreviewError] = useState<string | null>(null);
   const [isImportPreviewLoading, setIsImportPreviewLoading] = useState(false);
   const [importName, setImportName] = useState("");
   const [importDescription, setImportDescription] = useState("");
   const [isImporting, setIsImporting] = useState(false);
+  const [importSecretsAcknowledged, setImportSecretsAcknowledged] = useState(false);
+  const deepLinkQueueRef = useRef<string[]>([]);
+  const importDialogOpenRef = useRef(false);
+  const deepLinkResolveBusyRef = useRef(false);
+  // 只按 requestId 入队一次，避免语言切换导致 t/pump 引用变化时重复 push
+  const lastDeepLinkRequestIdRef = useRef<number | null>(null);
+  const showToastRef = useRef(showToast);
+  const tRef = useRef(t);
+  showToastRef.current = showToast;
+  tRef.current = t;
   const [profileModelTestStates, setProfileModelTestStates] = useState<
     Record<string, ProfileModelTestState>
   >({});
@@ -556,7 +586,8 @@ function ProfilesPage({
   }
 
   function profilePrimaryModel(profile: ConfigProfile) {
-    return settingsPrimaryModel(profile.settings);
+    // 列表展示有效模型：配置覆盖 ⊕ 供应商默认，与一键测试 resolve 语义一致
+    return resolveProfileEffectiveModel(profile, allProviders);
   }
 
   function settingsEffortLevel(settings: Record<string, unknown>) {
@@ -571,7 +602,7 @@ function ProfilesPage({
   }
 
   function profileEffortLevel(profile: ConfigProfile) {
-    return settingsEffortLevel(profile.settings);
+    return resolveProfileEffectiveEffort(profile, allProviders);
   }
 
   function profileEffortLevelClass(effort: string) {
@@ -671,6 +702,18 @@ function ProfilesPage({
       .join("\n");
   }
 
+  function clearProfileModelTestState(profileId: string) {
+    setProfileModelTestStates((current) => {
+      if (!(profileId in current)) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[profileId];
+      return next;
+    });
+    setActiveModelTestDialog((current) => (current?.profileId === profileId ? null : current));
+  }
+
   async function handleSave(data: {
     id?: string;
     name: string;
@@ -681,6 +724,10 @@ function ProfilesPage({
     try {
       await ipc.upsertProfile(data);
       await onWorkspaceChange();
+      // 配置已变，旧连通性快照作废
+      if (data.id) {
+        clearProfileModelTestState(data.id);
+      }
       closeDrawer();
       showToast(t("profiles.toast.saved"));
       return true;
@@ -713,6 +760,7 @@ function ProfilesPage({
         settings: activeSettingsMismatch.actualSettings,
       });
       await onWorkspaceChange();
+      clearProfileModelTestState(profile.id);
       setIsSettingsMismatchDialogOpen(false);
       showToast(t("profiles.mismatch.toast.accepted"));
     } catch (err) {
@@ -752,6 +800,7 @@ function ProfilesPage({
     try {
       await ipc.deleteProfile(id);
       await onWorkspaceChange();
+      clearProfileModelTestState(id);
       showToast(t("profiles.toast.deleted"));
     } catch (err) {
       showOperationError(showToast, t("profiles.toast.deleteError"), err);
@@ -762,6 +811,7 @@ function ProfilesPage({
   function openExportDialog(profile: ConfigProfile) {
     setExportTargetProfile(profile);
     setExportIncludeSecrets(false);
+    setExportSecretsAcknowledged(false);
     setExportPreview("");
     setExportPreviewError(null);
   }
@@ -771,6 +821,8 @@ function ProfilesPage({
     setExportPreview("");
     setExportPreviewError(null);
     setIsExporting(false);
+    setExportSecretsAcknowledged(false);
+    setIsCopyingDeepLink(false);
   }
 
   // 确认导出:弹保存对话框选路径,落盘含/不含密钥的完整配置
@@ -799,6 +851,25 @@ function ProfilesPage({
     }
   }
 
+  // 复制配置导入 Deep Link（默认不含密钥；含密钥需勾选确认）
+  async function handleCopyDeepLink() {
+    if (!exportTargetProfile || exportPreviewError) return;
+    if (exportIncludeSecrets && !exportSecretsAcknowledged) return;
+    setIsCopyingDeepLink(true);
+    try {
+      const link = await ipc.buildProfileImportDeepLink(
+        exportTargetProfile.id,
+        exportIncludeSecrets,
+      );
+      await navigator.clipboard.writeText(link);
+      showToast(t("profiles.export.toast.deepLinkCopied"));
+    } catch (err) {
+      showOperationError(showToast, t("profiles.export.toast.deepLinkCopyError"), err);
+    } finally {
+      setIsCopyingDeepLink(false);
+    }
+  }
+
   // 顶部导入入口:选择 .json 文件后打开导入预览对话框
   async function handleImportProfile() {
     let selected: string | string[] | null;
@@ -814,28 +885,53 @@ function ProfilesPage({
     }
     const sourcePath = Array.isArray(selected) ? selected[0] : selected;
     if (!sourcePath) return;
-    setImportSourcePath(sourcePath);
+    importDialogOpenRef.current = true;
+    setImportDialogSource({ kind: "file", sourcePath });
     setImportName(fileStemFromPath(sourcePath));
     setImportDescription("");
     setImportPreview("");
     setImportPreviewError(null);
+    setImportSecretsAcknowledged(false);
   }
 
   function closeImportDialog() {
-    setImportSourcePath(null);
+    importDialogOpenRef.current = false;
+    setImportDialogSource(null);
     setImportPreview("");
     setImportPreviewError(null);
     setImportName("");
     setImportDescription("");
     setIsImporting(false);
+    setImportSecretsAcknowledged(false);
+    // 关闭当前预览后继续处理排队中的 deep link
+    void pumpDeepLinkQueue();
   }
 
   // 确认导入:校验通过后创建新配置(不自动绑定/激活)
   async function handleConfirmImport() {
-    if (!importSourcePath || importPreviewError) return;
+    if (!importDialogSource || importPreviewError) return;
+    if (
+      importDialogSource.kind === "deepLink" &&
+      importDialogSource.containsSecrets &&
+      !importSecretsAcknowledged
+    ) {
+      return;
+    }
     setIsImporting(true);
     try {
-      await ipc.importProfileFromFile(importSourcePath, importName, importDescription);
+      if (importDialogSource.kind === "file") {
+        await ipc.importProfileFromFile(
+          importDialogSource.sourcePath,
+          importName,
+          importDescription,
+        );
+      } else {
+        await ipc.importProfileFromSettingsJson(
+          importDialogSource.settingsJson,
+          importName,
+          importDescription,
+        );
+      }
       await onWorkspaceChange();
       showToast(t("profiles.import.toast.imported"));
       closeImportDialog();
@@ -845,12 +941,63 @@ function ProfilesPage({
     }
   }
 
+  // 解析并弹出下一条 deep link；失败则 Toast 后自动继续。
+  // 回调保持稳定：Toast/i18n 走 ref，避免语言切换重建导致入队 effect 重跑。
+  const pumpDeepLinkQueue = useCallback(async () => {
+    if (importDialogOpenRef.current || deepLinkResolveBusyRef.current) return;
+    const nextUrl = deepLinkQueueRef.current.shift();
+    if (!nextUrl) return;
+    deepLinkResolveBusyRef.current = true;
+    setIsImportPreviewLoading(true);
+    setImportPreviewError(null);
+    try {
+      const resolved = await ipc.resolveProfileImportDeepLink(nextUrl);
+      importDialogOpenRef.current = true;
+      setImportDialogSource({
+        kind: "deepLink",
+        settingsJson: resolved.settingsJson,
+        containsSecrets: resolved.containsSecrets,
+        source: resolved.source,
+      });
+      setImportName(resolved.name);
+      setImportDescription(resolved.description);
+      setImportPreview(resolved.settingsJson);
+      setImportSecretsAcknowledged(false);
+      if (deepLinkQueueRef.current.length > 0) {
+        showToastRef.current(tRef.current("profiles.import.deepLink.toast.queueHint"));
+      }
+    } catch (err) {
+      showOperationError(
+        showToastRef.current,
+        tRef.current("profiles.import.deepLink.toast.resolveError"),
+        err,
+      );
+      deepLinkResolveBusyRef.current = false;
+      setIsImportPreviewLoading(false);
+      void pumpDeepLinkQueue();
+      return;
+    }
+    deepLinkResolveBusyRef.current = false;
+    setIsImportPreviewLoading(false);
+  }, []);
+
+  // 仅在新的 requestId 时入队；同一 request 被语言切换/父组件重渲染时不得再 push
+  useEffect(() => {
+    if (!deepLinkImportRequest) return;
+    if (lastDeepLinkRequestIdRef.current === deepLinkImportRequest.requestId) return;
+    lastDeepLinkRequestIdRef.current = deepLinkImportRequest.requestId;
+    deepLinkQueueRef.current.push(...deepLinkImportRequest.urls);
+    void pumpDeepLinkQueue();
+  }, [deepLinkImportRequest, pumpDeepLinkQueue]);
+
   // 拉取导出预览:目标配置或「包含密钥」开关变化时重新加载,保证预览所见即所得
   useEffect(() => {
     if (!exportTargetProfile) return;
     let cancelled = false;
     setIsExportPreviewLoading(true);
     setExportPreviewError(null);
+    // 切换含密钥时重置确认勾选
+    setExportSecretsAcknowledged(false);
     ipc
       .previewProfileExport(exportTargetProfile.id, exportIncludeSecrets)
       .then((content) => {
@@ -871,12 +1018,13 @@ function ProfilesPage({
 
   // 拉取导入预览:选定文件后加载,提前暴露解析/校验错误
   useEffect(() => {
-    if (!importSourcePath) return;
+    if (importDialogSource?.kind !== "file") return;
+    const sourcePath = importDialogSource.sourcePath;
     let cancelled = false;
     setIsImportPreviewLoading(true);
     setImportPreviewError(null);
     ipc
-      .previewProfileImport(importSourcePath)
+      .previewProfileImport(sourcePath)
       .then((content) => {
         if (!cancelled) setImportPreview(content);
       })
@@ -891,7 +1039,7 @@ function ProfilesPage({
     return () => {
       cancelled = true;
     };
-  }, [importSourcePath]);
+  }, [importDialogSource]);
 
   // 选定配置后准备启动命令:生成文件路径式与内联 JSON 式两条命令
   useEffect(() => {
@@ -1014,18 +1162,28 @@ function ProfilesPage({
     setActiveModelTestDialog(null);
     setIsRawResponseExpanded(false);
 
+    let successCount = 0;
+    let failedCount = 0;
+
     async function testProfile(profile: ConfigProfile) {
       try {
         const result = await invokeProfileModelTest(profile);
         if (modelTestRunIdRef.current === runId) {
+          const nextState = modelTestStateFromResult(result);
+          if (nextState.status === "success") {
+            successCount += 1;
+          } else {
+            failedCount += 1;
+          }
           setProfileModelTestStates((current) => ({
             ...current,
-            [profile.id]: modelTestStateFromResult(result),
+            [profile.id]: nextState,
           }));
         }
         return result;
       } catch (error) {
         if (modelTestRunIdRef.current === runId) {
+          failedCount += 1;
           setProfileModelTestStates((current) => ({
             ...current,
             [profile.id]: {
@@ -1062,6 +1220,11 @@ function ProfilesPage({
 
     if (modelTestRunIdRef.current === runId) {
       setIsTestingAllProfiles(false);
+      showToast(
+        t("profiles.testAll.summary")
+          .replace("{successCount}", String(successCount))
+          .replace("{failedCount}", String(failedCount)),
+      );
     }
   }
 
@@ -1164,7 +1327,10 @@ function ProfilesPage({
 
   function modelTestResultLabel(state: Exclude<ProfileModelTestState, { status: "running" }>) {
     return state.status === "success"
-      ? t("profiles.testAll.successResult").replace("{durationMs}", String(state.result.durationMs))
+      ? t("profiles.testAll.successResult").replace(
+          "{duration}",
+          formatModelTestDurationMs(state.result.durationMs),
+        )
       : t("profiles.testAll.failed");
   }
 
@@ -1211,6 +1377,11 @@ function ProfilesPage({
     const ariaLabel = modelTestResultAriaLabel(profile, state);
     const isSuccess = state.status === "success";
     const ResultIcon = isSuccess ? CircleCheck : CircleAlert;
+    const failureTip =
+      state.status === "failed" && state.errorMessage
+        ? truncateModelTestErrorMessage(state.errorMessage)
+        : "";
+    const titleText = failureTip || ariaLabel;
 
     return (
       <Button
@@ -1225,15 +1396,36 @@ function ProfilesPage({
             : "border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/15 hover:text-destructive",
         )}
         aria-label={ariaLabel}
-        title={ariaLabel}
+        title={titleText}
         onClick={(event) => {
           event.stopPropagation();
           openProfileModelTestResult(profile, state);
         }}
       >
-        <ResultIcon className="size-3" aria-hidden="true" />
+        <ResultIcon className="size-3 shrink-0" aria-hidden="true" />
         <span className="min-w-0 truncate">{label}</span>
       </Button>
+    );
+  }
+
+  function renderProfileTestSummaryRow(profile: ConfigProfile) {
+    const state = profileModelTestStates[profile.id];
+    if (!state) {
+      return null;
+    }
+
+    return (
+      <div
+        data-slot="profile-test-summary-row"
+        className="grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground"
+      >
+        <span className="inline-flex shrink-0 items-center text-xs leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-border after:content-[':']">
+          {t("profiles.summary.testTitle")}
+        </span>
+        <div data-slot="profile-test-summary-value" className="flex min-w-0 items-center gap-1.5">
+          {renderProfileModelTestState(profile)}
+        </div>
+      </div>
     );
   }
 
@@ -1530,7 +1722,13 @@ function ProfilesPage({
             const permissionMode = profilePermissionMode(profile);
             const sandboxEnabled = profileSandboxEnabled(profile);
             const plugins = profilePluginsSummary(profile);
-            const hasSummary = model || permissionMode || sandboxEnabled || plugins.totalCount > 0;
+            const hasTestState = Boolean(profileModelTestStates[profile.id]);
+            const hasSummary =
+              Boolean(model) ||
+              Boolean(permissionMode) ||
+              sandboxEnabled ||
+              plugins.totalCount > 0 ||
+              hasTestState;
             const isEditingProfile = isDrawerOpen && editingProfile?.id === profile.id;
             const isAppliedProfile = isAppliedToUserSettings(profile);
             const settingsMismatch = profileSettingsMismatch(profile);
@@ -1645,7 +1843,7 @@ function ProfilesPage({
 
                 {hasSummary && (
                   <div className="flex flex-col gap-2">
-                    {model && (
+                    {model ? (
                       <div className="grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground">
                         <span className="inline-flex shrink-0 items-center text-xs leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-border after:content-[':']">
                           {t("profiles.summary.modelTitle")}
@@ -1655,8 +1853,7 @@ function ProfilesPage({
                           className="flex min-w-0 flex-wrap items-center gap-1.5"
                         >
                           <span className="min-w-0 max-w-full truncate">{model}</span>
-                          {renderProfileModelTestState(profile)}
-                          {effort && (
+                          {effort ? (
                             <span
                               className={cn(
                                 "shrink-0 whitespace-nowrap",
@@ -1665,10 +1862,11 @@ function ProfilesPage({
                             >
                               {effort}
                             </span>
-                          )}
+                          ) : null}
                         </div>
                       </div>
-                    )}
+                    ) : null}
+                    {renderProfileTestSummaryRow(profile)}
                     {(permissionMode || sandboxEnabled) && (
                       <div className="grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground">
                         <span className="inline-flex shrink-0 items-center text-xs leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-border after:content-[':']">
@@ -2059,12 +2257,36 @@ function ProfilesPage({
               onCheckedChange={setExportIncludeSecrets}
             />
           </div>
+          {exportIncludeSecrets ? (
+            <label className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3">
+              <Checkbox
+                checked={exportSecretsAcknowledged}
+                onCheckedChange={(checked) => setExportSecretsAcknowledged(checked === true)}
+                className="mt-0.5"
+              />
+              <span className={cn(TYPOGRAPHY.body, "text-destructive")}>
+                {t("profiles.export.copyDeepLinkSecretsAck")}
+              </span>
+            </label>
+          ) : null}
           <div className="min-h-0 flex-1 overflow-auto">
             <ConfigPreview content={exportPreview} jsonError={exportPreviewError ?? undefined} />
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
             <Button variant="outline" onClick={closeExportDialog}>
               {t("common.close")}
+            </Button>
+            <Button
+              variant="outline"
+              disabled={
+                isCopyingDeepLink ||
+                !!exportPreviewError ||
+                isExportPreviewLoading ||
+                (exportIncludeSecrets && !exportSecretsAcknowledged)
+              }
+              onClick={() => void handleCopyDeepLink()}
+            >
+              {t("profiles.export.copyDeepLink")}
             </Button>
             <Button
               disabled={isExporting || !!exportPreviewError || isExportPreviewLoading}
@@ -2077,7 +2299,7 @@ function ProfilesPage({
       </Dialog>
 
       <Dialog
-        open={!!importSourcePath}
+        open={!!importDialogSource}
         onOpenChange={(open) => {
           if (!open) closeImportDialog();
         }}
@@ -2085,8 +2307,29 @@ function ProfilesPage({
         <DialogContent className="flex max-h-[85vh] flex-col gap-4 sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>{t("profiles.import.dialogTitle")}</DialogTitle>
-            <DialogDescription>{t("profiles.import.dialogDescription")}</DialogDescription>
+            <DialogDescription>
+              {importDialogSource?.kind === "deepLink"
+                ? t("profiles.import.deepLink.dialogDescription")
+                : t("profiles.import.dialogDescription")}
+            </DialogDescription>
           </DialogHeader>
+          {importDialogSource?.kind === "deepLink" && importDialogSource.containsSecrets ? (
+            <div className="flex flex-col gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3">
+              <p className={cn(TYPOGRAPHY.body, "m-0 text-destructive")}>
+                {t("profiles.import.deepLink.secretsWarning")}
+              </p>
+              <label className="flex items-start gap-2">
+                <Checkbox
+                  checked={importSecretsAcknowledged}
+                  onCheckedChange={(checked) => setImportSecretsAcknowledged(checked === true)}
+                  className="mt-0.5"
+                />
+                <span className={cn(TYPOGRAPHY.body)}>
+                  {t("profiles.import.deepLink.secretsAck")}
+                </span>
+              </label>
+            </div>
+          ) : null}
           <div className="grid gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="import-name">{t("profiles.import.nameLabel")}</Label>
@@ -2115,7 +2358,14 @@ function ProfilesPage({
               {t("common.close")}
             </Button>
             <Button
-              disabled={isImporting || !!importPreviewError || isImportPreviewLoading}
+              disabled={
+                isImporting ||
+                !!importPreviewError ||
+                isImportPreviewLoading ||
+                (importDialogSource?.kind === "deepLink" &&
+                  importDialogSource.containsSecrets &&
+                  !importSecretsAcknowledged)
+              }
               onClick={() => void handleConfirmImport()}
             >
               {t("profiles.import.confirm")}

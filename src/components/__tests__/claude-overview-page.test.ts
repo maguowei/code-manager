@@ -134,7 +134,10 @@ describe("ClaudeOverviewPage styles", () => {
 
     expect(source).toContain("claude-overview-preview-toolbar flex min-h-[38px]");
     expect(source).toContain("justify-end");
-    expect(source).toContain("claude-overview-preview-summary flex min-w-0 items-center gap-2");
+    // footer 元信息可换行：gap-x/gap-y 分离，避免窄宽下挤成一行
+    expect(source).toContain(
+      "claude-overview-preview-summary flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1",
+    );
     expect(source).toContain('size="icon-sm"');
   });
 

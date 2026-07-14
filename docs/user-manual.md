@@ -96,7 +96,7 @@ Click the `AI` entry in the upper-left corner to open it. After you select a fil
 
 The file preview toolbar lets you copy the absolute path, reveal it in the file browser, and open it with the default editor; right-clicking in the directory tree lets you create a new file, create a new folder, rename, or delete. Deletion cannot be undone, so make sure you have a copy before handling `settings.json`, `CLAUDE.md`, `rules/`, or `skills/`.
 
-The Directory Overview only allows operations on paths inside `~/.claude`; the scan skips symlinks and `node_modules`, and shows a notice when the entry count or depth limit is reached.
+The Directory Overview lists paths under `~/.claude` (including symlinks). Symlink entries are labeled and can be opened read-only—directory symlinks expand, and file previews may follow targets outside `~/.claude`. Create, rename, and delete stay disabled on any path that crosses a symlink. The scan still skips `node_modules`, and shows a notice when the entry count or depth limit is reached. Binary preview uses a known-extension denylist; other files open as UTF-8 / lossy text.
 
 ## Configurations
 

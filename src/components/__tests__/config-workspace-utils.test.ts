@@ -3,6 +3,7 @@ import type { Provider } from "../../types";
 import {
   applyEnvDefaults,
   applyProviderAutofill,
+  formatModelTestDurationMs,
   getEnabledPluginsSummary,
   prettyJson,
   providerDisplayName,
@@ -12,12 +13,15 @@ import {
   readMappedString,
   readScopedSettingsWithEnv,
   replaceScopedSettingsWithEnv,
+  resolveProfileEffectiveEffort,
+  resolveProfileEffectiveModel,
   resolveProviderAutofillValues,
   setEnvString,
   setMappedString,
   setTopLevelBoolean,
   setTopLevelObject,
   setTopLevelString,
+  truncateModelTestErrorMessage,
 } from "../config-workspace-utils";
 
 /** 段 B：Provider 默认模型完全来自 env 显式声明，不再按模型 category 隐式推断 */
@@ -232,6 +236,64 @@ describe("config-workspace-utils preset autofill", () => {
 
     // 无可解析 provider 时不动任何字段(含地址)
     expect(applyProviderAutofill(seededSettings, PRESETS, undefined)).toEqual(seededSettings);
+  });
+});
+
+describe("config-workspace-utils profile effective summary", () => {
+  it("uses provider env model/effort when profile does not override", () => {
+    const profile = {
+      providerId: "builtin:deepseek",
+      settings: {
+        env: {
+          ANTHROPIC_AUTH_TOKEN: "token",
+        },
+      },
+    };
+
+    expect(resolveProfileEffectiveModel(profile, PRESETS)).toBe("deepseek-v4-pro[1m]");
+    expect(resolveProfileEffectiveEffort(profile, PRESETS)).toBe("max");
+  });
+
+  it("prefers profile overrides over provider defaults", () => {
+    const profile = {
+      providerId: "builtin:deepseek",
+      settings: {
+        env: {
+          ANTHROPIC_MODEL: "profile-model",
+          CLAUDE_CODE_EFFORT_LEVEL: "high",
+        },
+      },
+    };
+
+    expect(resolveProfileEffectiveModel(profile, PRESETS)).toBe("profile-model");
+    expect(resolveProfileEffectiveEffort(profile, PRESETS)).toBe("high");
+  });
+
+  it("falls back to top-level model/effortLevel when env is empty", () => {
+    const profile = {
+      providerId: "builtin:openrouter",
+      settings: {
+        model: "top-level-model",
+        effortLevel: "medium",
+      },
+    };
+
+    expect(resolveProfileEffectiveModel(profile, PRESETS)).toBe("top-level-model");
+    expect(resolveProfileEffectiveEffort(profile, PRESETS)).toBe("medium");
+  });
+
+  it("formats model test durations with ms under 1s and short seconds otherwise", () => {
+    expect(formatModelTestDurationMs(119)).toBe("119ms");
+    expect(formatModelTestDurationMs(999)).toBe("999ms");
+    expect(formatModelTestDurationMs(1000)).toBe("1s");
+    expect(formatModelTestDurationMs(3000)).toBe("3s");
+    expect(formatModelTestDurationMs(3512)).toBe("3.5s");
+    expect(formatModelTestDurationMs(-1)).toBe("0ms");
+  });
+
+  it("truncates long model test error messages for tooltips", () => {
+    expect(truncateModelTestErrorMessage("short")).toBe("short");
+    expect(truncateModelTestErrorMessage("a".repeat(130))).toBe(`${"a".repeat(119)}…`);
   });
 });
 

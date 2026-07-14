@@ -81,6 +81,19 @@ export interface AppPreferences {
   waitingSoundEnabled: boolean;
   /** 提示音效选择，对应 macOS 系统音效文件名。 */
   waitingSound: "glass" | "submarine" | "hero" | "ping" | "sosumi" | "tink";
+  /** 防止休眠模式（off 不干预 / whileActive 仅活动会话运行时 / always 无条件，仅 macOS 生效）。 */
+  sleepPrevention?: SleepPreventionMode;
+  /** 屏幕常亮：与模式正交，开启后连显示器一起不熄；默认关（只挡系统空闲休眠）。仅 macOS 生效。 */
+  keepDisplayAwake?: boolean;
+}
+
+/** 防止休眠三态：off 关闭 / whileActive 仅活动会话运行时 / always 始终。 */
+export type SleepPreventionMode = "off" | "whileActive" | "always";
+
+/** 防止休眠运行时状态：当前模式 + 此刻是否正持有断言（正在保持唤醒）。 */
+export interface SleepPreventionStatus {
+  mode: SleepPreventionMode;
+  active: boolean;
 }
 
 export interface LocalizedText {
@@ -102,6 +115,15 @@ export interface Provider {
   modelSuggestions: string[];
   /** 供应商连接与模型映射环境变量（扁平键值对，不含认证密钥） */
   env: Record<string, string>;
+}
+
+/** 配置导入 deep link 解析结果（与后端 ResolvedProfileImportDeepLink 对齐）。 */
+export interface ResolvedProfileImportDeepLink {
+  name: string;
+  description: string;
+  settingsJson: string;
+  containsSecrets: boolean;
+  source: string;
 }
 
 export interface ConfigProfile {
@@ -348,6 +370,16 @@ export interface ClaudeDirectoryEntry {
   kind: ClaudeDirectoryEntryKind;
   size: number;
   modifiedAt: number;
+  /** 该项自身是否为软链（后代经软链可达时仍为 false） */
+  isSymlink: boolean;
+  /** read_link 原始目标 */
+  linkTarget?: string | null;
+  /** 解析后的绝对目标；损坏时为空 */
+  linkTargetAbsolute?: string | null;
+  /** 目标不存在或不可解析 */
+  isBroken: boolean;
+  /** 真实路径已扫描过（环/菱形），不再递归 */
+  isCycle: boolean;
 }
 
 export interface ClaudeDirectoryOverview {
@@ -358,7 +390,8 @@ export interface ClaudeDirectoryOverview {
   truncated: boolean;
   reachedEntryLimit: boolean;
   reachedDepthLimit: boolean;
-  skippedSymlinkCount: number;
+  /** 扫描到的软链条目数（已收录） */
+  symlinkCount: number;
   skippedNodeModulesCount: number;
 }
 
@@ -371,6 +404,13 @@ export interface ClaudeFilePreview {
   size: number;
   modifiedAt: number;
   encoding: string;
+  /** 叶子节点自身是否为软链 */
+  isSymlink: boolean;
+  /** 路径上第一个软链的逻辑相对路径 */
+  viaSymlinkPath?: string | null;
+  linkTarget?: string | null;
+  linkTargetAbsolute?: string | null;
+  isBroken: boolean;
 }
 
 /** 项目级 settings 文件的归属（共享 vs 本地覆盖） */

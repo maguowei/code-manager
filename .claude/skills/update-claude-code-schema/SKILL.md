@@ -1,18 +1,11 @@
 ---
 name: update-claude-code-schema
-description: Code Manager 仓库的 Claude Code settings schema 同步技能。涉及 src/schemas/claude-settings.schema.json 升级、SchemaStore 最新定义同步、Claude Code 新增 settings 字段（hooks/env/worktree/permissionRule 等）、或后端 Rust 配置校验兼容性检查时使用：以官方 SchemaStore 为唯一事实源，按"下载 → 整体替换 → 语义比对 → Rust 校验"四步走。
+description: Code Manager 仓库的 Claude Code settings schema 同步技能。同步 SchemaStore 最新定义、Claude Code 新增 settings 字段（hooks/env/worktree/permissionRule 等）、`validate_settings_document` 或 Rust 配置校验红，或复盘 schema 变化对前端编辑器/表单/类型契约的影响，凡涉及 src/schemas/claude-settings.schema.json 都使用本技能。
 ---
 
 # Update Claude Code Schema
 
 为 Code Manager 同步 Claude Code settings 的 SchemaStore 最新定义。**事实源永远是当前下载的 `https://www.schemastore.org/claude-code-settings.json`**——不要凭记忆、不要从网页片段拼补、不要只 diff 局部字段。
-
-## 触发场景
-
-- 同步 SchemaStore 最新 settings schema。
-- Claude Code 发布新 settings 字段（hooks 子字段、permissionRule 模式、env 结构、worktree 选项等）。
-- `validate_settings_document` 测试失败或 Rust 配置校验红。
-- 复盘 schema 变化对前端编辑器、表单或类型契约的影响。
 
 ## 工作流速览
 
@@ -39,7 +32,6 @@ curl -fsSL https://www.schemastore.org/claude-code-settings.json \
 
 - **为什么下载到临时文件**：留一份原始字节用于后续语义比对；本地文件可能已带格式化痕迹，直接覆盖会丢掉对照基线。
 - sandbox 下网络/代理可能挡掉 curl，按权限流程提权重跑同一命令，不要绕过。
-- **不**从网页片段、旧 PR diff 或记忆里手工拼补字段——SchemaStore 是 single source of truth，手工拼补必然遗漏上游的"删除字段"。
 
 ## 整体替换 + 单文件格式化
 

@@ -1,4 +1,4 @@
-import type { LocalizedText, Provider } from "../types";
+import type { ConfigProfile, LocalizedText, Provider } from "../types";
 
 export function prettyJson(value: unknown): string {
   return JSON.stringify(value ?? {}, null, 2);
@@ -352,4 +352,76 @@ export function applyProviderAutofill(
   // （编辑器按"有效值"显示这些默认,详见 readBehaviorFieldState）。
   // 仅在切到可解析供应商时清掉残留的地址覆盖——地址由 Provider 合并层提供(单一事实源),与后端一致。
   return providerResolved ? setEnvString(settings, "ANTHROPIC_BASE_URL", "") : settings;
+}
+
+/**
+ * 读取配置 env 覆盖；没有时回退到 Provider.env。
+ * 与后端 resolve_profile_settings 对 env 键的叠法对齐（配置覆盖供应商）。
+ */
+export function resolveProfileEffectiveEnvString(
+  profile: Pick<ConfigProfile, "providerId" | "settings">,
+  providers: Provider[],
+  envKey: string,
+): string {
+  const settingsEnv = isPlainObject(profile.settings.env) ? profile.settings.env : {};
+  const fromProfile = normalizeProviderEnvValue(settingsEnv[envKey]);
+  if (fromProfile) {
+    return fromProfile;
+  }
+
+  if (!profile.providerId) {
+    return "";
+  }
+  const provider = providers.find((item) => item.id === profile.providerId);
+  return normalizeProviderEnvValue(provider?.env?.[envKey]) ?? "";
+}
+
+/** 列表展示用：Provider ⊕ 配置合并后的默认模型（与测试 resolvedModel 语义对齐） */
+export function resolveProfileEffectiveModel(
+  profile: Pick<ConfigProfile, "providerId" | "settings">,
+  providers: Provider[],
+): string {
+  const fromEnv = resolveProfileEffectiveEnvString(profile, providers, "ANTHROPIC_MODEL");
+  if (fromEnv) {
+    return fromEnv;
+  }
+  return normalizeProviderEnvValue(profile.settings.model) ?? "";
+}
+
+/** 列表展示用：合并后的 effort 等级 */
+export function resolveProfileEffectiveEffort(
+  profile: Pick<ConfigProfile, "providerId" | "settings">,
+  providers: Provider[],
+): string {
+  const fromEnv = resolveProfileEffectiveEnvString(profile, providers, "CLAUDE_CODE_EFFORT_LEVEL");
+  if (fromEnv) {
+    return fromEnv;
+  }
+  return normalizeProviderEnvValue(profile.settings.effortLevel) ?? "";
+}
+
+/**
+ * 模型测试耗时短文案：&lt;1s 用 ms，≥1s 用短秒（一位小数，整数秒去尾 .0）。
+ */
+export function formatModelTestDurationMs(durationMs: number): string {
+  if (!Number.isFinite(durationMs) || durationMs < 0) {
+    return "0ms";
+  }
+  if (durationMs < 1000) {
+    return `${Math.round(durationMs)}ms`;
+  }
+  const seconds = Math.round((durationMs / 1000) * 10) / 10;
+  if (Number.isInteger(seconds)) {
+    return `${seconds}s`;
+  }
+  return `${seconds.toFixed(1)}s`;
+}
+
+/** 失败 tip/title 截断，避免超长错误撑破布局 */
+export function truncateModelTestErrorMessage(message: string, maxLength = 120): string {
+  const trimmed = message.trim().replace(/\s+/g, " ");
+  if (trimmed.length <= maxLength) {
+    return trimmed;
+  }
+  return `${trimmed.slice(0, Math.max(0, maxLength - 1))}…`;
 }
