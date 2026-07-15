@@ -176,13 +176,12 @@ pub fn read_claude_file_preview(path: String) -> Result<ClaudeFilePreview, Strin
 pub fn open_claude_file_in_editor(path: String) -> Result<(), String> {
     let result = (|| {
         let root = claude_dir()?;
-        let rel_path = validate_relative_claude_path(&path)?;
-        let resolved = resolve_path_for_read(&root, &rel_path)?;
-        if resolved.is_broken {
-            return Err(SYMLINK_TARGET_UNAVAILABLE_ERROR.to_string());
-        }
-        let metadata = fs::metadata(&resolved.logical_path)
-            .map_err(|e| mask_io_error("读取文件元数据", &e))?;
+        // 外部编辑器可写回文件，与项目侧 open_project_claude_file_in_editor 一致：
+        // 按写边界解析，拒绝路径上任何软链组件（禁止间接改 root 外目标）。
+        // 预览仍走 resolve_path_for_read（ADR 0002 只读跟随）。
+        let rel_path = validate_relative_claude_operation_path(&path)?;
+        let target = resolve_operation_path_inside_root(&root, &rel_path)?;
+        let metadata = fs::metadata(&target).map_err(|e| mask_io_error("读取文件元数据", &e))?;
         if !metadata.is_file() {
             return Err("只能用默认编辑器打开 ~/.claude 内的文件".to_string());
         }
@@ -191,7 +190,7 @@ pub fn open_claude_file_in_editor(path: String) -> Result<(), String> {
             .default_editor_app
             .as_deref()
             .ok_or_else(|| "请先在设置中选择默认编辑器".to_string())?;
-        crate::native_open::open_path_in_editor(&resolved.logical_path, editor)
+        crate::native_open::open_path_in_editor(&target, editor)
     })();
     crate::logging::log_command_result("claude_directory.open_editor", &result, |_| {
         format!("path={}", crate::utils::truncate(&path, 160))
@@ -1276,6 +1275,38 @@ mod tests {
         )
         .expect_err("经软链路径禁止写入");
         assert!(write_err.contains("软链接路径只读") || write_err.contains("只能操作"));
+
+        // 外部编辑器按写边界：经软链路径（含出界目标）必须拒绝
+        let open_via_symlink =
+            open_claude_file_in_editor_in_root(&env.claude_dir(), "skills/linked/SKILL.md")
+                .expect_err("经软链路径禁止用外部编辑器打开");
+        assert!(
+            open_via_symlink.contains("软链接路径只读") || open_via_symlink.contains("只能操作"),
+            "unexpected open error: {open_via_symlink}"
+        );
+    }
+
+    /// 测试入口：与 command 同写边界语义，不依赖默认编辑器配置
+    fn open_claude_file_in_editor_in_root(root: &Path, path: &str) -> Result<PathBuf, String> {
+        let rel_path = validate_relative_claude_operation_path(path)?;
+        let target = resolve_operation_path_inside_root(root, &rel_path)?;
+        let metadata = fs::metadata(&target).map_err(|e| mask_io_error("读取文件元数据", &e))?;
+        if !metadata.is_file() {
+            return Err("只能用默认编辑器打开 ~/.claude 内的文件".to_string());
+        }
+        Ok(target)
+    }
+
+    #[test]
+    fn open_in_editor_allows_plain_file_inside_root() {
+        let env = TestEnv::new("open-editor-plain");
+        fs::write(env.claude_dir().join("settings.json"), "{}\n").expect("应可写入");
+        let target = open_claude_file_in_editor_in_root(&env.claude_dir(), "settings.json")
+            .expect("root 内普通文件应可解析为编辑器目标");
+        assert_eq!(
+            fs::canonicalize(&target).expect("canonicalize target"),
+            fs::canonicalize(env.claude_dir().join("settings.json")).expect("canonicalize file")
+        );
     }
 
     #[test]

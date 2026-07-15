@@ -32,8 +32,15 @@ export const commands = {
 	resolveProfileImportDeepLink: (url: string) => typedError<ResolvedProfileImportDeepLink, string>(__TAURI_INVOKE("resolve_profile_import_deep_link", { url })),
 	/**  从配置导出内容生成内嵌载荷 deep link（默认路径 A）。 */
 	buildProfileImportDeepLink: (id: string, includeSecrets: boolean) => typedError<string, string>(__TAURI_INVOKE("build_profile_import_deep_link", { id, includeSecrets })),
-	/**  取出冷启动积压的配置导入 deep link（取出后清空）。 */
-	drainPendingProfileImportDeepLinks: () => typedError<string[], string>(__TAURI_INVOKE("drain_pending_profile_import_deep_links")),
+	/**  窥视队头 URL，不移除。无待处理时返回 `None`。 */
+	peekPendingProfileImportDeepLink: () => typedError<string | null, string>(__TAURI_INVOKE("peek_pending_profile_import_deep_link")),
+	/**  待处理条数（含当前队头）。用于「还有待处理的导入链接」提示。 */
+	countPendingProfileImportDeepLinks: () => typedError<number, string>(__TAURI_INVOKE("count_pending_profile_import_deep_links")),
+	/**
+	 *  确认结束当前队头：仅当队头等于 `url` 时移除。
+	 *  导入成功、用户取消、解析失败后调用；切页不应调用。
+	 */
+	ackProfileImportDeepLink: (url: string) => typedError<boolean, string>(__TAURI_INVOKE("ack_profile_import_deep_link", { url })),
 	testProfileModel: (data: ModelTestInput) => typedError<ModelTestResult_Serialize, string>(__TAURI_INVOKE("test_profile_model", { data })),
 	setAppPreferences: (data: AppPreferencesInput) => typedError<AppPreferences, string>(__TAURI_INVOKE("set_app_preferences", { data })),
 	/**  切换浮窗显隐（幂等）：显示时不存在则创建，隐藏时隐藏而非关闭以保留位置与状态。 */

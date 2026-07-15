@@ -20,19 +20,78 @@ pub const DEEP_LINK_SCHEME: &str = "code-manager";
 pub const PROFILE_IMPORT_PATH: &str = "profiles/import";
 /// 内嵌 payload 解码后硬上限（字节）。
 pub const MAX_PAYLOAD_DECODED_BYTES: usize = 16 * 1024;
+/// 解码前对 base64 串的粗上限（约 4/3 膨胀 + 余量），避免先完整解码再拒。
+pub const MAX_PAYLOAD_ENCODED_CHARS: usize = MAX_PAYLOAD_DECODED_BYTES * 4 / 3 + 8;
 /// 远端响应体上限。
 pub const MAX_REMOTE_BODY_BYTES: usize = 256 * 1024;
 /// 远端 HTTPS 最大跳转次数。
 pub const MAX_REMOTE_REDIRECTS: usize = 3;
 /// 远端拉取超时。
 pub const REMOTE_FETCH_TIMEOUT: Duration = Duration::from_secs(10);
+/// pending 导入队列硬上限；超出时丢弃最旧项并记 warn。
+pub const MAX_PENDING_PROFILE_IMPORT_DEEP_LINKS: usize = 20;
 
 const EVENT_PROFILE_IMPORT_DEEP_LINK: &str = "profile-import-deep-link";
 
-/// 冷启动时前端尚未订阅事件，先入队；前端 `drain` 与热事件合并处理。
+/// 冷启动 / 热启动共用的配置导入 deep link 队列。
+///
+/// 权威源始终在此：前端只能 peek 队头做预览，用户确认导入 / 取消 / 解析失败后
+/// 再 `ack` 移除；切页卸载 UI 不会丢链（与破坏性 drain 不同）。
 #[derive(Default)]
 pub struct PendingProfileImportDeepLinks {
     urls: Mutex<VecDeque<String>>,
+}
+
+impl PendingProfileImportDeepLinks {
+    fn peek_front(&self) -> Result<Option<String>, String> {
+        let guard = self
+            .urls
+            .lock()
+            .map_err(|_| "深度链接队列锁异常".to_string())?;
+        Ok(guard.front().cloned())
+    }
+
+    fn len(&self) -> Result<usize, String> {
+        let guard = self
+            .urls
+            .lock()
+            .map_err(|_| "深度链接队列锁异常".to_string())?;
+        Ok(guard.len())
+    }
+
+    /// 仅当队头等于 `url` 时 pop，避免误删尚未展示的后续项。
+    fn ack_front(&self, url: &str) -> Result<bool, String> {
+        let mut guard = self
+            .urls
+            .lock()
+            .map_err(|_| "深度链接队列锁异常".to_string())?;
+        if guard.front().map(String::as_str) == Some(url) {
+            guard.pop_front();
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn push_url(&self, url: String) -> Result<(), String> {
+        let mut guard = self
+            .urls
+            .lock()
+            .map_err(|_| "深度链接队列锁异常".to_string())?;
+        // 队列内全局去重：同一 URL 已在待处理中则跳过
+        if guard.iter().any(|existing| existing == &url) {
+            return Ok(());
+        }
+        while guard.len() >= MAX_PENDING_PROFILE_IMPORT_DEEP_LINKS {
+            let dropped = guard.pop_front();
+            log::warn!(
+                "event=deep_link.enqueue status=drop_oldest reason=queue_full dropped={}",
+                dropped.as_deref().unwrap_or("")
+            );
+        }
+        guard.push_back(url);
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
@@ -120,17 +179,39 @@ pub fn build_profile_import_deep_link(id: String, include_secrets: bool) -> Resu
     Ok(url.into())
 }
 
-/// 取出冷启动积压的配置导入 deep link（取出后清空）。
+/// 窥视队头 URL，不移除。无待处理时返回 `None`。
 #[tauri::command]
 #[specta::specta]
-pub fn drain_pending_profile_import_deep_links(
+pub fn peek_pending_profile_import_deep_link(
     pending: State<'_, PendingProfileImportDeepLinks>,
-) -> Result<Vec<String>, String> {
-    let mut guard = pending
-        .urls
-        .lock()
-        .map_err(|_| "深度链接队列锁异常".to_string())?;
-    Ok(guard.drain(..).collect())
+) -> Result<Option<String>, String> {
+    pending.peek_front()
+}
+
+/// 待处理条数（含当前队头）。用于「还有待处理的导入链接」提示。
+#[tauri::command]
+#[specta::specta]
+pub fn count_pending_profile_import_deep_links(
+    pending: State<'_, PendingProfileImportDeepLinks>,
+) -> Result<usize, String> {
+    pending.len()
+}
+
+/// 确认结束当前队头：仅当队头等于 `url` 时移除。
+/// 导入成功、用户取消、解析失败后调用；切页不应调用。
+#[tauri::command]
+#[specta::specta]
+pub fn ack_profile_import_deep_link(
+    pending: State<'_, PendingProfileImportDeepLinks>,
+    url: String,
+) -> Result<bool, String> {
+    let removed = pending.ack_front(&url)?;
+    if removed {
+        log::info!("event=deep_link.ack status=ok");
+    } else {
+        log::warn!("event=deep_link.ack status=skip reason=front_mismatch");
+    }
+    Ok(removed)
 }
 
 /// 注册 deep-link 监听与 pending 队列；在 setup 中调用。
@@ -177,12 +258,11 @@ fn enqueue_profile_import_deep_link(app: &AppHandle, url: String) {
         return;
     }
     log::info!("event=deep_link.enqueue status=ok action=profiles.import");
-    // 唯一事实源是 pending 队列；事件仅唤醒前端 drain，避免「事件 + 队列」双投递
+    // 唯一事实源是 pending 队列；事件仅唤醒前端 peek/预览，避免「事件 + 队列」双投递
     if let Some(pending) = app.try_state::<PendingProfileImportDeepLinks>() {
-        if let Ok(mut guard) = pending.urls.lock() {
-            if guard.back() != Some(&url) {
-                guard.push_back(url);
-            }
+        if let Err(error) = pending.push_url(url) {
+            log::warn!("event=deep_link.enqueue status=err error={error}");
+            return;
         }
     }
     let _ = app.emit(EVENT_PROFILE_IMPORT_DEEP_LINK, ());
@@ -253,10 +333,7 @@ fn parse_profile_import_deep_link(raw: &str) -> Result<ParsedProfileImportDeepLi
         }
     };
 
-    if name.trim().is_empty() {
-        name = "Imported Profile".to_string();
-    }
-
+    // 缺省 name 保持空串：由前端 i18n 预填默认名，避免硬编码英文用户可见文案
     Ok(ParsedProfileImportDeepLink {
         source,
         name: name.trim().to_string(),
@@ -281,6 +358,13 @@ fn decode_payload(payload: &str) -> Result<String, String> {
     let trimmed = payload.trim();
     if trimmed.is_empty() {
         return Err("payload 为空".to_string());
+    }
+    // 先按编码长度粗拒，避免超大字符串先完整解码再失败
+    if trimmed.len() > MAX_PAYLOAD_ENCODED_CHARS {
+        return Err(format!(
+            "payload 编码长度超过 {} 字符上限",
+            MAX_PAYLOAD_ENCODED_CHARS
+        ));
     }
     let bytes = URL_SAFE_NO_PAD
         .decode(trimmed)
@@ -476,8 +560,10 @@ fn is_blocked_ip(ip: IpAddr) -> bool {
                 || v4.is_multicast()
                 // CGNAT 100.64.0.0/10
                 || (v4.octets()[0] == 100 && (v4.octets()[1] & 0xc0) == 64)
-                // 文档/基准 198.18.0.0/15、192.0.2.0/24 等一并拦截常见非公网
+                // 文档用 192.0.2.0/24、198.51.100.0/24、203.0.113.0/24
                 || v4.is_documentation()
+                // 基准测试网 198.18.0.0/15（is_documentation 不覆盖）
+                || (v4.octets()[0] == 198 && (v4.octets()[1] & 0xfe) == 18)
                 || (v4.octets()[0] == 0)
         }
         IpAddr::V6(v6) => {
@@ -511,6 +597,16 @@ mod tests {
     }
 
     #[test]
+    fn parse_payload_link_leaves_name_empty_when_absent() {
+        let settings = br#"{"model":"claude"}"#;
+        let payload = URL_SAFE_NO_PAD.encode(settings);
+        let raw = format!("code-manager://profiles/import?payload={payload}");
+        let parsed = parse_profile_import_deep_link(&raw).unwrap();
+        assert_eq!(parsed.name, "");
+        assert!(matches!(parsed.source, ProfileImportSource::Payload(_)));
+    }
+
+    #[test]
     fn parse_rejects_both_payload_and_url() {
         let err = parse_profile_import_deep_link(
             "code-manager://profiles/import?payload=abc&url=https://example.com/a.json",
@@ -535,10 +631,91 @@ mod tests {
     }
 
     #[test]
+    fn decode_payload_rejects_oversized_encoded_string_before_decode() {
+        let oversized = "A".repeat(MAX_PAYLOAD_ENCODED_CHARS + 1);
+        let err = decode_payload(&oversized).unwrap_err();
+        assert!(err.contains("编码长度"), "unexpected: {err}");
+    }
+
+    #[test]
     fn decode_payload_accepts_valid_json_bytes() {
         let payload = URL_SAFE_NO_PAD.encode(br#"{"model":"claude"}"#);
         let raw = decode_payload(&payload).unwrap();
         assert!(raw.contains("claude"));
+    }
+
+    #[test]
+    fn pending_queue_peek_does_not_remove() {
+        let pending = PendingProfileImportDeepLinks::default();
+        pending
+            .push_url("code-manager://profiles/import?payload=a".into())
+            .unwrap();
+        pending
+            .push_url("code-manager://profiles/import?payload=b".into())
+            .unwrap();
+        assert_eq!(pending.len().unwrap(), 2);
+        assert_eq!(
+            pending.peek_front().unwrap().as_deref(),
+            Some("code-manager://profiles/import?payload=a")
+        );
+        assert_eq!(pending.len().unwrap(), 2);
+    }
+
+    #[test]
+    fn pending_queue_ack_only_pops_matching_front() {
+        let pending = PendingProfileImportDeepLinks::default();
+        pending
+            .push_url("code-manager://profiles/import?payload=a".into())
+            .unwrap();
+        pending
+            .push_url("code-manager://profiles/import?payload=b".into())
+            .unwrap();
+        assert!(!pending
+            .ack_front("code-manager://profiles/import?payload=b")
+            .unwrap());
+        assert_eq!(pending.len().unwrap(), 2);
+        assert!(pending
+            .ack_front("code-manager://profiles/import?payload=a")
+            .unwrap());
+        assert_eq!(
+            pending.peek_front().unwrap().as_deref(),
+            Some("code-manager://profiles/import?payload=b")
+        );
+        assert_eq!(pending.len().unwrap(), 1);
+    }
+
+    #[test]
+    fn pending_queue_skips_duplicate_anywhere() {
+        let pending = PendingProfileImportDeepLinks::default();
+        pending
+            .push_url("code-manager://profiles/import?payload=a".into())
+            .unwrap();
+        pending
+            .push_url("code-manager://profiles/import?payload=b".into())
+            .unwrap();
+        // 与队中非队尾项重复也应跳过
+        pending
+            .push_url("code-manager://profiles/import?payload=a".into())
+            .unwrap();
+        assert_eq!(pending.len().unwrap(), 2);
+    }
+
+    #[test]
+    fn pending_queue_drops_oldest_when_full() {
+        let pending = PendingProfileImportDeepLinks::default();
+        for i in 0..(MAX_PENDING_PROFILE_IMPORT_DEEP_LINKS + 3) {
+            pending
+                .push_url(format!("code-manager://profiles/import?payload={i}"))
+                .unwrap();
+        }
+        assert_eq!(
+            pending.len().unwrap(),
+            MAX_PENDING_PROFILE_IMPORT_DEEP_LINKS
+        );
+        assert_eq!(
+            pending.peek_front().unwrap().as_deref(),
+            Some("code-manager://profiles/import?payload=3")
+        );
     }
 
     #[test]
@@ -578,6 +755,10 @@ mod tests {
         assert!(is_blocked_ip("169.254.169.254".parse().unwrap()));
         assert!(is_blocked_ip("::1".parse().unwrap()));
         assert!(!is_blocked_ip("1.1.1.1".parse().unwrap()));
+        // 基准测试网 198.18.0.0/15
+        assert!(is_blocked_ip("198.18.0.1".parse().unwrap()));
+        assert!(is_blocked_ip("198.19.255.255".parse().unwrap()));
+        assert!(!is_blocked_ip("198.20.0.1".parse().unwrap()));
     }
 
     #[test]

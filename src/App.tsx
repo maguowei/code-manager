@@ -54,6 +54,9 @@ const EMPTY_WORKSPACE: ConfigWorkspace = {
     floatingWidgetOpacity: 92,
     waitingSoundEnabled: false,
     waitingSound: "glass",
+    // 与 Rust AppPreferences::default 对齐；缺省时保存可能误清用户防休眠偏好
+    sleepPrevention: "off",
+    keepDisplayAwake: false,
   },
   builtinProviders: [],
   profiles: [],
@@ -91,17 +94,17 @@ function App() {
     project: string;
     requestId: number;
   } | null>(null);
-  const [deepLinkImportRequest, setDeepLinkImportRequest] = useState<{
-    urls: string[];
-    requestId: number;
-  } | null>(null);
+  // 递增令牌：仅唤醒 ProfilesPage 去 peek 后端队列，URL 权威源在 Rust pending
+  const [deepLinkWakeToken, setDeepLinkWakeToken] = useState(0);
   const previousContentTabRef = useRef<TabType>("configs");
   const editorExitGuardRef = useRef<EditorExitGuard | null>(null);
   const historyProjectRequestIdRef = useRef(0);
   const usageProjectRequestIdRef = useRef(0);
-  const deepLinkImportRequestIdRef = useRef(0);
   const workspaceRequestIdRef = useRef(0);
-
+  const activateTabRef = useRef<(tab: TabType) => void>(() => {});
+  const wakeProfileImportDeepLinksRef = useRef<(options?: { force?: boolean }) => Promise<void>>(
+    async () => {},
+  );
   const loadWorkspace = useCallback(async () => {
     if (!isTauri()) {
       setWorkspace(EMPTY_WORKSPACE);
@@ -163,8 +166,46 @@ function App() {
     }
   });
 
+  // Toast/i18n 走 ref，避免语言切换重建 drain 回调并误触发冷启动 effect
+  const showToastRef = useRef(showToast);
+  const tRef = useRef(t);
+  showToastRef.current = showToast;
+  tRef.current = t;
+
+  // 配置导入 deep link：peek 后端队列是否有待处理项，有则切到配置页并递增 wake token。
+  // URL 始终留在后端直到 ProfilesPage ack；切页不丢链。
+  // force=true 跳过 exit-guard（用户已确认离开，或 guard 刚解除后的重试）。
+  // 脏编辑器时只 requestExit、**不** 切页唤醒；URL 仍在后端，guard 解除时再试。
+  const wakeProfileImportDeepLinks = useCallback(async (options?: { force?: boolean }) => {
+    if (!isTauri()) return;
+    if (!options?.force && editorExitGuardRef.current) {
+      editorExitGuardRef.current.requestExit(() => {
+        void wakeProfileImportDeepLinksRef.current({ force: true });
+      });
+      return;
+    }
+    try {
+      const head = await ipc.peekPendingProfileImportDeepLink();
+      if (!head) return;
+      setDeepLinkWakeToken((token) => token + 1);
+      activateTabRef.current("configs");
+    } catch (error) {
+      showOperationError(
+        showToastRef.current,
+        tRef.current("profiles.import.deepLink.toast.resolveError"),
+        error,
+      );
+    }
+  }, []);
+  wakeProfileImportDeepLinksRef.current = wakeProfileImportDeepLinks;
+
   const setEditorExitGuard = useCallback((guard: EditorExitGuard | null) => {
+    const hadGuard = editorExitGuardRef.current != null;
     editorExitGuardRef.current = guard;
+    // 编辑器关闭/解除保护后重试 pending deep link（覆盖「继续编辑」未唤醒的场景）
+    if (hadGuard && guard == null) {
+      void wakeProfileImportDeepLinksRef.current({ force: true });
+    }
   }, []);
 
   const runWithEditorExitGuard = useCallback((action: () => void) => {
@@ -176,7 +217,6 @@ function App() {
 
     action();
   }, []);
-
   const activateTab = useCallback((nextTab: TabType) => {
     if (nextTab === "claudeOverview") {
       setHasVisitedClaudeOverview(true);
@@ -186,6 +226,7 @@ function App() {
     setActiveTab(nextTab);
     setIsDetailDrawerOpen(false);
   }, []);
+  activateTabRef.current = activateTab;
 
   useEffect(() => {
     if (activeTab !== "history") {
@@ -194,6 +235,7 @@ function App() {
     if (activeTab !== "usage") {
       setUsageProjectRequest(null);
     }
+    // deep link 权威源在后端 pending：离开 configs 不 ack、不清队列
   }, [activeTab]);
 
   useTauriEvent<string>("navigate-to-tab", (tab) => {
@@ -281,44 +323,14 @@ function App() {
     [activateTab, runWithEditorExitGuard],
   );
 
-  // Toast/i18n 走 ref，避免语言切换重建 drain 回调并误触发冷启动 effect
-  const showToastRef = useRef(showToast);
-  const tRef = useRef(t);
-  showToastRef.current = showToast;
-  tRef.current = t;
-
-  // 配置导入 deep link：drain 后端 pending 队列，切到配置页交给 ProfilesPage 排队预览
-  const drainProfileImportDeepLinks = useCallback(async () => {
-    if (!isTauri()) return;
-    try {
-      const urls = await ipc.drainPendingProfileImportDeepLinks();
-      if (!urls?.length) return;
-      runWithEditorExitGuard(() => {
-        deepLinkImportRequestIdRef.current += 1;
-        setDeepLinkImportRequest({
-          urls,
-          requestId: deepLinkImportRequestIdRef.current,
-        });
-        activateTab("configs");
-      });
-    } catch (error) {
-      showOperationError(
-        showToastRef.current,
-        tRef.current("profiles.import.deepLink.toast.resolveError"),
-        error,
-      );
-    }
-  }, [activateTab, runWithEditorExitGuard]);
-
   useEffect(() => {
     if (loading) return;
-    void drainProfileImportDeepLinks();
-  }, [loading, drainProfileImportDeepLinks]);
+    void wakeProfileImportDeepLinks();
+  }, [loading, wakeProfileImportDeepLinks]);
 
   useTauriEvent<void>("profile-import-deep-link", () => {
-    void drainProfileImportDeepLinks();
+    void wakeProfileImportDeepLinks();
   });
-
   if (loading) {
     return (
       <TooltipProvider delayDuration={200}>
@@ -383,7 +395,7 @@ function App() {
                     workspace={workspace}
                     onWorkspaceChange={loadWorkspace}
                     onEditorExitGuardChange={setEditorExitGuard}
-                    deepLinkImportRequest={deepLinkImportRequest}
+                    deepLinkWakeToken={deepLinkWakeToken}
                   />
                 ) : (
                   <div

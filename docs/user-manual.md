@@ -131,6 +131,18 @@ After you click Test Model, a request is sent based on the current edits. The re
 
 Model testing requires a valid `ANTHROPIC_AUTH_TOKEN` and an accessible model API.
 
+### Deep Link Import
+
+You can send a Claude settings document into Code Manager via a system URL for preview-and-import. The scheme/path is `code-manager://profiles/import`.
+
+- **Two mutually exclusive sources**: embedded `payload=` (base64url-encoded bare settings JSON, about 16KB decoded), or remote `url=` (HTTPS only; the app fetches then imports, with SSRF protections and size/redirect limits).
+- **Optional query params**: `name` and `description` only prefill the import dialog.
+- **Does not auto-enable**: after a successful resolve, the app switches to the Configurations page and opens the same preview dialog as file import. Confirming **creates a new configuration** with an empty `providerId` and **does not** automatically write or bind `~/.claude/settings.json`.
+- **Secrets**: if the payload contains authentication-like fields, you must acknowledge the risk before import. “Copy Deep Link” from an existing profile excludes secrets by default; including secrets requires the same acknowledgement.
+- **Queue**: multiple links are queued. Closing the preview or finishing an import continues with the next item. Leaving the Configurations page and returning restores unconfirmed links (the authoritative queue lives in the app backend).
+
+The scheme is registered for packaged installs on macOS / Windows / Linux; Linux/Windows may need extra registration in some development setups.
+
 ## Providers
 
 Providers are all built-in and read-only. They carry only objective provider information (the connection endpoint `ANTHROPIC_BASE_URL`, the model mapping, and optional additional environment variables) and contain no authentication keys. They currently cover Anthropic, DeepSeek, Zhipu GLM Coding Plan, Kimi Code Plan, MiniMax Token Plan, Xiaomi MiMo Token Plan, OpenRouter, Volcengine Ark Coding Plan, Alibaba Cloud Bailian Coding Plan, Wanjie Ark, and Ollama.
@@ -299,6 +311,18 @@ The Settings entry is in the lower-left corner. Settings are grouped into Interf
 - Session focus shortcut: registers a global shortcut for "focus the session that most needs attention". Click to record and press the key combination (which must include at least one modifier key ⌘/⌃/⌥/⇧); you can restore the default at any time.
 
 > The entire Device Integration group is shown only on macOS; other platforms do not provide the LED or the global session focus shortcut.
+
+### Prevent Sleep (macOS only)
+
+When Claude Code sessions need to run for a long time, you can stop the Mac from entering idle sleep.
+
+- **Mode (one of three)**:
+  - **Off**: do not interfere with system sleep.
+  - **While active**: stay awake while there is a running Claude Code session; idle sleep is allowed again when all sessions end.
+  - **Always**: stay awake unconditionally (still subject to the display option below).
+- **Keep display awake**: orthogonal to the mode. By default only **system idle sleep** is blocked and the display may still dim per system policy; enabling this keeps the display on as well.
+- **Live status**: when the mode is not Off, Settings shows a status dot such as “Keeping awake” or “Idle, may sleep”; the tray menu can also switch modes.
+- **Limits**: macOS only; hardware policies such as closing the lid may still sleep the machine; quitting the app releases the power assertion.
 
 ### System Notifications and Pricing
 

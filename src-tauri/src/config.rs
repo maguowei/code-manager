@@ -2765,10 +2765,12 @@ fn insert_imported_profile(
     let mut registry = load_registry()?;
     let now = crate::utils::current_rfc3339_timestamp();
     let trimmed_name = name.trim();
+    // 名称优先用调用方传入；仍为空时用 import-<短 id> 技术兜底，避免硬编码英文 UI 文案
+    let profile_id = Uuid::new_v4().to_string();
     let profile = ConfigProfile {
-        id: Uuid::new_v4().to_string(),
+        id: profile_id.clone(),
         name: if trimmed_name.is_empty() {
-            "Imported Profile".to_string()
+            format!("import-{}", &profile_id[..8])
         } else {
             trimmed_name.to_string()
         },
@@ -2965,6 +2967,51 @@ mod tests {
     fn clear_test_env() {
         std::env::remove_var("CODE_MANAGER_HOME_OVERRIDE");
         std::env::remove_var("CODE_MANAGER_APP_DATA_DIR_OVERRIDE");
+    }
+
+    // 敏感键判定与前端 isSensitiveSettingsKey 逐条一致，但两端各自内联维护
+    // 敏感键判定规则（精确匹配 + 前后缀/子串模式）。
+    // 共享语料是预期结果的单一事实源，不是键清单；两端各写测试对照它，任一端漂移即红。
+    // 前端对照断言见 src/lib/__tests__/sensitive-key-parity.test.ts。
+    #[test]
+    fn is_sensitive_settings_key_matches_shared_fixture() {
+        #[derive(serde::Deserialize)]
+        struct Case {
+            key: String,
+            sensitive: bool,
+        }
+
+        // 与前端 parity 测试的 MIN_FIXTURE_CASES 对齐，防止语料清空后空跑仍绿
+        const MIN_FIXTURE_CASES: usize = 20;
+
+        let cases: Vec<Case> = serde_json::from_str(include_str!(
+            "../tests/fixtures/sensitive-settings-keys.json"
+        ))
+        .expect("解析敏感键 parity 语料失败");
+
+        assert!(
+            cases.len() >= MIN_FIXTURE_CASES,
+            "敏感键 parity 语料过少：got {}, want >= {}",
+            cases.len(),
+            MIN_FIXTURE_CASES
+        );
+        assert!(
+            cases.iter().any(|c| c.sensitive),
+            "敏感键 parity 语料缺少 sensitive=true 用例"
+        );
+        assert!(
+            cases.iter().any(|c| !c.sensitive),
+            "敏感键 parity 语料缺少 sensitive=false 用例"
+        );
+
+        for case in cases {
+            assert_eq!(
+                is_sensitive_settings_key(&case.key),
+                case.sensitive,
+                "key={}",
+                case.key
+            );
+        }
     }
 
     fn sample_profile(id: &str, provider_id: Option<&str>, settings: Value) -> ConfigProfile {

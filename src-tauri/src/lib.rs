@@ -45,7 +45,8 @@ use config::{
     test_profile_model, upsert_profile,
 };
 use deep_link::{
-    build_profile_import_deep_link, drain_pending_profile_import_deep_links,
+    ack_profile_import_deep_link, build_profile_import_deep_link,
+    count_pending_profile_import_deep_links, peek_pending_profile_import_deep_link,
     resolve_profile_import_deep_link,
 };
 use history::{
@@ -115,7 +116,9 @@ fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             import_profile_from_settings_json,
             resolve_profile_import_deep_link,
             build_profile_import_deep_link,
-            drain_pending_profile_import_deep_links,
+            peek_pending_profile_import_deep_link,
+            count_pending_profile_import_deep_links,
+            ack_profile_import_deep_link,
             test_profile_model,
             set_app_preferences,
             toggle_floating_widget,

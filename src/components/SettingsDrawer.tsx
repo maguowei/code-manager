@@ -1346,12 +1346,10 @@ function SettingsDrawer({ onClose, preferences: appPreferences }: SettingsDrawer
                   (preferences.sleepPrevention ?? "off") === "off" ? undefined : (
                     <span className="flex shrink-0 items-center gap-1.5 text-xs">
                       <span
-                        className="size-2 rounded-full"
-                        style={{
-                          backgroundColor: sleepStatus?.active
-                            ? "var(--chart-2)"
-                            : "var(--muted-foreground)",
-                        }}
+                        className={cn(
+                          "size-2 rounded-full",
+                          sleepStatus?.active ? "bg-chart-2" : "bg-muted-foreground",
+                        )}
                         aria-hidden
                       />
                       <span
