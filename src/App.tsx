@@ -91,18 +91,15 @@ function App() {
     project: string;
     requestId: number;
   } | null>(null);
-  const [deepLinkImportRequest, setDeepLinkImportRequest] = useState<{
-    urls: string[];
-    requestId: number;
-  } | null>(null);
+  // 递增令牌：仅唤醒 ProfilesPage 去 peek 后端队列，URL 权威源在 Rust pending
+  const [deepLinkWakeToken, setDeepLinkWakeToken] = useState(0);
   const previousContentTabRef = useRef<TabType>("configs");
   const editorExitGuardRef = useRef<EditorExitGuard | null>(null);
   const historyProjectRequestIdRef = useRef(0);
   const usageProjectRequestIdRef = useRef(0);
-  const deepLinkImportRequestIdRef = useRef(0);
   const workspaceRequestIdRef = useRef(0);
   const activateTabRef = useRef<(tab: TabType) => void>(() => {});
-  const drainProfileImportDeepLinksRef = useRef<(options?: { force?: boolean }) => Promise<void>>(
+  const wakeProfileImportDeepLinksRef = useRef<(options?: { force?: boolean }) => Promise<void>>(
     async () => {},
   );
   const loadWorkspace = useCallback(async () => {
@@ -172,25 +169,22 @@ function App() {
   showToastRef.current = showToast;
   tRef.current = t;
 
-  // 配置导入 deep link：drain 后端 pending 队列，切到配置页交给 ProfilesPage 排队预览。
+  // 配置导入 deep link：peek 后端队列是否有待处理项，有则切到配置页并递增 wake token。
+  // URL 始终留在后端直到 ProfilesPage ack；切页不丢链。
   // force=true 跳过 exit-guard（用户已确认离开，或 guard 刚解除后的重试）。
-  // 脏编辑器时只 requestExit、**不** drain；取消后 URL 仍在后端队列，guard 解除时再试。
-  const drainProfileImportDeepLinks = useCallback(async (options?: { force?: boolean }) => {
+  // 脏编辑器时只 requestExit、**不** 切页唤醒；URL 仍在后端，guard 解除时再试。
+  const wakeProfileImportDeepLinks = useCallback(async (options?: { force?: boolean }) => {
     if (!isTauri()) return;
     if (!options?.force && editorExitGuardRef.current) {
       editorExitGuardRef.current.requestExit(() => {
-        void drainProfileImportDeepLinksRef.current({ force: true });
+        void wakeProfileImportDeepLinksRef.current({ force: true });
       });
       return;
     }
     try {
-      const urls = await ipc.drainPendingProfileImportDeepLinks();
-      if (!urls?.length) return;
-      deepLinkImportRequestIdRef.current += 1;
-      setDeepLinkImportRequest({
-        urls,
-        requestId: deepLinkImportRequestIdRef.current,
-      });
+      const head = await ipc.peekPendingProfileImportDeepLink();
+      if (!head) return;
+      setDeepLinkWakeToken((token) => token + 1);
       activateTabRef.current("configs");
     } catch (error) {
       showOperationError(
@@ -200,14 +194,14 @@ function App() {
       );
     }
   }, []);
-  drainProfileImportDeepLinksRef.current = drainProfileImportDeepLinks;
+  wakeProfileImportDeepLinksRef.current = wakeProfileImportDeepLinks;
 
   const setEditorExitGuard = useCallback((guard: EditorExitGuard | null) => {
     const hadGuard = editorExitGuardRef.current != null;
     editorExitGuardRef.current = guard;
-    // 编辑器关闭/解除保护后重试 pending deep link（覆盖「继续编辑」未 drain 的场景）
+    // 编辑器关闭/解除保护后重试 pending deep link（覆盖「继续编辑」未唤醒的场景）
     if (hadGuard && guard == null) {
-      void drainProfileImportDeepLinksRef.current({ force: true });
+      void wakeProfileImportDeepLinksRef.current({ force: true });
     }
   }, []);
 
@@ -238,11 +232,7 @@ function App() {
     if (activeTab !== "usage") {
       setUsageProjectRequest(null);
     }
-    // 与 history/usage 一致：离开 configs 时丢弃未消费的 deep link request，
-    // 防止 lazy ProfilesPage 在 effect 入队前卸载后残留 state 再次投递
-    if (activeTab !== "configs") {
-      setDeepLinkImportRequest(null);
-    }
+    // deep link 权威源在后端 pending：离开 configs 不 ack、不清队列
   }, [activeTab]);
 
   useTauriEvent<string>("navigate-to-tab", (tab) => {
@@ -330,19 +320,13 @@ function App() {
     [activateTab, runWithEditorExitGuard],
   );
 
-  // ProfilesPage 接管 urls 入队后按 requestId 清空，避免残留 state 在 remount 时重放；
-  // 仅匹配当前 id 时清空，防止旧请求的 clear 冲掉并发 drain 的新 request
-  const handleDeepLinkImportConsumed = useCallback((requestId: number) => {
-    setDeepLinkImportRequest((current) => (current?.requestId === requestId ? null : current));
-  }, []);
-
   useEffect(() => {
     if (loading) return;
-    void drainProfileImportDeepLinks();
-  }, [loading, drainProfileImportDeepLinks]);
+    void wakeProfileImportDeepLinks();
+  }, [loading, wakeProfileImportDeepLinks]);
 
   useTauriEvent<void>("profile-import-deep-link", () => {
-    void drainProfileImportDeepLinks();
+    void wakeProfileImportDeepLinks();
   });
   if (loading) {
     return (
@@ -408,8 +392,7 @@ function App() {
                     workspace={workspace}
                     onWorkspaceChange={loadWorkspace}
                     onEditorExitGuardChange={setEditorExitGuard}
-                    deepLinkImportRequest={deepLinkImportRequest}
-                    onDeepLinkImportConsumed={handleDeepLinkImportConsumed}
+                    deepLinkWakeToken={deepLinkWakeToken}
                   />
                 ) : (
                   <div

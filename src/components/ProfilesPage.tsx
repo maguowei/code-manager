@@ -38,6 +38,7 @@ import type {
   UnmanagedUserSettings,
   UnmanagedUserSettingsImportStatus,
 } from "../types";
+import { isTauri } from "../types";
 import ConfigPreview from "./ConfigPreview";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import {
@@ -104,13 +105,11 @@ interface ProfilesPageProps {
   workspace: ConfigWorkspace;
   onWorkspaceChange: () => Promise<void>;
   onEditorExitGuardChange?: (guard: EditorExitGuard | null) => void;
-  /** App 从 deep link pending 队列 drain 后下发的导入请求 */
-  deepLinkImportRequest?: { urls: string[]; requestId: number } | null;
   /**
-   * ProfilesPage 接管 urls 入队后通知 App 清空对应 request。
-   * 必须带 requestId，App 侧仅在仍匹配时清空，避免冲掉并发 drain 的新请求。
+   * App 在确认后端仍有 pending deep link 后递增的唤醒令牌。
+   * ProfilesPage 据此 peek 队头；URL 权威源在 Rust，ack 前切页不丢。
    */
-  onDeepLinkImportConsumed?: (requestId: number) => void;
+  deepLinkWakeToken?: number;
 }
 
 /** 导入对话框来源：本地文件或已解析的 deep link */
@@ -274,8 +273,7 @@ function ProfilesPage({
   workspace,
   onWorkspaceChange,
   onEditorExitGuardChange,
-  deepLinkImportRequest = null,
-  onDeepLinkImportConsumed,
+  deepLinkWakeToken = 0,
 }: ProfilesPageProps) {
   const { language, t } = useI18n();
   const { showToast } = useToast();
@@ -313,14 +311,12 @@ function ProfilesPage({
   const [importDescription, setImportDescription] = useState("");
   const [isImporting, setIsImporting] = useState(false);
   const [importSecretsAcknowledged, setImportSecretsAcknowledged] = useState(false);
-  const deepLinkQueueRef = useRef<string[]>([]);
   const importDialogOpenRef = useRef(false);
   const deepLinkResolveBusyRef = useRef(false);
-  // 只按 requestId 入队一次，避免语言切换导致 t/pump 引用变化时重复 push
-  const lastDeepLinkRequestIdRef = useRef<number | null>(null);
-  // 入队后回调 App 清空 request；走 ref 避免 effect 因回调引用变化重跑
-  const onDeepLinkImportConsumedRef = useRef(onDeepLinkImportConsumed);
-  onDeepLinkImportConsumedRef.current = onDeepLinkImportConsumed;
+  // 当前预览对应的队头 URL；ack 前保留在后端，切页 remount 可再次 peek
+  const deepLinkInflightUrlRef = useRef<string | null>(null);
+  // 同一 wake token 只触发一次 pump，避免父重渲染重复 resolve
+  const lastDeepLinkWakeTokenRef = useRef<number | null>(null);
   const showToastRef = useRef(showToast);
   const tRef = useRef(t);
   showToastRef.current = showToast;
@@ -904,7 +900,10 @@ function ProfilesPage({
     setImportSecretsAcknowledged(false);
   }
 
-  function closeImportDialog() {
+  function closeImportDialog(options?: { ackDeepLink?: boolean }) {
+    const shouldAckDeepLink =
+      options?.ackDeepLink !== false && importDialogSource?.kind === "deepLink";
+    const inflightUrl = deepLinkInflightUrlRef.current;
     importDialogOpenRef.current = false;
     setImportDialogSource(null);
     setImportPreview("");
@@ -913,8 +912,22 @@ function ProfilesPage({
     setImportDescription("");
     setIsImporting(false);
     setImportSecretsAcknowledged(false);
-    // 关闭当前预览后继续处理排队中的 deep link
-    void pumpDeepLinkQueue();
+    // 用户取消或关闭预览：ack 当前队头后再 peek 下一条；切页不走此路径
+    void (async () => {
+      if (shouldAckDeepLink && inflightUrl) {
+        try {
+          await ipc.ackProfileImportDeepLink(inflightUrl);
+        } catch (err) {
+          showOperationError(
+            showToastRef.current,
+            tRef.current("profiles.import.deepLink.toast.resolveError"),
+            err,
+          );
+        }
+        deepLinkInflightUrlRef.current = null;
+      }
+      void pumpDeepLinkQueue();
+    })();
   }
 
   // 文件与 deep link 共用：预览含密钥时须勾选确认
@@ -933,6 +946,8 @@ function ProfilesPage({
     }
     setIsImporting(true);
     const resolvedName = importName.trim() || t("profiles.import.defaultName");
+    const isDeepLink = importDialogSource.kind === "deepLink";
+    const inflightUrl = deepLinkInflightUrlRef.current;
     try {
       if (importDialogSource.kind === "file") {
         await ipc.importProfileFromFile(
@@ -947,25 +962,42 @@ function ProfilesPage({
           importDescription,
         );
       }
+      // 导入成功后再 ack，避免失败时误丢队头
+      if (isDeepLink && inflightUrl) {
+        try {
+          await ipc.ackProfileImportDeepLink(inflightUrl);
+        } catch (ackErr) {
+          showOperationError(showToast, t("profiles.import.deepLink.toast.resolveError"), ackErr);
+        }
+        deepLinkInflightUrlRef.current = null;
+      }
       await onWorkspaceChange();
       showToast(t("profiles.import.toast.imported"));
-      closeImportDialog();
+      // 已 ack，关闭时勿重复 ack
+      closeImportDialog({ ackDeepLink: false });
     } catch (err) {
       showOperationError(showToast, t("profiles.import.toast.importError"), err);
       setIsImporting(false);
     }
   }
 
-  // 解析并弹出下一条 deep link；失败则 Toast 后自动继续。
-  // 回调保持稳定：Toast/i18n 走 ref，避免语言切换重建导致入队 effect 重跑。
+  // 窥视后端队头并弹出预览；失败则 ack 丢弃后继续下一条。
+  // Toast/i18n 走 ref，避免语言切换重建 pump 引用导致 effect 重跑。
   const pumpDeepLinkQueue = useCallback(async () => {
     if (importDialogOpenRef.current || deepLinkResolveBusyRef.current) return;
-    const nextUrl = deepLinkQueueRef.current.shift();
-    if (!nextUrl) return;
+    if (!isTauri()) return;
     deepLinkResolveBusyRef.current = true;
     setIsImportPreviewLoading(true);
     setImportPreviewError(null);
     try {
+      const nextUrl = await ipc.peekPendingProfileImportDeepLink();
+      if (!nextUrl) {
+        deepLinkResolveBusyRef.current = false;
+        setIsImportPreviewLoading(false);
+        deepLinkInflightUrlRef.current = null;
+        return;
+      }
+      deepLinkInflightUrlRef.current = nextUrl;
       const resolved = await ipc.resolveProfileImportDeepLink(nextUrl);
       importDialogOpenRef.current = true;
       setImportDialogSource({
@@ -979,36 +1011,49 @@ function ProfilesPage({
       setImportDescription(resolved.description);
       setImportPreview(resolved.settingsJson);
       setImportSecretsAcknowledged(false);
-      if (deepLinkQueueRef.current.length > 0) {
-        showToastRef.current(tRef.current("profiles.import.deepLink.toast.queueHint"));
+      try {
+        const pendingCount = await ipc.countPendingProfileImportDeepLinks();
+        if (pendingCount > 1) {
+          showToastRef.current(tRef.current("profiles.import.deepLink.toast.queueHint"));
+        }
+      } catch {
+        // 队列提示失败不阻断预览
       }
+      deepLinkResolveBusyRef.current = false;
+      setIsImportPreviewLoading(false);
     } catch (err) {
       showOperationError(
         showToastRef.current,
         tRef.current("profiles.import.deepLink.toast.resolveError"),
         err,
       );
+      const failedUrl = deepLinkInflightUrlRef.current;
+      if (failedUrl) {
+        try {
+          await ipc.ackProfileImportDeepLink(failedUrl);
+        } catch {
+          // 解析已失败；ack 再失败只记日志路径由后端 warn
+        }
+        deepLinkInflightUrlRef.current = null;
+      }
       deepLinkResolveBusyRef.current = false;
       setIsImportPreviewLoading(false);
       void pumpDeepLinkQueue();
-      return;
     }
-    deepLinkResolveBusyRef.current = false;
-    setIsImportPreviewLoading(false);
   }, []);
 
-  // 仅在新的 requestId 时入队；同一 request 被语言切换/父组件重渲染时不得再 push。
-  // 入队后立即按 requestId 通知 App 清空：urls 已转入本地 queue，App 若残留该 state，
-  // 会在 ProfilesPage 条件渲染 remount 时被重新投递，导致用户放弃后切回 configs 又弹一次。
+  // 新 wake token 或首次挂载：从后端 peek 恢复/继续处理（切页 remount 也走这里）
   useEffect(() => {
-    if (!deepLinkImportRequest) return;
-    if (lastDeepLinkRequestIdRef.current === deepLinkImportRequest.requestId) return;
-    const { requestId, urls } = deepLinkImportRequest;
-    lastDeepLinkRequestIdRef.current = requestId;
-    deepLinkQueueRef.current.push(...urls);
-    onDeepLinkImportConsumedRef.current?.(requestId);
+    if (deepLinkWakeToken <= 0 && lastDeepLinkWakeTokenRef.current === null) {
+      // 冷启动：即便 token 仍为 0 也尝试 peek（App 可能尚未 bump 或已在 configs）
+      lastDeepLinkWakeTokenRef.current = 0;
+      void pumpDeepLinkQueue();
+      return;
+    }
+    if (lastDeepLinkWakeTokenRef.current === deepLinkWakeToken) return;
+    lastDeepLinkWakeTokenRef.current = deepLinkWakeToken;
     void pumpDeepLinkQueue();
-  }, [deepLinkImportRequest, pumpDeepLinkQueue]);
+  }, [deepLinkWakeToken, pumpDeepLinkQueue]);
 
   // 拉取导出预览:目标配置或「包含密钥」开关变化时重新加载,保证预览所见即所得
   useEffect(() => {
@@ -2374,7 +2419,7 @@ function ProfilesPage({
             <ConfigPreview content={importPreview} jsonError={importPreviewError ?? undefined} />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={closeImportDialog}>
+            <Button variant="outline" onClick={() => closeImportDialog()}>
               {t("common.close")}
             </Button>
             <Button

@@ -16,7 +16,7 @@ paths:
 | `main.rs` | 二进制入口，仅调用 `code_manager_lib::run()` |
 | `utils.rs` | 公共锁、JSON 读写、原子文件写入、应用数据目录解析 |
 | `config.rs` | 配置 / Provider 合并落盘、`resolve_profile_settings()`、模型测试、`config-registry.json` |
-| `deep_link.rs` | 深度链接：`code-manager://profiles/import` 解析、内嵌 payload / 远端 HTTPS 拉取（SSRF 防护）、pending 队列与导入链接生成 |
+| `deep_link.rs` | 深度链接：`code-manager://profiles/import` 解析、内嵌 payload / 远端 HTTPS 拉取（SSRF 防护）、pending 队列（peek/ack，切页不丢）与导入链接生成 |
 | `memory.rs` | 用户级 `CLAUDE.md` 与 `rules/*.md` 的托管、导入、启停 |
 | `skills.rs` | Skills 启停、`~/.codex/skills/<id>` 软链同步、`SKILL.md` 读写、文件树扫描 |
 | `history.rs` | `~/.claude/history.jsonl` 读取、会话详情解析、轮询变更 |
@@ -86,7 +86,7 @@ const workspace = await ipc.getConfigWorkspace();
 - 后端继续负责配置合并、路径校验、目录遍历安全、真实落盘和日志脱敏。
 - 路径相关 command 必须防止绝对路径和 `..` 路径逃逸。
 - **只读跟随软链（ADR 0002）**：`claude_directory` 与项目级 `.claude` 的**扫描 / 预览**允许跟随符号链接，目标可在受控 root 外；相对路径仍禁止 `..` / 绝对段。用户级与项目级（含项目 `.claude` 根目录本身是软链）共用该只读契约。
-- **写操作仍拒绝软链路径**：新建 / 重命名 / 删除等写路径一旦经过软链组件必须拒绝；项目侧创建设置文件时若 `.claude` 根是软链也拒绝。
+- **写操作与外部编辑器仍拒绝软链路径**：新建 / 重命名 / 删除，以及 `open_claude_file_in_editor` / `open_project_claude_file_in_editor`，路径一旦经过软链组件必须拒绝；项目侧创建设置文件时若 `.claude` 根是软链也拒绝。
 - 日志脱敏字段清单与日志格式规范见 `.claude/rules/projects-tray-diagnostics.md` 的「日志与诊断」一节，不要在两处维护副本。
 
 ## 用量 runtime 与 SQLite

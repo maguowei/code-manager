@@ -582,10 +582,13 @@ describe("App", () => {
     openUrlMock.mockClear();
     revealItemInDirMock.mockClear();
     usagePageRenderMock.mockClear();
-    // 默认 workspace；deep link drain 必须返回数组，避免 null.length 干扰其它用例
+    // 默认 workspace；deep link peek 默认空队列
     invokeMock.mockImplementation(async (command) => {
-      if (command === "drain_pending_profile_import_deep_links") {
-        return [];
+      if (command === "peek_pending_profile_import_deep_link") {
+        return null;
+      }
+      if (command === "count_pending_profile_import_deep_links") {
+        return 0;
       }
       if (command === "get_config_workspace") {
         return WORKSPACE_FIXTURE;
@@ -833,17 +836,25 @@ describe("App", () => {
         },
       ],
     };
-    let drainCount = 0;
-    let pendingUrls: string[] = [];
-    invokeMock.mockImplementation(async (command) => {
+    let peekCount = 0;
+    let pendingHead: string | null = null;
+    invokeMock.mockImplementation(async (command, args) => {
       if (command === "get_config_workspace") {
         return workspaceWithProfile;
       }
-      if (command === "drain_pending_profile_import_deep_links") {
-        drainCount += 1;
-        const urls = pendingUrls;
-        pendingUrls = [];
-        return urls;
+      if (command === "peek_pending_profile_import_deep_link") {
+        peekCount += 1;
+        return pendingHead;
+      }
+      if (command === "count_pending_profile_import_deep_links") {
+        return pendingHead ? 1 : 0;
+      }
+      if (command === "ack_profile_import_deep_link") {
+        if (pendingHead && (args as { url?: string })?.url === pendingHead) {
+          pendingHead = null;
+          return true;
+        }
+        return false;
       }
       if (command === "resolve_profile_import_deep_link") {
         return {
@@ -861,7 +872,7 @@ describe("App", () => {
     await waitFor(() => {
       expect(screen.queryByText("加载中...")).not.toBeInTheDocument();
     });
-    const drainAfterLoad = drainCount;
+    const peekAfterLoad = peekCount;
 
     // 打开配置编辑器并制造 dirty
     fireEvent.click(
@@ -870,26 +881,26 @@ describe("App", () => {
     const nameInput = await screen.findByDisplayValue("OpenRouter User", {}, { timeout: 5000 });
     fireEvent.change(nameInput, { target: { value: "OpenRouter User Draft" } });
 
-    // 后端积压一条 deep link；脏编辑器时应 requestExit 且不 drain IPC
-    pendingUrls = ["code-manager://profiles/import?payload=abc"];
+    // 后端积压一条 deep link；脏编辑器时应 requestExit 且不因唤醒而打开导入（peek 仅在 force 时用于切页）
+    pendingHead = "code-manager://profiles/import?payload=abc";
     await act(async () => {
       await emitTauriEvent("profile-import-deep-link", undefined);
     });
     await act(async () => {
       await Promise.resolve();
     });
-    expect(drainCount).toBe(drainAfterLoad);
+    // 脏态：只 requestExit，不 peek（wake 在 guard 处短路）
+    expect(peekCount).toBe(peekAfterLoad);
     expect(screen.getByRole("heading", { name: "存在未保存的更改" })).toBeInTheDocument();
 
-    // 继续编辑：仍不 drain
+    // 继续编辑：仍不 peek 唤醒
     fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
     await waitFor(() => {
       expect(screen.queryByRole("heading", { name: "存在未保存的更改" })).not.toBeInTheDocument();
     });
-    expect(drainCount).toBe(drainAfterLoad);
+    expect(peekCount).toBe(peekAfterLoad);
 
-    // 关闭抽屉：dirty 时再弹 exit-guard，不保存退出后解除 guard → force drain
-    // pendingUrls 在首次事件时未 drain，仍保留在 mock 队列中
+    // 关闭抽屉：dirty 时再弹 exit-guard，不保存退出后解除 guard → force wake → peek
     fireEvent.click(screen.getByRole("button", { name: "关闭" }));
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "存在未保存的更改" })).toBeInTheDocument();
@@ -897,7 +908,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "不保存退出" }));
 
     await waitFor(() => {
-      expect(drainCount).toBeGreaterThan(drainAfterLoad);
+      expect(peekCount).toBeGreaterThan(peekAfterLoad);
     });
     expect(
       await screen.findByRole("dialog", { name: "导入配置" }, { timeout: 5000 }),

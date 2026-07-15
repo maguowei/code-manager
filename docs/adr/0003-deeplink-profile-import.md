@@ -13,7 +13,7 @@
    - `payload` 与 `url` 都缺或都有 → 拒绝。可选 query `name` / `description` 仅预填导入对话框，不参与签名或信任。
 3. **载荷契约对齐文件导入**：内容是**裸 Claude settings JSON**（不是带 `providerId` 的私有 envelope）。校验与入库语义对齐现有 `preview_profile_import` / `import_profile_from_file`：预览确认后**新建配置**，`providerId` 为空，**不自动应用/绑定**。
 4. **密钥策略**：不强制剥离密钥。预览若检测到认证密钥，必须**风险横幅 + 勾选确认**后才能导入。导出侧新增「复制 Deep Link」，默认**不含密钥**；用户显式包含密钥时，复制前使用**同一档确认**。
-5. **生命周期与 UI**：单实例；冷启动与热启动都处理链接；多条链接**排队**（取消或失败后自动处理下一条，取消不清空整队）。成功解析后聚焦 **main** 窗口、切到配置页、打开与文件导入同一套预览 UI。三端（macOS / Windows / Linux）均注册 scheme。
+5. **生命周期与 UI**：单实例；冷启动与热启动都处理链接；多条链接**排队**（取消或失败后自动处理下一条，取消不清空整队）。队列权威源在后端 pending：前端 `peek` 队头做预览，用户确认导入 / 取消 / 解析失败后 `ack` 移除；切页不 ack、不丢链。成功解析后聚焦 **main** 窗口、切到配置页、打开与文件导入同一套预览 UI。三端（macOS / Windows / Linux）均注册 scheme。
 6. **首期明确不做**：自动 apply、应用代托管 JSON、主机白名单、payload 压缩、分享 envelope、多实例、仅热启动处理。
 
 ## Consequences

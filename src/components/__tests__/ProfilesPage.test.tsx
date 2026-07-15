@@ -164,6 +164,72 @@ function renderPage(
   );
 }
 
+function enableTauriForDeepLink() {
+  Object.defineProperty(window, "__TAURI_INTERNALS__", {
+    configurable: true,
+    value: {},
+  });
+}
+
+/** 模拟后端 pending 队列：peek/count/ack 与 resolve/import 可配 */
+function mockPendingDeepLinks(
+  initialUrls: string[],
+  options?: {
+    resolve?: Record<string, unknown>;
+    importResult?: Record<string, unknown>;
+  },
+) {
+  let queue = [...initialUrls];
+  invokeMock.mockImplementation(async (command: string, args?: unknown) => {
+    if (command === "peek_pending_profile_import_deep_link") {
+      return queue[0] ?? null;
+    }
+    if (command === "count_pending_profile_import_deep_links") {
+      return queue.length;
+    }
+    if (command === "ack_profile_import_deep_link") {
+      const url = (args as { url: string }).url;
+      if (queue[0] === url) {
+        queue = queue.slice(1);
+        return true;
+      }
+      return false;
+    }
+    if (command === "resolve_profile_import_deep_link") {
+      return (
+        options?.resolve ?? {
+          name: "FromLink",
+          description: "",
+          settingsJson: '{\n  "model": "claude-sonnet-4-6"\n}',
+          containsSecrets: false,
+          source: "payload",
+        }
+      );
+    }
+    if (command === "import_profile_from_settings_json") {
+      return (
+        options?.importResult ?? {
+          id: "imported-deeplink",
+          name: "FromLink",
+          description: "",
+          settings: {},
+          createdAt: "2026-06-22T00:00:00Z",
+          updatedAt: "2026-06-22T00:00:00Z",
+        }
+      );
+    }
+    return null;
+  });
+  return {
+    get length() {
+      return queue.length;
+    },
+    get front() {
+      return queue[0] ?? null;
+    },
+  };
+}
+
 function makeProfile(id: string, name: string, providerId = "builtin:openrouter") {
   return {
     id,
@@ -2273,17 +2339,16 @@ describe("ProfilesPage", () => {
   });
 
   it("prefills deep link import name from i18n when backend name is empty", async () => {
-    invokeMock.mockImplementation(async (command: string) => {
-      if (command === "resolve_profile_import_deep_link") {
-        return {
-          name: "",
-          description: "",
-          settingsJson: '{\n  "model": "claude-sonnet-4-6"\n}',
-          containsSecrets: false,
-          source: "payload",
-        };
-      }
-      return null;
+    enableTauriForDeepLink();
+    const url = "code-manager://profiles/import?payload=abc";
+    mockPendingDeepLinks([url], {
+      resolve: {
+        name: "",
+        description: "",
+        settingsJson: '{\n  "model": "claude-sonnet-4-6"\n}',
+        containsSecrets: false,
+        source: "payload",
+      },
     });
 
     render(
@@ -2292,10 +2357,7 @@ describe("ProfilesPage", () => {
           <ProfilesPage
             workspace={WORKSPACE_FIXTURE}
             onWorkspaceChange={async () => {}}
-            deepLinkImportRequest={{
-              urls: ["code-manager://profiles/import?payload=abc"],
-              requestId: 42,
-            }}
+            deepLinkWakeToken={1}
           />
         </I18nProvider>
       </ThemeProvider>,
@@ -2330,25 +2392,11 @@ describe("ProfilesPage", () => {
     expect(within(dialog).getByRole("button", { name: "导入" })).toBeDisabled();
   });
 
-  it("does not re-queue the same deepLinkImportRequest when the page re-renders", async () => {
+  it("does not re-resolve when the same deepLinkWakeToken re-renders", async () => {
+    enableTauriForDeepLink();
+    const url = "code-manager://profiles/import?payload=abc";
+    mockPendingDeepLinks([url]);
     const onWorkspaceChange = vi.fn(async () => {});
-    invokeMock.mockImplementation(async (command: string) => {
-      if (command === "resolve_profile_import_deep_link") {
-        return {
-          name: "FromLink",
-          description: "",
-          settingsJson: '{\n  "model": "claude-sonnet-4-6"\n}',
-          containsSecrets: false,
-          source: "payload",
-        };
-      }
-      return null;
-    });
-
-    const request = {
-      urls: ["code-manager://profiles/import?payload=abc"],
-      requestId: 42,
-    };
 
     const { rerender } = render(
       <ThemeProvider>
@@ -2356,29 +2404,27 @@ describe("ProfilesPage", () => {
           <ProfilesPage
             workspace={WORKSPACE_FIXTURE}
             onWorkspaceChange={onWorkspaceChange}
-            deepLinkImportRequest={request}
+            deepLinkWakeToken={42}
           />
         </I18nProvider>
       </ThemeProvider>,
     );
 
     await waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith("resolve_profile_import_deep_link", {
-        url: "code-manager://profiles/import?payload=abc",
-      });
+      expect(invokeMock).toHaveBeenCalledWith("resolve_profile_import_deep_link", { url });
     });
     expect(
       invokeMock.mock.calls.filter(([command]) => command === "resolve_profile_import_deep_link"),
     ).toHaveLength(1);
 
-    // 同一 requestId 再渲染（模拟父组件/语言切换导致的 props 引用变化）不得再次 resolve
+    // 同一 wake token 再渲染（父重渲染/语言切换）不得再次 resolve
     rerender(
       <ThemeProvider>
         <I18nProvider>
           <ProfilesPage
             workspace={WORKSPACE_FIXTURE}
             onWorkspaceChange={onWorkspaceChange}
-            deepLinkImportRequest={{ ...request }}
+            deepLinkWakeToken={42}
           />
         </I18nProvider>
       </ThemeProvider>,
@@ -2392,104 +2438,42 @@ describe("ProfilesPage", () => {
     ).toHaveLength(1);
   });
 
-  it("calls onDeepLinkImportConsumed with requestId after queuing deep link urls", async () => {
+  it("acks deep link on cancel and does not re-open after remount", async () => {
+    enableTauriForDeepLink();
+    const url = "code-manager://profiles/import?payload=abc";
+    const queue = mockPendingDeepLinks([url]);
     const onWorkspaceChange = vi.fn(async () => {});
-    const onDeepLinkImportConsumed = vi.fn();
-    invokeMock.mockImplementation(async (command: string) => {
-      if (command === "resolve_profile_import_deep_link") {
-        return {
-          name: "FromLink",
-          description: "",
-          settingsJson: '{\n  "model": "claude-sonnet-4-6"\n}',
-          containsSecrets: false,
-          source: "payload",
-        };
-      }
-      return null;
-    });
 
-    render(
-      <ThemeProvider>
-        <I18nProvider>
-          <ProfilesPage
-            workspace={WORKSPACE_FIXTURE}
-            onWorkspaceChange={onWorkspaceChange}
-            deepLinkImportRequest={{
-              urls: ["code-manager://profiles/import?payload=abc"],
-              requestId: 7,
-            }}
-            onDeepLinkImportConsumed={onDeepLinkImportConsumed}
-          />
-        </I18nProvider>
-      </ThemeProvider>,
-    );
-
-    // 入队后立即带 requestId 通知 App 清空，避免残留 state 跨 remount 重放
-    await waitFor(() => {
-      expect(onDeepLinkImportConsumed).toHaveBeenCalledTimes(1);
-    });
-    expect(onDeepLinkImportConsumed).toHaveBeenCalledWith(7);
-    expect(
-      invokeMock.mock.calls.filter(([command]) => command === "resolve_profile_import_deep_link"),
-    ).toHaveLength(1);
-  });
-
-  it("does not re-queue deep link urls after App clears the request on remount", async () => {
-    const onWorkspaceChange = vi.fn(async () => {});
-    // 模拟 App 侧按 requestId 条件清空
-    let parentRequest: { urls: string[]; requestId: number } | null = {
-      urls: ["code-manager://profiles/import?payload=abc"],
-      requestId: 42,
-    };
-    const onDeepLinkImportConsumed = vi.fn((requestId: number) => {
-      if (parentRequest?.requestId === requestId) {
-        parentRequest = null;
-      }
-    });
-    invokeMock.mockImplementation(async (command: string) => {
-      if (command === "resolve_profile_import_deep_link") {
-        return {
-          name: "FromLink",
-          description: "",
-          settingsJson: '{\n  "model": "claude-sonnet-4-6"\n}',
-          containsSecrets: false,
-          source: "payload",
-        };
-      }
-      return null;
-    });
-
-    // 首次挂载：入队后回调 App 按 requestId 清空
     const { unmount } = render(
       <ThemeProvider>
         <I18nProvider>
           <ProfilesPage
             workspace={WORKSPACE_FIXTURE}
             onWorkspaceChange={onWorkspaceChange}
-            deepLinkImportRequest={parentRequest}
-            onDeepLinkImportConsumed={onDeepLinkImportConsumed}
+            deepLinkWakeToken={1}
           />
         </I18nProvider>
       </ThemeProvider>,
     );
 
+    const dialog = await screen.findByRole("dialog", { name: "导入配置" });
+    // 用户关闭预览 = 终态 ack（footer 的「关闭」，排除右上角 X）
+    const closeButtons = within(dialog).getAllByRole("button", { name: "关闭" });
+    fireEvent.click(closeButtons[0]);
     await waitFor(() => {
-      expect(onDeepLinkImportConsumed).toHaveBeenCalledWith(42);
+      expect(invokeMock).toHaveBeenCalledWith("ack_profile_import_deep_link", { url });
     });
-    expect(parentRequest).toBeNull();
+    expect(queue.length).toBe(0);
 
-    // 模拟用户切走 configs tab：ProfilesPage 卸载
     unmount();
 
-    // 修复后 parentRequest 已清空，切回 configs 重新挂载不再下发旧 request
     render(
       <ThemeProvider>
         <I18nProvider>
           <ProfilesPage
             workspace={WORKSPACE_FIXTURE}
             onWorkspaceChange={onWorkspaceChange}
-            deepLinkImportRequest={parentRequest}
-            onDeepLinkImportConsumed={onDeepLinkImportConsumed}
+            deepLinkWakeToken={1}
           />
         </I18nProvider>
       </ThemeProvider>,
@@ -2497,43 +2481,27 @@ describe("ProfilesPage", () => {
 
     await act(async () => {
       await Promise.resolve();
+      await Promise.resolve();
     });
-
-    // remount 不得再次 resolve（原 bug 会重放已放弃的导入）
     expect(
       invokeMock.mock.calls.filter(([command]) => command === "resolve_profile_import_deep_link"),
     ).toHaveLength(1);
-    expect(onDeepLinkImportConsumed).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog", { name: "导入配置" })).not.toBeInTheDocument();
   });
 
-  it("re-queues residual non-null deepLinkImportRequest on remount when App did not clear", async () => {
+  it("re-peeks the same deep link after remount when not acked (page switch)", async () => {
+    enableTauriForDeepLink();
+    const url = "code-manager://profiles/import?payload=abc";
+    mockPendingDeepLinks([url]);
     const onWorkspaceChange = vi.fn(async () => {});
-    invokeMock.mockImplementation(async (command: string) => {
-      if (command === "resolve_profile_import_deep_link") {
-        return {
-          name: "FromLink",
-          description: "",
-          settingsJson: '{\n  "model": "claude-sonnet-4-6"\n}',
-          containsSecrets: false,
-          source: "payload",
-        };
-      }
-      return null;
-    });
 
-    const residualRequest = {
-      urls: ["code-manager://profiles/import?payload=abc"],
-      requestId: 42,
-    };
-
-    // 无 onDeepLinkImportConsumed：模拟 App 残留非 null request
     const { unmount } = render(
       <ThemeProvider>
         <I18nProvider>
           <ProfilesPage
             workspace={WORKSPACE_FIXTURE}
             onWorkspaceChange={onWorkspaceChange}
-            deepLinkImportRequest={residualRequest}
+            deepLinkWakeToken={1}
           />
         </I18nProvider>
       </ThemeProvider>,
@@ -2544,17 +2512,16 @@ describe("ProfilesPage", () => {
         invokeMock.mock.calls.filter(([command]) => command === "resolve_profile_import_deep_link"),
       ).toHaveLength(1);
     });
-
+    // 切页卸载：不 ack，队头仍在后端
     unmount();
 
-    // remount 时 lastDeepLinkRequestIdRef 重置，残留同一 request 会再次入队（说明为何必须清空）
     render(
       <ThemeProvider>
         <I18nProvider>
           <ProfilesPage
             workspace={WORKSPACE_FIXTURE}
             onWorkspaceChange={onWorkspaceChange}
-            deepLinkImportRequest={residualRequest}
+            deepLinkWakeToken={1}
           />
         </I18nProvider>
       </ThemeProvider>,
@@ -2565,32 +2532,30 @@ describe("ProfilesPage", () => {
         invokeMock.mock.calls.filter(([command]) => command === "resolve_profile_import_deep_link"),
       ).toHaveLength(2);
     });
+    expect(await screen.findByRole("dialog", { name: "导入配置" })).toBeInTheDocument();
   });
 
   it("imports a deep link payload after secrets acknowledgement", async () => {
-    const onWorkspaceChange = vi.fn(async () => {});
-    invokeMock.mockImplementation(async (command: string) => {
-      if (command === "resolve_profile_import_deep_link") {
-        return {
-          name: "FromLink",
-          description: "via deeplink",
-          settingsJson: '{\n  "env": {\n    "ANTHROPIC_AUTH_TOKEN": "secret"\n  }\n}',
-          containsSecrets: true,
-          source: "payload",
-        };
-      }
-      if (command === "import_profile_from_settings_json") {
-        return {
-          id: "imported-deeplink",
-          name: "FromLink",
-          description: "via deeplink",
-          settings: { env: { ANTHROPIC_AUTH_TOKEN: "secret" } },
-          createdAt: "2026-06-22T00:00:00Z",
-          updatedAt: "2026-06-22T00:00:00Z",
-        };
-      }
-      return null;
+    enableTauriForDeepLink();
+    const url = "code-manager://profiles/import?payload=abc";
+    const queue = mockPendingDeepLinks([url], {
+      resolve: {
+        name: "FromLink",
+        description: "via deeplink",
+        settingsJson: '{\n  "env": {\n    "ANTHROPIC_AUTH_TOKEN": "secret"\n  }\n}',
+        containsSecrets: true,
+        source: "payload",
+      },
+      importResult: {
+        id: "imported-deeplink",
+        name: "FromLink",
+        description: "via deeplink",
+        settings: { env: { ANTHROPIC_AUTH_TOKEN: "secret" } },
+        createdAt: "2026-06-22T00:00:00Z",
+        updatedAt: "2026-06-22T00:00:00Z",
+      },
     });
+    const onWorkspaceChange = vi.fn(async () => {});
 
     render(
       <ThemeProvider>
@@ -2598,10 +2563,7 @@ describe("ProfilesPage", () => {
           <ProfilesPage
             workspace={WORKSPACE_FIXTURE}
             onWorkspaceChange={onWorkspaceChange}
-            deepLinkImportRequest={{
-              urls: ["code-manager://profiles/import?payload=abc"],
-              requestId: 1,
-            }}
+            deepLinkWakeToken={1}
           />
         </I18nProvider>
       </ThemeProvider>,
@@ -2609,9 +2571,7 @@ describe("ProfilesPage", () => {
 
     const dialog = await screen.findByRole("dialog", { name: "导入配置" });
     await waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith("resolve_profile_import_deep_link", {
-        url: "code-manager://profiles/import?payload=abc",
-      });
+      expect(invokeMock).toHaveBeenCalledWith("resolve_profile_import_deep_link", { url });
     });
     expect(within(dialog).getByText(/包含认证密钥/)).toBeInTheDocument();
     const importButton = within(dialog).getByRole("button", { name: "导入" });
@@ -2631,9 +2591,11 @@ describe("ProfilesPage", () => {
         name: "FromLink",
         description: "via deeplink",
       });
+      expect(invokeMock).toHaveBeenCalledWith("ack_profile_import_deep_link", { url });
       expect(onWorkspaceChange).toHaveBeenCalled();
       expect(showToastMock).toHaveBeenCalledWith("配置已导入");
     });
+    expect(queue.length).toBe(0);
   });
 
   it("copies a deep link from the export dialog without secrets by default", async () => {

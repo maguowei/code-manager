@@ -29,10 +29,57 @@ pub const REMOTE_FETCH_TIMEOUT: Duration = Duration::from_secs(10);
 
 const EVENT_PROFILE_IMPORT_DEEP_LINK: &str = "profile-import-deep-link";
 
-/// 冷启动时前端尚未订阅事件，先入队；前端 `drain` 与热事件合并处理。
+/// 冷启动 / 热启动共用的配置导入 deep link 队列。
+///
+/// 权威源始终在此：前端只能 peek 队头做预览，用户确认导入 / 取消 / 解析失败后
+/// 再 `ack` 移除；切页卸载 UI 不会丢链（与破坏性 drain 不同）。
 #[derive(Default)]
 pub struct PendingProfileImportDeepLinks {
     urls: Mutex<VecDeque<String>>,
+}
+
+impl PendingProfileImportDeepLinks {
+    fn peek_front(&self) -> Result<Option<String>, String> {
+        let guard = self
+            .urls
+            .lock()
+            .map_err(|_| "深度链接队列锁异常".to_string())?;
+        Ok(guard.front().cloned())
+    }
+
+    fn len(&self) -> Result<usize, String> {
+        let guard = self
+            .urls
+            .lock()
+            .map_err(|_| "深度链接队列锁异常".to_string())?;
+        Ok(guard.len())
+    }
+
+    /// 仅当队头等于 `url` 时 pop，避免误删尚未展示的后续项。
+    fn ack_front(&self, url: &str) -> Result<bool, String> {
+        let mut guard = self
+            .urls
+            .lock()
+            .map_err(|_| "深度链接队列锁异常".to_string())?;
+        if guard.front().map(String::as_str) == Some(url) {
+            guard.pop_front();
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn push_url(&self, url: String) -> Result<(), String> {
+        let mut guard = self
+            .urls
+            .lock()
+            .map_err(|_| "深度链接队列锁异常".to_string())?;
+        // 仅与队尾去重，避免同一次系统连发重复入队
+        if guard.back() != Some(&url) {
+            guard.push_back(url);
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
@@ -120,17 +167,39 @@ pub fn build_profile_import_deep_link(id: String, include_secrets: bool) -> Resu
     Ok(url.into())
 }
 
-/// 取出冷启动积压的配置导入 deep link（取出后清空）。
+/// 窥视队头 URL，不移除。无待处理时返回 `None`。
 #[tauri::command]
 #[specta::specta]
-pub fn drain_pending_profile_import_deep_links(
+pub fn peek_pending_profile_import_deep_link(
     pending: State<'_, PendingProfileImportDeepLinks>,
-) -> Result<Vec<String>, String> {
-    let mut guard = pending
-        .urls
-        .lock()
-        .map_err(|_| "深度链接队列锁异常".to_string())?;
-    Ok(guard.drain(..).collect())
+) -> Result<Option<String>, String> {
+    pending.peek_front()
+}
+
+/// 待处理条数（含当前队头）。用于「还有待处理的导入链接」提示。
+#[tauri::command]
+#[specta::specta]
+pub fn count_pending_profile_import_deep_links(
+    pending: State<'_, PendingProfileImportDeepLinks>,
+) -> Result<usize, String> {
+    pending.len()
+}
+
+/// 确认结束当前队头：仅当队头等于 `url` 时移除。
+/// 导入成功、用户取消、解析失败后调用；切页不应调用。
+#[tauri::command]
+#[specta::specta]
+pub fn ack_profile_import_deep_link(
+    pending: State<'_, PendingProfileImportDeepLinks>,
+    url: String,
+) -> Result<bool, String> {
+    let removed = pending.ack_front(&url)?;
+    if removed {
+        log::info!("event=deep_link.ack status=ok");
+    } else {
+        log::warn!("event=deep_link.ack status=skip reason=front_mismatch");
+    }
+    Ok(removed)
 }
 
 /// 注册 deep-link 监听与 pending 队列；在 setup 中调用。
@@ -177,12 +246,11 @@ fn enqueue_profile_import_deep_link(app: &AppHandle, url: String) {
         return;
     }
     log::info!("event=deep_link.enqueue status=ok action=profiles.import");
-    // 唯一事实源是 pending 队列；事件仅唤醒前端 drain，避免「事件 + 队列」双投递
+    // 唯一事实源是 pending 队列；事件仅唤醒前端 peek/预览，避免「事件 + 队列」双投递
     if let Some(pending) = app.try_state::<PendingProfileImportDeepLinks>() {
-        if let Ok(mut guard) = pending.urls.lock() {
-            if guard.back() != Some(&url) {
-                guard.push_back(url);
-            }
+        if let Err(error) = pending.push_url(url) {
+            log::warn!("event=deep_link.enqueue status=err error={error}");
+            return;
         }
     }
     let _ = app.emit(EVENT_PROFILE_IMPORT_DEEP_LINK, ());
@@ -546,6 +614,55 @@ mod tests {
         let payload = URL_SAFE_NO_PAD.encode(br#"{"model":"claude"}"#);
         let raw = decode_payload(&payload).unwrap();
         assert!(raw.contains("claude"));
+    }
+
+    #[test]
+    fn pending_queue_peek_does_not_remove() {
+        let pending = PendingProfileImportDeepLinks::default();
+        pending
+            .push_url("code-manager://profiles/import?payload=a".into())
+            .unwrap();
+        pending
+            .push_url("code-manager://profiles/import?payload=b".into())
+            .unwrap();
+        assert_eq!(pending.len().unwrap(), 2);
+        assert_eq!(
+            pending.peek_front().unwrap().as_deref(),
+            Some("code-manager://profiles/import?payload=a")
+        );
+        assert_eq!(pending.len().unwrap(), 2);
+    }
+
+    #[test]
+    fn pending_queue_ack_only_pops_matching_front() {
+        let pending = PendingProfileImportDeepLinks::default();
+        pending
+            .push_url("code-manager://profiles/import?payload=a".into())
+            .unwrap();
+        pending
+            .push_url("code-manager://profiles/import?payload=b".into())
+            .unwrap();
+        assert!(!pending
+            .ack_front("code-manager://profiles/import?payload=b")
+            .unwrap());
+        assert_eq!(pending.len().unwrap(), 2);
+        assert!(pending
+            .ack_front("code-manager://profiles/import?payload=a")
+            .unwrap());
+        assert_eq!(
+            pending.peek_front().unwrap().as_deref(),
+            Some("code-manager://profiles/import?payload=b")
+        );
+        assert_eq!(pending.len().unwrap(), 1);
+    }
+
+    #[test]
+    fn pending_queue_skips_duplicate_tail() {
+        let pending = PendingProfileImportDeepLinks::default();
+        let url = "code-manager://profiles/import?payload=a";
+        pending.push_url(url.into()).unwrap();
+        pending.push_url(url.into()).unwrap();
+        assert_eq!(pending.len().unwrap(), 1);
     }
 
     #[test]
