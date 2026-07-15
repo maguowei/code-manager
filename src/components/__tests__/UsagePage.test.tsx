@@ -379,6 +379,55 @@ const multiModelTimeSeries: UsageTimeSeriesPoint[] = [
   },
 ];
 
+// 缓存命中率多系列排序键为“纯 input tokens”（见 UsagePage.tsx modelSeries 排序）。
+// 本 fixture 刻意让两模型在纯 input 与混合体量（input+create+read）上顺序相反：
+//   opus  纯 input 300k、无缓存 → 纯 input 领先、混合体量落后
+//   sonnet 纯 input 100k、cacheRead 900k → 纯 input 落后、混合体量领先
+// 断言 opus 排在 sonnet 前，即证明排序键是纯 input，而非旧的混合体量。
+const cacheHitSortTimeSeries: UsageTimeSeriesPoint[] = [
+  {
+    bucket: "2026-05-23 09:00",
+    bucketStartMs: Date.UTC(2026, 4, 23, 9, 0),
+    messages: 30,
+    sessions: 5,
+    inputTokens: 400_000,
+    outputTokens: 200_000,
+    cacheCreationTokens: 0,
+    cacheReadTokens: 900_000,
+    webSearchRequests: 0,
+    webFetchRequests: 0,
+    cost: 10,
+    inputCost: 4,
+    outputCost: 4,
+    cacheCreationCost: 0,
+    cacheReadCost: 2,
+    byModel: [
+      {
+        model: "claude-3-opus",
+        messages: 12,
+        inputTokens: 300_000,
+        outputTokens: 120_000,
+        cacheCreationTokens: 0,
+        cacheReadTokens: 0,
+        webSearchRequests: 0,
+        webFetchRequests: 0,
+        cost: 8,
+      },
+      {
+        model: "claude-3-7-sonnet",
+        messages: 18,
+        inputTokens: 100_000,
+        outputTokens: 80_000,
+        cacheCreationTokens: 0,
+        cacheReadTokens: 900_000,
+        webSearchRequests: 0,
+        webFetchRequests: 0,
+        cost: 2,
+      },
+    ],
+  },
+];
+
 function makeUsage(
   overrides: Partial<{
     tab: UsageTab;
@@ -829,6 +878,23 @@ describe("UsagePage cost cockpit", () => {
       // 命中率分组柱，不设 stackId
       expect(bar).toHaveAttribute("data-stack-id", "");
     }
+  });
+
+  it("orders cache hit-rate model series by pure input tokens", () => {
+    renderUsage({ timeSeries: cacheHitSortTimeSeries });
+
+    const cacheHitLegend = screen.getByRole("list", { name: "缓存命中率" });
+    // 用 role+name 定位图例项，再比 DOM 相对顺序，避免 textContent 下标在列表混入额外控件时失真。
+    const overall = within(cacheHitLegend).getByRole("button", { name: /总体命中率/ });
+    const opus = within(cacheHitLegend).getByRole("button", { name: /claude-3-opus/ });
+    const sonnet = within(cacheHitLegend).getByRole("button", { name: /claude-3-7-sonnet/ });
+    const buttons = within(cacheHitLegend).getAllByRole("button");
+
+    // 总体命中率始终置顶；模型系列按纯 input 降序：opus(300k) 先于 sonnet(100k)。
+    // 若排序键回退为混合体量（input+create+read），sonnet(1.0M) 会领先，本断言即变红。
+    expect(buttons.indexOf(overall)).toBe(0);
+    expect(buttons.indexOf(opus)).toBeGreaterThan(0);
+    expect(buttons.indexOf(opus)).toBeLessThan(buttons.indexOf(sonnet));
   });
 
   it("uses a distinct non-white total series color and subtle bar focus styling", () => {

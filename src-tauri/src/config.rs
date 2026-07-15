@@ -2969,6 +2969,51 @@ mod tests {
         std::env::remove_var("CODE_MANAGER_APP_DATA_DIR_OVERRIDE");
     }
 
+    // 敏感键判定与前端 isSensitiveSettingsKey 逐条一致，但两端各自内联维护
+    // 敏感键判定规则（精确匹配 + 前后缀/子串模式）。
+    // 共享语料是预期结果的单一事实源，不是键清单；两端各写测试对照它，任一端漂移即红。
+    // 前端对照断言见 src/lib/__tests__/sensitive-key-parity.test.ts。
+    #[test]
+    fn is_sensitive_settings_key_matches_shared_fixture() {
+        #[derive(serde::Deserialize)]
+        struct Case {
+            key: String,
+            sensitive: bool,
+        }
+
+        // 与前端 parity 测试的 MIN_FIXTURE_CASES 对齐，防止语料清空后空跑仍绿
+        const MIN_FIXTURE_CASES: usize = 20;
+
+        let cases: Vec<Case> = serde_json::from_str(include_str!(
+            "../tests/fixtures/sensitive-settings-keys.json"
+        ))
+        .expect("解析敏感键 parity 语料失败");
+
+        assert!(
+            cases.len() >= MIN_FIXTURE_CASES,
+            "敏感键 parity 语料过少：got {}, want >= {}",
+            cases.len(),
+            MIN_FIXTURE_CASES
+        );
+        assert!(
+            cases.iter().any(|c| c.sensitive),
+            "敏感键 parity 语料缺少 sensitive=true 用例"
+        );
+        assert!(
+            cases.iter().any(|c| !c.sensitive),
+            "敏感键 parity 语料缺少 sensitive=false 用例"
+        );
+
+        for case in cases {
+            assert_eq!(
+                is_sensitive_settings_key(&case.key),
+                case.sensitive,
+                "key={}",
+                case.key
+            );
+        }
+    }
+
     fn sample_profile(id: &str, provider_id: Option<&str>, settings: Value) -> ConfigProfile {
         ConfigProfile {
             id: id.to_string(),
