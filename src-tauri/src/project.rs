@@ -1955,17 +1955,25 @@ fn reject_project_claude_root_symlink(claude_root: &Path) -> Result<(), String> 
     }
 }
 
-fn project_claude_root(project: &str) -> Result<PathBuf, String> {
+/// 只读总览/预览入口：允许 `.claude` 本身是目录软链（与用户级只读跟随契约一致）。
+fn project_claude_root_for_read(project: &str) -> Result<PathBuf, String> {
     let project_path = validate_project_path(project)?;
     let claude_root = project_path.join(".claude");
-    reject_project_claude_root_symlink(&claude_root)?;
     if !claude_root.is_dir() {
         return Err("项目 .claude/ 目录不存在".to_string());
     }
     Ok(claude_root)
 }
 
-/// 解析项目级 .claude/ 内的相对路径，沿用 claude_directory 的校验，错误文案改为项目场景
+/// 写操作入口：`.claude` 根为软链时拒绝（写路径不跟随出界）。
+fn project_claude_root_for_write(project: &str) -> Result<PathBuf, String> {
+    let project_path = validate_project_path(project)?;
+    let claude_root = project_path.join(".claude");
+    reject_project_claude_root_symlink(&claude_root)?;
+    Ok(claude_root)
+}
+
+/// 解析项目级 .claude/ 内的相对路径（写语义：禁止软链组件），错误文案改为项目场景
 fn resolve_project_claude_file(claude_root: &Path, relative_path: &str) -> Result<PathBuf, String> {
     let rel_path = crate::claude_directory::validate_relative_claude_path(relative_path)
         .map_err(|_| "只能访问项目 .claude/ 内的文件".to_string())?;
@@ -1979,7 +1987,7 @@ pub fn get_project_claude_directory_overview(
     project: &str,
 ) -> Result<crate::claude_directory::ClaudeDirectoryOverview, String> {
     let result = (|| {
-        let claude_root = project_claude_root(project)?;
+        let claude_root = project_claude_root_for_read(project)?;
         crate::claude_directory::scan_claude_directory_with_options(
             &claude_root,
             crate::claude_directory::ScanOptions {
@@ -2005,14 +2013,20 @@ pub fn get_project_claude_file_preview(
     relative_path: String,
 ) -> Result<crate::claude_directory::ClaudeFilePreview, String> {
     let result = (|| {
-        let claude_root = project_claude_root(project)?;
-        // 先用项目侧错误文案过一次路径校验；通过后再调全局预览实现
-        let _ = resolve_project_claude_file(&claude_root, &relative_path)?;
+        let claude_root = project_claude_root_for_read(project)?;
+        // 与用户级总览共用只读跟随契约（含内部软链 / 根为软链）
         crate::claude_directory::read_claude_file_preview_from_root(
             &claude_root,
             &relative_path,
             PROJECT_CLAUDE_PREVIEW_MAX_BYTES,
         )
+        .map_err(|err| {
+            if err.contains("~/.claude") {
+                err.replace("~/.claude", "项目 .claude/")
+            } else {
+                err
+            }
+        })
     })();
     crate::logging::log_command_result("project.claude_directory_preview", &result, |preview| {
         format!(
@@ -2037,8 +2051,7 @@ pub fn create_project_claude_settings_file(
         if !project_path.is_dir() {
             return Err("项目目录不存在".to_string());
         }
-        let claude_root = project_path.join(".claude");
-        reject_project_claude_root_symlink(&claude_root)?;
+        let claude_root = project_claude_root_for_write(project)?;
         let filename = match scope {
             ProjectClaudeSettingsScope::Shared => "settings.json",
             ProjectClaudeSettingsScope::Local => "settings.local.json",
@@ -2068,7 +2081,11 @@ pub fn open_project_claude_file_in_editor(
     relative_path: String,
 ) -> Result<(), String> {
     let result = (|| {
-        let claude_root = project_claude_root(project)?;
+        // 外部编辑器打开按写边界：根为软链或路径经软链时拒绝
+        let claude_root = project_claude_root_for_write(project)?;
+        if !claude_root.is_dir() {
+            return Err("项目 .claude/ 目录不存在".to_string());
+        }
         let target = resolve_project_claude_file(&claude_root, &relative_path)?;
         let metadata = fs::metadata(&target).map_err(|e| format!("读取文件元数据失败: {}", e))?;
         if !metadata.is_file() {
@@ -2864,16 +2881,39 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn get_project_claude_directory_overview_rejects_root_symlink() {
+    fn get_project_claude_directory_overview_follows_root_symlink() {
         let project = TestDir::new();
         let outside = TestDir::new();
         std::fs::write(outside.path().join("outside.md"), "secret\n").unwrap();
         create_test_symlink(outside.path(), &project.path().join(".claude"));
 
-        let err = get_project_claude_directory_overview(project.path().to_str().unwrap())
-            .expect_err("项目 .claude/ 是软链时应拒绝浏览");
+        let overview = get_project_claude_directory_overview(project.path().to_str().unwrap())
+            .expect("项目 .claude/ 为软链时应可只读浏览");
+        let names: Vec<&str> = overview
+            .entries
+            .iter()
+            .map(|entry| entry.path.as_str())
+            .collect();
+        assert!(
+            names.iter().any(|n| n.contains("outside.md")),
+            "应列出软链目标内文件, got {names:?}"
+        );
+    }
 
-        assert!(err.contains(".claude/"), "非预期错误: {err}");
+    #[cfg(unix)]
+    #[test]
+    fn get_project_claude_file_preview_follows_root_symlink() {
+        let project = TestDir::new();
+        let outside = TestDir::new();
+        std::fs::write(outside.path().join("readme.md"), "via-root-link\n").unwrap();
+        create_test_symlink(outside.path(), &project.path().join(".claude"));
+
+        let preview = get_project_claude_file_preview(
+            project.path().to_str().unwrap(),
+            "readme.md".to_string(),
+        )
+        .expect("根为软链时应可只读预览");
+        assert!(preview.content.contains("via-root-link"));
     }
 
     #[test]
@@ -2888,7 +2928,9 @@ mod tests {
                 get_project_claude_file_preview(project.path().to_str().unwrap(), bad.to_string())
                     .expect_err(&format!("路径 {bad} 应被拒"));
             assert!(
-                err.contains("项目 .claude/") || err.contains("项目路径"),
+                err.contains("项目 .claude/")
+                    || err.contains("项目路径")
+                    || err.contains("只能读取"),
                 "非预期错误: {err}"
             );
         }

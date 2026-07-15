@@ -802,6 +802,108 @@ describe("App", () => {
     });
   });
 
+  it("defers deep-link drain while a dirty profile editor is open and drains after exit", async () => {
+    enableTauriEvents();
+    const workspaceWithProfile: ConfigWorkspace = {
+      ...WORKSPACE_FIXTURE,
+      builtinProviders: [
+        {
+          id: "builtin:openrouter",
+          name: "OpenRouter",
+          localizedName: { zh: "开放路由", en: "OpenRouter" },
+          description: "OpenRouter",
+          modelSuggestions: ["claude-sonnet-4-6"],
+          env: {},
+        },
+      ],
+      profiles: [
+        {
+          id: "user-openrouter",
+          name: "OpenRouter User",
+          description: "默认用户配置",
+          providerId: "builtin:openrouter",
+          settings: {
+            env: {
+              ANTHROPIC_AUTH_TOKEN: "token",
+              ANTHROPIC_MODEL: "claude-sonnet-4-6",
+            },
+          },
+          createdAt: "2026-04-18T12:00:00Z",
+          updatedAt: "2026-04-18T12:00:00Z",
+        },
+      ],
+    };
+    let drainCount = 0;
+    let pendingUrls: string[] = [];
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_config_workspace") {
+        return workspaceWithProfile;
+      }
+      if (command === "drain_pending_profile_import_deep_links") {
+        drainCount += 1;
+        const urls = pendingUrls;
+        pendingUrls = [];
+        return urls;
+      }
+      if (command === "resolve_profile_import_deep_link") {
+        return {
+          name: "",
+          description: "",
+          settingsJson: '{\n  "model": "claude-sonnet-4-6"\n}',
+          containsSecrets: false,
+          source: "payload",
+        };
+      }
+      return null;
+    });
+
+    renderApp();
+    await waitFor(() => {
+      expect(screen.queryByText("加载中...")).not.toBeInTheDocument();
+    });
+    const drainAfterLoad = drainCount;
+
+    // 打开配置编辑器并制造 dirty
+    fireEvent.click(
+      await screen.findByRole("button", { name: "OpenRouter User" }, { timeout: 5000 }),
+    );
+    const nameInput = await screen.findByDisplayValue("OpenRouter User", {}, { timeout: 5000 });
+    fireEvent.change(nameInput, { target: { value: "OpenRouter User Draft" } });
+
+    // 后端积压一条 deep link；脏编辑器时应 requestExit 且不 drain IPC
+    pendingUrls = ["code-manager://profiles/import?payload=abc"];
+    await act(async () => {
+      await emitTauriEvent("profile-import-deep-link", undefined);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(drainCount).toBe(drainAfterLoad);
+    expect(screen.getByRole("heading", { name: "存在未保存的更改" })).toBeInTheDocument();
+
+    // 继续编辑：仍不 drain
+    fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: "存在未保存的更改" })).not.toBeInTheDocument();
+    });
+    expect(drainCount).toBe(drainAfterLoad);
+
+    // 关闭抽屉：dirty 时再弹 exit-guard，不保存退出后解除 guard → force drain
+    // pendingUrls 在首次事件时未 drain，仍保留在 mock 队列中
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "存在未保存的更改" })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "不保存退出" }));
+
+    await waitFor(() => {
+      expect(drainCount).toBeGreaterThan(drainAfterLoad);
+    });
+    expect(
+      await screen.findByRole("dialog", { name: "导入配置" }, { timeout: 5000 }),
+    ).toBeInTheDocument();
+  }, 15_000);
+
   it("reloads the config workspace when user settings changes", async () => {
     enableTauriEvents();
     invokeMock.mockImplementation(async (command) => {
@@ -813,10 +915,18 @@ describe("App", () => {
 
     renderApp();
 
+    // 首屏 load 次数受 language 同步是否重建 loadWorkspace 影响（1 或 2），只要求至少一次后稳定再测增量
     await waitFor(() => {
       expect(
-        invokeMock.mock.calls.filter(([command]) => command === "get_config_workspace"),
-      ).toHaveLength(2);
+        invokeMock.mock.calls.filter(([command]) => command === "get_config_workspace").length,
+      ).toBeGreaterThanOrEqual(1);
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("加载中...")).not.toBeInTheDocument();
+    });
+    // 等可能的二次 load 落定
+    await act(async () => {
+      await Promise.resolve();
     });
     const workspaceLoadCount = invokeMock.mock.calls.filter(
       ([command]) => command === "get_config_workspace",

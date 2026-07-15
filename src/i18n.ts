@@ -240,6 +240,7 @@ const translations = {
     "profiles.import.dialogTitle": "导入配置",
     "profiles.import.dialogDescription":
       "从外部 JSON 配置文件导入为新配置。导入后不会自动启用，请按需填写名称并补全认证密钥。",
+    "profiles.import.defaultName": "导入的配置",
     "profiles.import.nameLabel": "名称",
     "profiles.import.namePlaceholder": "供应商-用途",
     "profiles.import.descriptionLabel": "描述",
@@ -1945,6 +1946,7 @@ const translations = {
     "profiles.import.dialogTitle": "Import Profile",
     "profiles.import.dialogDescription":
       "Import an external JSON settings file as a new profile. It won't be applied automatically — set a name and fill in the auth token afterward.",
+    "profiles.import.defaultName": "Imported Profile",
     "profiles.import.nameLabel": "Name",
     "profiles.import.namePlaceholder": "provider-purpose",
     "profiles.import.descriptionLabel": "Description",

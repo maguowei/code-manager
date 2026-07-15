@@ -253,10 +253,7 @@ fn parse_profile_import_deep_link(raw: &str) -> Result<ParsedProfileImportDeepLi
         }
     };
 
-    if name.trim().is_empty() {
-        name = "Imported Profile".to_string();
-    }
-
+    // 缺省 name 保持空串：由前端 i18n 预填默认名，避免硬编码英文用户可见文案
     Ok(ParsedProfileImportDeepLink {
         source,
         name: name.trim().to_string(),
@@ -507,6 +504,16 @@ mod tests {
         let parsed = parse_profile_import_deep_link(&raw).unwrap();
         assert_eq!(parsed.name, "Demo");
         assert_eq!(parsed.description, "Note");
+        assert!(matches!(parsed.source, ProfileImportSource::Payload(_)));
+    }
+
+    #[test]
+    fn parse_payload_link_leaves_name_empty_when_absent() {
+        let settings = br#"{"model":"claude"}"#;
+        let payload = URL_SAFE_NO_PAD.encode(settings);
+        let raw = format!("code-manager://profiles/import?payload={payload}");
+        let parsed = parse_profile_import_deep_link(&raw).unwrap();
+        assert_eq!(parsed.name, "");
         assert!(matches!(parsed.source, ProfileImportSource::Payload(_)));
     }
 

@@ -2765,10 +2765,12 @@ fn insert_imported_profile(
     let mut registry = load_registry()?;
     let now = crate::utils::current_rfc3339_timestamp();
     let trimmed_name = name.trim();
+    // 名称优先用调用方传入；仍为空时用 import-<短 id> 技术兜底，避免硬编码英文 UI 文案
+    let profile_id = Uuid::new_v4().to_string();
     let profile = ConfigProfile {
-        id: Uuid::new_v4().to_string(),
+        id: profile_id.clone(),
         name: if trimmed_name.is_empty() {
-            "Imported Profile".to_string()
+            format!("import-{}", &profile_id[..8])
         } else {
             trimmed_name.to_string()
         },

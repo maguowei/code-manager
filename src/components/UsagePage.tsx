@@ -90,7 +90,9 @@ const CACHE_HIT_RATE_THRESHOLDS = [
 ] as const satisfies ReadonlyArray<{ y: number; color: string; labelKey: TranslationKey }>;
 
 const TICK_STYLE = { fill: "var(--muted-foreground)", fontSize: 11 };
+// 图表轴/参考线标签白名单：空间受限的 dense chart 允许 10px（见 frontend-ui.md）
 const TICK_STYLE_SM = { fill: "var(--muted-foreground)", fontSize: 10 };
+const CHART_REFERENCE_LABEL_STYLE = { fontSize: 10 } as const;
 const CHART_GRID_STROKE = "var(--border)";
 const CHART_CURSOR_FILL = "color-mix(in oklch, var(--chart-1) 15%, transparent)";
 const CHART_CURSOR_STROKE = "var(--chart-1)";
@@ -426,7 +428,7 @@ function UsagePage({ projectRequest = null, onOpenSessionInHistory }: UsagePageP
     });
 
     const overallRate = computeCacheHitRatePercent(periodInput, periodCreate, periodRead);
-    // 图例按输入侧 token 体量降序，主力模型靠前；meta 仍是加权命中率
+    // 图例按纯 input tokens 降序，主力模型靠前；meta 仍是加权命中率
     const modelSeries: TrendSeriesItem[] = sortedModels
       .map((model) => {
         const agg = periodByModel.get(model) ?? { input: 0, create: 0, read: 0 };
@@ -436,7 +438,7 @@ function UsagePage({ projectRequest = null, onOpenSessionInHistory }: UsagePageP
           originalName: model,
           color: colorMap.get(model) ?? SERIES_COLORS[0],
           total: computeCacheHitRatePercent(agg.input, agg.create, agg.read),
-          volume: agg.input + agg.create + agg.read,
+          volume: agg.input,
         };
       })
       .sort((a, b) => b.volume - a.volume || a.name.localeCompare(b.name))
@@ -1295,7 +1297,8 @@ function UsagePage({ projectRequest = null, onOpenSessionInHistory }: UsagePageP
                                     value: t(th.labelKey),
                                     position: "insideBottomRight",
                                     fill: th.color,
-                                    fontSize: 10,
+                                    // 与 TICK_STYLE_SM 同属 chart 10px 白名单
+                                    ...CHART_REFERENCE_LABEL_STYLE,
                                   }}
                                 />
                               ))}
@@ -1374,7 +1377,8 @@ function UsagePage({ projectRequest = null, onOpenSessionInHistory }: UsagePageP
                                     value: t(th.labelKey),
                                     position: "insideBottomRight",
                                     fill: th.color,
-                                    fontSize: 10,
+                                    // 与 TICK_STYLE_SM 同属 chart 10px 白名单
+                                    ...CHART_REFERENCE_LABEL_STYLE,
                                   }}
                                 />
                               ))}

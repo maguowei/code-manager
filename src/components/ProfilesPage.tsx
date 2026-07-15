@@ -24,6 +24,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { settingsJsonContainsSecrets } from "@/lib/settings-secrets";
 import { getUserFacingErrorReason, showOperationError } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 import { useToast } from "../hooks/useToast";
@@ -916,28 +917,33 @@ function ProfilesPage({
     void pumpDeepLinkQueue();
   }
 
+  // 文件与 deep link 共用：预览含密钥时须勾选确认
+  const importContainsSecrets =
+    importDialogSource?.kind === "deepLink"
+      ? importDialogSource.containsSecrets
+      : importDialogSource?.kind === "file"
+        ? settingsJsonContainsSecrets(importPreview)
+        : false;
+
   // 确认导入:校验通过后创建新配置(不自动绑定/激活)
   async function handleConfirmImport() {
     if (!importDialogSource || importPreviewError) return;
-    if (
-      importDialogSource.kind === "deepLink" &&
-      importDialogSource.containsSecrets &&
-      !importSecretsAcknowledged
-    ) {
+    if (importContainsSecrets && !importSecretsAcknowledged) {
       return;
     }
     setIsImporting(true);
+    const resolvedName = importName.trim() || t("profiles.import.defaultName");
     try {
       if (importDialogSource.kind === "file") {
         await ipc.importProfileFromFile(
           importDialogSource.sourcePath,
-          importName,
+          resolvedName,
           importDescription,
         );
       } else {
         await ipc.importProfileFromSettingsJson(
           importDialogSource.settingsJson,
-          importName,
+          resolvedName,
           importDescription,
         );
       }
@@ -968,7 +974,8 @@ function ProfilesPage({
         containsSecrets: resolved.containsSecrets,
         source: resolved.source,
       });
-      setImportName(resolved.name);
+      // 后端缺省 name 为空；用 i18n 默认名预填，避免硬编码英文
+      setImportName(resolved.name.trim() || tRef.current("profiles.import.defaultName"));
       setImportDescription(resolved.description);
       setImportPreview(resolved.settingsJson);
       setImportSecretsAcknowledged(false);
@@ -2326,7 +2333,7 @@ function ProfilesPage({
                 : t("profiles.import.dialogDescription")}
             </DialogDescription>
           </DialogHeader>
-          {importDialogSource?.kind === "deepLink" && importDialogSource.containsSecrets ? (
+          {importContainsSecrets ? (
             <div className="flex flex-col gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3">
               <p className={cn(TYPOGRAPHY.body, "m-0 text-destructive")}>
                 {t("profiles.import.deepLink.secretsWarning")}
@@ -2375,9 +2382,7 @@ function ProfilesPage({
                 isImporting ||
                 !!importPreviewError ||
                 isImportPreviewLoading ||
-                (importDialogSource?.kind === "deepLink" &&
-                  importDialogSource.containsSecrets &&
-                  !importSecretsAcknowledged)
+                (importContainsSecrets && !importSecretsAcknowledged)
               }
               onClick={() => void handleConfirmImport()}
             >

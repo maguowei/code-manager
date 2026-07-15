@@ -2220,6 +2220,93 @@ describe("ProfilesPage", () => {
     });
   });
 
+  it("requires secrets acknowledgement for file import with auth tokens", async () => {
+    const onWorkspaceChange = vi.fn(async () => {});
+    openDialogMock.mockResolvedValue("/tmp/secret-config.json");
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === "preview_profile_import") {
+        return '{\n  "env": {\n    "ANTHROPIC_AUTH_TOKEN": "sk-test"\n  }\n}';
+      }
+      if (command === "import_profile_from_file") {
+        return {
+          id: "imported-secret",
+          name: "secret-config",
+          description: "",
+          settings: { env: { ANTHROPIC_AUTH_TOKEN: "sk-test" } },
+          createdAt: "2026-06-22T00:00:00Z",
+          updatedAt: "2026-06-22T00:00:00Z",
+        };
+      }
+      return null;
+    });
+
+    renderPage(WORKSPACE_FIXTURE, onWorkspaceChange);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "导入配置" }));
+      await Promise.resolve();
+    });
+
+    const dialog = await screen.findByRole("dialog", { name: "导入配置" });
+    await waitFor(() => {
+      expect(within(dialog).getByText(/包含认证密钥/)).toBeInTheDocument();
+    });
+    const importButton = within(dialog).getByRole("button", { name: "导入" });
+    expect(importButton).toBeDisabled();
+
+    fireEvent.click(within(dialog).getByRole("checkbox"));
+    expect(importButton).not.toBeDisabled();
+
+    await act(async () => {
+      fireEvent.click(importButton);
+      await Promise.resolve();
+    });
+
+    expect(invokeMock).toHaveBeenCalledWith("import_profile_from_file", {
+      sourcePath: "/tmp/secret-config.json",
+      name: "secret-config",
+      description: "",
+    });
+    await waitFor(() => {
+      expect(onWorkspaceChange).toHaveBeenCalled();
+    });
+  });
+
+  it("prefills deep link import name from i18n when backend name is empty", async () => {
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === "resolve_profile_import_deep_link") {
+        return {
+          name: "",
+          description: "",
+          settingsJson: '{\n  "model": "claude-sonnet-4-6"\n}',
+          containsSecrets: false,
+          source: "payload",
+        };
+      }
+      return null;
+    });
+
+    render(
+      <ThemeProvider>
+        <I18nProvider>
+          <ProfilesPage
+            workspace={WORKSPACE_FIXTURE}
+            onWorkspaceChange={async () => {}}
+            deepLinkImportRequest={{
+              urls: ["code-manager://profiles/import?payload=abc"],
+              requestId: 42,
+            }}
+          />
+        </I18nProvider>
+      </ThemeProvider>,
+    );
+
+    const dialog = await screen.findByRole("dialog", { name: "导入配置" });
+    await waitFor(() => {
+      expect(within(dialog).getByLabelText("名称")).toHaveValue("导入的配置");
+    });
+  });
+
   it("blocks import confirmation when the file fails validation", async () => {
     openDialogMock.mockResolvedValue("/tmp/broken.json");
     invokeMock.mockImplementation(async (command: string) => {

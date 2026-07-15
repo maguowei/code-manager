@@ -304,6 +304,10 @@ describe("ui system contract", () => {
 
     const statsSource = readFileSync("src/components/StatsPage.tsx", "utf8");
     const usageSource = readFileSync("src/components/UsagePage.tsx", "utf8");
+    // dense chart 10px 白名单：轴刻度 + 缓存命中率 ReferenceLine 标签
+    expect(usageSource).toContain("TICK_STYLE_SM");
+    expect(usageSource).toContain("CHART_REFERENCE_LABEL_STYLE");
+    expect(usageSource).toContain("fontSize: 10");
     const projectsSource = readFileSync("src/components/ProjectsPage.tsx", "utf8");
     const historySource = readFileSync("src/components/HistoryPage.tsx", "utf8");
     const historyProjectsSource = readFileSync("src/components/HistoryProjectList.tsx", "utf8");

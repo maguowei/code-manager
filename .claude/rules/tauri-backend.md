@@ -84,8 +84,9 @@ const workspace = await ipc.getConfigWorkspace();
 ## 后端边界
 
 - 后端继续负责配置合并、路径校验、目录遍历安全、真实落盘和日志脱敏。
-- 路径相关 command 必须防止符号链接、绝对路径和 `..` 路径逃逸。
-- `claude_directory` 和 `project` 的文件树/预览 command 只能暴露受控目录内部内容，不能让前端绕过后端路径边界。
+- 路径相关 command 必须防止绝对路径和 `..` 路径逃逸。
+- **只读跟随软链（ADR 0002）**：`claude_directory` 与项目级 `.claude` 的**扫描 / 预览**允许跟随符号链接，目标可在受控 root 外；相对路径仍禁止 `..` / 绝对段。用户级与项目级（含项目 `.claude` 根目录本身是软链）共用该只读契约。
+- **写操作仍拒绝软链路径**：新建 / 重命名 / 删除等写路径一旦经过软链组件必须拒绝；项目侧创建设置文件时若 `.claude` 根是软链也拒绝。
 - 日志脱敏字段清单与日志格式规范见 `.claude/rules/projects-tray-diagnostics.md` 的「日志与诊断」一节，不要在两处维护副本。
 
 ## 用量 runtime 与 SQLite

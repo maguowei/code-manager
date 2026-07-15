@@ -101,7 +101,10 @@ function App() {
   const usageProjectRequestIdRef = useRef(0);
   const deepLinkImportRequestIdRef = useRef(0);
   const workspaceRequestIdRef = useRef(0);
-
+  const activateTabRef = useRef<(tab: TabType) => void>(() => {});
+  const drainProfileImportDeepLinksRef = useRef<(options?: { force?: boolean }) => Promise<void>>(
+    async () => {},
+  );
   const loadWorkspace = useCallback(async () => {
     if (!isTauri()) {
       setWorkspace(EMPTY_WORKSPACE);
@@ -163,8 +166,49 @@ function App() {
     }
   });
 
+  // Toast/i18n 走 ref，避免语言切换重建 drain 回调并误触发冷启动 effect
+  const showToastRef = useRef(showToast);
+  const tRef = useRef(t);
+  showToastRef.current = showToast;
+  tRef.current = t;
+
+  // 配置导入 deep link：drain 后端 pending 队列，切到配置页交给 ProfilesPage 排队预览。
+  // force=true 跳过 exit-guard（用户已确认离开，或 guard 刚解除后的重试）。
+  // 脏编辑器时只 requestExit、**不** drain；取消后 URL 仍在后端队列，guard 解除时再试。
+  const drainProfileImportDeepLinks = useCallback(async (options?: { force?: boolean }) => {
+    if (!isTauri()) return;
+    if (!options?.force && editorExitGuardRef.current) {
+      editorExitGuardRef.current.requestExit(() => {
+        void drainProfileImportDeepLinksRef.current({ force: true });
+      });
+      return;
+    }
+    try {
+      const urls = await ipc.drainPendingProfileImportDeepLinks();
+      if (!urls?.length) return;
+      deepLinkImportRequestIdRef.current += 1;
+      setDeepLinkImportRequest({
+        urls,
+        requestId: deepLinkImportRequestIdRef.current,
+      });
+      activateTabRef.current("configs");
+    } catch (error) {
+      showOperationError(
+        showToastRef.current,
+        tRef.current("profiles.import.deepLink.toast.resolveError"),
+        error,
+      );
+    }
+  }, []);
+  drainProfileImportDeepLinksRef.current = drainProfileImportDeepLinks;
+
   const setEditorExitGuard = useCallback((guard: EditorExitGuard | null) => {
+    const hadGuard = editorExitGuardRef.current != null;
     editorExitGuardRef.current = guard;
+    // 编辑器关闭/解除保护后重试 pending deep link（覆盖「继续编辑」未 drain 的场景）
+    if (hadGuard && guard == null) {
+      void drainProfileImportDeepLinksRef.current({ force: true });
+    }
   }, []);
 
   const runWithEditorExitGuard = useCallback((action: () => void) => {
@@ -176,7 +220,6 @@ function App() {
 
     action();
   }, []);
-
   const activateTab = useCallback((nextTab: TabType) => {
     if (nextTab === "claudeOverview") {
       setHasVisitedClaudeOverview(true);
@@ -186,6 +229,7 @@ function App() {
     setActiveTab(nextTab);
     setIsDetailDrawerOpen(false);
   }, []);
+  activateTabRef.current = activateTab;
 
   useEffect(() => {
     if (activeTab !== "history") {
@@ -286,35 +330,6 @@ function App() {
     [activateTab, runWithEditorExitGuard],
   );
 
-  // Toast/i18n 走 ref，避免语言切换重建 drain 回调并误触发冷启动 effect
-  const showToastRef = useRef(showToast);
-  const tRef = useRef(t);
-  showToastRef.current = showToast;
-  tRef.current = t;
-
-  // 配置导入 deep link：drain 后端 pending 队列，切到配置页交给 ProfilesPage 排队预览
-  const drainProfileImportDeepLinks = useCallback(async () => {
-    if (!isTauri()) return;
-    try {
-      const urls = await ipc.drainPendingProfileImportDeepLinks();
-      if (!urls?.length) return;
-      runWithEditorExitGuard(() => {
-        deepLinkImportRequestIdRef.current += 1;
-        setDeepLinkImportRequest({
-          urls,
-          requestId: deepLinkImportRequestIdRef.current,
-        });
-        activateTab("configs");
-      });
-    } catch (error) {
-      showOperationError(
-        showToastRef.current,
-        tRef.current("profiles.import.deepLink.toast.resolveError"),
-        error,
-      );
-    }
-  }, [activateTab, runWithEditorExitGuard]);
-
   // ProfilesPage 接管 urls 入队后按 requestId 清空，避免残留 state 在 remount 时重放；
   // 仅匹配当前 id 时清空，防止旧请求的 clear 冲掉并发 drain 的新 request
   const handleDeepLinkImportConsumed = useCallback((requestId: number) => {
@@ -329,7 +344,6 @@ function App() {
   useTauriEvent<void>("profile-import-deep-link", () => {
     void drainProfileImportDeepLinks();
   });
-
   if (loading) {
     return (
       <TooltipProvider delayDuration={200}>
