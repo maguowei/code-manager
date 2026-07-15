@@ -20,12 +20,16 @@ pub const DEEP_LINK_SCHEME: &str = "code-manager";
 pub const PROFILE_IMPORT_PATH: &str = "profiles/import";
 /// 内嵌 payload 解码后硬上限（字节）。
 pub const MAX_PAYLOAD_DECODED_BYTES: usize = 16 * 1024;
+/// 解码前对 base64 串的粗上限（约 4/3 膨胀 + 余量），避免先完整解码再拒。
+pub const MAX_PAYLOAD_ENCODED_CHARS: usize = MAX_PAYLOAD_DECODED_BYTES * 4 / 3 + 8;
 /// 远端响应体上限。
 pub const MAX_REMOTE_BODY_BYTES: usize = 256 * 1024;
 /// 远端 HTTPS 最大跳转次数。
 pub const MAX_REMOTE_REDIRECTS: usize = 3;
 /// 远端拉取超时。
 pub const REMOTE_FETCH_TIMEOUT: Duration = Duration::from_secs(10);
+/// pending 导入队列硬上限；超出时丢弃最旧项并记 warn。
+pub const MAX_PENDING_PROFILE_IMPORT_DEEP_LINKS: usize = 20;
 
 const EVENT_PROFILE_IMPORT_DEEP_LINK: &str = "profile-import-deep-link";
 
@@ -74,10 +78,18 @@ impl PendingProfileImportDeepLinks {
             .urls
             .lock()
             .map_err(|_| "深度链接队列锁异常".to_string())?;
-        // 仅与队尾去重，避免同一次系统连发重复入队
-        if guard.back() != Some(&url) {
-            guard.push_back(url);
+        // 队列内全局去重：同一 URL 已在待处理中则跳过
+        if guard.iter().any(|existing| existing == &url) {
+            return Ok(());
         }
+        while guard.len() >= MAX_PENDING_PROFILE_IMPORT_DEEP_LINKS {
+            let dropped = guard.pop_front();
+            log::warn!(
+                "event=deep_link.enqueue status=drop_oldest reason=queue_full dropped={}",
+                dropped.as_deref().unwrap_or("")
+            );
+        }
+        guard.push_back(url);
         Ok(())
     }
 }
@@ -347,6 +359,13 @@ fn decode_payload(payload: &str) -> Result<String, String> {
     if trimmed.is_empty() {
         return Err("payload 为空".to_string());
     }
+    // 先按编码长度粗拒，避免超大字符串先完整解码再失败
+    if trimmed.len() > MAX_PAYLOAD_ENCODED_CHARS {
+        return Err(format!(
+            "payload 编码长度超过 {} 字符上限",
+            MAX_PAYLOAD_ENCODED_CHARS
+        ));
+    }
     let bytes = URL_SAFE_NO_PAD
         .decode(trimmed)
         .or_else(|_| URL_SAFE.decode(trimmed))
@@ -541,8 +560,10 @@ fn is_blocked_ip(ip: IpAddr) -> bool {
                 || v4.is_multicast()
                 // CGNAT 100.64.0.0/10
                 || (v4.octets()[0] == 100 && (v4.octets()[1] & 0xc0) == 64)
-                // 文档/基准 198.18.0.0/15、192.0.2.0/24 等一并拦截常见非公网
+                // 文档用 192.0.2.0/24、198.51.100.0/24、203.0.113.0/24
                 || v4.is_documentation()
+                // 基准测试网 198.18.0.0/15（is_documentation 不覆盖）
+                || (v4.octets()[0] == 198 && (v4.octets()[1] & 0xfe) == 18)
                 || (v4.octets()[0] == 0)
         }
         IpAddr::V6(v6) => {
@@ -610,6 +631,13 @@ mod tests {
     }
 
     #[test]
+    fn decode_payload_rejects_oversized_encoded_string_before_decode() {
+        let oversized = "A".repeat(MAX_PAYLOAD_ENCODED_CHARS + 1);
+        let err = decode_payload(&oversized).unwrap_err();
+        assert!(err.contains("编码长度"), "unexpected: {err}");
+    }
+
+    #[test]
     fn decode_payload_accepts_valid_json_bytes() {
         let payload = URL_SAFE_NO_PAD.encode(br#"{"model":"claude"}"#);
         let raw = decode_payload(&payload).unwrap();
@@ -657,12 +685,37 @@ mod tests {
     }
 
     #[test]
-    fn pending_queue_skips_duplicate_tail() {
+    fn pending_queue_skips_duplicate_anywhere() {
         let pending = PendingProfileImportDeepLinks::default();
-        let url = "code-manager://profiles/import?payload=a";
-        pending.push_url(url.into()).unwrap();
-        pending.push_url(url.into()).unwrap();
-        assert_eq!(pending.len().unwrap(), 1);
+        pending
+            .push_url("code-manager://profiles/import?payload=a".into())
+            .unwrap();
+        pending
+            .push_url("code-manager://profiles/import?payload=b".into())
+            .unwrap();
+        // 与队中非队尾项重复也应跳过
+        pending
+            .push_url("code-manager://profiles/import?payload=a".into())
+            .unwrap();
+        assert_eq!(pending.len().unwrap(), 2);
+    }
+
+    #[test]
+    fn pending_queue_drops_oldest_when_full() {
+        let pending = PendingProfileImportDeepLinks::default();
+        for i in 0..(MAX_PENDING_PROFILE_IMPORT_DEEP_LINKS + 3) {
+            pending
+                .push_url(format!("code-manager://profiles/import?payload={i}"))
+                .unwrap();
+        }
+        assert_eq!(
+            pending.len().unwrap(),
+            MAX_PENDING_PROFILE_IMPORT_DEEP_LINKS
+        );
+        assert_eq!(
+            pending.peek_front().unwrap().as_deref(),
+            Some("code-manager://profiles/import?payload=3")
+        );
     }
 
     #[test]
@@ -702,6 +755,10 @@ mod tests {
         assert!(is_blocked_ip("169.254.169.254".parse().unwrap()));
         assert!(is_blocked_ip("::1".parse().unwrap()));
         assert!(!is_blocked_ip("1.1.1.1".parse().unwrap()));
+        // 基准测试网 198.18.0.0/15
+        assert!(is_blocked_ip("198.18.0.1".parse().unwrap()));
+        assert!(is_blocked_ip("198.19.255.255".parse().unwrap()));
+        assert!(!is_blocked_ip("198.20.0.1".parse().unwrap()));
     }
 
     #[test]

@@ -131,6 +131,18 @@ Skills 对应 `~/.claude/skills/<id>/SKILL.md`。启用的 Skill 保存在 `~/.c
 
 模型测试需要有效的 `ANTHROPIC_AUTH_TOKEN` 和可访问的模型 API。
 
+### 深度链接导入
+
+可用系统 URL 把一份 Claude settings 送进 Code Manager 做预览导入,scheme为 `code-manager://profiles/import`。
+
+- **两种来源(互斥)**:内嵌 `payload=`(base64url 编码的裸 settings JSON,解码后约 16KB 上限),或远端 `url=`(仅 HTTPS,应用拉取后导入;有 SSRF 防护与体积/跳转限制)。
+- **可选参数**:`name`、`description` 仅用于预填导入对话框。
+- **不自动启用**:解析成功后会切到配置页并打开与文件导入相同的预览对话框;确认后**新建配置**,`providerId` 为空,且**不会**自动写入或绑定 `~/.claude/settings.json`。
+- **密钥**:若载荷含认证类字段,须勾选风险确认后才能导入。从已有配置「复制 Deep Link」时默认不含密钥;显式包含密钥时同样需勾选确认。
+- **多条排队**:连续打开多条链接会排队处理;关闭预览或导入成功后继续下一条。离开配置页再回来,未确认的链接仍会恢复(权威队列在应用后端)。
+
+macOS / Windows / Linux 在安装包场景下均可注册 scheme;开发态下 Linux/Windows 可能需额外注册。
+
 ## 供应商 Provider
 
 供应商均为内置且只读,只承载供应商客观信息(连接地址 `ANTHROPIC_BASE_URL`、模型映射与可选附加环境变量),不含认证密钥。当前覆盖 Anthropic、DeepSeek、智谱 GLM Coding Plan、Kimi Code Plan、MiniMax Token Plan、小米 MiMo Token Plan、OpenRouter、火山方舟 Coding Plan、阿里云百炼 Coding Plan、万界方舟和 Ollama。
@@ -299,6 +311,18 @@ Code Manager 常驻系统托盘(菜单栏),菜单分两部分:
 - 会话聚焦快捷键:为"聚焦最需处理的会话"注册全局快捷键。点击录制后按下组合键(需包含至少一个修饰键 ⌘/⌃/⌥/⇧),可随时恢复默认。
 
 > 设备联动整组仅在 macOS 显示;其它平台不提供 LED 与全局会话聚焦快捷键。
+
+### 防止休眠(仅 macOS)
+
+在 Claude Code 会话需要长时间运行时,可阻止电脑因空闲进入休眠。
+
+- **模式(三选一)**:
+  - **关闭**:不干预系统休眠。
+  - **仅活动时**:有运行中的 Claude Code 会话时保持唤醒;会话全部结束后可正常休眠。
+  - **始终**:无条件保持唤醒(仍受「屏幕常亮」开关约束)。
+- **同时保持屏幕常亮**:与模式正交。默认只阻止**系统空闲休眠**,屏幕仍可按系统策略熄灭;开启后连显示器一起保持点亮。
+- **实时状态**:模式非关闭时,设置区会显示「正在保持唤醒」或「空闲,可休眠」等状态点;托盘菜单也可切换模式。
+- **边界**:仅 macOS 生效;合盖等硬件策略可能仍导致睡眠;退出应用会释放电源断言。
 
 ### 系统通知与计价
 
