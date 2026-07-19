@@ -9,3 +9,6 @@
 *.icns binary
 *.db binary
 *.sqlite binary
+
+# pnpm patch 文件由工具生成，unified diff 的空行含单空格，豁免 whitespace 检查
+patches/** -whitespace

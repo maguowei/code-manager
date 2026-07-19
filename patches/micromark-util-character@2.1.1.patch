@@ -1,0 +1,40 @@
+diff --git a/index.js b/index.js
+index 13698f04f2ea3591b7ca012b4270e027fb73e9bf..48a7a5d2ffd3b3fc876441ac47478e302658a3f6 100644
+--- a/index.js
++++ b/index.js
+@@ -197,7 +197,34 @@ export function markdownSpace(code) {
+  * @returns
+  *   Whether it matches.
+  */
+-export const unicodePunctuation = regexCheck(/\p{P}|\p{S}/u);
++export const unicodePunctuation = regexCheck(createUnicodePunctuationRegex());
++
++/**
++ * 构造 Unicode 标点/符号匹配正则。
++ *
++ * 原实现使用正则字面量 `/\p{P}|\p{S}/u`,该字面量在脚本解析期即被求值,
++ * 旧版 macOS WebKit / WKWebView (JavaScriptCore) 对通用类别 Unicode property
++ * escape 支持不完整,会在模块加载时直接抛出
++ * `Invalid regular expression: invalid group specifier name`,导致整个懒加载
++ * 页面(记忆 / Skill / 历史)白屏。改为运行时 `new RegExp` 构造 + try/catch,
++ * 新环境仍走原生 property escape,旧环境退回覆盖 ASCII 与常见标点区段的近似正则,
++ * 保证不再崩溃(仅在极端 Unicode 边界判定上有可忽略偏差)。
++ *
++ * @returns {RegExp}
++ */
++function createUnicodePunctuationRegex() {
++  try {
++    return new RegExp('\\p{P}|\\p{S}', 'u')
++  } catch {
++    // 旧 WebKit 不支持 \p{...},退回覆盖 ASCII 标点/符号 + Latin-1 补充
++    // + 通用标点区(U+2000-206F)+ CJK 标点(U+3000-303F)+ 全角标点(U+FF00-FFEF)
++    // 的近似区间,足以覆盖 GFM 文本解析的绝大多数场景。
++    return new RegExp(
++      '[\\u0021-\\u002F\\u003A-\\u0040\\u005B-\\u0060\\u007B-\\u007E' +
++        '\\u00A1-\\u00BF\\u2000-\\u206F\\u3000-\\u303F\\uFF00-\\uFFEF]',
++    )
++  }
++}
+ 
+ /**
+  * Check whether the character code represents Unicode whitespace.
