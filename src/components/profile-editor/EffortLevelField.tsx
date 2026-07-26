@@ -15,7 +15,6 @@ const EFFORT_DESCRIPTION_LEVELS = [
   { level: "high", descKey: "profiles.editor.effort.desc.high" },
   { level: "xhigh", descKey: "profiles.editor.effort.desc.xhigh" },
   { level: "max", descKey: "profiles.editor.effort.desc.max" },
-  { level: "ultracode", descKey: "profiles.editor.effort.desc.ultracode" },
 ] as const;
 
 interface EffortLevelFieldProps {
@@ -46,10 +45,6 @@ function EffortLevelField({ options, value, onChange, ariaLabel, id }: EffortLev
   const currentLabel = options.find((option) => option.value === value)?.label[language] ?? value;
   const columnsStyle = { gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` };
 
-  // ultracode 档(若存在)用于高亮其前一段轨道
-  const ultraIndex = options.findIndex((option) => option.value === "ultracode");
-  const hasUltra = ultraIndex > 0 && count > 1;
-  const ultraStartPercent = hasUltra ? ((ultraIndex - 1) / (count - 1)) * 100 : 0;
   // 滑块两侧各内缩半格,使第 i 档恰好落在第 i 列(整宽等分网格)的中心,实现刻度/滑块/标签垂直对齐
   const insetMargin = count > 0 ? `${50 / count}%` : "0%";
   // low 之前的档(未设置/auto)归为「默认」区,Faster→Smarter 梯度从 low 开始
@@ -109,15 +104,7 @@ function EffortLevelField({ options, value, onChange, ariaLabel, id }: EffortLev
               value={[activeIndex]}
               onValueChange={([next]) => onChange(options[next]?.value ?? "")}
             >
-              <SliderPrimitive.Track className="relative h-0.5 w-full rounded-full bg-border">
-                {hasUltra ? (
-                  <span
-                    aria-hidden
-                    className="absolute inset-y-0 right-0 rounded-full bg-primary"
-                    style={{ left: `${ultraStartPercent}%` }}
-                  />
-                ) : null}
-              </SliderPrimitive.Track>
+              <SliderPrimitive.Track className="relative h-0.5 w-full rounded-full bg-border" />
               {/* 零宽滑块:Radix 读到宽度 0 不再内缩,中心精确落在刻度列;三角与焦点环溢出渲染 */}
               <SliderPrimitive.Thumb
                 aria-label={ariaLabel}
@@ -138,7 +125,6 @@ function EffortLevelField({ options, value, onChange, ariaLabel, id }: EffortLev
             <div className="grid" style={columnsStyle}>
               {options.map((option, index) => {
                 const active = index === activeIndex;
-                const isUltra = option.value === "ultracode";
                 return (
                   <Button
                     key={option.value || "__unset__"}
@@ -149,9 +135,8 @@ function EffortLevelField({ options, value, onChange, ariaLabel, id }: EffortLev
                     className={cn(
                       "h-auto justify-center px-0.5 py-0 font-normal",
                       TYPOGRAPHY.auxiliary,
-                      isUltra && "text-primary",
                       active && "font-semibold text-primary",
-                      !active && !isUltra && "text-muted-foreground hover:text-foreground",
+                      !active && "text-muted-foreground hover:text-foreground",
                     )}
                   >
                     {option.label[language]}
@@ -176,9 +161,7 @@ function EffortLevelField({ options, value, onChange, ariaLabel, id }: EffortLev
                 key={item.level}
                 className={cn("grid grid-cols-[4rem_1fr] gap-2", TYPOGRAPHY.auxiliary)}
               >
-                <span className={item.level === "ultracode" ? "text-primary" : "text-foreground"}>
-                  {item.level}
-                </span>
+                <span className="text-foreground">{item.level}</span>
                 <span className="text-muted-foreground">{t(item.descKey)}</span>
               </div>
             ))}

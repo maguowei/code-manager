@@ -116,13 +116,6 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
           en: "max",
         },
       },
-      {
-        value: "ultracode",
-        label: {
-          zh: "ultracode",
-          en: "ultracode",
-        },
-      },
     ],
   },
   {

@@ -1,57 +1,41 @@
 ---
 name: update-claude-code-schema
-description: Code Manager 仓库的 Claude Code settings schema 同步技能。同步 SchemaStore 最新定义、Claude Code 新增 settings 字段（hooks/env/worktree/permissionRule 等）、`validate_settings_document` 或 Rust 配置校验红，或复盘 schema 变化对前端编辑器/表单/类型契约的影响，凡涉及 src/schemas/claude-settings.schema.json 都使用本技能。
+description: 同步 Code Manager 的 Claude Code settings schema。当需要拉取 SchemaStore 最新定义、跟进 hooks/env/worktree/permissionRule 等新字段、排查 Rust 配置校验（`validate_settings_document` / `config::tests`）变红，或复盘 schema 变化对前端编辑器/表单/类型契约的影响时使用；凡改动 `src/schemas/claude-settings.schema.json` 都走本技能。
 ---
 
 # Update Claude Code Schema
 
-为 Code Manager 同步 Claude Code settings 的 SchemaStore 最新定义。**事实源永远是当前下载的 `https://www.schemastore.org/claude-code-settings.json`**——不要凭记忆、不要从网页片段拼补、不要只 diff 局部字段。
+为 Code Manager 同步 Claude Code settings 的 SchemaStore 定义。**事实源永远是当前下载的完整 `https://www.schemastore.org/claude-code-settings.json`**：整体替换本地文件，再证明语义等同。字段级拼补会漏掉上游的“删除字段”变更、让本地 schema 越积越脏——只做整体替换。
 
-## 工作流速览
+## 1. 前置检查
 
-1. **前置检查**：工具 + 规则 + 工作区状态。
-2. **下载官方 schema**：到临时文件，不读旧版。
-3. **整体替换 + 单文件格式化**：覆盖本地 schema。
-4. **语义比对**：本地与下载文件深度排序后字节相同。
-5. **审查关键变化**：列出新增 / 移除 / 收紧 / 放宽。
-6. **验证**：Rust schema 测试 + 格式检查 + diff check。
-7. **收口**：汇报比对结果、风险点、未尽项。
+读 `CLAUDE.md` 与 `.claude/rules/config-system.md`。`git status --short` 看工作区，只叠加本任务改动，不回退别人或上一条工作线的改动。确认 `curl`、`jq`、`node`、`pnpm`、`cargo` 可用。
 
-## 前置检查
-
-读 `CLAUDE.md` 和 `.claude/rules/config-system.md`。`git status --short` 看工作区——只叠加本任务的变更，不回退别人或上一条工作线的改动。
-
-确认工具可用：`curl`、`jq`、`node`、`pnpm`、`cargo`。
-
-## 下载官方 schema
+## 2. 下载官方 schema 到临时文件
 
 ```bash
 curl -fsSL https://www.schemastore.org/claude-code-settings.json \
   -o /private/tmp/claude-code-settings.latest.json
 ```
 
-- **为什么下载到临时文件**：留一份原始字节用于后续语义比对；本地文件可能已带格式化痕迹，直接覆盖会丢掉对照基线。
-- sandbox 下网络/代理可能挡掉 curl，按权限流程提权重跑同一命令，不要绕过。
+- 下载到临时文件，是为后续语义比对留一份未经格式化的原始字节基线——直接覆盖本地文件会丢掉对照基线。
+- sandbox 会挡掉这条 curl（读 `/etc` 证书或写 `/private/tmp` 被拒，报 `curl: (77)` 或 operation not permitted）。提权重跑同一条命令，不要改命令绕过。
 
-## 整体替换 + 单文件格式化
+## 3. 整体替换 + 单文件格式化
 
 ```bash
 cp /private/tmp/claude-code-settings.latest.json src/schemas/claude-settings.schema.json
 pnpm exec biome format --write src/schemas/claude-settings.schema.json
 ```
 
-- **为什么整体替换而不是字段级合并**：字段级合并会漏掉上游的"删除字段"变更；本地 schema 会越积越脏，最后偏离官方定义。
-- **为什么只格式化单文件而不是 `pnpm check`**：全仓格式化会顺手改写无关文件，污染本次 PR 的 blast radius，违反"最小影响面"原则。
+只格式化这一个文件：`pnpm check` / `make fmt` 会顺手改写无关文件，污染本次改动的 blast radius。
 
-## 语义比对
+## 4. 语义比对
+
+先验 JSON 完整，再证明本地与下载文件深度排序后字节相同——格式差异（缩进、键顺序）允许，内容漂移不允许：
 
 ```bash
 jq empty src/schemas/claude-settings.schema.json
-```
-
-再做深度排序后字节比对——格式差异（缩进、键顺序）允许，**内容漂移不允许**：
-
-```bash
 node -e '
 const fs = require("fs");
 const sort = v =>
@@ -73,37 +57,44 @@ console.log("schema matches SchemaStore semantically");
 '
 ```
 
-比对失败说明 biome format 改写了内容而不仅是格式——回查 biome 配置或 schema 中的特殊字符（如 unicode escape、JSON pointer）。
+**完成标准：打印 `schema matches SchemaStore semantically`。** 失败说明 biome format 改写了内容而非仅格式——回查 biome 配置或 schema 中的特殊字符（unicode escape、JSON pointer）。
 
-## 审查关键变化
+## 5. 审查关键变化
 
-下载完成后，按优先级扫一遍变化点。下列只是历史踩过的高频位置，不是 exhaustive list；以实际 diff 为准：
+深度排序比对只证明“和上游一致”，不告诉你“上游改了什么”。用 `git show HEAD` 取旧版、和下载文件对比顶层 `properties` 键，抓出增删：
 
-- **顶层字段**新增或移除（历史出现过：`skillOverrides`、`parentSettingsBehavior`、`subagentStatusLine` 等）。
-- **`env` 结构**：从宽泛 pattern 收紧成显式 properties，或新增大量环境变量枚举。
+```bash
+diff <(git show HEAD:src/schemas/claude-settings.schema.json | jq -r '.properties|keys[]' | sort) \
+     <(jq -r '.properties|keys[]' /private/tmp/claude-code-settings.latest.json | sort)
+```
+
+再按下列高频位置扫嵌套结构——这是历史踩过的点，不是穷举，以实际 diff 为准：
+
+- **`env`**：从宽泛 pattern 收紧成显式 properties，或新增大量环境变量枚举。
 - **`hooks`**：新事件类型、新字段（如 `continueOnBlock`、`args` exec form）、嵌套结构调整。
 - **`worktree`**：新字段或 enum 值。
-- **`permissionRule` 正则**：是否影响 `Read(*)`、`Skill(*)`、MCP tool 等通配规则的合法性。
+- **`permissionRule` 正则**：是否影响 `Read(*)`、`Skill(*)`、`mcp__*` 等通配规则的合法性。
+- **标量字段的 enum 收紧/放宽**：如顶层 `effortLevel` 去掉 `max`。step 5 的 `.properties|keys[]` 顶层键 diff 只能发现键增删，抓不到枚举收紧；这类变化会让前端表单选项与 Rust `validate_settings_document` 校验失配，必须单独核对。
+- **区分同名概念的两套枚举**：`env.CLAUDE_CODE_EFFORT_LEVEL`（env 键）与顶层 `effortLevel` 是不同字段、不同枚举、不同约束，收紧一个不影响另一个；排查前后端影响时不要混用。
 
-**审查目的不是顺手改产品**——只是把高风险变化抓出来告诉用户，确认是否需要后续动作（编辑器 UI、Rust 校验、表单字段、类型同步）。除非用户明确要求，本任务范围只到 schema 文件。
+审查只为把高风险变化告诉用户，确认是否需要后续动作（编辑器 UI、Rust 校验、表单字段、类型同步）。除非用户明确要求，本任务范围只到 schema 文件。
 
-## 验证
+## 6. 验证
 
 | 改动范围 | 命令 |
 | --- | --- |
 | JSON 完整性 | `jq empty src/schemas/claude-settings.schema.json` |
-| Rust schema 校验 | `cd src-tauri && cargo test validate_settings_document`、`cargo test config::tests` |
+| Rust 配置校验 | `cd src-tauri && cargo test config::tests` |
 | 格式 | `make fmt-check` |
 | Diff whitespace | `git diff --check` |
 
-**`validate_settings_document()` 的关键性质要记住**：未知顶层键允许通过，已知 schema 字段的嵌套结构会被严格校验。由此推论：
-
-- 上游**删除**顶层字段 → 老配置仍能作为未知键通过，Rust 测试通常不会炸。
-- 上游**修改已知字段的嵌套结构** → Rust 测试可能挂，需要更新断言或修复校验代码。
+- **测试过滤是子串匹配**：`cargo test validate_settings_document` 会命中 4 个 `validate_settings_document_*` 单测（均在 `config::tests` 内），并非"0 个用例"。验证以更全的 `cargo test config::tests`（68 passed 量级）为准即可，二者不矛盾。
+- **`validate_settings_document()` 的性质**：未知顶层键放行，已知字段的嵌套结构严格校验。推论：上游**删除**顶层字段 → 老配置作为未知键仍通过，Rust 一般不炸；上游**改已知字段的嵌套结构** → Rust 可能挂，需更新断言或修校验代码。
+- **前端门禁**：Stop 钩子会通用地提示 `make lint/build/test-frontend`；schema-only 改动由上表覆盖，无需前端构建。
 
 没有本次会话的新鲜命令输出，不声称通过。
 
-## 输出格式
+## 7. 收口输出
 
 ```
 ## Schema 同步结果
@@ -113,7 +104,7 @@ console.log("schema matches SchemaStore semantically");
 
 语义比对：<pass/fail>
 JSON 完整性：<pass/fail>
-Rust 校验测试：<test 名 → pass/fail，附关键输出>
+Rust 配置校验（config::tests）：<pass/fail，附关键输出>
 格式与 diff 检查：<pass/fail>
 
 关键 schema 变化：
