@@ -107,7 +107,7 @@ describe("ClaudeOverviewPage styles", () => {
 
     expect(source).toContain("claude-overview-header flex min-h-12");
     expect(source).toContain("bg-secondary");
-    expect(source).toContain("supports-[backdrop-filter]:bg-secondary/90");
+    expect(source).toContain("supports-backdrop-filter:bg-secondary/90");
     expect(source).not.toContain("bg-card/95 px-4 py-2 shadow-toolbar");
     expect(source).toContain("claude-overview-status flex min-h-0");
     expect(source).toContain("claude-overview-preview-toolbar flex min-h-[38px]");
@@ -118,7 +118,7 @@ describe("ClaudeOverviewPage styles", () => {
     const source = readText("src/components/ClaudeOverviewPage.tsx");
 
     expect(source).toContain("claude-overview-title-group flex min-w-0");
-    expect(source).toContain("max-[700px]:flex-[0_1_auto]");
+    expect(source).toContain("max-[700px]:flex-initial");
     expect(source).toContain("max-[700px]:flex-wrap");
   });
 
@@ -198,7 +198,7 @@ describe("ClaudeOverviewPage styles", () => {
     );
     // 预览面板需要给 Pierre 的 ResizeObserver / Virtualizer 正常测量尺寸，不能使用 layout containment
     expect(source).not.toContain("[contain:layout_style]");
-    expect(source).toContain("[contain:content]");
+    expect(source).toContain("contain-content");
     expect(source).toContain(
       "claude-overview-tree-ready h-full min-h-0 w-full flex-1 overflow-hidden rounded-lg border",
     );

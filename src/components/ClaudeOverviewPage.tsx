@@ -338,7 +338,7 @@ function ClaudeOverviewNameDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent aria-describedby={undefined} className="sm:max-w-[400px]">
+      <DialogContent aria-describedby={undefined} className="sm:max-w-100">
         <DialogHeader>
           <DialogTitle>{t(dialog.titleKey)}</DialogTitle>
         </DialogHeader>
@@ -980,12 +980,12 @@ function ClaudeOverviewPage({ active = false }: { active?: boolean }) {
       aria-labelledby="claude-overview-title"
     >
       {hasMounted ? <ClaudeOverviewIconSprite /> : null}
-      <header className="claude-overview-header flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border bg-secondary px-5 py-2.5 shadow-toolbar backdrop-blur supports-[backdrop-filter]:bg-secondary/90 max-[700px]:items-start max-[700px]:justify-start max-[700px]:gap-2">
-        <div className="claude-overview-title-group flex min-w-0 flex-1 basis-[280px] items-baseline gap-2.5 max-[700px]:flex-[0_1_auto] max-[700px]:flex-wrap">
+      <header className="claude-overview-header flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border bg-secondary px-5 py-2.5 shadow-toolbar backdrop-blur supports-backdrop-filter:bg-secondary/90 max-[700px]:items-start max-[700px]:justify-start max-[700px]:gap-2">
+        <div className="claude-overview-title-group flex min-w-0 flex-1 basis-70 items-baseline gap-2.5 max-[700px]:flex-initial max-[700px]:flex-wrap">
           <h1 id="claude-overview-title" className={cn("whitespace-nowrap", TYPOGRAPHY.pageTitle)}>
             {t("claudeOverview.title")}
           </h1>
-          <p className="font-mono text-xs leading-tight text-muted-foreground [overflow-wrap:anywhere]">
+          <p className="wrap-anywhere font-mono text-xs leading-tight text-muted-foreground">
             {overview.rootPath}
           </p>
         </div>
@@ -1117,7 +1117,7 @@ function ClaudeOverviewPage({ active = false }: { active?: boolean }) {
             <section
               className={cn(
                 "claude-overview-tree-pane flex min-h-0 min-w-0 w-full flex-1 overflow-hidden",
-                "[contain:content]",
+                "contain-content",
               )}
               aria-label={t("claudeOverview.tree")}
             >
@@ -1147,7 +1147,7 @@ function ClaudeOverviewPage({ active = false }: { active?: boolean }) {
               ) : (
                 <div
                   className={cn(
-                    "claude-overview-empty flex min-h-[180px] w-full flex-1 items-center justify-center rounded-lg border p-5 text-center leading-relaxed text-muted-foreground",
+                    "claude-overview-empty flex min-h-45 w-full flex-1 items-center justify-center rounded-lg border p-5 text-center leading-relaxed text-muted-foreground",
                     PANEL_SURFACE_CLASS,
                   )}
                 >

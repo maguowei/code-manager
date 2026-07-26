@@ -341,7 +341,7 @@ describe("ui system contract", () => {
     );
     expect(overviewSource).toContain("claude-overview-page relative flex h-full w-full");
     expect(overviewSource).toContain("claude-overview-header flex min-h-12 shrink-0 flex-wrap");
-    expect(overviewSource).toContain("supports-[backdrop-filter]:bg-secondary/90");
+    expect(overviewSource).toContain("supports-backdrop-filter:bg-secondary/90");
     expect(overviewSource).not.toContain("bg-card/95 px-4 py-2 shadow-toolbar");
     expect(overviewSource).toContain("claude-overview-body min-h-0 w-full flex-1 bg-secondary p-3");
     expect(overviewSource).toContain("ResizablePanelGroup");
