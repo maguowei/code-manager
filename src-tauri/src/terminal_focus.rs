@@ -62,11 +62,44 @@ pub fn terminal_supports_focus(app_slug: &str) -> bool {
     matches!(app_slug, "terminal" | "iterm" | "ghostty")
 }
 
+/// 从会话进程环境中识别实际承载它的终端。
+///
+/// `ps eww` 会返回完整环境，所以原始输出绝不能写入日志；这里只提取白名单内的
+/// `TERM_PROGRAM` 值，避免用户的默认终端设置与实际会话终端不一致时错误聚焦。
+fn terminal_app_from_pid(pid: u32) -> Option<&'static str> {
+    let pid = pid.to_string();
+    let output = Command::new("ps")
+        .args(["eww", "-p", pid.as_str(), "-o", "command="])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    terminal_app_from_ps_output(&String::from_utf8_lossy(&output.stdout))
+}
+
+/// 解析 `ps eww` 输出中白名单化的 `TERM_PROGRAM` 值。
+fn terminal_app_from_ps_output(output: &str) -> Option<&'static str> {
+    let term_program = output
+        .split_ascii_whitespace()
+        .find_map(|part| part.strip_prefix("TERM_PROGRAM="))?;
+
+    match term_program.to_ascii_lowercase().as_str() {
+        "apple_terminal" | "terminal" => Some("terminal"),
+        "iterm" | "iterm.app" | "iterm2" => Some("iterm"),
+        "ghostty" => Some("ghostty"),
+        "warp" | "warpterminal" => Some("warp"),
+        _ => None,
+    }
+}
+
 /// 尝试聚焦到 pid/cwd 对应的终端 tab。
 /// - 命中：返回 Ok(())。
 /// - 未命中或调用失败：返回 Err(FocusFailure)，同时在内部记 warn 日志。
 ///   调用方仅负责把失败原因转成系统通知 / Toast，不会自动新开 tab。
 pub fn focus_session_in_terminal(pid: u32, cwd: &str, app_slug: &str) -> Result<(), FocusFailure> {
+    // 优先使用目标进程的终端，读取失败再回退设置中的默认终端。
+    let app_slug = terminal_app_from_pid(pid).unwrap_or(app_slug);
     match app_slug {
         "terminal" => focus_via_tty("Terminal", pid, terminal_app_script),
         "iterm" => focus_via_tty("iTerm", pid, iterm_script),
@@ -257,6 +290,35 @@ mod tests {
         assert!(!terminal_supports_focus("warp"));
         assert!(!terminal_supports_focus(""));
         assert!(!terminal_supports_focus("Terminal")); // 大小写敏感，避免与配置里 slug 不一致
+    }
+
+    #[test]
+    fn process_terminal_program_resolves_supported_macos_terminals() {
+        assert_eq!(
+            terminal_app_from_ps_output("zsh TERM_PROGRAM=Apple_Terminal TERM=xterm-256color"),
+            Some("terminal")
+        );
+        assert_eq!(
+            terminal_app_from_ps_output("zsh TERM_PROGRAM=iTerm.app TERM=xterm-256color"),
+            Some("iterm")
+        );
+        assert_eq!(
+            terminal_app_from_ps_output("zsh TERM_PROGRAM=ghostty TERM=xterm-ghostty"),
+            Some("ghostty")
+        );
+        assert_eq!(
+            terminal_app_from_ps_output("zsh TERM_PROGRAM=WarpTerminal TERM=xterm-256color"),
+            Some("warp")
+        );
+    }
+
+    #[test]
+    fn process_terminal_program_ignores_unknown_or_missing_values() {
+        assert_eq!(
+            terminal_app_from_ps_output("zsh TERM_PROGRAM=Alacritty"),
+            None
+        );
+        assert_eq!(terminal_app_from_ps_output("zsh TERM=xterm-256color"), None);
     }
 
     #[test]
