@@ -55,12 +55,17 @@
     "baseUrl": "https://api.kimi.com/coding/",
     "docUrl": "https://www.kimi.com/code/docs/",
     "env": {
-      "ANTHROPIC_MODEL": "kimi-k2.7-code",
-      "ANTHROPIC_DEFAULT_OPUS_MODEL": "kimi-k2.7-code",
-      "ANTHROPIC_DEFAULT_SONNET_MODEL": "kimi-k2.7-code",
-      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "kimi-k2.7-code"
+      "ANTHROPIC_MODEL": "k3[1m]",
+      "ANTHROPIC_DEFAULT_OPUS_MODEL": "k3[1m]",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL": "k3[1m]",
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "k3-256k",
+      "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "1048576",
+      "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "1048576",
+      "CLAUDE_CODE_EFFORT_LEVEL": "high"
     },
     "models": [
+      { "id": "k3[1m]", "name": "Kimi K3" },
+      { "id": "k3-256k", "name": "Kimi K3 256K" },
       { "id": "kimi-k2.7-code", "name": "Kimi K2.7 Code" },
       { "id": "kimi-k2.7-code-highspeed", "name": "Kimi K2.7 Code 高速版" },
       { "id": "kimi-k2.6", "name": "Kimi K2.6" }
