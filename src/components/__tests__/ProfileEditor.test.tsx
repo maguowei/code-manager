@@ -1586,14 +1586,13 @@ describe("ProfileEditor", () => {
       "high",
       "xhigh",
       "max",
-      "ultracode",
     ]);
     // 默认未设置:刻度条停在最左端
     expect(within(effortSlider).getByRole("slider", { name: "努力级别" })).toHaveAttribute(
       "aria-valuenow",
       "0",
     );
-    // 底部描述表覆盖 ultracode
+    // 底部描述表覆盖 max
     expect(screen.getByText("何时使用")).toBeInTheDocument();
   });
 

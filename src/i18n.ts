@@ -424,8 +424,6 @@ const translations = {
     "profiles.editor.effort.desc.xhigh": "更深入的推理，令牌支出更高。Opus 4.7 上的默认值",
     "profiles.editor.effort.desc.max":
       "可以改进困难任务的性能，但可能显示收益递减，容易过度思考。在广泛采用前进行测试",
-    "profiles.editor.effort.desc.ultracode":
-      "一个 Claude Code 设置，为每个实质性任务规划一个动态工作流，每条消息进行 xhigh 推理。仅限会话",
     "profiles.editor.sections.common": "常用选项",
     "profiles.editor.sections.environment": "环境变量",
     "profiles.editor.sections.permissions": "权限",
@@ -2141,8 +2139,6 @@ const translations = {
       "Deeper reasoning with higher token spend. Default on Opus 4.7",
     "profiles.editor.effort.desc.max":
       "Can improve performance on hard tasks but may show diminishing returns and overthink. Test before adopting widely",
-    "profiles.editor.effort.desc.ultracode":
-      "A Claude Code setting that plans a dynamic workflow for each substantial task, with xhigh reasoning on every message. Session only",
     "profiles.editor.sections.common": "Common Options",
     "profiles.editor.sections.environment": "Environment Variables",
     "profiles.editor.sections.permissions": "Permissions",
