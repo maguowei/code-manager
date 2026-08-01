@@ -1,6 +1,7 @@
 import {
   BarChart3,
   BookOpen,
+  Boxes,
   Brain,
   Clock,
   DollarSign,
@@ -33,6 +34,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { key: "configs", label: "nav.configs", icon: SlidersHorizontal },
+  { key: "codex", label: "nav.codex", icon: Boxes },
   { key: "memory", label: "nav.memory", icon: Brain },
   { key: "skills", label: "nav.skills", icon: Zap },
   { key: "projects", label: "nav.projects", icon: FolderOpen },

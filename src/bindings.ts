@@ -18,6 +18,9 @@ export const commands = {
 	syncSharedProfileSettings: (sourceId: string, topLevelKeys: string[], envKeys: string[]) => typedError<number, string>(__TAURI_INVOKE("sync_shared_profile_settings", { sourceId, topLevelKeys, envKeys })),
 	deleteProfile: (id: string) => typedError<null, string>(__TAURI_INVOKE("delete_profile", { id })),
 	applyProfile: (id: string) => typedError<null, string>(__TAURI_INVOKE("apply_profile", { id })),
+	getCodexWorkspace: () => typedError<CodexWorkspace_Serialize, string>(__TAURI_INVOKE("get_codex_workspace")),
+	upsertCodexProvider: (data: CodexProviderInput) => typedError<CodexProvider_Serialize, string>(__TAURI_INVOKE("upsert_codex_provider", { data })),
+	deleteCodexProvider: (id: string) => typedError<null, string>(__TAURI_INVOKE("delete_codex_provider", { id })),
 	importUserSettingsProfile: (data: UserSettingsImportInput) => typedError<ConfigProfile_Serialize, string>(__TAURI_INVOKE("import_user_settings_profile", { data })),
 	installStatusLinePreset: (presetId: string, overwrite: boolean) => typedError<StatusLinePresetInstallResult, string>(__TAURI_INVOKE("install_status_line_preset", { presetId, overwrite })),
 	previewProfile: (data: ProfileInput) => typedError<string, string>(__TAURI_INVOKE("preview_profile", { data })),
@@ -285,6 +288,111 @@ export type ClaudeStats = {
 	skillUsage?: { [key in string]: UsageEntry },
 	lastPlanModeUse?: number | null,
 	btwUseCount?: number | null,
+};
+
+/**  Codex 侧的绑定态,记录当前激活(已 apply)的 Codex Profile。 */
+export type CodexBindingState = CodexBindingState_Serialize | CodexBindingState_Deserialize;
+
+/**  Codex 侧的绑定态,记录当前激活(已 apply)的 Codex Profile。 */
+export type CodexBindingState_Deserialize = {
+	codexProfileId: string | null,
+	codexLastAppliedAt: string | null,
+};
+
+/**  Codex 侧的绑定态,记录当前激活(已 apply)的 Codex Profile。 */
+export type CodexBindingState_Serialize = {
+	codexProfileId?: string | null,
+	codexLastAppliedAt?: string | null,
+};
+
+/**
+ *  Codex Profile。与 Claude 的 Profile 分家(ADR 0004):它是「一层 provider + key 覆盖」,
+ *  认证仅 ApiKey,不是完整设置单元。Apply 时做外科补丁,只改 `config.toml` 的 provider 相关键。
+ */
+export type CodexProfile = {
+	id: string,
+	name: string,
+	/**  引用的 Codex Provider id(内置或自定义) */
+	providerId: string,
+	/**  API key(敏感,展示与日志需脱敏) */
+	apiKey: string,
+	createdAt: string,
+	updatedAt: string,
+};
+
+/**
+ *  自定义 Codex Provider。与 Claude 的 Provider 分家(ADR 0004):
+ *  Codex Provider 可由用户自定义,承载 `base_url` / 环境变量键名 / `wire_api`;
+ *  内置只读 Codex Provider 来自资源文件,不落盘到 registry,此处仅存用户自定义项。
+ */
+export type CodexProvider = CodexProvider_Serialize | CodexProvider_Deserialize;
+
+/**  自定义 Codex Provider 的新建/编辑输入(内置 Provider 只读,不经过此入口)。 */
+export type CodexProviderInput = {
+	/**  编辑时传入;新建时为 None。 */
+	id: string | null,
+	name: string,
+	baseUrl: string,
+	/**  读取 API key 的环境变量名。 */
+	envKey: string,
+	/**  `responses` 或 `chat`。 */
+	wireApi: string,
+	docUrl?: string | null,
+};
+
+/**
+ *  自定义 Codex Provider。与 Claude 的 Provider 分家(ADR 0004):
+ *  Codex Provider 可由用户自定义,承载 `base_url` / 环境变量键名 / `wire_api`;
+ *  内置只读 Codex Provider 来自资源文件,不落盘到 registry,此处仅存用户自定义项。
+ */
+export type CodexProvider_Deserialize = {
+	id: string,
+	name: string,
+	/**  对应 `~/.codex/config.toml` 的 `[model_providers.NAME].base_url` */
+	baseUrl: string,
+	/**  读取 API key 的环境变量名(`env_key`) */
+	envKey: string,
+	/**  `responses` 或 `chat`,写入 `[model_providers.NAME].wire_api` */
+	wireApi: string,
+	docUrl: string | null,
+};
+
+/**
+ *  自定义 Codex Provider。与 Claude 的 Provider 分家(ADR 0004):
+ *  Codex Provider 可由用户自定义,承载 `base_url` / 环境变量键名 / `wire_api`;
+ *  内置只读 Codex Provider 来自资源文件,不落盘到 registry,此处仅存用户自定义项。
+ */
+export type CodexProvider_Serialize = {
+	id: string,
+	name: string,
+	/**  对应 `~/.codex/config.toml` 的 `[model_providers.NAME].base_url` */
+	baseUrl: string,
+	/**  读取 API key 的环境变量名(`env_key`) */
+	envKey: string,
+	/**  `responses` 或 `chat`,写入 `[model_providers.NAME].wire_api` */
+	wireApi: string,
+	docUrl?: string | null,
+};
+
+/**  Codex 工作区视图:合并内置只读 Provider 与自定义 Provider,供前端 Codex 页展示。 */
+export type CodexWorkspace = CodexWorkspace_Serialize | CodexWorkspace_Deserialize;
+
+/**  Codex 工作区视图:合并内置只读 Provider 与自定义 Provider,供前端 Codex 页展示。 */
+export type CodexWorkspace_Deserialize = {
+	providers: CodexProvider_Deserialize[],
+	profiles: CodexProfile[],
+	bindings: CodexBindingState_Deserialize,
+	/**  标记每个 provider 是否内置只读(前端据此禁用编辑/删除)。 */
+	builtinProviderIds: string[],
+};
+
+/**  Codex 工作区视图:合并内置只读 Provider 与自定义 Provider,供前端 Codex 页展示。 */
+export type CodexWorkspace_Serialize = {
+	providers: CodexProvider_Serialize[],
+	profiles: CodexProfile[],
+	bindings: CodexBindingState_Serialize,
+	/**  标记每个 provider 是否内置只读(前端据此禁用编辑/删除)。 */
+	builtinProviderIds: string[],
 };
 
 export type ConfigProfile = ConfigProfile_Serialize | ConfigProfile_Deserialize;
