@@ -173,4 +173,33 @@ describe("CodexProfilesPage", () => {
       expect(invokeMock).toHaveBeenCalledWith("delete_codex_profile", { id: "codex-1" });
     });
   });
+
+  it("点击应用调用 apply_codex_profile;激活态展示徽标", async () => {
+    const ws: CodexWorkspace = {
+      providers: [...BUILTIN_WORKSPACE.providers],
+      profiles: [
+        {
+          id: "codex-1",
+          name: "工作中转",
+          providerId: "codex-builtin:openai",
+          apiKey: "test••••ey",
+          createdAt: "2026-01-01T00:00:00+08:00",
+          updatedAt: "2026-01-01T00:00:00+08:00",
+        },
+      ],
+      // 已绑定激活 codex-1
+      bindings: { codexProfileId: "codex-1" },
+      builtinProviderIds: ["codex-builtin:openai"],
+    };
+    stubInvoke(ws);
+    renderPage();
+    await waitFor(() => expect(screen.getByText("工作中转")).toBeInTheDocument());
+    // 激活态徽标展示
+    expect(screen.getByText("已激活")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "应用" }));
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("apply_codex_profile", { id: "codex-1" });
+    });
+  });
 });

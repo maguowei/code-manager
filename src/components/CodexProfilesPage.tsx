@@ -1,5 +1,5 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
+import { CircleCheck, ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
@@ -102,6 +102,9 @@ export default function CodexProfilesPage() {
     kind: "provider" | "profile";
     id: string;
   } | null>(null);
+
+  // Apply 中的 profile id(禁用按钮、防重复点击)
+  const [applyingProfileId, setApplyingProfileId] = useState<string | null>(null);
 
   const loadWorkspace = useCallback(async () => {
     try {
@@ -226,6 +229,19 @@ export default function CodexProfilesPage() {
     // 新建必须有 key;编辑可空(保留)
     (profileDraft.id !== null || profileDraft.apiKey.trim() !== "");
   const hasProvider = providers.length > 0;
+  const activeProfileId = workspace?.bindings.codexProfileId ?? null;
+
+  const handleApplyProfile = async (profileId: string) => {
+    setApplyingProfileId(profileId);
+    try {
+      await ipc.applyCodexProfile(profileId);
+      showToast(t("codex.toast.profileApplied"));
+    } catch (error) {
+      showOperationError(showToast, t("codex.toast.profileApplyFailed"), error);
+    } finally {
+      setApplyingProfileId(null);
+    }
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -354,38 +370,62 @@ export default function CodexProfilesPage() {
                 />
               ) : (
                 <ul className="flex flex-col gap-2">
-                  {profiles.map((profile) => (
-                    <li
-                      key={profile.id}
-                      className="bg-card shadow-panel flex items-center gap-3 rounded-md border p-3"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="text-cardTitle truncate font-medium">{profile.name}</div>
-                        <div className="text-auxiliary mt-0.5 truncate text-muted-foreground">
-                          {providerName(profile.providerId)}
-                        </div>
-                        <div className="text-auxiliary mt-0.5 text-muted-foreground">
-                          {t("codex.profileApiKey")} {profile.apiKey || "—"}
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEditProfile(profile)}
-                        aria-label={t("codex.edit")}
+                  {profiles.map((profile) => {
+                    const isActive = profile.id === activeProfileId;
+                    const applying = applyingProfileId === profile.id;
+                    return (
+                      <li
+                        key={profile.id}
+                        className="bg-card shadow-panel flex items-center gap-3 rounded-md border p-3"
                       >
-                        <Pencil className="size-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setPendingDelete({ kind: "profile", id: profile.id })}
-                        aria-label={t("codex.delete")}
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </li>
-                  ))}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-cardTitle truncate font-medium">
+                              {profile.name}
+                            </span>
+                            {isActive ? (
+                              <span className="bg-primary/10 text-primary inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-auxiliary">
+                                <CircleCheck className="size-3" />
+                                {t("codex.activeBadge")}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="text-auxiliary mt-0.5 truncate text-muted-foreground">
+                            {providerName(profile.providerId)}
+                          </div>
+                          <div className="text-auxiliary mt-0.5 text-muted-foreground">
+                            {t("codex.profileApiKey")} {profile.apiKey || "—"}
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={isActive ? "secondary" : "default"}
+                          onClick={() => void handleApplyProfile(profile.id)}
+                          disabled={applying}
+                          aria-label={t("codex.apply")}
+                        >
+                          {t("codex.apply")}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEditProfile(profile)}
+                          aria-label={t("codex.edit")}
+                        >
+                          <Pencil className="size-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setPendingDelete({ kind: "profile", id: profile.id })}
+                          aria-label={t("codex.delete")}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </section>
