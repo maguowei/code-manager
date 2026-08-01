@@ -152,7 +152,6 @@ When filing an issue, please include as much as possible:
 
 - [docs/user-manual.md](./docs/user-manual.md): the complete user manual
 - [docs/platform-support.md](./docs/platform-support.md): platform support differences
-- [docs/claude-code-best-practices.md](./docs/claude-code-best-practices.md): extended best practices for Claude Code / Codex in this repo
 - [CLAUDE.md](./CLAUDE.md): the repository execution manual for AI agents
 - [LICENSE](./LICENSE): license
 

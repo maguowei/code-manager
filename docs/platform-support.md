@@ -219,4 +219,4 @@ git diff --check
 Manually review two points:
 
 - Each row's support level in the matrix matches the current code state (spot-check `src-tauri/src/terminal_focus.rs`, `src-tauri/src/config.rs:1561-1571`, `src-tauri/Cargo.toml:46-47`, `src/components/SettingsDrawer.tsx:124-137`).
-- The style is consistent with `docs/user-manual.md` and `docs/claude-code-best-practices.md` (English, table-driven, file paths in backticks).
+- The style is consistent with `docs/user-manual.md` (English, table-driven, file paths in backticks).

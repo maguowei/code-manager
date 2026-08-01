@@ -219,4 +219,4 @@ git diff --check
 人工审阅两点：
 
 - 矩阵每一行支持度与代码现状一致（spot-check `src-tauri/src/terminal_focus.rs`、`src-tauri/src/config.rs:1561-1571`、`src-tauri/Cargo.toml:46-47`、`src/components/SettingsDrawer.tsx:124-137`）。
-- 风格与 `docs/user-manual.zh-CN.md`、`docs/claude-code-best-practices.md` 一致（中文、表格驱动、文件路径用反引号）。
+- 风格与 `docs/user-manual.zh-CN.md` 一致（中文、表格驱动、文件路径用反引号）。
