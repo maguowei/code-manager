@@ -16,7 +16,7 @@ use uuid::Uuid;
 const CLAUDE_SETTINGS_SCHEMA_URL: &str = "https://json.schemastore.org/claude-code-settings.json";
 const CONFIG_REGISTRY_SCHEMA_URL: &str =
     "https://code-manager.app/schemas/config-registry.schema.json";
-const REGISTRY_VERSION: u32 = 1;
+const REGISTRY_VERSION: u32 = 2;
 const DEFAULT_ANTHROPIC_BASE_URL: &str = "https://api.anthropic.com";
 const MODEL_TEST_TIMEOUT_SECS: u64 = 30;
 const MODEL_TEST_MAX_TOKENS: u64 = 2048;
@@ -222,6 +222,70 @@ pub struct BindingState {
     pub user_last_applied_at: Option<String>,
 }
 
+/// 自定义 Codex Provider。与 Claude 的 Provider 分家(ADR 0004):
+/// Codex Provider 可由用户自定义,承载 `base_url` / 环境变量键名 / `wire_api`;
+/// 内置只读 Codex Provider 来自资源文件,不落盘到 registry,此处仅存用户自定义项。
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexProvider {
+    pub id: String,
+    pub name: String,
+    /// 对应 `~/.codex/config.toml` 的 `[model_providers.NAME].base_url`
+    pub base_url: String,
+    /// 读取 API key 的环境变量名(`env_key`)
+    pub env_key: String,
+    /// `responses` 或 `chat`,写入 `[model_providers.NAME].wire_api`
+    pub wire_api: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub doc_url: Option<String>,
+}
+
+/// Codex Profile。与 Claude 的 Profile 分家(ADR 0004):它是「一层 provider + key 覆盖」,
+/// 认证仅 ApiKey,不是完整设置单元。Apply 时做外科补丁,只改 `config.toml` 的 provider 相关键。
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexProfile {
+    pub id: String,
+    pub name: String,
+    /// 引用的 Codex Provider id(内置或自定义)
+    pub provider_id: String,
+    /// API key(敏感,展示与日志需脱敏)
+    pub api_key: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// Codex 侧的绑定态,记录当前激活(已 apply)的 Codex Profile。
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexBindingState {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub codex_profile_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub codex_last_applied_at: Option<String>,
+}
+
+/// registry 中与 Claude 段互不引用的 Codex 段(ADR 0004 的平行独立模型)。
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexRegistry {
+    #[serde(default)]
+    pub providers: Vec<CodexProvider>,
+    #[serde(default)]
+    pub profiles: Vec<CodexProfile>,
+    #[serde(default)]
+    pub bindings: CodexBindingState,
+}
+
+impl CodexRegistry {
+    /// 三块都为空时视为空段,空段不落盘,保持 registry 文件最小。
+    pub fn is_empty(&self) -> bool {
+        self.providers.is_empty()
+            && self.profiles.is_empty()
+            && self.bindings == CodexBindingState::default()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfigRegistry {
@@ -233,6 +297,9 @@ pub struct ConfigRegistry {
     pub profiles: Vec<ConfigProfile>,
     #[serde(default)]
     pub bindings: BindingState,
+    // Codex 段(ADR 0004):与 Claude 段互不引用;空段不序列化以保持文件最小。
+    #[serde(default, skip_serializing_if = "CodexRegistry::is_empty")]
+    pub codex: CodexRegistry,
 }
 
 impl Default for ConfigRegistry {
@@ -243,6 +310,7 @@ impl Default for ConfigRegistry {
             app: AppPreferences::default(),
             profiles: Vec::new(),
             bindings: BindingState::default(),
+            codex: CodexRegistry::default(),
         }
     }
 }
@@ -4076,6 +4144,84 @@ mod tests {
         clear_test_env();
     }
 
+    // v1 registry(无 codex 段)读入后：codex 缺省为空、Claude 段与绑定完全不受影响、
+    // version 被规范为当前版本。验证 #32 的向前兼容迁移。
+    #[test]
+    fn load_registry_migrates_v1_without_codex_section() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("v1-migration");
+        set_test_env(&root);
+        let registry_path = get_registry_path().unwrap();
+        fs::create_dir_all(registry_path.parent().unwrap()).unwrap();
+        // 一份典型的 v1 文件：有 Claude profile 与绑定，完全没有 codex 键
+        let v1 = serde_json::json!({
+            "$schema": CONFIG_REGISTRY_SCHEMA_URL,
+            "version": 1,
+            "app": {},
+            "profiles": [{
+                "id": "user-1",
+                "name": "User One",
+                "description": "",
+                "providerId": "builtin:deepseek",
+                "settings": { "model": "claude-sonnet-4-6" },
+                "createdAt": "2026-01-01T00:00:00+08:00",
+                "updatedAt": "2026-01-01T00:00:00+08:00"
+            }],
+            "bindings": { "userProfileId": "user-1" }
+        });
+        fs::write(&registry_path, serde_json::to_string_pretty(&v1).unwrap()).unwrap();
+
+        let registry = load_registry().unwrap();
+
+        // version 被规范为当前版本(迁移）
+        assert_eq!(registry.version, REGISTRY_VERSION);
+        assert_eq!(REGISTRY_VERSION, 2);
+        // codex 段缺省为空，三块都空
+        assert!(registry.codex.providers.is_empty());
+        assert!(registry.codex.profiles.is_empty());
+        assert!(registry.codex.bindings.codex_profile_id.is_none());
+        assert!(registry.codex.is_empty());
+        // Claude 段与绑定完全不受影响
+        assert_eq!(registry.profiles.len(), 1);
+        assert_eq!(registry.profiles[0].id, "user-1");
+        assert_eq!(registry.bindings.user_profile_id.as_deref(), Some("user-1"));
+
+        clear_test_env();
+    }
+
+    // 空的 codex 段不落盘(fixture 保持最小)；有内容时 round-trip 稳定。
+    #[test]
+    fn empty_codex_section_is_omitted_but_populated_roundtrips() {
+        // 空 codex：序列化输出不含 "codex" 键
+        let mut registry = ConfigRegistry::default();
+        let json = serde_json::to_value(&registry).unwrap();
+        assert!(json.get("codex").is_none(), "空 codex 段不应序列化");
+
+        // 填充 codex 后：写回再读稳定
+        registry.codex.providers.push(CodexProvider {
+            id: "custom:my-relay".to_string(),
+            name: "My Relay".to_string(),
+            base_url: "https://relay.example.com/v1".to_string(),
+            env_key: "MY_RELAY_KEY".to_string(),
+            wire_api: "responses".to_string(),
+            doc_url: None,
+        });
+        registry.codex.profiles.push(CodexProfile {
+            id: "codex-1".to_string(),
+            name: "Codex One".to_string(),
+            provider_id: "custom:my-relay".to_string(),
+            api_key: "sk-secret".to_string(),
+            created_at: "2026-01-01T00:00:00+08:00".to_string(),
+            updated_at: "2026-01-01T00:00:00+08:00".to_string(),
+        });
+        registry.codex.bindings.codex_profile_id = Some("codex-1".to_string());
+
+        let serialized = serde_json::to_string(&registry).unwrap();
+        let back: ConfigRegistry = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(back.codex, registry.codex);
+        assert!(!back.codex.is_empty());
+    }
+
     #[test]
     fn example_snapshots_match_registry_and_settings_output() {
         let registry = ConfigRegistry {
@@ -4121,6 +4267,7 @@ mod tests {
                 user_profile_id: Some("user-deepseek".to_string()),
                 user_last_applied_at: Some("2026-04-18T12:00:00+08:00".to_string()),
             },
+            codex: CodexRegistry::default(),
         };
 
         let registry_json = serde_json::to_string_pretty(&registry).unwrap();
