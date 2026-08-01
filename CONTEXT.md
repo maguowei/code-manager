@@ -30,6 +30,22 @@ _Avoid_: 管理、纳管、接入
 已[绑定](#绑定binding)配置的预期内容与磁盘上真实 `~/.claude/settings.json` 不一致的状态(`activeUserSettingsMismatch`)。经 diff 展示后,可选择接管实际内容或重新[应用](#应用apply)。
 _Avoid_: 冲突、不同步、脏配置
 
+### Codex 配置(Codex Config System)
+
+与 [配置系统](#配置系统config-system) 概念平行但**类型独立**的一套链,目标是 `~/.codex/`(OpenAI Codex CLI),而非 `~/.claude/`。两侧共享 Provider/Profile/Apply/Binding 的**心智骨架**,但因底层格式(TOML + 独立 `auth.json`)与所有权语义不同,**不共享类型、不共享定义**。存储上复用同一个 `config-registry.json` 的 `codex` 段,不与 Claude 侧互相引用。
+
+**Codex Provider(Codex 供应商)**:
+承载一条 Codex `[model_providers.*]` 的客观连接信息:`base_url`、`env_key`(密钥所在环境变量名)、`wire_api`、展示名/docUrl。**与 [Provider](#provider供应商) 分家的关键**:Codex Provider **允许用户自定义**(内置只读项仅作快速起步预设),因为切换私有中转/自建网关是 Codex 的主力场景。**不含密钥。**
+_Avoid_: Provider(裸用会与 Claude 的内置只读 Provider 混淆)、model_provider(那是 config.toml 里的选择键,不是本概念)
+
+**Codex 配置(Codex Profile)**:
+引用一个 [Codex Provider](#codex-providercodex-供应商),叠加**一个 API key**(认证**仅 ApiKey 模式**,不含 ChatGPT OAuth)。**与 [配置](#配置profile) 分家的关键**:它不是「一份完整设置单元」,而是**一层 provider+key 覆盖**——[Codex 应用](#codex-应用codex-apply) 时只写入 provider 选择与密钥,不托管 `config.toml` 全文。
+_Avoid_: 配置/Profile(裸用会与 Claude 的全量托管 Profile 混淆)、Codex 快照(它不整体拥有 config.toml)
+
+**Codex 应用(Codex Apply)**:
+把一份 [Codex 配置](#codex-配置codex-profile) 落盘的动作,**外科补丁式**:仅改写 `~/.codex/config.toml` 的 `model_provider` 与对应 `[model_providers.NAME]`,并写 `~/.codex/auth.json` 的 `openai_api_key`;`config.toml` 其余键(`model`、`approval_policy`、`sandbox_mode`、`[mcp_servers.*]`、注释、顺序)**一律原样保留**。落盘目标是**两个文件**、TOML 需保真 round-trip,区别于 [应用](#应用apply) 对单个 JSON 的全量原子重写。
+_Avoid_: 应用(裸用会与 Claude 的全量重写 Apply 混淆)、全量写入、覆盖 config.toml
+
 ### 防止休眠(Sleep Prevention)
 
 **防止休眠(Sleep Prevention)**:
