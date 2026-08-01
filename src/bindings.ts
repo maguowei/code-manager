@@ -23,6 +23,8 @@ export const commands = {
 	deleteCodexProvider: (id: string) => typedError<null, string>(__TAURI_INVOKE("delete_codex_provider", { id })),
 	upsertCodexProfile: (data: CodexProfileInput) => typedError<CodexProfile, string>(__TAURI_INVOKE("upsert_codex_profile", { data })),
 	deleteCodexProfile: (id: string) => typedError<null, string>(__TAURI_INVOKE("delete_codex_profile", { id })),
+	/**  应用 Codex Profile:外科补丁写 config.toml + auth.json,更新 codex.bindings 激活态。 */
+	applyCodexProfile: (id: string) => typedError<null, string>(__TAURI_INVOKE("apply_codex_profile", { id })),
 	importUserSettingsProfile: (data: UserSettingsImportInput) => typedError<ConfigProfile_Serialize, string>(__TAURI_INVOKE("import_user_settings_profile", { data })),
 	installStatusLinePreset: (presetId: string, overwrite: boolean) => typedError<StatusLinePresetInstallResult, string>(__TAURI_INVOKE("install_status_line_preset", { presetId, overwrite })),
 	previewProfile: (data: ProfileInput) => typedError<string, string>(__TAURI_INVOKE("preview_profile", { data })),

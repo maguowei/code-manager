@@ -3166,6 +3166,23 @@ pub fn delete_codex_profile(app_handle: AppHandle, id: String) -> Result<(), Str
     result
 }
 
+/// 应用 Codex Profile:外科补丁写 config.toml + auth.json,更新 codex.bindings 激活态。
+#[tauri::command]
+#[specta::specta]
+pub fn apply_codex_profile(app_handle: AppHandle, id: String) -> Result<(), String> {
+    let result = (|| {
+        let registry = codex_apply_inner(id.clone())?;
+        let _ = app_handle.emit("codex-workspace-changed", ());
+        // registry 仅用于触发可能的后续刷新;apply 已在 codex_apply_inner 内落盘
+        let _ = registry;
+        Ok(())
+    })();
+    crate::logging::log_command_result("codex.profile.apply", &result, |_| {
+        format!("profile_id={id}")
+    });
+    result
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn import_user_settings_profile(

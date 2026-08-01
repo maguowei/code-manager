@@ -1778,6 +1778,10 @@ const translations = {
     "codex.toast.profileSaveFailed": "保存 Codex 配置失败",
     "codex.toast.profileDeleted": "Codex 配置已删除",
     "codex.toast.profileDeleteFailed": "删除 Codex 配置失败",
+    "codex.apply": "应用",
+    "codex.activeBadge": "已激活",
+    "codex.toast.profileApplied": "Codex 配置已应用",
+    "codex.toast.profileApplyFailed": "应用 Codex 配置失败",
   },
   en: {
     // 通用
@@ -3630,6 +3634,10 @@ const translations = {
     "codex.toast.profileSaveFailed": "Failed to save Codex profile",
     "codex.toast.profileDeleted": "Codex profile deleted",
     "codex.toast.profileDeleteFailed": "Failed to delete Codex profile",
+    "codex.apply": "Apply",
+    "codex.activeBadge": "Active",
+    "codex.toast.profileApplied": "Codex profile applied",
+    "codex.toast.profileApplyFailed": "Failed to apply Codex profile",
   },
 } as const;
 
