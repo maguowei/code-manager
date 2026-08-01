@@ -618,7 +618,7 @@ dependencies = [
 
 [[package]]
 name = "code-manager"
-version = "1.4.0"
+version = "1.5.0"
 dependencies = [
  "base64 0.22.1",
  "block2",
