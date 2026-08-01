@@ -7,7 +7,7 @@ use serde_json::{Map, Value};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::error::Error as StdError;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
@@ -633,6 +633,247 @@ fn get_user_settings_path() -> Result<PathBuf, String> {
     Ok(crate::utils::get_home_dir()?
         .join(".claude")
         .join("settings.json"))
+}
+
+// ===== Codex 配置(Codex Config System,ADR 0004)=====
+// 与 Claude 侧概念平行但类型独立。落盘目标是 ~/.codex/config.toml(TOML,外科补丁)
+// 加 ~/.codex/auth.json(仅 ApiKey)。本段为核心 Apply 逻辑,纯函数、不吃 AppHandle。
+
+/// 内置只读 Codex Provider 的 id 前缀与已知项。
+#[allow(dead_code)] // #34/#36 接入 command 后自然使用
+const CODEX_BUILTIN_PREFIX: &str = "codex-builtin:";
+const CODEX_BUILTIN_OPENAI_ID: &str = "codex-builtin:openai";
+
+/// `~/.codex/config.toml` 路径。
+#[allow(dead_code)] // #36 接入 command 后使用
+fn codex_config_path() -> Result<PathBuf, String> {
+    Ok(crate::utils::get_home_dir()?
+        .join(".codex")
+        .join("config.toml"))
+}
+
+/// `~/.codex/auth.json` 路径。
+#[allow(dead_code)] // #36 接入 command 后使用
+fn codex_auth_path() -> Result<PathBuf, String> {
+    Ok(crate::utils::get_home_dir()?
+        .join(".codex")
+        .join("auth.json"))
+}
+
+/// 内置只读 Codex Provider 列表(快速起步预设)。自定义 Provider 落 registry,不在此。
+#[allow(dead_code)] // #34 接入 command 后使用
+fn builtin_codex_providers() -> Vec<CodexProvider> {
+    vec![CodexProvider {
+        id: CODEX_BUILTIN_OPENAI_ID.to_string(),
+        name: "OpenAI 官方".to_string(),
+        base_url: "https://api.openai.com/v1".to_string(),
+        env_key: "OPENAI_API_KEY".to_string(),
+        wire_api: "responses".to_string(),
+        doc_url: Some("https://developers.openai.com/codex/".to_string()),
+    }]
+}
+
+/// 把 Provider 解析为落盘用的 slug(写入 `model_provider` 与 `[model_providers.SLUG]`)。
+/// 内置项去掉前缀取尾段;自定义项去掉 `custom:` 前缀;统一小写、保留连字符。
+/// id 由调用方保证 slug 唯一稳定(自定义 provider id 形如 `custom:my-relay`)。
+#[allow(dead_code)] // 经 codex_apply_inner 间接使用,#36 接入 command 后活跃
+fn codex_provider_slug(provider: &CodexProvider) -> String {
+    let raw = provider
+        .id
+        .strip_prefix(CODEX_BUILTIN_PREFIX)
+        .or_else(|| provider.id.strip_prefix("custom:"))
+        .unwrap_or(&provider.id);
+    raw.to_lowercase()
+}
+
+/// 在 registry(自定义)与内置列表里查找 Codex Provider。
+/// 自定义优先,使内置项可被同名自定义覆盖。
+#[allow(dead_code)] // 经 codex_apply_inner 间接使用,#36 接入 command 后活跃
+fn resolve_codex_provider(
+    registry: &ConfigRegistry,
+    provider_id: &str,
+) -> Result<CodexProvider, String> {
+    if let Some(found) = registry
+        .codex
+        .providers
+        .iter()
+        .find(|provider| provider.id == provider_id)
+        .cloned()
+    {
+        return Ok(found);
+    }
+    builtin_codex_providers()
+        .into_iter()
+        .find(|provider| provider.id == provider_id)
+        .ok_or_else(|| format!("未找到 Codex Provider '{}'", provider_id))
+}
+
+/// 外科补丁写入 `config.toml`:只改 `model_provider` 与对应 `[model_providers.SLUG]`,
+/// 写 `auth.json` 的 `OPENAI_API_KEY`;`config.toml` 其余键、注释、顺序原样保留。
+/// 两文件成对原子落盘:先在内存算好两份内容,再分别原子写。
+#[allow(dead_code)] // 经 codex_apply_inner 间接使用,#36 接入 command 后活跃
+pub fn codex_apply_patch(
+    config_path: &Path,
+    auth_path: &Path,
+    slug: &str,
+    provider: &CodexProvider,
+    api_key: &str,
+) -> Result<(), String> {
+    let config_content = render_codex_config(config_path, slug, provider)?;
+    let auth_content = render_codex_auth(auth_path, api_key)?;
+
+    // 成对原子:先写 auth.json,成功后写 config.toml;任一失败抛错。
+    // (两文件各自走 ensure_dir_and_write_atomic,已是 tmp+rename;这里保证两者都成功才返回)
+    crate::utils::ensure_dir_and_write_atomic(auth_path, &auth_content)?;
+    crate::utils::ensure_dir_and_write_atomic(config_path, &config_content)?;
+    Ok(())
+}
+
+/// Codex Apply 的入口(纯函数,不吃 AppHandle):按 profile_id 解析 provider 与 ApiKey,
+/// 外科补丁写 `config.toml` + `auth.json`,并更新 `codex.bindings` 激活态。返回写盘后的 registry。
+/// `#36` 在此基础上加薄 Tauri command 包装。
+#[allow(dead_code)] // #36 接入 Tauri command 后使用
+pub fn codex_apply_inner(profile_id: String) -> Result<ConfigRegistry, String> {
+    let _lock = crate::utils::lock_config()?;
+    let mut registry = load_registry()?;
+    codex_apply_to_registry(&mut registry, &profile_id)?;
+    save_registry(&registry)?;
+    Ok(registry)
+}
+
+/// Codex Apply 的非加锁内部 helper(对应 Claude 侧的 apply_profile_to_registry)。
+/// 调用方已持有 lock_config;做解析、写盘、更新绑定,不自行 load/save registry。
+#[allow(dead_code)] // 经 codex_apply_inner 间接使用,#36 接入 command 后活跃
+fn codex_apply_to_registry(registry: &mut ConfigRegistry, profile_id: &str) -> Result<(), String> {
+    let profile = registry
+        .codex
+        .profiles
+        .iter()
+        .find(|p| p.id == profile_id)
+        .cloned()
+        .ok_or_else(|| format!("未找到 Codex Profile '{}'", profile_id))?;
+    let provider = resolve_codex_provider(registry, &profile.provider_id)?;
+    let slug = codex_provider_slug(&provider);
+
+    codex_apply_patch(
+        &codex_config_path()?,
+        &codex_auth_path()?,
+        &slug,
+        &provider,
+        &profile.api_key,
+    )?;
+
+    // 密钥不进日志:apply 只记稳定标识符,不记 key
+    log::info!(
+        "event=codex.apply status=ok profile_id={} provider_id={}",
+        profile.id,
+        provider.id
+    );
+
+    let now = crate::utils::current_rfc3339_timestamp();
+    registry.codex.bindings.codex_profile_id = Some(profile.id);
+    registry.codex.bindings.codex_last_applied_at = Some(now);
+    Ok(())
+}
+
+/// 计算 apply 后的 config.toml 内容(不写盘)。供 apply 与 preview 复用(#37)。
+#[allow(dead_code)] // #37 preview 直接使用,#33 经 codex_apply_inner 间接使用
+pub fn render_codex_config(
+    config_path: &Path,
+    slug: &str,
+    provider: &CodexProvider,
+) -> Result<String, String> {
+    use toml_edit::DocumentMut;
+
+    let mut doc: DocumentMut = if config_path.exists() {
+        let raw =
+            fs::read_to_string(config_path).map_err(|e| format!("读取 config.toml 失败: {}", e))?;
+        raw.parse::<DocumentMut>()
+            .map_err(|e| format!("解析 config.toml 失败: {}", e))?
+    } else {
+        DocumentMut::new()
+    };
+
+    // 1) 根键 model_provider 指向新 slug(外科:只动这一个根键)
+    // 记录切换前的活跃 slug,用于在步骤 2 移除其定义段(切换走时清掉旧 provider 段,避免堆积)
+    let prev_slug = doc
+        .get("model_provider")
+        .and_then(|item| item.as_str())
+        .map(|s| s.to_string());
+    doc["model_provider"] = toml_edit::value(slug);
+
+    // 2) 替换/写入 [model_providers.SLUG]:先清掉同名旧段(若有),保证字段最新;
+    // 若切换前活跃的是另一个 slug,顺带移除它的定义段(它已不再被引用,留着是死配置)。
+    let table_name = format!("model_providers.{}", slug);
+    remove_toml_table_by_path(&mut doc, &table_name);
+    if let Some(prev) = prev_slug.as_deref() {
+        if !prev.is_empty() && prev != slug {
+            remove_toml_table_by_path(&mut doc, &format!("model_providers.{}", prev));
+        }
+    }
+
+    let mut provider_table = toml_edit::Table::new();
+    provider_table["name"] = toml_edit::value(provider.name.clone());
+    provider_table["base_url"] = toml_edit::value(provider.base_url.clone());
+    provider_table["env_key"] = toml_edit::value(provider.env_key.clone());
+    provider_table["wire_api"] = toml_edit::value(provider.wire_api.clone());
+    provider_table.decor_mut().set_prefix("\n");
+
+    // 插入到 model_providers 表下。若 model_providers 表不存在则创建。
+    if !doc.contains_table("model_providers") && !doc.contains_key("model_providers") {
+        let mut t = toml_edit::Table::new();
+        t.decor_mut().set_prefix("\n");
+        doc["model_providers"] = toml_edit::Item::Table(t);
+    }
+    let model_providers = doc["model_providers"]
+        .as_table_mut()
+        .ok_or_else(|| "config.toml 的 model_providers 不是表".to_string())?;
+    model_providers.insert(slug, toml_edit::Item::Table(provider_table));
+
+    Ok(doc.to_string())
+}
+
+/// 计算 apply 后的 auth.json 内容(不写盘)。仅 ApiKey 模式:写入 OPENAI_API_KEY,
+/// 保留 auth.json 中已有其它键(如 Codex 自己写的 OAuth 字段)以防破坏。
+#[allow(dead_code)] // 经 codex_apply_inner 间接使用
+pub fn render_codex_auth(auth_path: &Path, api_key: &str) -> Result<String, String> {
+    let mut value: Value = if auth_path.exists() {
+        let raw =
+            fs::read_to_string(auth_path).map_err(|e| format!("读取 auth.json 失败: {}", e))?;
+        serde_json::from_str(&raw).unwrap_or_else(|_| Value::Object(Map::new()))
+    } else {
+        Value::Object(Map::new())
+    };
+    if !value.is_object() {
+        value = Value::Object(Map::new());
+    }
+    let obj = value.as_object_mut().expect("已保证为 object");
+    obj.insert(
+        "OPENAI_API_KEY".to_string(),
+        Value::String(api_key.to_string()),
+    );
+    serde_json::to_string_pretty(&value).map_err(|e| e.to_string())
+}
+
+/// 按 `a.b` 形态的 dotted key 删除 toml 子表(若存在)。
+fn remove_toml_table_by_path(doc: &mut toml_edit::DocumentMut, dotted: &str) {
+    let mut parts = dotted.split('.');
+    let head = match parts.next() {
+        Some(head) => head,
+        None => return,
+    };
+    let tail: Vec<&str> = parts.collect();
+    if tail.is_empty() {
+        doc.remove(head);
+        return;
+    }
+    let Some(table) = doc.get_mut(head).and_then(|item| item.as_table_mut()) else {
+        return;
+    };
+    // 支持两层(a.b);Codex 的 model_providers.SLUG 正好两层
+    if tail.len() == 1 {
+        table.remove(tail[0]);
+    }
 }
 
 fn parse_builtin_providers() -> Vec<Provider> {
@@ -4220,6 +4461,221 @@ mod tests {
         let back: ConfigRegistry = serde_json::from_str(&serialized).unwrap();
         assert_eq!(back.codex, registry.codex);
         assert!(!back.codex.is_empty());
+    }
+
+    // Codex Apply 外科补丁：只改 provider 相关键,保留注释/顺序/无关键。
+    // 这是验证 #33 核心决策的关键测试。
+    #[test]
+    fn codex_apply_patches_only_provider_keys_and_preserves_rest() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("codex-apply-patch");
+        set_test_env(&root);
+        let config_path = codex_config_path().unwrap();
+        fs::create_dir_all(config_path.parent().unwrap()).unwrap();
+        // 一份真实形态的 config.toml：带注释、带无关键、带旧 provider
+        let original = "\
+# 我的 Codex 配置，注释要保留
+model = \"gpt-5.2\"
+approval_policy = \"on-failure\"
+sandbox_mode = \"workspace-write\"
+model_provider = \"old-relay\"
+
+[model_providers.old-relay]
+name = \"Old Relay\"
+base_url = \"https://old.example.com/v1\"
+wire_api = \"chat\"
+
+# 这是用户手工维护的 mcp_servers，绝不能被动
+[mcp_servers.filesystem]
+command = \"npx\"
+args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
+";
+        fs::write(&config_path, original).unwrap();
+
+        let provider = CodexProvider {
+            id: "custom:my-relay".to_string(),
+            name: "My Relay".to_string(),
+            base_url: "https://relay.example.com/v1".to_string(),
+            env_key: "MY_RELAY_KEY".to_string(),
+            wire_api: "responses".to_string(),
+            doc_url: None,
+        };
+        let provider_slug = codex_provider_slug(&provider);
+
+        // apply：外科补丁写 config.toml + auth.json
+        codex_apply_patch(
+            &config_path,
+            &codex_auth_path().unwrap(),
+            &provider_slug,
+            &provider,
+            "sk-secret-key",
+        )
+        .unwrap();
+
+        let patched = fs::read_to_string(&config_path).unwrap();
+
+        // 1) provider 相关键被改写
+        assert!(patched.contains("model_provider = \"my-relay\""));
+        assert!(patched.contains("[model_providers.my-relay]"));
+        assert!(
+            patched.contains("base_url = \"https://relay.example.com/v1\""),
+            "新 provider 的 base_url 要写入"
+        );
+        assert!(
+            patched.contains("env_key = \"MY_RELAY_KEY\""),
+            "env_key 要写入"
+        );
+        assert!(
+            patched.contains("wire_api = \"responses\""),
+            "wire_api 要写入"
+        );
+        // 旧 provider 段被替换（不再有 old-relay 段与引用）
+        assert!(!patched.contains("old-relay"));
+
+        // 2) 注释原样保留
+        assert!(
+            patched.contains("# 我的 Codex 配置，注释要保留"),
+            "注释必须保留"
+        );
+        assert!(
+            patched.contains("# 这是用户手工维护的 mcp_servers，绝不能被动"),
+            "无关键段的注释必须保留"
+        );
+
+        // 3) 无关键与顺序保留
+        assert!(patched.contains("model = \"gpt-5.2\""));
+        assert!(patched.contains("approval_policy = \"on-failure\""));
+        assert!(patched.contains("sandbox_mode = \"workspace-write\""));
+        assert!(patched.contains("[mcp_servers.filesystem]"));
+        assert!(
+            patched.contains("@modelcontextprotocol/server-filesystem"),
+            "mcp_servers 数组参数必须保留"
+        );
+
+        // 4) auth.json 写入 ApiKey（仅 ApiKey 模式）
+        let auth = fs::read_to_string(codex_auth_path().unwrap()).unwrap();
+        let auth_json: Value = serde_json::from_str(&auth).unwrap();
+        assert_eq!(auth_json["OPENAI_API_KEY"], "sk-secret-key");
+
+        clear_test_env();
+    }
+
+    // config.toml 不存在时 apply 创建一份最小可用文件。
+    #[test]
+    fn codex_apply_creates_minimal_config_when_absent() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("codex-apply-create");
+        set_test_env(&root);
+        let config_path = codex_config_path().unwrap();
+        let auth_path = codex_auth_path().unwrap();
+        assert!(!config_path.exists());
+
+        let provider = CodexProvider {
+            id: "custom:r".to_string(),
+            name: "R".to_string(),
+            base_url: "https://r.example.com/v1".to_string(),
+            env_key: "R_KEY".to_string(),
+            wire_api: "responses".to_string(),
+            doc_url: None,
+        };
+        codex_apply_patch(
+            &config_path,
+            &auth_path,
+            &codex_provider_slug(&provider),
+            &provider,
+            "sk-k",
+        )
+        .unwrap();
+
+        let config = fs::read_to_string(&config_path).unwrap();
+        assert!(config.contains("model_provider = \"r\""));
+        assert!(config.contains("[model_providers.r]"));
+        let auth: Value = serde_json::from_str(&fs::read_to_string(&auth_path).unwrap()).unwrap();
+        assert_eq!(auth["OPENAI_API_KEY"], "sk-k");
+
+        clear_test_env();
+    }
+
+    // codex_apply 端到端:从 registry 解析 profile + provider,写盘并更新绑定态。
+    // 沿用 lock_config + 非加锁 helper 的既有模式(见 apply_profile_to_registry)。
+    #[test]
+    fn codex_apply_inner_resolves_writes_and_binds() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("codex-apply-inner");
+        set_test_env(&root);
+
+        // 预置 registry:一个自定义 provider + 引用它的 profile
+        let mut registry = ConfigRegistry::default();
+        registry.codex.providers.push(CodexProvider {
+            id: "custom:relay".to_string(),
+            name: "Relay".to_string(),
+            base_url: "https://relay.example.com/v1".to_string(),
+            env_key: "RELAY_KEY".to_string(),
+            wire_api: "responses".to_string(),
+            doc_url: None,
+        });
+        registry.codex.profiles.push(CodexProfile {
+            id: "codex-1".to_string(),
+            name: "Codex One".to_string(),
+            provider_id: "custom:relay".to_string(),
+            api_key: "sk-inner".to_string(),
+            created_at: "2026-01-01T00:00:00+08:00".to_string(),
+            updated_at: "2026-01-01T00:00:00+08:00".to_string(),
+        });
+        let registry_path = get_registry_path().unwrap();
+        fs::create_dir_all(registry_path.parent().unwrap()).unwrap();
+        save_registry(&registry).unwrap();
+
+        // 用非加锁 helper(测试已持锁),避免与 codex_apply_inner 自取的锁死锁
+        codex_apply_to_registry(&mut registry, "codex-1").unwrap();
+        // 绑定态更新
+        assert_eq!(
+            registry.codex.bindings.codex_profile_id.as_deref(),
+            Some("codex-1")
+        );
+
+        // 落盘正确
+        let config = fs::read_to_string(codex_config_path().unwrap()).unwrap();
+        assert!(config.contains("model_provider = \"relay\""));
+        let auth: Value =
+            serde_json::from_str(&fs::read_to_string(codex_auth_path().unwrap()).unwrap()).unwrap();
+        assert_eq!(auth["OPENAI_API_KEY"], "sk-inner");
+
+        // 不存在的 profile 报错
+        codex_apply_to_registry(&mut registry, "missing").unwrap_err();
+
+        clear_test_env();
+    }
+
+    // Codex Profile 解析：内置或自定义 provider 都能解析出连接信息。
+    #[test]
+    fn resolve_codex_profile_finds_builtin_and_custom_provider() {
+        // 自定义 provider 优先（含内置 OpenAI 时）
+        let registry = ConfigRegistry {
+            codex: CodexRegistry {
+                providers: vec![CodexProvider {
+                    id: "custom:relay".to_string(),
+                    name: "Relay".to_string(),
+                    base_url: "https://relay.example.com/v1".to_string(),
+                    env_key: "RELAY_KEY".to_string(),
+                    wire_api: "responses".to_string(),
+                    doc_url: None,
+                }],
+                ..CodexRegistry::default()
+            },
+            ..ConfigRegistry::default()
+        };
+
+        let resolved = resolve_codex_provider(&registry, "custom:relay").unwrap();
+        assert_eq!(resolved.base_url, "https://relay.example.com/v1");
+        assert_eq!(resolved.env_key, "RELAY_KEY");
+        assert_eq!(resolved.wire_api, "responses");
+
+        // 不存在的 provider 报错
+        assert!(resolve_codex_provider(&registry, "custom:missing").is_err());
+
+        // 内置 OpenAI provider 可解析
+        assert!(resolve_codex_provider(&registry, CODEX_BUILTIN_OPENAI_ID).is_ok());
     }
 
     #[test]
