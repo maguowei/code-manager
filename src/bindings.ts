@@ -25,6 +25,11 @@ export const commands = {
 	deleteCodexProfile: (id: string) => typedError<null, string>(__TAURI_INVOKE("delete_codex_profile", { id })),
 	/**  应用 Codex Profile:外科补丁写 config.toml + auth.json,更新 codex.bindings 激活态。 */
 	applyCodexProfile: (id: string) => typedError<null, string>(__TAURI_INVOKE("apply_codex_profile", { id })),
+	/**
+	 *  Codex Apply 预览(不写盘):计算将落盘的 provider 相关改动,供用户确认。
+	 *  复用 render_codex_config 的补丁计算(只读现有 config.toml,不写),保证与实际 apply 一致。
+	 */
+	previewCodexApply: (id: string) => typedError<CodexApplyPreview, string>(__TAURI_INVOKE("preview_codex_apply", { id })),
 	importUserSettingsProfile: (data: UserSettingsImportInput) => typedError<ConfigProfile_Serialize, string>(__TAURI_INVOKE("import_user_settings_profile", { data })),
 	installStatusLinePreset: (presetId: string, overwrite: boolean) => typedError<StatusLinePresetInstallResult, string>(__TAURI_INVOKE("install_status_line_preset", { presetId, overwrite })),
 	previewProfile: (data: ProfileInput) => typedError<string, string>(__TAURI_INVOKE("preview_profile", { data })),
@@ -292,6 +297,22 @@ export type ClaudeStats = {
 	skillUsage?: { [key in string]: UsageEntry },
 	lastPlanModeUse?: number | null,
 	btwUseCount?: number | null,
+};
+
+/**  Codex Apply 预览:不写盘,只计算将落盘的 provider 相关改动,供用户确认不误伤 config.toml。 */
+export type CodexApplyPreview = {
+	/**  切换前的活跃 model_provider(读自现有 config.toml,无则 None)。 */
+	currentModelProvider: string | null,
+	/**  将写入的 model_provider(slug)。 */
+	nextModelProvider: string,
+	/**  将写入的 provider 展示名。 */
+	providerName: string,
+	/**  将写入的 base_url。 */
+	providerBaseUrl: string,
+	/**  将写入的 wire_api。 */
+	providerWireApi: string,
+	/**  auth.json 是否会写入 api key(仅 ApiKey 模式,始终 true)。 */
+	apiKeyWillSet: boolean,
 };
 
 /**  Codex 侧的绑定态,记录当前激活(已 apply)的 Codex Profile。 */

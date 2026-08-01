@@ -536,6 +536,24 @@ pub struct CodexWorkspace {
     pub builtin_provider_ids: Vec<String>,
 }
 
+/// Codex Apply 预览:不写盘,只计算将落盘的 provider 相关改动,供用户确认不误伤 config.toml。
+#[derive(Debug, Clone, Serialize, PartialEq, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexApplyPreview {
+    /// 切换前的活跃 model_provider(读自现有 config.toml,无则 None)。
+    pub current_model_provider: Option<String>,
+    /// 将写入的 model_provider(slug)。
+    pub next_model_provider: String,
+    /// 将写入的 provider 展示名。
+    pub provider_name: String,
+    /// 将写入的 base_url。
+    pub provider_base_url: String,
+    /// 将写入的 wire_api。
+    pub provider_wire_api: String,
+    /// auth.json 是否会写入 api key(仅 ApiKey 模式,始终 true)。
+    pub api_key_will_set: bool,
+}
+
 #[derive(Debug, Clone, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
@@ -3183,6 +3201,62 @@ pub fn apply_codex_profile(app_handle: AppHandle, id: String) -> Result<(), Stri
     result
 }
 
+/// Codex Apply 预览(不写盘):计算将落盘的 provider 相关改动,供用户确认。
+/// 复用 render_codex_config 的补丁计算(只读现有 config.toml,不写),保证与实际 apply 一致。
+#[tauri::command]
+#[specta::specta]
+pub fn preview_codex_apply(
+    _app_handle: AppHandle,
+    id: String,
+) -> Result<CodexApplyPreview, String> {
+    let _lock = crate::utils::lock_config()?;
+    let registry = load_registry()?;
+    preview_codex_apply_inner(&registry, &id)
+}
+
+/// Codex Apply 预览的 registry 变更计算(非加锁、非命令,可单测)。只读不写。
+fn preview_codex_apply_inner(
+    registry: &ConfigRegistry,
+    id: &str,
+) -> Result<CodexApplyPreview, String> {
+    let profile = registry
+        .codex
+        .profiles
+        .iter()
+        .find(|p| p.id == id)
+        .cloned()
+        .ok_or_else(|| format!("未找到 Codex Profile '{}'", id))?;
+    let provider = resolve_codex_provider(registry, &profile.provider_id)?;
+    let slug = codex_provider_slug(&provider);
+    let config_path = codex_config_path()?;
+
+    // 读切换前的活跃 model_provider(只读,不写)
+    let current_model_provider = if config_path.exists() {
+        fs::read_to_string(&config_path)
+            .ok()
+            .and_then(|raw| raw.parse::<toml_edit::DocumentMut>().ok())
+            .and_then(|doc| {
+                doc.get("model_provider")
+                    .and_then(|item| item.as_str())
+                    .map(|s| s.to_string())
+            })
+    } else {
+        None
+    };
+
+    // 复用补丁计算(验证可渲染,但不写盘),确保 preview 与 apply 一致
+    let _ = render_codex_config(&config_path, &slug, &provider)?;
+
+    Ok(CodexApplyPreview {
+        current_model_provider,
+        next_model_provider: slug,
+        provider_name: provider.name.clone(),
+        provider_base_url: provider.base_url.clone(),
+        provider_wire_api: provider.wire_api.clone(),
+        api_key_will_set: !profile.api_key.is_empty(),
+    })
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn import_user_settings_profile(
@@ -4965,6 +5039,59 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
 
         // 不存在的 profile 报错
         codex_apply_to_registry(&mut registry, "missing").unwrap_err();
+
+        clear_test_env();
+    }
+
+    // preview_codex_apply:只读现有 config.toml 的 model_provider,不写盘,返回切换摘要。#37。
+    #[test]
+    fn preview_codex_apply_reads_current_without_writing() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("codex-preview");
+        set_test_env(&root);
+        // 预置 registry + 一份现有 config.toml(活跃 model_provider = old)
+        let mut registry = ConfigRegistry::default();
+        registry.codex.providers.push(CodexProvider {
+            id: "custom:relay".to_string(),
+            name: "Relay".to_string(),
+            base_url: "https://relay.example.com/v1".to_string(),
+            env_key: "RELAY_KEY".to_string(),
+            wire_api: "responses".to_string(),
+            doc_url: None,
+        });
+        registry.codex.profiles.push(CodexProfile {
+            id: "codex-1".to_string(),
+            name: "P".to_string(),
+            provider_id: "custom:relay".to_string(),
+            api_key: "testkey-secret".to_string(),
+            created_at: "2026-01-01T00:00:00+08:00".to_string(),
+            updated_at: "2026-01-01T00:00:00+08:00".to_string(),
+        });
+        let config_path = codex_config_path().unwrap();
+        fs::create_dir_all(config_path.parent().unwrap()).unwrap();
+        fs::write(
+            &config_path,
+            "model_provider = \"old\"\nmodel = \"gpt-5.2\"\n",
+        )
+        .unwrap();
+        let registry_path = get_registry_path().unwrap();
+        fs::create_dir_all(registry_path.parent().unwrap()).unwrap();
+        save_registry(&registry).unwrap();
+
+        let mtime_before = fs::metadata(&config_path).unwrap().modified().unwrap();
+        let preview = preview_codex_apply_inner(&registry, "codex-1").unwrap();
+
+        // 读到切换前活跃 slug
+        assert_eq!(preview.current_model_provider.as_deref(), Some("old"));
+        assert_eq!(preview.next_model_provider, "relay");
+        assert_eq!(preview.provider_base_url, "https://relay.example.com/v1");
+        assert!(preview.api_key_will_set);
+
+        // 不写盘:mtime 不变
+        let mtime_after = fs::metadata(&config_path).unwrap().modified().unwrap();
+        assert_eq!(mtime_before, mtime_after, "preview 不得写盘");
+        // config.toml 内容未变
+        assert!(fs::read_to_string(&config_path).unwrap().contains("old"));
 
         clear_test_env();
     }

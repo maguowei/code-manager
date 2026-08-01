@@ -215,6 +215,16 @@ export interface CodexWorkspace {
   builtinProviderIds: string[];
 }
 
+/** Codex Apply 预览:不写盘的 provider 切换摘要,供用户确认不误伤 config.toml。 */
+export interface CodexApplyPreview {
+  currentModelProvider: string | null;
+  nextModelProvider: string;
+  providerName: string;
+  providerBaseUrl: string;
+  providerWireApi: string;
+  apiKeyWillSet: boolean;
+}
+
 /** 新建/编辑自定义 Codex Provider 的输入。 */
 export interface CodexProviderInput {
   id?: string | null;
