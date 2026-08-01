@@ -26,6 +26,7 @@ import {
 
 const CheatSheetPage = lazy(() => import("./components/cheat-sheet/CheatSheetPage"));
 const ClaudeOverviewPage = lazy(() => import("./components/ClaudeOverviewPage"));
+const CodexProfilesPage = lazy(() => import("./components/CodexProfilesPage"));
 const HistoryPage = lazy(() => import("./components/HistoryPage"));
 const MemoryPage = lazy(() => import("./components/MemoryPage"));
 const ProfilesPage = lazy(() => import("./components/ProfilesPage"));
@@ -390,6 +391,8 @@ function App() {
                   />
                 ) : activeTab === "history" ? (
                   <HistoryPage projectRequest={historyProjectRequest} />
+                ) : activeTab === "codex" ? (
+                  <CodexProfilesPage />
                 ) : activeTab === "configs" ? (
                   <ProfilesPage
                     workspace={workspace}

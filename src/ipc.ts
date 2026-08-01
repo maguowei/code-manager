@@ -94,6 +94,7 @@ type CompatibleIpcOverrides = {
     scope: AppTypes.ProjectClaudeSettingsScope,
   ): Promise<null>;
   deleteClaudeDirectoryEntry(path: string): Promise<null>;
+  deleteCodexProvider(id: string): Promise<null>;
   deleteMemory(id: string): Promise<AppTypes.MemoryState>;
   deleteProfile(id: string): Promise<null>;
   deleteSkill(id: string, isActive: boolean): Promise<null>;
@@ -102,6 +103,7 @@ type CompatibleIpcOverrides = {
   duplicateSkill(id: string, isActive: boolean, nameSuffix: string): Promise<AppTypes.Skill>;
   getAppLogs(query: LogQuery | null): Promise<AppTypes.LogView>;
   getClaudeDirectoryOverview(): Promise<AppTypes.ClaudeDirectoryOverview>;
+  getCodexWorkspace(): Promise<AppTypes.CodexWorkspace>;
   getConfigWorkspace(): Promise<AppTypes.ConfigWorkspace>;
   getHistory(): Promise<HistoryResult>;
   getHistoryIfChanged(lastMtime: number): Promise<HistoryResult | null>;
@@ -179,6 +181,7 @@ type CompatibleIpcOverrides = {
   toggleSkill(id: string, isActive: boolean): Promise<AppTypes.Skill>;
   updateMemory(id: string, data: MemoryData): Promise<AppTypes.MemoryState>;
   updateSkill(id: string, isActive: boolean, data: SkillData): Promise<AppTypes.Skill>;
+  upsertCodexProvider(data: AppTypes.CodexProviderInput): Promise<AppTypes.CodexProvider>;
   upsertProfile(data: ProfileInput): Promise<AppTypes.ConfigProfile>;
 };
 

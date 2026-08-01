@@ -6,6 +6,7 @@ export const isTauri = () =>
 export type TabType =
   | "claudeOverview"
   | "configs"
+  | "codex"
   | "memory"
   | "skills"
   | "projects"
@@ -172,6 +173,56 @@ export interface ConfigWorkspace {
   bindings: BindingState;
   unmanagedUserSettings?: UnmanagedUserSettings;
   activeUserSettingsMismatch?: ActiveUserSettingsMismatch;
+}
+
+// ===== Codex 配置(Codex Config System,ADR 0004)=====
+
+/** 自定义 Codex Provider(内置只读项不落盘 registry,经 CodexWorkspace.providers 合并返回)。 */
+export interface CodexProvider {
+  id: string;
+  name: string;
+  baseUrl: string;
+  /** 读取 API key 的环境变量名(`env_key`) */
+  envKey: string;
+  /** `responses` 或 `chat` */
+  wireApi: string;
+  docUrl?: string;
+}
+
+/** Codex Profile:引用一个 Codex Provider + 一个 ApiKey(仅 ApiKey,无 OAuth)。 */
+export interface CodexProfile {
+  id: string;
+  name: string;
+  providerId: string;
+  /** API key(敏感,展示与日志需脱敏) */
+  apiKey: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Codex 侧绑定态,记录当前激活(已 apply)的 Codex Profile。 */
+export interface CodexBindingState {
+  codexProfileId?: string;
+  codexLastAppliedAt?: string;
+}
+
+/** Codex 工作区视图:内置只读 + 自定义 Provider、Profile、绑定。 */
+export interface CodexWorkspace {
+  providers: CodexProvider[];
+  profiles: CodexProfile[];
+  bindings: CodexBindingState;
+  /** 内置只读 Provider 的 id 列表(前端据此禁用编辑/删除) */
+  builtinProviderIds: string[];
+}
+
+/** 新建/编辑自定义 Codex Provider 的输入。 */
+export interface CodexProviderInput {
+  id?: string | null;
+  name: string;
+  baseUrl: string;
+  envKey: string;
+  wireApi: string;
+  docUrl?: string;
 }
 
 export interface ModelTestResult {

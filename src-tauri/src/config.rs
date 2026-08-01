@@ -494,6 +494,34 @@ pub struct ModelTestInput {
     pub prompt_text: Option<String>,
 }
 
+/// 自定义 Codex Provider 的新建/编辑输入(内置 Provider 只读,不经过此入口)。
+#[derive(Debug, Clone, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct CodexProviderInput {
+    /// 编辑时传入;新建时为 None。
+    pub id: Option<String>,
+    pub name: String,
+    pub base_url: String,
+    /// 读取 API key 的环境变量名。
+    pub env_key: String,
+    /// `responses` 或 `chat`。
+    pub wire_api: String,
+    #[serde(default)]
+    pub doc_url: Option<String>,
+}
+
+/// Codex 工作区视图:合并内置只读 Provider 与自定义 Provider,供前端 Codex 页展示。
+#[derive(Debug, Clone, Serialize, PartialEq, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexWorkspace {
+    pub providers: Vec<CodexProvider>,
+    pub profiles: Vec<CodexProfile>,
+    pub bindings: CodexBindingState,
+    /// 标记每个 provider 是否内置只读(前端据此禁用编辑/删除)。
+    pub builtin_provider_ids: Vec<String>,
+}
+
 #[derive(Debug, Clone, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
@@ -2861,6 +2889,143 @@ pub fn apply_profile(app_handle: AppHandle, id: String) -> Result<(), String> {
     result
 }
 
+// ===== Codex 配置命令(ADR 0004 平行独立模型)=====
+
+/// 合并内置只读与自定义 Codex Provider,返回 Codex 工作区视图。
+fn build_codex_workspace(registry: &ConfigRegistry) -> CodexWorkspace {
+    let mut providers = builtin_codex_providers();
+    let builtin_ids: Vec<String> = providers.iter().map(|p| p.id.clone()).collect();
+    providers.extend(registry.codex.providers.iter().cloned());
+    CodexWorkspace {
+        providers,
+        profiles: registry.codex.profiles.clone(),
+        bindings: registry.codex.bindings.clone(),
+        builtin_provider_ids: builtin_ids,
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn get_codex_workspace(_app_handle: AppHandle) -> Result<CodexWorkspace, String> {
+    let _lock = crate::utils::lock_config()?;
+    let registry = load_registry()?;
+    Ok(build_codex_workspace(&registry))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn upsert_codex_provider(
+    app_handle: AppHandle,
+    data: CodexProviderInput,
+) -> Result<CodexProvider, String> {
+    let result = (|| {
+        let _lock = crate::utils::lock_config()?;
+        let mut registry = load_registry()?;
+        let provider = upsert_codex_provider_in_registry(&mut registry, data)?;
+        save_registry(&registry)?;
+        let _ = app_handle.emit("codex-workspace-changed", ());
+        Ok(provider)
+    })();
+    crate::logging::log_command_result("codex.provider.upsert", &result, |provider| {
+        format!("provider_id={}", provider.id)
+    });
+    result
+}
+
+/// Codex Provider 新建/编辑的 registry 变更(非加锁、非命令,可单测)。
+fn upsert_codex_provider_in_registry(
+    registry: &mut ConfigRegistry,
+    data: CodexProviderInput,
+) -> Result<CodexProvider, String> {
+    let name = data.name.trim().to_string();
+    let base_url = data.base_url.trim().to_string();
+    let env_key = data.env_key.trim().to_string();
+    let wire_api = data.wire_api.trim().to_string();
+    if name.is_empty() {
+        return Err("Codex Provider 名称不能为空".to_string());
+    }
+    if base_url.is_empty() {
+        return Err("Codex Provider base_url 不能为空".to_string());
+    }
+    if env_key.is_empty() {
+        return Err("Codex Provider env_key 不能为空".to_string());
+    }
+    if wire_api != "responses" && wire_api != "chat" {
+        return Err("Codex Provider wire_api 必须是 responses 或 chat".to_string());
+    }
+
+    let provider_id = data
+        .id
+        .clone()
+        .unwrap_or_else(|| format!("custom:{}", Uuid::new_v4()));
+    // 内置 Provider 只读,禁止经此入口覆盖
+    if builtin_codex_providers()
+        .iter()
+        .any(|p| p.id == provider_id)
+    {
+        return Err("内置 Codex Provider 只读,不可修改".to_string());
+    }
+    // 自定义 id 必须带 custom: 前缀,与内置区分
+    let provider_id = if provider_id.starts_with("custom:") {
+        provider_id
+    } else {
+        format!("custom:{}", provider_id)
+    };
+
+    let provider = CodexProvider {
+        id: provider_id.clone(),
+        name,
+        base_url,
+        env_key,
+        wire_api,
+        doc_url: data.doc_url.filter(|s| !s.trim().is_empty()),
+    };
+    if let Some(existing) = registry
+        .codex
+        .providers
+        .iter_mut()
+        .find(|p| p.id == provider_id)
+    {
+        *existing = provider.clone();
+    } else {
+        registry.codex.providers.push(provider.clone());
+    }
+    Ok(provider)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn delete_codex_provider(app_handle: AppHandle, id: String) -> Result<(), String> {
+    let result = (|| {
+        let _lock = crate::utils::lock_config()?;
+        let mut registry = load_registry()?;
+        delete_codex_provider_in_registry(&mut registry, &id)?;
+        save_registry(&registry)?;
+        let _ = app_handle.emit("codex-workspace-changed", ());
+        Ok(())
+    })();
+    crate::logging::log_command_result("codex.provider.delete", &result, |_| {
+        format!("provider_id={id}")
+    });
+    result
+}
+
+/// Codex Provider 删除的 registry 变更(非加锁、非命令,可单测)。内置只读。
+fn delete_codex_provider_in_registry(
+    registry: &mut ConfigRegistry,
+    id: &str,
+) -> Result<(), String> {
+    if builtin_codex_providers().iter().any(|p| p.id == id) {
+        return Err("内置 Codex Provider 只读,不可删除".to_string());
+    }
+    let original_len = registry.codex.providers.len();
+    registry.codex.providers.retain(|p| p.id != id);
+    if registry.codex.providers.len() == original_len {
+        return Err("未找到要删除的 Codex Provider".to_string());
+    }
+    Ok(())
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn import_user_settings_profile(
@@ -4643,6 +4808,78 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
 
         // 不存在的 profile 报错
         codex_apply_to_registry(&mut registry, "missing").unwrap_err();
+
+        clear_test_env();
+    }
+
+    // 自定义 Codex Provider 的增删改:新建带 custom: 前缀,编辑更新,删除移除;
+    // 内置 Provider 不可改删。验证 #34 持久化行为。
+    #[test]
+    fn codex_provider_crud_and_builtin_readonly() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("codex-provider-crud");
+        set_test_env(&root);
+        let mut registry = ConfigRegistry::default();
+
+        // 新建:不传 id,自动生成 custom: 前缀
+        let created = upsert_codex_provider_in_registry(
+            &mut registry,
+            CodexProviderInput {
+                id: None,
+                name: "My Relay".to_string(),
+                base_url: "https://relay.example.com/v1".to_string(),
+                env_key: "MY_RELAY_KEY".to_string(),
+                wire_api: "responses".to_string(),
+                doc_url: None,
+            },
+        )
+        .unwrap();
+        assert!(created.id.starts_with("custom:"));
+        assert_eq!(registry.codex.providers.len(), 1);
+
+        // 编辑:传回 id,更新字段
+        let updated = upsert_codex_provider_in_registry(
+            &mut registry,
+            CodexProviderInput {
+                id: Some(created.id.clone()),
+                name: "My Relay v2".to_string(),
+                base_url: "https://relay2.example.com/v1".to_string(),
+                env_key: "MY_RELAY_KEY".to_string(),
+                wire_api: "chat".to_string(),
+                doc_url: Some("https://docs.example.com".to_string()),
+            },
+        )
+        .unwrap();
+        assert_eq!(updated.name, "My Relay v2");
+        assert_eq!(registry.codex.providers.len(), 1, "编辑不新增");
+        assert_eq!(
+            registry.codex.providers[0].base_url,
+            "https://relay2.example.com/v1"
+        );
+
+        // 校验:wire_api 非法被拒
+        upsert_codex_provider_in_registry(
+            &mut registry,
+            CodexProviderInput {
+                id: None,
+                name: "Bad".to_string(),
+                base_url: "https://x.example.com/v1".to_string(),
+                env_key: "K".to_string(),
+                wire_api: "bogus".to_string(),
+                doc_url: None,
+            },
+        )
+        .unwrap_err();
+
+        // 内置 Provider 删除被拒
+        delete_codex_provider_in_registry(&mut registry, CODEX_BUILTIN_OPENAI_ID).unwrap_err();
+
+        // 删除自定义 Provider 成功
+        delete_codex_provider_in_registry(&mut registry, &created.id).unwrap();
+        assert!(registry.codex.providers.is_empty());
+
+        // 重复删除报错
+        delete_codex_provider_in_registry(&mut registry, &created.id).unwrap_err();
 
         clear_test_env();
     }
