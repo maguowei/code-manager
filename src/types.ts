@@ -225,6 +225,14 @@ export interface CodexProviderInput {
   docUrl?: string;
 }
 
+/** 新建/编辑 Codex Profile 的输入。apiKey 为空表示编辑时保留已有 key。 */
+export interface CodexProfileInput {
+  id?: string | null;
+  name: string;
+  providerId: string;
+  apiKey: string;
+}
+
 export interface ModelTestResult {
   ok: boolean;
   responseText: string;

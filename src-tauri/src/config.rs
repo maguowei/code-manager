@@ -511,6 +511,20 @@ pub struct CodexProviderInput {
     pub doc_url: Option<String>,
 }
 
+/// Codex Profile 的新建/编辑输入。
+/// `api_key` 为空字符串表示「保留已有 key」(编辑场景);新建时必须非空。
+#[derive(Debug, Clone, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct CodexProfileInput {
+    /// 编辑时传入;新建时为 None。
+    pub id: Option<String>,
+    pub name: String,
+    pub provider_id: String,
+    #[serde(default)]
+    pub api_key: String,
+}
+
 /// Codex 工作区视图:合并内置只读 Provider 与自定义 Provider,供前端 Codex 页展示。
 #[derive(Debug, Clone, Serialize, PartialEq, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -2892,16 +2906,41 @@ pub fn apply_profile(app_handle: AppHandle, id: String) -> Result<(), String> {
 // ===== Codex 配置命令(ADR 0004 平行独立模型)=====
 
 /// 合并内置只读与自定义 Codex Provider,返回 Codex 工作区视图。
+/// Profile 的 api_key 经脱敏返回(展示用),真实 key 仅存于 registry,apply 时从 registry 取。
 fn build_codex_workspace(registry: &ConfigRegistry) -> CodexWorkspace {
     let mut providers = builtin_codex_providers();
     let builtin_ids: Vec<String> = providers.iter().map(|p| p.id.clone()).collect();
     providers.extend(registry.codex.providers.iter().cloned());
+    let profiles = registry
+        .codex
+        .profiles
+        .iter()
+        .map(|p| {
+            let mut masked = p.clone();
+            masked.api_key = mask_codex_api_key(&p.api_key);
+            masked
+        })
+        .collect();
     CodexWorkspace {
         providers,
-        profiles: registry.codex.profiles.clone(),
+        profiles,
         bindings: registry.codex.bindings.clone(),
         builtin_provider_ids: builtin_ids,
     }
+}
+
+/// 把 API key 脱敏为展示用字符串:空返回空,短 key 全掩码,长 key 保留首 4 末 2。
+fn mask_codex_api_key(key: &str) -> String {
+    if key.is_empty() {
+        return String::new();
+    }
+    let len = key.chars().count();
+    if len <= 8 {
+        return "••••".to_string();
+    }
+    let head: String = key.chars().take(4).collect();
+    let tail: String = key.chars().skip(len - 2).collect();
+    format!("{}••••{}", head, tail)
 }
 
 #[tauri::command]
@@ -3024,6 +3063,107 @@ fn delete_codex_provider_in_registry(
         return Err("未找到要删除的 Codex Provider".to_string());
     }
     Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn upsert_codex_profile(
+    app_handle: AppHandle,
+    data: CodexProfileInput,
+) -> Result<CodexProfile, String> {
+    let result = (|| {
+        let _lock = crate::utils::lock_config()?;
+        let mut registry = load_registry()?;
+        let profile = upsert_codex_profile_in_registry(&mut registry, data)?;
+        save_registry(&registry)?;
+        let _ = app_handle.emit("codex-workspace-changed", ());
+        // 返回脱敏后的 profile(展示用),真实 key 留在 registry
+        let mut masked = profile;
+        masked.api_key = mask_codex_api_key(&masked.api_key);
+        Ok(masked)
+    })();
+    crate::logging::log_command_result("codex.profile.upsert", &result, |profile| {
+        format!("profile_id={}", profile.id)
+    });
+    result
+}
+
+/// Codex Profile 新建/编辑的 registry 变更(非加锁、非命令,可单测)。
+/// `api_key` 为空表示编辑时保留已有 key;新建时必须非空。provider_id 必须可解析。
+fn upsert_codex_profile_in_registry(
+    registry: &mut ConfigRegistry,
+    data: CodexProfileInput,
+) -> Result<CodexProfile, String> {
+    let name = data.name.trim().to_string();
+    if name.is_empty() {
+        return Err("Codex Profile 名称不能为空".to_string());
+    }
+    // provider_id 必须可解析(内置或自定义)
+    resolve_codex_provider(registry, &data.provider_id)?;
+
+    let now = crate::utils::current_rfc3339_timestamp();
+    let profile_id = data
+        .id
+        .clone()
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
+
+    let profile = if let Some(existing) = registry
+        .codex
+        .profiles
+        .iter_mut()
+        .find(|p| p.id == profile_id)
+    {
+        existing.name = name;
+        existing.provider_id = data.provider_id;
+        // 空 key 表示保留已有值(编辑场景未重新输入)
+        if !data.api_key.trim().is_empty() {
+            existing.api_key = data.api_key;
+        }
+        existing.updated_at = now;
+        existing.clone()
+    } else {
+        // 新建:api_key 必须非空
+        if data.api_key.trim().is_empty() {
+            return Err("新建 Codex Profile 必须提供 API key".to_string());
+        }
+        let profile = CodexProfile {
+            id: profile_id,
+            name,
+            provider_id: data.provider_id,
+            api_key: data.api_key,
+            created_at: now.clone(),
+            updated_at: now,
+        };
+        registry.codex.profiles.push(profile.clone());
+        profile
+    };
+    Ok(profile)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn delete_codex_profile(app_handle: AppHandle, id: String) -> Result<(), String> {
+    let result = (|| {
+        let _lock = crate::utils::lock_config()?;
+        let mut registry = load_registry()?;
+        let original_len = registry.codex.profiles.len();
+        registry.codex.profiles.retain(|p| p.id != id);
+        if registry.codex.profiles.len() == original_len {
+            return Err("未找到要删除的 Codex Profile".to_string());
+        }
+        // 清理指向该 profile 的绑定
+        if registry.codex.bindings.codex_profile_id.as_deref() == Some(&id) {
+            registry.codex.bindings.codex_profile_id = None;
+            registry.codex.bindings.codex_last_applied_at = None;
+        }
+        save_registry(&registry)?;
+        let _ = app_handle.emit("codex-workspace-changed", ());
+        Ok(())
+    })();
+    crate::logging::log_command_result("codex.profile.delete", &result, |_| {
+        format!("profile_id={id}")
+    });
+    result
 }
 
 #[tauri::command]
@@ -4880,6 +5020,111 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
 
         // 重复删除报错
         delete_codex_provider_in_registry(&mut registry, &created.id).unwrap_err();
+
+        clear_test_env();
+    }
+
+    // Codex Profile 增删改 + api_key 脱敏 + 空 key 保留。验证 #35。
+    #[test]
+    fn codex_profile_crud_and_api_key_masking() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("codex-profile-crud");
+        set_test_env(&root);
+        let mut registry = ConfigRegistry::default();
+        // 预置一个自定义 provider 供 profile 引用
+        registry.codex.providers.push(CodexProvider {
+            id: "custom:relay".to_string(),
+            name: "Relay".to_string(),
+            base_url: "https://relay.example.com/v1".to_string(),
+            env_key: "RELAY_KEY".to_string(),
+            wire_api: "responses".to_string(),
+            doc_url: None,
+        });
+
+        // 新建 profile:必须提供 key
+        upsert_codex_profile_in_registry(
+            &mut registry,
+            CodexProfileInput {
+                id: None,
+                name: "P1".to_string(),
+                provider_id: "custom:relay".to_string(),
+                api_key: String::new(),
+            },
+        )
+        .unwrap_err(); // 空 key 新建被拒
+
+        let created = upsert_codex_profile_in_registry(
+            &mut registry,
+            CodexProfileInput {
+                id: None,
+                name: "P1".to_string(),
+                provider_id: "custom:relay".to_string(),
+                api_key: "testkey-secret-12345".to_string(),
+            },
+        )
+        .unwrap();
+        assert_eq!(created.api_key, "testkey-secret-12345");
+        assert_eq!(registry.codex.profiles.len(), 1);
+
+        // 引用不存在的 provider 被拒
+        upsert_codex_profile_in_registry(
+            &mut registry,
+            CodexProfileInput {
+                id: None,
+                name: "Bad".to_string(),
+                provider_id: "custom:missing".to_string(),
+                api_key: "test-x".to_string(),
+            },
+        )
+        .unwrap_err();
+
+        // 编辑:空 key 保留已有值
+        let preserved = upsert_codex_profile_in_registry(
+            &mut registry,
+            CodexProfileInput {
+                id: Some(created.id.clone()),
+                name: "P1 改名".to_string(),
+                provider_id: "custom:relay".to_string(),
+                api_key: String::new(),
+            },
+        )
+        .unwrap();
+        assert_eq!(preserved.name, "P1 改名");
+        assert_eq!(
+            preserved.api_key, "testkey-secret-12345",
+            "空 key 编辑应保留已有值"
+        );
+
+        // 编辑:提供新 key 则更新
+        let rotated = upsert_codex_profile_in_registry(
+            &mut registry,
+            CodexProfileInput {
+                id: Some(created.id.clone()),
+                name: "P1".to_string(),
+                provider_id: "custom:relay".to_string(),
+                api_key: "testkey-rotated-abcdef".to_string(),
+            },
+        )
+        .unwrap();
+        assert_eq!(rotated.api_key, "testkey-rotated-abcdef");
+
+        // 工作区视图 api_key 脱敏
+        let workspace = build_codex_workspace(&registry);
+        let view = &workspace.profiles[0];
+        assert_ne!(
+            view.api_key, "testkey-rotated-abcdef",
+            "工作区不应暴露明文 key"
+        );
+        assert!(view.api_key.contains("••••"));
+        assert!(
+            view.api_key.starts_with("test"),
+            "脱敏应保留首 4 字符: {}",
+            view.api_key
+        );
+
+        // 短 key 全掩码
+        assert_eq!(mask_codex_api_key("abc"), "••••");
+        assert_eq!(mask_codex_api_key(""), "");
 
         clear_test_env();
     }

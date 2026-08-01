@@ -139,4 +139,38 @@ describe("CodexProfilesPage", () => {
       expect(screen.getByText("尚无 Codex Provider")).toBeInTheDocument();
     });
   });
+
+  it("Profile 列表展示脱敏 api key,删除调用后端", async () => {
+    const ws: CodexWorkspace = {
+      providers: [...BUILTIN_WORKSPACE.providers],
+      profiles: [
+        {
+          id: "codex-1",
+          name: "工作中转",
+          providerId: "codex-builtin:openai",
+          apiKey: "test••••ey", // 后端已脱敏
+          createdAt: "2026-01-01T00:00:00+08:00",
+          updatedAt: "2026-01-01T00:00:00+08:00",
+        },
+      ],
+      bindings: {},
+      builtinProviderIds: ["codex-builtin:openai"],
+    };
+    stubInvoke(ws);
+    renderPage();
+    await waitFor(() => expect(screen.getByText("工作中转")).toBeInTheDocument());
+    // 脱敏 key 展示(不含明文)
+    expect(screen.getByText(/test••••ey/)).toBeInTheDocument();
+
+    // 删除 profile:两段式确认
+    fireEvent.click(screen.getAllByLabelText("删除")[0]);
+    await waitFor(() => {
+      expect(screen.getByText("删除 Codex 配置")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: "删除" })[0]);
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("delete_codex_profile", { id: "codex-1" });
+    });
+  });
 });
