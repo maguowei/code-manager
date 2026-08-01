@@ -1,6 +1,6 @@
 {
   "$schema": "https://code-manager.app/schemas/config-registry.schema.json",
-  "version": 1,
+  "version": 2,
   "app": {
     "showTrayTitle": true,
     "showTraySessions": true,
