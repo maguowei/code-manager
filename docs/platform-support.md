@@ -2,8 +2,6 @@
 
 [English](./platform-support.md) | [中文](./platform-support.zh-CN.md)
 
-Applies to version: `1.0.0`
-
 > This document is intended for both users and maintainers. The user perspective answers "which features work on my machine, and which are degraded or unavailable"; the maintainer perspective answers "which platform gap to close, and where the risks and code locations are."
 >
 > The authoritative sources for hard constraints, module topology, and verification checklists are the repository-root `CLAUDE.md` and `.claude/rules/*.md`; this document only records platform-related slices of fact. When code or configuration changes, sync this document according to the "Maintenance Guide" at the end.

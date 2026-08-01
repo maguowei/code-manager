@@ -2,8 +2,6 @@
 
 [English](./user-manual.md) | [中文](./user-manual.zh-CN.md)
 
-Applies to version: `1.0.0`
-
 > This document is intended for end users. The execution handbook for coding agents such as Claude Code / Codex is in `CLAUDE.md` at the repository root.
 
 Code Manager is a local desktop management tool for Claude Code users. It brings the `~/.claude` directory, configurations, providers, memories, Skills, history, statistics, token usage, project status, the system tray, and diagnostic logs together into a single Tauri application, helping you maintain your local Claude Code configuration in a more visible, previewable, and verifiable way.
@@ -39,7 +37,7 @@ If `~/.claude/settings.json` already exists on this machine, the Configurations 
 
 ### Provider
 
-A provider carries only objective provider information (connection endpoint, model mapping, and optional additional environment variables). It contains no authentication keys and is built-in and read-only, with no custom providers. Built-in providers cover Anthropic, DeepSeek, Zhipu GLM Coding Plan, Kimi Code Plan, MiniMax Token Plan, Xiaomi MiMo Token Plan, OpenRouter, Volcengine Ark Coding Plan, Alibaba Cloud Bailian Coding Plan, Wanjie Ark, and Ollama. After a configuration references a provider, fields with the same name in the configuration override the provider's `env` (except the endpoint: the endpoint uses the provider as the single source of truth).
+A provider carries only objective provider information (connection endpoint, model mapping, and optional additional environment variables). It contains no authentication keys and is built-in and read-only, with no custom providers. After a configuration references a provider, fields with the same name in the configuration override the provider's `env` (except the endpoint: the endpoint uses the provider as the single source of truth). See the [Providers](#providers) section for the full built-in list.
 
 ### Memory
 

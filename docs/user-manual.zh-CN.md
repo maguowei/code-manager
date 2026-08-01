@@ -2,8 +2,6 @@
 
 [English](./user-manual.md) | [中文](./user-manual.zh-CN.md)
 
-适用版本：`1.0.0`
-
 > 本文档面向终端用户。面向 Claude Code / Codex 等编程代理的执行手册见仓库根目录的 `CLAUDE.md`。
 
 Code Manager 是面向 Claude Code 用户的本地桌面管理工具。它把 `~/.claude` 目录、配置、供应商、记忆、Skills、历史、统计、Token 用量、项目状态、系统托盘和诊断日志集中到一个 Tauri 应用中,帮助你用更可见、可预览、可验证的方式维护 Claude Code 本地配置。
@@ -39,7 +37,7 @@ Code Manager 是面向 Claude Code 用户的本地桌面管理工具。它把 `~
 
 ### Provider(供应商)
 
-供应商只承载供应商客观信息(连接地址、模型映射与可选附加环境变量),不含认证密钥,且均为内置只读、不可自定义。内置供应商覆盖 Anthropic、DeepSeek、智谱 GLM Coding Plan、Kimi Code Plan、MiniMax Token Plan、小米 MiMo Token Plan、OpenRouter、火山方舟 Coding Plan、阿里云百炼 Coding Plan、万界方舟和 Ollama。配置引用供应商后,配置中的同名字段会覆盖供应商的 `env`(地址除外:地址以供应商为单一事实源)。
+供应商只承载供应商客观信息(连接地址、模型映射与可选附加环境变量),不含认证密钥,且均为内置只读、不可自定义。配置引用供应商后,配置中的同名字段会覆盖供应商的 `env`(地址除外:地址以供应商为单一事实源)。完整内置清单见 [供应商 Provider](#供应商-provider) 章节。
 
 ### 记忆
 
