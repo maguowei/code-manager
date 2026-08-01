@@ -21,6 +21,8 @@ export const commands = {
 	getCodexWorkspace: () => typedError<CodexWorkspace_Serialize, string>(__TAURI_INVOKE("get_codex_workspace")),
 	upsertCodexProvider: (data: CodexProviderInput) => typedError<CodexProvider_Serialize, string>(__TAURI_INVOKE("upsert_codex_provider", { data })),
 	deleteCodexProvider: (id: string) => typedError<null, string>(__TAURI_INVOKE("delete_codex_provider", { id })),
+	upsertCodexProfile: (data: CodexProfileInput) => typedError<CodexProfile, string>(__TAURI_INVOKE("upsert_codex_profile", { data })),
+	deleteCodexProfile: (id: string) => typedError<null, string>(__TAURI_INVOKE("delete_codex_profile", { id })),
 	importUserSettingsProfile: (data: UserSettingsImportInput) => typedError<ConfigProfile_Serialize, string>(__TAURI_INVOKE("import_user_settings_profile", { data })),
 	installStatusLinePreset: (presetId: string, overwrite: boolean) => typedError<StatusLinePresetInstallResult, string>(__TAURI_INVOKE("install_status_line_preset", { presetId, overwrite })),
 	previewProfile: (data: ProfileInput) => typedError<string, string>(__TAURI_INVOKE("preview_profile", { data })),
@@ -318,6 +320,18 @@ export type CodexProfile = {
 	apiKey: string,
 	createdAt: string,
 	updatedAt: string,
+};
+
+/**
+ *  Codex Profile 的新建/编辑输入。
+ *  `api_key` 为空字符串表示「保留已有 key」(编辑场景);新建时必须非空。
+ */
+export type CodexProfileInput = {
+	/**  编辑时传入;新建时为 None。 */
+	id: string | null,
+	name: string,
+	providerId: string,
+	apiKey?: string,
 };
 
 /**
