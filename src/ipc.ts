@@ -97,6 +97,7 @@ type CompatibleIpcOverrides = {
   deleteCodexProvider(id: string): Promise<null>;
   deleteCodexProfile(id: string): Promise<null>;
   applyCodexProfile(id: string): Promise<null>;
+  previewCodexApply(id: string): Promise<AppTypes.CodexApplyPreview>;
   deleteMemory(id: string): Promise<AppTypes.MemoryState>;
   deleteProfile(id: string): Promise<null>;
   deleteSkill(id: string, isActive: boolean): Promise<null>;

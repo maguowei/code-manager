@@ -7,6 +7,7 @@ import { useI18n } from "../i18n";
 import { ipc } from "../ipc";
 import { showOperationError } from "../lib/user-facing-error";
 import type {
+  CodexApplyPreview,
   CodexProfile,
   CodexProfileInput,
   CodexProvider,
@@ -105,6 +106,12 @@ export default function CodexProfilesPage() {
 
   // Apply 中的 profile id(禁用按钮、防重复点击)
   const [applyingProfileId, setApplyingProfileId] = useState<string | null>(null);
+  // Apply 预览确认(profileId + 预览数据;null 表示关闭)
+  const [applyPreview, setApplyPreview] = useState<{
+    profileId: string;
+    preview: CodexApplyPreview;
+  } | null>(null);
+  const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
 
   const loadWorkspace = useCallback(async () => {
     try {
@@ -231,7 +238,23 @@ export default function CodexProfilesPage() {
   const hasProvider = providers.length > 0;
   const activeProfileId = workspace?.bindings.codexProfileId ?? null;
 
+  // 点击应用:先拉取预览(不写盘),弹确认面板;确认后才真正 apply
   const handleApplyProfile = async (profileId: string) => {
+    setPreviewLoadingId(profileId);
+    try {
+      const preview = await ipc.previewCodexApply(profileId);
+      setApplyPreview({ profileId, preview });
+    } catch (error) {
+      showOperationError(showToast, t("codex.toast.profileApplyFailed"), error);
+    } finally {
+      setPreviewLoadingId(null);
+    }
+  };
+
+  const handleConfirmApply = async () => {
+    if (!applyPreview) return;
+    const { profileId } = applyPreview;
+    setApplyPreview(null);
     setApplyingProfileId(profileId);
     try {
       await ipc.applyCodexProfile(profileId);
@@ -373,6 +396,7 @@ export default function CodexProfilesPage() {
                   {profiles.map((profile) => {
                     const isActive = profile.id === activeProfileId;
                     const applying = applyingProfileId === profile.id;
+                    const previewing = previewLoadingId === profile.id;
                     return (
                       <li
                         key={profile.id}
@@ -402,7 +426,7 @@ export default function CodexProfilesPage() {
                           size="sm"
                           variant={isActive ? "secondary" : "default"}
                           onClick={() => void handleApplyProfile(profile.id)}
-                          disabled={applying}
+                          disabled={applying || previewing}
                           aria-label={t("codex.apply")}
                         >
                           {t("codex.apply")}
@@ -625,6 +649,66 @@ export default function CodexProfilesPage() {
             </Button>
             <Button type="button" variant="destructive" onClick={() => void handleConfirmDelete()}>
               {t("codex.delete")}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* Apply 预览确认(#37):展示 provider 切换摘要,确认后才写盘 */}
+      <Sheet open={applyPreview !== null} onOpenChange={(open) => !open && setApplyPreview(null)}>
+        <SheetContent className="flex flex-col gap-4">
+          <SheetHeader>
+            <SheetTitle>{t("codex.applyPreviewTitle")}</SheetTitle>
+            <SheetDescription>{t("codex.applyPreviewDescription")}</SheetDescription>
+          </SheetHeader>
+          {applyPreview ? (
+            <FieldGroup className="flex-1 overflow-auto">
+              <Field>
+                <FieldLabel>{t("codex.applyPreviewCurrent")}</FieldLabel>
+                <FieldContent>
+                  <p className="text-body text-muted-foreground">
+                    {applyPreview.preview.currentModelProvider ?? t("codex.applyPreviewNone")}
+                  </p>
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel>{t("codex.applyPreviewNext")}</FieldLabel>
+                <FieldContent>
+                  <p className="text-body font-medium">
+                    {applyPreview.preview.providerName}
+                    <span className="text-muted-foreground">
+                      {" "}
+                      ({applyPreview.preview.nextModelProvider})
+                    </span>
+                  </p>
+                  <p className="text-auxiliary text-muted-foreground">
+                    {applyPreview.preview.providerBaseUrl} · wire_api{" "}
+                    {applyPreview.preview.providerWireApi}
+                  </p>
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel>{t("codex.applyPreviewAuth")}</FieldLabel>
+                <FieldContent>
+                  <p className="text-body text-muted-foreground">
+                    {applyPreview.preview.apiKeyWillSet
+                      ? t("codex.applyPreviewAuthSet")
+                      : t("codex.applyPreviewAuthUnset")}
+                  </p>
+                </FieldContent>
+              </Field>
+            </FieldGroup>
+          ) : null}
+          <SheetFooter>
+            <Button type="button" variant="outline" onClick={() => setApplyPreview(null)}>
+              {t("codex.cancel")}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleConfirmApply()}
+              disabled={applyingProfileId !== null}
+            >
+              {t("codex.apply")}
             </Button>
           </SheetFooter>
         </SheetContent>

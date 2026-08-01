@@ -58,7 +58,17 @@ function stubInvoke(workspace: CodexWorkspace) {
         wireApi: "responses",
       };
     }
-    if (command === "delete_codex_provider") return null;
+    if (command === "preview_codex_apply") {
+      return {
+        currentModelProvider: "old",
+        nextModelProvider: "openai",
+        providerName: "OpenAI 官方",
+        providerBaseUrl: "https://api.openai.com/v1",
+        providerWireApi: "responses",
+        apiKeyWillSet: true,
+      };
+    }
+    if (command === "delete_codex_provider" || command === "apply_codex_profile") return null;
     return null;
   });
 }
@@ -197,7 +207,17 @@ describe("CodexProfilesPage", () => {
     // 激活态徽标展示
     expect(screen.getByText("已激活")).toBeInTheDocument();
 
+    // 点击应用:先调用 preview(不写盘)
     fireEvent.click(screen.getByRole("button", { name: "应用" }));
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("preview_codex_apply", { id: "codex-1" });
+    });
+    // 预览面板展示切换摘要
+    await waitFor(() => {
+      expect(screen.getByText("确认应用 Codex 配置")).toBeInTheDocument();
+    });
+    // 确认后才真正 apply
+    fireEvent.click(screen.getAllByRole("button", { name: "应用" })[0]);
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("apply_codex_profile", { id: "codex-1" });
     });

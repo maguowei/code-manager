@@ -1782,6 +1782,15 @@ const translations = {
     "codex.activeBadge": "已激活",
     "codex.toast.profileApplied": "Codex 配置已应用",
     "codex.toast.profileApplyFailed": "应用 Codex 配置失败",
+    "codex.applyPreviewTitle": "确认应用 Codex 配置",
+    "codex.applyPreviewDescription":
+      "将以外科补丁方式改写 ~/.codex/config.toml 的 provider 段并写入 auth.json;其余键原样保留。",
+    "codex.applyPreviewCurrent": "当前活跃 provider",
+    "codex.applyPreviewNext": "切换到",
+    "codex.applyPreviewAuth": "认证",
+    "codex.applyPreviewAuthSet": "将写入 API key 到 auth.json",
+    "codex.applyPreviewAuthUnset": "未设置 API key",
+    "codex.applyPreviewNone": "(无 / 首次)",
   },
   en: {
     // 通用
@@ -3638,6 +3647,15 @@ const translations = {
     "codex.activeBadge": "Active",
     "codex.toast.profileApplied": "Codex profile applied",
     "codex.toast.profileApplyFailed": "Failed to apply Codex profile",
+    "codex.applyPreviewTitle": "Confirm Codex profile apply",
+    "codex.applyPreviewDescription":
+      "This surgically patches the provider section of ~/.codex/config.toml and writes auth.json; all other keys are preserved.",
+    "codex.applyPreviewCurrent": "Current active provider",
+    "codex.applyPreviewNext": "Switch to",
+    "codex.applyPreviewAuth": "Auth",
+    "codex.applyPreviewAuthSet": "Will write API key to auth.json",
+    "codex.applyPreviewAuthUnset": "No API key set",
+    "codex.applyPreviewNone": "(none / first time)",
   },
 } as const;
 
