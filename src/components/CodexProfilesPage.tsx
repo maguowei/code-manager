@@ -6,6 +6,7 @@ import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
 import { ipc } from "../ipc";
 import { showOperationError } from "../lib/user-facing-error";
+import { cn } from "../lib/utils";
 import type {
   CodexApplyPreview,
   CodexProfile,
@@ -17,8 +18,13 @@ import type {
 import EmptyState from "./EmptyState";
 import type { EditorExitGuard } from "./editor-exit-guard";
 import PageHeader from "./PageHeader";
+import ProfileNameBadge from "./ProfileNameBadge";
+import SensitiveTextInput from "./profile-editor/SensitiveTextInput";
+import { TYPOGRAPHY } from "./typography-classes";
 import UnsavedChangesAlertDialog from "./UnsavedChangesAlertDialog";
+import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
+import { Card } from "./ui/card";
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -34,6 +40,12 @@ import {
 // Codex wire_api 合法值(与后端 config.rs 的 CODEX_WIRE_API_RESPONSES / _CHAT 对齐)
 const WIRE_API_RESPONSES = "responses";
 const WIRE_API_CHAT = "chat";
+
+// 卡片与 chip 样式对齐 ProvidersPage 的 preset-card / preset-chip 体系
+const PROVIDER_CARD_CLASS =
+  "preset-card flex flex-col gap-3 rounded-lg border border-border bg-card p-4 text-foreground shadow-panel";
+const PROVIDER_CHIP_CLASS =
+  "preset-chip inline-flex min-h-7 items-center rounded-full border border-border bg-secondary px-2.5 py-1 text-xs font-semibold text-foreground";
 
 interface ProviderDraft {
   id: string | null;
@@ -147,6 +159,7 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
   const providers = workspace?.providers ?? [];
   const profiles = workspace?.profiles ?? [];
   const providerName = (id: string) => providers.find((p) => p.id === id)?.name ?? id;
+  const providerOf = (id: string) => providers.find((p) => p.id === id);
 
   // ===== Provider handlers =====
   const openCreateProvider = () => {
@@ -364,27 +377,36 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
     }
   };
 
-  return (
-    <div className="flex h-full flex-col">
-      <PageHeader title={t("codex.pageTitle")} description={t("codex.pageDescription")} />
+  // Profile 摘要行的标签样式(对齐 ProfilesPage 的 summary row)
+  const summaryLabelClass =
+    "inline-flex shrink-0 items-center text-xs leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-border after:content-[':']";
+  const summaryRowClass =
+    "grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground";
 
-      <div className="flex-1 overflow-auto p-4">
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-secondary">
+      <PageHeader
+        title={t("codex.pageTitle")}
+        description={t("codex.pageDescription")}
+        surface="secondary"
+        variant="list"
+      />
+
+      <div className="scrollbar-none flex min-h-0 flex-col gap-6 overflow-y-auto p-4">
         {loading ? (
           <EmptyState title={t("codex.loading")} loading />
         ) : (
-          <div className="flex flex-col gap-6">
+          <>
             {/* Provider 区 */}
             <section className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sectionTitle font-medium">{t("codex.providerSectionTitle")}</h2>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className={TYPOGRAPHY.sectionTitle}>{t("codex.providerSectionTitle")}</h2>
                 <Button type="button" size="sm" onClick={openCreateProvider}>
                   <Plus className="size-4" />
                   {t("codex.addProvider")}
                 </Button>
               </div>
-              <p className="text-auxiliary text-muted-foreground">
-                {t("codex.providerSectionHint")}
-              </p>
+              <p className={TYPOGRAPHY.auxiliary}>{t("codex.providerSectionHint")}</p>
               {providers.length === 0 ? (
                 <EmptyState
                   title={t("codex.emptyProviderTitle")}
@@ -392,67 +414,80 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                   icon={Plus}
                 />
               ) : (
-                <ul className="flex flex-col gap-2">
+                <ul className="flex flex-col gap-3">
                   {providers.map((provider) => {
                     const builtin = builtinIdSet.has(provider.id);
                     const docUrl = provider.docUrl;
                     return (
-                      <li
-                        key={provider.id}
-                        className="bg-card shadow-panel flex items-center gap-3 rounded-md border p-3"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-cardTitle truncate font-medium">
-                              {provider.name}
-                            </span>
-                            {builtin ? (
-                              <span className="bg-secondary text-auxiliary rounded px-1.5 py-0.5 text-muted-foreground">
-                                {t("codex.builtinBadge")}
+                      <li key={provider.id}>
+                        <Card className={PROVIDER_CARD_CLASS} data-slot="codex-provider-card">
+                          <div className="preset-card-head flex items-start justify-between gap-3 max-[700px]:flex-wrap">
+                            <div className="preset-card-title-block min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="text-base leading-snug font-semibold">
+                                  {provider.name}
+                                </h3>
+                                {builtin ? (
+                                  <Badge
+                                    variant="secondary"
+                                    className="rounded-full px-2 py-0.5 text-xs font-semibold text-muted-foreground"
+                                  >
+                                    {t("codex.builtinBadge")}
+                                  </Badge>
+                                ) : null}
+                              </div>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1">
+                              {docUrl ? (
+                                <Button
+                                  type="button"
+                                  variant="link"
+                                  className="preset-card-doc-link h-auto min-h-7 gap-1.5 p-0 text-xs font-semibold text-primary hover:text-primary"
+                                  onClick={() => void openUrl(docUrl)}
+                                >
+                                  <span>{t("codex.openDocs")}</span>
+                                  <ExternalLink className="size-3.5" aria-hidden="true" />
+                                </Button>
+                              ) : null}
+                              {builtin ? null : (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => openEditProvider(provider)}
+                                    aria-label={t("codex.edit")}
+                                  >
+                                    <Pencil className="size-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() =>
+                                      setPendingDelete({ kind: "provider", id: provider.id })
+                                    }
+                                    aria-label={t("codex.delete")}
+                                  >
+                                    <Trash2 className="size-4" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <div className="preset-card-body flex flex-col gap-2.5">
+                            <div className="preset-summary-block rounded-lg border border-border bg-muted/50 px-3 py-[11px]">
+                              <span className="preset-summary-label inline-flex items-center text-xs leading-normal font-semibold text-muted-foreground">
+                                {t("codex.field.baseUrl")}
                               </span>
-                            ) : null}
+                              <div className="preset-summary-value mt-[7px] flex flex-wrap items-center gap-2 font-mono text-xs leading-normal text-foreground [overflow-wrap:anywhere]">
+                                {provider.baseUrl}
+                              </div>
+                            </div>
+                            <div className="preset-chip-list flex flex-wrap items-center gap-2">
+                              <span className={PROVIDER_CHIP_CLASS}>{provider.envKey}</span>
+                              <span className={PROVIDER_CHIP_CLASS}>{provider.wireApi}</span>
+                            </div>
                           </div>
-                          <div className="text-auxiliary mt-0.5 truncate text-muted-foreground">
-                            {provider.baseUrl}
-                          </div>
-                          <div className="text-auxiliary mt-0.5 text-muted-foreground">
-                            {t("codex.providerMetaEnvKey")} {provider.envKey}
-                            {" · "}
-                            {t("codex.providerMetaWireApi")} {provider.wireApi}
-                          </div>
-                        </div>
-                        {docUrl ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => void openUrl(docUrl)}
-                            aria-label={t("codex.openDocs")}
-                          >
-                            <ExternalLink className="size-4" />
-                          </Button>
-                        ) : null}
-                        {builtin ? null : (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openEditProvider(provider)}
-                              aria-label={t("codex.edit")}
-                            >
-                              <Pencil className="size-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                setPendingDelete({ kind: "provider", id: provider.id })
-                              }
-                              aria-label={t("codex.delete")}
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
-                          </>
-                        )}
+                        </Card>
                       </li>
                     );
                   })}
@@ -460,10 +495,10 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
               )}
             </section>
 
-            {/* Profile 区(#35:增删改名 + key 脱敏;#36 将加 Apply) */}
+            {/* Profile 区 */}
             <section className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sectionTitle font-medium">{t("codex.profileSectionTitle")}</h2>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className={TYPOGRAPHY.sectionTitle}>{t("codex.profileSectionTitle")}</h2>
                 <Button
                   type="button"
                   size="sm"
@@ -475,9 +510,7 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                   {t("codex.addProfile")}
                 </Button>
               </div>
-              <p className="text-auxiliary text-muted-foreground">
-                {t("codex.profileSectionHint")}
-              </p>
+              <p className={TYPOGRAPHY.auxiliary}>{t("codex.profileSectionHint")}</p>
               {!hasProvider ? (
                 <EmptyState
                   title={t("codex.profileNeedsProviderTitle")}
@@ -491,68 +524,118 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                   icon={Plus}
                 />
               ) : (
-                <ul className="flex flex-col gap-2">
+                <ul className="flex flex-col gap-3">
                   {profiles.map((profile) => {
                     const isActive = profile.id === activeProfileId;
                     const applying = applyingProfileId === profile.id;
                     const previewing = previewLoadingId === profile.id;
+                    const provider = providerOf(profile.providerId);
                     return (
-                      <li
-                        key={profile.id}
-                        className="bg-card shadow-panel flex items-center gap-3 rounded-md border p-3"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-cardTitle truncate font-medium">
-                              {profile.name}
-                            </span>
-                            {isActive ? (
-                              <span className="bg-primary/10 text-primary inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-auxiliary">
-                                <CircleCheck className="size-3" />
-                                {t("codex.activeBadge")}
+                      <li key={profile.id}>
+                        <Card
+                          className="group relative flex flex-col gap-4 rounded-lg border border-border bg-card p-4 py-4 text-foreground shadow-panel transition-[border-color,box-shadow] duration-200 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                          data-slot="codex-profile-card"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex min-w-0 items-start gap-3">
+                              <ProfileNameBadge
+                                name={profile.name}
+                                colorSeedScope={profile.providerId}
+                                size="sm"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <h3 className="truncate text-base font-semibold">{profile.name}</h3>
+                                <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                                  <Badge
+                                    variant="secondary"
+                                    className="rounded-full px-2 py-0.5 text-xs font-semibold text-primary"
+                                  >
+                                    {providerName(profile.providerId)}
+                                  </Badge>
+                                  {isActive ? (
+                                    <Badge
+                                      variant="secondary"
+                                      className={cn(
+                                        "active rounded-md px-2.5 py-1.5 text-chart-2",
+                                        TYPOGRAPHY.badge,
+                                      )}
+                                    >
+                                      <CircleCheck className="size-3" />
+                                      {t("codex.activeBadge")}
+                                    </Badge>
+                                  ) : null}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap items-center justify-end gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => void handleApplyProfile(profile.id)}
+                                disabled={applying || previewing}
+                                aria-label={t("codex.apply")}
+                              >
+                                {t("codex.apply")}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openEditProfile(profile)}
+                                aria-label={t("codex.edit")}
+                              >
+                                <Pencil className="size-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  setPendingDelete({ kind: "profile", id: profile.id })
+                                }
+                                aria-label={t("codex.delete")}
+                              >
+                                <Trash2 className="size-4" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col gap-2">
+                            <div className={summaryRowClass}>
+                              <span className={summaryLabelClass}>
+                                {t("codex.summary.baseUrl")}
                               </span>
-                            ) : null}
+                              <span className="min-w-0 max-w-full truncate font-mono text-xs leading-none text-foreground [overflow-wrap:anywhere]">
+                                {provider?.baseUrl ?? "—"}
+                              </span>
+                            </div>
+                            <div className={summaryRowClass}>
+                              <span className={summaryLabelClass}>
+                                {t("codex.summary.wireApi")}
+                              </span>
+                              <span className="font-mono text-xs leading-none text-foreground">
+                                {provider?.wireApi ?? "—"}
+                              </span>
+                            </div>
+                            <div className={summaryRowClass}>
+                              <span className={summaryLabelClass}>{t("codex.summary.apiKey")}</span>
+                              {profile.apiKey ? (
+                                <span className="min-w-0 max-w-full truncate font-mono text-xs leading-none text-foreground [overflow-wrap:anywhere]">
+                                  {profile.apiKey}
+                                </span>
+                              ) : (
+                                <span className="text-xs leading-none text-muted-foreground">
+                                  {t("codex.summary.apiKeyUnset")}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <div className="text-auxiliary mt-0.5 truncate text-muted-foreground">
-                            {providerName(profile.providerId)}
-                          </div>
-                          <div className="text-auxiliary mt-0.5 text-muted-foreground">
-                            {t("codex.profileApiKey")} {profile.apiKey || "—"}
-                          </div>
-                        </div>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={isActive ? "secondary" : "default"}
-                          onClick={() => void handleApplyProfile(profile.id)}
-                          disabled={applying || previewing}
-                          aria-label={t("codex.apply")}
-                        >
-                          {t("codex.apply")}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEditProfile(profile)}
-                          aria-label={t("codex.edit")}
-                        >
-                          <Pencil className="size-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setPendingDelete({ kind: "profile", id: profile.id })}
-                          aria-label={t("codex.delete")}
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
+                        </Card>
                       </li>
                     );
                   })}
                 </ul>
               )}
             </section>
-          </div>
+          </>
         )}
       </div>
 
@@ -568,6 +651,9 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
             </SheetTitle>
             <SheetDescription>{t("codex.editorDescription")}</SheetDescription>
           </SheetHeader>
+          <div className="flex shrink-0 justify-center">
+            <ProfileNameBadge name={providerDraft.name} size="lg" fallbackChar="P" />
+          </div>
           <FieldGroup className="flex-1 overflow-auto">
             <Field>
               <FieldLabel>{t("codex.field.name")}</FieldLabel>
@@ -666,6 +752,14 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
           </SheetHeader>
           {profileDraft ? (
             <>
+              <div className="flex shrink-0 justify-center">
+                <ProfileNameBadge
+                  name={profileDraft.name}
+                  colorSeedScope={profileDraft.providerId}
+                  size="lg"
+                  fallbackChar="P"
+                />
+              </div>
               <FieldGroup className="flex-1 overflow-auto">
                 <Field>
                   <FieldLabel>{t("codex.field.profileName")}</FieldLabel>
@@ -697,17 +791,35 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                         ))}
                       </SelectContent>
                     </Select>
+                    {providerOf(profileDraft.providerId) ? (
+                      <p
+                        className="text-auxiliary mt-1.5 text-muted-foreground"
+                        data-slot="codex-profile-provider-summary"
+                      >
+                        <span className="font-mono">
+                          {providerOf(profileDraft.providerId)?.baseUrl}
+                        </span>
+                        {" · "}
+                        <span className="font-mono">
+                          {t("codex.providerMetaWireApi")}{" "}
+                          {providerOf(profileDraft.providerId)?.wireApi}
+                        </span>
+                      </p>
+                    ) : null}
                   </FieldContent>
                 </Field>
                 <Field>
                   <FieldLabel>{t("codex.field.apiKey")}</FieldLabel>
                   <FieldDescription>{t("codex.field.apiKeyHint")}</FieldDescription>
                   <FieldContent>
-                    <Input
-                      type="password"
+                    <SensitiveTextInput
+                      id="codex-profile-api-key"
                       value={profileDraft.apiKey}
-                      onChange={(e) => setProfileDraft({ ...profileDraft, apiKey: e.target.value })}
                       placeholder={profileDraft.id ? t("codex.field.apiKeyKeepHint") : "sk-..."}
+                      ariaLabel={t("codex.field.apiKey")}
+                      showLabel={t("codex.field.showApiKey")}
+                      hideLabel={t("codex.field.hideApiKey")}
+                      onChange={(value) => setProfileDraft({ ...profileDraft, apiKey: value })}
                     />
                   </FieldContent>
                 </Field>
