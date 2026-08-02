@@ -300,7 +300,7 @@ describe("CodexProfilesPage", () => {
       expect(screen.getByText("新增 Codex Provider")).toBeInTheDocument();
     });
     // 填必填字段
-    fireEvent.change(screen.getByPlaceholderText("例如:我的中转"), {
+    fireEvent.change(screen.getByPlaceholderText("例如：我的中转"), {
       target: { value: "Azure 中转" },
     });
     fireEvent.change(screen.getByPlaceholderText("https://api.example.com/v1"), {
@@ -362,7 +362,7 @@ describe("CodexProfilesPage", () => {
       expect(screen.getByText("新增 Codex Provider")).toBeInTheDocument();
     });
     // 修改表单使其变脏
-    fireEvent.change(screen.getByPlaceholderText("例如:我的中转"), {
+    fireEvent.change(screen.getByPlaceholderText("例如：我的中转"), {
       target: { value: "未保存的中转" },
     });
     // 点取消:弹未保存确认,而非直接关闭
@@ -399,7 +399,7 @@ describe("CodexProfilesPage", () => {
       expect(screen.getByText("新增 Codex 配置")).toBeInTheDocument();
     });
     // 填名称与 key 使其 dirty 且可保存
-    fireEvent.change(screen.getByPlaceholderText("例如:工作中转"), {
+    fireEvent.change(screen.getByPlaceholderText("例如：工作中转"), {
       target: { value: "工作配置" },
     });
     fireEvent.change(screen.getByPlaceholderText("sk-..."), { target: { value: "sk-new" } });
