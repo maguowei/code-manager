@@ -102,6 +102,20 @@ describe("CodexProfilesPage", () => {
     expect(screen.queryAllByLabelText("删除")).toHaveLength(0);
   });
 
+  it("Provider 卡片展示 base_url 摘要块与 env_key / wire_api chip", async () => {
+    stubInvoke(BUILTIN_WORKSPACE);
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("OpenAI 官方")).toBeInTheDocument();
+    });
+    // base_url 摘要块
+    expect(screen.getByText("https://api.openai.com/v1")).toBeInTheDocument();
+    // env_key / wire_api chip
+    expect(screen.getByText("OPENAI_API_KEY")).toBeInTheDocument();
+    expect(screen.getByText("responses")).toBeInTheDocument();
+  });
+
   it("自定义 Provider 可删除,删除调用后端", async () => {
     const ws: CodexWorkspace = {
       providers: [
@@ -184,6 +198,56 @@ describe("CodexProfilesPage", () => {
     });
   });
 
+  it("Profile 卡片展示 provider Badge 与 summary 行(base_url / wire_api / key)", async () => {
+    const ws: CodexWorkspace = {
+      providers: [...BUILTIN_WORKSPACE.providers],
+      profiles: [
+        {
+          id: "codex-1",
+          name: "工作中转",
+          providerId: "codex-builtin:openai",
+          apiKey: "test••••ey",
+          createdAt: "2026-01-01T00:00:00+08:00",
+          updatedAt: "2026-01-01T00:00:00+08:00",
+        },
+      ],
+      bindings: {},
+      builtinProviderIds: ["codex-builtin:openai"],
+    };
+    stubInvoke(ws);
+    renderPage();
+    await waitFor(() => expect(screen.getByText("工作中转")).toBeInTheDocument());
+    // 卡片内 provider Badge(Provider 区卡片与 Profile 卡片各一处名称)
+    expect(screen.getAllByText("OpenAI 官方")).toHaveLength(2);
+    // summary 行:base_url(Provider 卡片与 Profile 卡片各一处)与 wire_api 值
+    expect(screen.getAllByText("https://api.openai.com/v1")).toHaveLength(2);
+    expect(screen.getAllByText("responses").length).toBeGreaterThanOrEqual(1);
+    // key 状态行:脱敏 key 或「未配置」
+    expect(screen.getByText(/test••••ey/)).toBeInTheDocument();
+  });
+
+  it("Profile 卡片对无 key 的配置展示「未配置」", async () => {
+    const ws: CodexWorkspace = {
+      providers: [...BUILTIN_WORKSPACE.providers],
+      profiles: [
+        {
+          id: "codex-1",
+          name: "工作中转",
+          providerId: "codex-builtin:openai",
+          apiKey: "",
+          createdAt: "2026-01-01T00:00:00+08:00",
+          updatedAt: "2026-01-01T00:00:00+08:00",
+        },
+      ],
+      bindings: {},
+      builtinProviderIds: ["codex-builtin:openai"],
+    };
+    stubInvoke(ws);
+    renderPage();
+    await waitFor(() => expect(screen.getByText("工作中转")).toBeInTheDocument());
+    expect(screen.getByText("未配置")).toBeInTheDocument();
+  });
+
   it("点击应用调用 apply_codex_profile;激活态展示徽标", async () => {
     const ws: CodexWorkspace = {
       providers: [...BUILTIN_WORKSPACE.providers],
@@ -259,6 +323,31 @@ describe("CodexProfilesPage", () => {
         },
       });
     });
+  });
+
+  it("Profile 编辑器展示引用 provider 摘要行,API key 支持明文切换", async () => {
+    stubInvoke(BUILTIN_WORKSPACE);
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "新增配置" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "新增配置" }));
+    await waitFor(() => {
+      expect(screen.getByText("新增 Codex 配置")).toBeInTheDocument();
+    });
+    // 引用 provider 的 base_url 摘要行(与 Provider 区卡片各一处)
+    expect(screen.getAllByText("https://api.openai.com/v1")).toHaveLength(2);
+    // 摘要行展示 wire_api
+    expect(screen.getByText("wire_api: responses")).toBeInTheDocument();
+
+    // API key 输入框默认密文,可切换明文
+    const keyInput = screen.getByPlaceholderText("sk-...");
+    expect(keyInput).toHaveAttribute("type", "password");
+    fireEvent.click(screen.getByRole("button", { name: "显示 API key" }));
+    expect(keyInput).toHaveAttribute("type", "text");
+    fireEvent.click(screen.getByRole("button", { name: "隐藏 API key" }));
+    expect(keyInput).toHaveAttribute("type", "password");
   });
 
   it("脏 Provider 编辑器关闭前弹未保存确认,可放弃退出", async () => {
