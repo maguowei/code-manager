@@ -29,16 +29,14 @@ import {
   SheetTitle,
 } from "./ui/sheet";
 
-// Codex wire_api 的合法取值(与后端校验一致)。
-const WIRE_API_OPTIONS = ["responses", "chat"] as const;
-type WireApi = (typeof WIRE_API_OPTIONS)[number];
+// Codex wire_api 当前唯一支持值(Codex 已移除 chat 协议,后端同样只接受 responses)。
+const WIRE_API = "responses";
 
 interface ProviderDraft {
   id: string | null;
   name: string;
   baseUrl: string;
   envKey: string;
-  wireApi: WireApi;
   docUrl: string;
 }
 
@@ -55,7 +53,6 @@ function emptyProviderDraft(): ProviderDraft {
     name: "",
     baseUrl: "",
     envKey: "OPENAI_API_KEY",
-    wireApi: "responses",
     docUrl: "",
   };
 }
@@ -66,9 +63,6 @@ function providerDraftFrom(p: CodexProvider): ProviderDraft {
     name: p.name,
     baseUrl: p.baseUrl,
     envKey: p.envKey,
-    wireApi: (WIRE_API_OPTIONS as readonly string[]).includes(p.wireApi)
-      ? (p.wireApi as WireApi)
-      : "responses",
     docUrl: p.docUrl ?? "",
   };
 }
@@ -152,7 +146,7 @@ export default function CodexProfilesPage() {
       name: providerDraft.name.trim(),
       baseUrl: providerDraft.baseUrl.trim(),
       envKey: providerDraft.envKey.trim(),
-      wireApi: providerDraft.wireApi,
+      wireApi: WIRE_API,
       docUrl: providerDraft.docUrl.trim() ? providerDraft.docUrl.trim() : undefined,
     };
     setProviderSaving(true);
@@ -503,19 +497,7 @@ export default function CodexProfilesPage() {
               <FieldLabel>{t("codex.field.wireApi")}</FieldLabel>
               <FieldDescription>{t("codex.field.wireApiHint")}</FieldDescription>
               <FieldContent>
-                <div className="flex gap-2">
-                  {WIRE_API_OPTIONS.map((option) => (
-                    <Button
-                      key={option}
-                      type="button"
-                      variant={providerDraft.wireApi === option ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setProviderDraft({ ...providerDraft, wireApi: option })}
-                    >
-                      {option}
-                    </Button>
-                  ))}
-                </div>
+                <p className="text-body text-muted-foreground">{WIRE_API}</p>
               </FieldContent>
             </Field>
             <Field>
@@ -687,6 +669,16 @@ export default function CodexProfilesPage() {
                   </p>
                 </FieldContent>
               </Field>
+              {applyPreview.preview.removedModelProviderSection ? (
+                <Field>
+                  <FieldLabel>{t("codex.applyPreviewRemovedSection")}</FieldLabel>
+                  <FieldContent>
+                    <p className="text-body text-destructive">
+                      [model_providers.{applyPreview.preview.removedModelProviderSection}]
+                    </p>
+                  </FieldContent>
+                </Field>
+              ) : null}
               <Field>
                 <FieldLabel>{t("codex.applyPreviewAuth")}</FieldLabel>
                 <FieldContent>

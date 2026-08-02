@@ -305,6 +305,11 @@ export type CodexApplyPreview = {
 	currentModelProvider: string | null,
 	/**  将写入的 model_provider(slug)。 */
 	nextModelProvider: string,
+	/**
+	 *  切换后将被删除的旧 provider 段 slug(prev 存在且 != next 时 Some)。
+	 *  前端据此提示「将移除 [model_providers.旧段]」,避免用户误伤手工维护的字段。
+	 */
+	removedModelProviderSection: string | null,
 	/**  将写入的 provider 展示名。 */
 	providerName: string,
 	/**  将写入的 base_url。 */
