@@ -392,7 +392,7 @@ function App() {
                 ) : activeTab === "history" ? (
                   <HistoryPage projectRequest={historyProjectRequest} />
                 ) : activeTab === "codex" ? (
-                  <CodexProfilesPage />
+                  <CodexProfilesPage onEditorExitGuardChange={setEditorExitGuard} />
                 ) : activeTab === "configs" ? (
                   <ProfilesPage
                     workspace={workspace}
