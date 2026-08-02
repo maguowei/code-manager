@@ -62,6 +62,7 @@ function stubInvoke(workspace: CodexWorkspace) {
       return {
         currentModelProvider: "old",
         nextModelProvider: "openai",
+        removedModelProviderSection: "old",
         providerName: "OpenAI 官方",
         providerBaseUrl: "https://api.openai.com/v1",
         providerWireApi: "responses",
@@ -216,6 +217,9 @@ describe("CodexProfilesPage", () => {
     await waitFor(() => {
       expect(screen.getByText("确认应用 Codex 配置")).toBeInTheDocument();
     });
+    // 切换走时提示将移除旧 provider 段(不误伤确认)
+    expect(screen.getByText("将移除旧 provider 段")).toBeInTheDocument();
+    expect(screen.getByText("[model_providers.old]")).toBeInTheDocument();
     // 确认后才真正 apply
     fireEvent.click(screen.getAllByRole("button", { name: "应用" })[0]);
     await waitFor(() => {

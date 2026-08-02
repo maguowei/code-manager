@@ -43,7 +43,7 @@ _Avoid_: Provider(裸用会与 Claude 的内置只读 Provider 混淆)、model_p
 _Avoid_: 配置/Profile(裸用会与 Claude 的全量托管 Profile 混淆)、Codex 快照(它不整体拥有 config.toml)
 
 **Codex 应用(Codex Apply)**:
-把一份 [Codex 配置](#codex-配置codex-profile) 落盘的动作,**外科补丁式**:仅改写 `~/.codex/config.toml` 的 `model_provider` 与对应 `[model_providers.NAME]`,并写 `~/.codex/auth.json` 的 `openai_api_key`;`config.toml` 其余键(`model`、`approval_policy`、`sandbox_mode`、`[mcp_servers.*]`、注释、顺序)**一律原样保留**。落盘目标是**两个文件**、TOML 需保真 round-trip,区别于 [应用](#应用apply) 对单个 JSON 的全量原子重写。
+把一份 [Codex 配置](#codex-配置codex-profile) 落盘的动作,**外科补丁式**:仅改写 `~/.codex/config.toml` 的 `model_provider` 与对应 `[model_providers.NAME]`,并写 `~/.codex/auth.json` 的 `OPENAI_API_KEY`、把 `auth_mode` 置为 `api_key`(强制 ApiKey 认证,避免既有 ChatGPT OAuth 顶掉 key);`config.toml` 其余键(`model`、`approval_policy`、`sandbox_mode`、`[mcp_servers.*]`、注释、顺序)**一律原样保留**。provider 段不写 `env_key`(Codex 只从环境变量读它,不读 auth.json),`wire_api` 恒为 `responses`(Codex 已移除 chat 协议)。落盘目标是**两个文件**、TOML 需保真 round-trip,区别于 [应用](#应用apply) 对单个 JSON 的全量原子重写。
 _Avoid_: 应用(裸用会与 Claude 的全量重写 Apply 混淆)、全量写入、覆盖 config.toml
 
 ### 防止休眠(Sleep Prevention)

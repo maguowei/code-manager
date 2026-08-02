@@ -544,6 +544,9 @@ pub struct CodexApplyPreview {
     pub current_model_provider: Option<String>,
     /// 将写入的 model_provider(slug)。
     pub next_model_provider: String,
+    /// 切换后将被删除的旧 provider 段 slug(prev 存在且 != next 时 Some)。
+    /// 前端据此提示「将移除 [model_providers.旧段]」,避免用户误伤手工维护的字段。
+    pub removed_model_provider_section: Option<String>,
     /// 将写入的 provider 展示名。
     pub provider_name: String,
     /// 将写入的 base_url。
@@ -812,6 +815,14 @@ fn codex_apply_to_registry(registry: &mut ConfigRegistry, profile_id: &str) -> R
         .find(|p| p.id == profile_id)
         .cloned()
         .ok_or_else(|| format!("未找到 Codex Profile '{}'", profile_id))?;
+    // 空 key 拒绝:auth_mode 切到 api_key 后 codex 会以空 key 发起请求,报错不明
+    let api_key = profile.api_key.trim();
+    if api_key.is_empty() {
+        return Err(format!(
+            "Codex Profile '{}' 缺少 API key,无法应用",
+            profile.name
+        ));
+    }
     let provider = resolve_codex_provider(registry, &profile.provider_id)?;
     let slug = codex_provider_slug(&provider);
 
@@ -820,7 +831,7 @@ fn codex_apply_to_registry(registry: &mut ConfigRegistry, profile_id: &str) -> R
         &codex_auth_path()?,
         &slug,
         &provider,
-        &profile.api_key,
+        api_key,
     )?;
 
     // 密钥不进日志:apply 只记稳定标识符,不记 key
@@ -875,8 +886,10 @@ pub fn render_codex_config(
     let mut provider_table = toml_edit::Table::new();
     provider_table["name"] = toml_edit::value(provider.name.clone());
     provider_table["base_url"] = toml_edit::value(provider.base_url.clone());
-    provider_table["env_key"] = toml_edit::value(provider.env_key.clone());
-    provider_table["wire_api"] = toml_edit::value(provider.wire_api.clone());
+    // env_key 不落盘:Codex 只从环境变量读 env_key 对应的 key,不读 auth.json;
+    // 密钥统一经 auth.json 的 OPENAI_API_KEY + auth_mode=api_key 生效(内置/自定义一致)。
+    // wire_api 恒写 responses:Codex 已移除 chat(解析即报错)。
+    provider_table["wire_api"] = toml_edit::value("responses");
     provider_table.decor_mut().set_prefix("\n");
 
     // 插入到 model_providers 表下。若 model_providers 表不存在则创建。
@@ -893,8 +906,10 @@ pub fn render_codex_config(
     Ok(doc.to_string())
 }
 
-/// 计算 apply 后的 auth.json 内容(不写盘)。仅 ApiKey 模式:写入 OPENAI_API_KEY,
-/// 保留 auth.json 中已有其它键(如 Codex 自己写的 OAuth 字段)以防破坏。
+/// 计算 apply 后的 auth.json 内容(不写盘)。写入 OPENAI_API_KEY 并把 auth_mode 置为 api_key:
+/// Codex 的 AuthDotJson 以 auth_mode 决定认证来源(chatgpt 走 OAuth token,api_key 走 OPENAI_API_KEY),
+/// 若不切换 auth_mode,已登录 ChatGPT OAuth 的用户即使写入 key 也不会生效。
+/// 保留 auth.json 中已有其它键(如 Codex 自己写的 OAuth 字段)以防破坏,便于日后重新 codex login。
 #[allow(dead_code)] // 经 codex_apply_inner 间接使用
 pub fn render_codex_auth(auth_path: &Path, api_key: &str) -> Result<String, String> {
     let mut value: Value = if auth_path.exists() {
@@ -912,28 +927,45 @@ pub fn render_codex_auth(auth_path: &Path, api_key: &str) -> Result<String, Stri
         "OPENAI_API_KEY".to_string(),
         Value::String(api_key.to_string()),
     );
+    obj.insert(
+        "auth_mode".to_string(),
+        Value::String("api_key".to_string()),
+    );
     serde_json::to_string_pretty(&value).map_err(|e| e.to_string())
 }
 
-/// 按 `a.b` 形态的 dotted key 删除 toml 子表(若存在)。
+/// 按 `a.b.c` 形态的 dotted key 删除 toml 子表(若存在),支持任意层深。
+/// 优先按「字面整串 key」在父表里删除(如 [model_providers."my.relay"] 的 "my.relay"),
+/// 避免把点号 slug 误当成嵌套路径;字面 key 不存在时再按嵌套逐层下钻。
+/// 中间任一层不是表或不存在则静默返回(与旧行为一致)。
 fn remove_toml_table_by_path(doc: &mut toml_edit::DocumentMut, dotted: &str) {
-    let mut parts = dotted.split('.');
-    let head = match parts.next() {
-        Some(head) => head,
-        None => return,
-    };
-    let tail: Vec<&str> = parts.collect();
-    if tail.is_empty() {
-        doc.remove(head);
+    let parts: Vec<&str> = dotted.split('.').filter(|part| !part.is_empty()).collect();
+    if parts.is_empty() {
         return;
     }
-    let Some(table) = doc.get_mut(head).and_then(|item| item.as_table_mut()) else {
+    if parts.len() == 1 {
+        doc.remove(parts[0]);
+        return;
+    }
+    let Some(mut table) = doc.get_mut(parts[0]).and_then(|item| item.as_table_mut()) else {
         return;
     };
-    // 支持两层(a.b);Codex 的 model_providers.SLUG 正好两层
-    if tail.len() == 1 {
-        table.remove(tail[0]);
+    let last = parts[parts.len() - 1];
+    let literal_key = parts[1..].join(".");
+    if table.get(&literal_key).is_some() {
+        table.remove(&literal_key);
+        return;
     }
+    for part in &parts[1..parts.len() - 1] {
+        let Some(item) = table.get_mut(part) else {
+            return;
+        };
+        let Some(child) = item.as_table_mut() else {
+            return;
+        };
+        table = child;
+    }
+    table.remove(last);
 }
 
 fn parse_builtin_providers() -> Vec<Provider> {
@@ -3007,8 +3039,10 @@ fn upsert_codex_provider_in_registry(
     if env_key.is_empty() {
         return Err("Codex Provider env_key 不能为空".to_string());
     }
-    if wire_api != "responses" && wire_api != "chat" {
-        return Err("Codex Provider wire_api 必须是 responses 或 chat".to_string());
+    if wire_api != "responses" {
+        return Err(
+            "当前 Codex 仅支持 wire_api = \"responses\"(chat 协议已被 Codex 移除)".to_string(),
+        );
     }
 
     let provider_id = data
@@ -3074,6 +3108,18 @@ fn delete_codex_provider_in_registry(
 ) -> Result<(), String> {
     if builtin_codex_providers().iter().any(|p| p.id == id) {
         return Err("内置 Codex Provider 只读,不可删除".to_string());
+    }
+    // 引用检查:被 Codex Profile 引用的 provider 禁止删除,避免产生悬空引用
+    let referenced_by = registry
+        .codex
+        .profiles
+        .iter()
+        .filter(|p| p.provider_id == id)
+        .count();
+    if referenced_by > 0 {
+        return Err(format!(
+            "该 Codex Provider 被 {referenced_by} 个 Codex Profile 引用,请先删除或改绑这些 Profile"
+        ));
     }
     let original_len = registry.codex.providers.len();
     registry.codex.providers.retain(|p| p.id != id);
@@ -3247,9 +3293,16 @@ fn preview_codex_apply_inner(
     // 复用补丁计算(验证可渲染,但不写盘),确保 preview 与 apply 一致
     let _ = render_codex_config(&config_path, &slug, &provider)?;
 
+    // 与 render_codex_config 步骤 2 的删除逻辑对齐:prev 存在且 != next 时旧段会被移除
+    let removed_model_provider_section = match current_model_provider.as_deref() {
+        Some(prev) if !prev.is_empty() && prev != slug => Some(prev.to_string()),
+        _ => None,
+    };
+
     Ok(CodexApplyPreview {
         current_model_provider,
         next_model_provider: slug,
+        removed_model_provider_section,
         provider_name: provider.name.clone(),
         provider_base_url: provider.base_url.clone(),
         provider_wire_api: provider.wire_api.clone(),
@@ -4918,14 +4971,12 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
             "新 provider 的 base_url 要写入"
         );
         assert!(
-            patched.contains("env_key = \"MY_RELAY_KEY\""),
-            "env_key 要写入"
-        );
-        assert!(
             patched.contains("wire_api = \"responses\""),
-            "wire_api 要写入"
+            "wire_api 要写入(恒为 responses)"
         );
-        // 旧 provider 段被替换（不再有 old-relay 段与引用）
+        // env_key 不落盘:密钥统一经 auth.json 的 OPENAI_API_KEY 生效
+        assert!(!patched.contains("env_key"), "env_key 不应写入 config.toml");
+        // 旧 provider 段被替换(不再有 old-relay 段与引用)
         assert!(!patched.contains("old-relay"));
 
         // 2) 注释原样保留
@@ -4948,10 +4999,14 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
             "mcp_servers 数组参数必须保留"
         );
 
-        // 4) auth.json 写入 ApiKey（仅 ApiKey 模式）
+        // 4) auth.json 写入 ApiKey 并强制切到 api_key 模式(否则 ChatGPT OAuth 会压过 key)
         let auth = fs::read_to_string(codex_auth_path().unwrap()).unwrap();
         let auth_json: Value = serde_json::from_str(&auth).unwrap();
         assert_eq!(auth_json["OPENAI_API_KEY"], "sk-secret-key");
+        assert_eq!(
+            auth_json["auth_mode"], "api_key",
+            "auth_mode 必须切到 api_key"
+        );
 
         clear_test_env();
     }
@@ -4988,6 +5043,7 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
         assert!(config.contains("[model_providers.r]"));
         let auth: Value = serde_json::from_str(&fs::read_to_string(&auth_path).unwrap()).unwrap();
         assert_eq!(auth["OPENAI_API_KEY"], "sk-k");
+        assert_eq!(auth["auth_mode"], "api_key");
 
         clear_test_env();
     }
@@ -5036,6 +5092,7 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
         let auth: Value =
             serde_json::from_str(&fs::read_to_string(codex_auth_path().unwrap()).unwrap()).unwrap();
         assert_eq!(auth["OPENAI_API_KEY"], "sk-inner");
+        assert_eq!(auth["auth_mode"], "api_key");
 
         // 不存在的 profile 报错
         codex_apply_to_registry(&mut registry, "missing").unwrap_err();
@@ -5084,6 +5141,11 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
         // 读到切换前活跃 slug
         assert_eq!(preview.current_model_provider.as_deref(), Some("old"));
         assert_eq!(preview.next_model_provider, "relay");
+        assert_eq!(
+            preview.removed_model_provider_section.as_deref(),
+            Some("old"),
+            "prev != next 时旧 provider 段将被移除,预览必须提示"
+        );
         assert_eq!(preview.provider_base_url, "https://relay.example.com/v1");
         assert!(preview.api_key_will_set);
 
@@ -5092,6 +5154,139 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
         assert_eq!(mtime_before, mtime_after, "preview 不得写盘");
         // config.toml 内容未变
         assert!(fs::read_to_string(&config_path).unwrap().contains("old"));
+
+        clear_test_env();
+    }
+
+    // render_codex_auth 必须保留 Codex 已有的 OAuth/刷新字段,只切换 auth_mode 与 key。
+    // 这是「临时顶掉 ChatGPT OAuth、日后可 codex login 切回」的关键行为。
+    #[test]
+    fn render_codex_auth_preserves_oauth_keys_and_switches_mode() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("codex-auth-preserve");
+        set_test_env(&root);
+        let auth_path = codex_auth_path().unwrap();
+        fs::create_dir_all(auth_path.parent().unwrap()).unwrap();
+        // 一份真实的 chatgpt 登录态 auth.json
+        fs::write(
+            &auth_path,
+            serde_json::json!({
+                "auth_mode": "chatgpt",
+                "OPENAI_API_KEY": null,
+                "tokens": { "access_token": "tok-a", "refresh_token": "tok-r" },
+                "last_refresh": "2026-07-01T00:00:00Z"
+            })
+            .to_string(),
+        )
+        .unwrap();
+
+        let rendered = render_codex_auth(&auth_path, "sk-new-key").unwrap();
+        let value: Value = serde_json::from_str(&rendered).unwrap();
+
+        // key 写入 + auth_mode 强制切到 api_key
+        assert_eq!(value["OPENAI_API_KEY"], "sk-new-key");
+        assert_eq!(value["auth_mode"], "api_key");
+        // OAuth 字段原样保留(用户可重新 codex login 切回 chatgpt)
+        assert_eq!(value["tokens"]["access_token"], "tok-a");
+        assert_eq!(value["last_refresh"], "2026-07-01T00:00:00Z");
+
+        clear_test_env();
+    }
+
+    // 删除被 Profile 引用的 Provider 必须被拒绝,避免悬空引用。
+    #[test]
+    fn delete_codex_provider_blocks_when_referenced() {
+        let mut registry = ConfigRegistry::default();
+        registry.codex.providers.push(CodexProvider {
+            id: "custom:relay".to_string(),
+            name: "Relay".to_string(),
+            base_url: "https://relay.example.com/v1".to_string(),
+            env_key: "RELAY_KEY".to_string(),
+            wire_api: "responses".to_string(),
+            doc_url: None,
+        });
+        registry.codex.profiles.push(CodexProfile {
+            id: "codex-1".to_string(),
+            name: "P1".to_string(),
+            provider_id: "custom:relay".to_string(),
+            api_key: "sk-x".to_string(),
+            created_at: "2026-01-01T00:00:00+08:00".to_string(),
+            updated_at: "2026-01-01T00:00:00+08:00".to_string(),
+        });
+
+        let err = delete_codex_provider_in_registry(&mut registry, "custom:relay").unwrap_err();
+        assert!(err.contains("引用"), "报错应说明引用关系: {}", err);
+        assert_eq!(registry.codex.providers.len(), 1, "被引用时不得删除");
+
+        // 解除引用后可删除
+        registry.codex.profiles.clear();
+        delete_codex_provider_in_registry(&mut registry, "custom:relay").unwrap();
+        assert!(registry.codex.providers.is_empty());
+    }
+
+    // 空 key 的 profile 拒绝 apply:切到 api_key 模式后 codex 会以空 key 发起请求。
+    #[test]
+    fn codex_apply_rejects_empty_api_key() {
+        let mut registry = ConfigRegistry::default();
+        registry.codex.providers.push(CodexProvider {
+            id: "custom:relay".to_string(),
+            name: "Relay".to_string(),
+            base_url: "https://relay.example.com/v1".to_string(),
+            env_key: "RELAY_KEY".to_string(),
+            wire_api: "responses".to_string(),
+            doc_url: None,
+        });
+        registry.codex.profiles.push(CodexProfile {
+            id: "codex-empty".to_string(),
+            name: "Empty".to_string(),
+            provider_id: "custom:relay".to_string(),
+            api_key: "  ".to_string(),
+            created_at: "2026-01-01T00:00:00+08:00".to_string(),
+            updated_at: "2026-01-01T00:00:00+08:00".to_string(),
+        });
+
+        let err = codex_apply_to_registry(&mut registry, "codex-empty").unwrap_err();
+        assert!(err.contains("API key"), "空 key 报错应指明缺 key: {}", err);
+    }
+
+    // 点号 slug(手改 registry 的 custom:my.relay 一类)切换走时旧段也要能删掉。
+    #[test]
+    fn codex_apply_removes_dotted_slug_section() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("codex-dotted-slug");
+        set_test_env(&root);
+        let config_path = codex_config_path().unwrap();
+        fs::create_dir_all(config_path.parent().unwrap()).unwrap();
+        fs::write(
+            &config_path,
+            "model_provider = \"my.relay\"\n\n[model_providers.\"my.relay\"]\nname = \"My Relay\"\nbase_url = \"https://r.example.com/v1\"\n",
+        )
+        .unwrap();
+
+        let provider = CodexProvider {
+            id: "custom:other".to_string(),
+            name: "Other".to_string(),
+            base_url: "https://o.example.com/v1".to_string(),
+            env_key: "O_KEY".to_string(),
+            wire_api: "responses".to_string(),
+            doc_url: None,
+        };
+        codex_apply_patch(
+            &config_path,
+            &codex_auth_path().unwrap(),
+            &codex_provider_slug(&provider),
+            &provider,
+            "sk-k",
+        )
+        .unwrap();
+
+        let patched = fs::read_to_string(&config_path).unwrap();
+        assert!(patched.contains("model_provider = \"other\""));
+        assert!(
+            !patched.contains("my.relay"),
+            "点号 slug 的旧段也要被移除,实际:\n{}",
+            patched
+        );
 
         clear_test_env();
     }
@@ -5129,7 +5324,7 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
                 name: "My Relay v2".to_string(),
                 base_url: "https://relay2.example.com/v1".to_string(),
                 env_key: "MY_RELAY_KEY".to_string(),
-                wire_api: "chat".to_string(),
+                wire_api: "responses".to_string(),
                 doc_url: Some("https://docs.example.com".to_string()),
             },
         )
@@ -5141,7 +5336,7 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
             "https://relay2.example.com/v1"
         );
 
-        // 校验:wire_api 非法被拒
+        // 校验:wire_api 只接受 responses(chat 已被 Codex 移除),其余值被拒
         upsert_codex_provider_in_registry(
             &mut registry,
             CodexProviderInput {
@@ -5150,6 +5345,18 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
                 base_url: "https://x.example.com/v1".to_string(),
                 env_key: "K".to_string(),
                 wire_api: "bogus".to_string(),
+                doc_url: None,
+            },
+        )
+        .unwrap_err();
+        upsert_codex_provider_in_registry(
+            &mut registry,
+            CodexProviderInput {
+                id: None,
+                name: "Legacy Chat".to_string(),
+                base_url: "https://x.example.com/v1".to_string(),
+                env_key: "K".to_string(),
+                wire_api: "chat".to_string(),
                 doc_url: None,
             },
         )

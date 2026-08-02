@@ -219,6 +219,8 @@ export interface CodexWorkspace {
 export interface CodexApplyPreview {
   currentModelProvider: string | null;
   nextModelProvider: string;
+  /** 切换后将被删除的旧 provider 段 slug(prev 存在且 != next 时非 null) */
+  removedModelProviderSection: string | null;
   providerName: string;
   providerBaseUrl: string;
   providerWireApi: string;
