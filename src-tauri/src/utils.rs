@@ -149,6 +149,48 @@ fn civil_from_days(days: i64) -> (i32, u32, u32) {
 /// 原子写入文本文件：先写临时文件，再替换目标文件。
 /// 替换已有文件时保留原文件权限；新建文件时在 Unix 上设置 0o600。
 pub fn ensure_dir_and_write_atomic(path: &Path, content: &str) -> Result<(), String> {
+    let temp_path = stage_temp_file(path, content)?;
+    replace_file_with_temp(path, &temp_path)
+}
+
+/// 成对原子写入两个文件：先各自生成临时文件，再依次替换；
+/// 第二个文件替换失败时回滚第一个文件，避免留下半套配置。
+pub fn write_pair_atomic(
+    first_path: &Path,
+    first_content: &str,
+    second_path: &Path,
+    second_content: &str,
+) -> Result<(), String> {
+    let first_temp = stage_temp_file(first_path, first_content)?;
+    let second_temp = stage_temp_file(second_path, second_content)?;
+
+    // 备份第一个文件的原内容，供第二个文件替换失败时回滚
+    let first_backup = fs::read_to_string(first_path).ok();
+
+    replace_file_with_temp(first_path, &first_temp)
+        .map_err(|e| format!("写入第一个文件失败 {:?}: {}", first_path, e))?;
+
+    if let Err(e) = replace_file_with_temp(second_path, &second_temp) {
+        // 清理未替换的第二个临时文件
+        let _ = fs::remove_file(&second_temp);
+        // 回滚第一个文件：恢复原内容；原文件不存在则删除新建的文件
+        if let Some(backup) = &first_backup {
+            if let Ok(temp) = stage_temp_file(first_path, backup) {
+                let _ = replace_file_with_temp(first_path, &temp);
+            }
+        } else {
+            let _ = fs::remove_file(first_path);
+        }
+        return Err(format!(
+            "写入第二个文件失败 {:?}: {}（第一个文件已回滚）",
+            second_path, e
+        ));
+    }
+    Ok(())
+}
+
+/// 把内容写入目标文件旁的临时文件（建目录、写内容、处理权限），供后续原子替换。
+fn stage_temp_file(path: &Path, content: &str) -> Result<PathBuf, String> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("创建目录失败 {:?}: {}", parent, e))?;
     }
@@ -184,8 +226,7 @@ pub fn ensure_dir_and_write_atomic(path: &Path, content: &str) -> Result<(), Str
         let _ = fs::set_permissions(&temp_path, fs::Permissions::from_mode(mode));
     }
 
-    replace_file_with_temp(path, &temp_path)?;
-    Ok(())
+    Ok(temp_path)
 }
 
 fn replace_file_with_temp(path: &Path, temp_path: &Path) -> Result<(), String> {

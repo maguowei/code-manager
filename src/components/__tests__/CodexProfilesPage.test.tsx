@@ -62,7 +62,6 @@ function stubInvoke(workspace: CodexWorkspace) {
       return {
         currentModelProvider: "old",
         nextModelProvider: "openai",
-        removedModelProviderSection: "old",
         providerName: "OpenAI 官方",
         providerBaseUrl: "https://api.openai.com/v1",
         providerWireApi: "responses",
@@ -217,13 +216,120 @@ describe("CodexProfilesPage", () => {
     await waitFor(() => {
       expect(screen.getByText("确认应用 Codex 配置")).toBeInTheDocument();
     });
-    // 切换走时提示将移除旧 provider 段(不误伤确认)
-    expect(screen.getByText("将移除旧 provider 段")).toBeInTheDocument();
-    expect(screen.getByText("[model_providers.old]")).toBeInTheDocument();
     // 确认后才真正 apply
     fireEvent.click(screen.getAllByRole("button", { name: "应用" })[0]);
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("apply_codex_profile", { id: "codex-1" });
+    });
+  });
+
+  it("新建自定义 Provider 可选择 wire_api 为 chat 并随表单提交", async () => {
+    stubInvoke(BUILTIN_WORKSPACE);
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "新增 Provider" })).toBeInTheDocument();
+    });
+
+    // 打开新建编辑器
+    fireEvent.click(screen.getByRole("button", { name: "新增 Provider" }));
+    await waitFor(() => {
+      expect(screen.getByText("新增 Codex Provider")).toBeInTheDocument();
+    });
+    // 填必填字段
+    fireEvent.change(screen.getByPlaceholderText("例如:我的中转"), {
+      target: { value: "Azure 中转" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("https://api.example.com/v1"), {
+      target: { value: "https://azure.example.com/v1" },
+    });
+    // wire_api 选择 chat(唯一 combobox)
+    fireEvent.click(screen.getByRole("combobox"));
+    fireEvent.click(await screen.findByText("chat"));
+
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("upsert_codex_provider", {
+        data: {
+          id: null,
+          name: "Azure 中转",
+          baseUrl: "https://azure.example.com/v1",
+          envKey: "OPENAI_API_KEY",
+          wireApi: "chat",
+          docUrl: undefined,
+        },
+      });
+    });
+  });
+
+  it("脏 Provider 编辑器关闭前弹未保存确认,可放弃退出", async () => {
+    stubInvoke(BUILTIN_WORKSPACE);
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "新增 Provider" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "新增 Provider" }));
+    await waitFor(() => {
+      expect(screen.getByText("新增 Codex Provider")).toBeInTheDocument();
+    });
+    // 修改表单使其变脏
+    fireEvent.change(screen.getByPlaceholderText("例如:我的中转"), {
+      target: { value: "未保存的中转" },
+    });
+    // 点取消:弹未保存确认,而非直接关闭
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    await waitFor(() => {
+      expect(screen.getByText("存在未保存的更改")).toBeInTheDocument();
+    });
+    // 放弃:编辑器关闭且未调用后端保存
+    fireEvent.click(screen.getByRole("button", { name: "不保存退出" }));
+    await waitFor(() => {
+      expect(screen.queryByText("新增 Codex Provider")).not.toBeInTheDocument();
+    });
+    expect(invokeMock).not.toHaveBeenCalledWith(
+      "upsert_codex_provider",
+      expect.anything() as never,
+    );
+  });
+
+  it("脏 Profile 编辑器从未保存确认中保存并退出", async () => {
+    const ws: CodexWorkspace = {
+      providers: [...BUILTIN_WORKSPACE.providers],
+      profiles: [],
+      bindings: {},
+      builtinProviderIds: ["codex-builtin:openai"],
+    };
+    stubInvoke(ws);
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "新增配置" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "新增配置" }));
+    await waitFor(() => {
+      expect(screen.getByText("新增 Codex 配置")).toBeInTheDocument();
+    });
+    // 填名称与 key 使其 dirty 且可保存
+    fireEvent.change(screen.getByPlaceholderText("例如:工作中转"), {
+      target: { value: "工作配置" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("sk-..."), { target: { value: "sk-new" } });
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    await waitFor(() => {
+      expect(screen.getByText("存在未保存的更改")).toBeInTheDocument();
+    });
+    // 保存并退出:调用 upsert_codex_profile,编辑器关闭
+    fireEvent.click(screen.getByRole("button", { name: "保存并退出" }));
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith(
+        "upsert_codex_profile",
+        expect.objectContaining({
+          data: expect.objectContaining({ name: "工作配置", apiKey: "sk-new" }),
+        }),
+      );
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("新增 Codex 配置")).not.toBeInTheDocument();
     });
   });
 });

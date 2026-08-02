@@ -1,6 +1,6 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { CircleCheck, ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
@@ -15,7 +15,9 @@ import type {
   CodexWorkspace,
 } from "../types";
 import EmptyState from "./EmptyState";
+import type { EditorExitGuard } from "./editor-exit-guard";
 import PageHeader from "./PageHeader";
+import UnsavedChangesAlertDialog from "./UnsavedChangesAlertDialog";
 import { Button } from "./ui/button";
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
@@ -29,14 +31,16 @@ import {
   SheetTitle,
 } from "./ui/sheet";
 
-// Codex wire_api 当前唯一支持值(Codex 已移除 chat 协议,后端同样只接受 responses)。
-const WIRE_API = "responses";
+// Codex wire_api 合法值(与后端 config.rs 的 CODEX_WIRE_API_RESPONSES / _CHAT 对齐)
+const WIRE_API_RESPONSES = "responses";
+const WIRE_API_CHAT = "chat";
 
 interface ProviderDraft {
   id: string | null;
   name: string;
   baseUrl: string;
   envKey: string;
+  wireApi: string;
   docUrl: string;
 }
 
@@ -53,6 +57,7 @@ function emptyProviderDraft(): ProviderDraft {
     name: "",
     baseUrl: "",
     envKey: "OPENAI_API_KEY",
+    wireApi: WIRE_API_RESPONSES,
     docUrl: "",
   };
 }
@@ -63,6 +68,7 @@ function providerDraftFrom(p: CodexProvider): ProviderDraft {
     name: p.name,
     baseUrl: p.baseUrl,
     envKey: p.envKey,
+    wireApi: p.wireApi,
     docUrl: p.docUrl ?? "",
   };
 }
@@ -76,7 +82,11 @@ function profileDraftFrom(p: CodexProfile): ProfileDraft {
   return { id: p.id, name: p.name, providerId: p.providerId, apiKey: "" };
 }
 
-export default function CodexProfilesPage() {
+interface CodexProfilesPageProps {
+  onEditorExitGuardChange?: (guard: EditorExitGuard | null) => void;
+}
+
+export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProfilesPageProps) {
   const { t } = useI18n();
   const { showToast } = useToast();
   const [workspace, setWorkspace] = useState<CodexWorkspace | null>(null);
@@ -86,11 +96,18 @@ export default function CodexProfilesPage() {
   const [providerEditorOpen, setProviderEditorOpen] = useState(false);
   const [providerDraft, setProviderDraft] = useState<ProviderDraft>(emptyProviderDraft());
   const [providerSaving, setProviderSaving] = useState(false);
+  // 打开时的 draft 快照,用于判断是否 dirty
+  const providerDraftInitialRef = useRef("");
 
   // Profile 编辑器
   const [profileEditorOpen, setProfileEditorOpen] = useState(false);
   const [profileDraft, setProfileDraft] = useState<ProfileDraft | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
+  const profileDraftInitialRef = useRef("");
+
+  // 脏编辑器的退出保护:跳转页面前弹 UnsavedChangesAlertDialog
+  const [pendingExitAction, setPendingExitAction] = useState<(() => void) | null>(null);
+  const [isSavingExit, setIsSavingExit] = useState(false);
 
   // 删除确认(共用,带类型与目标 id)
   const [pendingDelete, setPendingDelete] = useState<{
@@ -133,20 +150,28 @@ export default function CodexProfilesPage() {
 
   // ===== Provider handlers =====
   const openCreateProvider = () => {
-    setProviderDraft(emptyProviderDraft());
+    const draft = emptyProviderDraft();
+    providerDraftInitialRef.current = JSON.stringify(draft);
+    setProviderDraft(draft);
     setProviderEditorOpen(true);
   };
   const openEditProvider = (p: CodexProvider) => {
-    setProviderDraft(providerDraftFrom(p));
+    const draft = providerDraftFrom(p);
+    providerDraftInitialRef.current = JSON.stringify(draft);
+    setProviderDraft(draft);
     setProviderEditorOpen(true);
   };
-  const handleSaveProvider = async () => {
+  const closeProviderEditor = () => {
+    setProviderEditorOpen(false);
+    setPendingExitAction(null);
+  };
+  async function saveProviderDraft(): Promise<boolean> {
     const input: CodexProviderInput = {
       id: providerDraft.id,
       name: providerDraft.name.trim(),
       baseUrl: providerDraft.baseUrl.trim(),
       envKey: providerDraft.envKey.trim(),
-      wireApi: WIRE_API,
+      wireApi: providerDraft.wireApi,
       docUrl: providerDraft.docUrl.trim() ? providerDraft.docUrl.trim() : undefined,
     };
     setProviderSaving(true);
@@ -155,26 +180,40 @@ export default function CodexProfilesPage() {
       showToast(
         providerDraft.id ? t("codex.toast.providerUpdated") : t("codex.toast.providerCreated"),
       );
-      setProviderEditorOpen(false);
+      closeProviderEditor();
+      return true;
     } catch (error) {
       showOperationError(showToast, t("codex.toast.providerSaveFailed"), error);
+      return false;
     } finally {
       setProviderSaving(false);
     }
+  }
+  const handleSaveProvider = () => {
+    void saveProviderDraft();
   };
 
   // ===== Profile handlers =====
   const openCreateProfile = () => {
     const defaultProviderId = providers[0]?.id ?? "";
-    setProfileDraft(emptyProfileDraft(defaultProviderId));
+    const draft = emptyProfileDraft(defaultProviderId);
+    profileDraftInitialRef.current = JSON.stringify(draft);
+    setProfileDraft(draft);
     setProfileEditorOpen(true);
   };
   const openEditProfile = (p: CodexProfile) => {
-    setProfileDraft(profileDraftFrom(p));
+    const draft = profileDraftFrom(p);
+    profileDraftInitialRef.current = JSON.stringify(draft);
+    setProfileDraft(draft);
     setProfileEditorOpen(true);
   };
-  const handleSaveProfile = async () => {
-    if (!profileDraft) return;
+  const closeProfileEditor = () => {
+    setProfileEditorOpen(false);
+    setProfileDraft(null);
+    setPendingExitAction(null);
+  };
+  async function saveProfileDraft(): Promise<boolean> {
+    if (!profileDraft) return false;
     const input: CodexProfileInput = {
       id: profileDraft.id,
       name: profileDraft.name.trim(),
@@ -187,12 +226,17 @@ export default function CodexProfilesPage() {
       showToast(
         profileDraft.id ? t("codex.toast.profileUpdated") : t("codex.toast.profileCreated"),
       );
-      setProfileEditorOpen(false);
+      closeProfileEditor();
+      return true;
     } catch (error) {
       showOperationError(showToast, t("codex.toast.profileSaveFailed"), error);
+      return false;
     } finally {
       setProfileSaving(false);
     }
+  }
+  const handleSaveProfile = () => {
+    void saveProfileDraft();
   };
 
   // ===== Delete handler(共用) =====
@@ -229,6 +273,66 @@ export default function CodexProfilesPage() {
     profileDraft.providerId !== "" &&
     // 新建必须有 key;编辑可空(保留)
     (profileDraft.id !== null || profileDraft.apiKey.trim() !== "");
+
+  // ===== 脏编辑器退出保护(frontend-ui.md:抽屉编辑器必须暴露 EditorExitGuard)=====
+  const providerDirty =
+    providerEditorOpen && JSON.stringify(providerDraft) !== providerDraftInitialRef.current;
+  const profileDirty =
+    profileEditorOpen &&
+    profileDraft !== null &&
+    JSON.stringify(profileDraft) !== profileDraftInitialRef.current;
+
+  const requestEditorExit = useCallback(
+    (action: () => void) => {
+      if (providerDirty || profileDirty) {
+        setPendingExitAction(() => action);
+        return;
+      }
+      action();
+    },
+    [providerDirty, profileDirty],
+  );
+
+  useEffect(() => {
+    if (!onEditorExitGuardChange) {
+      return;
+    }
+    if (!providerEditorOpen && !profileEditorOpen) {
+      onEditorExitGuardChange(null);
+      return;
+    }
+    onEditorExitGuardChange({ requestExit: requestEditorExit });
+    return () => onEditorExitGuardChange(null);
+  }, [providerEditorOpen, profileEditorOpen, onEditorExitGuardChange, requestEditorExit]);
+
+  async function saveAndRunPendingExit() {
+    const action = pendingExitAction;
+    if (!action) {
+      return;
+    }
+    setIsSavingExit(true);
+    try {
+      const saved = providerDirty ? await saveProviderDraft() : await saveProfileDraft();
+      if (saved) {
+        setPendingExitAction(null);
+        action();
+      }
+    } finally {
+      setIsSavingExit(false);
+    }
+  }
+
+  function discardAndRunPendingExit() {
+    const action = pendingExitAction;
+    setPendingExitAction(null);
+    if (providerEditorOpen) {
+      closeProviderEditor();
+    }
+    if (profileEditorOpen) {
+      closeProfileEditor();
+    }
+    action?.();
+  }
   const hasProvider = providers.length > 0;
   const activeProfileId = workspace?.bindings.codexProfileId ?? null;
 
@@ -291,6 +395,7 @@ export default function CodexProfilesPage() {
                 <ul className="flex flex-col gap-2">
                   {providers.map((provider) => {
                     const builtin = builtinIdSet.has(provider.id);
+                    const docUrl = provider.docUrl;
                     return (
                       <li
                         key={provider.id}
@@ -316,11 +421,11 @@ export default function CodexProfilesPage() {
                             {t("codex.providerMetaWireApi")} {provider.wireApi}
                           </div>
                         </div>
-                        {provider.docUrl ? (
+                        {docUrl ? (
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => void openUrl(provider.docUrl as string)}
+                            onClick={() => void openUrl(docUrl)}
                             aria-label={t("codex.openDocs")}
                           >
                             <ExternalLink className="size-4" />
@@ -452,7 +557,10 @@ export default function CodexProfilesPage() {
       </div>
 
       {/* Provider 编辑器 */}
-      <Sheet open={providerEditorOpen} onOpenChange={setProviderEditorOpen}>
+      <Sheet
+        open={providerEditorOpen}
+        onOpenChange={(open) => !open && requestEditorExit(closeProviderEditor)}
+      >
         <SheetContent className="flex flex-col gap-4">
           <SheetHeader>
             <SheetTitle>
@@ -497,7 +605,20 @@ export default function CodexProfilesPage() {
               <FieldLabel>{t("codex.field.wireApi")}</FieldLabel>
               <FieldDescription>{t("codex.field.wireApiHint")}</FieldDescription>
               <FieldContent>
-                <p className="text-body text-muted-foreground">{WIRE_API}</p>
+                <Select
+                  value={providerDraft.wireApi}
+                  onValueChange={(value) => setProviderDraft({ ...providerDraft, wireApi: value })}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={WIRE_API_RESPONSES}>
+                      {t("codex.field.wireApiResponses")}
+                    </SelectItem>
+                    <SelectItem value={WIRE_API_CHAT}>{t("codex.field.wireApiChat")}</SelectItem>
+                  </SelectContent>
+                </Select>
               </FieldContent>
             </Field>
             <Field>
@@ -515,7 +636,7 @@ export default function CodexProfilesPage() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setProviderEditorOpen(false)}
+              onClick={() => requestEditorExit(closeProviderEditor)}
               disabled={providerSaving}
             >
               {t("codex.cancel")}
@@ -532,7 +653,10 @@ export default function CodexProfilesPage() {
       </Sheet>
 
       {/* Profile 编辑器 */}
-      <Sheet open={profileEditorOpen} onOpenChange={setProfileEditorOpen}>
+      <Sheet
+        open={profileEditorOpen}
+        onOpenChange={(open) => !open && requestEditorExit(closeProfileEditor)}
+      >
         <SheetContent className="flex flex-col gap-4">
           <SheetHeader>
             <SheetTitle>
@@ -592,7 +716,7 @@ export default function CodexProfilesPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setProfileEditorOpen(false)}
+                  onClick={() => requestEditorExit(closeProfileEditor)}
                   disabled={profileSaving}
                 >
                   {t("codex.cancel")}
@@ -664,21 +788,11 @@ export default function CodexProfilesPage() {
                     </span>
                   </p>
                   <p className="text-auxiliary text-muted-foreground">
-                    {applyPreview.preview.providerBaseUrl} · wire_api{" "}
+                    {applyPreview.preview.providerBaseUrl} · {t("codex.providerMetaWireApi")}{" "}
                     {applyPreview.preview.providerWireApi}
                   </p>
                 </FieldContent>
               </Field>
-              {applyPreview.preview.removedModelProviderSection ? (
-                <Field>
-                  <FieldLabel>{t("codex.applyPreviewRemovedSection")}</FieldLabel>
-                  <FieldContent>
-                    <p className="text-body text-destructive">
-                      [model_providers.{applyPreview.preview.removedModelProviderSection}]
-                    </p>
-                  </FieldContent>
-                </Field>
-              ) : null}
               <Field>
                 <FieldLabel>{t("codex.applyPreviewAuth")}</FieldLabel>
                 <FieldContent>
@@ -705,6 +819,18 @@ export default function CodexProfilesPage() {
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      {pendingExitAction && (
+        <UnsavedChangesAlertDialog
+          canSave={providerDirty ? providerDraftValid : profileDraftValid}
+          isSaving={isSavingExit}
+          onCancel={() => setPendingExitAction(null)}
+          onDiscard={discardAndRunPendingExit}
+          onSaveAndExit={() => {
+            void saveAndRunPendingExit();
+          }}
+        />
+      )}
     </div>
   );
 }
