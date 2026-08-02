@@ -644,96 +644,102 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
         open={providerEditorOpen}
         onOpenChange={(open) => !open && requestEditorExit(closeProviderEditor)}
       >
-        <SheetContent className="flex flex-col gap-4">
-          <SheetHeader>
+        <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
+          <SheetHeader className="shrink-0 border-b px-5 py-3.5 pr-12">
             <SheetTitle>
               {providerDraft.id ? t("codex.editProvider") : t("codex.createProvider")}
             </SheetTitle>
             <SheetDescription>{t("codex.editorDescription")}</SheetDescription>
           </SheetHeader>
-          <div className="flex shrink-0 justify-center">
+          <div className="flex min-h-0 flex-1 flex-col items-center gap-5 overflow-y-auto px-5 py-4">
             <ProfileNameBadge name={providerDraft.name} size="lg" fallbackChar="P" />
+            <FieldGroup className="w-full">
+              <Field>
+                <FieldLabel>{t("codex.field.name")}</FieldLabel>
+                <FieldContent>
+                  <Input
+                    value={providerDraft.name}
+                    onChange={(e) => setProviderDraft({ ...providerDraft, name: e.target.value })}
+                    placeholder={t("codex.field.namePlaceholder")}
+                  />
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel>{t("codex.field.baseUrl")}</FieldLabel>
+                <FieldDescription>{t("codex.field.baseUrlHint")}</FieldDescription>
+                <FieldContent>
+                  <Input
+                    value={providerDraft.baseUrl}
+                    onChange={(e) =>
+                      setProviderDraft({ ...providerDraft, baseUrl: e.target.value })
+                    }
+                    placeholder="https://api.example.com/v1"
+                  />
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel>{t("codex.field.envKey")}</FieldLabel>
+                <FieldDescription>{t("codex.field.envKeyHint")}</FieldDescription>
+                <FieldContent>
+                  <Input
+                    value={providerDraft.envKey}
+                    onChange={(e) => setProviderDraft({ ...providerDraft, envKey: e.target.value })}
+                    placeholder="OPENAI_API_KEY"
+                  />
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel>{t("codex.field.wireApi")}</FieldLabel>
+                <FieldDescription>{t("codex.field.wireApiHint")}</FieldDescription>
+                <FieldContent>
+                  <Select
+                    value={providerDraft.wireApi}
+                    onValueChange={(value) =>
+                      setProviderDraft({ ...providerDraft, wireApi: value })
+                    }
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={WIRE_API_RESPONSES}>
+                        {t("codex.field.wireApiResponses")}
+                      </SelectItem>
+                      <SelectItem value={WIRE_API_CHAT}>{t("codex.field.wireApiChat")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel>{t("codex.field.docUrl")}</FieldLabel>
+                <FieldContent>
+                  <Input
+                    value={providerDraft.docUrl}
+                    onChange={(e) => setProviderDraft({ ...providerDraft, docUrl: e.target.value })}
+                    placeholder="https://docs.example.com"
+                  />
+                </FieldContent>
+              </Field>
+            </FieldGroup>
           </div>
-          <FieldGroup className="flex-1 overflow-auto">
-            <Field>
-              <FieldLabel>{t("codex.field.name")}</FieldLabel>
-              <FieldContent>
-                <Input
-                  value={providerDraft.name}
-                  onChange={(e) => setProviderDraft({ ...providerDraft, name: e.target.value })}
-                  placeholder={t("codex.field.namePlaceholder")}
-                />
-              </FieldContent>
-            </Field>
-            <Field>
-              <FieldLabel>{t("codex.field.baseUrl")}</FieldLabel>
-              <FieldDescription>{t("codex.field.baseUrlHint")}</FieldDescription>
-              <FieldContent>
-                <Input
-                  value={providerDraft.baseUrl}
-                  onChange={(e) => setProviderDraft({ ...providerDraft, baseUrl: e.target.value })}
-                  placeholder="https://api.example.com/v1"
-                />
-              </FieldContent>
-            </Field>
-            <Field>
-              <FieldLabel>{t("codex.field.envKey")}</FieldLabel>
-              <FieldDescription>{t("codex.field.envKeyHint")}</FieldDescription>
-              <FieldContent>
-                <Input
-                  value={providerDraft.envKey}
-                  onChange={(e) => setProviderDraft({ ...providerDraft, envKey: e.target.value })}
-                  placeholder="OPENAI_API_KEY"
-                />
-              </FieldContent>
-            </Field>
-            <Field>
-              <FieldLabel>{t("codex.field.wireApi")}</FieldLabel>
-              <FieldDescription>{t("codex.field.wireApiHint")}</FieldDescription>
-              <FieldContent>
-                <Select
-                  value={providerDraft.wireApi}
-                  onValueChange={(value) => setProviderDraft({ ...providerDraft, wireApi: value })}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={WIRE_API_RESPONSES}>
-                      {t("codex.field.wireApiResponses")}
-                    </SelectItem>
-                    <SelectItem value={WIRE_API_CHAT}>{t("codex.field.wireApiChat")}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </FieldContent>
-            </Field>
-            <Field>
-              <FieldLabel>{t("codex.field.docUrl")}</FieldLabel>
-              <FieldContent>
-                <Input
-                  value={providerDraft.docUrl}
-                  onChange={(e) => setProviderDraft({ ...providerDraft, docUrl: e.target.value })}
-                  placeholder="https://docs.example.com"
-                />
-              </FieldContent>
-            </Field>
-          </FieldGroup>
-          <SheetFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => requestEditorExit(closeProviderEditor)}
-              disabled={providerSaving}
-            >
-              {t("codex.cancel")}
-            </Button>
-            <Button
-              type="button"
-              onClick={() => void handleSaveProvider()}
-              disabled={!providerDraftValid || providerSaving}
-            >
-              {t("codex.save")}
-            </Button>
+          <SheetFooter className="shrink-0 border-t px-5 py-3.5">
+            <div className="flex w-full flex-row justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => requestEditorExit(closeProviderEditor)}
+                disabled={providerSaving}
+              >
+                {t("codex.cancel")}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void handleSaveProvider()}
+                disabled={!providerDraftValid || providerSaving}
+              >
+                {t("codex.save")}
+              </Button>
+            </div>
           </SheetFooter>
         </SheetContent>
       </Sheet>
@@ -743,8 +749,8 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
         open={profileEditorOpen}
         onOpenChange={(open) => !open && requestEditorExit(closeProfileEditor)}
       >
-        <SheetContent className="flex flex-col gap-4">
-          <SheetHeader>
+        <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
+          <SheetHeader className="shrink-0 border-b px-5 py-3.5 pr-12">
             <SheetTitle>
               {profileDraft?.id ? t("codex.editProfile") : t("codex.createProfile")}
             </SheetTitle>
@@ -752,94 +758,96 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
           </SheetHeader>
           {profileDraft ? (
             <>
-              <div className="flex shrink-0 justify-center">
+              <div className="flex min-h-0 flex-1 flex-col items-center gap-5 overflow-y-auto px-5 py-4">
                 <ProfileNameBadge
                   name={profileDraft.name}
                   colorSeedScope={profileDraft.providerId}
                   size="lg"
                   fallbackChar="P"
                 />
-              </div>
-              <FieldGroup className="flex-1 overflow-auto">
-                <Field>
-                  <FieldLabel>{t("codex.field.profileName")}</FieldLabel>
-                  <FieldContent>
-                    <Input
-                      value={profileDraft.name}
-                      onChange={(e) => setProfileDraft({ ...profileDraft, name: e.target.value })}
-                      placeholder={t("codex.field.profileNamePlaceholder")}
-                    />
-                  </FieldContent>
-                </Field>
-                <Field>
-                  <FieldLabel>{t("codex.field.provider")}</FieldLabel>
-                  <FieldContent>
-                    <Select
-                      value={profileDraft.providerId}
-                      onValueChange={(value) =>
-                        setProfileDraft({ ...profileDraft, providerId: value })
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder={t("codex.field.providerPlaceholder")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {providers.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {providerOf(profileDraft.providerId) ? (
-                      <p
-                        className="text-auxiliary mt-1.5 text-muted-foreground"
-                        data-slot="codex-profile-provider-summary"
+                <FieldGroup className="w-full">
+                  <Field>
+                    <FieldLabel>{t("codex.field.profileName")}</FieldLabel>
+                    <FieldContent>
+                      <Input
+                        value={profileDraft.name}
+                        onChange={(e) => setProfileDraft({ ...profileDraft, name: e.target.value })}
+                        placeholder={t("codex.field.profileNamePlaceholder")}
+                      />
+                    </FieldContent>
+                  </Field>
+                  <Field>
+                    <FieldLabel>{t("codex.field.provider")}</FieldLabel>
+                    <FieldContent>
+                      <Select
+                        value={profileDraft.providerId}
+                        onValueChange={(value) =>
+                          setProfileDraft({ ...profileDraft, providerId: value })
+                        }
                       >
-                        <span className="font-mono">
-                          {providerOf(profileDraft.providerId)?.baseUrl}
-                        </span>
-                        {" · "}
-                        <span className="font-mono">
-                          {t("codex.providerMetaWireApi")}{" "}
-                          {providerOf(profileDraft.providerId)?.wireApi}
-                        </span>
-                      </p>
-                    ) : null}
-                  </FieldContent>
-                </Field>
-                <Field>
-                  <FieldLabel>{t("codex.field.apiKey")}</FieldLabel>
-                  <FieldDescription>{t("codex.field.apiKeyHint")}</FieldDescription>
-                  <FieldContent>
-                    <SensitiveTextInput
-                      id="codex-profile-api-key"
-                      value={profileDraft.apiKey}
-                      placeholder={profileDraft.id ? t("codex.field.apiKeyKeepHint") : "sk-..."}
-                      ariaLabel={t("codex.field.apiKey")}
-                      showLabel={t("codex.field.showApiKey")}
-                      hideLabel={t("codex.field.hideApiKey")}
-                      onChange={(value) => setProfileDraft({ ...profileDraft, apiKey: value })}
-                    />
-                  </FieldContent>
-                </Field>
-              </FieldGroup>
-              <SheetFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => requestEditorExit(closeProfileEditor)}
-                  disabled={profileSaving}
-                >
-                  {t("codex.cancel")}
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => void handleSaveProfile()}
-                  disabled={!profileDraftValid || profileSaving}
-                >
-                  {t("codex.save")}
-                </Button>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder={t("codex.field.providerPlaceholder")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {providers.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {providerOf(profileDraft.providerId) ? (
+                        <p
+                          className="text-auxiliary mt-1.5 text-muted-foreground"
+                          data-slot="codex-profile-provider-summary"
+                        >
+                          <span className="font-mono">
+                            {providerOf(profileDraft.providerId)?.baseUrl}
+                          </span>
+                          {" · "}
+                          <span className="font-mono">
+                            {t("codex.providerMetaWireApi")}{" "}
+                            {providerOf(profileDraft.providerId)?.wireApi}
+                          </span>
+                        </p>
+                      ) : null}
+                    </FieldContent>
+                  </Field>
+                  <Field>
+                    <FieldLabel>{t("codex.field.apiKey")}</FieldLabel>
+                    <FieldDescription>{t("codex.field.apiKeyHint")}</FieldDescription>
+                    <FieldContent>
+                      <SensitiveTextInput
+                        id="codex-profile-api-key"
+                        value={profileDraft.apiKey}
+                        placeholder={profileDraft.id ? t("codex.field.apiKeyKeepHint") : "sk-..."}
+                        ariaLabel={t("codex.field.apiKey")}
+                        showLabel={t("codex.field.showApiKey")}
+                        hideLabel={t("codex.field.hideApiKey")}
+                        onChange={(value) => setProfileDraft({ ...profileDraft, apiKey: value })}
+                      />
+                    </FieldContent>
+                  </Field>
+                </FieldGroup>
+              </div>
+              <SheetFooter className="shrink-0 border-t px-5 py-3.5">
+                <div className="flex w-full flex-row justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => requestEditorExit(closeProfileEditor)}
+                    disabled={profileSaving}
+                  >
+                    {t("codex.cancel")}
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => void handleSaveProfile()}
+                    disabled={!profileDraftValid || profileSaving}
+                  >
+                    {t("codex.save")}
+                  </Button>
+                </div>
               </SheetFooter>
             </>
           ) : null}
@@ -848,8 +856,8 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
 
       {/* 删除确认(共用) */}
       <Sheet open={pendingDelete !== null} onOpenChange={(open) => !open && setPendingDelete(null)}>
-        <SheetContent className="flex flex-col gap-4">
-          <SheetHeader>
+        <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
+          <SheetHeader className="shrink-0 border-b px-5 py-3.5 pr-12">
             <SheetTitle>
               {pendingDelete?.kind === "provider"
                 ? t("codex.deleteProviderTitle")
@@ -861,73 +869,83 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                 : t("codex.deleteProfileDescription")}
             </SheetDescription>
           </SheetHeader>
-          <SheetFooter>
-            <Button type="button" variant="outline" onClick={() => setPendingDelete(null)}>
-              {t("codex.cancel")}
-            </Button>
-            <Button type="button" variant="destructive" onClick={() => void handleConfirmDelete()}>
-              {t("codex.delete")}
-            </Button>
+          <SheetFooter className="shrink-0 border-t px-5 py-3.5">
+            <div className="flex w-full flex-row justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setPendingDelete(null)}>
+                {t("codex.cancel")}
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => void handleConfirmDelete()}
+              >
+                {t("codex.delete")}
+              </Button>
+            </div>
           </SheetFooter>
         </SheetContent>
       </Sheet>
 
       {/* Apply 预览确认(#37):展示 provider 切换摘要,确认后才写盘 */}
       <Sheet open={applyPreview !== null} onOpenChange={(open) => !open && setApplyPreview(null)}>
-        <SheetContent className="flex flex-col gap-4">
-          <SheetHeader>
+        <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
+          <SheetHeader className="shrink-0 border-b px-5 py-3.5 pr-12">
             <SheetTitle>{t("codex.applyPreviewTitle")}</SheetTitle>
             <SheetDescription>{t("codex.applyPreviewDescription")}</SheetDescription>
           </SheetHeader>
           {applyPreview ? (
-            <FieldGroup className="flex-1 overflow-auto">
-              <Field>
-                <FieldLabel>{t("codex.applyPreviewCurrent")}</FieldLabel>
-                <FieldContent>
-                  <p className="text-body text-muted-foreground">
-                    {applyPreview.preview.currentModelProvider ?? t("codex.applyPreviewNone")}
-                  </p>
-                </FieldContent>
-              </Field>
-              <Field>
-                <FieldLabel>{t("codex.applyPreviewNext")}</FieldLabel>
-                <FieldContent>
-                  <p className="text-body font-medium">
-                    {applyPreview.preview.providerName}
-                    <span className="text-muted-foreground">
-                      {" "}
-                      ({applyPreview.preview.nextModelProvider})
-                    </span>
-                  </p>
-                  <p className="text-auxiliary text-muted-foreground">
-                    {applyPreview.preview.providerBaseUrl} · {t("codex.providerMetaWireApi")}{" "}
-                    {applyPreview.preview.providerWireApi}
-                  </p>
-                </FieldContent>
-              </Field>
-              <Field>
-                <FieldLabel>{t("codex.applyPreviewAuth")}</FieldLabel>
-                <FieldContent>
-                  <p className="text-body text-muted-foreground">
-                    {applyPreview.preview.apiKeyWillSet
-                      ? t("codex.applyPreviewAuthSet")
-                      : t("codex.applyPreviewAuthUnset")}
-                  </p>
-                </FieldContent>
-              </Field>
-            </FieldGroup>
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+              <FieldGroup className="w-full">
+                <Field>
+                  <FieldLabel>{t("codex.applyPreviewCurrent")}</FieldLabel>
+                  <FieldContent>
+                    <p className="text-body text-muted-foreground">
+                      {applyPreview.preview.currentModelProvider ?? t("codex.applyPreviewNone")}
+                    </p>
+                  </FieldContent>
+                </Field>
+                <Field>
+                  <FieldLabel>{t("codex.applyPreviewNext")}</FieldLabel>
+                  <FieldContent>
+                    <p className="text-body font-medium">
+                      {applyPreview.preview.providerName}
+                      <span className="text-muted-foreground">
+                        {" "}
+                        ({applyPreview.preview.nextModelProvider})
+                      </span>
+                    </p>
+                    <p className="text-auxiliary text-muted-foreground">
+                      {applyPreview.preview.providerBaseUrl} · {t("codex.providerMetaWireApi")}{" "}
+                      {applyPreview.preview.providerWireApi}
+                    </p>
+                  </FieldContent>
+                </Field>
+                <Field>
+                  <FieldLabel>{t("codex.applyPreviewAuth")}</FieldLabel>
+                  <FieldContent>
+                    <p className="text-body text-muted-foreground">
+                      {applyPreview.preview.apiKeyWillSet
+                        ? t("codex.applyPreviewAuthSet")
+                        : t("codex.applyPreviewAuthUnset")}
+                    </p>
+                  </FieldContent>
+                </Field>
+              </FieldGroup>
+            </div>
           ) : null}
-          <SheetFooter>
-            <Button type="button" variant="outline" onClick={() => setApplyPreview(null)}>
-              {t("codex.cancel")}
-            </Button>
-            <Button
-              type="button"
-              onClick={() => void handleConfirmApply()}
-              disabled={applyingProfileId !== null}
-            >
-              {t("codex.apply")}
-            </Button>
+          <SheetFooter className="shrink-0 border-t px-5 py-3.5">
+            <div className="flex w-full flex-row justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setApplyPreview(null)}>
+                {t("codex.cancel")}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void handleConfirmApply()}
+                disabled={applyingProfileId !== null}
+              >
+                {t("codex.apply")}
+              </Button>
+            </div>
           </SheetFooter>
         </SheetContent>
       </Sheet>
