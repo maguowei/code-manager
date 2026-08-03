@@ -248,7 +248,7 @@ describe("CodexProfilesPage", () => {
     expect(screen.getByText("未配置")).toBeInTheDocument();
   });
 
-  it("点击应用调用 apply_codex_profile;激活态展示徽标", async () => {
+  it("激活态展示徽标,且不再显示应用按钮", async () => {
     const ws: CodexWorkspace = {
       providers: [...BUILTIN_WORKSPACE.providers],
       profiles: [
@@ -268,8 +268,31 @@ describe("CodexProfilesPage", () => {
     stubInvoke(ws);
     renderPage();
     await waitFor(() => expect(screen.getByText("工作中转")).toBeInTheDocument());
-    // 激活态徽标展示
+    // 激活态徽标展示,头部 Apply 按钮由徽标替换
     expect(screen.getByText("已激活")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "应用" })).not.toBeInTheDocument();
+  });
+
+  it("未激活配置点击应用先 preview 再 apply", async () => {
+    const ws: CodexWorkspace = {
+      providers: [...BUILTIN_WORKSPACE.providers],
+      profiles: [
+        {
+          id: "codex-1",
+          name: "工作中转",
+          providerId: "codex-builtin:openai",
+          apiKey: "test••••ey",
+          createdAt: "2026-01-01T00:00:00+08:00",
+          updatedAt: "2026-01-01T00:00:00+08:00",
+        },
+      ],
+      // 未绑定:卡片展示应用按钮
+      bindings: {},
+      builtinProviderIds: ["codex-builtin:openai"],
+    };
+    stubInvoke(ws);
+    renderPage();
+    await waitFor(() => expect(screen.getByText("工作中转")).toBeInTheDocument());
 
     // 点击应用:先调用 preview(不写盘)
     fireEvent.click(screen.getByRole("button", { name: "应用" }));
@@ -280,8 +303,8 @@ describe("CodexProfilesPage", () => {
     await waitFor(() => {
       expect(screen.getByText("确认应用 Codex 配置")).toBeInTheDocument();
     });
-    // 确认后才真正 apply
-    fireEvent.click(screen.getAllByRole("button", { name: "应用" })[0]);
+    // 确认后才真正 apply(预览 Dialog 打开后背景被 aria-hidden,仅剩确认按钮)
+    fireEvent.click(screen.getByRole("button", { name: "应用" }));
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("apply_codex_profile", { id: "codex-1" });
     });
