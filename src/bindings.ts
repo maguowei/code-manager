@@ -389,7 +389,7 @@ export type CodexProvider_Deserialize = {
 	baseUrl: string,
 	/**  读取 API key 的环境变量名(`env_key`) */
 	envKey: string,
-	/**  `responses` 或 `chat`,写入 `[model_providers.NAME].wire_api` */
+	/**  写入 `[model_providers.NAME].wire_api`;固定 `responses`(Codex 已移除 `chat`) */
 	wireApi: string,
 	docUrl: string | null,
 };
@@ -406,7 +406,7 @@ export type CodexProvider_Serialize = {
 	baseUrl: string,
 	/**  读取 API key 的环境变量名(`env_key`) */
 	envKey: string,
-	/**  `responses` 或 `chat`,写入 `[model_providers.NAME].wire_api` */
+	/**  写入 `[model_providers.NAME].wire_api`;固定 `responses`(Codex 已移除 `chat`) */
 	wireApi: string,
 	docUrl?: string | null,
 };

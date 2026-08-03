@@ -47,10 +47,6 @@ import {
   SheetTitle,
 } from "./ui/sheet";
 
-// Codex wire_api 合法值(与后端 config.rs 的 CODEX_WIRE_API_RESPONSES / _CHAT 对齐)
-const WIRE_API_RESPONSES = "responses";
-const WIRE_API_CHAT = "chat";
-
 // 卡片与 chip 样式对齐 ProvidersPage 的 preset-card / preset-chip 体系
 const PROVIDER_CARD_CLASS =
   "preset-card flex flex-col gap-3 rounded-lg border border-border bg-card p-4 text-foreground shadow-panel";
@@ -72,7 +68,6 @@ interface ProviderDraft {
   name: string;
   baseUrl: string;
   envKey: string;
-  wireApi: string;
   docUrl: string;
 }
 
@@ -89,7 +84,6 @@ function emptyProviderDraft(): ProviderDraft {
     name: "",
     baseUrl: "",
     envKey: "OPENAI_API_KEY",
-    wireApi: WIRE_API_RESPONSES,
     docUrl: "",
   };
 }
@@ -100,7 +94,6 @@ function providerDraftFrom(p: CodexProvider): ProviderDraft {
     name: p.name,
     baseUrl: p.baseUrl,
     envKey: p.envKey,
-    wireApi: p.wireApi,
     docUrl: p.docUrl ?? "",
   };
 }
@@ -204,7 +197,8 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
       name: providerDraft.name.trim(),
       baseUrl: providerDraft.baseUrl.trim(),
       envKey: providerDraft.envKey.trim(),
-      wireApi: providerDraft.wireApi,
+      // wire_api 恒为 responses(Codex 已移除 chat),后端负责落盘
+      wireApi: "responses",
       docUrl: providerDraft.docUrl.trim() ? providerDraft.docUrl.trim() : undefined,
     };
     setProviderSaving(true);
@@ -514,7 +508,6 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                             </div>
                             <div className="preset-chip-list flex flex-wrap items-center gap-2">
                               <span className={PROVIDER_CHIP_CLASS}>{provider.envKey}</span>
-                              <span className={PROVIDER_CHIP_CLASS}>{provider.wireApi}</span>
                             </div>
                           </div>
                           {builtin ? null : (
@@ -684,14 +677,6 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                               </span>
                             </div>
                             <div className={summaryRowClass}>
-                              <span className={summaryLabelClass}>
-                                {t("codex.summary.wireApi")}
-                              </span>
-                              <span className="font-mono text-xs leading-none text-foreground">
-                                {provider?.wireApi ?? "—"}
-                              </span>
-                            </div>
-                            <div className={summaryRowClass}>
                               <span className={summaryLabelClass}>{t("codex.summary.apiKey")}</span>
                               {profile.apiKey ? (
                                 <span className="min-w-0 max-w-full truncate font-mono text-xs leading-none text-foreground [overflow-wrap:anywhere]">
@@ -796,28 +781,6 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                 </FieldContent>
               </Field>
               <Field>
-                <FieldLabel>{t("codex.field.wireApi")}</FieldLabel>
-                <FieldDescription>{t("codex.field.wireApiHint")}</FieldDescription>
-                <FieldContent>
-                  <Select
-                    value={providerDraft.wireApi}
-                    onValueChange={(value) =>
-                      setProviderDraft({ ...providerDraft, wireApi: value })
-                    }
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={WIRE_API_RESPONSES}>
-                        {t("codex.field.wireApiResponses")}
-                      </SelectItem>
-                      <SelectItem value={WIRE_API_CHAT}>{t("codex.field.wireApiChat")}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </FieldContent>
-              </Field>
-              <Field>
                 <FieldLabel>{t("codex.field.docUrl")}</FieldLabel>
                 <FieldContent>
                   <Input
@@ -910,11 +873,6 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                         >
                           <span className="font-mono">
                             {providerOf(profileDraft.providerId)?.baseUrl}
-                          </span>
-                          {" · "}
-                          <span className="font-mono">
-                            {t("codex.providerMetaWireApi")}{" "}
-                            {providerOf(profileDraft.providerId)?.wireApi}
                           </span>
                         </p>
                       ) : null}
@@ -1011,8 +969,7 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                       </span>
                     </p>
                     <p className="text-auxiliary text-muted-foreground">
-                      {applyPreview.preview.providerBaseUrl} · {t("codex.providerMetaWireApi")}{" "}
-                      {applyPreview.preview.providerWireApi}
+                      {applyPreview.preview.providerBaseUrl}
                     </p>
                   </FieldContent>
                 </Field>

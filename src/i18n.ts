@@ -1725,7 +1725,6 @@ const translations = {
     "codex.emptyProviderTitle": "尚无 Codex Provider",
     "codex.emptyProviderHint": "新增一个自定义 Provider，或先使用内置的 OpenAI 官方快速起步。",
     "codex.providerSectionHint": "内置 Provider 只读，自定义 Provider 可编辑与删除。",
-    "codex.providerMetaWireApi": "wire_api:",
     "codex.createProvider": "新增 Codex Provider",
     "codex.editProvider": "编辑 Codex Provider",
     "codex.editorDescription":
@@ -1740,10 +1739,6 @@ const translations = {
     "codex.field.envKey": "环境变量键名",
     "codex.field.envKeyHint":
       "环境变量键名，写入 [model_providers.NAME].env_key；Apply 时 API key 写入 ~/.codex/auth.json。",
-    "codex.field.wireApi": "wire_api",
-    "codex.field.wireApiHint": "responses 或 chat，写入 [model_providers.NAME].wire_api。",
-    "codex.field.wireApiResponses": "responses（默认）",
-    "codex.field.wireApiChat": "chat",
     "codex.field.docUrl": "文档链接（可选）",
     "codex.toast.loadFailed": "加载 Codex 配置失败",
     "codex.toast.providerCreated": "Codex Provider 已创建",
@@ -1778,7 +1773,6 @@ const translations = {
     "codex.field.showApiKey": "显示 API key",
     "codex.field.hideApiKey": "隐藏 API key",
     "codex.summary.baseUrl": "Base URL",
-    "codex.summary.wireApi": "wire_api",
     "codex.summary.apiKey": "API key",
     "codex.summary.apiKeyUnset": "未配置",
     "codex.toast.profileCreated": "Codex 配置已创建",
@@ -3595,7 +3589,6 @@ const translations = {
     "codex.emptyProviderHint": "Add a custom provider, or start with the built-in OpenAI one.",
     "codex.providerSectionHint":
       "Built-in providers are read-only; custom providers can be edited and deleted.",
-    "codex.providerMetaWireApi": "wire_api:",
     "codex.createProvider": "New Codex Provider",
     "codex.editProvider": "Edit Codex Provider",
     "codex.editorDescription":
@@ -3611,10 +3604,6 @@ const translations = {
     "codex.field.envKey": "Env var key",
     "codex.field.envKeyHint":
       "Env var key name, written to [model_providers.NAME].env_key; on Apply the API key is stored in ~/.codex/auth.json.",
-    "codex.field.wireApi": "wire_api",
-    "codex.field.wireApiHint": "responses or chat, written to [model_providers.NAME].wire_api.",
-    "codex.field.wireApiResponses": "responses (default)",
-    "codex.field.wireApiChat": "chat",
     "codex.field.docUrl": "Docs link (optional)",
     "codex.toast.loadFailed": "Failed to load Codex config",
     "codex.toast.providerCreated": "Codex provider created",
@@ -3649,7 +3638,6 @@ const translations = {
     "codex.field.showApiKey": "Show API key",
     "codex.field.hideApiKey": "Hide API key",
     "codex.summary.baseUrl": "Base URL",
-    "codex.summary.wireApi": "wire_api",
     "codex.summary.apiKey": "API key",
     "codex.summary.apiKeyUnset": "Not set",
     "codex.toast.profileCreated": "Codex profile created",
