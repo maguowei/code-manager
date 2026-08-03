@@ -234,7 +234,7 @@ pub struct CodexProvider {
     pub base_url: String,
     /// 读取 API key 的环境变量名(`env_key`)
     pub env_key: String,
-    /// `responses` 或 `chat`,写入 `[model_providers.NAME].wire_api`
+    /// 写入 `[model_providers.NAME].wire_api`;固定 `responses`(Codex 已移除 `chat`)
     pub wire_api: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub doc_url: Option<String>,
@@ -703,9 +703,19 @@ fn get_user_settings_path() -> Result<PathBuf, String> {
 const CODEX_BUILTIN_PREFIX: &str = "codex-builtin:";
 const CODEX_BUILTIN_OPENAI_ID: &str = "codex-builtin:openai";
 
-/// Codex `wire_api` 的合法值：Codex CLI 支持 `responses`（默认）与 `chat` 两种协议。
+/// Codex `wire_api` 的合法值：Codex CLI 自 2026-02 起仅支持 `responses`（默认，也是唯一值）；
+/// 旧的 `chat`（Chat Completions）已被上游移除,遇到 `chat` 会解析报错。
 pub const CODEX_WIRE_API_RESPONSES: &str = "responses";
-pub const CODEX_WIRE_API_CHAT: &str = "chat";
+
+/// 把 provider 的 `wire_api` 规整为受支持值：上游已移除 `chat`,任何非 `responses` 的值
+/// (含存量 `chat`、空值)统一按 `responses` 处理,避免落盘出 Codex 无法解析的 config.toml。
+fn coerce_codex_wire_api(value: &str) -> String {
+    if value == CODEX_WIRE_API_RESPONSES {
+        value.to_string()
+    } else {
+        CODEX_WIRE_API_RESPONSES.to_string()
+    }
+}
 
 /// `~/.codex/config.toml` 路径。
 fn codex_config_path() -> Result<PathBuf, String> {
@@ -751,19 +761,21 @@ fn resolve_codex_provider(
     registry: &ConfigRegistry,
     provider_id: &str,
 ) -> Result<CodexProvider, String> {
-    if let Some(found) = registry
+    let mut provider = registry
         .codex
         .providers
         .iter()
         .find(|provider| provider.id == provider_id)
         .cloned()
-    {
-        return Ok(found);
-    }
-    builtin_codex_providers()
-        .into_iter()
-        .find(|provider| provider.id == provider_id)
-        .ok_or_else(|| format!("未找到 Codex Provider '{}'", provider_id))
+        .or_else(|| {
+            builtin_codex_providers()
+                .into_iter()
+                .find(|provider| provider.id == provider_id)
+        })
+        .ok_or_else(|| format!("未找到 Codex Provider '{}'", provider_id))?;
+    // 存量 chat 规整为 responses,保证 apply/preview 永不写出 Codex 无法解析的 wire_api
+    provider.wire_api = coerce_codex_wire_api(&provider.wire_api);
+    Ok(provider)
 }
 
 /// 外科补丁写入 `config.toml`：只改 `model_provider` 与对应 `[model_providers.SLUG]`，
@@ -862,9 +874,10 @@ pub fn render_codex_config(
     let mut provider_table = toml_edit::Table::new();
     provider_table["name"] = toml_edit::value(provider.name.clone());
     provider_table["base_url"] = toml_edit::value(provider.base_url.clone());
-    // env_key 与 wire_api 按用户定义写入：Codex 据此读取环境变量与选择协议
+    // env_key 与 wire_api 按用户定义写入：Codex 据此读取环境变量与选择协议。
+    // 最后防线：wire_api 恒规整为 responses（Codex 已移除 chat），保证落盘永不写出无法解析的协议。
     provider_table["env_key"] = toml_edit::value(provider.env_key.clone());
-    provider_table["wire_api"] = toml_edit::value(provider.wire_api.clone());
+    provider_table["wire_api"] = toml_edit::value(coerce_codex_wire_api(&provider.wire_api));
     provider_table.decor_mut().set_prefix("\n");
 
     // 插入到 model_providers 表下。若 model_providers 表不存在则创建。
@@ -2931,6 +2944,10 @@ fn build_codex_workspace(registry: &ConfigRegistry) -> CodexWorkspace {
     let mut providers = builtin_codex_providers();
     let builtin_ids: Vec<String> = providers.iter().map(|p| p.id.clone()).collect();
     providers.extend(registry.codex.providers.iter().cloned());
+    // 存量 chat 在展示层也规整为 responses,与 apply 行为一致
+    for provider in providers.iter_mut() {
+        provider.wire_api = coerce_codex_wire_api(&provider.wire_api);
+    }
     let profiles = registry
         .codex
         .profiles
@@ -2999,7 +3016,8 @@ fn upsert_codex_provider_in_registry(
     let name = data.name.trim().to_string();
     let base_url = data.base_url.trim().to_string();
     let env_key = data.env_key.trim().to_string();
-    let wire_api = data.wire_api.trim().to_string();
+    // 存量 chat / 空值规整为 responses;Codex 已移除 chat,只写受支持的 wire_api
+    let wire_api = coerce_codex_wire_api(data.wire_api.trim());
     if name.is_empty() {
         return Err("Codex Provider 名称不能为空".to_string());
     }
@@ -3008,12 +3026,6 @@ fn upsert_codex_provider_in_registry(
     }
     if env_key.is_empty() {
         return Err("Codex Provider env_key 不能为空".to_string());
-    }
-    if wire_api != CODEX_WIRE_API_RESPONSES && wire_api != CODEX_WIRE_API_CHAT {
-        return Err(format!(
-            "wire_api 仅支持 \"{}\" 或 \"{}\"",
-            CODEX_WIRE_API_RESPONSES, CODEX_WIRE_API_CHAT
-        ));
     }
 
     let provider_id = data
@@ -4900,7 +4912,7 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
 ";
         fs::write(&config_path, original).unwrap();
 
-        // wire_api 用 chat 验证「按用户定义写入」而非恒写 responses
+        // 存量 wire_api=chat 在落盘时被规整为 responses(Codex 已移除 chat)
         let provider = CodexProvider {
             id: "custom:my-relay".to_string(),
             name: "My Relay".to_string(),
@@ -4931,8 +4943,13 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
             "新 provider 的 base_url 要写入"
         );
         assert!(
+            patched.contains("wire_api = \"responses\""),
+            "存量 chat 落盘时规整为 responses(Codex 已移除 chat)"
+        );
+        // 旧 provider 段原样保留(外科补丁不删用户维护内容),其 chat 仍在——只有新段被规整
+        assert!(
             patched.contains("wire_api = \"chat\""),
-            "wire_api 按用户定义写入(不恒写 responses)"
+            "旧 provider 段的 chat 应原样保留(外科补丁不删旧段)"
         );
         assert!(
             patched.contains("env_key = \"MY_RELAY_KEY\""),
@@ -5343,21 +5360,8 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
             "https://relay2.example.com/v1"
         );
 
-        // 校验:wire_api 只接受 responses / chat,其余值被拒
-        upsert_codex_provider_in_registry(
-            &mut registry,
-            CodexProviderInput {
-                id: None,
-                name: "Bad".to_string(),
-                base_url: "https://x.example.com/v1".to_string(),
-                env_key: "K".to_string(),
-                wire_api: "bogus".to_string(),
-                doc_url: None,
-            },
-        )
-        .unwrap_err();
-        // chat 是合法值(如 Azure OpenAI 的 wire_api = "chat")
-        let legacy_chat = upsert_codex_provider_in_registry(
+        // 任意非 responses 的 wire_api(含 bogus / chat)都规整为 responses,不再报错
+        let coerced = upsert_codex_provider_in_registry(
             &mut registry,
             CodexProviderInput {
                 id: None,
@@ -5369,23 +5373,23 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
             },
         )
         .unwrap();
-        assert_eq!(legacy_chat.wire_api, "chat");
+        assert_eq!(coerced.wire_api, "responses");
         assert!(
             registry
                 .codex
                 .providers
                 .iter()
-                .any(|p| p.wire_api == "chat"),
-            "chat wire_api 的 provider 应持久化"
+                .all(|p| p.wire_api == "responses"),
+            "chat wire_api 的 provider 应规整为 responses 持久化"
         );
 
         // 内置 Provider 删除被拒
         delete_codex_provider_in_registry(&mut registry, CODEX_BUILTIN_OPENAI_ID).unwrap_err();
 
-        // 删除自定义 Provider 成功(chat provider 保留)
+        // 删除自定义 Provider 成功(规整后的 provider 保留)
         delete_codex_provider_in_registry(&mut registry, &created.id).unwrap();
         assert_eq!(registry.codex.providers.len(), 1);
-        assert_eq!(registry.codex.providers[0].id, legacy_chat.id);
+        assert_eq!(registry.codex.providers[0].id, coerced.id);
 
         // 重复删除报错
         delete_codex_provider_in_registry(&mut registry, &created.id).unwrap_err();

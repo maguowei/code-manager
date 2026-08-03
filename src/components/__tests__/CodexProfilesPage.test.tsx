@@ -102,7 +102,7 @@ describe("CodexProfilesPage", () => {
     expect(screen.queryAllByLabelText("删除")).toHaveLength(0);
   });
 
-  it("Provider 卡片展示 base_url 摘要块与 env_key / wire_api chip", async () => {
+  it("Provider 卡片展示 base_url 摘要块与 env_key chip", async () => {
     stubInvoke(BUILTIN_WORKSPACE);
     renderPage();
 
@@ -111,9 +111,8 @@ describe("CodexProfilesPage", () => {
     });
     // base_url 摘要块
     expect(screen.getByText("https://api.openai.com/v1")).toBeInTheDocument();
-    // env_key / wire_api chip
+    // env_key chip(wire_api 不再展示,恒为 responses)
     expect(screen.getByText("OPENAI_API_KEY")).toBeInTheDocument();
-    expect(screen.getByText("responses")).toBeInTheDocument();
   });
 
   it("自定义 Provider 可删除,删除调用后端", async () => {
@@ -125,7 +124,7 @@ describe("CodexProfilesPage", () => {
           name: "我的中转",
           baseUrl: "https://r.example.com/v1",
           envKey: "RELAY_KEY",
-          wireApi: "chat",
+          wireApi: "responses",
         },
       ],
       profiles: [],
@@ -198,7 +197,7 @@ describe("CodexProfilesPage", () => {
     });
   });
 
-  it("Profile 卡片展示 provider Badge 与 summary 行(base_url / wire_api / key)", async () => {
+  it("Profile 卡片展示 provider Badge 与 summary 行(base_url / key)", async () => {
     const ws: CodexWorkspace = {
       providers: [...BUILTIN_WORKSPACE.providers],
       profiles: [
@@ -219,9 +218,8 @@ describe("CodexProfilesPage", () => {
     await waitFor(() => expect(screen.getByText("工作中转")).toBeInTheDocument());
     // 卡片内 provider Badge(Provider 区卡片与 Profile 卡片各一处名称)
     expect(screen.getAllByText("OpenAI 官方")).toHaveLength(2);
-    // summary 行:base_url(Provider 卡片与 Profile 卡片各一处)与 wire_api 值
+    // summary 行:base_url(Provider 卡片与 Profile 卡片各一处)与 key 状态
     expect(screen.getAllByText("https://api.openai.com/v1")).toHaveLength(2);
-    expect(screen.getAllByText("responses").length).toBeGreaterThanOrEqual(1);
     // key 状态行:脱敏 key 或「未配置」
     expect(screen.getByText(/test••••ey/)).toBeInTheDocument();
   });
@@ -310,7 +308,7 @@ describe("CodexProfilesPage", () => {
     });
   });
 
-  it("新建自定义 Provider 可选择 wire_api 为 chat 并随表单提交", async () => {
+  it("新建自定义 Provider 无 wire_api 选择器,提交固定 responses", async () => {
     stubInvoke(BUILTIN_WORKSPACE);
     renderPage();
     await waitFor(() => {
@@ -322,6 +320,9 @@ describe("CodexProfilesPage", () => {
     await waitFor(() => {
       expect(screen.getByText("新增 Codex Provider")).toBeInTheDocument();
     });
+    // wire_api 选择器已移除(wire_api 恒为 responses)
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+
     // 填必填字段
     fireEvent.change(screen.getByPlaceholderText("例如：我的中转"), {
       target: { value: "Azure 中转" },
@@ -329,9 +330,6 @@ describe("CodexProfilesPage", () => {
     fireEvent.change(screen.getByPlaceholderText("https://api.example.com/v1"), {
       target: { value: "https://azure.example.com/v1" },
     });
-    // wire_api 选择 chat(唯一 combobox)
-    fireEvent.click(screen.getByRole("combobox"));
-    fireEvent.click(await screen.findByText("chat"));
 
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
     await waitFor(() => {
@@ -341,7 +339,7 @@ describe("CodexProfilesPage", () => {
           name: "Azure 中转",
           baseUrl: "https://azure.example.com/v1",
           envKey: "OPENAI_API_KEY",
-          wireApi: "chat",
+          wireApi: "responses",
           docUrl: undefined,
         },
       });
@@ -361,8 +359,7 @@ describe("CodexProfilesPage", () => {
     });
     // 引用 provider 的 base_url 摘要行(与 Provider 区卡片各一处)
     expect(screen.getAllByText("https://api.openai.com/v1")).toHaveLength(2);
-    // 摘要行展示 wire_api
-    expect(screen.getByText("wire_api: responses")).toBeInTheDocument();
+    // wire_api 不再在摘要行展示
 
     // API key 输入框默认密文,可切换明文
     const keyInput = screen.getByPlaceholderText("sk-...");
