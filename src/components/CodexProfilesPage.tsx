@@ -1,5 +1,6 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { CircleCheck, ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
+import type { KeyboardEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
@@ -15,6 +16,7 @@ import type {
   CodexProviderInput,
   CodexWorkspace,
 } from "../types";
+import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import EmptyState from "./EmptyState";
 import type { EditorExitGuard } from "./editor-exit-guard";
 import PageHeader from "./PageHeader";
@@ -25,6 +27,14 @@ import UnsavedChangesAlertDialog from "./UnsavedChangesAlertDialog";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -46,6 +56,16 @@ const PROVIDER_CARD_CLASS =
   "preset-card flex flex-col gap-3 rounded-lg border border-border bg-card p-4 text-foreground shadow-panel";
 const PROVIDER_CHIP_CLASS =
   "preset-chip inline-flex min-h-7 items-center rounded-full border border-border bg-secondary px-2.5 py-1 text-xs font-semibold text-foreground";
+
+// 可点击卡片的 hover 提升(对齐 ProfilesPage 的卡片交互)
+const INTERACTIVE_CARD_CLASS =
+  "cursor-pointer transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-px hover:border-primary hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
+// hover / focus 展开的图标操作条(对齐 ProfilesPage 的操作条)
+const CARD_ACTION_BAR_CLASS =
+  "pointer-events-none mt-[-0.5rem] flex max-h-0 translate-y-2 flex-wrap justify-end gap-2 self-end overflow-hidden opacity-0 transition-[max-height,margin-top,opacity,transform] duration-200 group-hover:pointer-events-auto group-hover:mt-0 group-hover:max-h-12 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:mt-0 group-focus-within:max-h-12 group-focus-within:translate-y-0 group-focus-within:opacity-100";
+// 操作条内的图标按钮基础样式
+const CARD_ACTION_BUTTON_CLASS =
+  "border-border bg-muted text-foreground hover:border-primary hover:text-primary";
 
 interface ProviderDraft {
   id: string | null;
@@ -348,6 +368,9 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
   }
   const hasProvider = providers.length > 0;
   const activeProfileId = workspace?.bindings.codexProfileId ?? null;
+  // 正在编辑的条目 id,用于给对应卡片加 editing 高亮(仅编辑已有条目时,新建为 null)
+  const editingProviderId = providerEditorOpen ? providerDraft.id : null;
+  const editingProfileId = profileEditorOpen ? (profileDraft?.id ?? null) : null;
 
   // 点击应用:先拉取预览(不写盘),弹确认面板;确认后才真正 apply
   const handleApplyProfile = async (profileId: string) => {
@@ -418,9 +441,35 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                   {providers.map((provider) => {
                     const builtin = builtinIdSet.has(provider.id);
                     const docUrl = provider.docUrl;
+                    const editing = editingProviderId === provider.id;
+                    // 内置 Provider 只读;自定义 Provider 整卡可点进入编辑
+                    const openThisProvider = () =>
+                      requestEditorExit(() => openEditProvider(provider));
                     return (
                       <li key={provider.id}>
-                        <Card className={PROVIDER_CARD_CLASS} data-slot="codex-provider-card">
+                        <Card
+                          className={cn(
+                            "group",
+                            PROVIDER_CARD_CLASS,
+                            !builtin && INTERACTIVE_CARD_CLASS,
+                            !builtin && editing && "editing border-chart-3 ring-1 ring-chart-3/30",
+                          )}
+                          data-slot="codex-provider-card"
+                          {...(builtin
+                            ? {}
+                            : {
+                                role: "button",
+                                tabIndex: 0,
+                                "aria-label": provider.name,
+                                onClick: openThisProvider,
+                                onKeyDown: (event: KeyboardEvent) => {
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    openThisProvider();
+                                  }
+                                },
+                              })}
+                        >
                           <div className="preset-card-head flex items-start justify-between gap-3 max-[700px]:flex-wrap">
                             <div className="preset-card-title-block min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
@@ -437,41 +486,22 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                                 ) : null}
                               </div>
                             </div>
-                            <div className="flex shrink-0 items-center gap-1">
-                              {docUrl ? (
+                            {docUrl ? (
+                              <div className="flex shrink-0 items-center gap-1">
                                 <Button
                                   type="button"
                                   variant="link"
                                   className="preset-card-doc-link h-auto min-h-7 gap-1.5 p-0 text-xs font-semibold text-primary hover:text-primary"
-                                  onClick={() => void openUrl(docUrl)}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    void openUrl(docUrl);
+                                  }}
                                 >
                                   <span>{t("codex.openDocs")}</span>
                                   <ExternalLink className="size-3.5" aria-hidden="true" />
                                 </Button>
-                              ) : null}
-                              {builtin ? null : (
-                                <>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => openEditProvider(provider)}
-                                    aria-label={t("codex.edit")}
-                                  >
-                                    <Pencil className="size-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() =>
-                                      setPendingDelete({ kind: "provider", id: provider.id })
-                                    }
-                                    aria-label={t("codex.delete")}
-                                  >
-                                    <Trash2 className="size-4" />
-                                  </Button>
-                                </>
-                              )}
-                            </div>
+                              </div>
+                            ) : null}
                           </div>
                           <div className="preset-card-body flex flex-col gap-2.5">
                             <div className="preset-summary-block rounded-lg border border-border bg-muted/50 px-3 py-[11px]">
@@ -487,6 +517,38 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                               <span className={PROVIDER_CHIP_CLASS}>{provider.wireApi}</span>
                             </div>
                           </div>
+                          {builtin ? null : (
+                            <div className={CARD_ACTION_BAR_CLASS}>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon-sm"
+                                className={CARD_ACTION_BUTTON_CLASS}
+                                aria-label={t("codex.edit")}
+                                title={t("codex.edit")}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  openThisProvider();
+                                }}
+                              >
+                                <Pencil aria-hidden="true" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon-sm"
+                                className="border-border bg-muted text-foreground hover:border-destructive hover:text-destructive"
+                                aria-label={t("codex.delete")}
+                                title={t("codex.delete")}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setPendingDelete({ kind: "provider", id: provider.id });
+                                }}
+                              >
+                                <Trash2 aria-hidden="true" />
+                              </Button>
+                            </div>
+                          )}
                         </Card>
                       </li>
                     );
@@ -527,14 +589,32 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                 <ul className="flex flex-col gap-3">
                   {profiles.map((profile) => {
                     const isActive = profile.id === activeProfileId;
+                    const isEditing = editingProfileId === profile.id;
                     const applying = applyingProfileId === profile.id;
                     const previewing = previewLoadingId === profile.id;
                     const provider = providerOf(profile.providerId);
+                    // 整卡可点进入编辑,复用退出保护
+                    const openThisProfile = () => requestEditorExit(() => openEditProfile(profile));
                     return (
                       <li key={profile.id}>
                         <Card
-                          className="group relative flex flex-col gap-4 rounded-lg border border-border bg-card p-4 py-4 text-foreground shadow-panel transition-[border-color,box-shadow] duration-200 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                          className={cn(
+                            "group relative flex cursor-pointer flex-col gap-4 rounded-lg border border-border bg-card p-4 py-4 text-foreground shadow-panel",
+                            INTERACTIVE_CARD_CLASS,
+                            isActive && "active border-primary ring-1 ring-primary/30",
+                            isEditing && "editing border-chart-3 ring-1 ring-chart-3/30",
+                          )}
                           data-slot="codex-profile-card"
+                          role="button"
+                          tabIndex={0}
+                          aria-label={profile.name}
+                          onClick={openThisProfile}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              openThisProfile();
+                            }
+                          }}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex min-w-0 items-start gap-3">
@@ -552,49 +632,45 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                                   >
                                     {providerName(profile.providerId)}
                                   </Badge>
-                                  {isActive ? (
-                                    <Badge
-                                      variant="secondary"
-                                      className={cn(
-                                        "active rounded-md px-2.5 py-1.5 text-chart-2",
-                                        TYPOGRAPHY.badge,
-                                      )}
-                                    >
-                                      <CircleCheck className="size-3" />
-                                      {t("codex.activeBadge")}
-                                    </Badge>
-                                  ) : null}
                                 </div>
                               </div>
                             </div>
                             <div className="flex flex-wrap items-center justify-end gap-2">
-                              <Button
-                                type="button"
-                                size="sm"
-                                onClick={() => void handleApplyProfile(profile.id)}
-                                disabled={applying || previewing}
-                                aria-label={t("codex.apply")}
-                              >
-                                {t("codex.apply")}
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openEditProfile(profile)}
-                                aria-label={t("codex.edit")}
-                              >
-                                <Pencil className="size-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() =>
-                                  setPendingDelete({ kind: "profile", id: profile.id })
-                                }
-                                aria-label={t("codex.delete")}
-                              >
-                                <Trash2 className="size-4" />
-                              </Button>
+                              {isEditing ? (
+                                <Badge
+                                  className={cn(
+                                    "editing rounded-md bg-chart-3/10 px-2.5 py-1.5 text-chart-3",
+                                    TYPOGRAPHY.badge,
+                                  )}
+                                >
+                                  {t("codex.editingBadge")}
+                                </Badge>
+                              ) : isActive ? (
+                                <Badge
+                                  variant="secondary"
+                                  className={cn(
+                                    "active rounded-md px-2.5 py-1.5 text-chart-2",
+                                    TYPOGRAPHY.badge,
+                                  )}
+                                >
+                                  <CircleCheck className="size-3" />
+                                  {t("codex.activeBadge")}
+                                </Badge>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  className="font-semibold"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    void handleApplyProfile(profile.id);
+                                  }}
+                                  disabled={applying || previewing}
+                                  aria-label={t("codex.apply")}
+                                >
+                                  {t("codex.apply")}
+                                </Button>
+                              )}
                             </div>
                           </div>
 
@@ -627,6 +703,37 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                                 </span>
                               )}
                             </div>
+                          </div>
+
+                          <div className={CARD_ACTION_BAR_CLASS}>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon-sm"
+                              className={CARD_ACTION_BUTTON_CLASS}
+                              aria-label={t("codex.edit")}
+                              title={t("codex.edit")}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openThisProfile();
+                              }}
+                            >
+                              <Pencil aria-hidden="true" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon-sm"
+                              className="border-border bg-muted text-foreground hover:border-destructive hover:text-destructive"
+                              aria-label={t("codex.delete")}
+                              title={t("codex.delete")}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setPendingDelete({ kind: "profile", id: profile.id });
+                              }}
+                            >
+                              <Trash2 aria-hidden="true" />
+                            </Button>
                           </div>
                         </Card>
                       </li>
@@ -854,47 +961,36 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
         </SheetContent>
       </Sheet>
 
-      {/* 删除确认(共用) */}
-      <Sheet open={pendingDelete !== null} onOpenChange={(open) => !open && setPendingDelete(null)}>
-        <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
-          <SheetHeader className="shrink-0 border-b px-5 py-3.5 pr-12">
-            <SheetTitle>
-              {pendingDelete?.kind === "provider"
-                ? t("codex.deleteProviderTitle")
-                : t("codex.deleteProfileTitle")}
-            </SheetTitle>
-            <SheetDescription>
-              {pendingDelete?.kind === "provider"
-                ? t("codex.deleteProviderDescription")
-                : t("codex.deleteProfileDescription")}
-            </SheetDescription>
-          </SheetHeader>
-          <SheetFooter className="shrink-0 border-t px-5 py-3.5">
-            <div className="flex w-full flex-row justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setPendingDelete(null)}>
-                {t("codex.cancel")}
-              </Button>
-              <Button
-                type="button"
-                variant="destructive"
-                onClick={() => void handleConfirmDelete()}
-              >
-                {t("codex.delete")}
-              </Button>
-            </div>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+      {/* 删除确认(共用):破坏性操作走共享 AlertDialog */}
+      {pendingDelete ? (
+        <ConfirmAlertDialog
+          title={
+            pendingDelete.kind === "provider"
+              ? t("codex.deleteProviderTitle")
+              : t("codex.deleteProfileTitle")
+          }
+          message={
+            pendingDelete.kind === "provider"
+              ? t("codex.deleteProviderDescription")
+              : t("codex.deleteProfileDescription")
+          }
+          confirmText={t("codex.delete")}
+          cancelText={t("codex.cancel")}
+          danger
+          onConfirm={() => void handleConfirmDelete()}
+          onCancel={() => setPendingDelete(null)}
+        />
+      ) : null}
 
       {/* Apply 预览确认(#37):展示 provider 切换摘要,确认后才写盘 */}
-      <Sheet open={applyPreview !== null} onOpenChange={(open) => !open && setApplyPreview(null)}>
-        <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
-          <SheetHeader className="shrink-0 border-b px-5 py-3.5 pr-12">
-            <SheetTitle>{t("codex.applyPreviewTitle")}</SheetTitle>
-            <SheetDescription>{t("codex.applyPreviewDescription")}</SheetDescription>
-          </SheetHeader>
+      <Dialog open={applyPreview !== null} onOpenChange={(open) => !open && setApplyPreview(null)}>
+        <DialogContent className="flex max-h-[85vh] flex-col gap-4 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("codex.applyPreviewTitle")}</DialogTitle>
+            <DialogDescription>{t("codex.applyPreviewDescription")}</DialogDescription>
+          </DialogHeader>
           {applyPreview ? (
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+            <div className="min-h-0 flex-1 overflow-y-auto">
               <FieldGroup className="w-full">
                 <Field>
                   <FieldLabel>{t("codex.applyPreviewCurrent")}</FieldLabel>
@@ -933,22 +1029,20 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
               </FieldGroup>
             </div>
           ) : null}
-          <SheetFooter className="shrink-0 border-t px-5 py-3.5">
-            <div className="flex w-full flex-row justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setApplyPreview(null)}>
-                {t("codex.cancel")}
-              </Button>
-              <Button
-                type="button"
-                onClick={() => void handleConfirmApply()}
-                disabled={applyingProfileId !== null}
-              >
-                {t("codex.apply")}
-              </Button>
-            </div>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setApplyPreview(null)}>
+              {t("codex.cancel")}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleConfirmApply()}
+              disabled={applyingProfileId !== null}
+            >
+              {t("codex.apply")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {pendingExitAction && (
         <UnsavedChangesAlertDialog
