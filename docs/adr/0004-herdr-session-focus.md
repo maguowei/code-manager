@@ -8,7 +8,7 @@
 
 ## Decision
 
-1. **两跳聚焦**：第一跳连 herdr socket API，`pane.list` + 逐 pane `pane.process_info` 按 pid 精确匹配（命中 foreground pid / shell_pid / 进程组 id），失配时 `agent.list` 按 cwd 兜底且只允许唯一匹配；命中后 `pane.focus`。第二跳扫描本机 `herdr` 进程，按 env 会话一致性 + 真实 tty 过滤找到 client（daemon 无 tty 天然排除），其 tty 即宿主 tab tty，复用现有 Terminal/iTerm AppleScript；Ghostty 宿主按 client 进程 cwd（`lsof`）匹配。socket 跳失败即报错并跳过宿主跳。
+1. **两跳聚焦**：第一跳连 herdr socket API，`pane.list` + 逐 pane `pane.process_info` 按 pid 精确匹配（命中 foreground pid / shell_pid / 进程组 id），失配时 `agent.list` 按 cwd 兜底且只允许唯一匹配；命中后 `pane.focus`。第二跳扫描本机 `herdr` 进程，按会话一致性（env 标记或 argv 会话参数）+ 真实 tty 过滤找到 client（daemon 无 tty 天然排除），其 tty 即宿主 tab tty，复用现有 Terminal/iTerm AppleScript；Ghostty 宿主按 client 进程 cwd（`lsof`）匹配。socket 跳失败即报错并跳过宿主跳。
 2. **降级语义**：socket 跳成功但宿主跳失败或找不到 client（detach / ssh 远程附着）按"部分成功"处理，只记 warn 不弹通知——herdr 内部焦点已切换，没有窗口可激活不是错误。
 3. **检测**：先读 pane 进程 env（`HERDR_SESSION` / `HERDR_SOCKET_PATH` 标记），无标记再沿 ppid 链找名为 `herdr` 的祖先进程（覆盖默认会话）；`HERDR_SESSION` 按 herdr 命名规则白名单校验防路径穿越。
 4. **门禁放宽**：聚焦可用性从"只看默认终端 slug"改为按会话判定（macOS 且默认终端支持，或 pid 自身宿主终端支持，或会话在 herdr 里）；全局快捷键只挑可聚焦会话。不做"菜单扫描成本"的缓存——ps 调用在菜单重建频率下可忽略。

@@ -81,7 +81,7 @@ paths:
 - herdr 检测：先读会话进程 env（`HERDR_SESSION` / `HERDR_SOCKET_PATH` 标记，命名会话才有），无标记时沿 ppid 链找名为 `herdr` 的祖先进程（默认会话没有 env 标记，只能靠进程树）。
 - herdr socket 路径：`HERDR_SOCKET_PATH` > `<config>/herdr/sessions/<name>/herdr.sock`（命名会话）> `<config>/herdr/herdr.sock`；`HERDR_SESSION` 必须按 herdr 命名规则白名单校验，防路径穿越。
 - herdr pane 匹配：pid 精确匹配优先（`pane.list` + 逐 pane `pane.process_info`，命中 foreground pid / shell_pid / 进程组 id），失配或歧义时用 `agent.list` 按 cwd 兜底；兜底也只允许唯一匹配。
-- herdr 宿主跳：扫描 `herdr` 进程 + env 会话一致性 + 真实 tty 过滤（daemon 无 tty 天然排除）；Ghostty 宿主按 client 进程 cwd（`lsof`）匹配，不要用 pane 的 cwd。
+- herdr 宿主跳：扫描 `herdr` 进程（comm 可能带完整路径，如 `/opt/homebrew/bin/herdr`，需同时匹配）+ 会话一致性（env 的 `HERDR_SESSION`/`HERDR_SOCKET_PATH`，或 argv 的 `--session <name>` / `session attach <name>`——herdr 0.7.x 的 client env 不带标记，会话名只在 argv）+ 真实 tty 过滤（daemon 无 tty 天然排除）；Ghostty 宿主按 client 进程 cwd（`lsof`）匹配，不要用 pane 的 cwd。
 - herdr 降级语义：socket 跳失败（`HerdrNotRunning` / `HerdrPaneNotFound`）才向用户报错；宿主跳失败或找不到 client（detach / ssh 远程附着）按"部分成功"只记 warn，不弹通知。
 - 聚焦可用性门禁按会话判定（`session_focus_available`）：macOS 且（默认终端支持聚焦，或 pid 自身宿主终端支持，或会话在 herdr 里）；全局快捷键只挑可聚焦会话。
 - 未命中或聚焦失败只记录 warn 日志，不要自动新开窗口或 tab。

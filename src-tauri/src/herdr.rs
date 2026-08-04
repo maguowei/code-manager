@@ -252,6 +252,7 @@ fn ps_env_output(pid: u32) -> Option<String> {
 }
 
 /// 沿 ppid 链向上找名为 `herdr` 的祖先进程（默认会话没有 env 标记，只能靠进程树）。
+/// 注意 daemon 的 comm 可能是完整路径（如 `/opt/homebrew/bin/herdr`），需同时匹配。
 fn has_herdr_ancestor(pid: u32) -> bool {
     let mut current = pid;
     for _ in 0..ANCESTOR_WALK_MAX {
@@ -261,12 +262,18 @@ fn has_herdr_ancestor(pid: u32) -> bool {
         if ppid == 0 {
             return false;
         }
-        if comm == "herdr" {
+        if is_herdr_comm(&comm) {
             return true;
         }
         current = ppid;
     }
     false
+}
+
+/// herdr 进程名匹配：直接叫 `herdr`，或以 `/herdr` 结尾的完整路径
+/// （launchd/daemon 方式启动的进程 comm 显示 argv[0] 全路径）。
+fn is_herdr_comm(comm: &str) -> bool {
+    comm == "herdr" || comm.ends_with("/herdr")
 }
 
 /// 一次 `ps -p <pid> -o ppid=,comm=`，返回 (ppid, comm)。
@@ -416,15 +423,18 @@ fn focus_pane(socket_path: &Path, pane_id: &str) -> Result<(), SocketError> {
 
 /// 找到附着同一 herdr 会话的本地 client 进程；其 tty 就是宿主终端 tab 的 tty。
 ///
-/// 策略：扫全部 `herdr` 进程 → 逐个读 env 做会话一致性匹配 → 过滤出有真实 tty 的
-/// （server daemon 是 detached 进程没有 tty，天然被排除）→ 取第一个。
-/// 会话匹配规则与 pane 同源：命名会话按 `HERDR_SESSION` 相等，socket 覆盖按
-/// `HERDR_SOCKET_PATH` 相等，默认会话要求 client 也没有任何 herdr 标记。
+/// 策略：扫全部 `herdr` 进程 → 逐个按 env / argv 做会话一致性匹配 → 过滤出有真实
+/// tty 的（server daemon 是 detached 进程没有 tty，天然被排除）→ 取第一个。
+///
+/// 会话匹配双通道（herdr 0.7.x 实测：client 进程 env 不带 `HERDR_SESSION`，会话名
+/// 只体现在 argv 的 `--session <name>`；而新版 herdr 会把标记注入 env）:
+/// - env 通道：`HERDR_SESSION` / `HERDR_SOCKET_PATH` 相等；
+/// - argv 通道：`--session <name>` / `--session=<name>` / `session attach <name>`。
 fn find_attached_client(ctx: &HerdrSessionContext) -> Option<HerdrClientInfo> {
     let processes = list_herdr_processes()?;
-    processes.into_iter().find_map(|(pid, _)| {
+    processes.into_iter().find_map(|(pid, argv)| {
         let env = ps_env_output(pid)?;
-        if !client_env_matches(&env, ctx) {
+        if !client_matches_session(&env, &argv, ctx) {
             return None;
         }
         let tty = crate::terminal_focus::pid_to_tty(pid)?;
@@ -445,10 +455,11 @@ struct HerdrClientInfo {
     host_terminal: Option<&'static str>,
 }
 
-/// 列出本机所有 `herdr` 进程的 (pid, comm)。
+/// 列出本机所有 `herdr` 进程的 (pid, argv)。
+/// `-ww` 防止长命令行被截断；daemon 的 argv[0] 可能是完整路径，用 `is_herdr_comm` 匹配。
 fn list_herdr_processes() -> Option<Vec<(u32, String)>> {
     let output = Command::new("ps")
-        .args(["-axo", "pid=,comm="])
+        .args(["axww", "-o", "pid=,command="])
         .output()
         .ok()?;
     if !output.status.success() {
@@ -460,24 +471,58 @@ fn list_herdr_processes() -> Option<Vec<(u32, String)>> {
             .filter_map(|line| {
                 let mut parts = line.split_ascii_whitespace();
                 let pid: u32 = parts.next()?.parse().ok()?;
-                let comm = parts.next()?;
-                (comm == "herdr").then_some((pid, comm.to_string()))
+                let argv0 = parts.next()?;
+                is_herdr_comm(argv0).then(|| (pid, line.trim().to_string()))
             })
             .collect(),
     )
 }
 
-/// client 进程 env 与 pane 会话上下文是否一致（见 `find_attached_client` 文档）。
-fn client_env_matches(env: &str, ctx: &HerdrSessionContext) -> bool {
-    let parsed = herdr_context_from_ps_output(env);
+/// client 进程与 pane 会话上下文是否一致：env / argv 双通道（见 `find_attached_client` 文档）。
+fn client_matches_session(env: &str, argv: &str, ctx: &HerdrSessionContext) -> bool {
+    let env_ctx = herdr_context_from_ps_output(env);
+    let argv_session = herdr_session_from_argv(argv);
     match (&ctx.session_name, &ctx.socket_override) {
-        (Some(name), _) => parsed.session_name.as_deref() == Some(name.as_str()),
-        (None, Some(socket_path)) => {
-            parsed.socket_override.as_deref() == Some(socket_path.as_str())
+        (Some(name), _) => {
+            env_ctx.session_name.as_deref() == Some(name.as_str())
+                // herdr 0.7.x 的 client env 不带标记，会话名只在 argv 里
+                || (env_ctx.session_name.is_none() && argv_session.as_deref() == Some(name.as_str()))
         }
-        // 默认会话：client 必须也没有任何 herdr 标记，避免误配到命名会话的 client。
-        (None, None) => parsed.session_name.is_none() && parsed.socket_override.is_none(),
+        (None, Some(socket_path)) => {
+            env_ctx.socket_override.as_deref() == Some(socket_path.as_str())
+                && env_ctx.session_name.is_none()
+                && argv_session.is_none()
+        }
+        // 默认会话：client 必须既无 env 标记、argv 也无 `--session` / `session attach`，
+        // 避免误配到命名会话的 client（0.7.x 下命名会话 client env 无标记，只能靠 argv 区分）。
+        (None, None) => {
+            env_ctx.session_name.is_none()
+                && env_ctx.socket_override.is_none()
+                && argv_session.is_none()
+        }
     }
+}
+
+/// 从 herdr client 的 argv 提取会话名：`--session <name>` / `--session=<name>` /
+/// `session attach <name>`；无会话参数返回 None。会话名校验与 env 通道同规则。
+fn herdr_session_from_argv(argv: &str) -> Option<String> {
+    let args: Vec<&str> = argv.split_ascii_whitespace().collect();
+    for (i, arg) in args.iter().enumerate() {
+        if *arg == "--session" {
+            if let Some(name) = args.get(i + 1) {
+                return sanitize_session_name(name);
+            }
+        }
+        if let Some(name) = arg.strip_prefix("--session=") {
+            return sanitize_session_name(name);
+        }
+    }
+    if args.get(1) == Some(&"session") && args.get(2) == Some(&"attach") {
+        if let Some(name) = args.get(3) {
+            return sanitize_session_name(name);
+        }
+    }
+    None
 }
 
 /// 取进程当前工作目录（macOS 的 ps 没有 cwd 列，走 `lsof -a -p <pid> -d cwd -Fn`）。
@@ -636,22 +681,48 @@ mod tests {
     }
 
     #[test]
-    fn client_env_matches_by_session_then_socket_then_default() {
+    fn client_matches_session_by_env_then_socket_then_default() {
         let named = HerdrSessionContext {
             session_name: Some("work".to_string()),
             socket_override: None,
             host_terminal: None,
         };
-        assert!(client_env_matches(
+        // env 通道：新版 herdr 把标记注入 client env
+        assert!(client_matches_session(
             "herdr HERDR_SESSION=work TERM_PROGRAM=Apple_Terminal",
+            "herdr --session work",
             &named
         ));
-        assert!(!client_env_matches(
-            "herdr HERDR_SESSION=other TERM_PROGRAM=Apple_Terminal",
-            &named
-        ));
-        assert!(!client_env_matches(
+        // argv 通道：herdr 0.7.x 的 client env 不带标记，会话名只在 argv
+        assert!(client_matches_session(
             "herdr TERM_PROGRAM=Apple_Terminal",
+            "herdr --session work",
+            &named
+        ));
+        assert!(client_matches_session(
+            "herdr TERM_PROGRAM=Apple_Terminal",
+            "herdr --session=work",
+            &named
+        ));
+        assert!(client_matches_session(
+            "herdr TERM_PROGRAM=Apple_Terminal",
+            "herdr session attach work",
+            &named
+        ));
+        // env 与 argv 都不一致 / 都缺失 → 不匹配
+        assert!(!client_matches_session(
+            "herdr HERDR_SESSION=other TERM_PROGRAM=Apple_Terminal",
+            "herdr --session work",
+            &named
+        ));
+        assert!(!client_matches_session(
+            "herdr HERDR_SESSION=other TERM_PROGRAM=Apple_Terminal",
+            "herdr",
+            &named
+        ));
+        assert!(!client_matches_session(
+            "herdr TERM_PROGRAM=Apple_Terminal",
+            "herdr --session other",
             &named
         ));
 
@@ -660,30 +731,78 @@ mod tests {
             socket_override: Some("/tmp/custom.sock".to_string()),
             host_terminal: None,
         };
-        assert!(client_env_matches(
+        assert!(client_matches_session(
             "herdr HERDR_SOCKET_PATH=/tmp/custom.sock",
+            "herdr",
             &overridden
         ));
-        assert!(!client_env_matches(
+        assert!(!client_matches_session(
             "herdr HERDR_SOCKET_PATH=/tmp/other.sock",
+            "herdr",
             &overridden
         ));
 
-        // 默认会话：client 必须同样没有任何 herdr 标记
+        // 默认会话：client 必须同样没有任何 herdr 标记（env 与 argv 都要干净）
         let default = HerdrSessionContext {
             session_name: None,
             socket_override: None,
             host_terminal: None,
         };
-        assert!(client_env_matches(
+        assert!(client_matches_session(
             "herdr TERM_PROGRAM=Apple_Terminal",
+            "herdr",
             &default
         ));
-        assert!(!client_env_matches("herdr HERDR_SESSION=work", &default));
-        assert!(!client_env_matches(
+        assert!(!client_matches_session(
+            "herdr HERDR_SESSION=work",
+            "herdr --session work",
+            &default
+        ));
+        assert!(!client_matches_session(
             "herdr HERDR_SOCKET_PATH=/tmp/custom.sock",
+            "herdr",
             &default
         ));
+        // 0.7.x 下命名会话 client env 无标记，靠 argv 排除
+        assert!(!client_matches_session(
+            "herdr TERM_PROGRAM=Apple_Terminal",
+            "herdr --session work",
+            &default
+        ));
+    }
+
+    #[test]
+    fn herdr_session_from_argv_extracts_session_name() {
+        assert_eq!(
+            herdr_session_from_argv("herdr --session cloudhub"),
+            Some("cloudhub".to_string())
+        );
+        assert_eq!(
+            herdr_session_from_argv("herdr --session=cloudhub"),
+            Some("cloudhub".to_string())
+        );
+        assert_eq!(
+            herdr_session_from_argv("herdr session attach cloudhub"),
+            Some("cloudhub".to_string())
+        );
+        // 无会话参数 / daemon / 非法值
+        assert_eq!(herdr_session_from_argv("herdr"), None);
+        assert_eq!(
+            herdr_session_from_argv("/opt/homebrew/bin/herdr server"),
+            None
+        );
+        assert_eq!(herdr_session_from_argv("herdr --session"), None);
+        assert_eq!(herdr_session_from_argv("herdr --session default"), None);
+        assert_eq!(herdr_session_from_argv("herdr session attach"), None);
+    }
+
+    #[test]
+    fn is_herdr_comm_matches_name_and_full_path() {
+        assert!(is_herdr_comm("herdr"));
+        assert!(is_herdr_comm("/opt/homebrew/bin/herdr"));
+        assert!(!is_herdr_comm("herdr-server"));
+        assert!(!is_herdr_comm("zsh"));
+        assert!(!is_herdr_comm(""));
     }
 
     #[test]
