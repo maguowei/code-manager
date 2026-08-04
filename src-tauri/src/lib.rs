@@ -3,6 +3,7 @@ mod claude_directory;
 mod claude_directory_watcher;
 mod config;
 mod deep_link;
+mod herdr;
 mod history;
 mod led;
 mod logging;

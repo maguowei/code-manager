@@ -58,6 +58,12 @@ _Avoid_: 自动模式
 一个处于 running 类状态(`running / busy / active / starting`)的 Claude Code 会话。**waiting(等待用户操作)不计入**——那时 Claude 卡在等人,机器休眠也不会杀死会话。"仅活动时"模式据此判断是否保持唤醒。
 _Avoid_: 运行中会话(running session,只是其中一个具体状态)
 
+### 会话聚焦(Session Focus)
+
+**会话聚焦(Session Focus)**:
+把承载[活动会话](#活动会话active-session)的终端视图带到前台的动作:宿主终端窗口/tab 激活,以及多路复用器(如 herdr)内部的 pane 选中。聚焦的载体随会话所在环境不同而不同(终端 tab、herdr pane、Ghostty term),但语义不变:用户眼睛看到承载该会话的视图并可直接交互。
+_Avoid_: 聚焦终端 tab(herdr 场景没有 tab 概念)、激活窗口(只覆盖一半语义)
+
 ### 目录总览(Directory Overview)
 
 **目录总览(Directory Overview)**:

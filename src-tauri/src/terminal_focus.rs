@@ -22,6 +22,10 @@ pub enum FocusFailure {
     Unsupported(String),
     /// osascript 调用本身失败，详情已写入日志。
     ScriptError,
+    /// herdr socket 连不上（server 未运行或 socket 已失效）。
+    HerdrNotRunning,
+    /// herdr 中按 pid 精确匹配与 cwd 兜底都未命中 pane。
+    HerdrPaneNotFound,
 }
 
 impl FocusFailure {
@@ -47,11 +51,19 @@ impl FocusFailure {
             (true, Self::ScriptError) => {
                 "Failed to invoke the terminal. See logs for details.".to_string()
             }
+            (true, Self::HerdrNotRunning) => "No running herdr server was found.".to_string(),
+            (true, Self::HerdrPaneNotFound) => {
+                "No matching herdr pane was found. It may have been closed.".to_string()
+            }
             (false, Self::TtyNotFound) => "会话进程已退出，无法定位终端 tab。".to_string(),
             (false, Self::TabNotFound) => "未找到对应的终端 tab，可能已被关闭。".to_string(),
             (false, Self::EmptyCwd) => "会话缺少工作目录，无法聚焦。".to_string(),
             (false, Self::Unsupported(slug)) => format!("终端 {slug} 不支持外部聚焦。"),
             (false, Self::ScriptError) => "调用终端失败，详情可查看日志。".to_string(),
+            (false, Self::HerdrNotRunning) => "未检测到运行中的 herdr 服务。".to_string(),
+            (false, Self::HerdrPaneNotFound) => {
+                "herdr 中未找到对应 pane，可能已被关闭。".to_string()
+            }
         };
         (title.to_string(), body)
     }
@@ -66,7 +78,8 @@ pub fn terminal_supports_focus(app_slug: &str) -> bool {
 ///
 /// `ps eww` 会返回完整环境，所以原始输出绝不能写入日志；这里只提取白名单内的
 /// `TERM_PROGRAM` 值，避免用户的默认终端设置与实际会话终端不一致时错误聚焦。
-fn terminal_app_from_pid(pid: u32) -> Option<&'static str> {
+/// pub(crate)：tray 门禁与 herdr 宿主跳都会复用同一检测。
+pub(crate) fn terminal_app_from_pid(pid: u32) -> Option<&'static str> {
     let pid = pid.to_string();
     let output = Command::new("ps")
         .args(["eww", "-p", pid.as_str(), "-o", "command="])
@@ -79,7 +92,8 @@ fn terminal_app_from_pid(pid: u32) -> Option<&'static str> {
 }
 
 /// 解析 `ps eww` 输出中白名单化的 `TERM_PROGRAM` 值。
-fn terminal_app_from_ps_output(output: &str) -> Option<&'static str> {
+/// pub(crate)：herdr 模块解析 client 进程环境时复用。
+pub(crate) fn terminal_app_from_ps_output(output: &str) -> Option<&'static str> {
     let term_program = output
         .split_ascii_whitespace()
         .find_map(|part| part.strip_prefix("TERM_PROGRAM="))?;
@@ -98,6 +112,11 @@ fn terminal_app_from_ps_output(output: &str) -> Option<&'static str> {
 /// - 未命中或调用失败：返回 Err(FocusFailure)，同时在内部记 warn 日志。
 ///   调用方仅负责把失败原因转成系统通知 / Toast，不会自动新开 tab。
 pub fn focus_session_in_terminal(pid: u32, cwd: &str, app_slug: &str) -> Result<(), FocusFailure> {
+    // herdr 会话优先走两跳聚焦：socket 定位 pane + 宿主终端激活。
+    // 检测本身也是从 pid 环境/进程树判断，失败即视为非 herdr 会话。
+    if let Some(ctx) = crate::herdr::detect_herdr_session(pid) {
+        return crate::herdr::focus_herdr_session(pid, cwd, &ctx, app_slug);
+    }
     // 优先使用目标进程的终端，读取失败再回退设置中的默认终端。
     let app_slug = terminal_app_from_pid(pid).unwrap_or(app_slug);
     match app_slug {
@@ -120,23 +139,33 @@ fn focus_via_tty(
         );
         return Err(FocusFailure::TtyNotFound);
     };
-    let script = build_script(&escape_applescript_string(&tty));
+    focus_tty(app_label, &tty, build_script)
+}
+
+/// 对已知 tty 执行对应终端的 AppleScript 选中 tab。
+/// herdr 宿主跳拿到的 client tty 直接复用此函数，不重复 pid 反查。
+pub(crate) fn focus_tty(
+    app_label: &'static str,
+    tty: &str,
+    build_script: fn(&str) -> String,
+) -> Result<(), FocusFailure> {
+    let script = build_script(&escape_applescript_string(tty));
     match run_osascript_returning_bool(&script) {
         Ok(true) => Ok(()),
         Ok(false) => {
             log::warn!(
-                "event=tray.session_focus status=miss reason=tab_not_found app={app_label} pid={pid} tty={tty}"
+                "event=tray.session_focus status=miss reason=tab_not_found app={app_label} tty={tty}"
             );
             Err(FocusFailure::TabNotFound)
         }
         Err(e) => {
-            log::warn!("event=tray.session_focus status=err app={app_label} pid={pid} error={e}");
+            log::warn!("event=tray.session_focus status=err app={app_label} error={e}");
             Err(FocusFailure::ScriptError)
         }
     }
 }
 
-fn focus_ghostty_via_cwd(cwd: &str) -> Result<(), FocusFailure> {
+pub(crate) fn focus_ghostty_via_cwd(cwd: &str) -> Result<(), FocusFailure> {
     if cwd.is_empty() {
         log::warn!("event=tray.session_focus status=miss reason=empty_cwd app=Ghostty");
         return Err(FocusFailure::EmptyCwd);
@@ -159,7 +188,8 @@ fn focus_ghostty_via_cwd(cwd: &str) -> Result<(), FocusFailure> {
 }
 
 /// 调 `ps -p <pid> -o tty=` 拿到 tty，trim 后非 `??` 即拼成 `/dev/tty<value>`。
-fn pid_to_tty(pid: u32) -> Option<String> {
+/// pub(crate)：herdr 宿主跳需要反查 client 进程的 tty。
+pub(crate) fn pid_to_tty(pid: u32) -> Option<String> {
     let output = Command::new("ps")
         .args(["-p", &pid.to_string(), "-o", "tty="])
         .output()
@@ -223,7 +253,7 @@ fn escape_applescript_string(s: &str) -> String {
     out
 }
 
-fn terminal_app_script(escaped_tty: &str) -> String {
+pub(crate) fn terminal_app_script(escaped_tty: &str) -> String {
     format!(
         r#"tell application "Terminal"
 set targetTty to "{escaped_tty}"
@@ -242,7 +272,7 @@ end tell"#
     )
 }
 
-fn iterm_script(escaped_tty: &str) -> String {
+pub(crate) fn iterm_script(escaped_tty: &str) -> String {
     format!(
         r#"tell application "iTerm"
 set targetTty to "{escaped_tty}"
@@ -417,6 +447,14 @@ mod tests {
         let (_, body_zh_script) = FocusFailure::ScriptError.user_message("zh");
         assert!(body_zh_script.contains("调用终端失败"));
 
+        let (_, body_zh_herdr_not_running) = FocusFailure::HerdrNotRunning.user_message("zh");
+        assert!(body_zh_herdr_not_running.contains("herdr"));
+        assert!(body_zh_herdr_not_running.contains("未检测到"));
+
+        let (_, body_zh_pane) = FocusFailure::HerdrPaneNotFound.user_message("zh");
+        assert!(body_zh_pane.contains("pane"));
+        assert!(body_zh_pane.contains("可能已被关闭"));
+
         // 英文
         let (title_en, body_en) = FocusFailure::TabNotFound.user_message("en");
         assert_eq!(title_en, "Session focus failed");
@@ -445,6 +483,13 @@ mod tests {
         assert!(body
             .to_lowercase()
             .contains("failed to invoke the terminal"));
+
+        let (_, body) = FocusFailure::HerdrNotRunning.user_message("en");
+        assert!(body.to_lowercase().contains("no running herdr"));
+
+        let (_, body) = FocusFailure::HerdrPaneNotFound.user_message("en");
+        assert!(body.to_lowercase().contains("herdr pane"));
+        assert!(body.to_lowercase().contains("may have been closed"));
     }
 
     /// 之前的 applescript_templates 只验证了 Terminal.app 与 Ghostty 的模板,
