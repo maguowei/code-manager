@@ -312,6 +312,11 @@ fn ghostty_script(escaped_cwd: &str) -> String {
 mod tests {
     use super::*;
 
+    /// 必然不存在的 pid：真实 pid 不可能达到 u32::MAX。聚焦链路会做真实 ps 检测
+    /// （TERM_PROGRAM / herdr 进程树），用小 pid（如 123）在装有 herdr 的机器上
+    /// 可能命中真实进程，导致单测依赖宿主环境而偶发失败。
+    const GHOST_PID: u32 = u32::MAX;
+
     #[test]
     fn terminal_supports_focus_covers_known_slugs() {
         assert!(terminal_supports_focus("terminal"));
@@ -393,16 +398,16 @@ mod tests {
 
     #[test]
     fn focus_session_in_terminal_rejects_unknown_slug() {
-        let err = focus_session_in_terminal(123, "/tmp", "warp").expect_err("warp 应被拒绝");
+        let err = focus_session_in_terminal(GHOST_PID, "/tmp", "warp").expect_err("warp 应被拒绝");
         assert_eq!(err, FocusFailure::Unsupported("warp".to_string()));
-        let err = focus_session_in_terminal(123, "/tmp", "").expect_err("空 slug 应被拒绝");
+        let err = focus_session_in_terminal(GHOST_PID, "/tmp", "").expect_err("空 slug 应被拒绝");
         assert_eq!(err, FocusFailure::Unsupported(String::new()));
     }
 
     #[test]
     fn ghostty_rejects_empty_cwd_with_focus_failure() {
-        let err =
-            focus_session_in_terminal(123, "", "ghostty").expect_err("空 cwd 应返回 EmptyCwd");
+        let err = focus_session_in_terminal(GHOST_PID, "", "ghostty")
+            .expect_err("空 cwd 应返回 EmptyCwd");
         assert_eq!(err, FocusFailure::EmptyCwd);
     }
 

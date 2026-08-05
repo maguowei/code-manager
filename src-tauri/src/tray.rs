@@ -1463,9 +1463,14 @@ mod tests {
         fs::write(path, content).expect("应可写入测试会话文件");
     }
 
+    /// 必然不存在的 pid：真实 pid 不可能达到 u32::MAX。托盘通知决策会做真实 ps
+    /// 进程树检测（herdr / TERM_PROGRAM），固定小 pid（如 123）在装有 herdr 的
+    /// 机器上可能命中真实进程，导致单测依赖宿主环境而偶发失败。
+    const GHOST_PID: u32 = u32::MAX;
+
     fn test_session(cwd: &str, status: &str, updated_at: u64) -> TraySession {
         TraySession {
-            pid: 123,
+            pid: GHOST_PID,
             session_id: "session-1".to_string(),
             cwd: cwd.to_string(),
             status: status.to_string(),
@@ -2219,14 +2224,26 @@ mod tests {
     #[test]
     fn session_focus_availability_requires_macos_or_herdr_or_focusable_terminal() {
         // 默认终端支持聚焦：与 pid 无关，短路径直接放行
-        assert!(session_focus_available_for_platform(0, "terminal", true));
-        assert!(session_focus_available_for_platform(0, "ghostty", true));
+        assert!(session_focus_available_for_platform(
+            GHOST_PID, "terminal", true
+        ));
+        assert!(session_focus_available_for_platform(
+            GHOST_PID, "ghostty", true
+        ));
         // 默认终端不支持：pid 检测与 herdr 检测都失败（测试进程不存在）
-        assert!(!session_focus_available_for_platform(0, "warp", true));
+        assert!(!session_focus_available_for_platform(
+            GHOST_PID, "warp", true
+        ));
         // 非 macOS 恒不可聚焦
-        assert!(!session_focus_available_for_platform(0, "terminal", false));
-        assert!(!session_focus_available_for_platform(0, "ghostty", false));
-        assert!(!session_focus_available_for_platform(0, "warp", false));
+        assert!(!session_focus_available_for_platform(
+            GHOST_PID, "terminal", false
+        ));
+        assert!(!session_focus_available_for_platform(
+            GHOST_PID, "ghostty", false
+        ));
+        assert!(!session_focus_available_for_platform(
+            GHOST_PID, "warp", false
+        ));
     }
 
     /// 回归测试：会话托盘开启时，空 sessions 也必须返回非空占位标题，
